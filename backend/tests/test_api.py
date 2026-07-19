@@ -30,8 +30,32 @@ def test_heat_pattern_rejects_non_monotonic_time() -> None:
         raise AssertionError("non-monotonic heat pattern must not be accepted")
 
 
+def test_candidate_rejects_unknown_or_non_physical_composition() -> None:
+    unknown = _payload()
+    unknown["composition"]["Unobtainium"] = 0.1
+    assert "未対応の組成元素" in str(_validation_error(unknown))
+    negative = _payload()
+    negative["composition"]["C"] = -0.01
+    assert "0〜100" in str(_validation_error(negative))
+
+
+def _validation_error(payload: dict) -> ValueError:
+    try:
+        CandidateInput.model_validate(payload)
+    except ValueError as exc:
+        return exc
+    raise AssertionError("invalid candidate must not be accepted")
+
+
 def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
     assert client.get("/api/health").json()["ok"] is True
+    package = client.get("/api/model-package").json()
+    assert package["id"] == "annealed-ridge-2026-07"
+    assert len(package["manifest_sha256"]) == 64
+    assert {item["runtime_type"] for item in package["supported_runtimes"]} == {
+        "builtin.linear.v1", "sklearn.skops.v1", "lightgbm.booster.v1",
+        "gpytorch.static_exact_rbf.v1", "numpyro.dense_posterior.v1",
+    }
     candidate = client.post("/api/candidates", json=_payload()).json()
     first = client.post(f"/api/candidates/{candidate['id']}/preview").json()
     second = client.post(f"/api/candidates/{candidate['id']}/preview").json()
@@ -40,15 +64,20 @@ def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
     assert {"TS", "YS", "EL", "lambda"} <= set(first["predictions"])
     assert first["support"]["status"] in {"supported", "caution", "extrapolated"}
     assert 0 <= first["support"]["percentile"] <= 100
-    assert {"composition", "process", "heat_pattern"} == set(first["support"]["components"])
+    assert {"composition", "metallurgy", "process", "heat_pattern"} == set(first["support"]["components"])
     assert first["support"]["reference_count"] > 1
     assert first["model_meta"]["prediction_interval"]["method"] == "grouped_oof_residual_quantiles"
     assert first["model_meta"]["prediction_interval"]["grouping"] == "parent_key"
     assert first["canonical_input"]["input_schema_version"] == "candidate-v1"
-    detailed = client.post(f"/api/candidates/{candidate['id']}/predict").json()
+    atomic_result = client.post(f"/api/candidates/{candidate['id']}/predict").json()
+    detailed = atomic_result["prediction"]
     assert detailed["mode"] == "detailed"
     assert len(detailed["response_curve"]) == 9
-    assert len(client.get(f"/api/candidates/{candidate['id']}/similar").json()) == 5
+    assert atomic_result["snapshot"]["payload"]["prediction"] == detailed
+    similar = client.get(f"/api/candidates/{candidate['id']}/similar").json()
+    assert len(similar) == 6
+    assert {item["layer"] for item in similar} == {"training", "historical"}
+    assert all({"composition", "metallurgy", "process", "heat_pattern"} == set(item["components"]) for item in similar)
 
 
 def test_snapshot_is_immutable_after_candidate_edit(client) -> None:

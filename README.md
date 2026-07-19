@@ -46,3 +46,23 @@ npm run build
 `data/source/process_dashboard_realistic_excel_v2.xlsx` を読取専用の正本として扱います。初回起動時に工程、観測、系譜、データ品質を構築します。元Excelは変更しません。
 
 候補・プロジェクト・予測スナップショット・実測値は `data/workbench.db` に保存します。候補一覧は画面からXLSXで入出力でき、ヒートパターンも往復保持されます。
+
+## モデルPackage
+
+既定の学習済みPackageは `models/packages/annealed-ridge-2026-07` です。予測時にmanifest・artifact hash・特徴量順序・smoke inputを検証し、画面の「プロジェクト」で有効なPackageとruntimeを確認できます。
+
+別の学習済みPackageで起動する場合は、信頼できるローカルPackageの絶対パスを指定します。
+
+```powershell
+$env:MATERIAL_WORKBENCH_MODEL_PACKAGE = "C:\models\annealed-bnn"
+npm run dev
+```
+
+同じ契約で `sklearn/skops`、LightGBM native Booster、GPyTorch static RBF、NumPyro BNN posteriorを利用できます。optional runtimeをまとめて検証する場合:
+
+```powershell
+uv sync --extra dev --extra runtime-sklearn --extra runtime-lightgbm --extra runtime-gpytorch
+uv run pytest backend/tests/test_optional_adapters.py
+```
+
+NumPyroのNormal、Student-t、LogNormal、Bernoulli、Poisson、Negative Binomial、zero-inflated Poisson、ordinal logitの8つの実Package例は `examples/model-packages/numpyro` にあります。契約と安全境界は `docs/model-package-contract.md`、冶金・ヒートパターン特徴は `docs/feature-engineering.md` を参照してください。

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import csv
+import importlib.util
 from collections import Counter
 from contextlib import asynccontextmanager
 from io import BytesIO, StringIO
@@ -17,7 +18,7 @@ from .importer import lineage_node_detail, load_workbook_data
 from .runtime import ModelRuntime
 from .schemas import ActualMeasurementInput, CandidateInput, LineageResponse, PredictionResponse, ProjectInput, QualityResponse, ScreeningRequest
 from .services import candidate_from_lineage, candidates_xlsx, import_candidates_xlsx, run_latin_hypercube
-from .store import Store
+from .store import CandidateLimitError, ProjectNotFoundError, Store
 
 
 def _default_candidate_payloads(medians: dict[str, float]) -> list[CandidateInput]:
@@ -52,7 +53,10 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.data = load_workbook_data(source)
-        app.state.runtime = ModelRuntime(app.state.data)
+        app.state.runtime = ModelRuntime(
+            app.state.data,
+            package_root=os.getenv("MATERIAL_WORKBENCH_MODEL_PACKAGE"),
+        )
         app.state.store = Store(database)
         if not app.state.store.list_candidates():
             for candidate in _default_candidate_payloads(app.state.data.medians):
@@ -70,44 +74,113 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
     def runtime() -> ModelRuntime:
         return app.state.runtime
 
+    def require_project(project_id: str):
+        project = store().get_project(project_id)
+        if not project:
+            raise HTTPException(404, "プロジェクトが見つかりません")
+        return project
+
+    def create_candidate_in_project(payload: CandidateInput, project_id: str = "default"):
+        try:
+            return store().create_candidate(payload, project_id)
+        except ProjectNotFoundError as exc:
+            raise HTTPException(404, "プロジェクトが見つかりません") from exc
+        except CandidateLimitError as exc:
+            raise HTTPException(409, str(exc)) from exc
+
     @app.get("/api/health")
     @app.get("/health", include_in_schema=False)
     def health() -> dict[str, Any]:
         return {"ok": True, "models": sorted(runtime().models), "source": str(source)}
 
+    @app.get("/api/model-package")
+    def model_package() -> dict[str, Any]:
+        package = runtime().model_package
+        if package is None:
+            raise HTTPException(503, "有効なモデルPackageがありません")
+        manifest = package.manifest
+        dependencies = {
+            "builtin.linear.v1": True,
+            "sklearn.skops.v1": importlib.util.find_spec("skops") is not None,
+            "lightgbm.booster.v1": importlib.util.find_spec("lightgbm") is not None,
+            "gpytorch.static_exact_rbf.v1": importlib.util.find_spec("torch") is not None and importlib.util.find_spec("safetensors") is not None,
+            "numpyro.dense_posterior.v1": True,
+        }
+        return {
+            "id": manifest.package_id,
+            "version": manifest.package_version,
+            "task_id": manifest.task_id,
+            "manifest_sha256": package.manifest_sha256,
+            "active_runtimes": sorted({item.runtime_type for item in manifest.predictors}),
+            "supported_runtimes": [
+                {"runtime_type": runtime_type, "available": available}
+                for runtime_type, available in dependencies.items()
+            ],
+            "predictors": [
+                {"target": item.target, "runtime_type": item.runtime_type, "predictive_family": item.predictive_family}
+                for item in manifest.predictors
+            ],
+        }
+
     @app.get("/api/bootstrap")
     def bootstrap() -> dict[str, Any]:
         data = app.state.data
         candidates = [candidate.model_dump(mode="json") for candidate in store().list_candidates()]
-        return {"meta": {**data.source_summary, "project": store().get_project().model_dump(mode="json"), "model_targets": sorted(runtime().models)}, "candidates": candidates, "summary": {"routes": Counter(row.get("標準ルート") for row in data.sheets["焼鈍特徴量"]), "quality_by_category": Counter(row.get("分類") for row in data.quality)}}
+        return {"meta": {**data.source_summary, "project": require_project("default").model_dump(mode="json"), "model_targets": sorted(runtime().models)}, "candidates": candidates, "summary": {"routes": Counter(row.get("標準ルート") for row in data.sheets["焼鈍特徴量"]), "quality_by_category": Counter(row.get("分類") for row in data.quality)}}
+
+    @app.get("/api/projects")
+    def list_projects() -> list[dict[str, Any]]:
+        return [project.model_dump(mode="json") for project in store().list_projects()]
+
+    @app.post("/api/projects", status_code=201)
+    def create_project(payload: ProjectInput) -> dict[str, Any]:
+        return store().create_project(payload).model_dump(mode="json")
+
+    @app.get("/api/projects/{project_id}")
+    def get_project_by_id(project_id: str) -> dict[str, Any]:
+        return require_project(project_id).model_dump(mode="json")
+
+    @app.put("/api/projects/{project_id}")
+    def update_project_by_id(project_id: str, payload: ProjectInput) -> dict[str, Any]:
+        project = store().update_project(project_id, payload)
+        if not project:
+            raise HTTPException(404, "プロジェクトが見つかりません")
+        return project.model_dump(mode="json")
 
     @app.get("/api/project")
     def get_project() -> dict[str, Any]:
-        return store().get_project().model_dump(mode="json")
+        return require_project("default").model_dump(mode="json")
 
     @app.put("/api/project")
     def update_project(payload: ProjectInput) -> dict[str, Any]:
-        return store().update_project(payload).model_dump(mode="json")
+        return update_project_by_id("default", payload)
 
     @app.get("/api/candidates")
-    def list_candidates() -> list[dict[str, Any]]:
-        return [candidate.model_dump(mode="json") for candidate in store().list_candidates()]
+    def list_candidates(project_id: str = "default") -> list[dict[str, Any]]:
+        require_project(project_id)
+        return [candidate.model_dump(mode="json") for candidate in store().list_candidates(project_id)]
 
     @app.post("/api/candidates", status_code=201)
-    def create_candidate(payload: CandidateInput) -> dict[str, Any]:
-        return store().create_candidate(payload).model_dump(mode="json")
+    def create_candidate(payload: CandidateInput, project_id: str = "default") -> dict[str, Any]:
+        return create_candidate_in_project(payload, project_id).model_dump(mode="json")
 
     @app.post("/api/candidates/import")
-    async def import_candidates(file: UploadFile = File(...)) -> dict[str, Any]:
+    async def import_candidates(file: UploadFile = File(...), project_id: str = "default") -> dict[str, Any]:
         if not file.filename or not file.filename.lower().endswith(".xlsx"):
             raise HTTPException(422, "Excel .xlsx ファイルを選択してください")
         payloads, errors = import_candidates_xlsx(await file.read())
-        created = [store().create_candidate(payload).model_dump(mode="json") for payload in payloads]
+        try:
+            created = [candidate.model_dump(mode="json") for candidate in store().create_candidates(payloads, project_id)]
+        except ProjectNotFoundError as exc:
+            raise HTTPException(404, "プロジェクトが見つかりません") from exc
+        except CandidateLimitError as exc:
+            raise HTTPException(409, str(exc)) from exc
         return {"created": len(created), "errors": errors, "candidates": created}
 
     @app.get("/api/candidates/export.xlsx")
-    def export_candidates() -> StreamingResponse:
-        contents = candidates_xlsx(store().list_candidates(), runtime())
+    def export_candidates(project_id: str = "default") -> StreamingResponse:
+        require_project(project_id)
+        contents = candidates_xlsx(store().list_candidates(project_id), runtime())
         return StreamingResponse(BytesIO(contents), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": "attachment; filename=candidates-with-predictions.xlsx"})
 
     @app.get("/api/candidates/{candidate_id}")
@@ -134,19 +207,29 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
         candidate = store().get_candidate(candidate_id)
         if not candidate:
             raise HTTPException(404, "候補が見つかりません")
-        return runtime().predict(candidate, detailed=detailed, include_curve=include_curve)
+        project = store().get_project(candidate.project_id)
+        return runtime().predict(candidate, detailed=detailed, include_curve=include_curve, target_values=project.target_values if project else {})
 
     @app.post("/api/candidates/{candidate_id}/preview", response_model=PredictionResponse)
     def preview(candidate_id: str) -> dict[str, Any]:
         return prediction(candidate_id, detailed=False)
 
-    @app.post("/api/candidates/{candidate_id}/predict", response_model=PredictionResponse)
+    @app.post("/api/candidates/{candidate_id}/predict")
     def predict(candidate_id: str) -> dict[str, Any]:
-        return prediction(candidate_id, detailed=True, include_curve=True)
+        candidate = store().get_candidate(candidate_id)
+        if not candidate:
+            raise HTTPException(404, "候補が見つかりません")
+        result = prediction(candidate_id, detailed=True, include_curve=True)
+        return {"prediction": result, "snapshot": snapshot_for_candidate(candidate, result)}
 
     @app.get("/api/candidates/{candidate_id}/response-curve")
-    def response_curve(candidate_id: str) -> list[dict[str, float]]:
-        return prediction(candidate_id, detailed=True, include_curve=True)["response_curve"]
+    def response_curve(candidate_id: str, target: str = "TS") -> list[dict[str, float]]:
+        if target not in {"TS", "YS", "EL", "lambda"}:
+            raise HTTPException(422, "未対応の予測特性です")
+        candidate = store().get_candidate(candidate_id)
+        if not candidate:
+            raise HTTPException(404, "候補が見つかりません")
+        return runtime().response_curve(candidate, target)
 
     @app.get("/api/candidates/{candidate_id}/similar")
     def similar(candidate_id: str) -> list[dict[str, object]]:
@@ -189,46 +272,48 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
         return {"key": entity_key, "relations": item, "quality_issues": [issue for issue in app.state.data.quality if issue.get("対象キー") == entity_key], "node": node}
 
     @app.post("/api/lineage/{entity_key}/candidate", status_code=201)
-    def create_candidate_from_lineage(entity_key: str) -> dict[str, Any]:
+    def create_candidate_from_lineage(entity_key: str, project_id: str = "default") -> dict[str, Any]:
         try:
             payload = candidate_from_lineage(app.state.data, entity_key)
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
-        return store().create_candidate(payload).model_dump(mode="json")
+        return create_candidate_in_project(payload, project_id).model_dump(mode="json")
 
     @app.post("/api/screening", status_code=201)
-    def screening(payload: ScreeningRequest) -> dict[str, Any]:
-        candidates = store().list_candidates()
-        base = store().get_candidate(payload.base_candidate_id) if payload.base_candidate_id else (candidates[0] if candidates else None)
+    def screening(payload: ScreeningRequest, project_id: str = "default") -> dict[str, Any]:
+        require_project(project_id)
+        candidates = store().list_candidates(project_id)
+        base = store().get_candidate(payload.base_candidate_id, project_id) if payload.base_candidate_id else (candidates[0] if candidates else None)
         if not base:
             raise HTTPException(404, "基準候補が見つかりません")
         try:
             result = run_latin_hypercube(runtime(), base, payload)
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
-        return store().create_screening_run(jsonable_encoder(result))
+        return store().create_screening_run(jsonable_encoder(result), project_id)
 
     @app.get("/api/screening")
-    def list_screening_runs() -> list[dict[str, Any]]:
-        return store().list_screening_runs()
+    def list_screening_runs(project_id: str = "default") -> list[dict[str, Any]]:
+        require_project(project_id)
+        return store().list_screening_runs(project_id)
 
     @app.get("/api/screening/{run_id}")
-    def get_screening_run(run_id: str) -> dict[str, Any]:
-        run = store().get_screening_run(run_id)
+    def get_screening_run(run_id: str, project_id: str = "default") -> dict[str, Any]:
+        run = store().get_screening_run(run_id, project_id)
         if not run:
             raise HTTPException(404, "スクリーニング結果が見つかりません")
         return run
 
     @app.post("/api/screening/{run_id}/points/{point_index}/candidate", status_code=201)
-    def screening_point_to_candidate(run_id: str, point_index: int) -> dict[str, Any]:
-        run = store().get_screening_run(run_id)
+    def screening_point_to_candidate(run_id: str, point_index: int, project_id: str = "default") -> dict[str, Any]:
+        run = store().get_screening_run(run_id, project_id)
         if not run:
             raise HTTPException(404, "スクリーニング結果が見つかりません")
         point = next((item for item in run["points"] if item["index"] == point_index), None)
         if not point:
             raise HTTPException(404, "スクリーニング点が見つかりません")
         payload = CandidateInput.model_validate({**point["candidate"], "name": f"Screen {run_id[:6]} #{point_index + 1}"})
-        return store().create_candidate(payload).model_dump(mode="json")
+        return create_candidate_in_project(payload, project_id).model_dump(mode="json")
 
     @app.get("/api/candidates/{candidate_id}/snapshots")
     def snapshots(candidate_id: str) -> list[dict[str, Any]]:
@@ -243,8 +328,10 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
             raise HTTPException(404, "候補が見つかりません")
         return snapshot_for_candidate(candidate)
 
-    def snapshot_for_candidate(candidate: Any) -> dict[str, Any]:
-        result = runtime().predict(candidate, detailed=True, include_curve=True)
+    def snapshot_for_candidate(candidate: Any, result: dict[str, Any] | None = None) -> dict[str, Any]:
+        if result is None:
+            project = store().get_project(candidate.project_id)
+            result = runtime().predict(candidate, detailed=True, include_curve=True, target_values=project.target_values if project else {})
         payload = {
             "snapshot_schema_version": "prediction-snapshot-v1",
             "candidate_id": candidate.id,
@@ -265,7 +352,8 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
         if not raw:
             raise HTTPException(422, "このスナップショットには復元可能な候補入力がありません")
         payload = CandidateInput.model_validate({**raw, "name": f"{raw['name']} (復元)"})
-        return store().create_candidate(payload).model_dump(mode="json")
+        project_id = str(raw.get("project_id") or "default")
+        return create_candidate_in_project(payload, project_id).model_dump(mode="json")
 
     @app.get("/api/candidates/{candidate_id}/actuals")
     def list_actuals(candidate_id: str) -> list[dict[str, Any]]:

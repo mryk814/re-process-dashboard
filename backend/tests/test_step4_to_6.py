@@ -1,9 +1,11 @@
 from io import BytesIO
 
 from openpyxl import Workbook
+import numpy as np
 
+from material_workbench.feature_pipeline import build_feature_bundle
 from material_workbench.schemas import CandidateInput
-from material_workbench.services import import_candidates_xlsx
+from material_workbench.services import candidate_from_lineage, import_candidates_xlsx
 
 
 def _screening_body(candidate_id: str) -> dict:
@@ -80,11 +82,22 @@ def test_lineage_candidate_actuals_and_snapshot_restore(client) -> None:
     assert restored.json()["id"] != candidate["id"]
 
 
+def test_lineage_candidate_preserves_stage_order_and_boundaries(client) -> None:
+    expected = candidate_from_lineage(client.app.state.data, "AN-00009")
+    response = client.post("/api/lineage/AN-00009/candidate")
+    assert response.status_code == 201
+    payload = {key: value for key, value in response.json().items() if key not in {"id", "project_id", "created_at", "updated_at"}}
+    actual = CandidateInput.model_validate(payload)
+    assert actual.heat_pattern == expected.heat_pattern
+    assert any(point.segment_start for point in actual.heat_pattern)
+    assert all(right.time_s > left.time_s for left, right in zip(actual.heat_pattern, actual.heat_pattern[1:]))
+
+
 def test_candidate_excel_import_and_exports(client) -> None:
     workbook = Workbook()
     sheet = workbook.active
-    sheet.append(["name", "C", "Si", "Mn", "thickness_mm", "line_speed_m_min", "coating", "time_s_1", "temperature_c_1", "time_s_2", "temperature_c_2", "time_s_3", "temperature_c_3"])
-    sheet.append(["Excel候補", 0.08, 0.3, 1.5, 1.4, 100, "GI", 0, 25, 300, 810, 650, 120])
+    sheet.append(["name", "C", "Si", "Mn", "thickness_mm", "line_speed_m_min", "coating", "time_s_1", "temperature_c_1", "segment_start_1", "time_s_2", "temperature_c_2", "segment_start_2", "time_s_3", "temperature_c_3", "segment_start_3"])
+    sheet.append(["Excel候補", 0.08, 0.3, 1.5, 1.4, 100, "GI", 0, 25, False, 300, 810, True, 650, 120, False])
     buffer = BytesIO()
     workbook.save(buffer)
     response = client.post("/api/candidates/import", files={"file": ("candidates.xlsx", buffer.getvalue(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")})
@@ -97,6 +110,8 @@ def test_candidate_excel_import_and_exports(client) -> None:
     source = CandidateInput.model_validate({key: value for key, value in response.json()["candidates"][0].items() if key not in {"id", "project_id", "created_at", "updated_at"}})
     restored = next(candidate for candidate in round_tripped if candidate.name == source.name)
     assert restored.model_dump() == source.model_dump()
+    defaults = client.app.state.runtime.composition_defaults
+    assert np.allclose(build_feature_bundle(restored, defaults).values, build_feature_bundle(source, defaults).values)
     quality = client.get("/api/quality/export.csv")
     assert quality.status_code == 200 and "issue_id" in quality.content.decode("utf-8-sig")
 

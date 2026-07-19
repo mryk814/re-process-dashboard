@@ -10,6 +10,17 @@ from typing import Any
 from .schemas import ActualMeasurement, ActualMeasurementInput, Candidate, CandidateInput, Project, ProjectInput
 
 
+MAX_CANDIDATES_PER_PROJECT = 10
+
+
+class ProjectNotFoundError(LookupError):
+    pass
+
+
+class CandidateLimitError(ValueError):
+    pass
+
+
 def _now() -> str:
     return datetime.now(UTC).isoformat()
 
@@ -43,41 +54,76 @@ class Store:
                 conn.execute("ALTER TABLE actual_measurements ADD COLUMN snapshot_id TEXT NOT NULL DEFAULT ''")
             now = _now()
             conn.execute("INSERT OR IGNORE INTO projects(id, name, description, purpose, task_id, target_values, notes, created_at, updated_at) VALUES ('default', '焼鈍条件の候補検討', '', '', 'annealed-properties-v1', '{}', '', ?, ?)", (now, now))
+            conn.execute("UPDATE projects SET updated_at = created_at WHERE updated_at = ''")
 
     @staticmethod
     def _project(row: sqlite3.Row) -> Project:
         return Project(id=row["id"], name=row["name"], description=row["description"], purpose=row["purpose"], task_id=row["task_id"], target_values=json.loads(row["target_values"]), notes=row["notes"], created_at=datetime.fromisoformat(row["created_at"]), updated_at=datetime.fromisoformat(row["updated_at"]))
 
-    def get_project(self) -> Project:
+    def list_projects(self) -> list[Project]:
         with self._connect() as conn:
-            row = conn.execute("SELECT * FROM projects WHERE id = 'default'").fetchone()
-        return self._project(row)
+            rows = conn.execute("SELECT * FROM projects ORDER BY created_at, id").fetchall()
+        return [self._project(row) for row in rows]
 
-    def update_project(self, payload: ProjectInput) -> Project:
+    def get_project(self, project_id: str = "default") -> Project | None:
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+        return self._project(row) if row else None
+
+    def create_project(self, payload: ProjectInput) -> Project:
+        project_id, now = str(uuid.uuid4()), _now()
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT INTO projects(id, name, description, purpose, task_id, target_values, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (project_id, payload.name, payload.description, payload.purpose, payload.task_id, json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True), payload.notes, now, now),
+            )
+        return self.get_project(project_id)  # type: ignore[return-value]
+
+    def update_project(self, project_id: str, payload: ProjectInput) -> Project | None:
         now = _now()
         with self._connect() as conn:
-            conn.execute("UPDATE projects SET name=?, description=?, purpose=?, task_id=?, target_values=?, notes=?, updated_at=? WHERE id='default'", (payload.name, payload.description, payload.purpose, payload.task_id, json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True), payload.notes, now))
-        return self.get_project()
+            result = conn.execute("UPDATE projects SET name=?, description=?, purpose=?, task_id=?, target_values=?, notes=?, updated_at=? WHERE id=?", (payload.name, payload.description, payload.purpose, payload.task_id, json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True), payload.notes, now, project_id))
+        return self.get_project(project_id) if result.rowcount else None
 
     @staticmethod
     def _candidate(row: sqlite3.Row) -> Candidate:
         payload = json.loads(row["payload"])
         return Candidate(id=row["id"], project_id=row["project_id"], created_at=datetime.fromisoformat(row["created_at"]), updated_at=datetime.fromisoformat(row["updated_at"]), **payload)
 
-    def list_candidates(self) -> list[Candidate]:
+    def list_candidates(self, project_id: str = "default") -> list[Candidate]:
         with self._connect() as conn:
-            return [self._candidate(row) for row in conn.execute("SELECT * FROM candidates ORDER BY created_at")]
+            return [self._candidate(row) for row in conn.execute("SELECT * FROM candidates WHERE project_id = ? ORDER BY created_at", (project_id,))]
 
-    def get_candidate(self, candidate_id: str) -> Candidate | None:
+    def get_candidate(self, candidate_id: str, project_id: str | None = None) -> Candidate | None:
         with self._connect() as conn:
-            row = conn.execute("SELECT * FROM candidates WHERE id = ?", (candidate_id,)).fetchone()
+            if project_id is None:
+                row = conn.execute("SELECT * FROM candidates WHERE id = ?", (candidate_id,)).fetchone()
+            else:
+                row = conn.execute("SELECT * FROM candidates WHERE id = ? AND project_id = ?", (candidate_id, project_id)).fetchone()
         return self._candidate(row) if row else None
 
     def create_candidate(self, payload: CandidateInput, project_id: str = "default") -> Candidate:
-        candidate_id, now = str(uuid.uuid4()), _now()
+        return self.create_candidates([payload], project_id)[0]
+
+    def create_candidates(self, payloads: list[CandidateInput], project_id: str = "default") -> list[Candidate]:
+        if not payloads:
+            return []
+        records: list[tuple[str, str, str, str, str, str]] = []
         with self._connect() as conn:
-            conn.execute("INSERT INTO candidates VALUES (?, ?, ?, ?, ?, ?)", (candidate_id, project_id, payload.name, payload.model_dump_json(), now, now))
-        return self.get_candidate(candidate_id)  # type: ignore[return-value]
+            conn.execute("BEGIN IMMEDIATE")
+            if conn.execute("SELECT 1 FROM projects WHERE id = ?", (project_id,)).fetchone() is None:
+                raise ProjectNotFoundError(project_id)
+            current = int(conn.execute("SELECT COUNT(*) FROM candidates WHERE project_id = ?", (project_id,)).fetchone()[0])
+            if current + len(payloads) > MAX_CANDIDATES_PER_PROJECT:
+                raise CandidateLimitError(f"候補は1プロジェクトにつき最大{MAX_CANDIDATES_PER_PROJECT}件です")
+            for payload in payloads:
+                candidate_id, now = str(uuid.uuid4()), _now()
+                records.append((candidate_id, project_id, payload.name, payload.model_dump_json(), now, now))
+            conn.executemany("INSERT INTO candidates VALUES (?, ?, ?, ?, ?, ?)", records)
+        created = [self.get_candidate(candidate_id) for candidate_id, *_ in records]
+        if any(candidate is None for candidate in created):
+            raise RuntimeError("作成した候補を再取得できませんでした")
+        return created  # type: ignore[return-value]
 
     def update_candidate(self, candidate_id: str, payload: CandidateInput) -> Candidate | None:
         now = _now()
@@ -109,20 +155,25 @@ class Store:
             row = conn.execute("SELECT * FROM snapshots WHERE id = ?", (snapshot_id,)).fetchone()
         return {"id": row["id"], "candidate_id": row["candidate_id"], "created_at": row["created_at"], "payload": json.loads(row["payload"])} if row else None
 
-    def create_screening_run(self, payload: dict[str, Any]) -> dict[str, Any]:
-        run = {"id": str(uuid.uuid4()), "project_id": "default", "created_at": _now(), **payload}
+    def create_screening_run(self, payload: dict[str, Any], project_id: str = "default") -> dict[str, Any]:
+        run = {"id": str(uuid.uuid4()), "project_id": project_id, "created_at": _now(), **payload}
         with self._connect() as conn:
-            conn.execute("INSERT INTO screening_runs VALUES (?, ?, ?, ?)", (run["id"], "default", json.dumps(payload, ensure_ascii=False, sort_keys=True), run["created_at"]))
+            if conn.execute("SELECT 1 FROM projects WHERE id = ?", (project_id,)).fetchone() is None:
+                raise ProjectNotFoundError(project_id)
+            conn.execute("INSERT INTO screening_runs VALUES (?, ?, ?, ?)", (run["id"], project_id, json.dumps(payload, ensure_ascii=False, sort_keys=True), run["created_at"]))
         return run
 
-    def get_screening_run(self, run_id: str) -> dict[str, Any] | None:
+    def get_screening_run(self, run_id: str, project_id: str | None = None) -> dict[str, Any] | None:
         with self._connect() as conn:
-            row = conn.execute("SELECT * FROM screening_runs WHERE id = ?", (run_id,)).fetchone()
+            if project_id is None:
+                row = conn.execute("SELECT * FROM screening_runs WHERE id = ?", (run_id,)).fetchone()
+            else:
+                row = conn.execute("SELECT * FROM screening_runs WHERE id = ? AND project_id = ?", (run_id, project_id)).fetchone()
         return {"id": row["id"], "project_id": row["project_id"], "created_at": row["created_at"], **json.loads(row["payload"])} if row else None
 
-    def list_screening_runs(self) -> list[dict[str, Any]]:
+    def list_screening_runs(self, project_id: str = "default") -> list[dict[str, Any]]:
         with self._connect() as conn:
-            rows = conn.execute("SELECT * FROM screening_runs ORDER BY created_at DESC").fetchall()
+            rows = conn.execute("SELECT * FROM screening_runs WHERE project_id = ? ORDER BY created_at DESC", (project_id,)).fetchall()
         return [{"id": row["id"], "project_id": row["project_id"], "created_at": row["created_at"], **json.loads(row["payload"])} for row in rows]
 
     @staticmethod
