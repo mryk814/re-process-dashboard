@@ -1,0 +1,291 @@
+from __future__ import annotations
+
+import hashlib
+from collections import defaultdict
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from pathlib import Path
+from statistics import median
+from typing import Any
+
+from openpyxl import load_workbook
+
+
+COMPOSITION_COLUMNS = {
+    "C": "C[mass%]", "Si": "Si[mass%]", "Mn": "Mn[mass%]", "P": "P[mass%]",
+    "S": "S[mass%]", "Cr": "Cr[mass%]", "Mo": "Mo[mass%]", "Ni": "Ni[mass%]",
+    "Al": "Al[mass%]", "Ti": "Ti[mass%]", "B": "B[mass%]", "N": "N[mass%]",
+    "O": "O[mass%]", "Ca": "Ca[mass%]",
+}
+
+# These sheets own an entity key.  Derived tables such as 焼鈍特徴量 and
+# 焼鈍履歴 deliberately do not own 焼鈍_key: treating them as entities would
+# make every process-history point look like a duplicate anneal condition.
+ENTITY_SHEETS = {
+    "溶製": "溶製_key",
+    "熱延": "熱延_key",
+    "冷延": "冷延_key",
+    "焼鈍": "焼鈍_key",
+    "熱延引張": "熱延引張_key",
+    "熱延組織": "熱延組織_key",
+    "焼鈍引張": "焼鈍引張_key",
+    "焼鈍穴広げ": "焼鈍穴広げ_key",
+    "焼鈍組織": "焼鈍組織_key",
+}
+KEY_TO_SHEET = {key: sheet for sheet, key in ENTITY_SHEETS.items()}
+METADATA_COLUMNS = {"ロット", "プロジェクト名", "登録者", "登録日", "備考", "学習利用区分", "試験者", "試験日", "入力者"}
+
+
+def _as_date(value: Any) -> str | None:
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, (int, float)) and value > 30_000:
+        return (datetime(1899, 12, 30) + timedelta(days=float(value))).date().isoformat()
+    return str(value) if value is not None else None
+
+
+def _records(sheet: Any) -> list[dict[str, Any]]:
+    rows = sheet.iter_rows(values_only=True)
+    headers = next(rows, None)
+    if not headers:
+        return []
+    keys = [str(header) if header is not None else f"column_{i}" for i, header in enumerate(headers)]
+    result: list[dict[str, Any]] = []
+    for row in rows:
+        record = {keys[i]: value for i, value in enumerate(row) if i < len(keys)}
+        if any(value is not None for value in record.values()):
+            result.append(record)
+    return result
+
+
+@dataclass(frozen=True)
+class WorkbookData:
+    source_path: str
+    source_mtime_ns: int
+    source_sha256: str
+    sheets: dict[str, list[dict[str, Any]]]
+    composition: dict[str, dict[str, float]]
+    anneal_features: dict[str, dict[str, Any]]
+    lineage: dict[str, dict[str, list[str]]]
+    observations: list[dict[str, Any]]
+    quality: list[dict[str, Any]]
+    detected_quality: list[dict[str, str]]
+    entities: dict[str, dict[str, dict[str, Any]]]
+    medians: dict[str, float]
+
+    @property
+    def source_summary(self) -> dict[str, Any]:
+        return {
+            "source": self.source_path,
+            "source_sha256": self.source_sha256,
+            "sheets": {name: len(rows) for name, rows in self.sheets.items()},
+            "observations": len(self.observations),
+            "quality_issues": len(self.quality),
+            "detected_quality_issues": len(self.detected_quality),
+        }
+
+
+def _scalar(value: Any) -> str | float | int | bool | None:
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, (str, float, int, bool)) or value is None:
+        return value
+    return str(value)
+
+
+def _detect_data_quality(sheets: dict[str, list[dict[str, Any]]], entities: dict[str, dict[str, dict[str, Any]]]) -> list[dict[str, str]]:
+    """Detect structural data problems without trusting the workbook's scenarios.
+
+    The workbook's 想定異常 sheet remains useful as a curated verification
+    fixture, but it is not evidence that this copy of the source was checked.
+    """
+    issues: list[dict[str, str]] = []
+    seen: set[tuple[str, str, str, str]] = set()
+
+    def add(issue_type: str, source_sheet: str, entity_key: str, detail: str) -> None:
+        item = (issue_type, source_sheet, entity_key, detail)
+        if item in seen:
+            return
+        seen.add(item)
+        issues.append({
+            "issue_id": f"{issue_type}:{source_sheet}:{entity_key or 'row'}:{len(issues) + 1}",
+            "issue_type": issue_type,
+            "source_sheet": source_sheet,
+            "entity_key": entity_key,
+            "detail": detail,
+        })
+
+    for sheet_name, key_column in ENTITY_SHEETS.items():
+        rows = sheets[sheet_name]
+        counts: dict[str, int] = defaultdict(int)
+        for row_index, row in enumerate(rows, start=2):
+            value = row.get(key_column)
+            if value is None or not str(value).strip():
+                add("missing_key", sheet_name, "", f"{row_index}行目に{key_column}がありません")
+                continue
+            counts[str(value)] += 1
+        for key, count in counts.items():
+            if count > 1:
+                add("duplicate_key", sheet_name, key, f"{key_column}が{count}回出現します")
+
+    # A test row without its parent condition is unusable even when it is not
+    # represented in relation, so detect that source-level missing reference.
+    for sheet_name in ("熱延引張", "焼鈍引張", "焼鈍穴広げ"):
+        for row_index, row in enumerate(sheets[sheet_name], start=2):
+            if row.get("反復条件_key") is None or not str(row.get("反復条件_key")).strip():
+                key_column = ENTITY_SHEETS[sheet_name]
+                add("missing_key", sheet_name, str(row.get(key_column) or ""), f"{row_index}行目に反復条件_keyがありません")
+
+    relation_keys: set[str] = set()
+    for row_index, edge in enumerate(sheets["relation"], start=2):
+        for key_column, value in edge.items():
+            if not key_column.endswith("_key") or value is None or not str(value).strip():
+                continue
+            key = str(value)
+            relation_keys.add(key)
+            source_sheet = KEY_TO_SHEET.get(key_column)
+            if source_sheet is None:
+                continue
+            if key not in entities.get(key_column, {}):
+                add("invalid_reference", "relation", key, f"{row_index}行目の{key_column}に対応する{source_sheet}レコードがありません")
+
+    for key_column, records in entities.items():
+        source_sheet = KEY_TO_SHEET[key_column]
+        for key in records:
+            if key not in relation_keys:
+                add("orphan_entity", source_sheet, key, "どのrelation行からも参照されていません")
+    return issues
+
+
+def lineage_node_detail(data: WorkbookData, entity_key: str) -> dict[str, Any]:
+    """Return inspectable source facts for a lineage node, not only its edges."""
+    entity_type = next((key_column for key_column, records in data.entities.items() if entity_key in records), None)
+    if entity_type is None:
+        raise KeyError(entity_key)
+    source_sheet = KEY_TO_SHEET[entity_type]
+    source_row = data.entities[entity_type][entity_key]
+    relations = data.lineage.get(entity_key, {})
+    melt_keys = [entity_key] if entity_type == "溶製_key" else relations.get("溶製_key", [])
+    composition = data.composition.get(melt_keys[0], {}) if len(melt_keys) == 1 else {}
+    anneal_keys = [entity_key] if entity_type == "焼鈍_key" else relations.get("焼鈍_key", [])
+    heat_pattern: list[dict[str, float]] = []
+    if len(anneal_keys) == 1:
+        heat_pattern = [
+            {"time_s": float(row["到達時間[s]"]), "temperature_c": float(row["実績温度[℃]"])}
+            for row in sorted(data.sheets["焼鈍履歴"], key=lambda row: row.get("順番", 0))
+            if str(row.get("焼鈍_key")) == anneal_keys[0]
+            and isinstance(row.get("到達時間[s]"), (int, float))
+            and isinstance(row.get("実績温度[℃]"), (int, float))
+        ]
+    connected_keys = {entity_key, *(key for values in relations.values() for key in values)}
+    aggregate: dict[str, list[float]] = defaultdict(list)
+    observation_count = 0
+    for observation in data.observations:
+        if observation["id"] not in connected_keys and observation["parent_key"] not in connected_keys:
+            continue
+        observation_count += 1
+        for property_name, value in observation["outputs"].items():
+            aggregate[property_name].append(float(value))
+    property_summary = {
+        property_name: {"count": len(values), "min": min(values), "median": float(median(values)), "max": max(values)}
+        for property_name, values in sorted(aggregate.items())
+    }
+    primary_conditions = {
+        column: _scalar(value)
+        for column, value in source_row.items()
+        if column != entity_type and not column.endswith("_key") and column not in METADATA_COLUMNS and value is not None
+    }
+    return {
+        "key": entity_key,
+        "entity_type": entity_type.removesuffix("_key"),
+        "source_sheet": source_sheet,
+        "source_row": {column: _scalar(value) for column, value in source_row.items()},
+        "primary_conditions": primary_conditions,
+        "composition": composition,
+        "heat_pattern": heat_pattern,
+        "connected_observation_count": observation_count,
+        "property_summary": property_summary,
+        "related_entities": relations,
+    }
+
+
+def load_workbook_data(path: str | Path) -> WorkbookData:
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"Excel source not found: {path}")
+    wb = load_workbook(path, read_only=True, data_only=True)
+    sheets = {name: _records(wb[name]) for name in wb.sheetnames}
+    entities: dict[str, dict[str, dict[str, Any]]] = defaultdict(dict)
+    for sheet_name, key_column in ENTITY_SHEETS.items():
+        for row in sheets[sheet_name]:
+            value = row.get(key_column)
+            if value is not None and str(value).strip():
+                # Keep the first row for node inspection. Duplicate rows are
+                # independently surfaced by the quality detector below.
+                entities[key_column].setdefault(str(value), row)
+    melt_rows = sheets["溶製"]
+    composition = {
+        str(row["溶製_key"]): {short: float(row[column]) for short, column in COMPOSITION_COLUMNS.items() if row.get(column) is not None}
+        for row in melt_rows
+    }
+    feature_rows = sheets["焼鈍特徴量"]
+    anneal_features = {
+        str(row["焼鈍_key"]): {
+            "line_speed_m_min": float(row["ライン速度[m/min]"]),
+            "max_temperature_c": float(row["最高実績温度[℃]"]),
+            "hold_time_s": float(row["高温保持時間[s]"]),
+            "coating": str(row["メッキ区分"]),
+            "input_points": float(row["入力点数"]),
+            "reheat": 1.0 if row["再加熱工程あり"] == "あり" else 0.0,
+            "alloying": 1.0 if row["合金化工程あり"] == "通過" else 0.0,
+            "feature_status": str(row["特徴量化判定"]),
+        }
+        for row in feature_rows
+    }
+    lineage: dict[str, dict[str, list[str]]] = defaultdict(lambda: defaultdict(list))
+    for edge in sheets["relation"]:
+        for column, value in edge.items():
+            if column.endswith("_key") and value:
+                lineage[str(value)][column].append(str(value))
+        anchor = {key: str(value) for key, value in edge.items() if key.endswith("_key") and value}
+        for current_key in anchor.values():
+            bucket = lineage[current_key]
+            for related_column, related_key in anchor.items():
+                if related_key not in bucket[related_column]:
+                    bucket[related_column].append(related_key)
+    # Ensure every entity can be resolved even when it has no edge.
+    for key in composition:
+        lineage.setdefault(key, defaultdict(list))
+    for key in anneal_features:
+        lineage.setdefault(key, defaultdict(list))
+
+    def upstream_composition(parent_key: str) -> dict[str, float] | None:
+        melt_keys = sorted(set(lineage.get(parent_key, {}).get("溶製_key", [])))
+        return composition.get(melt_keys[0]) if len(melt_keys) == 1 else None
+
+    anneal_status = {str(row["焼鈍_key"]): str(row.get("学習利用区分", "")) for row in sheets["焼鈍"]}
+    hot_status = {str(row["熱延_key"]): str(row.get("学習利用区分", "")) for row in sheets["熱延"]}
+    observations: list[dict[str, Any]] = []
+    targets = (("焼鈍引張", "焼鈍引張_key", ("TS[MPa]", "YS[MPa]", "EL[%]")), ("焼鈍穴広げ", "焼鈍穴広げ_key", ("λ[%]",)), ("熱延引張", "熱延引張_key", ("TS[MPa]", "YS[MPa]", "EL[%]")))
+    for sheet_name, observation_key, output_columns in targets:
+        for row in sheets[sheet_name]:
+            parent = str(row.get("反復条件_key", ""))
+            is_anneal = sheet_name != "熱延引張"
+            process = anneal_features.get(parent) if is_anneal else None
+            comp = upstream_composition(parent)
+            outputs = {name: float(row[name]) for name in output_columns if isinstance(row.get(name), (int, float))}
+            if not outputs:
+                continue
+            observations.append({
+                "id": str(row[observation_key]), "source": sheet_name, "parent_key": parent,
+                "features": process, "composition": comp, "outputs": outputs,
+                "eligible": bool(process and comp and process["feature_status"] == "特徴量化可" and anneal_status.get(parent) == "学習" and row.get("判定") == "有効") if is_anneal else bool(comp and hot_status.get(parent) == "学習" and row.get("判定") == "有効"),
+                "thickness_mm": float(row.get("板厚[mm]", 0) or 0), "date": _as_date(row.get("試験日")),
+            })
+    values = {name: sorted(float(row[name]) for row in melt_rows if isinstance(row.get(name), (int, float))) for name in COMPOSITION_COLUMNS.values()}
+    medians = {short: series[len(series) // 2] for short, name in COMPOSITION_COLUMNS.items() if (series := values[name])}
+    with path.open("rb") as source_file:
+        source_sha256 = hashlib.file_digest(source_file, "sha256").hexdigest()
+    normalized_lineage = {k: {inner: sorted(set(values)) for inner, values in v.items()} for k, v in lineage.items()}
+    detected_quality = _detect_data_quality(sheets, entities)
+    return WorkbookData(str(path), path.stat().st_mtime_ns, source_sha256, sheets, composition, anneal_features, normalized_lineage, observations, sheets["想定異常"], detected_quality, dict(entities), medians)

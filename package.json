@@ -1,0 +1,17 @@
+{
+  "name": "material-decision-workbench",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["apps/web", "apps/desktop"],
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c blue,cyan \"uv run uvicorn main:app --app-dir backend/src --host 127.0.0.1 --port 8765 --reload\" \"npm run dev -w apps/web\"",
+    "dev:desktop": "concurrently -k -n web,desktop -c cyan,magenta \"npm run dev -w apps/web\" \"wait-on http://127.0.0.1:5180 && npm run dev -w apps/desktop\"",
+    "build": "npm run build -w apps/web && npm run build -w apps/desktop",
+    "typecheck": "npm run typecheck -w apps/web && npm run typecheck -w apps/desktop",
+    "test": "uv run pytest && npm run typecheck"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "wait-on": "^8.0.4"
+  }
+}

@@ -1,0 +1,37 @@
+import { build } from "esbuild";
+import { mkdir, rm, writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
+
+const outdir = resolve("dist");
+await rm(outdir, { recursive: true, force: true });
+await mkdir(resolve(outdir, "assets"), { recursive: true });
+
+await build({
+  entryPoints: [resolve("src/main.tsx")],
+  bundle: true,
+  format: "esm",
+  minify: true,
+  sourcemap: false,
+  target: ["chrome120"],
+  outdir: resolve(outdir, "assets"),
+  entryNames: "app",
+  assetNames: "[name]-[hash]",
+  loader: { ".png": "file", ".svg": "file" },
+});
+
+await writeFile(resolve(outdir, "index.html"), `<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0F1B2D" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230f1b2d'/%3E%3Cpath d='M14 45 25 18l8 19 7-14 10 22' fill='none' stroke='%232981ec' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+    <title>Material Decision Workbench</title>
+    <link rel="stylesheet" href="./assets/app.css" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./assets/app.js"></script>
+  </body>
+</html>
+`, "utf8");

@@ -1,0 +1,305 @@
+from __future__ import annotations
+
+import os
+import csv
+from collections import Counter
+from contextlib import asynccontextmanager
+from io import BytesIO, StringIO
+from pathlib import Path
+from typing import Any
+
+from fastapi import FastAPI, File, HTTPException, Response, UploadFile
+from fastapi.encoders import jsonable_encoder
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+
+from .importer import lineage_node_detail, load_workbook_data
+from .runtime import ModelRuntime
+from .schemas import ActualMeasurementInput, CandidateInput, LineageResponse, PredictionResponse, ProjectInput, QualityResponse, ScreeningRequest
+from .services import candidate_from_lineage, candidates_xlsx, import_candidates_xlsx, run_latin_hypercube
+from .store import Store
+
+
+def _default_candidate_payloads(medians: dict[str, float]) -> list[CandidateInput]:
+    composition = {key: round(value, 5) for key, value in medians.items()}
+    variants = [
+        ("基準候補", 1.00, 810.0, 103.0),
+        ("高強度案", 1.16, 830.0, 96.0),
+        ("延性重視案", 0.88, 790.0, 112.0),
+    ]
+    return [
+        CandidateInput(
+            name=name,
+            composition={**composition, "C": round(composition["C"] * carbon_factor, 5)},
+            thickness_mm=1.4,
+            line_speed_m_min=line_speed,
+            coating="GI",
+            heat_pattern=[
+                {"time_s": 0, "temperature_c": 25},
+                {"time_s": 280, "temperature_c": peak - 10},
+                {"time_s": 340, "temperature_c": peak},
+                {"time_s": 650, "temperature_c": 120},
+            ],
+        )
+        for name, carbon_factor, peak, line_speed in variants
+    ]
+
+
+def create_app(source_path: str | Path | None = None, db_path: str | Path | None = None) -> FastAPI:
+    source = Path(source_path or os.getenv("WORKBENCH_SOURCE_PATH", "data/source/process_dashboard_realistic_excel_v2.xlsx"))
+    database = Path(db_path or os.getenv("WORKBENCH_DB_PATH", "data/workbench.db"))
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        app.state.data = load_workbook_data(source)
+        app.state.runtime = ModelRuntime(app.state.data)
+        app.state.store = Store(database)
+        if not app.state.store.list_candidates():
+            for candidate in _default_candidate_payloads(app.state.data.medians):
+                app.state.store.create_candidate(candidate)
+        yield
+
+    app = FastAPI(title="Material Decision Workbench API", version="0.1.0", lifespan=lifespan)
+    # Electron loads the packaged renderer from file://, which browsers serialize as Origin: null.
+    # The local sidecar only listens on loopback, and credentials are not accepted.
+    app.add_middleware(CORSMiddleware, allow_origins=["null", "http://127.0.0.1:5173", "http://localhost:5173", "http://127.0.0.1:5180", "http://localhost:5180"], allow_methods=["*"], allow_headers=["*"], allow_credentials=False)
+
+    def store() -> Store:
+        return app.state.store
+
+    def runtime() -> ModelRuntime:
+        return app.state.runtime
+
+    @app.get("/api/health")
+    @app.get("/health", include_in_schema=False)
+    def health() -> dict[str, Any]:
+        return {"ok": True, "models": sorted(runtime().models), "source": str(source)}
+
+    @app.get("/api/bootstrap")
+    def bootstrap() -> dict[str, Any]:
+        data = app.state.data
+        candidates = [candidate.model_dump(mode="json") for candidate in store().list_candidates()]
+        return {"meta": {**data.source_summary, "project": store().get_project().model_dump(mode="json"), "model_targets": sorted(runtime().models)}, "candidates": candidates, "summary": {"routes": Counter(row.get("標準ルート") for row in data.sheets["焼鈍特徴量"]), "quality_by_category": Counter(row.get("分類") for row in data.quality)}}
+
+    @app.get("/api/project")
+    def get_project() -> dict[str, Any]:
+        return store().get_project().model_dump(mode="json")
+
+    @app.put("/api/project")
+    def update_project(payload: ProjectInput) -> dict[str, Any]:
+        return store().update_project(payload).model_dump(mode="json")
+
+    @app.get("/api/candidates")
+    def list_candidates() -> list[dict[str, Any]]:
+        return [candidate.model_dump(mode="json") for candidate in store().list_candidates()]
+
+    @app.post("/api/candidates", status_code=201)
+    def create_candidate(payload: CandidateInput) -> dict[str, Any]:
+        return store().create_candidate(payload).model_dump(mode="json")
+
+    @app.post("/api/candidates/import")
+    async def import_candidates(file: UploadFile = File(...)) -> dict[str, Any]:
+        if not file.filename or not file.filename.lower().endswith(".xlsx"):
+            raise HTTPException(422, "Excel .xlsx ファイルを選択してください")
+        payloads, errors = import_candidates_xlsx(await file.read())
+        created = [store().create_candidate(payload).model_dump(mode="json") for payload in payloads]
+        return {"created": len(created), "errors": errors, "candidates": created}
+
+    @app.get("/api/candidates/export.xlsx")
+    def export_candidates() -> StreamingResponse:
+        contents = candidates_xlsx(store().list_candidates(), runtime())
+        return StreamingResponse(BytesIO(contents), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": "attachment; filename=candidates-with-predictions.xlsx"})
+
+    @app.get("/api/candidates/{candidate_id}")
+    def get_candidate(candidate_id: str) -> dict[str, Any]:
+        candidate = store().get_candidate(candidate_id)
+        if not candidate:
+            raise HTTPException(404, "候補が見つかりません")
+        return candidate.model_dump(mode="json")
+
+    @app.put("/api/candidates/{candidate_id}")
+    def update_candidate(candidate_id: str, payload: CandidateInput) -> dict[str, Any]:
+        candidate = store().update_candidate(candidate_id, payload)
+        if not candidate:
+            raise HTTPException(404, "候補が見つかりません")
+        return candidate.model_dump(mode="json")
+
+    @app.delete("/api/candidates/{candidate_id}", status_code=204)
+    def delete_candidate(candidate_id: str) -> Response:
+        if not store().delete_candidate(candidate_id):
+            raise HTTPException(404, "候補が見つかりません")
+        return Response(status_code=204)
+
+    def prediction(candidate_id: str, detailed: bool, include_curve: bool = False) -> dict[str, Any]:
+        candidate = store().get_candidate(candidate_id)
+        if not candidate:
+            raise HTTPException(404, "候補が見つかりません")
+        return runtime().predict(candidate, detailed=detailed, include_curve=include_curve)
+
+    @app.post("/api/candidates/{candidate_id}/preview", response_model=PredictionResponse)
+    def preview(candidate_id: str) -> dict[str, Any]:
+        return prediction(candidate_id, detailed=False)
+
+    @app.post("/api/candidates/{candidate_id}/predict", response_model=PredictionResponse)
+    def predict(candidate_id: str) -> dict[str, Any]:
+        return prediction(candidate_id, detailed=True, include_curve=True)
+
+    @app.get("/api/candidates/{candidate_id}/response-curve")
+    def response_curve(candidate_id: str) -> list[dict[str, float]]:
+        return prediction(candidate_id, detailed=True, include_curve=True)["response_curve"]
+
+    @app.get("/api/candidates/{candidate_id}/similar")
+    def similar(candidate_id: str) -> list[dict[str, object]]:
+        return prediction(candidate_id, detailed=False)["similar"]
+
+    @app.get("/api/quality", response_model=QualityResponse)
+    def quality() -> dict[str, Any]:
+        scenarios = app.state.data.quality
+        detected = app.state.data.detected_quality
+        # Keep the original top-level fields for the current renderer.  The
+        # detected fields are actual structural checks, not workbook fixtures.
+        return {
+            "total": len(scenarios),
+            "by_category": Counter(row["分類"] for row in scenarios),
+            "issues": scenarios,
+            "reference_scenarios": scenarios,
+            "detected_total": len(detected),
+            "detected_by_type": Counter(row["issue_type"] for row in detected),
+            "detected_issues": detected,
+        }
+
+    @app.get("/api/quality/export.csv")
+    def export_quality() -> StreamingResponse:
+        output = StringIO()
+        issues = app.state.data.detected_quality
+        writer = csv.DictWriter(output, fieldnames=["issue_id", "issue_type", "source_sheet", "entity_key", "detail"])
+        writer.writeheader()
+        writer.writerows(issues)
+        return StreamingResponse(iter(["\ufeff" + output.getvalue()]), media_type="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment; filename=detected-data-quality.csv"})
+
+    @app.get("/api/lineage/{entity_key}", response_model=LineageResponse)
+    def lineage(entity_key: str) -> dict[str, Any]:
+        item = app.state.data.lineage.get(entity_key)
+        if item is None:
+            raise HTTPException(404, "来歴が見つかりません")
+        try:
+            node = lineage_node_detail(app.state.data, entity_key)
+        except KeyError:
+            raise HTTPException(404, "来歴ノードの元データが見つかりません") from None
+        return {"key": entity_key, "relations": item, "quality_issues": [issue for issue in app.state.data.quality if issue.get("対象キー") == entity_key], "node": node}
+
+    @app.post("/api/lineage/{entity_key}/candidate", status_code=201)
+    def create_candidate_from_lineage(entity_key: str) -> dict[str, Any]:
+        try:
+            payload = candidate_from_lineage(app.state.data, entity_key)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        return store().create_candidate(payload).model_dump(mode="json")
+
+    @app.post("/api/screening", status_code=201)
+    def screening(payload: ScreeningRequest) -> dict[str, Any]:
+        candidates = store().list_candidates()
+        base = store().get_candidate(payload.base_candidate_id) if payload.base_candidate_id else (candidates[0] if candidates else None)
+        if not base:
+            raise HTTPException(404, "基準候補が見つかりません")
+        try:
+            result = run_latin_hypercube(runtime(), base, payload)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        return store().create_screening_run(jsonable_encoder(result))
+
+    @app.get("/api/screening")
+    def list_screening_runs() -> list[dict[str, Any]]:
+        return store().list_screening_runs()
+
+    @app.get("/api/screening/{run_id}")
+    def get_screening_run(run_id: str) -> dict[str, Any]:
+        run = store().get_screening_run(run_id)
+        if not run:
+            raise HTTPException(404, "スクリーニング結果が見つかりません")
+        return run
+
+    @app.post("/api/screening/{run_id}/points/{point_index}/candidate", status_code=201)
+    def screening_point_to_candidate(run_id: str, point_index: int) -> dict[str, Any]:
+        run = store().get_screening_run(run_id)
+        if not run:
+            raise HTTPException(404, "スクリーニング結果が見つかりません")
+        point = next((item for item in run["points"] if item["index"] == point_index), None)
+        if not point:
+            raise HTTPException(404, "スクリーニング点が見つかりません")
+        payload = CandidateInput.model_validate({**point["candidate"], "name": f"Screen {run_id[:6]} #{point_index + 1}"})
+        return store().create_candidate(payload).model_dump(mode="json")
+
+    @app.get("/api/candidates/{candidate_id}/snapshots")
+    def snapshots(candidate_id: str) -> list[dict[str, Any]]:
+        if not store().get_candidate(candidate_id):
+            raise HTTPException(404, "候補が見つかりません")
+        return store().list_snapshots(candidate_id)
+
+    @app.post("/api/candidates/{candidate_id}/snapshots", status_code=201)
+    def create_snapshot(candidate_id: str) -> dict[str, Any]:
+        candidate = store().get_candidate(candidate_id)
+        if not candidate:
+            raise HTTPException(404, "候補が見つかりません")
+        return snapshot_for_candidate(candidate)
+
+    def snapshot_for_candidate(candidate: Any) -> dict[str, Any]:
+        result = runtime().predict(candidate, detailed=True, include_curve=True)
+        payload = {
+            "snapshot_schema_version": "prediction-snapshot-v1",
+            "candidate_id": candidate.id,
+            "raw_candidate": candidate.model_dump(mode="json"),
+            "canonical_input": result["canonical_input"],
+            "prediction": result,
+            "provenance": result["model_meta"],
+        }
+        # Stored JSON is a complete, immutable prediction artifact, not a mutable candidate reference.
+        return store().create_snapshot(candidate.id, jsonable_encoder(payload))
+
+    @app.post("/api/snapshots/{snapshot_id}/restore", status_code=201)
+    def restore_snapshot(snapshot_id: str) -> dict[str, Any]:
+        snapshot = store().get_snapshot(snapshot_id)
+        if not snapshot:
+            raise HTTPException(404, "スナップショットが見つかりません")
+        raw = snapshot["payload"].get("raw_candidate")
+        if not raw:
+            raise HTTPException(422, "このスナップショットには復元可能な候補入力がありません")
+        payload = CandidateInput.model_validate({**raw, "name": f"{raw['name']} (復元)"})
+        return store().create_candidate(payload).model_dump(mode="json")
+
+    @app.get("/api/candidates/{candidate_id}/actuals")
+    def list_actuals(candidate_id: str) -> list[dict[str, Any]]:
+        if not store().get_candidate(candidate_id):
+            raise HTTPException(404, "候補が見つかりません")
+        return [actual.model_dump(mode="json") for actual in store().list_actuals(candidate_id)]
+
+    @app.post("/api/candidates/{candidate_id}/actuals", status_code=201)
+    def create_actual(candidate_id: str, payload: ActualMeasurementInput) -> dict[str, Any]:
+        candidate = store().get_candidate(candidate_id)
+        if not candidate:
+            raise HTTPException(404, "候補が見つかりません")
+        snapshot = snapshot_for_candidate(candidate)
+        return store().create_actual(candidate_id, snapshot["id"], payload).model_dump(mode="json")
+
+    @app.delete("/api/actuals/{actual_id}", status_code=204)
+    def delete_actual(actual_id: str) -> Response:
+        if not store().delete_actual(actual_id):
+            raise HTTPException(404, "実測が見つかりません")
+        return Response(status_code=204)
+
+    @app.get("/api/candidates/{candidate_id}/prediction-vs-actual")
+    def prediction_vs_actual(candidate_id: str) -> dict[str, Any]:
+        actuals = list_actuals(candidate_id)
+        comparisons = []
+        for actual in actuals:
+            snapshot = store().get_snapshot(actual["snapshot_id"])
+            if not snapshot:
+                raise HTTPException(409, "実測に対応する予測スナップショットが見つかりません")
+            payload = snapshot["payload"]
+            comparisons.append({"actual": actual, "snapshot_id": snapshot["id"], "prediction": payload["prediction"], "provenance": payload["provenance"]})
+        return {"candidate_id": candidate_id, "actuals": actuals, "comparisons": comparisons}
+
+    return app
+
+
+app = create_app()

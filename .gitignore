@@ -1,0 +1,15 @@
+node_modules/
+.venv/
+__pycache__/
+.pytest_cache/
+.vite/
+dist/
+apps/web/dist/
+apps/desktop/dist/
+data/app.db
+data/workbench.db
+data/workbench.db-*
+output/
+*.pyc
+*.log
+*.tsbuildinfo
