@@ -2,40 +2,31 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
+import json
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 
+from .feature_pipeline import FEATURE_NAMES as METALLURGY_FEATURE_NAMES, FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION, build_feature_bundle
 from .importer import COMPOSITION_COLUMNS, WorkbookData
-from .schemas import Candidate, Prediction, Support
+from .model_packages import ModelPackageLoader, VerifiedModelPackage
+from .schemas import Candidate, CandidateInput, Prediction, Support
 
 
 TASK_ID = "annealed-properties-v1"
 MODEL_ID = "anneal-ridge"
-MODEL_VERSION = "0.1.0-oof-v1"
-FEATURE_PIPELINE_ID = "anneal-heat-summary"
-FEATURE_PIPELINE_VERSION = "1.0.0"
-SIMILARITY_VERSION = "parent-condition-knn-v1"
+MODEL_VERSION = "0.4.0-oof-v1"
+SIMILARITY_VERSION = "parent-condition-knn-v2-group-balanced"
 INPUT_SCHEMA_VERSION = "candidate-v1"
 TARGETS = {"TS": ("TS[MPa]", "MPa"), "YS": ("YS[MPa]", "MPa"), "EL": ("EL[%]", "%"), "lambda": ("λ[%]", "%")}
-FEATURE_NAMES = tuple(COMPOSITION_COLUMNS) + ("thickness_mm", "line_speed_m_min", "max_temperature_c", "hold_time_s", "coating_GI", "coating_GA", "reheat")
+FEATURE_NAMES = METALLURGY_FEATURE_NAMES
 FEATURE_COMPONENTS = {
     "composition": tuple(range(len(COMPOSITION_COLUMNS))),
-    "process": (len(COMPOSITION_COLUMNS), len(COMPOSITION_COLUMNS) + 1, len(COMPOSITION_COLUMNS) + 4, len(COMPOSITION_COLUMNS) + 5),
-    "heat_pattern": (len(COMPOSITION_COLUMNS) + 2, len(COMPOSITION_COLUMNS) + 3, len(COMPOSITION_COLUMNS) + 6),
+    "process": tuple(range(14, 19)),
+    "metallurgy": tuple(range(19, 25)),
+    "heat_pattern": tuple(range(25, len(FEATURE_NAMES))),
 }
-
-
-def _heat_metrics(pattern: list[Any]) -> tuple[float, float, float]:
-    temperatures = [float(point.temperature_c) for point in pattern]
-    times = [float(point.time_s) for point in pattern]
-    peak = max(temperatures)
-    peak_index = temperatures.index(peak)
-    # Time between entering and leaving the 95% peak band is a defensible hold proxy for free-form input.
-    band = [time for time, temp in zip(times, temperatures) if temp >= peak * 0.95]
-    hold = max(band) - min(band) if len(band) > 1 else 0.0
-    reheat = 1.0 if any(temperatures[i] < temperatures[i + 1] - 25 for i in range(peak_index, len(temperatures) - 1)) else 0.0
-    return peak, hold, reheat
 
 
 def _fit_ridge(x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -73,9 +64,15 @@ def _grouped_oof_residuals(x: np.ndarray, y: np.ndarray, groups: list[str]) -> t
 
 
 def _rms_distance(reference: np.ndarray, point: np.ndarray, columns: tuple[int, ...] | None = None) -> np.ndarray:
-    selected_reference = reference if columns is None else reference[:, columns]
-    selected_point = point if columns is None else point[list(columns)]
-    return np.sqrt(((selected_reference - selected_point) ** 2).mean(axis=1))
+    if columns is not None:
+        return np.sqrt(((reference[:, columns] - point[list(columns)]) ** 2).mean(axis=1))
+    # Give composition, process, metallurgy and heat-history evidence equal
+    # influence regardless of how many scalar features each group contains.
+    component_mse = [
+        ((reference[:, group] - point[list(group)]) ** 2).mean(axis=1)
+        for group in FEATURE_COMPONENTS.values()
+    ]
+    return np.sqrt(np.vstack(component_mse).mean(axis=0))
 
 
 @dataclass
@@ -111,20 +108,77 @@ class SupportReference:
 
 
 class ModelRuntime:
-    def __init__(self, data: WorkbookData) -> None:
+    def __init__(self, data: WorkbookData, package_root: str | Path | None = None, *, load_package: bool = True) -> None:
         self.data = data
+        default_package = Path(__file__).resolve().parents[3] / "models" / "packages" / "annealed-ridge-2026-07"
+        self.model_package: VerifiedModelPackage | None = (
+            ModelPackageLoader().load(package_root or default_package)
+            if load_package and (package_root or default_package.exists())
+            else None
+        )
+        self.composition_defaults = dict(data.medians)
+        self.composition_defaults_sha256: str | None = None
+        if self.model_package:
+            self._load_and_validate_package_feature_contract()
         self.models: dict[str, RidgeModel] = {}
         self.support_reference: SupportReference | None = None
+        self.historical_reference: SupportReference | None = None
         self._fit()
+        self.package_predictors = {
+            spec.target: self.model_package.load_predictor(spec.id)
+            for spec in self.model_package.manifest.predictors
+        } if self.model_package else {}
+        self.package_predictor_specs = {
+            spec.target: spec for spec in self.model_package.manifest.predictors
+        } if self.model_package else {}
+        if self.model_package:
+            self._verify_package_smoke()
+
+    def _load_and_validate_package_feature_contract(self) -> None:
+        assert self.model_package is not None
+        manifest = self.model_package.manifest
+        expected = tuple(FEATURE_NAMES)
+        if (manifest.feature_pipeline.id, manifest.feature_pipeline.version) != (FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION):
+            raise ValueError("Model package feature pipeline id/version is incompatible")
+        if tuple(manifest.feature_pipeline.output_features) != expected:
+            raise ValueError("Model package feature order does not match the application pipeline")
+        if any(tuple(predictor.feature_names) != expected for predictor in manifest.predictors):
+            raise ValueError("Model package predictor feature order is inconsistent")
+        pipeline = json.loads(self.model_package.artifact_path(manifest.feature_pipeline.spec).read_text(encoding="utf-8"))
+        if (pipeline.get("id"), pipeline.get("version")) != (FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION):
+            raise ValueError("Model package pipeline specification id/version is incompatible")
+        if tuple(item["name"] for item in pipeline.get("features", [])) != expected:
+            raise ValueError("Model package pipeline specification is inconsistent")
+        stats_path = next((path for path in manifest.feature_pipeline.artifacts if path.endswith("training_stats.json")), None)
+        if not stats_path:
+            raise ValueError("Model package must include training composition defaults")
+        stats = json.loads(self.model_package.artifact_path(stats_path).read_text(encoding="utf-8"))
+        defaults = stats.get("composition_defaults")
+        if not isinstance(defaults, dict) or set(defaults) != set(COMPOSITION_COLUMNS):
+            raise ValueError("Model package composition defaults are incomplete")
+        self.composition_defaults = {name: float(defaults[name]) for name in COMPOSITION_COLUMNS}
+        artifact = next(item for item in manifest.artifacts if item.path == stats_path)
+        self.composition_defaults_sha256 = artifact.sha256
+
+    def _verify_package_smoke(self) -> None:
+        assert self.model_package is not None
+        smoke = self.model_package.manifest.smoke_test
+        if not smoke:
+            raise ValueError("Production model package must declare a smoke test")
+        candidate = CandidateInput.model_validate(json.loads(self.model_package.artifact_path(smoke["input"]).read_text(encoding="utf-8")))
+        expected = json.loads(self.model_package.artifact_path(smoke["expected"]).read_text(encoding="utf-8"))
+        values = build_feature_bundle(candidate, self.composition_defaults).as_dict()
+        actual = {target: predictor.predict(values, seed=0).point_estimate for target, predictor in self.package_predictors.items()}
+        if set(actual) != set(expected) or any(not np.isclose(actual[target], expected[target], rtol=1e-7, atol=1e-7) for target in actual):
+            raise ValueError("Model package smoke test did not reproduce its expected predictions")
 
     def vector_for_candidate(self, candidate: Candidate) -> np.ndarray:
-        peak, hold, reheat = _heat_metrics(candidate.heat_pattern)
-        composition = {name: candidate.composition.get(name, self.data.medians[name]) for name in COMPOSITION_COLUMNS}
-        return np.array([*(float(composition[name]) for name in COMPOSITION_COLUMNS), candidate.thickness_mm, candidate.line_speed_m_min, peak, hold, 1.0 if candidate.coating == "GI" else 0.0, 1.0 if candidate.coating == "GA" else 0.0, reheat], dtype=float)
+        return build_feature_bundle(candidate, self.composition_defaults).values.copy()
 
     def canonical_input(self, candidate: Candidate) -> dict[str, Any]:
-        vector = self.vector_for_candidate(candidate)
-        peak, hold, reheat = _heat_metrics(candidate.heat_pattern)
+        bundle = build_feature_bundle(candidate, self.composition_defaults)
+        vector = bundle.values.copy()
+        feature_values = bundle.as_dict()
         normalized_vectors = {
             target: {name: round(float(value), 10) for name, value in zip(FEATURE_NAMES, (vector - model.feature_mean) / model.feature_scale)}
             for target, model in self.models.items()
@@ -132,27 +186,45 @@ class ModelRuntime:
         return {
             "input_schema_version": INPUT_SCHEMA_VERSION,
             "composition_mass_percent": {name: round(float(vector[index]), 8) for index, name in enumerate(COMPOSITION_COLUMNS)},
+            "composition_imputation": {
+                "imputed_elements": [name for name in COMPOSITION_COLUMNS if name not in candidate.composition],
+                "defaults": {name: self.composition_defaults[name] for name in COMPOSITION_COLUMNS},
+                "reference_stats_sha256": self.composition_defaults_sha256,
+            },
             "process": {
                 "thickness_mm": candidate.thickness_mm,
                 "line_speed_m_min": candidate.line_speed_m_min,
                 "coating": candidate.coating,
             },
             "heat_pattern": [point.model_dump(mode="json") for point in candidate.heat_pattern],
-            "heat_summary": {"max_temperature_c": peak, "hold_time_s": hold, "reheat": bool(reheat)},
+            "heat_summary": {
+                "peak_temperature_c": feature_values["peak_temperature_c"],
+                "time_at_or_above_95pct_peak_s": feature_values["time_at_or_above_95pct_peak_s"],
+                "time_at_or_above_700c_s": feature_values["time_at_or_above_700c_s"],
+                "thermal_exposure_above_600c_c_s": feature_values["thermal_exposure_above_600c_c_s"],
+                "cooling_rate_800_to_500_c_s": feature_values["cooling_rate_800_to_500_c_s"],
+                "cooling_800_to_500_observed": bool(feature_values["cooling_800_to_500_observed"]),
+                "reheat_count": int(feature_values["reheat_count"]),
+                "has_reheat": bool(feature_values["has_reheat"]),
+            },
             "feature_vector": {name: round(float(value), 10) for name, value in zip(FEATURE_NAMES, vector)},
             "normalized_feature_vectors": normalized_vectors,
         }
 
     def _vector_for_observation(self, row: dict[str, Any]) -> np.ndarray | None:
         process, composition = row["features"], row["composition"]
-        if not process or not composition:
+        if not process or not composition or len(process.get("heat_pattern", [])) < 2 or row["thickness_mm"] <= 0:
             return None
-        return np.array([*(float(composition.get(name, self.data.medians[name])) for name in COMPOSITION_COLUMNS), row["thickness_mm"], process["line_speed_m_min"], process["max_temperature_c"], process["hold_time_s"], 1.0 if process["coating"] == "GI" else 0.0, 1.0 if process["coating"] == "GA" else 0.0, process["reheat"]], dtype=float)
+        candidate = CandidateInput(
+            name=str(row["parent_key"]), composition=composition, thickness_mm=row["thickness_mm"],
+            line_speed_m_min=process["line_speed_m_min"], coating=process["coating"], heat_pattern=process["heat_pattern"],
+        )
+        return build_feature_bundle(candidate, self.data.medians).values.copy()
 
     @staticmethod
-    def _support_reference(rows: list[dict[str, Any]], x: np.ndarray) -> SupportReference:
-        mean = x.mean(axis=0)
-        scale = x.std(axis=0)
+    def _support_reference(rows: list[dict[str, Any]], x: np.ndarray, mean: np.ndarray | None = None, scale: np.ndarray | None = None) -> SupportReference:
+        mean = x.mean(axis=0) if mean is None else mean
+        scale = x.std(axis=0) if scale is None else scale.copy()
         scale[scale < 1e-9] = 1.0
         normalized = (x - mean) / scale
         grouped_indexes: dict[str, list[int]] = defaultdict(list)
@@ -167,10 +239,19 @@ class ModelRuntime:
         return SupportReference(mean, scale, parent_vectors, parent_rows, loo_nearest)
 
     def _fit(self) -> None:
-        prepared = [(row, self._vector_for_observation(row)) for row in self.data.observations]
-        prepared = [(row, vector) for row, vector in prepared if row["eligible"] and vector is not None and row["source"] != "熱延引張"]
+        prepared_all = [(row, self._vector_for_observation(row)) for row in self.data.observations]
+        prepared_all = [(row, vector) for row, vector in prepared_all if vector is not None]
+        prepared = [(row, vector) for row, vector in prepared_all if row["eligible"] and row["source"] != "熱延引張"]
         if prepared:
             self.support_reference = self._support_reference([row for row, _ in prepared], np.vstack([vector for _, vector in prepared]))
+            if prepared_all:
+                reference = self.support_reference
+                self.historical_reference = self._support_reference(
+                    [row for row, _ in prepared_all],
+                    np.vstack([vector for _, vector in prepared_all]),
+                    reference.feature_mean,
+                    reference.feature_scale,
+                )
         for label, (column, unit) in TARGETS.items():
             rows = [(row, vector, row["outputs"][column]) for row, vector in prepared if column in row["outputs"]]
             if len(rows) < 8:
@@ -204,11 +285,28 @@ class ModelRuntime:
             name: round(float(_rms_distance(reference.parent_vectors, normalized, columns)[nearest_index]), 4)
             for name, columns in FEATURE_COMPONENTS.items()
         }
-        nearest_indexes = np.argsort(distances)[:5]
-        similar = []
-        for index in nearest_indexes:
-            row = reference.parent_rows[int(index)]
-            similar.append({"observation_id": row["id"], "source": row["source"], "parent_key": row["parent_key"], "distance": round(float(distances[index]), 4), "outputs": {key: round(value, 3) for key, value in row["outputs"].items()}})
+        def nearest_rows(source: SupportReference, layer: str, limit: int) -> list[dict[str, Any]]:
+            source_normalized = source.normalized(x)
+            source_distances = _rms_distance(source.parent_vectors, source_normalized)
+            rows: list[dict[str, Any]] = []
+            for index in np.argsort(source_distances)[:limit]:
+                row = source.parent_rows[int(index)]
+                rows.append({
+                    "observation_id": row["id"], "source": row["source"], "parent_key": row["parent_key"],
+                    "layer": layer, "distance": round(float(source_distances[index]), 4),
+                    "components": {
+                        name: round(float(_rms_distance(source.parent_vectors, source_normalized, columns)[int(index)]), 4)
+                        for name, columns in FEATURE_COMPONENTS.items()
+                    },
+                    "outputs": {key: round(value, 3) for key, value in row["outputs"].items()},
+                })
+            return rows
+
+        training_nearest = nearest_rows(reference, "training", 3)
+        historical_nearest = nearest_rows(self.historical_reference, "historical", 3) if self.historical_reference else []
+        similar = [item for pair in zip(training_nearest, historical_nearest) for item in pair]
+        similar.extend(training_nearest[len(historical_nearest):])
+        similar.extend(historical_nearest[len(training_nearest):])
         return Support(
             status=status,
             distance=round(nearest, 4),
@@ -221,7 +319,7 @@ class ModelRuntime:
         ), similar
 
     def _model_meta(self) -> dict[str, Any]:
-        return {
+        meta = {
             "task_id": TASK_ID,
             "model": {"id": MODEL_ID, "version": MODEL_VERSION, "method": "ridge regression"},
             "feature_pipeline": {"id": FEATURE_PIPELINE_ID, "version": FEATURE_PIPELINE_VERSION, "input_schema_version": INPUT_SCHEMA_VERSION, "features": list(FEATURE_NAMES)},
@@ -233,18 +331,59 @@ class ModelRuntime:
                 "folds": {name: model.calibration_folds for name, model in self.models.items()},
                 "note": "Validation residuals are grouped by parent condition; this is not an uncertainty decomposition.",
             },
-            "similarity": {"version": SIMILARITY_VERSION, "method": "parent-condition leave-one-out nearest-neighbor distance across normalized composition, process, and heat-summary features"},
+            "similarity": {"version": SIMILARITY_VERSION, "method": "parent-condition leave-one-out nearest-neighbor distance with equal weight for composition, process, metallurgy, and heat-pattern groups"},
         }
+        if self.model_package:
+            manifest = self.model_package.manifest
+            meta["package"] = {"id": manifest.package_id, "version": manifest.package_version, "manifest_sha256": self.model_package.manifest_sha256, "runtime_types": sorted({item.runtime_type for item in manifest.predictors})}
+            meta["model"] = {
+                "id": manifest.package_id,
+                "version": manifest.package_version,
+                "method": " / ".join(sorted({f"{item.runtime_type}:{item.predictive_family}" for item in manifest.predictors})),
+            }
+            meta["feature_pipeline"] = {"id": manifest.feature_pipeline.id, "version": manifest.feature_pipeline.version, "input_schema_version": manifest.input_schema_version, "features": list(manifest.feature_pipeline.output_features)}
+            meta["training_data"]["package_training_data_id"] = manifest.provenance.training_data_id
+        return meta
 
-    def predict(self, candidate: Candidate, detailed: bool = False, include_curve: bool = False) -> dict[str, Any]:
+    def predict(self, candidate: Candidate, detailed: bool = False, include_curve: bool = False, target_values: dict[str, float] | None = None) -> dict[str, Any]:
         x = self.vector_for_candidate(candidate)
         support, similar = self._support(x)
         predictions: dict[str, Prediction] = {}
-        for label, model in self.models.items():
-            value = model.predict(x)
-            lower_offset, upper_offset = model.interval_offsets()
-            predictions[label] = Prediction(value=round(value, 3), lower=round(value + lower_offset, 3), upper=round(value + upper_offset, 3), unit=model.unit)
         warnings: list[str] = []
+        labels = self.package_predictors.keys() if self.package_predictors else self.models.keys()
+        for label in labels:
+            model = self.models.get(label)
+            summary = None
+            if label in self.package_predictors:
+                summary = self.package_predictors[label].predict({name: float(value) for name, value in zip(FEATURE_NAMES, x)}, seed=0)
+                value = summary.point_estimate
+                lower = summary.quantiles.get("0.05", value)
+                upper = summary.quantiles.get("0.95", value)
+                unit = summary.unit
+                warnings.extend(summary.warnings)
+            else:
+                assert model is not None
+                value = model.predict(x)
+                lower_offset, upper_offset = model.interval_offsets()
+                lower, upper = value + lower_offset, value + upper_offset
+                unit = model.unit
+            goal_value = (target_values or {}).get(label)
+            goal_probability = None
+            if goal_value is not None and summary is not None and summary.event_probability is not None:
+                goal_probability = summary.event_probability
+            elif goal_value is not None and summary is not None and model is not None:
+                spec = self.package_predictor_specs[label]
+                package_data_id = self.model_package.manifest.provenance.training_data_id if self.model_package else ""
+                calibrated_same_data = (
+                    spec.runtime_type == "builtin.linear.v1"
+                    and spec.config.get("calibration") == "grouped_oof_residual_quantiles"
+                    and package_data_id == f"sha256:{self.data.source_sha256}"
+                )
+                if calibrated_same_data:
+                    goal_probability = float(np.mean(value + model.oof_residuals >= goal_value))
+            elif goal_value is not None and model is not None:
+                goal_probability = float(np.mean(value + model.oof_residuals >= goal_value))
+            predictions[label] = Prediction(value=round(value, 3), lower=round(lower, 3), upper=round(upper, 3), unit=unit, goal_value=goal_value, goal_probability=None if goal_probability is None else round(goal_probability, 4), goal_direction=None if goal_value is None else "at_least")
         if support.status != "supported":
             warnings.append(support.message)
         if candidate.composition.get("C", self.data.medians["C"]) > 1:
@@ -257,11 +396,11 @@ class ModelRuntime:
             "heat_pattern": candidate.heat_pattern, "response_curve": response_curve,
         }
 
-    def response_curve(self, candidate: Candidate) -> list[dict[str, float]]:
-        if "TS" not in self.models:
+    def response_curve(self, candidate: Candidate, target: str = "TS") -> list[dict[str, float]]:
+        if target not in self.models:
             return []
-        model = self.models["TS"]
-        values = model.x_train[:, FEATURE_NAMES.index("max_temperature_c")] * model.feature_scale[FEATURE_NAMES.index("max_temperature_c")] + model.feature_mean[FEATURE_NAMES.index("max_temperature_c")]
+        model = self.models[target]
+        values = model.x_train[:, FEATURE_NAMES.index("peak_temperature_c")] * model.feature_scale[FEATURE_NAMES.index("peak_temperature_c")] + model.feature_mean[FEATURE_NAMES.index("peak_temperature_c")]
         start, end = float(np.quantile(values, 0.05)), float(np.quantile(values, 0.95))
         peak_index = max(range(len(candidate.heat_pattern)), key=lambda i: candidate.heat_pattern[i].temperature_c)
         lower_offset, upper_offset = model.interval_offsets()
@@ -269,6 +408,13 @@ class ModelRuntime:
         for temperature in np.linspace(start, end, 9):
             adjusted = candidate.model_copy(deep=True)
             adjusted.heat_pattern[peak_index].temperature_c = float(temperature)
-            value = model.predict(self.vector_for_candidate(adjusted))
-            curve.append({"temperature_c": round(float(temperature), 2), "value": round(value, 3), "lower": round(value + lower_offset, 3), "upper": round(value + upper_offset, 3)})
+            adjusted_vector = self.vector_for_candidate(adjusted)
+            if target in self.package_predictors:
+                summary = self.package_predictors[target].predict({name: float(value) for name, value in zip(FEATURE_NAMES, adjusted_vector)}, seed=0)
+                value = summary.point_estimate
+                lower, upper = summary.quantiles.get("0.05", value), summary.quantiles.get("0.95", value)
+            else:
+                value = model.predict(adjusted_vector)
+                lower, upper = value + lower_offset, value + upper_offset
+            curve.append({"temperature_c": round(float(temperature), 2), "value": round(value, 3), "lower": round(lower, 3), "upper": round(upper, 3)})
         return curve

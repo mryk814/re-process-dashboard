@@ -1,0 +1,53 @@
+{
+  "schema_version": "model-package/v1",
+  "package_id": "numpyro-student_t-example",
+  "package_version": "1.0.0",
+  "task_id": "model-package-example",
+  "input_schema_version": "candidate-v1",
+  "feature_pipeline": {
+    "id": "two-feature-example",
+    "version": "1.0.0",
+    "spec": "feature-pipeline/pipeline.json",
+    "output_features": [
+      "C",
+      "Mn"
+    ],
+    "artifacts": []
+  },
+  "predictors": [
+    {
+      "id": "target",
+      "target": "example",
+      "unit": "1",
+      "target_kind": "continuous",
+      "runtime_type": "numpyro.dense_posterior.v1",
+      "architecture_id": "dense_mlp_v1",
+      "artifact": "model-artifacts/posterior.npz",
+      "predictive_family": "student_t",
+      "feature_names": [
+        "C",
+        "Mn"
+      ],
+      "config": {
+        "activation": "tanh"
+      }
+    }
+  ],
+  "provenance": {
+    "training_data_id": "synthetic:documented-example",
+    "feature_dataset_id": "synthetic:C-Mn",
+    "training_code_revision": "build_numpyro_package_examples.py"
+  },
+  "artifacts": [
+    {
+      "path": "feature-pipeline/pipeline.json",
+      "sha256": "8ff89b68ff398c51e42f8b12d3a63b35fe51c824a1da19cd3f7f3f25efa8c237",
+      "bytes": 46
+    },
+    {
+      "path": "model-artifacts/posterior.npz",
+      "sha256": "50189e666f4259728f1e72483d1ffe25c0bf369a845f52d072f118920a102426",
+      "bytes": 11180
+    }
+  ]
+}

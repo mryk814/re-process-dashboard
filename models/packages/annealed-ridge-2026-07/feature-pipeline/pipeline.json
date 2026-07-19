@@ -1,0 +1,178 @@
+{
+  "id": "metallurgy-thermal",
+  "version": "1.3.0",
+  "features": [
+    {
+      "name": "C",
+      "unit": "mass%",
+      "meaning": "C composition"
+    },
+    {
+      "name": "Si",
+      "unit": "mass%",
+      "meaning": "Si composition"
+    },
+    {
+      "name": "Mn",
+      "unit": "mass%",
+      "meaning": "Mn composition"
+    },
+    {
+      "name": "P",
+      "unit": "mass%",
+      "meaning": "P composition"
+    },
+    {
+      "name": "S",
+      "unit": "mass%",
+      "meaning": "S composition"
+    },
+    {
+      "name": "Cr",
+      "unit": "mass%",
+      "meaning": "Cr composition"
+    },
+    {
+      "name": "Mo",
+      "unit": "mass%",
+      "meaning": "Mo composition"
+    },
+    {
+      "name": "Ni",
+      "unit": "mass%",
+      "meaning": "Ni composition"
+    },
+    {
+      "name": "Al",
+      "unit": "mass%",
+      "meaning": "Al composition"
+    },
+    {
+      "name": "Ti",
+      "unit": "mass%",
+      "meaning": "Ti composition"
+    },
+    {
+      "name": "B",
+      "unit": "mass%",
+      "meaning": "B composition"
+    },
+    {
+      "name": "N",
+      "unit": "mass%",
+      "meaning": "N composition"
+    },
+    {
+      "name": "O",
+      "unit": "mass%",
+      "meaning": "O composition"
+    },
+    {
+      "name": "Ca",
+      "unit": "mass%",
+      "meaning": "Ca composition"
+    },
+    {
+      "name": "thickness_mm",
+      "unit": "mm",
+      "meaning": "Product thickness"
+    },
+    {
+      "name": "line_speed_m_min",
+      "unit": "m/min",
+      "meaning": "Process line speed"
+    },
+    {
+      "name": "coating_none",
+      "unit": "1",
+      "meaning": "Uncoated indicator"
+    },
+    {
+      "name": "coating_GI",
+      "unit": "1",
+      "meaning": "GI coating indicator"
+    },
+    {
+      "name": "coating_GA",
+      "unit": "1",
+      "meaning": "GA coating indicator"
+    },
+    {
+      "name": "ce_iiw",
+      "unit": "mass%",
+      "meaning": "IIW carbon-equivalent proxy"
+    },
+    {
+      "name": "pcm",
+      "unit": "mass%",
+      "meaning": "Ito-Bessyo weld-cracking composition parameter"
+    },
+    {
+      "name": "c_times_mn",
+      "unit": "mass%^2",
+      "meaning": "Carbon-manganese interaction proxy"
+    },
+    {
+      "name": "si_plus_al",
+      "unit": "mass%",
+      "meaning": "Combined silicon and aluminium content"
+    },
+    {
+      "name": "cr_plus_mo",
+      "unit": "mass%",
+      "meaning": "Combined chromium and molybdenum content"
+    },
+    {
+      "name": "microalloy_sum",
+      "unit": "mass%",
+      "meaning": "Available microalloying content, Ti + B"
+    },
+    {
+      "name": "peak_temperature_c",
+      "unit": "degC",
+      "meaning": "Peak temperature of the entered route"
+    },
+    {
+      "name": "max_heating_rate_c_s",
+      "unit": "degC/s",
+      "meaning": "Maximum positive segment heating rate"
+    },
+    {
+      "name": "time_at_or_above_95pct_peak_s",
+      "unit": "s",
+      "meaning": "Interpolated time at or above 95% of peak"
+    },
+    {
+      "name": "time_at_or_above_700c_s",
+      "unit": "s",
+      "meaning": "Interpolated time at or above 700 degC"
+    },
+    {
+      "name": "thermal_exposure_above_600c_c_s",
+      "unit": "degC*s",
+      "meaning": "Integral of max(T - 600 degC, 0)"
+    },
+    {
+      "name": "cooling_rate_800_to_500_c_s",
+      "unit": "degC/s",
+      "meaning": "Equivalent cooling rate between downward 800 and 500 degC crossings after peak"
+    },
+    {
+      "name": "cooling_800_to_500_observed",
+      "unit": "1",
+      "meaning": "One when both downward 800 and 500 degC crossings are observed; zero marks the rate as unavailable"
+    },
+    {
+      "name": "reheat_count",
+      "unit": "count",
+      "meaning": "Cooling-to-heating excursions with at least 25 degC amplitude"
+    },
+    {
+      "name": "has_reheat",
+      "unit": "1",
+      "meaning": "One when reheat_count is positive"
+    }
+  ],
+  "missing_composition": "training_median_from_source_workbook",
+  "heat_interpolation": "piecewise_linear"
+}
