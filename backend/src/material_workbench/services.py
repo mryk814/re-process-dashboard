@@ -96,12 +96,10 @@ def candidate_from_lineage(data: WorkbookData, entity_key: str) -> CandidateInpu
     melt_keys = sorted(set(relations.get("溶製_key", [])))
     if len(melt_keys) != 1 or melt_keys[0] not in data.composition:
         raise ValueError("焼鈍条件に一意な成分が接続されていません")
-    history = [row for row in data.sheets["焼鈍履歴"] if str(row.get("焼鈍_key")) == anneal_key]
-    if len(history) < 2:
-        raise ValueError("候補化に必要な焼鈍履歴がありません")
-    history.sort(key=lambda row: (float(row.get("到達時間[s]") or 0), int(row.get("順番") or 0)))
-    heat_pattern = [HeatPoint(time_s=float(row["到達時間[s]"]), temperature_c=float(row["実績温度[℃]"])) for row in history]
     feature = data.anneal_features[anneal_key]
+    heat_pattern = [HeatPoint.model_validate(point) for point in deepcopy(feature["heat_pattern"])]
+    if len(heat_pattern) < 2:
+        raise ValueError("候補化に必要な焼鈍履歴がありません")
     thickness_rows = [row for row in data.observations if row["parent_key"] == anneal_key and row["thickness_mm"] > 0]
     thickness = float(np.median([row["thickness_mm"] for row in thickness_rows])) if thickness_rows else 1.4
     return CandidateInput(name=f"過去条件 {anneal_key}", composition=deepcopy(data.composition[melt_keys[0]]), thickness_mm=thickness, line_speed_m_min=float(feature["line_speed_m_min"]), coating=str(feature["coating"]), heat_pattern=heat_pattern)
@@ -131,7 +129,9 @@ def import_candidates_xlsx(contents: bytes) -> tuple[list[CandidateInput], list[
             while f"time_s_{index}" in positions and f"temperature_c_{index}" in positions:
                 time, temperature = value(f"time_s_{index}"), value(f"temperature_c_{index}")
                 if time is not None and temperature is not None:
-                    points.append({"time_s": float(time), "temperature_c": float(temperature)})
+                    segment_raw = value(f"segment_start_{index}", False)
+                    segment_start = segment_raw is True or str(segment_raw).strip().lower() in {"1", "true", "yes", "あり"}
+                    points.append({"time_s": float(time), "temperature_c": float(temperature), "segment_start": segment_start})
                 index += 1
             if len(points) < 2:
                 raise ValueError("time_s_1 / temperature_c_1 から少なくとも2点が必要です")
@@ -149,12 +149,12 @@ def candidates_xlsx(candidates: list[Candidate], runtime: ModelRuntime) -> bytes
     sheet = workbook.active
     sheet.title = "候補"
     max_points = max((len(candidate.heat_pattern) for candidate in candidates), default=2)
-    heat_headers = [item for index in range(1, max_points + 1) for item in (f"time_s_{index}", f"temperature_c_{index}")]
+    heat_headers = [item for index in range(1, max_points + 1) for item in (f"time_s_{index}", f"temperature_c_{index}", f"segment_start_{index}")]
     headers = ["schema_version", "id", "name", *COMPOSITION_COLUMNS, "thickness_mm", "line_speed_m_min", "coating", *heat_headers, "TS", "YS", "EL", "lambda", "support_status", "support_distance"]
     sheet.append(headers)
     for candidate in candidates:
         result = runtime.predict(candidate, detailed=False)
-        heat_values = [item for point in candidate.heat_pattern for item in (point.time_s, point.temperature_c)]
+        heat_values = [item for point in candidate.heat_pattern for item in (point.time_s, point.temperature_c, point.segment_start)]
         heat_values.extend([None] * (len(heat_headers) - len(heat_values)))
         sheet.append(["material-workbench-candidate-v1", candidate.id, candidate.name, *(candidate.composition.get(name) for name in COMPOSITION_COLUMNS), candidate.thickness_mm, candidate.line_speed_m_min, candidate.coating, *heat_values, *(result["predictions"][target].value for target in ("TS", "YS", "EL", "lambda")), result["support"].status, result["support"].distance])
     for column in sheet.columns:
@@ -164,7 +164,7 @@ def candidates_xlsx(candidates: list[Candidate], runtime: ModelRuntime) -> bytes
     guide.append(["schema_version", "material-workbench-candidate-v1"])
     guide.append(["用途", "候補入力と軽量プレビュー予測の出力。候補シートはそのまま候補importに使用できます。"])
     guide.append(["単位", "C, Si, Mn, P, S, Cr, Mo, Ni, Al, Ti, B, N, O, Ca は mass%; thickness_mm は mm; line_speed_m_min は m/min; time_s は s; temperature_c は ℃。"])
-    guide.append(["heat pattern", "time_s_N と temperature_c_N を対で指定し、少なくとも2点を時刻の昇順で入力します。"])
+    guide.append(["heat pattern", "time_s_N と temperature_c_N を対で指定し、少なくとも2点を時刻の昇順で入力します。工程時計がresetする点は segment_start_N を TRUE にし、未知の工程間時間を速度・積分へ混ぜません。"])
     guide.append(["prediction", "TS/YS は MPa、EL/lambda は %。予測はexport時のモデル・データに基づく参考値です。"])
     guide.column_dimensions["A"].width = 20
     guide.column_dimensions["B"].width = 110

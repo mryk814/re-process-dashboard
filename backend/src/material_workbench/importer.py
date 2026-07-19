@@ -5,7 +5,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from statistics import median
+from statistics import fmean, median, pstdev
 from typing import Any
 
 from openpyxl import load_workbook
@@ -168,7 +168,7 @@ def lineage_node_detail(data: WorkbookData, entity_key: str) -> dict[str, Any]:
     melt_keys = [entity_key] if entity_type == "溶製_key" else relations.get("溶製_key", [])
     composition = data.composition.get(melt_keys[0], {}) if len(melt_keys) == 1 else {}
     anneal_keys = [entity_key] if entity_type == "焼鈍_key" else relations.get("焼鈍_key", [])
-    heat_pattern: list[dict[str, float]] = []
+    heat_pattern: list[dict[str, Any]] = []
     if len(anneal_keys) == 1:
         heat_pattern = [
             {"time_s": float(row["到達時間[s]"]), "temperature_c": float(row["実績温度[℃]"])}
@@ -177,17 +177,28 @@ def lineage_node_detail(data: WorkbookData, entity_key: str) -> dict[str, Any]:
             and isinstance(row.get("到達時間[s]"), (int, float))
             and isinstance(row.get("実績温度[℃]"), (int, float))
         ]
+        _normalize_stage_local_times(heat_pattern)
     connected_keys = {entity_key, *(key for values in relations.values() for key in values)}
     aggregate: dict[str, list[float]] = defaultdict(list)
     observation_count = 0
+    connected_observations: list[dict[str, Any]] = []
     for observation in data.observations:
         if observation["id"] not in connected_keys and observation["parent_key"] not in connected_keys:
             continue
         observation_count += 1
+        connected_observations.append({
+            "id": observation["id"],
+            "source": observation["source"],
+            "parent_key": observation["parent_key"],
+            "outputs": observation["outputs"],
+        })
         for property_name, value in observation["outputs"].items():
             aggregate[property_name].append(float(value))
     property_summary = {
-        property_name: {"count": len(values), "min": min(values), "median": float(median(values)), "max": max(values)}
+        property_name: {
+            "count": len(values), "min": min(values), "mean": float(fmean(values)),
+            "std": float(pstdev(values)), "median": float(median(values)), "max": max(values),
+        }
         for property_name, values in sorted(aggregate.items())
     }
     primary_conditions = {
@@ -204,9 +215,28 @@ def lineage_node_detail(data: WorkbookData, entity_key: str) -> dict[str, Any]:
         "composition": composition,
         "heat_pattern": heat_pattern,
         "connected_observation_count": observation_count,
+        "connected_observations": connected_observations,
         "property_summary": property_summary,
         "related_entities": relations,
     }
+
+
+def _normalize_stage_local_times(points: list[dict[str, Any]]) -> None:
+    """Stitch stage-local clock resets without adding the new stage's initial timestamp."""
+    stage_raw_origin = 0.0
+    stage_normalized_origin = 0.0
+    previous_raw = 0.0
+    previous_normalized = -1.0
+    for point in points:
+        raw = point["time_s"]
+        if previous_normalized >= 0 and raw < previous_raw:
+            stage_raw_origin = raw
+            stage_normalized_origin = previous_normalized + 1e-6
+            point["segment_start"] = True
+        normalized = stage_normalized_origin + (raw - stage_raw_origin)
+        point["time_s"] = max(normalized, previous_normalized + 1e-6)
+        previous_raw = raw
+        previous_normalized = point["time_s"]
 
 
 def load_workbook_data(path: str | Path) -> WorkbookData:
@@ -229,6 +259,15 @@ def load_workbook_data(path: str | Path) -> WorkbookData:
         for row in melt_rows
     }
     feature_rows = sheets["焼鈍特徴量"]
+    anneal_history_by_key: dict[str, list[dict[str, float]]] = defaultdict(list)
+    for row in sorted(sheets["焼鈍履歴"], key=lambda item: (str(item.get("焼鈍_key", "")), item.get("順番", 0))):
+        if isinstance(row.get("到達時間[s]"), (int, float)) and isinstance(row.get("実績温度[℃]"), (int, float)):
+            anneal_history_by_key[str(row["焼鈍_key"])].append({"time_s": float(row["到達時間[s]"]), "temperature_c": float(row["実績温度[℃]"])})
+    # Some multi-stage routes restart their stage-local clock. Preserve the
+    # recorded point order and stitch each reset after the preceding stage so
+    # the canonical route remains strictly monotonic without reordering heat events.
+    for key, points in anneal_history_by_key.items():
+        _normalize_stage_local_times(points)
     anneal_features = {
         str(row["焼鈍_key"]): {
             "line_speed_m_min": float(row["ライン速度[m/min]"]),
@@ -239,6 +278,7 @@ def load_workbook_data(path: str | Path) -> WorkbookData:
             "reheat": 1.0 if row["再加熱工程あり"] == "あり" else 0.0,
             "alloying": 1.0 if row["合金化工程あり"] == "通過" else 0.0,
             "feature_status": str(row["特徴量化判定"]),
+            "heat_pattern": anneal_history_by_key.get(str(row["焼鈍_key"]), []),
         }
         for row in feature_rows
     }
