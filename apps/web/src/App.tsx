@@ -1051,16 +1051,14 @@ function sliderScale(input: TaskInputDefinition, value: number) {
   const min = Math.max(input.min, learnedMin - padding);
   const max = Math.min(input.max, learnedMax + padding);
   const sliderValue = Math.max(min, Math.min(max, value));
-  const position = ((sliderValue - min) / Math.max(max - min, Number.EPSILON)) * 100;
-  const inLearningRange = value >= learnedMin && value <= learnedMax;
-  const color = inLearningRange ? "#15936a" : value >= min && value <= max ? "#c17816" : "#c24b38";
+  const divisor = Math.max(max - min, Number.EPSILON);
+  const trainingStart = ((Math.max(min, learnedMin) - min) / divisor) * 100;
+  const trainingEnd = ((Math.min(max, learnedMax) - min) / divisor) * 100;
   return {
     min,
     max,
     sliderValue,
-    color,
-    style: { background: `linear-gradient(90deg, ${color} 0 ${position}%, #dfe6ee ${position}% 100%)` },
-    note: `バー ${number(min, 3)}–${number(max, 3)} · 学習 ${number(learnedMin, 3)}–${number(learnedMax, 3)}`,
+    style: { background: `linear-gradient(90deg, #dfe6ee 0 ${trainingStart}%, #6bb69e ${trainingStart}% ${trainingEnd}%, #dfe6ee ${trainingEnd}% 100%)` },
   };
 }
 
@@ -1105,7 +1103,6 @@ function CandidateInspector({
                 aria-label={`${candidate.label} ${input.label}`}
                 onChange={(event) => onComposition(candidate.id, input.field, Number(event.target.value))}
               />
-              <span className="range-note" style={{ color: scale.color }}>{scale.note}</span>
             </label>
           );
         })}
