@@ -1,10 +1,11 @@
 import { PointerEvent, useEffect, useRef, useState } from "react";
-import { HotRollingWorkbench } from "./HotRollingWorkbench";
 import { provenanceLabel, provenanceNavigation, type CandidateProvenance } from "./app/candidateProvenance";
 import { navigationUrl, readNavigationIntent, withView, type NavigationIntent, type WorkbenchView } from "./app/navigation";
-import { CandidateInspector as TaskDrivenCandidateInspector, ComparisonTable as TaskDrivenComparisonTable, fromApiCandidate, numericTaskInputs, setCandidateInputValue, taskFieldName, toApiCandidate, useCandidateEditor, validateResolvedTaskDefinition, type CandidateSaveState, type CandidateViewModel as Candidate, type NumericTaskInput, type ResolvedTaskDefinition, type TaskDefinitionContract, type TaskOutputDefinition } from "./features/candidates";
+import { CandidateInspector as TaskDrivenCandidateInspector, ComparisonTable as TaskDrivenComparisonTable, fromApiCandidate, numericTaskInputs, setCandidateInputValue, taskFieldName, toApiCandidate, useCandidateEditor, validateResolvedTaskDefinition, type CandidateSaveState, type CandidateViewModel as Candidate, type NumericTaskInput, type ResolvedTaskDefinition, type RuntimeOperations, type TaskDefinitionContract, type TaskOutputDefinition } from "./features/candidates";
+import { useWorkbenchPrediction, type PredictionMetric as Metric } from "./features/workbench/useWorkbenchPrediction";
+import { workbenchRequestKey } from "./features/workbench/workbenchIdentity";
 import { ApiClientError, apiBaseUrl } from "./shared/api/client";
-import { candidateInputIdentity, mergePreviewEntryIfCurrent } from "./shared/api/inferenceRequestCache";
+import { candidateInputIdentity } from "./shared/api/inferenceRequestCache";
 import {
   workbenchApi,
   type ApiActual,
@@ -22,19 +23,6 @@ import {
 } from "./shared/api/workbench-api";
 
 type Tab = WorkbenchView;
-type Metric = {
-  key: string;
-  unit: string;
-  value: number;
-  low: number;
-  high: number;
-  status: string;
-  goalValue?: number | null;
-  goalProbability?: number | null;
-  modelStd?: number | null;
-  observationStd?: number | null;
-};
-
 function allowedRange(input: NumericTaskInput) {
   if (!input.allowed_range) throw new Error(`数値fieldにallowed_rangeがありません: ${input.path}`);
   return input.allowed_range;
@@ -77,7 +65,6 @@ const STARTER_CANDIDATE: ApiCandidateInput = {
 const navItems: Array<{ id: Tab; label: string }> = [
   { id: "project", label: "プロジェクト" },
   { id: "candidates", label: "候補比較" },
-  { id: "hot-rolling", label: "熱延" },
   { id: "settings", label: "設定" },
   { id: "quality", label: "データ品質" },
   { id: "lineage", label: "工程系譜" },
@@ -104,29 +91,6 @@ function candidateColor(candidateId: string, selectedId: string) {
   let hash = 0;
   for (const character of candidateId) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
   return CANDIDATE_COLORS[hash % CANDIDATE_COLORS.length];
-}
-
-function metricsFromPreview(preview: ApiPreview): Metric[] {
-  return Object.entries(preview.predictions ?? {}).map(([key, prediction]) => ({
-    key: key === "lambda" ? "λ" : key,
-    unit: prediction.unit,
-    value: prediction.value,
-    low: prediction.lower,
-    high: prediction.upper,
-    status: preview.support?.status ?? "supported",
-    goalValue: prediction.goal_value,
-    goalProbability: prediction.goal_probability,
-    modelStd:
-      prediction.uncertainty_components?.latent_model_std ??
-      (prediction.uncertainty_components?.latent_model_variance !== undefined
-        ? Math.sqrt(prediction.uncertainty_components.latent_model_variance)
-        : null),
-    observationStd:
-      prediction.uncertainty_components?.observation_noise_std ??
-      (prediction.uncertainty_components?.observation_noise_variance !== undefined
-        ? Math.sqrt(prediction.uncertainty_components.observation_noise_variance)
-        : null),
-  }));
 }
 
 function Icon({
@@ -200,13 +164,9 @@ function App() {
   const navigationRef = useRef(navigation);
   const tab = navigation.view;
   const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const candidatesRef = useRef(candidates);
+  candidatesRef.current = candidates;
   const [selectedId, setSelectedId] = useState("");
-  const [metrics, setMetrics] = useState<Metric[]>([]);
-  const [preview, setPreview] = useState<ApiPreview | null>(null);
-  const [previewsByCandidate, setPreviewsByCandidate] = useState<
-    Record<string, ApiPreview>
-  >({});
-  const [previewIdentitiesByCandidate, setPreviewIdentitiesByCandidate] = useState<Record<string, string>>({});
   const [apiState, setApiState] = useState<"ready" | "loading" | "offline">(
     "loading",
   );
@@ -219,40 +179,20 @@ function App() {
   const [activeProjectId, setActiveProjectId] = useState("default");
   const loadSequence = useRef(0);
   const loadPreviewController = useRef<AbortController | null>(null);
-  const previewInputIdentityRef = useRef(new Map<string, string>());
-  const storedPreviewIdentityRef = useRef(new Map<string, string>());
-  const selectedIdRef = useRef(selectedId);
-  selectedIdRef.current = selectedId;
-  const candidatesRef = useRef(candidates);
-  candidatesRef.current = candidates;
   const selected = candidates.find((candidate) => candidate.id === selectedId);
   const activeProject = projects.find(
     (project) => project.id === activeProjectId,
   );
+  const taskId = taskDefinition?.id ?? activeProject?.task_id ?? "";
+  const operations = resolvedTaskDefinition?.runtime_capability.operations;
+  const prediction = useWorkbenchPrediction({ projectId: activeProjectId, taskId, candidate: selected, operations, onNotice: setNotice, setApiState });
+  const { error: previewError, metrics, preview, previewsByCandidate } = prediction;
   const editor = useCandidateEditor({
     projectId: activeProjectId,
     setCandidates,
-    getPreviewInputIdentity: (candidateId) => storedPreviewIdentityRef.current.get(candidateId),
-    onPreview: (candidateId, nextPreview, inputIdentity) => {
-      if (inputIdentity) previewInputIdentityRef.current.set(candidateId, inputIdentity);
-      if (nextPreview && inputIdentity) storedPreviewIdentityRef.current.set(candidateId, inputIdentity);
-      else storedPreviewIdentityRef.current.delete(candidateId);
-      setPreviewIdentitiesByCandidate((current) => {
-        if (nextPreview && inputIdentity) return { ...current, [candidateId]: inputIdentity };
-        const { [candidateId]: _, ...remaining } = current;
-        return remaining;
-      });
-      setPreviewsByCandidate((current) => {
-        if (nextPreview) return { ...current, [candidateId]: nextPreview };
-        const { [candidateId]: _, ...remaining } = current;
-        return remaining;
-      });
-      if (candidateId === selectedIdRef.current) {
-        setPreview(nextPreview);
-        setMetrics(nextPreview ? metricsFromPreview(nextPreview) : []);
-      }
-      setApiState("ready");
-    },
+    previewAvailable: operations?.preview === true,
+    getPreviewInputIdentity: prediction.getPreviewInputIdentity,
+    onPreview: prediction.acceptPreview,
     onNotice: setNotice,
   });
 
@@ -264,13 +204,11 @@ function App() {
   }
 
   function selectCandidate(candidateId: string, replace = true) {
-    selectedIdRef.current = candidateId;
     setSelectedId(candidateId);
     navigate({ view: "candidates", projectId: activeProjectId, candidateId }, replace);
   }
 
   function rememberCandidate(candidateId: string) {
-    selectedIdRef.current = candidateId;
     setSelectedId(candidateId);
     navigate({ ...navigationRef.current, projectId: activeProjectId, candidateId }, true);
   }
@@ -308,21 +246,14 @@ function App() {
     setTaskDefinition(definition);
     setResolvedTaskDefinition(resolved);
     window.localStorage.setItem("material-workbench-project", projectId);
+    candidatesRef.current = imported;
     setCandidates(imported);
-    previewInputIdentityRef.current = new Map(
-      imported.map((candidate) => [candidate.id, candidateInputIdentity(candidate.raw.inputs)]),
-    );
     const nextSelectedId = imported.some((candidate) => candidate.id === requestedCandidateId)
       ? requestedCandidateId!
       : (imported[0]?.id ?? "");
-    selectedIdRef.current = nextSelectedId;
     setSelectedId(nextSelectedId);
     navigate({ ...navigationRef.current, projectId, candidateId: nextSelectedId || undefined }, true);
-    setMetrics([]);
-    setPreview(null);
-    setPreviewsByCandidate({});
-    setPreviewIdentitiesByCandidate({});
-    storedPreviewIdentityRef.current.clear();
+    prediction.reset();
     setApiState("ready");
     setNotice(
       requestedCandidateMissing
@@ -332,34 +263,26 @@ function App() {
         : "候補がありません。過去条件または新規入力から追加できます",
     );
     if (!imported.length) return;
-    await Promise.all(
+    if (!resolved.runtime_capability.operations.preview) return;
+    const previewEntries = await Promise.all(
       imported.filter((candidate) => !candidate.raw.archived_at).map(async (candidate) => {
         const inputIdentity = candidateInputIdentity(candidate.raw.inputs);
         try {
-          const loaded = await workbenchApi.previewCandidate(projectId, candidate.id, inputIdentity, previewController.signal);
-          if (sequence !== loadSequence.current || previewController.signal.aborted) return;
-          if (previewInputIdentityRef.current.get(candidate.id) !== inputIdentity) return;
-          const currentCandidate = candidatesRef.current.find((item) => item.id === candidate.id);
-          if (currentCandidate && candidateInputIdentity(currentCandidate.raw.inputs) !== inputIdentity) return;
-          const existingInputIdentity = storedPreviewIdentityRef.current.get(candidate.id);
-          if (existingInputIdentity && existingInputIdentity !== inputIdentity) return;
-          storedPreviewIdentityRef.current.set(candidate.id, inputIdentity);
-          setPreviewIdentitiesByCandidate((identities) => ({ ...identities, [candidate.id]: inputIdentity }));
-          setPreviewsByCandidate((current) => {
-            return mergePreviewEntryIfCurrent(
-              current,
-              candidate.id,
-              inputIdentity,
-              previewInputIdentityRef.current.get(candidate.id),
-              existingInputIdentity,
-              loaded,
-            );
-          });
+          const loaded = await workbenchApi.previewCandidate(projectId, candidate.id, candidate.raw.revision, inputIdentity, previewController.signal);
+          if (sequence !== loadSequence.current || previewController.signal.aborted) return null;
+          return [candidate.id, loaded] as const;
         } catch {
-          // A selected-candidate subscriber may still complete the shared request.
+          return null;
         }
       }),
     );
+    if (sequence !== loadSequence.current || previewController.signal.aborted) return;
+    const loaded = Object.fromEntries(
+      previewEntries.filter(
+        (entry): entry is readonly [string, ApiPreview] => entry !== null,
+      ),
+    );
+    prediction.acceptProjectPreviews(imported, candidatesRef.current, loaded, definition.id);
   }
 
   useEffect(() => {
@@ -403,67 +326,12 @@ function App() {
       if (targetProjectId !== activeProjectId || (intent.candidateId && !candidates.some((candidate) => candidate.id === intent.candidateId))) {
         void loadProject(targetProjectId);
       } else if (intent.candidateId) {
-        selectedIdRef.current = intent.candidateId;
         setSelectedId(intent.candidateId);
       }
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, [activeProjectId, candidates]);
-
-  useEffect(() => {
-    if (!selected) return;
-    if (selected.raw.archived_at) {
-      setApiState("ready");
-      setPreview(null);
-      setMetrics([]);
-      setNotice("archive済み候補を参照しています");
-      return;
-    }
-    const controller = new AbortController();
-    const candidateId = selected.id;
-    const inputIdentity = candidateInputIdentity(selected.raw.inputs);
-    const cachedPreview = previewsByCandidate[candidateId];
-    const cached = cachedPreview && previewIdentitiesByCandidate[candidateId] === inputIdentity
-      ? cachedPreview
-      : undefined;
-    if (cached) {
-      setMetrics(metricsFromPreview(cached));
-      setPreview(cached);
-      setApiState("ready");
-      return;
-    }
-    setApiState("loading");
-    setPreview(null);
-    setMetrics([]);
-    const timer = window.setTimeout(async () => {
-      try {
-        const preview = await workbenchApi.previewCandidate(activeProjectId, candidateId, inputIdentity, controller.signal);
-        const current = candidatesRef.current.find((candidate) => candidate.id === candidateId);
-        if (controller.signal.aborted || candidateInputIdentity(current?.raw.inputs) !== inputIdentity) return;
-        setMetrics(metricsFromPreview(preview));
-        setPreview(preview);
-        storedPreviewIdentityRef.current.set(candidateId, inputIdentity);
-        setPreviewIdentitiesByCandidate((current) => ({ ...current, [candidateId]: inputIdentity }));
-        setPreviewsByCandidate((current) => ({
-          ...current,
-          [candidateId]: preview,
-        }));
-        setNotice(preview.warnings?.[0] ?? "プレビューを更新しました");
-        setApiState("ready");
-      } catch {
-        if (controller.signal.aborted) return;
-        setApiState("offline");
-        setMetrics([]);
-        setPreview(null);
-        setNotice("API未接続: 予測結果は表示できません");
-      }
-    }, 420);
-    return () => {
-      window.clearTimeout(timer);
-      controller.abort();
-    };
-  }, [selected?.id, activeProjectId, previewsByCandidate[selected?.id ?? ""], previewIdentitiesByCandidate[selected?.id ?? ""]]);
 
   useEffect(() => {
     const provenance = selected?.raw.provenance as CandidateProvenance | undefined;
@@ -670,30 +538,7 @@ function App() {
     }
   };
 
-  const runDetailedPrediction = async () => {
-    if (!selected) return;
-    setApiState("loading");
-    try {
-      const payload = await workbenchApi.predictCandidate(activeProjectId, selected.id);
-      const result = payload.prediction;
-      setMetrics(metricsFromPreview(result));
-      setPreview(result);
-      const inputIdentity = candidateInputIdentity(selected.raw.inputs);
-      storedPreviewIdentityRef.current.set(selected.id, inputIdentity);
-      setPreviewIdentitiesByCandidate((current) => ({ ...current, [selected.id]: inputIdentity }));
-      setPreviewsByCandidate((current) => ({
-        ...current,
-        [selected.id]: result,
-      }));
-      setNotice("詳細予測を実行し、スナップショットを保存しました。");
-      setApiState("ready");
-    } catch {
-      setApiState("offline");
-      setNotice(
-        "詳細予測または保存に失敗しました。API接続を確認してください。",
-      );
-    }
-  };
+  const runDetailedPrediction = prediction.runDetailedPrediction;
 
   return (
     <div className="app-shell">
@@ -725,7 +570,7 @@ function App() {
         <div className="context-bar">
           <div>
             <span className="overline">プロジェクト</span>
-            <h1>{tab === "hot-rolling" ? "熱延条件の候補検討" : activeProject?.name ?? "プロジェクトを読み込んでいます"}</h1>
+            <h1>{activeProject?.name ?? "プロジェクトを読み込んでいます"}</h1>
           </div>
           <div className="run-actions">
             {tab !== "candidates" && (
@@ -753,6 +598,8 @@ function App() {
             {tab === "candidates" && selected && (
               <button
                 className="primary-button"
+                disabled={!operations?.detailed_prediction || !["idle", "saved"].includes(editor.saveStates[selected.id] ?? "idle")}
+                title={!operations?.detailed_prediction ? "このタスクでは詳細予測を利用できません" : undefined}
                 onClick={() => {
                   void runDetailedPrediction();
                 }}
@@ -769,6 +616,7 @@ function App() {
             activeProjectId={activeProjectId}
             candidate={selected}
             taskDefinition={taskDefinition}
+            operations={operations}
             onProjectChanged={(project) => {
               setProjects((items) =>
                 items.some((item) => item.id === project.id)
@@ -824,14 +672,16 @@ function App() {
               selected={selected}
               selectedId={selectedId}
               taskDefinition={taskDefinition}
+              operations={operations}
               saveState={editor.saveStates[selected.id] ?? "idle"}
               fieldErrors={editor.fieldErrors[selected.id] ?? []}
               onReload={() => editor.reload(selected.id)}
               onCopyDraft={() => void editor.copyDraft(selected)}
               metrics={metrics}
               preview={preview}
+              previewError={previewError}
+              onRetryPreview={prediction.retry}
               previewsByCandidate={previewsByCandidate}
-              previewIdentitiesByCandidate={previewIdentitiesByCandidate}
               onSelect={(candidateId) => selectCandidate(candidateId)}
               originBroken={brokenOriginCandidateId === selected.id}
               onOpenOrigin={() => {
@@ -888,7 +738,6 @@ function App() {
               onCreate={() => void createStarterCandidate()}
             />
           ))}
-        {tab === "hot-rolling" && <HotRollingWorkbench projectId={activeProjectId} />}
         {tab === "quality" && (
           <LiveDataQualityPage
             filters={{
@@ -995,14 +844,16 @@ type WorkbenchProps = {
   selected: Candidate;
   selectedId: string;
   taskDefinition: TaskDefinitionContract | null;
+  operations?: RuntimeOperations;
   saveState: CandidateSaveState;
   fieldErrors: Array<{ path: string; message: string }>;
   onReload: () => void;
   onCopyDraft: () => void;
   metrics: Metric[];
   preview: ApiPreview | null;
+  previewError: string;
+  onRetryPreview: () => void;
   previewsByCandidate: Record<string, ApiPreview>;
-  previewIdentitiesByCandidate: Record<string, string>;
   onSelect: (id: string) => void;
   onHeat: (index: number, field: "time" | "temperature", raw: number) => void;
   onInput: (id: string, path: string, value: number | string) => void;
@@ -1027,12 +878,16 @@ function CandidateWorkbench(props: WorkbenchProps) {
     selected,
     selectedId,
     taskDefinition,
+    operations,
     saveState,
     fieldErrors,
     onReload,
     onCopyDraft,
+    metrics,
+    preview,
+    previewError,
+    onRetryPreview,
     previewsByCandidate,
-    previewIdentitiesByCandidate,
     onSelect,
     onInput,
     onText,
@@ -1046,12 +901,6 @@ function CandidateWorkbench(props: WorkbenchProps) {
     onAdd,
     onImported,
   } = props;
-  const candidatePreview = previewsByCandidate[selectedId];
-  const selectedPreview = candidatePreview
-    && previewIdentitiesByCandidate[selectedId] === candidateInputIdentity(selected.raw.inputs)
-    ? candidatePreview
-    : null;
-  const selectedMetrics = selectedPreview ? metricsFromPreview(selectedPreview) : [];
   return (
     <div className="workbench-grid candidate-workbench-grid">
       {taskDefinition && <TaskDrivenCandidateInspector
@@ -1106,26 +955,29 @@ function CandidateWorkbench(props: WorkbenchProps) {
           onInput={onInput}
           onName={(id, value) => onText(id, "label", value)}
         />}
-        <section className="response-curves-disclosure">
-          <button
-            type="button"
-            className="outline-button"
-            aria-expanded={curvesVisible}
-            onClick={() => setCurvesVisible((visible) => !visible)}
-          >
-            {curvesVisible ? "応答曲線を閉じる" : "選択候補の応答曲線を表示"}
-          </button>
-          {curvesVisible && <LiveResponseCurves
-            projectId={projectId}
-            candidate={selected}
-            preview={selectedPreview}
-            targetValues={targetValues}
-            taskDefinition={taskDefinition}
-          />}
-        </section>
-        <ActualsPanel projectId={projectId} candidate={selected} />
+        {operations?.response_curve ? (
+          <section className="response-curves-disclosure">
+            <button
+              type="button"
+              className="outline-button"
+              aria-expanded={curvesVisible}
+              onClick={() => setCurvesVisible((visible) => !visible)}
+            >
+              {curvesVisible ? "応答曲線を閉じる" : "選択候補の応答曲線を表示"}
+            </button>
+            {curvesVisible && <LiveResponseCurves
+              projectId={projectId}
+              candidate={selected}
+              preview={preview}
+              targetValues={targetValues}
+              taskDefinition={taskDefinition}
+              available
+            />}
+          </section>
+        ) : <UnavailablePanel title="応答曲線" />}
+        {operations?.actual_measurement ? <ActualsPanel projectId={projectId} candidate={selected} outputs={taskDefinition?.outputs ?? []} enabled={["idle", "saved"].includes(saveState)} /> : <UnavailablePanel title="予測と実測" />}
       </section>
-      <EvidencePanel metrics={selectedMetrics} preview={selectedPreview} candidateLabel={selected.label} />
+      <EvidencePanel metrics={metrics} preview={preview} candidateLabel={selected.label} similarityAvailable={operations?.similarity === true} error={previewError} onRetry={onRetryPreview} />
     </div>
   );
 }
@@ -1204,8 +1056,12 @@ function CandidateFileControls({
   );
 }
 
-function ActualsPanel({ projectId, candidate }: { projectId: string; candidate: Candidate }) {
-  const [property, setProperty] = useState<ApiActual["property"]>("TS");
+function UnavailablePanel({ title }: { title: string }) {
+  return <section className="actuals-panel unavailable-panel" aria-label={`${title}は利用できません`}><div className="panel-title"><h2>{title}</h2></div><p className="empty-evidence">このタスクでは利用できません。</p></section>;
+}
+
+function ActualsPanel({ projectId, candidate, outputs, enabled }: { projectId: string; candidate: Candidate; outputs: TaskOutputDefinition[]; enabled: boolean }) {
+  const [property, setProperty] = useState<ApiActual["property"]>((outputs[0]?.key ?? "TS") as ApiActual["property"]);
   const [mean, setMean] = useState("");
   const [std, setStd] = useState("0");
   const [replicates, setReplicates] = useState("1");
@@ -1214,44 +1070,68 @@ function ActualsPanel({ projectId, candidate }: { projectId: string; candidate: 
   const [note, setNote] = useState("");
   const [comparison, setComparison] = useState<ApiPredictionVsActual | null>(null);
   const [error, setError] = useState("");
-  const refresh = async () => {
+  const identity = `${projectId}\u001f${candidate.id}\u001f${candidate.raw.revision}`;
+  const identityRef = useRef(identity);
+  identityRef.current = identity;
+  const refresh = async (signal?: AbortSignal, expectedIdentity = identity) => {
     try {
-      setComparison(await workbenchApi.predictionVsActual(projectId, candidate.id));
+      const result = await workbenchApi.predictionVsActual(projectId, candidate.id, signal);
+      if (!signal?.aborted && identityRef.current === expectedIdentity) setComparison(result);
     } catch {
+      if (signal?.aborted || identityRef.current !== expectedIdentity) return;
       setError("実測値を取得できませんでした。");
     }
   };
   useEffect(() => {
-    void refresh();
+    const controller = new AbortController();
+    setComparison(null);
+    setError("");
+    if (!outputs.some((output) => output.key === property)) setProperty((outputs[0]?.key ?? "TS") as ApiActual["property"]);
+    void refresh(controller.signal);
+    return () => controller.abort();
+  }, [candidate.id, candidate.raw.revision, projectId]);
+  useEffect(() => {
+    setMean("");
+    setStd("0");
+    setReplicates("1");
+    setExperimentNo("");
+    setMeasuredAt("");
+    setNote("");
   }, [candidate.id, projectId]);
   const add = async () => {
+    if (!enabled) return setError("候補の保存完了後に実測を登録してください。");
     if (mean.trim() === "") return setError("実測平均を入力してください。");
+    const expectedIdentity = identity;
     try {
       setError("");
-      await workbenchApi.createActual(projectId, candidate.id, {
+      await workbenchApi.createActual(projectId, candidate.id, candidate.raw.revision, {
         property,
         mean: Number(mean),
         std: Number(std),
         replicates: Number(replicates),
-        unit: property === "TS" || property === "YS" ? "MPa" : "%",
+        unit: (outputs.find((output) => output.key === property)?.unit ?? "%") as "MPa" | "%",
         experiment_no: experimentNo.trim(),
         measured_at: measuredAt || null,
         note: note.trim(),
       });
+      if (identityRef.current !== expectedIdentity) return;
       setMean("");
       setExperimentNo("");
       setMeasuredAt("");
       setNote("");
-      await refresh();
+      await refresh(undefined, expectedIdentity);
     } catch {
+      if (identityRef.current !== expectedIdentity) return;
       setError("実測値を保存できませんでした。");
     }
   };
   const remove = async (id: string) => {
+    const expectedIdentity = identity;
     try {
       await workbenchApi.deleteActual(projectId, candidate.id, id);
-      await refresh();
+      await refresh(undefined, expectedIdentity);
     } catch {
+      if (identityRef.current !== expectedIdentity) return;
       setError("実測値を削除できませんでした。");
     }
   };
@@ -1269,16 +1149,15 @@ function ActualsPanel({ projectId, candidate }: { projectId: string; candidate: 
       <div className="actual-form">
         <select
           aria-label="実測特性"
+          disabled={!enabled}
           value={property}
           onChange={(e) => setProperty(e.target.value as ApiActual["property"])}
         >
-          <option>TS</option>
-          <option>YS</option>
-          <option>EL</option>
-          <option value="lambda">λ</option>
+          {outputs.map((output) => <option key={output.key} value={output.key}>{output.label}</option>)}
         </select>
         <input
           aria-label="実測平均"
+          disabled={!enabled}
           type="number"
           placeholder="実測平均"
           value={mean}
@@ -1286,6 +1165,7 @@ function ActualsPanel({ projectId, candidate }: { projectId: string; candidate: 
         />
         <input
           aria-label="標準偏差"
+          disabled={!enabled}
           type="number"
           min="0"
           placeholder="標準偏差"
@@ -1294,6 +1174,7 @@ function ActualsPanel({ projectId, candidate }: { projectId: string; candidate: 
         />
         <input
           aria-label="反復数"
+          disabled={!enabled}
           type="number"
           min="1"
           placeholder="反復数"
@@ -1302,6 +1183,7 @@ function ActualsPanel({ projectId, candidate }: { projectId: string; candidate: 
         />
         <button
           className="outline-button"
+          disabled={!enabled}
           onClick={() => {
             void add();
           }}
@@ -1602,12 +1484,14 @@ function LiveResponseCurves({
   preview,
   targetValues,
   taskDefinition,
+  available,
 }: {
   projectId: string;
   candidate: Candidate;
   preview: ApiPreview | null;
   targetValues: Record<string, number>;
   taskDefinition: TaskDefinitionContract | null;
+  available: boolean;
 }) {
   const outputs = taskDefinition?.outputs ?? [];
   const variables: CurveVariable[] = [
@@ -1633,21 +1517,23 @@ function LiveResponseCurves({
   const [loadedPayload, setLoadedPayload] = useState<{ identity: string; payload: ResponseCurvesPayload } | null>(null);
   const [errorIdentity, setErrorIdentity] = useState<string | null>(null);
   const requestIdentity = useRef("");
-  const inputIdentity = preview ? candidateInputIdentity(preview.canonical_input) : "";
-  const currentRequestIdentity = `${projectId}:${candidate.id}:${inputIdentity}:${variableId}`;
+  const inputIdentity = candidateInputIdentity(candidate.raw.inputs);
+  const currentRequestIdentity = taskDefinition
+    ? `${workbenchRequestKey({ projectId, taskId: taskDefinition.id, candidateId: candidate.id, candidateRevision: candidate.raw.revision }, `response_curve:${variableId}`)}\u001f${inputIdentity}`
+    : "";
   useEffect(() => {
     if (variables.length && !variables.some((variable) => variable.id === variableId)) setVariableId(variables[0].id);
   }, [candidate.id, variableId, variables.length]);
   useEffect(() => {
     const controller = new AbortController();
-    if (!inputIdentity) return;
+    if (!available || !preview || !taskDefinition || !inputIdentity) return;
     const identity = currentRequestIdentity;
     requestIdentity.current = identity;
     setLoadedPayload(null);
     setErrorIdentity(null);
     const timer = window.setTimeout(async () => {
       try {
-        const loaded = await workbenchApi.responseCurves(projectId, candidate.id, inputIdentity, variableId, controller.signal);
+        const loaded = await workbenchApi.responseCurves(projectId, candidate.id, candidate.raw.revision, inputIdentity, variableId, controller.signal);
         if (controller.signal.aborted || requestIdentity.current !== identity) return;
         setLoadedPayload({ identity, payload: loaded });
       } catch (cause) {
@@ -1656,9 +1542,11 @@ function LiveResponseCurves({
       }
     }, 320);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [candidate.id, inputIdentity, projectId, variableId]);
+  }, [available, candidate.id, candidate.raw.revision, currentRequestIdentity, inputIdentity, preview, projectId, taskDefinition?.id, variableId]);
   const activePayload = loadedPayload?.identity === currentRequestIdentity ? loadedPayload.payload : null;
   const error = errorIdentity === currentRequestIdentity;
+  if (!available) return <UnavailablePanel title="応答曲線" />;
+  if (!preview) return <section className="response-curves-panel"><div className="panel-title"><h2>応答曲線</h2></div><p className="empty-evidence">候補の保存とプレビュー完了後に表示します。</p></section>;
   return (
     <section className="response-curves-panel" aria-label="設計変数ごとの応答曲線" data-candidate-id={candidate.id}>
       <div className="panel-title">
@@ -1741,10 +1629,16 @@ function EvidencePanel({
   metrics,
   preview,
   candidateLabel,
+  similarityAvailable,
+  error,
+  onRetry,
 }: {
   metrics: Metric[];
   preview: ApiPreview | null;
   candidateLabel: string;
+  similarityAvailable: boolean;
+  error: string;
+  onRetry: () => void;
 }) {
   const similar = preview?.similar ?? [];
   const nearest = similar.slice(0, 3);
@@ -1808,6 +1702,8 @@ function EvidencePanel({
               ))}
             </tbody>
           </table>
+        ) : error ? (
+          <p className="empty-evidence panel-error">{error} <button className="text-button" onClick={onRetry}>再試行</button></p>
         ) : (
           <p className="empty-evidence">プレビュー結果を待っています。</p>
         )}
@@ -1840,7 +1736,9 @@ function EvidencePanel({
           <h2>近い過去実験</h2>
           <span>成分・工程・熱履歴を分けて確認</span>
         </div>
-        {nearest.length ? (
+        {!similarityAvailable ? (
+          <p className="empty-evidence">このタスクでは類似実験を利用できません。</p>
+        ) : nearest.length ? (
           <>
             <table className="similar-table similar-summary-table">
               <thead>
@@ -2647,6 +2545,7 @@ function LiveProjectPage({
   activeProjectId,
   candidate,
   taskDefinition,
+  operations,
   onProjectChanged,
   onSwitch,
   onRestore,
@@ -2656,6 +2555,7 @@ function LiveProjectPage({
   activeProjectId: string;
   candidate?: Candidate;
   taskDefinition: TaskDefinitionContract | null;
+  operations?: RuntimeOperations;
   onProjectChanged: (project: ApiProject) => void;
   onSwitch: (projectId: string) => void;
   onRestore: (candidate: Candidate) => void;
@@ -2685,7 +2585,7 @@ function LiveProjectPage({
   useEffect(() => {
     setSnapshots([]);
     setSelectedSnapshotId("");
-    if (!candidate) return;
+    if (!candidate || !operations?.snapshot) return;
     const controller = new AbortController();
     workbenchApi.snapshots(activeProjectId, candidate.id, controller.signal)
       .then((loaded) => {
@@ -2710,9 +2610,9 @@ function LiveProjectPage({
         if (!controller.signal.aborted) setSnapshots([]);
       });
     return () => controller.abort();
-  }, [candidate?.id, activeProjectId, project?.decision_snapshot_id, requestedSnapshotId]);
+  }, [candidate?.id, candidate?.raw.revision, activeProjectId, project?.decision_snapshot_id, requestedSnapshotId, operations?.snapshot]);
   useEffect(() => {
-    if (!requestedSnapshotId) return;
+    if (!requestedSnapshotId || !operations?.snapshot) return;
     const controller = new AbortController();
     setSourceSnapshotError("");
     workbenchApi.snapshot(activeProjectId, requestedSnapshotId, controller.signal)
@@ -2727,7 +2627,7 @@ function LiveProjectPage({
         }
       });
     return () => controller.abort();
-  }, [activeProjectId, requestedSnapshotId]);
+  }, [activeProjectId, requestedSnapshotId, operations?.snapshot]);
   const save = async () => {
     if (!project) return;
     try {
@@ -2961,7 +2861,9 @@ function LiveProjectPage({
       </section>
       <section>
         <h3>保存済み予測</h3>
-        {snapshots.length ? (
+        {!operations?.snapshot ? (
+          <p className="empty-evidence">このタスクでは保存済み予測を利用できません。</p>
+        ) : snapshots.length ? (
           <table className="quality-table">
             <tbody>
               {snapshots.map((snapshot) => (

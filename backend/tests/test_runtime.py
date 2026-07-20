@@ -27,7 +27,7 @@ def test_grouped_oof_calibration_and_parent_condition_support(client) -> None:
 
 def test_similarity_summarizes_repeats_and_keeps_layers_distinct(client) -> None:
     candidate = client.get("/api/projects/default/candidates").json()[0]
-    preview = client.post(f"/api/projects/default/candidates/{candidate['id']}/preview").json()
+    preview = client.post(f"/api/projects/default/candidates/{candidate['id']}/preview", params={"expected_revision": candidate["revision"]}).json()
     similar = preview["similar"]
     assert preview["support"]["distance"] == 4.7033
     assert preview["support"]["components"] == {

@@ -4,7 +4,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import ts from "typescript";
 
 const sourceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../src");
-const rootModuleAllowList = new Set(["App.tsx", "HotRollingWorkbench.tsx", "main.tsx"]);
+const rootModuleAllowList = new Set(["App.tsx", "main.tsx"]);
 
 const posix = (value) => value.split(path.sep).join("/");
 
