@@ -43,6 +43,19 @@ def test_latin_hypercube_is_deterministic_bounded_and_convertible(client) -> Non
     assert created.json()["name"].startswith("Screen")
     assert first["base_candidate_id"] == candidate["id"]
     assert first["model_provenance"]["model"]["version"]
+    assert first["score_contract"] == {
+        "version": "screening-score/v1",
+        "preference": "lower_is_better",
+        "direction": "at_least",
+        "target_value": 500.0,
+        "probability_available": True,
+        "fallback": "directional_shortfall",
+        "display_label": "目標以上ほど有望",
+    }
+    assert all(point["prediction"]["goal_direction"] == "at_least" for point in first["points"])
+    assert [point["score"] for point in first["representative_points"]] == sorted(
+        point["score"] for point in first["representative_points"]
+    )
     assert client.get(f"/api/screening/{first['id']}").json()["base_canonical_input"] == first["base_canonical_input"]
     assert any(run["id"] == first["id"] for run in client.get("/api/screening").json())
 
@@ -57,6 +70,19 @@ def test_screening_rejects_invalid_field_values_and_empty_candidate_set(client) 
     no_base = _screening_body(candidate["id"])
     no_base["base_candidate_id"] = None
     assert client.post("/api/screening", json=no_base).status_code == 422
+
+
+def test_screening_without_target_uses_support_distance_contract(client) -> None:
+    candidate = client.get("/api/projects/default/candidates").json()[0]
+    payload = _screening_body(candidate["id"])
+    payload["target_value"] = None
+
+    response = client.post("/api/screening", json=payload)
+
+    assert response.status_code == 201
+    result = response.json()
+    assert result["score_contract"]["fallback"] == "support_distance"
+    assert all(point["score"] == point["support"]["distance"] for point in result["points"])
 
 
 def test_lineage_candidate_actuals_and_snapshot_restore(client) -> None:

@@ -455,6 +455,7 @@ function App() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [projects, setProjects] = useState<ApiProject[]>([]);
   const [taskDefinition, setTaskDefinition] = useState<TaskDefinitionView | null>(null);
+  const [resolvedTaskDefinition, setResolvedTaskDefinition] = useState<ResolvedTaskDefinition | null>(null);
   const [activeProjectId, setActiveProjectId] = useState("default");
   const loadSequence = useRef(0);
   const selected = candidates.find((candidate) => candidate.id === selectedId);
@@ -472,10 +473,12 @@ function App() {
     if (!candidateResponse.ok) throw new Error(`HTTP ${candidateResponse.status}`);
     if (!taskResponse.ok) throw new Error(`HTTP ${taskResponse.status}`);
     const imported = ((await candidateResponse.json()) as ApiCandidate[]).map(fromApiCandidate);
-    const definition = taskDefinitionView((await taskResponse.json()) as ResolvedTaskDefinition);
+    const resolved = (await taskResponse.json()) as ResolvedTaskDefinition;
+    const definition = taskDefinitionView(resolved);
     if (sequence !== loadSequence.current) return;
     setActiveProjectId(projectId);
     setTaskDefinition(definition);
+    setResolvedTaskDefinition(resolved);
     window.localStorage.setItem("material-workbench-project", projectId);
     setCandidates(imported);
     setSelectedId(imported[0]?.id ?? "");
@@ -912,7 +915,10 @@ function App() {
               if (project.id === activeProjectId) {
                 fetch(`${API_URL}/api/projects/${encodeURIComponent(project.id)}/task-definition`)
                   .then((response) => response.json() as Promise<ResolvedTaskDefinition>)
-                  .then((resolved) => setTaskDefinition(taskDefinitionView(resolved)))
+                  .then((resolved) => {
+                    setResolvedTaskDefinition(resolved);
+                    setTaskDefinition(taskDefinitionView(resolved));
+                  })
                   .catch(() => undefined);
               }
             }}
@@ -972,6 +978,8 @@ function App() {
             projectId={activeProjectId}
             candidates={candidates}
             selectedId={selectedId}
+            taskDefinition={taskDefinition}
+            resolvedTaskDefinition={resolvedTaskDefinition}
             onCandidate={(candidate) => {
               setCandidates((items) => [...items, candidate]);
               setSelectedId(candidate.id);
@@ -3267,11 +3275,15 @@ function LiveScreeningPage({
   projectId,
   candidates,
   selectedId,
+  taskDefinition,
+  resolvedTaskDefinition,
   onCandidate,
 }: {
   projectId: string;
   candidates: Candidate[];
   selectedId: string;
+  taskDefinition: TaskDefinitionView | null;
+  resolvedTaskDefinition: ResolvedTaskDefinition | null;
   onCandidate: (candidate: Candidate) => void;
 }) {
   type VariableRow = {
@@ -3285,13 +3297,24 @@ function LiveScreeningPage({
     inputs: Record<string, number | string>;
     prediction: { value: number; unit: string };
     support: { status: string };
+    score: number | null;
+    goal_evaluation?: {
+      method: "achievement_probability" | "directional_shortfall" | "absolute_distance" | "support_distance";
+      achieved: boolean | null;
+      achievement_probability: number | null;
+    };
   };
   type ScreenResult = {
     id: string;
     base_candidate_id?: string;
     created_at?: string;
     target: string;
-    target_value: number;
+    target_value: number | null;
+    score_contract?: {
+      direction: "at_least" | "at_most" | "target" | null;
+      display_label: string;
+      fallback: string;
+    };
     samples: number;
     variables?: Record<
       string,
@@ -3306,16 +3329,19 @@ function LiveScreeningPage({
     points: ScreenPoint[];
     representative_points: ScreenPoint[];
   };
-  const options = [
-    ...COMPOSITION_ELEMENTS.map((element) => ({
-      value: `composition.${element}`,
-      label: `${element} (mass%)`,
-    })),
-    { value: "thickness_mm", label: "板厚 (mm)" },
-    { value: "line_speed_m_min", label: "ライン速度 (m/min)" },
-    { value: "max_temperature_c", label: "最高温度 (°C)" },
-    { value: "coating", label: "めっき" },
-  ];
+  const options = resolvedTaskDefinition
+    ? resolvedTaskDefinition.task_definition.input_groups.flatMap((group) =>
+        group.fields
+          .filter((field) => field.kind !== "heat_pattern" && field.editable)
+          .map((field) => ({
+            value: group.key === "composition" ? field.path : field.path.split(".", 2)[1],
+            label: `${field.label}${field.unit ? ` (${field.unit})` : ""}`,
+          })),
+      )
+    : COMPOSITION_ELEMENTS.map((element) => ({
+        value: `composition.${element}`,
+        label: `${element} (mass%)`,
+      }));
   const [variables, setVariables] = useState<VariableRow[]>([
     { field: "composition.C", mode: "range", first: "0.03", second: "0.12" },
     { field: "composition.Mn", mode: "range", first: "1.0", second: "2.0" },
@@ -3327,6 +3353,13 @@ function LiveScreeningPage({
   const [result, setResult] = useState<ScreenResult | null>(null);
   const [savedRuns, setSavedRuns] = useState<ScreenResult[]>([]);
   const [error, setError] = useState("");
+  const outputs = taskDefinition?.outputs ?? [];
+  const targetDefinition = outputs.find((output) => output.key === target);
+  useEffect(() => {
+    if (outputs.length && !outputs.some((output) => output.key === target)) {
+      setTarget(outputs[0].key);
+    }
+  }, [outputs, target]);
   useEffect(() => {
     if (candidates.some((candidate) => candidate.id === selectedId)) {
       setBaseCandidateId(selectedId);
@@ -3395,7 +3428,7 @@ function LiveScreeningPage({
             variables: specs,
             samples,
             target,
-            target_value: Number(targetValue),
+            target_value: targetValue.trim() === "" ? null : Number(targetValue),
           }),
         },
       );
@@ -3419,7 +3452,7 @@ function LiveScreeningPage({
     setResult(run);
     if (run.base_candidate_id) setBaseCandidateId(run.base_candidate_id);
     setTarget(run.target);
-    setTargetValue(String(run.target_value));
+    setTargetValue(run.target_value == null ? "" : String(run.target_value));
     setSamples(run.samples);
     if (run.variables)
       setVariables(
@@ -3465,20 +3498,13 @@ function LiveScreeningPage({
     ((value - Math.min(...values)) /
       Math.max(1e-9, Math.max(...values) - Math.min(...values))) *
       span;
-  const errors =
-    result?.points.map((point) =>
-      Math.abs(point.prediction.value - result.target_value),
-    ) ?? [];
+  const scores = result?.points.map((point) => point.score).filter((score): score is number => score != null) ?? [];
   const opportunity = (point: ScreenPoint) => {
-    const error = Math.abs(
-      point.prediction.value - (result?.target_value ?? Number(targetValue)),
-    );
-    const closeness =
-      1 -
-      (error - Math.min(...errors)) /
-        Math.max(1e-9, Math.max(...errors) - Math.min(...errors));
+    if (point.score == null || scores.length === 0) return "hsl(215 18% 72%)";
+    const closeness = 1 - (point.score - Math.min(...scores)) / Math.max(1e-9, Math.max(...scores) - Math.min(...scores));
     return `hsl(215 78% ${82 - closeness * 42}%)`;
   };
+  const axisLabel = (axis: string | undefined) => options.find((option) => option.value === axis)?.label ?? axis ?? "";
   const supportStroke = (status: string) =>
     status === "supported"
       ? "#15936a"
@@ -3518,7 +3544,7 @@ function LiveScreeningPage({
                   void loadRun(run.id);
                 }}
               >
-                <b>{run.target}</b> → {number(run.target_value, 1)} /{" "}
+                <b>{outputs.find((output) => output.key === run.target)?.label ?? run.target}</b> → {run.target_value == null ? "目標なし" : number(run.target_value, 1)} /{" "}
                 {run.samples}点{" "}
                 <small>
                   基準: {candidates.find((candidate) => candidate.id === run.base_candidate_id)?.label ?? run.base_candidate_id?.slice(0, 8) ?? "旧保存データ"} ·{" "}
@@ -3557,14 +3583,11 @@ function LiveScreeningPage({
               value={target}
               onChange={(event) => setTarget(event.target.value)}
             >
-              <option>TS</option>
-              <option>YS</option>
-              <option>EL</option>
-              <option value="lambda">λ</option>
+              {outputs.map((output) => <option key={output.key} value={output.key}>{output.label} ({output.unit})</option>)}
             </select>
           </label>
           <label>
-            目標値
+            目標値 {targetDefinition?.goal_direction === "at_most" ? "（以下）" : targetDefinition?.goal_direction === "at_least" ? "（以上）" : ""}
             <input
               type="number"
               value={targetValue}
@@ -3673,7 +3696,7 @@ function LiveScreeningPage({
         <>
           <div className="screen-legend">
             <span className="opportunity-scale" />
-            目標に近い <span className="support-key supported" />
+            {result.score_contract?.display_label ?? "目標に対して有望"} <span className="support-key supported" />
             範囲内 <span className="support-key caution" />
             要確認 <span className="support-key extrapolated" />
             外挿
@@ -3682,7 +3705,7 @@ function LiveScreeningPage({
             className="screen-map"
             viewBox="0 0 600 300"
             role="img"
-            aria-label={`${axes.join(" × ")} の探索結果。色が濃いほど目標に近く、枠線が学習範囲を示します。`}
+            aria-label={`${axes.map(axisLabel).join(" × ")} の探索結果。色が濃いほど目標方向に有望で、枠線が学習範囲を示します。`}
           >
             {result.points.map((point, index) => {
               const cx = axes.length
@@ -3713,10 +3736,10 @@ function LiveScreeningPage({
               );
             })}
             <text x="300" y="296" textAnchor="middle">
-              {axes[0]}
+              {axisLabel(axes[0])}
             </text>
             <text x="8" y="16">
-              {axes[1]}
+              {axisLabel(axes[1])}
             </text>
           </svg>
           <table className="quality-table">

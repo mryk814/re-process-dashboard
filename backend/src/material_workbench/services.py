@@ -9,8 +9,9 @@ import numpy as np
 from openpyxl import Workbook, load_workbook
 
 from .importer import WorkbookData, composition_names
-from .runtime import ModelRuntime
+from .task_registry import RuntimeProtocol
 from .schemas import Candidate, CandidateInput, HeatPoint, ScreeningRequest
+from .screening_score import GoalDirection, evaluate_screening_goal, score_contract
 
 
 COMPOSITION_COLUMNS = composition_names(task_id="annealed-properties-v1")
@@ -33,7 +34,14 @@ def _set_screen_value(candidate: Candidate, name: str, value: float | str) -> Ca
     return updated
 
 
-def run_latin_hypercube(runtime: ModelRuntime, base: Candidate, request: ScreeningRequest) -> dict[str, Any]:
+def run_latin_hypercube(
+    runtime: RuntimeProtocol,
+    base: Candidate,
+    request: ScreeningRequest,
+    *,
+    goal_direction: GoalDirection | None,
+    probability_available: bool,
+) -> dict[str, Any]:
     unknown = sorted(set(request.variables) - SCREENABLE_FIELDS)
     if unknown:
         raise ValueError(f"スクリーニング対象外の変数です: {', '.join(unknown)}")
@@ -59,21 +67,42 @@ def run_latin_hypercube(runtime: ModelRuntime, base: Candidate, request: Screeni
             candidate = _set_screen_value(candidate, name, value)
         candidate_input = CandidateInput.model_validate(candidate.model_dump())
         candidate = Candidate.model_validate({**candidate.model_dump(), **candidate_input.model_dump()})
-        prediction = runtime.predict(candidate, detailed=False)
+        prediction = runtime.predict(
+            candidate,
+            detailed=False,
+            target_values={} if request.target_value is None or not probability_available else {request.target: request.target_value},
+        )
         selected = prediction["predictions"][request.target]
         support = prediction["support"]
-        penalty = {"supported": 0.0, "caution": 0.15, "extrapolated": 0.5}[support.status]
-        score = abs(selected.value - request.target_value) + penalty * max(1.0, abs(request.target_value) * 0.05)
+        evaluation = evaluate_screening_goal(
+            selected.value,
+            target_value=request.target_value,
+            direction=goal_direction,
+            at_least_probability=selected.goal_probability if probability_available else None,
+            support_distance=support.distance,
+        )
+        prediction_payload = selected.model_dump()
+        prediction_payload["goal_direction"] = goal_direction
         points.append({
             "index": index,
             "inputs": applied,
             "candidate": CandidateInput.model_validate(candidate.model_dump()).model_dump(mode="json"),
-            "prediction": selected.model_dump(),
+            "prediction": prediction_payload,
             "color_value": selected.value,
             "support": support.model_dump(),
-            "score": round(float(score), 6),
+            "score": None if evaluation.score is None else round(float(evaluation.score), 6),
+            "goal_evaluation": evaluation.model_dump(),
         })
-    ranked = sorted(points, key=lambda point: (point["score"], point["index"]))
+    support_rank = {"supported": 0, "caution": 1, "extrapolated": 2}
+    ranked = sorted(
+        points,
+        key=lambda point: (
+            point["score"] is None,
+            point["score"] if point["score"] is not None else support_rank[point["support"]["status"]],
+            support_rank[point["support"]["status"]],
+            point["index"],
+        ),
+    )
     return {
         "seed": SCREENING_SEED,
         "base_candidate_id": base.id,
@@ -81,6 +110,11 @@ def run_latin_hypercube(runtime: ModelRuntime, base: Candidate, request: Screeni
         "model_provenance": base_prediction["model_meta"],
         "target": request.target,
         "target_value": request.target_value,
+        "score_contract": score_contract(
+            goal_direction,
+            request.target_value,
+            probability_available=probability_available,
+        ),
         "samples": request.samples,
         "variables": {name: spec.model_dump() for name, spec in request.variables.items()},
         "points": points,
@@ -165,7 +199,7 @@ def import_candidates_xlsx(contents: bytes) -> tuple[list[CandidateInput], list[
     return imported, errors
 
 
-def candidates_xlsx(candidates: list[Candidate], runtime: ModelRuntime) -> bytes:
+def candidates_xlsx(candidates: list[Candidate], runtime: RuntimeProtocol) -> bytes:
     workbook = Workbook()
     sheet = workbook.active
     sheet.title = "候補"
