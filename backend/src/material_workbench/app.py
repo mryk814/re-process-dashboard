@@ -10,7 +10,7 @@ from pathlib import Path
 from statistics import fmean, pstdev
 from typing import Any, Mapping
 
-from fastapi import FastAPI, File, HTTPException, Request, Response, UploadFile
+from fastapi import FastAPI, File, HTTPException, Query, Request, Response, UploadFile
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -174,7 +174,14 @@ def create_app(
     )
     # Electron loads the packaged renderer from file://, which browsers serialize as Origin: null.
     # The local sidecar only listens on loopback, and credentials are not accepted.
-    app.add_middleware(CORSMiddleware, allow_origins=["null", "http://127.0.0.1:5173", "http://localhost:5173", "http://127.0.0.1:5180", "http://localhost:5180", "http://127.0.0.1:5199", "http://localhost:5199"], allow_methods=["*"], allow_headers=["*"], allow_credentials=False)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["null"],
+        allow_origin_regex=r"^http://(127\.0\.0\.1|localhost):\d+$",
+        allow_methods=["*"],
+        allow_headers=["*"],
+        allow_credentials=False,
+    )
 
     @app.exception_handler(HTTPException)
     async def http_error(_: Request, exc: HTTPException) -> JSONResponse:
@@ -652,7 +659,7 @@ def create_app(
         }
 
     @app.get("/api/lineage/{entity_key}", response_model=LineageResponse)
-    def lineage(entity_key: str) -> dict[str, Any]:
+    def lineage(entity_key: str, limit: int = Query(default=40, ge=1, le=200)) -> dict[str, Any]:
         item = app.state.data.lineage.get(entity_key)
         if item is None:
             raise HTTPException(404, "来歴が見つかりません")
@@ -660,7 +667,7 @@ def create_app(
             node = lineage_node_detail(app.state.data, entity_key)
         except KeyError:
             raise HTTPException(404, "来歴ノードの元データが見つかりません") from None
-        graph = lineage_neighborhood(app.state.data, entity_key)
+        graph = lineage_neighborhood(app.state.data, entity_key, max_nodes=limit)
         connected_keys = {graph_node["key"] for graph_node in graph["nodes"]}
         issues = [issue for issue in app.state.data.detected_quality if issue["entity_key"] in connected_keys]
         try:

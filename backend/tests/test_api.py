@@ -213,6 +213,18 @@ def test_electron_file_origin_is_allowed_without_credentials(client) -> None:
     assert response.headers["access-control-allow-origin"] == "null"
 
 
+def test_local_web_origin_allows_parallel_development_ports(client) -> None:
+    response = client.options(
+        "/api/bootstrap",
+        headers={
+            "Origin": "http://127.0.0.1:5212",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://127.0.0.1:5212"
+
+
 def test_quality_lineage_and_bootstrap(client) -> None:
     bootstrap = client.get("/api/bootstrap").json()
     assert bootstrap["meta"]["quality_issues"] == 36
@@ -277,6 +289,27 @@ def test_lineage_index_and_isolated_nodes_are_inspectable(client) -> None:
     invalid = client.get(f"/api/lineage/{invalid_key}")
     assert invalid.status_code == 200
     assert invalid.json()["node"]["missing_source"] is True
+
+
+def test_lineage_graph_can_expand_beyond_the_initial_node_limit(client) -> None:
+    assert client.get("/api/lineage/AN-00001", params={"limit": 0}).status_code == 422
+    assert client.get("/api/lineage/AN-00001", params={"limit": 201}).status_code == 422
+    initial = client.get("/api/lineage/AN-00001", params={"limit": 1})
+    assert initial.status_code == 200
+    initial_graph = initial.json()["graph"]
+    assert initial_graph["node_limit"] == 1
+    assert initial_graph["visible_node_count"] == 1
+    assert initial_graph["nodes"][0]["key"] == "AN-00001"
+    assert initial_graph["total_node_count"] > 1
+    assert initial_graph["has_more"] is True
+    assert initial_graph["omitted_node_count"] == initial_graph["total_node_count"] - 1
+
+    expanded = client.get("/api/lineage/AN-00001", params={"limit": 200})
+    assert expanded.status_code == 200
+    expanded_graph = expanded.json()["graph"]
+    assert expanded_graph["visible_node_count"] == expanded_graph["total_node_count"]
+    assert expanded_graph["has_more"] is False
+    assert expanded_graph["omitted_node_count"] == 0
 
 
 def test_lineage_keeps_hot_rolled_and_annealed_observations_separate(client) -> None:

@@ -4,6 +4,7 @@ import { provenanceLabel, provenanceNavigation, type CandidateProvenance } from 
 import { navigationUrl, readNavigationIntent, withView, type NavigationIntent, type WorkbenchView } from "./navigation";
 import { CandidateInspector as TaskDrivenCandidateInspector, ComparisonTable as TaskDrivenComparisonTable } from "./TaskDrivenCandidateUi";
 import { fromApiCandidate, toApiCandidate, type CandidateViewModel as Candidate } from "./candidateModel";
+import { LineageGraph } from "./LineageGraph";
 import { numericTaskInputs, setCandidateInputValue, taskFieldName, validateResolvedTaskDefinition, type NumericTaskInput, type ResolvedTaskDefinition, type TaskDefinitionContract, type TaskOutputDefinition } from "./taskDefinition";
 import { ApiClientError, apiBaseUrl } from "./shared/api/client";
 import { useCandidateEditor, type CandidateSaveState } from "./useCandidateEditor";
@@ -2102,10 +2103,12 @@ function LiveLineagePage({
   onReturnToQuality: () => void;
   onCandidate: (candidate: Candidate) => void;
 }) {
-  const [entityKey, setEntityKey] = useState(initialEntityKey ?? "AN-00001");
+  const [entityKey, setEntityKey] = useState(initialEntityKey ?? "");
   const [query, setQuery] = useState("");
+  const [directKey, setDirectKey] = useState("");
   const [entityType, setEntityType] = useState("焼鈍");
   const [issueOnly, setIssueOnly] = useState(false);
+  const [graphLimit, setGraphLimit] = useState(40);
   const [index, setIndex] = useState<ApiLineageIndex | null>(null);
   const [data, setData] = useState<ApiLineage | null>(null);
   const [error, setError] = useState("");
@@ -2126,12 +2129,19 @@ function LiveLineagePage({
     };
   }, [query, entityType, issueOnly]);
   useEffect(() => {
+    if (!entityKey) {
+      setData(null);
+      setError("");
+      return;
+    }
     let cancelled = false;
     setError("");
     setCandidateError("");
-    workbenchApi.lineage(entityKey)
+    workbenchApi.lineage(entityKey, graphLimit)
       .then((lineage) => {
-        if (!cancelled) setData(lineage);
+        if (!cancelled) {
+          setData(lineage);
+        }
       })
       .catch((cause) => {
         if (!cancelled)
@@ -2144,7 +2154,7 @@ function LiveLineagePage({
     return () => {
       cancelled = true;
     };
-  }, [entityKey]);
+  }, [entityKey, graphLimit]);
   const createCandidate = async () => {
     try {
       onCandidate(fromApiCandidate(await workbenchApi.createCandidateFromLineage(entityKey, projectId)));
@@ -2154,13 +2164,6 @@ function LiveLineagePage({
       );
     }
   };
-  const stageGroups = [
-    { label: "材料", types: ["溶製"] },
-    { label: "熱延", types: ["熱延", "熱延引張", "熱延組織"] },
-    { label: "冷延", types: ["冷延"] },
-    { label: "焼鈍", types: ["焼鈍"] },
-    { label: "試験・組織", types: ["焼鈍引張", "焼鈍穴広げ", "焼鈍組織"] },
-  ];
   const issueLabels: Record<string, string> = {
     missing_key: "キー欠損",
     orphan_entity: "孤立",
@@ -2168,6 +2171,7 @@ function LiveLineagePage({
     invalid_reference: "参照切れ",
   };
   const openNode = (key: string) => {
+    setGraphLimit(40);
     setEntityKey(key);
     onEntityChange(key);
   };
@@ -2217,21 +2221,20 @@ function LiveLineagePage({
           </p>
         </div>
         <form
-          className="lineage-search"
+          className="lineage-direct-open"
           onSubmit={(event) => {
             event.preventDefault();
-            if (query.trim()) {
-              setEntityType("");
-              openNode(query.trim());
+            if (directKey.trim()) {
+              openNode(directKey.trim());
             }
           }}
         >
-          <label htmlFor="lineage-query">キーを検索</label>
+          <label htmlFor="lineage-direct-key">キーを直接指定</label>
           <input
-            id="lineage-query"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="キー・鋼種・PJ・route"
+            id="lineage-direct-key"
+            value={directKey}
+            onChange={(event) => setDirectKey(event.target.value)}
+            placeholder="例: AN-00001"
           />
           <button type="submit" className="secondary-button">開く</button>
         </form>
@@ -2245,6 +2248,14 @@ function LiveLineagePage({
               <span className={index.detected_issues ? "has-issue" : ""}><b>{index.detected_issues}</b> 検出問題</span>
             </div>
           )}
+          <label htmlFor="lineage-query">ノードを検索</label>
+          <input
+            id="lineage-query"
+            className="lineage-filter-input"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="キー・鋼種・PJ・route"
+          />
           <label>
             種別
             <select value={entityType} onChange={(event) => setEntityType(event.target.value)}>
@@ -2280,53 +2291,25 @@ function LiveLineagePage({
             ))}
             {index && !index.items.length && <p className="empty-evidence">一致するキーはありません。</p>}
           </div>
+          <small className="lineage-result-limit">検索結果は最大40件。選択するとグラフを開きます。</small>
         </aside>
-        <main className="lineage-main">
       {error ? (
-        <div className="lineage-load-error">
+        <main className="lineage-main">
+          <div className="lineage-load-error">
           <b>{entityKey}</b>
           <p>{error}</p>
           <span>左の検索結果から存在するキーを選んでください。</span>
-        </div>
+          </div>
+        </main>
       ) : data ? (
         <>
-          <div
-            className="lineage-canvas"
-            role="group"
-            aria-label={`${data.key} のデータ系譜`}
-          >
-            <div className="lineage-canvas-header">
-              <div>
-                <b>{data.graph.relation_row_count} relation行から復元</b>
-                <span>行番号を保持した実在経路です。relation行を実験件数として数えていません。</span>
-              </div>
-              {data.graph.omitted_node_count > 0 && <small>ほか {data.graph.omitted_node_count} ノード省略</small>}
-            </div>
-            <div className="lineage-stage-grid">
-              {stageGroups.map((stage) => {
-                const nodes = data.graph.nodes.filter((node) => stage.types.includes(node.entity_type));
-                return (
-                  <section key={stage.label} className="lineage-stage-column">
-                    <h3>{stage.label}<small>{nodes.length}</small></h3>
-                    <div>
-                      {nodes.map((node) => (
-                        <button
-                          type="button"
-                          key={node.key}
-                          className={`lineage-node ${node.selected ? "selected" : ""} ${!node.exists ? "missing" : ""} ${node.issue_types.length ? "issue" : ""}`}
-                          onClick={() => openNode(node.key)}
-                        >
-                          <span>{node.key}</span>
-                          <small>{node.entity_type}</small>
-                          {node.issue_types.length > 0 && <em>{node.issue_types.map((issue) => issueLabels[issue] ?? issue).join(" / ")}</em>}
-                        </button>
-                      ))}
-                      {!nodes.length && <span className="lineage-empty-stage">接続なし</span>}
-                    </div>
-                  </section>
-                );
-              })}
-            </div>
+        <main className="lineage-main">
+          <LineageGraph
+            graph={data.graph}
+            selectedKey={data.key}
+            onSelect={openNode}
+            onLoadMore={() => setGraphLimit((current) => Math.min(200, current + 40))}
+          />
             {data.graph.edges.length > 0 && (
               <details className="route-evidence">
                 <summary>経路の接続根拠 {data.graph.edges.length}本</summary>
@@ -2342,7 +2325,8 @@ function LiveLineagePage({
                 </div>
               </details>
             )}
-          </div>
+        </main>
+        <aside className="lineage-detail-panel" aria-label="選択ノード詳細">
           <div className="lineage-detail-header">
             <div>
               <span className="overline">
@@ -2365,7 +2349,7 @@ function LiveLineagePage({
                 void createCandidate();
               }}
             >
-              この実績条件から候補を作成
+              候補ストックへ追加
             </button>
           </div>
           <p className={`lineage-candidate-note ${data.candidate_eligible ? "" : "muted"}`}>{data.candidate_reason}</p>
@@ -2515,11 +2499,18 @@ function LiveLineagePage({
               <b>{issueLabels[issue.issue_type] ?? issue.issue_type}</b> · {issue.source_sheet} · {issue.entity_key || "キーなし"}: {issue.detail}
             </p>
           ))}
+        </aside>
         </>
       ) : (
-        <p className="empty-evidence">系譜を読み込んでいます。</p>
-      )}
+        <main className="lineage-main">
+          <section className="lineage-empty-overview">
+            <span className="overline">NO NODE SELECTED</span>
+            <h3>調べるノードを選択してください</h3>
+            <p>左の検索結果を選ぶか、キーを直接指定すると、実在する関係線と前後工程を表示します。</p>
+            {index && <p>{number(index.total_entities)}ノード / {number(index.relation_rows)} relation行 / {index.detected_issues}件の品質問題</p>}
+          </section>
         </main>
+      )}
       </div>
     </div>
   );

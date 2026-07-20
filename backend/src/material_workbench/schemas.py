@@ -599,6 +599,10 @@ class LineageGraph(BaseModel):
     nodes: list[LineageGraphNode]
     edges: list[LineageGraphEdge]
     relation_row_count: int
+    visible_node_count: int
+    total_node_count: int
+    node_limit: int
+    has_more: bool
     omitted_node_count: int
 
 

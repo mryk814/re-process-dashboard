@@ -95,8 +95,8 @@ export const workbenchApi = {
   async lineageIndex(query: string, entityType: string, issueOnly: boolean, signal?: AbortSignal) {
     return requireData(await apiClient.GET("/api/lineage", { params: { query: { query, entity_type: entityType, issue_only: issueOnly, limit: 40 } }, signal }), "工程系譜を検索できませんでした。");
   },
-  async lineage(entityKey: string) {
-    return requireData(await apiClient.GET("/api/lineage/{entity_key}", { params: { path: { entity_key: entityKey } } }), "系譜を取得できませんでした。");
+  async lineage(entityKey: string, limit = 40) {
+    return requireData(await apiClient.GET("/api/lineage/{entity_key}", { params: { path: { entity_key: entityKey }, query: { limit } } }), "系譜を取得できませんでした。");
   },
   async createCandidateFromLineage(entityKey: string, projectId: string) {
     return requireData(await apiClient.POST("/api/lineage/{entity_key}/candidate", { params: { path: { entity_key: entityKey }, query: { project_id: projectId } } }), "候補を作成できませんでした。");

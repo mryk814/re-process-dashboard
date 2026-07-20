@@ -317,7 +317,7 @@ def lineage_node_detail(data: WorkbookData, entity_key: str) -> dict[str, Any]:
     }
 
 
-def lineage_neighborhood(data: WorkbookData, entity_key: str, max_nodes: int = 80) -> dict[str, Any]:
+def lineage_neighborhood(data: WorkbookData, entity_key: str, max_nodes: int = 40) -> dict[str, Any]:
     """Build a bounded route graph while preserving evidence from relation rows."""
     if entity_key not in data.lineage:
         raise KeyError(entity_key)
@@ -340,9 +340,10 @@ def lineage_neighborhood(data: WorkbookData, entity_key: str, max_nodes: int = 8
 
     ordered = sorted(
         candidate_nodes.items(),
-        key=lambda item: (data.lineage_stage_order.get(item[1], 99), item[0] != entity_key, item[0]),
+        key=lambda item: (item[0] != entity_key, data.lineage_stage_order.get(item[1], 99), item[0]),
     )
-    visible = dict(ordered[:max_nodes])
+    node_limit = max(1, max_nodes)
+    visible = dict(ordered[:node_limit])
     issue_by_key: dict[str, list[str]] = defaultdict(list)
     for issue in data.detected_quality:
         if issue["entity_key"] in visible and issue["issue_type"] not in issue_by_key[issue["entity_key"]]:
@@ -383,6 +384,10 @@ def lineage_neighborhood(data: WorkbookData, entity_key: str, max_nodes: int = 8
             for (source, target), rows in sorted(edge_rows.items())
         ],
         "relation_row_count": len(route_rows),
+        "visible_node_count": len(visible),
+        "total_node_count": len(ordered),
+        "node_limit": node_limit,
+        "has_more": len(visible) < len(ordered),
         "omitted_node_count": max(0, len(ordered) - len(visible)),
     }
 
