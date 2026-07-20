@@ -1,18 +1,21 @@
 # Frontend boundaries
 
-The web frontend is being split by responsibility without changing behavior.
+The web frontend is split by responsibility and uses one task-driven Workbench for every prediction task.
 
 ```text
-app -> features/workbench -> features/candidates -> shared -> generated
+app -> features/{projects,quality,lineage,screening,workbench,admin}
+workbench -> candidates -> shared -> generated
 ```
 
 - `app/` owns navigation intent and application-level provenance routing.
 - `features/candidates/` owns the candidate model, task-driven input UI, and edit/save lifecycle. Consumers import from its public `index.ts`.
 - `shared/api/` owns generated-client wrappers and request caching. It cannot depend on app or feature code.
-- Root `src` modules are limited to the current composition entry points while `App.tsx` is incrementally decomposed.
+- `features/workbench/` owns prediction surface state, selected-first preview loading, evidence, response curves, snapshots, and actuals.
+- Other page features own their API-to-view transformations and feature-local styles.
+- `app/App.tsx` owns routing and composition only; root `src` contains entry points and shared styling entry points, not domain modules.
 
-`npm run typecheck` runs `scripts/check-import-boundaries.mjs` before TypeScript. The checker prevents reverse dependencies, cross-feature dependencies from candidates, imports that bypass the candidate public entry, and new root-level domain modules.
+## Enforcement
 
-## Remaining work for #15
+`npm run typecheck` runs `scripts/check-import-boundaries.mjs` before TypeScript. The checker rejects reverse dependencies, forbidden cross-feature imports, bypasses of feature public entries, dependency cycles, root-level domain modules, and growth past the agreed App/global CSS budgets.
 
-After the shared prediction workbench replaces the separate hot-rolling screen, continue by extracting page state and API transformations into their owning features, colocating feature CSS without selector changes, and reducing `App.tsx` to routing and application composition. Browser and visual baselines must be compared during that phase.
+The common-flow browser contract is `e2e/shared-workbench.spec.ts`; inference invalidation and visible-surface request counts are fixed by `e2e/inference-p0.spec.ts`.

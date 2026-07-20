@@ -167,7 +167,7 @@ test("archived copy source remains navigable", async ({ page }) => {
   expect(sourceId).toBeTruthy();
 
   await page.getByRole("button", { name: /詳細予測を保存/ }).click();
-  await expect(page.getByRole("status")).toContainText("詳細予測を実行");
+  await expect(page.locator(".notice")).toContainText("詳細予測を実行");
   await page.getByRole("button", { name: "選択候補を複製" }).click();
   await expect(page.locator(".candidate-origin")).toContainText("候補コピー");
   const copiedId = new URL(page.url()).searchParams.get("candidate");
