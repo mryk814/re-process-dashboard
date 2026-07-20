@@ -41,7 +41,7 @@ def build(destination: Path) -> None:
         pipeline_dir.mkdir(parents=True)
         model_dir.mkdir()
         pipeline = pipeline_dir / "pipeline.json"
-        pipeline.write_text(json.dumps({"id": "two-feature-example", "version": "1.0.0", "canonical_input_paths": list(CANONICAL_INPUT_PATHS), "features": [{"name": "C"}, {"name": "Mn"}]}, indent=2), encoding="utf-8")
+        pipeline.write_text(json.dumps({"id": "two-feature-example", "version": "1.0.0", "canonical_input_paths": list(CANONICAL_INPUT_PATHS), "features": [{"name": "C"}, {"name": "Mn"}]}, indent=2), encoding="utf-8", newline="\n")
         draws = 64
         rng = np.random.default_rng(20260720)
         arrays: dict[str, np.ndarray] = {
@@ -67,7 +67,7 @@ def build(destination: Path) -> None:
             "provenance": {"training_data_id": "synthetic:documented-example", "feature_dataset_id": "synthetic:C-Mn", "training_code_revision": "build_numpyro_package_examples.py"},
             "artifacts": [_artifact(root, pipeline), _artifact(root, posterior)],
         }
-        (root / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+        (root / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
         readme_rows.append(f"- `{family}/`: `{target_kind}` 出力の `{family}` 尤度")
     (destination / "README.md").write_text(
         "# NumPyro posterior Package examples\n\n"

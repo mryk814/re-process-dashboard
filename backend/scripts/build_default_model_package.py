@@ -119,7 +119,7 @@ def build(source: Path, destination: Path) -> None:
         "features": [{"name": item.name, "unit": item.unit, "meaning": item.meaning} for item in FEATURE_DEFINITIONS],
         "missing_composition": "training_median_from_source_workbook",
         "heat_interpolation": "piecewise_linear",
-    }, ensure_ascii=False, indent=2), encoding="utf-8")
+    }, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
 
     predictors: list[dict[str, object]] = []
     files = [pipeline_path]
@@ -166,7 +166,7 @@ def build(source: Path, destination: Path) -> None:
         "records": training_counts,
         "source_sha256": data.source_sha256,
         "composition_defaults": data.medians,
-    }, ensure_ascii=False, indent=2), encoding="utf-8")
+    }, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
     files.append(stats_path)
 
     smoke_input = {
@@ -178,12 +178,12 @@ def build(source: Path, destination: Path) -> None:
         "heat_pattern": [{"time_s": 0, "temperature_c": 25}, {"time_s": 300, "temperature_c": 800}, {"time_s": 360, "temperature_c": 810}, {"time_s": 650, "temperature_c": 120}],
     }
     smoke_input_path = smoke_dir / "input.json"
-    smoke_input_path.write_text(json.dumps(smoke_input, ensure_ascii=False, indent=2), encoding="utf-8")
+    smoke_input_path.write_text(json.dumps(smoke_input, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
     smoke_candidate = CandidateInput.model_validate(smoke_input)
     smoke_values = runtime.vector_for_candidate(smoke_candidate)
     expected = {target: round(_gp_point(artifacts_dir / f"{target}.npz", smoke_values), 8) for target in runtime.models}
     smoke_expected_path = smoke_dir / "expected.json"
-    smoke_expected_path.write_text(json.dumps(expected, indent=2), encoding="utf-8")
+    smoke_expected_path.write_text(json.dumps(expected, indent=2), encoding="utf-8", newline="\n")
     files.extend([smoke_input_path, smoke_expected_path])
 
     manifest = {
@@ -195,7 +195,9 @@ def build(source: Path, destination: Path) -> None:
         "artifacts": [artifact(destination, path) for path in files],
         "smoke_test": {"input": smoke_input_path.relative_to(destination).as_posix(), "expected": smoke_expected_path.relative_to(destination).as_posix()},
     }
-    (destination / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    (destination / "manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n"
+    )
 
 
 if __name__ == "__main__":

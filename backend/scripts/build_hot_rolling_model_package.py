@@ -84,7 +84,7 @@ def build(source: Path, destination: Path) -> None:
     for folder in (artifact_dir, feature_dir, reference_dir, smoke_dir):
         folder.mkdir(parents=True, exist_ok=True)
     pipeline_path = feature_dir / "pipeline.json"
-    pipeline_path.write_text(json.dumps({"id": PIPELINE_ID, "version": PIPELINE_VERSION, "canonical_input_paths": list(CANONICAL_INPUT_PATHS), "features": [{"name": name} for name in FEATURE_NAMES]}, indent=2), encoding="utf-8")
+    pipeline_path.write_text(json.dumps({"id": PIPELINE_ID, "version": PIPELINE_VERSION, "canonical_input_paths": list(CANONICAL_INPUT_PATHS), "features": [{"name": name} for name in FEATURE_NAMES]}, indent=2), encoding="utf-8", newline="\n")
     files = [pipeline_path]
     predictors: list[dict[str, object]] = []
     counts: dict[str, int] = {}
@@ -123,17 +123,17 @@ def build(source: Path, destination: Path) -> None:
         counts[target] = len(target_y)
         predictors.append({"id": f"{target.lower()}-gp", "target": target, "unit": unit, "target_kind": "continuous", "runtime_type": "builtin.exact_gp.v1", "architecture_id": "exact_rbf_grouped_v1", "artifact": path.relative_to(destination).as_posix(), "predictive_family": "normal", "feature_names": list(FEATURE_NAMES), "config": {"training_unit": "parent_condition_mean", "estimand_context": {"test_direction": "L", "equipment": "HR-LINE-1"}}})
     stats_path = reference_dir / "training_stats.json"
-    stats_path.write_text(json.dumps({"records": counts, "source_sha256": data.source_sha256, "composition_defaults": data.medians}, ensure_ascii=False, indent=2), encoding="utf-8")
+    stats_path.write_text(json.dumps({"records": counts, "source_sha256": data.source_sha256, "composition_defaults": data.medians}, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
     files.append(stats_path)
     sample = _candidate(rows[0]).model_copy(update={"name": "hot rolling package smoke"})
     smoke_input = smoke_dir / "input.json"
-    smoke_input.write_text(sample.model_dump_json(indent=2), encoding="utf-8")
+    smoke_input.write_text(sample.model_dump_json(indent=2), encoding="utf-8", newline="\n")
     raw = build_hot_rolling_features(sample, data.medians).values
     smoke_expected = smoke_dir / "expected.json"
-    smoke_expected.write_text(json.dumps({target: round(_point(artifact_dir / f"{target}.npz", raw), 8) for target in TARGETS}, indent=2), encoding="utf-8")
+    smoke_expected.write_text(json.dumps({target: round(_point(artifact_dir / f"{target}.npz", raw), 8) for target in TARGETS}, indent=2), encoding="utf-8", newline="\n")
     files.extend([smoke_input, smoke_expected])
     manifest = {"schema_version": "model-package/v1", "package_id": PACKAGE_ID, "package_version": PACKAGE_VERSION, "task_id": TASK_ID, "input_schema_version": INPUT_SCHEMA_VERSION, "feature_pipeline": {"id": PIPELINE_ID, "version": PIPELINE_VERSION, "spec": pipeline_path.relative_to(destination).as_posix(), "canonical_input_paths": list(CANONICAL_INPUT_PATHS), "output_features": list(FEATURE_NAMES), "artifacts": [stats_path.relative_to(destination).as_posix()]}, "predictors": predictors, "provenance": {"training_data_id": f"sha256:{data.source_sha256}", "feature_dataset_id": f"sha256:{_digest(stats_path)}", "training_code_revision": TRAINING_CODE_REVISION}, "artifacts": [_artifact(destination, path) for path in files], "smoke_test": {"input": smoke_input.relative_to(destination).as_posix(), "expected": smoke_expected.relative_to(destination).as_posix()}}
-    (destination / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    (destination / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
 
 
 if __name__ == "__main__":
