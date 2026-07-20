@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 import json
+import math
 from pathlib import Path
 from typing import Any
 
@@ -111,7 +112,7 @@ class SupportReference:
 class ModelRuntime:
     def __init__(self, data: WorkbookData, package_root: str | Path | None = None, *, load_package: bool = True) -> None:
         self.data = data
-        default_package = Path(__file__).resolve().parents[3] / "models" / "packages" / "annealed-ridge-2026-07"
+        default_package = Path(__file__).resolve().parents[3] / "models" / "packages" / "annealed-gp-2026-07"
         self.model_package: VerifiedModelPackage | None = (
             ModelPackageLoader().load(package_root or default_package)
             if load_package and (package_root or default_package.exists())
@@ -215,6 +216,8 @@ class ModelRuntime:
         }
 
     def _vector_for_observation(self, row: dict[str, Any]) -> np.ndarray | None:
+        if row["source"] == "熱延引張":
+            return None
         process, composition = row["features"], row["composition"]
         if not process or not composition or len(process.get("heat_pattern", [])) < 2 or row["thickness_mm"] <= 0:
             return None
@@ -368,6 +371,13 @@ class ModelRuntime:
             }
             meta["feature_pipeline"] = {"id": manifest.feature_pipeline.id, "version": manifest.feature_pipeline.version, "input_schema_version": manifest.input_schema_version, "features": list(manifest.feature_pipeline.output_features)}
             meta["training_data"]["package_training_data_id"] = manifest.provenance.training_data_id
+            if any(item.runtime_type in {"builtin.exact_gp.v1", "gpytorch.static_exact_rbf.v1"} for item in manifest.predictors):
+                meta["prediction_interval"] = {
+                    "method": "gaussian_process_predictive_distribution",
+                    "coverage": "central 90% predictive interval",
+                    "grouping": "parent_key",
+                    "note": "Model uncertainty and observation noise are reported separately; data support remains an independent distance-based check.",
+                }
         return meta
 
     def predict(self, candidate: Candidate, detailed: bool = False, include_curve: bool = False, target_values: dict[str, float] | None = None) -> dict[str, Any]:
@@ -396,6 +406,14 @@ class ModelRuntime:
             goal_probability = None
             if goal_value is not None and summary is not None and summary.event_probability is not None:
                 goal_probability = summary.event_probability
+            elif (
+                goal_value is not None
+                and summary is not None
+                and summary.distribution.get("family") == "normal"
+                and float(summary.distribution.get("std", 0.0)) > 0
+            ):
+                standard_deviation = float(summary.distribution["std"])
+                goal_probability = 0.5 * math.erfc((goal_value - value) / (standard_deviation * math.sqrt(2.0)))
             elif goal_value is not None and summary is not None and model is not None:
                 spec = self.package_predictor_specs[label]
                 package_data_id = self.model_package.manifest.provenance.training_data_id if self.model_package else ""
@@ -408,7 +426,16 @@ class ModelRuntime:
                     goal_probability = float(np.mean(value + model.oof_residuals >= goal_value))
             elif goal_value is not None and model is not None:
                 goal_probability = float(np.mean(value + model.oof_residuals >= goal_value))
-            predictions[label] = Prediction(value=round(value, 3), lower=round(lower, 3), upper=round(upper, 3), unit=unit, goal_value=goal_value, goal_probability=None if goal_probability is None else round(goal_probability, 4), goal_direction=None if goal_value is None else "at_least")
+            predictions[label] = Prediction(
+                value=round(value, 3), lower=round(lower, 3), upper=round(upper, 3), unit=unit,
+                goal_value=goal_value,
+                goal_probability=None if goal_probability is None else round(goal_probability, 4),
+                goal_direction=None if goal_value is None else "at_least",
+                uncertainty_components=None if summary is None or summary.uncertainty_components is None else {
+                    name: round(float(component), 6)
+                    for name, component in summary.uncertainty_components.items()
+                },
+            )
         if support.status != "supported":
             warnings.append(support.message)
         if candidate.composition.get("C", self.data.medians["C"]) > 1:

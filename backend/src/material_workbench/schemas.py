@@ -197,6 +197,7 @@ class Prediction(BaseModel):
     goal_value: float | None = None
     goal_probability: Annotated[float | None, Field(ge=0, le=1)] = None
     goal_direction: Literal["at_least", "at_most"] | None = None
+    uncertainty_components: dict[str, float] | None = None
 
 
 class Support(BaseModel):

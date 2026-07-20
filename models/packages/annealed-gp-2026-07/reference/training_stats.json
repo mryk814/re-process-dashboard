@@ -1,9 +1,9 @@
 {
   "records": {
-    "EL": 283,
-    "TS": 283,
-    "YS": 283,
-    "lambda": 512
+    "EL": 143,
+    "TS": 143,
+    "YS": 143,
+    "lambda": 134
   },
   "source_sha256": "f5b75d4a2e29c0e85f24fe2325b4c610e23ba6ce65ba3b5c53c097a68ca60c55",
   "composition_defaults": {

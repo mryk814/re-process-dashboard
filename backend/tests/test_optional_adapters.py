@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from material_workbench.model_packages import ModelPackageLoader
+from material_workbench.model_packages import ModelPackageLoader, PredictiveSummary
 
 
 def _artifact(path: Path, relative: str) -> dict[str, object]:
@@ -33,6 +33,20 @@ def _package_root(tmp_path: Path, name: str, predictor: dict[str, object], model
     }
     (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     return root
+
+
+def test_predictive_summary_can_omit_uncertainty_components() -> None:
+    summary = PredictiveSummary(
+        target="TS",
+        target_kind="continuous",
+        unit="MPa",
+        point_statistic="mean",
+        point_estimate=500.0,
+        quantiles={"0.50": 500.0},
+        distribution={"family": "empirical_quantiles", "support": "real"},
+    )
+
+    assert summary.uncertainty_components is None
 
 
 def test_skops_adapter_loads_and_predicts_a_real_sklearn_artifact(tmp_path: Path) -> None:
@@ -88,3 +102,19 @@ def test_gpytorch_static_adapter_loads_and_predicts_safetensors(tmp_path: Path) 
     result = package.load_predictor("ts").predict({"C": 0.5, "Mn": 0.5})
     assert np.isfinite(result.point_estimate)
     assert result.quantiles["0.05"] < result.point_estimate < result.quantiles["0.95"]
+    assert result.uncertainty_components is not None
+    components = result.uncertainty_components
+    assert components["latent_model_variance"] >= 0.0
+    assert components["observation_noise_variance"] == pytest.approx(0.1)
+    assert components["total_predictive_variance"] == pytest.approx(
+        components["latent_model_variance"] + components["observation_noise_variance"]
+    )
+    assert components["total_predictive_std"] == pytest.approx(
+        components["total_predictive_variance"] ** 0.5
+    )
+    assert result.quantiles["0.05"] == pytest.approx(
+        result.point_estimate - 1.644854 * components["total_predictive_std"]
+    )
+    assert result.quantiles["0.95"] == pytest.approx(
+        result.point_estimate + 1.644854 * components["total_predictive_std"]
+    )
