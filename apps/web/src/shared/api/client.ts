@@ -1,7 +1,9 @@
 import createClient from "openapi-fetch";
-import type { paths } from "../../generated/api-types";
+import type { components, paths } from "../../generated/api-types";
 
 export type ApiErrorKind = "not_found" | "conflict" | "validation" | "server" | "network";
+export type ApiDomainErrorCode = components["schemas"]["ApiError"]["code"];
+type ApiErrorPayload = components["schemas"]["ApiError"];
 
 export class ApiClientError extends Error {
   constructor(
@@ -9,6 +11,8 @@ export class ApiClientError extends Error {
     readonly kind: ApiErrorKind,
     readonly status: number,
     readonly fieldErrors: Array<{ path: string; message: string }> = [],
+    readonly code?: ApiDomainErrorCode,
+    readonly currentCandidate?: components["schemas"]["Candidate"] | null,
   ) {
     super(message);
     this.name = "ApiClientError";
@@ -36,6 +40,11 @@ function objectValue(value: unknown, key: string): unknown {
   return typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined;
 }
 
+function isApiErrorPayload(value: unknown): value is ApiErrorPayload {
+  return typeof objectValue(value, "message") === "string"
+    && typeof objectValue(value, "code") === "string";
+}
+
 function normalizeFieldErrors(value: unknown): Array<{ path: string; message: string }> {
   const items = objectValue(value, "field_errors");
   if (!Array.isArray(items)) return [];
@@ -52,6 +61,7 @@ export function requireData<T>(
 ): T {
   if (result.data !== undefined) return result.data;
   const message = objectValue(result.error, "message");
+  const payload = isApiErrorPayload(result.error) ? result.error : undefined;
   const status = result.response.status;
   const kind: ApiErrorKind = status === 404
     ? "not_found"
@@ -67,6 +77,8 @@ export function requireData<T>(
     kind,
     status,
     normalizeFieldErrors(result.error),
+    payload?.code,
+    payload?.current_candidate,
   );
 }
 

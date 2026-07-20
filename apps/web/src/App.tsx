@@ -2,12 +2,13 @@ import { PointerEvent, useEffect, useRef, useState } from "react";
 import { HotRollingWorkbench } from "./HotRollingWorkbench";
 import { LatestSaveQueue, rebaseChangedFields } from "./latestSaveQueue";
 import { taskDefinitionView, type ResolvedTaskDefinition, type TaskDefinitionView, type TaskInputDefinition, type TaskOutputDefinition } from "./taskDefinition";
-import { apiBaseUrl } from "./shared/api/client";
+import { ApiClientError, apiBaseUrl } from "./shared/api/client";
 import {
   workbenchApi,
   type ApiActual,
   type ApiCandidate,
   type ApiCandidateInput,
+  type ApiCandidateUpdate,
   type ApiLineage,
   type ApiLineageIndex,
   type ApiModelPackage,
@@ -527,23 +528,12 @@ function App() {
         toApiCandidate(candidate),
         { name: serverCandidate.name, inputs: serverCandidate.inputs, provenance: serverCandidate.provenance },
       );
-      const response = await fetch(
-        `${API_URL}/api/projects/${encodeURIComponent(activeProjectId)}/candidates/${candidate.id}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...rebased, expected_revision: serverCandidate.revision } satisfies ApiCandidateUpdate),
-        },
-      );
-      if (!response.ok) {
-        const body = (await response.json().catch(() => ({}))) as { current_candidate?: ApiCandidate };
-        const error = new Error("candidate save failed") as Error & { currentCandidate?: ApiCandidate };
-        error.currentCandidate = body.current_candidate;
-        throw error;
-      }
-      return (await response.json()) as ApiCandidate;
+      return workbenchApi.updateCandidate(activeProjectId, candidate.id, {
+        ...rebased,
+        expected_revision: serverCandidate.revision,
+      } satisfies ApiCandidateUpdate);
     }, (error) => {
-      const current = (error as Error & { currentCandidate?: ApiCandidate }).currentCandidate;
+      const current = error instanceof ApiClientError ? error.currentCandidate : undefined;
       if (!current) throw error;
       return current;
     });
@@ -554,7 +544,7 @@ function App() {
       setApiState("ready");
     } catch (error) {
       if (!queued.isLatest()) return;
-      const current = (error as Error & { currentCandidate?: ApiCandidate }).currentCandidate;
+      const current = error instanceof ApiClientError ? error.currentCandidate : undefined;
       setCandidates((items) =>
         items.map((item) => (item.id === previous.id ? (current ? fromApiCandidate(current) : previous) : item)),
       );
@@ -610,10 +600,7 @@ function App() {
   const deleteCandidate = async () => {
     if (!selected || candidates.length === 1) return;
     try {
-      const response = await fetch(`${API_URL}/api/projects/${encodeURIComponent(activeProjectId)}/candidates/${selectedId}?expected_revision=${selected.raw.revision}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) throw new Error();
+      await workbenchApi.deleteCandidate(activeProjectId, selectedId, selected.raw.revision);
       const remaining = candidates.filter(
         (candidate) => candidate.id !== selectedId,
       );

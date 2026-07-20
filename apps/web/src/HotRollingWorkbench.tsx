@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { TaskDefinitionContract } from "./taskDefinition";
 import { LatestSaveQueue, rebaseChangedFields } from "./latestSaveQueue";
-import { workbenchApi, type ApiCandidate, type ApiCandidateInput, type ApiPreview } from "./shared/api/workbench-api";
+import { ApiClientError } from "./shared/api/client";
+import { workbenchApi, type ApiCandidate, type ApiCandidateInput, type ApiCandidateUpdate, type ApiPreview } from "./shared/api/workbench-api";
 
 type HotCandidate = {
   raw: ApiCandidate;
@@ -117,16 +118,12 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
         toApiCandidate(candidate),
         { name: serverCandidate.name, inputs: serverCandidate.inputs, provenance: serverCandidate.provenance },
       );
-      const response = await fetch(`${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates/${candidate.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...rebased, expected_revision: serverCandidate.revision }) });
-      if (!response.ok) {
-        const body = (await response.json().catch(() => ({}))) as { current_candidate?: ApiCandidate };
-        const error = new Error("candidate save failed") as Error & { currentCandidate?: ApiCandidate };
-        error.currentCandidate = body.current_candidate;
-        throw error;
-      }
-      return (await response.json()) as ApiCandidate;
+      return workbenchApi.updateCandidate(projectId, candidate.id, {
+        ...rebased,
+        expected_revision: serverCandidate.revision,
+      } satisfies ApiCandidateUpdate);
     }, (error) => {
-      const current = (error as Error & { currentCandidate?: ApiCandidate }).currentCandidate;
+      const current = error instanceof ApiClientError ? error.currentCandidate : undefined;
       if (!current) throw error;
       return current;
     });
@@ -139,7 +136,7 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
       setNotice(`${saved.name}を保存し、GPR予測を更新しました`);
     } catch (error) {
       if (!queued.isLatest()) return;
-      const current = (error as Error & { currentCandidate?: ApiCandidate }).currentCandidate;
+      const current = error instanceof ApiClientError ? error.currentCandidate : undefined;
       if (current) setCandidates((items) => items.map((item) => item.id === current.id ? fromApiCandidate(current) : item));
       setNotice(current ? "別の更新を検出したため、サーバー上の最新版を表示しました" : "入力を保存できません。温度・板厚の関係を確認してください");
     } finally {
@@ -158,8 +155,7 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
 
   async function deleteCandidate() {
     if (!selected || candidates.length <= 1) return;
-    const response = await fetch(`${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates/${selected.id}?expected_revision=${selected.raw.revision}`, { method: "DELETE" });
-    if (!response.ok) return;
+    await workbenchApi.deleteCandidate(projectId, selected.id, selected.raw.revision);
     const remaining = candidates.filter((item) => item.id !== selected.id);
     setCandidates(remaining);
     setSelectedId(remaining[0].id);

@@ -15,6 +15,16 @@ def test_tracked_openapi_schema_matches_fastapi_contract() -> None:
     assert tracked == app.openapi()
     candidate_response = tracked["paths"]["/api/projects/{project_id}/candidates"]["get"]["responses"]["200"]
     assert candidate_response["content"]["application/json"]["schema"]["items"]["$ref"].endswith("/Candidate")
+    schemas = tracked["components"]["schemas"]
+    assert {"revision", "archived_at"} <= schemas["Candidate"]["properties"].keys()
+    assert "expected_revision" in schemas["CandidateUpdate"]["required"]
+    assert {"revision_conflict", "candidate_archived", "candidate_limit", "data_integrity_error"} <= set(
+        schemas["ApiError"]["properties"]["code"]["enum"]
+    )
+    list_parameters = tracked["paths"]["/api/projects/{project_id}/candidates"]["get"]["parameters"]
+    delete_parameters = tracked["paths"]["/api/projects/{project_id}/candidates/{candidate_id}"]["delete"]["parameters"]
+    assert any(item["name"] == "include_archived" for item in list_parameters)
+    assert any(item["name"] == "expected_revision" and item.get("required") is True for item in delete_parameters)
 
 
 def test_unicode_identifiers_and_units_survive_json_contract_round_trip(client) -> None:

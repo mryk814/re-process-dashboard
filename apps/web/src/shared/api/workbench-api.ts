@@ -3,6 +3,7 @@ import { apiClient, apiDownloadUrl, requireData, requireSuccess } from "./client
 
 export type ApiCandidate = components["schemas"]["Candidate"];
 export type ApiCandidateInput = components["schemas"]["CandidateInput"];
+export type ApiCandidateUpdate = components["schemas"]["CandidateUpdate"];
 export type ApiProject = components["schemas"]["Project"];
 export type ApiProjectInput = components["schemas"]["ProjectInput"];
 export type ApiModelPackage = components["schemas"]["ModelPackageStatus"];
@@ -38,17 +39,17 @@ export const workbenchApi = {
   async modelPackage(projectId: string) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/model-package", { params: { path: { project_id: projectId } } }), "モデルPackageを取得できませんでした。");
   },
-  async listCandidates(projectId: string) {
-    return requireData(await apiClient.GET("/api/projects/{project_id}/candidates", { params: { path: { project_id: projectId } } }), "候補を取得できませんでした。");
+  async listCandidates(projectId: string, includeArchived = false) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/candidates", { params: { path: { project_id: projectId }, query: { include_archived: includeArchived } } }), "候補を取得できませんでした。");
   },
   async createCandidate(projectId: string, body: ApiCandidateInput) {
     return requireData(await apiClient.POST("/api/projects/{project_id}/candidates", { params: { path: { project_id: projectId } }, body }), "候補を作成できませんでした。");
   },
-  async updateCandidate(projectId: string, candidateId: string, body: ApiCandidateInput) {
+  async updateCandidate(projectId: string, candidateId: string, body: ApiCandidateUpdate) {
     return requireData(await apiClient.PUT("/api/projects/{project_id}/candidates/{candidate_id}", { params: { path: { project_id: projectId, candidate_id: candidateId } }, body }), "候補を保存できませんでした。");
   },
-  async deleteCandidate(projectId: string, candidateId: string) {
-    requireSuccess(await apiClient.DELETE("/api/projects/{project_id}/candidates/{candidate_id}", { params: { path: { project_id: projectId, candidate_id: candidateId } } }), "候補を削除できませんでした。");
+  async deleteCandidate(projectId: string, candidateId: string, expectedRevision: number) {
+    requireSuccess(await apiClient.DELETE("/api/projects/{project_id}/candidates/{candidate_id}", { params: { path: { project_id: projectId, candidate_id: candidateId }, query: { expected_revision: expectedRevision } } }), "候補を一覧から外せませんでした。");
   },
   async previewCandidate(projectId: string, candidateId: string) {
     return requireData(await apiClient.POST("/api/projects/{project_id}/candidates/{candidate_id}/preview", { params: { path: { project_id: projectId, candidate_id: candidateId } } }), "プレビューを取得できませんでした。");
