@@ -8,7 +8,7 @@ from pathlib import Path
 
 import numpy as np
 
-from material_workbench.feature_pipeline import FEATURE_DEFINITIONS, FEATURE_NAMES, FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION
+from material_workbench.feature_pipeline import CANONICAL_INPUT_PATHS, FEATURE_DEFINITIONS, FEATURE_NAMES, FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION
 from material_workbench.importer import load_workbook_data
 from material_workbench.runtime import FEATURE_COMPONENTS, INPUT_SCHEMA_VERSION, TARGETS, TASK_ID, ModelRuntime
 from material_workbench.schemas import CandidateInput
@@ -23,7 +23,8 @@ def artifact(root: Path, path: Path) -> dict[str, object]:
 
 
 PACKAGE_ID = "annealed-gp-2026-07"
-PACKAGE_VERSION = "0.5.0-exact-gp-v1"
+PACKAGE_VERSION = "0.6.0-exact-gp-v1"
+TRAINING_CODE_REVISION = "0.5.0-exact-gp-v1"
 
 
 def _grouped_training(model: object, target: str) -> tuple[np.ndarray, np.ndarray, float, float]:
@@ -114,10 +115,11 @@ def build(source: Path, destination: Path) -> None:
     pipeline_path.write_text(json.dumps({
         "id": FEATURE_PIPELINE_ID,
         "version": FEATURE_PIPELINE_VERSION,
+        "canonical_input_paths": list(CANONICAL_INPUT_PATHS),
         "features": [{"name": item.name, "unit": item.unit, "meaning": item.meaning} for item in FEATURE_DEFINITIONS],
         "missing_composition": "training_median_from_source_workbook",
         "heat_interpolation": "piecewise_linear",
-    }, ensure_ascii=False, indent=2), encoding="utf-8")
+    }, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
 
     predictors: list[dict[str, object]] = []
     files = [pipeline_path]
@@ -164,7 +166,7 @@ def build(source: Path, destination: Path) -> None:
         "records": training_counts,
         "source_sha256": data.source_sha256,
         "composition_defaults": data.medians,
-    }, ensure_ascii=False, indent=2), encoding="utf-8")
+    }, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
     files.append(stats_path)
 
     smoke_input = {
@@ -176,24 +178,26 @@ def build(source: Path, destination: Path) -> None:
         "heat_pattern": [{"time_s": 0, "temperature_c": 25}, {"time_s": 300, "temperature_c": 800}, {"time_s": 360, "temperature_c": 810}, {"time_s": 650, "temperature_c": 120}],
     }
     smoke_input_path = smoke_dir / "input.json"
-    smoke_input_path.write_text(json.dumps(smoke_input, ensure_ascii=False, indent=2), encoding="utf-8")
+    smoke_input_path.write_text(json.dumps(smoke_input, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
     smoke_candidate = CandidateInput.model_validate(smoke_input)
     smoke_values = runtime.vector_for_candidate(smoke_candidate)
     expected = {target: round(_gp_point(artifacts_dir / f"{target}.npz", smoke_values), 8) for target in runtime.models}
     smoke_expected_path = smoke_dir / "expected.json"
-    smoke_expected_path.write_text(json.dumps(expected, indent=2), encoding="utf-8")
+    smoke_expected_path.write_text(json.dumps(expected, indent=2), encoding="utf-8", newline="\n")
     files.extend([smoke_input_path, smoke_expected_path])
 
     manifest = {
         "schema_version": "model-package/v1", "package_id": PACKAGE_ID, "package_version": PACKAGE_VERSION,
         "task_id": TASK_ID, "input_schema_version": INPUT_SCHEMA_VERSION,
-        "feature_pipeline": {"id": FEATURE_PIPELINE_ID, "version": FEATURE_PIPELINE_VERSION, "spec": pipeline_path.relative_to(destination).as_posix(), "output_features": list(FEATURE_NAMES), "artifacts": [stats_path.relative_to(destination).as_posix()]},
+        "feature_pipeline": {"id": FEATURE_PIPELINE_ID, "version": FEATURE_PIPELINE_VERSION, "spec": pipeline_path.relative_to(destination).as_posix(), "canonical_input_paths": list(CANONICAL_INPUT_PATHS), "output_features": list(FEATURE_NAMES), "artifacts": [stats_path.relative_to(destination).as_posix()]},
         "predictors": predictors,
-        "provenance": {"training_data_id": f"sha256:{data.source_sha256}", "feature_dataset_id": f"sha256:{digest(stats_path)}", "training_code_revision": PACKAGE_VERSION},
+        "provenance": {"training_data_id": f"sha256:{data.source_sha256}", "feature_dataset_id": f"sha256:{digest(stats_path)}", "training_code_revision": TRAINING_CODE_REVISION},
         "artifacts": [artifact(destination, path) for path in files],
         "smoke_test": {"input": smoke_input_path.relative_to(destination).as_posix(), "expected": smoke_expected_path.relative_to(destination).as_posix()},
     }
-    (destination / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    (destination / "manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n"
+    )
 
 
 if __name__ == "__main__":

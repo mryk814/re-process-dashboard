@@ -2,11 +2,22 @@ from __future__ import annotations
 
 import pytest
 
-from material_workbench.hot_rolling_feature_pipeline import FEATURE_NAMES, build_hot_rolling_features
+from material_workbench.hot_rolling_feature_pipeline import CANONICAL_INPUT_PATHS, FEATURE_NAMES, build_hot_rolling_features
 from material_workbench.schemas import HotRollingCandidateInput
 
 
 DEFAULTS = {name: 0.0 for name in ("C", "Si", "Mn", "P", "S", "Cr", "Mo", "Ni", "Al", "Ti", "B", "N", "O", "Ca")}
+EXPECTED_CANONICAL_INPUT_PATHS = (
+    *(f"composition.{name}" for name in DEFAULTS),
+    "process.reheat_temperature_c",
+    "process.hold_time_min",
+    "process.finish_temperature_c",
+    "process.coiling_temperature_c",
+    "process.cooling_rate_c_s",
+    "process.entry_thickness_mm",
+    "process.exit_thickness_mm",
+    "categorical.route",
+)
 
 
 def test_hot_rolling_features_are_fixed_order_and_non_redundant() -> None:
@@ -18,6 +29,7 @@ def test_hot_rolling_features_are_fixed_order_and_non_redundant() -> None:
     bundle = build_hot_rolling_features(candidate, DEFAULTS)
     values = bundle.as_dict()
     assert tuple(values) == FEATURE_NAMES
+    assert CANONICAL_INPUT_PATHS == EXPECTED_CANONICAL_INPUT_PATHS
     assert "reduction_percent" not in values
     assert (values["route_A"], values["route_B"], values["route_C"]) == (0.0, 1.0, 0.0)
     assert values["ce_iiw"] == pytest.approx(0.35)

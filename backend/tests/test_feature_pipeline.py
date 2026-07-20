@@ -3,7 +3,7 @@ import math
 import numpy as np
 import pytest
 
-from material_workbench.feature_pipeline import FEATURE_NAMES, FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION, build_feature_bundle
+from material_workbench.feature_pipeline import CANONICAL_INPUT_PATHS, FEATURE_NAMES, FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION, build_feature_bundle
 from material_workbench.importer import _normalize_stage_local_times
 from material_workbench.schemas import CandidateInput
 
@@ -20,6 +20,13 @@ EXPECTED_FEATURE_NAMES = (
     "peak_temperature_c", "max_heating_rate_c_s", "time_at_or_above_95pct_peak_s",
     "time_at_or_above_700c_s", "thermal_exposure_above_600c_c_s",
     "cooling_rate_800_to_500_c_s", "cooling_800_to_500_observed", "reheat_count", "has_reheat",
+)
+EXPECTED_CANONICAL_INPUT_PATHS = (
+    *(f"composition.{name}" for name in COMPOSITION),
+    "process.thickness_mm",
+    "process.line_speed_m_min",
+    "heat_pattern",
+    "categorical.coating",
 )
 
 
@@ -48,6 +55,7 @@ def test_feature_bundle_golden_for_piecewise_linear_route() -> None:
 
     assert (bundle.pipeline_id, bundle.pipeline_version) == (FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION)
     assert bundle.names == FEATURE_NAMES == EXPECTED_FEATURE_NAMES
+    assert CANONICAL_INPUT_PATHS == EXPECTED_CANONICAL_INPUT_PATHS
     assert len(bundle.names) == 34
     assert len(set(bundle.names)) == len(bundle.names)
     assert bundle.values.dtype == np.float64

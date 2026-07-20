@@ -1,13 +1,33 @@
 {
   "schema_version": "model-package/v1",
   "package_id": "annealed-gp-2026-07",
-  "package_version": "0.5.0-exact-gp-v1",
+  "package_version": "0.6.0-exact-gp-v1",
   "task_id": "annealed-properties-v1",
   "input_schema_version": "candidate-v1",
   "feature_pipeline": {
     "id": "metallurgy-thermal",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "spec": "feature-pipeline/pipeline.json",
+    "canonical_input_paths": [
+      "composition.C",
+      "composition.Si",
+      "composition.Mn",
+      "composition.P",
+      "composition.S",
+      "composition.Cr",
+      "composition.Mo",
+      "composition.Ni",
+      "composition.Al",
+      "composition.Ti",
+      "composition.B",
+      "composition.N",
+      "composition.O",
+      "composition.Ca",
+      "process.thickness_mm",
+      "process.line_speed_m_min",
+      "heat_pattern",
+      "categorical.coating"
+    ],
     "output_features": [
       "C",
       "Si",
@@ -252,14 +272,14 @@
   ],
   "provenance": {
     "training_data_id": "sha256:f5b75d4a2e29c0e85f24fe2325b4c610e23ba6ce65ba3b5c53c097a68ca60c55",
-    "feature_dataset_id": "sha256:c4b18b8e152a0d35c452d08334a6f5726dff74c4b80c0aea8016a9269bc43058",
+    "feature_dataset_id": "sha256:bf4d4bb7f525a05e320a9d558e8b3baded5779f9342bcff599a0b8b5d0b9f77b",
     "training_code_revision": "0.5.0-exact-gp-v1"
   },
   "artifacts": [
     {
       "path": "feature-pipeline/pipeline.json",
-      "sha256": "72c44146897ccb245c9ff5495c087dfa5c9d9eef1c4555d442dafd966145771f",
-      "bytes": 4143
+      "sha256": "d7c80166ce957015ceec49d945e91b333eea228de50cfd77c8f87a316db7c25f",
+      "bytes": 4408
     },
     {
       "path": "model-artifacts/EL.npz",
@@ -283,18 +303,18 @@
     },
     {
       "path": "reference/training_stats.json",
-      "sha256": "c4b18b8e152a0d35c452d08334a6f5726dff74c4b80c0aea8016a9269bc43058",
-      "bytes": 484
+      "sha256": "bf4d4bb7f525a05e320a9d558e8b3baded5779f9342bcff599a0b8b5d0b9f77b",
+      "bytes": 460
     },
     {
       "path": "smoke/input.json",
-      "sha256": "853a9d780861e7aaeea4eaeb7d1577afce3574c8a5040506ebf07b4ff296199b",
-      "bytes": 683
+      "sha256": "9b4ad3525df5e80ff11a577bc26dedfc56c022a72b3925c6293f8807227f61f4",
+      "bytes": 644
     },
     {
       "path": "smoke/expected.json",
-      "sha256": "7e6cfa1cd8cc1529f04418d0028880f32d0ec53bdefbc2bb40e3593a75eca923",
-      "bytes": 97
+      "sha256": "e8c6b8bcf390a584b9bbae255f14c344f3cebdfa7604e0b68eb74116c3f13c55",
+      "bytes": 92
     }
   ],
   "smoke_test": {

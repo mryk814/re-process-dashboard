@@ -1,13 +1,37 @@
 {
   "schema_version": "model-package/v1",
   "package_id": "hot-rolled-gp-2026-07",
-  "package_version": "0.1.0-exact-gp-v1",
+  "package_version": "0.2.0-exact-gp-v1",
   "task_id": "hot-rolled-properties-v1",
   "input_schema_version": "hot-rolling-candidate-v1",
   "feature_pipeline": {
     "id": "metallurgy-hot-rolling",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "spec": "feature-pipeline/pipeline.json",
+    "canonical_input_paths": [
+      "composition.C",
+      "composition.Si",
+      "composition.Mn",
+      "composition.P",
+      "composition.S",
+      "composition.Cr",
+      "composition.Mo",
+      "composition.Ni",
+      "composition.Al",
+      "composition.Ti",
+      "composition.B",
+      "composition.N",
+      "composition.O",
+      "composition.Ca",
+      "process.reheat_temperature_c",
+      "process.hold_time_min",
+      "process.finish_temperature_c",
+      "process.coiling_temperature_c",
+      "process.cooling_rate_c_s",
+      "process.entry_thickness_mm",
+      "process.exit_thickness_mm",
+      "categorical.route"
+    ],
     "output_features": [
       "C",
       "Si",
@@ -191,14 +215,14 @@
   ],
   "provenance": {
     "training_data_id": "sha256:f5b75d4a2e29c0e85f24fe2325b4c610e23ba6ce65ba3b5c53c097a68ca60c55",
-    "feature_dataset_id": "sha256:8d9759e611ab59bb509adfb1551c5820b7f8a7308e6ae178ce344b9433f91f54",
+    "feature_dataset_id": "sha256:9ab85d9508637831e01779d9b123aced69b380b9497fdf7eabc042ab6a2c539b",
     "training_code_revision": "0.1.0-exact-gp-v1"
   },
   "artifacts": [
     {
       "path": "feature-pipeline/pipeline.json",
-      "sha256": "4397c16d2bb31b789c5c5ef1c685f385e7d8399411cfb50bba823c58da3ab753",
-      "bytes": 1247
+      "sha256": "c9d256e1d261ae0c8ba634e9cad3a15a44ecb6313942b569a73a8878580ea3b0",
+      "bytes": 1752
     },
     {
       "path": "model-artifacts/TS.npz",
@@ -217,18 +241,18 @@
     },
     {
       "path": "reference/training_stats.json",
-      "sha256": "8d9759e611ab59bb509adfb1551c5820b7f8a7308e6ae178ce344b9433f91f54",
-      "bytes": 464
+      "sha256": "9ab85d9508637831e01779d9b123aced69b380b9497fdf7eabc042ab6a2c539b",
+      "bytes": 441
     },
     {
       "path": "smoke/input.json",
-      "sha256": "69f23cc9bde43aa8006c75c6794acdbb90aedc8bd20ca7a83d09d4e80e9e6c72",
-      "bytes": 585
+      "sha256": "0b077854d0e778b6548861960bb60823b219968739d163df0b7f78fcd7ffb680",
+      "bytes": 559
     },
     {
       "path": "smoke/expected.json",
-      "sha256": "02fdf10a3ccf4a62abbbf10647af34b640256c81e23aee582781b6e9d0b33fdb",
-      "bytes": 70
+      "sha256": "243014dd3101abec5d7db4893d9d5522e209c54d4754a3ec0883addbf2fa6761",
+      "bytes": 66
     }
   ],
   "smoke_test": {

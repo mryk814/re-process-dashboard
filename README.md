@@ -45,6 +45,8 @@ npm run build
 
 `data/source/process_dashboard_realistic_excel_v2.xlsx` を読取専用の正本として扱います。初回起動時に工程、観測、系譜、データ品質を構築します。元Excelは変更しません。
 
+Excelの外部sheet・列とアプリ内部の意味の対応はDataset Input Profileで一元管理します。契約とデータ差替え手順は `docs/dataset-input-profile.md` を参照してください。
+
 候補・プロジェクト・予測スナップショット・実測値は `data/workbench.db` に保存します。候補一覧は画面からXLSXで入出力でき、ヒートパターンも往復保持されます。
 
 ## モデルPackage

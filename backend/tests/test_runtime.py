@@ -96,5 +96,27 @@ def test_runtime_rejects_pipeline_version_that_only_preserves_feature_names(clie
     artifact["bytes"] = pipeline_path.stat().st_size
     artifact["sha256"] = hashlib.sha256(pipeline_path.read_bytes()).hexdigest()
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
-    with pytest.raises(ValueError, match="pipeline specification id/version"):
+    with pytest.raises(ValueError, match="feature pipeline id/version differs"):
+        ModelRuntime(runtime.data, package_root=root)
+
+
+def test_runtime_rejects_package_canonical_input_order_that_differs_from_task_definition(client, tmp_path) -> None:
+    runtime: ModelRuntime = client.app.state.runtime
+    assert runtime.model_package is not None
+    root = tmp_path / "wrong-canonical-order"
+    shutil.copytree(runtime.model_package.root, root)
+    manifest_path = root / "manifest.json"
+    pipeline_path = root / "feature-pipeline" / "pipeline.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    pipeline = json.loads(pipeline_path.read_text(encoding="utf-8"))
+    wrong_order = list(reversed(manifest["feature_pipeline"]["canonical_input_paths"]))
+    manifest["feature_pipeline"]["canonical_input_paths"] = wrong_order
+    pipeline["canonical_input_paths"] = wrong_order
+    pipeline_path.write_text(json.dumps(pipeline), encoding="utf-8")
+    artifact = next(item for item in manifest["artifacts"] if item["path"] == "feature-pipeline/pipeline.json")
+    artifact["bytes"] = pipeline_path.stat().st_size
+    artifact["sha256"] = hashlib.sha256(pipeline_path.read_bytes()).hexdigest()
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="canonical input order does not match TaskDefinition"):
         ModelRuntime(runtime.data, package_root=root)

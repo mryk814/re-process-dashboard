@@ -6,14 +6,26 @@ from typing import Mapping
 
 import numpy as np
 
-from .importer import COMPOSITION_COLUMNS
 from .schemas import HotRollingCandidateInput
 
 
 PIPELINE_ID = "metallurgy-hot-rolling"
-PIPELINE_VERSION = "1.0.0"
+PIPELINE_VERSION = "1.1.0"
 INPUT_SCHEMA_VERSION = "hot-rolling-candidate-v1"
-COMPOSITION_NAMES = tuple(COMPOSITION_COLUMNS)
+COMPOSITION_NAMES = (
+    "C", "Si", "Mn", "P", "S", "Cr", "Mo", "Ni", "Al", "Ti", "B", "N", "O", "Ca",
+)
+CANONICAL_INPUT_PATHS = (
+    *(f"composition.{name}" for name in COMPOSITION_NAMES),
+    "process.reheat_temperature_c",
+    "process.hold_time_min",
+    "process.finish_temperature_c",
+    "process.coiling_temperature_c",
+    "process.cooling_rate_c_s",
+    "process.entry_thickness_mm",
+    "process.exit_thickness_mm",
+    "categorical.route",
+)
 
 
 @dataclass(frozen=True)

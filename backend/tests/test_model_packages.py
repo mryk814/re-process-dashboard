@@ -10,7 +10,14 @@ from zipfile import ZIP_DEFLATED, ZipFile
 import numpy as np
 import pytest
 
-from material_workbench.model_packages import AdapterRegistry, ModelPackageLoader, PackageContractError
+from material_workbench.model_packages import (
+    AdapterRegistry,
+    ModelPackageLoader,
+    PackageContractError,
+    ordered_canonical_input_paths,
+    validate_task_definition_canonical_inputs,
+)
+from material_workbench.task_contracts import TaskContractFixture
 from material_workbench.adapters.numpyro_posterior import MAX_NPZ_COMPRESSION_RATIO
 from material_workbench.adapters.sklearn_skops import _TRUSTED_TYPES_BY_FAMILY
 
@@ -30,7 +37,12 @@ def _write_package(tmp_path: Path, *, family: str = "student_t", target_kind: st
     (root / "feature-pipeline").mkdir(parents=True)
     (root / "model-artifacts").mkdir()
     pipeline = root / "feature-pipeline" / "pipeline.json"
-    pipeline.write_text('{"operations": []}', encoding="utf-8")
+    pipeline.write_text(json.dumps({
+        "id": "test-pipeline",
+        "version": "1",
+        "canonical_input_paths": ["composition.C", "composition.Mn"],
+        "features": [{"name": "C"}, {"name": "Mn"}],
+    }), encoding="utf-8")
     draws = 12
     weights = np.zeros((draws, 2, output_width), dtype=float)
     weights[:, 0, 0] = np.linspace(0.1, 0.4, draws)
@@ -51,7 +63,7 @@ def _write_package(tmp_path: Path, *, family: str = "student_t", target_kind: st
         config["thresholds"] = [-0.5, 0.7]
     manifest = {
         "schema_version": "model-package/v1", "package_id": f"fixture-{family}", "package_version": "1", "task_id": "test", "input_schema_version": "candidate-v1",
-        "feature_pipeline": {"id": "test-pipeline", "version": "1", "spec": "feature-pipeline/pipeline.json", "output_features": ["C", "Mn"], "artifacts": []},
+        "feature_pipeline": {"id": "test-pipeline", "version": "1", "spec": "feature-pipeline/pipeline.json", "canonical_input_paths": ["composition.C", "composition.Mn"], "output_features": ["C", "Mn"], "artifacts": []},
         "predictors": [{"id": "target", "target": "target", "unit": "u", "target_kind": target_kind, "runtime_type": "numpyro.dense_posterior.v1", "architecture_id": "dense_mlp_v1", "artifact": "model-artifacts/posterior.npz", "predictive_family": family, "feature_names": ["C", "Mn"], "config": config}],
         "provenance": {"training_data_id": "sha256:training", "feature_dataset_id": "sha256:features", "training_code_revision": "git:test"},
         "artifacts": [_artifact(pipeline, "feature-pipeline/pipeline.json"), _artifact(model, "model-artifacts/posterior.npz")],
@@ -89,12 +101,17 @@ def test_builtin_linear_package_and_registry_are_dependency_free(tmp_path: Path)
     (root / "feature-pipeline").mkdir(parents=True)
     (root / "model-artifacts").mkdir()
     pipeline = root / "feature-pipeline" / "pipeline.json"
-    pipeline.write_text("{}", encoding="utf-8")
+    pipeline.write_text(json.dumps({
+        "id": "p",
+        "version": "1",
+        "canonical_input_paths": ["composition.C", "composition.Mn"],
+        "features": [{"name": "C"}, {"name": "Mn"}],
+    }), encoding="utf-8")
     artifact = root / "model-artifacts" / "linear.npz"
     np.savez(artifact, weights=np.array([2.0, 3.0]), bias=np.array(1.0), lower_offset=np.array(-2.0), upper_offset=np.array(4.0))
     manifest = {
         "schema_version": "model-package/v1", "package_id": "linear", "package_version": "1", "task_id": "test", "input_schema_version": "candidate-v1",
-        "feature_pipeline": {"id": "p", "version": "1", "spec": "feature-pipeline/pipeline.json"},
+        "feature_pipeline": {"id": "p", "version": "1", "spec": "feature-pipeline/pipeline.json", "canonical_input_paths": ["composition.C", "composition.Mn"], "output_features": ["C", "Mn"]},
         "predictors": [{"id": "linear", "target": "TS", "unit": "MPa", "target_kind": "continuous", "runtime_type": "builtin.linear.v1", "artifact": "model-artifacts/linear.npz", "predictive_family": "empirical_quantiles", "feature_names": ["C", "Mn"]}],
         "provenance": {"training_data_id": "x", "feature_dataset_id": "y", "training_code_revision": "z"},
         "artifacts": [_artifact(pipeline, "feature-pipeline/pipeline.json"), _artifact(artifact, "model-artifacts/linear.npz")],
@@ -125,6 +142,121 @@ def test_loader_rejects_hash_tampering_traversal_and_unknown_manifest_fields(tmp
     pipeline.write_text('{"changed": true}', encoding="utf-8")
     with pytest.raises(PackageContractError, match="artifact size mismatch|artifact hash mismatch"):
         ModelPackageLoader().load(root)
+
+
+def test_loader_requires_unique_canonical_input_paths_in_manifest(tmp_path: Path) -> None:
+    root = _write_package(tmp_path)
+    manifest_path = root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["feature_pipeline"].pop("canonical_input_paths")
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(PackageContractError, match="canonical_input_paths"):
+        ModelPackageLoader().load(root)
+
+    manifest["feature_pipeline"]["canonical_input_paths"] = ["composition.C", "composition.C"]
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(PackageContractError, match="canonical input paths must be unique"):
+        ModelPackageLoader().load(root)
+
+
+def test_loader_rejects_pipeline_and_manifest_canonical_input_mismatch(tmp_path: Path) -> None:
+    root = _write_package(tmp_path)
+    pipeline_path = root / "feature-pipeline" / "pipeline.json"
+    pipeline = json.loads(pipeline_path.read_text(encoding="utf-8"))
+    pipeline["canonical_input_paths"] = ["composition.Mn", "composition.C"]
+    pipeline_path.write_text(json.dumps(pipeline), encoding="utf-8")
+    manifest_path = root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["artifacts"][0] = _artifact(pipeline_path, "feature-pipeline/pipeline.json")
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(PackageContractError, match="canonical input paths differ"):
+        ModelPackageLoader().load(root)
+
+
+def test_loader_validates_pipeline_outputs_separately_from_canonical_inputs(tmp_path: Path) -> None:
+    root = _write_package(tmp_path)
+    pipeline_path = root / "feature-pipeline" / "pipeline.json"
+    pipeline = json.loads(pipeline_path.read_text(encoding="utf-8"))
+    pipeline["features"] = [{"name": "Mn"}, {"name": "C"}]
+    pipeline_path.write_text(json.dumps(pipeline), encoding="utf-8")
+    manifest_path = root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["artifacts"][0] = _artifact(pipeline_path, "feature-pipeline/pipeline.json")
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(PackageContractError, match="pipeline output feature order differs"):
+        ModelPackageLoader().load(root)
+
+
+def test_loader_validates_predictor_feature_order_separately_from_pipeline_inputs(tmp_path: Path) -> None:
+    root = _write_package(tmp_path)
+    manifest_path = root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["predictors"][0]["feature_names"] = ["Mn", "C"]
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(PackageContractError, match="predictor feature order"):
+        ModelPackageLoader().load(root)
+
+
+def test_loader_rejects_unknown_pipeline_document_fields(tmp_path: Path) -> None:
+    root = _write_package(tmp_path)
+    pipeline_path = root / "feature-pipeline" / "pipeline.json"
+    pipeline = json.loads(pipeline_path.read_text(encoding="utf-8"))
+    pipeline["arbitrary_code"] = "do-not-ignore"
+    pipeline_path.write_text(json.dumps(pipeline), encoding="utf-8")
+    manifest_path = root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["artifacts"][0] = _artifact(pipeline_path, "feature-pipeline/pipeline.json")
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(PackageContractError, match="invalid feature pipeline specification"):
+        ModelPackageLoader().load(root)
+
+
+@pytest.mark.parametrize(
+    ("task_id", "package_id", "package_version", "pipeline_version"),
+    [
+        ("annealed-properties-v1", "annealed-gp-2026-07", "0.6.0-exact-gp-v1", "1.4.0"),
+        ("hot-rolled-properties-v1", "hot-rolled-gp-2026-07", "0.2.0-exact-gp-v1", "1.1.0"),
+    ],
+)
+def test_checked_in_packages_match_task_definition_canonical_input_order(
+    task_id: str,
+    package_id: str,
+    package_version: str,
+    pipeline_version: str,
+) -> None:
+    root = Path(__file__).resolve().parents[2]
+    fixture = TaskContractFixture.model_validate_json(
+        (root / "backend" / "tests" / "fixtures" / "task_contracts" / f"{task_id}.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    package = ModelPackageLoader().load(root / "models" / "packages" / package_id)
+
+    validate_task_definition_canonical_inputs(fixture.task_definition, package.manifest)
+    assert package.manifest.package_version == package_version
+    assert package.manifest.feature_pipeline.version == pipeline_version
+    assert package.manifest.feature_pipeline.canonical_input_paths == (
+        ordered_canonical_input_paths(fixture.task_definition)
+    )
+
+
+def test_canonical_input_order_includes_optional_declared_fields() -> None:
+    root = Path(__file__).resolve().parents[2]
+    fixture = TaskContractFixture.model_validate_json(
+        (root / "backend" / "tests" / "fixtures" / "task_contracts" / "annealed-properties-v1.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    document = fixture.model_dump(mode="json")
+    optional_path = document["task_definition"]["input_groups"][0]["fields"][0]["path"]
+    document["task_definition"]["input_groups"][0]["fields"][0]["required"] = False
+    optional_fixture = TaskContractFixture.model_validate(document)
+
+    assert optional_path in ordered_canonical_input_paths(optional_fixture.task_definition)
 
 
 def test_numpyro_posterior_rejects_archive_bombs_and_excessive_draws(tmp_path: Path) -> None:
