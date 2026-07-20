@@ -1,0 +1,54 @@
+.project-form { display: grid; gap: 14px; margin: 20px 0; }
+.project-form label { font-size: 13px; font-weight: 700; }
+.project-form input,
+.project-form textarea,
+.project-form select { display: block; width: 100%; margin-top: 5px; border: 1px solid #cbd6e2; border-radius: 4px; padding: 8px; }
+.project-form textarea { min-height: 80px; }
+.project-hub .project-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.project-hub .project-actions label { font-size: 12px; font-weight: 700; }
+.project-hub .project-actions select { margin-left: 6px; min-width: 180px; height: 36px; border: 1px solid #cbd6e2; border-radius: 4px; }
+.target-grid { border: 1px solid #d8e0ea; border-radius: 4px; display: grid; grid-template-columns: repeat(4, minmax(100px, 1fr)); gap: 10px; padding: 12px; }
+.target-grid legend { font-size: 13px; font-weight: 700; padding: 0 6px; }
+.project-form label small { display: block; color: #657386; font-weight: 400; margin-top: 4px; }
+.project-hub { display: grid; gap: 18px; }
+.project-hub-header { align-items: flex-start; }
+.project-create-panel, .project-settings-panel, .project-next-actions, .project-history-section, .project-model-summary, .project-snapshot-detail { border: 1px solid #d8e0ea; border-radius: 6px; background: #fff; padding: 14px; }
+.project-create-panel { display: grid; gap: 12px; }
+.project-create-panel > label { display: grid; gap: 5px; max-width: 520px; color: #526276; font-size: 12px; }
+.project-start-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.project-start-options label { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; border: 1px solid #d8e0ea; border-radius: 5px; padding: 11px; color: #20344b; }
+.project-start-options label span { grid-column: 2; color: #718096; font-size: 11px; }
+.project-action-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.project-action-card { display: grid; gap: 5px; min-height: 82px; border: 1px solid #cbd6e3; border-radius: 6px; background: #f8fafc; padding: 12px; text-align: left; color: #233b55; cursor: pointer; }
+.project-action-card.primary { border-color: #1f5fc4; background: #eff6ff; color: #164f9f; }
+.project-action-card span { color: #65758a; font-size: 11px; }
+.project-history-list { display: grid; gap: 10px; }
+.project-history-card { border: 1px solid #dce4ed; border-radius: 5px; overflow: hidden; }
+.project-history-card > header { display: flex; justify-content: space-between; gap: 12px; align-items: center; background: #f7f9fc; padding: 9px 11px; }
+.project-history-card > header > div { display: flex; align-items: center; gap: 7px; }
+.history-current-row, .history-snapshot-row, .history-preview, .project-empty-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; padding: 8px 11px; border-top: 1px solid #e5eaf0; font-size: 12px; }
+.history-preview { background: #f8fbff; }
+.history-preview > span, .history-muted { color: #68788c; }
+.history-preview strong { font-variant-numeric: tabular-nums; }
+.history-muted, .decision-note { margin: 0; padding: 8px 11px; border-top: 1px solid #e5eaf0; font-size: 12px; color: #68788c; }
+.history-kind { border-radius: 999px; padding: 2px 7px; font-size: 10px; font-weight: 700; }
+.history-kind.current { background: #dbeafe; color: #174f97; }
+.history-kind.fixed { background: #ede9fe; color: #6541a5; }
+.history-predictions { flex: 1 1 280px; font-variant-numeric: tabular-nums; }
+.history-actual { border-radius: 3px; background: #ecfdf5; padding: 3px 6px; color: #176449; font-variant-numeric: tabular-nums; }
+.decision-note-inline { flex-basis: 100%; color: #5b478b; }
+.muted-badge { border-radius: 999px; background: #e5e7eb; padding: 2px 6px; color: #596273; font-size: 10px; }
+.project-hub .project-empty-state { display: flex; justify-content: space-between; align-items: center; gap: 16px; color: #617087; }
+.project-model-summary details { margin-top: 8px; }
+.project-model-summary summary { color: #315d91; cursor: pointer; }
+.snapshot-decision-form { display: flex; align-items: end; gap: 9px; margin: 12px 0; }
+.snapshot-decision-form label { display: grid; flex: 1; gap: 4px; color: #607086; font-size: 11px; }
+.snapshot-decision-form textarea { min-height: 58px; }
+
+@media (max-width: 900px) {
+  .project-action-grid, .project-start-options { grid-template-columns: 1fr; }
+  .project-history-card > header, .project-hub .project-empty-state { align-items: stretch; flex-direction: column; }
+}
+@media (max-width: 760px) {
+  .target-grid { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,43 @@
+.section-navigation {
+  margin: 14px 18px 0;
+  padding: 10px 14px;
+  border: 1px solid #d8e0ea;
+  border-radius: 6px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+.section-navigation strong { display: block; color: #263448; font-size: 13px; }
+.section-navigation nav { display: flex; gap: 5px; }
+.section-navigation button { border: 1px solid transparent; border-radius: 4px; background: transparent; color: #526176; padding: 8px 11px; font: inherit; font-weight: 600; }
+.section-navigation button:hover,
+.section-navigation button.active { border-color: #a9c1df; background: #edf4fc; color: #174f98; }
+.data-explore-page > .page-panel { margin-top: 10px; }
+.quality-summary { display: flex; gap: 12px; margin: 22px 0; }
+.quality-summary button { border-left: 3px solid #1f5fc4; border-top: 0; border-right: 0; border-bottom: 0; background: #f7faff; padding: 13px 30px 13px 13px; color: #5d6775; font: inherit; cursor: pointer; text-align: left; }
+.quality-summary button:hover,
+.quality-summary button.active { background: #e9f1ff; }
+.quality-summary b { font-size: 22px; color: #18202c; margin-right: 7px; }
+.quality-table { width: 100%; border-collapse: collapse; border: 1px solid #d8e0ea; }
+.quality-table th,
+.quality-table td { padding: 13px; border-bottom: 1px solid #d8e0ea; text-align: left; }
+.quality-table th { background: #f5f7fa; }
+.quality-filters { display: flex; align-items: end; gap: 12px; margin-bottom: 14px; }
+.quality-filters label { display: grid; gap: 4px; color: #5d6775; font-size: 12px; }
+.quality-filters select,
+.quality-filters input { min-width: 150px; border: 1px solid #c6d0dc; border-radius: 4px; padding: 7px 9px; background: #fff; color: #18202c; }
+.quality-focus-row { background: #eef5ff; }
+.quality-actions { min-width: 170px; }
+.quality-actions .text-button { display: block; margin: 3px 0; }
+.quality-unavailable { display: block; max-width: 220px; color: #7a5b19; font-size: 12px; }
+.reference-scenarios { margin-top: 20px; border: 1px solid #d8e0ea; border-radius: 4px; padding: 12px; color: #536277; }
+.reference-scenarios summary { cursor: pointer; font-weight: 700; color: #263448; }
+.reference-scenarios p { font-size: 13px; }
+
+@media (max-width: 980px) {
+  .quality-summary { display: block; }
+  .quality-summary button { display: block; width: 100%; margin: 6px 0; }
+  .quality-filters { align-items: stretch; flex-direction: column; }
+}
