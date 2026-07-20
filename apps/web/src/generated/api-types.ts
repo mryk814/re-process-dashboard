@@ -386,6 +386,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Project History */
+        get: operations["getProjectHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/model-package": {
         parameters: {
             query?: never;
@@ -540,6 +557,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/task-definitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Task Definitions */
+        get: operations["listTaskDefinitions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -675,6 +709,26 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** CandidateCurrentHistory */
+        CandidateCurrentHistory: {
+            /** Revision */
+            revision: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** CandidateHistoryItem */
+        CandidateHistoryItem: {
+            /** Actuals */
+            actuals: components["schemas"]["ActualMeasurement"][];
+            candidate: components["schemas"]["Candidate"];
+            current: components["schemas"]["CandidateCurrentHistory"];
+            decision?: components["schemas"]["ProjectDecisionHistory"] | null;
+            /** Snapshots */
+            snapshots: components["schemas"]["SnapshotHistoryItem"][];
         };
         /** CandidateImportError */
         CandidateImportError: {
@@ -1419,6 +1473,68 @@ export interface components {
              */
             updated_at: string;
         };
+        /** ProjectCreateInput */
+        ProjectCreateInput: {
+            /**
+             * Decision Candidate Id
+             * @default
+             */
+            decision_candidate_id: string;
+            /**
+             * Decision Note
+             * @default
+             */
+            decision_note: string;
+            /**
+             * Decision Snapshot Id
+             * @default
+             */
+            decision_snapshot_id: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            initial_candidate?: components["schemas"]["CandidateInput"] | null;
+            /** Input Ranges */
+            input_ranges?: {
+                [key: string]: components["schemas"]["InputRange"];
+            };
+            /**
+             * Name
+             * @default 焼鈍条件の候補検討
+             */
+            name: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+            /**
+             * Purpose
+             * @default
+             */
+            purpose: string;
+            /** Target Values */
+            target_values?: {
+                [key: string]: number;
+            };
+            /**
+             * Task Id
+             * @default annealed-properties-v1
+             * @enum {string}
+             */
+            task_id: "annealed-properties-v1" | "hot-rolled-properties-v1";
+        };
+        /** ProjectDecisionHistory */
+        ProjectDecisionHistory: {
+            /** Candidate Id */
+            candidate_id: string;
+            /** Note */
+            note: string;
+            /** Snapshot Id */
+            snapshot_id: string;
+        };
         /** ProjectDecisionInput */
         ProjectDecisionInput: {
             /**
@@ -1436,6 +1552,12 @@ export interface components {
              * @default
              */
             snapshot_id: string;
+        };
+        /** ProjectHistoryResponse */
+        ProjectHistoryResponse: {
+            /** Candidates */
+            candidates: components["schemas"]["CandidateHistoryItem"][];
+            project: components["schemas"]["Project"];
         };
         /** ProjectInput */
         ProjectInput: {
@@ -1825,6 +1947,25 @@ export interface components {
              */
             source: string;
         };
+        /** SnapshotHistoryItem */
+        SnapshotHistoryItem: {
+            /** Candidate Id */
+            candidate_id: string;
+            /** Candidate Revision */
+            candidate_revision?: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: string;
+            model_ref?: components["schemas"]["ModelMetadata"] | null;
+            /** Prediction Summary */
+            prediction_summary: {
+                [key: string]: components["schemas"]["Prediction"];
+            };
+        };
         /** SnapshotPayload */
         SnapshotPayload: {
             prediction?: components["schemas"]["PredictionResponse"] | null;
@@ -1908,6 +2049,11 @@ export interface components {
             uncertainty_components: boolean;
             /** Warnings */
             warnings: boolean;
+        };
+        /** TaskCatalogItem */
+        TaskCatalogItem: {
+            definition: components["schemas"]["ResolvedTaskDefinition"];
+            starter_candidate: components["schemas"]["CandidateInput"];
         };
         /** TaskDefinition */
         TaskDefinition: {
@@ -2264,7 +2410,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ProjectInput"];
+                "application/json": components["schemas"]["ProjectCreateInput"];
             };
         };
         responses: {
@@ -3193,6 +3339,55 @@ export interface operations {
             };
         };
     };
+    getProjectHistory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectHistoryResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     getProjectModelPackage: {
         parameters: {
             query?: never;
@@ -3587,6 +3782,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    listTaskDefinitions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskCatalogItem"][];
                 };
             };
             /** @description Validation Error */

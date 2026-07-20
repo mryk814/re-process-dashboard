@@ -4,6 +4,7 @@ import { navigationUrl, readNavigationIntent, withView, type NavigationIntent, t
 import { CandidateInspector as TaskDrivenCandidateInspector, ComparisonTable as TaskDrivenComparisonTable, fromApiCandidate, numericTaskInputs, setCandidateInputValue, taskFieldName, toApiCandidate, useCandidateEditor, validateResolvedTaskDefinition, type CandidateSaveState, type CandidateViewModel as Candidate, type NumericTaskInput, type ResolvedTaskDefinition, type RuntimeOperations, type TaskDefinitionContract, type TaskOutputDefinition } from "./features/candidates";
 import { useWorkbenchPrediction, type PredictionMetric as Metric } from "./features/workbench/useWorkbenchPrediction";
 import { workbenchRequestKey } from "./features/workbench/workbenchIdentity";
+import { ProjectHub } from "./features/projects";
 import { ApiClientError, apiBaseUrl } from "./shared/api/client";
 import { candidateInputIdentity } from "./shared/api/inferenceRequestCache";
 import {
@@ -12,14 +13,12 @@ import {
   type ApiCandidateInput,
   type ApiLineage,
   type ApiLineageIndex,
-  type ApiModelPackage,
   type ApiPredictionVsActual,
   type ApiPreview,
   type ApiProject,
   type ApiQuality,
   type ApiResponseCurves,
   type ApiScreeningRun,
-  type ApiSnapshot,
 } from "./shared/api/workbench-api";
 
 type Tab = WorkbenchView;
@@ -31,37 +30,6 @@ function allowedRange(input: NumericTaskInput) {
 type ResponseCurvesPayload = ApiResponseCurves;
 type CurvePoint = ApiResponseCurves["curves"][string][number];
 type CurveVariable = ApiResponseCurves["variable"];
-const STARTER_CANDIDATE: ApiCandidateInput = {
-  name: "基準候補",
-  inputs: {
-    composition: {
-      C: 0.08,
-      Si: 0.3,
-      Mn: 1.5,
-      P: 0.012,
-      S: 0.004,
-      Cr: 0.2,
-      Mo: 0.03,
-      Ni: 0.1,
-      Al: 0.04,
-      Ti: 0.02,
-      B: 0.002,
-      N: 0.005,
-      O: 0.002,
-      Ca: 0.001,
-    },
-    process: { thickness_mm: 1.4, line_speed_m_min: 103 },
-    categorical: { coating: "GI" },
-    heat_pattern: [
-      { time_s: 0, temperature_c: 25, segment_start: false },
-      { time_s: 280, temperature_c: 800, segment_start: false },
-      { time_s: 340, temperature_c: 810, segment_start: false },
-      { time_s: 650, temperature_c: 120, segment_start: false },
-    ],
-  },
-  provenance: { source_kind: "direct", source_ref: null },
-};
-
 const navItems: Array<{ id: Tab; label: string }> = [
   { id: "project", label: "プロジェクト" },
   { id: "candidates", label: "候補比較" },
@@ -485,7 +453,10 @@ function App() {
 
   const createStarterCandidate = async () => {
     try {
-      const created = fromApiCandidate(await workbenchApi.createCandidate(activeProjectId, STARTER_CANDIDATE));
+      const catalog = await workbenchApi.listTaskDefinitions();
+      const starter = catalog.find((item) => item.definition.task_definition.id === taskId)?.starter_candidate;
+      if (!starter) throw new Error("予測タスクの基準候補を取得できませんでした");
+      const created = fromApiCandidate(await workbenchApi.createCandidate(activeProjectId, starter));
       setCandidates([created]);
       selectCandidate(created.id);
       setNotice("基準候補を作成しました");
@@ -611,12 +582,13 @@ function App() {
           </div>
         </div>
         {tab === "project" && (
-          <LiveProjectPage
+          <ProjectHub
             projects={projects}
             activeProjectId={activeProjectId}
             candidate={selected}
             taskDefinition={taskDefinition}
             operations={operations}
+            currentPreviews={prediction.previewsByCandidate}
             onProjectChanged={(project) => {
               setProjects((items) =>
                 items.some((item) => item.id === project.id)
@@ -625,12 +597,17 @@ function App() {
                     )
                   : [...items, project],
               );
-              if (project.id === activeProjectId) void loadProject(project.id);
+              if (project.id === activeProjectId && activeProject?.task_id !== project.task_id) void loadProject(project.id);
             }}
             onSwitch={(projectId) => {
               navigate({ view: "project", projectId }, true);
               void loadProject(projectId);
             }}
+            onNavigate={(view, candidateId) => {
+              navigate({ view, projectId: activeProjectId, candidateId }, true);
+              if (candidateId) selectCandidate(candidateId, true);
+            }}
+            onSnapshotNavigate={(snapshotId) => navigate({ view: "project", projectId: activeProjectId, snapshotId }, true)}
             onRestore={(candidate) => {
               if (candidate.raw.project_id !== activeProjectId) {
                 setNotice(
@@ -2536,424 +2513,6 @@ function InputRangeSettingsPage({
           return <tr key={input.id}><th>{input.label}<small>{input.unit}</small></th><td><input type="number" step="any" value={draft[input.id]?.min ?? ""} onChange={(event) => update(input.id, "min", event.target.value)} /></td><td><input type="number" step="any" value={draft[input.id]?.max ?? ""} onChange={(event) => update(input.id, "max", event.target.value)} /></td><td>{rangeNumber(range.min)}–{rangeNumber(range.max)}</td><td>{training ? `${rangeNumber(training.min)}–${rangeNumber(training.max)}` : "—"}</td></tr>;
         })}</tbody>
       </table>
-    </div>
-  );
-}
-
-function LiveProjectPage({
-  projects,
-  activeProjectId,
-  candidate,
-  taskDefinition,
-  operations,
-  onProjectChanged,
-  onSwitch,
-  onRestore,
-  requestedSnapshotId,
-}: {
-  projects: ApiProject[];
-  activeProjectId: string;
-  candidate?: Candidate;
-  taskDefinition: TaskDefinitionContract | null;
-  operations?: RuntimeOperations;
-  onProjectChanged: (project: ApiProject) => void;
-  onSwitch: (projectId: string) => void;
-  onRestore: (candidate: Candidate) => void;
-  requestedSnapshotId?: string;
-}) {
-  const [project, setProject] = useState<ApiProject | null>(null);
-  const [snapshots, setSnapshots] = useState<ApiSnapshot[]>([]);
-  const [selectedSnapshotId, setSelectedSnapshotId] = useState("");
-  const [error, setError] = useState("");
-  const [sourceSnapshotError, setSourceSnapshotError] = useState("");
-  const [modelPackage, setModelPackage] = useState<ApiModelPackage | null>(
-    null,
-  );
-  useEffect(() => {
-    setProject(projects.find((item) => item.id === activeProjectId) ?? null);
-    setError("");
-  }, [projects, activeProjectId]);
-  useEffect(() => {
-    const controller = new AbortController();
-    workbenchApi.modelPackage(activeProjectId)
-      .then((modelPackage) => !controller.signal.aborted && setModelPackage(modelPackage))
-      .catch(() => {
-        if (!controller.signal.aborted) setModelPackage(null);
-      });
-    return () => controller.abort();
-  }, [activeProjectId]);
-  useEffect(() => {
-    setSnapshots([]);
-    setSelectedSnapshotId("");
-    if (!candidate || !operations?.snapshot) return;
-    const controller = new AbortController();
-    workbenchApi.snapshots(activeProjectId, candidate.id, controller.signal)
-      .then((loaded) => {
-        if (!controller.signal.aborted) {
-          setSnapshots((current) => {
-            const source = requestedSnapshotId
-              ? current.find((item) => item.id === requestedSnapshotId)
-              : undefined;
-            return source && !loaded.some((item) => item.id === source.id)
-              ? [source, ...loaded]
-              : loaded;
-          });
-          if (
-            project?.decision_snapshot_id &&
-            loaded.some((item) => item.id === project.decision_snapshot_id)
-          ) {
-            setSelectedSnapshotId(project.decision_snapshot_id);
-          }
-        }
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setSnapshots([]);
-      });
-    return () => controller.abort();
-  }, [candidate?.id, candidate?.raw.revision, activeProjectId, project?.decision_snapshot_id, requestedSnapshotId, operations?.snapshot]);
-  useEffect(() => {
-    if (!requestedSnapshotId || !operations?.snapshot) return;
-    const controller = new AbortController();
-    setSourceSnapshotError("");
-    workbenchApi.snapshot(activeProjectId, requestedSnapshotId, controller.signal)
-      .then((source) => {
-        if (controller.signal.aborted) return;
-        setSnapshots((items) => items.some((item) => item.id === source.id) ? items : [source, ...items]);
-        setSelectedSnapshotId(source.id);
-      })
-      .catch((cause) => {
-        if (!controller.signal.aborted) {
-          setSourceSnapshotError(cause instanceof Error ? cause.message : "作成元の保存済み予測を参照できません。");
-        }
-      });
-    return () => controller.abort();
-  }, [activeProjectId, requestedSnapshotId, operations?.snapshot]);
-  const save = async () => {
-    if (!project) return;
-    try {
-      const saved = await workbenchApi.updateProject(project.id, project);
-      setProject(saved);
-      onProjectChanged(saved);
-    } catch {
-      setError("保存できませんでした。");
-    }
-  };
-  const createProject = async () => {
-    const selectedTaskId: ApiProject["task_id"] = project?.task_id ?? "annealed-properties-v1";
-    let created: ApiProject;
-    try {
-      created = await workbenchApi.createProject({
-        name: `新しい検討 ${projects.length + 1}`,
-        description: "",
-        purpose: "",
-        task_id: selectedTaskId,
-        target_values: {},
-        input_ranges: {},
-        notes: "",
-        decision_candidate_id: "",
-        decision_snapshot_id: "",
-        decision_note: "",
-      });
-    } catch {
-      return setError("新しいプロジェクトを作成できませんでした。");
-    }
-    if (selectedTaskId === "hot-rolled-properties-v1") {
-      onProjectChanged(created);
-      onSwitch(created.id);
-      return;
-    }
-    const initial = candidate
-      ? (() => {
-          const payload = toApiCandidate(candidate);
-          return {
-            ...payload,
-            name: "基準候補",
-            provenance: {
-              source_kind: "copy" as const,
-              source_ref: {
-                project_id: candidate.raw.project_id,
-                candidate_id: candidate.id,
-                candidate_revision: candidate.raw.revision,
-              },
-            },
-          };
-        })()
-      : STARTER_CANDIDATE;
-    try {
-      await workbenchApi.createCandidate(created.id, initial);
-    } catch {
-      return setError(
-        "プロジェクトは作成しましたが、基準候補を作成できませんでした。",
-      );
-    }
-    onProjectChanged(created);
-    onSwitch(created.id);
-  };
-  const restore = async (id: string) => {
-    try {
-      onRestore(fromApiCandidate(await workbenchApi.restoreSnapshot(activeProjectId, id)));
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "スナップショットを復元できませんでした。");
-    }
-  };
-  const targetValues = (project?.target_values ?? {}) as Record<string, number>;
-  const selectedSnapshot = snapshots.find(
-    (item) => item.id === selectedSnapshotId,
-  );
-  const setTarget = (key: string, value: string) => {
-    if (!project) return;
-    const next = { ...targetValues };
-    if (value === "") delete next[key];
-    else next[key] = Number(value);
-    setProject({ ...project, target_values: next });
-  };
-  return (
-    <div className="page-panel">
-      <div className="page-intro">
-        <div>
-          <h2>プロジェクト</h2>
-          <p>目的、目標、判断メモ、保存済みの予測を管理します。</p>
-        </div>
-        <div className="project-actions">
-          <label>
-            表示中
-            <select
-              value={activeProjectId}
-              onChange={(event) => onSwitch(event.target.value)}
-            >
-              {projects.map((item) => (
-                <option value={item.id} key={item.id}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            className="outline-button"
-            onClick={() => {
-              void createProject();
-            }}
-          >
-            新規プロジェクト
-          </button>
-          <button
-            className="primary-button"
-            onClick={() => {
-              void save();
-            }}
-          >
-            保存
-          </button>
-        </div>
-      </div>
-      {error && <p className="empty-evidence">{error}</p>}
-      {sourceSnapshotError && <p className="warning">{sourceSnapshotError} 削除済みか、このプロジェクトから参照できません。</p>}
-      {project ? (
-        <div className="project-form">
-          <label>
-            プロジェクト名
-            <input
-              value={String(project.name ?? "")}
-              onChange={(e) => setProject({ ...project, name: e.target.value })}
-            />
-          </label>
-          <label>
-            説明
-            <textarea
-              value={String(project.description ?? "")}
-              onChange={(e) =>
-                setProject({ ...project, description: e.target.value })
-              }
-            />
-          </label>
-          <label>
-            目的
-            <textarea
-              value={String(project.purpose ?? "")}
-              onChange={(e) =>
-                setProject({ ...project, purpose: e.target.value })
-              }
-            />
-          </label>
-          <label>
-            予測タスク
-            <select
-              value={String(project.task_id ?? "annealed-properties-v1")}
-              onChange={(event) =>
-                setProject({ ...project, task_id: event.target.value as ApiProject["task_id"] })
-              }
-            >
-              <option value="annealed-properties-v1">
-                焼鈍後特性（TS / YS / EL / λ）
-              </option>
-              <option value="hot-rolled-properties-v1">
-                熱延後特性（TS）
-              </option>
-            </select>
-            <small>
-              モデルPackageが同じタスク契約を満たす場合に差し替えられます。
-            </small>
-          </label>
-          <fieldset className="target-grid">
-            <legend>目標値</legend>
-            {(taskDefinition?.outputs ?? []).map(({ key, label }) => (
-              <label key={key}>
-                {label}
-                <input
-                  type="number"
-                  value={targetValues[key] ?? ""}
-                  placeholder="未設定"
-                  onChange={(event) => setTarget(key, event.target.value)}
-                />
-              </label>
-            ))}
-          </fieldset>
-          <label>
-            メモ
-            <textarea
-              value={String(project.notes ?? "")}
-              onChange={(e) =>
-                setProject({ ...project, notes: e.target.value })
-              }
-            />
-          </label>
-        </div>
-      ) : (
-        <p className="empty-evidence">プロジェクトを読み込んでいます。</p>
-      )}
-      <section>
-        <h3>モデル実行基盤</h3>
-        {modelPackage ? (
-          <div className="model-package-card">
-            <div>
-              <strong>{modelPackage.id}</strong>
-              <span>v{modelPackage.version}</span>
-              <code>{modelPackage.manifest_sha256.slice(0, 12)}</code>
-            </div>
-            <p>
-              {modelPackage.predictors
-                .map((item) => `${item.target}: ${item.runtime_type}`)
-                .join(" / ")}
-            </p>
-            <p>
-              {modelPackage.quality_report.targets
-                .map(
-                  (item) =>
-                    `${item.target}: RMSE ${number(item.rmse, 1)} / 90% coverage ${number(item.interval_coverage_90 * 100, 0)}%`,
-                )
-                .join(" · ")}
-            </p>
-            <div className="runtime-list" aria-label="利用可能なモデル実行基盤">
-              {modelPackage.supported_runtimes.map((item) => (
-                <span
-                  className={item.available ? "available" : "optional"}
-                  key={item.runtime_type}
-                >
-                  {item.runtime_type.replace(/\.v1$/, "")}
-                  {item.available ? " ✓" : " (追加導入)"}
-                </span>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <p className="empty-evidence">モデルPackage情報を取得できません。</p>
-        )}
-      </section>
-      <section>
-        <h3>保存済み予測</h3>
-        {!operations?.snapshot ? (
-          <p className="empty-evidence">このタスクでは保存済み予測を利用できません。</p>
-        ) : snapshots.length ? (
-          <table className="quality-table">
-            <tbody>
-              {snapshots.map((snapshot) => (
-                <tr key={snapshot.id}>
-                  <td>
-                    {new Date(snapshot.created_at).toLocaleString("ja-JP")}
-                    {snapshot.id === project?.decision_snapshot_id && (
-                      <span className="decision-snapshot-badge">採用判断</span>
-                    )}
-                  </td>
-                  <td>
-                    <button
-                      className="outline-button"
-                      onClick={() => setSelectedSnapshotId(snapshot.id)}
-                    >
-                      {snapshot.id === project?.decision_snapshot_id
-                        ? "採用判断を見る"
-                        : "結果を見る"}
-                    </button>
-                    <button
-                      className="outline-button"
-                      onClick={() => {
-                        void restore(snapshot.id);
-                      }}
-                    >
-                      この時点を候補として復元
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <p className="empty-evidence">選択候補の保存済み予測はありません。</p>
-        )}
-        {selectedSnapshot?.payload.prediction && (
-          <div className="snapshot-detail">
-            <h4>保存時点の結果</h4>
-            <span className="decision-snapshot-badge">
-              {!selectedSnapshot.payload.provenance?.package?.manifest_sha256 || !modelPackage
-                ? "Package情報を確認できません"
-                : selectedSnapshot.payload.provenance.package.manifest_sha256 ===
-                    modelPackage.manifest_sha256
-                  ? "現在と同じPackage"
-                  : "現在とは別のPackage"}
-            </span>
-            <table className="quality-table">
-              <thead>
-                <tr>
-                  <th>特性</th>
-                  <th>予測</th>
-                  <th>90%区間</th>
-                  <th>目標達成</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(
-                  selectedSnapshot.payload.prediction.predictions ?? {},
-                ).map(([target, result]) => (
-                  <tr key={target}>
-                    <th>{target === "lambda" ? "λ" : target}</th>
-                    <td>
-                      {number(result.value, 1)} {result.unit}
-                    </td>
-                    <td>
-                      {number(result.lower, 1)}–{number(result.upper, 1)}
-                    </td>
-                    <td>
-                      {result.goal_probability == null
-                        ? "—"
-                        : `${number(result.goal_probability * 100, 0)}%`}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p className="provenance-line">
-              Package {selectedSnapshot.payload.provenance?.package?.id ?? "—"}{" "}
-              / pipeline{" "}
-              {selectedSnapshot.payload.provenance?.feature_pipeline?.version ??
-                "—"}{" "}
-              / data{" "}
-              {selectedSnapshot.payload.provenance?.training_data?.source_sha256?.slice(
-                0,
-                12,
-              ) ?? "—"}
-            </p>
-          </div>
-        )}
-      </section>
     </div>
   );
 }
