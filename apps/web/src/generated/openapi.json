@@ -312,6 +312,67 @@
         "title": "Candidate",
         "type": "object"
       },
+      "CandidateCurrentHistory": {
+        "properties": {
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision",
+          "updated_at"
+        ],
+        "title": "CandidateCurrentHistory",
+        "type": "object"
+      },
+      "CandidateHistoryItem": {
+        "properties": {
+          "actuals": {
+            "items": {
+              "$ref": "#/components/schemas/ActualMeasurement"
+            },
+            "title": "Actuals",
+            "type": "array"
+          },
+          "candidate": {
+            "$ref": "#/components/schemas/Candidate"
+          },
+          "current": {
+            "$ref": "#/components/schemas/CandidateCurrentHistory"
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProjectDecisionHistory"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "snapshots": {
+            "items": {
+              "$ref": "#/components/schemas/SnapshotHistoryItem"
+            },
+            "title": "Snapshots",
+            "type": "array"
+          }
+        },
+        "required": [
+          "candidate",
+          "current",
+          "snapshots",
+          "actuals"
+        ],
+        "title": "CandidateHistoryItem",
+        "type": "object"
+      },
       "CandidateImportError": {
         "properties": {
           "message": {
@@ -523,6 +584,16 @@
           "id": {
             "title": "Id",
             "type": "string"
+          },
+          "output_warnings": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Output Warnings",
+            "type": "object"
           },
           "outputs": {
             "additionalProperties": {
@@ -2361,6 +2432,108 @@
         "title": "Project",
         "type": "object"
       },
+      "ProjectCreateInput": {
+        "properties": {
+          "decision_candidate_id": {
+            "default": "",
+            "maxLength": 80,
+            "title": "Decision Candidate Id",
+            "type": "string"
+          },
+          "decision_note": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Decision Note",
+            "type": "string"
+          },
+          "decision_snapshot_id": {
+            "default": "",
+            "maxLength": 80,
+            "title": "Decision Snapshot Id",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "initial_candidate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CandidateInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "input_ranges": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/InputRange"
+            },
+            "title": "Input Ranges",
+            "type": "object"
+          },
+          "name": {
+            "default": "焼鈍条件の候補検討",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "title": "Notes",
+            "type": "string"
+          },
+          "purpose": {
+            "default": "",
+            "title": "Purpose",
+            "type": "string"
+          },
+          "target_values": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Target Values",
+            "type": "object"
+          },
+          "task_id": {
+            "default": "annealed-properties-v1",
+            "enum": [
+              "annealed-properties-v1",
+              "hot-rolled-properties-v1"
+            ],
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "title": "ProjectCreateInput",
+        "type": "object"
+      },
+      "ProjectDecisionHistory": {
+        "properties": {
+          "candidate_id": {
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "snapshot_id": {
+            "title": "Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "snapshot_id",
+          "note"
+        ],
+        "title": "ProjectDecisionHistory",
+        "type": "object"
+      },
       "ProjectDecisionInput": {
         "properties": {
           "candidate_id": {
@@ -2383,6 +2556,26 @@
           }
         },
         "title": "ProjectDecisionInput",
+        "type": "object"
+      },
+      "ProjectHistoryResponse": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/CandidateHistoryItem"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "project": {
+            "$ref": "#/components/schemas/Project"
+          }
+        },
+        "required": [
+          "project",
+          "candidates"
+        ],
+        "title": "ProjectHistoryResponse",
         "type": "object"
       },
       "ProjectInput": {
@@ -3353,6 +3546,59 @@
         "title": "SimilarityIdentity",
         "type": "object"
       },
+      "SnapshotHistoryItem": {
+        "properties": {
+          "candidate_id": {
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "candidate_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Revision"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "model_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelMetadata"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "prediction_summary": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Prediction"
+            },
+            "title": "Prediction Summary",
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "candidate_id",
+          "created_at",
+          "prediction_summary"
+        ],
+        "title": "SnapshotHistoryItem",
+        "type": "object"
+      },
       "SnapshotPayload": {
         "additionalProperties": true,
         "properties": {
@@ -3574,6 +3820,22 @@
           "goal_probability"
         ],
         "title": "TargetRuntimeCapability",
+        "type": "object"
+      },
+      "TaskCatalogItem": {
+        "properties": {
+          "definition": {
+            "$ref": "#/components/schemas/ResolvedTaskDefinition"
+          },
+          "starter_candidate": {
+            "$ref": "#/components/schemas/CandidateInput"
+          }
+        },
+        "required": [
+          "definition",
+          "starter_candidate"
+        ],
+        "title": "TaskCatalogItem",
         "type": "object"
       },
       "TaskDefinition": {
@@ -4046,7 +4308,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ProjectInput"
+                "$ref": "#/components/schemas/ProjectCreateInput"
               }
             }
           },
@@ -4722,6 +4984,15 @@
               "title": "Candidate Id",
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "expected_revision",
+            "required": true,
+            "schema": {
+              "title": "Expected Revision",
+              "type": "integer"
+            }
           }
         ],
         "requestBody": {
@@ -4744,6 +5015,26 @@
               }
             },
             "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -4829,6 +5120,15 @@
             "schema": {
               "title": "Candidate Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expected_revision",
+            "required": true,
+            "schema": {
+              "title": "Expected Revision",
+              "type": "integer"
             }
           }
         ],
@@ -4966,6 +5266,15 @@
               "title": "Candidate Id",
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "expected_revision",
+            "required": true,
+            "schema": {
+              "title": "Expected Revision",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -5033,6 +5342,15 @@
             "schema": {
               "title": "Candidate Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expected_revision",
+            "required": true,
+            "schema": {
+              "title": "Expected Revision",
+              "type": "integer"
             }
           },
           {
@@ -5108,6 +5426,15 @@
             "schema": {
               "title": "Candidate Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expected_revision",
+            "required": true,
+            "schema": {
+              "title": "Expected Revision",
+              "type": "integer"
             }
           },
           {
@@ -5349,6 +5676,65 @@
           }
         },
         "summary": "Update Project Decision"
+      }
+    },
+    "/api/projects/{project_id}/history": {
+      "get": {
+        "operationId": "getProjectHistory",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectHistoryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Project History"
       }
     },
     "/api/projects/{project_id}/model-package": {
@@ -5878,6 +6264,38 @@
           }
         },
         "summary": "Screening Point To Candidate"
+      }
+    },
+    "/api/task-definitions": {
+      "get": {
+        "operationId": "listTaskDefinitions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TaskCatalogItem"
+                  },
+                  "title": "Response Listtaskdefinitions",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Task Definitions"
       }
     }
   }

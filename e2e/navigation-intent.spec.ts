@@ -80,12 +80,30 @@ test("lineage opens without a fixed node and renders real selectable edges", asy
   await expect(page.locator(".lineage-graph-edge")).not.toHaveCount(0);
   await expect(page.locator('.lineage-graph-node[aria-current="true"]')).toContainText("AN-00001");
   await expect(page.locator(".lineage-graph-node.upstream").first()).toBeVisible();
+  await expect(page.locator(".lineage-graph-node.downstream")).toHaveCount(5);
+  await expect(page.locator(".lineage-graph-edge.downstream")).toHaveCount(5);
 
   const upstreamKey = await page.locator(".lineage-graph-node.upstream").first().locator("b").textContent();
   expect(upstreamKey).toBeTruthy();
   await page.locator(".lineage-graph-node.upstream").first().click();
   await expect(page).toHaveURL(new RegExp(`entity=${upstreamKey}`));
   await expect(page.getByRole("complementary", { name: "選択ノード詳細" })).toContainText(upstreamKey ?? "");
+  await page.evaluate(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("entity");
+    window.history.pushState({}, "", url);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  });
+  await expect(page).not.toHaveURL(/entity=/);
+  await expect(page.getByRole("heading", { name: "調べるノードを選択してください" })).toBeVisible();
+});
+
+test("lineage marks implausible observations without hiding raw values", async ({ page }) => {
+  await page.goto("/?view=lineage&project=default&entity=HT-00024");
+  const detail = page.getByRole("complementary", { name: "選択ノード詳細" });
+  await expect(detail.getByText("⚠ 物理範囲外").first()).toBeVisible();
+  await expect(detail).toContainText("5223.3");
+  await expect(detail).toContainText("妥当範囲 100–2500");
 });
 
 test("direct lineage key entry stays separate from result filtering", async ({ page }) => {

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { LatestSaveQueue, rebaseChangedFields } from "../src/latestSaveQueue.ts";
+import { LatestSaveQueue, rebaseChangedFields } from "../src/features/candidates/latestSaveQueue.ts";
+import { candidateInputIdentity, shouldRefreshPreviewAfterSave } from "../src/shared/api/inferenceRequestCache.ts";
 
 function deferred() {
   let resolve;
@@ -58,6 +59,30 @@ test("recovers a queued newer draft from the authoritative conflict candidate", 
   await assert.rejects(first.promise, /conflict/);
   assert.deepEqual(await second.promise, { revision: 6, name: "newest draft" });
   assert.deepEqual(attempts, [5]);
+});
+
+test("a queued name save detects inputs adopted from conflict recovery", async () => {
+  const queue = new LatestSaveQueue();
+  const base = { revision: 1, name: "base", inputs: { process: { speed: 100 } } };
+  const external = { revision: 5, name: "external", inputs: { process: { speed: 140 } } };
+  const conflict = Object.assign(new Error("conflict"), { currentCandidate: external });
+  const first = queue.enqueue("candidate", base, async () => { throw conflict; });
+  const second = queue.enqueue(
+    "candidate",
+    base,
+    async (current) => ({ ...current, revision: current.revision + 1, name: "renamed" }),
+    (error) => error.currentCandidate,
+  );
+
+  await assert.rejects(first.promise, /conflict/);
+  const saved = await second.promise;
+  assert.equal(saved.name, "renamed");
+  assert.equal(saved.inputs.process.speed, 140);
+  const baseIdentity = candidateInputIdentity(base.inputs);
+  assert.equal(
+    shouldRefreshPreviewAfterSave(baseIdentity, candidateInputIdentity(saved.inputs), baseIdentity),
+    true,
+  );
 });
 
 test("rebases only locally changed fields onto the authoritative candidate", () => {

@@ -266,6 +266,7 @@ def lineage_node_detail(data: WorkbookData, entity_key: str) -> dict[str, Any]:
             "source": observation["source"],
             "parent_key": observation["parent_key"],
             "outputs": observation["outputs"],
+            "output_warnings": observation.get("output_warnings", {}),
         })
         for property_name, value in observation["outputs"].items():
             aggregate[property_name].append(float(value))
@@ -546,6 +547,7 @@ def load_workbook_data(
             if not outputs:
                 continue
             eligibility_reasons: list[str] = []
+            output_warnings: dict[str, list[str]] = {}
             if not process:
                 eligibility_reasons.append("工程条件が見つかりません")
             if not comp:
@@ -564,16 +566,20 @@ def load_workbook_data(
                     eligibility_reasons.append("試験判定が有効ではありません")
                 if not canonical_observation.policy_results.get("hot_l_direction/v1", False):
                     eligibility_reasons.append("v1の推定対象はL方向です")
-                physical_ranges = profile.shared.physical_ranges.get(canonical_observation.task_id, {})
-                for property_name, value in canonical_observation.canonical_measurements.items():
-                    bounds = physical_ranges.get(property_name)
-                    if bounds and not bounds[0] <= value <= bounds[1]:
-                        eligibility_reasons.append(f"{measurement_labels[property_name]}が物理範囲外です")
+            physical_ranges = profile.shared.physical_ranges.get(canonical_observation.task_id, {})
+            for property_name, value in canonical_observation.canonical_measurements.items():
+                bounds = physical_ranges.get(property_name)
+                if bounds and not bounds[0] <= value <= bounds[1]:
+                    label = measurement_labels[property_name]
+                    warning = f"{label}が物理範囲外です（妥当範囲 {bounds[0]:g}–{bounds[1]:g}）"
+                    eligibility_reasons.append(f"{label}が物理範囲外です")
+                    output_warnings.setdefault(label, []).append(warning)
             observations.append({
                 "id": canonical_observation.id, "source": profile.sheet_for_role(canonical_observation.source_role), "parent_key": parent,
                 "features": process, "composition": comp, "outputs": outputs,
                 "eligible": not eligibility_reasons,
                 "eligibility_reasons": eligibility_reasons,
+                "output_warnings": output_warnings,
                 "thickness_mm": float(canonical_observation.metadata.get("thickness_mm") or 0),
                 "date": _as_date(canonical_observation.metadata.get("date")),
                 "test_direction": str(canonical_observation.metadata.get("direction") or "L") if not is_anneal else None,

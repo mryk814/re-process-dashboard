@@ -25,6 +25,7 @@ def test_hot_rolling_task_candidates_and_gp_uncertainty(client) -> None:
     selected = candidates[0]
     preview = client.post(
         f"/api/projects/{project_id}/candidates/{selected['id']}/preview",
+        params={"expected_revision": selected["revision"]},
     )
     assert preview.status_code == 200
     result = preview.json()
@@ -65,12 +66,13 @@ def test_hot_rolling_detailed_snapshot_and_actual_use_the_common_project_api(cli
     project_id = "hot-rolling-default"
     candidate = client.get(f"/api/projects/{project_id}/candidates").json()[0]
 
-    detailed = client.post(f"/api/projects/{project_id}/candidates/{candidate['id']}/predict")
+    detailed = client.post(f"/api/projects/{project_id}/candidates/{candidate['id']}/predict", params={"expected_revision": candidate["revision"]})
     assert detailed.status_code == 200
     assert detailed.json()["prediction"]["mode"] == "detailed"
     snapshot_id = detailed.json()["snapshot"]["id"]
     actual = client.post(
         f"/api/projects/{project_id}/candidates/{candidate['id']}/actuals",
+        params={"expected_revision": candidate["revision"]},
         json={"property": "TS", "mean": 510.0, "unit": "MPa"},
     )
     assert actual.status_code == 201
@@ -84,7 +86,7 @@ def test_legacy_candidate_routes_are_removed_and_project_ownership_is_enforced(c
     assert client.get("/api/hot-rolling/candidates").status_code == 404
     assert client.get("/api/candidates").status_code == 404
     assert client.get(f"/api/projects/default/candidates/{candidate['id']}").status_code == 404
-    assert client.post(f"/api/projects/default/candidates/{candidate['id']}/preview").status_code == 404
+    assert client.post(f"/api/projects/default/candidates/{candidate['id']}/preview", params={"expected_revision": candidate["revision"]}).status_code == 404
 
 
 def test_hot_rolling_screening_keeps_project_scope_and_nested_candidate_contract(client) -> None:
@@ -143,17 +145,19 @@ def test_hot_rolling_project_runs_the_full_common_candidate_flow(client) -> None
     )
     assert updated.status_code == 200
     assert updated.json()["name"] == "熱延E2E 更新"
-    assert client.post(f"/api/projects/{project_id}/candidates/{candidate_id}/preview").status_code == 200
+    assert client.post(f"/api/projects/{project_id}/candidates/{candidate_id}/preview", params={"expected_revision": updated.json()["revision"]}).status_code == 200
 
     disposable = client.post(f"/api/projects/{project_id}/candidates", json=payload).json()
     assert client.delete(f"/api/projects/{project_id}/candidates/{disposable['id']}?expected_revision={disposable['revision']}").status_code == 204
 
-    detailed = client.post(f"/api/projects/{project_id}/candidates/{candidate_id}/predict")
+    current_revision = updated.json()["revision"]
+    detailed = client.post(f"/api/projects/{project_id}/candidates/{candidate_id}/predict", params={"expected_revision": current_revision})
     assert detailed.status_code == 200
     snapshot_id = detailed.json()["snapshot"]["id"]
     assert client.get(f"/api/projects/{project_id}/candidates/{candidate_id}/snapshots").json()[0]["id"] == snapshot_id
     actual = client.post(
         f"/api/projects/{project_id}/candidates/{candidate_id}/actuals",
+        params={"expected_revision": current_revision},
         json={"property": "TS", "mean": 510.0, "unit": "MPa"},
     )
     assert actual.status_code == 201

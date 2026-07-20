@@ -1,11 +1,13 @@
 import type { components } from "../../generated/api-types";
 import { apiClient, apiDownloadUrl, requireData, requireSuccess } from "./client";
+import { candidateInferencePrefix, inferenceRequestCache, inferenceRequestKey } from "./inferenceRequestCache";
 
 export type ApiCandidate = components["schemas"]["Candidate"];
 export type ApiCandidateInput = components["schemas"]["CandidateInput"];
 export type ApiCandidateUpdate = components["schemas"]["CandidateUpdate"];
 export type ApiProject = components["schemas"]["Project"];
 export type ApiProjectInput = components["schemas"]["ProjectInput"];
+export type ApiProjectCreateInput = components["schemas"]["ProjectCreateInput"];
 export type ApiModelPackage = components["schemas"]["ModelPackageStatus"];
 export type ApiPreview = components["schemas"]["PredictionResponse"];
 export type ApiSnapshot = components["schemas"]["SnapshotResponse"];
@@ -19,19 +21,40 @@ export type ApiLineageIndex = components["schemas"]["LineageIndexResponse"];
 export type ApiScreeningRequest = components["schemas"]["ScreeningRequest"];
 export type ApiScreeningRun = components["schemas"]["ScreeningRunResponse"];
 export type ApiTaskDefinition = components["schemas"]["ResolvedTaskDefinition"];
+export type ApiTaskCatalogItem = components["schemas"]["TaskCatalogItem"];
+export type ApiProjectHistory = components["schemas"]["ProjectHistoryResponse"];
+export type ApiProjectDecisionInput = components["schemas"]["ProjectDecisionInput"];
 
 const path = (projectId: string, suffix = "") =>
   `/api/projects/${encodeURIComponent(projectId)}${suffix}`;
+
+function isResponseCurves(value: unknown): value is ApiResponseCurves {
+  return typeof value === "object" && value !== null
+    && typeof Reflect.get(value, "variable") === "object"
+    && typeof Reflect.get(value, "curves") === "object"
+    && typeof Reflect.get(value, "output_ranges") === "object";
+}
 
 export const workbenchApi = {
   async listProjects() {
     return requireData(await apiClient.GET("/api/projects"), "プロジェクトを取得できませんでした。");
   },
-  async createProject(body: ApiProjectInput) {
+  async listTaskDefinitions() {
+    return requireData(await apiClient.GET("/api/task-definitions"), "予測タスクを取得できませんでした。");
+  },
+  async projectHistory(projectId: string, signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/history", { params: { path: { project_id: projectId } }, signal }), "プロジェクト履歴を取得できませんでした。");
+  },
+  async createProject(body: ApiProjectCreateInput) {
     return requireData(await apiClient.POST("/api/projects", { body }), "プロジェクトを作成できませんでした。");
   },
   async updateProject(projectId: string, body: ApiProjectInput) {
-    return requireData(await apiClient.PUT("/api/projects/{project_id}", { params: { path: { project_id: projectId } }, body }), "プロジェクトを保存できませんでした。");
+    const project = requireData(await apiClient.PUT("/api/projects/{project_id}", { params: { path: { project_id: projectId } }, body }), "プロジェクトを保存できませんでした。");
+    inferenceRequestCache.invalidatePrefix(candidateInferencePrefix(projectId));
+    return project;
+  },
+  async updateProjectDecision(projectId: string, body: ApiProjectDecisionInput) {
+    return requireData(await apiClient.PUT("/api/projects/{project_id}/decision", { params: { path: { project_id: projectId } }, body }), "採用判断を保存できませんでした。");
   },
   async taskDefinition(projectId: string) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/task-definition", { params: { path: { project_id: projectId } } }), "タスク定義を取得できませんでした。");
@@ -50,16 +73,25 @@ export const workbenchApi = {
   },
   async deleteCandidate(projectId: string, candidateId: string, expectedRevision: number) {
     requireSuccess(await apiClient.DELETE("/api/projects/{project_id}/candidates/{candidate_id}", { params: { path: { project_id: projectId, candidate_id: candidateId }, query: { expected_revision: expectedRevision } } }), "候補を一覧から外せませんでした。");
+    inferenceRequestCache.invalidatePrefix(candidateInferencePrefix(projectId, candidateId));
   },
-  async previewCandidate(projectId: string, candidateId: string) {
-    return requireData(await apiClient.POST("/api/projects/{project_id}/candidates/{candidate_id}/preview", { params: { path: { project_id: projectId, candidate_id: candidateId } } }), "プレビューを取得できませんでした。");
+  async previewCandidate(projectId: string, candidateId: string, expectedRevision: number, inputIdentity: string, signal?: AbortSignal) {
+    return inferenceRequestCache.get(
+      inferenceRequestKey(projectId, candidateId, inputIdentity, "preview"),
+      async (sharedSignal) => requireData(await apiClient.POST("/api/projects/{project_id}/candidates/{candidate_id}/preview", { params: { path: { project_id: projectId, candidate_id: candidateId }, query: { expected_revision: expectedRevision } }, signal: sharedSignal }), "プレビューを取得できませんでした。"),
+      signal,
+    );
   },
-  async predictCandidate(projectId: string, candidateId: string) {
-    return requireData(await apiClient.POST("/api/projects/{project_id}/candidates/{candidate_id}/predict", { params: { path: { project_id: projectId, candidate_id: candidateId } } }), "詳細予測を取得できませんでした。");
+  async predictCandidate(projectId: string, candidateId: string, expectedRevision: number) {
+    return requireData(await apiClient.POST("/api/projects/{project_id}/candidates/{candidate_id}/predict", { params: { path: { project_id: projectId, candidate_id: candidateId }, query: { expected_revision: expectedRevision } } }), "詳細予測を取得できませんでした。");
   },
-  async responseCurves(projectId: string, candidateId: string, variable?: string, signal?: AbortSignal) {
-    const data = requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/response-curves", { params: { path: { project_id: projectId, candidate_id: candidateId }, query: { variable } }, signal }), "応答曲線を取得できませんでした。");
-    if ("variable" in data && "curves" in data && "output_ranges" in data) return data;
+  async responseCurves(projectId: string, candidateId: string, expectedRevision: number, inputIdentity: string, variable?: string, signal?: AbortSignal): Promise<ApiResponseCurves> {
+    const data = await inferenceRequestCache.get(
+      inferenceRequestKey(projectId, candidateId, inputIdentity, "curve", variable ?? ""),
+      async (sharedSignal) => requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/response-curves", { params: { path: { project_id: projectId, candidate_id: candidateId }, query: { expected_revision: expectedRevision, variable } }, signal: sharedSignal }), "応答曲線を取得できませんでした。"),
+      signal,
+    );
+    if (isResponseCurves(data)) return data;
     throw new Error("設計変数を指定した応答曲線の形式が不正です。");
   },
   async similarCandidates(projectId: string, candidateId: string) {
@@ -77,11 +109,11 @@ export const workbenchApi = {
   async snapshot(projectId: string, snapshotId: string, signal?: AbortSignal) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/snapshots/{snapshot_id}", { params: { path: { project_id: projectId, snapshot_id: snapshotId } }, signal }), "保存済み予測を参照できませんでした。");
   },
-  async predictionVsActual(projectId: string, candidateId: string) {
-    return requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/prediction-vs-actual", { params: { path: { project_id: projectId, candidate_id: candidateId } } }), "予測と実測を取得できませんでした。");
+  async predictionVsActual(projectId: string, candidateId: string, signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/prediction-vs-actual", { params: { path: { project_id: projectId, candidate_id: candidateId } }, signal }), "予測と実測を取得できませんでした。");
   },
-  async createActual(projectId: string, candidateId: string, body: ApiActualInput) {
-    return requireData(await apiClient.POST("/api/projects/{project_id}/candidates/{candidate_id}/actuals", { params: { path: { project_id: projectId, candidate_id: candidateId } }, body }), "実測を保存できませんでした。");
+  async createActual(projectId: string, candidateId: string, expectedRevision: number, body: ApiActualInput) {
+    return requireData(await apiClient.POST("/api/projects/{project_id}/candidates/{candidate_id}/actuals", { params: { path: { project_id: projectId, candidate_id: candidateId }, query: { expected_revision: expectedRevision } }, body }), "実測を保存できませんでした。");
   },
   async deleteActual(projectId: string, candidateId: string, actualId: string) {
     requireSuccess(await apiClient.DELETE("/api/projects/{project_id}/candidates/{candidate_id}/actuals/{actual_id}", { params: { path: { project_id: projectId, candidate_id: candidateId, actual_id: actualId } } }), "実測を削除できませんでした。");

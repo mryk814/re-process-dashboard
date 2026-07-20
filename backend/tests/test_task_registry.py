@@ -111,7 +111,11 @@ def test_both_tasks_use_the_same_project_preview_contract(client, task_id: str) 
         project_id = "hot-rolling-default"
         candidate_id = client.get(f"/api/projects/{project_id}/candidates").json()[0]["id"]
 
-    response = client.post(f"/api/projects/{project_id}/candidates/{candidate_id}/preview")
+    candidate = client.get(f"/api/projects/{project_id}/candidates/{candidate_id}").json()
+    response = client.post(
+        f"/api/projects/{project_id}/candidates/{candidate_id}/preview",
+        params={"expected_revision": candidate["revision"]},
+    )
     assert response.status_code == 200
     body = response.json()
     assert body["task_id"] == task_id

@@ -1,3 +1,5 @@
 models/packages/**/*.json text eol=lf
 examples/model-packages/**/*.json text eol=lf
 models/active-packages.json text eol=lf
+apps/web/src/generated/*.json text eol=lf
+apps/web/src/generated/*.ts text eol=lf

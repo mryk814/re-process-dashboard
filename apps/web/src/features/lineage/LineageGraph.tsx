@@ -1,4 +1,4 @@
-import type { ApiLineage } from "./shared/api/workbench-api";
+import type { ApiLineage } from "../../shared/api/workbench-api";
 
 type Graph = ApiLineage["graph"];
 type GraphNode = Graph["nodes"][number];
