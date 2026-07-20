@@ -9,6 +9,20 @@ description: このリポジトリに新しいモデル種類（runtime adapter 
 
 実装前に `docs/model-package-contract.md` を読むこと。直近の実例（マルチタスクGP追加）が最良の参照になる: `git log --oneline --all -- backend/src/material_workbench/adapters/builtin_multitask_gp.py` で該当コミットを見つけ、その差分全体を手本にする。
 
+## 0. まずI/O型で分類する — 事例索引 Issue #45
+
+新しいモデルの依頼は「手法名」ではなく「入力・出力・artifact・依存の型がどの既存事例に近いか」から出発する。I/O型別の事例マトリクスと各事例に必須の成果物一覧は [Issue #45](https://github.com/mryk814/re-process-dashboard/issues/45) が正本。現時点の対応:
+
+| I/O型 | 参照実装 |
+|---|---|
+| fixed vector → deterministic scalar | `builtin.linear.v1` |
+| fixed vector → native tree prediction | `lightgbm.booster.v1` |
+| fixed vector → parametric normal | `builtin.exact_gp.v1` / `gpytorch.static_exact_rbf.v1` |
+| fixed vector → posterior predictive | `numpyro.dense_posterior.v1`（8 likelihood例は `examples/model-packages/numpyro/`） |
+| fixed vector → shared multi-output artifact | `builtin.multitask_gp.v1`（PR #44: 複数predictorが結合artifactを共有し `config.task_index` で出力選択。外部のPredictiveSummary契約は単一targetのまま、quality trade-offはtarget別に記録、activeは変更しない） |
+
+どの型にも当てはまらない場合（additive terms、quantile-only、ensemble/BMA、binary/count/ordinalなど）は #45 の子Issueに設計方針があるか確認してから進める。
+
 ## 1. Adapter実装 — `backend/src/material_workbench/adapters/<name>.py`
 
 - `runtime_type = "<family>.<kind>.v1"` を持つAdapterクラスと、`predict(values, *, seed=0) -> PredictiveSummary` を持つpredictorクラスを書く。
