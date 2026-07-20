@@ -419,6 +419,65 @@ select:focus-visible,
   grid-template-columns: 1fr auto;
   align-items: center;
 }
+.decision-commit {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(180px, auto) minmax(240px, 1fr) auto auto auto;
+  gap: 9px;
+  align-items: center;
+  border-top: 1px solid #d9e4f0;
+  padding-top: 10px;
+}
+.decision-commit > div {
+  display: grid;
+  gap: 2px;
+}
+.decision-commit b {
+  color: #344154;
+  font-size: 12px;
+}
+.decision-saved-note {
+  max-width: 340px;
+  color: #617087;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.decision-snapshot-badge {
+  display: inline-block;
+  margin-left: 8px;
+  border-radius: 999px;
+  padding: 2px 7px;
+  color: #176d52;
+  background: #e6f6ef;
+  font-size: 10px;
+  font-weight: 700;
+}
+.decision-commit input {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid #bdc9d8;
+  border-radius: 4px;
+  padding: 6px 9px;
+  color: #253246;
+  background: #fff;
+}
+.decision-commit .primary-button {
+  min-height: 34px;
+  padding: 6px 11px;
+  font-size: 12px;
+}
+.decision-commit button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+.decision-clear,
+.decision-view {
+  margin: 0;
+  padding: 6px 3px;
+  white-space: nowrap;
+}
 .comparison-actions {
   display: flex;
   align-items: center;
@@ -1444,6 +1503,9 @@ select:focus-visible,
   }
   .comparison-actions {
     justify-content: flex-start;
+  }
+  .decision-commit {
+    grid-template-columns: 1fr;
   }
   .candidate-row-table .prediction-col-0,
   .candidate-row-table .prediction-col-1,

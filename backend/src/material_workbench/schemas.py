@@ -60,6 +60,9 @@ class ProjectInput(BaseModel):
     task_id: str = "annealed-properties-v1"
     target_values: dict[str, float] = Field(default_factory=dict)
     notes: str = ""
+    decision_candidate_id: Annotated[str, Field(max_length=80)] = ""
+    decision_snapshot_id: Annotated[str, Field(max_length=80)] = ""
+    decision_note: Annotated[str, Field(max_length=500)] = ""
 
     @field_validator("target_values")
     @classmethod
@@ -70,6 +73,29 @@ class ProjectInput(BaseModel):
         if any(not math.isfinite(target) for target in value.values()):
             raise ValueError("目標値は有限の数値にしてください")
         return value
+
+    @model_validator(mode="after")
+    def decision_note_requires_candidate(self) -> "ProjectInput":
+        if (self.decision_note or self.decision_snapshot_id) and not self.decision_candidate_id:
+            raise ValueError("判断理由またはスナップショットを保存する場合は採用候補を指定してください")
+        if self.decision_candidate_id and not self.decision_snapshot_id:
+            raise ValueError("採用候補には判断時点の予測スナップショットが必要です")
+        if self.decision_candidate_id and not self.decision_note:
+            raise ValueError("採用候補には判断理由が必要です")
+        return self
+
+
+class ProjectDecisionInput(BaseModel):
+    candidate_id: Annotated[str, Field(max_length=80)] = ""
+    snapshot_id: Annotated[str, Field(max_length=80)] = ""
+    note: Annotated[str, Field(max_length=500)] = ""
+
+    @model_validator(mode="after")
+    def complete_or_empty(self) -> "ProjectDecisionInput":
+        populated = (self.candidate_id, self.snapshot_id, self.note)
+        if any(populated) and not all(populated):
+            raise ValueError("採用候補・予測スナップショット・判断理由をすべて指定してください")
+        return self
 
 
 class Project(ProjectInput):

@@ -21,6 +21,14 @@ class CandidateLimitError(ValueError):
     pass
 
 
+class InvalidProjectDecisionError(ValueError):
+    pass
+
+
+class AdoptedCandidateError(ValueError):
+    pass
+
+
 def _now() -> str:
     return datetime.now(UTC).isoformat()
 
@@ -39,26 +47,26 @@ class Store:
     def _init(self) -> None:
         with self._connect() as conn:
             conn.executescript("""
-                CREATE TABLE IF NOT EXISTS projects (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', purpose TEXT NOT NULL DEFAULT '', task_id TEXT NOT NULL DEFAULT 'annealed-properties-v1', target_values TEXT NOT NULL DEFAULT '{}', notes TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT '');
+                CREATE TABLE IF NOT EXISTS projects (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', purpose TEXT NOT NULL DEFAULT '', task_id TEXT NOT NULL DEFAULT 'annealed-properties-v1', target_values TEXT NOT NULL DEFAULT '{}', notes TEXT NOT NULL DEFAULT '', decision_candidate_id TEXT NOT NULL DEFAULT '', decision_snapshot_id TEXT NOT NULL DEFAULT '', decision_note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT '');
                 CREATE TABLE IF NOT EXISTS candidates (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, name TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS snapshots (id TEXT PRIMARY KEY, candidate_id TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS screening_runs (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS actual_measurements (id TEXT PRIMARY KEY, candidate_id TEXT NOT NULL, snapshot_id TEXT NOT NULL, property TEXT NOT NULL, mean REAL NOT NULL, std REAL NOT NULL, replicates INTEGER NOT NULL, unit TEXT NOT NULL, experiment_no TEXT NOT NULL, measured_at TEXT, note TEXT NOT NULL, created_at TEXT NOT NULL);
             """)
             existing = {row[1] for row in conn.execute("PRAGMA table_info(projects)")}
-            for name, definition in (("description", "TEXT NOT NULL DEFAULT ''"), ("purpose", "TEXT NOT NULL DEFAULT ''"), ("task_id", "TEXT NOT NULL DEFAULT 'annealed-properties-v1'"), ("target_values", "TEXT NOT NULL DEFAULT '{}'"), ("notes", "TEXT NOT NULL DEFAULT ''"), ("updated_at", "TEXT NOT NULL DEFAULT ''")):
+            for name, definition in (("description", "TEXT NOT NULL DEFAULT ''"), ("purpose", "TEXT NOT NULL DEFAULT ''"), ("task_id", "TEXT NOT NULL DEFAULT 'annealed-properties-v1'"), ("target_values", "TEXT NOT NULL DEFAULT '{}'"), ("notes", "TEXT NOT NULL DEFAULT ''"), ("decision_candidate_id", "TEXT NOT NULL DEFAULT ''"), ("decision_snapshot_id", "TEXT NOT NULL DEFAULT ''"), ("decision_note", "TEXT NOT NULL DEFAULT ''"), ("updated_at", "TEXT NOT NULL DEFAULT ''")):
                 if name not in existing:
                     conn.execute(f"ALTER TABLE projects ADD COLUMN {name} {definition}")
             actual_columns = {row[1] for row in conn.execute("PRAGMA table_info(actual_measurements)")}
             if "snapshot_id" not in actual_columns:
                 conn.execute("ALTER TABLE actual_measurements ADD COLUMN snapshot_id TEXT NOT NULL DEFAULT ''")
             now = _now()
-            conn.execute("INSERT OR IGNORE INTO projects(id, name, description, purpose, task_id, target_values, notes, created_at, updated_at) VALUES ('default', '焼鈍条件の候補検討', '', '', 'annealed-properties-v1', '{}', '', ?, ?)", (now, now))
+            conn.execute("INSERT OR IGNORE INTO projects(id, name, description, purpose, task_id, target_values, notes, decision_candidate_id, decision_snapshot_id, decision_note, created_at, updated_at) VALUES ('default', '焼鈍条件の候補検討', '', '', 'annealed-properties-v1', '{}', '', '', '', '', ?, ?)", (now, now))
             conn.execute("UPDATE projects SET updated_at = created_at WHERE updated_at = ''")
 
     @staticmethod
     def _project(row: sqlite3.Row) -> Project:
-        return Project(id=row["id"], name=row["name"], description=row["description"], purpose=row["purpose"], task_id=row["task_id"], target_values=json.loads(row["target_values"]), notes=row["notes"], created_at=datetime.fromisoformat(row["created_at"]), updated_at=datetime.fromisoformat(row["updated_at"]))
+        return Project(id=row["id"], name=row["name"], description=row["description"], purpose=row["purpose"], task_id=row["task_id"], target_values=json.loads(row["target_values"]), notes=row["notes"], decision_candidate_id=row["decision_candidate_id"], decision_snapshot_id=row["decision_snapshot_id"], decision_note=row["decision_note"], created_at=datetime.fromisoformat(row["created_at"]), updated_at=datetime.fromisoformat(row["updated_at"]))
 
     def list_projects(self) -> list[Project]:
         with self._connect() as conn:
@@ -74,15 +82,37 @@ class Store:
         project_id, now = str(uuid.uuid4()), _now()
         with self._connect() as conn:
             conn.execute(
-                "INSERT INTO projects(id, name, description, purpose, task_id, target_values, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (project_id, payload.name, payload.description, payload.purpose, payload.task_id, json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True), payload.notes, now, now),
+                "INSERT INTO projects(id, name, description, purpose, task_id, target_values, notes, decision_candidate_id, decision_snapshot_id, decision_note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (project_id, payload.name, payload.description, payload.purpose, payload.task_id, json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True), payload.notes, payload.decision_candidate_id, payload.decision_snapshot_id, payload.decision_note, now, now),
             )
         return self.get_project(project_id)  # type: ignore[return-value]
 
     def update_project(self, project_id: str, payload: ProjectInput) -> Project | None:
         now = _now()
         with self._connect() as conn:
-            result = conn.execute("UPDATE projects SET name=?, description=?, purpose=?, task_id=?, target_values=?, notes=?, updated_at=? WHERE id=?", (payload.name, payload.description, payload.purpose, payload.task_id, json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True), payload.notes, now, project_id))
+            conn.execute("BEGIN IMMEDIATE")
+            self._validate_decision(conn, project_id, payload.decision_candidate_id, payload.decision_snapshot_id)
+            result = conn.execute("UPDATE projects SET name=?, description=?, purpose=?, task_id=?, target_values=?, notes=?, decision_candidate_id=?, decision_snapshot_id=?, decision_note=?, updated_at=? WHERE id=?", (payload.name, payload.description, payload.purpose, payload.task_id, json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True), payload.notes, payload.decision_candidate_id, payload.decision_snapshot_id, payload.decision_note, now, project_id))
+        return self.get_project(project_id) if result.rowcount else None
+
+    @staticmethod
+    def _validate_decision(conn: sqlite3.Connection, project_id: str, candidate_id: str, snapshot_id: str) -> None:
+        if not candidate_id:
+            return
+        if conn.execute("SELECT 1 FROM candidates WHERE id=? AND project_id=?", (candidate_id, project_id)).fetchone() is None:
+            raise InvalidProjectDecisionError("採用候補は同じプロジェクトから選択してください")
+        if conn.execute("SELECT 1 FROM snapshots WHERE id=? AND candidate_id=?", (snapshot_id, candidate_id)).fetchone() is None:
+            raise InvalidProjectDecisionError("判断時点の予測スナップショットが見つかりません")
+
+    def update_project_decision(self, project_id: str, candidate_id: str, snapshot_id: str, note: str) -> Project | None:
+        now = _now()
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            self._validate_decision(conn, project_id, candidate_id, snapshot_id)
+            result = conn.execute(
+                "UPDATE projects SET decision_candidate_id=?, decision_snapshot_id=?, decision_note=?, updated_at=? WHERE id=?",
+                (candidate_id, snapshot_id, note, now, project_id),
+            )
         return self.get_project(project_id) if result.rowcount else None
 
     @staticmethod
@@ -133,11 +163,20 @@ class Store:
 
     def delete_candidate(self, candidate_id: str) -> bool:
         with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            if conn.execute(
+                "SELECT 1 FROM projects WHERE decision_candidate_id=?",
+                (candidate_id,),
+            ).fetchone():
+                raise AdoptedCandidateError(
+                    "採用判断を解除してから候補を削除してください",
+                )
             # Snapshots and actuals are owned by a candidate. Screening runs contain
             # immutable canonical inputs and intentionally remain independently auditable.
             conn.execute("DELETE FROM actual_measurements WHERE candidate_id = ?", (candidate_id,))
             conn.execute("DELETE FROM snapshots WHERE candidate_id = ?", (candidate_id,))
-            return bool(conn.execute("DELETE FROM candidates WHERE id = ?", (candidate_id,)).rowcount)
+            deleted = bool(conn.execute("DELETE FROM candidates WHERE id = ?", (candidate_id,)).rowcount)
+            return deleted
 
     def create_snapshot(self, candidate_id: str, payload: dict[str, Any]) -> dict[str, Any]:
         snapshot = {"id": str(uuid.uuid4()), "candidate_id": candidate_id, "created_at": _now(), "payload": payload}

@@ -16,9 +16,9 @@ from fastapi.responses import StreamingResponse
 
 from .importer import lineage_node_detail, load_workbook_data
 from .runtime import ModelRuntime
-from .schemas import ActualMeasurementInput, CandidateInput, LineageResponse, PredictionResponse, ProjectInput, QualityResponse, ScreeningRequest
+from .schemas import ActualMeasurementInput, CandidateInput, LineageResponse, PredictionResponse, ProjectDecisionInput, ProjectInput, QualityResponse, ScreeningRequest
 from .services import candidate_from_lineage, candidates_xlsx, import_candidates_xlsx, run_latin_hypercube
-from .store import CandidateLimitError, ProjectNotFoundError, Store
+from .store import AdoptedCandidateError, CandidateLimitError, InvalidProjectDecisionError, ProjectNotFoundError, Store
 
 
 def _default_candidate_payloads(medians: dict[str, float]) -> list[CandidateInput]:
@@ -134,6 +134,8 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
 
     @app.post("/api/projects", status_code=201)
     def create_project(payload: ProjectInput) -> dict[str, Any]:
+        if payload.decision_candidate_id:
+            raise HTTPException(422, "新しいプロジェクトでは採用候補を空にしてください")
         return store().create_project(payload).model_dump(mode="json")
 
     @app.get("/api/projects/{project_id}")
@@ -142,7 +144,25 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
 
     @app.put("/api/projects/{project_id}")
     def update_project_by_id(project_id: str, payload: ProjectInput) -> dict[str, Any]:
-        project = store().update_project(project_id, payload)
+        try:
+            project = store().update_project(project_id, payload)
+        except InvalidProjectDecisionError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        if not project:
+            raise HTTPException(404, "プロジェクトが見つかりません")
+        return project.model_dump(mode="json")
+
+    @app.put("/api/projects/{project_id}/decision")
+    def update_project_decision(project_id: str, payload: ProjectDecisionInput) -> dict[str, Any]:
+        try:
+            project = store().update_project_decision(
+                project_id,
+                payload.candidate_id,
+                payload.snapshot_id,
+                payload.note,
+            )
+        except InvalidProjectDecisionError as exc:
+            raise HTTPException(422, str(exc)) from exc
         if not project:
             raise HTTPException(404, "プロジェクトが見つかりません")
         return project.model_dump(mode="json")
@@ -199,7 +219,11 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
 
     @app.delete("/api/candidates/{candidate_id}", status_code=204)
     def delete_candidate(candidate_id: str) -> Response:
-        if not store().delete_candidate(candidate_id):
+        try:
+            deleted = store().delete_candidate(candidate_id)
+        except AdoptedCandidateError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        if not deleted:
             raise HTTPException(404, "候補が見つかりません")
         return Response(status_code=204)
 

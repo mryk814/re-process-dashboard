@@ -116,6 +116,9 @@ type ApiProject = {
   task_id: string;
   target_values: Record<string, number>;
   notes: string;
+  decision_candidate_id: string;
+  decision_snapshot_id: string;
+  decision_note: string;
   created_at: string;
   updated_at: string;
 };
@@ -367,6 +370,8 @@ function App() {
   const [projects, setProjects] = useState<ApiProject[]>([]);
   const [activeProjectId, setActiveProjectId] = useState("default");
   const loadSequence = useRef(0);
+  const decisionSequence = useRef(0);
+  const [decisionSaving, setDecisionSaving] = useState(false);
   const selected = candidates.find((candidate) => candidate.id === selectedId);
   const activeProject = projects.find(
     (project) => project.id === activeProjectId,
@@ -374,6 +379,8 @@ function App() {
 
   async function loadProject(projectId: string) {
     const sequence = ++loadSequence.current;
+    decisionSequence.current += 1;
+    setDecisionSaving(false);
     setApiState("loading");
     const response = await fetch(
       `${API_URL}/api/candidates?project_id=${encodeURIComponent(projectId)}`,
@@ -464,6 +471,14 @@ function App() {
     const controller = new AbortController();
     const candidateId = selected.id;
     setApiState("loading");
+    setPreview(null);
+    setMetrics([]);
+    setPreviewsByCandidate((current) => {
+      if (!(candidateId in current)) return current;
+      const next = { ...current };
+      delete next[candidateId];
+      return next;
+    });
     const timer = window.setTimeout(async () => {
       try {
         const response = await fetch(
@@ -650,6 +665,54 @@ function App() {
     }
   }
 
+  const saveDecision = async (candidateId: string, decisionNote: string) => {
+    if (!activeProject) return;
+    const sequence = ++decisionSequence.current;
+    setDecisionSaving(true);
+    try {
+      let snapshotId = "";
+      if (candidateId) {
+        const predictionResponse = await fetch(
+          `${API_URL}/api/candidates/${candidateId}/predict`,
+          { method: "POST" },
+        );
+        if (!predictionResponse.ok) {
+          throw await apiError(predictionResponse, "判断時点の予測を保存できませんでした。");
+        }
+        const predictionPayload = (await predictionResponse.json()) as {
+          snapshot: { id: string };
+        };
+        snapshotId = predictionPayload.snapshot.id;
+      }
+      if (sequence !== decisionSequence.current) return;
+      const response = await fetch(`${API_URL}/api/projects/${activeProject.id}/decision`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          candidate_id: candidateId,
+          snapshot_id: snapshotId,
+          note: decisionNote,
+        }),
+      });
+      if (!response.ok) throw await apiError(response, "判断を保存できませんでした。");
+      const saved = (await response.json()) as ApiProject;
+      if (sequence !== decisionSequence.current) return;
+      setProjects((items) =>
+        items.map((project) => (project.id === saved.id ? saved : project)),
+      );
+      setNotice(
+        candidateId
+          ? "判断時点の予測を固定し、次実験の候補と理由を保存しました"
+          : "次実験の判断を解除しました",
+      );
+    } catch (error) {
+      if (sequence !== decisionSequence.current) return;
+      setNotice(error instanceof Error ? error.message : "判断を保存できませんでした。");
+    } finally {
+      if (sequence === decisionSequence.current) setDecisionSaving(false);
+    }
+  };
+
   const addCandidate = async () => {
     if (!selected) return;
     if (candidates.length >= 10) {
@@ -722,6 +785,15 @@ function App() {
       );
       setCandidates(remaining);
       setSelectedId(remaining[0].id);
+      if (activeProject?.decision_candidate_id === selectedId) {
+        setProjects((items) =>
+          items.map((project) =>
+            project.id === activeProject.id
+              ? { ...project, decision_candidate_id: "", decision_note: "" }
+              : project,
+          ),
+        );
+      }
       setNotice("候補を削除しました");
     } catch {
       setNotice("候補を削除できませんでした。API接続を確認してください。");
@@ -838,6 +910,9 @@ function App() {
               candidates={candidates}
               projectId={activeProjectId}
               targetValues={activeProject?.target_values ?? {}}
+              decisionCandidateId={activeProject?.decision_candidate_id ?? ""}
+              decisionNote={activeProject?.decision_note ?? ""}
+              decisionSaving={decisionSaving}
               selected={selected}
               selectedId={selectedId}
               metrics={metrics}
@@ -862,6 +937,9 @@ function App() {
                 if (imported.length) void loadProject(activeProjectId);
               }}
               onOpenProject={() => setTab("project")}
+              onSaveDecision={(candidateId, decisionNote) => {
+                return saveDecision(candidateId, decisionNote);
+              }}
             />
           ) : (
             <ApiEmptyState
@@ -928,6 +1006,9 @@ type WorkbenchProps = {
   candidates: Candidate[];
   projectId: string;
   targetValues: Record<string, number>;
+  decisionCandidateId: string;
+  decisionNote: string;
+  decisionSaving: boolean;
   selected: Candidate;
   selectedId: string;
   metrics: Metric[];
@@ -946,6 +1027,7 @@ type WorkbenchProps = {
   onAdd: () => void;
   onImported: (items: Candidate[]) => void;
   onOpenProject: () => void;
+  onSaveDecision: (candidateId: string, decisionNote: string) => Promise<void>;
 };
 
 function CandidateWorkbench(props: WorkbenchProps) {
@@ -953,6 +1035,9 @@ function CandidateWorkbench(props: WorkbenchProps) {
     candidates,
     projectId,
     targetValues,
+    decisionCandidateId,
+    decisionNote,
+    decisionSaving,
     selected,
     selectedId,
     metrics,
@@ -971,6 +1056,7 @@ function CandidateWorkbench(props: WorkbenchProps) {
     onAdd,
     onImported,
     onOpenProject,
+    onSaveDecision,
   } = props;
   return (
     <div className="workbench-grid">
@@ -980,8 +1066,12 @@ function CandidateWorkbench(props: WorkbenchProps) {
           previewsByCandidate={previewsByCandidate}
           targetValues={targetValues}
           selectedId={selectedId}
+          decisionCandidateId={decisionCandidateId}
+          decisionNote={decisionNote}
+          decisionSaving={decisionSaving}
           onSelect={onSelect}
           onOpenProject={onOpenProject}
+          onSaveDecision={onSaveDecision}
         />
         <div className="table-heading">
           <div>
@@ -997,7 +1087,16 @@ function CandidateWorkbench(props: WorkbenchProps) {
             <button
               className="outline-button"
               onClick={onDelete}
-              disabled={candidates.length <= 1}
+              disabled={
+                candidates.length <= 1 ||
+                decisionSaving ||
+                decisionCandidateId === selectedId
+              }
+              title={
+                decisionCandidateId === selectedId
+                  ? "採用判断を解除してから削除してください"
+                  : undefined
+              }
             >
               <Icon name="trash" />削除
             </button>
@@ -1050,16 +1149,31 @@ function DecisionSummary({
   previewsByCandidate,
   targetValues,
   selectedId,
+  decisionCandidateId,
+  decisionNote,
+  decisionSaving,
   onSelect,
   onOpenProject,
+  onSaveDecision,
 }: {
   candidates: Candidate[];
   previewsByCandidate: Record<string, ApiPreview>;
   targetValues: Record<string, number>;
   selectedId: string;
+  decisionCandidateId: string;
+  decisionNote: string;
+  decisionSaving: boolean;
   onSelect: (id: string) => void;
   onOpenProject: () => void;
+  onSaveDecision: (candidateId: string, decisionNote: string) => Promise<void>;
 }) {
+  const [note, setNote] = useState(
+    decisionCandidateId === selectedId ? decisionNote : "",
+  );
+  useEffect(
+    () => setNote(decisionCandidateId === selectedId ? decisionNote : ""),
+    [decisionCandidateId, decisionNote, selectedId],
+  );
   const targetKeys = Object.keys(targetValues).filter((key) =>
     Number.isFinite(targetValues[key]),
   );
@@ -1093,30 +1207,47 @@ function DecisionSummary({
     (item) => item.weakest && item.support !== "pending",
   );
   const incompleteCount = candidates.length - complete.length;
-  const regular = complete
-    .filter((item) => item.support !== "extrapolated")
-    .sort(sortByMaximin);
-  const extrapolated = complete
-    .filter((item) => item.support === "extrapolated")
-    .sort(sortByMaximin);
+  const nonDominated = (items: CandidateDecision[]) =>
+    items.filter(
+      (candidate) =>
+        !items.some(
+          (other) =>
+            other.candidate.id !== candidate.candidate.id &&
+            targetKeys.every(
+              (target) =>
+                other.probabilities[target] >= candidate.probabilities[target],
+            ) &&
+            targetKeys.some(
+              (target) =>
+                other.probabilities[target] > candidate.probabilities[target],
+            ),
+        ),
+    );
+  const regularAll = complete.filter(
+    (item) => item.support !== "extrapolated",
+  );
+  const extrapolatedAll = complete.filter(
+    (item) => item.support === "extrapolated",
+  );
+  const regularPareto = nonDominated(regularAll).sort(sortByMaximin);
+  const extrapolatedPareto = nonDominated(extrapolatedAll).sort(sortByMaximin);
+  const paretoIds = new Set(
+    [...regularPareto, ...extrapolatedPareto].map((item) => item.candidate.id),
+  );
+  const regular = [
+    ...regularPareto,
+    ...regularAll.filter((item) => !paretoIds.has(item.candidate.id)).sort(sortByMaximin),
+  ];
+  const extrapolated = [
+    ...extrapolatedPareto,
+    ...extrapolatedAll.filter((item) => !paretoIds.has(item.candidate.id)).sort(sortByMaximin),
+  ];
   const ranked = [...regular, ...extrapolated];
   const leader = ranked[0];
   const allExtrapolated = ranked.length > 0 && regular.length === 0;
-  const paretoCandidates = regular.filter(
-    (candidate) =>
-      !regular.some(
-        (other) =>
-          other.candidate.id !== candidate.candidate.id &&
-          targetKeys.every(
-            (target) =>
-              other.probabilities[target] >= candidate.probabilities[target],
-          ) &&
-          targetKeys.some(
-            (target) =>
-              other.probabilities[target] > candidate.probabilities[target],
-          ),
-      ),
-  );
+  const paretoCandidates = regularPareto.length
+    ? regularPareto
+    : extrapolatedPareto;
   const supportLabel = (value: string) =>
     value === "supported"
       ? "範囲内"
@@ -1170,7 +1301,7 @@ function DecisionSummary({
                 ボトルネック <b>{leader.weakest?.target === "lambda" ? "λ" : leader.weakest?.target}</b>
               </span>
               {paretoCandidates.length > 1 && (
-                <span>トレードオフ候補 <b>{paretoCandidates.length}件</b></span>
+                <span>非劣候補 <b>{paretoCandidates.length}件</b></span>
               )}
             </div>
           </>
@@ -1184,7 +1315,7 @@ function DecisionSummary({
         <p>
           {allExtrapolated
             ? "全候補が学習範囲外です。順位は探索の手掛かりとしてのみ利用してください。"
-            : "範囲内と要確認の候補を、最も低い個別達成確率が高い順に保守的に比較し、外挿は後置しています。"}
+            : "範囲内と要確認の候補では非劣候補を優先し、その中で最も低い個別達成確率が高い順に比較しています。外挿は後置します。"}
           <small> 複数目標の同時達成確率ではありません。</small>
           {incompleteCount > 0 && (
             <small> {incompleteCount}件は達成確率不足または計算中のため順位対象外です（評価済み {complete.length}/{candidates.length}件）。</small>
@@ -1202,12 +1333,77 @@ function DecisionSummary({
                 <span className="rank">{index + 1}</span>
                 <span className="rank-name">{item.candidate.label}</span>
                 <b>{number((item.weakest?.probability ?? 0) * 100)}%</b>
-                <small>{supportLabel(item.support)}</small>
+                <small>
+                  {supportLabel(item.support)}
+                  {paretoIds.has(item.candidate.id)
+                    ? item.support === "extrapolated"
+                      ? "・外挿群内非劣"
+                      : "・非劣"
+                    : ""}
+                </small>
               </button>
             </li>
           ))}
         </ol>
       )}
+      <div className="decision-commit">
+        <div>
+          <span className="overline">NEXT EXPERIMENT</span>
+          <b>
+            {decisionCandidateId
+              ? `採用済み: ${candidates.find((item) => item.id === decisionCandidateId)?.label ?? "候補"} / 選択中: ${candidates.find((item) => item.id === selectedId)?.label ?? "候補"}`
+              : `選択中: ${candidates.find((item) => item.id === selectedId)?.label ?? "候補"}`}
+          </b>
+          {decisionCandidateId && (
+            <small className="decision-saved-note" title={decisionNote}>
+              理由: {decisionNote}（判断時点の予測を固定済み）
+            </small>
+          )}
+        </div>
+        <input
+          value={note}
+          maxLength={500}
+          aria-label="次実験に選ぶ理由"
+          placeholder="選ぶ理由を一行で残す（必須）"
+          onChange={(event) => setNote(event.target.value)}
+        />
+        <button
+          className="primary-button"
+          disabled={decisionSaving || !note.trim()}
+          onClick={() => {
+            void onSaveDecision(selectedId, note.trim());
+          }}
+        >
+          {decisionSaving
+            ? "判断を保存中…"
+            : decisionCandidateId === selectedId
+              ? "判断を更新"
+              : "選択候補を次実験に決定"}
+        </button>
+        {decisionCandidateId && (
+          <button
+            className="text-button decision-view"
+            disabled={decisionSaving}
+            onClick={() => {
+              onSelect(decisionCandidateId);
+              onOpenProject();
+            }}
+          >
+            判断時点を見る
+          </button>
+        )}
+        {decisionCandidateId && (
+          <button
+            className="text-button decision-clear"
+            disabled={decisionSaving}
+            onClick={() => {
+              void onSaveDecision("", "");
+            }}
+          >
+            決定を解除
+          </button>
+        )}
+      </div>
     </section>
   );
 }
@@ -1949,6 +2145,7 @@ function LiveResponseCurve({
   const [target, setTarget] = useState("TS");
   useEffect(() => {
     const controller = new AbortController();
+    setPoints([]);
     setError(false);
     const timer = window.setTimeout(() => {
       fetch(
@@ -2774,14 +2971,22 @@ function LiveProjectPage({
       signal: controller.signal,
     })
       .then(async (r) => {
-        if (!controller.signal.aborted)
-          setSnapshots(r.ok ? await r.json() : []);
+        const loaded = r.ok ? ((await r.json()) as ApiSnapshot[]) : [];
+        if (!controller.signal.aborted) {
+          setSnapshots(loaded);
+          if (
+            project?.decision_snapshot_id &&
+            loaded.some((item) => item.id === project.decision_snapshot_id)
+          ) {
+            setSelectedSnapshotId(project.decision_snapshot_id);
+          }
+        }
       })
       .catch(() => {
         if (!controller.signal.aborted) setSnapshots([]);
       });
     return () => controller.abort();
-  }, [candidate?.id, activeProjectId]);
+  }, [candidate?.id, activeProjectId, project?.decision_snapshot_id]);
   const save = async () => {
     if (!project) return;
     const r = await fetch(`${API_URL}/api/projects/${project.id}`, {
@@ -3004,13 +3209,18 @@ function LiveProjectPage({
                 <tr key={snapshot.id}>
                   <td>
                     {new Date(snapshot.created_at).toLocaleString("ja-JP")}
+                    {snapshot.id === project?.decision_snapshot_id && (
+                      <span className="decision-snapshot-badge">採用判断</span>
+                    )}
                   </td>
                   <td>
                     <button
                       className="outline-button"
                       onClick={() => setSelectedSnapshotId(snapshot.id)}
                     >
-                      結果を見る
+                      {snapshot.id === project?.decision_snapshot_id
+                        ? "採用判断を見る"
+                        : "結果を見る"}
                     </button>
                     <button
                       className="outline-button"

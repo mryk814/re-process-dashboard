@@ -1,6 +1,9 @@
 from io import BytesIO
+import sqlite3
 
 from openpyxl import Workbook
+
+from material_workbench.store import Store
 
 
 def _candidate(name: str) -> dict:
@@ -105,3 +108,98 @@ def test_candidate_limit_is_enforced_for_every_creation_route(client) -> None:
     )
     assert imported.status_code == 409
     assert len(client.get(f"/api/candidates?project_id={project_id}").json()) == 10
+
+
+def test_project_decision_is_scoped_persisted_and_cleared_with_candidate(client) -> None:
+    assert client.post(
+        "/api/projects",
+        json={**_project("不正な初期判断"), "decision_candidate_id": "not-yet-created"},
+    ).status_code == 422
+    assert client.post(
+        "/api/projects",
+        json={**_project("理由だけ"), "decision_note": "候補がない"},
+    ).status_code == 422
+    project = client.post("/api/projects", json=_project("判断記録")).json()
+    other = client.post("/api/projects", json=_project("別プロジェクト")).json()
+    selected = client.post(
+        f"/api/candidates?project_id={project['id']}",
+        json=_candidate("次実験候補"),
+    ).json()
+    selected_snapshot = client.post(
+        f"/api/candidates/{selected['id']}/snapshots",
+    ).json()
+    foreign = client.post(
+        f"/api/candidates?project_id={other['id']}",
+        json=_candidate("混在不可"),
+    ).json()
+    foreign_snapshot = client.post(
+        f"/api/candidates/{foreign['id']}/snapshots",
+    ).json()
+
+    decision = {
+        "candidate_id": selected["id"],
+        "snapshot_id": selected_snapshot["id"],
+        "note": "支持範囲内でTSの最低達成確率が最も高い",
+    }
+    saved = client.put(f"/api/projects/{project['id']}/decision", json=decision)
+    assert saved.status_code == 200
+    assert saved.json()["decision_candidate_id"] == selected["id"]
+    assert saved.json()["decision_snapshot_id"] == selected_snapshot["id"]
+    assert saved.json()["decision_note"] == decision["note"]
+
+    invalid = {
+        **decision,
+        "candidate_id": foreign["id"],
+        "snapshot_id": foreign_snapshot["id"],
+    }
+    assert client.put(f"/api/projects/{project['id']}/decision", json=invalid).status_code == 422
+    wrong_snapshot = {**decision, "snapshot_id": foreign_snapshot["id"]}
+    assert client.put(
+        f"/api/projects/{project['id']}/decision",
+        json=wrong_snapshot,
+    ).status_code == 422
+
+    assert client.delete(f"/api/candidates/{selected['id']}").status_code == 409
+    assert client.get(f"/api/projects/{project['id']}").json()["decision_candidate_id"] == selected["id"]
+
+    cleared_response = client.put(
+        f"/api/projects/{project['id']}/decision",
+        json={"candidate_id": "", "snapshot_id": "", "note": ""},
+    )
+    assert cleared_response.status_code == 200
+    assert client.delete(f"/api/candidates/{selected['id']}").status_code == 204
+    cleared = client.get(f"/api/projects/{project['id']}").json()
+    assert cleared["decision_candidate_id"] == ""
+    assert cleared["decision_snapshot_id"] == ""
+    assert cleared["decision_note"] == ""
+
+
+def test_existing_project_database_migrates_without_losing_data(tmp_path) -> None:
+    database = tmp_path / "legacy.db"
+    with sqlite3.connect(database) as conn:
+        conn.execute(
+            "CREATE TABLE projects (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', purpose TEXT NOT NULL DEFAULT '', task_id TEXT NOT NULL DEFAULT 'annealed-properties-v1', target_values TEXT NOT NULL DEFAULT '{}', notes TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT '')",
+        )
+        conn.execute(
+            "INSERT INTO projects VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "legacy",
+                "既存プロジェクト",
+                "保持される説明",
+                "既存データ保護",
+                "annealed-properties-v1",
+                '{"TS": 500}',
+                "保持されるメモ",
+                "2026-01-01T00:00:00+00:00",
+                "2026-01-01T00:00:00+00:00",
+            ),
+        )
+
+    migrated = Store(database).get_project("legacy")
+    assert migrated is not None
+    assert migrated.name == "既存プロジェクト"
+    assert migrated.target_values == {"TS": 500}
+    assert migrated.notes == "保持されるメモ"
+    assert migrated.decision_candidate_id == ""
+    assert migrated.decision_snapshot_id == ""
+    assert migrated.decision_note == ""
