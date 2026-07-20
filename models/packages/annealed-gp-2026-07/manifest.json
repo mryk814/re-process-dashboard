@@ -1,9 +1,11 @@
 {
   "schema_version": "model-package/v1",
   "package_id": "annealed-gp-2026-07",
-  "package_version": "0.7.0-exact-gp-v1",
+  "package_version": "0.8.0-lifecycle-v1",
   "task_id": "annealed-properties-v1",
   "input_schema_version": "candidate-v1",
+  "input_contract_digest": "sha256:1b8c4b1d85d6345a6b13a349eaf0fe14a877e7f11817666aacf075040a84fe95",
+  "runtime_capability_digest": "sha256:0dd83e49dccb9c12b87b0ea6ce0555ccfeba13208f0e9a4116c76371506c463f",
   "feature_pipeline": {
     "id": "metallurgy-thermal",
     "version": "1.5.0",
@@ -272,8 +274,9 @@
   ],
   "provenance": {
     "training_data_id": "sha256:f5b75d4a2e29c0e85f24fe2325b4c610e23ba6ce65ba3b5c53c097a68ca60c55",
-    "feature_dataset_id": "sha256:bf4d4bb7f525a05e320a9d558e8b3baded5779f9342bcff599a0b8b5d0b9f77b",
-    "training_code_revision": "0.6.0-exact-gp-v1"
+    "feature_dataset_id": "sha256:627fe320b9a47fd98ffcd5191d4bd4518cbb42b4874e40f4505bff3f31cc40f8",
+    "training_code_revision": "0.7.0-lifecycle-v1",
+    "dataset_profile_id": "sha256:ee5a40b6aaa863f9578a63d66f655b83f46bfa9f3e9e18cfb8c6bef261d717ec"
   },
   "artifacts": [
     {
@@ -307,6 +310,11 @@
       "bytes": 460
     },
     {
+      "path": "reports/quality-report.json",
+      "sha256": "283d3c662de1b2d84ff6b3e1e15181712c45409d9ce955de9111b50ce42f74b6",
+      "bytes": 843
+    },
+    {
       "path": "smoke/input.json",
       "sha256": "9b4ad3525df5e80ff11a577bc26dedfc56c022a72b3925c6293f8807227f61f4",
       "bytes": 644
@@ -320,5 +328,6 @@
   "smoke_test": {
     "input": "smoke/input.json",
     "expected": "smoke/expected.json"
-  }
+  },
+  "quality_report": "reports/quality-report.json"
 }

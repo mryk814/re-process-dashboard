@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
-import shutil
 import sys
 from pathlib import Path
 
@@ -14,12 +14,14 @@ if __package__ in {None, ""}:
 from material_workbench.feature_contracts import feature_index_families
 from material_workbench.hot_rolling_feature_pipeline import CANONICAL_INPUT_PATHS, FEATURE_DEFINITIONS, FEATURE_NAMES, INPUT_SCHEMA_VERSION, PIPELINE_ID, PIPELINE_VERSION, build_hot_rolling_features, build_hot_rolling_features_from_observation, candidate_from_observation
 from material_workbench.importer import load_workbook_data
+from material_workbench.model_lifecycle import QualityReport, canonical_training_dataset, canonical_training_dataset_digest, dataset_profile_digest, exact_gp_loo_quality, runtime_capability_digest, staged_package_destination, task_input_contract_digest
+from material_workbench.model_package_verify import verify_model_package
 from material_workbench.task_registry import load_task_contracts
 
 
 PACKAGE_ID = "hot-rolled-gp-2026-07"
-PACKAGE_VERSION = "0.3.0-ts-only"
-TRAINING_CODE_REVISION = "0.3.0-ts-only"
+PACKAGE_VERSION = "0.4.0-lifecycle-v1"
+TRAINING_CODE_REVISION = "0.4.0-lifecycle-v1"
 TASK_ID = "hot-rolled-properties-v1"
 FEATURE_GROUP_INDICES = feature_index_families(
     FEATURE_DEFINITIONS,
@@ -76,24 +78,24 @@ def _point(path: Path, raw: np.ndarray) -> float:
         return mean + float(cross @ item["alpha"])
 
 
-def build(source: Path, destination: Path) -> None:
+def _build(source: Path, destination: Path) -> None:
     data = load_workbook_data(source)
-    task_definition = load_task_contracts()[TASK_ID].task_definition
+    contract = load_task_contracts()[TASK_ID]
+    task_definition = contract.task_definition
     outputs = tuple(
         (output.key, f"{output.key}[{output.unit}]", output.unit)
         for output in task_definition.outputs
     )
     rows = [row for row in data.observations if row["source"] == "熱延引張" and row["eligible"] and row["features"] and row["composition"]]
-    if destination.exists():
-        shutil.rmtree(destination)
-    artifact_dir, feature_dir, reference_dir, smoke_dir = (destination / name for name in ("model-artifacts", "feature-pipeline", "reference", "smoke"))
-    for folder in (artifact_dir, feature_dir, reference_dir, smoke_dir):
+    artifact_dir, feature_dir, reference_dir, smoke_dir, report_dir = (destination / name for name in ("model-artifacts", "feature-pipeline", "reference", "smoke", "reports"))
+    for folder in (artifact_dir, feature_dir, reference_dir, smoke_dir, report_dir):
         folder.mkdir(parents=True, exist_ok=True)
     pipeline_path = feature_dir / "pipeline.json"
     pipeline_path.write_text(json.dumps({"id": PIPELINE_ID, "version": PIPELINE_VERSION, "canonical_input_paths": list(CANONICAL_INPUT_PATHS), "features": [{"name": item.name, "unit": item.unit, "meaning": item.meaning, "group": item.group} for item in FEATURE_DEFINITIONS]}, indent=2), encoding="utf-8", newline="\n")
     files = [pipeline_path]
     predictors: list[dict[str, object]] = []
     counts: dict[str, int] = {}
+    quality_metrics = []
     for target, column, unit in outputs:
         target_rows = [row for row in rows if column in row["outputs"]]
         grouped: dict[str, list[dict[str, object]]] = {}
@@ -126,6 +128,7 @@ def build(source: Path, destination: Path) -> None:
         precision = np.linalg.solve(cholesky.T, np.linalg.solve(cholesky, np.eye(len(x))))
         mean_value = float(target_y.mean())
         alpha = precision @ (target_y - mean_value)
+        quality_metrics.append(exact_gp_loo_quality(target, target_y, alpha, precision))
         path = artifact_dir / f"{target}.npz"
         np.savez(path, train_x=x, train_y=target_y, feature_mean=feature_mean, feature_scale=feature_scale, lengthscale=lengthscale, outputscale=np.asarray(outputscale), train_noise=np.asarray(train_noise), observation_noise=np.asarray(observation_noise), mean=np.asarray(mean_value), precision=precision, alpha=alpha)
         files.append(path)
@@ -134,6 +137,10 @@ def build(source: Path, destination: Path) -> None:
     stats_path = reference_dir / "training_stats.json"
     stats_path.write_text(json.dumps({"records": counts, "source_sha256": data.source_sha256, "composition_defaults": data.medians}, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
     files.append(stats_path)
+    quality_path = report_dir / "quality-report.json"
+    quality = QualityReport(schema_version="model-quality-report/v1", split="leave-one-parent-condition-out", targets=tuple(quality_metrics))
+    quality_path.write_text(quality.model_dump_json(indent=2) + "\n", encoding="utf-8", newline="\n")
+    files.append(quality_path)
     sample_candidate = candidate_from_observation(rows[0])
     if sample_candidate is None:
         raise ValueError("smoke observation did not convert to a hot-rolling candidate")
@@ -145,9 +152,21 @@ def build(source: Path, destination: Path) -> None:
     smoke_expected = smoke_dir / "expected.json"
     smoke_expected.write_text(json.dumps({target: round(_point(artifact_dir / f"{target}.npz", raw), 8) for target, _, _ in outputs}, indent=2), encoding="utf-8", newline="\n")
     files.extend([smoke_input, smoke_expected])
-    manifest = {"schema_version": "model-package/v1", "package_id": PACKAGE_ID, "package_version": PACKAGE_VERSION, "task_id": TASK_ID, "input_schema_version": INPUT_SCHEMA_VERSION, "feature_pipeline": {"id": PIPELINE_ID, "version": PIPELINE_VERSION, "spec": pipeline_path.relative_to(destination).as_posix(), "canonical_input_paths": list(CANONICAL_INPUT_PATHS), "output_features": list(FEATURE_NAMES), "artifacts": [stats_path.relative_to(destination).as_posix()]}, "predictors": predictors, "provenance": {"training_data_id": f"sha256:{data.source_sha256}", "feature_dataset_id": f"sha256:{_digest(stats_path)}", "training_code_revision": TRAINING_CODE_REVISION}, "artifacts": [_artifact(destination, path) for path in files], "smoke_test": {"input": smoke_input.relative_to(destination).as_posix(), "expected": smoke_expected.relative_to(destination).as_posix()}}
+    canonical_dataset = canonical_training_dataset(TASK_ID, data, contract)
+    manifest = {"schema_version": "model-package/v1", "package_id": PACKAGE_ID, "package_version": PACKAGE_VERSION, "task_id": TASK_ID, "input_schema_version": INPUT_SCHEMA_VERSION, "input_contract_digest": task_input_contract_digest(contract.task_definition), "runtime_capability_digest": runtime_capability_digest(contract.runtime_capability), "feature_pipeline": {"id": PIPELINE_ID, "version": PIPELINE_VERSION, "spec": pipeline_path.relative_to(destination).as_posix(), "canonical_input_paths": list(CANONICAL_INPUT_PATHS), "output_features": list(FEATURE_NAMES), "artifacts": [stats_path.relative_to(destination).as_posix()]}, "predictors": predictors, "provenance": {"training_data_id": f"sha256:{data.source_sha256}", "feature_dataset_id": canonical_training_dataset_digest(canonical_dataset), "training_code_revision": TRAINING_CODE_REVISION, "dataset_profile_id": dataset_profile_digest()}, "artifacts": [_artifact(destination, path) for path in files], "smoke_test": {"input": smoke_input.relative_to(destination).as_posix(), "expected": smoke_expected.relative_to(destination).as_posix()}, "quality_report": quality_path.relative_to(destination).as_posix()}
     (destination / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
 
 
+def build(source: Path, destination: Path, *, replace: bool = False) -> None:
+    with staged_package_destination(destination, replace=replace) as staging:
+        _build(source, staging)
+        verify_model_package(staging, task_id=TASK_ID, source=source)
+
+
 if __name__ == "__main__":
-    build(Path("data/source/process_dashboard_realistic_excel_v2.xlsx"), Path("models/packages/hot-rolled-gp-2026-07"))
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--source", type=Path, default=Path("data/source/process_dashboard_realistic_excel_v2.xlsx"))
+    parser.add_argument("--output", type=Path, default=Path("models/packages/hot-rolled-gp-2026-07"))
+    parser.add_argument("--replace", action="store_true")
+    arguments = parser.parse_args()
+    build(arguments.source, arguments.output, replace=arguments.replace)

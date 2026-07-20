@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from io import BytesIO, StringIO
 from pathlib import Path
 from statistics import fmean, pstdev
-from typing import Any
+from typing import Any, Mapping
 
 from fastapi import FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.encoders import jsonable_encoder
@@ -19,7 +19,8 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from .importer import lineage_neighborhood, lineage_node_detail, load_workbook_data
 from .hot_rolling import TASK_ID as HOT_ROLLING_TASK_ID, HotRollingRuntime
 from .runtime import ModelRuntime, TASK_ID as ANNEALED_TASK_ID
-from .schemas import ApiError, ActualMeasurementInput, CandidateInput, DetailedPredictionResponse, HotRollingCandidateInput, LineageResponse, PredictionResponse, ProjectDecisionInput, ProjectInput, QualityResponse, ScreeningRequest
+from .model_lifecycle import ACTIVE_PACKAGES_PATH, resolve_configured_package, validate_lifecycle_metadata
+from .schemas import ApiError, ActualMeasurementInput, CandidateInput, DetailedPredictionResponse, HotRollingCandidateInput, LineageResponse, ModelPackageStatus, PredictionResponse, ProjectDecisionInput, ProjectInput, QualityResponse, ScreeningRequest
 from .services import candidate_from_lineage, candidates_xlsx, import_candidates_xlsx, run_latin_hypercube
 from .store import AdoptedCandidateError, CandidateLimitError, InvalidProjectDecisionError, ProjectNotFoundError, Store
 from .task_contracts import ResolvedTaskDefinition
@@ -67,18 +68,37 @@ def _default_hot_rolling_candidates(medians: dict[str, float]) -> list[HotRollin
     ]
 
 
-def create_app(source_path: str | Path | None = None, db_path: str | Path | None = None) -> FastAPI:
+def create_app(
+    source_path: str | Path | None = None,
+    db_path: str | Path | None = None,
+    *,
+    package_roots: Mapping[str, str | Path] | None = None,
+    active_packages_path: str | Path | None = None,
+) -> FastAPI:
     source = Path(source_path or os.getenv("WORKBENCH_SOURCE_PATH", "data/source/process_dashboard_realistic_excel_v2.xlsx"))
     database = Path(db_path or os.getenv("WORKBENCH_DB_PATH", "data/workbench.db"))
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.data = load_workbook_data(source)
+        configured = Path(active_packages_path) if active_packages_path else ACTIVE_PACKAGES_PATH
+        injected = dict(package_roots or {})
         annealed_runtime = ModelRuntime(
             app.state.data,
-            package_root=os.getenv("MATERIAL_WORKBENCH_MODEL_PACKAGE"),
+            package_root=resolve_configured_package(
+                ANNEALED_TASK_ID,
+                config_path=configured,
+                override=injected.get(ANNEALED_TASK_ID) or os.getenv("MATERIAL_WORKBENCH_MODEL_PACKAGE"),
+            ),
         )
-        hot_rolling_runtime = HotRollingRuntime(app.state.data)
+        hot_rolling_runtime = HotRollingRuntime(
+            app.state.data,
+            package_root=resolve_configured_package(
+                HOT_ROLLING_TASK_ID,
+                config_path=configured,
+                override=injected.get(HOT_ROLLING_TASK_ID) or os.getenv("MATERIAL_WORKBENCH_HOT_ROLLING_MODEL_PACKAGE"),
+            ),
+        )
         app.state.task_registry = TaskRegistry({
             ANNEALED_TASK_ID: annealed_runtime,
             HOT_ROLLING_TASK_ID: hot_rolling_runtime,
@@ -152,12 +172,18 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
     def health() -> dict[str, Any]:
         return {"ok": True, "models": sorted(runtime().models), "source": str(source)}
 
-    @app.get("/api/model-package")
-    def model_package() -> dict[str, Any]:
-        package = runtime().model_package
-        if package is None:
-            raise HTTPException(503, "有効なモデルPackageがありません")
+    @app.get(
+        "/api/projects/{project_id}/model-package",
+        response_model=ModelPackageStatus,
+        responses=PROJECT_API_ERRORS,
+        operation_id="getProjectModelPackage",
+    )
+    def model_package(project_id: str) -> dict[str, Any]:
+        project = require_project(project_id)
+        entry = task_registry().entry_for(project.task_id)
+        package = entry.model_package
         manifest = package.manifest
+        quality = validate_lifecycle_metadata(package, task_registry().contract_for(project.task_id))
         dependencies = {
             "builtin.linear.v1": True,
             "builtin.exact_gp.v1": True,
@@ -180,6 +206,7 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
                 {"target": item.target, "runtime_type": item.runtime_type, "predictive_family": item.predictive_family}
                 for item in manifest.predictors
             ],
+            "quality_report": quality.model_dump(mode="json"),
         }
 
     @app.get(

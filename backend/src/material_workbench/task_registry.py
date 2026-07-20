@@ -5,7 +5,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
+from .importer import WorkbookData
 from .model_packages import FeaturePipelineSpec, VerifiedModelPackage
+from .model_lifecycle import validate_lifecycle_metadata, validate_training_provenance
 from .task_contracts import ResolvedTaskDefinition, RuntimeCapability, TaskContractFixture, TaskDefinition
 
 
@@ -16,6 +18,7 @@ class TaskRegistryError(ValueError):
 @runtime_checkable
 class RuntimeProtocol(Protocol):
     task_id: str
+    data: WorkbookData
     model_package: VerifiedModelPackage | None
 
     @property
@@ -99,6 +102,8 @@ class TaskRegistry:
                 f"runtime outputs do not match TaskDefinition for {task_id}: "
                 f"expected={sorted(expected)}, actual={sorted(runtime.output_keys)}"
             )
+        validate_lifecycle_metadata(package, self._contracts[task_id])
+        validate_training_provenance(package, runtime.data, self._contracts[task_id])
 
     @property
     def task_ids(self) -> tuple[str, ...]:

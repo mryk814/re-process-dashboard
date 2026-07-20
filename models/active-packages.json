@@ -1,0 +1,13 @@
+{
+  "schema_version": "active-model-packages/v1",
+  "tasks": {
+    "annealed-properties-v1": {
+      "active": "packages/annealed-gp-2026-07",
+      "previous": null
+    },
+    "hot-rolled-properties-v1": {
+      "active": "packages/hot-rolled-gp-2026-07",
+      "previous": null
+    }
+  }
+}

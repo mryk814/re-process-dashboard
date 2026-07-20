@@ -11,9 +11,15 @@
     "test": "uv run pytest && npm run typecheck",
     "verify:fast": "uv run pytest -q backend/tests/test_dataset_profile.py backend/tests/test_model_packages.py backend/tests/test_task_contracts.py backend/tests/test_task_registry.py && npm run typecheck",
     "verify:full": "uv run pytest -q && npm run typecheck && npm run build && git diff --check && git diff --check origin/main...HEAD",
-    "models:build:annealed": "uv run python backend/scripts/build_default_model_package.py",
-    "models:build:hot-rolling": "uv run python backend/scripts/build_hot_rolling_model_package.py",
-    "models:build:examples": "uv run python backend/scripts/build_numpyro_package_examples.py"
+    "models:build:annealed": "uv run python backend/scripts/build_default_model_package.py --replace",
+    "models:build:hot-rolling": "uv run python backend/scripts/build_hot_rolling_model_package.py --replace",
+    "models:build:examples": "uv run python backend/scripts/build_numpyro_package_examples.py",
+    "model:data": "uv run python backend/scripts/model_workflow.py data",
+    "model:build": "uv run python backend/scripts/model_workflow.py build",
+    "model:verify": "uv run python backend/scripts/model_workflow.py verify",
+    "model:activate": "uv run python backend/scripts/model_workflow.py activate",
+    "model:rollback": "uv run python backend/scripts/model_workflow.py rollback",
+    "model:status": "uv run python backend/scripts/model_workflow.py status"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",

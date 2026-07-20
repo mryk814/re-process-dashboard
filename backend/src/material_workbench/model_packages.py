@@ -168,6 +168,7 @@ class ProvenanceSpec(PackageModel):
     training_data_id: str
     feature_dataset_id: str
     training_code_revision: str
+    dataset_profile_id: str | None = None
 
 
 class ModelPackageManifest(PackageModel):
@@ -176,11 +177,14 @@ class ModelPackageManifest(PackageModel):
     package_version: str
     task_id: str
     input_schema_version: str
+    input_contract_digest: str | None = None
+    runtime_capability_digest: str | None = None
     feature_pipeline: FeaturePipelineSpec
     predictors: tuple[PredictorSpec, ...]
     provenance: ProvenanceSpec
     artifacts: tuple[ArtifactSpec, ...]
     smoke_test: dict[str, str] | None = None
+    quality_report: str | None = None
 
     @model_validator(mode="after")
     def references_listed_artifacts(self) -> "ModelPackageManifest":
@@ -188,6 +192,8 @@ class ModelPackageManifest(PackageModel):
         if len(listed) != len(self.artifacts):
             raise ValueError("artifact paths must be unique")
         needed = {self.feature_pipeline.spec, *self.feature_pipeline.artifacts, *(predictor.artifact for predictor in self.predictors)}
+        if self.quality_report:
+            needed.add(self.quality_report)
         missing = sorted(needed - listed)
         if missing:
             raise ValueError(f"manifest references unlisted artifacts: {', '.join(missing)}")

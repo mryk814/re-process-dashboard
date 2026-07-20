@@ -42,7 +42,7 @@ npm run verify:fast
 npm run verify:full
 ```
 
-モデルPackageを更新した場合は `npm run models:build:annealed` または `npm run models:build:hot-rolling` で、artifactとmanifestを必ず同時に再生成します。
+モデルPackageを更新した場合は `npm run models:build:annealed` または `npm run models:build:hot-rolling` で、artifact・quality report・manifestを必ず同時に再生成します。新しいPackageの作成・検証・有効化・rollbackは [Model Package lifecycle](docs/model-package-lifecycle.md) の一本道を使います。
 
 ## データ
 
@@ -58,10 +58,11 @@ Excelの外部sheet・列とアプリ内部の意味の対応はDataset Input Pr
 
 熱延タブは独立した `hot-rolled-properties-v1` タスクで、`models/packages/hot-rolled-gp-2026-07` を使用します。熱延v1は `HR-LINE-1`・L方向引張を推定対象に固定し、物理範囲外の観測を学習から除外します。
 
-別の学習済みPackageで起動する場合は、信頼できるローカルPackageの絶対パスを指定します。
+既定のactive Packageは `models/active-packages.json` でタスクごとに固定します。開発中に検証済みPackageを一時的に試す場合だけ、信頼できるローカルPackageの絶対パスを指定します。
 
 ```powershell
 $env:MATERIAL_WORKBENCH_MODEL_PACKAGE = "C:\models\annealed-bnn"
+$env:MATERIAL_WORKBENCH_HOT_ROLLING_MODEL_PACKAGE = "C:\models\hot-rolling-gp"
 npm run dev
 ```
 

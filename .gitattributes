@@ -1,2 +1,3 @@
 models/packages/**/*.json text eol=lf
 examples/model-packages/**/*.json text eol=lf
+models/active-packages.json text eol=lf

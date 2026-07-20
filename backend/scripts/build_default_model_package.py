@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import shutil
 import sys
 from pathlib import Path
 
@@ -15,8 +14,11 @@ if __package__ in {None, ""}:
 from material_workbench.feature_contracts import feature_index_families
 from material_workbench.feature_pipeline import CANONICAL_INPUT_PATHS, FEATURE_DEFINITIONS, FEATURE_NAMES, FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION
 from material_workbench.importer import load_workbook_data
+from material_workbench.model_lifecycle import QualityReport, canonical_training_dataset, canonical_training_dataset_digest, dataset_profile_digest, exact_gp_loo_quality, runtime_capability_digest, staged_package_destination, task_input_contract_digest
+from material_workbench.model_package_verify import verify_model_package
 from material_workbench.runtime import INPUT_SCHEMA_VERSION, TARGETS, TASK_ID, ModelRuntime
 from material_workbench.schemas import CandidateInput
+from material_workbench.task_registry import load_task_contracts
 
 
 def digest(path: Path) -> str:
@@ -28,8 +30,8 @@ def artifact(root: Path, path: Path) -> dict[str, object]:
 
 
 PACKAGE_ID = "annealed-gp-2026-07"
-PACKAGE_VERSION = "0.7.0-exact-gp-v1"
-TRAINING_CODE_REVISION = "0.6.0-exact-gp-v1"
+PACKAGE_VERSION = "0.8.0-lifecycle-v1"
+TRAINING_CODE_REVISION = "0.7.0-lifecycle-v1"
 FEATURE_GROUP_INDICES = feature_index_families(
     FEATURE_DEFINITIONS,
     {
@@ -113,16 +115,15 @@ def _gp_point(artifact_path: Path, raw_features: np.ndarray) -> float:
         return mean + float(cross @ item["alpha"])
 
 
-def build(source: Path, destination: Path) -> None:
+def _build(source: Path, destination: Path) -> None:
     data = load_workbook_data(source)
     runtime = ModelRuntime(data, load_package=False)
-    if destination.exists():
-        shutil.rmtree(destination)
     artifacts_dir = destination / "model-artifacts"
     feature_dir = destination / "feature-pipeline"
     reference_dir = destination / "reference"
     smoke_dir = destination / "smoke"
-    for folder in (artifacts_dir, feature_dir, reference_dir, smoke_dir):
+    report_dir = destination / "reports"
+    for folder in (artifacts_dir, feature_dir, reference_dir, smoke_dir, report_dir):
         folder.mkdir(parents=True, exist_ok=True)
 
     pipeline_path = feature_dir / "pipeline.json"
@@ -138,6 +139,7 @@ def build(source: Path, destination: Path) -> None:
     predictors: list[dict[str, object]] = []
     files = [pipeline_path]
     training_counts: dict[str, int] = {}
+    quality_metrics = []
     for target, model in sorted(runtime.models.items()):
         train_x, train_y, train_noise, observation_noise = _grouped_training(model, target)
         lengthscale, outputscale, train_noise = _fit_gp_hyperparameters(train_x, train_y, train_noise)
@@ -148,6 +150,7 @@ def build(source: Path, destination: Path) -> None:
         precision = np.linalg.solve(cholesky.T, np.linalg.solve(cholesky, np.eye(len(train_x))))
         mean_value = float(train_y.mean())
         alpha = precision @ (train_y - mean_value)
+        quality_metrics.append(exact_gp_loo_quality(target, train_y, alpha, precision))
         path = artifacts_dir / f"{target}.npz"
         np.savez(
             path,
@@ -183,6 +186,15 @@ def build(source: Path, destination: Path) -> None:
     }, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
     files.append(stats_path)
 
+    quality_path = report_dir / "quality-report.json"
+    quality = QualityReport(
+        schema_version="model-quality-report/v1",
+        split="leave-one-parent-condition-out",
+        targets=tuple(quality_metrics),
+    )
+    quality_path.write_text(quality.model_dump_json(indent=2) + "\n", encoding="utf-8", newline="\n")
+    files.append(quality_path)
+
     smoke_input = {
         "name": "package smoke",
         "composition": data.medians,
@@ -200,23 +212,35 @@ def build(source: Path, destination: Path) -> None:
     smoke_expected_path.write_text(json.dumps(expected, indent=2), encoding="utf-8", newline="\n")
     files.extend([smoke_input_path, smoke_expected_path])
 
+    contract = load_task_contracts()[TASK_ID]
+    canonical_dataset = canonical_training_dataset(TASK_ID, data, contract)
     manifest = {
         "schema_version": "model-package/v1", "package_id": PACKAGE_ID, "package_version": PACKAGE_VERSION,
         "task_id": TASK_ID, "input_schema_version": INPUT_SCHEMA_VERSION,
+        "input_contract_digest": task_input_contract_digest(contract.task_definition),
+        "runtime_capability_digest": runtime_capability_digest(contract.runtime_capability),
         "feature_pipeline": {"id": FEATURE_PIPELINE_ID, "version": FEATURE_PIPELINE_VERSION, "spec": pipeline_path.relative_to(destination).as_posix(), "canonical_input_paths": list(CANONICAL_INPUT_PATHS), "output_features": list(FEATURE_NAMES), "artifacts": [stats_path.relative_to(destination).as_posix()]},
         "predictors": predictors,
-        "provenance": {"training_data_id": f"sha256:{data.source_sha256}", "feature_dataset_id": f"sha256:{digest(stats_path)}", "training_code_revision": TRAINING_CODE_REVISION},
+        "provenance": {"training_data_id": f"sha256:{data.source_sha256}", "feature_dataset_id": canonical_training_dataset_digest(canonical_dataset), "training_code_revision": TRAINING_CODE_REVISION, "dataset_profile_id": dataset_profile_digest()},
         "artifacts": [artifact(destination, path) for path in files],
         "smoke_test": {"input": smoke_input_path.relative_to(destination).as_posix(), "expected": smoke_expected_path.relative_to(destination).as_posix()},
+        "quality_report": quality_path.relative_to(destination).as_posix(),
     }
     (destination / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n"
     )
 
 
+def build(source: Path, destination: Path, *, replace: bool = False) -> None:
+    with staged_package_destination(destination, replace=replace) as staging:
+        _build(source, staging)
+        verify_model_package(staging, task_id=TASK_ID, source=source)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", type=Path, default=Path("data/source/process_dashboard_realistic_excel_v2.xlsx"))
     parser.add_argument("--output", type=Path, default=Path("models/packages/annealed-gp-2026-07"))
+    parser.add_argument("--replace", action="store_true")
     args = parser.parse_args()
-    build(args.source, args.output)
+    build(args.source, args.output, replace=args.replace)

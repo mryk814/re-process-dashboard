@@ -19,6 +19,9 @@ def test_hot_rolling_task_candidates_and_gp_uncertainty(client) -> None:
         "process.coiling_temperature_c", "process.cooling_rate_c_s", "process.entry_thickness_mm", "process.exit_thickness_mm",
     }
     assert {item["key"] for item in definition["outputs"]} == {"TS"}
+    package = client.get(f"/api/projects/{project['id']}/model-package").json()
+    assert package["task_id"] == "hot-rolled-properties-v1"
+    assert {item["target"] for item in package["quality_report"]["targets"]} == {"TS"}
 
     candidates = client.get("/api/hot-rolling/candidates").json()
     assert len(candidates) == 3
