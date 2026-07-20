@@ -20,15 +20,18 @@ export type NavigationIntent = Readonly<{
   qualityKey?: string;
   screeningRunId?: string;
   snapshotId?: string;
+  adminSection?: "quality" | "ranges" | "task" | "model";
 }>;
 
 const VIEW_SET = new Set<string>(WORKBENCH_VIEWS);
+const ADMIN_SECTIONS = new Set(["quality", "ranges", "task", "model"] as const);
 
 export function readNavigationIntent(
   search = window.location.search,
 ): NavigationIntent {
   const params = new URLSearchParams(search);
   const requestedView = params.get("view") ?? "candidates";
+  const adminSection = params.get("admin");
   return Object.freeze({
     view: VIEW_SET.has(requestedView)
       ? (requestedView as WorkbenchView)
@@ -42,6 +45,7 @@ export function readNavigationIntent(
     qualityKey: params.get("quality_key") || undefined,
     screeningRunId: params.get("screening") || undefined,
     snapshotId: params.get("snapshot") || undefined,
+    adminSection: adminSection && ADMIN_SECTIONS.has(adminSection as "quality" | "ranges" | "task" | "model") ? adminSection as "quality" | "ranges" | "task" | "model" : undefined,
   });
 }
 
@@ -57,6 +61,7 @@ export function navigationUrl(intent: NavigationIntent): string {
   if (intent.qualityKey) params.set("quality_key", intent.qualityKey);
   if (intent.screeningRunId) params.set("screening", intent.screeningRunId);
   if (intent.snapshotId) params.set("snapshot", intent.snapshotId);
+  if (intent.adminSection) params.set("admin", intent.adminSection);
   return `${window.location.pathname}?${params.toString()}${window.location.hash}`;
 }
 
@@ -75,5 +80,6 @@ export function withView(
     qualityKey: view === "quality" || view === "lineage" ? current.qualityKey : undefined,
     screeningRunId: view === "explore" ? current.screeningRunId : undefined,
     snapshotId: view === "project" ? current.snapshotId : undefined,
+    adminSection: view === "settings" ? current.adminSection : undefined,
   });
 }

@@ -72,7 +72,7 @@ for (const task of tasks) {
     expect((await actualResponse).status()).toBe(201);
     await expect(page.locator(".actual-table tbody")).toContainText("510");
 
-    await page.getByRole("button", { name: "プロジェクト", exact: true }).click();
+    await page.getByRole("button", { name: "プロジェクト概要", exact: true }).click();
     await expect(page.getByRole("heading", { name: "候補と判断履歴" })).toBeVisible();
     await expect(page.getByRole("button", { name: "詳細" }).first()).toBeVisible();
     if (!task.responseCurve) expect(curveRequests).toBe(0);

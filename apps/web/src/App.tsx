@@ -14,6 +14,7 @@ import {
   type ApiCandidateInput,
   type ApiLineage,
   type ApiLineageIndex,
+  type ApiModelPackage,
   type ApiPredictionVsActual,
   type ApiPreview,
   type ApiProject,
@@ -31,13 +32,11 @@ function allowedRange(input: NumericTaskInput) {
 type ResponseCurvesPayload = ApiResponseCurves;
 type CurvePoint = ApiResponseCurves["curves"][string][number];
 type CurveVariable = ApiResponseCurves["variable"];
-const navItems: Array<{ id: Tab; label: string }> = [
-  { id: "project", label: "プロジェクト" },
-  { id: "candidates", label: "候補比較" },
-  { id: "settings", label: "設定" },
-  { id: "quality", label: "データ品質" },
-  { id: "lineage", label: "工程系譜" },
-  { id: "explore", label: "範囲探索" },
+const primaryNavItems: Array<{ id: Tab; label: string; active: Tab[] }> = [
+  { id: "project", label: "プロジェクト概要", active: ["project"] },
+  { id: "lineage", label: "データ探索", active: ["lineage", "quality"] },
+  { id: "explore", label: "範囲探索", active: ["explore"] },
+  { id: "candidates", label: "候補比較", active: ["candidates"] },
 ];
 
 function number(value: number, digits = 0) {
@@ -517,11 +516,13 @@ function App() {
       <header className="topbar">
         <div className="brand">Material Decision Workbench</div>
         <nav aria-label="画面">
-          {navItems.map((item) => (
+          <span className="nav-group-label">予測・検討</span>
+          {primaryNavItems.map((item) => (
             <button
-              className={tab === item.id ? "nav-button active" : "nav-button"}
+              className={item.active.includes(tab) ? "nav-button active" : "nav-button"}
               onClick={() => {
-                const intent = withView(navigationRef.current, item.id);
+                const destination = item.active.includes(tab) ? tab : item.id;
+                const intent = withView(navigationRef.current, destination);
                 navigate({
                   ...intent,
                   projectId: activeProjectId,
@@ -536,6 +537,13 @@ function App() {
               {item.label}
             </button>
           ))}
+          <span className="nav-divider" aria-hidden="true" />
+          <button
+            className={tab === "settings" ? "nav-button admin active" : "nav-button admin"}
+            onClick={() => navigate(withView(navigationRef.current, "settings"))}
+          >
+            開発・管理
+          </button>
         </nav>
       </header>
       <main>
@@ -568,7 +576,7 @@ function App() {
                   : "同期済み"}
             </span>
             {tab === "candidates" && selected && (
-              <button
+              <><button
                 className="primary-button"
                 disabled={!operations?.detailed_prediction || !["idle", "saved"].includes(editor.saveStates[selected.id] ?? "idle")}
                 title={!operations?.detailed_prediction ? "このタスクでは詳細予測を利用できません" : undefined}
@@ -578,7 +586,7 @@ function App() {
               >
                 <Icon name="play" />
                 {selected.label}の詳細予測を保存
-              </button>
+              </button><button className="outline-button" onClick={() => navigate({ view: "project", projectId: activeProjectId, candidateId: selected.id })}>保存結果・履歴</button></>
             )}
           </div>
         </div>
@@ -623,9 +631,36 @@ function App() {
           />
         )}
         {tab === "settings" && (
-          <InputRangeSettingsPage
+          <DeveloperAdminPage
             project={activeProject}
             taskDefinition={taskDefinition}
+            resolvedTaskDefinition={resolvedTaskDefinition}
+            initialSection={navigation.adminSection}
+            onSectionChange={(adminSection) => navigate({ ...navigationRef.current, view: "settings", projectId: activeProjectId, adminSection }, true)}
+            qualityFilters={{
+              issueId: navigation.qualityIssueId,
+              type: navigation.qualityType,
+              sheet: navigation.qualitySheet,
+              key: navigation.qualityKey,
+            }}
+            onQualityFiltersChange={(filters) => navigate({
+              ...navigationRef.current,
+              view: "settings",
+              projectId: activeProjectId,
+              qualityIssueId: filters.issueId,
+              qualityType: filters.type,
+              qualitySheet: filters.sheet,
+              qualityKey: filters.key,
+            }, true)}
+            onOpenLineage={(issue, filters) => navigate({
+              view: "lineage",
+              projectId: activeProjectId,
+              entityKey: issue.focus_entity_key ?? undefined,
+              qualityIssueId: issue.issue_id,
+              qualityType: filters.type,
+              qualitySheet: filters.sheet,
+              qualityKey: filters.key,
+            })}
             onProjectChanged={(project) => {
               setProjects((items) => items.map((item) => item.id === project.id ? project : item));
               if (project.id === activeProjectId) {
@@ -717,7 +752,9 @@ function App() {
             />
           ))}
         {tab === "quality" && (
-          <LiveDataQualityPage
+          <div className="data-explore-page">
+            <DataExploreNavigation active="quality" onNavigate={(view) => navigate(withView(navigationRef.current, view))} />
+            <LiveDataQualityPage
             filters={{
               issueId: navigation.qualityIssueId,
               type: navigation.qualityType,
@@ -744,12 +781,16 @@ function App() {
               qualitySheet: filters.sheet,
               qualityKey: filters.key,
             })}
-          />
+            />
+          </div>
         )}
         {tab === "lineage" && (
-          <LiveLineagePage
+          <div className="data-explore-page">
+            <DataExploreNavigation active="lineage" onNavigate={(view) => navigate(withView(navigationRef.current, view))} />
+            <LiveLineagePage
             projectId={activeProjectId}
             supportsCandidateCreation={taskDefinition?.input_groups.some((group) => group.key === "heat_pattern") ?? false}
+            outputs={taskDefinition?.outputs ?? []}
             initialEntityKey={navigation.entityKey}
             qualityIssueId={navigation.qualityIssueId}
             onEntityChange={(entityKey) => navigate({ ...navigationRef.current, view: "lineage", projectId: activeProjectId, entityKey }, true)}
@@ -764,7 +805,8 @@ function App() {
               rememberCandidate(candidate.id);
               setNotice(`${candidate.label} を候補ストックへ追加しました（${candidates.length + 1}件）`);
             }}
-          />
+            />
+          </div>
         )}
         {tab === "explore" && (
           <LiveScreeningPage
@@ -781,6 +823,7 @@ function App() {
               setNotice(`${candidate.label} を候補ストックへ追加しました（${candidates.length + 1}件）`);
             }}
             onCompare={() => navigate({ view: "candidates", projectId: activeProjectId }, true)}
+            onCreateStarter={() => void createStarterCandidate()}
           />
         )}
       </main>
@@ -957,7 +1000,7 @@ function CandidateWorkbench(props: WorkbenchProps) {
         ) : <UnavailablePanel title="応答曲線" />}
         {operations?.actual_measurement ? <ActualsPanel projectId={projectId} candidate={selected} outputs={taskDefinition?.outputs ?? []} enabled={["idle", "saved"].includes(saveState)} /> : <UnavailablePanel title="予測と実測" />}
       </section>
-      <EvidencePanel metrics={metrics} preview={preview} candidateLabel={selected.label} similarityAvailable={operations?.similarity === true} error={previewError} onRetry={onRetryPreview} />
+      <EvidencePanel metrics={metrics} outputs={taskDefinition?.outputs ?? []} preview={preview} candidateLabel={selected.label} similarityAvailable={operations?.similarity === true} error={previewError} onRetry={onRetryPreview} />
     </div>
   );
 }
@@ -1215,6 +1258,7 @@ function ActualsPanel({ projectId, candidate, outputs, enabled }: { projectId: s
         <tbody>
           {rows.map((row) => {
             const prediction = row.prediction.predictions[row.actual.property];
+            const output = outputs.find((item) => item.key === row.actual.property);
             const delta = row.actual.mean - prediction.value;
             const inside =
               row.actual.mean >= prediction.lower &&
@@ -1222,7 +1266,7 @@ function ActualsPanel({ projectId, candidate, outputs, enabled }: { projectId: s
             return (
               <tr key={row.actual.id}>
                 <td>
-                  <b>{row.actual.property}</b>
+                  <b>{output?.label ?? row.actual.property} <small>({output?.unit ?? row.actual.unit})</small></b>
                   {(row.actual.experiment_no ||
                     row.actual.measured_at ||
                     row.actual.note) && (
@@ -1263,7 +1307,7 @@ function ActualsPanel({ projectId, candidate, outputs, enabled }: { projectId: s
                 <td>
                   <button
                     className="icon-delete"
-                    aria-label={`${row.actual.property}実測を削除`}
+                    aria-label={`${output?.label ?? row.actual.property}の実測を削除`}
                     onClick={() => {
                       void remove(row.actual.id);
                     }}
@@ -1607,6 +1651,7 @@ function ResponseCurveMiniChart({
 
 function EvidencePanel({
   metrics,
+  outputs,
   preview,
   candidateLabel,
   similarityAvailable,
@@ -1614,6 +1659,7 @@ function EvidencePanel({
   onRetry,
 }: {
   metrics: Metric[];
+  outputs: TaskOutputDefinition[];
   preview: ApiPreview | null;
   candidateLabel: string;
   similarityAvailable: boolean;
@@ -1627,6 +1673,7 @@ function EvidencePanel({
   const warnings = (preview?.warnings ?? []).filter(
     (warning) => warning !== preview?.support?.message,
   );
+  const outputForMetric = (key: string) => outputs.find((output) => output.key === key || (key === "λ" && output.key === "lambda"));
   return (
     <aside className="evidence-panel">
       <section>
@@ -1647,7 +1694,7 @@ function EvidencePanel({
               {metrics.map((metric) => (
                 <tr key={metric.key}>
                   <th>
-                    {metric.key} <small>({metric.unit})</small>
+                    {outputForMetric(metric.key)?.label ?? metric.key} <small>({outputForMetric(metric.key)?.unit ?? metric.unit})</small>
                   </th>
                   <td>
                     {number(
@@ -1821,6 +1868,22 @@ function EvidencePanel({
   );
 }
 
+function DataExploreNavigation({
+  active,
+  onNavigate,
+}: {
+  active: "quality" | "lineage";
+  onNavigate: (view: "quality" | "lineage") => void;
+}) {
+  return <div className="section-navigation" aria-label="データ探索">
+    <div><span className="overline">データ探索</span><strong>実績のつながりと問題を同じ文脈で確認</strong></div>
+    <nav aria-label="データ探索">
+      <button className={active === "lineage" ? "active" : ""} onClick={() => onNavigate("lineage")}>実績・工程を探す</button>
+      <button className={active === "quality" ? "active" : ""} onClick={() => onNavigate("quality")}>問題から探す</button>
+    </nav>
+  </div>;
+}
+
 type QualityFilters = Readonly<{
   issueId?: string;
   type?: string;
@@ -1832,10 +1895,14 @@ function LiveDataQualityPage({
   filters,
   onFiltersChange,
   onOpenLineage,
+  showReferenceScenarios = false,
+  mode = "issues",
 }: {
   filters: QualityFilters;
   onFiltersChange: (filters: QualityFilters) => void;
   onOpenLineage: (issue: ApiQuality["detected_issues"][number], filters: QualityFilters) => void;
+  showReferenceScenarios?: boolean;
+  mode?: "issues" | "summary";
 }) {
   type DetectedIssue = ApiQuality["detected_issues"][number];
   const [data, setData] = useState<ApiQuality | null>(null);
@@ -1891,17 +1958,17 @@ function LiveDataQualityPage({
     <div className="page-panel quality-page">
       <div className="page-intro">
         <div>
-          <h2>データ品質</h2>
+          <h2>{mode === "summary" ? "データ品質集計" : "問題から探す"}</h2>
           <p>
             元Excelを変更せず、関係と各工程シートを照合して実際の問題を検出します。
           </p>
         </div>
-        <button
+        {mode === "summary" && <button
           className="outline-button"
           onClick={() => void exportCsv()}
         >
           検出結果をCSV出力
-        </button>
+        </button>}
       </div>
       {exportError && <p className="empty-evidence" role="alert">{exportError}</p>}
       {copyError && <p className="empty-evidence" role="alert">{copyError}</p>}
@@ -1911,7 +1978,7 @@ function LiveDataQualityPage({
         </p>
       ) : data ? (
         <>
-          <div className="quality-summary">
+          {mode === "summary" && <div className="quality-summary">
             <button type="button" className={!filters.type ? "active" : ""} onClick={() => updateFilters({ type: undefined })}>
               <b>{data.detected_total}</b>件を実検出
             </button>
@@ -1921,8 +1988,8 @@ function LiveDataQualityPage({
                 {labels[type as DetectedIssue["issue_type"]] ?? type}
               </button>
             ))}
-          </div>
-          <div className="quality-filters" aria-label="検出結果フィルタ">
+          </div>}
+          {mode === "issues" && <><div className="quality-filters" aria-label="検出結果フィルタ">
             <label>
               種別
               <select value={filters.type ?? ""} onChange={(event) => updateFilters({ type: event.target.value || undefined })}>
@@ -1984,8 +2051,8 @@ function LiveDataQualityPage({
                 {!visibleIssues.length && <tr><td colSpan={5}>条件に一致する検出結果はありません。</td></tr>}
               </tbody>
             </table>
-          </div>
-          {import.meta.env.DEV && <details className="reference-scenarios">
+          </div></>}
+          {showReferenceScenarios && <details className="reference-scenarios">
             <summary>
               Excelに用意された確認用シナリオ（{data.reference_scenarios.length}
               件）
@@ -2016,6 +2083,7 @@ function LiveDataQualityPage({
 function LiveLineagePage({
   projectId,
   supportsCandidateCreation,
+  outputs,
   initialEntityKey,
   qualityIssueId,
   onEntityChange,
@@ -2024,6 +2092,7 @@ function LiveLineagePage({
 }: {
   projectId: string;
   supportsCandidateCreation: boolean;
+  outputs: TaskOutputDefinition[];
   initialEntityKey?: string;
   qualityIssueId?: string;
   onEntityChange: (entityKey: string) => void;
@@ -2041,6 +2110,10 @@ function LiveLineagePage({
   const [error, setError] = useState("");
   const [candidateError, setCandidateError] = useState("");
   const activeProjectRef = useRef(projectId);
+  const outputLabel = (raw: string) => {
+    const definition = outputs.find((output) => raw === output.key || raw.startsWith(`${output.key}[`) || (output.key === "lambda" && raw.startsWith("λ")));
+    return definition ? `${definition.label}${definition.unit ? ` (${definition.unit})` : ""}` : raw;
+  };
   activeProjectRef.current = projectId;
   useEffect(() => {
     setEntityKey(initialEntityKey ?? "");
@@ -2155,7 +2228,7 @@ function LiveLineagePage({
       )}
       <div className="page-intro lineage-intro">
         <div>
-          <span className="overline">DATA UNDERSTANDING</span>
+          <span className="overline">データ探索</span>
           <h2>工程系譜</h2>
           <p>
             この材料・条件は、どの工程と試験結果につながっているか。
@@ -2401,7 +2474,7 @@ function LiveLineagePage({
                           const warnings = group.observations.flatMap((observation) => (observation.output_warnings ?? {})[group.property] ?? []);
                           return <tr key={`${group.test_type}-${group.property}`} className={warnings.length ? "plausibility-warning-row" : undefined}>
                             <td><b>{group.stage}</b><br /><small>{group.test_type}</small></td>
-                            <td>{group.property}{warnings.length ? <span className="plausibility-warning">⚠ 物理範囲外</span> : null}</td>
+                            <td>{outputLabel(group.property)}{warnings.length ? <span className="plausibility-warning">⚠ 物理範囲外</span> : null}</td>
                             <td>{group.count}</td>
                             <td>{number(group.min, 1)}</td>
                             <td>
@@ -2422,7 +2495,7 @@ function LiveLineagePage({
                       <p key={observation.id}>
                         {observation.id} · {observation.source} ·{" "}
                         {Object.entries(observation.outputs)
-                          .map(([key, value]) => <span key={key} className={(observation.output_warnings ?? {})[key]?.length ? "plausibility-value" : undefined}>{key} {number(value, 1)}{(observation.output_warnings ?? {})[key]?.length ? <small>⚠ 物理範囲外</small> : null}</span>) }
+                          .map(([key, value]) => <span key={key} className={(observation.output_warnings ?? {})[key]?.length ? "plausibility-value" : undefined}>{outputLabel(key)} {number(value, 1)}{(observation.output_warnings ?? {})[key]?.length ? <small>⚠ 物理範囲外</small> : null}</span>) }
                         {Object.values(observation.output_warnings ?? {}).flat().map((warning) => <em className="plausibility-reason" key={warning}>{warning}</em>)}
                       </p>
                     ))}
@@ -2446,7 +2519,7 @@ function LiveLineagePage({
       ) : (
         <main className="lineage-main">
           <section className="lineage-empty-overview">
-            <span className="overline">NO NODE SELECTED</span>
+            <span className="overline">ノード未選択</span>
             <h3>調べるノードを選択してください</h3>
             <p>左の検索結果を選ぶか、キーを直接指定すると、実在する関係線と前後工程を表示します。</p>
             {index && <p>{number(index.total_entities)}ノード / {number(index.relation_rows)} relation行 / {index.detected_issues}件の品質問題</p>}
@@ -2456,6 +2529,80 @@ function LiveLineagePage({
       </div>
     </div>
   );
+}
+
+function DeveloperAdminPage({
+  project,
+  taskDefinition,
+  resolvedTaskDefinition,
+  initialSection,
+  onSectionChange,
+  qualityFilters,
+  onQualityFiltersChange,
+  onOpenLineage,
+  onProjectChanged,
+}: {
+  project: ApiProject | undefined;
+  taskDefinition: TaskDefinitionContract | null;
+  resolvedTaskDefinition: ResolvedTaskDefinition | null;
+  initialSection?: "quality" | "ranges" | "task" | "model";
+  onSectionChange: (section: "quality" | "ranges" | "task" | "model") => void;
+  qualityFilters: QualityFilters;
+  onQualityFiltersChange: (filters: QualityFilters) => void;
+  onOpenLineage: (issue: ApiQuality["detected_issues"][number], filters: QualityFilters) => void;
+  onProjectChanged: (project: ApiProject) => void;
+}) {
+  type AdminSection = "quality" | "ranges" | "task" | "model";
+  const [section, setSection] = useState<AdminSection>(initialSection ?? "quality");
+  const [modelPackage, setModelPackage] = useState<ApiModelPackage | null>(null);
+  const [modelError, setModelError] = useState("");
+  useEffect(() => {
+    if (!project?.id) return;
+    const controller = new AbortController();
+    setModelPackage(null);
+    setModelError("");
+    workbenchApi.modelPackage(project.id)
+      .then((item) => { if (!controller.signal.aborted) setModelPackage(item); })
+      .catch((cause) => { if (!controller.signal.aborted) setModelError(cause instanceof Error ? cause.message : "モデル情報を取得できませんでした。"); });
+    return () => controller.abort();
+  }, [project?.id]);
+  useEffect(() => setSection(initialSection ?? "quality"), [initialSection]);
+  const sections: Array<{ id: AdminSection; label: string }> = [
+    { id: "quality", label: "データ品質集計" },
+    { id: "ranges", label: "入力範囲" },
+    { id: "task", label: "予測タスク定義" },
+    { id: "model", label: "モデルと実行環境" },
+  ];
+  return <div className="admin-workspace">
+    <aside className="admin-navigation">
+      <span className="overline">開発・管理</span>
+      <h2>検証と構成</h2>
+      <p>通常の候補検討では使わない管理情報です。</p>
+      <nav aria-label="開発・管理メニュー">{sections.map((item) => <button key={item.id} className={section === item.id ? "active" : ""} onClick={() => { setSection(item.id); onSectionChange(item.id); }}>{item.label}</button>)}</nav>
+    </aside>
+    <div className="admin-content">
+      {section === "quality" && <LiveDataQualityPage filters={qualityFilters} onFiltersChange={onQualityFiltersChange} onOpenLineage={onOpenLineage} showReferenceScenarios mode="summary" />}
+      {section === "ranges" && <InputRangeSettingsPage project={project} taskDefinition={taskDefinition} onProjectChanged={onProjectChanged} />}
+      {section === "task" && <div className="page-panel admin-contract-page">
+        <div className="page-intro"><div><h2>予測タスク定義</h2><p>{taskDefinition?.label ?? "読み込み中"}で利用者が入力・確認する項目です。</p></div></div>
+        {taskDefinition ? <>
+          {taskDefinition.input_groups.map((group) => <section key={group.key}><h3>{group.label}</h3><table className="quality-table"><thead><tr><th>項目</th><th>単位</th><th>入力</th><th>標準範囲</th></tr></thead><tbody>{group.fields.map((field) => <tr key={field.path}><th>{field.label}</th><td>{field.unit ?? "—"}</td><td>{field.editable ? "編集可" : "固定"}</td><td>{field.default_range ? `${rangeNumber(field.default_range.min)}–${rangeNumber(field.default_range.max)}` : field.choices.join(" / ") || "—"}</td></tr>)}</tbody></table></section>)}
+          <section><h3>予測特性</h3><div className="admin-output-list">{taskDefinition.outputs.map((output) => <span key={output.key}><b>{output.label}</b>{output.unit} · {output.goal_direction === "at_most" ? "小さい側を目標" : output.goal_direction === "at_least" ? "大きい側を目標" : "方向なし"}</span>)}</div></section>
+          <details className="technical-contract"><summary>技術契約を表示</summary><code>{resolvedTaskDefinition?.task_definition.id}</code><span>{resolvedTaskDefinition?.task_definition.schema_version}</span><span>{resolvedTaskDefinition?.runtime_capability.model_package_schema_version}</span></details>
+        </> : <p className="empty-evidence">予測タスク定義を読み込んでいます。</p>}
+      </div>}
+      {section === "model" && <div className="page-panel admin-model-page">
+        <div className="page-intro"><div><h2>モデルと実行環境</h2><p>有効なモデルPackage、検証指標、利用可能なruntimeを確認します。</p></div></div>
+        {modelError && <p className="panel-error">{modelError}</p>}
+        {modelPackage ? <>
+          <div className="admin-model-identity"><span>有効</span><strong>{modelPackage.id}</strong><b>v{modelPackage.version}</b></div>
+          <table className="quality-table"><thead><tr><th>特性</th><th>Runtime</th><th>RMSE</th><th>90%区間coverage</th></tr></thead><tbody>{modelPackage.predictors.map((predictor) => { const quality = modelPackage.quality_report.targets.find((item) => item.target === predictor.target); return <tr key={predictor.target}><th>{taskDefinition?.outputs.find((item) => item.key === predictor.target)?.label ?? predictor.target}</th><td>{predictor.runtime_type}</td><td>{quality ? number(quality.rmse, 2) : "—"}</td><td>{quality ? `${number(quality.interval_coverage_90 * 100, 0)}%` : "—"}</td></tr>; })}</tbody></table>
+          <div className="runtime-list">{modelPackage.supported_runtimes.map((item) => <span className={item.available ? "available" : "optional"} key={item.runtime_type}>{item.runtime_type}{item.available ? " ✓" : " (追加導入)"}</span>)}</div>
+          <details className="technical-contract"><summary>識別情報を表示</summary><code>{modelPackage.manifest_sha256}</code></details>
+        </> : !modelError && <p className="empty-evidence">モデル情報を読み込んでいます。</p>}
+      </div>}
+    </div>
+  </div>;
 }
 
 function InputRangeSettingsPage({
@@ -2537,6 +2684,7 @@ function LiveScreeningPage({
   onRunChange,
   onCandidate,
   onCompare,
+  onCreateStarter,
 }: {
   projectId: string;
   candidates: Candidate[];
@@ -2547,6 +2695,7 @@ function LiveScreeningPage({
   onRunChange: (runId: string) => void;
   onCandidate: (candidate: Candidate) => void;
   onCompare: () => void;
+  onCreateStarter: () => void;
 }) {
   type VariableRow = {
     field: string;
@@ -2828,6 +2977,7 @@ function LiveScreeningPage({
     setFocusedPointIndex(index);
     setSelectedPointIndices((current) => current.includes(index) ? current.filter((item) => item !== index) : [...current, index]);
   };
+  if (!candidates.length) return <div className="page-panel explore-page"><div className="page-intro"><div><h2>範囲探索</h2><p>探索の基準になる候補を1件作ると、TaskDefinitionの入力範囲から条件を検討できます。</p></div></div><div className="project-empty-state"><p>まだ基準候補がありません。</p><button className="primary-button" onClick={onCreateStarter}>基準候補を作って探索を始める</button></div></div>;
   return (
     <div className="page-panel explore-page">
       <div className="page-intro">
