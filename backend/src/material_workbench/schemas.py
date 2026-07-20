@@ -56,9 +56,15 @@ class CandidateInput(BaseModel):
     provenance: CandidateProvenance = Field(default_factory=lambda: ManualSourceRef(source_kind="manual"))
 
 
+class CandidateUpdate(CandidateInput):
+    expected_revision: Annotated[int, Field(ge=1)]
+
+
 class Candidate(CandidateInput):
     id: str
     project_id: str
+    revision: Annotated[int, Field(ge=1)]
+    archived_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -285,9 +291,20 @@ class FieldError(BaseModel):
 
 
 class ApiError(BaseModel):
-    code: Literal["not_found", "revision_conflict", "validation_error", "runtime_unavailable"]
+    code: Literal[
+        "not_found",
+        "revision_conflict",
+        "candidate_limit",
+        "adopted_candidate",
+        "candidate_archived",
+        "project_task_locked",
+        "data_integrity_error",
+        "validation_error",
+        "runtime_unavailable",
+    ]
     message: str
     field_errors: list[FieldError] = Field(default_factory=list)
+    current_candidate: Candidate | None = None
 
 
 class DataQualityIssue(BaseModel):

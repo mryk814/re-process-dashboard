@@ -21,10 +21,10 @@ from .importer import lineage_neighborhood, lineage_node_detail, load_workbook_d
 from .hot_rolling import TASK_ID as HOT_ROLLING_TASK_ID, HotRollingRuntime
 from .runtime import ModelRuntime, TASK_ID as ANNEALED_TASK_ID
 from .model_lifecycle import ACTIVE_PACKAGES_PATH, resolve_configured_package, validate_lifecycle_metadata
-from .schemas import ApiError, ActualMeasurementInput, CandidateInput, DetailedPredictionResponse, LineageResponse, ModelPackageStatus, PredictionResponse, ProjectDecisionInput, ProjectInput, QualityResponse, ScreeningRequest
+from .schemas import ApiError, ActualMeasurementInput, Candidate, CandidateInput, CandidateUpdate, DetailedPredictionResponse, LineageResponse, ModelPackageStatus, PredictionResponse, ProjectDecisionInput, ProjectInput, QualityResponse, ScreeningRequest
 from .services import candidate_from_lineage, candidates_xlsx, import_candidates_xlsx, run_latin_hypercube
 from .snapshot_reader import SnapshotPayloadError, candidate_input_from_snapshot
-from .store import AdoptedCandidateError, CandidateLimitError, InvalidProjectDecisionError, ProjectNotFoundError, Store
+from .store import CandidateArchivedError, CandidateLimitError, CandidateRevisionConflictError, InvalidProjectDecisionError, ProjectNotFoundError, Store, StoreDataIntegrityError
 from .task_contracts import ResolvedTaskDefinition
 from .task_registry import TaskRegistry, TaskRegistryError
 
@@ -34,6 +34,15 @@ PROJECT_API_ERRORS = {
     409: {"model": ApiError},
     422: {"model": ApiError},
 }
+
+
+class DomainApiException(Exception):
+    def __init__(self, status_code: int, code: str, message: str, *, current_candidate: Candidate | None = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.code = code
+        self.message = message
+        self.current_candidate = current_candidate
 
 
 def _default_candidate_payloads(medians: dict[str, float]) -> list[CandidateInput]:
@@ -142,13 +151,22 @@ def create_app(
     async def http_error(_: Request, exc: HTTPException) -> JSONResponse:
         code = {
             404: "not_found",
-            409: "revision_conflict",
             422: "validation_error",
             503: "runtime_unavailable",
         }.get(exc.status_code, "validation_error")
         message = exc.detail if isinstance(exc.detail, str) else "リクエストを処理できません"
         payload = ApiError(code=code, message=message)
-        return JSONResponse(status_code=exc.status_code, content=payload.model_dump(mode="json"))
+        return JSONResponse(status_code=exc.status_code, content=payload.model_dump(mode="json", exclude={"current_candidate"}))
+
+    @app.exception_handler(DomainApiException)
+    async def domain_error(_: Request, exc: DomainApiException) -> JSONResponse:
+        payload = ApiError(
+            code=exc.code,  # type: ignore[arg-type]
+            message=exc.message,
+            current_candidate=exc.current_candidate,
+        )
+        excluded = {"current_candidate"} if exc.current_candidate is None else None
+        return JSONResponse(status_code=exc.status_code, content=payload.model_dump(mode="json", exclude=excluded))
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
@@ -160,7 +178,7 @@ def create_app(
                 for error in exc.errors()
             ],
         )
-        return JSONResponse(status_code=422, content=payload.model_dump(mode="json"))
+        return JSONResponse(status_code=422, content=payload.model_dump(mode="json", exclude={"current_candidate"}))
 
     def store() -> Store:
         return app.state.store
@@ -188,7 +206,7 @@ def create_app(
         except ProjectNotFoundError as exc:
             raise HTTPException(404, "プロジェクトが見つかりません") from exc
         except CandidateLimitError as exc:
-            raise HTTPException(409, str(exc)) from exc
+            raise DomainApiException(409, "candidate_limit", str(exc)) from exc
 
     @app.get("/api/health")
     @app.get("/health", include_in_schema=False)
@@ -299,7 +317,7 @@ def create_app(
     def get_project_by_id(project_id: str) -> dict[str, Any]:
         return require_project(project_id).model_dump(mode="json")
 
-    @app.put("/api/projects/{project_id}")
+    @app.put("/api/projects/{project_id}", responses=PROJECT_API_ERRORS)
     def update_project_by_id(project_id: str, payload: ProjectInput) -> dict[str, Any]:
         current = require_project(project_id)
         try:
@@ -309,8 +327,8 @@ def create_app(
         unsupported_targets = sorted(set(payload.target_values) - {item.key for item in contract.task_definition.outputs})
         if unsupported_targets:
             raise HTTPException(422, f"タスクに存在しない目標特性です: {', '.join(unsupported_targets)}")
-        if current.task_id != payload.task_id and store().list_candidates(project_id):
-            raise HTTPException(409, "候補があるプロジェクトの予測タスクは変更できません")
+        if current.task_id != payload.task_id and store().list_candidates(project_id, include_archived=True):
+            raise DomainApiException(409, "project_task_locked", "候補があるプロジェクトの予測タスクは変更できません")
         try:
             project = store().update_project(project_id, payload)
         except InvalidProjectDecisionError as exc:
@@ -338,20 +356,20 @@ def create_app(
     def get_project() -> dict[str, Any]:
         return require_project("default").model_dump(mode="json")
 
-    @app.put("/api/project")
+    @app.put("/api/project", responses=PROJECT_API_ERRORS)
     def update_project(payload: ProjectInput) -> dict[str, Any]:
         return update_project_by_id("default", payload)
 
-    @app.get("/api/projects/{project_id}/candidates")
-    def list_candidates(project_id: str) -> list[dict[str, Any]]:
+    @app.get("/api/projects/{project_id}/candidates", response_model=list[Candidate], responses=PROJECT_API_ERRORS)
+    def list_candidates(project_id: str, include_archived: bool = False) -> list[dict[str, Any]]:
         require_project(project_id)
-        return [candidate.model_dump(mode="json") for candidate in store().list_candidates(project_id)]
+        return [candidate.model_dump(mode="json") for candidate in store().list_candidates(project_id, include_archived=include_archived)]
 
-    @app.post("/api/projects/{project_id}/candidates", status_code=201)
+    @app.post("/api/projects/{project_id}/candidates", status_code=201, response_model=Candidate, responses=PROJECT_API_ERRORS)
     def create_candidate(project_id: str, payload: CandidateInput) -> dict[str, Any]:
         return create_candidate_in_project(payload, project_id).model_dump(mode="json")
 
-    @app.post("/api/projects/{project_id}/candidates/import")
+    @app.post("/api/projects/{project_id}/candidates/import", responses=PROJECT_API_ERRORS)
     async def import_candidates(project_id: str, file: UploadFile = File(...)) -> dict[str, Any]:
         project = require_project(project_id)
         if project.task_id != ANNEALED_TASK_ID:
@@ -364,7 +382,7 @@ def create_app(
         except ProjectNotFoundError as exc:
             raise HTTPException(404, "プロジェクトが見つかりません") from exc
         except CandidateLimitError as exc:
-            raise HTTPException(409, str(exc)) from exc
+            raise DomainApiException(409, "candidate_limit", str(exc)) from exc
         return {"created": len(created), "errors": errors, "candidates": created}
 
     @app.get("/api/projects/{project_id}/candidates/export.xlsx")
@@ -375,37 +393,50 @@ def create_app(
         contents = candidates_xlsx(store().list_candidates(project_id), task_registry().runtime_for(project.task_id))
         return StreamingResponse(BytesIO(contents), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": "attachment; filename=candidates-with-predictions.xlsx"})
 
-    @app.get("/api/projects/{project_id}/candidates/{candidate_id}")
-    def get_candidate(project_id: str, candidate_id: str) -> dict[str, Any]:
+    @app.get("/api/projects/{project_id}/candidates/{candidate_id}", response_model=Candidate, responses=PROJECT_API_ERRORS)
+    def get_candidate(project_id: str, candidate_id: str, include_archived: bool = False) -> dict[str, Any]:
         require_project(project_id)
-        candidate = store().get_candidate(candidate_id, project_id)
+        candidate = store().get_candidate(candidate_id, project_id, include_archived=include_archived)
         if not candidate:
             raise HTTPException(404, "候補が見つかりません")
         return candidate.model_dump(mode="json")
 
-    @app.put("/api/projects/{project_id}/candidates/{candidate_id}")
-    def update_candidate(project_id: str, candidate_id: str, payload: CandidateInput) -> dict[str, Any]:
+    @app.put("/api/projects/{project_id}/candidates/{candidate_id}", response_model=Candidate, responses=PROJECT_API_ERRORS)
+    def update_candidate(project_id: str, candidate_id: str, payload: CandidateUpdate) -> dict[str, Any]:
         project = require_project(project_id)
-        if store().get_candidate(candidate_id, project_id) is None:
+        existing = store().get_candidate(candidate_id, project_id, include_archived=True)
+        if existing is None:
             raise HTTPException(404, "候補が見つかりません")
+        if existing.archived_at is not None:
+            raise DomainApiException(409, "candidate_archived", "archive済み候補は編集できません")
+        candidate_input = CandidateInput.model_validate(payload.model_dump(exclude={"expected_revision"}))
         try:
-            task_registry().validate_candidate(project.task_id, payload)
+            task_registry().validate_candidate(project.task_id, candidate_input)
         except (TaskRegistryError, ValueError) as exc:
             raise HTTPException(422, str(exc)) from exc
-        candidate = store().update_candidate(candidate_id, payload)
+        try:
+            candidate = store().update_candidate(candidate_id, project_id, candidate_input, payload.expected_revision)
+        except CandidateRevisionConflictError as exc:
+            raise DomainApiException(409, "revision_conflict", str(exc), current_candidate=exc.current) from exc
+        except CandidateArchivedError as exc:
+            raise DomainApiException(409, "candidate_archived", str(exc)) from exc
         if not candidate:
             raise HTTPException(404, "候補が見つかりません")
         return candidate.model_dump(mode="json")
 
-    @app.delete("/api/projects/{project_id}/candidates/{candidate_id}", status_code=204)
-    def delete_candidate(project_id: str, candidate_id: str) -> Response:
+    @app.delete("/api/projects/{project_id}/candidates/{candidate_id}", status_code=204, responses=PROJECT_API_ERRORS)
+    def delete_candidate(project_id: str, candidate_id: str, expected_revision: int) -> Response:
         require_project(project_id)
-        if store().get_candidate(candidate_id, project_id) is None:
+        if store().get_candidate(candidate_id, project_id, include_archived=True) is None:
             raise HTTPException(404, "候補が見つかりません")
         try:
-            deleted = store().delete_candidate(candidate_id)
-        except AdoptedCandidateError as exc:
-            raise HTTPException(409, str(exc)) from exc
+            deleted = store().delete_candidate(candidate_id, project_id, expected_revision)
+        except CandidateRevisionConflictError as exc:
+            raise DomainApiException(409, "revision_conflict", str(exc), current_candidate=exc.current) from exc
+        except CandidateArchivedError as exc:
+            raise DomainApiException(409, "candidate_archived", str(exc)) from exc
+        except StoreDataIntegrityError as exc:
+            raise DomainApiException(409, "data_integrity_error", str(exc)) from exc
         if not deleted:
             raise HTTPException(404, "候補が見つかりません")
         return Response(status_code=204)
@@ -596,7 +627,7 @@ def create_app(
             "candidate_reason": candidate_reason,
         }
 
-    @app.post("/api/lineage/{entity_key}/candidate", status_code=201)
+    @app.post("/api/lineage/{entity_key}/candidate", status_code=201, responses=PROJECT_API_ERRORS)
     def create_candidate_from_lineage(entity_key: str, project_id: str = "default") -> dict[str, Any]:
         try:
             payload = candidate_from_lineage(app.state.data, entity_key)
@@ -643,7 +674,7 @@ def create_app(
             raise HTTPException(404, "スクリーニング結果が見つかりません")
         return run
 
-    @app.post("/api/screening/{run_id}/points/{point_index}/candidate", status_code=201)
+    @app.post("/api/screening/{run_id}/points/{point_index}/candidate", status_code=201, responses=PROJECT_API_ERRORS)
     def screening_point_to_candidate(run_id: str, point_index: int, project_id: str = "default") -> dict[str, Any]:
         run = store().get_screening_run(run_id, project_id)
         if not run:
@@ -660,7 +691,7 @@ def create_app(
 
     @app.get("/api/projects/{project_id}/candidates/{candidate_id}/snapshots")
     def snapshots(project_id: str, candidate_id: str) -> list[dict[str, Any]]:
-        if not store().get_candidate(candidate_id, project_id):
+        if not store().get_candidate(candidate_id, project_id, include_archived=True):
             raise HTTPException(404, "候補が見つかりません")
         return store().list_snapshots(candidate_id)
 
@@ -693,11 +724,11 @@ def create_app(
         # Stored JSON is a complete, immutable prediction artifact, not a mutable candidate reference.
         return store().create_snapshot(candidate.id, jsonable_encoder(payload))
 
-    @app.post("/api/projects/{project_id}/snapshots/{snapshot_id}/restore", status_code=201)
+    @app.post("/api/projects/{project_id}/snapshots/{snapshot_id}/restore", status_code=201, responses=PROJECT_API_ERRORS)
     def restore_snapshot(project_id: str, snapshot_id: str) -> dict[str, Any]:
         require_project(project_id)
         snapshot = store().get_snapshot(snapshot_id)
-        if not snapshot or store().get_candidate(snapshot["candidate_id"], project_id) is None:
+        if not snapshot or store().get_candidate(snapshot["candidate_id"], project_id, include_archived=True) is None:
             raise HTTPException(404, "スナップショットが見つかりません")
         try:
             payload = candidate_input_from_snapshot(snapshot_id, snapshot["payload"])
@@ -707,7 +738,7 @@ def create_app(
 
     @app.get("/api/projects/{project_id}/candidates/{candidate_id}/actuals")
     def list_actuals(project_id: str, candidate_id: str) -> list[dict[str, Any]]:
-        if not store().get_candidate(candidate_id, project_id):
+        if not store().get_candidate(candidate_id, project_id, include_archived=True):
             raise HTTPException(404, "候補が見つかりません")
         return [actual.model_dump(mode="json") for actual in store().list_actuals(candidate_id)]
 
@@ -725,7 +756,7 @@ def create_app(
 
     @app.delete("/api/projects/{project_id}/candidates/{candidate_id}/actuals/{actual_id}", status_code=204)
     def delete_actual(project_id: str, candidate_id: str, actual_id: str) -> Response:
-        if not store().get_candidate(candidate_id, project_id):
+        if not store().get_candidate(candidate_id, project_id, include_archived=True):
             raise HTTPException(404, "候補が見つかりません")
         if actual_id not in {item.id for item in store().list_actuals(candidate_id)}:
             raise HTTPException(404, "実測が見つかりません")
@@ -733,14 +764,14 @@ def create_app(
             raise HTTPException(404, "実測が見つかりません")
         return Response(status_code=204)
 
-    @app.get("/api/projects/{project_id}/candidates/{candidate_id}/prediction-vs-actual")
+    @app.get("/api/projects/{project_id}/candidates/{candidate_id}/prediction-vs-actual", responses=PROJECT_API_ERRORS)
     def prediction_vs_actual(project_id: str, candidate_id: str) -> dict[str, Any]:
         actuals = list_actuals(project_id, candidate_id)
         comparisons = []
         for actual in actuals:
             snapshot = store().get_snapshot(actual["snapshot_id"])
             if not snapshot:
-                raise HTTPException(409, "実測に対応する予測スナップショットが見つかりません")
+                raise DomainApiException(409, "data_integrity_error", "実測に対応する予測スナップショットが見つかりません")
             payload = snapshot["payload"]
             comparisons.append({"actual": actual, "snapshot_id": snapshot["id"], "prediction": payload["prediction"], "provenance": payload["provenance"]})
         return {"candidate_id": candidate_id, "actuals": actuals, "comparisons": comparisons}

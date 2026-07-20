@@ -26,7 +26,17 @@ class InvalidProjectDecisionError(ValueError):
     pass
 
 
-class AdoptedCandidateError(ValueError):
+class CandidateArchivedError(ValueError):
+    pass
+
+
+class CandidateRevisionConflictError(ValueError):
+    def __init__(self, current: Candidate) -> None:
+        super().__init__("候補は別の操作で更新されています")
+        self.current = current
+
+
+class StoreDataIntegrityError(RuntimeError):
     pass
 
 
@@ -116,18 +126,20 @@ class Store:
     @staticmethod
     def _candidate(row: sqlite3.Row) -> Candidate:
         payload = json.loads(row["payload"])
-        return Candidate(id=row["id"], project_id=row["project_id"], created_at=datetime.fromisoformat(row["created_at"]), updated_at=datetime.fromisoformat(row["updated_at"]), **payload)
+        return Candidate(id=row["id"], project_id=row["project_id"], revision=row["revision"], archived_at=datetime.fromisoformat(row["archived_at"]) if row["archived_at"] else None, created_at=datetime.fromisoformat(row["created_at"]), updated_at=datetime.fromisoformat(row["updated_at"]), **payload)
 
-    def list_candidates(self, project_id: str = "default") -> list[Candidate]:
+    def list_candidates(self, project_id: str = "default", *, include_archived: bool = False) -> list[Candidate]:
         with self._connect() as conn:
-            return [self._candidate(row) for row in conn.execute("SELECT * FROM candidates WHERE project_id = ? ORDER BY created_at", (project_id,))]
+            where = "project_id = ?" if include_archived else "project_id = ? AND archived_at IS NULL"
+            return [self._candidate(row) for row in conn.execute(f"SELECT * FROM candidates WHERE {where} ORDER BY created_at", (project_id,))]
 
-    def get_candidate(self, candidate_id: str, project_id: str | None = None) -> Candidate | None:
+    def get_candidate(self, candidate_id: str, project_id: str | None = None, *, include_archived: bool = False) -> Candidate | None:
         with self._connect() as conn:
+            active = "" if include_archived else " AND archived_at IS NULL"
             if project_id is None:
-                row = conn.execute("SELECT * FROM candidates WHERE id = ?", (candidate_id,)).fetchone()
+                row = conn.execute(f"SELECT * FROM candidates WHERE id = ?{active}", (candidate_id,)).fetchone()
             else:
-                row = conn.execute("SELECT * FROM candidates WHERE id = ? AND project_id = ?", (candidate_id, project_id)).fetchone()
+                row = conn.execute(f"SELECT * FROM candidates WHERE id = ? AND project_id = ?{active}", (candidate_id, project_id)).fetchone()
         return self._candidate(row) if row else None
 
     def create_candidate(self, payload: CandidateInput, project_id: str = "default") -> Candidate:
@@ -141,38 +153,76 @@ class Store:
             conn.execute("BEGIN IMMEDIATE")
             if conn.execute("SELECT 1 FROM projects WHERE id = ?", (project_id,)).fetchone() is None:
                 raise ProjectNotFoundError(project_id)
-            current = int(conn.execute("SELECT COUNT(*) FROM candidates WHERE project_id = ?", (project_id,)).fetchone()[0])
+            current = int(conn.execute("SELECT COUNT(*) FROM candidates WHERE project_id = ? AND archived_at IS NULL", (project_id,)).fetchone()[0])
             if current + len(payloads) > MAX_CANDIDATES_PER_PROJECT:
                 raise CandidateLimitError(f"候補は1プロジェクトにつき最大{MAX_CANDIDATES_PER_PROJECT}件です")
             for payload in payloads:
                 candidate_id, now = str(uuid.uuid4()), _now()
                 records.append((candidate_id, project_id, payload.name, payload.model_dump_json(), now, now))
-            conn.executemany("INSERT INTO candidates VALUES (?, ?, ?, ?, ?, ?)", records)
+            conn.executemany("INSERT INTO candidates(id,project_id,name,payload,created_at,updated_at) VALUES (?, ?, ?, ?, ?, ?)", records)
         created = [self.get_candidate(candidate_id) for candidate_id, *_ in records]
         if any(candidate is None for candidate in created):
             raise RuntimeError("作成した候補を再取得できませんでした")
         return created  # type: ignore[return-value]
 
-    def update_candidate(self, candidate_id: str, payload: CandidateInput) -> Candidate | None:
+    def update_candidate(self, candidate_id: str, project_id: str, payload: CandidateInput, expected_revision: int) -> Candidate | None:
         now = _now()
         with self._connect() as conn:
-            result = conn.execute("UPDATE candidates SET name = ?, payload = ?, updated_at = ? WHERE id = ?", (payload.name, payload.model_dump_json(), now, candidate_id))
-        return self.get_candidate(candidate_id) if result.rowcount else None
+            conn.execute("BEGIN IMMEDIATE")
+            result = conn.execute(
+                "UPDATE candidates SET name = ?, payload = ?, revision = revision + 1, updated_at = ? WHERE id = ? AND project_id = ? AND revision = ? AND archived_at IS NULL",
+                (payload.name, payload.model_dump_json(), now, candidate_id, project_id, expected_revision),
+            )
+            if not result.rowcount:
+                row = conn.execute("SELECT * FROM candidates WHERE id=? AND project_id=?", (candidate_id, project_id)).fetchone()
+                if row is None:
+                    return None
+                current = self._candidate(row)
+                if current.archived_at is not None:
+                    raise CandidateArchivedError("archive済み候補は編集できません")
+                raise CandidateRevisionConflictError(current)
+        return self.get_candidate(candidate_id, project_id)
 
-    def delete_candidate(self, candidate_id: str) -> bool:
+    def delete_candidate(self, candidate_id: str, project_id: str, expected_revision: int) -> bool:
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
-            if conn.execute(
-                "SELECT 1 FROM projects WHERE decision_candidate_id=?",
-                (candidate_id,),
-            ).fetchone():
-                raise AdoptedCandidateError(
-                    "採用判断を解除してから候補を削除してください",
+            row = conn.execute("SELECT * FROM candidates WHERE id=? AND project_id=?", (candidate_id, project_id)).fetchone()
+            if row is None:
+                return False
+            current = self._candidate(row)
+            if current.archived_at is not None:
+                raise CandidateArchivedError("候補はすでにarchiveされています")
+            if current.revision != expected_revision:
+                raise CandidateRevisionConflictError(current)
+            referenced = bool(
+                conn.execute("SELECT 1 FROM projects WHERE decision_candidate_id=?", (candidate_id,)).fetchone()
+                or conn.execute("SELECT 1 FROM snapshots WHERE candidate_id=?", (candidate_id,)).fetchone()
+                or conn.execute("SELECT 1 FROM actual_measurements WHERE candidate_id=?", (candidate_id,)).fetchone()
+            )
+            if not referenced:
+                for screening_row in conn.execute("SELECT payload FROM screening_runs WHERE project_id=?", (project_id,)):
+                    try:
+                        screening_payload = json.loads(screening_row["payload"])
+                    except (TypeError, json.JSONDecodeError) as exc:
+                        raise StoreDataIntegrityError("スクリーニング履歴を読み取れません") from exc
+                    if not isinstance(screening_payload, dict):
+                        raise StoreDataIntegrityError("スクリーニング履歴の形式が不正です")
+                    if screening_payload.get("base_candidate_id") == candidate_id:
+                        referenced = True
+                        break
+            if referenced:
+                now = _now()
+                updated = conn.execute(
+                    "UPDATE candidates SET archived_at=?, revision=revision+1, updated_at=? WHERE id=? AND project_id=? AND revision=? AND archived_at IS NULL",
+                    (now, now, candidate_id, project_id, expected_revision),
                 )
-            if conn.execute("SELECT 1 FROM snapshots WHERE candidate_id=?", (candidate_id,)).fetchone():
-                raise AdoptedCandidateError("予測・実測履歴がある候補は削除できません")
-            deleted = bool(conn.execute("DELETE FROM candidates WHERE id = ?", (candidate_id,)).rowcount)
-            return deleted
+                if not updated.rowcount:
+                    latest = conn.execute("SELECT * FROM candidates WHERE id=? AND project_id=?", (candidate_id, project_id)).fetchone()
+                    if latest is None:
+                        return False
+                    raise CandidateRevisionConflictError(self._candidate(latest))
+                return True
+            return bool(conn.execute("DELETE FROM candidates WHERE id=? AND project_id=? AND revision=?", (candidate_id, project_id, expected_revision)).rowcount)
 
     def create_snapshot(self, candidate_id: str, payload: dict[str, Any]) -> dict[str, Any]:
         snapshot = {"id": str(uuid.uuid4()), "candidate_id": candidate_id, "created_at": _now(), "payload": payload}

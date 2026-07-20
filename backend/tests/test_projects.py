@@ -177,15 +177,18 @@ def test_project_decision_is_scoped_persisted_and_cleared_with_candidate(client)
         json=wrong_snapshot,
     ).status_code == 422
 
-    assert client.delete(f"/api/projects/{project['id']}/candidates/{selected['id']}").status_code == 409
+    assert client.delete(f"/api/projects/{project['id']}/candidates/{selected['id']}?expected_revision={selected['revision']}").status_code == 204
     assert client.get(f"/api/projects/{project['id']}").json()["decision_candidate_id"] == selected["id"]
+    assert client.get(f"/api/projects/{project['id']}/candidates/{selected['id']}").status_code == 404
+    archived = client.get(f"/api/projects/{project['id']}/candidates/{selected['id']}?include_archived=true").json()
+    assert archived["archived_at"] is not None
 
     cleared_response = client.put(
         f"/api/projects/{project['id']}/decision",
         json={"candidate_id": "", "snapshot_id": "", "note": ""},
     )
     assert cleared_response.status_code == 200
-    assert client.delete(f"/api/projects/{project['id']}/candidates/{selected['id']}").status_code == 409
+    assert client.delete(f"/api/projects/{project['id']}/candidates/{selected['id']}?expected_revision={archived['revision']}").status_code == 409
     cleared = client.get(f"/api/projects/{project['id']}").json()
     assert cleared["decision_candidate_id"] == ""
     assert cleared["decision_snapshot_id"] == ""
