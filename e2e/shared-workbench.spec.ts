@@ -11,7 +11,7 @@ for (const task of tasks) {
     let curveRequests = 0;
     page.on("pageerror", (error) => pageErrors.push(error.message));
     page.on("request", (request) => {
-      if (new URL(request.url()).pathname.endsWith("/response-curves")) curveRequests += 1;
+      if (new URL(request.url()).pathname.endsWith("/response-curve")) curveRequests += 1;
     });
 
     await page.goto(`/?view=candidates&project=${task.projectId}`);
@@ -64,7 +64,7 @@ for (const task of tasks) {
     expect(detailedResponse.status()).toBe(200);
     const detailed = await detailedResponse.json() as { snapshot: { payload: { raw_candidate: { revision: number } } } };
     expect(detailed.snapshot.payload.raw_candidate.revision).toBe(currentCandidate.revision);
-    await expect(page.getByRole("status")).toContainText("詳細予測を実行");
+    await expect(page.locator(".notice")).toContainText("詳細予測を実行");
 
     await page.getByRole("spinbutton", { name: "実測平均" }).fill("510");
     const actualResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith(`/candidates/${keptCandidateId}/actuals`));

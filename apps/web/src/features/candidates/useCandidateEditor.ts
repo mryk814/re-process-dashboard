@@ -11,7 +11,7 @@ type CandidateEditorOptions = {
   projectId: string;
   setCandidates: Dispatch<SetStateAction<CandidateViewModel[]>>;
   previewAvailable: boolean;
-  onPreview: (candidateId: string, preview: ApiPreview | null, inputIdentity?: string, candidateRevision?: number) => void;
+  onPreview: (candidateId: string, preview: ApiPreview | null, inputIdentity?: string, candidateRevision?: number, requestError?: unknown) => void;
   getPreviewInputIdentity?: (candidateId: string) => string | undefined;
   onNotice: (message: string) => void;
 };
@@ -88,7 +88,7 @@ export function useCandidateEditor({ projectId, setCandidates, previewAvailable,
           || candidateInputIdentity(current?.inputs) !== inputIdentity
         ) return;
         onPreview(candidateId, preview, inputIdentity, saved.revision);
-      } catch {
+      } catch (cause) {
         const current = authoritative.current.get(candidateId);
         if (
           activeProjectId.current !== projectId
@@ -96,6 +96,7 @@ export function useCandidateEditor({ projectId, setCandidates, previewAvailable,
           || candidateInputIdentity(current?.inputs) !== inputIdentity
         ) return;
         if (previewController.signal.aborted) return;
+        onPreview(candidateId, null, inputIdentity, saved.revision, cause);
         onNotice("入力は保存しましたが、予測結果を更新できませんでした");
       } finally {
         if (previewControllers.current.get(candidateId) === previewController) {

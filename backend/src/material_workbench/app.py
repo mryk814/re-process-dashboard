@@ -20,6 +20,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from .candidate_migration import HOT_PROJECT_ID
 from .importer import lineage_neighborhood, lineage_node_detail, load_workbook_data
 from .hot_rolling import TASK_ID as HOT_ROLLING_TASK_ID, HotRollingRuntime
+from .inference_work_graph import InferenceKey, InferenceWorkGraph
 from .runtime import ModelRuntime, TASK_ID as ANNEALED_TASK_ID
 from .model_lifecycle import ACTIVE_PACKAGES_PATH, resolve_configured_package, validate_lifecycle_metadata
 from .schemas import (
@@ -31,6 +32,7 @@ from .schemas import (
     CandidateInput,
     CandidateUpdate,
     DetailedPredictionResponse,
+    InferenceDiagnosticsResponse,
     LineageIndexResponse,
     LineageResponse,
     ModelPackageStatus,
@@ -42,8 +44,7 @@ from .schemas import (
     ProjectHistoryResponse,
     ProjectInput,
     QualityResponse,
-    ResponseCurvesResponse,
-    ResponseCurvesResult,
+    ResponseCurveResponse,
     ScreeningRequest,
     ScreeningCandidateBatchRequest,
     ScreeningCandidateBatchResponse,
@@ -159,6 +160,7 @@ def create_app(
             ANNEALED_TASK_ID: annealed_runtime,
             HOT_ROLLING_TASK_ID: hot_rolling_runtime,
         })
+        app.state.inference_work_graph = InferenceWorkGraph(max_entries=256)
         app.state.store = Store(database)
         app.state.store.ensure_project(
             HOT_PROJECT_ID,
@@ -230,6 +232,34 @@ def create_app(
 
     def task_registry() -> TaskRegistry:
         return app.state.task_registry
+
+    def inference_work_graph() -> InferenceWorkGraph:
+        return app.state.inference_work_graph
+
+    def inference_key(
+        task_id: str,
+        candidate: Candidate,
+        operation: str,
+        *,
+        parameters: Mapping[str, Any] | None = None,
+        uses_package: bool = False,
+        uses_support: bool = False,
+    ) -> InferenceKey:
+        entry = task_registry().entry_for(task_id)
+        canonical = task_registry().validate_candidate(task_id, candidate).model_dump(
+            mode="json",
+            exclude={"provenance"},
+        )
+        return InferenceKey.build(
+            task_id=task_id,
+            runtime_type=entry.runtime_type,
+            canonical_input=canonical,
+            package_digest=entry.package_digest if uses_package else "",
+            pipeline_digest=entry.pipeline_digest,
+            support_digest=entry.support_digest if uses_support else None,
+            operation=operation,
+            operation_parameters=parameters,
+        )
 
     def require_project(project_id: str):
         project = store().get_project(project_id)
@@ -350,12 +380,31 @@ def create_app(
     def preview_project_candidate(project_id: str, candidate_id: str, expected_revision: int) -> dict[str, Any]:
         project = require_project(project_id)
         candidate = candidate_at_revision(project_id, candidate_id, expected_revision)
-        return task_registry().runtime_for(project.task_id).predict(
-            candidate,
-            detailed=False,
-            include_curve=False,
-            target_values=project.target_values,
+        task_runtime = task_registry().runtime_for(project.task_id)
+        prediction = inference_work_graph().execute(
+            inference_key(
+                project.task_id,
+                candidate,
+                "preview",
+                parameters={"target_values": project.target_values},
+                uses_package=True,
+            ),
+            lambda: task_runtime.predict_core(
+                candidate,
+                detailed=False,
+                target_values=project.target_values,
+            ),
         )
+        support = inference_work_graph().execute(
+            inference_key(project.task_id, candidate, "support", uses_support=True),
+            lambda: task_runtime.support_summary(candidate),
+        )
+        prediction["candidate_id"] = candidate.id
+        prediction["support"] = support
+        prediction["similar"] = []
+        if support.status != "supported" and support.message not in prediction["warnings"]:
+            prediction["warnings"].append(support.message)
+        return prediction
 
     @app.get("/api/bootstrap")
     def bootstrap() -> dict[str, Any]:
@@ -558,16 +607,6 @@ def create_app(
             raise HTTPException(404, "候補が見つかりません")
         return Response(status_code=204)
 
-    def prediction(project_id: str, candidate_id: str, detailed: bool, include_curve: bool = False) -> dict[str, Any]:
-        candidate = store().get_candidate(candidate_id, project_id)
-        if not candidate:
-            raise HTTPException(404, "候補が見つかりません")
-        project = store().get_project(candidate.project_id)
-        if project is None:
-            raise HTTPException(404, "プロジェクトが見つかりません")
-        task_runtime = task_registry().runtime_for(project.task_id)
-        return task_runtime.predict(candidate, detailed=detailed, include_curve=include_curve, target_values=project.target_values)
-
     def candidate_at_revision(project_id: str, candidate_id: str, expected_revision: int) -> Candidate:
         candidate = store().get_candidate(candidate_id, project_id)
         if not candidate:
@@ -581,6 +620,27 @@ def create_app(
             )
         return candidate
 
+    def detailed_prediction_for(project: Project, candidate: Candidate) -> dict[str, Any]:
+        task_runtime = task_registry().runtime_for(project.task_id)
+        result = inference_work_graph().execute(
+            inference_key(
+                project.task_id,
+                candidate,
+                "detailed",
+                parameters={"target_values": project.target_values, "policy_id": "detailed-v1"},
+                uses_package=True,
+                uses_support=True,
+            ),
+            lambda: task_runtime.predict(
+                candidate,
+                detailed=True,
+                include_curve=False,
+                target_values=project.target_values,
+            ),
+        )
+        result["candidate_id"] = candidate.id
+        return result
+
     @app.post(
         "/api/projects/{project_id}/candidates/{candidate_id}/predict",
         response_model=DetailedPredictionResponse,
@@ -590,43 +650,79 @@ def create_app(
     def predict(project_id: str, candidate_id: str, expected_revision: int) -> dict[str, Any]:
         candidate = candidate_at_revision(project_id, candidate_id, expected_revision)
         project = require_project(project_id)
-        result = task_registry().runtime_for(project.task_id).predict(
-            candidate,
-            detailed=True,
-            include_curve=True,
-            target_values=project.target_values,
-        )
+        result = detailed_prediction_for(project, candidate)
         return {"prediction": result, "snapshot": snapshot_for_candidate(candidate, result)}
 
-    @app.get("/api/projects/{project_id}/candidates/{candidate_id}/response-curve")
-    def response_curve(project_id: str, candidate_id: str, expected_revision: int, target: str = "TS", variable: str = "heat.peak_temperature_c") -> list[dict[str, float]]:
-        if target not in {"TS", "YS", "EL", "lambda"}:
-            raise HTTPException(422, "未対応の予測特性です")
+    @app.get(
+        "/api/projects/{project_id}/candidates/{candidate_id}/response-curve",
+        response_model=ResponseCurveResponse,
+        responses=PROJECT_API_ERRORS,
+        operation_id="getCandidateResponseCurve",
+    )
+    def response_curve(
+        project_id: str,
+        candidate_id: str,
+        expected_revision: int,
+        target: str,
+        variable: str,
+        points: int = Query(9, ge=3, le=51),
+    ) -> dict[str, Any]:
         project = require_project(project_id)
         candidate = candidate_at_revision(project_id, candidate_id, expected_revision)
+        definition = task_registry().contract_for(project.task_id).task_definition
+        if target not in {item.key for item in definition.outputs}:
+            raise HTTPException(422, "この予測タスクにない予測特性です")
+        if not task_registry().contract_for(project.task_id).runtime_capability.operations.response_curve:
+            raise HTTPException(422, "この予測タスクは応答曲線に対応していません")
         try:
             task_runtime = task_registry().runtime_for(project.task_id)
-            if not hasattr(task_runtime, "response_curve"):
-                raise ValueError("この予測タスクは応答曲線に対応していません")
-            return task_runtime.response_curve(candidate, target, variable)
+            result = inference_work_graph().execute(
+                inference_key(
+                    project.task_id,
+                    candidate,
+                    "curve",
+                    parameters={"target": target, "variable": variable, "points": points, "policy_id": "fixed-grid-v1"},
+                    uses_package=True,
+                ),
+                lambda: task_runtime.response_curve_result(candidate, target, variable, points),
+            )
+            return result
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
 
-    @app.get("/api/projects/{project_id}/candidates/{candidate_id}/response-curves", response_model=ResponseCurvesResult)
-    def response_curves(project_id: str, candidate_id: str, expected_revision: int, variable: str | None = None) -> dict[str, Any]:
+    @app.get(
+        "/api/projects/{project_id}/candidates/{candidate_id}/similar",
+        response_model=list[SimilarObservation],
+        responses=PROJECT_API_ERRORS,
+        operation_id="getCandidateSimilarity",
+    )
+    def similar(
+        project_id: str,
+        candidate_id: str,
+        expected_revision: int,
+        limit: int = Query(6, ge=1, le=20),
+    ) -> list[dict[str, object]]:
         project = require_project(project_id)
         candidate = candidate_at_revision(project_id, candidate_id, expected_revision)
-        try:
-            task_runtime = task_registry().runtime_for(project.task_id)
-            if not hasattr(task_runtime, "response_curves"):
-                raise ValueError("この予測タスクは応答曲線に対応していません")
-            return task_runtime.response_curves(candidate, variable)
-        except ValueError as exc:
-            raise HTTPException(422, str(exc)) from exc
+        task_runtime = task_registry().runtime_for(project.task_id)
+        return inference_work_graph().execute(
+            inference_key(
+                project.task_id,
+                candidate,
+                "similarity",
+                parameters={"limit": limit},
+                uses_support=True,
+            ),
+            lambda: task_runtime.similarity(candidate, limit),
+        )
 
-    @app.get("/api/projects/{project_id}/candidates/{candidate_id}/similar", response_model=list[SimilarObservation])
-    def similar(project_id: str, candidate_id: str) -> list[dict[str, object]]:
-        return prediction(project_id, candidate_id, detailed=False)["similar"]
+    @app.get(
+        "/api/diagnostics/inference",
+        response_model=InferenceDiagnosticsResponse,
+        operation_id="getInferenceDiagnostics",
+    )
+    def inference_diagnostics() -> dict[str, Any]:
+        return inference_work_graph().diagnostics()
 
     @app.get("/api/quality", response_model=QualityResponse)
     def quality() -> dict[str, Any]:
@@ -897,12 +993,7 @@ def create_app(
             project = store().get_project(candidate.project_id)
             if project is None:
                 raise HTTPException(404, "プロジェクトが見つかりません")
-            result = task_registry().runtime_for(project.task_id).predict(
-                candidate,
-                detailed=True,
-                include_curve=project.task_id == ANNEALED_TASK_ID,
-                target_values=project.target_values,
-            )
+            result = detailed_prediction_for(project, candidate)
         payload = {
             "snapshot_schema_version": "prediction-snapshot-v2",
             "candidate_id": candidate.id,

@@ -17,6 +17,7 @@ from .task_registry import load_task_contracts
 
 
 TASK_ID = "hot-rolled-properties-v1"
+SUPPORT_POLICY_ID = "hot-rolling-parent-condition-knn-v1"
 FEATURE_GROUP_INDICES = feature_index_families(
     FEATURE_DEFINITIONS,
     {
@@ -37,6 +38,7 @@ def _distance(reference: np.ndarray, point: np.ndarray, columns: tuple[int, ...]
 
 class HotRollingRuntime:
     task_id = TASK_ID
+    support_policy_id = SUPPORT_POLICY_ID
 
     def __init__(self, data: WorkbookData, package_root: str | Path | None = None) -> None:
         self.data = data
@@ -99,7 +101,7 @@ class HotRollingRuntime:
     def vector(self, candidate: CandidateInput) -> np.ndarray:
         return build_hot_rolling_features(candidate, self.composition_defaults).values
 
-    def _support(self, candidate: CandidateInput) -> tuple[Support, list[dict[str, Any]]]:
+    def _support(self, candidate: CandidateInput, *, include_similarity: bool = True) -> tuple[Support, list[dict[str, Any]]]:
         normalized = (self.vector(candidate) - self.reference_mean) / self.reference_scale
         distances = _distance(self.reference_vectors, normalized)
         nearest_index = int(np.argmin(distances))
@@ -112,25 +114,26 @@ class HotRollingRuntime:
         else:
             status, message = "extrapolated", "学習済みの熱延条件から外れています。予測値は探索的な参考です"
         nearest_rows: list[dict[str, Any]] = []
-        for index in np.argsort(distances)[:3]:
-            repeats = self.reference_rows[int(index)]
-            values: dict[str, list[float]] = defaultdict(list)
-            for repeat in repeats:
-                for name, value in repeat["outputs"].items():
-                    values[name].append(float(value))
-            nearest_rows.append({
-                "parent_key": repeats[0]["parent_key"],
-                "test_direction": "L",
-                "distance": round(float(distances[index]), 4),
-                "components": {
-                    name: round(float(_distance(self.reference_vectors, normalized, columns)[int(index)]), 4)
-                    for name, columns in FEATURE_GROUP_INDICES.items()
-                },
-                "repeat_summary": {
-                    name: {"mean": round(float(np.mean(items)), 3), "std": round(float(np.std(items)), 3), "n": len(items)}
-                    for name, items in sorted(values.items())
-                },
-            })
+        if include_similarity:
+            for index in np.argsort(distances)[:3]:
+                repeats = self.reference_rows[int(index)]
+                values: dict[str, list[float]] = defaultdict(list)
+                for repeat in repeats:
+                    for name, value in repeat["outputs"].items():
+                        values[name].append(float(value))
+                nearest_rows.append({
+                    "parent_key": repeats[0]["parent_key"],
+                    "test_direction": "L",
+                    "distance": round(float(distances[index]), 4),
+                    "components": {
+                        name: round(float(_distance(self.reference_vectors, normalized, columns)[int(index)]), 4)
+                        for name, columns in FEATURE_GROUP_INDICES.items()
+                    },
+                    "repeat_summary": {
+                        name: {"mean": round(float(np.mean(items)), 3), "std": round(float(np.std(items)), 3), "n": len(items)}
+                        for name, items in sorted(values.items())
+                    },
+                })
         return Support(
             status=status,
             distance=round(nearest, 4),
@@ -146,10 +149,9 @@ class HotRollingRuntime:
     def output_keys(self) -> frozenset[str]:
         return frozenset(self.predictors)
 
-    def predict(self, candidate: Candidate, detailed: bool = False, **_: Any) -> dict[str, Any]:
+    def predict_core(self, candidate: Candidate, detailed: bool = False, **_: Any) -> dict[str, Any]:
         bundle = build_hot_rolling_features(candidate, self.composition_defaults)
         values = bundle.as_dict()
-        support, similar = self._support(candidate)
         predictions: dict[str, Prediction] = {}
         for target, predictor in self.predictors.items():
             summary = predictor.predict(values)
@@ -174,9 +176,7 @@ class HotRollingRuntime:
             "candidate_id": candidate.id,
             "mode": "detailed" if detailed else "preview",
             "predictions": predictions,
-            "support": support,
-            "warnings": [] if support.status == "supported" else [support.message],
-            "similar": similar,
+            "warnings": [],
             "canonical_input": {
                 "input_schema_version": INPUT_SCHEMA_VERSION,
                 "composition_mass_percent": {name: values[name] for name in self.composition_defaults},
@@ -192,3 +192,21 @@ class HotRollingRuntime:
             "heat_pattern": [],
             "response_curve": None,
         }
+
+    def evidence(self, candidate: Candidate) -> tuple[Support, list[dict[str, Any]]]:
+        return self._support(candidate)
+
+    def support_summary(self, candidate: Candidate) -> Support:
+        return self._support(candidate, include_similarity=False)[0]
+
+    def similarity(self, candidate: Candidate, limit: int = 3) -> list[dict[str, Any]]:
+        return self.evidence(candidate)[1][:limit]
+
+    def predict(self, candidate: Candidate, detailed: bool = False, **kwargs: Any) -> dict[str, Any]:
+        result = self.predict_core(candidate, detailed=detailed, **kwargs)
+        support, similar = self.evidence(candidate)
+        result["support"] = support
+        result["similar"] = similar
+        if support.status != "supported":
+            result["warnings"].append(support.message)
+        return result

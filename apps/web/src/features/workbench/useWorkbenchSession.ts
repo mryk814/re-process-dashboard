@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { CandidateProvenance } from "../../shared/candidateProvenance";
 import { ApiClientError } from "../../shared/api/client";
-import { candidateInputIdentity } from "../../shared/api/inferenceRequestCache";
+import { candidateInferencePrefix, candidateInputIdentity, inferenceRequestCache } from "../../shared/api/inferenceRequestCache";
 import {
   workbenchApi,
   type ApiCandidateInput,
@@ -18,6 +18,7 @@ import {
   type ResolvedTaskDefinition,
   type TaskDefinitionContract,
 } from "../candidates";
+import { loadSelectedFirstBounded } from "./boundedPreviewLoader";
 import { useWorkbenchPrediction } from "./useWorkbenchPrediction";
 
 type WorkbenchSessionOptions = {
@@ -83,6 +84,10 @@ export function useWorkbenchSession({
     loadPreviewController.current?.abort();
     const previewController = new AbortController();
     loadPreviewController.current = previewController;
+    // The backend owns versioned Package/Pipeline/support identities. A full
+    // project load starts a new renderer cache epoch so completed transport
+    // responses cannot bypass those server-side identities after a runtime reload.
+    inferenceRequestCache.invalidatePrefix(candidateInferencePrefix(projectId));
     setApiState("loading");
     setLoadError(null);
     const [listedCandidates, resolved] = await Promise.all([
@@ -127,8 +132,21 @@ export function useWorkbenchSession({
           : "候補がありません。過去条件または新規入力から追加できます",
     );
     if (!imported.length || !resolved.runtime_capability.operations.preview) return;
-    const previewEntries = await Promise.all(
-      imported.filter((candidate) => !candidate.raw.archived_at).map(async (candidate) => {
+    const previewEntries = await loadSelectedFirstBounded<CandidateViewModel, ApiPreview>({
+      items: imported.filter((candidate) => !candidate.raw.archived_at),
+      selectedId: nextSelectedId,
+      concurrency: 2,
+      signal: previewController.signal,
+      onSelectedLoaded: (candidate, loaded) => {
+        if (sequence !== loadSequence.current || previewController.signal.aborted) return;
+        prediction.acceptProjectPreviews(
+          [candidate],
+          candidatesRef.current,
+          { [candidate.id]: loaded },
+          definition.id,
+        );
+      },
+      load: async (candidate) => {
         const inputIdentity = candidateInputIdentity(candidate.raw.inputs);
         try {
           const loaded = await workbenchApi.previewCandidate(
@@ -139,17 +157,20 @@ export function useWorkbenchSession({
             previewController.signal,
           );
           if (sequence !== loadSequence.current || previewController.signal.aborted) return null;
-          return [candidate.id, loaded] as const;
+          return loaded;
         } catch {
           return null;
         }
-      }),
-    );
+      },
+    });
     if (sequence !== loadSequence.current || previewController.signal.aborted) return;
-    const loaded = Object.fromEntries(
-      previewEntries.filter((entry): entry is readonly [string, ApiPreview] => entry !== null),
+    const backgroundEntries = previewEntries.filter(([candidateId]) => candidateId !== nextSelectedId);
+    prediction.acceptProjectPreviews(
+      imported.filter((candidate) => candidate.id !== nextSelectedId),
+      candidatesRef.current,
+      Object.fromEntries(backgroundEntries),
+      definition.id,
     );
-    prediction.acceptProjectPreviews(imported, candidatesRef.current, loaded, definition.id);
   }
 
   async function openLocation(projectId: string, candidateId?: string) {

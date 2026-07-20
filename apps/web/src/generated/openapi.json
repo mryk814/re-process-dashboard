@@ -847,6 +847,34 @@
         "title": "DirectSourceRef",
         "type": "object"
       },
+      "DurationDiagnostic": {
+        "properties": {
+          "average": {
+            "title": "Average",
+            "type": "number"
+          },
+          "last": {
+            "title": "Last",
+            "type": "number"
+          },
+          "max": {
+            "title": "Max",
+            "type": "number"
+          },
+          "total": {
+            "title": "Total",
+            "type": "number"
+          }
+        },
+        "required": [
+          "total",
+          "last",
+          "max",
+          "average"
+        ],
+        "title": "DurationDiagnostic",
+        "type": "object"
+      },
       "FeaturePipelineIdentity": {
         "additionalProperties": true,
         "properties": {
@@ -1010,6 +1038,32 @@
           "temperature_c"
         ],
         "title": "HeatPoint",
+        "type": "object"
+      },
+      "InferenceDiagnosticsResponse": {
+        "properties": {
+          "cached_entries": {
+            "title": "Cached Entries",
+            "type": "integer"
+          },
+          "max_entries": {
+            "title": "Max Entries",
+            "type": "integer"
+          },
+          "operations": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/OperationDiagnostic"
+            },
+            "title": "Operations",
+            "type": "object"
+          }
+        },
+        "required": [
+          "max_entries",
+          "cached_entries",
+          "operations"
+        ],
+        "title": "InferenceDiagnosticsResponse",
         "type": "object"
       },
       "InputFieldDefinition": {
@@ -1999,6 +2053,50 @@
         "title": "ObservationGroup",
         "type": "object"
       },
+      "OperationDiagnostic": {
+        "properties": {
+          "coalesced": {
+            "title": "Coalesced",
+            "type": "integer"
+          },
+          "computation_duration_ms": {
+            "$ref": "#/components/schemas/DurationDiagnostic"
+          },
+          "computations": {
+            "title": "Computations",
+            "type": "integer"
+          },
+          "hits": {
+            "title": "Hits",
+            "type": "integer"
+          },
+          "misses": {
+            "title": "Misses",
+            "type": "integer"
+          },
+          "runtime_types": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Runtime Types",
+            "type": "array"
+          },
+          "total_duration_ms": {
+            "$ref": "#/components/schemas/DurationDiagnostic"
+          }
+        },
+        "required": [
+          "runtime_types",
+          "hits",
+          "misses",
+          "coalesced",
+          "computations",
+          "computation_duration_ms",
+          "total_duration_ms"
+        ],
+        "title": "OperationDiagnostic",
+        "type": "object"
+      },
       "OutputDefinition": {
         "additionalProperties": false,
         "properties": {
@@ -2855,53 +2953,50 @@
         "title": "ResolvedTaskDefinition",
         "type": "object"
       },
-      "ResponseCurvesResponse": {
+      "ResponseCurveResponse": {
         "properties": {
-          "curves": {
-            "additionalProperties": {
-              "items": {
-                "$ref": "#/components/schemas/CurvePoint"
+          "output_range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InputRange"
               },
-              "type": "array"
-            },
-            "title": "Curves",
-            "type": "object"
+              {
+                "type": "null"
+              }
+            ]
           },
-          "output_ranges": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/InputRange"
+          "point_count": {
+            "title": "Point Count",
+            "type": "integer"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/CurvePoint"
             },
-            "title": "Output Ranges",
-            "type": "object"
+            "title": "Points",
+            "type": "array"
+          },
+          "policy_id": {
+            "title": "Policy Id",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
           },
           "variable": {
             "$ref": "#/components/schemas/CurveVariable"
           }
         },
         "required": [
+          "target",
           "variable",
-          "curves",
-          "output_ranges"
+          "points",
+          "point_count",
+          "policy_id"
         ],
-        "title": "ResponseCurvesResponse",
+        "title": "ResponseCurveResponse",
         "type": "object"
-      },
-      "ResponseCurvesResult": {
-        "anyOf": [
-          {
-            "$ref": "#/components/schemas/ResponseCurvesResponse"
-          },
-          {
-            "additionalProperties": {
-              "items": {
-                "$ref": "#/components/schemas/CurvePoint"
-              },
-              "type": "array"
-            },
-            "type": "object"
-          }
-        ],
-        "title": "ResponseCurvesResult"
       },
       "RuntimeAvailability": {
         "properties": {
@@ -4057,6 +4152,34 @@
           }
         },
         "summary": "Bootstrap"
+      }
+    },
+    "/api/diagnostics/inference": {
+      "get": {
+        "operationId": "getInferenceDiagnostics",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InferenceDiagnosticsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Inference Diagnostics"
       }
     },
     "/api/health": {
@@ -5416,7 +5539,7 @@
     },
     "/api/projects/{project_id}/candidates/{candidate_id}/response-curve": {
       "get": {
-        "operationId": "response_curve_api_projects__project_id__candidates__candidate_id__response_curve_get",
+        "operationId": "getCandidateResponseCurve",
         "parameters": [
           {
             "in": "path",
@@ -5448,9 +5571,8 @@
           {
             "in": "query",
             "name": "target",
-            "required": false,
+            "required": true,
             "schema": {
-              "default": "TS",
               "title": "Target",
               "type": "string"
             }
@@ -5458,11 +5580,22 @@
           {
             "in": "query",
             "name": "variable",
-            "required": false,
+            "required": true,
             "schema": {
-              "default": "heat.peak_temperature_c",
               "title": "Variable",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "points",
+            "required": false,
+            "schema": {
+              "default": 9,
+              "maximum": 51,
+              "minimum": 3,
+              "title": "Points",
+              "type": "integer"
             }
           }
         ],
@@ -5471,18 +5604,31 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "additionalProperties": {
-                      "type": "number"
-                    },
-                    "type": "object"
-                  },
-                  "title": "Response Response Curve Api Projects  Project Id  Candidates  Candidate Id  Response Curve Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/ResponseCurveResponse"
                 }
               }
             },
             "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -5498,9 +5644,9 @@
         "summary": "Response Curve"
       }
     },
-    "/api/projects/{project_id}/candidates/{candidate_id}/response-curves": {
+    "/api/projects/{project_id}/candidates/{candidate_id}/similar": {
       "get": {
-        "operationId": "response_curves_api_projects__project_id__candidates__candidate_id__response_curves_get",
+        "operationId": "getCandidateSimilarity",
         "parameters": [
           {
             "in": "path",
@@ -5531,66 +5677,14 @@
           },
           {
             "in": "query",
-            "name": "variable",
+            "name": "limit",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Variable"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ResponseCurvesResult"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Response Curves"
-      }
-    },
-    "/api/projects/{project_id}/candidates/{candidate_id}/similar": {
-      "get": {
-        "operationId": "similar_api_projects__project_id__candidates__candidate_id__similar_get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "project_id",
-            "required": true,
-            "schema": {
-              "title": "Project Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "candidate_id",
-            "required": true,
-            "schema": {
-              "title": "Candidate Id",
-              "type": "string"
+              "default": 6,
+              "maximum": 20,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
             }
           }
         ],
@@ -5602,12 +5696,32 @@
                   "items": {
                     "$ref": "#/components/schemas/SimilarObservation"
                   },
-                  "title": "Response Similar Api Projects  Project Id  Candidates  Candidate Id  Similar Get",
+                  "title": "Response Getcandidatesimilarity",
                   "type": "array"
                 }
               }
             },
             "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {

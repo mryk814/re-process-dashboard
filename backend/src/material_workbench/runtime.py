@@ -118,6 +118,7 @@ class SupportReference:
 
 class ModelRuntime:
     task_id = TASK_ID
+    support_policy_id = SIMILARITY_VERSION
 
     def __init__(self, data: WorkbookData, package_root: str | Path | None = None, *, load_package: bool = True) -> None:
         self.data = data
@@ -281,7 +282,7 @@ class ModelRuntime:
             normalized = (x - mean) / scale
             self.models[label] = RidgeModel(label, unit, mean, scale, weights, oof_residuals, normalized, [row for row, _, _ in rows], folds)
 
-    def _support(self, x: np.ndarray) -> tuple[Support, list[dict[str, Any]]]:
+    def _support(self, x: np.ndarray, *, include_similarity: bool = True) -> tuple[Support, list[dict[str, Any]]]:
         reference = self.support_reference
         if reference is None:
             raise RuntimeError("No eligible observations are available for support estimation")
@@ -341,10 +342,12 @@ class ModelRuntime:
                     break
             return rows
 
-        training_nearest = nearest_rows(reference, "training", 3)
-        training_parents = {str(row["parent_key"]) for row in reference.parent_rows}
-        historical_nearest = nearest_rows(self.historical_reference, "historical", 3, training_parents) if self.historical_reference else []
-        similar = [*training_nearest, *historical_nearest]
+        similar: list[dict[str, Any]] = []
+        if include_similarity:
+            training_nearest = nearest_rows(reference, "training", 3)
+            training_parents = {str(row["parent_key"]) for row in reference.parent_rows}
+            historical_nearest = nearest_rows(self.historical_reference, "historical", 3, training_parents) if self.historical_reference else []
+            similar = [*training_nearest, *historical_nearest]
         return Support(
             status=status,
             distance=round(nearest, 4),
@@ -390,9 +393,8 @@ class ModelRuntime:
                 }
         return meta
 
-    def predict(self, candidate: Candidate, detailed: bool = False, include_curve: bool = False, target_values: dict[str, float] | None = None) -> dict[str, Any]:
+    def predict_core(self, candidate: Candidate, detailed: bool = False, target_values: dict[str, float] | None = None) -> dict[str, Any]:
         x = self.vector_for_candidate(candidate)
-        support, similar = self._support(x)
         predictions: dict[str, Prediction] = {}
         warnings: list[str] = []
         labels = self.package_predictors.keys() if self.package_predictors else self.models.keys()
@@ -446,17 +448,34 @@ class ModelRuntime:
                     for name, component in summary.uncertainty_components.items()
                 },
             )
-        if support.status != "supported":
-            warnings.append(support.message)
         if candidate.inputs.composition.get("C", self.data.medians["C"]) > 1:
             warnings.append("C量が参照データの通常域から大きく外れています")
-        response_curve = self.response_curve(candidate) if include_curve else None
         return {
             "task_id": self.task_id, "candidate_id": candidate.id, "mode": "detailed" if detailed else "preview", "predictions": predictions,
-            "support": support, "warnings": warnings, "model_meta": self._model_meta(),
-            "canonical_input": self.canonical_input(candidate), "similar": similar,
-            "heat_pattern": candidate.inputs.heat_pattern or [], "response_curve": response_curve,
+            "warnings": warnings, "model_meta": self._model_meta(),
+            "canonical_input": self.canonical_input(candidate),
+            "heat_pattern": candidate.inputs.heat_pattern or [], "response_curve": None,
         }
+
+    def evidence(self, candidate: Candidate) -> tuple[Support, list[dict[str, Any]]]:
+        return self._support(self.vector_for_candidate(candidate))
+
+    def support_summary(self, candidate: Candidate) -> Support:
+        return self._support(self.vector_for_candidate(candidate), include_similarity=False)[0]
+
+    def similarity(self, candidate: Candidate, limit: int = 6) -> list[dict[str, Any]]:
+        return self.evidence(candidate)[1][:limit]
+
+    def predict(self, candidate: Candidate, detailed: bool = False, include_curve: bool = False, target_values: dict[str, float] | None = None) -> dict[str, Any]:
+        result = self.predict_core(candidate, detailed=detailed, target_values=target_values)
+        support, similar = self.evidence(candidate)
+        if support.status != "supported":
+            result["warnings"].append(support.message)
+        result["support"] = support
+        result["similar"] = similar
+        if include_curve:
+            result["response_curve"] = self.response_curve(candidate)
+        return result
 
     def _curve_variable_current(self, candidate: Candidate, variable: str) -> float:
         if variable.startswith("composition."):
@@ -566,14 +585,14 @@ class ModelRuntime:
         axis_min, axis_max = self._curve_axis(candidate, reference, variable)
         return {"id": variable, "label": label, "unit": unit, "min": round(axis_min, 4), "max": round(axis_max, 4), "current": round(self._curve_variable_current(candidate, variable), 4)}
 
-    def response_curve(self, candidate: Candidate, target: str = "TS", variable: str = "heat.peak_temperature_c") -> list[dict[str, float]]:
+    def response_curve(self, candidate: Candidate, target: str = "TS", variable: str = "heat.peak_temperature_c", points: int = 9) -> list[dict[str, float]]:
         if target not in self.models:
             return []
         model = self.models[target]
         start, end = self._curve_axis(candidate, model, variable)
         lower_offset, upper_offset = model.interval_offsets()
         curve: list[dict[str, float]] = []
-        for x_value in np.linspace(start, end, 9):
+        for x_value in np.linspace(start, end, points):
             adjusted = candidate.model_copy(deep=True)
             self._set_curve_variable(adjusted, variable, float(x_value))
             adjusted_vector = self.vector_for_candidate(adjusted)
@@ -587,19 +606,20 @@ class ModelRuntime:
             curve.append({"x": round(float(x_value), 4), "value": round(value, 3), "lower": round(lower, 3), "upper": round(upper, 3)})
         return curve
 
-    def response_curves(self, candidate: Candidate, variable: str | None = None) -> dict[str, Any]:
-        """Return response curves and axis metadata for one selected design variable."""
-        selected = variable or "heat.peak_temperature_c"
-        curves = {target: self.response_curve(candidate, target, selected) for target in TARGETS}
-        if variable is None:
-            return curves
-        model = next(iter(self.models.values()), None)
+    def response_curve_result(self, candidate: Candidate, target: str, variable: str, points: int) -> dict[str, Any]:
+        if target not in self.output_keys:
+            raise ValueError(f"Unsupported response-curve target: {target}")
+        model = self.models.get(target)
         if model is None:
-            return {"variable": {"id": selected, "label": selected, "unit": "", "min": 0, "max": 1, "current": 0}, "curves": curves, "output_ranges": {}}
-        output_ranges: dict[str, dict[str, float]] = {}
-        for target, (column, _) in TARGETS.items():
-            target_model = self.models.get(target)
-            values = [float(row["outputs"][column]) for row in target_model.rows if column in row["outputs"]] if target_model else []
-            if values:
-                output_ranges[target] = {"min": round(min(values), 4), "max": round(max(values), 4)}
-        return {"variable": self.curve_variable(candidate, selected, model), "curves": curves, "output_ranges": output_ranges}
+            raise ValueError(f"Response curve has no calibrated reference model for: {target}")
+        column, _ = TARGETS[target]
+        observed = [float(row["outputs"][column]) for row in model.rows if column in row["outputs"]]
+        output_range = None if not observed else {"min": round(min(observed), 4), "max": round(max(observed), 4)}
+        return {
+            "target": target,
+            "variable": self.curve_variable(candidate, variable, model),
+            "points": self.response_curve(candidate, target, variable, points),
+            "output_range": output_range,
+            "point_count": points,
+            "policy_id": "fixed-grid-v1",
+        }

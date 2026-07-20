@@ -19,9 +19,18 @@ import {
   type ApiActual,
   type ApiPredictionVsActual,
   type ApiPreview,
-  type ApiResponseCurves,
+  type ApiResponseCurve,
+  type ApiSimilarObservation,
 } from "../../shared/api/workbench-api";
 import { workbenchRequestKey } from "./workbenchIdentity";
+import {
+  emptyInferenceSurface,
+  inferenceSurfaceStatus,
+  rejectInferenceSurface,
+  requestInferenceSurface,
+  resolveInferenceSurface,
+  type InferenceSurfaceStatus,
+} from "./inferenceSurfaceState";
 
 type Metric = {
   key: string;
@@ -36,9 +45,8 @@ type Metric = {
   observationStd?: number | null;
 };
 
-type ResponseCurvesPayload = ApiResponseCurves;
-type CurvePoint = ApiResponseCurves["curves"][string][number];
-type CurveVariable = ApiResponseCurves["variable"];
+type CurvePoint = ApiResponseCurve["points"][number];
+type CurveVariable = ApiResponseCurve["variable"];
 
 function allowedRange(input: NumericTaskInput) {
   if (!input.allowed_range) throw new Error(`数値fieldにallowed_rangeがありません: ${input.path}`);
@@ -124,6 +132,7 @@ type WorkbenchProps = {
   onCopyDraft: () => void;
   metrics: Metric[];
   preview: ApiPreview | null;
+  previewStatus: InferenceSurfaceStatus;
   previewError: string;
   onRetryPreview: () => void;
   previewsByCandidate: Record<string, ApiPreview>;
@@ -158,6 +167,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
     onCopyDraft,
     metrics,
     preview,
+    previewStatus,
     previewError,
     onRetryPreview,
     previewsByCandidate,
@@ -245,12 +255,13 @@ export function WorkbenchPage(props: WorkbenchProps) {
               targetValues={targetValues}
               taskDefinition={taskDefinition}
               available
+              ready={["idle", "saved"].includes(saveState)}
             />}
           </section>
         ) : <UnavailablePanel title="応答曲線" />}
         {operations?.actual_measurement ? <ActualsPanel projectId={projectId} candidate={selected} outputs={taskDefinition?.outputs ?? []} enabled={["idle", "saved"].includes(saveState)} /> : <UnavailablePanel title="予測と実測" />}
       </section>
-      <EvidencePanel metrics={metrics} outputs={taskDefinition?.outputs ?? []} preview={preview} candidateLabel={selected.label} similarityAvailable={operations?.similarity === true} error={previewError} onRetry={onRetryPreview} />
+      <EvidencePanel projectId={projectId} candidate={selected} inferenceReady={["idle", "saved"].includes(saveState)} metrics={metrics} outputs={taskDefinition?.outputs ?? []} preview={preview} previewStatus={previewStatus} candidateLabel={selected.label} similarityAvailable={operations?.similarity === true} error={previewError} onRetry={onRetryPreview} />
     </div>
   );
 }
@@ -759,6 +770,7 @@ function LiveResponseCurves({
   targetValues,
   taskDefinition,
   available,
+  ready,
 }: {
   projectId: string;
   candidate: Candidate;
@@ -766,6 +778,7 @@ function LiveResponseCurves({
   targetValues: Record<string, number>;
   taskDefinition: TaskDefinitionContract | null;
   available: boolean;
+  ready: boolean;
 }) {
   const outputs = taskDefinition?.outputs ?? [];
   const variables: CurveVariable[] = [
@@ -788,37 +801,51 @@ function LiveResponseCurves({
     ]),
   ];
   const [variableId, setVariableId] = useState(variables[0]?.id ?? "heat.peak_temperature_c");
-  const [loadedPayload, setLoadedPayload] = useState<{ identity: string; payload: ResponseCurvesPayload } | null>(null);
-  const [errorIdentity, setErrorIdentity] = useState<string | null>(null);
-  const requestIdentity = useRef("");
+  const [targetKey, setTargetKey] = useState(outputs[0]?.key ?? "");
+  const [surface, setSurface] = useState(() => emptyInferenceSurface<ApiResponseCurve>());
+  const surfaceRef = useRef(surface);
   const inputIdentity = candidateInputIdentity(candidate.raw.inputs);
+  const curveScope = `${projectId}\u001f${candidate.id}\u001f${targetKey}\u001f${variableId}`;
   const currentRequestIdentity = taskDefinition
-    ? `${workbenchRequestKey({ projectId, taskId: taskDefinition.id, candidateId: candidate.id, candidateRevision: candidate.raw.revision }, `response_curve:${variableId}`)}\u001f${inputIdentity}`
+    ? `${curveScope}\u001f${workbenchRequestKey({ projectId, taskId: taskDefinition.id, candidateId: candidate.id, candidateRevision: candidate.raw.revision }, "response_curve:9")}\u001f${inputIdentity}`
     : "";
+  useEffect(() => {
+    const empty = emptyInferenceSurface<ApiResponseCurve>();
+    surfaceRef.current = empty;
+    setSurface(empty);
+  }, [candidate.id]);
   useEffect(() => {
     if (variables.length && !variables.some((variable) => variable.id === variableId)) setVariableId(variables[0].id);
   }, [candidate.id, variableId, variables.length]);
   useEffect(() => {
+    if (outputs.length && !outputs.some((output) => output.key === targetKey)) setTargetKey(outputs[0].key);
+  }, [outputs.length, targetKey]);
+  useEffect(() => {
     const controller = new AbortController();
-    if (!available || !preview || !taskDefinition || !inputIdentity) return;
+    if (!available || !ready || !preview || !taskDefinition || !inputIdentity || !targetKey) return;
     const identity = currentRequestIdentity;
-    requestIdentity.current = identity;
-    setLoadedPayload(null);
-    setErrorIdentity(null);
+    const requested = requestInferenceSurface(surfaceRef.current, identity);
+    surfaceRef.current = requested;
+    setSurface(requested);
     const timer = window.setTimeout(async () => {
       try {
-        const loaded = await workbenchApi.responseCurves(projectId, candidate.id, candidate.raw.revision, inputIdentity, variableId, controller.signal);
-        if (controller.signal.aborted || requestIdentity.current !== identity) return;
-        setLoadedPayload({ identity, payload: loaded });
+        const loaded = await workbenchApi.responseCurve(projectId, candidate.id, candidate.raw.revision, inputIdentity, targetKey, variableId, 9, controller.signal);
+        if (controller.signal.aborted) return;
+        const resolved = resolveInferenceSurface(surfaceRef.current, requested.requestSequence, identity, loaded);
+        surfaceRef.current = resolved;
+        setSurface(resolved);
       } catch (cause) {
-        if (controller.signal.aborted || requestIdentity.current !== identity) return;
-        setErrorIdentity(identity);
+        if (controller.signal.aborted) return;
+        const rejected = rejectInferenceSurface(surfaceRef.current, requested.requestSequence, identity, cause);
+        surfaceRef.current = rejected;
+        setSurface(rejected);
       }
     }, 320);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [available, candidate.id, candidate.raw.revision, currentRequestIdentity, inputIdentity, preview, projectId, taskDefinition?.id, variableId]);
-  const activePayload = loadedPayload?.identity === currentRequestIdentity ? loadedPayload.payload : null;
-  const error = errorIdentity === currentRequestIdentity;
+  }, [available, ready, candidate.id, candidate.raw.revision, currentRequestIdentity, inputIdentity, preview, projectId, targetKey, taskDefinition?.id, variableId]);
+  const activePayload = surface.currentIdentity?.startsWith(`${curveScope}\u001f`) ? surface.data : null;
+  const status = inferenceSurfaceStatus(surface);
+  const selectedOutput = outputs.find((output) => output.key === targetKey);
   if (!available) return <UnavailablePanel title="応答曲線" />;
   if (!preview) return <section className="response-curves-panel"><div className="panel-title"><h2>応答曲線</h2></div><p className="empty-evidence">候補の保存とプレビュー完了後に表示します。</p></section>;
   return (
@@ -827,18 +854,20 @@ function LiveResponseCurves({
         <div className="response-curves-title-group">
           <h2>応答曲線 <span>（選択した設計変数を動かしたときの特性）</span></h2>
           <span className="curve-scope">{candidate.label}のみ</span>
+          <span className={`inference-surface-status ${status}`}>{status === "latest" ? "最新" : status === "refreshing" ? "更新中" : status === "stale" ? "条件変更前・更新中" : "更新失敗・旧結果"}</span>
         </div>
+        <label>特性 <select aria-label="応答曲線の予測特性" value={targetKey} onChange={(event) => setTargetKey(event.target.value)}>{outputs.map((output) => <option key={output.key} value={output.key}>{output.label}</option>)}</select></label>
         <label>変数 <select aria-label="応答曲線の設計変数" value={variableId} onChange={(event) => setVariableId(event.target.value)}>{variables.map((variable) => <option key={variable.id} value={variable.id}>{variable.label} ({variable.unit})</option>)}</select></label>
       </div>
-      {error ? <p className="empty-evidence">応答曲線を取得できません。</p> : (
+      {!ready ? <p className="empty-evidence">入力を保存後に更新します。</p> : status === "error" && !activePayload ? <p className="empty-evidence">応答曲線を取得できません。</p> : (
         <div className="response-curves-grid">
-          {outputs.map((output) => {
-            const points = activePayload?.curves[output.key] ?? [];
+          {selectedOutput && (() => {
+            const points = activePayload?.points ?? [];
             const series = points.length && activePayload
-              ? [{ candidate, points, prediction: preview?.predictions?.[output.key], currentX: activePayload.variable.current }]
+              ? [{ candidate, points, prediction: preview?.predictions?.[selectedOutput.key], currentX: activePayload.variable.current }]
               : [];
-            return <ResponseCurveMiniChart key={output.key} output={output} series={series} selectedId={candidate.id} prediction={preview?.predictions?.[output.key]} goalValue={targetValues[output.key]} xRange={activePayload ? { min: activePayload.variable.min, max: activePayload.variable.max } : undefined} yRange={activePayload?.output_ranges[output.key]} xLabel={activePayload?.variable.label ?? "設計変数"} xUnit={activePayload?.variable.unit ?? ""} />;
-          })}
+            return <ResponseCurveMiniChart key={selectedOutput.key} output={selectedOutput} series={series} selectedId={candidate.id} prediction={preview?.predictions?.[selectedOutput.key]} goalValue={targetValues[selectedOutput.key]} xRange={activePayload ? { min: activePayload.variable.min, max: activePayload.variable.max } : undefined} yRange={activePayload?.output_range ?? undefined} xLabel={activePayload?.variable.label ?? "設計変数"} xUnit={activePayload?.variable.unit ?? ""} />;
+          })()}
         </div>
       )}
     </section>
@@ -899,25 +928,123 @@ function ResponseCurveMiniChart({
   );
 }
 
+function LiveSimilarityEvidence({
+  projectId,
+  candidate,
+  available,
+  ready,
+}: {
+  projectId: string;
+  candidate: Candidate;
+  available: boolean;
+  ready: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [surface, setSurface] = useState(() => emptyInferenceSurface<ApiSimilarObservation[]>());
+  const surfaceRef = useRef(surface);
+  const inputIdentity = candidateInputIdentity(candidate.raw.inputs);
+  const similarityScope = `${projectId}\u001f${candidate.id}\u001fsimilarity:6`;
+  const identity = `${similarityScope}\u001f${candidate.raw.revision}\u001f${inputIdentity}`;
+  useEffect(() => {
+    const empty = emptyInferenceSurface<ApiSimilarObservation[]>();
+    surfaceRef.current = empty;
+    setSurface(empty);
+  }, [candidate.id]);
+  useEffect(() => {
+    if (!open || !available || !ready || candidate.raw.archived_at) return;
+    const controller = new AbortController();
+    const requested = requestInferenceSurface(surfaceRef.current, identity);
+    surfaceRef.current = requested;
+    setSurface(requested);
+    void workbenchApi.similarCandidates(
+      projectId,
+      candidate.id,
+      candidate.raw.revision,
+      inputIdentity,
+      6,
+      controller.signal,
+    ).then((loaded) => {
+      if (controller.signal.aborted) return;
+      const resolved = resolveInferenceSurface(surfaceRef.current, requested.requestSequence, identity, loaded);
+      surfaceRef.current = resolved;
+      setSurface(resolved);
+    }).catch((cause) => {
+      if (controller.signal.aborted) return;
+      const rejected = rejectInferenceSurface(surfaceRef.current, requested.requestSequence, identity, cause);
+      surfaceRef.current = rejected;
+      setSurface(rejected);
+    });
+    return () => controller.abort();
+  }, [available, candidate.id, candidate.raw.archived_at, candidate.raw.revision, identity, inputIdentity, open, projectId, ready]);
+  const status = inferenceSurfaceStatus(surface);
+  const similar = surface.currentIdentity?.startsWith(`${similarityScope}\u001f`) ? surface.data ?? [] : [];
+  const nearest = similar.slice(0, 3);
+  return (
+    <section>
+      <div className="evidence-title">
+        <h2>近い過去実験</h2>
+        <button type="button" className="text-button" aria-expanded={open} onClick={() => setOpen((current) => !current)} disabled={!available || Boolean(candidate.raw.archived_at)}>
+          {open ? "閉じる" : "根拠を表示"}
+        </button>
+      </div>
+      {!available ? (
+        <p className="empty-evidence">このタスクでは類似実験を利用できません。</p>
+      ) : candidate.raw.archived_at ? (
+        <p className="empty-evidence">archive済み候補では新しい根拠計算を行いません。</p>
+      ) : !open ? (
+        <p className="empty-evidence">必要なときだけ成分・工程・熱履歴の近さを計算します。</p>
+      ) : !ready ? (
+        <p className="empty-evidence">入力を保存後に根拠を更新します。</p>
+      ) : nearest.length ? (
+        <>
+          <span className={`inference-surface-status ${status}`}>{status === "latest" ? "最新" : status === "refreshing" ? "更新中" : status === "stale" ? "旧revision・更新中" : "更新失敗・旧結果"}</span>
+          <table className="similar-table similar-summary-table">
+            <thead><tr><th>実験ID</th><th>層</th><th>総合</th><th>代表実測値</th></tr></thead>
+            <tbody>{nearest.map((item) => (
+              <tr key={`${item.layer ?? "training"}-${item.observation_id}`}>
+                <td>{item.observation_id}</td>
+                <td><span className={`layer-chip ${item.layer ?? "training"}`}>{item.layer === "historical" ? "学習外" : "学習内"}</span></td>
+                <td>{item.distance.toFixed(2)}</td>
+                <td>{Object.entries(item.repeat_summary ?? {}).map(([key, value]) => `${key === "lambda" ? "λ" : key} ${number(value.mean, 1)} ± ${number(value.std, 1)} (n=${value.n})`).join(" / ") || "—"}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+          {similar.length > 3 && <details className="similar-more"><summary>ほかの近傍を表示</summary>{similar.slice(3).map((item) => <p key={`${item.layer ?? "training"}-${item.observation_id}`}>{item.parent_key} · {item.layer === "historical" ? "学習外" : "学習内"} · 距離 {item.distance.toFixed(2)} · {Object.entries(item.repeat_summary ?? {}).map(([key, value]) => `${key} ${number(value.mean, 1)} ± ${number(value.std, 1)} (n=${value.n})`).join(" / ")}</p>)}</details>}
+        </>
+      ) : status === "error" ? (
+        <p className="empty-evidence">類似実験を取得できませんでした。閉じて再度開くと再試行します。</p>
+      ) : (
+        <p className="empty-evidence">類似実験を取得しています。</p>
+      )}
+    </section>
+  );
+}
+
 function EvidencePanel({
+  projectId,
+  candidate,
+  inferenceReady,
   metrics,
   outputs,
   preview,
+  previewStatus,
   candidateLabel,
   similarityAvailable,
   error,
   onRetry,
 }: {
+  projectId: string;
+  candidate: Candidate;
+  inferenceReady: boolean;
   metrics: Metric[];
   outputs: TaskOutputDefinition[];
   preview: ApiPreview | null;
+  previewStatus: InferenceSurfaceStatus;
   candidateLabel: string;
   similarityAvailable: boolean;
   error: string;
   onRetry: () => void;
 }) {
-  const similar = preview?.similar ?? [];
-  const nearest = similar.slice(0, 3);
   const status = preview?.support?.status;
   const training = preview?.model_meta?.training_data?.records;
   const warnings = (preview?.warnings ?? []).filter(
@@ -929,6 +1056,9 @@ function EvidencePanel({
       <section>
         <div className="evidence-title">
           <h2>予測特性 <span>— {candidateLabel}</span></h2>
+          {preview && <span className={`inference-surface-status ${previewStatus}`} role="status">
+            {previewStatus === "latest" ? "最新" : previewStatus === "refreshing" ? "更新中" : previewStatus === "stale" ? "旧revision・更新中" : "更新失敗・旧結果"}
+          </span>}
         </div>
         {metrics.length ? (
           <table className="metric-table">
@@ -1008,67 +1138,7 @@ function EvidencePanel({
           <p>{preview.support.message}</p>
         </div>
       )}
-      <section>
-        <div className="evidence-title">
-          <h2>近い過去実験</h2>
-          <span>成分・工程・熱履歴を分けて確認</span>
-        </div>
-        {!similarityAvailable ? (
-          <p className="empty-evidence">このタスクでは類似実験を利用できません。</p>
-        ) : nearest.length ? (
-          <>
-            <table className="similar-table similar-summary-table">
-              <thead>
-                <tr>
-                  <th>実験ID</th>
-                  <th>層</th>
-                  <th>総合</th>
-                  <th>代表実測値</th>
-                </tr>
-              </thead>
-              <tbody>
-                {nearest.map((item) => (
-                  <tr
-                    key={`${item.layer ?? "training"}-${item.observation_id}`}
-                  >
-                    <td>{item.observation_id}</td>
-                    <td>
-                      <span
-                        className={`layer-chip ${item.layer ?? "training"}`}
-                      >
-                        {item.layer === "historical" ? "学習外" : "学習内"}
-                      </span>
-                    </td>
-                    <td>{item.distance.toFixed(2)}</td>
-                    <td>
-                      {Object.entries(item.repeat_summary ?? {})
-                        .map(
-                          ([key, value]) =>
-                            `${key === "lambda" ? "λ" : key} ${number(value.mean, 1)} ± ${number(value.std, 1)} (n=${value.n})`,
-                        )
-                        .join(" / ") || "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {similar.length > 3 && (
-              <details className="similar-more">
-                <summary>ほかの近傍を表示</summary>
-                {similar.slice(3).map((item) => (
-                  <p key={`${item.layer ?? "training"}-${item.observation_id}`}>
-                    {item.parent_key} ·{" "}
-                    {item.layer === "historical" ? "学習外" : "学習内"} · 距離{" "}
-                    {item.distance.toFixed(2)} · {Object.entries(item.repeat_summary ?? {}).map(([key, value]) => `${key} ${number(value.mean, 1)} ± ${number(value.std, 1)} (n=${value.n})`).join(" / ")}
-                  </p>
-                ))}
-              </details>
-            )}
-          </>
-        ) : (
-          <p className="empty-evidence">類似実験を取得しています。</p>
-        )}
-      </section>
+      <LiveSimilarityEvidence projectId={projectId} candidate={candidate} available={similarityAvailable} ready={inferenceReady} />
       <details className="evidence-card">
         <summary>予測の根拠（再現性の詳細）</summary>
         <h2>予測の根拠</h2>

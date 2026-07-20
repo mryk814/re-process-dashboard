@@ -4,7 +4,7 @@ import math
 from datetime import date, datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, RootModel, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .task_contracts import CandidateProvenance, DirectSourceRef, ResolvedTaskDefinition
 
@@ -422,14 +422,36 @@ class CurveVariable(BaseModel):
     current: float
 
 
-class ResponseCurvesResponse(BaseModel):
+class ResponseCurveResponse(BaseModel):
+    target: str
     variable: CurveVariable
-    curves: dict[str, list[CurvePoint]]
-    output_ranges: dict[str, InputRange]
+    points: list[CurvePoint]
+    output_range: InputRange | None = None
+    point_count: int
+    policy_id: str
 
 
-class ResponseCurvesResult(RootModel[ResponseCurvesResponse | dict[str, list[CurvePoint]]]):
-    pass
+class DurationDiagnostic(BaseModel):
+    total: float
+    last: float
+    max: float
+    average: float
+
+
+class OperationDiagnostic(BaseModel):
+    runtime_types: list[str]
+    hits: int
+    misses: int
+    coalesced: int
+    computations: int
+    computation_duration_ms: DurationDiagnostic
+    total_duration_ms: DurationDiagnostic
+
+
+class InferenceDiagnosticsResponse(BaseModel):
+    max_entries: int
+    cached_entries: int
+    operations: dict[str, OperationDiagnostic]
 
 
 class LineageIndexItem(BaseModel):

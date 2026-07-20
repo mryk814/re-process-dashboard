@@ -68,7 +68,11 @@ def test_revision_bound_prediction_and_actual_reject_stale_clients(client) -> No
 
     detailed = client.post(f"{url}/predict", params={"expected_revision": candidate["revision"]})
     preview = client.post(f"{url}/preview", params={"expected_revision": candidate["revision"]})
-    curves = client.get(f"{url}/response-curves", params={"expected_revision": candidate["revision"]})
+    curve = client.get(f"{url}/response-curve", params={
+        "expected_revision": candidate["revision"],
+        "target": "TS",
+        "variable": "composition.C",
+    })
     actual = client.post(
         f"{url}/actuals",
         params={"expected_revision": candidate["revision"]},
@@ -79,8 +83,8 @@ def test_revision_bound_prediction_and_actual_reject_stale_clients(client) -> No
     assert detailed.json()["code"] == "revision_conflict"
     assert preview.status_code == 409
     assert preview.json()["code"] == "revision_conflict"
-    assert curves.status_code == 409
-    assert curves.json()["code"] == "revision_conflict"
+    assert curve.status_code == 409
+    assert curve.json()["code"] == "revision_conflict"
     assert actual.status_code == 409
     assert actual.json()["code"] == "revision_conflict"
     assert client.get(f"{url}/snapshots").json() == []

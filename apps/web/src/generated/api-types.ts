@@ -21,6 +21,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/diagnostics/inference": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Inference Diagnostics */
+        get: operations["getInferenceDiagnostics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -274,24 +291,7 @@ export interface paths {
             cookie?: never;
         };
         /** Response Curve */
-        get: operations["response_curve_api_projects__project_id__candidates__candidate_id__response_curve_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/projects/{project_id}/candidates/{candidate_id}/response-curves": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Response Curves */
-        get: operations["response_curves_api_projects__project_id__candidates__candidate_id__response_curves_get"];
+        get: operations["getCandidateResponseCurve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -308,7 +308,7 @@ export interface paths {
             cookie?: never;
         };
         /** Similar */
-        get: operations["similar_api_projects__project_id__candidates__candidate_id__similar_get"];
+        get: operations["getCandidateSimilarity"];
         put?: never;
         post?: never;
         delete?: never;
@@ -890,6 +890,17 @@ export interface components {
             /** Source Ref */
             source_ref?: null;
         };
+        /** DurationDiagnostic */
+        DurationDiagnostic: {
+            /** Average */
+            average: number;
+            /** Last */
+            last: number;
+            /** Max */
+            max: number;
+            /** Total */
+            total: number;
+        };
         /** FeaturePipelineIdentity */
         FeaturePipelineIdentity: {
             /** Features */
@@ -949,6 +960,17 @@ export interface components {
             temperature_c: number;
             /** Time S */
             time_s: number;
+        };
+        /** InferenceDiagnosticsResponse */
+        InferenceDiagnosticsResponse: {
+            /** Cached Entries */
+            cached_entries: number;
+            /** Max Entries */
+            max_entries: number;
+            /** Operations */
+            operations: {
+                [key: string]: components["schemas"]["OperationDiagnostic"];
+            };
         };
         /** InputFieldDefinition */
         InputFieldDefinition: {
@@ -1288,6 +1310,21 @@ export interface components {
             std: number;
             /** Test Type */
             test_type: string;
+        };
+        /** OperationDiagnostic */
+        OperationDiagnostic: {
+            /** Coalesced */
+            coalesced: number;
+            computation_duration_ms: components["schemas"]["DurationDiagnostic"];
+            /** Computations */
+            computations: number;
+            /** Hits */
+            hits: number;
+            /** Misses */
+            misses: number;
+            /** Runtime Types */
+            runtime_types: string[];
+            total_duration_ms: components["schemas"]["DurationDiagnostic"];
         };
         /** OutputDefinition */
         OutputDefinition: {
@@ -1702,21 +1739,18 @@ export interface components {
             runtime_capability: components["schemas"]["RuntimeCapability"];
             task_definition: components["schemas"]["TaskDefinition"];
         };
-        /** ResponseCurvesResponse */
-        ResponseCurvesResponse: {
-            /** Curves */
-            curves: {
-                [key: string]: components["schemas"]["CurvePoint"][];
-            };
-            /** Output Ranges */
-            output_ranges: {
-                [key: string]: components["schemas"]["InputRange"];
-            };
+        /** ResponseCurveResponse */
+        ResponseCurveResponse: {
+            output_range?: components["schemas"]["InputRange"] | null;
+            /** Point Count */
+            point_count: number;
+            /** Points */
+            points: components["schemas"]["CurvePoint"][];
+            /** Policy Id */
+            policy_id: string;
+            /** Target */
+            target: string;
             variable: components["schemas"]["CurveVariable"];
-        };
-        /** ResponseCurvesResult */
-        ResponseCurvesResult: components["schemas"]["ResponseCurvesResponse"] | {
-            [key: string]: components["schemas"]["CurvePoint"][];
         };
         /** RuntimeAvailability */
         RuntimeAvailability: {
@@ -2182,6 +2216,35 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getInferenceDiagnostics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InferenceDiagnosticsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -3103,12 +3166,13 @@ export interface operations {
             };
         };
     };
-    response_curve_api_projects__project_id__candidates__candidate_id__response_curve_get: {
+    getCandidateResponseCurve: {
         parameters: {
             query: {
                 expected_revision: number;
-                target?: string;
-                variable?: string;
+                points?: number;
+                target: string;
+                variable: string;
             };
             header?: never;
             path: {
@@ -3125,9 +3189,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: number;
-                    }[];
+                    "application/json": components["schemas"]["ResponseCurveResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
                 };
             };
             /** @description Validation Error */
@@ -3141,44 +3221,12 @@ export interface operations {
             };
         };
     };
-    response_curves_api_projects__project_id__candidates__candidate_id__response_curves_get: {
+    getCandidateSimilarity: {
         parameters: {
             query: {
                 expected_revision: number;
-                variable?: string | null;
+                limit?: number;
             };
-            header?: never;
-            path: {
-                candidate_id: string;
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ResponseCurvesResult"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiError"];
-                };
-            };
-        };
-    };
-    similar_api_projects__project_id__candidates__candidate_id__similar_get: {
-        parameters: {
-            query?: never;
             header?: never;
             path: {
                 candidate_id: string;
@@ -3195,6 +3243,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SimilarObservation"][];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
                 };
             };
             /** @description Validation Error */

@@ -14,7 +14,9 @@ export type ApiSnapshot = components["schemas"]["SnapshotResponse"];
 export type ApiActual = components["schemas"]["ActualMeasurement"];
 export type ApiActualInput = components["schemas"]["ActualMeasurementInput"];
 export type ApiPredictionVsActual = components["schemas"]["PredictionVsActualResponse"];
-export type ApiResponseCurves = components["schemas"]["ResponseCurvesResponse"];
+export type ApiResponseCurve = components["schemas"]["ResponseCurveResponse"];
+export type ApiInferenceDiagnostics = components["schemas"]["InferenceDiagnosticsResponse"];
+export type ApiSimilarObservation = components["schemas"]["SimilarObservation"];
 export type ApiQuality = components["schemas"]["QualityResponse"];
 export type ApiLineage = components["schemas"]["LineageResponse"];
 export type ApiLineageIndex = components["schemas"]["LineageIndexResponse"];
@@ -28,13 +30,6 @@ export type ApiProjectDecisionInput = components["schemas"]["ProjectDecisionInpu
 
 const path = (projectId: string, suffix = "") =>
   `/api/projects/${encodeURIComponent(projectId)}${suffix}`;
-
-function isResponseCurves(value: unknown): value is ApiResponseCurves {
-  return typeof value === "object" && value !== null
-    && typeof Reflect.get(value, "variable") === "object"
-    && typeof Reflect.get(value, "curves") === "object"
-    && typeof Reflect.get(value, "output_ranges") === "object";
-}
 
 export const workbenchApi = {
   async listProjects() {
@@ -86,17 +81,22 @@ export const workbenchApi = {
   async predictCandidate(projectId: string, candidateId: string, expectedRevision: number) {
     return requireData(await apiClient.POST("/api/projects/{project_id}/candidates/{candidate_id}/predict", { params: { path: { project_id: projectId, candidate_id: candidateId }, query: { expected_revision: expectedRevision } } }), "詳細予測を取得できませんでした。");
   },
-  async responseCurves(projectId: string, candidateId: string, expectedRevision: number, inputIdentity: string, variable?: string, signal?: AbortSignal): Promise<ApiResponseCurves> {
-    const data = await inferenceRequestCache.get(
-      inferenceRequestKey(projectId, candidateId, inputIdentity, "curve", variable ?? ""),
-      async (sharedSignal) => requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/response-curves", { params: { path: { project_id: projectId, candidate_id: candidateId }, query: { expected_revision: expectedRevision, variable } }, signal: sharedSignal }), "応答曲線を取得できませんでした。"),
+  async responseCurve(projectId: string, candidateId: string, expectedRevision: number, inputIdentity: string, target: string, variable: string, points = 9, signal?: AbortSignal): Promise<ApiResponseCurve> {
+    return inferenceRequestCache.get(
+      inferenceRequestKey(projectId, candidateId, inputIdentity, "curve", `${target}\u001f${variable}\u001f${points}`),
+      async (sharedSignal) => requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/response-curve", { params: { path: { project_id: projectId, candidate_id: candidateId }, query: { expected_revision: expectedRevision, target, variable, points } }, signal: sharedSignal }), "応答曲線を取得できませんでした。"),
       signal,
     );
-    if (isResponseCurves(data)) return data;
-    throw new Error("設計変数を指定した応答曲線の形式が不正です。");
   },
-  async similarCandidates(projectId: string, candidateId: string) {
-    return requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/similar", { params: { path: { project_id: projectId, candidate_id: candidateId } } }), "類似実験を取得できませんでした。");
+  async similarCandidates(projectId: string, candidateId: string, expectedRevision: number, inputIdentity: string, limit = 6, signal?: AbortSignal) {
+    return inferenceRequestCache.get(
+      inferenceRequestKey(projectId, candidateId, inputIdentity, "similarity", String(limit)),
+      async (sharedSignal) => requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/similar", { params: { path: { project_id: projectId, candidate_id: candidateId }, query: { expected_revision: expectedRevision, limit } }, signal: sharedSignal }), "類似実験を取得できませんでした。"),
+      signal,
+    );
+  },
+  async inferenceDiagnostics() {
+    return requireData(await apiClient.GET("/api/diagnostics/inference"), "推論diagnosticsを取得できませんでした。");
   },
   async snapshots(projectId: string, candidateId: string, signal?: AbortSignal) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/snapshots", { params: { path: { project_id: projectId, candidate_id: candidateId } }, signal }), "スナップショットを取得できませんでした。");
