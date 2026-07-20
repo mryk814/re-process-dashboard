@@ -152,17 +152,10 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
             }
             for index, element in enumerate(COMPOSITION_COLUMNS)
         ]
-        process_inputs = [
-            {"id": "thickness_mm", "field": "thickness", "label": "板厚", "unit": "mm", "group": "process", "editable": True, "min": 0.001, "max": 100, "training_range": training_range(14)},
-            {"id": "line_speed_m_min", "field": "lineSpeed", "label": "ライン速度", "unit": "m/min", "group": "process", "editable": True, "min": 0.001, "max": 2000, "training_range": training_range(15)},
-        ]
         return {
             "task_id": project.task_id,
-            "inputs": [*composition_inputs, *process_inputs],
-            "derived_inputs": [
-                {"id": "peak_temperature_c", "field": "annealTemperature", "label": "最高温度", "unit": "°C", "source": "heat_pattern"},
-                {"id": "hold_minutes", "field": "holdMinutes", "label": "保持時間", "unit": "min", "source": "heat_pattern"},
-            ],
+            "inputs": composition_inputs,
+            "derived_inputs": [],
             "outputs": [
                 {"key": target, "label": "λ" if target == "lambda" else target, "unit": unit, "goal_direction": "at_least"}
                 for target, (_, unit) in TARGETS.items()

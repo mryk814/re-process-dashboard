@@ -159,14 +159,6 @@ type TaskInputDefinition = {
   training_range?: { min: number; max: number } | null;
 };
 
-type TaskDerivedInputDefinition = {
-  id: string;
-  field: "annealTemperature" | "holdMinutes";
-  label: string;
-  unit: string;
-  source: "heat_pattern";
-};
-
 type TaskOutputDefinition = {
   key: string;
   label: string;
@@ -177,7 +169,6 @@ type TaskOutputDefinition = {
 type TaskDefinition = {
   task_id: string;
   inputs: TaskInputDefinition[];
-  derived_inputs: TaskDerivedInputDefinition[];
   outputs: TaskOutputDefinition[];
 };
 
@@ -547,47 +538,6 @@ function App() {
     };
   }, [selected]);
 
-  const updateCandidate = (id: string, field: keyof Candidate, raw: number) => {
-    const current = candidates.find((candidate) => candidate.id === id);
-    if (!current) return;
-    let next = { ...current, [field]: raw } as Candidate;
-    if (field === "annealTemperature") {
-      const peak = Math.max(...current.heat.map((point) => point.temperature));
-      next = {
-        ...next,
-        heat: current.heat.map((point) =>
-          point.temperature === peak ? { ...point, temperature: raw } : point,
-        ),
-      };
-    }
-    if (field === "holdMinutes") {
-      const peak = Math.max(...current.heat.map((point) => point.temperature));
-      const plateau = current.heat
-        .map((point, index) => (point.temperature >= peak * 0.95 ? index : -1))
-        .filter((index) => index >= 0);
-      const start = plateau[0];
-      const end = plateau.at(-1);
-      if (start !== undefined && end !== undefined && end > start) {
-        const delta = raw - (current.heat[end].time - current.heat[start].time);
-        next = {
-          ...next,
-          heat: current.heat.map((point, index) =>
-            index >= end
-              ? {
-                  ...point,
-                  time: Math.max(current.heat[start].time, point.time + delta),
-                }
-              : point,
-          ),
-        };
-      }
-    }
-    setCandidates((items) =>
-      items.map((candidate) => (candidate.id === id ? next : candidate)),
-    );
-    void persistCandidate(next, current);
-  };
-
   const updateComposition = (id: string, element: string, raw: number) => {
     const current = candidates.find((candidate) => candidate.id === id);
     if (!current) return;
@@ -954,7 +904,6 @@ function App() {
               previewsByCandidate={previewsByCandidate}
               notice={notice}
               onSelect={setSelectedId}
-              onUpdate={updateCandidate}
               onComposition={updateComposition}
               onText={updateCandidateText}
               onHeat={updateHeat}
@@ -1053,7 +1002,6 @@ type WorkbenchProps = {
   previewsByCandidate: Record<string, ApiPreview>;
   notice: string;
   onSelect: (id: string) => void;
-  onUpdate: (id: string, field: keyof Candidate, raw: number) => void;
   onHeat: (index: number, field: "time" | "temperature", raw: number) => void;
   onComposition: (id: string, element: string, raw: number) => void;
   onText: (id: string, field: "label" | "coating", value: string) => void;
@@ -1083,7 +1031,6 @@ function CandidateWorkbench(props: WorkbenchProps) {
     previewsByCandidate,
     notice,
     onSelect,
-    onUpdate,
     onComposition,
     onText,
     onHeat,
@@ -1101,9 +1048,7 @@ function CandidateWorkbench(props: WorkbenchProps) {
       <CandidateInspector
         candidate={selected}
         taskDefinition={taskDefinition}
-        onUpdate={onUpdate}
         onComposition={onComposition}
-        onText={onText}
         onHeat={onHeat}
         onAddHeat={onAddHeat}
         onDeleteHeat={onDeleteHeat}
@@ -1161,7 +1106,6 @@ function CandidateWorkbench(props: WorkbenchProps) {
           previewsByCandidate={previewsByCandidate}
           targetValues={targetValues}
           onSelect={onSelect}
-          onUpdate={onUpdate}
           onComposition={onComposition}
           onText={onText}
         />
@@ -1178,21 +1122,39 @@ function CandidateWorkbench(props: WorkbenchProps) {
   );
 }
 
+function sliderScale(input: TaskInputDefinition, value: number) {
+  const training = input.training_range;
+  const learnedMin = training?.min ?? input.min;
+  const learnedMax = training?.max ?? input.max;
+  const span = Math.max(learnedMax - learnedMin, input.unit === "mass%" ? 0.001 : 1);
+  const padding = span * 0.08;
+  const min = Math.max(input.min, learnedMin - padding);
+  const max = Math.min(input.max, learnedMax + padding);
+  const sliderValue = Math.max(min, Math.min(max, value));
+  const position = ((sliderValue - min) / Math.max(max - min, Number.EPSILON)) * 100;
+  const inLearningRange = value >= learnedMin && value <= learnedMax;
+  const color = inLearningRange ? "#15936a" : value >= min && value <= max ? "#c17816" : "#c24b38";
+  return {
+    min,
+    max,
+    sliderValue,
+    color,
+    style: { background: `linear-gradient(90deg, ${color} 0 ${position}%, #dfe6ee ${position}% 100%)` },
+    note: `バー ${number(min, 3)}–${number(max, 3)} · 学習 ${number(learnedMin, 3)}–${number(learnedMax, 3)}`,
+  };
+}
+
 function CandidateInspector({
   candidate,
   taskDefinition,
-  onUpdate,
   onComposition,
-  onText,
   onHeat,
   onAddHeat,
   onDeleteHeat,
 }: {
   candidate: Candidate;
   taskDefinition: TaskDefinition | null;
-  onUpdate: (id: string, field: keyof Candidate, raw: number) => void;
   onComposition: (id: string, element: string, raw: number) => void;
-  onText: (id: string, field: "label" | "coating", value: string) => void;
   onHeat: (index: number, field: "time" | "temperature", raw: number) => void;
   onAddHeat: () => void;
   onDeleteHeat: (index: number) => void;
@@ -1204,63 +1166,29 @@ function CandidateInspector({
         <span className="overline">SELECTED CANDIDATE</span>
         <h2>選択候補の入力</h2>
       </div>
-      <label className="inspector-name">
-        候補名
-        <input
-          value={candidate.label}
-          maxLength={80}
-          onChange={(event) => onText(candidate.id, "label", event.target.value)}
-        />
-      </label>
       <section className="inspector-section">
         <div className="section-heading"><h3>組成</h3><span>mass%</span></div>
+        <div className="composition-fields">
         {inputs.filter((input) => input.group === "composition").map((input) => {
           const value = candidate.raw.composition[input.field] ?? 0;
-          const training = input.training_range;
+          const scale = sliderScale(input, value);
           return (
             <label className="slider-field" key={input.id}>
               <span><b>{input.label}</b><em><input className="slider-number" type="number" min={input.min} max={input.max} step="any" value={value} aria-label={`${candidate.label} ${input.label}の数値`} onChange={(event) => onComposition(candidate.id, input.field, Number(event.target.value))} /> {input.unit}</em></span>
               <input
                 type="range"
-                min={input.min}
-                max={input.max}
+                min={scale.min}
+                max={scale.max}
                 step="any"
-                value={value}
+                value={scale.sliderValue}
+                style={scale.style}
                 aria-label={`${candidate.label} ${input.label}`}
                 onChange={(event) => onComposition(candidate.id, input.field, Number(event.target.value))}
               />
-              <span className="range-note">許容 {number(input.min, 3)}–{number(input.max, 3)} {input.unit}{training ? ` · 学習 ${number(training.min, 3)}–${number(training.max, 3)}` : ""}</span>
+              <span className="range-note" style={{ color: scale.color }}>{scale.note}</span>
             </label>
           );
         })}
-      </section>
-      <section className="inspector-section">
-        <div className="section-heading"><h3>工程条件</h3><span>{candidate.coating}</span></div>
-        {inputs.filter((input) => input.group === "process").map((input) => {
-          const field = input.field as "thickness" | "lineSpeed";
-          const value = candidate[field];
-          const training = input.training_range;
-          return (
-            <label className="slider-field" key={input.id}>
-              <span><b>{input.label}</b><em><input className="slider-number" type="number" min={input.min} max={input.max} step="any" value={value} aria-label={`${candidate.label} ${input.label}の数値`} onChange={(event) => onUpdate(candidate.id, field, Number(event.target.value))} /> {input.unit}</em></span>
-              <input
-                type="range"
-                min={input.min}
-                max={input.max}
-                step="any"
-                value={value}
-                aria-label={`${candidate.label} ${input.label}`}
-                onChange={(event) => onUpdate(candidate.id, field, Number(event.target.value))}
-              />
-              <span className="range-note">許容 {number(input.min, 2)}–{number(input.max, 2)} {input.unit}{training ? ` · 学習 ${number(training.min, 2)}–${number(training.max, 2)}` : ""}</span>
-            </label>
-          );
-        })}
-        <label className="inspector-select">めっき<select value={candidate.coating} onChange={(event) => onText(candidate.id, "coating", event.target.value)}><option value="なし">なし</option><option value="GI">GI</option><option value="GA">GA</option></select></label>
-        <div className="derived-values">
-          <span>最高温度 <b>{number(candidate.annealTemperature)} °C</b></span>
-          <span>保持時間 <b>{number(candidate.holdMinutes, 2)} min</b></span>
-          <small>ヒートパターンからの派生値（直接編集不可）</small>
         </div>
       </section>
       <HeatPattern
@@ -1353,7 +1281,6 @@ function ComparisonTableV2({
   previewsByCandidate,
   targetValues,
   onSelect,
-  onUpdate,
   onComposition,
   onText,
 }: {
@@ -1363,13 +1290,11 @@ function ComparisonTableV2({
   previewsByCandidate: Record<string, ApiPreview>;
   targetValues: Record<string, number>;
   onSelect: (id: string) => void;
-  onUpdate: (id: string, field: keyof Candidate, raw: number) => void;
   onComposition: (id: string, element: string, raw: number) => void;
   onText: (id: string, field: "label" | "coating", value: string) => void;
 }) {
   const inputs = taskDefinition?.inputs ?? [];
   const compositionInputs = inputs.filter((input) => input.group === "composition");
-  const processInputs = inputs.filter((input) => input.group === "process");
   const outputs = taskDefinition?.outputs ?? [
     { key: "TS", label: "TS", unit: "MPa", goal_direction: "at_least" as const },
     { key: "YS", label: "YS", unit: "MPa", goal_direction: "at_least" as const },
@@ -1384,14 +1309,11 @@ function ComparisonTableV2({
           <tr>
             <th className="sticky-candidate" rowSpan={2}>候補</th>
             <th colSpan={compositionInputs.length}>組成</th>
-            <th colSpan={processInputs.length + 1}>工程条件</th>
             <th className="prediction-group" colSpan={outputs.length}>予測結果</th>
             <th className="support-cell" rowSpan={2}>支持度</th>
           </tr>
           <tr>
             {compositionInputs.map((input) => <th key={input.id}>{input.label}<small>{input.unit}</small></th>)}
-            {processInputs.map((input) => <th key={input.id}>{input.label}<small>{input.unit}</small></th>)}
-            <th>めっき</th>
             {outputs.map((output, index) => (
               <th className={`prediction-cell prediction-col-${index}`} key={output.key}>
                 {output.label}<small>{Number.isFinite(targetValues[output.key]) ? `目標 ${output.goal_direction === "at_most" ? "≤" : "≥"} ${number(targetValues[output.key], output.key === "EL" || output.key === "lambda" ? 1 : 0)}` : output.unit}</small>
@@ -1406,11 +1328,6 @@ function ComparisonTableV2({
               <tr key={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}>
                 <th className="sticky-candidate"><input aria-label={`${candidate.label}の候補名`} maxLength={80} value={candidate.label} onFocus={() => onSelect(candidate.id)} onChange={(event) => onText(candidate.id, "label", event.target.value)} /></th>
                 {compositionInputs.map((input) => <td key={input.id}><input type="number" step="any" min={input.min} max={input.max} value={candidate.raw.composition[input.field] ?? 0} aria-label={`${candidate.label} ${input.label}`} onFocus={() => onSelect(candidate.id)} onChange={(event) => onComposition(candidate.id, input.field, Number(event.target.value))} /></td>)}
-                {processInputs.map((input) => {
-                  const field = input.field as "thickness" | "lineSpeed";
-                  return <td key={input.id}><input type="number" step="any" min={input.min} max={input.max} value={candidate[field]} aria-label={`${candidate.label} ${input.label}`} onFocus={() => onSelect(candidate.id)} onChange={(event) => onUpdate(candidate.id, field, Number(event.target.value))} /></td>;
-                })}
-                <td><select aria-label={`${candidate.label}のめっき`} value={candidate.coating} onChange={(event) => onText(candidate.id, "coating", event.target.value)}><option value="なし">なし</option><option value="GI">GI</option><option value="GA">GA</option></select></td>
                 {outputs.map((output, index) => {
                   const value = prediction?.predictions?.[output.key];
                   return <td className={`prediction-cell prediction-col-${index}`} key={output.key}>{value ? <span className="metric-value">{number(value.value, output.key === "EL" || output.key === "lambda" ? 1 : 0)} <small>{value.unit}</small>{typeof value.goal_probability === "number" && <em>達成 {number(value.goal_probability * 100)}%</em>}</span> : <span className="empty-cell">—</span>}</td>;
@@ -1761,22 +1678,26 @@ function HeatPattern({
   const width = 440;
   const height = 210;
   const pad = { x: 42, y: 18 };
-  const maxTime = Math.max(
-    3,
-    ...candidates.flatMap((item) => item.heat.map((point) => point.time)),
-  );
+  const times = candidates.flatMap((item) => item.heat.map((point) => point.time));
+  const rawMinTime = Math.min(...times);
+  const rawMaxTime = Math.max(...times);
+  const timePadding = Math.max((rawMaxTime - rawMinTime) * 0.08, 0.05);
+  const minTime = Math.max(0, rawMinTime - timePadding);
+  const maxTime = rawMaxTime + timePadding;
   const maxTemp = Math.max(
     1000,
     ...candidates.flatMap((item) =>
       item.heat.map((point) => point.temperature),
     ),
   );
-  const x = (time: number) => pad.x + (time / maxTime) * (width - pad.x - 18);
+  const x = (time: number) =>
+    pad.x + ((time - minTime) / Math.max(0.001, maxTime - minTime)) * (width - pad.x - 18);
   const y = (temp: number) =>
     height - 31 - (temp / maxTemp) * (height - pad.y - 31);
   const points = candidate.heat
     .map((point) => `${x(point.time)},${y(point.temperature)}`)
     .join(" ");
+  const timeTicks = [minTime, (minTime + maxTime) / 2, maxTime];
   const dragPoint = (event: PointerEvent<SVGCircleElement>, index: number) => {
     const svg = event.currentTarget.ownerSVGElement;
     if (!svg) return;
@@ -1820,6 +1741,14 @@ function HeatPattern({
               <line x1={pad.x} x2={width - 18} y1={y(value)} y2={y(value)} />
               <text x="3" y={y(value) + 4}>
                 {value}
+              </text>
+            </g>
+          ))}
+          {timeTicks.map((value) => (
+            <g key={`time-${value}`}>
+              <line x1={x(value)} x2={x(value)} y1={pad.y} y2={height - 31} />
+              <text x={x(value)} y={height - 18} textAnchor="middle">
+                {number(value, 2)}
               </text>
             </g>
           ))}
@@ -1868,9 +1797,9 @@ function HeatPattern({
         </text>
         <text
           className="axis-title"
-          x={width - 15}
+          x={(pad.x + width - 18) / 2}
           y={height - 1}
-          textAnchor="end"
+          textAnchor="middle"
         >
           時間 (min)
         </text>

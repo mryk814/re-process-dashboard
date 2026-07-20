@@ -58,7 +58,10 @@ def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
     }
     task = client.get("/api/projects/default/task-definition").json()
     assert task["task_id"] == "annealed-properties-v1"
-    assert [item["field"] for item in task["inputs"][-2:]] == ["thickness", "lineSpeed"]
+    assert [item["field"] for item in task["inputs"]] == [
+        "C", "Si", "Mn", "P", "S", "Cr", "Mo", "Ni", "Al", "Ti", "B", "N", "O", "Ca",
+    ]
+    assert task["derived_inputs"] == []
     assert {item["key"] for item in task["outputs"]} == {"TS", "YS", "EL", "lambda"}
     assert all(item["goal_direction"] == "at_least" for item in task["outputs"])
     candidate = client.post("/api/candidates", json=_payload()).json()
