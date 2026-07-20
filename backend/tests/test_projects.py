@@ -70,15 +70,91 @@ def test_project_crud_preserves_default_and_isolates_candidates_and_screening(cl
         "samples": 48,
         "target": "TS",
         "target_value": 500,
+        "secondary_targets": {"YS": 350},
         "variables": {"composition.C": {"mode": "range", "min": 0.06, "max": 0.1}},
     }
     run = client.post(f"/api/screening?project_id={project['id']}", json=screening_body)
     assert run.status_code == 201
+    assert set(run.json()["points"][0]["predictions"]) == {"TS", "YS", "EL", "lambda"}
+    assert "YS" in run.json()["points"][0]["secondary_goal_evaluations"]
     run_id = run.json()["id"]
+    batch = client.post(f"/api/screening/{run_id}/candidates?project_id={project['id']}", json={"point_indices": [0, 1]})
+    assert batch.status_code == 201
+    assert len(batch.json()["candidates"]) == 2
+    assert {item["provenance"]["source_ref"]["point_index"] for item in batch.json()["candidates"]} == {0, 1}
+    duplicate = client.post(f"/api/screening/{run_id}/candidates?project_id={project['id']}", json={"point_indices": [0]})
+    assert duplicate.status_code == 201
+    assert duplicate.json() == {"candidates": [], "skipped_point_indices": [0]}
     assert [item["id"] for item in client.get(f"/api/screening?project_id={project['id']}").json()] == [run_id]
     assert client.get("/api/screening").json() == []
     assert client.get(f"/api/screening/{run_id}").status_code == 404
     assert client.post("/api/screening", json=screening_body).status_code == 404
+
+
+def test_screening_accepts_hot_rolling_process_fields_from_task_definition(client) -> None:
+    base = client.get("/api/projects/hot-rolling-default/candidates").json()[0]
+    response = client.post(
+        "/api/screening?project_id=hot-rolling-default",
+        json={
+            "base_candidate_id": base["id"],
+            "samples": 48,
+            "target": "TS",
+            "target_value": 520,
+            "variables": {
+                "process.reheat_temperature_c": {"mode": "range", "min": 1170, "max": 1190},
+                "categorical.route": {"mode": "list", "values": ["A", "B"]},
+            },
+        },
+    )
+    assert response.status_code == 201, response.text
+    point = response.json()["points"][0]
+    assert set(point["predictions"]) == {"TS"}
+    assert 1170 <= point["inputs"]["process.reheat_temperature_c"] <= 1190
+    assert point["inputs"]["categorical.route"] in {"A", "B"}
+
+
+def test_screening_samples_only_hot_rolling_points_that_satisfy_relational_constraints(client) -> None:
+    base = client.get("/api/projects/hot-rolling-default/candidates").json()[0]
+    response = client.post(
+        "/api/screening?project_id=hot-rolling-default",
+        json={
+            "base_candidate_id": base["id"],
+            "samples": 48,
+            "target": "TS",
+            "variables": {
+                "process.reheat_temperature_c": {"mode": "range", "min": 880, "max": 920},
+                "process.finish_temperature_c": {"mode": "range", "min": 880, "max": 920},
+            },
+        },
+    )
+    assert response.status_code == 201
+    points = response.json()["points"]
+    assert len(points) == 48
+    assert all(
+        point["inputs"]["process.finish_temperature_c"] <= point["inputs"]["process.reheat_temperature_c"]
+        for point in points
+    )
+
+
+def test_screening_accepts_heat_pattern_point_fields_from_base_candidate(client) -> None:
+    base = client.get("/api/projects/default/candidates").json()[0]
+    response = client.post(
+        "/api/screening",
+        json={
+            "base_candidate_id": base["id"],
+            "samples": 48,
+            "target": "TS",
+            "variables": {
+                "heat_pattern.1.temperature_c": {"mode": "range", "min": 780, "max": 820},
+                "heat_pattern.1.time_s": {"mode": "range", "min": 40, "max": 50},
+            },
+        },
+    )
+    assert response.status_code == 201, response.text
+    point = response.json()["points"][0]
+    assert 780 <= point["inputs"]["heat_pattern.1.temperature_c"] <= 820
+    assert 40 <= point["inputs"]["heat_pattern.1.time_s"] <= 50
+    assert point["candidate"]["inputs"]["heat_pattern"][1]["temperature_c"] == point["inputs"]["heat_pattern.1.temperature_c"]
 
 
 def test_project_accepts_each_registered_task_and_rejects_wrong_targets(client) -> None:
@@ -118,7 +194,7 @@ def test_candidate_limit_is_enforced_for_every_creation_route(client) -> None:
     direct = client.post(f"/api/projects/{project_id}/candidates", json=_candidate("11件目"))
     assert direct.status_code == 409 and "最大10件" in direct.json()["message"]
     assert client.post(f"/api/lineage/AN-00001/candidate?project_id={project_id}").status_code == 409
-    assert client.post(f"/api/screening/{screening['id']}/points/0/candidate?project_id={project_id}").status_code == 409
+    assert client.post(f"/api/screening/{screening['id']}/candidates?project_id={project_id}", json={"point_indices": [0]}).status_code == 409
     assert client.post(f"/api/projects/{project_id}/snapshots/{snapshot['id']}/restore").status_code == 409
     imported = client.post(
         f"/api/projects/{project_id}/candidates/import",

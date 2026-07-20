@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from copy import deepcopy
 from io import BytesIO
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 from openpyxl import Workbook, load_workbook
@@ -15,22 +15,24 @@ from .screening_score import GoalDirection, evaluate_screening_goal, score_contr
 
 
 COMPOSITION_COLUMNS = composition_names(task_id="annealed-properties-v1")
-SCREENABLE_FIELDS = {"thickness_mm", "line_speed_m_min", "coating", "max_temperature_c", *(f"composition.{name}" for name in COMPOSITION_COLUMNS)}
 SCREENING_SEED = 20260719
 
 
 def _set_screen_value(candidate: Candidate, name: str, value: float | str) -> Candidate:
     updated = candidate.model_copy(deep=True)
-    if name.startswith("composition."):
-        updated.inputs.composition[name.removeprefix("composition.")] = float(value)
-    elif name == "max_temperature_c":
-        points = updated.inputs.heat_pattern or []
-        peak = max(range(len(points)), key=lambda index: points[index].temperature_c)
-        points[peak].temperature_c = float(value)
-    elif name == "coating":
-        updated.inputs.categorical["coating"] = str(value)
-    else:
-        updated.inputs.process[name] = float(value)
+    heat_parts = name.split(".")
+    if len(heat_parts) == 3 and heat_parts[0] == "heat_pattern" and heat_parts[1].isdigit() and heat_parts[2] in {"time_s", "temperature_c"}:
+        points = updated.inputs.heat_pattern
+        index = int(heat_parts[1])
+        if points is None or index >= len(points):
+            raise ValueError(f"ヒートパターンに存在しない点です: {name}")
+        setattr(points[index], heat_parts[2], float(value))
+        return updated
+    group, separator, field = name.partition(".")
+    if not separator or group not in {"composition", "process", "categorical"}:
+        raise ValueError(f"スクリーニング対象外の変数です: {name}")
+    values = getattr(updated.inputs, group)
+    values[field] = str(value) if group == "categorical" else float(value)
     return updated
 
 
@@ -39,64 +41,95 @@ def run_latin_hypercube(
     base: Candidate,
     request: ScreeningRequest,
     *,
-    goal_direction: GoalDirection | None,
-    probability_available: bool,
+    goal_directions: dict[str, GoalDirection | None],
+    probability_available: dict[str, bool],
+    candidate_validator: Callable[[CandidateInput], None],
 ) -> dict[str, Any]:
-    unknown = sorted(set(request.variables) - SCREENABLE_FIELDS)
-    if unknown:
-        raise ValueError(f"スクリーニング対象外の変数です: {', '.join(unknown)}")
     rng = np.random.default_rng(SCREENING_SEED)
+    pool_size = request.samples * 4
     sample_values: dict[str, list[float | str]] = {}
     for name in sorted(request.variables):
         spec = request.variables[name]
         if spec.mode == "fixed":
-            sample_values[name] = [spec.value] * request.samples  # type: ignore[list-item]
+            sample_values[name] = [spec.value] * pool_size  # type: ignore[list-item]
         elif spec.mode == "range":
-            permutation = rng.permutation(request.samples)
-            sample_values[name] = [float(spec.min + (permutation[index] + rng.random()) / request.samples * (spec.max - spec.min)) for index in range(request.samples)]  # type: ignore[operator]
+            permutation = rng.permutation(pool_size)
+            sample_values[name] = [float(spec.min + (permutation[index] + rng.random()) / pool_size * (spec.max - spec.min)) for index in range(pool_size)]  # type: ignore[operator]
         else:
             values = spec.values or []
-            permutation = rng.permutation(request.samples)
-            sample_values[name] = [values[int(np.floor((permutation[index] + rng.random()) / request.samples * len(values))) % len(values)] for index in range(request.samples)]
+            permutation = rng.permutation(pool_size)
+            sample_values[name] = [values[int(np.floor((permutation[index] + rng.random()) / pool_size * len(values))) % len(values)] for index in range(pool_size)]
     points: list[dict[str, Any]] = []
     base_prediction = runtime.predict(base, detailed=False)
-    for index in range(request.samples):
+    for sample_index in range(pool_size):
+        if len(points) >= request.samples:
+            break
         candidate = base.model_copy(deep=True)
-        applied = {name: sample_values[name][index] for name in sorted(sample_values)}
+        applied = {name: sample_values[name][sample_index] for name in sorted(sample_values)}
         for name, value in applied.items():
             candidate = _set_screen_value(candidate, name, value)
-        candidate_input = CandidateInput.model_validate(candidate.model_dump())
+        try:
+            candidate_input = CandidateInput.model_validate(candidate.model_dump())
+            candidate_validator(candidate_input)
+        except ValueError:
+            continue
         candidate = Candidate.model_validate({**candidate.model_dump(), **candidate_input.model_dump()})
+        target_values = {
+            key: value
+            for key, value in {request.target: request.target_value, **request.secondary_targets}.items()
+            if value is not None and probability_available.get(key, False)
+        }
         prediction = runtime.predict(
             candidate,
             detailed=False,
-            target_values={} if request.target_value is None or not probability_available else {request.target: request.target_value},
+            target_values=target_values,
         )
         selected = prediction["predictions"][request.target]
         support = prediction["support"]
         evaluation = evaluate_screening_goal(
             selected.value,
             target_value=request.target_value,
-            direction=goal_direction,
-            at_least_probability=selected.goal_probability if probability_available else None,
+            direction=goal_directions.get(request.target),
+            at_least_probability=selected.goal_probability if probability_available.get(request.target, False) else None,
             support_distance=support.distance,
         )
+        secondary_evaluations = {
+            key: evaluate_screening_goal(
+                prediction["predictions"][key].value,
+                target_value=value,
+                direction=goal_directions.get(key),
+                at_least_probability=prediction["predictions"][key].goal_probability if probability_available.get(key, False) else None,
+                support_distance=support.distance,
+            )
+            for key, value in request.secondary_targets.items()
+        }
         prediction_payload = selected.model_dump()
-        prediction_payload["goal_direction"] = goal_direction
+        prediction_payload["goal_direction"] = goal_directions.get(request.target)
+        predictions_payload = {}
+        for key, item in prediction["predictions"].items():
+            predictions_payload[key] = item.model_dump()
+            predictions_payload[key]["goal_direction"] = goal_directions.get(key)
         points.append({
-            "index": index,
+            "index": len(points),
             "inputs": applied,
             "candidate": CandidateInput.model_validate(candidate.model_dump()).model_dump(mode="json"),
             "prediction": prediction_payload,
+            "predictions": predictions_payload,
             "color_value": selected.value,
             "support": support.model_dump(),
+            "warnings": prediction.get("warnings", []),
+            "similar": [item.model_dump() if hasattr(item, "model_dump") else item for item in prediction.get("similar", [])],
             "score": None if evaluation.score is None else round(float(evaluation.score), 6),
             "goal_evaluation": evaluation.model_dump(),
+            "secondary_goal_evaluations": {key: item.model_dump() for key, item in secondary_evaluations.items()},
         })
+    if len(points) < request.samples:
+        raise ValueError(f"指定範囲では制約を満たす点を{request.samples}件作れませんでした。範囲を見直してください")
     support_rank = {"supported": 0, "caution": 1, "extrapolated": 2}
     ranked = sorted(
         points,
         key=lambda point: (
+            sum(item["achieved"] is False for item in point["secondary_goal_evaluations"].values()),
             point["score"] is None,
             point["score"] if point["score"] is not None else support_rank[point["support"]["status"]],
             support_rank[point["support"]["status"]],
@@ -104,16 +137,18 @@ def run_latin_hypercube(
         ),
     )
     return {
+        "schema_version": "screening-run/v2",
         "seed": SCREENING_SEED,
         "base_candidate_id": base.id,
         "base_canonical_input": base_prediction["canonical_input"],
         "model_provenance": base_prediction["model_meta"],
         "target": request.target,
         "target_value": request.target_value,
+        "secondary_targets": request.secondary_targets,
         "score_contract": score_contract(
-            goal_direction,
+            goal_directions.get(request.target),
             request.target_value,
-            probability_available=probability_available,
+            probability_available=probability_available.get(request.target, False),
         ),
         "samples": request.samples,
         "variables": {name: spec.model_dump() for name, spec in request.variables.items()},

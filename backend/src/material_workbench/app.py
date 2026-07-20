@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import csv
 import importlib.util
+import math
 from collections import Counter
 from contextlib import asynccontextmanager
 from io import BytesIO, StringIO
@@ -44,6 +45,8 @@ from .schemas import (
     ResponseCurvesResponse,
     ResponseCurvesResult,
     ScreeningRequest,
+    ScreeningCandidateBatchRequest,
+    ScreeningCandidateBatchResponse,
     ScreeningRunResponse,
     SimilarObservation,
     SnapshotResponse,
@@ -777,25 +780,59 @@ def create_app(
     @app.post("/api/screening", status_code=201, response_model=ScreeningRunResponse)
     def screening(payload: ScreeningRequest, project_id: str = "default") -> dict[str, Any]:
         project = require_project(project_id)
+        definition = task_registry().contract_for(project.task_id).task_definition
+        base = store().get_candidate(payload.base_candidate_id, project_id)
+        if not base:
+            raise HTTPException(404, "基準候補が見つかりません")
+        screenable_fields = {
+            field.path: field
+            for group in definition.input_groups
+            for field in group.fields
+            if field.editable and field.kind != "heat_pattern"
+        }
+        heat_pattern_paths = {
+            f"heat_pattern.{index}.{field}"
+            for index, _ in enumerate(base.inputs.heat_pattern or [])
+            for field in ("time_s", "temperature_c")
+        } if any(field.editable and field.kind == "heat_pattern" for group in definition.input_groups for field in group.fields) else set()
+        unknown_variables = sorted(set(payload.variables) - set(screenable_fields) - heat_pattern_paths)
+        if unknown_variables:
+            raise HTTPException(422, f"この予測タスクで探索できない変数です: {', '.join(unknown_variables)}")
+        for path, spec in payload.variables.items():
+            field = screenable_fields.get(path)
+            values = [spec.value] if spec.mode == "fixed" else spec.values or []
+            if field is not None and field.kind == "categorical":
+                if spec.mode == "range" or any(not isinstance(value, str) or value not in field.choices for value in values):
+                    raise HTTPException(422, f"{field.label}は定義済み選択肢から指定してください")
+            elif spec.mode in {"fixed", "list"} and any(
+                not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(float(value))
+                for value in values
+            ):
+                raise HTTPException(422, f"{field.label if field is not None else 'ヒートパターン'}には有限の数値を指定してください")
+            elif spec.mode == "range" and (not math.isfinite(float(spec.min)) or not math.isfinite(float(spec.max))):
+                raise HTTPException(422, f"{field.label if field is not None else 'ヒートパターン'}には有限の範囲を指定してください")
         output = next(
-            (item for item in task_registry().contract_for(project.task_id).task_definition.outputs if item.key == payload.target),
+            (item for item in definition.outputs if item.key == payload.target),
             None,
         )
         if output is None:
             raise HTTPException(422, "この予測タスクにない目標特性です")
-        target_capability = next(
-            item for item in task_registry().contract_for(project.task_id).runtime_capability.targets if item.target == payload.target
-        )
-        base = store().get_candidate(payload.base_candidate_id, project_id)
-        if not base:
-            raise HTTPException(404, "基準候補が見つかりません")
+        outputs = {item.key: item for item in definition.outputs}
+        unknown_secondary = sorted((set(payload.secondary_targets) - set(outputs)) | ({payload.target} & set(payload.secondary_targets)))
+        if unknown_secondary:
+            raise HTTPException(422, f"副条件の特性を確認してください: {', '.join(unknown_secondary)}")
+        capabilities = {
+            item.target: item
+            for item in task_registry().contract_for(project.task_id).runtime_capability.targets
+        }
         try:
             result = run_latin_hypercube(
                 task_registry().runtime_for(project.task_id),
                 base,
                 payload,
-                goal_direction=output.goal_direction,
-                probability_available=target_capability.goal_probability != "unavailable",
+                goal_directions={key: item.goal_direction for key, item in outputs.items()},
+                probability_available={key: item.goal_probability != "unavailable" for key, item in capabilities.items()},
+                candidate_validator=lambda candidate: task_registry().validate_candidate(project.task_id, candidate),
             )
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
@@ -813,23 +850,34 @@ def create_app(
             raise HTTPException(404, "スクリーニング結果が見つかりません")
         return run
 
-    @app.post("/api/screening/{run_id}/points/{point_index}/candidate", status_code=201, response_model=Candidate, responses=PROJECT_API_ERRORS)
-    def screening_point_to_candidate(run_id: str, point_index: int, project_id: str = "default") -> dict[str, Any]:
+    @app.post("/api/screening/{run_id}/candidates", status_code=201, response_model=ScreeningCandidateBatchResponse, responses=PROJECT_API_ERRORS)
+    def screening_points_to_candidates(run_id: str, payload: ScreeningCandidateBatchRequest, project_id: str = "default") -> dict[str, Any]:
         run = store().get_screening_run(run_id, project_id)
         if not run:
             raise HTTPException(404, "スクリーニング結果が見つかりません")
-        point = next((item for item in run["points"] if item["index"] == point_index), None)
-        if not point:
-            raise HTTPException(404, "スクリーニング点が見つかりません")
-        payload = CandidateInput.model_validate({
-            **point["candidate"],
-            "name": f"Screen {run_id[:6]} #{point_index + 1}",
+        points = {item["index"]: item for item in run["points"]}
+        unique_indices = list(dict.fromkeys(payload.point_indices))
+        missing = [index for index in unique_indices if index not in points]
+        if missing:
+            raise HTTPException(404, f"スクリーニング点が見つかりません: {', '.join(map(str, missing))}")
+        candidate_payloads = [(index, CandidateInput.model_validate({
+            **points[index]["candidate"],
+            "name": f"Screen {run_id[:6]} #{index + 1}",
             "provenance": {
                 "source_kind": "screening",
-                "source_ref": {"run_id": run_id, "point_id": str(point_index), "point_index": point_index},
+                "source_ref": {"run_id": run_id, "point_id": str(index), "point_index": index},
             },
-        })
-        return create_candidate_in_project(payload, project_id).model_dump(mode="json")
+        })) for index in unique_indices]
+        project = require_project(project_id)
+        try:
+            for _, candidate_payload in candidate_payloads:
+                task_registry().validate_candidate(project.task_id, candidate_payload)
+            created, skipped = store().create_screening_candidates(candidate_payloads, run_id, project_id)
+        except CandidateLimitError as exc:
+            raise DomainApiException(409, "candidate_limit", str(exc)) from exc
+        except (TaskRegistryError, ValueError) as exc:
+            raise HTTPException(422, str(exc)) from exc
+        return {"candidates": created, "skipped_point_indices": skipped}
 
     @app.get("/api/projects/{project_id}/candidates/{candidate_id}/snapshots", response_model=list[SnapshotResponse])
     def snapshots(project_id: str, candidate_id: str) -> list[dict[str, Any]]:

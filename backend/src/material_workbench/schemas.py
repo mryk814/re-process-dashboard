@@ -173,35 +173,14 @@ class ScreeningRequest(BaseModel):
     samples: Annotated[int, Field(ge=48, le=128)] = 64
     target: Annotated[str, Field(min_length=1)] = "TS"
     target_value: float | None = None
+    secondary_targets: dict[str, float] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def variables_match_their_fields(self) -> "ScreeningRequest":
-        composition_fields = {"composition.C", "composition.Si", "composition.Mn", "composition.P", "composition.S", "composition.Cr", "composition.Mo", "composition.Ni", "composition.Al", "composition.Ti", "composition.B", "composition.N", "composition.O", "composition.Ca"}
-        numeric_fields = composition_fields | {"thickness_mm", "line_speed_m_min", "max_temperature_c"}
-        allowed = numeric_fields | {"coating"}
-        unknown = sorted(set(self.variables) - allowed)
-        if unknown:
-            raise ValueError(f"スクリーニング対象外の変数です: {', '.join(unknown)}")
         if self.target_value is not None and not math.isfinite(self.target_value):
             raise ValueError("target_valueは有限の数値にしてください")
-        for name, spec in self.variables.items():
-            if name == "coating":
-                if spec.mode == "range":
-                    raise ValueError("coatingにはrangeを指定できません")
-                values = [spec.value] if spec.mode == "fixed" else (spec.values or [])
-                if any(not isinstance(value, str) or value not in {"なし", "GI", "GA"} for value in values):
-                    raise ValueError("coatingは なし / GI / GA のいずれかにしてください")
-                continue
-            if spec.mode == "fixed":
-                if not isinstance(spec.value, (int, float)) or isinstance(spec.value, bool) or not math.isfinite(float(spec.value)):
-                    raise ValueError(f"{name}のfixed値は有限の数値にしてください")
-            elif spec.mode == "range":
-                if not math.isfinite(float(spec.min)) or not math.isfinite(float(spec.max)):
-                    raise ValueError(f"{name}のrangeは有限の数値にしてください")
-            else:
-                values = spec.values or []
-                if any(not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(float(value)) for value in values):
-                    raise ValueError(f"{name}のlist値は有限の数値にしてください")
+        if any(not math.isfinite(value) for value in self.secondary_targets.values()):
+            raise ValueError("secondary_targetsは有限の数値にしてください")
         return self
 
 
@@ -480,10 +459,14 @@ class ScreeningPoint(BaseModel):
     inputs: dict[str, float | str]
     candidate: CandidateInput
     prediction: Prediction
+    predictions: dict[str, Prediction] = Field(default_factory=dict)
     color_value: float
     support: Support
+    warnings: list[str] = Field(default_factory=list)
+    similar: list[SimilarObservation] = Field(default_factory=list)
     score: float | None
     goal_evaluation: "ScreeningGoalEvaluation"
+    secondary_goal_evaluations: dict[str, "ScreeningGoalEvaluation"] = Field(default_factory=dict)
 
 
 class ScreeningGoalEvaluation(BaseModel):
@@ -504,6 +487,7 @@ class ScreeningScoreContract(BaseModel):
 
 
 class ScreeningRunResponse(BaseModel):
+    schema_version: Literal["screening-run/v1", "screening-run/v2"] = "screening-run/v1"
     id: str
     project_id: str
     created_at: datetime
@@ -513,11 +497,21 @@ class ScreeningRunResponse(BaseModel):
     model_provenance: ModelMetadata
     target: str
     target_value: float | None
+    secondary_targets: dict[str, float] = Field(default_factory=dict)
     score_contract: ScreeningScoreContract
     samples: int
     variables: dict[str, ScreeningVariable]
     points: list[ScreeningPoint]
     representative_points: list[ScreeningPoint]
+
+
+class ScreeningCandidateBatchRequest(BaseModel):
+    point_indices: Annotated[list[int], Field(min_length=1, max_length=10)]
+
+
+class ScreeningCandidateBatchResponse(BaseModel):
+    candidates: list[Candidate]
+    skipped_point_indices: list[int] = Field(default_factory=list)
 
 
 class PredictionComparison(BaseModel):

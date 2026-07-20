@@ -107,12 +107,14 @@ def test_hot_rolling_screening_keeps_project_scope_and_nested_candidate_contract
     run = response.json()
     assert run["score_contract"]["direction"] == "at_least"
     created = client.post(
-        f"/api/screening/{run['id']}/points/0/candidate?project_id={project_id}",
+        f"/api/screening/{run['id']}/candidates?project_id={project_id}",
+        json={"point_indices": [0]},
     )
     assert created.status_code == 201
-    assert created.json()["project_id"] == project_id
-    assert set(created.json()["inputs"]) == {"composition", "process", "categorical", "heat_pattern"}
-    assert created.json()["provenance"]["source_kind"] == "screening"
+    candidate_from_point = created.json()["candidates"][0]
+    assert candidate_from_point["project_id"] == project_id
+    assert set(candidate_from_point["inputs"]) == {"composition", "process", "categorical", "heat_pattern"}
+    assert candidate_from_point["provenance"]["source_kind"] == "screening"
 
 
 def test_hot_rolling_project_runs_the_full_common_candidate_flow(client) -> None:

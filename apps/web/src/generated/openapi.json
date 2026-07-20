@@ -3005,6 +3005,47 @@
         "title": "RuntimeOperationsCapability",
         "type": "object"
       },
+      "ScreeningCandidateBatchRequest": {
+        "properties": {
+          "point_indices": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Point Indices",
+            "type": "array"
+          }
+        },
+        "required": [
+          "point_indices"
+        ],
+        "title": "ScreeningCandidateBatchRequest",
+        "type": "object"
+      },
+      "ScreeningCandidateBatchResponse": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/Candidate"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "skipped_point_indices": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Skipped Point Indices",
+            "type": "array"
+          }
+        },
+        "required": [
+          "candidates"
+        ],
+        "title": "ScreeningCandidateBatchResponse",
+        "type": "object"
+      },
       "ScreeningGoalEvaluation": {
         "properties": {
           "achieved": {
@@ -3093,6 +3134,13 @@
           "prediction": {
             "$ref": "#/components/schemas/Prediction"
           },
+          "predictions": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Prediction"
+            },
+            "title": "Predictions",
+            "type": "object"
+          },
           "score": {
             "anyOf": [
               {
@@ -3104,8 +3152,29 @@
             ],
             "title": "Score"
           },
+          "secondary_goal_evaluations": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ScreeningGoalEvaluation"
+            },
+            "title": "Secondary Goal Evaluations",
+            "type": "object"
+          },
+          "similar": {
+            "items": {
+              "$ref": "#/components/schemas/SimilarObservation"
+            },
+            "title": "Similar",
+            "type": "array"
+          },
           "support": {
             "$ref": "#/components/schemas/Support"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
           }
         },
         "required": [
@@ -3167,6 +3236,13 @@
             "minimum": 48.0,
             "title": "Samples",
             "type": "integer"
+          },
+          "secondary_targets": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Secondary Targets",
+            "type": "object"
           },
           "target": {
             "default": "TS",
@@ -3246,8 +3322,24 @@
             "title": "Samples",
             "type": "integer"
           },
+          "schema_version": {
+            "default": "screening-run/v1",
+            "enum": [
+              "screening-run/v1",
+              "screening-run/v2"
+            ],
+            "title": "Schema Version",
+            "type": "string"
+          },
           "score_contract": {
             "$ref": "#/components/schemas/ScreeningScoreContract"
+          },
+          "secondary_targets": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Secondary Targets",
+            "type": "object"
           },
           "seed": {
             "title": "Seed",
@@ -6188,9 +6280,9 @@
         "summary": "Get Screening Run"
       }
     },
-    "/api/screening/{run_id}/points/{point_index}/candidate": {
+    "/api/screening/{run_id}/candidates": {
       "post": {
-        "operationId": "screening_point_to_candidate_api_screening__run_id__points__point_index__candidate_post",
+        "operationId": "screening_points_to_candidates_api_screening__run_id__candidates_post",
         "parameters": [
           {
             "in": "path",
@@ -6199,15 +6291,6 @@
             "schema": {
               "title": "Run Id",
               "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "point_index",
-            "required": true,
-            "schema": {
-              "title": "Point Index",
-              "type": "integer"
             }
           },
           {
@@ -6221,12 +6304,22 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScreeningCandidateBatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "201": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Candidate"
+                  "$ref": "#/components/schemas/ScreeningCandidateBatchResponse"
                 }
               }
             },
@@ -6263,7 +6356,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Screening Point To Candidate"
+        "summary": "Screening Points To Candidates"
       }
     },
     "/api/task-definitions": {
