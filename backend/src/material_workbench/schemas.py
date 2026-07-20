@@ -245,6 +245,7 @@ class RepeatSummary(BaseModel):
 
 class SimilarObservation(BaseModel):
     observation_id: str = ""
+    observation_ids: list[str] = Field(default_factory=list)
     parent_key: str
     source: str = ""
     layer: Literal["training", "historical"] | None = None

@@ -3136,6 +3136,13 @@
             "title": "Observation Id",
             "type": "string"
           },
+          "observation_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Observation Ids",
+            "type": "array"
+          },
           "outputs": {
             "additionalProperties": {
               "type": "number"

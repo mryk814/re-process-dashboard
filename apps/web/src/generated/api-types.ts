@@ -1752,6 +1752,8 @@ export interface components {
              * @default
              */
             observation_id: string;
+            /** Observation Ids */
+            observation_ids?: string[];
             /** Outputs */
             outputs?: {
                 [key: string]: number;
