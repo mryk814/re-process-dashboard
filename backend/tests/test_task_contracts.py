@@ -229,6 +229,22 @@ def test_provenance_source_kind_controls_source_ref_shape() -> None:
         TaskContractFixture.model_validate(raw)
 
 
+@pytest.mark.parametrize(
+    "provenance",
+    [
+        {"source_kind": "direct", "source_ref": None},
+        {"source_kind": "copy", "source_ref": {"project_id": "default", "candidate_id": "candidate-1", "candidate_revision": 1}},
+    ],
+)
+def test_direct_and_copy_provenance_are_typed(provenance: dict[str, object]) -> None:
+    raw = load_fixture("annealed-properties-v1.json")
+    raw["canonical_candidate"]["provenance"] = provenance
+
+    fixture = TaskContractFixture.model_validate(raw)
+
+    assert fixture.canonical_candidate.provenance.source_kind == provenance["source_kind"]
+
+
 def test_runtime_goal_probability_requires_its_declared_representation() -> None:
     raw = load_fixture("hot-rolled-properties-v1.json")
     target = raw["runtime_capability"]["targets"][0]

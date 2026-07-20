@@ -148,7 +148,14 @@ def candidate_from_lineage(data: WorkbookData, entity_key: str) -> CandidateInpu
             "categorical": {"coating": str(feature["coating"])},
             "heat_pattern": heat_pattern,
         },
-        provenance={"source_kind": "lineage", "source_ref": {"entity_type": "annealing", "entity_key": anneal_key}},
+        provenance={
+            "source_kind": "lineage",
+            "source_ref": {
+                "entity_type": "annealing",
+                "entity_key": anneal_key,
+                "data_source_digest": data.source_sha256,
+            },
+        },
     )
 
 

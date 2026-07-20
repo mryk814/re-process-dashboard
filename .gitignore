@@ -14,3 +14,5 @@ artifacts/
 *.pyc
 *.log
 *.tsbuildinfo
+playwright-report/
+test-results/

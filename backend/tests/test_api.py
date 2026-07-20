@@ -120,6 +120,90 @@ def test_snapshot_is_immutable_after_candidate_edit(client) -> None:
     assert provenance["similarity"]["version"]
 
 
+def test_candidate_provenance_is_typed_persisted_and_immutable(client) -> None:
+    source = client.post("/api/projects/default/candidates", json=_payload("コピー元")).json()
+    copied_payload = _payload("コピー先")
+    copied_payload["provenance"] = {
+        "source_kind": "copy",
+        "source_ref": {
+            "project_id": "default",
+            "candidate_id": source["id"],
+            "candidate_revision": source["revision"],
+        },
+    }
+    copied = client.post("/api/projects/default/candidates", json=copied_payload)
+    assert copied.status_code == 201
+    assert copied.json()["provenance"] == copied_payload["provenance"]
+
+    renamed = deepcopy(copied_payload)
+    renamed["name"] = "名前だけ変更"
+    renamed["expected_revision"] = copied.json()["revision"]
+    assert client.put(
+        f"/api/projects/default/candidates/{copied.json()['id']}", json=renamed
+    ).status_code == 200
+
+    rewritten = deepcopy(renamed)
+    rewritten["provenance"] = {"source_kind": "direct", "source_ref": None}
+    rejected = client.put(
+        f"/api/projects/default/candidates/{copied.json()['id']}", json=rewritten
+    )
+    assert rejected.status_code == 409
+    assert rejected.json()["code"] == "candidate_provenance_immutable"
+    assert "作成元は変更できません" in rejected.json()["message"]
+
+    missing_source = deepcopy(copied_payload)
+    missing_source["provenance"]["source_ref"]["candidate_id"] = "missing"
+    invalid = client.post("/api/projects/default/candidates", json=missing_source)
+    assert invalid.status_code == 422
+    assert "コピー元候補が見つかりません" in invalid.json()["message"]
+
+    stale_source = deepcopy(copied_payload)
+    stale_source["provenance"]["source_ref"]["candidate_revision"] = source["revision"] + 1
+    invalid_revision = client.post("/api/projects/default/candidates", json=stale_source)
+    assert invalid_revision.status_code == 422
+    assert "revisionが一致しません" in invalid_revision.json()["message"]
+
+
+def test_snapshot_source_can_be_deep_linked_only_inside_its_project(client) -> None:
+    candidate = client.post("/api/projects/default/candidates", json=_payload("保存元")).json()
+    snapshot = client.post(
+        f"/api/projects/default/candidates/{candidate['id']}/snapshots"
+    ).json()
+    opened = client.get(f"/api/projects/default/snapshots/{snapshot['id']}")
+    assert opened.status_code == 200
+    assert opened.json()["candidate_id"] == candidate["id"]
+    assert client.get(
+        f"/api/projects/hot-rolling-default/snapshots/{snapshot['id']}"
+    ).status_code == 404
+
+
+def test_archived_copy_source_remains_resolvable(client) -> None:
+    source = client.post("/api/projects/default/candidates", json=_payload("archive元")).json()
+    client.post(f"/api/projects/default/candidates/{source['id']}/snapshots")
+    archived = client.delete(
+        f"/api/projects/default/candidates/{source['id']}",
+        params={"expected_revision": source["revision"]},
+    )
+    assert archived.status_code == 204
+    source_after_archive = client.get(
+        f"/api/projects/default/candidates/{source['id']}",
+        params={"include_archived": True},
+    ).json()
+    assert source_after_archive["archived_at"] is not None
+
+    copied_payload = _payload("archive元から複製")
+    copied_payload["provenance"] = {
+        "source_kind": "copy",
+        "source_ref": {
+            "project_id": "default",
+            "candidate_id": source["id"],
+            "candidate_revision": source_after_archive["revision"],
+        },
+    }
+    copied = client.post("/api/projects/default/candidates", json=copied_payload)
+    assert copied.status_code == 201
+
+
 def test_electron_file_origin_is_allowed_without_credentials(client) -> None:
     response = client.options(
         "/api/health",

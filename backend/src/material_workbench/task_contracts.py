@@ -183,9 +183,15 @@ class ManualSourceRef(ContractModel):
     source_ref: None = None
 
 
+class DirectSourceRef(ContractModel):
+    source_kind: Literal["direct"]
+    source_ref: None = None
+
+
 class LineageReference(ContractModel):
     entity_type: Annotated[str, Field(min_length=1)]
     entity_key: Annotated[str, Field(min_length=1)]
+    data_source_digest: Annotated[str, Field(min_length=1)] | None = None
 
 
 class LineageSourceRef(ContractModel):
@@ -196,6 +202,7 @@ class LineageSourceRef(ContractModel):
 class ScreeningReference(ContractModel):
     run_id: Annotated[str, Field(min_length=1)]
     point_id: Annotated[str, Field(min_length=1)]
+    point_index: Annotated[int, Field(ge=0)] | None = None
 
 
 class ScreeningSourceRef(ContractModel):
@@ -212,8 +219,19 @@ class SnapshotSourceRef(ContractModel):
     source_ref: SnapshotReference
 
 
+class CopyReference(ContractModel):
+    project_id: Annotated[str, Field(min_length=1)]
+    candidate_id: Annotated[str, Field(min_length=1)]
+    candidate_revision: Annotated[int, Field(ge=1)]
+
+
+class CopySourceRef(ContractModel):
+    source_kind: Literal["copy"]
+    source_ref: CopyReference
+
+
 CandidateProvenance = Annotated[
-    ManualSourceRef | LineageSourceRef | ScreeningSourceRef | SnapshotSourceRef,
+    ManualSourceRef | DirectSourceRef | LineageSourceRef | ScreeningSourceRef | SnapshotSourceRef | CopySourceRef,
     Field(discriminator="source_kind"),
 ]
 

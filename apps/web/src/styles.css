@@ -127,6 +127,30 @@ select:focus-visible,
   align-items: center;
   gap: 8px;
 }
+.stock-button {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #aebed1;
+  border-radius: 4px;
+  background: #fff;
+  color: #33465f;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 650;
+}
+.stock-button b {
+  min-width: 22px;
+  border-radius: 999px;
+  background: #1f5fc4;
+  color: #fff;
+  padding: 2px 6px;
+  text-align: center;
+}
+.stock-button span {
+  color: #1f5fc4;
+}
 .api-state {
   font-size: 12px;
   padding: 4px 7px;
@@ -364,7 +388,49 @@ select:focus-visible,
   font-weight: 400;
   color: #637084;
 }
+.candidate-origin {
+  min-height: 40px;
+  margin: 0 0 10px;
+  padding: 7px 10px;
+  border: 1px solid #d8e0ea;
+  border-radius: 4px;
+  background: #f7f9fc;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: #53647a;
+}
+.candidate-origin span {
+  display: inline-flex;
+  gap: 7px;
+}
+.candidate-origin b {
+  color: #23354b;
+}
+.candidate-origin .outline-button {
+  min-height: 28px;
+  margin-left: auto;
+  padding: 3px 9px;
+  font-size: 12px;
+}
+.candidate-origin small {
+  margin-left: auto;
+}
+.candidate-origin.missing {
+  border-color: #e8bd75;
+  background: #fff8e9;
+}
+.candidate-origin em {
+  margin-left: auto;
+  color: #965b09;
+  font-style: normal;
+}
 .notice {
+  max-width: 360px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 12px;
   color: #5d6775;
 }

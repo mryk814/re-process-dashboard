@@ -1,6 +1,8 @@
 import { PointerEvent, useEffect, useRef, useState } from "react";
 import { HotRollingWorkbench } from "./HotRollingWorkbench";
 import { LatestSaveQueue, rebaseChangedFields } from "./latestSaveQueue";
+import { provenanceLabel, provenanceNavigation, type CandidateProvenance } from "./candidateProvenance";
+import { navigationUrl, readNavigationIntent, withView, type NavigationIntent, type WorkbenchView } from "./navigation";
 import { taskDefinitionView, type ResolvedTaskDefinition, type TaskDefinitionView, type TaskInputDefinition, type TaskOutputDefinition } from "./taskDefinition";
 import { ApiClientError, apiBaseUrl } from "./shared/api/client";
 import {
@@ -21,7 +23,7 @@ import {
   type ApiSnapshot,
 } from "./shared/api/workbench-api";
 
-type Tab = "project" | "candidates" | "hot-rolling" | "settings" | "quality" | "lineage" | "explore";
+type Tab = WorkbenchView;
 type Candidate = {
   raw: ApiCandidate;
   id: string;
@@ -103,7 +105,7 @@ const STARTER_CANDIDATE: ApiCandidateInput = {
       { time_s: 650, temperature_c: 120, segment_start: false },
     ],
   },
-  provenance: { source_kind: "manual" },
+  provenance: { source_kind: "direct", source_ref: null },
 };
 
 const navItems: Array<{ id: Tab; label: string }> = [
@@ -288,7 +290,9 @@ function Icon({
 }
 
 function App() {
-  const [tab, setTab] = useState<Tab>("candidates");
+  const [navigation, setNavigation] = useState<NavigationIntent>(() => readNavigationIntent());
+  const navigationRef = useRef(navigation);
+  const tab = navigation.view;
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [metrics, setMetrics] = useState<Metric[]>([]);
@@ -300,6 +304,7 @@ function App() {
     "loading",
   );
   const [notice, setNotice] = useState("候補を読み込んでいます");
+  const [brokenOriginCandidateId, setBrokenOriginCandidateId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [projects, setProjects] = useState<ApiProject[]>([]);
   const [taskDefinition, setTaskDefinition] = useState<TaskDefinitionView | null>(null);
@@ -312,13 +317,44 @@ function App() {
     (project) => project.id === activeProjectId,
   );
 
+  function navigate(intent: NavigationIntent, replace = false) {
+    const next = Object.freeze(intent);
+    navigationRef.current = next;
+    setNavigation(next);
+    window.history[replace ? "replaceState" : "pushState"]({}, "", navigationUrl(next));
+  }
+
+  function selectCandidate(candidateId: string, replace = true) {
+    setSelectedId(candidateId);
+    navigate({ view: "candidates", projectId: activeProjectId, candidateId }, replace);
+  }
+
+  function rememberCandidate(candidateId: string) {
+    setSelectedId(candidateId);
+    navigate({ ...navigationRef.current, projectId: activeProjectId, candidateId }, true);
+  }
+
   async function loadProject(projectId: string) {
     const sequence = ++loadSequence.current;
     setApiState("loading");
-    const [apiCandidates, resolved] = await Promise.all([
+    const requestedCandidateId = navigationRef.current.projectId === projectId
+      ? navigationRef.current.candidateId
+      : undefined;
+    const [listedCandidates, resolved] = await Promise.all([
       workbenchApi.listCandidates(projectId),
       workbenchApi.taskDefinition(projectId),
     ]);
+    let apiCandidates = listedCandidates;
+    let requestedCandidateMissing = false;
+    if (requestedCandidateId && !listedCandidates.some((candidate) => candidate.id === requestedCandidateId)) {
+      try {
+        const requestedCandidate = await workbenchApi.candidate(projectId, requestedCandidateId, true);
+        apiCandidates = [...listedCandidates, requestedCandidate];
+      } catch (cause) {
+        if (!(cause instanceof ApiClientError) || cause.status !== 404) throw cause;
+        requestedCandidateMissing = true;
+      }
+    }
     const imported = apiCandidates.map(fromApiCandidate);
     const definition = taskDefinitionView(resolved);
     if (sequence !== loadSequence.current) return;
@@ -327,19 +363,25 @@ function App() {
     setResolvedTaskDefinition(resolved);
     window.localStorage.setItem("material-workbench-project", projectId);
     setCandidates(imported);
-    setSelectedId(imported[0]?.id ?? "");
+    const nextSelectedId = imported.some((candidate) => candidate.id === requestedCandidateId)
+      ? requestedCandidateId!
+      : (imported[0]?.id ?? "");
+    setSelectedId(nextSelectedId);
+    navigate({ ...navigationRef.current, projectId, candidateId: nextSelectedId || undefined }, true);
     setMetrics([]);
     setPreview(null);
     setPreviewsByCandidate({});
     setApiState("ready");
     setNotice(
-      imported.length
+      requestedCandidateMissing
+        ? "参照元の候補は削除済みか、このプロジェクトから参照できません"
+        : imported.length
         ? "プロジェクトを切り替えました"
         : "候補がありません。過去条件または新規入力から追加できます",
     );
     if (!imported.length) return;
     const previewEntries = await Promise.all(
-      imported.map(async (candidate) => {
+      imported.filter((candidate) => !candidate.raw.archived_at).map(async (candidate) => {
         try {
           return [candidate.id, await workbenchApi.previewCandidate(projectId, candidate.id)] as const;
         } catch {
@@ -354,10 +396,13 @@ function App() {
       ),
     );
     setPreviewsByCandidate(loaded);
-    const first = loaded[imported[0].id];
-    if (first) {
-      setPreview(first);
-      setMetrics(metricsFromPreview(first));
+    const selectedPreviewId = navigationRef.current.projectId === projectId
+      ? navigationRef.current.candidateId
+      : nextSelectedId;
+    const selectedPreview = selectedPreviewId ? loaded[selectedPreviewId] : undefined;
+    if (selectedPreview) {
+      setPreview(selectedPreview);
+      setMetrics(metricsFromPreview(selectedPreview));
     }
   }
 
@@ -366,12 +411,15 @@ function App() {
     async function bootstrap() {
       try {
         const available = await workbenchApi.listProjects();
+        const requested = navigationRef.current.projectId;
         const remembered = window.localStorage.getItem(
           "material-workbench-project",
         );
-        const projectId = available.some((project) => project.id === remembered)
-          ? remembered!
-          : (available[0]?.id ?? "default");
+        const projectId = available.some((project) => project.id === requested)
+          ? requested!
+          : available.some((project) => project.id === remembered)
+            ? remembered!
+            : (available[0]?.id ?? "default");
         if (cancelled) return;
         setProjects(available);
         await loadProject(projectId);
@@ -391,7 +439,30 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const onPopState = () => {
+      const intent = readNavigationIntent();
+      navigationRef.current = intent;
+      setNavigation(intent);
+      const targetProjectId = intent.projectId ?? activeProjectId;
+      if (targetProjectId !== activeProjectId || (intent.candidateId && !candidates.some((candidate) => candidate.id === intent.candidateId))) {
+        void loadProject(targetProjectId);
+      } else if (intent.candidateId) {
+        setSelectedId(intent.candidateId);
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [activeProjectId, candidates]);
+
+  useEffect(() => {
     if (!selected) return;
+    if (selected.raw.archived_at) {
+      setApiState("ready");
+      setPreview(null);
+      setMetrics([]);
+      setNotice("archive済み候補を参照しています");
+      return;
+    }
     const controller = new AbortController();
     const candidateId = selected.id;
     setApiState("loading");
@@ -428,6 +499,33 @@ function App() {
       controller.abort();
     };
   }, [selected, activeProjectId]);
+
+  useEffect(() => {
+    const provenance = selected?.raw.provenance as CandidateProvenance | undefined;
+    if (!selected || provenance?.source_kind !== "copy") {
+      setBrokenOriginCandidateId(null);
+      return;
+    }
+    let cancelled = false;
+    workbenchApi.candidate(
+      provenance.source_ref.project_id,
+      provenance.source_ref.candidate_id,
+      true,
+    ).then(() => {
+      if (!cancelled) setBrokenOriginCandidateId(null);
+    }).catch((cause) => {
+      if (cancelled) return;
+      if (cause instanceof ApiClientError && cause.status === 404) {
+        setBrokenOriginCandidateId(selected.id);
+      } else {
+        setBrokenOriginCandidateId(null);
+        setNotice("作成元候補を一時的に確認できません。API接続を確認してください。");
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selected?.id]);
 
   const updateComposition = (id: string, element: string, raw: number) => {
     const current = candidates.find((candidate) => candidate.id === id);
@@ -570,9 +668,10 @@ function App() {
         label: `候補 ${candidates.length + 1}`,
         heat: selected.heat.map((point) => ({ ...point })),
       });
+      request.provenance = { source_kind: "direct", source_ref: null };
       const created = fromApiCandidate(await workbenchApi.createCandidate(activeProjectId, request));
       setCandidates((items) => [...items, created]);
-      setSelectedId(created.id);
+      selectCandidate(created.id);
       setNotice("候補を追加しました");
     } catch {
       setApiState("offline");
@@ -584,7 +683,7 @@ function App() {
     try {
       const created = fromApiCandidate(await workbenchApi.createCandidate(activeProjectId, STARTER_CANDIDATE));
       setCandidates([created]);
-      setSelectedId(created.id);
+      selectCandidate(created.id);
       setNotice("基準候補を作成しました");
       setApiState("ready");
     } catch {
@@ -594,7 +693,30 @@ function App() {
 
   const copyCandidate = async () => {
     if (!selected) return;
-    await addCandidate();
+    if (candidates.length >= 10) {
+      setNotice("比較候補は最大10件です。不要な候補を削除してから追加してください");
+      return;
+    }
+    try {
+      const request: ApiCandidateInput = {
+        ...toApiCandidate(selected),
+        name: `${selected.label} のコピー`,
+        provenance: {
+          source_kind: "copy",
+          source_ref: {
+            project_id: activeProjectId,
+            candidate_id: selected.id,
+            candidate_revision: selected.raw.revision,
+          },
+        },
+      };
+      const created = fromApiCandidate(await workbenchApi.createCandidate(activeProjectId, request));
+      setCandidates((items) => [...items, created]);
+      selectCandidate(created.id);
+      setNotice("由来を保持して候補をコピーしました");
+    } catch (cause) {
+      setNotice(cause instanceof Error ? cause.message : "候補をコピーできませんでした。");
+    }
   };
 
   const deleteCandidate = async () => {
@@ -605,7 +727,7 @@ function App() {
         (candidate) => candidate.id !== selectedId,
       );
       setCandidates(remaining);
-      setSelectedId(remaining[0].id);
+      selectCandidate(remaining[0].id);
       setNotice("候補を一覧から外しました");
     } catch {
       setNotice("候補を削除できませんでした。API接続を確認してください。");
@@ -642,7 +764,17 @@ function App() {
           {navItems.map((item) => (
             <button
               className={tab === item.id ? "nav-button active" : "nav-button"}
-              onClick={() => setTab(item.id)}
+              onClick={() => {
+                const intent = withView(navigationRef.current, item.id);
+                navigate({
+                  ...intent,
+                  projectId: activeProjectId,
+                  candidateId:
+                    item.id === "candidates" || item.id === "project"
+                      ? selectedId || undefined
+                      : intent.candidateId,
+                });
+              }}
               key={item.id}
             >
               {item.label}
@@ -657,6 +789,21 @@ function App() {
             <h1>{tab === "hot-rolling" ? "熱延条件の候補検討" : activeProject?.name ?? "プロジェクトを読み込んでいます"}</h1>
           </div>
           <div className="run-actions">
+            {tab !== "candidates" && (
+              <button
+                type="button"
+                className="stock-button"
+                onClick={() => navigate({
+                  view: "candidates",
+                  projectId: activeProjectId,
+                  candidateId: selectedId || undefined,
+                })}
+              >
+                候補ストック <b>{candidates.length}</b>
+                <span>比較へ</span>
+              </button>
+            )}
+            <span className="notice" role="status">{notice}</span>
             <span className={`api-state ${apiState}`}>
               {apiState === "loading"
                 ? "プレビュー更新中"
@@ -694,6 +841,7 @@ function App() {
               if (project.id === activeProjectId) void loadProject(project.id);
             }}
             onSwitch={(projectId) => {
+              navigate({ view: "project", projectId }, true);
               void loadProject(projectId);
             }}
             onRestore={(candidate) => {
@@ -704,9 +852,9 @@ function App() {
                 return;
               }
               setCandidates((items) => [...items, candidate]);
-              setSelectedId(candidate.id);
-              setTab("candidates");
+              selectCandidate(candidate.id);
             }}
+            requestedSnapshotId={navigation.snapshotId}
           />
         )}
         {tab === "settings" && (
@@ -739,7 +887,39 @@ function App() {
               metrics={metrics}
               preview={preview}
               previewsByCandidate={previewsByCandidate}
-              onSelect={setSelectedId}
+              onSelect={(candidateId) => selectCandidate(candidateId)}
+              originBroken={brokenOriginCandidateId === selected.id}
+              onOpenOrigin={() => {
+                const provenance = selected.raw.provenance as CandidateProvenance;
+                const intent = provenanceNavigation(provenance, activeProjectId);
+                if (!intent) return;
+                setBrokenOriginCandidateId(null);
+                if (provenance.source_kind === "copy") {
+                  void workbenchApi.candidate(
+                    provenance.source_ref.project_id,
+                    provenance.source_ref.candidate_id,
+                    true,
+                  ).then(async (source) => {
+                    if (source.project_id !== activeProjectId) await loadProject(source.project_id);
+                    const sourceCandidate = fromApiCandidate(source);
+                    setCandidates((items) => items.some((item) => item.id === source.id)
+                      ? items.map((item) => item.id === source.id ? sourceCandidate : item)
+                      : [...items, sourceCandidate]);
+                    setSelectedId(source.id);
+                    navigate(intent);
+                  }).catch((cause) => {
+                    if (cause instanceof ApiClientError && cause.status === 404) {
+                      setBrokenOriginCandidateId(selected.id);
+                      setNotice("コピー元候補は削除済みか、このプロジェクトから参照できません");
+                    } else {
+                      setBrokenOriginCandidateId(null);
+                      setNotice("作成元候補を一時的に確認できません。API接続を確認してください。");
+                    }
+                  });
+                  return;
+                }
+                navigate(intent);
+              }}
               onComposition={updateComposition}
               onText={updateCandidateText}
               onHeat={updateHeat}
@@ -768,10 +948,12 @@ function App() {
         {tab === "lineage" && (
           <LiveLineagePage
             projectId={activeProjectId}
+            initialEntityKey={navigation.entityKey}
+            onEntityChange={(entityKey) => navigate({ view: "lineage", projectId: activeProjectId, entityKey }, true)}
             onCandidate={(candidate) => {
               setCandidates((items) => [...items, candidate]);
-              setSelectedId(candidate.id);
-              setTab("candidates");
+              rememberCandidate(candidate.id);
+              setNotice(`${candidate.label} を候補ストックへ追加しました（${candidates.length + 1}件）`);
             }}
           />
         )}
@@ -782,10 +964,12 @@ function App() {
             selectedId={selectedId}
             taskDefinition={taskDefinition}
             resolvedTaskDefinition={resolvedTaskDefinition}
+            initialRunId={navigation.screeningRunId}
+            onRunChange={(screeningRunId) => navigate({ view: "explore", projectId: activeProjectId, screeningRunId }, true)}
             onCandidate={(candidate) => {
               setCandidates((items) => [...items, candidate]);
-              setSelectedId(candidate.id);
-              setTab("candidates");
+              rememberCandidate(candidate.id);
+              setNotice(`${candidate.label} を候補ストックへ追加しました（${candidates.length + 1}件）`);
             }}
           />
         )}
@@ -840,6 +1024,8 @@ type WorkbenchProps = {
   onAddHeat: () => void;
   onDeleteHeat: (index: number) => void;
   onCopy: () => void;
+  onOpenOrigin: () => void;
+  originBroken: boolean;
   onDelete: () => void;
   onAdd: () => void;
   onImported: (items: Candidate[]) => void;
@@ -864,6 +1050,8 @@ function CandidateWorkbench(props: WorkbenchProps) {
     onAddHeat,
     onDeleteHeat,
     onCopy,
+    onOpenOrigin,
+    originBroken,
     onDelete,
     onAdd,
     onImported,
@@ -910,6 +1098,7 @@ function CandidateWorkbench(props: WorkbenchProps) {
             </button>
           </div>
         </div>
+        <CandidateOrigin candidate={selected} broken={originBroken} onOpen={onOpenOrigin} />
         <ComparisonTableV2
           candidates={candidates}
           selectedId={selectedId}
@@ -933,6 +1122,33 @@ function CandidateWorkbench(props: WorkbenchProps) {
         <ActualsPanel projectId={projectId} candidate={selected} />
       </section>
       <EvidencePanel metrics={metrics} preview={preview} candidateLabel={selected.label} />
+    </div>
+  );
+}
+
+function CandidateOrigin({
+  candidate,
+  broken,
+  onOpen,
+}: {
+  candidate: Candidate;
+  broken: boolean;
+  onOpen: () => void;
+}) {
+  const provenance = candidate.raw.provenance as CandidateProvenance;
+  const originNavigation = provenanceNavigation(provenance, candidate.raw.project_id);
+  return (
+    <div className={`candidate-origin ${broken ? "missing" : ""}`}>
+      <span><b>作成元</b>{provenanceLabel(provenance)}</span>
+      {broken ? (
+        <em>コピー元は削除済みか参照できません</em>
+      ) : candidate.raw.archived_at ? (
+        <em>archive済み候補を参照中</em>
+      ) : originNavigation ? (
+        <button type="button" className="outline-button" onClick={onOpen}>作成元へ戻る</button>
+      ) : (
+        <small>この候補は比較画面で直接作成されました</small>
+      )}
     </div>
   );
 }
@@ -1999,12 +2215,16 @@ function LiveDataQualityPage() {
 
 function LiveLineagePage({
   projectId,
+  initialEntityKey,
+  onEntityChange,
   onCandidate,
 }: {
   projectId: string;
+  initialEntityKey?: string;
+  onEntityChange: (entityKey: string) => void;
   onCandidate: (candidate: Candidate) => void;
 }) {
-  const [entityKey, setEntityKey] = useState("AN-00001");
+  const [entityKey, setEntityKey] = useState(initialEntityKey ?? "AN-00001");
   const [query, setQuery] = useState("");
   const [entityType, setEntityType] = useState("焼鈍");
   const [issueOnly, setIssueOnly] = useState(false);
@@ -2012,6 +2232,9 @@ function LiveLineagePage({
   const [data, setData] = useState<ApiLineage | null>(null);
   const [error, setError] = useState("");
   const [candidateError, setCandidateError] = useState("");
+  useEffect(() => {
+    if (initialEntityKey && initialEntityKey !== entityKey) setEntityKey(initialEntityKey);
+  }, [initialEntityKey, entityKey]);
   useEffect(() => {
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
@@ -2068,6 +2291,7 @@ function LiveLineagePage({
   };
   const openNode = (key: string) => {
     setEntityKey(key);
+    onEntityChange(key);
   };
   const heat = data?.node.heat_pattern ?? [];
   const maxTime = Math.max(1, ...heat.map((point) => point.time_s));
@@ -2494,6 +2718,7 @@ function LiveProjectPage({
   onProjectChanged,
   onSwitch,
   onRestore,
+  requestedSnapshotId,
 }: {
   projects: ApiProject[];
   activeProjectId: string;
@@ -2502,11 +2727,13 @@ function LiveProjectPage({
   onProjectChanged: (project: ApiProject) => void;
   onSwitch: (projectId: string) => void;
   onRestore: (candidate: Candidate) => void;
+  requestedSnapshotId?: string;
 }) {
   const [project, setProject] = useState<ApiProject | null>(null);
   const [snapshots, setSnapshots] = useState<ApiSnapshot[]>([]);
   const [selectedSnapshotId, setSelectedSnapshotId] = useState("");
   const [error, setError] = useState("");
+  const [sourceSnapshotError, setSourceSnapshotError] = useState("");
   const [modelPackage, setModelPackage] = useState<ApiModelPackage | null>(
     null,
   );
@@ -2531,7 +2758,14 @@ function LiveProjectPage({
     workbenchApi.snapshots(activeProjectId, candidate.id, controller.signal)
       .then((loaded) => {
         if (!controller.signal.aborted) {
-          setSnapshots(loaded);
+          setSnapshots((current) => {
+            const source = requestedSnapshotId
+              ? current.find((item) => item.id === requestedSnapshotId)
+              : undefined;
+            return source && !loaded.some((item) => item.id === source.id)
+              ? [source, ...loaded]
+              : loaded;
+          });
           if (
             project?.decision_snapshot_id &&
             loaded.some((item) => item.id === project.decision_snapshot_id)
@@ -2544,7 +2778,24 @@ function LiveProjectPage({
         if (!controller.signal.aborted) setSnapshots([]);
       });
     return () => controller.abort();
-  }, [candidate?.id, activeProjectId, project?.decision_snapshot_id]);
+  }, [candidate?.id, activeProjectId, project?.decision_snapshot_id, requestedSnapshotId]);
+  useEffect(() => {
+    if (!requestedSnapshotId) return;
+    const controller = new AbortController();
+    setSourceSnapshotError("");
+    workbenchApi.snapshot(activeProjectId, requestedSnapshotId, controller.signal)
+      .then((source) => {
+        if (controller.signal.aborted) return;
+        setSnapshots((items) => items.some((item) => item.id === source.id) ? items : [source, ...items]);
+        setSelectedSnapshotId(source.id);
+      })
+      .catch((cause) => {
+        if (!controller.signal.aborted) {
+          setSourceSnapshotError(cause instanceof Error ? cause.message : "作成元の保存済み予測を参照できません。");
+        }
+      });
+    return () => controller.abort();
+  }, [activeProjectId, requestedSnapshotId]);
   const save = async () => {
     if (!project) return;
     try {
@@ -2582,7 +2833,18 @@ function LiveProjectPage({
     const initial = candidate
       ? (() => {
           const payload = toApiCandidate(candidate);
-          return { ...payload, name: "基準候補" };
+          return {
+            ...payload,
+            name: "基準候補",
+            provenance: {
+              source_kind: "copy" as const,
+              source_ref: {
+                project_id: candidate.raw.project_id,
+                candidate_id: candidate.id,
+                candidate_revision: candidate.raw.revision,
+              },
+            },
+          };
         })()
       : STARTER_CANDIDATE;
     try {
@@ -2653,6 +2915,7 @@ function LiveProjectPage({
         </div>
       </div>
       {error && <p className="empty-evidence">{error}</p>}
+      {sourceSnapshotError && <p className="warning">{sourceSnapshotError} 削除済みか、このプロジェクトから参照できません。</p>}
       {project ? (
         <div className="project-form">
           <label>
@@ -2867,6 +3130,8 @@ function LiveScreeningPage({
   selectedId,
   taskDefinition,
   resolvedTaskDefinition,
+  initialRunId,
+  onRunChange,
   onCandidate,
 }: {
   projectId: string;
@@ -2874,6 +3139,8 @@ function LiveScreeningPage({
   selectedId: string;
   taskDefinition: TaskDefinitionView | null;
   resolvedTaskDefinition: ResolvedTaskDefinition | null;
+  initialRunId?: string;
+  onRunChange: (runId: string) => void;
   onCandidate: (candidate: Candidate) => void;
 }) {
   type VariableRow = {
@@ -2908,6 +3175,7 @@ function LiveScreeningPage({
   const [result, setResult] = useState<ScreenResult | null>(null);
   const [savedRuns, setSavedRuns] = useState<ScreenResult[]>([]);
   const [error, setError] = useState("");
+  const runRequestSequence = useRef(0);
   const outputs = taskDefinition?.outputs ?? [];
   const targetDefinition = outputs.find((output) => output.key === target);
   useEffect(() => {
@@ -2934,6 +3202,7 @@ function LiveScreeningPage({
       ),
     );
   const run = async () => {
+    const sequence = ++runRequestSequence.current;
     try {
       setError("");
       const specs = Object.fromEntries(
@@ -2976,21 +3245,28 @@ function LiveScreeningPage({
         target,
         target_value: targetValue.trim() === "" ? null : Number(targetValue),
       });
+      if (sequence !== runRequestSequence.current) return;
       setResult(created);
       setSavedRuns((runs) => [created, ...runs]);
+      onRunChange(created.id);
     } catch (cause) {
+      if (sequence !== runRequestSequence.current) return;
       setError(
         `範囲探索を実行できませんでした。${cause instanceof Error && cause.message ? ` ${cause.message}` : ""}`,
       );
     }
   };
   const loadRun = async (runId: string) => {
+    const sequence = ++runRequestSequence.current;
+    setError("");
     let run: ScreenResult;
     try {
       run = await workbenchApi.screeningRun(projectId, runId);
     } catch {
-      return setError("保存済み探索を開けませんでした。");
+      if (sequence !== runRequestSequence.current) return;
+      return setError("作成元の探索は削除済みか、このプロジェクトから参照できません。");
     }
+    if (sequence !== runRequestSequence.current) return;
     setResult(run);
     if (run.base_candidate_id) setBaseCandidateId(run.base_candidate_id);
     setTarget(run.target);
@@ -3010,7 +3286,14 @@ function LiveScreeningPage({
           second: spec.mode === "range" ? String(spec.max ?? "") : "",
         })),
       );
+    onRunChange(run.id);
   };
+  useEffect(() => {
+    if (initialRunId && result?.id !== initialRunId) void loadRun(initialRunId);
+    return () => {
+      runRequestSequence.current += 1;
+    };
+  }, [initialRunId, projectId]);
   const persist = async (index: number) => {
     if (!result) return;
     try {

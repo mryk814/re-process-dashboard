@@ -167,6 +167,7 @@
               "candidate_limit",
               "adopted_candidate",
               "candidate_archived",
+              "candidate_provenance_immutable",
               "project_task_locked",
               "data_integrity_error",
               "validation_error",
@@ -258,6 +259,8 @@
           "provenance": {
             "discriminator": {
               "mapping": {
+                "copy": "#/components/schemas/CopySourceRef",
+                "direct": "#/components/schemas/DirectSourceRef",
                 "lineage": "#/components/schemas/LineageSourceRef",
                 "manual": "#/components/schemas/ManualSourceRef",
                 "screening": "#/components/schemas/ScreeningSourceRef",
@@ -270,6 +273,9 @@
                 "$ref": "#/components/schemas/ManualSourceRef"
               },
               {
+                "$ref": "#/components/schemas/DirectSourceRef"
+              },
+              {
                 "$ref": "#/components/schemas/LineageSourceRef"
               },
               {
@@ -277,6 +283,9 @@
               },
               {
                 "$ref": "#/components/schemas/SnapshotSourceRef"
+              },
+              {
+                "$ref": "#/components/schemas/CopySourceRef"
               }
             ],
             "title": "Provenance"
@@ -365,6 +374,8 @@
           "provenance": {
             "discriminator": {
               "mapping": {
+                "copy": "#/components/schemas/CopySourceRef",
+                "direct": "#/components/schemas/DirectSourceRef",
                 "lineage": "#/components/schemas/LineageSourceRef",
                 "manual": "#/components/schemas/ManualSourceRef",
                 "screening": "#/components/schemas/ScreeningSourceRef",
@@ -377,6 +388,9 @@
                 "$ref": "#/components/schemas/ManualSourceRef"
               },
               {
+                "$ref": "#/components/schemas/DirectSourceRef"
+              },
+              {
                 "$ref": "#/components/schemas/LineageSourceRef"
               },
               {
@@ -384,6 +398,9 @@
               },
               {
                 "$ref": "#/components/schemas/SnapshotSourceRef"
+              },
+              {
+                "$ref": "#/components/schemas/CopySourceRef"
               }
             ],
             "title": "Provenance"
@@ -462,6 +479,8 @@
           "provenance": {
             "discriminator": {
               "mapping": {
+                "copy": "#/components/schemas/CopySourceRef",
+                "direct": "#/components/schemas/DirectSourceRef",
                 "lineage": "#/components/schemas/LineageSourceRef",
                 "manual": "#/components/schemas/ManualSourceRef",
                 "screening": "#/components/schemas/ScreeningSourceRef",
@@ -474,6 +493,9 @@
                 "$ref": "#/components/schemas/ManualSourceRef"
               },
               {
+                "$ref": "#/components/schemas/DirectSourceRef"
+              },
+              {
                 "$ref": "#/components/schemas/LineageSourceRef"
               },
               {
@@ -481,6 +503,9 @@
               },
               {
                 "$ref": "#/components/schemas/SnapshotSourceRef"
+              },
+              {
+                "$ref": "#/components/schemas/CopySourceRef"
               }
             ],
             "title": "Provenance"
@@ -522,6 +547,52 @@
           "outputs"
         ],
         "title": "ConnectedObservation",
+        "type": "object"
+      },
+      "CopyReference": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_id": {
+            "minLength": 1,
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "candidate_revision": {
+            "minimum": 1.0,
+            "title": "Candidate Revision",
+            "type": "integer"
+          },
+          "project_id": {
+            "minLength": 1,
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "candidate_id",
+          "candidate_revision"
+        ],
+        "title": "CopyReference",
+        "type": "object"
+      },
+      "CopySourceRef": {
+        "additionalProperties": false,
+        "properties": {
+          "source_kind": {
+            "const": "copy",
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "source_ref": {
+            "$ref": "#/components/schemas/CopyReference"
+          }
+        },
+        "required": [
+          "source_kind",
+          "source_ref"
+        ],
+        "title": "CopySourceRef",
         "type": "object"
       },
       "CurvePoint": {
@@ -643,6 +714,25 @@
           "snapshot"
         ],
         "title": "DetailedPredictionResponse",
+        "type": "object"
+      },
+      "DirectSourceRef": {
+        "additionalProperties": false,
+        "properties": {
+          "source_kind": {
+            "const": "direct",
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "source_ref": {
+            "title": "Source Ref",
+            "type": "null"
+          }
+        },
+        "required": [
+          "source_kind"
+        ],
+        "title": "DirectSourceRef",
         "type": "object"
       },
       "FeaturePipelineIdentity": {
@@ -1355,6 +1445,18 @@
       "LineageReference": {
         "additionalProperties": false,
         "properties": {
+          "data_source_digest": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Source Digest"
+          },
           "entity_key": {
             "minLength": 1,
             "title": "Entity Key",
@@ -2772,6 +2874,18 @@
             "minLength": 1,
             "title": "Point Id",
             "type": "string"
+          },
+          "point_index": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Point Index"
           },
           "run_id": {
             "minLength": 1,
@@ -5221,6 +5335,74 @@
           }
         },
         "summary": "Model Package"
+      }
+    },
+    "/api/projects/{project_id}/snapshots/{snapshot_id}": {
+      "get": {
+        "operationId": "get_snapshot_api_projects__project_id__snapshots__snapshot_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Snapshot"
       }
     },
     "/api/projects/{project_id}/snapshots/{snapshot_id}/restore": {

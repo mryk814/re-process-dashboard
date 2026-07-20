@@ -90,6 +90,7 @@ def test_lineage_candidate_actuals_and_snapshot_restore(client) -> None:
     assert lineage_candidate.status_code == 201
     candidate = lineage_candidate.json()
     assert len(candidate["inputs"]["heat_pattern"]) >= 2
+    assert candidate["provenance"]["source_ref"]["data_source_digest"] == client.get("/api/bootstrap").json()["meta"]["source_sha256"]
     actual = client.post(f"/api/projects/default/candidates/{candidate['id']}/actuals", json={"property": "TS", "mean": 505.2, "std": 4.2, "replicates": 3, "unit": "MPa", "experiment_no": "EXP-01", "measured_at": "2026-07-20", "note": "確認用"})
     assert actual.status_code == 201
     assert actual.json()["snapshot_id"]

@@ -6,7 +6,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, RootModel, field_validator, model_validator
 
-from .task_contracts import CandidateProvenance, ManualSourceRef
+from .task_contracts import CandidateProvenance, DirectSourceRef
 
 
 COMPOSITION_ELEMENTS = {
@@ -53,7 +53,7 @@ class CandidateInputs(BaseModel):
 class CandidateInput(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=80)] = "候補"
     inputs: CandidateInputs
-    provenance: CandidateProvenance = Field(default_factory=lambda: ManualSourceRef(source_kind="manual"))
+    provenance: CandidateProvenance = Field(default_factory=lambda: DirectSourceRef(source_kind="direct"))
 
 
 class CandidateUpdate(CandidateInput):
@@ -508,6 +508,7 @@ class ApiError(BaseModel):
         "candidate_limit",
         "adopted_candidate",
         "candidate_archived",
+        "candidate_provenance_immutable",
         "project_task_locked",
         "data_integrity_error",
         "validation_error",

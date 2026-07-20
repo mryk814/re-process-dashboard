@@ -403,6 +403,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/snapshots/{snapshot_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Snapshot */
+        get: operations["get_snapshot_api_projects__project_id__snapshots__snapshot_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/snapshots/{snapshot_id}/restore": {
         parameters: {
             query?: never;
@@ -618,7 +635,7 @@ export interface components {
              * Code
              * @enum {string}
              */
-            code: "not_found" | "revision_conflict" | "candidate_limit" | "adopted_candidate" | "candidate_archived" | "project_task_locked" | "data_integrity_error" | "validation_error" | "runtime_unavailable";
+            code: "not_found" | "revision_conflict" | "candidate_limit" | "adopted_candidate" | "candidate_archived" | "candidate_provenance_immutable" | "project_task_locked" | "data_integrity_error" | "validation_error" | "runtime_unavailable";
             current_candidate?: components["schemas"]["Candidate"] | null;
             /** Field Errors */
             field_errors?: components["schemas"]["FieldError"][];
@@ -650,7 +667,7 @@ export interface components {
             /** Project Id */
             project_id: string;
             /** Provenance */
-            provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["SnapshotSourceRef"];
+            provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"];
             /** Revision */
             revision: number;
             /**
@@ -684,7 +701,7 @@ export interface components {
              */
             name: string;
             /** Provenance */
-            provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["SnapshotSourceRef"];
+            provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"];
         };
         /** CandidateInputs */
         CandidateInputs: {
@@ -714,7 +731,7 @@ export interface components {
              */
             name: string;
             /** Provenance */
-            provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["SnapshotSourceRef"];
+            provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"];
         };
         /** ConnectedObservation */
         ConnectedObservation: {
@@ -728,6 +745,24 @@ export interface components {
             parent_key: string;
             /** Source */
             source: string;
+        };
+        /** CopyReference */
+        CopyReference: {
+            /** Candidate Id */
+            candidate_id: string;
+            /** Candidate Revision */
+            candidate_revision: number;
+            /** Project Id */
+            project_id: string;
+        };
+        /** CopySourceRef */
+        CopySourceRef: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            source_kind: "copy";
+            source_ref: components["schemas"]["CopyReference"];
         };
         /** CurvePoint */
         CurvePoint: {
@@ -775,6 +810,16 @@ export interface components {
         DetailedPredictionResponse: {
             prediction: components["schemas"]["PredictionResponse"];
             snapshot: components["schemas"]["SnapshotResponse"];
+        };
+        /** DirectSourceRef */
+        DirectSourceRef: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            source_kind: "direct";
+            /** Source Ref */
+            source_ref?: null;
         };
         /** FeaturePipelineIdentity */
         FeaturePipelineIdentity: {
@@ -1012,6 +1057,8 @@ export interface components {
         };
         /** LineageReference */
         LineageReference: {
+            /** Data Source Digest */
+            data_source_digest?: string | null;
             /** Entity Key */
             entity_key: string;
             /** Entity Type */
@@ -1606,6 +1653,8 @@ export interface components {
         ScreeningReference: {
             /** Point Id */
             point_id: string;
+            /** Point Index */
+            point_index?: number | null;
             /** Run Id */
             run_id: string;
         };
@@ -3125,6 +3174,56 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModelPackageStatus"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    get_snapshot_api_projects__project_id__snapshots__snapshot_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                snapshot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SnapshotResponse"];
                 };
             };
             /** @description Not Found */
