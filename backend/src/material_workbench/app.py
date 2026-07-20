@@ -54,9 +54,9 @@ from .task_registry import TaskRegistry, TaskRegistryError
 
 
 PROJECT_API_ERRORS = {
-    404: {"model": ApiError},
-    409: {"model": ApiError},
-    422: {"model": ApiError},
+    404: {"model": ApiError, "description": "Not Found"},
+    409: {"model": ApiError, "description": "Conflict"},
+    422: {"model": ApiError, "description": "Validation Error"},
 }
 
 
