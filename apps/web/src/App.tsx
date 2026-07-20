@@ -196,8 +196,8 @@ const STARTER_CANDIDATE: Omit<ApiCandidate, "id"> = {
 const navItems: Array<{ id: Tab; label: string }> = [
   { id: "project", label: "プロジェクト" },
   { id: "candidates", label: "候補比較" },
-  { id: "quality", label: "データ探索" },
-  { id: "lineage", label: "系譜" },
+  { id: "quality", label: "データ品質" },
+  { id: "lineage", label: "工程系譜" },
   { id: "explore", label: "範囲探索" },
 ];
 
@@ -2661,10 +2661,32 @@ function LiveLineagePage({
   type Lineage = {
     key: string;
     relations: Record<string, string[]>;
-    quality_issues: Array<{ 分類: string; 期待する気づき: string }>;
+    quality_issues: Array<{
+      issue_id: string;
+      issue_type: string;
+      source_sheet: string;
+      entity_key: string;
+      detail: string;
+    }>;
+    candidate_eligible: boolean;
+    candidate_reason: string;
+    graph: {
+      nodes: Array<{
+        key: string;
+        entity_type: string;
+        source_sheet: string;
+        exists: boolean;
+        selected: boolean;
+        issue_types: string[];
+      }>;
+      edges: Array<{ source: string; target: string; route_rows: number[] }>;
+      relation_row_count: number;
+      omitted_node_count: number;
+    };
     node: {
       entity_type: string;
       source_sheet: string;
+      missing_source: boolean;
       primary_conditions: Record<string, string | number | boolean | null>;
       composition: Record<string, number>;
       heat_pattern: Array<{
@@ -2679,25 +2701,79 @@ function LiveLineagePage({
         parent_key: string;
         outputs: Record<string, number>;
       }>;
+      observation_groups: Array<{
+        stage: string;
+        test_type: string;
+        property: string;
+        count: number;
+        min: number;
+        mean: number;
+        std: number;
+        median: number;
+        max: number;
+        observations: Array<{
+          id: string;
+          source: string;
+          parent_key: string;
+          outputs: Record<string, number>;
+        }>;
+      }>;
       property_summary: Record<string, Summary>;
     };
   };
+  type LineageIndex = {
+    items: Array<{ key: string; entity_type: string; has_issue: boolean }>;
+    total_entities: number;
+    relation_rows: number;
+    detected_issues: number;
+    counts_by_type: Record<string, number>;
+  };
   const [entityKey, setEntityKey] = useState("AN-00001");
+  const [query, setQuery] = useState("");
+  const [entityType, setEntityType] = useState("焼鈍");
+  const [issueOnly, setIssueOnly] = useState(false);
+  const [index, setIndex] = useState<LineageIndex | null>(null);
   const [data, setData] = useState<Lineage | null>(null);
   const [error, setError] = useState("");
+  const [candidateError, setCandidateError] = useState("");
+  useEffect(() => {
+    const controller = new AbortController();
+    const params = new URLSearchParams({ limit: "40" });
+    if (query.trim()) params.set("query", query.trim());
+    if (entityType) params.set("entity_type", entityType);
+    if (issueOnly) params.set("issue_only", "true");
+    const timer = window.setTimeout(() => {
+      fetch(`${API_URL}/api/lineage?${params.toString()}`, {
+        signal: controller.signal,
+      })
+        .then(async (response) => {
+          if (response.ok) setIndex((await response.json()) as LineageIndex);
+        })
+        .catch(() => undefined);
+    }, 180);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [query, entityType, issueOnly]);
   useEffect(() => {
     let cancelled = false;
     setError("");
+    setCandidateError("");
     fetch(`${API_URL}/api/lineage/${encodeURIComponent(entityKey)}`)
       .then(async (response) => {
-        if (!response.ok) throw new Error();
+        if (!response.ok)
+          throw await apiError(response, "系譜を取得できませんでした。");
         if (!cancelled) setData((await response.json()) as Lineage);
       })
-      .catch(
-        () =>
-          !cancelled &&
-          setError("系譜を取得できません。キーとAPI接続を確認してください。"),
-      );
+      .catch((cause) => {
+        if (!cancelled)
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : "系譜を取得できませんでした。",
+          );
+      });
     return () => {
       cancelled = true;
     };
@@ -2712,19 +2788,27 @@ function LiveLineagePage({
         throw await apiError(response, "候補を作成できませんでした。");
       onCandidate(fromApiCandidate((await response.json()) as ApiCandidate));
     } catch (cause) {
-      setError(
+      setCandidateError(
         cause instanceof Error ? cause.message : "候補を作成できませんでした。",
       );
     }
   };
-  const order = [
-    "溶製_key",
-    "熱延_key",
-    "冷延_key",
-    "焼鈍_key",
-    "焼鈍引張_key",
-    "焼鈍穴広げ_key",
+  const stageGroups = [
+    { label: "材料", types: ["溶製"] },
+    { label: "熱延", types: ["熱延", "熱延引張", "熱延組織"] },
+    { label: "冷延", types: ["冷延"] },
+    { label: "焼鈍", types: ["焼鈍"] },
+    { label: "試験・組織", types: ["焼鈍引張", "焼鈍穴広げ", "焼鈍組織"] },
   ];
+  const issueLabels: Record<string, string> = {
+    missing_key: "キー欠損",
+    orphan_entity: "孤立",
+    duplicate_key: "重複",
+    invalid_reference: "参照切れ",
+  };
+  const openNode = (key: string) => {
+    setEntityKey(key);
+  };
   const heat = data?.node.heat_pattern ?? [];
   const maxTime = Math.max(1, ...heat.map((point) => point.time_s));
   const maxTemp = Math.max(1, ...heat.map((point) => point.temperature_c));
@@ -2736,46 +2820,132 @@ function LiveLineagePage({
     .join(" ");
   return (
     <div className="page-panel lineage-page">
-      <div className="page-intro">
+      <div className="page-intro lineage-intro">
         <div>
-          <h2>データ系譜</h2>
+          <span className="overline">DATA UNDERSTANDING</span>
+          <h2>工程系譜</h2>
           <p>
-            工程の接続だけでなく、候補化する実績条件と観測分布まで確認します。
+            この材料・条件は、どの工程と試験結果につながっているか。
           </p>
         </div>
-        <label className="lineage-search">
-          キー
+        <form
+          className="lineage-search"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (query.trim()) {
+              setEntityType("");
+              openNode(query.trim());
+            }
+          }}
+        >
+          <label htmlFor="lineage-query">キーを検索</label>
           <input
-            value={entityKey}
-            onChange={(event) => setEntityKey(event.target.value)}
+            id="lineage-query"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="例: AN-00001"
           />
-        </label>
+          <button type="submit" className="secondary-button">開く</button>
+        </form>
       </div>
+      <div className="lineage-workspace">
+        <aside className="lineage-browser" aria-label="系譜ノード検索">
+          {index && (
+            <div className="lineage-source-facts">
+              <span><b>{number(index.total_entities)}</b> エンティティ</span>
+              <span><b>{number(index.relation_rows)}</b> relation行</span>
+              <span className={index.detected_issues ? "has-issue" : ""}><b>{index.detected_issues}</b> 検出問題</span>
+            </div>
+          )}
+          <label>
+            種別
+            <select value={entityType} onChange={(event) => setEntityType(event.target.value)}>
+              <option value="">すべて</option>
+              {Object.keys(index?.counts_by_type ?? {}).map((type) => (
+                <option key={type} value={type}>{type} ({index?.counts_by_type[type]})</option>
+              ))}
+            </select>
+          </label>
+          <label className="lineage-issue-filter">
+            <input type="checkbox" checked={issueOnly} onChange={(event) => setIssueOnly(event.target.checked)} />
+            問題があるノードだけ
+          </label>
+          <div className="lineage-result-list">
+            {(index?.items ?? []).map((item) => (
+              <button
+                key={`${item.entity_type}-${item.key}`}
+                type="button"
+                className={item.key === entityKey ? "active" : ""}
+                onClick={() => openNode(item.key)}
+              >
+                <span>{item.key}</span>
+                <small>{item.entity_type}{item.has_issue ? " · 要確認" : ""}</small>
+              </button>
+            ))}
+            {index && !index.items.length && <p className="empty-evidence">一致するキーはありません。</p>}
+          </div>
+        </aside>
+        <main className="lineage-main">
       {error ? (
-        <p className="empty-evidence">{error}</p>
+        <div className="lineage-load-error">
+          <b>{entityKey}</b>
+          <p>{error}</p>
+          <span>左の検索結果から存在するキーを選んでください。</span>
+        </div>
       ) : data ? (
         <>
           <div
             className="lineage-canvas"
-            role="img"
+            role="group"
             aria-label={`${data.key} のデータ系譜`}
           >
-            {order
-              .filter((kind) => data.relations[kind]?.length)
-              .map((kind, index) => (
-                <div className="lineage-stage" key={kind}>
-                  {index > 0 && <i />}
-                  <div className="node">
-                    <b>{kind.replace("_key", "")}</b>
-                    <small>
-                      {data.relations[kind].slice(0, 4).join(" / ")}
-                      {data.relations[kind].length > 4
-                        ? ` +${data.relations[kind].length - 4}`
-                        : ""}
-                    </small>
-                  </div>
+            <div className="lineage-canvas-header">
+              <div>
+                <b>{data.graph.relation_row_count} relation行から復元</b>
+                <span>行番号を保持した実在経路です。relation行を実験件数として数えていません。</span>
+              </div>
+              {data.graph.omitted_node_count > 0 && <small>ほか {data.graph.omitted_node_count} ノード省略</small>}
+            </div>
+            <div className="lineage-stage-grid">
+              {stageGroups.map((stage) => {
+                const nodes = data.graph.nodes.filter((node) => stage.types.includes(node.entity_type));
+                return (
+                  <section key={stage.label} className="lineage-stage-column">
+                    <h3>{stage.label}<small>{nodes.length}</small></h3>
+                    <div>
+                      {nodes.map((node) => (
+                        <button
+                          type="button"
+                          key={node.key}
+                          className={`lineage-node ${node.selected ? "selected" : ""} ${!node.exists ? "missing" : ""} ${node.issue_types.length ? "issue" : ""}`}
+                          onClick={() => openNode(node.key)}
+                        >
+                          <span>{node.key}</span>
+                          <small>{node.entity_type}</small>
+                          {node.issue_types.length > 0 && <em>{node.issue_types.map((issue) => issueLabels[issue] ?? issue).join(" / ")}</em>}
+                        </button>
+                      ))}
+                      {!nodes.length && <span className="lineage-empty-stage">接続なし</span>}
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+            {data.graph.edges.length > 0 && (
+              <details className="route-evidence">
+                <summary>経路の接続根拠 {data.graph.edges.length}本</summary>
+                <div>
+                  {data.graph.edges.map((edge) => (
+                    <p key={`${edge.source}-${edge.target}`}>
+                      <button type="button" onClick={() => openNode(edge.source)}>{edge.source}</button>
+                      <span>→</span>
+                      <button type="button" onClick={() => openNode(edge.target)}>{edge.target}</button>
+                      <small>relation {edge.route_rows.slice(0, 5).join(", ")}{edge.route_rows.length > 5 ? ` +${edge.route_rows.length - 5}` : ""}</small>
+                    </p>
+                  ))}
                 </div>
-              ))}
+              </details>
+            )}
           </div>
           <div className="lineage-detail-header">
             <div>
@@ -2793,6 +2963,8 @@ function LiveLineagePage({
             </div>
             <button
               className="primary-button"
+              disabled={!data.candidate_eligible}
+              title={data.candidate_reason}
               onClick={() => {
                 void createCandidate();
               }}
@@ -2800,6 +2972,8 @@ function LiveLineagePage({
               この実績条件から候補を作成
             </button>
           </div>
+          <p className={`lineage-candidate-note ${data.candidate_eligible ? "" : "muted"}`}>{data.candidate_reason}</p>
+          {candidateError && <p className="warning">{candidateError}</p>}
           <div className="lineage-detail-grid">
             <section>
               <h3>主要条件</h3>
@@ -2864,12 +3038,13 @@ function LiveLineagePage({
               )}
             </section>
             <section>
-              <h3>接続観測の特性分布</h3>
-              {Object.keys(data.node.property_summary).length ? (
+              <h3>工程段階別の特性分布</h3>
+              {(data.node.observation_groups ?? []).length ? (
                 <>
                   <table className="quality-table compact-table">
                     <thead>
                       <tr>
+                        <th>段階 / 試験</th>
                         <th>特性</th>
                         <th>n</th>
                         <th>min</th>
@@ -2879,18 +3054,19 @@ function LiveLineagePage({
                       </tr>
                     </thead>
                     <tbody>
-                      {Object.entries(data.node.property_summary).map(
-                        ([property, summary]) => (
-                          <tr key={property}>
-                            <td>{property}</td>
-                            <td>{summary.count}</td>
-                            <td>{number(summary.min, 1)}</td>
+                      {(data.node.observation_groups ?? []).map(
+                        (group) => (
+                          <tr key={`${group.test_type}-${group.property}`}>
+                            <td><b>{group.stage}</b><br /><small>{group.test_type}</small></td>
+                            <td>{group.property}</td>
+                            <td>{group.count}</td>
+                            <td>{number(group.min, 1)}</td>
                             <td>
-                              {number(summary.mean, 1)} ±{" "}
-                              {number(summary.std, 1)}
+                              {number(group.mean, 1)} ±{" "}
+                              {number(group.std, 1)}
                             </td>
-                            <td>{number(summary.median, 1)}</td>
-                            <td>{number(summary.max, 1)}</td>
+                            <td>{number(group.median, 1)}</td>
+                            <td>{number(group.max, 1)}</td>
                           </tr>
                         ),
                       )}
@@ -2898,7 +3074,7 @@ function LiveLineagePage({
                   </table>
                   <details className="similar-more">
                     <summary>観測値を表示</summary>
-                    {data.node.connected_observations.map((observation) => (
+                    {(data.node.connected_observations ?? []).map((observation) => (
                       <p key={observation.id}>
                         {observation.id} · {observation.source} ·{" "}
                         {Object.entries(observation.outputs)
@@ -2916,15 +3092,17 @@ function LiveLineagePage({
           {data.quality_issues.map((issue) => (
             <p
               className="warning"
-              key={`${issue.分類}-${issue.期待する気づき}`}
+              key={issue.issue_id}
             >
-              {issue.分類}: {issue.期待する気づき}
+              <b>{issueLabels[issue.issue_type] ?? issue.issue_type}</b> · {issue.source_sheet} · {issue.entity_key || "キーなし"}: {issue.detail}
             </p>
           ))}
         </>
       ) : (
         <p className="empty-evidence">系譜を読み込んでいます。</p>
       )}
+        </main>
+      </div>
     </div>
   );
 }

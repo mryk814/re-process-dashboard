@@ -161,9 +161,19 @@ def lineage_node_detail(data: WorkbookData, entity_key: str) -> dict[str, Any]:
     """Return inspectable source facts for a lineage node, not only its edges."""
     entity_type = next((key_column for key_column, records in data.entities.items() if entity_key in records), None)
     if entity_type is None:
-        raise KeyError(entity_key)
-    source_sheet = KEY_TO_SHEET[entity_type]
-    source_row = data.entities[entity_type][entity_key]
+        relations = data.lineage.get(entity_key)
+        if relations is None:
+            raise KeyError(entity_key)
+        entity_type = next((column for column, values in relations.items() if entity_key in values), None)
+        if entity_type not in KEY_TO_SHEET:
+            raise KeyError(entity_key)
+        source_sheet = KEY_TO_SHEET[entity_type]
+        source_row: dict[str, Any] = {}
+        missing_source = True
+    else:
+        source_sheet = KEY_TO_SHEET[entity_type]
+        source_row = data.entities[entity_type][entity_key]
+        missing_source = False
     relations = data.lineage.get(entity_key, {})
     melt_keys = [entity_key] if entity_type == "溶製_key" else relations.get("溶製_key", [])
     composition = data.composition.get(melt_keys[0], {}) if len(melt_keys) == 1 else {}
@@ -180,6 +190,8 @@ def lineage_node_detail(data: WorkbookData, entity_key: str) -> dict[str, Any]:
         _normalize_stage_local_times(heat_pattern)
     connected_keys = {entity_key, *(key for values in relations.values() for key in values)}
     aggregate: dict[str, list[float]] = defaultdict(list)
+    grouped_values: dict[tuple[str, str], list[float]] = defaultdict(list)
+    grouped_observations: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     observation_count = 0
     connected_observations: list[dict[str, Any]] = []
     for observation in data.observations:
@@ -194,6 +206,9 @@ def lineage_node_detail(data: WorkbookData, entity_key: str) -> dict[str, Any]:
         })
         for property_name, value in observation["outputs"].items():
             aggregate[property_name].append(float(value))
+            group = (str(observation["source"]), property_name)
+            grouped_values[group].append(float(value))
+            grouped_observations[group].append(connected_observations[-1])
     property_summary = {
         property_name: {
             "count": len(values), "min": min(values), "mean": float(fmean(values)),
@@ -201,6 +216,21 @@ def lineage_node_detail(data: WorkbookData, entity_key: str) -> dict[str, Any]:
         }
         for property_name, values in sorted(aggregate.items())
     }
+    observation_groups = [
+        {
+            "stage": "熱延後" if source.startswith("熱延") else "焼鈍後",
+            "test_type": source,
+            "property": property_name,
+            "count": len(values),
+            "min": min(values),
+            "mean": float(fmean(values)),
+            "std": float(pstdev(values)),
+            "median": float(median(values)),
+            "max": max(values),
+            "observations": grouped_observations[(source, property_name)],
+        }
+        for (source, property_name), values in sorted(grouped_values.items())
+    ]
     primary_conditions = {
         column: _scalar(value)
         for column, value in source_row.items()
@@ -216,8 +246,96 @@ def lineage_node_detail(data: WorkbookData, entity_key: str) -> dict[str, Any]:
         "heat_pattern": heat_pattern,
         "connected_observation_count": observation_count,
         "connected_observations": connected_observations,
+        "observation_groups": observation_groups,
         "property_summary": property_summary,
         "related_entities": relations,
+        "missing_source": missing_source,
+    }
+
+
+LINEAGE_STAGE_ORDER = {
+    "溶製_key": 0,
+    "熱延_key": 1,
+    "熱延引張_key": 2,
+    "熱延組織_key": 2,
+    "冷延_key": 3,
+    "焼鈍_key": 4,
+    "焼鈍引張_key": 5,
+    "焼鈍穴広げ_key": 5,
+    "焼鈍組織_key": 5,
+}
+
+LINEAGE_ADJACENCIES = (
+    ("溶製_key", "熱延_key"),
+    ("熱延_key", "熱延引張_key"),
+    ("熱延_key", "熱延組織_key"),
+    ("熱延_key", "冷延_key"),
+    # Some valid routes omit cold rolling. Preserve that explicit skip as a
+    # direct evidence edge instead of visually disconnecting annealing.
+    ("熱延_key", "焼鈍_key"),
+    ("冷延_key", "焼鈍_key"),
+    ("焼鈍_key", "焼鈍引張_key"),
+    ("焼鈍_key", "焼鈍穴広げ_key"),
+    ("焼鈍_key", "焼鈍組織_key"),
+)
+
+
+def lineage_neighborhood(data: WorkbookData, entity_key: str, max_nodes: int = 80) -> dict[str, Any]:
+    """Build a bounded route graph while preserving evidence from relation rows."""
+    if entity_key not in data.lineage:
+        raise KeyError(entity_key)
+    route_rows: list[tuple[int, dict[str, Any]]] = []
+    for row_number, row in enumerate(data.sheets["relation"], start=2):
+        keys = {str(value) for column, value in row.items() if column.endswith("_key") and value}
+        if entity_key in keys:
+            route_rows.append((row_number, row))
+
+    candidate_nodes: dict[str, str] = {}
+    if not route_rows:
+        own_type = next((column for column, records in data.entities.items() if entity_key in records), "")
+        if own_type:
+            candidate_nodes[entity_key] = own_type
+    for _, row in route_rows:
+        for column, value in row.items():
+            if column in LINEAGE_STAGE_ORDER and value:
+                candidate_nodes[str(value)] = column
+
+    ordered = sorted(
+        candidate_nodes.items(),
+        key=lambda item: (LINEAGE_STAGE_ORDER.get(item[1], 99), item[0] != entity_key, item[0]),
+    )
+    visible = dict(ordered[:max_nodes])
+    issue_by_key: dict[str, list[str]] = defaultdict(list)
+    for issue in data.detected_quality:
+        if issue["entity_key"] in visible and issue["issue_type"] not in issue_by_key[issue["entity_key"]]:
+            issue_by_key[issue["entity_key"]].append(issue["issue_type"])
+    nodes = [
+        {
+            "key": key,
+            "entity_type": column.removesuffix("_key"),
+            "source_sheet": KEY_TO_SHEET.get(column, column.removesuffix("_key")),
+            "exists": key in data.entities.get(column, {}),
+            "selected": key == entity_key,
+            "issue_types": sorted(issue_by_key.get(key, [])),
+        }
+        for key, column in visible.items()
+    ]
+    edge_rows: dict[tuple[str, str], list[int]] = defaultdict(list)
+    for row_number, row in route_rows:
+        for source_column, target_column in LINEAGE_ADJACENCIES:
+            source, target = row.get(source_column), row.get(target_column)
+            if source and target and str(source) in visible and str(target) in visible:
+                pair = (str(source), str(target))
+                if row_number not in edge_rows[pair]:
+                    edge_rows[pair].append(row_number)
+    return {
+        "nodes": nodes,
+        "edges": [
+            {"source": source, "target": target, "route_rows": rows}
+            for (source, target), rows in sorted(edge_rows.items())
+        ],
+        "relation_row_count": len(route_rows),
+        "omitted_node_count": max(0, len(ordered) - len(visible)),
     }
 
 
@@ -293,11 +411,12 @@ def load_workbook_data(path: str | Path) -> WorkbookData:
             for related_column, related_key in anchor.items():
                 if related_key not in bucket[related_column]:
                     bucket[related_column].append(related_key)
-    # Ensure every entity can be resolved even when it has no edge.
-    for key in composition:
-        lineage.setdefault(key, defaultdict(list))
-    for key in anneal_features:
-        lineage.setdefault(key, defaultdict(list))
+    # Ensure every source entity can be inspected, including isolated tests and
+    # process conditions. Relation references without source rows already exist
+    # in lineage and are exposed as missing-source nodes.
+    for records in entities.values():
+        for key in records:
+            lineage.setdefault(key, defaultdict(list))
 
     def upstream_composition(parent_key: str) -> dict[str, float] | None:
         melt_keys = sorted(set(lineage.get(parent_key, {}).get("溶製_key", [])))

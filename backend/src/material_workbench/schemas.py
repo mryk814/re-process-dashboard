@@ -252,8 +252,52 @@ class QualityResponse(BaseModel):
 class PropertySummary(BaseModel):
     count: int
     min: float
+    mean: float
+    std: float
     median: float
     max: float
+
+
+class ConnectedObservation(BaseModel):
+    id: str
+    source: str
+    parent_key: str
+    outputs: dict[str, float]
+
+
+class ObservationGroup(BaseModel):
+    stage: str
+    test_type: str
+    property: str
+    count: int
+    min: float
+    mean: float
+    std: float
+    median: float
+    max: float
+    observations: list[ConnectedObservation]
+
+
+class LineageGraphNode(BaseModel):
+    key: str
+    entity_type: str
+    source_sheet: str
+    exists: bool
+    selected: bool
+    issue_types: list[str]
+
+
+class LineageGraphEdge(BaseModel):
+    source: str
+    target: str
+    route_rows: list[int]
+
+
+class LineageGraph(BaseModel):
+    nodes: list[LineageGraphNode]
+    edges: list[LineageGraphEdge]
+    relation_row_count: int
+    omitted_node_count: int
 
 
 class LineageNodeDetail(BaseModel):
@@ -265,16 +309,22 @@ class LineageNodeDetail(BaseModel):
     composition: dict[str, float]
     heat_pattern: list[HeatPoint]
     connected_observation_count: int
+    connected_observations: list[ConnectedObservation]
+    observation_groups: list[ObservationGroup]
     property_summary: dict[str, PropertySummary]
     related_entities: dict[str, list[str]]
+    missing_source: bool = False
 
 
 class LineageResponse(BaseModel):
     # key/relations/quality_issues are the existing renderer contract.
     key: str
     relations: dict[str, list[str]]
-    quality_issues: list[dict[str, Any]]
+    quality_issues: list[DataQualityIssue]
     node: LineageNodeDetail
+    graph: LineageGraph
+    candidate_eligible: bool
+    candidate_reason: str
 
 
 class StrictModel(BaseModel):
