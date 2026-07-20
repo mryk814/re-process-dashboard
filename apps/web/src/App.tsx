@@ -2,6 +2,24 @@ import { PointerEvent, useEffect, useRef, useState } from "react";
 import { HotRollingWorkbench } from "./HotRollingWorkbench";
 import { LatestSaveQueue, rebaseChangedFields } from "./latestSaveQueue";
 import { taskDefinitionView, type ResolvedTaskDefinition, type TaskDefinitionView, type TaskInputDefinition, type TaskOutputDefinition } from "./taskDefinition";
+import { ApiClientError, apiBaseUrl } from "./shared/api/client";
+import {
+  workbenchApi,
+  type ApiActual,
+  type ApiCandidate,
+  type ApiCandidateInput,
+  type ApiCandidateUpdate,
+  type ApiLineage,
+  type ApiLineageIndex,
+  type ApiModelPackage,
+  type ApiPredictionVsActual,
+  type ApiPreview,
+  type ApiProject,
+  type ApiQuality,
+  type ApiResponseCurves,
+  type ApiScreeningRun,
+  type ApiSnapshot,
+} from "./shared/api/workbench-api";
 
 type Tab = "project" | "candidates" | "hot-rolling" | "settings" | "quality" | "lineage" | "explore";
 type Candidate = {
@@ -32,179 +50,14 @@ type Metric = {
   observationStd?: number | null;
 };
 
-type ApiPreview = {
-  predictions?: Record<
-    string,
-    {
-      value: number;
-      lower: number;
-      upper: number;
-      unit: string;
-      goal_value?: number | null;
-      goal_probability?: number | null;
-      goal_direction?: "at_least" | "at_most" | null;
-      uncertainty_components?: Record<string, number> | null;
-    }
-  >;
-  support?: {
-    status?: "supported" | "caution" | "extrapolated";
-    message?: string;
-    distance?: number;
-    percentile?: number;
-    components?: Record<string, number>;
-  };
-  warnings?: string[];
-  model_meta?: {
-    package?: {
-      id?: string;
-      version?: string;
-      manifest_sha256?: string;
-      runtime_types?: string[];
-    };
-    model?: { id?: string; version?: string; method?: string };
-    feature_pipeline?: {
-      id?: string;
-      version?: string;
-      input_schema_version?: string;
-      features?: string[];
-    };
-    training_data?: {
-      source_path?: string;
-      source_sha256?: string;
-      records?: Record<string, number>;
-    };
-    prediction_interval?: {
-      method?: string;
-      coverage?: number;
-      grouping?: string;
-      folds?: number;
-      note?: string;
-    };
-    similarity?: { version?: string; method?: string };
-  };
-  similar?: Array<{
-    observation_id: string;
-    parent_key: string;
-    source: string;
-    layer?: "training" | "historical";
-    distance: number;
-    components?: Record<string, number>;
-    outputs: Record<string, number>;
-    repeat_summary?: Record<string, { mean: number; std: number; n: number }>;
-  }>;
-  response_curve?: Array<{
-    x: number;
-    value: number;
-    lower: number;
-    upper: number;
-  }>;
-};
-
-type ApiCandidate = {
-  id: string;
-  project_id: string;
-  name: string;
-  inputs: {
-    composition: Record<string, number> & { C: number; Si: number; Mn: number };
-    process: Record<string, number> & { thickness_mm: number; line_speed_m_min: number };
-    categorical: Record<string, string> & { coating: string };
-    heat_pattern?: Array<{
-      time_s: number;
-      temperature_c: number;
-      segment_start?: boolean;
-      set_temperature_c?: number | null;
-      stage_category?: string | null;
-      stage_name?: string | null;
-      mapping_status?: string | null;
-    }>;
-  };
-  provenance: Record<string, unknown>;
-  revision: number;
-  archived_at: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-type ApiCandidateInput = Pick<ApiCandidate, "name" | "inputs" | "provenance">;
-type ApiCandidateUpdate = ApiCandidateInput & { expected_revision: number };
-
-type ApiProject = {
-  id: string;
-  name: string;
-  description: string;
-  purpose: string;
-  task_id: string;
-  target_values: Record<string, number>;
-  input_ranges: Record<string, { min: number; max: number }>;
-  notes: string;
-  decision_candidate_id: string;
-  decision_snapshot_id: string;
-  decision_note: string;
-  created_at: string;
-  updated_at: string;
-};
-
-type ApiModelPackage = {
-  id: string;
-  version: string;
-  task_id: string;
-  manifest_sha256: string;
-  active_runtimes: string[];
-  supported_runtimes: Array<{ runtime_type: string; available: boolean }>;
-  predictors: Array<{
-    target: string;
-    runtime_type: string;
-    predictive_family: string;
-  }>;
-  quality_report: {
-    split: string;
-    targets: Array<{
-      target: string;
-      parent_conditions: number;
-      mae: number;
-      rmse: number;
-      interval_coverage_90: number;
-    }>;
-  };
-};
-
-type ApiSnapshot = {
-  id: string;
-  created_at: string;
-  payload: {
-    prediction?: ApiPreview;
-    provenance?: ApiPreview["model_meta"];
-  };
-};
-
 function allowedRange(input: TaskInputDefinition) {
   if (!input.allowed_range) throw new Error(`数値fieldにallowed_rangeがありません: ${input.path}`);
   return input.allowed_range;
 }
 
-type CurvePoint = {
-  x: number;
-  value: number;
-  lower: number;
-  upper: number;
-};
-
-type CurveVariable = {
-  id: string;
-  label: string;
-  unit: string;
-  min: number;
-  max: number;
-  current: number;
-};
-
-type ResponseCurvesPayload = {
-  variable: CurveVariable;
-  curves: Record<string, CurvePoint[]>;
-  output_ranges: Record<string, { min: number; max: number }>;
-};
-
-const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8765";
+type ResponseCurvesPayload = ApiResponseCurves;
+type CurvePoint = ApiResponseCurves["curves"][string][number];
+type CurveVariable = ApiResponseCurves["variable"];
 const COMPOSITION_ELEMENTS = [
   "C",
   "Si",
@@ -244,10 +97,10 @@ const STARTER_CANDIDATE: ApiCandidateInput = {
     process: { thickness_mm: 1.4, line_speed_m_min: 103 },
     categorical: { coating: "GI" },
     heat_pattern: [
-      { time_s: 0, temperature_c: 25 },
-      { time_s: 280, temperature_c: 800 },
-      { time_s: 340, temperature_c: 810 },
-      { time_s: 650, temperature_c: 120 },
+      { time_s: 0, temperature_c: 25, segment_start: false },
+      { time_s: 280, temperature_c: 800, segment_start: false },
+      { time_s: 340, temperature_c: 810, segment_start: false },
+      { time_s: 650, temperature_c: 120, segment_start: false },
     ],
   },
   provenance: { source_kind: "manual" },
@@ -283,15 +136,6 @@ function candidateColor(candidateId: string, selectedId: string) {
   let hash = 0;
   for (const character of candidateId) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
   return CANDIDATE_COLORS[hash % CANDIDATE_COLORS.length];
-}
-
-async function apiError(response: Response, fallback: string): Promise<Error> {
-  try {
-    const body = (await response.json()) as { message?: string };
-    return new Error(body.message || fallback);
-  } catch {
-    return new Error(fallback);
-  }
 }
 
 function fromApiCandidate(candidate: ApiCandidate): Candidate {
@@ -471,14 +315,11 @@ function App() {
   async function loadProject(projectId: string) {
     const sequence = ++loadSequence.current;
     setApiState("loading");
-    const [candidateResponse, taskResponse] = await Promise.all([
-      fetch(`${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates`),
-      fetch(`${API_URL}/api/projects/${encodeURIComponent(projectId)}/task-definition`),
+    const [apiCandidates, resolved] = await Promise.all([
+      workbenchApi.listCandidates(projectId),
+      workbenchApi.taskDefinition(projectId),
     ]);
-    if (!candidateResponse.ok) throw new Error(`HTTP ${candidateResponse.status}`);
-    if (!taskResponse.ok) throw new Error(`HTTP ${taskResponse.status}`);
-    const imported = ((await candidateResponse.json()) as ApiCandidate[]).map(fromApiCandidate);
-    const resolved = (await taskResponse.json()) as ResolvedTaskDefinition;
+    const imported = apiCandidates.map(fromApiCandidate);
     const definition = taskDefinitionView(resolved);
     if (sequence !== loadSequence.current) return;
     setActiveProjectId(projectId);
@@ -500,15 +341,7 @@ function App() {
     const previewEntries = await Promise.all(
       imported.map(async (candidate) => {
         try {
-          const prediction = await fetch(
-            `${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates/${candidate.id}/preview`,
-            { method: "POST" },
-          );
-          if (!prediction.ok) return null;
-          return [
-            candidate.id,
-            (await prediction.json()) as ApiPreview,
-          ] as const;
+          return [candidate.id, await workbenchApi.previewCandidate(projectId, candidate.id)] as const;
         } catch {
           return null;
         }
@@ -532,9 +365,7 @@ function App() {
     let cancelled = false;
     async function bootstrap() {
       try {
-        const response = await fetch(`${API_URL}/api/projects`);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const available = (await response.json()) as ApiProject[];
+        const available = await workbenchApi.listProjects();
         const remembered = window.localStorage.getItem(
           "material-workbench-project",
         );
@@ -574,16 +405,7 @@ function App() {
     });
     const timer = window.setTimeout(async () => {
       try {
-        const response = await fetch(
-          `${API_URL}/api/projects/${encodeURIComponent(activeProjectId)}/candidates/${selected.id}/preview`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            signal: controller.signal,
-          },
-        );
-        if (!response.ok) throw new Error("preview unavailable");
-        const preview = (await response.json()) as ApiPreview;
+        const preview = await workbenchApi.previewCandidate(activeProjectId, selected.id);
         if (controller.signal.aborted) return;
         setMetrics(metricsFromPreview(preview));
         setPreview(preview);
@@ -706,23 +528,12 @@ function App() {
         toApiCandidate(candidate),
         { name: serverCandidate.name, inputs: serverCandidate.inputs, provenance: serverCandidate.provenance },
       );
-      const response = await fetch(
-        `${API_URL}/api/projects/${encodeURIComponent(activeProjectId)}/candidates/${candidate.id}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...rebased, expected_revision: serverCandidate.revision } satisfies ApiCandidateUpdate),
-        },
-      );
-      if (!response.ok) {
-        const body = (await response.json().catch(() => ({}))) as { current_candidate?: ApiCandidate };
-        const error = new Error("candidate save failed") as Error & { currentCandidate?: ApiCandidate };
-        error.currentCandidate = body.current_candidate;
-        throw error;
-      }
-      return (await response.json()) as ApiCandidate;
+      return workbenchApi.updateCandidate(activeProjectId, candidate.id, {
+        ...rebased,
+        expected_revision: serverCandidate.revision,
+      } satisfies ApiCandidateUpdate);
     }, (error) => {
-      const current = (error as Error & { currentCandidate?: ApiCandidate }).currentCandidate;
+      const current = error instanceof ApiClientError ? error.currentCandidate : undefined;
       if (!current) throw error;
       return current;
     });
@@ -733,7 +544,7 @@ function App() {
       setApiState("ready");
     } catch (error) {
       if (!queued.isLatest()) return;
-      const current = (error as Error & { currentCandidate?: ApiCandidate }).currentCandidate;
+      const current = error instanceof ApiClientError ? error.currentCandidate : undefined;
       setCandidates((items) =>
         items.map((item) => (item.id === previous.id ? (current ? fromApiCandidate(current) : previous) : item)),
       );
@@ -759,16 +570,7 @@ function App() {
         label: `候補 ${candidates.length + 1}`,
         heat: selected.heat.map((point) => ({ ...point })),
       });
-      const response = await fetch(
-        `${API_URL}/api/projects/${encodeURIComponent(activeProjectId)}/candidates`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(request),
-        },
-      );
-      if (!response.ok) throw new Error();
-      const created = fromApiCandidate((await response.json()) as ApiCandidate);
+      const created = fromApiCandidate(await workbenchApi.createCandidate(activeProjectId, request));
       setCandidates((items) => [...items, created]);
       setSelectedId(created.id);
       setNotice("候補を追加しました");
@@ -780,16 +582,7 @@ function App() {
 
   const createStarterCandidate = async () => {
     try {
-      const response = await fetch(
-        `${API_URL}/api/projects/${encodeURIComponent(activeProjectId)}/candidates`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(STARTER_CANDIDATE),
-        },
-      );
-      if (!response.ok) throw new Error();
-      const created = fromApiCandidate((await response.json()) as ApiCandidate);
+      const created = fromApiCandidate(await workbenchApi.createCandidate(activeProjectId, STARTER_CANDIDATE));
       setCandidates([created]);
       setSelectedId(created.id);
       setNotice("基準候補を作成しました");
@@ -807,10 +600,7 @@ function App() {
   const deleteCandidate = async () => {
     if (!selected || candidates.length === 1) return;
     try {
-      const response = await fetch(`${API_URL}/api/projects/${encodeURIComponent(activeProjectId)}/candidates/${selectedId}?expected_revision=${selected.raw.revision}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) throw new Error();
+      await workbenchApi.deleteCandidate(activeProjectId, selectedId, selected.raw.revision);
       const remaining = candidates.filter(
         (candidate) => candidate.id !== selectedId,
       );
@@ -826,15 +616,7 @@ function App() {
     if (!selected) return;
     setApiState("loading");
     try {
-      const response = await fetch(
-        `${API_URL}/api/projects/${encodeURIComponent(activeProjectId)}/candidates/${selected.id}/predict`,
-        { method: "POST" },
-      );
-      if (!response.ok) throw new Error();
-      const payload = (await response.json()) as {
-        prediction: ApiPreview;
-        snapshot: { id: string };
-      };
+      const payload = await workbenchApi.predictCandidate(activeProjectId, selected.id);
       const result = payload.prediction;
       setMetrics(metricsFromPreview(result));
       setPreview(result);
@@ -934,8 +716,7 @@ function App() {
             onProjectChanged={(project) => {
               setProjects((items) => items.map((item) => item.id === project.id ? project : item));
               if (project.id === activeProjectId) {
-                fetch(`${API_URL}/api/projects/${encodeURIComponent(project.id)}/task-definition`)
-                  .then((response) => response.json() as Promise<ResolvedTaskDefinition>)
+                workbenchApi.taskDefinition(project.id)
                   .then((resolved) => {
                     setResolvedTaskDefinition(resolved);
                     setTaskDefinition(taskDefinitionView(resolved));
@@ -1028,7 +809,7 @@ function ApiEmptyState({
       <p>{error ?? "データと予測モデルを準備しています。"}</p>
       {error && (
         <p className="api-hint">
-          FastAPI を <code>{API_URL}</code> で起動後、再読み込みしてください。
+          FastAPI を <code>{apiBaseUrl}</code> で起動後、再読み込みしてください。
         </p>
       )}
       {!loading && !error && (
@@ -1329,26 +1110,12 @@ function CandidateFileControls({
   const [message, setMessage] = useState("");
   const upload = async (file?: File) => {
     if (!file) return;
-    const form = new FormData();
-    form.append("file", file);
     try {
-      const r = await fetch(
-        `${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates/import`,
-        {
-          method: "POST",
-          body: form,
-        },
-      );
-      if (!r.ok) throw await apiError(r, "XLSXを取り込めませんでした。");
-      const body = (await r.json()) as {
-        candidates?: ApiCandidate[];
-        created?: number;
-        errors?: unknown[];
-      };
-      const imported = (body.candidates ?? []).map(fromApiCandidate);
+      const body = await workbenchApi.importCandidates(projectId, file);
+      const imported = body.candidates.map(fromApiCandidate);
       onImported(imported);
       setMessage(
-        `${body.created ?? imported.length}件を取り込みました${body.errors?.length ? `（${body.errors.length}件は確認が必要）` : ""}`,
+        `${body.created}件を取り込みました${body.errors.length ? `（${body.errors.length}件は確認が必要）` : ""}`,
       );
     } catch (error) {
       setMessage(
@@ -1357,9 +1124,7 @@ function CandidateFileControls({
     }
   };
   const download = () => {
-    window.location.assign(
-      `${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates/export.xlsx`,
-    );
+    window.location.assign(workbenchApi.candidateExportUrl(projectId));
   };
   return (
     <div className="file-controls">
@@ -1383,47 +1148,18 @@ function CandidateFileControls({
 }
 
 function ActualsPanel({ projectId, candidate }: { projectId: string; candidate: Candidate }) {
-  type Actual = {
-    id: string;
-    property: string;
-    mean: number;
-    std: number;
-    replicates: number;
-    unit: string;
-    snapshot_id: string;
-    experiment_no: string;
-    measured_at?: string | null;
-    note: string;
-  };
-  type Comparison = {
-    actual: Actual;
-    snapshot_id: string;
-    prediction: {
-      predictions: Record<
-        string,
-        { value: number; lower: number; upper: number; unit: string }
-      >;
-      model_meta?: ApiPreview["model_meta"];
-    };
-  };
-  const [property, setProperty] = useState("TS");
+  const [property, setProperty] = useState<ApiActual["property"]>("TS");
   const [mean, setMean] = useState("");
   const [std, setStd] = useState("0");
   const [replicates, setReplicates] = useState("1");
   const [experimentNo, setExperimentNo] = useState("");
   const [measuredAt, setMeasuredAt] = useState("");
   const [note, setNote] = useState("");
-  const [comparison, setComparison] = useState<{
-    comparisons: Comparison[];
-  } | null>(null);
+  const [comparison, setComparison] = useState<ApiPredictionVsActual | null>(null);
   const [error, setError] = useState("");
   const refresh = async () => {
     try {
-      const response = await fetch(
-        `${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates/${candidate.id}/prediction-vs-actual`,
-      );
-      if (!response.ok) throw new Error();
-      setComparison(await response.json());
+      setComparison(await workbenchApi.predictionVsActual(projectId, candidate.id));
     } catch {
       setError("実測値を取得できませんでした。");
     }
@@ -1435,24 +1171,16 @@ function ActualsPanel({ projectId, candidate }: { projectId: string; candidate: 
     if (mean.trim() === "") return setError("実測平均を入力してください。");
     try {
       setError("");
-      const r = await fetch(
-        `${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates/${candidate.id}/actuals`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            property,
-            mean: Number(mean),
-            std: Number(std),
-            replicates: Number(replicates),
-            unit: property === "TS" || property === "YS" ? "MPa" : "%",
-            experiment_no: experimentNo.trim(),
-            measured_at: measuredAt || null,
-            note: note.trim(),
-          }),
-        },
-      );
-      if (!r.ok) throw new Error();
+      await workbenchApi.createActual(projectId, candidate.id, {
+        property,
+        mean: Number(mean),
+        std: Number(std),
+        replicates: Number(replicates),
+        unit: property === "TS" || property === "YS" ? "MPa" : "%",
+        experiment_no: experimentNo.trim(),
+        measured_at: measuredAt || null,
+        note: note.trim(),
+      });
       setMean("");
       setExperimentNo("");
       setMeasuredAt("");
@@ -1463,11 +1191,12 @@ function ActualsPanel({ projectId, candidate }: { projectId: string; candidate: 
     }
   };
   const remove = async (id: string) => {
-    const response = await fetch(`${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates/${candidate.id}/actuals/${id}`, {
-      method: "DELETE",
-    });
-    if (response.ok) await refresh();
-    else setError("実測値を削除できませんでした。");
+    try {
+      await workbenchApi.deleteActual(projectId, candidate.id, id);
+      await refresh();
+    } catch {
+      setError("実測値を削除できませんでした。");
+    }
   };
   const rows = comparison?.comparisons ?? [];
   return (
@@ -1484,7 +1213,7 @@ function ActualsPanel({ projectId, candidate }: { projectId: string; candidate: 
         <select
           aria-label="実測特性"
           value={property}
-          onChange={(e) => setProperty(e.target.value)}
+          onChange={(e) => setProperty(e.target.value as ApiActual["property"])}
         >
           <option>TS</option>
           <option>YS</option>
@@ -1863,9 +1592,7 @@ function LiveResponseCurves({
     const timer = window.setTimeout(() => {
       Promise.all(candidates.map(async (item) => {
         try {
-          const response = await fetch(`${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates/${item.id}/response-curves?variable=${encodeURIComponent(variableId)}`, { signal: controller.signal });
-          if (!response.ok) return null;
-          return [item.id, (await response.json()) as ResponseCurvesPayload] as const;
+          return [item.id, await workbenchApi.responseCurves(projectId, item.id, variableId, controller.signal)] as const;
         } catch {
           return null;
         }
@@ -2167,38 +1894,12 @@ function EvidencePanel({
 }
 
 function LiveDataQualityPage() {
-  type DetectedIssue = {
-    issue_id: string;
-    issue_type:
-      | "missing_key"
-      | "orphan_entity"
-      | "duplicate_key"
-      | "invalid_reference";
-    source_sheet: string;
-    entity_key: string;
-    detail: string;
-  };
-  type Scenario = {
-    scenario_id: string;
-    分類: string;
-    対象キー: string;
-    対象シート: string;
-    期待する気づき: string;
-  };
-  type Quality = {
-    detected_total: number;
-    detected_by_type: Record<string, number>;
-    detected_issues: DetectedIssue[];
-    reference_scenarios: Scenario[];
-  };
-  const [data, setData] = useState<Quality | null>(null);
+  type DetectedIssue = ApiQuality["detected_issues"][number];
+  const [data, setData] = useState<ApiQuality | null>(null);
   const [error, setError] = useState(false);
   useEffect(() => {
-    fetch(`${API_URL}/api/quality`)
-      .then(async (response) => {
-        if (!response.ok) throw new Error();
-        setData((await response.json()) as Quality);
-      })
+    workbenchApi.quality()
+      .then(setData)
       .catch(() => setError(true));
   }, []);
   const labels: Record<DetectedIssue["issue_type"], string> = {
@@ -2218,9 +1919,7 @@ function LiveDataQualityPage() {
         </div>
         <button
           className="outline-button"
-          onClick={() =>
-            window.location.assign(`${API_URL}/api/quality/export.csv`)
-          }
+          onClick={() => window.location.assign(workbenchApi.qualityExportUrl())}
         >
           検出結果をCSV出力
         </button>
@@ -2305,121 +2004,19 @@ function LiveLineagePage({
   projectId: string;
   onCandidate: (candidate: Candidate) => void;
 }) {
-  type Summary = {
-    count: number;
-    min: number;
-    mean: number;
-    std: number;
-    median: number;
-    max: number;
-  };
-  type Lineage = {
-    key: string;
-    relations: Record<string, string[]>;
-    quality_issues: Array<{
-      issue_id: string;
-      issue_type: string;
-      source_sheet: string;
-      entity_key: string;
-      detail: string;
-    }>;
-    candidate_eligible: boolean;
-    candidate_reason: string;
-    graph: {
-      nodes: Array<{
-        key: string;
-        entity_type: string;
-        source_sheet: string;
-        exists: boolean;
-        selected: boolean;
-        issue_types: string[];
-      }>;
-      edges: Array<{ source: string; target: string; route_rows: number[] }>;
-      relation_row_count: number;
-      omitted_node_count: number;
-    };
-    node: {
-      entity_type: string;
-      source_sheet: string;
-      missing_source: boolean;
-      primary_conditions: Record<string, string | number | boolean | null>;
-      composition: Record<string, number>;
-      heat_pattern: Array<{
-        time_s: number;
-        temperature_c: number;
-        segment_start?: boolean;
-        set_temperature_c?: number | null;
-        stage_category?: string | null;
-        stage_name?: string | null;
-        mapping_status?: string | null;
-      }>;
-      connected_observation_count: number;
-      connected_observations: Array<{
-        id: string;
-        source: string;
-        parent_key: string;
-        outputs: Record<string, number>;
-      }>;
-      observation_groups: Array<{
-        stage: string;
-        test_type: string;
-        property: string;
-        count: number;
-        min: number;
-        mean: number;
-        std: number;
-        median: number;
-        max: number;
-        observations: Array<{
-          id: string;
-          source: string;
-          parent_key: string;
-          outputs: Record<string, number>;
-        }>;
-      }>;
-      property_summary: Record<string, Summary>;
-    };
-  };
-  type LineageIndex = {
-    items: Array<{
-      key: string;
-      entity_type: string;
-      has_issue: boolean;
-      family?: string;
-      project?: string;
-      route?: string;
-      peak_temperature_c?: number;
-      coating?: string;
-      learning_status?: string;
-      has_observation?: boolean;
-      observation_summary?: Record<string, { mean: number; std: number; n: number }>;
-    }>;
-    total_entities: number;
-    relation_rows: number;
-    detected_issues: number;
-    counts_by_type: Record<string, number>;
-  };
   const [entityKey, setEntityKey] = useState("AN-00001");
   const [query, setQuery] = useState("");
   const [entityType, setEntityType] = useState("焼鈍");
   const [issueOnly, setIssueOnly] = useState(false);
-  const [index, setIndex] = useState<LineageIndex | null>(null);
-  const [data, setData] = useState<Lineage | null>(null);
+  const [index, setIndex] = useState<ApiLineageIndex | null>(null);
+  const [data, setData] = useState<ApiLineage | null>(null);
   const [error, setError] = useState("");
   const [candidateError, setCandidateError] = useState("");
   useEffect(() => {
     const controller = new AbortController();
-    const params = new URLSearchParams({ limit: "40" });
-    if (query.trim()) params.set("query", query.trim());
-    if (entityType) params.set("entity_type", entityType);
-    if (issueOnly) params.set("issue_only", "true");
     const timer = window.setTimeout(() => {
-      fetch(`${API_URL}/api/lineage?${params.toString()}`, {
-        signal: controller.signal,
-      })
-        .then(async (response) => {
-          if (response.ok) setIndex((await response.json()) as LineageIndex);
-        })
+      workbenchApi.lineageIndex(query.trim(), entityType, issueOnly, controller.signal)
+        .then(setIndex)
         .catch(() => undefined);
     }, 180);
     return () => {
@@ -2431,11 +2028,9 @@ function LiveLineagePage({
     let cancelled = false;
     setError("");
     setCandidateError("");
-    fetch(`${API_URL}/api/lineage/${encodeURIComponent(entityKey)}`)
-      .then(async (response) => {
-        if (!response.ok)
-          throw await apiError(response, "系譜を取得できませんでした。");
-        if (!cancelled) setData((await response.json()) as Lineage);
+    workbenchApi.lineage(entityKey)
+      .then((lineage) => {
+        if (!cancelled) setData(lineage);
       })
       .catch((cause) => {
         if (!cancelled)
@@ -2451,13 +2046,7 @@ function LiveLineagePage({
   }, [entityKey]);
   const createCandidate = async () => {
     try {
-      const response = await fetch(
-        `${API_URL}/api/lineage/${encodeURIComponent(entityKey)}/candidate?project_id=${encodeURIComponent(projectId)}`,
-        { method: "POST" },
-      );
-      if (!response.ok)
-        throw await apiError(response, "候補を作成できませんでした。");
-      onCandidate(fromApiCandidate((await response.json()) as ApiCandidate));
+      onCandidate(fromApiCandidate(await workbenchApi.createCandidateFromLineage(entityKey, projectId)));
     } catch (cause) {
       setCandidateError(
         cause instanceof Error ? cause.message : "候補を作成できませんでした。",
@@ -2870,9 +2459,7 @@ function InputRangeSettingsPage({
     setSaving(true);
     setError("");
     try {
-      const response = await fetch(`${API_URL}/api/projects/${encodeURIComponent(project.id)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...project, input_ranges: inputRanges }) });
-      if (!response.ok) throw new Error("保存できませんでした。");
-      onProjectChanged((await response.json()) as ApiProject);
+      onProjectChanged(await workbenchApi.updateProject(project.id, { ...project, input_ranges: inputRanges }));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "保存できませんでした。");
     } finally {
@@ -2929,13 +2516,8 @@ function LiveProjectPage({
   }, [projects, activeProjectId]);
   useEffect(() => {
     const controller = new AbortController();
-    fetch(`${API_URL}/api/projects/${encodeURIComponent(activeProjectId)}/model-package`, {
-      signal: controller.signal,
-    })
-      .then(async (response) =>
-        !controller.signal.aborted &&
-        setModelPackage(response.ok ? await response.json() : null),
-      )
+    workbenchApi.modelPackage(activeProjectId)
+      .then((modelPackage) => !controller.signal.aborted && setModelPackage(modelPackage))
       .catch(() => {
         if (!controller.signal.aborted) setModelPackage(null);
       });
@@ -2946,11 +2528,8 @@ function LiveProjectPage({
     setSelectedSnapshotId("");
     if (!candidate) return;
     const controller = new AbortController();
-    fetch(`${API_URL}/api/projects/${encodeURIComponent(activeProjectId)}/candidates/${candidate.id}/snapshots`, {
-      signal: controller.signal,
-    })
-      .then(async (r) => {
-        const loaded = r.ok ? ((await r.json()) as ApiSnapshot[]) : [];
+    workbenchApi.snapshots(activeProjectId, candidate.id, controller.signal)
+      .then((loaded) => {
         if (!controller.signal.aborted) {
           setSnapshots(loaded);
           if (
@@ -2968,32 +2547,33 @@ function LiveProjectPage({
   }, [candidate?.id, activeProjectId, project?.decision_snapshot_id]);
   const save = async () => {
     if (!project) return;
-    const r = await fetch(`${API_URL}/api/projects/${project.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(project),
-    });
-    if (!r.ok) return setError("保存できませんでした。");
-    const saved = (await r.json()) as ApiProject;
-    setProject(saved);
-    onProjectChanged(saved);
+    try {
+      const saved = await workbenchApi.updateProject(project.id, project);
+      setProject(saved);
+      onProjectChanged(saved);
+    } catch {
+      setError("保存できませんでした。");
+    }
   };
   const createProject = async () => {
-    const selectedTaskId = String(project?.task_id ?? "annealed-properties-v1");
-    const r = await fetch(`${API_URL}/api/projects`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const selectedTaskId: ApiProject["task_id"] = project?.task_id ?? "annealed-properties-v1";
+    let created: ApiProject;
+    try {
+      created = await workbenchApi.createProject({
         name: `新しい検討 ${projects.length + 1}`,
         description: "",
         purpose: "",
         task_id: selectedTaskId,
         target_values: {},
+        input_ranges: {},
         notes: "",
-      }),
-    });
-    if (!r.ok) return setError("新しいプロジェクトを作成できませんでした。");
-    const created = (await r.json()) as ApiProject;
+        decision_candidate_id: "",
+        decision_snapshot_id: "",
+        decision_note: "",
+      });
+    } catch {
+      return setError("新しいプロジェクトを作成できませんでした。");
+    }
     if (selectedTaskId === "hot-rolled-properties-v1") {
       onProjectChanged(created);
       onSwitch(created.id);
@@ -3005,33 +2585,22 @@ function LiveProjectPage({
           return { ...payload, name: "基準候補" };
         })()
       : STARTER_CANDIDATE;
-    const candidateResponse = await fetch(
-      `${API_URL}/api/projects/${encodeURIComponent(created.id)}/candidates`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(initial),
-      },
-    );
-    if (!candidateResponse.ok)
+    try {
+      await workbenchApi.createCandidate(created.id, initial);
+    } catch {
       return setError(
         "プロジェクトは作成しましたが、基準候補を作成できませんでした。",
       );
+    }
     onProjectChanged(created);
     onSwitch(created.id);
   };
   const restore = async (id: string) => {
-    const r = await fetch(`${API_URL}/api/projects/${encodeURIComponent(activeProjectId)}/snapshots/${id}/restore`, {
-      method: "POST",
-    });
-    if (!r.ok) {
-      const cause = await apiError(
-        r,
-        "スナップショットを復元できませんでした。",
-      );
-      return setError(cause.message);
+    try {
+      onRestore(fromApiCandidate(await workbenchApi.restoreSnapshot(activeProjectId, id)));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "スナップショットを復元できませんでした。");
     }
-    onRestore(fromApiCandidate((await r.json()) as ApiCandidate));
   };
   const targetValues = (project?.target_values ?? {}) as Record<string, number>;
   const selectedSnapshot = snapshots.find(
@@ -3116,7 +2685,7 @@ function LiveProjectPage({
             <select
               value={String(project.task_id ?? "annealed-properties-v1")}
               onChange={(event) =>
-                setProject({ ...project, task_id: event.target.value })
+                setProject({ ...project, task_id: event.target.value as ApiProject["task_id"] })
               }
             >
               <option value="annealed-properties-v1">
@@ -3313,43 +2882,8 @@ function LiveScreeningPage({
     first: string;
     second: string;
   };
-  type ScreenPoint = {
-    index: number;
-    inputs: Record<string, number | string>;
-    prediction: { value: number; unit: string };
-    support: { status: string };
-    score: number | null;
-    goal_evaluation?: {
-      method: "achievement_probability" | "directional_shortfall" | "absolute_distance" | "support_distance";
-      achieved: boolean | null;
-      achievement_probability: number | null;
-    };
-  };
-  type ScreenResult = {
-    id: string;
-    base_candidate_id?: string;
-    created_at?: string;
-    target: string;
-    target_value: number | null;
-    score_contract?: {
-      direction: "at_least" | "at_most" | "target" | null;
-      display_label: string;
-      fallback: string;
-    };
-    samples: number;
-    variables?: Record<
-      string,
-      {
-        mode: "fixed" | "range" | "list";
-        value?: number | string;
-        min?: number;
-        max?: number;
-        values?: Array<number | string>;
-      }
-    >;
-    points: ScreenPoint[];
-    representative_points: ScreenPoint[];
-  };
+  type ScreenPoint = ApiScreeningRun["points"][number];
+  type ScreenResult = ApiScreeningRun;
   const options = resolvedTaskDefinition
     ? resolvedTaskDefinition.task_definition.input_groups.flatMap((group) =>
         group.fields
@@ -3389,12 +2923,8 @@ function LiveScreeningPage({
     }
   }, [candidates, selectedId, baseCandidateId]);
   useEffect(() => {
-    fetch(
-      `${API_URL}/api/screening?project_id=${encodeURIComponent(projectId)}`,
-    )
-      .then(async (response) => {
-        if (response.ok) setSavedRuns(await response.json());
-      })
+    workbenchApi.listScreeningRuns(projectId)
+      .then(setSavedRuns)
       .catch(() => undefined);
   }, [projectId]);
   const updateVariable = (index: number, patch: Partial<VariableRow>) =>
@@ -3439,23 +2969,13 @@ function LiveScreeningPage({
           ];
         }),
       );
-      const r = await fetch(
-        `${API_URL}/api/screening?project_id=${encodeURIComponent(projectId)}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            base_candidate_id: baseCandidateId,
-            variables: specs,
-            samples,
-            target,
-            target_value: targetValue.trim() === "" ? null : Number(targetValue),
-          }),
-        },
-      );
-      if (!r.ok)
-        throw new Error(((await r.json()) as { message?: string }).message);
-      const created = (await r.json()) as ScreenResult;
+      const created = await workbenchApi.createScreeningRun(projectId, {
+        base_candidate_id: baseCandidateId,
+        variables: specs,
+        samples,
+        target,
+        target_value: targetValue.trim() === "" ? null : Number(targetValue),
+      });
       setResult(created);
       setSavedRuns((runs) => [created, ...runs]);
     } catch (cause) {
@@ -3465,11 +2985,12 @@ function LiveScreeningPage({
     }
   };
   const loadRun = async (runId: string) => {
-    const response = await fetch(
-      `${API_URL}/api/screening/${runId}?project_id=${encodeURIComponent(projectId)}`,
-    );
-    if (!response.ok) return setError("保存済み探索を開けませんでした。");
-    const run = (await response.json()) as ScreenResult;
+    let run: ScreenResult;
+    try {
+      run = await workbenchApi.screeningRun(projectId, runId);
+    } catch {
+      return setError("保存済み探索を開けませんでした。");
+    }
     setResult(run);
     if (run.base_candidate_id) setBaseCandidateId(run.base_candidate_id);
     setTarget(run.target);
@@ -3492,12 +3013,11 @@ function LiveScreeningPage({
   };
   const persist = async (index: number) => {
     if (!result) return;
-    const r = await fetch(
-      `${API_URL}/api/screening/${result.id}/points/${index}/candidate?project_id=${encodeURIComponent(projectId)}`,
-      { method: "POST" },
-    );
-    if (r.ok) onCandidate(fromApiCandidate((await r.json()) as ApiCandidate));
-    else setError((await apiError(r, "候補を作成できませんでした。")).message);
+    try {
+      onCandidate(fromApiCandidate(await workbenchApi.candidateFromScreening(projectId, result.id, index)));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "候補を作成できませんでした。");
+    }
   };
   const axes = variables
     .filter((row) => row.mode !== "fixed" && row.field !== "coating")

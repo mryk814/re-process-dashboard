@@ -51,6 +51,17 @@ GitHubのPRと`main`へのpushでも同じfull gateが自動実行されます�
 
 モデルPackageを更新した場合は `npm run models:build:annealed` または `npm run models:build:hot-rolling` で、artifact・quality report・manifestを必ず同時に再生成します。新しいPackageの作成・検証・有効化・rollbackは [Model Package lifecycle](docs/model-package-lifecycle.md) の一本道を使います。
 
+### Frontend API契約
+
+FastAPIのOpenAPIを正本として、`apps/web/src/generated/` のschemaとTypeScript型を生成します。生成物は手編集しません。
+
+```powershell
+npm run api:generate  # backendの契約変更後
+npm run api:check     # schema・生成型のdrift検出
+```
+
+`npm run typecheck` はdrift checkも含みます。production UIのHTTPアクセスは `apps/web/src/shared/api/workbench-api.ts` を経由します。
+
 ## データ
 
 `data/source/process_dashboard_realistic_excel_v2.xlsx` を読取専用の正本として扱います。初回起動時に工程、観測、系譜、データ品質を構築します。元Excelは変更しません。

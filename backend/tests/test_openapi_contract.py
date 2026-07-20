@@ -1,0 +1,73 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from material_workbench.app import app
+from material_workbench.schemas import CandidateInput
+
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_tracked_openapi_schema_matches_fastapi_contract() -> None:
+    tracked = json.loads((ROOT / "apps/web/src/generated/openapi.json").read_text(encoding="utf-8"))
+    assert tracked == app.openapi()
+    candidate_response = tracked["paths"]["/api/projects/{project_id}/candidates"]["get"]["responses"]["200"]
+    assert candidate_response["content"]["application/json"]["schema"]["items"]["$ref"].endswith("/Candidate")
+    schemas = tracked["components"]["schemas"]
+    assert {"revision", "archived_at"} <= schemas["Candidate"]["properties"].keys()
+    assert "expected_revision" in schemas["CandidateUpdate"]["required"]
+    assert {"revision_conflict", "candidate_archived", "candidate_limit", "data_integrity_error"} <= set(
+        schemas["ApiError"]["properties"]["code"]["enum"]
+    )
+    list_parameters = tracked["paths"]["/api/projects/{project_id}/candidates"]["get"]["parameters"]
+    delete_parameters = tracked["paths"]["/api/projects/{project_id}/candidates/{candidate_id}"]["delete"]["parameters"]
+    assert any(item["name"] == "include_archived" for item in list_parameters)
+    assert any(item["name"] == "expected_revision" and item.get("required") is True for item in delete_parameters)
+    validation_responses = [
+        operation["responses"]["422"]
+        for path in tracked["paths"].values()
+        for operation in path.values()
+        if "422" in operation.get("responses", {})
+    ]
+    assert validation_responses
+    assert {response["description"] for response in validation_responses} == {"Validation Error"}
+    assert {
+        response["content"]["application/json"]["schema"]["$ref"]
+        for response in validation_responses
+    } == {"#/components/schemas/ApiError"}
+
+
+def test_runtime_validation_error_matches_openapi_api_error(client) -> None:
+    response = client.post("/api/screening/run/points/not-an-integer/candidate")
+    assert response.status_code == 422
+    payload = response.json()
+    assert payload["code"] == "validation_error"
+    assert payload["message"] == "入力内容を確認してください"
+    assert payload["field_errors"][0]["path"] == "path.point_index"
+    assert payload["field_errors"][0]["message"]
+    assert "detail" not in payload
+
+
+def test_unicode_identifiers_and_units_survive_json_contract_round_trip(client) -> None:
+    source = client.get("/api/projects/default/candidates").json()[0]
+    payload = CandidateInput.model_validate(
+        {
+            **source,
+            "name": "候補Ａ・日本語キー確認",
+            "inputs": {
+                **source["inputs"],
+                "categorical": {**source["inputs"]["categorical"], "表示識別子": "全角Ａ"},
+            },
+        }
+    )
+    encoded = json.dumps(payload.model_dump(mode="json"), ensure_ascii=False)
+    decoded = CandidateInput.model_validate_json(encoded)
+    assert decoded.name == "候補Ａ・日本語キー確認"
+    assert decoded.inputs.categorical["表示識別子"] == "全角Ａ"
+
+    task = client.get("/api/projects/default/task-definition").json()["task_definition"]
+    units = {field["unit"] for group in task["input_groups"] for field in group["fields"] if field["unit"]}
+    units.update(output["unit"] for output in task["outputs"])
+    assert {"mass%", "mm", "m/min", "MPa", "%"} <= units

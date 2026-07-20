@@ -1,56 +1,12 @@
-export type NumericRange = { min: number; max: number };
+import type { components } from "./generated/api-types";
 
-export type TaskFieldDefinition = {
-  path: string;
-  kind: "number" | "categorical" | "heat_pattern";
-  order: number;
-  label: string;
-  unit: string | null;
-  required: boolean;
-  editable: boolean;
-  default_range: NumericRange | null;
-  allowed_range: NumericRange | null;
-  training_range: NumericRange | null;
-  choices: string[];
-};
-
-export type TaskInputGroup = {
-  key: "composition" | "process" | "heat_pattern" | "categorical";
-  order: number;
-  label: string;
-  fields: TaskFieldDefinition[];
-};
-
-export type TaskOutputDefinition = {
-  key: string;
-  label: string;
-  unit: string;
-  goal_direction: "at_least" | "at_most" | "target";
-};
-
-export type TaskDefinitionContract = {
-  schema_version: "task-definition/v1";
-  id: string;
-  label: string;
-  canonical_candidate_schema_version: "canonical-candidate/v1";
-  input_groups: TaskInputGroup[];
-  outputs: TaskOutputDefinition[];
-  fixed_context: Array<{ path: string; order: number; label: string; value: string | number | boolean }>;
-};
-
-export type RuntimeOperations = {
-  preview: boolean;
-  detailed_prediction: boolean;
-  response_curve: boolean;
-  similarity: boolean;
-  snapshot: boolean;
-  actual_measurement: boolean;
-};
-
-export type ResolvedTaskDefinition = {
-  task_definition: TaskDefinitionContract;
-  runtime_capability: { task_id: string; operations: RuntimeOperations };
-};
+export type NumericRange = components["schemas"]["NumericRange"];
+export type TaskFieldDefinition = components["schemas"]["InputFieldDefinition"];
+export type TaskInputGroup = components["schemas"]["InputGroupDefinition"];
+export type TaskOutputDefinition = components["schemas"]["OutputDefinition"];
+export type TaskDefinitionContract = components["schemas"]["TaskDefinition"];
+export type RuntimeOperations = components["schemas"]["RuntimeOperationsCapability"];
+export type ResolvedTaskDefinition = components["schemas"]["ResolvedTaskDefinition"];
 
 export type TaskInputDefinition = TaskFieldDefinition & {
   id: string;

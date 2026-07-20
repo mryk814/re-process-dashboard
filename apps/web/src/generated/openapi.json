@@ -1,0 +1,5627 @@
+{
+  "components": {
+    "schemas": {
+      "ActualMeasurement": {
+        "properties": {
+          "candidate_id": {
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "experiment_no": {
+            "default": "",
+            "title": "Experiment No",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "mean": {
+            "title": "Mean",
+            "type": "number"
+          },
+          "measured_at": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured At"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "property": {
+            "enum": [
+              "TS",
+              "YS",
+              "EL",
+              "lambda"
+            ],
+            "title": "Property",
+            "type": "string"
+          },
+          "replicates": {
+            "default": 1,
+            "maximum": 999.0,
+            "minimum": 1.0,
+            "title": "Replicates",
+            "type": "integer"
+          },
+          "snapshot_id": {
+            "title": "Snapshot Id",
+            "type": "string"
+          },
+          "std": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Std",
+            "type": "number"
+          },
+          "unit": {
+            "enum": [
+              "MPa",
+              "%"
+            ],
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "property",
+          "mean",
+          "unit",
+          "id",
+          "candidate_id",
+          "snapshot_id",
+          "created_at"
+        ],
+        "title": "ActualMeasurement",
+        "type": "object"
+      },
+      "ActualMeasurementInput": {
+        "properties": {
+          "experiment_no": {
+            "default": "",
+            "title": "Experiment No",
+            "type": "string"
+          },
+          "mean": {
+            "title": "Mean",
+            "type": "number"
+          },
+          "measured_at": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured At"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "property": {
+            "enum": [
+              "TS",
+              "YS",
+              "EL",
+              "lambda"
+            ],
+            "title": "Property",
+            "type": "string"
+          },
+          "replicates": {
+            "default": 1,
+            "maximum": 999.0,
+            "minimum": 1.0,
+            "title": "Replicates",
+            "type": "integer"
+          },
+          "std": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Std",
+            "type": "number"
+          },
+          "unit": {
+            "enum": [
+              "MPa",
+              "%"
+            ],
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "property",
+          "mean",
+          "unit"
+        ],
+        "title": "ActualMeasurementInput",
+        "type": "object"
+      },
+      "ApiError": {
+        "properties": {
+          "code": {
+            "enum": [
+              "not_found",
+              "revision_conflict",
+              "candidate_limit",
+              "adopted_candidate",
+              "candidate_archived",
+              "project_task_locked",
+              "data_integrity_error",
+              "validation_error",
+              "runtime_unavailable"
+            ],
+            "title": "Code",
+            "type": "string"
+          },
+          "current_candidate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Candidate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "field_errors": {
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            },
+            "title": "Field Errors",
+            "type": "array"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ApiError",
+        "type": "object"
+      },
+      "Body_import_candidates_api_projects__project_id__candidates_import_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_import_candidates_api_projects__project_id__candidates_import_post",
+        "type": "object"
+      },
+      "Candidate": {
+        "properties": {
+          "archived_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "inputs": {
+            "$ref": "#/components/schemas/CandidateInputs"
+          },
+          "name": {
+            "default": "候補",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "provenance": {
+            "discriminator": {
+              "mapping": {
+                "lineage": "#/components/schemas/LineageSourceRef",
+                "manual": "#/components/schemas/ManualSourceRef",
+                "screening": "#/components/schemas/ScreeningSourceRef",
+                "snapshot": "#/components/schemas/SnapshotSourceRef"
+              },
+              "propertyName": "source_kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ManualSourceRef"
+              },
+              {
+                "$ref": "#/components/schemas/LineageSourceRef"
+              },
+              {
+                "$ref": "#/components/schemas/ScreeningSourceRef"
+              },
+              {
+                "$ref": "#/components/schemas/SnapshotSourceRef"
+              }
+            ],
+            "title": "Provenance"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "inputs",
+          "id",
+          "project_id",
+          "revision",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "Candidate",
+        "type": "object"
+      },
+      "CandidateImportError": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "row": {
+            "title": "Row",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "row",
+          "message"
+        ],
+        "title": "CandidateImportError",
+        "type": "object"
+      },
+      "CandidateImportResponse": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/Candidate"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "created": {
+            "title": "Created",
+            "type": "integer"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/CandidateImportError"
+            },
+            "title": "Errors",
+            "type": "array"
+          }
+        },
+        "required": [
+          "created",
+          "errors",
+          "candidates"
+        ],
+        "title": "CandidateImportResponse",
+        "type": "object"
+      },
+      "CandidateInput": {
+        "properties": {
+          "inputs": {
+            "$ref": "#/components/schemas/CandidateInputs"
+          },
+          "name": {
+            "default": "候補",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "provenance": {
+            "discriminator": {
+              "mapping": {
+                "lineage": "#/components/schemas/LineageSourceRef",
+                "manual": "#/components/schemas/ManualSourceRef",
+                "screening": "#/components/schemas/ScreeningSourceRef",
+                "snapshot": "#/components/schemas/SnapshotSourceRef"
+              },
+              "propertyName": "source_kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ManualSourceRef"
+              },
+              {
+                "$ref": "#/components/schemas/LineageSourceRef"
+              },
+              {
+                "$ref": "#/components/schemas/ScreeningSourceRef"
+              },
+              {
+                "$ref": "#/components/schemas/SnapshotSourceRef"
+              }
+            ],
+            "title": "Provenance"
+          }
+        },
+        "required": [
+          "inputs"
+        ],
+        "title": "CandidateInput",
+        "type": "object"
+      },
+      "CandidateInputs": {
+        "properties": {
+          "categorical": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Categorical",
+            "type": "object"
+          },
+          "composition": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Composition",
+            "type": "object"
+          },
+          "heat_pattern": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/HeatPoint"
+                },
+                "maxItems": 30,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heat Pattern"
+          },
+          "process": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Process",
+            "type": "object"
+          }
+        },
+        "required": [
+          "composition",
+          "process",
+          "categorical"
+        ],
+        "title": "CandidateInputs",
+        "type": "object"
+      },
+      "CandidateUpdate": {
+        "properties": {
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "inputs": {
+            "$ref": "#/components/schemas/CandidateInputs"
+          },
+          "name": {
+            "default": "候補",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "provenance": {
+            "discriminator": {
+              "mapping": {
+                "lineage": "#/components/schemas/LineageSourceRef",
+                "manual": "#/components/schemas/ManualSourceRef",
+                "screening": "#/components/schemas/ScreeningSourceRef",
+                "snapshot": "#/components/schemas/SnapshotSourceRef"
+              },
+              "propertyName": "source_kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ManualSourceRef"
+              },
+              {
+                "$ref": "#/components/schemas/LineageSourceRef"
+              },
+              {
+                "$ref": "#/components/schemas/ScreeningSourceRef"
+              },
+              {
+                "$ref": "#/components/schemas/SnapshotSourceRef"
+              }
+            ],
+            "title": "Provenance"
+          }
+        },
+        "required": [
+          "inputs",
+          "expected_revision"
+        ],
+        "title": "CandidateUpdate",
+        "type": "object"
+      },
+      "ConnectedObservation": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "outputs": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Outputs",
+            "type": "object"
+          },
+          "parent_key": {
+            "title": "Parent Key",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "parent_key",
+          "outputs"
+        ],
+        "title": "ConnectedObservation",
+        "type": "object"
+      },
+      "CurvePoint": {
+        "properties": {
+          "lower": {
+            "title": "Lower",
+            "type": "number"
+          },
+          "upper": {
+            "title": "Upper",
+            "type": "number"
+          },
+          "value": {
+            "title": "Value",
+            "type": "number"
+          },
+          "x": {
+            "title": "X",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "value",
+          "lower",
+          "upper"
+        ],
+        "title": "CurvePoint",
+        "type": "object"
+      },
+      "CurveVariable": {
+        "properties": {
+          "current": {
+            "title": "Current",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "max": {
+            "title": "Max",
+            "type": "number"
+          },
+          "min": {
+            "title": "Min",
+            "type": "number"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "unit",
+          "min",
+          "max",
+          "current"
+        ],
+        "title": "CurveVariable",
+        "type": "object"
+      },
+      "DataQualityIssue": {
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "entity_key": {
+            "title": "Entity Key",
+            "type": "string"
+          },
+          "issue_id": {
+            "title": "Issue Id",
+            "type": "string"
+          },
+          "issue_type": {
+            "enum": [
+              "missing_key",
+              "orphan_entity",
+              "duplicate_key",
+              "invalid_reference"
+            ],
+            "title": "Issue Type",
+            "type": "string"
+          },
+          "source_sheet": {
+            "title": "Source Sheet",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_id",
+          "issue_type",
+          "source_sheet",
+          "entity_key",
+          "detail"
+        ],
+        "title": "DataQualityIssue",
+        "type": "object"
+      },
+      "DetailedPredictionResponse": {
+        "properties": {
+          "prediction": {
+            "$ref": "#/components/schemas/PredictionResponse"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/SnapshotResponse"
+          }
+        },
+        "required": [
+          "prediction",
+          "snapshot"
+        ],
+        "title": "DetailedPredictionResponse",
+        "type": "object"
+      },
+      "FeaturePipelineIdentity": {
+        "additionalProperties": true,
+        "properties": {
+          "features": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Features",
+            "type": "array"
+          },
+          "id": {
+            "default": "",
+            "title": "Id",
+            "type": "string"
+          },
+          "input_schema_version": {
+            "default": "",
+            "title": "Input Schema Version",
+            "type": "string"
+          },
+          "version": {
+            "default": "",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "title": "FeaturePipelineIdentity",
+        "type": "object"
+      },
+      "FieldError": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "message"
+        ],
+        "title": "FieldError",
+        "type": "object"
+      },
+      "FixedContextDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "order": {
+            "minimum": 0.0,
+            "title": "Order",
+            "type": "integer"
+          },
+          "path": {
+            "minLength": 1,
+            "pattern": "^context\\.[A-Za-z][A-Za-z0-9_]*$",
+            "title": "Path",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "boolean"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "path",
+          "order",
+          "label",
+          "value"
+        ],
+        "title": "FixedContextDefinition",
+        "type": "object"
+      },
+      "HeatPoint": {
+        "properties": {
+          "mapping_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mapping Status"
+          },
+          "segment_start": {
+            "default": false,
+            "title": "Segment Start",
+            "type": "boolean"
+          },
+          "set_temperature_c": {
+            "anyOf": [
+              {
+                "maximum": 1800.0,
+                "minimum": -273.15,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Set Temperature C"
+          },
+          "stage_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage Category"
+          },
+          "stage_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage Name"
+          },
+          "temperature_c": {
+            "maximum": 1800.0,
+            "minimum": -273.15,
+            "title": "Temperature C",
+            "type": "number"
+          },
+          "time_s": {
+            "minimum": 0.0,
+            "title": "Time S",
+            "type": "number"
+          }
+        },
+        "required": [
+          "time_s",
+          "temperature_c"
+        ],
+        "title": "HeatPoint",
+        "type": "object"
+      },
+      "InputFieldDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NumericRange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "choices": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Choices",
+            "type": "array"
+          },
+          "default_range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NumericRange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "editable": {
+            "default": true,
+            "title": "Editable",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "number",
+              "categorical",
+              "heat_pattern"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "order": {
+            "minimum": 0.0,
+            "title": "Order",
+            "type": "integer"
+          },
+          "path": {
+            "minLength": 1,
+            "pattern": "^(composition|process|categorical)\\.[A-Za-z][A-Za-z0-9_]*$|^heat_pattern$",
+            "title": "Path",
+            "type": "string"
+          },
+          "required": {
+            "default": true,
+            "title": "Required",
+            "type": "boolean"
+          },
+          "training_range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NumericRange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "path",
+          "kind",
+          "order",
+          "label"
+        ],
+        "title": "InputFieldDefinition",
+        "type": "object"
+      },
+      "InputGroupDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/InputFieldDefinition"
+            },
+            "minItems": 1,
+            "title": "Fields",
+            "type": "array"
+          },
+          "key": {
+            "enum": [
+              "composition",
+              "process",
+              "heat_pattern",
+              "categorical"
+            ],
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "order": {
+            "minimum": 0.0,
+            "title": "Order",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "key",
+          "order",
+          "label",
+          "fields"
+        ],
+        "title": "InputGroupDefinition",
+        "type": "object"
+      },
+      "InputRange": {
+        "properties": {
+          "max": {
+            "title": "Max",
+            "type": "number"
+          },
+          "min": {
+            "title": "Min",
+            "type": "number"
+          }
+        },
+        "required": [
+          "min",
+          "max"
+        ],
+        "title": "InputRange",
+        "type": "object"
+      },
+      "LineageGraph": {
+        "properties": {
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/LineageGraphEdge"
+            },
+            "title": "Edges",
+            "type": "array"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/LineageGraphNode"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "omitted_node_count": {
+            "title": "Omitted Node Count",
+            "type": "integer"
+          },
+          "relation_row_count": {
+            "title": "Relation Row Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "nodes",
+          "edges",
+          "relation_row_count",
+          "omitted_node_count"
+        ],
+        "title": "LineageGraph",
+        "type": "object"
+      },
+      "LineageGraphEdge": {
+        "properties": {
+          "route_rows": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Route Rows",
+            "type": "array"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "target",
+          "route_rows"
+        ],
+        "title": "LineageGraphEdge",
+        "type": "object"
+      },
+      "LineageGraphNode": {
+        "properties": {
+          "entity_type": {
+            "title": "Entity Type",
+            "type": "string"
+          },
+          "exists": {
+            "title": "Exists",
+            "type": "boolean"
+          },
+          "issue_types": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Issue Types",
+            "type": "array"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "selected": {
+            "title": "Selected",
+            "type": "boolean"
+          },
+          "source_sheet": {
+            "title": "Source Sheet",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "entity_type",
+          "source_sheet",
+          "exists",
+          "selected",
+          "issue_types"
+        ],
+        "title": "LineageGraphNode",
+        "type": "object"
+      },
+      "LineageIndexItem": {
+        "properties": {
+          "coating": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coating"
+          },
+          "entity_type": {
+            "title": "Entity Type",
+            "type": "string"
+          },
+          "family": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Family"
+          },
+          "has_issue": {
+            "title": "Has Issue",
+            "type": "boolean"
+          },
+          "has_observation": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Observation"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "learning_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Learning Status"
+          },
+          "observation_summary": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/RepeatSummary"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observation Summary"
+          },
+          "peak_temperature_c": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Peak Temperature C"
+          },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project"
+          },
+          "route": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Route"
+          }
+        },
+        "required": [
+          "key",
+          "entity_type",
+          "has_issue"
+        ],
+        "title": "LineageIndexItem",
+        "type": "object"
+      },
+      "LineageIndexResponse": {
+        "properties": {
+          "counts_by_type": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts By Type",
+            "type": "object"
+          },
+          "detected_issues": {
+            "title": "Detected Issues",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LineageIndexItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "relation_rows": {
+            "title": "Relation Rows",
+            "type": "integer"
+          },
+          "total_entities": {
+            "title": "Total Entities",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total_entities",
+          "relation_rows",
+          "detected_issues",
+          "counts_by_type"
+        ],
+        "title": "LineageIndexResponse",
+        "type": "object"
+      },
+      "LineageNodeDetail": {
+        "properties": {
+          "composition": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Composition",
+            "type": "object"
+          },
+          "connected_observation_count": {
+            "title": "Connected Observation Count",
+            "type": "integer"
+          },
+          "connected_observations": {
+            "items": {
+              "$ref": "#/components/schemas/ConnectedObservation"
+            },
+            "title": "Connected Observations",
+            "type": "array"
+          },
+          "entity_type": {
+            "title": "Entity Type",
+            "type": "string"
+          },
+          "heat_pattern": {
+            "items": {
+              "$ref": "#/components/schemas/HeatPoint"
+            },
+            "title": "Heat Pattern",
+            "type": "array"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "missing_source": {
+            "default": false,
+            "title": "Missing Source",
+            "type": "boolean"
+          },
+          "observation_groups": {
+            "items": {
+              "$ref": "#/components/schemas/ObservationGroup"
+            },
+            "title": "Observation Groups",
+            "type": "array"
+          },
+          "primary_conditions": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Primary Conditions",
+            "type": "object"
+          },
+          "property_summary": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PropertySummary"
+            },
+            "title": "Property Summary",
+            "type": "object"
+          },
+          "related_entities": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Related Entities",
+            "type": "object"
+          },
+          "source_row": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Source Row",
+            "type": "object"
+          },
+          "source_sheet": {
+            "title": "Source Sheet",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "entity_type",
+          "source_sheet",
+          "source_row",
+          "primary_conditions",
+          "composition",
+          "heat_pattern",
+          "connected_observation_count",
+          "connected_observations",
+          "observation_groups",
+          "property_summary",
+          "related_entities"
+        ],
+        "title": "LineageNodeDetail",
+        "type": "object"
+      },
+      "LineageReference": {
+        "additionalProperties": false,
+        "properties": {
+          "entity_key": {
+            "minLength": 1,
+            "title": "Entity Key",
+            "type": "string"
+          },
+          "entity_type": {
+            "minLength": 1,
+            "title": "Entity Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entity_type",
+          "entity_key"
+        ],
+        "title": "LineageReference",
+        "type": "object"
+      },
+      "LineageResponse": {
+        "properties": {
+          "candidate_eligible": {
+            "title": "Candidate Eligible",
+            "type": "boolean"
+          },
+          "candidate_reason": {
+            "title": "Candidate Reason",
+            "type": "string"
+          },
+          "graph": {
+            "$ref": "#/components/schemas/LineageGraph"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "node": {
+            "$ref": "#/components/schemas/LineageNodeDetail"
+          },
+          "quality_issues": {
+            "items": {
+              "$ref": "#/components/schemas/DataQualityIssue"
+            },
+            "title": "Quality Issues",
+            "type": "array"
+          },
+          "relations": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Relations",
+            "type": "object"
+          }
+        },
+        "required": [
+          "key",
+          "relations",
+          "quality_issues",
+          "node",
+          "graph",
+          "candidate_eligible",
+          "candidate_reason"
+        ],
+        "title": "LineageResponse",
+        "type": "object"
+      },
+      "LineageSourceRef": {
+        "additionalProperties": false,
+        "properties": {
+          "source_kind": {
+            "const": "lineage",
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "source_ref": {
+            "$ref": "#/components/schemas/LineageReference"
+          }
+        },
+        "required": [
+          "source_kind",
+          "source_ref"
+        ],
+        "title": "LineageSourceRef",
+        "type": "object"
+      },
+      "ManualSourceRef": {
+        "additionalProperties": false,
+        "properties": {
+          "source_kind": {
+            "const": "manual",
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "source_ref": {
+            "title": "Source Ref",
+            "type": "null"
+          }
+        },
+        "required": [
+          "source_kind"
+        ],
+        "title": "ManualSourceRef",
+        "type": "object"
+      },
+      "ModelIdentity": {
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "default": "",
+            "title": "Id",
+            "type": "string"
+          },
+          "method": {
+            "default": "",
+            "title": "Method",
+            "type": "string"
+          },
+          "version": {
+            "default": "",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "title": "ModelIdentity",
+        "type": "object"
+      },
+      "ModelMetadata": {
+        "additionalProperties": true,
+        "properties": {
+          "feature_pipeline": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FeaturePipelineIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "package": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PackageIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "prediction_interval": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PredictionIntervalIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "similarity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SimilarityIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "training_data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrainingDataIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "ModelMetadata",
+        "type": "object"
+      },
+      "ModelPackagePredictorStatus": {
+        "properties": {
+          "predictive_family": {
+            "title": "Predictive Family",
+            "type": "string"
+          },
+          "runtime_type": {
+            "title": "Runtime Type",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "runtime_type",
+          "predictive_family"
+        ],
+        "title": "ModelPackagePredictorStatus",
+        "type": "object"
+      },
+      "ModelPackageStatus": {
+        "properties": {
+          "active_runtimes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Active Runtimes",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "manifest_sha256": {
+            "title": "Manifest Sha256",
+            "type": "string"
+          },
+          "predictors": {
+            "items": {
+              "$ref": "#/components/schemas/ModelPackagePredictorStatus"
+            },
+            "title": "Predictors",
+            "type": "array"
+          },
+          "quality_report": {
+            "$ref": "#/components/schemas/ModelQualityReport"
+          },
+          "supported_runtimes": {
+            "items": {
+              "$ref": "#/components/schemas/RuntimeAvailability"
+            },
+            "title": "Supported Runtimes",
+            "type": "array"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "task_id",
+          "manifest_sha256",
+          "active_runtimes",
+          "supported_runtimes",
+          "predictors",
+          "quality_report"
+        ],
+        "title": "ModelPackageStatus",
+        "type": "object"
+      },
+      "ModelQualityReport": {
+        "additionalProperties": true,
+        "properties": {
+          "split": {
+            "title": "Split",
+            "type": "string"
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/ModelQualityTarget"
+            },
+            "title": "Targets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "split",
+          "targets"
+        ],
+        "title": "ModelQualityReport",
+        "type": "object"
+      },
+      "ModelQualityTarget": {
+        "additionalProperties": true,
+        "properties": {
+          "interval_coverage_90": {
+            "title": "Interval Coverage 90",
+            "type": "number"
+          },
+          "mae": {
+            "title": "Mae",
+            "type": "number"
+          },
+          "parent_conditions": {
+            "title": "Parent Conditions",
+            "type": "integer"
+          },
+          "rmse": {
+            "title": "Rmse",
+            "type": "number"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "parent_conditions",
+          "mae",
+          "rmse",
+          "interval_coverage_90"
+        ],
+        "title": "ModelQualityTarget",
+        "type": "object"
+      },
+      "NumericRange": {
+        "additionalProperties": false,
+        "properties": {
+          "max": {
+            "title": "Max",
+            "type": "number"
+          },
+          "min": {
+            "title": "Min",
+            "type": "number"
+          }
+        },
+        "required": [
+          "min",
+          "max"
+        ],
+        "title": "NumericRange",
+        "type": "object"
+      },
+      "ObservationGroup": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "max": {
+            "title": "Max",
+            "type": "number"
+          },
+          "mean": {
+            "title": "Mean",
+            "type": "number"
+          },
+          "median": {
+            "title": "Median",
+            "type": "number"
+          },
+          "min": {
+            "title": "Min",
+            "type": "number"
+          },
+          "observations": {
+            "items": {
+              "$ref": "#/components/schemas/ConnectedObservation"
+            },
+            "title": "Observations",
+            "type": "array"
+          },
+          "property": {
+            "title": "Property",
+            "type": "string"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          },
+          "std": {
+            "title": "Std",
+            "type": "number"
+          },
+          "test_type": {
+            "title": "Test Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage",
+          "test_type",
+          "property",
+          "count",
+          "min",
+          "mean",
+          "std",
+          "median",
+          "max",
+          "observations"
+        ],
+        "title": "ObservationGroup",
+        "type": "object"
+      },
+      "OutputDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "goal_direction": {
+            "enum": [
+              "at_least",
+              "at_most",
+              "target"
+            ],
+            "title": "Goal Direction",
+            "type": "string"
+          },
+          "key": {
+            "minLength": 1,
+            "pattern": "^[A-Za-z][A-Za-z0-9_]*$",
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "unit": {
+            "minLength": 1,
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "unit",
+          "goal_direction"
+        ],
+        "title": "OutputDefinition",
+        "type": "object"
+      },
+      "PackageIdentity": {
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "default": "",
+            "title": "Id",
+            "type": "string"
+          },
+          "manifest_sha256": {
+            "default": "",
+            "title": "Manifest Sha256",
+            "type": "string"
+          },
+          "runtime_types": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Runtime Types",
+            "type": "array"
+          },
+          "version": {
+            "default": "",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "title": "PackageIdentity",
+        "type": "object"
+      },
+      "Prediction": {
+        "properties": {
+          "goal_direction": {
+            "anyOf": [
+              {
+                "enum": [
+                  "at_least",
+                  "at_most"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Goal Direction"
+          },
+          "goal_probability": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Goal Probability"
+          },
+          "goal_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Goal Value"
+          },
+          "lower": {
+            "title": "Lower",
+            "type": "number"
+          },
+          "uncertainty_components": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uncertainty Components"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          },
+          "upper": {
+            "title": "Upper",
+            "type": "number"
+          },
+          "value": {
+            "title": "Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "value",
+          "lower",
+          "upper",
+          "unit"
+        ],
+        "title": "Prediction",
+        "type": "object"
+      },
+      "PredictionComparison": {
+        "properties": {
+          "actual": {
+            "$ref": "#/components/schemas/ActualMeasurement"
+          },
+          "prediction": {
+            "$ref": "#/components/schemas/PredictionResponse"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/ModelMetadata"
+          },
+          "snapshot_id": {
+            "title": "Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "actual",
+          "snapshot_id",
+          "prediction",
+          "provenance"
+        ],
+        "title": "PredictionComparison",
+        "type": "object"
+      },
+      "PredictionIntervalIdentity": {
+        "additionalProperties": true,
+        "properties": {
+          "coverage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverage"
+          },
+          "folds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folds"
+          },
+          "grouping": {
+            "default": "",
+            "title": "Grouping",
+            "type": "string"
+          },
+          "method": {
+            "default": "",
+            "title": "Method",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "title": "PredictionIntervalIdentity",
+        "type": "object"
+      },
+      "PredictionResponse": {
+        "properties": {
+          "candidate_id": {
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "canonical_input": {
+            "additionalProperties": true,
+            "title": "Canonical Input",
+            "type": "object"
+          },
+          "heat_pattern": {
+            "items": {
+              "$ref": "#/components/schemas/HeatPoint"
+            },
+            "title": "Heat Pattern",
+            "type": "array"
+          },
+          "mode": {
+            "enum": [
+              "preview",
+              "detailed"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "model_meta": {
+            "$ref": "#/components/schemas/ModelMetadata"
+          },
+          "predictions": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Prediction"
+            },
+            "title": "Predictions",
+            "type": "object"
+          },
+          "response_curve": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": {
+                    "type": "number"
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Curve"
+          },
+          "similar": {
+            "items": {
+              "$ref": "#/components/schemas/SimilarObservation"
+            },
+            "title": "Similar",
+            "type": "array"
+          },
+          "support": {
+            "$ref": "#/components/schemas/Support"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "task_id",
+          "candidate_id",
+          "mode",
+          "predictions",
+          "support",
+          "warnings",
+          "model_meta",
+          "canonical_input",
+          "similar",
+          "heat_pattern"
+        ],
+        "title": "PredictionResponse",
+        "type": "object"
+      },
+      "PredictionVsActualResponse": {
+        "properties": {
+          "actuals": {
+            "items": {
+              "$ref": "#/components/schemas/ActualMeasurement"
+            },
+            "title": "Actuals",
+            "type": "array"
+          },
+          "candidate_id": {
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "comparisons": {
+            "items": {
+              "$ref": "#/components/schemas/PredictionComparison"
+            },
+            "title": "Comparisons",
+            "type": "array"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "actuals",
+          "comparisons"
+        ],
+        "title": "PredictionVsActualResponse",
+        "type": "object"
+      },
+      "Project": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "decision_candidate_id": {
+            "default": "",
+            "maxLength": 80,
+            "title": "Decision Candidate Id",
+            "type": "string"
+          },
+          "decision_note": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Decision Note",
+            "type": "string"
+          },
+          "decision_snapshot_id": {
+            "default": "",
+            "maxLength": 80,
+            "title": "Decision Snapshot Id",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "input_ranges": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/InputRange"
+            },
+            "title": "Input Ranges",
+            "type": "object"
+          },
+          "name": {
+            "default": "焼鈍条件の候補検討",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "title": "Notes",
+            "type": "string"
+          },
+          "purpose": {
+            "default": "",
+            "title": "Purpose",
+            "type": "string"
+          },
+          "target_values": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Target Values",
+            "type": "object"
+          },
+          "task_id": {
+            "default": "annealed-properties-v1",
+            "enum": [
+              "annealed-properties-v1",
+              "hot-rolled-properties-v1"
+            ],
+            "title": "Task Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "Project",
+        "type": "object"
+      },
+      "ProjectDecisionInput": {
+        "properties": {
+          "candidate_id": {
+            "default": "",
+            "maxLength": 80,
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Note",
+            "type": "string"
+          },
+          "snapshot_id": {
+            "default": "",
+            "maxLength": 80,
+            "title": "Snapshot Id",
+            "type": "string"
+          }
+        },
+        "title": "ProjectDecisionInput",
+        "type": "object"
+      },
+      "ProjectInput": {
+        "properties": {
+          "decision_candidate_id": {
+            "default": "",
+            "maxLength": 80,
+            "title": "Decision Candidate Id",
+            "type": "string"
+          },
+          "decision_note": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Decision Note",
+            "type": "string"
+          },
+          "decision_snapshot_id": {
+            "default": "",
+            "maxLength": 80,
+            "title": "Decision Snapshot Id",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "input_ranges": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/InputRange"
+            },
+            "title": "Input Ranges",
+            "type": "object"
+          },
+          "name": {
+            "default": "焼鈍条件の候補検討",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "title": "Notes",
+            "type": "string"
+          },
+          "purpose": {
+            "default": "",
+            "title": "Purpose",
+            "type": "string"
+          },
+          "target_values": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Target Values",
+            "type": "object"
+          },
+          "task_id": {
+            "default": "annealed-properties-v1",
+            "enum": [
+              "annealed-properties-v1",
+              "hot-rolled-properties-v1"
+            ],
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "title": "ProjectInput",
+        "type": "object"
+      },
+      "PropertySummary": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "max": {
+            "title": "Max",
+            "type": "number"
+          },
+          "mean": {
+            "title": "Mean",
+            "type": "number"
+          },
+          "median": {
+            "title": "Median",
+            "type": "number"
+          },
+          "min": {
+            "title": "Min",
+            "type": "number"
+          },
+          "std": {
+            "title": "Std",
+            "type": "number"
+          }
+        },
+        "required": [
+          "count",
+          "min",
+          "mean",
+          "std",
+          "median",
+          "max"
+        ],
+        "title": "PropertySummary",
+        "type": "object"
+      },
+      "QualityResponse": {
+        "properties": {
+          "by_category": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "By Category",
+            "type": "object"
+          },
+          "detected_by_type": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Detected By Type",
+            "type": "object"
+          },
+          "detected_issues": {
+            "items": {
+              "$ref": "#/components/schemas/DataQualityIssue"
+            },
+            "title": "Detected Issues",
+            "type": "array"
+          },
+          "detected_total": {
+            "title": "Detected Total",
+            "type": "integer"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/QualityScenario"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "reference_scenarios": {
+            "items": {
+              "$ref": "#/components/schemas/QualityScenario"
+            },
+            "title": "Reference Scenarios",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "by_category",
+          "issues",
+          "reference_scenarios",
+          "detected_total",
+          "detected_by_type",
+          "detected_issues"
+        ],
+        "title": "QualityResponse",
+        "type": "object"
+      },
+      "QualityScenario": {
+        "additionalProperties": true,
+        "properties": {
+          "scenario_id": {
+            "title": "Scenario Id",
+            "type": "string"
+          },
+          "分類": {
+            "title": "分類",
+            "type": "string"
+          },
+          "対象キー": {
+            "title": "対象キー",
+            "type": "string"
+          },
+          "対象シート": {
+            "title": "対象シート",
+            "type": "string"
+          },
+          "期待する気づき": {
+            "title": "期待する気づき",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scenario_id",
+          "分類",
+          "対象キー",
+          "対象シート",
+          "期待する気づき"
+        ],
+        "title": "QualityScenario",
+        "type": "object"
+      },
+      "RelationalConstraint": {
+        "additionalProperties": false,
+        "properties": {
+          "left_path": {
+            "minLength": 1,
+            "title": "Left Path",
+            "type": "string"
+          },
+          "message": {
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "operator": {
+            "enum": [
+              "lt",
+              "lte",
+              "gt",
+              "gte"
+            ],
+            "title": "Operator",
+            "type": "string"
+          },
+          "right_path": {
+            "minLength": 1,
+            "title": "Right Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "left_path",
+          "operator",
+          "right_path",
+          "message"
+        ],
+        "title": "RelationalConstraint",
+        "type": "object"
+      },
+      "RepeatSummary": {
+        "properties": {
+          "mean": {
+            "title": "Mean",
+            "type": "number"
+          },
+          "n": {
+            "title": "N",
+            "type": "integer"
+          },
+          "std": {
+            "title": "Std",
+            "type": "number"
+          }
+        },
+        "required": [
+          "mean",
+          "std",
+          "n"
+        ],
+        "title": "RepeatSummary",
+        "type": "object"
+      },
+      "ResolvedTaskDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "runtime_capability": {
+            "$ref": "#/components/schemas/RuntimeCapability"
+          },
+          "task_definition": {
+            "$ref": "#/components/schemas/TaskDefinition"
+          }
+        },
+        "required": [
+          "task_definition",
+          "runtime_capability"
+        ],
+        "title": "ResolvedTaskDefinition",
+        "type": "object"
+      },
+      "ResponseCurvesResponse": {
+        "properties": {
+          "curves": {
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/CurvePoint"
+              },
+              "type": "array"
+            },
+            "title": "Curves",
+            "type": "object"
+          },
+          "output_ranges": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/InputRange"
+            },
+            "title": "Output Ranges",
+            "type": "object"
+          },
+          "variable": {
+            "$ref": "#/components/schemas/CurveVariable"
+          }
+        },
+        "required": [
+          "variable",
+          "curves",
+          "output_ranges"
+        ],
+        "title": "ResponseCurvesResponse",
+        "type": "object"
+      },
+      "ResponseCurvesResult": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/ResponseCurvesResponse"
+          },
+          {
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/CurvePoint"
+              },
+              "type": "array"
+            },
+            "type": "object"
+          }
+        ],
+        "title": "ResponseCurvesResult"
+      },
+      "RuntimeAvailability": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "runtime_type": {
+            "title": "Runtime Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "runtime_type",
+          "available"
+        ],
+        "title": "RuntimeAvailability",
+        "type": "object"
+      },
+      "RuntimeCapability": {
+        "additionalProperties": false,
+        "properties": {
+          "joint_samples": {
+            "default": false,
+            "title": "Joint Samples",
+            "type": "boolean"
+          },
+          "model_package_schema_version": {
+            "const": "model-package/v1",
+            "title": "Model Package Schema Version",
+            "type": "string"
+          },
+          "operations": {
+            "$ref": "#/components/schemas/RuntimeOperationsCapability"
+          },
+          "schema_version": {
+            "const": "runtime-capability/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/TargetRuntimeCapability"
+            },
+            "minItems": 1,
+            "title": "Targets",
+            "type": "array"
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "task_id",
+          "model_package_schema_version",
+          "targets",
+          "operations"
+        ],
+        "title": "RuntimeCapability",
+        "type": "object"
+      },
+      "RuntimeOperationsCapability": {
+        "additionalProperties": false,
+        "properties": {
+          "actual_measurement": {
+            "title": "Actual Measurement",
+            "type": "boolean"
+          },
+          "detailed_prediction": {
+            "title": "Detailed Prediction",
+            "type": "boolean"
+          },
+          "preview": {
+            "title": "Preview",
+            "type": "boolean"
+          },
+          "response_curve": {
+            "title": "Response Curve",
+            "type": "boolean"
+          },
+          "similarity": {
+            "title": "Similarity",
+            "type": "boolean"
+          },
+          "snapshot": {
+            "title": "Snapshot",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "preview",
+          "detailed_prediction",
+          "response_curve",
+          "similarity",
+          "snapshot",
+          "actual_measurement"
+        ],
+        "title": "RuntimeOperationsCapability",
+        "type": "object"
+      },
+      "ScreeningGoalEvaluation": {
+        "properties": {
+          "achieved": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Achieved"
+          },
+          "achievement_probability": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Achievement Probability"
+          },
+          "method": {
+            "enum": [
+              "achievement_probability",
+              "directional_shortfall",
+              "absolute_distance",
+              "support_distance"
+            ],
+            "title": "Method",
+            "type": "string"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          }
+        },
+        "required": [
+          "score",
+          "method",
+          "achieved",
+          "achievement_probability"
+        ],
+        "title": "ScreeningGoalEvaluation",
+        "type": "object"
+      },
+      "ScreeningPoint": {
+        "properties": {
+          "candidate": {
+            "$ref": "#/components/schemas/CandidateInput"
+          },
+          "color_value": {
+            "title": "Color Value",
+            "type": "number"
+          },
+          "goal_evaluation": {
+            "$ref": "#/components/schemas/ScreeningGoalEvaluation"
+          },
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "inputs": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Inputs",
+            "type": "object"
+          },
+          "prediction": {
+            "$ref": "#/components/schemas/Prediction"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "support": {
+            "$ref": "#/components/schemas/Support"
+          }
+        },
+        "required": [
+          "index",
+          "inputs",
+          "candidate",
+          "prediction",
+          "color_value",
+          "support",
+          "score",
+          "goal_evaluation"
+        ],
+        "title": "ScreeningPoint",
+        "type": "object"
+      },
+      "ScreeningReference": {
+        "additionalProperties": false,
+        "properties": {
+          "point_id": {
+            "minLength": 1,
+            "title": "Point Id",
+            "type": "string"
+          },
+          "run_id": {
+            "minLength": 1,
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "point_id"
+        ],
+        "title": "ScreeningReference",
+        "type": "object"
+      },
+      "ScreeningRequest": {
+        "properties": {
+          "base_candidate_id": {
+            "minLength": 1,
+            "title": "Base Candidate Id",
+            "type": "string"
+          },
+          "samples": {
+            "default": 64,
+            "maximum": 128.0,
+            "minimum": 48.0,
+            "title": "Samples",
+            "type": "integer"
+          },
+          "target": {
+            "default": "TS",
+            "minLength": 1,
+            "title": "Target",
+            "type": "string"
+          },
+          "target_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Value"
+          },
+          "variables": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ScreeningVariable"
+            },
+            "minProperties": 1,
+            "title": "Variables",
+            "type": "object"
+          }
+        },
+        "required": [
+          "base_candidate_id",
+          "variables"
+        ],
+        "title": "ScreeningRequest",
+        "type": "object"
+      },
+      "ScreeningRunResponse": {
+        "properties": {
+          "base_candidate_id": {
+            "title": "Base Candidate Id",
+            "type": "string"
+          },
+          "base_canonical_input": {
+            "additionalProperties": true,
+            "title": "Base Canonical Input",
+            "type": "object"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "model_provenance": {
+            "$ref": "#/components/schemas/ModelMetadata"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/ScreeningPoint"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "representative_points": {
+            "items": {
+              "$ref": "#/components/schemas/ScreeningPoint"
+            },
+            "title": "Representative Points",
+            "type": "array"
+          },
+          "samples": {
+            "title": "Samples",
+            "type": "integer"
+          },
+          "score_contract": {
+            "$ref": "#/components/schemas/ScreeningScoreContract"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "integer"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "target_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Value"
+          },
+          "variables": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ScreeningVariable"
+            },
+            "title": "Variables",
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "created_at",
+          "seed",
+          "base_candidate_id",
+          "base_canonical_input",
+          "model_provenance",
+          "target",
+          "target_value",
+          "score_contract",
+          "samples",
+          "variables",
+          "points",
+          "representative_points"
+        ],
+        "title": "ScreeningRunResponse",
+        "type": "object"
+      },
+      "ScreeningScoreContract": {
+        "properties": {
+          "direction": {
+            "anyOf": [
+              {
+                "enum": [
+                  "at_least",
+                  "at_most",
+                  "target"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direction"
+          },
+          "display_label": {
+            "title": "Display Label",
+            "type": "string"
+          },
+          "fallback": {
+            "enum": [
+              "directional_shortfall",
+              "absolute_distance",
+              "support_distance"
+            ],
+            "title": "Fallback",
+            "type": "string"
+          },
+          "preference": {
+            "const": "lower_is_better",
+            "title": "Preference",
+            "type": "string"
+          },
+          "probability_available": {
+            "title": "Probability Available",
+            "type": "boolean"
+          },
+          "target_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Value"
+          },
+          "version": {
+            "const": "screening-score/v1",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "preference",
+          "direction",
+          "target_value",
+          "probability_available",
+          "fallback",
+          "display_label"
+        ],
+        "title": "ScreeningScoreContract",
+        "type": "object"
+      },
+      "ScreeningSourceRef": {
+        "additionalProperties": false,
+        "properties": {
+          "source_kind": {
+            "const": "screening",
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "source_ref": {
+            "$ref": "#/components/schemas/ScreeningReference"
+          }
+        },
+        "required": [
+          "source_kind",
+          "source_ref"
+        ],
+        "title": "ScreeningSourceRef",
+        "type": "object"
+      },
+      "ScreeningVariable": {
+        "properties": {
+          "max": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max"
+          },
+          "min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min"
+          },
+          "mode": {
+            "enum": [
+              "fixed",
+              "range",
+              "list"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "values": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Values"
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "title": "ScreeningVariable",
+        "type": "object"
+      },
+      "SimilarObservation": {
+        "properties": {
+          "components": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Components",
+            "type": "object"
+          },
+          "distance": {
+            "title": "Distance",
+            "type": "number"
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "enum": [
+                  "training",
+                  "historical"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Layer"
+          },
+          "observation_id": {
+            "default": "",
+            "title": "Observation Id",
+            "type": "string"
+          },
+          "observation_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Observation Ids",
+            "type": "array"
+          },
+          "outputs": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Outputs",
+            "type": "object"
+          },
+          "parent_key": {
+            "title": "Parent Key",
+            "type": "string"
+          },
+          "repeat_summary": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RepeatSummary"
+            },
+            "title": "Repeat Summary",
+            "type": "object"
+          },
+          "source": {
+            "default": "",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "parent_key",
+          "distance"
+        ],
+        "title": "SimilarObservation",
+        "type": "object"
+      },
+      "SimilarityIdentity": {
+        "additionalProperties": true,
+        "properties": {
+          "method": {
+            "default": "",
+            "title": "Method",
+            "type": "string"
+          },
+          "version": {
+            "default": "",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "title": "SimilarityIdentity",
+        "type": "object"
+      },
+      "SnapshotPayload": {
+        "additionalProperties": true,
+        "properties": {
+          "prediction": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PredictionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "provenance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelMetadata"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "SnapshotPayload",
+        "type": "object"
+      },
+      "SnapshotReference": {
+        "additionalProperties": false,
+        "properties": {
+          "snapshot_id": {
+            "minLength": 1,
+            "title": "Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_id"
+        ],
+        "title": "SnapshotReference",
+        "type": "object"
+      },
+      "SnapshotResponse": {
+        "properties": {
+          "candidate_id": {
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/SnapshotPayload"
+          }
+        },
+        "required": [
+          "id",
+          "candidate_id",
+          "created_at",
+          "payload"
+        ],
+        "title": "SnapshotResponse",
+        "type": "object"
+      },
+      "SnapshotSourceRef": {
+        "additionalProperties": false,
+        "properties": {
+          "source_kind": {
+            "const": "snapshot",
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "source_ref": {
+            "$ref": "#/components/schemas/SnapshotReference"
+          }
+        },
+        "required": [
+          "source_kind",
+          "source_ref"
+        ],
+        "title": "SnapshotSourceRef",
+        "type": "object"
+      },
+      "Support": {
+        "properties": {
+          "caution_threshold": {
+            "title": "Caution Threshold",
+            "type": "number"
+          },
+          "components": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Components",
+            "type": "object"
+          },
+          "distance": {
+            "title": "Distance",
+            "type": "number"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "percentile": {
+            "title": "Percentile",
+            "type": "number"
+          },
+          "reference_count": {
+            "title": "Reference Count",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "supported",
+              "caution",
+              "extrapolated"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "supported_threshold": {
+            "title": "Supported Threshold",
+            "type": "number"
+          }
+        },
+        "required": [
+          "status",
+          "distance",
+          "percentile",
+          "message",
+          "components",
+          "reference_count",
+          "supported_threshold",
+          "caution_threshold"
+        ],
+        "title": "Support",
+        "type": "object"
+      },
+      "TargetRuntimeCapability": {
+        "additionalProperties": false,
+        "properties": {
+          "goal_probability": {
+            "enum": [
+              "native",
+              "samples",
+              "distribution",
+              "normal_approximation",
+              "unavailable"
+            ],
+            "title": "Goal Probability",
+            "type": "string"
+          },
+          "parametric_distribution": {
+            "title": "Parametric Distribution",
+            "type": "boolean"
+          },
+          "point_statistics": {
+            "items": {
+              "enum": [
+                "mean",
+                "median",
+                "probability",
+                "rate",
+                "expected_category"
+              ],
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Point Statistics",
+            "type": "array"
+          },
+          "quantiles": {
+            "title": "Quantiles",
+            "type": "boolean"
+          },
+          "samples": {
+            "title": "Samples",
+            "type": "boolean"
+          },
+          "standard_deviation": {
+            "title": "Standard Deviation",
+            "type": "boolean"
+          },
+          "support": {
+            "title": "Support",
+            "type": "boolean"
+          },
+          "target": {
+            "minLength": 1,
+            "title": "Target",
+            "type": "string"
+          },
+          "uncertainty_components": {
+            "title": "Uncertainty Components",
+            "type": "boolean"
+          },
+          "warnings": {
+            "title": "Warnings",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "target",
+          "point_statistics",
+          "standard_deviation",
+          "quantiles",
+          "samples",
+          "parametric_distribution",
+          "uncertainty_components",
+          "support",
+          "warnings",
+          "goal_probability"
+        ],
+        "title": "TargetRuntimeCapability",
+        "type": "object"
+      },
+      "TaskDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_candidate_schema_version": {
+            "const": "canonical-candidate/v1",
+            "title": "Canonical Candidate Schema Version",
+            "type": "string"
+          },
+          "constraints": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RelationalConstraint"
+            },
+            "title": "Constraints",
+            "type": "array"
+          },
+          "fixed_context": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FixedContextDefinition"
+            },
+            "title": "Fixed Context",
+            "type": "array"
+          },
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "input_groups": {
+            "items": {
+              "$ref": "#/components/schemas/InputGroupDefinition"
+            },
+            "minItems": 1,
+            "title": "Input Groups",
+            "type": "array"
+          },
+          "label": {
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "outputs": {
+            "items": {
+              "$ref": "#/components/schemas/OutputDefinition"
+            },
+            "minItems": 1,
+            "title": "Outputs",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "task-definition/v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "id",
+          "label",
+          "canonical_candidate_schema_version",
+          "input_groups",
+          "outputs"
+        ],
+        "title": "TaskDefinition",
+        "type": "object"
+      },
+      "TrainingDataIdentity": {
+        "additionalProperties": true,
+        "properties": {
+          "records": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Records",
+            "type": "object"
+          },
+          "source_path": {
+            "default": "",
+            "title": "Source Path",
+            "type": "string"
+          },
+          "source_sha256": {
+            "default": "",
+            "title": "Source Sha256",
+            "type": "string"
+          }
+        },
+        "title": "TrainingDataIdentity",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Material Decision Workbench API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/bootstrap": {
+      "get": {
+        "operationId": "bootstrap_api_bootstrap_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Bootstrap Api Bootstrap Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bootstrap"
+      }
+    },
+    "/api/health": {
+      "get": {
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Health Api Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Health"
+      }
+    },
+    "/api/lineage": {
+      "get": {
+        "operationId": "lineage_index_api_lineage_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "query",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Query",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "entity_type",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Entity Type",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "issue_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Issue Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 40,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LineageIndexResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Lineage Index"
+      }
+    },
+    "/api/lineage/{entity_key}": {
+      "get": {
+        "operationId": "lineage_api_lineage__entity_key__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entity_key",
+            "required": true,
+            "schema": {
+              "title": "Entity Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LineageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Lineage"
+      }
+    },
+    "/api/lineage/{entity_key}/candidate": {
+      "post": {
+        "operationId": "create_candidate_from_lineage_api_lineage__entity_key__candidate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entity_key",
+            "required": true,
+            "schema": {
+              "title": "Entity Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "project_id",
+            "required": false,
+            "schema": {
+              "default": "default",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Candidate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Candidate From Lineage"
+      }
+    },
+    "/api/project": {
+      "get": {
+        "operationId": "get_project_api_project_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Project"
+      },
+      "put": {
+        "operationId": "update_project_api_project_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Project"
+      }
+    },
+    "/api/projects": {
+      "get": {
+        "operationId": "list_projects_api_projects_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Project"
+                  },
+                  "title": "Response List Projects Api Projects Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Projects"
+      },
+      "post": {
+        "operationId": "create_project_api_projects_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Project"
+      }
+    },
+    "/api/projects/{project_id}": {
+      "get": {
+        "operationId": "get_project_by_id_api_projects__project_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Project By Id"
+      },
+      "put": {
+        "operationId": "update_project_by_id_api_projects__project_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Project By Id"
+      }
+    },
+    "/api/projects/{project_id}/candidates": {
+      "get": {
+        "operationId": "list_candidates_api_projects__project_id__candidates_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_archived",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Archived",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Candidate"
+                  },
+                  "title": "Response List Candidates Api Projects  Project Id  Candidates Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Candidates"
+      },
+      "post": {
+        "operationId": "create_candidate_api_projects__project_id__candidates_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CandidateInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Candidate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Candidate"
+      }
+    },
+    "/api/projects/{project_id}/candidates/export.xlsx": {
+      "get": {
+        "operationId": "export_candidates_api_projects__project_id__candidates_export_xlsx_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Candidates"
+      }
+    },
+    "/api/projects/{project_id}/candidates/import": {
+      "post": {
+        "operationId": "import_candidates_api_projects__project_id__candidates_import_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_import_candidates_api_projects__project_id__candidates_import_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateImportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Candidates"
+      }
+    },
+    "/api/projects/{project_id}/candidates/{candidate_id}": {
+      "delete": {
+        "operationId": "delete_candidate_api_projects__project_id__candidates__candidate_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expected_revision",
+            "required": true,
+            "schema": {
+              "title": "Expected Revision",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Candidate"
+      },
+      "get": {
+        "operationId": "get_candidate_api_projects__project_id__candidates__candidate_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_archived",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Archived",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Candidate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Candidate"
+      },
+      "put": {
+        "operationId": "update_candidate_api_projects__project_id__candidates__candidate_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CandidateUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Candidate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Candidate"
+      }
+    },
+    "/api/projects/{project_id}/candidates/{candidate_id}/actuals": {
+      "get": {
+        "operationId": "list_actuals_api_projects__project_id__candidates__candidate_id__actuals_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ActualMeasurement"
+                  },
+                  "title": "Response List Actuals Api Projects  Project Id  Candidates  Candidate Id  Actuals Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Actuals"
+      },
+      "post": {
+        "operationId": "create_actual_api_projects__project_id__candidates__candidate_id__actuals_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActualMeasurementInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActualMeasurement"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Actual"
+      }
+    },
+    "/api/projects/{project_id}/candidates/{candidate_id}/actuals/{actual_id}": {
+      "delete": {
+        "operationId": "delete_actual_api_projects__project_id__candidates__candidate_id__actuals__actual_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "actual_id",
+            "required": true,
+            "schema": {
+              "title": "Actual Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Actual"
+      }
+    },
+    "/api/projects/{project_id}/candidates/{candidate_id}/predict": {
+      "post": {
+        "operationId": "createDetailedCandidatePrediction",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DetailedPredictionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Predict"
+      }
+    },
+    "/api/projects/{project_id}/candidates/{candidate_id}/prediction-vs-actual": {
+      "get": {
+        "operationId": "prediction_vs_actual_api_projects__project_id__candidates__candidate_id__prediction_vs_actual_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PredictionVsActualResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prediction Vs Actual"
+      }
+    },
+    "/api/projects/{project_id}/candidates/{candidate_id}/preview": {
+      "post": {
+        "operationId": "previewProjectCandidate",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PredictionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Project Candidate"
+      }
+    },
+    "/api/projects/{project_id}/candidates/{candidate_id}/response-curve": {
+      "get": {
+        "operationId": "response_curve_api_projects__project_id__candidates__candidate_id__response_curve_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target",
+            "required": false,
+            "schema": {
+              "default": "TS",
+              "title": "Target",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "variable",
+            "required": false,
+            "schema": {
+              "default": "heat.peak_temperature_c",
+              "title": "Variable",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": {
+                      "type": "number"
+                    },
+                    "type": "object"
+                  },
+                  "title": "Response Response Curve Api Projects  Project Id  Candidates  Candidate Id  Response Curve Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Response Curve"
+      }
+    },
+    "/api/projects/{project_id}/candidates/{candidate_id}/response-curves": {
+      "get": {
+        "operationId": "response_curves_api_projects__project_id__candidates__candidate_id__response_curves_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "variable",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Variable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseCurvesResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Response Curves"
+      }
+    },
+    "/api/projects/{project_id}/candidates/{candidate_id}/similar": {
+      "get": {
+        "operationId": "similar_api_projects__project_id__candidates__candidate_id__similar_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SimilarObservation"
+                  },
+                  "title": "Response Similar Api Projects  Project Id  Candidates  Candidate Id  Similar Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Similar"
+      }
+    },
+    "/api/projects/{project_id}/candidates/{candidate_id}/snapshots": {
+      "get": {
+        "operationId": "snapshots_api_projects__project_id__candidates__candidate_id__snapshots_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SnapshotResponse"
+                  },
+                  "title": "Response Snapshots Api Projects  Project Id  Candidates  Candidate Id  Snapshots Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Snapshots"
+      },
+      "post": {
+        "operationId": "create_snapshot_api_projects__project_id__candidates__candidate_id__snapshots_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Snapshot"
+      }
+    },
+    "/api/projects/{project_id}/decision": {
+      "put": {
+        "operationId": "update_project_decision_api_projects__project_id__decision_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectDecisionInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Project Decision"
+      }
+    },
+    "/api/projects/{project_id}/model-package": {
+      "get": {
+        "operationId": "getProjectModelPackage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelPackageStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Model Package"
+      }
+    },
+    "/api/projects/{project_id}/snapshots/{snapshot_id}/restore": {
+      "post": {
+        "operationId": "restore_snapshot_api_projects__project_id__snapshots__snapshot_id__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Candidate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore Snapshot"
+      }
+    },
+    "/api/projects/{project_id}/task-definition": {
+      "get": {
+        "operationId": "getProjectTaskDefinition",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolvedTaskDefinition"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Task Definition"
+      }
+    },
+    "/api/quality": {
+      "get": {
+        "operationId": "quality_api_quality_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QualityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Quality"
+      }
+    },
+    "/api/quality/export.csv": {
+      "get": {
+        "operationId": "export_quality_api_quality_export_csv_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Quality"
+      }
+    },
+    "/api/screening": {
+      "get": {
+        "operationId": "list_screening_runs_api_screening_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "project_id",
+            "required": false,
+            "schema": {
+              "default": "default",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ScreeningRunResponse"
+                  },
+                  "title": "Response List Screening Runs Api Screening Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Screening Runs"
+      },
+      "post": {
+        "operationId": "screening_api_screening_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "project_id",
+            "required": false,
+            "schema": {
+              "default": "default",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScreeningRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScreeningRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Screening"
+      }
+    },
+    "/api/screening/{run_id}": {
+      "get": {
+        "operationId": "get_screening_run_api_screening__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "project_id",
+            "required": false,
+            "schema": {
+              "default": "default",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScreeningRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Screening Run"
+      }
+    },
+    "/api/screening/{run_id}/points/{point_index}/candidate": {
+      "post": {
+        "operationId": "screening_point_to_candidate_api_screening__run_id__points__point_index__candidate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "point_index",
+            "required": true,
+            "schema": {
+              "title": "Point Index",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "project_id",
+            "required": false,
+            "schema": {
+              "default": "default",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Candidate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Screening Point To Candidate"
+      }
+    }
+  }
+}
