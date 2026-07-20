@@ -15,8 +15,8 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
-from .importer import ENTITY_SHEETS, lineage_neighborhood, lineage_node_detail, load_workbook_data
-from .runtime import ModelRuntime
+from .importer import COMPOSITION_COLUMNS, ENTITY_SHEETS, lineage_neighborhood, lineage_node_detail, load_workbook_data
+from .runtime import ModelRuntime, TARGETS
 from .schemas import ActualMeasurementInput, CandidateInput, LineageResponse, PredictionResponse, ProjectDecisionInput, ProjectInput, QualityResponse, ScreeningRequest
 from .services import candidate_from_lineage, candidates_xlsx, import_candidates_xlsx, run_latin_hypercube
 from .store import AdoptedCandidateError, CandidateLimitError, InvalidProjectDecisionError, ProjectNotFoundError, Store
@@ -120,6 +120,45 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
             "predictors": [
                 {"target": item.target, "runtime_type": item.runtime_type, "predictive_family": item.predictive_family}
                 for item in manifest.predictors
+            ],
+        }
+
+    @app.get("/api/projects/{project_id}/task-definition")
+    def task_definition(project_id: str) -> dict[str, Any]:
+        project = require_project(project_id)
+        runtime_instance = runtime()
+        reference_model = runtime_instance.models.get("TS")
+        training = reference_model.x_train if reference_model is not None else None
+
+        def training_range(index: int) -> dict[str, float] | None:
+            if training is None or training.size == 0:
+                return None
+            values = training[:, index]
+            if reference_model is not None:
+                values = values * reference_model.feature_scale[index] + reference_model.feature_mean[index]
+            return {"min": round(float(values.min()), 4), "max": round(float(values.max()), 4)}
+
+        composition_inputs = [
+            {
+                "id": f"composition.{element}",
+                "field": element,
+                "label": element,
+                "unit": "mass%",
+                "group": "composition",
+                "editable": True,
+                "min": 0,
+                "max": 100,
+                "training_range": training_range(index),
+            }
+            for index, element in enumerate(COMPOSITION_COLUMNS)
+        ]
+        return {
+            "task_id": project.task_id,
+            "inputs": composition_inputs,
+            "derived_inputs": [],
+            "outputs": [
+                {"key": target, "label": "λ" if target == "lambda" else target, "unit": unit, "goal_direction": "at_least"}
+                for target, (_, unit) in TARGETS.items()
             ],
         }
 
@@ -248,13 +287,26 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
         return {"prediction": result, "snapshot": snapshot_for_candidate(candidate, result)}
 
     @app.get("/api/candidates/{candidate_id}/response-curve")
-    def response_curve(candidate_id: str, target: str = "TS") -> list[dict[str, float]]:
+    def response_curve(candidate_id: str, target: str = "TS", variable: str = "heat.peak_temperature_c") -> list[dict[str, float]]:
         if target not in {"TS", "YS", "EL", "lambda"}:
             raise HTTPException(422, "未対応の予測特性です")
         candidate = store().get_candidate(candidate_id)
         if not candidate:
             raise HTTPException(404, "候補が見つかりません")
-        return runtime().response_curve(candidate, target)
+        try:
+            return runtime().response_curve(candidate, target, variable)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    @app.get("/api/candidates/{candidate_id}/response-curves")
+    def response_curves(candidate_id: str, variable: str | None = None) -> dict[str, Any]:
+        candidate = store().get_candidate(candidate_id)
+        if not candidate:
+            raise HTTPException(404, "候補が見つかりません")
+        try:
+            return runtime().response_curves(candidate, variable)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
 
     @app.get("/api/candidates/{candidate_id}/similar")
     def similar(candidate_id: str) -> list[dict[str, object]]:

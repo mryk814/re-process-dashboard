@@ -87,7 +87,7 @@ type ApiPreview = {
     repeat_summary?: Record<string, { mean: number; std: number; n: number }>;
   }>;
   response_curve?: Array<{
-    temperature_c: number;
+    x: number;
     value: number;
     lower: number;
     upper: number;
@@ -145,6 +145,53 @@ type ApiSnapshot = {
     prediction?: ApiPreview;
     provenance?: ApiPreview["model_meta"];
   };
+};
+
+type TaskInputDefinition = {
+  id: string;
+  field: string;
+  label: string;
+  unit: string;
+  group: "composition" | "process";
+  editable: boolean;
+  min: number;
+  max: number;
+  training_range?: { min: number; max: number } | null;
+};
+
+type TaskOutputDefinition = {
+  key: string;
+  label: string;
+  unit: string;
+  goal_direction: "at_least" | "at_most";
+};
+
+type TaskDefinition = {
+  task_id: string;
+  inputs: TaskInputDefinition[];
+  outputs: TaskOutputDefinition[];
+};
+
+type CurvePoint = {
+  x: number;
+  value: number;
+  lower: number;
+  upper: number;
+};
+
+type CurveVariable = {
+  id: string;
+  label: string;
+  unit: string;
+  min: number;
+  max: number;
+  current: number;
+};
+
+type ResponseCurvesPayload = {
+  variable: CurveVariable;
+  curves: Record<string, CurvePoint[]>;
+  output_ranges: Record<string, { min: number; max: number }>;
 };
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8765";
@@ -209,6 +256,15 @@ function number(value: number, digits = 0) {
   });
 }
 
+const CANDIDATE_COLORS = ["#d97706", "#0f766e", "#9333a8", "#dc2626", "#0891b2", "#4f46e5", "#65a30d", "#c2410c"];
+
+function candidateColor(candidateId: string, selectedId: string) {
+  if (candidateId === selectedId) return "#1f5fc4";
+  let hash = 0;
+  for (const character of candidateId) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  return CANDIDATE_COLORS[hash % CANDIDATE_COLORS.length];
+}
+
 async function apiError(response: Response, fallback: string): Promise<Error> {
   try {
     const body = (await response.json()) as { detail?: string };
@@ -216,11 +272,6 @@ async function apiError(response: Response, fallback: string): Promise<Error> {
   } catch {
     return new Error(fallback);
   }
-}
-
-function fieldValue(candidate: Candidate, field: keyof Candidate) {
-  const value = candidate[field];
-  return typeof value === "number" ? value : "";
 }
 
 function fromApiCandidate(candidate: ApiCandidate): Candidate {
@@ -369,10 +420,9 @@ function App() {
   const [notice, setNotice] = useState("候補を読み込んでいます");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [projects, setProjects] = useState<ApiProject[]>([]);
+  const [taskDefinition, setTaskDefinition] = useState<TaskDefinition | null>(null);
   const [activeProjectId, setActiveProjectId] = useState("default");
   const loadSequence = useRef(0);
-  const decisionSequence = useRef(0);
-  const [decisionSaving, setDecisionSaving] = useState(false);
   const selected = candidates.find((candidate) => candidate.id === selectedId);
   const activeProject = projects.find(
     (project) => project.id === activeProjectId,
@@ -380,18 +430,18 @@ function App() {
 
   async function loadProject(projectId: string) {
     const sequence = ++loadSequence.current;
-    decisionSequence.current += 1;
-    setDecisionSaving(false);
     setApiState("loading");
-    const response = await fetch(
-      `${API_URL}/api/candidates?project_id=${encodeURIComponent(projectId)}`,
-    );
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const imported = ((await response.json()) as ApiCandidate[]).map(
-      fromApiCandidate,
-    );
+    const [candidateResponse, taskResponse] = await Promise.all([
+      fetch(`${API_URL}/api/candidates?project_id=${encodeURIComponent(projectId)}`),
+      fetch(`${API_URL}/api/projects/${encodeURIComponent(projectId)}/task-definition`),
+    ]);
+    if (!candidateResponse.ok) throw new Error(`HTTP ${candidateResponse.status}`);
+    if (!taskResponse.ok) throw new Error(`HTTP ${taskResponse.status}`);
+    const imported = ((await candidateResponse.json()) as ApiCandidate[]).map(fromApiCandidate);
+    const definition = (await taskResponse.json()) as TaskDefinition;
     if (sequence !== loadSequence.current) return;
     setActiveProjectId(projectId);
+    setTaskDefinition(definition);
     window.localStorage.setItem("material-workbench-project", projectId);
     setCandidates(imported);
     setSelectedId(imported[0]?.id ?? "");
@@ -515,47 +565,6 @@ function App() {
     };
   }, [selected]);
 
-  const updateCandidate = (id: string, field: keyof Candidate, raw: number) => {
-    const current = candidates.find((candidate) => candidate.id === id);
-    if (!current) return;
-    let next = { ...current, [field]: raw } as Candidate;
-    if (field === "annealTemperature") {
-      const peak = Math.max(...current.heat.map((point) => point.temperature));
-      next = {
-        ...next,
-        heat: current.heat.map((point) =>
-          point.temperature === peak ? { ...point, temperature: raw } : point,
-        ),
-      };
-    }
-    if (field === "holdMinutes") {
-      const peak = Math.max(...current.heat.map((point) => point.temperature));
-      const plateau = current.heat
-        .map((point, index) => (point.temperature >= peak * 0.95 ? index : -1))
-        .filter((index) => index >= 0);
-      const start = plateau[0];
-      const end = plateau.at(-1);
-      if (start !== undefined && end !== undefined && end > start) {
-        const delta = raw - (current.heat[end].time - current.heat[start].time);
-        next = {
-          ...next,
-          heat: current.heat.map((point, index) =>
-            index >= end
-              ? {
-                  ...point,
-                  time: Math.max(current.heat[start].time, point.time + delta),
-                }
-              : point,
-          ),
-        };
-      }
-    }
-    setCandidates((items) =>
-      items.map((candidate) => (candidate.id === id ? next : candidate)),
-    );
-    void persistCandidate(next, current);
-  };
-
   const updateComposition = (id: string, element: string, raw: number) => {
     const current = candidates.find((candidate) => candidate.id === id);
     if (!current) return;
@@ -665,54 +674,6 @@ function App() {
       setNotice("入力が妥当でないため、直前の値へ戻しました");
     }
   }
-
-  const saveDecision = async (candidateId: string, decisionNote: string) => {
-    if (!activeProject) return;
-    const sequence = ++decisionSequence.current;
-    setDecisionSaving(true);
-    try {
-      let snapshotId = "";
-      if (candidateId) {
-        const predictionResponse = await fetch(
-          `${API_URL}/api/candidates/${candidateId}/predict`,
-          { method: "POST" },
-        );
-        if (!predictionResponse.ok) {
-          throw await apiError(predictionResponse, "判断時点の予測を保存できませんでした。");
-        }
-        const predictionPayload = (await predictionResponse.json()) as {
-          snapshot: { id: string };
-        };
-        snapshotId = predictionPayload.snapshot.id;
-      }
-      if (sequence !== decisionSequence.current) return;
-      const response = await fetch(`${API_URL}/api/projects/${activeProject.id}/decision`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          candidate_id: candidateId,
-          snapshot_id: snapshotId,
-          note: decisionNote,
-        }),
-      });
-      if (!response.ok) throw await apiError(response, "判断を保存できませんでした。");
-      const saved = (await response.json()) as ApiProject;
-      if (sequence !== decisionSequence.current) return;
-      setProjects((items) =>
-        items.map((project) => (project.id === saved.id ? saved : project)),
-      );
-      setNotice(
-        candidateId
-          ? "判断時点の予測を固定し、次実験の候補と理由を保存しました"
-          : "次実験の判断を解除しました",
-      );
-    } catch (error) {
-      if (sequence !== decisionSequence.current) return;
-      setNotice(error instanceof Error ? error.message : "判断を保存できませんでした。");
-    } finally {
-      if (sequence === decisionSequence.current) setDecisionSaving(false);
-    }
-  };
 
   const addCandidate = async () => {
     if (!selected) return;
@@ -912,16 +873,13 @@ function App() {
               projectId={activeProjectId}
               targetValues={activeProject?.target_values ?? {}}
               decisionCandidateId={activeProject?.decision_candidate_id ?? ""}
-              decisionNote={activeProject?.decision_note ?? ""}
-              decisionSaving={decisionSaving}
               selected={selected}
               selectedId={selectedId}
+              taskDefinition={taskDefinition}
               metrics={metrics}
               preview={preview}
               previewsByCandidate={previewsByCandidate}
-              notice={notice}
               onSelect={setSelectedId}
-              onUpdate={updateCandidate}
               onComposition={updateComposition}
               onText={updateCandidateText}
               onHeat={updateHeat}
@@ -936,10 +894,6 @@ function App() {
               }}
               onImported={(imported) => {
                 if (imported.length) void loadProject(activeProjectId);
-              }}
-              onOpenProject={() => setTab("project")}
-              onSaveDecision={(candidateId, decisionNote) => {
-                return saveDecision(candidateId, decisionNote);
               }}
             />
           ) : (
@@ -1010,16 +964,13 @@ type WorkbenchProps = {
   projectId: string;
   targetValues: Record<string, number>;
   decisionCandidateId: string;
-  decisionNote: string;
-  decisionSaving: boolean;
   selected: Candidate;
   selectedId: string;
+  taskDefinition: TaskDefinition | null;
   metrics: Metric[];
   preview: ApiPreview | null;
   previewsByCandidate: Record<string, ApiPreview>;
-  notice: string;
   onSelect: (id: string) => void;
-  onUpdate: (id: string, field: keyof Candidate, raw: number) => void;
   onHeat: (index: number, field: "time" | "temperature", raw: number) => void;
   onComposition: (id: string, element: string, raw: number) => void;
   onText: (id: string, field: "label" | "coating", value: string) => void;
@@ -1029,8 +980,6 @@ type WorkbenchProps = {
   onDelete: () => void;
   onAdd: () => void;
   onImported: (items: Candidate[]) => void;
-  onOpenProject: () => void;
-  onSaveDecision: (candidateId: string, decisionNote: string) => Promise<void>;
 };
 
 function CandidateWorkbench(props: WorkbenchProps) {
@@ -1039,16 +988,13 @@ function CandidateWorkbench(props: WorkbenchProps) {
     projectId,
     targetValues,
     decisionCandidateId,
-    decisionNote,
-    decisionSaving,
     selected,
     selectedId,
+    taskDefinition,
     metrics,
     preview,
     previewsByCandidate,
-    notice,
     onSelect,
-    onUpdate,
     onComposition,
     onText,
     onHeat,
@@ -1058,30 +1004,24 @@ function CandidateWorkbench(props: WorkbenchProps) {
     onDelete,
     onAdd,
     onImported,
-    onOpenProject,
-    onSaveDecision,
   } = props;
   return (
-    <div className="workbench-grid">
+    <div className="workbench-grid candidate-workbench-grid">
+      <CandidateInspector
+        candidates={candidates}
+        candidate={selected}
+        taskDefinition={taskDefinition}
+        onComposition={onComposition}
+        onHeat={onHeat}
+        onAddHeat={onAddHeat}
+        onDeleteHeat={onDeleteHeat}
+      />
       <section className="central-workspace">
-        <DecisionSummary
-          candidates={candidates}
-          previewsByCandidate={previewsByCandidate}
-          targetValues={targetValues}
-          selectedId={selectedId}
-          decisionCandidateId={decisionCandidateId}
-          decisionNote={decisionNote}
-          decisionSaving={decisionSaving}
-          onSelect={onSelect}
-          onOpenProject={onOpenProject}
-          onSaveDecision={onSaveDecision}
-        />
         <div className="table-heading">
           <div>
             <h2>
               候補比較表 <span>（セルを直接編集）</span>
             </h2>
-            <span className="notice" role="status">{notice}</span>
           </div>
           <div className="comparison-actions" aria-label="候補操作">
             <button className="outline-button" onClick={onCopy}>
@@ -1091,9 +1031,7 @@ function CandidateWorkbench(props: WorkbenchProps) {
               className="outline-button"
               onClick={onDelete}
               disabled={
-                candidates.length <= 1 ||
-                decisionSaving ||
-                decisionCandidateId === selectedId
+                candidates.length <= 1 || decisionCandidateId === selectedId
               }
               title={
                 decisionCandidateId === selectedId
@@ -1109,30 +1047,25 @@ function CandidateWorkbench(props: WorkbenchProps) {
             </button>
           </div>
         </div>
-        <ComparisonTable
+        <ComparisonTableV2
           candidates={candidates}
           selectedId={selectedId}
+          taskDefinition={taskDefinition}
           previewsByCandidate={previewsByCandidate}
           targetValues={targetValues}
           onSelect={onSelect}
-          onUpdate={onUpdate}
           onComposition={onComposition}
           onText={onText}
         />
-        <div className="chart-grid">
-          <HeatPattern
-            candidates={candidates}
-            candidate={selected}
-            onUpdate={onHeat}
-            onAdd={onAddHeat}
-            onDelete={onDeleteHeat}
-          />
-          <LiveResponseCurve
-            candidate={selected}
-            preview={preview}
-            targetValues={targetValues}
-          />
-        </div>
+        <LiveResponseCurves
+          candidates={candidates}
+          selectedId={selectedId}
+          candidate={selected}
+          preview={preview}
+          targetValues={targetValues}
+          previewsByCandidate={previewsByCandidate}
+          taskDefinition={taskDefinition}
+        />
         <ActualsPanel candidate={selected} />
       </section>
       <EvidencePanel metrics={metrics} preview={preview} candidateLabel={selected.label} />
@@ -1140,490 +1073,169 @@ function CandidateWorkbench(props: WorkbenchProps) {
   );
 }
 
-type CandidateDecision = {
-  candidate: Candidate;
-  support: string;
-  weakest?: { target: string; probability: number };
-  probabilities: Record<string, number>;
-};
+function sliderScale(input: TaskInputDefinition, value: number) {
+  const training = input.training_range;
+  const learnedMin = training?.min ?? input.min;
+  const learnedMax = training?.max ?? input.max;
+  const span = Math.max(learnedMax - learnedMin, input.unit === "mass%" ? 0.001 : 1);
+  const padding = span * 0.08;
+  const min = Math.max(input.min, learnedMin - padding);
+  const max = Math.min(input.max, learnedMax + padding);
+  const sliderValue = Math.max(min, Math.min(max, value));
+  const divisor = Math.max(max - min, Number.EPSILON);
+  const trainingStart = ((Math.max(min, learnedMin) - min) / divisor) * 100;
+  const trainingEnd = ((Math.min(max, learnedMax) - min) / divisor) * 100;
+  return {
+    min,
+    max,
+    sliderValue,
+    style: { background: `linear-gradient(90deg, #dfe6ee 0 ${trainingStart}%, #6bb69e ${trainingStart}% ${trainingEnd}%, #dfe6ee ${trainingEnd}% 100%)` },
+  };
+}
 
-function DecisionSummary({
+function CandidateInspector({
   candidates,
-  previewsByCandidate,
-  targetValues,
-  selectedId,
-  decisionCandidateId,
-  decisionNote,
-  decisionSaving,
-  onSelect,
-  onOpenProject,
-  onSaveDecision,
+  candidate,
+  taskDefinition,
+  onComposition,
+  onHeat,
+  onAddHeat,
+  onDeleteHeat,
 }: {
   candidates: Candidate[];
-  previewsByCandidate: Record<string, ApiPreview>;
-  targetValues: Record<string, number>;
-  selectedId: string;
-  decisionCandidateId: string;
-  decisionNote: string;
-  decisionSaving: boolean;
-  onSelect: (id: string) => void;
-  onOpenProject: () => void;
-  onSaveDecision: (candidateId: string, decisionNote: string) => Promise<void>;
+  candidate: Candidate;
+  taskDefinition: TaskDefinition | null;
+  onComposition: (id: string, element: string, raw: number) => void;
+  onHeat: (index: number, field: "time" | "temperature", raw: number) => void;
+  onAddHeat: () => void;
+  onDeleteHeat: (index: number) => void;
 }) {
-  const [note, setNote] = useState(
-    decisionCandidateId === selectedId ? decisionNote : "",
-  );
-  useEffect(
-    () => setNote(decisionCandidateId === selectedId ? decisionNote : ""),
-    [decisionCandidateId, decisionNote, selectedId],
-  );
-  const targetKeys = Object.keys(targetValues).filter((key) =>
-    Number.isFinite(targetValues[key]),
-  );
-  const decisions: CandidateDecision[] = candidates.map((candidate) => {
-    const preview = previewsByCandidate[candidate.id];
-    const probabilities = targetKeys
-      .map((target) => ({
-        target,
-        probability: preview?.predictions?.[target]?.goal_probability,
-      }))
-      .filter(
-        (item): item is { target: string; probability: number } =>
-          typeof item.probability === "number",
-      );
-    const complete = probabilities.length === targetKeys.length;
-    const weakest = complete
-      ? [...probabilities].sort((a, b) => a.probability - b.probability)[0]
-      : undefined;
-    return {
-      candidate,
-      support: preview?.support?.status ?? "pending",
-      weakest,
-      probabilities: Object.fromEntries(
-        probabilities.map((item) => [item.target, item.probability]),
-      ),
-    };
-  });
-  const sortByMaximin = (a: CandidateDecision, b: CandidateDecision) =>
-    (b.weakest?.probability ?? -1) - (a.weakest?.probability ?? -1);
-  const complete = decisions.filter(
-    (item) => item.weakest && item.support !== "pending",
-  );
-  const incompleteCount = candidates.length - complete.length;
-  const nonDominated = (items: CandidateDecision[]) =>
-    items.filter(
-      (candidate) =>
-        !items.some(
-          (other) =>
-            other.candidate.id !== candidate.candidate.id &&
-            targetKeys.every(
-              (target) =>
-                other.probabilities[target] >= candidate.probabilities[target],
-            ) &&
-            targetKeys.some(
-              (target) =>
-                other.probabilities[target] > candidate.probabilities[target],
-            ),
-        ),
-    );
-  const regularAll = complete.filter(
-    (item) => item.support !== "extrapolated",
-  );
-  const extrapolatedAll = complete.filter(
-    (item) => item.support === "extrapolated",
-  );
-  const regularPareto = nonDominated(regularAll).sort(sortByMaximin);
-  const extrapolatedPareto = nonDominated(extrapolatedAll).sort(sortByMaximin);
-  const paretoIds = new Set(
-    [...regularPareto, ...extrapolatedPareto].map((item) => item.candidate.id),
-  );
-  const regular = [
-    ...regularPareto,
-    ...regularAll.filter((item) => !paretoIds.has(item.candidate.id)).sort(sortByMaximin),
-  ];
-  const extrapolated = [
-    ...extrapolatedPareto,
-    ...extrapolatedAll.filter((item) => !paretoIds.has(item.candidate.id)).sort(sortByMaximin),
-  ];
-  const ranked = [...regular, ...extrapolated];
-  const leader = ranked[0];
-  const allExtrapolated = ranked.length > 0 && regular.length === 0;
-  const paretoCandidates = regularPareto.length
-    ? regularPareto
-    : extrapolatedPareto;
-  const supportLabel = (value: string) =>
-    value === "supported"
-      ? "範囲内"
-      : value === "caution"
-        ? "要確認"
-        : value === "extrapolated"
-          ? "外挿"
-          : "計算中";
-
-  if (!targetKeys.length) {
-    return (
-      <section className="decision-summary decision-empty">
-        <div>
-          <span className="overline">DECISION</span>
-          <h2>比較の基準になる目標値を設定してください</h2>
-          <p>目標を設定すると、各候補の弱点と現在の第一候補をここに表示します。</p>
-        </div>
-        <button className="outline-button" onClick={onOpenProject}>
-          目標値を設定
-        </button>
-      </section>
-    );
-  }
-
+  const inputs = taskDefinition?.inputs ?? [];
   return (
-    <section className="decision-summary" aria-label="候補の判断サマリー">
-      <div className="decision-lead">
-        <span className="overline">CURRENT DECISION</span>
-        {leader ? (
-          <>
-            <h2>
-              {leader.candidate.label}
-              <small>
-                {allExtrapolated
-                  ? "参考首位"
-                  : incompleteCount
-                    ? "暫定の保守基準先頭"
-                    : leader.support === "caution"
-                      ? "要確認の保守基準先頭"
-                      : "保守基準の先頭"}
-              </small>
-            </h2>
-            <div className="decision-facts">
-              <span className={`support-pill ${leader.support}`}>
-                {supportLabel(leader.support)}
-              </span>
-              <span>
-                最低の個別達成確率 <b>{number((leader.weakest?.probability ?? 0) * 100)}%</b>
-              </span>
-              <span>
-                ボトルネック <b>{leader.weakest?.target === "lambda" ? "λ" : leader.weakest?.target}</b>
-              </span>
-              {paretoCandidates.length > 1 && (
-                <span>非劣候補 <b>{paretoCandidates.length}件</b></span>
-              )}
-            </div>
-          </>
-        ) : (
-          <h2>
-            {Object.keys(previewsByCandidate).length
-              ? "全目標の達成確率を比較できません"
-              : "候補の予測を計算しています"}
-          </h2>
-        )}
-        <p>
-          {allExtrapolated
-            ? "全候補が学習範囲外です。順位は探索の手掛かりとしてのみ利用してください。"
-            : "範囲内と要確認の候補では非劣候補を優先し、その中で最も低い個別達成確率が高い順に比較しています。外挿は後置します。"}
-          <small> 複数目標の同時達成確率ではありません。</small>
-          {incompleteCount > 0 && (
-            <small> {incompleteCount}件は達成確率不足または計算中のため順位対象外です（評価済み {complete.length}/{candidates.length}件）。</small>
-          )}
-        </p>
+    <aside className="candidate-inspector" aria-label="選択候補の入力">
+      <div className="inspector-heading">
+        <span className="overline">SELECTED CANDIDATE</span>
+        <h2>選択候補の入力</h2>
       </div>
-      {ranked.length > 0 && (
-        <ol className="decision-ranking">
-          {ranked.map((item, index) => (
-            <li key={item.candidate.id}>
-              <button
-                className={item.candidate.id === selectedId ? "active" : ""}
-                onClick={() => onSelect(item.candidate.id)}
-              >
-                <span className="rank">{index + 1}</span>
-                <span className="rank-name">{item.candidate.label}</span>
-                <b>{number((item.weakest?.probability ?? 0) * 100)}%</b>
-                <small>
-                  {supportLabel(item.support)}
-                  {paretoIds.has(item.candidate.id)
-                    ? item.support === "extrapolated"
-                      ? "・外挿群内非劣"
-                      : "・非劣"
-                    : ""}
-                </small>
-              </button>
-            </li>
-          ))}
-        </ol>
-      )}
-      <div className="decision-commit">
-        <div>
-          <span className="overline">NEXT EXPERIMENT</span>
-          <b>
-            {decisionCandidateId
-              ? `採用済み: ${candidates.find((item) => item.id === decisionCandidateId)?.label ?? "候補"} / 選択中: ${candidates.find((item) => item.id === selectedId)?.label ?? "候補"}`
-              : `選択中: ${candidates.find((item) => item.id === selectedId)?.label ?? "候補"}`}
-          </b>
-          {decisionCandidateId && (
-            <small className="decision-saved-note" title={decisionNote}>
-              理由: {decisionNote}（判断時点の予測を固定済み）
-            </small>
-          )}
+      <section className="inspector-section">
+        <div className="section-heading"><h3>組成</h3><span>mass%</span></div>
+        <div className="composition-fields">
+        {inputs.filter((input) => input.group === "composition").map((input) => {
+          const value = candidate.raw.composition[input.field] ?? 0;
+          const scale = sliderScale(input, value);
+          return (
+            <label className="slider-field" key={input.id}>
+              <span><b>{input.label}</b><em><input className="slider-number" type="number" min={input.min} max={input.max} step="any" value={value} aria-label={`${candidate.label} ${input.label}の数値`} onChange={(event) => onComposition(candidate.id, input.field, Number(event.target.value))} /> {input.unit}</em></span>
+              <input
+                type="range"
+                min={scale.min}
+                max={scale.max}
+                step="any"
+                value={scale.sliderValue}
+                style={scale.style}
+                aria-label={`${candidate.label} ${input.label}`}
+                onChange={(event) => onComposition(candidate.id, input.field, Number(event.target.value))}
+              />
+            </label>
+          );
+        })}
         </div>
-        <input
-          value={note}
-          maxLength={500}
-          aria-label="次実験に選ぶ理由"
-          placeholder="選ぶ理由を一行で残す（必須）"
-          onChange={(event) => setNote(event.target.value)}
-        />
-        <button
-          className="primary-button"
-          disabled={decisionSaving || !note.trim()}
-          onClick={() => {
-            void onSaveDecision(selectedId, note.trim());
-          }}
-        >
-          {decisionSaving
-            ? "判断を保存中…"
-            : decisionCandidateId === selectedId
-              ? "判断を更新"
-              : "選択候補を次実験に決定"}
-        </button>
-        {decisionCandidateId && (
-          <button
-            className="text-button decision-view"
-            disabled={decisionSaving}
-            onClick={() => {
-              onSelect(decisionCandidateId);
-              onOpenProject();
-            }}
-          >
-            判断時点を見る
-          </button>
-        )}
-        {decisionCandidateId && (
-          <button
-            className="text-button decision-clear"
-            disabled={decisionSaving}
-            onClick={() => {
-              void onSaveDecision("", "");
-            }}
-          >
-            決定を解除
-          </button>
-        )}
-      </div>
-    </section>
+      </section>
+      <HeatPattern
+        candidates={candidates}
+        candidate={candidate}
+        onUpdate={onHeat}
+        onAdd={onAddHeat}
+        onDelete={onDeleteHeat}
+      />
+    </aside>
   );
 }
 
-function ComparisonTable({
+function ComparisonTableV2({
   candidates,
   selectedId,
+  taskDefinition,
   previewsByCandidate,
   targetValues,
   onSelect,
-  onUpdate,
   onComposition,
   onText,
 }: {
   candidates: Candidate[];
   selectedId: string;
+  taskDefinition: TaskDefinition | null;
   previewsByCandidate: Record<string, ApiPreview>;
   targetValues: Record<string, number>;
   onSelect: (id: string) => void;
-  onUpdate: (id: string, field: keyof Candidate, raw: number) => void;
   onComposition: (id: string, element: string, raw: number) => void;
   onText: (id: string, field: "label" | "coating", value: string) => void;
 }) {
-  const processInputs: Array<{
-    label: string;
-    unit: string;
-    field: keyof Candidate;
-    min: number;
-    max?: number;
-  }> = [
-    { label: "板厚", unit: "mm", field: "thickness", min: 0.001, max: 100 },
-    { label: "ライン速度", unit: "m/min", field: "lineSpeed", min: 0.001, max: 2000 },
-    { label: "焼鈍温度", unit: "°C", field: "annealTemperature", min: -273.15, max: 1800 },
-    { label: "保持時間", unit: "min", field: "holdMinutes", min: 0 },
+  const inputs = taskDefinition?.inputs ?? [];
+  const compositionInputs = inputs.filter((input) => input.group === "composition");
+  const [compositionDrafts, setCompositionDrafts] = useState<Record<string, string>>({});
+  const outputs = taskDefinition?.outputs ?? [
+    { key: "TS", label: "TS", unit: "MPa", goal_direction: "at_least" as const },
+    { key: "YS", label: "YS", unit: "MPa", goal_direction: "at_least" as const },
+    { key: "EL", label: "EL", unit: "%", goal_direction: "at_least" as const },
+    { key: "lambda", label: "λ", unit: "%", goal_direction: "at_least" as const },
   ];
-  const targets = ["TS", "YS", "EL", "lambda"];
-  const selectedPreview = previewsByCandidate[selectedId];
-  const status = (value?: string) =>
-    value === "supported"
-      ? "範囲内"
-      : value === "caution"
-        ? "要確認"
-        : value === "extrapolated"
-          ? "外挿"
-          : "未計算";
+  const status = (value?: string) => value === "supported" ? "範囲内" : value === "caution" ? "要確認" : value === "extrapolated" ? "外挿" : "未計算";
   return (
-    <div className="table-scroll candidate-row-table">
-      <table className="comparison-table">
-        <thead>
-          <tr>
-            <th className="sticky-candidate" rowSpan={2}>
-              候補
-            </th>
-            <th className="prediction-group" colSpan={4}>判断 / 予測値</th>
-            <th className="support-cell" rowSpan={2}>支持度</th>
-            <th colSpan={COMPOSITION_ELEMENTS.length}>組成</th>
-            <th colSpan={processInputs.length + 1}>工程条件</th>
-          </tr>
-          <tr>
-            {targets.map((target, index) => {
-              const direction = Object.values(previewsByCandidate).find(
-                (item) => item.predictions?.[target]?.goal_direction,
-              )?.predictions?.[target]?.goal_direction;
-              return (
-                <th className={`prediction-cell prediction-col-${index}`} key={target}>
-                  {target === "lambda" ? "λ" : target}
-                  {Number.isFinite(targetValues[target]) && (
-                    <small>
-                      目標 {direction === "at_most" ? "≤" : "≥"}{" "}
-                      {number(
-                        targetValues[target],
-                        target === "EL" || target === "lambda" ? 1 : 0,
-                      )}
-                    </small>
-                  )}
-                </th>
-              );
-            })}
-            {COMPOSITION_ELEMENTS.map((element) => (
-              <th key={element} title={`${element}: 0〜100 mass%`}>
-                {element}
-                <small>mass%</small>
-              </th>
-            ))}
-            {processInputs.map((input) => (
-              <th
-                key={input.field}
-                title={`許容範囲: ${input.min}〜${input.max ?? "上限なし"} ${input.unit}`}
-              >
-                {input.label}
-                <small>{input.unit}</small>
-              </th>
-            ))}
-            <th>めっき</th>
-          </tr>
-        </thead>
-        <tbody>
-          {candidates.map((candidate) => {
-            const prediction = previewsByCandidate[candidate.id];
-            return (
-              <tr
-                key={candidate.id}
-                className={candidate.id === selectedId ? "selected-row" : ""}
-                onClick={() => onSelect(candidate.id)}
-              >
-                <th className="sticky-candidate">
-                  <input
-                    aria-label={`${candidate.label}の候補名`}
-                    maxLength={80}
-                    value={candidate.label}
-                    onFocus={() => onSelect(candidate.id)}
-                    onChange={(event) =>
-                      onText(candidate.id, "label", event.target.value)
-                    }
-                  />
-                </th>
-                {targets.map((target, index) => {
-                  const value = prediction?.predictions?.[target];
-                  const selectedValue = selectedPreview?.predictions?.[target]?.value;
-                  const delta = value && typeof selectedValue === "number"
-                    ? value.value - selectedValue
-                    : undefined;
-                  return (
-                    <td className={`prediction-cell prediction-col-${index}`} key={target}>
-                      {value ? (
-                        <span className="metric-value">
-                          {number(
-                            value.value,
-                            target === "EL" || target === "lambda" ? 1 : 0,
-                          )}
-                          <small>{value.unit}</small>
-                          {typeof value.goal_probability === "number" && (
-                            <em>
-                              達成 {number(value.goal_probability * 100)}%
-                              {delta !== undefined && Math.abs(delta) > 1e-9 && (
-                                <>
-                                  {" · 選択との差 "}
-                                  {delta > 0 ? "+" : ""}
-                                  {number(
-                                    delta,
-                                    target === "EL" || target === "lambda" ? 1 : 0,
-                                  )}
-                                </>
-                              )}
-                            </em>
-                          )}
-                        </span>
-                      ) : (
-                        <span className="empty-cell">—</span>
-                      )}
-                    </td>
-                  );
-                })}
-                <td className="support-cell">
-                  <span
-                    className={`status-dot ${prediction?.support?.status === "supported" ? "success" : prediction?.support ? "caution" : ""}`}
-                  />
-                  {status(prediction?.support?.status)}
-                </td>
-                {COMPOSITION_ELEMENTS.map((element) => (
-                  <td key={element}>
-                    <input
-                      type="number"
-                      step="any"
-                      min={0}
-                      max={100}
-                      value={candidate.raw.composition[element] ?? 0}
-                      aria-label={`${candidate.label} ${element}`}
-                      onFocus={() => onSelect(candidate.id)}
-                      onChange={(event) =>
-                        onComposition(
-                          candidate.id,
-                          element,
-                          Number(event.target.value),
-                        )
-                      }
-                    />
-                  </td>
-                ))}
-                {processInputs.map((input) => (
-                  <td key={input.field}>
-                    <input
-                      type="number"
-                      step="any"
-                      min={input.min}
-                      max={input.max}
-                      value={fieldValue(candidate, input.field)}
-                      aria-label={`${candidate.label} ${input.label}`}
-                      onFocus={() => onSelect(candidate.id)}
-                      onChange={(event) =>
-                        onUpdate(
-                          candidate.id,
-                          input.field,
-                          Number(event.target.value),
-                        )
-                      }
-                    />
-                  </td>
-                ))}
-                <td>
-                  <select
-                    aria-label={`${candidate.label}のめっき`}
-                    value={candidate.coating}
-                    onChange={(event) =>
-                      onText(candidate.id, "coating", event.target.value)
-                    }
-                  >
-                    <option value="なし">なし</option>
-                    <option value="GI">GI</option>
-                    <option value="GA">GA</option>
-                  </select>
-                </td>
+    <div className="candidate-comparison">
+      <section className="comparison-grid" aria-label="候補の組成と予測結果比較">
+        <table className="candidate-name-table">
+          <thead>
+            <tr><th>候補</th></tr>
+            <tr aria-hidden="true"><th /></tr>
+          </thead>
+          <tbody>
+            {candidates.map((candidate) => (
+              <tr key={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}>
+                <th><input aria-label={`${candidate.label}の候補名`} maxLength={80} value={candidate.label} onFocus={() => onSelect(candidate.id)} onChange={(event) => onText(candidate.id, "label", event.target.value)} /></th>
               </tr>
-            );
-          })}
-        </tbody>
-      </table>
+            ))}
+          </tbody>
+        </table>
+        <div className="comparison-detail-scroll">
+          <table className="comparison-detail-table">
+            <thead>
+              <tr><th colSpan={compositionInputs.length}>組成</th><th colSpan={outputs.length}>予測結果</th><th rowSpan={2}>支持度</th></tr>
+              <tr>
+                {compositionInputs.map((input) => <th className="composition-col" key={input.id}>{input.label}<small>{input.unit}</small></th>)}
+                {outputs.map((output) => <th className="prediction-col" key={output.key}>{output.label}<small>{Number.isFinite(targetValues[output.key]) ? `目標 ${output.goal_direction === "at_most" ? "≤" : "≥"} ${number(targetValues[output.key], output.key === "EL" || output.key === "lambda" ? 1 : 0)}` : output.unit}</small></th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {candidates.map((candidate) => {
+                const prediction = previewsByCandidate[candidate.id];
+                return (
+                <tr key={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}>
+                  {compositionInputs.map((input) => {
+                    const draftKey = `${candidate.id}:${input.field}`;
+                    const currentValue = candidate.raw.composition[input.field] ?? 0;
+                    const value = compositionDrafts[draftKey] ?? String(currentValue);
+                    return <td className="composition-col" key={input.id}><input type="number" step="any" min={input.min} max={input.max} value={value} aria-label={`${candidate.label} ${input.label}`} onFocus={() => onSelect(candidate.id)} onChange={(event) => setCompositionDrafts((drafts) => ({ ...drafts, [draftKey]: event.target.value }))} onBlur={(event) => {
+                      const raw = Number(event.target.value);
+                      setCompositionDrafts((drafts) => {
+                        const { [draftKey]: _, ...remaining } = drafts;
+                        return remaining;
+                      });
+                      if (Number.isFinite(raw) && raw !== currentValue) onComposition(candidate.id, input.field, raw);
+                    }} /></td>;
+                  })}
+                  {outputs.map((output) => {
+                    const value = prediction?.predictions?.[output.key];
+                    return <td className="prediction-cell prediction-col" key={output.key}>{value ? <span className="metric-value">{number(value.value, output.key === "EL" || output.key === "lambda" ? 1 : 0)} <small>{value.unit}</small>{typeof value.goal_probability === "number" && <em>達成 {number(value.goal_probability * 100)}%</em>}</span> : <span className="empty-cell">—</span>}</td>;
+                  })}
+                  <td className="support-cell"><span className={`status-dot ${prediction?.support?.status === "supported" ? "success" : prediction?.support ? "caution" : ""}`} />{status(prediction?.support?.status)}</td>
+                </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   );
 }
@@ -1964,22 +1576,26 @@ function HeatPattern({
   const width = 440;
   const height = 210;
   const pad = { x: 42, y: 18 };
-  const maxTime = Math.max(
-    3,
-    ...candidates.flatMap((item) => item.heat.map((point) => point.time)),
-  );
+  const times = candidates.flatMap((item) => item.heat.map((point) => point.time));
+  const rawMinTime = Math.min(...times);
+  const rawMaxTime = Math.max(...times);
+  const timePadding = Math.max((rawMaxTime - rawMinTime) * 0.08, 0.05);
+  const minTime = Math.max(0, rawMinTime - timePadding);
+  const maxTime = rawMaxTime + timePadding;
   const maxTemp = Math.max(
     1000,
     ...candidates.flatMap((item) =>
       item.heat.map((point) => point.temperature),
     ),
   );
-  const x = (time: number) => pad.x + (time / maxTime) * (width - pad.x - 18);
+  const x = (time: number) =>
+    pad.x + ((time - minTime) / Math.max(0.001, maxTime - minTime)) * (width - pad.x - 18);
   const y = (temp: number) =>
     height - 31 - (temp / maxTemp) * (height - pad.y - 31);
   const points = candidate.heat
     .map((point) => `${x(point.time)},${y(point.temperature)}`)
     .join(" ");
+  const timeTicks = [minTime, (minTime + maxTime) / 2, maxTime];
   const dragPoint = (event: PointerEvent<SVGCircleElement>, index: number) => {
     const svg = event.currentTarget.ownerSVGElement;
     if (!svg) return;
@@ -2005,10 +1621,8 @@ function HeatPattern({
         <h2>
           ヒートパターン <span>（焼鈍温度・時間）</span>
         </h2>
-        <div className="legend">
-          <span className="blue-line" />
-          選択候補 <span className="orange-line" />
-          比較候補
+        <div className="candidate-color-legend" aria-label="候補の色">
+          {candidates.map((item) => <span className={item.id === candidate.id ? "selected" : ""} key={item.id}><i style={{ background: candidateColor(item.id, candidate.id) }} />{item.label}</span>)}
         </div>
       </div>
       <svg
@@ -2026,6 +1640,14 @@ function HeatPattern({
               </text>
             </g>
           ))}
+          {timeTicks.map((value) => (
+            <g key={`time-${value}`}>
+              <line x1={x(value)} x2={x(value)} y1={pad.y} y2={height - 31} />
+              <text x={x(value)} y={height - 18} textAnchor="middle">
+                {number(value, 2)}
+              </text>
+            </g>
+          ))}
         </g>
         {candidates
           .filter((item) => item.id !== candidate.id)
@@ -2036,15 +1658,15 @@ function HeatPattern({
                 .map((point) => `${x(point.time)},${y(point.temperature)}`)
                 .join(" ")}
               fill="none"
-              stroke="#DF7703"
+              stroke={candidateColor(item.id, candidate.id)}
               strokeWidth="1.5"
-              opacity=".38"
+              opacity=".62"
             />
           ))}
         <polyline
           points={points}
           fill="none"
-          stroke="#1F5FC4"
+          stroke={candidateColor(candidate.id, candidate.id)}
           strokeWidth="3"
         />
         {candidate.heat.map((point, index) => (
@@ -2071,9 +1693,9 @@ function HeatPattern({
         </text>
         <text
           className="axis-title"
-          x={width - 15}
+          x={(pad.x + width - 18) / 2}
           y={height - 1}
-          textAnchor="end"
+          textAnchor="middle"
         >
           時間 (min)
         </text>
@@ -2086,41 +1708,22 @@ function HeatPattern({
             点を追加
           </button>
         </div>
-        <div className="heat-point-list">
-          {candidate.heat.map((point, index) => (
-            <div className="heat-point-row" key={`${point.time}-${index}`}>
-              <b>{index + 1}</b>
-              <label>
-                時間 (min)
-                <input
-                  type="number"
-                  step="0.01"
-                  value={Number(point.time.toFixed(3))}
-                  onChange={(event) =>
-                    onUpdate(index, "time", Number(event.target.value))
-                  }
-                />
-              </label>
-              <label>
-                温度 (°C)
-                <input
-                  type="number"
-                  value={point.temperature}
-                  onChange={(event) =>
-                    onUpdate(index, "temperature", Number(event.target.value))
-                  }
-                />
-              </label>
-              <button
-                className="icon-delete"
-                aria-label={`点${index + 1}を削除`}
-                disabled={candidate.heat.length <= 2}
-                onClick={() => onDelete(index)}
-              >
-                ×
-              </button>
-            </div>
-          ))}
+        <div className="heat-point-table-wrap">
+          <table className="heat-point-table">
+            <thead>
+              <tr><th>#</th><th>時間 <small>min</small></th><th>温度 <small>°C</small></th><th aria-label="操作" /></tr>
+            </thead>
+            <tbody>
+              {candidate.heat.map((point, index) => (
+                <tr key={`${point.time}-${index}`}>
+                  <th scope="row">{index + 1}</th>
+                  <td><input type="number" step="0.01" value={Number(point.time.toFixed(3))} aria-label={`点${index + 1}の時間（分）`} onChange={(event) => onUpdate(index, "time", Number(event.target.value))} /></td>
+                  <td><input type="number" value={point.temperature} aria-label={`点${index + 1}の温度（℃）`} onChange={(event) => onUpdate(index, "temperature", Number(event.target.value))} /></td>
+                  <td><button className="icon-delete" aria-label={`点${index + 1}を削除`} disabled={candidate.heat.length <= 2} onClick={() => onDelete(index)}>×</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
         <small>RT = 室温（25°C）</small>
       </div>
@@ -2128,178 +1731,153 @@ function HeatPattern({
   );
 }
 
-type CurvePoint = {
-  temperature_c: number;
-  value: number;
-  lower: number;
-  upper: number;
-};
-function LiveResponseCurve({
+function LiveResponseCurves({
+  candidates,
+  selectedId,
   candidate,
   preview,
   targetValues,
+  previewsByCandidate,
+  taskDefinition,
 }: {
+  candidates: Candidate[];
+  selectedId: string;
   candidate: Candidate;
   preview: ApiPreview | null;
   targetValues: Record<string, number>;
+  previewsByCandidate: Record<string, ApiPreview>;
+  taskDefinition: TaskDefinition | null;
 }) {
-  const [points, setPoints] = useState<CurvePoint[]>([]);
+  const outputs = taskDefinition?.outputs ?? [
+    { key: "TS", label: "TS", unit: "MPa", goal_direction: "at_least" as const },
+    { key: "YS", label: "YS", unit: "MPa", goal_direction: "at_least" as const },
+    { key: "EL", label: "EL", unit: "%", goal_direction: "at_least" as const },
+    { key: "lambda", label: "λ", unit: "%", goal_direction: "at_least" as const },
+  ];
+  const variables: CurveVariable[] = [
+    ...(taskDefinition?.inputs ?? [])
+      .filter((input) => input.editable && input.field !== "coating")
+      .map((input) => ({
+        id: input.group === "composition" ? `${input.group}.${input.field}` : input.field,
+        label: input.label,
+        unit: input.unit,
+        min: input.training_range?.min ?? input.min,
+        max: input.training_range?.max ?? input.max,
+        current: input.group === "composition" ? candidate.raw.composition[input.field] ?? 0 : input.field === "thickness_mm" ? candidate.raw.thickness_mm : candidate.raw.line_speed_m_min,
+      })),
+    ...candidate.heat.flatMap((point, index) => [
+      { id: `heat.${index}.temperature_c`, label: `ヒート ${index + 1}点目 温度`, unit: "°C", min: 0, max: 1000, current: point.temperature },
+      { id: `heat.${index}.time_min`, label: `ヒート ${index + 1}点目 時間`, unit: "min", min: 0, max: Math.max(1, candidate.heat.at(-1)?.time ?? 1), current: point.time },
+    ]),
+  ];
+  const [variableId, setVariableId] = useState(variables[0]?.id ?? "heat.peak_temperature_c");
+  const [payloads, setPayloads] = useState<Record<string, ResponseCurvesPayload>>({});
   const [error, setError] = useState(false);
-  const [target, setTarget] = useState("TS");
+  const candidatesKey = JSON.stringify(candidates.map((item) => ({ id: item.id, raw: item.raw })));
+  useEffect(() => {
+    if (variables.length && !variables.some((variable) => variable.id === variableId)) setVariableId(variables[0].id);
+  }, [candidate.id, variableId, variables.length]);
   useEffect(() => {
     const controller = new AbortController();
-    setPoints([]);
+    setPayloads({});
     setError(false);
     const timer = window.setTimeout(() => {
-      fetch(
-        `${API_URL}/api/candidates/${candidate.id}/response-curve?target=${encodeURIComponent(target)}`,
-        { signal: controller.signal },
-      )
-        .then(async (response) => {
-          if (!response.ok) throw new Error();
-          const body = (await response.json()) as CurvePoint[];
-          if (!controller.signal.aborted) setPoints(body);
-        })
-        .catch(() => {
-          if (!controller.signal.aborted) setError(true);
-        });
+      Promise.all(candidates.map(async (item) => {
+        try {
+          const response = await fetch(`${API_URL}/api/candidates/${item.id}/response-curves?variable=${encodeURIComponent(variableId)}`, { signal: controller.signal });
+          if (!response.ok) return null;
+          return [item.id, (await response.json()) as ResponseCurvesPayload] as const;
+        } catch {
+          return null;
+        }
+      })).then((entries) => {
+        if (controller.signal.aborted) return;
+        const loaded = Object.fromEntries(entries.filter((entry): entry is readonly [string, ResponseCurvesPayload] => entry !== null));
+        setPayloads(loaded);
+        setError(!loaded[selectedId]);
+      });
     }, 320);
-    return () => {
-      window.clearTimeout(timer);
-      controller.abort();
-    };
-  }, [candidate, target]);
-  const minTemp = Math.min(
-    ...points.map((point) => point.temperature_c),
-    candidate.annealTemperature,
-    500,
-  );
-  const maxTemp = Math.max(
-    ...points.map((point) => point.temperature_c),
-    candidate.annealTemperature,
-    900,
-  );
-  const goalValue = targetValues[target];
-  const currentPrediction = preview?.predictions?.[target]?.value;
-  const goalDirection = preview?.predictions?.[target]?.goal_direction;
-  const rawMinValue = points.length
-    ? Math.min(
-        ...points.map((point) => point.lower),
-        typeof currentPrediction === "number" ? currentPrediction : Infinity,
-        Number.isFinite(goalValue) ? goalValue : Infinity,
-      )
-    : 0;
-  const rawMaxValue = points.length
-    ? Math.max(
-        ...points.map((point) => point.upper),
-        typeof currentPrediction === "number" ? currentPrediction : -Infinity,
-        Number.isFinite(goalValue) ? goalValue : -Infinity,
-      )
-    : 1;
-  const valuePadding = Math.max(1, (rawMaxValue - rawMinValue) * 0.08);
-  const minValue = rawMinValue - valuePadding;
-  const maxValue = rawMaxValue + valuePadding;
-  const x = (value: number) =>
-    42 + ((value - minTemp) / Math.max(1, maxTemp - minTemp)) * 376;
-  const y = (value: number) =>
-    185 - ((value - minValue) / Math.max(1, maxValue - minValue)) * 150;
-  const line = points
-    .map(
-      (point, index) =>
-        `${index ? "L" : "M"}${x(point.temperature_c)} ${y(point.value)}`,
-    )
-    .join(" ");
-  const band = points.length
-    ? `${points.map((point, index) => `${index ? "L" : "M"}${x(point.temperature_c)} ${y(point.upper)}`).join(" ")} ${[
-        ...points,
-      ]
-        .reverse()
-        .map((point) => `L${x(point.temperature_c)} ${y(point.lower)}`)
-        .join(" ")} Z`
-    : "";
-  const xTicks = [minTemp, (minTemp + maxTemp) / 2, maxTemp];
-  const yTicks = [minValue, (minValue + maxValue) / 2, maxValue];
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [candidatesKey, selectedId, variableId]);
+  const activePayload = payloads[selectedId] ?? Object.values(payloads)[0];
   return (
-    <section className="chart-panel response-panel">
+    <section className="response-curves-panel" aria-label="設計変数ごとの応答曲線">
       <div className="panel-title">
-        <h2>
-          応答曲線{" "}
-          <span>（{target === "lambda" ? "λ" : target} vs 焼鈍温度）</span>
-        </h2>
-        <select
-          aria-label="応答曲線の予測特性"
-          value={target}
-          onChange={(event) => setTarget(event.target.value)}
-        >
-          <option value="TS">TS</option>
-          <option value="YS">YS</option>
-          <option value="EL">EL</option>
-          <option value="lambda">λ</option>
-        </select>
+        <div className="response-curves-title-group">
+          <h2>応答曲線 <span>（選択した設計変数を動かしたときの特性）</span></h2>
+          <div className="candidate-color-legend" aria-label="候補の色">
+            {candidates.map((item) => <span className={item.id === selectedId ? "selected" : ""} key={item.id}><i style={{ background: candidateColor(item.id, selectedId) }} />{item.label}</span>)}
+          </div>
+        </div>
+        <label>変数 <select aria-label="応答曲線の設計変数" value={variableId} onChange={(event) => setVariableId(event.target.value)}>{variables.map((variable) => <option key={variable.id} value={variable.id}>{variable.label} ({variable.unit})</option>)}</select></label>
       </div>
-      {error ? (
-        <p className="empty-evidence">応答曲線を取得できません。</p>
-      ) : points.length ? (
-        <svg
-          viewBox="0 0 440 210"
-          className="response-chart"
-          role="img"
-          aria-label={`APIから取得した${target}応答曲線`}
-        >
-          {xTicks.map((tick) => (
-            <g key={`x-${tick}`}>
-              <line x1={x(tick)} y1="185" x2={x(tick)} y2="190" stroke="#8290a3" />
-              <text x={x(tick)} y="203" textAnchor="middle" fontSize="10" fill="#617087">
-                {number(tick)}
-              </text>
-            </g>
-          ))}
-          {yTicks.map((tick) => (
-            <g key={`y-${tick}`}>
-              <line x1="37" y1={y(tick)} x2="418" y2={y(tick)} stroke="#e3e9f0" />
-              <text x="34" y={y(tick) + 3} textAnchor="end" fontSize="9" fill="#617087">
-                {number(tick, target === "EL" || target === "lambda" ? 1 : 0)}
-              </text>
-            </g>
-          ))}
-          <path d={band} fill="#1F5FC4" opacity=".12" />
-          <path d={line} fill="none" stroke="#1F5FC4" strokeWidth="3" />
-          {Number.isFinite(goalValue) && (
-            <g>
-              <line x1="42" y1={y(goalValue)} x2="418" y2={y(goalValue)} stroke="#c17816" strokeDasharray="5 4" />
-              <text x="415" y={y(goalValue) - 5} textAnchor="end" fontSize="10" fill="#9a5f10">
-                目標 {goalDirection === "at_most" ? "≤" : "≥"}{" "}
-                {number(goalValue, target === "EL" || target === "lambda" ? 1 : 0)}
-              </text>
-            </g>
-          )}
-          {typeof currentPrediction === "number" && (
-            <g>
-              <line x1={x(candidate.annealTemperature)} y1="35" x2={x(candidate.annealTemperature)} y2="185" stroke="#176d52" strokeDasharray="3 3" />
-              <circle cx={x(candidate.annealTemperature)} cy={y(currentPrediction)} r="5" fill="#fff" stroke="#176d52" strokeWidth="3" />
-              <text x={x(candidate.annealTemperature)} y="27" textAnchor="middle" fontSize="10" fill="#176d52">
-                現在 {number(candidate.annealTemperature)}°C
-              </text>
-            </g>
-          )}
-          {points.map((point) => (
-            <circle
-              key={point.temperature_c}
-              cx={x(point.temperature_c)}
-              cy={y(point.value)}
-              r="3"
-              fill="#1F5FC4"
-            />
-          ))}
-          <text x="230" y="209" textAnchor="middle" fontSize="10" fill="#617087">焼鈍温度 (°C)</text>
-        </svg>
-      ) : (
-        <p className="empty-evidence">応答曲線を読み込んでいます。</p>
+      {error ? <p className="empty-evidence">応答曲線を取得できません。</p> : (
+        <div className="response-curves-grid">
+          {outputs.map((output) => {
+            const series = candidates.flatMap((item) => {
+              const itemPayload = payloads[item.id];
+              const points = itemPayload?.curves[output.key] ?? [];
+              return points.length ? [{ candidate: item, points, prediction: previewsByCandidate[item.id]?.predictions?.[output.key], currentX: itemPayload.variable.current }] : [];
+            });
+            return <ResponseCurveMiniChart key={output.key} output={output} series={series} selectedId={selectedId} prediction={preview?.predictions?.[output.key]} goalValue={targetValues[output.key]} xRange={activePayload ? { min: activePayload.variable.min, max: activePayload.variable.max } : undefined} yRange={activePayload?.output_ranges[output.key]} xLabel={activePayload?.variable.label ?? "設計変数"} xUnit={activePayload?.variable.unit ?? ""} />;
+          })}
+        </div>
       )}
-      <p className="curve-note">
-        現在候補の他条件を固定し、焼鈍温度だけを動かしたモデル応答です。
-      </p>
     </section>
+  );
+}
+
+function ResponseCurveMiniChart({
+  output,
+  series,
+  selectedId,
+  prediction,
+  goalValue,
+  xRange,
+  yRange,
+  xLabel,
+  xUnit,
+}: {
+  output: TaskOutputDefinition;
+  series: Array<{ candidate: Candidate; points: CurvePoint[]; prediction?: NonNullable<ApiPreview["predictions"]>[string]; currentX: number }>;
+  selectedId: string;
+  prediction?: NonNullable<ApiPreview["predictions"]>[string];
+  goalValue?: number;
+  xRange?: { min: number; max: number };
+  yRange?: { min: number; max: number };
+  xLabel: string;
+  xUnit: string;
+}) {
+  const width = 300;
+  const height = 156;
+  const points = series.flatMap((item) => item.points);
+  const minX = xRange?.min ?? Math.min(...points.map((point) => point.x), 0);
+  const maxX = xRange?.max ?? Math.max(...points.map((point) => point.x), 1);
+  const outputAxisValues = yRange ? [yRange.min, yRange.max] : points.flatMap((point) => [point.lower, point.upper]);
+  const rawMin = Math.min(...outputAxisValues, goalValue ?? Infinity);
+  const rawMax = Math.max(...outputAxisValues, goalValue ?? -Infinity);
+  const valuePadding = Math.max(1, (rawMax - rawMin) * 0.08);
+  const minValue = rawMin - valuePadding;
+  const maxValue = rawMax + valuePadding;
+  const x = (value: number) => 30 + ((value - minX) / Math.max(1e-6, maxX - minX)) * 252;
+  const y = (value: number) => 124 - ((value - minValue) / Math.max(1, maxValue - minValue)) * 92;
+  const xTicks = [minX, (minX + maxX) / 2, maxX];
+  return (
+    <article className="response-curve-card">
+      <header><b>{output.label}</b><span>{prediction ? `${number(prediction.value, output.key === "EL" || output.key === "lambda" ? 1 : 0)} ${prediction.unit}` : "読み込み中"}</span></header>
+      {series.length ? <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${output.label}の応答曲線`}>
+        {[minValue, (minValue + maxValue) / 2, maxValue].map((tick) => <g key={tick}><line x1="28" y1={y(tick)} x2="284" y2={y(tick)} stroke="#e3e9f0" /><text x="25" y={y(tick) + 3} textAnchor="end" fontSize="9" fill="#617087">{number(tick, output.key === "EL" || output.key === "lambda" ? 1 : 0)}</text></g>)}
+        {series.map((item) => {
+          const color = candidateColor(item.candidate.id, selectedId);
+          const line = item.points.map((point, index) => `${index ? "L" : "M"}${x(point.x)} ${y(point.value)}`).join(" ");
+          const band = `${item.points.map((point, index) => `${index ? "L" : "M"}${x(point.x)} ${y(point.upper)}`).join(" ")} ${[...item.points].reverse().map((point) => `L${x(point.x)} ${y(point.lower)}`).join(" ")} Z`;
+          return <g key={item.candidate.id}><path d={band} fill={color} opacity={item.candidate.id === selectedId ? ".12" : ".05"} /><path d={line} fill="none" stroke={color} strokeWidth={item.candidate.id === selectedId ? "2.5" : "1.5"} opacity={item.candidate.id === selectedId ? "1" : ".78"} />{item.prediction && Number.isFinite(item.currentX) && <circle cx={x(item.currentX)} cy={y(item.prediction.value)} r={item.candidate.id === selectedId ? "4" : "2.5"} fill="#fff" stroke={color} strokeWidth={item.candidate.id === selectedId ? "2.5" : "1.5"} />}</g>;
+        })}
+        {Number.isFinite(goalValue) && <line x1="28" y1={y(goalValue!)} x2="284" y2={y(goalValue!)} stroke="#c17816" strokeDasharray="4 3" />}
+        {xTicks.map((tick) => <text key={tick} x={x(tick)} y="137" textAnchor="middle" fontSize="8" fill="#617087">{number(tick, xUnit === "min" ? 2 : 1)}</text>)}
+        <text x="156" y="153" textAnchor="middle" fontSize="8" fill="#617087">{xLabel} ({xUnit})</text>
+      </svg> : <p className="empty-evidence">読み込み中…</p>}
+    </article>
   );
 }
 
@@ -2333,7 +1911,6 @@ function EvidencePanel({
                 <th>予測値</th>
                 <th>検証残差区間 (90%)</th>
                 <th>目標達成</th>
-                <th>学習範囲</th>
               </tr>
             </thead>
             <tbody>
@@ -2350,8 +1927,8 @@ function EvidencePanel({
                   </td>
                   <td>
                     {number(metric.low, 1)}{" "}
-                    <span className="whisker">
-                      <i style={{ left: "48%" }} />
+                      <span className="whisker">
+                       <i style={{ left: `${Math.max(0, Math.min(100, ((metric.value - metric.low) / Math.max(1e-9, metric.high - metric.low)) * 100))}%` }} />
                     </span>{" "}
                     {number(metric.high, 1)}
                   </td>
@@ -2362,19 +1939,9 @@ function EvidencePanel({
                     ) : (
                       <>
                         <b>{number(metric.goalProbability * 100, 0)}%</b>
-                        <small> ≥ {number(metric.goalValue ?? 0, 1)}</small>
+                        <small> {preview?.predictions?.[metric.key === "λ" ? "lambda" : metric.key]?.goal_direction === "at_most" ? "≤" : "≥"} {number(metric.goalValue ?? 0, 1)}</small>
                       </>
                     )}
-                  </td>
-                  <td>
-                    <span
-                      className={`status-dot ${metric.status === "supported" ? "success" : "caution"}`}
-                    />
-                    {metric.status === "extrapolated"
-                      ? "外挿"
-                      : metric.status === "caution"
-                        ? "要確認"
-                        : "範囲内"}
                   </td>
                 </tr>
               ))}
@@ -2386,6 +1953,12 @@ function EvidencePanel({
         <p className="interval-note">
           区間と目標達成率は、親工程単位の交差検証残差から求めた経験的な範囲です。
         </p>
+        {preview?.support && (
+          <div className={`support-summary ${status ?? "caution"}`}>
+            <b>入力条件の支持度：{status === "supported" ? "範囲内" : status === "extrapolated" ? "外挿" : "要確認"}</b>
+            <span>条件全体に対する判定です。目的変数ごとの学習範囲判定ではありません。</span>
+          </div>
+        )}
       </section>
       {warnings.map((warning) => (
         <div className="warning" key={warning}>
@@ -2406,17 +1979,13 @@ function EvidencePanel({
         </div>
         {nearest.length ? (
           <>
-            <table className="similar-table detailed-distance">
+            <table className="similar-table similar-summary-table">
               <thead>
                 <tr>
-                  <th>親条件</th>
+                  <th>実験ID</th>
                   <th>層</th>
-                  <th>成分</th>
-                  <th>冶金</th>
-                  <th>工程</th>
-                  <th>熱履歴</th>
                   <th>総合</th>
-                  <th>実測</th>
+                  <th>代表実測値</th>
                 </tr>
               </thead>
               <tbody>
@@ -2424,7 +1993,7 @@ function EvidencePanel({
                   <tr
                     key={`${item.layer ?? "training"}-${item.observation_id}`}
                   >
-                    <td>{item.parent_key}</td>
+                    <td>{item.observation_id}</td>
                     <td>
                       <span
                         className={`layer-chip ${item.layer ?? "training"}`}
@@ -2432,10 +2001,6 @@ function EvidencePanel({
                         {item.layer === "historical" ? "学習外" : "学習内"}
                       </span>
                     </td>
-                    <td>{item.components?.composition?.toFixed(2) ?? "—"}</td>
-                    <td>{item.components?.metallurgy?.toFixed(2) ?? "—"}</td>
-                    <td>{item.components?.process?.toFixed(2) ?? "—"}</td>
-                    <td>{item.components?.heat_pattern?.toFixed(2) ?? "—"}</td>
                     <td>{item.distance.toFixed(2)}</td>
                     <td>
                       {Object.entries(item.repeat_summary ?? {})
@@ -2466,7 +2031,8 @@ function EvidencePanel({
           <p className="empty-evidence">類似実験を取得しています。</p>
         )}
       </section>
-      <section className="evidence-card">
+      <details className="evidence-card">
+        <summary>予測の根拠（再現性の詳細）</summary>
         <h2>予測の根拠</h2>
         <dl>
           <dt>計算方法</dt>
@@ -2509,7 +2075,7 @@ function EvidencePanel({
               : ""}
           </dd>
         </dl>
-      </section>
+      </details>
     </aside>
   );
 }

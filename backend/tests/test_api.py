@@ -56,6 +56,14 @@ def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
         "builtin.linear.v1", "sklearn.skops.v1", "lightgbm.booster.v1",
         "gpytorch.static_exact_rbf.v1", "numpyro.dense_posterior.v1",
     }
+    task = client.get("/api/projects/default/task-definition").json()
+    assert task["task_id"] == "annealed-properties-v1"
+    assert [item["field"] for item in task["inputs"]] == [
+        "C", "Si", "Mn", "P", "S", "Cr", "Mo", "Ni", "Al", "Ti", "B", "N", "O", "Ca",
+    ]
+    assert task["derived_inputs"] == []
+    assert {item["key"] for item in task["outputs"]} == {"TS", "YS", "EL", "lambda"}
+    assert all(item["goal_direction"] == "at_least" for item in task["outputs"])
     candidate = client.post("/api/candidates", json=_payload()).json()
     first = client.post(f"/api/candidates/{candidate['id']}/preview").json()
     second = client.post(f"/api/candidates/{candidate['id']}/preview").json()
@@ -73,6 +81,9 @@ def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
     detailed = atomic_result["prediction"]
     assert detailed["mode"] == "detailed"
     assert len(detailed["response_curve"]) == 9
+    curves = client.get(f"/api/candidates/{candidate['id']}/response-curves").json()
+    assert set(curves) == {"TS", "YS", "EL", "lambda"}
+    assert all(len(points) == 9 for points in curves.values())
     assert atomic_result["snapshot"]["payload"]["prediction"] == detailed
     similar = client.get(f"/api/candidates/{candidate['id']}/similar").json()
     assert len(similar) == 6
