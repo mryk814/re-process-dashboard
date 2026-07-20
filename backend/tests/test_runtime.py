@@ -15,6 +15,7 @@ def test_grouped_oof_calibration_and_parent_condition_support(client) -> None:
     assert runtime.support_reference is not None
     assert runtime.support_reference.parent_vectors.shape[1] == len(FEATURE_NAMES)
     assert len(runtime.support_reference.parent_rows) == len(runtime.support_reference.loo_nearest_distances)
+    assert len(runtime.support_reference.parent_observation_rows) == len(runtime.support_reference.parent_rows)
     for model in runtime.models.values():
         assert model.calibration_folds == 5
         assert len(model.oof_residuals) == len(model.rows)
@@ -22,6 +23,19 @@ def test_grouped_oof_calibration_and_parent_condition_support(client) -> None:
         assert len({row["parent_key"] for row in model.rows}) < len(model.rows)
         lower, upper = model.interval_offsets()
         assert lower < upper
+
+
+def test_similarity_summarizes_repeats_and_keeps_layers_distinct(client) -> None:
+    candidate = client.get("/api/candidates").json()[0]
+    similar = client.post(f"/api/candidates/{candidate['id']}/preview").json()["similar"]
+    training_parents = {item["parent_key"] for item in similar if item["layer"] == "training"}
+    historical_parents = {item["parent_key"] for item in similar if item["layer"] == "historical"}
+    assert training_parents.isdisjoint(historical_parents)
+    assert all(item["repeat_summary"] for item in similar)
+    for item in similar:
+        assert len(item["observation_ids"]) >= 1
+        assert all(summary["n"] >= 1 for summary in item["repeat_summary"].values())
+        assert item["outputs"] == {name: summary["mean"] for name, summary in item["repeat_summary"].items()}
 
 
 def test_default_model_package_loads_and_matches_its_smoke_contract(client) -> None:

@@ -84,6 +84,7 @@ type ApiPreview = {
     distance: number;
     components?: Record<string, number>;
     outputs: Record<string, number>;
+    repeat_summary?: Record<string, { mean: number; std: number; n: number }>;
   }>;
   response_curve?: Array<{
     temperature_c: number;
@@ -2426,7 +2427,7 @@ function EvidencePanel({
                       <span
                         className={`layer-chip ${item.layer ?? "training"}`}
                       >
-                        {item.layer === "historical" ? "全履歴" : "学習内"}
+                        {item.layer === "historical" ? "学習外" : "学習内"}
                       </span>
                     </td>
                     <td>{item.components?.composition?.toFixed(2) ?? "—"}</td>
@@ -2435,10 +2436,10 @@ function EvidencePanel({
                     <td>{item.components?.heat_pattern?.toFixed(2) ?? "—"}</td>
                     <td>{item.distance.toFixed(2)}</td>
                     <td>
-                      {Object.entries(item.outputs)
+                      {Object.entries(item.repeat_summary ?? {})
                         .map(
                           ([key, value]) =>
-                            `${key === "lambda" ? "λ" : key} ${number(value, 1)}`,
+                            `${key === "lambda" ? "λ" : key} ${number(value.mean, 1)} ± ${number(value.std, 1)} (n=${value.n})`,
                         )
                         .join(" / ") || "—"}
                     </td>
@@ -2452,8 +2453,8 @@ function EvidencePanel({
                 {similar.slice(3).map((item) => (
                   <p key={`${item.layer ?? "training"}-${item.observation_id}`}>
                     {item.parent_key} ·{" "}
-                    {item.layer === "historical" ? "全履歴" : "学習内"} · 距離{" "}
-                    {item.distance.toFixed(2)}
+                    {item.layer === "historical" ? "学習外" : "学習内"} · 距離{" "}
+                    {item.distance.toFixed(2)} · {Object.entries(item.repeat_summary ?? {}).map(([key, value]) => `${key} ${number(value.mean, 1)} ± ${number(value.std, 1)} (n=${value.n})`).join(" / ")}
                   </p>
                 ))}
               </details>
