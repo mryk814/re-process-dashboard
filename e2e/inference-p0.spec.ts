@@ -140,6 +140,40 @@ test("inference runs only for changed candidates and visible selected curves", a
   expect(curveRequests).toBe(curvesAfterPanelClose);
 
   await page.unroute("**/preview");
+  let releasePendingPreview = () => undefined;
+  const pendingPreviewGate = new Promise<void>((resolve) => { releasePendingPreview = resolve; });
+  let pendingPreviewHeld = false;
+  await page.route("**/preview", async (route) => {
+    const response = await route.fetch();
+    pendingPreviewHeld = true;
+    await pendingPreviewGate;
+    await route.fulfill({ response });
+  }, { times: 1 });
+  const successfulCreatedPreviews = () => inferenceResponses.filter(
+    (item) => item.kind === "preview" && item.candidateId === createdCandidateId && item.status === 200,
+  ).length;
+  const successfulPreviewsBeforePending = successfulCreatedPreviews();
+  const failedPreviewsBeforePending = failedInferenceRequests.filter((path) => path.endsWith("/preview")).length;
+  const valueBeforePendingPreview = Number(await selectedNumeric.inputValue());
+  const saveBeforePendingPreview = page.waitForResponse((response) => response.request().method() === "PUT" && response.url().includes("/candidates/"));
+  await selectedNumeric.fill(String(valueBeforePendingPreview + 0.001));
+  await page.locator(".table-heading h2").click();
+  await saveBeforePendingPreview;
+  await expect.poll(() => pendingPreviewHeld).toBe(true);
+  await expect(page.getByText("プレビュー結果を待っています。", { exact: true })).toBeVisible();
+
+  const pendingCandidateName = page.locator(".candidate-name-table tbody tr.selected-row input");
+  const saveNameDuringPreview = page.waitForResponse((response) => response.request().method() === "PUT" && response.url().includes("/candidates/"));
+  await pendingCandidateName.fill(`${await pendingCandidateName.inputValue()} 更新中`);
+  await page.locator(".table-heading h2").click();
+  await saveNameDuringPreview;
+  expect(previewRequests).toBe(6);
+  releasePendingPreview();
+  await expect.poll(successfulCreatedPreviews).toBe(successfulPreviewsBeforePending + 1);
+  expect(failedInferenceRequests.filter((path) => path.endsWith("/preview")).length).toBe(failedPreviewsBeforePending);
+  await expect(page.locator(".evidence-panel .metric-table")).toBeVisible();
+  await page.unroute("**/preview");
+
   let failedPreviewResponse = false;
   await page.route("**/preview", async (route) => {
     failedPreviewResponse = true;

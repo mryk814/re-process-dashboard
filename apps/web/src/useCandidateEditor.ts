@@ -3,7 +3,7 @@ import { fromApiCandidate, toApiCandidate, type CandidateViewModel } from "./can
 import { LatestSaveQueue, rebaseChangedFields } from "./latestSaveQueue";
 import { ApiClientError } from "./shared/api/client";
 import { workbenchApi, type ApiCandidate, type ApiCandidateInput, type ApiCandidateUpdate, type ApiPreview } from "./shared/api/workbench-api";
-import { candidateInferencePrefix, candidateInputIdentity, inferenceRequestCache } from "./inferenceRequestCache";
+import { candidateInferenceChanged, candidateInferencePrefix, candidateInputIdentity, inferenceRequestCache } from "./inferenceRequestCache";
 
 export type CandidateSaveState = "idle" | "dirty" | "saving" | "saved" | "conflict" | "error";
 
@@ -77,10 +77,20 @@ export function useCandidateEditor({ projectId, setCandidates, onPreview, onNoti
       previewControllers.current.set(candidateId, previewController);
       try {
         const preview = await workbenchApi.previewCandidate(projectId, candidateId, inputIdentity, previewController.signal);
-        if (!queued.isLatest() || activeProjectId.current !== projectId) return;
+        const current = authoritative.current.get(candidateId);
+        if (
+          activeProjectId.current !== projectId
+          || previewControllers.current.get(candidateId) !== previewController
+          || candidateInputIdentity(current?.inputs) !== inputIdentity
+        ) return;
         onPreview(candidateId, preview, inputIdentity);
       } catch {
-        if (!queued.isLatest() || activeProjectId.current !== projectId) return;
+        const current = authoritative.current.get(candidateId);
+        if (
+          activeProjectId.current !== projectId
+          || previewControllers.current.get(candidateId) !== previewController
+          || candidateInputIdentity(current?.inputs) !== inputIdentity
+        ) return;
         if (previewController.signal.aborted) return;
         onNotice("入力は保存しましたが、予測結果を更新できませんでした");
       } finally {
@@ -109,7 +119,9 @@ export function useCandidateEditor({ projectId, setCandidates, onPreview, onNoti
   function schedule(candidate: CandidateViewModel, previous?: CandidateViewModel) {
     markDirty(candidate.id);
     queue.current.supersede(candidate.id);
-    previewControllers.current.get(candidate.id)?.abort();
+    if (previous && candidateInferenceChanged(previous.raw.inputs, candidate.raw.inputs)) {
+      previewControllers.current.get(candidate.id)?.abort();
+    }
     const timer = scheduled.current.get(candidate.id);
     if (timer) clearTimeout(timer);
     scheduled.current.set(candidate.id, setTimeout(() => {

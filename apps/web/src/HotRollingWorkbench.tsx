@@ -15,6 +15,9 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
   const [task, setTask] = useState<TaskDefinitionContract | null>(null);
   const [notice, setNotice] = useState("熱延タスクを読み込んでいます");
   const previewInputIdentityRef = useRef(new Map<string, string>());
+  const activePreviewControllers = useRef(new Set<AbortController>());
+  const addPreviewController = useRef<AbortController | null>(null);
+  const lifecycleGeneration = useRef(0);
   const editor = useCandidateEditor({
     projectId,
     setCandidates,
@@ -39,8 +42,10 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
   }
 
   useEffect(() => {
+    lifecycleGeneration.current += 1;
     let cancelled = false;
     const previewController = new AbortController();
+    activePreviewControllers.current.add(previewController);
     const load = async () => {
       try {
         setTask(null);
@@ -65,12 +70,17 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
         setNotice("GPR予測と熱延実績を同期しました");
       } catch {
         if (!cancelled) setNotice("熱延タスクを読み込めません。API接続を確認してください");
+      } finally {
+        activePreviewControllers.current.delete(previewController);
       }
     };
     void load();
     return () => {
       cancelled = true;
-      previewController.abort();
+      lifecycleGeneration.current += 1;
+      for (const controller of activePreviewControllers.current) controller.abort();
+      activePreviewControllers.current.clear();
+      addPreviewController.current = null;
     };
   }, [projectId]);
 
@@ -97,11 +107,23 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
 
   async function addCandidate() {
     if (!selected || candidates.length >= 10) return;
+    addPreviewController.current?.abort();
+    const generation = lifecycleGeneration.current;
     const payload = toApiCandidate({ ...selected, label: `${selected.label} コピー` });
     const created = fromApiCandidate(await workbenchApi.createCandidate(projectId, payload));
+    if (generation !== lifecycleGeneration.current) return;
     setCandidates((items) => [...items, created]);
     setSelectedId(created.id);
-    await loadPreview(created.id, created.raw.inputs);
+    addPreviewController.current?.abort();
+    const previewController = new AbortController();
+    addPreviewController.current = previewController;
+    activePreviewControllers.current.add(previewController);
+    try {
+      await loadPreview(created.id, created.raw.inputs, () => !previewController.signal.aborted, previewController.signal);
+    } finally {
+      activePreviewControllers.current.delete(previewController);
+      if (addPreviewController.current === previewController) addPreviewController.current = null;
+    }
   }
 
   async function deleteCandidate() {

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   InferenceRequestCache,
   candidateInferencePrefix,
+  candidateInferenceChanged,
   candidateInputIdentity,
   inferenceRequestKey,
   mergePreviewEntryIfCurrent,
@@ -145,4 +146,13 @@ test("a late initial preview cannot overwrite a preview for newer saved inputs",
 
   assert.equal(merged, current);
   assert.equal(merged.candidate, newer);
+});
+
+test("display-only edits preserve pending inference while input edits supersede it", () => {
+  const previous = { label: "before", raw: { inputs: { process: { speed: 100 } } } };
+  const renamed = { label: "after", raw: { inputs: { process: { speed: 100 } } } };
+  const changedInput = { label: "before", raw: { inputs: { process: { speed: 120 } } } };
+
+  assert.equal(candidateInferenceChanged(previous.raw.inputs, renamed.raw.inputs), false);
+  assert.equal(candidateInferenceChanged(previous.raw.inputs, changedInput.raw.inputs), true);
 });

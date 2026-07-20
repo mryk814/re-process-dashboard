@@ -138,6 +138,10 @@ export function candidateInputIdentity(inputs: unknown): string {
   return JSON.stringify(canonicalize(inputs)) ?? "undefined";
 }
 
+export function candidateInferenceChanged(previousInputs: unknown, nextInputs: unknown): boolean {
+  return candidateInputIdentity(previousInputs) !== candidateInputIdentity(nextInputs);
+}
+
 export function mergePreviewEntryIfCurrent<T extends { canonical_input: unknown }>(
   current: Record<string, T>,
   candidateId: string,
