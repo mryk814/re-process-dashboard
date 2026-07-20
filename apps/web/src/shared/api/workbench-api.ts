@@ -57,7 +57,9 @@ export const workbenchApi = {
     return requireData(await apiClient.POST("/api/projects/{project_id}/candidates/{candidate_id}/predict", { params: { path: { project_id: projectId, candidate_id: candidateId } } }), "詳細予測を取得できませんでした。");
   },
   async responseCurves(projectId: string, candidateId: string, variable?: string, signal?: AbortSignal) {
-    return requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/response-curves", { params: { path: { project_id: projectId, candidate_id: candidateId }, query: { variable } }, signal }), "応答曲線を取得できませんでした。");
+    const data = requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/response-curves", { params: { path: { project_id: projectId, candidate_id: candidateId }, query: { variable } }, signal }), "応答曲線を取得できませんでした。");
+    if ("variable" in data && "curves" in data && "output_ranges" in data) return data;
+    throw new Error("設計変数を指定した応答曲線の形式が不正です。");
   },
   async similarCandidates(projectId: string, candidateId: string) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/similar", { params: { path: { project_id: projectId, candidate_id: candidateId } } }), "類似実験を取得できませんでした。");

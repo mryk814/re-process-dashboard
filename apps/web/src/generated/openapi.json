@@ -401,6 +401,11 @@
             "type": "object"
           }
         },
+        "required": [
+          "composition",
+          "process",
+          "categorical"
+        ],
         "title": "CandidateInputs",
         "type": "object"
       },
@@ -557,6 +562,7 @@
         "type": "object"
       },
       "FeaturePipelineIdentity": {
+        "additionalProperties": true,
         "properties": {
           "features": {
             "items": {
@@ -1385,6 +1391,7 @@
         "type": "object"
       },
       "ModelIdentity": {
+        "additionalProperties": true,
         "properties": {
           "id": {
             "default": "",
@@ -1406,6 +1413,7 @@
         "type": "object"
       },
       "ModelMetadata": {
+        "additionalProperties": true,
         "properties": {
           "feature_pipeline": {
             "anyOf": [
@@ -1519,9 +1527,7 @@
             "type": "array"
           },
           "quality_report": {
-            "additionalProperties": true,
-            "title": "Quality Report",
-            "type": "object"
+            "$ref": "#/components/schemas/ModelQualityReport"
           },
           "supported_runtimes": {
             "items": {
@@ -1550,6 +1556,62 @@
           "quality_report"
         ],
         "title": "ModelPackageStatus",
+        "type": "object"
+      },
+      "ModelQualityReport": {
+        "additionalProperties": true,
+        "properties": {
+          "split": {
+            "title": "Split",
+            "type": "string"
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/ModelQualityTarget"
+            },
+            "title": "Targets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "split",
+          "targets"
+        ],
+        "title": "ModelQualityReport",
+        "type": "object"
+      },
+      "ModelQualityTarget": {
+        "additionalProperties": true,
+        "properties": {
+          "interval_coverage_90": {
+            "title": "Interval Coverage 90",
+            "type": "number"
+          },
+          "mae": {
+            "title": "Mae",
+            "type": "number"
+          },
+          "parent_conditions": {
+            "title": "Parent Conditions",
+            "type": "integer"
+          },
+          "rmse": {
+            "title": "Rmse",
+            "type": "number"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "parent_conditions",
+          "mae",
+          "rmse",
+          "interval_coverage_90"
+        ],
+        "title": "ModelQualityTarget",
         "type": "object"
       },
       "NumericRange": {
@@ -1671,6 +1733,7 @@
         "type": "object"
       },
       "PackageIdentity": {
+        "additionalProperties": true,
         "properties": {
           "id": {
             "default": "",
@@ -2224,16 +2287,14 @@
           },
           "issues": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/QualityScenario"
             },
             "title": "Issues",
             "type": "array"
           },
           "reference_scenarios": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/QualityScenario"
             },
             "title": "Reference Scenarios",
             "type": "array"
@@ -2253,6 +2314,40 @@
           "detected_issues"
         ],
         "title": "QualityResponse",
+        "type": "object"
+      },
+      "QualityScenario": {
+        "additionalProperties": true,
+        "properties": {
+          "scenario_id": {
+            "title": "Scenario Id",
+            "type": "string"
+          },
+          "分類": {
+            "title": "分類",
+            "type": "string"
+          },
+          "対象キー": {
+            "title": "対象キー",
+            "type": "string"
+          },
+          "対象シート": {
+            "title": "対象シート",
+            "type": "string"
+          },
+          "期待する気づき": {
+            "title": "期待する気づき",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scenario_id",
+          "分類",
+          "対象キー",
+          "対象シート",
+          "期待する気づき"
+        ],
+        "title": "QualityScenario",
         "type": "object"
       },
       "RelationalConstraint": {
@@ -2483,6 +2578,61 @@
         "title": "RuntimeOperationsCapability",
         "type": "object"
       },
+      "ScreeningGoalEvaluation": {
+        "properties": {
+          "achieved": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Achieved"
+          },
+          "achievement_probability": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Achievement Probability"
+          },
+          "method": {
+            "enum": [
+              "achievement_probability",
+              "directional_shortfall",
+              "absolute_distance",
+              "support_distance"
+            ],
+            "title": "Method",
+            "type": "string"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          }
+        },
+        "required": [
+          "score",
+          "method",
+          "achieved",
+          "achievement_probability"
+        ],
+        "title": "ScreeningGoalEvaluation",
+        "type": "object"
+      },
       "ScreeningPoint": {
         "properties": {
           "candidate": {
@@ -2491,6 +2641,9 @@
           "color_value": {
             "title": "Color Value",
             "type": "number"
+          },
+          "goal_evaluation": {
+            "$ref": "#/components/schemas/ScreeningGoalEvaluation"
           },
           "index": {
             "title": "Index",
@@ -2514,8 +2667,15 @@
             "$ref": "#/components/schemas/Prediction"
           },
           "score": {
-            "title": "Score",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
           },
           "support": {
             "$ref": "#/components/schemas/Support"
@@ -2528,7 +2688,8 @@
           "prediction",
           "color_value",
           "support",
-          "score"
+          "score",
+          "goal_evaluation"
         ],
         "title": "ScreeningPoint",
         "type": "object"
@@ -2570,18 +2731,20 @@
           },
           "target": {
             "default": "TS",
-            "enum": [
-              "TS",
-              "YS",
-              "EL",
-              "lambda"
-            ],
+            "minLength": 1,
             "title": "Target",
             "type": "string"
           },
           "target_value": {
-            "title": "Target Value",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Value"
           },
           "variables": {
             "additionalProperties": {
@@ -2594,8 +2757,7 @@
         },
         "required": [
           "base_candidate_id",
-          "variables",
-          "target_value"
+          "variables"
         ],
         "title": "ScreeningRequest",
         "type": "object"
@@ -2645,6 +2807,9 @@
             "title": "Samples",
             "type": "integer"
           },
+          "score_contract": {
+            "$ref": "#/components/schemas/ScreeningScoreContract"
+          },
           "seed": {
             "title": "Seed",
             "type": "integer"
@@ -2654,8 +2819,15 @@
             "type": "string"
           },
           "target_value": {
-            "title": "Target Value",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Value"
           },
           "variables": {
             "additionalProperties": {
@@ -2675,12 +2847,82 @@
           "model_provenance",
           "target",
           "target_value",
+          "score_contract",
           "samples",
           "variables",
           "points",
           "representative_points"
         ],
         "title": "ScreeningRunResponse",
+        "type": "object"
+      },
+      "ScreeningScoreContract": {
+        "properties": {
+          "direction": {
+            "anyOf": [
+              {
+                "enum": [
+                  "at_least",
+                  "at_most",
+                  "target"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direction"
+          },
+          "display_label": {
+            "title": "Display Label",
+            "type": "string"
+          },
+          "fallback": {
+            "enum": [
+              "directional_shortfall",
+              "absolute_distance",
+              "support_distance"
+            ],
+            "title": "Fallback",
+            "type": "string"
+          },
+          "preference": {
+            "const": "lower_is_better",
+            "title": "Preference",
+            "type": "string"
+          },
+          "probability_available": {
+            "title": "Probability Available",
+            "type": "boolean"
+          },
+          "target_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Value"
+          },
+          "version": {
+            "const": "screening-score/v1",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "preference",
+          "direction",
+          "target_value",
+          "probability_available",
+          "fallback",
+          "display_label"
+        ],
+        "title": "ScreeningScoreContract",
         "type": "object"
       },
       "ScreeningSourceRef": {
@@ -2842,6 +3084,7 @@
         "type": "object"
       },
       "SimilarityIdentity": {
+        "additionalProperties": true,
         "properties": {
           "method": {
             "default": "",
@@ -3148,6 +3391,7 @@
         "type": "object"
       },
       "TrainingDataIdentity": {
+        "additionalProperties": true,
         "properties": {
           "records": {
             "additionalProperties": {

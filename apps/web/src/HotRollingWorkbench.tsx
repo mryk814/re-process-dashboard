@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import type { ResolvedTaskDefinition, TaskDefinitionContract } from "./taskDefinition";
+import type { TaskDefinitionContract } from "./taskDefinition";
 import { LatestSaveQueue, rebaseChangedFields } from "./latestSaveQueue";
-
-const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8765";
+import { workbenchApi, type ApiCandidate, type ApiCandidateInput, type ApiPreview } from "./shared/api/workbench-api";
 
 type HotCandidate = {
   raw: ApiCandidate;
@@ -18,25 +17,6 @@ type HotCandidate = {
   exit_thickness_mm: number;
   route: "A" | "B" | "C";
 };
-
-type ApiCandidate = {
-  id: string;
-  project_id: string;
-  name: string;
-  inputs: {
-    composition: Record<string, number>;
-    process: Record<string, number>;
-    categorical: Record<string, string>;
-    heat_pattern?: Array<{ time_s: number; temperature_c: number }>;
-  };
-  provenance: Record<string, unknown>;
-  revision: number;
-  archived_at: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-type ApiCandidateInput = Pick<ApiCandidate, "name" | "inputs" | "provenance">;
 
 function fromApiCandidate(candidate: ApiCandidate): HotCandidate {
   const process = candidate.inputs.process;
@@ -77,19 +57,12 @@ function toApiCandidate(candidate: HotCandidate): ApiCandidateInput {
   };
 }
 
-type HotPreview = {
-  predictions: Record<string, { value: number; lower: number; upper: number; unit: string; uncertainty_components?: Record<string, number> }>;
-  support: { status: "supported" | "caution" | "extrapolated"; message: string; percentile: number; components: Record<string, number> };
-  similar: Array<{ parent_key: string; distance: number; repeat_summary: Record<string, { mean: number; std: number; n: number }> }>;
-  model_meta: { model: { id: string; version: string; method: string } };
-};
-
 const n = (value: number, digits = 1) => value.toLocaleString("ja-JP", { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
 export function HotRollingWorkbench({ projectId }: { projectId: string }) {
   const [candidates, setCandidates] = useState<HotCandidate[]>([]);
   const [selectedId, setSelectedId] = useState("");
-  const [previews, setPreviews] = useState<Record<string, HotPreview>>({});
+  const [previews, setPreviews] = useState<Record<string, ApiPreview>>({});
   const [task, setTask] = useState<TaskDefinitionContract | null>(null);
   const [notice, setNotice] = useState("熱延タスクを読み込んでいます");
   const saveQueue = useRef(new LatestSaveQueue<ApiCandidate>());
@@ -97,9 +70,7 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
   const preview = selected ? previews[selected.id] : undefined;
 
   async function loadPreview(candidateId: string, shouldApply: () => boolean = () => true) {
-    const response = await fetch(`${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates/${candidateId}/preview`, { method: "POST" });
-    if (!response.ok) throw new Error("preview unavailable");
-    const result = (await response.json()) as HotPreview;
+    const result = await workbenchApi.previewCandidate(projectId, candidateId);
     if (!shouldApply()) return;
     setPreviews((items) => ({ ...items, [candidateId]: result }));
   }
@@ -109,16 +80,12 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
       try {
         setTask(null);
         setCandidates([]);
-        const taskResponse = await fetch(`${API_URL}/api/projects/${encodeURIComponent(projectId)}/task-definition`);
-        if (!taskResponse.ok) throw new Error();
-        const resolved = (await taskResponse.json()) as ResolvedTaskDefinition;
+        const resolved = await workbenchApi.taskDefinition(projectId);
         if (resolved.task_definition.id !== "hot-rolled-properties-v1") {
           setNotice("熱延後特性タスクのプロジェクトを選択してください");
           return;
         }
-        const candidateResponse = await fetch(`${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates`);
-        if (!candidateResponse.ok) throw new Error();
-        const loadedCandidates = ((await candidateResponse.json()) as ApiCandidate[]).map(fromApiCandidate);
+        const loadedCandidates = (await workbenchApi.listCandidates(projectId)).map(fromApiCandidate);
         setCandidates(loadedCandidates);
         setSelectedId(loadedCandidates[0]?.id ?? "");
         setTask(resolved.task_definition);
@@ -183,9 +150,7 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
   async function addCandidate() {
     if (!selected || candidates.length >= 10) return;
     const payload = toApiCandidate({ ...selected, name: `${selected.name} コピー` });
-    const response = await fetch(`${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    if (!response.ok) return;
-    const created = fromApiCandidate((await response.json()) as ApiCandidate);
+    const created = fromApiCandidate(await workbenchApi.createCandidate(projectId, payload));
     setCandidates((items) => [...items, created]);
     setSelectedId(created.id);
     await loadPreview(created.id);
@@ -242,10 +207,10 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
       </section>
 
       <aside className="hot-evidence">
-        <div><span className="overline">PREDICTION EVIDENCE</span><h2>予測と不確かさ</h2><small>{preview?.model_meta.model.id} · {preview?.model_meta.model.version}</small></div>
+        <div><span className="overline">PREDICTION EVIDENCE</span><h2>予測と不確かさ</h2><small>{preview?.model_meta.model?.id ?? "—"} · {preview?.model_meta.model?.version ?? "—"}</small></div>
         {preview && outputs.map((output) => { const prediction = preview.predictions[output.key]; if (!prediction) return null; const parts = prediction.uncertainty_components ?? {}; return <section className="hot-metric" key={output.key}><header><b>{output.label}</b><strong>{n(prediction.value, output.unit === "%" ? 1 : 0)} <small>{prediction.unit}</small></strong></header><div className="hot-interval"><span style={{ left: `${Math.max(0, Math.min(100, ((prediction.value - prediction.lower) / Math.max(prediction.upper - prediction.lower, 1e-6)) * 100))}%` }} /></div><p>{n(prediction.lower)}–{n(prediction.upper)} {prediction.unit}</p><dl><div><dt>モデル</dt><dd>±{n(parts.latent_model_std ?? Math.sqrt(parts.latent_model_variance ?? 0))}</dd></div><div><dt>測定ばらつき</dt><dd>±{n(parts.observation_noise_std ?? Math.sqrt(parts.observation_noise_variance ?? 0))}</dd></div></dl></section>; })}
         {preview && <section className={`hot-support ${preview.support.status}`}><b>{preview.support.status === "supported" ? "学習範囲内" : preview.support.status === "extrapolated" ? "外挿" : "要確認"}</b><p>{preview.support.message}</p><small>距離百分位 {n(preview.support.percentile, 0)}%</small></section>}
-        <section className="hot-neighbors"><h3>近い熱延実績</h3>{preview?.similar.map((item) => <article key={item.parent_key}><b>{item.parent_key}</b><span>距離 {n(item.distance, 2)}</span><p>{Object.entries(item.repeat_summary).map(([key, value]) => `${key} ${n(value.mean)} ± ${n(value.std)} (n=${value.n})`).join(" / ")}</p></article>)}</section>
+        <section className="hot-neighbors"><h3>近い熱延実績</h3>{preview?.similar.map((item) => <article key={item.parent_key}><b>{item.parent_key}</b><span>距離 {n(item.distance, 2)}</span><p>{Object.entries(item.repeat_summary ?? {}).map(([key, value]) => `${key} ${n(value.mean)} ± ${n(value.std)} (n=${value.n})`).join(" / ")}</p></article>)}</section>
       </aside>
     </div>
   );

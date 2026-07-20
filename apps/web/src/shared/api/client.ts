@@ -16,8 +16,21 @@ export class ApiClientError extends Error {
 }
 
 const baseUrl = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8765";
+export const apiBaseUrl = baseUrl;
 
-export const apiClient = createClient<paths>({ baseUrl });
+const normalizedFetch: typeof fetch = async (input, init) => {
+  try {
+    return await fetch(input, init);
+  } catch (cause) {
+    throw new ApiClientError(
+      cause instanceof Error ? cause.message : "APIへ接続できませんでした。",
+      "network",
+      0,
+    );
+  }
+};
+
+export const apiClient = createClient<paths>({ baseUrl, fetch: normalizedFetch });
 
 function objectValue(value: unknown, key: string): unknown {
   return typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined;

@@ -26,9 +26,9 @@ class HeatPoint(BaseModel):
 
 
 class CandidateInputs(BaseModel):
-    composition: dict[str, float] = Field(default_factory=dict)
-    process: dict[str, float] = Field(default_factory=dict)
-    categorical: dict[str, str] = Field(default_factory=dict)
+    composition: dict[str, float]
+    process: dict[str, float]
+    categorical: dict[str, str]
     heat_pattern: list[HeatPoint] | None = Field(default=None, max_length=30)
 
     @field_validator("composition", "process")
@@ -255,12 +255,14 @@ class SimilarObservation(BaseModel):
 
 
 class ModelIdentity(BaseModel):
+    model_config = ConfigDict(extra="allow")
     id: str = ""
     version: str = ""
     method: str = ""
 
 
 class PackageIdentity(BaseModel):
+    model_config = ConfigDict(extra="allow")
     id: str = ""
     version: str = ""
     manifest_sha256: str = ""
@@ -268,6 +270,7 @@ class PackageIdentity(BaseModel):
 
 
 class FeaturePipelineIdentity(BaseModel):
+    model_config = ConfigDict(extra="allow")
     id: str = ""
     version: str = ""
     input_schema_version: str = ""
@@ -275,6 +278,7 @@ class FeaturePipelineIdentity(BaseModel):
 
 
 class TrainingDataIdentity(BaseModel):
+    model_config = ConfigDict(extra="allow")
     source_path: str = ""
     source_sha256: str = ""
     records: dict[str, int] = Field(default_factory=dict)
@@ -290,11 +294,13 @@ class PredictionIntervalIdentity(BaseModel):
 
 
 class SimilarityIdentity(BaseModel):
+    model_config = ConfigDict(extra="allow")
     version: str = ""
     method: str = ""
 
 
 class ModelMetadata(BaseModel):
+    model_config = ConfigDict(extra="allow")
     package: PackageIdentity | None = None
     model: ModelIdentity | None = None
     feature_pipeline: FeaturePipelineIdentity | None = None
@@ -339,6 +345,21 @@ class ModelPackagePredictorStatus(BaseModel):
     predictive_family: str
 
 
+class ModelQualityTarget(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    target: str
+    parent_conditions: int
+    mae: float
+    rmse: float
+    interval_coverage_90: float
+
+
+class ModelQualityReport(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    split: str
+    targets: list[ModelQualityTarget]
+
+
 class ModelPackageStatus(BaseModel):
     id: str
     version: str
@@ -347,7 +368,7 @@ class ModelPackageStatus(BaseModel):
     active_runtimes: list[str]
     supported_runtimes: list[RuntimeAvailability]
     predictors: list[ModelPackagePredictorStatus]
-    quality_report: dict[str, object]
+    quality_report: ModelQualityReport
 
 
 class SnapshotPayload(BaseModel):
@@ -418,7 +439,25 @@ class ScreeningPoint(BaseModel):
     prediction: Prediction
     color_value: float
     support: Support
-    score: float
+    score: float | None
+    goal_evaluation: "ScreeningGoalEvaluation"
+
+
+class ScreeningGoalEvaluation(BaseModel):
+    score: float | None
+    method: Literal["achievement_probability", "directional_shortfall", "absolute_distance", "support_distance"]
+    achieved: bool | None
+    achievement_probability: float | None
+
+
+class ScreeningScoreContract(BaseModel):
+    version: Literal["screening-score/v1"]
+    preference: Literal["lower_is_better"]
+    direction: Literal["at_least", "at_most", "target"] | None
+    target_value: float | None
+    probability_available: bool
+    fallback: Literal["directional_shortfall", "absolute_distance", "support_distance"]
+    display_label: str
 
 
 class ScreeningRunResponse(BaseModel):
@@ -430,7 +469,8 @@ class ScreeningRunResponse(BaseModel):
     base_canonical_input: dict[str, object]
     model_provenance: ModelMetadata
     target: str
-    target_value: float
+    target_value: float | None
+    score_contract: ScreeningScoreContract
     samples: int
     variables: dict[str, ScreeningVariable]
     points: list[ScreeningPoint]
@@ -485,12 +525,21 @@ class DataQualityIssue(BaseModel):
     detail: str
 
 
+class QualityScenario(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    scenario_id: str
+    category: str = Field(alias="分類")
+    target_key: str = Field(alias="対象キー")
+    target_sheet: str = Field(alias="対象シート")
+    expected_insight: str = Field(alias="期待する気づき")
+
+
 class QualityResponse(BaseModel):
     # Legacy scenario fields remain until the UI is switched to detected issues.
     total: int
     by_category: dict[str, int]
-    issues: list[dict[str, Any]]
-    reference_scenarios: list[dict[str, Any]]
+    issues: list[QualityScenario]
+    reference_scenarios: list[QualityScenario]
     detected_total: int
     detected_by_type: dict[str, int]
     detected_issues: list[DataQualityIssue]

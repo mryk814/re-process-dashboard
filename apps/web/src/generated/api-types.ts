@@ -684,17 +684,17 @@ export interface components {
         /** CandidateInputs */
         CandidateInputs: {
             /** Categorical */
-            categorical?: {
+            categorical: {
                 [key: string]: string;
             };
             /** Composition */
-            composition?: {
+            composition: {
                 [key: string]: number;
             };
             /** Heat Pattern */
             heat_pattern?: components["schemas"]["HeatPoint"][] | null;
             /** Process */
-            process?: {
+            process: {
                 [key: string]: number;
             };
         };
@@ -777,6 +777,8 @@ export interface components {
              * @default
              */
             version: string;
+        } & {
+            [key: string]: unknown;
         };
         /** FieldError */
         FieldError: {
@@ -1055,6 +1057,8 @@ export interface components {
              * @default
              */
             version: string;
+        } & {
+            [key: string]: unknown;
         };
         /** ModelMetadata */
         ModelMetadata: {
@@ -1064,6 +1068,8 @@ export interface components {
             prediction_interval?: components["schemas"]["PredictionIntervalIdentity"] | null;
             similarity?: components["schemas"]["SimilarityIdentity"] | null;
             training_data?: components["schemas"]["TrainingDataIdentity"] | null;
+        } & {
+            [key: string]: unknown;
         };
         /** ModelPackagePredictorStatus */
         ModelPackagePredictorStatus: {
@@ -1084,16 +1090,37 @@ export interface components {
             manifest_sha256: string;
             /** Predictors */
             predictors: components["schemas"]["ModelPackagePredictorStatus"][];
-            /** Quality Report */
-            quality_report: {
-                [key: string]: unknown;
-            };
+            quality_report: components["schemas"]["ModelQualityReport"];
             /** Supported Runtimes */
             supported_runtimes: components["schemas"]["RuntimeAvailability"][];
             /** Task Id */
             task_id: string;
             /** Version */
             version: string;
+        };
+        /** ModelQualityReport */
+        ModelQualityReport: {
+            /** Split */
+            split: string;
+            /** Targets */
+            targets: components["schemas"]["ModelQualityTarget"][];
+        } & {
+            [key: string]: unknown;
+        };
+        /** ModelQualityTarget */
+        ModelQualityTarget: {
+            /** Interval Coverage 90 */
+            interval_coverage_90: number;
+            /** Mae */
+            mae: number;
+            /** Parent Conditions */
+            parent_conditions: number;
+            /** Rmse */
+            rmse: number;
+            /** Target */
+            target: string;
+        } & {
+            [key: string]: unknown;
         };
         /** NumericRange */
         NumericRange: {
@@ -1158,6 +1185,8 @@ export interface components {
              * @default
              */
             version: string;
+        } & {
+            [key: string]: unknown;
         };
         /** Prediction */
         Prediction: {
@@ -1419,15 +1448,26 @@ export interface components {
             /** Detected Total */
             detected_total: number;
             /** Issues */
-            issues: {
-                [key: string]: unknown;
-            }[];
+            issues: components["schemas"]["QualityScenario"][];
             /** Reference Scenarios */
-            reference_scenarios: {
-                [key: string]: unknown;
-            }[];
+            reference_scenarios: components["schemas"]["QualityScenario"][];
             /** Total */
             total: number;
+        };
+        /** QualityScenario */
+        QualityScenario: {
+            /** Scenario Id */
+            scenario_id: string;
+            /** 分類 */
+            "\u5206\u985E": string;
+            /** 対象キー */
+            "\u5BFE\u8C61\u30AD\u30FC": string;
+            /** 対象シート */
+            "\u5BFE\u8C61\u30B7\u30FC\u30C8": string;
+            /** 期待する気づき */
+            "\u671F\u5F85\u3059\u308B\u6C17\u3065\u304D": string;
+        } & {
+            [key: string]: unknown;
         };
         /** RelationalConstraint */
         RelationalConstraint: {
@@ -1518,11 +1558,26 @@ export interface components {
             /** Snapshot */
             snapshot: boolean;
         };
+        /** ScreeningGoalEvaluation */
+        ScreeningGoalEvaluation: {
+            /** Achieved */
+            achieved: boolean | null;
+            /** Achievement Probability */
+            achievement_probability: number | null;
+            /**
+             * Method
+             * @enum {string}
+             */
+            method: "achievement_probability" | "directional_shortfall" | "absolute_distance" | "support_distance";
+            /** Score */
+            score: number | null;
+        };
         /** ScreeningPoint */
         ScreeningPoint: {
             candidate: components["schemas"]["CandidateInput"];
             /** Color Value */
             color_value: number;
+            goal_evaluation: components["schemas"]["ScreeningGoalEvaluation"];
             /** Index */
             index: number;
             /** Inputs */
@@ -1531,7 +1586,7 @@ export interface components {
             };
             prediction: components["schemas"]["Prediction"];
             /** Score */
-            score: number;
+            score: number | null;
             support: components["schemas"]["Support"];
         };
         /** ScreeningReference */
@@ -1553,11 +1608,10 @@ export interface components {
             /**
              * Target
              * @default TS
-             * @enum {string}
              */
-            target: "TS" | "YS" | "EL" | "lambda";
+            target: string;
             /** Target Value */
-            target_value: number;
+            target_value?: number | null;
             /** Variables */
             variables: {
                 [key: string]: components["schemas"]["ScreeningVariable"];
@@ -1587,16 +1641,43 @@ export interface components {
             representative_points: components["schemas"]["ScreeningPoint"][];
             /** Samples */
             samples: number;
+            score_contract: components["schemas"]["ScreeningScoreContract"];
             /** Seed */
             seed: number;
             /** Target */
             target: string;
             /** Target Value */
-            target_value: number;
+            target_value: number | null;
             /** Variables */
             variables: {
                 [key: string]: components["schemas"]["ScreeningVariable"];
             };
+        };
+        /** ScreeningScoreContract */
+        ScreeningScoreContract: {
+            /** Direction */
+            direction: ("at_least" | "at_most" | "target") | null;
+            /** Display Label */
+            display_label: string;
+            /**
+             * Fallback
+             * @enum {string}
+             */
+            fallback: "directional_shortfall" | "absolute_distance" | "support_distance";
+            /**
+             * Preference
+             * @constant
+             */
+            preference: "lower_is_better";
+            /** Probability Available */
+            probability_available: boolean;
+            /** Target Value */
+            target_value: number | null;
+            /**
+             * Version
+             * @constant
+             */
+            version: "screening-score/v1";
         };
         /** ScreeningSourceRef */
         ScreeningSourceRef: {
@@ -1635,6 +1716,8 @@ export interface components {
              * @default
              */
             version: string;
+        } & {
+            [key: string]: unknown;
         };
         /** SimilarObservation */
         SimilarObservation: {
@@ -1798,6 +1881,8 @@ export interface components {
              * @default
              */
             source_sha256: string;
+        } & {
+            [key: string]: unknown;
         };
         /** ValidationError */
         ValidationError: {
