@@ -8,6 +8,8 @@ type InferenceCacheStats = {
 };
 
 const PROJECT_PREVIEW_PATH = /\/api\/projects\/([^/]+)\/candidates\/([^/]+)\/preview$/;
+const PROJECT_PATH = /\/api\/projects\/([^/]+)$/;
+const DEFAULT_PROJECT_PATH = /\/api\/project$/;
 const CURVE_PATH = /\/api\/candidates\/([^/]+)\/(response-curve|response-curves)$/;
 const ANNEALED_CANDIDATE_PATH = /\/api\/candidates\/([^/?]+)$/;
 const HOT_ROLLING_CANDIDATE_PATH = /\/api\/hot-rolling\/candidates\/([^/?]+)$/;
@@ -29,7 +31,7 @@ function stableValue(value: unknown): unknown {
 /**
  * Candidate identity for inference invalidation.
  * Display and persistence metadata are deliberately excluded. Project-level
- * target values remain part of the request URL/operation identity.
+ * target values are invalidated separately when the project is updated.
  */
 export function candidateInferenceIdentity(candidate: JsonRecord): string {
   const {
@@ -102,6 +104,15 @@ function inferenceCandidateId(url: URL): string | null {
     ?? null;
 }
 
+function previewProjectId(url: URL): string | null {
+  return url.pathname.match(PROJECT_PREVIEW_PATH)?.[1] ?? null;
+}
+
+function mutationProjectId(url: URL): string | null {
+  return url.pathname.match(PROJECT_PATH)?.[1]
+    ?? (DEFAULT_PROJECT_PATH.test(url.pathname) ? "default" : null);
+}
+
 function mutationCandidateId(url: URL): string | null {
   return url.pathname.match(ANNEALED_CANDIDATE_PATH)?.[1]
     ?? url.pathname.match(HOT_ROLLING_CANDIDATE_PATH)?.[1]
@@ -128,17 +139,28 @@ export function installInferenceFetchCache(): void {
   const candidateIdentities = new Map<string, string>();
   const stats: InferenceCacheStats = { hits: 0, misses: 0, coalesced: 0, invalidations: 0 };
 
-  function invalidateCandidate(candidateId: string): void {
+  function cacheUrl(key: string): URL {
+    const separator = key.indexOf(" ");
+    return new URL(key.slice(separator + 1));
+  }
+
+  function invalidateMatching(predicate: (url: URL) => boolean): void {
     let changed = false;
     for (const key of [...cache.keys()]) {
-      const separator = key.indexOf(" ");
-      const url = new URL(key.slice(separator + 1));
-      if (inferenceCandidateId(url) === candidateId) {
+      if (predicate(cacheUrl(key))) {
         cache.delete(key);
         changed = true;
       }
     }
     if (changed) stats.invalidations += 1;
+  }
+
+  function invalidateCandidate(candidateId: string): void {
+    invalidateMatching((url) => inferenceCandidateId(url) === candidateId);
+  }
+
+  function invalidateProject(projectId: string): void {
+    invalidateMatching((url) => previewProjectId(url) === projectId);
   }
 
   function rememberCandidate(candidate: JsonRecord): void {
@@ -205,6 +227,7 @@ export function installInferenceFetchCache(): void {
     }
 
     const candidateId = mutationCandidateId(url);
+    const projectId = method === "PUT" ? mutationProjectId(url) : null;
     const previousIdentity = candidateId ? candidateIdentities.get(candidateId) : undefined;
     const requestCandidate = candidateId && method === "PUT" ? await requestJson(input, init) : null;
     const response = await originalFetch(input, init);
@@ -220,6 +243,8 @@ export function installInferenceFetchCache(): void {
     } else if (response.ok && candidateId && method === "DELETE") {
       invalidateCandidate(candidateId);
       candidateIdentities.delete(candidateId);
+    } else if (response.ok && projectId) {
+      invalidateProject(projectId);
     }
 
     return response;
