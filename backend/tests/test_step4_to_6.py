@@ -142,7 +142,10 @@ def test_candidate_excel_import_and_exports(client) -> None:
     defaults = client.app.state.task_registry.runtime_for("annealed-properties-v1").composition_defaults
     assert np.allclose(build_feature_bundle(restored, defaults).values, build_feature_bundle(source, defaults).values)
     quality = client.get("/api/quality/export.csv")
-    assert quality.status_code == 200 and "issue_id" in quality.content.decode("utf-8-sig")
+    quality_csv = quality.content.decode("utf-8-sig")
+    assert quality.status_code == 200 and "issue_id" in quality_csv
+    assert "focus_entity_key" in quality_csv and "suggested_view" in quality_csv
+    assert quality.headers["content-type"].startswith("text/csv")
 
 
 def test_candidate_delete_preserves_actuals_and_snapshots(client) -> None:

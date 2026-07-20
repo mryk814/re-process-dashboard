@@ -89,8 +89,8 @@ export const workbenchApi = {
   async quality() {
     return requireData(await apiClient.GET("/api/quality"), "データ品質を取得できませんでした。");
   },
-  qualityExportUrl() {
-    return apiDownloadUrl("/api/quality/export.csv");
+  async qualityCsv() {
+    return requireData(await apiClient.GET("/api/quality/export.csv", { parseAs: "text" }), "データ品質CSVを取得できませんでした。");
   },
   async lineageIndex(query: string, entityType: string, issueOnly: boolean, signal?: AbortSignal) {
     return requireData(await apiClient.GET("/api/lineage", { params: { query: { query, entity_type: entityType, issue_only: issueOnly, limit: 40 } }, signal }), "工程系譜を検索できませんでした。");

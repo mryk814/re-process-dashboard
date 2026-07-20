@@ -671,6 +671,17 @@
             "title": "Entity Key",
             "type": "string"
           },
+          "focus_entity_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Focus Entity Key"
+          },
           "issue_id": {
             "title": "Issue Id",
             "type": "string"
@@ -685,8 +696,34 @@
             "title": "Issue Type",
             "type": "string"
           },
+          "missing_reference_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing Reference Key"
+          },
+          "related_entity_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Related Entity Keys",
+            "type": "array"
+          },
           "source_sheet": {
             "title": "Source Sheet",
+            "type": "string"
+          },
+          "suggested_view": {
+            "enum": [
+              "lineage",
+              "source_sheet"
+            ],
+            "title": "Suggested View",
             "type": "string"
           }
         },
@@ -695,7 +732,11 @@
           "issue_type",
           "source_sheet",
           "entity_key",
-          "detail"
+          "detail",
+          "focus_entity_key",
+          "related_entity_keys",
+          "missing_reference_key",
+          "suggested_view"
         ],
         "title": "DataQualityIssue",
         "type": "object"
@@ -5566,8 +5607,10 @@
         "responses": {
           "200": {
             "content": {
-              "application/json": {
-                "schema": {}
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
               }
             },
             "description": "Successful Response"

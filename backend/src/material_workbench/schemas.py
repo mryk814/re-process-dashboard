@@ -525,6 +525,10 @@ class DataQualityIssue(BaseModel):
     source_sheet: str
     entity_key: str
     detail: str
+    focus_entity_key: str | None
+    related_entity_keys: list[str]
+    missing_reference_key: str | None
+    suggested_view: Literal["lineage", "source_sheet"]
 
 
 class QualityScenario(BaseModel):

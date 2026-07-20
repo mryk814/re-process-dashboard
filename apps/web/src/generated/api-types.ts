@@ -796,6 +796,8 @@ export interface components {
             detail: string;
             /** Entity Key */
             entity_key: string;
+            /** Focus Entity Key */
+            focus_entity_key: string | null;
             /** Issue Id */
             issue_id: string;
             /**
@@ -803,8 +805,17 @@ export interface components {
              * @enum {string}
              */
             issue_type: "missing_key" | "orphan_entity" | "duplicate_key" | "invalid_reference";
+            /** Missing Reference Key */
+            missing_reference_key: string | null;
+            /** Related Entity Keys */
+            related_entity_keys: string[];
             /** Source Sheet */
             source_sheet: string;
+            /**
+             * Suggested View
+             * @enum {string}
+             */
+            suggested_view: "lineage" | "source_sheet";
         };
         /** DetailedPredictionResponse */
         DetailedPredictionResponse: {
@@ -3398,7 +3409,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "text/csv": string;
                 };
             };
             /** @description Validation Error */
