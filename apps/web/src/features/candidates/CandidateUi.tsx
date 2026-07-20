@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import type { CandidateViewModel } from "./candidateModel";
 import { getCandidateInputValue, numericTaskInputs, orderedInputGroups, type NumericTaskInput, type TaskDefinitionContract, type TaskInputGroup } from "./taskDefinition";
-import type { ApiPreview } from "./shared/api/workbench-api";
+import type { ApiPreview } from "../../shared/api/workbench-api";
 import type { CandidateSaveState } from "./useCandidateEditor";
 
 const saveLabels: Record<CandidateSaveState, string> = {

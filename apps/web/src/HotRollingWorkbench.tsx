@@ -1,10 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { fromApiCandidate, toApiCandidate, type CandidateViewModel } from "./candidateModel";
-import { CandidateInspector, ComparisonTable } from "./TaskDrivenCandidateUi";
-import { setCandidateInputValue, validateResolvedTaskDefinition, type TaskDefinitionContract } from "./taskDefinition";
+import { CandidateInspector, ComparisonTable, fromApiCandidate, setCandidateInputValue, toApiCandidate, useCandidateEditor, validateResolvedTaskDefinition, type CandidateViewModel, type TaskDefinitionContract } from "./features/candidates";
 import { workbenchApi, type ApiPreview } from "./shared/api/workbench-api";
-import { useCandidateEditor } from "./useCandidateEditor";
-import { candidateInputIdentity } from "./inferenceRequestCache";
+import { candidateInputIdentity } from "./shared/api/inferenceRequestCache";
 
 const n = (value: number, digits = 1) => value.toLocaleString("ja-JP", { minimumFractionDigits: digits, maximumFractionDigits: digits });
 

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { LatestSaveQueue, rebaseChangedFields } from "../src/latestSaveQueue.ts";
-import { candidateInputIdentity, shouldRefreshPreviewAfterSave } from "../src/inferenceRequestCache.ts";
+import { LatestSaveQueue, rebaseChangedFields } from "../src/features/candidates/latestSaveQueue.ts";
+import { candidateInputIdentity, shouldRefreshPreviewAfterSave } from "../src/shared/api/inferenceRequestCache.ts";
 
 function deferred() {
   let resolve;

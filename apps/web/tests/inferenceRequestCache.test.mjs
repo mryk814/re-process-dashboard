@@ -8,7 +8,7 @@ import {
   inferenceRequestKey,
   mergePreviewEntryIfCurrent,
   shouldRefreshPreviewAfterSave,
-} from "../src/inferenceRequestCache.ts";
+} from "../src/shared/api/inferenceRequestCache.ts";
 
 test("coalesces identical inference work and keeps shared work alive when one caller aborts", async () => {
   const cache = new InferenceRequestCache();
