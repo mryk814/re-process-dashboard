@@ -12,7 +12,7 @@ from .hot_rolling_feature_pipeline import FEATURE_DEFINITIONS, FEATURE_NAMES, IN
 from .dataset_profile import load_task_definitions
 from .importer import WorkbookData
 from .model_packages import ModelPackageLoader, validate_predictive_summary, validate_task_definition_canonical_inputs
-from .schemas import HotRollingCandidate, HotRollingCandidateInput, Prediction, Support
+from .schemas import Candidate, CandidateInput, Prediction, Support
 from .task_registry import load_task_contracts
 
 
@@ -62,7 +62,7 @@ class HotRollingRuntime:
         smoke = self.model_package.manifest.smoke_test
         if not smoke:
             raise ValueError("Hot-rolling model package must declare a smoke test")
-        candidate = HotRollingCandidateInput.model_validate(json.loads(self.model_package.artifact_path(smoke["input"]).read_text(encoding="utf-8")))
+        candidate = CandidateInput.model_validate(json.loads(self.model_package.artifact_path(smoke["input"]).read_text(encoding="utf-8")))
         expected = json.loads(self.model_package.artifact_path(smoke["expected"]).read_text(encoding="utf-8"))
         values = build_hot_rolling_features(candidate, self.composition_defaults).as_dict()
         specs = {spec.target: spec for spec in self.model_package.manifest.predictors}
@@ -96,10 +96,10 @@ class HotRollingRuntime:
         np.fill_diagonal(pairwise, np.inf)
         self.loo_nearest = pairwise.min(axis=1)
 
-    def vector(self, candidate: HotRollingCandidateInput) -> np.ndarray:
+    def vector(self, candidate: CandidateInput) -> np.ndarray:
         return build_hot_rolling_features(candidate, self.composition_defaults).values
 
-    def _support(self, candidate: HotRollingCandidateInput) -> tuple[Support, list[dict[str, Any]]]:
+    def _support(self, candidate: CandidateInput) -> tuple[Support, list[dict[str, Any]]]:
         normalized = (self.vector(candidate) - self.reference_mean) / self.reference_scale
         distances = _distance(self.reference_vectors, normalized)
         nearest_index = int(np.argmin(distances))
@@ -146,7 +146,7 @@ class HotRollingRuntime:
     def output_keys(self) -> frozenset[str]:
         return frozenset(self.predictors)
 
-    def predict(self, candidate: HotRollingCandidate, detailed: bool = False, **_: Any) -> dict[str, Any]:
+    def predict(self, candidate: Candidate, detailed: bool = False, **_: Any) -> dict[str, Any]:
         bundle = build_hot_rolling_features(candidate, self.composition_defaults)
         values = bundle.as_dict()
         support, similar = self._support(candidate)
@@ -162,8 +162,11 @@ class HotRollingRuntime:
                     name: round(float(value), 6) for name, value in summary.uncertainty_components.items()
                 },
             )
-        process = candidate.model_dump(exclude={"name", "composition"})
-        process["reduction_percent"] = round((1.0 - candidate.exit_thickness_mm / candidate.entry_thickness_mm) * 100.0, 4)
+        process = {**candidate.inputs.process, **candidate.inputs.categorical}
+        process["reduction_percent"] = round(
+            (1.0 - candidate.inputs.process["exit_thickness_mm"] / candidate.inputs.process["entry_thickness_mm"]) * 100.0,
+            4,
+        )
         process["equipment"] = "HR-LINE-1"
         process["test_direction"] = "L"
         return {

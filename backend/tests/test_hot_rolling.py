@@ -5,11 +5,8 @@ import pytest
 
 def test_hot_rolling_task_candidates_and_gp_uncertainty(client) -> None:
     assert client.get("/api/hot-rolling/task-definition").status_code == 404
-    project = client.post(
-        "/api/projects",
-        json={"name": "熱延検討", "task_id": "hot-rolled-properties-v1"},
-    ).json()
-    task = client.get(f"/api/projects/{project['id']}/task-definition")
+    project_id = "hot-rolling-default"
+    task = client.get(f"/api/projects/{project_id}/task-definition")
     assert task.status_code == 200
     definition = task.json()["task_definition"]
     assert definition["id"] == "hot-rolled-properties-v1"
@@ -19,15 +16,15 @@ def test_hot_rolling_task_candidates_and_gp_uncertainty(client) -> None:
         "process.coiling_temperature_c", "process.cooling_rate_c_s", "process.entry_thickness_mm", "process.exit_thickness_mm",
     }
     assert {item["key"] for item in definition["outputs"]} == {"TS"}
-    package = client.get(f"/api/projects/{project['id']}/model-package").json()
+    package = client.get(f"/api/projects/{project_id}/model-package").json()
     assert package["task_id"] == "hot-rolled-properties-v1"
     assert {item["target"] for item in package["quality_report"]["targets"]} == {"TS"}
 
-    candidates = client.get("/api/hot-rolling/candidates").json()
+    candidates = client.get(f"/api/projects/{project_id}/candidates").json()
     assert len(candidates) == 3
     selected = candidates[0]
     preview = client.post(
-        f"/api/projects/{project['id']}/candidates/{selected['id']}/preview",
+        f"/api/projects/{project_id}/candidates/{selected['id']}/preview",
     )
     assert preview.status_code == 200
     result = preview.json()
@@ -52,10 +49,87 @@ def test_hot_rolling_task_candidates_and_gp_uncertainty(client) -> None:
 
 
 def test_hot_rolling_candidate_edit_is_persisted(client) -> None:
-    candidate = client.get("/api/hot-rolling/candidates").json()[0]
-    candidate["coiling_temperature_c"] = 575.0
-    response = client.put(f"/api/hot-rolling/candidates/{candidate['id']}", json=candidate)
+    project_id = "hot-rolling-default"
+    candidate = client.get(f"/api/projects/{project_id}/candidates").json()[0]
+    candidate["inputs"]["process"]["coiling_temperature_c"] = 575.0
+    payload = {key: value for key, value in candidate.items() if key not in {"id", "project_id", "created_at", "updated_at"}}
+    response = client.put(f"/api/projects/{project_id}/candidates/{candidate['id']}", json=payload)
     assert response.status_code == 200
-    assert response.json()["coiling_temperature_c"] == 575.0
-    saved = next(item for item in client.get("/api/hot-rolling/candidates").json() if item["id"] == candidate["id"])
-    assert saved["coiling_temperature_c"] == 575.0
+    assert response.json()["inputs"]["process"]["coiling_temperature_c"] == 575.0
+    saved = next(item for item in client.get(f"/api/projects/{project_id}/candidates").json() if item["id"] == candidate["id"])
+    assert saved["inputs"]["process"]["coiling_temperature_c"] == 575.0
+
+
+def test_hot_rolling_detailed_snapshot_and_actual_use_the_common_project_api(client) -> None:
+    project_id = "hot-rolling-default"
+    candidate = client.get(f"/api/projects/{project_id}/candidates").json()[0]
+
+    detailed = client.post(f"/api/projects/{project_id}/candidates/{candidate['id']}/predict")
+    assert detailed.status_code == 200
+    assert detailed.json()["prediction"]["mode"] == "detailed"
+    snapshot_id = detailed.json()["snapshot"]["id"]
+    actual = client.post(
+        f"/api/projects/{project_id}/candidates/{candidate['id']}/actuals",
+        json={"property": "TS", "mean": 510.0, "unit": "MPa"},
+    )
+    assert actual.status_code == 201
+    assert actual.json()["snapshot_id"] != snapshot_id
+    assert len(client.get(f"/api/projects/{project_id}/candidates/{candidate['id']}/snapshots").json()) == 2
+    assert len(client.get(f"/api/projects/{project_id}/candidates/{candidate['id']}/actuals").json()) == 1
+
+
+def test_legacy_candidate_routes_are_removed_and_project_ownership_is_enforced(client) -> None:
+    candidate = client.get("/api/projects/hot-rolling-default/candidates").json()[0]
+    assert client.get("/api/hot-rolling/candidates").status_code == 404
+    assert client.get("/api/candidates").status_code == 404
+    assert client.get(f"/api/projects/default/candidates/{candidate['id']}").status_code == 404
+    assert client.post(f"/api/projects/default/candidates/{candidate['id']}/preview").status_code == 404
+
+
+def test_hot_rolling_project_runs_the_full_common_candidate_flow(client) -> None:
+    project = client.post(
+        "/api/projects",
+        json={
+            "name": "熱延E2E",
+            "task_id": "hot-rolled-properties-v1",
+            "target_values": {"TS": 500},
+        },
+    )
+    assert project.status_code == 201
+    project_id = project.json()["id"]
+    source = client.get("/api/projects/hot-rolling-default/candidates").json()[0]
+    payload = {key: source[key] for key in ("name", "inputs", "provenance")}
+
+    created = client.post(f"/api/projects/{project_id}/candidates", json=payload)
+    assert created.status_code == 201
+    candidate = created.json()
+    candidate_id = candidate["id"]
+    assert candidate["project_id"] == project_id
+    assert client.get(f"/api/projects/{project_id}/candidates/{candidate_id}").status_code == 200
+
+    updated_payload = {key: candidate[key] for key in ("name", "inputs", "provenance")}
+    updated_payload["name"] = "熱延E2E 更新"
+    updated = client.put(
+        f"/api/projects/{project_id}/candidates/{candidate_id}",
+        json=updated_payload,
+    )
+    assert updated.status_code == 200
+    assert updated.json()["name"] == "熱延E2E 更新"
+    assert client.post(f"/api/projects/{project_id}/candidates/{candidate_id}/preview").status_code == 200
+
+    disposable = client.post(f"/api/projects/{project_id}/candidates", json=payload).json()
+    assert client.delete(f"/api/projects/{project_id}/candidates/{disposable['id']}").status_code == 204
+
+    detailed = client.post(f"/api/projects/{project_id}/candidates/{candidate_id}/predict")
+    assert detailed.status_code == 200
+    snapshot_id = detailed.json()["snapshot"]["id"]
+    assert client.get(f"/api/projects/{project_id}/candidates/{candidate_id}/snapshots").json()[0]["id"] == snapshot_id
+    actual = client.post(
+        f"/api/projects/{project_id}/candidates/{candidate_id}/actuals",
+        json={"property": "TS", "mean": 510.0, "unit": "MPa"},
+    )
+    assert actual.status_code == 201
+    actual_id = actual.json()["id"]
+    assert client.delete(
+        f"/api/projects/{project_id}/candidates/{candidate_id}/actuals/{actual_id}"
+    ).status_code == 204

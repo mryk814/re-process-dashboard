@@ -31,7 +31,7 @@ def test_project_metadata_persists(client) -> None:
 
 
 def test_latin_hypercube_is_deterministic_bounded_and_convertible(client) -> None:
-    candidate = client.get("/api/candidates").json()[0]
+    candidate = client.get("/api/projects/default/candidates").json()[0]
     first = client.post("/api/screening", json=_screening_body(candidate["id"])).json()
     second = client.post("/api/screening", json=_screening_body(candidate["id"])).json()
     assert len(first["points"]) == 48
@@ -48,12 +48,12 @@ def test_latin_hypercube_is_deterministic_bounded_and_convertible(client) -> Non
 
 
 def test_screening_rejects_invalid_field_values_and_empty_candidate_set(client) -> None:
-    candidate = client.get("/api/candidates").json()[0]
+    candidate = client.get("/api/projects/default/candidates").json()[0]
     invalid = _screening_body(candidate["id"])
     invalid["variables"]["coating"] = {"mode": "fixed", "value": "BAD"}
     assert client.post("/api/screening", json=invalid).status_code == 422
-    for item in client.get("/api/candidates").json():
-        assert client.delete(f"/api/candidates/{item['id']}").status_code == 204
+    for item in client.get("/api/projects/default/candidates").json():
+        assert client.delete(f"/api/projects/default/candidates/{item['id']}").status_code == 204
     no_base = _screening_body(candidate["id"])
     no_base["base_candidate_id"] = None
     assert client.post("/api/screening", json=no_base).status_code == 422
@@ -63,21 +63,21 @@ def test_lineage_candidate_actuals_and_snapshot_restore(client) -> None:
     lineage_candidate = client.post("/api/lineage/AN-00001/candidate")
     assert lineage_candidate.status_code == 201
     candidate = lineage_candidate.json()
-    assert len(candidate["heat_pattern"]) >= 2
-    actual = client.post(f"/api/candidates/{candidate['id']}/actuals", json={"property": "TS", "mean": 505.2, "std": 4.2, "replicates": 3, "unit": "MPa", "experiment_no": "EXP-01", "measured_at": "2026-07-20", "note": "確認用"})
+    assert len(candidate["inputs"]["heat_pattern"]) >= 2
+    actual = client.post(f"/api/projects/default/candidates/{candidate['id']}/actuals", json={"property": "TS", "mean": 505.2, "std": 4.2, "replicates": 3, "unit": "MPa", "experiment_no": "EXP-01", "measured_at": "2026-07-20", "note": "確認用"})
     assert actual.status_code == 201
     assert actual.json()["snapshot_id"]
     changed = {key: value for key, value in candidate.items() if key not in {"id", "project_id", "created_at", "updated_at"}}
-    changed["line_speed_m_min"] = candidate["line_speed_m_min"] + 30
-    assert client.put(f"/api/candidates/{candidate['id']}", json=changed).status_code == 200
-    comparison = client.get(f"/api/candidates/{candidate['id']}/prediction-vs-actual").json()
+    changed["inputs"]["process"]["line_speed_m_min"] = candidate["inputs"]["process"]["line_speed_m_min"] + 30
+    assert client.put(f"/api/projects/default/candidates/{candidate['id']}", json=changed).status_code == 200
+    comparison = client.get(f"/api/projects/default/candidates/{candidate['id']}/prediction-vs-actual").json()
     assert comparison["actuals"][0]["mean"] == 505.2
     assert comparison["comparisons"][0]["snapshot_id"] == actual.json()["snapshot_id"]
-    assert comparison["comparisons"][0]["prediction"]["canonical_input"]["process"]["line_speed_m_min"] != changed["line_speed_m_min"]
+    assert comparison["comparisons"][0]["prediction"]["canonical_input"]["process"]["line_speed_m_min"] != changed["inputs"]["process"]["line_speed_m_min"]
     assert comparison["comparisons"][0]["provenance"]["training_data"]["source_sha256"]
-    assert client.post(f"/api/candidates/{candidate['id']}/actuals", json={"property": "TS", "mean": 500, "unit": "%"}).status_code == 422
-    snapshot = client.post(f"/api/candidates/{candidate['id']}/snapshots").json()
-    restored = client.post(f"/api/snapshots/{snapshot['id']}/restore")
+    assert client.post(f"/api/projects/default/candidates/{candidate['id']}/actuals", json={"property": "TS", "mean": 500, "unit": "%"}).status_code == 422
+    snapshot = client.post(f"/api/projects/default/candidates/{candidate['id']}/snapshots").json()
+    restored = client.post(f"/api/projects/default/snapshots/{snapshot['id']}/restore")
     assert restored.status_code == 201
     assert restored.json()["id"] != candidate["id"]
 
@@ -88,9 +88,10 @@ def test_lineage_candidate_preserves_stage_order_and_boundaries(client) -> None:
     assert response.status_code == 201
     payload = {key: value for key, value in response.json().items() if key not in {"id", "project_id", "created_at", "updated_at"}}
     actual = CandidateInput.model_validate(payload)
-    assert actual.heat_pattern == expected.heat_pattern
-    assert any(point.segment_start for point in actual.heat_pattern)
-    assert all(right.time_s > left.time_s for left, right in zip(actual.heat_pattern, actual.heat_pattern[1:]))
+    assert actual.inputs.heat_pattern == expected.inputs.heat_pattern
+    assert actual.inputs.heat_pattern is not None
+    assert any(point.segment_start for point in actual.inputs.heat_pattern)
+    assert all(right.time_s > left.time_s for left, right in zip(actual.inputs.heat_pattern, actual.inputs.heat_pattern[1:]))
 
 
 def test_candidate_excel_import_and_exports(client) -> None:
@@ -100,10 +101,10 @@ def test_candidate_excel_import_and_exports(client) -> None:
     sheet.append(["Excel候補", 0.08, 0.3, 1.5, 1.4, 100, "GI", 0, 25, False, 300, 810, True, 650, 120, False])
     buffer = BytesIO()
     workbook.save(buffer)
-    response = client.post("/api/candidates/import", files={"file": ("candidates.xlsx", buffer.getvalue(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")})
+    response = client.post("/api/projects/default/candidates/import", files={"file": ("candidates.xlsx", buffer.getvalue(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")})
     assert response.status_code == 200
     assert response.json()["created"] == 1
-    exported = client.get("/api/candidates/export.xlsx")
+    exported = client.get("/api/projects/default/candidates/export.xlsx")
     assert exported.status_code == 200 and exported.content[:2] == b"PK"
     round_tripped, errors = import_candidates_xlsx(exported.content)
     assert not errors
@@ -116,9 +117,12 @@ def test_candidate_excel_import_and_exports(client) -> None:
     assert quality.status_code == 200 and "issue_id" in quality.content.decode("utf-8-sig")
 
 
-def test_candidate_delete_cascades_its_actuals_and_snapshots(client) -> None:
-    candidate = client.post("/api/candidates", json={"name": "削除検証", "composition": {"C": 0.08}, "thickness_mm": 1.4, "line_speed_m_min": 100, "coating": "GI", "heat_pattern": [{"time_s": 0, "temperature_c": 25}, {"time_s": 300, "temperature_c": 810}]}).json()
-    actual = client.post(f"/api/candidates/{candidate['id']}/actuals", json={"property": "TS", "mean": 500, "unit": "MPa"}).json()
-    assert client.delete(f"/api/candidates/{candidate['id']}").status_code == 204
-    assert client.app.state.store.get_snapshot(actual["snapshot_id"]) is None
-    assert client.app.state.store.list_actuals(candidate["id"]) == []
+def test_candidate_delete_preserves_actuals_and_snapshots(client) -> None:
+    source = client.get("/api/projects/default/candidates").json()[0]
+    payload = {key: value for key, value in source.items() if key not in {"id", "project_id", "created_at", "updated_at"}}
+    payload["name"] = "削除検証"
+    candidate = client.post("/api/projects/default/candidates", json=payload).json()
+    actual = client.post(f"/api/projects/default/candidates/{candidate['id']}/actuals", json={"property": "TS", "mean": 500, "unit": "MPa"}).json()
+    assert client.delete(f"/api/projects/default/candidates/{candidate['id']}").status_code == 409
+    assert client.app.state.store.get_snapshot(actual["snapshot_id"]) is not None
+    assert len(client.app.state.store.list_actuals(candidate["id"])) == 1

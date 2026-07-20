@@ -197,11 +197,12 @@ def _build(source: Path, destination: Path) -> None:
 
     smoke_input = {
         "name": "package smoke",
-        "composition": data.medians,
-        "thickness_mm": 1.4,
-        "line_speed_m_min": 103.0,
-        "coating": "GI",
-        "heat_pattern": [{"time_s": 0, "temperature_c": 25}, {"time_s": 300, "temperature_c": 800}, {"time_s": 360, "temperature_c": 810}, {"time_s": 650, "temperature_c": 120}],
+        "inputs": {
+            "composition": data.medians,
+            "process": {"thickness_mm": 1.4, "line_speed_m_min": 103.0},
+            "categorical": {"coating": "GI"},
+            "heat_pattern": [{"time_s": 0, "temperature_c": 25}, {"time_s": 300, "temperature_c": 800}, {"time_s": 360, "temperature_c": 810}, {"time_s": 650, "temperature_c": 120}],
+        },
     }
     smoke_input_path = smoke_dir / "input.json"
     smoke_input_path.write_text(json.dumps(smoke_input, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")

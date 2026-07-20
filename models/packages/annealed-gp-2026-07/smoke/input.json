@@ -1,40 +1,46 @@
 {
   "name": "package smoke",
-  "composition": {
-    "C": 0.09398,
-    "Si": 0.35319,
-    "Mn": 1.53629,
-    "P": 0.0134,
-    "S": 0.00461,
-    "Cr": 0.247,
-    "Mo": 0.06547,
-    "Ni": 0.08946,
-    "Al": 0.0331,
-    "Ti": 0.01844,
-    "B": 0.00093,
-    "N": 0.00518,
-    "O": 0.00227,
-    "Ca": 0.00101
-  },
-  "thickness_mm": 1.4,
-  "line_speed_m_min": 103.0,
-  "coating": "GI",
-  "heat_pattern": [
-    {
-      "time_s": 0,
-      "temperature_c": 25
+  "inputs": {
+    "composition": {
+      "C": 0.09398,
+      "Si": 0.35319,
+      "Mn": 1.53629,
+      "P": 0.0134,
+      "S": 0.00461,
+      "Cr": 0.247,
+      "Mo": 0.06547,
+      "Ni": 0.08946,
+      "Al": 0.0331,
+      "Ti": 0.01844,
+      "B": 0.00093,
+      "N": 0.00518,
+      "O": 0.00227,
+      "Ca": 0.00101
     },
-    {
-      "time_s": 300,
-      "temperature_c": 800
+    "process": {
+      "thickness_mm": 1.4,
+      "line_speed_m_min": 103.0
     },
-    {
-      "time_s": 360,
-      "temperature_c": 810
+    "categorical": {
+      "coating": "GI"
     },
-    {
-      "time_s": 650,
-      "temperature_c": 120
-    }
-  ]
+    "heat_pattern": [
+      {
+        "time_s": 0,
+        "temperature_c": 25
+      },
+      {
+        "time_s": 300,
+        "temperature_c": 800
+      },
+      {
+        "time_s": 360,
+        "temperature_c": 810
+      },
+      {
+        "time_s": 650,
+        "temperature_c": 120
+      }
+    ]
+  }
 }

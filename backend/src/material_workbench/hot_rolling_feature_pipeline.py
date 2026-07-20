@@ -5,7 +5,7 @@ from typing import Any, Mapping
 
 import numpy as np
 
-from .schemas import HotRollingCandidateInput
+from .schemas import CandidateInput
 from .feature_contracts import FeatureBundle, FeatureDefinition
 
 
@@ -49,21 +49,25 @@ FEATURE_DEFINITIONS = (
 FEATURE_NAMES = tuple(item.name for item in FEATURE_DEFINITIONS)
 
 
-def candidate_from_observation(row: dict[str, Any]) -> HotRollingCandidateInput | None:
+def candidate_from_observation(row: dict[str, Any]) -> CandidateInput | None:
     process, composition = row["features"], row["composition"]
     if row["source"] != "熱延引張" or not process or not composition:
         return None
-    return HotRollingCandidateInput(
+    return CandidateInput(
         name=str(row["parent_key"]),
-        composition=composition,
-        reheat_temperature_c=process["reheat_temperature_c"],
-        hold_time_min=process["hold_time_min"],
-        finish_temperature_c=process["finish_temperature_c"],
-        coiling_temperature_c=process["coiling_temperature_c"],
-        cooling_rate_c_s=process["cooling_rate_c_s"],
-        entry_thickness_mm=process["entry_thickness_mm"],
-        exit_thickness_mm=process["exit_thickness_mm"],
-        route=process["route"],
+        inputs={
+            "composition": composition,
+            "process": {
+                key: process[key]
+                for key in (
+                    "reheat_temperature_c", "hold_time_min", "finish_temperature_c",
+                    "coiling_temperature_c", "cooling_rate_c_s", "entry_thickness_mm",
+                    "exit_thickness_mm",
+                )
+            },
+            "categorical": {"route": process["route"]},
+            "heat_pattern": None,
+        },
     )
 
 
@@ -76,12 +80,12 @@ def build_hot_rolling_features_from_observation(
 
 
 def build_hot_rolling_features(
-    candidate: HotRollingCandidateInput,
+    candidate: CandidateInput,
     composition_defaults: Mapping[str, float],
 ) -> FeatureBundle:
     composition: dict[str, float] = {}
     for name in COMPOSITION_NAMES:
-        value = float(candidate.composition.get(name, composition_defaults[name]))
+        value = float(candidate.inputs.composition.get(name, composition_defaults[name]))
         if not math.isfinite(value) or value < 0:
             raise ValueError(f"Composition {name} must be finite and non-negative")
         composition[name] = value
@@ -94,14 +98,12 @@ def build_hot_rolling_features(
         c * mn,
         si + al,
         cr + mo,
-        candidate.reheat_temperature_c,
-        candidate.hold_time_min,
-        candidate.finish_temperature_c,
-        candidate.coiling_temperature_c,
-        candidate.cooling_rate_c_s,
-        candidate.entry_thickness_mm,
-        candidate.exit_thickness_mm,
-        *(1.0 if candidate.route == route else 0.0 for route in ("A", "B", "C")),
+        *(candidate.inputs.process[key] for key in (
+            "reheat_temperature_c", "hold_time_min", "finish_temperature_c",
+            "coiling_temperature_c", "cooling_rate_c_s", "entry_thickness_mm",
+            "exit_thickness_mm",
+        )),
+        *(1.0 if candidate.inputs.categorical["route"] == route else 0.0 for route in ("A", "B", "C")),
     ], dtype=np.float64)
     if values.shape != (len(FEATURE_NAMES),) or not np.isfinite(values).all():
         raise ValueError("Hot-rolling feature pipeline produced an invalid vector")

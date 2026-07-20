@@ -16,12 +16,14 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
+from .candidate_migration import HOT_PROJECT_ID
 from .importer import lineage_neighborhood, lineage_node_detail, load_workbook_data
 from .hot_rolling import TASK_ID as HOT_ROLLING_TASK_ID, HotRollingRuntime
 from .runtime import ModelRuntime, TASK_ID as ANNEALED_TASK_ID
 from .model_lifecycle import ACTIVE_PACKAGES_PATH, resolve_configured_package, validate_lifecycle_metadata
-from .schemas import ApiError, ActualMeasurementInput, CandidateInput, DetailedPredictionResponse, HotRollingCandidateInput, LineageResponse, ModelPackageStatus, PredictionResponse, ProjectDecisionInput, ProjectInput, QualityResponse, ScreeningRequest
+from .schemas import ApiError, ActualMeasurementInput, CandidateInput, DetailedPredictionResponse, LineageResponse, ModelPackageStatus, PredictionResponse, ProjectDecisionInput, ProjectInput, QualityResponse, ScreeningRequest
 from .services import candidate_from_lineage, candidates_xlsx, import_candidates_xlsx, run_latin_hypercube
+from .snapshot_reader import SnapshotPayloadError, candidate_input_from_snapshot
 from .store import AdoptedCandidateError, CandidateLimitError, InvalidProjectDecisionError, ProjectNotFoundError, Store
 from .task_contracts import ResolvedTaskDefinition
 from .task_registry import TaskRegistry, TaskRegistryError
@@ -44,28 +46,43 @@ def _default_candidate_payloads(medians: dict[str, float]) -> list[CandidateInpu
     return [
         CandidateInput(
             name=name,
-            composition={**composition, "C": round(composition["C"] * carbon_factor, 5)},
-            thickness_mm=1.4,
-            line_speed_m_min=line_speed,
-            coating="GI",
-            heat_pattern=[
-                {"time_s": 0, "temperature_c": 25},
-                {"time_s": 280, "temperature_c": peak - 10},
-                {"time_s": 340, "temperature_c": peak},
-                {"time_s": 650, "temperature_c": 120},
-            ],
+            inputs={
+                "composition": {**composition, "C": round(composition["C"] * carbon_factor, 5)},
+                "process": {"thickness_mm": 1.4, "line_speed_m_min": line_speed},
+                "categorical": {"coating": "GI"},
+                "heat_pattern": [
+                    {"time_s": 0, "temperature_c": 25},
+                    {"time_s": 280, "temperature_c": peak - 10},
+                    {"time_s": 340, "temperature_c": peak},
+                    {"time_s": 650, "temperature_c": 120},
+                ],
+            },
         )
         for name, carbon_factor, peak, line_speed in variants
     ]
 
 
-def _default_hot_rolling_candidates(medians: dict[str, float]) -> list[HotRollingCandidateInput]:
+def _default_hot_rolling_candidates(medians: dict[str, float]) -> list[CandidateInput]:
     composition = {key: round(value, 5) for key, value in medians.items()}
-    return [
-        HotRollingCandidateInput(name="基準熱延", composition=composition, reheat_temperature_c=1170, hold_time_min=30, finish_temperature_c=900, coiling_temperature_c=620, cooling_rate_c_s=35, entry_thickness_mm=34, exit_thickness_mm=3.4, route="A"),
-        HotRollingCandidateInput(name="低温巻取", composition=composition, reheat_temperature_c=1170, hold_time_min=30, finish_temperature_c=890, coiling_temperature_c=560, cooling_rate_c_s=42, entry_thickness_mm=34, exit_thickness_mm=3.2, route="B"),
-        HotRollingCandidateInput(name="延性重視", composition=composition, reheat_temperature_c=1160, hold_time_min=34, finish_temperature_c=920, coiling_temperature_c=660, cooling_rate_c_s=28, entry_thickness_mm=34, exit_thickness_mm=3.8, route="C"),
+    variants = [
+        ("基準熱延", 1170, 30, 900, 620, 35, 34, 3.4, "A"),
+        ("低温巻取", 1170, 30, 890, 560, 42, 34, 3.2, "B"),
+        ("延性重視", 1160, 34, 920, 660, 28, 34, 3.8, "C"),
     ]
+    keys = (
+        "reheat_temperature_c", "hold_time_min", "finish_temperature_c",
+        "coiling_temperature_c", "cooling_rate_c_s", "entry_thickness_mm",
+        "exit_thickness_mm",
+    )
+    return [CandidateInput(
+        name=name,
+        inputs={
+            "composition": composition,
+            "process": dict(zip(keys, values)),
+            "categorical": {"route": route},
+            "heat_pattern": None,
+        },
+    ) for name, *values, route in variants]
 
 
 def create_app(
@@ -104,12 +121,16 @@ def create_app(
             HOT_ROLLING_TASK_ID: hot_rolling_runtime,
         })
         app.state.store = Store(database)
+        app.state.store.ensure_project(
+            HOT_PROJECT_ID,
+            ProjectInput(name="熱延条件の候補検討", task_id=HOT_ROLLING_TASK_ID),
+        )
         if not app.state.store.list_candidates():
             for candidate in _default_candidate_payloads(app.state.data.medians):
                 app.state.store.create_candidate(candidate)
-        if not app.state.store.list_hot_rolling_candidates():
+        if not app.state.store.list_candidates(HOT_PROJECT_ID):
             for candidate in _default_hot_rolling_candidates(app.state.data.medians):
-                app.state.store.create_hot_rolling_candidate(candidate)
+                app.state.store.create_candidate(candidate, HOT_PROJECT_ID)
         yield
 
     app = FastAPI(title="Material Decision Workbench API", version="0.1.0", lifespan=lifespan)
@@ -156,10 +177,12 @@ def create_app(
             raise HTTPException(404, "プロジェクトが見つかりません")
         return project
 
-    def create_candidate_in_project(payload: CandidateInput, project_id: str = "default"):
+    def create_candidate_in_project(payload: CandidateInput, project_id: str):
         project = require_project(project_id)
-        if project.task_id != ANNEALED_TASK_ID:
-            raise HTTPException(422, "この予測タスクには焼鈍候補を作成できません")
+        try:
+            task_registry().validate_candidate(project.task_id, payload)
+        except (TaskRegistryError, ValueError) as exc:
+            raise HTTPException(422, str(exc)) from exc
         try:
             return store().create_candidate(payload, project_id)
         except ProjectNotFoundError as exc:
@@ -219,30 +242,6 @@ def create_app(
         project = require_project(project_id)
         return task_registry().resolved_definition_for(project.task_id)
 
-    @app.get("/api/hot-rolling/candidates")
-    def list_hot_rolling_candidates():
-        return store().list_hot_rolling_candidates()
-
-    @app.post("/api/hot-rolling/candidates", status_code=201)
-    def create_hot_rolling_candidate(payload: HotRollingCandidateInput):
-        try:
-            return store().create_hot_rolling_candidate(payload)
-        except CandidateLimitError as exc:
-            raise HTTPException(409, str(exc)) from exc
-
-    @app.put("/api/hot-rolling/candidates/{candidate_id}")
-    def update_hot_rolling_candidate(candidate_id: str, payload: HotRollingCandidateInput):
-        candidate = store().update_hot_rolling_candidate(candidate_id, payload)
-        if candidate is None:
-            raise HTTPException(404, "熱延候補が見つかりません")
-        return candidate
-
-    @app.delete("/api/hot-rolling/candidates/{candidate_id}", status_code=204)
-    def delete_hot_rolling_candidate(candidate_id: str) -> Response:
-        if not store().delete_hot_rolling_candidate(candidate_id):
-            raise HTTPException(404, "熱延候補が見つかりません")
-        return Response(status_code=204)
-
     @app.post(
         "/api/projects/{project_id}/candidates/{candidate_id}/preview",
         response_model=PredictionResponse,
@@ -251,12 +250,7 @@ def create_app(
     )
     def preview_project_candidate(project_id: str, candidate_id: str) -> dict[str, Any]:
         project = require_project(project_id)
-        if project.task_id == HOT_ROLLING_TASK_ID:
-            candidate = store().get_hot_rolling_candidate(candidate_id)
-        else:
-            candidate = store().get_candidate(candidate_id)
-            if candidate is not None and candidate.project_id != project_id:
-                candidate = None
+        candidate = store().get_candidate(candidate_id, project_id)
         if candidate is None:
             raise HTTPException(404, "候補が見つかりません")
         return task_registry().runtime_for(project.task_id).predict(
@@ -348,17 +342,20 @@ def create_app(
     def update_project(payload: ProjectInput) -> dict[str, Any]:
         return update_project_by_id("default", payload)
 
-    @app.get("/api/candidates")
-    def list_candidates(project_id: str = "default") -> list[dict[str, Any]]:
+    @app.get("/api/projects/{project_id}/candidates")
+    def list_candidates(project_id: str) -> list[dict[str, Any]]:
         require_project(project_id)
         return [candidate.model_dump(mode="json") for candidate in store().list_candidates(project_id)]
 
-    @app.post("/api/candidates", status_code=201)
-    def create_candidate(payload: CandidateInput, project_id: str = "default") -> dict[str, Any]:
+    @app.post("/api/projects/{project_id}/candidates", status_code=201)
+    def create_candidate(project_id: str, payload: CandidateInput) -> dict[str, Any]:
         return create_candidate_in_project(payload, project_id).model_dump(mode="json")
 
-    @app.post("/api/candidates/import")
-    async def import_candidates(file: UploadFile = File(...), project_id: str = "default") -> dict[str, Any]:
+    @app.post("/api/projects/{project_id}/candidates/import")
+    async def import_candidates(project_id: str, file: UploadFile = File(...)) -> dict[str, Any]:
+        project = require_project(project_id)
+        if project.task_id != ANNEALED_TASK_ID:
+            raise HTTPException(422, "Excel候補importはこの予測タスクでは利用できません")
         if not file.filename or not file.filename.lower().endswith(".xlsx"):
             raise HTTPException(422, "Excel .xlsx ファイルを選択してください")
         payloads, errors = import_candidates_xlsx(await file.read())
@@ -370,28 +367,41 @@ def create_app(
             raise HTTPException(409, str(exc)) from exc
         return {"created": len(created), "errors": errors, "candidates": created}
 
-    @app.get("/api/candidates/export.xlsx")
-    def export_candidates(project_id: str = "default") -> StreamingResponse:
-        require_project(project_id)
-        contents = candidates_xlsx(store().list_candidates(project_id), runtime())
+    @app.get("/api/projects/{project_id}/candidates/export.xlsx")
+    def export_candidates(project_id: str) -> StreamingResponse:
+        project = require_project(project_id)
+        if project.task_id != ANNEALED_TASK_ID:
+            raise HTTPException(422, "Excel候補exportはこの予測タスクでは利用できません")
+        contents = candidates_xlsx(store().list_candidates(project_id), task_registry().runtime_for(project.task_id))
         return StreamingResponse(BytesIO(contents), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": "attachment; filename=candidates-with-predictions.xlsx"})
 
-    @app.get("/api/candidates/{candidate_id}")
-    def get_candidate(candidate_id: str) -> dict[str, Any]:
-        candidate = store().get_candidate(candidate_id)
+    @app.get("/api/projects/{project_id}/candidates/{candidate_id}")
+    def get_candidate(project_id: str, candidate_id: str) -> dict[str, Any]:
+        require_project(project_id)
+        candidate = store().get_candidate(candidate_id, project_id)
         if not candidate:
             raise HTTPException(404, "候補が見つかりません")
         return candidate.model_dump(mode="json")
 
-    @app.put("/api/candidates/{candidate_id}")
-    def update_candidate(candidate_id: str, payload: CandidateInput) -> dict[str, Any]:
+    @app.put("/api/projects/{project_id}/candidates/{candidate_id}")
+    def update_candidate(project_id: str, candidate_id: str, payload: CandidateInput) -> dict[str, Any]:
+        project = require_project(project_id)
+        if store().get_candidate(candidate_id, project_id) is None:
+            raise HTTPException(404, "候補が見つかりません")
+        try:
+            task_registry().validate_candidate(project.task_id, payload)
+        except (TaskRegistryError, ValueError) as exc:
+            raise HTTPException(422, str(exc)) from exc
         candidate = store().update_candidate(candidate_id, payload)
         if not candidate:
             raise HTTPException(404, "候補が見つかりません")
         return candidate.model_dump(mode="json")
 
-    @app.delete("/api/candidates/{candidate_id}", status_code=204)
-    def delete_candidate(candidate_id: str) -> Response:
+    @app.delete("/api/projects/{project_id}/candidates/{candidate_id}", status_code=204)
+    def delete_candidate(project_id: str, candidate_id: str) -> Response:
+        require_project(project_id)
+        if store().get_candidate(candidate_id, project_id) is None:
+            raise HTTPException(404, "候補が見つかりません")
         try:
             deleted = store().delete_candidate(candidate_id)
         except AdoptedCandidateError as exc:
@@ -400,8 +410,8 @@ def create_app(
             raise HTTPException(404, "候補が見つかりません")
         return Response(status_code=204)
 
-    def prediction(candidate_id: str, detailed: bool, include_curve: bool = False) -> dict[str, Any]:
-        candidate = store().get_candidate(candidate_id)
+    def prediction(project_id: str, candidate_id: str, detailed: bool, include_curve: bool = False) -> dict[str, Any]:
+        candidate = store().get_candidate(candidate_id, project_id)
         if not candidate:
             raise HTTPException(404, "候補が見つかりません")
         project = store().get_project(candidate.project_id)
@@ -411,43 +421,51 @@ def create_app(
         return task_runtime.predict(candidate, detailed=detailed, include_curve=include_curve, target_values=project.target_values)
 
     @app.post(
-        "/api/candidates/{candidate_id}/predict",
+        "/api/projects/{project_id}/candidates/{candidate_id}/predict",
         response_model=DetailedPredictionResponse,
         responses=PROJECT_API_ERRORS,
         operation_id="createDetailedCandidatePrediction",
     )
-    def predict(candidate_id: str) -> dict[str, Any]:
-        candidate = store().get_candidate(candidate_id)
+    def predict(project_id: str, candidate_id: str) -> dict[str, Any]:
+        candidate = store().get_candidate(candidate_id, project_id)
         if not candidate:
             raise HTTPException(404, "候補が見つかりません")
-        result = prediction(candidate_id, detailed=True, include_curve=True)
+        result = prediction(project_id, candidate_id, detailed=True, include_curve=True)
         return {"prediction": result, "snapshot": snapshot_for_candidate(candidate, result)}
 
-    @app.get("/api/candidates/{candidate_id}/response-curve")
-    def response_curve(candidate_id: str, target: str = "TS", variable: str = "heat.peak_temperature_c") -> list[dict[str, float]]:
+    @app.get("/api/projects/{project_id}/candidates/{candidate_id}/response-curve")
+    def response_curve(project_id: str, candidate_id: str, target: str = "TS", variable: str = "heat.peak_temperature_c") -> list[dict[str, float]]:
         if target not in {"TS", "YS", "EL", "lambda"}:
             raise HTTPException(422, "未対応の予測特性です")
-        candidate = store().get_candidate(candidate_id)
+        project = require_project(project_id)
+        candidate = store().get_candidate(candidate_id, project_id)
         if not candidate:
             raise HTTPException(404, "候補が見つかりません")
         try:
-            return runtime().response_curve(candidate, target, variable)
+            task_runtime = task_registry().runtime_for(project.task_id)
+            if not hasattr(task_runtime, "response_curve"):
+                raise ValueError("この予測タスクは応答曲線に対応していません")
+            return task_runtime.response_curve(candidate, target, variable)
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
 
-    @app.get("/api/candidates/{candidate_id}/response-curves")
-    def response_curves(candidate_id: str, variable: str | None = None) -> dict[str, Any]:
-        candidate = store().get_candidate(candidate_id)
+    @app.get("/api/projects/{project_id}/candidates/{candidate_id}/response-curves")
+    def response_curves(project_id: str, candidate_id: str, variable: str | None = None) -> dict[str, Any]:
+        project = require_project(project_id)
+        candidate = store().get_candidate(candidate_id, project_id)
         if not candidate:
             raise HTTPException(404, "候補が見つかりません")
         try:
-            return runtime().response_curves(candidate, variable)
+            task_runtime = task_registry().runtime_for(project.task_id)
+            if not hasattr(task_runtime, "response_curves"):
+                raise ValueError("この予測タスクは応答曲線に対応していません")
+            return task_runtime.response_curves(candidate, variable)
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
 
-    @app.get("/api/candidates/{candidate_id}/similar")
-    def similar(candidate_id: str) -> list[dict[str, object]]:
-        return prediction(candidate_id, detailed=False)["similar"]
+    @app.get("/api/projects/{project_id}/candidates/{candidate_id}/similar")
+    def similar(project_id: str, candidate_id: str) -> list[dict[str, object]]:
+        return prediction(project_id, candidate_id, detailed=False)["similar"]
 
     @app.get("/api/quality", response_model=QualityResponse)
     def quality() -> dict[str, Any]:
@@ -618,18 +636,22 @@ def create_app(
         point = next((item for item in run["points"] if item["index"] == point_index), None)
         if not point:
             raise HTTPException(404, "スクリーニング点が見つかりません")
-        payload = CandidateInput.model_validate({**point["candidate"], "name": f"Screen {run_id[:6]} #{point_index + 1}"})
+        payload = CandidateInput.model_validate({
+            **point["candidate"],
+            "name": f"Screen {run_id[:6]} #{point_index + 1}",
+            "provenance": {"source_kind": "screening", "source_ref": {"run_id": run_id, "point_id": str(point_index)}},
+        })
         return create_candidate_in_project(payload, project_id).model_dump(mode="json")
 
-    @app.get("/api/candidates/{candidate_id}/snapshots")
-    def snapshots(candidate_id: str) -> list[dict[str, Any]]:
-        if not store().get_candidate(candidate_id):
+    @app.get("/api/projects/{project_id}/candidates/{candidate_id}/snapshots")
+    def snapshots(project_id: str, candidate_id: str) -> list[dict[str, Any]]:
+        if not store().get_candidate(candidate_id, project_id):
             raise HTTPException(404, "候補が見つかりません")
         return store().list_snapshots(candidate_id)
 
-    @app.post("/api/candidates/{candidate_id}/snapshots", status_code=201)
-    def create_snapshot(candidate_id: str) -> dict[str, Any]:
-        candidate = store().get_candidate(candidate_id)
+    @app.post("/api/projects/{project_id}/candidates/{candidate_id}/snapshots", status_code=201)
+    def create_snapshot(project_id: str, candidate_id: str) -> dict[str, Any]:
+        candidate = store().get_candidate(candidate_id, project_id)
         if not candidate:
             raise HTTPException(404, "候補が見つかりません")
         return snapshot_for_candidate(candidate)
@@ -637,9 +659,16 @@ def create_app(
     def snapshot_for_candidate(candidate: Any, result: dict[str, Any] | None = None) -> dict[str, Any]:
         if result is None:
             project = store().get_project(candidate.project_id)
-            result = runtime().predict(candidate, detailed=True, include_curve=True, target_values=project.target_values if project else {})
+            if project is None:
+                raise HTTPException(404, "プロジェクトが見つかりません")
+            result = task_registry().runtime_for(project.task_id).predict(
+                candidate,
+                detailed=True,
+                include_curve=project.task_id == ANNEALED_TASK_ID,
+                target_values=project.target_values,
+            )
         payload = {
-            "snapshot_schema_version": "prediction-snapshot-v1",
+            "snapshot_schema_version": "prediction-snapshot-v2",
             "candidate_id": candidate.id,
             "raw_candidate": candidate.model_dump(mode="json"),
             "canonical_input": result["canonical_input"],
@@ -649,41 +678,49 @@ def create_app(
         # Stored JSON is a complete, immutable prediction artifact, not a mutable candidate reference.
         return store().create_snapshot(candidate.id, jsonable_encoder(payload))
 
-    @app.post("/api/snapshots/{snapshot_id}/restore", status_code=201)
-    def restore_snapshot(snapshot_id: str) -> dict[str, Any]:
+    @app.post("/api/projects/{project_id}/snapshots/{snapshot_id}/restore", status_code=201)
+    def restore_snapshot(project_id: str, snapshot_id: str) -> dict[str, Any]:
+        require_project(project_id)
         snapshot = store().get_snapshot(snapshot_id)
-        if not snapshot:
+        if not snapshot or store().get_candidate(snapshot["candidate_id"], project_id) is None:
             raise HTTPException(404, "スナップショットが見つかりません")
-        raw = snapshot["payload"].get("raw_candidate")
-        if not raw:
-            raise HTTPException(422, "このスナップショットには復元可能な候補入力がありません")
-        payload = CandidateInput.model_validate({**raw, "name": f"{raw['name']} (復元)"})
-        project_id = str(raw.get("project_id") or "default")
+        try:
+            payload = candidate_input_from_snapshot(snapshot_id, snapshot["payload"])
+        except SnapshotPayloadError as exc:
+            raise HTTPException(422, str(exc)) from exc
         return create_candidate_in_project(payload, project_id).model_dump(mode="json")
 
-    @app.get("/api/candidates/{candidate_id}/actuals")
-    def list_actuals(candidate_id: str) -> list[dict[str, Any]]:
-        if not store().get_candidate(candidate_id):
+    @app.get("/api/projects/{project_id}/candidates/{candidate_id}/actuals")
+    def list_actuals(project_id: str, candidate_id: str) -> list[dict[str, Any]]:
+        if not store().get_candidate(candidate_id, project_id):
             raise HTTPException(404, "候補が見つかりません")
         return [actual.model_dump(mode="json") for actual in store().list_actuals(candidate_id)]
 
-    @app.post("/api/candidates/{candidate_id}/actuals", status_code=201)
-    def create_actual(candidate_id: str, payload: ActualMeasurementInput) -> dict[str, Any]:
-        candidate = store().get_candidate(candidate_id)
+    @app.post("/api/projects/{project_id}/candidates/{candidate_id}/actuals", status_code=201)
+    def create_actual(project_id: str, candidate_id: str, payload: ActualMeasurementInput) -> dict[str, Any]:
+        project = require_project(project_id)
+        candidate = store().get_candidate(candidate_id, project_id)
         if not candidate:
             raise HTTPException(404, "候補が見つかりません")
+        outputs = {output.key: output.unit for output in task_registry().contract_for(project.task_id).task_definition.outputs}
+        if outputs.get(payload.property) != payload.unit:
+            raise HTTPException(422, "実測の特性または単位が予測タスクと一致しません")
         snapshot = snapshot_for_candidate(candidate)
         return store().create_actual(candidate_id, snapshot["id"], payload).model_dump(mode="json")
 
-    @app.delete("/api/actuals/{actual_id}", status_code=204)
-    def delete_actual(actual_id: str) -> Response:
+    @app.delete("/api/projects/{project_id}/candidates/{candidate_id}/actuals/{actual_id}", status_code=204)
+    def delete_actual(project_id: str, candidate_id: str, actual_id: str) -> Response:
+        if not store().get_candidate(candidate_id, project_id):
+            raise HTTPException(404, "候補が見つかりません")
+        if actual_id not in {item.id for item in store().list_actuals(candidate_id)}:
+            raise HTTPException(404, "実測が見つかりません")
         if not store().delete_actual(actual_id):
             raise HTTPException(404, "実測が見つかりません")
         return Response(status_code=204)
 
-    @app.get("/api/candidates/{candidate_id}/prediction-vs-actual")
-    def prediction_vs_actual(candidate_id: str) -> dict[str, Any]:
-        actuals = list_actuals(candidate_id)
+    @app.get("/api/projects/{project_id}/candidates/{candidate_id}/prediction-vs-actual")
+    def prediction_vs_actual(project_id: str, candidate_id: str) -> dict[str, Any]:
+        actuals = list_actuals(project_id, candidate_id)
         comparisons = []
         for actual in actuals:
             snapshot = store().get_snapshot(actual["snapshot_id"])

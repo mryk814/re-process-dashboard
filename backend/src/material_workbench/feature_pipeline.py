@@ -55,22 +55,22 @@ def _composition(
     candidate: CandidateInput,
     defaults: Mapping[str, float] | None,
 ) -> dict[str, float]:
-    unknown = sorted(set(candidate.composition) - set(COMPOSITION_NAMES))
+    unknown = sorted(set(candidate.inputs.composition) - set(COMPOSITION_NAMES))
     if unknown:
-        raise ValueError(f"Unsupported composition elements: {', '.join(unknown)}")
+        raise ValueError(f"未対応の組成元素です: {', '.join(unknown)}")
 
     values: dict[str, float] = {}
     missing: list[str] = []
     for name in COMPOSITION_NAMES:
-        raw = candidate.composition.get(name)
+        raw = candidate.inputs.composition.get(name)
         if raw is None and defaults is not None:
             raw = defaults.get(name)
         if raw is None:
             missing.append(name)
             continue
         value = float(raw)
-        if not math.isfinite(value) or value < 0:
-            raise ValueError(f"Composition {name} must be a finite, non-negative mass percentage")
+        if not math.isfinite(value) or value < 0 or value > 100:
+            raise ValueError(f"組成は0〜100の有限値にしてください: {name}")
         values[name] = value
     if missing:
         raise ValueError(f"Missing composition values and no defaults supplied: {', '.join(missing)}")
@@ -85,11 +85,15 @@ def candidate_from_observation(row: dict[str, Any]) -> CandidateInput | None:
         return None
     return CandidateInput(
         name=str(row["parent_key"]),
-        composition=composition,
-        thickness_mm=row["thickness_mm"],
-        line_speed_m_min=process["line_speed_m_min"],
-        coating=process["coating"],
-        heat_pattern=process["heat_pattern"],
+        inputs={
+            "composition": composition,
+            "process": {
+                "thickness_mm": row["thickness_mm"],
+                "line_speed_m_min": process["line_speed_m_min"],
+            },
+            "categorical": {"coating": process["coating"]},
+            "heat_pattern": process["heat_pattern"],
+        },
     )
 
 
@@ -215,7 +219,9 @@ def build_feature_bundle(
     ``composition_defaults`` (for example, training-set medians).
     """
     composition = _composition(candidate, composition_defaults)
-    points = candidate.heat_pattern
+    points = candidate.inputs.heat_pattern
+    if points is None:
+        raise ValueError("Annealing feature pipeline requires a heat pattern")
     peak = max(point.temperature_c for point in points)
     peak_index = next(index for index, point in enumerate(points) if point.temperature_c == peak)
     heating_rates = [
@@ -238,12 +244,12 @@ def build_feature_bundle(
         "なし": (1.0, 0.0, 0.0),
         "GI": (0.0, 1.0, 0.0),
         "GA": (0.0, 0.0, 1.0),
-    }[candidate.coating]
+    }[candidate.inputs.categorical["coating"]]
     values = np.asarray(
         [
             *(composition[name] for name in COMPOSITION_NAMES),
-            candidate.thickness_mm,
-            candidate.line_speed_m_min,
+            candidate.inputs.process["thickness_mm"],
+            candidate.inputs.process["line_speed_m_min"],
             *coating,
             ce_iiw,
             pcm,

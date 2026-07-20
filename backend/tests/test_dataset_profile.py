@@ -19,7 +19,7 @@ from material_workbench.feature_pipeline import build_feature_bundle
 from material_workbench.hot_rolling_feature_pipeline import build_hot_rolling_features
 from material_workbench.importer import load_workbook_data
 from material_workbench.app import create_app
-from material_workbench.schemas import CandidateInput, HotRollingCandidateInput
+from material_workbench.schemas import CandidateInput
 from material_workbench.services import candidate_from_lineage
 from material_workbench.task_contracts import TaskDefinition
 
@@ -85,14 +85,15 @@ def test_reordered_columns_and_unmapped_metadata_do_not_change_canonical_values(
         observation = next(row for row in data.observations if row["parent_key"] == parent)
         candidate = CandidateInput(
             name="dataset-profile-golden",
-            composition=data.composition["ME-00001"],
-            thickness_mm=observation["thickness_mm"],
-            line_speed_m_min=process["line_speed_m_min"],
-            coating=process["coating"],
-            heat_pattern=[
-                {"time_s": point["time_s"], "temperature_c": point["temperature_c"]}
-                for point in process["heat_pattern"]
-            ],
+            inputs={
+                "composition": data.composition["ME-00001"],
+                "process": {"thickness_mm": observation["thickness_mm"], "line_speed_m_min": process["line_speed_m_min"]},
+                "categorical": {"coating": process["coating"]},
+                "heat_pattern": [
+                    {"time_s": point["time_s"], "temperature_c": point["temperature_c"]}
+                    for point in process["heat_pattern"]
+                ],
+            },
         )
         return build_feature_bundle(candidate).values
 
@@ -108,16 +109,20 @@ def test_reordered_columns_and_unmapped_metadata_do_not_change_canonical_values(
 
     def representative_hot_vector(data) -> np.ndarray:
         process = data.hot_rolling_features["HR-00001"]
-        candidate = HotRollingCandidateInput(
+        candidate = CandidateInput(
             name="hot-dataset-profile-golden",
-            composition=data.composition["ME-00001"],
-            **{
-                key: process[key]
-                for key in (
-                    "reheat_temperature_c", "hold_time_min", "finish_temperature_c",
-                    "coiling_temperature_c", "cooling_rate_c_s", "entry_thickness_mm",
-                    "exit_thickness_mm", "route",
-                )
+            inputs={
+                "composition": data.composition["ME-00001"],
+                "process": {
+                    key: process[key]
+                    for key in (
+                        "reheat_temperature_c", "hold_time_min", "finish_temperature_c",
+                        "coiling_temperature_c", "cooling_rate_c_s", "entry_thickness_mm",
+                        "exit_thickness_mm",
+                    )
+                },
+                "categorical": {"route": process["route"]},
+                "heat_pattern": None,
             },
         )
         return build_hot_rolling_features(candidate, data.medians).values
@@ -342,7 +347,7 @@ def test_lineage_candidate_uses_profile_key_mapping_not_external_header_names(tm
     candidate = candidate_from_lineage(data, "AN-00001")
 
     assert len(data.composition) == 120
-    assert candidate.composition == data.composition["ME-00001"]
+    assert candidate.inputs.composition == data.composition["ME-00001"]
 
 
 def test_importer_accepts_task_and_profile_composition_addition_without_code_change(tmp_path: Path) -> None:

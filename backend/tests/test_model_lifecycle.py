@@ -160,14 +160,14 @@ def test_alternate_verified_package_needs_no_api_change_and_snapshot_keeps_old_i
     with TestClient(create_app(SOURCE, database, package_roots={"annealed-properties-v1": alternate})) as client:
         status = client.get("/api/projects/default/model-package").json()
         assert status["id"] == "annealed-gp-alternate"
-        candidate = client.get("/api/candidates?project_id=default").json()[0]
-        snapshot = client.post(f"/api/candidates/{candidate['id']}/snapshots").json()
+        candidate = client.get("/api/projects/default/candidates").json()[0]
+        snapshot = client.post(f"/api/projects/default/candidates/{candidate['id']}/snapshots").json()
         assert snapshot["payload"]["provenance"]["package"]["id"] == "annealed-gp-alternate"
         old_hash = snapshot["payload"]["provenance"]["package"]["manifest_sha256"]
 
     with TestClient(create_app(SOURCE, database)) as client:
         current = client.get("/api/projects/default/model-package").json()
-        stored = client.get(f"/api/candidates/{candidate['id']}/snapshots").json()[0]
+        stored = client.get(f"/api/projects/default/candidates/{candidate['id']}/snapshots").json()[0]
         assert current["id"] == "annealed-gp-2026-07"
         assert stored["payload"]["provenance"]["package"]["manifest_sha256"] == old_hash
         assert old_hash != current["manifest_sha256"]

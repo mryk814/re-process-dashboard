@@ -6,6 +6,8 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from .task_contracts import CandidateProvenance, ManualSourceRef
+
 
 COMPOSITION_ELEMENTS = {
     "C", "Si", "Mn", "P", "S", "Cr", "Mo", "Ni", "Al", "Ti", "B", "N", "O", "Ca"
@@ -23,74 +25,40 @@ class HeatPoint(BaseModel):
     mapping_status: str | None = None
 
 
-class CandidateInput(BaseModel):
-    name: Annotated[str, Field(min_length=1, max_length=80)] = "候補"
+class CandidateInputs(BaseModel):
     composition: dict[str, float] = Field(default_factory=dict)
-    thickness_mm: Annotated[float, Field(gt=0, le=100)] = 1.4
-    line_speed_m_min: Annotated[float, Field(gt=0, le=2000)] = 103.0
-    coating: Literal["なし", "GI", "GA"] = "なし"
-    heat_pattern: list[HeatPoint] = Field(min_length=2, max_length=30)
+    process: dict[str, float] = Field(default_factory=dict)
+    categorical: dict[str, str] = Field(default_factory=dict)
+    heat_pattern: list[HeatPoint] | None = Field(default=None, max_length=30)
 
-    @field_validator("composition")
+    @field_validator("composition", "process")
     @classmethod
-    def composition_is_known_and_physical(cls, value: dict[str, float]) -> dict[str, float]:
-        unknown = sorted(set(value) - COMPOSITION_ELEMENTS)
-        if unknown:
-            raise ValueError(f"未対応の組成元素です: {', '.join(unknown)}")
-        invalid = sorted(name for name, amount in value.items() if not math.isfinite(amount) or amount < 0 or amount > 100)
+    def numeric_values_are_finite(cls, value: dict[str, float]) -> dict[str, float]:
+        invalid = sorted(name for name, amount in value.items() if not math.isfinite(amount))
         if invalid:
-            raise ValueError(f"組成は0〜100の有限値にしてください: {', '.join(invalid)}")
+            raise ValueError(f"入力値は有限値にしてください: {', '.join(invalid)}")
         return value
 
     @model_validator(mode="after")
-    def heat_pattern_is_a_real_route(self) -> "CandidateInput":
-        times = [point.time_s for point in self.heat_pattern]
-        if any(later <= earlier for earlier, later in zip(times, times[1:])):
-            raise ValueError("ヒートパターンの時刻は厳密な昇順にしてください")
+    def heat_pattern_is_a_real_route(self) -> "CandidateInputs":
+        if self.heat_pattern is not None:
+            if len(self.heat_pattern) < 2:
+                raise ValueError("ヒートパターンは2点以上にしてください")
+            times = [point.time_s for point in self.heat_pattern]
+            if any(later <= earlier for earlier, later in zip(times, times[1:])):
+                raise ValueError("ヒートパターンの時刻は厳密な昇順にしてください")
         return self
+
+
+class CandidateInput(BaseModel):
+    name: Annotated[str, Field(min_length=1, max_length=80)] = "候補"
+    inputs: CandidateInputs
+    provenance: CandidateProvenance = Field(default_factory=lambda: ManualSourceRef(source_kind="manual"))
 
 
 class Candidate(CandidateInput):
     id: str
     project_id: str
-    created_at: datetime
-    updated_at: datetime
-
-
-class HotRollingCandidateInput(BaseModel):
-    name: Annotated[str, Field(min_length=1, max_length=80)] = "熱延候補"
-    composition: dict[str, float] = Field(default_factory=dict)
-    reheat_temperature_c: Annotated[float, Field(ge=0, le=1800)] = 1180.0
-    hold_time_min: Annotated[float, Field(gt=0, le=1440)] = 30.0
-    finish_temperature_c: Annotated[float, Field(ge=0, le=1800)] = 900.0
-    coiling_temperature_c: Annotated[float, Field(ge=0, le=1200)] = 620.0
-    cooling_rate_c_s: Annotated[float, Field(gt=0, le=1000)] = 35.0
-    entry_thickness_mm: Annotated[float, Field(gt=0, le=1000)] = 35.0
-    exit_thickness_mm: Annotated[float, Field(gt=0, le=100)] = 3.5
-    route: Literal["A", "B", "C"] = "A"
-
-    @field_validator("composition")
-    @classmethod
-    def hot_composition_is_known_and_physical(cls, value: dict[str, float]) -> dict[str, float]:
-        unknown = sorted(set(value) - COMPOSITION_ELEMENTS)
-        if unknown:
-            raise ValueError(f"未対応の組成元素です: {', '.join(unknown)}")
-        invalid = sorted(name for name, amount in value.items() if not math.isfinite(amount) or amount < 0 or amount > 100)
-        if invalid:
-            raise ValueError(f"組成は0〜100の有限値にしてください: {', '.join(invalid)}")
-        return value
-
-    @model_validator(mode="after")
-    def rolling_route_is_physical(self) -> "HotRollingCandidateInput":
-        if self.exit_thickness_mm >= self.entry_thickness_mm:
-            raise ValueError("出側板厚は入側板厚より小さくしてください")
-        if self.finish_temperature_c > self.reheat_temperature_c:
-            raise ValueError("仕上温度は加熱温度以下にしてください")
-        return self
-
-
-class HotRollingCandidate(HotRollingCandidateInput):
-    id: str
     created_at: datetime
     updated_at: datetime
 

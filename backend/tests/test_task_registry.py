@@ -106,14 +106,10 @@ def test_project_api_errors_have_machine_readable_code_and_fields(client) -> Non
 def test_both_tasks_use_the_same_project_preview_contract(client, task_id: str) -> None:
     if task_id == "annealed-properties-v1":
         project_id = "default"
-        candidate_id = client.get("/api/candidates?project_id=default").json()[0]["id"]
+        candidate_id = client.get("/api/projects/default/candidates").json()[0]["id"]
     else:
-        project = client.post(
-            "/api/projects",
-            json={"name": "熱延preview契約", "task_id": task_id},
-        ).json()
-        project_id = project["id"]
-        candidate_id = client.get("/api/hot-rolling/candidates").json()[0]["id"]
+        project_id = "hot-rolling-default"
+        candidate_id = client.get(f"/api/projects/{project_id}/candidates").json()[0]["id"]
 
     response = client.post(f"/api/projects/{project_id}/candidates/{candidate_id}/preview")
     assert response.status_code == 200

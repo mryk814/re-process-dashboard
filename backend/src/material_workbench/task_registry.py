@@ -8,7 +8,8 @@ from typing import Any, Protocol, runtime_checkable
 from .importer import WorkbookData
 from .model_packages import FeaturePipelineSpec, VerifiedModelPackage
 from .model_lifecycle import validate_lifecycle_metadata, validate_training_provenance
-from .task_contracts import ResolvedTaskDefinition, RuntimeCapability, TaskContractFixture, TaskDefinition
+from .schemas import CandidateInput
+from .task_contracts import CanonicalCandidate, CanonicalHeatPoint, ResolvedTaskDefinition, RuntimeCapability, TaskContractFixture, TaskDefinition
 
 
 class TaskRegistryError(ValueError):
@@ -117,6 +118,28 @@ class TaskRegistry:
 
     def runtime_for(self, task_id: str) -> RuntimeProtocol:
         return self.entry_for(task_id).predictor_runtime
+
+    def validate_candidate(self, task_id: str, candidate: CandidateInput) -> CanonicalCandidate:
+        contract = self.contract_for(task_id)
+        inputs = candidate.inputs
+        canonical = CanonicalCandidate(
+            schema_version=contract.task_definition.canonical_candidate_schema_version,
+            task_id=task_id,
+            composition=inputs.composition,
+            process=inputs.process,
+            heat_pattern=None if inputs.heat_pattern is None else tuple(
+                CanonicalHeatPoint(time_s=point.time_s, temperature_c=point.temperature_c)
+                for point in inputs.heat_pattern
+            ),
+            categorical=inputs.categorical,
+            provenance=candidate.provenance,
+        )
+        TaskContractFixture(
+            task_definition=contract.task_definition,
+            canonical_candidate=canonical,
+            runtime_capability=contract.runtime_capability,
+        )
+        return canonical
 
     def entry_for(self, task_id: str) -> TaskRuntimeEntry:
         self.contract_for(task_id)

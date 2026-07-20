@@ -2,26 +2,29 @@ from copy import deepcopy
 
 from material_workbench.schemas import CandidateInput
 
+ELEMENTS = ("C", "Si", "Mn", "P", "S", "Cr", "Mo", "Ni", "Al", "Ti", "B", "N", "O", "Ca")
+
 
 def _payload(name: str = "試験候補") -> dict:
     return {
         "name": name,
-        "composition": {"C": 0.08, "Si": 0.3, "Mn": 1.5},
-        "thickness_mm": 1.4,
-        "line_speed_m_min": 103.0,
-        "coating": "GI",
-        "heat_pattern": [
-            {"time_s": 0, "temperature_c": 25},
-            {"time_s": 280, "temperature_c": 800},
-            {"time_s": 340, "temperature_c": 810},
-            {"time_s": 650, "temperature_c": 120},
-        ],
+        "inputs": {
+            "composition": {**{key: 0.0 for key in ELEMENTS}, "C": 0.08, "Si": 0.3, "Mn": 1.5},
+            "process": {"thickness_mm": 1.4, "line_speed_m_min": 103.0},
+            "categorical": {"coating": "GI"},
+            "heat_pattern": [
+                {"time_s": 0, "temperature_c": 25},
+                {"time_s": 280, "temperature_c": 800},
+                {"time_s": 340, "temperature_c": 810},
+                {"time_s": 650, "temperature_c": 120},
+            ],
+        },
     }
 
 
 def test_heat_pattern_rejects_non_monotonic_time() -> None:
     invalid = _payload()
-    invalid["heat_pattern"][2]["time_s"] = 280
+    invalid["inputs"]["heat_pattern"][2]["time_s"] = 280
     try:
         CandidateInput.model_validate(invalid)
     except ValueError as exc:
@@ -30,13 +33,13 @@ def test_heat_pattern_rejects_non_monotonic_time() -> None:
         raise AssertionError("non-monotonic heat pattern must not be accepted")
 
 
-def test_candidate_rejects_unknown_or_non_physical_composition() -> None:
+def test_candidate_rejects_unknown_or_non_physical_composition(client) -> None:
     unknown = _payload()
-    unknown["composition"]["Unobtainium"] = 0.1
-    assert "未対応の組成元素" in str(_validation_error(unknown))
+    unknown["inputs"]["composition"]["Unobtainium"] = 0.1
+    assert client.post("/api/projects/default/candidates", json=unknown).status_code == 422
     negative = _payload()
-    negative["composition"]["C"] = -0.01
-    assert "0〜100" in str(_validation_error(negative))
+    negative["inputs"]["composition"]["C"] = -0.01
+    assert client.post("/api/projects/default/candidates", json=negative).status_code == 422
 
 
 def _validation_error(payload: dict) -> ValueError:
@@ -69,7 +72,7 @@ def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
     assert {item["key"] for item in definition["outputs"]} == {"TS", "YS", "EL", "lambda"}
     assert all(item["goal_direction"] == "at_least" for item in definition["outputs"])
     assert task["runtime_capability"]["operations"]["response_curve"] is True
-    candidate = client.post("/api/candidates", json=_payload()).json()
+    candidate = client.post("/api/projects/default/candidates", json=_payload()).json()
     first = client.post(f"/api/projects/default/candidates/{candidate['id']}/preview").json()
     second = client.post(f"/api/projects/default/candidates/{candidate['id']}/preview").json()
     assert first["mode"] == "preview"
@@ -83,28 +86,28 @@ def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
     assert first["model_meta"]["prediction_interval"]["grouping"] == "parent_key"
     assert all(prediction["uncertainty_components"] for prediction in first["predictions"].values())
     assert first["canonical_input"]["input_schema_version"] == "candidate-v1"
-    atomic_result = client.post(f"/api/candidates/{candidate['id']}/predict").json()
+    atomic_result = client.post(f"/api/projects/default/candidates/{candidate['id']}/predict").json()
     detailed = atomic_result["prediction"]
     assert detailed["mode"] == "detailed"
     assert len(detailed["response_curve"]) == 9
-    curves = client.get(f"/api/candidates/{candidate['id']}/response-curves").json()
+    curves = client.get(f"/api/projects/default/candidates/{candidate['id']}/response-curves").json()
     assert set(curves) == {"TS", "YS", "EL", "lambda"}
     assert all(len(points) == 9 for points in curves.values())
     assert atomic_result["snapshot"]["payload"]["prediction"] == detailed
-    similar = client.get(f"/api/candidates/{candidate['id']}/similar").json()
+    similar = client.get(f"/api/projects/default/candidates/{candidate['id']}/similar").json()
     assert len(similar) == 6
     assert {item["layer"] for item in similar} == {"training", "historical"}
     assert all({"composition", "metallurgy", "process", "heat_pattern"} == set(item["components"]) for item in similar)
 
 
 def test_snapshot_is_immutable_after_candidate_edit(client) -> None:
-    candidate = client.post("/api/candidates", json=_payload("固定化テスト")).json()
-    snapshot = client.post(f"/api/candidates/{candidate['id']}/snapshots").json()
+    candidate = client.post("/api/projects/default/candidates", json=_payload("固定化テスト")).json()
+    snapshot = client.post(f"/api/projects/default/candidates/{candidate['id']}/snapshots").json()
     original = deepcopy(snapshot["payload"])
     changed = _payload("編集後")
-    changed["line_speed_m_min"] = 145
-    assert client.put(f"/api/candidates/{candidate['id']}", json=changed).status_code == 200
-    stored = client.get(f"/api/candidates/{candidate['id']}/snapshots").json()
+    changed["inputs"]["process"]["line_speed_m_min"] = 145
+    assert client.put(f"/api/projects/default/candidates/{candidate['id']}", json=changed).status_code == 200
+    stored = client.get(f"/api/projects/default/candidates/{candidate['id']}/snapshots").json()
     assert stored[0]["payload"] == original
     assert stored[0]["payload"]["candidate_id"] == candidate["id"]
     assert stored[0]["payload"]["raw_candidate"]["name"] == "固定化テスト"
