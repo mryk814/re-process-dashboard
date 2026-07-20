@@ -65,7 +65,7 @@ export const workbenchApi = {
   async previewCandidate(projectId: string, candidateId: string, inputIdentity: string, signal?: AbortSignal) {
     return inferenceRequestCache.get(
       inferenceRequestKey(projectId, candidateId, inputIdentity, "preview"),
-      async () => requireData(await apiClient.POST("/api/projects/{project_id}/candidates/{candidate_id}/preview", { params: { path: { project_id: projectId, candidate_id: candidateId } } }), "プレビューを取得できませんでした。"),
+      async (sharedSignal) => requireData(await apiClient.POST("/api/projects/{project_id}/candidates/{candidate_id}/preview", { params: { path: { project_id: projectId, candidate_id: candidateId } }, signal: sharedSignal }), "プレビューを取得できませんでした。"),
       signal,
     );
   },
@@ -75,7 +75,7 @@ export const workbenchApi = {
   async responseCurves(projectId: string, candidateId: string, inputIdentity: string, variable?: string, signal?: AbortSignal): Promise<ApiResponseCurves> {
     const data = await inferenceRequestCache.get(
       inferenceRequestKey(projectId, candidateId, inputIdentity, "curve", variable ?? ""),
-      async () => requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/response-curves", { params: { path: { project_id: projectId, candidate_id: candidateId }, query: { variable } } }), "応答曲線を取得できませんでした。"),
+      async (sharedSignal) => requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/response-curves", { params: { path: { project_id: projectId, candidate_id: candidateId }, query: { variable } }, signal: sharedSignal }), "応答曲線を取得できませんでした。"),
       signal,
     );
     if (isResponseCurves(data)) return data;

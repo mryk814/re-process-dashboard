@@ -10,7 +10,7 @@ export type CandidateSaveState = "idle" | "dirty" | "saving" | "saved" | "confli
 type CandidateEditorOptions = {
   projectId: string;
   setCandidates: Dispatch<SetStateAction<CandidateViewModel[]>>;
-  onPreview: (candidateId: string, preview: ApiPreview | null) => void;
+  onPreview: (candidateId: string, preview: ApiPreview | null, inputIdentity?: string) => void;
   onNotice: (message: string) => void;
 };
 
@@ -69,9 +69,16 @@ export function useCandidateEditor({ projectId, setCandidates, onPreview, onNoti
       setSaveState(candidateId, "saved");
       if (!inferenceChanged) return;
       inferenceRequestCache.invalidatePrefix(candidateInferencePrefix(projectId, candidateId));
-      const preview = await workbenchApi.previewCandidate(projectId, candidateId, candidateInputIdentity(saved.inputs));
-      if (!queued.isLatest() || activeProjectId.current !== projectId) return;
-      onPreview(candidateId, preview);
+      const inputIdentity = candidateInputIdentity(saved.inputs);
+      onPreview(candidateId, null, inputIdentity);
+      try {
+        const preview = await workbenchApi.previewCandidate(projectId, candidateId, inputIdentity);
+        if (!queued.isLatest() || activeProjectId.current !== projectId) return;
+        onPreview(candidateId, preview, inputIdentity);
+      } catch {
+        if (!queued.isLatest() || activeProjectId.current !== projectId) return;
+        onNotice("入力は保存しましたが、予測結果を更新できませんでした");
+      }
     } catch (error) {
       if (!queued.isLatest() || activeProjectId.current !== projectId) return;
       const apiError = error instanceof ApiClientError ? error : undefined;

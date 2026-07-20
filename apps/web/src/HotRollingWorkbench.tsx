@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fromApiCandidate, toApiCandidate, type CandidateViewModel } from "./candidateModel";
 import { CandidateInspector, ComparisonTable } from "./TaskDrivenCandidateUi";
 import { setCandidateInputValue, validateResolvedTaskDefinition, type TaskDefinitionContract } from "./taskDefinition";
@@ -14,22 +14,27 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
   const [previews, setPreviews] = useState<Record<string, ApiPreview>>({});
   const [task, setTask] = useState<TaskDefinitionContract | null>(null);
   const [notice, setNotice] = useState("熱延タスクを読み込んでいます");
+  const previewInputIdentityRef = useRef(new Map<string, string>());
   const editor = useCandidateEditor({
     projectId,
     setCandidates,
-    onPreview: (candidateId, result) => setPreviews((items) => {
-      if (result) return { ...items, [candidateId]: result };
-      const { [candidateId]: _, ...remaining } = items;
-      return remaining;
-    }),
+    onPreview: (candidateId, result, inputIdentity) => {
+      if (inputIdentity) previewInputIdentityRef.current.set(candidateId, inputIdentity);
+      setPreviews((items) => {
+        if (result) return { ...items, [candidateId]: result };
+        const { [candidateId]: _, ...remaining } = items;
+        return remaining;
+      });
+    },
     onNotice: setNotice,
   });
   const selected = candidates.find((item) => item.id === selectedId) ?? candidates[0];
   const preview = selected ? previews[selected.id] : undefined;
 
   async function loadPreview(candidateId: string, inputs: CandidateViewModel["raw"]["inputs"], shouldApply: () => boolean = () => true) {
-    const result = await workbenchApi.previewCandidate(projectId, candidateId, candidateInputIdentity(inputs));
-    if (!shouldApply()) return;
+    const inputIdentity = candidateInputIdentity(inputs);
+    const result = await workbenchApi.previewCandidate(projectId, candidateId, inputIdentity);
+    if (!shouldApply() || previewInputIdentityRef.current.get(candidateId) !== inputIdentity) return;
     setPreviews((items) => ({ ...items, [candidateId]: result }));
   }
 
@@ -46,6 +51,10 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
           return;
         }
         const loadedCandidates = (await workbenchApi.listCandidates(projectId)).map(fromApiCandidate);
+        previewInputIdentityRef.current = new Map(
+          loadedCandidates.map((candidate) => [candidate.id, candidateInputIdentity(candidate.raw.inputs)]),
+        );
+        setPreviews({});
         editor.acceptServerCandidates(loadedCandidates.map((candidate) => candidate.raw));
         setCandidates(loadedCandidates);
         setSelectedId(loadedCandidates[0]?.id ?? "");

@@ -7,7 +7,7 @@ import { fromApiCandidate, toApiCandidate, type CandidateViewModel as Candidate 
 import { numericTaskInputs, setCandidateInputValue, taskFieldName, validateResolvedTaskDefinition, type NumericTaskInput, type ResolvedTaskDefinition, type TaskDefinitionContract, type TaskOutputDefinition } from "./taskDefinition";
 import { ApiClientError, apiBaseUrl } from "./shared/api/client";
 import { useCandidateEditor, type CandidateSaveState } from "./useCandidateEditor";
-import { candidateInputIdentity } from "./inferenceRequestCache";
+import { candidateInputIdentity, mergePreviewEntryIfCurrent } from "./inferenceRequestCache";
 import {
   workbenchApi,
   type ApiActual,
@@ -209,6 +209,7 @@ function App() {
   const [previewsByCandidate, setPreviewsByCandidate] = useState<
     Record<string, ApiPreview>
   >({});
+  const [previewIdentitiesByCandidate, setPreviewIdentitiesByCandidate] = useState<Record<string, string>>({});
   const [apiState, setApiState] = useState<"ready" | "loading" | "offline">(
     "loading",
   );
@@ -220,6 +221,9 @@ function App() {
   const [resolvedTaskDefinition, setResolvedTaskDefinition] = useState<ResolvedTaskDefinition | null>(null);
   const [activeProjectId, setActiveProjectId] = useState("default");
   const loadSequence = useRef(0);
+  const loadPreviewController = useRef<AbortController | null>(null);
+  const previewInputIdentityRef = useRef(new Map<string, string>());
+  const storedPreviewIdentityRef = useRef(new Map<string, string>());
   const selectedIdRef = useRef(selectedId);
   selectedIdRef.current = selectedId;
   const candidatesRef = useRef(candidates);
@@ -231,7 +235,15 @@ function App() {
   const editor = useCandidateEditor({
     projectId: activeProjectId,
     setCandidates,
-    onPreview: (candidateId, nextPreview) => {
+    onPreview: (candidateId, nextPreview, inputIdentity) => {
+      if (inputIdentity) previewInputIdentityRef.current.set(candidateId, inputIdentity);
+      if (nextPreview && inputIdentity) storedPreviewIdentityRef.current.set(candidateId, inputIdentity);
+      else storedPreviewIdentityRef.current.delete(candidateId);
+      setPreviewIdentitiesByCandidate((current) => {
+        if (nextPreview && inputIdentity) return { ...current, [candidateId]: inputIdentity };
+        const { [candidateId]: _, ...remaining } = current;
+        return remaining;
+      });
       setPreviewsByCandidate((current) => {
         if (nextPreview) return { ...current, [candidateId]: nextPreview };
         const { [candidateId]: _, ...remaining } = current;
@@ -254,17 +266,22 @@ function App() {
   }
 
   function selectCandidate(candidateId: string, replace = true) {
+    selectedIdRef.current = candidateId;
     setSelectedId(candidateId);
     navigate({ view: "candidates", projectId: activeProjectId, candidateId }, replace);
   }
 
   function rememberCandidate(candidateId: string) {
+    selectedIdRef.current = candidateId;
     setSelectedId(candidateId);
     navigate({ ...navigationRef.current, projectId: activeProjectId, candidateId }, true);
   }
 
   async function loadProject(projectId: string) {
     const sequence = ++loadSequence.current;
+    loadPreviewController.current?.abort();
+    const previewController = new AbortController();
+    loadPreviewController.current = previewController;
     setApiState("loading");
     const requestedCandidateId = navigationRef.current.projectId === projectId
       ? navigationRef.current.candidateId
@@ -294,14 +311,20 @@ function App() {
     setResolvedTaskDefinition(resolved);
     window.localStorage.setItem("material-workbench-project", projectId);
     setCandidates(imported);
+    previewInputIdentityRef.current = new Map(
+      imported.map((candidate) => [candidate.id, candidateInputIdentity(candidate.raw.inputs)]),
+    );
     const nextSelectedId = imported.some((candidate) => candidate.id === requestedCandidateId)
       ? requestedCandidateId!
       : (imported[0]?.id ?? "");
+    selectedIdRef.current = nextSelectedId;
     setSelectedId(nextSelectedId);
     navigate({ ...navigationRef.current, projectId, candidateId: nextSelectedId || undefined }, true);
     setMetrics([]);
     setPreview(null);
     setPreviewsByCandidate({});
+    setPreviewIdentitiesByCandidate({});
+    storedPreviewIdentityRef.current.clear();
     setApiState("ready");
     setNotice(
       requestedCandidateMissing
@@ -311,30 +334,34 @@ function App() {
         : "候補がありません。過去条件または新規入力から追加できます",
     );
     if (!imported.length) return;
-    const previewEntries = await Promise.all(
+    await Promise.all(
       imported.filter((candidate) => !candidate.raw.archived_at).map(async (candidate) => {
+        const inputIdentity = candidateInputIdentity(candidate.raw.inputs);
         try {
-          return [candidate.id, await workbenchApi.previewCandidate(projectId, candidate.id, candidateInputIdentity(candidate.raw.inputs))] as const;
+          const loaded = await workbenchApi.previewCandidate(projectId, candidate.id, inputIdentity, previewController.signal);
+          if (sequence !== loadSequence.current || previewController.signal.aborted) return;
+          if (previewInputIdentityRef.current.get(candidate.id) !== inputIdentity) return;
+          const currentCandidate = candidatesRef.current.find((item) => item.id === candidate.id);
+          if (currentCandidate && candidateInputIdentity(currentCandidate.raw.inputs) !== inputIdentity) return;
+          const existingInputIdentity = storedPreviewIdentityRef.current.get(candidate.id);
+          if (existingInputIdentity && existingInputIdentity !== inputIdentity) return;
+          storedPreviewIdentityRef.current.set(candidate.id, inputIdentity);
+          setPreviewIdentitiesByCandidate((identities) => ({ ...identities, [candidate.id]: inputIdentity }));
+          setPreviewsByCandidate((current) => {
+            return mergePreviewEntryIfCurrent(
+              current,
+              candidate.id,
+              inputIdentity,
+              previewInputIdentityRef.current.get(candidate.id),
+              existingInputIdentity,
+              loaded,
+            );
+          });
         } catch {
-          return null;
+          // A selected-candidate subscriber may still complete the shared request.
         }
       }),
     );
-    if (sequence !== loadSequence.current) return;
-    const loaded = Object.fromEntries(
-      previewEntries.filter(
-        (entry): entry is readonly [string, ApiPreview] => entry !== null,
-      ),
-    );
-    setPreviewsByCandidate(loaded);
-    const selectedPreviewId = navigationRef.current.projectId === projectId
-      ? navigationRef.current.candidateId
-      : nextSelectedId;
-    const selectedPreview = selectedPreviewId ? loaded[selectedPreviewId] : undefined;
-    if (selectedPreview) {
-      setPreview(selectedPreview);
-      setMetrics(metricsFromPreview(selectedPreview));
-    }
   }
 
   useEffect(() => {
@@ -378,6 +405,7 @@ function App() {
       if (targetProjectId !== activeProjectId || (intent.candidateId && !candidates.some((candidate) => candidate.id === intent.candidateId))) {
         void loadProject(targetProjectId);
       } else if (intent.candidateId) {
+        selectedIdRef.current = intent.candidateId;
         setSelectedId(intent.candidateId);
       }
     };
@@ -397,7 +425,10 @@ function App() {
     const controller = new AbortController();
     const candidateId = selected.id;
     const inputIdentity = candidateInputIdentity(selected.raw.inputs);
-    const cached = previewsByCandidate[candidateId];
+    const cachedPreview = previewsByCandidate[candidateId];
+    const cached = cachedPreview && previewIdentitiesByCandidate[candidateId] === inputIdentity
+      ? cachedPreview
+      : undefined;
     if (cached) {
       setMetrics(metricsFromPreview(cached));
       setPreview(cached);
@@ -414,6 +445,8 @@ function App() {
         if (controller.signal.aborted || candidateInputIdentity(current?.raw.inputs) !== inputIdentity) return;
         setMetrics(metricsFromPreview(preview));
         setPreview(preview);
+        storedPreviewIdentityRef.current.set(candidateId, inputIdentity);
+        setPreviewIdentitiesByCandidate((current) => ({ ...current, [candidateId]: inputIdentity }));
         setPreviewsByCandidate((current) => ({
           ...current,
           [candidateId]: preview,
@@ -432,7 +465,7 @@ function App() {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [selected?.id, activeProjectId, previewsByCandidate[selected?.id ?? ""]]);
+  }, [selected?.id, activeProjectId, previewsByCandidate[selected?.id ?? ""], previewIdentitiesByCandidate[selected?.id ?? ""]]);
 
   useEffect(() => {
     const provenance = selected?.raw.provenance as CandidateProvenance | undefined;
@@ -647,6 +680,9 @@ function App() {
       const result = payload.prediction;
       setMetrics(metricsFromPreview(result));
       setPreview(result);
+      const inputIdentity = candidateInputIdentity(selected.raw.inputs);
+      storedPreviewIdentityRef.current.set(selected.id, inputIdentity);
+      setPreviewIdentitiesByCandidate((current) => ({ ...current, [selected.id]: inputIdentity }));
       setPreviewsByCandidate((current) => ({
         ...current,
         [selected.id]: result,
@@ -797,6 +833,7 @@ function App() {
               metrics={metrics}
               preview={preview}
               previewsByCandidate={previewsByCandidate}
+              previewIdentitiesByCandidate={previewIdentitiesByCandidate}
               onSelect={(candidateId) => selectCandidate(candidateId)}
               originBroken={brokenOriginCandidateId === selected.id}
               onOpenOrigin={() => {
@@ -967,6 +1004,7 @@ type WorkbenchProps = {
   metrics: Metric[];
   preview: ApiPreview | null;
   previewsByCandidate: Record<string, ApiPreview>;
+  previewIdentitiesByCandidate: Record<string, string>;
   onSelect: (id: string) => void;
   onHeat: (index: number, field: "time" | "temperature", raw: number) => void;
   onInput: (id: string, path: string, value: number | string) => void;
@@ -996,6 +1034,7 @@ function CandidateWorkbench(props: WorkbenchProps) {
     onReload,
     onCopyDraft,
     previewsByCandidate,
+    previewIdentitiesByCandidate,
     onSelect,
     onInput,
     onText,
@@ -1009,7 +1048,11 @@ function CandidateWorkbench(props: WorkbenchProps) {
     onAdd,
     onImported,
   } = props;
-  const selectedPreview = previewsByCandidate[selectedId] ?? null;
+  const candidatePreview = previewsByCandidate[selectedId];
+  const selectedPreview = candidatePreview
+    && previewIdentitiesByCandidate[selectedId] === candidateInputIdentity(selected.raw.inputs)
+    ? candidatePreview
+    : null;
   const selectedMetrics = selectedPreview ? metricsFromPreview(selectedPreview) : [];
   return (
     <div className="workbench-grid candidate-workbench-grid">
@@ -1589,35 +1632,37 @@ function LiveResponseCurves({
     ]),
   ];
   const [variableId, setVariableId] = useState(variables[0]?.id ?? "heat.peak_temperature_c");
-  const [payload, setPayload] = useState<ResponseCurvesPayload | null>(null);
-  const [error, setError] = useState(false);
+  const [loadedPayload, setLoadedPayload] = useState<{ identity: string; payload: ResponseCurvesPayload } | null>(null);
+  const [errorIdentity, setErrorIdentity] = useState<string | null>(null);
   const requestIdentity = useRef("");
   const inputIdentity = preview ? candidateInputIdentity(preview.canonical_input) : "";
+  const currentRequestIdentity = `${projectId}:${candidate.id}:${inputIdentity}:${variableId}`;
   useEffect(() => {
     if (variables.length && !variables.some((variable) => variable.id === variableId)) setVariableId(variables[0].id);
   }, [candidate.id, variableId, variables.length]);
   useEffect(() => {
     const controller = new AbortController();
     if (!inputIdentity) return;
-    const identity = `${projectId}:${candidate.id}:${inputIdentity}:${variableId}`;
+    const identity = currentRequestIdentity;
     requestIdentity.current = identity;
-    setPayload(null);
-    setError(false);
+    setLoadedPayload(null);
+    setErrorIdentity(null);
     const timer = window.setTimeout(async () => {
       try {
         const loaded = await workbenchApi.responseCurves(projectId, candidate.id, inputIdentity, variableId, controller.signal);
         if (controller.signal.aborted || requestIdentity.current !== identity) return;
-        setPayload(loaded);
+        setLoadedPayload({ identity, payload: loaded });
       } catch (cause) {
         if (controller.signal.aborted || requestIdentity.current !== identity) return;
-        setError(true);
+        setErrorIdentity(identity);
       }
     }, 320);
     return () => { window.clearTimeout(timer); controller.abort(); };
   }, [candidate.id, inputIdentity, projectId, variableId]);
-  const activePayload = payload;
+  const activePayload = loadedPayload?.identity === currentRequestIdentity ? loadedPayload.payload : null;
+  const error = errorIdentity === currentRequestIdentity;
   return (
-    <section className="response-curves-panel" aria-label="設計変数ごとの応答曲線">
+    <section className="response-curves-panel" aria-label="設計変数ごとの応答曲線" data-candidate-id={candidate.id}>
       <div className="panel-title">
         <div className="response-curves-title-group">
           <h2>応答曲線 <span>（選択した設計変数を動かしたときの特性）</span></h2>
