@@ -558,14 +558,26 @@ def create_app(
             "detected_issues": detected,
         }
 
-    @app.get("/api/quality/export.csv")
-    def export_quality() -> StreamingResponse:
+    @app.get(
+        "/api/quality/export.csv",
+        response_class=Response,
+        responses={200: {"content": {"text/csv": {"schema": {"type": "string"}}}}},
+    )
+    def export_quality() -> Response:
         output = StringIO()
         issues = app.state.data.detected_quality
-        writer = csv.DictWriter(output, fieldnames=["issue_id", "issue_type", "source_sheet", "entity_key", "detail"])
+        fieldnames = [
+            "issue_id", "issue_type", "source_sheet", "entity_key", "detail",
+            "focus_entity_key", "related_entity_keys", "missing_reference_key", "suggested_view",
+        ]
+        writer = csv.DictWriter(output, fieldnames=fieldnames)
         writer.writeheader()
-        writer.writerows(issues)
-        return StreamingResponse(iter(["\ufeff" + output.getvalue()]), media_type="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment; filename=detected-data-quality.csv"})
+        writer.writerows({**issue, "related_entity_keys": "|".join(issue["related_entity_keys"])} for issue in issues)
+        return Response(
+            content="\ufeff" + output.getvalue(),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": "attachment; filename=detected-data-quality.csv"},
+        )
 
     @app.get("/api/lineage", response_model=LineageIndexResponse, response_model_exclude_none=True)
     def lineage_index(query: str = "", entity_type: str = "", issue_only: bool = False, limit: int = 40) -> dict[str, Any]:

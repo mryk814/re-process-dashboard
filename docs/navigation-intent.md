@@ -8,6 +8,10 @@
 | `project` | 対象プロジェクト ID |
 | `candidate` | 比較・履歴で選択する候補 ID |
 | `entity` | 工程系譜で選択する entity key |
+| `quality_issue` | 調査元の品質 issue ID |
+| `quality_type` | 品質一覧の検出種別 filter |
+| `quality_sheet` | 品質一覧の元シート filter |
+| `quality_key` | 品質一覧のキー filter |
 | `screening` | 範囲探索で開く run ID |
 | `snapshot` | プロジェクト履歴で開く snapshot ID |
 
@@ -26,6 +30,6 @@ archive済みの作成元は `include_archived=true` で読み取り専用の参
 
 ## 後続 Issue の接続点
 
-- #11 は品質 issue の `focus_entity_key` を `entity` に渡す。
+- #11 は品質 issue の `focus_entity_key` を `entity` に渡し、`quality_*` を保持して品質一覧へ戻す。
 - #2 は `entity` を初期選択ノードとして受け取り、ノード選択時に同じ intent を更新する。
 - #12 は保存・選択した探索 run を `screening` に、stock した候補を `candidate` に渡す。

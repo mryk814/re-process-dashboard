@@ -71,7 +71,7 @@ class WorkbookData:
     lineage: dict[str, dict[str, list[str]]]
     observations: list[dict[str, Any]]
     quality: list[dict[str, Any]]
-    detected_quality: list[dict[str, str]]
+    detected_quality: list[dict[str, Any]]
     entities: dict[str, dict[str, dict[str, Any]]]
     medians: dict[str, float]
     entity_sheets: dict[str, str]
@@ -198,6 +198,31 @@ def _detect_data_quality(
             if key not in relation_keys:
                 add("orphan_entity", source_sheet, key, "どのrelation行からも参照されていません")
     return issues
+
+
+def _attach_quality_navigation(
+    issues: list[dict[str, str]],
+    lineage: Mapping[str, Mapping[str, list[str]]],
+) -> list[dict[str, Any]]:
+    """Describe where each structural finding can be investigated."""
+    enriched: list[dict[str, Any]] = []
+    for issue in issues:
+        entity_key = issue["entity_key"]
+        focus_entity_key = entity_key if entity_key and entity_key in lineage else None
+        related_entity_keys = sorted({
+            key
+            for values in lineage.get(focus_entity_key or "", {}).values()
+            for key in values
+            if key != focus_entity_key
+        })
+        enriched.append({
+            **issue,
+            "focus_entity_key": focus_entity_key,
+            "related_entity_keys": related_entity_keys,
+            "missing_reference_key": entity_key if issue["issue_type"] == "invalid_reference" else None,
+            "suggested_view": "lineage" if focus_entity_key else "source_sheet",
+        })
+    return enriched
 
 
 def lineage_node_detail(data: WorkbookData, entity_key: str) -> dict[str, Any]:
@@ -572,14 +597,17 @@ def load_workbook_data(
             else join.parent_entity_types
         )
     )
-    detected_quality = _detect_data_quality(
-        sheets,
-        entities,
-        entity_sheets,
-        key_to_sheet,
-        observation_parent_columns,
-        relation_sheet,
-        tuple(relation_join_columns.values()),
+    detected_quality = _attach_quality_navigation(
+        _detect_data_quality(
+            sheets,
+            entities,
+            entity_sheets,
+            key_to_sheet,
+            observation_parent_columns,
+            relation_sheet,
+            tuple(relation_join_columns.values()),
+        ),
+        normalized_lineage,
     )
     return WorkbookData(
         source_path=str(path),

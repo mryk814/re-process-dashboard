@@ -886,11 +886,21 @@ select:focus-visible,
   gap: 12px;
   margin: 22px 0;
 }
-.quality-summary span {
+.quality-summary button {
   border-left: 3px solid #1f5fc4;
+  border-top: 0;
+  border-right: 0;
+  border-bottom: 0;
   background: #f7faff;
   padding: 13px 30px 13px 13px;
   color: #5d6775;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.quality-summary button:hover,
+.quality-summary button.active {
+  background: #e9f1ff;
 }
 .quality-summary b {
   font-size: 22px;
@@ -910,6 +920,54 @@ select:focus-visible,
 }
 .quality-table th {
   background: #f5f7fa;
+}
+.quality-filters {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.quality-filters label {
+  display: grid;
+  gap: 4px;
+  color: #5d6775;
+  font-size: 12px;
+}
+.quality-filters select,
+.quality-filters input {
+  min-width: 150px;
+  border: 1px solid #c6d0dc;
+  border-radius: 4px;
+  padding: 7px 9px;
+  background: #fff;
+  color: #18202c;
+}
+.quality-focus-row {
+  background: #eef5ff;
+}
+.quality-actions {
+  min-width: 170px;
+}
+.quality-actions .text-button {
+  display: block;
+  margin: 3px 0;
+}
+.quality-unavailable {
+  display: block;
+  max-width: 220px;
+  color: #7a5b19;
+  font-size: 12px;
+}
+.investigation-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  border-left: 3px solid #1f5fc4;
+  background: #eef5ff;
+  padding: 10px 12px;
+  color: #334155;
+  font-size: 13px;
 }
 .status-tag {
   font-size: 12px;
@@ -1222,9 +1280,14 @@ select:focus-visible,
   .quality-summary {
     display: block;
   }
-  .quality-summary span {
+  .quality-summary button {
     display: block;
+    width: 100%;
     margin: 6px 0;
+  }
+  .quality-filters {
+    align-items: stretch;
+    flex-direction: column;
   }
   .lineage-canvas {
     display: flex;

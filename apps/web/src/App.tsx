@@ -848,12 +848,48 @@ function App() {
             />
           ))}
         {tab === "hot-rolling" && <HotRollingWorkbench projectId={activeProjectId} />}
-        {tab === "quality" && <LiveDataQualityPage />}
+        {tab === "quality" && (
+          <LiveDataQualityPage
+            filters={{
+              issueId: navigation.qualityIssueId,
+              type: navigation.qualityType,
+              sheet: navigation.qualitySheet,
+              key: navigation.qualityKey,
+            }}
+            onFiltersChange={(filters) => navigate({
+              ...navigationRef.current,
+              view: "quality",
+              projectId: activeProjectId,
+              qualityIssueId: filters.issueId,
+              qualityType: filters.type,
+              qualitySheet: filters.sheet,
+              qualityKey: filters.key,
+              entityKey: undefined,
+            }, true)}
+            onOpenLineage={(issue, filters) => navigate({
+              ...navigationRef.current,
+              view: "lineage",
+              projectId: activeProjectId,
+              entityKey: issue.focus_entity_key ?? undefined,
+              qualityIssueId: issue.issue_id,
+              qualityType: filters.type,
+              qualitySheet: filters.sheet,
+              qualityKey: filters.key,
+            })}
+          />
+        )}
         {tab === "lineage" && (
           <LiveLineagePage
             projectId={activeProjectId}
             initialEntityKey={navigation.entityKey}
-            onEntityChange={(entityKey) => navigate({ view: "lineage", projectId: activeProjectId, entityKey }, true)}
+            qualityIssueId={navigation.qualityIssueId}
+            onEntityChange={(entityKey) => navigate({ ...navigationRef.current, view: "lineage", projectId: activeProjectId, entityKey }, true)}
+            onReturnToQuality={() => navigate({
+              ...navigationRef.current,
+              view: "quality",
+              projectId: activeProjectId,
+              entityKey: undefined,
+            })}
             onCandidate={(candidate) => {
               setCandidates((items) => [...items, candidate]);
               rememberCandidate(candidate.id);
@@ -1859,10 +1895,27 @@ function EvidencePanel({
   );
 }
 
-function LiveDataQualityPage() {
+type QualityFilters = Readonly<{
+  issueId?: string;
+  type?: string;
+  sheet?: string;
+  key?: string;
+}>;
+
+function LiveDataQualityPage({
+  filters,
+  onFiltersChange,
+  onOpenLineage,
+}: {
+  filters: QualityFilters;
+  onFiltersChange: (filters: QualityFilters) => void;
+  onOpenLineage: (issue: ApiQuality["detected_issues"][number], filters: QualityFilters) => void;
+}) {
   type DetectedIssue = ApiQuality["detected_issues"][number];
   const [data, setData] = useState<ApiQuality | null>(null);
   const [error, setError] = useState(false);
+  const [exportError, setExportError] = useState("");
+  const [copiedKey, setCopiedKey] = useState("");
   useEffect(() => {
     workbenchApi.quality()
       .then(setData)
@@ -1873,6 +1926,30 @@ function LiveDataQualityPage() {
     orphan_entity: "孤立",
     duplicate_key: "重複",
     invalid_reference: "不正参照",
+  };
+  const updateFilters = (patch: Partial<QualityFilters>) => onFiltersChange({ ...filters, ...patch, issueId: undefined });
+  const sheets = Array.from(new Set(data?.detected_issues.map((issue) => issue.source_sheet) ?? [])).sort();
+  const normalizedKey = filters.key?.trim().toLocaleLowerCase("ja-JP") ?? "";
+  const visibleIssues = data?.detected_issues.filter((issue) =>
+    (!filters.type || issue.issue_type === filters.type)
+    && (!filters.sheet || issue.source_sheet === filters.sheet)
+    && (!normalizedKey || `${issue.entity_key} ${issue.missing_reference_key ?? ""}`.toLocaleLowerCase("ja-JP").includes(normalizedKey))
+  ) ?? [];
+  const exportCsv = async () => {
+    setExportError("");
+    try {
+      const csv = await workbenchApi.qualityCsv();
+      const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "detected-data-quality.csv";
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    } catch {
+      setExportError("CSVを出力できませんでした。");
+    }
   };
   return (
     <div className="page-panel quality-page">
@@ -1885,11 +1962,12 @@ function LiveDataQualityPage() {
         </div>
         <button
           className="outline-button"
-          onClick={() => window.location.assign(workbenchApi.qualityExportUrl())}
+          onClick={() => void exportCsv()}
         >
           検出結果をCSV出力
         </button>
       </div>
+      {exportError && <p className="empty-evidence" role="alert">{exportError}</p>}
       {error ? (
         <p className="empty-evidence">
           データ品質を取得できません。API接続を確認してください。
@@ -1897,15 +1975,36 @@ function LiveDataQualityPage() {
       ) : data ? (
         <>
           <div className="quality-summary">
-            <span>
+            <button type="button" className={!filters.type ? "active" : ""} onClick={() => updateFilters({ type: undefined })}>
               <b>{data.detected_total}</b>件を実検出
-            </span>
+            </button>
             {Object.entries(data.detected_by_type).map(([type, count]) => (
-              <span key={type}>
+              <button type="button" className={filters.type === type ? "active" : ""} key={type} onClick={() => updateFilters({ type })}>
                 <b>{count}</b>
                 {labels[type as DetectedIssue["issue_type"]] ?? type}
-              </span>
+              </button>
             ))}
+          </div>
+          <div className="quality-filters" aria-label="検出結果フィルタ">
+            <label>
+              種別
+              <select value={filters.type ?? ""} onChange={(event) => updateFilters({ type: event.target.value || undefined })}>
+                <option value="">すべて</option>
+                {Object.entries(labels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}
+              </select>
+            </label>
+            <label>
+              元シート
+              <select value={filters.sheet ?? ""} onChange={(event) => updateFilters({ sheet: event.target.value || undefined })}>
+                <option value="">すべて</option>
+                {sheets.map((sheet) => <option value={sheet} key={sheet}>{sheet}</option>)}
+              </select>
+            </label>
+            <label>
+              キー
+              <input value={filters.key ?? ""} onChange={(event) => updateFilters({ key: event.target.value || undefined })} placeholder="キーを絞り込み" />
+            </label>
+            <span>{visibleIssues.length}件</span>
           </div>
           <div className="table-scroll">
             <table className="quality-table">
@@ -1915,11 +2014,12 @@ function LiveDataQualityPage() {
                   <th>対象キー</th>
                   <th>元シート</th>
                   <th>検出内容</th>
+                  <th>調査</th>
                 </tr>
               </thead>
               <tbody>
-                {data.detected_issues.map((issue) => (
-                  <tr key={issue.issue_id}>
+                {visibleIssues.map((issue) => (
+                  <tr key={issue.issue_id} className={filters.issueId === issue.issue_id ? "quality-focus-row" : ""}>
                     <td>
                       <span
                         className={`status-tag ${issue.issue_type === "invalid_reference" || issue.issue_type === "duplicate_key" ? "warn" : ""}`}
@@ -1930,12 +2030,25 @@ function LiveDataQualityPage() {
                     <td>{issue.entity_key || "（空）"}</td>
                     <td>{issue.source_sheet}</td>
                     <td>{issue.detail}</td>
+                    <td className="quality-actions">
+                      {issue.focus_entity_key ? (
+                        <button type="button" className="text-button" onClick={() => onOpenLineage(issue, filters)}>系譜で確認</button>
+                      ) : (
+                        <span className="quality-unavailable">系譜を開けません。{issue.source_sheet}の該当行を確認</span>
+                      )}
+                      {issue.entity_key && (
+                        <button type="button" className="text-button" onClick={() => {
+                          void navigator.clipboard.writeText(issue.entity_key).then(() => setCopiedKey(issue.entity_key));
+                        }}>{copiedKey === issue.entity_key ? "コピー済み" : "キーをコピー"}</button>
+                      )}
+                    </td>
                   </tr>
                 ))}
+                {!visibleIssues.length && <tr><td colSpan={5}>条件に一致する検出結果はありません。</td></tr>}
               </tbody>
             </table>
           </div>
-          <details className="reference-scenarios">
+          {import.meta.env.DEV && <details className="reference-scenarios">
             <summary>
               Excelに用意された確認用シナリオ（{data.reference_scenarios.length}
               件）
@@ -1954,7 +2067,7 @@ function LiveDataQualityPage() {
                 ))}
               </tbody>
             </table>
-          </details>
+          </details>}
         </>
       ) : (
         <p className="empty-evidence">データ品質を読み込んでいます。</p>
@@ -1966,12 +2079,16 @@ function LiveDataQualityPage() {
 function LiveLineagePage({
   projectId,
   initialEntityKey,
+  qualityIssueId,
   onEntityChange,
+  onReturnToQuality,
   onCandidate,
 }: {
   projectId: string;
   initialEntityKey?: string;
+  qualityIssueId?: string;
   onEntityChange: (entityKey: string) => void;
+  onReturnToQuality: () => void;
   onCandidate: (candidate: Candidate) => void;
 }) {
   const [entityKey, setEntityKey] = useState(initialEntityKey ?? "AN-00001");
@@ -2074,6 +2191,12 @@ function LiveLineagePage({
   );
   return (
     <div className="page-panel lineage-page">
+      {qualityIssueId && (
+        <div className="investigation-context" role="status">
+          <span>データ品質の検出結果から調査中</span>
+          <button type="button" className="text-button" onClick={onReturnToQuality}>品質一覧へ戻る</button>
+        </div>
+      )}
       <div className="page-intro lineage-intro">
         <div>
           <span className="overline">DATA UNDERSTANDING</span>

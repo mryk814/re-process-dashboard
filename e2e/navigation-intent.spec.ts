@@ -1,5 +1,34 @@
 import { expect, test } from "@playwright/test";
 
+test("quality finding opens the selected lineage node and returns with filters", async ({ page }) => {
+  await page.goto("/?view=quality&project=default");
+  await expect(page.getByRole("heading", { name: "データ品質" })).toBeVisible();
+
+  await page.getByRole("button", { name: /重複/ }).click();
+  await expect(page).toHaveURL(/quality_type=duplicate_key/);
+  const issueRow = page.locator(".quality-table tbody tr").filter({ has: page.getByRole("button", { name: "系譜で確認" }) }).first();
+  const entityKey = (await issueRow.locator("td").nth(1).textContent())?.trim();
+  expect(entityKey).toBeTruthy();
+  await issueRow.getByRole("button", { name: "系譜で確認" }).click();
+
+  await expect(page).toHaveURL(new RegExp(`view=lineage.*entity=${entityKey}`));
+  await expect(page.locator(".lineage-node.selected")).toContainText(entityKey!);
+  await expect(page.locator(".investigation-context")).toContainText("データ品質の検出結果から調査中");
+  await page.reload();
+  await expect(page.locator(".lineage-node.selected")).toContainText(entityKey!);
+
+  await page.getByRole("button", { name: "品質一覧へ戻る" }).click();
+  await expect(page).toHaveURL(/view=quality/);
+  await expect(page).toHaveURL(/quality_type=duplicate_key/);
+  await expect(page.locator(".quality-focus-row")).toContainText(entityKey!);
+
+  const beforeDownloadUrl = page.url();
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "検出結果をCSV出力" }).click();
+  expect((await download).suggestedFilename()).toBe("detected-data-quality.csv");
+  await expect(page).toHaveURL(beforeDownloadUrl);
+});
+
 test("lineage candidate remains in exploration and round-trips through stock", async ({ page }) => {
   await page.goto("/?view=lineage&project=default&entity=AN-00001");
   await expect(page.getByRole("heading", { name: "AN-00001" })).toBeVisible();

@@ -15,6 +15,10 @@ export type NavigationIntent = Readonly<{
   projectId?: string;
   candidateId?: string;
   entityKey?: string;
+  qualityIssueId?: string;
+  qualityType?: string;
+  qualitySheet?: string;
+  qualityKey?: string;
   screeningRunId?: string;
   snapshotId?: string;
 }>;
@@ -33,6 +37,10 @@ export function readNavigationIntent(
     projectId: params.get("project") || undefined,
     candidateId: params.get("candidate") || undefined,
     entityKey: params.get("entity") || undefined,
+    qualityIssueId: params.get("quality_issue") || undefined,
+    qualityType: params.get("quality_type") || undefined,
+    qualitySheet: params.get("quality_sheet") || undefined,
+    qualityKey: params.get("quality_key") || undefined,
     screeningRunId: params.get("screening") || undefined,
     snapshotId: params.get("snapshot") || undefined,
   });
@@ -44,6 +52,10 @@ export function navigationUrl(intent: NavigationIntent): string {
   if (intent.projectId) params.set("project", intent.projectId);
   if (intent.candidateId) params.set("candidate", intent.candidateId);
   if (intent.entityKey) params.set("entity", intent.entityKey);
+  if (intent.qualityIssueId) params.set("quality_issue", intent.qualityIssueId);
+  if (intent.qualityType) params.set("quality_type", intent.qualityType);
+  if (intent.qualitySheet) params.set("quality_sheet", intent.qualitySheet);
+  if (intent.qualityKey) params.set("quality_key", intent.qualityKey);
   if (intent.screeningRunId) params.set("screening", intent.screeningRunId);
   if (intent.snapshotId) params.set("snapshot", intent.snapshotId);
   return `${window.location.pathname}?${params.toString()}${window.location.hash}`;
@@ -58,6 +70,10 @@ export function withView(
     projectId: current.projectId,
     candidateId: current.candidateId,
     entityKey: view === "lineage" ? current.entityKey : undefined,
+    qualityIssueId: view === "quality" || view === "lineage" ? current.qualityIssueId : undefined,
+    qualityType: view === "quality" || view === "lineage" ? current.qualityType : undefined,
+    qualitySheet: view === "quality" || view === "lineage" ? current.qualitySheet : undefined,
+    qualityKey: view === "quality" || view === "lineage" ? current.qualityKey : undefined,
     screeningRunId: view === "explore" ? current.screeningRunId : undefined,
     snapshotId: view === "project" ? current.snapshotId : undefined,
   });

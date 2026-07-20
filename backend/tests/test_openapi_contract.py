@@ -25,6 +25,11 @@ def test_tracked_openapi_schema_matches_fastapi_contract() -> None:
     delete_parameters = tracked["paths"]["/api/projects/{project_id}/candidates/{candidate_id}"]["delete"]["parameters"]
     assert any(item["name"] == "include_archived" for item in list_parameters)
     assert any(item["name"] == "expected_revision" and item.get("required") is True for item in delete_parameters)
+    assert {
+        "focus_entity_key", "related_entity_keys", "missing_reference_key", "suggested_view",
+    } <= schemas["DataQualityIssue"]["properties"].keys()
+    quality_csv = tracked["paths"]["/api/quality/export.csv"]["get"]["responses"]["200"]
+    assert quality_csv["content"]["text/csv"]["schema"]["type"] == "string"
     validation_responses = [
         operation["responses"]["422"]
         for path in tracked["paths"].values()

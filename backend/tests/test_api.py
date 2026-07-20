@@ -222,7 +222,14 @@ def test_quality_lineage_and_bootstrap(client) -> None:
     assert quality["reference_scenarios"] == quality["issues"]
     assert quality["detected_total"] == len(quality["detected_issues"])
     assert {issue["issue_type"] for issue in quality["detected_issues"]} <= {"missing_key", "orphan_entity", "duplicate_key", "invalid_reference"}
-    assert {"issue_id", "source_sheet", "entity_key", "detail"} <= set(quality["detected_issues"][0])
+    assert {
+        "issue_id", "source_sheet", "entity_key", "detail", "focus_entity_key",
+        "related_entity_keys", "missing_reference_key", "suggested_view",
+    } <= set(quality["detected_issues"][0])
+    destinations = {issue["issue_type"]: issue for issue in quality["detected_issues"]}
+    assert destinations["duplicate_key"]["suggested_view"] == "lineage"
+    assert destinations["orphan_entity"]["focus_entity_key"]
+    assert destinations["invalid_reference"]["missing_reference_key"]
     lineage = client.get("/api/lineage/AN-00001")
     assert lineage.status_code == 200
     assert "relations" in lineage.json()
