@@ -1,0 +1,238 @@
+{
+  "schema_version": "model-package/v1",
+  "package_id": "hot-rolled-gp-2026-07",
+  "package_version": "0.1.0-exact-gp-v1",
+  "task_id": "hot-rolled-properties-v1",
+  "input_schema_version": "hot-rolling-candidate-v1",
+  "feature_pipeline": {
+    "id": "metallurgy-hot-rolling",
+    "version": "1.0.0",
+    "spec": "feature-pipeline/pipeline.json",
+    "output_features": [
+      "C",
+      "Si",
+      "Mn",
+      "P",
+      "S",
+      "Cr",
+      "Mo",
+      "Ni",
+      "Al",
+      "Ti",
+      "B",
+      "N",
+      "O",
+      "Ca",
+      "ce_iiw",
+      "pcm",
+      "c_times_mn",
+      "si_plus_al",
+      "cr_plus_mo",
+      "reheat_temperature_c",
+      "hold_time_min",
+      "finish_temperature_c",
+      "coiling_temperature_c",
+      "cooling_rate_c_s",
+      "entry_thickness_mm",
+      "exit_thickness_mm",
+      "route_A",
+      "route_B",
+      "route_C"
+    ],
+    "artifacts": [
+      "reference/training_stats.json"
+    ]
+  },
+  "predictors": [
+    {
+      "id": "ts-gp",
+      "target": "TS",
+      "unit": "MPa",
+      "target_kind": "continuous",
+      "runtime_type": "builtin.exact_gp.v1",
+      "architecture_id": "exact_rbf_grouped_v1",
+      "artifact": "model-artifacts/TS.npz",
+      "predictive_family": "normal",
+      "feature_names": [
+        "C",
+        "Si",
+        "Mn",
+        "P",
+        "S",
+        "Cr",
+        "Mo",
+        "Ni",
+        "Al",
+        "Ti",
+        "B",
+        "N",
+        "O",
+        "Ca",
+        "ce_iiw",
+        "pcm",
+        "c_times_mn",
+        "si_plus_al",
+        "cr_plus_mo",
+        "reheat_temperature_c",
+        "hold_time_min",
+        "finish_temperature_c",
+        "coiling_temperature_c",
+        "cooling_rate_c_s",
+        "entry_thickness_mm",
+        "exit_thickness_mm",
+        "route_A",
+        "route_B",
+        "route_C"
+      ],
+      "config": {
+        "training_unit": "parent_condition_mean",
+        "estimand_context": {
+          "test_direction": "L",
+          "equipment": "HR-LINE-1"
+        }
+      }
+    },
+    {
+      "id": "ys-gp",
+      "target": "YS",
+      "unit": "MPa",
+      "target_kind": "continuous",
+      "runtime_type": "builtin.exact_gp.v1",
+      "architecture_id": "exact_rbf_grouped_v1",
+      "artifact": "model-artifacts/YS.npz",
+      "predictive_family": "normal",
+      "feature_names": [
+        "C",
+        "Si",
+        "Mn",
+        "P",
+        "S",
+        "Cr",
+        "Mo",
+        "Ni",
+        "Al",
+        "Ti",
+        "B",
+        "N",
+        "O",
+        "Ca",
+        "ce_iiw",
+        "pcm",
+        "c_times_mn",
+        "si_plus_al",
+        "cr_plus_mo",
+        "reheat_temperature_c",
+        "hold_time_min",
+        "finish_temperature_c",
+        "coiling_temperature_c",
+        "cooling_rate_c_s",
+        "entry_thickness_mm",
+        "exit_thickness_mm",
+        "route_A",
+        "route_B",
+        "route_C"
+      ],
+      "config": {
+        "training_unit": "parent_condition_mean",
+        "estimand_context": {
+          "test_direction": "L",
+          "equipment": "HR-LINE-1"
+        }
+      }
+    },
+    {
+      "id": "el-gp",
+      "target": "EL",
+      "unit": "%",
+      "target_kind": "continuous",
+      "runtime_type": "builtin.exact_gp.v1",
+      "architecture_id": "exact_rbf_grouped_v1",
+      "artifact": "model-artifacts/EL.npz",
+      "predictive_family": "normal",
+      "feature_names": [
+        "C",
+        "Si",
+        "Mn",
+        "P",
+        "S",
+        "Cr",
+        "Mo",
+        "Ni",
+        "Al",
+        "Ti",
+        "B",
+        "N",
+        "O",
+        "Ca",
+        "ce_iiw",
+        "pcm",
+        "c_times_mn",
+        "si_plus_al",
+        "cr_plus_mo",
+        "reheat_temperature_c",
+        "hold_time_min",
+        "finish_temperature_c",
+        "coiling_temperature_c",
+        "cooling_rate_c_s",
+        "entry_thickness_mm",
+        "exit_thickness_mm",
+        "route_A",
+        "route_B",
+        "route_C"
+      ],
+      "config": {
+        "training_unit": "parent_condition_mean",
+        "estimand_context": {
+          "test_direction": "L",
+          "equipment": "HR-LINE-1"
+        }
+      }
+    }
+  ],
+  "provenance": {
+    "training_data_id": "sha256:f5b75d4a2e29c0e85f24fe2325b4c610e23ba6ce65ba3b5c53c097a68ca60c55",
+    "feature_dataset_id": "sha256:8d9759e611ab59bb509adfb1551c5820b7f8a7308e6ae178ce344b9433f91f54",
+    "training_code_revision": "0.1.0-exact-gp-v1"
+  },
+  "artifacts": [
+    {
+      "path": "feature-pipeline/pipeline.json",
+      "sha256": "4397c16d2bb31b789c5c5ef1c685f385e7d8399411cfb50bba823c58da3ab753",
+      "bytes": 1247
+    },
+    {
+      "path": "model-artifacts/TS.npz",
+      "sha256": "4aaffaa03c2364eada0818fc6daf5386002e8a469b4547bde76f88d34449bf7f",
+      "bytes": 282844
+    },
+    {
+      "path": "model-artifacts/YS.npz",
+      "sha256": "646424b763af72a69c26eea4a0bd07e603e9712a45ffbd14226831ebeba8add6",
+      "bytes": 282844
+    },
+    {
+      "path": "model-artifacts/EL.npz",
+      "sha256": "2b9ef65479379806425eeee309707dcca8bb46cd72e26bf5046c01891fb6740d",
+      "bytes": 282844
+    },
+    {
+      "path": "reference/training_stats.json",
+      "sha256": "8d9759e611ab59bb509adfb1551c5820b7f8a7308e6ae178ce344b9433f91f54",
+      "bytes": 464
+    },
+    {
+      "path": "smoke/input.json",
+      "sha256": "69f23cc9bde43aa8006c75c6794acdbb90aedc8bd20ca7a83d09d4e80e9e6c72",
+      "bytes": 585
+    },
+    {
+      "path": "smoke/expected.json",
+      "sha256": "02fdf10a3ccf4a62abbbf10647af34b640256c81e23aee582781b6e9d0b33fdb",
+      "bytes": 70
+    }
+  ],
+  "smoke_test": {
+    "input": "smoke/input.json",
+    "expected": "smoke/expected.json"
+  }
+}

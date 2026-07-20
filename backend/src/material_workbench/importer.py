@@ -65,6 +65,7 @@ class WorkbookData:
     source_sha256: str
     sheets: dict[str, list[dict[str, Any]]]
     composition: dict[str, dict[str, float]]
+    hot_rolling_features: dict[str, dict[str, Any]]
     anneal_features: dict[str, dict[str, Any]]
     lineage: dict[str, dict[str, list[str]]]
     observations: list[dict[str, Any]]
@@ -387,6 +388,21 @@ def load_workbook_data(path: str | Path) -> WorkbookData:
         str(row["溶製_key"]): {short: float(row[column]) for short, column in COMPOSITION_COLUMNS.items() if row.get(column) is not None}
         for row in melt_rows
     }
+    hot_rolling_features = {
+        str(row["熱延_key"]): {
+            "reheat_temperature_c": float(row["加熱温度[℃]"]),
+            "hold_time_min": float(row["加熱保持時間[min]"]),
+            "finish_temperature_c": float(row["仕上温度[℃]"]),
+            "coiling_temperature_c": float(row["巻取温度[℃]"]),
+            "cooling_rate_c_s": float(row["冷却速度[℃/s]"]),
+            "entry_thickness_mm": float(row["入側板厚[mm]"]),
+            "exit_thickness_mm": float(row["出側板厚[mm]"]),
+            "reduction_percent": float(row["圧下率[%]"]),
+            "route": str(row["ルート"]),
+            "equipment": str(row["設備"]),
+        }
+        for row in sheets["熱延"]
+    }
     feature_rows = sheets["焼鈍特徴量"]
     anneal_history_by_key: dict[str, list[dict[str, float]]] = defaultdict(list)
     for row in sorted(sheets["焼鈍履歴"], key=lambda item: (str(item.get("焼鈍_key", "")), item.get("順番", 0))):
@@ -448,16 +464,42 @@ def load_workbook_data(path: str | Path) -> WorkbookData:
         for row in sheets[sheet_name]:
             parent = str(row.get("反復条件_key", ""))
             is_anneal = sheet_name != "熱延引張"
-            process = anneal_features.get(parent) if is_anneal else None
+            process = anneal_features.get(parent) if is_anneal else hot_rolling_features.get(parent)
             comp = upstream_composition(parent)
             outputs = {name: float(row[name]) for name in output_columns if isinstance(row.get(name), (int, float))}
             if not outputs:
                 continue
+            eligibility_reasons: list[str] = []
+            if not process:
+                eligibility_reasons.append("工程条件が見つかりません")
+            if not comp:
+                eligibility_reasons.append("上流の成分が一意に決まりません")
+            if is_anneal:
+                if process and process["feature_status"] != "特徴量化可":
+                    eligibility_reasons.append("焼鈍履歴を特徴量化できません")
+                if anneal_status.get(parent) != "学習":
+                    eligibility_reasons.append("焼鈍条件が学習対象外です")
+                if row.get("判定") != "有効":
+                    eligibility_reasons.append("試験判定が有効ではありません")
+            else:
+                if hot_status.get(parent) != "学習":
+                    eligibility_reasons.append("熱延条件が学習対象外です")
+                if row.get("判定") != "有効":
+                    eligibility_reasons.append("試験判定が有効ではありません")
+                if str(row.get("試験片方向") or "") != "L":
+                    eligibility_reasons.append("v1の推定対象はL方向です")
+                physical_ranges = {"TS[MPa]": (100.0, 2500.0), "YS[MPa]": (50.0, 2200.0), "EL[%]": (0.0, 100.0), "均一伸び[%]": (0.0, 100.0)}
+                for property_name, value in outputs.items():
+                    bounds = physical_ranges.get(property_name)
+                    if bounds and not bounds[0] <= value <= bounds[1]:
+                        eligibility_reasons.append(f"{property_name}が物理範囲外です")
             observations.append({
                 "id": str(row[observation_key]), "source": sheet_name, "parent_key": parent,
                 "features": process, "composition": comp, "outputs": outputs,
-                "eligible": bool(process and comp and process["feature_status"] == "特徴量化可" and anneal_status.get(parent) == "学習" and row.get("判定") == "有効") if is_anneal else bool(comp and hot_status.get(parent) == "学習" and row.get("判定") == "有効"),
+                "eligible": not eligibility_reasons,
+                "eligibility_reasons": eligibility_reasons,
                 "thickness_mm": float(row.get("板厚[mm]", 0) or 0), "date": _as_date(row.get("試験日")),
+                "test_direction": str(row.get("試験片方向") or "L") if not is_anneal else None,
             })
     values = {name: sorted(float(row[name]) for row in melt_rows if isinstance(row.get(name), (int, float))) for name in COMPOSITION_COLUMNS.values()}
     medians = {short: series[len(series) // 2] for short, name in COMPOSITION_COLUMNS.items() if (series := values[name])}
@@ -465,4 +507,4 @@ def load_workbook_data(path: str | Path) -> WorkbookData:
         source_sha256 = hashlib.file_digest(source_file, "sha256").hexdigest()
     normalized_lineage = {k: {inner: sorted(set(values)) for inner, values in v.items()} for k, v in lineage.items()}
     detected_quality = _detect_data_quality(sheets, entities)
-    return WorkbookData(str(path), path.stat().st_mtime_ns, source_sha256, sheets, composition, anneal_features, normalized_lineage, observations, sheets["想定異常"], detected_quality, dict(entities), medians)
+    return WorkbookData(str(path), path.stat().st_mtime_ns, source_sha256, sheets, composition, hot_rolling_features, anneal_features, normalized_lineage, observations, sheets["想定異常"], detected_quality, dict(entities), medians)

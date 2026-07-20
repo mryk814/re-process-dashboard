@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from .schemas import ActualMeasurement, ActualMeasurementInput, Candidate, CandidateInput, Project, ProjectInput
+from .schemas import ActualMeasurement, ActualMeasurementInput, Candidate, CandidateInput, HotRollingCandidate, HotRollingCandidateInput, Project, ProjectInput
 
 
 MAX_CANDIDATES_PER_PROJECT = 10
@@ -52,6 +52,7 @@ class Store:
                 CREATE TABLE IF NOT EXISTS snapshots (id TEXT PRIMARY KEY, candidate_id TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS screening_runs (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS actual_measurements (id TEXT PRIMARY KEY, candidate_id TEXT NOT NULL, snapshot_id TEXT NOT NULL, property TEXT NOT NULL, mean REAL NOT NULL, std REAL NOT NULL, replicates INTEGER NOT NULL, unit TEXT NOT NULL, experiment_no TEXT NOT NULL, measured_at TEXT, note TEXT NOT NULL, created_at TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS hot_rolling_candidates (id TEXT PRIMARY KEY, name TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
             """)
             existing = {row[1] for row in conn.execute("PRAGMA table_info(projects)")}
             for name, definition in (("description", "TEXT NOT NULL DEFAULT ''"), ("purpose", "TEXT NOT NULL DEFAULT ''"), ("task_id", "TEXT NOT NULL DEFAULT 'annealed-properties-v1'"), ("target_values", "TEXT NOT NULL DEFAULT '{}'"), ("notes", "TEXT NOT NULL DEFAULT ''"), ("decision_candidate_id", "TEXT NOT NULL DEFAULT ''"), ("decision_snapshot_id", "TEXT NOT NULL DEFAULT ''"), ("decision_note", "TEXT NOT NULL DEFAULT ''"), ("updated_at", "TEXT NOT NULL DEFAULT ''")):
@@ -177,6 +178,44 @@ class Store:
             conn.execute("DELETE FROM snapshots WHERE candidate_id = ?", (candidate_id,))
             deleted = bool(conn.execute("DELETE FROM candidates WHERE id = ?", (candidate_id,)).rowcount)
             return deleted
+
+    @staticmethod
+    def _hot_rolling_candidate(row: sqlite3.Row) -> HotRollingCandidate:
+        return HotRollingCandidate(
+            id=row["id"], created_at=datetime.fromisoformat(row["created_at"]), updated_at=datetime.fromisoformat(row["updated_at"]),
+            **json.loads(row["payload"]),
+        )
+
+    def list_hot_rolling_candidates(self) -> list[HotRollingCandidate]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT * FROM hot_rolling_candidates ORDER BY created_at").fetchall()
+        return [self._hot_rolling_candidate(row) for row in rows]
+
+    def get_hot_rolling_candidate(self, candidate_id: str) -> HotRollingCandidate | None:
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM hot_rolling_candidates WHERE id=?", (candidate_id,)).fetchone()
+        return self._hot_rolling_candidate(row) if row else None
+
+    def create_hot_rolling_candidate(self, payload: HotRollingCandidateInput) -> HotRollingCandidate:
+        candidate_id, now = str(uuid.uuid4()), _now()
+        with self._connect() as conn:
+            if int(conn.execute("SELECT COUNT(*) FROM hot_rolling_candidates").fetchone()[0]) >= MAX_CANDIDATES_PER_PROJECT:
+                raise CandidateLimitError(f"熱延候補は最大{MAX_CANDIDATES_PER_PROJECT}件です")
+            conn.execute("INSERT INTO hot_rolling_candidates VALUES (?, ?, ?, ?, ?)", (candidate_id, payload.name, payload.model_dump_json(), now, now))
+        candidate = self.get_hot_rolling_candidate(candidate_id)
+        if candidate is None:
+            raise RuntimeError("作成した熱延候補を再取得できませんでした")
+        return candidate
+
+    def update_hot_rolling_candidate(self, candidate_id: str, payload: HotRollingCandidateInput) -> HotRollingCandidate | None:
+        now = _now()
+        with self._connect() as conn:
+            result = conn.execute("UPDATE hot_rolling_candidates SET name=?, payload=?, updated_at=? WHERE id=?", (payload.name, payload.model_dump_json(), now, candidate_id))
+        return self.get_hot_rolling_candidate(candidate_id) if result.rowcount else None
+
+    def delete_hot_rolling_candidate(self, candidate_id: str) -> bool:
+        with self._connect() as conn:
+            return bool(conn.execute("DELETE FROM hot_rolling_candidates WHERE id=?", (candidate_id,)).rowcount)
 
     def create_snapshot(self, candidate_id: str, payload: dict[str, Any]) -> dict[str, Any]:
         snapshot = {"id": str(uuid.uuid4()), "candidate_id": candidate_id, "created_at": _now(), "payload": payload}

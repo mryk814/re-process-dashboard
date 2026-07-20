@@ -1,0 +1,93 @@
+{
+  "id": "metallurgy-hot-rolling",
+  "version": "1.0.0",
+  "features": [
+    {
+      "name": "C"
+    },
+    {
+      "name": "Si"
+    },
+    {
+      "name": "Mn"
+    },
+    {
+      "name": "P"
+    },
+    {
+      "name": "S"
+    },
+    {
+      "name": "Cr"
+    },
+    {
+      "name": "Mo"
+    },
+    {
+      "name": "Ni"
+    },
+    {
+      "name": "Al"
+    },
+    {
+      "name": "Ti"
+    },
+    {
+      "name": "B"
+    },
+    {
+      "name": "N"
+    },
+    {
+      "name": "O"
+    },
+    {
+      "name": "Ca"
+    },
+    {
+      "name": "ce_iiw"
+    },
+    {
+      "name": "pcm"
+    },
+    {
+      "name": "c_times_mn"
+    },
+    {
+      "name": "si_plus_al"
+    },
+    {
+      "name": "cr_plus_mo"
+    },
+    {
+      "name": "reheat_temperature_c"
+    },
+    {
+      "name": "hold_time_min"
+    },
+    {
+      "name": "finish_temperature_c"
+    },
+    {
+      "name": "coiling_temperature_c"
+    },
+    {
+      "name": "cooling_rate_c_s"
+    },
+    {
+      "name": "entry_thickness_mm"
+    },
+    {
+      "name": "exit_thickness_mm"
+    },
+    {
+      "name": "route_A"
+    },
+    {
+      "name": "route_B"
+    },
+    {
+      "name": "route_C"
+    }
+  ]
+}
