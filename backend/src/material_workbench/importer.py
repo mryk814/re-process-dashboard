@@ -266,6 +266,7 @@ def lineage_node_detail(data: WorkbookData, entity_key: str) -> dict[str, Any]:
             "source": observation["source"],
             "parent_key": observation["parent_key"],
             "outputs": observation["outputs"],
+            "output_warnings": observation.get("output_warnings", {}),
         })
         for property_name, value in observation["outputs"].items():
             aggregate[property_name].append(float(value))
@@ -317,7 +318,7 @@ def lineage_node_detail(data: WorkbookData, entity_key: str) -> dict[str, Any]:
     }
 
 
-def lineage_neighborhood(data: WorkbookData, entity_key: str, max_nodes: int = 80) -> dict[str, Any]:
+def lineage_neighborhood(data: WorkbookData, entity_key: str, max_nodes: int = 40) -> dict[str, Any]:
     """Build a bounded route graph while preserving evidence from relation rows."""
     if entity_key not in data.lineage:
         raise KeyError(entity_key)
@@ -340,9 +341,10 @@ def lineage_neighborhood(data: WorkbookData, entity_key: str, max_nodes: int = 8
 
     ordered = sorted(
         candidate_nodes.items(),
-        key=lambda item: (data.lineage_stage_order.get(item[1], 99), item[0] != entity_key, item[0]),
+        key=lambda item: (item[0] != entity_key, data.lineage_stage_order.get(item[1], 99), item[0]),
     )
-    visible = dict(ordered[:max_nodes])
+    node_limit = max(1, max_nodes)
+    visible = dict(ordered[:node_limit])
     issue_by_key: dict[str, list[str]] = defaultdict(list)
     for issue in data.detected_quality:
         if issue["entity_key"] in visible and issue["issue_type"] not in issue_by_key[issue["entity_key"]]:
@@ -383,6 +385,10 @@ def lineage_neighborhood(data: WorkbookData, entity_key: str, max_nodes: int = 8
             for (source, target), rows in sorted(edge_rows.items())
         ],
         "relation_row_count": len(route_rows),
+        "visible_node_count": len(visible),
+        "total_node_count": len(ordered),
+        "node_limit": node_limit,
+        "has_more": len(visible) < len(ordered),
         "omitted_node_count": max(0, len(ordered) - len(visible)),
     }
 
@@ -541,6 +547,7 @@ def load_workbook_data(
             if not outputs:
                 continue
             eligibility_reasons: list[str] = []
+            output_warnings: dict[str, list[str]] = {}
             if not process:
                 eligibility_reasons.append("工程条件が見つかりません")
             if not comp:
@@ -559,16 +566,20 @@ def load_workbook_data(
                     eligibility_reasons.append("試験判定が有効ではありません")
                 if not canonical_observation.policy_results.get("hot_l_direction/v1", False):
                     eligibility_reasons.append("v1の推定対象はL方向です")
-                physical_ranges = profile.shared.physical_ranges.get(canonical_observation.task_id, {})
-                for property_name, value in canonical_observation.canonical_measurements.items():
-                    bounds = physical_ranges.get(property_name)
-                    if bounds and not bounds[0] <= value <= bounds[1]:
-                        eligibility_reasons.append(f"{measurement_labels[property_name]}が物理範囲外です")
+            physical_ranges = profile.shared.physical_ranges.get(canonical_observation.task_id, {})
+            for property_name, value in canonical_observation.canonical_measurements.items():
+                bounds = physical_ranges.get(property_name)
+                if bounds and not bounds[0] <= value <= bounds[1]:
+                    label = measurement_labels[property_name]
+                    warning = f"{label}が物理範囲外です（妥当範囲 {bounds[0]:g}–{bounds[1]:g}）"
+                    eligibility_reasons.append(f"{label}が物理範囲外です")
+                    output_warnings.setdefault(label, []).append(warning)
             observations.append({
                 "id": canonical_observation.id, "source": profile.sheet_for_role(canonical_observation.source_role), "parent_key": parent,
                 "features": process, "composition": comp, "outputs": outputs,
                 "eligible": not eligibility_reasons,
                 "eligibility_reasons": eligibility_reasons,
+                "output_warnings": output_warnings,
                 "thickness_mm": float(canonical_observation.metadata.get("thickness_mm") or 0),
                 "date": _as_date(canonical_observation.metadata.get("date")),
                 "test_direction": str(canonical_observation.metadata.get("direction") or "L") if not is_anneal else None,

@@ -585,6 +585,16 @@
             "title": "Id",
             "type": "string"
           },
+          "output_warnings": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Output Warnings",
+            "type": "object"
+          },
           "outputs": {
             "additionalProperties": {
               "type": "number"
@@ -1167,6 +1177,14 @@
             "title": "Edges",
             "type": "array"
           },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "node_limit": {
+            "title": "Node Limit",
+            "type": "integer"
+          },
           "nodes": {
             "items": {
               "$ref": "#/components/schemas/LineageGraphNode"
@@ -1181,12 +1199,24 @@
           "relation_row_count": {
             "title": "Relation Row Count",
             "type": "integer"
+          },
+          "total_node_count": {
+            "title": "Total Node Count",
+            "type": "integer"
+          },
+          "visible_node_count": {
+            "title": "Visible Node Count",
+            "type": "integer"
           }
         },
         "required": [
           "nodes",
           "edges",
           "relation_row_count",
+          "visible_node_count",
+          "total_node_count",
+          "node_limit",
+          "has_more",
           "omitted_node_count"
         ],
         "title": "LineageGraph",
@@ -4048,6 +4078,18 @@
             "schema": {
               "title": "Entity Key",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 40,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
             }
           }
         ],

@@ -114,6 +114,7 @@ export function ProjectHub({
   }, [activeProjectId, selectedSnapshot?.id, history]);
 
   const activeCandidates = history?.candidates.filter((item) => !item.candidate.archived_at) ?? [];
+  const supportsLineageCandidate = taskDefinition?.input_groups.some((group) => group.key === "heat_pattern") ?? false;
   const copyTaskId = candidate ? projects.find((item) => item.id === candidate.raw.project_id)?.task_id : undefined;
   const outputLabels = useMemo(() => new Map((taskDefinition?.outputs ?? []).map((output) => [output.key, output.label])), [taskDefinition]);
 
@@ -248,7 +249,7 @@ export function ProjectHub({
       <section className="project-next-actions">
         <div className="panel-title"><h3>次の作業</h3><span>{activeCandidates.length ? `${activeCandidates.length}候補を検討中` : "まだ候補がありません"}</span></div>
         <div className="project-action-grid">
-          <button className="project-action-card primary" onClick={() => onNavigate(activeCandidates.length ? "candidates" : "lineage")}><strong>{activeCandidates.length ? "候補を比較" : "過去データから探す"}</strong><span>{activeCandidates.length ? "入力・予測・根拠を横並びで確認" : "既存の条件と問題から出発"}</span></button>
+          <button className="project-action-card primary" onClick={() => onNavigate(activeCandidates.length || !supportsLineageCandidate ? "candidates" : "lineage")}><strong>{activeCandidates.length ? "候補を比較" : supportsLineageCandidate ? "過去データから探す" : "最初の候補を作る"}</strong><span>{activeCandidates.length ? "入力・予測・根拠を横並びで確認" : supportsLineageCandidate ? "既存の条件と問題から出発" : "この予測タスクの入力を直接指定"}</span></button>
           <button className="project-action-card" onClick={() => onNavigate("explore")}><strong>条件範囲から探す</strong><span>目標と入力範囲から候補を生成</span></button>
           <button className="project-action-card" onClick={() => onNavigate("candidates")}><strong>直接候補を作る</strong><span>具体的な成分・工程条件を入力</span></button>
         </div>
@@ -256,7 +257,7 @@ export function ProjectHub({
 
       <section className="project-history-section">
         <div className="panel-title"><h3>候補と判断履歴</h3><span>現在値と固定した予測を分けて表示</span></div>
-        {!history ? <p className="empty-evidence">履歴を読み込んでいます。</p> : !history.candidates.length ? <div className="project-empty-state"><p>候補はまだありません。過去データから条件を探すと、由来付き候補としてここに残ります。</p><button className="primary-button" onClick={() => onNavigate("lineage")}>過去データから探す</button></div> : <div className="project-history-list">
+        {!history ? <p className="empty-evidence">履歴を読み込んでいます。</p> : !history.candidates.length ? <div className="project-empty-state"><p>{supportsLineageCandidate ? "候補はまだありません。過去データから条件を探すと、由来付き候補としてここに残ります。" : "候補はまだありません。この予測タスクの入力を直接指定して検討を始めます。"}</p><button className="primary-button" onClick={() => onNavigate(supportsLineageCandidate ? "lineage" : "candidates")}>{supportsLineageCandidate ? "過去データから探す" : "最初の候補を作る"}</button></div> : <div className="project-history-list">
           {history.candidates.map((item) => {
             const preview = currentPreviews[item.candidate.id];
             return <article className="project-history-card" key={item.candidate.id}>

@@ -791,6 +791,10 @@ export interface components {
         ConnectedObservation: {
             /** Id */
             id: string;
+            /** Output Warnings */
+            output_warnings?: {
+                [key: string]: string[];
+            };
             /** Outputs */
             outputs: {
                 [key: string]: number;
@@ -1005,12 +1009,20 @@ export interface components {
         LineageGraph: {
             /** Edges */
             edges: components["schemas"]["LineageGraphEdge"][];
+            /** Has More */
+            has_more: boolean;
+            /** Node Limit */
+            node_limit: number;
             /** Nodes */
             nodes: components["schemas"]["LineageGraphNode"][];
             /** Omitted Node Count */
             omitted_node_count: number;
             /** Relation Row Count */
             relation_row_count: number;
+            /** Total Node Count */
+            total_node_count: number;
+            /** Visible Node Count */
+            visible_node_count: number;
         };
         /** LineageGraphEdge */
         LineageGraphEdge: {
@@ -2212,7 +2224,9 @@ export interface operations {
     };
     lineage_api_lineage__entity_key__get: {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number;
+            };
             header?: never;
             path: {
                 entity_key: string;

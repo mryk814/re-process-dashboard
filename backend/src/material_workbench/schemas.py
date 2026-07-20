@@ -607,6 +607,7 @@ class ConnectedObservation(BaseModel):
     source: str
     parent_key: str
     outputs: dict[str, float]
+    output_warnings: dict[str, list[str]] = Field(default_factory=dict)
 
 
 class ObservationGroup(BaseModel):
@@ -641,6 +642,10 @@ class LineageGraph(BaseModel):
     nodes: list[LineageGraphNode]
     edges: list[LineageGraphEdge]
     relation_row_count: int
+    visible_node_count: int
+    total_node_count: int
+    node_limit: int
+    has_more: bool
     omitted_node_count: int
 
 

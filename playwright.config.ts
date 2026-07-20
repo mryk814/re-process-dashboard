@@ -2,8 +2,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { defineConfig } from "@playwright/test";
 
-const apiPort = 8875;
-const webPort = 5199;
+const apiPort = Number(process.env.PLAYWRIGHT_API_PORT ?? 8875);
+const webPort = Number(process.env.PLAYWRIGHT_WEB_PORT ?? 5199);
 const database = join(tmpdir(), `material-workbench-e2e-${process.pid}.db`);
 
 export default defineConfig({
