@@ -1,7 +1,7 @@
 {
   "schema_version": "model-package/v1",
-  "package_id": "annealed-ridge-2026-07",
-  "package_version": "0.4.0-oof-v1",
+  "package_id": "annealed-gp-2026-07",
+  "package_version": "0.5.0-exact-gp-v1",
   "task_id": "annealed-properties-v1",
   "input_schema_version": "candidate-v1",
   "feature_pipeline": {
@@ -45,19 +45,19 @@
       "has_reheat"
     ],
     "artifacts": [
-      "reference/oof_residuals.npz",
       "reference/training_stats.json"
     ]
   },
   "predictors": [
     {
-      "id": "el-ridge",
+      "id": "el-gp",
       "target": "EL",
       "unit": "%",
       "target_kind": "continuous",
-      "runtime_type": "builtin.linear.v1",
+      "runtime_type": "builtin.exact_gp.v1",
+      "architecture_id": "exact_rbf_grouped_v1",
       "artifact": "model-artifacts/EL.npz",
-      "predictive_family": "empirical_quantiles",
+      "predictive_family": "normal",
       "feature_names": [
         "C",
         "Si",
@@ -95,18 +95,19 @@
         "has_reheat"
       ],
       "config": {
-        "calibration": "grouped_oof_residual_quantiles",
-        "grouping": "parent_key"
+        "training_unit": "parent_condition_mean",
+        "replicate_noise": "pooled_within_parent"
       }
     },
     {
-      "id": "ts-ridge",
+      "id": "ts-gp",
       "target": "TS",
       "unit": "MPa",
       "target_kind": "continuous",
-      "runtime_type": "builtin.linear.v1",
+      "runtime_type": "builtin.exact_gp.v1",
+      "architecture_id": "exact_rbf_grouped_v1",
       "artifact": "model-artifacts/TS.npz",
-      "predictive_family": "empirical_quantiles",
+      "predictive_family": "normal",
       "feature_names": [
         "C",
         "Si",
@@ -144,18 +145,19 @@
         "has_reheat"
       ],
       "config": {
-        "calibration": "grouped_oof_residual_quantiles",
-        "grouping": "parent_key"
+        "training_unit": "parent_condition_mean",
+        "replicate_noise": "pooled_within_parent"
       }
     },
     {
-      "id": "ys-ridge",
+      "id": "ys-gp",
       "target": "YS",
       "unit": "MPa",
       "target_kind": "continuous",
-      "runtime_type": "builtin.linear.v1",
+      "runtime_type": "builtin.exact_gp.v1",
+      "architecture_id": "exact_rbf_grouped_v1",
       "artifact": "model-artifacts/YS.npz",
-      "predictive_family": "empirical_quantiles",
+      "predictive_family": "normal",
       "feature_names": [
         "C",
         "Si",
@@ -193,18 +195,19 @@
         "has_reheat"
       ],
       "config": {
-        "calibration": "grouped_oof_residual_quantiles",
-        "grouping": "parent_key"
+        "training_unit": "parent_condition_mean",
+        "replicate_noise": "pooled_within_parent"
       }
     },
     {
-      "id": "lambda-ridge",
+      "id": "lambda-gp",
       "target": "lambda",
       "unit": "%",
       "target_kind": "continuous_positive",
-      "runtime_type": "builtin.linear.v1",
+      "runtime_type": "builtin.exact_gp.v1",
+      "architecture_id": "exact_rbf_grouped_v1",
       "artifact": "model-artifacts/lambda.npz",
-      "predictive_family": "empirical_quantiles",
+      "predictive_family": "normal",
       "feature_names": [
         "C",
         "Si",
@@ -242,15 +245,15 @@
         "has_reheat"
       ],
       "config": {
-        "calibration": "grouped_oof_residual_quantiles",
-        "grouping": "parent_key"
+        "training_unit": "parent_condition_mean",
+        "replicate_noise": "pooled_within_parent"
       }
     }
   ],
   "provenance": {
     "training_data_id": "sha256:f5b75d4a2e29c0e85f24fe2325b4c610e23ba6ce65ba3b5c53c097a68ca60c55",
-    "feature_dataset_id": "sha256:e254594181366454a1af1464fa5407cee7de05ea287fb78cfafda52e0dd09d6b",
-    "training_code_revision": "0.4.0-oof-v1"
+    "feature_dataset_id": "sha256:c4b18b8e152a0d35c452d08334a6f5726dff74c4b80c0aea8016a9269bc43058",
+    "training_code_revision": "0.5.0-exact-gp-v1"
   },
   "artifacts": [
     {
@@ -260,32 +263,27 @@
     },
     {
       "path": "model-artifacts/EL.npz",
-      "sha256": "ff4ab3b7753013cadc2ddeb2c27fa1e52ed62f04366b955d2011ec8c8083b963",
-      "bytes": 1316
+      "sha256": "19501a409005c43ed645b2df3995404d1ebdcd3e4d3b65ae2b9f6ea9333fa008",
+      "bytes": 208412
     },
     {
       "path": "model-artifacts/TS.npz",
-      "sha256": "711da92232a306b5c997203c1807efa28e74f1dd7381aa20f2eb676fc0dccc4f",
-      "bytes": 1316
+      "sha256": "ec24b5426cf2b1161bf57d80a724fb2ddff7e18cdef450eace9ff2c95ad08510",
+      "bytes": 208412
     },
     {
       "path": "model-artifacts/YS.npz",
-      "sha256": "89ad25f1423abe13e60d12f358a19b90620f816cb7d8a60866b2521a0aaa4dbc",
-      "bytes": 1316
+      "sha256": "2a028fedb0e15733f09ccb0874814f69fe70a1d92e5494f622b02155ff2efeb5",
+      "bytes": 208412
     },
     {
       "path": "model-artifacts/lambda.npz",
-      "sha256": "9d31cb5335f757b00b95e0b23d1ac0038f7f22c0a9565dc4004966743744d60d",
-      "bytes": 1316
-    },
-    {
-      "path": "reference/oof_residuals.npz",
-      "sha256": "27f0e009a9ed4b18b3c3ca509a6e5db7b03884b6f0c1016b7be944d0c02f32b7",
-      "bytes": 11862
+      "sha256": "303b452fcc1217ad45bce49d741df58f6360ee06bd1107c82ea7f08c193497ce",
+      "bytes": 185876
     },
     {
       "path": "reference/training_stats.json",
-      "sha256": "e254594181366454a1af1464fa5407cee7de05ea287fb78cfafda52e0dd09d6b",
+      "sha256": "c4b18b8e152a0d35c452d08334a6f5726dff74c4b80c0aea8016a9269bc43058",
       "bytes": 484
     },
     {
@@ -295,8 +293,8 @@
     },
     {
       "path": "smoke/expected.json",
-      "sha256": "26e5d62fce091bc5e106f35f9fabdce875ed7ac3ba27edea6f86434bb6ad1213",
-      "bytes": 95
+      "sha256": "7e6cfa1cd8cc1529f04418d0028880f32d0ec53bdefbc2bb40e3593a75eca923",
+      "bytes": 97
     }
   ],
   "smoke_test": {

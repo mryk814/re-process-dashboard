@@ -50,10 +50,10 @@ def _validation_error(payload: dict) -> ValueError:
 def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
     assert client.get("/api/health").json()["ok"] is True
     package = client.get("/api/model-package").json()
-    assert package["id"] == "annealed-ridge-2026-07"
+    assert package["id"] == "annealed-gp-2026-07"
     assert len(package["manifest_sha256"]) == 64
     assert {item["runtime_type"] for item in package["supported_runtimes"]} == {
-        "builtin.linear.v1", "sklearn.skops.v1", "lightgbm.booster.v1",
+        "builtin.linear.v1", "builtin.exact_gp.v1", "sklearn.skops.v1", "lightgbm.booster.v1",
         "gpytorch.static_exact_rbf.v1", "numpyro.dense_posterior.v1",
     }
     task = client.get("/api/projects/default/task-definition").json()
@@ -74,8 +74,9 @@ def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
     assert 0 <= first["support"]["percentile"] <= 100
     assert {"composition", "metallurgy", "process", "heat_pattern"} == set(first["support"]["components"])
     assert first["support"]["reference_count"] > 1
-    assert first["model_meta"]["prediction_interval"]["method"] == "grouped_oof_residual_quantiles"
+    assert first["model_meta"]["prediction_interval"]["method"] == "gaussian_process_predictive_distribution"
     assert first["model_meta"]["prediction_interval"]["grouping"] == "parent_key"
+    assert all(prediction["uncertainty_components"] for prediction in first["predictions"].values())
     assert first["canonical_input"]["input_schema_version"] == "candidate-v1"
     atomic_result = client.post(f"/api/candidates/{candidate['id']}/predict").json()
     detailed = atomic_result["prediction"]

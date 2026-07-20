@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from .schemas import ActualMeasurement, ActualMeasurementInput, Candidate, CandidateInput, Project, ProjectInput
+from .schemas import ActualMeasurement, ActualMeasurementInput, Candidate, CandidateInput, HotRollingCandidate, HotRollingCandidateInput, Project, ProjectInput
 
 
 MAX_CANDIDATES_PER_PROJECT = 10
@@ -47,26 +47,27 @@ class Store:
     def _init(self) -> None:
         with self._connect() as conn:
             conn.executescript("""
-                CREATE TABLE IF NOT EXISTS projects (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', purpose TEXT NOT NULL DEFAULT '', task_id TEXT NOT NULL DEFAULT 'annealed-properties-v1', target_values TEXT NOT NULL DEFAULT '{}', notes TEXT NOT NULL DEFAULT '', decision_candidate_id TEXT NOT NULL DEFAULT '', decision_snapshot_id TEXT NOT NULL DEFAULT '', decision_note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT '');
+                CREATE TABLE IF NOT EXISTS projects (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', purpose TEXT NOT NULL DEFAULT '', task_id TEXT NOT NULL DEFAULT 'annealed-properties-v1', target_values TEXT NOT NULL DEFAULT '{}', input_ranges TEXT NOT NULL DEFAULT '{}', notes TEXT NOT NULL DEFAULT '', decision_candidate_id TEXT NOT NULL DEFAULT '', decision_snapshot_id TEXT NOT NULL DEFAULT '', decision_note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT '');
                 CREATE TABLE IF NOT EXISTS candidates (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, name TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS snapshots (id TEXT PRIMARY KEY, candidate_id TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS screening_runs (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS actual_measurements (id TEXT PRIMARY KEY, candidate_id TEXT NOT NULL, snapshot_id TEXT NOT NULL, property TEXT NOT NULL, mean REAL NOT NULL, std REAL NOT NULL, replicates INTEGER NOT NULL, unit TEXT NOT NULL, experiment_no TEXT NOT NULL, measured_at TEXT, note TEXT NOT NULL, created_at TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS hot_rolling_candidates (id TEXT PRIMARY KEY, name TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
             """)
             existing = {row[1] for row in conn.execute("PRAGMA table_info(projects)")}
-            for name, definition in (("description", "TEXT NOT NULL DEFAULT ''"), ("purpose", "TEXT NOT NULL DEFAULT ''"), ("task_id", "TEXT NOT NULL DEFAULT 'annealed-properties-v1'"), ("target_values", "TEXT NOT NULL DEFAULT '{}'"), ("notes", "TEXT NOT NULL DEFAULT ''"), ("decision_candidate_id", "TEXT NOT NULL DEFAULT ''"), ("decision_snapshot_id", "TEXT NOT NULL DEFAULT ''"), ("decision_note", "TEXT NOT NULL DEFAULT ''"), ("updated_at", "TEXT NOT NULL DEFAULT ''")):
+            for name, definition in (("description", "TEXT NOT NULL DEFAULT ''"), ("purpose", "TEXT NOT NULL DEFAULT ''"), ("task_id", "TEXT NOT NULL DEFAULT 'annealed-properties-v1'"), ("target_values", "TEXT NOT NULL DEFAULT '{}'"), ("input_ranges", "TEXT NOT NULL DEFAULT '{}'"), ("notes", "TEXT NOT NULL DEFAULT ''"), ("decision_candidate_id", "TEXT NOT NULL DEFAULT ''"), ("decision_snapshot_id", "TEXT NOT NULL DEFAULT ''"), ("decision_note", "TEXT NOT NULL DEFAULT ''"), ("updated_at", "TEXT NOT NULL DEFAULT ''")):
                 if name not in existing:
                     conn.execute(f"ALTER TABLE projects ADD COLUMN {name} {definition}")
             actual_columns = {row[1] for row in conn.execute("PRAGMA table_info(actual_measurements)")}
             if "snapshot_id" not in actual_columns:
                 conn.execute("ALTER TABLE actual_measurements ADD COLUMN snapshot_id TEXT NOT NULL DEFAULT ''")
             now = _now()
-            conn.execute("INSERT OR IGNORE INTO projects(id, name, description, purpose, task_id, target_values, notes, decision_candidate_id, decision_snapshot_id, decision_note, created_at, updated_at) VALUES ('default', '焼鈍条件の候補検討', '', '', 'annealed-properties-v1', '{}', '', '', '', '', ?, ?)", (now, now))
+            conn.execute("INSERT OR IGNORE INTO projects(id, name, description, purpose, task_id, target_values, input_ranges, notes, decision_candidate_id, decision_snapshot_id, decision_note, created_at, updated_at) VALUES ('default', '焼鈍条件の候補検討', '', '', 'annealed-properties-v1', '{}', '{}', '', '', '', '', ?, ?)", (now, now))
             conn.execute("UPDATE projects SET updated_at = created_at WHERE updated_at = ''")
 
     @staticmethod
     def _project(row: sqlite3.Row) -> Project:
-        return Project(id=row["id"], name=row["name"], description=row["description"], purpose=row["purpose"], task_id=row["task_id"], target_values=json.loads(row["target_values"]), notes=row["notes"], decision_candidate_id=row["decision_candidate_id"], decision_snapshot_id=row["decision_snapshot_id"], decision_note=row["decision_note"], created_at=datetime.fromisoformat(row["created_at"]), updated_at=datetime.fromisoformat(row["updated_at"]))
+        return Project(id=row["id"], name=row["name"], description=row["description"], purpose=row["purpose"], task_id=row["task_id"], target_values=json.loads(row["target_values"]), input_ranges=json.loads(row["input_ranges"]), notes=row["notes"], decision_candidate_id=row["decision_candidate_id"], decision_snapshot_id=row["decision_snapshot_id"], decision_note=row["decision_note"], created_at=datetime.fromisoformat(row["created_at"]), updated_at=datetime.fromisoformat(row["updated_at"]))
 
     def list_projects(self) -> list[Project]:
         with self._connect() as conn:
@@ -82,8 +83,8 @@ class Store:
         project_id, now = str(uuid.uuid4()), _now()
         with self._connect() as conn:
             conn.execute(
-                "INSERT INTO projects(id, name, description, purpose, task_id, target_values, notes, decision_candidate_id, decision_snapshot_id, decision_note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (project_id, payload.name, payload.description, payload.purpose, payload.task_id, json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True), payload.notes, payload.decision_candidate_id, payload.decision_snapshot_id, payload.decision_note, now, now),
+                "INSERT INTO projects(id, name, description, purpose, task_id, target_values, input_ranges, notes, decision_candidate_id, decision_snapshot_id, decision_note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (project_id, payload.name, payload.description, payload.purpose, payload.task_id, json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True), json.dumps({key: value.model_dump() for key, value in payload.input_ranges.items()}, ensure_ascii=False, sort_keys=True), payload.notes, payload.decision_candidate_id, payload.decision_snapshot_id, payload.decision_note, now, now),
             )
         return self.get_project(project_id)  # type: ignore[return-value]
 
@@ -92,7 +93,7 @@ class Store:
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
             self._validate_decision(conn, project_id, payload.decision_candidate_id, payload.decision_snapshot_id)
-            result = conn.execute("UPDATE projects SET name=?, description=?, purpose=?, task_id=?, target_values=?, notes=?, decision_candidate_id=?, decision_snapshot_id=?, decision_note=?, updated_at=? WHERE id=?", (payload.name, payload.description, payload.purpose, payload.task_id, json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True), payload.notes, payload.decision_candidate_id, payload.decision_snapshot_id, payload.decision_note, now, project_id))
+            result = conn.execute("UPDATE projects SET name=?, description=?, purpose=?, task_id=?, target_values=?, input_ranges=?, notes=?, decision_candidate_id=?, decision_snapshot_id=?, decision_note=?, updated_at=? WHERE id=?", (payload.name, payload.description, payload.purpose, payload.task_id, json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True), json.dumps({key: value.model_dump() for key, value in payload.input_ranges.items()}, ensure_ascii=False, sort_keys=True), payload.notes, payload.decision_candidate_id, payload.decision_snapshot_id, payload.decision_note, now, project_id))
         return self.get_project(project_id) if result.rowcount else None
 
     @staticmethod
@@ -177,6 +178,44 @@ class Store:
             conn.execute("DELETE FROM snapshots WHERE candidate_id = ?", (candidate_id,))
             deleted = bool(conn.execute("DELETE FROM candidates WHERE id = ?", (candidate_id,)).rowcount)
             return deleted
+
+    @staticmethod
+    def _hot_rolling_candidate(row: sqlite3.Row) -> HotRollingCandidate:
+        return HotRollingCandidate(
+            id=row["id"], created_at=datetime.fromisoformat(row["created_at"]), updated_at=datetime.fromisoformat(row["updated_at"]),
+            **json.loads(row["payload"]),
+        )
+
+    def list_hot_rolling_candidates(self) -> list[HotRollingCandidate]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT * FROM hot_rolling_candidates ORDER BY created_at").fetchall()
+        return [self._hot_rolling_candidate(row) for row in rows]
+
+    def get_hot_rolling_candidate(self, candidate_id: str) -> HotRollingCandidate | None:
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM hot_rolling_candidates WHERE id=?", (candidate_id,)).fetchone()
+        return self._hot_rolling_candidate(row) if row else None
+
+    def create_hot_rolling_candidate(self, payload: HotRollingCandidateInput) -> HotRollingCandidate:
+        candidate_id, now = str(uuid.uuid4()), _now()
+        with self._connect() as conn:
+            if int(conn.execute("SELECT COUNT(*) FROM hot_rolling_candidates").fetchone()[0]) >= MAX_CANDIDATES_PER_PROJECT:
+                raise CandidateLimitError(f"熱延候補は最大{MAX_CANDIDATES_PER_PROJECT}件です")
+            conn.execute("INSERT INTO hot_rolling_candidates VALUES (?, ?, ?, ?, ?)", (candidate_id, payload.name, payload.model_dump_json(), now, now))
+        candidate = self.get_hot_rolling_candidate(candidate_id)
+        if candidate is None:
+            raise RuntimeError("作成した熱延候補を再取得できませんでした")
+        return candidate
+
+    def update_hot_rolling_candidate(self, candidate_id: str, payload: HotRollingCandidateInput) -> HotRollingCandidate | None:
+        now = _now()
+        with self._connect() as conn:
+            result = conn.execute("UPDATE hot_rolling_candidates SET name=?, payload=?, updated_at=? WHERE id=?", (payload.name, payload.model_dump_json(), now, candidate_id))
+        return self.get_hot_rolling_candidate(candidate_id) if result.rowcount else None
+
+    def delete_hot_rolling_candidate(self, candidate_id: str) -> bool:
+        with self._connect() as conn:
+            return bool(conn.execute("DELETE FROM hot_rolling_candidates WHERE id=?", (candidate_id,)).rowcount)
 
     def create_snapshot(self, candidate_id: str, payload: dict[str, Any]) -> dict[str, Any]:
         snapshot = {"id": str(uuid.uuid4()), "candidate_id": candidate_id, "created_at": _now(), "payload": payload}

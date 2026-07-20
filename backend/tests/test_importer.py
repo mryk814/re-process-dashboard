@@ -17,6 +17,18 @@ def test_importer_preserves_relation_as_lineage_and_direct_observations() -> Non
     assert any(issue["scenario_id"] == "dangling.hot_tensile.001" for issue in data.quality)
 
 
+def test_hot_rolling_training_excludes_non_l_direction_and_physical_outliers() -> None:
+    data = load_workbook_data(SOURCE)
+    hot = {row["id"]: row for row in data.observations if row["source"] == "熱延引張"}
+    assert hot["HT-00024"]["eligible"] is False
+    assert "TS[MPa]が物理範囲外です" in hot["HT-00024"]["eligibility_reasons"]
+    assert "EL[%]が物理範囲外です" in hot["HT-00024"]["eligibility_reasons"]
+    assert hot["HT-00009"]["eligible"] is False
+    assert "v1の推定対象はL方向です" in hot["HT-00009"]["eligibility_reasons"]
+    assert hot["HT-00001"]["eligible"] is True
+    assert hot["HT-00001"]["eligibility_reasons"] == []
+
+
 def test_structural_quality_detector_covers_all_required_issue_types() -> None:
     sheets = {
         "relation": [{"溶製_key": "ME-001", "熱延_key": "HR-MISSING"}],

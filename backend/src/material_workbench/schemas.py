@@ -57,12 +57,64 @@ class Candidate(CandidateInput):
     updated_at: datetime
 
 
+class HotRollingCandidateInput(BaseModel):
+    name: Annotated[str, Field(min_length=1, max_length=80)] = "熱延候補"
+    composition: dict[str, float] = Field(default_factory=dict)
+    reheat_temperature_c: Annotated[float, Field(ge=0, le=1800)] = 1180.0
+    hold_time_min: Annotated[float, Field(gt=0, le=1440)] = 30.0
+    finish_temperature_c: Annotated[float, Field(ge=0, le=1800)] = 900.0
+    coiling_temperature_c: Annotated[float, Field(ge=0, le=1200)] = 620.0
+    cooling_rate_c_s: Annotated[float, Field(gt=0, le=1000)] = 35.0
+    entry_thickness_mm: Annotated[float, Field(gt=0, le=1000)] = 35.0
+    exit_thickness_mm: Annotated[float, Field(gt=0, le=100)] = 3.5
+    route: Literal["A", "B", "C"] = "A"
+
+    @field_validator("composition")
+    @classmethod
+    def hot_composition_is_known_and_physical(cls, value: dict[str, float]) -> dict[str, float]:
+        unknown = sorted(set(value) - COMPOSITION_ELEMENTS)
+        if unknown:
+            raise ValueError(f"未対応の組成元素です: {', '.join(unknown)}")
+        invalid = sorted(name for name, amount in value.items() if not math.isfinite(amount) or amount < 0 or amount > 100)
+        if invalid:
+            raise ValueError(f"組成は0〜100の有限値にしてください: {', '.join(invalid)}")
+        return value
+
+    @model_validator(mode="after")
+    def rolling_route_is_physical(self) -> "HotRollingCandidateInput":
+        if self.exit_thickness_mm >= self.entry_thickness_mm:
+            raise ValueError("出側板厚は入側板厚より小さくしてください")
+        if self.finish_temperature_c > self.reheat_temperature_c:
+            raise ValueError("仕上温度は加熱温度以下にしてください")
+        return self
+
+
+class HotRollingCandidate(HotRollingCandidateInput):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class InputRange(BaseModel):
+    min: float
+    max: float
+
+    @model_validator(mode="after")
+    def range_is_valid(self) -> "InputRange":
+        if not math.isfinite(self.min) or not math.isfinite(self.max):
+            raise ValueError("入力許容範囲は有限の数値にしてください")
+        if self.min >= self.max:
+            raise ValueError("入力許容範囲の最小値は最大値より小さくしてください")
+        return self
+
+
 class ProjectInput(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=120)] = "焼鈍条件の候補検討"
     description: str = ""
     purpose: str = ""
     task_id: Literal["annealed-properties-v1"] = "annealed-properties-v1"
     target_values: dict[str, float] = Field(default_factory=dict)
+    input_ranges: dict[str, InputRange] = Field(default_factory=dict)
     notes: str = ""
     decision_candidate_id: Annotated[str, Field(max_length=80)] = ""
     decision_snapshot_id: Annotated[str, Field(max_length=80)] = ""
@@ -197,6 +249,7 @@ class Prediction(BaseModel):
     goal_value: float | None = None
     goal_probability: Annotated[float | None, Field(ge=0, le=1)] = None
     goal_direction: Literal["at_least", "at_most"] | None = None
+    uncertainty_components: dict[str, float] | None = None
 
 
 class Support(BaseModel):

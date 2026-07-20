@@ -39,9 +39,33 @@ class _ExactRBFPredictor:
         cross = kernel(train_x, x)
         solved = torch.linalg.solve(covariance, train_y - mean)
         prediction = mean + float((cross[:, 0] * solved).sum())
-        variance = outputscale - float((cross[:, 0] * torch.linalg.solve(covariance, cross[:, 0])).sum()) + noise
-        standard_deviation = max(variance, 0.0) ** 0.5
-        return PredictiveSummary(target=self.spec.target, target_kind=self.spec.target_kind, unit=self.spec.unit, point_statistic="mean", point_estimate=prediction, quantiles={"0.05": prediction - 1.644854 * standard_deviation, "0.50": prediction, "0.95": prediction + 1.644854 * standard_deviation}, distribution={"family": "normal", "support": "real"})
+        latent_model_variance = max(
+            outputscale - float((cross[:, 0] * torch.linalg.solve(covariance, cross[:, 0])).sum()),
+            0.0,
+        )
+        total_predictive_variance = latent_model_variance + noise
+        total_predictive_std = total_predictive_variance ** 0.5
+        return PredictiveSummary(
+            target=self.spec.target,
+            target_kind=self.spec.target_kind,
+            unit=self.spec.unit,
+            point_statistic="mean",
+            point_estimate=prediction,
+            quantiles={
+                "0.05": prediction - 1.644854 * total_predictive_std,
+                "0.50": prediction,
+                "0.95": prediction + 1.644854 * total_predictive_std,
+            },
+            distribution={"family": "normal", "support": "real"},
+            uncertainty_components={
+                "latent_model_variance": latent_model_variance,
+                "latent_model_std": latent_model_variance ** 0.5,
+                "observation_noise_variance": noise,
+                "observation_noise_std": noise ** 0.5,
+                "total_predictive_variance": total_predictive_variance,
+                "total_predictive_std": total_predictive_std,
+            },
+        )
 
 
 class GPyTorchStaticAdapter:

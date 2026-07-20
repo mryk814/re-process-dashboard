@@ -1,6 +1,7 @@
 import { PointerEvent, useEffect, useRef, useState } from "react";
+import { HotRollingWorkbench } from "./HotRollingWorkbench";
 
-type Tab = "project" | "candidates" | "quality" | "lineage" | "explore";
+type Tab = "project" | "candidates" | "hot-rolling" | "settings" | "quality" | "lineage" | "explore";
 type Candidate = {
   raw: ApiCandidate;
   id: string;
@@ -25,6 +26,8 @@ type Metric = {
   status: string;
   goalValue?: number | null;
   goalProbability?: number | null;
+  modelStd?: number | null;
+  observationStd?: number | null;
 };
 
 type ApiPreview = {
@@ -38,6 +41,7 @@ type ApiPreview = {
       goal_value?: number | null;
       goal_probability?: number | null;
       goal_direction?: "at_least" | "at_most" | null;
+      uncertainty_components?: Record<string, number> | null;
     }
   >;
   support?: {
@@ -116,6 +120,7 @@ type ApiProject = {
   purpose: string;
   task_id: string;
   target_values: Record<string, number>;
+  input_ranges: Record<string, { min: number; max: number }>;
   notes: string;
   decision_candidate_id: string;
   decision_snapshot_id: string;
@@ -156,6 +161,8 @@ type TaskInputDefinition = {
   editable: boolean;
   min: number;
   max: number;
+  default_range?: { min: number; max: number };
+  allowed_range?: { min: number; max: number };
   training_range?: { min: number; max: number } | null;
 };
 
@@ -171,6 +178,10 @@ type TaskDefinition = {
   inputs: TaskInputDefinition[];
   outputs: TaskOutputDefinition[];
 };
+
+function allowedRange(input: TaskInputDefinition) {
+  return input.allowed_range ?? { min: input.min, max: input.max };
+}
 
 type CurvePoint = {
   x: number;
@@ -244,6 +255,8 @@ const STARTER_CANDIDATE: Omit<ApiCandidate, "id"> = {
 const navItems: Array<{ id: Tab; label: string }> = [
   { id: "project", label: "プロジェクト" },
   { id: "candidates", label: "候補比較" },
+  { id: "hot-rolling", label: "熱延" },
+  { id: "settings", label: "設定" },
   { id: "quality", label: "データ品質" },
   { id: "lineage", label: "工程系譜" },
   { id: "explore", label: "範囲探索" },
@@ -253,6 +266,12 @@ function number(value: number, digits = 0) {
   return value.toLocaleString("ja-JP", {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
+  });
+}
+
+function rangeNumber(value: number) {
+  return value.toLocaleString("ja-JP", {
+    maximumFractionDigits: 4,
   });
 }
 
@@ -336,6 +355,16 @@ function metricsFromPreview(preview: ApiPreview): Metric[] {
     status: preview.support?.status ?? "supported",
     goalValue: prediction.goal_value,
     goalProbability: prediction.goal_probability,
+    modelStd:
+      prediction.uncertainty_components?.latent_model_std ??
+      (prediction.uncertainty_components?.latent_model_variance !== undefined
+        ? Math.sqrt(prediction.uncertainty_components.latent_model_variance)
+        : null),
+    observationStd:
+      prediction.uncertainty_components?.observation_noise_std ??
+      (prediction.uncertainty_components?.observation_noise_variance !== undefined
+        ? Math.sqrt(prediction.uncertainty_components.observation_noise_variance)
+        : null),
   }));
 }
 
@@ -812,7 +841,7 @@ function App() {
         <div className="context-bar">
           <div>
             <span className="overline">プロジェクト</span>
-            <h1>{activeProject?.name ?? "プロジェクトを読み込んでいます"}</h1>
+            <h1>{tab === "hot-rolling" ? "熱延条件の候補検討" : activeProject?.name ?? "プロジェクトを読み込んでいます"}</h1>
           </div>
           <div className="run-actions">
             <span className={`api-state ${apiState}`}>
@@ -866,6 +895,21 @@ function App() {
             }}
           />
         )}
+        {tab === "settings" && (
+          <InputRangeSettingsPage
+            project={activeProject}
+            taskDefinition={taskDefinition}
+            onProjectChanged={(project) => {
+              setProjects((items) => items.map((item) => item.id === project.id ? project : item));
+              if (project.id === activeProjectId) {
+                fetch(`${API_URL}/api/projects/${encodeURIComponent(project.id)}/task-definition`)
+                  .then((response) => response.json() as Promise<TaskDefinition>)
+                  .then(setTaskDefinition)
+                  .catch(() => undefined);
+              }
+            }}
+          />
+        )}
         {tab === "candidates" &&
           (selected ? (
             <CandidateWorkbench
@@ -903,6 +947,7 @@ function App() {
               onCreate={() => void createStarterCandidate()}
             />
           ))}
+        {tab === "hot-rolling" && <HotRollingWorkbench />}
         {tab === "quality" && <LiveDataQualityPage />}
         {tab === "lineage" && (
           <LiveLineagePage
@@ -1077,19 +1122,20 @@ function sliderScale(input: TaskInputDefinition, value: number) {
   const training = input.training_range;
   const learnedMin = training?.min ?? input.min;
   const learnedMax = training?.max ?? input.max;
-  const span = Math.max(learnedMax - learnedMin, input.unit === "mass%" ? 0.001 : 1);
-  const padding = span * 0.08;
-  const min = Math.max(input.min, learnedMin - padding);
-  const max = Math.min(input.max, learnedMax + padding);
+  const range = allowedRange(input);
+  const min = range.min;
+  const max = range.max;
   const sliderValue = Math.max(min, Math.min(max, value));
   const divisor = Math.max(max - min, Number.EPSILON);
-  const trainingStart = ((Math.max(min, learnedMin) - min) / divisor) * 100;
-  const trainingEnd = ((Math.min(max, learnedMax) - min) / divisor) * 100;
+  const trainingStart = Math.max(0, Math.min(100, ((Math.max(min, learnedMin) - min) / divisor) * 100));
+  const trainingEnd = Math.max(0, Math.min(100, ((Math.min(max, learnedMax) - min) / divisor) * 100));
+  const bandStart = Math.min(trainingStart, trainingEnd);
+  const bandEnd = Math.max(trainingStart, trainingEnd);
   return {
     min,
     max,
     sliderValue,
-    style: { background: `linear-gradient(90deg, #dfe6ee 0 ${trainingStart}%, #6bb69e ${trainingStart}% ${trainingEnd}%, #dfe6ee ${trainingEnd}% 100%)` },
+    style: { background: `linear-gradient(90deg, #dfe6ee 0 ${bandStart}%, #6bb69e ${bandStart}% ${bandEnd}%, #dfe6ee ${bandEnd}% 100%)` },
   };
 }
 
@@ -1125,7 +1171,7 @@ function CandidateInspector({
           const scale = sliderScale(input, value);
           return (
             <label className="slider-field" key={input.id}>
-              <span><b>{input.label}</b><em><input className="slider-number" type="number" min={input.min} max={input.max} step="any" value={value} aria-label={`${candidate.label} ${input.label}の数値`} onChange={(event) => onComposition(candidate.id, input.field, Number(event.target.value))} /> {input.unit}</em></span>
+              <span><b>{input.label}</b><em><input className="slider-number" type="number" min={allowedRange(input).min} max={allowedRange(input).max} step="any" value={value} aria-label={`${candidate.label} ${input.label}の数値`} onChange={(event) => onComposition(candidate.id, input.field, Number(event.target.value))} /> {input.unit}</em></span>
               <input
                 type="range"
                 min={scale.min}
@@ -1215,7 +1261,7 @@ function ComparisonTableV2({
                     const draftKey = `${candidate.id}:${input.field}`;
                     const currentValue = candidate.raw.composition[input.field] ?? 0;
                     const value = compositionDrafts[draftKey] ?? String(currentValue);
-                    return <td className="composition-col" key={input.id}><input type="number" step="any" min={input.min} max={input.max} value={value} aria-label={`${candidate.label} ${input.label}`} onFocus={() => onSelect(candidate.id)} onChange={(event) => setCompositionDrafts((drafts) => ({ ...drafts, [draftKey]: event.target.value }))} onBlur={(event) => {
+                    return <td className="composition-col" key={input.id}><input type="number" step="any" min={allowedRange(input).min} max={allowedRange(input).max} value={value} aria-label={`${candidate.label} ${input.label}`} onFocus={() => onSelect(candidate.id)} onChange={(event) => setCompositionDrafts((drafts) => ({ ...drafts, [draftKey]: event.target.value }))} onBlur={(event) => {
                       const raw = Number(event.target.value);
                       setCompositionDrafts((drafts) => {
                         const { [draftKey]: _, ...remaining } = drafts;
@@ -1757,14 +1803,17 @@ function LiveResponseCurves({
   const variables: CurveVariable[] = [
     ...(taskDefinition?.inputs ?? [])
       .filter((input) => input.editable && input.field !== "coating")
-      .map((input) => ({
-        id: input.group === "composition" ? `${input.group}.${input.field}` : input.field,
-        label: input.label,
-        unit: input.unit,
-        min: input.training_range?.min ?? input.min,
-        max: input.training_range?.max ?? input.max,
-        current: input.group === "composition" ? candidate.raw.composition[input.field] ?? 0 : input.field === "thickness_mm" ? candidate.raw.thickness_mm : candidate.raw.line_speed_m_min,
-      })),
+      .map((input) => {
+        const range = allowedRange(input);
+        return {
+          id: input.group === "composition" ? `${input.group}.${input.field}` : input.field,
+          label: input.label,
+          unit: input.unit,
+          min: range.min,
+          max: range.max,
+          current: input.group === "composition" ? candidate.raw.composition[input.field] ?? 0 : input.field === "thickness_mm" ? candidate.raw.thickness_mm : candidate.raw.line_speed_m_min,
+        };
+      }),
     ...candidate.heat.flatMap((point, index) => [
       { id: `heat.${index}.temperature_c`, label: `ヒート ${index + 1}点目 温度`, unit: "°C", min: 0, max: 1000, current: point.temperature },
       { id: `heat.${index}.time_min`, label: `ヒート ${index + 1}点目 時間`, unit: "min", min: 0, max: Math.max(1, candidate.heat.at(-1)?.time ?? 1), current: point.time },
@@ -1909,7 +1958,7 @@ function EvidencePanel({
               <tr>
                 <th>特性</th>
                 <th>予測値</th>
-                <th>検証残差区間 (90%)</th>
+                <th>90%予測区間</th>
                 <th>目標達成</th>
               </tr>
             </thead>
@@ -1931,6 +1980,11 @@ function EvidencePanel({
                        <i style={{ left: `${Math.max(0, Math.min(100, ((metric.value - metric.low) / Math.max(1e-9, metric.high - metric.low)) * 100))}%` }} />
                     </span>{" "}
                     {number(metric.high, 1)}
+                    {(metric.modelStd !== null || metric.observationStd !== null) && (
+                      <small className="uncertainty-detail">
+                        モデル ±{number(metric.modelStd ?? 0, 1)} / 測定 ±{number(metric.observationStd ?? 0, 1)}
+                      </small>
+                    )}
                   </td>
                   <td>
                     {metric.goalProbability === null ||
@@ -1951,7 +2005,9 @@ function EvidencePanel({
           <p className="empty-evidence">プレビュー結果を待っています。</p>
         )}
         <p className="interval-note">
-          区間と目標達成率は、親工程単位の交差検証残差から求めた経験的な範囲です。
+          {preview?.model_meta?.prediction_interval?.method === "gaussian_process_predictive_distribution"
+            ? "予測区間はモデルの不確かさと過去測定のばらつきを含みます。入力条件の支持度は別に判定しています。"
+            : "区間と目標達成率は、親工程単位の交差検証残差から求めた経験的な範囲です。"}
         </p>
         {preview?.support && (
           <div className={`support-summary ${status ?? "caution"}`}>
@@ -2738,6 +2794,77 @@ function LiveLineagePage({
       )}
         </main>
       </div>
+    </div>
+  );
+}
+
+function InputRangeSettingsPage({
+  project,
+  taskDefinition,
+  onProjectChanged,
+}: {
+  project: ApiProject | undefined;
+  taskDefinition: TaskDefinition | null;
+  onProjectChanged: (project: ApiProject) => void;
+}) {
+  const [draft, setDraft] = useState<Record<string, { min: string; max: string }>>({});
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    if (!project || !taskDefinition) return;
+    setDraft(Object.fromEntries(taskDefinition.inputs.filter((input) => input.editable && input.field !== "coating").map((input) => {
+      const configured = project.input_ranges?.[input.id] ?? allowedRange(input);
+      return [input.id, { min: String(configured.min), max: String(configured.max) }];
+    })));
+    setError("");
+  }, [project?.id, project?.input_ranges, taskDefinition]);
+  if (!project || !taskDefinition) return <div className="page-panel"><p className="empty-evidence">設定を読み込んでいます。</p></div>;
+  const inputs = taskDefinition.inputs.filter((input) => input.editable && input.field !== "coating");
+  const update = (id: string, side: "min" | "max", value: string) => setDraft((current) => ({ ...current, [id]: { ...current[id], [side]: value } }));
+  const resetDefaults = () => setDraft(Object.fromEntries(inputs.map((input) => {
+    const range = input.default_range ?? { min: input.min, max: input.max };
+    return [input.id, { min: String(range.min), max: String(range.max) }];
+  })));
+  const save = async () => {
+    const inputRanges: Record<string, { min: number; max: number }> = {};
+    for (const input of inputs) {
+      const range = draft[input.id];
+      const min = Number(range?.min);
+      const max = Number(range?.max);
+      if (!Number.isFinite(min) || !Number.isFinite(max) || min >= max) {
+        setError(`${input.label}の許容範囲を確認してください。`);
+        return;
+      }
+      inputRanges[input.id] = { min, max };
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const response = await fetch(`${API_URL}/api/projects/${encodeURIComponent(project.id)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...project, input_ranges: inputRanges }) });
+      if (!response.ok) throw new Error("保存できませんでした。");
+      onProjectChanged((await response.json()) as ApiProject);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "保存できませんでした。");
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <div className="page-panel input-range-settings">
+      <div className="page-intro">
+        <div><h2>入力範囲設定</h2><p>スライダーと数値入力で使う許容範囲を、プロジェクトごとに設定します。</p></div>
+        <div className="project-actions"><button className="outline-button" onClick={resetDefaults}>デフォルトに戻す</button><button className="primary-button" disabled={saving} onClick={() => void save()}>{saving ? "保存中…" : "保存"}</button></div>
+      </div>
+      <p className="settings-explanation"><b>スライダー全体</b>が許容範囲、<b>色付き帯</b>が学習データ範囲です。許容範囲を広げても、学習範囲外は外挿として表示されます。</p>
+      {error && <p className="empty-evidence">{error}</p>}
+      <table className="input-range-table">
+        <thead><tr><th>入力項目</th><th>許容最小</th><th>許容最大</th><th>デフォルト</th><th>学習範囲</th></tr></thead>
+        <tbody>{inputs.map((input) => {
+          const range = input.default_range ?? { min: input.min, max: input.max };
+          const training = input.training_range;
+          return <tr key={input.id}><th>{input.label}<small>{input.unit}</small></th><td><input type="number" step="any" value={draft[input.id]?.min ?? ""} onChange={(event) => update(input.id, "min", event.target.value)} /></td><td><input type="number" step="any" value={draft[input.id]?.max ?? ""} onChange={(event) => update(input.id, "max", event.target.value)} /></td><td>{rangeNumber(range.min)}–{rangeNumber(range.max)}</td><td>{training ? `${rangeNumber(training.min)}–${rangeNumber(training.max)}` : "—"}</td></tr>;
+        })}</tbody>
+      </table>
     </div>
   );
 }

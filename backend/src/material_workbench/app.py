@@ -16,8 +16,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
 from .importer import COMPOSITION_COLUMNS, ENTITY_SHEETS, lineage_neighborhood, lineage_node_detail, load_workbook_data
+from .hot_rolling import TARGETS as HOT_ROLLING_TARGETS, HotRollingRuntime
 from .runtime import ModelRuntime, TARGETS
-from .schemas import ActualMeasurementInput, CandidateInput, LineageResponse, PredictionResponse, ProjectDecisionInput, ProjectInput, QualityResponse, ScreeningRequest
+from .schemas import ActualMeasurementInput, CandidateInput, HotRollingCandidateInput, LineageResponse, PredictionResponse, ProjectDecisionInput, ProjectInput, QualityResponse, ScreeningRequest
 from .services import candidate_from_lineage, candidates_xlsx, import_candidates_xlsx, run_latin_hypercube
 from .store import AdoptedCandidateError, CandidateLimitError, InvalidProjectDecisionError, ProjectNotFoundError, Store
 
@@ -47,6 +48,15 @@ def _default_candidate_payloads(medians: dict[str, float]) -> list[CandidateInpu
     ]
 
 
+def _default_hot_rolling_candidates(medians: dict[str, float]) -> list[HotRollingCandidateInput]:
+    composition = {key: round(value, 5) for key, value in medians.items()}
+    return [
+        HotRollingCandidateInput(name="基準熱延", composition=composition, reheat_temperature_c=1170, hold_time_min=30, finish_temperature_c=900, coiling_temperature_c=620, cooling_rate_c_s=35, entry_thickness_mm=34, exit_thickness_mm=3.4, route="A"),
+        HotRollingCandidateInput(name="低温巻取", composition=composition, reheat_temperature_c=1170, hold_time_min=30, finish_temperature_c=890, coiling_temperature_c=560, cooling_rate_c_s=42, entry_thickness_mm=34, exit_thickness_mm=3.2, route="B"),
+        HotRollingCandidateInput(name="延性重視", composition=composition, reheat_temperature_c=1160, hold_time_min=34, finish_temperature_c=920, coiling_temperature_c=660, cooling_rate_c_s=28, entry_thickness_mm=34, exit_thickness_mm=3.8, route="C"),
+    ]
+
+
 def create_app(source_path: str | Path | None = None, db_path: str | Path | None = None) -> FastAPI:
     source = Path(source_path or os.getenv("WORKBENCH_SOURCE_PATH", "data/source/process_dashboard_realistic_excel_v2.xlsx"))
     database = Path(db_path or os.getenv("WORKBENCH_DB_PATH", "data/workbench.db"))
@@ -58,10 +68,14 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
             app.state.data,
             package_root=os.getenv("MATERIAL_WORKBENCH_MODEL_PACKAGE"),
         )
+        app.state.hot_runtime = HotRollingRuntime(app.state.data)
         app.state.store = Store(database)
         if not app.state.store.list_candidates():
             for candidate in _default_candidate_payloads(app.state.data.medians):
                 app.state.store.create_candidate(candidate)
+        if not app.state.store.list_hot_rolling_candidates():
+            for candidate in _default_hot_rolling_candidates(app.state.data.medians):
+                app.state.store.create_hot_rolling_candidate(candidate)
         yield
 
     app = FastAPI(title="Material Decision Workbench API", version="0.1.0", lifespan=lifespan)
@@ -74,6 +88,9 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
 
     def runtime() -> ModelRuntime:
         return app.state.runtime
+
+    def hot_runtime() -> HotRollingRuntime:
+        return app.state.hot_runtime
 
     def require_project(project_id: str):
         project = store().get_project(project_id)
@@ -102,6 +119,7 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
         manifest = package.manifest
         dependencies = {
             "builtin.linear.v1": True,
+            "builtin.exact_gp.v1": True,
             "sklearn.skops.v1": importlib.util.find_spec("skops") is not None,
             "lightgbm.booster.v1": importlib.util.find_spec("lightgbm") is not None,
             "gpytorch.static_exact_rbf.v1": importlib.util.find_spec("torch") is not None and importlib.util.find_spec("safetensors") is not None,
@@ -138,20 +156,41 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
                 values = values * reference_model.feature_scale[index] + reference_model.feature_mean[index]
             return {"min": round(float(values.min()), 4), "max": round(float(values.max()), 4)}
 
-        composition_inputs = [
-            {
+        default_ranges = {
+            "C": {"min": 0.0, "max": 3.5},
+            "Si": {"min": 0.0, "max": 3.0},
+            "Mn": {"min": 0.0, "max": 3.0},
+            "P": {"min": 0.0, "max": 0.1},
+            "S": {"min": 0.0, "max": 0.1},
+            "Cr": {"min": 0.0, "max": 3.0},
+            "Mo": {"min": 0.0, "max": 2.0},
+            "Ni": {"min": 0.0, "max": 5.0},
+            "Al": {"min": 0.0, "max": 2.0},
+            "Ti": {"min": 0.0, "max": 0.5},
+            "B": {"min": 0.0, "max": 0.02},
+            "N": {"min": 0.0, "max": 0.03},
+            "O": {"min": 0.0, "max": 0.03},
+            "Ca": {"min": 0.0, "max": 0.02},
+        }
+
+        def composition_input(index: int, element: str) -> dict[str, Any]:
+            configured = project.input_ranges.get(f"composition.{element}") or project.input_ranges.get(element)
+            allowed = configured.model_dump() if configured else default_ranges[element]
+            return {
                 "id": f"composition.{element}",
                 "field": element,
                 "label": element,
                 "unit": "mass%",
                 "group": "composition",
                 "editable": True,
-                "min": 0,
-                "max": 100,
+                "min": allowed["min"],
+                "max": allowed["max"],
+                "default_range": default_ranges[element],
+                "allowed_range": allowed,
                 "training_range": training_range(index),
             }
-            for index, element in enumerate(COMPOSITION_COLUMNS)
-        ]
+
+        composition_inputs = [composition_input(index, element) for index, element in enumerate(COMPOSITION_COLUMNS)]
         return {
             "task_id": project.task_id,
             "inputs": composition_inputs,
@@ -161,6 +200,58 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
                 for target, (_, unit) in TARGETS.items()
             ],
         }
+
+    @app.get("/api/hot-rolling/task-definition")
+    def hot_rolling_task_definition() -> dict[str, Any]:
+        rows = list(app.state.data.hot_rolling_features.values())
+        fields = [
+            ("reheat_temperature_c", "加熱温度", "℃"), ("hold_time_min", "加熱保持", "min"),
+            ("finish_temperature_c", "仕上温度", "℃"), ("coiling_temperature_c", "巻取温度", "℃"),
+            ("cooling_rate_c_s", "冷却速度", "℃/s"), ("entry_thickness_mm", "入側板厚", "mm"),
+            ("exit_thickness_mm", "出側板厚", "mm"),
+        ]
+        return {
+            "task_id": "hot-rolled-properties-v1",
+            "inputs": [
+                {"field": field, "label": label, "unit": unit, "min": round(min(float(row[field]) for row in rows), 4), "max": round(max(float(row[field]) for row in rows), 4)}
+                for field, label, unit in fields
+            ],
+            "categorical_inputs": {"route": sorted({row["route"] for row in rows})},
+            "context": {"equipment": "HR-LINE-1", "test_direction": "L"},
+            "outputs": [{"key": key, "label": key, "unit": unit} for key, (_, unit) in HOT_ROLLING_TARGETS.items()],
+            "model": {"id": hot_runtime().package.manifest.package_id, "version": hot_runtime().package.manifest.package_version},
+        }
+
+    @app.get("/api/hot-rolling/candidates")
+    def list_hot_rolling_candidates():
+        return store().list_hot_rolling_candidates()
+
+    @app.post("/api/hot-rolling/candidates", status_code=201)
+    def create_hot_rolling_candidate(payload: HotRollingCandidateInput):
+        try:
+            return store().create_hot_rolling_candidate(payload)
+        except CandidateLimitError as exc:
+            raise HTTPException(409, str(exc)) from exc
+
+    @app.put("/api/hot-rolling/candidates/{candidate_id}")
+    def update_hot_rolling_candidate(candidate_id: str, payload: HotRollingCandidateInput):
+        candidate = store().update_hot_rolling_candidate(candidate_id, payload)
+        if candidate is None:
+            raise HTTPException(404, "熱延候補が見つかりません")
+        return candidate
+
+    @app.delete("/api/hot-rolling/candidates/{candidate_id}", status_code=204)
+    def delete_hot_rolling_candidate(candidate_id: str) -> Response:
+        if not store().delete_hot_rolling_candidate(candidate_id):
+            raise HTTPException(404, "熱延候補が見つかりません")
+        return Response(status_code=204)
+
+    @app.post("/api/hot-rolling/candidates/{candidate_id}/preview")
+    def preview_hot_rolling_candidate(candidate_id: str) -> dict[str, Any]:
+        candidate = store().get_hot_rolling_candidate(candidate_id)
+        if candidate is None:
+            raise HTTPException(404, "熱延候補が見つかりません")
+        return hot_runtime().predict(candidate)
 
     @app.get("/api/bootstrap")
     def bootstrap() -> dict[str, Any]:
