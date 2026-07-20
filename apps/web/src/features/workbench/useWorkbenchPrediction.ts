@@ -63,6 +63,7 @@ export function useWorkbenchPrediction({ projectId, taskId, candidate, operation
   const [error, setError] = useState("");
   const [retrySequence, setRetrySequence] = useState(0);
   const identities = useRef(new Map<string, PreviewIdentity>());
+  const requestedInputIdentities = useRef(new Map<string, string>());
   const previewController = useRef<AbortController | null>(null);
   const identity: WorkbenchIdentity | null = candidate && taskId
     ? { projectId, taskId, candidateId: candidate.id, candidateRevision: candidate.raw.revision }
@@ -84,7 +85,7 @@ export function useWorkbenchPrediction({ projectId, taskId, candidate, operation
   const metrics = preview ? metricsFromPreview(preview) : [];
 
   function getPreviewInputIdentity(candidateId: string) {
-    return identities.current.get(candidateId)?.inputIdentity;
+    return requestedInputIdentities.current.get(candidateId) ?? identities.current.get(candidateId)?.inputIdentity;
   }
 
   function acceptPreview(candidateId: string, nextPreview: ApiPreview | null, nextInputIdentity?: string, candidateRevision?: number, requestError?: unknown) {
@@ -94,6 +95,7 @@ export function useWorkbenchPrediction({ projectId, taskId, candidate, operation
         inputIdentity: nextInputIdentity,
         requestKey: workbenchRequestKey({ projectId, taskId, candidateId, candidateRevision }, "preview"),
       });
+      requestedInputIdentities.current.set(candidateId, nextInputIdentity);
       setPreviewsByCandidate((current) => ({ ...current, [candidateId]: nextPreview }));
       setSurfacesByCandidate((current) => {
         let surface = current[candidateId] ?? emptyInferenceSurface<ApiPreview>();
@@ -101,6 +103,7 @@ export function useWorkbenchPrediction({ projectId, taskId, candidate, operation
         return { ...current, [candidateId]: resolveInferenceSurface(surface, surface.requestSequence, nextKey, nextPreview) };
       });
     } else if (nextInputIdentity && candidateRevision !== undefined) {
+      requestedInputIdentities.current.set(candidateId, nextInputIdentity);
       const nextKey = workbenchInferenceKey({ projectId, taskId, candidateId, inputIdentity: nextInputIdentity }, "preview");
       setSurfacesByCandidate((current) => {
         let surface = current[candidateId] ?? emptyInferenceSurface<ApiPreview>();
@@ -111,6 +114,7 @@ export function useWorkbenchPrediction({ projectId, taskId, candidate, operation
     } else {
       if (candidateId === candidate?.id) previewController.current?.abort();
       identities.current.delete(candidateId);
+      requestedInputIdentities.current.delete(candidateId);
       setPreviewsByCandidate((current) => {
         const { [candidateId]: _, ...remaining } = current;
         return remaining;
@@ -125,6 +129,7 @@ export function useWorkbenchPrediction({ projectId, taskId, candidate, operation
 
   function reset() {
     identities.current.clear();
+    requestedInputIdentities.current.clear();
     setPreviewsByCandidate({});
     setSurfacesByCandidate({});
     setError("");
@@ -141,6 +146,7 @@ export function useWorkbenchPrediction({ projectId, taskId, candidate, operation
         inputIdentity: candidateInputIdentity(item.raw.inputs),
         requestKey: workbenchRequestKey({ projectId: item.raw.project_id, taskId: loadedTaskId, candidateId: item.id, candidateRevision: item.raw.revision }, "preview"),
       });
+      requestedInputIdentities.current.set(item.id, candidateInputIdentity(item.raw.inputs));
       accepted[item.id] = loaded[item.id];
     }
     setPreviewsByCandidate((current) => ({ ...current, ...accepted }));
@@ -180,6 +186,7 @@ export function useWorkbenchPrediction({ projectId, taskId, candidate, operation
     previewController.current?.abort();
     previewController.current = controller;
     const requestActiveKey = currentPreviewActiveKey;
+    requestedInputIdentities.current.set(candidate.id, inputIdentity);
     setSurfacesByCandidate((current) => ({
       ...current,
       [candidate.id]: requestInferenceSurface(current[candidate.id] ?? emptyInferenceSurface<ApiPreview>(), requestActiveKey),
@@ -213,7 +220,7 @@ export function useWorkbenchPrediction({ projectId, taskId, candidate, operation
       controller.abort();
       if (previewController.current === controller) previewController.current = null;
     };
-  }, [candidate?.id, candidate?.raw.revision, projectId, taskId, operations?.preview, retrySequence]);
+  }, [candidate?.id, projectId, taskId, operations?.preview, retrySequence]);
 
   async function runDetailedPrediction() {
     if (!candidate || !identity || !operations?.detailed_prediction) return false;

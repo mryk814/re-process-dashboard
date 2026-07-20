@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { CandidateProvenance } from "../../shared/candidateProvenance";
 import { ApiClientError } from "../../shared/api/client";
-import { candidateInputIdentity } from "../../shared/api/inferenceRequestCache";
+import { candidateInferencePrefix, candidateInputIdentity, inferenceRequestCache } from "../../shared/api/inferenceRequestCache";
 import {
   workbenchApi,
   type ApiCandidateInput,
@@ -84,6 +84,10 @@ export function useWorkbenchSession({
     loadPreviewController.current?.abort();
     const previewController = new AbortController();
     loadPreviewController.current = previewController;
+    // The backend owns versioned Package/Pipeline/support identities. A full
+    // project load starts a new renderer cache epoch so completed transport
+    // responses cannot bypass those server-side identities after a runtime reload.
+    inferenceRequestCache.invalidatePrefix(candidateInferencePrefix(projectId));
     setApiState("loading");
     setLoadError(null);
     const [listedCandidates, resolved] = await Promise.all([

@@ -3,20 +3,22 @@ import { expect, test } from "@playwright/test";
 test("inference runs only for changed candidates and visible selected curves", async ({ page }) => {
   let previewRequests = 0;
   let curveRequests = 0;
+  let similarityRequests = 0;
   const inferenceResponses: Array<{ kind: "preview" | "curve"; candidateId: string; status: number; body: unknown }> = [];
   const failedInferenceRequests: string[] = [];
   page.on("request", (request) => {
     const path = new URL(request.url()).pathname;
     if (path.endsWith("/preview")) previewRequests += 1;
-    if (path.endsWith("/response-curves")) curveRequests += 1;
+    if (path.endsWith("/response-curve")) curveRequests += 1;
+    if (path.endsWith("/similar")) similarityRequests += 1;
   });
   page.on("requestfailed", (request) => {
     const path = new URL(request.url()).pathname;
-    if (path.endsWith("/preview") || path.endsWith("/response-curves")) failedInferenceRequests.push(path);
+    if (path.endsWith("/preview") || path.endsWith("/response-curve")) failedInferenceRequests.push(path);
   });
   page.on("response", (response) => {
     const path = new URL(response.url()).pathname;
-    const kind = path.endsWith("/preview") ? "preview" : path.endsWith("/response-curves") ? "curve" : null;
+    const kind = path.endsWith("/preview") ? "preview" : path.endsWith("/response-curve") ? "curve" : null;
     if (!kind) return;
     const candidateId = path.split("/").at(-2) ?? "";
     void response.json().catch(() => null).then((body) => {
@@ -35,6 +37,7 @@ test("inference runs only for changed candidates and visible selected curves", a
     expect(response.body).toEqual(expect.objectContaining({ canonical_input: expect.any(Object), predictions: expect.any(Object) }));
   }
   expect(curveRequests).toBe(0);
+  expect(similarityRequests).toBe(0);
 
   const candidateRows = page.locator(".candidate-name-table tbody tr");
   await candidateRows.nth(1).click();
@@ -66,7 +69,7 @@ test("inference runs only for changed candidates and visible selected curves", a
   await expect.poll(() => inferenceResponses.filter((item) => item.kind === "curve").length).toBe(1);
   const firstCurve = inferenceResponses.find((item) => item.kind === "curve");
   expect(firstCurve).toEqual(expect.objectContaining({ candidateId: selectedCandidateId, status: 200 }));
-  expect(firstCurve?.body).toEqual(expect.objectContaining({ curves: expect.any(Object), output_ranges: expect.any(Object) }));
+  expect(firstCurve?.body).toEqual(expect.objectContaining({ target: expect.any(String), points: expect.any(Array), point_count: 9 }));
   await expect(page.locator(".curve-scope")).toContainText(selectedCandidateLabel);
   await expect(page.getByRole("heading", { name: /予測特性/ })).toContainText(selectedCandidateLabel);
 
@@ -99,7 +102,7 @@ test("inference runs only for changed candidates and visible selected curves", a
   expect(createdPreview).toEqual(expect.objectContaining({ status: 200 }));
   expect(createdPreview?.body).toEqual(expect.objectContaining({ canonical_input: expect.any(Object), predictions: expect.any(Object) }));
   expect(createdCurve).toEqual(expect.objectContaining({ status: 200 }));
-  expect(createdCurve?.body).toEqual(expect.objectContaining({ curves: expect.any(Object), output_ranges: expect.any(Object) }));
+  expect(createdCurve?.body).toEqual(expect.objectContaining({ target: expect.any(String), points: expect.any(Array), point_count: 9 }));
   await expect(page.locator(".response-curves-panel")).toHaveAttribute("data-candidate-id", createdCandidateId!);
   await expect(page.locator(".curve-scope")).toContainText(createdCandidateLabel);
   await expect(page.getByRole("heading", { name: /予測特性/ })).toContainText(createdCandidateLabel);
@@ -107,7 +110,7 @@ test("inference runs only for changed candidates and visible selected curves", a
   let releaseAbortedCurve = () => undefined;
   const abortedCurveGate = new Promise<void>((resolve) => { releaseAbortedCurve = resolve; });
   let abortedCurveStarted = false;
-  await page.route("**/response-curves*", async (route) => {
+  await page.route("**/response-curve*", async (route) => {
     abortedCurveStarted = true;
     await abortedCurveGate;
     try {
@@ -122,12 +125,12 @@ test("inference runs only for changed candidates and visible selected curves", a
     await expect.poll(() => abortedCurveStarted).toBe(true);
     await page.getByRole("button", { name: "応答曲線を閉じる" }).click();
     releaseAbortedCurve();
-    await expect.poll(() => failedInferenceRequests.filter((path) => path.endsWith("/response-curves")).length).toBeGreaterThan(0);
+    await expect.poll(() => failedInferenceRequests.filter((path) => path.endsWith("/response-curve")).length).toBeGreaterThan(0);
   } else {
     releaseAbortedCurve();
     await page.getByRole("button", { name: "応答曲線を閉じる" }).click();
   }
-  await page.unroute("**/response-curves*");
+  await page.unroute("**/response-curve*");
   const curvesAfterPanelClose = curveRequests;
 
   const selectedNumeric = page.locator(".comparison-detail-table tbody tr.selected-row input[type=number]").first();
@@ -160,7 +163,8 @@ test("inference runs only for changed candidates and visible selected curves", a
   await page.locator(".table-heading h2").click();
   await saveBeforePendingPreview;
   await expect.poll(() => pendingPreviewHeld).toBe(true);
-  await expect(page.getByText("プレビュー結果を待っています。", { exact: true })).toBeVisible();
+  await expect(page.locator(".evidence-panel .metric-table")).toBeVisible();
+  await expect(page.getByText("旧revision・更新中", { exact: true })).toBeVisible();
 
   const pendingCandidateName = page.locator(".candidate-name-table tbody tr.selected-row input");
   const saveNameDuringPreview = page.waitForResponse((response) => response.request().method() === "PUT" && response.url().includes("/candidates/"));
@@ -173,6 +177,17 @@ test("inference runs only for changed candidates and visible selected curves", a
   expect(failedInferenceRequests.filter((path) => path.endsWith("/preview")).length).toBe(failedPreviewsBeforePending);
   await expect(page.locator(".evidence-panel .metric-table")).toBeVisible();
   await page.unroute("**/preview*");
+
+  const similarityToggle = page.getByRole("button", { name: "根拠を表示" });
+  await expect(similarityToggle).toBeVisible();
+  expect(similarityRequests).toBe(0);
+  await similarityToggle.click();
+  await expect.poll(() => similarityRequests).toBe(1);
+  await expect(page.locator(".similar-summary-table")).toBeVisible();
+  await page.getByRole("button", { name: "閉じる" }).click();
+  await page.getByRole("button", { name: "根拠を表示" }).click();
+  await expect(page.locator(".similar-summary-table")).toBeVisible();
+  expect(similarityRequests).toBe(1);
 
   const candidateApiUrl = `http://127.0.0.1:8875/api/projects/default/candidates/${createdCandidateId}`;
   const currentCandidateResponse = await page.request.get(candidateApiUrl);
@@ -240,6 +255,7 @@ test("inference runs only for changed candidates and visible selected curves", a
   await saveBeforeFailedPreview;
   await expect.poll(() => failedPreviewResponse).toBe(true);
   await expect(page.getByText("入力は保存しましたが、予測結果を更新できませんでした")).toBeVisible();
-  await expect(page.getByText("プレビュー結果を待っています。", { exact: true })).toBeVisible();
+  await expect(page.locator(".evidence-panel .metric-table")).toBeVisible();
+  await expect(page.getByText("更新失敗・旧結果", { exact: true })).toBeVisible();
   await expect.poll(() => inferenceResponses.some((item) => item.kind === "preview" && item.status === 500)).toBe(true);
 });
