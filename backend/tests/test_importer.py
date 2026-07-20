@@ -26,7 +26,7 @@ def test_hot_rolling_training_excludes_non_l_direction_and_physical_outliers() -
     assert hot["HT-00009"]["eligible"] is False
     assert "v1の推定対象はL方向です" in hot["HT-00009"]["eligibility_reasons"]
     assert hot["HT-00001"]["eligible"] is True
-    assert hot["HT-00008"]["eligibility_reasons"] == []
+    assert hot["HT-00001"]["eligibility_reasons"] == []
 
 
 def test_structural_quality_detector_covers_all_required_issue_types() -> None:
