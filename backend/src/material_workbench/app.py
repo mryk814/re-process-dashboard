@@ -606,12 +606,27 @@ def create_app(
 
     @app.post("/api/screening", status_code=201)
     def screening(payload: ScreeningRequest, project_id: str = "default") -> dict[str, Any]:
-        require_project(project_id)
+        project = require_project(project_id)
+        output = next(
+            (item for item in task_registry().contract_for(project.task_id).task_definition.outputs if item.key == payload.target),
+            None,
+        )
+        if output is None:
+            raise HTTPException(422, "この予測タスクにない目標特性です")
+        target_capability = next(
+            item for item in task_registry().contract_for(project.task_id).runtime_capability.targets if item.target == payload.target
+        )
         base = store().get_candidate(payload.base_candidate_id, project_id)
         if not base:
             raise HTTPException(404, "基準候補が見つかりません")
         try:
-            result = run_latin_hypercube(runtime(), base, payload)
+            result = run_latin_hypercube(
+                task_registry().runtime_for(project.task_id),
+                base,
+                payload,
+                goal_direction=output.goal_direction,
+                probability_available=target_capability.goal_probability != "unavailable",
+            )
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
         return store().create_screening_run(jsonable_encoder(result), project_id)

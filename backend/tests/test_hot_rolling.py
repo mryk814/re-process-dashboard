@@ -86,6 +86,32 @@ def test_legacy_candidate_routes_are_removed_and_project_ownership_is_enforced(c
     assert client.post(f"/api/projects/default/candidates/{candidate['id']}/preview").status_code == 404
 
 
+def test_hot_rolling_screening_keeps_project_scope_and_nested_candidate_contract(client) -> None:
+    project_id = "hot-rolling-default"
+    candidate = client.get(f"/api/projects/{project_id}/candidates").json()[0]
+    response = client.post(
+        f"/api/screening?project_id={project_id}",
+        json={
+            "base_candidate_id": candidate["id"],
+            "samples": 48,
+            "target": "TS",
+            "target_value": 500,
+            "variables": {"composition.C": {"mode": "range", "min": 0.04, "max": 0.12}},
+        },
+    )
+
+    assert response.status_code == 201
+    run = response.json()
+    assert run["score_contract"]["direction"] == "at_least"
+    created = client.post(
+        f"/api/screening/{run['id']}/points/0/candidate?project_id={project_id}",
+    )
+    assert created.status_code == 201
+    assert created.json()["project_id"] == project_id
+    assert set(created.json()["inputs"]) == {"composition", "process", "categorical", "heat_pattern"}
+    assert created.json()["provenance"]["source_kind"] == "screening"
+
+
 def test_hot_rolling_project_runs_the_full_common_candidate_flow(client) -> None:
     project = client.post(
         "/api/projects",

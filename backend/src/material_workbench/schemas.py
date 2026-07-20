@@ -150,8 +150,8 @@ class ScreeningRequest(BaseModel):
     base_candidate_id: Annotated[str, Field(min_length=1)]
     variables: Annotated[dict[str, ScreeningVariable], Field(min_length=1)]
     samples: Annotated[int, Field(ge=48, le=128)] = 64
-    target: Literal["TS", "YS", "EL", "lambda"] = "TS"
-    target_value: float
+    target: Annotated[str, Field(min_length=1)] = "TS"
+    target_value: float | None = None
 
     @model_validator(mode="after")
     def variables_match_their_fields(self) -> "ScreeningRequest":
@@ -161,7 +161,7 @@ class ScreeningRequest(BaseModel):
         unknown = sorted(set(self.variables) - allowed)
         if unknown:
             raise ValueError(f"スクリーニング対象外の変数です: {', '.join(unknown)}")
-        if not math.isfinite(self.target_value):
+        if self.target_value is not None and not math.isfinite(self.target_value):
             raise ValueError("target_valueは有限の数値にしてください")
         for name, spec in self.variables.items():
             if name == "coating":
