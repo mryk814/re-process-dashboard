@@ -166,7 +166,12 @@ def create_app(
                 app.state.store.create_candidate(candidate, HOT_PROJECT_ID)
         yield
 
-    app = FastAPI(title="Material Decision Workbench API", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(
+        title="Material Decision Workbench API",
+        version="0.1.0",
+        lifespan=lifespan,
+        responses={422: PROJECT_API_ERRORS[422]},
+    )
     # Electron loads the packaged renderer from file://, which browsers serialize as Origin: null.
     # The local sidecar only listens on loopback, and credentials are not accepted.
     app.add_middleware(CORSMiddleware, allow_origins=["null", "http://127.0.0.1:5173", "http://localhost:5173", "http://127.0.0.1:5180", "http://localhost:5180"], allow_methods=["*"], allow_headers=["*"], allow_credentials=False)

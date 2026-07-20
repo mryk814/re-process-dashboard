@@ -25,13 +25,29 @@ def test_tracked_openapi_schema_matches_fastapi_contract() -> None:
     delete_parameters = tracked["paths"]["/api/projects/{project_id}/candidates/{candidate_id}"]["delete"]["parameters"]
     assert any(item["name"] == "include_archived" for item in list_parameters)
     assert any(item["name"] == "expected_revision" and item.get("required") is True for item in delete_parameters)
-    validation_descriptions = {
-        operation["responses"]["422"]["description"]
+    validation_responses = [
+        operation["responses"]["422"]
         for path in tracked["paths"].values()
         for operation in path.values()
         if "422" in operation.get("responses", {})
-    }
-    assert validation_descriptions == {"Validation Error"}
+    ]
+    assert validation_responses
+    assert {response["description"] for response in validation_responses} == {"Validation Error"}
+    assert {
+        response["content"]["application/json"]["schema"]["$ref"]
+        for response in validation_responses
+    } == {"#/components/schemas/ApiError"}
+
+
+def test_runtime_validation_error_matches_openapi_api_error(client) -> None:
+    response = client.post("/api/screening/run/points/not-an-integer/candidate")
+    assert response.status_code == 422
+    payload = response.json()
+    assert payload["code"] == "validation_error"
+    assert payload["message"] == "入力内容を確認してください"
+    assert payload["field_errors"][0]["path"] == "path.point_index"
+    assert payload["field_errors"][0]["message"]
+    assert "detail" not in payload
 
 
 def test_unicode_identifiers_and_units_survive_json_contract_round_trip(client) -> None:
