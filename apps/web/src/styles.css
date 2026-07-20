@@ -2285,10 +2285,17 @@ select:focus-visible,
 .composition-table tbody tr:hover td,
 .prediction-table tbody tr:hover th,
 .prediction-table tbody tr:hover td { background: #f5f9ff; }
-.candidate-name-table .selected-row th,
+.candidate-name-table .selected-row th {
+  background: #d9eaff;
+  box-shadow: inset 4px 0 0 #1f5fc4;
+}
+.candidate-name-table .selected-row input { color: #124f9f; }
 .composition-table .selected-row td,
 .prediction-table .selected-row th,
-.prediction-table .selected-row td { background: #edf5ff; }
+.prediction-table .selected-row td {
+  background: #e7f1ff;
+  border-bottom-color: #9fc2eb;
+}
 .candidate-name-table input,
 .composition-table input {
   width: 100%;
