@@ -110,7 +110,7 @@ def test_candidate_excel_import_and_exports(client) -> None:
     source = CandidateInput.model_validate({key: value for key, value in response.json()["candidates"][0].items() if key not in {"id", "project_id", "created_at", "updated_at"}})
     restored = next(candidate for candidate in round_tripped if candidate.name == source.name)
     assert restored.model_dump() == source.model_dump()
-    defaults = client.app.state.runtime.composition_defaults
+    defaults = client.app.state.task_registry.runtime_for("annealed-properties-v1").composition_defaults
     assert np.allclose(build_feature_bundle(restored, defaults).values, build_feature_bundle(source, defaults).values)
     quality = client.get("/api/quality/export.csv")
     assert quality.status_code == 200 and "issue_id" in quality.content.decode("utf-8-sig")

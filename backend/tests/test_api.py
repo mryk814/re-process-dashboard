@@ -57,16 +57,18 @@ def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
         "gpytorch.static_exact_rbf.v1", "numpyro.dense_posterior.v1",
     }
     task = client.get("/api/projects/default/task-definition").json()
-    assert task["task_id"] == "annealed-properties-v1"
-    assert [item["field"] for item in task["inputs"]] == [
+    definition = task["task_definition"]
+    assert definition["id"] == "annealed-properties-v1"
+    composition = next(group for group in definition["input_groups"] if group["key"] == "composition")
+    assert [item["path"].removeprefix("composition.") for item in composition["fields"]] == [
         "C", "Si", "Mn", "P", "S", "Cr", "Mo", "Ni", "Al", "Ti", "B", "N", "O", "Ca",
     ]
-    assert task["derived_inputs"] == []
-    assert {item["key"] for item in task["outputs"]} == {"TS", "YS", "EL", "lambda"}
-    assert all(item["goal_direction"] == "at_least" for item in task["outputs"])
+    assert {item["key"] for item in definition["outputs"]} == {"TS", "YS", "EL", "lambda"}
+    assert all(item["goal_direction"] == "at_least" for item in definition["outputs"])
+    assert task["runtime_capability"]["operations"]["response_curve"] is True
     candidate = client.post("/api/candidates", json=_payload()).json()
-    first = client.post(f"/api/candidates/{candidate['id']}/preview").json()
-    second = client.post(f"/api/candidates/{candidate['id']}/preview").json()
+    first = client.post(f"/api/projects/default/candidates/{candidate['id']}/preview").json()
+    second = client.post(f"/api/projects/default/candidates/{candidate['id']}/preview").json()
     assert first["mode"] == "preview"
     assert first["predictions"] == second["predictions"]
     assert {"TS", "YS", "EL", "lambda"} <= set(first["predictions"])

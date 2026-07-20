@@ -1,7 +1,7 @@
 {
   "schema_version": "model-package/v1",
   "package_id": "hot-rolled-gp-2026-07",
-  "package_version": "0.2.0-exact-gp-v1",
+  "package_version": "0.2.0-ts-only",
   "task_id": "hot-rolled-properties-v1",
   "input_schema_version": "hot-rolling-candidate-v1",
   "feature_pipeline": {
@@ -115,108 +115,12 @@
           "equipment": "HR-LINE-1"
         }
       }
-    },
-    {
-      "id": "ys-gp",
-      "target": "YS",
-      "unit": "MPa",
-      "target_kind": "continuous",
-      "runtime_type": "builtin.exact_gp.v1",
-      "architecture_id": "exact_rbf_grouped_v1",
-      "artifact": "model-artifacts/YS.npz",
-      "predictive_family": "normal",
-      "feature_names": [
-        "C",
-        "Si",
-        "Mn",
-        "P",
-        "S",
-        "Cr",
-        "Mo",
-        "Ni",
-        "Al",
-        "Ti",
-        "B",
-        "N",
-        "O",
-        "Ca",
-        "ce_iiw",
-        "pcm",
-        "c_times_mn",
-        "si_plus_al",
-        "cr_plus_mo",
-        "reheat_temperature_c",
-        "hold_time_min",
-        "finish_temperature_c",
-        "coiling_temperature_c",
-        "cooling_rate_c_s",
-        "entry_thickness_mm",
-        "exit_thickness_mm",
-        "route_A",
-        "route_B",
-        "route_C"
-      ],
-      "config": {
-        "training_unit": "parent_condition_mean",
-        "estimand_context": {
-          "test_direction": "L",
-          "equipment": "HR-LINE-1"
-        }
-      }
-    },
-    {
-      "id": "el-gp",
-      "target": "EL",
-      "unit": "%",
-      "target_kind": "continuous",
-      "runtime_type": "builtin.exact_gp.v1",
-      "architecture_id": "exact_rbf_grouped_v1",
-      "artifact": "model-artifacts/EL.npz",
-      "predictive_family": "normal",
-      "feature_names": [
-        "C",
-        "Si",
-        "Mn",
-        "P",
-        "S",
-        "Cr",
-        "Mo",
-        "Ni",
-        "Al",
-        "Ti",
-        "B",
-        "N",
-        "O",
-        "Ca",
-        "ce_iiw",
-        "pcm",
-        "c_times_mn",
-        "si_plus_al",
-        "cr_plus_mo",
-        "reheat_temperature_c",
-        "hold_time_min",
-        "finish_temperature_c",
-        "coiling_temperature_c",
-        "cooling_rate_c_s",
-        "entry_thickness_mm",
-        "exit_thickness_mm",
-        "route_A",
-        "route_B",
-        "route_C"
-      ],
-      "config": {
-        "training_unit": "parent_condition_mean",
-        "estimand_context": {
-          "test_direction": "L",
-          "equipment": "HR-LINE-1"
-        }
-      }
     }
   ],
   "provenance": {
     "training_data_id": "sha256:f5b75d4a2e29c0e85f24fe2325b4c610e23ba6ce65ba3b5c53c097a68ca60c55",
-    "feature_dataset_id": "sha256:9ab85d9508637831e01779d9b123aced69b380b9497fdf7eabc042ab6a2c539b",
-    "training_code_revision": "0.1.0-exact-gp-v1"
+    "feature_dataset_id": "sha256:e05085cf9298f90f59b6fd0efcd1b6000c2219f31774d9cdd3118703e2023b63",
+    "training_code_revision": "0.2.0-ts-only"
   },
   "artifacts": [
     {
@@ -230,19 +134,9 @@
       "bytes": 282844
     },
     {
-      "path": "model-artifacts/YS.npz",
-      "sha256": "646424b763af72a69c26eea4a0bd07e603e9712a45ffbd14226831ebeba8add6",
-      "bytes": 282844
-    },
-    {
-      "path": "model-artifacts/EL.npz",
-      "sha256": "2b9ef65479379806425eeee309707dcca8bb46cd72e26bf5046c01891fb6740d",
-      "bytes": 282844
-    },
-    {
       "path": "reference/training_stats.json",
-      "sha256": "9ab85d9508637831e01779d9b123aced69b380b9497fdf7eabc042ab6a2c539b",
-      "bytes": 441
+      "sha256": "e05085cf9298f90f59b6fd0efcd1b6000c2219f31774d9cdd3118703e2023b63",
+      "bytes": 411
     },
     {
       "path": "smoke/input.json",
@@ -251,8 +145,8 @@
     },
     {
       "path": "smoke/expected.json",
-      "sha256": "243014dd3101abec5d7db4893d9d5522e209c54d4754a3ec0883addbf2fa6761",
-      "bytes": 66
+      "sha256": "60cf1cbcbc6708317233812541276dfd7a80ab2aacae5ec74bb16d2cfdcd0a10",
+      "bytes": 24
     }
   ],
   "smoke_test": {

@@ -112,7 +112,7 @@ class ProjectInput(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=120)] = "焼鈍条件の候補検討"
     description: str = ""
     purpose: str = ""
-    task_id: Literal["annealed-properties-v1"] = "annealed-properties-v1"
+    task_id: Literal["annealed-properties-v1", "hot-rolled-properties-v1"] = "annealed-properties-v1"
     target_values: dict[str, float] = Field(default_factory=dict)
     input_ranges: dict[str, InputRange] = Field(default_factory=dict)
     notes: str = ""
@@ -264,6 +264,7 @@ class Support(BaseModel):
 
 
 class PredictionResponse(BaseModel):
+    task_id: str
     candidate_id: str
     mode: Literal["preview", "detailed"]
     predictions: dict[str, Prediction]
@@ -283,8 +284,20 @@ class SnapshotResponse(BaseModel):
     payload: dict[str, object]
 
 
+class DetailedPredictionResponse(BaseModel):
+    prediction: PredictionResponse
+    snapshot: SnapshotResponse
+
+
+class FieldError(BaseModel):
+    path: str
+    message: str
+
+
 class ApiError(BaseModel):
-    detail: str
+    code: Literal["not_found", "revision_conflict", "validation_error", "runtime_unavailable"]
+    message: str
+    field_errors: list[FieldError] = Field(default_factory=list)
 
 
 class DataQualityIssue(BaseModel):

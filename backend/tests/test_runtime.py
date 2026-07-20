@@ -11,7 +11,7 @@ from material_workbench.schemas import CandidateInput
 
 
 def test_grouped_oof_calibration_and_parent_condition_support(client) -> None:
-    runtime: ModelRuntime = client.app.state.runtime
+    runtime: ModelRuntime = client.app.state.task_registry.runtime_for("annealed-properties-v1")
     assert runtime.support_reference is not None
     assert runtime.support_reference.parent_vectors.shape[1] == len(FEATURE_NAMES)
     assert len(runtime.support_reference.parent_rows) == len(runtime.support_reference.loo_nearest_distances)
@@ -27,7 +27,7 @@ def test_grouped_oof_calibration_and_parent_condition_support(client) -> None:
 
 def test_similarity_summarizes_repeats_and_keeps_layers_distinct(client) -> None:
     candidate = client.get("/api/candidates").json()[0]
-    similar = client.post(f"/api/candidates/{candidate['id']}/preview").json()["similar"]
+    similar = client.post(f"/api/projects/default/candidates/{candidate['id']}/preview").json()["similar"]
     training_parents = {item["parent_key"] for item in similar if item["layer"] == "training"}
     historical_parents = {item["parent_key"] for item in similar if item["layer"] == "historical"}
     assert training_parents.isdisjoint(historical_parents)
@@ -39,7 +39,7 @@ def test_similarity_summarizes_repeats_and_keeps_layers_distinct(client) -> None
 
 
 def test_default_model_package_loads_and_matches_its_smoke_contract(client) -> None:
-    runtime: ModelRuntime = client.app.state.runtime
+    runtime: ModelRuntime = client.app.state.task_registry.runtime_for("annealed-properties-v1")
     assert runtime.model_package is not None
     assert runtime.model_package.manifest.package_id == "annealed-gp-2026-07"
     smoke = runtime.model_package.manifest.smoke_test
@@ -53,7 +53,7 @@ def test_default_model_package_loads_and_matches_its_smoke_contract(client) -> N
 
 
 def test_canonical_input_uses_package_defaults_and_one_heat_definition(client) -> None:
-    runtime: ModelRuntime = client.app.state.runtime
+    runtime: ModelRuntime = client.app.state.task_registry.runtime_for("annealed-properties-v1")
     candidate = CandidateInput(
         name="partial",
         composition={"C": 0.1},
@@ -82,7 +82,7 @@ def test_canonical_input_uses_package_defaults_and_one_heat_definition(client) -
 
 
 def test_runtime_rejects_pipeline_version_that_only_preserves_feature_names(client, tmp_path) -> None:
-    runtime: ModelRuntime = client.app.state.runtime
+    runtime: ModelRuntime = client.app.state.task_registry.runtime_for("annealed-properties-v1")
     assert runtime.model_package is not None
     root = tmp_path / "stale-package"
     shutil.copytree(runtime.model_package.root, root)
@@ -101,7 +101,7 @@ def test_runtime_rejects_pipeline_version_that_only_preserves_feature_names(clie
 
 
 def test_runtime_rejects_package_canonical_input_order_that_differs_from_task_definition(client, tmp_path) -> None:
-    runtime: ModelRuntime = client.app.state.runtime
+    runtime: ModelRuntime = client.app.state.task_registry.runtime_for("annealed-properties-v1")
     assert runtime.model_package is not None
     root = tmp_path / "wrong-canonical-order"
     shutil.copytree(runtime.model_package.root, root)

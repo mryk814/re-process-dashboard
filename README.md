@@ -35,11 +35,14 @@ npm run dev:desktop
 
 ## 確認
 
+実装中は契約・Packageと型だけを短時間で確認し、PR前に全体を1回通します。
+
 ```powershell
-uv run pytest
-npm run typecheck
-npm run build
+npm run verify:fast
+npm run verify:full
 ```
+
+モデルPackageを更新した場合は `npm run models:build:annealed` または `npm run models:build:hot-rolling` で、artifactとmanifestを必ず同時に再生成します。
 
 ## データ
 

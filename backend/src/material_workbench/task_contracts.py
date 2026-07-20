@@ -285,12 +285,22 @@ class TargetRuntimeCapability(ContractModel):
         return self
 
 
+class RuntimeOperationsCapability(ContractModel):
+    preview: bool
+    detailed_prediction: bool
+    response_curve: bool
+    similarity: bool
+    snapshot: bool
+    actual_measurement: bool
+
+
 class RuntimeCapability(ContractModel):
     schema_version: Literal[RUNTIME_CAPABILITY_SCHEMA_VERSION]
     task_id: Annotated[str, Field(min_length=1)]
     model_package_schema_version: Literal["model-package/v1"]
     targets: Annotated[tuple[TargetRuntimeCapability, ...], Field(min_length=1)]
     joint_samples: bool = False
+    operations: RuntimeOperationsCapability
 
     @model_validator(mode="after")
     def targets_are_unique(self) -> "RuntimeCapability":
@@ -299,6 +309,17 @@ class RuntimeCapability(ContractModel):
             raise ValueError("runtime capability targets must be unique")
         if self.joint_samples and any(not item.samples for item in self.targets):
             raise ValueError("joint_samples requires sample capability for every target")
+        return self
+
+
+class ResolvedTaskDefinition(ContractModel):
+    task_definition: TaskDefinition
+    runtime_capability: RuntimeCapability
+
+    @model_validator(mode="after")
+    def task_ids_match(self) -> "ResolvedTaskDefinition":
+        if self.task_definition.id != self.runtime_capability.task_id:
+            raise ValueError("resolved task definition and runtime capability must share task_id")
         return self
 
 

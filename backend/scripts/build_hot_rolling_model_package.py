@@ -3,20 +3,24 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+import sys
 from pathlib import Path
 
 import numpy as np
 
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
 from material_workbench.hot_rolling_feature_pipeline import CANONICAL_INPUT_PATHS, FEATURE_COMPONENTS, FEATURE_NAMES, INPUT_SCHEMA_VERSION, PIPELINE_ID, PIPELINE_VERSION, build_hot_rolling_features
 from material_workbench.importer import load_workbook_data
 from material_workbench.schemas import HotRollingCandidateInput
+from material_workbench.task_registry import load_task_contracts
 
 
 PACKAGE_ID = "hot-rolled-gp-2026-07"
-PACKAGE_VERSION = "0.2.0-exact-gp-v1"
-TRAINING_CODE_REVISION = "0.1.0-exact-gp-v1"
+PACKAGE_VERSION = "0.2.0-ts-only"
+TRAINING_CODE_REVISION = "0.2.0-ts-only"
 TASK_ID = "hot-rolled-properties-v1"
-TARGETS = {"TS": ("TS[MPa]", "MPa"), "YS": ("YS[MPa]", "MPa"), "EL": ("EL[%]", "%")}
 
 
 def _digest(path: Path) -> str:
@@ -77,6 +81,11 @@ def _point(path: Path, raw: np.ndarray) -> float:
 
 def build(source: Path, destination: Path) -> None:
     data = load_workbook_data(source)
+    task_definition = load_task_contracts()[TASK_ID].task_definition
+    outputs = tuple(
+        (output.key, f"{output.key}[{output.unit}]", output.unit)
+        for output in task_definition.outputs
+    )
     rows = [row for row in data.observations if row["source"] == "熱延引張" and row["eligible"] and row["features"] and row["composition"]]
     if destination.exists():
         shutil.rmtree(destination)
@@ -88,7 +97,7 @@ def build(source: Path, destination: Path) -> None:
     files = [pipeline_path]
     predictors: list[dict[str, object]] = []
     counts: dict[str, int] = {}
-    for target, (column, unit) in TARGETS.items():
+    for target, column, unit in outputs:
         target_rows = [row for row in rows if column in row["outputs"]]
         grouped: dict[str, list[dict[str, object]]] = {}
         for row in target_rows:
@@ -130,7 +139,7 @@ def build(source: Path, destination: Path) -> None:
     smoke_input.write_text(sample.model_dump_json(indent=2), encoding="utf-8", newline="\n")
     raw = build_hot_rolling_features(sample, data.medians).values
     smoke_expected = smoke_dir / "expected.json"
-    smoke_expected.write_text(json.dumps({target: round(_point(artifact_dir / f"{target}.npz", raw), 8) for target in TARGETS}, indent=2), encoding="utf-8", newline="\n")
+    smoke_expected.write_text(json.dumps({target: round(_point(artifact_dir / f"{target}.npz", raw), 8) for target, _, _ in outputs}, indent=2), encoding="utf-8", newline="\n")
     files.extend([smoke_input, smoke_expected])
     manifest = {"schema_version": "model-package/v1", "package_id": PACKAGE_ID, "package_version": PACKAGE_VERSION, "task_id": TASK_ID, "input_schema_version": INPUT_SCHEMA_VERSION, "feature_pipeline": {"id": PIPELINE_ID, "version": PIPELINE_VERSION, "spec": pipeline_path.relative_to(destination).as_posix(), "canonical_input_paths": list(CANONICAL_INPUT_PATHS), "output_features": list(FEATURE_NAMES), "artifacts": [stats_path.relative_to(destination).as_posix()]}, "predictors": predictors, "provenance": {"training_data_id": f"sha256:{data.source_sha256}", "feature_dataset_id": f"sha256:{_digest(stats_path)}", "training_code_revision": TRAINING_CODE_REVISION}, "artifacts": [_artifact(destination, path) for path in files], "smoke_test": {"input": smoke_input.relative_to(destination).as_posix(), "expected": smoke_expected.relative_to(destination).as_posix()}}
     (destination / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
