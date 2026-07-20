@@ -60,6 +60,16 @@ $env:MATERIAL_WORKBENCH_MODEL_PACKAGE = "C:\models\annealed-bnn"
 npm run dev
 ```
 
+Packageをactive候補として設定する前に、manifest・artifact・adapter・feature順・smoke資産の整合性を検証できます。
+
+```powershell
+uv run python backend/scripts/verify_model_package.py models/packages/annealed-gp-2026-07 `
+  --expect-task-id annealed-properties-v1 `
+  --expect-input-schema-version candidate-v1
+```
+
+CIやスクリプトから利用する場合は `--json` を指定します。検証失敗時は非0で終了します。task固有のFeature Pipelineを実行するsmoke推論は、runtime registryとの接続後にこの入口へ追加します。
+
 同じ契約で `sklearn/skops`、LightGBM native Booster、GPyTorch static RBF、NumPyro BNN posteriorを利用できます。optional runtimeをまとめて検証する場合:
 
 ```powershell
