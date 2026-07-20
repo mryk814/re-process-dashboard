@@ -32,7 +32,7 @@ test("project hub separates current revision from fixed snapshot and restores a 
   await expect(card).toContainText(`編集版 ${before.revision + 1}`);
   await expect(card).toContainText(`編集版 ${before.revision}`);
   await expect(card.getByText("現在のpreview", { exact: true })).toBeVisible();
-  await expect(card.getByText("固定した予測", { exact: true })).toBeVisible();
+  await expect(card.getByText("固定した予測", { exact: true }).first()).toBeVisible();
 
   await card.getByRole("button", { name: "詳細" }).first().click();
   await page.getByLabel("判断理由").fill("r1時点の予測根拠を採用");
