@@ -4,7 +4,7 @@ import math
 from datetime import date, datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, RootModel, field_validator, model_validator
 
 from .task_contracts import CandidateProvenance, ManualSourceRef
 
@@ -67,6 +67,17 @@ class Candidate(CandidateInput):
     archived_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class CandidateImportError(BaseModel):
+    row: int
+    message: str
+
+
+class CandidateImportResponse(BaseModel):
+    created: int
+    errors: list[CandidateImportError]
+    candidates: list[Candidate]
 
 
 class InputRange(BaseModel):
@@ -226,6 +237,72 @@ class Prediction(BaseModel):
     uncertainty_components: dict[str, float] | None = None
 
 
+class RepeatSummary(BaseModel):
+    mean: float
+    std: float
+    n: int
+
+
+class SimilarObservation(BaseModel):
+    observation_id: str = ""
+    parent_key: str
+    source: str = ""
+    layer: Literal["training", "historical"] | None = None
+    distance: float
+    components: dict[str, float] = Field(default_factory=dict)
+    outputs: dict[str, float] = Field(default_factory=dict)
+    repeat_summary: dict[str, RepeatSummary] = Field(default_factory=dict)
+
+
+class ModelIdentity(BaseModel):
+    id: str = ""
+    version: str = ""
+    method: str = ""
+
+
+class PackageIdentity(BaseModel):
+    id: str = ""
+    version: str = ""
+    manifest_sha256: str = ""
+    runtime_types: list[str] = Field(default_factory=list)
+
+
+class FeaturePipelineIdentity(BaseModel):
+    id: str = ""
+    version: str = ""
+    input_schema_version: str = ""
+    features: list[str] = Field(default_factory=list)
+
+
+class TrainingDataIdentity(BaseModel):
+    source_path: str = ""
+    source_sha256: str = ""
+    records: dict[str, int] = Field(default_factory=dict)
+
+
+class PredictionIntervalIdentity(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    method: str = ""
+    coverage: str | float | None = None
+    grouping: str = ""
+    folds: int | dict[str, int] | None = None
+    note: str = ""
+
+
+class SimilarityIdentity(BaseModel):
+    version: str = ""
+    method: str = ""
+
+
+class ModelMetadata(BaseModel):
+    package: PackageIdentity | None = None
+    model: ModelIdentity | None = None
+    feature_pipeline: FeaturePipelineIdentity | None = None
+    training_data: TrainingDataIdentity | None = None
+    prediction_interval: PredictionIntervalIdentity | None = None
+    similarity: SimilarityIdentity | None = None
+
+
 class Support(BaseModel):
     status: Literal["supported", "caution", "extrapolated"]
     distance: float
@@ -244,9 +321,9 @@ class PredictionResponse(BaseModel):
     predictions: dict[str, Prediction]
     support: Support
     warnings: list[str]
-    model_meta: dict[str, object]
+    model_meta: ModelMetadata
     canonical_input: dict[str, object]
-    similar: list[dict[str, object]]
+    similar: list[SimilarObservation]
     heat_pattern: list[HeatPoint]
     response_curve: list[dict[str, float]] | None = None
 
@@ -273,11 +350,104 @@ class ModelPackageStatus(BaseModel):
     quality_report: dict[str, object]
 
 
+class SnapshotPayload(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    prediction: PredictionResponse | None = None
+    provenance: ModelMetadata | None = None
+
+
 class SnapshotResponse(BaseModel):
     id: str
     candidate_id: str
     created_at: datetime
-    payload: dict[str, object]
+    payload: SnapshotPayload
+
+
+class CurvePoint(BaseModel):
+    x: float
+    value: float
+    lower: float
+    upper: float
+
+
+class CurveVariable(BaseModel):
+    id: str
+    label: str
+    unit: str
+    min: float
+    max: float
+    current: float
+
+
+class ResponseCurvesResponse(BaseModel):
+    variable: CurveVariable
+    curves: dict[str, list[CurvePoint]]
+    output_ranges: dict[str, InputRange]
+
+
+class ResponseCurvesResult(RootModel[ResponseCurvesResponse | dict[str, list[CurvePoint]]]):
+    pass
+
+
+class LineageIndexItem(BaseModel):
+    key: str
+    entity_type: str
+    has_issue: bool
+    family: str | None = None
+    project: str | None = None
+    route: str | None = None
+    peak_temperature_c: float | None = None
+    coating: str | None = None
+    learning_status: str | None = None
+    has_observation: bool | None = None
+    observation_summary: dict[str, RepeatSummary] | None = None
+
+
+class LineageIndexResponse(BaseModel):
+    items: list[LineageIndexItem]
+    total_entities: int
+    relation_rows: int
+    detected_issues: int
+    counts_by_type: dict[str, int]
+
+
+class ScreeningPoint(BaseModel):
+    index: int
+    inputs: dict[str, float | str]
+    candidate: CandidateInput
+    prediction: Prediction
+    color_value: float
+    support: Support
+    score: float
+
+
+class ScreeningRunResponse(BaseModel):
+    id: str
+    project_id: str
+    created_at: datetime
+    seed: int
+    base_candidate_id: str
+    base_canonical_input: dict[str, object]
+    model_provenance: ModelMetadata
+    target: str
+    target_value: float
+    samples: int
+    variables: dict[str, ScreeningVariable]
+    points: list[ScreeningPoint]
+    representative_points: list[ScreeningPoint]
+
+
+class PredictionComparison(BaseModel):
+    actual: ActualMeasurement
+    snapshot_id: str
+    prediction: PredictionResponse
+    provenance: ModelMetadata
+
+
+class PredictionVsActualResponse(BaseModel):
+    candidate_id: str
+    actuals: list[ActualMeasurement]
+    comparisons: list[PredictionComparison]
 
 
 class DetailedPredictionResponse(BaseModel):

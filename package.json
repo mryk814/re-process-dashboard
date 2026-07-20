@@ -19,7 +19,9 @@
     "model:verify": "uv run python backend/scripts/model_workflow.py verify",
     "model:activate": "uv run python backend/scripts/model_workflow.py activate",
     "model:rollback": "uv run python backend/scripts/model_workflow.py rollback",
-    "model:status": "uv run python backend/scripts/model_workflow.py status"
+    "model:status": "uv run python backend/scripts/model_workflow.py status",
+    "api:generate": "uv run python backend/scripts/export_openapi.py && npm run api:types -w apps/web",
+    "api:check": "uv run python backend/scripts/export_openapi.py --check && npm run api:check -w apps/web"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",

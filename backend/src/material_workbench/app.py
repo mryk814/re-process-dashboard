@@ -21,7 +21,31 @@ from .importer import lineage_neighborhood, lineage_node_detail, load_workbook_d
 from .hot_rolling import TASK_ID as HOT_ROLLING_TASK_ID, HotRollingRuntime
 from .runtime import ModelRuntime, TASK_ID as ANNEALED_TASK_ID
 from .model_lifecycle import ACTIVE_PACKAGES_PATH, resolve_configured_package, validate_lifecycle_metadata
-from .schemas import ApiError, ActualMeasurementInput, Candidate, CandidateInput, CandidateUpdate, DetailedPredictionResponse, LineageResponse, ModelPackageStatus, PredictionResponse, ProjectDecisionInput, ProjectInput, QualityResponse, ScreeningRequest
+from .schemas import (
+    ApiError,
+    ActualMeasurement,
+    ActualMeasurementInput,
+    Candidate,
+    CandidateImportResponse,
+    CandidateInput,
+    CandidateUpdate,
+    DetailedPredictionResponse,
+    LineageIndexResponse,
+    LineageResponse,
+    ModelPackageStatus,
+    PredictionResponse,
+    PredictionVsActualResponse,
+    Project,
+    ProjectDecisionInput,
+    ProjectInput,
+    QualityResponse,
+    ResponseCurvesResponse,
+    ResponseCurvesResult,
+    ScreeningRequest,
+    ScreeningRunResponse,
+    SimilarObservation,
+    SnapshotResponse,
+)
 from .services import candidate_from_lineage, candidates_xlsx, import_candidates_xlsx, run_latin_hypercube
 from .snapshot_reader import SnapshotPayloadError, candidate_input_from_snapshot
 from .store import CandidateArchivedError, CandidateLimitError, CandidateRevisionConflictError, InvalidProjectDecisionError, ProjectNotFoundError, Store, StoreDataIntegrityError
@@ -296,11 +320,11 @@ def create_app(
             },
         }
 
-    @app.get("/api/projects")
+    @app.get("/api/projects", response_model=list[Project])
     def list_projects() -> list[dict[str, Any]]:
         return [project.model_dump(mode="json") for project in store().list_projects()]
 
-    @app.post("/api/projects", status_code=201)
+    @app.post("/api/projects", status_code=201, response_model=Project)
     def create_project(payload: ProjectInput) -> dict[str, Any]:
         try:
             contract = task_registry().contract_for(payload.task_id)
@@ -313,11 +337,11 @@ def create_app(
             raise HTTPException(422, "新しいプロジェクトでは採用候補を空にしてください")
         return store().create_project(payload).model_dump(mode="json")
 
-    @app.get("/api/projects/{project_id}")
+    @app.get("/api/projects/{project_id}", response_model=Project)
     def get_project_by_id(project_id: str) -> dict[str, Any]:
         return require_project(project_id).model_dump(mode="json")
 
-    @app.put("/api/projects/{project_id}", responses=PROJECT_API_ERRORS)
+    @app.put("/api/projects/{project_id}", response_model=Project, responses=PROJECT_API_ERRORS)
     def update_project_by_id(project_id: str, payload: ProjectInput) -> dict[str, Any]:
         current = require_project(project_id)
         try:
@@ -337,7 +361,7 @@ def create_app(
             raise HTTPException(404, "プロジェクトが見つかりません")
         return project.model_dump(mode="json")
 
-    @app.put("/api/projects/{project_id}/decision")
+    @app.put("/api/projects/{project_id}/decision", response_model=Project)
     def update_project_decision(project_id: str, payload: ProjectDecisionInput) -> dict[str, Any]:
         try:
             project = store().update_project_decision(
@@ -352,11 +376,11 @@ def create_app(
             raise HTTPException(404, "プロジェクトが見つかりません")
         return project.model_dump(mode="json")
 
-    @app.get("/api/project")
+    @app.get("/api/project", response_model=Project)
     def get_project() -> dict[str, Any]:
         return require_project("default").model_dump(mode="json")
 
-    @app.put("/api/project", responses=PROJECT_API_ERRORS)
+    @app.put("/api/project", response_model=Project, responses=PROJECT_API_ERRORS)
     def update_project(payload: ProjectInput) -> dict[str, Any]:
         return update_project_by_id("default", payload)
 
@@ -369,7 +393,7 @@ def create_app(
     def create_candidate(project_id: str, payload: CandidateInput) -> dict[str, Any]:
         return create_candidate_in_project(payload, project_id).model_dump(mode="json")
 
-    @app.post("/api/projects/{project_id}/candidates/import", responses=PROJECT_API_ERRORS)
+    @app.post("/api/projects/{project_id}/candidates/import", response_model=CandidateImportResponse, responses=PROJECT_API_ERRORS)
     async def import_candidates(project_id: str, file: UploadFile = File(...)) -> dict[str, Any]:
         project = require_project(project_id)
         if project.task_id != ANNEALED_TASK_ID:
@@ -480,7 +504,7 @@ def create_app(
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
 
-    @app.get("/api/projects/{project_id}/candidates/{candidate_id}/response-curves")
+    @app.get("/api/projects/{project_id}/candidates/{candidate_id}/response-curves", response_model=ResponseCurvesResult)
     def response_curves(project_id: str, candidate_id: str, variable: str | None = None) -> dict[str, Any]:
         project = require_project(project_id)
         candidate = store().get_candidate(candidate_id, project_id)
@@ -494,7 +518,7 @@ def create_app(
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
 
-    @app.get("/api/projects/{project_id}/candidates/{candidate_id}/similar")
+    @app.get("/api/projects/{project_id}/candidates/{candidate_id}/similar", response_model=list[SimilarObservation])
     def similar(project_id: str, candidate_id: str) -> list[dict[str, object]]:
         return prediction(project_id, candidate_id, detailed=False)["similar"]
 
@@ -525,7 +549,7 @@ def create_app(
         writer.writerows(issues)
         return StreamingResponse(iter(["\ufeff" + output.getvalue()]), media_type="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment; filename=detected-data-quality.csv"})
 
-    @app.get("/api/lineage")
+    @app.get("/api/lineage", response_model=LineageIndexResponse, response_model_exclude_none=True)
     def lineage_index(query: str = "", entity_type: str = "", issue_only: bool = False, limit: int = 40) -> dict[str, Any]:
         data = app.state.data
         normalized = query.strip().casefold()
@@ -627,7 +651,7 @@ def create_app(
             "candidate_reason": candidate_reason,
         }
 
-    @app.post("/api/lineage/{entity_key}/candidate", status_code=201, responses=PROJECT_API_ERRORS)
+    @app.post("/api/lineage/{entity_key}/candidate", status_code=201, response_model=Candidate, responses=PROJECT_API_ERRORS)
     def create_candidate_from_lineage(entity_key: str, project_id: str = "default") -> dict[str, Any]:
         try:
             payload = candidate_from_lineage(app.state.data, entity_key)
@@ -635,7 +659,7 @@ def create_app(
             raise HTTPException(422, str(exc)) from exc
         return create_candidate_in_project(payload, project_id).model_dump(mode="json")
 
-    @app.post("/api/screening", status_code=201)
+    @app.post("/api/screening", status_code=201, response_model=ScreeningRunResponse)
     def screening(payload: ScreeningRequest, project_id: str = "default") -> dict[str, Any]:
         project = require_project(project_id)
         output = next(
@@ -662,19 +686,19 @@ def create_app(
             raise HTTPException(422, str(exc)) from exc
         return store().create_screening_run(jsonable_encoder(result), project_id)
 
-    @app.get("/api/screening")
+    @app.get("/api/screening", response_model=list[ScreeningRunResponse])
     def list_screening_runs(project_id: str = "default") -> list[dict[str, Any]]:
         require_project(project_id)
         return store().list_screening_runs(project_id)
 
-    @app.get("/api/screening/{run_id}")
+    @app.get("/api/screening/{run_id}", response_model=ScreeningRunResponse)
     def get_screening_run(run_id: str, project_id: str = "default") -> dict[str, Any]:
         run = store().get_screening_run(run_id, project_id)
         if not run:
             raise HTTPException(404, "スクリーニング結果が見つかりません")
         return run
 
-    @app.post("/api/screening/{run_id}/points/{point_index}/candidate", status_code=201, responses=PROJECT_API_ERRORS)
+    @app.post("/api/screening/{run_id}/points/{point_index}/candidate", status_code=201, response_model=Candidate, responses=PROJECT_API_ERRORS)
     def screening_point_to_candidate(run_id: str, point_index: int, project_id: str = "default") -> dict[str, Any]:
         run = store().get_screening_run(run_id, project_id)
         if not run:
@@ -689,13 +713,13 @@ def create_app(
         })
         return create_candidate_in_project(payload, project_id).model_dump(mode="json")
 
-    @app.get("/api/projects/{project_id}/candidates/{candidate_id}/snapshots")
+    @app.get("/api/projects/{project_id}/candidates/{candidate_id}/snapshots", response_model=list[SnapshotResponse])
     def snapshots(project_id: str, candidate_id: str) -> list[dict[str, Any]]:
         if not store().get_candidate(candidate_id, project_id, include_archived=True):
             raise HTTPException(404, "候補が見つかりません")
         return store().list_snapshots(candidate_id)
 
-    @app.post("/api/projects/{project_id}/candidates/{candidate_id}/snapshots", status_code=201)
+    @app.post("/api/projects/{project_id}/candidates/{candidate_id}/snapshots", status_code=201, response_model=SnapshotResponse)
     def create_snapshot(project_id: str, candidate_id: str) -> dict[str, Any]:
         candidate = store().get_candidate(candidate_id, project_id)
         if not candidate:
@@ -724,7 +748,7 @@ def create_app(
         # Stored JSON is a complete, immutable prediction artifact, not a mutable candidate reference.
         return store().create_snapshot(candidate.id, jsonable_encoder(payload))
 
-    @app.post("/api/projects/{project_id}/snapshots/{snapshot_id}/restore", status_code=201, responses=PROJECT_API_ERRORS)
+    @app.post("/api/projects/{project_id}/snapshots/{snapshot_id}/restore", status_code=201, response_model=Candidate, responses=PROJECT_API_ERRORS)
     def restore_snapshot(project_id: str, snapshot_id: str) -> dict[str, Any]:
         require_project(project_id)
         snapshot = store().get_snapshot(snapshot_id)
@@ -736,13 +760,13 @@ def create_app(
             raise HTTPException(422, str(exc)) from exc
         return create_candidate_in_project(payload, project_id).model_dump(mode="json")
 
-    @app.get("/api/projects/{project_id}/candidates/{candidate_id}/actuals")
+    @app.get("/api/projects/{project_id}/candidates/{candidate_id}/actuals", response_model=list[ActualMeasurement])
     def list_actuals(project_id: str, candidate_id: str) -> list[dict[str, Any]]:
         if not store().get_candidate(candidate_id, project_id, include_archived=True):
             raise HTTPException(404, "候補が見つかりません")
         return [actual.model_dump(mode="json") for actual in store().list_actuals(candidate_id)]
 
-    @app.post("/api/projects/{project_id}/candidates/{candidate_id}/actuals", status_code=201)
+    @app.post("/api/projects/{project_id}/candidates/{candidate_id}/actuals", status_code=201, response_model=ActualMeasurement)
     def create_actual(project_id: str, candidate_id: str, payload: ActualMeasurementInput) -> dict[str, Any]:
         project = require_project(project_id)
         candidate = store().get_candidate(candidate_id, project_id)
@@ -764,7 +788,7 @@ def create_app(
             raise HTTPException(404, "実測が見つかりません")
         return Response(status_code=204)
 
-    @app.get("/api/projects/{project_id}/candidates/{candidate_id}/prediction-vs-actual", responses=PROJECT_API_ERRORS)
+    @app.get("/api/projects/{project_id}/candidates/{candidate_id}/prediction-vs-actual", response_model=PredictionVsActualResponse, responses=PROJECT_API_ERRORS)
     def prediction_vs_actual(project_id: str, candidate_id: str) -> dict[str, Any]:
         actuals = list_actuals(project_id, candidate_id)
         comparisons = []
