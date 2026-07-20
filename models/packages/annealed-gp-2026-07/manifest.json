@@ -316,8 +316,8 @@
     },
     {
       "path": "smoke/input.json",
-      "sha256": "9b4ad3525df5e80ff11a577bc26dedfc56c022a72b3925c6293f8807227f61f4",
-      "bytes": 644
+      "sha256": "0662bd52153ecba35de2ec3d5bdb2d58ca0dd683f89f346750106d1d1a965ead",
+      "bytes": 792
     },
     {
       "path": "smoke/expected.json",

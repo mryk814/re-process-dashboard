@@ -21,12 +21,15 @@ SCREENING_SEED = 20260719
 def _set_screen_value(candidate: Candidate, name: str, value: float | str) -> Candidate:
     updated = candidate.model_copy(deep=True)
     if name.startswith("composition."):
-        updated.composition[name.removeprefix("composition.")] = float(value)
+        updated.inputs.composition[name.removeprefix("composition.")] = float(value)
     elif name == "max_temperature_c":
-        peak = max(range(len(updated.heat_pattern)), key=lambda index: updated.heat_pattern[index].temperature_c)
-        updated.heat_pattern[peak].temperature_c = float(value)
+        points = updated.inputs.heat_pattern or []
+        peak = max(range(len(points)), key=lambda index: points[index].temperature_c)
+        points[peak].temperature_c = float(value)
+    elif name == "coating":
+        updated.inputs.categorical["coating"] = str(value)
     else:
-        setattr(updated, name, value)
+        updated.inputs.process[name] = float(value)
     return updated
 
 
@@ -103,7 +106,16 @@ def candidate_from_lineage(data: WorkbookData, entity_key: str) -> CandidateInpu
         raise ValueError("候補化に必要な焼鈍履歴がありません")
     thickness_rows = [row for row in data.observations if row["parent_key"] == anneal_key and row["thickness_mm"] > 0]
     thickness = float(np.median([row["thickness_mm"] for row in thickness_rows])) if thickness_rows else 1.4
-    return CandidateInput(name=f"過去条件 {anneal_key}", composition=deepcopy(data.composition[melt_keys[0]]), thickness_mm=thickness, line_speed_m_min=float(feature["line_speed_m_min"]), coating=str(feature["coating"]), heat_pattern=heat_pattern)
+    return CandidateInput(
+        name=f"過去条件 {anneal_key}",
+        inputs={
+            "composition": deepcopy(data.composition[melt_keys[0]]),
+            "process": {"thickness_mm": thickness, "line_speed_m_min": float(feature["line_speed_m_min"])},
+            "categorical": {"coating": str(feature["coating"])},
+            "heat_pattern": heat_pattern,
+        },
+        provenance={"source_kind": "lineage", "source_ref": {"entity_type": "annealing", "entity_key": anneal_key}},
+    )
 
 
 def import_candidates_xlsx(contents: bytes) -> tuple[list[CandidateInput], list[dict[str, Any]]]:
@@ -139,7 +151,15 @@ def import_candidates_xlsx(contents: bytes) -> tuple[list[CandidateInput], list[
             name = value("name")
             if name is None or not str(name).strip():
                 raise ValueError("nameは空にできません")
-            imported.append(CandidateInput(name=str(name).strip(), composition=composition, thickness_mm=float(value("thickness_mm", 1.4)), line_speed_m_min=float(value("line_speed_m_min", 103)), coating=str(value("coating", "なし")), heat_pattern=points))
+            imported.append(CandidateInput(
+                name=str(name).strip(),
+                inputs={
+                    "composition": composition,
+                    "process": {"thickness_mm": float(value("thickness_mm", 1.4)), "line_speed_m_min": float(value("line_speed_m_min", 103))},
+                    "categorical": {"coating": str(value("coating", "なし"))},
+                    "heat_pattern": points,
+                },
+            ))
         except (TypeError, ValueError) as exc:
             errors.append({"row": row_number, "message": str(exc)})
     return imported, errors
@@ -149,15 +169,15 @@ def candidates_xlsx(candidates: list[Candidate], runtime: ModelRuntime) -> bytes
     workbook = Workbook()
     sheet = workbook.active
     sheet.title = "候補"
-    max_points = max((len(candidate.heat_pattern) for candidate in candidates), default=2)
+    max_points = max((len(candidate.inputs.heat_pattern or []) for candidate in candidates), default=2)
     heat_headers = [item for index in range(1, max_points + 1) for item in (f"time_s_{index}", f"temperature_c_{index}", f"segment_start_{index}")]
     headers = ["schema_version", "id", "name", *COMPOSITION_COLUMNS, "thickness_mm", "line_speed_m_min", "coating", *heat_headers, "TS", "YS", "EL", "lambda", "support_status", "support_distance"]
     sheet.append(headers)
     for candidate in candidates:
         result = runtime.predict(candidate, detailed=False)
-        heat_values = [item for point in candidate.heat_pattern for item in (point.time_s, point.temperature_c, point.segment_start)]
+        heat_values = [item for point in (candidate.inputs.heat_pattern or []) for item in (point.time_s, point.temperature_c, point.segment_start)]
         heat_values.extend([None] * (len(heat_headers) - len(heat_values)))
-        sheet.append(["material-workbench-candidate-v1", candidate.id, candidate.name, *(candidate.composition.get(name) for name in COMPOSITION_COLUMNS), candidate.thickness_mm, candidate.line_speed_m_min, candidate.coating, *heat_values, *(result["predictions"][target].value for target in ("TS", "YS", "EL", "lambda")), result["support"].status, result["support"].distance])
+        sheet.append(["material-workbench-candidate-v1", candidate.id, candidate.name, *(candidate.inputs.composition.get(name) for name in COMPOSITION_COLUMNS), candidate.inputs.process["thickness_mm"], candidate.inputs.process["line_speed_m_min"], candidate.inputs.categorical["coating"], *heat_values, *(result["predictions"][target].value for target in ("TS", "YS", "EL", "lambda")), result["support"].status, result["support"].distance])
     for column in sheet.columns:
         letter = column[0].column_letter
         sheet.column_dimensions[letter].width = min(22, max(12, max(len(str(cell.value or "")) for cell in column) + 2))

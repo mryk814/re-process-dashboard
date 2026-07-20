@@ -5,19 +5,22 @@ from openpyxl import Workbook
 
 from material_workbench.store import Store
 
+ELEMENTS = ("C", "Si", "Mn", "P", "S", "Cr", "Mo", "Ni", "Al", "Ti", "B", "N", "O", "Ca")
+
 
 def _candidate(name: str) -> dict:
     return {
         "name": name,
-        "composition": {"C": 0.08, "Si": 0.3, "Mn": 1.5},
-        "thickness_mm": 1.4,
-        "line_speed_m_min": 103.0,
-        "coating": "GI",
-        "heat_pattern": [
-            {"time_s": 0, "temperature_c": 25},
-            {"time_s": 300, "temperature_c": 810},
-            {"time_s": 650, "temperature_c": 120},
-        ],
+        "inputs": {
+            "composition": {**{key: 0.0 for key in ELEMENTS}, "C": 0.08, "Si": 0.3, "Mn": 1.5},
+            "process": {"thickness_mm": 1.4, "line_speed_m_min": 103.0},
+            "categorical": {"coating": "GI"},
+            "heat_pattern": [
+                {"time_s": 0, "temperature_c": 25},
+                {"time_s": 300, "temperature_c": 810},
+                {"time_s": 650, "temperature_c": 120},
+            ],
+        },
     }
 
 
@@ -56,11 +59,11 @@ def test_project_crud_preserves_default_and_isolates_candidates_and_screening(cl
     assert client.get("/api/project").json()["name"] == default["name"]
     assert client.get("/api/projects/missing").status_code == 404
 
-    candidate = client.post(f"/api/candidates?project_id={project['id']}", json=_candidate("P2候補"))
+    candidate = client.post(f"/api/projects/{project['id']}/candidates", json=_candidate("P2候補"))
     assert candidate.status_code == 201
     candidate_id = candidate.json()["id"]
-    assert [item["id"] for item in client.get(f"/api/candidates?project_id={project['id']}").json()] == [candidate_id]
-    assert candidate_id not in {item["id"] for item in client.get("/api/candidates").json()}
+    assert [item["id"] for item in client.get(f"/api/projects/{project['id']}/candidates").json()] == [candidate_id]
+    assert candidate_id not in {item["id"] for item in client.get("/api/projects/default/candidates").json()}
 
     screening_body = {
         "base_candidate_id": candidate_id,
@@ -96,8 +99,8 @@ def test_project_accepts_each_registered_task_and_rejects_wrong_targets(client) 
 def test_candidate_limit_is_enforced_for_every_creation_route(client) -> None:
     project = client.post("/api/projects", json=_project("上限確認")).json()
     project_id = project["id"]
-    base = client.post(f"/api/candidates?project_id={project_id}", json=_candidate("基準")).json()
-    snapshot = client.post(f"/api/candidates/{base['id']}/snapshots").json()
+    base = client.post(f"/api/projects/{project_id}/candidates", json=_candidate("基準")).json()
+    snapshot = client.post(f"/api/projects/{project_id}/candidates/{base['id']}/snapshots").json()
     screening = client.post(
         f"/api/screening?project_id={project_id}",
         json={
@@ -109,20 +112,20 @@ def test_candidate_limit_is_enforced_for_every_creation_route(client) -> None:
         },
     ).json()
     for index in range(2, 11):
-        assert client.post(f"/api/candidates?project_id={project_id}", json=_candidate(f"候補{index}")).status_code == 201
-    assert len(client.get(f"/api/candidates?project_id={project_id}").json()) == 10
+        assert client.post(f"/api/projects/{project_id}/candidates", json=_candidate(f"候補{index}")).status_code == 201
+    assert len(client.get(f"/api/projects/{project_id}/candidates").json()) == 10
 
-    direct = client.post(f"/api/candidates?project_id={project_id}", json=_candidate("11件目"))
+    direct = client.post(f"/api/projects/{project_id}/candidates", json=_candidate("11件目"))
     assert direct.status_code == 409 and "最大10件" in direct.json()["message"]
     assert client.post(f"/api/lineage/AN-00001/candidate?project_id={project_id}").status_code == 409
     assert client.post(f"/api/screening/{screening['id']}/points/0/candidate?project_id={project_id}").status_code == 409
-    assert client.post(f"/api/snapshots/{snapshot['id']}/restore").status_code == 409
+    assert client.post(f"/api/projects/{project_id}/snapshots/{snapshot['id']}/restore").status_code == 409
     imported = client.post(
-        f"/api/candidates/import?project_id={project_id}",
+        f"/api/projects/{project_id}/candidates/import",
         files={"file": ("candidate.xlsx", _xlsx_candidate("Excel候補"), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
     )
     assert imported.status_code == 409
-    assert len(client.get(f"/api/candidates?project_id={project_id}").json()) == 10
+    assert len(client.get(f"/api/projects/{project_id}/candidates").json()) == 10
 
 
 def test_project_decision_is_scoped_persisted_and_cleared_with_candidate(client) -> None:
@@ -137,18 +140,18 @@ def test_project_decision_is_scoped_persisted_and_cleared_with_candidate(client)
     project = client.post("/api/projects", json=_project("判断記録")).json()
     other = client.post("/api/projects", json=_project("別プロジェクト")).json()
     selected = client.post(
-        f"/api/candidates?project_id={project['id']}",
+        f"/api/projects/{project['id']}/candidates",
         json=_candidate("次実験候補"),
     ).json()
     selected_snapshot = client.post(
-        f"/api/candidates/{selected['id']}/snapshots",
+        f"/api/projects/{project['id']}/candidates/{selected['id']}/snapshots",
     ).json()
     foreign = client.post(
-        f"/api/candidates?project_id={other['id']}",
+        f"/api/projects/{other['id']}/candidates",
         json=_candidate("混在不可"),
     ).json()
     foreign_snapshot = client.post(
-        f"/api/candidates/{foreign['id']}/snapshots",
+        f"/api/projects/{other['id']}/candidates/{foreign['id']}/snapshots",
     ).json()
 
     decision = {
@@ -174,7 +177,7 @@ def test_project_decision_is_scoped_persisted_and_cleared_with_candidate(client)
         json=wrong_snapshot,
     ).status_code == 422
 
-    assert client.delete(f"/api/candidates/{selected['id']}").status_code == 409
+    assert client.delete(f"/api/projects/{project['id']}/candidates/{selected['id']}").status_code == 409
     assert client.get(f"/api/projects/{project['id']}").json()["decision_candidate_id"] == selected["id"]
 
     cleared_response = client.put(
@@ -182,7 +185,7 @@ def test_project_decision_is_scoped_persisted_and_cleared_with_candidate(client)
         json={"candidate_id": "", "snapshot_id": "", "note": ""},
     )
     assert cleared_response.status_code == 200
-    assert client.delete(f"/api/candidates/{selected['id']}").status_code == 204
+    assert client.delete(f"/api/projects/{project['id']}/candidates/{selected['id']}").status_code == 409
     cleared = client.get(f"/api/projects/{project['id']}").json()
     assert cleared["decision_candidate_id"] == ""
     assert cleared["decision_snapshot_id"] == ""

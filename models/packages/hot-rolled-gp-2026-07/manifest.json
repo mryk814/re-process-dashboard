@@ -5,7 +5,7 @@
   "task_id": "hot-rolled-properties-v1",
   "input_schema_version": "hot-rolling-candidate-v1",
   "input_contract_digest": "sha256:e25da378a98589d537150b9e2d7dcec1184e7091bc5c2d5f9fd023fe201bdf99",
-  "runtime_capability_digest": "sha256:7b12bd1ee6df3664be45b7f5c0eb124122b2e381bee0519c2207ff49d401a792",
+  "runtime_capability_digest": "sha256:30027c98fad501501a2786922eb18ff5b27066d96205e42e0ceae8b4cb71b33c",
   "feature_pipeline": {
     "id": "metallurgy-hot-rolling",
     "version": "1.2.0",
@@ -148,8 +148,8 @@
     },
     {
       "path": "smoke/input.json",
-      "sha256": "0b077854d0e778b6548861960bb60823b219968739d163df0b7f78fcd7ffb680",
-      "bytes": 559
+      "sha256": "5f34051662a453683d35d15c7170665a10c8423fe1eeff2ed09327a1c67a99bc",
+      "bytes": 792
     },
     {
       "path": "smoke/expected.json",

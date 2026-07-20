@@ -210,16 +210,15 @@ class ModelRuntime:
             "input_schema_version": INPUT_SCHEMA_VERSION,
             "composition_mass_percent": {name: round(float(vector[index]), 8) for index, name in enumerate(COMPOSITION_COLUMNS)},
             "composition_imputation": {
-                "imputed_elements": [name for name in COMPOSITION_COLUMNS if name not in candidate.composition],
+                "imputed_elements": [name for name in COMPOSITION_COLUMNS if name not in candidate.inputs.composition],
                 "defaults": {name: self.composition_defaults[name] for name in COMPOSITION_COLUMNS},
                 "reference_stats_sha256": self.composition_defaults_sha256,
             },
             "process": {
-                "thickness_mm": candidate.thickness_mm,
-                "line_speed_m_min": candidate.line_speed_m_min,
-                "coating": candidate.coating,
+                **candidate.inputs.process,
+                **candidate.inputs.categorical,
             },
-            "heat_pattern": [point.model_dump(mode="json") for point in candidate.heat_pattern],
+            "heat_pattern": [point.model_dump(mode="json") for point in (candidate.inputs.heat_pattern or [])],
             "heat_summary": {
                 "peak_temperature_c": feature_values["peak_temperature_c"],
                 "time_at_or_above_95pct_peak_s": feature_values["time_at_or_above_95pct_peak_s"],
@@ -449,14 +448,14 @@ class ModelRuntime:
             )
         if support.status != "supported":
             warnings.append(support.message)
-        if candidate.composition.get("C", self.data.medians["C"]) > 1:
+        if candidate.inputs.composition.get("C", self.data.medians["C"]) > 1:
             warnings.append("C量が参照データの通常域から大きく外れています")
         response_curve = self.response_curve(candidate) if include_curve else None
         return {
             "task_id": self.task_id, "candidate_id": candidate.id, "mode": "detailed" if detailed else "preview", "predictions": predictions,
             "support": support, "warnings": warnings, "model_meta": self._model_meta(),
             "canonical_input": self.canonical_input(candidate), "similar": similar,
-            "heat_pattern": candidate.heat_pattern, "response_curve": response_curve,
+            "heat_pattern": candidate.inputs.heat_pattern or [], "response_curve": response_curve,
         }
 
     def _curve_variable_current(self, candidate: Candidate, variable: str) -> float:
@@ -464,21 +463,22 @@ class ModelRuntime:
             field = variable.removeprefix("composition.")
             if field not in COMPOSITION_COLUMNS:
                 raise ValueError(f"Unsupported response-curve variable: {variable}")
-            return float(candidate.composition.get(field, self.composition_defaults[field]))
+            return float(candidate.inputs.composition.get(field, self.composition_defaults[field]))
         if variable == "thickness_mm":
-            return float(candidate.thickness_mm)
+            return float(candidate.inputs.process["thickness_mm"])
         if variable == "line_speed_m_min":
-            return float(candidate.line_speed_m_min)
+            return float(candidate.inputs.process["line_speed_m_min"])
         if variable == "heat.peak_temperature_c":
-            return float(max(point.temperature_c for point in candidate.heat_pattern))
+            return float(max(point.temperature_c for point in (candidate.inputs.heat_pattern or [])))
         if variable.startswith("heat."):
             parts = variable.split(".")
             if len(parts) != 3 or not parts[1].isdigit() or parts[2] not in {"time_min", "temperature_c"}:
                 raise ValueError(f"Unsupported response-curve variable: {variable}")
             index = int(parts[1])
-            if index >= len(candidate.heat_pattern):
+            points = candidate.inputs.heat_pattern or []
+            if index >= len(points):
                 raise ValueError(f"Unknown heat-pattern point: {variable}")
-            return float(candidate.heat_pattern[index].time_s / 60 if parts[2] == "time_min" else candidate.heat_pattern[index].temperature_c)
+            return float(points[index].time_s / 60 if parts[2] == "time_min" else points[index].temperature_c)
         raise ValueError(f"Unsupported response-curve variable: {variable}")
 
     def _curve_training_values(self, model: RidgeModel, variable: str) -> list[float]:
@@ -520,27 +520,29 @@ class ModelRuntime:
     @staticmethod
     def _set_curve_variable(candidate: Candidate, variable: str, value: float) -> None:
         if variable.startswith("composition."):
-            candidate.composition[variable.removeprefix("composition.")] = min(100.0, max(0.0, float(value)))
+            candidate.inputs.composition[variable.removeprefix("composition.")] = min(100.0, max(0.0, float(value)))
             return
         if variable == "thickness_mm":
-            candidate.thickness_mm = max(0.001, float(value))
+            candidate.inputs.process["thickness_mm"] = max(0.001, float(value))
             return
         if variable == "line_speed_m_min":
-            candidate.line_speed_m_min = max(0.001, float(value))
+            candidate.inputs.process["line_speed_m_min"] = max(0.001, float(value))
             return
         if variable == "heat.peak_temperature_c":
-            index = max(range(len(candidate.heat_pattern)), key=lambda i: candidate.heat_pattern[i].temperature_c)
-            candidate.heat_pattern[index].temperature_c = float(value)
+            points = candidate.inputs.heat_pattern or []
+            index = max(range(len(points)), key=lambda i: points[i].temperature_c)
+            points[index].temperature_c = float(value)
             return
         if variable.startswith("heat."):
             parts = variable.split(".")
             index = int(parts[1])
-            point = candidate.heat_pattern[index]
+            points = candidate.inputs.heat_pattern or []
+            point = points[index]
             if parts[2] == "temperature_c":
                 point.temperature_c = float(value)
             else:
-                lower = candidate.heat_pattern[index - 1].time_s + 1e-6 if index else 0.0
-                upper = candidate.heat_pattern[index + 1].time_s - 1e-6 if index + 1 < len(candidate.heat_pattern) else float("inf")
+                lower = points[index - 1].time_s + 1e-6 if index else 0.0
+                upper = points[index + 1].time_s - 1e-6 if index + 1 < len(points) else float("inf")
                 point.time_s = min(max(float(value) * 60, lower), upper)
             return
         raise ValueError(f"Unsupported response-curve variable: {variable}")

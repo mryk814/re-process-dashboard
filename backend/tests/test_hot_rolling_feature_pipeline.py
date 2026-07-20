@@ -6,7 +6,7 @@ import pytest
 
 from material_workbench.hot_rolling_feature_pipeline import CANONICAL_INPUT_PATHS, FEATURE_NAMES, PIPELINE_ID, PIPELINE_VERSION, build_hot_rolling_features, build_hot_rolling_features_from_observation, candidate_from_observation
 from material_workbench.importer import load_workbook_data
-from material_workbench.schemas import HotRollingCandidateInput
+from material_workbench.schemas import CandidateInput
 
 
 DEFAULTS = {name: 0.0 for name in ("C", "Si", "Mn", "P", "S", "Cr", "Mo", "Ni", "Al", "Ti", "B", "N", "O", "Ca")}
@@ -24,10 +24,14 @@ EXPECTED_CANONICAL_INPUT_PATHS = (
 
 
 def test_hot_rolling_features_are_fixed_order_and_non_redundant() -> None:
-    candidate = HotRollingCandidateInput(
-        composition={"C": 0.1, "Mn": 1.5}, reheat_temperature_c=1180, hold_time_min=30,
-        finish_temperature_c=900, coiling_temperature_c=620, cooling_rate_c_s=35,
-        entry_thickness_mm=35, exit_thickness_mm=3.5, route="B",
+    candidate = CandidateInput(
+        inputs={
+            "composition": {"C": 0.1, "Mn": 1.5},
+            "process": {"reheat_temperature_c": 1180, "hold_time_min": 30,
+                "finish_temperature_c": 900, "coiling_temperature_c": 620, "cooling_rate_c_s": 35,
+                "entry_thickness_mm": 35, "exit_thickness_mm": 3.5},
+            "categorical": {"route": "B"}, "heat_pattern": None,
+        },
     )
     bundle = build_hot_rolling_features(candidate, DEFAULTS)
     values = bundle.as_dict()
@@ -48,9 +52,14 @@ def test_hot_rolling_features_are_fixed_order_and_non_redundant() -> None:
     assert values["finish_temperature_c"] == 900
 
 
-def test_hot_rolling_candidate_rejects_non_reduction() -> None:
+def test_hot_rolling_task_contract_rejects_non_reduction(client) -> None:
     with pytest.raises(ValueError, match="出側板厚"):
-        HotRollingCandidateInput(entry_thickness_mm=3.0, exit_thickness_mm=3.0)
+        client.app.state.task_registry.validate_candidate("hot-rolled-properties-v1", CandidateInput(inputs={
+            "composition": DEFAULTS,
+            "process": {"reheat_temperature_c": 1180, "hold_time_min": 30, "finish_temperature_c": 900,
+                "coiling_temperature_c": 620, "cooling_rate_c_s": 35, "entry_thickness_mm": 3, "exit_thickness_mm": 3},
+            "categorical": {"route": "A"}, "heat_pattern": None,
+        }))
 
 
 def test_hot_rolling_training_row_uses_the_candidate_pipeline() -> None:

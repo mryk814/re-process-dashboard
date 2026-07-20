@@ -101,18 +101,28 @@ type ApiPreview = {
 
 type ApiCandidate = {
   id: string;
-  project_id?: string;
+  project_id: string;
   name: string;
-  composition: Record<string, number> & { C: number; Si: number; Mn: number };
-  thickness_mm: number;
-  line_speed_m_min: number;
-  coating: string;
-  heat_pattern: Array<{
-    time_s: number;
-    temperature_c: number;
-    segment_start?: boolean;
-  }>;
+  inputs: {
+    composition: Record<string, number> & { C: number; Si: number; Mn: number };
+    process: Record<string, number> & { thickness_mm: number; line_speed_m_min: number };
+    categorical: Record<string, string> & { coating: string };
+    heat_pattern?: Array<{
+      time_s: number;
+      temperature_c: number;
+      segment_start?: boolean;
+      set_temperature_c?: number | null;
+      stage_category?: string | null;
+      stage_name?: string | null;
+      mapping_status?: string | null;
+    }>;
+  };
+  provenance: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
 };
+
+type ApiCandidateInput = Pick<ApiCandidate, "name" | "inputs" | "provenance">;
 
 type ApiProject = {
   id: string;
@@ -208,33 +218,35 @@ const COMPOSITION_ELEMENTS = [
   "Ca",
 ] as const;
 
-const STARTER_CANDIDATE: Omit<ApiCandidate, "id"> = {
+const STARTER_CANDIDATE: ApiCandidateInput = {
   name: "基準候補",
-  composition: {
-    C: 0.08,
-    Si: 0.3,
-    Mn: 1.5,
-    P: 0.012,
-    S: 0.004,
-    Cr: 0.2,
-    Mo: 0.03,
-    Ni: 0.1,
-    Al: 0.04,
-    Ti: 0.02,
-    B: 0.002,
-    N: 0.005,
-    O: 0.002,
-    Ca: 0.001,
+  inputs: {
+    composition: {
+      C: 0.08,
+      Si: 0.3,
+      Mn: 1.5,
+      P: 0.012,
+      S: 0.004,
+      Cr: 0.2,
+      Mo: 0.03,
+      Ni: 0.1,
+      Al: 0.04,
+      Ti: 0.02,
+      B: 0.002,
+      N: 0.005,
+      O: 0.002,
+      Ca: 0.001,
+    },
+    process: { thickness_mm: 1.4, line_speed_m_min: 103 },
+    categorical: { coating: "GI" },
+    heat_pattern: [
+      { time_s: 0, temperature_c: 25 },
+      { time_s: 280, temperature_c: 800 },
+      { time_s: 340, temperature_c: 810 },
+      { time_s: 650, temperature_c: 120 },
+    ],
   },
-  thickness_mm: 1.4,
-  line_speed_m_min: 103,
-  coating: "GI",
-  heat_pattern: [
-    { time_s: 0, temperature_c: 25 },
-    { time_s: 280, temperature_c: 800 },
-    { time_s: 340, temperature_c: 810 },
-    { time_s: 650, temperature_c: 120 },
-  ],
+  provenance: { source_kind: "manual" },
 };
 
 const navItems: Array<{ id: Tab; label: string }> = [
@@ -279,7 +291,7 @@ async function apiError(response: Response, fallback: string): Promise<Error> {
 }
 
 function fromApiCandidate(candidate: ApiCandidate): Candidate {
-  const heat = candidate.heat_pattern.map((point) => ({
+  const heat = (candidate.inputs.heat_pattern ?? []).map((point) => ({
     time: point.time_s / 60,
     temperature: point.temperature_c,
     segmentStart: point.segment_start,
@@ -294,12 +306,12 @@ function fromApiCandidate(candidate: ApiCandidate): Candidate {
     raw: candidate,
     id: candidate.id,
     label: candidate.name,
-    c: candidate.composition.C,
-    mn: candidate.composition.Mn,
-    si: candidate.composition.Si,
-    thickness: candidate.thickness_mm,
-    lineSpeed: candidate.line_speed_m_min,
-    coating: candidate.coating,
+    c: candidate.inputs.composition.C,
+    mn: candidate.inputs.composition.Mn,
+    si: candidate.inputs.composition.Si,
+    thickness: candidate.inputs.process.thickness_mm,
+    lineSpeed: candidate.inputs.process.line_speed_m_min,
+    coating: candidate.inputs.categorical.coating,
     annealTemperature: max,
     holdMinutes,
     heat,
@@ -308,25 +320,33 @@ function fromApiCandidate(candidate: ApiCandidate): Candidate {
 
 function toApiCandidate(
   candidate: Candidate,
-): Omit<ApiCandidate, "id"> & { id?: string } {
+): ApiCandidateInput {
   return {
-    ...candidate.raw,
-    id: candidate.id,
     name: candidate.label,
-    composition: {
-      ...candidate.raw.composition,
-      C: candidate.c,
-      Si: candidate.si,
-      Mn: candidate.mn,
+    inputs: {
+      composition: {
+        ...candidate.raw.inputs.composition,
+        C: candidate.c,
+        Si: candidate.si,
+        Mn: candidate.mn,
+      },
+      process: {
+        ...candidate.raw.inputs.process,
+        thickness_mm: candidate.thickness,
+        line_speed_m_min: candidate.lineSpeed,
+      },
+      categorical: {
+        ...candidate.raw.inputs.categorical,
+        coating: candidate.coating,
+      },
+      heat_pattern: candidate.heat.map((point, index) => ({
+        ...candidate.raw.inputs.heat_pattern?.[index],
+        time_s: point.time * 60,
+        temperature_c: point.temperature,
+        segment_start: point.segmentStart ?? false,
+      })),
     },
-    thickness_mm: candidate.thickness,
-    line_speed_m_min: candidate.lineSpeed,
-    coating: candidate.coating,
-    heat_pattern: candidate.heat.map((point) => ({
-      time_s: point.time * 60,
-      temperature_c: point.temperature,
-      segment_start: point.segmentStart ?? false,
-    })),
+    provenance: candidate.raw.provenance,
   };
 }
 
@@ -446,7 +466,7 @@ function App() {
     const sequence = ++loadSequence.current;
     setApiState("loading");
     const [candidateResponse, taskResponse] = await Promise.all([
-      fetch(`${API_URL}/api/candidates?project_id=${encodeURIComponent(projectId)}`),
+      fetch(`${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates`),
       fetch(`${API_URL}/api/projects/${encodeURIComponent(projectId)}/task-definition`),
     ]);
     if (!candidateResponse.ok) throw new Error(`HTTP ${candidateResponse.status}`);
@@ -592,7 +612,10 @@ function App() {
       ...(aliases[element] ? { [aliases[element]!]: raw } : {}),
       raw: {
         ...current.raw,
-        composition: { ...current.raw.composition, [element]: raw },
+        inputs: {
+          ...current.raw.inputs,
+          composition: { ...current.raw.inputs.composition, [element]: raw },
+        },
       },
     } as Candidate;
     setCandidates((items) =>
@@ -671,7 +694,7 @@ function App() {
   async function persistCandidate(candidate: Candidate, previous: Candidate) {
     try {
       const response = await fetch(
-        `${API_URL}/api/candidates/${candidate.id}`,
+        `${API_URL}/api/projects/${encodeURIComponent(activeProjectId)}/candidates/${candidate.id}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -703,9 +726,8 @@ function App() {
         label: `候補 ${candidates.length + 1}`,
         heat: selected.heat.map((point) => ({ ...point })),
       });
-      delete request.id;
       const response = await fetch(
-        `${API_URL}/api/candidates?project_id=${encodeURIComponent(activeProjectId)}`,
+        `${API_URL}/api/projects/${encodeURIComponent(activeProjectId)}/candidates`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -726,7 +748,7 @@ function App() {
   const createStarterCandidate = async () => {
     try {
       const response = await fetch(
-        `${API_URL}/api/candidates?project_id=${encodeURIComponent(activeProjectId)}`,
+        `${API_URL}/api/projects/${encodeURIComponent(activeProjectId)}/candidates`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -752,7 +774,7 @@ function App() {
   const deleteCandidate = async () => {
     if (!selected || candidates.length === 1) return;
     try {
-      const response = await fetch(`${API_URL}/api/candidates/${selectedId}`, {
+      const response = await fetch(`${API_URL}/api/projects/${encodeURIComponent(activeProjectId)}/candidates/${selectedId}`, {
         method: "DELETE",
       });
       if (!response.ok) throw new Error();
@@ -781,7 +803,7 @@ function App() {
     setApiState("loading");
     try {
       const response = await fetch(
-        `${API_URL}/api/candidates/${selected.id}/predict`,
+        `${API_URL}/api/projects/${encodeURIComponent(activeProjectId)}/candidates/${selected.id}/predict`,
         { method: "POST" },
       );
       if (!response.ok) throw new Error();
@@ -1089,6 +1111,7 @@ function CandidateWorkbench(props: WorkbenchProps) {
           onText={onText}
         />
         <LiveResponseCurves
+          projectId={projectId}
           candidates={candidates}
           selectedId={selectedId}
           candidate={selected}
@@ -1097,7 +1120,7 @@ function CandidateWorkbench(props: WorkbenchProps) {
           previewsByCandidate={previewsByCandidate}
           taskDefinition={taskDefinition}
         />
-        <ActualsPanel candidate={selected} />
+        <ActualsPanel projectId={projectId} candidate={selected} />
       </section>
       <EvidencePanel metrics={metrics} preview={preview} candidateLabel={selected.label} />
     </div>
@@ -1153,7 +1176,7 @@ function CandidateInspector({
         <div className="section-heading"><h3>組成</h3><span>mass%</span></div>
         <div className="composition-fields">
         {inputs.filter((input) => input.group === "composition").map((input) => {
-          const value = candidate.raw.composition[input.field] ?? 0;
+          const value = candidate.raw.inputs.composition[input.field] ?? 0;
           const scale = sliderScale(input, value);
           return (
             <label className="slider-field" key={input.id}>
@@ -1240,7 +1263,7 @@ function ComparisonTableV2({
                 <tr key={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}>
                   {compositionInputs.map((input) => {
                     const draftKey = `${candidate.id}:${input.field}`;
-                    const currentValue = candidate.raw.composition[input.field] ?? 0;
+                    const currentValue = candidate.raw.inputs.composition[input.field] ?? 0;
                     const value = compositionDrafts[draftKey] ?? String(currentValue);
                     return <td className="composition-col" key={input.id}><input type="number" step="any" min={allowedRange(input).min} max={allowedRange(input).max} value={value} aria-label={`${candidate.label} ${input.label}`} onFocus={() => onSelect(candidate.id)} onChange={(event) => setCompositionDrafts((drafts) => ({ ...drafts, [draftKey]: event.target.value }))} onBlur={(event) => {
                       const raw = Number(event.target.value);
@@ -1281,7 +1304,7 @@ function CandidateFileControls({
     form.append("file", file);
     try {
       const r = await fetch(
-        `${API_URL}/api/candidates/import?project_id=${encodeURIComponent(projectId)}`,
+        `${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates/import`,
         {
           method: "POST",
           body: form,
@@ -1306,7 +1329,7 @@ function CandidateFileControls({
   };
   const download = () => {
     window.location.assign(
-      `${API_URL}/api/candidates/export.xlsx?project_id=${encodeURIComponent(projectId)}`,
+      `${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates/export.xlsx`,
     );
   };
   return (
@@ -1330,7 +1353,7 @@ function CandidateFileControls({
   );
 }
 
-function ActualsPanel({ candidate }: { candidate: Candidate }) {
+function ActualsPanel({ projectId, candidate }: { projectId: string; candidate: Candidate }) {
   type Actual = {
     id: string;
     property: string;
@@ -1368,7 +1391,7 @@ function ActualsPanel({ candidate }: { candidate: Candidate }) {
   const refresh = async () => {
     try {
       const response = await fetch(
-        `${API_URL}/api/candidates/${candidate.id}/prediction-vs-actual`,
+        `${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates/${candidate.id}/prediction-vs-actual`,
       );
       if (!response.ok) throw new Error();
       setComparison(await response.json());
@@ -1378,13 +1401,13 @@ function ActualsPanel({ candidate }: { candidate: Candidate }) {
   };
   useEffect(() => {
     void refresh();
-  }, [candidate.id]);
+  }, [candidate.id, projectId]);
   const add = async () => {
     if (mean.trim() === "") return setError("実測平均を入力してください。");
     try {
       setError("");
       const r = await fetch(
-        `${API_URL}/api/candidates/${candidate.id}/actuals`,
+        `${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates/${candidate.id}/actuals`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1411,7 +1434,7 @@ function ActualsPanel({ candidate }: { candidate: Candidate }) {
     }
   };
   const remove = async (id: string) => {
-    const response = await fetch(`${API_URL}/api/actuals/${id}`, {
+    const response = await fetch(`${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates/${candidate.id}/actuals/${id}`, {
       method: "DELETE",
     });
     if (response.ok) await refresh();
@@ -1759,6 +1782,7 @@ function HeatPattern({
 }
 
 function LiveResponseCurves({
+  projectId,
   candidates,
   selectedId,
   candidate,
@@ -1767,6 +1791,7 @@ function LiveResponseCurves({
   previewsByCandidate,
   taskDefinition,
 }: {
+  projectId: string;
   candidates: Candidate[];
   selectedId: string;
   candidate: Candidate;
@@ -1787,7 +1812,7 @@ function LiveResponseCurves({
           unit: input.unit,
           min: range.min,
           max: range.max,
-          current: input.group === "composition" ? candidate.raw.composition[input.field] ?? 0 : input.field === "thickness_mm" ? candidate.raw.thickness_mm : candidate.raw.line_speed_m_min,
+          current: input.group === "composition" ? candidate.raw.inputs.composition[input.field] ?? 0 : candidate.raw.inputs.process[input.field] ?? 0,
         };
       }),
     ...candidate.heat.flatMap((point, index) => [
@@ -1809,7 +1834,7 @@ function LiveResponseCurves({
     const timer = window.setTimeout(() => {
       Promise.all(candidates.map(async (item) => {
         try {
-          const response = await fetch(`${API_URL}/api/candidates/${item.id}/response-curves?variable=${encodeURIComponent(variableId)}`, { signal: controller.signal });
+          const response = await fetch(`${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates/${item.id}/response-curves?variable=${encodeURIComponent(variableId)}`, { signal: controller.signal });
           if (!response.ok) return null;
           return [item.id, (await response.json()) as ResponseCurvesPayload] as const;
         } catch {
@@ -1823,7 +1848,7 @@ function LiveResponseCurves({
       });
     }, 320);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [candidatesKey, selectedId, variableId]);
+  }, [candidatesKey, projectId, selectedId, variableId]);
   const activePayload = payloads[selectedId] ?? Object.values(payloads)[0];
   return (
     <section className="response-curves-panel" aria-label="設計変数ごとの応答曲線">
@@ -2892,7 +2917,7 @@ function LiveProjectPage({
     setSelectedSnapshotId("");
     if (!candidate) return;
     const controller = new AbortController();
-    fetch(`${API_URL}/api/candidates/${candidate.id}/snapshots`, {
+    fetch(`${API_URL}/api/projects/${encodeURIComponent(activeProjectId)}/candidates/${candidate.id}/snapshots`, {
       signal: controller.signal,
     })
       .then(async (r) => {
@@ -2948,12 +2973,11 @@ function LiveProjectPage({
     const initial = candidate
       ? (() => {
           const payload = toApiCandidate(candidate);
-          delete payload.id;
           return { ...payload, name: "基準候補" };
         })()
       : STARTER_CANDIDATE;
     const candidateResponse = await fetch(
-      `${API_URL}/api/candidates?project_id=${encodeURIComponent(created.id)}`,
+      `${API_URL}/api/projects/${encodeURIComponent(created.id)}/candidates`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -2968,7 +2992,7 @@ function LiveProjectPage({
     onSwitch(created.id);
   };
   const restore = async (id: string) => {
-    const r = await fetch(`${API_URL}/api/snapshots/${id}/restore`, {
+    const r = await fetch(`${API_URL}/api/projects/${encodeURIComponent(activeProjectId)}/snapshots/${id}/restore`, {
       method: "POST",
     });
     if (!r.ok) {

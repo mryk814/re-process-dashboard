@@ -4,6 +4,7 @@ import type { ResolvedTaskDefinition, TaskDefinitionContract } from "./taskDefin
 const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8765";
 
 type HotCandidate = {
+  raw: ApiCandidate;
   id: string;
   name: string;
   composition: Record<string, number>;
@@ -16,6 +17,62 @@ type HotCandidate = {
   exit_thickness_mm: number;
   route: "A" | "B" | "C";
 };
+
+type ApiCandidate = {
+  id: string;
+  project_id: string;
+  name: string;
+  inputs: {
+    composition: Record<string, number>;
+    process: Record<string, number>;
+    categorical: Record<string, string>;
+    heat_pattern?: Array<{ time_s: number; temperature_c: number }>;
+  };
+  provenance: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+type ApiCandidateInput = Pick<ApiCandidate, "name" | "inputs" | "provenance">;
+
+function fromApiCandidate(candidate: ApiCandidate): HotCandidate {
+  const process = candidate.inputs.process;
+  return {
+    raw: candidate,
+    id: candidate.id,
+    name: candidate.name,
+    composition: candidate.inputs.composition,
+    reheat_temperature_c: process.reheat_temperature_c,
+    hold_time_min: process.hold_time_min,
+    finish_temperature_c: process.finish_temperature_c,
+    coiling_temperature_c: process.coiling_temperature_c,
+    cooling_rate_c_s: process.cooling_rate_c_s,
+    entry_thickness_mm: process.entry_thickness_mm,
+    exit_thickness_mm: process.exit_thickness_mm,
+    route: candidate.inputs.categorical.route as HotCandidate["route"],
+  };
+}
+
+function toApiCandidate(candidate: HotCandidate): ApiCandidateInput {
+  return {
+    name: candidate.name,
+    inputs: {
+      composition: candidate.composition,
+      process: {
+        ...candidate.raw.inputs.process,
+        reheat_temperature_c: candidate.reheat_temperature_c,
+        hold_time_min: candidate.hold_time_min,
+        finish_temperature_c: candidate.finish_temperature_c,
+        coiling_temperature_c: candidate.coiling_temperature_c,
+        cooling_rate_c_s: candidate.cooling_rate_c_s,
+        entry_thickness_mm: candidate.entry_thickness_mm,
+        exit_thickness_mm: candidate.exit_thickness_mm,
+      },
+      categorical: { ...candidate.raw.inputs.categorical, route: candidate.route },
+    },
+    provenance: candidate.raw.provenance,
+  };
+}
 
 type HotPreview = {
   predictions: Record<string, { value: number; lower: number; upper: number; unit: string; uncertainty_components?: Record<string, number> }>;
@@ -54,9 +111,9 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
           setNotice("熱延後特性タスクのプロジェクトを選択してください");
           return;
         }
-        const candidateResponse = await fetch(`${API_URL}/api/hot-rolling/candidates`);
+        const candidateResponse = await fetch(`${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates`);
         if (!candidateResponse.ok) throw new Error();
-        const loadedCandidates = (await candidateResponse.json()) as HotCandidate[];
+        const loadedCandidates = ((await candidateResponse.json()) as ApiCandidate[]).map(fromApiCandidate);
         setCandidates(loadedCandidates);
         setSelectedId(loadedCandidates[0]?.id ?? "");
         setTask(resolved.task_definition);
@@ -83,9 +140,9 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
 
   async function persist(candidate: HotCandidate) {
     try {
-      const response = await fetch(`${API_URL}/api/hot-rolling/candidates/${candidate.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(candidate) });
+      const response = await fetch(`${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates/${candidate.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(toApiCandidate(candidate)) });
       if (!response.ok) throw new Error();
-      const saved = (await response.json()) as HotCandidate;
+      const saved = fromApiCandidate((await response.json()) as ApiCandidate);
       setCandidates((items) => items.map((item) => item.id === saved.id ? saved : item));
       await loadPreview(saved.id);
       setNotice(`${saved.name}を保存し、GPR予測を更新しました`);
@@ -96,11 +153,10 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
 
   async function addCandidate() {
     if (!selected || candidates.length >= 10) return;
-    const payload = { ...selected, name: `${selected.name} コピー` };
-    delete (payload as Partial<HotCandidate>).id;
-    const response = await fetch(`${API_URL}/api/hot-rolling/candidates`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const payload = toApiCandidate({ ...selected, name: `${selected.name} コピー` });
+    const response = await fetch(`${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (!response.ok) return;
-    const created = (await response.json()) as HotCandidate;
+    const created = fromApiCandidate((await response.json()) as ApiCandidate);
     setCandidates((items) => [...items, created]);
     setSelectedId(created.id);
     await loadPreview(created.id);
@@ -108,7 +164,7 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
 
   async function deleteCandidate() {
     if (!selected || candidates.length <= 1) return;
-    const response = await fetch(`${API_URL}/api/hot-rolling/candidates/${selected.id}`, { method: "DELETE" });
+    const response = await fetch(`${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates/${selected.id}`, { method: "DELETE" });
     if (!response.ok) return;
     const remaining = candidates.filter((item) => item.id !== selected.id);
     setCandidates(remaining);

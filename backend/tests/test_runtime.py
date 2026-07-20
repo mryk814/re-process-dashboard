@@ -26,7 +26,7 @@ def test_grouped_oof_calibration_and_parent_condition_support(client) -> None:
 
 
 def test_similarity_summarizes_repeats_and_keeps_layers_distinct(client) -> None:
-    candidate = client.get("/api/candidates").json()[0]
+    candidate = client.get("/api/projects/default/candidates").json()[0]
     preview = client.post(f"/api/projects/default/candidates/{candidate['id']}/preview").json()
     similar = preview["similar"]
     assert preview["support"]["distance"] == 4.7033
@@ -64,16 +64,17 @@ def test_canonical_input_uses_package_defaults_and_one_heat_definition(client) -
     runtime: ModelRuntime = client.app.state.task_registry.runtime_for("annealed-properties-v1")
     candidate = CandidateInput(
         name="partial",
-        composition={"C": 0.1},
-        thickness_mm=1.4,
-        line_speed_m_min=100,
-        coating="GI",
-        heat_pattern=[
-            {"time_s": 0, "temperature_c": 20},
-            {"time_s": 100, "temperature_c": 820},
-            {"time_s": 140, "temperature_c": 820},
-            {"time_s": 200, "temperature_c": 400},
-        ],
+        inputs={
+            "composition": {"C": 0.1},
+            "process": {"thickness_mm": 1.4, "line_speed_m_min": 100},
+            "categorical": {"coating": "GI"},
+            "heat_pattern": [
+                {"time_s": 0, "temperature_c": 20},
+                {"time_s": 100, "temperature_c": 820},
+                {"time_s": 140, "temperature_c": 820},
+                {"time_s": 200, "temperature_c": 400},
+            ],
+        },
     )
     canonical = runtime.canonical_input(candidate)  # type: ignore[arg-type]
     features = canonical["feature_vector"]

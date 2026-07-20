@@ -34,12 +34,13 @@ EXPECTED_CANONICAL_INPUT_PATHS = (
 def _candidate(heat_pattern: list[dict[str, float]], **changes: object) -> CandidateInput:
     payload = {
         "name": "feature-golden",
-        "composition": COMPOSITION,
-        "thickness_mm": 1.4,
-        "line_speed_m_min": 100.0,
-        "coating": "GI",
-        "heat_pattern": heat_pattern,
-        **changes,
+        "inputs": {
+            "composition": COMPOSITION,
+            "process": {"thickness_mm": 1.4, "line_speed_m_min": 100.0},
+            "categorical": {"coating": "GI"},
+            "heat_pattern": heat_pattern,
+            **changes,
+        },
     }
     return CandidateInput.model_validate(payload)
 
@@ -218,7 +219,7 @@ def test_unknown_or_non_finite_composition_is_rejected() -> None:
     route = [{"time_s": 0, "temperature_c": 20}, {"time_s": 100, "temperature_c": 800}]
     with pytest.raises(ValueError, match="未対応の組成元素"):
         build_feature_bundle(_candidate(route, composition={**COMPOSITION, "Nb": 0.03}))
-    with pytest.raises(ValueError, match="0〜100"):
+    with pytest.raises(ValueError, match="有限値"):
         build_feature_bundle(_candidate(route, composition={**COMPOSITION, "C": math.nan}))
 
 
