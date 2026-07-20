@@ -52,7 +52,8 @@ def test_hot_rolling_candidate_edit_is_persisted(client) -> None:
     project_id = "hot-rolling-default"
     candidate = client.get(f"/api/projects/{project_id}/candidates").json()[0]
     candidate["inputs"]["process"]["coiling_temperature_c"] = 575.0
-    payload = {key: value for key, value in candidate.items() if key not in {"id", "project_id", "created_at", "updated_at"}}
+    payload = {key: candidate[key] for key in ("name", "inputs", "provenance")}
+    payload["expected_revision"] = candidate["revision"]
     response = client.put(f"/api/projects/{project_id}/candidates/{candidate['id']}", json=payload)
     assert response.status_code == 200
     assert response.json()["inputs"]["process"]["coiling_temperature_c"] == 575.0
@@ -135,6 +136,7 @@ def test_hot_rolling_project_runs_the_full_common_candidate_flow(client) -> None
 
     updated_payload = {key: candidate[key] for key in ("name", "inputs", "provenance")}
     updated_payload["name"] = "熱延E2E 更新"
+    updated_payload["expected_revision"] = candidate["revision"]
     updated = client.put(
         f"/api/projects/{project_id}/candidates/{candidate_id}",
         json=updated_payload,
@@ -144,7 +146,7 @@ def test_hot_rolling_project_runs_the_full_common_candidate_flow(client) -> None
     assert client.post(f"/api/projects/{project_id}/candidates/{candidate_id}/preview").status_code == 200
 
     disposable = client.post(f"/api/projects/{project_id}/candidates", json=payload).json()
-    assert client.delete(f"/api/projects/{project_id}/candidates/{disposable['id']}").status_code == 204
+    assert client.delete(f"/api/projects/{project_id}/candidates/{disposable['id']}?expected_revision={disposable['revision']}").status_code == 204
 
     detailed = client.post(f"/api/projects/{project_id}/candidates/{candidate_id}/predict")
     assert detailed.status_code == 200

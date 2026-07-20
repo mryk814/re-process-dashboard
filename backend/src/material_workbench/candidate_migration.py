@@ -18,6 +18,8 @@ from typing import Any
 
 MIGRATION_ID = "candidate-unification-v1"
 MIGRATION_CHECKSUM = "nested-candidate-storage-v1"
+CANDIDATE_SAFETY_MIGRATION_ID = "candidate-safety-v1"
+CANDIDATE_SAFETY_MIGRATION_CHECKSUM = "candidate-revision-archive-v1"
 HOT_PROJECT_ID = "hot-rolling-default"
 ANNEALED_TASK_ID = "annealed-properties-v1"
 HOT_TASK_ID = "hot-rolled-properties-v1"
@@ -156,7 +158,7 @@ def _hot_payload(row: sqlite3.Row) -> dict[str, Any]:
 def _create_common_tables(conn: sqlite3.Connection) -> None:
     statements = (
         "CREATE TABLE IF NOT EXISTS projects (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', purpose TEXT NOT NULL DEFAULT '', task_id TEXT NOT NULL DEFAULT 'annealed-properties-v1', target_values TEXT NOT NULL DEFAULT '{}', input_ranges TEXT NOT NULL DEFAULT '{}', notes TEXT NOT NULL DEFAULT '', decision_candidate_id TEXT NOT NULL DEFAULT '', decision_snapshot_id TEXT NOT NULL DEFAULT '', decision_note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT '')",
-        "CREATE TABLE IF NOT EXISTS candidates (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, name TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+        "CREATE TABLE IF NOT EXISTS candidates (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, name TEXT NOT NULL, payload TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1 CHECK(revision >= 1), archived_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS snapshots (id TEXT PRIMARY KEY, candidate_id TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS screening_runs (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS actual_measurements (id TEXT PRIMARY KEY, candidate_id TEXT NOT NULL, snapshot_id TEXT NOT NULL, property TEXT NOT NULL, mean REAL NOT NULL, std REAL NOT NULL, replicates INTEGER NOT NULL, unit TEXT NOT NULL, experiment_no TEXT NOT NULL, measured_at TEXT, note TEXT NOT NULL, created_at TEXT NOT NULL)",
@@ -199,11 +201,11 @@ def _ensure_default_project(conn: sqlite3.Connection) -> None:
     )
 
 
-def _backup_database(source_path: Path, lock_conn: sqlite3.Connection) -> Path:
+def _backup_database(source_path: Path, lock_conn: sqlite3.Connection, migration_id: str = MIGRATION_ID) -> Path:
     # BEGIN IMMEDIATE on lock_conn prevents a writer changing the source while a
     # second read connection takes a logical backup (including WAL content).
     suffix = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
-    destination = source_path.with_name(f"{source_path.name}.pre-{MIGRATION_ID}-{suffix}-{uuid.uuid4().hex[:8]}.bak")
+    destination = source_path.with_name(f"{source_path.name}.pre-{migration_id}-{suffix}-{uuid.uuid4().hex[:8]}.bak")
     source: sqlite3.Connection | None = None
     target: sqlite3.Connection | None = None
     try:
@@ -273,6 +275,43 @@ def _assert_canonical_rows(conn: sqlite3.Connection) -> None:
             raise CandidateMigrationError(f"candidates {row['id']}: project is missing")
 
 
+def _candidate_safety_is_current(conn: sqlite3.Connection) -> bool:
+    if "schema_migrations" not in _tables(conn):
+        return False
+    applied = conn.execute(
+        "SELECT checksum FROM schema_migrations WHERE id=?",
+        (CANDIDATE_SAFETY_MIGRATION_ID,),
+    ).fetchone()
+    if applied is None:
+        return False
+    if applied[0] != CANDIDATE_SAFETY_MIGRATION_CHECKSUM:
+        raise CandidateMigrationError("candidate safety migration checksum does not match this application")
+    columns = _columns(conn, "candidates")
+    if not {"revision", "archived_at"} <= columns:
+        raise CandidateMigrationError("candidate safety migration is marked complete but columns are missing")
+    invalid = conn.execute("SELECT id FROM candidates WHERE typeof(revision) <> 'integer' OR revision < 1 LIMIT 1").fetchone()
+    if invalid is not None:
+        raise CandidateMigrationError(f"candidate {invalid[0]} has an invalid revision")
+    for row in conn.execute("SELECT id, archived_at FROM candidates WHERE archived_at IS NOT NULL"):
+        try:
+            datetime.fromisoformat(row["archived_at"])
+        except (TypeError, ValueError) as exc:
+            raise CandidateMigrationError(f"candidate {row['id']} has an invalid archived_at") from exc
+    return True
+
+
+def _apply_candidate_safety_schema(conn: sqlite3.Connection) -> None:
+    columns = _columns(conn, "candidates")
+    if "revision" not in columns:
+        conn.execute("ALTER TABLE candidates ADD COLUMN revision INTEGER NOT NULL DEFAULT 1 CHECK(revision >= 1)")
+    if "archived_at" not in columns:
+        conn.execute("ALTER TABLE candidates ADD COLUMN archived_at TEXT")
+    conn.execute(
+        "INSERT INTO schema_migrations(id,checksum,applied_at) VALUES (?,?,?)",
+        (CANDIDATE_SAFETY_MIGRATION_ID, CANDIDATE_SAFETY_MIGRATION_CHECKSUM, _now()),
+    )
+
+
 def migrate_candidate_storage(
     database: str | Path,
     *,
@@ -307,6 +346,10 @@ def migrate_candidate_storage(
                 "INSERT INTO schema_migrations(id,checksum,applied_at) VALUES (?,?,?)",
                 (MIGRATION_ID, MIGRATION_CHECKSUM, now),
             )
+            conn.execute(
+                "INSERT INTO schema_migrations(id,checksum,applied_at) VALUES (?,?,?)",
+                (CANDIDATE_SAFETY_MIGRATION_ID, CANDIDATE_SAFETY_MIGRATION_CHECKSUM, now),
+            )
             callback("before_commit")
             conn.commit()
             return CandidateMigrationResult("initialized", None, 0, 0)
@@ -320,6 +363,15 @@ def migrate_candidate_storage(
                     raise CandidateMigrationError("candidate migration is marked complete but the legacy hot table exists")
                 _assert_canonical_rows(conn)
                 _validate_references(conn, "candidates")
+                if not _candidate_safety_is_current(conn):
+                    backup_path = _backup_database(path, conn, CANDIDATE_SAFETY_MIGRATION_ID)
+                    callback("after_safety_backup")
+                    _apply_candidate_safety_schema(conn)
+                    callback("before_safety_commit")
+                    conn.commit()
+                    annealed_count = conn.execute("SELECT COUNT(*) FROM candidates c JOIN projects p ON p.id=c.project_id WHERE p.task_id=?", (ANNEALED_TASK_ID,)).fetchone()[0]
+                    hot_count = conn.execute("SELECT COUNT(*) FROM candidates c JOIN projects p ON p.id=c.project_id WHERE p.task_id=?", (HOT_TASK_ID,)).fetchone()[0]
+                    return CandidateMigrationResult("migrated-safety", backup_path, annealed_count, hot_count)
                 conn.commit()
                 annealed_count = conn.execute("SELECT COUNT(*) FROM candidates c JOIN projects p ON p.id=c.project_id WHERE p.task_id=?", (ANNEALED_TASK_ID,)).fetchone()[0]
                 hot_count = conn.execute("SELECT COUNT(*) FROM candidates c JOIN projects p ON p.id=c.project_id WHERE p.task_id=?", (HOT_TASK_ID,)).fetchone()[0]
@@ -370,10 +422,10 @@ def migrate_candidate_storage(
 
         if "candidates_next" in _tables(conn):
             raise CandidateMigrationError("unexpected candidates_next table indicates an incomplete external migration")
-        conn.execute("CREATE TABLE candidates_next (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, name TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)")
+        conn.execute("CREATE TABLE candidates_next (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, name TEXT NOT NULL, payload TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1 CHECK(revision >= 1), archived_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)")
         callback("after_next_create")
         conn.executemany(
-            "INSERT INTO candidates_next VALUES (?,?,?,?,?,?)",
+            "INSERT INTO candidates_next(id,project_id,name,payload,created_at,updated_at) VALUES (?,?,?,?,?,?)",
             [
                 (row["id"], row["project_id"], row["name"], json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")), row["created_at"], row["updated_at"])
                 for row, payload in annealed
@@ -381,7 +433,7 @@ def migrate_candidate_storage(
         )
         callback("after_annealed_copy")
         conn.executemany(
-            "INSERT INTO candidates_next VALUES (?,?,?,?,?,?)",
+            "INSERT INTO candidates_next(id,project_id,name,payload,created_at,updated_at) VALUES (?,?,?,?,?,?)",
             [
                 (row["id"], HOT_PROJECT_ID, row["name"], json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")), row["created_at"], row["updated_at"])
                 for row, payload in hot
@@ -412,6 +464,10 @@ def migrate_candidate_storage(
         conn.execute(
             "INSERT INTO schema_migrations(id,checksum,applied_at) VALUES (?,?,?)",
             (MIGRATION_ID, MIGRATION_CHECKSUM, _now()),
+        )
+        conn.execute(
+            "INSERT INTO schema_migrations(id,checksum,applied_at) VALUES (?,?,?)",
+            (CANDIDATE_SAFETY_MIGRATION_ID, CANDIDATE_SAFETY_MIGRATION_CHECKSUM, _now()),
         )
         callback("before_commit")
         conn.commit()

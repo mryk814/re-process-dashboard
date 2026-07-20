@@ -66,7 +66,7 @@ def test_screening_rejects_invalid_field_values_and_empty_candidate_set(client) 
     invalid["variables"]["coating"] = {"mode": "fixed", "value": "BAD"}
     assert client.post("/api/screening", json=invalid).status_code == 422
     for item in client.get("/api/projects/default/candidates").json():
-        assert client.delete(f"/api/projects/default/candidates/{item['id']}").status_code == 204
+        assert client.delete(f"/api/projects/default/candidates/{item['id']}?expected_revision={item['revision']}").status_code == 204
     no_base = _screening_body(candidate["id"])
     no_base["base_candidate_id"] = None
     assert client.post("/api/screening", json=no_base).status_code == 422
@@ -93,7 +93,8 @@ def test_lineage_candidate_actuals_and_snapshot_restore(client) -> None:
     actual = client.post(f"/api/projects/default/candidates/{candidate['id']}/actuals", json={"property": "TS", "mean": 505.2, "std": 4.2, "replicates": 3, "unit": "MPa", "experiment_no": "EXP-01", "measured_at": "2026-07-20", "note": "確認用"})
     assert actual.status_code == 201
     assert actual.json()["snapshot_id"]
-    changed = {key: value for key, value in candidate.items() if key not in {"id", "project_id", "created_at", "updated_at"}}
+    changed = {key: value for key, value in candidate.items() if key in {"name", "inputs", "provenance"}}
+    changed["expected_revision"] = candidate["revision"]
     changed["inputs"]["process"]["line_speed_m_min"] = candidate["inputs"]["process"]["line_speed_m_min"] + 30
     assert client.put(f"/api/projects/default/candidates/{candidate['id']}", json=changed).status_code == 200
     comparison = client.get(f"/api/projects/default/candidates/{candidate['id']}/prediction-vs-actual").json()
@@ -149,6 +150,9 @@ def test_candidate_delete_preserves_actuals_and_snapshots(client) -> None:
     payload["name"] = "削除検証"
     candidate = client.post("/api/projects/default/candidates", json=payload).json()
     actual = client.post(f"/api/projects/default/candidates/{candidate['id']}/actuals", json={"property": "TS", "mean": 500, "unit": "MPa"}).json()
-    assert client.delete(f"/api/projects/default/candidates/{candidate['id']}").status_code == 409
+    assert client.delete(f"/api/projects/default/candidates/{candidate['id']}?expected_revision={candidate['revision']}").status_code == 204
+    assert client.get(f"/api/projects/default/candidates/{candidate['id']}").status_code == 404
+    assert client.get(f"/api/projects/default/candidates/{candidate['id']}?include_archived=true").json()["archived_at"] is not None
+    assert client.get(f"/api/projects/default/candidates/{candidate['id']}/actuals").status_code == 200
     assert client.app.state.store.get_snapshot(actual["snapshot_id"]) is not None
     assert len(client.app.state.store.list_actuals(candidate["id"])) == 1

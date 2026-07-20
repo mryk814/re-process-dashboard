@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ResolvedTaskDefinition, TaskDefinitionContract } from "./taskDefinition";
+import { LatestSaveQueue, rebaseChangedFields } from "./latestSaveQueue";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8765";
 
@@ -29,6 +30,8 @@ type ApiCandidate = {
     heat_pattern?: Array<{ time_s: number; temperature_c: number }>;
   };
   provenance: Record<string, unknown>;
+  revision: number;
+  archived_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -89,13 +92,15 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
   const [previews, setPreviews] = useState<Record<string, HotPreview>>({});
   const [task, setTask] = useState<TaskDefinitionContract | null>(null);
   const [notice, setNotice] = useState("熱延タスクを読み込んでいます");
+  const saveQueue = useRef(new LatestSaveQueue<ApiCandidate>());
   const selected = candidates.find((item) => item.id === selectedId) ?? candidates[0];
   const preview = selected ? previews[selected.id] : undefined;
 
-  async function loadPreview(candidateId: string) {
+  async function loadPreview(candidateId: string, shouldApply: () => boolean = () => true) {
     const response = await fetch(`${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates/${candidateId}/preview`, { method: "POST" });
     if (!response.ok) throw new Error("preview unavailable");
     const result = (await response.json()) as HotPreview;
+    if (!shouldApply()) return;
     setPreviews((items) => ({ ...items, [candidateId]: result }));
   }
 
@@ -139,15 +144,39 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
   }
 
   async function persist(candidate: HotCandidate) {
+    const queued = saveQueue.current.enqueue(candidate.id, candidate.raw, async (serverCandidate) => {
+      const rebased = rebaseChangedFields<ApiCandidateInput>(
+        { name: candidate.raw.name, inputs: candidate.raw.inputs, provenance: candidate.raw.provenance },
+        toApiCandidate(candidate),
+        { name: serverCandidate.name, inputs: serverCandidate.inputs, provenance: serverCandidate.provenance },
+      );
+      const response = await fetch(`${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates/${candidate.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...rebased, expected_revision: serverCandidate.revision }) });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { current_candidate?: ApiCandidate };
+        const error = new Error("candidate save failed") as Error & { currentCandidate?: ApiCandidate };
+        error.currentCandidate = body.current_candidate;
+        throw error;
+      }
+      return (await response.json()) as ApiCandidate;
+    }, (error) => {
+      const current = (error as Error & { currentCandidate?: ApiCandidate }).currentCandidate;
+      if (!current) throw error;
+      return current;
+    });
     try {
-      const response = await fetch(`${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates/${candidate.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(toApiCandidate(candidate)) });
-      if (!response.ok) throw new Error();
-      const saved = fromApiCandidate((await response.json()) as ApiCandidate);
+      const saved = fromApiCandidate(await queued.promise);
+      if (!queued.isLatest()) return;
       setCandidates((items) => items.map((item) => item.id === saved.id ? saved : item));
-      await loadPreview(saved.id);
+      await loadPreview(saved.id, queued.isLatest);
+      if (!queued.isLatest()) return;
       setNotice(`${saved.name}を保存し、GPR予測を更新しました`);
-    } catch {
-      setNotice("入力を保存できません。温度・板厚の関係を確認してください");
+    } catch (error) {
+      if (!queued.isLatest()) return;
+      const current = (error as Error & { currentCandidate?: ApiCandidate }).currentCandidate;
+      if (current) setCandidates((items) => items.map((item) => item.id === current.id ? fromApiCandidate(current) : item));
+      setNotice(current ? "別の更新を検出したため、サーバー上の最新版を表示しました" : "入力を保存できません。温度・板厚の関係を確認してください");
+    } finally {
+      queued.release();
     }
   }
 
@@ -164,7 +193,7 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
 
   async function deleteCandidate() {
     if (!selected || candidates.length <= 1) return;
-    const response = await fetch(`${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates/${selected.id}`, { method: "DELETE" });
+    const response = await fetch(`${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates/${selected.id}?expected_revision=${selected.raw.revision}`, { method: "DELETE" });
     if (!response.ok) return;
     const remaining = candidates.filter((item) => item.id !== selected.id);
     setCandidates(remaining);

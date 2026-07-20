@@ -34,6 +34,7 @@ if (mode === "focused") {
 } else if (mode === "full") {
   const baseRef = process.env.VERIFY_BASE_REF || "origin/main";
   run("full pytest", "uv", ["run", "pytest"]);
+  runNpm("web unit tests", ["run", "test", "-w", "apps/web"]);
   runNpm("TypeScript typecheck", ["run", "typecheck"]);
   runNpm("application build", ["run", "build"]);
   run("working-tree diff check", "git", ["diff", "--check"]);

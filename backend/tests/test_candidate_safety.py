@@ -1,0 +1,136 @@
+from __future__ import annotations
+
+import sqlite3
+
+
+def _create_candidate(client, name: str = "競合確認") -> dict:
+    source = client.get("/api/projects/default/candidates").json()[0]
+    payload = {key: source[key] for key in ("name", "inputs", "provenance")}
+    payload["name"] = name
+    response = client.post("/api/projects/default/candidates", json=payload)
+    assert response.status_code == 201
+    return response.json()
+
+
+def _update_payload(candidate: dict, name: str) -> dict:
+    return {
+        "name": name,
+        "inputs": candidate["inputs"],
+        "provenance": candidate["provenance"],
+        "expected_revision": candidate["revision"],
+    }
+
+
+def test_candidate_update_is_atomic_compare_and_swap_with_current_candidate(client) -> None:
+    candidate = _create_candidate(client)
+    url = f"/api/projects/default/candidates/{candidate['id']}"
+
+    winner = client.put(url, json=_update_payload(candidate, "先着保存"))
+    loser = client.put(url, json=_update_payload(candidate, "遅着保存"))
+
+    assert winner.status_code == 200
+    assert winner.json()["revision"] == candidate["revision"] + 1
+    assert loser.status_code == 409
+    assert loser.json()["code"] == "revision_conflict"
+    assert loser.json()["current_candidate"] == winner.json()
+    assert client.get(url).json()["name"] == "先着保存"
+    missing_revision = {key: candidate[key] for key in ("name", "inputs", "provenance")}
+    assert client.put(url, json=missing_revision).status_code == 422
+
+
+def test_referenced_candidate_is_archived_and_only_history_paths_can_use_it(client) -> None:
+    candidate = _create_candidate(client, "履歴あり")
+    url = f"/api/projects/default/candidates/{candidate['id']}"
+    snapshot = client.post(f"{url}/snapshots").json()
+
+    deleted = client.delete(f"{url}?expected_revision={candidate['revision']}")
+
+    assert deleted.status_code == 204
+    assert client.get(url).status_code == 404
+    archived = client.get(f"{url}?include_archived=true").json()
+    assert archived["archived_at"] is not None
+    assert archived["revision"] == candidate["revision"] + 1
+    assert candidate["id"] not in {item["id"] for item in client.get("/api/projects/default/candidates").json()}
+    assert candidate["id"] in {item["id"] for item in client.get("/api/projects/default/candidates?include_archived=true").json()}
+    assert client.get(f"{url}/snapshots").json()[0]["id"] == snapshot["id"]
+    assert client.get(f"{url}/actuals").status_code == 200
+    restored = client.post(f"/api/projects/default/snapshots/{snapshot['id']}/restore")
+    assert restored.status_code == 201
+    assert client.post(f"{url}/preview").status_code == 404
+    assert client.post(f"{url}/predict").status_code == 404
+    assert client.post(f"{url}/snapshots").status_code == 404
+    assert client.post(f"{url}/actuals", json={"property": "TS", "mean": 500, "unit": "MPa"}).status_code == 404
+    archived_update = _update_payload(archived, "編集不可")
+    response = client.put(url, json=archived_update)
+    assert response.status_code == 409
+    assert response.json()["code"] == "candidate_archived"
+
+
+def test_screening_reference_archives_but_unreferenced_candidate_is_hard_deleted(client) -> None:
+    referenced = _create_candidate(client, "screening基準")
+    run = client.post(
+        "/api/screening",
+        json={
+            "base_candidate_id": referenced["id"],
+            "samples": 48,
+            "target": "TS",
+            "target_value": 500,
+            "variables": {"composition.C": {"mode": "range", "min": 0.06, "max": 0.1}},
+        },
+    )
+    assert run.status_code == 201
+    assert client.delete(
+        f"/api/projects/default/candidates/{referenced['id']}?expected_revision={referenced['revision']}"
+    ).status_code == 204
+    assert client.get(
+        f"/api/projects/default/candidates/{referenced['id']}?include_archived=true"
+    ).json()["archived_at"] is not None
+
+    disposable = _create_candidate(client, "未参照")
+    assert client.delete(
+        f"/api/projects/default/candidates/{disposable['id']}?expected_revision={disposable['revision']}"
+    ).status_code == 204
+    assert client.get(
+        f"/api/projects/default/candidates/{disposable['id']}?include_archived=true"
+    ).status_code == 404
+
+
+def test_domain_error_codes_and_openapi_contract_are_distinct(client) -> None:
+    project = client.get("/api/project").json()
+    locked = client.put("/api/projects/default", json={**project, "task_id": "hot-rolled-properties-v1"})
+    assert locked.status_code == 409
+    assert locked.json()["code"] == "project_task_locked"
+
+    for index in range(10 - len(client.get("/api/projects/default/candidates").json())):
+        assert _create_candidate(client, f"上限{index}")
+    limit = client.post(
+        "/api/projects/default/candidates",
+        json={key: client.get("/api/projects/default/candidates").json()[0][key] for key in ("name", "inputs", "provenance")},
+    )
+    assert limit.status_code == 409
+    assert limit.json()["code"] == "candidate_limit"
+
+    openapi = client.get("/openapi.json").json()
+    schemas = openapi["components"]["schemas"]
+    assert "expected_revision" in schemas["CandidateUpdate"]["required"]
+    assert "current_candidate" in schemas["ApiError"]["properties"]
+    codes = set(schemas["ApiError"]["properties"]["code"]["enum"])
+    assert {"revision_conflict", "candidate_limit", "candidate_archived", "project_task_locked", "data_integrity_error"} <= codes
+    update_responses = openapi["paths"]["/api/projects/{project_id}/candidates/{candidate_id}"]["put"]["responses"]
+    assert update_responses["409"]["content"]["application/json"]["schema"]["$ref"].endswith("/ApiError")
+
+
+def test_corrupt_screening_reference_has_data_integrity_error(client) -> None:
+    candidate = _create_candidate(client, "不正履歴の基準")
+    with sqlite3.connect(client.app.state.store.path) as conn:
+        conn.execute(
+            "INSERT INTO screening_runs VALUES (?,?,?,?)",
+            ("broken-run", "default", "not-json", "2026-07-20T00:00:00+00:00"),
+        )
+
+    response = client.delete(
+        f"/api/projects/default/candidates/{candidate['id']}?expected_revision={candidate['revision']}"
+    )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "data_integrity_error"

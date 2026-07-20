@@ -9,6 +9,8 @@ import pytest
 from material_workbench.candidate_migration import (
     CandidateMigrationError,
     HOT_PROJECT_ID,
+    MIGRATION_CHECKSUM,
+    MIGRATION_ID,
     migrate_candidate_storage,
 )
 
@@ -167,3 +169,58 @@ def test_new_database_is_created_directly_at_current_schema(tmp_path: Path) -> N
         assert "hot_rolling_candidates" not in tables
         assert {"projects", "candidates", "snapshots", "screening_runs", "actual_measurements", "schema_migrations"} <= tables
         assert conn.execute("SELECT task_id FROM projects WHERE id='default'").fetchone()[0] == "annealed-properties-v1"
+
+
+def _unification_v1_database(path: Path) -> None:
+    payload = {
+        "name": "既存共通候補",
+        "inputs": {"composition": {}, "process": {}, "categorical": {}, "heat_pattern": None},
+        "provenance": {"source_kind": "manual", "source_ref": None},
+    }
+    with sqlite3.connect(path) as conn:
+        conn.execute("CREATE TABLE projects (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', purpose TEXT NOT NULL DEFAULT '', task_id TEXT NOT NULL, target_values TEXT NOT NULL DEFAULT '{}', input_ranges TEXT NOT NULL DEFAULT '{}', notes TEXT NOT NULL DEFAULT '', decision_candidate_id TEXT NOT NULL DEFAULT '', decision_snapshot_id TEXT NOT NULL DEFAULT '', decision_note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL)")
+        conn.execute("CREATE TABLE candidates (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, name TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)")
+        conn.execute("CREATE TABLE snapshots (id TEXT PRIMARY KEY, candidate_id TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL)")
+        conn.execute("CREATE TABLE screening_runs (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL)")
+        conn.execute("CREATE TABLE actual_measurements (id TEXT PRIMARY KEY, candidate_id TEXT NOT NULL, snapshot_id TEXT NOT NULL, property TEXT NOT NULL, mean REAL NOT NULL, std REAL NOT NULL, replicates INTEGER NOT NULL, unit TEXT NOT NULL, experiment_no TEXT NOT NULL, measured_at TEXT, note TEXT NOT NULL, created_at TEXT NOT NULL)")
+        conn.execute("CREATE TABLE schema_migrations (id TEXT PRIMARY KEY, checksum TEXT NOT NULL, applied_at TEXT NOT NULL)")
+        conn.execute("INSERT INTO projects VALUES ('default','既存','','','annealed-properties-v1','{}','{}','','','','','2026-01-01T00:00:00+00:00','2026-01-01T00:00:00+00:00')")
+        conn.execute("INSERT INTO candidates VALUES (?,?,?,?,?,?)", ("candidate-1", "default", "既存共通候補", json.dumps(payload, ensure_ascii=False), "2026-01-02T00:00:00+00:00", "2026-01-03T00:00:00+00:00"))
+        conn.execute("INSERT INTO schema_migrations VALUES (?,?,?)", (MIGRATION_ID, MIGRATION_CHECKSUM, "2026-01-04T00:00:00+00:00"))
+
+
+def test_candidate_safety_migration_backs_up_preserves_and_is_idempotent(tmp_path: Path) -> None:
+    database = tmp_path / "unification-v1.db"
+    _unification_v1_database(database)
+
+    result = migrate_candidate_storage(database)
+
+    assert result.status == "migrated-safety"
+    assert result.backup_path is not None and result.backup_path.exists()
+    with sqlite3.connect(database) as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute("SELECT * FROM candidates WHERE id='candidate-1'").fetchone()
+        assert row is not None
+        assert row["revision"] == 1
+        assert row["archived_at"] is None
+        assert row["created_at"] == "2026-01-02T00:00:00+00:00"
+        assert row["updated_at"] == "2026-01-03T00:00:00+00:00"
+        assert json.loads(row["payload"])["name"] == "既存共通候補"
+    assert migrate_candidate_storage(database).status == "already-current"
+    assert len(list(tmp_path.glob("*.pre-candidate-safety-v1-*.bak"))) == 1
+
+
+def test_candidate_safety_migration_rolls_back_before_commit(tmp_path: Path) -> None:
+    database = tmp_path / "safety-rollback.db"
+    _unification_v1_database(database)
+
+    with pytest.raises(sqlite3.OperationalError, match="injected"):
+        migrate_candidate_storage(
+            database,
+            failpoint=lambda point: (_ for _ in ()).throw(sqlite3.OperationalError("injected")) if point == "before_safety_commit" else None,
+        )
+
+    with sqlite3.connect(database) as conn:
+        assert "revision" not in {row[1] for row in conn.execute("PRAGMA table_info(candidates)")}
+        assert conn.execute("SELECT 1 FROM schema_migrations WHERE id='candidate-safety-v1'").fetchone() is None
+    assert migrate_candidate_storage(database).status == "migrated-safety"

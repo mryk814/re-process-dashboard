@@ -106,7 +106,7 @@ def test_snapshot_is_immutable_after_candidate_edit(client) -> None:
     original = deepcopy(snapshot["payload"])
     changed = _payload("編集後")
     changed["inputs"]["process"]["line_speed_m_min"] = 145
-    assert client.put(f"/api/projects/default/candidates/{candidate['id']}", json=changed).status_code == 200
+    assert client.put(f"/api/projects/default/candidates/{candidate['id']}", json={**changed, "expected_revision": candidate["revision"]}).status_code == 200
     stored = client.get(f"/api/projects/default/candidates/{candidate['id']}/snapshots").json()
     assert stored[0]["payload"] == original
     assert stored[0]["payload"]["candidate_id"] == candidate["id"]

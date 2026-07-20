@@ -1,5 +1,6 @@
 import { PointerEvent, useEffect, useRef, useState } from "react";
 import { HotRollingWorkbench } from "./HotRollingWorkbench";
+import { LatestSaveQueue, rebaseChangedFields } from "./latestSaveQueue";
 import { taskDefinitionView, type ResolvedTaskDefinition, type TaskDefinitionView, type TaskInputDefinition, type TaskOutputDefinition } from "./taskDefinition";
 
 type Tab = "project" | "candidates" | "hot-rolling" | "settings" | "quality" | "lineage" | "explore";
@@ -118,11 +119,14 @@ type ApiCandidate = {
     }>;
   };
   provenance: Record<string, unknown>;
+  revision: number;
+  archived_at: string | null;
   created_at: string;
   updated_at: string;
 };
 
 type ApiCandidateInput = Pick<ApiCandidate, "name" | "inputs" | "provenance">;
+type ApiCandidateUpdate = ApiCandidateInput & { expected_revision: number };
 
 type ApiProject = {
   id: string;
@@ -458,6 +462,7 @@ function App() {
   const [resolvedTaskDefinition, setResolvedTaskDefinition] = useState<ResolvedTaskDefinition | null>(null);
   const [activeProjectId, setActiveProjectId] = useState("default");
   const loadSequence = useRef(0);
+  const saveQueue = useRef(new LatestSaveQueue<ApiCandidate>());
   const selected = candidates.find((candidate) => candidate.id === selectedId);
   const activeProject = projects.find(
     (project) => project.id === activeProjectId,
@@ -695,23 +700,48 @@ function App() {
   };
 
   async function persistCandidate(candidate: Candidate, previous: Candidate) {
-    try {
+    const queued = saveQueue.current.enqueue(candidate.id, candidate.raw, async (serverCandidate) => {
+      const rebased = rebaseChangedFields<ApiCandidateInput>(
+        { name: candidate.raw.name, inputs: candidate.raw.inputs, provenance: candidate.raw.provenance },
+        toApiCandidate(candidate),
+        { name: serverCandidate.name, inputs: serverCandidate.inputs, provenance: serverCandidate.provenance },
+      );
       const response = await fetch(
         `${API_URL}/api/projects/${encodeURIComponent(activeProjectId)}/candidates/${candidate.id}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(toApiCandidate(candidate)),
+          body: JSON.stringify({ ...rebased, expected_revision: serverCandidate.revision } satisfies ApiCandidateUpdate),
         },
       );
-      if (!response.ok) throw new Error();
-    } catch {
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { current_candidate?: ApiCandidate };
+        const error = new Error("candidate save failed") as Error & { currentCandidate?: ApiCandidate };
+        error.currentCandidate = body.current_candidate;
+        throw error;
+      }
+      return (await response.json()) as ApiCandidate;
+    }, (error) => {
+      const current = (error as Error & { currentCandidate?: ApiCandidate }).currentCandidate;
+      if (!current) throw error;
+      return current;
+    });
+    try {
+      const saved = await queued.promise;
+      if (!queued.isLatest()) return;
+      setCandidates((items) => items.map((item) => item.id === saved.id ? fromApiCandidate(saved) : item));
+      setApiState("ready");
+    } catch (error) {
+      if (!queued.isLatest()) return;
+      const current = (error as Error & { currentCandidate?: ApiCandidate }).currentCandidate;
       setCandidates((items) =>
-        items.map((item) => (item.id === previous.id ? previous : item)),
+        items.map((item) => (item.id === previous.id ? (current ? fromApiCandidate(current) : previous) : item)),
       );
       setSelectedId(previous.id);
       setApiState("ready");
-      setNotice("入力が妥当でないため、直前の値へ戻しました");
+      setNotice(current ? "別の更新を検出したため、サーバー上の最新版を表示しました" : "入力が妥当でないため、直前の値へ戻しました");
+    } finally {
+      queued.release();
     }
   }
 
@@ -777,7 +807,7 @@ function App() {
   const deleteCandidate = async () => {
     if (!selected || candidates.length === 1) return;
     try {
-      const response = await fetch(`${API_URL}/api/projects/${encodeURIComponent(activeProjectId)}/candidates/${selectedId}`, {
+      const response = await fetch(`${API_URL}/api/projects/${encodeURIComponent(activeProjectId)}/candidates/${selectedId}?expected_revision=${selected.raw.revision}`, {
         method: "DELETE",
       });
       if (!response.ok) throw new Error();
@@ -786,16 +816,7 @@ function App() {
       );
       setCandidates(remaining);
       setSelectedId(remaining[0].id);
-      if (activeProject?.decision_candidate_id === selectedId) {
-        setProjects((items) =>
-          items.map((project) =>
-            project.id === activeProject.id
-              ? { ...project, decision_candidate_id: "", decision_note: "" }
-              : project,
-          ),
-        );
-      }
-      setNotice("候補を削除しました");
+      setNotice("候補を一覧から外しました");
     } catch {
       setNotice("候補を削除できませんでした。API接続を確認してください。");
     }
