@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
 from .importer import WorkbookData
+from .inference_work_graph import semantic_digest
 from .model_packages import FeaturePipelineSpec, VerifiedModelPackage
 from .model_lifecycle import validate_lifecycle_metadata, validate_training_provenance
 from .schemas import CandidateInput
@@ -21,11 +22,18 @@ class RuntimeProtocol(Protocol):
     task_id: str
     data: WorkbookData
     model_package: VerifiedModelPackage | None
+    support_policy_id: str
 
     @property
     def output_keys(self) -> frozenset[str]: ...
 
     def predict(self, candidate: Any, **kwargs: Any) -> dict[str, Any]: ...
+
+    def predict_core(self, candidate: Any, **kwargs: Any) -> dict[str, Any]: ...
+
+    def support_summary(self, candidate: Any) -> Any: ...
+
+    def similarity(self, candidate: Any, limit: int = 6) -> list[dict[str, Any]]: ...
 
 
 @dataclass(frozen=True)
@@ -35,6 +43,10 @@ class TaskRuntimeEntry:
     model_package: VerifiedModelPackage
     predictor_runtime: RuntimeProtocol
     capability: RuntimeCapability
+    package_digest: str
+    pipeline_digest: str
+    support_digest: str
+    runtime_type: str
 
 
 def load_task_contracts(root: Path | None = None) -> dict[str, TaskContractFixture]:
@@ -79,7 +91,29 @@ class TaskRegistry:
                 model_package=package,
                 predictor_runtime=runtime,
                 capability=contract.runtime_capability,
+                package_digest=f"sha256:{package.manifest_sha256}",
+                pipeline_digest=self._pipeline_digest(package),
+                support_digest=semantic_digest({
+                    "source_sha256": runtime.data.source_sha256,
+                    "pipeline_digest": self._pipeline_digest(package),
+                    "policy_id": runtime.support_policy_id,
+                }),
+                runtime_type="+".join(sorted({item.runtime_type for item in package.manifest.predictors})),
             )
+
+    @staticmethod
+    def _pipeline_digest(package: VerifiedModelPackage) -> str:
+        manifest = package.manifest
+        pipeline_paths = {manifest.feature_pipeline.spec, *manifest.feature_pipeline.artifacts}
+        artifact_digests = {
+            item.path: item.sha256
+            for item in manifest.artifacts
+            if item.path in pipeline_paths
+        }
+        return semantic_digest({
+            "specification": manifest.feature_pipeline.model_dump(mode="json"),
+            "artifacts": artifact_digests,
+        })
 
     def _validate_runtime(self, task_id: str, runtime: RuntimeProtocol) -> None:
         if not isinstance(runtime, RuntimeProtocol) or runtime.task_id != task_id:

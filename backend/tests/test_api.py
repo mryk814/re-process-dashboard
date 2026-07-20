@@ -90,12 +90,19 @@ def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
     atomic_result = client.post(f"/api/projects/default/candidates/{candidate['id']}/predict", params={"expected_revision": candidate["revision"]}).json()
     detailed = atomic_result["prediction"]
     assert detailed["mode"] == "detailed"
-    assert len(detailed["response_curve"]) == 9
-    curves = client.get(f"/api/projects/default/candidates/{candidate['id']}/response-curves", params=params).json()
-    assert set(curves) == {"TS", "YS", "EL", "lambda"}
-    assert all(len(points) == 9 for points in curves.values())
+    assert detailed["response_curve"] is None
+    curve = client.get(
+        f"/api/projects/default/candidates/{candidate['id']}/response-curve",
+        params={**params, "target": "TS", "variable": "composition.C", "points": 9},
+    ).json()
+    assert curve["target"] == "TS"
+    assert curve["variable"]["id"] == "composition.C"
+    assert len(curve["points"]) == 9
     assert atomic_result["snapshot"]["payload"]["prediction"] == detailed
-    similar = client.get(f"/api/projects/default/candidates/{candidate['id']}/similar").json()
+    similar = client.get(
+        f"/api/projects/default/candidates/{candidate['id']}/similar",
+        params=params,
+    ).json()
     assert len(similar) == 6
     assert {item["layer"] for item in similar} == {"training", "historical"}
     assert all({"composition", "metallurgy", "process", "heat_pattern"} == set(item["components"]) for item in similar)

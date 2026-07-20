@@ -25,7 +25,8 @@ def test_tracked_openapi_schema_matches_fastapi_contract() -> None:
     delete_parameters = tracked["paths"]["/api/projects/{project_id}/candidates/{candidate_id}"]["delete"]["parameters"]
     predict_parameters = tracked["paths"]["/api/projects/{project_id}/candidates/{candidate_id}/predict"]["post"]["parameters"]
     preview_parameters = tracked["paths"]["/api/projects/{project_id}/candidates/{candidate_id}/preview"]["post"]["parameters"]
-    curve_parameters = tracked["paths"]["/api/projects/{project_id}/candidates/{candidate_id}/response-curves"]["get"]["parameters"]
+    curve_parameters = tracked["paths"]["/api/projects/{project_id}/candidates/{candidate_id}/response-curve"]["get"]["parameters"]
+    similar_parameters = tracked["paths"]["/api/projects/{project_id}/candidates/{candidate_id}/similar"]["get"]["parameters"]
     actual_parameters = tracked["paths"]["/api/projects/{project_id}/candidates/{candidate_id}/actuals"]["post"]["parameters"]
     history_operation = tracked["paths"]["/api/projects/{project_id}/history"]["get"]
     task_catalog_operation = tracked["paths"]["/api/task-definitions"]["get"]
@@ -34,6 +35,8 @@ def test_tracked_openapi_schema_matches_fastapi_contract() -> None:
     assert any(item["name"] == "expected_revision" and item.get("required") is True for item in predict_parameters)
     assert any(item["name"] == "expected_revision" and item.get("required") is True for item in preview_parameters)
     assert any(item["name"] == "expected_revision" and item.get("required") is True for item in curve_parameters)
+    assert {item["name"] for item in curve_parameters if item.get("required") is True} >= {"expected_revision", "target", "variable"}
+    assert any(item["name"] == "expected_revision" and item.get("required") is True for item in similar_parameters)
     assert any(item["name"] == "expected_revision" and item.get("required") is True for item in actual_parameters)
     assert history_operation["operationId"] == "getProjectHistory"
     assert task_catalog_operation["operationId"] == "listTaskDefinitions"
