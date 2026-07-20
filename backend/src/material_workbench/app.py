@@ -15,7 +15,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
-from .importer import COMPOSITION_COLUMNS, ENTITY_SHEETS, lineage_neighborhood, lineage_node_detail, load_workbook_data
+from .importer import composition_names, lineage_neighborhood, lineage_node_detail, load_workbook_data
 from .hot_rolling import TARGETS as HOT_ROLLING_TARGETS, HotRollingRuntime
 from .runtime import ModelRuntime, TARGETS
 from .schemas import ActualMeasurementInput, CandidateInput, HotRollingCandidateInput, LineageResponse, PredictionResponse, ProjectDecisionInput, ProjectInput, QualityResponse, ScreeningRequest
@@ -190,7 +190,10 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
                 "training_range": training_range(index),
             }
 
-        composition_inputs = [composition_input(index, element) for index, element in enumerate(COMPOSITION_COLUMNS)]
+        composition_inputs = [
+            composition_input(index, element)
+            for index, element in enumerate(composition_names(task_id=project.task_id))
+        ]
         return {
             "task_id": project.task_id,
             "inputs": composition_inputs,
@@ -257,7 +260,19 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
     def bootstrap() -> dict[str, Any]:
         data = app.state.data
         candidates = [candidate.model_dump(mode="json") for candidate in store().list_candidates()]
-        return {"meta": {**data.source_summary, "project": require_project("default").model_dump(mode="json"), "model_targets": sorted(runtime().models)}, "candidates": candidates, "summary": {"routes": Counter(row.get("標準ルート") for row in data.sheets["焼鈍特徴量"]), "quality_by_category": Counter(row.get("分類") for row in data.quality)}}
+        quality_category = data.technical_columns[("quality", "category")]
+        return {
+            "meta": {
+                **data.source_summary,
+                "project": require_project("default").model_dump(mode="json"),
+                "model_targets": sorted(runtime().models),
+            },
+            "candidates": candidates,
+            "summary": {
+                "routes": Counter(row.get("standard_route") for row in data.anneal_features.values()),
+                "quality_by_category": Counter(row.get(quality_category) for row in data.quality),
+            },
+        }
 
     @app.get("/api/projects")
     def list_projects() -> list[dict[str, Any]]:
@@ -411,7 +426,9 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
         # detected fields are actual structural checks, not workbook fixtures.
         return {
             "total": len(scenarios),
-            "by_category": Counter(row["分類"] for row in scenarios),
+            "by_category": Counter(
+                row[app.state.data.technical_columns[("quality", "category")]] for row in scenarios
+            ),
             "issues": scenarios,
             "reference_scenarios": scenarios,
             "detected_total": len(detected),
@@ -435,31 +452,32 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
         issue_keys = {issue["entity_key"] for issue in data.detected_quality if issue["entity_key"]}
         items: list[dict[str, Any]] = []
         counts: Counter[str] = Counter()
-        for sheet_name, key_column in ENTITY_SHEETS.items():
+        for sheet_name, key_column in app.state.data.entity_sheets.items():
             records = data.entities[key_column]
             counts[sheet_name] += len(records)
             if entity_type and sheet_name != entity_type:
                 continue
             for key, source_row in records.items():
                 metadata: dict[str, Any] = {}
-                if sheet_name == "焼鈍":
+                if sheet_name == data.role_to_sheet["annealing"]:
                     relations = data.lineage.get(key, {})
-                    melt_keys = sorted(set(relations.get("溶製_key", [])))
-                    melt_row = data.entities.get("溶製_key", {}).get(melt_keys[0], {}) if len(melt_keys) == 1 else {}
+                    melt_key_column = data.role_to_key["melt"]
+                    melt_keys = sorted(set(relations.get(melt_key_column, [])))
+                    melt_row = data.entities.get(melt_key_column, {}).get(melt_keys[0], {}) if len(melt_keys) == 1 else {}
                     feature = data.anneal_features.get(key, {})
                     values_by_property: dict[str, list[float]] = {}
                     for observation in data.observations:
-                        if observation["parent_key"] != key or observation["source"] == "熱延引張":
+                        if observation["parent_key"] != key or observation["source"] == data.role_to_sheet["hot_tensile"]:
                             continue
                         for property_name, value in observation["outputs"].items():
                             values_by_property.setdefault(property_name, []).append(float(value))
                     metadata = {
-                        "family": str(melt_row.get("鋼種ファミリ") or melt_row.get("鋼種") or ""),
-                        "project": str(source_row.get("プロジェクト名") or ""),
+                        "family": str(melt_row.get(data.technical_columns[("melt", "family")]) or ""),
+                        "project": str(source_row.get(data.technical_columns[("annealing", "project")]) or ""),
                         "route": str(feature.get("standard_route") or ""),
                         "peak_temperature_c": feature.get("max_temperature_c"),
                         "coating": str(feature.get("coating") or ""),
-                        "learning_status": str(source_row.get("学習利用区分") or ""),
+                        "learning_status": str(source_row.get(data.policy_columns[("annealing", "learning_flag/v1")]) or ""),
                         "has_observation": bool(values_by_property),
                         "observation_summary": {
                             property_name: {
@@ -483,7 +501,7 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
                 continue
             relations = data.lineage[key]
             key_column = next((column for column, values in relations.items() if key in values), "")
-            sheet_name = next((sheet for sheet, column in ENTITY_SHEETS.items() if column == key_column), issue["source_sheet"])
+            sheet_name = next((sheet for sheet, column in app.state.data.entity_sheets.items() if column == key_column), issue["source_sheet"])
             if entity_type and sheet_name != entity_type:
                 continue
             if normalized and normalized not in key.casefold():
@@ -494,7 +512,7 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
         return {
             "items": items[:max(1, min(limit, 100))],
             "total_entities": sum(counts.values()),
-            "relation_rows": len(data.sheets["relation"]),
+            "relation_rows": len(data.sheets[data.relation_sheet]),
             "detected_issues": len(data.detected_quality),
             "counts_by_type": counts,
         }

@@ -6,34 +6,35 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from statistics import fmean, median, pstdev
-from typing import Any
+from typing import Any, Mapping
 
 from openpyxl import load_workbook
 
+from .dataset_profile import CanonicalDataset, DatasetInputProfile, canonicalize_workbook, load_dataset_profile
+from .task_contracts import TaskDefinition
 
-COMPOSITION_COLUMNS = {
-    "C": "C[mass%]", "Si": "Si[mass%]", "Mn": "Mn[mass%]", "P": "P[mass%]",
-    "S": "S[mass%]", "Cr": "Cr[mass%]", "Mo": "Mo[mass%]", "Ni": "Ni[mass%]",
-    "Al": "Al[mass%]", "Ti": "Ti[mass%]", "B": "B[mass%]", "N": "N[mass%]",
-    "O": "O[mass%]", "Ca": "Ca[mass%]",
-}
-
-# These sheets own an entity key.  Derived tables such as 焼鈍特徴量 and
-# 焼鈍履歴 deliberately do not own 焼鈍_key: treating them as entities would
-# make every process-history point look like a duplicate anneal condition.
-ENTITY_SHEETS = {
-    "溶製": "溶製_key",
-    "熱延": "熱延_key",
-    "冷延": "冷延_key",
-    "焼鈍": "焼鈍_key",
-    "熱延引張": "熱延引張_key",
-    "熱延組織": "熱延組織_key",
-    "焼鈍引張": "焼鈍引張_key",
-    "焼鈍穴広げ": "焼鈍穴広げ_key",
-    "焼鈍組織": "焼鈍組織_key",
-}
-KEY_TO_SHEET = {key: sheet for sheet, key in ENTITY_SHEETS.items()}
-METADATA_COLUMNS = {"ロット", "プロジェクト名", "登録者", "登録日", "備考", "学習利用区分", "試験者", "試験日", "入力者"}
+def composition_names(
+    profile: DatasetInputProfile | None = None,
+    task_id: str | None = None,
+) -> tuple[str, ...]:
+    selected = profile or load_dataset_profile()
+    definitions = (
+        (selected.task_definitions[task_id],)
+        if task_id is not None
+        else tuple(selected.task_definitions.values())
+    )
+    names: list[str] = []
+    for task in definitions:
+        fields = (
+            field for group in sorted(task.input_groups, key=lambda item: item.order)
+            for field in sorted(group.fields, key=lambda item: item.order)
+        )
+        for field in fields:
+            if field.path.startswith("composition."):
+                name = field.path.removeprefix("composition.")
+                if name not in names:
+                    names.append(name)
+    return tuple(names)
 
 
 def _as_date(value: Any) -> str | None:
@@ -73,6 +74,18 @@ class WorkbookData:
     detected_quality: list[dict[str, str]]
     entities: dict[str, dict[str, dict[str, Any]]]
     medians: dict[str, float]
+    entity_sheets: dict[str, str]
+    key_to_sheet: dict[str, str]
+    profile_id: str
+    metadata_columns: tuple[str, ...]
+    role_to_key: dict[str, str]
+    role_to_sheet: dict[str, str]
+    technical_columns: dict[tuple[str, str], str]
+    policy_columns: dict[tuple[str, str], str]
+    relation_sheet: str
+    relation_join_columns: dict[str, str]
+    lineage_stage_order: dict[str, int]
+    lineage_adjacencies: tuple[tuple[str, str], ...]
 
     @property
     def source_summary(self) -> dict[str, Any]:
@@ -94,12 +107,41 @@ def _scalar(value: Any) -> str | float | int | bool | None:
     return str(value)
 
 
-def _detect_data_quality(sheets: dict[str, list[dict[str, Any]]], entities: dict[str, dict[str, dict[str, Any]]]) -> list[dict[str, str]]:
+def _detect_data_quality(
+    sheets: dict[str, list[dict[str, Any]]],
+    entities: dict[str, dict[str, dict[str, Any]]],
+    entity_sheets: Mapping[str, str] | None = None,
+    key_to_sheet: Mapping[str, str] | None = None,
+    observation_parent_columns: Mapping[str, str] | None = None,
+    relation_sheet: str | None = None,
+    relation_columns: tuple[str, ...] | None = None,
+) -> list[dict[str, str]]:
     """Detect structural data problems without trusting the workbook's scenarios.
 
     The workbook's 想定異常 sheet remains useful as a curated verification
     fixture, but it is not evidence that this copy of the source was checked.
     """
+    profile = None
+    if entity_sheets is None or observation_parent_columns is None or relation_sheet is None or relation_columns is None:
+        profile = load_dataset_profile()
+    if entity_sheets is None:
+        assert profile is not None
+        entity_sheets = {
+            profile.sheet_for_role(entity.role): entity.key
+            for entity in profile.shared.entities
+        }
+    if key_to_sheet is None:
+        key_to_sheet = {key: sheet for sheet, key in entity_sheets.items()}
+    if observation_parent_columns is None:
+        assert profile is not None
+        observation_parent_columns = {
+            profile.sheet_for_role(observation.role): observation.parent_column
+            for task in profile.tasks.values() for observation in task.observations
+        }
+    if relation_sheet is None or relation_columns is None:
+        assert profile is not None
+        relation_sheet = profile.sheet_for_role(profile.shared.relation.role)
+        relation_columns = tuple(join.column for join in profile.shared.relation.joins)
     issues: list[dict[str, str]] = []
     seen: set[tuple[str, str, str, str]] = set()
 
@@ -116,7 +158,7 @@ def _detect_data_quality(sheets: dict[str, list[dict[str, Any]]], entities: dict
             "detail": detail,
         })
 
-    for sheet_name, key_column in ENTITY_SHEETS.items():
+    for sheet_name, key_column in entity_sheets.items():
         rows = sheets[sheet_name]
         counts: dict[str, int] = defaultdict(int)
         for row_index, row in enumerate(rows, start=2):
@@ -131,27 +173,27 @@ def _detect_data_quality(sheets: dict[str, list[dict[str, Any]]], entities: dict
 
     # A test row without its parent condition is unusable even when it is not
     # represented in relation, so detect that source-level missing reference.
-    for sheet_name in ("熱延引張", "焼鈍引張", "焼鈍穴広げ"):
+    for sheet_name, parent_column in observation_parent_columns.items():
         for row_index, row in enumerate(sheets[sheet_name], start=2):
-            if row.get("反復条件_key") is None or not str(row.get("反復条件_key")).strip():
-                key_column = ENTITY_SHEETS[sheet_name]
-                add("missing_key", sheet_name, str(row.get(key_column) or ""), f"{row_index}行目に反復条件_keyがありません")
+            if row.get(parent_column) is None or not str(row.get(parent_column)).strip():
+                key_column = entity_sheets[sheet_name]
+                add("missing_key", sheet_name, str(row.get(key_column) or ""), f"{row_index}行目に{parent_column}がありません")
 
     relation_keys: set[str] = set()
-    for row_index, edge in enumerate(sheets["relation"], start=2):
+    for row_index, edge in enumerate(sheets[relation_sheet], start=2):
         for key_column, value in edge.items():
-            if not key_column.endswith("_key") or value is None or not str(value).strip():
+            if key_column not in relation_columns or value is None or not str(value).strip():
                 continue
             key = str(value)
             relation_keys.add(key)
-            source_sheet = KEY_TO_SHEET.get(key_column)
+            source_sheet = key_to_sheet.get(key_column)
             if source_sheet is None:
                 continue
             if key not in entities.get(key_column, {}):
-                add("invalid_reference", "relation", key, f"{row_index}行目の{key_column}に対応する{source_sheet}レコードがありません")
+                add("invalid_reference", relation_sheet, key, f"{row_index}行目の{key_column}に対応する{source_sheet}レコードがありません")
 
     for key_column, records in entities.items():
-        source_sheet = KEY_TO_SHEET[key_column]
+        source_sheet = key_to_sheet[key_column]
         for key in records:
             if key not in relation_keys:
                 add("orphan_entity", source_sheet, key, "どのrelation行からも参照されていません")
@@ -166,36 +208,24 @@ def lineage_node_detail(data: WorkbookData, entity_key: str) -> dict[str, Any]:
         if relations is None:
             raise KeyError(entity_key)
         entity_type = next((column for column, values in relations.items() if entity_key in values), None)
-        if entity_type not in KEY_TO_SHEET:
+        if entity_type not in data.key_to_sheet:
             raise KeyError(entity_key)
-        source_sheet = KEY_TO_SHEET[entity_type]
+        source_sheet = data.key_to_sheet[entity_type]
         source_row: dict[str, Any] = {}
         missing_source = True
     else:
-        source_sheet = KEY_TO_SHEET[entity_type]
+        source_sheet = data.key_to_sheet[entity_type]
         source_row = data.entities[entity_type][entity_key]
         missing_source = False
     relations = data.lineage.get(entity_key, {})
-    melt_keys = [entity_key] if entity_type == "溶製_key" else relations.get("溶製_key", [])
+    melt_key_type = data.role_to_key["melt"]
+    melt_keys = [entity_key] if entity_type == melt_key_type else relations.get(melt_key_type, [])
     composition = data.composition.get(melt_keys[0], {}) if len(melt_keys) == 1 else {}
-    anneal_keys = [entity_key] if entity_type == "焼鈍_key" else relations.get("焼鈍_key", [])
+    anneal_key_type = data.role_to_key["annealing"]
+    anneal_keys = [entity_key] if entity_type == anneal_key_type else relations.get(anneal_key_type, [])
     heat_pattern: list[dict[str, Any]] = []
     if len(anneal_keys) == 1:
-        heat_pattern = [
-            {
-                "time_s": float(row["到達時間[s]"]),
-                "temperature_c": float(row["実績温度[℃]"]),
-                "set_temperature_c": float(row["設定温度[℃]"]) if isinstance(row.get("設定温度[℃]"), (int, float)) else None,
-                "stage_category": str(row["標準工程カテゴリ"]) if row.get("標準工程カテゴリ") else None,
-                "stage_name": str(row["標準工程名"]) if row.get("標準工程名") else None,
-                "mapping_status": str(row["マッピング状態"]) if row.get("マッピング状態") else None,
-            }
-            for row in sorted(data.sheets["焼鈍履歴"], key=lambda row: row.get("順番", 0))
-            if str(row.get("焼鈍_key")) == anneal_keys[0]
-            and isinstance(row.get("到達時間[s]"), (int, float))
-            and isinstance(row.get("実績温度[℃]"), (int, float))
-        ]
-        _normalize_stage_local_times(heat_pattern)
+        heat_pattern = [dict(point) for point in data.anneal_features.get(anneal_keys[0], {}).get("heat_pattern", [])]
     connected_keys = {entity_key, *(key for values in relations.values() for key in values)}
     aggregate: dict[str, list[float]] = defaultdict(list)
     grouped_values: dict[tuple[str, str], list[float]] = defaultdict(list)
@@ -242,11 +272,12 @@ def lineage_node_detail(data: WorkbookData, entity_key: str) -> dict[str, Any]:
     primary_conditions = {
         column: _scalar(value)
         for column, value in source_row.items()
-        if column != entity_type and not column.endswith("_key") and column not in METADATA_COLUMNS and value is not None
+        if column != entity_type and column not in data.key_to_sheet and column not in data.metadata_columns and value is not None
     }
+    canonical_entity_type = data.key_to_sheet.get(entity_type, entity_type)
     return {
         "key": entity_key,
-        "entity_type": entity_type.removesuffix("_key"),
+        "entity_type": canonical_entity_type,
         "source_sheet": source_sheet,
         "source_row": {column: _scalar(value) for column, value in source_row.items()},
         "primary_conditions": primary_conditions,
@@ -261,37 +292,14 @@ def lineage_node_detail(data: WorkbookData, entity_key: str) -> dict[str, Any]:
     }
 
 
-LINEAGE_STAGE_ORDER = {
-    "溶製_key": 0,
-    "熱延_key": 1,
-    "熱延引張_key": 2,
-    "熱延組織_key": 2,
-    "冷延_key": 3,
-    "焼鈍_key": 4,
-    "焼鈍引張_key": 5,
-    "焼鈍穴広げ_key": 5,
-    "焼鈍組織_key": 5,
-}
-
-LINEAGE_ADJACENCIES = (
-    ("溶製_key", "熱延_key"),
-    ("熱延_key", "熱延引張_key"),
-    ("熱延_key", "熱延組織_key"),
-    ("熱延_key", "冷延_key"),
-    ("冷延_key", "焼鈍_key"),
-    ("焼鈍_key", "焼鈍引張_key"),
-    ("焼鈍_key", "焼鈍穴広げ_key"),
-    ("焼鈍_key", "焼鈍組織_key"),
-)
-
-
 def lineage_neighborhood(data: WorkbookData, entity_key: str, max_nodes: int = 80) -> dict[str, Any]:
     """Build a bounded route graph while preserving evidence from relation rows."""
     if entity_key not in data.lineage:
         raise KeyError(entity_key)
     route_rows: list[tuple[int, dict[str, Any]]] = []
-    for row_number, row in enumerate(data.sheets["relation"], start=2):
-        keys = {str(value) for column, value in row.items() if column.endswith("_key") and value}
+    relation_columns = set(data.relation_join_columns.values())
+    for row_number, row in enumerate(data.sheets[data.relation_sheet], start=2):
+        keys = {str(value) for column, value in row.items() if column in relation_columns and value}
         if entity_key in keys:
             route_rows.append((row_number, row))
 
@@ -302,12 +310,12 @@ def lineage_neighborhood(data: WorkbookData, entity_key: str, max_nodes: int = 8
             candidate_nodes[entity_key] = own_type
     for _, row in route_rows:
         for column, value in row.items():
-            if column in LINEAGE_STAGE_ORDER and value:
+            if column in data.lineage_stage_order and value:
                 candidate_nodes[str(value)] = column
 
     ordered = sorted(
         candidate_nodes.items(),
-        key=lambda item: (LINEAGE_STAGE_ORDER.get(item[1], 99), item[0] != entity_key, item[0]),
+        key=lambda item: (data.lineage_stage_order.get(item[1], 99), item[0] != entity_key, item[0]),
     )
     visible = dict(ordered[:max_nodes])
     issue_by_key: dict[str, list[str]] = defaultdict(list)
@@ -317,8 +325,8 @@ def lineage_neighborhood(data: WorkbookData, entity_key: str, max_nodes: int = 8
     nodes = [
         {
             "key": key,
-            "entity_type": column.removesuffix("_key"),
-            "source_sheet": KEY_TO_SHEET.get(column, column.removesuffix("_key")),
+            "entity_type": data.key_to_sheet.get(column, column),
+            "source_sheet": data.key_to_sheet.get(column, column),
             "exists": key in data.entities.get(column, {}),
             "selected": key == entity_key,
             "issue_types": sorted(issue_by_key.get(key, [])),
@@ -327,7 +335,7 @@ def lineage_neighborhood(data: WorkbookData, entity_key: str, max_nodes: int = 8
     ]
     edge_rows: dict[tuple[str, str], list[int]] = defaultdict(list)
     for row_number, row in route_rows:
-        for source_column, target_column in LINEAGE_ADJACENCIES:
+        for source_column, target_column in data.lineage_adjacencies:
             source, target = row.get(source_column), row.get(target_column)
             if source and target and str(source) in visible and str(target) in visible:
                 pair = (str(source), str(target))
@@ -336,8 +344,11 @@ def lineage_neighborhood(data: WorkbookData, entity_key: str, max_nodes: int = 8
         # A direct hot-roll → anneal edge is real only for relation rows where
         # cold rolling is absent. Never draw it as a parallel bypass around an
         # existing cold-roll condition.
-        if row.get("熱延_key") and row.get("焼鈍_key") and not row.get("冷延_key"):
-            pair = (str(row["熱延_key"]), str(row["焼鈍_key"]))
+        hot_key = data.role_to_key["hot_rolling"]
+        anneal_key = data.role_to_key["annealing"]
+        cold_key = data.role_to_key["cold_rolling"]
+        if row.get(hot_key) and row.get(anneal_key) and not row.get(cold_key):
+            pair = (str(row[hot_key]), str(row[anneal_key]))
             if pair[0] in visible and pair[1] in visible and row_number not in edge_rows[pair]:
                 edge_rows[pair].append(row_number)
     return {
@@ -369,73 +380,99 @@ def _normalize_stage_local_times(points: list[dict[str, Any]]) -> None:
         previous_normalized = point["time_s"]
 
 
-def load_workbook_data(path: str | Path) -> WorkbookData:
+def load_workbook_data(
+    path: str | Path,
+    profile_path: str | Path | None = None,
+    task_definitions: Mapping[str, TaskDefinition] | None = None,
+) -> WorkbookData:
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(f"Excel source not found: {path}")
+    profile = load_dataset_profile(profile_path, task_definitions)
+    anneal_task_id = next(
+        task_id for task_id, task in profile.tasks.items()
+        if any(mapping.kind == "ordered_heat_series" for mapping in task.mappings)
+    )
+    hot_task = next(
+        task_id for task_id, task in profile.tasks.items()
+        if any(mapping.role == "hot_rolling" and mapping.path.startswith("process.") for mapping in task.mappings)
+    )
     wb = load_workbook(path, read_only=True, data_only=True)
-    sheets = {name: _records(wb[name]) for name in wb.sheetnames}
+    try:
+        canonical = canonicalize_workbook(wb, profile)
+    finally:
+        wb.close()
+    sheets = dict(canonical.source_rows)
+    entity_sheets = {
+        profile.sheet_for_role(entity.role): entity.key
+        for entity in profile.shared.entities
+    }
+    role_to_key = {entity.role: entity.key for entity in profile.shared.entities}
+    role_to_sheet = {role: profile.sheet_for_role(role) for role in profile.shared.sheets}
+    technical_columns = {(item.role, item.name): item.column for item in profile.shared.technical}
+    policy_columns = {(item.role, item.policy): item.column for item in profile.shared.eligibility}
+    key_to_sheet = {key: sheet for sheet, key in entity_sheets.items()}
     entities: dict[str, dict[str, dict[str, Any]]] = defaultdict(dict)
-    for sheet_name, key_column in ENTITY_SHEETS.items():
+    for sheet_name, key_column in entity_sheets.items():
         for row in sheets[sheet_name]:
             value = row.get(key_column)
             if value is not None and str(value).strip():
                 # Keep the first row for node inspection. Duplicate rows are
                 # independently surfaced by the quality detector below.
                 entities[key_column].setdefault(str(value), row)
-    melt_rows = sheets["溶製"]
+    melt_rows = canonical.rows("melt")
+    composition_mappings: dict[str, tuple[str, str]] = {}
+    for task_id, task in profile.tasks.items():
+        for mapping in task.mappings:
+            if mapping.path.startswith("composition."):
+                composition_mappings.setdefault(mapping.path, (task_id, mapping.path))
+    composition_paths = tuple(composition_mappings)
+    melt_key = next(entity.key for entity in profile.shared.entities if entity.role == "melt")
     composition = {
-        str(row["溶製_key"]): {short: float(row[column]) for short, column in COMPOSITION_COLUMNS.items() if row.get(column) is not None}
+        str(row[melt_key]): {
+            path.removeprefix("composition."): float(value)
+            for path in composition_paths
+            if (value := canonical.value(row, *composition_mappings[path])) is not None
+        }
         for row in melt_rows
     }
+    hot_key = next(entity.key for entity in profile.shared.entities if entity.role == "hot_rolling")
     hot_rolling_features = {
-        str(row["熱延_key"]): {
-            "reheat_temperature_c": float(row["加熱温度[℃]"]),
-            "hold_time_min": float(row["加熱保持時間[min]"]),
-            "finish_temperature_c": float(row["仕上温度[℃]"]),
-            "coiling_temperature_c": float(row["巻取温度[℃]"]),
-            "cooling_rate_c_s": float(row["冷却速度[℃/s]"]),
-            "entry_thickness_mm": float(row["入側板厚[mm]"]),
-            "exit_thickness_mm": float(row["出側板厚[mm]"]),
-            "reduction_percent": float(row["圧下率[%]"]),
-            "route": str(row["ルート"]),
-            "equipment": str(row["設備"]),
+        str(row[hot_key]): {
+            **canonical.mapped_values(row, hot_task, ("process.", "categorical.")),
+            "reduction_percent": float(canonical.technical_value(row, "hot_rolling", "reduction_percent")),
+            "equipment": str(canonical.technical_value(row, "hot_rolling", "equipment")),
         }
-        for row in sheets["熱延"]
+        for row in canonical.rows("hot_rolling")
     }
-    feature_rows = sheets["焼鈍特徴量"]
+    feature_rows = canonical.rows("anneal_features")
     anneal_history_by_key: dict[str, list[dict[str, float]]] = defaultdict(list)
-    for row in sorted(sheets["焼鈍履歴"], key=lambda item: (str(item.get("焼鈍_key", "")), item.get("順番", 0))):
-        if isinstance(row.get("到達時間[s]"), (int, float)) and isinstance(row.get("実績温度[℃]"), (int, float)):
-            anneal_history_by_key[str(row["焼鈍_key"])].append({"time_s": float(row["到達時間[s]"]), "temperature_c": float(row["実績温度[℃]"])})
-    # Some multi-stage routes restart their stage-local clock. Preserve the
-    # recorded point order and stitch each reset after the preceding stage so
-    # the canonical route remains strictly monotonic without reordering heat events.
-    for key, points in anneal_history_by_key.items():
-        _normalize_stage_local_times(points)
+    anneal_history_by_key.update({identity[1]: [dict(point) for point in points] for identity, points in canonical.heat_series.items()})
     anneal_features = {
-        str(row["焼鈍_key"]): {
-            "line_speed_m_min": float(row["ライン速度[m/min]"]),
-            "max_temperature_c": float(row["最高実績温度[℃]"]),
-            "hold_time_s": float(row["高温保持時間[s]"]),
-            "coating": str(row["メッキ区分"]),
-            "input_points": float(row["入力点数"]),
-            "reheat": 1.0 if row["再加熱工程あり"] == "あり" else 0.0,
-            "alloying": 1.0 if row["合金化工程あり"] == "通過" else 0.0,
-            "feature_status": str(row["特徴量化判定"]),
-            "standard_route": str(row.get("標準ルート") or ""),
-            "process_signature": str(row.get("標準工程シグネチャ") or ""),
-            "unmapped_stage_count": int(row.get("未確定工程名数") or 0),
-            "heat_pattern": anneal_history_by_key.get(str(row["焼鈍_key"]), []),
+        str(canonical.technical_value(row, "anneal_features", "parent_key")): {
+            **canonical.mapped_values(row, anneal_task_id, ("process.", "categorical.")),
+            "max_temperature_c": float(canonical.technical_value(row, "anneal_features", "max_temperature_c")),
+            "hold_time_s": float(canonical.technical_value(row, "anneal_features", "hold_time_s")),
+            "input_points": float(canonical.technical_value(row, "anneal_features", "input_points")),
+            "reheat": 1.0 if canonical.technical_value(row, "anneal_features", "reheat") == "あり" else 0.0,
+            "alloying": 1.0 if canonical.technical_value(row, "anneal_features", "alloying") == "通過" else 0.0,
+            "feature_status": str(canonical.technical_value(row, "anneal_features", "feature_status")),
+            "feature_eligible": canonical.policy_allows(row, "anneal_features", "anneal_feature_status/v1"),
+            "standard_route": str(canonical.technical_value(row, "anneal_features", "standard_route") or ""),
+            "process_signature": str(canonical.technical_value(row, "anneal_features", "process_signature") or ""),
+            "unmapped_stage_count": int(canonical.technical_value(row, "anneal_features", "unmapped_stage_count") or 0),
+            "heat_pattern": anneal_history_by_key.get(str(canonical.technical_value(row, "anneal_features", "parent_key")), []),
         }
         for row in feature_rows
     }
     lineage: dict[str, dict[str, list[str]]] = defaultdict(lambda: defaultdict(list))
-    for edge in sheets["relation"]:
+    key_by_type = {entity.type: entity.key for entity in profile.shared.entities}
+    for relation in canonical.relations:
+        edge = {key_by_type[entity_type]: identity[1] for entity_type, identity in relation.items()}
         for column, value in edge.items():
-            if column.endswith("_key") and value:
+            if value:
                 lineage[str(value)][column].append(str(value))
-        anchor = {key: str(value) for key, value in edge.items() if key.endswith("_key") and value}
+        anchor = {key: str(value) for key, value in edge.items() if value}
         for current_key in anchor.values():
             bucket = lineage[current_key]
             for related_column, related_key in anchor.items():
@@ -449,24 +486,33 @@ def load_workbook_data(path: str | Path) -> WorkbookData:
             lineage.setdefault(key, defaultdict(list))
 
     def upstream_composition(parent_key: str) -> dict[str, float] | None:
-        melt_keys = sorted(set(lineage.get(parent_key, {}).get("溶製_key", [])))
+        melt_keys = sorted(set(lineage.get(parent_key, {}).get(melt_key, [])))
         return composition.get(melt_keys[0]) if len(melt_keys) == 1 else None
 
-    anneal_status = {str(row["焼鈍_key"]): str(row.get("学習利用区分", "")) for row in sheets["焼鈍"]}
-    hot_status = {str(row["熱延_key"]): str(row.get("学習利用区分", "")) for row in sheets["熱延"]}
+    anneal_key = next(entity.key for entity in profile.shared.entities if entity.role == "annealing")
+    anneal_status = {
+        str(row[anneal_key]): canonical.policy_allows(row, "annealing", "learning_flag/v1")
+        for row in canonical.rows("annealing")
+    }
+    hot_status = {
+        str(row[hot_key]): canonical.policy_allows(row, "hot_rolling", "learning_flag/v1")
+        for row in canonical.rows("hot_rolling")
+    }
     observations: list[dict[str, Any]] = []
-    targets = (
-        ("焼鈍引張", "焼鈍引張_key", ("TS[MPa]", "YS[MPa]", "EL[%]", "均一伸び[%]", "r値[-]", "n値[-]")),
-        ("焼鈍穴広げ", "焼鈍穴広げ_key", ("λ[%]",)),
-        ("熱延引張", "熱延引張_key", ("TS[MPa]", "YS[MPa]", "EL[%]", "均一伸び[%]")),
-    )
-    for sheet_name, observation_key, output_columns in targets:
-        for row in sheets[sheet_name]:
-            parent = str(row.get("反復条件_key", ""))
-            is_anneal = sheet_name != "熱延引張"
+    for canonical_observation in canonical.observations:
+            parent = canonical_observation.parent_key
+            is_anneal = canonical_observation.task_id == anneal_task_id
             process = anneal_features.get(parent) if is_anneal else hot_rolling_features.get(parent)
             comp = upstream_composition(parent)
-            outputs = {name: float(row[name]) for name in output_columns if isinstance(row.get(name), (int, float))}
+            measurement_labels = {
+                target.key: target.column
+                for observation in profile.tasks[canonical_observation.task_id].observations
+                for target in (*observation.targets, *observation.auxiliary)
+            }
+            outputs = {
+                measurement_labels[key]: value
+                for key, value in canonical_observation.canonical_measurements.items()
+            }
             if not outputs:
                 continue
             eligibility_reasons: list[str] = []
@@ -475,36 +521,90 @@ def load_workbook_data(path: str | Path) -> WorkbookData:
             if not comp:
                 eligibility_reasons.append("上流の成分が一意に決まりません")
             if is_anneal:
-                if process and process["feature_status"] != "特徴量化可":
+                if process and not process["feature_eligible"]:
                     eligibility_reasons.append("焼鈍履歴を特徴量化できません")
-                if anneal_status.get(parent) != "学習":
+                if not anneal_status.get(parent, False):
                     eligibility_reasons.append("焼鈍条件が学習対象外です")
-                if row.get("判定") != "有効":
+                if not canonical_observation.policy_results.get("valid_observation/v1", False):
                     eligibility_reasons.append("試験判定が有効ではありません")
             else:
-                if hot_status.get(parent) != "学習":
+                if not hot_status.get(parent, False):
                     eligibility_reasons.append("熱延条件が学習対象外です")
-                if row.get("判定") != "有効":
+                if not canonical_observation.policy_results.get("valid_observation/v1", False):
                     eligibility_reasons.append("試験判定が有効ではありません")
-                if str(row.get("試験片方向") or "") != "L":
+                if not canonical_observation.policy_results.get("hot_l_direction/v1", False):
                     eligibility_reasons.append("v1の推定対象はL方向です")
-                physical_ranges = {"TS[MPa]": (100.0, 2500.0), "YS[MPa]": (50.0, 2200.0), "EL[%]": (0.0, 100.0), "均一伸び[%]": (0.0, 100.0)}
-                for property_name, value in outputs.items():
+                physical_ranges = profile.shared.physical_ranges.get(canonical_observation.task_id, {})
+                for property_name, value in canonical_observation.canonical_measurements.items():
                     bounds = physical_ranges.get(property_name)
                     if bounds and not bounds[0] <= value <= bounds[1]:
-                        eligibility_reasons.append(f"{property_name}が物理範囲外です")
+                        eligibility_reasons.append(f"{measurement_labels[property_name]}が物理範囲外です")
             observations.append({
-                "id": str(row[observation_key]), "source": sheet_name, "parent_key": parent,
+                "id": canonical_observation.id, "source": profile.sheet_for_role(canonical_observation.source_role), "parent_key": parent,
                 "features": process, "composition": comp, "outputs": outputs,
                 "eligible": not eligibility_reasons,
                 "eligibility_reasons": eligibility_reasons,
-                "thickness_mm": float(row.get("板厚[mm]", 0) or 0), "date": _as_date(row.get("試験日")),
-                "test_direction": str(row.get("試験片方向") or "L") if not is_anneal else None,
+                "thickness_mm": float(canonical_observation.metadata.get("thickness_mm") or 0),
+                "date": _as_date(canonical_observation.metadata.get("date")),
+                "test_direction": str(canonical_observation.metadata.get("direction") or "L") if not is_anneal else None,
             })
-    values = {name: sorted(float(row[name]) for row in melt_rows if isinstance(row.get(name), (int, float))) for name in COMPOSITION_COLUMNS.values()}
-    medians = {short: series[len(series) // 2] for short, name in COMPOSITION_COLUMNS.items() if (series := values[name])}
+    values = {
+        path: sorted(float(value) for row in melt_rows if isinstance((value := canonical.value(row, *composition_mappings[path])), (int, float)))
+        for path in composition_paths
+    }
+    medians = {path.removeprefix("composition."): series[len(series) // 2] for path, series in values.items() if series}
     with path.open("rb") as source_file:
         source_sha256 = hashlib.file_digest(source_file, "sha256").hexdigest()
     normalized_lineage = {k: {inner: sorted(set(values)) for inner, values in v.items()} for k, v in lineage.items()}
-    detected_quality = _detect_data_quality(sheets, entities)
-    return WorkbookData(str(path), path.stat().st_mtime_ns, source_sha256, sheets, composition, hot_rolling_features, anneal_features, normalized_lineage, observations, sheets["想定異常"], detected_quality, dict(entities), medians)
+    observation_parent_columns = {
+        profile.sheet_for_role(observation.role): observation.parent_column
+        for task in profile.tasks.values() for observation in task.observations
+    }
+    relation_sheet = profile.sheet_for_role(profile.shared.relation.role)
+    relation_join_columns = {join.entity_type: join.column for join in profile.shared.relation.joins}
+    lineage_stage_order = {join.column: join.stage for join in profile.shared.relation.joins}
+    lineage_adjacencies = tuple(
+        (relation_join_columns[parent_type], join.column)
+        for join in profile.shared.relation.joins
+        for parent_type in (
+            join.edge_parent_entity_types
+            if join.edge_parent_entity_types is not None
+            else join.parent_entity_types
+        )
+    )
+    detected_quality = _detect_data_quality(
+        sheets,
+        entities,
+        entity_sheets,
+        key_to_sheet,
+        observation_parent_columns,
+        relation_sheet,
+        tuple(relation_join_columns.values()),
+    )
+    return WorkbookData(
+        source_path=str(path),
+        source_mtime_ns=path.stat().st_mtime_ns,
+        source_sha256=source_sha256,
+        sheets=sheets,
+        composition=composition,
+        hot_rolling_features=hot_rolling_features,
+        anneal_features=anneal_features,
+        lineage=normalized_lineage,
+        observations=observations,
+        quality=canonical.rows("quality"),
+        detected_quality=detected_quality,
+        entities=dict(entities),
+        medians=medians,
+        entity_sheets=entity_sheets,
+        key_to_sheet=key_to_sheet,
+        profile_id=profile.profile_id,
+        metadata_columns=profile.shared.metadata_columns,
+        role_to_key=role_to_key,
+        role_to_sheet=role_to_sheet,
+        technical_columns=technical_columns,
+        policy_columns=policy_columns,
+        relation_sheet=relation_sheet,
+        relation_join_columns=relation_join_columns,
+        lineage_stage_order=lineage_stage_order,
+        lineage_adjacencies=lineage_adjacencies,
+    )

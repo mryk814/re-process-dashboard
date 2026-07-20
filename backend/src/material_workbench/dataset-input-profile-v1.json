@@ -1,0 +1,779 @@
+{
+  "schema_version": "dataset-input-profile/v1",
+  "id": "thin-sheet-workbook-v1",
+  "shared": {
+    "sheets": {
+      "melt": "溶製",
+      "hot_rolling": "熱延",
+      "cold_rolling": "冷延",
+      "annealing": "焼鈍",
+      "hot_tensile": "熱延引張",
+      "hot_microstructure": "熱延組織",
+      "anneal_tensile": "焼鈍引張",
+      "anneal_hole": "焼鈍穴広げ",
+      "anneal_microstructure": "焼鈍組織",
+      "anneal_features": "焼鈍特徴量",
+      "anneal_history": "焼鈍履歴",
+      "relation": "relation",
+      "quality": "想定異常"
+    },
+    "entities": [
+      {
+        "type": "melt",
+        "role": "melt",
+        "key": "溶製_key"
+      },
+      {
+        "type": "hot_rolling",
+        "role": "hot_rolling",
+        "key": "熱延_key"
+      },
+      {
+        "type": "cold_rolling",
+        "role": "cold_rolling",
+        "key": "冷延_key"
+      },
+      {
+        "type": "annealing",
+        "role": "annealing",
+        "key": "焼鈍_key"
+      },
+      {
+        "type": "hot_tensile",
+        "role": "hot_tensile",
+        "key": "熱延引張_key"
+      },
+      {
+        "type": "hot_microstructure",
+        "role": "hot_microstructure",
+        "key": "熱延組織_key"
+      },
+      {
+        "type": "anneal_tensile",
+        "role": "anneal_tensile",
+        "key": "焼鈍引張_key"
+      },
+      {
+        "type": "anneal_hole",
+        "role": "anneal_hole",
+        "key": "焼鈍穴広げ_key"
+      },
+      {
+        "type": "anneal_microstructure",
+        "role": "anneal_microstructure",
+        "key": "焼鈍組織_key"
+      }
+    ],
+    "relation": {
+      "role": "relation",
+      "joins": [
+        {
+          "path": "melt",
+          "entity_type": "melt",
+          "column": "溶製_key",
+          "cardinality": "zero_or_one",
+          "stage": 0,
+          "parent_entity_types": []
+        },
+        {
+          "path": "hot_rolling",
+          "entity_type": "hot_rolling",
+          "column": "熱延_key",
+          "cardinality": "zero_or_one",
+          "stage": 1,
+          "parent_entity_types": ["melt"]
+        },
+        {
+          "path": "cold_rolling",
+          "entity_type": "cold_rolling",
+          "column": "冷延_key",
+          "cardinality": "zero_or_one",
+          "stage": 3,
+          "parent_entity_types": ["hot_rolling"]
+        },
+        {
+          "path": "annealing",
+          "entity_type": "annealing",
+          "column": "焼鈍_key",
+          "cardinality": "zero_or_one",
+          "stage": 4,
+          "parent_entity_types": ["cold_rolling", "hot_rolling"],
+          "edge_parent_entity_types": ["cold_rolling"]
+        },
+        {
+          "path": "hot_tensile",
+          "entity_type": "hot_tensile",
+          "column": "熱延引張_key",
+          "cardinality": "zero_or_one",
+          "stage": 2,
+          "parent_entity_types": ["hot_rolling"]
+        },
+        {
+          "path": "hot_microstructure",
+          "entity_type": "hot_microstructure",
+          "column": "熱延組織_key",
+          "cardinality": "zero_or_one",
+          "stage": 2,
+          "parent_entity_types": ["hot_rolling"]
+        },
+        {
+          "path": "anneal_tensile",
+          "entity_type": "anneal_tensile",
+          "column": "焼鈍引張_key",
+          "cardinality": "zero_or_one",
+          "stage": 5,
+          "parent_entity_types": ["annealing"]
+        },
+        {
+          "path": "anneal_hole",
+          "entity_type": "anneal_hole",
+          "column": "焼鈍穴広げ_key",
+          "cardinality": "zero_or_one",
+          "stage": 5,
+          "parent_entity_types": ["annealing"]
+        },
+        {
+          "path": "anneal_microstructure",
+          "entity_type": "anneal_microstructure",
+          "column": "焼鈍組織_key",
+          "cardinality": "zero_or_one",
+          "stage": 5,
+          "parent_entity_types": ["annealing"]
+        }
+      ]
+    },
+    "eligibility": [
+      {
+        "role": "hot_rolling",
+        "column": "学習利用区分",
+        "policy": "learning_flag/v1",
+        "accepted_values": [
+          "学習"
+        ]
+      },
+      {
+        "role": "annealing",
+        "column": "学習利用区分",
+        "policy": "learning_flag/v1",
+        "accepted_values": [
+          "学習"
+        ]
+      },
+      {
+        "role": "anneal_features",
+        "column": "特徴量化判定",
+        "policy": "anneal_feature_status/v1",
+        "accepted_values": [
+          "特徴量化可"
+        ]
+      },
+      {
+        "role": "hot_tensile",
+        "column": "判定",
+        "policy": "valid_observation/v1",
+        "accepted_values": [
+          "有効"
+        ]
+      },
+      {
+        "role": "hot_tensile",
+        "column": "試験片方向",
+        "policy": "hot_l_direction/v1",
+        "accepted_values": [
+          "L"
+        ]
+      },
+      {
+        "role": "anneal_tensile",
+        "column": "判定",
+        "policy": "valid_observation/v1",
+        "accepted_values": [
+          "有効"
+        ]
+      },
+      {
+        "role": "anneal_hole",
+        "column": "判定",
+        "policy": "valid_observation/v1",
+        "accepted_values": [
+          "有効"
+        ]
+      }
+    ],
+    "technical": [
+      {
+        "role": "melt",
+        "name": "family",
+        "column": "鋼種ファミリ"
+      },
+      {
+        "role": "annealing",
+        "name": "project",
+        "column": "プロジェクト名"
+      },
+      {
+        "role": "quality",
+        "name": "category",
+        "column": "分類"
+      },
+      {
+        "role": "hot_rolling",
+        "name": "reduction_percent",
+        "column": "圧下率[%]"
+      },
+      {
+        "role": "hot_rolling",
+        "name": "equipment",
+        "column": "設備"
+      },
+      {
+        "role": "anneal_history",
+        "name": "parent_key",
+        "column": "焼鈍_key"
+      },
+      {
+        "role": "anneal_history",
+        "name": "order",
+        "column": "順番"
+      },
+      {
+        "role": "anneal_history",
+        "name": "time_s",
+        "column": "到達時間[s]"
+      },
+      {
+        "role": "anneal_history",
+        "name": "temperature_c",
+        "column": "実績温度[℃]"
+      },
+      {
+        "role": "anneal_history",
+        "name": "set_temperature_c",
+        "column": "設定温度[℃]"
+      },
+      {
+        "role": "anneal_history",
+        "name": "stage_category",
+        "column": "標準工程カテゴリ"
+      },
+      {
+        "role": "anneal_history",
+        "name": "stage_name",
+        "column": "標準工程名"
+      },
+      {
+        "role": "anneal_history",
+        "name": "mapping_status",
+        "column": "マッピング状態"
+      },
+      {
+        "role": "anneal_features",
+        "name": "parent_key",
+        "column": "焼鈍_key"
+      },
+      {
+        "role": "anneal_features",
+        "name": "max_temperature_c",
+        "column": "最高実績温度[℃]"
+      },
+      {
+        "role": "anneal_features",
+        "name": "hold_time_s",
+        "column": "高温保持時間[s]"
+      },
+      {
+        "role": "anneal_features",
+        "name": "input_points",
+        "column": "入力点数"
+      },
+      {
+        "role": "anneal_features",
+        "name": "reheat",
+        "column": "再加熱工程あり"
+      },
+      {
+        "role": "anneal_features",
+        "name": "alloying",
+        "column": "合金化工程あり"
+      },
+      {
+        "role": "anneal_features",
+        "name": "feature_status",
+        "column": "特徴量化判定"
+      },
+      {
+        "role": "anneal_features",
+        "name": "standard_route",
+        "column": "標準ルート"
+      },
+      {
+        "role": "anneal_features",
+        "name": "process_signature",
+        "column": "標準工程シグネチャ"
+      },
+      {
+        "role": "anneal_features",
+        "name": "unmapped_stage_count",
+        "column": "未確定工程名数"
+      }
+    ],
+    "metadata_columns": [
+      "ロット",
+      "プロジェクト名",
+      "登録者",
+      "登録日",
+      "備考",
+      "学習利用区分",
+      "試験者",
+      "試験日",
+      "入力者"
+    ],
+    "physical_ranges": {
+      "hot-rolled-properties-v1": {
+        "TS": [
+          100,
+          2500
+        ],
+        "YS": [
+          50,
+          2200
+        ],
+        "EL": [
+          0,
+          100
+        ],
+        "uniform_elongation": [
+          0,
+          100
+        ]
+      }
+    }
+  },
+  "tasks": {
+    "annealed-properties-v1": {
+      "mappings": [
+        {
+          "path": "composition.C",
+          "role": "melt",
+          "column": "C[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "mass%"
+        },
+        {
+          "path": "composition.Si",
+          "role": "melt",
+          "column": "Si[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "mass%"
+        },
+        {
+          "path": "composition.Mn",
+          "role": "melt",
+          "column": "Mn[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "mass%"
+        },
+        {
+          "path": "composition.P",
+          "role": "melt",
+          "column": "P[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "mass%"
+        },
+        {
+          "path": "composition.S",
+          "role": "melt",
+          "column": "S[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "mass%"
+        },
+        {
+          "path": "composition.Cr",
+          "role": "melt",
+          "column": "Cr[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "mass%"
+        },
+        {
+          "path": "composition.Mo",
+          "role": "melt",
+          "column": "Mo[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "mass%"
+        },
+        {
+          "path": "composition.Ni",
+          "role": "melt",
+          "column": "Ni[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "mass%"
+        },
+        {
+          "path": "composition.Al",
+          "role": "melt",
+          "column": "Al[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "mass%"
+        },
+        {
+          "path": "composition.Ti",
+          "role": "melt",
+          "column": "Ti[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "mass%"
+        },
+        {
+          "path": "composition.B",
+          "role": "melt",
+          "column": "B[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "mass%"
+        },
+        {
+          "path": "composition.N",
+          "role": "melt",
+          "column": "N[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "mass%"
+        },
+        {
+          "path": "composition.O",
+          "role": "melt",
+          "column": "O[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "mass%"
+        },
+        {
+          "path": "composition.Ca",
+          "role": "melt",
+          "column": "Ca[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "mass%"
+        },
+        {
+          "path": "process.thickness_mm",
+          "role": "anneal_tensile",
+          "column": "板厚[mm]",
+          "kind": "observation_scoped",
+          "source_unit": "mm",
+          "canonical_unit": "mm",
+          "normalizer_id": "median_by_parent/v1",
+          "parent_entity_type": "annealing",
+          "observation_sources": [
+            {
+              "role": "anneal_tensile",
+              "column": "板厚[mm]"
+            },
+            {
+              "role": "anneal_hole",
+              "column": "板厚[mm]"
+            }
+          ]
+        },
+        {
+          "path": "process.line_speed_m_min",
+          "role": "anneal_features",
+          "column": "ライン速度[m/min]",
+          "kind": "entity_scalar",
+          "source_unit": "m/min",
+          "canonical_unit": "m/min"
+        },
+        {
+          "path": "heat_pattern",
+          "role": "anneal_history",
+          "kind": "ordered_heat_series",
+          "normalizer_id": "stage_local_clock/v1",
+          "series_columns": {
+            "parent": "焼鈍_key",
+            "order": "順番",
+            "time": "到達時間[s]",
+            "value": "実績温度[℃]",
+            "time_source_unit": "s",
+            "time_canonical_unit": "s",
+            "value_source_unit": "℃",
+            "value_canonical_unit": "°C"
+          },
+          "parent_entity_type": "annealing"
+        },
+        {
+          "path": "categorical.coating",
+          "role": "anneal_features",
+          "column": "メッキ区分",
+          "kind": "categorical"
+        }
+      ],
+      "observations": [
+        {
+          "role": "anneal_tensile",
+          "id_column": "焼鈍引張_key",
+          "parent_column": "反復条件_key",
+          "parent_entity_type": "annealing",
+          "metadata_columns": {
+            "status": "判定",
+            "thickness_mm": "板厚[mm]",
+            "date": "試験日"
+          },
+          "targets": [
+            {
+              "key": "TS",
+              "column": "TS[MPa]",
+              "unit": "MPa"
+            },
+            {
+              "key": "YS",
+              "column": "YS[MPa]",
+              "unit": "MPa"
+            },
+            {
+              "key": "EL",
+              "column": "EL[%]",
+              "unit": "%"
+            }
+          ],
+          "auxiliary": [
+            {"key": "uniform_elongation", "column": "均一伸び[%]", "unit": "%"},
+            {"key": "r_value", "column": "r値[-]", "unit": "1"},
+            {"key": "n_value", "column": "n値[-]", "unit": "1"}
+          ]
+        },
+        {
+          "role": "anneal_hole",
+          "id_column": "焼鈍穴広げ_key",
+          "parent_column": "反復条件_key",
+          "parent_entity_type": "annealing",
+          "metadata_columns": {
+            "status": "判定",
+            "thickness_mm": "板厚[mm]",
+            "date": "試験日"
+          },
+          "targets": [
+            {
+              "key": "lambda",
+              "column": "λ[%]",
+              "unit": "%"
+            }
+          ],
+          "auxiliary": []
+        }
+      ]
+    },
+    "hot-rolled-properties-v1": {
+      "mappings": [
+        {
+          "path": "composition.C",
+          "role": "melt",
+          "column": "C[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "mass%"
+        },
+        {
+          "path": "composition.Si",
+          "role": "melt",
+          "column": "Si[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "mass%"
+        },
+        {
+          "path": "composition.Mn",
+          "role": "melt",
+          "column": "Mn[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "mass%"
+        },
+        {
+          "path": "composition.P",
+          "role": "melt",
+          "column": "P[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "mass%"
+        },
+        {
+          "path": "composition.S",
+          "role": "melt",
+          "column": "S[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "mass%"
+        },
+        {
+          "path": "composition.Cr",
+          "role": "melt",
+          "column": "Cr[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "mass%"
+        },
+        {
+          "path": "composition.Mo",
+          "role": "melt",
+          "column": "Mo[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "mass%"
+        },
+        {
+          "path": "composition.Ni",
+          "role": "melt",
+          "column": "Ni[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "mass%"
+        },
+        {
+          "path": "composition.Al",
+          "role": "melt",
+          "column": "Al[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "mass%"
+        },
+        {
+          "path": "composition.Ti",
+          "role": "melt",
+          "column": "Ti[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "mass%"
+        },
+        {
+          "path": "composition.B",
+          "role": "melt",
+          "column": "B[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "mass%"
+        },
+        {
+          "path": "composition.N",
+          "role": "melt",
+          "column": "N[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "mass%"
+        },
+        {
+          "path": "composition.O",
+          "role": "melt",
+          "column": "O[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "mass%"
+        },
+        {
+          "path": "composition.Ca",
+          "role": "melt",
+          "column": "Ca[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "mass%"
+        },
+        {
+          "path": "process.reheat_temperature_c",
+          "role": "hot_rolling",
+          "column": "加熱温度[℃]",
+          "kind": "entity_scalar",
+          "source_unit": "℃",
+          "canonical_unit": "°C"
+        },
+        {
+          "path": "process.hold_time_min",
+          "role": "hot_rolling",
+          "column": "加熱保持時間[min]",
+          "kind": "entity_scalar",
+          "source_unit": "min",
+          "canonical_unit": "min"
+        },
+        {
+          "path": "process.finish_temperature_c",
+          "role": "hot_rolling",
+          "column": "仕上温度[℃]",
+          "kind": "entity_scalar",
+          "source_unit": "℃",
+          "canonical_unit": "°C"
+        },
+        {
+          "path": "process.coiling_temperature_c",
+          "role": "hot_rolling",
+          "column": "巻取温度[℃]",
+          "kind": "entity_scalar",
+          "source_unit": "℃",
+          "canonical_unit": "°C"
+        },
+        {
+          "path": "process.cooling_rate_c_s",
+          "role": "hot_rolling",
+          "column": "冷却速度[℃/s]",
+          "kind": "entity_scalar",
+          "source_unit": "℃/s",
+          "canonical_unit": "°C/s"
+        },
+        {
+          "path": "process.entry_thickness_mm",
+          "role": "hot_rolling",
+          "column": "入側板厚[mm]",
+          "kind": "entity_scalar",
+          "source_unit": "mm",
+          "canonical_unit": "mm"
+        },
+        {
+          "path": "process.exit_thickness_mm",
+          "role": "hot_rolling",
+          "column": "出側板厚[mm]",
+          "kind": "entity_scalar",
+          "source_unit": "mm",
+          "canonical_unit": "mm"
+        },
+        {
+          "path": "categorical.route",
+          "role": "hot_rolling",
+          "column": "ルート",
+          "kind": "categorical"
+        }
+      ],
+      "observations": [
+        {
+          "role": "hot_tensile",
+          "id_column": "熱延引張_key",
+          "parent_column": "反復条件_key",
+          "parent_entity_type": "hot_rolling",
+          "metadata_columns": {
+            "status": "判定",
+            "direction": "試験片方向",
+            "thickness_mm": "板厚[mm]",
+            "date": "試験日"
+          },
+          "targets": [
+            {
+              "key": "TS",
+              "column": "TS[MPa]",
+              "unit": "MPa"
+            }
+          ],
+          "auxiliary": [
+            {"key": "YS", "column": "YS[MPa]", "unit": "MPa"},
+            {"key": "EL", "column": "EL[%]", "unit": "%"},
+            {"key": "uniform_elongation", "column": "均一伸び[%]", "unit": "%"}
+          ]
+        }
+      ]
+    }
+  }
+}

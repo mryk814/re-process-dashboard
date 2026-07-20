@@ -8,11 +8,12 @@ from typing import Any
 import numpy as np
 from openpyxl import Workbook, load_workbook
 
-from .importer import COMPOSITION_COLUMNS, WorkbookData
+from .importer import WorkbookData, composition_names
 from .runtime import ModelRuntime
 from .schemas import Candidate, CandidateInput, HeatPoint, ScreeningRequest
 
 
+COMPOSITION_COLUMNS = composition_names(task_id="annealed-properties-v1")
 SCREENABLE_FIELDS = {"thickness_mm", "line_speed_m_min", "coating", "max_temperature_c", *(f"composition.{name}" for name in COMPOSITION_COLUMNS)}
 SCREENING_SEED = 20260719
 
@@ -88,12 +89,12 @@ def candidate_from_lineage(data: WorkbookData, entity_key: str) -> CandidateInpu
     anneal_key = entity_key
     if anneal_key not in data.anneal_features:
         relations = data.lineage.get(entity_key, {})
-        candidates = relations.get("焼鈍_key", [])
+        candidates = relations.get(data.role_to_key["annealing"], [])
         if len(candidates) != 1:
             raise ValueError("焼鈍条件を一意にたどれないため候補化できません")
         anneal_key = candidates[0]
     relations = data.lineage.get(anneal_key, {})
-    melt_keys = sorted(set(relations.get("溶製_key", [])))
+    melt_keys = sorted(set(relations.get(data.role_to_key["melt"], [])))
     if len(melt_keys) != 1 or melt_keys[0] not in data.composition:
         raise ValueError("焼鈍条件に一意な成分が接続されていません")
     feature = data.anneal_features[anneal_key]
