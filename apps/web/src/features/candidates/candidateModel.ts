@@ -1,4 +1,4 @@
-import type { ApiCandidate, ApiCandidateInput } from "./shared/api/workbench-api";
+import type { ApiCandidate, ApiCandidateInput } from "../../shared/api/workbench-api";
 
 export type CandidateViewModel = {
   raw: ApiCandidate;

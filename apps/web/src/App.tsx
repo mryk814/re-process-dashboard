@@ -1,13 +1,10 @@
 import { PointerEvent, useEffect, useRef, useState } from "react";
 import { HotRollingWorkbench } from "./HotRollingWorkbench";
-import { provenanceLabel, provenanceNavigation, type CandidateProvenance } from "./candidateProvenance";
-import { navigationUrl, readNavigationIntent, withView, type NavigationIntent, type WorkbenchView } from "./navigation";
-import { CandidateInspector as TaskDrivenCandidateInspector, ComparisonTable as TaskDrivenComparisonTable } from "./TaskDrivenCandidateUi";
-import { fromApiCandidate, toApiCandidate, type CandidateViewModel as Candidate } from "./candidateModel";
-import { numericTaskInputs, setCandidateInputValue, taskFieldName, validateResolvedTaskDefinition, type NumericTaskInput, type ResolvedTaskDefinition, type TaskDefinitionContract, type TaskOutputDefinition } from "./taskDefinition";
+import { provenanceLabel, provenanceNavigation, type CandidateProvenance } from "./app/candidateProvenance";
+import { navigationUrl, readNavigationIntent, withView, type NavigationIntent, type WorkbenchView } from "./app/navigation";
+import { CandidateInspector as TaskDrivenCandidateInspector, ComparisonTable as TaskDrivenComparisonTable, fromApiCandidate, numericTaskInputs, setCandidateInputValue, taskFieldName, toApiCandidate, useCandidateEditor, validateResolvedTaskDefinition, type CandidateSaveState, type CandidateViewModel as Candidate, type NumericTaskInput, type ResolvedTaskDefinition, type TaskDefinitionContract, type TaskOutputDefinition } from "./features/candidates";
 import { ApiClientError, apiBaseUrl } from "./shared/api/client";
-import { useCandidateEditor, type CandidateSaveState } from "./useCandidateEditor";
-import { candidateInputIdentity, mergePreviewEntryIfCurrent } from "./inferenceRequestCache";
+import { candidateInputIdentity, mergePreviewEntryIfCurrent } from "./shared/api/inferenceRequestCache";
 import {
   workbenchApi,
   type ApiActual,

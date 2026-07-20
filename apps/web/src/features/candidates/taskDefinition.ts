@@ -1,4 +1,4 @@
-import type { components } from "./generated/api-types";
+import type { components } from "../../generated/api-types";
 
 export type CandidateInputs = components["schemas"]["CandidateInputs"];
 export type NumericRange = components["schemas"]["NumericRange"];

@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { fromApiCandidate, toApiCandidate, type CandidateViewModel } from "./candidateModel";
 import { LatestSaveQueue, rebaseChangedFields } from "./latestSaveQueue";
-import { ApiClientError } from "./shared/api/client";
-import { workbenchApi, type ApiCandidate, type ApiCandidateInput, type ApiCandidateUpdate, type ApiPreview } from "./shared/api/workbench-api";
-import { candidateInferenceChanged, candidateInferencePrefix, candidateInputIdentity, inferenceRequestCache, shouldRefreshPreviewAfterSave } from "./inferenceRequestCache";
+import { ApiClientError } from "../../shared/api/client";
+import { workbenchApi, type ApiCandidate, type ApiCandidateInput, type ApiCandidateUpdate, type ApiPreview } from "../../shared/api/workbench-api";
+import { candidateInferenceChanged, candidateInferencePrefix, candidateInputIdentity, inferenceRequestCache, shouldRefreshPreviewAfterSave } from "../../shared/api/inferenceRequestCache";
 
 export type CandidateSaveState = "idle" | "dirty" | "saving" | "saved" | "conflict" | "error";
 

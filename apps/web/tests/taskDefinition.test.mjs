@@ -6,7 +6,7 @@ import {
   orderedInputGroups,
   setCandidateInputValue,
   validateResolvedTaskDefinition,
-} from "../src/taskDefinition.ts";
+} from "../src/features/candidates/taskDefinition.ts";
 
 function resolvedDefinition() {
   return {

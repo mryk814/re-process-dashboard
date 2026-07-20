@@ -1,6 +1,6 @@
 import type { components } from "../../generated/api-types";
 import { apiClient, apiDownloadUrl, requireData, requireSuccess } from "./client";
-import { candidateInferencePrefix, inferenceRequestCache, inferenceRequestKey } from "../../inferenceRequestCache";
+import { candidateInferencePrefix, inferenceRequestCache, inferenceRequestKey } from "./inferenceRequestCache";
 
 export type ApiCandidate = components["schemas"]["Candidate"];
 export type ApiCandidateInput = components["schemas"]["CandidateInput"];

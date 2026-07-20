@@ -1,4 +1,4 @@
-import type { components } from "./generated/api-types";
+import type { components } from "../generated/api-types";
 import type { NavigationIntent } from "./navigation";
 
 export type CandidateProvenance = NonNullable<components["schemas"]["Candidate"]["provenance"]>;
