@@ -63,9 +63,14 @@ def test_project_contracts_have_stable_openapi_operations_and_named_errors(clien
     schema = client.get("/openapi.json").json()
     task_operation = schema["paths"]["/api/projects/{project_id}/task-definition"]["get"]
     preview_operation = schema["paths"]["/api/projects/{project_id}/candidates/{candidate_id}/preview"]["post"]
+    package_operation = schema["paths"]["/api/projects/{project_id}/model-package"]["get"]
 
     assert task_operation["operationId"] == "getProjectTaskDefinition"
     assert preview_operation["operationId"] == "previewProjectCandidate"
+    assert package_operation["operationId"] == "getProjectModelPackage"
+    assert package_operation["responses"]["200"]["content"]["application/json"]["schema"]["$ref"].endswith(
+        "/ModelPackageStatus"
+    )
     assert preview_operation["responses"]["200"]["content"]["application/json"]["schema"]["$ref"].endswith(
         "/PredictionResponse"
     )

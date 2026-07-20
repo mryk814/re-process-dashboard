@@ -49,9 +49,12 @@ def _validation_error(payload: dict) -> ValueError:
 
 def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
     assert client.get("/api/health").json()["ok"] is True
-    package = client.get("/api/model-package").json()
+    assert client.get("/api/model-package").status_code == 404
+    package = client.get("/api/projects/default/model-package").json()
     assert package["id"] == "annealed-gp-2026-07"
     assert len(package["manifest_sha256"]) == 64
+    assert package["quality_report"]["split"] == "leave-one-parent-condition-out"
+    assert {item["target"] for item in package["quality_report"]["targets"]} == {"TS", "YS", "EL", "lambda"}
     assert {item["runtime_type"] for item in package["supported_runtimes"]} == {
         "builtin.linear.v1", "builtin.exact_gp.v1", "sklearn.skops.v1", "lightgbm.booster.v1",
         "gpytorch.static_exact_rbf.v1", "numpyro.dense_posterior.v1",

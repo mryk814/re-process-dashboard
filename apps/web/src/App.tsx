@@ -142,6 +142,16 @@ type ApiModelPackage = {
     runtime_type: string;
     predictive_family: string;
   }>;
+  quality_report: {
+    split: string;
+    targets: Array<{
+      target: string;
+      parent_conditions: number;
+      mae: number;
+      rmse: number;
+      interval_coverage_90: number;
+    }>;
+  };
 };
 
 type ApiSnapshot = {
@@ -2864,12 +2874,19 @@ function LiveProjectPage({
     setError("");
   }, [projects, activeProjectId]);
   useEffect(() => {
-    fetch(`${API_URL}/api/model-package`)
+    const controller = new AbortController();
+    fetch(`${API_URL}/api/projects/${encodeURIComponent(activeProjectId)}/model-package`, {
+      signal: controller.signal,
+    })
       .then(async (response) =>
+        !controller.signal.aborted &&
         setModelPackage(response.ok ? await response.json() : null),
       )
-      .catch(() => setModelPackage(null));
-  }, []);
+      .catch(() => {
+        if (!controller.signal.aborted) setModelPackage(null);
+      });
+    return () => controller.abort();
+  }, [activeProjectId]);
   useEffect(() => {
     setSnapshots([]);
     setSelectedSnapshotId("");
@@ -3101,6 +3118,14 @@ function LiveProjectPage({
                 .map((item) => `${item.target}: ${item.runtime_type}`)
                 .join(" / ")}
             </p>
+            <p>
+              {modelPackage.quality_report.targets
+                .map(
+                  (item) =>
+                    `${item.target}: RMSE ${number(item.rmse, 1)} / 90% coverage ${number(item.interval_coverage_90 * 100, 0)}%`,
+                )
+                .join(" · ")}
+            </p>
             <div className="runtime-list" aria-label="利用可能なモデル実行基盤">
               {modelPackage.supported_runtimes.map((item) => (
                 <span
@@ -3158,6 +3183,14 @@ function LiveProjectPage({
         {selectedSnapshot?.payload.prediction && (
           <div className="snapshot-detail">
             <h4>保存時点の結果</h4>
+            <span className="decision-snapshot-badge">
+              {!selectedSnapshot.payload.provenance?.package?.manifest_sha256 || !modelPackage
+                ? "Package情報を確認できません"
+                : selectedSnapshot.payload.provenance.package.manifest_sha256 ===
+                    modelPackage.manifest_sha256
+                  ? "現在と同じPackage"
+                  : "現在とは別のPackage"}
+            </span>
             <table className="quality-table">
               <thead>
                 <tr>

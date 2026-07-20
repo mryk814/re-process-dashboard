@@ -277,6 +277,28 @@ class PredictionResponse(BaseModel):
     response_curve: list[dict[str, float]] | None = None
 
 
+class RuntimeAvailability(BaseModel):
+    runtime_type: str
+    available: bool
+
+
+class ModelPackagePredictorStatus(BaseModel):
+    target: str
+    runtime_type: str
+    predictive_family: str
+
+
+class ModelPackageStatus(BaseModel):
+    id: str
+    version: str
+    task_id: str
+    manifest_sha256: str
+    active_runtimes: list[str]
+    supported_runtimes: list[RuntimeAvailability]
+    predictors: list[ModelPackagePredictorStatus]
+    quality_report: dict[str, object]
+
+
 class SnapshotResponse(BaseModel):
     id: str
     candidate_id: str

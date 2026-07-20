@@ -1,0 +1,13 @@
+{
+  "schema_version": "model-quality-report/v1",
+  "split": "leave-one-parent-condition-out",
+  "targets": [
+    {
+      "target": "TS",
+      "parent_conditions": 172,
+      "mae": 4.857239031569674,
+      "rmse": 6.0758539930179465,
+      "interval_coverage_90": 0.9709302325581395
+    }
+  ]
+}
