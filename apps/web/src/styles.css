@@ -2183,7 +2183,7 @@ select:focus-visible,
   display: grid;
   gap: 10px;
 }
-.composition-comparison {
+.comparison-grid {
   display: grid;
   grid-template-columns: 160px minmax(0, 1fr);
   align-items: start;
@@ -2192,8 +2192,7 @@ select:focus-visible,
   border-radius: 4px;
 }
 .candidate-name-table,
-.composition-table,
-.prediction-table {
+.comparison-detail-table {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
@@ -2206,36 +2205,21 @@ select:focus-visible,
   background: #fff;
   box-shadow: 2px 0 0 #cfd9e5;
 }
-.composition-scroll {
+.comparison-detail-scroll {
   position: relative;
   min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
   background: #fff;
 }
-.composition-group-label {
-  position: absolute;
-  z-index: 1;
-  top: 0;
-  left: 0;
-  display: grid;
-  width: 64px;
-  height: 41px;
-  place-items: center;
-  background: #edf2f8;
-  color: #46566c;
-  font-size: 12px;
-  font-weight: 700;
-}
-.composition-table {
-  min-width: 1064px;
+.comparison-detail-table {
+  width: max-content;
+  min-width: 100%;
 }
 .candidate-name-table th,
 .candidate-name-table td,
-.composition-table th,
-.composition-table td,
-.prediction-table th,
-.prediction-table td {
+.comparison-detail-table th,
+.comparison-detail-table td {
   height: 37px;
   padding: 0 7px;
   border-right: 1px solid #d8e0ea;
@@ -2244,8 +2228,7 @@ select:focus-visible,
   white-space: nowrap;
 }
 .candidate-name-table thead th,
-.composition-table thead th,
-.prediction-table thead th {
+.comparison-detail-table thead th {
   height: 41px;
   background: #edf2f8;
   color: #46566c;
@@ -2254,35 +2237,30 @@ select:focus-visible,
   letter-spacing: 0.02em;
 }
 .candidate-name-table thead tr:first-child th { border-bottom: 0; }
-.composition-table thead tr:nth-child(2) th,
-.prediction-table thead tr:nth-child(2) th {
+.comparison-detail-table thead tr:first-child th:first-child { border-right-color: #c2cfdf; }
+.comparison-detail-table thead tr:nth-child(2) th {
   background: #f7f9fc;
 }
 .candidate-name-table th,
-.prediction-table tbody th {
+.comparison-detail-table tbody th {
   text-align: left;
   font-weight: 700;
 }
 .candidate-name-table tbody tr,
-.composition-table tbody tr,
-.prediction-table tbody tr { cursor: pointer; }
+.comparison-detail-table tbody tr { cursor: pointer; }
 .candidate-name-table tbody tr:hover th,
-.composition-table tbody tr:hover td,
-.prediction-table tbody tr:hover th,
-.prediction-table tbody tr:hover td { background: #f5f9ff; }
+.comparison-detail-table tbody tr:hover td { background: #f5f9ff; }
 .candidate-name-table .selected-row th {
   background: #d9eaff;
   box-shadow: inset 4px 0 0 #1f5fc4;
 }
 .candidate-name-table .selected-row input { color: #124f9f; }
-.composition-table .selected-row td,
-.prediction-table .selected-row th,
-.prediction-table .selected-row td {
+.comparison-detail-table .selected-row td {
   background: #e7f1ff;
   border-bottom-color: #9fc2eb;
 }
 .candidate-name-table input,
-.composition-table input {
+.comparison-detail-table input {
   width: 100%;
   height: 27px;
   border: 1px solid transparent;
@@ -2291,44 +2269,30 @@ select:focus-visible,
   background: transparent;
   color: #18202c;
 }
-.composition-table input[type="number"] { appearance: textfield; -moz-appearance: textfield; }
-.composition-table input[type="number"]::-webkit-inner-spin-button,
-.composition-table input[type="number"]::-webkit-outer-spin-button { appearance: none; margin: 0; }
+.comparison-detail-table input[type="number"] { appearance: textfield; -moz-appearance: textfield; }
+.comparison-detail-table input[type="number"]::-webkit-inner-spin-button,
+.comparison-detail-table input[type="number"]::-webkit-outer-spin-button { appearance: none; margin: 0; }
 .candidate-name-table input {
   text-align: left;
   font-weight: 700;
 }
 .candidate-name-table input:focus,
-.composition-table input:focus {
+.comparison-detail-table input:focus {
   border-color: #1f5fc4;
   background: #fff;
 }
-.composition-table small,
-.prediction-table small {
+.comparison-detail-table small {
   display: block;
   margin-top: 2px;
   color: #6d7888;
   font-size: 10px;
   font-weight: 400;
 }
-.prediction-comparison {
-  overflow: hidden;
-  border: 1px solid #cfd9e5;
-  border-radius: 4px;
-}
-.prediction-table { min-width: 580px; }
-.prediction-table thead th:first-child { width: 140px; }
-.prediction-table thead th:last-child { width: 72px; }
-.prediction-table th button {
-  width: 100%;
-  border: 0;
-  background: transparent;
-  color: #18202c;
-  font-weight: 700;
-  text-align: left;
-}
-.prediction-table .prediction-cell { background: #f7faff; }
-.prediction-table .metric-value {
+.comparison-detail-table .composition-col { width: 76px; }
+.comparison-detail-table .prediction-col { width: 112px; }
+.comparison-detail-table > thead > tr:first-child > th:last-of-type { width: 72px; }
+.comparison-detail-table .prediction-cell { background: #f7faff; }
+.comparison-detail-table .metric-value {
   display: grid;
   grid-template-columns: auto auto;
   align-items: baseline;
@@ -2336,17 +2300,16 @@ select:focus-visible,
   gap: 3px;
   font-weight: 700;
 }
-.prediction-table .metric-value em {
+.comparison-detail-table .metric-value em {
   grid-column: 1 / -1;
   color: #5d6d83;
   font-size: 10px;
   font-style: normal;
   font-weight: 500;
 }
-.prediction-table .support-cell { background: #fff; }
+.comparison-detail-table .support-cell { width: 72px; background: #fff; }
 @media (max-width: 820px) {
-  .composition-comparison { grid-template-columns: 132px minmax(0, 1fr); }
-  .prediction-comparison { overflow-x: auto; }
+  .comparison-grid { grid-template-columns: 132px minmax(0, 1fr); }
 }
 .actual-meta-fields {
   margin: -2px 0 10px;

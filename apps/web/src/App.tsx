@@ -1150,7 +1150,7 @@ function ComparisonTableV2({
   const status = (value?: string) => value === "supported" ? "範囲内" : value === "caution" ? "要確認" : value === "extrapolated" ? "外挿" : "未計算";
   return (
     <div className="candidate-comparison">
-      <section className="composition-comparison" aria-label="候補の組成比較">
+      <section className="comparison-grid" aria-label="候補の組成と予測結果比較">
         <table className="candidate-name-table">
           <thead>
             <tr><th>候補</th></tr>
@@ -1164,21 +1164,25 @@ function ComparisonTableV2({
             ))}
           </tbody>
         </table>
-        <div className="composition-scroll">
-          <span className="composition-group-label" aria-hidden="true">組成</span>
-          <table className="composition-table">
+        <div className="comparison-detail-scroll">
+          <table className="comparison-detail-table">
             <thead>
-              <tr><th colSpan={compositionInputs.length}>組成</th></tr>
-              <tr>{compositionInputs.map((input) => <th key={input.id}>{input.label}<small>{input.unit}</small></th>)}</tr>
+              <tr><th colSpan={compositionInputs.length}>組成</th><th colSpan={outputs.length}>予測結果</th><th rowSpan={2}>支持度</th></tr>
+              <tr>
+                {compositionInputs.map((input) => <th className="composition-col" key={input.id}>{input.label}<small>{input.unit}</small></th>)}
+                {outputs.map((output) => <th className="prediction-col" key={output.key}>{output.label}<small>{Number.isFinite(targetValues[output.key]) ? `目標 ${output.goal_direction === "at_most" ? "≤" : "≥"} ${number(targetValues[output.key], output.key === "EL" || output.key === "lambda" ? 1 : 0)}` : output.unit}</small></th>)}
+              </tr>
             </thead>
             <tbody>
-              {candidates.map((candidate) => (
+              {candidates.map((candidate) => {
+                const prediction = previewsByCandidate[candidate.id];
+                return (
                 <tr key={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}>
                   {compositionInputs.map((input) => {
                     const draftKey = `${candidate.id}:${input.field}`;
                     const currentValue = candidate.raw.composition[input.field] ?? 0;
                     const value = compositionDrafts[draftKey] ?? String(currentValue);
-                    return <td key={input.id}><input type="number" step="any" min={input.min} max={input.max} value={value} aria-label={`${candidate.label} ${input.label}`} onFocus={() => onSelect(candidate.id)} onChange={(event) => setCompositionDrafts((drafts) => ({ ...drafts, [draftKey]: event.target.value }))} onBlur={(event) => {
+                    return <td className="composition-col" key={input.id}><input type="number" step="any" min={input.min} max={input.max} value={value} aria-label={`${candidate.label} ${input.label}`} onFocus={() => onSelect(candidate.id)} onChange={(event) => setCompositionDrafts((drafts) => ({ ...drafts, [draftKey]: event.target.value }))} onBlur={(event) => {
                       const raw = Number(event.target.value);
                       setCompositionDrafts((drafts) => {
                         const { [draftKey]: _, ...remaining } = drafts;
@@ -1187,32 +1191,17 @@ function ComparisonTableV2({
                       if (Number.isFinite(raw) && raw !== currentValue) onComposition(candidate.id, input.field, raw);
                     }} /></td>;
                   })}
+                  {outputs.map((output) => {
+                    const value = prediction?.predictions?.[output.key];
+                    return <td className="prediction-cell prediction-col" key={output.key}>{value ? <span className="metric-value">{number(value.value, output.key === "EL" || output.key === "lambda" ? 1 : 0)} <small>{value.unit}</small>{typeof value.goal_probability === "number" && <em>達成 {number(value.goal_probability * 100)}%</em>}</span> : <span className="empty-cell">—</span>}</td>;
+                  })}
+                  <td className="support-cell"><span className={`status-dot ${prediction?.support?.status === "supported" ? "success" : prediction?.support ? "caution" : ""}`} />{status(prediction?.support?.status)}</td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
-      </section>
-      <section className="prediction-comparison" aria-label="候補の予測結果比較">
-        <table className="prediction-table">
-          <thead>
-            <tr><th rowSpan={2}>候補</th><th colSpan={outputs.length}>予測結果</th><th rowSpan={2}>支持度</th></tr>
-            <tr>{outputs.map((output) => <th key={output.key}>{output.label}<small>{Number.isFinite(targetValues[output.key]) ? `目標 ${output.goal_direction === "at_most" ? "≤" : "≥"} ${number(targetValues[output.key], output.key === "EL" || output.key === "lambda" ? 1 : 0)}` : output.unit}</small></th>)}</tr>
-          </thead>
-          <tbody>
-            {candidates.map((candidate) => {
-              const prediction = previewsByCandidate[candidate.id];
-              return <tr key={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}>
-                <th><button type="button" onClick={() => onSelect(candidate.id)}>{candidate.label}</button></th>
-                {outputs.map((output) => {
-                  const value = prediction?.predictions?.[output.key];
-                  return <td className="prediction-cell" key={output.key}>{value ? <span className="metric-value">{number(value.value, output.key === "EL" || output.key === "lambda" ? 1 : 0)} <small>{value.unit}</small>{typeof value.goal_probability === "number" && <em>達成 {number(value.goal_probability * 100)}%</em>}</span> : <span className="empty-cell">—</span>}</td>;
-                })}
-                <td className="support-cell"><span className={`status-dot ${prediction?.support?.status === "supported" ? "success" : prediction?.support ? "caution" : ""}`} />{status(prediction?.support?.status)}</td>
-              </tr>;
-            })}
-          </tbody>
-        </table>
       </section>
     </div>
   );
