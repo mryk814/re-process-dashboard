@@ -1916,6 +1916,7 @@ function LiveDataQualityPage({
   const [error, setError] = useState(false);
   const [exportError, setExportError] = useState("");
   const [copiedKey, setCopiedKey] = useState("");
+  const [copyError, setCopyError] = useState("");
   useEffect(() => {
     workbenchApi.quality()
       .then(setData)
@@ -1951,6 +1952,15 @@ function LiveDataQualityPage({
       setExportError("CSVを出力できませんでした。");
     }
   };
+  const copyKey = async (key: string) => {
+    setCopyError("");
+    try {
+      await navigator.clipboard.writeText(key);
+      setCopiedKey(key);
+    } catch {
+      setCopyError("キーをコピーできませんでした。ブラウザのクリップボード権限を確認してください。");
+    }
+  };
   return (
     <div className="page-panel quality-page">
       <div className="page-intro">
@@ -1968,6 +1978,7 @@ function LiveDataQualityPage({
         </button>
       </div>
       {exportError && <p className="empty-evidence" role="alert">{exportError}</p>}
+      {copyError && <p className="empty-evidence" role="alert">{copyError}</p>}
       {error ? (
         <p className="empty-evidence">
           データ品質を取得できません。API接続を確認してください。
@@ -2037,9 +2048,9 @@ function LiveDataQualityPage({
                         <span className="quality-unavailable">系譜を開けません。{issue.source_sheet}の該当行を確認</span>
                       )}
                       {issue.entity_key && (
-                        <button type="button" className="text-button" onClick={() => {
-                          void navigator.clipboard.writeText(issue.entity_key).then(() => setCopiedKey(issue.entity_key));
-                        }}>{copiedKey === issue.entity_key ? "コピー済み" : "キーをコピー"}</button>
+                        <button type="button" className="text-button" onClick={() => void copyKey(issue.entity_key)}>
+                          {copiedKey === issue.entity_key ? "コピー済み" : "キーをコピー"}
+                        </button>
                       )}
                     </td>
                   </tr>

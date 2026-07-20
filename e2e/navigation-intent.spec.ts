@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 
 test("quality finding opens the selected lineage node and returns with filters", async ({ page }) => {
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
   await page.goto("/?view=quality&project=default");
   await expect(page.getByRole("heading", { name: "データ品質" })).toBeVisible();
 
@@ -22,11 +24,21 @@ test("quality finding opens the selected lineage node and returns with filters",
   await expect(page).toHaveURL(/quality_type=duplicate_key/);
   await expect(page.locator(".quality-focus-row")).toContainText(entityKey!);
 
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: () => Promise.reject(new Error("permission denied")) },
+    });
+  });
+  await page.locator(".quality-focus-row").getByRole("button", { name: "キーをコピー" }).click();
+  await expect(page.getByRole("alert")).toContainText("クリップボード権限を確認してください");
+
   const beforeDownloadUrl = page.url();
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "検出結果をCSV出力" }).click();
   expect((await download).suggestedFilename()).toBe("detected-data-quality.csv");
   await expect(page).toHaveURL(beforeDownloadUrl);
+  expect(pageErrors).toEqual([]);
 });
 
 test("lineage candidate remains in exploration and round-trips through stock", async ({ page }) => {
