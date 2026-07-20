@@ -1,16 +1,16 @@
 import { PointerEvent, useEffect, useRef, useState } from "react";
 import { HotRollingWorkbench } from "./HotRollingWorkbench";
-import { LatestSaveQueue, rebaseChangedFields } from "./latestSaveQueue";
 import { provenanceLabel, provenanceNavigation, type CandidateProvenance } from "./candidateProvenance";
 import { navigationUrl, readNavigationIntent, withView, type NavigationIntent, type WorkbenchView } from "./navigation";
-import { taskDefinitionView, type ResolvedTaskDefinition, type TaskDefinitionView, type TaskInputDefinition, type TaskOutputDefinition } from "./taskDefinition";
+import { CandidateInspector as TaskDrivenCandidateInspector, ComparisonTable as TaskDrivenComparisonTable } from "./TaskDrivenCandidateUi";
+import { fromApiCandidate, toApiCandidate, type CandidateViewModel as Candidate } from "./candidateModel";
+import { numericTaskInputs, setCandidateInputValue, taskFieldName, validateResolvedTaskDefinition, type NumericTaskInput, type ResolvedTaskDefinition, type TaskDefinitionContract, type TaskOutputDefinition } from "./taskDefinition";
 import { ApiClientError, apiBaseUrl } from "./shared/api/client";
+import { useCandidateEditor, type CandidateSaveState } from "./useCandidateEditor";
 import {
   workbenchApi,
   type ApiActual,
-  type ApiCandidate,
   type ApiCandidateInput,
-  type ApiCandidateUpdate,
   type ApiLineage,
   type ApiLineageIndex,
   type ApiModelPackage,
@@ -24,21 +24,6 @@ import {
 } from "./shared/api/workbench-api";
 
 type Tab = WorkbenchView;
-type Candidate = {
-  raw: ApiCandidate;
-  id: string;
-  label: string;
-  c: number;
-  mn: number;
-  si: number;
-  thickness: number;
-  lineSpeed: number;
-  coating: string;
-  annealTemperature: number;
-  holdMinutes: number;
-  heat: Array<{ time: number; temperature: number; segmentStart?: boolean }>;
-};
-
 type Metric = {
   key: string;
   unit: string;
@@ -52,7 +37,7 @@ type Metric = {
   observationStd?: number | null;
 };
 
-function allowedRange(input: TaskInputDefinition) {
+function allowedRange(input: NumericTaskInput) {
   if (!input.allowed_range) throw new Error(`数値fieldにallowed_rangeがありません: ${input.path}`);
   return input.allowed_range;
 }
@@ -60,23 +45,6 @@ function allowedRange(input: TaskInputDefinition) {
 type ResponseCurvesPayload = ApiResponseCurves;
 type CurvePoint = ApiResponseCurves["curves"][string][number];
 type CurveVariable = ApiResponseCurves["variable"];
-const COMPOSITION_ELEMENTS = [
-  "C",
-  "Si",
-  "Mn",
-  "P",
-  "S",
-  "Cr",
-  "Mo",
-  "Ni",
-  "Al",
-  "Ti",
-  "B",
-  "N",
-  "O",
-  "Ca",
-] as const;
-
 const STARTER_CANDIDATE: ApiCandidateInput = {
   name: "基準候補",
   inputs: {
@@ -138,66 +106,6 @@ function candidateColor(candidateId: string, selectedId: string) {
   let hash = 0;
   for (const character of candidateId) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
   return CANDIDATE_COLORS[hash % CANDIDATE_COLORS.length];
-}
-
-function fromApiCandidate(candidate: ApiCandidate): Candidate {
-  const heat = (candidate.inputs.heat_pattern ?? []).map((point) => ({
-    time: point.time_s / 60,
-    temperature: point.temperature_c,
-    segmentStart: point.segment_start,
-  }));
-  const max = heat.length
-    ? Math.max(...heat.map((point) => point.temperature))
-    : 0;
-  const plateau = heat.filter((point) => point.temperature >= max * 0.95);
-  const holdMinutes =
-    plateau.length > 1 ? plateau.at(-1)!.time - plateau[0].time : 0;
-  return {
-    raw: candidate,
-    id: candidate.id,
-    label: candidate.name,
-    c: candidate.inputs.composition.C,
-    mn: candidate.inputs.composition.Mn,
-    si: candidate.inputs.composition.Si,
-    thickness: candidate.inputs.process.thickness_mm,
-    lineSpeed: candidate.inputs.process.line_speed_m_min,
-    coating: candidate.inputs.categorical.coating,
-    annealTemperature: max,
-    holdMinutes,
-    heat,
-  };
-}
-
-function toApiCandidate(
-  candidate: Candidate,
-): ApiCandidateInput {
-  return {
-    name: candidate.label,
-    inputs: {
-      composition: {
-        ...candidate.raw.inputs.composition,
-        C: candidate.c,
-        Si: candidate.si,
-        Mn: candidate.mn,
-      },
-      process: {
-        ...candidate.raw.inputs.process,
-        thickness_mm: candidate.thickness,
-        line_speed_m_min: candidate.lineSpeed,
-      },
-      categorical: {
-        ...candidate.raw.inputs.categorical,
-        coating: candidate.coating,
-      },
-      heat_pattern: candidate.heat.map((point, index) => ({
-        ...candidate.raw.inputs.heat_pattern?.[index],
-        time_s: point.time * 60,
-        temperature_c: point.temperature,
-        segment_start: point.segmentStart ?? false,
-      })),
-    },
-    provenance: candidate.raw.provenance,
-  };
 }
 
 function metricsFromPreview(preview: ApiPreview): Metric[] {
@@ -307,15 +215,33 @@ function App() {
   const [brokenOriginCandidateId, setBrokenOriginCandidateId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [projects, setProjects] = useState<ApiProject[]>([]);
-  const [taskDefinition, setTaskDefinition] = useState<TaskDefinitionView | null>(null);
+  const [taskDefinition, setTaskDefinition] = useState<TaskDefinitionContract | null>(null);
   const [resolvedTaskDefinition, setResolvedTaskDefinition] = useState<ResolvedTaskDefinition | null>(null);
   const [activeProjectId, setActiveProjectId] = useState("default");
   const loadSequence = useRef(0);
-  const saveQueue = useRef(new LatestSaveQueue<ApiCandidate>());
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
   const selected = candidates.find((candidate) => candidate.id === selectedId);
   const activeProject = projects.find(
     (project) => project.id === activeProjectId,
   );
+  const editor = useCandidateEditor({
+    projectId: activeProjectId,
+    setCandidates,
+    onPreview: (candidateId, nextPreview) => {
+      setPreviewsByCandidate((current) => {
+        if (nextPreview) return { ...current, [candidateId]: nextPreview };
+        const { [candidateId]: _, ...remaining } = current;
+        return remaining;
+      });
+      if (candidateId === selectedIdRef.current) {
+        setPreview(nextPreview);
+        setMetrics(nextPreview ? metricsFromPreview(nextPreview) : []);
+      }
+      setApiState("ready");
+    },
+    onNotice: setNotice,
+  });
 
   function navigate(intent: NavigationIntent, replace = false) {
     const next = Object.freeze(intent);
@@ -356,8 +282,10 @@ function App() {
       }
     }
     const imported = apiCandidates.map(fromApiCandidate);
-    const definition = taskDefinitionView(resolved);
+    validateResolvedTaskDefinition(resolved);
+    const definition = resolved.task_definition;
     if (sequence !== loadSequence.current) return;
+    editor.acceptServerCandidates(apiCandidates);
     setActiveProjectId(projectId);
     setTaskDefinition(definition);
     setResolvedTaskDefinition(resolved);
@@ -498,7 +426,7 @@ function App() {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [selected, activeProjectId]);
+  }, [selected?.id, activeProjectId]);
 
   useEffect(() => {
     const provenance = selected?.raw.provenance as CandidateProvenance | undefined;
@@ -527,23 +455,14 @@ function App() {
     };
   }, [selected?.id]);
 
-  const updateComposition = (id: string, element: string, raw: number) => {
+  const updateCandidateInput = (id: string, path: string, value: number | string) => {
     const current = candidates.find((candidate) => candidate.id === id);
     if (!current) return;
-    const aliases: Partial<Record<string, keyof Candidate>> = {
-      C: "c",
-      Si: "si",
-      Mn: "mn",
-    };
     const next = {
       ...current,
-      ...(aliases[element] ? { [aliases[element]!]: raw } : {}),
       raw: {
         ...current.raw,
-        inputs: {
-          ...current.raw.inputs,
-          composition: { ...current.raw.inputs.composition, [element]: raw },
-        },
+        inputs: setCandidateInputValue(current.raw.inputs, path, value),
       },
     } as Candidate;
     setCandidates((items) =>
@@ -559,7 +478,18 @@ function App() {
   ) => {
     const current = candidates.find((candidate) => candidate.id === id);
     if (!current) return;
-    const next = { ...current, [field]: value };
+    const next = field === "label"
+      ? { ...current, label: value }
+      : {
+          ...current,
+          raw: {
+            ...current.raw,
+            inputs: {
+              ...current.raw.inputs,
+              categorical: { ...current.raw.inputs.categorical, coating: value },
+            },
+          },
+        };
     setCandidates((items) =>
       items.map((candidate) => (candidate.id === id ? next : candidate)),
     );
@@ -620,38 +550,7 @@ function App() {
   };
 
   async function persistCandidate(candidate: Candidate, previous: Candidate) {
-    const queued = saveQueue.current.enqueue(candidate.id, candidate.raw, async (serverCandidate) => {
-      const rebased = rebaseChangedFields<ApiCandidateInput>(
-        { name: candidate.raw.name, inputs: candidate.raw.inputs, provenance: candidate.raw.provenance },
-        toApiCandidate(candidate),
-        { name: serverCandidate.name, inputs: serverCandidate.inputs, provenance: serverCandidate.provenance },
-      );
-      return workbenchApi.updateCandidate(activeProjectId, candidate.id, {
-        ...rebased,
-        expected_revision: serverCandidate.revision,
-      } satisfies ApiCandidateUpdate);
-    }, (error) => {
-      const current = error instanceof ApiClientError ? error.currentCandidate : undefined;
-      if (!current) throw error;
-      return current;
-    });
-    try {
-      const saved = await queued.promise;
-      if (!queued.isLatest()) return;
-      setCandidates((items) => items.map((item) => item.id === saved.id ? fromApiCandidate(saved) : item));
-      setApiState("ready");
-    } catch (error) {
-      if (!queued.isLatest()) return;
-      const current = error instanceof ApiClientError ? error.currentCandidate : undefined;
-      setCandidates((items) =>
-        items.map((item) => (item.id === previous.id ? (current ? fromApiCandidate(current) : previous) : item)),
-      );
-      setSelectedId(previous.id);
-      setApiState("ready");
-      setNotice(current ? "別の更新を検出したため、サーバー上の最新版を表示しました" : "入力が妥当でないため、直前の値へ戻しました");
-    } finally {
-      queued.release();
-    }
+    editor.schedule(candidate, previous);
   }
 
   const addCandidate = async () => {
@@ -867,7 +766,8 @@ function App() {
                 workbenchApi.taskDefinition(project.id)
                   .then((resolved) => {
                     setResolvedTaskDefinition(resolved);
-                    setTaskDefinition(taskDefinitionView(resolved));
+                    validateResolvedTaskDefinition(resolved);
+                    setTaskDefinition(resolved.task_definition);
                   })
                   .catch(() => undefined);
               }
@@ -884,6 +784,10 @@ function App() {
               selected={selected}
               selectedId={selectedId}
               taskDefinition={taskDefinition}
+              saveState={editor.saveStates[selected.id] ?? "idle"}
+              fieldErrors={editor.fieldErrors[selected.id] ?? []}
+              onReload={() => editor.reload(selected.id)}
+              onCopyDraft={() => void editor.copyDraft(selected)}
               metrics={metrics}
               preview={preview}
               previewsByCandidate={previewsByCandidate}
@@ -920,7 +824,7 @@ function App() {
                 }
                 navigate(intent);
               }}
-              onComposition={updateComposition}
+              onInput={updateCandidateInput}
               onText={updateCandidateText}
               onHeat={updateHeat}
               onAddHeat={addHeatPoint}
@@ -1013,13 +917,17 @@ type WorkbenchProps = {
   decisionCandidateId: string;
   selected: Candidate;
   selectedId: string;
-  taskDefinition: TaskDefinitionView | null;
+  taskDefinition: TaskDefinitionContract | null;
+  saveState: CandidateSaveState;
+  fieldErrors: Array<{ path: string; message: string }>;
+  onReload: () => void;
+  onCopyDraft: () => void;
   metrics: Metric[];
   preview: ApiPreview | null;
   previewsByCandidate: Record<string, ApiPreview>;
   onSelect: (id: string) => void;
   onHeat: (index: number, field: "time" | "temperature", raw: number) => void;
-  onComposition: (id: string, element: string, raw: number) => void;
+  onInput: (id: string, path: string, value: number | string) => void;
   onText: (id: string, field: "label" | "coating", value: string) => void;
   onAddHeat: () => void;
   onDeleteHeat: (index: number) => void;
@@ -1040,11 +948,15 @@ function CandidateWorkbench(props: WorkbenchProps) {
     selected,
     selectedId,
     taskDefinition,
+    saveState,
+    fieldErrors,
+    onReload,
+    onCopyDraft,
     metrics,
     preview,
     previewsByCandidate,
     onSelect,
-    onComposition,
+    onInput,
     onText,
     onHeat,
     onAddHeat,
@@ -1058,15 +970,16 @@ function CandidateWorkbench(props: WorkbenchProps) {
   } = props;
   return (
     <div className="workbench-grid candidate-workbench-grid">
-      <CandidateInspector
-        candidates={candidates}
+      {taskDefinition && <TaskDrivenCandidateInspector
         candidate={selected}
         taskDefinition={taskDefinition}
-        onComposition={onComposition}
-        onHeat={onHeat}
-        onAddHeat={onAddHeat}
-        onDeleteHeat={onDeleteHeat}
-      />
+        saveState={saveState}
+        fieldErrors={fieldErrors}
+        onInput={(path, value) => onInput(selected.id, path, value)}
+        onReload={onReload}
+        onCopyDraft={onCopyDraft}
+        heatPattern={taskDefinition.input_groups.some((group) => group.key === "heat_pattern") ? <HeatPattern candidates={candidates} candidate={selected} onUpdate={onHeat} onAdd={onAddHeat} onDelete={onDeleteHeat} /> : undefined}
+      />}
       <section className="central-workspace">
         <div className="table-heading">
           <div>
@@ -1099,16 +1012,16 @@ function CandidateWorkbench(props: WorkbenchProps) {
           </div>
         </div>
         <CandidateOrigin candidate={selected} broken={originBroken} onOpen={onOpenOrigin} />
-        <ComparisonTableV2
+        {taskDefinition && <TaskDrivenComparisonTable
           candidates={candidates}
           selectedId={selectedId}
           taskDefinition={taskDefinition}
           previewsByCandidate={previewsByCandidate}
           targetValues={targetValues}
           onSelect={onSelect}
-          onComposition={onComposition}
-          onText={onText}
-        />
+          onInput={onInput}
+          onName={(id, value) => onText(id, "label", value)}
+        />}
         <LiveResponseCurves
           projectId={projectId}
           candidates={candidates}
@@ -1149,169 +1062,6 @@ function CandidateOrigin({
       ) : (
         <small>この候補は比較画面で直接作成されました</small>
       )}
-    </div>
-  );
-}
-
-function sliderScale(input: TaskInputDefinition, value: number) {
-  const training = input.training_range;
-  const learnedMin = training?.min ?? allowedRange(input).min;
-  const learnedMax = training?.max ?? allowedRange(input).max;
-  const range = allowedRange(input);
-  const min = range.min;
-  const max = range.max;
-  const sliderValue = Math.max(min, Math.min(max, value));
-  const divisor = Math.max(max - min, Number.EPSILON);
-  const trainingStart = Math.max(0, Math.min(100, ((Math.max(min, learnedMin) - min) / divisor) * 100));
-  const trainingEnd = Math.max(0, Math.min(100, ((Math.min(max, learnedMax) - min) / divisor) * 100));
-  const bandStart = Math.min(trainingStart, trainingEnd);
-  const bandEnd = Math.max(trainingStart, trainingEnd);
-  return {
-    min,
-    max,
-    sliderValue,
-    style: { background: `linear-gradient(90deg, #dfe6ee 0 ${bandStart}%, #6bb69e ${bandStart}% ${bandEnd}%, #dfe6ee ${bandEnd}% 100%)` },
-  };
-}
-
-function CandidateInspector({
-  candidates,
-  candidate,
-  taskDefinition,
-  onComposition,
-  onHeat,
-  onAddHeat,
-  onDeleteHeat,
-}: {
-  candidates: Candidate[];
-  candidate: Candidate;
-  taskDefinition: TaskDefinitionView | null;
-  onComposition: (id: string, element: string, raw: number) => void;
-  onHeat: (index: number, field: "time" | "temperature", raw: number) => void;
-  onAddHeat: () => void;
-  onDeleteHeat: (index: number) => void;
-}) {
-  const inputs = taskDefinition?.inputs ?? [];
-  return (
-    <aside className="candidate-inspector" aria-label="選択候補の入力">
-      <div className="inspector-heading">
-        <span className="overline">SELECTED CANDIDATE</span>
-        <h2>選択候補の入力</h2>
-      </div>
-      <section className="inspector-section">
-        <div className="section-heading"><h3>組成</h3><span>mass%</span></div>
-        <div className="composition-fields">
-        {inputs.filter((input) => input.group === "composition").map((input) => {
-          const value = candidate.raw.inputs.composition[input.field] ?? 0;
-          const scale = sliderScale(input, value);
-          return (
-            <label className="slider-field" key={input.id}>
-              <span><b>{input.label}</b><em><input className="slider-number" type="number" min={allowedRange(input).min} max={allowedRange(input).max} step="any" value={value} aria-label={`${candidate.label} ${input.label}の数値`} onChange={(event) => onComposition(candidate.id, input.field, Number(event.target.value))} /> {input.unit}</em></span>
-              <input
-                type="range"
-                min={scale.min}
-                max={scale.max}
-                step="any"
-                value={scale.sliderValue}
-                style={scale.style}
-                aria-label={`${candidate.label} ${input.label}`}
-                onChange={(event) => onComposition(candidate.id, input.field, Number(event.target.value))}
-              />
-            </label>
-          );
-        })}
-        </div>
-      </section>
-      <HeatPattern
-        candidates={candidates}
-        candidate={candidate}
-        onUpdate={onHeat}
-        onAdd={onAddHeat}
-        onDelete={onDeleteHeat}
-      />
-    </aside>
-  );
-}
-
-function ComparisonTableV2({
-  candidates,
-  selectedId,
-  taskDefinition,
-  previewsByCandidate,
-  targetValues,
-  onSelect,
-  onComposition,
-  onText,
-}: {
-  candidates: Candidate[];
-  selectedId: string;
-  taskDefinition: TaskDefinitionView | null;
-  previewsByCandidate: Record<string, ApiPreview>;
-  targetValues: Record<string, number>;
-  onSelect: (id: string) => void;
-  onComposition: (id: string, element: string, raw: number) => void;
-  onText: (id: string, field: "label" | "coating", value: string) => void;
-}) {
-  const inputs = taskDefinition?.inputs ?? [];
-  const compositionInputs = inputs.filter((input) => input.group === "composition");
-  const [compositionDrafts, setCompositionDrafts] = useState<Record<string, string>>({});
-  const outputs = taskDefinition?.outputs ?? [];
-  const status = (value?: string) => value === "supported" ? "範囲内" : value === "caution" ? "要確認" : value === "extrapolated" ? "外挿" : "未計算";
-  return (
-    <div className="candidate-comparison">
-      <section className="comparison-grid" aria-label="候補の組成と予測結果比較">
-        <table className="candidate-name-table">
-          <thead>
-            <tr><th>候補</th></tr>
-            <tr aria-hidden="true"><th /></tr>
-          </thead>
-          <tbody>
-            {candidates.map((candidate) => (
-              <tr key={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}>
-                <th><input aria-label={`${candidate.label}の候補名`} maxLength={80} value={candidate.label} onFocus={() => onSelect(candidate.id)} onChange={(event) => onText(candidate.id, "label", event.target.value)} /></th>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="comparison-detail-scroll">
-          <table className="comparison-detail-table">
-            <thead>
-              <tr><th colSpan={compositionInputs.length}>組成</th><th colSpan={outputs.length}>予測結果</th><th rowSpan={2}>支持度</th></tr>
-              <tr>
-                {compositionInputs.map((input) => <th className="composition-col" key={input.id}>{input.label}<small>{input.unit}</small></th>)}
-                {outputs.map((output) => <th className="prediction-col" key={output.key}>{output.label}<small>{Number.isFinite(targetValues[output.key]) ? `目標 ${output.goal_direction === "at_most" ? "≤" : "≥"} ${number(targetValues[output.key], output.key === "EL" || output.key === "lambda" ? 1 : 0)}` : output.unit}</small></th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {candidates.map((candidate) => {
-                const prediction = previewsByCandidate[candidate.id];
-                return (
-                <tr key={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}>
-                  {compositionInputs.map((input) => {
-                    const draftKey = `${candidate.id}:${input.field}`;
-                    const currentValue = candidate.raw.inputs.composition[input.field] ?? 0;
-                    const value = compositionDrafts[draftKey] ?? String(currentValue);
-                    return <td className="composition-col" key={input.id}><input type="number" step="any" min={allowedRange(input).min} max={allowedRange(input).max} value={value} aria-label={`${candidate.label} ${input.label}`} onFocus={() => onSelect(candidate.id)} onChange={(event) => setCompositionDrafts((drafts) => ({ ...drafts, [draftKey]: event.target.value }))} onBlur={(event) => {
-                      const raw = Number(event.target.value);
-                      setCompositionDrafts((drafts) => {
-                        const { [draftKey]: _, ...remaining } = drafts;
-                        return remaining;
-                      });
-                      if (Number.isFinite(raw) && raw !== currentValue) onComposition(candidate.id, input.field, raw);
-                    }} /></td>;
-                  })}
-                  {outputs.map((output) => {
-                    const value = prediction?.predictions?.[output.key];
-                    return <td className="prediction-cell prediction-col" key={output.key}>{value ? <span className="metric-value">{number(value.value, output.key === "EL" || output.key === "lambda" ? 1 : 0)} <small>{value.unit}</small>{typeof value.goal_probability === "number" && <em>達成 {number(value.goal_probability * 100)}%</em>}</span> : <span className="empty-cell">—</span>}</td>;
-                  })}
-                  <td className="support-cell"><span className={`status-dot ${prediction?.support?.status === "supported" ? "success" : prediction?.support ? "caution" : ""}`} />{status(prediction?.support?.status)}</td>
-                </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
     </div>
   );
 }
@@ -1772,11 +1522,11 @@ function LiveResponseCurves({
   preview: ApiPreview | null;
   targetValues: Record<string, number>;
   previewsByCandidate: Record<string, ApiPreview>;
-  taskDefinition: TaskDefinitionView | null;
+  taskDefinition: TaskDefinitionContract | null;
 }) {
   const outputs = taskDefinition?.outputs ?? [];
   const variables: CurveVariable[] = [
-    ...(taskDefinition?.inputs ?? [])
+    ...numericTaskInputs(taskDefinition)
       .filter((input) => input.editable && input.field !== "coating")
       .map((input) => {
         const range = allowedRange(input);
@@ -2647,7 +2397,7 @@ function InputRangeSettingsPage({
   onProjectChanged,
 }: {
   project: ApiProject | undefined;
-  taskDefinition: TaskDefinitionView | null;
+  taskDefinition: TaskDefinitionContract | null;
   onProjectChanged: (project: ApiProject) => void;
 }) {
   const [draft, setDraft] = useState<Record<string, { min: string; max: string }>>({});
@@ -2655,14 +2405,14 @@ function InputRangeSettingsPage({
   const [saving, setSaving] = useState(false);
   useEffect(() => {
     if (!project || !taskDefinition) return;
-    setDraft(Object.fromEntries(taskDefinition.inputs.filter((input) => input.editable && input.field !== "coating").map((input) => {
+    setDraft(Object.fromEntries(numericTaskInputs(taskDefinition).filter((input) => input.editable).map((input) => {
       const configured = project.input_ranges?.[input.id] ?? allowedRange(input);
       return [input.id, { min: String(configured.min), max: String(configured.max) }];
     })));
     setError("");
   }, [project?.id, project?.input_ranges, taskDefinition]);
   if (!project || !taskDefinition) return <div className="page-panel"><p className="empty-evidence">設定を読み込んでいます。</p></div>;
-  const inputs = taskDefinition.inputs.filter((input) => input.editable && input.field !== "coating");
+  const inputs = numericTaskInputs(taskDefinition).filter((input) => input.editable);
   const update = (id: string, side: "min" | "max", value: string) => setDraft((current) => ({ ...current, [id]: { ...current[id], [side]: value } }));
   const resetDefaults = () => setDraft(Object.fromEntries(inputs.map((input) => {
     const range = input.default_range ?? allowedRange(input);
@@ -2723,7 +2473,7 @@ function LiveProjectPage({
   projects: ApiProject[];
   activeProjectId: string;
   candidate?: Candidate;
-  taskDefinition: TaskDefinitionView | null;
+  taskDefinition: TaskDefinitionContract | null;
   onProjectChanged: (project: ApiProject) => void;
   onSwitch: (projectId: string) => void;
   onRestore: (candidate: Candidate) => void;
@@ -3137,7 +2887,7 @@ function LiveScreeningPage({
   projectId: string;
   candidates: Candidate[];
   selectedId: string;
-  taskDefinition: TaskDefinitionView | null;
+  taskDefinition: TaskDefinitionContract | null;
   resolvedTaskDefinition: ResolvedTaskDefinition | null;
   initialRunId?: string;
   onRunChange: (runId: string) => void;
@@ -3156,14 +2906,11 @@ function LiveScreeningPage({
         group.fields
           .filter((field) => field.kind !== "heat_pattern" && field.editable)
           .map((field) => ({
-            value: group.key === "composition" ? field.path : field.path.split(".", 2)[1],
+            value: group.key === "composition" ? field.path : taskFieldName(group.key, field.path),
             label: `${field.label}${field.unit ? ` (${field.unit})` : ""}`,
           })),
       )
-    : COMPOSITION_ELEMENTS.map((element) => ({
-        value: `composition.${element}`,
-        label: `${element} (mass%)`,
-      }));
+    : [];
   const [variables, setVariables] = useState<VariableRow[]>([
     { field: "composition.C", mode: "range", first: "0.03", second: "0.12" },
     { field: "composition.Mn", mode: "range", first: "1.0", second: "2.0" },

@@ -9,6 +9,11 @@ export class LatestSaveQueue<T> {
   private readonly sequences = new Map<string, number>();
   private readonly chains = new Map<string, Promise<T>>();
 
+  /** Invalidates older UI work as soon as a newer draft exists, before a debounced save starts. */
+  supersede(key: string): void {
+    this.sequences.set(key, (this.sequences.get(key) ?? 0) + 1);
+  }
+
   enqueue(
     key: string,
     initial: T,
