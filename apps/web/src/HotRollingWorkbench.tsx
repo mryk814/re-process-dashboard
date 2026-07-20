@@ -1,72 +1,28 @@
-import { useEffect, useRef, useState } from "react";
-import type { TaskDefinitionContract } from "./taskDefinition";
-import { LatestSaveQueue, rebaseChangedFields } from "./latestSaveQueue";
-import { ApiClientError } from "./shared/api/client";
-import { workbenchApi, type ApiCandidate, type ApiCandidateInput, type ApiCandidateUpdate, type ApiPreview } from "./shared/api/workbench-api";
-
-type HotCandidate = {
-  raw: ApiCandidate;
-  id: string;
-  name: string;
-  composition: Record<string, number>;
-  reheat_temperature_c: number;
-  hold_time_min: number;
-  finish_temperature_c: number;
-  coiling_temperature_c: number;
-  cooling_rate_c_s: number;
-  entry_thickness_mm: number;
-  exit_thickness_mm: number;
-  route: "A" | "B" | "C";
-};
-
-function fromApiCandidate(candidate: ApiCandidate): HotCandidate {
-  const process = candidate.inputs.process;
-  return {
-    raw: candidate,
-    id: candidate.id,
-    name: candidate.name,
-    composition: candidate.inputs.composition,
-    reheat_temperature_c: process.reheat_temperature_c,
-    hold_time_min: process.hold_time_min,
-    finish_temperature_c: process.finish_temperature_c,
-    coiling_temperature_c: process.coiling_temperature_c,
-    cooling_rate_c_s: process.cooling_rate_c_s,
-    entry_thickness_mm: process.entry_thickness_mm,
-    exit_thickness_mm: process.exit_thickness_mm,
-    route: candidate.inputs.categorical.route as HotCandidate["route"],
-  };
-}
-
-function toApiCandidate(candidate: HotCandidate): ApiCandidateInput {
-  return {
-    name: candidate.name,
-    inputs: {
-      composition: candidate.composition,
-      process: {
-        ...candidate.raw.inputs.process,
-        reheat_temperature_c: candidate.reheat_temperature_c,
-        hold_time_min: candidate.hold_time_min,
-        finish_temperature_c: candidate.finish_temperature_c,
-        coiling_temperature_c: candidate.coiling_temperature_c,
-        cooling_rate_c_s: candidate.cooling_rate_c_s,
-        entry_thickness_mm: candidate.entry_thickness_mm,
-        exit_thickness_mm: candidate.exit_thickness_mm,
-      },
-      categorical: { ...candidate.raw.inputs.categorical, route: candidate.route },
-    },
-    provenance: candidate.raw.provenance,
-  };
-}
+import { useEffect, useState } from "react";
+import { fromApiCandidate, toApiCandidate, type CandidateViewModel } from "./candidateModel";
+import { CandidateInspector, ComparisonTable } from "./TaskDrivenCandidateUi";
+import { setCandidateInputValue, validateResolvedTaskDefinition, type TaskDefinitionContract } from "./taskDefinition";
+import { workbenchApi, type ApiPreview } from "./shared/api/workbench-api";
+import { useCandidateEditor } from "./useCandidateEditor";
 
 const n = (value: number, digits = 1) => value.toLocaleString("ja-JP", { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
 export function HotRollingWorkbench({ projectId }: { projectId: string }) {
-  const [candidates, setCandidates] = useState<HotCandidate[]>([]);
+  const [candidates, setCandidates] = useState<CandidateViewModel[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [previews, setPreviews] = useState<Record<string, ApiPreview>>({});
   const [task, setTask] = useState<TaskDefinitionContract | null>(null);
   const [notice, setNotice] = useState("熱延タスクを読み込んでいます");
-  const saveQueue = useRef(new LatestSaveQueue<ApiCandidate>());
+  const editor = useCandidateEditor({
+    projectId,
+    setCandidates,
+    onPreview: (candidateId, result) => setPreviews((items) => {
+      if (result) return { ...items, [candidateId]: result };
+      const { [candidateId]: _, ...remaining } = items;
+      return remaining;
+    }),
+    onNotice: setNotice,
+  });
   const selected = candidates.find((item) => item.id === selectedId) ?? candidates[0];
   const preview = selected ? previews[selected.id] : undefined;
 
@@ -82,11 +38,13 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
         setTask(null);
         setCandidates([]);
         const resolved = await workbenchApi.taskDefinition(projectId);
+        validateResolvedTaskDefinition(resolved);
         if (resolved.task_definition.id !== "hot-rolled-properties-v1") {
           setNotice("熱延後特性タスクのプロジェクトを選択してください");
           return;
         }
         const loadedCandidates = (await workbenchApi.listCandidates(projectId)).map(fromApiCandidate);
+        editor.acceptServerCandidates(loadedCandidates.map((candidate) => candidate.raw));
         setCandidates(loadedCandidates);
         setSelectedId(loadedCandidates[0]?.id ?? "");
         setTask(resolved.task_definition);
@@ -99,54 +57,30 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
     void load();
   }, [projectId]);
 
-  const reduction = selected ? (1 - selected.exit_thickness_mm / selected.entry_thickness_mm) * 100 : 0;
-
-  function localUpdate(field: keyof HotCandidate, value: number | string) {
-    if (!selected) return;
-    setCandidates((items) => items.map((item) => item.id === selected.id ? { ...item, [field]: value } : item));
+  function nameUpdate(candidateId: string, value: string) {
+    const current = candidates.find((candidate) => candidate.id === candidateId);
+    if (!current) return;
+    const next = { ...current, label: value };
+    setCandidates((items) => items.map((item) => item.id === candidateId ? next : item));
+    editor.schedule(next, current);
   }
 
-  function compositionUpdate(name: string, value: number) {
+  function pathInputUpdate(path: string, value: number | string) {
     if (!selected) return;
-    setCandidates((items) => items.map((item) => item.id === selected.id ? { ...item, composition: { ...item.composition, [name]: value } } : item));
-  }
-
-  async function persist(candidate: HotCandidate) {
-    const queued = saveQueue.current.enqueue(candidate.id, candidate.raw, async (serverCandidate) => {
-      const rebased = rebaseChangedFields<ApiCandidateInput>(
-        { name: candidate.raw.name, inputs: candidate.raw.inputs, provenance: candidate.raw.provenance },
-        toApiCandidate(candidate),
-        { name: serverCandidate.name, inputs: serverCandidate.inputs, provenance: serverCandidate.provenance },
-      );
-      return workbenchApi.updateCandidate(projectId, candidate.id, {
-        ...rebased,
-        expected_revision: serverCandidate.revision,
-      } satisfies ApiCandidateUpdate);
-    }, (error) => {
-      const current = error instanceof ApiClientError ? error.currentCandidate : undefined;
-      if (!current) throw error;
-      return current;
-    });
-    try {
-      const saved = fromApiCandidate(await queued.promise);
-      if (!queued.isLatest()) return;
-      setCandidates((items) => items.map((item) => item.id === saved.id ? saved : item));
-      await loadPreview(saved.id, queued.isLatest);
-      if (!queued.isLatest()) return;
-      setNotice(`${saved.name}を保存し、GPR予測を更新しました`);
-    } catch (error) {
-      if (!queued.isLatest()) return;
-      const current = error instanceof ApiClientError ? error.currentCandidate : undefined;
-      if (current) setCandidates((items) => items.map((item) => item.id === current.id ? fromApiCandidate(current) : item));
-      setNotice(current ? "別の更新を検出したため、サーバー上の最新版を表示しました" : "入力を保存できません。温度・板厚の関係を確認してください");
-    } finally {
-      queued.release();
-    }
+    const next = {
+      ...selected,
+      raw: {
+        ...selected.raw,
+        inputs: setCandidateInputValue(selected.raw.inputs, path, value),
+      },
+    };
+    setCandidates((items) => items.map((item) => item.id === selected.id ? next : item));
+    editor.schedule(next, selected);
   }
 
   async function addCandidate() {
     if (!selected || candidates.length >= 10) return;
-    const payload = toApiCandidate({ ...selected, name: `${selected.name} コピー` });
+    const payload = toApiCandidate({ ...selected, label: `${selected.label} コピー` });
     const created = fromApiCandidate(await workbenchApi.createCandidate(projectId, payload));
     setCandidates((items) => [...items, created]);
     setSelectedId(created.id);
@@ -163,42 +97,38 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
 
   if (!selected || !task) return <section className="hot-loading"><h2>熱延条件の候補検討</h2><p>{notice}</p></section>;
 
-  const compositionNames = task.input_groups.find((group) => group.key === "composition")?.fields.map((field) => field.path.split(".", 2)[1]) ?? [];
-  const processInputs = task.input_groups.find((group) => group.key === "process")?.fields.filter((field) => field.kind === "number") ?? [];
-  const routeInput = task.input_groups.find((group) => group.key === "categorical")?.fields.find((field) => field.path === "categorical.route");
-  const context = Object.fromEntries(task.fixed_context.map((item) => [item.path, item.value]));
   const outputs = task.outputs;
 
   return (
     <div className="hot-workbench">
-      <aside className="hot-inspector">
-        <div className="hot-section-heading"><div><span className="overline">HOT ROLLING</span><h2>{selected.name}</h2></div><span className="route-badge">Route {selected.route}</span></div>
-        <label className="hot-name">候補名<input value={selected.name} onChange={(event) => localUpdate("name", event.target.value)} onBlur={() => void persist(selected)} /></label>
-        <section className="hot-composition">
-          <header><h3>組成</h3><span>mass%</span></header>
-          <div>{compositionNames.map((name) => <label key={name}>{name}<input type="number" step="any" value={selected.composition[name] ?? 0} onChange={(event) => compositionUpdate(name, Number(event.target.value))} onBlur={() => void persist(selected)} /></label>)}</div>
-        </section>
-        <h3 className="hot-subheading">熱延条件</h3>
-        <div className="hot-field-grid">
-          {processInputs.map((input) => {
-            const field = input.path.split(".", 2)[1] as keyof HotCandidate;
-            return (
-            <label key={input.path}>{input.label}<span><input type="number" step="any" value={Number(selected[field])} onChange={(event) => localUpdate(field, Number(event.target.value))} onBlur={() => void persist(selected)} /><em>{input.unit}</em></span><small>学習 {input.training_range ? `${n(input.training_range.min)}–${n(input.training_range.max)}` : "—"}</small></label>
-            );
-          })}
-        </div>
-        <div className="hot-derived"><span>圧下率</span><b>{n(reduction)}%</b><small>入出側板厚から算出</small></div>
-        {routeInput && <label className="hot-route">ルート<select value={selected.route} onChange={(event) => { const next = { ...selected, route: event.target.value as HotCandidate["route"] }; setCandidates((items) => items.map((item) => item.id === next.id ? next : item)); void persist(next); }}>{routeInput.choices.map((route) => <option key={route}>{route}</option>)}</select></label>}
-        <p className="hot-context">設備 {String(context["context.equipment"] ?? "—")} · 引張方向 {String(context["context.test_direction"] ?? "—")}</p>
-      </aside>
-
+      <CandidateInspector
+        candidate={selected}
+        taskDefinition={task}
+        saveState={editor.saveStates[selected.id] ?? "idle"}
+        fieldErrors={editor.fieldErrors[selected.id] ?? []}
+        onInput={pathInputUpdate}
+        onReload={() => editor.reload(selected.id)}
+        onCopyDraft={() => void editor.copyDraft(selected)}
+        className="hot-inspector"
+      />
       <section className="hot-main">
         <header className="hot-main-header"><div><span className="overline">CANDIDATE COMPARISON</span><h2>熱延条件と予測特性</h2></div><div><button onClick={() => void addCandidate()} disabled={candidates.length >= 10}>複製</button><button className="danger-quiet" onClick={() => void deleteCandidate()} disabled={candidates.length <= 1}>削除</button></div></header>
-        <div className="hot-table-wrap"><table className="hot-table"><thead><tr><th>候補</th><th>仕上</th><th>巻取</th><th>冷却</th><th>圧下</th>{outputs.map((output) => <th key={output.key}>{output.label}</th>)}<th>支持度</th></tr></thead><tbody>{candidates.map((item) => { const itemPreview = previews[item.id]; return <tr key={item.id} className={item.id === selected.id ? "selected" : ""} onClick={() => setSelectedId(item.id)}><th>{item.name}<small>Route {item.route}</small></th><td>{n(item.finish_temperature_c, 0)}℃</td><td>{n(item.coiling_temperature_c, 0)}℃</td><td>{n(item.cooling_rate_c_s)}℃/s</td><td>{n((1 - item.exit_thickness_mm / item.entry_thickness_mm) * 100)}%</td>{outputs.map((output) => { const value = itemPreview?.predictions[output.key]; return <td key={output.key}>{value ? n(value.value, output.unit === "%" ? 1 : 0) : "—"}</td>; })}<td><span className={`hot-support-dot ${itemPreview?.support.status ?? ""}`} />{itemPreview?.support.status === "supported" ? "範囲内" : itemPreview?.support.status === "extrapolated" ? "外挿" : "要確認"}</td></tr>; })}</tbody></table></div>
-        <section className="hot-composition-comparison">
-          <header><span className="overline">COMPOSITION</span><h3>組成の候補比較</h3></header>
-          <div className="hot-table-wrap"><table className="hot-table hot-composition-table"><thead><tr><th>候補</th>{compositionNames.map((name) => <th key={name}>{name}</th>)}</tr></thead><tbody>{candidates.map((item) => <tr key={item.id} className={item.id === selected.id ? "selected" : ""} onClick={() => setSelectedId(item.id)}><th>{item.name}</th>{compositionNames.map((name) => <td key={name}>{n(item.composition[name] ?? 0, name === "C" || name === "Mn" || name === "Si" ? 3 : 4)}</td>)}</tr>)}</tbody></table></div>
-        </section>
+        <ComparisonTable
+          candidates={candidates}
+          selectedId={selected.id}
+          taskDefinition={task}
+          previewsByCandidate={previews}
+          targetValues={{}}
+          onSelect={setSelectedId}
+          onName={nameUpdate}
+          onInput={(candidateId, path, value) => {
+            const current = candidates.find((candidate) => candidate.id === candidateId);
+            if (!current) return;
+            const next = { ...current, raw: { ...current.raw, inputs: setCandidateInputValue(current.raw.inputs, path, value) } };
+            setCandidates((items) => items.map((item) => item.id === candidateId ? next : item));
+            editor.schedule(next, current);
+          }}
+        />
         <p className="hot-notice">{notice}</p>
       </section>
 

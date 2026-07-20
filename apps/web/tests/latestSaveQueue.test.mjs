@@ -70,3 +70,38 @@ test("rebases only locally changed fields onto the authoritative candidate", () 
     inputs: { process: { speed: 120, temp: 800 } },
   });
 });
+
+test("keeps candidate queues isolated when selection changes", async () => {
+  const queue = new LatestSaveQueue();
+  const candidateA = deferred();
+  const candidateB = deferred();
+  const saveA = queue.enqueue("A", { revision: 1 }, () => candidateA.promise);
+  const saveB = queue.enqueue("B", { revision: 4 }, () => candidateB.promise);
+  candidateB.resolve({ revision: 5, name: "B" });
+  assert.deepEqual(await saveB.promise, { revision: 5, name: "B" });
+  assert.equal(saveB.isLatest(), true);
+  candidateA.resolve({ revision: 2, name: "A" });
+  assert.deepEqual(await saveA.promise, { revision: 2, name: "A" });
+  assert.equal(saveA.isLatest(), true);
+});
+
+test("invalidates an older preview application as soon as a newer draft is queued", async () => {
+  const queue = new LatestSaveQueue();
+  const first = queue.enqueue("candidate", { revision: 1 }, async () => ({ revision: 2 }));
+  await first.promise;
+  assert.equal(first.isLatest(), true);
+  const second = queue.enqueue("candidate", { revision: 1 }, async (current) => ({ revision: current.revision + 1 }));
+  assert.equal(first.isLatest(), false);
+  assert.deepEqual(await second.promise, { revision: 3 });
+});
+
+test("invalidates an in-flight response during the debounce window", async () => {
+  const queue = new LatestSaveQueue();
+  const response = deferred();
+  const save = queue.enqueue("candidate", { revision: 1 }, () => response.promise);
+  await Promise.resolve();
+  queue.supersede("candidate");
+  response.resolve({ revision: 2 });
+  await save.promise;
+  assert.equal(save.isLatest(), false);
+});
