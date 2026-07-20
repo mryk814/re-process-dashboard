@@ -4,24 +4,35 @@ import pytest
 
 
 def test_hot_rolling_task_candidates_and_gp_uncertainty(client) -> None:
-    task = client.get("/api/hot-rolling/task-definition")
+    assert client.get("/api/hot-rolling/task-definition").status_code == 404
+    project = client.post(
+        "/api/projects",
+        json={"name": "熱延検討", "task_id": "hot-rolled-properties-v1"},
+    ).json()
+    task = client.get(f"/api/projects/{project['id']}/task-definition")
     assert task.status_code == 200
-    definition = task.json()
-    assert definition["task_id"] == "hot-rolled-properties-v1"
-    assert {item["field"] for item in definition["inputs"]} == {
-        "reheat_temperature_c", "hold_time_min", "finish_temperature_c",
-        "coiling_temperature_c", "cooling_rate_c_s", "entry_thickness_mm", "exit_thickness_mm",
+    definition = task.json()["task_definition"]
+    assert definition["id"] == "hot-rolled-properties-v1"
+    process = next(group for group in definition["input_groups"] if group["key"] == "process")
+    assert {item["path"] for item in process["fields"]} == {
+        "process.reheat_temperature_c", "process.hold_time_min", "process.finish_temperature_c",
+        "process.coiling_temperature_c", "process.cooling_rate_c_s", "process.entry_thickness_mm", "process.exit_thickness_mm",
     }
-    assert {item["key"] for item in definition["outputs"]} == {"TS", "YS", "EL"}
+    assert {item["key"] for item in definition["outputs"]} == {"TS"}
 
     candidates = client.get("/api/hot-rolling/candidates").json()
     assert len(candidates) == 3
     selected = candidates[0]
-    preview = client.post(f"/api/hot-rolling/candidates/{selected['id']}/preview")
+    preview = client.post(
+        f"/api/projects/{project['id']}/candidates/{selected['id']}/preview",
+    )
     assert preview.status_code == 200
     result = preview.json()
     assert result["task_id"] == "hot-rolled-properties-v1"
-    assert set(result["predictions"]) == {"TS", "YS", "EL"}
+    assert result["candidate_id"] == selected["id"]
+    assert result["mode"] == "preview"
+    assert result["heat_pattern"] == []
+    assert set(result["predictions"]) == {"TS"}
     assert result["support"]["status"] in {"supported", "caution", "extrapolated"}
     assert set(result["support"]["components"]) == {"composition", "metallurgy", "process", "route"}
     for prediction in result["predictions"].values():

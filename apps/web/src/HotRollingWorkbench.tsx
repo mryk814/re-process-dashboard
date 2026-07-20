@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { ResolvedTaskDefinition, TaskDefinitionContract } from "./taskDefinition";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8765";
 
@@ -23,27 +24,19 @@ type HotPreview = {
   model_meta: { model: { id: string; version: string; method: string } };
 };
 
-type TaskDefinition = {
-  inputs: Array<{ field: keyof HotCandidate; label: string; unit: string; min: number; max: number }>;
-  categorical_inputs: { route: Array<"A" | "B" | "C"> };
-  context: { equipment: string; test_direction: string };
-  model: { id: string; version: string };
-};
-
-const compositionNames = ["C", "Si", "Mn", "P", "S", "Cr", "Mo", "Ni", "Al", "Ti", "B", "N", "O", "Ca"];
 const n = (value: number, digits = 1) => value.toLocaleString("ja-JP", { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
-export function HotRollingWorkbench() {
+export function HotRollingWorkbench({ projectId }: { projectId: string }) {
   const [candidates, setCandidates] = useState<HotCandidate[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [previews, setPreviews] = useState<Record<string, HotPreview>>({});
-  const [task, setTask] = useState<TaskDefinition | null>(null);
+  const [task, setTask] = useState<TaskDefinitionContract | null>(null);
   const [notice, setNotice] = useState("熱延タスクを読み込んでいます");
   const selected = candidates.find((item) => item.id === selectedId) ?? candidates[0];
   const preview = selected ? previews[selected.id] : undefined;
 
   async function loadPreview(candidateId: string) {
-    const response = await fetch(`${API_URL}/api/hot-rolling/candidates/${candidateId}/preview`, { method: "POST" });
+    const response = await fetch(`${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates/${candidateId}/preview`, { method: "POST" });
     if (!response.ok) throw new Error("preview unavailable");
     const result = (await response.json()) as HotPreview;
     setPreviews((items) => ({ ...items, [candidateId]: result }));
@@ -52,15 +45,21 @@ export function HotRollingWorkbench() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [candidateResponse, taskResponse] = await Promise.all([
-          fetch(`${API_URL}/api/hot-rolling/candidates`),
-          fetch(`${API_URL}/api/hot-rolling/task-definition`),
-        ]);
-        if (!candidateResponse.ok || !taskResponse.ok) throw new Error();
+        setTask(null);
+        setCandidates([]);
+        const taskResponse = await fetch(`${API_URL}/api/projects/${encodeURIComponent(projectId)}/task-definition`);
+        if (!taskResponse.ok) throw new Error();
+        const resolved = (await taskResponse.json()) as ResolvedTaskDefinition;
+        if (resolved.task_definition.id !== "hot-rolled-properties-v1") {
+          setNotice("熱延後特性タスクのプロジェクトを選択してください");
+          return;
+        }
+        const candidateResponse = await fetch(`${API_URL}/api/hot-rolling/candidates`);
+        if (!candidateResponse.ok) throw new Error();
         const loadedCandidates = (await candidateResponse.json()) as HotCandidate[];
         setCandidates(loadedCandidates);
         setSelectedId(loadedCandidates[0]?.id ?? "");
-        setTask((await taskResponse.json()) as TaskDefinition);
+        setTask(resolved.task_definition);
         await Promise.all(loadedCandidates.map((item) => loadPreview(item.id)));
         setNotice("GPR予測と熱延実績を同期しました");
       } catch {
@@ -68,7 +67,7 @@ export function HotRollingWorkbench() {
       }
     };
     void load();
-  }, []);
+  }, [projectId]);
 
   const reduction = selected ? (1 - selected.exit_thickness_mm / selected.entry_thickness_mm) * 100 : 0;
 
@@ -118,6 +117,12 @@ export function HotRollingWorkbench() {
 
   if (!selected || !task) return <section className="hot-loading"><h2>熱延条件の候補検討</h2><p>{notice}</p></section>;
 
+  const compositionNames = task.input_groups.find((group) => group.key === "composition")?.fields.map((field) => field.path.split(".", 2)[1]) ?? [];
+  const processInputs = task.input_groups.find((group) => group.key === "process")?.fields.filter((field) => field.kind === "number") ?? [];
+  const routeInput = task.input_groups.find((group) => group.key === "categorical")?.fields.find((field) => field.path === "categorical.route");
+  const context = Object.fromEntries(task.fixed_context.map((item) => [item.path, item.value]));
+  const outputs = task.outputs;
+
   return (
     <div className="hot-workbench">
       <aside className="hot-inspector">
@@ -129,18 +134,21 @@ export function HotRollingWorkbench() {
         </section>
         <h3 className="hot-subheading">熱延条件</h3>
         <div className="hot-field-grid">
-          {task.inputs.map((input) => (
-            <label key={input.field}>{input.label}<span><input type="number" step="any" value={Number(selected[input.field])} onChange={(event) => localUpdate(input.field, Number(event.target.value))} onBlur={() => void persist(selected)} /><em>{input.unit}</em></span><small>学習 {n(input.min)}–{n(input.max)}</small></label>
-          ))}
+          {processInputs.map((input) => {
+            const field = input.path.split(".", 2)[1] as keyof HotCandidate;
+            return (
+            <label key={input.path}>{input.label}<span><input type="number" step="any" value={Number(selected[field])} onChange={(event) => localUpdate(field, Number(event.target.value))} onBlur={() => void persist(selected)} /><em>{input.unit}</em></span><small>学習 {input.training_range ? `${n(input.training_range.min)}–${n(input.training_range.max)}` : "—"}</small></label>
+            );
+          })}
         </div>
         <div className="hot-derived"><span>圧下率</span><b>{n(reduction)}%</b><small>入出側板厚から算出</small></div>
-        <label className="hot-route">ルート<select value={selected.route} onChange={(event) => { const next = { ...selected, route: event.target.value as HotCandidate["route"] }; setCandidates((items) => items.map((item) => item.id === next.id ? next : item)); void persist(next); }}>{task.categorical_inputs.route.map((route) => <option key={route}>{route}</option>)}</select></label>
-        <p className="hot-context">設備 {task.context.equipment} · 引張方向 {task.context.test_direction}</p>
+        {routeInput && <label className="hot-route">ルート<select value={selected.route} onChange={(event) => { const next = { ...selected, route: event.target.value as HotCandidate["route"] }; setCandidates((items) => items.map((item) => item.id === next.id ? next : item)); void persist(next); }}>{routeInput.choices.map((route) => <option key={route}>{route}</option>)}</select></label>}
+        <p className="hot-context">設備 {String(context["context.equipment"] ?? "—")} · 引張方向 {String(context["context.test_direction"] ?? "—")}</p>
       </aside>
 
       <section className="hot-main">
         <header className="hot-main-header"><div><span className="overline">CANDIDATE COMPARISON</span><h2>熱延条件と予測特性</h2></div><div><button onClick={() => void addCandidate()} disabled={candidates.length >= 10}>複製</button><button className="danger-quiet" onClick={() => void deleteCandidate()} disabled={candidates.length <= 1}>削除</button></div></header>
-        <div className="hot-table-wrap"><table className="hot-table"><thead><tr><th>候補</th><th>仕上</th><th>巻取</th><th>冷却</th><th>圧下</th><th>TS</th><th>YS</th><th>EL</th><th>支持度</th></tr></thead><tbody>{candidates.map((item) => { const itemPreview = previews[item.id]; return <tr key={item.id} className={item.id === selected.id ? "selected" : ""} onClick={() => setSelectedId(item.id)}><th>{item.name}<small>Route {item.route}</small></th><td>{n(item.finish_temperature_c, 0)}℃</td><td>{n(item.coiling_temperature_c, 0)}℃</td><td>{n(item.cooling_rate_c_s)}℃/s</td><td>{n((1 - item.exit_thickness_mm / item.entry_thickness_mm) * 100)}%</td>{["TS", "YS", "EL"].map((target) => <td key={target}>{itemPreview ? n(itemPreview.predictions[target].value, target === "EL" ? 1 : 0) : "—"}</td>)}<td><span className={`hot-support-dot ${itemPreview?.support.status ?? ""}`} />{itemPreview?.support.status === "supported" ? "範囲内" : itemPreview?.support.status === "extrapolated" ? "外挿" : "要確認"}</td></tr>; })}</tbody></table></div>
+        <div className="hot-table-wrap"><table className="hot-table"><thead><tr><th>候補</th><th>仕上</th><th>巻取</th><th>冷却</th><th>圧下</th>{outputs.map((output) => <th key={output.key}>{output.label}</th>)}<th>支持度</th></tr></thead><tbody>{candidates.map((item) => { const itemPreview = previews[item.id]; return <tr key={item.id} className={item.id === selected.id ? "selected" : ""} onClick={() => setSelectedId(item.id)}><th>{item.name}<small>Route {item.route}</small></th><td>{n(item.finish_temperature_c, 0)}℃</td><td>{n(item.coiling_temperature_c, 0)}℃</td><td>{n(item.cooling_rate_c_s)}℃/s</td><td>{n((1 - item.exit_thickness_mm / item.entry_thickness_mm) * 100)}%</td>{outputs.map((output) => { const value = itemPreview?.predictions[output.key]; return <td key={output.key}>{value ? n(value.value, output.unit === "%" ? 1 : 0) : "—"}</td>; })}<td><span className={`hot-support-dot ${itemPreview?.support.status ?? ""}`} />{itemPreview?.support.status === "supported" ? "範囲内" : itemPreview?.support.status === "extrapolated" ? "外挿" : "要確認"}</td></tr>; })}</tbody></table></div>
         <section className="hot-composition-comparison">
           <header><span className="overline">COMPOSITION</span><h3>組成の候補比較</h3></header>
           <div className="hot-table-wrap"><table className="hot-table hot-composition-table"><thead><tr><th>候補</th>{compositionNames.map((name) => <th key={name}>{name}</th>)}</tr></thead><tbody>{candidates.map((item) => <tr key={item.id} className={item.id === selected.id ? "selected" : ""} onClick={() => setSelectedId(item.id)}><th>{item.name}</th>{compositionNames.map((name) => <td key={name}>{n(item.composition[name] ?? 0, name === "C" || name === "Mn" || name === "Si" ? 3 : 4)}</td>)}</tr>)}</tbody></table></div>
@@ -150,7 +158,7 @@ export function HotRollingWorkbench() {
 
       <aside className="hot-evidence">
         <div><span className="overline">PREDICTION EVIDENCE</span><h2>予測と不確かさ</h2><small>{preview?.model_meta.model.id} · {preview?.model_meta.model.version}</small></div>
-        {preview && ["TS", "YS", "EL"].map((target) => { const prediction = preview.predictions[target]; const parts = prediction.uncertainty_components ?? {}; return <section className="hot-metric" key={target}><header><b>{target}</b><strong>{n(prediction.value, target === "EL" ? 1 : 0)} <small>{prediction.unit}</small></strong></header><div className="hot-interval"><span style={{ left: `${Math.max(0, Math.min(100, ((prediction.value - prediction.lower) / Math.max(prediction.upper - prediction.lower, 1e-6)) * 100))}%` }} /></div><p>{n(prediction.lower)}–{n(prediction.upper)} {prediction.unit}</p><dl><div><dt>モデル</dt><dd>±{n(parts.latent_model_std ?? Math.sqrt(parts.latent_model_variance ?? 0))}</dd></div><div><dt>測定ばらつき</dt><dd>±{n(parts.observation_noise_std ?? Math.sqrt(parts.observation_noise_variance ?? 0))}</dd></div></dl></section>; })}
+        {preview && outputs.map((output) => { const prediction = preview.predictions[output.key]; if (!prediction) return null; const parts = prediction.uncertainty_components ?? {}; return <section className="hot-metric" key={output.key}><header><b>{output.label}</b><strong>{n(prediction.value, output.unit === "%" ? 1 : 0)} <small>{prediction.unit}</small></strong></header><div className="hot-interval"><span style={{ left: `${Math.max(0, Math.min(100, ((prediction.value - prediction.lower) / Math.max(prediction.upper - prediction.lower, 1e-6)) * 100))}%` }} /></div><p>{n(prediction.lower)}–{n(prediction.upper)} {prediction.unit}</p><dl><div><dt>モデル</dt><dd>±{n(parts.latent_model_std ?? Math.sqrt(parts.latent_model_variance ?? 0))}</dd></div><div><dt>測定ばらつき</dt><dd>±{n(parts.observation_noise_std ?? Math.sqrt(parts.observation_noise_variance ?? 0))}</dd></div></dl></section>; })}
         {preview && <section className={`hot-support ${preview.support.status}`}><b>{preview.support.status === "supported" ? "学習範囲内" : preview.support.status === "extrapolated" ? "外挿" : "要確認"}</b><p>{preview.support.message}</p><small>距離百分位 {n(preview.support.percentile, 0)}%</small></section>}
         <section className="hot-neighbors"><h3>近い熱延実績</h3>{preview?.similar.map((item) => <article key={item.parent_key}><b>{item.parent_key}</b><span>距離 {n(item.distance, 2)}</span><p>{Object.entries(item.repeat_summary).map(([key, value]) => `${key} ${n(value.mean)} ± ${n(value.std)} (n=${value.n})`).join(" / ")}</p></article>)}</section>
       </aside>

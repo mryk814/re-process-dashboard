@@ -8,7 +8,12 @@
     "dev:desktop": "concurrently -k -n web,desktop -c cyan,magenta \"npm run dev -w apps/web\" \"wait-on http://127.0.0.1:5180 && npm run dev -w apps/desktop\"",
     "build": "npm run build -w apps/web && npm run build -w apps/desktop",
     "typecheck": "npm run typecheck -w apps/web && npm run typecheck -w apps/desktop",
-    "test": "uv run pytest && npm run typecheck"
+    "test": "uv run pytest && npm run typecheck",
+    "verify:fast": "uv run pytest -q backend/tests/test_dataset_profile.py backend/tests/test_model_packages.py backend/tests/test_task_contracts.py backend/tests/test_task_registry.py && npm run typecheck",
+    "verify:full": "uv run pytest -q && npm run typecheck && npm run build && git diff --check && git diff --check origin/main...HEAD",
+    "models:build:annealed": "uv run python backend/scripts/build_default_model_package.py",
+    "models:build:hot-rolling": "uv run python backend/scripts/build_hot_rolling_model_package.py",
+    "models:build:examples": "uv run python backend/scripts/build_numpyro_package_examples.py"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",

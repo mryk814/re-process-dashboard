@@ -108,9 +108,9 @@ TaskDefinitionは予測意味を固定するcontextとfield間制約も保持す
 
 能力宣言は「すべて返せる」という共通最小形式を強制するものではない。宣言されていない表現を擬似生成せず、利用可能な表現だけを返す。平均と標準偏差だけから目標達成確率を計算できるのは、`normal_approximation` を明示した場合だけである。
 
-TaskDefinition、CanonicalCandidate、runtime capabilityの機械検証可能な共通契約とfixtureは `backend/src/material_workbench/task_contracts.py` および `backend/tests/fixtures/task_contracts/` を正本とする。この段階ではproduction loader/APIへ接続せず、既存Packageの挙動を変更しない。
+TaskDefinition、CanonicalCandidate、runtime capabilityの機械検証可能な共通契約は `backend/src/material_workbench/task_contracts.py`、タスクごとのJSON正本は `backend/src/material_workbench/task_definitions/` に置く。production registryとcontract testは同じJSONを読み込む。
 
-現行の熱延PackageはTS・YS・ELを持つ旧実装であり、この正本契約にはまだ適合していない。TaskDefinition registryとproduction APIを接続する次の移行単位で、TSのみのPackageへ再構築してmanifest・runtime capability・smoke fixtureを同時に切り替える。旧Packageを適合済みとして扱ったり、互換adapterで残したりしない。
+熱延PackageはTaskDefinitionの単一出力TSに一致し、production registry起動時にtask、pipeline、feature順序、predictor targetを照合する。出力契約が一致しないPackageは起動時に拒否する。
 
 ## テスト必須項目
 

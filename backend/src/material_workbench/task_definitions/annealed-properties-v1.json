@@ -84,6 +84,7 @@
       {"target": "EL", "point_statistics": ["mean"], "standard_deviation": true, "quantiles": true, "samples": true, "parametric_distribution": true, "uncertainty_components": true, "support": true, "warnings": true, "goal_probability": "samples"},
       {"target": "lambda", "point_statistics": ["mean"], "standard_deviation": true, "quantiles": true, "samples": true, "parametric_distribution": true, "uncertainty_components": true, "support": true, "warnings": true, "goal_probability": "samples"}
     ],
-    "joint_samples": false
+    "joint_samples": false,
+    "operations": {"preview": true, "detailed_prediction": true, "response_curve": true, "similarity": true, "snapshot": true, "actual_measurement": true}
   }
 }

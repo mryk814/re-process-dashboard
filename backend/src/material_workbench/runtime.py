@@ -112,6 +112,8 @@ class SupportReference:
 
 
 class ModelRuntime:
+    task_id = TASK_ID
+
     def __init__(self, data: WorkbookData, package_root: str | Path | None = None, *, load_package: bool = True) -> None:
         self.data = data
         default_package = Path(__file__).resolve().parents[3] / "models" / "packages" / "annealed-gp-2026-07"
@@ -137,6 +139,10 @@ class ModelRuntime:
         } if self.model_package else {}
         if self.model_package:
             self._verify_package_smoke()
+
+    @property
+    def output_keys(self) -> frozenset[str]:
+        return frozenset(self.package_predictors if self.model_package else self.models)
 
     def _load_and_validate_package_feature_contract(self) -> None:
         assert self.model_package is not None
@@ -445,7 +451,7 @@ class ModelRuntime:
             warnings.append("C量が参照データの通常域から大きく外れています")
         response_curve = self.response_curve(candidate) if include_curve else None
         return {
-            "candidate_id": candidate.id, "mode": "detailed" if detailed else "preview", "predictions": predictions,
+            "task_id": self.task_id, "candidate_id": candidate.id, "mode": "detailed" if detailed else "preview", "predictions": predictions,
             "support": support, "warnings": warnings, "model_meta": self._model_meta(),
             "canonical_input": self.canonical_input(candidate), "similar": similar,
             "heat_pattern": candidate.heat_pattern, "response_curve": response_curve,

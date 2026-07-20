@@ -77,6 +77,7 @@
     "targets": [
       {"target": "TS", "point_statistics": ["mean"], "standard_deviation": true, "quantiles": true, "samples": false, "parametric_distribution": true, "uncertainty_components": false, "support": true, "warnings": true, "goal_probability": "distribution"}
     ],
-    "joint_samples": false
+    "joint_samples": false,
+    "operations": {"preview": true, "detailed_prediction": false, "response_curve": false, "similarity": true, "snapshot": false, "actual_measurement": false}
   }
 }

@@ -11,11 +11,10 @@ from .hot_rolling_feature_pipeline import FEATURE_COMPONENTS, FEATURE_NAMES, INP
 from .dataset_profile import load_task_definitions
 from .importer import WorkbookData
 from .model_packages import ModelPackageLoader, validate_task_definition_canonical_inputs
-from .schemas import HotRollingCandidateInput, Prediction, Support
+from .schemas import HotRollingCandidate, HotRollingCandidateInput, Prediction, Support
 
 
 TASK_ID = "hot-rolled-properties-v1"
-TARGETS = {"TS": ("TS[MPa]", "MPa"), "YS": ("YS[MPa]", "MPa"), "EL": ("EL[%]", "%")}
 
 
 def _distance(reference: np.ndarray, point: np.ndarray, columns: tuple[int, ...] | None = None) -> np.ndarray:
@@ -26,11 +25,13 @@ def _distance(reference: np.ndarray, point: np.ndarray, columns: tuple[int, ...]
 
 
 class HotRollingRuntime:
+    task_id = TASK_ID
+
     def __init__(self, data: WorkbookData, package_root: str | Path | None = None) -> None:
         self.data = data
         default = Path(__file__).resolve().parents[3] / "models" / "packages" / "hot-rolled-gp-2026-07"
-        self.package = ModelPackageLoader().load(package_root or default)
-        manifest = self.package.manifest
+        self.model_package = ModelPackageLoader().load(package_root or default)
+        manifest = self.model_package.manifest
         validate_task_definition_canonical_inputs(load_task_definitions()[TASK_ID], manifest)
         if manifest.task_id != TASK_ID:
             raise ValueError(f"Model package task {manifest.task_id} is incompatible with {TASK_ID}")
@@ -39,19 +40,19 @@ class HotRollingRuntime:
         if tuple(manifest.feature_pipeline.output_features) != FEATURE_NAMES:
             raise ValueError("Hot-rolling model package feature order is incompatible")
         stats_path = next(path for path in manifest.feature_pipeline.artifacts if path.endswith("training_stats.json"))
-        stats = json.loads(self.package.artifact_path(stats_path).read_text(encoding="utf-8"))
+        stats = json.loads(self.model_package.artifact_path(stats_path).read_text(encoding="utf-8"))
         self.composition_defaults = {name: float(value) for name, value in stats["composition_defaults"].items()}
         self.training_counts = {name: int(value) for name, value in stats["records"].items()}
-        self.predictors = {spec.target: self.package.load_predictor(spec.id) for spec in manifest.predictors}
+        self.predictors = {spec.target: self.model_package.load_predictor(spec.id) for spec in manifest.predictors}
         self._verify_package_smoke()
         self._build_support_reference()
 
     def _verify_package_smoke(self) -> None:
-        smoke = self.package.manifest.smoke_test
+        smoke = self.model_package.manifest.smoke_test
         if not smoke:
             raise ValueError("Hot-rolling model package must declare a smoke test")
-        candidate = HotRollingCandidateInput.model_validate(json.loads(self.package.artifact_path(smoke["input"]).read_text(encoding="utf-8")))
-        expected = json.loads(self.package.artifact_path(smoke["expected"]).read_text(encoding="utf-8"))
+        candidate = HotRollingCandidateInput.model_validate(json.loads(self.model_package.artifact_path(smoke["input"]).read_text(encoding="utf-8")))
+        expected = json.loads(self.model_package.artifact_path(smoke["expected"]).read_text(encoding="utf-8"))
         values = build_hot_rolling_features(candidate, self.composition_defaults).as_dict()
         actual = {target: predictor.predict(values).point_estimate for target, predictor in self.predictors.items()}
         if set(actual) != set(expected) or any(not np.isclose(actual[target], expected[target], rtol=1e-7, atol=1e-7) for target in actual):
@@ -136,7 +137,11 @@ class HotRollingRuntime:
             caution_threshold=round(caution_limit, 4),
         ), nearest_rows
 
-    def predict(self, candidate: HotRollingCandidateInput) -> dict[str, Any]:
+    @property
+    def output_keys(self) -> frozenset[str]:
+        return frozenset(self.predictors)
+
+    def predict(self, candidate: HotRollingCandidate, detailed: bool = False, **_: Any) -> dict[str, Any]:
         bundle = build_hot_rolling_features(candidate, self.composition_defaults)
         values = bundle.as_dict()
         support, similar = self._support(candidate)
@@ -157,7 +162,9 @@ class HotRollingRuntime:
         process["equipment"] = "HR-LINE-1"
         process["test_direction"] = "L"
         return {
-            "task_id": TASK_ID,
+            "task_id": self.task_id,
+            "candidate_id": candidate.id,
+            "mode": "detailed" if detailed else "preview",
             "predictions": predictions,
             "support": support,
             "warnings": [] if support.status == "supported" else [support.message],
@@ -169,9 +176,11 @@ class HotRollingRuntime:
                 "feature_vector": values,
             },
             "model_meta": {
-                "model": {"id": self.package.manifest.package_id, "version": self.package.manifest.package_version, "method": "Gaussian process regression"},
+                "model": {"id": self.model_package.manifest.package_id, "version": self.model_package.manifest.package_version, "method": "Gaussian process regression"},
                 "feature_pipeline": {"id": PIPELINE_ID, "version": PIPELINE_VERSION},
                 "training_data": {"records": self.training_counts},
                 "prediction_interval": {"method": "gaussian_process_predictive_distribution", "coverage": "central 90% predictive interval"},
             },
+            "heat_pattern": [],
+            "response_curve": None,
         }

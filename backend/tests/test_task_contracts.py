@@ -16,7 +16,7 @@ from material_workbench.task_contracts import (
 )
 
 
-FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "task_contracts"
+FIXTURE_ROOT = Path(__file__).parents[1] / "src" / "material_workbench" / "task_definitions"
 SOURCE_WORKBOOK = Path(__file__).parents[2] / "data" / "source" / "process_dashboard_realistic_excel_v2.xlsx"
 
 

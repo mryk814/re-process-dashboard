@@ -78,11 +78,19 @@ def test_project_crud_preserves_default_and_isolates_candidates_and_screening(cl
     assert client.post("/api/screening", json=screening_body).status_code == 404
 
 
-def test_project_rejects_a_task_without_a_matching_model(client) -> None:
-    payload = _project("未対応タスク")
+def test_project_accepts_each_registered_task_and_rejects_wrong_targets(client) -> None:
+    payload = _project("熱延タスク")
     payload["task_id"] = "hot-rolled-properties-v1"
     response = client.post("/api/projects", json=payload)
-    assert response.status_code == 422
+    assert response.status_code == 201
+    definition = client.get(f"/api/projects/{response.json()['id']}/task-definition").json()
+    assert definition["task_definition"]["id"] == "hot-rolled-properties-v1"
+    assert {item["key"] for item in definition["task_definition"]["outputs"]} == {"TS"}
+
+    payload["target_values"] = {"YS": 400}
+    invalid = client.post("/api/projects", json=payload)
+    assert invalid.status_code == 422
+    assert "タスクに存在しない目標特性" in invalid.json()["message"]
 
 
 def test_candidate_limit_is_enforced_for_every_creation_route(client) -> None:
@@ -105,7 +113,7 @@ def test_candidate_limit_is_enforced_for_every_creation_route(client) -> None:
     assert len(client.get(f"/api/candidates?project_id={project_id}").json()) == 10
 
     direct = client.post(f"/api/candidates?project_id={project_id}", json=_candidate("11件目"))
-    assert direct.status_code == 409 and "最大10件" in direct.json()["detail"]
+    assert direct.status_code == 409 and "最大10件" in direct.json()["message"]
     assert client.post(f"/api/lineage/AN-00001/candidate?project_id={project_id}").status_code == 409
     assert client.post(f"/api/screening/{screening['id']}/points/0/candidate?project_id={project_id}").status_code == 409
     assert client.post(f"/api/snapshots/{snapshot['id']}/restore").status_code == 409

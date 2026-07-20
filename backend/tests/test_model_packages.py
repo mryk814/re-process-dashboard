@@ -219,7 +219,7 @@ def test_loader_rejects_unknown_pipeline_document_fields(tmp_path: Path) -> None
     ("task_id", "package_id", "package_version", "pipeline_version"),
     [
         ("annealed-properties-v1", "annealed-gp-2026-07", "0.6.0-exact-gp-v1", "1.4.0"),
-        ("hot-rolled-properties-v1", "hot-rolled-gp-2026-07", "0.2.0-exact-gp-v1", "1.1.0"),
+        ("hot-rolled-properties-v1", "hot-rolled-gp-2026-07", "0.2.0-ts-only", "1.1.0"),
     ],
 )
 def test_checked_in_packages_match_task_definition_canonical_input_order(
@@ -230,7 +230,7 @@ def test_checked_in_packages_match_task_definition_canonical_input_order(
 ) -> None:
     root = Path(__file__).resolve().parents[2]
     fixture = TaskContractFixture.model_validate_json(
-        (root / "backend" / "tests" / "fixtures" / "task_contracts" / f"{task_id}.json").read_text(
+        (root / "backend" / "src" / "material_workbench" / "task_definitions" / f"{task_id}.json").read_text(
             encoding="utf-8"
         )
     )
@@ -247,7 +247,7 @@ def test_checked_in_packages_match_task_definition_canonical_input_order(
 def test_canonical_input_order_includes_optional_declared_fields() -> None:
     root = Path(__file__).resolve().parents[2]
     fixture = TaskContractFixture.model_validate_json(
-        (root / "backend" / "tests" / "fixtures" / "task_contracts" / "annealed-properties-v1.json").read_text(
+        (root / "backend" / "src" / "material_workbench" / "task_definitions" / "annealed-properties-v1.json").read_text(
             encoding="utf-8"
         )
     )

@@ -1,5 +1,6 @@
 import { PointerEvent, useEffect, useRef, useState } from "react";
 import { HotRollingWorkbench } from "./HotRollingWorkbench";
+import { taskDefinitionView, type ResolvedTaskDefinition, type TaskDefinitionView, type TaskInputDefinition, type TaskOutputDefinition } from "./taskDefinition";
 
 type Tab = "project" | "candidates" | "hot-rolling" | "settings" | "quality" | "lineage" | "explore";
 type Candidate = {
@@ -152,35 +153,9 @@ type ApiSnapshot = {
   };
 };
 
-type TaskInputDefinition = {
-  id: string;
-  field: string;
-  label: string;
-  unit: string;
-  group: "composition" | "process";
-  editable: boolean;
-  min: number;
-  max: number;
-  default_range?: { min: number; max: number };
-  allowed_range?: { min: number; max: number };
-  training_range?: { min: number; max: number } | null;
-};
-
-type TaskOutputDefinition = {
-  key: string;
-  label: string;
-  unit: string;
-  goal_direction: "at_least" | "at_most";
-};
-
-type TaskDefinition = {
-  task_id: string;
-  inputs: TaskInputDefinition[];
-  outputs: TaskOutputDefinition[];
-};
-
 function allowedRange(input: TaskInputDefinition) {
-  return input.allowed_range ?? { min: input.min, max: input.max };
+  if (!input.allowed_range) throw new Error(`数値fieldにallowed_rangeがありません: ${input.path}`);
+  return input.allowed_range;
 }
 
 type CurvePoint = {
@@ -286,8 +261,8 @@ function candidateColor(candidateId: string, selectedId: string) {
 
 async function apiError(response: Response, fallback: string): Promise<Error> {
   try {
-    const body = (await response.json()) as { detail?: string };
-    return new Error(body.detail || fallback);
+    const body = (await response.json()) as { message?: string };
+    return new Error(body.message || fallback);
   } catch {
     return new Error(fallback);
   }
@@ -449,7 +424,7 @@ function App() {
   const [notice, setNotice] = useState("候補を読み込んでいます");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [projects, setProjects] = useState<ApiProject[]>([]);
-  const [taskDefinition, setTaskDefinition] = useState<TaskDefinition | null>(null);
+  const [taskDefinition, setTaskDefinition] = useState<TaskDefinitionView | null>(null);
   const [activeProjectId, setActiveProjectId] = useState("default");
   const loadSequence = useRef(0);
   const selected = candidates.find((candidate) => candidate.id === selectedId);
@@ -467,7 +442,7 @@ function App() {
     if (!candidateResponse.ok) throw new Error(`HTTP ${candidateResponse.status}`);
     if (!taskResponse.ok) throw new Error(`HTTP ${taskResponse.status}`);
     const imported = ((await candidateResponse.json()) as ApiCandidate[]).map(fromApiCandidate);
-    const definition = (await taskResponse.json()) as TaskDefinition;
+    const definition = taskDefinitionView((await taskResponse.json()) as ResolvedTaskDefinition);
     if (sequence !== loadSequence.current) return;
     setActiveProjectId(projectId);
     setTaskDefinition(definition);
@@ -488,7 +463,7 @@ function App() {
       imported.map(async (candidate) => {
         try {
           const prediction = await fetch(
-            `${API_URL}/api/candidates/${candidate.id}/preview`,
+            `${API_URL}/api/projects/${encodeURIComponent(projectId)}/candidates/${candidate.id}/preview`,
             { method: "POST" },
           );
           if (!prediction.ok) return null;
@@ -562,7 +537,7 @@ function App() {
     const timer = window.setTimeout(async () => {
       try {
         const response = await fetch(
-          `${API_URL}/api/candidates/${selected.id}/preview`,
+          `${API_URL}/api/projects/${encodeURIComponent(activeProjectId)}/candidates/${selected.id}/preview`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -592,7 +567,7 @@ function App() {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [selected]);
+  }, [selected, activeProjectId]);
 
   const updateComposition = (id: string, element: string, raw: number) => {
     const current = candidates.find((candidate) => candidate.id === id);
@@ -869,6 +844,7 @@ function App() {
             projects={projects}
             activeProjectId={activeProjectId}
             candidate={selected}
+            taskDefinition={taskDefinition}
             onProjectChanged={(project) => {
               setProjects((items) =>
                 items.some((item) => item.id === project.id)
@@ -903,8 +879,8 @@ function App() {
               setProjects((items) => items.map((item) => item.id === project.id ? project : item));
               if (project.id === activeProjectId) {
                 fetch(`${API_URL}/api/projects/${encodeURIComponent(project.id)}/task-definition`)
-                  .then((response) => response.json() as Promise<TaskDefinition>)
-                  .then(setTaskDefinition)
+                  .then((response) => response.json() as Promise<ResolvedTaskDefinition>)
+                  .then((resolved) => setTaskDefinition(taskDefinitionView(resolved)))
                   .catch(() => undefined);
               }
             }}
@@ -947,7 +923,7 @@ function App() {
               onCreate={() => void createStarterCandidate()}
             />
           ))}
-        {tab === "hot-rolling" && <HotRollingWorkbench />}
+        {tab === "hot-rolling" && <HotRollingWorkbench projectId={activeProjectId} />}
         {tab === "quality" && <LiveDataQualityPage />}
         {tab === "lineage" && (
           <LiveLineagePage
@@ -1011,7 +987,7 @@ type WorkbenchProps = {
   decisionCandidateId: string;
   selected: Candidate;
   selectedId: string;
-  taskDefinition: TaskDefinition | null;
+  taskDefinition: TaskDefinitionView | null;
   metrics: Metric[];
   preview: ApiPreview | null;
   previewsByCandidate: Record<string, ApiPreview>;
@@ -1120,8 +1096,8 @@ function CandidateWorkbench(props: WorkbenchProps) {
 
 function sliderScale(input: TaskInputDefinition, value: number) {
   const training = input.training_range;
-  const learnedMin = training?.min ?? input.min;
-  const learnedMax = training?.max ?? input.max;
+  const learnedMin = training?.min ?? allowedRange(input).min;
+  const learnedMax = training?.max ?? allowedRange(input).max;
   const range = allowedRange(input);
   const min = range.min;
   const max = range.max;
@@ -1150,7 +1126,7 @@ function CandidateInspector({
 }: {
   candidates: Candidate[];
   candidate: Candidate;
-  taskDefinition: TaskDefinition | null;
+  taskDefinition: TaskDefinitionView | null;
   onComposition: (id: string, element: string, raw: number) => void;
   onHeat: (index: number, field: "time" | "temperature", raw: number) => void;
   onAddHeat: () => void;
@@ -1210,7 +1186,7 @@ function ComparisonTableV2({
 }: {
   candidates: Candidate[];
   selectedId: string;
-  taskDefinition: TaskDefinition | null;
+  taskDefinition: TaskDefinitionView | null;
   previewsByCandidate: Record<string, ApiPreview>;
   targetValues: Record<string, number>;
   onSelect: (id: string) => void;
@@ -1220,12 +1196,7 @@ function ComparisonTableV2({
   const inputs = taskDefinition?.inputs ?? [];
   const compositionInputs = inputs.filter((input) => input.group === "composition");
   const [compositionDrafts, setCompositionDrafts] = useState<Record<string, string>>({});
-  const outputs = taskDefinition?.outputs ?? [
-    { key: "TS", label: "TS", unit: "MPa", goal_direction: "at_least" as const },
-    { key: "YS", label: "YS", unit: "MPa", goal_direction: "at_least" as const },
-    { key: "EL", label: "EL", unit: "%", goal_direction: "at_least" as const },
-    { key: "lambda", label: "λ", unit: "%", goal_direction: "at_least" as const },
-  ];
+  const outputs = taskDefinition?.outputs ?? [];
   const status = (value?: string) => value === "supported" ? "範囲内" : value === "caution" ? "要確認" : value === "extrapolated" ? "外挿" : "未計算";
   return (
     <div className="candidate-comparison">
@@ -1792,14 +1763,9 @@ function LiveResponseCurves({
   preview: ApiPreview | null;
   targetValues: Record<string, number>;
   previewsByCandidate: Record<string, ApiPreview>;
-  taskDefinition: TaskDefinition | null;
+  taskDefinition: TaskDefinitionView | null;
 }) {
-  const outputs = taskDefinition?.outputs ?? [
-    { key: "TS", label: "TS", unit: "MPa", goal_direction: "at_least" as const },
-    { key: "YS", label: "YS", unit: "MPa", goal_direction: "at_least" as const },
-    { key: "EL", label: "EL", unit: "%", goal_direction: "at_least" as const },
-    { key: "lambda", label: "λ", unit: "%", goal_direction: "at_least" as const },
-  ];
+  const outputs = taskDefinition?.outputs ?? [];
   const variables: CurveVariable[] = [
     ...(taskDefinition?.inputs ?? [])
       .filter((input) => input.editable && input.field !== "coating")
@@ -2804,7 +2770,7 @@ function InputRangeSettingsPage({
   onProjectChanged,
 }: {
   project: ApiProject | undefined;
-  taskDefinition: TaskDefinition | null;
+  taskDefinition: TaskDefinitionView | null;
   onProjectChanged: (project: ApiProject) => void;
 }) {
   const [draft, setDraft] = useState<Record<string, { min: string; max: string }>>({});
@@ -2822,7 +2788,7 @@ function InputRangeSettingsPage({
   const inputs = taskDefinition.inputs.filter((input) => input.editable && input.field !== "coating");
   const update = (id: string, side: "min" | "max", value: string) => setDraft((current) => ({ ...current, [id]: { ...current[id], [side]: value } }));
   const resetDefaults = () => setDraft(Object.fromEntries(inputs.map((input) => {
-    const range = input.default_range ?? { min: input.min, max: input.max };
+    const range = input.default_range ?? allowedRange(input);
     return [input.id, { min: String(range.min), max: String(range.max) }];
   })));
   const save = async () => {
@@ -2860,7 +2826,7 @@ function InputRangeSettingsPage({
       <table className="input-range-table">
         <thead><tr><th>入力項目</th><th>許容最小</th><th>許容最大</th><th>デフォルト</th><th>学習範囲</th></tr></thead>
         <tbody>{inputs.map((input) => {
-          const range = input.default_range ?? { min: input.min, max: input.max };
+          const range = input.default_range ?? allowedRange(input);
           const training = input.training_range;
           return <tr key={input.id}><th>{input.label}<small>{input.unit}</small></th><td><input type="number" step="any" value={draft[input.id]?.min ?? ""} onChange={(event) => update(input.id, "min", event.target.value)} /></td><td><input type="number" step="any" value={draft[input.id]?.max ?? ""} onChange={(event) => update(input.id, "max", event.target.value)} /></td><td>{rangeNumber(range.min)}–{rangeNumber(range.max)}</td><td>{training ? `${rangeNumber(training.min)}–${rangeNumber(training.max)}` : "—"}</td></tr>;
         })}</tbody>
@@ -2873,6 +2839,7 @@ function LiveProjectPage({
   projects,
   activeProjectId,
   candidate,
+  taskDefinition,
   onProjectChanged,
   onSwitch,
   onRestore,
@@ -2880,6 +2847,7 @@ function LiveProjectPage({
   projects: ApiProject[];
   activeProjectId: string;
   candidate?: Candidate;
+  taskDefinition: TaskDefinitionView | null;
   onProjectChanged: (project: ApiProject) => void;
   onSwitch: (projectId: string) => void;
   onRestore: (candidate: Candidate) => void;
@@ -2940,6 +2908,7 @@ function LiveProjectPage({
     onProjectChanged(saved);
   };
   const createProject = async () => {
+    const selectedTaskId = String(project?.task_id ?? "annealed-properties-v1");
     const r = await fetch(`${API_URL}/api/projects`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2947,13 +2916,18 @@ function LiveProjectPage({
         name: `新しい検討 ${projects.length + 1}`,
         description: "",
         purpose: "",
-        task_id: "annealed-properties-v1",
+        task_id: selectedTaskId,
         target_values: {},
         notes: "",
       }),
     });
     if (!r.ok) return setError("新しいプロジェクトを作成できませんでした。");
     const created = (await r.json()) as ApiProject;
+    if (selectedTaskId === "hot-rolled-properties-v1") {
+      onProjectChanged(created);
+      onSwitch(created.id);
+      return;
+    }
     const initial = candidate
       ? (() => {
           const payload = toApiCandidate(candidate);
@@ -3078,6 +3052,9 @@ function LiveProjectPage({
               <option value="annealed-properties-v1">
                 焼鈍後特性（TS / YS / EL / λ）
               </option>
+              <option value="hot-rolled-properties-v1">
+                熱延後特性（TS）
+              </option>
             </select>
             <small>
               モデルPackageが同じタスク契約を満たす場合に差し替えられます。
@@ -3085,9 +3062,9 @@ function LiveProjectPage({
           </label>
           <fieldset className="target-grid">
             <legend>目標値</legend>
-            {["TS", "YS", "EL", "lambda"].map((key) => (
+            {(taskDefinition?.outputs ?? []).map(({ key, label }) => (
               <label key={key}>
-                {key === "lambda" ? "λ" : key}
+                {label}
                 <input
                   type="number"
                   value={targetValues[key] ?? ""}
@@ -3366,7 +3343,7 @@ function LiveScreeningPage({
         },
       );
       if (!r.ok)
-        throw new Error(((await r.json()) as { detail?: string }).detail);
+        throw new Error(((await r.json()) as { message?: string }).message);
       const created = (await r.json()) as ScreenResult;
       setResult(created);
       setSavedRuns((runs) => [created, ...runs]);

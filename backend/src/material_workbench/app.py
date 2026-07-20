@@ -10,17 +10,27 @@ from pathlib import Path
 from statistics import fmean, pstdev
 from typing import Any
 
-from fastapi import FastAPI, File, HTTPException, Response, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
-from .importer import composition_names, lineage_neighborhood, lineage_node_detail, load_workbook_data
-from .hot_rolling import TARGETS as HOT_ROLLING_TARGETS, HotRollingRuntime
-from .runtime import ModelRuntime, TARGETS
-from .schemas import ActualMeasurementInput, CandidateInput, HotRollingCandidateInput, LineageResponse, PredictionResponse, ProjectDecisionInput, ProjectInput, QualityResponse, ScreeningRequest
+from .importer import lineage_neighborhood, lineage_node_detail, load_workbook_data
+from .hot_rolling import TASK_ID as HOT_ROLLING_TASK_ID, HotRollingRuntime
+from .runtime import ModelRuntime, TASK_ID as ANNEALED_TASK_ID
+from .schemas import ApiError, ActualMeasurementInput, CandidateInput, DetailedPredictionResponse, HotRollingCandidateInput, LineageResponse, PredictionResponse, ProjectDecisionInput, ProjectInput, QualityResponse, ScreeningRequest
 from .services import candidate_from_lineage, candidates_xlsx, import_candidates_xlsx, run_latin_hypercube
 from .store import AdoptedCandidateError, CandidateLimitError, InvalidProjectDecisionError, ProjectNotFoundError, Store
+from .task_contracts import ResolvedTaskDefinition
+from .task_registry import TaskRegistry, TaskRegistryError
+
+
+PROJECT_API_ERRORS = {
+    404: {"model": ApiError},
+    409: {"model": ApiError},
+    422: {"model": ApiError},
+}
 
 
 def _default_candidate_payloads(medians: dict[str, float]) -> list[CandidateInput]:
@@ -64,11 +74,15 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.data = load_workbook_data(source)
-        app.state.runtime = ModelRuntime(
+        annealed_runtime = ModelRuntime(
             app.state.data,
             package_root=os.getenv("MATERIAL_WORKBENCH_MODEL_PACKAGE"),
         )
-        app.state.hot_runtime = HotRollingRuntime(app.state.data)
+        hot_rolling_runtime = HotRollingRuntime(app.state.data)
+        app.state.task_registry = TaskRegistry({
+            ANNEALED_TASK_ID: annealed_runtime,
+            HOT_ROLLING_TASK_ID: hot_rolling_runtime,
+        })
         app.state.store = Store(database)
         if not app.state.store.list_candidates():
             for candidate in _default_candidate_payloads(app.state.data.medians):
@@ -83,14 +97,38 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
     # The local sidecar only listens on loopback, and credentials are not accepted.
     app.add_middleware(CORSMiddleware, allow_origins=["null", "http://127.0.0.1:5173", "http://localhost:5173", "http://127.0.0.1:5180", "http://localhost:5180"], allow_methods=["*"], allow_headers=["*"], allow_credentials=False)
 
+    @app.exception_handler(HTTPException)
+    async def http_error(_: Request, exc: HTTPException) -> JSONResponse:
+        code = {
+            404: "not_found",
+            409: "revision_conflict",
+            422: "validation_error",
+            503: "runtime_unavailable",
+        }.get(exc.status_code, "validation_error")
+        message = exc.detail if isinstance(exc.detail, str) else "リクエストを処理できません"
+        payload = ApiError(code=code, message=message)
+        return JSONResponse(status_code=exc.status_code, content=payload.model_dump(mode="json"))
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
+        payload = ApiError(
+            code="validation_error",
+            message="入力内容を確認してください",
+            field_errors=[
+                {"path": ".".join(str(part) for part in error["loc"]), "message": error["msg"]}
+                for error in exc.errors()
+            ],
+        )
+        return JSONResponse(status_code=422, content=payload.model_dump(mode="json"))
+
     def store() -> Store:
         return app.state.store
 
     def runtime() -> ModelRuntime:
-        return app.state.runtime
+        return app.state.task_registry.runtime_for(ANNEALED_TASK_ID)
 
-    def hot_runtime() -> HotRollingRuntime:
-        return app.state.hot_runtime
+    def task_registry() -> TaskRegistry:
+        return app.state.task_registry
 
     def require_project(project_id: str):
         project = store().get_project(project_id)
@@ -99,6 +137,9 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
         return project
 
     def create_candidate_in_project(payload: CandidateInput, project_id: str = "default"):
+        project = require_project(project_id)
+        if project.task_id != ANNEALED_TASK_ID:
+            raise HTTPException(422, "この予測タスクには焼鈍候補を作成できません")
         try:
             return store().create_candidate(payload, project_id)
         except ProjectNotFoundError as exc:
@@ -141,89 +182,15 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
             ],
         }
 
-    @app.get("/api/projects/{project_id}/task-definition")
-    def task_definition(project_id: str) -> dict[str, Any]:
+    @app.get(
+        "/api/projects/{project_id}/task-definition",
+        response_model=ResolvedTaskDefinition,
+        responses=PROJECT_API_ERRORS,
+        operation_id="getProjectTaskDefinition",
+    )
+    def task_definition(project_id: str) -> ResolvedTaskDefinition:
         project = require_project(project_id)
-        runtime_instance = runtime()
-        reference_model = runtime_instance.models.get("TS")
-        training = reference_model.x_train if reference_model is not None else None
-
-        def training_range(index: int) -> dict[str, float] | None:
-            if training is None or training.size == 0:
-                return None
-            values = training[:, index]
-            if reference_model is not None:
-                values = values * reference_model.feature_scale[index] + reference_model.feature_mean[index]
-            return {"min": round(float(values.min()), 4), "max": round(float(values.max()), 4)}
-
-        default_ranges = {
-            "C": {"min": 0.0, "max": 3.5},
-            "Si": {"min": 0.0, "max": 3.0},
-            "Mn": {"min": 0.0, "max": 3.0},
-            "P": {"min": 0.0, "max": 0.1},
-            "S": {"min": 0.0, "max": 0.1},
-            "Cr": {"min": 0.0, "max": 3.0},
-            "Mo": {"min": 0.0, "max": 2.0},
-            "Ni": {"min": 0.0, "max": 5.0},
-            "Al": {"min": 0.0, "max": 2.0},
-            "Ti": {"min": 0.0, "max": 0.5},
-            "B": {"min": 0.0, "max": 0.02},
-            "N": {"min": 0.0, "max": 0.03},
-            "O": {"min": 0.0, "max": 0.03},
-            "Ca": {"min": 0.0, "max": 0.02},
-        }
-
-        def composition_input(index: int, element: str) -> dict[str, Any]:
-            configured = project.input_ranges.get(f"composition.{element}") or project.input_ranges.get(element)
-            allowed = configured.model_dump() if configured else default_ranges[element]
-            return {
-                "id": f"composition.{element}",
-                "field": element,
-                "label": element,
-                "unit": "mass%",
-                "group": "composition",
-                "editable": True,
-                "min": allowed["min"],
-                "max": allowed["max"],
-                "default_range": default_ranges[element],
-                "allowed_range": allowed,
-                "training_range": training_range(index),
-            }
-
-        composition_inputs = [
-            composition_input(index, element)
-            for index, element in enumerate(composition_names(task_id=project.task_id))
-        ]
-        return {
-            "task_id": project.task_id,
-            "inputs": composition_inputs,
-            "derived_inputs": [],
-            "outputs": [
-                {"key": target, "label": "λ" if target == "lambda" else target, "unit": unit, "goal_direction": "at_least"}
-                for target, (_, unit) in TARGETS.items()
-            ],
-        }
-
-    @app.get("/api/hot-rolling/task-definition")
-    def hot_rolling_task_definition() -> dict[str, Any]:
-        rows = list(app.state.data.hot_rolling_features.values())
-        fields = [
-            ("reheat_temperature_c", "加熱温度", "℃"), ("hold_time_min", "加熱保持", "min"),
-            ("finish_temperature_c", "仕上温度", "℃"), ("coiling_temperature_c", "巻取温度", "℃"),
-            ("cooling_rate_c_s", "冷却速度", "℃/s"), ("entry_thickness_mm", "入側板厚", "mm"),
-            ("exit_thickness_mm", "出側板厚", "mm"),
-        ]
-        return {
-            "task_id": "hot-rolled-properties-v1",
-            "inputs": [
-                {"field": field, "label": label, "unit": unit, "min": round(min(float(row[field]) for row in rows), 4), "max": round(max(float(row[field]) for row in rows), 4)}
-                for field, label, unit in fields
-            ],
-            "categorical_inputs": {"route": sorted({row["route"] for row in rows})},
-            "context": {"equipment": "HR-LINE-1", "test_direction": "L"},
-            "outputs": [{"key": key, "label": key, "unit": unit} for key, (_, unit) in HOT_ROLLING_TARGETS.items()],
-            "model": {"id": hot_runtime().package.manifest.package_id, "version": hot_runtime().package.manifest.package_version},
-        }
+        return task_registry().resolved_definition_for(project.task_id)
 
     @app.get("/api/hot-rolling/candidates")
     def list_hot_rolling_candidates():
@@ -249,12 +216,28 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
             raise HTTPException(404, "熱延候補が見つかりません")
         return Response(status_code=204)
 
-    @app.post("/api/hot-rolling/candidates/{candidate_id}/preview")
-    def preview_hot_rolling_candidate(candidate_id: str) -> dict[str, Any]:
-        candidate = store().get_hot_rolling_candidate(candidate_id)
+    @app.post(
+        "/api/projects/{project_id}/candidates/{candidate_id}/preview",
+        response_model=PredictionResponse,
+        responses=PROJECT_API_ERRORS,
+        operation_id="previewProjectCandidate",
+    )
+    def preview_project_candidate(project_id: str, candidate_id: str) -> dict[str, Any]:
+        project = require_project(project_id)
+        if project.task_id == HOT_ROLLING_TASK_ID:
+            candidate = store().get_hot_rolling_candidate(candidate_id)
+        else:
+            candidate = store().get_candidate(candidate_id)
+            if candidate is not None and candidate.project_id != project_id:
+                candidate = None
         if candidate is None:
-            raise HTTPException(404, "熱延候補が見つかりません")
-        return hot_runtime().predict(candidate)
+            raise HTTPException(404, "候補が見つかりません")
+        return task_registry().runtime_for(project.task_id).predict(
+            candidate,
+            detailed=False,
+            include_curve=False,
+            target_values=project.target_values,
+        )
 
     @app.get("/api/bootstrap")
     def bootstrap() -> dict[str, Any]:
@@ -280,6 +263,13 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
 
     @app.post("/api/projects", status_code=201)
     def create_project(payload: ProjectInput) -> dict[str, Any]:
+        try:
+            contract = task_registry().contract_for(payload.task_id)
+        except TaskRegistryError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        unsupported_targets = sorted(set(payload.target_values) - {item.key for item in contract.task_definition.outputs})
+        if unsupported_targets:
+            raise HTTPException(422, f"タスクに存在しない目標特性です: {', '.join(unsupported_targets)}")
         if payload.decision_candidate_id:
             raise HTTPException(422, "新しいプロジェクトでは採用候補を空にしてください")
         return store().create_project(payload).model_dump(mode="json")
@@ -290,6 +280,16 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
 
     @app.put("/api/projects/{project_id}")
     def update_project_by_id(project_id: str, payload: ProjectInput) -> dict[str, Any]:
+        current = require_project(project_id)
+        try:
+            contract = task_registry().contract_for(payload.task_id)
+        except TaskRegistryError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        unsupported_targets = sorted(set(payload.target_values) - {item.key for item in contract.task_definition.outputs})
+        if unsupported_targets:
+            raise HTTPException(422, f"タスクに存在しない目標特性です: {', '.join(unsupported_targets)}")
+        if current.task_id != payload.task_id and store().list_candidates(project_id):
+            raise HTTPException(409, "候補があるプロジェクトの予測タスクは変更できません")
         try:
             project = store().update_project(project_id, payload)
         except InvalidProjectDecisionError as exc:
@@ -378,13 +378,17 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
         if not candidate:
             raise HTTPException(404, "候補が見つかりません")
         project = store().get_project(candidate.project_id)
-        return runtime().predict(candidate, detailed=detailed, include_curve=include_curve, target_values=project.target_values if project else {})
+        if project is None:
+            raise HTTPException(404, "プロジェクトが見つかりません")
+        task_runtime = task_registry().runtime_for(project.task_id)
+        return task_runtime.predict(candidate, detailed=detailed, include_curve=include_curve, target_values=project.target_values)
 
-    @app.post("/api/candidates/{candidate_id}/preview", response_model=PredictionResponse)
-    def preview(candidate_id: str) -> dict[str, Any]:
-        return prediction(candidate_id, detailed=False)
-
-    @app.post("/api/candidates/{candidate_id}/predict")
+    @app.post(
+        "/api/candidates/{candidate_id}/predict",
+        response_model=DetailedPredictionResponse,
+        responses=PROJECT_API_ERRORS,
+        operation_id="createDetailedCandidatePrediction",
+    )
     def predict(candidate_id: str) -> dict[str, Any]:
         candidate = store().get_candidate(candidate_id)
         if not candidate:
