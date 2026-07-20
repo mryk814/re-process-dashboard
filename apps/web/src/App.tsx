@@ -256,6 +256,15 @@ function number(value: number, digits = 0) {
   });
 }
 
+const CANDIDATE_COLORS = ["#d97706", "#0f766e", "#9333a8", "#dc2626", "#0891b2", "#4f46e5", "#65a30d", "#c2410c"];
+
+function candidateColor(candidateId: string, selectedId: string) {
+  if (candidateId === selectedId) return "#1f5fc4";
+  let hash = 0;
+  for (const character of candidateId) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  return CANDIDATE_COLORS[hash % CANDIDATE_COLORS.length];
+}
+
 async function apiError(response: Response, fallback: string): Promise<Error> {
   try {
     const body = (await response.json()) as { detail?: string };
@@ -999,6 +1008,7 @@ function CandidateWorkbench(props: WorkbenchProps) {
   return (
     <div className="workbench-grid candidate-workbench-grid">
       <CandidateInspector
+        candidates={candidates}
         candidate={selected}
         taskDefinition={taskDefinition}
         onComposition={onComposition}
@@ -1048,9 +1058,12 @@ function CandidateWorkbench(props: WorkbenchProps) {
           onText={onText}
         />
         <LiveResponseCurves
+          candidates={candidates}
+          selectedId={selectedId}
           candidate={selected}
           preview={preview}
           targetValues={targetValues}
+          previewsByCandidate={previewsByCandidate}
           taskDefinition={taskDefinition}
         />
         <ActualsPanel candidate={selected} />
@@ -1081,6 +1094,7 @@ function sliderScale(input: TaskInputDefinition, value: number) {
 }
 
 function CandidateInspector({
+  candidates,
   candidate,
   taskDefinition,
   onComposition,
@@ -1088,6 +1102,7 @@ function CandidateInspector({
   onAddHeat,
   onDeleteHeat,
 }: {
+  candidates: Candidate[];
   candidate: Candidate;
   taskDefinition: TaskDefinition | null;
   onComposition: (id: string, element: string, raw: number) => void;
@@ -1127,7 +1142,7 @@ function CandidateInspector({
         </div>
       </section>
       <HeatPattern
-        candidates={[candidate]}
+        candidates={candidates}
         candidate={candidate}
         onUpdate={onHeat}
         onAdd={onAddHeat}
@@ -1606,10 +1621,8 @@ function HeatPattern({
         <h2>
           ヒートパターン <span>（焼鈍温度・時間）</span>
         </h2>
-        <div className="legend">
-          <span className="blue-line" />
-          選択候補 <span className="orange-line" />
-          比較候補
+        <div className="candidate-color-legend" aria-label="候補の色">
+          {candidates.map((item) => <span className={item.id === candidate.id ? "selected" : ""} key={item.id}><i style={{ background: candidateColor(item.id, candidate.id) }} />{item.label}</span>)}
         </div>
       </div>
       <svg
@@ -1645,15 +1658,15 @@ function HeatPattern({
                 .map((point) => `${x(point.time)},${y(point.temperature)}`)
                 .join(" ")}
               fill="none"
-              stroke="#DF7703"
+              stroke={candidateColor(item.id, candidate.id)}
               strokeWidth="1.5"
-              opacity=".38"
+              opacity=".62"
             />
           ))}
         <polyline
           points={points}
           fill="none"
-          stroke="#1F5FC4"
+          stroke={candidateColor(candidate.id, candidate.id)}
           strokeWidth="3"
         />
         {candidate.heat.map((point, index) => (
@@ -1719,14 +1732,20 @@ function HeatPattern({
 }
 
 function LiveResponseCurves({
+  candidates,
+  selectedId,
   candidate,
   preview,
   targetValues,
+  previewsByCandidate,
   taskDefinition,
 }: {
+  candidates: Candidate[];
+  selectedId: string;
   candidate: Candidate;
   preview: ApiPreview | null;
   targetValues: Record<string, number>;
+  previewsByCandidate: Record<string, ApiPreview>;
   taskDefinition: TaskDefinition | null;
 }) {
   const outputs = taskDefinition?.outputs ?? [
@@ -1752,36 +1771,56 @@ function LiveResponseCurves({
     ]),
   ];
   const [variableId, setVariableId] = useState(variables[0]?.id ?? "heat.peak_temperature_c");
-  const [payload, setPayload] = useState<ResponseCurvesPayload | null>(null);
+  const [payloads, setPayloads] = useState<Record<string, ResponseCurvesPayload>>({});
   const [error, setError] = useState(false);
+  const candidatesKey = JSON.stringify(candidates.map((item) => ({ id: item.id, raw: item.raw })));
   useEffect(() => {
     if (variables.length && !variables.some((variable) => variable.id === variableId)) setVariableId(variables[0].id);
   }, [candidate.id, variableId, variables.length]);
   useEffect(() => {
     const controller = new AbortController();
-    setPayload(null);
+    setPayloads({});
     setError(false);
     const timer = window.setTimeout(() => {
-      fetch(`${API_URL}/api/candidates/${candidate.id}/response-curves?variable=${encodeURIComponent(variableId)}`, { signal: controller.signal })
-        .then(async (response) => {
-          if (!response.ok) throw new Error();
-          const body = (await response.json()) as ResponseCurvesPayload;
-          if (!controller.signal.aborted) setPayload(body);
-        })
-        .catch(() => { if (!controller.signal.aborted) setError(true); });
+      Promise.all(candidates.map(async (item) => {
+        try {
+          const response = await fetch(`${API_URL}/api/candidates/${item.id}/response-curves?variable=${encodeURIComponent(variableId)}`, { signal: controller.signal });
+          if (!response.ok) return null;
+          return [item.id, (await response.json()) as ResponseCurvesPayload] as const;
+        } catch {
+          return null;
+        }
+      })).then((entries) => {
+        if (controller.signal.aborted) return;
+        const loaded = Object.fromEntries(entries.filter((entry): entry is readonly [string, ResponseCurvesPayload] => entry !== null));
+        setPayloads(loaded);
+        setError(!loaded[selectedId]);
+      });
     }, 320);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [candidate.id, variableId]);
-  const activeVariable = payload?.variable ?? variables.find((variable) => variable.id === variableId);
+  }, [candidatesKey, selectedId, variableId]);
+  const activePayload = payloads[selectedId] ?? Object.values(payloads)[0];
   return (
     <section className="response-curves-panel" aria-label="設計変数ごとの応答曲線">
       <div className="panel-title">
-        <h2>応答曲線 <span>（選択した設計変数を動かしたときの特性）</span></h2>
+        <div className="response-curves-title-group">
+          <h2>応答曲線 <span>（選択した設計変数を動かしたときの特性）</span></h2>
+          <div className="candidate-color-legend" aria-label="候補の色">
+            {candidates.map((item) => <span className={item.id === selectedId ? "selected" : ""} key={item.id}><i style={{ background: candidateColor(item.id, selectedId) }} />{item.label}</span>)}
+          </div>
+        </div>
         <label>変数 <select aria-label="応答曲線の設計変数" value={variableId} onChange={(event) => setVariableId(event.target.value)}>{variables.map((variable) => <option key={variable.id} value={variable.id}>{variable.label} ({variable.unit})</option>)}</select></label>
       </div>
       {error ? <p className="empty-evidence">応答曲線を取得できません。</p> : (
         <div className="response-curves-grid">
-          {outputs.map((output) => <ResponseCurveMiniChart key={output.key} output={output} points={payload?.curves[output.key] ?? []} prediction={preview?.predictions?.[output.key]} goalValue={targetValues[output.key]} xRange={activeVariable ? { min: payload?.variable.min ?? activeVariable.min, max: payload?.variable.max ?? activeVariable.max } : undefined} yRange={payload?.output_ranges[output.key]} currentX={payload?.variable.current ?? activeVariable?.current} xLabel={activeVariable?.label ?? "設計変数"} xUnit={activeVariable?.unit ?? ""} />)}
+          {outputs.map((output) => {
+            const series = candidates.flatMap((item) => {
+              const itemPayload = payloads[item.id];
+              const points = itemPayload?.curves[output.key] ?? [];
+              return points.length ? [{ candidate: item, points, prediction: previewsByCandidate[item.id]?.predictions?.[output.key], currentX: itemPayload.variable.current }] : [];
+            });
+            return <ResponseCurveMiniChart key={output.key} output={output} series={series} selectedId={selectedId} prediction={preview?.predictions?.[output.key]} goalValue={targetValues[output.key]} xRange={activePayload ? { min: activePayload.variable.min, max: activePayload.variable.max } : undefined} yRange={activePayload?.output_ranges[output.key]} xLabel={activePayload?.variable.label ?? "設計変数"} xUnit={activePayload?.variable.unit ?? ""} />;
+          })}
         </div>
       )}
     </section>
@@ -1790,27 +1829,28 @@ function LiveResponseCurves({
 
 function ResponseCurveMiniChart({
   output,
-  points,
+  series,
+  selectedId,
   prediction,
   goalValue,
   xRange,
   yRange,
-  currentX,
   xLabel,
   xUnit,
 }: {
   output: TaskOutputDefinition;
-  points: CurvePoint[];
+  series: Array<{ candidate: Candidate; points: CurvePoint[]; prediction?: NonNullable<ApiPreview["predictions"]>[string]; currentX: number }>;
+  selectedId: string;
   prediction?: NonNullable<ApiPreview["predictions"]>[string];
   goalValue?: number;
   xRange?: { min: number; max: number };
   yRange?: { min: number; max: number };
-  currentX?: number;
   xLabel: string;
   xUnit: string;
 }) {
   const width = 300;
   const height = 156;
+  const points = series.flatMap((item) => item.points);
   const minX = xRange?.min ?? Math.min(...points.map((point) => point.x), 0);
   const maxX = xRange?.max ?? Math.max(...points.map((point) => point.x), 1);
   const outputAxisValues = yRange ? [yRange.min, yRange.max] : points.flatMap((point) => [point.lower, point.upper]);
@@ -1821,17 +1861,19 @@ function ResponseCurveMiniChart({
   const maxValue = rawMax + valuePadding;
   const x = (value: number) => 30 + ((value - minX) / Math.max(1e-6, maxX - minX)) * 252;
   const y = (value: number) => 124 - ((value - minValue) / Math.max(1, maxValue - minValue)) * 92;
-  const line = points.map((point, index) => `${index ? "L" : "M"}${x(point.x)} ${y(point.value)}`).join(" ");
-  const band = points.length ? `${points.map((point, index) => `${index ? "L" : "M"}${x(point.x)} ${y(point.upper)}`).join(" ")} ${[...points].reverse().map((point) => `L${x(point.x)} ${y(point.lower)}`).join(" ")} Z` : "";
   const xTicks = [minX, (minX + maxX) / 2, maxX];
   return (
     <article className="response-curve-card">
       <header><b>{output.label}</b><span>{prediction ? `${number(prediction.value, output.key === "EL" || output.key === "lambda" ? 1 : 0)} ${prediction.unit}` : "読み込み中"}</span></header>
-      {points.length ? <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${output.label}の応答曲線`}>
+      {series.length ? <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${output.label}の応答曲線`}>
         {[minValue, (minValue + maxValue) / 2, maxValue].map((tick) => <g key={tick}><line x1="28" y1={y(tick)} x2="284" y2={y(tick)} stroke="#e3e9f0" /><text x="25" y={y(tick) + 3} textAnchor="end" fontSize="9" fill="#617087">{number(tick, output.key === "EL" || output.key === "lambda" ? 1 : 0)}</text></g>)}
-        <path d={band} fill="#1f5fc4" opacity=".12" /><path d={line} fill="none" stroke="#1f5fc4" strokeWidth="2.5" />
+        {series.map((item) => {
+          const color = candidateColor(item.candidate.id, selectedId);
+          const line = item.points.map((point, index) => `${index ? "L" : "M"}${x(point.x)} ${y(point.value)}`).join(" ");
+          const band = `${item.points.map((point, index) => `${index ? "L" : "M"}${x(point.x)} ${y(point.upper)}`).join(" ")} ${[...item.points].reverse().map((point) => `L${x(point.x)} ${y(point.lower)}`).join(" ")} Z`;
+          return <g key={item.candidate.id}><path d={band} fill={color} opacity={item.candidate.id === selectedId ? ".12" : ".05"} /><path d={line} fill="none" stroke={color} strokeWidth={item.candidate.id === selectedId ? "2.5" : "1.5"} opacity={item.candidate.id === selectedId ? "1" : ".78"} />{item.prediction && Number.isFinite(item.currentX) && <circle cx={x(item.currentX)} cy={y(item.prediction.value)} r={item.candidate.id === selectedId ? "4" : "2.5"} fill="#fff" stroke={color} strokeWidth={item.candidate.id === selectedId ? "2.5" : "1.5"} />}</g>;
+        })}
         {Number.isFinite(goalValue) && <line x1="28" y1={y(goalValue!)} x2="284" y2={y(goalValue!)} stroke="#c17816" strokeDasharray="4 3" />}
-        {prediction && Number.isFinite(currentX) && <circle cx={x(currentX!)} cy={y(prediction.value)} r="4" fill="#fff" stroke="#176d52" strokeWidth="2.5" />}
         {xTicks.map((tick) => <text key={tick} x={x(tick)} y="137" textAnchor="middle" fontSize="8" fill="#617087">{number(tick, xUnit === "min" ? 2 : 1)}</text>)}
         <text x="156" y="153" textAnchor="middle" fontSize="8" fill="#617087">{xLabel} ({xUnit})</text>
       </svg> : <p className="empty-evidence">読み込み中…</p>}

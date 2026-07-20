@@ -2130,6 +2130,7 @@ select:focus-visible,
 .candidate-inspector .panel-title h2 { font-size: 13px; }
 .candidate-inspector .panel-title h2 span { display: block; font-size: 11px; margin-top: 2px; }
 .candidate-inspector .legend { display: none; }
+.candidate-inspector .candidate-color-legend { display: none; }
 .candidate-inspector .heat-edit { padding: 8px 0 0; }
 .candidate-inspector .heat-edit > div:first-child { display: grid; grid-template-columns: 1fr auto; gap: 4px; }
 .candidate-inspector .heat-edit > div:first-child span { grid-column: 1 / -1; }
@@ -2138,6 +2139,11 @@ select:focus-visible,
 .response-curves-panel { margin-top: 10px; border: 1px solid #d8e0ea; border-radius: 4px; }
 .response-curves-panel > .panel-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-bottom: 1px solid #e0e7ef; padding: 8px 11px; }
 .response-curves-panel > .panel-title h2 { font-size: 15px; }
+.response-curves-title-group { min-width: 0; }
+.candidate-color-legend { display: flex; flex-wrap: wrap; gap: 3px 8px; margin-top: 4px; color: #617087; font-size: 10px; line-height: 1.2; }
+.candidate-color-legend span { display: inline-flex; align-items: center; gap: 3px; min-width: 0; max-width: 180px; }
+.candidate-color-legend span.selected { color: #1f5fc4; font-weight: 700; }
+.candidate-color-legend i { display: inline-block; flex: 0 0 auto; width: 14px; height: 3px; border-radius: 2px; }
 .response-curves-panel > .panel-title label { display: inline-flex; align-items: center; gap: 5px; color: #617087; font-size: 11px; white-space: nowrap; }
 .response-curves-panel > .panel-title select { max-width: 210px; height: 28px; padding: 2px 6px; border: 1px solid #c5d1df; border-radius: 3px; background: #fff; color: #1d3147; font-size: 11px; }
 .response-curves-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; }
