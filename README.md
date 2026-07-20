@@ -35,12 +35,19 @@ npm run dev:desktop
 
 ## 確認
 
-実装中は契約・Packageと型だけを短時間で確認し、PR前に全体を1回通します。
+実装中は変更箇所のtestと型だけを確認します。test pathや`-k`式を`--`以降へ渡せるため、全suiteは走りません。Windowsでは`npm.cmd`を使えます。
 
 ```powershell
-npm run verify:fast
+npm.cmd run verify:focused -- backend/tests/test_screening_score.py
+```
+
+PRをreadyにする直前とmerge前だけ、full gateを1回通します。pytest、typecheck、build、working treeと`origin/main...HEAD`のdiff checkを順に実行します。
+
+```powershell
 npm run verify:full
 ```
+
+GitHubのPRと`main`へのpushでも同じfull gateが自動実行されます。CIはNode `22.20.0`、npm `11.4.2`、uv `0.9.15`を固定し、`package-lock.json`と`uv.lock`から依存を導入します。browser確認、packaged desktop、実DB migrationなどは変更リスクに応じて手動実施し、PR本文へ結果を記録します。
 
 モデルPackageを更新した場合は `npm run models:build:annealed` または `npm run models:build:hot-rolling` で、artifact・quality report・manifestを必ず同時に再生成します。新しいPackageの作成・検証・有効化・rollbackは [Model Package lifecycle](docs/model-package-lifecycle.md) の一本道を使います。
 
