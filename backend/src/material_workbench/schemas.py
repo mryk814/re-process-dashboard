@@ -95,12 +95,26 @@ class HotRollingCandidate(HotRollingCandidateInput):
     updated_at: datetime
 
 
+class InputRange(BaseModel):
+    min: float
+    max: float
+
+    @model_validator(mode="after")
+    def range_is_valid(self) -> "InputRange":
+        if not math.isfinite(self.min) or not math.isfinite(self.max):
+            raise ValueError("入力許容範囲は有限の数値にしてください")
+        if self.min >= self.max:
+            raise ValueError("入力許容範囲の最小値は最大値より小さくしてください")
+        return self
+
+
 class ProjectInput(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=120)] = "焼鈍条件の候補検討"
     description: str = ""
     purpose: str = ""
     task_id: Literal["annealed-properties-v1"] = "annealed-properties-v1"
     target_values: dict[str, float] = Field(default_factory=dict)
+    input_ranges: dict[str, InputRange] = Field(default_factory=dict)
     notes: str = ""
     decision_candidate_id: Annotated[str, Field(max_length=80)] = ""
     decision_snapshot_id: Annotated[str, Field(max_length=80)] = ""

@@ -1452,6 +1452,15 @@ select:focus-visible,
 .project-form textarea {
   min-height: 80px;
 }
+.input-range-settings { max-width: 980px; }
+.settings-explanation { margin: 0 0 14px; padding: 9px 11px; border-left: 3px solid #6bb69e; background: #f4faf7; color: #53647a; font-size: 12px; }
+.input-range-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.input-range-table th,
+.input-range-table td { padding: 8px; border: 1px solid #d8e0ea; text-align: left; }
+.input-range-table thead th { background: #edf2f8; color: #46566c; }
+.input-range-table tbody th { font-weight: 700; }
+.input-range-table th small { display: block; margin-top: 2px; color: #718096; font-weight: 400; }
+.input-range-table input { width: 120px; height: 30px; border: 1px solid #cbd6e2; border-radius: 3px; padding: 4px 6px; text-align: right; }
 .project-actions,
 .model-package-card > div:first-child,
 .runtime-list {
