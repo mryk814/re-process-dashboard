@@ -15,8 +15,8 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
-from .importer import ENTITY_SHEETS, lineage_neighborhood, lineage_node_detail, load_workbook_data
-from .runtime import ModelRuntime
+from .importer import COMPOSITION_COLUMNS, ENTITY_SHEETS, lineage_neighborhood, lineage_node_detail, load_workbook_data
+from .runtime import ModelRuntime, TARGETS
 from .schemas import ActualMeasurementInput, CandidateInput, LineageResponse, PredictionResponse, ProjectDecisionInput, ProjectInput, QualityResponse, ScreeningRequest
 from .services import candidate_from_lineage, candidates_xlsx, import_candidates_xlsx, run_latin_hypercube
 from .store import AdoptedCandidateError, CandidateLimitError, InvalidProjectDecisionError, ProjectNotFoundError, Store
@@ -120,6 +120,52 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
             "predictors": [
                 {"target": item.target, "runtime_type": item.runtime_type, "predictive_family": item.predictive_family}
                 for item in manifest.predictors
+            ],
+        }
+
+    @app.get("/api/projects/{project_id}/task-definition")
+    def task_definition(project_id: str) -> dict[str, Any]:
+        project = require_project(project_id)
+        runtime_instance = runtime()
+        reference_model = runtime_instance.models.get("TS")
+        training = reference_model.x_train if reference_model is not None else None
+
+        def training_range(index: int) -> dict[str, float] | None:
+            if training is None or training.size == 0:
+                return None
+            values = training[:, index]
+            if reference_model is not None:
+                values = values * reference_model.feature_scale[index] + reference_model.feature_mean[index]
+            return {"min": round(float(values.min()), 4), "max": round(float(values.max()), 4)}
+
+        composition_inputs = [
+            {
+                "id": f"composition.{element}",
+                "field": element,
+                "label": element,
+                "unit": "mass%",
+                "group": "composition",
+                "editable": True,
+                "min": 0,
+                "max": 100,
+                "training_range": training_range(index),
+            }
+            for index, element in enumerate(COMPOSITION_COLUMNS)
+        ]
+        process_inputs = [
+            {"id": "thickness_mm", "field": "thickness", "label": "板厚", "unit": "mm", "group": "process", "editable": True, "min": 0.001, "max": 100, "training_range": training_range(14)},
+            {"id": "line_speed_m_min", "field": "lineSpeed", "label": "ライン速度", "unit": "m/min", "group": "process", "editable": True, "min": 0.001, "max": 2000, "training_range": training_range(15)},
+        ]
+        return {
+            "task_id": project.task_id,
+            "inputs": [*composition_inputs, *process_inputs],
+            "derived_inputs": [
+                {"id": "peak_temperature_c", "field": "annealTemperature", "label": "最高温度", "unit": "°C", "source": "heat_pattern"},
+                {"id": "hold_minutes", "field": "holdMinutes", "label": "保持時間", "unit": "min", "source": "heat_pattern"},
+            ],
+            "outputs": [
+                {"key": target, "label": "λ" if target == "lambda" else target, "unit": unit, "goal_direction": "at_least"}
+                for target, (_, unit) in TARGETS.items()
             ],
         }
 
@@ -255,6 +301,13 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
         if not candidate:
             raise HTTPException(404, "候補が見つかりません")
         return runtime().response_curve(candidate, target)
+
+    @app.get("/api/candidates/{candidate_id}/response-curves")
+    def response_curves(candidate_id: str) -> dict[str, list[dict[str, float]]]:
+        candidate = store().get_candidate(candidate_id)
+        if not candidate:
+            raise HTTPException(404, "候補が見つかりません")
+        return runtime().response_curves(candidate)
 
     @app.get("/api/candidates/{candidate_id}/similar")
     def similar(candidate_id: str) -> list[dict[str, object]]:

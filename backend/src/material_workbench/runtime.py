@@ -443,3 +443,7 @@ class ModelRuntime:
                 lower, upper = value + lower_offset, value + upper_offset
             curve.append({"temperature_c": round(float(temperature), 2), "value": round(value, 3), "lower": round(lower, 3), "upper": round(upper, 3)})
         return curve
+
+    def response_curves(self, candidate: Candidate) -> dict[str, list[dict[str, float]]]:
+        """Return the task's response curves in one model-backed request."""
+        return {target: self.response_curve(candidate, target) for target in TARGETS}
