@@ -123,7 +123,7 @@ class ScreeningVariable(BaseModel):
 
 
 class ScreeningRequest(BaseModel):
-    base_candidate_id: str | None = None
+    base_candidate_id: Annotated[str, Field(min_length=1)]
     variables: Annotated[dict[str, ScreeningVariable], Field(min_length=1)]
     samples: Annotated[int, Field(ge=48, le=128)] = 64
     target: Literal["TS", "YS", "EL", "lambda"] = "TS"

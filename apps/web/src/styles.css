@@ -1704,7 +1704,7 @@ select:focus-visible,
 }
 .screening-target {
   display: grid;
-  grid-template-columns: repeat(3, minmax(140px, 220px));
+  grid-template-columns: repeat(4, minmax(140px, 220px));
   gap: 10px;
 }
 .screening-target label {

@@ -963,6 +963,8 @@ function App() {
         {tab === "explore" && (
           <LiveScreeningPage
             projectId={activeProjectId}
+            candidates={candidates}
+            selectedId={selectedId}
             onCandidate={(candidate) => {
               setCandidates((items) => [...items, candidate]);
               setSelectedId(candidate.id);
@@ -3470,9 +3472,13 @@ function LiveProjectPage({
 
 function LiveScreeningPage({
   projectId,
+  candidates,
+  selectedId,
   onCandidate,
 }: {
   projectId: string;
+  candidates: Candidate[];
+  selectedId: string;
   onCandidate: (candidate: Candidate) => void;
 }) {
   type VariableRow = {
@@ -3489,6 +3495,7 @@ function LiveScreeningPage({
   };
   type ScreenResult = {
     id: string;
+    base_candidate_id?: string;
     created_at?: string;
     target: string;
     target_value: number;
@@ -3523,9 +3530,17 @@ function LiveScreeningPage({
   const [samples, setSamples] = useState(64);
   const [target, setTarget] = useState("TS");
   const [targetValue, setTargetValue] = useState("500");
+  const [baseCandidateId, setBaseCandidateId] = useState(selectedId);
   const [result, setResult] = useState<ScreenResult | null>(null);
   const [savedRuns, setSavedRuns] = useState<ScreenResult[]>([]);
   const [error, setError] = useState("");
+  useEffect(() => {
+    if (candidates.some((candidate) => candidate.id === selectedId)) {
+      setBaseCandidateId(selectedId);
+    } else if (!candidates.some((candidate) => candidate.id === baseCandidateId)) {
+      setBaseCandidateId(candidates[0]?.id ?? "");
+    }
+  }, [candidates, selectedId, baseCandidateId]);
   useEffect(() => {
     fetch(
       `${API_URL}/api/screening?project_id=${encodeURIComponent(projectId)}`,
@@ -3583,6 +3598,7 @@ function LiveScreeningPage({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            base_candidate_id: baseCandidateId,
             variables: specs,
             samples,
             target,
@@ -3608,6 +3624,7 @@ function LiveScreeningPage({
     if (!response.ok) return setError("保存済み探索を開けませんでした。");
     const run = (await response.json()) as ScreenResult;
     setResult(run);
+    if (run.base_candidate_id) setBaseCandidateId(run.base_candidate_id);
     setTarget(run.target);
     setTargetValue(String(run.target_value));
     setSamples(run.samples);
@@ -3687,6 +3704,8 @@ function LiveScreeningPage({
         </div>
         <button
           className="primary-button"
+          disabled={!baseCandidateId}
+          title={baseCandidateId ? "選択した候補を基準に探索します" : "基準候補が必要です"}
           onClick={() => {
             void run();
           }}
@@ -3709,6 +3728,7 @@ function LiveScreeningPage({
                 <b>{run.target}</b> → {number(run.target_value, 1)} /{" "}
                 {run.samples}点{" "}
                 <small>
+                  基準: {candidates.find((candidate) => candidate.id === run.base_candidate_id)?.label ?? run.base_candidate_id?.slice(0, 8) ?? "旧保存データ"} ·{" "}
                   {run.created_at
                     ? new Date(run.created_at).toLocaleString("ja-JP")
                     : "保存済み"}
@@ -3720,6 +3740,14 @@ function LiveScreeningPage({
       )}
       <div className="screening-settings">
         <div className="screening-target">
+          <label>
+            基準候補
+            <select value={baseCandidateId} onChange={(event) => setBaseCandidateId(event.target.value)}>
+              {candidates.map((candidate) => (
+                <option key={candidate.id} value={candidate.id}>{candidate.label}</option>
+              ))}
+            </select>
+          </label>
           <label>
             評価点数
             <input

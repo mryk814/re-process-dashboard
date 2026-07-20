@@ -366,8 +366,7 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
     @app.post("/api/screening", status_code=201)
     def screening(payload: ScreeningRequest, project_id: str = "default") -> dict[str, Any]:
         require_project(project_id)
-        candidates = store().list_candidates(project_id)
-        base = store().get_candidate(payload.base_candidate_id, project_id) if payload.base_candidate_id else (candidates[0] if candidates else None)
+        base = store().get_candidate(payload.base_candidate_id, project_id)
         if not base:
             raise HTTPException(404, "基準候補が見つかりません")
         try:
