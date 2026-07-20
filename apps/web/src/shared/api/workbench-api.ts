@@ -96,8 +96,8 @@ export const workbenchApi = {
   async snapshot(projectId: string, snapshotId: string, signal?: AbortSignal) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/snapshots/{snapshot_id}", { params: { path: { project_id: projectId, snapshot_id: snapshotId } }, signal }), "保存済み予測を参照できませんでした。");
   },
-  async predictionVsActual(projectId: string, candidateId: string) {
-    return requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/prediction-vs-actual", { params: { path: { project_id: projectId, candidate_id: candidateId } } }), "予測と実測を取得できませんでした。");
+  async predictionVsActual(projectId: string, candidateId: string, signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/prediction-vs-actual", { params: { path: { project_id: projectId, candidate_id: candidateId } }, signal }), "予測と実測を取得できませんでした。");
   },
   async createActual(projectId: string, candidateId: string, body: ApiActualInput) {
     return requireData(await apiClient.POST("/api/projects/{project_id}/candidates/{candidate_id}/actuals", { params: { path: { project_id: projectId, candidate_id: candidateId } }, body }), "実測を保存できませんでした。");

@@ -1,7 +1,6 @@
 export const WORKBENCH_VIEWS = [
   "project",
   "candidates",
-  "hot-rolling",
   "settings",
   "quality",
   "lineage",

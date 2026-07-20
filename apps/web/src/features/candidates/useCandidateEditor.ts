@@ -10,7 +10,7 @@ export type CandidateSaveState = "idle" | "dirty" | "saving" | "saved" | "confli
 type CandidateEditorOptions = {
   projectId: string;
   setCandidates: Dispatch<SetStateAction<CandidateViewModel[]>>;
-  onPreview: (candidateId: string, preview: ApiPreview | null, inputIdentity?: string) => void;
+  onPreview: (candidateId: string, preview: ApiPreview | null, inputIdentity?: string, candidateRevision?: number) => void;
   getPreviewInputIdentity?: (candidateId: string) => string | undefined;
   onNotice: (message: string) => void;
 };
@@ -73,7 +73,7 @@ export function useCandidateEditor({ projectId, setCandidates, onPreview, getPre
       const inputIdentity = candidateInputIdentity(saved.inputs);
       if (!shouldRefreshPreviewAfterSave(baseInputIdentity, inputIdentity, previewInputIdentityAtStart)) return;
       inferenceRequestCache.invalidatePrefix(candidateInferencePrefix(projectId, candidateId));
-      onPreview(candidateId, null, inputIdentity);
+      onPreview(candidateId, null, inputIdentity, saved.revision);
       previewControllers.current.get(candidateId)?.abort();
       const previewController = new AbortController();
       previewControllers.current.set(candidateId, previewController);
@@ -85,7 +85,7 @@ export function useCandidateEditor({ projectId, setCandidates, onPreview, getPre
           || previewControllers.current.get(candidateId) !== previewController
           || candidateInputIdentity(current?.inputs) !== inputIdentity
         ) return;
-        onPreview(candidateId, preview, inputIdentity);
+        onPreview(candidateId, preview, inputIdentity, saved.revision);
       } catch {
         const current = authoritative.current.get(candidateId);
         if (
@@ -120,6 +120,7 @@ export function useCandidateEditor({ projectId, setCandidates, onPreview, getPre
 
   function schedule(candidate: CandidateViewModel, previous?: CandidateViewModel) {
     markDirty(candidate.id);
+    onPreview(candidate.id, null);
     queue.current.supersede(candidate.id);
     if (previous && candidateInferenceChanged(previous.raw.inputs, candidate.raw.inputs)) {
       previewControllers.current.get(candidate.id)?.abort();
