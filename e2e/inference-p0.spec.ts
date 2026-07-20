@@ -174,6 +174,60 @@ test("inference runs only for changed candidates and visible selected curves", a
   await expect(page.locator(".evidence-panel .metric-table")).toBeVisible();
   await page.unroute("**/preview");
 
+  const candidateApiUrl = `http://127.0.0.1:8875/api/projects/default/candidates/${createdCandidateId}`;
+  const currentCandidateResponse = await page.request.get(candidateApiUrl);
+  expect(currentCandidateResponse.status()).toBe(200);
+  const externalCandidate = await currentCandidateResponse.json() as {
+    name: string;
+    revision: number;
+    inputs: { composition: Record<string, number>; process: Record<string, number>; categorical: Record<string, string>; heat_pattern: unknown };
+    provenance: unknown;
+  };
+  const externalInputs = structuredClone(externalCandidate.inputs);
+  const externalCompositionKey = Object.keys(externalInputs.composition)[0];
+  expect(externalCompositionKey).toBeTruthy();
+  externalInputs.composition[externalCompositionKey] += 0.002;
+  const externalUpdate = await page.request.put(candidateApiUrl, {
+    data: {
+      name: externalCandidate.name,
+      inputs: externalInputs,
+      provenance: externalCandidate.provenance,
+      expected_revision: externalCandidate.revision,
+    },
+  });
+  expect(externalUpdate.status()).toBe(200);
+
+  let releaseConflict = () => undefined;
+  const conflictGate = new Promise<void>((resolve) => { releaseConflict = resolve; });
+  let conflictHeld = false;
+  let conflictStatus = 0;
+  await page.route(`**/candidates/${createdCandidateId}`, async (route) => {
+    const response = await route.fetch();
+    conflictStatus = response.status();
+    conflictHeld = true;
+    await conflictGate;
+    await route.fulfill({ response });
+  }, { times: 1 });
+  const previewsBeforeConflictRecovery = previewRequests;
+  const conflictName = page.locator(".candidate-name-table tbody tr.selected-row input");
+  await conflictName.fill(`${await conflictName.inputValue()} 競合1`);
+  await page.locator(".table-heading h2").click();
+  await expect.poll(() => conflictHeld).toBe(true);
+  expect(conflictStatus).toBe(409);
+  await conflictName.fill(`${await conflictName.inputValue()} 競合2`);
+  await page.locator(".table-heading h2").click();
+  await page.waitForTimeout(350);
+  const recoveredSave = page.waitForResponse((response) => (
+    response.request().method() === "PUT"
+    && response.url().endsWith(`/candidates/${createdCandidateId}`)
+    && response.status() === 200
+  ));
+  releaseConflict();
+  await recoveredSave;
+  await expect.poll(() => previewRequests).toBe(previewsBeforeConflictRecovery + 1);
+  await expect(page.locator(".evidence-panel .metric-table")).toBeVisible();
+  await page.unroute(`**/candidates/${createdCandidateId}`);
+
   let failedPreviewResponse = false;
   await page.route("**/preview", async (route) => {
     failedPreviewResponse = true;

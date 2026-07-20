@@ -7,6 +7,7 @@ import {
   candidateInputIdentity,
   inferenceRequestKey,
   mergePreviewEntryIfCurrent,
+  shouldRefreshPreviewAfterSave,
 } from "../src/inferenceRequestCache.ts";
 
 test("coalesces identical inference work and keeps shared work alive when one caller aborts", async () => {
@@ -155,4 +156,12 @@ test("display-only edits preserve pending inference while input edits supersede 
 
   assert.equal(candidateInferenceChanged(previous.raw.inputs, renamed.raw.inputs), false);
   assert.equal(candidateInferenceChanged(previous.raw.inputs, changedInput.raw.inputs), true);
+});
+
+test("a display-only save refreshes preview when conflict recovery adopts external inputs", () => {
+  const baseIdentity = candidateInputIdentity({ process: { speed: 100 } });
+  const externalIdentity = candidateInputIdentity({ process: { speed: 140 } });
+
+  assert.equal(shouldRefreshPreviewAfterSave(baseIdentity, baseIdentity, baseIdentity), false);
+  assert.equal(shouldRefreshPreviewAfterSave(baseIdentity, externalIdentity, baseIdentity), true);
 });

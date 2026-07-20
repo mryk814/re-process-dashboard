@@ -3,7 +3,7 @@ import { fromApiCandidate, toApiCandidate, type CandidateViewModel } from "./can
 import { LatestSaveQueue, rebaseChangedFields } from "./latestSaveQueue";
 import { ApiClientError } from "./shared/api/client";
 import { workbenchApi, type ApiCandidate, type ApiCandidateInput, type ApiCandidateUpdate, type ApiPreview } from "./shared/api/workbench-api";
-import { candidateInferenceChanged, candidateInferencePrefix, candidateInputIdentity, inferenceRequestCache } from "./inferenceRequestCache";
+import { candidateInferenceChanged, candidateInferencePrefix, candidateInputIdentity, inferenceRequestCache, shouldRefreshPreviewAfterSave } from "./inferenceRequestCache";
 
 export type CandidateSaveState = "idle" | "dirty" | "saving" | "saved" | "conflict" | "error";
 
@@ -11,10 +11,11 @@ type CandidateEditorOptions = {
   projectId: string;
   setCandidates: Dispatch<SetStateAction<CandidateViewModel[]>>;
   onPreview: (candidateId: string, preview: ApiPreview | null, inputIdentity?: string) => void;
+  getPreviewInputIdentity?: (candidateId: string) => string | undefined;
   onNotice: (message: string) => void;
 };
 
-export function useCandidateEditor({ projectId, setCandidates, onPreview, onNotice }: CandidateEditorOptions) {
+export function useCandidateEditor({ projectId, setCandidates, onPreview, getPreviewInputIdentity, onNotice }: CandidateEditorOptions) {
   const queue = useRef(new LatestSaveQueue<ApiCandidate>());
   const authoritative = useRef(new Map<string, ApiCandidate>());
   const scheduled = useRef(new Map<string, ReturnType<typeof setTimeout>>());
@@ -42,7 +43,8 @@ export function useCandidateEditor({ projectId, setCandidates, onPreview, onNoti
     const initial = authoritative.current.get(candidateId) ?? previous?.raw ?? candidate.raw;
     const basePayload = toApiCandidate(fromApiCandidate(initial));
     const draftPayload = toApiCandidate(candidate);
-    const inferenceChanged = candidateInputIdentity(basePayload.inputs) !== candidateInputIdentity(draftPayload.inputs);
+    const baseInputIdentity = candidateInputIdentity(basePayload.inputs);
+    const previewInputIdentityAtStart = getPreviewInputIdentity?.(candidateId);
     setSaveState(candidateId, "saving");
     setFieldErrors((current) => ({ ...current, [candidateId]: [] }));
     const queued = queue.current.enqueue(candidateId, initial, async (serverCandidate) => {
@@ -68,9 +70,9 @@ export function useCandidateEditor({ projectId, setCandidates, onPreview, onNoti
       if (!queued.isLatest() || activeProjectId.current !== projectId) return;
       setCandidates((items) => items.map((item) => item.id === candidateId ? fromApiCandidate(saved) : item));
       setSaveState(candidateId, "saved");
-      if (!inferenceChanged) return;
-      inferenceRequestCache.invalidatePrefix(candidateInferencePrefix(projectId, candidateId));
       const inputIdentity = candidateInputIdentity(saved.inputs);
+      if (!shouldRefreshPreviewAfterSave(baseInputIdentity, inputIdentity, previewInputIdentityAtStart)) return;
+      inferenceRequestCache.invalidatePrefix(candidateInferencePrefix(projectId, candidateId));
       onPreview(candidateId, null, inputIdentity);
       previewControllers.current.get(candidateId)?.abort();
       const previewController = new AbortController();

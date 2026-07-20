@@ -142,6 +142,15 @@ export function candidateInferenceChanged(previousInputs: unknown, nextInputs: u
   return candidateInputIdentity(previousInputs) !== candidateInputIdentity(nextInputs);
 }
 
+export function shouldRefreshPreviewAfterSave(
+  baseInputIdentity: string,
+  savedInputIdentity: string,
+  previewInputIdentity?: string,
+): boolean {
+  return savedInputIdentity !== baseInputIdentity
+    || (previewInputIdentity !== undefined && savedInputIdentity !== previewInputIdentity);
+}
+
 export function mergePreviewEntryIfCurrent<T extends { canonical_input: unknown }>(
   current: Record<string, T>,
   candidateId: string,

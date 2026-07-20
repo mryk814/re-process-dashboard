@@ -235,6 +235,7 @@ function App() {
   const editor = useCandidateEditor({
     projectId: activeProjectId,
     setCandidates,
+    getPreviewInputIdentity: (candidateId) => storedPreviewIdentityRef.current.get(candidateId),
     onPreview: (candidateId, nextPreview, inputIdentity) => {
       if (inputIdentity) previewInputIdentityRef.current.set(candidateId, inputIdentity);
       if (nextPreview && inputIdentity) storedPreviewIdentityRef.current.set(candidateId, inputIdentity);

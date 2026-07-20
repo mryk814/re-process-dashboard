@@ -15,14 +15,18 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
   const [task, setTask] = useState<TaskDefinitionContract | null>(null);
   const [notice, setNotice] = useState("熱延タスクを読み込んでいます");
   const previewInputIdentityRef = useRef(new Map<string, string>());
+  const storedPreviewIdentityRef = useRef(new Map<string, string>());
   const activePreviewControllers = useRef(new Set<AbortController>());
   const addPreviewController = useRef<AbortController | null>(null);
   const lifecycleGeneration = useRef(0);
   const editor = useCandidateEditor({
     projectId,
     setCandidates,
+    getPreviewInputIdentity: (candidateId) => storedPreviewIdentityRef.current.get(candidateId),
     onPreview: (candidateId, result, inputIdentity) => {
       if (inputIdentity) previewInputIdentityRef.current.set(candidateId, inputIdentity);
+      if (result && inputIdentity) storedPreviewIdentityRef.current.set(candidateId, inputIdentity);
+      else storedPreviewIdentityRef.current.delete(candidateId);
       setPreviews((items) => {
         if (result) return { ...items, [candidateId]: result };
         const { [candidateId]: _, ...remaining } = items;
@@ -38,6 +42,7 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
     const inputIdentity = candidateInputIdentity(inputs);
     const result = await workbenchApi.previewCandidate(projectId, candidateId, inputIdentity, signal);
     if (!shouldApply() || previewInputIdentityRef.current.get(candidateId) !== inputIdentity) return;
+    storedPreviewIdentityRef.current.set(candidateId, inputIdentity);
     setPreviews((items) => ({ ...items, [candidateId]: result }));
   }
 
@@ -61,6 +66,7 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
           loadedCandidates.map((candidate) => [candidate.id, candidateInputIdentity(candidate.raw.inputs)]),
         );
         setPreviews({});
+        storedPreviewIdentityRef.current.clear();
         editor.acceptServerCandidates(loadedCandidates.map((candidate) => candidate.raw));
         setCandidates(loadedCandidates);
         setSelectedId(loadedCandidates[0]?.id ?? "");
