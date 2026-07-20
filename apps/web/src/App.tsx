@@ -3044,6 +3044,7 @@ function LiveLineagePage({
               <h3>工程段階別の特性分布</h3>
               {(data.node.observation_groups ?? []).length ? (
                 <>
+                  <div className="lineage-observation-scroll">
                   <table className="quality-table compact-table">
                     <thead>
                       <tr>
@@ -3075,6 +3076,7 @@ function LiveLineagePage({
                       )}
                     </tbody>
                   </table>
+                  </div>
                   <details className="similar-more">
                     <summary>観測値を表示</summary>
                     {(data.node.connected_observations ?? []).map((observation) => (

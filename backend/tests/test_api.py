@@ -138,6 +138,7 @@ def test_quality_lineage_and_bootstrap(client) -> None:
     assert lineage.json()["graph"]["relation_row_count"] > 0
     assert any(edge["route_rows"] for edge in lineage.json()["graph"]["edges"])
     assert lineage.json()["candidate_eligible"] is True
+    assert any(edge["source"] == "HR-00001" and edge["target"] == "AN-00001" for edge in lineage.json()["graph"]["edges"])
 
 
 def test_lineage_index_and_isolated_nodes_are_inspectable(client) -> None:
@@ -163,7 +164,12 @@ def test_lineage_index_and_isolated_nodes_are_inspectable(client) -> None:
 
 
 def test_lineage_keeps_hot_rolled_and_annealed_observations_separate(client) -> None:
-    node = client.get("/api/lineage/AN-00003").json()["node"]
+    payload = client.get("/api/lineage/AN-00003").json()
+    node = payload["node"]
     ts_groups = [group for group in node["observation_groups"] if group["property"] == "TS[MPa]"]
     assert {group["stage"] for group in ts_groups} == {"熱延後", "焼鈍後"}
     assert all(group["count"] == len(group["observations"]) for group in ts_groups)
+    edge_pairs = {(edge["source"], edge["target"]) for edge in payload["graph"]["edges"]}
+    assert ("HR-00003", "CR-00002") in edge_pairs
+    assert ("CR-00002", "AN-00003") in edge_pairs
+    assert ("HR-00003", "AN-00003") not in edge_pairs

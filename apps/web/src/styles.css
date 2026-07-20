@@ -2187,6 +2187,24 @@ select:focus-visible,
 .compact-table td:first-child {
   text-align: left;
 }
+.lineage-observation-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.lineage-observation-scroll table {
+  min-width: 620px;
+}
+@media (max-width: 980px) {
+  .lineage-workspace {
+    grid-template-columns: 1fr;
+  }
+  .lineage-browser {
+    position: static;
+  }
+  .lineage-result-list {
+    max-height: 220px;
+  }
+}
 @media (max-width: 760px) {
   .target-grid,
   .screening-target,

@@ -270,9 +270,6 @@ LINEAGE_ADJACENCIES = (
     ("熱延_key", "熱延引張_key"),
     ("熱延_key", "熱延組織_key"),
     ("熱延_key", "冷延_key"),
-    # Some valid routes omit cold rolling. Preserve that explicit skip as a
-    # direct evidence edge instead of visually disconnecting annealing.
-    ("熱延_key", "焼鈍_key"),
     ("冷延_key", "焼鈍_key"),
     ("焼鈍_key", "焼鈍引張_key"),
     ("焼鈍_key", "焼鈍穴広げ_key"),
@@ -328,6 +325,13 @@ def lineage_neighborhood(data: WorkbookData, entity_key: str, max_nodes: int = 8
                 pair = (str(source), str(target))
                 if row_number not in edge_rows[pair]:
                     edge_rows[pair].append(row_number)
+        # A direct hot-roll → anneal edge is real only for relation rows where
+        # cold rolling is absent. Never draw it as a parallel bypass around an
+        # existing cold-roll condition.
+        if row.get("熱延_key") and row.get("焼鈍_key") and not row.get("冷延_key"):
+            pair = (str(row["熱延_key"]), str(row["焼鈍_key"]))
+            if pair[0] in visible and pair[1] in visible and row_number not in edge_rows[pair]:
+                edge_rows[pair].append(row_number)
     return {
         "nodes": nodes,
         "edges": [
