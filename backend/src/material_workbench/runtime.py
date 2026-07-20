@@ -9,11 +9,13 @@ from typing import Any
 
 import numpy as np
 
-from .feature_pipeline import FEATURE_NAMES as METALLURGY_FEATURE_NAMES, FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION, build_feature_bundle
+from .feature_contracts import feature_index_families
+from .feature_pipeline import FEATURE_DEFINITIONS, FEATURE_NAMES as METALLURGY_FEATURE_NAMES, FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION, build_feature_bundle, build_feature_bundle_from_observation
 from .dataset_profile import load_task_definitions
 from .importer import WorkbookData, composition_names
-from .model_packages import ModelPackageLoader, VerifiedModelPackage, validate_task_definition_canonical_inputs
+from .model_packages import ModelPackageLoader, VerifiedModelPackage, validate_predictive_summary, validate_task_definition_canonical_inputs
 from .schemas import Candidate, CandidateInput, Prediction, Support
+from .task_registry import load_task_contracts
 
 
 TASK_ID = "annealed-properties-v1"
@@ -24,12 +26,15 @@ SIMILARITY_VERSION = "parent-condition-knn-v3-repeat-summary"
 INPUT_SCHEMA_VERSION = "candidate-v1"
 TARGETS = {"TS": ("TS[MPa]", "MPa"), "YS": ("YS[MPa]", "MPa"), "EL": ("EL[%]", "%"), "lambda": ("λ[%]", "%")}
 FEATURE_NAMES = METALLURGY_FEATURE_NAMES
-FEATURE_COMPONENTS = {
-    "composition": tuple(range(len(COMPOSITION_COLUMNS))),
-    "process": tuple(range(14, 19)),
-    "metallurgy": tuple(range(19, 25)),
-    "heat_pattern": tuple(range(25, len(FEATURE_NAMES))),
-}
+FEATURE_GROUP_INDICES = feature_index_families(
+    FEATURE_DEFINITIONS,
+    {
+        "composition": ("composition",),
+        "process": ("process", "categorical"),
+        "metallurgy": ("metallurgy",),
+        "heat_pattern": ("heat_pattern",),
+    },
+)
 
 
 def _fit_ridge(x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -73,7 +78,7 @@ def _rms_distance(reference: np.ndarray, point: np.ndarray, columns: tuple[int, 
     # influence regardless of how many scalar features each group contains.
     component_mse = [
         ((reference[:, group] - point[list(group)]) ** 2).mean(axis=1)
-        for group in FEATURE_COMPONENTS.values()
+        for group in FEATURE_GROUP_INDICES.values()
     ]
     return np.sqrt(np.vstack(component_mse).mean(axis=0))
 
@@ -181,7 +186,12 @@ class ModelRuntime:
         candidate = CandidateInput.model_validate(json.loads(self.model_package.artifact_path(smoke["input"]).read_text(encoding="utf-8")))
         expected = json.loads(self.model_package.artifact_path(smoke["expected"]).read_text(encoding="utf-8"))
         values = build_feature_bundle(candidate, self.composition_defaults).as_dict()
-        actual = {target: predictor.predict(values, seed=0).point_estimate for target, predictor in self.package_predictors.items()}
+        specs = {spec.target: spec for spec in self.model_package.manifest.predictors}
+        capabilities = {item.target: item for item in load_task_contracts()[TASK_ID].runtime_capability.targets}
+        summaries = {target: predictor.predict(values, seed=0) for target, predictor in self.package_predictors.items()}
+        for target, summary in summaries.items():
+            validate_predictive_summary(summary, specs[target], capabilities[target])
+        actual = {target: summary.point_estimate for target, summary in summaries.items()}
         if set(actual) != set(expected) or any(not np.isclose(actual[target], expected[target], rtol=1e-7, atol=1e-7) for target in actual):
             raise ValueError("Model package smoke test did not reproduce its expected predictions")
 
@@ -225,16 +235,8 @@ class ModelRuntime:
         }
 
     def _vector_for_observation(self, row: dict[str, Any]) -> np.ndarray | None:
-        if row["source"] == "熱延引張":
-            return None
-        process, composition = row["features"], row["composition"]
-        if not process or not composition or len(process.get("heat_pattern", [])) < 2 or row["thickness_mm"] <= 0:
-            return None
-        candidate = CandidateInput(
-            name=str(row["parent_key"]), composition=composition, thickness_mm=row["thickness_mm"],
-            line_speed_m_min=process["line_speed_m_min"], coating=process["coating"], heat_pattern=process["heat_pattern"],
-        )
-        return build_feature_bundle(candidate, self.data.medians).values.copy()
+        bundle = build_feature_bundle_from_observation(row, self.data.medians)
+        return None if bundle is None else bundle.values.copy()
 
     @staticmethod
     def _support_reference(rows: list[dict[str, Any]], x: np.ndarray, mean: np.ndarray | None = None, scale: np.ndarray | None = None) -> SupportReference:
@@ -299,7 +301,7 @@ class ModelRuntime:
             status, message = "extrapolated", "独立した学習条件の近傍から外れています。予測値は探索的な参考です"
         components = {
             name: round(float(_rms_distance(reference.parent_vectors, normalized, columns)[nearest_index]), 4)
-            for name, columns in FEATURE_COMPONENTS.items()
+            for name, columns in FEATURE_GROUP_INDICES.items()
         }
         def nearest_rows(source: SupportReference, layer: str, limit: int, exclude: set[str] | None = None) -> list[dict[str, Any]]:
             source_normalized = source.normalized(x)
@@ -331,7 +333,7 @@ class ModelRuntime:
                     "layer": layer, "distance": round(float(source_distances[index]), 4),
                     "components": {
                         name: round(float(_rms_distance(source.parent_vectors, source_normalized, columns)[int(index)]), 4)
-                        for name, columns in FEATURE_COMPONENTS.items()
+                        for name, columns in FEATURE_GROUP_INDICES.items()
                     },
                     "outputs": {key: summary["mean"] for key, summary in summaries.items()},
                     "repeat_summary": summaries,

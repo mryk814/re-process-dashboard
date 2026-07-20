@@ -7,20 +7,31 @@ from typing import Any
 
 import numpy as np
 
-from .hot_rolling_feature_pipeline import FEATURE_COMPONENTS, FEATURE_NAMES, INPUT_SCHEMA_VERSION, PIPELINE_ID, PIPELINE_VERSION, build_hot_rolling_features
+from .feature_contracts import feature_index_families
+from .hot_rolling_feature_pipeline import FEATURE_DEFINITIONS, FEATURE_NAMES, INPUT_SCHEMA_VERSION, PIPELINE_ID, PIPELINE_VERSION, build_hot_rolling_features, build_hot_rolling_features_from_observation
 from .dataset_profile import load_task_definitions
 from .importer import WorkbookData
-from .model_packages import ModelPackageLoader, validate_task_definition_canonical_inputs
+from .model_packages import ModelPackageLoader, validate_predictive_summary, validate_task_definition_canonical_inputs
 from .schemas import HotRollingCandidate, HotRollingCandidateInput, Prediction, Support
+from .task_registry import load_task_contracts
 
 
 TASK_ID = "hot-rolled-properties-v1"
+FEATURE_GROUP_INDICES = feature_index_families(
+    FEATURE_DEFINITIONS,
+    {
+        "composition": ("composition",),
+        "metallurgy": ("metallurgy",),
+        "process": ("process",),
+        "categorical": ("categorical",),
+    },
+)
 
 
 def _distance(reference: np.ndarray, point: np.ndarray, columns: tuple[int, ...] | None = None) -> np.ndarray:
     if columns is not None:
         return np.sqrt(((reference[:, columns] - point[list(columns)]) ** 2).mean(axis=1))
-    parts = [((reference[:, columns] - point[list(columns)]) ** 2).mean(axis=1) for columns in FEATURE_COMPONENTS.values()]
+    parts = [((reference[:, columns] - point[list(columns)]) ** 2).mean(axis=1) for columns in FEATURE_GROUP_INDICES.values()]
     return np.sqrt(np.vstack(parts).mean(axis=0))
 
 
@@ -54,24 +65,14 @@ class HotRollingRuntime:
         candidate = HotRollingCandidateInput.model_validate(json.loads(self.model_package.artifact_path(smoke["input"]).read_text(encoding="utf-8")))
         expected = json.loads(self.model_package.artifact_path(smoke["expected"]).read_text(encoding="utf-8"))
         values = build_hot_rolling_features(candidate, self.composition_defaults).as_dict()
-        actual = {target: predictor.predict(values).point_estimate for target, predictor in self.predictors.items()}
+        specs = {spec.target: spec for spec in self.model_package.manifest.predictors}
+        capabilities = {item.target: item for item in load_task_contracts()[TASK_ID].runtime_capability.targets}
+        summaries = {target: predictor.predict(values) for target, predictor in self.predictors.items()}
+        for target, summary in summaries.items():
+            validate_predictive_summary(summary, specs[target], capabilities[target])
+        actual = {target: summary.point_estimate for target, summary in summaries.items()}
         if set(actual) != set(expected) or any(not np.isclose(actual[target], expected[target], rtol=1e-7, atol=1e-7) for target in actual):
             raise ValueError("Hot-rolling model package smoke test did not reproduce expected predictions")
-
-    def _candidate_for_observation(self, row: dict[str, Any]) -> HotRollingCandidateInput:
-        process = row["features"]
-        return HotRollingCandidateInput(
-            name=str(row["parent_key"]),
-            composition=row["composition"],
-            reheat_temperature_c=process["reheat_temperature_c"],
-            hold_time_min=process["hold_time_min"],
-            finish_temperature_c=process["finish_temperature_c"],
-            coiling_temperature_c=process["coiling_temperature_c"],
-            cooling_rate_c_s=process["cooling_rate_c_s"],
-            entry_thickness_mm=process["entry_thickness_mm"],
-            exit_thickness_mm=process["exit_thickness_mm"],
-            route=process["route"],
-        )
 
     def _build_support_reference(self) -> None:
         observations = [row for row in self.data.observations if row["source"] == "熱延引張" and row["eligible"] and row["features"] and row["composition"]]
@@ -79,9 +80,13 @@ class HotRollingRuntime:
         for row in observations:
             grouped[str(row["parent_key"])].append(row)
         self.reference_rows = [rows for _, rows in sorted(grouped.items())]
+        bundles = [build_hot_rolling_features_from_observation(rows[0], self.composition_defaults) for rows in self.reference_rows]
+        if any(bundle is None for bundle in bundles):
+            raise ValueError("eligible hot-rolling observations must convert to candidates")
         raw = np.vstack([
-            build_hot_rolling_features(self._candidate_for_observation(rows[0]), self.composition_defaults).values
-            for rows in self.reference_rows
+            bundle.values
+            for bundle in bundles
+            if bundle is not None
         ])
         self.reference_mean = raw.mean(axis=0)
         self.reference_scale = raw.std(axis=0)
@@ -119,7 +124,7 @@ class HotRollingRuntime:
                 "distance": round(float(distances[index]), 4),
                 "components": {
                     name: round(float(_distance(self.reference_vectors, normalized, columns)[int(index)]), 4)
-                    for name, columns in FEATURE_COMPONENTS.items()
+                    for name, columns in FEATURE_GROUP_INDICES.items()
                 },
                 "repeat_summary": {
                     name: {"mean": round(float(np.mean(items)), 3), "std": round(float(np.std(items)), 3), "n": len(items)}
@@ -131,7 +136,7 @@ class HotRollingRuntime:
             distance=round(nearest, 4),
             percentile=round(float((self.loo_nearest <= nearest).mean() * 100), 1),
             message=message,
-            components={name: round(float(_distance(self.reference_vectors, normalized, columns)[nearest_index]), 4) for name, columns in FEATURE_COMPONENTS.items()},
+            components={name: round(float(_distance(self.reference_vectors, normalized, columns)[nearest_index]), 4) for name, columns in FEATURE_GROUP_INDICES.items()},
             reference_count=len(self.reference_rows),
             supported_threshold=round(supported_limit, 4),
             caution_threshold=round(caution_limit, 4),

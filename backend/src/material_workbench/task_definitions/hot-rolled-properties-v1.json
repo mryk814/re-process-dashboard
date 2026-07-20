@@ -75,7 +75,7 @@
     "task_id": "hot-rolled-properties-v1",
     "model_package_schema_version": "model-package/v1",
     "targets": [
-      {"target": "TS", "point_statistics": ["mean"], "standard_deviation": true, "quantiles": true, "samples": false, "parametric_distribution": true, "uncertainty_components": false, "support": true, "warnings": true, "goal_probability": "distribution"}
+      {"target": "TS", "point_statistics": ["mean"], "standard_deviation": true, "quantiles": true, "samples": false, "parametric_distribution": true, "uncertainty_components": true, "support": true, "warnings": true, "goal_probability": "distribution"}
     ],
     "joint_samples": false,
     "operations": {"preview": true, "detailed_prediction": false, "response_curve": false, "similarity": true, "snapshot": false, "actual_measurement": false}

@@ -7,10 +7,16 @@
   ],
   "features": [
     {
-      "name": "C"
+      "name": "C",
+      "unit": "mass%",
+      "meaning": "C composition",
+      "group": "composition"
     },
     {
-      "name": "Mn"
+      "name": "Mn",
+      "unit": "mass%",
+      "meaning": "Mn composition",
+      "group": "composition"
     }
   ]
 }

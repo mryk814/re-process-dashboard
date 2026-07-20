@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal, Protocol
@@ -14,7 +15,7 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal, Protocol
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 if TYPE_CHECKING:
-    from .task_contracts import TaskDefinition
+    from .task_contracts import TargetRuntimeCapability, TaskDefinition
 
 
 MAX_ARTIFACT_BYTES = 256 * 1024 * 1024
@@ -87,8 +88,9 @@ class FeaturePipelineSpec(PackageModel):
 
 class PipelineFeatureSpec(PackageModel):
     name: Annotated[str, Field(min_length=1)]
-    unit: str | None = None
-    meaning: str | None = None
+    unit: str
+    meaning: str
+    group: Literal["composition", "process", "categorical", "metallurgy", "heat_pattern", "other"]
 
 
 class FeaturePipelineDocument(PackageModel):
@@ -238,6 +240,50 @@ class PredictiveSummary(PackageModel):
     distribution: dict[str, Any]
     uncertainty_components: dict[str, float] | None = None
     warnings: tuple[str, ...] = ()
+
+
+def validate_predictive_summary(
+    summary: PredictiveSummary,
+    spec: PredictorSpec,
+    capability: TargetRuntimeCapability | None = None,
+) -> None:
+    """Validate the semantic contract shared by every prediction adapter."""
+    if (summary.target, summary.target_kind, summary.unit) != (spec.target, spec.target_kind, spec.unit):
+        raise PackageContractError(f"predictor {spec.id!r} returned incompatible target metadata")
+    if not math.isfinite(summary.point_estimate):
+        raise PackageContractError(f"predictor {spec.id!r} returned a non-finite point estimate")
+    family = summary.distribution.get("family")
+    if family != spec.predictive_family:
+        raise PackageContractError(
+            f"predictor {spec.id!r} returned distribution family {family!r}, expected {spec.predictive_family!r}"
+        )
+    ordered_quantiles = sorted((float(level), value) for level, value in summary.quantiles.items())
+    if any(not math.isfinite(value) for _, value in ordered_quantiles):
+        raise PackageContractError(f"predictor {spec.id!r} returned non-finite quantiles")
+    if any(left[1] > right[1] for left, right in zip(ordered_quantiles, ordered_quantiles[1:])):
+        raise PackageContractError(f"predictor {spec.id!r} returned unordered quantiles")
+    if spec.target_kind == "binary" and not (
+        0 <= summary.point_estimate <= 1
+        and summary.event_probability is not None
+        and 0 <= summary.event_probability <= 1
+    ):
+        raise PackageContractError(f"predictor {spec.id!r} returned invalid binary probability semantics")
+    if capability is None:
+        return
+    if summary.point_statistic not in capability.point_statistics:
+        raise PackageContractError(f"predictor {spec.id!r} returned an undeclared point statistic")
+    if bool(summary.quantiles) != capability.quantiles:
+        raise PackageContractError(f"predictor {spec.id!r} quantile capability does not match its smoke output")
+    has_standard_deviation = "std" in summary.distribution
+    if has_standard_deviation != capability.standard_deviation:
+        raise PackageContractError(f"predictor {spec.id!r} standard-deviation capability does not match its smoke output")
+    has_parametric_distribution = summary.distribution.get("family") != "empirical_quantiles"
+    if has_parametric_distribution != capability.parametric_distribution:
+        raise PackageContractError(f"predictor {spec.id!r} distribution capability does not match its smoke output")
+    if bool(summary.uncertainty_components) != capability.uncertainty_components:
+        raise PackageContractError(f"predictor {spec.id!r} uncertainty-component capability does not match its smoke output")
+    if capability.samples:
+        raise PackageContractError(f"predictor {spec.id!r} declares samples that PredictiveSummary does not expose")
 
 
 class LoadedPredictor(Protocol):

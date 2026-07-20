@@ -11,16 +11,25 @@ import numpy as np
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from material_workbench.hot_rolling_feature_pipeline import CANONICAL_INPUT_PATHS, FEATURE_COMPONENTS, FEATURE_NAMES, INPUT_SCHEMA_VERSION, PIPELINE_ID, PIPELINE_VERSION, build_hot_rolling_features
+from material_workbench.feature_contracts import feature_index_families
+from material_workbench.hot_rolling_feature_pipeline import CANONICAL_INPUT_PATHS, FEATURE_DEFINITIONS, FEATURE_NAMES, INPUT_SCHEMA_VERSION, PIPELINE_ID, PIPELINE_VERSION, build_hot_rolling_features, build_hot_rolling_features_from_observation, candidate_from_observation
 from material_workbench.importer import load_workbook_data
-from material_workbench.schemas import HotRollingCandidateInput
 from material_workbench.task_registry import load_task_contracts
 
 
 PACKAGE_ID = "hot-rolled-gp-2026-07"
-PACKAGE_VERSION = "0.2.0-ts-only"
-TRAINING_CODE_REVISION = "0.2.0-ts-only"
+PACKAGE_VERSION = "0.3.0-ts-only"
+TRAINING_CODE_REVISION = "0.3.0-ts-only"
 TASK_ID = "hot-rolled-properties-v1"
+FEATURE_GROUP_INDICES = feature_index_families(
+    FEATURE_DEFINITIONS,
+    {
+        "composition": ("composition",),
+        "metallurgy": ("metallurgy",),
+        "process": ("process",),
+        "categorical": ("categorical",),
+    },
+)
 
 
 def _digest(path: Path) -> str:
@@ -31,25 +40,13 @@ def _artifact(root: Path, path: Path) -> dict[str, object]:
     return {"path": path.relative_to(root).as_posix(), "sha256": _digest(path), "bytes": path.stat().st_size}
 
 
-def _candidate(row: dict[str, object]) -> HotRollingCandidateInput:
-    process = row["features"]
-    assert isinstance(process, dict)
-    return HotRollingCandidateInput(
-        name=str(row["parent_key"]), composition=row["composition"],  # type: ignore[arg-type]
-        reheat_temperature_c=process["reheat_temperature_c"], hold_time_min=process["hold_time_min"],
-        finish_temperature_c=process["finish_temperature_c"], coiling_temperature_c=process["coiling_temperature_c"],
-        cooling_rate_c_s=process["cooling_rate_c_s"], entry_thickness_mm=process["entry_thickness_mm"],
-        exit_thickness_mm=process["exit_thickness_mm"], route=process["route"],
-    )
-
-
 def _fit_hyperparameters(x: np.ndarray, y: np.ndarray, train_noise: float) -> tuple[np.ndarray, float]:
     centered = y - y.mean()
     variance = max(float(np.var(y)), 1e-6)
     best: tuple[float, np.ndarray, float] | None = None
     for global_scale in (0.5, 0.75, 1.0, 1.5, 2.25, 3.5):
         lengthscale = np.ones(x.shape[1], dtype=np.float64)
-        for columns in FEATURE_COMPONENTS.values():
+        for columns in FEATURE_GROUP_INDICES.values():
             lengthscale[list(columns)] = global_scale * np.sqrt(len(columns))
         scaled = (x[:, None, :] - x[None, :, :]) / lengthscale
         base = np.exp(-0.5 * np.sum(scaled * scaled, axis=2))
@@ -93,7 +90,7 @@ def build(source: Path, destination: Path) -> None:
     for folder in (artifact_dir, feature_dir, reference_dir, smoke_dir):
         folder.mkdir(parents=True, exist_ok=True)
     pipeline_path = feature_dir / "pipeline.json"
-    pipeline_path.write_text(json.dumps({"id": PIPELINE_ID, "version": PIPELINE_VERSION, "canonical_input_paths": list(CANONICAL_INPUT_PATHS), "features": [{"name": name} for name in FEATURE_NAMES]}, indent=2), encoding="utf-8", newline="\n")
+    pipeline_path.write_text(json.dumps({"id": PIPELINE_ID, "version": PIPELINE_VERSION, "canonical_input_paths": list(CANONICAL_INPUT_PATHS), "features": [{"name": item.name, "unit": item.unit, "meaning": item.meaning, "group": item.group} for item in FEATURE_DEFINITIONS]}, indent=2), encoding="utf-8", newline="\n")
     files = [pipeline_path]
     predictors: list[dict[str, object]] = []
     counts: dict[str, int] = {}
@@ -104,7 +101,10 @@ def build(source: Path, destination: Path) -> None:
             grouped.setdefault(str(row["parent_key"]), []).append(row)
         raw_x, y, within, within_df, repeats = [], [], 0.0, 0, []
         for group_rows in grouped.values():
-            raw_x.append(build_hot_rolling_features(_candidate(group_rows[0]), data.medians).values)
+            bundle = build_hot_rolling_features_from_observation(group_rows[0], data.medians)
+            if bundle is None:
+                raise ValueError("eligible hot-rolling observation did not convert to a candidate")
+            raw_x.append(bundle.values)
             values = np.asarray([float(row["outputs"][column]) for row in group_rows])
             y.append(float(values.mean()))
             repeats.append(len(values))
@@ -134,7 +134,11 @@ def build(source: Path, destination: Path) -> None:
     stats_path = reference_dir / "training_stats.json"
     stats_path.write_text(json.dumps({"records": counts, "source_sha256": data.source_sha256, "composition_defaults": data.medians}, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
     files.append(stats_path)
-    sample = _candidate(rows[0]).model_copy(update={"name": "hot rolling package smoke"})
+    sample_candidate = candidate_from_observation(rows[0])
+    if sample_candidate is None:
+        raise ValueError("smoke observation did not convert to a hot-rolling candidate")
+    assert sample_candidate is not None
+    sample = sample_candidate.model_copy(update={"name": "hot rolling package smoke"})
     smoke_input = smoke_dir / "input.json"
     smoke_input.write_text(sample.model_dump_json(indent=2), encoding="utf-8", newline="\n")
     raw = build_hot_rolling_features(sample, data.medians).values

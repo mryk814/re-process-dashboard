@@ -27,7 +27,10 @@ def _package_root(tmp_path: Path, name: str, predictor: dict[str, object], model
         "id": "optional-test",
         "version": "1",
         "canonical_input_paths": ["composition.C", "composition.Mn"],
-        "features": [{"name": "C"}, {"name": "Mn"}],
+        "features": [
+            {"name": "C", "unit": "mass%", "meaning": "C composition", "group": "composition"},
+            {"name": "Mn", "unit": "mass%", "meaning": "Mn composition", "group": "composition"},
+        ],
     }), encoding="utf-8")
     manifest = {
         "schema_version": "model-package/v1", "package_id": name, "package_version": "1", "task_id": "test", "input_schema_version": "candidate-v1",

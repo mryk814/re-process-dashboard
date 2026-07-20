@@ -1,10 +1,11 @@
 import math
+from pathlib import Path
 
 import numpy as np
 import pytest
 
-from material_workbench.feature_pipeline import CANONICAL_INPUT_PATHS, FEATURE_NAMES, FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION, build_feature_bundle
-from material_workbench.importer import _normalize_stage_local_times
+from material_workbench.feature_pipeline import CANONICAL_INPUT_PATHS, FEATURE_NAMES, FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION, build_feature_bundle, build_feature_bundle_from_observation, candidate_from_observation
+from material_workbench.importer import _normalize_stage_local_times, load_workbook_data
 from material_workbench.schemas import CandidateInput
 
 
@@ -55,6 +56,17 @@ def test_feature_bundle_golden_for_piecewise_linear_route() -> None:
 
     assert (bundle.pipeline_id, bundle.pipeline_version) == (FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION)
     assert bundle.names == FEATURE_NAMES == EXPECTED_FEATURE_NAMES
+    assert bundle.indices_by_group() == {
+        "composition": tuple(range(14)),
+        "process": (14, 15),
+        "categorical": (16, 17, 18),
+        "metallurgy": (19, 20, 21, 22, 23, 24),
+        "heat_pattern": tuple(range(25, 34)),
+    }
+    assert tuple(item.group for item in bundle.features) == tuple(
+        group for group, count in (("composition", 14), ("process", 2), ("categorical", 3), ("metallurgy", 6), ("heat_pattern", 9))
+        for _ in range(count)
+    )
     assert CANONICAL_INPUT_PATHS == EXPECTED_CANONICAL_INPUT_PATHS
     assert len(bundle.names) == 34
     assert len(set(bundle.names)) == len(bundle.names)
@@ -208,3 +220,15 @@ def test_unknown_or_non_finite_composition_is_rejected() -> None:
         build_feature_bundle(_candidate(route, composition={**COMPOSITION, "Nb": 0.03}))
     with pytest.raises(ValueError, match="0〜100"):
         build_feature_bundle(_candidate(route, composition={**COMPOSITION, "C": math.nan}))
+
+
+def test_annealed_training_row_uses_the_candidate_pipeline() -> None:
+    source = Path(__file__).parents[2] / "data" / "source" / "process_dashboard_realistic_excel_v2.xlsx"
+    data = load_workbook_data(source)
+    row = next(item for item in data.observations if item["source"] == "焼鈍引張" and item["eligible"])
+    candidate = candidate_from_observation(row)
+    assert candidate is not None
+    training_bundle = build_feature_bundle_from_observation(row, data.medians)
+    assert training_bundle is not None
+    prediction_bundle = build_feature_bundle(candidate, data.medians)
+    assert training_bundle.features == prediction_bundle.features

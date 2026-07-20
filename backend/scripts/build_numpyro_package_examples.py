@@ -41,7 +41,7 @@ def build(destination: Path) -> None:
         pipeline_dir.mkdir(parents=True)
         model_dir.mkdir()
         pipeline = pipeline_dir / "pipeline.json"
-        pipeline.write_text(json.dumps({"id": "two-feature-example", "version": "1.0.0", "canonical_input_paths": list(CANONICAL_INPUT_PATHS), "features": [{"name": "C"}, {"name": "Mn"}]}, indent=2), encoding="utf-8", newline="\n")
+        pipeline.write_text(json.dumps({"id": "two-feature-example", "version": "1.0.0", "canonical_input_paths": list(CANONICAL_INPUT_PATHS), "features": [{"name": "C", "unit": "mass%", "meaning": "C composition", "group": "composition"}, {"name": "Mn", "unit": "mass%", "meaning": "Mn composition", "group": "composition"}]}, indent=2), encoding="utf-8", newline="\n")
         draws = 64
         rng = np.random.default_rng(20260720)
         arrays: dict[str, np.ndarray] = {

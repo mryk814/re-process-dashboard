@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import math
-from typing import Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
 import numpy as np
 
 from .schemas import CandidateInput, HeatPoint
+from .feature_contracts import FeatureBundle, FeatureDefinition
 
 
 COMPOSITION_NAMES = (
@@ -20,54 +20,35 @@ CANONICAL_INPUT_PATHS = (
     "categorical.coating",
 )
 FEATURE_PIPELINE_ID = "metallurgy-thermal"
-FEATURE_PIPELINE_VERSION = "1.4.0"
-
-
-@dataclass(frozen=True)
-class FeatureDefinition:
-    name: str
-    unit: str
-    meaning: str
+FEATURE_PIPELINE_VERSION = "1.5.0"
 
 
 FEATURE_DEFINITIONS = (
-    *(FeatureDefinition(name, "mass%", f"{name} composition") for name in COMPOSITION_NAMES),
-    FeatureDefinition("thickness_mm", "mm", "Product thickness"),
-    FeatureDefinition("line_speed_m_min", "m/min", "Process line speed"),
-    FeatureDefinition("coating_none", "1", "Uncoated indicator"),
-    FeatureDefinition("coating_GI", "1", "GI coating indicator"),
-    FeatureDefinition("coating_GA", "1", "GA coating indicator"),
-    FeatureDefinition("ce_iiw", "mass%", "IIW carbon-equivalent proxy"),
-    FeatureDefinition("pcm", "mass%", "Ito-Bessyo weld-cracking composition parameter"),
-    FeatureDefinition("c_times_mn", "mass%^2", "Carbon-manganese interaction proxy"),
-    FeatureDefinition("si_plus_al", "mass%", "Combined silicon and aluminium content"),
-    FeatureDefinition("cr_plus_mo", "mass%", "Combined chromium and molybdenum content"),
-    FeatureDefinition("microalloy_sum", "mass%", "Available microalloying content, Ti + B"),
-    FeatureDefinition("peak_temperature_c", "degC", "Peak temperature of the entered route"),
-    FeatureDefinition("max_heating_rate_c_s", "degC/s", "Maximum positive segment heating rate"),
-    FeatureDefinition("time_at_or_above_95pct_peak_s", "s", "Interpolated time at or above 95% of peak"),
-    FeatureDefinition("time_at_or_above_700c_s", "s", "Interpolated time at or above 700 degC"),
-    FeatureDefinition("thermal_exposure_above_600c_c_s", "degC*s", "Integral of max(T - 600 degC, 0)"),
-    FeatureDefinition("cooling_rate_800_to_500_c_s", "degC/s", "Equivalent cooling rate between downward 800 and 500 degC crossings after peak"),
-    FeatureDefinition("cooling_800_to_500_observed", "1", "One when both downward 800 and 500 degC crossings are observed; zero marks the rate as unavailable"),
-    FeatureDefinition("reheat_count", "count", "Cooling-to-heating excursions with at least 25 degC amplitude"),
-    FeatureDefinition("has_reheat", "1", "One when reheat_count is positive"),
+    *(FeatureDefinition(name, "mass%", f"{name} composition", "composition") for name in COMPOSITION_NAMES),
+    FeatureDefinition("thickness_mm", "mm", "Product thickness", "process"),
+    FeatureDefinition("line_speed_m_min", "m/min", "Process line speed", "process"),
+    FeatureDefinition("coating_none", "1", "Uncoated indicator", "categorical"),
+    FeatureDefinition("coating_GI", "1", "GI coating indicator", "categorical"),
+    FeatureDefinition("coating_GA", "1", "GA coating indicator", "categorical"),
+    FeatureDefinition("ce_iiw", "mass%", "IIW carbon-equivalent proxy", "metallurgy"),
+    FeatureDefinition("pcm", "mass%", "Ito-Bessyo weld-cracking composition parameter", "metallurgy"),
+    FeatureDefinition("c_times_mn", "mass%^2", "Carbon-manganese interaction proxy", "metallurgy"),
+    FeatureDefinition("si_plus_al", "mass%", "Combined silicon and aluminium content", "metallurgy"),
+    FeatureDefinition("cr_plus_mo", "mass%", "Combined chromium and molybdenum content", "metallurgy"),
+    FeatureDefinition("microalloy_sum", "mass%", "Available microalloying content, Ti + B", "metallurgy"),
+    FeatureDefinition("peak_temperature_c", "degC", "Peak temperature of the entered route", "heat_pattern"),
+    FeatureDefinition("max_heating_rate_c_s", "degC/s", "Maximum positive segment heating rate", "heat_pattern"),
+    FeatureDefinition("time_at_or_above_95pct_peak_s", "s", "Interpolated time at or above 95% of peak", "heat_pattern"),
+    FeatureDefinition("time_at_or_above_700c_s", "s", "Interpolated time at or above 700 degC", "heat_pattern"),
+    FeatureDefinition("thermal_exposure_above_600c_c_s", "degC*s", "Integral of max(T - 600 degC, 0)", "heat_pattern"),
+    FeatureDefinition("cooling_rate_800_to_500_c_s", "degC/s", "Equivalent cooling rate between downward 800 and 500 degC crossings after peak", "heat_pattern"),
+    FeatureDefinition("cooling_800_to_500_observed", "1", "One when both downward 800 and 500 degC crossings are observed; zero marks the rate as unavailable", "heat_pattern"),
+    FeatureDefinition("reheat_count", "count", "Cooling-to-heating excursions with at least 25 degC amplitude", "heat_pattern"),
+    FeatureDefinition("has_reheat", "1", "One when reheat_count is positive", "heat_pattern"),
 )
 
 FEATURE_NAMES = tuple(definition.name for definition in FEATURE_DEFINITIONS)
 FEATURE_UNITS = tuple(definition.unit for definition in FEATURE_DEFINITIONS)
-
-
-@dataclass(frozen=True)
-class FeatureBundle:
-    pipeline_id: str
-    pipeline_version: str
-    names: tuple[str, ...]
-    values: np.ndarray
-    units: tuple[str, ...]
-
-    def as_dict(self) -> dict[str, float]:
-        return {name: float(value) for name, value in zip(self.names, self.values, strict=True)}
 
 
 def _composition(
@@ -94,6 +75,30 @@ def _composition(
     if missing:
         raise ValueError(f"Missing composition values and no defaults supplied: {', '.join(missing)}")
     return values
+
+
+def candidate_from_observation(row: dict[str, Any]) -> CandidateInput | None:
+    if row["source"] == "熱延引張":
+        return None
+    process, composition = row["features"], row["composition"]
+    if not process or not composition or len(process.get("heat_pattern", [])) < 2 or row["thickness_mm"] <= 0:
+        return None
+    return CandidateInput(
+        name=str(row["parent_key"]),
+        composition=composition,
+        thickness_mm=row["thickness_mm"],
+        line_speed_m_min=process["line_speed_m_min"],
+        coating=process["coating"],
+        heat_pattern=process["heat_pattern"],
+    )
+
+
+def build_feature_bundle_from_observation(
+    row: dict[str, Any],
+    composition_defaults: Mapping[str, float],
+) -> FeatureBundle | None:
+    candidate = candidate_from_observation(row)
+    return None if candidate is None else build_feature_bundle(candidate, composition_defaults)
 
 
 def _segment_duration_above(t0: float, y0: float, t1: float, y1: float, threshold: float) -> float:
@@ -260,5 +265,4 @@ def build_feature_bundle(
     )
     if values.shape != (len(FEATURE_DEFINITIONS),) or not np.isfinite(values).all():
         raise ValueError("Feature pipeline produced an invalid feature vector")
-    values.setflags(write=False)
-    return FeatureBundle(FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION, FEATURE_NAMES, values, FEATURE_UNITS)
+    return FeatureBundle(FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION, FEATURE_DEFINITIONS, values)
