@@ -17,7 +17,7 @@ from .schemas import Candidate, CandidateInput, Prediction, Support
 TASK_ID = "annealed-properties-v1"
 MODEL_ID = "anneal-ridge"
 MODEL_VERSION = "0.4.0-oof-v1"
-SIMILARITY_VERSION = "parent-condition-knn-v2-group-balanced"
+SIMILARITY_VERSION = "parent-condition-knn-v3-repeat-summary"
 INPUT_SCHEMA_VERSION = "candidate-v1"
 TARGETS = {"TS": ("TS[MPa]", "MPa"), "YS": ("YS[MPa]", "MPa"), "EL": ("EL[%]", "%"), "lambda": ("λ[%]", "%")}
 FEATURE_NAMES = METALLURGY_FEATURE_NAMES
@@ -101,6 +101,7 @@ class SupportReference:
     feature_scale: np.ndarray
     parent_vectors: np.ndarray
     parent_rows: list[dict[str, Any]]
+    parent_observation_rows: list[list[dict[str, Any]]]
     loo_nearest_distances: np.ndarray
 
     def normalized(self, x: np.ndarray) -> np.ndarray:
@@ -137,6 +138,8 @@ class ModelRuntime:
     def _load_and_validate_package_feature_contract(self) -> None:
         assert self.model_package is not None
         manifest = self.model_package.manifest
+        if manifest.task_id != TASK_ID:
+            raise ValueError(f"Model package task {manifest.task_id} is incompatible with {TASK_ID}")
         expected = tuple(FEATURE_NAMES)
         if (manifest.feature_pipeline.id, manifest.feature_pipeline.version) != (FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION):
             raise ValueError("Model package feature pipeline id/version is incompatible")
@@ -233,10 +236,11 @@ class ModelRuntime:
         ordered_groups = sorted(grouped_indexes)
         parent_vectors = np.vstack([normalized[grouped_indexes[group]].mean(axis=0) for group in ordered_groups])
         parent_rows = [rows[grouped_indexes[group][0]] for group in ordered_groups]
+        parent_observation_rows = [[rows[index] for index in grouped_indexes[group]] for group in ordered_groups]
         pairwise = np.sqrt(((parent_vectors[:, None, :] - parent_vectors[None, :, :]) ** 2).mean(axis=2))
         np.fill_diagonal(pairwise, np.inf)
         loo_nearest = pairwise.min(axis=1) if len(parent_vectors) > 1 else np.array([0.0])
-        return SupportReference(mean, scale, parent_vectors, parent_rows, loo_nearest)
+        return SupportReference(mean, scale, parent_vectors, parent_rows, parent_observation_rows, loo_nearest)
 
     def _fit(self) -> None:
         prepared_all = [(row, self._vector_for_observation(row)) for row in self.data.observations]
@@ -285,28 +289,49 @@ class ModelRuntime:
             name: round(float(_rms_distance(reference.parent_vectors, normalized, columns)[nearest_index]), 4)
             for name, columns in FEATURE_COMPONENTS.items()
         }
-        def nearest_rows(source: SupportReference, layer: str, limit: int) -> list[dict[str, Any]]:
+        def nearest_rows(source: SupportReference, layer: str, limit: int, exclude: set[str] | None = None) -> list[dict[str, Any]]:
             source_normalized = source.normalized(x)
             source_distances = _rms_distance(source.parent_vectors, source_normalized)
             rows: list[dict[str, Any]] = []
-            for index in np.argsort(source_distances)[:limit]:
+            for index in np.argsort(source_distances):
                 row = source.parent_rows[int(index)]
+                parent_key = str(row["parent_key"])
+                if exclude and parent_key in exclude:
+                    continue
+                repeats = source.parent_observation_rows[int(index)]
+                values_by_property: dict[str, list[float]] = defaultdict(list)
+                for repeat in repeats:
+                    for property_name, value in repeat["outputs"].items():
+                        values_by_property[property_name].append(float(value))
+                summaries = {
+                    property_name: {
+                        "mean": round(float(np.mean(values)), 3),
+                        "std": round(float(np.std(values)), 3),
+                        "n": len(values),
+                    }
+                    for property_name, values in sorted(values_by_property.items())
+                }
                 rows.append({
-                    "observation_id": row["id"], "source": row["source"], "parent_key": row["parent_key"],
+                    "observation_id": row["id"],
+                    "observation_ids": [repeat["id"] for repeat in repeats],
+                    "source": " / ".join(sorted({str(repeat["source"]) for repeat in repeats})),
+                    "parent_key": parent_key,
                     "layer": layer, "distance": round(float(source_distances[index]), 4),
                     "components": {
                         name: round(float(_rms_distance(source.parent_vectors, source_normalized, columns)[int(index)]), 4)
                         for name, columns in FEATURE_COMPONENTS.items()
                     },
-                    "outputs": {key: round(value, 3) for key, value in row["outputs"].items()},
+                    "outputs": {key: summary["mean"] for key, summary in summaries.items()},
+                    "repeat_summary": summaries,
                 })
+                if len(rows) >= limit:
+                    break
             return rows
 
         training_nearest = nearest_rows(reference, "training", 3)
-        historical_nearest = nearest_rows(self.historical_reference, "historical", 3) if self.historical_reference else []
-        similar = [item for pair in zip(training_nearest, historical_nearest) for item in pair]
-        similar.extend(training_nearest[len(historical_nearest):])
-        similar.extend(historical_nearest[len(training_nearest):])
+        training_parents = {str(row["parent_key"]) for row in reference.parent_rows}
+        historical_nearest = nearest_rows(self.historical_reference, "historical", 3, training_parents) if self.historical_reference else []
+        similar = [*training_nearest, *historical_nearest]
         return Support(
             status=status,
             distance=round(nearest, 4),

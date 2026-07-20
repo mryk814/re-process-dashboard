@@ -17,6 +17,10 @@ class HeatPoint(BaseModel):
     time_s: Annotated[float, Field(ge=0, allow_inf_nan=False)]
     temperature_c: Annotated[float, Field(ge=-273.15, le=1800)]
     segment_start: bool = False
+    set_temperature_c: Annotated[float | None, Field(ge=-273.15, le=1800)] = None
+    stage_category: str | None = None
+    stage_name: str | None = None
+    mapping_status: str | None = None
 
 
 class CandidateInput(BaseModel):
@@ -57,7 +61,7 @@ class ProjectInput(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=120)] = "焼鈍条件の候補検討"
     description: str = ""
     purpose: str = ""
-    task_id: str = "annealed-properties-v1"
+    task_id: Literal["annealed-properties-v1"] = "annealed-properties-v1"
     target_values: dict[str, float] = Field(default_factory=dict)
     notes: str = ""
     decision_candidate_id: Annotated[str, Field(max_length=80)] = ""
@@ -123,7 +127,7 @@ class ScreeningVariable(BaseModel):
 
 
 class ScreeningRequest(BaseModel):
-    base_candidate_id: str | None = None
+    base_candidate_id: Annotated[str, Field(min_length=1)]
     variables: Annotated[dict[str, ScreeningVariable], Field(min_length=1)]
     samples: Annotated[int, Field(ge=48, le=128)] = 64
     target: Literal["TS", "YS", "EL", "lambda"] = "TS"
@@ -252,8 +256,52 @@ class QualityResponse(BaseModel):
 class PropertySummary(BaseModel):
     count: int
     min: float
+    mean: float
+    std: float
     median: float
     max: float
+
+
+class ConnectedObservation(BaseModel):
+    id: str
+    source: str
+    parent_key: str
+    outputs: dict[str, float]
+
+
+class ObservationGroup(BaseModel):
+    stage: str
+    test_type: str
+    property: str
+    count: int
+    min: float
+    mean: float
+    std: float
+    median: float
+    max: float
+    observations: list[ConnectedObservation]
+
+
+class LineageGraphNode(BaseModel):
+    key: str
+    entity_type: str
+    source_sheet: str
+    exists: bool
+    selected: bool
+    issue_types: list[str]
+
+
+class LineageGraphEdge(BaseModel):
+    source: str
+    target: str
+    route_rows: list[int]
+
+
+class LineageGraph(BaseModel):
+    nodes: list[LineageGraphNode]
+    edges: list[LineageGraphEdge]
+    relation_row_count: int
+    omitted_node_count: int
 
 
 class LineageNodeDetail(BaseModel):
@@ -265,16 +313,22 @@ class LineageNodeDetail(BaseModel):
     composition: dict[str, float]
     heat_pattern: list[HeatPoint]
     connected_observation_count: int
+    connected_observations: list[ConnectedObservation]
+    observation_groups: list[ObservationGroup]
     property_summary: dict[str, PropertySummary]
     related_entities: dict[str, list[str]]
+    missing_source: bool = False
 
 
 class LineageResponse(BaseModel):
     # key/relations/quality_issues are the existing renderer contract.
     key: str
     relations: dict[str, list[str]]
-    quality_issues: list[dict[str, Any]]
+    quality_issues: list[DataQualityIssue]
     node: LineageNodeDetail
+    graph: LineageGraph
+    candidate_eligible: bool
+    candidate_reason: str
 
 
 class StrictModel(BaseModel):

@@ -78,6 +78,13 @@ def test_project_crud_preserves_default_and_isolates_candidates_and_screening(cl
     assert client.post("/api/screening", json=screening_body).status_code == 404
 
 
+def test_project_rejects_a_task_without_a_matching_model(client) -> None:
+    payload = _project("未対応タスク")
+    payload["task_id"] = "hot-rolled-properties-v1"
+    response = client.post("/api/projects", json=payload)
+    assert response.status_code == 422
+
+
 def test_candidate_limit_is_enforced_for_every_creation_route(client) -> None:
     project = client.post("/api/projects", json=_project("上限確認")).json()
     project_id = project["id"]

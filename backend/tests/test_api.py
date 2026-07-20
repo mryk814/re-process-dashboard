@@ -129,3 +129,56 @@ def test_quality_lineage_and_bootstrap(client) -> None:
     assert node["composition"]
     assert len(node["heat_pattern"]) == 14
     assert node["property_summary"]["TS[MPa]"]["count"] > 0
+    assert isinstance(node["property_summary"]["TS[MPa]"]["mean"], float)
+    assert isinstance(node["property_summary"]["TS[MPa]"]["std"], float)
+    assert node["connected_observations"]
+    assert node["connected_observations"][0]["id"]
+    assert node["observation_groups"]
+    assert all(group["stage"] in {"熱延後", "焼鈍後"} for group in node["observation_groups"])
+    assert lineage.json()["graph"]["relation_row_count"] > 0
+    assert any(edge["route_rows"] for edge in lineage.json()["graph"]["edges"])
+    assert lineage.json()["candidate_eligible"] is True
+    assert any(edge["source"] == "HR-00001" and edge["target"] == "AN-00001" for edge in lineage.json()["graph"]["edges"])
+
+
+def test_lineage_index_and_isolated_nodes_are_inspectable(client) -> None:
+    index = client.get("/api/lineage", params={"query": "AN-00001"}).json()
+    assert index["relation_rows"] > 1_800
+    assert index["total_entities"] > index["relation_rows"]
+    assert index["items"][0]["key"] == "AN-00001"
+    assert index["items"][0]["family"]
+    assert index["items"][0]["route"]
+    assert index["items"][0]["peak_temperature_c"] > 0
+    assert index["items"][0]["observation_summary"]
+    assert client.get("/api/lineage", params={"query": index["items"][0]["family"], "entity_type": "焼鈍"}).json()["items"]
+    isolated = client.get("/api/lineage/CR-00010")
+    assert isolated.status_code == 200
+    assert isolated.json()["node"]["entity_type"] == "冷延"
+    assert isolated.json()["graph"]["relation_row_count"] == 0
+    assert isolated.json()["candidate_eligible"] is False
+    invalid_key = next(
+        issue["entity_key"]
+        for issue in client.get("/api/quality").json()["detected_issues"]
+        if issue["issue_type"] == "invalid_reference"
+    )
+    invalid_index = client.get("/api/lineage", params={"query": invalid_key}).json()
+    assert invalid_index["items"] == [{"key": invalid_key, "entity_type": "熱延引張", "has_issue": True}]
+    invalid = client.get(f"/api/lineage/{invalid_key}")
+    assert invalid.status_code == 200
+    assert invalid.json()["node"]["missing_source"] is True
+
+
+def test_lineage_keeps_hot_rolled_and_annealed_observations_separate(client) -> None:
+    payload = client.get("/api/lineage/AN-00003").json()
+    node = payload["node"]
+    ts_groups = [group for group in node["observation_groups"] if group["property"] == "TS[MPa]"]
+    assert {group["stage"] for group in ts_groups} == {"熱延後", "焼鈍後"}
+    assert all(group["count"] == len(group["observations"]) for group in ts_groups)
+    annealed_properties = {group["property"] for group in node["observation_groups"] if group["stage"] == "焼鈍後"}
+    assert {"均一伸び[%]", "r値[-]", "n値[-]"} <= annealed_properties
+    assert any(point["stage_category"] for point in node["heat_pattern"])
+    assert any(point["set_temperature_c"] is not None for point in node["heat_pattern"])
+    edge_pairs = {(edge["source"], edge["target"]) for edge in payload["graph"]["edges"]}
+    assert ("HR-00003", "CR-00002") in edge_pairs
+    assert ("CR-00002", "AN-00003") in edge_pairs
+    assert ("HR-00003", "AN-00003") not in edge_pairs

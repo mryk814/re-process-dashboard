@@ -56,7 +56,7 @@ def test_screening_rejects_invalid_field_values_and_empty_candidate_set(client) 
         assert client.delete(f"/api/candidates/{item['id']}").status_code == 204
     no_base = _screening_body(candidate["id"])
     no_base["base_candidate_id"] = None
-    assert client.post("/api/screening", json=no_base).status_code == 404
+    assert client.post("/api/screening", json=no_base).status_code == 422
 
 
 def test_lineage_candidate_actuals_and_snapshot_restore(client) -> None:

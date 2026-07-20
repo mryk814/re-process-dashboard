@@ -7,6 +7,7 @@ from collections import Counter
 from contextlib import asynccontextmanager
 from io import BytesIO, StringIO
 from pathlib import Path
+from statistics import fmean, pstdev
 from typing import Any
 
 from fastapi import FastAPI, File, HTTPException, Response, UploadFile
@@ -14,7 +15,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
-from .importer import lineage_node_detail, load_workbook_data
+from .importer import ENTITY_SHEETS, lineage_neighborhood, lineage_node_detail, load_workbook_data
 from .runtime import ModelRuntime
 from .schemas import ActualMeasurementInput, CandidateInput, LineageResponse, PredictionResponse, ProjectDecisionInput, ProjectInput, QualityResponse, ScreeningRequest
 from .services import candidate_from_lineage, candidates_xlsx, import_candidates_xlsx, run_latin_hypercube
@@ -284,6 +285,77 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
         writer.writerows(issues)
         return StreamingResponse(iter(["\ufeff" + output.getvalue()]), media_type="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment; filename=detected-data-quality.csv"})
 
+    @app.get("/api/lineage")
+    def lineage_index(query: str = "", entity_type: str = "", issue_only: bool = False, limit: int = 40) -> dict[str, Any]:
+        data = app.state.data
+        normalized = query.strip().casefold()
+        issue_keys = {issue["entity_key"] for issue in data.detected_quality if issue["entity_key"]}
+        items: list[dict[str, Any]] = []
+        counts: Counter[str] = Counter()
+        for sheet_name, key_column in ENTITY_SHEETS.items():
+            records = data.entities[key_column]
+            counts[sheet_name] += len(records)
+            if entity_type and sheet_name != entity_type:
+                continue
+            for key, source_row in records.items():
+                metadata: dict[str, Any] = {}
+                if sheet_name == "焼鈍":
+                    relations = data.lineage.get(key, {})
+                    melt_keys = sorted(set(relations.get("溶製_key", [])))
+                    melt_row = data.entities.get("溶製_key", {}).get(melt_keys[0], {}) if len(melt_keys) == 1 else {}
+                    feature = data.anneal_features.get(key, {})
+                    values_by_property: dict[str, list[float]] = {}
+                    for observation in data.observations:
+                        if observation["parent_key"] != key or observation["source"] == "熱延引張":
+                            continue
+                        for property_name, value in observation["outputs"].items():
+                            values_by_property.setdefault(property_name, []).append(float(value))
+                    metadata = {
+                        "family": str(melt_row.get("鋼種ファミリ") or melt_row.get("鋼種") or ""),
+                        "project": str(source_row.get("プロジェクト名") or ""),
+                        "route": str(feature.get("standard_route") or ""),
+                        "peak_temperature_c": feature.get("max_temperature_c"),
+                        "coating": str(feature.get("coating") or ""),
+                        "learning_status": str(source_row.get("学習利用区分") or ""),
+                        "has_observation": bool(values_by_property),
+                        "observation_summary": {
+                            property_name: {
+                                "mean": round(float(fmean(values)), 3),
+                                "std": round(float(pstdev(values)), 3),
+                                "n": len(values),
+                            }
+                            for property_name, values in sorted(values_by_property.items())
+                        },
+                    }
+                search_text = " ".join([key, *(str(value) for value in metadata.values() if not isinstance(value, dict))]).casefold()
+                if normalized and normalized not in search_text:
+                    continue
+                if issue_only and key not in issue_keys:
+                    continue
+                items.append({"key": key, "entity_type": sheet_name, "has_issue": key in issue_keys, **metadata})
+        known_keys = {item["key"] for item in items}
+        for issue in data.detected_quality:
+            key = issue["entity_key"]
+            if not key or key in known_keys or key not in data.lineage:
+                continue
+            relations = data.lineage[key]
+            key_column = next((column for column, values in relations.items() if key in values), "")
+            sheet_name = next((sheet for sheet, column in ENTITY_SHEETS.items() if column == key_column), issue["source_sheet"])
+            if entity_type and sheet_name != entity_type:
+                continue
+            if normalized and normalized not in key.casefold():
+                continue
+            items.append({"key": key, "entity_type": sheet_name, "has_issue": True})
+            known_keys.add(key)
+        items.sort(key=lambda item: (not item["has_issue"], item["entity_type"], item["key"]))
+        return {
+            "items": items[:max(1, min(limit, 100))],
+            "total_entities": sum(counts.values()),
+            "relation_rows": len(data.sheets["relation"]),
+            "detected_issues": len(data.detected_quality),
+            "counts_by_type": counts,
+        }
+
     @app.get("/api/lineage/{entity_key}", response_model=LineageResponse)
     def lineage(entity_key: str) -> dict[str, Any]:
         item = app.state.data.lineage.get(entity_key)
@@ -293,7 +365,26 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
             node = lineage_node_detail(app.state.data, entity_key)
         except KeyError:
             raise HTTPException(404, "来歴ノードの元データが見つかりません") from None
-        return {"key": entity_key, "relations": item, "quality_issues": [issue for issue in app.state.data.quality if issue.get("対象キー") == entity_key], "node": node}
+        graph = lineage_neighborhood(app.state.data, entity_key)
+        connected_keys = {graph_node["key"] for graph_node in graph["nodes"]}
+        issues = [issue for issue in app.state.data.detected_quality if issue["entity_key"] in connected_keys]
+        try:
+            candidate_from_lineage(app.state.data, entity_key)
+        except ValueError as exc:
+            candidate_eligible = False
+            candidate_reason = str(exc)
+        else:
+            candidate_eligible = True
+            candidate_reason = "接続された焼鈍実績を候補入力として引き継げます"
+        return {
+            "key": entity_key,
+            "relations": item,
+            "quality_issues": issues,
+            "node": node,
+            "graph": graph,
+            "candidate_eligible": candidate_eligible,
+            "candidate_reason": candidate_reason,
+        }
 
     @app.post("/api/lineage/{entity_key}/candidate", status_code=201)
     def create_candidate_from_lineage(entity_key: str, project_id: str = "default") -> dict[str, Any]:
@@ -306,8 +397,7 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
     @app.post("/api/screening", status_code=201)
     def screening(payload: ScreeningRequest, project_id: str = "default") -> dict[str, Any]:
         require_project(project_id)
-        candidates = store().list_candidates(project_id)
-        base = store().get_candidate(payload.base_candidate_id, project_id) if payload.base_candidate_id else (candidates[0] if candidates else None)
+        base = store().get_candidate(payload.base_candidate_id, project_id)
         if not base:
             raise HTTPException(404, "基準候補が見つかりません")
         try:
