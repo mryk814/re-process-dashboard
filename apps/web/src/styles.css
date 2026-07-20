@@ -2251,6 +2251,7 @@ select:focus-visible,
   font-weight: 700;
   letter-spacing: 0.02em;
 }
+.candidate-name-table thead tr:first-child th { border-bottom: 0; }
 .composition-table thead tr:nth-child(2) th,
 .prediction-table thead tr:nth-child(2) th {
   background: #f7f9fc;
@@ -2288,6 +2289,9 @@ select:focus-visible,
   background: transparent;
   color: #18202c;
 }
+.composition-table input[type="number"] { appearance: textfield; -moz-appearance: textfield; }
+.composition-table input[type="number"]::-webkit-inner-spin-button,
+.composition-table input[type="number"]::-webkit-outer-spin-button { appearance: none; margin: 0; }
 .candidate-name-table input {
   text-align: left;
   font-weight: 700;

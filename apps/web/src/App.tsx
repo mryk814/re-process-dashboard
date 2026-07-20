@@ -1140,6 +1140,7 @@ function ComparisonTableV2({
 }) {
   const inputs = taskDefinition?.inputs ?? [];
   const compositionInputs = inputs.filter((input) => input.group === "composition");
+  const [compositionDrafts, setCompositionDrafts] = useState<Record<string, string>>({});
   const outputs = taskDefinition?.outputs ?? [
     { key: "TS", label: "TS", unit: "MPa", goal_direction: "at_least" as const },
     { key: "YS", label: "YS", unit: "MPa", goal_direction: "at_least" as const },
@@ -1152,8 +1153,8 @@ function ComparisonTableV2({
       <section className="composition-comparison" aria-label="候補の組成比較">
         <table className="candidate-name-table">
           <thead>
-            <tr><th rowSpan={2}>候補</th></tr>
-            <tr aria-hidden="true" />
+            <tr><th>候補</th></tr>
+            <tr aria-hidden="true"><th /></tr>
           </thead>
           <tbody>
             {candidates.map((candidate) => (
@@ -1173,7 +1174,19 @@ function ComparisonTableV2({
             <tbody>
               {candidates.map((candidate) => (
                 <tr key={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}>
-                  {compositionInputs.map((input) => <td key={input.id}><input type="number" step="any" min={input.min} max={input.max} value={candidate.raw.composition[input.field] ?? 0} aria-label={`${candidate.label} ${input.label}`} onFocus={() => onSelect(candidate.id)} onChange={(event) => onComposition(candidate.id, input.field, Number(event.target.value))} /></td>)}
+                  {compositionInputs.map((input) => {
+                    const draftKey = `${candidate.id}:${input.field}`;
+                    const currentValue = candidate.raw.composition[input.field] ?? 0;
+                    const value = compositionDrafts[draftKey] ?? String(currentValue);
+                    return <td key={input.id}><input type="number" step="any" min={input.min} max={input.max} value={value} aria-label={`${candidate.label} ${input.label}`} onFocus={() => onSelect(candidate.id)} onChange={(event) => setCompositionDrafts((drafts) => ({ ...drafts, [draftKey]: event.target.value }))} onBlur={(event) => {
+                      const raw = Number(event.target.value);
+                      setCompositionDrafts((drafts) => {
+                        const { [draftKey]: _, ...remaining } = drafts;
+                        return remaining;
+                      });
+                      if (Number.isFinite(raw) && raw !== currentValue) onComposition(candidate.id, input.field, raw);
+                    }} /></td>;
+                  })}
                 </tr>
               ))}
             </tbody>
