@@ -1,0 +1,82 @@
+{
+  "task_definition": {
+    "schema_version": "task-definition/v1",
+    "id": "hot-rolled-properties-v1",
+    "label": "熱延後特性予測",
+    "canonical_candidate_schema_version": "canonical-candidate/v1",
+    "input_groups": [
+      {
+        "key": "composition",
+        "order": 0,
+        "label": "成分",
+        "fields": [
+          {"path": "composition.C", "kind": "number", "order": 0, "label": "C", "unit": "mass%", "required": true, "editable": true, "default_range": {"min": 0.0, "max": 3.5}, "allowed_range": {"min": 0.0, "max": 100.0}, "training_range": {"min": 0.02497, "max": 0.13776}, "choices": []},
+          {"path": "composition.Si", "kind": "number", "order": 1, "label": "Si", "unit": "mass%", "required": true, "editable": true, "default_range": {"min": 0.0, "max": 3.0}, "allowed_range": {"min": 0.0, "max": 100.0}, "training_range": {"min": 0.12012, "max": 0.59856}, "choices": []},
+          {"path": "composition.Mn", "kind": "number", "order": 2, "label": "Mn", "unit": "mass%", "required": true, "editable": true, "default_range": {"min": 0.0, "max": 3.0}, "allowed_range": {"min": 0.0, "max": 100.0}, "training_range": {"min": 0.57918, "max": 2.08903}, "choices": []},
+          {"path": "composition.P", "kind": "number", "order": 3, "label": "P", "unit": "mass%", "required": true, "editable": true, "default_range": {"min": 0.0, "max": 0.1}, "allowed_range": {"min": 0.0, "max": 100.0}, "training_range": {"min": 0.00706, "max": 0.0185}, "choices": []},
+          {"path": "composition.S", "kind": "number", "order": 4, "label": "S", "unit": "mass%", "required": true, "editable": true, "default_range": {"min": 0.0, "max": 0.1}, "allowed_range": {"min": 0.0, "max": 100.0}, "training_range": {"min": 0.00165, "max": 0.0083}, "choices": []},
+          {"path": "composition.Cr", "kind": "number", "order": 5, "label": "Cr", "unit": "mass%", "required": true, "editable": true, "default_range": {"min": 0.0, "max": 3.0}, "allowed_range": {"min": 0.0, "max": 100.0}, "training_range": {"min": 0.0, "max": 0.60048}, "choices": []},
+          {"path": "composition.Mo", "kind": "number", "order": 6, "label": "Mo", "unit": "mass%", "required": true, "editable": true, "default_range": {"min": 0.0, "max": 2.0}, "allowed_range": {"min": 0.0, "max": 100.0}, "training_range": {"min": 0.0, "max": 0.20465}, "choices": []},
+          {"path": "composition.Ni", "kind": "number", "order": 7, "label": "Ni", "unit": "mass%", "required": true, "editable": true, "default_range": {"min": 0.0, "max": 5.0}, "allowed_range": {"min": 0.0, "max": 100.0}, "training_range": {"min": 0.00858, "max": 0.18033}, "choices": []},
+          {"path": "composition.Al", "kind": "number", "order": 8, "label": "Al", "unit": "mass%", "required": true, "editable": true, "default_range": {"min": 0.0, "max": 2.0}, "allowed_range": {"min": 0.0, "max": 100.0}, "training_range": {"min": 0.01335, "max": 0.05133}, "choices": []},
+          {"path": "composition.Ti", "kind": "number", "order": 9, "label": "Ti", "unit": "mass%", "required": true, "editable": true, "default_range": {"min": 0.0, "max": 0.5}, "allowed_range": {"min": 0.0, "max": 100.0}, "training_range": {"min": 0.0, "max": 0.05028}, "choices": []},
+          {"path": "composition.B", "kind": "number", "order": 10, "label": "B", "unit": "mass%", "required": true, "editable": true, "default_range": {"min": 0.0, "max": 0.02}, "allowed_range": {"min": 0.0, "max": 100.0}, "training_range": {"min": 0.0, "max": 0.00256}, "choices": []},
+          {"path": "composition.N", "kind": "number", "order": 11, "label": "N", "unit": "mass%", "required": true, "editable": true, "default_range": {"min": 0.0, "max": 0.03}, "allowed_range": {"min": 0.0, "max": 100.0}, "training_range": {"min": 0.00244, "max": 0.0083}, "choices": []},
+          {"path": "composition.O", "kind": "number", "order": 12, "label": "O", "unit": "mass%", "required": true, "editable": true, "default_range": {"min": 0.0, "max": 0.03}, "allowed_range": {"min": 0.0, "max": 100.0}, "training_range": {"min": 0.00076, "max": 0.00364}, "choices": []},
+          {"path": "composition.Ca", "kind": "number", "order": 13, "label": "Ca", "unit": "mass%", "required": true, "editable": true, "default_range": {"min": 0.0, "max": 0.02}, "allowed_range": {"min": 0.0, "max": 100.0}, "training_range": {"min": 0.00045, "max": 0.00167}, "choices": []}
+        ]
+      },
+      {
+        "key": "process",
+        "order": 1,
+        "label": "熱延条件",
+        "fields": [
+          {"path": "process.reheat_temperature_c", "kind": "number", "order": 0, "label": "加熱温度", "unit": "°C", "required": true, "editable": true, "default_range": {"min": 1120.0, "max": 1220.0}, "allowed_range": {"min": 0.0, "max": 1800.0}, "training_range": {"min": 1161.29, "max": 1258.449}, "choices": []},
+          {"path": "process.hold_time_min", "kind": "number", "order": 1, "label": "加熱保持", "unit": "min", "required": true, "editable": true, "default_range": {"min": 20.0, "max": 45.0}, "allowed_range": {"min": 0.001, "max": 1440.0}, "training_range": {"min": 13.638, "max": 43.88}, "choices": []},
+          {"path": "process.finish_temperature_c", "kind": "number", "order": 2, "label": "仕上温度", "unit": "°C", "required": true, "editable": true, "default_range": {"min": 860.0, "max": 930.0}, "allowed_range": {"min": 0.0, "max": 1800.0}, "training_range": {"min": 830.762, "max": 931.334}, "choices": []},
+          {"path": "process.coiling_temperature_c", "kind": "number", "order": 3, "label": "巻取温度", "unit": "°C", "required": true, "editable": true, "default_range": {"min": 560.0, "max": 680.0}, "allowed_range": {"min": 0.0, "max": 1200.0}, "training_range": {"min": 502.504, "max": 685.848}, "choices": []},
+          {"path": "process.cooling_rate_c_s", "kind": "number", "order": 4, "label": "冷却速度", "unit": "°C/s", "required": true, "editable": true, "default_range": {"min": 20.0, "max": 60.0}, "allowed_range": {"min": 0.001, "max": 1000.0}, "training_range": {"min": 22.902, "max": 64.448}, "choices": []},
+          {"path": "process.entry_thickness_mm", "kind": "number", "order": 5, "label": "入側板厚", "unit": "mm", "required": true, "editable": true, "default_range": {"min": 30.0, "max": 40.0}, "allowed_range": {"min": 0.001, "max": 1000.0}, "training_range": {"min": 30.334, "max": 42.7}, "choices": []},
+          {"path": "process.exit_thickness_mm", "kind": "number", "order": 6, "label": "出側板厚", "unit": "mm", "required": true, "editable": true, "default_range": {"min": 2.0, "max": 5.0}, "allowed_range": {"min": 0.001, "max": 100.0}, "training_range": {"min": 2.964, "max": 4.089}, "choices": []}
+        ]
+      },
+      {
+        "key": "categorical",
+        "order": 2,
+        "label": "区分",
+        "fields": [
+          {"path": "categorical.route", "kind": "categorical", "order": 0, "label": "Route", "unit": null, "required": true, "editable": true, "default_range": null, "allowed_range": null, "training_range": null, "choices": ["A", "B", "C"]}
+        ]
+      }
+    ],
+    "outputs": [
+      {"key": "TS", "label": "引張強さ", "unit": "MPa", "goal_direction": "at_least"}
+    ],
+    "fixed_context": [
+      {"path": "context.equipment", "order": 0, "label": "設備", "value": "HR-LINE-1"},
+      {"path": "context.test_direction", "order": 1, "label": "引張方向", "value": "L"}
+    ],
+    "constraints": [
+      {"left_path": "process.finish_temperature_c", "operator": "lte", "right_path": "process.reheat_temperature_c", "message": "仕上温度は加熱温度以下にしてください"},
+      {"left_path": "process.exit_thickness_mm", "operator": "lt", "right_path": "process.entry_thickness_mm", "message": "出側板厚は入側板厚より小さくしてください"}
+    ]
+  },
+  "canonical_candidate": {
+    "schema_version": "canonical-candidate/v1",
+    "task_id": "hot-rolled-properties-v1",
+    "composition": {"C": 0.12, "Si": 0.8, "Mn": 1.8, "P": 0.015, "S": 0.008, "Cr": 0.3, "Mo": 0.1, "Ni": 0.2, "Al": 0.04, "Ti": 0.02, "B": 0.0015, "N": 0.004, "O": 0.003, "Ca": 0.001},
+    "process": {"reheat_temperature_c": 1180.0, "hold_time_min": 30.0, "finish_temperature_c": 900.0, "coiling_temperature_c": 620.0, "cooling_rate_c_s": 35.0, "entry_thickness_mm": 35.0, "exit_thickness_mm": 3.5},
+    "heat_pattern": null,
+    "categorical": {"route": "A"},
+    "provenance": {"source_kind": "screening", "source_ref": {"run_id": "screening-001", "point_id": "point-017"}}
+  },
+  "runtime_capability": {
+    "schema_version": "runtime-capability/v1",
+    "task_id": "hot-rolled-properties-v1",
+    "model_package_schema_version": "model-package/v1",
+    "targets": [
+      {"target": "TS", "point_statistics": ["mean"], "standard_deviation": true, "quantiles": true, "samples": false, "parametric_distribution": true, "uncertainty_components": false, "support": true, "warnings": true, "goal_probability": "distribution"}
+    ],
+    "joint_samples": false
+  }
+}
