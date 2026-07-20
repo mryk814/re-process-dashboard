@@ -392,8 +392,6 @@ function App() {
   const [taskDefinition, setTaskDefinition] = useState<TaskDefinition | null>(null);
   const [activeProjectId, setActiveProjectId] = useState("default");
   const loadSequence = useRef(0);
-  const decisionSequence = useRef(0);
-  const [decisionSaving, setDecisionSaving] = useState(false);
   const selected = candidates.find((candidate) => candidate.id === selectedId);
   const activeProject = projects.find(
     (project) => project.id === activeProjectId,
@@ -401,8 +399,6 @@ function App() {
 
   async function loadProject(projectId: string) {
     const sequence = ++loadSequence.current;
-    decisionSequence.current += 1;
-    setDecisionSaving(false);
     setApiState("loading");
     const [candidateResponse, taskResponse] = await Promise.all([
       fetch(`${API_URL}/api/candidates?project_id=${encodeURIComponent(projectId)}`),
@@ -648,54 +644,6 @@ function App() {
     }
   }
 
-  const saveDecision = async (candidateId: string, decisionNote: string) => {
-    if (!activeProject) return;
-    const sequence = ++decisionSequence.current;
-    setDecisionSaving(true);
-    try {
-      let snapshotId = "";
-      if (candidateId) {
-        const predictionResponse = await fetch(
-          `${API_URL}/api/candidates/${candidateId}/predict`,
-          { method: "POST" },
-        );
-        if (!predictionResponse.ok) {
-          throw await apiError(predictionResponse, "判断時点の予測を保存できませんでした。");
-        }
-        const predictionPayload = (await predictionResponse.json()) as {
-          snapshot: { id: string };
-        };
-        snapshotId = predictionPayload.snapshot.id;
-      }
-      if (sequence !== decisionSequence.current) return;
-      const response = await fetch(`${API_URL}/api/projects/${activeProject.id}/decision`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          candidate_id: candidateId,
-          snapshot_id: snapshotId,
-          note: decisionNote,
-        }),
-      });
-      if (!response.ok) throw await apiError(response, "判断を保存できませんでした。");
-      const saved = (await response.json()) as ApiProject;
-      if (sequence !== decisionSequence.current) return;
-      setProjects((items) =>
-        items.map((project) => (project.id === saved.id ? saved : project)),
-      );
-      setNotice(
-        candidateId
-          ? "判断時点の予測を固定し、次実験の候補と理由を保存しました"
-          : "次実験の判断を解除しました",
-      );
-    } catch (error) {
-      if (sequence !== decisionSequence.current) return;
-      setNotice(error instanceof Error ? error.message : "判断を保存できませんでした。");
-    } finally {
-      if (sequence === decisionSequence.current) setDecisionSaving(false);
-    }
-  };
-
   const addCandidate = async () => {
     if (!selected) return;
     if (candidates.length >= 10) {
@@ -894,8 +842,6 @@ function App() {
               projectId={activeProjectId}
               targetValues={activeProject?.target_values ?? {}}
               decisionCandidateId={activeProject?.decision_candidate_id ?? ""}
-              decisionNote={activeProject?.decision_note ?? ""}
-              decisionSaving={decisionSaving}
               selected={selected}
               selectedId={selectedId}
               taskDefinition={taskDefinition}
@@ -918,10 +864,6 @@ function App() {
               }}
               onImported={(imported) => {
                 if (imported.length) void loadProject(activeProjectId);
-              }}
-              onOpenProject={() => setTab("project")}
-              onSaveDecision={(candidateId, decisionNote) => {
-                return saveDecision(candidateId, decisionNote);
               }}
             />
           ) : (
@@ -992,8 +934,6 @@ type WorkbenchProps = {
   projectId: string;
   targetValues: Record<string, number>;
   decisionCandidateId: string;
-  decisionNote: string;
-  decisionSaving: boolean;
   selected: Candidate;
   selectedId: string;
   taskDefinition: TaskDefinition | null;
@@ -1011,8 +951,6 @@ type WorkbenchProps = {
   onDelete: () => void;
   onAdd: () => void;
   onImported: (items: Candidate[]) => void;
-  onOpenProject: () => void;
-  onSaveDecision: (candidateId: string, decisionNote: string) => Promise<void>;
 };
 
 function CandidateWorkbench(props: WorkbenchProps) {
@@ -1021,8 +959,6 @@ function CandidateWorkbench(props: WorkbenchProps) {
     projectId,
     targetValues,
     decisionCandidateId,
-    decisionNote,
-    decisionSaving,
     selected,
     selectedId,
     taskDefinition,
@@ -1040,8 +976,6 @@ function CandidateWorkbench(props: WorkbenchProps) {
     onDelete,
     onAdd,
     onImported,
-    onOpenProject,
-    onSaveDecision,
   } = props;
   return (
     <div className="workbench-grid candidate-workbench-grid">
@@ -1054,18 +988,6 @@ function CandidateWorkbench(props: WorkbenchProps) {
         onDeleteHeat={onDeleteHeat}
       />
       <section className="central-workspace">
-        <DecisionSummary
-          candidates={candidates}
-          previewsByCandidate={previewsByCandidate}
-          targetValues={targetValues}
-          selectedId={selectedId}
-          decisionCandidateId={decisionCandidateId}
-          decisionNote={decisionNote}
-          decisionSaving={decisionSaving}
-          onSelect={onSelect}
-          onOpenProject={onOpenProject}
-          onSaveDecision={onSaveDecision}
-        />
         <div className="table-heading">
           <div>
             <h2>
@@ -1081,9 +1003,7 @@ function CandidateWorkbench(props: WorkbenchProps) {
               className="outline-button"
               onClick={onDelete}
               disabled={
-                candidates.length <= 1 ||
-                decisionSaving ||
-                decisionCandidateId === selectedId
+                candidates.length <= 1 || decisionCandidateId === selectedId
               }
               title={
                 decisionCandidateId === selectedId
@@ -1202,78 +1122,6 @@ function CandidateInspector({
   );
 }
 
-function DecisionSummary({
-  candidates,
-  previewsByCandidate,
-  targetValues,
-  selectedId,
-  decisionCandidateId,
-  decisionNote,
-  decisionSaving,
-  onSelect,
-  onOpenProject,
-  onSaveDecision,
-}: {
-  candidates: Candidate[];
-  previewsByCandidate: Record<string, ApiPreview>;
-  targetValues: Record<string, number>;
-  selectedId: string;
-  decisionCandidateId: string;
-  decisionNote: string;
-  decisionSaving: boolean;
-  onSelect: (id: string) => void;
-  onOpenProject: () => void;
-  onSaveDecision: (candidateId: string, decisionNote: string) => Promise<void>;
-}) {
-  const [note, setNote] = useState(
-    decisionCandidateId === selectedId ? decisionNote : "",
-  );
-  useEffect(
-    () => setNote(decisionCandidateId === selectedId ? decisionNote : ""),
-    [decisionCandidateId, decisionNote, selectedId],
-  );
-  const targets = ["TS", "YS", "EL", "lambda"];
-  const hasTargets = Object.keys(targetValues).some((key) => Number.isFinite(targetValues[key]));
-  return (
-    <section className="decision-summary comparison-context" aria-label="目標との比較">
-      <div>
-        <span className="overline">COMPARE WITH CONTEXT</span>
-        <h2>候補を理解して選ぶ</h2>
-        <p>予測値・不確実性・過去実験との近さを並べて確認します。アプリが第一候補を決める表示はしていません。</p>
-      </div>
-      <div className="context-targets">
-        {hasTargets ? targets.filter((target) => Number.isFinite(targetValues[target])).map((target) => (
-          <span key={target}><b>{target === "lambda" ? "λ" : target}</b> 目標 {previewsByCandidate[selectedId]?.predictions?.[target]?.goal_direction === "at_most" ? "≤" : "≥"} {number(targetValues[target], target === "EL" || target === "lambda" ? 1 : 0)}</span>
-        )) : <span className="muted">目標未設定でも候補比較は利用できます</span>}
-        <button className="text-button" onClick={onOpenProject}>目標を設定・編集</button>
-      </div>
-      {hasTargets && (
-        <details className="goal-comparison">
-          <summary>目標との適合状況を表示</summary>
-          <div className="goal-comparison-grid">
-            {candidates.map((candidate) => (
-              <button key={candidate.id} className={candidate.id === selectedId ? "active" : ""} onClick={() => onSelect(candidate.id)}>
-                <b>{candidate.label}</b>
-                <span>{targets.filter((target) => Number.isFinite(targetValues[target])).map((target) => `${target === "lambda" ? "λ" : target} ${typeof previewsByCandidate[candidate.id]?.predictions?.[target]?.goal_probability === "number" ? number(previewsByCandidate[candidate.id].predictions![target].goal_probability! * 100) : "—"}%`).join(" · ")}</span>
-              </button>
-            ))}
-          </div>
-        </details>
-      )}
-      <details className="decision-save-details">
-        <summary>{decisionCandidateId ? "保存済みの次実験判断を確認" : "次実験の判断を任意で保存"}</summary>
-        <div className="decision-commit">
-          <div><span className="overline">OPTIONAL DECISION NOTE</span><b>{decisionCandidateId ? `保存済み: ${candidates.find((item) => item.id === decisionCandidateId)?.label ?? "候補"}` : `選択中: ${candidates.find((item) => item.id === selectedId)?.label ?? "候補"}`}</b></div>
-          <input value={note} maxLength={500} aria-label="次実験に選ぶ理由" placeholder="選ぶ理由を一行で残す" onChange={(event) => setNote(event.target.value)} />
-          <button className="primary-button" disabled={decisionSaving || !note.trim()} onClick={() => void onSaveDecision(selectedId, note.trim())}>{decisionSaving ? "保存中…" : decisionCandidateId === selectedId ? "判断を更新" : "判断を保存"}</button>
-          {decisionCandidateId && <button className="text-button" disabled={decisionSaving} onClick={() => void onSaveDecision("", "")}>決定を解除</button>}
-        </div>
-      </details>
-    </section>
-  );
-}
-
-
 function ComparisonTableV2({
   candidates,
   selectedId,
@@ -1303,41 +1151,59 @@ function ComparisonTableV2({
   ];
   const status = (value?: string) => value === "supported" ? "範囲内" : value === "caution" ? "要確認" : value === "extrapolated" ? "外挿" : "未計算";
   return (
-    <div className="table-scroll candidate-row-table">
-      <table className="comparison-table">
-        <thead>
-          <tr>
-            <th className="sticky-candidate" rowSpan={2}>候補</th>
-            <th colSpan={compositionInputs.length}>組成</th>
-            <th className="prediction-group" colSpan={outputs.length}>予測結果</th>
-            <th className="support-cell" rowSpan={2}>支持度</th>
-          </tr>
-          <tr>
-            {compositionInputs.map((input) => <th key={input.id}>{input.label}<small>{input.unit}</small></th>)}
-            {outputs.map((output, index) => (
-              <th className={`prediction-cell prediction-col-${index}`} key={output.key}>
-                {output.label}<small>{Number.isFinite(targetValues[output.key]) ? `目標 ${output.goal_direction === "at_most" ? "≤" : "≥"} ${number(targetValues[output.key], output.key === "EL" || output.key === "lambda" ? 1 : 0)}` : output.unit}</small>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {candidates.map((candidate) => {
-            const prediction = previewsByCandidate[candidate.id];
-            return (
+    <div className="candidate-comparison">
+      <section className="composition-comparison" aria-label="候補の組成比較">
+        <table className="candidate-name-table">
+          <thead>
+            <tr><th rowSpan={2}>候補</th></tr>
+            <tr aria-hidden="true" />
+          </thead>
+          <tbody>
+            {candidates.map((candidate) => (
               <tr key={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}>
-                <th className="sticky-candidate"><input aria-label={`${candidate.label}の候補名`} maxLength={80} value={candidate.label} onFocus={() => onSelect(candidate.id)} onChange={(event) => onText(candidate.id, "label", event.target.value)} /></th>
-                {compositionInputs.map((input) => <td key={input.id}><input type="number" step="any" min={input.min} max={input.max} value={candidate.raw.composition[input.field] ?? 0} aria-label={`${candidate.label} ${input.label}`} onFocus={() => onSelect(candidate.id)} onChange={(event) => onComposition(candidate.id, input.field, Number(event.target.value))} /></td>)}
-                {outputs.map((output, index) => {
+                <th><input aria-label={`${candidate.label}の候補名`} maxLength={80} value={candidate.label} onFocus={() => onSelect(candidate.id)} onChange={(event) => onText(candidate.id, "label", event.target.value)} /></th>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="composition-scroll">
+          <span className="composition-group-label" aria-hidden="true">組成</span>
+          <table className="composition-table">
+            <thead>
+              <tr><th colSpan={compositionInputs.length}>組成</th></tr>
+              <tr>{compositionInputs.map((input) => <th key={input.id}>{input.label}<small>{input.unit}</small></th>)}</tr>
+            </thead>
+            <tbody>
+              {candidates.map((candidate) => (
+                <tr key={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}>
+                  {compositionInputs.map((input) => <td key={input.id}><input type="number" step="any" min={input.min} max={input.max} value={candidate.raw.composition[input.field] ?? 0} aria-label={`${candidate.label} ${input.label}`} onFocus={() => onSelect(candidate.id)} onChange={(event) => onComposition(candidate.id, input.field, Number(event.target.value))} /></td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section className="prediction-comparison" aria-label="候補の予測結果比較">
+        <table className="prediction-table">
+          <thead>
+            <tr><th rowSpan={2}>候補</th><th colSpan={outputs.length}>予測結果</th><th rowSpan={2}>支持度</th></tr>
+            <tr>{outputs.map((output) => <th key={output.key}>{output.label}<small>{Number.isFinite(targetValues[output.key]) ? `目標 ${output.goal_direction === "at_most" ? "≤" : "≥"} ${number(targetValues[output.key], output.key === "EL" || output.key === "lambda" ? 1 : 0)}` : output.unit}</small></th>)}</tr>
+          </thead>
+          <tbody>
+            {candidates.map((candidate) => {
+              const prediction = previewsByCandidate[candidate.id];
+              return <tr key={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}>
+                <th><button type="button" onClick={() => onSelect(candidate.id)}>{candidate.label}</button></th>
+                {outputs.map((output) => {
                   const value = prediction?.predictions?.[output.key];
-                  return <td className={`prediction-cell prediction-col-${index}`} key={output.key}>{value ? <span className="metric-value">{number(value.value, output.key === "EL" || output.key === "lambda" ? 1 : 0)} <small>{value.unit}</small>{typeof value.goal_probability === "number" && <em>達成 {number(value.goal_probability * 100)}%</em>}</span> : <span className="empty-cell">—</span>}</td>;
+                  return <td className="prediction-cell" key={output.key}>{value ? <span className="metric-value">{number(value.value, output.key === "EL" || output.key === "lambda" ? 1 : 0)} <small>{value.unit}</small>{typeof value.goal_probability === "number" && <em>達成 {number(value.goal_probability * 100)}%</em>}</span> : <span className="empty-cell">—</span>}</td>;
                 })}
                 <td className="support-cell"><span className={`status-dot ${prediction?.support?.status === "supported" ? "success" : prediction?.support ? "caution" : ""}`} />{status(prediction?.support?.status)}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+              </tr>;
+            })}
+          </tbody>
+        </table>
+      </section>
     </div>
   );
 }
