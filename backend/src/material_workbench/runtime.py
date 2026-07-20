@@ -138,6 +138,8 @@ class ModelRuntime:
     def _load_and_validate_package_feature_contract(self) -> None:
         assert self.model_package is not None
         manifest = self.model_package.manifest
+        if manifest.task_id != TASK_ID:
+            raise ValueError(f"Model package task {manifest.task_id} is incompatible with {TASK_ID}")
         expected = tuple(FEATURE_NAMES)
         if (manifest.feature_pipeline.id, manifest.feature_pipeline.version) != (FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION):
             raise ValueError("Model package feature pipeline id/version is incompatible")
