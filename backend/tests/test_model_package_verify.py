@@ -112,6 +112,18 @@ def test_verify_model_package_loads_adapter_and_reports_contract(tmp_path: Path)
     assert report.predictors[0].target == "TS"
 
 
+def test_checked_in_annealed_package_passes_activation_verifier() -> None:
+    package_root = Path(__file__).resolve().parents[2] / "models" / "packages" / "annealed-gp-2026-07"
+    report = verify_model_package(
+        package_root,
+        expected_task_id="annealed-properties-v1",
+        expected_input_schema_version="candidate-v1",
+    )
+    assert report.package_id == "annealed-gp-2026-07"
+    assert {item.target for item in report.predictors} == {"TS", "YS", "EL", "lambda"}
+    assert report.smoke_test_present
+
+
 def test_verify_model_package_rejects_predictor_feature_order_drift(tmp_path: Path) -> None:
     root = _write_linear_package(tmp_path, predictor_features=("Mn", "C"))
     with pytest.raises(ModelPackageVerificationError, match="feature names/order"):
