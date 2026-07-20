@@ -25,6 +25,13 @@ def test_tracked_openapi_schema_matches_fastapi_contract() -> None:
     delete_parameters = tracked["paths"]["/api/projects/{project_id}/candidates/{candidate_id}"]["delete"]["parameters"]
     assert any(item["name"] == "include_archived" for item in list_parameters)
     assert any(item["name"] == "expected_revision" and item.get("required") is True for item in delete_parameters)
+    validation_descriptions = {
+        operation["responses"]["422"]["description"]
+        for path in tracked["paths"].values()
+        for operation in path.values()
+        if "422" in operation.get("responses", {})
+    }
+    assert validation_descriptions == {"Validation Error"}
 
 
 def test_unicode_identifiers_and_units_survive_json_contract_round_trip(client) -> None:
