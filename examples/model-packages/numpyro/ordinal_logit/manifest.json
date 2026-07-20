@@ -50,8 +50,8 @@
   "artifacts": [
     {
       "path": "feature-pipeline/pipeline.json",
-      "sha256": "f2521ba0665f0905b5093015c9dfff91e7fe04e4923d2c76cff78ca04c3f1e17",
-      "bytes": 214
+      "sha256": "cee3df578cc9d8d052021d0094790d5d4cd4317f54a76b2e9e077004d0cd5d4f",
+      "bytes": 389
     },
     {
       "path": "model-artifacts/posterior.npz",

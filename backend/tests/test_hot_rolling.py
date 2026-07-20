@@ -34,7 +34,14 @@ def test_hot_rolling_task_candidates_and_gp_uncertainty(client) -> None:
     assert result["heat_pattern"] == []
     assert set(result["predictions"]) == {"TS"}
     assert result["support"]["status"] in {"supported", "caution", "extrapolated"}
-    assert set(result["support"]["components"]) == {"composition", "metallurgy", "process", "route"}
+    assert result["support"]["distance"] == 0.4823
+    assert set(result["support"]["components"]) == {"composition", "metallurgy", "process", "categorical"}
+    assert result["support"]["components"] == {
+        "composition": 0.4837,
+        "metallurgy": 0.4421,
+        "process": 0.7078,
+        "categorical": 0.0,
+    }
     for prediction in result["predictions"].values():
         assert prediction["lower"] < prediction["upper"]
         components = prediction["uncertainty_components"]

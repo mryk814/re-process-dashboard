@@ -27,7 +27,15 @@ def test_grouped_oof_calibration_and_parent_condition_support(client) -> None:
 
 def test_similarity_summarizes_repeats_and_keeps_layers_distinct(client) -> None:
     candidate = client.get("/api/candidates").json()[0]
-    similar = client.post(f"/api/projects/default/candidates/{candidate['id']}/preview").json()["similar"]
+    preview = client.post(f"/api/projects/default/candidates/{candidate['id']}/preview").json()
+    similar = preview["similar"]
+    assert preview["support"]["distance"] == 4.7033
+    assert preview["support"]["components"] == {
+        "composition": 1.0084,
+        "process": 1.5215,
+        "metallurgy": 0.7918,
+        "heat_pattern": 9.1937,
+    }
     training_parents = {item["parent_key"] for item in similar if item["layer"] == "training"}
     historical_parents = {item["parent_key"] for item in similar if item["layer"] == "historical"}
     assert training_parents.isdisjoint(historical_parents)

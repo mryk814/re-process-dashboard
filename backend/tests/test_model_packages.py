@@ -41,7 +41,10 @@ def _write_package(tmp_path: Path, *, family: str = "student_t", target_kind: st
         "id": "test-pipeline",
         "version": "1",
         "canonical_input_paths": ["composition.C", "composition.Mn"],
-        "features": [{"name": "C"}, {"name": "Mn"}],
+        "features": [
+            {"name": "C", "unit": "mass%", "meaning": "C composition", "group": "composition"},
+            {"name": "Mn", "unit": "mass%", "meaning": "Mn composition", "group": "composition"},
+        ],
     }), encoding="utf-8")
     draws = 12
     weights = np.zeros((draws, 2, output_width), dtype=float)
@@ -105,7 +108,10 @@ def test_builtin_linear_package_and_registry_are_dependency_free(tmp_path: Path)
         "id": "p",
         "version": "1",
         "canonical_input_paths": ["composition.C", "composition.Mn"],
-        "features": [{"name": "C"}, {"name": "Mn"}],
+        "features": [
+            {"name": "C", "unit": "mass%", "meaning": "C composition", "group": "composition"},
+            {"name": "Mn", "unit": "mass%", "meaning": "Mn composition", "group": "composition"},
+        ],
     }), encoding="utf-8")
     artifact = root / "model-artifacts" / "linear.npz"
     np.savez(artifact, weights=np.array([2.0, 3.0]), bias=np.array(1.0), lower_offset=np.array(-2.0), upper_offset=np.array(4.0))
@@ -178,7 +184,7 @@ def test_loader_validates_pipeline_outputs_separately_from_canonical_inputs(tmp_
     root = _write_package(tmp_path)
     pipeline_path = root / "feature-pipeline" / "pipeline.json"
     pipeline = json.loads(pipeline_path.read_text(encoding="utf-8"))
-    pipeline["features"] = [{"name": "Mn"}, {"name": "C"}]
+    pipeline["features"] = list(reversed(pipeline["features"]))
     pipeline_path.write_text(json.dumps(pipeline), encoding="utf-8")
     manifest_path = root / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -218,8 +224,8 @@ def test_loader_rejects_unknown_pipeline_document_fields(tmp_path: Path) -> None
 @pytest.mark.parametrize(
     ("task_id", "package_id", "package_version", "pipeline_version"),
     [
-        ("annealed-properties-v1", "annealed-gp-2026-07", "0.6.0-exact-gp-v1", "1.4.0"),
-        ("hot-rolled-properties-v1", "hot-rolled-gp-2026-07", "0.2.0-ts-only", "1.1.0"),
+        ("annealed-properties-v1", "annealed-gp-2026-07", "0.7.0-exact-gp-v1", "1.5.0"),
+        ("hot-rolled-properties-v1", "hot-rolled-gp-2026-07", "0.3.0-ts-only", "1.2.0"),
     ],
 )
 def test_checked_in_packages_match_task_definition_canonical_input_order(

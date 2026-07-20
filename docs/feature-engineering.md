@@ -2,7 +2,7 @@
 
 ## 契約
 
-`feature_pipeline.build_feature_bundle` は候補組成、基本工程、時間–温度点列から、固定順の `float64` ベクトルを作る。契約識別子は `metallurgy-thermal`、versionは `1.0.0` である。順序は `FEATURE_DEFINITIONS` を唯一の定義とし、出力配列は誤変更を防ぐため読み取り専用で返す。
+`feature_pipeline.build_feature_bundle` は候補組成、基本工程、時間–温度点列から、固定順の `float64` ベクトルを作る。契約識別子は `metallurgy-thermal`、versionは `1.5.0` である。順序・単位・意味・groupは `FEATURE_DEFINITIONS` を唯一の定義とし、出力配列は誤変更を防ぐため読み取り専用で返す。熱延も同じ `FeatureBundle` を使い、`metallurgy-hot-rolling` version `1.2.0` として区別する。
 
 組成はすべて mass% とする。対応元素は Excel と同じ `C, Si, Mn, P, S, Cr, Mo, Ni, Al, Ti, B, N, O, Ca` の14種である。欠損値を暗黙に0にはしない。学習データ中央値など、来歴が分かる補完値を `composition_defaults` として明示した場合だけ補完する。
 

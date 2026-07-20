@@ -1,12 +1,12 @@
 {
   "schema_version": "model-package/v1",
   "package_id": "annealed-gp-2026-07",
-  "package_version": "0.6.0-exact-gp-v1",
+  "package_version": "0.7.0-exact-gp-v1",
   "task_id": "annealed-properties-v1",
   "input_schema_version": "candidate-v1",
   "feature_pipeline": {
     "id": "metallurgy-thermal",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "spec": "feature-pipeline/pipeline.json",
     "canonical_input_paths": [
       "composition.C",
@@ -273,13 +273,13 @@
   "provenance": {
     "training_data_id": "sha256:f5b75d4a2e29c0e85f24fe2325b4c610e23ba6ce65ba3b5c53c097a68ca60c55",
     "feature_dataset_id": "sha256:bf4d4bb7f525a05e320a9d558e8b3baded5779f9342bcff599a0b8b5d0b9f77b",
-    "training_code_revision": "0.5.0-exact-gp-v1"
+    "training_code_revision": "0.6.0-exact-gp-v1"
   },
   "artifacts": [
     {
       "path": "feature-pipeline/pipeline.json",
-      "sha256": "d7c80166ce957015ceec49d945e91b333eea228de50cfd77c8f87a316db7c25f",
-      "bytes": 4408
+      "sha256": "b089008c18b07c9a327de65b4ccc6eb13afd254057ca998d10cfb9ab0ad18ef8",
+      "bytes": 5423
     },
     {
       "path": "model-artifacts/EL.npz",

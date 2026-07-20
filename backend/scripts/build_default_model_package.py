@@ -12,9 +12,10 @@ import numpy as np
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from material_workbench.feature_contracts import feature_index_families
 from material_workbench.feature_pipeline import CANONICAL_INPUT_PATHS, FEATURE_DEFINITIONS, FEATURE_NAMES, FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION
 from material_workbench.importer import load_workbook_data
-from material_workbench.runtime import FEATURE_COMPONENTS, INPUT_SCHEMA_VERSION, TARGETS, TASK_ID, ModelRuntime
+from material_workbench.runtime import INPUT_SCHEMA_VERSION, TARGETS, TASK_ID, ModelRuntime
 from material_workbench.schemas import CandidateInput
 
 
@@ -27,8 +28,17 @@ def artifact(root: Path, path: Path) -> dict[str, object]:
 
 
 PACKAGE_ID = "annealed-gp-2026-07"
-PACKAGE_VERSION = "0.6.0-exact-gp-v1"
-TRAINING_CODE_REVISION = "0.5.0-exact-gp-v1"
+PACKAGE_VERSION = "0.7.0-exact-gp-v1"
+TRAINING_CODE_REVISION = "0.6.0-exact-gp-v1"
+FEATURE_GROUP_INDICES = feature_index_families(
+    FEATURE_DEFINITIONS,
+    {
+        "composition": ("composition",),
+        "process": ("process", "categorical"),
+        "metallurgy": ("metallurgy",),
+        "heat_pattern": ("heat_pattern",),
+    },
+)
 
 
 def _grouped_training(model: object, target: str) -> tuple[np.ndarray, np.ndarray, float, float]:
@@ -70,7 +80,7 @@ def _fit_gp_hyperparameters(
     best: tuple[float, np.ndarray, float, float] | None = None
     for global_scale in (0.5, 0.75, 1.0, 1.5, 2.25, 3.5):
         lengthscale = np.ones(train_x.shape[1], dtype=np.float64)
-        for columns in FEATURE_COMPONENTS.values():
+        for columns in FEATURE_GROUP_INDICES.values():
             lengthscale[list(columns)] = global_scale * np.sqrt(len(columns))
         scaled = (train_x[:, None, :] - train_x[None, :, :]) / lengthscale
         base = np.exp(-0.5 * np.sum(scaled * scaled, axis=2))
@@ -120,7 +130,7 @@ def build(source: Path, destination: Path) -> None:
         "id": FEATURE_PIPELINE_ID,
         "version": FEATURE_PIPELINE_VERSION,
         "canonical_input_paths": list(CANONICAL_INPUT_PATHS),
-        "features": [{"name": item.name, "unit": item.unit, "meaning": item.meaning} for item in FEATURE_DEFINITIONS],
+        "features": [{"name": item.name, "unit": item.unit, "meaning": item.meaning, "group": item.group} for item in FEATURE_DEFINITIONS],
         "missing_composition": "training_median_from_source_workbook",
         "heat_interpolation": "piecewise_linear",
     }, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
