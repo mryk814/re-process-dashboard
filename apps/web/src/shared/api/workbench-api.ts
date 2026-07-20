@@ -20,6 +20,7 @@ export type ApiLineage = components["schemas"]["LineageResponse"];
 export type ApiLineageIndex = components["schemas"]["LineageIndexResponse"];
 export type ApiScreeningRequest = components["schemas"]["ScreeningRequest"];
 export type ApiScreeningRun = components["schemas"]["ScreeningRunResponse"];
+export type ApiScreeningCandidateBatch = components["schemas"]["ScreeningCandidateBatchResponse"];
 export type ApiTaskDefinition = components["schemas"]["ResolvedTaskDefinition"];
 export type ApiTaskCatalogItem = components["schemas"]["TaskCatalogItem"];
 export type ApiProjectHistory = components["schemas"]["ProjectHistoryResponse"];
@@ -142,8 +143,8 @@ export const workbenchApi = {
   async screeningRun(projectId: string, runId: string) {
     return requireData(await apiClient.GET("/api/screening/{run_id}", { params: { path: { run_id: runId }, query: { project_id: projectId } } }), "保存済み探索を開けませんでした。");
   },
-  async candidateFromScreening(projectId: string, runId: string, pointIndex: number) {
-    return requireData(await apiClient.POST("/api/screening/{run_id}/points/{point_index}/candidate", { params: { path: { run_id: runId, point_index: pointIndex }, query: { project_id: projectId } } }), "候補を作成できませんでした。");
+  async candidatesFromScreening(projectId: string, runId: string, pointIndices: number[]) {
+    return requireData(await apiClient.POST("/api/screening/{run_id}/candidates", { params: { path: { run_id: runId }, query: { project_id: projectId } }, body: { point_indices: pointIndices } }), "候補を作成できませんでした。");
   },
   async importCandidates(projectId: string, file: File) {
     const form = new FormData();

@@ -57,12 +57,12 @@ def test_tracked_openapi_schema_matches_fastapi_contract() -> None:
 
 
 def test_runtime_validation_error_matches_openapi_api_error(client) -> None:
-    response = client.post("/api/screening/run/points/not-an-integer/candidate")
+    response = client.post("/api/screening/run/candidates", json={"point_indices": []})
     assert response.status_code == 422
     payload = response.json()
     assert payload["code"] == "validation_error"
     assert payload["message"] == "入力内容を確認してください"
-    assert payload["field_errors"][0]["path"] == "path.point_index"
+    assert payload["field_errors"][0]["path"] == "body.point_indices"
     assert payload["field_errors"][0]["message"]
     assert "detail" not in payload
 

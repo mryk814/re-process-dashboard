@@ -260,6 +260,49 @@ class Store:
             raise RuntimeError("作成した候補を再取得できませんでした")
         return created  # type: ignore[return-value]
 
+    def create_screening_candidates(
+        self,
+        payloads: list[tuple[int, CandidateInput]],
+        run_id: str,
+        project_id: str,
+    ) -> tuple[list[Candidate], list[int]]:
+        records: list[tuple[str, str, str, str, str, str]] = []
+        skipped: list[int] = []
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            if conn.execute("SELECT 1 FROM projects WHERE id = ?", (project_id,)).fetchone() is None:
+                raise ProjectNotFoundError(project_id)
+            active_rows = conn.execute(
+                "SELECT * FROM candidates WHERE project_id = ? AND archived_at IS NULL",
+                (project_id,),
+            ).fetchall()
+            existing = set()
+            for row in active_rows:
+                candidate = self._candidate(row)
+                provenance = candidate.provenance.model_dump(mode="json")
+                reference = provenance.get("source_ref") or {}
+                if provenance.get("source_kind") == "screening" and reference.get("run_id") == run_id:
+                    existing.add(int(reference.get("point_index", -1)))
+            unique_payloads: list[tuple[int, CandidateInput]] = []
+            seen = set(existing)
+            for point_index, payload in payloads:
+                if point_index in seen:
+                    skipped.append(point_index)
+                    continue
+                seen.add(point_index)
+                unique_payloads.append((point_index, payload))
+            if len(active_rows) + len(unique_payloads) > MAX_CANDIDATES_PER_PROJECT:
+                raise CandidateLimitError(f"候補は1プロジェクトにつき最大{MAX_CANDIDATES_PER_PROJECT}件です")
+            for _, payload in unique_payloads:
+                candidate_id, now = str(uuid.uuid4()), _now()
+                records.append((candidate_id, project_id, payload.name, payload.model_dump_json(), now, now))
+            if records:
+                conn.executemany("INSERT INTO candidates(id,project_id,name,payload,created_at,updated_at) VALUES (?, ?, ?, ?, ?, ?)", records)
+        created = [self.get_candidate(candidate_id, project_id) for candidate_id, *_ in records]
+        if any(candidate is None for candidate in created):
+            raise RuntimeError("作成した候補を再取得できませんでした")
+        return created, skipped  # type: ignore[return-value]
+
     def update_candidate(self, candidate_id: str, project_id: str, payload: CandidateInput, expected_revision: int) -> Candidate | None:
         now = _now()
         with self._connect() as conn:

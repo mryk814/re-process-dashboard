@@ -540,7 +540,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/screening/{run_id}/points/{point_index}/candidate": {
+    "/api/screening/{run_id}/candidates": {
         parameters: {
             query?: never;
             header?: never;
@@ -549,8 +549,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Screening Point To Candidate */
-        post: operations["screening_point_to_candidate_api_screening__run_id__points__point_index__candidate_post"];
+        /** Screening Points To Candidates */
+        post: operations["screening_points_to_candidates_api_screening__run_id__candidates_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1763,6 +1763,18 @@ export interface components {
             /** Snapshot */
             snapshot: boolean;
         };
+        /** ScreeningCandidateBatchRequest */
+        ScreeningCandidateBatchRequest: {
+            /** Point Indices */
+            point_indices: number[];
+        };
+        /** ScreeningCandidateBatchResponse */
+        ScreeningCandidateBatchResponse: {
+            /** Candidates */
+            candidates: components["schemas"]["Candidate"][];
+            /** Skipped Point Indices */
+            skipped_point_indices?: number[];
+        };
         /** ScreeningGoalEvaluation */
         ScreeningGoalEvaluation: {
             /** Achieved */
@@ -1790,9 +1802,21 @@ export interface components {
                 [key: string]: number | string;
             };
             prediction: components["schemas"]["Prediction"];
+            /** Predictions */
+            predictions?: {
+                [key: string]: components["schemas"]["Prediction"];
+            };
             /** Score */
             score: number | null;
+            /** Secondary Goal Evaluations */
+            secondary_goal_evaluations?: {
+                [key: string]: components["schemas"]["ScreeningGoalEvaluation"];
+            };
+            /** Similar */
+            similar?: components["schemas"]["SimilarObservation"][];
             support: components["schemas"]["Support"];
+            /** Warnings */
+            warnings?: string[];
         };
         /** ScreeningReference */
         ScreeningReference: {
@@ -1812,6 +1836,10 @@ export interface components {
              * @default 64
              */
             samples: number;
+            /** Secondary Targets */
+            secondary_targets?: {
+                [key: string]: number;
+            };
             /**
              * Target
              * @default TS
@@ -1848,7 +1876,17 @@ export interface components {
             representative_points: components["schemas"]["ScreeningPoint"][];
             /** Samples */
             samples: number;
+            /**
+             * Schema Version
+             * @default screening-run/v1
+             * @enum {string}
+             */
+            schema_version: "screening-run/v1" | "screening-run/v2";
             score_contract: components["schemas"]["ScreeningScoreContract"];
+            /** Secondary Targets */
+            secondary_targets?: {
+                [key: string]: number;
+            };
             /** Seed */
             seed: number;
             /** Target */
@@ -3757,19 +3795,22 @@ export interface operations {
             };
         };
     };
-    screening_point_to_candidate_api_screening__run_id__points__point_index__candidate_post: {
+    screening_points_to_candidates_api_screening__run_id__candidates_post: {
         parameters: {
             query?: {
                 project_id?: string;
             };
             header?: never;
             path: {
-                point_index: number;
                 run_id: string;
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScreeningCandidateBatchRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             201: {
@@ -3777,7 +3818,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Candidate"];
+                    "application/json": components["schemas"]["ScreeningCandidateBatchResponse"];
                 };
             };
             /** @description Not Found */

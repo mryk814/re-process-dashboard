@@ -16,9 +16,9 @@ def _screening_body(candidate_id: str) -> dict:
         "target_value": 500,
         "variables": {
             "composition.C": {"mode": "range", "min": 0.04, "max": 0.12},
-            "line_speed_m_min": {"mode": "range", "min": 80, "max": 130},
-            "coating": {"mode": "list", "values": ["なし", "GI", "GA"]},
-            "thickness_mm": {"mode": "fixed", "value": 1.4},
+            "process.line_speed_m_min": {"mode": "range", "min": 80, "max": 130},
+            "categorical.coating": {"mode": "list", "values": ["なし", "GI", "GA"]},
+            "process.thickness_mm": {"mode": "fixed", "value": 1.4},
         },
     }
 
@@ -37,10 +37,10 @@ def test_latin_hypercube_is_deterministic_bounded_and_convertible(client) -> Non
     assert len(first["points"]) == 48
     assert [point["inputs"] for point in first["points"]] == [point["inputs"] for point in second["points"]]
     assert all(0.04 <= point["inputs"]["composition.C"] <= 0.12 for point in first["points"])
-    assert {point["inputs"]["coating"] for point in first["points"]} == {"なし", "GI", "GA"}
-    created = client.post(f"/api/screening/{first['id']}/points/0/candidate")
+    assert {point["inputs"]["categorical.coating"] for point in first["points"]} == {"なし", "GI", "GA"}
+    created = client.post(f"/api/screening/{first['id']}/candidates", json={"point_indices": [0]})
     assert created.status_code == 201
-    assert created.json()["name"].startswith("Screen")
+    assert created.json()["candidates"][0]["name"].startswith("Screen")
     assert first["base_candidate_id"] == candidate["id"]
     assert first["model_provenance"]["model"]["version"]
     assert first["score_contract"] == {
@@ -63,7 +63,7 @@ def test_latin_hypercube_is_deterministic_bounded_and_convertible(client) -> Non
 def test_screening_rejects_invalid_field_values_and_empty_candidate_set(client) -> None:
     candidate = client.get("/api/projects/default/candidates").json()[0]
     invalid = _screening_body(candidate["id"])
-    invalid["variables"]["coating"] = {"mode": "fixed", "value": "BAD"}
+    invalid["variables"]["categorical.coating"] = {"mode": "fixed", "value": "BAD"}
     assert client.post("/api/screening", json=invalid).status_code == 422
     for item in client.get("/api/projects/default/candidates").json():
         assert client.delete(f"/api/projects/default/candidates/{item['id']}?expected_revision={item['revision']}").status_code == 204
