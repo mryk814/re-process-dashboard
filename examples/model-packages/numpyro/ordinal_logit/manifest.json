@@ -8,6 +8,10 @@
     "id": "two-feature-example",
     "version": "1.0.0",
     "spec": "feature-pipeline/pipeline.json",
+    "canonical_input_paths": [
+      "composition.C",
+      "composition.Mn"
+    ],
     "output_features": [
       "C",
       "Mn"
@@ -46,8 +50,8 @@
   "artifacts": [
     {
       "path": "feature-pipeline/pipeline.json",
-      "sha256": "8ff89b68ff398c51e42f8b12d3a63b35fe51c824a1da19cd3f7f3f25efa8c237",
-      "bytes": 46
+      "sha256": "6cb391d32e8ce50f76b376e612fc2e8bd283514406eec481762ead668dd54b66",
+      "bytes": 216
     },
     {
       "path": "model-artifacts/posterior.npz",

@@ -1,13 +1,33 @@
 {
   "schema_version": "model-package/v1",
   "package_id": "annealed-gp-2026-07",
-  "package_version": "0.5.0-exact-gp-v1",
+  "package_version": "0.6.0-exact-gp-v1",
   "task_id": "annealed-properties-v1",
   "input_schema_version": "candidate-v1",
   "feature_pipeline": {
     "id": "metallurgy-thermal",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "spec": "feature-pipeline/pipeline.json",
+    "canonical_input_paths": [
+      "composition.C",
+      "composition.Si",
+      "composition.Mn",
+      "composition.P",
+      "composition.S",
+      "composition.Cr",
+      "composition.Mo",
+      "composition.Ni",
+      "composition.Al",
+      "composition.Ti",
+      "composition.B",
+      "composition.N",
+      "composition.O",
+      "composition.Ca",
+      "process.thickness_mm",
+      "process.line_speed_m_min",
+      "heat_pattern",
+      "categorical.coating"
+    ],
     "output_features": [
       "C",
       "Si",
@@ -258,8 +278,8 @@
   "artifacts": [
     {
       "path": "feature-pipeline/pipeline.json",
-      "sha256": "72c44146897ccb245c9ff5495c087dfa5c9d9eef1c4555d442dafd966145771f",
-      "bytes": 4143
+      "sha256": "4444f99b6baafe70b444d217c2778c1c668e4ab66af128c9b8e0fa1e70a9be9b",
+      "bytes": 4585
     },
     {
       "path": "model-artifacts/EL.npz",

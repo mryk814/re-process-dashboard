@@ -1,6 +1,30 @@
 {
   "id": "metallurgy-hot-rolling",
-  "version": "1.0.0",
+  "version": "1.1.0",
+  "canonical_input_paths": [
+    "composition.C",
+    "composition.Si",
+    "composition.Mn",
+    "composition.P",
+    "composition.S",
+    "composition.Cr",
+    "composition.Mo",
+    "composition.Ni",
+    "composition.Al",
+    "composition.Ti",
+    "composition.B",
+    "composition.N",
+    "composition.O",
+    "composition.Ca",
+    "process.reheat_temperature_c",
+    "process.hold_time_min",
+    "process.finish_temperature_c",
+    "process.coiling_temperature_c",
+    "process.cooling_rate_c_s",
+    "process.entry_thickness_mm",
+    "process.exit_thickness_mm",
+    "categorical.route"
+  ],
   "features": [
     {
       "name": "C"

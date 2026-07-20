@@ -7,13 +7,14 @@ from pathlib import Path
 
 import numpy as np
 
-from material_workbench.hot_rolling_feature_pipeline import FEATURE_COMPONENTS, FEATURE_NAMES, INPUT_SCHEMA_VERSION, PIPELINE_ID, PIPELINE_VERSION, build_hot_rolling_features
+from material_workbench.hot_rolling_feature_pipeline import CANONICAL_INPUT_PATHS, FEATURE_COMPONENTS, FEATURE_NAMES, INPUT_SCHEMA_VERSION, PIPELINE_ID, PIPELINE_VERSION, build_hot_rolling_features
 from material_workbench.importer import load_workbook_data
 from material_workbench.schemas import HotRollingCandidateInput
 
 
 PACKAGE_ID = "hot-rolled-gp-2026-07"
-PACKAGE_VERSION = "0.1.0-exact-gp-v1"
+PACKAGE_VERSION = "0.2.0-exact-gp-v1"
+TRAINING_CODE_REVISION = "0.1.0-exact-gp-v1"
 TASK_ID = "hot-rolled-properties-v1"
 TARGETS = {"TS": ("TS[MPa]", "MPa"), "YS": ("YS[MPa]", "MPa"), "EL": ("EL[%]", "%")}
 
@@ -83,7 +84,7 @@ def build(source: Path, destination: Path) -> None:
     for folder in (artifact_dir, feature_dir, reference_dir, smoke_dir):
         folder.mkdir(parents=True, exist_ok=True)
     pipeline_path = feature_dir / "pipeline.json"
-    pipeline_path.write_text(json.dumps({"id": PIPELINE_ID, "version": PIPELINE_VERSION, "features": [{"name": name} for name in FEATURE_NAMES]}, indent=2), encoding="utf-8")
+    pipeline_path.write_text(json.dumps({"id": PIPELINE_ID, "version": PIPELINE_VERSION, "canonical_input_paths": list(CANONICAL_INPUT_PATHS), "features": [{"name": name} for name in FEATURE_NAMES]}, indent=2), encoding="utf-8")
     files = [pipeline_path]
     predictors: list[dict[str, object]] = []
     counts: dict[str, int] = {}
@@ -131,7 +132,7 @@ def build(source: Path, destination: Path) -> None:
     smoke_expected = smoke_dir / "expected.json"
     smoke_expected.write_text(json.dumps({target: round(_point(artifact_dir / f"{target}.npz", raw), 8) for target in TARGETS}, indent=2), encoding="utf-8")
     files.extend([smoke_input, smoke_expected])
-    manifest = {"schema_version": "model-package/v1", "package_id": PACKAGE_ID, "package_version": PACKAGE_VERSION, "task_id": TASK_ID, "input_schema_version": INPUT_SCHEMA_VERSION, "feature_pipeline": {"id": PIPELINE_ID, "version": PIPELINE_VERSION, "spec": pipeline_path.relative_to(destination).as_posix(), "output_features": list(FEATURE_NAMES), "artifacts": [stats_path.relative_to(destination).as_posix()]}, "predictors": predictors, "provenance": {"training_data_id": f"sha256:{data.source_sha256}", "feature_dataset_id": f"sha256:{_digest(stats_path)}", "training_code_revision": PACKAGE_VERSION}, "artifacts": [_artifact(destination, path) for path in files], "smoke_test": {"input": smoke_input.relative_to(destination).as_posix(), "expected": smoke_expected.relative_to(destination).as_posix()}}
+    manifest = {"schema_version": "model-package/v1", "package_id": PACKAGE_ID, "package_version": PACKAGE_VERSION, "task_id": TASK_ID, "input_schema_version": INPUT_SCHEMA_VERSION, "feature_pipeline": {"id": PIPELINE_ID, "version": PIPELINE_VERSION, "spec": pipeline_path.relative_to(destination).as_posix(), "canonical_input_paths": list(CANONICAL_INPUT_PATHS), "output_features": list(FEATURE_NAMES), "artifacts": [stats_path.relative_to(destination).as_posix()]}, "predictors": predictors, "provenance": {"training_data_id": f"sha256:{data.source_sha256}", "feature_dataset_id": f"sha256:{_digest(stats_path)}", "training_code_revision": TRAINING_CODE_REVISION}, "artifacts": [_artifact(destination, path) for path in files], "smoke_test": {"input": smoke_input.relative_to(destination).as_posix(), "expected": smoke_expected.relative_to(destination).as_posix()}}
     (destination / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
 

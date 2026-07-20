@@ -19,6 +19,7 @@ EXAMPLES = {
     "zero_inflated_poisson_log": ("count", 2, {}),
     "ordinal_logit": ("ordinal", 1, {}),
 }
+CANONICAL_INPUT_PATHS = ("composition.C", "composition.Mn")
 
 
 def _artifact(root: Path, path: Path) -> dict[str, object]:
@@ -40,7 +41,7 @@ def build(destination: Path) -> None:
         pipeline_dir.mkdir(parents=True)
         model_dir.mkdir()
         pipeline = pipeline_dir / "pipeline.json"
-        pipeline.write_text(json.dumps({"features": ["C", "Mn"]}, indent=2), encoding="utf-8")
+        pipeline.write_text(json.dumps({"id": "two-feature-example", "version": "1.0.0", "canonical_input_paths": list(CANONICAL_INPUT_PATHS), "features": [{"name": "C"}, {"name": "Mn"}]}, indent=2), encoding="utf-8")
         draws = 64
         rng = np.random.default_rng(20260720)
         arrays: dict[str, np.ndarray] = {
@@ -61,7 +62,7 @@ def build(destination: Path) -> None:
             "package_version": "1.0.0",
             "task_id": "model-package-example",
             "input_schema_version": "candidate-v1",
-            "feature_pipeline": {"id": "two-feature-example", "version": "1.0.0", "spec": "feature-pipeline/pipeline.json", "output_features": ["C", "Mn"], "artifacts": []},
+            "feature_pipeline": {"id": "two-feature-example", "version": "1.0.0", "spec": "feature-pipeline/pipeline.json", "canonical_input_paths": list(CANONICAL_INPUT_PATHS), "output_features": ["C", "Mn"], "artifacts": []},
             "predictors": [{"id": "target", "target": "example", "unit": "1", "target_kind": target_kind, "runtime_type": "numpyro.dense_posterior.v1", "architecture_id": "dense_mlp_v1", "artifact": "model-artifacts/posterior.npz", "predictive_family": family, "feature_names": ["C", "Mn"], "config": config}],
             "provenance": {"training_data_id": "synthetic:documented-example", "feature_dataset_id": "synthetic:C-Mn", "training_code_revision": "build_numpyro_package_examples.py"},
             "artifacts": [_artifact(root, pipeline), _artifact(root, posterior)],

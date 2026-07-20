@@ -10,12 +10,14 @@ from typing import Any
 import numpy as np
 
 from .feature_pipeline import FEATURE_NAMES as METALLURGY_FEATURE_NAMES, FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION, build_feature_bundle
-from .importer import COMPOSITION_COLUMNS, WorkbookData
-from .model_packages import ModelPackageLoader, VerifiedModelPackage
+from .dataset_profile import load_task_definitions
+from .importer import WorkbookData, composition_names
+from .model_packages import ModelPackageLoader, VerifiedModelPackage, validate_task_definition_canonical_inputs
 from .schemas import Candidate, CandidateInput, Prediction, Support
 
 
 TASK_ID = "annealed-properties-v1"
+COMPOSITION_COLUMNS = composition_names(task_id=TASK_ID)
 MODEL_ID = "anneal-ridge"
 MODEL_VERSION = "0.4.0-oof-v1"
 SIMILARITY_VERSION = "parent-condition-knn-v3-repeat-summary"
@@ -139,6 +141,7 @@ class ModelRuntime:
     def _load_and_validate_package_feature_contract(self) -> None:
         assert self.model_package is not None
         manifest = self.model_package.manifest
+        validate_task_definition_canonical_inputs(load_task_definitions()[TASK_ID], manifest)
         if manifest.task_id != TASK_ID:
             raise ValueError(f"Model package task {manifest.task_id} is incompatible with {TASK_ID}")
         expected = tuple(FEATURE_NAMES)

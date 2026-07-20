@@ -8,8 +8,9 @@ from typing import Any
 import numpy as np
 
 from .hot_rolling_feature_pipeline import FEATURE_COMPONENTS, FEATURE_NAMES, INPUT_SCHEMA_VERSION, PIPELINE_ID, PIPELINE_VERSION, build_hot_rolling_features
+from .dataset_profile import load_task_definitions
 from .importer import WorkbookData
-from .model_packages import ModelPackageLoader
+from .model_packages import ModelPackageLoader, validate_task_definition_canonical_inputs
 from .schemas import HotRollingCandidateInput, Prediction, Support
 
 
@@ -30,6 +31,7 @@ class HotRollingRuntime:
         default = Path(__file__).resolve().parents[3] / "models" / "packages" / "hot-rolled-gp-2026-07"
         self.package = ModelPackageLoader().load(package_root or default)
         manifest = self.package.manifest
+        validate_task_definition_canonical_inputs(load_task_definitions()[TASK_ID], manifest)
         if manifest.task_id != TASK_ID:
             raise ValueError(f"Model package task {manifest.task_id} is incompatible with {TASK_ID}")
         if (manifest.feature_pipeline.id, manifest.feature_pipeline.version) != (PIPELINE_ID, PIPELINE_VERSION):

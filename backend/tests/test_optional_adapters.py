@@ -23,10 +23,15 @@ def _package_root(tmp_path: Path, name: str, predictor: dict[str, object], model
     root = tmp_path / name
     (root / "feature-pipeline").mkdir(parents=True)
     pipeline = root / "feature-pipeline" / "pipeline.json"
-    pipeline.write_text('{"operations": []}', encoding="utf-8")
+    pipeline.write_text(json.dumps({
+        "id": "optional-test",
+        "version": "1",
+        "canonical_input_paths": ["composition.C", "composition.Mn"],
+        "features": [{"name": "C"}, {"name": "Mn"}],
+    }), encoding="utf-8")
     manifest = {
         "schema_version": "model-package/v1", "package_id": name, "package_version": "1", "task_id": "test", "input_schema_version": "candidate-v1",
-        "feature_pipeline": {"id": "optional-test", "version": "1", "spec": "feature-pipeline/pipeline.json", "output_features": ["C", "Mn"]},
+        "feature_pipeline": {"id": "optional-test", "version": "1", "spec": "feature-pipeline/pipeline.json", "canonical_input_paths": ["composition.C", "composition.Mn"], "output_features": ["C", "Mn"]},
         "predictors": [predictor],
         "provenance": {"training_data_id": "fixture", "feature_dataset_id": "fixture", "training_code_revision": "test"},
         "artifacts": [_artifact(pipeline, "feature-pipeline/pipeline.json"), _artifact(model_path, f"model-artifacts/{model_path.name}")],

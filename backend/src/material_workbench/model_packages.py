@@ -9,9 +9,12 @@ import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Any, Literal, Protocol
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+if TYPE_CHECKING:
+    from .task_contracts import TaskDefinition
 
 
 MAX_ARTIFACT_BYTES = 256 * 1024 * 1024
@@ -61,8 +64,58 @@ class FeaturePipelineSpec(PackageModel):
     id: str
     version: str
     spec: str
-    output_features: tuple[str, ...] = ()
+    canonical_input_paths: Annotated[tuple[str, ...], Field(min_length=1)]
+    output_features: Annotated[tuple[str, ...], Field(min_length=1)]
     artifacts: tuple[str, ...] = ()
+
+    @field_validator("canonical_input_paths")
+    @classmethod
+    def unique_canonical_input_paths(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if any(not path for path in value):
+            raise ValueError("canonical input paths must not be empty")
+        if len(value) != len(set(value)):
+            raise ValueError("canonical input paths must be unique")
+        return value
+
+    @field_validator("output_features")
+    @classmethod
+    def unique_output_features(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if any(not name for name in value) or len(value) != len(set(value)):
+            raise ValueError("output feature names must be unique and non-empty")
+        return value
+
+
+class PipelineFeatureSpec(PackageModel):
+    name: Annotated[str, Field(min_length=1)]
+    unit: str | None = None
+    meaning: str | None = None
+
+
+class FeaturePipelineDocument(PackageModel):
+    """Common contract carried by every task-specific pipeline document."""
+
+    id: str
+    version: str
+    canonical_input_paths: Annotated[tuple[str, ...], Field(min_length=1)]
+    features: Annotated[tuple[PipelineFeatureSpec, ...], Field(min_length=1)]
+    missing_composition: str | None = None
+    heat_interpolation: str | None = None
+
+    @field_validator("canonical_input_paths")
+    @classmethod
+    def unique_canonical_input_paths(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if any(not path for path in value):
+            raise ValueError("canonical input paths must not be empty")
+        if len(value) != len(set(value)):
+            raise ValueError("canonical input paths must be unique")
+        return value
+
+    @model_validator(mode="after")
+    def unique_output_features(self) -> "FeaturePipelineDocument":
+        names = [feature.name for feature in self.features]
+        if len(names) != len(set(names)):
+            raise ValueError("pipeline output feature names must be unique")
+        return self
 
 
 class PredictorSpec(PackageModel):
@@ -74,7 +127,7 @@ class PredictorSpec(PackageModel):
     artifact: str
     predictive_family: str
     architecture_id: str | None = None
-    feature_names: tuple[str, ...]
+    feature_names: Annotated[tuple[str, ...], Field(min_length=1)]
     config: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("runtime_type")
@@ -89,6 +142,13 @@ class PredictorSpec(PackageModel):
     def known_likelihood(cls, value: str) -> str:
         if value not in LIKELIHOOD_IDS and value != "empirical_quantiles":
             raise ValueError(f"unsupported predictive_family: {value}")
+        return value
+
+    @field_validator("feature_names")
+    @classmethod
+    def unique_feature_names(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if any(not name for name in value) or len(value) != len(set(value)):
+            raise ValueError("predictor feature names must be unique and non-empty")
         return value
 
     @model_validator(mode="after")
@@ -132,7 +192,39 @@ class ModelPackageManifest(PackageModel):
         ids = [predictor.id for predictor in self.predictors]
         if len(ids) != len(set(ids)):
             raise ValueError("predictor ids must be unique")
+        expected = self.feature_pipeline.output_features
+        if any(predictor.feature_names != expected for predictor in self.predictors):
+            raise ValueError("predictor feature order must match feature pipeline output_features")
         return self
+
+
+def ordered_canonical_input_paths(task_definition: "TaskDefinition") -> tuple[str, ...]:
+    """Return every canonical input in the sole order declared by a TaskDefinition."""
+
+    return tuple(
+        field.path
+        for group in sorted(task_definition.input_groups, key=lambda item: item.order)
+        for field in sorted(group.fields, key=lambda item: item.order)
+    )
+
+
+def validate_task_definition_canonical_inputs(
+    task_definition: "TaskDefinition",
+    manifest: ModelPackageManifest,
+) -> None:
+    """Reject a package whose canonical input order differs from its task."""
+
+    if manifest.task_id != task_definition.id:
+        raise PackageContractError(
+            f"model package task {manifest.task_id} does not match TaskDefinition {task_definition.id}"
+        )
+    expected = ordered_canonical_input_paths(task_definition)
+    actual = manifest.feature_pipeline.canonical_input_paths
+    if actual != expected:
+        raise PackageContractError(
+            "model package canonical input order does not match TaskDefinition: "
+            f"expected {expected}, got {actual}"
+        )
 
 
 class PredictiveSummary(PackageModel):
@@ -248,4 +340,23 @@ class ModelPackageLoader:
             if _sha256(candidate) != spec.sha256:
                 raise PackageContractError(f"artifact hash mismatch: {spec.path}")
             artifacts[spec.path] = candidate
+        try:
+            raw_pipeline = json.loads(artifacts[manifest.feature_pipeline.spec].read_text(encoding="utf-8"))
+            pipeline = FeaturePipelineDocument.model_validate(raw_pipeline)
+        except (OSError, json.JSONDecodeError, ValueError) as exc:
+            raise PackageContractError(f"invalid feature pipeline specification: {exc}") from exc
+        if (pipeline.id, pipeline.version) != (
+            manifest.feature_pipeline.id,
+            manifest.feature_pipeline.version,
+        ):
+            raise PackageContractError("feature pipeline id/version differs between manifest and specification")
+        if pipeline.canonical_input_paths != manifest.feature_pipeline.canonical_input_paths:
+            raise PackageContractError(
+                "canonical input paths differ between model package manifest and pipeline specification"
+            )
+        pipeline_outputs = tuple(feature.name for feature in pipeline.features)
+        if pipeline_outputs != manifest.feature_pipeline.output_features:
+            raise PackageContractError(
+                "pipeline output feature order differs from model package manifest output_features"
+            )
         return VerifiedModelPackage(root=root, manifest=manifest, artifacts=artifacts, registry=self.registry)

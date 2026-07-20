@@ -6,13 +6,21 @@ from typing import Mapping, Sequence
 
 import numpy as np
 
-from .importer import COMPOSITION_COLUMNS
 from .schemas import CandidateInput, HeatPoint
 
 
-COMPOSITION_NAMES = tuple(COMPOSITION_COLUMNS)
+COMPOSITION_NAMES = (
+    "C", "Si", "Mn", "P", "S", "Cr", "Mo", "Ni", "Al", "Ti", "B", "N", "O", "Ca",
+)
+CANONICAL_INPUT_PATHS = (
+    *(f"composition.{name}" for name in COMPOSITION_NAMES),
+    "process.thickness_mm",
+    "process.line_speed_m_min",
+    "heat_pattern",
+    "categorical.coating",
+)
 FEATURE_PIPELINE_ID = "metallurgy-thermal"
-FEATURE_PIPELINE_VERSION = "1.3.0"
+FEATURE_PIPELINE_VERSION = "1.4.0"
 
 
 @dataclass(frozen=True)

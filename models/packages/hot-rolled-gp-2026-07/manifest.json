@@ -1,13 +1,37 @@
 {
   "schema_version": "model-package/v1",
   "package_id": "hot-rolled-gp-2026-07",
-  "package_version": "0.1.0-exact-gp-v1",
+  "package_version": "0.2.0-exact-gp-v1",
   "task_id": "hot-rolled-properties-v1",
   "input_schema_version": "hot-rolling-candidate-v1",
   "feature_pipeline": {
     "id": "metallurgy-hot-rolling",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "spec": "feature-pipeline/pipeline.json",
+    "canonical_input_paths": [
+      "composition.C",
+      "composition.Si",
+      "composition.Mn",
+      "composition.P",
+      "composition.S",
+      "composition.Cr",
+      "composition.Mo",
+      "composition.Ni",
+      "composition.Al",
+      "composition.Ti",
+      "composition.B",
+      "composition.N",
+      "composition.O",
+      "composition.Ca",
+      "process.reheat_temperature_c",
+      "process.hold_time_min",
+      "process.finish_temperature_c",
+      "process.coiling_temperature_c",
+      "process.cooling_rate_c_s",
+      "process.entry_thickness_mm",
+      "process.exit_thickness_mm",
+      "categorical.route"
+    ],
     "output_features": [
       "C",
       "Si",
@@ -197,8 +221,8 @@
   "artifacts": [
     {
       "path": "feature-pipeline/pipeline.json",
-      "sha256": "4397c16d2bb31b789c5c5ef1c685f385e7d8399411cfb50bba823c58da3ab753",
-      "bytes": 1247
+      "sha256": "6d2984ffd04ca143863a48617508b6ed242de67acbbd4ab93c261863d8d64bc1",
+      "bytes": 1844
     },
     {
       "path": "model-artifacts/TS.npz",
