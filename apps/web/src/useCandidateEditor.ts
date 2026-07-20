@@ -18,6 +18,7 @@ export function useCandidateEditor({ projectId, setCandidates, onPreview, onNoti
   const queue = useRef(new LatestSaveQueue<ApiCandidate>());
   const authoritative = useRef(new Map<string, ApiCandidate>());
   const scheduled = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const previewControllers = useRef(new Map<string, AbortController>());
   const activeProjectId = useRef(projectId);
   activeProjectId.current = projectId;
   const [saveStates, setSaveStates] = useState<Record<string, CandidateSaveState>>({});
@@ -71,13 +72,21 @@ export function useCandidateEditor({ projectId, setCandidates, onPreview, onNoti
       inferenceRequestCache.invalidatePrefix(candidateInferencePrefix(projectId, candidateId));
       const inputIdentity = candidateInputIdentity(saved.inputs);
       onPreview(candidateId, null, inputIdentity);
+      previewControllers.current.get(candidateId)?.abort();
+      const previewController = new AbortController();
+      previewControllers.current.set(candidateId, previewController);
       try {
-        const preview = await workbenchApi.previewCandidate(projectId, candidateId, inputIdentity);
+        const preview = await workbenchApi.previewCandidate(projectId, candidateId, inputIdentity, previewController.signal);
         if (!queued.isLatest() || activeProjectId.current !== projectId) return;
         onPreview(candidateId, preview, inputIdentity);
       } catch {
         if (!queued.isLatest() || activeProjectId.current !== projectId) return;
+        if (previewController.signal.aborted) return;
         onNotice("入力は保存しましたが、予測結果を更新できませんでした");
+      } finally {
+        if (previewControllers.current.get(candidateId) === previewController) {
+          previewControllers.current.delete(candidateId);
+        }
       }
     } catch (error) {
       if (!queued.isLatest() || activeProjectId.current !== projectId) return;
@@ -100,6 +109,7 @@ export function useCandidateEditor({ projectId, setCandidates, onPreview, onNoti
   function schedule(candidate: CandidateViewModel, previous?: CandidateViewModel) {
     markDirty(candidate.id);
     queue.current.supersede(candidate.id);
+    previewControllers.current.get(candidate.id)?.abort();
     const timer = scheduled.current.get(candidate.id);
     if (timer) clearTimeout(timer);
     scheduled.current.set(candidate.id, setTimeout(() => {
@@ -135,6 +145,8 @@ export function useCandidateEditor({ projectId, setCandidates, onPreview, onNoti
   useEffect(() => () => {
     for (const timer of scheduled.current.values()) clearTimeout(timer);
     scheduled.current.clear();
+    for (const controller of previewControllers.current.values()) controller.abort();
+    previewControllers.current.clear();
   }, [projectId]);
 
   return { acceptServerCandidates, copyDraft, fieldErrors, flush, reload, saveStates, schedule };

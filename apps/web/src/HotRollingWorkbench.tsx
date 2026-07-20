@@ -31,15 +31,16 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
   const selected = candidates.find((item) => item.id === selectedId) ?? candidates[0];
   const preview = selected ? previews[selected.id] : undefined;
 
-  async function loadPreview(candidateId: string, inputs: CandidateViewModel["raw"]["inputs"], shouldApply: () => boolean = () => true) {
+  async function loadPreview(candidateId: string, inputs: CandidateViewModel["raw"]["inputs"], shouldApply: () => boolean = () => true, signal?: AbortSignal) {
     const inputIdentity = candidateInputIdentity(inputs);
-    const result = await workbenchApi.previewCandidate(projectId, candidateId, inputIdentity);
+    const result = await workbenchApi.previewCandidate(projectId, candidateId, inputIdentity, signal);
     if (!shouldApply() || previewInputIdentityRef.current.get(candidateId) !== inputIdentity) return;
     setPreviews((items) => ({ ...items, [candidateId]: result }));
   }
 
   useEffect(() => {
     let cancelled = false;
+    const previewController = new AbortController();
     const load = async () => {
       try {
         setTask(null);
@@ -59,7 +60,7 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
         setCandidates(loadedCandidates);
         setSelectedId(loadedCandidates[0]?.id ?? "");
         setTask(resolved.task_definition);
-        await Promise.all(loadedCandidates.map((item) => loadPreview(item.id, item.raw.inputs, () => !cancelled)));
+        await Promise.all(loadedCandidates.map((item) => loadPreview(item.id, item.raw.inputs, () => !cancelled, previewController.signal)));
         if (cancelled) return;
         setNotice("GPR予測と熱延実績を同期しました");
       } catch {
@@ -67,7 +68,10 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
       }
     };
     void load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      previewController.abort();
+    };
   }, [projectId]);
 
   function nameUpdate(candidateId: string, value: string) {

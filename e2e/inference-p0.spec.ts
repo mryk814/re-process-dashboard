@@ -82,12 +82,27 @@ test("inference runs only for changed candidates and visible selected curves", a
 
   await page.getByRole("button", { name: "候補を追加" }).click();
   await expect.poll(() => previewHeld).toBe(true);
+  await expect.poll(() => new URL(page.url()).searchParams.get("candidate")).not.toBe(selectedCandidateId);
+  const createdCandidateId = new URL(page.url()).searchParams.get("candidate");
+  expect(createdCandidateId).toBeTruthy();
+  const createdCandidateLabel = await page.locator(".candidate-name-table tbody tr.selected-row input").inputValue();
   await page.waitForTimeout(500);
   expect(curveRequests).toBe(1);
 
   releasePreview();
   await expect.poll(() => previewRequests).toBe(4);
   await expect.poll(() => curveRequests).toBe(2);
+  await expect.poll(() => inferenceResponses.some((item) => item.kind === "preview" && item.candidateId === createdCandidateId)).toBe(true);
+  await expect.poll(() => inferenceResponses.some((item) => item.kind === "curve" && item.candidateId === createdCandidateId)).toBe(true);
+  const createdPreview = inferenceResponses.find((item) => item.kind === "preview" && item.candidateId === createdCandidateId);
+  const createdCurve = inferenceResponses.find((item) => item.kind === "curve" && item.candidateId === createdCandidateId);
+  expect(createdPreview).toEqual(expect.objectContaining({ status: 200 }));
+  expect(createdPreview?.body).toEqual(expect.objectContaining({ canonical_input: expect.any(Object), predictions: expect.any(Object) }));
+  expect(createdCurve).toEqual(expect.objectContaining({ status: 200 }));
+  expect(createdCurve?.body).toEqual(expect.objectContaining({ curves: expect.any(Object), output_ranges: expect.any(Object) }));
+  await expect(page.locator(".response-curves-panel")).toHaveAttribute("data-candidate-id", createdCandidateId!);
+  await expect(page.locator(".curve-scope")).toContainText(createdCandidateLabel);
+  await expect(page.getByRole("heading", { name: /予測特性/ })).toContainText(createdCandidateLabel);
 
   let releaseAbortedCurve = () => undefined;
   const abortedCurveGate = new Promise<void>((resolve) => { releaseAbortedCurve = resolve; });
