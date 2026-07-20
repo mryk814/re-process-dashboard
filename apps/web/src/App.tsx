@@ -1,6 +1,7 @@
 import { PointerEvent, useEffect, useRef, useState } from "react";
+import { HotRollingWorkbench } from "./HotRollingWorkbench";
 
-type Tab = "project" | "candidates" | "quality" | "lineage" | "explore";
+type Tab = "project" | "candidates" | "hot-rolling" | "quality" | "lineage" | "explore";
 type Candidate = {
   raw: ApiCandidate;
   id: string;
@@ -25,6 +26,8 @@ type Metric = {
   status: string;
   goalValue?: number | null;
   goalProbability?: number | null;
+  modelStd?: number | null;
+  observationStd?: number | null;
 };
 
 type ApiPreview = {
@@ -38,6 +41,7 @@ type ApiPreview = {
       goal_value?: number | null;
       goal_probability?: number | null;
       goal_direction?: "at_least" | "at_most" | null;
+      uncertainty_components?: Record<string, number> | null;
     }
   >;
   support?: {
@@ -244,6 +248,7 @@ const STARTER_CANDIDATE: Omit<ApiCandidate, "id"> = {
 const navItems: Array<{ id: Tab; label: string }> = [
   { id: "project", label: "プロジェクト" },
   { id: "candidates", label: "候補比較" },
+  { id: "hot-rolling", label: "熱延" },
   { id: "quality", label: "データ品質" },
   { id: "lineage", label: "工程系譜" },
   { id: "explore", label: "範囲探索" },
@@ -336,6 +341,16 @@ function metricsFromPreview(preview: ApiPreview): Metric[] {
     status: preview.support?.status ?? "supported",
     goalValue: prediction.goal_value,
     goalProbability: prediction.goal_probability,
+    modelStd:
+      prediction.uncertainty_components?.latent_model_std ??
+      (prediction.uncertainty_components?.latent_model_variance !== undefined
+        ? Math.sqrt(prediction.uncertainty_components.latent_model_variance)
+        : null),
+    observationStd:
+      prediction.uncertainty_components?.observation_noise_std ??
+      (prediction.uncertainty_components?.observation_noise_variance !== undefined
+        ? Math.sqrt(prediction.uncertainty_components.observation_noise_variance)
+        : null),
   }));
 }
 
@@ -812,7 +827,7 @@ function App() {
         <div className="context-bar">
           <div>
             <span className="overline">プロジェクト</span>
-            <h1>{activeProject?.name ?? "プロジェクトを読み込んでいます"}</h1>
+            <h1>{tab === "hot-rolling" ? "熱延条件の候補検討" : activeProject?.name ?? "プロジェクトを読み込んでいます"}</h1>
           </div>
           <div className="run-actions">
             <span className={`api-state ${apiState}`}>
@@ -903,6 +918,7 @@ function App() {
               onCreate={() => void createStarterCandidate()}
             />
           ))}
+        {tab === "hot-rolling" && <HotRollingWorkbench />}
         {tab === "quality" && <LiveDataQualityPage />}
         {tab === "lineage" && (
           <LiveLineagePage
@@ -1909,7 +1925,7 @@ function EvidencePanel({
               <tr>
                 <th>特性</th>
                 <th>予測値</th>
-                <th>検証残差区間 (90%)</th>
+                <th>90%予測区間</th>
                 <th>目標達成</th>
               </tr>
             </thead>
@@ -1931,6 +1947,11 @@ function EvidencePanel({
                        <i style={{ left: `${Math.max(0, Math.min(100, ((metric.value - metric.low) / Math.max(1e-9, metric.high - metric.low)) * 100))}%` }} />
                     </span>{" "}
                     {number(metric.high, 1)}
+                    {(metric.modelStd !== null || metric.observationStd !== null) && (
+                      <small className="uncertainty-detail">
+                        モデル ±{number(metric.modelStd ?? 0, 1)} / 測定 ±{number(metric.observationStd ?? 0, 1)}
+                      </small>
+                    )}
                   </td>
                   <td>
                     {metric.goalProbability === null ||
@@ -1951,7 +1972,9 @@ function EvidencePanel({
           <p className="empty-evidence">プレビュー結果を待っています。</p>
         )}
         <p className="interval-note">
-          区間と目標達成率は、親工程単位の交差検証残差から求めた経験的な範囲です。
+          {preview?.model_meta?.prediction_interval?.method === "gaussian_process_predictive_distribution"
+            ? "予測区間はモデルの不確かさと過去測定のばらつきを含みます。入力条件の支持度は別に判定しています。"
+            : "区間と目標達成率は、親工程単位の交差検証残差から求めた経験的な範囲です。"}
         </p>
         {preview?.support && (
           <div className={`support-summary ${status ?? "caution"}`}>

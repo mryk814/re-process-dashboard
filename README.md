@@ -49,7 +49,9 @@ npm run build
 
 ## モデルPackage
 
-既定の学習済みPackageは `models/packages/annealed-ridge-2026-07` です。予測時にmanifest・artifact hash・特徴量順序・smoke inputを検証し、画面の「プロジェクト」で有効なPackageとruntimeを確認できます。
+既定の学習済みPackageは `models/packages/annealed-gp-2026-07` です。ガウス過程回帰が90%予測区間を返し、モデル由来の不確かさと反復測定由来のばらつきを分けて表示します。予測時にmanifest・artifact hash・特徴量順序・smoke inputを検証し、画面の「プロジェクト」で有効なPackageとruntimeを確認できます。
+
+熱延タブは独立した `hot-rolled-properties-v1` タスクで、`models/packages/hot-rolled-gp-2026-07` を使用します。熱延v1は `HR-LINE-1`・L方向引張を推定対象に固定し、物理範囲外の観測を学習から除外します。
 
 別の学習済みPackageで起動する場合は、信頼できるローカルPackageの絶対パスを指定します。
 
