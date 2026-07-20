@@ -87,7 +87,7 @@ type ApiPreview = {
     repeat_summary?: Record<string, { mean: number; std: number; n: number }>;
   }>;
   response_curve?: Array<{
-    temperature_c: number;
+    x: number;
     value: number;
     lower: number;
     upper: number;
@@ -170,6 +170,28 @@ type TaskDefinition = {
   task_id: string;
   inputs: TaskInputDefinition[];
   outputs: TaskOutputDefinition[];
+};
+
+type CurvePoint = {
+  x: number;
+  value: number;
+  lower: number;
+  upper: number;
+};
+
+type CurveVariable = {
+  id: string;
+  label: string;
+  unit: string;
+  min: number;
+  max: number;
+  current: number;
+};
+
+type ResponseCurvesPayload = {
+  variable: CurveVariable;
+  curves: Record<string, CurvePoint[]>;
+  output_ranges: Record<string, { min: number; max: number }>;
 };
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8765";
@@ -848,7 +870,6 @@ function App() {
               metrics={metrics}
               preview={preview}
               previewsByCandidate={previewsByCandidate}
-              notice={notice}
               onSelect={setSelectedId}
               onComposition={updateComposition}
               onText={updateCandidateText}
@@ -940,7 +961,6 @@ type WorkbenchProps = {
   metrics: Metric[];
   preview: ApiPreview | null;
   previewsByCandidate: Record<string, ApiPreview>;
-  notice: string;
   onSelect: (id: string) => void;
   onHeat: (index: number, field: "time" | "temperature", raw: number) => void;
   onComposition: (id: string, element: string, raw: number) => void;
@@ -965,7 +985,6 @@ function CandidateWorkbench(props: WorkbenchProps) {
     metrics,
     preview,
     previewsByCandidate,
-    notice,
     onSelect,
     onComposition,
     onText,
@@ -993,7 +1012,6 @@ function CandidateWorkbench(props: WorkbenchProps) {
             <h2>
               候補比較表 <span>（セルを直接編集）</span>
             </h2>
-            <span className="notice" role="status">{notice}</span>
           </div>
           <div className="comparison-actions" aria-label="候補操作">
             <button className="outline-button" onClick={onCopy}>
@@ -1033,7 +1051,7 @@ function CandidateWorkbench(props: WorkbenchProps) {
           candidate={selected}
           preview={preview}
           targetValues={targetValues}
-          outputs={taskDefinition?.outputs ?? []}
+          taskDefinition={taskDefinition}
         />
         <ActualsPanel candidate={selected} />
       </section>
@@ -1700,53 +1718,70 @@ function HeatPattern({
   );
 }
 
-type CurvePoint = {
-  temperature_c: number;
-  value: number;
-  lower: number;
-  upper: number;
-};
-
 function LiveResponseCurves({
   candidate,
   preview,
   targetValues,
-  outputs,
+  taskDefinition,
 }: {
   candidate: Candidate;
   preview: ApiPreview | null;
   targetValues: Record<string, number>;
-  outputs: TaskOutputDefinition[];
+  taskDefinition: TaskDefinition | null;
 }) {
-  const [curves, setCurves] = useState<Record<string, CurvePoint[]>>({});
-  const [error, setError] = useState(false);
-  useEffect(() => {
-    const controller = new AbortController();
-    setCurves({});
-    setError(false);
-    const timer = window.setTimeout(() => {
-      fetch(`${API_URL}/api/candidates/${candidate.id}/response-curves`, { signal: controller.signal })
-        .then(async (response) => {
-          if (!response.ok) throw new Error();
-          const body = (await response.json()) as Record<string, CurvePoint[]>;
-          if (!controller.signal.aborted) setCurves(body);
-        })
-        .catch(() => { if (!controller.signal.aborted) setError(true); });
-    }, 320);
-    return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [candidate]);
-  const visibleOutputs = outputs.length ? outputs : [
+  const outputs = taskDefinition?.outputs ?? [
     { key: "TS", label: "TS", unit: "MPa", goal_direction: "at_least" as const },
     { key: "YS", label: "YS", unit: "MPa", goal_direction: "at_least" as const },
     { key: "EL", label: "EL", unit: "%", goal_direction: "at_least" as const },
     { key: "lambda", label: "λ", unit: "%", goal_direction: "at_least" as const },
   ];
+  const variables: CurveVariable[] = [
+    ...(taskDefinition?.inputs ?? [])
+      .filter((input) => input.editable && input.field !== "coating")
+      .map((input) => ({
+        id: input.group === "composition" ? `${input.group}.${input.field}` : input.field,
+        label: input.label,
+        unit: input.unit,
+        min: input.training_range?.min ?? input.min,
+        max: input.training_range?.max ?? input.max,
+        current: input.group === "composition" ? candidate.raw.composition[input.field] ?? 0 : input.field === "thickness_mm" ? candidate.raw.thickness_mm : candidate.raw.line_speed_m_min,
+      })),
+    ...candidate.heat.flatMap((point, index) => [
+      { id: `heat.${index}.temperature_c`, label: `ヒート ${index + 1}点目 温度`, unit: "°C", min: 0, max: 1000, current: point.temperature },
+      { id: `heat.${index}.time_min`, label: `ヒート ${index + 1}点目 時間`, unit: "min", min: 0, max: Math.max(1, candidate.heat.at(-1)?.time ?? 1), current: point.time },
+    ]),
+  ];
+  const [variableId, setVariableId] = useState(variables[0]?.id ?? "heat.peak_temperature_c");
+  const [payload, setPayload] = useState<ResponseCurvesPayload | null>(null);
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    if (variables.length && !variables.some((variable) => variable.id === variableId)) setVariableId(variables[0].id);
+  }, [candidate.id, variableId, variables.length]);
+  useEffect(() => {
+    const controller = new AbortController();
+    setPayload(null);
+    setError(false);
+    const timer = window.setTimeout(() => {
+      fetch(`${API_URL}/api/candidates/${candidate.id}/response-curves?variable=${encodeURIComponent(variableId)}`, { signal: controller.signal })
+        .then(async (response) => {
+          if (!response.ok) throw new Error();
+          const body = (await response.json()) as ResponseCurvesPayload;
+          if (!controller.signal.aborted) setPayload(body);
+        })
+        .catch(() => { if (!controller.signal.aborted) setError(true); });
+    }, 320);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [candidate.id, variableId]);
+  const activeVariable = payload?.variable ?? variables.find((variable) => variable.id === variableId);
   return (
-    <section className="response-curves-panel" aria-label="4特性の応答曲線">
-      <div className="panel-title"><h2>応答曲線 <span>（焼鈍温度を動かしたときの4特性）</span></h2><small>他の入力条件は選択候補で固定</small></div>
+    <section className="response-curves-panel" aria-label="設計変数ごとの応答曲線">
+      <div className="panel-title">
+        <h2>応答曲線 <span>（選択した設計変数を動かしたときの特性）</span></h2>
+        <label>変数 <select aria-label="応答曲線の設計変数" value={variableId} onChange={(event) => setVariableId(event.target.value)}>{variables.map((variable) => <option key={variable.id} value={variable.id}>{variable.label} ({variable.unit})</option>)}</select></label>
+      </div>
       {error ? <p className="empty-evidence">応答曲線を取得できません。</p> : (
         <div className="response-curves-grid">
-          {visibleOutputs.map((output) => <ResponseCurveMiniChart key={output.key} output={output} points={curves[output.key] ?? []} prediction={preview?.predictions?.[output.key]} goalValue={targetValues[output.key]} currentTemperature={candidate.annealTemperature} />)}
+          {outputs.map((output) => <ResponseCurveMiniChart key={output.key} output={output} points={payload?.curves[output.key] ?? []} prediction={preview?.predictions?.[output.key]} goalValue={targetValues[output.key]} xRange={activeVariable ? { min: payload?.variable.min ?? activeVariable.min, max: payload?.variable.max ?? activeVariable.max } : undefined} yRange={payload?.output_ranges[output.key]} currentX={payload?.variable.current ?? activeVariable?.current} xLabel={activeVariable?.label ?? "設計変数"} xUnit={activeVariable?.unit ?? ""} />)}
         </div>
       )}
     </section>
@@ -1758,27 +1793,37 @@ function ResponseCurveMiniChart({
   points,
   prediction,
   goalValue,
-  currentTemperature,
+  xRange,
+  yRange,
+  currentX,
+  xLabel,
+  xUnit,
 }: {
   output: TaskOutputDefinition;
   points: CurvePoint[];
   prediction?: NonNullable<ApiPreview["predictions"]>[string];
   goalValue?: number;
-  currentTemperature: number;
+  xRange?: { min: number; max: number };
+  yRange?: { min: number; max: number };
+  currentX?: number;
+  xLabel: string;
+  xUnit: string;
 }) {
   const width = 300;
   const height = 156;
-  const minTemp = Math.min(...points.map((point) => point.temperature_c), 500);
-  const maxTemp = Math.max(...points.map((point) => point.temperature_c), 900);
-  const rawMin = Math.min(...points.map((point) => point.lower), prediction?.lower ?? Infinity, goalValue ?? Infinity, 0);
-  const rawMax = Math.max(...points.map((point) => point.upper), prediction?.upper ?? -Infinity, goalValue ?? -Infinity, 1);
+  const minX = xRange?.min ?? Math.min(...points.map((point) => point.x), 0);
+  const maxX = xRange?.max ?? Math.max(...points.map((point) => point.x), 1);
+  const outputAxisValues = yRange ? [yRange.min, yRange.max] : points.flatMap((point) => [point.lower, point.upper]);
+  const rawMin = Math.min(...outputAxisValues, goalValue ?? Infinity);
+  const rawMax = Math.max(...outputAxisValues, goalValue ?? -Infinity);
   const valuePadding = Math.max(1, (rawMax - rawMin) * 0.08);
   const minValue = rawMin - valuePadding;
   const maxValue = rawMax + valuePadding;
-  const x = (value: number) => 30 + ((value - minTemp) / Math.max(1, maxTemp - minTemp)) * 252;
+  const x = (value: number) => 30 + ((value - minX) / Math.max(1e-6, maxX - minX)) * 252;
   const y = (value: number) => 124 - ((value - minValue) / Math.max(1, maxValue - minValue)) * 92;
-  const line = points.map((point, index) => `${index ? "L" : "M"}${x(point.temperature_c)} ${y(point.value)}`).join(" ");
-  const band = points.length ? `${points.map((point, index) => `${index ? "L" : "M"}${x(point.temperature_c)} ${y(point.upper)}`).join(" ")} ${[...points].reverse().map((point) => `L${x(point.temperature_c)} ${y(point.lower)}`).join(" ")} Z` : "";
+  const line = points.map((point, index) => `${index ? "L" : "M"}${x(point.x)} ${y(point.value)}`).join(" ");
+  const band = points.length ? `${points.map((point, index) => `${index ? "L" : "M"}${x(point.x)} ${y(point.upper)}`).join(" ")} ${[...points].reverse().map((point) => `L${x(point.x)} ${y(point.lower)}`).join(" ")} Z` : "";
+  const xTicks = [minX, (minX + maxX) / 2, maxX];
   return (
     <article className="response-curve-card">
       <header><b>{output.label}</b><span>{prediction ? `${number(prediction.value, output.key === "EL" || output.key === "lambda" ? 1 : 0)} ${prediction.unit}` : "読み込み中"}</span></header>
@@ -1786,8 +1831,9 @@ function ResponseCurveMiniChart({
         {[minValue, (minValue + maxValue) / 2, maxValue].map((tick) => <g key={tick}><line x1="28" y1={y(tick)} x2="284" y2={y(tick)} stroke="#e3e9f0" /><text x="25" y={y(tick) + 3} textAnchor="end" fontSize="9" fill="#617087">{number(tick, output.key === "EL" || output.key === "lambda" ? 1 : 0)}</text></g>)}
         <path d={band} fill="#1f5fc4" opacity=".12" /><path d={line} fill="none" stroke="#1f5fc4" strokeWidth="2.5" />
         {Number.isFinite(goalValue) && <line x1="28" y1={y(goalValue!)} x2="284" y2={y(goalValue!)} stroke="#c17816" strokeDasharray="4 3" />}
-        {prediction && <circle cx={x(currentTemperature)} cy={y(prediction.value)} r="4" fill="#fff" stroke="#176d52" strokeWidth="2.5" />}
-        <text x="156" y="148" textAnchor="middle" fontSize="9" fill="#617087">焼鈍温度 (°C)</text>
+        {prediction && Number.isFinite(currentX) && <circle cx={x(currentX!)} cy={y(prediction.value)} r="4" fill="#fff" stroke="#176d52" strokeWidth="2.5" />}
+        {xTicks.map((tick) => <text key={tick} x={x(tick)} y="137" textAnchor="middle" fontSize="8" fill="#617087">{number(tick, xUnit === "min" ? 2 : 1)}</text>)}
+        <text x="156" y="153" textAnchor="middle" fontSize="8" fill="#617087">{xLabel} ({xUnit})</text>
       </svg> : <p className="empty-evidence">読み込み中…</p>}
     </article>
   );

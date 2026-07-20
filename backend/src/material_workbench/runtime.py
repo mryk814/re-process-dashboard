@@ -421,18 +421,121 @@ class ModelRuntime:
             "heat_pattern": candidate.heat_pattern, "response_curve": response_curve,
         }
 
-    def response_curve(self, candidate: Candidate, target: str = "TS") -> list[dict[str, float]]:
+    def _curve_variable_current(self, candidate: Candidate, variable: str) -> float:
+        if variable.startswith("composition."):
+            field = variable.removeprefix("composition.")
+            if field not in COMPOSITION_COLUMNS:
+                raise ValueError(f"Unsupported response-curve variable: {variable}")
+            return float(candidate.composition.get(field, self.composition_defaults[field]))
+        if variable == "thickness_mm":
+            return float(candidate.thickness_mm)
+        if variable == "line_speed_m_min":
+            return float(candidate.line_speed_m_min)
+        if variable == "heat.peak_temperature_c":
+            return float(max(point.temperature_c for point in candidate.heat_pattern))
+        if variable.startswith("heat."):
+            parts = variable.split(".")
+            if len(parts) != 3 or not parts[1].isdigit() or parts[2] not in {"time_min", "temperature_c"}:
+                raise ValueError(f"Unsupported response-curve variable: {variable}")
+            index = int(parts[1])
+            if index >= len(candidate.heat_pattern):
+                raise ValueError(f"Unknown heat-pattern point: {variable}")
+            return float(candidate.heat_pattern[index].time_s / 60 if parts[2] == "time_min" else candidate.heat_pattern[index].temperature_c)
+        raise ValueError(f"Unsupported response-curve variable: {variable}")
+
+    def _curve_training_values(self, model: RidgeModel, variable: str) -> list[float]:
+        values: list[float] = []
+        for row in model.rows:
+            try:
+                if variable.startswith("composition."):
+                    value = row["composition"].get(variable.removeprefix("composition."))
+                elif variable == "thickness_mm":
+                    value = row["thickness_mm"]
+                elif variable == "line_speed_m_min":
+                    value = row["features"].get("line_speed_m_min")
+                elif variable == "heat.peak_temperature_c":
+                    value = max(point["temperature_c"] for point in row["features"].get("heat_pattern", []))
+                elif variable.startswith("heat."):
+                    parts = variable.split(".")
+                    index = int(parts[1])
+                    points = row["features"].get("heat_pattern", [])
+                    raw_value = points[index].get("time_s" if parts[2] == "time_min" else parts[2]) if index < len(points) else None
+                    value = float(raw_value) / 60 if raw_value is not None and parts[2] == "time_min" else raw_value
+                else:
+                    value = None
+                if value is not None and np.isfinite(float(value)):
+                    values.append(float(value))
+            except (KeyError, IndexError, TypeError, ValueError):
+                continue
+        return values
+
+    def _curve_axis(self, candidate: Candidate, model: RidgeModel, variable: str) -> tuple[float, float]:
+        values = self._curve_training_values(model, variable)
+        if not values:
+            current = self._curve_variable_current(candidate, variable)
+            values = [current - max(abs(current) * 0.08, 1.0), current + max(abs(current) * 0.08, 1.0)]
+        low, high = min(values), max(values)
+        padding = max((high - low) * 0.08, 1e-6)
+        lower_bound = 0.0 if variable.startswith("composition.") or variable in {"thickness_mm", "line_speed_m_min"} or variable.endswith(".time_min") else -273.15
+        return max(lower_bound, low - padding), high + padding
+
+    @staticmethod
+    def _set_curve_variable(candidate: Candidate, variable: str, value: float) -> None:
+        if variable.startswith("composition."):
+            candidate.composition[variable.removeprefix("composition.")] = min(100.0, max(0.0, float(value)))
+            return
+        if variable == "thickness_mm":
+            candidate.thickness_mm = max(0.001, float(value))
+            return
+        if variable == "line_speed_m_min":
+            candidate.line_speed_m_min = max(0.001, float(value))
+            return
+        if variable == "heat.peak_temperature_c":
+            index = max(range(len(candidate.heat_pattern)), key=lambda i: candidate.heat_pattern[i].temperature_c)
+            candidate.heat_pattern[index].temperature_c = float(value)
+            return
+        if variable.startswith("heat."):
+            parts = variable.split(".")
+            index = int(parts[1])
+            point = candidate.heat_pattern[index]
+            if parts[2] == "temperature_c":
+                point.temperature_c = float(value)
+            else:
+                lower = candidate.heat_pattern[index - 1].time_s + 1e-6 if index else 0.0
+                upper = candidate.heat_pattern[index + 1].time_s - 1e-6 if index + 1 < len(candidate.heat_pattern) else float("inf")
+                point.time_s = min(max(float(value) * 60, lower), upper)
+            return
+        raise ValueError(f"Unsupported response-curve variable: {variable}")
+
+    def curve_variable(self, candidate: Candidate, variable: str, model: RidgeModel | None = None) -> dict[str, Any]:
+        reference = model or next(iter(self.models.values()))
+        labels = {
+            "thickness_mm": ("板厚", "mm"),
+            "line_speed_m_min": ("ライン速度", "m/min"),
+            "heat.peak_temperature_c": ("ヒートパターン 最高温度", "°C"),
+        }
+        if variable.startswith("composition."):
+            label = variable.removeprefix("composition.")
+            unit = "mass%"
+        elif variable.startswith("heat.") and variable.count(".") == 2:
+            _, raw_index, field = variable.split(".")
+            label = f"ヒートパターン {int(raw_index) + 1}点目 { '時間' if field == 'time_min' else '温度' }"
+            unit = "min" if field == "time_min" else "°C"
+        else:
+            label, unit = labels.get(variable, (variable, ""))
+        axis_min, axis_max = self._curve_axis(candidate, reference, variable)
+        return {"id": variable, "label": label, "unit": unit, "min": round(axis_min, 4), "max": round(axis_max, 4), "current": round(self._curve_variable_current(candidate, variable), 4)}
+
+    def response_curve(self, candidate: Candidate, target: str = "TS", variable: str = "heat.peak_temperature_c") -> list[dict[str, float]]:
         if target not in self.models:
             return []
         model = self.models[target]
-        values = model.x_train[:, FEATURE_NAMES.index("peak_temperature_c")] * model.feature_scale[FEATURE_NAMES.index("peak_temperature_c")] + model.feature_mean[FEATURE_NAMES.index("peak_temperature_c")]
-        start, end = float(np.quantile(values, 0.05)), float(np.quantile(values, 0.95))
-        peak_index = max(range(len(candidate.heat_pattern)), key=lambda i: candidate.heat_pattern[i].temperature_c)
+        start, end = self._curve_axis(candidate, model, variable)
         lower_offset, upper_offset = model.interval_offsets()
         curve: list[dict[str, float]] = []
-        for temperature in np.linspace(start, end, 9):
+        for x_value in np.linspace(start, end, 9):
             adjusted = candidate.model_copy(deep=True)
-            adjusted.heat_pattern[peak_index].temperature_c = float(temperature)
+            self._set_curve_variable(adjusted, variable, float(x_value))
             adjusted_vector = self.vector_for_candidate(adjusted)
             if target in self.package_predictors:
                 summary = self.package_predictors[target].predict({name: float(value) for name, value in zip(FEATURE_NAMES, adjusted_vector)}, seed=0)
@@ -441,9 +544,22 @@ class ModelRuntime:
             else:
                 value = model.predict(adjusted_vector)
                 lower, upper = value + lower_offset, value + upper_offset
-            curve.append({"temperature_c": round(float(temperature), 2), "value": round(value, 3), "lower": round(lower, 3), "upper": round(upper, 3)})
+            curve.append({"x": round(float(x_value), 4), "value": round(value, 3), "lower": round(lower, 3), "upper": round(upper, 3)})
         return curve
 
-    def response_curves(self, candidate: Candidate) -> dict[str, list[dict[str, float]]]:
-        """Return the task's response curves in one model-backed request."""
-        return {target: self.response_curve(candidate, target) for target in TARGETS}
+    def response_curves(self, candidate: Candidate, variable: str | None = None) -> dict[str, Any]:
+        """Return response curves and axis metadata for one selected design variable."""
+        selected = variable or "heat.peak_temperature_c"
+        curves = {target: self.response_curve(candidate, target, selected) for target in TARGETS}
+        if variable is None:
+            return curves
+        model = next(iter(self.models.values()), None)
+        if model is None:
+            return {"variable": {"id": selected, "label": selected, "unit": "", "min": 0, "max": 1, "current": 0}, "curves": curves, "output_ranges": {}}
+        output_ranges: dict[str, dict[str, float]] = {}
+        for target, (column, _) in TARGETS.items():
+            target_model = self.models.get(target)
+            values = [float(row["outputs"][column]) for row in target_model.rows if column in row["outputs"]] if target_model else []
+            if values:
+                output_ranges[target] = {"min": round(min(values), 4), "max": round(max(values), 4)}
+        return {"variable": self.curve_variable(candidate, selected, model), "curves": curves, "output_ranges": output_ranges}

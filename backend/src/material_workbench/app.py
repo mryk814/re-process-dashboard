@@ -287,20 +287,26 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
         return {"prediction": result, "snapshot": snapshot_for_candidate(candidate, result)}
 
     @app.get("/api/candidates/{candidate_id}/response-curve")
-    def response_curve(candidate_id: str, target: str = "TS") -> list[dict[str, float]]:
+    def response_curve(candidate_id: str, target: str = "TS", variable: str = "heat.peak_temperature_c") -> list[dict[str, float]]:
         if target not in {"TS", "YS", "EL", "lambda"}:
             raise HTTPException(422, "未対応の予測特性です")
         candidate = store().get_candidate(candidate_id)
         if not candidate:
             raise HTTPException(404, "候補が見つかりません")
-        return runtime().response_curve(candidate, target)
+        try:
+            return runtime().response_curve(candidate, target, variable)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
 
     @app.get("/api/candidates/{candidate_id}/response-curves")
-    def response_curves(candidate_id: str) -> dict[str, list[dict[str, float]]]:
+    def response_curves(candidate_id: str, variable: str | None = None) -> dict[str, Any]:
         candidate = store().get_candidate(candidate_id)
         if not candidate:
             raise HTTPException(404, "候補が見つかりません")
-        return runtime().response_curves(candidate)
+        try:
+            return runtime().response_curves(candidate, variable)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
 
     @app.get("/api/candidates/{candidate_id}/similar")
     def similar(candidate_id: str) -> list[dict[str, object]]:

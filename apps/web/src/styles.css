@@ -2136,13 +2136,13 @@ select:focus-visible,
 .candidate-inspector .heat-point-table-wrap { max-height: 238px; }
 .candidate-inspector .heat-point-table .icon-delete { width: 24px; }
 .response-curves-panel { margin-top: 10px; border: 1px solid #d8e0ea; border-radius: 4px; }
-.response-curves-panel > .panel-title { border-bottom: 1px solid #e0e7ef; padding: 10px 11px 8px; }
+.response-curves-panel > .panel-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-bottom: 1px solid #e0e7ef; padding: 8px 11px; }
 .response-curves-panel > .panel-title h2 { font-size: 15px; }
-.response-curves-panel > .panel-title > small { color: #718096; font-size: 10px; }
-.response-curves-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
-.response-curve-card { min-width: 0; padding: 7px 9px 4px; border-right: 1px solid #e0e7ef; border-bottom: 1px solid #e0e7ef; }
-.response-curve-card:nth-child(2n) { border-right: 0; }
-.response-curve-card:nth-last-child(-n + 2) { border-bottom: 0; }
+.response-curves-panel > .panel-title label { display: inline-flex; align-items: center; gap: 5px; color: #617087; font-size: 11px; white-space: nowrap; }
+.response-curves-panel > .panel-title select { max-width: 210px; height: 28px; padding: 2px 6px; border: 1px solid #c5d1df; border-radius: 3px; background: #fff; color: #1d3147; font-size: 11px; }
+.response-curves-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; }
+.response-curve-card { min-width: 0; padding: 6px 5px 3px; border-right: 1px solid #e0e7ef; }
+.response-curve-card:last-child { border-right: 0; }
 .response-curve-card header { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; }
 .response-curve-card header span { color: #1f5fc4; font-variant-numeric: tabular-nums; }
 .response-curve-card svg { display: block; width: 100%; height: auto; }
@@ -2310,6 +2310,7 @@ select:focus-visible,
 .comparison-detail-table .support-cell { width: 72px; background: #fff; }
 @media (max-width: 820px) {
   .comparison-grid { grid-template-columns: 132px minmax(0, 1fr); }
+  .response-curves-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .actual-meta-fields {
   margin: -2px 0 10px;
