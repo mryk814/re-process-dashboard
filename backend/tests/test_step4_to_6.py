@@ -91,7 +91,7 @@ def test_lineage_candidate_actuals_and_snapshot_restore(client) -> None:
     candidate = lineage_candidate.json()
     assert len(candidate["inputs"]["heat_pattern"]) >= 2
     assert candidate["provenance"]["source_ref"]["data_source_digest"] == client.get("/api/bootstrap").json()["meta"]["source_sha256"]
-    actual = client.post(f"/api/projects/default/candidates/{candidate['id']}/actuals", json={"property": "TS", "mean": 505.2, "std": 4.2, "replicates": 3, "unit": "MPa", "experiment_no": "EXP-01", "measured_at": "2026-07-20", "note": "確認用"})
+    actual = client.post(f"/api/projects/default/candidates/{candidate['id']}/actuals", params={"expected_revision": candidate["revision"]}, json={"property": "TS", "mean": 505.2, "std": 4.2, "replicates": 3, "unit": "MPa", "experiment_no": "EXP-01", "measured_at": "2026-07-20", "note": "確認用"})
     assert actual.status_code == 201
     assert actual.json()["snapshot_id"]
     changed = {key: value for key, value in candidate.items() if key in {"name", "inputs", "provenance"}}
@@ -103,7 +103,7 @@ def test_lineage_candidate_actuals_and_snapshot_restore(client) -> None:
     assert comparison["comparisons"][0]["snapshot_id"] == actual.json()["snapshot_id"]
     assert comparison["comparisons"][0]["prediction"]["canonical_input"]["process"]["line_speed_m_min"] != changed["inputs"]["process"]["line_speed_m_min"]
     assert comparison["comparisons"][0]["provenance"]["training_data"]["source_sha256"]
-    assert client.post(f"/api/projects/default/candidates/{candidate['id']}/actuals", json={"property": "TS", "mean": 500, "unit": "%"}).status_code == 422
+    assert client.post(f"/api/projects/default/candidates/{candidate['id']}/actuals", params={"expected_revision": candidate["revision"] + 1}, json={"property": "TS", "mean": 500, "unit": "%"}).status_code == 422
     snapshot = client.post(f"/api/projects/default/candidates/{candidate['id']}/snapshots").json()
     restored = client.post(f"/api/projects/default/snapshots/{snapshot['id']}/restore")
     assert restored.status_code == 201
@@ -153,7 +153,7 @@ def test_candidate_delete_preserves_actuals_and_snapshots(client) -> None:
     payload = {key: value for key, value in source.items() if key not in {"id", "project_id", "created_at", "updated_at"}}
     payload["name"] = "削除検証"
     candidate = client.post("/api/projects/default/candidates", json=payload).json()
-    actual = client.post(f"/api/projects/default/candidates/{candidate['id']}/actuals", json={"property": "TS", "mean": 500, "unit": "MPa"}).json()
+    actual = client.post(f"/api/projects/default/candidates/{candidate['id']}/actuals", params={"expected_revision": candidate["revision"]}, json={"property": "TS", "mean": 500, "unit": "MPa"}).json()
     assert client.delete(f"/api/projects/default/candidates/{candidate['id']}?expected_revision={candidate['revision']}").status_code == 204
     assert client.get(f"/api/projects/default/candidates/{candidate['id']}").status_code == 404
     assert client.get(f"/api/projects/default/candidates/{candidate['id']}?include_archived=true").json()["archived_at"] is not None

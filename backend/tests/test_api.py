@@ -73,8 +73,9 @@ def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
     assert all(item["goal_direction"] == "at_least" for item in definition["outputs"])
     assert task["runtime_capability"]["operations"]["response_curve"] is True
     candidate = client.post("/api/projects/default/candidates", json=_payload()).json()
-    first = client.post(f"/api/projects/default/candidates/{candidate['id']}/preview").json()
-    second = client.post(f"/api/projects/default/candidates/{candidate['id']}/preview").json()
+    params = {"expected_revision": candidate["revision"]}
+    first = client.post(f"/api/projects/default/candidates/{candidate['id']}/preview", params=params).json()
+    second = client.post(f"/api/projects/default/candidates/{candidate['id']}/preview", params=params).json()
     assert first["mode"] == "preview"
     assert first["predictions"] == second["predictions"]
     assert {"TS", "YS", "EL", "lambda"} <= set(first["predictions"])
@@ -86,11 +87,11 @@ def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
     assert first["model_meta"]["prediction_interval"]["grouping"] == "parent_key"
     assert all(prediction["uncertainty_components"] for prediction in first["predictions"].values())
     assert first["canonical_input"]["input_schema_version"] == "candidate-v1"
-    atomic_result = client.post(f"/api/projects/default/candidates/{candidate['id']}/predict").json()
+    atomic_result = client.post(f"/api/projects/default/candidates/{candidate['id']}/predict", params={"expected_revision": candidate["revision"]}).json()
     detailed = atomic_result["prediction"]
     assert detailed["mode"] == "detailed"
     assert len(detailed["response_curve"]) == 9
-    curves = client.get(f"/api/projects/default/candidates/{candidate['id']}/response-curves").json()
+    curves = client.get(f"/api/projects/default/candidates/{candidate['id']}/response-curves", params=params).json()
     assert set(curves) == {"TS", "YS", "EL", "lambda"}
     assert all(len(points) == 9 for points in curves.values())
     assert atomic_result["snapshot"]["payload"]["prediction"] == detailed

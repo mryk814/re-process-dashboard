@@ -10,12 +10,13 @@ export type CandidateSaveState = "idle" | "dirty" | "saving" | "saved" | "confli
 type CandidateEditorOptions = {
   projectId: string;
   setCandidates: Dispatch<SetStateAction<CandidateViewModel[]>>;
+  previewAvailable: boolean;
   onPreview: (candidateId: string, preview: ApiPreview | null, inputIdentity?: string, candidateRevision?: number) => void;
   getPreviewInputIdentity?: (candidateId: string) => string | undefined;
   onNotice: (message: string) => void;
 };
 
-export function useCandidateEditor({ projectId, setCandidates, onPreview, getPreviewInputIdentity, onNotice }: CandidateEditorOptions) {
+export function useCandidateEditor({ projectId, setCandidates, previewAvailable, onPreview, getPreviewInputIdentity, onNotice }: CandidateEditorOptions) {
   const queue = useRef(new LatestSaveQueue<ApiCandidate>());
   const authoritative = useRef(new Map<string, ApiCandidate>());
   const scheduled = useRef(new Map<string, ReturnType<typeof setTimeout>>());
@@ -70,6 +71,7 @@ export function useCandidateEditor({ projectId, setCandidates, onPreview, getPre
       if (!queued.isLatest() || activeProjectId.current !== projectId) return;
       setCandidates((items) => items.map((item) => item.id === candidateId ? fromApiCandidate(saved) : item));
       setSaveState(candidateId, "saved");
+      if (!previewAvailable) return;
       const inputIdentity = candidateInputIdentity(saved.inputs);
       if (!shouldRefreshPreviewAfterSave(baseInputIdentity, inputIdentity, previewInputIdentityAtStart)) return;
       inferenceRequestCache.invalidatePrefix(candidateInferencePrefix(projectId, candidateId));
@@ -78,7 +80,7 @@ export function useCandidateEditor({ projectId, setCandidates, onPreview, getPre
       const previewController = new AbortController();
       previewControllers.current.set(candidateId, previewController);
       try {
-        const preview = await workbenchApi.previewCandidate(projectId, candidateId, inputIdentity, previewController.signal);
+        const preview = await workbenchApi.previewCandidate(projectId, candidateId, saved.revision, inputIdentity, previewController.signal);
         const current = authoritative.current.get(candidateId);
         if (
           activeProjectId.current !== projectId
@@ -120,9 +122,9 @@ export function useCandidateEditor({ projectId, setCandidates, onPreview, getPre
 
   function schedule(candidate: CandidateViewModel, previous?: CandidateViewModel) {
     markDirty(candidate.id);
-    onPreview(candidate.id, null);
     queue.current.supersede(candidate.id);
     if (previous && candidateInferenceChanged(previous.raw.inputs, candidate.raw.inputs)) {
+      onPreview(candidate.id, null, candidateInputIdentity(candidate.raw.inputs), candidate.raw.revision);
       previewControllers.current.get(candidate.id)?.abort();
     }
     const timer = scheduled.current.get(candidate.id);

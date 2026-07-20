@@ -38,6 +38,55 @@ def test_candidate_update_is_atomic_compare_and_swap_with_current_candidate(clie
     assert client.put(url, json=missing_revision).status_code == 422
 
 
+def test_detailed_prediction_uses_one_revision_consistently(client, monkeypatch) -> None:
+    candidate = _create_candidate(client, "詳細予測revision")
+    original = client.app.state.store.get_candidate
+    calls = 0
+
+    def counted(candidate_id, project_id=None, *, include_archived=False):
+        nonlocal calls
+        if candidate_id == candidate["id"]:
+            calls += 1
+        return original(candidate_id, project_id, include_archived=include_archived)
+
+    monkeypatch.setattr(client.app.state.store, "get_candidate", counted)
+    response = client.post(
+        f"/api/projects/default/candidates/{candidate['id']}/predict",
+        params={"expected_revision": candidate["revision"]},
+    )
+
+    assert response.status_code == 200
+    assert calls == 1
+    assert response.json()["snapshot"]["payload"]["raw_candidate"]["revision"] == candidate["revision"]
+
+
+def test_revision_bound_prediction_and_actual_reject_stale_clients(client) -> None:
+    candidate = _create_candidate(client, "stale operation")
+    url = f"/api/projects/default/candidates/{candidate['id']}"
+    updated = client.put(url, json=_update_payload(candidate, "外部更新済み"))
+    assert updated.status_code == 200
+
+    detailed = client.post(f"{url}/predict", params={"expected_revision": candidate["revision"]})
+    preview = client.post(f"{url}/preview", params={"expected_revision": candidate["revision"]})
+    curves = client.get(f"{url}/response-curves", params={"expected_revision": candidate["revision"]})
+    actual = client.post(
+        f"{url}/actuals",
+        params={"expected_revision": candidate["revision"]},
+        json={"property": "TS", "mean": 500, "unit": "MPa"},
+    )
+
+    assert detailed.status_code == 409
+    assert detailed.json()["code"] == "revision_conflict"
+    assert preview.status_code == 409
+    assert preview.json()["code"] == "revision_conflict"
+    assert curves.status_code == 409
+    assert curves.json()["code"] == "revision_conflict"
+    assert actual.status_code == 409
+    assert actual.json()["code"] == "revision_conflict"
+    assert client.get(f"{url}/snapshots").json() == []
+    assert client.get(f"{url}/actuals").json() == []
+
+
 def test_referenced_candidate_is_archived_and_only_history_paths_can_use_it(client) -> None:
     candidate = _create_candidate(client, "履歴あり")
     url = f"/api/projects/default/candidates/{candidate['id']}"
@@ -56,10 +105,10 @@ def test_referenced_candidate_is_archived_and_only_history_paths_can_use_it(clie
     assert client.get(f"{url}/actuals").status_code == 200
     restored = client.post(f"/api/projects/default/snapshots/{snapshot['id']}/restore")
     assert restored.status_code == 201
-    assert client.post(f"{url}/preview").status_code == 404
-    assert client.post(f"{url}/predict").status_code == 404
+    assert client.post(f"{url}/preview", params={"expected_revision": archived["revision"]}).status_code == 404
+    assert client.post(f"{url}/predict", params={"expected_revision": archived["revision"]}).status_code == 404
     assert client.post(f"{url}/snapshots").status_code == 404
-    assert client.post(f"{url}/actuals", json={"property": "TS", "mean": 500, "unit": "MPa"}).status_code == 404
+    assert client.post(f"{url}/actuals", params={"expected_revision": archived["revision"]}, json={"property": "TS", "mean": 500, "unit": "MPa"}).status_code == 404
     archived_update = _update_payload(archived, "編集不可")
     response = client.put(url, json=archived_update)
     assert response.status_code == 409

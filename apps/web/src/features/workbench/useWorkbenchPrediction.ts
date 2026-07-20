@@ -54,6 +54,7 @@ export function useWorkbenchPrediction({ projectId, taskId, candidate, operation
   const [error, setError] = useState("");
   const [retrySequence, setRetrySequence] = useState(0);
   const identities = useRef(new Map<string, PreviewIdentity>());
+  const previewController = useRef<AbortController | null>(null);
   const identity: WorkbenchIdentity | null = candidate && taskId
     ? { projectId, taskId, candidateId: candidate.id, candidateRevision: candidate.raw.revision }
     : null;
@@ -86,6 +87,7 @@ export function useWorkbenchPrediction({ projectId, taskId, candidate, operation
       });
       setPreviewsByCandidate((current) => ({ ...current, [candidateId]: nextPreview }));
     } else {
+      if (candidateId === candidate?.id) previewController.current?.abort();
       identities.current.delete(candidateId);
       setPreviewsByCandidate((current) => {
         const { [candidateId]: _, ...remaining } = current;
@@ -101,16 +103,20 @@ export function useWorkbenchPrediction({ projectId, taskId, candidate, operation
     setError("");
   }
 
-  function acceptProjectPreviews(candidates: CandidateViewModel[], loaded: Record<string, ApiPreview>, loadedTaskId: string) {
-    identities.current.clear();
+  function acceptProjectPreviews(candidates: CandidateViewModel[], currentCandidates: CandidateViewModel[], loaded: Record<string, ApiPreview>, loadedTaskId: string) {
+    const currentById = new Map(currentCandidates.map((item) => [item.id, item]));
+    const accepted: Record<string, ApiPreview> = {};
     for (const item of candidates) {
       if (!loaded[item.id]) continue;
+      const current = currentById.get(item.id);
+      if (!current || current.raw.revision !== item.raw.revision || candidateInputIdentity(current.raw.inputs) !== candidateInputIdentity(item.raw.inputs)) continue;
       identities.current.set(item.id, {
         inputIdentity: candidateInputIdentity(item.raw.inputs),
         requestKey: workbenchRequestKey({ projectId: item.raw.project_id, taskId: loadedTaskId, candidateId: item.id, candidateRevision: item.raw.revision }, "preview"),
       });
+      accepted[item.id] = loaded[item.id];
     }
-    setPreviewsByCandidate(loaded);
+    setPreviewsByCandidate((current) => ({ ...current, ...accepted }));
   }
 
   useEffect(() => {
@@ -133,12 +139,14 @@ export function useWorkbenchPrediction({ projectId, taskId, candidate, operation
       return;
     }
     const controller = new AbortController();
+    previewController.current?.abort();
+    previewController.current = controller;
     const requestActiveKey = currentPreviewActiveKey;
     setApiState("loading");
     setError("");
     const timer = window.setTimeout(async () => {
       try {
-        const result = await workbenchApi.previewCandidate(projectId, candidate.id, inputIdentity, controller.signal);
+        const result = await workbenchApi.previewCandidate(projectId, candidate.id, candidate.raw.revision, inputIdentity, controller.signal);
         if (controller.signal.aborted || currentPreviewActiveKeyRef.current !== requestActiveKey) return;
         identities.current.set(candidate.id, { inputIdentity, requestKey: previewRequestKey });
         setPreviewsByCandidate((current) => ({ ...current, [candidate.id]: result }));
@@ -150,7 +158,11 @@ export function useWorkbenchPrediction({ projectId, taskId, candidate, operation
         if (!controller.signal.aborted && currentPreviewActiveKeyRef.current === requestActiveKey) setApiState("ready");
       }
     }, 420);
-    return () => { window.clearTimeout(timer); controller.abort(); };
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+      if (previewController.current === controller) previewController.current = null;
+    };
   }, [candidate?.id, candidate?.raw.revision, projectId, taskId, operations?.preview, retrySequence]);
 
   async function runDetailedPrediction() {
@@ -158,7 +170,7 @@ export function useWorkbenchPrediction({ projectId, taskId, candidate, operation
     const requestActiveKey = currentDetailedActiveKey;
     setApiState("loading");
     try {
-      const payload = await workbenchApi.predictCandidate(projectId, candidate.id);
+      const payload = await workbenchApi.predictCandidate(projectId, candidate.id, candidate.raw.revision);
       if (currentDetailedActiveKeyRef.current !== requestActiveKey) return false;
       identities.current.set(candidate.id, { inputIdentity, requestKey: previewRequestKey });
       setPreviewsByCandidate((current) => ({ ...current, [candidate.id]: payload.prediction }));

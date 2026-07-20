@@ -73,7 +73,7 @@ test("inference runs only for changed candidates and visible selected curves", a
   let releasePreview = () => undefined;
   const previewGate = new Promise<void>((resolve) => { releasePreview = resolve; });
   let previewHeld = false;
-  await page.route("**/preview", async (route) => {
+  await page.route("**/preview*", async (route) => {
     previewHeld = true;
     const response = await route.fetch();
     await previewGate;
@@ -139,11 +139,11 @@ test("inference runs only for changed candidates and visible selected curves", a
   await expect.poll(() => previewRequests).toBe(5);
   expect(curveRequests).toBe(curvesAfterPanelClose);
 
-  await page.unroute("**/preview");
+  await page.unroute("**/preview*");
   let releasePendingPreview = () => undefined;
   const pendingPreviewGate = new Promise<void>((resolve) => { releasePendingPreview = resolve; });
   let pendingPreviewHeld = false;
-  await page.route("**/preview", async (route) => {
+  await page.route("**/preview*", async (route) => {
     const response = await route.fetch();
     pendingPreviewHeld = true;
     await pendingPreviewGate;
@@ -172,7 +172,7 @@ test("inference runs only for changed candidates and visible selected curves", a
   await expect.poll(successfulCreatedPreviews).toBe(successfulPreviewsBeforePending + 1);
   expect(failedInferenceRequests.filter((path) => path.endsWith("/preview")).length).toBe(failedPreviewsBeforePending);
   await expect(page.locator(".evidence-panel .metric-table")).toBeVisible();
-  await page.unroute("**/preview");
+  await page.unroute("**/preview*");
 
   const candidateApiUrl = `http://127.0.0.1:8875/api/projects/default/candidates/${createdCandidateId}`;
   const currentCandidateResponse = await page.request.get(candidateApiUrl);
@@ -229,7 +229,7 @@ test("inference runs only for changed candidates and visible selected curves", a
   await page.unroute(`**/candidates/${createdCandidateId}`);
 
   let failedPreviewResponse = false;
-  await page.route("**/preview", async (route) => {
+  await page.route("**/preview*", async (route) => {
     failedPreviewResponse = true;
     await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ detail: "forced preview failure" }) });
   }, { times: 1 });

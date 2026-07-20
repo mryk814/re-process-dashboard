@@ -58,7 +58,7 @@ for (const task of tasks) {
     await expect(page).toHaveURL(new RegExp(`candidate=${keptCandidateId}`));
     const candidateResponse = await page.request.get(`http://127.0.0.1:8875/api/projects/${task.projectId}/candidates/${keptCandidateId}`);
     const currentCandidate = await candidateResponse.json() as { revision: number };
-    const detailedResponsePromise = page.waitForResponse((response) => response.request().method() === "POST" && response.url().endsWith(`/candidates/${keptCandidateId}/predict`));
+    const detailedResponsePromise = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith(`/candidates/${keptCandidateId}/predict`));
     await page.getByRole("button", { name: new RegExp(`${editedName}の詳細予測を保存`) }).click();
     const detailedResponse = await detailedResponsePromise;
     expect(detailedResponse.status()).toBe(200);
@@ -67,7 +67,7 @@ for (const task of tasks) {
     await expect(page.getByRole("status")).toContainText("詳細予測を実行");
 
     await page.getByRole("spinbutton", { name: "実測平均" }).fill("510");
-    const actualResponse = page.waitForResponse((response) => response.request().method() === "POST" && response.url().endsWith(`/candidates/${keptCandidateId}/actuals`));
+    const actualResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith(`/candidates/${keptCandidateId}/actuals`));
     await page.getByRole("button", { name: "実測を追加" }).click();
     expect((await actualResponse).status()).toBe(201);
     await expect(page.locator(".actual-table tbody")).toContainText("510");
@@ -79,3 +79,31 @@ for (const task of tasks) {
     expect(pageErrors).toEqual([]);
   });
 }
+
+test("preview capability disables initial and edited-candidate requests", async ({ page }) => {
+  let previewRequests = 0;
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname.endsWith("/preview")) previewRequests += 1;
+  });
+  await page.route("**/task-definition", async (route) => {
+    const response = await route.fetch();
+    const body = await response.json() as { runtime_capability: { operations: { preview: boolean } } };
+    body.runtime_capability.operations.preview = false;
+    await route.fulfill({ response, json: body });
+  });
+
+  await page.goto("/?view=candidates&project=default");
+  await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
+  await expect(page.locator(".evidence-panel .panel-error")).toContainText("このタスクではプレビューを利用できません");
+  await page.waitForTimeout(600);
+  expect(previewRequests).toBe(0);
+
+  const numeric = page.locator(".comparison-detail-table tbody tr.selected-row input[type=number]").first();
+  const current = Number(await numeric.inputValue());
+  const save = page.waitForResponse((response) => response.request().method() === "PUT" && response.url().includes("/candidates/"));
+  await numeric.fill(String(current + 0.001));
+  await page.locator(".table-heading h2").click();
+  expect((await save).status()).toBe(200);
+  await page.waitForTimeout(600);
+  expect(previewRequests).toBe(0);
+});

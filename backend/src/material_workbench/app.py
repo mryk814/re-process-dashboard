@@ -306,11 +306,9 @@ def create_app(
         responses=PROJECT_API_ERRORS,
         operation_id="previewProjectCandidate",
     )
-    def preview_project_candidate(project_id: str, candidate_id: str) -> dict[str, Any]:
+    def preview_project_candidate(project_id: str, candidate_id: str, expected_revision: int) -> dict[str, Any]:
         project = require_project(project_id)
-        candidate = store().get_candidate(candidate_id, project_id)
-        if candidate is None:
-            raise HTTPException(404, "候補が見つかりません")
+        candidate = candidate_at_revision(project_id, candidate_id, expected_revision)
         return task_registry().runtime_for(project.task_id).predict(
             candidate,
             detailed=False,
@@ -493,27 +491,42 @@ def create_app(
         task_runtime = task_registry().runtime_for(project.task_id)
         return task_runtime.predict(candidate, detailed=detailed, include_curve=include_curve, target_values=project.target_values)
 
+    def candidate_at_revision(project_id: str, candidate_id: str, expected_revision: int) -> Candidate:
+        candidate = store().get_candidate(candidate_id, project_id)
+        if not candidate:
+            raise HTTPException(404, "候補が見つかりません")
+        if candidate.revision != expected_revision:
+            raise DomainApiException(
+                409,
+                "revision_conflict",
+                f"候補はrevision {candidate.revision}へ更新されています",
+                current_candidate=candidate,
+            )
+        return candidate
+
     @app.post(
         "/api/projects/{project_id}/candidates/{candidate_id}/predict",
         response_model=DetailedPredictionResponse,
         responses=PROJECT_API_ERRORS,
         operation_id="createDetailedCandidatePrediction",
     )
-    def predict(project_id: str, candidate_id: str) -> dict[str, Any]:
-        candidate = store().get_candidate(candidate_id, project_id)
-        if not candidate:
-            raise HTTPException(404, "候補が見つかりません")
-        result = prediction(project_id, candidate_id, detailed=True, include_curve=True)
+    def predict(project_id: str, candidate_id: str, expected_revision: int) -> dict[str, Any]:
+        candidate = candidate_at_revision(project_id, candidate_id, expected_revision)
+        project = require_project(project_id)
+        result = task_registry().runtime_for(project.task_id).predict(
+            candidate,
+            detailed=True,
+            include_curve=True,
+            target_values=project.target_values,
+        )
         return {"prediction": result, "snapshot": snapshot_for_candidate(candidate, result)}
 
     @app.get("/api/projects/{project_id}/candidates/{candidate_id}/response-curve")
-    def response_curve(project_id: str, candidate_id: str, target: str = "TS", variable: str = "heat.peak_temperature_c") -> list[dict[str, float]]:
+    def response_curve(project_id: str, candidate_id: str, expected_revision: int, target: str = "TS", variable: str = "heat.peak_temperature_c") -> list[dict[str, float]]:
         if target not in {"TS", "YS", "EL", "lambda"}:
             raise HTTPException(422, "未対応の予測特性です")
         project = require_project(project_id)
-        candidate = store().get_candidate(candidate_id, project_id)
-        if not candidate:
-            raise HTTPException(404, "候補が見つかりません")
+        candidate = candidate_at_revision(project_id, candidate_id, expected_revision)
         try:
             task_runtime = task_registry().runtime_for(project.task_id)
             if not hasattr(task_runtime, "response_curve"):
@@ -523,11 +536,9 @@ def create_app(
             raise HTTPException(422, str(exc)) from exc
 
     @app.get("/api/projects/{project_id}/candidates/{candidate_id}/response-curves", response_model=ResponseCurvesResult)
-    def response_curves(project_id: str, candidate_id: str, variable: str | None = None) -> dict[str, Any]:
+    def response_curves(project_id: str, candidate_id: str, expected_revision: int, variable: str | None = None) -> dict[str, Any]:
         project = require_project(project_id)
-        candidate = store().get_candidate(candidate_id, project_id)
-        if not candidate:
-            raise HTTPException(404, "候補が見つかりません")
+        candidate = candidate_at_revision(project_id, candidate_id, expected_revision)
         try:
             task_runtime = task_registry().runtime_for(project.task_id)
             if not hasattr(task_runtime, "response_curves"):
@@ -813,12 +824,10 @@ def create_app(
             raise HTTPException(404, "候補が見つかりません")
         return [actual.model_dump(mode="json") for actual in store().list_actuals(candidate_id)]
 
-    @app.post("/api/projects/{project_id}/candidates/{candidate_id}/actuals", status_code=201, response_model=ActualMeasurement)
-    def create_actual(project_id: str, candidate_id: str, payload: ActualMeasurementInput) -> dict[str, Any]:
+    @app.post("/api/projects/{project_id}/candidates/{candidate_id}/actuals", status_code=201, response_model=ActualMeasurement, responses=PROJECT_API_ERRORS)
+    def create_actual(project_id: str, candidate_id: str, payload: ActualMeasurementInput, expected_revision: int) -> dict[str, Any]:
         project = require_project(project_id)
-        candidate = store().get_candidate(candidate_id, project_id)
-        if not candidate:
-            raise HTTPException(404, "候補が見つかりません")
+        candidate = candidate_at_revision(project_id, candidate_id, expected_revision)
         outputs = {output.key: output.unit for output in task_registry().contract_for(project.task_id).task_definition.outputs}
         if outputs.get(payload.property) != payload.unit:
             raise HTTPException(422, "実測の特性または単位が予測タスクと一致しません")

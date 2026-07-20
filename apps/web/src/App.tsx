@@ -164,6 +164,8 @@ function App() {
   const navigationRef = useRef(navigation);
   const tab = navigation.view;
   const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const candidatesRef = useRef(candidates);
+  candidatesRef.current = candidates;
   const [selectedId, setSelectedId] = useState("");
   const [apiState, setApiState] = useState<"ready" | "loading" | "offline">(
     "loading",
@@ -188,6 +190,7 @@ function App() {
   const editor = useCandidateEditor({
     projectId: activeProjectId,
     setCandidates,
+    previewAvailable: operations?.preview === true,
     getPreviewInputIdentity: prediction.getPreviewInputIdentity,
     onPreview: prediction.acceptPreview,
     onNotice: setNotice,
@@ -243,6 +246,7 @@ function App() {
     setTaskDefinition(definition);
     setResolvedTaskDefinition(resolved);
     window.localStorage.setItem("material-workbench-project", projectId);
+    candidatesRef.current = imported;
     setCandidates(imported);
     const nextSelectedId = imported.some((candidate) => candidate.id === requestedCandidateId)
       ? requestedCandidateId!
@@ -259,11 +263,12 @@ function App() {
         : "候補がありません。過去条件または新規入力から追加できます",
     );
     if (!imported.length) return;
+    if (!resolved.runtime_capability.operations.preview) return;
     const previewEntries = await Promise.all(
       imported.filter((candidate) => !candidate.raw.archived_at).map(async (candidate) => {
         const inputIdentity = candidateInputIdentity(candidate.raw.inputs);
         try {
-          const loaded = await workbenchApi.previewCandidate(projectId, candidate.id, inputIdentity, previewController.signal);
+          const loaded = await workbenchApi.previewCandidate(projectId, candidate.id, candidate.raw.revision, inputIdentity, previewController.signal);
           if (sequence !== loadSequence.current || previewController.signal.aborted) return null;
           return [candidate.id, loaded] as const;
         } catch {
@@ -277,7 +282,7 @@ function App() {
         (entry): entry is readonly [string, ApiPreview] => entry !== null,
       ),
     );
-    prediction.acceptProjectPreviews(imported, loaded, definition.id);
+    prediction.acceptProjectPreviews(imported, candidatesRef.current, loaded, definition.id);
   }
 
   useEffect(() => {
@@ -593,7 +598,7 @@ function App() {
             {tab === "candidates" && selected && (
               <button
                 className="primary-button"
-                disabled={!operations?.detailed_prediction || ["dirty", "saving"].includes(editor.saveStates[selected.id] ?? "idle")}
+                disabled={!operations?.detailed_prediction || !["idle", "saved"].includes(editor.saveStates[selected.id] ?? "idle")}
                 title={!operations?.detailed_prediction ? "このタスクでは詳細予測を利用できません" : undefined}
                 onClick={() => {
                   void runDetailedPrediction();
@@ -970,7 +975,7 @@ function CandidateWorkbench(props: WorkbenchProps) {
             />}
           </section>
         ) : <UnavailablePanel title="応答曲線" />}
-        {operations?.actual_measurement ? <ActualsPanel projectId={projectId} candidate={selected} outputs={taskDefinition?.outputs ?? []} /> : <UnavailablePanel title="予測と実測" />}
+        {operations?.actual_measurement ? <ActualsPanel projectId={projectId} candidate={selected} outputs={taskDefinition?.outputs ?? []} enabled={["idle", "saved"].includes(saveState)} /> : <UnavailablePanel title="予測と実測" />}
       </section>
       <EvidencePanel metrics={metrics} preview={preview} candidateLabel={selected.label} similarityAvailable={operations?.similarity === true} error={previewError} onRetry={onRetryPreview} />
     </div>
@@ -1055,7 +1060,7 @@ function UnavailablePanel({ title }: { title: string }) {
   return <section className="actuals-panel unavailable-panel" aria-label={`${title}は利用できません`}><div className="panel-title"><h2>{title}</h2></div><p className="empty-evidence">このタスクでは利用できません。</p></section>;
 }
 
-function ActualsPanel({ projectId, candidate, outputs }: { projectId: string; candidate: Candidate; outputs: TaskOutputDefinition[] }) {
+function ActualsPanel({ projectId, candidate, outputs, enabled }: { projectId: string; candidate: Candidate; outputs: TaskOutputDefinition[]; enabled: boolean }) {
   const [property, setProperty] = useState<ApiActual["property"]>((outputs[0]?.key ?? "TS") as ApiActual["property"]);
   const [mean, setMean] = useState("");
   const [std, setStd] = useState("0");
@@ -1065,12 +1070,15 @@ function ActualsPanel({ projectId, candidate, outputs }: { projectId: string; ca
   const [note, setNote] = useState("");
   const [comparison, setComparison] = useState<ApiPredictionVsActual | null>(null);
   const [error, setError] = useState("");
-  const refresh = async (signal?: AbortSignal) => {
+  const identity = `${projectId}\u001f${candidate.id}\u001f${candidate.raw.revision}`;
+  const identityRef = useRef(identity);
+  identityRef.current = identity;
+  const refresh = async (signal?: AbortSignal, expectedIdentity = identity) => {
     try {
       const result = await workbenchApi.predictionVsActual(projectId, candidate.id, signal);
-      if (!signal?.aborted) setComparison(result);
+      if (!signal?.aborted && identityRef.current === expectedIdentity) setComparison(result);
     } catch {
-      if (signal?.aborted) return;
+      if (signal?.aborted || identityRef.current !== expectedIdentity) return;
       setError("実測値を取得できませんでした。");
     }
   };
@@ -1082,11 +1090,21 @@ function ActualsPanel({ projectId, candidate, outputs }: { projectId: string; ca
     void refresh(controller.signal);
     return () => controller.abort();
   }, [candidate.id, candidate.raw.revision, projectId]);
+  useEffect(() => {
+    setMean("");
+    setStd("0");
+    setReplicates("1");
+    setExperimentNo("");
+    setMeasuredAt("");
+    setNote("");
+  }, [candidate.id, projectId]);
   const add = async () => {
+    if (!enabled) return setError("候補の保存完了後に実測を登録してください。");
     if (mean.trim() === "") return setError("実測平均を入力してください。");
+    const expectedIdentity = identity;
     try {
       setError("");
-      await workbenchApi.createActual(projectId, candidate.id, {
+      await workbenchApi.createActual(projectId, candidate.id, candidate.raw.revision, {
         property,
         mean: Number(mean),
         std: Number(std),
@@ -1096,20 +1114,24 @@ function ActualsPanel({ projectId, candidate, outputs }: { projectId: string; ca
         measured_at: measuredAt || null,
         note: note.trim(),
       });
+      if (identityRef.current !== expectedIdentity) return;
       setMean("");
       setExperimentNo("");
       setMeasuredAt("");
       setNote("");
-      await refresh();
+      await refresh(undefined, expectedIdentity);
     } catch {
+      if (identityRef.current !== expectedIdentity) return;
       setError("実測値を保存できませんでした。");
     }
   };
   const remove = async (id: string) => {
+    const expectedIdentity = identity;
     try {
       await workbenchApi.deleteActual(projectId, candidate.id, id);
-      await refresh();
+      await refresh(undefined, expectedIdentity);
     } catch {
+      if (identityRef.current !== expectedIdentity) return;
       setError("実測値を削除できませんでした。");
     }
   };
@@ -1127,6 +1149,7 @@ function ActualsPanel({ projectId, candidate, outputs }: { projectId: string; ca
       <div className="actual-form">
         <select
           aria-label="実測特性"
+          disabled={!enabled}
           value={property}
           onChange={(e) => setProperty(e.target.value as ApiActual["property"])}
         >
@@ -1134,6 +1157,7 @@ function ActualsPanel({ projectId, candidate, outputs }: { projectId: string; ca
         </select>
         <input
           aria-label="実測平均"
+          disabled={!enabled}
           type="number"
           placeholder="実測平均"
           value={mean}
@@ -1141,6 +1165,7 @@ function ActualsPanel({ projectId, candidate, outputs }: { projectId: string; ca
         />
         <input
           aria-label="標準偏差"
+          disabled={!enabled}
           type="number"
           min="0"
           placeholder="標準偏差"
@@ -1149,6 +1174,7 @@ function ActualsPanel({ projectId, candidate, outputs }: { projectId: string; ca
         />
         <input
           aria-label="反復数"
+          disabled={!enabled}
           type="number"
           min="1"
           placeholder="反復数"
@@ -1157,6 +1183,7 @@ function ActualsPanel({ projectId, candidate, outputs }: { projectId: string; ca
         />
         <button
           className="outline-button"
+          disabled={!enabled}
           onClick={() => {
             void add();
           }}
@@ -1506,7 +1533,7 @@ function LiveResponseCurves({
     setErrorIdentity(null);
     const timer = window.setTimeout(async () => {
       try {
-        const loaded = await workbenchApi.responseCurves(projectId, candidate.id, inputIdentity, variableId, controller.signal);
+        const loaded = await workbenchApi.responseCurves(projectId, candidate.id, candidate.raw.revision, inputIdentity, variableId, controller.signal);
         if (controller.signal.aborted || requestIdentity.current !== identity) return;
         setLoadedPayload({ identity, payload: loaded });
       } catch (cause) {

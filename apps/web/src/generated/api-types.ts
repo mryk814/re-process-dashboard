@@ -2666,7 +2666,9 @@ export interface operations {
     };
     create_actual_api_projects__project_id__candidates__candidate_id__actuals_post: {
         parameters: {
-            query?: never;
+            query: {
+                expected_revision: number;
+            };
             header?: never;
             path: {
                 candidate_id: string;
@@ -2687,6 +2689,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActualMeasurement"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
                 };
             };
             /** @description Validation Error */
@@ -2733,7 +2753,9 @@ export interface operations {
     };
     createDetailedCandidatePrediction: {
         parameters: {
-            query?: never;
+            query: {
+                expected_revision: number;
+            };
             header?: never;
             path: {
                 candidate_id: string;
@@ -2833,7 +2855,9 @@ export interface operations {
     };
     previewProjectCandidate: {
         parameters: {
-            query?: never;
+            query: {
+                expected_revision: number;
+            };
             header?: never;
             path: {
                 candidate_id: string;
@@ -2883,7 +2907,8 @@ export interface operations {
     };
     response_curve_api_projects__project_id__candidates__candidate_id__response_curve_get: {
         parameters: {
-            query?: {
+            query: {
+                expected_revision: number;
                 target?: string;
                 variable?: string;
             };
@@ -2920,7 +2945,8 @@ export interface operations {
     };
     response_curves_api_projects__project_id__candidates__candidate_id__response_curves_get: {
         parameters: {
-            query?: {
+            query: {
+                expected_revision: number;
                 variable?: string | null;
             };
             header?: never;
