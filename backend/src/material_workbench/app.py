@@ -174,7 +174,7 @@ def create_app(
     )
     # Electron loads the packaged renderer from file://, which browsers serialize as Origin: null.
     # The local sidecar only listens on loopback, and credentials are not accepted.
-    app.add_middleware(CORSMiddleware, allow_origins=["null", "http://127.0.0.1:5173", "http://localhost:5173", "http://127.0.0.1:5180", "http://localhost:5180"], allow_methods=["*"], allow_headers=["*"], allow_credentials=False)
+    app.add_middleware(CORSMiddleware, allow_origins=["null", "http://127.0.0.1:5173", "http://localhost:5173", "http://127.0.0.1:5180", "http://localhost:5180", "http://127.0.0.1:5199", "http://localhost:5199"], allow_methods=["*"], allow_headers=["*"], allow_credentials=False)
 
     @app.exception_handler(HTTPException)
     async def http_error(_: Request, exc: HTTPException) -> JSONResponse:
@@ -226,6 +226,17 @@ def create_app(
 
     def create_candidate_in_project(payload: CandidateInput, project_id: str):
         project = require_project(project_id)
+        if payload.provenance.source_kind == "copy":
+            reference = payload.provenance.source_ref
+            source_candidate = store().get_candidate(
+                reference.candidate_id,
+                reference.project_id,
+                include_archived=True,
+            )
+            if source_candidate is None:
+                raise HTTPException(422, "コピー元候補が見つかりません")
+            if source_candidate.revision != reference.candidate_revision:
+                raise HTTPException(422, "コピー元候補のrevisionが一致しません")
         try:
             task_registry().validate_candidate(project.task_id, payload)
         except (TaskRegistryError, ValueError) as exc:
@@ -439,6 +450,8 @@ def create_app(
         if existing.archived_at is not None:
             raise DomainApiException(409, "candidate_archived", "archive済み候補は編集できません")
         candidate_input = CandidateInput.model_validate(payload.model_dump(exclude={"expected_revision"}))
+        if existing.provenance != candidate_input.provenance:
+            raise DomainApiException(409, "candidate_provenance_immutable", "候補の作成元は変更できません")
         try:
             task_registry().validate_candidate(project.task_id, candidate_input)
         except (TaskRegistryError, ValueError) as exc:
@@ -714,7 +727,10 @@ def create_app(
         payload = CandidateInput.model_validate({
             **point["candidate"],
             "name": f"Screen {run_id[:6]} #{point_index + 1}",
-            "provenance": {"source_kind": "screening", "source_ref": {"run_id": run_id, "point_id": str(point_index)}},
+            "provenance": {
+                "source_kind": "screening",
+                "source_ref": {"run_id": run_id, "point_id": str(point_index), "point_index": point_index},
+            },
         })
         return create_candidate_in_project(payload, project_id).model_dump(mode="json")
 
@@ -764,6 +780,20 @@ def create_app(
         except SnapshotPayloadError as exc:
             raise HTTPException(422, str(exc)) from exc
         return create_candidate_in_project(payload, project_id).model_dump(mode="json")
+
+    @app.get(
+        "/api/projects/{project_id}/snapshots/{snapshot_id}",
+        response_model=SnapshotResponse,
+        responses=PROJECT_API_ERRORS,
+    )
+    def get_snapshot(project_id: str, snapshot_id: str) -> dict[str, Any]:
+        require_project(project_id)
+        snapshot = store().get_snapshot(snapshot_id)
+        if not snapshot or store().get_candidate(
+            snapshot["candidate_id"], project_id, include_archived=True
+        ) is None:
+            raise HTTPException(404, "スナップショットが見つかりません")
+        return snapshot
 
     @app.get("/api/projects/{project_id}/candidates/{candidate_id}/actuals", response_model=list[ActualMeasurement])
     def list_actuals(project_id: str, candidate_id: str) -> list[dict[str, Any]]:
