@@ -243,8 +243,20 @@ select:focus-visible,
 }
 .topbar nav {
   display: flex;
+  align-items: stretch;
   gap: 3px;
 }
+.nav-group-label {
+  align-self: center;
+  margin: 0 5px 0 2px;
+  color: #91a4ba;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  white-space: nowrap;
+}
+.nav-divider { width: 1px; height: 24px; align-self: center; margin: 0 7px; background: rgba(255,255,255,.2); }
+.nav-button.admin { color: #b9c8d8; font-size: 13px; }
 .nav-button {
   position: relative;
   border: 0;
@@ -266,6 +278,51 @@ select:focus-visible,
   height: 3px;
   background: #2981ec;
 }
+.section-navigation {
+  margin: 14px 18px 0;
+  padding: 10px 14px;
+  border: 1px solid #d8e0ea;
+  border-radius: 6px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+.section-navigation strong { display: block; color: #263448; font-size: 13px; }
+.section-navigation nav { display: flex; gap: 5px; }
+.section-navigation button,
+.admin-navigation button {
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: #526176;
+  padding: 8px 11px;
+  font: inherit;
+  font-weight: 600;
+}
+.section-navigation button:hover,
+.section-navigation button.active { border-color: #a9c1df; background: #edf4fc; color: #174f98; }
+.data-explore-page > .page-panel { margin-top: 10px; }
+.admin-workspace { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 14px; align-items: start; margin: 14px 18px; }
+.admin-navigation { position: sticky; top: 12px; border: 1px solid #d8e0ea; border-radius: 6px; background: #fff; padding: 14px; }
+.admin-navigation h2 { margin: 3px 0 4px; font-size: 18px; }
+.admin-navigation p { margin: 0 0 12px; color: #697789; font-size: 11px; line-height: 1.5; }
+.admin-navigation nav { display: grid; gap: 3px; }
+.admin-navigation button { text-align: left; }
+.admin-navigation button:hover,
+.admin-navigation button.active { border-color: #b9cbe0; background: #edf4fc; color: #174f98; }
+.admin-content > .page-panel { margin: 0; }
+.admin-contract-page section { margin-top: 18px; }
+.admin-contract-page h3 { margin: 0 0 7px; font-size: 14px; }
+.admin-output-list { display: flex; flex-wrap: wrap; gap: 7px; }
+.admin-output-list span { border: 1px solid #d8e0ea; border-radius: 4px; background: #f8fafc; padding: 8px 10px; color: #637086; font-size: 12px; }
+.admin-output-list b { margin-right: 7px; color: #263448; }
+.technical-contract { margin-top: 18px; border-top: 1px solid #e2e8f0; padding-top: 10px; color: #637086; font-size: 12px; }
+.technical-contract code,
+.technical-contract span { display: block; margin-top: 6px; overflow-wrap: anywhere; }
+.admin-model-identity { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+.admin-model-identity span { border-radius: 999px; background: #e5f5ee; color: #137454; padding: 3px 8px; font-size: 11px; font-weight: 700; }
 .utility-actions {
   margin-left: auto;
   display: flex;
@@ -1334,6 +1391,7 @@ select:focus-visible,
   writing-mode: vertical-rl;
 }
 @media (max-width: 1250px) {
+  .run-actions { flex-wrap: wrap; justify-content: flex-end; }
   .workbench-grid {
     grid-template-columns: 250px minmax(540px, 1fr) 350px;
   }

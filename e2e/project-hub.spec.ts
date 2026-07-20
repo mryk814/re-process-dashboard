@@ -27,12 +27,12 @@ test("project hub separates current revision from fixed snapshot and restores a 
   await page.locator(".table-heading h2").click();
   expect((await saved).status()).toBe(200);
 
-  await page.getByRole("button", { name: "プロジェクト", exact: true }).click();
+  await page.getByRole("button", { name: "プロジェクト概要", exact: true }).click();
   const card = page.locator(".project-history-card", { hasText: candidateName });
-  await expect(card).toContainText(`revision ${before.revision + 1}`);
-  await expect(card).toContainText(`revision ${before.revision}`);
+  await expect(card).toContainText(`編集版 ${before.revision + 1}`);
+  await expect(card).toContainText(`編集版 ${before.revision}`);
   await expect(card.getByText("現在のpreview", { exact: true })).toBeVisible();
-  await expect(card.getByText("固定snapshot", { exact: true })).toBeVisible();
+  await expect(card.getByText("固定した予測", { exact: true })).toBeVisible();
 
   await card.getByRole("button", { name: "詳細" }).first().click();
   await page.getByLabel("判断理由").fill("r1時点の予測根拠を採用");
@@ -65,8 +65,9 @@ test("new project creation requires an explicit empty or copy choice", async ({ 
   await panel.getByRole("radio", { name: /空から開始/ }).check();
   await panel.getByRole("button", { name: "この内容で作成" }).click();
   await expect(page.getByText("まだ候補がありません", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: /直接候補を作る/ }).click();
-  await page.getByRole("button", { name: "最初の候補を作る" }).click();
-  await expect(page.getByRole("rowheader", { name: "TS" })).toBeVisible();
-  await expect(page.getByRole("rowheader", { name: "YS" })).toHaveCount(0);
+  await page.getByRole("button", { name: /条件範囲から始める/ }).first().click();
+  await page.getByRole("button", { name: "基準候補を作って探索を始める" }).click();
+  await page.getByRole("button", { name: "候補比較", exact: true }).click();
+  await expect(page.locator(".comparison-detail-table thead").getByText("引張強さ", { exact: false })).toBeVisible();
+  await expect(page.locator(".comparison-detail-table thead").getByText("降伏強さ", { exact: false })).toHaveCount(0);
 });

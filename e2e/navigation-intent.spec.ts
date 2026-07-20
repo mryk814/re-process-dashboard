@@ -4,9 +4,10 @@ test("quality finding opens the selected lineage node and returns with filters",
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
   await page.goto("/?view=quality&project=default");
-  await expect(page.getByRole("heading", { name: "データ品質" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "問題から探す" })).toBeVisible();
+  await expect(page.locator(".topbar").getByRole("button", { name: "データ探索" })).toHaveClass(/active/);
 
-  await page.getByRole("button", { name: /重複/ }).click();
+  await page.getByLabel("種別").selectOption("duplicate_key");
   await expect(page).toHaveURL(/quality_type=duplicate_key/);
   const issueRow = page.locator(".quality-table tbody tr").filter({ has: page.getByRole("button", { name: "系譜で確認" }) }).first();
   const entityKey = (await issueRow.locator("td").nth(1).textContent())?.trim();
@@ -33,6 +34,8 @@ test("quality finding opens the selected lineage node and returns with filters",
   await page.locator(".quality-focus-row").getByRole("button", { name: "キーをコピー" }).click();
   await expect(page.getByRole("alert")).toContainText("クリップボード権限を確認してください");
 
+  await page.getByRole("button", { name: "開発・管理", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "データ品質集計" })).toBeVisible();
   const beforeDownloadUrl = page.url();
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "検出結果をCSV出力" }).click();

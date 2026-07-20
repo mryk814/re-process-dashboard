@@ -105,7 +105,7 @@ export function CandidateInspector({
   return (
     <aside className={className} aria-label="選択候補の入力">
       <div className="inspector-heading">
-        <span className="overline">SELECTED CANDIDATE</span>
+        <span className="overline">選択候補</span>
         <h2>選択候補の入力</h2>
         <small className={`candidate-save-state ${saveState}`}>{saveLabels[saveState]}</small>
         {saveState === "conflict" && <span className="candidate-conflict-actions"><button type="button" onClick={onReload}>再読込</button><button type="button" onClick={onCopyDraft}>変更をコピー</button></span>}
