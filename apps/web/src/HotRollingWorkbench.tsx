@@ -4,6 +4,7 @@ import { CandidateInspector, ComparisonTable } from "./TaskDrivenCandidateUi";
 import { setCandidateInputValue, validateResolvedTaskDefinition, type TaskDefinitionContract } from "./taskDefinition";
 import { workbenchApi, type ApiPreview } from "./shared/api/workbench-api";
 import { useCandidateEditor } from "./useCandidateEditor";
+import { candidateInputIdentity } from "./inferenceRequestCache";
 
 const n = (value: number, digits = 1) => value.toLocaleString("ja-JP", { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
@@ -26,13 +27,14 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
   const selected = candidates.find((item) => item.id === selectedId) ?? candidates[0];
   const preview = selected ? previews[selected.id] : undefined;
 
-  async function loadPreview(candidateId: string, shouldApply: () => boolean = () => true) {
-    const result = await workbenchApi.previewCandidate(projectId, candidateId);
+  async function loadPreview(candidateId: string, inputs: CandidateViewModel["raw"]["inputs"], shouldApply: () => boolean = () => true) {
+    const result = await workbenchApi.previewCandidate(projectId, candidateId, candidateInputIdentity(inputs));
     if (!shouldApply()) return;
     setPreviews((items) => ({ ...items, [candidateId]: result }));
   }
 
   useEffect(() => {
+    let cancelled = false;
     const load = async () => {
       try {
         setTask(null);
@@ -48,13 +50,15 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
         setCandidates(loadedCandidates);
         setSelectedId(loadedCandidates[0]?.id ?? "");
         setTask(resolved.task_definition);
-        await Promise.all(loadedCandidates.map((item) => loadPreview(item.id)));
+        await Promise.all(loadedCandidates.map((item) => loadPreview(item.id, item.raw.inputs, () => !cancelled)));
+        if (cancelled) return;
         setNotice("GPR予測と熱延実績を同期しました");
       } catch {
-        setNotice("熱延タスクを読み込めません。API接続を確認してください");
+        if (!cancelled) setNotice("熱延タスクを読み込めません。API接続を確認してください");
       }
     };
     void load();
+    return () => { cancelled = true; };
   }, [projectId]);
 
   function nameUpdate(candidateId: string, value: string) {
@@ -84,7 +88,7 @@ export function HotRollingWorkbench({ projectId }: { projectId: string }) {
     const created = fromApiCandidate(await workbenchApi.createCandidate(projectId, payload));
     setCandidates((items) => [...items, created]);
     setSelectedId(created.id);
-    await loadPreview(created.id);
+    await loadPreview(created.id, created.raw.inputs);
   }
 
   async function deleteCandidate() {

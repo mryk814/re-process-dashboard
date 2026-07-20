@@ -1,5 +1,6 @@
 import type { components } from "../../generated/api-types";
 import { apiClient, apiDownloadUrl, requireData, requireSuccess } from "./client";
+import { candidateInferencePrefix, inferenceRequestCache, inferenceRequestKey } from "../../inferenceRequestCache";
 
 export type ApiCandidate = components["schemas"]["Candidate"];
 export type ApiCandidateInput = components["schemas"]["CandidateInput"];
@@ -23,6 +24,13 @@ export type ApiTaskDefinition = components["schemas"]["ResolvedTaskDefinition"];
 const path = (projectId: string, suffix = "") =>
   `/api/projects/${encodeURIComponent(projectId)}${suffix}`;
 
+function isResponseCurves(value: unknown): value is ApiResponseCurves {
+  return typeof value === "object" && value !== null
+    && typeof Reflect.get(value, "variable") === "object"
+    && typeof Reflect.get(value, "curves") === "object"
+    && typeof Reflect.get(value, "output_ranges") === "object";
+}
+
 export const workbenchApi = {
   async listProjects() {
     return requireData(await apiClient.GET("/api/projects"), "プロジェクトを取得できませんでした。");
@@ -31,7 +39,9 @@ export const workbenchApi = {
     return requireData(await apiClient.POST("/api/projects", { body }), "プロジェクトを作成できませんでした。");
   },
   async updateProject(projectId: string, body: ApiProjectInput) {
-    return requireData(await apiClient.PUT("/api/projects/{project_id}", { params: { path: { project_id: projectId } }, body }), "プロジェクトを保存できませんでした。");
+    const project = requireData(await apiClient.PUT("/api/projects/{project_id}", { params: { path: { project_id: projectId } }, body }), "プロジェクトを保存できませんでした。");
+    inferenceRequestCache.invalidatePrefix(candidateInferencePrefix(projectId));
+    return project;
   },
   async taskDefinition(projectId: string) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/task-definition", { params: { path: { project_id: projectId } } }), "タスク定義を取得できませんでした。");
@@ -50,16 +60,25 @@ export const workbenchApi = {
   },
   async deleteCandidate(projectId: string, candidateId: string, expectedRevision: number) {
     requireSuccess(await apiClient.DELETE("/api/projects/{project_id}/candidates/{candidate_id}", { params: { path: { project_id: projectId, candidate_id: candidateId }, query: { expected_revision: expectedRevision } } }), "候補を一覧から外せませんでした。");
+    inferenceRequestCache.invalidatePrefix(candidateInferencePrefix(projectId, candidateId));
   },
-  async previewCandidate(projectId: string, candidateId: string) {
-    return requireData(await apiClient.POST("/api/projects/{project_id}/candidates/{candidate_id}/preview", { params: { path: { project_id: projectId, candidate_id: candidateId } } }), "プレビューを取得できませんでした。");
+  async previewCandidate(projectId: string, candidateId: string, inputIdentity: string, signal?: AbortSignal) {
+    return inferenceRequestCache.get(
+      inferenceRequestKey(projectId, candidateId, inputIdentity, "preview"),
+      async () => requireData(await apiClient.POST("/api/projects/{project_id}/candidates/{candidate_id}/preview", { params: { path: { project_id: projectId, candidate_id: candidateId } } }), "プレビューを取得できませんでした。"),
+      signal,
+    );
   },
   async predictCandidate(projectId: string, candidateId: string) {
     return requireData(await apiClient.POST("/api/projects/{project_id}/candidates/{candidate_id}/predict", { params: { path: { project_id: projectId, candidate_id: candidateId } } }), "詳細予測を取得できませんでした。");
   },
-  async responseCurves(projectId: string, candidateId: string, variable?: string, signal?: AbortSignal) {
-    const data = requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/response-curves", { params: { path: { project_id: projectId, candidate_id: candidateId }, query: { variable } }, signal }), "応答曲線を取得できませんでした。");
-    if ("variable" in data && "curves" in data && "output_ranges" in data) return data;
+  async responseCurves(projectId: string, candidateId: string, inputIdentity: string, variable?: string, signal?: AbortSignal): Promise<ApiResponseCurves> {
+    const data = await inferenceRequestCache.get(
+      inferenceRequestKey(projectId, candidateId, inputIdentity, "curve", variable ?? ""),
+      async () => requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/response-curves", { params: { path: { project_id: projectId, candidate_id: candidateId }, query: { variable } } }), "応答曲線を取得できませんでした。"),
+      signal,
+    );
+    if (isResponseCurves(data)) return data;
     throw new Error("設計変数を指定した応答曲線の形式が不正です。");
   },
   async similarCandidates(projectId: string, candidateId: string) {

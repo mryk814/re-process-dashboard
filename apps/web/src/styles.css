@@ -2372,6 +2372,9 @@ select:focus-visible,
 .candidate-inspector .heat-point-table-wrap { max-height: 238px; }
 .candidate-inspector .heat-point-table .icon-delete { width: 24px; }
 .response-curves-panel { margin-top: 10px; border: 1px solid #d8e0ea; border-radius: 4px; }
+.response-curves-disclosure { margin-top: 18px; }
+.response-curves-disclosure > .outline-button { margin-bottom: 10px; }
+.curve-scope { color: #5d6775; font-size: 12px; }
 .response-curves-panel > .panel-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-bottom: 1px solid #e0e7ef; padding: 8px 11px; }
 .response-curves-panel > .panel-title h2 { font-size: 15px; }
 .response-curves-title-group { min-width: 0; }
