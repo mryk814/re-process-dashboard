@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:lab": "vite --open /lab.html",
     "build": "tsc -b && node build.mjs",
     "typecheck": "tsc -b --pretty false"
   },
