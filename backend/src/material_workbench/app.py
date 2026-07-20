@@ -7,6 +7,7 @@ from collections import Counter
 from contextlib import asynccontextmanager
 from io import BytesIO, StringIO
 from pathlib import Path
+from statistics import fmean, pstdev
 from typing import Any
 
 from fastapi import FastAPI, File, HTTPException, Response, UploadFile
@@ -296,12 +297,42 @@ def create_app(source_path: str | Path | None = None, db_path: str | Path | None
             counts[sheet_name] += len(records)
             if entity_type and sheet_name != entity_type:
                 continue
-            for key in records:
-                if normalized and normalized not in key.casefold():
+            for key, source_row in records.items():
+                metadata: dict[str, Any] = {}
+                if sheet_name == "焼鈍":
+                    relations = data.lineage.get(key, {})
+                    melt_keys = sorted(set(relations.get("溶製_key", [])))
+                    melt_row = data.entities.get("溶製_key", {}).get(melt_keys[0], {}) if len(melt_keys) == 1 else {}
+                    feature = data.anneal_features.get(key, {})
+                    values_by_property: dict[str, list[float]] = {}
+                    for observation in data.observations:
+                        if observation["parent_key"] != key or observation["source"] == "熱延引張":
+                            continue
+                        for property_name, value in observation["outputs"].items():
+                            values_by_property.setdefault(property_name, []).append(float(value))
+                    metadata = {
+                        "family": str(melt_row.get("鋼種ファミリ") or melt_row.get("鋼種") or ""),
+                        "project": str(source_row.get("プロジェクト名") or ""),
+                        "route": str(feature.get("standard_route") or ""),
+                        "peak_temperature_c": feature.get("max_temperature_c"),
+                        "coating": str(feature.get("coating") or ""),
+                        "learning_status": str(source_row.get("学習利用区分") or ""),
+                        "has_observation": bool(values_by_property),
+                        "observation_summary": {
+                            property_name: {
+                                "mean": round(float(fmean(values)), 3),
+                                "std": round(float(pstdev(values)), 3),
+                                "n": len(values),
+                            }
+                            for property_name, values in sorted(values_by_property.items())
+                        },
+                    }
+                search_text = " ".join([key, *(str(value) for value in metadata.values() if not isinstance(value, dict))]).casefold()
+                if normalized and normalized not in search_text:
                     continue
                 if issue_only and key not in issue_keys:
                     continue
-                items.append({"key": key, "entity_type": sheet_name, "has_issue": key in issue_keys})
+                items.append({"key": key, "entity_type": sheet_name, "has_issue": key in issue_keys, **metadata})
         known_keys = {item["key"] for item in items}
         for issue in data.detected_quality:
             key = issue["entity_key"]

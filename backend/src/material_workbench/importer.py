@@ -181,7 +181,14 @@ def lineage_node_detail(data: WorkbookData, entity_key: str) -> dict[str, Any]:
     heat_pattern: list[dict[str, Any]] = []
     if len(anneal_keys) == 1:
         heat_pattern = [
-            {"time_s": float(row["到達時間[s]"]), "temperature_c": float(row["実績温度[℃]"])}
+            {
+                "time_s": float(row["到達時間[s]"]),
+                "temperature_c": float(row["実績温度[℃]"]),
+                "set_temperature_c": float(row["設定温度[℃]"]) if isinstance(row.get("設定温度[℃]"), (int, float)) else None,
+                "stage_category": str(row["標準工程カテゴリ"]) if row.get("標準工程カテゴリ") else None,
+                "stage_name": str(row["標準工程名"]) if row.get("標準工程名") else None,
+                "mapping_status": str(row["マッピング状態"]) if row.get("マッピング状態") else None,
+            }
             for row in sorted(data.sheets["焼鈍履歴"], key=lambda row: row.get("順番", 0))
             if str(row.get("焼鈍_key")) == anneal_keys[0]
             and isinstance(row.get("到達時間[s]"), (int, float))
@@ -400,6 +407,9 @@ def load_workbook_data(path: str | Path) -> WorkbookData:
             "reheat": 1.0 if row["再加熱工程あり"] == "あり" else 0.0,
             "alloying": 1.0 if row["合金化工程あり"] == "通過" else 0.0,
             "feature_status": str(row["特徴量化判定"]),
+            "standard_route": str(row.get("標準ルート") or ""),
+            "process_signature": str(row.get("標準工程シグネチャ") or ""),
+            "unmapped_stage_count": int(row.get("未確定工程名数") or 0),
             "heat_pattern": anneal_history_by_key.get(str(row["焼鈍_key"]), []),
         }
         for row in feature_rows
@@ -429,7 +439,11 @@ def load_workbook_data(path: str | Path) -> WorkbookData:
     anneal_status = {str(row["焼鈍_key"]): str(row.get("学習利用区分", "")) for row in sheets["焼鈍"]}
     hot_status = {str(row["熱延_key"]): str(row.get("学習利用区分", "")) for row in sheets["熱延"]}
     observations: list[dict[str, Any]] = []
-    targets = (("焼鈍引張", "焼鈍引張_key", ("TS[MPa]", "YS[MPa]", "EL[%]")), ("焼鈍穴広げ", "焼鈍穴広げ_key", ("λ[%]",)), ("熱延引張", "熱延引張_key", ("TS[MPa]", "YS[MPa]", "EL[%]")))
+    targets = (
+        ("焼鈍引張", "焼鈍引張_key", ("TS[MPa]", "YS[MPa]", "EL[%]", "均一伸び[%]", "r値[-]", "n値[-]")),
+        ("焼鈍穴広げ", "焼鈍穴広げ_key", ("λ[%]",)),
+        ("熱延引張", "熱延引張_key", ("TS[MPa]", "YS[MPa]", "EL[%]", "均一伸び[%]")),
+    )
     for sheet_name, observation_key, output_columns in targets:
         for row in sheets[sheet_name]:
             parent = str(row.get("反復条件_key", ""))

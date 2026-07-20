@@ -2696,6 +2696,10 @@ function LiveLineagePage({
         time_s: number;
         temperature_c: number;
         segment_start?: boolean;
+        set_temperature_c?: number | null;
+        stage_category?: string | null;
+        stage_name?: string | null;
+        mapping_status?: string | null;
       }>;
       connected_observation_count: number;
       connected_observations: Array<{
@@ -2725,7 +2729,19 @@ function LiveLineagePage({
     };
   };
   type LineageIndex = {
-    items: Array<{ key: string; entity_type: string; has_issue: boolean }>;
+    items: Array<{
+      key: string;
+      entity_type: string;
+      has_issue: boolean;
+      family?: string;
+      project?: string;
+      route?: string;
+      peak_temperature_c?: number;
+      coating?: string;
+      learning_status?: string;
+      has_observation?: boolean;
+      observation_summary?: Record<string, { mean: number; std: number; n: number }>;
+    }>;
     total_entities: number;
     relation_rows: number;
     detected_issues: number;
@@ -2814,13 +2830,33 @@ function LiveLineagePage({
   };
   const heat = data?.node.heat_pattern ?? [];
   const maxTime = Math.max(1, ...heat.map((point) => point.time_s));
-  const maxTemp = Math.max(1, ...heat.map((point) => point.temperature_c));
+  const maxTemp = Math.max(
+    1,
+    ...heat.flatMap((point) => [point.temperature_c, point.set_temperature_c ?? point.temperature_c]),
+  );
   const heatPoints = heat
     .map(
       (point) =>
         `${20 + (point.time_s / maxTime) * 380},${120 - (point.temperature_c / maxTemp) * 100}`,
     )
     .join(" ");
+  const setHeatPoints = heat
+    .filter((point) => typeof point.set_temperature_c === "number")
+    .map(
+      (point) =>
+        `${20 + (point.time_s / maxTime) * 380},${120 - ((point.set_temperature_c ?? 0) / maxTemp) * 100}`,
+    )
+    .join(" ");
+  const heatStages = Array.from(
+    new Map(
+      heat
+        .filter((point) => point.stage_category || point.stage_name)
+        .map((point) => [
+          `${point.stage_category ?? "工程"}-${point.stage_name ?? ""}`,
+          { category: point.stage_category ?? "工程", name: point.stage_name ?? "", status: point.mapping_status ?? "" },
+        ]),
+    ).values(),
+  );
   return (
     <div className="page-panel lineage-page">
       <div className="page-intro lineage-intro">
@@ -2846,7 +2882,7 @@ function LiveLineagePage({
             id="lineage-query"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="例: AN-00001"
+            placeholder="キー・鋼種・PJ・route"
           />
           <button type="submit" className="secondary-button">開く</button>
         </form>
@@ -2881,8 +2917,16 @@ function LiveLineagePage({
                 className={item.key === entityKey ? "active" : ""}
                 onClick={() => openNode(item.key)}
               >
-                <span>{item.key}</span>
-                <small>{item.entity_type}{item.has_issue ? " · 要確認" : ""}</small>
+                <span className="lineage-result-title"><b>{item.key}</b><small>{item.entity_type}{item.has_issue ? " · 要確認" : ""}</small></span>
+                {item.entity_type === "焼鈍" && (
+                  <>
+                    <span className="lineage-result-meta">{item.family || "family不明"} · {item.project || "PJ不明"} · {item.route || "route不明"}</span>
+                    <span className="lineage-result-meta">peak {item.peak_temperature_c == null ? "—" : `${number(item.peak_temperature_c)}°C`} · {item.coating || "—"} · {item.learning_status || "区分なし"}</span>
+                    <span className="lineage-result-observations">
+                      {Object.entries(item.observation_summary ?? {}).slice(0, 4).map(([property, summary]) => `${property.replace("[MPa]", "").replace("[%]", "")} ${number(summary.mean, 1)}±${number(summary.std, 1)} (n=${summary.n})`).join(" / ") || "焼鈍後観測なし"}
+                    </span>
+                  </>
+                )}
               </button>
             ))}
             {index && !index.items.length && <p className="empty-evidence">一致するキーはありません。</p>}
@@ -3009,6 +3053,7 @@ function LiveLineagePage({
                 実績ヒートパターン <small>{heat.length}点</small>
               </h3>
               {heat.length ? (
+                <>
                 <svg
                   viewBox="0 0 420 135"
                   className="lineage-heat"
@@ -3022,6 +3067,15 @@ function LiveLineagePage({
                     stroke="#1f5fc4"
                     strokeWidth="3"
                   />
+                  {setHeatPoints && (
+                    <polyline
+                      points={setHeatPoints}
+                      fill="none"
+                      stroke="#c17816"
+                      strokeWidth="1.5"
+                      strokeDasharray="5 4"
+                    />
+                  )}
                   {heat.map((point) => (
                     <circle
                       key={point.time_s}
@@ -3034,6 +3088,16 @@ function LiveLineagePage({
                     </circle>
                   ))}
                 </svg>
+                <div className="lineage-heat-legend">
+                  <span><i className="actual" />実績温度</span>
+                  <span><i className="setting" />設定温度</span>
+                  {heatStages.map((stage) => (
+                    <span className={stage.status && stage.status !== "確定" ? "unmapped" : ""} key={`${stage.category}-${stage.name}`}>
+                      {stage.category}{stage.name ? ` / ${stage.name}` : ""}{stage.status ? ` · ${stage.status}` : ""}
+                    </span>
+                  ))}
+                </div>
+                </>
               ) : (
                 <p className="empty-evidence">
                   このノードに焼鈍履歴は接続されていません。
@@ -3045,7 +3109,7 @@ function LiveLineagePage({
               {(data.node.observation_groups ?? []).length ? (
                 <>
                   <div className="lineage-observation-scroll">
-                  <table className="quality-table compact-table">
+                    <table className="quality-table compact-table">
                     <thead>
                       <tr>
                         <th>段階 / 試験</th>
@@ -3075,7 +3139,7 @@ function LiveLineagePage({
                         ),
                       )}
                     </tbody>
-                  </table>
+                    </table>
                   </div>
                   <details className="similar-more">
                     <summary>観測値を表示</summary>

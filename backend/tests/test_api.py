@@ -146,6 +146,11 @@ def test_lineage_index_and_isolated_nodes_are_inspectable(client) -> None:
     assert index["relation_rows"] > 1_800
     assert index["total_entities"] > index["relation_rows"]
     assert index["items"][0]["key"] == "AN-00001"
+    assert index["items"][0]["family"]
+    assert index["items"][0]["route"]
+    assert index["items"][0]["peak_temperature_c"] > 0
+    assert index["items"][0]["observation_summary"]
+    assert client.get("/api/lineage", params={"query": index["items"][0]["family"], "entity_type": "焼鈍"}).json()["items"]
     isolated = client.get("/api/lineage/CR-00010")
     assert isolated.status_code == 200
     assert isolated.json()["node"]["entity_type"] == "冷延"
@@ -169,6 +174,10 @@ def test_lineage_keeps_hot_rolled_and_annealed_observations_separate(client) -> 
     ts_groups = [group for group in node["observation_groups"] if group["property"] == "TS[MPa]"]
     assert {group["stage"] for group in ts_groups} == {"熱延後", "焼鈍後"}
     assert all(group["count"] == len(group["observations"]) for group in ts_groups)
+    annealed_properties = {group["property"] for group in node["observation_groups"] if group["stage"] == "焼鈍後"}
+    assert {"均一伸び[%]", "r値[-]", "n値[-]"} <= annealed_properties
+    assert any(point["stage_category"] for point in node["heat_pattern"])
+    assert any(point["set_temperature_c"] is not None for point in node["heat_pattern"])
     edge_pairs = {(edge["source"], edge["target"]) for edge in payload["graph"]["edges"]}
     assert ("HR-00003", "CR-00002") in edge_pairs
     assert ("CR-00002", "AN-00003") in edge_pairs

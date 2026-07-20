@@ -17,6 +17,10 @@ class HeatPoint(BaseModel):
     time_s: Annotated[float, Field(ge=0, allow_inf_nan=False)]
     temperature_c: Annotated[float, Field(ge=-273.15, le=1800)]
     segment_start: bool = False
+    set_temperature_c: Annotated[float | None, Field(ge=-273.15, le=1800)] = None
+    stage_category: str | None = None
+    stage_name: str | None = None
+    mapping_status: str | None = None
 
 
 class CandidateInput(BaseModel):
