@@ -2,6 +2,14 @@ import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 
 import type { CandidateViewModel, RuntimeOperations } from "../candidates";
 import { candidateInputIdentity } from "../../shared/api/inferenceRequestCache";
 import { workbenchApi, type ApiPreview } from "../../shared/api/workbench-api";
+import {
+  emptyInferenceSurface,
+  inferenceSurfaceStatus,
+  rejectInferenceSurface,
+  requestInferenceSurface,
+  resolveInferenceSurface,
+  type InferenceSurfaceState,
+} from "./inferenceSurfaceState";
 import { workbenchInferenceKey, workbenchRequestKey, type WorkbenchIdentity } from "./workbenchIdentity";
 
 export type PredictionMetric = {
@@ -51,6 +59,7 @@ type PreviewIdentity = Readonly<{
 const activeKey = (requestKey: string, inputIdentity: string) => `${requestKey}\u001f${inputIdentity}`;
 export function useWorkbenchPrediction({ projectId, taskId, candidate, operations, onNotice, setApiState }: Options) {
   const [previewsByCandidate, setPreviewsByCandidate] = useState<Record<string, ApiPreview>>({});
+  const [surfacesByCandidate, setSurfacesByCandidate] = useState<Record<string, InferenceSurfaceState<ApiPreview>>>({});
   const [error, setError] = useState("");
   const [retrySequence, setRetrySequence] = useState(0);
   const identities = useRef(new Map<string, PreviewIdentity>());
@@ -69,27 +78,44 @@ export function useWorkbenchPrediction({ projectId, taskId, candidate, operation
   const currentDetailedActiveKeyRef = useRef(currentDetailedActiveKey);
   currentDetailedActiveKeyRef.current = currentDetailedActiveKey;
   const storedIdentity = candidate ? identities.current.get(candidate.id) : undefined;
-  const preview = candidate
-    && storedIdentity?.inputIdentity === inputIdentity
-    ? previewsByCandidate[candidate.id] ?? null
-    : null;
+  const preview = candidate ? previewsByCandidate[candidate.id] ?? null : null;
+  const previewSurface = candidate ? surfacesByCandidate[candidate.id] ?? emptyInferenceSurface<ApiPreview>() : emptyInferenceSurface<ApiPreview>();
+  const previewStatus = inferenceSurfaceStatus(previewSurface);
   const metrics = preview ? metricsFromPreview(preview) : [];
 
   function getPreviewInputIdentity(candidateId: string) {
     return identities.current.get(candidateId)?.inputIdentity;
   }
 
-  function acceptPreview(candidateId: string, nextPreview: ApiPreview | null, nextInputIdentity?: string, candidateRevision?: number) {
+  function acceptPreview(candidateId: string, nextPreview: ApiPreview | null, nextInputIdentity?: string, candidateRevision?: number, requestError?: unknown) {
     if (nextPreview && nextInputIdentity && candidateRevision !== undefined) {
+      const nextKey = workbenchInferenceKey({ projectId, taskId, candidateId, inputIdentity: nextInputIdentity }, "preview");
       identities.current.set(candidateId, {
         inputIdentity: nextInputIdentity,
         requestKey: workbenchRequestKey({ projectId, taskId, candidateId, candidateRevision }, "preview"),
       });
       setPreviewsByCandidate((current) => ({ ...current, [candidateId]: nextPreview }));
+      setSurfacesByCandidate((current) => {
+        let surface = current[candidateId] ?? emptyInferenceSurface<ApiPreview>();
+        if (surface.requestedIdentity !== nextKey) surface = requestInferenceSurface(surface, nextKey);
+        return { ...current, [candidateId]: resolveInferenceSurface(surface, surface.requestSequence, nextKey, nextPreview) };
+      });
+    } else if (nextInputIdentity && candidateRevision !== undefined) {
+      const nextKey = workbenchInferenceKey({ projectId, taskId, candidateId, inputIdentity: nextInputIdentity }, "preview");
+      setSurfacesByCandidate((current) => {
+        let surface = current[candidateId] ?? emptyInferenceSurface<ApiPreview>();
+        if (surface.requestedIdentity !== nextKey || !surface.pending) surface = requestInferenceSurface(surface, nextKey);
+        if (requestError !== undefined) surface = rejectInferenceSurface(surface, surface.requestSequence, nextKey, requestError);
+        return { ...current, [candidateId]: surface };
+      });
     } else {
       if (candidateId === candidate?.id) previewController.current?.abort();
       identities.current.delete(candidateId);
       setPreviewsByCandidate((current) => {
+        const { [candidateId]: _, ...remaining } = current;
+        return remaining;
+      });
+      setSurfacesByCandidate((current) => {
         const { [candidateId]: _, ...remaining } = current;
         return remaining;
       });
@@ -100,6 +126,7 @@ export function useWorkbenchPrediction({ projectId, taskId, candidate, operation
   function reset() {
     identities.current.clear();
     setPreviewsByCandidate({});
+    setSurfacesByCandidate({});
     setError("");
   }
 
@@ -117,6 +144,17 @@ export function useWorkbenchPrediction({ projectId, taskId, candidate, operation
       accepted[item.id] = loaded[item.id];
     }
     setPreviewsByCandidate((current) => ({ ...current, ...accepted }));
+    setSurfacesByCandidate((current) => {
+      const next = { ...current };
+      for (const item of candidates) {
+        const data = accepted[item.id];
+        if (!data) continue;
+        const key = workbenchInferenceKey({ projectId: item.raw.project_id, taskId: loadedTaskId, candidateId: item.id, inputIdentity: candidateInputIdentity(item.raw.inputs) }, "preview");
+        const requested = requestInferenceSurface(next[item.id] ?? emptyInferenceSurface<ApiPreview>(), key);
+        next[item.id] = resolveInferenceSurface(requested, requested.requestSequence, key, data);
+      }
+      return next;
+    });
   }
 
   useEffect(() => {
@@ -142,6 +180,10 @@ export function useWorkbenchPrediction({ projectId, taskId, candidate, operation
     previewController.current?.abort();
     previewController.current = controller;
     const requestActiveKey = currentPreviewActiveKey;
+    setSurfacesByCandidate((current) => ({
+      ...current,
+      [candidate.id]: requestInferenceSurface(current[candidate.id] ?? emptyInferenceSurface<ApiPreview>(), requestActiveKey),
+    }));
     setApiState("loading");
     setError("");
     const timer = window.setTimeout(async () => {
@@ -150,9 +192,17 @@ export function useWorkbenchPrediction({ projectId, taskId, candidate, operation
         if (controller.signal.aborted || currentPreviewActiveKeyRef.current !== requestActiveKey) return;
         identities.current.set(candidate.id, { inputIdentity, requestKey: previewRequestKey });
         setPreviewsByCandidate((current) => ({ ...current, [candidate.id]: result }));
+        setSurfacesByCandidate((current) => {
+          const surface = current[candidate.id] ?? emptyInferenceSurface<ApiPreview>();
+          return { ...current, [candidate.id]: resolveInferenceSurface(surface, surface.requestSequence, requestActiveKey, result) };
+        });
         onNotice(result.warnings?.[0] ?? "プレビューを更新しました");
-      } catch {
+      } catch (cause) {
         if (controller.signal.aborted || currentPreviewActiveKeyRef.current !== requestActiveKey) return;
+        setSurfacesByCandidate((current) => {
+          const surface = current[candidate.id] ?? emptyInferenceSurface<ApiPreview>();
+          return { ...current, [candidate.id]: rejectInferenceSurface(surface, surface.requestSequence, requestActiveKey, cause) };
+        });
         setError("プレビューを取得できませんでした");
       } finally {
         if (!controller.signal.aborted && currentPreviewActiveKeyRef.current === requestActiveKey) setApiState("ready");
@@ -174,6 +224,11 @@ export function useWorkbenchPrediction({ projectId, taskId, candidate, operation
       if (currentDetailedActiveKeyRef.current !== requestActiveKey) return false;
       identities.current.set(candidate.id, { inputIdentity, requestKey: previewRequestKey });
       setPreviewsByCandidate((current) => ({ ...current, [candidate.id]: payload.prediction }));
+      setSurfacesByCandidate((current) => {
+        const key = currentPreviewActiveKeyRef.current;
+        const requested = requestInferenceSurface(current[candidate.id] ?? emptyInferenceSurface<ApiPreview>(), key);
+        return { ...current, [candidate.id]: resolveInferenceSurface(requested, requested.requestSequence, key, payload.prediction) };
+      });
       setError("");
       onNotice("詳細予測を実行し、スナップショットを保存しました。");
       return true;
@@ -192,6 +247,7 @@ export function useWorkbenchPrediction({ projectId, taskId, candidate, operation
     getPreviewInputIdentity,
     metrics,
     preview,
+    previewStatus,
     previewsByCandidate,
     reset,
     retry: () => setRetrySequence((value) => value + 1),

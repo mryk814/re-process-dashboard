@@ -22,6 +22,7 @@ import {
   type ApiResponseCurves,
 } from "../../shared/api/workbench-api";
 import { workbenchRequestKey } from "./workbenchIdentity";
+import type { InferenceSurfaceStatus } from "./inferenceSurfaceState";
 
 type Metric = {
   key: string;
@@ -124,6 +125,7 @@ type WorkbenchProps = {
   onCopyDraft: () => void;
   metrics: Metric[];
   preview: ApiPreview | null;
+  previewStatus: InferenceSurfaceStatus;
   previewError: string;
   onRetryPreview: () => void;
   previewsByCandidate: Record<string, ApiPreview>;
@@ -158,6 +160,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
     onCopyDraft,
     metrics,
     preview,
+    previewStatus,
     previewError,
     onRetryPreview,
     previewsByCandidate,
@@ -250,7 +253,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
         ) : <UnavailablePanel title="応答曲線" />}
         {operations?.actual_measurement ? <ActualsPanel projectId={projectId} candidate={selected} outputs={taskDefinition?.outputs ?? []} enabled={["idle", "saved"].includes(saveState)} /> : <UnavailablePanel title="予測と実測" />}
       </section>
-      <EvidencePanel metrics={metrics} outputs={taskDefinition?.outputs ?? []} preview={preview} candidateLabel={selected.label} similarityAvailable={operations?.similarity === true} error={previewError} onRetry={onRetryPreview} />
+      <EvidencePanel metrics={metrics} outputs={taskDefinition?.outputs ?? []} preview={preview} previewStatus={previewStatus} candidateLabel={selected.label} similarityAvailable={operations?.similarity === true} error={previewError} onRetry={onRetryPreview} />
     </div>
   );
 }
@@ -903,6 +906,7 @@ function EvidencePanel({
   metrics,
   outputs,
   preview,
+  previewStatus,
   candidateLabel,
   similarityAvailable,
   error,
@@ -911,6 +915,7 @@ function EvidencePanel({
   metrics: Metric[];
   outputs: TaskOutputDefinition[];
   preview: ApiPreview | null;
+  previewStatus: InferenceSurfaceStatus;
   candidateLabel: string;
   similarityAvailable: boolean;
   error: string;
@@ -929,6 +934,9 @@ function EvidencePanel({
       <section>
         <div className="evidence-title">
           <h2>予測特性 <span>— {candidateLabel}</span></h2>
+          <span className={`inference-surface-status ${previewStatus}`} role="status">
+            {previewStatus === "latest" ? "最新" : previewStatus === "refreshing" ? "更新中" : previewStatus === "stale" ? "旧revision・更新中" : "更新失敗・旧結果"}
+          </span>
         </div>
         {metrics.length ? (
           <table className="metric-table">

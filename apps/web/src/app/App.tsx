@@ -68,7 +68,7 @@ function App() {
     selectedId,
     taskDefinition,
   } = session;
-  const { error: previewError, metrics, preview, previewsByCandidate } = prediction;
+  const { error: previewError, metrics, preview, previewStatus, previewsByCandidate } = prediction;
 
   function selectCandidate(candidateId: string, replace = true) {
     session.selectCandidate(candidateId, false);
@@ -251,6 +251,7 @@ function App() {
               onCopyDraft={() => void editor.copyDraft(selected)}
               metrics={metrics}
               preview={preview}
+              previewStatus={previewStatus}
               previewError={previewError}
               onRetryPreview={prediction.retry}
               previewsByCandidate={previewsByCandidate}
