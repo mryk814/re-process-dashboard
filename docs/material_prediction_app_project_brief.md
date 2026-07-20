@@ -143,6 +143,8 @@ MVPでは厳密な権限管理は作らず、同一アプリ内で「予測」�
 
 原則として一プロジェクト一予測タスクとする。将来、熱延と焼鈍を一つの上位プロジェクトにまとめる可能性は残すが、初期実装では無理に対応しない。
 
+この不変条件は保存時だけのUI制約ではなく、データ契約として扱う。候補、予測スナップショット、実測、スクリーニングrunは所属プロジェクトと同じ `task_id` を持たなければならず、異なるタスクの成果物を一つのプロジェクトへ混在させない。
+
 ---
 
 ## 6. 画面構成
@@ -394,7 +396,50 @@ PredictionResult
 - scikit-learn、LightGBM、ガウス過程、ベイズモデルなどはモデル別ランタイムアダプターで扱う
 - 初期段階から汎用プラグイン基盤を作らず、まず一つの実モデル用アダプターを実装する
 
-### 12.2 モデルパッケージ
+### 12.2 TaskDefinitionとCanonicalCandidate
+
+焼鈍と熱延の差分は専用のコードパスではなく、同じTaskDefinition契約で表す。
+
+TaskDefinitionは次を宣言する。
+
+- `id`、`label`、schema version
+- `composition`、`process`、任意の `heat_pattern`、`categorical` からなる入力group
+- fieldごとの `path`、`kind`、`order`、`label`、`unit`、`required`、`editable`
+- 数値fieldのdefault range、allowed range、training range
+- categorical fieldのchoices
+- outputごとの `key`、`label`、`unit`、`goal_direction`
+- タスクに固定された設備・試験方向などのcontext
+- field間の物理制約
+
+`path` と `order` はgroup内で一意とし、field pathは所属groupと一致させる。default rangeとtraining rangeはallowed range内に含める。field間制約は宣言された数値fieldだけを参照する。これらは入力意味と計算契約であり、ペイン配置、列幅、カード構成などのUIレイアウトはTaskDefinitionに含めない。
+
+CanonicalCandidateは全タスクで次の同じ形を使う。
+
+```text
+CanonicalCandidate
+  schema_version
+  task_id
+  composition: {field: number}
+  process: {field: number}
+  heat_pattern?: [{time_s, temperature_c}]
+  categorical: {field: choice}
+  provenance: {source_kind, source_ref}
+```
+
+`provenance` は手入力、工程系譜、スクリーニング点、保存済みsnapshotのいずれから作成したかを型付き参照として保持する。表示名へ由来を埋め込んで代用しない。
+
+RawCandidateでは未入力の組成をtask既定値または参照統計から補完できるが、CanonicalCandidateは入力検証・単位正規化・補完後のモデル入力である。したがってTaskDefinitionでrequiredとした14元素はCanonicalCandidateにすべて存在し、補完前の省略状態をそのまま持ち込まない。raw入力はsnapshotの別fieldへ保存し、CanonicalCandidateと混同しない。
+
+正本となるタスク出力は次の通りである。
+
+| task_id | 入力group | output |
+|---|---|---|
+| `annealed-properties-v1` | composition / process / heat_pattern / categorical | TS / YS / EL / lambda |
+| `hot-rolled-properties-v1` | composition / process / categorical、`HR-LINE-1`・L方向に固定 | TS |
+
+機械検証可能なfixtureは `backend/tests/fixtures/task_contracts/` に置き、共通契約は `backend/src/material_workbench/task_contracts.py` で定義する。production APIとregistryへの接続は別の移行単位とする。
+
+### 12.3 モデルパッケージ
 
 最低限の構成例：
 
@@ -424,7 +469,7 @@ model-package/
 
 任意Pythonコードをモデルパッケージから動的に読み込まない。新しいモデル種類はバックエンド側にランタイムアダプターを追加し、パッケージは組み込みランタイム種別を指定する方式を優先する。
 
-### 12.3 予測結果
+### 12.4 予測結果
 
 ターゲットごとに、利用可能な表現だけを返す能力ベースの契約とする。
 

@@ -89,6 +89,29 @@ npzはentry数、展開後総量、圧縮率、posterior draw数、layer数、te
 feature pipelineはJSON宣言の組込み操作（単位正規化、欠損方針、標準化、one-hot、ヒートパターン要約）だけを使う。
 モデルPackageはfeature名・順序・pipeline versionを固定する。snapshotにはraw candidate、canonical input、Package manifest SHA-256、pipeline hash、training/support provenanceを残し、過去snapshotを新Packageで自動再評価しない。
 
+## TaskDefinitionとの境界
+
+TaskDefinitionは利用者が扱う入力group、field、output、単位、目標方向を定義する。モデルPackageは一つの `task_id` と `input_schema_version` を参照し、そのtaskのCanonicalCandidateを特徴量へ変換して予測する。Package manifestやruntime capabilityに画面配置、カード、テーブル列などのUIレイアウト情報を含めない。
+
+正本の出力は次の通りとする。
+
+- `annealed-properties-v1`: TS / YS / EL / lambda
+- `hot-rolled-properties-v1`: TS
+
+Packageのpredictor targetは対応するTaskDefinitionのoutputに含まれなければならない。TaskDefinitionを変更して既存Packageの意味を暗黙に変えず、互換性のない変更はschema versionまたはtask idを更新する。
+
+TaskDefinitionは予測意味を固定するcontextとfield間制約も保持する。熱延v1は `HR-LINE-1`・L方向に固定し、仕上温度は加熱温度以下、出側板厚は入側板厚未満とする。これらをruntime固有コードだけに埋め込まない。
+
+## Runtime capability
+
+モデルの出力情報量はruntimeごとに異なるため、UIが推測せずに済むよう能力をデータとして宣言する。targetごとに、利用可能なpoint statistic、standard deviation、quantile、sample、parametric distribution、不確実性内訳、support、warning、目標達成確率の計算方式を持つ。マルチターゲット間のjoint sample可否はtask runtime全体の能力として分ける。
+
+能力宣言は「すべて返せる」という共通最小形式を強制するものではない。宣言されていない表現を擬似生成せず、利用可能な表現だけを返す。平均と標準偏差だけから目標達成確率を計算できるのは、`normal_approximation` を明示した場合だけである。
+
+TaskDefinition、CanonicalCandidate、runtime capabilityの機械検証可能な共通契約とfixtureは `backend/src/material_workbench/task_contracts.py` および `backend/tests/fixtures/task_contracts/` を正本とする。この段階ではproduction loader/APIへ接続せず、既存Packageの挙動を変更しない。
+
+現行の熱延PackageはTS・YS・ELを持つ旧実装であり、この正本契約にはまだ適合していない。TaskDefinition registryとproduction APIを接続する次の移行単位で、TSのみのPackageへ再構築してmanifest・runtime capability・smoke fixtureを同時に切り替える。旧Packageを適合済みとして扱ったり、互換adapterで残したりしない。
+
 ## テスト必須項目
 
 - path traversal、hash/size改竄、unknown field/runtime、未列挙artifactの拒否
