@@ -1,0 +1,38 @@
+.admin-workspace { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 14px; align-items: start; margin: 14px 18px; }
+.admin-navigation { position: sticky; top: 12px; border: 1px solid #d8e0ea; border-radius: 6px; background: #fff; padding: 14px; }
+.admin-navigation h2 { margin: 3px 0 4px; font-size: 18px; }
+.admin-navigation p { margin: 0 0 12px; color: #697789; font-size: 11px; line-height: 1.5; }
+.admin-navigation nav { display: grid; gap: 3px; }
+.admin-navigation button { text-align: left; border: 1px solid transparent; border-radius: 4px; background: transparent; color: #526176; padding: 8px 11px; font: inherit; font-weight: 600; }
+.admin-navigation button:hover,
+.admin-navigation button.active { border-color: #b9cbe0; background: #edf4fc; color: #174f98; }
+.admin-content > .page-panel { margin: 0; }
+.admin-contract-page section { margin-top: 18px; }
+.admin-contract-page h3 { margin: 0 0 7px; font-size: 14px; }
+.admin-output-list { display: flex; flex-wrap: wrap; gap: 7px; }
+.admin-output-list span { border: 1px solid #d8e0ea; border-radius: 4px; background: #f8fafc; padding: 8px 10px; color: #637086; font-size: 12px; }
+.admin-output-list b { margin-right: 7px; color: #263448; }
+.technical-contract { margin-top: 18px; border-top: 1px solid #e2e8f0; padding-top: 10px; color: #637086; font-size: 12px; }
+.technical-contract code,
+.technical-contract span { display: block; margin-top: 6px; overflow-wrap: anywhere; }
+.admin-model-identity { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+.admin-model-identity span { border-radius: 999px; background: #e5f5ee; color: #137454; padding: 3px 8px; font-size: 11px; font-weight: 700; }
+.input-range-settings { max-width: 980px; }
+.settings-explanation { margin: 0 0 14px; padding: 9px 11px; border-left: 3px solid #6bb69e; background: #f4faf7; color: #53647a; font-size: 12px; }
+.input-range-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.input-range-table th,
+.input-range-table td { padding: 8px; border: 1px solid #d8e0ea; text-align: left; }
+.input-range-table thead th { background: #edf2f8; color: #46566c; }
+.input-range-table tbody th { font-weight: 700; }
+.input-range-table th small { display: block; margin-top: 2px; color: #718096; font-weight: 400; }
+.input-range-table input { width: 120px; height: 30px; border: 1px solid #cbd6e2; border-radius: 3px; padding: 4px 6px; text-align: right; }
+.runtime-list { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.runtime-list span { border: 1px solid #d8e0e9; border-radius: 999px; padding: 3px 8px; font-size: 12px; }
+.runtime-list .available { border-color: #69a98b; color: #25624a; }
+.runtime-list .optional { color: #657386; }
+.input-range-settings .project-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+@media (max-width: 760px) {
+  .admin-workspace { display: block; margin: 10px; }
+  .admin-navigation { position: static; margin-bottom: 10px; }
+}
