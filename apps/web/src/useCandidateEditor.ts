@@ -3,20 +3,23 @@ import { fromApiCandidate, toApiCandidate, type CandidateViewModel } from "./can
 import { LatestSaveQueue, rebaseChangedFields } from "./latestSaveQueue";
 import { ApiClientError } from "./shared/api/client";
 import { workbenchApi, type ApiCandidate, type ApiCandidateInput, type ApiCandidateUpdate, type ApiPreview } from "./shared/api/workbench-api";
+import { candidateInferenceChanged, candidateInferencePrefix, candidateInputIdentity, inferenceRequestCache, shouldRefreshPreviewAfterSave } from "./inferenceRequestCache";
 
 export type CandidateSaveState = "idle" | "dirty" | "saving" | "saved" | "conflict" | "error";
 
 type CandidateEditorOptions = {
   projectId: string;
   setCandidates: Dispatch<SetStateAction<CandidateViewModel[]>>;
-  onPreview: (candidateId: string, preview: ApiPreview | null) => void;
+  onPreview: (candidateId: string, preview: ApiPreview | null, inputIdentity?: string) => void;
+  getPreviewInputIdentity?: (candidateId: string) => string | undefined;
   onNotice: (message: string) => void;
 };
 
-export function useCandidateEditor({ projectId, setCandidates, onPreview, onNotice }: CandidateEditorOptions) {
+export function useCandidateEditor({ projectId, setCandidates, onPreview, getPreviewInputIdentity, onNotice }: CandidateEditorOptions) {
   const queue = useRef(new LatestSaveQueue<ApiCandidate>());
   const authoritative = useRef(new Map<string, ApiCandidate>());
   const scheduled = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const previewControllers = useRef(new Map<string, AbortController>());
   const activeProjectId = useRef(projectId);
   activeProjectId.current = projectId;
   const [saveStates, setSaveStates] = useState<Record<string, CandidateSaveState>>({});
@@ -40,6 +43,8 @@ export function useCandidateEditor({ projectId, setCandidates, onPreview, onNoti
     const initial = authoritative.current.get(candidateId) ?? previous?.raw ?? candidate.raw;
     const basePayload = toApiCandidate(fromApiCandidate(initial));
     const draftPayload = toApiCandidate(candidate);
+    const baseInputIdentity = candidateInputIdentity(basePayload.inputs);
+    const previewInputIdentityAtStart = getPreviewInputIdentity?.(candidateId);
     setSaveState(candidateId, "saving");
     setFieldErrors((current) => ({ ...current, [candidateId]: [] }));
     const queued = queue.current.enqueue(candidateId, initial, async (serverCandidate) => {
@@ -65,9 +70,36 @@ export function useCandidateEditor({ projectId, setCandidates, onPreview, onNoti
       if (!queued.isLatest() || activeProjectId.current !== projectId) return;
       setCandidates((items) => items.map((item) => item.id === candidateId ? fromApiCandidate(saved) : item));
       setSaveState(candidateId, "saved");
-      const preview = await workbenchApi.previewCandidate(projectId, candidateId);
-      if (!queued.isLatest() || activeProjectId.current !== projectId) return;
-      onPreview(candidateId, preview);
+      const inputIdentity = candidateInputIdentity(saved.inputs);
+      if (!shouldRefreshPreviewAfterSave(baseInputIdentity, inputIdentity, previewInputIdentityAtStart)) return;
+      inferenceRequestCache.invalidatePrefix(candidateInferencePrefix(projectId, candidateId));
+      onPreview(candidateId, null, inputIdentity);
+      previewControllers.current.get(candidateId)?.abort();
+      const previewController = new AbortController();
+      previewControllers.current.set(candidateId, previewController);
+      try {
+        const preview = await workbenchApi.previewCandidate(projectId, candidateId, inputIdentity, previewController.signal);
+        const current = authoritative.current.get(candidateId);
+        if (
+          activeProjectId.current !== projectId
+          || previewControllers.current.get(candidateId) !== previewController
+          || candidateInputIdentity(current?.inputs) !== inputIdentity
+        ) return;
+        onPreview(candidateId, preview, inputIdentity);
+      } catch {
+        const current = authoritative.current.get(candidateId);
+        if (
+          activeProjectId.current !== projectId
+          || previewControllers.current.get(candidateId) !== previewController
+          || candidateInputIdentity(current?.inputs) !== inputIdentity
+        ) return;
+        if (previewController.signal.aborted) return;
+        onNotice("入力は保存しましたが、予測結果を更新できませんでした");
+      } finally {
+        if (previewControllers.current.get(candidateId) === previewController) {
+          previewControllers.current.delete(candidateId);
+        }
+      }
     } catch (error) {
       if (!queued.isLatest() || activeProjectId.current !== projectId) return;
       const apiError = error instanceof ApiClientError ? error : undefined;
@@ -89,6 +121,9 @@ export function useCandidateEditor({ projectId, setCandidates, onPreview, onNoti
   function schedule(candidate: CandidateViewModel, previous?: CandidateViewModel) {
     markDirty(candidate.id);
     queue.current.supersede(candidate.id);
+    if (previous && candidateInferenceChanged(previous.raw.inputs, candidate.raw.inputs)) {
+      previewControllers.current.get(candidate.id)?.abort();
+    }
     const timer = scheduled.current.get(candidate.id);
     if (timer) clearTimeout(timer);
     scheduled.current.set(candidate.id, setTimeout(() => {
@@ -124,6 +159,8 @@ export function useCandidateEditor({ projectId, setCandidates, onPreview, onNoti
   useEffect(() => () => {
     for (const timer of scheduled.current.values()) clearTimeout(timer);
     scheduled.current.clear();
+    for (const controller of previewControllers.current.values()) controller.abort();
+    previewControllers.current.clear();
   }, [projectId]);
 
   return { acceptServerCandidates, copyDraft, fieldErrors, flush, reload, saveStates, schedule };
