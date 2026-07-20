@@ -23,6 +23,7 @@ PACKAGE_SCHEMA_VERSION = "model-package/v1"
 RUNTIME_TYPES = {
     "builtin.linear.v1",
     "builtin.exact_gp.v1",
+    "builtin.multitask_gp.v1",
     "sklearn.skops.v1",
     "lightgbm.booster.v1",
     "gpytorch.static_exact_rbf.v1",
@@ -161,6 +162,8 @@ class PredictorSpec(PackageModel):
             raise ValueError("gpytorch adapter only permits architecture_id=exact_rbf_v1")
         if self.runtime_type == "builtin.exact_gp.v1" and self.architecture_id != "exact_rbf_grouped_v1":
             raise ValueError("built-in exact GP adapter only permits architecture_id=exact_rbf_grouped_v1")
+        if self.runtime_type == "builtin.multitask_gp.v1" and self.architecture_id != "icm_rbf_v1":
+            raise ValueError("built-in multi-task GP adapter only permits architecture_id=icm_rbf_v1")
         return self
 
 
@@ -203,6 +206,15 @@ class ModelPackageManifest(PackageModel):
         expected = self.feature_pipeline.output_features
         if any(predictor.feature_names != expected for predictor in self.predictors):
             raise ValueError("predictor feature order must match feature pipeline output_features")
+        shared_task_indexes: dict[str, set[Any]] = {}
+        for predictor in self.predictors:
+            if predictor.runtime_type != "builtin.multitask_gp.v1":
+                continue
+            task_index = predictor.config.get("task_index")
+            seen = shared_task_indexes.setdefault(predictor.artifact, set())
+            if task_index in seen:
+                raise ValueError("multi-task predictors sharing an artifact must declare unique config.task_index values")
+            seen.add(task_index)
         return self
 
 
@@ -341,12 +353,13 @@ class AdapterRegistry:
         if adapters is None:
             from .adapters.builtin_linear import BuiltinLinearAdapter
             from .adapters.builtin_exact_gp import BuiltinExactGPAdapter
+            from .adapters.builtin_multitask_gp import BuiltinMultitaskGPAdapter
             from .adapters.gpytorch_static import GPyTorchStaticAdapter
             from .adapters.lightgbm_booster import LightGBMBoosterAdapter
             from .adapters.numpyro_posterior import NumpyroDensePosteriorAdapter
             from .adapters.sklearn_skops import SklearnSkopsAdapter
 
-            adapters = (BuiltinLinearAdapter(), BuiltinExactGPAdapter(), SklearnSkopsAdapter(), LightGBMBoosterAdapter(), GPyTorchStaticAdapter(), NumpyroDensePosteriorAdapter())
+            adapters = (BuiltinLinearAdapter(), BuiltinExactGPAdapter(), BuiltinMultitaskGPAdapter(), SklearnSkopsAdapter(), LightGBMBoosterAdapter(), GPyTorchStaticAdapter(), NumpyroDensePosteriorAdapter())
         self._adapters = {adapter.runtime_type: adapter for adapter in adapters}
         if set(self._adapters) != RUNTIME_TYPES:
             raise PackageContractError("adapter registry must implement exactly the approved runtime types")

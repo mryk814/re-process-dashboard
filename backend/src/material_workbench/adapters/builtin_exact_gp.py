@@ -1,12 +1,10 @@
 """Deterministic exact Gaussian-process regression backed by safe NumPy arrays."""
 from __future__ import annotations
 
-import math
-
 import numpy as np
 
 from ..model_packages import PackageContractError, PredictiveSummary, PredictorSpec, VerifiedModelPackage
-from .base import feature_vector
+from .base import feature_vector, normal_predictive_summary
 
 
 class _ExactGPPredictor:
@@ -56,32 +54,7 @@ class _ExactGPPredictor:
         cross = self._kernel(self.train_x, point)[:, 0]
         estimate = self.mean + float(cross @ self.alpha)
         model_variance = max(self.outputscale - float(cross @ self.precision @ cross), 0.0)
-        predictive_variance = model_variance + self.observation_noise
-        model_std = math.sqrt(model_variance)
-        observation_std = math.sqrt(self.observation_noise)
-        predictive_std = math.sqrt(predictive_variance)
-        z90 = 1.6448536269514722
-        return PredictiveSummary(
-            target=self.spec.target,
-            target_kind=self.spec.target_kind,
-            unit=self.spec.unit,
-            point_statistic="mean",
-            point_estimate=estimate,
-            quantiles={
-                "0.05": estimate - z90 * predictive_std,
-                "0.50": estimate,
-                "0.95": estimate + z90 * predictive_std,
-            },
-            distribution={"family": "normal", "support": "real", "mean": estimate, "std": predictive_std},
-            uncertainty_components={
-                "latent_model_variance": model_variance,
-                "latent_model_std": model_std,
-                "observation_noise_variance": self.observation_noise,
-                "observation_noise_std": observation_std,
-                "total_predictive_variance": predictive_variance,
-                "total_predictive_std": predictive_std,
-            },
-        )
+        return normal_predictive_summary(self.spec, estimate, model_variance, self.observation_noise)
 
 
 class BuiltinExactGPAdapter:

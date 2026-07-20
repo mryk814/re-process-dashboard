@@ -59,6 +59,7 @@
 | runtime type | 安全な資産 | 制約 |
 |---|---|---|
 | `builtin.linear.v1` | `.npz` | `weights/bias/lower_offset/upper_offset`のみ |
+| `builtin.multitask_gp.v1` | `.npz`、`allow_pickle=False` | `icm_rbf_v1`の既知array schemaだけ。task covarianceは対称・正定値半定値を検証 |
 | `sklearn.skops.v1` | `.skops` | アプリ固定の`estimator_family` allow-list外を拒否。manifestによる型自己申告、custom transformerは禁止 |
 | `lightgbm.booster.v1` | LightGBM native text | sklearn wrapperのpickleは禁止 |
 | `gpytorch.static_exact_rbf.v1` | `.safetensors` | `exact_rbf_v1`の既知tensor schemaだけ |
@@ -83,6 +84,20 @@ NumPyro adapterは学習用Python関数を復元しない。許可likelihoodは
 posterior predictive samplingは`seed`で決定的に再現する。詳細予測のsnapshotにはPackage digest、adapter version、seed、draw policyを保存する。
 
 npzはentry数、展開後総量、圧縮率、posterior draw数、layer数、tensor要素数に固定上限を設ける。圧縮後のartifact sizeだけを信頼しない。
+
+## Built-in multi-task GP（ICM）
+
+`builtin.multitask_gp.v1` は一つの`.npz` artifactにタスクの全ターゲットを結合したexact GPを持つ。
+kernelは intrinsic coregionalization model `K((x, t), (x', t')) = B[t, t'] · rbf(x, x')` で、
+`B`（`task_covariance`）がターゲット間の相関による情報共有を担う。
+
+- array schemaは `train_x` `[N, F]`、`train_task` `[N]`（int）、`train_y` `[N]`、
+  `feature_mean`/`feature_scale`/`lengthscale` `[F]`、`task_covariance` `[T, T]`、
+  `mean`/`train_noise`/`observation_noise` `[T]`、`precision` `[N, N]`、`alpha` `[N]` に固定する。
+- `task_covariance` は対称かつ正定値半定値、対角は正であることをadapterが検証する。
+- manifest predictorはターゲットごとに1つで、`config.task_index` で自分の出力を選ぶ。
+  外部から見える予測契約（normalのpoint/quantile/不確かさ内訳）は単一タスクGPと同じであり、
+  runtime capabilityの `joint_samples` は宣言しない限りfalseのままである。
 
 ## Feature pipeline と再現性
 

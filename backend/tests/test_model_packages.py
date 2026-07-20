@@ -126,7 +126,7 @@ def test_builtin_linear_package_and_registry_are_dependency_free(tmp_path: Path)
     package = ModelPackageLoader().load(root)
     result = package.load_predictor("linear").predict({"C": 0.1, "Mn": 1.5})
     assert result.point_estimate == pytest.approx(5.7)
-    assert set(AdapterRegistry()._adapters) == {"builtin.linear.v1", "builtin.exact_gp.v1", "sklearn.skops.v1", "lightgbm.booster.v1", "gpytorch.static_exact_rbf.v1", "numpyro.dense_posterior.v1"}
+    assert set(AdapterRegistry()._adapters) == {"builtin.linear.v1", "builtin.exact_gp.v1", "builtin.multitask_gp.v1", "sklearn.skops.v1", "lightgbm.booster.v1", "gpytorch.static_exact_rbf.v1", "numpyro.dense_posterior.v1"}
 
 
 def test_loader_rejects_hash_tampering_traversal_and_unknown_manifest_fields(tmp_path: Path) -> None:
@@ -225,6 +225,7 @@ def test_loader_rejects_unknown_pipeline_document_fields(tmp_path: Path) -> None
     ("task_id", "package_id", "package_version", "pipeline_version"),
     [
         ("annealed-properties-v1", "annealed-gp-2026-07", "0.8.0-lifecycle-v1", "1.5.0"),
+        ("annealed-properties-v1", "annealed-mtgp-2026-07", "0.1.0-multitask-v1", "1.5.0"),
         ("hot-rolled-properties-v1", "hot-rolled-gp-2026-07", "0.4.0-lifecycle-v1", "1.2.0"),
     ],
 )

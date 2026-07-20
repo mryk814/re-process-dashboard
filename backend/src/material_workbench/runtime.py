@@ -381,7 +381,7 @@ class ModelRuntime:
             }
             meta["feature_pipeline"] = {"id": manifest.feature_pipeline.id, "version": manifest.feature_pipeline.version, "input_schema_version": manifest.input_schema_version, "features": list(manifest.feature_pipeline.output_features)}
             meta["training_data"]["package_training_data_id"] = manifest.provenance.training_data_id
-            if any(item.runtime_type in {"builtin.exact_gp.v1", "gpytorch.static_exact_rbf.v1"} for item in manifest.predictors):
+            if any(item.runtime_type in {"builtin.exact_gp.v1", "builtin.multitask_gp.v1", "gpytorch.static_exact_rbf.v1"} for item in manifest.predictors):
                 meta["prediction_interval"] = {
                     "method": "gaussian_process_predictive_distribution",
                     "coverage": "central 90% predictive interval",

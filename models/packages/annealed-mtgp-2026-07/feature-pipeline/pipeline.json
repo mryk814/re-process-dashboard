@@ -1,0 +1,232 @@
+{
+  "id": "metallurgy-thermal",
+  "version": "1.5.0",
+  "canonical_input_paths": [
+    "composition.C",
+    "composition.Si",
+    "composition.Mn",
+    "composition.P",
+    "composition.S",
+    "composition.Cr",
+    "composition.Mo",
+    "composition.Ni",
+    "composition.Al",
+    "composition.Ti",
+    "composition.B",
+    "composition.N",
+    "composition.O",
+    "composition.Ca",
+    "process.thickness_mm",
+    "process.line_speed_m_min",
+    "heat_pattern",
+    "categorical.coating"
+  ],
+  "features": [
+    {
+      "name": "C",
+      "unit": "mass%",
+      "meaning": "C composition",
+      "group": "composition"
+    },
+    {
+      "name": "Si",
+      "unit": "mass%",
+      "meaning": "Si composition",
+      "group": "composition"
+    },
+    {
+      "name": "Mn",
+      "unit": "mass%",
+      "meaning": "Mn composition",
+      "group": "composition"
+    },
+    {
+      "name": "P",
+      "unit": "mass%",
+      "meaning": "P composition",
+      "group": "composition"
+    },
+    {
+      "name": "S",
+      "unit": "mass%",
+      "meaning": "S composition",
+      "group": "composition"
+    },
+    {
+      "name": "Cr",
+      "unit": "mass%",
+      "meaning": "Cr composition",
+      "group": "composition"
+    },
+    {
+      "name": "Mo",
+      "unit": "mass%",
+      "meaning": "Mo composition",
+      "group": "composition"
+    },
+    {
+      "name": "Ni",
+      "unit": "mass%",
+      "meaning": "Ni composition",
+      "group": "composition"
+    },
+    {
+      "name": "Al",
+      "unit": "mass%",
+      "meaning": "Al composition",
+      "group": "composition"
+    },
+    {
+      "name": "Ti",
+      "unit": "mass%",
+      "meaning": "Ti composition",
+      "group": "composition"
+    },
+    {
+      "name": "B",
+      "unit": "mass%",
+      "meaning": "B composition",
+      "group": "composition"
+    },
+    {
+      "name": "N",
+      "unit": "mass%",
+      "meaning": "N composition",
+      "group": "composition"
+    },
+    {
+      "name": "O",
+      "unit": "mass%",
+      "meaning": "O composition",
+      "group": "composition"
+    },
+    {
+      "name": "Ca",
+      "unit": "mass%",
+      "meaning": "Ca composition",
+      "group": "composition"
+    },
+    {
+      "name": "thickness_mm",
+      "unit": "mm",
+      "meaning": "Product thickness",
+      "group": "process"
+    },
+    {
+      "name": "line_speed_m_min",
+      "unit": "m/min",
+      "meaning": "Process line speed",
+      "group": "process"
+    },
+    {
+      "name": "coating_none",
+      "unit": "1",
+      "meaning": "Uncoated indicator",
+      "group": "categorical"
+    },
+    {
+      "name": "coating_GI",
+      "unit": "1",
+      "meaning": "GI coating indicator",
+      "group": "categorical"
+    },
+    {
+      "name": "coating_GA",
+      "unit": "1",
+      "meaning": "GA coating indicator",
+      "group": "categorical"
+    },
+    {
+      "name": "ce_iiw",
+      "unit": "mass%",
+      "meaning": "IIW carbon-equivalent proxy",
+      "group": "metallurgy"
+    },
+    {
+      "name": "pcm",
+      "unit": "mass%",
+      "meaning": "Ito-Bessyo weld-cracking composition parameter",
+      "group": "metallurgy"
+    },
+    {
+      "name": "c_times_mn",
+      "unit": "mass%^2",
+      "meaning": "Carbon-manganese interaction proxy",
+      "group": "metallurgy"
+    },
+    {
+      "name": "si_plus_al",
+      "unit": "mass%",
+      "meaning": "Combined silicon and aluminium content",
+      "group": "metallurgy"
+    },
+    {
+      "name": "cr_plus_mo",
+      "unit": "mass%",
+      "meaning": "Combined chromium and molybdenum content",
+      "group": "metallurgy"
+    },
+    {
+      "name": "microalloy_sum",
+      "unit": "mass%",
+      "meaning": "Available microalloying content, Ti + B",
+      "group": "metallurgy"
+    },
+    {
+      "name": "peak_temperature_c",
+      "unit": "degC",
+      "meaning": "Peak temperature of the entered route",
+      "group": "heat_pattern"
+    },
+    {
+      "name": "max_heating_rate_c_s",
+      "unit": "degC/s",
+      "meaning": "Maximum positive segment heating rate",
+      "group": "heat_pattern"
+    },
+    {
+      "name": "time_at_or_above_95pct_peak_s",
+      "unit": "s",
+      "meaning": "Interpolated time at or above 95% of peak",
+      "group": "heat_pattern"
+    },
+    {
+      "name": "time_at_or_above_700c_s",
+      "unit": "s",
+      "meaning": "Interpolated time at or above 700 degC",
+      "group": "heat_pattern"
+    },
+    {
+      "name": "thermal_exposure_above_600c_c_s",
+      "unit": "degC*s",
+      "meaning": "Integral of max(T - 600 degC, 0)",
+      "group": "heat_pattern"
+    },
+    {
+      "name": "cooling_rate_800_to_500_c_s",
+      "unit": "degC/s",
+      "meaning": "Equivalent cooling rate between downward 800 and 500 degC crossings after peak",
+      "group": "heat_pattern"
+    },
+    {
+      "name": "cooling_800_to_500_observed",
+      "unit": "1",
+      "meaning": "One when both downward 800 and 500 degC crossings are observed; zero marks the rate as unavailable",
+      "group": "heat_pattern"
+    },
+    {
+      "name": "reheat_count",
+      "unit": "count",
+      "meaning": "Cooling-to-heating excursions with at least 25 degC amplitude",
+      "group": "heat_pattern"
+    },
+    {
+      "name": "has_reheat",
+      "unit": "1",
+      "meaning": "One when reheat_count is positive",
+      "group": "heat_pattern"
+    }
+  ],
+  "missing_composition": "training_median_from_source_workbook",
+  "heat_interpolation": "piecewise_linear"
+}
