@@ -27,12 +27,16 @@ def test_tracked_openapi_schema_matches_fastapi_contract() -> None:
     preview_parameters = tracked["paths"]["/api/projects/{project_id}/candidates/{candidate_id}/preview"]["post"]["parameters"]
     curve_parameters = tracked["paths"]["/api/projects/{project_id}/candidates/{candidate_id}/response-curves"]["get"]["parameters"]
     actual_parameters = tracked["paths"]["/api/projects/{project_id}/candidates/{candidate_id}/actuals"]["post"]["parameters"]
+    history_operation = tracked["paths"]["/api/projects/{project_id}/history"]["get"]
+    task_catalog_operation = tracked["paths"]["/api/task-definitions"]["get"]
     assert any(item["name"] == "include_archived" for item in list_parameters)
     assert any(item["name"] == "expected_revision" and item.get("required") is True for item in delete_parameters)
     assert any(item["name"] == "expected_revision" and item.get("required") is True for item in predict_parameters)
     assert any(item["name"] == "expected_revision" and item.get("required") is True for item in preview_parameters)
     assert any(item["name"] == "expected_revision" and item.get("required") is True for item in curve_parameters)
     assert any(item["name"] == "expected_revision" and item.get("required") is True for item in actual_parameters)
+    assert history_operation["operationId"] == "getProjectHistory"
+    assert task_catalog_operation["operationId"] == "listTaskDefinitions"
     assert {
         "focus_entity_key", "related_entity_keys", "missing_reference_key", "suggested_view",
     } <= schemas["DataQualityIssue"]["properties"].keys()

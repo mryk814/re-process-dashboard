@@ -7,6 +7,7 @@ export type ApiCandidateInput = components["schemas"]["CandidateInput"];
 export type ApiCandidateUpdate = components["schemas"]["CandidateUpdate"];
 export type ApiProject = components["schemas"]["Project"];
 export type ApiProjectInput = components["schemas"]["ProjectInput"];
+export type ApiProjectCreateInput = components["schemas"]["ProjectCreateInput"];
 export type ApiModelPackage = components["schemas"]["ModelPackageStatus"];
 export type ApiPreview = components["schemas"]["PredictionResponse"];
 export type ApiSnapshot = components["schemas"]["SnapshotResponse"];
@@ -20,6 +21,9 @@ export type ApiLineageIndex = components["schemas"]["LineageIndexResponse"];
 export type ApiScreeningRequest = components["schemas"]["ScreeningRequest"];
 export type ApiScreeningRun = components["schemas"]["ScreeningRunResponse"];
 export type ApiTaskDefinition = components["schemas"]["ResolvedTaskDefinition"];
+export type ApiTaskCatalogItem = components["schemas"]["TaskCatalogItem"];
+export type ApiProjectHistory = components["schemas"]["ProjectHistoryResponse"];
+export type ApiProjectDecisionInput = components["schemas"]["ProjectDecisionInput"];
 
 const path = (projectId: string, suffix = "") =>
   `/api/projects/${encodeURIComponent(projectId)}${suffix}`;
@@ -35,13 +39,22 @@ export const workbenchApi = {
   async listProjects() {
     return requireData(await apiClient.GET("/api/projects"), "プロジェクトを取得できませんでした。");
   },
-  async createProject(body: ApiProjectInput) {
+  async listTaskDefinitions() {
+    return requireData(await apiClient.GET("/api/task-definitions"), "予測タスクを取得できませんでした。");
+  },
+  async projectHistory(projectId: string, signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/history", { params: { path: { project_id: projectId } }, signal }), "プロジェクト履歴を取得できませんでした。");
+  },
+  async createProject(body: ApiProjectCreateInput) {
     return requireData(await apiClient.POST("/api/projects", { body }), "プロジェクトを作成できませんでした。");
   },
   async updateProject(projectId: string, body: ApiProjectInput) {
     const project = requireData(await apiClient.PUT("/api/projects/{project_id}", { params: { path: { project_id: projectId } }, body }), "プロジェクトを保存できませんでした。");
     inferenceRequestCache.invalidatePrefix(candidateInferencePrefix(projectId));
     return project;
+  },
+  async updateProjectDecision(projectId: string, body: ApiProjectDecisionInput) {
+    return requireData(await apiClient.PUT("/api/projects/{project_id}/decision", { params: { path: { project_id: projectId } }, body }), "採用判断を保存できませんでした。");
   },
   async taskDefinition(projectId: string) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/task-definition", { params: { path: { project_id: projectId } } }), "タスク定義を取得できませんでした。");

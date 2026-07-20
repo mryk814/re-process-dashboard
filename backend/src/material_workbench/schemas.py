@@ -6,7 +6,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, RootModel, field_validator, model_validator
 
-from .task_contracts import CandidateProvenance, DirectSourceRef
+from .task_contracts import CandidateProvenance, DirectSourceRef, ResolvedTaskDefinition
 
 
 COMPOSITION_ELEMENTS = {
@@ -124,6 +124,10 @@ class ProjectInput(BaseModel):
         if self.decision_candidate_id and not self.decision_note:
             raise ValueError("採用候補には判断理由が必要です")
         return self
+
+
+class ProjectCreateInput(ProjectInput):
+    initial_candidate: CandidateInput | None = None
 
 
 class ProjectDecisionInput(BaseModel):
@@ -383,6 +387,44 @@ class SnapshotResponse(BaseModel):
     candidate_id: str
     created_at: datetime
     payload: SnapshotPayload
+
+
+class ProjectDecisionHistory(BaseModel):
+    candidate_id: str
+    snapshot_id: str
+    note: str
+
+
+class CandidateCurrentHistory(BaseModel):
+    revision: int
+    updated_at: datetime
+
+
+class TaskCatalogItem(BaseModel):
+    definition: ResolvedTaskDefinition
+    starter_candidate: CandidateInput
+
+
+class SnapshotHistoryItem(BaseModel):
+    id: str
+    candidate_id: str
+    created_at: datetime
+    candidate_revision: int | None = None
+    prediction_summary: dict[str, Prediction]
+    model_ref: ModelMetadata | None = None
+
+
+class CandidateHistoryItem(BaseModel):
+    candidate: Candidate
+    current: CandidateCurrentHistory
+    snapshots: list[SnapshotHistoryItem]
+    actuals: list[ActualMeasurement]
+    decision: ProjectDecisionHistory | None = None
+
+
+class ProjectHistoryResponse(BaseModel):
+    project: Project
+    candidates: list[CandidateHistoryItem]
 
 
 class CurvePoint(BaseModel):

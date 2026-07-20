@@ -26,6 +26,10 @@ class InvalidProjectDecisionError(ValueError):
     pass
 
 
+class CandidateCopyConflictError(ValueError):
+    pass
+
+
 class CandidateArchivedError(ValueError):
     pass
 
@@ -72,13 +76,32 @@ class Store:
             row = conn.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
         return self._project(row) if row else None
 
-    def create_project(self, payload: ProjectInput) -> Project:
+    def create_project(self, payload: ProjectInput, initial_candidate: CandidateInput | None = None) -> Project:
         project_id, now = str(uuid.uuid4()), _now()
         with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            if initial_candidate is not None and initial_candidate.provenance.source_kind == "copy":
+                reference = initial_candidate.provenance.source_ref
+                source = conn.execute(
+                    "SELECT candidates.revision, projects.task_id FROM candidates "
+                    "JOIN projects ON projects.id=candidates.project_id "
+                    "WHERE candidates.id=? AND candidates.project_id=?",
+                    (reference.candidate_id, reference.project_id),
+                ).fetchone()
+                if source is None or source["revision"] != reference.candidate_revision:
+                    raise CandidateCopyConflictError("コピー元候補またはrevisionが一致しません")
+                if source["task_id"] != payload.task_id:
+                    raise CandidateCopyConflictError("異なる予測タスクの候補はコピーできません")
             conn.execute(
                 "INSERT INTO projects(id, name, description, purpose, task_id, target_values, input_ranges, notes, decision_candidate_id, decision_snapshot_id, decision_note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (project_id, payload.name, payload.description, payload.purpose, payload.task_id, json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True), json.dumps({key: value.model_dump() for key, value in payload.input_ranges.items()}, ensure_ascii=False, sort_keys=True), payload.notes, payload.decision_candidate_id, payload.decision_snapshot_id, payload.decision_note, now, now),
             )
+            if initial_candidate is not None:
+                candidate_id = str(uuid.uuid4())
+                conn.execute(
+                    "INSERT INTO candidates(id,project_id,name,payload,created_at,updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+                    (candidate_id, project_id, initial_candidate.name, initial_candidate.model_dump_json(), now, now),
+                )
         return self.get_project(project_id)  # type: ignore[return-value]
 
     def ensure_project(self, project_id: str, payload: ProjectInput) -> Project:
@@ -141,6 +164,78 @@ class Store:
             else:
                 row = conn.execute(f"SELECT * FROM candidates WHERE id = ? AND project_id = ?{active}", (candidate_id, project_id)).fetchone()
         return self._candidate(row) if row else None
+
+    def project_history(self, project_id: str) -> dict[str, Any] | None:
+        with self._connect() as conn:
+            conn.execute("BEGIN")
+            project_row = conn.execute("SELECT * FROM projects WHERE id=?", (project_id,)).fetchone()
+            if project_row is None:
+                return None
+            candidate_rows = conn.execute(
+                "SELECT * FROM candidates WHERE project_id=? ORDER BY updated_at DESC, created_at DESC",
+                (project_id,),
+            ).fetchall()
+            snapshot_rows = conn.execute(
+                "SELECT snapshots.* FROM snapshots JOIN candidates ON candidates.id=snapshots.candidate_id "
+                "WHERE candidates.project_id=? ORDER BY snapshots.created_at DESC",
+                (project_id,),
+            ).fetchall()
+            actual_rows = conn.execute(
+                "SELECT actual_measurements.* FROM actual_measurements "
+                "JOIN candidates ON candidates.id=actual_measurements.candidate_id "
+                "WHERE candidates.project_id=? ORDER BY actual_measurements.created_at DESC",
+                (project_id,),
+            ).fetchall()
+
+        project = self._project(project_row)
+        snapshots_by_candidate: dict[str, list[dict[str, Any]]] = {}
+        for row in snapshot_rows:
+            try:
+                payload = json.loads(row["payload"])
+            except (TypeError, json.JSONDecodeError) as exc:
+                raise StoreDataIntegrityError(f"snapshot {row['id']} を読み取れません") from exc
+            version = payload.get("snapshot_schema_version") if isinstance(payload, dict) else None
+            if version not in {"prediction-snapshot-v1", "prediction-snapshot-v2"}:
+                raise StoreDataIntegrityError(f"snapshot {row['id']} の形式を解釈できません")
+            raw_candidate = payload.get("raw_candidate")
+            candidate_revision = raw_candidate.get("revision") if version == "prediction-snapshot-v2" and isinstance(raw_candidate, dict) else None
+            prediction = payload.get("prediction")
+            if not isinstance(prediction, dict) or not isinstance(prediction.get("predictions"), dict):
+                raise StoreDataIntegrityError(f"snapshot {row['id']} の予測要約を読み取れません")
+            snapshots_by_candidate.setdefault(row["candidate_id"], []).append({
+                "id": row["id"],
+                "candidate_id": row["candidate_id"],
+                "created_at": row["created_at"],
+                "candidate_revision": candidate_revision,
+                "prediction_summary": prediction["predictions"],
+                "model_ref": payload.get("provenance"),
+            })
+        actuals_by_candidate: dict[str, list[ActualMeasurement]] = {}
+        for row in actual_rows:
+            snapshot_ids = {item["id"] for item in snapshots_by_candidate.get(row["candidate_id"], [])}
+            if row["snapshot_id"] not in snapshot_ids:
+                raise StoreDataIntegrityError(f"actual {row['id']} の固定snapshotが見つかりません")
+            actuals_by_candidate.setdefault(row["candidate_id"], []).append(self._actual(row))
+        items = []
+        for row in candidate_rows:
+            candidate = self._candidate(row)
+            decision = None
+            if project.decision_candidate_id == candidate.id and project.decision_snapshot_id:
+                if project.decision_snapshot_id not in {item["id"] for item in snapshots_by_candidate.get(candidate.id, [])}:
+                    raise StoreDataIntegrityError("採用判断の固定snapshotが見つかりません")
+                decision = {
+                    "candidate_id": candidate.id,
+                    "snapshot_id": project.decision_snapshot_id,
+                    "note": project.decision_note,
+                }
+            items.append({
+                "candidate": candidate,
+                "current": {"revision": candidate.revision, "updated_at": candidate.updated_at},
+                "snapshots": snapshots_by_candidate.get(candidate.id, []),
+                "actuals": actuals_by_candidate.get(candidate.id, []),
+                "decision": decision,
+            })
+        return {"project": project, "candidates": items}
 
     def create_candidate(self, payload: CandidateInput, project_id: str = "default") -> Candidate:
         return self.create_candidates([payload], project_id)[0]
