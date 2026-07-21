@@ -172,6 +172,11 @@
 .lineage-graph-node.context { opacity: 0.56; }
 .lineage-graph-node.upstream { border-color: #6f95bd; background: #f1f6fb; }
 .lineage-graph-node.downstream { border-color: #55a696; background: #eff9f6; }
+.lineage-graph-node.group-hot-tensile { border-color: #c17816; background: #fff7e8; }
+.lineage-graph-node.group-hot-microstructure { border-color: #8b6f99; background: #f8f2fa; }
+.lineage-graph-node.group-annealed-tensile { border-color: #3f78bd; background: #eef5ff; }
+.lineage-graph-node.group-annealed-hole-expansion { border-color: #ad5c91; background: #fff1f8; }
+.lineage-graph-node.group-annealed-microstructure { border-color: #2b8a78; background: #eff9f6; }
 .lineage-graph-node.selected {
   border: 2px solid #1f5fc4;
   background: #eaf2ff;
@@ -181,6 +186,11 @@
 .lineage-graph-node.orphan { box-shadow: inset 4px 0 #8b6f99; opacity: 1; }
 .lineage-graph-node.duplicate { box-shadow: inset 4px 0 #d17b00; opacity: 1; }
 .lineage-graph-node.invalid-reference { box-shadow: inset 4px 0 #bd4343; opacity: 1; }
+.lineage-graph-group.group-hot-tensile { border-color: #d6a451; background: rgba(255, 247, 232, 0.86); box-shadow: inset 0 2px 0 rgba(193, 120, 22, 0.2); }
+.lineage-graph-group.group-hot-microstructure { border-color: #b99ac4; background: rgba(248, 242, 250, 0.86); box-shadow: inset 0 2px 0 rgba(139, 111, 153, 0.2); }
+.lineage-graph-group.group-annealed-tensile { border-color: #8eb3df; background: rgba(238, 245, 255, 0.86); box-shadow: inset 0 2px 0 rgba(63, 120, 189, 0.2); }
+.lineage-graph-group.group-annealed-hole-expansion { border-color: #d39abd; background: rgba(255, 241, 248, 0.86); box-shadow: inset 0 2px 0 rgba(173, 92, 145, 0.2); }
+.lineage-graph-group.group-annealed-microstructure { border-color: #8bc5b7; background: rgba(239, 249, 246, 0.86); box-shadow: inset 0 2px 0 rgba(43, 138, 120, 0.2); }
 .lineage-load-more { display: block; margin: 9px auto 0; font-size: 11px; }
 .lineage-empty-overview {
   min-height: 330px;

@@ -59,6 +59,17 @@ function parentTypeForTest(entityType: string): "熱延" | "焼鈍" | null {
   return null;
 }
 
+function groupColorClass(entityType: string): string {
+  const classes: Record<string, string> = {
+    熱延引張: "group-hot-tensile",
+    熱延組織: "group-hot-microstructure",
+    焼鈍引張: "group-annealed-tensile",
+    焼鈍穴広げ: "group-annealed-hole-expansion",
+    焼鈍組織: "group-annealed-microstructure",
+  };
+  return classes[entityType] ?? "";
+}
+
 function findProcessParent(
   startKey: string,
   parentType: "熱延" | "焼鈍",
@@ -106,7 +117,8 @@ function graphContext(graph: Graph, selectedKey: string) {
 }
 
 function nodeState(node: GraphNode, selectedKey: string, upstream: Set<string>, downstream: Set<string>) {
-  const states = ["lineage-graph-node"];
+  const colorClass = groupColorClass(node.entity_type);
+  const states = ["lineage-graph-node", colorClass].filter(Boolean);
   if (node.key === selectedKey) states.push("selected");
   else if (upstream.has(node.key)) states.push("upstream");
   else if (downstream.has(node.key)) states.push("downstream");
@@ -245,7 +257,7 @@ export function LineageGraph({
           ))}
           {groupLayouts.map((group) => (
             <div
-              className={`lineage-graph-group ${group.expanded ? "expanded" : "collapsed"}`}
+              className={`lineage-graph-group ${groupColorClass(group.entityType)} ${group.expanded ? "expanded" : "collapsed"}`}
               key={group.key}
               style={{ left: group.x - 8, top: group.y, width: NODE_WIDTH + 16, height: group.height }}
             >
