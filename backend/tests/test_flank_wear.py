@@ -203,6 +203,60 @@ def test_flank_wear_wear_curve_over_cutting_distance(client):
     assert values[0] < values[-1]
 
 
+def test_flank_wear_curve_family_varies_composition_levels(client):
+    project, candidate = _create_flank_project(client)
+    response = client.get(
+        f"/api/projects/{project['id']}/candidates/{candidate['id']}/curve-family",
+        params={
+            "expected_revision": candidate["revision"],
+            "target": "VB_mean",
+            "vary": "composition.C",
+            "levels": 4,
+            "points": 7,
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["axis"]["id"] == "process.cutting_distance_m"
+    assert payload["vary"]["id"] == "composition.C"
+    assert len(payload["series"]) == 4
+    levels = [series["level"] for series in payload["series"]]
+    assert levels == sorted(levels)
+    for series in payload["series"]:
+        assert len(series["points"]) == 7
+        assert [point["x"] for point in series["points"]] == [point["x"] for point in payload["series"][0]["points"]]
+    # C量の水準で曲線が実際に変わること（摩耗曲線への影響が見える）
+    end_values = [series["points"][-1]["value"] for series in payload["series"]]
+    assert len(set(end_values)) > 1
+
+    single = client.get(
+        f"/api/projects/{project['id']}/candidates/{candidate['id']}/curve-family",
+        params={"expected_revision": candidate["revision"], "target": "VB_max"},
+    )
+    assert single.status_code == 200
+    assert [series["level"] for series in single.json()["series"]] == [None]
+
+    axis_as_vary = client.get(
+        f"/api/projects/{project['id']}/candidates/{candidate['id']}/curve-family",
+        params={
+            "expected_revision": candidate["revision"],
+            "target": "VB_mean",
+            "vary": "cutting_distance_m",
+        },
+    )
+    assert axis_as_vary.status_code == 422
+
+
+def test_curve_family_rejected_for_tasks_without_curve_axis(client):
+    candidate_id = client.get("/api/projects/default/candidates").json()[0]["id"]
+    candidate = client.get(f"/api/projects/default/candidates/{candidate_id}").json()
+    response = client.get(
+        f"/api/projects/default/candidates/{candidate_id}/curve-family",
+        params={"expected_revision": candidate["revision"], "target": "TS"},
+    )
+    assert response.status_code == 422
+
+
 def test_flank_wear_model_package_status_uses_task_profile(client):
     project, _ = _create_flank_project(client)
     response = client.get(f"/api/projects/{project['id']}/model-package")

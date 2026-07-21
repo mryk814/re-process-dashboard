@@ -233,6 +233,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/candidates/{candidate_id}/curve-family": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Curve Family */
+        get: operations["getCandidateCurveFamily"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/candidates/{candidate_id}/predict": {
         parameters: {
             query?: never;
@@ -822,6 +839,29 @@ export interface components {
              */
             source_kind: "copy";
             source_ref: components["schemas"]["CopyReference"];
+        };
+        /** CurveFamilyResponse */
+        CurveFamilyResponse: {
+            axis: components["schemas"]["CurveVariable"];
+            output_range?: components["schemas"]["InputRange"] | null;
+            /** Point Count */
+            point_count: number;
+            /** Policy Id */
+            policy_id: string;
+            /** Series */
+            series: components["schemas"]["CurveFamilySeries"][];
+            /** Target */
+            target: string;
+            vary?: components["schemas"]["CurveVariable"] | null;
+        };
+        /** CurveFamilySeries */
+        CurveFamilySeries: {
+            /** Label */
+            label: string;
+            /** Level */
+            level?: number | null;
+            /** Points */
+            points: components["schemas"]["CurvePoint"][];
         };
         /** CurvePoint */
         CurvePoint: {
@@ -2150,6 +2190,8 @@ export interface components {
              * @default []
              */
             constraints: components["schemas"]["RelationalConstraint"][];
+            /** Curve Axis Path */
+            curve_axis_path?: string | null;
             /**
              * Fixed Context
              * @default []
@@ -3046,6 +3088,62 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getCandidateCurveFamily: {
+        parameters: {
+            query: {
+                expected_revision: number;
+                levels?: number;
+                points?: number;
+                target: string;
+                vary?: string;
+            };
+            header?: never;
+            path: {
+                candidate_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurveFamilyResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
             };
             /** @description Validation Error */
             422: {

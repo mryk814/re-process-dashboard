@@ -17,6 +17,7 @@ import { apiBaseUrl } from "../../shared/api/client";
 import {
   workbenchApi,
   type ApiActual,
+  type ApiCurveFamily,
   type ApiPredictionVsActual,
   type ApiPreview,
   type ApiResponseCurve,
@@ -238,6 +239,15 @@ export function WorkbenchPage(props: WorkbenchProps) {
           onInput={onInput}
           onName={(id, value) => onText(id, "label", value)}
         />}
+        {taskDefinition?.curve_axis_path && operations?.response_curve ? (
+          <CurveFamilyPanel
+            projectId={projectId}
+            candidate={selected}
+            taskDefinition={taskDefinition}
+            targetValues={targetValues}
+            ready={["idle", "saved"].includes(saveState)}
+          />
+        ) : null}
         {operations?.response_curve ? (
           <LiveResponseCurves
             projectId={projectId}
@@ -753,6 +763,137 @@ function HeatPattern({
         <small>RT = 室温（25°C）</small>
       </div>
     </section>
+  );
+}
+
+function levelColor(index: number, count: number, selectedTone = "#1f5fc4") {
+  if (count <= 1) return selectedTone;
+  // 低水準→高水準を明→暗の同系色で塗り、傾きの変化を追いやすくする
+  const ratio = count === 1 ? 1 : index / (count - 1);
+  const lightness = 72 - ratio * 42;
+  return `hsl(215, 72%, ${lightness}%)`;
+}
+
+function CurveFamilyPanel({
+  projectId,
+  candidate,
+  taskDefinition,
+  targetValues,
+  ready,
+}: {
+  projectId: string;
+  candidate: Candidate;
+  taskDefinition: TaskDefinitionContract;
+  targetValues: Record<string, number>;
+  ready: boolean;
+}) {
+  const outputs = taskDefinition.outputs;
+  const axisPath = taskDefinition.curve_axis_path ?? "";
+  const axisInput = numericTaskInputs(taskDefinition).find((input) => input.path === axisPath);
+  const varyOptions = numericTaskInputs(taskDefinition).filter((input) => input.editable && input.path !== axisPath);
+  const [varyId, setVaryId] = useState("");
+  const [levels, setLevels] = useState(5);
+  const [payloads, setPayloads] = useState<Record<string, ApiCurveFamily>>({});
+  const [error, setError] = useState(false);
+  const inputIdentity = candidateInputIdentity(candidate.raw.inputs);
+  const outputKeys = outputs.map((output) => output.key).join("");
+  useEffect(() => {
+    if (!ready || !axisPath || !outputs.length) return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        const loaded = await Promise.all(outputs.map((output) =>
+          workbenchApi.curveFamily(projectId, candidate.id, candidate.raw.revision, inputIdentity, output.key, varyId, varyId ? levels : 2, 15, controller.signal)));
+        if (controller.signal.aborted) return;
+        setPayloads(Object.fromEntries(outputs.map((output, index) => [output.key, loaded[index]])));
+        setError(false);
+      } catch {
+        if (!controller.signal.aborted) setError(true);
+      }
+    }, 320);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [projectId, candidate.id, candidate.raw.revision, inputIdentity, varyId, levels, outputKeys, ready, axisPath]);
+  if (!axisPath) return null;
+  const axisLabel = axisInput?.label ?? axisPath;
+  const firstPayload = outputs.map((output) => payloads[output.key]).find(Boolean);
+  const legendSeries = firstPayload?.series ?? [];
+  return (
+    <section className="response-curves-panel curve-family-panel" aria-label={`${axisLabel}に沿った特性曲線`}>
+      <div className="panel-title">
+        <div className="response-curves-title-group">
+          <h2>特性曲線 <span>（横軸: {axisLabel}。選んだ変数を数水準ふって重ね描き）</span></h2>
+          {varyId && legendSeries.length > 1 ? (
+            <div className="candidate-color-legend" aria-label="水準の凡例">
+              {legendSeries.map((series, index) => (
+                <span key={series.label}><i style={{ background: levelColor(index, legendSeries.length) }} />{series.label}</span>
+              ))}
+            </div>
+          ) : <span className="curve-scope">現在の候補の曲線</span>}
+        </div>
+        <label>ふる変数 <select aria-label="水準をふる変数" value={varyId} onChange={(event) => setVaryId(event.target.value)}>
+          <option value="">なし（現在の候補のみ）</option>
+          {varyOptions.map((input) => <option key={input.path} value={input.path}>{input.label}{input.unit ? ` (${input.unit})` : ""}</option>)}
+        </select></label>
+        {varyId ? <label>水準数 <select aria-label="水準数" value={levels} onChange={(event) => setLevels(Number(event.target.value))}>
+          {[3, 5, 7].map((count) => <option key={count} value={count}>{count}</option>)}
+        </select></label> : null}
+      </div>
+      {!ready ? <p className="empty-evidence">入力を保存後に更新します。</p> : error && !firstPayload ? <p className="empty-evidence">曲線を取得できません。</p> : !firstPayload ? <p className="empty-evidence">曲線を読み込んでいます。</p> : (
+        <div className={`response-curves-grid output-count-${Math.min(outputs.length, 4)}`}>
+          {outputs.map((output) => {
+            const payload = payloads[output.key];
+            if (!payload) return <article key={output.key} className="response-curve-card"><header><b>{output.label}</b><span>読み込み中</span></header></article>;
+            return <CurveFamilyChart key={output.key} output={output} payload={payload} goalValue={targetValues[output.key]} showVaryLevels={Boolean(varyId)} />;
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function CurveFamilyChart({
+  output,
+  payload,
+  goalValue,
+  showVaryLevels,
+}: {
+  output: TaskOutputDefinition;
+  payload: ApiCurveFamily;
+  goalValue?: number;
+  showVaryLevels: boolean;
+}) {
+  const width = 300;
+  const height = 156;
+  const series = showVaryLevels ? payload.series : payload.series.slice(0, 1);
+  const points = series.flatMap((item) => item.points);
+  const minX = payload.axis.min;
+  const maxX = payload.axis.max;
+  const bandVisible = series.length === 1;
+  const valueSamples = points.flatMap((point) => bandVisible ? [point.lower, point.upper] : [point.value]);
+  const rawMin = Math.min(...valueSamples, goalValue ?? Infinity, 0);
+  const rawMax = Math.max(...valueSamples, goalValue ?? -Infinity);
+  const padding = Math.max(1, (rawMax - rawMin) * 0.08);
+  const minValue = rawMin;
+  const maxValue = rawMax + padding;
+  const x = (value: number) => 30 + ((value - minX) / Math.max(1e-6, maxX - minX)) * 252;
+  const y = (value: number) => 124 - ((value - minValue) / Math.max(1, maxValue - minValue)) * 92;
+  return (
+    <article className="response-curve-card">
+      <header><b>{output.label}</b><span>{payload.axis.label}: {number(payload.axis.current)} {payload.axis.unit}</span></header>
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${output.label}の${payload.axis.label}に沿った曲線`}>
+        {[minValue, (minValue + maxValue) / 2, maxValue].map((tick) => <g key={tick}><line x1="28" y1={y(tick)} x2="284" y2={y(tick)} stroke="#e3e9f0" /><text x="25" y={y(tick) + 3} textAnchor="end" fontSize="9" fill="#617087">{number(tick)}</text></g>)}
+        {series.map((item, index) => {
+          const color = levelColor(index, series.length);
+          const line = item.points.map((point, pointIndex) => `${pointIndex ? "L" : "M"}${x(point.x)} ${y(point.value)}`).join(" ");
+          const band = `${item.points.map((point, pointIndex) => `${pointIndex ? "L" : "M"}${x(point.x)} ${y(point.upper)}`).join(" ")} ${[...item.points].reverse().map((point) => `L${x(point.x)} ${y(Math.max(point.lower, minValue))}`).join(" ")} Z`;
+          return <g key={item.label}>{bandVisible && <path d={band} fill={color} opacity=".12" />}<path d={line} fill="none" stroke={color} strokeWidth={series.length === 1 ? "2.5" : "1.8"} /></g>;
+        })}
+        {Number.isFinite(goalValue) && <line x1="28" y1={y(goalValue!)} x2="284" y2={y(goalValue!)} stroke="#c17816" strokeDasharray="4 3" />}
+        {Number.isFinite(payload.axis.current) && <line x1={x(payload.axis.current)} y1="32" x2={x(payload.axis.current)} y2="124" stroke="#94a5ba" strokeDasharray="2 3" />}
+        {[minX, (minX + maxX) / 2, maxX].map((tick) => <text key={tick} x={x(tick)} y="137" textAnchor="middle" fontSize="8" fill="#617087">{number(tick)}</text>)}
+        <text x="158" y="150" textAnchor="middle" fontSize="9" fill="#617087">{payload.axis.label} ({payload.axis.unit})</text>
+      </svg>
+    </article>
   );
 }
 

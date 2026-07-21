@@ -15,6 +15,7 @@ export type ApiActual = components["schemas"]["ActualMeasurement"];
 export type ApiActualInput = components["schemas"]["ActualMeasurementInput"];
 export type ApiPredictionVsActual = components["schemas"]["PredictionVsActualResponse"];
 export type ApiResponseCurve = components["schemas"]["ResponseCurveResponse"];
+export type ApiCurveFamily = components["schemas"]["CurveFamilyResponse"];
 export type ApiInferenceDiagnostics = components["schemas"]["InferenceDiagnosticsResponse"];
 export type ApiSimilarObservation = components["schemas"]["SimilarObservation"];
 export type ApiQuality = components["schemas"]["QualityResponse"];
@@ -89,6 +90,13 @@ export const workbenchApi = {
     return inferenceRequestCache.get(
       inferenceRequestKey(projectId, candidateId, inputIdentity, "curve", `${target}\u001f${variable}\u001f${points}`),
       async (sharedSignal) => requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/response-curve", { params: { path: { project_id: projectId, candidate_id: candidateId }, query: { expected_revision: expectedRevision, target, variable, points } }, signal: sharedSignal }), "応答曲線を取得できませんでした。"),
+      signal,
+    );
+  },
+  async curveFamily(projectId: string, candidateId: string, expectedRevision: number, inputIdentity: string, target: string, vary: string, levels = 5, points = 15, signal?: AbortSignal): Promise<ApiCurveFamily> {
+    return inferenceRequestCache.get(
+      inferenceRequestKey(projectId, candidateId, inputIdentity, "curve_family", `${target}${vary}${levels}${points}`),
+      async (sharedSignal) => requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/curve-family", { params: { path: { project_id: projectId, candidate_id: candidateId }, query: { expected_revision: expectedRevision, target, vary, levels, points } }, signal: sharedSignal }), "曲線ビューを取得できませんでした。"),
       signal,
     );
   },

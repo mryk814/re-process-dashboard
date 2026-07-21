@@ -60,7 +60,8 @@
     "fixed_context": [
       {"path":"context.machining_method","order":0,"label":"加工方式","value":"外径旋削"}
     ],
-    "constraints": []
+    "constraints": [],
+    "curve_axis_path": "process.cutting_distance_m"
   },
   "canonical_candidate": {
     "schema_version": "canonical-candidate/v1",

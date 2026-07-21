@@ -431,6 +431,22 @@ class ResponseCurveResponse(BaseModel):
     policy_id: str
 
 
+class CurveFamilySeries(BaseModel):
+    level: float | None = None
+    label: str
+    points: list[CurvePoint]
+
+
+class CurveFamilyResponse(BaseModel):
+    target: str
+    axis: CurveVariable
+    vary: CurveVariable | None = None
+    series: list[CurveFamilySeries]
+    output_range: InputRange | None = None
+    point_count: int
+    policy_id: str
+
+
 class DurationDiagnostic(BaseModel):
     total: float
     last: float

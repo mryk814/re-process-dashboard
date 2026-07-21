@@ -32,6 +32,7 @@ from .schemas import (
     CandidateImportResponse,
     CandidateInput,
     CandidateUpdate,
+    CurveFamilyResponse,
     DetailedPredictionResponse,
     InferenceDiagnosticsResponse,
     LineageIndexResponse,
@@ -718,6 +719,43 @@ def create_app(
                 lambda: task_runtime.response_curve_result(candidate, target, variable, points),
             )
             return result
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    @app.get(
+        "/api/projects/{project_id}/candidates/{candidate_id}/curve-family",
+        response_model=CurveFamilyResponse,
+        responses=PROJECT_API_ERRORS,
+        operation_id="getCandidateCurveFamily",
+    )
+    def curve_family(
+        project_id: str,
+        candidate_id: str,
+        expected_revision: int,
+        target: str,
+        vary: str = "",
+        levels: int = Query(5, ge=2, le=9),
+        points: int = Query(15, ge=3, le=51),
+    ) -> dict[str, Any]:
+        project = require_project(project_id)
+        candidate = candidate_at_revision(project_id, candidate_id, expected_revision)
+        contract = task_registry().contract_for(project.task_id)
+        if target not in {item.key for item in contract.task_definition.outputs}:
+            raise HTTPException(422, "この予測タスクにない予測特性です")
+        if contract.task_definition.curve_axis_path is None or not contract.runtime_capability.operations.response_curve:
+            raise HTTPException(422, "この予測タスクは曲線ビューに対応していません")
+        try:
+            task_runtime = task_registry().runtime_for(project.task_id)
+            return inference_work_graph().execute(
+                inference_key(
+                    project.task_id,
+                    candidate,
+                    "curve_family",
+                    parameters={"target": target, "vary": vary, "levels": levels, "points": points, "policy_id": "axis-grid-v1"},
+                    uses_package=True,
+                ),
+                lambda: task_runtime.curve_family_result(candidate, target, vary or None, levels, points),
+            )
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
 

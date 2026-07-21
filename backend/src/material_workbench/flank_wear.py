@@ -516,19 +516,11 @@ class FlankWearRuntime:
         lower = -30.0 if name == "rake_angle_deg" else 0.001 if name in {"cutting_speed_mpm", "feed_mm_rev", "depth_of_cut_mm"} else 0.0
         candidate.inputs.process[name] = max(lower, float(value))
 
-    def response_curve_result(self, candidate: Candidate, target: str, variable: str, points: int) -> dict[str, Any]:
-        if target not in self.predictors:
-            raise ValueError(f"Unsupported response-curve target: {target}")
-        variable = _normalize_curve_variable(variable)
-        meta = self._curve_variable_meta(candidate, variable)
+    def _sweep_axis(self, candidate: Candidate, target: str, axis: str, axis_meta: dict[str, Any], points: int) -> list[dict[str, float]]:
         curve: list[dict[str, float]] = []
-        observed: list[float] = []
-        column = TARGET_COLUMNS[target]
-        for rows in self.reference_rows:
-            observed.extend(float(row["outputs"][column]) for row in rows if column in row["outputs"])
-        for x_value in np.linspace(meta["min"], meta["max"], points):
+        for x_value in np.linspace(axis_meta["min"], axis_meta["max"], points):
             adjusted = candidate.model_copy(deep=True)
-            self._set_curve_variable(adjusted, variable, float(x_value))
+            self._set_curve_variable(adjusted, axis, float(x_value))
             summary = self.predictors[target].predict(build_flank_wear_features(adjusted, self.composition_defaults).as_dict())
             value = summary.point_estimate
             curve.append({
@@ -537,10 +529,76 @@ class FlankWearRuntime:
                 "lower": round(summary.quantiles.get("0.05", value), 3),
                 "upper": round(summary.quantiles.get("0.95", value), 3),
             })
+        return curve
+
+    def curve_family_result(
+        self,
+        candidate: Candidate,
+        target: str,
+        vary_variable: str | None,
+        levels: int,
+        points: int,
+    ) -> dict[str, Any]:
+        """摩耗曲線（横軸=curve axis）を、別の設計変数を数水準ふって重ねる。"""
+        if target not in self.predictors:
+            raise ValueError(f"Unsupported curve-family target: {target}")
+        definition = load_task_definitions()[TASK_ID]
+        axis = definition.curve_axis_path
+        assert axis is not None
+        axis_meta = self._curve_variable_meta(candidate, axis)
+        column = TARGET_COLUMNS[target]
+        observed = [
+            float(row["outputs"][column])
+            for rows in self.reference_rows for row in rows
+            if column in row["outputs"]
+        ]
+        if not vary_variable:
+            series = [{
+                "level": None,
+                "label": "現在の候補",
+                "points": self._sweep_axis(candidate, target, axis, axis_meta, points),
+            }]
+            vary_meta = None
+        else:
+            vary = _normalize_curve_variable(vary_variable)
+            if vary == axis:
+                raise ValueError("曲線の横軸と同じ変数は水準にできません")
+            vary_meta = self._curve_variable_meta(candidate, vary)
+            unit = f" {vary_meta['unit']}" if vary_meta["unit"] else ""
+            series = []
+            for level in np.linspace(vary_meta["min"], vary_meta["max"], levels):
+                adjusted = candidate.model_copy(deep=True)
+                self._set_curve_variable(adjusted, vary, float(level))
+                series.append({
+                    "level": round(float(level), 4),
+                    "label": f"{vary_meta['label']} {round(float(level), 4):g}{unit}",
+                    "points": self._sweep_axis(adjusted, target, axis, axis_meta, points),
+                })
+        return {
+            "target": target,
+            "axis": axis_meta,
+            "vary": vary_meta,
+            "series": series,
+            "output_range": None if not observed else {"min": round(min(observed), 4), "max": round(max(observed), 4)},
+            "point_count": points,
+            "policy_id": "axis-grid-v1",
+        }
+
+    def response_curve_result(self, candidate: Candidate, target: str, variable: str, points: int) -> dict[str, Any]:
+        if target not in self.predictors:
+            raise ValueError(f"Unsupported response-curve target: {target}")
+        variable = _normalize_curve_variable(variable)
+        meta = self._curve_variable_meta(candidate, variable)
+        column = TARGET_COLUMNS[target]
+        observed = [
+            float(row["outputs"][column])
+            for rows in self.reference_rows for row in rows
+            if column in row["outputs"]
+        ]
         return {
             "target": target,
             "variable": meta,
-            "points": curve,
+            "points": self._sweep_axis(candidate, target, variable, meta, points),
             "output_range": None if not observed else {"min": round(min(observed), 4), "max": round(max(observed), 4)},
             "point_count": points,
             "policy_id": "fixed-grid-v1",
