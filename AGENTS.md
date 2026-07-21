@@ -50,3 +50,7 @@ npm run build
 - [docs/model-package-contract.md](docs/model-package-contract.md) — モデルPackageの契約と読込手順
 - [docs/feature-engineering.md](docs/feature-engineering.md) — 特徴量パイプラインの定義
 - [docs/design-system.md](docs/design-system.md) — UIデザインシステム
+
+## 注意
+
+- すいません、いまgithub actionsは月の制限にかかっているので使えません
