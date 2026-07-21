@@ -41,12 +41,14 @@
 .slider-field input[type="range"]::-webkit-slider-thumb { width: 13px; height: 13px; appearance: none; border: 2px solid #fff; border-radius: 50%; background: #1f5fc4; box-shadow: 0 0 0 1px #1f5fc4; }
 
 .candidate-comparison { display: grid; gap: 10px; }
-.comparison-grid { display: grid; grid-template-columns: 160px minmax(0, 1fr); align-items: start; overflow: hidden; border: 1px solid #cfd9e5; border-radius: 4px; }
+.comparison-grid-viewport { max-height: 270px; overflow: auto; }
+.comparison-grid-viewport.expanded { max-height: none; }
+.comparison-grid { display: grid; grid-template-columns: 160px max-content; width: max-content; min-width: 100%; align-items: start; overflow: visible; border: 1px solid #cfd9e5; border-radius: 4px; }
 .candidate-name-table,
 .comparison-detail-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 12px; }
-.candidate-name-table { align-self: start; position: relative; z-index: 1; background: #fff; box-shadow: 2px 0 0 #cfd9e5; }
+.candidate-name-table { align-self: start; position: sticky; left: 0; z-index: 4; background: #fff; box-shadow: 2px 0 0 #cfd9e5; }
 .candidate-name-table .candidate-select-column { width: 32px; }
-.comparison-detail-scroll { position: relative; min-width: 0; overflow-x: auto; overflow-y: hidden; background: #fff; }
+.comparison-detail-scroll { position: relative; min-width: 0; background: #fff; }
 .comparison-detail-table { width: max-content; min-width: 100%; }
 .candidate-name-table th,
 .candidate-name-table td,
@@ -54,6 +56,20 @@
 .comparison-detail-table td { height: 37px; padding: 0 7px; border-right: 1px solid #d8e0ea; border-bottom: 1px solid #d8e0ea; text-align: center; white-space: nowrap; }
 .candidate-name-table thead th,
 .comparison-detail-table thead th { height: 41px; background: #edf2f8; color: #46566c; font-size: 12px; font-weight: 700; letter-spacing: 0.02em; }
+.comparison-grid-viewport .candidate-name-table thead th,
+.comparison-grid-viewport .comparison-detail-table thead th {
+  position: sticky;
+  z-index: 3;
+}
+.comparison-grid-viewport .candidate-name-table thead tr:first-child th,
+.comparison-grid-viewport .comparison-detail-table thead tr:first-child th {
+  top: 0;
+}
+.comparison-grid-viewport .candidate-name-table thead tr:nth-child(2) th,
+.comparison-grid-viewport .comparison-detail-table thead tr:nth-child(2) th {
+  top: 41px;
+  z-index: 2;
+}
 .candidate-name-table thead tr:first-child th { border-bottom: 0; }
 .comparison-detail-table thead tr:first-child th:first-child { border-right-color: #c2cfdf; }
 .comparison-detail-table thead tr:nth-child(2) th { background: #f7f9fc; }

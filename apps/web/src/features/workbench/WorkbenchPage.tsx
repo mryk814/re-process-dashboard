@@ -199,6 +199,10 @@ export function WorkbenchPage(props: WorkbenchProps) {
     onImported,
     onProjectChanged,
   } = props;
+  const [comparisonExpanded, setComparisonExpanded] = useState(false);
+  useEffect(() => {
+    if (candidates.length <= 5) setComparisonExpanded(false);
+  }, [candidates.length]);
   return (
     <div className="workbench-grid candidate-workbench-grid">
       {taskDefinition && <CandidateInspector
@@ -214,10 +218,20 @@ export function WorkbenchPage(props: WorkbenchProps) {
       />}
       <section className="central-workspace">
         <div className="table-heading">
-          <div>
+          <div className="table-title">
             <h2>
               候補比較表 <span>（セルを直接編集）</span>
             </h2>
+            {candidates.length > 5 && (
+              <button
+                type="button"
+                className="comparison-expand-button"
+                aria-expanded={comparisonExpanded}
+                onClick={() => setComparisonExpanded((value) => !value)}
+              >
+                {comparisonExpanded ? "5候補までに戻す" : `全${candidates.length}候補を表示`}
+              </button>
+            )}
           </div>
           <div className="comparison-actions" aria-label="候補操作">
             <button className="outline-button" onClick={onCopy}>
@@ -247,6 +261,8 @@ export function WorkbenchPage(props: WorkbenchProps) {
         {taskDefinition && <ComparisonTable
           candidates={candidates}
           selectedId={selectedId}
+          comparisonExpanded={comparisonExpanded}
+          onToggleComparisonExpanded={() => setComparisonExpanded((value) => !value)}
           taskDefinition={taskDefinition}
           previewsByCandidate={previewsByCandidate}
           targetValues={targetValues}
