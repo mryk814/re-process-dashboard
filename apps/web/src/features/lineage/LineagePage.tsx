@@ -59,7 +59,7 @@ export function LineagePage({
 }) {
   const [entityKey, setEntityKey] = useState(initialEntityKey ?? "");
   const [query, setQuery] = useState("");
-  const [entityType, setEntityType] = useState("焼鈍");
+  const [entityType, setEntityType] = useState("");
   const [issueOnly, setIssueOnly] = useState(false);
   const [graphLimit, setGraphLimit] = useState(40);
   const [index, setIndex] = useState<ApiLineageIndex | null>(null);
@@ -78,6 +78,8 @@ export function LineagePage({
   }, [projectId, initialEntityKey]);
   useEffect(() => {
     setQuery("");
+    setEntityType("");
+    setIssueOnly(false);
     setError("");
     setCandidateError("");
   }, [projectId]);

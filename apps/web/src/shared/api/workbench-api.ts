@@ -130,7 +130,8 @@ export const workbenchApi = {
     return requireData(await apiClient.GET("/api/quality/export.csv", { parseAs: "text" }), "データ品質CSVを取得できませんでした。");
   },
   async lineageIndex(query: string, entityType: string, issueOnly: boolean, signal?: AbortSignal) {
-    return requireData(await apiClient.GET("/api/lineage", { params: { query: { query, entity_type: entityType, issue_only: issueOnly, limit: 40 } }, signal }), "工程系譜を検索できませんでした。");
+    const normalizedEntityType = entityType === "すべて" ? "" : entityType;
+    return requireData(await apiClient.GET("/api/lineage", { params: { query: { query, entity_type: normalizedEntityType, issue_only: issueOnly, limit: 40 } }, signal }), "実績・工程を検索できませんでした。");
   },
   async lineage(entityKey: string, limit = 40) {
     return requireData(await apiClient.GET("/api/lineage/{entity_key}", { params: { path: { entity_key: entityKey }, query: { limit } } }), "系譜を取得できませんでした。");
