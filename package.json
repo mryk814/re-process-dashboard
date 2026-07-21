@@ -17,6 +17,7 @@
     "test:e2e": "playwright test",
     "models:build:annealed": "uv run python backend/scripts/build_default_model_package.py --replace",
     "models:build:hot-rolling": "uv run python backend/scripts/build_hot_rolling_model_package.py --replace",
+    "models:build:flank-wear": "uv run python backend/scripts/build_flank_wear_model_package.py --replace",
     "models:build:examples": "uv run python backend/scripts/build_numpyro_package_examples.py",
     "model:data": "uv run python backend/scripts/model_workflow.py data",
     "model:build": "uv run python backend/scripts/model_workflow.py build",

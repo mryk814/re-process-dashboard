@@ -1,6 +1,7 @@
 export { CandidateInspector, ComparisonTable } from "./CandidateUi";
 export { fromApiCandidate, toApiCandidate, type CandidateViewModel } from "./candidateModel";
 export {
+  categoricalTaskInputs,
   getCandidateInputValue,
   numericTaskInputs,
   orderedInputGroups,
@@ -8,6 +9,7 @@ export {
   taskFieldName,
   validateResolvedTaskDefinition,
   type CandidateInputs,
+  type CategoricalTaskInput,
   type NumericRange,
   type NumericTaskInput,
   type ResolvedTaskDefinition,

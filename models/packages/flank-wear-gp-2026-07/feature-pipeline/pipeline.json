@@ -1,0 +1,244 @@
+{
+  "id": "cutting-flank-wear",
+  "version": "1.0.0",
+  "canonical_input_paths": [
+    "process.cutting_distance_m",
+    "process.cutting_speed_mpm",
+    "process.feed_mm_rev",
+    "process.depth_of_cut_mm",
+    "process.hardness_hv",
+    "process.tensile_mpa",
+    "process.wear_resistance_index",
+    "process.fracture_resistance_index",
+    "process.nose_radius_mm",
+    "process.rake_angle_deg",
+    "composition.C",
+    "composition.Si",
+    "composition.Mn",
+    "composition.Cr",
+    "composition.Ni",
+    "composition.Mo",
+    "composition.V",
+    "composition.W",
+    "composition.Co",
+    "composition.Ti",
+    "composition.Al",
+    "composition.Cu",
+    "categorical.coating_method",
+    "categorical.coolant_method",
+    "categorical.cutting_mode",
+    "categorical.holder_rigidity"
+  ],
+  "features": [
+    {
+      "name": "C",
+      "unit": "%",
+      "meaning": "C composition",
+      "group": "composition"
+    },
+    {
+      "name": "Si",
+      "unit": "%",
+      "meaning": "Si composition",
+      "group": "composition"
+    },
+    {
+      "name": "Mn",
+      "unit": "%",
+      "meaning": "Mn composition",
+      "group": "composition"
+    },
+    {
+      "name": "Cr",
+      "unit": "%",
+      "meaning": "Cr composition",
+      "group": "composition"
+    },
+    {
+      "name": "Ni",
+      "unit": "%",
+      "meaning": "Ni composition",
+      "group": "composition"
+    },
+    {
+      "name": "Mo",
+      "unit": "%",
+      "meaning": "Mo composition",
+      "group": "composition"
+    },
+    {
+      "name": "V",
+      "unit": "%",
+      "meaning": "V composition",
+      "group": "composition"
+    },
+    {
+      "name": "W",
+      "unit": "%",
+      "meaning": "W composition",
+      "group": "composition"
+    },
+    {
+      "name": "Co",
+      "unit": "%",
+      "meaning": "Co composition",
+      "group": "composition"
+    },
+    {
+      "name": "Ti",
+      "unit": "%",
+      "meaning": "Ti composition",
+      "group": "composition"
+    },
+    {
+      "name": "Al",
+      "unit": "%",
+      "meaning": "Al composition",
+      "group": "composition"
+    },
+    {
+      "name": "Cu",
+      "unit": "%",
+      "meaning": "Cu composition",
+      "group": "composition"
+    },
+    {
+      "name": "hardness_hv",
+      "unit": "HV",
+      "meaning": "workpiece hardness",
+      "group": "metallurgy"
+    },
+    {
+      "name": "tensile_mpa",
+      "unit": "MPa",
+      "meaning": "workpiece tensile strength",
+      "group": "metallurgy"
+    },
+    {
+      "name": "wear_resistance_index",
+      "unit": "-",
+      "meaning": "tool wear resistance index",
+      "group": "other"
+    },
+    {
+      "name": "fracture_resistance_index",
+      "unit": "-",
+      "meaning": "tool fracture resistance index",
+      "group": "other"
+    },
+    {
+      "name": "nose_radius_mm",
+      "unit": "mm",
+      "meaning": "tool nose radius",
+      "group": "other"
+    },
+    {
+      "name": "rake_angle_deg",
+      "unit": "deg",
+      "meaning": "tool rake angle",
+      "group": "other"
+    },
+    {
+      "name": "coating_cvd",
+      "unit": "1",
+      "meaning": "CVD coated tool",
+      "group": "other"
+    },
+    {
+      "name": "coating_pvd",
+      "unit": "1",
+      "meaning": "PVD coated tool",
+      "group": "other"
+    },
+    {
+      "name": "cutting_speed_mpm",
+      "unit": "m/min",
+      "meaning": "cutting speed Vc",
+      "group": "process"
+    },
+    {
+      "name": "log_cutting_speed",
+      "unit": "1",
+      "meaning": "log cutting speed",
+      "group": "process"
+    },
+    {
+      "name": "feed_mm_rev",
+      "unit": "mm/rev",
+      "meaning": "feed per revolution",
+      "group": "process"
+    },
+    {
+      "name": "depth_of_cut_mm",
+      "unit": "mm",
+      "meaning": "depth of cut",
+      "group": "process"
+    },
+    {
+      "name": "coolant_dry",
+      "unit": "1",
+      "meaning": "coolant method flag coolant_dry",
+      "group": "process"
+    },
+    {
+      "name": "coolant_air_blow",
+      "unit": "1",
+      "meaning": "coolant method flag coolant_air_blow",
+      "group": "process"
+    },
+    {
+      "name": "coolant_mql",
+      "unit": "1",
+      "meaning": "coolant method flag coolant_mql",
+      "group": "process"
+    },
+    {
+      "name": "coolant_flood",
+      "unit": "1",
+      "meaning": "coolant method flag coolant_flood",
+      "group": "process"
+    },
+    {
+      "name": "coolant_high_pressure",
+      "unit": "1",
+      "meaning": "coolant method flag coolant_high_pressure",
+      "group": "process"
+    },
+    {
+      "name": "interrupted_cut",
+      "unit": "1",
+      "meaning": "interrupted cutting mode",
+      "group": "process"
+    },
+    {
+      "name": "holder_rigidity_ord",
+      "unit": "1",
+      "meaning": "holder rigidity (0=low,1=standard,2=high)",
+      "group": "process"
+    },
+    {
+      "name": "log_cutting_distance",
+      "unit": "1",
+      "meaning": "log(1 + cutting distance)",
+      "group": "process"
+    },
+    {
+      "name": "speed_distance",
+      "unit": "1",
+      "meaning": "log-distance x log-speed interaction",
+      "group": "process"
+    },
+    {
+      "name": "hardness_distance",
+      "unit": "1",
+      "meaning": "log-distance x hardness interaction",
+      "group": "process"
+    },
+    {
+      "name": "wear_index_distance",
+      "unit": "1",
+      "meaning": "log-distance / tool wear resistance",
+      "group": "process"
+    }
+  ]
+}

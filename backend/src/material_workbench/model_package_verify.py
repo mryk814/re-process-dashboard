@@ -47,7 +47,12 @@ def verify_model_package(
         raise ModelPackageVerificationError(
             f"task_id mismatch: expected {task_id}, package declares {package.manifest.task_id}"
         )
-    data = load_workbook_data(source)
+    if task_id == "flank-wear-v1":
+        from .flank_wear import load_flank_wear_data
+
+        data = load_flank_wear_data(source)
+    else:
+        data = load_workbook_data(source)
     quality = validate_lifecycle_metadata(package, contracts[task_id], profile_path=Path(data.profile_path))
     validate_training_provenance(package, data, contracts[task_id])
 
@@ -59,6 +64,10 @@ def verify_model_package(
         from .hot_rolling import HotRollingRuntime
 
         runtime = HotRollingRuntime(data, package_root=package.root)
+    elif task_id == "flank-wear-v1":
+        from .flank_wear import FlankWearRuntime
+
+        runtime = FlankWearRuntime(data, package_root=package.root)
     else:
         raise ModelPackageVerificationError(f"no task runtime verifier is registered for {task_id}")
     if runtime.output_keys != frozenset(output.key for output in contracts[task_id].task_definition.outputs):

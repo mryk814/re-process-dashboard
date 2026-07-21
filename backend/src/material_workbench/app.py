@@ -19,6 +19,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from .candidate_migration import HOT_PROJECT_ID
 from .importer import lineage_neighborhood, lineage_node_detail, load_workbook_data
+from .flank_wear import TASK_ID as FLANK_WEAR_TASK_ID, FlankWearRuntime, load_flank_wear_data, resolve_flank_wear_source
 from .hot_rolling import TASK_ID as HOT_ROLLING_TASK_ID, HotRollingRuntime
 from .inference_work_graph import InferenceKey, InferenceWorkGraph
 from .runtime import ModelRuntime, TASK_ID as ANNEALED_TASK_ID
@@ -31,6 +32,7 @@ from .schemas import (
     CandidateImportResponse,
     CandidateInput,
     CandidateUpdate,
+    CurveFamilyResponse,
     DetailedPredictionResponse,
     InferenceDiagnosticsResponse,
     LineageIndexResponse,
@@ -128,10 +130,12 @@ def create_app(
     source_path: str | Path | None = None,
     db_path: str | Path | None = None,
     *,
+    flank_wear_source_path: str | Path | None = None,
     package_roots: Mapping[str, str | Path] | None = None,
     active_packages_path: str | Path | None = None,
 ) -> FastAPI:
     source = Path(source_path or os.getenv("WORKBENCH_SOURCE_PATH", "data/source/process_dashboard_realistic_excel_v2.xlsx"))
+    flank_wear_source = resolve_flank_wear_source(flank_wear_source_path)
     database = Path(db_path or os.getenv("WORKBENCH_DB_PATH", "data/workbench.db"))
 
     @asynccontextmanager
@@ -155,9 +159,18 @@ def create_app(
                 override=injected.get(HOT_ROLLING_TASK_ID) or os.getenv("MATERIAL_WORKBENCH_HOT_ROLLING_MODEL_PACKAGE"),
             ),
         )
+        flank_wear_runtime = FlankWearRuntime(
+            load_flank_wear_data(flank_wear_source),
+            package_root=resolve_configured_package(
+                FLANK_WEAR_TASK_ID,
+                config_path=configured,
+                override=injected.get(FLANK_WEAR_TASK_ID) or os.getenv("MATERIAL_WORKBENCH_FLANK_WEAR_MODEL_PACKAGE"),
+            ),
+        )
         app.state.task_registry = TaskRegistry({
             ANNEALED_TASK_ID: annealed_runtime,
             HOT_ROLLING_TASK_ID: hot_rolling_runtime,
+            FLANK_WEAR_TASK_ID: flank_wear_runtime,
         })
         app.state.inference_work_graph = InferenceWorkGraph(max_entries=256)
         app.state.store = Store(database)
@@ -317,7 +330,7 @@ def create_app(
         quality = validate_lifecycle_metadata(
             package,
             task_registry().contract_for(project.task_id),
-            profile_path=Path(runtime().data.profile_path),
+            profile_path=Path(entry.predictor_runtime.data.profile_path),
         )
         dependencies = {
             "builtin.linear.v1": True,
@@ -706,6 +719,43 @@ def create_app(
                 lambda: task_runtime.response_curve_result(candidate, target, variable, points),
             )
             return result
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    @app.get(
+        "/api/projects/{project_id}/candidates/{candidate_id}/curve-family",
+        response_model=CurveFamilyResponse,
+        responses=PROJECT_API_ERRORS,
+        operation_id="getCandidateCurveFamily",
+    )
+    def curve_family(
+        project_id: str,
+        candidate_id: str,
+        expected_revision: int,
+        target: str,
+        vary: str = "",
+        levels: int = Query(5, ge=2, le=9),
+        points: int = Query(15, ge=3, le=51),
+    ) -> dict[str, Any]:
+        project = require_project(project_id)
+        candidate = candidate_at_revision(project_id, candidate_id, expected_revision)
+        contract = task_registry().contract_for(project.task_id)
+        if target not in {item.key for item in contract.task_definition.outputs}:
+            raise HTTPException(422, "この予測タスクにない予測特性です")
+        if contract.task_definition.curve_axis_path is None or not contract.runtime_capability.operations.response_curve:
+            raise HTTPException(422, "この予測タスクは曲線ビューに対応していません")
+        try:
+            task_runtime = task_registry().runtime_for(project.task_id)
+            return inference_work_graph().execute(
+                inference_key(
+                    project.task_id,
+                    candidate,
+                    "curve_family",
+                    parameters={"target": target, "vary": vary, "levels": levels, "points": points, "policy_id": "axis-grid-v1"},
+                    uses_package=True,
+                ),
+                lambda: task_runtime.curve_family_result(candidate, target, vary or None, levels, points),
+            )
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
 

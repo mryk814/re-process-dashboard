@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .dataset_profile import load_dataset_profile
 from .feature_pipeline import build_feature_bundle_from_observation
+from .flank_wear_feature_pipeline import build_flank_wear_features_from_observation
 from .hot_rolling_feature_pipeline import build_hot_rolling_features_from_observation
 from .importer import WorkbookData
 from .model_packages import PackageContractError, VerifiedModelPackage
@@ -127,16 +128,19 @@ def canonical_training_dataset(
         for observation in profile.tasks[task_id].observations
         for target in observation.targets
     }
+    builders = {
+        "annealed-properties-v1": build_feature_bundle_from_observation,
+        "hot-rolled-properties-v1": build_hot_rolling_features_from_observation,
+        "flank-wear-v1": build_flank_wear_features_from_observation,
+    }
+    builder = builders.get(task_id)
+    if builder is None:
+        raise ValueError(f"unsupported training task: {task_id}")
     rows: list[dict[str, Any]] = []
     for observation in data.observations:
         if not observation["eligible"]:
             continue
-        if task_id == "annealed-properties-v1":
-            bundle = build_feature_bundle_from_observation(observation, data.medians)
-        elif task_id == "hot-rolled-properties-v1":
-            bundle = build_hot_rolling_features_from_observation(observation, data.medians)
-        else:
-            raise ValueError(f"unsupported training task: {task_id}")
+        bundle = builder(observation, data.medians)
         if bundle is None:
             continue
         outputs = {
@@ -155,16 +159,9 @@ def canonical_training_dataset(
     rows.sort(key=lambda item: (item["parent_key"], item["observation_id"]))
     if not rows:
         raise ValueError(f"no eligible canonical training rows for {task_id}")
-    first_bundle = (
-        build_feature_bundle_from_observation(
-            next(row for row in data.observations if row["id"] == rows[0]["observation_id"]),
-            data.medians,
-        )
-        if task_id == "annealed-properties-v1"
-        else build_hot_rolling_features_from_observation(
-            next(row for row in data.observations if row["id"] == rows[0]["observation_id"]),
-            data.medians,
-        )
+    first_bundle = builder(
+        next(row for row in data.observations if row["id"] == rows[0]["observation_id"]),
+        data.medians,
     )
     assert first_bundle is not None
     return {

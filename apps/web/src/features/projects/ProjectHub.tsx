@@ -245,7 +245,7 @@ export function ProjectHub({
               onClick={() => onSwitch(item.id)}
             >
               <strong>{item.name}</strong>
-              <small>{item.task_id === "hot-rolled-properties-v1" ? "熱延条件" : "焼鈍条件"}</small>
+              <small>{item.task_id === "hot-rolled-properties-v1" ? "熱延条件" : item.task_id === "flank-wear-v1" ? "切削摩耗" : "焼鈍条件"}</small>
             </button>
           ))}
         </div>

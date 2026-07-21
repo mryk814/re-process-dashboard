@@ -12,7 +12,7 @@ from .task_contracts import CandidateProvenance, DirectSourceRef, ResolvedTaskDe
 COMPOSITION_ELEMENTS = {
     "C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N"
 }
-PREDICTION_TARGETS = {"TS", "YS", "EL", "lambda"}
+PREDICTION_TARGETS = {"TS", "YS", "EL", "lambda", "VB_mean", "VB_max"}
 
 
 class HeatPoint(BaseModel):
@@ -97,7 +97,7 @@ class ProjectInput(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=120)] = "焼鈍条件の候補検討"
     description: str = ""
     purpose: str = ""
-    task_id: Literal["annealed-properties-v1", "hot-rolled-properties-v1"] = "annealed-properties-v1"
+    task_id: Literal["annealed-properties-v1", "hot-rolled-properties-v1", "flank-wear-v1"] = "annealed-properties-v1"
     target_values: dict[str, float] = Field(default_factory=dict)
     input_ranges: dict[str, InputRange] = Field(default_factory=dict)
     notes: str = ""
@@ -185,18 +185,18 @@ class ScreeningRequest(BaseModel):
 
 
 class ActualMeasurementInput(BaseModel):
-    property: Literal["TS", "YS", "EL", "lambda"]
+    property: Literal["TS", "YS", "EL", "lambda", "VB_mean", "VB_max"]
     mean: Annotated[float, Field(allow_inf_nan=False)]
     std: Annotated[float, Field(ge=0, allow_inf_nan=False)] = 0
     replicates: Annotated[int, Field(ge=1, le=999)] = 1
-    unit: Literal["MPa", "%"]
+    unit: Literal["MPa", "%", "µm"]
     experiment_no: str = ""
     measured_at: date | None = None
     note: str = ""
 
     @model_validator(mode="after")
     def unit_matches_property(self) -> "ActualMeasurementInput":
-        expected = {"TS": "MPa", "YS": "MPa", "EL": "%", "lambda": "%"}[self.property]
+        expected = {"TS": "MPa", "YS": "MPa", "EL": "%", "lambda": "%", "VB_mean": "µm", "VB_max": "µm"}[self.property]
         if self.unit != expected:
             raise ValueError(f"{self.property}の単位は{expected}です")
         return self
@@ -426,6 +426,30 @@ class ResponseCurveResponse(BaseModel):
     target: str
     variable: CurveVariable
     points: list[CurvePoint]
+    output_range: InputRange | None = None
+    point_count: int
+    policy_id: str
+
+
+class CurveFamilySeries(BaseModel):
+    level: float | str | None = None
+    label: str
+    points: list[CurvePoint]
+
+
+class CurveVariableCategorical(BaseModel):
+    id: str
+    label: str
+    choices: list[str]
+    current: str
+
+
+class CurveFamilyResponse(BaseModel):
+    target: str
+    axis: CurveVariable
+    vary: CurveVariable | None = None
+    vary_categorical: CurveVariableCategorical | None = None
+    series: list[CurveFamilySeries]
     output_range: InputRange | None = None
     point_count: int
     policy_id: str
