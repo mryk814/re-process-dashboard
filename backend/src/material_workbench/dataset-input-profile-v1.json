@@ -1,6 +1,7 @@
 {
   "schema_version": "dataset-input-profile/v2",
   "id": "thin-sheet-workbook-v2",
+  "task_definition_ids": ["annealed-properties-v1", "hot-rolled-properties-v1"],
   "shared": {
     "sheets": {
       "melt": "溶製",

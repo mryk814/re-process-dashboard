@@ -137,7 +137,7 @@ class TaskRegistry:
                 f"runtime outputs do not match TaskDefinition for {task_id}: "
                 f"expected={sorted(expected)}, actual={sorted(runtime.output_keys)}"
             )
-        validate_lifecycle_metadata(package, self._contracts[task_id])
+        validate_lifecycle_metadata(package, self._contracts[task_id], profile_path=Path(runtime.data.profile_path))
         validate_training_provenance(package, runtime.data, self._contracts[task_id])
 
     @property

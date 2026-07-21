@@ -17,7 +17,7 @@ from material_workbench.dataset_profile import (
 )
 from material_workbench.feature_pipeline import build_feature_bundle
 from material_workbench.hot_rolling_feature_pipeline import build_hot_rolling_features
-from material_workbench.importer import load_workbook_data
+from material_workbench.importer import detect_dataset_profile_path, load_workbook_data
 from material_workbench.app import create_app
 from material_workbench.schemas import CandidateInput
 from material_workbench.services import candidate_from_lineage
@@ -26,6 +26,7 @@ from material_workbench.task_contracts import TaskDefinition
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "data" / "source" / "process_dashboard_realistic_excel_v2.xlsx"
+V3_SOURCE = ROOT / "data" / "source" / "process_dashboard_realistic_excel_v3.xlsx"
 PROFILE = ROOT / "backend" / "src" / "material_workbench" / "dataset-input-profile-v1.json"
 
 
@@ -423,6 +424,25 @@ def test_current_workbook_entity_and_eligibility_golden() -> None:
         "process.hold_temperature_c": 1168.038,
         "process.hold_time_min": 29.341,
     }
+
+
+def test_v3_source_auto_selects_its_profile_and_preserves_canonical_flow() -> None:
+    assert detect_dataset_profile_path(V3_SOURCE).name == "dataset-input-profile-v3.json"
+    data = load_workbook_data(V3_SOURCE)
+
+    assert data.profile_id == "process-dashboard-realistic-v3"
+    assert data.relation_sheet == "relationEx"
+    assert len(data.sheets[data.relation_sheet]) == 1905
+    assert len(data.composition) == 120
+    assert len(data.anneal_features) == 196
+    assert len(data.observations) == 1212
+    assert data.quality == []
+    assert data.anneal_features["AN-00001"]["heat_pattern"][0] == {
+        "time_s": 2.533,
+        "temperature_c": 35.0,
+        "stage_name": "入口",
+    }
+    assert data.observations[0]["source"] in {"熱延引張実績", "焼鈍引張実績", "焼鈍穴拡げ実績"}
 
 
 def test_invalid_workbook_stops_before_runtime_and_database_initialization(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

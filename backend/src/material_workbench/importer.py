@@ -10,7 +10,7 @@ from typing import Any, Mapping
 
 from openpyxl import load_workbook
 
-from .dataset_profile import CanonicalDataset, DatasetInputProfile, canonicalize_workbook, load_dataset_profile
+from .dataset_profile import CanonicalDataset, DatasetInputProfile, DatasetProfileError, canonicalize_workbook, load_dataset_profile
 from .task_contracts import TaskDefinition
 
 def composition_names(
@@ -64,6 +64,7 @@ class WorkbookData:
     source_path: str
     source_mtime_ns: int
     source_sha256: str
+    profile_path: str
     sheets: dict[str, list[dict[str, Any]]]
     composition: dict[str, dict[str, float]]
     hot_rolling_features: dict[str, dict[str, Any]]
@@ -92,6 +93,8 @@ class WorkbookData:
         return {
             "source": self.source_path,
             "source_sha256": self.source_sha256,
+            "profile": self.profile_path,
+            "profile_id": self.profile_id,
             "sheets": {name: len(rows) for name, rows in self.sheets.items()},
             "observations": len(self.observations),
             "quality_issues": len(self.quality),
@@ -115,6 +118,7 @@ def _detect_data_quality(
     observation_parent_columns: Mapping[str, str] | None = None,
     relation_sheet: str | None = None,
     relation_columns: tuple[str, ...] | None = None,
+    relation_entity_keys: Mapping[str, str] | None = None,
 ) -> list[dict[str, str]]:
     """Detect structural data problems without trusting the workbook's scenarios.
 
@@ -142,6 +146,7 @@ def _detect_data_quality(
         assert profile is not None
         relation_sheet = profile.sheet_for_role(profile.shared.relation.role)
         relation_columns = tuple(join.column for join in profile.shared.relation.joins)
+    relation_entity_keys = relation_entity_keys or {column: column for column in relation_columns}
     issues: list[dict[str, str]] = []
     seen: set[tuple[str, str, str, str]] = set()
 
@@ -186,10 +191,11 @@ def _detect_data_quality(
                 continue
             key = str(value)
             relation_keys.add(key)
-            source_sheet = key_to_sheet.get(key_column)
+            entity_key_column = relation_entity_keys.get(key_column, key_column)
+            source_sheet = key_to_sheet.get(entity_key_column)
             if source_sheet is None:
                 continue
-            if key not in entities.get(key_column, {}):
+            if key not in entities.get(entity_key_column, {}):
                 add("invalid_reference", relation_sheet, key, f"{row_index}行目の{key_column}に対応する{source_sheet}レコードがありません")
 
     for key_column, records in entities.items():
@@ -411,6 +417,54 @@ def _normalize_stage_local_times(points: list[dict[str, Any]]) -> None:
         previous_normalized = point["time_s"]
 
 
+def detect_dataset_profile_path(
+    source_path: str | Path,
+    profile_directory: str | Path | None = None,
+    task_definitions: Mapping[str, TaskDefinition] | None = None,
+) -> Path:
+    """Choose the most specific profile whose required sheets are present."""
+    source_path = Path(source_path)
+    profile_root = Path(profile_directory) if profile_directory else Path(__file__).parent
+    candidates = sorted(profile_root.glob("dataset-input-profile-*.json"))
+    if not candidates:
+        raise DatasetProfileError([f"no dataset input profiles found in {profile_root}"])
+    workbook = load_workbook(source_path, read_only=True, data_only=True)
+    try:
+        sheet_names = set(workbook.sheetnames)
+    finally:
+        workbook.close()
+    matches: list[tuple[int, Path]] = []
+    diagnostics: list[str] = []
+    for candidate in candidates:
+        try:
+            profile = load_dataset_profile(candidate, task_definitions)
+        except DatasetProfileError as exc:
+            diagnostics.append(f"{candidate.name}: profile invalid ({exc})")
+            continue
+        required_sheets = {
+            sheet for role, sheet in profile.shared.sheets.items()
+            if role not in profile.shared.optional_roles
+        }
+        missing = sorted(required_sheets - sheet_names)
+        if missing:
+            diagnostics.append(f"{candidate.name}: missing sheets {', '.join(missing)}")
+            continue
+        matches.append((len(required_sheets), candidate))
+    if not matches:
+        raise DatasetProfileError([
+            f"no dataset input profile matches workbook {source_path}",
+            *diagnostics,
+        ])
+    best_score = max(score for score, _ in matches)
+    best = [candidate for score, candidate in matches if score == best_score]
+    if len(best) > 1:
+        raise DatasetProfileError([
+            f"multiple dataset input profiles match workbook {source_path}; pass an explicit profile",
+            *[candidate.name for candidate in sorted(best)],
+        ])
+    return best[0]
+
+
 def load_workbook_data(
     path: str | Path,
     profile_path: str | Path | None = None,
@@ -419,7 +473,8 @@ def load_workbook_data(
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(f"Excel source not found: {path}")
-    profile = load_dataset_profile(profile_path, task_definitions)
+    selected_profile_path = Path(profile_path) if profile_path else detect_dataset_profile_path(path, task_definitions=task_definitions)
+    profile = load_dataset_profile(selected_profile_path, task_definitions)
     anneal_task_id = next(
         task_id for task_id, task in profile.tasks.items()
         if any(mapping.kind == "ordered_heat_series" for mapping in task.mappings)
@@ -596,6 +651,10 @@ def load_workbook_data(
     }
     relation_sheet = profile.sheet_for_role(profile.shared.relation.role)
     relation_join_columns = {join.entity_type: join.column for join in profile.shared.relation.joins}
+    relation_entity_keys = {
+        join.column: next(entity.key for entity in profile.shared.entities if entity.type == join.entity_type)
+        for join in profile.shared.relation.joins
+    }
     lineage_stage_order = {join.column: join.stage for join in profile.shared.relation.joins}
     lineage_adjacencies = tuple(
         (relation_join_columns[parent_type], join.column)
@@ -615,6 +674,7 @@ def load_workbook_data(
             observation_parent_columns,
             relation_sheet,
             tuple(relation_join_columns.values()),
+            relation_entity_keys,
         ),
         normalized_lineage,
     )
@@ -622,13 +682,14 @@ def load_workbook_data(
         source_path=str(path),
         source_mtime_ns=path.stat().st_mtime_ns,
         source_sha256=source_sha256,
+        profile_path=str(selected_profile_path),
         sheets=sheets,
         composition=composition,
         hot_rolling_features=hot_rolling_features,
         anneal_features=anneal_features,
         lineage=normalized_lineage,
         observations=observations,
-        quality=canonical.rows("quality"),
+        quality=canonical.source_rows.get(profile.shared.sheets.get("quality", ""), []),
         detected_quality=detected_quality,
         entities=dict(entities),
         medians=medians,

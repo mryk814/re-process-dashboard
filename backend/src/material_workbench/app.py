@@ -314,7 +314,11 @@ def create_app(
         entry = task_registry().entry_for(project.task_id)
         package = entry.model_package
         manifest = package.manifest
-        quality = validate_lifecycle_metadata(package, task_registry().contract_for(project.task_id))
+        quality = validate_lifecycle_metadata(
+            package,
+            task_registry().contract_for(project.task_id),
+            profile_path=Path(runtime().data.profile_path),
+        )
         dependencies = {
             "builtin.linear.v1": True,
             "builtin.exact_gp.v1": True,
@@ -414,7 +418,7 @@ def create_app(
     def bootstrap() -> dict[str, Any]:
         data = app.state.data
         candidates = [candidate.model_dump(mode="json") for candidate in store().list_candidates()]
-        quality_category = data.technical_columns[("quality", "category")]
+        quality_category = data.technical_columns.get(("quality", "category"))
         return {
             "meta": {
                 **data.source_summary,
@@ -424,7 +428,7 @@ def create_app(
             "candidates": candidates,
             "summary": {
                 "routes": Counter(row.get("standard_route") for row in data.anneal_features.values()),
-                "quality_by_category": Counter(row.get(quality_category) for row in data.quality),
+                "quality_by_category": Counter(row.get(quality_category) for row in data.quality) if quality_category else {},
             },
         }
 
@@ -748,8 +752,8 @@ def create_app(
         return {
             "total": len(scenarios),
             "by_category": Counter(
-                row[app.state.data.technical_columns[("quality", "category")]] for row in scenarios
-            ),
+                row[quality_category] for row in scenarios
+            ) if (quality_category := app.state.data.technical_columns.get(("quality", "category"))) else {},
             "issues": scenarios,
             "reference_scenarios": scenarios,
             "detected_total": len(detected),
