@@ -222,7 +222,7 @@
 }
 .lineage-detail-panel .lineage-detail-header .primary-button { width: 100%; }
 .lineage-detail-panel .lineage-candidate-note { margin: 0 0 10px; text-align: left; }
-.lineage-detail-panel .lineage-detail-grid { grid-template-columns: 1fr; }
+.lineage-detail-panel .lineage-detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .lineage-detail-panel .lineage-detail-grid section { padding: 10px; }
 
 @media (max-width: 980px) {
@@ -530,6 +530,52 @@
   margin: 0;
   color: #657386;
   font-size: 13px;
+}
+.lineage-node-facts {
+  margin-bottom: 10px;
+  border: 1px solid #d8e0ea;
+  border-radius: 4px;
+  padding: 10px;
+}
+.lineage-node-facts h3 {
+  margin: 0 0 6px;
+  color: #263448;
+  font-size: 13px;
+}
+.lineage-node-facts h3 + .lineage-node-facts-scroll { margin-bottom: 10px; }
+.lineage-node-facts h3 small {
+  color: #657386;
+  font-size: 10px;
+  font-weight: 400;
+}
+.lineage-node-facts-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.lineage-node-facts table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.lineage-node-facts th,
+.lineage-node-facts td {
+  min-width: 86px;
+  border: 1px solid #d4dfeb;
+  padding: 6px 8px;
+  text-align: left;
+  white-space: nowrap;
+}
+.lineage-node-facts th {
+  background: #eef4fa;
+  color: #536277;
+  font-size: 10px;
+  font-weight: 700;
+}
+.lineage-node-facts td {
+  background: #fff;
+  color: #263448;
+  font-size: 12px;
 }
 .lineage-detail-grid {
   display: grid;

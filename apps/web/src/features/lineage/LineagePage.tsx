@@ -327,33 +327,37 @@ export function LineagePage({
           </div>
           <p className={`lineage-candidate-note ${supportsCandidateCreation && data.candidate_eligible ? "" : "muted"}`}>{supportsCandidateCreation ? data.candidate_reason : "この予測タスクは系譜からの候補化に対応していません。工程の確認には引き続き利用できます。"}</p>
           {candidateError && <p className="warning">{candidateError}</p>}
+          <section className="lineage-node-facts">
+            <h3>主要条件</h3>
+            <div className="lineage-node-facts-scroll">
+              <table>
+                <tbody>
+                  <tr>
+                    {Object.keys(data.node.primary_conditions).map((key) => <th scope="col" key={key}>{key}</th>)}
+                  </tr>
+                  <tr>
+                    {Object.entries(data.node.primary_conditions).map(([key, value]) => <td key={key}>{value === null ? "—" : String(value)}</td>)}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <h3>
+              上流組成 <small>mass%</small>
+            </h3>
+            <div className="lineage-node-facts-scroll">
+              <table>
+                <tbody>
+                  <tr>
+                    {Object.keys(data.node.composition).map((key) => <th scope="col" key={key}>{key}</th>)}
+                  </tr>
+                  <tr>
+                    {Object.entries(data.node.composition).map(([key, value]) => <td key={key}>{number(value, value < 0.01 ? 5 : 3)}</td>)}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
           <div className="lineage-detail-grid">
-            <section>
-              <h3>主要条件</h3>
-              <dl>
-                {Object.entries(data.node.primary_conditions).map(
-                  ([key, value]) => (
-                    <div key={key}>
-                      <dt>{key}</dt>
-                      <dd>{value === null ? "—" : String(value)}</dd>
-                    </div>
-                  ),
-                )}
-              </dl>
-            </section>
-            <section>
-              <h3>
-                上流組成 <small>mass%</small>
-              </h3>
-              <div className="composition-chips">
-                {Object.entries(data.node.composition).map(([key, value]) => (
-                  <span key={key}>
-                    <b>{key}</b>
-                    {number(value, value < 0.01 ? 5 : 3)}
-                  </span>
-                ))}
-              </div>
-            </section>
             <section>
               <h3>
                 実績ヒートパターン <small>{heat.length}点</small>
