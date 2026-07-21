@@ -305,11 +305,37 @@ export function LineageGraph({
     );
   };
 
-  const processEdgePath = (x1: number, y1: number, x2: number, y2: number) => {
-    const routeY = TOP - 16;
+  const processEdgePath = (x1: number, y1: number, x2: number, y2: number, lane = 0) => {
+    const routeY = TOP - 16 - lane * 9;
     const bend = Math.max(24, (x2 - x1) * 0.18);
     return `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x1 + bend} ${routeY}, ${x1 + bend * 2} ${routeY} L ${x2 - bend * 2} ${routeY} C ${x2 - bend} ${routeY}, ${x2 - bend} ${y2}, ${x2} ${y2}`;
   };
+
+  const edgeKey = (edge: RenderableEdge) => `${edge.sourceKey}-${edge.targetKey}`;
+  const isRoutedProcessEdge = (edge: RenderableEdge) => {
+    const source = endpointPosition(edge.sourceKey);
+    const target = endpointPosition(edge.targetKey);
+    const sourceEntityType = endpointEntityType(edge.sourceKey);
+    const targetEntityType = endpointEntityType(edge.targetKey);
+    return Boolean(
+      source && target && sourceEntityType && targetEntityType
+      && PROCESS_NODE_TYPES.has(sourceEntityType)
+      && PROCESS_NODE_TYPES.has(targetEntityType)
+      && target.x - source.x > STAGE_WIDTH + 20,
+    );
+  };
+  const processRouteLanes = new Map<string, number>();
+  const processRouteLaneCounts = new Map<string, number>();
+  renderableEdges.forEach((edge) => {
+    if (!isRoutedProcessEdge(edge)) return;
+    const source = endpointPosition(edge.sourceKey);
+    const target = endpointPosition(edge.targetKey);
+    if (!source || !target) return;
+    const corridor = `${source.x}:${target.x}`;
+    const lane = processRouteLaneCounts.get(corridor) ?? 0;
+    processRouteLanes.set(edgeKey(edge), lane);
+    processRouteLaneCounts.set(corridor, lane + 1);
+  });
 
   return (
     <section className="lineage-graph-panel" aria-label={`${selectedKey} の実工程系譜`}>
@@ -367,25 +393,19 @@ export function LineageGraph({
             {[...renderableEdges.values()].map((edge) => {
               const source = endpointPosition(edge.sourceKey);
               const target = endpointPosition(edge.targetKey);
-              const sourceEntityType = endpointEntityType(edge.sourceKey);
-              const targetEntityType = endpointEntityType(edge.targetKey);
               if (!source || !target) return null;
               const x1 = source.x + NODE_WIDTH;
               const y1 = source.y + NODE_HEIGHT / 2;
               const x2 = target.x;
               const y2 = target.y + NODE_HEIGHT / 2;
               const bend = Math.max(28, (x2 - x1) * 0.45);
-              const routedProcessEdge = Boolean(
-                sourceEntityType && targetEntityType
-                && PROCESS_NODE_TYPES.has(sourceEntityType)
-                && PROCESS_NODE_TYPES.has(targetEntityType)
-                && x2 - x1 > STAGE_WIDTH + 20,
-              );
+              const routedProcessEdge = processRouteLanes.has(edgeKey(edge));
+              const routeLane = processRouteLanes.get(edgeKey(edge)) ?? 0;
               return (
                 <path
                   key={`${edge.sourceKey}-${edge.targetKey}`}
                   className={`lineage-graph-edge ${edge.state}${routedProcessEdge ? " process-route" : ""}`}
-                  d={routedProcessEdge ? processEdgePath(x1, y1, x2, y2) : `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`}
+                  d={routedProcessEdge ? processEdgePath(x1, y1, x2, y2, routeLane) : `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`}
                   markerEnd="url(#lineage-arrow)"
                 >
                   <title>{`${endpointLabel(edge.sourceKey)} → ${endpointLabel(edge.targetKey)} / relation ${edge.routeRows.join(", ")}`}</title>
