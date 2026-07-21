@@ -42,6 +42,14 @@ type StageItem =
   | { kind: "node"; node: GraphNode }
   | { kind: "group"; group: TestGroup; expanded: boolean };
 
+type GroupLayout = TestGroup & { x: number; y: number; height: number; expanded: boolean };
+type RenderableEdge = {
+  sourceKey: string;
+  targetKey: string;
+  routeRows: number[];
+  state: "upstream" | "downstream" | "context";
+};
+
 function testLabel(entityType: string): string {
   if (entityType === "熱延引張") return "熱延引張";
   if (entityType === "熱延組織") return "熱延組織";
@@ -192,7 +200,7 @@ export function LineageGraph({
   });
 
   const positions = new Map<string, { x: number; y: number }>();
-  const groupLayouts: Array<TestGroup & { x: number; y: number; height: number; expanded: boolean }> = [];
+  const groupLayouts: GroupLayout[] = [];
   const stageHeights = stageItems.map((stage, stageIndex) => {
     const x = 24 + stageIndex * STAGE_WIDTH;
     let cursor = TOP;
@@ -214,6 +222,48 @@ export function LineageGraph({
   });
   const width = 24 + STAGES.length * STAGE_WIDTH;
   const height = Math.max(300, ...stageHeights.map((stageHeight) => stageHeight + 20));
+  const groupByNodeKey = new Map<string, GroupLayout>();
+  groupLayouts.forEach((group) => group.nodes.forEach((node) => groupByNodeKey.set(node.key, group)));
+  const edgeStateRank = { context: 0, upstream: 1, downstream: 2 } as const;
+  const renderableEdges = new Map<string, RenderableEdge>();
+  graph.edges.forEach((edge) => {
+    const sourceGroup = groupByNodeKey.get(edge.source);
+    const targetGroup = groupByNodeKey.get(edge.target);
+    const sourceKey = sourceGroup && !sourceGroup.expanded ? sourceGroup.key : edge.source;
+    const targetKey = targetGroup && !targetGroup.expanded ? targetGroup.key : edge.target;
+    if (sourceKey === targetKey) return;
+    const sourceUpstream = upstream.has(edge.source);
+    const targetUpstream = upstream.has(edge.target) || edge.target === selectedKey;
+    const sourceDownstream = downstream.has(edge.source) || edge.source === selectedKey;
+    const targetDownstream = downstream.has(edge.target);
+    const state = sourceUpstream && targetUpstream
+      ? "upstream"
+      : sourceDownstream && targetDownstream
+        ? "downstream"
+        : "context";
+    const bucketKey = `${sourceKey}\u001f${targetKey}`;
+    const existing = renderableEdges.get(bucketKey);
+    if (existing) {
+      existing.routeRows = [...new Set([...existing.routeRows, ...edge.route_rows])];
+      if (edgeStateRank[state] > edgeStateRank[existing.state]) existing.state = state;
+    } else {
+      renderableEdges.set(bucketKey, { sourceKey, targetKey, routeRows: [...edge.route_rows], state });
+    }
+  });
+  const endpointPosition = (key: string) => {
+    const group = groupLayouts.find((candidate) => candidate.key === key);
+    return group && !group.expanded
+      ? { x: group.x, y: group.y + GROUP_HEADER_HEIGHT / 2 - NODE_HEIGHT / 2 }
+      : positions.get(key);
+  };
+  const endpointEntityType = (key: string) => {
+    const group = groupLayouts.find((candidate) => candidate.key === key);
+    return group && !group.expanded ? group.entityType : nodesByKey.get(key)?.entity_type;
+  };
+  const endpointLabel = (key: string) => {
+    const group = groupLayouts.find((candidate) => candidate.key === key);
+    return group && !group.expanded ? `${group.parent.key} ${testLabel(group.entityType)}` : key;
+  };
 
   const renderNode = (node: GraphNode) => {
     const position = positions.get(node.key);
@@ -296,40 +346,31 @@ export function LineageGraph({
                 <path d="M 0 0 L 10 5 L 0 10 z" />
               </marker>
             </defs>
-            {graph.edges.map((edge) => {
-              const source = positions.get(edge.source);
-              const target = positions.get(edge.target);
-              const sourceNode = nodesByKey.get(edge.source);
-              const targetNode = nodesByKey.get(edge.target);
+            {[...renderableEdges.values()].map((edge) => {
+              const source = endpointPosition(edge.sourceKey);
+              const target = endpointPosition(edge.targetKey);
+              const sourceEntityType = endpointEntityType(edge.sourceKey);
+              const targetEntityType = endpointEntityType(edge.targetKey);
               if (!source || !target) return null;
-              const sourceUpstream = upstream.has(edge.source);
-              const targetUpstream = upstream.has(edge.target) || edge.target === selectedKey;
-              const sourceDownstream = downstream.has(edge.source) || edge.source === selectedKey;
-              const targetDownstream = downstream.has(edge.target);
-              const state = sourceUpstream && targetUpstream
-                ? "upstream"
-                : sourceDownstream && targetDownstream
-                  ? "downstream"
-                  : "context";
               const x1 = source.x + NODE_WIDTH;
               const y1 = source.y + NODE_HEIGHT / 2;
               const x2 = target.x;
               const y2 = target.y + NODE_HEIGHT / 2;
               const bend = Math.max(28, (x2 - x1) * 0.45);
               const routedProcessEdge = Boolean(
-                sourceNode && targetNode
-                && PROCESS_NODE_TYPES.has(sourceNode.entity_type)
-                && PROCESS_NODE_TYPES.has(targetNode.entity_type)
+                sourceEntityType && targetEntityType
+                && PROCESS_NODE_TYPES.has(sourceEntityType)
+                && PROCESS_NODE_TYPES.has(targetEntityType)
                 && x2 - x1 > STAGE_WIDTH + 20,
               );
               return (
                 <path
-                  key={`${edge.source}-${edge.target}`}
-                  className={`lineage-graph-edge ${state}${routedProcessEdge ? " process-route" : ""}`}
+                  key={`${edge.sourceKey}-${edge.targetKey}`}
+                  className={`lineage-graph-edge ${edge.state}${routedProcessEdge ? " process-route" : ""}`}
                   d={routedProcessEdge ? processEdgePath(x1, y1, x2, y2) : `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`}
                   markerEnd="url(#lineage-arrow)"
                 >
-                  <title>{`${edge.source} → ${edge.target} / relation ${edge.route_rows.join(", ")}`}</title>
+                  <title>{`${endpointLabel(edge.sourceKey)} → ${endpointLabel(edge.targetKey)} / relation ${edge.routeRows.join(", ")}`}</title>
                 </path>
               );
             })}
