@@ -194,6 +194,13 @@ select:focus-visible,
 .primary-button:hover {
   background: #174da3;
 }
+.primary-button:disabled {
+  border-color: #cbd5e1;
+  background: #e2e8f0;
+  color: #748093;
+  box-shadow: none;
+  cursor: not-allowed;
+}
 .notice {
   max-width: 360px;
   overflow: hidden;
