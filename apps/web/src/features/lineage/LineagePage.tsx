@@ -306,37 +306,55 @@ export function LineagePage({
             )}
         </main>
         <aside className="lineage-detail-panel" aria-label="選択ノード詳細">
-          <div className="lineage-detail-header">
-            <div>
-              <span className="overline">
-                {data.node.source_sheet} / {data.node.entity_type}
-              </span>
-              <h3>{data.key}</h3>
-              <p>
-                {Object.values(data.relations).reduce(
-                  (sum, values) => sum + values.length,
-                  0,
-                )}
-                件の関係、{data.node.connected_observation_count}件の接続観測
-              </p>
+          <section className="lineage-node-summary" aria-label="ノード情報">
+            <div className="lineage-node-summary-label">ノード情報</div>
+            <div className="lineage-detail-header">
+              <div>
+                <span className="overline">
+                  {data.node.source_sheet} / {data.node.entity_type}
+                </span>
+                <h3>{data.key}</h3>
+                <p>
+                  {Object.values(data.relations).reduce(
+                    (sum, values) => sum + values.length,
+                    0,
+                  )}
+                  件の関係、{data.node.connected_observation_count}件の接続観測
+                </p>
+              </div>
+              <div className="lineage-detail-action">
+                <button
+                  className="primary-button"
+                  disabled={!supportsCandidateCreation || !data.candidate_eligible}
+                  title={supportsCandidateCreation ? data.candidate_reason : "この予測タスクは系譜からの候補化に対応していません"}
+                  onClick={() => {
+                    void createCandidate();
+                  }}
+                >
+                  候補ストックへ追加
+                </button>
+                <span className={`lineage-detail-action-reason ${supportsCandidateCreation && data.candidate_eligible ? "" : "muted"}`}>
+                  {supportsCandidateCreation ? data.candidate_reason : "この予測タスクは系譜からの候補化に対応していません。"}
+                </span>
+                {candidateError && <span className="warning">{candidateError}</span>}
+              </div>
             </div>
-            <div className="lineage-detail-action">
-              <button
-                className="primary-button"
-                disabled={!supportsCandidateCreation || !data.candidate_eligible}
-                title={supportsCandidateCreation ? data.candidate_reason : "この予測タスクは系譜からの候補化に対応していません"}
-                onClick={() => {
-                  void createCandidate();
-                }}
-              >
-                候補ストックへ追加
-              </button>
-              <span className={`lineage-detail-action-reason ${supportsCandidateCreation && data.candidate_eligible ? "" : "muted"}`}>
-                {supportsCandidateCreation ? data.candidate_reason : "この予測タスクは系譜からの候補化に対応していません。"}
-              </span>
-              {candidateError && <span className="warning">{candidateError}</span>}
-            </div>
-          </div>
+            <section className="lineage-node-facts">
+              <h3>主要条件</h3>
+              <div className="lineage-node-facts-scroll">
+                <table>
+                  <tbody>
+                    <tr>
+                      {Object.keys(data.node.primary_conditions).map((key) => <th scope="col" key={key}>{key}</th>)}
+                    </tr>
+                    <tr>
+                      {Object.entries(data.node.primary_conditions).map(([key, value]) => <td key={key}>{value === null ? "—" : String(value)}</td>)}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </section>
           {selectedGroup && (
             <section className="lineage-group-facts">
               <div className="lineage-group-facts-header">
@@ -373,20 +391,7 @@ export function LineagePage({
               )}
             </section>
           )}
-          <section className="lineage-node-facts">
-            <h3>主要条件</h3>
-            <div className="lineage-node-facts-scroll">
-              <table>
-                <tbody>
-                  <tr>
-                    {Object.keys(data.node.primary_conditions).map((key) => <th scope="col" key={key}>{key}</th>)}
-                  </tr>
-                  <tr>
-                    {Object.entries(data.node.primary_conditions).map(([key, value]) => <td key={key}>{value === null ? "—" : String(value)}</td>)}
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+          <section className="lineage-neighbor-facts">
             <h3>
               上流組成 <small>mass%</small>
             </h3>

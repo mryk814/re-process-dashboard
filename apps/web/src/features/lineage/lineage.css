@@ -533,11 +533,45 @@
   color: #657386;
   font-size: 13px;
 }
+.lineage-node-summary {
+  margin-bottom: 10px;
+  border: 1px solid #8fb6df;
+  border-radius: 5px;
+  background: #f5f9ff;
+  padding: 11px;
+}
+.lineage-node-summary-label {
+  margin-bottom: 4px;
+  color: #1f5fc4;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+.lineage-node-summary .lineage-detail-header {
+  margin-bottom: 10px;
+}
 .lineage-node-facts {
+  margin-bottom: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+}
+.lineage-neighbor-facts {
   margin-bottom: 10px;
   border: 1px solid #d8e0ea;
   border-radius: 4px;
+  background: #fff;
   padding: 10px;
+}
+.lineage-neighbor-facts h3 {
+  margin: 0 0 6px;
+  color: #263448;
+  font-size: 13px;
+}
+.lineage-neighbor-facts h3 small {
+  color: #657386;
+  font-size: 10px;
+  font-weight: 400;
 }
 .lineage-group-facts {
   margin-bottom: 10px;
