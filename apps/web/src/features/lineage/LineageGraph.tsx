@@ -59,6 +59,24 @@ function testLabel(entityType: string): string {
   return entityType;
 }
 
+function canonicalEntityType(entityType: string): string {
+  const type = entityType.replace(/_key\*\*$/, "");
+  if (type.startsWith("溶製")) return "溶製";
+  if (type.startsWith("熱延")) {
+    if (type.includes("引張")) return "熱延引張";
+    if (type.includes("組織")) return "熱延組織";
+    return "熱延";
+  }
+  if (type.startsWith("冷延")) return "冷延";
+  if (type.startsWith("焼鈍")) {
+    if (type.includes("引張")) return "焼鈍引張";
+    if (type.includes("穴広げ")) return "焼鈍穴広げ";
+    if (type.includes("組織")) return "焼鈍組織";
+    return "焼鈍";
+  }
+  return entityType;
+}
+
 function groupSummary(nodes: GraphNode[]): string {
   return nodes.map((node) => node.key).join(" · ");
 }
@@ -93,7 +111,7 @@ function findProcessParent(
     if (!key || visited.has(key)) continue;
     visited.add(key);
     const node = nodesByKey.get(key);
-    if (node?.entity_type === parentType) return node;
+    if (node && canonicalEntityType(node.entity_type) === parentType) return node;
     pending.push(...(incoming.get(key) ?? []));
   }
   return null;
@@ -127,7 +145,7 @@ function graphContext(graph: Graph, selectedKey: string) {
 }
 
 function nodeState(node: GraphNode, selectedKey: string, upstream: Set<string>, downstream: Set<string>) {
-  const colorClass = groupColorClass(node.entity_type);
+  const colorClass = groupColorClass(canonicalEntityType(node.entity_type));
   const states = ["lineage-graph-node", colorClass].filter(Boolean);
   if (node.key === selectedKey) states.push("selected");
   else if (upstream.has(node.key)) states.push("upstream");
@@ -157,25 +175,26 @@ export function LineageGraph({
   const grouped = STAGES.map((stage) => ({
     ...stage,
     nodes: graph.nodes
-      .filter((node) => stage.types.includes(node.entity_type as never))
+      .filter((node) => stage.types.includes(canonicalEntityType(node.entity_type) as never))
       .sort((left, right) => Number(right.key === selectedKey) - Number(left.key === selectedKey) || left.key.localeCompare(right.key)),
   }));
   const knownTypes = new Set(STAGES.flatMap((stage) => [...stage.types]));
-  const unknownNodes = graph.nodes.filter((node) => !knownTypes.has(node.entity_type as never));
+  const unknownNodes = graph.nodes.filter((node) => !knownTypes.has(canonicalEntityType(node.entity_type) as never));
   if (unknownNodes.length) grouped[grouped.length - 1].nodes.push(...unknownNodes);
 
   const stageItems: Array<{ label: string; nodes: GraphNode[]; items: StageItem[] }> = grouped.map((stage) => {
     const items: StageItem[] = [];
     const groups = new Map<string, TestGroup>();
     stage.nodes.forEach((node) => {
-      const parentType = parentTypeForTest(node.entity_type);
+      const normalizedType = canonicalEntityType(node.entity_type);
+      const parentType = parentTypeForTest(normalizedType);
       const parent = parentType ? findProcessParent(node.key, parentType, incoming, nodesByKey) : null;
       if (!parent) {
         items.push({ kind: "node", node });
         return;
       }
-      const key = `test-group:${parent.entity_type}:${parent.key}:${node.entity_type}`;
-      const group = groups.get(key) ?? { key, parent, entityType: node.entity_type, nodes: [] };
+      const key = `test-group:${parent.entity_type}:${parent.key}:${normalizedType}`;
+      const group = groups.get(key) ?? { key, parent, entityType: normalizedType, nodes: [] };
       group.nodes.push(node);
       groups.set(key, group);
     });
@@ -257,7 +276,7 @@ export function LineageGraph({
   };
   const endpointEntityType = (key: string) => {
     const group = groupLayouts.find((candidate) => candidate.key === key);
-    return group && !group.expanded ? group.entityType : nodesByKey.get(key)?.entity_type;
+    return group && !group.expanded ? group.entityType : nodesByKey.get(key) ? canonicalEntityType(nodesByKey.get(key)!.entity_type) : undefined;
   };
   const endpointLabel = (key: string) => {
     const group = groupLayouts.find((candidate) => candidate.key === key);
