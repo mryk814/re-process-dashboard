@@ -608,7 +608,7 @@ export interface components {
              * Property
              * @enum {string}
              */
-            property: "TS" | "YS" | "EL" | "lambda";
+            property: "TS" | "YS" | "EL" | "lambda" | "VB_mean" | "VB_max";
             /**
              * Replicates
              * @default 1
@@ -625,7 +625,7 @@ export interface components {
              * Unit
              * @enum {string}
              */
-            unit: "MPa" | "%";
+            unit: "MPa" | "%" | "µm";
         };
         /** ActualMeasurementInput */
         ActualMeasurementInput: {
@@ -647,7 +647,7 @@ export interface components {
              * Property
              * @enum {string}
              */
-            property: "TS" | "YS" | "EL" | "lambda";
+            property: "TS" | "YS" | "EL" | "lambda" | "VB_mean" | "VB_max";
             /**
              * Replicates
              * @default 1
@@ -662,7 +662,7 @@ export interface components {
              * Unit
              * @enum {string}
              */
-            unit: "MPa" | "%";
+            unit: "MPa" | "%" | "µm";
         };
         /** ApiError */
         ApiError: {
@@ -1514,7 +1514,7 @@ export interface components {
              * @default annealed-properties-v1
              * @enum {string}
              */
-            task_id: "annealed-properties-v1" | "hot-rolled-properties-v1";
+            task_id: "annealed-properties-v1" | "hot-rolled-properties-v1" | "flank-wear-v1";
             /**
              * Updated At
              * Format: date-time
@@ -1572,7 +1572,7 @@ export interface components {
              * @default annealed-properties-v1
              * @enum {string}
              */
-            task_id: "annealed-properties-v1" | "hot-rolled-properties-v1";
+            task_id: "annealed-properties-v1" | "hot-rolled-properties-v1" | "flank-wear-v1";
         };
         /** ProjectDecisionHistory */
         ProjectDecisionHistory: {
@@ -1657,7 +1657,7 @@ export interface components {
              * @default annealed-properties-v1
              * @enum {string}
              */
-            task_id: "annealed-properties-v1" | "hot-rolled-properties-v1";
+            task_id: "annealed-properties-v1" | "hot-rolled-properties-v1" | "flank-wear-v1";
         };
         /** PropertySummary */
         PropertySummary: {

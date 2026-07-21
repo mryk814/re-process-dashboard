@@ -12,6 +12,9 @@ from .base import feature_vector
 class _ExactGPPredictor:
     def __init__(self, spec: PredictorSpec, arrays: dict[str, np.ndarray]) -> None:
         self.spec = spec
+        # For predictive_family=lognormal the stored GP is fit on log1p(target);
+        # predictions are transformed back to the target unit at query time.
+        self.log1p_latent = spec.predictive_family == "lognormal"
         self.train_x = arrays["train_x"].astype(np.float64, copy=False)
         self.train_y = arrays["train_y"].astype(np.float64, copy=False).reshape(-1)
         self.feature_mean = arrays["feature_mean"].astype(np.float64, copy=False).reshape(-1)
@@ -61,6 +64,44 @@ class _ExactGPPredictor:
         observation_std = math.sqrt(self.observation_noise)
         predictive_std = math.sqrt(predictive_variance)
         z90 = 1.6448536269514722
+        uncertainty_components = {
+            "latent_model_variance": model_variance,
+            "latent_model_std": model_std,
+            "observation_noise_variance": self.observation_noise,
+            "observation_noise_std": observation_std,
+            "total_predictive_variance": predictive_variance,
+            "total_predictive_std": predictive_std,
+        }
+        if self.log1p_latent:
+            # Shifted lognormal: latent = log1p(target). Quantiles transform
+            # exactly; the physical support is clipped at zero.
+            def back(latent: float) -> float:
+                return max(math.expm1(latent), 0.0)
+
+            mean = math.exp(estimate + predictive_variance / 2.0) - 1.0
+            variance = (math.exp(predictive_variance) - 1.0) * math.exp(2.0 * estimate + predictive_variance)
+            return PredictiveSummary(
+                target=self.spec.target,
+                target_kind=self.spec.target_kind,
+                unit=self.spec.unit,
+                point_statistic="median",
+                point_estimate=back(estimate),
+                quantiles={
+                    "0.05": back(estimate - z90 * predictive_std),
+                    "0.50": back(estimate),
+                    "0.95": back(estimate + z90 * predictive_std),
+                },
+                distribution={
+                    "family": "lognormal",
+                    "support": "nonnegative",
+                    "log_mean": estimate,
+                    "log_std": predictive_std,
+                    "shift": -1.0,
+                    "mean": max(mean, 0.0),
+                    "std": math.sqrt(max(variance, 0.0)),
+                },
+                uncertainty_components=uncertainty_components,
+            )
         return PredictiveSummary(
             target=self.spec.target,
             target_kind=self.spec.target_kind,
@@ -73,14 +114,7 @@ class _ExactGPPredictor:
                 "0.95": estimate + z90 * predictive_std,
             },
             distribution={"family": "normal", "support": "real", "mean": estimate, "std": predictive_std},
-            uncertainty_components={
-                "latent_model_variance": model_variance,
-                "latent_model_std": model_std,
-                "observation_noise_variance": self.observation_noise,
-                "observation_noise_std": observation_std,
-                "total_predictive_variance": predictive_variance,
-                "total_predictive_std": predictive_std,
-            },
+            uncertainty_components=uncertainty_components,
         )
 
 
@@ -88,8 +122,12 @@ class BuiltinExactGPAdapter:
     runtime_type = "builtin.exact_gp.v1"
 
     def load(self, package: VerifiedModelPackage, predictor: PredictorSpec) -> _ExactGPPredictor:
-        if predictor.predictive_family != "normal" or predictor.architecture_id != "exact_rbf_grouped_v1":
-            raise PackageContractError("builtin.exact_gp.v1 requires normal / exact_rbf_grouped_v1")
+        if predictor.predictive_family not in {"normal", "lognormal"} or predictor.architecture_id != "exact_rbf_grouped_v1":
+            raise PackageContractError("builtin.exact_gp.v1 requires normal or lognormal / exact_rbf_grouped_v1")
+        if predictor.predictive_family == "lognormal" and predictor.config.get("latent_transform") != "log1p":
+            raise PackageContractError("builtin.exact_gp.v1 lognormal requires config.latent_transform=log1p")
+        if predictor.predictive_family == "lognormal" and predictor.target_kind != "continuous_positive":
+            raise PackageContractError("builtin.exact_gp.v1 lognormal requires target_kind=continuous_positive")
         try:
             with np.load(package.artifact_path(predictor.artifact), allow_pickle=False) as artifact:
                 arrays = {name: artifact[name] for name in artifact.files}

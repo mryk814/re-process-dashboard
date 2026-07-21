@@ -27,8 +27,23 @@ from material_workbench.model_packages import MissingOptionalDependency, ModelPa
 from material_workbench.task_registry import load_task_contracts  # noqa: E402
 
 
-TASKS = ("annealed-properties-v1", "hot-rolled-properties-v1")
+TASKS = ("annealed-properties-v1", "hot-rolled-properties-v1", "flank-wear-v1")
 DEFAULT_SOURCE = Path("data/source/process_dashboard_realistic_excel_v2.xlsx")
+FLANK_WEAR_SOURCE = Path("data/source/cutting_tool_flank_wear_synthetic_dataset.xlsx")
+
+
+def _task_source(task_id: str, source: Path) -> Path:
+    if task_id == "flank-wear-v1" and source == DEFAULT_SOURCE:
+        return FLANK_WEAR_SOURCE
+    return source
+
+
+def _load_task_data(task_id: str, source: Path):
+    if task_id == "flank-wear-v1":
+        from material_workbench.flank_wear import load_flank_wear_data
+
+        return load_flank_wear_data(source)
+    return load_workbook_data(source)
 
 
 def _write_json(path: Path, payload: Any, *, replace: bool) -> None:
@@ -48,7 +63,8 @@ def _write_json(path: Path, payload: Any, *, replace: bool) -> None:
 
 
 def export_dataset(task_id: str, source: Path, output: Path, *, replace: bool) -> dict[str, Any]:
-    data = load_workbook_data(source)
+    source = _task_source(task_id, source)
+    data = _load_task_data(task_id, source)
     payload = canonical_training_dataset(task_id, data, load_task_contracts()[task_id])
     _write_json(output, payload, replace=replace)
     return {
@@ -61,18 +77,21 @@ def export_dataset(task_id: str, source: Path, output: Path, *, replace: bool) -
 def build_package(task_id: str, source: Path, output: Path, dataset_output: Path, *, replace: bool) -> dict[str, Any]:
     if output.exists() and not replace:
         raise FileExistsError(f"refusing to replace existing model package: {output}")
+    source = _task_source(task_id, source)
     dataset = export_dataset(task_id, source, dataset_output, replace=replace)
     if task_id == "annealed-properties-v1":
         from build_default_model_package import build
-    else:
+    elif task_id == "hot-rolled-properties-v1":
         from build_hot_rolling_model_package import build
+    else:
+        from build_flank_wear_model_package import build
     build(source, output, replace=replace)
     report = verify_model_package(output, task_id=task_id, source=source)
     return {"dataset": dataset, "package": report.model_dump()}
 
 
 def activate_package(task_id: str, package: Path, source: Path, config: Path) -> dict[str, Any]:
-    report = verify_model_package(package, task_id=task_id, source=source)
+    report = verify_model_package(package, task_id=task_id, source=_task_source(task_id, source))
     updated = set_active_package(task_id, package, config_path=config)
     selection = updated.tasks[task_id]
     return {
@@ -90,7 +109,7 @@ def rollback_package(task_id: str, source: Path, config: Path) -> dict[str, Any]
     if selection.previous is None:
         raise PackageContractError(f"no previous active package is recorded for task {task_id}")
     previous = (config.resolve().parent / selection.previous).resolve(strict=True)
-    report = verify_model_package(previous, task_id=task_id, source=source)
+    report = verify_model_package(previous, task_id=task_id, source=_task_source(task_id, source))
     updated = rollback_active_package(task_id, config_path=config)
     current = updated.tasks[task_id]
     return {
@@ -167,7 +186,7 @@ def main() -> int:
             dataset_output = arguments.dataset_output or Path("artifacts/model-data") / f"{arguments.task}.json"
             result = build_package(arguments.task, arguments.source, arguments.output, dataset_output, replace=arguments.replace)
         elif arguments.command == "verify":
-            result = verify_model_package(arguments.package, task_id=arguments.task, source=arguments.source).model_dump()
+            result = verify_model_package(arguments.package, task_id=arguments.task, source=_task_source(arguments.task, arguments.source)).model_dump()
         elif arguments.command == "activate":
             result = activate_package(arguments.task, arguments.package, arguments.source, arguments.config)
         elif arguments.command == "rollback":

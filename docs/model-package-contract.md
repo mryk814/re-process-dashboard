@@ -59,6 +59,7 @@
 | runtime type | 安全な資産 | 制約 |
 |---|---|---|
 | `builtin.linear.v1` | `.npz` | `weights/bias/lower_offset/upper_offset`のみ |
+| `builtin.exact_gp.v1` | `.npz`、`allow_pickle=False` | `exact_rbf_grouped_v1`の既知array schemaだけ。`predictive_family`は`normal`または`lognormal`（後者は`config.latent_transform=log1p`必須で、GPは`log(1+target)`空間、予測は単調変換で元単位へ戻す） |
 | `sklearn.skops.v1` | `.skops` | アプリ固定の`estimator_family` allow-list外を拒否。manifestによる型自己申告、custom transformerは禁止 |
 | `lightgbm.booster.v1` | LightGBM native text | sklearn wrapperのpickleは禁止 |
 | `gpytorch.static_exact_rbf.v1` | `.safetensors` | `exact_rbf_v1`の既知tensor schemaだけ |
@@ -97,6 +98,7 @@ TaskDefinitionは利用者が扱う入力group、field、output、単位、目�
 
 - `annealed-properties-v1`: TS / YS / EL / lambda
 - `hot-rolled-properties-v1`: TS
+- `flank-wear-v1`: VB_mean / VB_max（µm。切削距離は候補入力の1フィールドだが、意味的には摩耗曲線の横軸であり、応答曲線APIで曲線として提示する）
 
 Packageのpredictor targetは対応するTaskDefinitionのoutputに含まれなければならない。TaskDefinitionを変更して既存Packageの意味を暗黙に変えず、互換性のない変更はschema versionまたはtask idを更新する。
 

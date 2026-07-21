@@ -86,6 +86,12 @@ _UNIT_REGISTRY = {
     ("degC/s", "°C/s"): UnitConversion("degC/s", "°C/s"),
     ("-", "1"): UnitConversion("-", "1"),
     ("1", "1"): UnitConversion("1", "1"),
+    ("-", "-"): UnitConversion("-", "-"),
+    ("HV", "HV"): UnitConversion("HV", "HV"),
+    ("deg", "deg"): UnitConversion("deg", "deg"),
+    ("mm/rev", "mm/rev"): UnitConversion("mm/rev", "mm/rev"),
+    ("m", "m"): UnitConversion("m", "m"),
+    ("µm", "µm"): UnitConversion("µm", "µm"),
 }
 _HEADER_UNIT = re.compile(r"\[([^\[\]]+)\]\s*$")
 

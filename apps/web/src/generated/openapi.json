@@ -47,7 +47,9 @@
               "TS",
               "YS",
               "EL",
-              "lambda"
+              "lambda",
+              "VB_mean",
+              "VB_max"
             ],
             "title": "Property",
             "type": "string"
@@ -72,7 +74,8 @@
           "unit": {
             "enum": [
               "MPa",
-              "%"
+              "%",
+              "µm"
             ],
             "title": "Unit",
             "type": "string"
@@ -123,7 +126,9 @@
               "TS",
               "YS",
               "EL",
-              "lambda"
+              "lambda",
+              "VB_mean",
+              "VB_max"
             ],
             "title": "Property",
             "type": "string"
@@ -144,7 +149,8 @@
           "unit": {
             "enum": [
               "MPa",
-              "%"
+              "%",
+              "µm"
             ],
             "title": "Unit",
             "type": "string"
@@ -2500,7 +2506,8 @@
             "default": "annealed-properties-v1",
             "enum": [
               "annealed-properties-v1",
-              "hot-rolled-properties-v1"
+              "hot-rolled-properties-v1",
+              "flank-wear-v1"
             ],
             "title": "Task Id",
             "type": "string"
@@ -2589,7 +2596,8 @@
             "default": "annealed-properties-v1",
             "enum": [
               "annealed-properties-v1",
-              "hot-rolled-properties-v1"
+              "hot-rolled-properties-v1",
+              "flank-wear-v1"
             ],
             "title": "Task Id",
             "type": "string"
@@ -2725,7 +2733,8 @@
             "default": "annealed-properties-v1",
             "enum": [
               "annealed-properties-v1",
-              "hot-rolled-properties-v1"
+              "hot-rolled-properties-v1",
+              "flank-wear-v1"
             ],
             "title": "Task Id",
             "type": "string"

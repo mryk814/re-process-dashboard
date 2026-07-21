@@ -1,0 +1,85 @@
+{
+  "task_definition": {
+    "schema_version": "task-definition/v1",
+    "id": "flank-wear-v1",
+    "label": "逃げ面摩耗予測",
+    "canonical_candidate_schema_version": "canonical-candidate/v1",
+    "input_groups": [
+      {
+        "key": "process",
+        "order": 0,
+        "label": "切削条件・工具・材料特性",
+        "fields": [
+          {"path":"process.cutting_distance_m","kind":"number","order":0,"label":"切削距離（評価点）","unit":"m","required":true,"editable":true,"default_range":{"min":0,"max":10000},"allowed_range":{"min":0,"max":200000},"training_range":{"min":0,"max":10000}},
+          {"path":"process.cutting_speed_mpm","kind":"number","order":1,"label":"切削速度Vc","unit":"m/min","required":true,"editable":true,"default_range":{"min":30,"max":750},"allowed_range":{"min":1,"max":3000},"training_range":{"min":38.1,"max":732.1}},
+          {"path":"process.feed_mm_rev","kind":"number","order":2,"label":"送りf","unit":"mm/rev","required":true,"editable":true,"default_range":{"min":0.05,"max":0.35},"allowed_range":{"min":0.001,"max":5},"training_range":{"min":0.05,"max":0.337}},
+          {"path":"process.depth_of_cut_mm","kind":"number","order":3,"label":"切込みap","unit":"mm","required":true,"editable":true,"default_range":{"min":0.4,"max":3},"allowed_range":{"min":0.01,"max":20},"training_range":{"min":0.41,"max":2.98}},
+          {"path":"process.hardness_hv","kind":"number","order":4,"label":"被削材硬さ","unit":"HV","required":true,"editable":true,"default_range":{"min":80,"max":720},"allowed_range":{"min":1,"max":2000},"training_range":{"min":87.9,"max":701.2}},
+          {"path":"process.tensile_mpa","kind":"number","order":5,"label":"被削材引張強さ","unit":"MPa","required":true,"editable":true,"default_range":{"min":200,"max":2300},"allowed_range":{"min":1,"max":5000},"training_range":{"min":236.7,"max":2246.7}},
+          {"path":"process.wear_resistance_index","kind":"number","order":6,"label":"工具耐摩耗指数","unit":"-","required":true,"editable":true,"default_range":{"min":0.9,"max":2.1},"allowed_range":{"min":0.1,"max":10},"training_range":{"min":0.92,"max":2.05}},
+          {"path":"process.fracture_resistance_index","kind":"number","order":7,"label":"工具耐欠損指数","unit":"-","required":true,"editable":true,"default_range":{"min":0.5,"max":1.5},"allowed_range":{"min":0.1,"max":10},"training_range":{"min":0.55,"max":1.38}},
+          {"path":"process.nose_radius_mm","kind":"number","order":8,"label":"ノーズR","unit":"mm","required":true,"editable":true,"default_range":{"min":0.4,"max":1.2},"allowed_range":{"min":0.05,"max":5},"training_range":{"min":0.4,"max":1.2}},
+          {"path":"process.rake_angle_deg","kind":"number","order":9,"label":"すくい角","unit":"deg","required":true,"editable":true,"default_range":{"min":-8,"max":20},"allowed_range":{"min":-30,"max":45},"training_range":{"min":-8,"max":20}}
+        ]
+      },
+      {
+        "key": "composition",
+        "order": 1,
+        "label": "試作材成分",
+        "fields": [
+          {"path":"composition.C","kind":"number","order":0,"label":"C","unit":"%","required":true,"editable":true,"default_range":{"min":0,"max":1.5},"allowed_range":{"min":0,"max":100},"training_range":{"min":0,"max":1.37777}},
+          {"path":"composition.Si","kind":"number","order":1,"label":"Si","unit":"%","required":true,"editable":true,"default_range":{"min":0,"max":1.2},"allowed_range":{"min":0,"max":100},"training_range":{"min":0,"max":1.15835}},
+          {"path":"composition.Mn","kind":"number","order":2,"label":"Mn","unit":"%","required":true,"editable":true,"default_range":{"min":0,"max":1.8},"allowed_range":{"min":0,"max":100},"training_range":{"min":0,"max":1.76324}},
+          {"path":"composition.Cr","kind":"number","order":3,"label":"Cr","unit":"%","required":true,"editable":true,"default_range":{"min":0,"max":21},"allowed_range":{"min":0,"max":100},"training_range":{"min":0,"max":20.06816}},
+          {"path":"composition.Ni","kind":"number","order":4,"label":"Ni","unit":"%","required":true,"editable":true,"default_range":{"min":0,"max":62},"allowed_range":{"min":0,"max":100},"training_range":{"min":0,"max":61.8296}},
+          {"path":"composition.Mo","kind":"number","order":5,"label":"Mo","unit":"%","required":true,"editable":true,"default_range":{"min":0,"max":10},"allowed_range":{"min":0,"max":100},"training_range":{"min":0,"max":9.81756}},
+          {"path":"composition.V","kind":"number","order":6,"label":"V","unit":"%","required":true,"editable":true,"default_range":{"min":0,"max":5},"allowed_range":{"min":0,"max":100},"training_range":{"min":0,"max":4.63245}},
+          {"path":"composition.W","kind":"number","order":7,"label":"W","unit":"%","required":true,"editable":true,"default_range":{"min":0,"max":6},"allowed_range":{"min":0,"max":100},"training_range":{"min":0,"max":5.4326}},
+          {"path":"composition.Co","kind":"number","order":8,"label":"Co","unit":"%","required":true,"editable":true,"default_range":{"min":0,"max":10},"allowed_range":{"min":0,"max":100},"training_range":{"min":0,"max":9.18476}},
+          {"path":"composition.Ti","kind":"number","order":9,"label":"Ti","unit":"%","required":true,"editable":true,"default_range":{"min":0,"max":90},"allowed_range":{"min":0,"max":100},"training_range":{"min":0,"max":89.29991}},
+          {"path":"composition.Al","kind":"number","order":10,"label":"Al","unit":"%","required":true,"editable":true,"default_range":{"min":0,"max":92},"allowed_range":{"min":0,"max":100},"training_range":{"min":0,"max":91.62746}},
+          {"path":"composition.Cu","kind":"number","order":11,"label":"Cu","unit":"%","required":true,"editable":true,"default_range":{"min":0,"max":4.5},"allowed_range":{"min":0,"max":100},"training_range":{"min":0,"max":4.30946}}
+        ]
+      },
+      {
+        "key": "categorical",
+        "order": 2,
+        "label": "工具・切削の区分",
+        "fields": [
+          {"path":"categorical.coating_method","kind":"categorical","order":0,"label":"コーティング成膜方式","required":true,"editable":true,"choices":["なし","CVD","PVD"]},
+          {"path":"categorical.coolant_method","kind":"categorical","order":1,"label":"クーラント方式","required":true,"editable":true,"choices":["ドライ","エアブロー","MQL","外部給油","高圧クーラント"]},
+          {"path":"categorical.cutting_mode","kind":"categorical","order":2,"label":"切削モード","required":true,"editable":true,"choices":["連続","断続"]},
+          {"path":"categorical.holder_rigidity","kind":"categorical","order":3,"label":"ホルダ剛性","required":true,"editable":true,"choices":["低剛性","標準","高剛性"]}
+        ]
+      }
+    ],
+    "outputs": [
+      {"key":"VB_mean","label":"VB平均","unit":"µm","goal_direction":"at_most"},
+      {"key":"VB_max","label":"VB最大","unit":"µm","goal_direction":"at_most"}
+    ],
+    "fixed_context": [
+      {"path":"context.machining_method","order":0,"label":"加工方式","value":"外径旋削"}
+    ],
+    "constraints": []
+  },
+  "canonical_candidate": {
+    "schema_version": "canonical-candidate/v1",
+    "task_id": "flank-wear-v1",
+    "composition": {"C":0.1,"Si":0.3,"Mn":0.75,"Cr":0.2,"Ni":0.1,"Mo":0.05,"V":0,"W":0,"Co":0,"Ti":0,"Al":0.03,"Cu":0},
+    "process": {"cutting_distance_m":1000,"cutting_speed_mpm":200,"feed_mm_rev":0.2,"depth_of_cut_mm":1.5,"hardness_hv":180,"tensile_mpa":520,"wear_resistance_index":1.2,"fracture_resistance_index":1.0,"nose_radius_mm":0.8,"rake_angle_deg":6},
+    "heat_pattern": null,
+    "categorical": {"coating_method":"CVD","coolant_method":"外部給油","cutting_mode":"連続","holder_rigidity":"標準"},
+    "provenance": {"source_kind":"direct","source_ref":null}
+  },
+  "runtime_capability": {
+    "schema_version": "runtime-capability/v1",
+    "task_id": "flank-wear-v1",
+    "model_package_schema_version": "model-package/v1",
+    "targets": [
+      {"target":"VB_mean","point_statistics":["median"],"standard_deviation":true,"quantiles":true,"samples":false,"parametric_distribution":true,"uncertainty_components":true,"support":true,"warnings":true,"goal_probability":"distribution"},
+      {"target":"VB_max","point_statistics":["median"],"standard_deviation":true,"quantiles":true,"samples":false,"parametric_distribution":true,"uncertainty_components":true,"support":true,"warnings":true,"goal_probability":"distribution"}
+    ],
+    "joint_samples": false,
+    "operations": {"preview":true,"detailed_prediction":true,"response_curve":true,"similarity":true,"snapshot":true,"actual_measurement":true}
+  }
+}

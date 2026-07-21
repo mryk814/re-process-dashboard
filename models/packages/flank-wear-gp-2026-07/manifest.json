@@ -1,0 +1,242 @@
+{
+  "schema_version": "model-package/v1",
+  "package_id": "flank-wear-gp-2026-07",
+  "package_version": "0.1.0",
+  "task_id": "flank-wear-v1",
+  "input_schema_version": "flank-wear-candidate-v1",
+  "input_contract_digest": "sha256:015eb3e564a27a1a12d4f66ce26ab6858d91756ac05e3e6923248a2bda49b11f",
+  "runtime_capability_digest": "sha256:5e45a559bfcab8ac9bf632b70141d25e1ec4d11db68496a37e9b728dd1e69285",
+  "feature_pipeline": {
+    "id": "cutting-flank-wear",
+    "version": "1.0.0",
+    "spec": "feature-pipeline/pipeline.json",
+    "canonical_input_paths": [
+      "process.cutting_distance_m",
+      "process.cutting_speed_mpm",
+      "process.feed_mm_rev",
+      "process.depth_of_cut_mm",
+      "process.hardness_hv",
+      "process.tensile_mpa",
+      "process.wear_resistance_index",
+      "process.fracture_resistance_index",
+      "process.nose_radius_mm",
+      "process.rake_angle_deg",
+      "composition.C",
+      "composition.Si",
+      "composition.Mn",
+      "composition.Cr",
+      "composition.Ni",
+      "composition.Mo",
+      "composition.V",
+      "composition.W",
+      "composition.Co",
+      "composition.Ti",
+      "composition.Al",
+      "composition.Cu",
+      "categorical.coating_method",
+      "categorical.coolant_method",
+      "categorical.cutting_mode",
+      "categorical.holder_rigidity"
+    ],
+    "output_features": [
+      "C",
+      "Si",
+      "Mn",
+      "Cr",
+      "Ni",
+      "Mo",
+      "V",
+      "W",
+      "Co",
+      "Ti",
+      "Al",
+      "Cu",
+      "hardness_hv",
+      "tensile_mpa",
+      "wear_resistance_index",
+      "fracture_resistance_index",
+      "nose_radius_mm",
+      "rake_angle_deg",
+      "coating_cvd",
+      "coating_pvd",
+      "cutting_speed_mpm",
+      "log_cutting_speed",
+      "feed_mm_rev",
+      "depth_of_cut_mm",
+      "coolant_dry",
+      "coolant_air_blow",
+      "coolant_mql",
+      "coolant_flood",
+      "coolant_high_pressure",
+      "interrupted_cut",
+      "holder_rigidity_ord",
+      "log_cutting_distance",
+      "speed_distance",
+      "hardness_distance",
+      "wear_index_distance"
+    ],
+    "artifacts": [
+      "reference/training_stats.json"
+    ]
+  },
+  "predictors": [
+    {
+      "id": "vb_mean-gp",
+      "target": "VB_mean",
+      "unit": "µm",
+      "target_kind": "continuous_positive",
+      "runtime_type": "builtin.exact_gp.v1",
+      "architecture_id": "exact_rbf_grouped_v1",
+      "artifact": "model-artifacts/VB_mean.npz",
+      "predictive_family": "lognormal",
+      "feature_names": [
+        "C",
+        "Si",
+        "Mn",
+        "Cr",
+        "Ni",
+        "Mo",
+        "V",
+        "W",
+        "Co",
+        "Ti",
+        "Al",
+        "Cu",
+        "hardness_hv",
+        "tensile_mpa",
+        "wear_resistance_index",
+        "fracture_resistance_index",
+        "nose_radius_mm",
+        "rake_angle_deg",
+        "coating_cvd",
+        "coating_pvd",
+        "cutting_speed_mpm",
+        "log_cutting_speed",
+        "feed_mm_rev",
+        "depth_of_cut_mm",
+        "coolant_dry",
+        "coolant_air_blow",
+        "coolant_mql",
+        "coolant_flood",
+        "coolant_high_pressure",
+        "interrupted_cut",
+        "holder_rigidity_ord",
+        "log_cutting_distance",
+        "speed_distance",
+        "hardness_distance",
+        "wear_index_distance"
+      ],
+      "config": {
+        "latent_transform": "log1p",
+        "training_unit": "wear_measurement_row",
+        "rows_per_run_limit": 4,
+        "estimand_context": {
+          "machining_method": "外径旋削"
+        }
+      }
+    },
+    {
+      "id": "vb_max-gp",
+      "target": "VB_max",
+      "unit": "µm",
+      "target_kind": "continuous_positive",
+      "runtime_type": "builtin.exact_gp.v1",
+      "architecture_id": "exact_rbf_grouped_v1",
+      "artifact": "model-artifacts/VB_max.npz",
+      "predictive_family": "lognormal",
+      "feature_names": [
+        "C",
+        "Si",
+        "Mn",
+        "Cr",
+        "Ni",
+        "Mo",
+        "V",
+        "W",
+        "Co",
+        "Ti",
+        "Al",
+        "Cu",
+        "hardness_hv",
+        "tensile_mpa",
+        "wear_resistance_index",
+        "fracture_resistance_index",
+        "nose_radius_mm",
+        "rake_angle_deg",
+        "coating_cvd",
+        "coating_pvd",
+        "cutting_speed_mpm",
+        "log_cutting_speed",
+        "feed_mm_rev",
+        "depth_of_cut_mm",
+        "coolant_dry",
+        "coolant_air_blow",
+        "coolant_mql",
+        "coolant_flood",
+        "coolant_high_pressure",
+        "interrupted_cut",
+        "holder_rigidity_ord",
+        "log_cutting_distance",
+        "speed_distance",
+        "hardness_distance",
+        "wear_index_distance"
+      ],
+      "config": {
+        "latent_transform": "log1p",
+        "training_unit": "wear_measurement_row",
+        "rows_per_run_limit": 4,
+        "estimand_context": {
+          "machining_method": "外径旋削"
+        }
+      }
+    }
+  ],
+  "provenance": {
+    "training_data_id": "sha256:0641464e069d30e1284ffabde648d5ba4db86f100df00ed41bc414606e7f4144",
+    "feature_dataset_id": "sha256:8845ae053fa1a95e478941041f3a20a3ce887291b17eab5a5da2955a3dcad193",
+    "training_code_revision": "0.1.0-log1p-gp",
+    "dataset_profile_id": "sha256:60f56574bf8d994268f3e955697f1b11c958e4f6703ad370b685e131bd9f4242"
+  },
+  "artifacts": [
+    {
+      "path": "feature-pipeline/pipeline.json",
+      "sha256": "ef567b39234e4b699ebe5084daa4e706cfc5d8bf4b7626d4092e0b06e68f45b9",
+      "bytes": 5371
+    },
+    {
+      "path": "model-artifacts/VB_mean.npz",
+      "sha256": "6c4d8687813ca879991cf47aac8763ec15464b0b1346916650c93f6e4fd8468c",
+      "bytes": 4363980
+    },
+    {
+      "path": "model-artifacts/VB_max.npz",
+      "sha256": "e2cd111790df5fe647dda94b8eb2529237b7e0cdeb05a9e44844561f13fca87f",
+      "bytes": 4363980
+    },
+    {
+      "path": "reference/training_stats.json",
+      "sha256": "5cb2f4034a47e967d14b234feaacbc4f3e5edaf1bbb725ecf46a5f65f5d84c2c",
+      "bytes": 412
+    },
+    {
+      "path": "reports/quality-report.json",
+      "sha256": "3cb476e4256e13d58437f28b7083e247f0458884242496d20219799f3843cbe2",
+      "bytes": 487
+    },
+    {
+      "path": "smoke/input.json",
+      "sha256": "695dfb9a8bd848afb3f3456a47ebc29d8159ce26d03c6f06839a32cd3f7cd1e8",
+      "bytes": 915
+    },
+    {
+      "path": "smoke/expected.json",
+      "sha256": "c58a82fb8688a3c0d7f7d5eb0504483ab76abaf6ff92262a72689e1f98c7ecaa",
+      "bytes": 37
+    }
+  ],
+  "smoke_test": {
+    "input": "smoke/input.json",
+    "expected": "smoke/expected.json"
+  },
+  "quality_report": "reports/quality-report.json"
+}

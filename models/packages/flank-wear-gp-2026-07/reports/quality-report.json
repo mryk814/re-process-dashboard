@@ -1,0 +1,20 @@
+{
+  "schema_version": "model-quality-report/v1",
+  "split": "leave-one-parent-condition-out",
+  "targets": [
+    {
+      "target": "VB_mean",
+      "parent_conditions": 180,
+      "mae": 20.328978311124555,
+      "rmse": 54.02307326969542,
+      "interval_coverage_90": 0.8680555555555556
+    },
+    {
+      "target": "VB_max",
+      "parent_conditions": 180,
+      "mae": 25.830227734397614,
+      "rmse": 67.73766902292728,
+      "interval_coverage_90": 0.8902777777777777
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "name": "flank wear package smoke",
+  "inputs": {
+    "composition": {
+      "C": 0.08511,
+      "Si": 0.39105,
+      "Mn": 1.23445,
+      "Cr": 0.23292,
+      "Ni": 0.08071,
+      "Mo": 0.08449,
+      "V": 0.0,
+      "W": 0.0,
+      "Co": 0.0,
+      "Ti": 0.0,
+      "Al": 0.02042,
+      "Cu": 0.0
+    },
+    "process": {
+      "cutting_distance_m": 0.0,
+      "cutting_speed_mpm": 218.4,
+      "feed_mm_rev": 0.251,
+      "depth_of_cut_mm": 1.52,
+      "hardness_hv": 181.0,
+      "tensile_mpa": 518.0,
+      "wear_resistance_index": 1.42,
+      "fracture_resistance_index": 0.98,
+      "nose_radius_mm": 0.8,
+      "rake_angle_deg": 7.0
+    },
+    "categorical": {
+      "coating_method": "PVD",
+      "coolant_method": "MQL",
+      "cutting_mode": "連続",
+      "holder_rigidity": "低剛性"
+    },
+    "heat_pattern": null
+  },
+  "provenance": {
+    "source_kind": "direct",
+    "source_ref": null
+  }
+}
