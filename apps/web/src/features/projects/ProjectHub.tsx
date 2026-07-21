@@ -20,6 +20,7 @@ type Props = {
   currentPreviews: Record<string, ApiPreview>;
   requestedSnapshotId?: string;
   onProjectChanged: (project: ApiProject) => void;
+  onProjectDeleted: (projectId: string) => Promise<boolean>;
   onSwitch: (projectId: string) => void;
   onRestore: (candidate: CandidateViewModel) => void;
   onNavigate: (view: "candidates" | "lineage" | "explore" | "settings", candidateId?: string) => void;
@@ -38,6 +39,7 @@ export function ProjectHub({
   currentPreviews,
   requestedSnapshotId,
   onProjectChanged,
+  onProjectDeleted,
   onSwitch,
   onRestore,
   onNavigate,
@@ -50,6 +52,8 @@ export function ProjectHub({
   const [selectedSnapshot, setSelectedSnapshot] = useState<ApiSnapshot | null>(null);
   const [error, setError] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [createMode, setCreateMode] = useState<"empty" | "copy">("empty");
   const [newProjectName, setNewProjectName] = useState("");
@@ -68,6 +72,7 @@ export function ProjectHub({
     const selected = projects.find((item) => item.id === activeProjectId) ?? null;
     setProject(selected);
     setError("");
+    setDeleteOpen(false);
     setDecisionNote("");
     decisionDraftRef.current = { key: "", dirty: false };
   }, [projects, activeProjectId]);
@@ -213,6 +218,16 @@ export function ProjectHub({
     setNewTaskId(project?.task_id ?? catalog[0]?.definition.task_definition.id ?? "");
   };
 
+  const canDeleteProject = project != null && !["default", "hot-rolling-default"].includes(project.id);
+
+  async function deleteCurrentProject() {
+    if (!project || !canDeleteProject || deleting) return;
+    setDeleting(true);
+    const deleted = await onProjectDeleted(project.id);
+    setDeleting(false);
+    if (deleted) setDeleteOpen(false);
+  }
+
   return (
     <div className="page-panel project-hub">
       <aside className="project-list-panel" aria-label="プロジェクト一覧">
@@ -245,9 +260,15 @@ export function ProjectHub({
           </div>
           <div className="project-actions">
             <button className="outline-button" onClick={() => setSettingsOpen((value) => !value)}>設定を編集</button>
+            {canDeleteProject && <button className="danger-outline-button" onClick={() => setDeleteOpen((value) => !value)}>プロジェクトを削除</button>}
           </div>
         </div>
       {error && <p className="panel-error" role="alert">{error}</p>}
+
+      {deleteOpen && project && <section className="project-delete-panel" aria-label="プロジェクト削除の確認">
+        <div><strong>「{project.name}」を削除しますか？</strong><p>候補・予測履歴・実測データもまとめて削除され、元に戻せません。</p></div>
+        <div className="project-delete-actions"><button className="danger-button" disabled={deleting} onClick={() => void deleteCurrentProject()}>{deleting ? "削除中…" : "削除する"}</button><button className="outline-button" disabled={deleting} onClick={() => setDeleteOpen(false)}>キャンセル</button></div>
+      </section>}
 
       {createOpen && <section className="project-create-panel" aria-label="新規プロジェクトの開始方法">
         <div className="panel-title"><h3>新しいプロジェクト</h3><span>開始方法を選んでから作成します</span></div>

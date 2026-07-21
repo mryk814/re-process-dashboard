@@ -30,6 +30,16 @@ _REQUIRED_TECHNICAL_FIELDS = {
     ("anneal_features", "process_signature"),
     ("anneal_features", "unmapped_stage_count"),
 }
+_KNOWN_OPTIONAL_TECHNICAL_FIELDS = _REQUIRED_TECHNICAL_FIELDS | {
+    ("anneal_history", "parent_key"),
+    ("anneal_history", "order"),
+    ("anneal_history", "time_s"),
+    ("anneal_history", "temperature_c"),
+    ("anneal_history", "set_temperature_c"),
+    ("anneal_history", "stage_category"),
+    ("anneal_history", "stage_name"),
+    ("anneal_history", "mapping_status"),
+}
 _REQUIRED_POLICIES = {
     ("hot_rolling", "learning_flag/v1"),
     ("annealing", "learning_flag/v1"),
@@ -78,6 +88,15 @@ _UNIT_REGISTRY = {
     ("1", "1"): UnitConversion("1", "1"),
 }
 _HEADER_UNIT = re.compile(r"\[([^\[\]]+)\]\s*$")
+
+
+def _header_unit(column: str) -> str | None:
+    match = _HEADER_UNIT.search(column)
+    if match:
+        return match.group(1)
+    if column.endswith("%") and len(column) > 1:
+        return "%"
+    return None
 
 
 def unit_conversion(source: str | None, canonical: str | None) -> UnitConversion | None:
@@ -184,7 +203,10 @@ class SharedProfile(ProfileModel):
     entities: tuple[EntityMapping, ...]
     relation: RelationMapping
     eligibility: tuple[PolicyColumnMapping, ...]
+    policy_defaults: Mapping[str, bool] = {}
     technical: tuple[TechnicalColumnMapping, ...]
+    optional_roles: tuple[str, ...] = ()
+    optional_technical_fields: tuple[str, ...] = ()
     metadata_columns: tuple[str, ...]
     physical_ranges: Mapping[str, Mapping[str, tuple[float, float]]]
 
@@ -234,10 +256,22 @@ def load_dataset_profile(
 ) -> DatasetInputProfile:
     profile_path = Path(path) if path else Path(__file__).with_name("dataset-input-profile-v1.json")
     try:
-        raw = json.loads(profile_path.read_text(encoding="utf-8"))
+        raw = _load_profile_document(profile_path)
         if raw.get("schema_version") != PROFILE_SCHEMA_VERSION:
             raise DatasetProfileError([f"unsupported profile schema_version: {raw.get('schema_version')!r}"])
-        definitions = dict(task_definitions or load_task_definitions())
+        all_definitions = dict(task_definitions or load_task_definitions())
+        selected_task_ids = raw.get("task_definition_ids")
+        if selected_task_ids is None:
+            definitions = all_definitions
+        else:
+            if not isinstance(selected_task_ids, list) or not all(isinstance(item, str) for item in selected_task_ids):
+                raise DatasetProfileError(["task_definition_ids must be a list of strings"])
+            if len(selected_task_ids) != len(set(selected_task_ids)):
+                raise DatasetProfileError(["task_definition_ids must be unique"])
+            unknown_task_ids = sorted(set(selected_task_ids) - set(all_definitions))
+            if unknown_task_ids:
+                raise DatasetProfileError(["task_definition_ids reference unknown tasks: " + ", ".join(unknown_task_ids)])
+            definitions = {task_id: all_definitions[task_id] for task_id in selected_task_ids}
         tasks = {}
         for task_id, value in raw.get("tasks", {}).items():
             if "task_id" in value:
@@ -245,7 +279,7 @@ def load_dataset_profile(
                     [f"{task_id}: nested task_id is forbidden; the tasks object key is authoritative"]
                 )
             tasks[task_id] = TaskProfile.model_validate({**value, "task_id": task_id})
-        unexpected = set(raw) - {"schema_version", "id", "shared", "tasks"}
+        unexpected = set(raw) - {"schema_version", "id", "extends", "task_definition_ids", "shared", "tasks"}
         if unexpected:
             raise DatasetProfileError([f"unknown profile fields: {', '.join(sorted(unexpected))}"])
         profile = DatasetInputProfile(
@@ -257,6 +291,37 @@ def load_dataset_profile(
         raise DatasetProfileError([f"invalid dataset profile {profile_path}: {exc}"]) from exc
     validate_profile(profile, definitions)
     return profile
+
+
+def _deep_merge_profile(base: Any, override: Any) -> Any:
+    """Merge profile documents while treating arrays as explicit replacements."""
+    if isinstance(base, dict) and isinstance(override, dict):
+        merged = dict(base)
+        for key, value in override.items():
+            merged[key] = _deep_merge_profile(merged[key], value) if key in merged else value
+        return merged
+    return override
+
+
+def _load_profile_document(path: Path, seen: tuple[Path, ...] = ()) -> dict[str, Any]:
+    resolved = path.resolve()
+    if resolved in seen:
+        chain = " -> ".join(str(item) for item in (*seen, resolved))
+        raise DatasetProfileError([f"dataset profile inheritance cycle: {chain}"])
+    try:
+        raw = json.loads(resolved.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        raise DatasetProfileError([f"invalid dataset profile {resolved}: {exc}"]) from exc
+    if not isinstance(raw, dict):
+        raise DatasetProfileError([f"dataset profile {resolved} must contain a JSON object"])
+    extends = raw.get("extends")
+    if not extends:
+        return raw
+    if not isinstance(extends, str) or not extends.strip():
+        raise DatasetProfileError([f"dataset profile {resolved} has an invalid extends value"])
+    base_path = (resolved.parent / extends).resolve()
+    child = {key: value for key, value in raw.items() if key != "extends"}
+    return _deep_merge_profile(_load_profile_document(base_path, (*seen, resolved)), child)
 
 
 def validate_profile(profile: DatasetInputProfile, task_definitions: Mapping[str, Any] | None = None) -> None:
@@ -311,13 +376,27 @@ def validate_profile(profile: DatasetInputProfile, task_definitions: Mapping[str
     policy_keys = [(item.role, item.policy) for item in profile.shared.eligibility]
     if len(policy_keys) != len(set(policy_keys)):
         errors.append("eligibility role/policy pairs must be unique")
-    missing_technical = _REQUIRED_TECHNICAL_FIELDS - set(technical_keys)
+    optional_technical = {
+        tuple(value.split(".", 1))
+        for value in profile.shared.optional_technical_fields
+        if "." in value
+    }
+    missing_technical = _REQUIRED_TECHNICAL_FIELDS - optional_technical - set(technical_keys)
+    missing_technical = {
+        item for item in missing_technical
+        if item[0] not in profile.shared.optional_roles
+    }
     if missing_technical:
         errors.append(
             "legacy canonical adapter is missing technical mappings: "
             + ", ".join(f"{role}.{name}" for role, name in sorted(missing_technical))
         )
-    missing_policies = _REQUIRED_POLICIES - set(policy_keys)
+    default_policy_keys = {
+        tuple(value.split(".", 1))
+        for value in profile.shared.policy_defaults
+        if "." in value
+    }
+    missing_policies = _REQUIRED_POLICIES - set(policy_keys) - default_policy_keys
     if missing_policies:
         errors.append(
             "legacy canonical adapter is missing eligibility mappings: "
@@ -325,8 +404,18 @@ def validate_profile(profile: DatasetInputProfile, task_definitions: Mapping[str
         )
     if len(profile.shared.metadata_columns) != len(set(profile.shared.metadata_columns)):
         errors.append("shared metadata columns must be unique")
+    unknown_defaults = set(profile.shared.policy_defaults) - {
+        f"{role}.{policy}" for role, policy in _REQUIRED_POLICIES
+    }
+    if unknown_defaults:
+        errors.append("policy_defaults reference unknown policies: " + ", ".join(sorted(unknown_defaults)))
+    unknown_optional_fields = set(profile.shared.optional_technical_fields) - {
+        f"{role}.{name}" for role, name in _KNOWN_OPTIONAL_TECHNICAL_FIELDS
+    }
+    if unknown_optional_fields:
+        errors.append("optional_technical_fields reference unknown fields: " + ", ".join(sorted(unknown_optional_fields)))
     for role in [profile.shared.relation.role, *(item.role for item in profile.shared.eligibility), *(item.role for item in profile.shared.technical)]:
-        if role not in sheets:
+        if role not in sheets and role not in profile.shared.optional_roles:
             errors.append(f"shared mapping references unknown role {role!r}")
     missing_tasks = set((task_definitions or profile.task_definitions)) - set(profile.tasks)
     for task_id in sorted(missing_tasks):
@@ -569,8 +658,7 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
             if mapping.kind == "ordered_heat_series" and mapping.series_columns and sheet_name in workbook.sheetnames:
                 columns = mapping.series_columns
                 for column, declared_unit in ((columns.time, columns.time_source_unit), (columns.value, columns.value_source_unit)):
-                    match = _HEADER_UNIT.search(column)
-                    header_unit = match.group(1) if match else None
+                    header_unit = _header_unit(column)
                     if header_unit != declared_unit:
                         errors.append(
                             f"{task_id}: ordered series column {column!r} declares {header_unit!r}, expected {declared_unit!r}"
@@ -609,8 +697,7 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
             headers = _headers(workbook[sheet_name])
             if mapping.column not in headers:
                 continue
-            header_match = _HEADER_UNIT.search(mapping.column)
-            header_unit = header_match.group(1) if header_match else None
+            header_unit = _header_unit(mapping.column)
             if mapping.source_unit is not None and header_unit != mapping.source_unit:
                 errors.append(
                     f"{task_id}: source unit mismatch for {mapping.path!r}: "
@@ -645,8 +732,7 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
             for target in (*observation.targets, *observation.auxiliary):
                 if target.column not in headers:
                     continue
-                match = _HEADER_UNIT.search(target.column)
-                source_unit = match.group(1) if match else None
+                source_unit = _header_unit(target.column)
                 if unit_conversion(source_unit, target.unit) is None:
                     errors.append(
                         f"{task_id}: observation unit mismatch for {target.key!r}: "
@@ -743,6 +829,9 @@ class CanonicalDataset:
     def policy_allows(self, row: Mapping[str, Any], role: str, policy: str) -> bool:
         matches = [item for item in self.profile.shared.eligibility if item.role == role and item.policy == policy]
         if len(matches) != 1:
+            default_key = f"{role}.{policy}"
+            if not matches and default_key in self.profile.shared.policy_defaults:
+                return bool(self.profile.shared.policy_defaults[default_key])
             raise DatasetProfileError([f"eligibility policy {role}.{policy} must have exactly one mapping"])
         return str(row.get(matches[0].column) or "") in matches[0].accepted_values
 

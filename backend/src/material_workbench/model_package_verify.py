@@ -47,8 +47,8 @@ def verify_model_package(
         raise ModelPackageVerificationError(
             f"task_id mismatch: expected {task_id}, package declares {package.manifest.task_id}"
         )
-    quality = validate_lifecycle_metadata(package, contracts[task_id])
     data = load_workbook_data(source)
+    quality = validate_lifecycle_metadata(package, contracts[task_id], profile_path=Path(data.profile_path))
     validate_training_provenance(package, data, contracts[task_id])
 
     if task_id == "annealed-properties-v1":

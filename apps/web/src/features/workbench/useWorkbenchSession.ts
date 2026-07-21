@@ -373,6 +373,23 @@ export function useWorkbenchSession({
     }
   }
 
+  async function deleteProject(projectId: string): Promise<boolean> {
+    try {
+      await workbenchApi.deleteProject(projectId);
+      const remaining = projects.filter((project) => project.id !== projectId);
+      setProjects(remaining);
+      if (projectId === activeProjectIdRef.current) {
+        const nextProject = remaining[0];
+        if (nextProject) await loadProject(nextProject.id);
+      }
+      setNotice("プロジェクトを削除しました");
+      return true;
+    } catch (cause) {
+      setNotice(cause instanceof Error ? cause.message : "プロジェクトを削除できませんでした");
+      return false;
+    }
+  }
+
   function acceptCandidate(candidate: CandidateViewModel) {
     setCandidates((items) => items.some((item) => item.id === candidate.id) ? items : [...items, candidate]);
     setSelectedId(candidate.id);
@@ -454,6 +471,7 @@ export function useWorkbenchSession({
     copyCandidate,
     createStarterCandidate,
     deleteCandidate,
+    deleteProject,
     deleteHeatPoint,
     editor,
     loadError,

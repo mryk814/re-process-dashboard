@@ -5,6 +5,12 @@
 .project-form select { display: block; width: 100%; margin-top: 5px; border: 1px solid #cbd6e2; border-radius: 4px; padding: 8px; }
 .project-form textarea { min-height: 80px; }
 .project-hub .project-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.danger-outline-button, .danger-button { min-height: 39px; border-radius: 4px; padding: 8px 15px; font-size: 15px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; }
+.danger-outline-button { border: 1px solid #d69a9a; background: #fff; color: #a33b3b; }
+.danger-outline-button:hover { border-color: #b94a4a; background: #fff7f7; }
+.danger-button { border: 1px solid #b33d3d; background: #b33d3d; color: #fff; }
+.danger-button:hover { background: #8f2f2f; }
+.danger-button:disabled, .danger-outline-button:disabled { cursor: not-allowed; opacity: .55; }
 .project-hub .project-actions label { font-size: 12px; font-weight: 700; }
 .project-hub .project-actions select { margin-left: 6px; min-width: 180px; height: 36px; border: 1px solid #cbd6e2; border-radius: 4px; }
 .target-grid { border: 1px solid #d8e0ea; border-radius: 4px; display: grid; grid-template-columns: repeat(4, minmax(100px, 1fr)); gap: 10px; padding: 12px; }
@@ -26,6 +32,9 @@
 .project-hub-content { min-width: 0; display: grid; gap: 18px; padding: 22px; }
 .project-hub-header { align-items: flex-start; }
 .project-create-panel, .project-settings-panel, .project-next-actions, .project-history-section, .project-model-summary, .project-snapshot-detail { border: 1px solid #d8e0ea; border-radius: 6px; background: #fff; padding: 14px; }
+.project-delete-panel { display: flex; align-items: center; justify-content: space-between; gap: 14px; border: 1px solid #e2aaaa; border-radius: 6px; background: #fff8f8; padding: 12px 14px; color: #6f2c2c; }
+.project-delete-panel p { margin: 4px 0 0; color: #8b5252; font-size: 12px; }
+.project-delete-actions { display: flex; flex: 0 0 auto; gap: 8px; }
 .project-create-panel { display: grid; gap: 12px; }
 .project-create-panel > label { display: grid; gap: 5px; max-width: 520px; color: #526276; font-size: 12px; }
 .project-start-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -67,6 +76,8 @@
   .project-hub-content { padding: 16px; }
   .project-action-grid, .project-start-options { grid-template-columns: 1fr; }
   .project-history-card > header, .project-hub .project-empty-state { align-items: stretch; flex-direction: column; }
+  .project-delete-panel { align-items: stretch; flex-direction: column; }
+  .project-delete-actions { flex-wrap: wrap; }
 }
 @media (max-width: 760px) {
   .target-grid { grid-template-columns: 1fr; }

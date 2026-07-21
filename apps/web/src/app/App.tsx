@@ -194,6 +194,7 @@ function App() {
             onProjectChanged={(project) => {
               void session.refreshProjectDefinition(project);
             }}
+            onProjectDeleted={(projectId) => session.deleteProject(projectId)}
             onSwitch={(projectId) => {
               navigate({ view: "project", projectId }, true);
               void session.loadProject(projectId);

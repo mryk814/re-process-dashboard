@@ -64,9 +64,24 @@ npm run api:check     # schema・生成型のdrift検出
 
 ## データ
 
-`data/source/process_dashboard_realistic_excel_v2.xlsx` を読取専用の正本として扱います。初回起動時に工程、観測、系譜、データ品質を構築します。元Excelは変更しません。
+`data/source/` のExcelは読取専用の正本として扱います。現在は v2 (`process_dashboard_realistic_excel_v2.xlsx`) と、別命名・生履歴入力の v3 (`process_dashboard_realistic_excel_v3.xlsx`) を併存させています。起動時にsheet構成から対応するDataset Input Profileを選び、工程、観測、系譜、データ品質を構築します。元Excelは変更しません。
 
 Excelの外部sheet・列とアプリ内部の意味の対応はDataset Input Profileで一元管理します。契約とデータ差替え手順は `docs/dataset-input-profile.md` を参照してください。
+
+新しいsourceを追加したときは、まず次でprofile選択・列契約・単位・観測親・適格性・件数を確認します。
+
+```powershell
+uv run python backend/scripts/verify_dataset_source.py data/source/process_dashboard_realistic_excel_v3.xlsx --json
+```
+
+v3用のPackageを既存v2 Packageへ上書きせずに作る例です。Packageはsource digestとprofile digestに結び付くため、sourceを替えたら必ず再生成します。
+
+```powershell
+uv run python backend/scripts/build_default_model_package.py --source data/source/process_dashboard_realistic_excel_v3.xlsx --output output/v3-model-packages/annealed-gp-2026-07 --replace
+uv run python backend/scripts/build_hot_rolling_model_package.py --source data/source/process_dashboard_realistic_excel_v3.xlsx --output output/v3-model-packages/hot-rolled-gp-2026-07 --replace
+```
+
+一時Packageでv3を起動確認する場合は、上記2つの絶対パスを `MATERIAL_WORKBENCH_MODEL_PACKAGE` / `MATERIAL_WORKBENCH_HOT_ROLLING_MODEL_PACKAGE` に指定します。新しい説明変数・目的変数を追加する手順は [Dataset Input Profile](docs/dataset-input-profile.md) の「Adding genuinely new data」を参照してください。
 
 候補・プロジェクト・予測スナップショット・実測値は `data/workbench.db` に保存します。候補一覧は画面からXLSXで入出力でき、ヒートパターンも往復保持されます。
 
