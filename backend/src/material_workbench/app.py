@@ -182,9 +182,14 @@ def create_app(
     )
     # Electron loads the packaged renderer from file://, which browsers serialize as Origin: null.
     # The local sidecar only listens on loopback, and credentials are not accepted.
+    configured_cors_origins = [
+        origin.strip()
+        for origin in os.getenv("WORKBENCH_CORS_ORIGINS", "").split(",")
+        if origin.strip()
+    ]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["null"],
+        allow_origins=["null", *configured_cors_origins],
         allow_origin_regex=r"^http://(127\.0\.0\.1|localhost):\d+$",
         allow_methods=["*"],
         allow_headers=["*"],

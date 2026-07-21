@@ -36,7 +36,13 @@ test("inference runs only for changed candidates and visible selected curves", a
     expect(response.status).toBe(200);
     expect(response.body).toEqual(expect.objectContaining({ canonical_input: expect.any(Object), predictions: expect.any(Object) }));
   }
-  expect(curveRequests).toBe(0);
+  const initialSelectedCandidateId = new URL(page.url()).searchParams.get("candidate");
+  expect(initialSelectedCandidateId).toBeTruthy();
+  await expect(page.locator(".response-curves-panel")).toHaveAttribute("data-candidate-id", initialSelectedCandidateId!);
+  await expect(page.locator(".response-curve-card")).toHaveCount(4);
+  await expect(page.locator(".response-curves-panel")).toHaveAttribute("data-candidate-count", "3");
+  await expect(page.locator(".response-curves-panel .candidate-color-legend span")).toHaveCount(3);
+  await expect.poll(() => curveRequests).toBeGreaterThanOrEqual(12);
   expect(similarityRequests).toBe(0);
 
   const candidateRows = page.locator(".candidate-name-table tbody tr");
@@ -61,16 +67,13 @@ test("inference runs only for changed candidates and visible selected curves", a
   await expect(candidateRows.nth(1)).toHaveClass(/selected-row/);
   await expect(page.getByRole("heading", { name: /予測特性/ })).toContainText(selectedCandidateLabel);
   expect(previewRequests).toBe(3);
-  expect(curveRequests).toBe(0);
-
-  await page.getByRole("button", { name: "選択候補の応答曲線を表示" }).click();
   await expect(page.locator(".response-curves-panel")).toHaveAttribute("data-candidate-id", selectedCandidateId!);
-  await expect.poll(() => curveRequests).toBe(1);
-  await expect.poll(() => inferenceResponses.filter((item) => item.kind === "curve").length).toBe(1);
-  const firstCurve = inferenceResponses.find((item) => item.kind === "curve");
+  await expect.poll(() => curveRequests).toBeGreaterThanOrEqual(2);
+  await expect.poll(() => inferenceResponses.filter((item) => item.kind === "curve").length).toBeGreaterThanOrEqual(2);
+  const firstCurve = inferenceResponses.find((item) => item.kind === "curve" && item.candidateId === selectedCandidateId);
   expect(firstCurve).toEqual(expect.objectContaining({ candidateId: selectedCandidateId, status: 200 }));
   expect(firstCurve?.body).toEqual(expect.objectContaining({ target: expect.any(String), points: expect.any(Array), point_count: 9 }));
-  await expect(page.locator(".curve-scope")).toContainText(selectedCandidateLabel);
+  await expect(page.locator(".response-curves-panel .candidate-color-legend .selected")).toContainText(selectedCandidateLabel);
   await expect(page.getByRole("heading", { name: /予測特性/ })).toContainText(selectedCandidateLabel);
 
   let releasePreview = () => undefined;
@@ -89,12 +92,13 @@ test("inference runs only for changed candidates and visible selected curves", a
   const createdCandidateId = new URL(page.url()).searchParams.get("candidate");
   expect(createdCandidateId).toBeTruthy();
   const createdCandidateLabel = await page.locator(".candidate-name-table tbody tr.selected-row input").inputValue();
+  const curvesBeforeCreatedPreview = curveRequests;
   await page.waitForTimeout(500);
-  expect(curveRequests).toBe(1);
+  expect(curveRequests).toBe(curvesBeforeCreatedPreview);
 
   releasePreview();
   await expect.poll(() => previewRequests).toBe(4);
-  await expect.poll(() => curveRequests).toBe(2);
+  await expect.poll(() => curveRequests).toBe(curvesBeforeCreatedPreview + 4);
   await expect.poll(() => inferenceResponses.some((item) => item.kind === "preview" && item.candidateId === createdCandidateId)).toBe(true);
   await expect.poll(() => inferenceResponses.some((item) => item.kind === "curve" && item.candidateId === createdCandidateId)).toBe(true);
   const createdPreview = inferenceResponses.find((item) => item.kind === "preview" && item.candidateId === createdCandidateId);
@@ -104,34 +108,8 @@ test("inference runs only for changed candidates and visible selected curves", a
   expect(createdCurve).toEqual(expect.objectContaining({ status: 200 }));
   expect(createdCurve?.body).toEqual(expect.objectContaining({ target: expect.any(String), points: expect.any(Array), point_count: 9 }));
   await expect(page.locator(".response-curves-panel")).toHaveAttribute("data-candidate-id", createdCandidateId!);
-  await expect(page.locator(".curve-scope")).toContainText(createdCandidateLabel);
+  await expect(page.locator(".response-curves-panel .candidate-color-legend .selected")).toContainText(createdCandidateLabel);
   await expect(page.getByRole("heading", { name: /予測特性/ })).toContainText(createdCandidateLabel);
-
-  let releaseAbortedCurve = () => undefined;
-  const abortedCurveGate = new Promise<void>((resolve) => { releaseAbortedCurve = resolve; });
-  let abortedCurveStarted = false;
-  await page.route("**/response-curve*", async (route) => {
-    abortedCurveStarted = true;
-    await abortedCurveGate;
-    try {
-      await route.continue();
-    } catch {
-      // Closing the panel aborts the browser request before this route is released.
-    }
-  });
-  const curveVariable = page.getByRole("combobox", { name: "応答曲線の設計変数" });
-  if (await curveVariable.locator("option").count() > 1) {
-    await curveVariable.selectOption({ index: 1 });
-    await expect.poll(() => abortedCurveStarted).toBe(true);
-    await page.getByRole("button", { name: "応答曲線を閉じる" }).click();
-    releaseAbortedCurve();
-    await expect.poll(() => failedInferenceRequests.filter((path) => path.endsWith("/response-curve")).length).toBeGreaterThan(0);
-  } else {
-    releaseAbortedCurve();
-    await page.getByRole("button", { name: "応答曲線を閉じる" }).click();
-  }
-  await page.unroute("**/response-curve*");
-  const curvesAfterPanelClose = curveRequests;
 
   const selectedNumeric = page.locator(".comparison-detail-table tbody tr.selected-row input[type=number]").first();
   const currentValue = Number(await selectedNumeric.inputValue());
@@ -140,7 +118,6 @@ test("inference runs only for changed candidates and visible selected curves", a
   await page.locator(".table-heading h2").click();
   await saveInput;
   await expect.poll(() => previewRequests).toBe(5);
-  expect(curveRequests).toBe(curvesAfterPanelClose);
 
   await page.unroute("**/preview*");
   let releasePendingPreview = () => undefined;

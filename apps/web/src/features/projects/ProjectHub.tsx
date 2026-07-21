@@ -207,20 +207,46 @@ export function ProjectHub({
     setProject({ ...project, target_values: next });
   };
 
+  const toggleCreateProject = () => {
+    setCreateOpen((value) => !value);
+    setNewProjectName(`新しい検討 ${projects.length + 1}`);
+    setNewTaskId(project?.task_id ?? catalog[0]?.definition.task_definition.id ?? "");
+  };
+
   return (
     <div className="page-panel project-hub">
-      <div className="page-intro project-hub-header">
-        <div>
-          <span className="overline">PROJECT OVERVIEW</span>
-          <h2>{project?.name ?? "プロジェクト"}</h2>
-          <p>{project?.purpose || project?.description || "検討の入口、候補比較、判断時点の記録をここからたどれます。"}</p>
+      <aside className="project-list-panel" aria-label="プロジェクト一覧">
+        <div className="project-list-heading">
+          <div><span className="overline">WORKSPACES</span><h2>プロジェクト</h2></div>
+          <small>{projects.length}件</small>
         </div>
-        <div className="project-actions">
-          <label>表示中<select value={activeProjectId} onChange={(event) => onSwitch(event.target.value)}>{projects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-          <button className="outline-button" onClick={() => { setCreateOpen((value) => !value); setNewProjectName(`新しい検討 ${projects.length + 1}`); setNewTaskId(project?.task_id ?? catalog[0]?.definition.task_definition.id ?? ""); }}>新規プロジェクト</button>
-          <button className="outline-button" onClick={() => setSettingsOpen((value) => !value)}>設定を編集</button>
+        <div className="project-list-items">
+          {projects.map((item) => (
+            <button
+              type="button"
+              key={item.id}
+              className={item.id === activeProjectId ? "project-list-item active" : "project-list-item"}
+              aria-current={item.id === activeProjectId ? "page" : undefined}
+              onClick={() => onSwitch(item.id)}
+            >
+              <strong>{item.name}</strong>
+              <small>{item.task_id === "hot-rolled-properties-v1" ? "熱延条件" : "焼鈍条件"}</small>
+            </button>
+          ))}
         </div>
-      </div>
+        <button type="button" className="outline-button project-list-create" onClick={toggleCreateProject}>＋ 新規プロジェクト</button>
+      </aside>
+      <div className="project-hub-content">
+        <div className="page-intro project-hub-header">
+          <div>
+            <span className="overline">PROJECT OVERVIEW</span>
+            <h2>{project?.name ?? "プロジェクト"}</h2>
+            <p>{project?.purpose || project?.description || "検討の入口、候補比較、判断時点の記録をここからたどれます。"}</p>
+          </div>
+          <div className="project-actions">
+            <button className="outline-button" onClick={() => setSettingsOpen((value) => !value)}>設定を編集</button>
+          </div>
+        </div>
       {error && <p className="panel-error" role="alert">{error}</p>}
 
       {createOpen && <section className="project-create-panel" aria-label="新規プロジェクトの開始方法">
@@ -287,6 +313,7 @@ export function ProjectHub({
       </section>}
 
       {!Object.keys(targetValues).length && <div className="project-empty-inline"><span>目標値が未設定です。設定すると候補の目標達成率を比較できます。</span><button className="outline-button" onClick={() => setSettingsOpen(true)}>目標値を設定</button></div>}
+      </div>
     </div>
   );
 }

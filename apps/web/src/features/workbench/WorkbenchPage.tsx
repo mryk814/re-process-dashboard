@@ -29,6 +29,7 @@ import {
   rejectInferenceSurface,
   requestInferenceSurface,
   resolveInferenceSurface,
+  type InferenceSurfaceState,
   type InferenceSurfaceStatus,
 } from "./inferenceSurfaceState";
 
@@ -151,7 +152,6 @@ type WorkbenchProps = {
 };
 
 export function WorkbenchPage(props: WorkbenchProps) {
-  const [curvesVisible, setCurvesVisible] = useState(false);
   const {
     candidates,
     projectId,
@@ -239,25 +239,17 @@ export function WorkbenchPage(props: WorkbenchProps) {
           onName={(id, value) => onText(id, "label", value)}
         />}
         {operations?.response_curve ? (
-          <section className="response-curves-disclosure">
-            <button
-              type="button"
-              className="outline-button"
-              aria-expanded={curvesVisible}
-              onClick={() => setCurvesVisible((visible) => !visible)}
-            >
-              {curvesVisible ? "応答曲線を閉じる" : "選択候補の応答曲線を表示"}
-            </button>
-            {curvesVisible && <LiveResponseCurves
-              projectId={projectId}
-              candidate={selected}
-              preview={preview}
-              targetValues={targetValues}
-              taskDefinition={taskDefinition}
-              available
-              ready={["idle", "saved"].includes(saveState)}
-            />}
-          </section>
+          <LiveResponseCurves
+            projectId={projectId}
+            candidates={candidates}
+            candidate={selected}
+            preview={preview}
+            previewsByCandidate={previewsByCandidate}
+            targetValues={targetValues}
+            taskDefinition={taskDefinition}
+            available
+            ready={["idle", "saved"].includes(saveState)}
+          />
         ) : <UnavailablePanel title="応答曲線" />}
         {operations?.actual_measurement ? <ActualsPanel projectId={projectId} candidate={selected} outputs={taskDefinition?.outputs ?? []} enabled={["idle", "saved"].includes(saveState)} /> : <UnavailablePanel title="予測と実測" />}
       </section>
@@ -765,16 +757,20 @@ function HeatPattern({
 
 function LiveResponseCurves({
   projectId,
+  candidates,
   candidate,
   preview,
+  previewsByCandidate,
   targetValues,
   taskDefinition,
   available,
   ready,
 }: {
   projectId: string;
+  candidates: Candidate[];
   candidate: Candidate;
   preview: ApiPreview | null;
+  previewsByCandidate: Record<string, ApiPreview>;
   targetValues: Record<string, number>;
   taskDefinition: TaskDefinitionContract | null;
   available: boolean;
@@ -801,73 +797,92 @@ function LiveResponseCurves({
     ]),
   ];
   const [variableId, setVariableId] = useState(variables[0]?.id ?? "heat.peak_temperature_c");
-  const [targetKey, setTargetKey] = useState(outputs[0]?.key ?? "");
-  const [surface, setSurface] = useState(() => emptyInferenceSurface<ApiResponseCurve>());
-  const surfaceRef = useRef(surface);
-  const inputIdentity = candidateInputIdentity(candidate.raw.inputs);
-  const curveScope = `${projectId}\u001f${candidate.id}\u001f${targetKey}\u001f${variableId}`;
-  const currentRequestIdentity = taskDefinition
-    ? `${curveScope}\u001f${workbenchRequestKey({ projectId, taskId: taskDefinition.id, candidateId: candidate.id, candidateRevision: candidate.raw.revision }, "response_curve:9")}\u001f${inputIdentity}`
-    : "";
-  useEffect(() => {
-    const empty = emptyInferenceSurface<ApiResponseCurve>();
-    surfaceRef.current = empty;
-    setSurface(empty);
-  }, [candidate.id]);
+  const [surfacesByKey, setSurfacesByKey] = useState<Record<string, InferenceSurfaceState<ApiResponseCurve>>>({});
+  const surfaceRef = useRef(surfacesByKey);
+  surfaceRef.current = surfacesByKey;
+  const curveCandidates = candidates.filter((item) => !item.raw.archived_at && previewsByCandidate[item.id]);
+  const curveCandidatesKey = curveCandidates.map((item) => `${item.id}:${item.raw.revision}:${candidateInputIdentity(item.raw.inputs)}`).join("\u001e");
+  const outputKeys = outputs.map((output) => output.key).join("\u001e");
   useEffect(() => {
     if (variables.length && !variables.some((variable) => variable.id === variableId)) setVariableId(variables[0].id);
-  }, [candidate.id, variableId, variables.length]);
+  }, [variableId, variables.length]);
   useEffect(() => {
-    if (outputs.length && !outputs.some((output) => output.key === targetKey)) setTargetKey(outputs[0].key);
-  }, [outputs.length, targetKey]);
-  useEffect(() => {
+    if (!available || !ready || !taskDefinition || !curveCandidates.length || !outputs.length) return;
     const controller = new AbortController();
-    if (!available || !ready || !preview || !taskDefinition || !inputIdentity || !targetKey) return;
-    const identity = currentRequestIdentity;
-    const requested = requestInferenceSurface(surfaceRef.current, identity);
-    surfaceRef.current = requested;
-    setSurface(requested);
-    const timer = window.setTimeout(async () => {
-      try {
-        const loaded = await workbenchApi.responseCurve(projectId, candidate.id, candidate.raw.revision, inputIdentity, targetKey, variableId, 9, controller.signal);
-        if (controller.signal.aborted) return;
-        const resolved = resolveInferenceSurface(surfaceRef.current, requested.requestSequence, identity, loaded);
-        surfaceRef.current = resolved;
-        setSurface(resolved);
-      } catch (cause) {
-        if (controller.signal.aborted) return;
-        const rejected = rejectInferenceSurface(surfaceRef.current, requested.requestSequence, identity, cause);
-        surfaceRef.current = rejected;
-        setSurface(rejected);
+    const timers: number[] = [];
+    for (const item of curveCandidates) {
+      const inputIdentity = candidateInputIdentity(item.raw.inputs);
+      for (const output of outputs) {
+        const storageKey = `${item.id}\u001f${output.key}\u001f${variableId}\u001f${inputIdentity}`;
+        const identity = `${workbenchRequestKey({ projectId, taskId: taskDefinition.id, candidateId: item.id, candidateRevision: item.raw.revision }, "response_curve:9")}\u001f${inputIdentity}\u001f${output.key}\u001f${variableId}`;
+        const existing = surfaceRef.current[storageKey];
+        if (existing?.currentIdentity === identity) continue;
+        const requested = requestInferenceSurface(existing ?? emptyInferenceSurface<ApiResponseCurve>(), identity);
+        const requestedSurfaces = { ...surfaceRef.current, [storageKey]: requested };
+        surfaceRef.current = requestedSurfaces;
+        setSurfacesByKey(requestedSurfaces);
+        const timer = window.setTimeout(async () => {
+          try {
+            const loaded = await workbenchApi.responseCurve(projectId, item.id, item.raw.revision, inputIdentity, output.key, variableId, 9, controller.signal);
+            if (controller.signal.aborted) return;
+            const current = surfaceRef.current[storageKey] ?? requested;
+            const resolved = resolveInferenceSurface(current, requested.requestSequence, identity, loaded);
+            const next = { ...surfaceRef.current, [storageKey]: resolved };
+            surfaceRef.current = next;
+            setSurfacesByKey(next);
+          } catch (cause) {
+            if (controller.signal.aborted) return;
+            const current = surfaceRef.current[storageKey] ?? requested;
+            const rejected = rejectInferenceSurface(current, requested.requestSequence, identity, cause);
+            const next = { ...surfaceRef.current, [storageKey]: rejected };
+            surfaceRef.current = next;
+            setSurfacesByKey(next);
+          }
+        }, 320);
+        timers.push(timer);
       }
-    }, 320);
-    return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [available, ready, candidate.id, candidate.raw.revision, currentRequestIdentity, inputIdentity, preview, projectId, targetKey, taskDefinition?.id, variableId]);
-  const activePayload = surface.currentIdentity?.startsWith(`${curveScope}\u001f`) ? surface.data : null;
-  const status = inferenceSurfaceStatus(surface);
-  const selectedOutput = outputs.find((output) => output.key === targetKey);
+    }
+    return () => { timers.forEach((timer) => window.clearTimeout(timer)); controller.abort(); };
+  }, [available, ready, curveCandidatesKey, outputKeys, projectId, taskDefinition?.id, variableId]);
+  const selectedVariable = variables.find((variable) => variable.id === variableId) ?? variables[0];
+  const curveStates = curveCandidates.flatMap((item) => outputs.map((output) => {
+    const inputIdentity = candidateInputIdentity(item.raw.inputs);
+    const storageKey = `${item.id}\u001f${output.key}\u001f${variableId}\u001f${inputIdentity}`;
+    return surfacesByKey[storageKey];
+  }));
+  const loadedCurveCount = curveStates.filter((state) => state?.data !== null && state?.data !== undefined).length;
+  const curveStatus = curveStates.some((state) => state?.error) ? "error" : curveStates.some((state) => state?.pending) || loadedCurveCount < curveStates.length ? "refreshing" : "latest";
   if (!available) return <UnavailablePanel title="応答曲線" />;
-  if (!preview) return <section className="response-curves-panel"><div className="panel-title"><h2>応答曲線</h2></div><p className="empty-evidence">候補の保存とプレビュー完了後に表示します。</p></section>;
+  if (!preview && !curveCandidates.length) return <section className="response-curves-panel"><div className="panel-title"><h2>応答曲線</h2></div><p className="empty-evidence">候補の保存とプレビュー完了後に表示します。</p></section>;
   return (
-    <section className="response-curves-panel" aria-label="設計変数ごとの応答曲線" data-candidate-id={candidate.id}>
+    <section className="response-curves-panel" aria-label="設計変数ごとの応答曲線" data-candidate-id={candidate.id} data-candidate-count={curveCandidates.length}>
       <div className="panel-title">
         <div className="response-curves-title-group">
-          <h2>応答曲線 <span>（選択した設計変数を動かしたときの特性）</span></h2>
-          <span className="curve-scope">{candidate.label}のみ</span>
-          <span className={`inference-surface-status ${status}`}>{status === "latest" ? "最新" : status === "refreshing" ? "更新中" : status === "stale" ? "条件変更前・更新中" : "更新失敗・旧結果"}</span>
+          <h2>応答曲線 <span>（選択した変数を動かしたときの特性）</span></h2>
+          <span className="curve-scope">{curveCandidates.length}候補 × {outputs.length}特性</span>
+          <span className={`inference-surface-status ${curveStatus}`}>{curveStatus === "latest" ? "最新" : curveStatus === "refreshing" ? `${loadedCurveCount}/${curveStates.length}件を更新中` : "一部取得失敗"}</span>
+          <div className="candidate-color-legend" aria-label="応答曲線の候補色">
+            {curveCandidates.map((item) => <span className={item.id === candidate.id ? "selected" : ""} key={item.id}><i style={{ background: candidateColor(item.id, candidate.id) }} />{item.label}</span>)}
+          </div>
         </div>
-        <label>特性 <select aria-label="応答曲線の予測特性" value={targetKey} onChange={(event) => setTargetKey(event.target.value)}>{outputs.map((output) => <option key={output.key} value={output.key}>{output.label}</option>)}</select></label>
         <label>変数 <select aria-label="応答曲線の設計変数" value={variableId} onChange={(event) => setVariableId(event.target.value)}>{variables.map((variable) => <option key={variable.id} value={variable.id}>{variable.label} ({variable.unit})</option>)}</select></label>
       </div>
-      {!ready ? <p className="empty-evidence">入力を保存後に更新します。</p> : status === "error" && !activePayload ? <p className="empty-evidence">応答曲線を取得できません。</p> : (
-        <div className="response-curves-grid">
-          {selectedOutput && (() => {
-            const points = activePayload?.points ?? [];
-            const series = points.length && activePayload
-              ? [{ candidate, points, prediction: preview?.predictions?.[selectedOutput.key], currentX: activePayload.variable.current }]
-              : [];
-            return <ResponseCurveMiniChart key={selectedOutput.key} output={selectedOutput} series={series} selectedId={candidate.id} prediction={preview?.predictions?.[selectedOutput.key]} goalValue={targetValues[selectedOutput.key]} xRange={activePayload ? { min: activePayload.variable.min, max: activePayload.variable.max } : undefined} yRange={activePayload?.output_range ?? undefined} xLabel={activePayload?.variable.label ?? "設計変数"} xUnit={activePayload?.variable.unit ?? ""} />;
-          })()}
+      {!ready ? <p className="empty-evidence">入力を保存後に更新します。</p> : curveStatus === "error" && loadedCurveCount === 0 ? <p className="empty-evidence">応答曲線を取得できません。</p> : (
+        <div className={`response-curves-grid output-count-${Math.min(outputs.length, 4)}`}>
+          {outputs.map((output) => {
+            const curveSeries = curveCandidates.flatMap((item) => {
+              const inputIdentity = candidateInputIdentity(item.raw.inputs);
+              const storageKey = `${item.id}\u001f${output.key}\u001f${variableId}\u001f${inputIdentity}`;
+              const payload = surfacesByKey[storageKey]?.data;
+              if (!payload?.points.length) return [];
+              return [{ candidate: item, points: payload.points, prediction: previewsByCandidate[item.id]?.predictions?.[output.key], currentX: payload.variable.current }];
+            });
+            const firstPayload = curveCandidates.map((item) => {
+              const inputIdentity = candidateInputIdentity(item.raw.inputs);
+              return surfacesByKey[`${item.id}\u001f${output.key}\u001f${variableId}\u001f${inputIdentity}`]?.data;
+            }).find((payload): payload is ApiResponseCurve => Boolean(payload));
+            return <ResponseCurveMiniChart key={output.key} output={output} series={curveSeries} selectedId={candidate.id} prediction={previewsByCandidate[candidate.id]?.predictions?.[output.key] ?? preview?.predictions?.[output.key]} goalValue={targetValues[output.key]} xRange={firstPayload?.variable ? { min: firstPayload.variable.min, max: firstPayload.variable.max } : selectedVariable ? { min: selectedVariable.min, max: selectedVariable.max } : undefined} yRange={firstPayload?.output_range ?? undefined} xLabel={firstPayload?.variable.label ?? selectedVariable?.label ?? "設計変数"} xUnit={firstPayload?.variable.unit ?? selectedVariable?.unit ?? ""} />;
+          })}
         </div>
       )}
     </section>

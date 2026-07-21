@@ -10,7 +10,20 @@
 .target-grid { border: 1px solid #d8e0ea; border-radius: 4px; display: grid; grid-template-columns: repeat(4, minmax(100px, 1fr)); gap: 10px; padding: 12px; }
 .target-grid legend { font-size: 13px; font-weight: 700; padding: 0 6px; }
 .project-form label small { display: block; color: #657386; font-weight: 400; margin-top: 4px; }
-.project-hub { display: grid; gap: 18px; }
+.project-hub { display: grid; grid-template-columns: 224px minmax(0, 1fr); gap: 0; max-width: none; padding: 0; overflow: hidden; }
+.project-list-panel { min-width: 0; align-self: stretch; border-right: 1px solid #d8e0ea; background: #f8fafc; padding: 16px 12px; }
+.project-list-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding: 0 4px 12px; border-bottom: 1px solid #d8e0ea; }
+.project-list-heading h2 { margin: 3px 0 0; color: #20344b; font-size: 16px; }
+.project-list-heading small { color: #7a8798; font-size: 11px; }
+.project-list-items { display: grid; gap: 5px; margin-top: 10px; }
+.project-list-item { display: grid; gap: 4px; width: 100%; border: 1px solid transparent; border-radius: 5px; background: transparent; padding: 10px 9px; color: #2b415a; text-align: left; }
+.project-list-item:hover { border-color: #c7d7e8; background: #fff; }
+.project-list-item.active { border-color: #8db5e4; background: #eaf2ff; color: #164f9f; box-shadow: inset 3px 0 #1f5fc4; }
+.project-list-item strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.project-list-item small { color: #718096; font-size: 10px; }
+.project-list-item.active small { color: #4773ab; }
+.project-list-create { width: 100%; margin-top: 12px; font-size: 12px; }
+.project-hub-content { min-width: 0; display: grid; gap: 18px; padding: 22px; }
 .project-hub-header { align-items: flex-start; }
 .project-create-panel, .project-settings-panel, .project-next-actions, .project-history-section, .project-model-summary, .project-snapshot-detail { border: 1px solid #d8e0ea; border-radius: 6px; background: #fff; padding: 14px; }
 .project-create-panel { display: grid; gap: 12px; }
@@ -46,6 +59,12 @@
 .snapshot-decision-form textarea { min-height: 58px; }
 
 @media (max-width: 900px) {
+  .project-hub { display: block; overflow: visible; }
+  .project-list-panel { border-right: 0; border-bottom: 1px solid #d8e0ea; }
+  .project-list-items { display: flex; overflow-x: auto; padding-bottom: 2px; }
+  .project-list-item { flex: 0 0 190px; }
+  .project-list-create { width: auto; }
+  .project-hub-content { padding: 16px; }
   .project-action-grid, .project-start-options { grid-template-columns: 1fr; }
   .project-history-card > header, .project-hub .project-empty-state { align-items: stretch; flex-direction: column; }
 }

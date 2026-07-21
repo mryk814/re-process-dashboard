@@ -93,6 +93,25 @@ select:focus-visible,
   justify-content: space-between;
   gap: 20px;
 }
+.context-heading { min-width: 0; }
+.context-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #7a8798;
+  font-size: 11px;
+  line-height: 1.2;
+}
+.context-breadcrumb-link {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: #1f5fc4;
+  font-size: inherit;
+  cursor: pointer;
+}
+.context-breadcrumb-link:hover { text-decoration: underline; }
+.context-breadcrumb strong { color: #526276; font-weight: 700; }
 .overline {
   display: block;
   color: #697789;
