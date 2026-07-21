@@ -1,14 +1,14 @@
 {
   "schema_version": "model-package/v1",
   "package_id": "hot-rolled-gp-2026-07",
-  "package_version": "0.4.0-lifecycle-v1",
+  "package_version": "0.5.0-input-contract-v2",
   "task_id": "hot-rolled-properties-v1",
-  "input_schema_version": "hot-rolling-candidate-v1",
-  "input_contract_digest": "sha256:e25da378a98589d537150b9e2d7dcec1184e7091bc5c2d5f9fd023fe201bdf99",
+  "input_schema_version": "hot-rolling-candidate-v2",
+  "input_contract_digest": "sha256:1a2fe24fcdd492d411f07f5aadd5bda4b75a001f3aa749ca233f7024f146be74",
   "runtime_capability_digest": "sha256:30027c98fad501501a2786922eb18ff5b27066d96205e42e0ceae8b4cb71b33c",
   "feature_pipeline": {
     "id": "metallurgy-hot-rolling",
-    "version": "1.2.0",
+    "version": "2.0.0",
     "spec": "feature-pipeline/pipeline.json",
     "canonical_input_paths": [
       "composition.C",
@@ -16,23 +16,21 @@
       "composition.Mn",
       "composition.P",
       "composition.S",
+      "composition.Al",
+      "composition.Cu",
+      "composition.Ni",
       "composition.Cr",
       "composition.Mo",
-      "composition.Ni",
-      "composition.Al",
       "composition.Ti",
       "composition.B",
-      "composition.N",
       "composition.O",
-      "composition.Ca",
-      "process.reheat_temperature_c",
-      "process.hold_time_min",
+      "composition.N",
+      "process.soaking_temperature_c",
       "process.finish_temperature_c",
-      "process.coiling_temperature_c",
-      "process.cooling_rate_c_s",
       "process.entry_thickness_mm",
       "process.exit_thickness_mm",
-      "categorical.route"
+      "process.hold_temperature_c",
+      "process.hold_time_min"
     ],
     "output_features": [
       "C",
@@ -40,30 +38,26 @@
       "Mn",
       "P",
       "S",
+      "Al",
+      "Cu",
+      "Ni",
       "Cr",
       "Mo",
-      "Ni",
-      "Al",
       "Ti",
       "B",
-      "N",
       "O",
-      "Ca",
+      "N",
       "ce_iiw",
       "pcm",
       "c_times_mn",
       "si_plus_al",
       "cr_plus_mo",
-      "reheat_temperature_c",
-      "hold_time_min",
+      "soaking_temperature_c",
       "finish_temperature_c",
-      "coiling_temperature_c",
-      "cooling_rate_c_s",
       "entry_thickness_mm",
       "exit_thickness_mm",
-      "route_A",
-      "route_B",
-      "route_C"
+      "hold_temperature_c",
+      "hold_time_min"
     ],
     "artifacts": [
       "reference/training_stats.json"
@@ -85,30 +79,26 @@
         "Mn",
         "P",
         "S",
+        "Al",
+        "Cu",
+        "Ni",
         "Cr",
         "Mo",
-        "Ni",
-        "Al",
         "Ti",
         "B",
-        "N",
         "O",
-        "Ca",
+        "N",
         "ce_iiw",
         "pcm",
         "c_times_mn",
         "si_plus_al",
         "cr_plus_mo",
-        "reheat_temperature_c",
-        "hold_time_min",
+        "soaking_temperature_c",
         "finish_temperature_c",
-        "coiling_temperature_c",
-        "cooling_rate_c_s",
         "entry_thickness_mm",
         "exit_thickness_mm",
-        "route_A",
-        "route_B",
-        "route_C"
+        "hold_temperature_c",
+        "hold_time_min"
       ],
       "config": {
         "training_unit": "parent_condition_mean",
@@ -120,41 +110,41 @@
     }
   ],
   "provenance": {
-    "training_data_id": "sha256:f5b75d4a2e29c0e85f24fe2325b4c610e23ba6ce65ba3b5c53c097a68ca60c55",
-    "feature_dataset_id": "sha256:e32eb02094dfb4ae45f977ab4109885cbde1cee8b4d3edb346ed11ea860db982",
-    "training_code_revision": "0.4.0-lifecycle-v1",
-    "dataset_profile_id": "sha256:ee5a40b6aaa863f9578a63d66f655b83f46bfa9f3e9e18cfb8c6bef261d717ec"
+    "training_data_id": "sha256:d8197cc77ee5ffaef0a5ed75446acaaae56d5fab5b6b625383c99750b4fb57a5",
+    "feature_dataset_id": "sha256:dcc2f6a664474a11a7888c64d5344450e24f203250fdf2eede301d891cca7cf7",
+    "training_code_revision": "0.5.0-input-contract-v2",
+    "dataset_profile_id": "sha256:fc7a0b6f3db80b9a91a054a499291548b29a4a806f0b537a4f09e33f6cc5d890"
   },
   "artifacts": [
     {
       "path": "feature-pipeline/pipeline.json",
-      "sha256": "fe0455de69db93a8921e4a659444c51540aeae1dc848fa23356b2c30899ae4aa",
-      "bytes": 4339
+      "sha256": "79ac24295826e86c85c13187276f60d904070c5fc57ccd50c1cec962afcf7a78",
+      "bytes": 3711
     },
     {
       "path": "model-artifacts/TS.npz",
-      "sha256": "4aaffaa03c2364eada0818fc6daf5386002e8a469b4547bde76f88d34449bf7f",
-      "bytes": 282844
+      "sha256": "91172a36e1963d90cdfe968d5800e7f9e92870458e5b118c921864755558624c",
+      "bytes": 277244
     },
     {
       "path": "reference/training_stats.json",
-      "sha256": "e05085cf9298f90f59b6fd0efcd1b6000c2219f31774d9cdd3118703e2023b63",
-      "bytes": 411
+      "sha256": "8bfb3af249915834a58dedce1d5f3a5f28eb19221f06d84bc11be63fa292d33e",
+      "bytes": 407
     },
     {
       "path": "reports/quality-report.json",
-      "sha256": "aa6f26d48c3155aba764099446d5a3c6407f4ad37d697de94039c44fafbf2c42",
-      "bytes": 296
+      "sha256": "ea200f80456e98963987f07abbc4e07c4ce7463fdb874613c03d837d5382a99e",
+      "bytes": 294
     },
     {
       "path": "smoke/input.json",
-      "sha256": "5f34051662a453683d35d15c7170665a10c8423fe1eeff2ed09327a1c67a99bc",
-      "bytes": 792
+      "sha256": "0ea0f65490fea644cfe3f957eca9ff35112fd9343abbfa1800b2d8fa158ef594",
+      "bytes": 729
     },
     {
       "path": "smoke/expected.json",
-      "sha256": "60cf1cbcbc6708317233812541276dfd7a80ab2aacae5ec74bb16d2cfdcd0a10",
-      "bytes": 24
+      "sha256": "fa2ba7502ed55995f8e0237f69edbeb4dc72c67851a2ca450b6e39cdbcba5fd1",
+      "bytes": 23
     }
   ],
   "smoke_test": {

@@ -2,7 +2,7 @@ from copy import deepcopy
 
 from material_workbench.schemas import CandidateInput
 
-ELEMENTS = ("C", "Si", "Mn", "P", "S", "Cr", "Mo", "Ni", "Al", "Ti", "B", "N", "O", "Ca")
+ELEMENTS = ("C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N")
 
 
 def _payload(name: str = "試験候補") -> dict:
@@ -10,8 +10,8 @@ def _payload(name: str = "試験候補") -> dict:
         "name": name,
         "inputs": {
             "composition": {**{key: 0.0 for key in ELEMENTS}, "C": 0.08, "Si": 0.3, "Mn": 1.5},
-            "process": {"thickness_mm": 1.4, "line_speed_m_min": 103.0},
-            "categorical": {"coating": "GI"},
+            "process": {"ls_mpm": 103.0},
+            "categorical": {},
             "heat_pattern": [
                 {"time_s": 0, "temperature_c": 25},
                 {"time_s": 280, "temperature_c": 800},
@@ -67,7 +67,7 @@ def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
     assert definition["id"] == "annealed-properties-v1"
     composition = next(group for group in definition["input_groups"] if group["key"] == "composition")
     assert [item["path"].removeprefix("composition.") for item in composition["fields"]] == [
-        "C", "Si", "Mn", "P", "S", "Cr", "Mo", "Ni", "Al", "Ti", "B", "N", "O", "Ca",
+        "C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N",
     ]
     assert {item["key"] for item in definition["outputs"]} == {"TS", "YS", "EL", "lambda"}
     assert all(item["goal_direction"] == "at_least" for item in definition["outputs"])
@@ -86,7 +86,7 @@ def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
     assert first["model_meta"]["prediction_interval"]["method"] == "gaussian_process_predictive_distribution"
     assert first["model_meta"]["prediction_interval"]["grouping"] == "parent_key"
     assert all(prediction["uncertainty_components"] for prediction in first["predictions"].values())
-    assert first["canonical_input"]["input_schema_version"] == "candidate-v1"
+    assert first["canonical_input"]["input_schema_version"] == "candidate-v2"
     atomic_result = client.post(f"/api/projects/default/candidates/{candidate['id']}/predict", params={"expected_revision": candidate["revision"]}).json()
     detailed = atomic_result["prediction"]
     assert detailed["mode"] == "detailed"
@@ -113,7 +113,7 @@ def test_snapshot_is_immutable_after_candidate_edit(client) -> None:
     snapshot = client.post(f"/api/projects/default/candidates/{candidate['id']}/snapshots").json()
     original = deepcopy(snapshot["payload"])
     changed = _payload("編集後")
-    changed["inputs"]["process"]["line_speed_m_min"] = 145
+    changed["inputs"]["process"]["ls_mpm"] = 145
     assert client.put(f"/api/projects/default/candidates/{candidate['id']}", json={**changed, "expected_revision": candidate["revision"]}).status_code == 200
     stored = client.get(f"/api/projects/default/candidates/{candidate['id']}/snapshots").json()
     assert stored[0]["payload"] == original

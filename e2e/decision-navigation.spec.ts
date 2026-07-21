@@ -74,6 +74,6 @@ test("hot rolling remains a project task and uses task labels", async ({ page })
   await page.goto("/?view=candidates&project=hot-rolling-default");
   await expect(page.locator(".topbar nav")).not.toContainText("熱延");
   await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
-  await expect(page.getByText("加熱温度", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("均熱温度", { exact: true }).first()).toBeVisible();
   await expect(page.locator(".comparison-detail-table thead").getByText("引張強さ", { exact: false })).toBeVisible();
 });

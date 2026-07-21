@@ -8,10 +8,12 @@ from pathlib import Path
 from typing import Any
 
 from .candidate_migration import migrate_candidate_storage
+from .candidate_migration import HOT_PROJECT_ID
 from .schemas import ActualMeasurement, ActualMeasurementInput, Candidate, CandidateInput, Project, ProjectInput
 
 
 MAX_CANDIDATES_PER_PROJECT = 10
+PROTECTED_PROJECT_IDS = frozenset({"default", HOT_PROJECT_ID})
 
 
 class ProjectNotFoundError(LookupError):
@@ -27,6 +29,10 @@ class InvalidProjectDecisionError(ValueError):
 
 
 class CandidateCopyConflictError(ValueError):
+    pass
+
+
+class ProtectedProjectError(ValueError):
     pass
 
 
@@ -126,6 +132,26 @@ class Store:
             result = conn.execute("UPDATE projects SET name=?, description=?, purpose=?, task_id=?, target_values=?, input_ranges=?, notes=?, decision_candidate_id=?, decision_snapshot_id=?, decision_note=?, updated_at=? WHERE id=?", (payload.name, payload.description, payload.purpose, payload.task_id, json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True), json.dumps({key: value.model_dump() for key, value in payload.input_ranges.items()}, ensure_ascii=False, sort_keys=True), payload.notes, payload.decision_candidate_id, payload.decision_snapshot_id, payload.decision_note, now, project_id))
         return self.get_project(project_id) if result.rowcount else None
 
+    def delete_project(self, project_id: str) -> bool:
+        if project_id in PROTECTED_PROJECT_IDS:
+            raise ProtectedProjectError("予約プロジェクトは削除できません")
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            if conn.execute("SELECT 1 FROM projects WHERE id=?", (project_id,)).fetchone() is None:
+                return False
+            candidate_ids = [
+                row["id"]
+                for row in conn.execute("SELECT id FROM candidates WHERE project_id=?", (project_id,)).fetchall()
+            ]
+            if candidate_ids:
+                placeholders = ",".join("?" for _ in candidate_ids)
+                conn.execute(f"DELETE FROM actual_measurements WHERE candidate_id IN ({placeholders})", candidate_ids)
+                conn.execute(f"DELETE FROM snapshots WHERE candidate_id IN ({placeholders})", candidate_ids)
+            conn.execute("DELETE FROM candidates WHERE project_id=?", (project_id,))
+            conn.execute("DELETE FROM screening_runs WHERE project_id=?", (project_id,))
+            conn.execute("DELETE FROM projects WHERE id=?", (project_id,))
+            return True
+
     @staticmethod
     def _validate_decision(conn: sqlite3.Connection, project_id: str, candidate_id: str, snapshot_id: str) -> None:
         if not candidate_id:
@@ -195,7 +221,7 @@ class Store:
             except (TypeError, json.JSONDecodeError) as exc:
                 raise StoreDataIntegrityError(f"snapshot {row['id']} を読み取れません") from exc
             version = payload.get("snapshot_schema_version") if isinstance(payload, dict) else None
-            if version not in {"prediction-snapshot-v1", "prediction-snapshot-v2"}:
+            if version != "prediction-snapshot-v2":
                 raise StoreDataIntegrityError(f"snapshot {row['id']} の形式を解釈できません")
             raw_candidate = payload.get("raw_candidate")
             candidate_revision = raw_candidate.get("revision") if version == "prediction-snapshot-v2" and isinstance(raw_candidate, dict) else None

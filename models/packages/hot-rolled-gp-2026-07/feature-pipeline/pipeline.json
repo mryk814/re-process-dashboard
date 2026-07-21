@@ -1,204 +1,178 @@
 {
   "id": "metallurgy-hot-rolling",
-  "version": "1.2.0",
+  "version": "2.0.0",
   "canonical_input_paths": [
     "composition.C",
     "composition.Si",
     "composition.Mn",
     "composition.P",
     "composition.S",
+    "composition.Al",
+    "composition.Cu",
+    "composition.Ni",
     "composition.Cr",
     "composition.Mo",
-    "composition.Ni",
-    "composition.Al",
     "composition.Ti",
     "composition.B",
-    "composition.N",
     "composition.O",
-    "composition.Ca",
-    "process.reheat_temperature_c",
-    "process.hold_time_min",
+    "composition.N",
+    "process.soaking_temperature_c",
     "process.finish_temperature_c",
-    "process.coiling_temperature_c",
-    "process.cooling_rate_c_s",
     "process.entry_thickness_mm",
     "process.exit_thickness_mm",
-    "categorical.route"
+    "process.hold_temperature_c",
+    "process.hold_time_min"
   ],
   "features": [
     {
       "name": "C",
-      "unit": "mass%",
+      "unit": "%",
       "meaning": "C composition",
       "group": "composition"
     },
     {
       "name": "Si",
-      "unit": "mass%",
+      "unit": "%",
       "meaning": "Si composition",
       "group": "composition"
     },
     {
       "name": "Mn",
-      "unit": "mass%",
+      "unit": "%",
       "meaning": "Mn composition",
       "group": "composition"
     },
     {
       "name": "P",
-      "unit": "mass%",
+      "unit": "%",
       "meaning": "P composition",
       "group": "composition"
     },
     {
       "name": "S",
-      "unit": "mass%",
+      "unit": "%",
       "meaning": "S composition",
       "group": "composition"
     },
     {
+      "name": "Al",
+      "unit": "%",
+      "meaning": "Al composition",
+      "group": "composition"
+    },
+    {
+      "name": "Cu",
+      "unit": "%",
+      "meaning": "Cu composition",
+      "group": "composition"
+    },
+    {
+      "name": "Ni",
+      "unit": "%",
+      "meaning": "Ni composition",
+      "group": "composition"
+    },
+    {
       "name": "Cr",
-      "unit": "mass%",
+      "unit": "%",
       "meaning": "Cr composition",
       "group": "composition"
     },
     {
       "name": "Mo",
-      "unit": "mass%",
+      "unit": "%",
       "meaning": "Mo composition",
       "group": "composition"
     },
     {
-      "name": "Ni",
-      "unit": "mass%",
-      "meaning": "Ni composition",
-      "group": "composition"
-    },
-    {
-      "name": "Al",
-      "unit": "mass%",
-      "meaning": "Al composition",
-      "group": "composition"
-    },
-    {
       "name": "Ti",
-      "unit": "mass%",
+      "unit": "%",
       "meaning": "Ti composition",
       "group": "composition"
     },
     {
       "name": "B",
-      "unit": "mass%",
+      "unit": "%",
       "meaning": "B composition",
       "group": "composition"
     },
     {
-      "name": "N",
-      "unit": "mass%",
-      "meaning": "N composition",
-      "group": "composition"
-    },
-    {
       "name": "O",
-      "unit": "mass%",
+      "unit": "%",
       "meaning": "O composition",
       "group": "composition"
     },
     {
-      "name": "Ca",
-      "unit": "mass%",
-      "meaning": "Ca composition",
+      "name": "N",
+      "unit": "%",
+      "meaning": "N composition",
       "group": "composition"
     },
     {
       "name": "ce_iiw",
-      "unit": "mass%",
+      "unit": "%",
       "meaning": "IIW carbon-equivalent proxy",
       "group": "metallurgy"
     },
     {
       "name": "pcm",
-      "unit": "mass%",
+      "unit": "%",
       "meaning": "Ito-Bessyo weld-cracking parameter",
       "group": "metallurgy"
     },
     {
       "name": "c_times_mn",
-      "unit": "mass%^2",
+      "unit": "%^2",
       "meaning": "Carbon-manganese interaction",
       "group": "metallurgy"
     },
     {
       "name": "si_plus_al",
-      "unit": "mass%",
+      "unit": "%",
       "meaning": "Silicon plus aluminium",
       "group": "metallurgy"
     },
     {
       "name": "cr_plus_mo",
-      "unit": "mass%",
+      "unit": "%",
       "meaning": "Chromium plus molybdenum",
       "group": "metallurgy"
     },
     {
-      "name": "reheat_temperature_c",
-      "unit": "degC",
-      "meaning": "Reheat temperature",
-      "group": "process"
-    },
-    {
-      "name": "hold_time_min",
-      "unit": "min",
-      "meaning": "Reheat holding time",
+      "name": "soaking_temperature_c",
+      "unit": "\u00b0C",
+      "meaning": "soaking_temperature_c",
       "group": "process"
     },
     {
       "name": "finish_temperature_c",
-      "unit": "degC",
-      "meaning": "Finishing temperature",
-      "group": "process"
-    },
-    {
-      "name": "coiling_temperature_c",
-      "unit": "degC",
-      "meaning": "Coiling temperature",
-      "group": "process"
-    },
-    {
-      "name": "cooling_rate_c_s",
-      "unit": "degC/s",
-      "meaning": "Cooling rate",
+      "unit": "\u00b0C",
+      "meaning": "finish_temperature_c",
       "group": "process"
     },
     {
       "name": "entry_thickness_mm",
       "unit": "mm",
-      "meaning": "Entry thickness",
+      "meaning": "entry_thickness_mm",
       "group": "process"
     },
     {
       "name": "exit_thickness_mm",
       "unit": "mm",
-      "meaning": "Exit thickness",
+      "meaning": "exit_thickness_mm",
       "group": "process"
     },
     {
-      "name": "route_A",
-      "unit": "1",
-      "meaning": "Route A indicator",
-      "group": "categorical"
+      "name": "hold_temperature_c",
+      "unit": "\u00b0C",
+      "meaning": "hold_temperature_c",
+      "group": "process"
     },
     {
-      "name": "route_B",
-      "unit": "1",
-      "meaning": "Route B indicator",
-      "group": "categorical"
-    },
-    {
-      "name": "route_C",
-      "unit": "1",
-      "meaning": "Route C indicator",
-      "group": "categorical"
+      "name": "hold_time_min",
+      "unit": "min",
+      "meaning": "hold_time_min",
+      "group": "process"
     }
   ]
 }

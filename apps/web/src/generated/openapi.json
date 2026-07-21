@@ -169,6 +169,7 @@
               "candidate_archived",
               "candidate_provenance_immutable",
               "project_task_locked",
+              "protected_project",
               "data_integrity_error",
               "validation_error",
               "runtime_unavailable"
@@ -514,8 +515,7 @@
         },
         "required": [
           "composition",
-          "process",
-          "categorical"
+          "process"
         ],
         "title": "CandidateInputs",
         "type": "object"
@@ -1345,17 +1345,6 @@
       },
       "LineageIndexItem": {
         "properties": {
-          "coating": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Coating"
-          },
           "entity_type": {
             "title": "Entity Type",
             "type": "string"
@@ -4555,6 +4544,56 @@
       }
     },
     "/api/projects/{project_id}": {
+      "delete": {
+        "operationId": "delete_project_by_id_api_projects__project_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Project By Id"
+      },
       "get": {
         "operationId": "get_project_by_id_api_projects__project_id__get",
         "parameters": [

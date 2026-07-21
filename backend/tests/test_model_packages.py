@@ -224,8 +224,8 @@ def test_loader_rejects_unknown_pipeline_document_fields(tmp_path: Path) -> None
 @pytest.mark.parametrize(
     ("task_id", "package_id", "package_version", "pipeline_version"),
     [
-        ("annealed-properties-v1", "annealed-gp-2026-07", "0.8.0-lifecycle-v1", "1.5.0"),
-        ("hot-rolled-properties-v1", "hot-rolled-gp-2026-07", "0.4.0-lifecycle-v1", "1.2.0"),
+        ("annealed-properties-v1", "annealed-gp-2026-07", "0.9.0-input-contract-v2", "2.0.0"),
+        ("hot-rolled-properties-v1", "hot-rolled-gp-2026-07", "0.5.0-input-contract-v2", "2.0.0"),
     ],
 )
 def test_checked_in_packages_match_task_definition_canonical_input_order(

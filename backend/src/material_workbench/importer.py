@@ -471,7 +471,6 @@ def load_workbook_data(
     hot_rolling_features = {
         str(row[hot_key]): {
             **canonical.mapped_values(row, hot_task, ("process.", "categorical.")),
-            "reduction_percent": float(canonical.technical_value(row, "hot_rolling", "reduction_percent")),
             "equipment": str(canonical.technical_value(row, "hot_rolling", "equipment")),
         }
         for row in canonical.rows("hot_rolling")
@@ -575,12 +574,11 @@ def load_workbook_data(
                     eligibility_reasons.append(f"{label}が物理範囲外です")
                     output_warnings.setdefault(label, []).append(warning)
             observations.append({
-                "id": canonical_observation.id, "source": profile.sheet_for_role(canonical_observation.source_role), "parent_key": parent,
+                "id": canonical_observation.id, "task_id": canonical_observation.task_id, "source": profile.sheet_for_role(canonical_observation.source_role), "parent_key": parent,
                 "features": process, "composition": comp, "outputs": outputs,
                 "eligible": not eligibility_reasons,
                 "eligibility_reasons": eligibility_reasons,
                 "output_warnings": output_warnings,
-                "thickness_mm": float(canonical_observation.metadata.get("thickness_mm") or 0),
                 "date": _as_date(canonical_observation.metadata.get("date")),
                 "test_direction": str(canonical_observation.metadata.get("direction") or "L") if not is_anneal else None,
             })

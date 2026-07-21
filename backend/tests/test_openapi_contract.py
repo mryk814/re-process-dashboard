@@ -90,4 +90,4 @@ def test_unicode_identifiers_and_units_survive_json_contract_round_trip(client) 
     task = client.get("/api/projects/default/task-definition").json()["task_definition"]
     units = {field["unit"] for group in task["input_groups"] for field in group["fields"] if field["unit"]}
     units.update(output["unit"] for output in task["outputs"])
-    assert {"mass%", "mm", "m/min", "MPa", "%"} <= units
+    assert {"mpm", "MPa", "%"} <= units

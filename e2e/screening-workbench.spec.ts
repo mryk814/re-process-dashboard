@@ -67,25 +67,26 @@ test("annealed screening keeps draft separate and batches multiple points into s
   await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
 });
 
-test("hot rolling screening accepts task-defined process and categorical fields", async ({ page, request }) => {
+test("hot rolling screening accepts task-defined process fields", async ({ page, request }) => {
   const project = await createProject(request, "hot-rolled-properties-v1");
   await page.goto(`/?view=explore&project=${project.id}`);
   const rows = page.locator(".variable-table tbody tr");
-  await rows.nth(0).getByRole("combobox").first().selectOption("process.reheat_temperature_c");
+  await rows.nth(0).getByRole("combobox").first().selectOption("process.soaking_temperature_c");
   await rows.nth(0).getByRole("combobox").nth(1).selectOption("range");
   await rows.nth(0).locator("input").nth(0).fill("1170");
   await rows.nth(0).locator("input").nth(1).fill("1190");
-  await rows.nth(1).getByRole("combobox").first().selectOption("categorical.route");
-  await rows.nth(1).getByRole("combobox").nth(1).selectOption("list");
-  await rows.nth(1).locator("input").first().fill("A,B");
+  await rows.nth(1).getByRole("combobox").first().selectOption("process.finish_temperature_c");
+  await rows.nth(1).getByRole("combobox").nth(1).selectOption("range");
+  await rows.nth(1).locator("input").nth(0).fill("850");
+  await rows.nth(1).locator("input").nth(1).fill("930");
 
   const runResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/screening");
   await page.getByRole("button", { name: "探索を実行" }).click();
   const response = await runResponse;
   expect(response.status()).toBe(201);
   const body = await response.json() as { points: Array<{ inputs: Record<string, number | string>; predictions: Record<string, unknown> }> };
-  expect(body.points[0].inputs["process.reheat_temperature_c"]).toBeGreaterThanOrEqual(1170);
-  expect(["A", "B"]).toContain(body.points[0].inputs["categorical.route"]);
+  expect(body.points[0].inputs["process.soaking_temperature_c"]).toBeGreaterThanOrEqual(1170);
+  expect(body.points[0].inputs["process.finish_temperature_c"]).toBeGreaterThanOrEqual(850);
   expect(Object.keys(body.points[0].predictions)).toEqual(["TS"]);
-  await expect(page.getByLabel("X軸")).toHaveValue("process.reheat_temperature_c");
+  await expect(page.getByLabel("X軸")).toHaveValue("process.soaking_temperature_c");
 });

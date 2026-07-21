@@ -19,20 +19,5 @@ def candidate_input_from_snapshot(snapshot_id: str, payload: Mapping[str, Any]) 
     if version == "prediction-snapshot-v2":
         return CandidateInput.model_validate({"name": name, "inputs": raw.get("inputs"), "provenance": provenance})
     if version == "prediction-snapshot-v1":
-        required = {"composition", "thickness_mm", "line_speed_m_min", "coating", "heat_pattern"}
-        if not required <= set(raw):
-            raise SnapshotPayloadError("旧スナップショットの候補入力が不完全です")
-        return CandidateInput.model_validate({
-            "name": name,
-            "inputs": {
-                "composition": raw["composition"],
-                "process": {
-                    "thickness_mm": raw["thickness_mm"],
-                    "line_speed_m_min": raw["line_speed_m_min"],
-                },
-                "categorical": {"coating": raw["coating"]},
-                "heat_pattern": raw["heat_pattern"],
-            },
-            "provenance": provenance,
-        })
+        raise SnapshotPayloadError("旧スナップショットは入力項目の改定後に復元できません。候補を新しい項目で作り直してください")
     raise SnapshotPayloadError(f"未対応のスナップショット形式です: {version!r}")

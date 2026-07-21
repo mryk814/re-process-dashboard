@@ -16,9 +16,7 @@ def _screening_body(candidate_id: str) -> dict:
         "target_value": 500,
         "variables": {
             "composition.C": {"mode": "range", "min": 0.04, "max": 0.12},
-            "process.line_speed_m_min": {"mode": "range", "min": 80, "max": 130},
-            "categorical.coating": {"mode": "list", "values": ["なし", "GI", "GA"]},
-            "process.thickness_mm": {"mode": "fixed", "value": 1.4},
+            "process.ls_mpm": {"mode": "range", "min": 80, "max": 130},
         },
     }
 
@@ -37,7 +35,7 @@ def test_latin_hypercube_is_deterministic_bounded_and_convertible(client) -> Non
     assert len(first["points"]) == 48
     assert [point["inputs"] for point in first["points"]] == [point["inputs"] for point in second["points"]]
     assert all(0.04 <= point["inputs"]["composition.C"] <= 0.12 for point in first["points"])
-    assert {point["inputs"]["categorical.coating"] for point in first["points"]} == {"なし", "GI", "GA"}
+    assert all(80 <= point["inputs"]["process.ls_mpm"] <= 130 for point in first["points"])
     created = client.post(f"/api/screening/{first['id']}/candidates", json={"point_indices": [0]})
     assert created.status_code == 201
     assert created.json()["candidates"][0]["name"].startswith("Screen")
@@ -63,7 +61,7 @@ def test_latin_hypercube_is_deterministic_bounded_and_convertible(client) -> Non
 def test_screening_rejects_invalid_field_values_and_empty_candidate_set(client) -> None:
     candidate = client.get("/api/projects/default/candidates").json()[0]
     invalid = _screening_body(candidate["id"])
-    invalid["variables"]["categorical.coating"] = {"mode": "fixed", "value": "BAD"}
+    invalid["variables"]["process.removed_field"] = {"mode": "fixed", "value": 999}
     assert client.post("/api/screening", json=invalid).status_code == 422
     for item in client.get("/api/projects/default/candidates").json():
         assert client.delete(f"/api/projects/default/candidates/{item['id']}?expected_revision={item['revision']}").status_code == 204
@@ -96,12 +94,12 @@ def test_lineage_candidate_actuals_and_snapshot_restore(client) -> None:
     assert actual.json()["snapshot_id"]
     changed = {key: value for key, value in candidate.items() if key in {"name", "inputs", "provenance"}}
     changed["expected_revision"] = candidate["revision"]
-    changed["inputs"]["process"]["line_speed_m_min"] = candidate["inputs"]["process"]["line_speed_m_min"] + 30
+    changed["inputs"]["process"]["ls_mpm"] = candidate["inputs"]["process"]["ls_mpm"] + 30
     assert client.put(f"/api/projects/default/candidates/{candidate['id']}", json=changed).status_code == 200
     comparison = client.get(f"/api/projects/default/candidates/{candidate['id']}/prediction-vs-actual").json()
     assert comparison["actuals"][0]["mean"] == 505.2
     assert comparison["comparisons"][0]["snapshot_id"] == actual.json()["snapshot_id"]
-    assert comparison["comparisons"][0]["prediction"]["canonical_input"]["process"]["line_speed_m_min"] != changed["inputs"]["process"]["line_speed_m_min"]
+    assert comparison["comparisons"][0]["prediction"]["canonical_input"]["process"]["ls_mpm"] != changed["inputs"]["process"]["ls_mpm"]
     assert comparison["comparisons"][0]["provenance"]["training_data"]["source_sha256"]
     assert client.post(f"/api/projects/default/candidates/{candidate['id']}/actuals", params={"expected_revision": candidate["revision"] + 1}, json={"property": "TS", "mean": 500, "unit": "%"}).status_code == 422
     snapshot = client.post(f"/api/projects/default/candidates/{candidate['id']}/snapshots").json()
@@ -125,8 +123,8 @@ def test_lineage_candidate_preserves_stage_order_and_boundaries(client) -> None:
 def test_candidate_excel_import_and_exports(client) -> None:
     workbook = Workbook()
     sheet = workbook.active
-    sheet.append(["name", "C", "Si", "Mn", "thickness_mm", "line_speed_m_min", "coating", "time_s_1", "temperature_c_1", "segment_start_1", "time_s_2", "temperature_c_2", "segment_start_2", "time_s_3", "temperature_c_3", "segment_start_3"])
-    sheet.append(["Excel候補", 0.08, 0.3, 1.5, 1.4, 100, "GI", 0, 25, False, 300, 810, True, 650, 120, False])
+    sheet.append(["name", "C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N", "ls_mpm", "time_s_1", "temperature_c_1", "segment_start_1", "stage_name_1", "time_s_2", "temperature_c_2", "segment_start_2", "stage_name_2", "time_s_3", "temperature_c_3", "segment_start_3", "stage_name_3"])
+    sheet.append(["Excel候補", 0.08, 0.3, 1.5, 0.01, 0.005, 0.04, 0.0, 0.02, 0.01, 0.0, 0.01, 0.0003, 0.002, 0.004, 100, 0, 25, False, "加熱", 300, 810, True, "均熱", 650, 120, False, "冷却"])
     buffer = BytesIO()
     workbook.save(buffer)
     response = client.post("/api/projects/default/candidates/import", files={"file": ("candidates.xlsx", buffer.getvalue(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")})

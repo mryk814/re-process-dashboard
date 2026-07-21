@@ -24,7 +24,6 @@ FEATURE_GROUP_INDICES = feature_index_families(
         "composition": ("composition",),
         "metallurgy": ("metallurgy",),
         "process": ("process",),
-        "categorical": ("categorical",),
     },
 )
 
@@ -77,7 +76,10 @@ class HotRollingRuntime:
             raise ValueError("Hot-rolling model package smoke test did not reproduce expected predictions")
 
     def _build_support_reference(self) -> None:
-        observations = [row for row in self.data.observations if row["source"] == "熱延引張" and row["eligible"] and row["features"] and row["composition"]]
+        observations = [
+            row for row in self.data.observations
+            if row["task_id"] == TASK_ID and row["eligible"] and row["features"] and row["composition"]
+        ]
         grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for row in observations:
             grouped[str(row["parent_key"])].append(row)
@@ -164,11 +166,7 @@ class HotRollingRuntime:
                     name: round(float(value), 6) for name, value in summary.uncertainty_components.items()
                 },
             )
-        process = {**candidate.inputs.process, **candidate.inputs.categorical}
-        process["reduction_percent"] = round(
-            (1.0 - candidate.inputs.process["exit_thickness_mm"] / candidate.inputs.process["entry_thickness_mm"]) * 100.0,
-            4,
-        )
+        process = {**candidate.inputs.process}
         process["equipment"] = "HR-LINE-1"
         process["test_direction"] = "L"
         return {

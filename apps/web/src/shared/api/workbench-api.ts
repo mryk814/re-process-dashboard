@@ -49,6 +49,10 @@ export const workbenchApi = {
     inferenceRequestCache.invalidatePrefix(candidateInferencePrefix(projectId));
     return project;
   },
+  async deleteProject(projectId: string) {
+    requireSuccess(await apiClient.DELETE("/api/projects/{project_id}", { params: { path: { project_id: projectId } } }), "プロジェクトを削除できませんでした。");
+    inferenceRequestCache.invalidatePrefix(candidateInferencePrefix(projectId));
+  },
   async updateProjectDecision(projectId: string, body: ApiProjectDecisionInput) {
     return requireData(await apiClient.PUT("/api/projects/{project_id}/decision", { params: { path: { project_id: projectId } }, body }), "採用判断を保存できませんでした。");
   },

@@ -85,7 +85,7 @@ export function getCandidateInputValue(inputs: CandidateInputs, path: string): n
   const group = path.slice(0, separator);
   const field = path.slice(separator + 1);
   if (group === "composition" || group === "process") return inputs[group][field];
-  if (group === "categorical") return inputs.categorical[field];
+  if (group === "categorical") return inputs.categorical?.[field];
   throw new Error(`Unsupported candidate input path: ${path}`);
 }
 

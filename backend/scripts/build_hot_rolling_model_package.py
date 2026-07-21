@@ -20,8 +20,8 @@ from material_workbench.task_registry import load_task_contracts
 
 
 PACKAGE_ID = "hot-rolled-gp-2026-07"
-PACKAGE_VERSION = "0.4.0-lifecycle-v1"
-TRAINING_CODE_REVISION = "0.4.0-lifecycle-v1"
+PACKAGE_VERSION = "0.5.0-input-contract-v2"
+TRAINING_CODE_REVISION = "0.5.0-input-contract-v2"
 TASK_ID = "hot-rolled-properties-v1"
 FEATURE_GROUP_INDICES = feature_index_families(
     FEATURE_DEFINITIONS,
@@ -29,7 +29,6 @@ FEATURE_GROUP_INDICES = feature_index_families(
         "composition": ("composition",),
         "metallurgy": ("metallurgy",),
         "process": ("process",),
-        "categorical": ("categorical",),
     },
 )
 
@@ -86,7 +85,10 @@ def _build(source: Path, destination: Path) -> None:
         (output.key, f"{output.key}[{output.unit}]", output.unit)
         for output in task_definition.outputs
     )
-    rows = [row for row in data.observations if row["source"] == "熱延引張" and row["eligible"] and row["features"] and row["composition"]]
+    rows = [
+        row for row in data.observations
+        if row["task_id"] == TASK_ID and row["eligible"] and row["features"] and row["composition"]
+    ]
     artifact_dir, feature_dir, reference_dir, smoke_dir, report_dir = (destination / name for name in ("model-artifacts", "feature-pipeline", "reference", "smoke", "reports"))
     for folder in (artifact_dir, feature_dir, reference_dir, smoke_dir, report_dir):
         folder.mkdir(parents=True, exist_ok=True)

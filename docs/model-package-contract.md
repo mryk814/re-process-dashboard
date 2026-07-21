@@ -100,7 +100,7 @@ TaskDefinitionは利用者が扱う入力group、field、output、単位、目�
 
 Packageのpredictor targetは対応するTaskDefinitionのoutputに含まれなければならない。TaskDefinitionを変更して既存Packageの意味を暗黙に変えず、互換性のない変更はschema versionまたはtask idを更新する。
 
-TaskDefinitionは予測意味を固定するcontextとfield間制約も保持する。熱延v1は `HR-LINE-1`・L方向に固定し、仕上温度は加熱温度以下、出側板厚は入側板厚未満とする。これらをruntime固有コードだけに埋め込まない。
+TaskDefinitionは予測意味を固定するcontextとfield間制約も保持する。熱延v1は `HR-LINE-1`・L方向に固定し、仕上げ温度は均熱温度以下、出側板厚は入側板厚未満とする。これらをruntime固有コードだけに埋め込まない。
 
 ## Runtime capability
 

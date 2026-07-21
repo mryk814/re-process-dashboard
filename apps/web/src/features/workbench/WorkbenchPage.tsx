@@ -140,7 +140,7 @@ type WorkbenchProps = {
   onSelect: (id: string) => void;
   onHeat: (index: number, field: "time" | "temperature", raw: number) => void;
   onInput: (id: string, path: string, value: number | string) => void;
-  onText: (id: string, field: "label" | "coating", value: string) => void;
+  onText: (id: string, field: "label", value: string) => void;
   onAddHeat: () => void;
   onDeleteHeat: (index: number) => void;
   onCopy: () => void;
@@ -735,12 +735,13 @@ function HeatPattern({
         <div className="heat-point-table-wrap">
           <table className="heat-point-table">
             <thead>
-              <tr><th>#</th><th>時間 <small>min</small></th><th>温度 <small>°C</small></th><th aria-label="操作" /></tr>
+              <tr><th>#</th><th>工程名</th><th>時間 <small>min</small></th><th>温度 <small>°C</small></th><th aria-label="操作" /></tr>
             </thead>
             <tbody>
               {candidate.heat.map((point, index) => (
                 <tr key={`${point.time}-${index}`}>
                   <th scope="row">{index + 1}</th>
+                  <td>{point.stageName || point.stageCategory || "—"}</td>
                   <td><input type="number" step="0.01" value={Number(point.time.toFixed(3))} aria-label={`点${index + 1}の時間（分）`} onChange={(event) => onUpdate(index, "time", Number(event.target.value))} /></td>
                   <td><input type="number" value={point.temperature} aria-label={`点${index + 1}の温度（℃）`} onChange={(event) => onUpdate(index, "temperature", Number(event.target.value))} /></td>
                   <td><button className="icon-delete" aria-label={`点${index + 1}を削除`} disabled={candidate.heat.length <= 2} onClick={() => onDelete(index)}>×</button></td>
@@ -779,7 +780,7 @@ function LiveResponseCurves({
   const outputs = taskDefinition?.outputs ?? [];
   const variables: CurveVariable[] = [
     ...numericTaskInputs(taskDefinition)
-      .filter((input) => input.editable && input.field !== "coating")
+      .filter((input) => input.editable)
       .map((input) => {
         const range = allowedRange(input);
         return {

@@ -1,90 +1,29 @@
 {
   "task_definition": {
-    "schema_version": "task-definition/v1",
-    "id": "annealed-properties-v1",
-    "label": "焼鈍後特性",
-    "canonical_candidate_schema_version": "canonical-candidate/v1",
-    "input_groups": [
-      {
-        "key": "composition",
-        "order": 0,
-        "label": "成分",
-        "fields": [
-          {"path": "composition.C", "kind": "number", "order": 0, "label": "C", "unit": "mass%", "required": true, "editable": true, "default_range": {"min": 0.0, "max": 3.5}, "allowed_range": {"min": 0.0, "max": 100.0}, "training_range": {"min": 0.02497, "max": 3.2}, "choices": []},
-          {"path": "composition.Si", "kind": "number", "order": 1, "label": "Si", "unit": "mass%", "required": true, "editable": true, "default_range": {"min": 0.0, "max": 3.0}, "allowed_range": {"min": 0.0, "max": 100.0}, "training_range": {"min": 0.12012, "max": 0.65408}, "choices": []},
-          {"path": "composition.Mn", "kind": "number", "order": 2, "label": "Mn", "unit": "mass%", "required": true, "editable": true, "default_range": {"min": 0.0, "max": 3.0}, "allowed_range": {"min": 0.0, "max": 100.0}, "training_range": {"min": 0.58059, "max": 2.10806}, "choices": []},
-          {"path": "composition.P", "kind": "number", "order": 3, "label": "P", "unit": "mass%", "required": true, "editable": true, "default_range": {"min": 0.0, "max": 0.1}, "allowed_range": {"min": 0.0, "max": 100.0}, "training_range": {"min": 0.00706, "max": 0.0185}, "choices": []},
-          {"path": "composition.S", "kind": "number", "order": 4, "label": "S", "unit": "mass%", "required": true, "editable": true, "default_range": {"min": 0.0, "max": 0.1}, "allowed_range": {"min": 0.0, "max": 100.0}, "training_range": {"min": 0.00165, "max": 0.0083}, "choices": []},
-          {"path": "composition.Cr", "kind": "number", "order": 5, "label": "Cr", "unit": "mass%", "required": true, "editable": true, "default_range": {"min": 0.0, "max": 3.0}, "allowed_range": {"min": 0.0, "max": 100.0}, "training_range": {"min": 0.0, "max": 0.60048}, "choices": []},
-          {"path": "composition.Mo", "kind": "number", "order": 6, "label": "Mo", "unit": "mass%", "required": true, "editable": true, "default_range": {"min": 0.0, "max": 2.0}, "allowed_range": {"min": 0.0, "max": 100.0}, "training_range": {"min": 0.0, "max": 0.19581}, "choices": []},
-          {"path": "composition.Ni", "kind": "number", "order": 7, "label": "Ni", "unit": "mass%", "required": true, "editable": true, "default_range": {"min": 0.0, "max": 5.0}, "allowed_range": {"min": 0.0, "max": 100.0}, "training_range": {"min": 0.00858, "max": 0.18033}, "choices": []},
-          {"path": "composition.Al", "kind": "number", "order": 8, "label": "Al", "unit": "mass%", "required": true, "editable": true, "default_range": {"min": 0.0, "max": 2.0}, "allowed_range": {"min": 0.0, "max": 100.0}, "training_range": {"min": 0.01335, "max": 0.0503}, "choices": []},
-          {"path": "composition.Ti", "kind": "number", "order": 9, "label": "Ti", "unit": "mass%", "required": true, "editable": true, "default_range": {"min": 0.0, "max": 0.5}, "allowed_range": {"min": 0.0, "max": 100.0}, "training_range": {"min": 0.0, "max": 0.05028}, "choices": []},
-          {"path": "composition.B", "kind": "number", "order": 10, "label": "B", "unit": "mass%", "required": true, "editable": true, "default_range": {"min": 0.0, "max": 0.02}, "allowed_range": {"min": 0.0, "max": 100.0}, "training_range": {"min": 0.0, "max": 0.00256}, "choices": []},
-          {"path": "composition.N", "kind": "number", "order": 11, "label": "N", "unit": "mass%", "required": true, "editable": true, "default_range": {"min": 0.0, "max": 0.03}, "allowed_range": {"min": 0.0, "max": 100.0}, "training_range": {"min": 0.00244, "max": 0.0083}, "choices": []},
-          {"path": "composition.O", "kind": "number", "order": 12, "label": "O", "unit": "mass%", "required": true, "editable": true, "default_range": {"min": 0.0, "max": 0.03}, "allowed_range": {"min": 0.0, "max": 100.0}, "training_range": {"min": 0.00076, "max": 0.00364}, "choices": []},
-          {"path": "composition.Ca", "kind": "number", "order": 13, "label": "Ca", "unit": "mass%", "required": true, "editable": true, "default_range": {"min": 0.0, "max": 0.02}, "allowed_range": {"min": 0.0, "max": 100.0}, "training_range": {"min": 0.00045, "max": 0.00167}, "choices": []}
-        ]
-      },
-      {
-        "key": "process",
-        "order": 1,
-        "label": "焼鈍条件",
-        "fields": [
-          {"path": "process.thickness_mm", "kind": "number", "order": 0, "label": "板厚", "unit": "mm", "required": true, "editable": true, "default_range": {"min": 1.0, "max": 2.0}, "allowed_range": {"min": 0.1, "max": 10.0}, "training_range": {"min": 1.145, "max": 1.993}, "choices": []},
-          {"path": "process.line_speed_m_min", "kind": "number", "order": 1, "label": "ライン速度", "unit": "m/min", "required": true, "editable": true, "default_range": {"min": 80.0, "max": 130.0}, "allowed_range": {"min": 1.0, "max": 300.0}, "training_range": {"min": 60.696, "max": 165.0}, "choices": []}
-        ]
-      },
-      {
-        "key": "heat_pattern",
-        "order": 2,
-        "label": "ヒートパターン",
-        "fields": [
-          {"path": "heat_pattern", "kind": "heat_pattern", "order": 0, "label": "焼鈍温度履歴", "unit": null, "required": true, "editable": true, "default_range": null, "allowed_range": null, "training_range": null, "choices": []}
-        ]
-      },
-      {
-        "key": "categorical",
-        "order": 3,
-        "label": "区分",
-        "fields": [
-          {"path": "categorical.coating", "kind": "categorical", "order": 0, "label": "めっき", "unit": null, "required": true, "editable": true, "default_range": null, "allowed_range": null, "training_range": null, "choices": ["なし", "GI", "GA"]}
-        ]
-      }
+    "schema_version":"task-definition/v1","id":"annealed-properties-v1","label":"焼鈍後特性","canonical_candidate_schema_version":"canonical-candidate/v1",
+    "input_groups":[
+      {"key":"composition","order":0,"label":"成分","fields":[
+        {"path":"composition.C","kind":"number","order":0,"label":"C","unit":"%","required":true,"editable":true,"default_range":{"min":0,"max":0.2},"allowed_range":{"min":0,"max":100},"training_range":{"min":0.02497,"max":3.2}},
+        {"path":"composition.Si","kind":"number","order":1,"label":"Si","unit":"%","required":true,"editable":true,"default_range":{"min":0,"max":1},"allowed_range":{"min":0,"max":100},"training_range":{"min":0.12012,"max":0.65408}},
+        {"path":"composition.Mn","kind":"number","order":2,"label":"Mn","unit":"%","required":true,"editable":true,"default_range":{"min":0,"max":2},"allowed_range":{"min":0,"max":100},"training_range":{"min":0.58059,"max":2.10806}},
+        {"path":"composition.P","kind":"number","order":3,"label":"P","unit":"%","required":true,"editable":true,"default_range":{"min":0,"max":0.1},"allowed_range":{"min":0,"max":100},"training_range":{"min":0.00706,"max":0.0185}},
+        {"path":"composition.S","kind":"number","order":4,"label":"S","unit":"%","required":true,"editable":true,"default_range":{"min":0,"max":0.1},"allowed_range":{"min":0,"max":100},"training_range":{"min":0.00165,"max":0.0083}},
+        {"path":"composition.Al","kind":"number","order":5,"label":"Al","unit":"%","required":true,"editable":true,"default_range":{"min":0,"max":1},"allowed_range":{"min":0,"max":100},"training_range":{"min":0.01335,"max":0.0503}},
+        {"path":"composition.Cu","kind":"number","order":6,"label":"Cu","unit":"%","required":true,"editable":true,"default_range":{"min":0,"max":1},"allowed_range":{"min":0,"max":100},"training_range":{"min":0,"max":0.000001}},
+        {"path":"composition.Ni","kind":"number","order":7,"label":"Ni","unit":"%","required":true,"editable":true,"default_range":{"min":0,"max":1},"allowed_range":{"min":0,"max":100},"training_range":{"min":0.00858,"max":0.18033}},
+        {"path":"composition.Cr","kind":"number","order":8,"label":"Cr","unit":"%","required":true,"editable":true,"default_range":{"min":0,"max":1},"allowed_range":{"min":0,"max":100},"training_range":{"min":0,"max":0.60048}},
+        {"path":"composition.Mo","kind":"number","order":9,"label":"Mo","unit":"%","required":true,"editable":true,"default_range":{"min":0,"max":0.5},"allowed_range":{"min":0,"max":100},"training_range":{"min":0,"max":0.19581}},
+        {"path":"composition.Ti","kind":"number","order":10,"label":"Ti","unit":"%","required":true,"editable":true,"default_range":{"min":0,"max":0.2},"allowed_range":{"min":0,"max":100},"training_range":{"min":0,"max":0.05028}},
+        {"path":"composition.B","kind":"number","order":11,"label":"B","unit":"%","required":true,"editable":true,"default_range":{"min":0,"max":0.02},"allowed_range":{"min":0,"max":100},"training_range":{"min":0,"max":0.00256}},
+        {"path":"composition.O","kind":"number","order":12,"label":"O","unit":"%","required":true,"editable":true,"default_range":{"min":0,"max":0.03},"allowed_range":{"min":0,"max":100},"training_range":{"min":0.00076,"max":0.00364}},
+        {"path":"composition.N","kind":"number","order":13,"label":"N","unit":"%","required":true,"editable":true,"default_range":{"min":0,"max":0.03},"allowed_range":{"min":0,"max":100},"training_range":{"min":0.00244,"max":0.0083}}
+      ]},
+      {"key":"process","order":1,"label":"焼鈍条件","fields":[{"path":"process.ls_mpm","kind":"number","order":0,"label":"LS","unit":"mpm","required":true,"editable":true,"default_range":{"min":60,"max":180},"allowed_range":{"min":1,"max":1000},"training_range":{"min":60.696,"max":165.0}}]},
+      {"key":"heat_pattern","order":2,"label":"焼鈍履歴","fields":[{"path":"heat_pattern","kind":"heat_pattern","order":0,"label":"焼鈍温度履歴","unit":null,"required":true,"editable":true,"default_range":null,"allowed_range":null,"training_range":null,"choices":[]}]}
     ],
-    "outputs": [
-      {"key": "TS", "label": "引張強さ", "unit": "MPa", "goal_direction": "at_least"},
-      {"key": "YS", "label": "降伏強さ", "unit": "MPa", "goal_direction": "at_least"},
-      {"key": "EL", "label": "全伸び", "unit": "%", "goal_direction": "at_least"},
-      {"key": "lambda", "label": "穴広げ率 λ", "unit": "%", "goal_direction": "at_least"}
-    ],
-    "fixed_context": [],
-    "constraints": []
+    "outputs":[{"key":"TS","label":"引張強さ","unit":"MPa","goal_direction":"at_least"},{"key":"YS","label":"降伏強さ","unit":"MPa","goal_direction":"at_least"},{"key":"EL","label":"全伸び","unit":"%","goal_direction":"at_least"},{"key":"lambda","label":"穴広げ率 λ","unit":"%","goal_direction":"at_least"}],
+    "fixed_context":[],"constraints":[]
   },
-  "canonical_candidate": {
-    "schema_version": "canonical-candidate/v1",
-    "task_id": "annealed-properties-v1",
-    "composition": {"C": 0.12, "Si": 0.8, "Mn": 1.8, "P": 0.015, "S": 0.008, "Cr": 0.3, "Mo": 0.1, "Ni": 0.2, "Al": 0.04, "Ti": 0.02, "B": 0.0015, "N": 0.004, "O": 0.003, "Ca": 0.001},
-    "process": {"thickness_mm": 1.4, "line_speed_m_min": 103.0},
-    "heat_pattern": [
-      {"time_s": 0.0, "temperature_c": 25.0},
-      {"time_s": 45.0, "temperature_c": 780.0},
-      {"time_s": 110.0, "temperature_c": 420.0}
-    ],
-    "categorical": {"coating": "なし"},
-    "provenance": {"source_kind": "lineage", "source_ref": {"entity_type": "焼鈍", "entity_key": "AN-00001"}}
-  },
-  "runtime_capability": {
-    "schema_version": "runtime-capability/v1",
-    "task_id": "annealed-properties-v1",
-    "model_package_schema_version": "model-package/v1",
-    "targets": [
-      {"target": "TS", "point_statistics": ["mean"], "standard_deviation": true, "quantiles": true, "samples": false, "parametric_distribution": true, "uncertainty_components": true, "support": true, "warnings": true, "goal_probability": "distribution"},
-      {"target": "YS", "point_statistics": ["mean"], "standard_deviation": true, "quantiles": true, "samples": false, "parametric_distribution": true, "uncertainty_components": true, "support": true, "warnings": true, "goal_probability": "distribution"},
-      {"target": "EL", "point_statistics": ["mean"], "standard_deviation": true, "quantiles": true, "samples": false, "parametric_distribution": true, "uncertainty_components": true, "support": true, "warnings": true, "goal_probability": "distribution"},
-      {"target": "lambda", "point_statistics": ["mean"], "standard_deviation": true, "quantiles": true, "samples": false, "parametric_distribution": true, "uncertainty_components": true, "support": true, "warnings": true, "goal_probability": "distribution"}
-    ],
-    "joint_samples": false,
-    "operations": {"preview": true, "detailed_prediction": true, "response_curve": true, "similarity": true, "snapshot": true, "actual_measurement": true}
-  }
+  "canonical_candidate":{"schema_version":"canonical-candidate/v1","task_id":"annealed-properties-v1","composition":{"C":0.12,"Si":0.8,"Mn":1.8,"P":0.015,"S":0.008,"Al":0.04,"Cu":0.2,"Ni":0.2,"Cr":0.3,"Mo":0.1,"Ti":0.02,"B":0.0015,"O":0.003,"N":0.004},"process":{"ls_mpm":103},"heat_pattern":[{"time_s":0.0,"temperature_c":25.0},{"time_s":45.0,"temperature_c":780.0},{"time_s":110.0,"temperature_c":420.0}],"categorical":{},"provenance":{"source_kind":"lineage","source_ref":{"entity_type":"annealing","entity_key":"AN-00001"}}},
+  "runtime_capability":{"schema_version":"runtime-capability/v1","task_id":"annealed-properties-v1","model_package_schema_version":"model-package/v1","targets":[{"target":"TS","point_statistics":["mean"],"standard_deviation":true,"quantiles":true,"samples":false,"parametric_distribution":true,"uncertainty_components":true,"support":true,"warnings":true,"goal_probability":"distribution"},{"target":"YS","point_statistics":["mean"],"standard_deviation":true,"quantiles":true,"samples":false,"parametric_distribution":true,"uncertainty_components":true,"support":true,"warnings":true,"goal_probability":"distribution"},{"target":"EL","point_statistics":["mean"],"standard_deviation":true,"quantiles":true,"samples":false,"parametric_distribution":true,"uncertainty_components":true,"support":true,"warnings":true,"goal_probability":"distribution"},{"target":"lambda","point_statistics":["mean"],"standard_deviation":true,"quantiles":true,"samples":false,"parametric_distribution":true,"uncertainty_components":true,"support":true,"warnings":true,"goal_probability":"distribution"}],"joint_samples":false,"operations":{"preview":true,"detailed_prediction":true,"response_curve":true,"similarity":true,"snapshot":true,"actual_measurement":true}}
 }

@@ -30,8 +30,8 @@ def artifact(root: Path, path: Path) -> dict[str, object]:
 
 
 PACKAGE_ID = "annealed-gp-2026-07"
-PACKAGE_VERSION = "0.8.0-lifecycle-v1"
-TRAINING_CODE_REVISION = "0.7.0-lifecycle-v1"
+PACKAGE_VERSION = "0.9.0-input-contract-v2"
+TRAINING_CODE_REVISION = "0.9.0-input-contract-v2"
 FEATURE_GROUP_INDICES = feature_index_families(
     FEATURE_DEFINITIONS,
     {
@@ -199,8 +199,7 @@ def _build(source: Path, destination: Path) -> None:
         "name": "package smoke",
         "inputs": {
             "composition": data.medians,
-            "process": {"thickness_mm": 1.4, "line_speed_m_min": 103.0},
-            "categorical": {"coating": "GI"},
+            "process": {"ls_mpm": 103.0},
             "heat_pattern": [{"time_s": 0, "temperature_c": 25}, {"time_s": 300, "temperature_c": 800}, {"time_s": 360, "temperature_c": 810}, {"time_s": 650, "temperature_c": 120}],
         },
     }
