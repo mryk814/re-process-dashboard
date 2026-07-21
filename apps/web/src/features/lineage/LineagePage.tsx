@@ -262,29 +262,6 @@ export function LineagePage({
             onSelect={openNode}
            onLoadMore={() => setGraphLimit((current) => Math.min(200, current + 40))}
           />
-          <div className="lineage-node-action-bar" aria-label="選択ノードの候補化">
-            <div className="lineage-node-action-info">
-              <span className="overline">選択中のノード</span>
-              <strong>{data.key}</strong>
-              <small>{data.node.source_sheet} / {data.node.entity_type}</small>
-            </div>
-            <div className="lineage-node-action-controls">
-              <button
-                className="primary-button"
-                disabled={!supportsCandidateCreation || !data.candidate_eligible}
-                title={supportsCandidateCreation ? data.candidate_reason : "この予測タスクは系譜からの候補化に対応していません"}
-                onClick={() => {
-                  void createCandidate();
-                }}
-              >
-                候補ストックへ追加
-              </button>
-              <span className={`lineage-node-action-reason ${supportsCandidateCreation && data.candidate_eligible ? "" : "muted"}`}>
-                {supportsCandidateCreation ? data.candidate_reason : "この予測タスクは系譜からの候補化に対応していません。"}
-              </span>
-              {candidateError && <span className="warning">{candidateError}</span>}
-            </div>
-          </div>
             {data.graph.edges.length > 0 && (
               <details className="route-evidence">
                 <summary>経路の接続根拠 {data.graph.edges.length}本</summary>
@@ -315,6 +292,22 @@ export function LineagePage({
                 )}
                 件の関係、{data.node.connected_observation_count}件の接続観測
               </p>
+            </div>
+            <div className="lineage-detail-action">
+              <button
+                className="primary-button"
+                disabled={!supportsCandidateCreation || !data.candidate_eligible}
+                title={supportsCandidateCreation ? data.candidate_reason : "この予測タスクは系譜からの候補化に対応していません"}
+                onClick={() => {
+                  void createCandidate();
+                }}
+              >
+                候補ストックへ追加
+              </button>
+              <span className={`lineage-detail-action-reason ${supportsCandidateCreation && data.candidate_eligible ? "" : "muted"}`}>
+                {supportsCandidateCreation ? data.candidate_reason : "この予測タスクは系譜からの候補化に対応していません。"}
+              </span>
+              {candidateError && <span className="warning">{candidateError}</span>}
             </div>
           </div>
           <section className="lineage-node-facts">
