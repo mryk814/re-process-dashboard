@@ -70,7 +70,7 @@ function canonicalEntityType(entityType: string): string {
   if (type.startsWith("冷延")) return "冷延";
   if (type.startsWith("焼鈍")) {
     if (type.includes("引張")) return "焼鈍引張";
-    if (type.includes("穴広げ")) return "焼鈍穴広げ";
+    if (type.includes("穴広げ") || type.includes("穴拡げ")) return "焼鈍穴広げ";
     if (type.includes("組織")) return "焼鈍組織";
     return "焼鈍";
   }
