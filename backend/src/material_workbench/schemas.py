@@ -10,7 +10,7 @@ from .task_contracts import CandidateProvenance, DirectSourceRef, ResolvedTaskDe
 
 
 COMPOSITION_ELEMENTS = {
-    "C", "Si", "Mn", "P", "S", "Cr", "Mo", "Ni", "Al", "Ti", "B", "N", "O", "Ca"
+    "C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N"
 }
 PREDICTION_TARGETS = {"TS", "YS", "EL", "lambda"}
 
@@ -28,7 +28,7 @@ class HeatPoint(BaseModel):
 class CandidateInputs(BaseModel):
     composition: dict[str, float]
     process: dict[str, float]
-    categorical: dict[str, str]
+    categorical: dict[str, str] = Field(default_factory=dict)
     heat_pattern: list[HeatPoint] | None = Field(default=None, max_length=30)
 
     @field_validator("composition", "process")
@@ -462,7 +462,6 @@ class LineageIndexItem(BaseModel):
     project: str | None = None
     route: str | None = None
     peak_temperature_c: float | None = None
-    coating: str | None = None
     learning_status: str | None = None
     has_observation: bool | None = None
     observation_summary: dict[str, RepeatSummary] | None = None
@@ -568,6 +567,7 @@ class ApiError(BaseModel):
         "candidate_archived",
         "candidate_provenance_immutable",
         "project_task_locked",
+        "protected_project",
         "data_integrity_error",
         "validation_error",
         "runtime_unavailable",

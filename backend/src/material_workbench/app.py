@@ -55,7 +55,7 @@ from .schemas import (
 )
 from .services import candidate_from_lineage, candidates_xlsx, import_candidates_xlsx, run_latin_hypercube
 from .snapshot_reader import SnapshotPayloadError, candidate_input_from_snapshot
-from .store import CandidateArchivedError, CandidateCopyConflictError, CandidateLimitError, CandidateRevisionConflictError, InvalidProjectDecisionError, ProjectNotFoundError, Store, StoreDataIntegrityError
+from .store import CandidateArchivedError, CandidateCopyConflictError, CandidateLimitError, CandidateRevisionConflictError, InvalidProjectDecisionError, ProjectNotFoundError, ProtectedProjectError, Store, StoreDataIntegrityError
 from .task_contracts import ResolvedTaskDefinition
 from .task_registry import TaskRegistry, TaskRegistryError
 
@@ -88,8 +88,8 @@ def _default_candidate_payloads(medians: dict[str, float]) -> list[CandidateInpu
             name=name,
             inputs={
                 "composition": {**composition, "C": round(composition["C"] * carbon_factor, 5)},
-                "process": {"thickness_mm": 1.4, "line_speed_m_min": line_speed},
-                "categorical": {"coating": "GI"},
+                "process": {"ls_mpm": line_speed},
+                "categorical": {},
                 "heat_pattern": [
                     {"time_s": 0, "temperature_c": 25},
                     {"time_s": 280, "temperature_c": peak - 10},
@@ -105,24 +105,23 @@ def _default_candidate_payloads(medians: dict[str, float]) -> list[CandidateInpu
 def _default_hot_rolling_candidates(medians: dict[str, float]) -> list[CandidateInput]:
     composition = {key: round(value, 5) for key, value in medians.items()}
     variants = [
-        ("基準熱延", 1170, 30, 900, 620, 35, 34, 3.4, "A"),
-        ("低温巻取", 1170, 30, 890, 560, 42, 34, 3.2, "B"),
-        ("延性重視", 1160, 34, 920, 660, 28, 34, 3.8, "C"),
+        ("基準熱延", 1170, 900, 34, 3.4, 1160, 30),
+        ("高温保持", 1200, 910, 36, 3.2, 1180, 42),
+        ("延性重視", 1160, 920, 34, 3.8, 1140, 34),
     ]
     keys = (
-        "reheat_temperature_c", "hold_time_min", "finish_temperature_c",
-        "coiling_temperature_c", "cooling_rate_c_s", "entry_thickness_mm",
-        "exit_thickness_mm",
+        "soaking_temperature_c", "finish_temperature_c", "entry_thickness_mm",
+        "exit_thickness_mm", "hold_temperature_c", "hold_time_min",
     )
     return [CandidateInput(
         name=name,
         inputs={
             "composition": composition,
             "process": dict(zip(keys, values)),
-            "categorical": {"route": route},
+            "categorical": {},
             "heat_pattern": None,
         },
-    ) for name, *values, route in variants]
+    ) for name, *values in variants]
 
 
 def create_app(
@@ -469,6 +468,17 @@ def create_app(
     def get_project_by_id(project_id: str) -> dict[str, Any]:
         return require_project(project_id).model_dump(mode="json")
 
+    @app.delete("/api/projects/{project_id}", status_code=204, responses=PROJECT_API_ERRORS)
+    def delete_project_by_id(project_id: str) -> Response:
+        require_project(project_id)
+        try:
+            deleted = store().delete_project(project_id)
+        except ProtectedProjectError as exc:
+            raise DomainApiException(409, "protected_project", str(exc)) from exc
+        if not deleted:
+            raise HTTPException(404, "プロジェクトが見つかりません")
+        return Response(status_code=204)
+
     @app.get(
         "/api/projects/{project_id}/history",
         response_model=ProjectHistoryResponse,
@@ -799,7 +809,6 @@ def create_app(
                         "project": str(source_row.get(data.technical_columns[("annealing", "project")]) or ""),
                         "route": str(feature.get("standard_route") or ""),
                         "peak_temperature_c": feature.get("max_temperature_c"),
-                        "coating": str(feature.get("coating") or ""),
                         "learning_status": str(source_row.get(data.policy_columns[("annealing", "learning_flag/v1")]) or ""),
                         "has_observation": bool(values_by_property),
                         "observation_summary": {

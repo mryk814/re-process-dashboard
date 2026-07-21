@@ -12,13 +12,12 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 from .task_contracts import TaskDefinition
 
 
-PROFILE_SCHEMA_VERSION = "dataset-input-profile/v1"
+PROFILE_SCHEMA_VERSION = "dataset-input-profile/v2"
 
 _REQUIRED_TECHNICAL_FIELDS = {
     ("melt", "family"),
     ("annealing", "project"),
     ("quality", "category"),
-    ("hot_rolling", "reduction_percent"),
     ("hot_rolling", "equipment"),
     ("anneal_features", "parent_key"),
     ("anneal_features", "max_temperature_c"),
@@ -60,12 +59,15 @@ class UnitConversion:
 
 _UNIT_REGISTRY = {
     ("mass%", "mass%"): UnitConversion("mass%", "mass%"),
-    ("MPa", "MPa"): UnitConversion("MPa", "MPa"),
+    ("mass%", "%"): UnitConversion("mass%", "%"),
     ("%", "%"): UnitConversion("%", "%"),
+    ("MPa", "MPa"): UnitConversion("MPa", "MPa"),
     ("mm", "mm"): UnitConversion("mm", "mm"),
     ("min", "min"): UnitConversion("min", "min"),
     ("s", "s"): UnitConversion("s", "s"),
     ("m/min", "m/min"): UnitConversion("m/min", "m/min"),
+    ("m/min", "mpm"): UnitConversion("m/min", "mpm"),
+    ("mpm", "mpm"): UnitConversion("mpm", "mpm"),
     ("℃", "°C"): UnitConversion("℃", "°C"),
     ("°C", "°C"): UnitConversion("°C", "°C"),
     ("degC", "°C"): UnitConversion("degC", "°C"),
@@ -384,7 +386,7 @@ def validate_profile(profile: DatasetInputProfile, task_definitions: Mapping[str
             if field.required and path not in seen:
                 errors.append(f"{task_id}: required TaskDefinition field {path!r} has no mapping")
             mapping = next((item for item in task.mappings if item.path == path), None)
-            if mapping is not None and mapping.canonical_unit != field.unit:
+            if mapping is not None and unit_conversion(mapping.canonical_unit, field.unit) is None:
                 errors.append(f"{task_id}: mapping unit for {path!r} does not match TaskDefinition")
         ordered = tuple(field.path for field in ordered_definition_fields)
         mapped_order = tuple(mapping.path for mapping in task.mappings)

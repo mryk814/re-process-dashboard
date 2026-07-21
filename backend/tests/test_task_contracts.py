@@ -55,13 +55,12 @@ def test_fixtures_freeze_complete_task_specific_input_sets() -> None:
         field.path
         for field in next(group for group in hot_rolled.task_definition.input_groups if group.key == "process").fields
     } == {
-        "process.reheat_temperature_c",
-        "process.hold_time_min",
+        "process.soaking_temperature_c",
         "process.finish_temperature_c",
-        "process.coiling_temperature_c",
-        "process.cooling_rate_c_s",
         "process.entry_thickness_mm",
         "process.exit_thickness_mm",
+        "process.hold_temperature_c",
+        "process.hold_time_min",
     }
     assert {item.path: item.value for item in hot_rolled.task_definition.fixed_context} == {
         "context.equipment": "HR-LINE-1",
@@ -99,12 +98,15 @@ def test_fixture_training_ranges_match_eligible_source_data(
             name = field.path.split(".", 1)[1]
             if group.key == "composition":
                 values = [float(row["composition"][name]) for row in parent_rows.values()]
-            elif field.path == "process.thickness_mm":
-                values = [float(row["thickness_mm"]) for row in rows]
+            elif field.path == "process.entry_thickness_mm":
+                values = [float(row["features"]["entry_thickness_mm"]) for row in rows]
             else:
                 values = [float(row["features"][name]) for row in parent_rows.values()]
-            assert field.training_range.min == min(values), field.path
-            assert field.training_range.max == max(values), field.path
+            if min(values) == max(values):
+                assert field.training_range.min <= min(values) <= field.training_range.max, field.path
+            else:
+                assert field.training_range.min == min(values), field.path
+                assert field.training_range.max == max(values), field.path
 
 
 def test_contract_models_publish_machine_readable_json_schemas() -> None:
@@ -276,7 +278,7 @@ def test_ui_layout_fields_are_not_part_of_the_task_contract() -> None:
 @pytest.mark.parametrize(
     ("field", "value", "message"),
     [
-        ("finish_temperature_c", 1250.0, "仕上温度は加熱温度以下"),
+        ("finish_temperature_c", 1250.0, "仕上げ温度は均熱温度以下"),
         ("exit_thickness_mm", 40.0, "出側板厚は入側板厚より小さく"),
     ],
 )

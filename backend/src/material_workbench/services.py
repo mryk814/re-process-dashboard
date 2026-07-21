@@ -9,7 +9,7 @@ import numpy as np
 from openpyxl import Workbook, load_workbook
 
 from .importer import WorkbookData, composition_names
-from .task_registry import RuntimeProtocol
+from .task_registry import RuntimeProtocol, load_task_contracts
 from .schemas import Candidate, CandidateInput, HeatPoint, ScreeningRequest
 from .screening_score import GoalDirection, evaluate_screening_goal, score_contract
 
@@ -173,14 +173,12 @@ def candidate_from_lineage(data: WorkbookData, entity_key: str) -> CandidateInpu
     heat_pattern = [HeatPoint.model_validate(point) for point in deepcopy(feature["heat_pattern"])]
     if len(heat_pattern) < 2:
         raise ValueError("候補化に必要な焼鈍履歴がありません")
-    thickness_rows = [row for row in data.observations if row["parent_key"] == anneal_key and row["thickness_mm"] > 0]
-    thickness = float(np.median([row["thickness_mm"] for row in thickness_rows])) if thickness_rows else 1.4
     return CandidateInput(
         name=f"過去条件 {anneal_key}",
         inputs={
             "composition": deepcopy(data.composition[melt_keys[0]]),
-            "process": {"thickness_mm": thickness, "line_speed_m_min": float(feature["line_speed_m_min"])},
-            "categorical": {"coating": str(feature["coating"])},
+            "process": {"ls_mpm": float(feature["ls_mpm"])},
+            "categorical": {},
             "heat_pattern": heat_pattern,
         },
         provenance={
@@ -194,11 +192,22 @@ def candidate_from_lineage(data: WorkbookData, entity_key: str) -> CandidateInpu
     )
 
 
-def import_candidates_xlsx(contents: bytes) -> tuple[list[CandidateInput], list[dict[str, Any]]]:
+def import_candidates_xlsx(contents: bytes, task_id: str = "annealed-properties-v1") -> tuple[list[CandidateInput], list[dict[str, Any]]]:
     try:
         workbook = load_workbook(BytesIO(contents), read_only=True, data_only=True)
     except Exception as exc:
         return [], [{"row": 0, "message": f"Excelを読み込めません: {exc}"}]
+    definition = load_task_contracts()[task_id].task_definition
+    fields = {
+        field.path: field
+        for group in definition.input_groups
+        for field in group.fields
+        if field.kind in {"number", "categorical"}
+    }
+    composition_fields = [field for field in fields.values() if field.path.startswith("composition.")]
+    process_fields = [field for field in fields.values() if field.path.startswith("process.")]
+    categorical_fields = [field for field in fields.values() if field.path.startswith("categorical.")]
+    heat_enabled = any(field.kind == "heat_pattern" for group in definition.input_groups for field in group.fields)
     sheet = workbook.active
     rows = sheet.iter_rows(values_only=True)
     headers = [str(value).strip() if value is not None else "" for value in next(rows, [])]
@@ -212,17 +221,37 @@ def import_candidates_xlsx(contents: bytes) -> tuple[list[CandidateInput], list[
             continue
         try:
             value = lambda header, default=None: row[positions[header]] if header in positions and positions[header] < len(row) else default
-            composition = {name: float(value(name)) for name in COMPOSITION_COLUMNS if value(name) is not None}
-            points = []
+            composition = {
+                field.path.removeprefix("composition."): float(value(field.path.removeprefix("composition.")))
+                for field in composition_fields
+                if value(field.path.removeprefix("composition.")) is not None
+            }
+            process = {
+                field.path.removeprefix("process."): float(value(field.path.removeprefix("process.")))
+                for field in process_fields
+                if value(field.path.removeprefix("process.")) is not None
+            }
+            categorical = {
+                field.path.removeprefix("categorical."): str(value(field.path.removeprefix("categorical.")))
+                for field in categorical_fields
+                if value(field.path.removeprefix("categorical.")) is not None
+            }
+            points: list[dict[str, Any]] = []
             index = 1
             while f"time_s_{index}" in positions and f"temperature_c_{index}" in positions:
                 time, temperature = value(f"time_s_{index}"), value(f"temperature_c_{index}")
                 if time is not None and temperature is not None:
                     segment_raw = value(f"segment_start_{index}", False)
                     segment_start = segment_raw is True or str(segment_raw).strip().lower() in {"1", "true", "yes", "あり"}
-                    points.append({"time_s": float(time), "temperature_c": float(temperature), "segment_start": segment_start})
+                    points.append({
+                        "time_s": float(time),
+                        "temperature_c": float(temperature),
+                        "segment_start": segment_start,
+                        "stage_name": str(value(f"stage_name_{index}")).strip() if value(f"stage_name_{index}") is not None else None,
+                        "stage_category": str(value(f"stage_category_{index}")).strip() if value(f"stage_category_{index}") is not None else None,
+                    })
                 index += 1
-            if len(points) < 2:
+            if heat_enabled and len(points) < 2:
                 raise ValueError("time_s_1 / temperature_c_1 から少なくとも2点が必要です")
             name = value("name")
             if name is None or not str(name).strip():
@@ -231,38 +260,73 @@ def import_candidates_xlsx(contents: bytes) -> tuple[list[CandidateInput], list[
                 name=str(name).strip(),
                 inputs={
                     "composition": composition,
-                    "process": {"thickness_mm": float(value("thickness_mm", 1.4)), "line_speed_m_min": float(value("line_speed_m_min", 103))},
-                    "categorical": {"coating": str(value("coating", "なし"))},
-                    "heat_pattern": points,
+                    "process": process,
+                    "categorical": categorical,
+                    "heat_pattern": points if heat_enabled else None,
                 },
             ))
         except (TypeError, ValueError) as exc:
             errors.append({"row": row_number, "message": str(exc)})
+    workbook.close()
     return imported, errors
 
 
-def candidates_xlsx(candidates: list[Candidate], runtime: RuntimeProtocol) -> bytes:
+def candidates_xlsx(candidates: list[Candidate], runtime: RuntimeProtocol, task_id: str = "annealed-properties-v1") -> bytes:
     workbook = Workbook()
     sheet = workbook.active
     sheet.title = "候補"
-    max_points = max((len(candidate.inputs.heat_pattern or []) for candidate in candidates), default=2)
-    heat_headers = [item for index in range(1, max_points + 1) for item in (f"time_s_{index}", f"temperature_c_{index}", f"segment_start_{index}")]
-    headers = ["schema_version", "id", "name", *COMPOSITION_COLUMNS, "thickness_mm", "line_speed_m_min", "coating", *heat_headers, "TS", "YS", "EL", "lambda", "support_status", "support_distance"]
+    definition = load_task_contracts()[task_id].task_definition
+    numeric_fields = [
+        field for group in definition.input_groups
+        for field in group.fields
+        if field.kind == "number"
+    ]
+    categorical_fields = [
+        field for group in definition.input_groups
+        for field in group.fields
+        if field.kind == "categorical"
+    ]
+    heat_enabled = any(field.kind == "heat_pattern" for group in definition.input_groups for field in group.fields)
+    max_points = max((len(candidate.inputs.heat_pattern or []) for candidate in candidates), default=2) if heat_enabled else 0
+    heat_headers = [
+        item for index in range(1, max_points + 1)
+        for item in (f"time_s_{index}", f"temperature_c_{index}", f"segment_start_{index}", f"stage_name_{index}", f"stage_category_{index}")
+    ]
+    headers = ["schema_version", "id", "name", *[field.path.split(".", 1)[1] for field in numeric_fields], *[field.path.split(".", 1)[1] for field in categorical_fields], *heat_headers, *[output.key for output in definition.outputs], "support_status", "support_distance"]
     sheet.append(headers)
     for candidate in candidates:
         result = runtime.predict(candidate, detailed=False)
-        heat_values = [item for point in (candidate.inputs.heat_pattern or []) for item in (point.time_s, point.temperature_c, point.segment_start)]
+        heat_values = [
+            item
+            for point in (candidate.inputs.heat_pattern or [])
+            for item in (point.time_s, point.temperature_c, point.segment_start, point.stage_name, point.stage_category)
+        ] if heat_enabled else []
         heat_values.extend([None] * (len(heat_headers) - len(heat_values)))
-        sheet.append(["material-workbench-candidate-v1", candidate.id, candidate.name, *(candidate.inputs.composition.get(name) for name in COMPOSITION_COLUMNS), candidate.inputs.process["thickness_mm"], candidate.inputs.process["line_speed_m_min"], candidate.inputs.categorical["coating"], *heat_values, *(result["predictions"][target].value for target in ("TS", "YS", "EL", "lambda")), result["support"].status, result["support"].distance])
+        input_values = [
+            candidate.inputs.composition.get(field.path.removeprefix("composition."))
+            if field.path.startswith("composition.")
+            else candidate.inputs.process.get(field.path.removeprefix("process."))
+            for field in numeric_fields
+        ]
+        input_values.extend([
+            candidate.inputs.categorical.get(field.path.removeprefix("categorical."))
+            for field in categorical_fields
+        ])
+        sheet.append([
+            "material-workbench-candidate-v2", candidate.id, candidate.name, *input_values, *heat_values,
+            *(result["predictions"][output.key].value for output in definition.outputs),
+            result["support"].status, result["support"].distance,
+        ])
     for column in sheet.columns:
         letter = column[0].column_letter
         sheet.column_dimensions[letter].width = min(22, max(12, max(len(str(cell.value or "")) for cell in column) + 2))
     guide = workbook.create_sheet("説明")
-    guide.append(["schema_version", "material-workbench-candidate-v1"])
+    guide.append(["schema_version", "material-workbench-candidate-v2"])
     guide.append(["用途", "候補入力と軽量プレビュー予測の出力。候補シートはそのまま候補importに使用できます。"])
-    guide.append(["単位", "C, Si, Mn, P, S, Cr, Mo, Ni, Al, Ti, B, N, O, Ca は mass%; thickness_mm は mm; line_speed_m_min は m/min; time_s は s; temperature_c は ℃。"])
-    guide.append(["heat pattern", "time_s_N と temperature_c_N を対で指定し、少なくとも2点を時刻の昇順で入力します。工程時計がresetする点は segment_start_N を TRUE にし、未知の工程間時間を速度・積分へ混ぜません。"])
-    guide.append(["prediction", "TS/YS は MPa、EL/lambda は %。予測はexport時のモデル・データに基づく参考値です。"])
+    guide.append(["入力項目", " / ".join(f"{field.label}[{field.unit}]" for field in (*numeric_fields, *categorical_fields))])
+    if heat_enabled:
+        guide.append(["焼鈍履歴", "time_s_N / temperature_c_N を縦方向の履歴点として指定し、stage_name_N を工程名として横に表示します。工程境界は segment_start_N で表します。"])
+    guide.append(["予測", "出力単位はTaskDefinitionの定義に従います。"])
     guide.column_dimensions["A"].width = 20
     guide.column_dimensions["B"].width = 110
     output = BytesIO()

@@ -6,7 +6,7 @@ models are imported and lets Store replace its candidate models atomically.
 """
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 import json
@@ -23,11 +23,6 @@ CANDIDATE_SAFETY_MIGRATION_CHECKSUM = "candidate-revision-archive-v1"
 HOT_PROJECT_ID = "hot-rolling-default"
 ANNEALED_TASK_ID = "annealed-properties-v1"
 HOT_TASK_ID = "hot-rolled-properties-v1"
-HOT_FIXED_CONTEXT = {
-    "equipment": "HR-LINE-1",
-    "test_direction": "L",
-}
-
 Failpoint = Callable[[str], None]
 
 
@@ -69,105 +64,18 @@ def _json_object(raw: str, *, table: str, row_id: str) -> dict[str, Any]:
     return value
 
 
-def _require_keys(payload: Mapping[str, Any], required: set[str], *, table: str, row_id: str) -> None:
-    missing = sorted(required - set(payload))
-    if missing:
-        raise CandidateMigrationError(f"{table} {row_id}: missing payload fields {missing}")
-
-
-def _reject_unknown_keys(payload: Mapping[str, Any], allowed: set[str], *, table: str, row_id: str) -> None:
-    unknown = sorted(set(payload) - allowed)
-    if unknown:
-        raise CandidateMigrationError(f"{table} {row_id}: unsupported payload fields would be lost {unknown}")
-
-
-def _manual_provenance() -> dict[str, Any]:
-    # The legacy Store did not persist how a candidate was created.  Guessing
-    # lineage or screening provenance would create history that never existed.
-    return {"source_kind": "manual", "source_ref": None}
-
-
 def _annealed_payload(row: sqlite3.Row) -> dict[str, Any]:
-    source = _json_object(row["payload"], table="candidates", row_id=row["id"])
-    fields = {"name", "composition", "thickness_mm", "line_speed_m_min", "coating", "heat_pattern"}
-    _require_keys(
-        source,
-        fields,
-        table="candidates",
-        row_id=row["id"],
+    raise CandidateMigrationError(
+        f"candidates {row['id']}: stored candidate belongs to the retired input contract; "
+        "composition and process fields must be re-entered"
     )
-    _reject_unknown_keys(source, fields, table="candidates", row_id=row["id"])
-    if source["name"] != row["name"]:
-        raise CandidateMigrationError(f"candidates {row['id']}: name column and payload disagree")
-    if not isinstance(source["composition"], dict) or not isinstance(source["heat_pattern"], list):
-        raise CandidateMigrationError(f"candidates {row['id']}: composition/heat_pattern has invalid shape")
-    # Preserve every heat-point member.  Stage boundaries and mapping metadata
-    # are meaningful even though the feature pipeline currently uses two keys.
-    if any(not isinstance(point, dict) for point in source["heat_pattern"]):
-        raise CandidateMigrationError(f"candidates {row['id']}: heat_pattern contains a non-object")
-    return {
-        "name": row["name"],
-        "inputs": {
-            "composition": source["composition"],
-            "process": {
-                "thickness_mm": source["thickness_mm"],
-                "line_speed_m_min": source["line_speed_m_min"],
-            },
-            "heat_pattern": source["heat_pattern"],
-            "categorical": {"coating": source["coating"]},
-        },
-        "provenance": _manual_provenance(),
-    }
 
 
 def _hot_payload(row: sqlite3.Row) -> dict[str, Any]:
-    source = _json_object(row["payload"], table="hot_rolling_candidates", row_id=row["id"])
-    process_keys = {
-        "reheat_temperature_c",
-        "hold_time_min",
-        "finish_temperature_c",
-        "coiling_temperature_c",
-        "cooling_rate_c_s",
-        "entry_thickness_mm",
-        "exit_thickness_mm",
-    }
-    legacy_context_keys = set(HOT_FIXED_CONTEXT)
-    _require_keys(
-        source,
-        {"name", "composition", "route", *process_keys},
-        table="hot_rolling_candidates",
-        row_id=row["id"],
+    raise CandidateMigrationError(
+        f"hot_rolling_candidates {row['id']}: stored candidate belongs to the retired input contract; "
+        "composition and process fields must be re-entered"
     )
-    _reject_unknown_keys(
-        source,
-        {"name", "composition", "route", *process_keys, *legacy_context_keys},
-        table="hot_rolling_candidates",
-        row_id=row["id"],
-    )
-    legacy_context = {key: source[key] for key in legacy_context_keys if key in source}
-    mismatched_context = {
-        key: value
-        for key, value in legacy_context.items()
-        if value != HOT_FIXED_CONTEXT[key]
-    }
-    if mismatched_context:
-        raise CandidateMigrationError(
-            f"hot_rolling_candidates {row['id']}: legacy fixed context does not match current task definition {mismatched_context}"
-        )
-    if source["name"] != row["name"]:
-        raise CandidateMigrationError(f"hot_rolling_candidates {row['id']}: name column and payload disagree")
-    if not isinstance(source["composition"], dict):
-        raise CandidateMigrationError(f"hot_rolling_candidates {row['id']}: composition has invalid shape")
-    return {
-        "name": row["name"],
-        "inputs": {
-            "composition": source["composition"],
-            "process": {key: source[key] for key in sorted(process_keys)},
-            "heat_pattern": None,
-            "categorical": {"route": source["route"]},
-        },
-        "provenance": _manual_provenance(),
-    }
 
 
 def _create_common_tables(conn: sqlite3.Connection) -> None:

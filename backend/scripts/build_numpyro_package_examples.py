@@ -61,7 +61,7 @@ def build(destination: Path) -> None:
             "package_id": f"numpyro-{family}-example",
             "package_version": "1.0.0",
             "task_id": "model-package-example",
-            "input_schema_version": "candidate-v1",
+            "input_schema_version": "candidate-v2",
             "feature_pipeline": {"id": "two-feature-example", "version": "1.0.0", "spec": "feature-pipeline/pipeline.json", "canonical_input_paths": list(CANONICAL_INPUT_PATHS), "output_features": ["C", "Mn"], "artifacts": []},
             "predictors": [{"id": "target", "target": "example", "unit": "1", "target_kind": target_kind, "runtime_type": "numpyro.dense_posterior.v1", "architecture_id": "dense_mlp_v1", "artifact": "model-artifacts/posterior.npz", "predictive_family": family, "feature_names": ["C", "Mn"], "config": config}],
             "provenance": {"training_data_id": "synthetic:documented-example", "feature_dataset_id": "synthetic:C-Mn", "training_code_revision": "build_numpyro_package_examples.py"},

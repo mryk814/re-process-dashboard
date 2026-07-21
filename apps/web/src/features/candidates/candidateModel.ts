@@ -4,7 +4,13 @@ export type CandidateViewModel = {
   raw: ApiCandidate;
   id: string;
   label: string;
-  heat: Array<{ time: number; temperature: number; segmentStart?: boolean }>;
+  heat: Array<{
+    time: number;
+    temperature: number;
+    segmentStart?: boolean;
+    stageName?: string;
+    stageCategory?: string;
+  }>;
 };
 
 export function fromApiCandidate(candidate: ApiCandidate): CandidateViewModel {
@@ -16,6 +22,8 @@ export function fromApiCandidate(candidate: ApiCandidate): CandidateViewModel {
       time: point.time_s / 60,
       temperature: point.temperature_c,
       segmentStart: point.segment_start,
+      stageName: point.stage_name ?? undefined,
+      stageCategory: point.stage_category ?? undefined,
     })),
   };
 }
@@ -35,6 +43,8 @@ export function toApiCandidate(candidate: CandidateViewModel): ApiCandidateInput
               time_s: point.time * 60,
               temperature_c: point.temperature,
               segment_start: point.segmentStart ?? false,
+              ...(point.stageName ? { stage_name: point.stageName } : {}),
+              ...(point.stageCategory ? { stage_category: point.stageCategory } : {}),
             })),
           }),
     },

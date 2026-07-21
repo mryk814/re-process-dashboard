@@ -224,7 +224,7 @@ export function LineagePage({
                 {item.entity_type === "焼鈍" && (
                   <>
                     <span className="lineage-result-meta">{item.family || "family不明"} · {item.project || "PJ不明"} · {item.route || "route不明"}</span>
-                    <span className="lineage-result-meta">peak {item.peak_temperature_c == null ? "—" : `${number(item.peak_temperature_c)}°C`} · {item.coating || "—"} · {item.learning_status || "区分なし"}</span>
+                    <span className="lineage-result-meta">peak {item.peak_temperature_c == null ? "—" : `${number(item.peak_temperature_c)}°C`} · {item.learning_status || "区分なし"}</span>
                     <span className="lineage-result-observations">
                       {Object.entries(item.observation_summary ?? {}).slice(0, 4).map(([property, summary]) => `${property.replace("[MPa]", "").replace("[%]", "")} ${number(summary.mean, 1)}±${number(summary.std, 1)} (n=${summary.n})`).join(" / ") || "焼鈍後観測なし"}
                     </span>

@@ -5,60 +5,48 @@ from typing import Any, Mapping, Sequence
 
 import numpy as np
 
-from .schemas import CandidateInput, HeatPoint
 from .feature_contracts import FeatureBundle, FeatureDefinition
+from .schemas import CandidateInput, HeatPoint
 
 
 COMPOSITION_NAMES = (
-    "C", "Si", "Mn", "P", "S", "Cr", "Mo", "Ni", "Al", "Ti", "B", "N", "O", "Ca",
+    "C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N",
 )
 CANONICAL_INPUT_PATHS = (
     *(f"composition.{name}" for name in COMPOSITION_NAMES),
-    "process.thickness_mm",
-    "process.line_speed_m_min",
+    "process.ls_mpm",
     "heat_pattern",
-    "categorical.coating",
 )
 FEATURE_PIPELINE_ID = "metallurgy-thermal"
-FEATURE_PIPELINE_VERSION = "1.5.0"
-
+FEATURE_PIPELINE_VERSION = "2.0.0"
 
 FEATURE_DEFINITIONS = (
-    *(FeatureDefinition(name, "mass%", f"{name} composition", "composition") for name in COMPOSITION_NAMES),
-    FeatureDefinition("thickness_mm", "mm", "Product thickness", "process"),
-    FeatureDefinition("line_speed_m_min", "m/min", "Process line speed", "process"),
-    FeatureDefinition("coating_none", "1", "Uncoated indicator", "categorical"),
-    FeatureDefinition("coating_GI", "1", "GI coating indicator", "categorical"),
-    FeatureDefinition("coating_GA", "1", "GA coating indicator", "categorical"),
-    FeatureDefinition("ce_iiw", "mass%", "IIW carbon-equivalent proxy", "metallurgy"),
-    FeatureDefinition("pcm", "mass%", "Ito-Bessyo weld-cracking composition parameter", "metallurgy"),
-    FeatureDefinition("c_times_mn", "mass%^2", "Carbon-manganese interaction proxy", "metallurgy"),
-    FeatureDefinition("si_plus_al", "mass%", "Combined silicon and aluminium content", "metallurgy"),
-    FeatureDefinition("cr_plus_mo", "mass%", "Combined chromium and molybdenum content", "metallurgy"),
-    FeatureDefinition("microalloy_sum", "mass%", "Available microalloying content, Ti + B", "metallurgy"),
-    FeatureDefinition("peak_temperature_c", "degC", "Peak temperature of the entered route", "heat_pattern"),
-    FeatureDefinition("max_heating_rate_c_s", "degC/s", "Maximum positive segment heating rate", "heat_pattern"),
-    FeatureDefinition("time_at_or_above_95pct_peak_s", "s", "Interpolated time at or above 95% of peak", "heat_pattern"),
-    FeatureDefinition("time_at_or_above_700c_s", "s", "Interpolated time at or above 700 degC", "heat_pattern"),
-    FeatureDefinition("thermal_exposure_above_600c_c_s", "degC*s", "Integral of max(T - 600 degC, 0)", "heat_pattern"),
-    FeatureDefinition("cooling_rate_800_to_500_c_s", "degC/s", "Equivalent cooling rate between downward 800 and 500 degC crossings after peak", "heat_pattern"),
-    FeatureDefinition("cooling_800_to_500_observed", "1", "One when both downward 800 and 500 degC crossings are observed; zero marks the rate as unavailable", "heat_pattern"),
-    FeatureDefinition("reheat_count", "count", "Cooling-to-heating excursions with at least 25 degC amplitude", "heat_pattern"),
-    FeatureDefinition("has_reheat", "1", "One when reheat_count is positive", "heat_pattern"),
+    *(FeatureDefinition(name, "%", f"{name} composition", "composition") for name in COMPOSITION_NAMES),
+    FeatureDefinition("ls_mpm", "mpm", "Annealing line speed", "process"),
+    FeatureDefinition("ce_iiw", "%", "IIW carbon-equivalent proxy", "metallurgy"),
+    FeatureDefinition("pcm", "%", "Ito-Bessyo weld-cracking composition parameter", "metallurgy"),
+    FeatureDefinition("c_times_mn", "%^2", "Carbon-manganese interaction proxy", "metallurgy"),
+    FeatureDefinition("si_plus_al", "%", "Combined silicon and aluminium content", "metallurgy"),
+    FeatureDefinition("cr_plus_mo", "%", "Combined chromium and molybdenum content", "metallurgy"),
+    FeatureDefinition("microalloy_sum", "%", "Available microalloying content, Ti + B", "metallurgy"),
+    FeatureDefinition("peak_temperature_c", "°C", "Peak temperature of the annealing history", "heat_pattern"),
+    FeatureDefinition("max_heating_rate_c_s", "°C/s", "Maximum positive segment heating rate", "heat_pattern"),
+    FeatureDefinition("time_at_or_above_95pct_peak_s", "s", "Time at or above 95% of peak", "heat_pattern"),
+    FeatureDefinition("time_at_or_above_700c_s", "s", "Time at or above 700°C", "heat_pattern"),
+    FeatureDefinition("thermal_exposure_above_600c_c_s", "°C*s", "Thermal exposure above 600°C", "heat_pattern"),
+    FeatureDefinition("cooling_rate_800_to_500_c_s", "°C/s", "Cooling rate between 800°C and 500°C", "heat_pattern"),
+    FeatureDefinition("cooling_800_to_500_observed", "1", "Whether the cooling rate is observed", "heat_pattern"),
+    FeatureDefinition("reheat_count", "count", "Cooling-to-heating excursions", "heat_pattern"),
+    FeatureDefinition("has_reheat", "1", "Whether a reheat excursion exists", "heat_pattern"),
 )
+FEATURE_NAMES = tuple(item.name for item in FEATURE_DEFINITIONS)
+FEATURE_UNITS = tuple(item.unit for item in FEATURE_DEFINITIONS)
 
-FEATURE_NAMES = tuple(definition.name for definition in FEATURE_DEFINITIONS)
-FEATURE_UNITS = tuple(definition.unit for definition in FEATURE_DEFINITIONS)
 
-
-def _composition(
-    candidate: CandidateInput,
-    defaults: Mapping[str, float] | None,
-) -> dict[str, float]:
+def _composition(candidate: CandidateInput, defaults: Mapping[str, float] | None) -> dict[str, float]:
     unknown = sorted(set(candidate.inputs.composition) - set(COMPOSITION_NAMES))
     if unknown:
         raise ValueError(f"未対応の組成元素です: {', '.join(unknown)}")
-
     values: dict[str, float] = {}
     missing: list[str] = []
     for name in COMPOSITION_NAMES:
@@ -78,29 +66,24 @@ def _composition(
 
 
 def candidate_from_observation(row: dict[str, Any]) -> CandidateInput | None:
-    if row["source"] == "熱延引張":
+    if row.get("task_id") not in {None, "annealed-properties-v1"}:
         return None
-    process, composition = row["features"], row["composition"]
-    if not process or not composition or len(process.get("heat_pattern", [])) < 2 or row["thickness_mm"] <= 0:
+    process, composition = row.get("features"), row.get("composition")
+    points = (process or {}).get("heat_pattern", [])
+    if not process or not composition or process.get("ls_mpm") is None or len(points) < 2:
         return None
     return CandidateInput(
         name=str(row["parent_key"]),
         inputs={
             "composition": composition,
-            "process": {
-                "thickness_mm": row["thickness_mm"],
-                "line_speed_m_min": process["line_speed_m_min"],
-            },
-            "categorical": {"coating": process["coating"]},
-            "heat_pattern": process["heat_pattern"],
+            "process": {"ls_mpm": process["ls_mpm"]},
+            "categorical": {},
+            "heat_pattern": points,
         },
     )
 
 
-def build_feature_bundle_from_observation(
-    row: dict[str, Any],
-    composition_defaults: Mapping[str, float],
-) -> FeatureBundle | None:
+def build_feature_bundle_from_observation(row: dict[str, Any], composition_defaults: Mapping[str, float]) -> FeatureBundle | None:
     candidate = candidate_from_observation(row)
     return None if candidate is None else build_feature_bundle(candidate, composition_defaults)
 
@@ -123,36 +106,15 @@ def _segment_excess_integral(t0: float, y0: float, t1: float, y1: float, thresho
     if e0 >= 0 and e1 >= 0:
         return duration * (e0 + e1) / 2.0
     fraction = -e0 / (e1 - e0)
-    if e0 < 0:
-        return duration * (1.0 - fraction) * e1 / 2.0
-    return duration * fraction * e0 / 2.0
+    return duration * ((1.0 - fraction) * e1 / 2.0 if e0 < 0 else fraction * e0 / 2.0)
 
 
 def _time_above(points: Sequence[HeatPoint], threshold: float) -> float:
-    return sum(
-        _segment_duration_above(left.time_s, left.temperature_c, right.time_s, right.temperature_c, threshold)
-        for left, right in zip(points, points[1:]) if not right.segment_start
-    )
+    return sum(_segment_duration_above(a.time_s, a.temperature_c, b.time_s, b.temperature_c, threshold) for a, b in zip(points, points[1:]) if not b.segment_start)
 
 
 def _excess_integral(points: Sequence[HeatPoint], threshold: float) -> float:
-    return sum(
-        _segment_excess_integral(left.time_s, left.temperature_c, right.time_s, right.temperature_c, threshold)
-        for left, right in zip(points, points[1:]) if not right.segment_start
-    )
-
-
-def _downward_crossing_time(points: Sequence[HeatPoint], threshold: float, start_index: int, start_time: float = -math.inf) -> float | None:
-    for index in range(start_index, len(points) - 1):
-        left, right = points[index], points[index + 1]
-        if right.segment_start:
-            continue
-        if left.temperature_c >= threshold > right.temperature_c:
-            fraction = (left.temperature_c - threshold) / (left.temperature_c - right.temperature_c)
-            crossing = left.time_s + fraction * (right.time_s - left.time_s)
-            if crossing >= start_time:
-                return float(crossing)
-    return None
+    return sum(_segment_excess_integral(a.time_s, a.temperature_c, b.time_s, b.temperature_c, threshold) for a, b in zip(points, points[1:]) if not b.segment_start)
 
 
 def _stages(points: Sequence[HeatPoint]) -> list[list[HeatPoint]]:
@@ -165,110 +127,73 @@ def _stages(points: Sequence[HeatPoint]) -> list[list[HeatPoint]]:
     return stages
 
 
-def _cooling_rate_800_to_500(points: Sequence[HeatPoint], peak_index: int) -> tuple[float, float]:
-    peak_point = points[peak_index]
-    reached_peak_stage = False
+def _crossing(points: Sequence[HeatPoint], threshold: float, start: int = 0, after: float = -math.inf) -> float | None:
+    for index in range(start, len(points) - 1):
+        left, right = points[index], points[index + 1]
+        if right.segment_start or not (left.temperature_c >= threshold > right.temperature_c):
+            continue
+        fraction = (left.temperature_c - threshold) / (left.temperature_c - right.temperature_c)
+        result = left.time_s + fraction * (right.time_s - left.time_s)
+        if result >= after:
+            return result
+    return None
+
+
+def _cooling_rate(points: Sequence[HeatPoint], peak_index: int) -> tuple[float, float]:
+    peak = points[peak_index]
     for stage in _stages(points):
-        if peak_point in stage:
-            reached_peak_stage = True
-            local_start = stage.index(peak_point)
-        elif reached_peak_stage:
-            local_start = 0
-        else:
+        if peak not in stage:
             continue
-        t800 = _downward_crossing_time(stage, 800.0, local_start)
-        if t800 is None:
-            continue
-        t500 = _downward_crossing_time(stage, 500.0, local_start, t800)
-        if t500 is not None and t500 > t800:
+        start = stage.index(peak)
+        t800 = _crossing(stage, 800.0, start)
+        t500 = _crossing(stage, 500.0, start, t800 or -math.inf)
+        if t800 is not None and t500 is not None and t500 > t800:
             return 300.0 / (t500 - t800), 1.0
     return 0.0, 0.0
 
 
-def _reheat_count(points: Sequence[HeatPoint], minimum_excursion_c: float = 25.0) -> int:
+def _reheat_count(points: Sequence[HeatPoint]) -> int:
     count = 0
     for stage in _stages(points):
-        descending = False
+        fell = False
         valley: float | None = None
         rise_peak: float | None = None
         for left, right in zip(stage, stage[1:]):
             delta = right.temperature_c - left.temperature_c
             if delta < 0:
-                if valley is not None and rise_peak is not None and rise_peak - valley >= minimum_excursion_c:
-                    count += 1
-                descending = True
-                valley = None
+                fell = True
+                valley = right.temperature_c if valley is None else min(valley, right.temperature_c)
                 rise_peak = None
-            elif delta > 0 and descending:
-                if valley is None:
-                    valley = left.temperature_c
-                rise_peak = max(rise_peak if rise_peak is not None else -math.inf, right.temperature_c)
-        if valley is not None and rise_peak is not None and rise_peak - valley >= minimum_excursion_c:
-            count += 1
+            elif delta > 0 and fell:
+                rise_peak = max(rise_peak or right.temperature_c, right.temperature_c)
+                if valley is not None and rise_peak - valley >= 25:
+                    count += 1
+                    fell, valley, rise_peak = False, None, None
     return count
 
 
-def build_feature_bundle(
-    candidate: CandidateInput,
-    composition_defaults: Mapping[str, float] | None = None,
-) -> FeatureBundle:
-    """Build the versioned, fixed-order numerical feature contract.
-
-    The heat route is interpreted as a piecewise-linear temperature-time path.
-    Missing composition values must be supplied explicitly through
-    ``composition_defaults`` (for example, training-set medians).
-    """
+def build_feature_bundle(candidate: CandidateInput, composition_defaults: Mapping[str, float] | None = None) -> FeatureBundle:
     composition = _composition(candidate, composition_defaults)
     points = candidate.inputs.heat_pattern
-    if points is None:
-        raise ValueError("Annealing feature pipeline requires a heat pattern")
+    if points is None or len(points) < 2:
+        raise ValueError("Annealing feature pipeline requires at least two history points")
     peak = max(point.temperature_c for point in points)
     peak_index = next(index for index, point in enumerate(points) if point.temperature_c == peak)
-    heating_rates = [
-        (right.temperature_c - left.temperature_c) / (right.time_s - left.time_s)
-        for left, right in zip(points, points[1:]) if not right.segment_start
-    ]
-    max_heating_rate = max(0.0, *heating_rates)
+    rates = [(b.temperature_c - a.temperature_c) / (b.time_s - a.time_s) for a, b in zip(points, points[1:]) if not b.segment_start]
+    cooling_rate, cooling_observed = _cooling_rate(points, peak_index)
     reheat_count = _reheat_count(points)
-    cooling_rate, cooling_observed = _cooling_rate_800_to_500(points, peak_index)
-
     c, si, mn = composition["C"], composition["Si"], composition["Mn"]
     cr, mo, ni = composition["Cr"], composition["Mo"], composition["Ni"]
-    al, ti, b = composition["Al"], composition["Ti"], composition["B"]
-    # V and Cu are not available in this workbook and are explicitly zero in
-    # the standard IIW and Pcm equations rather than silently inferred.
-    ce_iiw = c + mn / 6.0 + (cr + mo) / 5.0 + ni / 15.0
-    pcm = c + si / 30.0 + (mn + cr) / 20.0 + ni / 60.0 + mo / 15.0 + 5.0 * b
-
-    coating = {
-        "なし": (1.0, 0.0, 0.0),
-        "GI": (0.0, 1.0, 0.0),
-        "GA": (0.0, 0.0, 1.0),
-    }[candidate.inputs.categorical["coating"]]
-    values = np.asarray(
-        [
-            *(composition[name] for name in COMPOSITION_NAMES),
-            candidate.inputs.process["thickness_mm"],
-            candidate.inputs.process["line_speed_m_min"],
-            *coating,
-            ce_iiw,
-            pcm,
-            c * mn,
-            si + al,
-            cr + mo,
-            ti + b,
-            peak,
-            max_heating_rate,
-            _time_above(points, peak * 0.95),
-            _time_above(points, 700.0),
-            _excess_integral(points, 600.0),
-            cooling_rate,
-            cooling_observed,
-            float(reheat_count),
-            1.0 if reheat_count else 0.0,
-        ],
-        dtype=np.float64,
-    )
+    al, ti, b, cu = composition["Al"], composition["Ti"], composition["B"], composition["Cu"]
+    values = np.asarray([
+        *(composition[name] for name in COMPOSITION_NAMES),
+        candidate.inputs.process["ls_mpm"],
+        c + mn / 6.0 + (cr + mo) / 5.0 + ni / 15.0,
+        c + si / 30.0 + (mn + cr) / 20.0 + ni / 60.0 + mo / 15.0 + 5.0 * b + cu / 20.0,
+        c * mn, si + al, cr + mo, ti + b,
+        peak, max(0.0, *rates), _time_above(points, peak * 0.95), _time_above(points, 700.0),
+        _excess_integral(points, 600.0), cooling_rate, cooling_observed, float(reheat_count), float(bool(reheat_count)),
+    ], dtype=np.float64)
     if values.shape != (len(FEATURE_DEFINITIONS),) or not np.isfinite(values).all():
-        raise ValueError("Feature pipeline produced an invalid feature vector")
+        raise ValueError("Annealing feature pipeline produced an invalid vector")
     return FeatureBundle(FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION, FEATURE_DEFINITIONS, values)

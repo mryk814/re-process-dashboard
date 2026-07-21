@@ -5,7 +5,7 @@ from openpyxl import Workbook
 
 from material_workbench.store import Store
 
-ELEMENTS = ("C", "Si", "Mn", "P", "S", "Cr", "Mo", "Ni", "Al", "Ti", "B", "N", "O", "Ca")
+ELEMENTS = ("C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N")
 
 
 def _candidate(name: str) -> dict:
@@ -13,8 +13,8 @@ def _candidate(name: str) -> dict:
         "name": name,
         "inputs": {
             "composition": {**{key: 0.0 for key in ELEMENTS}, "C": 0.08, "Si": 0.3, "Mn": 1.5},
-            "process": {"thickness_mm": 1.4, "line_speed_m_min": 103.0},
-            "categorical": {"coating": "GI"},
+            "process": {"ls_mpm": 103.0},
+            "categorical": {},
             "heat_pattern": [
                 {"time_s": 0, "temperature_c": 25},
                 {"time_s": 300, "temperature_c": 810},
@@ -89,6 +89,14 @@ def test_project_crud_preserves_default_and_isolates_candidates_and_screening(cl
     assert client.get("/api/screening").json() == []
     assert client.get(f"/api/screening/{run_id}").status_code == 404
     assert client.post("/api/screening", json=screening_body).status_code == 404
+    assert client.delete(f"/api/projects/{project['id']}").status_code == 204
+    assert client.get(f"/api/projects/{project['id']}").status_code == 404
+    assert client.get(f"/api/projects/{project['id']}/candidates").status_code == 404
+    assert project["id"] not in {item["id"] for item in client.get("/api/projects").json()}
+
+    assert client.delete("/api/projects/default").status_code == 409
+    assert client.delete("/api/projects/hot-rolling-default").status_code == 409
+    assert client.delete("/api/projects/missing").status_code == 404
 
 
 def test_screening_accepts_hot_rolling_process_fields_from_task_definition(client) -> None:
@@ -101,16 +109,14 @@ def test_screening_accepts_hot_rolling_process_fields_from_task_definition(clien
             "target": "TS",
             "target_value": 520,
             "variables": {
-                "process.reheat_temperature_c": {"mode": "range", "min": 1170, "max": 1190},
-                "categorical.route": {"mode": "list", "values": ["A", "B"]},
+                "process.soaking_temperature_c": {"mode": "range", "min": 1170, "max": 1190},
             },
         },
     )
     assert response.status_code == 201, response.text
     point = response.json()["points"][0]
     assert set(point["predictions"]) == {"TS"}
-    assert 1170 <= point["inputs"]["process.reheat_temperature_c"] <= 1190
-    assert point["inputs"]["categorical.route"] in {"A", "B"}
+    assert 1170 <= point["inputs"]["process.soaking_temperature_c"] <= 1190
 
 
 def test_screening_samples_only_hot_rolling_points_that_satisfy_relational_constraints(client) -> None:
@@ -122,7 +128,7 @@ def test_screening_samples_only_hot_rolling_points_that_satisfy_relational_const
             "samples": 48,
             "target": "TS",
             "variables": {
-                "process.reheat_temperature_c": {"mode": "range", "min": 880, "max": 920},
+                "process.soaking_temperature_c": {"mode": "range", "min": 880, "max": 920},
                 "process.finish_temperature_c": {"mode": "range", "min": 880, "max": 920},
             },
         },
@@ -131,7 +137,7 @@ def test_screening_samples_only_hot_rolling_points_that_satisfy_relational_const
     points = response.json()["points"]
     assert len(points) == 48
     assert all(
-        point["inputs"]["process.finish_temperature_c"] <= point["inputs"]["process.reheat_temperature_c"]
+        point["inputs"]["process.finish_temperature_c"] <= point["inputs"]["process.soaking_temperature_c"]
         for point in points
     )
 

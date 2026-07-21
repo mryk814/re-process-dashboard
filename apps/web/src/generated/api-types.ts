@@ -154,7 +154,8 @@ export interface paths {
         /** Update Project By Id */
         put: operations["update_project_by_id_api_projects__project_id__put"];
         post?: never;
-        delete?: never;
+        /** Delete Project By Id */
+        delete: operations["delete_project_by_id_api_projects__project_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -669,7 +670,7 @@ export interface components {
              * Code
              * @enum {string}
              */
-            code: "not_found" | "revision_conflict" | "candidate_limit" | "adopted_candidate" | "candidate_archived" | "candidate_provenance_immutable" | "project_task_locked" | "data_integrity_error" | "validation_error" | "runtime_unavailable";
+            code: "not_found" | "revision_conflict" | "candidate_limit" | "adopted_candidate" | "candidate_archived" | "candidate_provenance_immutable" | "project_task_locked" | "protected_project" | "data_integrity_error" | "validation_error" | "runtime_unavailable";
             current_candidate?: components["schemas"]["Candidate"] | null;
             /** Field Errors */
             field_errors?: components["schemas"]["FieldError"][];
@@ -760,7 +761,7 @@ export interface components {
         /** CandidateInputs */
         CandidateInputs: {
             /** Categorical */
-            categorical: {
+            categorical?: {
                 [key: string]: string;
             };
             /** Composition */
@@ -1072,8 +1073,6 @@ export interface components {
         };
         /** LineageIndexItem */
         LineageIndexItem: {
-            /** Coating */
-            coating?: string | null;
             /** Entity Type */
             entity_type: string;
             /** Family */
@@ -2603,6 +2602,53 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Project"];
                 };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    delete_project_by_id_api_projects__project_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Not Found */
             404: {

@@ -27,7 +27,7 @@ def test_builder_emits_ts_only_hot_rolling_package(tmp_path: Path) -> None:
     expected = json.loads((destination / "smoke" / "expected.json").read_text(encoding="utf-8"))
     stats = json.loads((destination / "reference" / "training_stats.json").read_text(encoding="utf-8"))
 
-    assert manifest["package_version"] == "0.4.0-lifecycle-v1"
+    assert manifest["package_version"] == "0.5.0-input-contract-v2"
     assert [predictor["target"] for predictor in manifest["predictors"]] == ["TS"]
     assert {artifact["path"] for artifact in manifest["artifacts"] if artifact["path"].startswith("model-artifacts/")} == {
         "model-artifacts/TS.npz"

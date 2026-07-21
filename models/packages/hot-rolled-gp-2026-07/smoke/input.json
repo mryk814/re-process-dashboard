@@ -7,32 +7,29 @@
       "Mn": 0.80214,
       "P": 0.00973,
       "S": 0.0059,
+      "Al": 0.03804,
+      "Cu": 0.0,
+      "Ni": 0.07294,
       "Cr": 0.01699,
       "Mo": 0.0,
-      "Ni": 0.07294,
-      "Al": 0.03804,
       "Ti": 0.00592,
       "B": 0.0003,
-      "N": 0.00443,
       "O": 0.00256,
-      "Ca": 0.00087
+      "N": 0.00443
     },
     "process": {
-      "reheat_temperature_c": 1168.038,
-      "hold_time_min": 29.341,
+      "soaking_temperature_c": 1168.038,
       "finish_temperature_c": 904.873,
-      "coiling_temperature_c": 641.809,
-      "cooling_rate_c_s": 36.764,
       "entry_thickness_mm": 33.318,
-      "exit_thickness_mm": 3.459
+      "exit_thickness_mm": 3.459,
+      "hold_temperature_c": 1168.038,
+      "hold_time_min": 29.341
     },
-    "categorical": {
-      "route": "A"
-    },
+    "categorical": {},
     "heat_pattern": null
   },
   "provenance": {
-    "source_kind": "manual",
+    "source_kind": "direct",
     "source_ref": null
   }
 }

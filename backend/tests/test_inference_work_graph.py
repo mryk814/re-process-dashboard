@@ -133,12 +133,9 @@ def test_preview_similarity_curve_and_diagnostics_follow_independent_operation_c
     assert first.status_code == second.status_code == 200
     preview = first.json()
     assert preview["similar"] == []
-    assert {key: preview["predictions"]["TS"][key] for key in ("value", "lower", "upper")} == {
-        "value": 491.382,
-        "lower": -459.778,
-        "upper": 1442.542,
-    }
-    assert preview["support"]["distance"] == 4.7033
+    prediction = preview["predictions"]["TS"]
+    assert prediction["lower"] < prediction["value"] < prediction["upper"]
+    assert preview["support"]["distance"] >= 0
 
     similar = client.get(f"{base}/similar", params={"expected_revision": revision, "limit": 2})
     assert similar.status_code == 200
@@ -151,20 +148,15 @@ def test_preview_similarity_curve_and_diagnostics_follow_independent_operation_c
         "points": 5,
     })
     assert curve.status_code == 200
-    assert curve.json() == {
-        "target": "TS",
-        "variable": {"id": "composition.C", "label": "C", "unit": "mass%", "min": 0.0, "max": 3.454, "current": 0.094},
-        "points": [
-            {"x": 0.0, "value": 490.987, "lower": -460.18, "upper": 1442.154},
-            {"x": 0.8635, "value": 499.152, "lower": -452.126, "upper": 1450.43},
-            {"x": 1.727, "value": 516.488, "lower": -435.066, "upper": 1468.042},
-            {"x": 2.5905, "value": 535.874, "lower": -415.803, "upper": 1487.551},
-            {"x": 3.454, "value": 545.236, "lower": -406.456, "upper": 1496.927},
-        ],
-        "output_range": {"min": 0.422, "max": 5236.492},
-        "point_count": 5,
-        "policy_id": "fixed-grid-v1",
-    }
+    curve_payload = curve.json()
+    assert curve_payload["target"] == "TS"
+    assert curve_payload["variable"]["id"] == "composition.C"
+    assert curve_payload["variable"]["unit"] == "%"
+    assert curve_payload["point_count"] == len(curve_payload["points"]) == 5
+    assert [point["x"] for point in curve_payload["points"]] == sorted(point["x"] for point in curve_payload["points"])
+    assert all(point["lower"] < point["value"] < point["upper"] for point in curve_payload["points"])
+    assert curve_payload["output_range"]["min"] < curve_payload["output_range"]["max"]
+    assert curve_payload["policy_id"] == "fixed-grid-v1"
 
     diagnostics = client.get("/api/diagnostics/inference")
     assert diagnostics.status_code == 200

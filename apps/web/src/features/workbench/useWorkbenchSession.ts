@@ -254,21 +254,10 @@ export function useWorkbenchSession({
     editor.schedule(next, current);
   }
 
-  function updateCandidateText(id: string, field: "label" | "coating", value: string) {
+  function updateCandidateText(id: string, field: "label", value: string) {
     const current = candidates.find((candidate) => candidate.id === id);
     if (!current) return;
-    const next: CandidateViewModel = field === "label"
-      ? { ...current, label: value }
-      : {
-          ...current,
-          raw: {
-            ...current.raw,
-            inputs: {
-              ...current.raw.inputs,
-              categorical: { ...current.raw.inputs.categorical, coating: value },
-            },
-          },
-        };
+    const next: CandidateViewModel = { ...current, label: value };
     setCandidates((items) => items.map((candidate) => candidate.id === id ? next : candidate));
     editor.schedule(next, current);
   }

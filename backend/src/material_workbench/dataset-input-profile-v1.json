@@ -1,6 +1,6 @@
 {
-  "schema_version": "dataset-input-profile/v1",
-  "id": "thin-sheet-workbook-v1",
+  "schema_version": "dataset-input-profile/v2",
+  "id": "thin-sheet-workbook-v2",
   "shared": {
     "sheets": {
       "melt": "溶製",
@@ -81,7 +81,9 @@
           "column": "熱延_key",
           "cardinality": "zero_or_one",
           "stage": 1,
-          "parent_entity_types": ["melt"]
+          "parent_entity_types": [
+            "melt"
+          ]
         },
         {
           "path": "cold_rolling",
@@ -89,7 +91,9 @@
           "column": "冷延_key",
           "cardinality": "zero_or_one",
           "stage": 3,
-          "parent_entity_types": ["hot_rolling"]
+          "parent_entity_types": [
+            "hot_rolling"
+          ]
         },
         {
           "path": "annealing",
@@ -97,8 +101,13 @@
           "column": "焼鈍_key",
           "cardinality": "zero_or_one",
           "stage": 4,
-          "parent_entity_types": ["cold_rolling", "hot_rolling"],
-          "edge_parent_entity_types": ["cold_rolling"]
+          "parent_entity_types": [
+            "cold_rolling",
+            "hot_rolling"
+          ],
+          "edge_parent_entity_types": [
+            "cold_rolling"
+          ]
         },
         {
           "path": "hot_tensile",
@@ -106,7 +115,9 @@
           "column": "熱延引張_key",
           "cardinality": "zero_or_one",
           "stage": 2,
-          "parent_entity_types": ["hot_rolling"]
+          "parent_entity_types": [
+            "hot_rolling"
+          ]
         },
         {
           "path": "hot_microstructure",
@@ -114,7 +125,9 @@
           "column": "熱延組織_key",
           "cardinality": "zero_or_one",
           "stage": 2,
-          "parent_entity_types": ["hot_rolling"]
+          "parent_entity_types": [
+            "hot_rolling"
+          ]
         },
         {
           "path": "anneal_tensile",
@@ -122,7 +135,9 @@
           "column": "焼鈍引張_key",
           "cardinality": "zero_or_one",
           "stage": 5,
-          "parent_entity_types": ["annealing"]
+          "parent_entity_types": [
+            "annealing"
+          ]
         },
         {
           "path": "anneal_hole",
@@ -130,7 +145,9 @@
           "column": "焼鈍穴広げ_key",
           "cardinality": "zero_or_one",
           "stage": 5,
-          "parent_entity_types": ["annealing"]
+          "parent_entity_types": [
+            "annealing"
+          ]
         },
         {
           "path": "anneal_microstructure",
@@ -138,7 +155,9 @@
           "column": "焼鈍組織_key",
           "cardinality": "zero_or_one",
           "stage": 5,
-          "parent_entity_types": ["annealing"]
+          "parent_entity_types": [
+            "annealing"
+          ]
         }
       ]
     },
@@ -215,11 +234,6 @@
         "role": "quality",
         "name": "category",
         "column": "分類"
-      },
-      {
-        "role": "hot_rolling",
-        "name": "reduction_percent",
-        "column": "圧下率[%]"
       },
       {
         "role": "hot_rolling",
@@ -358,7 +372,7 @@
           "column": "C[mass%]",
           "kind": "entity_scalar",
           "source_unit": "mass%",
-          "canonical_unit": "mass%"
+          "canonical_unit": "%"
         },
         {
           "path": "composition.Si",
@@ -366,7 +380,7 @@
           "column": "Si[mass%]",
           "kind": "entity_scalar",
           "source_unit": "mass%",
-          "canonical_unit": "mass%"
+          "canonical_unit": "%"
         },
         {
           "path": "composition.Mn",
@@ -374,7 +388,7 @@
           "column": "Mn[mass%]",
           "kind": "entity_scalar",
           "source_unit": "mass%",
-          "canonical_unit": "mass%"
+          "canonical_unit": "%"
         },
         {
           "path": "composition.P",
@@ -382,7 +396,7 @@
           "column": "P[mass%]",
           "kind": "entity_scalar",
           "source_unit": "mass%",
-          "canonical_unit": "mass%"
+          "canonical_unit": "%"
         },
         {
           "path": "composition.S",
@@ -390,31 +404,7 @@
           "column": "S[mass%]",
           "kind": "entity_scalar",
           "source_unit": "mass%",
-          "canonical_unit": "mass%"
-        },
-        {
-          "path": "composition.Cr",
-          "role": "melt",
-          "column": "Cr[mass%]",
-          "kind": "entity_scalar",
-          "source_unit": "mass%",
-          "canonical_unit": "mass%"
-        },
-        {
-          "path": "composition.Mo",
-          "role": "melt",
-          "column": "Mo[mass%]",
-          "kind": "entity_scalar",
-          "source_unit": "mass%",
-          "canonical_unit": "mass%"
-        },
-        {
-          "path": "composition.Ni",
-          "role": "melt",
-          "column": "Ni[mass%]",
-          "kind": "entity_scalar",
-          "source_unit": "mass%",
-          "canonical_unit": "mass%"
+          "canonical_unit": "%"
         },
         {
           "path": "composition.Al",
@@ -422,7 +412,39 @@
           "column": "Al[mass%]",
           "kind": "entity_scalar",
           "source_unit": "mass%",
-          "canonical_unit": "mass%"
+          "canonical_unit": "%"
+        },
+        {
+          "path": "composition.Cu",
+          "role": "melt",
+          "column": "Cu[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "%"
+        },
+        {
+          "path": "composition.Ni",
+          "role": "melt",
+          "column": "Ni[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "%"
+        },
+        {
+          "path": "composition.Cr",
+          "role": "melt",
+          "column": "Cr[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "%"
+        },
+        {
+          "path": "composition.Mo",
+          "role": "melt",
+          "column": "Mo[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "%"
         },
         {
           "path": "composition.Ti",
@@ -430,7 +452,7 @@
           "column": "Ti[mass%]",
           "kind": "entity_scalar",
           "source_unit": "mass%",
-          "canonical_unit": "mass%"
+          "canonical_unit": "%"
         },
         {
           "path": "composition.B",
@@ -438,15 +460,7 @@
           "column": "B[mass%]",
           "kind": "entity_scalar",
           "source_unit": "mass%",
-          "canonical_unit": "mass%"
-        },
-        {
-          "path": "composition.N",
-          "role": "melt",
-          "column": "N[mass%]",
-          "kind": "entity_scalar",
-          "source_unit": "mass%",
-          "canonical_unit": "mass%"
+          "canonical_unit": "%"
         },
         {
           "path": "composition.O",
@@ -454,43 +468,23 @@
           "column": "O[mass%]",
           "kind": "entity_scalar",
           "source_unit": "mass%",
-          "canonical_unit": "mass%"
+          "canonical_unit": "%"
         },
         {
-          "path": "composition.Ca",
+          "path": "composition.N",
           "role": "melt",
-          "column": "Ca[mass%]",
+          "column": "N[mass%]",
           "kind": "entity_scalar",
           "source_unit": "mass%",
-          "canonical_unit": "mass%"
+          "canonical_unit": "%"
         },
         {
-          "path": "process.thickness_mm",
-          "role": "anneal_tensile",
-          "column": "板厚[mm]",
-          "kind": "observation_scoped",
-          "source_unit": "mm",
-          "canonical_unit": "mm",
-          "normalizer_id": "median_by_parent/v1",
-          "parent_entity_type": "annealing",
-          "observation_sources": [
-            {
-              "role": "anneal_tensile",
-              "column": "板厚[mm]"
-            },
-            {
-              "role": "anneal_hole",
-              "column": "板厚[mm]"
-            }
-          ]
-        },
-        {
-          "path": "process.line_speed_m_min",
+          "path": "process.ls_mpm",
           "role": "anneal_features",
           "column": "ライン速度[m/min]",
           "kind": "entity_scalar",
           "source_unit": "m/min",
-          "canonical_unit": "m/min"
+          "canonical_unit": "mpm"
         },
         {
           "path": "heat_pattern",
@@ -508,12 +502,6 @@
             "value_canonical_unit": "°C"
           },
           "parent_entity_type": "annealing"
-        },
-        {
-          "path": "categorical.coating",
-          "role": "anneal_features",
-          "column": "メッキ区分",
-          "kind": "categorical"
         }
       ],
       "observations": [
@@ -524,7 +512,6 @@
           "parent_entity_type": "annealing",
           "metadata_columns": {
             "status": "判定",
-            "thickness_mm": "板厚[mm]",
             "date": "試験日"
           },
           "targets": [
@@ -545,9 +532,21 @@
             }
           ],
           "auxiliary": [
-            {"key": "uniform_elongation", "column": "均一伸び[%]", "unit": "%"},
-            {"key": "r_value", "column": "r値[-]", "unit": "1"},
-            {"key": "n_value", "column": "n値[-]", "unit": "1"}
+            {
+              "key": "uniform_elongation",
+              "column": "均一伸び[%]",
+              "unit": "%"
+            },
+            {
+              "key": "r_value",
+              "column": "r値[-]",
+              "unit": "1"
+            },
+            {
+              "key": "n_value",
+              "column": "n値[-]",
+              "unit": "1"
+            }
           ]
         },
         {
@@ -557,7 +556,6 @@
           "parent_entity_type": "annealing",
           "metadata_columns": {
             "status": "判定",
-            "thickness_mm": "板厚[mm]",
             "date": "試験日"
           },
           "targets": [
@@ -579,7 +577,7 @@
           "column": "C[mass%]",
           "kind": "entity_scalar",
           "source_unit": "mass%",
-          "canonical_unit": "mass%"
+          "canonical_unit": "%"
         },
         {
           "path": "composition.Si",
@@ -587,7 +585,7 @@
           "column": "Si[mass%]",
           "kind": "entity_scalar",
           "source_unit": "mass%",
-          "canonical_unit": "mass%"
+          "canonical_unit": "%"
         },
         {
           "path": "composition.Mn",
@@ -595,7 +593,7 @@
           "column": "Mn[mass%]",
           "kind": "entity_scalar",
           "source_unit": "mass%",
-          "canonical_unit": "mass%"
+          "canonical_unit": "%"
         },
         {
           "path": "composition.P",
@@ -603,7 +601,7 @@
           "column": "P[mass%]",
           "kind": "entity_scalar",
           "source_unit": "mass%",
-          "canonical_unit": "mass%"
+          "canonical_unit": "%"
         },
         {
           "path": "composition.S",
@@ -611,31 +609,7 @@
           "column": "S[mass%]",
           "kind": "entity_scalar",
           "source_unit": "mass%",
-          "canonical_unit": "mass%"
-        },
-        {
-          "path": "composition.Cr",
-          "role": "melt",
-          "column": "Cr[mass%]",
-          "kind": "entity_scalar",
-          "source_unit": "mass%",
-          "canonical_unit": "mass%"
-        },
-        {
-          "path": "composition.Mo",
-          "role": "melt",
-          "column": "Mo[mass%]",
-          "kind": "entity_scalar",
-          "source_unit": "mass%",
-          "canonical_unit": "mass%"
-        },
-        {
-          "path": "composition.Ni",
-          "role": "melt",
-          "column": "Ni[mass%]",
-          "kind": "entity_scalar",
-          "source_unit": "mass%",
-          "canonical_unit": "mass%"
+          "canonical_unit": "%"
         },
         {
           "path": "composition.Al",
@@ -643,7 +617,39 @@
           "column": "Al[mass%]",
           "kind": "entity_scalar",
           "source_unit": "mass%",
-          "canonical_unit": "mass%"
+          "canonical_unit": "%"
+        },
+        {
+          "path": "composition.Cu",
+          "role": "melt",
+          "column": "Cu[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "%"
+        },
+        {
+          "path": "composition.Ni",
+          "role": "melt",
+          "column": "Ni[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "%"
+        },
+        {
+          "path": "composition.Cr",
+          "role": "melt",
+          "column": "Cr[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "%"
+        },
+        {
+          "path": "composition.Mo",
+          "role": "melt",
+          "column": "Mo[mass%]",
+          "kind": "entity_scalar",
+          "source_unit": "mass%",
+          "canonical_unit": "%"
         },
         {
           "path": "composition.Ti",
@@ -651,7 +657,7 @@
           "column": "Ti[mass%]",
           "kind": "entity_scalar",
           "source_unit": "mass%",
-          "canonical_unit": "mass%"
+          "canonical_unit": "%"
         },
         {
           "path": "composition.B",
@@ -659,15 +665,7 @@
           "column": "B[mass%]",
           "kind": "entity_scalar",
           "source_unit": "mass%",
-          "canonical_unit": "mass%"
-        },
-        {
-          "path": "composition.N",
-          "role": "melt",
-          "column": "N[mass%]",
-          "kind": "entity_scalar",
-          "source_unit": "mass%",
-          "canonical_unit": "mass%"
+          "canonical_unit": "%"
         },
         {
           "path": "composition.O",
@@ -675,55 +673,31 @@
           "column": "O[mass%]",
           "kind": "entity_scalar",
           "source_unit": "mass%",
-          "canonical_unit": "mass%"
+          "canonical_unit": "%"
         },
         {
-          "path": "composition.Ca",
+          "path": "composition.N",
           "role": "melt",
-          "column": "Ca[mass%]",
+          "column": "N[mass%]",
           "kind": "entity_scalar",
           "source_unit": "mass%",
-          "canonical_unit": "mass%"
+          "canonical_unit": "%"
         },
         {
-          "path": "process.reheat_temperature_c",
+          "path": "process.soaking_temperature_c",
           "role": "hot_rolling",
-          "column": "加熱温度[℃]",
+          "column": "均熱温度[℃]",
           "kind": "entity_scalar",
           "source_unit": "℃",
           "canonical_unit": "°C"
-        },
-        {
-          "path": "process.hold_time_min",
-          "role": "hot_rolling",
-          "column": "加熱保持時間[min]",
-          "kind": "entity_scalar",
-          "source_unit": "min",
-          "canonical_unit": "min"
         },
         {
           "path": "process.finish_temperature_c",
           "role": "hot_rolling",
-          "column": "仕上温度[℃]",
+          "column": "仕上げ温度[℃]",
           "kind": "entity_scalar",
           "source_unit": "℃",
           "canonical_unit": "°C"
-        },
-        {
-          "path": "process.coiling_temperature_c",
-          "role": "hot_rolling",
-          "column": "巻取温度[℃]",
-          "kind": "entity_scalar",
-          "source_unit": "℃",
-          "canonical_unit": "°C"
-        },
-        {
-          "path": "process.cooling_rate_c_s",
-          "role": "hot_rolling",
-          "column": "冷却速度[℃/s]",
-          "kind": "entity_scalar",
-          "source_unit": "℃/s",
-          "canonical_unit": "°C/s"
         },
         {
           "path": "process.entry_thickness_mm",
@@ -742,10 +716,20 @@
           "canonical_unit": "mm"
         },
         {
-          "path": "categorical.route",
+          "path": "process.hold_temperature_c",
           "role": "hot_rolling",
-          "column": "ルート",
-          "kind": "categorical"
+          "column": "保持温度[℃]",
+          "kind": "entity_scalar",
+          "source_unit": "℃",
+          "canonical_unit": "°C"
+        },
+        {
+          "path": "process.hold_time_min",
+          "role": "hot_rolling",
+          "column": "保持時間[min]",
+          "kind": "entity_scalar",
+          "source_unit": "min",
+          "canonical_unit": "min"
         }
       ],
       "observations": [
@@ -757,7 +741,6 @@
           "metadata_columns": {
             "status": "判定",
             "direction": "試験片方向",
-            "thickness_mm": "板厚[mm]",
             "date": "試験日"
           },
           "targets": [
@@ -768,9 +751,21 @@
             }
           ],
           "auxiliary": [
-            {"key": "YS", "column": "YS[MPa]", "unit": "MPa"},
-            {"key": "EL", "column": "EL[%]", "unit": "%"},
-            {"key": "uniform_elongation", "column": "均一伸び[%]", "unit": "%"}
+            {
+              "key": "YS",
+              "column": "YS[MPa]",
+              "unit": "MPa"
+            },
+            {
+              "key": "EL",
+              "column": "EL[%]",
+              "unit": "%"
+            },
+            {
+              "key": "uniform_elongation",
+              "column": "均一伸び[%]",
+              "unit": "%"
+            }
           ]
         }
       ]

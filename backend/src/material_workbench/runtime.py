@@ -23,14 +23,14 @@ COMPOSITION_COLUMNS = composition_names(task_id=TASK_ID)
 MODEL_ID = "anneal-ridge"
 MODEL_VERSION = "0.4.0-oof-v1"
 SIMILARITY_VERSION = "parent-condition-knn-v3-repeat-summary"
-INPUT_SCHEMA_VERSION = "candidate-v1"
+INPUT_SCHEMA_VERSION = "candidate-v2"
 TARGETS = {"TS": ("TS[MPa]", "MPa"), "YS": ("YS[MPa]", "MPa"), "EL": ("EL[%]", "%"), "lambda": ("λ[%]", "%")}
 FEATURE_NAMES = METALLURGY_FEATURE_NAMES
 FEATURE_GROUP_INDICES = feature_index_families(
     FEATURE_DEFINITIONS,
     {
         "composition": ("composition",),
-        "process": ("process", "categorical"),
+        "process": ("process",),
         "metallurgy": ("metallurgy",),
         "heat_pattern": ("heat_pattern",),
     },
@@ -259,7 +259,10 @@ class ModelRuntime:
     def _fit(self) -> None:
         prepared_all = [(row, self._vector_for_observation(row)) for row in self.data.observations]
         prepared_all = [(row, vector) for row, vector in prepared_all if vector is not None]
-        prepared = [(row, vector) for row, vector in prepared_all if row["eligible"] and row["source"] != "熱延引張"]
+        prepared = [
+            (row, vector) for row, vector in prepared_all
+            if row["eligible"] and row["task_id"] == TASK_ID
+        ]
         if prepared:
             self.support_reference = self._support_reference([row for row, _ in prepared], np.vstack([vector for _, vector in prepared]))
             if prepared_all:
@@ -483,10 +486,8 @@ class ModelRuntime:
             if field not in COMPOSITION_COLUMNS:
                 raise ValueError(f"Unsupported response-curve variable: {variable}")
             return float(candidate.inputs.composition.get(field, self.composition_defaults[field]))
-        if variable == "thickness_mm":
-            return float(candidate.inputs.process["thickness_mm"])
-        if variable == "line_speed_m_min":
-            return float(candidate.inputs.process["line_speed_m_min"])
+        if variable.startswith("process."):
+            return float(candidate.inputs.process[variable.removeprefix("process.")])
         if variable == "heat.peak_temperature_c":
             return float(max(point.temperature_c for point in (candidate.inputs.heat_pattern or [])))
         if variable.startswith("heat."):
@@ -506,10 +507,8 @@ class ModelRuntime:
             try:
                 if variable.startswith("composition."):
                     value = row["composition"].get(variable.removeprefix("composition."))
-                elif variable == "thickness_mm":
-                    value = row["thickness_mm"]
-                elif variable == "line_speed_m_min":
-                    value = row["features"].get("line_speed_m_min")
+                elif variable.startswith("process."):
+                    value = row["features"].get(variable.removeprefix("process."))
                 elif variable == "heat.peak_temperature_c":
                     value = max(point["temperature_c"] for point in row["features"].get("heat_pattern", []))
                 elif variable.startswith("heat."):
@@ -533,7 +532,7 @@ class ModelRuntime:
             values = [current - max(abs(current) * 0.08, 1.0), current + max(abs(current) * 0.08, 1.0)]
         low, high = min(values), max(values)
         padding = max((high - low) * 0.08, 1e-6)
-        lower_bound = 0.0 if variable.startswith("composition.") or variable in {"thickness_mm", "line_speed_m_min"} or variable.endswith(".time_min") else -273.15
+        lower_bound = 0.0 if variable.startswith(("composition.", "process.")) or variable.endswith(".time_min") else -273.15
         return max(lower_bound, low - padding), high + padding
 
     @staticmethod
@@ -541,11 +540,8 @@ class ModelRuntime:
         if variable.startswith("composition."):
             candidate.inputs.composition[variable.removeprefix("composition.")] = min(100.0, max(0.0, float(value)))
             return
-        if variable == "thickness_mm":
-            candidate.inputs.process["thickness_mm"] = max(0.001, float(value))
-            return
-        if variable == "line_speed_m_min":
-            candidate.inputs.process["line_speed_m_min"] = max(0.001, float(value))
+        if variable.startswith("process."):
+            candidate.inputs.process[variable.removeprefix("process.")] = max(0.001, float(value))
             return
         if variable == "heat.peak_temperature_c":
             points = candidate.inputs.heat_pattern or []
@@ -568,14 +564,14 @@ class ModelRuntime:
 
     def curve_variable(self, candidate: Candidate, variable: str, model: RidgeModel | None = None) -> dict[str, Any]:
         reference = model or next(iter(self.models.values()))
-        labels = {
-            "thickness_mm": ("板厚", "mm"),
-            "line_speed_m_min": ("ライン速度", "m/min"),
-            "heat.peak_temperature_c": ("ヒートパターン 最高温度", "°C"),
-        }
+        labels = {"heat.peak_temperature_c": ("焼鈍履歴 最高温度", "°C")}
         if variable.startswith("composition."):
             label = variable.removeprefix("composition.")
-            unit = "mass%"
+            unit = "%"
+        elif variable.startswith("process."):
+            field_path = variable
+            field = next((field for group in load_task_definitions()[TASK_ID].input_groups for field in group.fields if field.path == field_path), None)
+            label, unit = (field.label, field.unit or "") if field else (variable.removeprefix("process."), "")
         elif variable.startswith("heat.") and variable.count(".") == 2:
             _, raw_index, field = variable.split(".")
             label = f"ヒートパターン {int(raw_index) + 1}点目 { '時間' if field == 'time_min' else '温度' }"

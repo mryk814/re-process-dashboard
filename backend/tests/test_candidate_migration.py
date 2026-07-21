@@ -84,49 +84,17 @@ def _ledger(path: Path) -> dict[str, list[tuple[object, ...]]]:
         return {table: conn.execute(f'SELECT * FROM "{table}" ORDER BY 1').fetchall() for table in tables}
 
 
-def test_migration_preserves_identity_semantics_and_references(tmp_path: Path) -> None:
+def test_legacy_candidate_migration_is_rejected_without_mutation(tmp_path: Path) -> None:
     database = tmp_path / "legacy.db"
     _legacy_database(database)
     before = _ledger(database)
 
-    result = migrate_candidate_storage(database)
-
-    assert result.status == "migrated"
-    assert result.backup_path is not None and result.backup_path.exists()
-    assert _ledger(result.backup_path) == before
-    with sqlite3.connect(database) as conn:
-        conn.row_factory = sqlite3.Row
-        assert conn.execute("PRAGMA quick_check").fetchone()[0] == "ok"
-        assert conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='hot_rolling_candidates'").fetchone() is None
-        rows = {row["id"]: row for row in conn.execute("SELECT * FROM candidates")}
-        assert set(rows) == {"anneal-1", "hot-1"}
-        assert (rows["anneal-1"]["name"], rows["anneal-1"]["created_at"], rows["anneal-1"]["updated_at"]) == ("既存焼鈍候補", "2026-01-02T00:00:00+00:00", "2026-01-03T00:00:00+00:00")
-        annealed = json.loads(rows["anneal-1"]["payload"])
-        assert set(annealed) == {"name", "inputs", "provenance"}
-        assert annealed["inputs"]["process"] == {"line_speed_m_min": 100.0, "thickness_mm": 1.4}
-        assert annealed["inputs"]["heat_pattern"][1]["segment_start"] is True
-        assert annealed["inputs"]["heat_pattern"][1]["stage_name"] == "均熱"
-        hot = json.loads(rows["hot-1"]["payload"])
-        assert rows["hot-1"]["project_id"] == HOT_PROJECT_ID
-        assert hot["name"] == "既存熱延候補"
-        assert hot["inputs"]["categorical"] == {"route": "B"}
-        assert hot["inputs"]["heat_pattern"] is None
-        project = conn.execute("SELECT * FROM projects WHERE id=?", (HOT_PROJECT_ID,)).fetchone()
-        assert project["task_id"] == "hot-rolled-properties-v1"
-        assert project["created_at"] == "2026-01-04T00:00:00+00:00"
-        assert conn.execute("SELECT candidate_id FROM snapshots WHERE id='snapshot-1'").fetchone()[0] == "anneal-1"
-        assert conn.execute("SELECT candidate_id,snapshot_id FROM actual_measurements WHERE id='actual-1'").fetchone()[:] == ("anneal-1", "snapshot-1")
-        assert conn.execute("SELECT decision_candidate_id,decision_snapshot_id FROM projects WHERE id='default'").fetchone()[:] == ("anneal-1", "snapshot-1")
-
-    second = migrate_candidate_storage(database)
-    assert second.status == "already-current"
-    assert second.backup_path is None
-    with sqlite3.connect(database) as conn:
-        assert conn.execute("SELECT COUNT(*) FROM candidates").fetchone()[0] == 2
-        assert conn.execute("SELECT COUNT(*) FROM projects WHERE id=?", (HOT_PROJECT_ID,)).fetchone()[0] == 1
+    with pytest.raises(CandidateMigrationError, match="retired input contract"):
+        migrate_candidate_storage(database)
+    assert _ledger(database) == before
 
 
-def test_migration_accepts_legacy_fixed_context_when_it_matches_task_definition(tmp_path: Path) -> None:
+def test_migration_rejects_legacy_fixed_context_even_when_it_matches(tmp_path: Path) -> None:
     database = tmp_path / "legacy-fixed-context.db"
     _legacy_database(database)
     with sqlite3.connect(database) as conn:
@@ -135,12 +103,8 @@ def test_migration_accepts_legacy_fixed_context_when_it_matches_task_definition(
             (json.dumps(HOT_FIXED_CONTEXT_PAYLOAD, ensure_ascii=False),),
         )
 
-    result = migrate_candidate_storage(database)
-
-    assert result.status == "migrated"
-    with sqlite3.connect(database) as conn:
-        payload = json.loads(conn.execute("SELECT payload FROM candidates WHERE id='hot-1'").fetchone()[0])
-        assert payload["inputs"]["categorical"] == {"route": "B"}
+    with pytest.raises(CandidateMigrationError, match="retired input contract"):
+        migrate_candidate_storage(database)
 
 
 def test_migration_rejects_legacy_fixed_context_mismatch_without_mutation(tmp_path: Path) -> None:
@@ -154,7 +118,7 @@ def test_migration_rejects_legacy_fixed_context_mismatch_without_mutation(tmp_pa
         )
     before = _ledger(database)
 
-    with pytest.raises(CandidateMigrationError, match="legacy fixed context"):
+    with pytest.raises(CandidateMigrationError, match="retired input contract"):
         migrate_candidate_storage(database)
 
     assert _ledger(database) == before
@@ -173,7 +137,8 @@ def test_failure_rolls_back_every_database_change_and_retry_succeeds(tmp_path: P
         if name == point:
             raise sqlite3.OperationalError(f"injected at {name}")
 
-    with pytest.raises(sqlite3.OperationalError, match="injected"):
+    expected_error = sqlite3.OperationalError if point == "after_backup" else CandidateMigrationError
+    with pytest.raises(expected_error):
         migrate_candidate_storage(database, failpoint=fail)
 
     assert _ledger(database) == before
@@ -182,7 +147,6 @@ def test_failure_rolls_back_every_database_change_and_retry_succeeds(tmp_path: P
         assert "hot_rolling_candidates" in names
         assert "candidates_next" not in names
         assert "schema_migrations" not in names
-    assert migrate_candidate_storage(database).status == "migrated"
 
 
 @pytest.mark.parametrize("failure", ["collision", "broken_reference"])

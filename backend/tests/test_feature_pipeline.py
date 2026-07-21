@@ -11,12 +11,12 @@ from material_workbench.schemas import CandidateInput
 
 COMPOSITION = {
     "C": 0.10, "Si": 0.30, "Mn": 1.50, "P": 0.01, "S": 0.005,
-    "Cr": 0.20, "Mo": 0.10, "Ni": 0.15, "Al": 0.04, "Ti": 0.02,
-    "B": 0.002, "N": 0.004, "O": 0.003, "Ca": 0.001,
+    "Al": 0.04, "Cu": 0.20, "Ni": 0.15, "Cr": 0.20, "Mo": 0.10,
+    "Ti": 0.02, "B": 0.002, "O": 0.003, "N": 0.004,
 }
 EXPECTED_FEATURE_NAMES = (
-    "C", "Si", "Mn", "P", "S", "Cr", "Mo", "Ni", "Al", "Ti", "B", "N", "O", "Ca",
-    "thickness_mm", "line_speed_m_min", "coating_none", "coating_GI", "coating_GA",
+    "C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N",
+    "ls_mpm",
     "ce_iiw", "pcm", "c_times_mn", "si_plus_al", "cr_plus_mo", "microalloy_sum",
     "peak_temperature_c", "max_heating_rate_c_s", "time_at_or_above_95pct_peak_s",
     "time_at_or_above_700c_s", "thermal_exposure_above_600c_c_s",
@@ -24,10 +24,8 @@ EXPECTED_FEATURE_NAMES = (
 )
 EXPECTED_CANONICAL_INPUT_PATHS = (
     *(f"composition.{name}" for name in COMPOSITION),
-    "process.thickness_mm",
-    "process.line_speed_m_min",
+    "process.ls_mpm",
     "heat_pattern",
-    "categorical.coating",
 )
 
 
@@ -36,8 +34,7 @@ def _candidate(heat_pattern: list[dict[str, float]], **changes: object) -> Candi
         "name": "feature-golden",
         "inputs": {
             "composition": COMPOSITION,
-            "process": {"thickness_mm": 1.4, "line_speed_m_min": 100.0},
-            "categorical": {"coating": "GI"},
+            "process": {"ls_mpm": 100.0},
             "heat_pattern": heat_pattern,
             **changes,
         },
@@ -59,22 +56,21 @@ def test_feature_bundle_golden_for_piecewise_linear_route() -> None:
     assert bundle.names == FEATURE_NAMES == EXPECTED_FEATURE_NAMES
     assert bundle.indices_by_group() == {
         "composition": tuple(range(14)),
-        "process": (14, 15),
-        "categorical": (16, 17, 18),
-        "metallurgy": (19, 20, 21, 22, 23, 24),
-        "heat_pattern": tuple(range(25, 34)),
+        "process": (14,),
+        "metallurgy": (15, 16, 17, 18, 19, 20),
+        "heat_pattern": tuple(range(21, 30)),
     }
     assert tuple(item.group for item in bundle.features) == tuple(
-        group for group, count in (("composition", 14), ("process", 2), ("categorical", 3), ("metallurgy", 6), ("heat_pattern", 9))
+        group for group, count in (("composition", 14), ("process", 1), ("metallurgy", 6), ("heat_pattern", 9))
         for _ in range(count)
     )
     assert CANONICAL_INPUT_PATHS == EXPECTED_CANONICAL_INPUT_PATHS
-    assert len(bundle.names) == 34
+    assert len(bundle.names) == 30
     assert len(set(bundle.names)) == len(bundle.names)
     assert bundle.values.dtype == np.float64
     assert not bundle.values.flags.writeable
     assert actual["ce_iiw"] == pytest.approx(0.42)
-    assert actual["pcm"] == pytest.approx(0.21416666666666667)
+    assert actual["pcm"] == pytest.approx(0.22416666666666667)
     assert actual["c_times_mn"] == pytest.approx(0.15)
     assert actual["si_plus_al"] == pytest.approx(0.34)
     assert actual["cr_plus_mo"] == pytest.approx(0.30)
@@ -88,7 +84,6 @@ def test_feature_bundle_golden_for_piecewise_linear_route() -> None:
     assert actual["cooling_800_to_500_observed"] == 1
     assert actual["reheat_count"] == 0
     assert actual["has_reheat"] == 0
-    assert (actual["coating_none"], actual["coating_GI"], actual["coating_GA"]) == (0, 1, 0)
 
 
 def test_reheat_count_uses_25_degree_excursion_and_ignores_small_noise() -> None:
