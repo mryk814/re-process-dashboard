@@ -3,6 +3,7 @@ import { provenanceLabel, type CandidateProvenance } from "../../shared/candidat
 import {
   CandidateInspector,
   ComparisonTable,
+  categoricalTaskInputs,
   fromApiCandidate,
   numericTaskInputs,
   type CandidateSaveState,
@@ -791,10 +792,12 @@ function CurveFamilyPanel({
   const axisPath = taskDefinition.curve_axis_path ?? "";
   const axisInput = numericTaskInputs(taskDefinition).find((input) => input.path === axisPath);
   const varyOptions = numericTaskInputs(taskDefinition).filter((input) => input.editable && input.path !== axisPath);
+  const varyCategoricalOptions = categoricalTaskInputs(taskDefinition).filter((input) => input.editable);
   const [varyId, setVaryId] = useState("");
+  const isCategoricalVary = varyCategoricalOptions.some((input) => input.path === varyId);
   const [levels, setLevels] = useState(5);
   const [payloads, setPayloads] = useState<Record<string, ApiCurveFamily>>({});
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
   const inputIdentity = candidateInputIdentity(candidate.raw.inputs);
   const outputKeys = outputs.map((output) => output.key).join("");
   useEffect(() => {
@@ -806,9 +809,9 @@ function CurveFamilyPanel({
           workbenchApi.curveFamily(projectId, candidate.id, candidate.raw.revision, inputIdentity, output.key, varyId, varyId ? levels : 2, 15, controller.signal)));
         if (controller.signal.aborted) return;
         setPayloads(Object.fromEntries(outputs.map((output, index) => [output.key, loaded[index]])));
-        setError(false);
-      } catch {
-        if (!controller.signal.aborted) setError(true);
+        setError(null);
+      } catch (cause) {
+        if (!controller.signal.aborted) setError(cause instanceof Error ? cause : new Error(String(cause)));
       }
     }, 320);
     return () => { window.clearTimeout(timer); controller.abort(); };
@@ -832,13 +835,18 @@ function CurveFamilyPanel({
         </div>
         <label>ふる変数 <select aria-label="水準をふる変数" value={varyId} onChange={(event) => setVaryId(event.target.value)}>
           <option value="">なし（現在の候補のみ）</option>
-          {varyOptions.map((input) => <option key={input.path} value={input.path}>{input.label}{input.unit ? ` (${input.unit})` : ""}</option>)}
+          {varyOptions.length ? <optgroup label="数値">
+            {varyOptions.map((input) => <option key={input.path} value={input.path}>{input.label}{input.unit ? ` (${input.unit})` : ""}</option>)}
+          </optgroup> : null}
+          {varyCategoricalOptions.length ? <optgroup label="区分">
+            {varyCategoricalOptions.map((input) => <option key={input.path} value={input.path}>{input.label}</option>)}
+          </optgroup> : null}
         </select></label>
-        {varyId ? <label>水準数 <select aria-label="水準数" value={levels} onChange={(event) => setLevels(Number(event.target.value))}>
+        {varyId && !isCategoricalVary ? <label>水準数 <select aria-label="水準数" value={levels} onChange={(event) => setLevels(Number(event.target.value))}>
           {[3, 5, 7].map((count) => <option key={count} value={count}>{count}</option>)}
         </select></label> : null}
       </div>
-      {!ready ? <p className="empty-evidence">入力を保存後に更新します。</p> : error && !firstPayload ? <p className="empty-evidence">曲線を取得できません。</p> : !firstPayload ? <p className="empty-evidence">曲線を読み込んでいます。</p> : (
+      {!ready ? <p className="empty-evidence">入力を保存後に更新します。</p> : error && !firstPayload ? <p className="empty-evidence">曲線を取得できません。 ({error.message})</p> : !firstPayload ? <p className="empty-evidence">曲線を読み込んでいます。</p> : (
         <div className={`response-curves-grid output-count-${Math.min(outputs.length, 4)}`}>
           {outputs.map((output) => {
             const payload = payloads[output.key];
@@ -994,6 +1002,7 @@ function LiveResponseCurves({
   }));
   const loadedCurveCount = curveStates.filter((state) => state?.data !== null && state?.data !== undefined).length;
   const curveStatus = curveStates.some((state) => state?.error) ? "error" : curveStates.some((state) => state?.pending) || loadedCurveCount < curveStates.length ? "refreshing" : "latest";
+  const curveErrorMessage = curveStates.find((state) => state?.error)?.error;
   if (!available) return <UnavailablePanel title="応答曲線" />;
   if (!preview && !curveCandidates.length) return <section className="response-curves-panel"><div className="panel-title"><h2>応答曲線</h2></div><p className="empty-evidence">候補の保存とプレビュー完了後に表示します。</p></section>;
   return (
@@ -1009,7 +1018,7 @@ function LiveResponseCurves({
         </div>
         <label>変数 <select aria-label="応答曲線の設計変数" value={variableId} onChange={(event) => setVariableId(event.target.value)}>{variables.map((variable) => <option key={variable.id} value={variable.id}>{variable.label} ({variable.unit})</option>)}</select></label>
       </div>
-      {!ready ? <p className="empty-evidence">入力を保存後に更新します。</p> : curveStatus === "error" && loadedCurveCount === 0 ? <p className="empty-evidence">応答曲線を取得できません。</p> : (
+      {!ready ? <p className="empty-evidence">入力を保存後に更新します。</p> : curveStatus === "error" && loadedCurveCount === 0 ? <p className="empty-evidence">応答曲線を取得できません。{curveErrorMessage instanceof Error ? ` (${curveErrorMessage.message})` : ""}</p> : (
         <div className={`response-curves-grid output-count-${Math.min(outputs.length, 4)}`}>
           {outputs.map((output) => {
             const curveSeries = curveCandidates.flatMap((item) => {

@@ -715,6 +715,16 @@
                 "type": "null"
               }
             ]
+          },
+          "vary_categorical": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CurveVariableCategorical"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -737,6 +747,9 @@
             "anyOf": [
               {
                 "type": "number"
+              },
+              {
+                "type": "string"
               },
               {
                 "type": "null"
@@ -823,6 +836,37 @@
           "current"
         ],
         "title": "CurveVariable",
+        "type": "object"
+      },
+      "CurveVariableCategorical": {
+        "properties": {
+          "choices": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Choices",
+            "type": "array"
+          },
+          "current": {
+            "title": "Current",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "choices",
+          "current"
+        ],
+        "title": "CurveVariableCategorical",
         "type": "object"
       },
       "DataQualityIssue": {

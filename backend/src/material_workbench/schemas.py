@@ -432,15 +432,23 @@ class ResponseCurveResponse(BaseModel):
 
 
 class CurveFamilySeries(BaseModel):
-    level: float | None = None
+    level: float | str | None = None
     label: str
     points: list[CurvePoint]
+
+
+class CurveVariableCategorical(BaseModel):
+    id: str
+    label: str
+    choices: list[str]
+    current: str
 
 
 class CurveFamilyResponse(BaseModel):
     target: str
     axis: CurveVariable
     vary: CurveVariable | None = None
+    vary_categorical: CurveVariableCategorical | None = None
     series: list[CurveFamilySeries]
     output_range: InputRange | None = None
     point_count: int

@@ -78,6 +78,25 @@ export function numericTaskInputs(definition: TaskDefinitionContract | null): Nu
   });
 }
 
+export type CategoricalTaskInput = TaskFieldDefinition & {
+  id: string;
+  field: string;
+  choices: string[];
+};
+
+export function categoricalTaskInputs(definition: TaskDefinitionContract | null): CategoricalTaskInput[] {
+  if (!definition) return [];
+  return orderedInputGroups(definition).flatMap((group) => {
+    if (group.key !== "categorical") return [];
+    return group.fields.map((field) => ({
+      ...field,
+      id: field.path,
+      field: pathSuffix("categorical", field.path),
+      choices: [...field.choices],
+    }));
+  });
+}
+
 export function getCandidateInputValue(inputs: CandidateInputs, path: string): number | string | CandidateInputs["heat_pattern"] | undefined {
   if (path === "heat_pattern") return inputs.heat_pattern;
   const separator = path.indexOf(".");

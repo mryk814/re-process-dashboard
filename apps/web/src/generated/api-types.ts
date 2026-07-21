@@ -853,13 +853,14 @@ export interface components {
             /** Target */
             target: string;
             vary?: components["schemas"]["CurveVariable"] | null;
+            vary_categorical?: components["schemas"]["CurveVariableCategorical"] | null;
         };
         /** CurveFamilySeries */
         CurveFamilySeries: {
             /** Label */
             label: string;
             /** Level */
-            level?: number | null;
+            level?: number | string | null;
             /** Points */
             points: components["schemas"]["CurvePoint"][];
         };
@@ -888,6 +889,17 @@ export interface components {
             min: number;
             /** Unit */
             unit: string;
+        };
+        /** CurveVariableCategorical */
+        CurveVariableCategorical: {
+            /** Choices */
+            choices: string[];
+            /** Current */
+            current: string;
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
         };
         /** DataQualityIssue */
         DataQualityIssue: {

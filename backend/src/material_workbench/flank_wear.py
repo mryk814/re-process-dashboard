@@ -531,6 +531,15 @@ class FlankWearRuntime:
             })
         return curve
 
+    @staticmethod
+    def _categorical_field_label(name: str) -> str:
+        definition = load_task_definitions()[TASK_ID]
+        path = f"categorical.{name}"
+        field = next((field for group in definition.input_groups for field in group.fields if field.path == path), None)
+        if field is None:
+            raise ValueError(f"この予測タスクで応答曲線にできない変数です: {path}")
+        return field.label
+
     def curve_family_result(
         self,
         candidate: Candidate,
@@ -539,7 +548,11 @@ class FlankWearRuntime:
         levels: int,
         points: int,
     ) -> dict[str, Any]:
-        """摩耗曲線（横軸=curve axis）を、別の設計変数を数水準ふって重ねる。"""
+        """摩耗曲線（横軸=curve axis）を、別の設計変数を数水準ふって重ねる。
+
+        vary_variableが `categorical.<name>` のときは、その離散選択肢すべてを
+        水準として使う（levelsパラメータは無視する。連続量の水準とは意味が違う）。
+        """
         if target not in self.predictors:
             raise ValueError(f"Unsupported curve-family target: {target}")
         definition = load_task_definitions()[TASK_ID]
@@ -552,13 +565,35 @@ class FlankWearRuntime:
             for rows in self.reference_rows for row in rows
             if column in row["outputs"]
         ]
+        vary_meta: dict[str, Any] | None = None
+        vary_categorical: dict[str, Any] | None = None
         if not vary_variable:
             series = [{
                 "level": None,
                 "label": "現在の候補",
                 "points": self._sweep_axis(candidate, target, axis, axis_meta, points),
             }]
-            vary_meta = None
+        elif vary_variable.startswith("categorical."):
+            name = vary_variable.removeprefix("categorical.")
+            choices = CATEGORICAL_CHOICES.get(name)
+            if choices is None:
+                raise ValueError(f"この予測タスクで応答曲線にできない変数です: {vary_variable}")
+            current = candidate.inputs.categorical.get(name, choices[0])
+            vary_categorical = {
+                "id": vary_variable,
+                "label": self._categorical_field_label(name),
+                "choices": list(choices),
+                "current": current,
+            }
+            series = []
+            for choice in choices:
+                adjusted = candidate.model_copy(deep=True)
+                adjusted.inputs.categorical[name] = choice
+                series.append({
+                    "level": choice,
+                    "label": choice,
+                    "points": self._sweep_axis(adjusted, target, axis, axis_meta, points),
+                })
         else:
             vary = _normalize_curve_variable(vary_variable)
             if vary == axis:
@@ -578,6 +613,7 @@ class FlankWearRuntime:
             "target": target,
             "axis": axis_meta,
             "vary": vary_meta,
+            "vary_categorical": vary_categorical,
             "series": series,
             "output_range": None if not observed else {"min": round(min(observed), 4), "max": round(max(observed), 4)},
             "point_count": points,

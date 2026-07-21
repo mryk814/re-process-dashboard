@@ -247,6 +247,34 @@ def test_flank_wear_curve_family_varies_composition_levels(client):
     assert axis_as_vary.status_code == 422
 
 
+def test_flank_wear_curve_family_categorical_levels_use_every_choice(client):
+    project, candidate = _create_flank_project(client)
+    response = client.get(
+        f"/api/projects/{project['id']}/candidates/{candidate['id']}/curve-family",
+        params={
+            "expected_revision": candidate["revision"],
+            "target": "VB_mean",
+            "vary": "categorical.coolant_method",
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["vary"] is None
+    assert payload["vary_categorical"]["id"] == "categorical.coolant_method"
+    labels = [series["label"] for series in payload["series"]]
+    assert labels == ["ドライ", "エアブロー", "MQL", "外部給油", "高圧クーラント"]
+    assert [series["level"] for series in payload["series"]] == labels
+    # クーラント方式によって曲線の高さが実際に変わること
+    end_values = {series["label"]: series["points"][-1]["value"] for series in payload["series"]}
+    assert len(set(end_values.values())) > 1
+
+    unknown = client.get(
+        f"/api/projects/{project['id']}/candidates/{candidate['id']}/curve-family",
+        params={"expected_revision": candidate["revision"], "target": "VB_mean", "vary": "categorical.nope"},
+    )
+    assert unknown.status_code == 422
+
+
 def test_curve_family_rejected_for_tasks_without_curve_axis(client):
     candidate_id = client.get("/api/projects/default/candidates").json()[0]["id"]
     candidate = client.get(f"/api/projects/default/candidates/{candidate_id}").json()
