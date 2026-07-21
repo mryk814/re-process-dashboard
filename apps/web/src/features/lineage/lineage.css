@@ -244,31 +244,6 @@
   align-items: center;
   margin: 18px 0 10px;
 }
-.lineage-intro {
-  align-items: flex-end;
-}
-.lineage-direct-open {
-  display: grid;
-  grid-template-columns: minmax(210px, 300px) auto;
-  gap: 5px 7px;
-  align-items: end;
-}
-.lineage-direct-open label {
-  grid-column: 1 / -1;
-  color: #657386;
-  font-size: 11px;
-  font-weight: 700;
-}
-.lineage-direct-open input {
-  height: 36px;
-  border: 1px solid #aebdce;
-  border-radius: 4px;
-  padding: 6px 9px;
-  font: inherit;
-}
-.lineage-direct-open button {
-  height: 36px;
-}
 .lineage-workspace {
   display: grid;
   grid-template-columns: 245px minmax(0, 1fr) 315px;
@@ -814,12 +789,6 @@
     align-items: flex-start;
     gap: 12px;
     flex-direction: column;
-  }
-  .lineage-intro {
-    align-items: stretch;
-  }
-  .lineage-direct-open {
-    grid-template-columns: 1fr auto;
   }
   .lineage-workspace {
     grid-template-columns: 1fr;

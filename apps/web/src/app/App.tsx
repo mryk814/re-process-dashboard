@@ -19,7 +19,7 @@ const viewLabels: Record<Tab, string> = {
   project: "プロジェクト概要",
   candidates: "候補比較",
   explore: "範囲探索",
-  lineage: "データ探索 / 工程系譜",
+  lineage: "データ探索",
   quality: "データ探索 / 問題一覧",
   settings: "開発・管理",
 };

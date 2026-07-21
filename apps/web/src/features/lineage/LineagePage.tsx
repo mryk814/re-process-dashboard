@@ -59,7 +59,6 @@ export function LineagePage({
 }) {
   const [entityKey, setEntityKey] = useState(initialEntityKey ?? "");
   const [query, setQuery] = useState("");
-  const [directKey, setDirectKey] = useState("");
   const [entityType, setEntityType] = useState("焼鈍");
   const [issueOnly, setIssueOnly] = useState(false);
   const [graphLimit, setGraphLimit] = useState(40);
@@ -79,7 +78,6 @@ export function LineagePage({
   }, [projectId, initialEntityKey]);
   useEffect(() => {
     setQuery("");
-    setDirectKey("");
     setError("");
     setCandidateError("");
   }, [projectId]);
@@ -185,32 +183,13 @@ export function LineagePage({
           <button type="button" className="text-button" onClick={onReturnToQuality}>品質一覧へ戻る</button>
         </div>
       )}
-      <div className="page-intro lineage-intro">
+      <div className="page-intro">
         <div>
           <span className="overline">データ探索</span>
-          <h2>工程系譜</h2>
           <p>
             この材料・条件は、どの工程と試験結果につながっているか。
           </p>
         </div>
-        <form
-          className="lineage-direct-open"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (directKey.trim()) {
-              openNode(directKey.trim());
-            }
-          }}
-        >
-          <label htmlFor="lineage-direct-key">キーを直接指定</label>
-          <input
-            id="lineage-direct-key"
-            value={directKey}
-            onChange={(event) => setDirectKey(event.target.value)}
-            placeholder="例: AN-00001"
-          />
-          <button type="submit" className="secondary-button">開く</button>
-        </form>
       </div>
       <div className="lineage-workspace">
         <aside className="lineage-browser" aria-label="系譜ノード検索">
@@ -508,7 +487,7 @@ export function LineagePage({
           <section className="lineage-empty-overview">
             <span className="overline">ノード未選択</span>
             <h3>調べるノードを選択してください</h3>
-            <p>左の検索結果を選ぶか、キーを直接指定すると、実在する関係線と前後工程を表示します。</p>
+            <p>左の検索欄からノードを選ぶと、実在する関係線と前後工程を表示します。</p>
             {index && <p>{number(index.total_entities)}ノード / {number(index.relation_rows)} relation行 / {index.detected_issues}件の品質問題</p>}
           </section>
         </main>

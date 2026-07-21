@@ -338,7 +338,7 @@ export function LineageGraph({
   });
 
   return (
-    <section className="lineage-graph-panel" aria-label={`${selectedKey} の実工程系譜`}>
+    <section className="lineage-graph-panel" aria-label={`${selectedKey} の工程・試験関係`}>
       <header className="lineage-graph-header">
         <div>
           <b>{graph.relation_row_count} relation行から復元</b>
