@@ -139,6 +139,10 @@ test("lineage separates each process condition and test type into its own group"
   await expect(page.getByRole("button", { name: "熱延 HR-00001 の熱延組織を折りたたむ" })).toBeVisible();
   await expect(page.getByRole("button", { name: "焼鈍 AN-00001 の組織を折りたたむ" })).toBeVisible();
   await expect(page.getByRole("button", { name: "焼鈍 AN-00001 の穴広げを折りたたむ" })).toBeVisible();
+  await expect(page.locator(".lineage-graph-node.group-hot-tensile")).toHaveCount(2);
+  await expect(page.locator(".lineage-graph-node.group-hot-microstructure")).toHaveCount(1);
+  await expect(page.locator(".lineage-graph-node.group-annealed-microstructure")).toHaveCount(2);
+  await expect(page.locator(".lineage-graph-node.group-annealed-hole-expansion")).toHaveCount(3);
 
   await page.getByRole("button", { name: "熱延 HR-00001 の熱延引張を折りたたむ" }).click();
   await expect(page.getByRole("button", { name: "熱延 HR-00001 の熱延引張を展開する" })).toHaveAttribute("aria-expanded", "false");
