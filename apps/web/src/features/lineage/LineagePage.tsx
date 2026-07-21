@@ -17,6 +17,20 @@ type HeatStageSegment = {
   duration: number;
 };
 
+type LineageGroupSelection = {
+  parentKey: string;
+  entityType: string;
+  nodeKeys: string[];
+};
+
+const GROUP_OBSERVATION_TYPES: Record<string, string> = {
+  熱延引張: "熱延引張実績",
+  熱延組織: "熱延組織",
+  焼鈍引張: "焼鈍引張実績",
+  焼鈍穴広げ: "焼鈍穴拡げ実績",
+  焼鈍組織: "焼鈍板組織",
+};
+
 function heatStageSegments(heat: ApiLineage["node"]["heat_pattern"]): HeatStageSegment[] {
   const segments: HeatStageSegment[] = [];
   heat.forEach((point, index) => {
@@ -66,6 +80,7 @@ export function LineagePage({
   const [data, setData] = useState<ApiLineage | null>(null);
   const [error, setError] = useState("");
   const [candidateError, setCandidateError] = useState("");
+  const [selectedGroup, setSelectedGroup] = useState<LineageGroupSelection | null>(null);
   const activeProjectRef = useRef(projectId);
   const outputLabel = (raw: string) => {
     const definition = outputs.find((output) => raw === output.key || raw.startsWith(`${output.key}[`) || (output.key === "lambda" && raw.startsWith("λ")));
@@ -144,6 +159,7 @@ export function LineagePage({
   };
   const openNode = (key: string) => {
     setGraphLimit(40);
+    setSelectedGroup(null);
     setEntityKey(key);
     onEntityChange(key);
   };
@@ -177,6 +193,14 @@ export function LineagePage({
     ).values(),
   );
   const heatStageTrack = heatStageSegments(heat);
+  const selectedGroupObservationType = selectedGroup ? GROUP_OBSERVATION_TYPES[selectedGroup.entityType] ?? selectedGroup.entityType : "";
+  const selectedGroupObservationGroups = selectedGroup && data
+    ? (data.node.observation_groups ?? []).filter((group) => group.test_type === selectedGroupObservationType)
+    : [];
+  const selectedGroupObservations = Array.from(
+    new Map(selectedGroupObservationGroups.flatMap((group) => group.observations).map((observation) => [observation.id, observation])).values(),
+  );
+  const selectedGroupProperties = Array.from(new Set(selectedGroupObservations.flatMap((observation) => Object.keys(observation.outputs))));
   return (
     <div className="page-panel lineage-page">
       {qualityIssueId && (
@@ -262,7 +286,8 @@ export function LineagePage({
             graph={data.graph}
             selectedKey={data.key}
             onSelect={openNode}
-           onLoadMore={() => setGraphLimit((current) => Math.min(200, current + 40))}
+            onGroupSelect={setSelectedGroup}
+            onLoadMore={() => setGraphLimit((current) => Math.min(200, current + 40))}
           />
             {data.graph.edges.length > 0 && (
               <details className="route-evidence">
@@ -312,6 +337,42 @@ export function LineagePage({
               {candidateError && <span className="warning">{candidateError}</span>}
             </div>
           </div>
+          {selectedGroup && (
+            <section className="lineage-group-facts">
+              <div className="lineage-group-facts-header">
+                <div>
+                  <h3>{selectedGroup.entityType} {selectedGroup.nodeKeys.length}件</h3>
+                  <p>{selectedGroup.parentKey} に接続された試験をまとめて表示</p>
+                </div>
+                <button type="button" className="text-button" onClick={() => setSelectedGroup(null)}>グループ選択を解除</button>
+              </div>
+              {selectedGroupObservations.length ? (
+                <div className="lineage-group-facts-scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th scope="col">試験キー</th>
+                        {selectedGroupProperties.map((property) => <th scope="col" key={property}>{outputLabel(property)}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedGroupObservations.map((observation) => (
+                        <tr key={observation.id}>
+                          <th scope="row">{observation.id}</th>
+                          {selectedGroupProperties.map((property) => {
+                            const value = observation.outputs[property];
+                            return <td key={property}>{value == null ? "—" : typeof value === "number" ? number(value, Math.abs(value) < 1 ? 3 : 1) : String(value)}</td>;
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="empty-evidence">このグループの実績値はありません。</p>
+              )}
+            </section>
+          )}
           <section className="lineage-node-facts">
             <h3>主要条件</h3>
             <div className="lineage-node-facts-scroll">

@@ -162,11 +162,13 @@ export function LineageGraph({
   graph,
   selectedKey,
   onSelect,
+  onGroupSelect,
   onLoadMore,
 }: {
   graph: Graph;
   selectedKey: string;
   onSelect: (key: string) => void;
+  onGroupSelect?: (selection: { parentKey: string; entityType: string; nodeKeys: string[] }) => void;
   onLoadMore: () => void;
 }) {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -370,12 +372,20 @@ export function LineageGraph({
                 aria-expanded={group.expanded}
                 aria-label={`${group.parent.entity_type} ${group.parent.key} の${testLabel(group.entityType)}を${group.expanded ? "折りたたむ" : "展開する"}`}
                 title={`${group.parent.entity_type} ${group.parent.key} から伸びる${testLabel(group.entityType)}`}
-                onClick={() => setExpandedGroups((current) => {
-                  const next = new Set(current);
-                  if (next.has(group.key)) next.delete(group.key);
-                  else next.add(group.key);
-                  return next;
-                })}
+                onClick={() => {
+                  onSelect(group.parent.key);
+                  onGroupSelect?.({
+                    parentKey: group.parent.key,
+                    entityType: group.entityType,
+                    nodeKeys: group.nodes.map((node) => node.key),
+                  });
+                  setExpandedGroups((current) => {
+                    const next = new Set(current);
+                    if (next.has(group.key)) next.delete(group.key);
+                    else next.add(group.key);
+                    return next;
+                  });
+                }}
               >
                 <b>{group.parent.key}</b>
                 <span>{testLabel(group.entityType)} {group.nodes.length}件</span>
