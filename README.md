@@ -64,7 +64,7 @@ npm run api:check     # schema・生成型のdrift検出
 
 ## データ
 
-`data/source/` のExcelは読取専用の正本として扱います。現在は v2 (`process_dashboard_realistic_excel_v2.xlsx`) と、別命名・生履歴入力の v3 (`process_dashboard_realistic_excel_v3.xlsx`) を併存させています。起動時にsheet構成から対応するDataset Input Profileを選び、工程、観測、系譜、データ品質を構築します。元Excelは変更しません。
+`data/source/` のExcelは読取専用の正本として扱います。現在は v2 (`process_dashboard_realistic_excel_v2.xlsx`)、別命名・生履歴入力の v3 (`process_dashboard_realistic_excel_v3.xlsx`)、具体的な2設備工程名を持つ v5 (`process_dashboard_two_equipment_v5.xlsx`) を併存させています。起動時にsheet構成とsource markerから対応するDataset Input Profileを選び、工程、観測、系譜、データ品質を構築します。元Excelは変更しません。
 
 Excelの外部sheet・列とアプリ内部の意味の対応はDataset Input Profileで一元管理します。契約とデータ差替え手順は `docs/dataset-input-profile.md` を参照してください。
 
@@ -72,6 +72,7 @@ Excelの外部sheet・列とアプリ内部の意味の対応はDataset Input Pr
 
 ```powershell
 uv run python backend/scripts/verify_dataset_source.py data/source/process_dashboard_realistic_excel_v3.xlsx --json
+uv run python backend/scripts/verify_dataset_source.py data/source/process_dashboard_two_equipment_v5.xlsx --json
 ```
 
 v3用のPackageを既存v2 Packageへ上書きせずに作る例です。Packageはsource digestとprofile digestに結び付くため、sourceを替えたら必ず再生成します。
@@ -79,6 +80,22 @@ v3用のPackageを既存v2 Packageへ上書きせずに作る例です。Package
 ```powershell
 uv run python backend/scripts/build_default_model_package.py --source data/source/process_dashboard_realistic_excel_v3.xlsx --output output/v3-model-packages/annealed-gp-2026-07 --replace
 uv run python backend/scripts/build_hot_rolling_model_package.py --source data/source/process_dashboard_realistic_excel_v3.xlsx --output output/v3-model-packages/hot-rolled-gp-2026-07 --replace
+```
+
+v5用Packageは既存Packageと併存させます。現在の検証済みPackageは次の場所にあります。
+
+```powershell
+uv run python backend/scripts/build_default_model_package.py --source data/source/process_dashboard_two_equipment_v5.xlsx --output models/packages/annealed-gp-2026-07-v5 --replace
+uv run python backend/scripts/build_hot_rolling_model_package.py --source data/source/process_dashboard_two_equipment_v5.xlsx --output models/packages/hot-rolled-gp-2026-07-v5 --replace
+```
+
+v5を起動確認するときは、sourceと2つのPackageを同じフローで指定します。既定のactive Packageは変更しません。
+
+```powershell
+$env:WORKBENCH_SOURCE_PATH = "data/source/process_dashboard_two_equipment_v5.xlsx"
+$env:MATERIAL_WORKBENCH_MODEL_PACKAGE = "models/packages/annealed-gp-2026-07-v5"
+$env:MATERIAL_WORKBENCH_HOT_ROLLING_MODEL_PACKAGE = "models/packages/hot-rolled-gp-2026-07-v5"
+npm run dev
 ```
 
 一時Packageでv3を起動確認する場合は、上記2つの絶対パスを `MATERIAL_WORKBENCH_MODEL_PACKAGE` / `MATERIAL_WORKBENCH_HOT_ROLLING_MODEL_PACKAGE` に指定します。新しい説明変数・目的変数を追加する手順は [Dataset Input Profile](docs/dataset-input-profile.md) の「Adding genuinely new data」を参照してください。

@@ -431,25 +431,29 @@ def detect_dataset_profile_path(
     workbook = load_workbook(source_path, read_only=True, data_only=True)
     try:
         sheet_names = set(workbook.sheetnames)
+        matches: list[tuple[int, Path]] = []
+        diagnostics: list[str] = []
+        for candidate in candidates:
+            try:
+                profile = load_dataset_profile(candidate, task_definitions)
+            except DatasetProfileError as exc:
+                diagnostics.append(f"{candidate.name}: profile invalid ({exc})")
+                continue
+            required_sheets = {
+                sheet for role, sheet in profile.shared.sheets.items()
+                if role not in profile.shared.optional_roles
+            }
+            missing = sorted(required_sheets - sheet_names)
+            if missing:
+                diagnostics.append(f"{candidate.name}: missing sheets {', '.join(missing)}")
+                continue
+            marker_failure = _source_marker_failure(workbook, profile)
+            if marker_failure:
+                diagnostics.append(f"{candidate.name}: {marker_failure}")
+                continue
+            matches.append((len(required_sheets), candidate))
     finally:
         workbook.close()
-    matches: list[tuple[int, Path]] = []
-    diagnostics: list[str] = []
-    for candidate in candidates:
-        try:
-            profile = load_dataset_profile(candidate, task_definitions)
-        except DatasetProfileError as exc:
-            diagnostics.append(f"{candidate.name}: profile invalid ({exc})")
-            continue
-        required_sheets = {
-            sheet for role, sheet in profile.shared.sheets.items()
-            if role not in profile.shared.optional_roles
-        }
-        missing = sorted(required_sheets - sheet_names)
-        if missing:
-            diagnostics.append(f"{candidate.name}: missing sheets {', '.join(missing)}")
-            continue
-        matches.append((len(required_sheets), candidate))
     if not matches:
         raise DatasetProfileError([
             f"no dataset input profile matches workbook {source_path}",
@@ -463,6 +467,26 @@ def detect_dataset_profile_path(
             *[candidate.name for candidate in sorted(best)],
         ])
     return best[0]
+
+
+def _source_marker_failure(workbook: Any, profile: DatasetInputProfile) -> str | None:
+    for marker in profile.source_markers:
+        if marker.sheet not in workbook.sheetnames:
+            return f"source marker sheet {marker.sheet!r} is missing"
+        rows = workbook[marker.sheet].iter_rows(values_only=True)
+        headers = tuple(str(value) if value is not None else "" for value in next(rows, ()))
+        if marker.column not in headers:
+            return f"source marker column {marker.column!r} is missing from {marker.sheet!r}"
+        index = headers.index(marker.column)
+        observed = {
+            str(row[index])
+            for row in rows
+            if index < len(row) and row[index] is not None and str(row[index]).strip()
+        }
+        missing = sorted(set(marker.values) - observed)
+        if missing:
+            return f"source marker values missing from {marker.sheet!r}.{marker.column}: {', '.join(missing)}"
+    return None
 
 
 def load_workbook_data(

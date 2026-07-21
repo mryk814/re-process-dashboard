@@ -27,6 +27,7 @@ from material_workbench.task_contracts import TaskDefinition
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "data" / "source" / "process_dashboard_realistic_excel_v2.xlsx"
 V3_SOURCE = ROOT / "data" / "source" / "process_dashboard_realistic_excel_v3.xlsx"
+V5_SOURCE = ROOT / "data" / "source" / "process_dashboard_two_equipment_v5.xlsx"
 PROFILE = ROOT / "backend" / "src" / "material_workbench" / "dataset-input-profile-v1.json"
 
 
@@ -443,6 +444,29 @@ def test_v3_source_auto_selects_its_profile_and_preserves_canonical_flow() -> No
         "stage_name": "入口",
     }
     assert data.observations[0]["source"] in {"熱延引張実績", "焼鈍引張実績", "焼鈍穴拡げ実績"}
+
+
+def test_v5_source_auto_selects_additional_profile_and_maps_concrete_stages() -> None:
+    assert detect_dataset_profile_path(V5_SOURCE).name == "dataset-input-profile-v5.json"
+    data = load_workbook_data(V5_SOURCE)
+
+    assert data.profile_id == "process-dashboard-two-equipment-v5"
+    assert data.relation_sheet == "relationEx"
+    assert len(data.composition) == 120
+    assert len(data.anneal_features) == 196
+    assert data.anneal_features["AN-00001"]["heat_pattern"][0] == {
+        "time_s": 2.533,
+        "temperature_c": 35.0,
+        "stage_name": "入口",
+        "stage_category": "ENTRY",
+        "mapping_status": "工程辞書一致",
+    }
+    reheat = next(
+        point for point in data.anneal_features["AN-00001"]["heat_pattern"]
+        if point["stage_name"] == "加熱3"
+    )
+    assert reheat["stage_category"] == "REHEAT"
+    assert reheat["mapping_status"] == "工程辞書一致"
 
 
 def test_invalid_workbook_stops_before_runtime_and_database_initialization(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

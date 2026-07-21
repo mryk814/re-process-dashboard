@@ -9,6 +9,35 @@ function number(value: number, digits = 0) {
     maximumFractionDigits: digits,
   });
 }
+
+type HeatStageSegment = {
+  category: string;
+  name: string;
+  status: string;
+  duration: number;
+};
+
+function heatStageSegments(heat: ApiLineage["node"]["heat_pattern"]): HeatStageSegment[] {
+  const segments: HeatStageSegment[] = [];
+  heat.forEach((point, index) => {
+    const category = point.stage_category ?? "工程";
+    const name = point.stage_name ?? "工程点";
+    const status = point.mapping_status ?? "";
+    const previousTime = index === 0 ? 0 : heat[index - 1].time_s;
+    const last = segments[segments.length - 1];
+    if (last && last.category === category && last.name === name && last.status === status) {
+      last.duration += Math.max(0.001, point.time_s - previousTime);
+    } else {
+      segments.push({
+        category,
+        name,
+        status,
+        duration: Math.max(0.001, point.time_s - previousTime),
+      });
+    }
+  });
+  return segments;
+}
 export function LineagePage({
   projectId,
   supportsCandidateCreation,
@@ -147,6 +176,7 @@ export function LineagePage({
         ]),
     ).values(),
   );
+  const heatStageTrack = heatStageSegments(heat);
   return (
     <div className="page-panel lineage-page">
       {qualityIssueId && (
@@ -360,10 +390,23 @@ export function LineagePage({
                       r="3"
                       fill="#1f5fc4"
                     >
-                      <title>{`${point.time_s}s / ${point.temperature_c}°C`}</title>
+                      <title>{[point.stage_category, point.stage_name, `${point.time_s}s / ${point.temperature_c}°C`].filter(Boolean).join(" · ")}</title>
                     </circle>
                   ))}
                 </svg>
+                <div className="lineage-process-track" aria-label="工程区間">
+                  {heatStageTrack.map((stage, index) => (
+                    <div
+                      className={`lineage-process-segment stage-${stage.category.toLowerCase().replaceAll("_", "-")}`}
+                      key={`${stage.category}-${stage.name}-${index}`}
+                      style={{ flexGrow: stage.duration }}
+                      title={`${stage.category} / ${stage.name}${stage.status ? ` · ${stage.status}` : ""}`}
+                    >
+                      <b>{stage.category}</b>
+                      <span>{stage.name}</span>
+                    </div>
+                  ))}
+                </div>
                 <div className="lineage-heat-legend">
                   <span><i className="actual" />実績温度</span>
                   <span><i className="setting" />設定温度</span>
