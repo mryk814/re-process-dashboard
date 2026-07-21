@@ -1,6 +1,10 @@
 {
   "schema_version": "dataset-input-profile/v2",
   "id": "process-dashboard-realistic-v3",
+  "source_markers": [
+    {"sheet": "焼鈍条件-3CGL", "column": "炉区分", "values": ["3-CGL"]},
+    {"sheet": "焼鈍履歴", "column": "工程", "values": ["H1", "保持炉"]}
+  ],
   "extends": "dataset-input-profile-v1.json",
   "shared": {
     "sheets": {

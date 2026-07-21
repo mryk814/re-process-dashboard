@@ -593,6 +593,46 @@
 .lineage-heat line {
   stroke: #aab9c9;
 }
+.lineage-process-track {
+  display: flex;
+  min-height: 38px;
+  margin: 4px 0 8px;
+  overflow: hidden;
+  border: 1px solid #d6dee8;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+.lineage-process-segment {
+  display: flex;
+  min-width: 34px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  padding: 3px 5px;
+  overflow: hidden;
+  border-right: 1px solid rgba(255, 255, 255, 0.8);
+  color: #263448;
+  font-size: 8px;
+  line-height: 1.1;
+}
+.lineage-process-segment:last-child { border-right: 0; }
+.lineage-process-segment b,
+.lineage-process-segment span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lineage-process-segment b { font-size: 8px; }
+.lineage-process-segment span { color: #52647b; }
+.lineage-process-segment.stage-entry,
+.lineage-process-segment.stage-exit { background: #eef1f5; }
+.lineage-process-segment.stage-preheat { background: #eaf4ff; }
+.lineage-process-segment.stage-heating,
+.lineage-process-segment.stage-soak { background: #fff1d9; }
+.lineage-process-segment.stage-rapid-cool,
+.lineage-process-segment.stage-final-cool { background: #e9f6f3; }
+.lineage-process-segment.stage-reheat { background: #f5eafa; }
+.lineage-process-segment.stage-overage { background: #fff8df; }
+.lineage-process-segment.stage-zinc-bath,
+.lineage-process-segment.stage-alloying { background: #fbe9ee; }
+.lineage-process-segment.stage-dry,
+.lineage-process-segment.stage-water-quench { background: #eaf0fb; }
 .lineage-heat-legend {
   display: flex;
   flex-wrap: wrap;

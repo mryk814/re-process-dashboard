@@ -1,6 +1,6 @@
 # Dataset Input Profile
 
-各Excelデータフローの外部sheet・列・単位・entity key・relation・適格性・技術メタデータは、`backend/src/material_workbench/dataset-input-profile-*.json` で管理します。既存のv2フローは `dataset-input-profile-v1.json`、今回追加したv3フローは `dataset-input-profile-v3.json` です。起動時はWorkbookのsheet構成から最も具体的に一致するprofileを自動選択します。明示したい場合は `load_workbook_data(..., profile_path=...)` または検証コマンドの `--profile` を使います。
+各Excelデータフローの外部sheet・列・単位・entity key・relation・適格性・技術メタデータは、`backend/src/material_workbench/dataset-input-profile-*.json` で管理します。既存のv2フローは `dataset-input-profile-v1.json`、別命名・生履歴入力のv3フローは `dataset-input-profile-v3.json`、具体的な2設備工程名を持つv5フローは `dataset-input-profile-v5.json` です。v5はv3の正規化・予測契約を継承し、焼鈍履歴の工程名だけを標準工程カテゴリへ対応付けます。起動時はWorkbookのsheet構成とsource markerから最も具体的に一致するprofileを自動選択します。明示したい場合は `load_workbook_data(..., profile_path=...)` または検証コマンドの `--profile` を使います。
 
 Production task contracts live in `backend/src/material_workbench/task_definitions/`. At startup the backend validates the profile against every production `TaskDefinition`, then preflights the workbook before model or database initialization.
 
@@ -36,6 +36,8 @@ Raw workbook + Dataset Input Profile + TaskDefinition
 5. Run package contract, feature golden, smoke, and dataset-profile tests.
 
 For the v3 flow, this procedure is represented by `dataset-input-profile-v3.json`: it reuses the v2 task definitions and feature pipelines, maps the renamed sheets/headers, and explicitly declares that the curated `quality` sheet and hot-rolling learning flag are absent from v3.
+
+For the v5 flow, `dataset-input-profile-v5.json` extends v3 rather than replacing it. Its source markers distinguish `CGL-1` and concrete history labels such as `予熱1`, `加熱1`, `均熱出口`, and `水冷`. Its stage mappings add `stage_category` and `mapping_status` to the inspectable heat points, so the lineage screen can show the concrete source label on a time-aligned process track while preserving the original `stage_name`.
 
 ## Adding genuinely new data (different variables or targets)
 

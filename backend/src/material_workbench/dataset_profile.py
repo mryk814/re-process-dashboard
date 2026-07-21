@@ -198,6 +198,21 @@ class TechnicalColumnMapping(ProfileModel):
     column: str
 
 
+class SourceMarker(ProfileModel):
+    """Values that identify a source flow sharing the same sheet contract."""
+
+    sheet: str
+    column: str
+    values: Annotated[tuple[str, ...], Field(min_length=1)]
+
+
+class StageMapping(ProfileModel):
+    """Map a source-specific stage label to a stable visualization category."""
+
+    raw_name: str
+    category: str
+
+
 class SharedProfile(ProfileModel):
     sheets: Mapping[str, str]
     entities: tuple[EntityMapping, ...]
@@ -228,12 +243,19 @@ class DatasetInputProfile(ProfileModel):
     shared: SharedProfile
     tasks: Mapping[str, TaskProfile]
     task_definitions: Mapping[str, TaskDefinition]
+    source_markers: tuple[SourceMarker, ...] = ()
+    stage_mappings: tuple[StageMapping, ...] = ()
 
     def sheet_for_role(self, role: str) -> str:
         sheets = self.shared.sheets
         if role not in sheets:
             raise KeyError(f"unknown dataset role: {role}")
         return str(sheets[role])
+
+    def stage_category_for(self, raw_name: Any) -> str | None:
+        value = str(raw_name or "")
+        match = next((item for item in self.stage_mappings if item.raw_name == value), None)
+        return match.category if match else None
 
 
 def load_task_definitions(directory: str | Path | None = None) -> dict[str, TaskDefinition]:
@@ -279,11 +301,19 @@ def load_dataset_profile(
                     [f"{task_id}: nested task_id is forbidden; the tasks object key is authoritative"]
                 )
             tasks[task_id] = TaskProfile.model_validate({**value, "task_id": task_id})
-        unexpected = set(raw) - {"schema_version", "id", "extends", "task_definition_ids", "shared", "tasks"}
+        unexpected = set(raw) - {
+            "schema_version", "id", "extends", "task_definition_ids", "shared", "tasks",
+            "source_markers", "stage_mappings",
+        }
         if unexpected:
             raise DatasetProfileError([f"unknown profile fields: {', '.join(sorted(unexpected))}"])
         profile = DatasetInputProfile(
-            profile_id=str(raw["id"]), shared=raw["shared"], tasks=tasks, task_definitions=definitions
+            profile_id=str(raw["id"]),
+            shared=raw["shared"],
+            tasks=tasks,
+            task_definitions=definitions,
+            source_markers=raw.get("source_markers", ()),
+            stage_mappings=raw.get("stage_mappings", ()),
         )
     except DatasetProfileError:
         raise
@@ -404,6 +434,12 @@ def validate_profile(profile: DatasetInputProfile, task_definitions: Mapping[str
         )
     if len(profile.shared.metadata_columns) != len(set(profile.shared.metadata_columns)):
         errors.append("shared metadata columns must be unique")
+    marker_keys = [(item.sheet, item.column) for item in profile.source_markers]
+    if len(marker_keys) != len(set(marker_keys)):
+        errors.append("source markers must identify unique sheet/column pairs")
+    stage_names = [item.raw_name for item in profile.stage_mappings]
+    if len(stage_names) != len(set(stage_names)):
+        errors.append("stage mappings must identify unique raw stage names")
     unknown_defaults = set(profile.shared.policy_defaults) - {
         f"{role}.{policy}" for role, policy in _REQUIRED_POLICIES
     }
@@ -961,6 +997,10 @@ def canonicalize_workbook(workbook: Any, profile: DatasetInputProfile) -> Canoni
                 point = {"time_s": float(row[columns.time]), "temperature_c": float(row[columns.value])}
                 for name, column in series_metadata.items():
                     point[name] = row.get(column)
+                stage_category = profile.stage_category_for(point.get("stage_name"))
+                if stage_category:
+                    point["stage_category"] = stage_category
+                    point["mapping_status"] = "工程辞書一致"
                 grouped.setdefault(parent, []).append((row.get(columns.order, 0), point))
             for parent, ordered in grouped.items():
                 points = [point for _, point in sorted(ordered, key=lambda item: item[0])]
