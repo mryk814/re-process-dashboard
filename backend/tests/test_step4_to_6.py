@@ -120,6 +120,20 @@ def test_lineage_candidate_preserves_stage_order_and_boundaries(client) -> None:
     assert all(right.time_s > left.time_s for left, right in zip(actual.inputs.heat_pattern, actual.inputs.heat_pattern[1:]))
 
 
+def test_hot_lineage_candidate_uses_hot_rolling_inputs(client) -> None:
+    expected = candidate_from_lineage(client.app.state.data, "HR-00001")
+    assert expected.inputs.heat_pattern is None
+    assert set(expected.inputs.process) == {
+        "soaking_temperature_c",
+        "finish_temperature_c",
+        "entry_thickness_mm",
+        "exit_thickness_mm",
+        "hold_temperature_c",
+        "hold_time_min",
+    }
+    assert expected.provenance.source_ref.entity_type == "hot_rolling"
+
+
 def test_candidate_excel_import_and_exports(client) -> None:
     workbook = Workbook()
     sheet = workbook.active

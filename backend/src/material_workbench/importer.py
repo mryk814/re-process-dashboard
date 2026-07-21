@@ -102,6 +102,23 @@ class WorkbookData:
         }
 
 
+def lineage_reference_keys(data: WorkbookData, parent_key: str, process_role: str) -> dict[str, str | None]:
+    relations = data.lineage.get(parent_key, {})
+
+    def first_key(role: str) -> str | None:
+        key_column = data.role_to_key.get(role)
+        if not key_column:
+            return None
+        values = sorted(set(str(value) for value in relations.get(key_column, []) if value))
+        return values[0] if len(values) == 1 else None
+
+    return {
+        "melt_key": first_key("melt"),
+        "process_key": first_key(process_role),
+        "process_label": "焼鈍履歴" if process_role == "annealing" else "熱延履歴" if process_role == "hot_rolling" else "工程履歴",
+    }
+
+
 def _scalar(value: Any) -> str | float | int | bool | None:
     if isinstance(value, datetime):
         return value.isoformat()

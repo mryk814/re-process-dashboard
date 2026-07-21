@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import type { CandidateViewModel } from "./candidateModel";
-import { getCandidateInputValue, numericTaskInputs, orderedInputGroups, type NumericTaskInput, type TaskDefinitionContract, type TaskInputGroup } from "./taskDefinition";
+import { getCandidateInputValue, numericTaskInputs, orderedInputGroups, type NumericRange, type NumericTaskInput, type TaskDefinitionContract, type TaskInputGroup } from "./taskDefinition";
 import type { ApiPreview } from "../../shared/api/workbench-api";
 import type { CandidateSaveState } from "./useCandidateEditor";
 
@@ -13,13 +13,15 @@ const saveLabels: Record<CandidateSaveState, string> = {
   error: "保存失敗",
 };
 
-function allowedRange(input: NumericTaskInput) {
+function allowedRange(input: NumericTaskInput, inputRanges: Record<string, NumericRange>) {
+  const configured = inputRanges[input.id];
+  if (configured) return configured;
   if (!input.allowed_range) throw new Error(`数値fieldにallowed_rangeがありません: ${input.path}`);
   return input.allowed_range;
 }
 
-function sliderScale(input: NumericTaskInput, value: number) {
-  const range = allowedRange(input);
+function sliderScale(input: NumericTaskInput, value: number, inputRanges: Record<string, NumericRange>) {
+  const range = allowedRange(input, inputRanges);
   const learnedMin = input.training_range?.min ?? range.min;
   const learnedMax = input.training_range?.max ?? range.max;
   const divisor = Math.max(range.max - range.min, Number.EPSILON);
@@ -40,16 +42,17 @@ function unplacedErrorLabel(path: string): string {
   return path;
 }
 
-function CandidateInputGroup({ candidate, group, numeric, fieldErrors, onInput }: {
+function CandidateInputGroup({ candidate, group, numeric, inputRanges, fieldErrors, onInput }: {
   candidate: CandidateViewModel;
   group: TaskInputGroup;
   numeric: Map<string, NumericTaskInput>;
+  inputRanges: Record<string, NumericRange>;
   fieldErrors: Array<{ path: string; message: string }>;
   onInput: (path: string, value: number | string) => void;
 }) {
   return (
     <section className={`inspector-section task-input-group ${group.key}`} data-input-group={group.key}>
-      <div className="section-heading"><h3>{group.label}</h3><span>{group.fields[0]?.unit ?? ""}</span></div>
+      <div className="section-heading"><div className="section-heading-label"><h3>{group.label}</h3>{group.fields.some((field) => numeric.get(field.path)?.training_range) && <small className="training-range-legend"><i aria-hidden="true" />緑帯：学習範囲</small>}</div><span>{group.fields[0]?.unit ?? ""}</span></div>
       <div className={group.key === "composition" ? "composition-fields" : "task-field-grid"}>
         {group.fields.map((field) => {
           const value = getCandidateInputValue(candidate.raw.inputs, field.path);
@@ -60,7 +63,7 @@ function CandidateInputGroup({ candidate, group, numeric, fieldErrors, onInput }
           const input = numeric.get(field.path);
           if (!input) throw new Error(`Numeric TaskDefinition field is unavailable: ${field.path}`);
           const numberValue = Number(value ?? 0);
-          const scale = sliderScale(input, numberValue);
+          const scale = sliderScale(input, numberValue, inputRanges);
           return (
             <label className="slider-field" key={field.path}>
               <span><b>{field.label}</b><em><input disabled={!field.editable} className="slider-number" type="number" min={scale.min} max={scale.max} step="any" value={numberValue} aria-label={`${candidate.label} ${field.label}の数値`} onChange={(event) => onInput(field.path, Number(event.target.value))} /> {field.unit}</em></span>
@@ -78,6 +81,7 @@ export function CandidateInspector({
   candidate,
   taskDefinition,
   saveState,
+  inputRanges = {},
   fieldErrors,
   onInput,
   onReload,
@@ -88,6 +92,7 @@ export function CandidateInspector({
   candidate: CandidateViewModel;
   taskDefinition: TaskDefinitionContract;
   saveState: CandidateSaveState;
+  inputRanges?: Record<string, NumericRange>;
   fieldErrors: Array<{ path: string; message: string }>;
   onInput: (path: string, value: number | string) => void;
   onReload: () => void;
@@ -111,9 +116,9 @@ export function CandidateInspector({
         {saveState === "conflict" && <span className="candidate-conflict-actions"><button type="button" onClick={onReload}>再読込</button><button type="button" onClick={onCopyDraft}>変更をコピー</button></span>}
       </div>
       {unplacedErrors.length > 0 && <div className="candidate-field-errors" role="alert">{unplacedErrors.map((error) => <small className="field-error" key={`${error.path}:${error.message}`}><b>{unplacedErrorLabel(error.path)}:</b> {error.message}</small>)}</div>}
-      {primaryGroups.map((group) => <CandidateInputGroup key={group.key} candidate={candidate} group={group} numeric={numeric} fieldErrors={fieldErrors} onInput={onInput} />)}
+      {primaryGroups.map((group) => <CandidateInputGroup key={group.key} candidate={candidate} group={group} numeric={numeric} inputRanges={inputRanges} fieldErrors={fieldErrors} onInput={onInput} />)}
       {heatGroup && (heatGroup.fields.every((field) => field.editable) ? heatPattern : <fieldset className="readonly-heat-pattern" disabled>{heatPattern}</fieldset>)}
-      {auxiliaryGroups.length > 0 && <details className="task-auxiliary-inputs"><summary>その他の入力</summary>{auxiliaryGroups.map((group) => <CandidateInputGroup key={group.key} candidate={candidate} group={group} numeric={numeric} fieldErrors={fieldErrors} onInput={onInput} />)}</details>}
+      {auxiliaryGroups.length > 0 && <details className="task-auxiliary-inputs"><summary>その他の入力</summary>{auxiliaryGroups.map((group) => <CandidateInputGroup key={group.key} candidate={candidate} group={group} numeric={numeric} inputRanges={inputRanges} fieldErrors={fieldErrors} onInput={onInput} />)}</details>}
       {taskDefinition.fixed_context.length > 0 && <dl className="task-fixed-context">{[...taskDefinition.fixed_context].sort((a, b) => a.order - b.order).map((item) => <div key={item.path}><dt>{item.label}</dt><dd>{String(item.value)}</dd></div>)}</dl>}
     </aside>
   );
@@ -150,7 +155,7 @@ export function ComparisonTable({
   return (
     <div className="candidate-comparison">
       <section className="comparison-grid" aria-label="候補の入力と予測結果比較">
-        <table className="candidate-name-table"><thead><tr><th>候補</th></tr><tr aria-hidden="true"><th /></tr></thead><tbody>{candidates.map((candidate) => <tr key={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}><th><input aria-label={`${candidate.label}の候補名`} maxLength={80} value={candidate.label} onFocus={() => onSelect(candidate.id)} onChange={(event) => onName(candidate.id, event.target.value)} /></th></tr>)}</tbody></table>
+        <table className="candidate-name-table"><colgroup><col className="candidate-select-column" /><col /></colgroup><thead><tr><th colSpan={2}>候補</th></tr><tr aria-hidden="true"><th /><th /></tr></thead><tbody>{candidates.map((candidate) => { const selected = candidate.id === selectedId; return <tr key={candidate.id} className={selected ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}><td className="candidate-select-cell"><button type="button" className="candidate-select-button" aria-label={`${candidate.label}を選択`} aria-pressed={selected} onClick={(event) => { event.stopPropagation(); onSelect(candidate.id); }}><span aria-hidden="true" /></button></td><th><input aria-label={`${candidate.label}の候補名`} maxLength={80} value={candidate.label} onFocus={() => onSelect(candidate.id)} onChange={(event) => onName(candidate.id, event.target.value)} /></th></tr>; })}</tbody></table>
         <div className="comparison-detail-scroll"><table className="comparison-detail-table"><thead><tr>{primaryGroups.map((group) => <th colSpan={group.fields.length} key={group.key}>{group.label}</th>)}<th colSpan={outputs.length}>予測結果</th><th className="support-header" rowSpan={2}>支持度</th>{auxiliaryGroups.map((group) => <th colSpan={group.fields.length} key={group.key}>{group.label}</th>)}</tr><tr>{primaryFields.map((field) => <th className="composition-col" key={field.path}>{field.label}<small>{field.unit ?? ""}</small></th>)}{outputs.map((output) => <th className="prediction-col" key={output.key}>{output.label}<small>{Number.isFinite(targetValues[output.key]) ? `目標 ${output.goal_direction === "at_most" ? "≤" : "≥"} ${targetValues[output.key]}` : output.unit}</small></th>)}{auxiliaryFields.map((field) => <th className="composition-col" key={field.path}>{field.label}<small>{field.unit ?? ""}</small></th>)}</tr></thead>
           <tbody>{candidates.map((candidate) => { const preview = previewsByCandidate[candidate.id]; const renderField = (field: (typeof primaryFields)[number]) => { const current = getCandidateInputValue(candidate.raw.inputs, field.path); if (field.kind === "categorical") return <td className="composition-col" key={field.path}><select disabled={!field.editable} aria-label={`${candidate.label} ${field.label}`} value={String(current ?? "")} onFocus={() => onSelect(candidate.id)} onChange={(event) => onInput(candidate.id, field.path, event.target.value)}>{field.choices.map((choice) => <option key={choice}>{choice}</option>)}</select></td>; const key = `${candidate.id}:${field.path}`; const value = drafts[key] ?? String(current ?? 0); return <td className="composition-col" key={field.path}><input disabled={!field.editable} type="number" step="any" value={value} aria-label={`${candidate.label} ${field.label}`} onFocus={() => onSelect(candidate.id)} onChange={(event) => setDrafts((items) => ({ ...items, [key]: event.target.value }))} onBlur={(event) => { const next = Number(event.target.value); setDrafts((items) => { const { [key]: _, ...rest } = items; return rest; }); if (Number.isFinite(next) && next !== current) onInput(candidate.id, field.path, next); }} /></td>; }; return <tr key={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}>{primaryFields.map(renderField)}{outputs.map((output) => { const prediction = preview?.predictions[output.key]; return <td className="prediction-cell prediction-col" key={output.key}>{prediction ? <span className="metric-value">{prediction.value.toLocaleString("ja-JP", { maximumFractionDigits: output.unit === "%" ? 1 : 0 })} <small>{prediction.unit}</small>{typeof prediction.goal_probability === "number" && <em>達成 {(prediction.goal_probability * 100).toLocaleString("ja-JP", { maximumFractionDigits: 0 })}%</em>}</span> : <span className="empty-cell">—</span>}</td>; })}<td className="support-cell"><span className={`status-dot ${preview?.support.status === "supported" ? "success" : preview ? "caution" : ""}`} />{support(preview?.support.status)}</td>{auxiliaryFields.map(renderField)}</tr>; })}</tbody>
         </table></div>

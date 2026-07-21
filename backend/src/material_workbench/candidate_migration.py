@@ -80,7 +80,7 @@ def _hot_payload(row: sqlite3.Row) -> dict[str, Any]:
 
 def _create_common_tables(conn: sqlite3.Connection) -> None:
     statements = (
-        "CREATE TABLE IF NOT EXISTS projects (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', purpose TEXT NOT NULL DEFAULT '', task_id TEXT NOT NULL DEFAULT 'annealed-properties-v1', target_values TEXT NOT NULL DEFAULT '{}', input_ranges TEXT NOT NULL DEFAULT '{}', notes TEXT NOT NULL DEFAULT '', decision_candidate_id TEXT NOT NULL DEFAULT '', decision_snapshot_id TEXT NOT NULL DEFAULT '', decision_note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT '')",
+        "CREATE TABLE IF NOT EXISTS projects (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', purpose TEXT NOT NULL DEFAULT '', task_id TEXT NOT NULL DEFAULT 'annealed-properties-v1', target_values TEXT NOT NULL DEFAULT '{}', input_ranges TEXT NOT NULL DEFAULT '{}', response_curve_ranges TEXT NOT NULL DEFAULT '{}', notes TEXT NOT NULL DEFAULT '', decision_candidate_id TEXT NOT NULL DEFAULT '', decision_snapshot_id TEXT NOT NULL DEFAULT '', decision_note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT '')",
         "CREATE TABLE IF NOT EXISTS candidates (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, name TEXT NOT NULL, payload TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1 CHECK(revision >= 1), archived_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS snapshots (id TEXT PRIMARY KEY, candidate_id TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS screening_runs (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL)",
@@ -99,6 +99,7 @@ def _ensure_project_columns(conn: sqlite3.Connection) -> None:
         ("task_id", "TEXT NOT NULL DEFAULT 'annealed-properties-v1'"),
         ("target_values", "TEXT NOT NULL DEFAULT '{}'"),
         ("input_ranges", "TEXT NOT NULL DEFAULT '{}'"),
+        ("response_curve_ranges", "TEXT NOT NULL DEFAULT '{}'"),
         ("notes", "TEXT NOT NULL DEFAULT ''"),
         ("decision_candidate_id", "TEXT NOT NULL DEFAULT ''"),
         ("decision_snapshot_id", "TEXT NOT NULL DEFAULT ''"),
@@ -119,7 +120,7 @@ def _ensure_actual_snapshot_column(conn: sqlite3.Connection) -> None:
 def _ensure_default_project(conn: sqlite3.Connection) -> None:
     now = _now()
     conn.execute(
-        "INSERT OR IGNORE INTO projects(id,name,description,purpose,task_id,target_values,input_ranges,notes,decision_candidate_id,decision_snapshot_id,decision_note,created_at,updated_at) VALUES ('default','焼鈍条件の候補検討','','','annealed-properties-v1','{}','{}','','','','',?,?)",
+        "INSERT OR IGNORE INTO projects(id,name,description,purpose,task_id,target_values,input_ranges,response_curve_ranges,notes,decision_candidate_id,decision_snapshot_id,decision_note,created_at,updated_at) VALUES ('default','焼鈍条件の候補検討','','','annealed-properties-v1','{}','{}','{}','','','','',?,?)",
         (now, now),
     )
 
@@ -257,12 +258,13 @@ def migrate_candidate_storage(
     backup_path: Path | None = None
     try:
         conn.execute("BEGIN IMMEDIATE")
+        _create_common_tables(conn)
+        _ensure_project_columns(conn)
         tables = _tables(conn)
         if is_new or not tables:
-            _create_common_tables(conn)
             now = _now()
             conn.execute(
-                "INSERT OR IGNORE INTO projects(id,name,description,purpose,task_id,target_values,input_ranges,notes,decision_candidate_id,decision_snapshot_id,decision_note,created_at,updated_at) VALUES ('default','焼鈍条件の候補検討','','','annealed-properties-v1','{}','{}','','','','',?,?)",
+                "INSERT OR IGNORE INTO projects(id,name,description,purpose,task_id,target_values,input_ranges,response_curve_ranges,notes,decision_candidate_id,decision_snapshot_id,decision_note,created_at,updated_at) VALUES ('default','焼鈍条件の候補検討','','','annealed-properties-v1','{}','{}','{}','','','','',?,?)",
                 (now, now),
             )
             conn.execute(
@@ -305,8 +307,6 @@ def migrate_candidate_storage(
 
         backup_path = _backup_database(path, conn)
         callback("after_backup")
-        _create_common_tables(conn)
-        _ensure_project_columns(conn)
         _ensure_actual_snapshot_column(conn)
         _ensure_default_project(conn)
 
@@ -339,8 +339,8 @@ def migrate_candidate_storage(
                 created_at = min(str(row["created_at"]) for row, _ in hot)
                 updated_at = max(str(row["updated_at"]) for row, _ in hot)
                 conn.execute(
-                    "INSERT INTO projects(id,name,description,purpose,task_id,target_values,input_ranges,notes,decision_candidate_id,decision_snapshot_id,decision_note,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                    (HOT_PROJECT_ID, "熱延条件の候補検討", "", "", HOT_TASK_ID, "{}", "{}", "", "", "", "", created_at, updated_at),
+                    "INSERT INTO projects(id,name,description,purpose,task_id,target_values,input_ranges,response_curve_ranges,notes,decision_candidate_id,decision_snapshot_id,decision_note,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (HOT_PROJECT_ID, "熱延条件の候補検討", "", "", HOT_TASK_ID, "{}", "{}", "{}", "", "", "", "", created_at, updated_at),
                 )
 
         if "candidates_next" in _tables(conn):

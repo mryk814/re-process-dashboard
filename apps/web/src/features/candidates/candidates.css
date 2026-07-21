@@ -10,8 +10,11 @@
 .inspector-section { margin-top: 17px; padding-top: 14px; border-top: 1px solid #d8e0ea; }
 .candidate-inspector .inspector-section:first-of-type { margin-top: 0; padding-top: 0; border-top: 0; }
 .inspector-section .section-heading { margin-bottom: 8px; }
+.section-heading-label { display: flex; align-items: baseline; min-width: 0; gap: 8px; }
 .inspector-section h3 { margin: 0; font-size: 13px; }
 .inspector-section .section-heading span { color: #718096; font-size: 11px; }
+.training-range-legend { display: inline-flex; align-items: center; gap: 3px; color: #5f9e86; font-size: 10px; font-weight: 500; white-space: nowrap; }
+.training-range-legend i { display: inline-block; width: 12px; height: 4px; border-radius: 999px; background: #6bb69e; }
 .slider-field { display: grid; gap: 3px; margin: 10px 0 13px; color: #4a5a70; font-size: 11px; }
 .composition-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 11px; }
 .composition-fields .slider-field { margin: 7px 0 6px; }
@@ -42,6 +45,7 @@
 .candidate-name-table,
 .comparison-detail-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 12px; }
 .candidate-name-table { align-self: start; position: relative; z-index: 1; background: #fff; box-shadow: 2px 0 0 #cfd9e5; }
+.candidate-name-table .candidate-select-column { width: 32px; }
 .comparison-detail-scroll { position: relative; min-width: 0; overflow-x: auto; overflow-y: hidden; background: #fff; }
 .comparison-detail-table { width: max-content; min-width: 100%; }
 .candidate-name-table th,
@@ -60,6 +64,16 @@
 .candidate-name-table tbody tr:hover th,
 .comparison-detail-table tbody tr:hover td { background: #f5f9ff; }
 .candidate-name-table .selected-row th { background: #d9eaff; box-shadow: inset 4px 0 0 #1f5fc4; }
+.candidate-name-table thead tr:nth-child(2) th:first-child,
+.candidate-name-table tbody .candidate-select-cell { border-right: 0 !important; }
+.candidate-name-table .candidate-select-cell { padding: 0; text-align: center; }
+.candidate-select-button { display: inline-grid; place-items: center; width: 19px; height: 19px; padding: 0; border: 1.5px solid #9bb0c8; border-radius: 50%; background: #fff; cursor: pointer; }
+.candidate-select-button span { width: 9px; height: 9px; border-radius: 50%; background: transparent; }
+.candidate-select-button:hover { border-color: #1f5fc4; background: #f2f7ff; }
+.candidate-select-button:focus-visible { outline: 2px solid #80aee8; outline-offset: 2px; }
+.candidate-name-table .selected-row .candidate-select-cell { background: #d9eaff; box-shadow: inset 4px 0 0 #1f5fc4; }
+.candidate-name-table .selected-row .candidate-select-button { border-color: #1f5fc4; background: #1f5fc4; box-shadow: 0 0 0 2px #d9eaff; }
+.candidate-name-table .selected-row .candidate-select-button span { background: #fff; }
 .candidate-name-table .selected-row input { color: #124f9f; }
 .comparison-detail-table .selected-row td { background: #e7f1ff; border-bottom-color: #9fc2eb; }
 .candidate-name-table input,

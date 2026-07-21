@@ -251,7 +251,10 @@ function App() {
             <WorkbenchPage
               candidates={candidates}
               projectId={activeProjectId}
+              project={activeProject ?? null}
               targetValues={activeProject?.target_values ?? {}}
+              inputRanges={activeProject?.input_ranges ?? {}}
+              responseCurveRanges={activeProject?.response_curve_ranges ?? {}}
               decisionCandidateId={activeProject?.decision_candidate_id ?? ""}
               selected={selected}
               selectedId={selectedId}
@@ -284,8 +287,12 @@ function App() {
               onAdd={() => {
                 void session.addCandidate();
               }}
+              onAddCandidateFromLineage={session.addCandidateFromLineage}
               onImported={(imported) => {
                 if (imported.length) void session.loadProject(activeProjectId, selectedId || undefined);
+              }}
+              onProjectChanged={(project) => {
+                void session.refreshAdminProject(project);
               }}
             />
           ) : (

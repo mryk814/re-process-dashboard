@@ -100,6 +100,7 @@ class ProjectInput(BaseModel):
     task_id: Literal["annealed-properties-v1", "hot-rolled-properties-v1"] = "annealed-properties-v1"
     target_values: dict[str, float] = Field(default_factory=dict)
     input_ranges: dict[str, InputRange] = Field(default_factory=dict)
+    response_curve_ranges: dict[str, dict[str, InputRange]] = Field(default_factory=dict)
     notes: str = ""
     decision_candidate_id: Annotated[str, Field(max_length=80)] = ""
     decision_snapshot_id: Annotated[str, Field(max_length=80)] = ""
@@ -236,6 +237,9 @@ class SimilarObservation(BaseModel):
     components: dict[str, float] = Field(default_factory=dict)
     outputs: dict[str, float] = Field(default_factory=dict)
     repeat_summary: dict[str, RepeatSummary] = Field(default_factory=dict)
+    melt_key: str | None = None
+    process_key: str | None = None
+    process_label: str = "工程履歴"
 
 
 class ModelIdentity(BaseModel):
@@ -420,6 +424,7 @@ class CurveVariable(BaseModel):
     min: float
     max: float
     current: float
+    training_range: InputRange | None = None
 
 
 class ResponseCurveResponse(BaseModel):
