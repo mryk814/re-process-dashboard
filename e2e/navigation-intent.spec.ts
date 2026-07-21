@@ -1,5 +1,21 @@
 import { expect, test } from "@playwright/test";
 
+test("project hub keeps the active project visible across scoped navigation", async ({ page }) => {
+  await page.goto("/?view=project&project=default");
+  const projectList = page.getByRole("complementary", { name: "プロジェクト一覧" });
+  await expect(projectList).toBeVisible();
+  await expect(projectList.locator(".project-list-item[aria-current=page]")).toContainText("焼鈍条件の候補検討");
+
+  await page.getByRole("button", { name: "候補比較", exact: true }).click();
+  await expect(page.locator(".context-breadcrumb")).toContainText("プロジェクト");
+  await expect(page.locator(".context-breadcrumb")).toContainText("候補比較");
+  await expect(page.locator(".context-bar h1")).toHaveText("焼鈍条件の候補検討");
+
+  await page.getByRole("button", { name: "プロジェクト", exact: true }).click();
+  await expect(page).toHaveURL(/view=project/);
+  await expect(projectList).toBeVisible();
+});
+
 test("quality finding opens the selected lineage node and returns with filters", async ({ page }) => {
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
@@ -80,6 +96,18 @@ test("lineage opens without a fixed node and renders real selectable edges", asy
   await page.getByRole("button", { name: /AN-00001/ }).click();
   await expect(page).toHaveURL(/view=lineage.*entity=AN-00001/);
   await expect(page.getByTestId("lineage-real-graph")).toBeVisible();
+  await expect(page.getByText("熱延用の試験・組織", { exact: true })).toBeVisible();
+  const annealedTestGroups = page.locator('.lineage-graph-group-toggle[aria-label^="焼鈍 AN-00001 の"]');
+  await expect(annealedTestGroups).toHaveCount(2);
+  const annealedTestGroup = page.getByRole("button", { name: "焼鈍 AN-00001 の組織を折りたたむ" });
+  await expect(annealedTestGroup).toHaveAttribute("aria-expanded", "true");
+  await annealedTestGroup.click();
+  const collapsedAnnealedTestGroup = page.getByRole("button", { name: "焼鈍 AN-00001 の組織を展開する" });
+  await expect(collapsedAnnealedTestGroup).toHaveAttribute("aria-expanded", "false");
+  await expect(page.locator(".lineage-graph-node").filter({ hasText: "AMS-00001" })).toBeHidden();
+  await collapsedAnnealedTestGroup.click();
+  await expect(page.getByRole("button", { name: "焼鈍 AN-00001 の組織を折りたたむ" })).toHaveAttribute("aria-expanded", "true");
+  await expect(page.locator(".lineage-graph-node").filter({ hasText: "AMS-00001" })).toBeVisible();
   await expect(page.locator(".lineage-graph-edge")).not.toHaveCount(0);
   await expect(page.locator('.lineage-graph-node[aria-current="true"]')).toContainText("AN-00001");
   await expect(page.locator(".lineage-graph-node.upstream").first()).toBeVisible();
@@ -99,6 +127,23 @@ test("lineage opens without a fixed node and renders real selectable edges", asy
   });
   await expect(page).not.toHaveURL(/entity=/);
   await expect(page.getByRole("heading", { name: "調べるノードを選択してください" })).toBeVisible();
+});
+
+test("lineage separates each process condition and test type into its own group", async ({ page }) => {
+  await page.goto("/?view=lineage&project=default&entity=HR-00001");
+  await expect(page.getByTestId("lineage-real-graph")).toBeVisible();
+
+  const groups = page.locator(".lineage-graph-group-toggle");
+  await expect(groups).toHaveCount(4);
+  await expect(page.getByRole("button", { name: "熱延 HR-00001 の熱延引張を折りたたむ" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "熱延 HR-00001 の熱延組織を折りたたむ" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "焼鈍 AN-00001 の組織を折りたたむ" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "焼鈍 AN-00001 の穴広げを折りたたむ" })).toBeVisible();
+
+  await page.getByRole("button", { name: "熱延 HR-00001 の熱延引張を折りたたむ" }).click();
+  await expect(page.getByRole("button", { name: "熱延 HR-00001 の熱延引張を展開する" })).toHaveAttribute("aria-expanded", "false");
+  await expect(page.locator(".lineage-graph-node").filter({ hasText: "HT-00001" })).toBeHidden();
+  await expect(page.locator(".lineage-graph-node").filter({ hasText: "HMS-00001" })).toBeVisible();
 });
 
 test("lineage marks implausible observations without hiding raw values", async ({ page }) => {

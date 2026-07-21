@@ -38,6 +38,11 @@ HOT_PAYLOAD = {
     "exit_thickness_mm": 3.5,
     "route": "B",
 }
+HOT_FIXED_CONTEXT_PAYLOAD = {
+    **HOT_PAYLOAD,
+    "equipment": "HR-LINE-1",
+    "test_direction": "L",
+}
 
 
 def _legacy_database(path: Path, *, collision: bool = False, broken_reference: bool = False) -> None:
@@ -119,6 +124,40 @@ def test_migration_preserves_identity_semantics_and_references(tmp_path: Path) -
     with sqlite3.connect(database) as conn:
         assert conn.execute("SELECT COUNT(*) FROM candidates").fetchone()[0] == 2
         assert conn.execute("SELECT COUNT(*) FROM projects WHERE id=?", (HOT_PROJECT_ID,)).fetchone()[0] == 1
+
+
+def test_migration_accepts_legacy_fixed_context_when_it_matches_task_definition(tmp_path: Path) -> None:
+    database = tmp_path / "legacy-fixed-context.db"
+    _legacy_database(database)
+    with sqlite3.connect(database) as conn:
+        conn.execute(
+            "UPDATE hot_rolling_candidates SET payload=? WHERE id='hot-1'",
+            (json.dumps(HOT_FIXED_CONTEXT_PAYLOAD, ensure_ascii=False),),
+        )
+
+    result = migrate_candidate_storage(database)
+
+    assert result.status == "migrated"
+    with sqlite3.connect(database) as conn:
+        payload = json.loads(conn.execute("SELECT payload FROM candidates WHERE id='hot-1'").fetchone()[0])
+        assert payload["inputs"]["categorical"] == {"route": "B"}
+
+
+def test_migration_rejects_legacy_fixed_context_mismatch_without_mutation(tmp_path: Path) -> None:
+    database = tmp_path / "legacy-fixed-context-mismatch.db"
+    _legacy_database(database)
+    with sqlite3.connect(database) as conn:
+        payload = {**HOT_FIXED_CONTEXT_PAYLOAD, "test_direction": "T"}
+        conn.execute(
+            "UPDATE hot_rolling_candidates SET payload=? WHERE id='hot-1'",
+            (json.dumps(payload, ensure_ascii=False),),
+        )
+    before = _ledger(database)
+
+    with pytest.raises(CandidateMigrationError, match="legacy fixed context"):
+        migrate_candidate_storage(database)
+
+    assert _ledger(database) == before
 
 
 @pytest.mark.parametrize(

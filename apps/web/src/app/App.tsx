@@ -15,6 +15,14 @@ const primaryNavItems: Array<{ id: Tab; label: string; active: Tab[] }> = [
   { id: "explore", label: "範囲探索", active: ["explore"] },
   { id: "candidates", label: "候補比較", active: ["candidates"] },
 ];
+const viewLabels: Record<Tab, string> = {
+  project: "プロジェクト概要",
+  candidates: "候補比較",
+  explore: "範囲探索",
+  lineage: "データ探索 / 工程系譜",
+  quality: "データ探索 / 問題一覧",
+  settings: "開発・管理",
+};
 
 
 function PlayIcon() {
@@ -130,8 +138,11 @@ function App() {
       </header>
       <main>
         <div className="context-bar">
-          <div>
-            <span className="overline">プロジェクト</span>
+          <div className="context-heading">
+            <nav className="context-breadcrumb" aria-label="現在地">
+              <button type="button" className="context-breadcrumb-link" onClick={() => navigate({ view: "project", projectId: activeProjectId })}>プロジェクト</button>
+              {tab !== "project" && <><span aria-hidden="true">/</span><strong>{viewLabels[tab]}</strong></>}
+            </nav>
             <h1>{activeProject?.name ?? "プロジェクトを読み込んでいます"}</h1>
           </div>
           <div className="run-actions">

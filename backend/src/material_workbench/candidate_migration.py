@@ -23,6 +23,10 @@ CANDIDATE_SAFETY_MIGRATION_CHECKSUM = "candidate-revision-archive-v1"
 HOT_PROJECT_ID = "hot-rolling-default"
 ANNEALED_TASK_ID = "annealed-properties-v1"
 HOT_TASK_ID = "hot-rolled-properties-v1"
+HOT_FIXED_CONTEXT = {
+    "equipment": "HR-LINE-1",
+    "test_direction": "L",
+}
 
 Failpoint = Callable[[str], None]
 
@@ -127,6 +131,7 @@ def _hot_payload(row: sqlite3.Row) -> dict[str, Any]:
         "entry_thickness_mm",
         "exit_thickness_mm",
     }
+    legacy_context_keys = set(HOT_FIXED_CONTEXT)
     _require_keys(
         source,
         {"name", "composition", "route", *process_keys},
@@ -135,10 +140,20 @@ def _hot_payload(row: sqlite3.Row) -> dict[str, Any]:
     )
     _reject_unknown_keys(
         source,
-        {"name", "composition", "route", *process_keys},
+        {"name", "composition", "route", *process_keys, *legacy_context_keys},
         table="hot_rolling_candidates",
         row_id=row["id"],
     )
+    legacy_context = {key: source[key] for key in legacy_context_keys if key in source}
+    mismatched_context = {
+        key: value
+        for key, value in legacy_context.items()
+        if value != HOT_FIXED_CONTEXT[key]
+    }
+    if mismatched_context:
+        raise CandidateMigrationError(
+            f"hot_rolling_candidates {row['id']}: legacy fixed context does not match current task definition {mismatched_context}"
+        )
     if source["name"] != row["name"]:
         raise CandidateMigrationError(f"hot_rolling_candidates {row['id']}: name column and payload disagree")
     if not isinstance(source["composition"], dict):
