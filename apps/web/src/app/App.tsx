@@ -9,11 +9,11 @@ import { DataExploreNavigation, LiveDataQualityPage } from "../features/quality"
 import { DeveloperAdminPage } from "../features/admin";
 
 type Tab = WorkbenchView;
-const primaryNavItems: Array<{ id: Tab; label: string; active: Tab[] }> = [
-  { id: "project", label: "プロジェクト概要", active: ["project"] },
+const projectNavItems: Array<{ id: Tab; label: string; active: Tab[] }> = [
   { id: "lineage", label: "データ探索", active: ["lineage", "quality"] },
   { id: "explore", label: "範囲探索", active: ["explore"] },
   { id: "candidates", label: "候補比較", active: ["candidates"] },
+  { id: "settings", label: "開発・管理", active: ["settings"] },
 ];
 const viewLabels: Record<Tab, string> = {
   project: "プロジェクト概要",
@@ -88,6 +88,16 @@ function App() {
     navigate({ ...navigationRef.current, projectId: activeProjectId, candidateId }, true);
   }
 
+  function navigateProjectView(item: { id: Tab; active: Tab[] }) {
+    const destination = item.active.includes(tab) ? tab : item.id;
+    const intent = withView(navigationRef.current, destination);
+    navigate({
+      ...intent,
+      projectId: activeProjectId,
+      candidateId: item.id === "candidates" ? selectedId || undefined : intent.candidateId,
+    });
+  }
+
   useEffect(() => {
     const onPopState = () => {
       const intent = readNavigationIntent();
@@ -105,34 +115,12 @@ function App() {
     <div className="app-shell">
       <header className="topbar">
         <div className="brand">Material Decision Workbench</div>
-        <nav aria-label="画面">
-          <span className="nav-group-label">予測・検討</span>
-          {primaryNavItems.map((item) => (
-            <button
-              className={item.active.includes(tab) ? "nav-button active" : "nav-button"}
-              onClick={() => {
-                const destination = item.active.includes(tab) ? tab : item.id;
-                const intent = withView(navigationRef.current, destination);
-                navigate({
-                  ...intent,
-                  projectId: activeProjectId,
-                  candidateId:
-                    item.id === "candidates" || item.id === "project"
-                      ? selectedId || undefined
-                      : intent.candidateId,
-                });
-              }}
-              key={item.id}
-            >
-              {item.label}
-            </button>
-          ))}
-          <span className="nav-divider" aria-hidden="true" />
+        <nav aria-label="ホーム">
           <button
-            className={tab === "settings" ? "nav-button admin active" : "nav-button admin"}
-            onClick={() => navigate(withView(navigationRef.current, "settings"))}
+            className={tab === "project" ? "nav-button active" : "nav-button"}
+            onClick={() => navigate({ view: "project", projectId: activeProjectId })}
           >
-            開発・管理
+            プロジェクト概要
           </button>
         </nav>
       </header>
@@ -143,7 +131,21 @@ function App() {
               <button type="button" className="context-breadcrumb-link" onClick={() => navigate({ view: "project", projectId: activeProjectId })}>プロジェクト</button>
               {tab !== "project" && <><span aria-hidden="true">/</span><strong>{viewLabels[tab]}</strong></>}
             </nav>
-            <h1>{activeProject?.name ?? "プロジェクトを読み込んでいます"}</h1>
+            <div className="context-title-row">
+              <h1 title={activeProject?.name ?? undefined}>{activeProject?.name ?? "プロジェクトを読み込んでいます"}</h1>
+              <nav className="project-nav" aria-label="プロジェクト内メニュー">
+                {projectNavItems.map((item) => (
+                  <button
+                    type="button"
+                    className={item.active.includes(tab) ? "project-nav-button active" : "project-nav-button"}
+                    onClick={() => navigateProjectView(item)}
+                    key={item.id}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </nav>
+            </div>
           </div>
           <div className="run-actions">
             {tab !== "candidates" && (

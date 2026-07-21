@@ -51,17 +51,6 @@ select:focus-visible,
   align-items: stretch;
   gap: 3px;
 }
-.nav-group-label {
-  align-self: center;
-  margin: 0 5px 0 2px;
-  color: #91a4ba;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .08em;
-  white-space: nowrap;
-}
-.nav-divider { width: 1px; height: 24px; align-self: center; margin: 0 7px; background: rgba(255,255,255,.2); }
-.nav-button.admin { color: #b9c8d8; font-size: 13px; }
 .nav-button {
   position: relative;
   border: 0;
@@ -93,7 +82,16 @@ select:focus-visible,
   justify-content: space-between;
   gap: 20px;
 }
-.context-heading { min-width: 0; }
+.context-heading {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.context-title-row {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  min-width: 0;
+}
 .context-breadcrumb {
   display: flex;
   align-items: center;
@@ -119,11 +117,51 @@ select:focus-visible,
   line-height: 1.2;
 }
 .context-bar h1 {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 21px;
   margin: 4px 0 0;
   line-height: 1.2;
+  white-space: nowrap;
+}
+.project-nav {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  align-self: stretch;
+  min-width: 0;
+}
+.project-nav-button {
+  position: relative;
+  border: 0;
+  background: transparent;
+  color: #526276;
+  padding: 7px 10px 6px;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.project-nav-button:hover {
+  background: #f2f6fb;
+  color: #1f5fc4;
+}
+.project-nav-button.active {
+  color: #1f5fc4;
+}
+.project-nav-button.active::after {
+  content: "";
+  position: absolute;
+  right: 8px;
+  bottom: 0;
+  left: 8px;
+  height: 3px;
+  background: #2981ec;
 }
 .run-actions {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -304,6 +342,15 @@ select:focus-visible,
     align-items: flex-start;
     padding: 11px 13px;
     flex-direction: column;
+  }
+  .context-title-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .project-nav {
+    max-width: 100%;
+    overflow-x: auto;
   }
   .context-bar h1 {
     font-size: 19px;
