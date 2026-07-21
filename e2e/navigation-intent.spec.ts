@@ -99,15 +99,21 @@ test("lineage opens without a fixed node and renders real selectable edges", asy
   await expect(page.getByText("熱延用の試験・組織", { exact: true })).toBeVisible();
   const annealedTestGroups = page.locator('.lineage-graph-group-toggle[aria-label^="焼鈍 AN-00001 の"]');
   await expect(annealedTestGroups).toHaveCount(2);
-  const annealedTestGroup = page.getByRole("button", { name: "焼鈍 AN-00001 の組織を折りたたむ" });
-  await expect(annealedTestGroup).toHaveAttribute("aria-expanded", "true");
+  const annealedTestGroup = page.locator(".lineage-graph-group.group-annealed-microstructure .lineage-graph-group-toggle");
+  await expect(annealedTestGroup).toHaveAttribute("aria-expanded", "false");
+  await expect(page.locator(".lineage-graph-node").filter({ hasText: "AMS-00001" })).toHaveCount(0);
+  await annealedTestGroup.click();
+  await expect(page.getByRole("button", { name: "焼鈍 AN-00001 の組織を折りたたむ" })).toHaveAttribute("aria-expanded", "true");
+  await expect(page.locator(".lineage-graph-node").filter({ hasText: "AMS-00001" })).toBeVisible();
   await annealedTestGroup.click();
   const collapsedAnnealedTestGroup = page.getByRole("button", { name: "焼鈍 AN-00001 の組織を展開する" });
   await expect(collapsedAnnealedTestGroup).toHaveAttribute("aria-expanded", "false");
-  await expect(page.locator(".lineage-graph-node").filter({ hasText: "AMS-00001" })).toBeHidden();
+  await expect(page.locator(".lineage-graph-node").filter({ hasText: "AMS-00001" })).toHaveCount(0);
   await collapsedAnnealedTestGroup.click();
   await expect(page.getByRole("button", { name: "焼鈍 AN-00001 の組織を折りたたむ" })).toHaveAttribute("aria-expanded", "true");
-  await expect(page.locator(".lineage-graph-node").filter({ hasText: "AMS-00001" })).toBeVisible();
+  const annealedHoleGroup = page.locator(".lineage-graph-group.group-annealed-hole-expansion .lineage-graph-group-toggle");
+  await annealedHoleGroup.click();
+  await expect(page.getByRole("button", { name: "焼鈍 AN-00001 の穴広げを折りたたむ" })).toHaveAttribute("aria-expanded", "true");
   await expect(page.locator(".lineage-graph-edge")).not.toHaveCount(0);
   await expect(page.locator('.lineage-graph-node[aria-current="true"]')).toContainText("AN-00001");
   await expect(page.locator(".lineage-graph-node.upstream").first()).toBeVisible();
@@ -135,18 +141,26 @@ test("lineage separates each process condition and test type into its own group"
 
   const groups = page.locator(".lineage-graph-group-toggle");
   await expect(groups).toHaveCount(4);
-  await expect(page.getByRole("button", { name: "熱延 HR-00001 の熱延引張を折りたたむ" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "熱延 HR-00001 の熱延組織を折りたたむ" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "焼鈍 AN-00001 の組織を折りたたむ" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "焼鈍 AN-00001 の穴広げを折りたたむ" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "熱延 HR-00001 の熱延引張を展開する" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "熱延 HR-00001 の熱延組織を展開する" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "焼鈍 AN-00001 の組織を展開する" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "焼鈍 AN-00001 の穴広げを展開する" })).toBeVisible();
+  await expect(page.locator(".lineage-graph-group.group-hot-tensile")).toHaveCount(1);
+  await expect(page.locator(".lineage-graph-group.group-hot-microstructure")).toHaveCount(1);
+  await expect(page.locator(".lineage-graph-group.group-annealed-microstructure")).toHaveCount(1);
+  await expect(page.locator(".lineage-graph-group.group-annealed-hole-expansion")).toHaveCount(1);
+  await expect(page.locator(".lineage-graph-edge.process-route")).toHaveCount(1);
+
+  await page.getByRole("button", { name: "熱延 HR-00001 の熱延引張を展開する" }).click();
+  await expect(page.getByRole("button", { name: "熱延 HR-00001 の熱延引張を折りたたむ" })).toHaveAttribute("aria-expanded", "true");
   await expect(page.locator(".lineage-graph-node.group-hot-tensile")).toHaveCount(2);
+  await page.getByRole("button", { name: "熱延 HR-00001 の熱延組織を展開する" }).click();
+  await page.getByRole("button", { name: "焼鈍 AN-00001 の組織を展開する" }).click();
+  await page.getByRole("button", { name: "焼鈍 AN-00001 の穴広げを展開する" }).click();
   await expect(page.locator(".lineage-graph-node.group-hot-microstructure")).toHaveCount(1);
   await expect(page.locator(".lineage-graph-node.group-annealed-microstructure")).toHaveCount(2);
   await expect(page.locator(".lineage-graph-node.group-annealed-hole-expansion")).toHaveCount(3);
-
-  await page.getByRole("button", { name: "熱延 HR-00001 の熱延引張を折りたたむ" }).click();
-  await expect(page.getByRole("button", { name: "熱延 HR-00001 の熱延引張を展開する" })).toHaveAttribute("aria-expanded", "false");
-  await expect(page.locator(".lineage-graph-node").filter({ hasText: "HT-00001" })).toBeHidden();
+  await expect(page.locator(".lineage-graph-node").filter({ hasText: "HT-00001" })).toBeVisible();
   await expect(page.locator(".lineage-graph-node").filter({ hasText: "HMS-00001" })).toBeVisible();
 });
 

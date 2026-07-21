@@ -25,9 +25,10 @@ const NODE_WIDTH = 120;
 const NODE_HEIGHT = 54;
 const STAGE_WIDTH = 160;
 const TOP = 55;
-const ROW_HEIGHT = 72;
+const ROW_HEIGHT = 82;
 const GROUP_HEADER_HEIGHT = 34;
 const GROUP_BOTTOM_PADDING = 8;
+const PROCESS_NODE_TYPES = new Set(["溶製", "熱延", "冷延", "焼鈍"]);
 
 type TestGroup = {
   key: string;
@@ -141,7 +142,7 @@ export function LineageGraph({
   onSelect: (key: string) => void;
   onLoadMore: () => void;
 }) {
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const { upstream, downstream, incoming } = graphContext(graph, selectedKey);
   const nodesByKey = new Map(graph.nodes.map((node) => [node.key, node]));
   const grouped = STAGES.map((stage) => ({
@@ -180,7 +181,8 @@ export function LineageGraph({
           ordered.push({ kind: "node", node });
         } else if (!seen.has(key)) {
           seen.add(key);
-          ordered.push({ kind: "group", group: groups.get(key)!, expanded: !collapsedGroups.has(key) });
+          const group = groups.get(key)!;
+          ordered.push({ kind: "group", group, expanded: expandedGroups.has(key) || group.nodes.some((groupNode) => groupNode.key === selectedKey) });
         }
       });
       return { ...stage, items: ordered };
@@ -234,6 +236,12 @@ export function LineageGraph({
     );
   };
 
+  const processEdgePath = (x1: number, y1: number, x2: number, y2: number) => {
+    const routeY = TOP - 16;
+    const bend = Math.max(24, (x2 - x1) * 0.18);
+    return `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x1 + bend} ${routeY}, ${x1 + bend * 2} ${routeY} L ${x2 - bend * 2} ${routeY} C ${x2 - bend} ${routeY}, ${x2 - bend} ${y2}, ${x2} ${y2}`;
+  };
+
   return (
     <section className="lineage-graph-panel" aria-label={`${selectedKey} の実工程系譜`}>
       <header className="lineage-graph-header">
@@ -267,7 +275,7 @@ export function LineageGraph({
                 aria-expanded={group.expanded}
                 aria-label={`${group.parent.entity_type} ${group.parent.key} の${testLabel(group.entityType)}を${group.expanded ? "折りたたむ" : "展開する"}`}
                 title={`${group.parent.entity_type} ${group.parent.key} から伸びる${testLabel(group.entityType)}`}
-                onClick={() => setCollapsedGroups((current) => {
+                onClick={() => setExpandedGroups((current) => {
                   const next = new Set(current);
                   if (next.has(group.key)) next.delete(group.key);
                   else next.add(group.key);
@@ -290,6 +298,8 @@ export function LineageGraph({
             {graph.edges.map((edge) => {
               const source = positions.get(edge.source);
               const target = positions.get(edge.target);
+              const sourceNode = nodesByKey.get(edge.source);
+              const targetNode = nodesByKey.get(edge.target);
               if (!source || !target) return null;
               const sourceUpstream = upstream.has(edge.source);
               const targetUpstream = upstream.has(edge.target) || edge.target === selectedKey;
@@ -305,11 +315,17 @@ export function LineageGraph({
               const x2 = target.x;
               const y2 = target.y + NODE_HEIGHT / 2;
               const bend = Math.max(28, (x2 - x1) * 0.45);
+              const routedProcessEdge = Boolean(
+                sourceNode && targetNode
+                && PROCESS_NODE_TYPES.has(sourceNode.entity_type)
+                && PROCESS_NODE_TYPES.has(targetNode.entity_type)
+                && x2 - x1 > STAGE_WIDTH + 20,
+              );
               return (
                 <path
                   key={`${edge.source}-${edge.target}`}
-                  className={`lineage-graph-edge ${state}`}
-                  d={`M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`}
+                  className={`lineage-graph-edge ${state}${routedProcessEdge ? " process-route" : ""}`}
+                  d={routedProcessEdge ? processEdgePath(x1, y1, x2, y2) : `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`}
                   markerEnd="url(#lineage-arrow)"
                 >
                   <title>{`${edge.source} → ${edge.target} / relation ${edge.route_rows.join(", ")}`}</title>
