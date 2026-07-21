@@ -164,6 +164,23 @@ test("lineage separates each process condition and test type into its own group"
   await expect(page.locator(".lineage-graph-node").filter({ hasText: "HMS-00001" })).toBeVisible();
 });
 
+test("lineage orders test groups by process condition before test type", async ({ page }) => {
+  await page.goto("/?view=lineage&project=default&entity=ME-00001");
+  await expect(page.getByTestId("lineage-real-graph")).toBeVisible();
+  await expect(page.locator(".lineage-graph-group-toggle")).toHaveCount(9);
+  expect(await page.locator(".lineage-graph-group-toggle").evaluateAll((nodes) => nodes.map((node) => node.getAttribute("aria-label")))).toEqual([
+    "熱延 HR-00001 の熱延引張を展開する",
+    "熱延 HR-00001 の熱延組織を展開する",
+    "熱延 HR-00002 の熱延引張を展開する",
+    "熱延 HR-00002 の熱延組織を展開する",
+    "焼鈍 AN-00001 の穴広げを展開する",
+    "焼鈍 AN-00001 の組織を展開する",
+    "焼鈍 AN-00002 の引張を展開する",
+    "焼鈍 AN-00002 の穴広げを展開する",
+    "焼鈍 AN-00002 の組織を展開する",
+  ]);
+});
+
 test("lineage marks implausible observations without hiding raw values", async ({ page }) => {
   await page.goto("/?view=lineage&project=default&entity=HT-00024");
   const detail = page.getByRole("complementary", { name: "選択ノード詳細" });

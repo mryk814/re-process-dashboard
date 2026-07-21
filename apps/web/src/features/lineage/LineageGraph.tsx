@@ -180,20 +180,19 @@ export function LineageGraph({
       groups.set(key, group);
     });
     if (groups.size) {
-      const seen = new Set<string>();
-      const ordered: StageItem[] = [];
-      stage.nodes.forEach((node) => {
-        const parentType = parentTypeForTest(node.entity_type);
-        const parent = parentType ? findProcessParent(node.key, parentType, incoming, nodesByKey) : null;
-        const key = parent ? `test-group:${parent.entity_type}:${parent.key}:${node.entity_type}` : null;
-        if (!key) {
-          ordered.push({ kind: "node", node });
-        } else if (!seen.has(key)) {
-          seen.add(key);
-          const group = groups.get(key)!;
-          ordered.push({ kind: "group", group, expanded: expandedGroups.has(key) || group.nodes.some((groupNode) => groupNode.key === selectedKey) });
-        }
-      });
+      const typeOrder = new Map<string, number>(stage.types.map((type, index) => [type, index] as [string, number]));
+      const orderedGroups = [...groups.values()].sort((left, right) => (
+        left.parent.key.localeCompare(right.parent.key, undefined, { numeric: true })
+        || (typeOrder.get(left.entityType) ?? Number.MAX_SAFE_INTEGER) - (typeOrder.get(right.entityType) ?? Number.MAX_SAFE_INTEGER)
+        || left.key.localeCompare(right.key)
+      ));
+      const groupedNodeKeys = new Set(orderedGroups.flatMap((group) => group.nodes.map((node) => node.key)));
+      const ordered: StageItem[] = orderedGroups.map((group) => ({
+        kind: "group",
+        group,
+        expanded: expandedGroups.has(group.key) || group.nodes.some((groupNode) => groupNode.key === selectedKey),
+      }));
+      ordered.push(...stage.nodes.filter((node) => !groupedNodeKeys.has(node.key)).map((node) => ({ kind: "node" as const, node })));
       return { ...stage, items: ordered };
     }
     return { ...stage, items };
