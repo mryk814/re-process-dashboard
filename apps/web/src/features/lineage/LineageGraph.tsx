@@ -25,9 +25,10 @@ const NODE_WIDTH = 120;
 const NODE_HEIGHT = 54;
 const STAGE_WIDTH = 160;
 const TOP = 55;
-const ROW_HEIGHT = 82;
+const ROW_HEIGHT = 76;
 const GROUP_HEADER_HEIGHT = 34;
 const GROUP_BOTTOM_PADDING = 8;
+const GROUP_GAP = 12;
 const PROCESS_NODE_TYPES = new Set(["溶製", "熱延", "冷延", "焼鈍"]);
 
 type TestGroup = {
@@ -207,7 +208,7 @@ export function LineageGraph({
         positions.set(node.key, item.expanded ? { x, y: cursor + GROUP_HEADER_HEIGHT + index * ROW_HEIGHT } : anchor);
       });
       groupLayouts.push({ ...item.group, x, y: cursor, height, expanded: item.expanded });
-      cursor += height;
+      cursor += height + GROUP_GAP;
     });
     return cursor;
   });
