@@ -66,7 +66,7 @@ test("new project creation requires an explicit empty or copy choice", async ({ 
   await panel.getByRole("radio", { name: /空から開始/ }).check();
   await panel.getByRole("button", { name: "この内容で作成" }).click();
   await expect(page.getByText("まだ候補がありません", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: /条件範囲から始める/ }).first().click();
+  await page.getByRole("button", { name: /条件範囲から探す/ }).first().click();
   await page.getByRole("button", { name: "基準候補を作って探索を始める" }).click();
   await page.getByRole("button", { name: "候補比較", exact: true }).click();
   await expect(page.locator(".comparison-detail-table thead .prediction-col").filter({ hasText: "引張強さ" })).toBeVisible();
