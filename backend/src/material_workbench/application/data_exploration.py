@@ -180,6 +180,8 @@ class DataExplorationService:
         melt_keys = sorted(set(relations.get(melt_key_column, [])))
         melt_row = data.entities.get(melt_key_column, {}).get(melt_keys[0], {}) if len(melt_keys) == 1 else {}
         feature = data.anneal_features.get(key, {})
+        family_column = data.technical_columns.get(("melt", "family"))
+        learning_flag_column = data.policy_columns.get(("annealing", "learning_flag/v1"))
         values_by_property: dict[str, list[float]] = {}
         for observation in data.observations:
             if observation["parent_key"] != key or observation["source"] == data.role_to_sheet["hot_tensile"]:
@@ -187,11 +189,11 @@ class DataExplorationService:
             for property_name, value in observation["outputs"].items():
                 values_by_property.setdefault(property_name, []).append(float(value))
         return {
-            "family": str(melt_row.get(data.technical_columns[("melt", "family")]) or ""),
+            "family": str(melt_row.get(family_column) or "") if family_column else "",
             "project": str(source_row.get(data.technical_columns[("annealing", "project")]) or ""),
             "route": str(feature.get("standard_route") or ""),
             "peak_temperature_c": feature.get("max_temperature_c"),
-            "learning_status": str(source_row.get(data.policy_columns[("annealing", "learning_flag/v1")]) or ""),
+            "learning_status": str(source_row.get(learning_flag_column) or "") if learning_flag_column else "",
             "has_observation": bool(values_by_property),
             "observation_summary": {
                 property_name: {
