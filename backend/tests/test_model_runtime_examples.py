@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+import shutil
 import sys
 
 import numpy as np
@@ -165,3 +166,70 @@ def test_additive_adapter_rejects_unknown_terms_shapes_nonfinite_and_categories(
     predictor = ModelPackageLoader().load(destination / "point").load_predictor("target")
     with pytest.raises(PackageContractError, match="unknown category"):
         predictor.predict({"x": 0.3, "route_code": 99.0, "z": 0.2})
+
+
+def test_checked_posterior_linear_example_is_deterministic_and_reported() -> None:
+    root = ROOT / "examples" / "model-packages" / "posterior-linear"
+    report = verify_model_package_example(root)
+    package = ModelPackageLoader().load(root)
+    predictor = package.load_predictor("target")
+    features = json.loads((root / "smoke" / "input.json").read_text(encoding="utf-8"))["features"]
+    first = predictor.predict(features, seed=17)
+    second = predictor.predict(features, seed=17)
+    selection = json.loads((root / "reports" / "selection-report.json").read_text(encoding="utf-8"))
+
+    assert first == second
+    assert first.quantiles["0.05"] < first.point_estimate < first.quantiles["0.95"]
+    assert first.distribution["family"] == "empirical_quantiles"
+    assert first.distribution["std_semantics"] == "posterior_predictive_samples"
+    assert first.uncertainty_components["epistemic_std"] >= 0
+    assert first.uncertainty_components["aleatoric_std"] > 0
+    assert report.quality_metrics["posterior_draw_count"] == 192
+    assert len(selection["features"]) == 8
+    assert "causal" in selection["interpretation_warning"]
+    assert "posterior-linear-sparse-example" not in (ROOT / "models" / "active-packages.json").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        ("nonfinite", "finite"),
+        ("negative_noise", "noise scale"),
+        ("shape", "shape or count"),
+    ],
+)
+def test_posterior_linear_rejects_invalid_draw_artifacts(tmp_path: Path, mutation: str, message: str) -> None:
+    source = ROOT / "examples" / "model-packages" / "posterior-linear"
+    root = tmp_path / "posterior-linear"
+    shutil.copytree(source, root)
+    artifact = root / "model-artifacts" / "posterior-linear.npz"
+    with np.load(artifact, allow_pickle=False) as current:
+        arrays = {name: current[name] for name in current.files}
+    if mutation == "nonfinite":
+        arrays["beta_draws"][0, 0] = np.nan
+    elif mutation == "negative_noise":
+        arrays["noise_scale_draws"][0] = -0.1
+    else:
+        arrays["beta_draws"] = arrays["beta_draws"][:, :-1]
+    np.savez(artifact, **arrays)
+    manifest_path = root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    entry = next(item for item in manifest["artifacts"] if item["path"] == "model-artifacts/posterior-linear.npz")
+    entry.update(sha256=hashlib.sha256(artifact.read_bytes()).hexdigest(), bytes=artifact.stat().st_size)
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(PackageContractError, match=message):
+        ModelPackageLoader().load(root).load_predictor("target")
+
+
+def test_posterior_linear_rejects_feature_order_mismatch(tmp_path: Path) -> None:
+    source = ROOT / "examples" / "model-packages" / "posterior-linear"
+    root = tmp_path / "posterior-linear"
+    shutil.copytree(source, root)
+    manifest_path = root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["predictors"][0]["feature_names"] = list(reversed(manifest["predictors"][0]["feature_names"]))
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(PackageContractError, match="feature order"):
+        ModelPackageLoader().load(root)

@@ -59,7 +59,7 @@ def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
     assert package["quality_report"]["split"] == "leave-one-parent-condition-out"
     assert {item["target"] for item in package["quality_report"]["targets"]} == {"TS", "YS", "EL", "lambda"}
     assert {item["runtime_type"] for item in package["supported_runtimes"]} == {
-        "builtin.linear.v1", "builtin.exact_gp.v1", "builtin.additive_terms.v1", "builtin.quantile_linear.v1", "sklearn.skops.v1", "lightgbm.booster.v1",
+        "builtin.linear.v1", "builtin.exact_gp.v1", "builtin.additive_terms.v1", "builtin.quantile_linear.v1", "builtin.posterior_linear.v1", "sklearn.skops.v1", "lightgbm.booster.v1",
         "gpytorch.static_exact_rbf.v1", "numpyro.dense_posterior.v1",
     }
     task = client.get("/api/projects/default/task-definition").json()

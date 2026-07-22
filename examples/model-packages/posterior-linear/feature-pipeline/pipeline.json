@@ -1,0 +1,64 @@
+{
+  "id": "sparse-linear-eight-feature-example",
+  "version": "1.0.0",
+  "canonical_input_paths": [
+    "composition.x0",
+    "composition.x1",
+    "composition.x2",
+    "composition.x3",
+    "composition.x4",
+    "composition.x5",
+    "composition.x6",
+    "composition.x7"
+  ],
+  "features": [
+    {
+      "name": "x0",
+      "unit": "1",
+      "meaning": "synthetic feature x0",
+      "group": "composition"
+    },
+    {
+      "name": "x1",
+      "unit": "1",
+      "meaning": "synthetic feature x1",
+      "group": "composition"
+    },
+    {
+      "name": "x2",
+      "unit": "1",
+      "meaning": "synthetic feature x2",
+      "group": "composition"
+    },
+    {
+      "name": "x3",
+      "unit": "1",
+      "meaning": "synthetic feature x3",
+      "group": "composition"
+    },
+    {
+      "name": "x4",
+      "unit": "1",
+      "meaning": "synthetic feature x4",
+      "group": "composition"
+    },
+    {
+      "name": "x5",
+      "unit": "1",
+      "meaning": "synthetic feature x5",
+      "group": "composition"
+    },
+    {
+      "name": "x6",
+      "unit": "1",
+      "meaning": "synthetic feature x6",
+      "group": "composition"
+    },
+    {
+      "name": "x7",
+      "unit": "1",
+      "meaning": "synthetic feature x7",
+      "group": "composition"
+    }
+  ]
+}

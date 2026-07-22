@@ -1,0 +1,40 @@
+{
+  "summary": {
+    "target": "synthetic_response",
+    "target_kind": "continuous",
+    "unit": "a.u.",
+    "point_statistic": "mean",
+    "point_estimate": -0.8548345630477515,
+    "quantiles": {
+      "0.05": -1.7156815567045136,
+      "0.50": -0.841416745511024,
+      "0.95": -0.06575460712233969
+    },
+    "event_probability": null,
+    "distribution": {
+      "family": "empirical_quantiles",
+      "support": "real",
+      "std": 0.5051808725909984,
+      "std_semantics": "posterior_predictive_samples"
+    },
+    "uncertainty_components": {
+      "epistemic_std": 0.22111948951868735,
+      "aleatoric_std": 0.42273164326476503
+    },
+    "warnings": []
+  },
+  "capability": {
+    "target": "synthetic_response",
+    "point_statistics": [
+      "mean"
+    ],
+    "standard_deviation": true,
+    "quantiles": true,
+    "samples": false,
+    "parametric_distribution": false,
+    "uncertainty_components": true,
+    "support": true,
+    "warnings": true,
+    "goal_probability": "unavailable"
+  }
+}

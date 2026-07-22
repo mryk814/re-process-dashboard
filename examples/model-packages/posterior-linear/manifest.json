@@ -1,0 +1,101 @@
+{
+  "schema_version": "model-package/v1",
+  "package_id": "posterior-linear-sparse-example",
+  "package_version": "1.0.0",
+  "task_id": "model-runtime-example",
+  "input_schema_version": "example-input/v1",
+  "feature_pipeline": {
+    "id": "sparse-linear-eight-feature-example",
+    "version": "1.0.0",
+    "spec": "feature-pipeline/pipeline.json",
+    "canonical_input_paths": [
+      "composition.x0",
+      "composition.x1",
+      "composition.x2",
+      "composition.x3",
+      "composition.x4",
+      "composition.x5",
+      "composition.x6",
+      "composition.x7"
+    ],
+    "output_features": [
+      "x0",
+      "x1",
+      "x2",
+      "x3",
+      "x4",
+      "x5",
+      "x6",
+      "x7"
+    ],
+    "artifacts": []
+  },
+  "predictors": [
+    {
+      "id": "target",
+      "target": "synthetic_response",
+      "unit": "a.u.",
+      "target_kind": "continuous",
+      "runtime_type": "builtin.posterior_linear.v1",
+      "architecture_id": "posterior_linear_v1",
+      "artifact": "model-artifacts/posterior-linear.npz",
+      "predictive_family": "empirical_quantiles",
+      "feature_names": [
+        "x0",
+        "x1",
+        "x2",
+        "x3",
+        "x4",
+        "x5",
+        "x6",
+        "x7"
+      ],
+      "config": {
+        "draw_semantics": "joint_posterior",
+        "noise_semantics": "observation_scale"
+      }
+    }
+  ],
+  "provenance": {
+    "training_data_id": "synthetic:sparse-correlated-small-data",
+    "feature_dataset_id": "synthetic:eight-feature-parent-blocks",
+    "training_code_revision": "build_posterior_linear_model_example.py:numpyro-horseshoe"
+  },
+  "artifacts": [
+    {
+      "path": "feature-pipeline/pipeline.json",
+      "sha256": "eacb039b5b03f551c824ba027e80ee555d10f75ae74154ecbd78f0a68e8d49f8",
+      "bytes": 1276
+    },
+    {
+      "path": "model-artifacts/posterior-linear.npz",
+      "sha256": "fb104d6579f2b5da28452aa9f4d55eb8a5792020e1aa4cf9ec69fc21816c4b58",
+      "bytes": 28716
+    },
+    {
+      "path": "smoke/input.json",
+      "sha256": "f7a328b93ec89df9327039245de30f50a39af417388a40e45e0109641fa30cf3",
+      "bytes": 311
+    },
+    {
+      "path": "smoke/expected.json",
+      "sha256": "c8bf87c57c67d30d9f6e70361658b3b381d5e1ed1778c6777566a474129ccc6b",
+      "bytes": 1008
+    },
+    {
+      "path": "reports/quality-report.json",
+      "sha256": "6a4002112aec954342a93fb89c99efc9ef5e0c0edbc0b65c89ff1a43e51c63f1",
+      "bytes": 431
+    },
+    {
+      "path": "reports/selection-report.json",
+      "sha256": "e0fb28cd6c3f3ffe6c5b8203eebb992709de5525a6141caac8f03279ce1ef581",
+      "bytes": 2980
+    }
+  ],
+  "smoke_test": {
+    "input": "smoke/input.json",
+    "expected": "smoke/expected.json"
+  },
+  "quality_report": "reports/quality-report.json"
+}

@@ -1,0 +1,88 @@
+{
+  "schema_version": "sparse-selection-report/v1",
+  "method": "regularized_horseshoe",
+  "features": [
+    {
+      "feature": "x0",
+      "coefficient_mean": 2.1988877883801856,
+      "coefficient_sd": 0.11766831679950694,
+      "q05": 1.9840517699718476,
+      "q95": 2.3484765529632567,
+      "sign_probability": 1.0,
+      "rope_outside_probability": 1.0,
+      "local_scale_mean": 13.114271434023976
+    },
+    {
+      "feature": "x1",
+      "coefficient_mean": -1.4472161612162988,
+      "coefficient_sd": 0.1694646985809481,
+      "q05": -1.621074914932251,
+      "q95": -1.1277396261692048,
+      "sign_probability": 1.0,
+      "rope_outside_probability": 1.0,
+      "local_scale_mean": 10.372405785446366
+    },
+    {
+      "feature": "x2",
+      "coefficient_mean": -0.0037569406163129315,
+      "coefficient_sd": 0.04399187380237512,
+      "q05": -0.08939669206738472,
+      "q95": 0.03831704054027796,
+      "sign_probability": 0.5625,
+      "rope_outside_probability": 0.052083333333333336,
+      "local_scale_mean": 0.47970828743321664
+    },
+    {
+      "feature": "x3",
+      "coefficient_mean": 0.03984318279227258,
+      "coefficient_sd": 0.09385274790956669,
+      "q05": -0.1344778224825859,
+      "q95": 0.14379481971263885,
+      "sign_probability": 0.6302083333333334,
+      "rope_outside_probability": 0.4739583333333333,
+      "local_scale_mean": 2.653731196769513
+    },
+    {
+      "feature": "x4",
+      "coefficient_mean": -0.0210923066366225,
+      "coefficient_sd": 0.04985223078561118,
+      "q05": -0.10969143509864807,
+      "q95": 0.04604428801685568,
+      "sign_probability": 0.8385416666666666,
+      "rope_outside_probability": 0.08333333333333333,
+      "local_scale_mean": 0.8909364317757232
+    },
+    {
+      "feature": "x5",
+      "coefficient_mean": 0.050143206560430066,
+      "coefficient_sd": 0.05055967382942484,
+      "q05": -0.016642481461167334,
+      "q95": 0.15967356413602826,
+      "sign_probability": 0.84375,
+      "rope_outside_probability": 0.10416666666666667,
+      "local_scale_mean": 0.6593661809941599
+    },
+    {
+      "feature": "x6",
+      "coefficient_mean": 0.024366956966105136,
+      "coefficient_sd": 0.04386164624075944,
+      "q05": -0.05247732251882553,
+      "q95": 0.06414966844022273,
+      "sign_probability": 0.734375,
+      "rope_outside_probability": 0.036458333333333336,
+      "local_scale_mean": 1.1698028030417238
+    },
+    {
+      "feature": "x7",
+      "coefficient_mean": -0.01614207321244976,
+      "coefficient_sd": 0.04721869219839814,
+      "q05": -0.11489862762391567,
+      "q95": 0.050032291933894114,
+      "sign_probability": 0.703125,
+      "rope_outside_probability": 0.078125,
+      "local_scale_mean": 0.3736767929124956
+    }
+  ],
+  "selected_subset_rule": "ROPE outside probability >= 0.8; report only, Feature Pipeline order is unchanged",
+  "interpretation_warning": "Shrinkage and sign probabilities are not causal importance; correlated features may share evidence."
+}

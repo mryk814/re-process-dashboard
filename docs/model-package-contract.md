@@ -62,6 +62,7 @@
 | `builtin.additive_terms.v1` | `.npz`、`allow_pickle=False` | identity linkのlinear / B-spline / categorical lookup項。寄与は型付き説明契約で返す |
 | `builtin.exact_gp.v1` | `.npz`、`allow_pickle=False` | `exact_rbf_grouped_v1`の既知array schemaだけ。`predictive_family`は`normal`または`lognormal`（後者は`config.latent_transform=log1p`必須で、GPは`log(1+target)`空間、予測は単調変換で元単位へ戻す） |
 | `builtin.quantile_linear.v1` | `.npz`、`allow_pickle=False` | 固定分位点ごとの係数と切片。中央値必須、分位点交差は並べ替えず拒否する |
+| `builtin.posterior_linear.v1` | `.npz`、`allow_pickle=False` | 係数・切片・観測noiseのposterior draw。raw sampleはAPIへ出さず経験分位点と意味付きstdを返す |
 | `sklearn.skops.v1` | `.skops` | アプリ固定の`estimator_family` allow-list外を拒否。manifestによる型自己申告、custom transformerは禁止 |
 | `lightgbm.booster.v1` | LightGBM native text | sklearn wrapperのpickleは禁止 |
 | `gpytorch.static_exact_rbf.v1` | `.safetensors` | `exact_rbf_v1`の既知tensor schemaだけ |

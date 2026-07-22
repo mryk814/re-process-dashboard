@@ -25,6 +25,7 @@ RUNTIME_TYPES = {
     "builtin.exact_gp.v1",
     "builtin.additive_terms.v1",
     "builtin.quantile_linear.v1",
+    "builtin.posterior_linear.v1",
     "sklearn.skops.v1",
     "lightgbm.booster.v1",
     "gpytorch.static_exact_rbf.v1",
@@ -177,6 +178,8 @@ class PredictorSpec(PackageModel):
             raise ValueError("built-in additive adapter only permits architecture_id=additive_terms_v1")
         if self.runtime_type == "builtin.quantile_linear.v1" and self.architecture_id != "quantile_linear_v1":
             raise ValueError("built-in quantile adapter only permits architecture_id=quantile_linear_v1")
+        if self.runtime_type == "builtin.posterior_linear.v1" and self.architecture_id != "posterior_linear_v1":
+            raise ValueError("built-in posterior linear adapter only permits architecture_id=posterior_linear_v1")
         return self
 
 
@@ -417,13 +420,14 @@ class AdapterRegistry:
             from .adapters.builtin_linear import BuiltinLinearAdapter
             from .adapters.builtin_additive_terms import BuiltinAdditiveTermsAdapter
             from .adapters.builtin_quantile_linear import BuiltinQuantileLinearAdapter
+            from .adapters.builtin_posterior_linear import BuiltinPosteriorLinearAdapter
             from .adapters.builtin_exact_gp import BuiltinExactGPAdapter
             from .adapters.gpytorch_static import GPyTorchStaticAdapter
             from .adapters.lightgbm_booster import LightGBMBoosterAdapter
             from .adapters.numpyro_posterior import NumpyroDensePosteriorAdapter
             from .adapters.sklearn_skops import SklearnSkopsAdapter
 
-            adapters = (BuiltinLinearAdapter(), BuiltinExactGPAdapter(), BuiltinAdditiveTermsAdapter(), BuiltinQuantileLinearAdapter(), SklearnSkopsAdapter(), LightGBMBoosterAdapter(), GPyTorchStaticAdapter(), NumpyroDensePosteriorAdapter())
+            adapters = (BuiltinLinearAdapter(), BuiltinExactGPAdapter(), BuiltinAdditiveTermsAdapter(), BuiltinQuantileLinearAdapter(), BuiltinPosteriorLinearAdapter(), SklearnSkopsAdapter(), LightGBMBoosterAdapter(), GPyTorchStaticAdapter(), NumpyroDensePosteriorAdapter())
         self._adapters = {adapter.runtime_type: adapter for adapter in adapters}
         if set(self._adapters) != RUNTIME_TYPES:
             raise PackageContractError("adapter registry must implement exactly the approved runtime types")

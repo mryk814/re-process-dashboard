@@ -1,0 +1,12 @@
+{
+  "schema_version": "model-example-quality/v1",
+  "evaluation_unit": "leave-one-parent-block-out",
+  "metrics": {
+    "full_model_rmse": 0.46763025915689316,
+    "predeclared_two_signal_rmse": 0.41600040166709573,
+    "posterior_draw_count": 192.0
+  },
+  "notes": [
+    "Full and reduced baselines use the same held-out parent blocks. A data-selected reduced model would require nested selection inside each training fold."
+  ]
+}
