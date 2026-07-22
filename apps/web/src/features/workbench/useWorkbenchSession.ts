@@ -264,12 +264,18 @@ export function useWorkbenchSession({
 
   function updateHeat(index: number, field: "time" | "temperature" | "stageName", raw: number | string) {
     if (!selected) return;
+    updateCandidateHeat(selected.id, index, field, raw);
+  }
+
+  function updateCandidateHeat(id: string, index: number, field: "time" | "temperature" | "stageName", raw: number | string) {
+    const current = candidates.find((candidate) => candidate.id === id);
+    if (!current) return;
     const next = {
-      ...selected,
-      heat: selected.heat.map((point, pointIndex) => pointIndex === index ? { ...point, [field]: raw } : point),
+      ...current,
+      heat: current.heat.map((point, pointIndex) => pointIndex === index ? { ...point, [field]: raw } : point),
     };
-    setCandidates((items) => items.map((candidate) => candidate.id === selected.id ? next : candidate));
-    editor.schedule(next, selected);
+    setCandidates((items) => items.map((candidate) => candidate.id === id ? next : candidate));
+    editor.schedule(next, current);
   }
 
   function addHeatPoint() {
@@ -510,6 +516,7 @@ export function useWorkbenchSession({
     setNotice,
     taskDefinition,
     updateCandidateInput,
+    updateCandidateHeat,
     updateCandidateText,
     updateHeat,
     acceptCandidate,

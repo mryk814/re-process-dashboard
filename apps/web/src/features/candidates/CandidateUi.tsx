@@ -3,6 +3,7 @@ import type { CandidateViewModel } from "./candidateModel";
 import { getCandidateInputValue, numericTaskInputs, orderedInputGroups, type NumericRange, type NumericTaskInput, type TaskDefinitionContract, type TaskInputGroup } from "./taskDefinition";
 import type { ApiPreview } from "../../shared/api/workbench-api";
 import type { CandidateSaveState } from "./useCandidateEditor";
+import { formatDisplayNumber, formatInputNumber, type DisplayDecimalOverrides } from "./numberFormat";
 
 const saveLabels: Record<CandidateSaveState, string> = {
   idle: "",
@@ -132,6 +133,7 @@ export function ComparisonTable({
   taskDefinition,
   previewsByCandidate,
   targetValues,
+  displayDecimalOverrides,
   onSelect,
   onName,
   onInput,
@@ -143,27 +145,43 @@ export function ComparisonTable({
   taskDefinition: TaskDefinitionContract;
   previewsByCandidate: Record<string, ApiPreview>;
   targetValues: Record<string, number>;
+  displayDecimalOverrides?: DisplayDecimalOverrides;
   onSelect: (id: string) => void;
   onName: (id: string, value: string) => void;
   onInput: (id: string, path: string, value: number | string) => void;
 }) {
-  const groups = orderedInputGroups(taskDefinition).filter((group) => group.key !== "heat_pattern");
-  const preserveAnnealedFlow = taskDefinition.input_groups.some((group) => group.key === "heat_pattern");
-  const primaryGroups = preserveAnnealedFlow ? groups.filter((group) => group.key === "composition") : groups;
-  const auxiliaryGroups = preserveAnnealedFlow ? groups.filter((group) => group.key !== "composition") : [];
-  const primaryFields = primaryGroups.flatMap((group) => group.fields);
-  const auxiliaryFields = auxiliaryGroups.flatMap((group) => group.fields);
+  const inputGroups = orderedInputGroups(taskDefinition).filter((group) => group.key !== "heat_pattern");
+  const inputFields = inputGroups.flatMap((group) => group.fields);
   const outputs = taskDefinition.outputs;
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const support = (value?: string) => value === "supported" ? "範囲内" : value === "caution" ? "要確認" : value === "extrapolated" ? "外挿" : "未計算";
+  const formatNumber = (value: number) => value.toLocaleString("ja-JP", { maximumFractionDigits: 1 });
+  const uncertaintySummary = (prediction: ApiPreview["predictions"][string], outputKey: string) => {
+    const components = prediction.uncertainty_components ?? {};
+    const model = components.latent_model_std ?? components.model_std;
+    const observation = components.observation_noise_std ?? components.observation_std;
+    const interval = `${formatDisplayNumber(prediction.lower, taskDefinition, `output.${outputKey}`, displayDecimalOverrides)}–${formatDisplayNumber(prediction.upper, taskDefinition, `output.${outputKey}`, displayDecimalOverrides)}`;
+    const details = [
+      `90%予測区間 ${interval}`,
+      model !== undefined ? `モデル由来 ±${formatNumber(model)}` : null,
+      observation !== undefined ? `測定由来 ±${formatNumber(observation)}` : null,
+    ].filter(Boolean).join(" / ");
+    return { interval, details };
+  };
+  const renderField = (candidate: CandidateViewModel, field: (typeof inputFields)[number]) => {
+    const current = getCandidateInputValue(candidate.raw.inputs, field.path);
+    if (field.kind === "categorical") return <td className="composition-col" key={field.path}><select disabled={!field.editable} aria-label={`${candidate.label} ${field.label}`} value={String(current ?? "")} onFocus={() => onSelect(candidate.id)} onChange={(event) => onInput(candidate.id, field.path, event.target.value)}>{field.choices.map((choice) => <option key={choice}>{choice}</option>)}</select></td>;
+    const key = `${candidate.id}:${field.path}`;
+    const value = drafts[key] ?? (typeof current === "number" ? formatInputNumber(current, taskDefinition, field.path, displayDecimalOverrides) : "");
+    return <td className="composition-col numeric-cell" key={field.path}><input disabled={!field.editable} type="number" step="any" value={value} aria-label={`${candidate.label} ${field.label}`} onFocus={() => { onSelect(candidate.id); setDrafts((items) => ({ ...items, [key]: typeof current === "number" ? String(current) : "" })); }} onChange={(event) => setDrafts((items) => ({ ...items, [key]: event.target.value }))} onBlur={(event) => { const next = Number(event.target.value); setDrafts((items) => { const { [key]: _, ...rest } = items; return rest; }); if (Number.isFinite(next) && next !== current) onInput(candidate.id, field.path, next); }} /></td>;
+  };
   return (
     <div className="candidate-comparison">
       <div className={`comparison-grid-viewport${comparisonExpanded ? " expanded" : ""}`}>
         <section className="comparison-grid" aria-label="候補の入力と予測結果比較">
           <table className="candidate-name-table"><colgroup><col className="candidate-select-column" /><col /></colgroup><thead><tr><th colSpan={2}>候補</th></tr><tr aria-hidden="true"><th /><th /></tr></thead><tbody>{candidates.map((candidate) => { const selected = candidate.id === selectedId; return <tr key={candidate.id} className={selected ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}><td className="candidate-select-cell"><button type="button" className="candidate-select-button" aria-label={`${candidate.label}を選択`} aria-pressed={selected} onClick={(event) => { event.stopPropagation(); onSelect(candidate.id); }}><span aria-hidden="true" /></button></td><th><input aria-label={`${candidate.label}の候補名`} maxLength={80} value={candidate.label} onFocus={() => onSelect(candidate.id)} onChange={(event) => onName(candidate.id, event.target.value)} /></th></tr>; })}</tbody></table>
-          <div className="comparison-detail-scroll"><table className="comparison-detail-table"><thead><tr>{primaryGroups.map((group) => <th colSpan={group.fields.length} key={group.key}>{group.label}</th>)}<th colSpan={outputs.length}>予測結果</th><th className="support-header" rowSpan={2}>支持度</th>{auxiliaryGroups.map((group) => <th colSpan={group.fields.length} key={group.key}>{group.label}</th>)}</tr><tr>{primaryFields.map((field) => <th className="composition-col" key={field.path}>{field.label}<small>{field.unit ?? ""}</small></th>)}{outputs.map((output) => <th className="prediction-col" key={output.key}>{output.label}<small>{Number.isFinite(targetValues[output.key]) ? `目標 ${output.goal_direction === "at_most" ? "≤" : "≥"} ${targetValues[output.key]}` : output.unit}</small></th>)}{auxiliaryFields.map((field) => <th className="composition-col" key={field.path}>{field.label}<small>{field.unit ?? ""}</small></th>)}</tr></thead>
-            <tbody>{candidates.map((candidate) => { const preview = previewsByCandidate[candidate.id]; const renderField = (field: (typeof primaryFields)[number]) => { const current = getCandidateInputValue(candidate.raw.inputs, field.path); if (field.kind === "categorical") return <td className="composition-col" key={field.path}><select disabled={!field.editable} aria-label={`${candidate.label} ${field.label}`} value={String(current ?? "")} onFocus={() => onSelect(candidate.id)} onChange={(event) => onInput(candidate.id, field.path, event.target.value)}>{field.choices.map((choice) => <option key={choice}>{choice}</option>)}</select></td>; const key = `${candidate.id}:${field.path}`; const value = drafts[key] ?? String(current ?? 0); return <td className="composition-col" key={field.path}><input disabled={!field.editable} type="number" step="any" value={value} aria-label={`${candidate.label} ${field.label}`} onFocus={() => onSelect(candidate.id)} onChange={(event) => setDrafts((items) => ({ ...items, [key]: event.target.value }))} onBlur={(event) => { const next = Number(event.target.value); setDrafts((items) => { const { [key]: _, ...rest } = items; return rest; }); if (Number.isFinite(next) && next !== current) onInput(candidate.id, field.path, next); }} /></td>; }; return <tr key={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}>{primaryFields.map(renderField)}{outputs.map((output) => { const prediction = preview?.predictions[output.key]; return <td className="prediction-cell prediction-col" key={output.key}>{prediction ? <span className="metric-value">{prediction.value.toLocaleString("ja-JP", { maximumFractionDigits: output.unit === "%" ? 1 : 0 })} <small>{prediction.unit}</small>{typeof prediction.goal_probability === "number" && <em>達成 {(prediction.goal_probability * 100).toLocaleString("ja-JP", { maximumFractionDigits: 0 })}%</em>}</span> : <span className="empty-cell">—</span>}</td>; })}<td className="support-cell"><span className={`status-dot ${preview?.support.status === "supported" ? "success" : preview ? "caution" : ""}`} />{support(preview?.support.status)}</td>{auxiliaryFields.map(renderField)}</tr>; })}</tbody>
-          </table></div>
+          <div className="comparison-input-scroll"><table className="comparison-detail-table comparison-input-table"><thead><tr>{inputGroups.map((group) => <th colSpan={group.fields.length} key={group.key}>{group.label}</th>)}</tr><tr>{inputFields.map((field) => <th className="composition-col" key={field.path}>{field.label}<small>{field.unit ?? ""}</small></th>)}</tr></thead><tbody>{candidates.map((candidate) => <tr key={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}>{inputFields.map((field) => renderField(candidate, field))}</tr>)}</tbody></table></div>
+          <div className="comparison-prediction-scroll"><table className="comparison-detail-table comparison-prediction-table"><thead><tr><th colSpan={outputs.length}>予測値</th><th colSpan={outputs.length}>不確実性</th><th colSpan={outputs.length}>目標達成</th><th className="support-header">支持度</th></tr><tr>{outputs.map((output) => <th className="prediction-col" key={`value-${output.key}`}>{output.label}<small>{output.unit}</small></th>)}{outputs.map((output) => <th className="uncertainty-col" key={`uncertainty-${output.key}`}>{output.label}<small>90%区間</small></th>)}{outputs.map((output) => <th className="goal-col" key={`goal-${output.key}`}>{output.label}<small>{Number.isFinite(targetValues[output.key]) ? `目標 ${output.goal_direction === "at_most" ? "≤" : "≥"} ${targetValues[output.key]}` : "未設定"}</small></th>)}<th className="support-header">状態</th></tr></thead><tbody>{candidates.map((candidate) => { const preview = previewsByCandidate[candidate.id]; return <tr key={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}>{outputs.map((output) => { const prediction = preview?.predictions[output.key]; return <td className="prediction-cell prediction-col numeric-cell" key={`value-${output.key}`}>{prediction ? <span className="metric-value">{formatDisplayNumber(prediction.value, taskDefinition, `output.${output.key}`, displayDecimalOverrides)} <small>{prediction.unit}</small></span> : <span className="empty-cell">—</span>}</td>; })}{outputs.map((output) => { const prediction = preview?.predictions[output.key]; if (!prediction) return <td className="uncertainty-cell uncertainty-col numeric-cell" key={`uncertainty-${output.key}`}><span className="empty-cell">—</span></td>; const uncertainty = uncertaintySummary(prediction, output.key); return <td className="uncertainty-cell uncertainty-col numeric-cell" key={`uncertainty-${output.key}`}><span className="uncertainty-value" title={uncertainty.details} aria-label={uncertainty.details}>{uncertainty.interval}</span></td>; })}{outputs.map((output) => { const prediction = preview?.predictions[output.key]; const goalValue = prediction?.goal_value ?? targetValues[output.key]; return <td className="goal-cell goal-col numeric-cell" key={`goal-${output.key}`}>{prediction?.goal_probability == null ? <span className="empty-cell">{Number.isFinite(goalValue) ? "計算中" : "—"}</span> : <span className="goal-value"><b>{formatNumber(prediction.goal_probability * 100)}%</b><small>{prediction.goal_direction === "at_most" ? "以下" : prediction.goal_direction === "at_least" ? "以上" : "目標"}</small></span>}</td>; })}<td className="support-cell"><span className={`status-dot ${preview?.support.status === "supported" ? "success" : preview ? "caution" : ""}`} />{support(preview?.support.status)}</td></tr>; })}</tbody></table></div>
         </section>
       </div>
     </div>

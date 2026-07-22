@@ -50,6 +50,7 @@ test("annealed definition renders canonical groups, heat pattern, and four outpu
       { key: "categorical", order: 3, label: "区分", fields: [{ path: "categorical.route", label: "Route", order: 0, kind: "categorical", required: true, editable: true, choices: ["A", "B"] }] },
     ],
     outputs: ["TS", "YS", "EL", "lambda"].map((key) => ({ key, label: key, unit: key === "TS" || key === "YS" ? "MPa" : "%", goal_direction: "at_least" })),
+    display_decimals: { "composition.C": 5, "process.temperature": 1, "output.TS": 1, "output.YS": 1, "output.EL": 1, "output.lambda": 1 },
     fixed_context: [],
   };
   const inspector = renderInspector({ candidate, taskDefinition: definition, saveState: "idle", fieldErrors: [], onInput() {}, heatPattern: element("heat proof") });
@@ -70,6 +71,7 @@ test("hot rolling definition omits heat pattern and renders process, categorical
       { key: "categorical", order: 1, label: "区分", fields: [{ path: "categorical.route", label: "Route", order: 0, kind: "categorical", required: true, editable: true, choices: ["A", "B", "C"] }] },
     ],
     outputs: [{ key: "TS", label: "引張強さ", unit: "MPa", goal_direction: "at_least" }],
+    display_decimals: { "process.temperature": 1, "output.TS": 1 },
     fixed_context: [{ path: "context.line", order: 0, label: "設備", value: "HR-1" }],
   };
   const inspector = renderInspector({ candidate, taskDefinition: definition, saveState: "saved", fieldErrors: [], onInput() {} });
@@ -86,6 +88,7 @@ test("conflict state keeps recovery actions next to the draft", () => {
   const definition = {
     input_groups: [{ key: "composition", order: 0, label: "組成", fields: [numberField("composition.C", "C")] }],
     outputs: [],
+    display_decimals: { "composition.C": 5 },
     fixed_context: [],
   };
   const inspector = renderInspector({
@@ -114,15 +117,19 @@ test("non-editable fields are disabled and goal probability remains visible", ()
   const definition = {
     input_groups: [{ key: "composition", order: 0, label: "組成", fields: [readonly] }],
     outputs: [{ key: "TS", label: "引張強さ", unit: "MPa", goal_direction: "at_least" }],
+    display_decimals: { "composition.C": 5, "output.TS": 1 },
     fixed_context: [],
   };
   const preview = {
-    predictions: { TS: { value: 500, unit: "MPa", goal_probability: 0.82 } },
+    predictions: { TS: { value: 500, lower: 480, upper: 520, unit: "MPa", goal_probability: 0.82, uncertainty_components: { latent_model_std: 12, observation_noise_std: 8 } } },
     support: { status: "supported" },
   };
   const inspector = renderInspector({ candidate, taskDefinition: definition, saveState: "idle", fieldErrors: [], onInput() {}, onReload() {}, onCopyDraft() {} });
   const comparison = renderComparison({ candidates: [candidate], selectedId: candidate.id, taskDefinition: definition, previewsByCandidate: { [candidate.id]: preview }, targetValues: {}, onSelect() {}, onName() {}, onInput() {} });
   assert.match(inspector, /disabled=""/);
   assert.match(comparison, /disabled=""/);
-  assert.match(comparison, /達成 82%/);
+  assert.match(comparison, /<b>82%<\/b><small>目標<\/small>/);
+  assert.match(comparison, /value="0.10000"/);
+  assert.match(comparison, />480.0–520.0<\/span>/);
+  assert.match(comparison, /title="90%予測区間 480.0–520.0 \/ モデル由来 ±12 \/ 測定由来 ±8"/);
 });

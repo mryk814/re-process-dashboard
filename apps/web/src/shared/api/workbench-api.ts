@@ -44,9 +44,9 @@ export const workbenchApi = {
   async createProject(body: ApiProjectCreateInput) {
     return requireData(await apiClient.POST("/api/projects", { body }), "プロジェクトを作成できませんでした。");
   },
-  async updateProject(projectId: string, body: ApiProjectInput) {
+  async updateProject(projectId: string, body: ApiProjectInput, options?: { invalidateInference?: boolean }) {
     const project = requireData(await apiClient.PUT("/api/projects/{project_id}", { params: { path: { project_id: projectId } }, body }), "プロジェクトを保存できませんでした。");
-    inferenceRequestCache.invalidatePrefix(candidateInferencePrefix(projectId));
+    if (options?.invalidateInference !== false) inferenceRequestCache.invalidatePrefix(candidateInferencePrefix(projectId));
     return project;
   },
   async deleteProject(projectId: string) {

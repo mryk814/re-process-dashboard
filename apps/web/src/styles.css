@@ -240,6 +240,13 @@ select:focus-visible,
 .primary-button:hover {
   background: #174da3;
 }
+
+/* Shared table semantics: opt numeric cells into the app-wide comparison rule. */
+table { font-variant-numeric: tabular-nums; }
+table td.numeric-cell,
+table th.numeric-cell { text-align: right; font-variant-numeric: tabular-nums; }
+table .numeric-cell input,
+table input[type="number"] { text-align: right; font-variant-numeric: tabular-nums; }
 .primary-button:disabled {
   border-color: #cbd5e1;
   background: #e2e8f0;

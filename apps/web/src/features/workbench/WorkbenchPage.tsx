@@ -139,11 +139,7 @@ type WorkbenchProps = {
   fieldErrors: Array<{ path: string; message: string }>;
   onReload: () => void;
   onCopyDraft: () => void;
-  metrics: Metric[];
   preview: ApiPreview | null;
-  previewStatus: InferenceSurfaceStatus;
-  previewError: string;
-  onRetryPreview: () => void;
   previewsByCandidate: Record<string, ApiPreview>;
   onSelect: (id: string) => void;
   onHeat: (index: number, field: "time" | "temperature" | "stageName", raw: number | string) => void;
@@ -178,11 +174,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
     fieldErrors,
     onReload,
     onCopyDraft,
-    metrics,
     preview,
-    previewStatus,
-    previewError,
-    onRetryPreview,
     previewsByCandidate,
     onSelect,
     onInput,
@@ -266,29 +258,31 @@ export function WorkbenchPage(props: WorkbenchProps) {
           taskDefinition={taskDefinition}
           previewsByCandidate={previewsByCandidate}
           targetValues={targetValues}
+          displayDecimalOverrides={project?.display_decimals}
           onSelect={onSelect}
           onInput={onInput}
           onName={(id, value) => onText(id, "label", value)}
         />}
-        {operations?.response_curve ? (
-            <LiveResponseCurves
-            projectId={projectId}
-            project={project}
-            candidates={candidates}
-            candidate={selected}
-            preview={preview}
-            previewsByCandidate={previewsByCandidate}
-            targetValues={targetValues}
-            taskDefinition={taskDefinition}
-            responseCurveRanges={responseCurveRanges}
-            onProjectChanged={onProjectChanged}
-            available
-            ready={["idle", "saved"].includes(saveState)}
-          />
-        ) : <UnavailablePanel title="応答曲線" />}
-        <LiveSimilarityEvidence projectId={projectId} candidate={selected} available={operations?.similarity === true} ready={["idle", "saved"].includes(saveState)} onAddCandidate={onAddCandidateFromLineage} />
+        <div className="workbench-lower-grid">
+          {operations?.response_curve ? (
+              <LiveResponseCurves
+              projectId={projectId}
+              project={project}
+              candidates={candidates}
+              candidate={selected}
+              preview={preview}
+              previewsByCandidate={previewsByCandidate}
+              targetValues={targetValues}
+              taskDefinition={taskDefinition}
+              responseCurveRanges={responseCurveRanges}
+              onProjectChanged={onProjectChanged}
+              available
+              ready={["idle", "saved"].includes(saveState)}
+            />
+          ) : <UnavailablePanel title="応答曲線" />}
+          <LiveSimilarityEvidence projectId={projectId} candidate={selected} outputs={taskDefinition?.outputs ?? []} available={operations?.similarity === true} ready={["idle", "saved"].includes(saveState)} onAddCandidate={onAddCandidateFromLineage} />
+        </div>
       </section>
-      <EvidencePanel projectId={projectId} candidate={selected} inferenceReady={["idle", "saved"].includes(saveState)} metrics={metrics} outputs={taskDefinition?.outputs ?? []} preview={preview} previewStatus={previewStatus} candidateLabel={selected.label} actualsAvailable={operations?.actual_measurement === true} error={previewError} onRetry={onRetryPreview} />
     </div>
   );
 }
@@ -843,9 +837,12 @@ function LiveResponseCurves({
   const [variableId, setVariableId] = useState(variables[0]?.id ?? "heat.peak_temperature_c");
   const [axisSettingsOpen, setAxisSettingsOpen] = useState(false);
   const [axisDraft, setAxisDraft] = useState<{ x: CurveRangeDraft; y: Record<string, CurveRangeDraft> }>({ x: { min: "", max: "", enabled: false }, y: {} });
+  const [axisDraftDirty, setAxisDraftDirty] = useState(false);
   const [axisError, setAxisError] = useState("");
   const [axisSaving, setAxisSaving] = useState(false);
   const [surfacesByKey, setSurfacesByKey] = useState<Record<string, InferenceSurfaceState<ApiResponseCurve>>>({});
+  const axisDraftRef = useRef(axisDraft);
+  axisDraftRef.current = axisDraft;
   const surfaceRef = useRef(surfacesByKey);
   surfaceRef.current = surfacesByKey;
   const curveCandidates = candidates.filter((item) => !item.raw.archived_at && previewsByCandidate[item.id]);
@@ -916,6 +913,7 @@ function LiveResponseCurves({
       x: makeDraft(xRangeOverride, effectiveXRange),
       y: Object.fromEntries(outputs.map((output) => [output.key, makeDraft(responseCurveRanges.y?.[output.key], payloadForOutput(output.key)?.output_range)])),
     });
+    setAxisDraftDirty(false);
     setAxisError("");
     setAxisSettingsOpen(true);
   };
@@ -926,33 +924,39 @@ function LiveResponseCurves({
     if (!Number.isFinite(min) || !Number.isFinite(max) || min >= max) throw new Error(`${label}は有限の数値で、最小値 < 最大値にしてください`);
     return { min, max };
   };
-  const saveAxisSettings = async () => {
+  const saveAxisSettings = async (draft = axisDraft) => {
     if (!project) return;
+    const draftIdentity = JSON.stringify({ variableId, draft });
     try {
       const nextX = { ...(responseCurveRanges.x ?? {}) };
-      const parsedX = draftRange(axisDraft.x, "X軸");
+      const parsedX = draftRange(draft.x, "X軸");
       if (parsedX) nextX[variableId] = parsedX;
       else delete nextX[variableId];
       const nextY = { ...(responseCurveRanges.y ?? {}) };
       for (const output of outputs) {
-        const parsedY = draftRange(axisDraft.y[output.key] ?? { min: "", max: "", enabled: false }, `${output.label}のY軸`);
+        const parsedY = draftRange(draft.y[output.key] ?? { min: "", max: "", enabled: false }, `${output.label}のY軸`);
         if (parsedY) nextY[output.key] = parsedY;
         else delete nextY[output.key];
       }
       setAxisSaving(true);
       const updated = await workbenchApi.updateProject(projectId, { ...project, response_curve_ranges: { x: nextX, y: nextY } });
       await onProjectChanged(updated);
+      if (JSON.stringify({ variableId, draft: axisDraftRef.current }) === draftIdentity) setAxisDraftDirty(false);
       setAxisError("");
-      setAxisSettingsOpen(false);
     } catch (cause) {
       setAxisError(cause instanceof Error ? cause.message : "軸範囲を保存できませんでした。");
     } finally {
       setAxisSaving(false);
     }
   };
+  useEffect(() => {
+    if (!axisDraftDirty) return;
+    const timer = window.setTimeout(() => { void saveAxisSettings(axisDraft); }, 420);
+    return () => window.clearTimeout(timer);
+  }, [axisDraft, axisDraftDirty, variableId]);
   const rangeText = (range: CurveRange | null | undefined) => range ? `${number(range.min, 2)} – ${number(range.max, 2)}` : "取得中";
-  const setXDraft = (patch: Partial<CurveRangeDraft>) => setAxisDraft((current) => ({ ...current, x: { ...current.x, ...patch } }));
-  const setYDraft = (key: string, patch: Partial<CurveRangeDraft>) => setAxisDraft((current) => ({ ...current, y: { ...current.y, [key]: { ...(current.y[key] ?? { min: "", max: "", enabled: false }), ...patch } } }));
+  const setXDraft = (patch: Partial<CurveRangeDraft>) => { setAxisDraft((current) => ({ ...current, x: { ...current.x, ...patch } })); setAxisDraftDirty(true); };
+  const setYDraft = (key: string, patch: Partial<CurveRangeDraft>) => { setAxisDraft((current) => ({ ...current, y: { ...current.y, [key]: { ...(current.y[key] ?? { min: "", max: "", enabled: false }), ...patch } } })); setAxisDraftDirty(true); };
   const loadedCurveCount = curveStates.filter((state) => state?.data !== null && state?.data !== undefined).length;
   const curveStatus = curveStates.some((state) => state?.error) ? "error" : curveStates.some((state) => state?.pending) || loadedCurveCount < curveStates.length ? "refreshing" : "latest";
   if (!available) return <UnavailablePanel title="応答曲線" />;
@@ -969,13 +973,13 @@ function LiveResponseCurves({
           </div>
         </div>
         <div className="response-curve-controls">
-          <label>変数 <select aria-label="応答曲線の設計変数" value={variableId} onChange={(event) => setVariableId(event.target.value)}>{variables.map((variable) => <option key={variable.id} value={variable.id}>{variable.label} ({variable.unit})</option>)}</select></label>
+          <label>変数 <select aria-label="応答曲線の設計変数" value={variableId} disabled={axisSaving || axisDraftDirty} onChange={(event) => { setAxisSettingsOpen(false); setAxisDraftDirty(false); setVariableId(event.target.value); }}>{variables.map((variable) => <option key={variable.id} value={variable.id}>{variable.label} ({variable.unit})</option>)}</select></label>
           <button type="button" className="outline-button curve-range-button" aria-expanded={axisSettingsOpen} onClick={axisSettingsOpen ? () => setAxisSettingsOpen(false) : openAxisSettings}>{axisSettingsOpen ? "閉じる" : "軸範囲"}</button>
         </div>
       </div>
       {axisSettingsOpen && (
         <div className="response-curve-axis-settings">
-          <div className="axis-settings-heading"><b>描画範囲</b><small>未指定は自動範囲。学習データ範囲は参照値です。</small><button type="button" className="axis-settings-close" onClick={() => setAxisSettingsOpen(false)}>閉じる</button></div>
+          <div className="axis-settings-heading"><b>描画範囲</b><small>変更は自動保存。未指定は自動範囲、学習データ範囲は参照値です。</small><button type="button" className="axis-settings-close" onClick={() => setAxisSettingsOpen(false)}>閉じる</button></div>
           <div className="axis-settings-grid">
             <section>
               <h3>X軸 <span>{selectedVariable?.label ?? "選択変数"}</span></h3>
@@ -1006,8 +1010,8 @@ function LiveResponseCurves({
           </div>
           {axisError && <p className="axis-settings-error" role="alert">{axisError}</p>}
           <div className="axis-settings-actions">
-            <button type="button" className="primary-button" disabled={axisSaving} onClick={() => void saveAxisSettings()}>{axisSaving ? "保存中…" : "保存"}</button>
-            <button type="button" className="text-button" disabled={axisSaving} onClick={() => { setXDraft({ ...makeDraft(undefined, effectiveXRange) }); outputs.forEach((output) => setYDraft(output.key, { ...makeDraft(undefined, payloadForOutput(output.key)?.output_range) })); }}>すべて自動</button>
+            <button type="button" className="text-button" disabled={axisSaving} onClick={() => { setXDraft({ ...makeDraft(undefined, effectiveXRange) }); outputs.forEach((output) => setYDraft(output.key, { ...makeDraft(undefined, payloadForOutput(output.key)?.output_range) })); }}>すべて自動に戻す</button>
+            <small className="axis-settings-autosave" role="status">{axisSaving ? "自動保存中…" : axisDraftDirty ? "変更を確認中…" : "自動保存済み"}</small>
           </div>
         </div>
       )}
@@ -1090,12 +1094,14 @@ function ResponseCurveMiniChart({
 function LiveSimilarityEvidence({
   projectId,
   candidate,
+  outputs,
   available,
   ready,
   onAddCandidate,
 }: {
   projectId: string;
   candidate: Candidate;
+  outputs: TaskOutputDefinition[];
   available: boolean;
   ready: boolean;
   onAddCandidate: (entityKey: string) => Promise<boolean>;
@@ -1143,6 +1149,12 @@ function LiveSimilarityEvidence({
   const status = inferenceSurfaceStatus(surface);
   const similar = surface.currentIdentity?.startsWith(`${similarityScope}\u001f`) ? surface.data ?? [] : [];
   const processLabel = similar.find((item) => item.process_label)?.process_label ?? "工程履歴";
+  const measuredOutputs = (item: ApiSimilarObservation) => outputs.flatMap((output) => {
+    const summaryKey = [...(output.measurement_keys ?? []), output.key, output.label]
+      .find((key) => item.repeat_summary?.[key]);
+    const summary = summaryKey ? item.repeat_summary?.[summaryKey] : undefined;
+    return summary ? [{ output, summary }] : [];
+  });
   const add = async (entityKey: string) => {
     setAddingKey(entityKey);
     try {
@@ -1155,7 +1167,7 @@ function LiveSimilarityEvidence({
     <section className="similar-evidence-panel">
       <div className="evidence-title">
         <div>
-          <h2>近い過去実績</h2>
+          <h2>近い過去実績 <span>（予測対象の実績値）</span></h2>
           <span className="similar-caption">距離が小さいほど、成分・工程・熱履歴が近い条件です</span>
         </div>
         {similar.length > 0 && <span className={`inference-surface-status ${status}`}>{status === "latest" ? "最新" : status === "refreshing" ? "更新中" : status === "stale" ? "旧revision・更新中" : "更新失敗・旧結果"}</span>}
@@ -1168,14 +1180,14 @@ function LiveSimilarityEvidence({
         <p className="empty-evidence">入力を保存後に近さを更新します。</p>
       ) : similar.length ? (
         <>
-          <table className="similar-table similar-summary-table">
+          <div className="similar-table-scroll"><table className="similar-table similar-summary-table">
             <thead><tr><th>距離</th><th>溶製成績書 key</th><th>{processLabel} key</th><th>実績値</th><th /></tr></thead>
             <tbody>{similar.map((item) => (
               <tr key={`${item.layer ?? "training"}-${item.parent_key}`}>
                 <td className="similar-distance"><b>{item.distance.toFixed(2)}</b><span className={`layer-chip ${item.layer ?? "training"}`}>{item.layer === "historical" ? "学習外" : "学習内"}</span></td>
                 <td className="similar-key">{item.melt_key ?? "—"}</td>
                 <td className="similar-key">{item.process_key ?? item.parent_key}</td>
-                <td><div className="similar-value-list"><small>{item.source || item.observation_id || "実績"}</small>{Object.entries(item.repeat_summary ?? {}).map(([key, value]) => <span key={key}><b>{key}</b> {number(value.mean, 1)} ± {number(value.std, 1)} <small>n={value.n}</small></span>)}</div></td>
+                <td><div className="similar-value-list"><small>{item.source || item.observation_id || "実績"}</small>{measuredOutputs(item).map(({ output, summary }) => <span key={output.key} title={`${output.label}: ${number(summary.mean, 1)} ± ${number(summary.std, 1)} ${output.unit} / n=${summary.n}`}><b>{output.key === "lambda" ? "λ" : output.key}</b><strong>{number(summary.mean, 1)}</strong></span>)}</div></td>
                 <td className="similar-action-cell">
                   <button type="button" className="outline-button similar-add-button" disabled={!item.process_key || addingKey === item.process_key || addedKeys.includes(item.process_key ?? "")} onClick={() => { if (item.process_key) void add(item.process_key); }}>
                     {addedKeys.includes(item.process_key ?? "") ? "追加済み" : addingKey === item.process_key ? "追加中…" : "候補に追加"}
@@ -1183,7 +1195,7 @@ function LiveSimilarityEvidence({
                 </td>
               </tr>
             ))}</tbody>
-          </table>
+          </table></div>
         </>
       ) : status === "error" ? (
         <p className="empty-evidence">類似実験を取得できませんでした。閉じて再度開くと再試行します。</p>

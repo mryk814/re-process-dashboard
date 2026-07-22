@@ -18,6 +18,16 @@
 .admin-model-identity { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
 .admin-model-identity span { border-radius: 999px; background: #e5f5ee; color: #137454; padding: 3px 8px; font-size: 11px; font-weight: 700; }
 .input-range-settings { max-width: 980px; }
+.display-decimal-settings { max-width: 980px; }
+.display-decimal-settings .project-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.display-decimal-table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+.display-decimal-table th,
+.display-decimal-table td { padding: 7px 9px; border: 1px solid #d8e0ea; }
+.display-decimal-table thead th { background: #edf2f8; color: #46566c; text-align: center; }
+.display-decimal-table tbody th { text-align: left; }
+.display-decimal-table tbody td { text-align: left; }
+.display-decimal-table .numeric-cell { text-align: right; }
+.display-decimal-table input { width: 70px; height: 28px; border: 1px solid #cbd6e2; border-radius: 3px; padding: 3px 6px; text-align: right; font: inherit; font-variant-numeric: tabular-nums; }
 .settings-explanation { margin: 0 0 14px; padding: 9px 11px; border-left: 3px solid #6bb69e; background: #f4faf7; color: #53647a; font-size: 12px; }
 .input-range-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .input-range-table th,

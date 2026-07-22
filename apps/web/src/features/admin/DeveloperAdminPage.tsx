@@ -30,14 +30,14 @@ export function DeveloperAdminPage({
   project: ApiProject | undefined;
   taskDefinition: TaskDefinitionContract | null;
   resolvedTaskDefinition: ResolvedTaskDefinition | null;
-  initialSection?: "quality" | "ranges" | "task" | "model";
-  onSectionChange: (section: "quality" | "ranges" | "task" | "model") => void;
+  initialSection?: "quality" | "ranges" | "display" | "task" | "model";
+  onSectionChange: (section: "quality" | "ranges" | "display" | "task" | "model") => void;
   qualityFilters: QualityFilters;
   onQualityFiltersChange: (filters: QualityFilters) => void;
   onOpenLineage: (issue: ApiQuality["detected_issues"][number], filters: QualityFilters) => void;
   onProjectChanged: (project: ApiProject) => void;
 }) {
-  type AdminSection = "quality" | "ranges" | "task" | "model";
+  type AdminSection = "quality" | "ranges" | "display" | "task" | "model";
   const [section, setSection] = useState<AdminSection>(initialSection ?? "quality");
   const [modelPackage, setModelPackage] = useState<ApiModelPackage | null>(null);
   const [modelError, setModelError] = useState("");
@@ -55,6 +55,7 @@ export function DeveloperAdminPage({
   const sections: Array<{ id: AdminSection; label: string }> = [
     { id: "quality", label: "データ品質集計" },
     { id: "ranges", label: "入力範囲" },
+    { id: "display", label: "表示桁数" },
     { id: "task", label: "予測タスク定義" },
     { id: "model", label: "モデルと実行環境" },
   ];
@@ -66,6 +67,7 @@ export function DeveloperAdminPage({
     <div className="admin-content">
       {section === "quality" && <LiveDataQualityPage filters={qualityFilters} onFiltersChange={onQualityFiltersChange} onOpenLineage={onOpenLineage} showReferenceScenarios mode="summary" />}
       {section === "ranges" && <InputRangeSettingsPage project={project} taskDefinition={taskDefinition} onProjectChanged={onProjectChanged} />}
+      {section === "display" && <DisplayDecimalSettingsPage project={project} taskDefinition={taskDefinition} onProjectChanged={onProjectChanged} />}
       {section === "task" && <div className="page-panel admin-contract-page">
         <div className="page-intro"><div><h2>予測タスク定義</h2><p>{taskDefinition?.label ?? "読み込み中"}で利用者が入力・確認する項目です。</p></div></div>
         {taskDefinition ? <>
@@ -85,6 +87,55 @@ export function DeveloperAdminPage({
         </> : !modelError && <p className="empty-evidence">モデル情報を読み込んでいます。</p>}
       </div>}
     </div>
+  </div>;
+}
+
+export function DisplayDecimalSettingsPage({ project, taskDefinition, onProjectChanged }: {
+  project: ApiProject | undefined;
+  taskDefinition: TaskDefinitionContract | null;
+  onProjectChanged: (project: ApiProject) => void;
+}) {
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const items = taskDefinition ? [
+    ...numericTaskInputs(taskDefinition).map((input) => ({ key: input.path, label: input.label, unit: input.unit ?? "—", group: input.group === "composition" ? "成分" : "工程条件" })),
+    ...taskDefinition.outputs.map((output) => ({ key: `output.${output.key}`, label: output.label, unit: output.unit, group: "予測特性" })),
+  ] : [];
+  useEffect(() => {
+    if (!project || !taskDefinition) return;
+    setDraft(Object.fromEntries(items.map((item) => [item.key, String(project.display_decimals?.[item.key] ?? taskDefinition.display_decimals[item.key])])));
+    setError("");
+  }, [project, taskDefinition]);
+  if (!project || !taskDefinition) return <div className="page-panel"><p className="empty-evidence">設定を読み込んでいます。</p></div>;
+  const resetDefaults = () => setDraft(Object.fromEntries(items.map((item) => [item.key, String(taskDefinition.display_decimals[item.key])])));
+  const save = async () => {
+    const overrides: Record<string, number> = {};
+    for (const item of items) {
+      const value = Number(draft[item.key]);
+      if (!Number.isInteger(value) || value < 0 || value > 8) {
+        setError(`${item.label}は0〜8の整数で指定してください。`);
+        return;
+      }
+      if (value !== taskDefinition.display_decimals[item.key]) overrides[item.key] = value;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      onProjectChanged(await workbenchApi.updateProject(project.id, { ...project, display_decimals: overrides }, { invalidateInference: false }));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "表示桁数を保存できませんでした。");
+    } finally {
+      setSaving(false);
+    }
+  };
+  return <div className="page-panel display-decimal-settings">
+    <div className="page-intro"><div><h2>表示桁数</h2><p>表で表示する小数点以下の桁数です。保存値と計算精度は変わりません。</p></div><div className="project-actions"><button className="outline-button" onClick={resetDefaults}>デフォルトに戻す</button><button className="primary-button" disabled={saving} onClick={() => void save()}>{saving ? "保存中…" : "保存"}</button></div></div>
+    {error && <p className="empty-evidence">{error}</p>}
+    <table className="display-decimal-table"><thead><tr><th>区分</th><th>変数</th><th>単位</th><th>既定</th><th>このプロジェクト</th><th>表示例</th></tr></thead><tbody>{items.map((item) => {
+      const value = Number(draft[item.key]);
+      return <tr key={item.key}><td>{item.group}</td><th>{item.label}</th><td>{item.unit}</td><td className="numeric-cell">{taskDefinition.display_decimals[item.key]}</td><td className="numeric-cell"><input type="number" min="0" max="8" step="1" aria-label={`${item.label}の表示桁数`} value={draft[item.key] ?? ""} onChange={(event) => setDraft((current) => ({ ...current, [item.key]: event.target.value }))} /></td><td className="numeric-cell">{Number.isInteger(value) && value >= 0 && value <= 8 ? (0.001245).toFixed(value) : "—"}</td></tr>;
+    })}</tbody></table>
   </div>;
 }
 
