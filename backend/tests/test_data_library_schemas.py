@@ -53,8 +53,7 @@ def test_project_response_accepts_unmigrated_nullable_binding() -> None:
     assert project.binding_provenance == "unbound_legacy"
 
 
-def test_project_update_cannot_change_task_or_fixed_binding() -> None:
-    with pytest.raises(ValidationError):
-        ProjectUpdateInput(task_id="other-task")
-    with pytest.raises(ValidationError):
-        ProjectUpdateInput(dataset_view_revision_id="other-view")
+def test_project_update_accepts_identity_fields_only_for_service_conflict_detection() -> None:
+    payload = ProjectUpdateInput(task_id="other-task", dataset_view_revision_id="other-view")
+    assert payload.task_id == "other-task"
+    assert payload.dataset_view_revision_id == "other-view"

@@ -58,3 +58,29 @@ def test_register_dataset_source_is_content_addressed_and_preserves_source(tmp_p
     assert len(catalog.list_profile_revisions()) == 1
     assert len(catalog.list_dataset_revisions()) == 1
     assert len(catalog.list_dataset_view_revisions()) == 1
+
+
+def test_register_promotes_existing_bundled_asset_to_managed_without_orphan(tmp_path: Path) -> None:
+    from material_workbench.dataset_registration import file_sha256
+    from material_workbench.schemas import DataAssetCreateInput
+
+    database = tmp_path / "workspace.db"
+    catalog = WorkspaceCatalog(database)
+    existing = catalog.upsert_data_asset(DataAssetCreateInput(
+        original_filename=SOURCE.name,
+        sha256=file_sha256(SOURCE),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        locator_kind="bundled",
+        locator=str(SOURCE),
+    ))
+    result = register_managed_dataset(
+        database=database,
+        source=SOURCE,
+        library_root=tmp_path / "library",
+        profile_path=PROFILE,
+    )
+
+    promoted = catalog.get_data_asset(existing.id)
+    assert promoted is not None and promoted.locator_kind == "managed"
+    assert promoted.locator == result.locator
+    assert Path(result.locator).is_file()

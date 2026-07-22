@@ -59,3 +59,34 @@ def test_resolver_rejects_a_changed_excel_instead_of_using_current_runtime(clien
 
     with pytest.raises(ProjectRuntimeResolutionError, match="登録時から変わっています"):
         resolver.resolve(project)
+
+
+def test_resolver_keeps_pinned_archived_records_usable(client) -> None:
+    project = client.app.state.store.get_project("default")
+    assert project is not None
+    resolver = client.app.state.project_runtime_resolver
+    resolver.resolve(project)
+    client.app.state.workspace_catalog.archive_dataset_view_revision(project.dataset_view_revision_id)
+    resolver._cache.clear()
+
+    assert resolver.resolve(project).runtime.task_id == project.task_id
+
+
+def test_same_asset_with_different_profile_digest_does_not_reuse_training_data(client, monkeypatch) -> None:
+    project = client.app.state.store.get_project("default")
+    assert project is not None
+    resolver = client.app.state.project_runtime_resolver
+    original = resolver._dataset_resources
+    calls = 0
+
+    def different_revision(*args, **kwargs):
+        nonlocal calls
+        result = original(*args, **kwargs)
+        calls += 1
+        return (*result[:3], "sha256:application-profile") if calls == 1 else result
+
+    monkeypatch.setattr(resolver, "_dataset_resources", different_revision)
+    resolver._cache.clear()
+    resolved = resolver.resolve(project)
+
+    assert resolved.runtime.data is not resolved.context_runtime.data

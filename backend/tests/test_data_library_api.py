@@ -105,3 +105,35 @@ def test_continuation_stays_in_series_and_requires_reason(client) -> None:
     project = created.json()
     assert project["project_series_id"] == original["project_series_id"]
     assert project["predecessor_project_id"] == original["id"]
+
+
+def test_project_with_successor_cannot_be_deleted(client) -> None:
+    first = client.post("/api/projects", json={
+        "name": "系譜の起点", "task_id": "annealed-properties-v1",
+    })
+    assert first.status_code == 201, first.text
+    successor = client.post("/api/projects", json={
+        "name": "系譜の続き",
+        "task_id": "annealed-properties-v1",
+        "predecessor_project_id": first.json()["id"],
+        "continuation_reason": "データ追加",
+    })
+    assert successor.status_code == 201, successor.text
+
+    deleted = client.delete(f"/api/projects/{first.json()['id']}")
+    assert deleted.status_code == 409
+    assert deleted.json()["code"] == "project_has_successors"
+
+
+def test_dataset_view_revision_conflict_returns_409(client) -> None:
+    dataset = client.get("/api/project-creation-options").json()["datasets"][0]["dataset_revision"]
+    payload = {
+        "view_id": "stable-view-revision",
+        "revision": 1,
+        "name": "最初の名前",
+        "kind": "single",
+        "members": [{"dataset_revision_id": dataset["id"], "ordinal": 0}],
+    }
+    assert client.post("/api/data-library/views", json=payload).status_code == 201
+    conflict = client.post("/api/data-library/views", json={**payload, "name": "別の名前"})
+    assert conflict.status_code == 409

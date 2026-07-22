@@ -12,7 +12,7 @@ from ..schemas import (
     ModelPackageRef,
     ProjectCreationOptions,
 )
-from ..workspace_catalog import CatalogReferenceError, WorkspaceCatalog
+from ..workspace_catalog import CatalogConflictError, CatalogReferenceError, WorkspaceCatalog
 
 
 router = APIRouter(prefix="/api")
@@ -58,6 +58,8 @@ def create_dataset_view(
 ) -> DatasetViewRevision:
     try:
         return catalog.upsert_dataset_view_revision(payload)
+    except CatalogConflictError as exc:
+        raise HTTPException(409, str(exc)) from exc
     except CatalogReferenceError as exc:
         raise HTTPException(422, str(exc)) from exc
 

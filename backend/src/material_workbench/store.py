@@ -45,6 +45,10 @@ class ProtectedProjectError(ValueError):
     pass
 
 
+class ProjectHasSuccessorsError(ValueError):
+    pass
+
+
 class CandidateArchivedError(ValueError):
     pass
 
@@ -164,6 +168,13 @@ class Store:
             conn.execute("BEGIN IMMEDIATE")
             if conn.execute("SELECT 1 FROM projects WHERE id=?", (project_id,)).fetchone() is None:
                 return False
+            successor = conn.execute(
+                "SELECT id FROM projects WHERE predecessor_project_id=? LIMIT 1", (project_id,)
+            ).fetchone()
+            if successor is not None:
+                raise ProjectHasSuccessorsError(
+                    "後続の検討があるプロジェクトは削除できません。一連の検討の系譜を保持してください"
+                )
             candidate_ids = [
                 row["id"]
                 for row in conn.execute("SELECT id FROM candidates WHERE project_id=?", (project_id,)).fetchall()

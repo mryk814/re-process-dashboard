@@ -163,6 +163,23 @@ class WorkspaceCatalog:
     def archive_data_asset(self, asset_id: str, *, archived: bool = True) -> DataAsset | None:
         return self._set_archived("data_assets", asset_id, archived, self._asset)
 
+    def promote_data_asset_to_managed(self, asset_id: str, locator: str) -> DataAsset:
+        """Move an operational locator to an identical managed copy without changing identity."""
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute("SELECT * FROM data_assets WHERE id=?", (asset_id,)).fetchone()
+            if row is None:
+                raise CatalogReferenceError(f"Data Assetが見つかりません: {asset_id}")
+            if row["locator_kind"] == "managed":
+                return self._asset(row)
+            conn.execute(
+                "UPDATE data_assets SET locator_kind='managed', locator=? WHERE id=?",
+                (locator, asset_id),
+            )
+            row = conn.execute("SELECT * FROM data_assets WHERE id=?", (asset_id,)).fetchone()
+        assert row is not None
+        return self._asset(row)
+
     def upsert_profile_revision(self, payload: ProfileRevisionCreateInput) -> ProfileRevision:
         effective_json = _canonical_json(payload.effective_profile_json)
         identity_digest = _digest("profile-revision-id-v1", payload.profile_digest)

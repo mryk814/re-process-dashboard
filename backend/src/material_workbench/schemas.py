@@ -844,6 +844,7 @@ class ApiError(BaseModel):
         "candidate_provenance_immutable",
         "project_task_locked",
         "protected_project",
+        "project_has_successors",
         "data_integrity_error",
         "validation_error",
         "runtime_unavailable",

@@ -13,7 +13,7 @@ from ..application.projects import (
     ProjectValidationError,
 )
 from ..schemas import Project, ProjectCreateInput, ProjectDecisionInput, ProjectHistoryResponse, ProjectUpdateInput
-from ..store import ProjectNotFoundError, ProtectedProjectError, Store
+from ..store import ProjectHasSuccessorsError, ProjectNotFoundError, ProtectedProjectError, Store
 from ..task_registry import TaskRegistry
 from ..workspace_catalog import WorkspaceCatalog
 
@@ -80,6 +80,8 @@ def delete_project(project_id: str, service: ProjectServiceDependency) -> Respon
         raise _not_found(exc) from exc
     except ProtectedProjectError as exc:
         raise DomainApiException(409, "protected_project", str(exc)) from exc
+    except ProjectHasSuccessorsError as exc:
+        raise DomainApiException(409, "project_has_successors", str(exc)) from exc
     return Response(status_code=204)
 
 

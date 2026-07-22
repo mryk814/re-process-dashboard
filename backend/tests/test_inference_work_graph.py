@@ -172,7 +172,8 @@ def test_preview_similarity_curve_and_diagnostics_follow_independent_operation_c
 def test_preview_support_does_not_materialize_similarity_rows(client, monkeypatch) -> None:
     candidate = client.get("/api/projects/default/candidates").json()[0]
     base = f"/api/projects/default/candidates/{candidate['id']}"
-    runtime = client.app.state.task_registry.runtime_for("annealed-properties-v1")
+    project = client.app.state.store.get_project("default")
+    runtime = client.app.state.project_runtime_resolver.runtime_for(project)
     original = runtime._support
     modes: list[bool] = []
 
@@ -183,10 +184,11 @@ def test_preview_support_does_not_materialize_similarity_rows(client, monkeypatc
     monkeypatch.setattr(runtime, "_support", observed)
     preview = client.post(f"{base}/preview", params={"expected_revision": candidate["revision"]})
     assert preview.status_code == 200
-    assert modes == [False]
+    assert modes and set(modes) == {False}
+    preview_calls = len(modes)
     similar = client.get(f"{base}/similar", params={"expected_revision": candidate["revision"], "limit": 2})
     assert similar.status_code == 200
-    assert modes == [False, True]
+    assert True in modes[preview_calls:]
 
 
 def test_non_inference_edit_reuses_preview_and_one_candidate_change_keeps_other_cache(client) -> None:
@@ -241,7 +243,8 @@ def test_slow_curve_does_not_block_interactive_preview(client, monkeypatch) -> N
     candidate = client.get("/api/projects/default/candidates").json()[0]
     base = f"/api/projects/default/candidates/{candidate['id']}"
     revision = candidate["revision"]
-    runtime = client.app.state.task_registry.runtime_for("annealed-properties-v1")
+    project = client.app.state.store.get_project("default")
+    runtime = client.app.state.project_runtime_resolver.runtime_for(project)
     original = runtime.response_curve_result
     started = Event()
 

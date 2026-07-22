@@ -72,18 +72,22 @@ class ProjectRuntimeResolver:
         if project.task_contract_digest != expected_task_digest:
             raise ProjectRuntimeResolutionError("プロジェクトのPrediction Task契約digestが現在の定義と一致しません")
 
-        view = self.catalog.get_dataset_view_revision(project.dataset_view_revision_id or "")
+        view = self.catalog.get_dataset_view_revision(
+            project.dataset_view_revision_id or "", include_archived=True
+        )
         if view is None:
             raise ProjectRuntimeResolutionError("プロジェクトのDataset Viewが見つかりません")
         if view.kind != "single" or len(view.members) != 1:
             raise ProjectRuntimeResolutionError(
                 "cohort比較ビューは比較Activity専用です。推論には単一Dataset Viewを選択してください"
             )
-        application_path, application_profile, application_sha = self._dataset_resources(
+        application_path, application_profile, application_sha, application_profile_digest = self._dataset_resources(
             view.members[0].dataset_revision_id, project.task_id
         )
 
-        package_ref = self.catalog.get_model_package_ref(project.model_package_ref_id or "")
+        package_ref = self.catalog.get_model_package_ref(
+            project.model_package_ref_id or "", include_archived=True
+        )
         if package_ref is None:
             raise ProjectRuntimeResolutionError("Model Package参照が見つかりません")
         if (
@@ -107,10 +111,12 @@ class ProjectRuntimeResolver:
         training_profile_digest = package.manifest.provenance.dataset_profile_id
         training_dataset_id = next((
             item.id
-            for item in self.catalog.list_dataset_revisions()
-            if (candidate_asset := self.catalog.get_data_asset(item.data_asset_id)) is not None
+            for item in self.catalog.list_dataset_revisions(include_archived=True)
+            if (candidate_asset := self.catalog.get_data_asset(item.data_asset_id, include_archived=True)) is not None
             and candidate_asset.sha256 == training_sha
-            and (candidate_profile := self.catalog.get_profile_revision(item.profile_revision_id)) is not None
+            and (candidate_profile := self.catalog.get_profile_revision(
+                item.profile_revision_id, include_archived=True
+            )) is not None
             and (
                 training_profile_digest is None
                 or candidate_profile.profile_digest == training_profile_digest
@@ -120,10 +126,15 @@ class ProjectRuntimeResolver:
             raise ProjectRuntimeResolutionError(
                 "Model Packageの学習DatasetがData Libraryにありません。Packageのsupport provenanceを確認してください"
             )
-        training_path, training_profile, _ = self._dataset_resources(training_dataset_id, project.task_id)
+        training_path, training_profile, _, resolved_training_profile_digest = self._dataset_resources(
+            training_dataset_id, project.task_id
+        )
         try:
             context_data = module.data_loader(application_path, application_profile)
-            if application_sha == training_sha and application_profile.profile_id == training_profile.profile_id:
+            if (
+                application_sha == training_sha
+                and application_profile_digest == resolved_training_profile_digest
+            ):
                 training_data = context_data
             else:
                 training_data = module.data_loader(training_path, training_profile)
@@ -150,14 +161,16 @@ class ProjectRuntimeResolver:
 
     def _dataset_resources(
         self, dataset_revision_id: str, task_id: str
-    ) -> tuple[Path, DatasetInputProfile, str]:
-        dataset = self.catalog.get_dataset_revision(dataset_revision_id)
+    ) -> tuple[Path, DatasetInputProfile, str, str]:
+        dataset = self.catalog.get_dataset_revision(dataset_revision_id, include_archived=True)
         if dataset is None:
             raise ProjectRuntimeResolutionError("Dataset Revisionが見つかりません")
         if dataset.canonicalization_contract_digest != CANONICALIZATION_CONTRACT_DIGEST:
             raise ProjectRuntimeResolutionError("Dataset Revisionの正規化契約に対応していません")
-        asset = self.catalog.get_data_asset(dataset.data_asset_id)
-        profile_revision = self.catalog.get_profile_revision(dataset.profile_revision_id)
+        asset = self.catalog.get_data_asset(dataset.data_asset_id, include_archived=True)
+        profile_revision = self.catalog.get_profile_revision(
+            dataset.profile_revision_id, include_archived=True
+        )
         if asset is None or profile_revision is None:
             raise ProjectRuntimeResolutionError("Dataset Revisionの構成要素が見つかりません")
         if profile_revision.canonical_contract_digest != CANONICAL_DATASET_CONTRACT_DIGEST:
@@ -190,4 +203,4 @@ class ProjectRuntimeResolver:
             validate_profile(profile, selected_definitions)
         except ValueError as exc:
             raise ProjectRuntimeResolutionError("Profile Revisionを再構成できません") from exc
-        return source_path, profile, asset.sha256
+        return source_path, profile, asset.sha256, profile_revision.profile_digest

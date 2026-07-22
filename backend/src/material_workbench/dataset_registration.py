@@ -131,9 +131,16 @@ def register_managed_dataset(
     profile_path = profile_path.resolve()
     report = validate_workbook_profile(source, profile_path)
     digest = str(report["source_sha256"])
-    locator = _copy_to_managed_library(source, library_root.resolve(), digest)
+    catalog = WorkspaceCatalog(database)
+    existing = next((item for item in catalog.list_data_assets(include_archived=True) if item.sha256 == digest), None)
+    if existing is not None and existing.locator_kind == "managed":
+        locator = Path(existing.locator)
+    else:
+        locator = _copy_to_managed_library(source, library_root.resolve(), digest)
+        if existing is not None:
+            catalog.promote_data_asset_to_managed(existing.id, str(locator))
     return register_dataset_records(
-        catalog=WorkspaceCatalog(database),
+        catalog=catalog,
         source_path=source,
         source_sha256=digest,
         profile_path=profile_path,
