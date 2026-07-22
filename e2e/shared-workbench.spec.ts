@@ -20,6 +20,14 @@ for (const task of tasks) {
     const outputHeader = page.locator(".comparison-detail-table thead");
     await expect(outputHeader.locator(".prediction-col")).toHaveCount(task.outputLabels.length);
     for (const output of task.outputLabels) await expect(outputHeader.locator(".prediction-col").filter({ hasText: output })).toBeVisible();
+    await expect(outputHeader.locator(".prediction-col small").first()).not.toHaveText("");
+    const firstPredictionCell = page.locator(".comparison-prediction-table tbody .prediction-cell").first();
+    await expect(firstPredictionCell).toContainText(/\d/);
+    await expect(firstPredictionCell).not.toContainText(/MPa|%|µm/);
+    await expect(firstPredictionCell.locator(".metric-value")).toHaveAttribute("aria-label", /\d+.*(?:MPa|%|µm)/);
+    if (task.projectId === "default") {
+      expect(await firstPredictionCell.evaluate((cell) => cell.getBoundingClientRect().width)).toBeLessThanOrEqual(90);
+    }
     if (task.projectId === "hot-rolling-default") {
       await expect(outputHeader.getByText("降伏強さ", { exact: false })).toHaveCount(0);
       await expect(page.locator(".heat-panel")).toHaveCount(0);

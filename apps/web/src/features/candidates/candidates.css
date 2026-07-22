@@ -146,12 +146,13 @@
 .comparison-detail-table input:focus { border-color: #1f5fc4; background: #fff; }
 .comparison-detail-table small { display: block; margin-top: 2px; color: #6d7888; font-size: 10px; font-weight: 400; }
 .comparison-detail-table .composition-col { width: 68px; }
-.comparison-detail-table .prediction-col { width: 105px; }
+.comparison-detail-table .prediction-col { width: 88px; }
 .comparison-detail-table .uncertainty-col { width: 118px; }
 .comparison-detail-table .goal-col { width: 92px; }
 .comparison-detail-table .support-header { width: 72px; }
 .comparison-detail-table .prediction-cell { background: #f7faff; }
 .comparison-detail-table .metric-value { display: flex; align-items: baseline; justify-content: flex-end; gap: 3px; font-weight: 700; }
+.comparison-detail-table .prediction-cell .metric-value { width: 100%; overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .comparison-detail-table .metric-value em { grid-column: 1 / -1; color: #5d6d83; font-size: 10px; font-style: normal; font-weight: 500; }
 .comparison-detail-table .support-cell { width: 72px; background: #fff; }
 .comparison-prediction-table .uncertainty-cell { background: #fbfcfe; }
@@ -163,7 +164,6 @@
 .goal-value small { color: #68778a; font-size: 10px; }
 .goal-value b { color: #147255; }
 .candidate-comparison .metric-value { color: #1f5fc4; }
-.candidate-comparison .metric-value small { color: #5774a2; font-size: 11px; }
 .candidate-comparison .empty-cell { color: #97a4b4; }
 .candidate-comparison .status-dot { display: inline-block; width: 9px; height: 9px; margin-right: 5px; border-radius: 50%; }
 .candidate-comparison .status-dot.success { background: #15936a; }
