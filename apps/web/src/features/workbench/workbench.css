@@ -621,6 +621,7 @@
   stroke: #fff;
   stroke-width: 2px;
 }
+.heat-chart .svg-chart-hit-target[fill="transparent"] { cursor: crosshair; stroke: transparent; stroke-width: 0; }
 .heat-edit {
   border-top: 1px solid #d8e0ea;
   padding: 8px 9px 11px;

@@ -1,6 +1,7 @@
 import { type CSSProperties, type KeyboardEvent, type PointerEvent, useEffect, useRef, useState } from "react";
 import { provenanceLabel, type CandidateProvenance } from "../../shared/candidateProvenance";
 import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
+import { SvgChartTooltip } from "../../shared/ui/SvgChartTooltip";
 import {
   CandidateInspector,
   ComparisonTable,
@@ -504,6 +505,17 @@ function CandidateFileControls({
 function UnavailablePanel({ title }: { title: string }) {
   return <section className="response-curves-panel unavailable-panel" aria-label={`${title}は利用できません`}><div className="panel-title"><h2>{title}</h2></div><p className="empty-evidence">このタスクでは利用できません。</p></section>;
 }
+
+function chartDigits(min: number, max: number) {
+  const span = Math.abs(max - min);
+  if (span < 0.001) return 6;
+  if (span < 0.01) return 5;
+  if (span < 0.1) return 4;
+  if (span < 1) return 3;
+  if (span < 10) return 2;
+  if (span < 100) return 1;
+  return 0;
+}
 function HeatPattern({
   candidates,
   candidate,
@@ -540,6 +552,7 @@ function HeatPattern({
     .map((point) => `${x(point.time)},${y(point.temperature)}`)
     .join(" ");
   const timeTicks = [minTime, (minTime + maxTime) / 2, maxTime];
+  const [hoveredHeatPoint, setHoveredHeatPoint] = useState<{ x: number; y: number; lines: string[] } | null>(null);
   const dragPoint = (event: PointerEvent<SVGCircleElement>, index: number) => {
     const svg = event.currentTarget.ownerSVGElement;
     if (!svg) return;
@@ -557,6 +570,8 @@ function HeatPattern({
         ),
       ),
     );
+    const point = candidate.heat[index];
+    setHoveredHeatPoint({ x: x(point.time), y: y(temperature), lines: [candidate.label, point.stageName || point.stageCategory || `点 ${index + 1}`, `時間 ${number(point.time, 2)} min`, `温度 ${number(temperature, 0)} °C`] });
     onUpdate(index, "temperature", temperature);
   };
   return (
@@ -596,16 +611,26 @@ function HeatPattern({
         {candidates
           .filter((item) => item.id !== candidate.id)
           .map((item) => (
-            <polyline
-              key={item.id}
-              points={item.heat
-                .map((point) => `${x(point.time)},${y(point.temperature)}`)
-                .join(" ")}
-              fill="none"
-              stroke={candidateColor(item.id, candidate.id)}
-              strokeWidth="1.5"
-              opacity=".62"
-            />
+            <g key={item.id}>
+              <polyline
+                points={item.heat.map((point) => `${x(point.time)},${y(point.temperature)}`).join(" ")}
+                fill="none"
+                stroke={candidateColor(item.id, candidate.id)}
+                strokeWidth="1.5"
+                opacity=".62"
+              />
+              {item.heat.map((point, index) => <circle
+                className="svg-chart-hit-target"
+                tabIndex={-1}
+                aria-label={`${item.label}: ${number(point.time, 2)}分, ${point.temperature}度`}
+                key={`${item.id}-${point.time}-${index}`}
+                cx={x(point.time)} cy={y(point.temperature)} r="7" fill="transparent"
+                onMouseEnter={() => setHoveredHeatPoint({ x: x(point.time), y: y(point.temperature), lines: [item.label, `時間 ${number(point.time, 2)} min`, `温度 ${number(point.temperature, 0)} °C`] })}
+                onMouseLeave={() => setHoveredHeatPoint(null)}
+                onFocus={() => setHoveredHeatPoint({ x: x(point.time), y: y(point.temperature), lines: [item.label, `時間 ${number(point.time, 2)} min`, `温度 ${number(point.temperature, 0)} °C`] })}
+                onBlur={() => setHoveredHeatPoint(null)}
+              />)}
+            </g>
           ))}
         <polyline
           points={points}
@@ -622,6 +647,10 @@ function HeatPattern({
             cy={y(point.temperature)}
             r="5"
             fill="#1F5FC4"
+            onMouseEnter={() => setHoveredHeatPoint({ x: x(point.time), y: y(point.temperature), lines: [candidate.label, point.stageName || point.stageCategory || `点 ${index + 1}`, `時間 ${number(point.time, 2)} min`, `温度 ${number(point.temperature, 0)} °C`] })}
+            onMouseLeave={() => setHoveredHeatPoint(null)}
+            onFocus={() => setHoveredHeatPoint({ x: x(point.time), y: y(point.temperature), lines: [candidate.label, point.stageName || point.stageCategory || `点 ${index + 1}`, `時間 ${number(point.time, 2)} min`, `温度 ${number(point.temperature, 0)} °C`] })}
+            onBlur={() => setHoveredHeatPoint(null)}
             onPointerDown={(event) => {
               event.currentTarget.setPointerCapture(event.pointerId);
               dragPoint(event, index);
@@ -632,6 +661,7 @@ function HeatPattern({
             }
           />
         ))}
+        {hoveredHeatPoint && <SvgChartTooltip {...hoveredHeatPoint} chartWidth={width} chartHeight={height} />}
         <text className="axis-title" x="3" y="13">
           温度 (°C)
         </text>
@@ -796,20 +826,34 @@ function CurveFamilyChart({
   const maxValue = rawMax + padding;
   const x = (value: number) => 30 + ((value - minX) / Math.max(1e-6, maxX - minX)) * 252;
   const y = (value: number) => 124 - ((value - minValue) / Math.max(1, maxValue - minValue)) * 92;
+  const xTicks = [minX, (minX + maxX) / 2, maxX];
+  const yTicks = [minValue, (minValue + maxValue) / 2, maxValue];
+  const xDigits = chartDigits(minX, maxX);
+  const yDigits = chartDigits(minValue, maxValue);
+  const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; lines: string[] } | null>(null);
   return (
     <article className="response-curve-card">
       <header><b>{output.label}</b><span>{payload.axis.label}: {number(payload.axis.current)} {payload.axis.unit}</span></header>
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${output.label}の${payload.axis.label}に沿った曲線`}>
-        {[minValue, (minValue + maxValue) / 2, maxValue].map((tick) => <g key={tick}><line x1="28" y1={y(tick)} x2="284" y2={y(tick)} stroke="#e3e9f0" /><text x="25" y={y(tick) + 3} textAnchor="end" fontSize="9" fill="#617087">{number(tick)}</text></g>)}
+        {yTicks.map((tick) => <g key={tick}><line x1="28" y1={y(tick)} x2="284" y2={y(tick)} stroke="#e3e9f0" /><text x="25" y={y(tick) + 3} textAnchor="end" fontSize="9" fill="#617087">{number(tick, yDigits)}</text></g>)}
+        {xTicks.map((tick) => <line key={`grid-${tick}`} x1={x(tick)} y1="32" x2={x(tick)} y2="124" stroke="#edf1f6" />)}
         {series.map((item, index) => {
           const color = levelColor(index, series.length);
           const line = item.points.map((point, pointIndex) => `${pointIndex ? "L" : "M"}${x(point.x)} ${y(point.value)}`).join(" ");
           const band = `${item.points.map((point, pointIndex) => `${pointIndex ? "L" : "M"}${x(point.x)} ${y(point.upper)}`).join(" ")} ${[...item.points].reverse().map((point) => `L${x(point.x)} ${y(Math.max(point.lower, minValue))}`).join(" ")} Z`;
-          return <g key={item.label}>{bandVisible && <path d={band} fill={color} opacity=".12" />}<path d={line} fill="none" stroke={color} strokeWidth={series.length === 1 ? "2.5" : "1.8"} /></g>;
+          return <g key={item.label}>{bandVisible && <path d={band} fill={color} opacity=".12" />}<path d={line} fill="none" stroke={color} strokeWidth={series.length === 1 ? "2.5" : "1.8"} />{item.points.map((point, pointIndex) => <circle
+            className="svg-chart-hit-target" tabIndex={pointIndex === 0 ? 0 : -1} key={`${item.label}-${point.x}`} cx={x(point.x)} cy={y(point.value)} r="5" fill="transparent"
+            aria-label={`${item.label}, ${payload.axis.label} ${number(point.x, xDigits)}, ${output.label} ${number(point.value, yDigits)} ${output.unit}`}
+            onMouseEnter={() => setHoveredPoint({ x: x(point.x), y: y(point.value), lines: [item.label, `${payload.axis.label} ${number(point.x, xDigits)} ${payload.axis.unit}`, `${output.label} ${number(point.value, yDigits)} ${output.unit}`, ...(bandVisible ? [`90%区間 ${number(point.lower, yDigits)}–${number(point.upper, yDigits)}`] : [])] })}
+            onMouseLeave={() => setHoveredPoint(null)}
+            onFocus={() => setHoveredPoint({ x: x(point.x), y: y(point.value), lines: [item.label, `${payload.axis.label} ${number(point.x, xDigits)} ${payload.axis.unit}`, `${output.label} ${number(point.value, yDigits)} ${output.unit}`, ...(bandVisible ? [`90%区間 ${number(point.lower, yDigits)}–${number(point.upper, yDigits)}`] : [])] })}
+            onBlur={() => setHoveredPoint(null)}
+          />)}</g>;
         })}
         {Number.isFinite(goalValue) && <line x1="28" y1={y(goalValue!)} x2="284" y2={y(goalValue!)} stroke="#c17816" strokeDasharray="4 3" />}
         {Number.isFinite(payload.axis.current) && <line x1={x(payload.axis.current)} y1="32" x2={x(payload.axis.current)} y2="124" stroke="#94a5ba" strokeDasharray="2 3" />}
-        {[minX, (minX + maxX) / 2, maxX].map((tick) => <text key={tick} x={x(tick)} y="137" textAnchor="middle" fontSize="8" fill="#617087">{number(tick)}</text>)}
+        {xTicks.map((tick) => <text key={tick} x={x(tick)} y="137" textAnchor="middle" fontSize="8" fill="#617087">{number(tick, xDigits)}</text>)}
+        {hoveredPoint && <SvgChartTooltip {...hoveredPoint} chartWidth={width} chartHeight={height} />}
         <text x="158" y="150" textAnchor="middle" fontSize="9" fill="#617087">{payload.axis.label} ({payload.axis.unit})</text>
       </svg>
     </article>
@@ -1105,19 +1149,37 @@ function ResponseCurveMiniChart({
   const x = (value: number) => 30 + ((value - minX) / Math.max(1e-6, maxX - minX)) * 252;
   const y = (value: number) => 124 - ((value - minValue) / Math.max(1, maxValue - minValue)) * 92;
   const xTicks = [minX, (minX + maxX) / 2, maxX];
+  const yTicks = [minValue, (minValue + maxValue) / 2, maxValue];
+  const xDigits = chartDigits(minX, maxX);
+  const yDigits = output.key === "EL" || output.key === "lambda" ? 1 : chartDigits(minValue, maxValue);
+  const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; lines: string[] } | null>(null);
   return (
     <article className="response-curve-card">
       <header><b>{output.label}</b><span>{prediction ? `${number(prediction.value, output.key === "EL" || output.key === "lambda" ? 1 : 0)} ${prediction.unit}` : "読み込み中"}</span></header>
       {series.length ? <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${output.label}の応答曲線`}>
-        {[minValue, (minValue + maxValue) / 2, maxValue].map((tick) => <g key={tick}><line x1="28" y1={y(tick)} x2="284" y2={y(tick)} stroke="#e3e9f0" /><text x="25" y={y(tick) + 3} textAnchor="end" fontSize="9" fill="#617087">{number(tick, output.key === "EL" || output.key === "lambda" ? 1 : 0)}</text></g>)}
+        {yTicks.map((tick) => <g key={tick}><line x1="28" y1={y(tick)} x2="284" y2={y(tick)} stroke="#e3e9f0" /><text x="25" y={y(tick) + 3} textAnchor="end" fontSize="9" fill="#617087">{number(tick, yDigits)}</text></g>)}
+        {xTicks.map((tick) => <line key={`grid-${tick}`} x1={x(tick)} y1="32" x2={x(tick)} y2="124" stroke="#edf1f6" />)}
         {series.map((item) => {
           const color = candidateColor(item.candidate.id, selectedId);
           const line = item.points.map((point, index) => `${index ? "L" : "M"}${x(point.x)} ${y(point.value)}`).join(" ");
           const band = `${item.points.map((point, index) => `${index ? "L" : "M"}${x(point.x)} ${y(point.upper)}`).join(" ")} ${[...item.points].reverse().map((point) => `L${x(point.x)} ${y(point.lower)}`).join(" ")} Z`;
-          return <g key={item.candidate.id}><path d={band} fill={color} opacity={item.candidate.id === selectedId ? ".18" : ".08"} /><path d={line} fill="none" stroke={color} strokeWidth={item.candidate.id === selectedId ? "2.5" : "1.5"} opacity={item.candidate.id === selectedId ? "1" : ".78"} />{item.prediction && Number.isFinite(item.currentX) && <circle cx={x(item.currentX)} cy={y(item.prediction.value)} r={item.candidate.id === selectedId ? "4" : "2.5"} fill="#fff" stroke={color} strokeWidth={item.candidate.id === selectedId ? "2.5" : "1.5"} />}</g>;
+          return <g key={item.candidate.id}><path d={band} fill={color} opacity={item.candidate.id === selectedId ? ".18" : ".08"} /><path d={line} fill="none" stroke={color} strokeWidth={item.candidate.id === selectedId ? "2.5" : "1.5"} opacity={item.candidate.id === selectedId ? "1" : ".78"} />{item.points.map((point) => <circle
+            className="svg-chart-hit-target" tabIndex={-1} key={`${item.candidate.id}-${point.x}`} cx={x(point.x)} cy={y(point.value)} r="5" fill="transparent"
+            aria-label={`${item.candidate.label}, ${xLabel} ${number(point.x, xDigits)}, ${output.label} ${number(point.value, yDigits)} ${output.unit}`}
+            onMouseEnter={() => setHoveredPoint({ x: x(point.x), y: y(point.value), lines: [item.candidate.label, `${xLabel} ${number(point.x, xDigits)} ${xUnit}`, `${output.label} ${number(point.value, yDigits)} ${output.unit}`, `90%区間 ${number(point.lower, yDigits)}–${number(point.upper, yDigits)}`] })}
+            onMouseLeave={() => setHoveredPoint(null)}
+          />)}{item.prediction && Number.isFinite(item.currentX) && <circle
+            className="svg-chart-hit-target" tabIndex={0} cx={x(item.currentX)} cy={y(item.prediction.value)} r={item.candidate.id === selectedId ? "4" : "2.5"} fill="#fff" stroke={color} strokeWidth={item.candidate.id === selectedId ? "2.5" : "1.5"}
+            aria-label={`${item.candidate.label}の現在値、${xLabel} ${number(item.currentX, xDigits)}、${output.label} ${number(item.prediction.value, yDigits)} ${output.unit}`}
+            onMouseEnter={() => setHoveredPoint({ x: x(item.currentX), y: y(item.prediction!.value), lines: [item.candidate.label, `現在の${xLabel} ${number(item.currentX, xDigits)} ${xUnit}`, `${output.label} ${number(item.prediction!.value, yDigits)} ${output.unit}`, `90%区間 ${number(item.prediction!.lower, yDigits)}–${number(item.prediction!.upper, yDigits)}`] })}
+            onMouseLeave={() => setHoveredPoint(null)}
+            onFocus={() => setHoveredPoint({ x: x(item.currentX), y: y(item.prediction!.value), lines: [item.candidate.label, `現在の${xLabel} ${number(item.currentX, xDigits)} ${xUnit}`, `${output.label} ${number(item.prediction!.value, yDigits)} ${output.unit}`, `90%区間 ${number(item.prediction!.lower, yDigits)}–${number(item.prediction!.upper, yDigits)}`] })}
+            onBlur={() => setHoveredPoint(null)}
+          />}</g>;
         })}
         {Number.isFinite(goalValue) && <line x1="28" y1={y(goalValue!)} x2="284" y2={y(goalValue!)} stroke="#c17816" strokeDasharray="4 3" />}
-        {xTicks.map((tick) => <text key={tick} x={x(tick)} y="137" textAnchor="middle" fontSize="8" fill="#617087">{number(tick, xUnit === "min" ? 2 : 1)}</text>)}
+        {xTicks.map((tick) => <text key={tick} x={x(tick)} y="137" textAnchor="middle" fontSize="8" fill="#617087">{number(tick, xDigits)}</text>)}
+        {hoveredPoint && <SvgChartTooltip {...hoveredPoint} chartWidth={width} chartHeight={height} />}
         <text x="156" y="153" textAnchor="middle" fontSize="8" fill="#617087">{xLabel} ({xUnit})</text>
       </svg> : <p className="empty-evidence">読み込み中…</p>}
     </article>

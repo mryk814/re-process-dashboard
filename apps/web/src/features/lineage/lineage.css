@@ -929,3 +929,5 @@
   color: #334155;
   font-size: 13px;
 }
+.lineage-heat-grid line { stroke: #e6ecf3; stroke-width: 1; }
+.lineage-heat-grid text { fill: #708095; font-size: 8px; }

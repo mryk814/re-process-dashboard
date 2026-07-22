@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { fromApiCandidate, type CandidateViewModel as Candidate, type TaskOutputDefinition } from "../candidates";
 import { workbenchApi, type ApiLineage, type ApiLineageIndex } from "../../shared/api/workbench-api";
 import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
+import { SvgChartTooltip } from "../../shared/ui/SvgChartTooltip";
 import { LineageGraph } from "./LineageGraph";
 
 function number(value: number, digits = 0) {
@@ -74,6 +75,7 @@ export function LineagePage({
   const [error, setError] = useState("");
   const [candidateError, setCandidateError] = useState("");
   const [selectedGroup, setSelectedGroup] = useState<LineageGroupSelection | null>(null);
+  const [hoveredHeatPoint, setHoveredHeatPoint] = useState<{ x: number; y: number; lines: string[] } | null>(null);
   const activeProjectRef = useRef(projectId);
   const outputLabel = (raw: string) => {
     const definition = outputs.find((output) => raw === output.key || raw.startsWith(`${output.key}[`) || (output.key === "lambda" && raw.startsWith("λ")));
@@ -165,17 +167,18 @@ export function LineagePage({
     1,
     ...heat.flatMap((point) => [point.temperature_c, point.set_temperature_c ?? point.temperature_c]),
   );
+  const heatX = (time: number) => 20 + (time / maxTime) * 380;
+  const heatY = (temperature: number) => 120 - (temperature / maxTemp) * 100;
+  const heatTimeTicks = [0, maxTime / 2, maxTime];
+  const heatTemperatureTicks = [0, maxTemp / 2, maxTemp];
   const heatPoints = heat
-    .map(
-      (point) =>
-        `${20 + (point.time_s / maxTime) * 380},${120 - (point.temperature_c / maxTemp) * 100}`,
-    )
+    .map((point) => `${heatX(point.time_s)},${heatY(point.temperature_c)}`)
     .join(" ");
   const setHeatPoints = heat
     .filter((point) => typeof point.set_temperature_c === "number")
     .map(
       (point) =>
-        `${20 + (point.time_s / maxTime) * 380},${120 - ((point.set_temperature_c ?? 0) / maxTemp) * 100}`,
+        `${heatX(point.time_s)},${heatY(point.set_temperature_c ?? 0)}`,
     )
     .join(" ");
   const heatStages = Array.from(
@@ -430,6 +433,8 @@ export function LineagePage({
                   role="img"
                   aria-label="実績ヒートパターン"
                 >
+                  {heatTemperatureTicks.map((tick) => <g key={`temp-${tick}`} className="lineage-heat-grid"><line x1="20" x2="400" y1={heatY(tick)} y2={heatY(tick)} /><text x="17" y={heatY(tick) + 3} textAnchor="end">{number(tick)}</text></g>)}
+                  {heatTimeTicks.map((tick) => <g key={`time-${tick}`} className="lineage-heat-grid"><line x1={heatX(tick)} x2={heatX(tick)} y1="20" y2="120" /><text x={heatX(tick)} y="132" textAnchor="middle">{number(tick)}</text></g>)}
                   <line x1="20" x2="400" y1="120" y2="120" />
                   <polyline
                     points={heatPoints}
@@ -449,14 +454,21 @@ export function LineagePage({
                   {heat.map((point) => (
                     <circle
                       key={point.time_s}
-                      cx={20 + (point.time_s / maxTime) * 380}
-                      cy={120 - (point.temperature_c / maxTemp) * 100}
+                      className="svg-chart-hit-target"
+                      tabIndex={0}
+                      aria-label={[point.stage_category, point.stage_name, `${point.time_s}s / ${point.temperature_c}°C`].filter(Boolean).join(" · ")}
+                      cx={heatX(point.time_s)}
+                      cy={heatY(point.temperature_c)}
                       r="3"
                       fill="#1f5fc4"
+                      onMouseEnter={() => setHoveredHeatPoint({ x: heatX(point.time_s), y: heatY(point.temperature_c), lines: [point.stage_name || point.stage_category || "実績温度", `時間 ${number(point.time_s, 1)} s`, `温度 ${number(point.temperature_c, 1)} °C`, ...(point.set_temperature_c == null ? [] : [`設定 ${number(point.set_temperature_c, 1)} °C`])] })}
+                      onMouseLeave={() => setHoveredHeatPoint(null)}
+                      onFocus={() => setHoveredHeatPoint({ x: heatX(point.time_s), y: heatY(point.temperature_c), lines: [point.stage_name || point.stage_category || "実績温度", `時間 ${number(point.time_s, 1)} s`, `温度 ${number(point.temperature_c, 1)} °C`, ...(point.set_temperature_c == null ? [] : [`設定 ${number(point.set_temperature_c, 1)} °C`])] })}
+                      onBlur={() => setHoveredHeatPoint(null)}
                     >
-                      <title>{[point.stage_category, point.stage_name, `${point.time_s}s / ${point.temperature_c}°C`].filter(Boolean).join(" · ")}</title>
                     </circle>
                   ))}
+                  {hoveredHeatPoint && <SvgChartTooltip {...hoveredHeatPoint} chartWidth={420} chartHeight={135} />}
                 </svg>
                 <div className="lineage-process-track" aria-label="工程区間">
                   {heatStageTrack.map((stage, index) => (

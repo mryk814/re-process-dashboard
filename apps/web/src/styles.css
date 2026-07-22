@@ -438,3 +438,16 @@ table input[type="number"] { text-align: right; font-variant-numeric: tabular-nu
   opacity: 0.35;
   cursor: not-allowed;
 }
+.svg-chart-tooltip rect {
+  fill: rgba(18, 34, 54, 0.94);
+  stroke: rgba(255, 255, 255, 0.42);
+  stroke-width: 0.75;
+  filter: drop-shadow(0 2px 4px rgba(18, 34, 54, 0.24));
+}
+.svg-chart-tooltip text {
+  fill: #fff;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.svg-chart-hit-target { cursor: crosshair; outline: none; pointer-events: all; }
+.svg-chart-hit-target:focus-visible { stroke: #0f172a; stroke-width: 2; }

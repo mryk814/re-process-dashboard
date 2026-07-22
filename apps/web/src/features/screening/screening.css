@@ -436,3 +436,5 @@
 @media (max-width: 900px) {
   .explore-page .project-empty-state { align-items: stretch; flex-direction: column; }
 }
+.screen-map-grid line { stroke: #e6ecf3; stroke-width: 1; }
+.screen-map-grid text { fill: #708095; font-size: 9px; }

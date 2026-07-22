@@ -41,8 +41,25 @@ for (const task of tasks) {
       await expect.poll(() => curveRequests).toBeGreaterThan(0);
       await expect(page.locator(".response-curves-panel .inference-surface-status")).toHaveText("最新");
       await expect(page.getByRole("img", { name: "引張強さの応答曲線" })).toBeVisible();
+      await page.locator(".response-curve-card .svg-chart-hit-target").first().hover({ force: true });
+      const responseTooltip = page.locator(".response-curve-card .svg-chart-tooltip");
+      await expect(responseTooltip).toContainText("90%区間");
+      const wideTooltipHeight = (await responseTooltip.boundingBox())?.height ?? 0;
+      expect(wideTooltipHeight).toBeGreaterThanOrEqual(65);
+      expect(wideTooltipHeight).toBeLessThanOrEqual(67);
+      await page.setViewportSize({ width: 920, height: 720 });
+      await page.locator(".response-curve-card .svg-chart-hit-target").first().hover({ force: true });
+      const narrowTooltipHeight = (await responseTooltip.boundingBox())?.height ?? 0;
+      expect(Math.abs(narrowTooltipHeight - wideTooltipHeight)).toBeLessThan(1);
+      await page.setViewportSize({ width: 1280, height: 720 });
     } else {
       await expect(page.locator(".heat-panel")).toBeVisible();
+      await page.locator(".heat-chart circle[tabindex='0']").first().hover({ force: true });
+      const heatTooltip = page.locator(".heat-chart .svg-chart-tooltip");
+      await expect(heatTooltip).toContainText("温度");
+      const heatTooltipHeight = (await heatTooltip.boundingBox())?.height ?? 0;
+      expect(heatTooltipHeight).toBeGreaterThanOrEqual(65);
+      expect(heatTooltipHeight).toBeLessThanOrEqual(67);
       const responseVariable = page.getByRole("combobox", { name: "応答曲線の設計変数" });
       await expect(responseVariable.locator("option").first()).toHaveText("C (%)");
       const responseOptions = await responseVariable.locator("option").allTextContents();
