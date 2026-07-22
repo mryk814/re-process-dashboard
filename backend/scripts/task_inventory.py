@@ -80,8 +80,14 @@ def build_inventory() -> dict[str, Any]:
             "data_explorer": None if module.data_explorer is None else module.data_explorer.model_dump(mode="json"),
         })
     return {
-        "schema_version": "task-inventory/v1",
-        "source_of_truth": "backend/src/material_workbench/task_modules.py",
+        "schema_version": "task-inventory/v2",
+        "generated_from": [
+            "backend/src/material_workbench/task_modules.py",
+            "backend/src/material_workbench/task_definitions",
+            "models/active-packages.json",
+            "resolved dataset input profiles",
+            "resolved Model Package manifests",
+        ],
         "tasks": tasks,
     }
 

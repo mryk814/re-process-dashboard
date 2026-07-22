@@ -1,6 +1,8 @@
 # Material Decision Workbench
 
-材料組成と焼鈍ヒートパターンの候補を比較し、予測特性・予測幅・学習範囲・類似する過去実験を同じ判断面で確認するローカルアプリです。
+材料組成、工程条件、切削条件の候補を比較し、予測特性、予測幅、学習範囲、類似する過去実験を同じ判断面で確認するローカルアプリです。
+
+プロダクト、データ、モデル、実行、配布に関する文書は [ドキュメント索引](docs/README.md) から参照できます。
 
 ## 開発起動
 
@@ -76,69 +78,45 @@ npm run api:check     # schema・生成型のdrift検出
 ## データ
 
 `data/source/` のExcelは読取専用の正本として扱います。
-現在はv2（`process_dashboard_realistic_excel_v2.xlsx`）、別名の列と未加工の履歴を持つv3（`process_dashboard_realistic_excel_v3.xlsx`）、具体的な2設備の工程名を持つv5（`process_dashboard_two_equipment_v5.xlsx`）を併存させています。
-起動時にシート構成とソースマーカーから対応するDataset Input Profileを選び、工程、観測、系譜、データ品質を構築します。
-元Excelは変更しません。
+現在は次のソースを併存させています。
+
+- v2：`process_dashboard_realistic_excel_v2.xlsx`
+- v3：`process_dashboard_realistic_excel_v3.xlsx`
+- v5：`process_dashboard_two_equipment_v5.xlsx`
+- v7：`process_dashboard_two_equipment_v7.xlsx`
+- 切削逃げ面摩耗：`cutting_tool_flank_wear_synthetic_dataset.xlsx`
+
+v2、v3、v5、v7は焼鈍特性と熱延特性に使う同じタスク契約へ正規化します。
+切削逃げ面摩耗は、独立したタスク契約、Dataset Input Profile、特徴量パイプラインを使います。
+現行3タスクが実際に参照するソースとProfileは [生成済みタスク一覧](docs/task-inventory.json) で確認できます。
 
 Excelの外部シートや列と、アプリ内部の意味との対応はDataset Input Profileで一元管理します。
-契約とデータ差替え手順は [データセット入力プロファイル](docs/dataset-input-profile.md) を参照してください。
+起動時はソースの構造から対応するProfileを選び、工程、観測、系譜、データ品質を構築します。
+契約とソース追加の手順は [データセット入力プロファイル](docs/dataset-input-profile.md) を参照してください。
 
-新しいソースを追加したときは、まず次のコマンドでプロファイル選択、列契約、単位、観測親、学習対象としての適格性、件数を確認します。
-
-```powershell
-uv run python backend/scripts/verify_dataset_source.py data/source/process_dashboard_realistic_excel_v3.xlsx --json
-uv run python backend/scripts/verify_dataset_source.py data/source/process_dashboard_two_equipment_v5.xlsx --json
-uv run python backend/scripts/verify_dataset_source.py data/source/process_dashboard_two_equipment_v7.xlsx --json
-```
-
-次は、v3用Packageを既存のv2 Packageへ上書きせずに作る例です。
-Packageはソースダイジェストとプロファイルダイジェストに結び付くため、ソースを替えたら必ず再生成します。
-
-```powershell
-uv run python backend/scripts/build_default_model_package.py --source data/source/process_dashboard_realistic_excel_v3.xlsx --output output/v3-model-packages/annealed-gp-2026-07 --replace
-uv run --extra runtime-numpyro python backend/scripts/build_hot_rolling_model_package.py --source data/source/process_dashboard_realistic_excel_v3.xlsx --output output/v3-model-packages/hot-rolled-horseshoe-2026-07 --replace
-```
-
-v5用Packageは既存Packageと併存させます。現在の検証済みPackageは次の場所にあります。
-
-```powershell
-uv run python backend/scripts/build_default_model_package.py --source data/source/process_dashboard_two_equipment_v5.xlsx --output models/packages/annealed-gp-2026-07-v5 --replace
-uv run --extra runtime-numpyro python backend/scripts/build_hot_rolling_model_package.py --source data/source/process_dashboard_two_equipment_v5.xlsx --output models/packages/hot-rolled-horseshoe-2026-07-v5 --replace
-```
-
-v5を起動確認するときは、ソースと2つのPackageを同じフローで指定します。
-既定の使用Packageは変更しません。
-
-```powershell
-$env:WORKBENCH_SOURCE_PATH = "data/source/process_dashboard_two_equipment_v5.xlsx"
-$env:MATERIAL_WORKBENCH_MODEL_PACKAGE = "models/packages/annealed-gp-2026-07-v5"
-$env:MATERIAL_WORKBENCH_HOT_ROLLING_MODEL_PACKAGE = "models/packages/hot-rolled-horseshoe-2026-07-v5"
-npm run dev
-```
-
-一時Packageでv3を起動確認する場合は、上記2つの絶対パスを `MATERIAL_WORKBENCH_MODEL_PACKAGE` と `MATERIAL_WORKBENCH_HOT_ROLLING_MODEL_PACKAGE` に指定します。
-新しい説明変数や目的変数を追加する手順は、[データセット入力プロファイル](docs/dataset-input-profile.md)の「説明変数や目的変数が異なるデータを追加する」を参照してください。
-
-v7は名称差、目的変数の部分欠損、relation経由の観測親、詳細な焼鈍履歴をProfileで正規化します。検証済みのv7 sourceと両Packageをまとめて起動する場合は次だけでよいです。
+焼鈍特性と熱延特性をv7データで起動する場合は、検証済みのソースとPackageをまとめて指定するスクリプトを使えます。
 
 ```powershell
 npm run dev:v7
 ```
 
-個別に再学習する場合はPackage IDもv7固有にします。
+焼鈍特性と熱延特性へ新しいソースを追加するときは、アプリを起動する前に構造と契約を確認します。
 
 ```powershell
-uv run python backend/scripts/build_default_model_package.py --source data/source/process_dashboard_two_equipment_v7.xlsx --output models/packages/annealed-gp-2026-07-v7 --package-id annealed-gp-2026-07-v7 --replace
-uv run --extra runtime-numpyro python backend/scripts/build_hot_rolling_model_package.py --source data/source/process_dashboard_two_equipment_v7.xlsx --output models/packages/hot-rolled-horseshoe-2026-07-v7 --package-id hot-rolled-horseshoe-2026-07-v7 --replace
+uv run python backend/scripts/verify_dataset_source.py path/to/new-source.xlsx --json
 ```
 
-候補・プロジェクト・予測スナップショット・実測値は `data/workbench.db` に保存します。候補一覧は画面からXLSXで入出力でき、ヒートパターンも往復保持されます。
+ソースに対応するPackageの作成、検証、切替は [モデルPackageのライフサイクル](docs/model-package-lifecycle.md) を参照してください。
+
+候補・プロジェクト・予測スナップショット・実測値は `data/workbench.db` に保存します。対応タスクでは候補一覧を画面からXLSXで入出力でき、焼鈍特性ではヒートパターンも往復保持されます。
 
 ## モデルPackage
 
 既定の学習済みPackageは `models/packages/annealed-gp-2026-07` です。ガウス過程回帰が90%予測区間を返し、モデル由来の不確かさと反復測定由来のばらつきを分けて表示します。予測時にmanifest・artifact hash・特徴量順序・smoke inputを検証し、画面の「プロジェクト」で有効なPackageとruntimeを確認できます。
 
-熱延タブは独立した `hot-rolled-properties-v1` タスクで、`models/packages/hot-rolled-horseshoe-2026-07` の正則化Horseshoe回帰を使用します。熱延v1は設備・試験片方向を推定条件として区別せず、利用可能な熱延引張観測をまとめて学習し、物理範囲外の観測だけを除外します。事後係数の縮小結果はPackage内の `reports/selection-report.json`、学習健全性は `reports/training-diagnostics.json` に保存します。
+熱延後特性は独立した `hot-rolled-properties-v1` タスクで、`models/packages/hot-rolled-horseshoe-2026-07` の正則化Horseshoe回帰を使用します。熱延v1は設備・試験片方向を推定条件として区別せず、利用可能な熱延引張観測をまとめて学習し、物理範囲外の観測だけを除外します。事後係数の縮小結果はPackage内の `reports/selection-report.json`、学習健全性は `reports/training-diagnostics.json` に保存します。
+
+切削逃げ面摩耗は `flank-wear-v1` タスクで、`models/packages/flank-wear-gp-2026-07` のexact GPを使用します。切削距離に対する`VB_mean`と`VB_max`の応答曲線を、材料、工具、切削条件とともに比較します。
 
 既定で使用するPackageは、`models/active-packages.json` でタスクごとに固定します。
 開発中に検証済みPackageを一時的に試す場合だけ、信頼できるローカルPackageの絶対パスを指定します。
@@ -146,6 +124,7 @@ uv run --extra runtime-numpyro python backend/scripts/build_hot_rolling_model_pa
 ```powershell
 $env:MATERIAL_WORKBENCH_MODEL_PACKAGE = "C:\models\annealed-bnn"
 $env:MATERIAL_WORKBENCH_HOT_ROLLING_MODEL_PACKAGE = "C:\models\hot-rolling-gp"
+$env:MATERIAL_WORKBENCH_FLANK_WEAR_MODEL_PACKAGE = "C:\models\flank-wear-gp"
 npm run dev
 ```
 

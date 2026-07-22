@@ -3,8 +3,11 @@
 各Excelデータフローの外部シート、列、単位、エンティティキー、リレーション、適格性、技術メタデータは、`backend/src/material_workbench/dataset-input-profile-*.json` で管理します。
 既存のv2フローは `dataset-input-profile-v1.json`、別名の列と未加工の履歴を持つv3フローは `dataset-input-profile-v3.json`、具体的な2設備の工程名を持つv5フローは `dataset-input-profile-v5.json` です。
 部分欠損、リレーションによる親解決、測定点マスターを持つv7フローは `dataset-input-profile-v7.json` です。
+切削逃げ面摩耗フローは `dataset-input-profile-flank-wear-v1.json` です。
+このフローは材料、工具、切削条件、摩耗履歴を対応付け、`flank-wear-v1` だけを対象とします。
 v5はv3の正規化契約と予測契約を継承し、焼鈍履歴の工程名だけを標準工程カテゴリへ対応付けます。
-起動時はワークブックのシート構成とソースマーカーから、最も具体的に一致するプロファイルを自動選択します。
+v2、v3、v5、v7は、起動時にワークブックのシート構成とソースマーカーから、最も具体的に一致するプロファイルを自動選択します。
+切削逃げ面摩耗は専用ローダーが `dataset-input-profile-flank-wear-v1.json` を選択します。
 プロファイルを明示する場合は、`load_workbook_data(..., profile_path=...)` または検証コマンドの `--profile` を使います。
 
 本番タスクの契約は `backend/src/material_workbench/task_definitions/` に置きます。
@@ -48,11 +51,17 @@ v5はv3の正規化契約と予測契約を継承し、焼鈍履歴の工程名�
 
 ## 同じアプリ共通タスク契約へ新しいワークブックを追加する
 
-1. 本番用 `TaskDefinition` を更新します。
-2. Dataset Input Profileの対応付けを更新します。
-3. Feature Pipelineを更新し、バージョンを上げます。
-4. モデルを再学習し、新しいModel Packageを構築します。
-5. Package契約、特徴量ゴールデン、スモーク、データセットプロファイルの各テストを実行します。
+入力と出力の意味、単位、制約が既存のTaskDefinitionと同じ場合は、TaskDefinitionやFeature Pipelineを変更しません。
+新しいワークブックの構造差だけをDataset Input Profileで吸収します。
+
+1. 新しいDataset Input Profileを追加し、既存の `task_definition_ids` を指定します。
+2. シート、列、単位、エンティティ、リレーション、適格性を新しいソースへ対応付けます。
+3. ソース事前検証でProfile選択と正規化結果を確認します。
+4. 新しいソースでモデルを再学習し、別のModel Packageとして構築します。
+5. データセットProfile、Package契約、特徴量ゴールデン、スモークの各テストを実行します。
+
+TaskDefinitionまたはFeature Pipelineを変更するのは、入力や出力の意味、単位、制約、特徴量の計算が変わる場合です。
+その変更は単なるソース追加ではなく、後述する新しいタスク契約または既存契約の版更新として扱います。
 
 v3フローでは、`dataset-input-profile-v3.json` がこの手順を表します。
 このプロファイルはv2のタスク定義と特徴量パイプラインを再利用し、名前が変わったシートとヘッダーを対応付け、整備済みの `quality` シートと熱延学習フラグがv3には存在しないことを明示します。
@@ -66,6 +75,9 @@ v7フローの `dataset-input-profile-v7.json` は、括弧付きの組成名、
 `焼鈍特徴量` シートは意図的に持ちません。
 LSは `焼鈍条件-3CGL` から取得し、キャッシュ済みの数値時間温度系列と26個の工程対応からモデル用の履歴を構築します。
 目的変数の欠損は特性ごとに保持するため、TSがあり伸びがない行はTSの学習だけに使います。
+
+切削逃げ面摩耗フローの `dataset-input-profile-flank-wear-v1.json` は、材料、工具、切削条件を摩耗試験へ結び付け、切削距離ごとの反復観測を学習行として構築します。
+焼鈍特性と熱延特性とは入力、出力、エンティティが異なるため、既存Profileを継承せず、独立した `flank-wear-v1` の契約を使用します。
 
 ## 説明変数や目的変数が異なるデータを追加する
 

@@ -47,6 +47,7 @@ npm run build
 
 ## 詳細ドキュメント
 
+- [docs/README.md](docs/README.md) — 現役文書、設計判断、ベンチ記録の索引
 - [docs/app-charter.md](docs/app-charter.md) — 対象範囲、対象外、将来候補
 - [docs/model-package-contract.md](docs/model-package-contract.md) — モデルPackageの契約と読込手順
 - [docs/feature-engineering.md](docs/feature-engineering.md) — 特徴量パイプラインの定義
