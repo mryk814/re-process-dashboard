@@ -23,6 +23,7 @@ PACKAGE_SCHEMA_VERSION = "model-package/v1"
 RUNTIME_TYPES = {
     "builtin.linear.v1",
     "builtin.exact_gp.v1",
+    "builtin.quantile_linear.v1",
     "sklearn.skops.v1",
     "lightgbm.booster.v1",
     "gpytorch.static_exact_rbf.v1",
@@ -161,6 +162,8 @@ class PredictorSpec(PackageModel):
             raise ValueError("gpytorch adapter only permits architecture_id=exact_rbf_v1")
         if self.runtime_type == "builtin.exact_gp.v1" and self.architecture_id != "exact_rbf_grouped_v1":
             raise ValueError("built-in exact GP adapter only permits architecture_id=exact_rbf_grouped_v1")
+        if self.runtime_type == "builtin.quantile_linear.v1" and self.architecture_id != "quantile_linear_v1":
+            raise ValueError("built-in quantile adapter only permits architecture_id=quantile_linear_v1")
         return self
 
 
@@ -370,13 +373,14 @@ class AdapterRegistry:
     def __init__(self, adapters: tuple[Adapter, ...] | None = None) -> None:
         if adapters is None:
             from .adapters.builtin_linear import BuiltinLinearAdapter
+            from .adapters.builtin_quantile_linear import BuiltinQuantileLinearAdapter
             from .adapters.builtin_exact_gp import BuiltinExactGPAdapter
             from .adapters.gpytorch_static import GPyTorchStaticAdapter
             from .adapters.lightgbm_booster import LightGBMBoosterAdapter
             from .adapters.numpyro_posterior import NumpyroDensePosteriorAdapter
             from .adapters.sklearn_skops import SklearnSkopsAdapter
 
-            adapters = (BuiltinLinearAdapter(), BuiltinExactGPAdapter(), SklearnSkopsAdapter(), LightGBMBoosterAdapter(), GPyTorchStaticAdapter(), NumpyroDensePosteriorAdapter())
+            adapters = (BuiltinLinearAdapter(), BuiltinExactGPAdapter(), BuiltinQuantileLinearAdapter(), SklearnSkopsAdapter(), LightGBMBoosterAdapter(), GPyTorchStaticAdapter(), NumpyroDensePosteriorAdapter())
         self._adapters = {adapter.runtime_type: adapter for adapter in adapters}
         if set(self._adapters) != RUNTIME_TYPES:
             raise PackageContractError("adapter registry must implement exactly the approved runtime types")

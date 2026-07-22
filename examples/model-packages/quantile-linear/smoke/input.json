@@ -1,0 +1,8 @@
+{
+  "predictor_id": "target",
+  "features": {
+    "x": 0.4,
+    "scale": 1.2
+  },
+  "seed": 7
+}

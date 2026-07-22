@@ -1,0 +1,77 @@
+{
+  "schema_version": "model-package/v1",
+  "package_id": "quantile-linear-example",
+  "package_version": "1.0.0",
+  "task_id": "model-runtime-example",
+  "input_schema_version": "example-input/v1",
+  "feature_pipeline": {
+    "id": "quantile-two-feature-example",
+    "version": "1.0.0",
+    "spec": "feature-pipeline/pipeline.json",
+    "canonical_input_paths": [
+      "composition.x",
+      "process.scale"
+    ],
+    "output_features": [
+      "x",
+      "scale"
+    ],
+    "artifacts": []
+  },
+  "predictors": [
+    {
+      "id": "target",
+      "target": "synthetic_response",
+      "unit": "a.u.",
+      "target_kind": "continuous",
+      "runtime_type": "builtin.quantile_linear.v1",
+      "architecture_id": "quantile_linear_v1",
+      "artifact": "model-artifacts/quantiles.npz",
+      "predictive_family": "empirical_quantiles",
+      "feature_names": [
+        "x",
+        "scale"
+      ],
+      "config": {
+        "crossing_policy": "reject"
+      }
+    }
+  ],
+  "provenance": {
+    "training_data_id": "synthetic:known-heteroscedastic-quantiles",
+    "feature_dataset_id": "synthetic:x-scale-grid",
+    "training_code_revision": "build_quantile_model_example.py"
+  },
+  "artifacts": [
+    {
+      "path": "feature-pipeline/pipeline.json",
+      "sha256": "d0dca61f902650ceaa6bc113ea78794dfe6627291df13725b866f601c104ccc9",
+      "bytes": 419
+    },
+    {
+      "path": "model-artifacts/quantiles.npz",
+      "sha256": "ae773b768cfe9bc05f14224c81fba9d4c37b183095eec1485d67711e8f9567c0",
+      "bytes": 888
+    },
+    {
+      "path": "smoke/input.json",
+      "sha256": "96d3cc74598602c60700891015f77036074a8cc58014d96260cc9d9935624ce5",
+      "bytes": 95
+    },
+    {
+      "path": "smoke/expected.json",
+      "sha256": "c865768de8b11df2377d30a0f1cc0d4efc062cebf6e1fa77e9e00e41d764a971",
+      "bytes": 786
+    },
+    {
+      "path": "reports/quality-report.json",
+      "sha256": "f23c457d53ebc58cdcc4e6d21e6da9db0f75e0b92bba08bb76ad033a6adc15da",
+      "bytes": 436
+    }
+  ],
+  "smoke_test": {
+    "input": "smoke/input.json",
+    "expected": "smoke/expected.json"
+  },
+  "quality_report": "reports/quality-report.json"
+}

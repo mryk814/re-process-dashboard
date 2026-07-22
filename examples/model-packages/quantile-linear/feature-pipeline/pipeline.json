@@ -1,0 +1,22 @@
+{
+  "id": "quantile-two-feature-example",
+  "version": "1.0.0",
+  "canonical_input_paths": [
+    "composition.x",
+    "process.scale"
+  ],
+  "features": [
+    {
+      "name": "x",
+      "unit": "1",
+      "meaning": "synthetic location and spread driver",
+      "group": "composition"
+    },
+    {
+      "name": "scale",
+      "unit": "1",
+      "meaning": "synthetic common shift",
+      "group": "process"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "schema_version": "model-example-quality/v1",
+  "evaluation_unit": "synthetic fixed grid",
+  "metrics": {
+    "median_mae": 0.0,
+    "pinball_q05": 0.0,
+    "pinball_q50": 0.0,
+    "pinball_q95": 0.0,
+    "interval_coverage": 0.9,
+    "mean_interval_width": 2.5,
+    "quantile_crossing_count": 0.0
+  },
+  "notes": [
+    "Metrics are a contract fixture over known synthetic quantile functions, not a production accuracy claim."
+  ]
+}

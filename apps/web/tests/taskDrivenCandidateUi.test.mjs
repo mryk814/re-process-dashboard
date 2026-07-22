@@ -133,3 +133,20 @@ test("non-editable fields are disabled and goal probability remains visible", ()
   assert.match(comparison, />480.0–520.0<\/span>/);
   assert.match(comparison, /title="90%予測区間 480.0–520.0 \/ モデル由来 ±12 \/ 測定由来 ±8"/);
 });
+
+test("quantile-only output keeps quantile wording and unavailable goal semantics", () => {
+  const definition = {
+    input_groups: [{ key: "composition", order: 0, label: "組成", fields: [numberField("composition.C", "C")] }],
+    outputs: [{ key: "Q", label: "分位予測", unit: "MPa", goal_direction: "at_least" }],
+    display_decimals: { "composition.C": 5, "output.Q": 1 },
+    fixed_context: [],
+  };
+  const preview = {
+    predictions: { Q: { value: 12, lower: 8, upper: 17, unit: "MPa", target_kind: "continuous", point_statistic: "median", predictive_family: "empirical_quantiles", quantiles: { "0.05": 8, "0.5": 12, "0.95": 17 }, goal_probability: null } },
+    support: { status: "supported" },
+  };
+  const comparison = renderComparison({ candidates: [candidate], selectedId: candidate.id, taskDefinition: definition, previewsByCandidate: { [candidate.id]: preview }, targetValues: { Q: 15 }, onSelect() {}, onName() {}, onInput() {} });
+  assert.match(comparison, /title="5–95%分位 8.0–17.0"/);
+  assert.match(comparison, /利用不可/);
+  assert.doesNotMatch(comparison, /90%予測区間|計算中|±0/);
+});
