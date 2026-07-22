@@ -17,9 +17,11 @@ const formatDate = (value: string) => new Date(value).toLocaleDateString("ja-JP"
 
 export function DataLibraryPage({
   projects,
+  onAddDataset,
   onStartProject,
 }: {
   projects: ApiProject[];
+  onAddDataset: () => void;
   onStartProject: (datasetViewRevisionId: string) => void;
 }) {
   const [options, setOptions] = useState<ApiProjectCreationOptions | null>(null);
@@ -87,12 +89,15 @@ export function DataLibraryPage({
     <div className="page-panel data-library-page">
       <div className="page-intro data-library-header">
         <div><span className="overline">DATA LIBRARY</span><h2>データライブラリ</h2><p>ExcelとProfileを組み合わせたDatasetと、モデルの学習元を確認します。</p></div>
-        <button
-          className="outline-button"
-          aria-expanded={compareOpen}
-          aria-controls="dataset-comparison-builder"
-          onClick={() => setCompareOpen((value) => !value)}
-        >＋ 比較セット</button>
+        <div className="data-library-header-actions">
+          <button className="primary-button" onClick={onAddDataset}>ExcelからDatasetを追加</button>
+          <button
+            className="outline-button"
+            aria-expanded={compareOpen}
+            aria-controls="dataset-comparison-builder"
+            onClick={() => setCompareOpen((value) => !value)}
+          >＋ 比較セット</button>
+        </div>
       </div>
       {error && options && <p className="panel-error" role="alert">{error}</p>}
       {compareOpen && options && <section id="dataset-comparison-builder" className="dataset-compare-builder" aria-labelledby="dataset-comparison-heading">

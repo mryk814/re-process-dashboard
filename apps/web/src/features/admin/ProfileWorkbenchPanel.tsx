@@ -22,7 +22,13 @@ function previewFields(value: unknown): string {
   return keys.length ? `${keys.slice(0, 4).join(" / ")}${keys.length > 4 ? ` ほか${keys.length - 4}項目` : ""}` : "値なし";
 }
 
-export function ProfileWorkbenchPanel({ onOpenDataLibrary }: { onOpenDataLibrary: () => void }) {
+export function ProfileWorkbenchPanel({
+  onOpenDataLibrary,
+  onStartProject,
+}: {
+  onOpenDataLibrary: () => void;
+  onStartProject: (datasetViewRevisionId: string) => void;
+}) {
   const [profiles, setProfiles] = useState<ApiProfileWorkbenchProfile[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [profileSelection, setProfileSelection] = useState("auto");
@@ -171,6 +177,6 @@ export function ProfileWorkbenchPanel({ onOpenDataLibrary }: { onOpenDataLibrary
       </section>}
     </>}
 
-    {registration && <section className="profile-registration-success" role="status"><div><strong>{registration.reused_existing ? "既存Datasetを確認しました" : "Data Libraryへ登録しました"}</strong><span>{registration.profile_id} · {registration.task_ids.join(" / ")}</span><code>{shortDigest(registration.dataset_revision_id)}</code></div><div className="profile-registration-success-actions"><button className="outline-button" onClick={onOpenDataLibrary}>データライブラリで確認</button><button className="text-button" onClick={() => selectFile(null)}>別のExcelを確認</button></div></section>}
+    {registration && <section className="profile-registration-success" role="status"><div><strong>{registration.reused_existing ? "既存Datasetを確認しました" : "Data Libraryへ登録しました"}</strong><span>{registration.profile_id} · {registration.task_ids.join(" / ")}</span><code>{shortDigest(registration.dataset_revision_id)}</code></div><div className="profile-registration-success-actions"><button className="primary-button" onClick={() => onStartProject(registration.dataset_view_revision_id)}>このDatasetでプロジェクト作成</button><button className="outline-button" onClick={onOpenDataLibrary}>データライブラリで確認</button><button className="text-button" onClick={() => selectFile(null)}>別のExcelを確認</button></div></section>}
   </div>;
 }

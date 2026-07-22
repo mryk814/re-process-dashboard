@@ -27,6 +27,7 @@ export function DeveloperAdminPage({
   onQualityFiltersChange,
   onOpenLineage,
   onOpenDataLibrary,
+  onStartProject,
   onProjectChanged,
 }: {
   project: ApiProject | undefined;
@@ -38,6 +39,7 @@ export function DeveloperAdminPage({
   onQualityFiltersChange: (filters: QualityFilters) => void;
   onOpenLineage: (issue: ApiQuality["detected_issues"][number], filters: QualityFilters) => void;
   onOpenDataLibrary: () => void;
+  onStartProject: (datasetViewRevisionId: string) => void;
   onProjectChanged: (project: ApiProject) => void;
 }) {
   type AdminSection = "quality" | "ranges" | "display" | "task" | "model" | "profile";
@@ -77,7 +79,7 @@ export function DeveloperAdminPage({
         : <p className="empty-evidence">プロジェクトを読み込んでいます。</p>)}
       {visibleSection === "ranges" && <InputRangeSettingsPage project={project} taskDefinition={taskDefinition} onProjectChanged={onProjectChanged} />}
       {visibleSection === "display" && <DisplayDecimalSettingsPage project={project} taskDefinition={taskDefinition} onProjectChanged={onProjectChanged} />}
-      {visibleSection === "profile" && <ProfileWorkbenchPanel onOpenDataLibrary={onOpenDataLibrary} />}
+      {visibleSection === "profile" && <ProfileWorkbenchPanel onOpenDataLibrary={onOpenDataLibrary} onStartProject={onStartProject} />}
       {visibleSection === "task" && <div className="page-panel admin-contract-page">
         <div className="page-intro"><div><h2>予測タスク定義</h2><p>{taskDefinition?.label ?? "読み込み中"}で利用者が入力・確認する項目です。</p></div></div>
         {taskDefinition ? <>
