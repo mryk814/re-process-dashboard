@@ -16,9 +16,10 @@ from .api.projects import router as projects_router
 from .api.candidates import CANDIDATE_APPLICATION_ERRORS, candidate_http_error, router as candidates_router
 from .api.data_exploration import router as data_exploration_router
 from .api.screening import router as screening_router
+from .api.inference import get_inference_service, router as inference_router
 from .application.candidates import CandidateService
 from .demo_seed import initialize_demo_projects
-from .inference_work_graph import InferenceKey, InferenceWorkGraph
+from .inference_work_graph import InferenceWorkGraph
 from .runtime import ModelRuntime
 from .model_lifecycle import ACTIVE_PACKAGES_PATH, load_active_packages, resolve_configured_package, validate_active_package_task_set
 from .schemas import (
@@ -26,14 +27,9 @@ from .schemas import (
     ActualMeasurementInput,
     Candidate,
     CandidateInput,
-    CurveFamilyResponse,
     DetailedPredictionResponse,
-    InferenceDiagnosticsResponse,
-    PredictionResponse,
     PredictionVsActualResponse,
     Project,
-    ResponseCurveResponse,
-    SimilarObservation,
     SnapshotResponse,
 )
 from .snapshot_reader import SnapshotPayloadError, candidate_input_from_snapshot
@@ -107,6 +103,7 @@ def create_app(
     app.include_router(candidates_router)
     app.include_router(data_exploration_router)
     app.include_router(screening_router)
+    app.include_router(inference_router)
 
     def store() -> Store:
         return app.state.store
@@ -128,31 +125,6 @@ def create_app(
     def inference_work_graph() -> InferenceWorkGraph:
         return app.state.inference_work_graph
 
-    def inference_key(
-        task_id: str,
-        candidate: Candidate,
-        operation: str,
-        *,
-        parameters: Mapping[str, Any] | None = None,
-        uses_package: bool = False,
-        uses_support: bool = False,
-    ) -> InferenceKey:
-        entry = task_registry().entry_for(task_id)
-        canonical = task_registry().validate_candidate(task_id, candidate).model_dump(
-            mode="json",
-            exclude={"provenance"},
-        )
-        return InferenceKey.build(
-            task_id=task_id,
-            runtime_type=entry.runtime_type,
-            canonical_input=canonical,
-            package_digest=entry.package_digest if uses_package else "",
-            pipeline_digest=entry.pipeline_digest,
-            support_digest=entry.support_digest if uses_support else None,
-            operation=operation,
-            operation_parameters=parameters,
-        )
-
     def require_project(project_id: str):
         project = store().get_project(project_id)
         if not project:
@@ -170,42 +142,6 @@ def create_app(
             if converted is exc:
                 raise
             raise converted from exc
-
-    @app.post(
-        "/api/projects/{project_id}/candidates/{candidate_id}/preview",
-        response_model=PredictionResponse,
-        responses=PROJECT_API_ERRORS,
-        operation_id="previewProjectCandidate",
-    )
-    def preview_project_candidate(project_id: str, candidate_id: str, expected_revision: int) -> dict[str, Any]:
-        project = require_project(project_id)
-        require_task_operation(project.task_id, "preview")
-        candidate = candidate_at_revision(project_id, candidate_id, expected_revision)
-        task_runtime = task_registry().runtime_for(project.task_id)
-        prediction = inference_work_graph().execute(
-            inference_key(
-                project.task_id,
-                candidate,
-                "preview",
-                parameters={"target_values": project.target_values},
-                uses_package=True,
-            ),
-            lambda: task_runtime.predict_core(
-                candidate,
-                detailed=False,
-                target_values=project.target_values,
-            ),
-        )
-        support = inference_work_graph().execute(
-            inference_key(project.task_id, candidate, "support", uses_support=True),
-            lambda: task_registry().entry_for(project.task_id).support_provider.support_summary(candidate),
-        )
-        prediction["candidate_id"] = candidate.id
-        prediction["support"] = support
-        prediction["similar"] = []
-        if support.status != "supported" and support.message not in prediction["warnings"]:
-            prediction["warnings"].append(support.message)
-        return prediction
 
     @app.get("/api/bootstrap", deprecated=True)
     def bootstrap() -> dict[str, Any]:
@@ -242,26 +178,7 @@ def create_app(
             raise converted from exc
 
     def detailed_prediction_for(project: Project, candidate: Candidate) -> dict[str, Any]:
-        require_task_operation(project.task_id, "detailed_prediction")
-        task_runtime = task_registry().runtime_for(project.task_id)
-        result = inference_work_graph().execute(
-            inference_key(
-                project.task_id,
-                candidate,
-                "detailed",
-                parameters={"target_values": project.target_values, "policy_id": "detailed-v1"},
-                uses_package=True,
-                uses_support=True,
-            ),
-            lambda: task_runtime.predict(
-                candidate,
-                detailed=True,
-                include_curve=False,
-                target_values=project.target_values,
-            ),
-        )
-        result["candidate_id"] = candidate.id
-        return result
+        return get_inference_service(store(), task_registry(), inference_work_graph()).detailed_for(project, candidate)
 
     @app.post(
         "/api/projects/{project_id}/candidates/{candidate_id}/predict",
@@ -274,134 +191,6 @@ def create_app(
         project = require_project(project_id)
         result = detailed_prediction_for(project, candidate)
         return {"prediction": result, "snapshot": snapshot_for_candidate(candidate, result)}
-
-    @app.get(
-        "/api/projects/{project_id}/candidates/{candidate_id}/response-curve",
-        response_model=ResponseCurveResponse,
-        responses=PROJECT_API_ERRORS,
-        operation_id="getCandidateResponseCurve",
-    )
-    def response_curve(
-        project_id: str,
-        candidate_id: str,
-        expected_revision: int,
-        target: str,
-        variable: str,
-        points: int = Query(9, ge=3, le=51),
-        range_min: float | None = Query(None),
-        range_max: float | None = Query(None),
-        stage_name: str | None = Query(None, min_length=1),
-        stage_position_m: float | None = Query(None, ge=0),
-    ) -> dict[str, Any]:
-        project = require_project(project_id)
-        candidate = candidate_at_revision(project_id, candidate_id, expected_revision)
-        definition = task_registry().contract_for(project.task_id).task_definition
-        if target not in {item.key for item in definition.outputs}:
-            raise HTTPException(422, "この予測タスクにない予測特性です")
-        require_task_operation(project.task_id, "response_curve")
-        if (range_min is None) != (range_max is None):
-            raise HTTPException(422, "応答曲線の範囲は最小値と最大値をセットで指定してください")
-        is_stage_temperature = variable == "heat.stage_temperature_c"
-        if is_stage_temperature != (stage_name is not None and stage_position_m is not None):
-            raise HTTPException(422, "工程温度の応答曲線は工程名と入口からの工程位置をセットで指定してください")
-        if stage_name is not None and not stage_name.strip():
-            raise HTTPException(422, "工程名は空白以外の文字を指定してください")
-        axis_range = None
-        if range_min is not None and range_max is not None:
-            if not math.isfinite(range_min) or not math.isfinite(range_max) or range_min >= range_max:
-                raise HTTPException(422, "応答曲線の範囲は有限の数値で、最小値 < 最大値にしてください")
-            axis_range = (range_min, range_max)
-        try:
-            task_runtime = task_registry().runtime_for(project.task_id)
-            curve_handler = task_registry().response_curve_for(project.task_id)
-            result = inference_work_graph().execute(
-                inference_key(
-                    project.task_id,
-                    candidate,
-                    "curve",
-                    parameters={"target": target, "variable": variable, "points": points, "range_min": range_min, "range_max": range_max, "stage_name": stage_name, "stage_position_m": stage_position_m, "policy_id": "fixed-grid-v2"},
-                    uses_package=True,
-                ),
-                lambda: curve_handler(
-                    task_runtime, candidate, target, variable, points, axis_range, stage_name, stage_position_m
-                ),
-            )
-            return result
-        except ValueError as exc:
-            raise HTTPException(422, str(exc)) from exc
-
-    @app.get(
-        "/api/projects/{project_id}/candidates/{candidate_id}/curve-family",
-        response_model=CurveFamilyResponse,
-        responses=PROJECT_API_ERRORS,
-        operation_id="getCandidateCurveFamily",
-    )
-    def curve_family(
-        project_id: str,
-        candidate_id: str,
-        expected_revision: int,
-        target: str,
-        vary: str = "",
-        levels: int = Query(5, ge=2, le=9),
-        points: int = Query(15, ge=3, le=51),
-    ) -> dict[str, Any]:
-        project = require_project(project_id)
-        candidate = candidate_at_revision(project_id, candidate_id, expected_revision)
-        contract = task_registry().contract_for(project.task_id)
-        if target not in {item.key for item in contract.task_definition.outputs}:
-            raise HTTPException(422, "この予測タスクにない予測特性です")
-        if contract.task_definition.curve_axis_path is None or not contract.runtime_capability.operations.response_curve:
-            raise HTTPException(422, "この予測タスクは曲線ビューに対応していません")
-        try:
-            task_runtime = task_registry().runtime_for(project.task_id)
-            family_handler = task_registry().curve_family_for(project.task_id)
-            return inference_work_graph().execute(
-                inference_key(
-                    project.task_id,
-                    candidate,
-                    "curve_family",
-                    parameters={"target": target, "vary": vary, "levels": levels, "points": points, "policy_id": "axis-grid-v1"},
-                    uses_package=True,
-                ),
-                lambda: family_handler(task_runtime, candidate, target, vary or None, levels, points),
-            )
-        except ValueError as exc:
-            raise HTTPException(422, str(exc)) from exc
-
-    @app.get(
-        "/api/projects/{project_id}/candidates/{candidate_id}/similar",
-        response_model=list[SimilarObservation],
-        responses=PROJECT_API_ERRORS,
-        operation_id="getCandidateSimilarity",
-    )
-    def similar(
-        project_id: str,
-        candidate_id: str,
-        expected_revision: int,
-        limit: int = Query(6, ge=1, le=20),
-    ) -> list[dict[str, object]]:
-        project = require_project(project_id)
-        require_task_operation(project.task_id, "similarity")
-        candidate = candidate_at_revision(project_id, candidate_id, expected_revision)
-        support_provider = task_registry().entry_for(project.task_id).support_provider
-        return inference_work_graph().execute(
-            inference_key(
-                project.task_id,
-                candidate,
-                "similarity",
-                parameters={"limit": limit},
-                uses_support=True,
-            ),
-            lambda: support_provider.similarity(candidate, limit),
-        )
-
-    @app.get(
-        "/api/diagnostics/inference",
-        response_model=InferenceDiagnosticsResponse,
-        operation_id="getInferenceDiagnostics",
-    )
-    def inference_diagnostics() -> dict[str, Any]:
-        return inference_work_graph().diagnostics()
 
     @app.get("/api/projects/{project_id}/candidates/{candidate_id}/snapshots", response_model=list[SnapshotResponse])
     def snapshots(project_id: str, candidate_id: str) -> list[dict[str, Any]]:
