@@ -5,10 +5,10 @@
   "targets": [
     {
       "target": "TS",
-      "parent_conditions": 172,
-      "mae": 6.96765578942069,
-      "rmse": 8.609479845174086,
-      "interval_coverage_90": 0.8895348837209303
+      "parent_conditions": 183,
+      "mae": 6.7887128569274795,
+      "rmse": 8.442212945767453,
+      "interval_coverage_90": 0.8852459016393442
     }
   ]
 }

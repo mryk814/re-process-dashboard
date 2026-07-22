@@ -248,7 +248,7 @@ def _build(source: Path, destination: Path) -> None:
         "input_contract_digest": task_input_contract_digest(contract.task_definition),
         "runtime_capability_digest": runtime_capability_digest(contract.runtime_capability),
         "feature_pipeline": {"id": PIPELINE_ID, "version": PIPELINE_VERSION, "spec": pipeline_path.relative_to(destination).as_posix(), "canonical_input_paths": list(CANONICAL_INPUT_PATHS), "output_features": list(FEATURE_NAMES), "artifacts": [stats_path.relative_to(destination).as_posix()]},
-        "predictors": [{"id": "ts-horseshoe", "target": "TS", "unit": output.unit, "target_kind": "continuous", "runtime_type": "builtin.posterior_linear.v1", "architecture_id": "posterior_linear_v1", "artifact": model_path.relative_to(destination).as_posix(), "predictive_family": "normal", "feature_names": list(FEATURE_NAMES), "config": {"training_unit": "parent_condition_mean", "method": "regularized_horseshoe", "output_representation": "moment_matched_normal", "estimand_context": {"test_direction": "L", "equipment": "HR-LINE-1"}}}],
+        "predictors": [{"id": "ts-horseshoe", "target": "TS", "unit": output.unit, "target_kind": "continuous", "runtime_type": "builtin.posterior_linear.v1", "architecture_id": "posterior_linear_v1", "artifact": model_path.relative_to(destination).as_posix(), "predictive_family": "normal", "feature_names": list(FEATURE_NAMES), "config": {"training_unit": "parent_condition_mean", "method": "regularized_horseshoe", "output_representation": "moment_matched_normal"}}],
         "provenance": {"training_data_id": f"sha256:{data.source_sha256}", "feature_dataset_id": canonical_training_dataset_digest(canonical_dataset), "training_code_revision": TRAINING_CODE_REVISION, "dataset_profile_id": dataset_profile_digest(Path(data.profile_path))},
         "artifacts": [_artifact(destination, path) for path in files],
         "smoke_test": {"input": smoke_input.relative_to(destination).as_posix(), "expected": smoke_expected.relative_to(destination).as_posix()},
@@ -257,9 +257,14 @@ def _build(source: Path, destination: Path) -> None:
     _write_json(destination / "manifest.json", manifest)
 
 
-def build(source: Path, destination: Path, *, replace: bool = False) -> None:
+def build(source: Path, destination: Path, *, replace: bool = False, package_id: str = PACKAGE_ID) -> None:
     with staged_package_destination(destination, replace=replace) as staging:
         _build(source, staging)
+        if package_id != PACKAGE_ID:
+            manifest_path = staging / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["package_id"] = package_id
+            _write_json(manifest_path, manifest)
         verify_model_package(staging, task_id=TASK_ID, source=source)
 
 
@@ -268,5 +273,6 @@ if __name__ == "__main__":
     parser.add_argument("--source", type=Path, default=Path("data/source/process_dashboard_realistic_excel_v2.xlsx"))
     parser.add_argument("--output", type=Path, default=Path("models/packages/hot-rolled-horseshoe-2026-07"))
     parser.add_argument("--replace", action="store_true")
+    parser.add_argument("--package-id", default=PACKAGE_ID)
     arguments = parser.parse_args()
-    build(arguments.source, arguments.output, replace=arguments.replace)
+    build(arguments.source, arguments.output, replace=arguments.replace, package_id=arguments.package_id)

@@ -1,6 +1,6 @@
 # Dataset Input Profile
 
-各Excelデータフローの外部sheet・列・単位・entity key・relation・適格性・技術メタデータは、`backend/src/material_workbench/dataset-input-profile-*.json` で管理します。既存のv2フローは `dataset-input-profile-v1.json`、別命名・生履歴入力のv3フローは `dataset-input-profile-v3.json`、具体的な2設備工程名を持つv5フローは `dataset-input-profile-v5.json` です。v5はv3の正規化・予測契約を継承し、焼鈍履歴の工程名だけを標準工程カテゴリへ対応付けます。起動時はWorkbookのsheet構成とsource markerから最も具体的に一致するprofileを自動選択します。明示したい場合は `load_workbook_data(..., profile_path=...)` または検証コマンドの `--profile` を使います。
+各Excelデータフローの外部sheet・列・単位・entity key・relation・適格性・技術メタデータは、`backend/src/material_workbench/dataset-input-profile-*.json` で管理します。既存のv2フローは `dataset-input-profile-v1.json`、別命名・生履歴入力のv3フローは `dataset-input-profile-v3.json`、具体的な2設備工程名を持つv5フローは `dataset-input-profile-v5.json`、部分欠損・relation親解決・測定点マスタを持つv7フローは `dataset-input-profile-v7.json` です。起動時はWorkbookのsheet構成とsource markerから最も具体的に一致するprofileを自動選択します。明示したい場合は `load_workbook_data(..., profile_path=...)` または検証コマンドの `--profile` を使います。
 
 Production task contracts live in `backend/src/material_workbench/task_definitions/`. At startup the backend validates the profile against every production `TaskDefinition`, then preflights the workbook before model or database initialization.
 
@@ -25,6 +25,9 @@ Raw workbook + Dataset Input Profile + TaskDefinition
 - Relation parent consistency is enforced only when a join declares `parent_consistency: exactly_one`. Known source-quality anomalies remain inspectable when the profile declares `allow_many`.
 - A profile can `extends` another profile. Object mappings are merged and arrays are replaced, so a renamed/new workbook flow can reuse the canonical contract without copying the old profile.
 - A source flow may declare `optional_roles`, `optional_technical_fields`, and explicit `policy_defaults` when that source genuinely does not contain the corresponding signal. Defaults are part of the profile contract; they are never inferred from a missing cell.
+- Observation measurements may declare one source `column` or an ordered `columns` list. The latter is an explicit first-numeric coalesce contract for alternate measurements such as yield point and 0.2% proof stress.
+- When an observation has no `parent_column`, its parent is resolved through the declared relation joins. Unresolved rows remain inspectable and ineligible rather than being silently attached.
+- A source without a derived `anneal_features` sheet may mark that role optional. The importer then derives display metadata and feature eligibility from canonical LS and ordered heat history; the model still consumes the versioned feature pipeline, not workbook formulas.
 - `task_definition_ids` freezes the task set supported by a profile. This lets a new task with completely different explanatory variables or targets be added without making old data flows pretend to support it.
 
 ## Adding a new workbook flow with the same canonical task
@@ -38,6 +41,8 @@ Raw workbook + Dataset Input Profile + TaskDefinition
 For the v3 flow, this procedure is represented by `dataset-input-profile-v3.json`: it reuses the v2 task definitions and feature pipelines, maps the renamed sheets/headers, and explicitly declares that the curated `quality` sheet and hot-rolling learning flag are absent from v3.
 
 For the v5 flow, `dataset-input-profile-v5.json` extends v3 rather than replacing it. Its source markers distinguish `CGL-1` and concrete history labels such as `予熱1`, `加熱1`, `均熱出口`, and `水冷`. Its stage mappings add `stage_category` and `mapping_status` to the inspectable heat points, so the lineage screen can show the concrete source label on a time-aligned process track while preserving the original `stage_name`.
+
+For the v7 flow, `dataset-input-profile-v7.json` maps bracketed composition names, relation-resolved tensile/hole-expansion parents, and alternate yield columns. `焼鈍特徴量` is intentionally absent: LS comes from `焼鈍条件-3CGL`, while the cached numeric time-temperature series and 26 stage mappings provide the model history. Missing targets are retained per property, so a row with TS but no elongation contributes to TS only.
 
 ## Adding genuinely new data (different variables or targets)
 

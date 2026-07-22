@@ -231,9 +231,14 @@ def _build(source: Path, destination: Path) -> None:
     )
 
 
-def build(source: Path, destination: Path, *, replace: bool = False) -> None:
+def build(source: Path, destination: Path, *, replace: bool = False, package_id: str = PACKAGE_ID) -> None:
     with staged_package_destination(destination, replace=replace) as staging:
         _build(source, staging)
+        if package_id != PACKAGE_ID:
+            manifest_path = staging / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["package_id"] = package_id
+            manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
         verify_model_package(staging, task_id=TASK_ID, source=source)
 
 
@@ -242,5 +247,6 @@ if __name__ == "__main__":
     parser.add_argument("--source", type=Path, default=Path("data/source/process_dashboard_realistic_excel_v2.xlsx"))
     parser.add_argument("--output", type=Path, default=Path("models/packages/annealed-gp-2026-07"))
     parser.add_argument("--replace", action="store_true")
+    parser.add_argument("--package-id", default=PACKAGE_ID)
     args = parser.parse_args()
-    build(args.source, args.output, replace=args.replace)
+    build(args.source, args.output, replace=args.replace, package_id=args.package_id)

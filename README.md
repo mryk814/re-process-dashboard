@@ -75,6 +75,7 @@ Excelの外部sheet・列とアプリ内部の意味の対応はDataset Input Pr
 ```powershell
 uv run python backend/scripts/verify_dataset_source.py data/source/process_dashboard_realistic_excel_v3.xlsx --json
 uv run python backend/scripts/verify_dataset_source.py data/source/process_dashboard_two_equipment_v5.xlsx --json
+uv run python backend/scripts/verify_dataset_source.py data/source/process_dashboard_two_equipment_v7.xlsx --json
 ```
 
 v3用のPackageを既存v2 Packageへ上書きせずに作る例です。Packageはsource digestとprofile digestに結び付くため、sourceを替えたら必ず再生成します。
@@ -102,13 +103,26 @@ npm run dev
 
 一時Packageでv3を起動確認する場合は、上記2つの絶対パスを `MATERIAL_WORKBENCH_MODEL_PACKAGE` / `MATERIAL_WORKBENCH_HOT_ROLLING_MODEL_PACKAGE` に指定します。新しい説明変数・目的変数を追加する手順は [Dataset Input Profile](docs/dataset-input-profile.md) の「Adding genuinely new data」を参照してください。
 
+v7は名称差、目的変数の部分欠損、relation経由の観測親、詳細な焼鈍履歴をProfileで正規化します。検証済みのv7 sourceと両Packageをまとめて起動する場合は次だけでよいです。
+
+```powershell
+npm run dev:v7
+```
+
+個別に再学習する場合はPackage IDもv7固有にします。
+
+```powershell
+uv run python backend/scripts/build_default_model_package.py --source data/source/process_dashboard_two_equipment_v7.xlsx --output models/packages/annealed-gp-2026-07-v7 --package-id annealed-gp-2026-07-v7 --replace
+uv run --extra runtime-numpyro python backend/scripts/build_hot_rolling_model_package.py --source data/source/process_dashboard_two_equipment_v7.xlsx --output models/packages/hot-rolled-horseshoe-2026-07-v7 --package-id hot-rolled-horseshoe-2026-07-v7 --replace
+```
+
 候補・プロジェクト・予測スナップショット・実測値は `data/workbench.db` に保存します。候補一覧は画面からXLSXで入出力でき、ヒートパターンも往復保持されます。
 
 ## モデルPackage
 
 既定の学習済みPackageは `models/packages/annealed-gp-2026-07` です。ガウス過程回帰が90%予測区間を返し、モデル由来の不確かさと反復測定由来のばらつきを分けて表示します。予測時にmanifest・artifact hash・特徴量順序・smoke inputを検証し、画面の「プロジェクト」で有効なPackageとruntimeを確認できます。
 
-熱延タブは独立した `hot-rolled-properties-v1` タスクで、`models/packages/hot-rolled-horseshoe-2026-07` の正則化Horseshoe回帰を使用します。熱延v1は `HR-LINE-1`・L方向引張を推定対象に固定し、物理範囲外の観測を学習から除外します。事後係数の縮小結果はPackage内の `reports/selection-report.json`、学習健全性は `reports/training-diagnostics.json` に保存します。
+熱延タブは独立した `hot-rolled-properties-v1` タスクで、`models/packages/hot-rolled-horseshoe-2026-07` の正則化Horseshoe回帰を使用します。熱延v1は設備・試験片方向を推定条件として区別せず、利用可能な熱延引張観測をまとめて学習し、物理範囲外の観測だけを除外します。事後係数の縮小結果はPackage内の `reports/selection-report.json`、学習健全性は `reports/training-diagnostics.json` に保存します。
 
 既定のactive Packageは `models/active-packages.json` でタスクごとに固定します。開発中に検証済みPackageを一時的に試す場合だけ、信頼できるローカルPackageの絶対パスを指定します。
 

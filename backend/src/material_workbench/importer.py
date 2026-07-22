@@ -433,6 +433,52 @@ def _normalize_stage_local_times(points: list[dict[str, Any]]) -> None:
         previous_normalized = point["time_s"]
 
 
+def _time_at_or_above(points: list[dict[str, Any]], threshold: float) -> float:
+    total = 0.0
+    for left, right in zip(points, points[1:]):
+        if right.get("segment_start"):
+            continue
+        t0, t1 = float(left["time_s"]), float(right["time_s"])
+        y0, y1 = float(left["temperature_c"]), float(right["temperature_c"])
+        if y0 >= threshold and y1 >= threshold:
+            total += t1 - t0
+        elif (y0 >= threshold) != (y1 >= threshold) and y1 != y0:
+            crossing = t0 + (threshold - y0) * (t1 - t0) / (y1 - y0)
+            total += (t1 - crossing) if y1 >= threshold else (crossing - t0)
+    return total
+
+
+def _derived_anneal_feature_row(
+    parent_key: str,
+    mapped_process: dict[str, Any],
+    points: list[dict[str, Any]],
+) -> dict[str, Any]:
+    finite_points = [
+        point for point in points
+        if isinstance(point.get("time_s"), (int, float))
+        and isinstance(point.get("temperature_c"), (int, float))
+    ]
+    eligible = len(finite_points) >= 2 and mapped_process.get("ls_mpm") is not None
+    peak = max((float(point["temperature_c"]) for point in finite_points), default=0.0)
+    stage_names = [str(point.get("stage_name") or "") for point in finite_points]
+    stage_categories = [str(point.get("stage_category") or "") for point in finite_points]
+    return {
+        **mapped_process,
+        "max_temperature_c": peak,
+        "hold_time_s": _time_at_or_above(finite_points, peak * 0.95) if eligible and peak else 0.0,
+        "input_points": float(len(finite_points)),
+        "reheat": 1.0 if "REHEAT" in stage_categories else 0.0,
+        "alloying": 1.0 if any(category in {"ZINC_BATH", "ALLOYING"} for category in stage_categories) else 0.0,
+        "feature_status": "特徴量化可" if eligible else "特徴量化不可",
+        "feature_eligible": eligible,
+        "standard_route": " > ".join(dict.fromkeys(category for category in stage_categories if category)),
+        "process_signature": " > ".join(stage_names),
+        "unmapped_stage_count": sum(not category for category in stage_categories),
+        "heat_pattern": points,
+        "parent_key": parent_key,
+    }
+
+
 def detect_dataset_profile_path(
     source_path: str | Path,
     profile_directory: str | Path | None = None,
@@ -570,26 +616,38 @@ def load_workbook_data(
         }
         for row in canonical.rows("hot_rolling")
     }
-    feature_rows = canonical.rows("anneal_features")
+    anneal_key = next(entity.key for entity in profile.shared.entities if entity.role == "annealing")
     anneal_history_by_key: dict[str, list[dict[str, float]]] = defaultdict(list)
     anneal_history_by_key.update({identity[1]: [dict(point) for point in points] for identity, points in canonical.heat_series.items()})
-    anneal_features = {
-        str(canonical.technical_value(row, "anneal_features", "parent_key")): {
-            **canonical.mapped_values(row, anneal_task_id, ("process.", "categorical.")),
-            "max_temperature_c": float(canonical.technical_value(row, "anneal_features", "max_temperature_c")),
-            "hold_time_s": float(canonical.technical_value(row, "anneal_features", "hold_time_s")),
-            "input_points": float(canonical.technical_value(row, "anneal_features", "input_points")),
-            "reheat": 1.0 if canonical.technical_value(row, "anneal_features", "reheat") == "あり" else 0.0,
-            "alloying": 1.0 if canonical.technical_value(row, "anneal_features", "alloying") == "通過" else 0.0,
-            "feature_status": str(canonical.technical_value(row, "anneal_features", "feature_status")),
-            "feature_eligible": canonical.policy_allows(row, "anneal_features", "anneal_feature_status/v1"),
-            "standard_route": str(canonical.technical_value(row, "anneal_features", "standard_route") or ""),
-            "process_signature": str(canonical.technical_value(row, "anneal_features", "process_signature") or ""),
-            "unmapped_stage_count": int(canonical.technical_value(row, "anneal_features", "unmapped_stage_count") or 0),
-            "heat_pattern": anneal_history_by_key.get(str(canonical.technical_value(row, "anneal_features", "parent_key")), []),
+    anneal_feature_sheet = profile.shared.sheets.get("anneal_features")
+    if anneal_feature_sheet and anneal_feature_sheet in sheets:
+        anneal_features = {
+            str(canonical.technical_value(row, "anneal_features", "parent_key")): {
+                **canonical.mapped_values(row, anneal_task_id, ("process.", "categorical.")),
+                "max_temperature_c": float(canonical.technical_value(row, "anneal_features", "max_temperature_c")),
+                "hold_time_s": float(canonical.technical_value(row, "anneal_features", "hold_time_s")),
+                "input_points": float(canonical.technical_value(row, "anneal_features", "input_points")),
+                "reheat": 1.0 if canonical.technical_value(row, "anneal_features", "reheat") == "あり" else 0.0,
+                "alloying": 1.0 if canonical.technical_value(row, "anneal_features", "alloying") == "通過" else 0.0,
+                "feature_status": str(canonical.technical_value(row, "anneal_features", "feature_status")),
+                "feature_eligible": canonical.policy_allows(row, "anneal_features", "anneal_feature_status/v1"),
+                "standard_route": str(canonical.technical_value(row, "anneal_features", "standard_route") or ""),
+                "process_signature": str(canonical.technical_value(row, "anneal_features", "process_signature") or ""),
+                "unmapped_stage_count": int(canonical.technical_value(row, "anneal_features", "unmapped_stage_count") or 0),
+                "heat_pattern": anneal_history_by_key.get(str(canonical.technical_value(row, "anneal_features", "parent_key")), []),
+            }
+            for row in canonical.rows("anneal_features")
         }
-        for row in feature_rows
-    }
+    else:
+        anneal_features = {
+            str(row[anneal_key]): _derived_anneal_feature_row(
+                str(row[anneal_key]),
+                canonical.mapped_values(row, anneal_task_id, ("process.", "categorical.")),
+                anneal_history_by_key.get(str(row[anneal_key]), []),
+            )
+            for row in canonical.rows("annealing")
+            if row.get(anneal_key) is not None and str(row[anneal_key]).strip()
+        }
     lineage: dict[str, dict[str, list[str]]] = defaultdict(lambda: defaultdict(list))
     key_by_type = {entity.type: entity.key for entity in profile.shared.entities}
     for relation in canonical.relations:
@@ -614,7 +672,6 @@ def load_workbook_data(
         melt_keys = sorted(set(lineage.get(parent_key, {}).get(melt_key, [])))
         return composition.get(melt_keys[0]) if len(melt_keys) == 1 else None
 
-    anneal_key = next(entity.key for entity in profile.shared.entities if entity.role == "annealing")
     anneal_status = {
         str(row[anneal_key]): canonical.policy_allows(row, "annealing", "learning_flag/v1")
         for row in canonical.rows("annealing")
@@ -629,8 +686,12 @@ def load_workbook_data(
             is_anneal = canonical_observation.task_id == anneal_task_id
             process = anneal_features.get(parent) if is_anneal else hot_rolling_features.get(parent)
             comp = upstream_composition(parent)
+            canonical_output_labels = {
+                output.key: output.measurement_keys[0]
+                for output in profile.task_definitions[canonical_observation.task_id].outputs
+            }
             measurement_labels = {
-                target.key: target.column
+                target.key: canonical_output_labels.get(target.key, target.source_columns[0])
                 for observation in profile.tasks[canonical_observation.task_id].observations
                 for target in (*observation.targets, *observation.auxiliary)
             }
@@ -657,8 +718,6 @@ def load_workbook_data(
                     eligibility_reasons.append("熱延条件が学習対象外です")
                 if not canonical_observation.policy_results.get("valid_observation/v1", False):
                     eligibility_reasons.append("試験判定が有効ではありません")
-                if not canonical_observation.policy_results.get("hot_l_direction/v1", False):
-                    eligibility_reasons.append("v1の推定対象はL方向です")
             physical_ranges = profile.shared.physical_ranges.get(canonical_observation.task_id, {})
             for property_name, value in canonical_observation.canonical_measurements.items():
                 bounds = physical_ranges.get(property_name)
@@ -671,7 +730,7 @@ def load_workbook_data(
                 "eligible": not eligibility_reasons,
                 "eligibility_reasons": eligibility_reasons,
                 "date": _as_date(canonical_observation.metadata.get("date")),
-                "test_direction": str(canonical_observation.metadata.get("direction") or "L") if not is_anneal else None,
+                "test_direction": str(direction) if not is_anneal and (direction := canonical_observation.metadata.get("direction")) else None,
             })
     values = {
         path: sorted(float(value) for row in melt_rows if isinstance((value := canonical.value(row, *composition_mappings[path])), (int, float)))
@@ -684,6 +743,7 @@ def load_workbook_data(
     observation_parent_columns = {
         profile.sheet_for_role(observation.role): observation.parent_column
         for task in profile.tasks.values() for observation in task.observations
+        if observation.parent_column is not None
     }
     relation_sheet = profile.sheet_for_role(profile.shared.relation.role)
     relation_join_columns = {join.entity_type: join.column for join in profile.shared.relation.joins}

@@ -1,0 +1,311 @@
+{
+  "schema_version": "model-package/v1",
+  "package_id": "annealed-gp-2026-07-v7",
+  "package_version": "0.9.0-input-contract-v2",
+  "task_id": "annealed-properties-v1",
+  "input_schema_version": "candidate-v2",
+  "input_contract_digest": "sha256:54f8999febbf00155490bd47920a278e4a49e3c879337910ab3c8c523cde4b28",
+  "runtime_capability_digest": "sha256:0dd83e49dccb9c12b87b0ea6ce0555ccfeba13208f0e9a4116c76371506c463f",
+  "feature_pipeline": {
+    "id": "metallurgy-thermal",
+    "version": "2.0.0",
+    "spec": "feature-pipeline/pipeline.json",
+    "canonical_input_paths": [
+      "composition.C",
+      "composition.Si",
+      "composition.Mn",
+      "composition.P",
+      "composition.S",
+      "composition.Al",
+      "composition.Cu",
+      "composition.Ni",
+      "composition.Cr",
+      "composition.Mo",
+      "composition.Ti",
+      "composition.B",
+      "composition.O",
+      "composition.N",
+      "process.ls_mpm",
+      "heat_pattern"
+    ],
+    "output_features": [
+      "C",
+      "Si",
+      "Mn",
+      "P",
+      "S",
+      "Al",
+      "Cu",
+      "Ni",
+      "Cr",
+      "Mo",
+      "Ti",
+      "B",
+      "O",
+      "N",
+      "ls_mpm",
+      "ce_iiw",
+      "pcm",
+      "c_times_mn",
+      "si_plus_al",
+      "cr_plus_mo",
+      "microalloy_sum",
+      "peak_temperature_c",
+      "max_heating_rate_c_s",
+      "time_at_or_above_95pct_peak_s",
+      "time_at_or_above_700c_s",
+      "thermal_exposure_above_600c_c_s",
+      "cooling_rate_800_to_500_c_s",
+      "cooling_800_to_500_observed",
+      "reheat_count",
+      "has_reheat"
+    ],
+    "artifacts": [
+      "reference/training_stats.json"
+    ]
+  },
+  "predictors": [
+    {
+      "id": "el-gp",
+      "target": "EL",
+      "unit": "%",
+      "target_kind": "continuous",
+      "runtime_type": "builtin.exact_gp.v1",
+      "architecture_id": "exact_rbf_grouped_v1",
+      "artifact": "model-artifacts/EL.npz",
+      "predictive_family": "normal",
+      "feature_names": [
+        "C",
+        "Si",
+        "Mn",
+        "P",
+        "S",
+        "Al",
+        "Cu",
+        "Ni",
+        "Cr",
+        "Mo",
+        "Ti",
+        "B",
+        "O",
+        "N",
+        "ls_mpm",
+        "ce_iiw",
+        "pcm",
+        "c_times_mn",
+        "si_plus_al",
+        "cr_plus_mo",
+        "microalloy_sum",
+        "peak_temperature_c",
+        "max_heating_rate_c_s",
+        "time_at_or_above_95pct_peak_s",
+        "time_at_or_above_700c_s",
+        "thermal_exposure_above_600c_c_s",
+        "cooling_rate_800_to_500_c_s",
+        "cooling_800_to_500_observed",
+        "reheat_count",
+        "has_reheat"
+      ],
+      "config": {
+        "training_unit": "parent_condition_mean",
+        "replicate_noise": "pooled_within_parent"
+      }
+    },
+    {
+      "id": "ts-gp",
+      "target": "TS",
+      "unit": "MPa",
+      "target_kind": "continuous",
+      "runtime_type": "builtin.exact_gp.v1",
+      "architecture_id": "exact_rbf_grouped_v1",
+      "artifact": "model-artifacts/TS.npz",
+      "predictive_family": "normal",
+      "feature_names": [
+        "C",
+        "Si",
+        "Mn",
+        "P",
+        "S",
+        "Al",
+        "Cu",
+        "Ni",
+        "Cr",
+        "Mo",
+        "Ti",
+        "B",
+        "O",
+        "N",
+        "ls_mpm",
+        "ce_iiw",
+        "pcm",
+        "c_times_mn",
+        "si_plus_al",
+        "cr_plus_mo",
+        "microalloy_sum",
+        "peak_temperature_c",
+        "max_heating_rate_c_s",
+        "time_at_or_above_95pct_peak_s",
+        "time_at_or_above_700c_s",
+        "thermal_exposure_above_600c_c_s",
+        "cooling_rate_800_to_500_c_s",
+        "cooling_800_to_500_observed",
+        "reheat_count",
+        "has_reheat"
+      ],
+      "config": {
+        "training_unit": "parent_condition_mean",
+        "replicate_noise": "pooled_within_parent"
+      }
+    },
+    {
+      "id": "ys-gp",
+      "target": "YS",
+      "unit": "MPa",
+      "target_kind": "continuous",
+      "runtime_type": "builtin.exact_gp.v1",
+      "architecture_id": "exact_rbf_grouped_v1",
+      "artifact": "model-artifacts/YS.npz",
+      "predictive_family": "normal",
+      "feature_names": [
+        "C",
+        "Si",
+        "Mn",
+        "P",
+        "S",
+        "Al",
+        "Cu",
+        "Ni",
+        "Cr",
+        "Mo",
+        "Ti",
+        "B",
+        "O",
+        "N",
+        "ls_mpm",
+        "ce_iiw",
+        "pcm",
+        "c_times_mn",
+        "si_plus_al",
+        "cr_plus_mo",
+        "microalloy_sum",
+        "peak_temperature_c",
+        "max_heating_rate_c_s",
+        "time_at_or_above_95pct_peak_s",
+        "time_at_or_above_700c_s",
+        "thermal_exposure_above_600c_c_s",
+        "cooling_rate_800_to_500_c_s",
+        "cooling_800_to_500_observed",
+        "reheat_count",
+        "has_reheat"
+      ],
+      "config": {
+        "training_unit": "parent_condition_mean",
+        "replicate_noise": "pooled_within_parent"
+      }
+    },
+    {
+      "id": "lambda-gp",
+      "target": "lambda",
+      "unit": "%",
+      "target_kind": "continuous_positive",
+      "runtime_type": "builtin.exact_gp.v1",
+      "architecture_id": "exact_rbf_grouped_v1",
+      "artifact": "model-artifacts/lambda.npz",
+      "predictive_family": "normal",
+      "feature_names": [
+        "C",
+        "Si",
+        "Mn",
+        "P",
+        "S",
+        "Al",
+        "Cu",
+        "Ni",
+        "Cr",
+        "Mo",
+        "Ti",
+        "B",
+        "O",
+        "N",
+        "ls_mpm",
+        "ce_iiw",
+        "pcm",
+        "c_times_mn",
+        "si_plus_al",
+        "cr_plus_mo",
+        "microalloy_sum",
+        "peak_temperature_c",
+        "max_heating_rate_c_s",
+        "time_at_or_above_95pct_peak_s",
+        "time_at_or_above_700c_s",
+        "thermal_exposure_above_600c_c_s",
+        "cooling_rate_800_to_500_c_s",
+        "cooling_800_to_500_observed",
+        "reheat_count",
+        "has_reheat"
+      ],
+      "config": {
+        "training_unit": "parent_condition_mean",
+        "replicate_noise": "pooled_within_parent"
+      }
+    }
+  ],
+  "provenance": {
+    "training_data_id": "sha256:6c42baa011b6151f723af8883767609b07e00fb11d7404924c7f4f87023e8a8b",
+    "feature_dataset_id": "sha256:37759c62704797cc2561c6c221d990c033ff4269bab4c17abd399f1c0824e79b",
+    "training_code_revision": "0.9.0-input-contract-v2",
+    "dataset_profile_id": "sha256:23b67903786d63aa36b364966617428f78ecd833792609dea17785d39e370395"
+  },
+  "artifacts": [
+    {
+      "path": "feature-pipeline/pipeline.json",
+      "sha256": "6146a26474da6b6503714c0494d1645f88580c7beeeae0c34a25630ff47eed35",
+      "bytes": 4587
+    },
+    {
+      "path": "model-artifacts/EL.npz",
+      "sha256": "9d6fbc72e79656bb72649eafd2749adc60cf22c0c61f2c9bbb22da89c676bfaa",
+      "bytes": 214044
+    },
+    {
+      "path": "model-artifacts/TS.npz",
+      "sha256": "1199ea51f9df24d220358d48622931f6bf368c1737169712e9009592d1e8088f",
+      "bytes": 214044
+    },
+    {
+      "path": "model-artifacts/YS.npz",
+      "sha256": "ff54066fd493428020ae494cd7b04c1dce119e4b0381cd69d8e3b5d763d5bf99",
+      "bytes": 214044
+    },
+    {
+      "path": "model-artifacts/lambda.npz",
+      "sha256": "8648127184f0325bd1138ba480bef722733a7f04eec94304c79efb1b2e2c9ead",
+      "bytes": 181492
+    },
+    {
+      "path": "reference/training_stats.json",
+      "sha256": "c90a4575d6beb7b6896e515789a8694abdd21e918efd874934ad6e76c1d4229c",
+      "bytes": 456
+    },
+    {
+      "path": "reports/quality-report.json",
+      "sha256": "97906711a8aa07674935568e2bab4d155a2fb9936daa860dce04207f85c4509c",
+      "bytes": 862
+    },
+    {
+      "path": "smoke/input.json",
+      "sha256": "34f0d9ca0a570ef9974c582707e0d82436edf759f67c7b401a0f904be5ff2f09",
+      "bytes": 701
+    },
+    {
+      "path": "smoke/expected.json",
+      "sha256": "2145c9d523026ea49381746b14250afc8f5b4b39ef0d294fef048b2ae86fabac",
+      "bytes": 92
+    }
+  ],
+  "smoke_test": {
+    "input": "smoke/input.json",
+    "expected": "smoke/expected.json"
+  },
+  "quality_report": "reports/quality-report.json"
+}

@@ -196,14 +196,6 @@
         ]
       },
       {
-        "role": "hot_tensile",
-        "column": "試験片方向",
-        "policy": "hot_l_direction/v1",
-        "accepted_values": [
-          "L"
-        ]
-      },
-      {
         "role": "anneal_tensile",
         "column": "判定",
         "policy": "valid_observation/v1",

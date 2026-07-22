@@ -50,7 +50,6 @@
       {"role":"annealing","column":"学習利用区分","policy":"learning_flag/v1","accepted_values":["学習"]},
       {"role":"anneal_features","column":"特徴量化判定","policy":"anneal_feature_status/v1","accepted_values":["特徴量化可"]},
       {"role":"hot_tensile","column":"判定","policy":"valid_observation/v1","accepted_values":["有効"]},
-      {"role":"hot_tensile","column":"試験片方向","policy":"hot_l_direction/v1","accepted_values":["L"]},
       {"role":"anneal_tensile","column":"判定","policy":"valid_observation/v1","accepted_values":["有効"]},
       {"role":"anneal_hole","column":"判定","policy":"valid_observation/v1","accepted_values":["有効"]}
     ],

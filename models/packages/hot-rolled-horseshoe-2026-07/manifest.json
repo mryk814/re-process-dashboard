@@ -4,7 +4,7 @@
   "package_version": "1.0.0",
   "task_id": "hot-rolled-properties-v1",
   "input_schema_version": "hot-rolling-candidate-v2",
-  "input_contract_digest": "sha256:1a2fe24fcdd492d411f07f5aadd5bda4b75a001f3aa749ca233f7024f146be74",
+  "input_contract_digest": "sha256:87b4ef21f8236fe036a3e1aa7dbeb7b0861e9eee594bd83c34bb27193c1be2ae",
   "runtime_capability_digest": "sha256:98fb62b42f98b61ddb9ca562ba05ed9d84ba9217e8f5a900d0838e724bfc96c5",
   "feature_pipeline": {
     "id": "metallurgy-hot-rolling",
@@ -103,19 +103,15 @@
       "config": {
         "training_unit": "parent_condition_mean",
         "method": "regularized_horseshoe",
-        "output_representation": "moment_matched_normal",
-        "estimand_context": {
-          "test_direction": "L",
-          "equipment": "HR-LINE-1"
-        }
+        "output_representation": "moment_matched_normal"
       }
     }
   ],
   "provenance": {
     "training_data_id": "sha256:d8197cc77ee5ffaef0a5ed75446acaaae56d5fab5b6b625383c99750b4fb57a5",
-    "feature_dataset_id": "sha256:9aec5cde51e74d70efc9a9bf4b74cd0f7d8ec1325fde66eb744e02e78a753628",
+    "feature_dataset_id": "sha256:856a75db61abd58e58d202d23c760650a7af0e808e1f3b620f1d65fbf0a2d442",
     "training_code_revision": "1.0.0-regularized-horseshoe",
-    "dataset_profile_id": "sha256:2d1e24c821d230807a125b35c7070fc7beac60fff20f21b7005d0d52bd002744"
+    "dataset_profile_id": "sha256:8514eb9a96ddba348751c14576c3ba0126680a597a1f0c23b41f9223a4f38997"
   },
   "artifacts": [
     {
@@ -125,28 +121,28 @@
     },
     {
       "path": "model-artifacts/TS.npz",
-      "sha256": "4daac679a1978b00fda005ec8a8963762b1752d77c292c03cf42b69097b9563f",
+      "sha256": "84fc3780d4636a942b0186aa26b8037e11f7b38fb7a4cc8e047c0875645fb783",
       "bytes": 853036
     },
     {
       "path": "reference/training_stats.json",
-      "sha256": "8bfb3af249915834a58dedce1d5f3a5f28eb19221f06d84bc11be63fa292d33e",
+      "sha256": "08dff8677f6791fe7951eb1a925db74edbc83b807e0b6ae4f30d3a5c7b61a931",
       "bytes": 407
     },
     {
       "path": "reports/quality-report.json",
-      "sha256": "846b39af1d7ef51f50f547974ed67155bb2ed468f99b3d5808f6e767b5a89305",
-      "bytes": 308
+      "sha256": "83955866bbf1b33ed4ff21c2e32083938bf63b0d53e03e7e3aaff3551115b625",
+      "bytes": 310
     },
     {
       "path": "reports/selection-report.json",
-      "sha256": "23cff0a2675f93a38622bb6dc918f6a0a362aa39edd9e013763743b34dfd5502",
-      "bytes": 8688
+      "sha256": "6201f31682c611a85d9a049ac7c740baf64b0d8df51636b9796e2c69c2da021f",
+      "bytes": 8664
     },
     {
       "path": "reports/training-diagnostics.json",
-      "sha256": "54f7c80a5c5bb83f38c2017ae28728ec6acc0dde827eb47786a246a9d9f3b2df",
-      "bytes": 258
+      "sha256": "c5edc84b8dd78d4e94f229b52ddd1f67bbebf1f555f6703488778349982a83c4",
+      "bytes": 257
     },
     {
       "path": "smoke/input.json",
@@ -155,7 +151,7 @@
     },
     {
       "path": "smoke/expected.json",
-      "sha256": "a0c7b8bb29ddbe3ec1f5fbcd68a14eea87a21d6fdc536cc5641157dcc9be9b57",
+      "sha256": "c57f0f5e6322f0a5708b97198f7170de1a83fd0f50e7d0b57aa2a95e0fdc9f16",
       "bytes": 24
     }
   ],

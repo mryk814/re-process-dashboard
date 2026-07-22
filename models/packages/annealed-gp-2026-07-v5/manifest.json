@@ -1,6 +1,6 @@
 {
   "schema_version": "model-package/v1",
-  "package_id": "annealed-gp-2026-07",
+  "package_id": "annealed-gp-2026-07-v5",
   "package_version": "0.9.0-input-contract-v2",
   "task_id": "annealed-properties-v1",
   "input_schema_version": "candidate-v2",
@@ -252,9 +252,9 @@
   ],
   "provenance": {
     "training_data_id": "sha256:8a83003d70d0656628a3b667f8e199f12b8a95a7a980688d7249891780c975ba",
-    "feature_dataset_id": "sha256:b89cdb374df8b94b4c49b819b73bed5c59352fc5f56ec87683e91f41c1bf29a9",
+    "feature_dataset_id": "sha256:e02b2eecd5c96da4bb39f1627221ba764065f90d0a0e08cc4cf87c28fa1c6646",
     "training_code_revision": "0.9.0-input-contract-v2",
-    "dataset_profile_id": "sha256:5448e006254fd0f1d3dd19169df54cce0f94de71a012b6067372b12cd0c9f882"
+    "dataset_profile_id": "sha256:68a10221c7e299ee7eba776911022c0057f8c23b109515238c247e394919b531"
   },
   "artifacts": [
     {
@@ -289,8 +289,8 @@
     },
     {
       "path": "reports/quality-report.json",
-      "sha256": "c57bc8eb092fcdedcea4d2b8b4ba14f4b28b0b1ca4fc43b2649253022a09a3c6",
-      "bytes": 845
+      "sha256": "279f78e7f15065b14ff3c364f41e38d04df9da16af23097590d44930633d2834",
+      "bytes": 862
     },
     {
       "path": "smoke/input.json",
