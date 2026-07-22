@@ -39,7 +39,7 @@
         "previous": null,
         "package_id": "annealed-gp-2026-07",
         "version": "0.9.0-input-contract-v2",
-        "manifest_sha256": "4146c3e9eb32b9f8f6aae547c2abe03040feafd2ce2a422731a32aa76cb4f0ac",
+        "manifest_sha256": "1cf2a2dc454b822e10993ca3d4652c1efcea589a8e2f6bafe4cccd7578d6f2fe",
         "runtime_types": [
           "builtin.exact_gp.v1"
         ]
@@ -82,10 +82,10 @@
       },
       "active_package": {
         "path": "packages/hot-rolled-horseshoe-2026-07",
-        "previous": "packages/hot-rolled-gp-2026-07",
+        "previous": null,
         "package_id": "hot-rolled-horseshoe-2026-07",
         "version": "1.0.0",
-        "manifest_sha256": "7dbe04af398358f55a2874934993db5d3c0f5eeda2d89349e515a8ba0382b31c",
+        "manifest_sha256": "183c0417544553c16ce3aacf046d712a6c0250c4521ddb456d6504bcfe8dd3d7",
         "runtime_types": [
           "builtin.posterior_linear.v1"
         ]
@@ -136,7 +136,7 @@
         "previous": null,
         "package_id": "flank-wear-gp-2026-07",
         "version": "0.1.0",
-        "manifest_sha256": "cfc787b362dcadd29e4904853c3fd559c3c6fc1a3444449083044a81e4d423fd",
+        "manifest_sha256": "c4b8d47cb42ff3b60a71e2544e7052714f1798324cd8fc6174d20e3f52d3dd07",
         "runtime_types": [
           "builtin.exact_gp.v1"
         ]

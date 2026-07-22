@@ -1,6 +1,7 @@
 {
   "schema_version": "model-quality-report/v1",
   "split": "leave-one-parent-condition-out",
+  "folds": null,
   "targets": [
     {
       "target": "VB_mean",

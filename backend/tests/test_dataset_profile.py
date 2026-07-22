@@ -30,6 +30,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "data" / "source" / "process_dashboard_realistic_excel_v2.xlsx"
 V3_SOURCE = ROOT / "data" / "source" / "process_dashboard_realistic_excel_v3.xlsx"
 V5_SOURCE = ROOT / "data" / "source" / "process_dashboard_two_equipment_v5.xlsx"
+V7_SOURCE = ROOT / "data" / "source" / "process_dashboard_two_equipment_v7.xlsx"
 PROFILE = ROOT / "backend" / "src" / "material_workbench" / "dataset-input-profile-v1.json"
 
 
@@ -402,7 +403,7 @@ def test_current_workbook_entity_and_eligibility_golden() -> None:
         key = (observation["source"], observation["eligible"])
         eligible[key] = eligible.get(key, 0) + 1
     assert eligible == {
-        ("熱延引張", True): 317, ("熱延引張", False): 71,
+        ("熱延引張", True): 370, ("熱延引張", False): 18,
         ("焼鈍引張", True): 283, ("焼鈍引張", False): 9,
         ("焼鈍穴広げ", True): 512, ("焼鈍穴広げ", False): 20,
     }
@@ -470,6 +471,50 @@ def test_v5_source_auto_selects_additional_profile_and_maps_concrete_stages() ->
     )
     assert reheat["stage_category"] == "REHEAT"
     assert reheat["mapping_status"] == "工程辞書一致"
+
+
+def test_v7_source_resolves_relation_parents_coalesces_measurements_and_derives_history() -> None:
+    assert detect_dataset_profile_path(V7_SOURCE).name == "dataset-input-profile-v7.json"
+    data = load_workbook_data(V7_SOURCE)
+
+    assert data.profile_id == "process-dashboard-two-equipment-v7"
+    assert len(data.composition) == 120
+    assert len(data.anneal_features) == 196
+    assert len(data.sheets["焼鈍履歴"]) == 3507
+    assert len(data.detected_quality) == 44
+
+    first = data.anneal_features["AN-00001"]
+    assert first["ls_mpm"] == pytest.approx(119.742)
+    assert first["input_points"] == 18
+    assert first["feature_eligible"] is True
+    assert first["unmapped_stage_count"] == 0
+    assert first["heat_pattern"][0] == {
+        "time_s": 0.0,
+        "temperature_c": 34.3,
+        "stage_name": "開始",
+        "stage_category": "ENTRY",
+        "mapping_status": "工程辞書一致",
+    }
+    assert {point["stage_name"] for feature in data.anneal_features.values() for point in feature["heat_pattern"]} == {
+        item.raw_name for item in load_dataset_profile(data.profile_path).stage_mappings
+    }
+
+    annealed = [row for row in data.observations if row["task_id"] == "annealed-properties-v1"]
+    tensile = [row for row in annealed if row["source"] == "焼鈍引張実績"]
+    assert len(tensile) == 292
+    assert all(row["parent_key"].startswith("AN-") for row in tensile)
+    assert sum("YS[MPa]" in row["outputs"] for row in tensile) == 292
+    assert sum("TS[MPa]" in row["outputs"] for row in tensile) == 292
+    assert sum("EL[%]" in row["outputs"] for row in tensile) == 292
+
+    hot = [row for row in data.observations if row["task_id"] == "hot-rolled-properties-v1"]
+    assert sum("TS[MPa]" in row["outputs"] for row in hot) == 348
+    assert any("TS[MPa]" in row["outputs"] and "一様伸び[%]" not in row["outputs"] for row in hot)
+    assert {row["test_direction"] for row in hot} == {"L", "C"}
+    assert {row["test_direction"] for row in hot if row["eligible"]} == {"L", "C"}
+    unresolved = next(row for row in hot if row["id"] == "HT-00388")
+    assert unresolved["eligible"] is False
+    assert unresolved["parent_key"] == ""
 
 
 def test_invalid_workbook_stops_before_runtime_and_database_initialization(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

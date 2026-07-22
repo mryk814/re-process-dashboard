@@ -33,7 +33,6 @@
       "annealing.learning_flag/v1": true,
       "anneal_features.anneal_feature_status/v1": true,
       "hot_tensile.valid_observation/v1": true,
-      "hot_tensile.hot_l_direction/v1": true,
       "anneal_tensile.valid_observation/v1": true,
       "anneal_hole.valid_observation/v1": true
     },

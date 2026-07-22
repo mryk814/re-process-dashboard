@@ -28,6 +28,9 @@ from material_workbench.task_registry import load_task_contracts
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "data" / "source" / "process_dashboard_realistic_excel_v2.xlsx"
+V7_SOURCE = ROOT / "data" / "source" / "process_dashboard_two_equipment_v7.xlsx"
+V7_ANNEALED_PACKAGE = ROOT / "models" / "packages" / "annealed-gp-2026-07-v7"
+V7_HOT_PACKAGE = ROOT / "models" / "packages" / "hot-rolled-horseshoe-2026-07-v7"
 
 
 def test_grouped_quality_report_requires_an_explicit_fold_count() -> None:
@@ -216,16 +219,26 @@ def test_app_startup_rejects_package_trained_from_a_different_source(tmp_path: P
             pass
 
 
-def test_hot_rolling_gp_rollback_reports_gp_prediction_identity(tmp_path: Path) -> None:
-    package = ROOT / "models" / "packages" / "hot-rolled-gp-2026-07"
-    app = create_app(SOURCE, tmp_path / "workbench.db", package_roots={"hot-rolled-properties-v1": package})
+def test_v7_source_and_packages_start_and_predict_through_the_api(tmp_path: Path) -> None:
+    app = create_app(
+        V7_SOURCE,
+        tmp_path / "v7-workbench.db",
+        package_roots={
+            "annealed-properties-v1": V7_ANNEALED_PACKAGE,
+            "hot-rolled-properties-v1": V7_HOT_PACKAGE,
+        },
+    )
     with TestClient(app) as client:
-        candidate = client.get("/api/projects/hot-rolling-default/candidates").json()[0]
-        response = client.post(
-            f"/api/projects/hot-rolling-default/candidates/{candidate['id']}/preview",
+        assert client.get("/api/health").json()["ok"] is True
+        assert client.get("/api/projects/default/model-package").json()["id"] == "annealed-gp-2026-07-v7"
+        assert client.get("/api/projects/hot-rolling-default/model-package").json()["id"] == "hot-rolled-horseshoe-2026-07-v7"
+
+        created = client.post("/api/projects/default/lineage/AN-00001/candidate")
+        assert created.status_code == 201
+        candidate = created.json()
+        preview = client.post(
+            f"/api/projects/default/candidates/{candidate['id']}/preview",
             params={"expected_revision": candidate["revision"]},
         )
-    assert response.status_code == 200
-    metadata = response.json()["model_meta"]
-    assert metadata["model"]["method"] == "Gaussian process regression"
-    assert metadata["prediction_interval"]["method"] == "gaussian_process_predictive_distribution"
+        assert preview.status_code == 200
+        assert set(preview.json()["predictions"]) == {"TS", "YS", "EL", "lambda"}

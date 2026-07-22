@@ -252,9 +252,9 @@
   ],
   "provenance": {
     "training_data_id": "sha256:d8197cc77ee5ffaef0a5ed75446acaaae56d5fab5b6b625383c99750b4fb57a5",
-    "feature_dataset_id": "sha256:9d52a4fe72805fb22b23a9f6367642b11f7a8a30862e77d00fe9c1025fbc00d5",
+    "feature_dataset_id": "sha256:4673155e9785af2eff3e89afdbc3524172744c9c2e38b36709377f88952e1297",
     "training_code_revision": "0.9.0-input-contract-v2",
-    "dataset_profile_id": "sha256:2d1e24c821d230807a125b35c7070fc7beac60fff20f21b7005d0d52bd002744"
+    "dataset_profile_id": "sha256:8514eb9a96ddba348751c14576c3ba0126680a597a1f0c23b41f9223a4f38997"
   },
   "artifacts": [
     {
@@ -289,8 +289,8 @@
     },
     {
       "path": "reports/quality-report.json",
-      "sha256": "ef9c45df4846300e10de401eb5348d9ed0b7527e0aaa45652538644478fd442b",
-      "bytes": 844
+      "sha256": "890f04a78b51186fd60f223f7a4954f2084f5dd9ca4af60d6393832a210ece6f",
+      "bytes": 861
     },
     {
       "path": "smoke/input.json",

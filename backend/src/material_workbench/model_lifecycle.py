@@ -135,6 +135,15 @@ def dataset_profile_digest(path: Path = DATASET_PROFILE_PATH) -> str:
         for key in ("policy_defaults", "optional_roles", "optional_technical_fields"):
             if not shared.get(key):
                 shared.pop(key, None)
+    for task in payload.get("tasks", {}).values():
+        for observation in task.get("observations", []):
+            if observation.get("parent_column") is None:
+                observation.pop("parent_column", None)
+            for target in (*observation.get("targets", []), *observation.get("auxiliary", [])):
+                if target.get("column") is None:
+                    target.pop("column", None)
+                if not target.get("columns"):
+                    target.pop("columns", None)
     return _semantic_digest(payload)
 
 
@@ -144,10 +153,14 @@ def canonical_training_dataset(
     contract: TaskContractFixture,
 ) -> dict[str, Any]:
     profile = load_dataset_profile(data.profile_path)
-    output_columns = {
-        target.key: target.column
+    profile_columns = {
+        target.key: target.source_columns
         for observation in profile.tasks[task_id].observations
         for target in observation.targets
+    }
+    output_columns = {
+        output.key: tuple(dict.fromkeys((*output.measurement_keys, *profile_columns.get(output.key, ()))))
+        for output in contract.task_definition.outputs
     }
     builder = task_module(task_id).feature_row_builder
     rows: list[dict[str, Any]] = []
@@ -157,11 +170,13 @@ def canonical_training_dataset(
         bundle = builder(observation, data.medians)
         if bundle is None:
             continue
-        outputs = {
-            output.key: float(observation["outputs"][output_columns[output.key]])
-            for output in contract.task_definition.outputs
-            if output_columns[output.key] in observation["outputs"]
-        }
+        outputs: dict[str, float] = {}
+        for output in contract.task_definition.outputs:
+            source_column = next(
+                (column for column in output_columns[output.key] if column in observation["outputs"]), None
+            )
+            if source_column is not None:
+                outputs[output.key] = float(observation["outputs"][source_column])
         if not outputs:
             continue
         rows.append({

@@ -7,7 +7,7 @@ from pathlib import Path
 from statistics import median
 from typing import Annotated, Any, Iterable, Literal, Mapping
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from .task_contracts import TaskDefinition
 
@@ -45,7 +45,6 @@ _REQUIRED_POLICIES = {
     ("annealing", "learning_flag/v1"),
     ("anneal_features", "anneal_feature_status/v1"),
     ("hot_tensile", "valid_observation/v1"),
-    ("hot_tensile", "hot_l_direction/v1"),
     ("anneal_tensile", "valid_observation/v1"),
     ("anneal_hole", "valid_observation/v1"),
 }
@@ -72,9 +71,11 @@ _UNIT_REGISTRY = {
     ("mass%", "%"): UnitConversion("mass%", "%"),
     ("%", "%"): UnitConversion("%", "%"),
     ("MPa", "MPa"): UnitConversion("MPa", "MPa"),
+    ("Mpa", "MPa"): UnitConversion("Mpa", "MPa"),
     ("mm", "mm"): UnitConversion("mm", "mm"),
     ("min", "min"): UnitConversion("min", "min"),
     ("s", "s"): UnitConversion("s", "s"),
+    ("秒", "s"): UnitConversion("秒", "s"),
     ("m/min", "m/min"): UnitConversion("m/min", "m/min"),
     ("m/min", "mpm"): UnitConversion("m/min", "mpm"),
     ("mpm", "mpm"): UnitConversion("mpm", "mpm"),
@@ -148,14 +149,27 @@ class FieldMapping(ProfileModel):
 
 class ObservationTarget(ProfileModel):
     key: str
-    column: str
+    column: str | None = None
+    columns: tuple[str, ...] = ()
     unit: str
+
+    @model_validator(mode="after")
+    def exactly_one_column_contract(self) -> "ObservationTarget":
+        if bool(self.column) == bool(self.columns):
+            raise ValueError("observation target requires either column or ordered columns")
+        if self.columns and (len(set(self.columns)) != len(self.columns) or any(not value.strip() for value in self.columns)):
+            raise ValueError("observation target columns must be unique and non-empty")
+        return self
+
+    @property
+    def source_columns(self) -> tuple[str, ...]:
+        return (self.column,) if self.column else self.columns
 
 
 class ObservationMapping(ProfileModel):
     role: str
     id_column: str
-    parent_column: str
+    parent_column: str | None = None
     parent_entity_type: str
     metadata_columns: Mapping[str, str]
     targets: tuple[ObservationTarget, ...]
@@ -187,7 +201,7 @@ class RelationMapping(ProfileModel):
 class PolicyColumnMapping(ProfileModel):
     role: str
     column: str
-    policy: Literal["learning_flag/v1", "anneal_feature_status/v1", "valid_observation/v1", "hot_l_direction/v1"]
+    policy: Literal["learning_flag/v1", "anneal_feature_status/v1", "valid_observation/v1"]
     accepted_values: Annotated[tuple[str, ...], Field(min_length=1)]
 
     @field_validator("accepted_values")
@@ -533,9 +547,13 @@ def validate_profile(profile: DatasetInputProfile, task_definitions: Mapping[str
                     f"{task_id}: observation {observation.role!r} references unknown parent entity type "
                     f"{observation.parent_entity_type!r}"
                 )
+            if observation.parent_column is None and observation.role not in entity_roles:
+                errors.append(
+                    f"{task_id}: relation-resolved observation {observation.role!r} must also be an entity role"
+                )
             measurements = (*observation.targets, *observation.auxiliary)
             measurement_keys = [target.key for target in measurements]
-            measurement_columns = [target.column for target in measurements]
+            measurement_columns = [column for target in measurements for column in target.source_columns]
             if len(measurement_keys) != len(set(measurement_keys)):
                 errors.append(f"{task_id}: observation {observation.role!r} measurement keys must be unique")
             if len(measurement_columns) != len(set(measurement_columns)):
@@ -608,12 +626,15 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
                 require(source.role, source.column)
         for observation in task.observations:
             role = observation.role
-            for key in ("id_column", "parent_column"):
-                require(role, str(getattr(observation, key)))
+            require(role, observation.id_column)
+            if observation.parent_column:
+                require(role, observation.parent_column)
             for target in observation.targets:
-                require(role, target.column)
+                for column in target.source_columns:
+                    require(role, column)
             for target in observation.auxiliary:
-                require(role, target.column)
+                for column in target.source_columns:
+                    require(role, column)
             for column in observation.metadata_columns.values():
                 require(role, str(column))
 
@@ -772,27 +793,62 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
                 continue
             headers = _headers(workbook[sheet_name])
             for target in (*observation.targets, *observation.auxiliary):
-                if target.column not in headers:
-                    continue
-                source_unit = _header_unit(target.column)
-                if unit_conversion(source_unit, target.unit) is None:
-                    errors.append(
-                        f"{task_id}: observation unit mismatch for {target.key!r}: "
-                        f"header declares {source_unit!r}, TaskDefinition declares {target.unit!r}"
-                    )
-            if observation.parent_column not in headers:
-                continue
-            parent_index = headers.index(observation.parent_column)
-            target_indices = [headers.index(target.column) for target in observation.targets if target.column in headers]
-            parent_count = 0
+                for column in target.source_columns:
+                    if column not in headers:
+                        continue
+                    source_unit = _header_unit(column)
+                    if unit_conversion(source_unit, target.unit) is None:
+                        errors.append(
+                            f"{task_id}: observation unit mismatch for {target.key!r}: "
+                            f"header {column!r} declares {source_unit!r}, TaskDefinition declares {target.unit!r}"
+                        )
+            parent_index = headers.index(observation.parent_column) if observation.parent_column in headers else None
+            target_indices = [
+                headers.index(column)
+                for target in observation.targets
+                for column in target.source_columns
+                if column in headers
+            ]
+            parent_count = 0 if parent_index is not None else None
             numeric_target_count = 0
             for row in workbook[sheet_name].iter_rows(min_row=2, values_only=True):
-                if parent_index < len(row) and row[parent_index] is not None and str(row[parent_index]).strip():
+                if parent_index is not None and parent_index < len(row) and row[parent_index] is not None and str(row[parent_index]).strip():
                     parent_count += 1
                 if any(index < len(row) and isinstance(row[index], (int, float)) for index in target_indices):
                     numeric_target_count += 1
             if parent_count == 0:
                 errors.append(f"{task_id}: observation role {observation.role!r} has no recognized parent key")
+            if parent_index is None:
+                source_entity = next((entity for entity in profile.shared.entities if entity.role == observation.role), None)
+                child_join = next((join for join in profile.shared.relation.joins if source_entity and join.entity_type == source_entity.type), None)
+                parent_join = next((join for join in profile.shared.relation.joins if join.entity_type == observation.parent_entity_type), None)
+                relation_headers = _headers(workbook[relation_sheet]) if relation_sheet in workbook.sheetnames else ()
+                if child_join and parent_join and child_join.column in relation_headers and parent_join.column in relation_headers:
+                    child_index = relation_headers.index(child_join.column)
+                    relation_parent_index = relation_headers.index(parent_join.column)
+                    known = {
+                        str(row[child_index])
+                        for row in workbook[relation_sheet].iter_rows(min_row=2, values_only=True)
+                        if child_index < len(row)
+                        and relation_parent_index < len(row)
+                        and row[child_index] is not None
+                        and str(row[child_index]).strip()
+                        and row[relation_parent_index] is not None
+                        and str(row[relation_parent_index]).strip()
+                    }
+                    id_index = headers.index(observation.id_column)
+                    resolved = sum(
+                        1
+                        for row in workbook[sheet_name].iter_rows(min_row=2, values_only=True)
+                        if id_index < len(row)
+                        and row[id_index] is not None
+                        and str(row[id_index]) in known
+                        and any(index < len(row) and isinstance(row[index], (int, float)) for index in target_indices)
+                    )
+                    if not resolved:
+                        errors.append(
+                            f"{task_id}: observation role {observation.role!r} has no numeric row with a relation parent"
+                        )
             if numeric_target_count == 0:
                 errors.append(f"{task_id}: observation role {observation.role!r} has no recognized numeric target")
     if errors:
@@ -941,33 +997,69 @@ def canonicalize_workbook(workbook: Any, profile: DatasetInputProfile) -> Canoni
         }
         for row in rows[profile.sheet_for_role(profile.shared.relation.role)]
     )
+    entity_type_by_role = {entity.role: entity.type for entity in profile.shared.entities}
+    relation_parents: dict[tuple[str, str, str], set[tuple[str, str]]] = {}
+    for relation in relations:
+        for child_type, child_identity in relation.items():
+            for parent_type, parent_identity in relation.items():
+                if child_type != parent_type:
+                    relation_parents.setdefault(
+                        (child_type, child_identity[1], parent_type), set()
+                    ).add(parent_identity)
+
+    def observation_value(row: Mapping[str, Any], target: ObservationTarget) -> float | None:
+        for column in target.source_columns:
+            value = row.get(column)
+            if isinstance(value, (int, float)):
+                return float(value)
+        return None
+
     observations: list[CanonicalObservation] = []
     for task_id, task in profile.tasks.items():
         for mapping in task.observations:
             sheet_name = profile.sheet_for_role(mapping.role)
             for row_number, row in enumerate(rows[sheet_name], start=2):
                 targets = {
-                    target.key: float(row[target.column])
-                    for target in mapping.targets if isinstance(row.get(target.column), (int, float))
+                    target.key: value
+                    for target in mapping.targets
+                    if (value := observation_value(row, target)) is not None
                 }
                 auxiliary = {
-                    target.key: float(row[target.column]) for target in mapping.auxiliary
-                    if isinstance(row.get(target.column), (int, float))
+                    target.key: value
+                    for target in mapping.auxiliary
+                    if (value := observation_value(row, target)) is not None
                 }
                 if not targets and not auxiliary:
                     continue
+                observation_id = str(row.get(mapping.id_column, ""))
+                if mapping.parent_column:
+                    parent_identity = (mapping.parent_entity_type, str(row.get(mapping.parent_column, "")))
+                else:
+                    source_entity_type = entity_type_by_role[mapping.role]
+                    parents = relation_parents.get(
+                        (source_entity_type, observation_id, mapping.parent_entity_type), set()
+                    )
+                    if len(parents) != 1:
+                        parent_identity = (mapping.parent_entity_type, "")
+                    else:
+                        parent_identity = next(iter(parents))
+                policy_results = {
+                    policy.policy: str(row.get(policy.column) or "") in policy.accepted_values
+                    for policy in profile.shared.eligibility if policy.role == mapping.role
+                }
+                for default_key, allowed in profile.shared.policy_defaults.items():
+                    role, policy = default_key.split(".", 1)
+                    if role == mapping.role:
+                        policy_results.setdefault(policy, bool(allowed))
                 observations.append(CanonicalObservation(
                     task_id=task_id, source_role=mapping.role,
-                    id=str(row.get(mapping.id_column, "")),
-                    parent_identity=(mapping.parent_entity_type, str(row.get(mapping.parent_column, ""))),
+                    id=observation_id,
+                    parent_identity=parent_identity,
                     targets=targets,
                     canonical_measurements={**targets, **auxiliary},
                     metadata={name: row.get(column) for name, column in mapping.metadata_columns.items()},
                     source_locator={"sheet": sheet_name, "row": row_number},
-                    policy_results={
-                        policy.policy: str(row.get(policy.column) or "") in policy.accepted_values
-                        for policy in profile.shared.eligibility if policy.role == mapping.role
-                    },
+                    policy_results=policy_results,
                 ))
         for field_mapping in task.mappings:
             if field_mapping.kind != "observation_scoped" or not field_mapping.column or not field_mapping.parent_entity_type:

@@ -70,10 +70,7 @@ def test_fixtures_freeze_complete_task_specific_input_sets() -> None:
         "process.hold_temperature_c",
         "process.hold_time_min",
     }
-    assert {item.path: item.value for item in hot_rolled.task_definition.fixed_context} == {
-        "context.equipment": "HR-LINE-1",
-        "context.test_direction": "L",
-    }
+    assert hot_rolled.task_definition.fixed_context == ()
     response_variables = annealed.task_definition.response_curve_variables
     assert [item.path for item in response_variables[:14]] == [f"composition.{name}" for name in ("C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N")]
     assert (response_variables[14].path, response_variables[14].time_transform) == ("process.ls_mpm", "inverse_heat_time")
@@ -94,7 +91,7 @@ def test_fixtures_freeze_complete_task_specific_input_sets() -> None:
     ("fixture_name", "source_name", "expected_parent_count"),
     [
         ("annealed-properties-v1.json", "焼鈍引張", 143),
-        ("hot-rolled-properties-v1.json", "熱延引張", 172),
+        ("hot-rolled-properties-v1.json", "熱延引張", 183),
     ],
 )
 def test_fixture_training_ranges_match_eligible_source_data(

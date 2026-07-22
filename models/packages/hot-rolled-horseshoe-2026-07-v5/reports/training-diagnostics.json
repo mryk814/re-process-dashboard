@@ -1,0 +1,10 @@
+{
+  "schema_version": "sampling-diagnostics/v1",
+  "chains": 2,
+  "draws_per_chain": 1024,
+  "warmup_per_chain": 1536,
+  "divergences": 0,
+  "minimum_effective_sample_size": 188.08711902307985,
+  "maximum_r_hat": 1.003308653831482,
+  "finite_export": true
+}

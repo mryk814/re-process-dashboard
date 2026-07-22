@@ -131,7 +131,7 @@ class HotRollingRuntime:
                     "source": " / ".join(sorted({str(repeat["source"]) for repeat in repeats})),
                     "layer": "training",
                     "parent_key": repeats[0]["parent_key"],
-                    "test_direction": "L",
+                    "test_direction": repeats[0].get("test_direction"),
                     "distance": round(float(distances[index]), 4),
                     "components": {
                         name: round(float(_distance(self.reference_vectors, normalized, columns)[int(index)]), 4)
@@ -198,8 +198,6 @@ class HotRollingRuntime:
                 },
             )
         process = {**candidate.inputs.process}
-        process["equipment"] = "HR-LINE-1"
-        process["test_direction"] = "L"
         is_horseshoe = any(
             item.runtime_type == "builtin.posterior_linear.v1" and item.config.get("method") == "regularized_horseshoe"
             for item in self.model_package.manifest.predictors
