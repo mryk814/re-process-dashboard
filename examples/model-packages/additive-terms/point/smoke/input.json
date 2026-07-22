@@ -1,0 +1,9 @@
+{
+  "predictor_id": "target",
+  "features": {
+    "x": 0.35,
+    "route_code": 1.0,
+    "z": 0.2
+  },
+  "seed": 11
+}

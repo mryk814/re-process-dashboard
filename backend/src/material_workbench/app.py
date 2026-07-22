@@ -24,6 +24,7 @@ from .hot_rolling import TASK_ID as HOT_ROLLING_TASK_ID, HotRollingRuntime
 from .inference_work_graph import InferenceKey, InferenceWorkGraph
 from .runtime import ModelRuntime, TASK_ID as ANNEALED_TASK_ID
 from .model_lifecycle import ACTIVE_PACKAGES_PATH, resolve_configured_package, validate_lifecycle_metadata
+from .model_packages import RUNTIME_TYPES
 from .schemas import (
     ApiError,
     ActualMeasurement,
@@ -337,14 +338,12 @@ def create_app(
             task_registry().contract_for(project.task_id),
             profile_path=Path(entry.predictor_runtime.data.profile_path),
         )
-        dependencies = {
-            "builtin.linear.v1": True,
-            "builtin.exact_gp.v1": True,
+        optional_dependencies = {
             "sklearn.skops.v1": importlib.util.find_spec("skops") is not None,
             "lightgbm.booster.v1": importlib.util.find_spec("lightgbm") is not None,
             "gpytorch.static_exact_rbf.v1": importlib.util.find_spec("torch") is not None and importlib.util.find_spec("safetensors") is not None,
-            "numpyro.dense_posterior.v1": True,
         }
+        dependencies = {runtime_type: optional_dependencies.get(runtime_type, True) for runtime_type in RUNTIME_TYPES}
         return {
             "id": manifest.package_id,
             "version": manifest.package_version,

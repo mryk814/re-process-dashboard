@@ -179,7 +179,7 @@ def test_builtin_linear_package_and_registry_are_dependency_free(tmp_path: Path)
     package = ModelPackageLoader().load(root)
     result = package.load_predictor("linear").predict({"C": 0.1, "Mn": 1.5})
     assert result.point_estimate == pytest.approx(5.7)
-    assert set(AdapterRegistry()._adapters) == {"builtin.linear.v1", "builtin.exact_gp.v1", "builtin.quantile_linear.v1", "sklearn.skops.v1", "lightgbm.booster.v1", "gpytorch.static_exact_rbf.v1", "numpyro.dense_posterior.v1"}
+    assert set(AdapterRegistry()._adapters) == {"builtin.linear.v1", "builtin.exact_gp.v1", "builtin.additive_terms.v1", "builtin.quantile_linear.v1", "sklearn.skops.v1", "lightgbm.booster.v1", "gpytorch.static_exact_rbf.v1", "numpyro.dense_posterior.v1"}
 
 
 def test_loader_rejects_hash_tampering_traversal_and_unknown_manifest_fields(tmp_path: Path) -> None:

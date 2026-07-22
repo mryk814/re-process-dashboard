@@ -1,0 +1,36 @@
+{
+  "summary": {
+    "target": "synthetic_response",
+    "target_kind": "continuous",
+    "unit": "a.u.",
+    "point_statistic": "mean",
+    "point_estimate": 5.953018025382949,
+    "quantiles": {
+      "0.05": 5.918247023643353,
+      "0.5": 5.953018025382949,
+      "0.95": 5.987789027122545
+    },
+    "event_probability": null,
+    "distribution": {
+      "family": "normal",
+      "support": "real",
+      "std": 0.021139268060003408
+    },
+    "uncertainty_components": null,
+    "warnings": []
+  },
+  "capability": {
+    "target": "synthetic_response",
+    "point_statistics": [
+      "mean"
+    ],
+    "standard_deviation": true,
+    "quantiles": true,
+    "samples": false,
+    "parametric_distribution": true,
+    "uncertainty_components": false,
+    "support": true,
+    "warnings": true,
+    "goal_probability": "normal_approximation"
+  }
+}

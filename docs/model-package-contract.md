@@ -59,6 +59,7 @@
 | runtime type | 安全な資産 | 制約 |
 |---|---|---|
 | `builtin.linear.v1` | `.npz` | `weights/bias/lower_offset/upper_offset`のみ |
+| `builtin.additive_terms.v1` | `.npz`、`allow_pickle=False` | identity linkのlinear / B-spline / categorical lookup項。寄与は型付き説明契約で返す |
 | `builtin.exact_gp.v1` | `.npz`、`allow_pickle=False` | `exact_rbf_grouped_v1`の既知array schemaだけ。`predictive_family`は`normal`または`lognormal`（後者は`config.latent_transform=log1p`必須で、GPは`log(1+target)`空間、予測は単調変換で元単位へ戻す） |
 | `builtin.quantile_linear.v1` | `.npz`、`allow_pickle=False` | 固定分位点ごとの係数と切片。中央値必須、分位点交差は並べ替えず拒否する |
 | `sklearn.skops.v1` | `.skops` | アプリ固定の`estimator_family` allow-list外を拒否。manifestによる型自己申告、custom transformerは禁止 |

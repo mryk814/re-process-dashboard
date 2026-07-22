@@ -1,0 +1,99 @@
+{
+  "schema_version": "model-package/v1",
+  "package_id": "additive-terms-point-example",
+  "package_version": "1.0.0",
+  "task_id": "model-runtime-example",
+  "input_schema_version": "example-input/v1",
+  "feature_pipeline": {
+    "id": "additive-three-feature-example",
+    "version": "1.0.0",
+    "spec": "feature-pipeline/pipeline.json",
+    "canonical_input_paths": [
+      "composition.x",
+      "categorical.route_code",
+      "process.z"
+    ],
+    "output_features": [
+      "x",
+      "route_code",
+      "z"
+    ],
+    "artifacts": []
+  },
+  "predictors": [
+    {
+      "id": "target",
+      "target": "synthetic_response",
+      "unit": "a.u.",
+      "target_kind": "continuous",
+      "runtime_type": "builtin.additive_terms.v1",
+      "architecture_id": "additive_terms_v1",
+      "artifact": "model-artifacts/additive.npz",
+      "predictive_family": "empirical_quantiles",
+      "feature_names": [
+        "x",
+        "route_code",
+        "z"
+      ],
+      "config": {
+        "link_id": "identity",
+        "extrapolation": "constant_boundary",
+        "terms": [
+          {
+            "id": "x_spline",
+            "kind": "bspline_univariate",
+            "feature_index": 0,
+            "degree": 2
+          },
+          {
+            "id": "route",
+            "kind": "categorical_lookup",
+            "feature_index": 1
+          },
+          {
+            "id": "z_linear",
+            "kind": "linear",
+            "feature_index": 2
+          }
+        ]
+      }
+    }
+  ],
+  "provenance": {
+    "training_data_id": "synthetic:additive-known-terms",
+    "feature_dataset_id": "synthetic:x-route-z-grid",
+    "training_code_revision": "build_additive_model_examples.py:numpy-lstsq"
+  },
+  "artifacts": [
+    {
+      "path": "feature-pipeline/pipeline.json",
+      "sha256": "63942231e46715c2e4920e09063911a1aaeb4c45547a56fe253a7642d71067a2",
+      "bytes": 576
+    },
+    {
+      "path": "model-artifacts/additive.npz",
+      "sha256": "931a746814018192ecec76f4206103b0782cbc92ce04ecff24d8f5da501964e2",
+      "bytes": 1744
+    },
+    {
+      "path": "smoke/input.json",
+      "sha256": "fc86044cca2fcb736f143cfd5b653b4841e747a08f0b35948796ca920094d2d3",
+      "bytes": 116
+    },
+    {
+      "path": "smoke/expected.json",
+      "sha256": "59d695ffe1c750bc0a69fddc40f4eef11b81e383b4f7c8e287f04b6f5bbf38e6",
+      "bytes": 722
+    },
+    {
+      "path": "reports/quality-report.json",
+      "sha256": "d0526c5e34686b97983201221668282fe46b3b462a65a132abdac6f201fdacae",
+      "bytes": 361
+    }
+  ],
+  "smoke_test": {
+    "input": "smoke/input.json",
+    "expected": "smoke/expected.json"
+  },
+  "quality_report": "reports/quality-report.json"
+}

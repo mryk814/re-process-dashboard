@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backend" / "scripts"))
 
 import build_quantile_model_example as quantile_builder  # noqa: E402
+import build_additive_model_examples as additive_builder  # noqa: E402
 
 
 def _replace_model_artifact(root: Path, **arrays: np.ndarray) -> None:
@@ -76,3 +77,91 @@ def test_quantile_adapter_rejects_crossing_instead_of_sorting_it(tmp_path: Path)
 
     with pytest.raises(PackageContractError, match="cross"):
         predictor.predict({"x": 2.0, "scale": 0.0})
+
+
+def test_additive_examples_verify_explain_and_keep_capability_difference(tmp_path: Path) -> None:
+    destination = tmp_path / "additive"
+    additive_builder.build(destination)
+    point_package = ModelPackageLoader().load(destination / "point")
+    normal_package = ModelPackageLoader().load(destination / "normal")
+    features = {"x": 0.35, "route_code": 1.0, "z": 0.2}
+    point_predictor = point_package.load_predictor("target")
+    normal_predictor = normal_package.load_predictor("target")
+
+    point = point_predictor.predict(features)
+    normal = normal_predictor.predict(features)
+    explanation = point_predictor.explain(features)
+
+    assert verify_model_package_example(destination / "point").quality_metrics["explanation_reconstruction_error"] == pytest.approx(0)
+    assert verify_model_package_example(destination / "normal").quality_metrics["explanation_reconstruction_error"] == pytest.approx(0)
+    assert point.quantiles == {} and point.distribution["family"] == "empirical_quantiles"
+    assert normal.quantiles["0.05"] < normal.point_estimate < normal.quantiles["0.95"]
+    assert normal.distribution["std"] > 0
+    assert explanation.intercept + sum(term.contribution for term in explanation.terms) == pytest.approx(explanation.link_score)
+    assert explanation.prediction == pytest.approx(point.point_estimate)
+    assert {term.kind for term in explanation.terms} == {"linear", "bspline_univariate", "categorical_lookup"}
+
+
+def test_additive_response_curve_runs_from_canonical_input_through_declared_feature_order(tmp_path: Path) -> None:
+    destination = tmp_path / "additive"
+    additive_builder.build(destination)
+    package = ModelPackageLoader().load(destination / "point")
+    predictor = package.load_predictor("target")
+    canonical = {"composition.x": 0.0, "categorical.route_code": 1.0, "process.z": 0.2}
+    paths = package.manifest.feature_pipeline.canonical_input_paths
+    names = package.manifest.feature_pipeline.output_features
+    curve = []
+    for value in np.linspace(0, 1, 9):
+        canonical["composition.x"] = float(value)
+        feature_bundle = {name: canonical[path] for path, name in zip(paths, names)}
+        curve.append(predictor.predict(feature_bundle).point_estimate)
+
+    assert max(curve) - min(curve) > 0.5
+    assert all(np.isfinite(curve))
+
+
+def test_additive_adapter_rejects_unknown_terms_shapes_nonfinite_and_categories(tmp_path: Path) -> None:
+    destination = tmp_path / "additive"
+    additive_builder.build(destination)
+    root = destination / "point"
+    manifest_path = root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["predictors"][0]["config"]["terms"][0]["kind"] = "python_callback"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(PackageContractError, match="identity, kind, or feature index"):
+        ModelPackageLoader().load(root).load_predictor("target")
+
+    additive_builder.build(destination, replace=True)
+    root = destination / "point"
+    artifact = root / "model-artifacts" / "additive.npz"
+    with np.load(artifact, allow_pickle=False) as current:
+        arrays = {name: current[name] for name in current.files}
+    arrays["term_0_coefficients"] = np.asarray([np.nan])
+    np.savez(artifact, **arrays)
+    manifest_path = root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    entry = next(item for item in manifest["artifacts"] if item["path"] == "model-artifacts/additive.npz")
+    entry.update(sha256=hashlib.sha256(artifact.read_bytes()).hexdigest(), bytes=artifact.stat().st_size)
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(PackageContractError, match="finite"):
+        ModelPackageLoader().load(root).load_predictor("target")
+
+    additive_builder.build(destination, replace=True)
+    root = destination / "point"
+    artifact = root / "model-artifacts" / "additive.npz"
+    with np.load(artifact, allow_pickle=False) as current:
+        arrays = {name: current[name] for name in current.files}
+    arrays["term_0_coefficients"] = np.asarray([1.0, 2.0])
+    np.savez(artifact, **arrays)
+    manifest_path = root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    entry = next(item for item in manifest["artifacts"] if item["path"] == "model-artifacts/additive.npz")
+    entry.update(sha256=hashlib.sha256(artifact.read_bytes()).hexdigest(), bytes=artifact.stat().st_size)
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(PackageContractError, match="incompatible shapes"):
+        ModelPackageLoader().load(root).load_predictor("target")
+
+    additive_builder.build(destination, replace=True)
+    predictor = ModelPackageLoader().load(destination / "point").load_predictor("target")
+    with pytest.raises(PackageContractError, match="unknown category"):
+        predictor.predict({"x": 0.3, "route_code": 99.0, "z": 0.2})
