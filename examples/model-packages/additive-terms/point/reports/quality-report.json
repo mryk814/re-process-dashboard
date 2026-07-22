@@ -1,0 +1,12 @@
+{
+  "schema_version": "model-example-quality/v1",
+  "evaluation_unit": "synthetic x-route-z grid",
+  "metrics": {
+    "training_rmse": 0.021139182624758494,
+    "explanation_reconstruction_error": 0.0,
+    "response_curve_span": 1.9943606791695068
+  },
+  "notes": [
+    "Local term contributions describe this additive score; they are not causal effects."
+  ]
+}

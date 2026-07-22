@@ -10,11 +10,15 @@ from zipfile import ZIP_DEFLATED, ZipFile
 import numpy as np
 import pytest
 
+from material_workbench.model_package_verify import verify_model_package_example
 from material_workbench.model_packages import (
     AdapterRegistry,
     ModelPackageLoader,
     PackageContractError,
+    PredictiveSummary,
+    PredictorSpec,
     ordered_canonical_input_paths,
+    validate_predictive_summary,
     validate_task_definition_canonical_inputs,
 )
 from material_workbench.task_contracts import TaskContractFixture
@@ -64,6 +68,7 @@ def _write_package(tmp_path: Path, *, family: str = "student_t", target_kind: st
     config: dict[str, object] = {"activation": "tanh"}
     if family == "ordinal_logit":
         config["thresholds"] = [-0.5, 0.7]
+        config["categories"] = ["low", "middle", "high"]
     manifest = {
         "schema_version": "model-package/v1", "package_id": f"fixture-{family}", "package_version": "1", "task_id": "test", "input_schema_version": "candidate-v1",
         "feature_pipeline": {"id": "test-pipeline", "version": "1", "spec": "feature-pipeline/pipeline.json", "canonical_input_paths": ["composition.C", "composition.Mn"], "output_features": ["C", "Mn"], "artifacts": []},
@@ -95,8 +100,63 @@ def test_numpyro_dense_posterior_likelihoods_are_deterministic_and_semantic(tmp_
         assert 0 <= first.point_estimate <= 1 and first.event_probability == first.point_estimate
     if family in {"lognormal", "poisson_log", "negative_binomial_log", "zero_inflated_poisson_log"}:
         assert first.point_estimate >= 0 and first.quantiles["0.05"] >= 0
+    if target_kind in {"count", "ordinal"}:
+        assert all(float(value).is_integer() for value in first.quantiles.values())
     if family == "ordinal_logit":
         assert 0 <= first.point_estimate <= 2
+
+
+@pytest.mark.parametrize(
+    ("spec", "summary", "message"),
+    [
+        (
+            PredictorSpec(id="p", target="y", unit="1", target_kind="binary", runtime_type="numpyro.dense_posterior.v1", architecture_id="dense_mlp_v1", artifact="m.npz", predictive_family="bernoulli_logit", feature_names=("x",)),
+            PredictiveSummary(target="y", target_kind="binary", unit="1", point_statistic="probability", point_estimate=0.4, event_probability=0.6, quantiles={"0.05": 0.2, "0.95": 0.8}, distribution={"family": "bernoulli_logit", "support": "{0,1}"}),
+            "binary probability semantics",
+        ),
+        (
+            PredictorSpec(id="p", target="y", unit="1", target_kind="count", runtime_type="numpyro.dense_posterior.v1", architecture_id="dense_mlp_v1", artifact="m.npz", predictive_family="poisson_log", feature_names=("x",)),
+            PredictiveSummary(target="y", target_kind="count", unit="1", point_statistic="rate", point_estimate=-0.1, quantiles={"0.05": 0.0, "0.95": 2.0}, distribution={"family": "poisson_log", "support": "nonnegative_integers"}),
+            "nonnegative support",
+        ),
+        (
+            PredictorSpec(id="p", target="y", unit="1", target_kind="count", runtime_type="numpyro.dense_posterior.v1", architecture_id="dense_mlp_v1", artifact="m.npz", predictive_family="poisson_log", feature_names=("x",)),
+            PredictiveSummary(target="y", target_kind="count", unit="1", point_statistic="rate", point_estimate=1.2, quantiles={"0.05": 0.0, "0.95": 2.5}, distribution={"family": "poisson_log", "support": "nonnegative_integers"}),
+            "non-discrete quantiles",
+        ),
+        (
+            PredictorSpec(id="p", target="y", unit="MPa", target_kind="ordinal", runtime_type="numpyro.dense_posterior.v1", architecture_id="dense_mlp_v1", artifact="m.npz", predictive_family="ordinal_logit", feature_names=("x",)),
+            PredictiveSummary(target="y", target_kind="ordinal", unit="MPa", point_statistic="expected_category", point_estimate=1.2, quantiles={"0.05": 0.0, "0.95": 2.0}, distribution={"family": "ordinal_logit", "support": "ordered_categories", "categories": ["a", "b", "c"]}),
+            "dimensionless unit",
+        ),
+    ],
+)
+def test_predictive_summary_rejects_invalid_noncontinuous_semantics(spec: PredictorSpec, summary: PredictiveSummary, message: str) -> None:
+    with pytest.raises(PackageContractError, match=message):
+        validate_predictive_summary(summary, spec)
+
+
+def test_numpyro_adapter_rejects_invalid_scale_and_ordinal_metadata_at_load(tmp_path: Path) -> None:
+    normal_root = _write_package(tmp_path / "normal", family="normal")
+    artifact = normal_root / "model-artifacts" / "posterior.npz"
+    with np.load(artifact, allow_pickle=False) as current:
+        arrays = {name: current[name] for name in current.files}
+    arrays["obs_scale"] = np.full(12, -0.1)
+    np.savez(artifact, **arrays)
+    manifest_path = normal_root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["artifacts"][1] = _artifact(artifact, "model-artifacts/posterior.npz")
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(PackageContractError, match="obs_scale must be positive"):
+        ModelPackageLoader().load(normal_root).load_predictor("target")
+
+    ordinal_root = _write_package(tmp_path / "ordinal", family="ordinal_logit", target_kind="ordinal")
+    ordinal_manifest_path = ordinal_root / "manifest.json"
+    ordinal_manifest = json.loads(ordinal_manifest_path.read_text(encoding="utf-8"))
+    ordinal_manifest["predictors"][0]["config"]["categories"] = ["too", "short"]
+    ordinal_manifest_path.write_text(json.dumps(ordinal_manifest), encoding="utf-8")
+    with pytest.raises(PackageContractError, match="category metadata"):
+        ModelPackageLoader().load(ordinal_root).load_predictor("target")
 
 
 def test_builtin_linear_package_and_registry_are_dependency_free(tmp_path: Path) -> None:
@@ -126,7 +186,7 @@ def test_builtin_linear_package_and_registry_are_dependency_free(tmp_path: Path)
     package = ModelPackageLoader().load(root)
     result = package.load_predictor("linear").predict({"C": 0.1, "Mn": 1.5})
     assert result.point_estimate == pytest.approx(5.7)
-    assert set(AdapterRegistry()._adapters) == {"builtin.linear.v1", "builtin.exact_gp.v1", "sklearn.skops.v1", "lightgbm.booster.v1", "gpytorch.static_exact_rbf.v1", "numpyro.dense_posterior.v1"}
+    assert set(AdapterRegistry()._adapters) == {"builtin.linear.v1", "builtin.exact_gp.v1", "builtin.additive_terms.v1", "builtin.quantile_linear.v1", "builtin.posterior_linear.v1", "sklearn.skops.v1", "lightgbm.booster.v1", "gpytorch.static_exact_rbf.v1", "numpyro.dense_posterior.v1"}
 
 
 def test_loader_rejects_hash_tampering_traversal_and_unknown_manifest_fields(tmp_path: Path) -> None:
@@ -225,7 +285,7 @@ def test_loader_rejects_unknown_pipeline_document_fields(tmp_path: Path) -> None
     ("task_id", "package_id", "package_version", "pipeline_version"),
     [
         ("annealed-properties-v1", "annealed-gp-2026-07", "0.9.0-input-contract-v2", "2.0.0"),
-        ("hot-rolled-properties-v1", "hot-rolled-gp-2026-07", "0.5.0-input-contract-v2", "2.0.0"),
+        ("hot-rolled-properties-v1", "hot-rolled-horseshoe-2026-07", "1.0.0", "2.0.0"),
     ],
 )
 def test_checked_in_packages_match_task_definition_canonical_input_order(
@@ -319,5 +379,7 @@ def test_checked_in_numpyro_examples_are_all_loadable() -> None:
     for root in package_roots:
         package = ModelPackageLoader().load(root)
         result = package.load_predictor("target").predict({"C": 0.08, "Mn": 1.5}, seed=7)
+        report = verify_model_package_example(root)
         assert np.isfinite(result.point_estimate)
         assert result.quantiles["0.05"] <= result.quantiles["0.50"] <= result.quantiles["0.95"]
+        assert report.quality_metrics

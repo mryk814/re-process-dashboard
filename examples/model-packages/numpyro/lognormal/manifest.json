@@ -3,7 +3,7 @@
   "package_id": "numpyro-lognormal-example",
   "package_version": "1.0.0",
   "task_id": "model-package-example",
-  "input_schema_version": "candidate-v1",
+  "input_schema_version": "candidate-v2",
   "feature_pipeline": {
     "id": "two-feature-example",
     "version": "1.0.0",
@@ -52,6 +52,26 @@
       "path": "model-artifacts/posterior.npz",
       "sha256": "b94199b5c0eef1c6e31eabc6603f1070908cc8811328bde4e6e6292890d4f4ba",
       "bytes": 10432
+    },
+    {
+      "path": "smoke/input.json",
+      "sha256": "6ec695207d1cedfcf529a27552f3b938b29fd65c95d3bbaba8dd96db233e4eec",
+      "bytes": 93
+    },
+    {
+      "path": "smoke/expected.json",
+      "sha256": "2ef0112b9511e26b0a80bb2e8b7a6d8373f27ecaf11fe148afd730cb50304528",
+      "bytes": 808
+    },
+    {
+      "path": "reports/quality-report.json",
+      "sha256": "47cdf9fb257aec71f5c5a9071076103d70228449b3f15a35e91c3a9170711b06",
+      "bytes": 346
     }
-  ]
+  ],
+  "smoke_test": {
+    "input": "smoke/input.json",
+    "expected": "smoke/expected.json"
+  },
+  "quality_report": "reports/quality-report.json"
 }

@@ -1,0 +1,45 @@
+{
+  "schema_version": "predictive-mixture-design/v1",
+  "combination": "distribution_mixture",
+  "target": "synthetic_response",
+  "target_kind": "continuous",
+  "unit": "a.u.",
+  "predictive_family": "empirical_quantiles",
+  "capability_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "components": [
+    {
+      "package_id": "package-a",
+      "predictor_id": "target",
+      "package_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "target": "synthetic_response",
+      "target_kind": "continuous",
+      "unit": "a.u.",
+      "predictive_family": "empirical_quantiles",
+      "capability_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "weight": 0.65
+    },
+    {
+      "package_id": "package-b",
+      "predictor_id": "target",
+      "package_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "target": "synthetic_response",
+      "target_kind": "continuous",
+      "unit": "a.u.",
+      "predictive_family": "empirical_quantiles",
+      "capability_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "weight": 0.35
+    }
+  ],
+  "weight_provenance": {
+    "method": "stacking of predictive distributions",
+    "evaluation_unit": "parent-condition block",
+    "cross_validation": "nested leave-one-parent-block-out",
+    "training_data_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "code_revision": "design-fixture:not-a-runtime"
+  },
+  "golden_component_means": {
+    "package-a::target": 10.0,
+    "package-b::target": 20.0
+  },
+  "golden_mixture_mean": 13.5
+}

@@ -32,7 +32,7 @@ from .flank_wear_feature_pipeline import (
     build_flank_wear_features,
     build_flank_wear_features_from_observation,
 )
-from .model_packages import ModelPackageLoader, validate_predictive_summary, validate_task_definition_canonical_inputs
+from .model_packages import ModelPackageLoader, predictive_interval, validate_predictive_summary, validate_task_definition_canonical_inputs
 from .dataset_profile import load_task_definitions
 from .schemas import Candidate, CandidateInput, Prediction, Support
 from .task_registry import load_task_contracts
@@ -260,8 +260,8 @@ class FlankWearRuntime:
         smoke = self.model_package.manifest.smoke_test
         if not smoke:
             raise ValueError("Flank-wear model package must declare a smoke test")
-        candidate = CandidateInput.model_validate(json.loads(self.model_package.artifact_path(smoke["input"]).read_text(encoding="utf-8")))
-        expected = json.loads(self.model_package.artifact_path(smoke["expected"]).read_text(encoding="utf-8"))
+        candidate = CandidateInput.model_validate(json.loads(self.model_package.artifact_path(smoke.input).read_text(encoding="utf-8")))
+        expected = json.loads(self.model_package.artifact_path(smoke.expected).read_text(encoding="utf-8"))
         values = build_flank_wear_features(candidate, self.composition_defaults).as_dict()
         specs = {spec.target: spec for spec in self.model_package.manifest.predictors}
         capabilities = {item.target: item for item in load_task_contracts()[TASK_ID].runtime_capability.targets}
@@ -392,11 +392,17 @@ class FlankWearRuntime:
             warnings.extend(summary.warnings)
             goal_value = (target_values or {}).get(target)
             goal_probability = None if goal_value is None else self._goal_probability(summary, goal_value)
+            lower, upper = predictive_interval(summary)
             predictions[target] = Prediction(
                 value=round(summary.point_estimate, 3),
-                lower=round(summary.quantiles.get("0.05", summary.point_estimate), 3),
-                upper=round(summary.quantiles.get("0.95", summary.point_estimate), 3),
+                lower=round(lower, 3),
+                upper=round(upper, 3),
                 unit=summary.unit,
+                target_kind=summary.target_kind,
+                point_statistic=summary.point_statistic,
+                predictive_family=summary.distribution.get("family", "empirical_quantiles"),
+                quantiles={level: round(float(item), 6) for level, item in summary.quantiles.items()},
+                categories=list(summary.distribution.get("categories", [])),
                 goal_value=goal_value,
                 goal_probability=None if goal_probability is None else round(goal_probability, 4),
                 goal_direction=None if goal_value is None else "at_most",
@@ -533,11 +539,17 @@ class FlankWearRuntime:
             self._set_curve_variable(adjusted, axis, float(x_value))
             summary = self.predictors[target].predict(build_flank_wear_features(adjusted, self.composition_defaults).as_dict())
             value = summary.point_estimate
+            lower, upper = predictive_interval(summary)
             curve.append({
                 "x": round(float(x_value), 4),
                 "value": round(value, 3),
-                "lower": round(summary.quantiles.get("0.05", value), 3),
-                "upper": round(summary.quantiles.get("0.95", value), 3),
+                "lower": round(lower, 3),
+                "upper": round(upper, 3),
+                "target_kind": summary.target_kind,
+                "point_statistic": summary.point_statistic,
+                "predictive_family": summary.distribution.get("family", "empirical_quantiles"),
+                "quantiles": {level: round(float(item), 6) for level, item in summary.quantiles.items()},
+                "categories": list(summary.distribution.get("categories", [])),
             })
         return curve
 

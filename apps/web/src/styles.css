@@ -1,5 +1,5 @@
 :root {
-  --topbar-height: 53px;
+  --topbar-height: 48px;
   font-family: "Noto Sans JP", "Yu Gothic UI", Meiryo, system-ui, sans-serif;
   color: #18202c;
   background: #f5f7fa;
@@ -40,7 +40,7 @@ select:focus-visible,
   outline-offset: 2px;
 }
 .topbar {
-  height: 53px;
+  height: var(--topbar-height);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -53,7 +53,7 @@ select:focus-visible,
   box-shadow: 0 1px 4px rgba(15, 27, 45, 0.24);
 }
 .brand {
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 700;
   letter-spacing: 0.01em;
   display: flex;
@@ -72,62 +72,32 @@ select:focus-visible,
   color: #e6edf5;
   font-weight: 600;
   padding: 0 13px;
-  font-size: 15px;
+  font-size: 14px;
 }
 .nav-button:hover {
   background: rgba(255, 255, 255, 0.07);
 }
-.nav-button.active:after {
-  content: "";
-  position: absolute;
-  bottom: 0;
-  left: 10px;
-  right: 10px;
-  height: 3px;
-  background: #2981ec;
-}
 .context-bar {
-  min-height: 71px;
+  min-height: 76px;
   position: sticky;
   top: var(--topbar-height);
   z-index: 90;
   background: #fff;
   border-bottom: 1px solid #d8e0ea;
-  padding: 10px 18px 12px 23px;
+  padding: 8px 18px 0 23px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  box-shadow: 0 2px 7px rgba(15, 27, 45, 0.08);
+}
+.context-primary-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  box-shadow: 0 2px 7px rgba(15, 27, 45, 0.08);
-}
-.context-heading {
-  flex: 1 1 auto;
   min-width: 0;
 }
-.context-title-row {
-  display: flex;
-  align-items: center;
-  gap: 22px;
-  min-width: 0;
-}
-.context-breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: #7a8798;
-  font-size: 11px;
-  line-height: 1.2;
-}
-.context-breadcrumb-link {
-  border: 0;
-  background: transparent;
-  padding: 0;
-  color: #1f5fc4;
-  font-size: inherit;
-  cursor: pointer;
-}
-.context-breadcrumb-link:hover { text-decoration: underline; }
-.context-breadcrumb strong { color: #526276; font-weight: 700; }
 .overline {
   display: block;
   color: #697789;
@@ -139,17 +109,17 @@ select:focus-visible,
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 21px;
-  margin: 4px 0 0;
+  font-size: 20px;
+  margin: 0;
   line-height: 1.2;
   white-space: nowrap;
 }
 .project-nav {
-  flex: 0 0 auto;
+  flex: 0 0 36px;
   display: flex;
   align-items: center;
   gap: 2px;
-  align-self: stretch;
+  align-self: flex-start;
   min-width: 0;
 }
 .project-nav-button {
@@ -157,7 +127,8 @@ select:focus-visible,
   border: 0;
   background: transparent;
   color: #526276;
-  padding: 7px 10px 6px;
+  min-height: 36px;
+  padding: 7px 11px 8px;
   font-size: 13px;
   font-weight: 650;
   white-space: nowrap;
@@ -280,11 +251,11 @@ table input[type="number"] { text-align: right; font-variant-numeric: tabular-nu
   box-shadow: none;
   cursor: not-allowed;
 }
-.notice {
-  max-width: 360px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.workspace-notice {
+  min-height: 29px;
+  padding: 6px 23px;
+  border-bottom: 1px solid #d8e0ea;
+  background: #f8fafc;
   font-size: 12px;
   color: #5d6775;
 }
@@ -340,7 +311,7 @@ table input[type="number"] { text-align: right; font-variant-numeric: tabular-nu
   font-size: 14px;
 }
 @media (max-width: 1250px) {
-  .run-actions { flex-wrap: wrap; justify-content: flex-end; }
+  .run-actions { justify-content: flex-end; }
   .brand {
     font-size: 17px;
   }
@@ -364,7 +335,7 @@ table input[type="number"] { text-align: right; font-variant-numeric: tabular-nu
   }
 }
 @media (max-width: 660px) {
-  :root { --topbar-height: 52px; }
+  :root { --topbar-height: 48px; }
   .topbar {
     height: auto;
     min-height: 52px;
@@ -381,11 +352,9 @@ table input[type="number"] { text-align: right; font-variant-numeric: tabular-nu
   }
   .context-bar {
     min-width: 0;
-    align-items: flex-start;
-    padding: 11px 13px;
-    flex-direction: column;
+    padding: 8px 13px 0;
   }
-  .context-title-row {
+  .context-primary-row {
     align-items: flex-start;
     flex-direction: column;
     gap: 6px;
@@ -401,6 +370,7 @@ table input[type="number"] { text-align: right; font-variant-numeric: tabular-nu
     width: 100%;
     flex-wrap: wrap;
   }
+  .workspace-notice { padding-inline: 13px; }
   .outline-button,
   .primary-button {
     font-size: 13px;

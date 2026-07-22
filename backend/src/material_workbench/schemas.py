@@ -218,10 +218,34 @@ class Prediction(BaseModel):
     lower: float
     upper: float
     unit: str
+    target_kind: Literal["continuous", "continuous_positive", "binary", "count", "ordinal"]
+    point_statistic: Literal["mean", "median", "probability", "rate", "expected_category"]
+    predictive_family: str
+    quantiles: dict[str, float]
+    categories: list[str] = Field(default_factory=list)
     goal_value: float | None = None
     goal_probability: Annotated[float | None, Field(ge=0, le=1)] = None
     goal_direction: Literal["at_least", "at_most"] | None = None
     uncertainty_components: dict[str, float] | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def preserve_legacy_snapshot_semantics(cls, value: Any) -> Any:
+        """Read immutable v1 snapshots without pretending they were re-predicted."""
+        if not isinstance(value, dict):
+            return value
+        migrated = dict(value)
+        migrated.setdefault("target_kind", "continuous")
+        migrated.setdefault("point_statistic", "mean")
+        migrated.setdefault("predictive_family", "empirical_quantiles")
+        if "quantiles" not in migrated:
+            quantiles: dict[str, float] = {}
+            if "lower" in migrated:
+                quantiles["0.05"] = migrated["lower"]
+            if "upper" in migrated:
+                quantiles["0.95"] = migrated["upper"]
+            migrated["quantiles"] = quantiles
+        return migrated
 
 
 class RepeatSummary(BaseModel):
@@ -418,6 +442,11 @@ class CurvePoint(BaseModel):
     value: float
     lower: float
     upper: float
+    target_kind: Literal["continuous", "continuous_positive", "binary", "count", "ordinal"]
+    point_statistic: Literal["mean", "median", "probability", "rate", "expected_category"]
+    predictive_family: str
+    quantiles: dict[str, float]
+    categories: list[str] = Field(default_factory=list)
 
 
 class CurveVariable(BaseModel):

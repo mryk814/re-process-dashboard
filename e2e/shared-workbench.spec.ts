@@ -55,7 +55,7 @@ for (const task of tasks) {
       await expect(axisSettingsButton).toBeFocused();
       await page.locator(".response-curve-card .svg-chart-hit-target").first().hover({ force: true });
       const responseTooltip = page.locator(".response-curve-card .svg-chart-tooltip");
-      await expect(responseTooltip).toContainText("90%区間");
+      await expect(responseTooltip).toContainText("予測区間");
       const wideTooltipHeight = (await responseTooltip.boundingBox())?.height ?? 0;
       expect(wideTooltipHeight).toBeGreaterThanOrEqual(65);
       expect(wideTooltipHeight).toBeLessThanOrEqual(67);
@@ -115,10 +115,10 @@ for (const task of tasks) {
     expect(detailedResponse.status()).toBe(200);
     const detailed = await detailedResponse.json() as { snapshot: { payload: { raw_candidate: { revision: number } } } };
     expect(detailed.snapshot.payload.raw_candidate.revision).toBe(currentCandidate.revision);
-    await expect(page.locator(".notice")).toContainText("詳細予測を保存しました");
+    await expect(page.locator(".workspace-notice")).toContainText("詳細予測を保存しました");
     await expect(page.getByRole("button", { name: `${editedName}の詳細予測を保存済み` })).toBeDisabled();
 
-    await page.getByRole("button", { name: "プロジェクト概要", exact: true }).click();
+    await page.getByRole("navigation", { name: "プロジェクト内メニュー" }).getByRole("button", { name: "概要", exact: true }).click();
     await expect(page.getByRole("heading", { name: "候補と判断履歴" })).toBeVisible();
     await expect(page.getByRole("button", { name: "詳細" }).first()).toBeVisible();
     if (!task.responseCurve) expect(curveRequests).toBe(0);

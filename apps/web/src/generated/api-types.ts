@@ -866,8 +866,26 @@ export interface components {
         };
         /** CurvePoint */
         CurvePoint: {
+            /** Categories */
+            categories?: string[];
             /** Lower */
             lower: number;
+            /**
+             * Point Statistic
+             * @enum {string}
+             */
+            point_statistic: "mean" | "median" | "probability" | "rate" | "expected_category";
+            /** Predictive Family */
+            predictive_family: string;
+            /** Quantiles */
+            quantiles: {
+                [key: string]: number;
+            };
+            /**
+             * Target Kind
+             * @enum {string}
+             */
+            target_kind: "continuous" | "continuous_positive" | "binary" | "count" | "ordinal";
             /** Upper */
             upper: number;
             /** Value */
@@ -1421,6 +1439,8 @@ export interface components {
         };
         /** Prediction */
         Prediction: {
+            /** Categories */
+            categories?: string[];
             /** Goal Direction */
             goal_direction?: ("at_least" | "at_most") | null;
             /** Goal Probability */
@@ -1429,6 +1449,22 @@ export interface components {
             goal_value?: number | null;
             /** Lower */
             lower: number;
+            /**
+             * Point Statistic
+             * @enum {string}
+             */
+            point_statistic: "mean" | "median" | "probability" | "rate" | "expected_category";
+            /** Predictive Family */
+            predictive_family: string;
+            /** Quantiles */
+            quantiles: {
+                [key: string]: number;
+            };
+            /**
+             * Target Kind
+             * @enum {string}
+             */
+            target_kind: "continuous" | "continuous_positive" | "binary" | "count" | "ordinal";
             /** Uncertainty Components */
             uncertainty_components?: {
                 [key: string]: number;

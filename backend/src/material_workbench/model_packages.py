@@ -23,6 +23,9 @@ PACKAGE_SCHEMA_VERSION = "model-package/v1"
 RUNTIME_TYPES = {
     "builtin.linear.v1",
     "builtin.exact_gp.v1",
+    "builtin.additive_terms.v1",
+    "builtin.quantile_linear.v1",
+    "builtin.posterior_linear.v1",
     "sklearn.skops.v1",
     "lightgbm.booster.v1",
     "gpytorch.static_exact_rbf.v1",
@@ -31,6 +34,16 @@ RUNTIME_TYPES = {
 LIKELIHOOD_IDS = {
     "normal", "student_t", "lognormal", "bernoulli_logit", "poisson_log",
     "negative_binomial_log", "zero_inflated_poisson_log", "ordinal_logit",
+}
+LIKELIHOOD_TARGET_KINDS = {
+    "normal": {"continuous", "continuous_positive"},
+    "student_t": {"continuous", "continuous_positive"},
+    "lognormal": {"continuous_positive"},
+    "bernoulli_logit": {"binary"},
+    "poisson_log": {"count"},
+    "negative_binomial_log": {"count"},
+    "zero_inflated_poisson_log": {"count"},
+    "ordinal_logit": {"ordinal"},
 }
 
 
@@ -161,6 +174,12 @@ class PredictorSpec(PackageModel):
             raise ValueError("gpytorch adapter only permits architecture_id=exact_rbf_v1")
         if self.runtime_type == "builtin.exact_gp.v1" and self.architecture_id != "exact_rbf_grouped_v1":
             raise ValueError("built-in exact GP adapter only permits architecture_id=exact_rbf_grouped_v1")
+        if self.runtime_type == "builtin.additive_terms.v1" and self.architecture_id != "additive_terms_v1":
+            raise ValueError("built-in additive adapter only permits architecture_id=additive_terms_v1")
+        if self.runtime_type == "builtin.quantile_linear.v1" and self.architecture_id != "quantile_linear_v1":
+            raise ValueError("built-in quantile adapter only permits architecture_id=quantile_linear_v1")
+        if self.runtime_type == "builtin.posterior_linear.v1" and self.architecture_id != "posterior_linear_v1":
+            raise ValueError("built-in posterior linear adapter only permits architecture_id=posterior_linear_v1")
         return self
 
 
@@ -169,6 +188,19 @@ class ProvenanceSpec(PackageModel):
     feature_dataset_id: str
     training_code_revision: str
     dataset_profile_id: str | None = None
+
+
+class SmokeTestSpec(PackageModel):
+    input: str
+    expected: str
+
+    @field_validator("input", "expected")
+    @classmethod
+    def package_relative_file(cls, value: str) -> str:
+        path = Path(value)
+        if not value or path.is_absolute() or ".." in path.parts:
+            raise ValueError("smoke path must be package-relative")
+        return value.replace("\\", "/")
 
 
 class ModelPackageManifest(PackageModel):
@@ -183,7 +215,7 @@ class ModelPackageManifest(PackageModel):
     predictors: tuple[PredictorSpec, ...]
     provenance: ProvenanceSpec
     artifacts: tuple[ArtifactSpec, ...]
-    smoke_test: dict[str, str] | None = None
+    smoke_test: SmokeTestSpec | None = None
     quality_report: str | None = None
 
     @model_validator(mode="after")
@@ -194,6 +226,8 @@ class ModelPackageManifest(PackageModel):
         needed = {self.feature_pipeline.spec, *self.feature_pipeline.artifacts, *(predictor.artifact for predictor in self.predictors)}
         if self.quality_report:
             needed.add(self.quality_report)
+        if self.smoke_test:
+            needed.update((self.smoke_test.input, self.smoke_test.expected))
         missing = sorted(needed - listed)
         if missing:
             raise ValueError(f"manifest references unlisted artifacts: {', '.join(missing)}")
@@ -248,6 +282,30 @@ class PredictiveSummary(PackageModel):
     warnings: tuple[str, ...] = ()
 
 
+def predictive_interval(summary: PredictiveSummary) -> tuple[float, float]:
+    """Return the outer declared quantiles; point-only outputs remain degenerate."""
+    if not summary.quantiles:
+        return summary.point_estimate, summary.point_estimate
+    ordered = sorted((float(level), float(value)) for level, value in summary.quantiles.items())
+    return ordered[0][1], ordered[-1][1]
+
+
+class TermContribution(PackageModel):
+    term_id: str
+    kind: Literal["linear", "bspline_univariate", "categorical_lookup"]
+    feature_names: tuple[str, ...]
+    contribution: float
+
+
+class AdditiveExplanation(PackageModel):
+    target: str
+    link_id: Literal["identity"]
+    intercept: float
+    terms: tuple[TermContribution, ...]
+    link_score: float
+    prediction: float
+
+
 def validate_predictive_summary(
     summary: PredictiveSummary,
     spec: PredictorSpec,
@@ -263,7 +321,16 @@ def validate_predictive_summary(
         raise PackageContractError(
             f"predictor {spec.id!r} returned distribution family {family!r}, expected {spec.predictive_family!r}"
         )
-    ordered_quantiles = sorted((float(level), value) for level, value in summary.quantiles.items())
+    expected_kinds = LIKELIHOOD_TARGET_KINDS.get(family)
+    if expected_kinds is not None and spec.target_kind not in expected_kinds:
+        raise PackageContractError(f"predictor {spec.id!r} uses {family} with incompatible target kind")
+    try:
+        ordered_quantiles = sorted((float(level), value) for level, value in summary.quantiles.items())
+    except ValueError as exc:
+        raise PackageContractError(f"predictor {spec.id!r} returned an invalid quantile level") from exc
+    levels = [level for level, _ in ordered_quantiles]
+    if any(not math.isfinite(level) or not 0 <= level <= 1 for level in levels) or len(levels) != len(set(levels)):
+        raise PackageContractError(f"predictor {spec.id!r} returned invalid or duplicate quantile levels")
     if any(not math.isfinite(value) for _, value in ordered_quantiles):
         raise PackageContractError(f"predictor {spec.id!r} returned non-finite quantiles")
     if any(left[1] > right[1] for left, right in zip(ordered_quantiles, ordered_quantiles[1:])):
@@ -272,15 +339,44 @@ def validate_predictive_summary(
         0 <= summary.point_estimate <= 1
         and summary.event_probability is not None
         and 0 <= summary.event_probability <= 1
+        and math.isclose(summary.event_probability, summary.point_estimate, rel_tol=0, abs_tol=1e-12)
     ):
         raise PackageContractError(f"predictor {spec.id!r} returned invalid binary probability semantics")
+    if spec.target_kind == "binary" and any(not 0 <= value <= 1 for _, value in ordered_quantiles):
+        raise PackageContractError(f"predictor {spec.id!r} returned binary quantiles outside probability support")
+    values = [summary.point_estimate, *(value for _, value in ordered_quantiles)]
+    requires_nonnegative_output = spec.target_kind == "count" or (
+        spec.target_kind == "continuous_positive" and summary.distribution.get("support") == "positive"
+    )
+    if requires_nonnegative_output and any(value < 0 for value in values):
+        raise PackageContractError(f"predictor {spec.id!r} returned values outside nonnegative support")
+    if spec.target_kind in {"count", "ordinal"} and any(not float(value).is_integer() for _, value in ordered_quantiles):
+        raise PackageContractError(f"predictor {spec.id!r} returned non-discrete quantiles")
+    if spec.target_kind in {"binary", "ordinal"} and spec.unit not in {"", "1"}:
+        raise PackageContractError(f"predictor {spec.id!r} must use a dimensionless unit")
+    if spec.target_kind == "ordinal":
+        categories = summary.distribution.get("categories")
+        if not isinstance(categories, list) or len(categories) < 2 or len(categories) != len(set(categories)):
+            raise PackageContractError(f"predictor {spec.id!r} returned invalid ordinal category metadata")
+        if not 0 <= summary.point_estimate <= len(categories) - 1 or any(
+            value < 0 or value > len(categories) - 1 for _, value in ordered_quantiles
+        ):
+            raise PackageContractError(f"predictor {spec.id!r} returned values outside ordinal support")
     if capability is None:
         return
+    if capability.target != spec.target:
+        raise PackageContractError(f"predictor {spec.id!r} capability target does not match predictor target")
     if summary.point_statistic not in capability.point_statistics:
         raise PackageContractError(f"predictor {spec.id!r} returned an undeclared point statistic")
     if bool(summary.quantiles) != capability.quantiles:
         raise PackageContractError(f"predictor {spec.id!r} quantile capability does not match its smoke output")
     has_standard_deviation = "std" in summary.distribution
+    if has_standard_deviation and (
+        not isinstance(summary.distribution["std"], (int, float))
+        or not math.isfinite(float(summary.distribution["std"]))
+        or float(summary.distribution["std"]) < 0
+    ):
+        raise PackageContractError(f"predictor {spec.id!r} returned an invalid standard deviation")
     if has_standard_deviation != capability.standard_deviation:
         raise PackageContractError(f"predictor {spec.id!r} standard-deviation capability does not match its smoke output")
     has_parametric_distribution = summary.distribution.get("family") != "empirical_quantiles"
@@ -340,13 +436,16 @@ class AdapterRegistry:
     def __init__(self, adapters: tuple[Adapter, ...] | None = None) -> None:
         if adapters is None:
             from .adapters.builtin_linear import BuiltinLinearAdapter
+            from .adapters.builtin_additive_terms import BuiltinAdditiveTermsAdapter
+            from .adapters.builtin_quantile_linear import BuiltinQuantileLinearAdapter
+            from .adapters.builtin_posterior_linear import BuiltinPosteriorLinearAdapter
             from .adapters.builtin_exact_gp import BuiltinExactGPAdapter
             from .adapters.gpytorch_static import GPyTorchStaticAdapter
             from .adapters.lightgbm_booster import LightGBMBoosterAdapter
             from .adapters.numpyro_posterior import NumpyroDensePosteriorAdapter
             from .adapters.sklearn_skops import SklearnSkopsAdapter
 
-            adapters = (BuiltinLinearAdapter(), BuiltinExactGPAdapter(), SklearnSkopsAdapter(), LightGBMBoosterAdapter(), GPyTorchStaticAdapter(), NumpyroDensePosteriorAdapter())
+            adapters = (BuiltinLinearAdapter(), BuiltinExactGPAdapter(), BuiltinAdditiveTermsAdapter(), BuiltinQuantileLinearAdapter(), BuiltinPosteriorLinearAdapter(), SklearnSkopsAdapter(), LightGBMBoosterAdapter(), GPyTorchStaticAdapter(), NumpyroDensePosteriorAdapter())
         self._adapters = {adapter.runtime_type: adapter for adapter in adapters}
         if set(self._adapters) != RUNTIME_TYPES:
             raise PackageContractError("adapter registry must implement exactly the approved runtime types")

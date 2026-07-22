@@ -5,13 +5,11 @@ the fixed dense_mlp_v1 forward pass and one of the finite likelihood ids below.
 """
 from __future__ import annotations
 
-from pathlib import Path
-from zipfile import BadZipFile, ZipFile
-
 import numpy as np
 
 from ..model_packages import PackageContractError, PredictiveSummary, PredictorSpec, VerifiedModelPackage
 from .base import feature_vector, quantile_summary, scalar_config
+from .safe_npz import MAX_NPZ_COMPRESSION_RATIO, safe_npz_arrays
 
 
 _KINDS = {
@@ -19,39 +17,9 @@ _KINDS = {
     "bernoulli_logit": "binary", "poisson_log": "count", "negative_binomial_log": "count",
     "zero_inflated_poisson_log": "count", "ordinal_logit": "ordinal",
 }
-MAX_NPZ_ENTRIES = 32
-MAX_NPZ_UNCOMPRESSED_BYTES = 64 * 1024 * 1024
-MAX_NPZ_COMPRESSION_RATIO = 100
 MAX_POSTERIOR_DRAWS = 4096
 MAX_DENSE_LAYERS = 8
 MAX_TENSOR_ELEMENTS = 4_000_000
-
-
-def _safe_npz_arrays(path: Path) -> dict[str, np.ndarray]:
-    """Reject archive bombs before NumPy materializes any model tensor."""
-    try:
-        with ZipFile(path) as archive:
-            infos = archive.infolist()
-            if not 1 <= len(infos) <= MAX_NPZ_ENTRIES:
-                raise PackageContractError("posterior npz has too many entries")
-            total_uncompressed = sum(info.file_size for info in infos)
-            if total_uncompressed > MAX_NPZ_UNCOMPRESSED_BYTES:
-                raise PackageContractError("posterior npz expands beyond the allowed size")
-            for info in infos:
-                if info.is_dir() or not info.filename.endswith(".npy") or "/" in info.filename or "\\" in info.filename:
-                    raise PackageContractError("posterior npz has an invalid entry name")
-                if info.file_size and (not info.compress_size or info.file_size / info.compress_size > MAX_NPZ_COMPRESSION_RATIO):
-                    raise PackageContractError("posterior npz compression ratio is too high")
-        with np.load(path, allow_pickle=False) as archive:
-            arrays = {name: np.asarray(archive[name], dtype=float) for name in archive.files}
-    except (BadZipFile, OSError, ValueError) as exc:
-        if isinstance(exc, PackageContractError):
-            raise
-        raise PackageContractError("posterior artifact is not a safe npz archive") from exc
-    total_elements = sum(array.size for array in arrays.values())
-    if total_elements > MAX_TENSOR_ELEMENTS or any(array.size > MAX_TENSOR_ELEMENTS for array in arrays.values()):
-        raise PackageContractError("posterior tensors exceed the allowed element count")
-    return arrays
 
 
 def _sigmoid(value: np.ndarray) -> np.ndarray:
@@ -139,15 +107,20 @@ class _DensePosteriorPredictor:
             cuts = np.asarray(thresholds, dtype=float)
             if not np.all(np.diff(cuts) > 0):
                 raise PackageContractError("ordinal thresholds must be strictly increasing")
+            categories = self.spec.config.get("categories")
+            if not isinstance(categories, list) or len(categories) != len(cuts) + 1 or not all(isinstance(item, str) and item for item in categories):
+                raise PackageContractError("ordinal_logit requires one ordered category label per outcome")
+            if len(categories) != len(set(categories)):
+                raise PackageContractError("ordinal category labels must be unique")
             cumulative = _sigmoid(cuts[None, :] - output[:, :1])
             probabilities = np.column_stack([cumulative[:, 0], np.diff(cumulative, axis=1), 1 - cumulative[:, -1]])
             probabilities = np.clip(probabilities, 0, 1)
             probabilities /= probabilities.sum(axis=1, keepdims=True)
             samples = np.asarray([rng.choice(probabilities.shape[1], p=row) for row in probabilities])
-            point, distribution = float(np.mean(np.arange(probabilities.shape[1]) * probabilities.mean(axis=0))), {"family": family, "support": f"0..{probabilities.shape[1] - 1}"}
+            point, distribution = float(np.mean(np.arange(probabilities.shape[1]) * probabilities.mean(axis=0))), {"family": family, "support": "ordered_categories", "categories": categories}
         else:
             raise PackageContractError(f"unsupported NumPyro likelihood: {family}")
-        return PredictiveSummary(target=self.spec.target, target_kind=self.spec.target_kind, unit=self.spec.unit, point_statistic="expected_category" if family == "ordinal_logit" else "rate", point_estimate=point, quantiles=quantile_summary(samples), distribution=distribution)
+        return PredictiveSummary(target=self.spec.target, target_kind=self.spec.target_kind, unit=self.spec.unit, point_statistic="expected_category" if family == "ordinal_logit" else "rate", point_estimate=point, quantiles=quantile_summary(samples, discrete=True), distribution=distribution)
 
 
 class NumpyroDensePosteriorAdapter:
@@ -159,7 +132,11 @@ class NumpyroDensePosteriorAdapter:
         activation = predictor.config.get("activation", "tanh")
         if activation not in {"tanh", "relu"}:
             raise PackageContractError("dense_mlp_v1 activation must be tanh or relu")
-        arrays = _safe_npz_arrays(package.artifact_path(predictor.artifact))
+        arrays = safe_npz_arrays(
+            package.artifact_path(predictor.artifact),
+            max_entries=32,
+            max_tensor_elements=MAX_TENSOR_ELEMENTS,
+        )
         keys = set(arrays)
         try:
             layer_indexes = sorted(int(key[1:]) for key in keys if key.startswith("w") and key[1:].isdigit())
@@ -183,4 +160,20 @@ class NumpyroDensePosteriorAdapter:
                 raise PackageContractError("posterior layer widths are incompatible")
             if not np.isfinite(weight).all() or not np.isfinite(bias).all():
                 raise PackageContractError("posterior tensors must be finite")
+        output_width = weights[-1].shape[2]
+        expected_width = 2 if predictor.predictive_family == "zero_inflated_poisson_log" else 1
+        if output_width != expected_width:
+            raise PackageContractError(f"{predictor.predictive_family} requires output width {expected_width}")
+        for name in ("obs_scale", "dispersion"):
+            if name in extras and np.any(extras[name] <= 0):
+                raise PackageContractError(f"{name} must be positive")
+        if "df" in extras and np.any(extras["df"] <= 2):
+            raise PackageContractError("student_t df must be greater than 2")
+        if predictor.predictive_family == "ordinal_logit":
+            thresholds = predictor.config.get("thresholds")
+            categories = predictor.config.get("categories")
+            if not isinstance(thresholds, list) or not all(isinstance(item, (int, float)) and np.isfinite(item) for item in thresholds) or not np.all(np.diff(thresholds) > 0):
+                raise PackageContractError("ordinal thresholds must be finite and strictly increasing")
+            if not isinstance(categories, list) or len(categories) != len(thresholds) + 1 or len(categories) != len(set(categories)) or not all(isinstance(item, str) and item for item in categories):
+                raise PackageContractError("ordinal category metadata is invalid")
         return _DensePosteriorPredictor(predictor, weights, biases, extras)

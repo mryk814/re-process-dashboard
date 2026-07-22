@@ -13,7 +13,18 @@ const bundle = await build({
       import { CandidateInspector, ComparisonTable } from "./features/candidates/CandidateUi.tsx";
       export const element = (text) => React.createElement("div", null, text);
       export const renderInspector = (props) => renderToStaticMarkup(React.createElement(CandidateInspector, props));
-      export const renderComparison = (props) => renderToStaticMarkup(React.createElement(ComparisonTable, props));
+      export const renderComparison = (props) => renderToStaticMarkup(React.createElement(ComparisonTable, {
+        decisionCandidateId: "",
+        detailedPredictionAvailable: true,
+        saveStates: {},
+        savedRevisionsByCandidate: {},
+        savingCandidateIds: [],
+        snapshotHistoryState: "ready",
+        onCopy() {},
+        onDelete() {},
+        onSave() {},
+        ...props,
+      }));
     `,
     resolveDir: sourceRoot,
     loader: "tsx",
@@ -121,7 +132,7 @@ test("non-editable fields are disabled and goal probability remains visible", ()
     fixed_context: [],
   };
   const preview = {
-    predictions: { TS: { value: 500, lower: 480, upper: 520, unit: "MPa", goal_probability: 0.82, uncertainty_components: { latent_model_std: 12, observation_noise_std: 8 } } },
+    predictions: { TS: { value: 500, lower: 480, upper: 520, unit: "MPa", target_kind: "continuous", point_statistic: "mean", predictive_family: "normal", quantiles: { "0.05": 480, "0.95": 520 }, goal_probability: 0.82, uncertainty_components: { latent_model_std: 12, observation_noise_std: 8 } } },
     support: { status: "supported" },
   };
   const inspector = renderInspector({ candidate, taskDefinition: definition, saveState: "idle", fieldErrors: [], onInput() {}, onReload() {}, onCopyDraft() {} });
@@ -132,4 +143,56 @@ test("non-editable fields are disabled and goal probability remains visible", ()
   assert.match(comparison, /value="0.10000"/);
   assert.match(comparison, />480.0–520.0<\/span>/);
   assert.match(comparison, /title="90%予測区間 480.0–520.0 \/ モデル由来 ±12 \/ 測定由来 ±8"/);
+});
+
+test("quantile-only output keeps quantile wording and unavailable goal semantics", () => {
+  const definition = {
+    input_groups: [{ key: "composition", order: 0, label: "組成", fields: [numberField("composition.C", "C")] }],
+    outputs: [{ key: "Q", label: "分位予測", unit: "MPa", goal_direction: "at_least" }],
+    display_decimals: { "composition.C": 5, "output.Q": 1 },
+    fixed_context: [],
+  };
+  const preview = {
+    predictions: { Q: { value: 12, lower: 8, upper: 17, unit: "MPa", target_kind: "continuous", point_statistic: "median", predictive_family: "empirical_quantiles", quantiles: { "0.05": 8, "0.5": 12, "0.95": 17 }, goal_probability: null } },
+    support: { status: "supported" },
+  };
+  const comparison = renderComparison({ candidates: [candidate], selectedId: candidate.id, taskDefinition: definition, previewsByCandidate: { [candidate.id]: preview }, targetValues: { Q: 15 }, onSelect() {}, onName() {}, onInput() {} });
+  assert.match(comparison, /title="5–95%分位 8.0–17.0"/);
+  assert.match(comparison, /利用不可/);
+  assert.doesNotMatch(comparison, /90%予測区間|計算中|±0/);
+});
+
+test("binary count and ordinal outputs avoid regression-only presentation", () => {
+  const definition = {
+    input_groups: [{ key: "composition", order: 0, label: "入力", fields: [numberField("composition.C", "C")] }],
+    outputs: [
+      { key: "binary", label: "合格確率", unit: "", goal_direction: "at_least" },
+      { key: "count", label: "欠陥数", unit: "個", goal_direction: "at_most" },
+      { key: "ordinal", label: "等級", unit: "", goal_direction: "at_least" },
+    ],
+    display_decimals: { "composition.C": 5, "output.binary": 2, "output.count": 0, "output.ordinal": 1 },
+    fixed_context: [],
+  };
+  const base = { goal_probability: null, uncertainty_components: null };
+  const preview = {
+    predictions: {
+      binary: { ...base, value: 0.42, lower: 0.2, upper: 0.7, unit: "1", target_kind: "binary", point_statistic: "probability", predictive_family: "bernoulli_logit", quantiles: { "0.05": 0.2, "0.95": 0.7 } },
+      count: { ...base, value: 3, lower: 1, upper: 7, unit: "個", target_kind: "count", point_statistic: "rate", predictive_family: "poisson_log", quantiles: { "0.05": 1, "0.95": 7 } },
+      ordinal: { ...base, value: 1.4, lower: 0, upper: 3, unit: "1", target_kind: "ordinal", point_statistic: "expected_category", predictive_family: "ordinal_logit", quantiles: { "0.05": 0, "0.95": 3 }, categories: ["low", "medium", "high", "very high"] },
+    },
+    support: { status: "supported" },
+  };
+  const comparison = renderComparison({ candidates: [candidate], selectedId: candidate.id, taskDefinition: definition, previewsByCandidate: { [candidate.id]: preview }, targetValues: {}, onSelect() {}, onName() {}, onInput() {} });
+  assert.match(comparison, />42%/);
+  assert.match(comparison, /5–95%確率分位/);
+  assert.match(comparison, /medium（期待 1.4）/);
+  assert.match(comparison, /5–95%カテゴリ分位/);
+  assert.doesNotMatch(comparison, />0.42 <small>1|medium（期待 1.4） <small>1/);
+});
+
+test("response curve source renders every declared quantile with explicit labeling", async () => {
+  const source = await import("node:fs/promises").then(({ readFile }) => readFile(new URL("../src/features/workbench/WorkbenchPage.tsx", import.meta.url), "utf8"));
+  assert.match(source, /data-quantile=\{level\}/);
+  assert.match(source, /分位線/);
+  assert.match(source, /point\.quantiles\[level\]/);
 });

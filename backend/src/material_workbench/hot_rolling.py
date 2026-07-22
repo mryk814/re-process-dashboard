@@ -12,7 +12,7 @@ from .feature_contracts import feature_index_families
 from .hot_rolling_feature_pipeline import FEATURE_DEFINITIONS, FEATURE_NAMES, INPUT_SCHEMA_VERSION, PIPELINE_ID, PIPELINE_VERSION, build_hot_rolling_features, build_hot_rolling_features_from_observation
 from .dataset_profile import load_task_definitions
 from .importer import WorkbookData, lineage_reference_keys
-from .model_packages import ModelPackageLoader, validate_predictive_summary, validate_task_definition_canonical_inputs
+from .model_packages import ModelPackageLoader, predictive_interval, validate_predictive_summary, validate_task_definition_canonical_inputs
 from .schemas import Candidate, CandidateInput, Prediction, Support
 from .task_registry import load_task_contracts
 
@@ -43,10 +43,10 @@ class HotRollingRuntime:
     def __init__(self, data: WorkbookData, package_root: str | Path | None = None) -> None:
         self.data = data
         self.task_definition = load_task_definitions()[TASK_ID]
-        default = Path(__file__).resolve().parents[3] / "models" / "packages" / "hot-rolled-gp-2026-07"
+        default = Path(__file__).resolve().parents[3] / "models" / "packages" / "hot-rolled-horseshoe-2026-07"
         self.model_package = ModelPackageLoader().load(package_root or default)
         manifest = self.model_package.manifest
-        validate_task_definition_canonical_inputs(load_task_definitions()[TASK_ID], manifest)
+        validate_task_definition_canonical_inputs(self.task_definition, manifest)
         if manifest.task_id != TASK_ID:
             raise ValueError(f"Model package task {manifest.task_id} is incompatible with {TASK_ID}")
         if (manifest.feature_pipeline.id, manifest.feature_pipeline.version) != (PIPELINE_ID, PIPELINE_VERSION):
@@ -65,8 +65,8 @@ class HotRollingRuntime:
         smoke = self.model_package.manifest.smoke_test
         if not smoke:
             raise ValueError("Hot-rolling model package must declare a smoke test")
-        candidate = CandidateInput.model_validate(json.loads(self.model_package.artifact_path(smoke["input"]).read_text(encoding="utf-8")))
-        expected = json.loads(self.model_package.artifact_path(smoke["expected"]).read_text(encoding="utf-8"))
+        candidate = CandidateInput.model_validate(json.loads(self.model_package.artifact_path(smoke.input).read_text(encoding="utf-8")))
+        expected = json.loads(self.model_package.artifact_path(smoke.expected).read_text(encoding="utf-8"))
         values = build_hot_rolling_features(candidate, self.composition_defaults).as_dict()
         specs = {spec.target: spec for spec in self.model_package.manifest.predictors}
         capabilities = {item.target: item for item in load_task_contracts()[TASK_ID].runtime_capability.targets}
@@ -171,6 +171,7 @@ class HotRollingRuntime:
         for target, predictor in self.predictors.items():
             summary = predictor.predict(values)
             output = next(item for item in self.task_definition.outputs if item.key == target)
+            lower, upper = predictive_interval(summary)
             goal_value = (target_values or {}).get(target)
             goal_probability = None
             standard_deviation = float(summary.distribution.get("std", 0.0))
@@ -181,9 +182,14 @@ class HotRollingRuntime:
                 goal_probability = 1.0 - at_least if output.goal_direction == "at_most" else at_least
             predictions[target] = Prediction(
                 value=round(summary.point_estimate, 3),
-                lower=round(summary.quantiles.get("0.05", summary.point_estimate), 3),
-                upper=round(summary.quantiles.get("0.95", summary.point_estimate), 3),
+                lower=round(lower, 3),
+                upper=round(upper, 3),
                 unit=summary.unit,
+                target_kind=summary.target_kind,
+                point_statistic=summary.point_statistic,
+                predictive_family=summary.distribution.get("family", "empirical_quantiles"),
+                quantiles={level: round(float(item), 6) for level, item in summary.quantiles.items()},
+                categories=list(summary.distribution.get("categories", [])),
                 goal_value=goal_value,
                 goal_probability=None if goal_probability is None else round(goal_probability, 4),
                 goal_direction=None if goal_value is None else output.goal_direction,
@@ -194,6 +200,16 @@ class HotRollingRuntime:
         process = {**candidate.inputs.process}
         process["equipment"] = "HR-LINE-1"
         process["test_direction"] = "L"
+        is_horseshoe = any(
+            item.runtime_type == "builtin.posterior_linear.v1" and item.config.get("method") == "regularized_horseshoe"
+            for item in self.model_package.manifest.predictors
+        )
+        model_method = "Regularized Horseshoe sparse Bayesian regression" if is_horseshoe else "Gaussian process regression"
+        interval_identity = (
+            {"method": "posterior_predictive_moment_matched_normal", "coverage": "central 90% predictive interval", "grouping": "parent_key", "note": "Horseshoe posterior draws are summarized as a moment-matched Normal distribution for the shared decision UI."}
+            if is_horseshoe else
+            {"method": "gaussian_process_predictive_distribution", "coverage": "central 90% predictive interval", "grouping": "parent_key", "note": "Model uncertainty and observation noise are reported separately."}
+        )
         return {
             "task_id": self.task_id,
             "candidate_id": candidate.id,
@@ -207,10 +223,13 @@ class HotRollingRuntime:
                 "feature_vector": values,
             },
             "model_meta": {
-                "model": {"id": self.model_package.manifest.package_id, "version": self.model_package.manifest.package_version, "method": "Gaussian process regression"},
-                "feature_pipeline": {"id": PIPELINE_ID, "version": PIPELINE_VERSION},
-                "training_data": {"records": self.training_counts},
-                "prediction_interval": {"method": "gaussian_process_predictive_distribution", "coverage": "central 90% predictive interval"},
+                "task_id": self.task_id,
+                "model": {"id": self.model_package.manifest.package_id, "version": self.model_package.manifest.package_version, "method": model_method},
+                "package": {"id": self.model_package.manifest.package_id, "version": self.model_package.manifest.package_version, "manifest_sha256": self.model_package.manifest_sha256, "runtime_types": sorted({item.runtime_type for item in self.model_package.manifest.predictors})},
+                "feature_pipeline": {"id": PIPELINE_ID, "version": PIPELINE_VERSION, "input_schema_version": INPUT_SCHEMA_VERSION, "features": list(FEATURE_NAMES)},
+                "training_data": {"source_path": self.data.source_path, "source_sha256": self.data.source_sha256, "records": self.training_counts, "package_training_data_id": self.model_package.manifest.provenance.training_data_id, "package_feature_dataset_id": self.model_package.manifest.provenance.feature_dataset_id},
+                "prediction_interval": interval_identity,
+                "similarity": {"version": SUPPORT_POLICY_ID, "method": "parent-condition nearest-neighbor distance over composition, metallurgy, and process feature groups"},
             },
             "heat_pattern": [],
             "response_curve": None,
@@ -335,7 +354,7 @@ class HotRollingRuntime:
         self._validate_response_curve_value(candidate, variable, float(start))
         self._validate_response_curve_value(candidate, variable, float(end))
 
-        curve: list[dict[str, float]] = []
+        curve: list[dict[str, Any]] = []
         predictor = self.predictors[target]
         for x_value in np.linspace(start, end, points):
             adjusted = candidate.model_copy(deep=True)
@@ -343,11 +362,17 @@ class HotRollingRuntime:
             values[name] = float(x_value)
             summary = predictor.predict(build_hot_rolling_features(adjusted, self.composition_defaults).as_dict())
             value = summary.point_estimate
+            interval_lower, interval_upper = predictive_interval(summary)
             curve.append({
                 "x": round(float(x_value), 4),
                 "value": round(value, 3),
-                "lower": round(summary.quantiles.get("0.05", value), 3),
-                "upper": round(summary.quantiles.get("0.95", value), 3),
+                "lower": round(interval_lower, 3),
+                "upper": round(interval_upper, 3),
+                "target_kind": summary.target_kind,
+                "point_statistic": summary.point_statistic,
+                "predictive_family": summary.distribution.get("family", "empirical_quantiles"),
+                "quantiles": {level: round(float(item), 6) for level, item in summary.quantiles.items()},
+                "categories": list(summary.distribution.get("categories", [])),
             })
 
         output = next(item for item in self.task_definition.outputs if item.key == target)

@@ -1152,31 +1152,36 @@ function ResponseCurveMiniChart({
   const x = (value: number) => 30 + ((value - minX) / Math.max(1e-6, maxX - minX)) * 252;
   const y = (value: number) => 124 - ((value - minValue) / Math.max(1, maxValue - minValue)) * 92;
   const xTicks = [minX, (minX + maxX) / 2, maxX];
+  const declaredQuantiles = [...new Set(points.flatMap((point) => Object.keys(point.quantiles ?? {})))].sort((left, right) => Number(left) - Number(right));
+  const quantileLabel = declaredQuantiles.length ? `分位線 ${declaredQuantiles.map((level) => `q${Math.round(Number(level) * 100)}`).join("・")}` : "予測線";
   const yTicks = [minValue, (minValue + maxValue) / 2, maxValue];
   const xDigits = chartDigits(minX, maxX);
   const yDigits = output.key === "EL" || output.key === "lambda" ? 1 : chartDigits(minValue, maxValue);
   const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; lines: string[] } | null>(null);
   return (
     <article className="response-curve-card">
-      <header><b>{output.label}</b><span>{prediction ? `${number(prediction.value, output.key === "EL" || output.key === "lambda" ? 1 : 0)} ${prediction.unit}` : "読み込み中"}</span></header>
-      {series.length ? <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${output.label}の応答曲線`}>
+      <header><b>{output.label}</b><span>{prediction ? `${number(prediction.value, output.key === "EL" || output.key === "lambda" ? 1 : 0)} ${prediction.unit} / ${quantileLabel}` : "読み込み中"}</span></header>
+      {series.length ? <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${output.label}の応答曲線、${quantileLabel}`}>
         {yTicks.map((tick) => <g key={tick}><line x1="28" y1={y(tick)} x2="284" y2={y(tick)} stroke="#e3e9f0" /><text x="25" y={y(tick) + 3} textAnchor="end" fontSize="9" fill="#617087">{number(tick, yDigits)}</text></g>)}
         {xTicks.map((tick) => <line key={`grid-${tick}`} x1={x(tick)} y1="32" x2={x(tick)} y2="124" stroke="#edf1f6" />)}
         {series.map((item) => {
           const color = candidateColor(item.candidate.id, selectedId);
           const line = item.points.map((point, index) => `${index ? "L" : "M"}${x(point.x)} ${y(point.value)}`).join(" ");
           const band = `${item.points.map((point, index) => `${index ? "L" : "M"}${x(point.x)} ${y(point.upper)}`).join(" ")} ${[...item.points].reverse().map((point) => `L${x(point.x)} ${y(point.lower)}`).join(" ")} Z`;
-          return <g key={item.candidate.id}><path d={band} fill={color} opacity={item.candidate.id === selectedId ? ".18" : ".08"} /><path d={line} fill="none" stroke={color} strokeWidth={item.candidate.id === selectedId ? "2.5" : "1.5"} opacity={item.candidate.id === selectedId ? "1" : ".78"} />{item.points.map((point) => <circle
+          const quantileLines = declaredQuantiles.map((level) => item.points.every((point) => point.quantiles?.[level] != null)
+            ? <path key={level} data-quantile={level} d={item.points.map((point, index) => `${index ? "L" : "M"}${x(point.x)} ${y(point.quantiles[level])}`).join(" ")} fill="none" stroke={color} strokeWidth=".75" strokeDasharray={Number(level) === 0.5 ? "none" : "3 2"} opacity=".55" />
+            : null);
+          return <g key={item.candidate.id}><path d={band} fill={color} opacity={item.candidate.id === selectedId ? ".18" : ".08"} />{quantileLines}<path d={line} fill="none" stroke={color} strokeWidth={item.candidate.id === selectedId ? "2.5" : "1.5"} opacity={item.candidate.id === selectedId ? "1" : ".78"} />{item.points.map((point) => <circle
             className="svg-chart-hit-target" tabIndex={-1} key={`${item.candidate.id}-${point.x}`} cx={x(point.x)} cy={y(point.value)} r="5" fill="transparent"
             aria-label={`${item.candidate.label}, ${xLabel} ${number(point.x, xDigits)}, ${output.label} ${number(point.value, yDigits)} ${output.unit}`}
-            onMouseEnter={() => setHoveredPoint({ x: x(point.x), y: y(point.value), lines: [item.candidate.label, `${xLabel} ${number(point.x, xDigits)} ${xUnit}`, `${output.label} ${number(point.value, yDigits)} ${output.unit}`, `90%区間 ${number(point.lower, yDigits)}–${number(point.upper, yDigits)}`] })}
+            onMouseEnter={() => setHoveredPoint({ x: x(point.x), y: y(point.value), lines: [item.candidate.label, `${xLabel} ${number(point.x, xDigits)} ${xUnit}`, `${output.label} ${number(point.value, yDigits)} ${output.unit}`, `予測区間 ${number(point.lower, yDigits)}–${number(point.upper, yDigits)}`] })}
             onMouseLeave={() => setHoveredPoint(null)}
           />)}{item.prediction && Number.isFinite(item.currentX) && <circle
             className="svg-chart-hit-target" tabIndex={0} cx={x(item.currentX)} cy={y(item.prediction.value)} r={item.candidate.id === selectedId ? "4" : "2.5"} fill="#fff" stroke={color} strokeWidth={item.candidate.id === selectedId ? "2.5" : "1.5"}
             aria-label={`${item.candidate.label}の現在値、${xLabel} ${number(item.currentX, xDigits)}、${output.label} ${number(item.prediction.value, yDigits)} ${output.unit}`}
-            onMouseEnter={() => setHoveredPoint({ x: x(item.currentX), y: y(item.prediction!.value), lines: [item.candidate.label, `現在の${xLabel} ${number(item.currentX, xDigits)} ${xUnit}`, `${output.label} ${number(item.prediction!.value, yDigits)} ${output.unit}`, `90%区間 ${number(item.prediction!.lower, yDigits)}–${number(item.prediction!.upper, yDigits)}`] })}
+            onMouseEnter={() => setHoveredPoint({ x: x(item.currentX), y: y(item.prediction!.value), lines: [item.candidate.label, `現在の${xLabel} ${number(item.currentX, xDigits)} ${xUnit}`, `${output.label} ${number(item.prediction!.value, yDigits)} ${output.unit}`, `予測区間 ${number(item.prediction!.lower, yDigits)}–${number(item.prediction!.upper, yDigits)}`] })}
             onMouseLeave={() => setHoveredPoint(null)}
-            onFocus={() => setHoveredPoint({ x: x(item.currentX), y: y(item.prediction!.value), lines: [item.candidate.label, `現在の${xLabel} ${number(item.currentX, xDigits)} ${xUnit}`, `${output.label} ${number(item.prediction!.value, yDigits)} ${output.unit}`, `90%区間 ${number(item.prediction!.lower, yDigits)}–${number(item.prediction!.upper, yDigits)}`] })}
+            onFocus={() => setHoveredPoint({ x: x(item.currentX), y: y(item.prediction!.value), lines: [item.candidate.label, `現在の${xLabel} ${number(item.currentX, xDigits)} ${xUnit}`, `${output.label} ${number(item.prediction!.value, yDigits)} ${output.unit}`, `予測区間 ${number(item.prediction!.lower, yDigits)}–${number(item.prediction!.upper, yDigits)}`] })}
             onBlur={() => setHoveredPoint(null)}
           />}</g>;
         })}

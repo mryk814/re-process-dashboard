@@ -10,20 +10,12 @@ import { DeveloperAdminPage } from "../features/admin";
 
 type Tab = WorkbenchView;
 const projectNavItems: Array<{ id: Tab; label: string; active: Tab[] }> = [
+  { id: "project", label: "概要", active: ["project"] },
   { id: "lineage", label: "データ探索", active: ["lineage", "quality"] },
   { id: "explore", label: "範囲探索", active: ["explore"] },
   { id: "candidates", label: "候補比較", active: ["candidates"] },
   { id: "settings", label: "開発・管理", active: ["settings"] },
 ];
-const viewLabels: Record<Tab, string> = {
-  project: "プロジェクト概要",
-  candidates: "候補比較",
-  explore: "範囲探索",
-  lineage: "データ探索",
-  quality: "データ探索 / 問題一覧",
-  settings: "開発・管理",
-};
-
 
 function App() {
   const [navigation, setNavigation] = useState<NavigationIntent>(() => readNavigationIntent());
@@ -109,64 +101,55 @@ function App() {
         <div className="brand">Material Decision Workbench</div>
         <nav aria-label="ホーム">
           <button
-            className={tab === "project" ? "nav-button active" : "nav-button"}
+            className="nav-button"
             onClick={() => navigate({ view: "project", projectId: activeProjectId })}
           >
-            プロジェクト概要
+            プロジェクト
           </button>
         </nav>
       </header>
       <main>
         <div className="context-bar">
-          <div className="context-heading">
-            <nav className="context-breadcrumb" aria-label="現在地">
-              <button type="button" className="context-breadcrumb-link" onClick={() => navigate({ view: "project", projectId: activeProjectId })}>プロジェクト</button>
-              {tab !== "project" && <><span aria-hidden="true">/</span><strong>{viewLabels[tab]}</strong></>}
-            </nav>
-            <div className="context-title-row">
-              <h1 title={activeProject?.name ?? undefined}>{activeProject?.name ?? "プロジェクトを読み込んでいます"}</h1>
-              <nav className="project-nav" aria-label="プロジェクト内メニュー">
-                {projectNavItems.map((item) => (
-                  <button
-                    type="button"
-                    className={item.active.includes(tab) ? "project-nav-button active" : "project-nav-button"}
-                    onClick={() => navigateProjectView(item)}
-                    key={item.id}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </nav>
+          <div className="context-primary-row">
+            <h1 title={activeProject?.name ?? undefined}>{activeProject?.name ?? "プロジェクトを読み込んでいます"}</h1>
+            <div className="run-actions">
+              {tab !== "candidates" && (
+                <button
+                  type="button"
+                  className="stock-button"
+                  onClick={() => navigate({
+                    view: "candidates",
+                    projectId: activeProjectId,
+                    candidateId: selectedId || undefined,
+                  })}
+                >
+                  <span>候補</span><b>{candidates.length}</b><span>件を比較</span>
+                </button>
+              )}
+              {apiState !== "ready" && (
+                <span className={`api-state ${apiState}`}>
+                  {apiState === "loading" ? "プレビュー更新中" : "API 未接続"}
+                </span>
+              )}
+              {tab === "candidates" && selected && (
+                <button className="outline-button" onClick={() => navigate({ view: "project", projectId: activeProjectId, candidateId: selected.id })}>保存結果・履歴</button>
+              )}
             </div>
           </div>
-          <div className="run-actions">
-            {tab !== "candidates" && (
+          <nav className="project-nav" aria-label="プロジェクト内メニュー">
+            {projectNavItems.map((item) => (
               <button
                 type="button"
-                className="stock-button"
-                onClick={() => navigate({
-                  view: "candidates",
-                  projectId: activeProjectId,
-                  candidateId: selectedId || undefined,
-                })}
+                className={item.active.includes(tab) ? "project-nav-button active" : "project-nav-button"}
+                onClick={() => navigateProjectView(item)}
+                key={item.id}
               >
-                候補ストック <b>{candidates.length}</b>
-                <span>比較へ</span>
+                {item.label}
               </button>
-            )}
-            {notice && <span className="notice" role="status">{notice}</span>}
-            <span className={`api-state ${apiState}`}>
-              {apiState === "loading"
-                ? "プレビュー更新中"
-                : apiState === "offline"
-                  ? "API 未接続"
-                  : "同期済み"}
-            </span>
-            {tab === "candidates" && selected && (
-              <button className="outline-button" onClick={() => navigate({ view: "project", projectId: activeProjectId, candidateId: selected.id })}>保存結果・履歴</button>
-            )}
-          </div>
+            ))}
+          </nav>
         </div>
+        {notice && notice !== preview?.support.message && <div className="workspace-notice" role="status">{notice}</div>}
         {tab === "project" && (
           <ProjectHub
             projects={projects}

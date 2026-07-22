@@ -1,0 +1,35 @@
+{
+  "summary": {
+    "target": "example",
+    "target_kind": "continuous",
+    "unit": "1",
+    "point_statistic": "mean",
+    "point_estimate": -0.06266065785641285,
+    "quantiles": {
+      "0.05": -0.42626188828679606,
+      "0.50": -0.07519626321462566,
+      "0.95": 0.29786690140300537
+    },
+    "event_probability": null,
+    "distribution": {
+      "family": "normal",
+      "support": "real"
+    },
+    "uncertainty_components": null,
+    "warnings": []
+  },
+  "capability": {
+    "target": "example",
+    "point_statistics": [
+      "mean"
+    ],
+    "standard_deviation": false,
+    "quantiles": true,
+    "samples": false,
+    "parametric_distribution": true,
+    "uncertainty_components": false,
+    "support": true,
+    "warnings": true,
+    "goal_probability": "unavailable"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "schema_version": "model-example-quality/v1",
+  "evaluation_unit": "leave-one-synthetic-parent-block-out rows",
+  "metrics": {
+    "pinball_q05": 0.08785714285714283,
+    "pinball_q50": 0.38392857142857145,
+    "pinball_q95": 0.07821428571428578,
+    "median_mae": 0.7678571428571429,
+    "interval_coverage": 0.7142857142857143,
+    "mean_interval_width": 2.5,
+    "quantile_crossing_count": 0.0,
+    "parent_block_count": 7.0
+  },
+  "notes": [
+    "Metrics use fixed heteroscedastic synthetic observations, grouped by parent condition; they are not a production quality claim."
+  ]
+}

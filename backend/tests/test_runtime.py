@@ -146,9 +146,9 @@ def test_default_model_package_loads_and_matches_its_smoke_contract(client) -> N
     assert runtime.model_package.manifest.package_id == "annealed-gp-2026-07"
     smoke = runtime.model_package.manifest.smoke_test
     assert smoke is not None
-    candidate = CandidateInput.model_validate(json.loads(runtime.model_package.artifact_path(smoke["input"]).read_text(encoding="utf-8")))
+    candidate = CandidateInput.model_validate(json.loads(runtime.model_package.artifact_path(smoke.input).read_text(encoding="utf-8")))
     values = build_feature_bundle(candidate, runtime.composition_defaults).as_dict()
-    expected = json.loads(runtime.model_package.artifact_path(smoke["expected"]).read_text(encoding="utf-8"))
+    expected = json.loads(runtime.model_package.artifact_path(smoke.expected).read_text(encoding="utf-8"))
     actual = {target: predictor.predict(values, seed=0).point_estimate for target, predictor in runtime.package_predictors.items()}
     assert set(actual) == set(expected)
     assert all(np.isclose(actual[target], expected[target], rtol=1e-7, atol=1e-7) for target in actual)

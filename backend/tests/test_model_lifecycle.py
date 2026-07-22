@@ -10,6 +10,8 @@ from fastapi.testclient import TestClient
 from material_workbench.app import create_app
 from material_workbench.importer import load_workbook_data
 from material_workbench.model_lifecycle import (
+    QualityReport,
+    SamplingDiagnosticsReport,
     canonical_training_dataset,
     canonical_training_dataset_digest,
     exact_gp_loo_quality,
@@ -28,18 +30,42 @@ ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "data" / "source" / "process_dashboard_realistic_excel_v2.xlsx"
 
 
+def test_grouped_quality_report_requires_an_explicit_fold_count() -> None:
+    with pytest.raises(ValueError, match="require folds"):
+        QualityReport.model_validate({
+            "schema_version": "model-quality-report/v1",
+            "split": "grouped-parent-condition-k-fold",
+            "targets": [{"target": "TS", "parent_conditions": 2, "mae": 1, "rmse": 1, "interval_coverage_90": 0.9}],
+        })
+
+
+def test_sampling_diagnostics_reject_low_effective_sample_size() -> None:
+    with pytest.raises(ValueError, match="greater than or equal to 50"):
+        SamplingDiagnosticsReport.model_validate({
+            "schema_version": "sampling-diagnostics/v1",
+            "chains": 2,
+            "draws_per_chain": 256,
+            "warmup_per_chain": 512,
+            "divergences": 0,
+            "minimum_effective_sample_size": 18.5,
+            "maximum_r_hat": 1.08,
+            "finite_export": True,
+        })
+
+
 @pytest.mark.parametrize(
     ("task_id", "package_id"),
     [
         ("annealed-properties-v1", "annealed-gp-2026-07"),
-        ("hot-rolled-properties-v1", "hot-rolled-gp-2026-07"),
+        ("hot-rolled-properties-v1", "hot-rolled-horseshoe-2026-07"),
     ],
 )
 def test_checked_in_package_passes_production_runtime_verification(task_id: str, package_id: str) -> None:
     report = verify_model_package(ROOT / "models" / "packages" / package_id, task_id=task_id, source=SOURCE)
     assert report.task_id == task_id
     assert report.package_id == package_id
-    assert report.quality_report["split"] == "leave-one-parent-condition-out"
+    expected_split = "grouped-parent-condition-k-fold" if task_id == "hot-rolled-properties-v1" else "leave-one-parent-condition-out"
+    assert report.quality_report["split"] == expected_split
 
 
 def test_canonical_training_dataset_is_deterministic_and_task_specific() -> None:
@@ -55,7 +81,7 @@ def test_canonical_training_dataset_is_deterministic_and_task_specific() -> None
 
 
 def test_verify_rejects_contract_digest_and_quality_report_corruption(tmp_path: Path) -> None:
-    source = ROOT / "models" / "packages" / "hot-rolled-gp-2026-07"
+    source = ROOT / "models" / "packages" / "hot-rolled-horseshoe-2026-07"
     package = tmp_path / "package"
     import shutil
 
@@ -176,8 +202,8 @@ def test_alternate_verified_package_needs_no_api_change_and_snapshot_keeps_old_i
 def test_app_startup_rejects_package_trained_from_a_different_source(tmp_path: Path) -> None:
     import shutil
 
-    source = ROOT / "models" / "packages" / "hot-rolled-gp-2026-07"
-    package = tmp_path / "hot-rolled-gp"
+    source = ROOT / "models" / "packages" / "hot-rolled-horseshoe-2026-07"
+    package = tmp_path / "hot-rolled-horseshoe"
     shutil.copytree(source, package)
     manifest_path = package / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -188,3 +214,18 @@ def test_app_startup_rejects_package_trained_from_a_different_source(tmp_path: P
     with pytest.raises(PackageContractError, match="training data digest"):
         with TestClient(app):
             pass
+
+
+def test_hot_rolling_gp_rollback_reports_gp_prediction_identity(tmp_path: Path) -> None:
+    package = ROOT / "models" / "packages" / "hot-rolled-gp-2026-07"
+    app = create_app(SOURCE, tmp_path / "workbench.db", package_roots={"hot-rolled-properties-v1": package})
+    with TestClient(app) as client:
+        candidate = client.get("/api/projects/hot-rolling-default/candidates").json()[0]
+        response = client.post(
+            f"/api/projects/hot-rolling-default/candidates/{candidate['id']}/preview",
+            params={"expected_revision": candidate["revision"]},
+        )
+    assert response.status_code == 200
+    metadata = response.json()["model_meta"]
+    assert metadata["model"]["method"] == "Gaussian process regression"
+    assert metadata["prediction_interval"]["method"] == "gaussian_process_predictive_distribution"

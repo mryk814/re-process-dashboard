@@ -1,0 +1,35 @@
+{
+  "summary": {
+    "target": "example",
+    "target_kind": "count",
+    "unit": "1",
+    "point_statistic": "rate",
+    "point_estimate": 0.9958612374735606,
+    "quantiles": {
+      "0.05": 0.0,
+      "0.50": 1.0,
+      "0.95": 3.0
+    },
+    "event_probability": null,
+    "distribution": {
+      "family": "poisson_log",
+      "support": "nonnegative_integers"
+    },
+    "uncertainty_components": null,
+    "warnings": []
+  },
+  "capability": {
+    "target": "example",
+    "point_statistics": [
+      "rate"
+    ],
+    "standard_deviation": false,
+    "quantiles": true,
+    "samples": false,
+    "parametric_distribution": true,
+    "uncertainty_components": false,
+    "support": true,
+    "warnings": true,
+    "goal_probability": "unavailable"
+  }
+}

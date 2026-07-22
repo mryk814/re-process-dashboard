@@ -159,7 +159,6 @@ export function useWorkbenchPrediction({ projectId, taskId, candidate, operation
         if (controller.signal.aborted || currentPreviewActiveKeyRef.current !== requestActiveKey) return;
         identities.current.set(candidate.id, { inputIdentity, requestKey: previewRequestKey });
         setPreviewsByCandidate((current) => ({ ...current, [candidate.id]: result }));
-        onNotice(result.warnings?.[0] ?? "プレビューを更新しました");
       } catch {
         if (controller.signal.aborted || currentPreviewActiveKeyRef.current !== requestActiveKey) return;
         setError("プレビューを取得できませんでした");

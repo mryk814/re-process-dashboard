@@ -7,6 +7,7 @@ import numpy as np
 
 from ..model_packages import PackageContractError, PredictiveSummary, PredictorSpec, VerifiedModelPackage
 from .base import feature_vector
+from .safe_npz import safe_npz_arrays
 
 
 class _ExactGPPredictor:
@@ -128,11 +129,7 @@ class BuiltinExactGPAdapter:
             raise PackageContractError("builtin.exact_gp.v1 lognormal requires config.latent_transform=log1p")
         if predictor.predictive_family == "lognormal" and predictor.target_kind != "continuous_positive":
             raise PackageContractError("builtin.exact_gp.v1 lognormal requires target_kind=continuous_positive")
-        try:
-            with np.load(package.artifact_path(predictor.artifact), allow_pickle=False) as artifact:
-                arrays = {name: artifact[name] for name in artifact.files}
-        except (OSError, ValueError, KeyError) as exc:
-            raise PackageContractError(f"invalid built-in exact GP artifact: {exc}") from exc
+        arrays = safe_npz_arrays(package.artifact_path(predictor.artifact), max_entries=11)
         required = {
             "train_x", "train_y", "feature_mean", "feature_scale", "lengthscale",
             "outputscale", "train_noise", "observation_noise", "mean", "precision", "alpha",

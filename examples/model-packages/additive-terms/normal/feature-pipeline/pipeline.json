@@ -1,0 +1,29 @@
+{
+  "id": "additive-three-feature-example",
+  "version": "1.0.0",
+  "canonical_input_paths": [
+    "composition.x",
+    "categorical.route_code",
+    "process.z"
+  ],
+  "features": [
+    {
+      "name": "x",
+      "unit": "1",
+      "meaning": "nonlinear synthetic input",
+      "group": "composition"
+    },
+    {
+      "name": "route_code",
+      "unit": "1",
+      "meaning": "encoded synthetic category",
+      "group": "categorical"
+    },
+    {
+      "name": "z",
+      "unit": "1",
+      "meaning": "linear synthetic process input",
+      "group": "process"
+    }
+  ]
+}

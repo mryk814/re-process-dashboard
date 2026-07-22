@@ -13,7 +13,7 @@ from .feature_contracts import feature_index_families
 from .feature_pipeline import FEATURE_DEFINITIONS, FEATURE_NAMES as METALLURGY_FEATURE_NAMES, FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION, build_feature_bundle, build_feature_bundle_from_observation
 from .dataset_profile import load_task_definitions
 from .importer import WorkbookData, composition_names, lineage_reference_keys
-from .model_packages import ModelPackageLoader, VerifiedModelPackage, validate_predictive_summary, validate_task_definition_canonical_inputs
+from .model_packages import ModelPackageLoader, VerifiedModelPackage, predictive_interval, validate_predictive_summary, validate_task_definition_canonical_inputs
 from .schemas import Candidate, CandidateInput, HeatPoint, Prediction, Support
 from .task_registry import load_task_contracts
 
@@ -185,8 +185,8 @@ class ModelRuntime:
         smoke = self.model_package.manifest.smoke_test
         if not smoke:
             raise ValueError("Production model package must declare a smoke test")
-        candidate = CandidateInput.model_validate(json.loads(self.model_package.artifact_path(smoke["input"]).read_text(encoding="utf-8")))
-        expected = json.loads(self.model_package.artifact_path(smoke["expected"]).read_text(encoding="utf-8"))
+        candidate = CandidateInput.model_validate(json.loads(self.model_package.artifact_path(smoke.input).read_text(encoding="utf-8")))
+        expected = json.loads(self.model_package.artifact_path(smoke.expected).read_text(encoding="utf-8"))
         values = build_feature_bundle(candidate, self.composition_defaults).as_dict()
         specs = {spec.target: spec for spec in self.model_package.manifest.predictors}
         capabilities = {item.target: item for item in load_task_contracts()[TASK_ID].runtime_capability.targets}
@@ -409,8 +409,7 @@ class ModelRuntime:
             if label in self.package_predictors:
                 summary = self.package_predictors[label].predict({name: float(value) for name, value in zip(FEATURE_NAMES, x)}, seed=0)
                 value = summary.point_estimate
-                lower = summary.quantiles.get("0.05", value)
-                upper = summary.quantiles.get("0.95", value)
+                lower, upper = predictive_interval(summary)
                 unit = summary.unit
                 warnings.extend(summary.warnings)
             else:
@@ -445,6 +444,11 @@ class ModelRuntime:
                 goal_probability = float(np.mean(value + model.oof_residuals >= goal_value))
             predictions[label] = Prediction(
                 value=round(value, 3), lower=round(lower, 3), upper=round(upper, 3), unit=unit,
+                target_kind=summary.target_kind if summary is not None else "continuous",
+                point_statistic=summary.point_statistic if summary is not None else "mean",
+                predictive_family=summary.distribution.get("family", "empirical_quantiles") if summary is not None else "empirical_quantiles",
+                quantiles={} if summary is None else {level: round(float(item), 6) for level, item in summary.quantiles.items()},
+                categories=[] if summary is None else list(summary.distribution.get("categories", [])),
                 goal_value=goal_value,
                 goal_probability=None if goal_probability is None else round(goal_probability, 4),
                 goal_direction=None if goal_value is None else "at_least",
@@ -730,14 +734,25 @@ class ModelRuntime:
             adjusted = candidate.model_copy(deep=True)
             self._set_curve_variable(adjusted, variable, float(x_value), stage_name, stage_position_m)
             adjusted_vector = self.vector_for_candidate(adjusted)
+            summary = None
             if target in self.package_predictors:
                 summary = self.package_predictors[target].predict({name: float(value) for name, value in zip(FEATURE_NAMES, adjusted_vector)}, seed=0)
                 value = summary.point_estimate
-                lower, upper = summary.quantiles.get("0.05", value), summary.quantiles.get("0.95", value)
+                lower, upper = predictive_interval(summary)
             else:
                 value = model.predict(adjusted_vector)
                 lower, upper = value + lower_offset, value + upper_offset
-            curve.append({"x": round(float(x_value), 4), "value": round(value, 3), "lower": round(lower, 3), "upper": round(upper, 3)})
+            curve.append({
+                "x": round(float(x_value), 4),
+                "value": round(value, 3),
+                "lower": round(lower, 3),
+                "upper": round(upper, 3),
+                "target_kind": summary.target_kind if summary is not None else "continuous",
+                "point_statistic": summary.point_statistic if summary is not None else "mean",
+                "predictive_family": summary.distribution.get("family", "empirical_quantiles") if summary is not None else "empirical_quantiles",
+                "quantiles": {"0.05": round(lower, 6), "0.95": round(upper, 6)} if summary is None else {level: round(float(item), 6) for level, item in summary.quantiles.items()},
+                "categories": [] if summary is None else list(summary.distribution.get("categories", [])),
+            })
         return curve
 
     def response_curve_result(

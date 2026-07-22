@@ -1,0 +1,14 @@
+{
+  "schema_version": "model-example-quality/v1",
+  "evaluation_unit": "leave-one-parent-block-out",
+  "metrics": {
+    "full_horseshoe_block_cv_rmse": 0.43289448624755916,
+    "selected_reduced_horseshoe_block_cv_rmse": 0.41772325979007624,
+    "mean_selected_feature_count": 2.0,
+    "full_ridge_baseline_rmse": 0.46763025915689316,
+    "posterior_draw_count": 192.0
+  },
+  "notes": [
+    "Each held-out parent block trains a full horseshoe, selects features inside that training fold, then trains the reduced horseshoe. The ridge score is a separate full-feature baseline."
+  ]
+}

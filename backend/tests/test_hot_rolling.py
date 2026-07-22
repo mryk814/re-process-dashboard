@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 
-def test_hot_rolling_task_candidates_and_gp_uncertainty(client) -> None:
+def test_hot_rolling_task_candidates_and_horseshoe_uncertainty(client) -> None:
     assert client.get("/api/hot-rolling/task-definition").status_code == 404
     project_id = "hot-rolling-default"
     task = client.get(f"/api/projects/{project_id}/task-definition")
@@ -18,6 +18,9 @@ def test_hot_rolling_task_candidates_and_gp_uncertainty(client) -> None:
     assert {item["key"] for item in definition["outputs"]} == {"TS"}
     package = client.get(f"/api/projects/{project_id}/model-package").json()
     assert package["task_id"] == "hot-rolled-properties-v1"
+    assert package["id"] == "hot-rolled-horseshoe-2026-07"
+    assert package["active_runtimes"] == ["builtin.posterior_linear.v1"]
+    assert package["quality_report"]["split"] == "grouped-parent-condition-k-fold"
     assert {item["target"] for item in package["quality_report"]["targets"]} == {"TS"}
 
     candidates = client.get(f"/api/projects/{project_id}/candidates").json()
@@ -41,7 +44,12 @@ def test_hot_rolling_task_candidates_and_gp_uncertainty(client) -> None:
     for prediction in result["predictions"].values():
         assert prediction["lower"] < prediction["upper"]
         components = prediction["uncertainty_components"]
-        assert components["total_predictive_variance"] == pytest.approx(components["latent_model_variance"] + components["observation_noise_variance"], abs=2e-6)
+        assert prediction["predictive_family"] == "normal"
+        assert components["epistemic_std"] >= 0
+        assert components["aleatoric_std"] > 0
+        assert components["total_predictive_std"] == pytest.approx((components["epistemic_std"] ** 2 + components["aleatoric_std"] ** 2) ** 0.5, abs=2e-6)
+    assert result["model_meta"]["model"]["method"] == "Regularized Horseshoe sparse Bayesian regression"
+    assert result["model_meta"]["prediction_interval"]["method"] == "posterior_predictive_moment_matched_normal"
 
 
 def test_hot_rolling_candidate_edit_is_persisted(client) -> None:

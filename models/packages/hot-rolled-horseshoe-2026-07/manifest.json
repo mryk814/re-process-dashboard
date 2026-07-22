@@ -1,0 +1,167 @@
+{
+  "schema_version": "model-package/v1",
+  "package_id": "hot-rolled-horseshoe-2026-07",
+  "package_version": "1.0.0",
+  "task_id": "hot-rolled-properties-v1",
+  "input_schema_version": "hot-rolling-candidate-v2",
+  "input_contract_digest": "sha256:1a2fe24fcdd492d411f07f5aadd5bda4b75a001f3aa749ca233f7024f146be74",
+  "runtime_capability_digest": "sha256:98fb62b42f98b61ddb9ca562ba05ed9d84ba9217e8f5a900d0838e724bfc96c5",
+  "feature_pipeline": {
+    "id": "metallurgy-hot-rolling",
+    "version": "2.0.0",
+    "spec": "feature-pipeline/pipeline.json",
+    "canonical_input_paths": [
+      "composition.C",
+      "composition.Si",
+      "composition.Mn",
+      "composition.P",
+      "composition.S",
+      "composition.Al",
+      "composition.Cu",
+      "composition.Ni",
+      "composition.Cr",
+      "composition.Mo",
+      "composition.Ti",
+      "composition.B",
+      "composition.O",
+      "composition.N",
+      "process.soaking_temperature_c",
+      "process.finish_temperature_c",
+      "process.entry_thickness_mm",
+      "process.exit_thickness_mm",
+      "process.hold_temperature_c",
+      "process.hold_time_min"
+    ],
+    "output_features": [
+      "C",
+      "Si",
+      "Mn",
+      "P",
+      "S",
+      "Al",
+      "Cu",
+      "Ni",
+      "Cr",
+      "Mo",
+      "Ti",
+      "B",
+      "O",
+      "N",
+      "ce_iiw",
+      "pcm",
+      "c_times_mn",
+      "si_plus_al",
+      "cr_plus_mo",
+      "soaking_temperature_c",
+      "finish_temperature_c",
+      "entry_thickness_mm",
+      "exit_thickness_mm",
+      "hold_temperature_c",
+      "hold_time_min"
+    ],
+    "artifacts": [
+      "reference/training_stats.json"
+    ]
+  },
+  "predictors": [
+    {
+      "id": "ts-horseshoe",
+      "target": "TS",
+      "unit": "MPa",
+      "target_kind": "continuous",
+      "runtime_type": "builtin.posterior_linear.v1",
+      "architecture_id": "posterior_linear_v1",
+      "artifact": "model-artifacts/TS.npz",
+      "predictive_family": "normal",
+      "feature_names": [
+        "C",
+        "Si",
+        "Mn",
+        "P",
+        "S",
+        "Al",
+        "Cu",
+        "Ni",
+        "Cr",
+        "Mo",
+        "Ti",
+        "B",
+        "O",
+        "N",
+        "ce_iiw",
+        "pcm",
+        "c_times_mn",
+        "si_plus_al",
+        "cr_plus_mo",
+        "soaking_temperature_c",
+        "finish_temperature_c",
+        "entry_thickness_mm",
+        "exit_thickness_mm",
+        "hold_temperature_c",
+        "hold_time_min"
+      ],
+      "config": {
+        "training_unit": "parent_condition_mean",
+        "method": "regularized_horseshoe",
+        "output_representation": "moment_matched_normal",
+        "estimand_context": {
+          "test_direction": "L",
+          "equipment": "HR-LINE-1"
+        }
+      }
+    }
+  ],
+  "provenance": {
+    "training_data_id": "sha256:d8197cc77ee5ffaef0a5ed75446acaaae56d5fab5b6b625383c99750b4fb57a5",
+    "feature_dataset_id": "sha256:9aec5cde51e74d70efc9a9bf4b74cd0f7d8ec1325fde66eb744e02e78a753628",
+    "training_code_revision": "1.0.0-regularized-horseshoe",
+    "dataset_profile_id": "sha256:2d1e24c821d230807a125b35c7070fc7beac60fff20f21b7005d0d52bd002744"
+  },
+  "artifacts": [
+    {
+      "path": "feature-pipeline/pipeline.json",
+      "sha256": "6c4917023d849b2fa96a9b1110eb23133c65912189dc98c54b1e65b6455a4b9c",
+      "bytes": 3699
+    },
+    {
+      "path": "model-artifacts/TS.npz",
+      "sha256": "4daac679a1978b00fda005ec8a8963762b1752d77c292c03cf42b69097b9563f",
+      "bytes": 853036
+    },
+    {
+      "path": "reference/training_stats.json",
+      "sha256": "8bfb3af249915834a58dedce1d5f3a5f28eb19221f06d84bc11be63fa292d33e",
+      "bytes": 407
+    },
+    {
+      "path": "reports/quality-report.json",
+      "sha256": "846b39af1d7ef51f50f547974ed67155bb2ed468f99b3d5808f6e767b5a89305",
+      "bytes": 308
+    },
+    {
+      "path": "reports/selection-report.json",
+      "sha256": "23cff0a2675f93a38622bb6dc918f6a0a362aa39edd9e013763743b34dfd5502",
+      "bytes": 8688
+    },
+    {
+      "path": "reports/training-diagnostics.json",
+      "sha256": "54f7c80a5c5bb83f38c2017ae28728ec6acc0dde827eb47786a246a9d9f3b2df",
+      "bytes": 258
+    },
+    {
+      "path": "smoke/input.json",
+      "sha256": "919f5c89f2fcaa9a1132df8f9a03ffde23b33ef1f383b0f51fa4f11d416385c3",
+      "bytes": 739
+    },
+    {
+      "path": "smoke/expected.json",
+      "sha256": "a0c7b8bb29ddbe3ec1f5fbcd68a14eea87a21d6fdc536cc5641157dcc9be9b57",
+      "bytes": 24
+    }
+  ],
+  "smoke_test": {
+    "input": "smoke/input.json",
+    "expected": "smoke/expected.json"
+  },
+  "quality_report": "reports/quality-report.json"
+}

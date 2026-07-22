@@ -1,0 +1,35 @@
+{
+  "summary": {
+    "target": "example",
+    "target_kind": "binary",
+    "unit": "1",
+    "point_statistic": "probability",
+    "point_estimate": 0.4978928174168236,
+    "quantiles": {
+      "0.05": 0.4620894332223235,
+      "0.50": 0.49504447499380316,
+      "0.95": 0.5322784117594664
+    },
+    "event_probability": 0.4978928174168236,
+    "distribution": {
+      "family": "bernoulli_logit",
+      "support": "{0,1}"
+    },
+    "uncertainty_components": null,
+    "warnings": []
+  },
+  "capability": {
+    "target": "example",
+    "point_statistics": [
+      "probability"
+    ],
+    "standard_deviation": false,
+    "quantiles": true,
+    "samples": false,
+    "parametric_distribution": true,
+    "uncertainty_components": false,
+    "support": true,
+    "warnings": true,
+    "goal_probability": "native"
+  }
+}
