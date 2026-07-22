@@ -1,36 +1,39 @@
-# Material Decision Workbench design system
+# Material Decision Workbench デザインシステム
 
-Accepted concept: `docs/design/candidate-workbench.png` (1600 x 1024).
+採用済みのコンセプト画像は `docs/design/candidate-workbench.png`（1600 × 1024）です。
 
-## Visual direction
+## 視覚方針
 
-- Background: pale blue-gray `#F5F7FA`; surfaces: true white `#FFFFFF`.
-- Header: `#0F1B2D`; primary/selection: `#1F5FC4`; border: `#D8E0EA`.
-- Main text: `#18202C`; muted text: `#5D6775`; amber is reserved for caution.
-- Typography: Noto Sans JP-compatible system stack; tabular numerals; 14-16px data UI.
-- Geometry: 4-6px radii, fine borders, almost no shadow.
+- 背景には淡い青みのある灰色 `#F5F7FA`、面には白 `#FFFFFF` を使います。
+- ヘッダーは `#0F1B2D`、主要操作と選択状態は `#1F5FC4`、境界線は `#D8E0EA` を使います。
+- 本文は `#18202C`、補助文は `#5D6775` とし、琥珀色は注意表示だけに使います。
+- 書体はNoto Sans JP互換のシステムフォントを使い、数値は等幅数字、データUIは14〜16pxとします。
+- 角丸は4〜6px、境界線は細くし、影はほとんど使いません。
 
-## Container model
+## 画面構成
 
-Quiet header, left inspector rail, central comparison table and charts, right evidence rail. Tables and open rails carry comparison; cards are limited to summaries and warnings.
+主張を抑えたヘッダー、左側の入力欄、中央の比較表とグラフ、右側の根拠欄で構成します。
+比較は表と常時開いた欄で扱い、カードは要約と警告に限定します。
 
-## Component inventory
+## 構成要素
 
-- Header navigation and one primary action.
-- Candidate selector, unit-aware numeric fields, copy/delete/add controls.
-- Editable candidate comparison table with selected column state.
-- Heat-pattern chart plus point table; temperature points are draggable and numerically editable.
-- Property prediction table with interval whiskers and support status.
-- Similar-experiment list and reproducibility metadata.
+- ヘッダーナビゲーションと主要操作を一つ置きます。
+- 候補選択、単位付き数値入力、複製、削除、追加の操作を置きます。
+- 選択列が分かる編集可能な候補比較表を置きます。
+- ヒートパターングラフと点の表を併置し、温度点はドラッグと数値入力の両方で編集できるようにします。
+- 区間のひげと学習範囲への適合状態を持つ特性予測表を置きます。
+- 類似実験の一覧と再現性メタデータを置きます。
 
-## Table rules
+## 表の規則
 
-- Column headers are centered. Row headers and identifier/text columns stay left-aligned.
-- Numeric cells and numeric inputs are right-aligned and use tabular numerals.
-- A variable uses the same decimal places across every row so candidates can be compared vertically.
-- `TaskDefinition.display_decimals` is the upstream default. A project's sparse `display_decimals` map overrides it without rounding stored or calculated values.
-- Editable tables may format an idle numeric input with trailing zeroes; editing and persistence continue to use the original numeric value.
+- 列見出しは中央揃え、行見出しと識別子列と文字列列は左揃えにします。
+- 数値セルと数値入力は右揃えにし、等幅数字を使います。
+- 候補を縦に比較できるよう、同じ変数はすべての行で小数点以下の桁数を揃えます。
+- 上流の既定値には `TaskDefinition.display_decimals` を使います。
+- プロジェクトの疎な `display_decimals` 設定は、保存値や計算値を丸めずに既定値だけを上書きします。
+- 編集可能な表では、未編集中の数値入力へ末尾のゼロを表示できます。
+- 編集と保存には元の数値を使います。
 
-## Copy lock for first viewport
+## 初期表示で固定する文言
 
 Material Decision Workbench / プロジェクト / 候補比較 / データ探索 / 範囲探索 / 焼鈍条件の候補検討 / プレビュー / 詳細予測を実行 / 選択候補 / 入力条件 / 候補操作 / 候補を追加 / 候補比較表 / ヒートパターン / 応答曲線 / 予測特性 / 類似する過去実験 / 予測の根拠。

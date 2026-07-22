@@ -1,26 +1,32 @@
-# Shared multi-output artifact decision card
+# 複数出力で共有する成果物の判断カード
 
-## Decision on Draft PR #44
+## Draft PR #44に対する判断
 
-The I/O pattern is accepted as the representative design for multiple targets sharing one joint artifact. The implementation in [Draft PR #44](https://github.com/mryk814/re-process-dashboard/pull/44), pinned at code commit `7ee29f67bd2265b87f2509106115986e2d39db18`, is not adopted into current `main`.
+一つの結合モデル成果物を複数の予測対象で共有する代表的な設計として、このI/Oパターンを採用する。
+ただし、コードコミット `7ee29f67bd2265b87f2509106115986e2d39db18` に固定された[Draft PR #44](https://github.com/mryk814/re-process-dashboard/pull/44)の実装は、現在の `main` には取り込まない。
 
-As checked on 2026-07-22, the PR is draft, open, conflicting with the substantially newer task-driven workbench, and its code is not present in the runtime Registry. Therefore this repository must not advertise `builtin.multitask_gp.v1` as available.
+2026-07-22時点で、このPRはドラフトかつ未終了であり、大幅に新しくなったタスク駆動型ワークベンチと競合している。
+PRのコードはランタイムのRegistryにも存在しない。
+したがって、このリポジトリで `builtin.multitask_gp.v1` を利用可能と案内してはならない。
 
-## Accepted I/O pattern
+## 採用するI/Oパターン
 
-- Canonical input → one ordered FeatureBundle.
-- One safe joint artifact stores shared input/kernel state and an explicit target order.
-- Multiple PredictorSpecs refer to that artifact with unique target indices.
-- Every target returns its own PredictiveSummary while joint provenance remains shared.
-- The Package is inactive until target-level quality and uncertainty trade-offs are accepted.
+- 正規化入力から、順序が固定された一つのFeatureBundleを生成する。
+- 一つの安全な結合モデル成果物に、共有する入力とカーネルの状態、および明示的な予測対象の順序を保存する。
+- 複数のPredictorSpecsから、一意の予測対象インデックスを使って同じモデル成果物を参照する。
+- 結合された来歴を共有しながら、予測対象ごとに固有のPredictiveSummaryを返す。
+- 予測対象単位の品質と不確かさのトレードオフが受け入れられるまで、Packageを無効のままにする。
 
-## Requirements before a current-main implementation
+## 現在のmainに実装する前の要件
 
-- Reuse bounded safe-NPZ loading; do not rely only on compressed artifact size.
-- Verify precision/covariance positive definiteness instead of clipping negative predictive variance to zero.
-- Store target order inside the artifact and validate each manifest target/index pair; uniqueness alone cannot detect swapped targets.
-- Bind shared-artifact cache identity to Package digest and artifact digest.
-- Preserve the existing TaskDefinition output set, Feature Pipeline order, per-target capability, snapshot provenance, and parent-condition-block quality comparison.
-- Port the design as a new current-main implementation with focused contract tests. Do not cherry-pick the divergent PR wholesale.
+- 上限を設けた安全なNPZ読み込みを再利用し、圧縮後のモデル成果物の大きさだけに依存しない。
+- 負の予測分散をゼロへ切り詰めず、精度行列と共分散行列が正定値であることを検証する。
+- 予測対象の順序をモデル成果物内に保存し、マニフェストにある予測対象とインデックスの組を一つずつ検証する。
+  一意性だけでは予測対象の入れ替わりを検出できない。
+- 共有モデル成果物のキャッシュ識別情報をPackageのダイジェストとモデル成果物のダイジェストに固定する。
+- 既存のTaskDefinitionの出力集合、Feature Pipelineの順序、予測対象別の能力、スナップショットの来歴、親条件ブロック単位の品質比較を維持する。
+- 対象を絞った契約テストとともに、現在のmain向けの新しい実装として設計を移植する。
+  分岐したPR全体をチェリーピックしてはならない。
 
-The PR remains useful evidence for the shared-artifact shape and its TS/YS/EL/λ quality trade-off, but it is not a production dependency or executable example for Issue #45.
+このPRは共有モデル成果物の構造と、TS/YS/EL/λにおける品質のトレードオフを示す資料として引き続き利用できる。
+ただし、Issue #45の本番環境の依存関係でも実行可能な例でもない。

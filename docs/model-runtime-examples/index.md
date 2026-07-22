@@ -1,44 +1,52 @@
-# Model Runtime examples by I/O contract
+# 入出力契約別のモデルランタイム例
 
-Start with the model's input/output representation, not its training-library name. These examples are inactive unless explicitly stated; their purpose is to freeze safe artifacts, adapter contracts, PredictiveSummary semantics, capability gaps, smoke, and quality evidence.
+学習ライブラリ名ではなく、モデルの入出力表現から選びます。
+明示されていない限り、これらの例は有効化されていません。
+安全なモデル成果物、アダプター契約、PredictiveSummaryの意味、不足している能力、スモークテスト、品質評価の証拠を固定することが目的です。
 
-| I/O contract | Representative route | Status and card |
+| 入出力契約 | 代表的な経路 | 状態とカード |
 |---|---|---|
-| fixed vector → deterministic scalar | `builtin.linear.v1` | production baseline; [existing runtime cards](existing-runtimes.md#fixed-vector--deterministic-scalar) |
-| fixed vector → allow-listed sklearn estimator | `sklearn.skops.v1` | optional trusted-type runtime; [existing runtime cards](existing-runtimes.md#fixed-vector--allow-listed-sklearn-estimator) |
-| fixed vector → native tree prediction | `lightgbm.booster.v1` | optional native runtime; [existing runtime cards](existing-runtimes.md#fixed-vector--native-tree-prediction) |
-| fixed vector → parametric normal/lognormal | `builtin.exact_gp.v1`, `gpytorch.static_exact_rbf.v1` | production/example routes; [existing runtime cards](existing-runtimes.md#fixed-vector--parametric-normal-or-lognormal) |
-| fixed vector → posterior predictive | `numpyro.dense_posterior.v1` | safe fixed dense graph; [existing runtime cards](existing-runtimes.md#fixed-vector--posterior-predictive) |
-| fixed vector → shared multi-output artifact | PR #44 concept | design accepted, code not adopted; [decision card](shared-multi-output.md) |
-| fixed vector → additive score + term contributions | `builtin.additive_terms.v1` | checked point/normal examples; [I/O card](additive-terms.md) |
-| fixed vector → sparse posterior predictive | `builtin.posterior_linear.v1` | checked NumPyro-trained example; [I/O card](sparse-bayesian.md) |
-| fixed vector → fixed empirical quantiles | `builtin.quantile_linear.v1` | checked quantile-only example; [I/O card](quantile-only.md) |
-| fixed vector → binary/count/ordinal likelihood | `numpyro.dense_posterior.v1` | checked examples for all three target kinds; [I/O card](non-continuous-targets.md) |
-| component predictive distributions → ensemble | no runtime | deferred by contract; [decision and design fixture](predictive-ensemble-decision.md) |
+| 固定ベクトル → 決定論的スカラー | `builtin.linear.v1` | 本番基準モデル。[既存ランタイムカード](existing-runtimes.md#固定ベクトルから決定論的スカラーへ) |
+| 固定ベクトル → 許可リスト登録済みsklearn推定器 | `sklearn.skops.v1` | 任意の信頼済み型ランタイム。[既存ランタイムカード](existing-runtimes.md#固定ベクトルから許可リスト登録済みsklearn推定器へ) |
+| 固定ベクトル → ネイティブ木予測 | `lightgbm.booster.v1` | 任意のネイティブランタイム。[既存ランタイムカード](existing-runtimes.md#固定ベクトルからネイティブ木予測へ) |
+| 固定ベクトル → パラメトリック正規分布または対数正規分布 | `builtin.exact_gp.v1`, `gpytorch.static_exact_rbf.v1` | 本番経路と例示経路。[既存ランタイムカード](existing-runtimes.md#固定ベクトルからパラメトリック正規分布または対数正規分布へ) |
+| 固定ベクトル → 事後予測 | `numpyro.dense_posterior.v1` | 安全な固定全結合グラフ。[既存ランタイムカード](existing-runtimes.md#固定ベクトルから事後予測へ) |
+| 固定ベクトル → 複数出力を共有するモデル成果物 | PR #44の構想 | 設計は承認済みで、コードは未採用。[判断カード](shared-multi-output.md) |
+| 固定ベクトル → 加算スコアと項別寄与 | `builtin.additive_terms.v1` | 検査済みの点予測例と正規分布例。[入出力カード](additive-terms.md) |
+| 固定ベクトル → 疎な事後予測 | `builtin.posterior_linear.v1` | NumPyroで学習した検査済みの例。[入出力カード](sparse-bayesian.md) |
+| 固定ベクトル → 固定経験分位点 | `builtin.quantile_linear.v1` | 分位点だけを返す検査済みの例。[入出力カード](quantile-only.md) |
+| 固定ベクトル → 二値、カウント、順序尤度 | `numpyro.dense_posterior.v1` | 3種類すべての目的変数種別について検査済みの例。[入出力カード](non-continuous-targets.md) |
+| 各構成要素の予測分布 → アンサンブル | ランタイムなし | 契約上は保留中。[判断と設計用資料](predictive-ensemble-decision.md) |
 
-## Fast path for a new model request
+## 新しいモデル要求に対応する最短経路
 
-1. Choose the nearest row by FeatureBundle shape, predictive representation, artifact type, and runtime dependency.
-2. Reuse an existing runtime when the artifact can be exported without losing semantics. Do not add a runtime merely because the trainer library differs.
-3. Copy the linked builder/fixture and state every unsupported semantic explicitly. Capability absence is not filled with a normal approximation, zero std, sorted crossing quantiles, or invented samples.
-4. Run the example verifier before considering production activation:
+1. FeatureBundleの形状、予測表現、モデル成果物の形式、ランタイム依存関係が最も近い行を選びます。
+2. 意味を失わずにモデル成果物を書き出せる場合は、既存ランタイムを再利用します。
+   学習ライブラリが異なるという理由だけでランタイムを追加することはできません。
+3. リンク先のビルダーまたは検証用一式をコピーし、対応していない意味をすべて明記します。
+   欠けている能力を、正規近似、0の標準偏差、交差した分位点の並べ替え、作成した標本で補うことはできません。
+4. 本番での有効化を検討する前に、例示用検証器を実行します。
 
 ```powershell
 uv run python backend/scripts/verify_model_package.py <package-directory> --example
 ```
 
-## Change-file map
+## 変更対象ファイルの対応表
 
-When reusing a runtime, the expected scope is the builder/export script, checked Package, I/O card, adapter contract/smoke tests, and target-appropriate quality report. Do not edit the Registry, production TaskDefinition, or active selection.
+ランタイムを再利用する場合、想定される変更範囲は、ビルダーまたは書き出しスクリプト、検査済みモデルパッケージ、入出力カード、アダプター契約とスモークテスト、目的変数に合った品質レポートです。
+Registry、本番TaskDefinition、有効な選択状態は編集しません。
 
-Only a genuinely new safe artifact schema adds these application files:
+新しい安全なモデル成果物構造が本当に必要な場合に限り、次のアプリケーションファイルを追加します。
 
 - `backend/src/material_workbench/adapters/<adapter>.py`
-- `RUNTIME_TYPES`, `PredictorSpec` architecture validation, and `AdapterRegistry` in `backend/src/material_workbench/model_packages.py`
-- adapter contract and adversarial tests in `backend/tests/`
-- the runtime table in `docs/model-package-contract.md`
-- this index and one I/O card
+- `backend/src/material_workbench/model_packages.py` 内の `RUNTIME_TYPES`、`PredictorSpec` の構造検証、`AdapterRegistry`
+- `backend/tests/` 内のアダプター契約テストと敵対的テスト
+- `docs/model-package-contract.md` 内のランタイム表
+- この索引と1個の入出力カード
 
-If the new PredictiveSummary meaning is not already carried through API/snapshot/UI, update `Prediction`, regenerate OpenAPI/TypeScript types, and add one presentation contract test. Otherwise those surfaces are out of scope.
+新しいPredictiveSummaryの意味がAPI、スナップショット、UIまで伝達されていない場合は、`Prediction` を更新し、OpenAPI型とTypeScript型を再生成して、表示契約テストを1個追加します。
+すでに伝達されている場合、これらの画面や境界は対象外です。
 
-Production activation remains a separate, explicit decision. It additionally requires a real TaskDefinition match, dataset/profile provenance, task-specific quality review, lifecycle verification, and `models/active-packages.json` update. Example work must not create a fake production task, load trainer objects, add arbitrary Python plugins, build generic experiment tracking, or auto-activate every example.
+本番での有効化は、独立した明示的な判断として残ります。
+有効化には、実在するTaskDefinitionとの一致、データセットとプロファイルの来歴、タスク固有の品質レビュー、ライフサイクル検証、`models/active-packages.json` の更新も必要です。
+例示作業で、偽の本番タスクを作成する、学習器オブジェクトを読み込む、任意のPythonプラグインを追加する、汎用実験追跡を構築する、すべての例を自動的に有効化することはできません。

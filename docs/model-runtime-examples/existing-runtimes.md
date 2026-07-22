@@ -1,39 +1,51 @@
-# Existing Model Runtime I/O cards
+# 既存モデルランタイムの入出力カード
 
-## Fixed vector → deterministic scalar
+## 固定ベクトルから決定論的スカラーへ
 
-- Canonical input becomes the task-specific ordered FeatureBundle.
-- `builtin.linear.v1` reads `weights`, `bias`, and fixed interval offsets from safe NPZ.
-- It returns a mean and empirical q05/q50/q95; it has no parametric distribution or native samples.
-- Training and runtime dependencies are NumPy only. Arbitrary estimators, callbacks, and dynamic code are unsupported.
-- Use `backend/scripts/build_default_model_package.py` and the production lifecycle verifier for the active Ridge baseline.
+- アプリ共通入力は、タスク固有の順序を持つFeatureBundleへ変換されます。
+- `builtin.linear.v1` は安全なNPZから `weights`、`bias`、固定された区間のずれを読み込みます。
+- 平均と経験分布の `q05`、`q50`、`q95` を返しますが、パラメトリック分布やネイティブ標本はありません。
+- 学習時とランタイムの依存関係はNumPyだけです。
+  任意の推定器、コールバック、動的コードには対応しません。
+- 稼働中のRidge基準モデルには、`backend/scripts/build_default_model_package.py` と本番ライフサイクル検証器を使います。
 
-## Fixed vector → native tree prediction
+## 固定ベクトルからネイティブ木予測へ
 
-- `lightgbm.booster.v1` reads a LightGBM native text asset, never a pickle or sklearn wrapper.
-- The adapter returns a point-centered empirical summary. Std, samples, and parametric probability are unavailable unless a new explicit artifact contract is added.
-- Training and runtime need LightGBM; missing optional dependency makes the Package unavailable rather than falling back to another model.
-- Contract examples are in `backend/tests/test_optional_adapters.py`.
+- `lightgbm.booster.v1` はLightGBMのネイティブテキスト成果物を読み込み、pickleやsklearnラッパーは読み込みません。
+- アダプターは、点予測を中心に置いた経験分布の要約を返します。
+  新しい明示的な成果物契約を追加しない限り、標準偏差、標本、パラメトリック確率は利用できません。
+- 学習時とランタイムにはLightGBMが必要です。
+  任意依存関係がない場合は、別のモデルへ切り替えず、そのモデルパッケージを利用不可にします。
+- 契約例は `backend/tests/test_optional_adapters.py` にあります。
 
-## Fixed vector → allow-listed sklearn estimator
+## 固定ベクトルから許可リスト登録済みsklearn推定器へ
 
-- `sklearn.skops.v1` reads a skops artifact only for application-owned estimator-family and trusted-type allow-lists.
-- It is suitable for fixed point predictors already expressible by those families; custom transformers, callbacks, arbitrary class graphs, and pickle/joblib remain forbidden.
-- Training and runtime require the sklearn/skops optional dependency. Missing dependency makes the Package unavailable rather than selecting a fallback.
-- The current summary is point-centered empirical quantiles; it does not imply parametric uncertainty.
+- `sklearn.skops.v1` は、アプリケーションが所有する推定器族と信頼済み型の許可リストに登録されたskops成果物だけを読み込みます。
+- これらの推定器族で表現できる固定点予測器に適しています。
+  独自変換器、コールバック、任意のクラスグラフ、pickle、joblibは禁止されたままです。
+- 学習時とランタイムにはsklearnとskopsの任意依存関係が必要です。
+  依存関係がない場合は、代替手段を選ばず、そのモデルパッケージを利用不可にします。
+- 現在の要約は、点予測を中心に置いた経験分布の分位点です。
+  パラメトリックな不確かさがあることは意味しません。
 
-## Fixed vector → parametric normal or lognormal
+## 固定ベクトルからパラメトリック正規分布または対数正規分布へ
 
-- `builtin.exact_gp.v1` reads bounded safe NPZ arrays for a fixed grouped exact-RBF architecture. `gpytorch.static_exact_rbf.v1` reads allow-listed safetensors for its fixed architecture.
-- Normal outputs carry mean, std, q05/q50/q95, and uncertainty components. Lognormal is allowed only with the declared log1p latent transform and positive target semantics.
-- Training may use general numerical/GP libraries. The built-in production runtime uses NumPy only; the GPyTorch route has explicit optional dependencies.
-- Unknown tensor schema, non-finite values, incompatible shapes, and undeclared transforms are rejected. Trainer objects and arbitrary kernels are unsupported.
-- Production builders and smoke live in `backend/scripts/build_default_model_package.py`, `build_hot_rolling_model_package.py`, and `build_flank_wear_model_package.py`.
+- `builtin.exact_gp.v1` は、固定されたグループ化exact-RBF構造向けの、上限を定めた安全なNPZ配列を読み込みます。
+  `gpytorch.static_exact_rbf.v1` は、固定構造向けの許可リスト登録済みsafetensorsを読み込みます。
+- 正規分布の出力は、平均、標準偏差、`q05`、`q50`、`q95`、不確かさの構成要素を持ちます。
+  対数正規分布は、宣言済みのlog1p潜在変換と正の目的変数という意味がある場合に限って利用できます。
+- 学習には汎用の数値計算ライブラリやGPライブラリを使用できます。
+  組み込みの本番ランタイムはNumPyだけを使い、GPyTorch経路には明示的な任意依存関係があります。
+- 未知のテンソル構造、非有限値、互換性のない形状、未宣言の変換は拒否されます。
+  学習器オブジェクトと任意のカーネルには対応しません。
+- 本番ビルダーとスモークテストは、`backend/scripts/build_default_model_package.py`、`build_hot_rolling_model_package.py`、`build_flank_wear_model_package.py` にあります。
 
-## Fixed vector → posterior predictive
+## 固定ベクトルから事後予測へ
 
-- `numpyro.dense_posterior.v1` evaluates a fixed dense MLP from posterior weight/bias arrays and an allow-listed likelihood.
-- Safe NPZ limits entry count, expansion, compression ratio, tensor count, draws, layers, shape, and finite values.
-- Normal/Student-t/lognormal, Bernoulli, Poisson/NB/ZIP, and ordinal likelihoods retain their target support and point statistic. Seeded posterior-predictive evaluation is deterministic.
-- NumPyro/JAX is training-only; production inference uses NumPy. Raw samples are not exposed by PredictiveSummary.
-- Checked smoke/quality/capability examples and verify commands are in `examples/model-packages/numpyro/` and [the non-continuous card](non-continuous-targets.md).
+- `numpyro.dense_posterior.v1` は、事後分布の重み配列とバイアス配列、および許可リスト登録済みの尤度から、固定全結合MLPを評価します。
+- 安全なNPZでは、要素数、展開サイズ、圧縮率、テンソル数、標本抽出回数、層数、形状、有限値に上限や条件を設けています。
+- 正規、Student-t、対数正規、Bernoulli、Poisson、NB、ZIP、順序尤度は、それぞれの目的変数の台と代表値統計量を維持します。
+  乱数シードを指定した事後予測評価は決定論的です。
+- NumPyroとJAXは学習時だけ使用し、本番推論にはNumPyを使います。
+  PredictiveSummaryは生の標本を公開しません。
+- 検査済みのスモークテスト、品質、能力の例と検証コマンドは、`examples/model-packages/numpyro/` と[非連続目的変数のカード](non-continuous-targets.md)にあります。
