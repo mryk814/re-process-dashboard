@@ -7,9 +7,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from .candidate_migration import migrate_candidate_storage
 from .candidate_migration import HOT_PROJECT_ID
 from .schemas import ActualMeasurement, ActualMeasurementInput, Candidate, CandidateInput, Project, ProjectInput
+from .workspace_catalog_migration import migrate_workspace_catalog
 
 
 MAX_CANDIDATES_PER_PROJECT = 10
@@ -66,7 +66,7 @@ class Store:
         return conn
 
     def _init(self) -> None:
-        migrate_candidate_storage(self.path)
+        migrate_workspace_catalog(self.path)
 
     @staticmethod
     def _project(row: sqlite3.Row) -> Project:
