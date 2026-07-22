@@ -15,10 +15,12 @@ const saveLabels: Record<CandidateSaveState, string> = {
   error: "保存失敗",
 };
 
-function RowActionIcon({ name }: { name: "trash" | "save" }) {
+function RowActionIcon({ name }: { name: "trash" | "save" | "check" }) {
   const path = name === "trash"
     ? <path d="M4 7h16M10 11v6m4-6v6M9 7l1-3h4l1 3m-9 0 1 13h10l1-13" />
-    : <><path d="M5 4h12l2 2v14H5V4Z" /><path d="M8 4v6h8V4M8 20v-6h8v6" /></>;
+    : name === "check"
+      ? <path d="m5 12 4 4L19 6" />
+      : <><path d="M5 4h12l2 2v14H5V4Z" /><path d="M8 4v6h8V4M8 20v-6h8v6" /></>;
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{path}</svg>;
 }
 
@@ -345,7 +347,7 @@ export function ComparisonTable({
                 return <tr key={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}><td><div className="candidate-row-actions">
                   <CandidateAddButton compact className="candidate-row-icon-button" aria-label={`${candidate.label}を複製`} title="この候補を複製" onClick={(event) => { event.stopPropagation(); onCopy(candidate.id); }} />
                   <button type="button" className="candidate-row-icon-button candidate-row-delete-button" aria-label={`${candidate.label}を削除`} title={decisionCandidateId === candidate.id ? "採用判断を解除してから削除してください" : "この候補を削除"} disabled={deleteBlocked} onClick={(event) => { event.stopPropagation(); onDelete(candidate.id); }}><RowActionIcon name="trash" /></button>
-                  <button type="button" className={`candidate-row-save-button${saved ? " saved" : ""}`} aria-label={`${candidate.label}の詳細予測を${saved ? "保存済み" : snapshotHistoryState === "loading" ? "確認中" : snapshotHistoryState === "error" ? "履歴確認失敗" : "保存"}`} title={!detailedPredictionAvailable ? "このタスクでは詳細予測を利用できません" : snapshotHistoryState === "loading" ? "保存履歴を確認しています" : snapshotHistoryState === "error" ? "保存履歴を確認できませんでした" : saved ? "現在の編集版は保存済みです" : !editableSaved ? "入力の保存完了後に実行できます" : "詳細予測を保存"} disabled={!detailedPredictionAvailable || historyPending || !editableSaved || saving || saved} onClick={(event) => { event.stopPropagation(); onSave(candidate); }}><RowActionIcon name="save" /><span>{saving ? "保存中" : saved ? "保存済み" : snapshotHistoryState === "loading" ? "確認中" : snapshotHistoryState === "error" ? "要確認" : "保存"}</span></button>
+                  <button type="button" className={`candidate-row-save-button${saved ? " saved" : ""}`} aria-label={`${candidate.label}の詳細予測を${saved ? "保存済み" : snapshotHistoryState === "loading" ? "確認中" : snapshotHistoryState === "error" ? "履歴確認失敗" : "保存"}`} title={!detailedPredictionAvailable ? "このタスクでは詳細予測を利用できません" : snapshotHistoryState === "loading" ? "保存履歴を確認しています" : snapshotHistoryState === "error" ? "保存履歴を確認できませんでした" : saved ? "現在の編集版は保存済みです" : !editableSaved ? "入力の保存完了後に実行できます" : "詳細予測を保存"} disabled={!detailedPredictionAvailable || historyPending || !editableSaved || saving || saved} onClick={(event) => { event.stopPropagation(); onSave(candidate); }}><RowActionIcon name={saved ? "check" : "save"} /></button>
                 </div></td></tr>;
               })}</tbody>
             </table>

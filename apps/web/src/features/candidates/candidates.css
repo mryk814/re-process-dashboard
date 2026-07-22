@@ -185,7 +185,7 @@
 .candidate-row-delete-button { display: inline-grid; place-items: center; border: 1px solid #bdc9d8; background: #fff; color: #59697d; }
 .candidate-row-delete-button:hover:not(:disabled) { border-color: #c35a5a; background: #fff6f6; color: #a33b3b; }
 .candidate-row-delete-button:disabled { border-color: #d8e0e9; background: #f2f4f7; color: #a5afbc; cursor: not-allowed; }
-.candidate-row-save-button { display: inline-flex; min-width: 66px; align-items: center; justify-content: center; gap: 3px; border: 1px solid #0f766e; padding: 2px 5px; background: #0f766e; color: #fff; }
+.candidate-row-save-button { display: inline-flex; width: 27px; min-width: 27px; align-items: center; justify-content: center; border: 1px solid #0f766e; padding: 0; background: #0f766e; color: #fff; }
 .candidate-row-save-button:hover:not(:disabled) { background: #0b5f59; }
 .candidate-row-save-button.saved { border-color: #98cfbd; background: #eaf7f2; color: #147255; }
 .candidate-row-save-button:disabled:not(.saved) { border-color: #cbd5e1; background: #e2e8f0; color: #748093; cursor: not-allowed; }
