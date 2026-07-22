@@ -52,23 +52,28 @@ export function DeveloperAdminPage({
     return () => controller.abort();
   }, [project?.id]);
   useEffect(() => setSection(initialSection ?? "quality"), [initialSection]);
-  const sections: Array<{ id: AdminSection; label: string }> = [
+  const qualityAvailable = resolvedTaskDefinition?.data_explorer?.quality === true;
+  const allSections: Array<{ id: AdminSection; label: string }> = [
     { id: "quality", label: "データ品質集計" },
     { id: "ranges", label: "入力範囲" },
     { id: "display", label: "表示桁数" },
     { id: "task", label: "予測タスク定義" },
     { id: "model", label: "モデルと実行環境" },
   ];
+  const sections = allSections.filter((item) => item.id !== "quality" || qualityAvailable);
+  const visibleSection: AdminSection = section === "quality" && resolvedTaskDefinition && !qualityAvailable ? "task" : section;
   return <div className="admin-workspace">
     <aside className="admin-navigation">
       <span className="overline">開発・管理</span><h2>検証と構成</h2><p>通常の候補検討では使わない管理情報です。</p>
-      <nav aria-label="開発・管理メニュー">{sections.map((item) => <button key={item.id} className={section === item.id ? "active" : ""} onClick={() => { setSection(item.id); onSectionChange(item.id); }}>{item.label}</button>)}</nav>
+      <nav aria-label="開発・管理メニュー">{sections.map((item) => <button key={item.id} className={visibleSection === item.id ? "active" : ""} onClick={() => { setSection(item.id); onSectionChange(item.id); }}>{item.label}</button>)}</nav>
     </aside>
     <div className="admin-content">
-      {section === "quality" && <LiveDataQualityPage filters={qualityFilters} onFiltersChange={onQualityFiltersChange} onOpenLineage={onOpenLineage} showReferenceScenarios mode="summary" />}
-      {section === "ranges" && <InputRangeSettingsPage project={project} taskDefinition={taskDefinition} onProjectChanged={onProjectChanged} />}
-      {section === "display" && <DisplayDecimalSettingsPage project={project} taskDefinition={taskDefinition} onProjectChanged={onProjectChanged} />}
-      {section === "task" && <div className="page-panel admin-contract-page">
+      {visibleSection === "quality" && (project?.id
+        ? <LiveDataQualityPage projectId={project.id} filters={qualityFilters} onFiltersChange={onQualityFiltersChange} onOpenLineage={onOpenLineage} showReferenceScenarios mode="summary" />
+        : <p className="empty-evidence">プロジェクトを読み込んでいます。</p>)}
+      {visibleSection === "ranges" && <InputRangeSettingsPage project={project} taskDefinition={taskDefinition} onProjectChanged={onProjectChanged} />}
+      {visibleSection === "display" && <DisplayDecimalSettingsPage project={project} taskDefinition={taskDefinition} onProjectChanged={onProjectChanged} />}
+      {visibleSection === "task" && <div className="page-panel admin-contract-page">
         <div className="page-intro"><div><h2>予測タスク定義</h2><p>{taskDefinition?.label ?? "読み込み中"}で利用者が入力・確認する項目です。</p></div></div>
         {taskDefinition ? <>
           {taskDefinition.input_groups.map((group) => <section key={group.key}><h3>{group.label}</h3><table className="quality-table"><thead><tr><th>項目</th><th>単位</th><th>入力</th><th>標準範囲</th></tr></thead><tbody>{group.fields.map((field) => <tr key={field.path}><th>{field.label}</th><td>{field.unit ?? "—"}</td><td>{field.editable ? "編集可" : "固定"}</td><td>{field.default_range ? `${rangeNumber(field.default_range.min)}–${rangeNumber(field.default_range.max)}` : field.choices.join(" / ") || "—"}</td></tr>)}</tbody></table></section>)}
@@ -76,7 +81,7 @@ export function DeveloperAdminPage({
           <details className="technical-contract"><summary>技術契約を表示</summary><code>{resolvedTaskDefinition?.task_definition.id}</code><span>{resolvedTaskDefinition?.task_definition.schema_version}</span><span>{resolvedTaskDefinition?.runtime_capability.model_package_schema_version}</span></details>
         </> : <p className="empty-evidence">予測タスク定義を読み込んでいます。</p>}
       </div>}
-      {section === "model" && <div className="page-panel admin-model-page">
+      {visibleSection === "model" && <div className="page-panel admin-model-page">
         <div className="page-intro"><div><h2>モデルと実行環境</h2><p>有効なモデルPackage、検証指標、利用可能なruntimeを確認します。</p></div></div>
         {modelError && <p className="panel-error">{modelError}</p>}
         {modelPackage ? <>

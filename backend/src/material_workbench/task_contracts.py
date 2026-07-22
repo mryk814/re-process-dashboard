@@ -376,9 +376,23 @@ class RuntimeCapability(ContractModel):
         return self
 
 
+class DataExplorerCapability(ContractModel):
+    schema_version: Literal["data-explorer-capability/v1"] = "data-explorer-capability/v1"
+    quality: bool
+    lineage: bool
+    candidate_creation: bool
+
+    @model_validator(mode="after")
+    def candidate_creation_requires_lineage(self) -> "DataExplorerCapability":
+        if self.candidate_creation and not self.lineage:
+            raise ValueError("candidate_creation requires lineage")
+        return self
+
+
 class ResolvedTaskDefinition(ContractModel):
     task_definition: TaskDefinition
     runtime_capability: RuntimeCapability
+    data_explorer: DataExplorerCapability | None = None
 
     @model_validator(mode="after")
     def task_ids_match(self) -> "ResolvedTaskDefinition":

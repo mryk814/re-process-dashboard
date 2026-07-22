@@ -10,7 +10,7 @@ from .inference_work_graph import semantic_digest
 from .model_packages import FeaturePipelineSpec, VerifiedModelPackage
 from .model_lifecycle import validate_lifecycle_metadata, validate_training_provenance
 from .schemas import CandidateInput
-from .task_contracts import CanonicalCandidate, CanonicalHeatPoint, ResolvedTaskDefinition, RuntimeCapability, TaskContractFixture, TaskDefinition
+from .task_contracts import CanonicalCandidate, CanonicalHeatPoint, DataExplorerCapability, ResolvedTaskDefinition, RuntimeCapability, TaskContractFixture, TaskDefinition
 
 
 class TaskRegistryError(ValueError):
@@ -47,6 +47,13 @@ class TaskRuntimeEntry:
     pipeline_digest: str
     support_digest: str
     runtime_type: str
+    data_explorer: "DataExplorerEntry | None"
+
+
+@dataclass(frozen=True)
+class DataExplorerEntry:
+    data: WorkbookData
+    capability: DataExplorerCapability
 
 
 def load_task_contracts(root: Path | None = None) -> dict[str, TaskContractFixture]:
@@ -71,17 +78,25 @@ class TaskRegistry:
         runtimes: dict[str, RuntimeProtocol],
         *,
         contract_root: Path | None = None,
+        data_explorers: dict[str, DataExplorerEntry] | None = None,
     ) -> None:
         self._contracts = load_task_contracts(contract_root)
+        explorers = data_explorers or {}
         if set(runtimes) != set(self._contracts):
             missing = sorted(set(self._contracts) - set(runtimes))
             unknown = sorted(set(runtimes) - set(self._contracts))
             raise TaskRegistryError(
                 f"runtime registry must exactly match task definitions; missing={missing}, unknown={unknown}"
             )
+        unknown_explorers = sorted(set(explorers) - set(self._contracts))
+        if unknown_explorers:
+            raise TaskRegistryError(f"data explorer registry contains unknown tasks: {unknown_explorers}")
         self._entries: dict[str, TaskRuntimeEntry] = {}
         for task_id, runtime in runtimes.items():
             self._validate_runtime(task_id, runtime)
+            explorer = explorers.get(task_id)
+            if explorer is not None and explorer.data is not runtime.data:
+                raise TaskRegistryError(f"data explorer source does not match runtime data: {task_id}")
             package = runtime.model_package
             assert package is not None
             contract = self._contracts[task_id]
@@ -99,6 +114,7 @@ class TaskRegistry:
                     "policy_id": runtime.support_policy_id,
                 }),
                 runtime_type="+".join(sorted({item.runtime_type for item in package.manifest.predictors})),
+                data_explorer=explorer,
             )
 
     @staticmethod
@@ -153,6 +169,12 @@ class TaskRegistry:
     def runtime_for(self, task_id: str) -> RuntimeProtocol:
         return self.entry_for(task_id).predictor_runtime
 
+    def data_explorer_for(self, task_id: str) -> DataExplorerEntry:
+        explorer = self.entry_for(task_id).data_explorer
+        if explorer is None:
+            raise TaskRegistryError(f"data explorer is not available for task: {task_id}")
+        return explorer
+
     def validate_candidate(self, task_id: str, candidate: CandidateInput) -> CanonicalCandidate:
         contract = self.contract_for(task_id)
         inputs = candidate.inputs
@@ -184,4 +206,5 @@ class TaskRegistry:
         return ResolvedTaskDefinition(
             task_definition=entry.task_definition,
             runtime_capability=entry.capability,
+            data_explorer=None if entry.data_explorer is None else entry.data_explorer.capability,
         )

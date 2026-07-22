@@ -93,13 +93,15 @@ export function LineagePage({
     setQuery("");
     setEntityType("");
     setIssueOnly(false);
+    setIndex(null);
+    setData(null);
     setError("");
     setCandidateError("");
   }, [projectId]);
   useEffect(() => {
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
-      workbenchApi.lineageIndex(query.trim(), entityType, issueOnly, controller.signal)
+      workbenchApi.lineageIndex(projectId, query.trim(), entityType, issueOnly, controller.signal)
         .then(setIndex)
         .catch(() => undefined);
     }, 180);
@@ -107,24 +109,25 @@ export function LineagePage({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [query, entityType, issueOnly]);
+  }, [projectId, query, entityType, issueOnly]);
   useEffect(() => {
     if (!entityKey) {
       setData(null);
       setError("");
       return;
     }
-    let cancelled = false;
+    const controller = new AbortController();
+    setData(null);
     setError("");
     setCandidateError("");
-    workbenchApi.lineage(entityKey, graphLimit)
+    workbenchApi.lineage(projectId, entityKey, graphLimit, controller.signal)
       .then((lineage) => {
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           setData(lineage);
         }
       })
       .catch((cause) => {
-        if (!cancelled)
+        if (!controller.signal.aborted)
           setError(
             cause instanceof Error
               ? cause.message
@@ -132,9 +135,9 @@ export function LineagePage({
           );
       });
     return () => {
-      cancelled = true;
+      controller.abort();
     };
-  }, [entityKey, graphLimit]);
+  }, [projectId, entityKey, graphLimit]);
   const createCandidate = async () => {
     const requestProjectId = projectId;
     const requestEntityKey = entityKey;

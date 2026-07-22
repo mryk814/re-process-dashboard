@@ -262,7 +262,7 @@ def test_quality_lineage_and_bootstrap(client) -> None:
     bootstrap = client.get("/api/bootstrap").json()
     assert bootstrap["meta"]["quality_issues"] == 36
     assert bootstrap["candidates"]
-    quality = client.get("/api/quality").json()
+    quality = client.get("/api/projects/default/quality").json()
     assert quality["by_category"]["関連ファイル欠損"] == 19
     assert quality["reference_scenarios"] == quality["issues"]
     assert quality["detected_total"] == len(quality["detected_issues"])
@@ -275,7 +275,7 @@ def test_quality_lineage_and_bootstrap(client) -> None:
     assert destinations["duplicate_key"]["suggested_view"] == "lineage"
     assert destinations["orphan_entity"]["focus_entity_key"]
     assert destinations["invalid_reference"]["missing_reference_key"]
-    lineage = client.get("/api/lineage/AN-00001")
+    lineage = client.get("/api/projects/default/lineage/AN-00001")
     assert lineage.status_code == 200
     assert "relations" in lineage.json()
     node = lineage.json()["node"]
@@ -298,7 +298,7 @@ def test_quality_lineage_and_bootstrap(client) -> None:
 
 
 def test_lineage_index_and_isolated_nodes_are_inspectable(client) -> None:
-    index = client.get("/api/lineage", params={"query": "AN-00001"}).json()
+    index = client.get("/api/projects/default/lineage", params={"query": "AN-00001"}).json()
     assert index["relation_rows"] > 1_800
     assert index["total_entities"] > index["relation_rows"]
     assert index["items"][0]["key"] == "AN-00001"
@@ -306,28 +306,28 @@ def test_lineage_index_and_isolated_nodes_are_inspectable(client) -> None:
     assert index["items"][0]["route"]
     assert index["items"][0]["peak_temperature_c"] > 0
     assert index["items"][0]["observation_summary"]
-    assert client.get("/api/lineage", params={"query": index["items"][0]["family"], "entity_type": "焼鈍"}).json()["items"]
-    isolated = client.get("/api/lineage/CR-00010")
+    assert client.get("/api/projects/default/lineage", params={"query": index["items"][0]["family"], "entity_type": "焼鈍"}).json()["items"]
+    isolated = client.get("/api/projects/default/lineage/CR-00010")
     assert isolated.status_code == 200
     assert isolated.json()["node"]["entity_type"] == "冷延"
     assert isolated.json()["graph"]["relation_row_count"] == 0
     assert isolated.json()["candidate_eligible"] is False
     invalid_key = next(
         issue["entity_key"]
-        for issue in client.get("/api/quality").json()["detected_issues"]
+        for issue in client.get("/api/projects/default/quality").json()["detected_issues"]
         if issue["issue_type"] == "invalid_reference"
     )
-    invalid_index = client.get("/api/lineage", params={"query": invalid_key}).json()
+    invalid_index = client.get("/api/projects/default/lineage", params={"query": invalid_key}).json()
     assert invalid_index["items"] == [{"key": invalid_key, "entity_type": "熱延引張", "has_issue": True}]
-    invalid = client.get(f"/api/lineage/{invalid_key}")
+    invalid = client.get(f"/api/projects/default/lineage/{invalid_key}")
     assert invalid.status_code == 200
     assert invalid.json()["node"]["missing_source"] is True
 
 
 def test_lineage_graph_can_expand_beyond_the_initial_node_limit(client) -> None:
-    assert client.get("/api/lineage/AN-00001", params={"limit": 0}).status_code == 422
-    assert client.get("/api/lineage/AN-00001", params={"limit": 201}).status_code == 422
-    initial = client.get("/api/lineage/AN-00001", params={"limit": 1})
+    assert client.get("/api/projects/default/lineage/AN-00001", params={"limit": 0}).status_code == 422
+    assert client.get("/api/projects/default/lineage/AN-00001", params={"limit": 201}).status_code == 422
+    initial = client.get("/api/projects/default/lineage/AN-00001", params={"limit": 1})
     assert initial.status_code == 200
     initial_graph = initial.json()["graph"]
     assert initial_graph["node_limit"] == 1
@@ -337,7 +337,7 @@ def test_lineage_graph_can_expand_beyond_the_initial_node_limit(client) -> None:
     assert initial_graph["has_more"] is True
     assert initial_graph["omitted_node_count"] == initial_graph["total_node_count"] - 1
 
-    expanded = client.get("/api/lineage/AN-00001", params={"limit": 200})
+    expanded = client.get("/api/projects/default/lineage/AN-00001", params={"limit": 200})
     assert expanded.status_code == 200
     expanded_graph = expanded.json()["graph"]
     assert expanded_graph["visible_node_count"] == expanded_graph["total_node_count"]
@@ -346,7 +346,7 @@ def test_lineage_graph_can_expand_beyond_the_initial_node_limit(client) -> None:
 
 
 def test_lineage_keeps_hot_rolled_and_annealed_observations_separate(client) -> None:
-    payload = client.get("/api/lineage/AN-00003").json()
+    payload = client.get("/api/projects/default/lineage/AN-00003").json()
     node = payload["node"]
     ts_groups = [group for group in node["observation_groups"] if group["property"] == "TS[MPa]"]
     assert {group["stage"] for group in ts_groups} == {"熱延後", "焼鈍後"}
@@ -362,7 +362,7 @@ def test_lineage_keeps_hot_rolled_and_annealed_observations_separate(client) -> 
 
 
 def test_lineage_keeps_out_of_range_observations_and_exposes_warnings(client) -> None:
-    response = client.get("/api/lineage/HT-00024")
+    response = client.get("/api/projects/default/lineage/HT-00024")
     assert response.status_code == 200
     observation = next(item for item in response.json()["node"]["connected_observations"] if item["id"] == "HT-00024")
     assert observation["outputs"]["TS[MPa]"] > 5_000
@@ -370,7 +370,14 @@ def test_lineage_keeps_out_of_range_observations_and_exposes_warnings(client) ->
     assert "100–2500" in observation["output_warnings"]["TS[MPa]"][0]
 
     incompatible = client.post(
-        "/api/lineage/AN-00001/candidate",
-        params={"project_id": "hot-rolling-default"},
+        "/api/projects/hot-rolling-default/lineage/AN-00001/candidate",
     )
     assert incompatible.status_code == 422
+    incompatible_detail = client.get("/api/projects/hot-rolling-default/lineage/AN-00001").json()
+    assert incompatible_detail["candidate_eligible"] is False
+
+    compatible_detail = client.get("/api/projects/hot-rolling-default/lineage/HR-00001").json()
+    assert compatible_detail["candidate_eligible"] is True
+    compatible = client.post("/api/projects/hot-rolling-default/lineage/HR-00001/candidate")
+    assert compatible.status_code == 201
+    assert compatible.json()["project_id"] == "hot-rolling-default"

@@ -109,7 +109,7 @@ def test_screening_without_target_uses_support_distance_contract(client) -> None
 
 
 def test_lineage_candidate_actuals_and_snapshot_restore(client) -> None:
-    lineage_candidate = client.post("/api/lineage/AN-00001/candidate")
+    lineage_candidate = client.post("/api/projects/default/lineage/AN-00001/candidate")
     assert lineage_candidate.status_code == 201
     candidate = lineage_candidate.json()
     assert len(candidate["inputs"]["heat_pattern"]) >= 2
@@ -135,7 +135,7 @@ def test_lineage_candidate_actuals_and_snapshot_restore(client) -> None:
 
 def test_lineage_candidate_preserves_stage_order_and_boundaries(client) -> None:
     expected = candidate_from_lineage(client.app.state.data, "AN-00009")
-    response = client.post("/api/lineage/AN-00009/candidate")
+    response = client.post("/api/projects/default/lineage/AN-00009/candidate")
     assert response.status_code == 201
     payload = {key: value for key, value in response.json().items() if key not in {"id", "project_id", "created_at", "updated_at"}}
     actual = CandidateInput.model_validate(payload)
@@ -188,7 +188,7 @@ def test_candidate_excel_import_and_exports(client) -> None:
     assert restored.model_dump() == source.model_dump()
     defaults = client.app.state.task_registry.runtime_for("annealed-properties-v1").composition_defaults
     assert np.allclose(build_feature_bundle(restored, defaults).values, build_feature_bundle(source, defaults).values)
-    quality = client.get("/api/quality/export.csv")
+    quality = client.get("/api/projects/default/quality/export.csv")
     quality_csv = quality.content.decode("utf-8-sig")
     assert quality.status_code == 200 and "issue_id" in quality_csv
     assert "focus_entity_key" in quality_csv and "suggested_view" in quality_csv

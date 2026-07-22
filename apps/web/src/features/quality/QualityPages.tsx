@@ -10,27 +10,33 @@ export type QualityFilters = Readonly<{
 
 export function DataExploreNavigation({
   active,
+  qualityAvailable,
+  lineageAvailable,
   onNavigate,
 }: {
   active: "quality" | "lineage";
+  qualityAvailable: boolean;
+  lineageAvailable: boolean;
   onNavigate: (view: "quality" | "lineage") => void;
 }) {
   return <div className="section-navigation" aria-label="データ探索">
     <div><span className="overline">データ探索</span><strong>実績のつながりと問題を同じ文脈で確認</strong></div>
     <nav aria-label="データ探索">
-      <button className={active === "lineage" ? "active" : ""} onClick={() => onNavigate("lineage")}>実績・工程を探す</button>
-      <button className={active === "quality" ? "active" : ""} onClick={() => onNavigate("quality")}>問題から探す</button>
+      {lineageAvailable && <button className={active === "lineage" ? "active" : ""} onClick={() => onNavigate("lineage")}>実績・工程を探す</button>}
+      {qualityAvailable && <button className={active === "quality" ? "active" : ""} onClick={() => onNavigate("quality")}>問題から探す</button>}
     </nav>
   </div>;
 }
 
 export function LiveDataQualityPage({
+  projectId,
   filters,
   onFiltersChange,
   onOpenLineage,
   showReferenceScenarios = false,
   mode = "issues",
 }: {
+  projectId: string;
   filters: QualityFilters;
   onFiltersChange: (filters: QualityFilters) => void;
   onOpenLineage: (issue: ApiQuality["detected_issues"][number], filters: QualityFilters) => void;
@@ -44,10 +50,14 @@ export function LiveDataQualityPage({
   const [copiedKey, setCopiedKey] = useState("");
   const [copyError, setCopyError] = useState("");
   useEffect(() => {
-    workbenchApi.quality()
-      .then(setData)
-      .catch(() => setError(true));
-  }, []);
+    let cancelled = false;
+    setData(null);
+    setError(false);
+    workbenchApi.quality(projectId)
+      .then((quality) => { if (!cancelled) setData(quality); })
+      .catch(() => { if (!cancelled) setError(true); });
+    return () => { cancelled = true; };
+  }, [projectId]);
   const labels: Record<DetectedIssue["issue_type"], string> = {
     missing_key: "キー欠損",
     orphan_entity: "孤立",
@@ -65,7 +75,7 @@ export function LiveDataQualityPage({
   const exportCsv = async () => {
     setExportError("");
     try {
-      const csv = await workbenchApi.qualityCsv();
+      const csv = await workbenchApi.qualityCsv(projectId);
       const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
       const anchor = document.createElement("a");
       anchor.href = url;

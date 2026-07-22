@@ -178,6 +178,22 @@ def test_flank_wear_api_preview_and_goal_probability(client):
     assert set(payload["support"]["components"]) == {"composition", "material", "tool", "process"}
 
 
+def test_flank_wear_project_does_not_expose_another_tasks_data_explorer(client):
+    project, _ = _create_flank_project(client)
+    task = client.get(f"/api/projects/{project['id']}/task-definition").json()
+
+    assert task["data_explorer"] is None
+    for path in (
+        "quality",
+        "quality/export.csv",
+        "lineage",
+        "lineage/AN-00001",
+    ):
+        response = client.get(f"/api/projects/{project['id']}/{path}")
+        assert response.status_code == 404
+        assert response.json()["message"] == "このプロジェクトではデータ探索を利用できません"
+
+
 def test_flank_wear_wear_curve_over_cutting_distance(client):
     project, candidate = _create_flank_project(client)
     response = client.get(
