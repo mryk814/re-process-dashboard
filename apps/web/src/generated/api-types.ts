@@ -694,6 +694,19 @@ export interface components {
             /** Message */
             message: string;
         };
+        /** ApplicationCapability */
+        ApplicationCapability: {
+            /**
+             * Candidate Excel Export
+             * @default false
+             */
+            candidate_excel_export: boolean;
+            /**
+             * Candidate Excel Import
+             * @default false
+             */
+            candidate_excel_import: boolean;
+        };
         /** Body_import_candidates_api_projects__project_id__candidates_import_post */
         Body_import_candidates_api_projects__project_id__candidates_import_post: {
             /** File */
@@ -1633,9 +1646,8 @@ export interface components {
             /**
              * Task Id
              * @default annealed-properties-v1
-             * @enum {string}
              */
-            task_id: "annealed-properties-v1" | "hot-rolled-properties-v1" | "flank-wear-v1";
+            task_id: string;
             /**
              * Updated At
              * Format: date-time
@@ -1705,9 +1717,8 @@ export interface components {
             /**
              * Task Id
              * @default annealed-properties-v1
-             * @enum {string}
              */
-            task_id: "annealed-properties-v1" | "hot-rolled-properties-v1" | "flank-wear-v1";
+            task_id: string;
         };
         /** ProjectDecisionHistory */
         ProjectDecisionHistory: {
@@ -1804,9 +1815,8 @@ export interface components {
             /**
              * Task Id
              * @default annealed-properties-v1
-             * @enum {string}
              */
-            task_id: "annealed-properties-v1" | "hot-rolled-properties-v1" | "flank-wear-v1";
+            task_id: string;
         };
         /** PropertySummary */
         PropertySummary: {
@@ -1884,6 +1894,11 @@ export interface components {
         };
         /** ResolvedTaskDefinition */
         ResolvedTaskDefinition: {
+            /** @default {
+             *       "candidate_excel_export": false,
+             *       "candidate_excel_import": false
+             *     } */
+            application: components["schemas"]["ApplicationCapability"];
             data_explorer?: components["schemas"]["DataExplorerCapability"] | null;
             runtime_capability: components["schemas"]["RuntimeCapability"];
             task_definition: components["schemas"]["TaskDefinition"];

@@ -11,7 +11,8 @@ from openpyxl import Workbook, load_workbook
 from .dataset_profile import load_dataset_profile
 from .hot_rolling_feature_pipeline import PROCESS_NAMES
 from .importer import WorkbookData, composition_names
-from .task_registry import RuntimeProtocol, load_task_contracts
+from .task_modules import PredictionRuntime
+from .task_registry import load_task_contracts
 from .schemas import Candidate, CandidateInput, HeatPoint, ScreeningRequest
 from .screening_score import GoalDirection, evaluate_screening_goal, score_contract
 
@@ -39,7 +40,7 @@ def _set_screen_value(candidate: Candidate, name: str, value: float | str) -> Ca
 
 
 def run_latin_hypercube(
-    runtime: RuntimeProtocol,
+    runtime: PredictionRuntime,
     base: Candidate,
     request: ScreeningRequest,
     *,
@@ -345,7 +346,7 @@ def import_candidates_xlsx(
     return imported, errors
 
 
-def candidates_xlsx(candidates: list[Candidate], runtime: RuntimeProtocol, task_id: str = "annealed-properties-v1") -> bytes:
+def candidates_xlsx(candidates: list[Candidate], runtime: PredictionRuntime, task_id: str = "annealed-properties-v1") -> bytes:
     workbook = Workbook()
     sheet = workbook.active
     sheet.title = "候補"

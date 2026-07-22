@@ -10,6 +10,7 @@ export {
   taskFieldName,
   validateResolvedTaskDefinition,
   type CandidateInputs,
+  type ApplicationCapability,
   type CategoricalTaskInput,
   type NumericRange,
   type NumericTaskInput,

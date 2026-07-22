@@ -127,6 +127,10 @@ export function ProjectHub({
   const activeCandidates = history?.candidates.filter((item) => !item.candidate.archived_at) ?? [];
   const copyTaskId = candidate ? projects.find((item) => item.id === candidate.raw.project_id)?.task_id : undefined;
   const outputLabels = useMemo(() => new Map((taskDefinition?.outputs ?? []).map((output) => [output.key, output.label])), [taskDefinition]);
+  const taskLabels = useMemo(() => new Map(catalog.map((item) => [
+    item.definition.task_definition.id,
+    item.definition.task_definition.label,
+  ])), [catalog]);
 
   async function saveProject() {
     if (!project) return;
@@ -250,7 +254,7 @@ export function ProjectHub({
               onClick={() => onSwitch(item.id)}
             >
               <strong>{item.name}</strong>
-              <small>{item.task_id === "hot-rolled-properties-v1" ? "熱延条件" : item.task_id === "flank-wear-v1" ? "切削摩耗" : "焼鈍条件"}</small>
+              <small>{taskLabels.get(item.task_id) ?? item.task_id}</small>
             </button>
           ))}
         </div>

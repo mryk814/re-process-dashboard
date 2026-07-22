@@ -212,6 +212,23 @@
         "title": "ApiError",
         "type": "object"
       },
+      "ApplicationCapability": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_excel_export": {
+            "default": false,
+            "title": "Candidate Excel Export",
+            "type": "boolean"
+          },
+          "candidate_excel_import": {
+            "default": false,
+            "title": "Candidate Excel Import",
+            "type": "boolean"
+          }
+        },
+        "title": "ApplicationCapability",
+        "type": "object"
+      },
       "Body_import_candidates_api_projects__project_id__candidates_import_post": {
         "properties": {
           "file": {
@@ -2811,11 +2828,7 @@
           },
           "task_id": {
             "default": "annealed-properties-v1",
-            "enum": [
-              "annealed-properties-v1",
-              "hot-rolled-properties-v1",
-              "flank-wear-v1"
-            ],
+            "minLength": 1,
             "title": "Task Id",
             "type": "string"
           },
@@ -2928,11 +2941,7 @@
           },
           "task_id": {
             "default": "annealed-properties-v1",
-            "enum": [
-              "annealed-properties-v1",
-              "hot-rolled-properties-v1",
-              "flank-wear-v1"
-            ],
+            "minLength": 1,
             "title": "Task Id",
             "type": "string"
           }
@@ -3092,11 +3101,7 @@
           },
           "task_id": {
             "default": "annealed-properties-v1",
-            "enum": [
-              "annealed-properties-v1",
-              "hot-rolled-properties-v1",
-              "flank-wear-v1"
-            ],
+            "minLength": 1,
             "title": "Task Id",
             "type": "string"
           }
@@ -3298,6 +3303,13 @@
       "ResolvedTaskDefinition": {
         "additionalProperties": false,
         "properties": {
+          "application": {
+            "$ref": "#/components/schemas/ApplicationCapability",
+            "default": {
+              "candidate_excel_export": false,
+              "candidate_excel_import": false
+            }
+          },
           "data_explorer": {
             "anyOf": [
               {

@@ -12,7 +12,6 @@ from .task_contracts import CandidateProvenance, DirectSourceRef, ResolvedTaskDe
 COMPOSITION_ELEMENTS = {
     "C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N"
 }
-PREDICTION_TARGETS = {"TS", "YS", "EL", "lambda", "VB_mean", "VB_max"}
 
 
 class HeatPoint(BaseModel):
@@ -97,7 +96,7 @@ class ProjectInput(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=120)] = "焼鈍条件の候補検討"
     description: str = ""
     purpose: str = ""
-    task_id: Literal["annealed-properties-v1", "hot-rolled-properties-v1", "flank-wear-v1"] = "annealed-properties-v1"
+    task_id: Annotated[str, Field(min_length=1)] = "annealed-properties-v1"
     target_values: dict[str, float] = Field(default_factory=dict)
     input_ranges: dict[str, InputRange] = Field(default_factory=dict)
     response_curve_ranges: dict[str, dict[str, InputRange]] = Field(default_factory=dict)
@@ -111,9 +110,6 @@ class ProjectInput(BaseModel):
     @field_validator("target_values")
     @classmethod
     def targets_are_supported_and_finite(cls, value: dict[str, float]) -> dict[str, float]:
-        unknown = sorted(set(value) - PREDICTION_TARGETS)
-        if unknown:
-            raise ValueError(f"未対応の目標特性です: {', '.join(unknown)}")
         if any(not math.isfinite(target) for target in value.values()):
             raise ValueError("目標値は有限の数値にしてください")
         return value

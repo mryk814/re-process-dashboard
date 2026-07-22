@@ -14,6 +14,7 @@ import {
   type NumericRange,
   type NumericTaskInput,
   type RuntimeOperations,
+  type ApplicationCapability,
   type TaskDefinitionContract,
   type TaskOutputDefinition,
 } from "../candidates";
@@ -201,6 +202,7 @@ type WorkbenchProps = {
   selectedId: string;
   taskDefinition: TaskDefinitionContract | null;
   operations?: RuntimeOperations;
+  application?: ApplicationCapability;
   saveState: CandidateSaveState;
   saveStates: Record<string, CandidateSaveState>;
   fieldErrors: Array<{ path: string; message: string }>;
@@ -243,6 +245,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
     selectedId,
     taskDefinition,
     operations,
+    application,
     saveState,
     saveStates,
     fieldErrors,
@@ -354,7 +357,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
           </div>
           {previewError && <span className="comparison-preview-error" role="alert">{previewError}{operations?.preview && <button type="button" onClick={onRetryPreview}>再試行</button>}</span>}
           <div className="comparison-actions" aria-label="候補操作">
-            <CandidateFileControls projectId={projectId} onImported={onImported} />
+            <CandidateFileControls projectId={projectId} capability={application} onImported={onImported} />
             <CandidateAddButton onClick={onAdd}>候補を追加</CandidateAddButton>
           </div>
         </div>
@@ -458,9 +461,11 @@ function CandidateOrigin({
 
 function CandidateFileControls({
   projectId,
+  capability,
   onImported,
 }: {
   projectId: string;
+  capability?: ApplicationCapability;
   onImported: (items: Candidate[]) => void;
 }) {
   const [message, setMessage] = useState("");
@@ -484,7 +489,7 @@ function CandidateFileControls({
   };
   return (
     <div className="file-controls">
-      <label className="outline-button">
+      {capability?.candidate_excel_import && <label className="outline-button">
         XLSXを読込
         <input
           type="file"
@@ -494,10 +499,10 @@ function CandidateFileControls({
           }}
           hidden
         />
-      </label>
-      <button className="outline-button" onClick={download}>
+      </label>}
+      {capability?.candidate_excel_export && <button className="outline-button" onClick={download}>
         候補・予測をXLSX出力
-      </button>
+      </button>}
       {message && <small>{message}</small>}
     </div>
   );

@@ -7,11 +7,11 @@ from pathlib import Path
 import sys
 from typing import Any, Sequence
 
-from .importer import load_workbook_data
 from .model_lifecycle import validate_lifecycle_metadata, validate_training_provenance
 from .model_example_contracts import ExampleQualityReport, ExampleSmokeExpected, ExampleSmokeInput, SparseSelectionReport
 from .model_packages import MissingOptionalDependency, ModelPackageLoader, PackageContractError, validate_predictive_summary
 from .task_registry import load_task_contracts
+from .task_modules import resolve_task_source, task_module
 
 
 @dataclass(frozen=True)
@@ -91,7 +91,7 @@ def verify_model_package(
     package_root: str | Path,
     *,
     task_id: str,
-    source: str | Path = "data/source/process_dashboard_realistic_excel_v2.xlsx",
+    source: str | Path | None = None,
 ) -> ModelPackageVerificationReport:
     contracts = load_task_contracts()
     if task_id not in contracts:
@@ -101,29 +101,12 @@ def verify_model_package(
         raise ModelPackageVerificationError(
             f"task_id mismatch: expected {task_id}, package declares {package.manifest.task_id}"
         )
-    if task_id == "flank-wear-v1":
-        from .flank_wear import load_flank_wear_data
-
-        data = load_flank_wear_data(source)
-    else:
-        data = load_workbook_data(source)
+    module = task_module(task_id)
+    data = module.data_loader(resolve_task_source(task_id, source))
     quality = validate_lifecycle_metadata(package, contracts[task_id], profile_path=Path(data.profile_path))
     validate_training_provenance(package, data, contracts[task_id])
 
-    if task_id == "annealed-properties-v1":
-        from .runtime import ModelRuntime
-
-        runtime = ModelRuntime(data, package_root=package.root)
-    elif task_id == "hot-rolled-properties-v1":
-        from .hot_rolling import HotRollingRuntime
-
-        runtime = HotRollingRuntime(data, package_root=package.root)
-    elif task_id == "flank-wear-v1":
-        from .flank_wear import FlankWearRuntime
-
-        runtime = FlankWearRuntime(data, package_root=package.root)
-    else:
-        raise ModelPackageVerificationError(f"no task runtime verifier is registered for {task_id}")
+    runtime = module.runtime_factory(data, package.root)
     if runtime.output_keys != frozenset(output.key for output in contracts[task_id].task_definition.outputs):
         raise ModelPackageVerificationError("runtime outputs do not match TaskDefinition")
 
