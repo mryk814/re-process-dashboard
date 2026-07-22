@@ -52,9 +52,23 @@
 .candidate-name-table .candidate-select-column { width: 32px; }
 .comparison-input-scroll,
 .comparison-prediction-scroll { background: #fff; }
-.comparison-pane-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.comparison-pane-scroll::-webkit-scrollbar { width: 9px; height: 10px; }
 .comparison-name-scroll::-webkit-scrollbar,
-.comparison-input-scroll::-webkit-scrollbar { width: 0; height: 8px; }
+.comparison-input-scroll::-webkit-scrollbar { width: 0; height: 10px; }
+.comparison-pane-scroll::-webkit-scrollbar-track {
+  border-top: 1px solid #cbd6e2;
+  background: #edf2f7;
+}
+.comparison-pane-scroll::-webkit-scrollbar-thumb {
+  min-width: 36px;
+  border: 2px solid #edf2f7;
+  border-radius: 999px;
+  background: #8194aa;
+}
+.comparison-pane-scroll::-webkit-scrollbar-thumb:hover { background: #1f5fc4; }
+.comparison-pane-scroll::-webkit-scrollbar-corner { background: #edf2f7; }
+.comparison-name-scroll::-webkit-scrollbar-track,
+.comparison-name-scroll::-webkit-scrollbar-thumb { border-color: transparent; background: transparent; }
 .comparison-split-resizer {
   position: relative;
   z-index: 5;
