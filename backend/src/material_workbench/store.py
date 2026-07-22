@@ -8,7 +8,16 @@ from pathlib import Path
 from typing import Any
 
 from .candidate_migration import HOT_PROJECT_ID
-from .schemas import ActualMeasurement, ActualMeasurementInput, Candidate, CandidateInput, Project, ProjectInput
+from .schemas import (
+    ActualMeasurement,
+    ActualMeasurementInput,
+    Candidate,
+    CandidateInput,
+    Project,
+    ProjectCreateInput,
+    ProjectInput,
+    ProjectUpdateInput,
+)
 from .workspace_catalog_migration import migrate_workspace_catalog
 
 
@@ -82,7 +91,7 @@ class Store:
             row = conn.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
         return self._project(row) if row else None
 
-    def create_project(self, payload: ProjectInput, initial_candidate: CandidateInput | None = None) -> Project:
+    def create_project(self, payload: ProjectCreateInput, initial_candidate: CandidateInput | None = None) -> Project:
         project_id, now = str(uuid.uuid4()), _now()
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
@@ -99,8 +108,24 @@ class Store:
                 if source["task_id"] != payload.task_id:
                     raise CandidateCopyConflictError("異なる予測タスクの候補はコピーできません")
             conn.execute(
-                "INSERT INTO projects(id, name, description, purpose, task_id, target_values, input_ranges, response_curve_ranges, heat_stage_positions_m, display_decimals, notes, decision_candidate_id, decision_snapshot_id, decision_note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (project_id, payload.name, payload.description, payload.purpose, payload.task_id, json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True), json.dumps({key: value.model_dump() for key, value in payload.input_ranges.items()}, ensure_ascii=False, sort_keys=True), json.dumps({axis: {key: value.model_dump() for key, value in ranges.items()} for axis, ranges in payload.response_curve_ranges.items()}, ensure_ascii=False, sort_keys=True), json.dumps(payload.heat_stage_positions_m, ensure_ascii=False, sort_keys=True), json.dumps(payload.display_decimals, ensure_ascii=False, sort_keys=True), payload.notes, payload.decision_candidate_id, payload.decision_snapshot_id, payload.decision_note, now, now),
+                "INSERT INTO projects(id,name,description,purpose,task_id,target_values,input_ranges,"
+                "response_curve_ranges,heat_stage_positions_m,display_decimals,notes,decision_candidate_id,"
+                "decision_snapshot_id,decision_note,dataset_view_revision_id,task_contract_digest,"
+                "model_package_ref_id,model_package_manifest_digest,project_series_id,predecessor_project_id,"
+                "continuation_reason,binding_provenance,created_at,updated_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'explicit',?,?)",
+                (
+                    project_id, payload.name, payload.description, payload.purpose, payload.task_id,
+                    json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True),
+                    json.dumps({key: value.model_dump() for key, value in payload.input_ranges.items()}, ensure_ascii=False, sort_keys=True),
+                    json.dumps({axis: {key: value.model_dump() for key, value in ranges.items()} for axis, ranges in payload.response_curve_ranges.items()}, ensure_ascii=False, sort_keys=True),
+                    json.dumps(payload.heat_stage_positions_m, ensure_ascii=False, sort_keys=True),
+                    json.dumps(payload.display_decimals, ensure_ascii=False, sort_keys=True), payload.notes,
+                    payload.decision_candidate_id, payload.decision_snapshot_id, payload.decision_note,
+                    payload.dataset_view_revision_id, payload.task_contract_digest, payload.model_package_ref_id,
+                    payload.model_package_manifest_digest, payload.project_series_id, payload.predecessor_project_id,
+                    payload.continuation_reason, now, now,
+                ),
             )
             if initial_candidate is not None:
                 candidate_id = str(uuid.uuid4())
@@ -124,12 +149,12 @@ class Store:
             )
         return self.get_project(project_id)  # type: ignore[return-value]
 
-    def update_project(self, project_id: str, payload: ProjectInput) -> Project | None:
+    def update_project(self, project_id: str, payload: ProjectUpdateInput) -> Project | None:
         now = _now()
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
             self._validate_decision(conn, project_id, payload.decision_candidate_id, payload.decision_snapshot_id)
-            result = conn.execute("UPDATE projects SET name=?, description=?, purpose=?, task_id=?, target_values=?, input_ranges=?, response_curve_ranges=?, heat_stage_positions_m=?, display_decimals=?, notes=?, decision_candidate_id=?, decision_snapshot_id=?, decision_note=?, updated_at=? WHERE id=?", (payload.name, payload.description, payload.purpose, payload.task_id, json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True), json.dumps({key: value.model_dump() for key, value in payload.input_ranges.items()}, ensure_ascii=False, sort_keys=True), json.dumps({axis: {key: value.model_dump() for key, value in ranges.items()} for axis, ranges in payload.response_curve_ranges.items()}, ensure_ascii=False, sort_keys=True), json.dumps(payload.heat_stage_positions_m, ensure_ascii=False, sort_keys=True), json.dumps(payload.display_decimals, ensure_ascii=False, sort_keys=True), payload.notes, payload.decision_candidate_id, payload.decision_snapshot_id, payload.decision_note, now, project_id))
+            result = conn.execute("UPDATE projects SET name=?, description=?, purpose=?, target_values=?, input_ranges=?, response_curve_ranges=?, heat_stage_positions_m=?, display_decimals=?, notes=?, decision_candidate_id=?, decision_snapshot_id=?, decision_note=?, updated_at=? WHERE id=?", (payload.name, payload.description, payload.purpose, json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True), json.dumps({key: value.model_dump() for key, value in payload.input_ranges.items()}, ensure_ascii=False, sort_keys=True), json.dumps({axis: {key: value.model_dump() for key, value in ranges.items()} for axis, ranges in payload.response_curve_ranges.items()}, ensure_ascii=False, sort_keys=True), json.dumps(payload.heat_stage_positions_m, ensure_ascii=False, sort_keys=True), json.dumps(payload.display_decimals, ensure_ascii=False, sort_keys=True), payload.notes, payload.decision_candidate_id, payload.decision_snapshot_id, payload.decision_note, now, project_id))
         return self.get_project(project_id) if result.rowcount else None
 
     def delete_project(self, project_id: str) -> bool:

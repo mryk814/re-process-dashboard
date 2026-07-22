@@ -4,7 +4,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 
-from .dependencies import get_store, get_task_registry
+from .dependencies import get_store, get_task_registry, get_workspace_catalog
 from .errors import DomainApiException, PROJECT_API_ERRORS
 from ..application.projects import (
     ProjectHistoryIntegrityError,
@@ -12,18 +12,22 @@ from ..application.projects import (
     ProjectTaskLockedError,
     ProjectValidationError,
 )
-from ..schemas import Project, ProjectCreateInput, ProjectDecisionInput, ProjectHistoryResponse, ProjectInput
+from ..schemas import Project, ProjectCreateInput, ProjectDecisionInput, ProjectHistoryResponse, ProjectUpdateInput
 from ..store import ProjectNotFoundError, ProtectedProjectError, Store
 from ..task_registry import TaskRegistry
+from ..workspace_catalog import WorkspaceCatalog
 
 
 router = APIRouter()
 StoreDependency = Annotated[Store, Depends(get_store)]
 RegistryDependency = Annotated[TaskRegistry, Depends(get_task_registry)]
+CatalogDependency = Annotated[WorkspaceCatalog, Depends(get_workspace_catalog)]
 
 
-def get_project_service(store: StoreDependency, registry: RegistryDependency) -> ProjectService:
-    return ProjectService(store, registry)
+def get_project_service(
+    store: StoreDependency, registry: RegistryDependency, catalog: CatalogDependency
+) -> ProjectService:
+    return ProjectService(store, registry, catalog)
 
 
 ProjectServiceDependency = Annotated[ProjectService, Depends(get_project_service)]
@@ -44,6 +48,8 @@ def create_project(payload: ProjectCreateInput, service: ProjectServiceDependenc
         return service.create(payload)
     except ProjectNotFoundError as exc:
         raise _not_found(exc) from exc
+    except ProjectTaskLockedError as exc:
+        raise DomainApiException(409, "project_task_locked", str(exc)) from exc
     except ProjectValidationError as exc:
         raise HTTPException(422, str(exc)) from exc
 
@@ -99,7 +105,7 @@ def project_history(project_id: str, service: ProjectServiceDependency) -> Proje
     summary="Update Project By Id",
     operation_id="update_project_by_id_api_projects__project_id__put",
 )
-def update_project(project_id: str, payload: ProjectInput, service: ProjectServiceDependency) -> Project:
+def update_project(project_id: str, payload: ProjectUpdateInput, service: ProjectServiceDependency) -> Project:
     try:
         return service.update(project_id, payload)
     except ProjectNotFoundError as exc:

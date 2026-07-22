@@ -12,6 +12,8 @@ from fastapi import FastAPI
 from .api.errors import PROJECT_API_ERRORS, install_exception_handlers
 from .api.security import configure_local_access
 from .api.catalog import router as catalog_router
+from .api.data_library import router as data_library_router
+from .api.project_series import router as project_series_router
 from .api.projects import router as projects_router
 from .api.candidates import router as candidates_router
 from .api.data_exploration import router as data_exploration_router
@@ -129,6 +131,8 @@ def create_app(
     configure_local_access(app)
     install_exception_handlers(app)
     app.include_router(catalog_router)
+    app.include_router(data_library_router)
+    app.include_router(project_series_router)
     app.include_router(projects_router)
     app.include_router(candidates_router)
     app.include_router(data_exploration_router)

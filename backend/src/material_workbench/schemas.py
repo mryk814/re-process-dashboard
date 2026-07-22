@@ -154,6 +154,21 @@ class ProjectSeries(ProjectSeriesCreateInput):
     updated_at: datetime
 
 
+class DataLibraryDataset(BaseModel):
+    dataset_revision: DatasetRevision
+    data_asset: DataAsset
+    profile_revision: ProfileRevision
+    supported_task_ids: list[str]
+    dataset_views: list[DatasetViewRevision] = Field(default_factory=list)
+
+
+class ProjectCreationOptions(BaseModel):
+    datasets: list[DataLibraryDataset]
+    dataset_views: list[DatasetViewRevision]
+    model_packages: list[ModelPackageRef]
+    project_series: list[ProjectSeries]
+
+
 class HeatPoint(BaseModel):
     time_s: Annotated[float, Field(ge=0, allow_inf_nan=False)]
     temperature_c: Annotated[float, Field(ge=-273.15, le=1800)]
@@ -279,8 +294,6 @@ class ProjectCreateInput(ProjectInput):
 class ProjectUpdateInput(BaseModel):
     """Fields that may change without changing a Project's scientific identity."""
 
-    model_config = ConfigDict(extra="forbid")
-
     name: Annotated[str, Field(min_length=1, max_length=120)] = "焼鈍条件の候補検討"
     description: str = ""
     purpose: str = ""
@@ -293,6 +306,15 @@ class ProjectUpdateInput(BaseModel):
     decision_candidate_id: Annotated[str, Field(max_length=80)] = ""
     decision_snapshot_id: Annotated[str, Field(max_length=80)] = ""
     decision_note: Annotated[str, Field(max_length=500)] = ""
+    # Accepted only to detect stale/full-object clients. The service verifies
+    # these values and never persists them through the update path.
+    task_id: str | None = None
+    dataset_view_revision_id: str | None = None
+    task_contract_digest: str | None = None
+    model_package_ref_id: str | None = None
+    model_package_manifest_digest: str | None = None
+    project_series_id: str | None = None
+    predecessor_project_id: str | None = None
 
     @field_validator("target_values")
     @classmethod
