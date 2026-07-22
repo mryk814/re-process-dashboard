@@ -150,7 +150,7 @@ def test_screening_reference_archives_but_unreferenced_candidate_is_hard_deleted
 
 
 def test_domain_error_codes_and_openapi_contract_are_distinct(client) -> None:
-    project = client.get("/api/project").json()
+    project = client.get("/api/projects/default").json()
     locked = client.put("/api/projects/default", json={**project, "task_id": "hot-rolled-properties-v1"})
     assert locked.status_code == 409
     assert locked.json()["code"] == "project_task_locked"

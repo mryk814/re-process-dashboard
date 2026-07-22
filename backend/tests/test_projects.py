@@ -50,7 +50,7 @@ def _xlsx_candidate(name: str) -> bytes:
 
 
 def test_project_crud_preserves_default_and_isolates_candidates_and_screening(client) -> None:
-    default = client.get("/api/project").json()
+    default = client.get("/api/projects/default").json()
     created = client.post("/api/projects", json=_project("新規プロジェクト"))
     assert created.status_code == 201
     project = created.json()
@@ -64,7 +64,7 @@ def test_project_crud_preserves_default_and_isolates_candidates_and_screening(cl
     assert updated["name"] == "更新後プロジェクト"
     assert updated["heat_stage_positions_m"] == {"加熱1": 42.5}
     assert client.get(f"/api/projects/{project['id']}").json()["heat_stage_positions_m"] == {"加熱1": 42.5}
-    assert client.get("/api/project").json()["name"] == default["name"]
+    assert client.get("/api/projects/default").json()["name"] == default["name"]
     assert client.get("/api/projects/missing").status_code == 404
 
     candidate = client.post(f"/api/projects/{project['id']}/candidates", json=_candidate("P2候補"))

@@ -29,9 +29,9 @@ def _screening_body(candidate: dict) -> dict:
 
 def test_project_metadata_persists(client) -> None:
     payload = {"name": "DP検討", "description": "焼鈍条件の比較", "purpose": "TS 500 MPa", "task_id": "annealed-properties-v1", "target_values": {"TS": 500.0, "EL": 40.0}, "notes": "初回"}
-    updated = client.put("/api/project", json=payload)
+    updated = client.put("/api/projects/default", json=payload)
     assert updated.status_code == 200
-    assert client.get("/api/project").json()["target_values"] == {"TS": 500.0, "EL": 40.0}
+    assert client.get("/api/projects/default").json()["target_values"] == {"TS": 500.0, "EL": 40.0}
 
 
 def test_latin_hypercube_is_deterministic_bounded_and_convertible(client) -> None:
@@ -113,7 +113,8 @@ def test_lineage_candidate_actuals_and_snapshot_restore(client) -> None:
     assert lineage_candidate.status_code == 201
     candidate = lineage_candidate.json()
     assert len(candidate["inputs"]["heat_pattern"]) >= 2
-    assert candidate["provenance"]["source_ref"]["data_source_digest"] == client.get("/api/bootstrap").json()["meta"]["source_sha256"]
+    quality = client.get("/api/projects/default/quality").json()
+    assert candidate["provenance"]["source_ref"]["data_source_digest"] == quality["dataset"]["source_sha256"]
     actual = client.post(f"/api/projects/default/candidates/{candidate['id']}/actuals", params={"expected_revision": candidate["revision"]}, json={"property": "TS", "mean": 505.2, "std": 4.2, "replicates": 3, "unit": "MPa", "experiment_no": "EXP-01", "measured_at": "2026-07-20", "note": "確認用"})
     assert actual.status_code == 201
     assert actual.json()["snapshot_id"]

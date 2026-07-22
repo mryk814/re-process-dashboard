@@ -248,7 +248,7 @@ def test_electron_file_origin_is_allowed_without_credentials(client) -> None:
 
 def test_local_web_origin_allows_parallel_development_ports(client) -> None:
     response = client.options(
-        "/api/bootstrap",
+        "/api/health",
         headers={
             "Origin": "http://127.0.0.1:5212",
             "Access-Control-Request-Method": "GET",
@@ -258,11 +258,9 @@ def test_local_web_origin_allows_parallel_development_ports(client) -> None:
     assert response.headers["access-control-allow-origin"] == "http://127.0.0.1:5212"
 
 
-def test_quality_lineage_and_bootstrap(client) -> None:
-    bootstrap = client.get("/api/bootstrap").json()
-    assert bootstrap["meta"]["quality_issues"] == 36
-    assert bootstrap["candidates"]
+def test_quality_and_lineage(client) -> None:
     quality = client.get("/api/projects/default/quality").json()
+    assert quality["total"] == 36
     assert quality["by_category"]["関連ファイル欠損"] == 19
     assert quality["reference_scenarios"] == quality["issues"]
     assert quality["detected_total"] == len(quality["detected_issues"])

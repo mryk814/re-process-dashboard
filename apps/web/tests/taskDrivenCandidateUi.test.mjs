@@ -191,7 +191,7 @@ test("binary count and ordinal outputs avoid regression-only presentation", () =
 });
 
 test("response curve source renders every declared quantile with explicit labeling", async () => {
-  const source = await import("node:fs/promises").then(({ readFile }) => readFile(new URL("../src/features/workbench/WorkbenchPage.tsx", import.meta.url), "utf8"));
+  const source = await import("node:fs/promises").then(({ readFile }) => readFile(new URL("../src/features/workbench/ResponseCurvePanels.tsx", import.meta.url), "utf8"));
   assert.match(source, /data-quantile=\{level\}/);
   assert.match(source, /分位線/);
   assert.match(source, /point\.quantiles\[level\]/);

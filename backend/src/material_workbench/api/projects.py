@@ -47,7 +47,6 @@ def create_project(payload: ProjectCreateInput, service: ProjectServiceDependenc
     except ProjectValidationError as exc:
         raise HTTPException(422, str(exc)) from exc
 
-
 @router.get(
     "/api/projects/{project_id}",
     response_model=Project,
@@ -119,26 +118,3 @@ def update_project_decision(project_id: str, payload: ProjectDecisionInput, serv
         raise _not_found(exc) from exc
     except ProjectValidationError as exc:
         raise HTTPException(422, str(exc)) from exc
-
-
-@router.get(
-    "/api/project",
-    response_model=Project,
-    deprecated=True,
-    summary="Get Project",
-    operation_id="get_project_api_project_get",
-)
-def get_legacy_project(service: ProjectServiceDependency) -> Project:
-    return get_project("default", service)
-
-
-@router.put(
-    "/api/project",
-    response_model=Project,
-    responses=PROJECT_API_ERRORS,
-    deprecated=True,
-    summary="Update Project",
-    operation_id="update_project_api_project_put",
-)
-def update_legacy_project(payload: ProjectInput, service: ProjectServiceDependency) -> Project:
-    return update_project("default", payload, service)
