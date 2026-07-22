@@ -1,0 +1,34 @@
+{
+  "schema_version": "predictive-mixture-design/v1",
+  "combination": "distribution_mixture",
+  "target": "synthetic_response",
+  "unit": "a.u.",
+  "components": [
+    {
+      "predictor_id": "model_a",
+      "package_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "target": "synthetic_response",
+      "unit": "a.u.",
+      "weight": 0.65
+    },
+    {
+      "predictor_id": "model_b",
+      "package_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "target": "synthetic_response",
+      "unit": "a.u.",
+      "weight": 0.35
+    }
+  ],
+  "weight_provenance": {
+    "method": "stacking of predictive distributions",
+    "evaluation_unit": "parent-condition block",
+    "cross_validation": "nested leave-one-parent-block-out",
+    "training_data_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "code_revision": "design-fixture:not-a-runtime"
+  },
+  "golden_component_means": {
+    "model_a": 10.0,
+    "model_b": 20.0
+  },
+  "golden_mixture_mean": 13.5
+}

@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 
 from material_workbench.model_package_verify import verify_model_package_example
+from material_workbench.model_example_contracts import PredictiveMixtureDesignFixture, validate_mixture_component_digests
 from material_workbench.model_packages import ModelPackageLoader, PackageContractError
 
 
@@ -233,3 +234,22 @@ def test_posterior_linear_rejects_feature_order_mismatch(tmp_path: Path) -> None
 
     with pytest.raises(PackageContractError, match="feature order"):
         ModelPackageLoader().load(root)
+
+
+def test_predictive_mixture_design_golden_degeneracy_and_digest_binding() -> None:
+    path = ROOT / "examples" / "model-packages" / "design" / "predictive-mixture-v1.json"
+    fixture = PredictiveMixtureDesignFixture.model_validate_json(path.read_text(encoding="utf-8"))
+    actual = {item.predictor_id: item.package_digest for item in fixture.components}
+
+    validate_mixture_component_digests(fixture, actual)
+    assert fixture.golden_mixture_mean == pytest.approx(13.5)
+
+    document = fixture.model_dump(mode="json")
+    document["components"][0]["weight"] = 1.0
+    document["components"][1]["weight"] = 0.0
+    document["golden_mixture_mean"] = 10.0
+    degenerate = PredictiveMixtureDesignFixture.model_validate(document)
+    assert degenerate.golden_mixture_mean == degenerate.golden_component_means["model_a"]
+
+    with pytest.raises(ValueError, match="digest mismatch"):
+        validate_mixture_component_digests(fixture, {**actual, "model_b": "sha256:" + "d" * 64})
