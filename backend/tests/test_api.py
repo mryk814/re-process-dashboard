@@ -98,6 +98,31 @@ def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
     assert curve["target"] == "TS"
     assert curve["variable"]["id"] == "composition.C"
     assert len(curve["points"]) == 9
+    stage_payload = _payload("工程温度")
+    stage_payload["inputs"]["heat_pattern"][1]["stage_name"] = "加熱1"
+    stage_candidate = client.post("/api/projects/default/candidates", json=stage_payload).json()
+    stage_curve = client.get(
+        f"/api/projects/default/candidates/{stage_candidate['id']}/response-curve",
+        params={"expected_revision": stage_candidate["revision"], "target": "TS", "variable": "heat.stage_temperature_c", "stage_name": "加熱1", "stage_position_m": 480.6667, "points": 5},
+    )
+    assert stage_curve.status_code == 200
+    assert stage_curve.json()["variable"]["label"] == "加熱1 温度"
+    point_time = client.get(
+        f"/api/projects/default/candidates/{candidate['id']}/response-curve",
+        params={**params, "target": "TS", "variable": "heat.1.time_min", "points": 5},
+    )
+    assert point_time.status_code == 422
+    assert "ラインスピード" in point_time.json()["message"]
+    blank_stage = client.get(
+        f"/api/projects/default/candidates/{candidate['id']}/response-curve",
+        params={**params, "target": "TS", "variable": "heat.stage_temperature_c", "stage_name": "   ", "stage_position_m": 10, "points": 5},
+    )
+    assert blank_stage.status_code == 422
+    indexed_temperature = client.get(
+        f"/api/projects/default/candidates/{candidate['id']}/response-curve",
+        params={**params, "target": "TS", "variable": "heat.1.temperature_c", "points": 5},
+    )
+    assert indexed_temperature.status_code == 422
     assert atomic_result["snapshot"]["payload"]["prediction"] == detailed
     similar = client.get(
         f"/api/projects/default/candidates/{candidate['id']}/similar",

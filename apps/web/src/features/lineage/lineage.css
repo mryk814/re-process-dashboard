@@ -647,27 +647,32 @@
   max-width: 100%;
   overflow-x: auto;
 }
-.lineage-node-facts table {
+.lineage-node-facts table,
+.lineage-neighbor-facts table {
   width: max-content;
   min-width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
 }
 .lineage-node-facts th,
-.lineage-node-facts td {
+.lineage-node-facts td,
+.lineage-neighbor-facts th,
+.lineage-neighbor-facts td {
   min-width: 86px;
   border: 1px solid #d4dfeb;
   padding: 6px 8px;
   text-align: left;
   white-space: nowrap;
 }
-.lineage-node-facts th {
+.lineage-node-facts th,
+.lineage-neighbor-facts th {
   background: #eef4fa;
   color: #536277;
   font-size: 10px;
   font-weight: 700;
 }
-.lineage-node-facts td {
+.lineage-node-facts td,
+.lineage-neighbor-facts td {
   background: #fff;
   color: #263448;
   font-size: 12px;
@@ -924,3 +929,5 @@
   color: #334155;
   font-size: 13px;
 }
+.lineage-heat-grid line { stroke: #e6ecf3; stroke-width: 1; }
+.lineage-heat-grid text { fill: #708095; font-size: 8px; }

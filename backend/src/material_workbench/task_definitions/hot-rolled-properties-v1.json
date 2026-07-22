@@ -38,6 +38,28 @@
       }
     ],
     "outputs":[{"key":"TS","label":"引張強さ","unit":"MPa","goal_direction":"at_least","measurement_keys":["TS[MPa]"]}],
+    "response_curve_variables":[
+      {"kind":"numeric_input","order":0,"label":"C","path":"composition.C"},
+      {"kind":"numeric_input","order":1,"label":"Si","path":"composition.Si"},
+      {"kind":"numeric_input","order":2,"label":"Mn","path":"composition.Mn"},
+      {"kind":"numeric_input","order":3,"label":"P","path":"composition.P"},
+      {"kind":"numeric_input","order":4,"label":"S","path":"composition.S"},
+      {"kind":"numeric_input","order":5,"label":"Al","path":"composition.Al"},
+      {"kind":"numeric_input","order":6,"label":"Cu","path":"composition.Cu"},
+      {"kind":"numeric_input","order":7,"label":"Ni","path":"composition.Ni"},
+      {"kind":"numeric_input","order":8,"label":"Cr","path":"composition.Cr"},
+      {"kind":"numeric_input","order":9,"label":"Mo","path":"composition.Mo"},
+      {"kind":"numeric_input","order":10,"label":"Ti","path":"composition.Ti"},
+      {"kind":"numeric_input","order":11,"label":"B","path":"composition.B"},
+      {"kind":"numeric_input","order":12,"label":"O","path":"composition.O"},
+      {"kind":"numeric_input","order":13,"label":"N","path":"composition.N"},
+      {"kind":"numeric_input","order":14,"label":"均熱温度","path":"process.soaking_temperature_c"},
+      {"kind":"numeric_input","order":15,"label":"仕上げ温度","path":"process.finish_temperature_c"},
+      {"kind":"numeric_input","order":16,"label":"入側板厚","path":"process.entry_thickness_mm"},
+      {"kind":"numeric_input","order":17,"label":"出側板厚","path":"process.exit_thickness_mm"},
+      {"kind":"numeric_input","order":18,"label":"保持温度","path":"process.hold_temperature_c"},
+      {"kind":"numeric_input","order":19,"label":"保持時間","path":"process.hold_time_min"}
+    ],
     "display_decimals":{"composition.C":5,"composition.Si":6,"composition.Mn":6,"composition.P":5,"composition.S":6,"composition.Al":6,"composition.Cu":5,"composition.Ni":5,"composition.Cr":5,"composition.Mo":5,"composition.Ti":5,"composition.B":5,"composition.O":5,"composition.N":5,"process.soaking_temperature_c":1,"process.finish_temperature_c":1,"process.entry_thickness_mm":3,"process.exit_thickness_mm":3,"process.hold_temperature_c":1,"process.hold_time_min":2,"output.TS":1},
     "fixed_context":[{"path":"context.equipment","order":0,"label":"設備","value":"HR-LINE-1"},{"path":"context.test_direction","order":1,"label":"引張方向","value":"L"}],
     "constraints":[{"left_path":"process.finish_temperature_c","operator":"lte","right_path":"process.soaking_temperature_c","message":"仕上げ温度は均熱温度以下にしてください"},{"left_path":"process.exit_thickness_mm","operator":"lt","right_path":"process.entry_thickness_mm","message":"出側板厚は入側板厚より小さくしてください"}]
@@ -48,5 +70,5 @@
     "process":{"soaking_temperature_c":1180,"finish_temperature_c":900,"entry_thickness_mm":35,"exit_thickness_mm":3.5,"hold_temperature_c":1160,"hold_time_min":30},
     "heat_pattern":null,"categorical":{},"provenance":{"source_kind":"screening","source_ref":{"run_id":"screening-001","point_id":"point-017"}}
   },
-  "runtime_capability":{"schema_version":"runtime-capability/v1","task_id":"hot-rolled-properties-v1","model_package_schema_version":"model-package/v1","targets":[{"target":"TS","point_statistics":["mean"],"standard_deviation":true,"quantiles":true,"samples":false,"parametric_distribution":true,"uncertainty_components":true,"support":true,"warnings":true,"goal_probability":"distribution"}],"joint_samples":false,"operations":{"preview":true,"detailed_prediction":true,"response_curve":false,"similarity":true,"snapshot":true,"actual_measurement":true}}
+  "runtime_capability":{"schema_version":"runtime-capability/v1","task_id":"hot-rolled-properties-v1","model_package_schema_version":"model-package/v1","targets":[{"target":"TS","point_statistics":["mean"],"standard_deviation":true,"quantiles":true,"samples":false,"parametric_distribution":true,"uncertainty_components":true,"support":true,"warnings":true,"goal_probability":"distribution"}],"joint_samples":false,"operations":{"preview":true,"detailed_prediction":true,"response_curve":true,"similarity":true,"snapshot":true,"actual_measurement":true}}
 }

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { fromApiCandidate, type CandidateViewModel as Candidate, type TaskOutputDefinition } from "../candidates";
 import { workbenchApi, type ApiLineage, type ApiLineageIndex } from "../../shared/api/workbench-api";
+import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
+import { SvgChartTooltip } from "../../shared/ui/SvgChartTooltip";
 import { LineageGraph } from "./LineageGraph";
 
 function number(value: number, digits = 0) {
@@ -21,14 +23,6 @@ type LineageGroupSelection = {
   parentKey: string;
   entityType: string;
   nodeKeys: string[];
-};
-
-const GROUP_OBSERVATION_TYPES: Record<string, string> = {
-  熱延引張: "熱延引張実績",
-  熱延組織: "熱延組織",
-  焼鈍引張: "焼鈍引張実績",
-  焼鈍穴広げ: "焼鈍穴拡げ実績",
-  焼鈍組織: "焼鈍板組織",
 };
 
 function heatStageSegments(heat: ApiLineage["node"]["heat_pattern"]): HeatStageSegment[] {
@@ -81,6 +75,7 @@ export function LineagePage({
   const [error, setError] = useState("");
   const [candidateError, setCandidateError] = useState("");
   const [selectedGroup, setSelectedGroup] = useState<LineageGroupSelection | null>(null);
+  const [hoveredHeatPoint, setHoveredHeatPoint] = useState<{ x: number; y: number; lines: string[] } | null>(null);
   const activeProjectRef = useRef(projectId);
   const outputLabel = (raw: string) => {
     const definition = outputs.find((output) => raw === output.key || raw.startsWith(`${output.key}[`) || (output.key === "lambda" && raw.startsWith("λ")));
@@ -91,6 +86,9 @@ export function LineagePage({
     setEntityKey(initialEntityKey ?? "");
     setGraphLimit(40);
   }, [projectId, initialEntityKey]);
+  useEffect(() => {
+    setSelectedGroup(null);
+  }, [entityKey]);
   useEffect(() => {
     setQuery("");
     setEntityType("");
@@ -169,17 +167,18 @@ export function LineagePage({
     1,
     ...heat.flatMap((point) => [point.temperature_c, point.set_temperature_c ?? point.temperature_c]),
   );
+  const heatX = (time: number) => 20 + (time / maxTime) * 380;
+  const heatY = (temperature: number) => 120 - (temperature / maxTemp) * 100;
+  const heatTimeTicks = [0, maxTime / 2, maxTime];
+  const heatTemperatureTicks = [0, maxTemp / 2, maxTemp];
   const heatPoints = heat
-    .map(
-      (point) =>
-        `${20 + (point.time_s / maxTime) * 380},${120 - (point.temperature_c / maxTemp) * 100}`,
-    )
+    .map((point) => `${heatX(point.time_s)},${heatY(point.temperature_c)}`)
     .join(" ");
   const setHeatPoints = heat
     .filter((point) => typeof point.set_temperature_c === "number")
     .map(
       (point) =>
-        `${20 + (point.time_s / maxTime) * 380},${120 - ((point.set_temperature_c ?? 0) / maxTemp) * 100}`,
+        `${heatX(point.time_s)},${heatY(point.set_temperature_c ?? 0)}`,
     )
     .join(" ");
   const heatStages = Array.from(
@@ -193,14 +192,28 @@ export function LineagePage({
     ).values(),
   );
   const heatStageTrack = heatStageSegments(heat);
-  const selectedGroupObservationType = selectedGroup ? GROUP_OBSERVATION_TYPES[selectedGroup.entityType] ?? selectedGroup.entityType : "";
-  const selectedGroupObservationGroups = selectedGroup && data
-    ? (data.node.observation_groups ?? []).filter((group) => group.test_type === selectedGroupObservationType)
-    : [];
-  const selectedGroupObservations = Array.from(
-    new Map(selectedGroupObservationGroups.flatMap((group) => group.observations).map((observation) => [observation.id, observation])).values(),
+  const selectedGroupNodes = new Map(
+    (data?.graph.nodes ?? [])
+      .filter((node) => selectedGroup?.nodeKeys.includes(node.key))
+      .map((node) => [node.key, node]),
   );
-  const selectedGroupProperties = Array.from(new Set(selectedGroupObservations.flatMap((observation) => Object.keys(observation.outputs))));
+  const selectedGroupObservationsById = new Map(
+    (data?.node.observation_groups ?? [])
+      .flatMap((group) => group.observations)
+      .filter((observation) => {
+        const graphNode = selectedGroupNodes.get(observation.id);
+        return observation.parent_key === selectedGroup?.parentKey
+          && graphNode?.source_sheet === observation.source;
+      })
+      .map((observation) => [observation.id, observation] as const),
+  );
+  const selectedGroupRows = (selectedGroup?.nodeKeys ?? []).map((nodeKey) => ({
+    nodeKey,
+    observation: selectedGroupObservationsById.get(nodeKey),
+  }));
+  const selectedGroupProperties = Array.from(new Set(
+    selectedGroupRows.flatMap(({ observation }) => Object.keys(observation?.outputs ?? {})),
+  ));
   return (
     <div className="page-panel lineage-page">
       {qualityIssueId && (
@@ -323,8 +336,7 @@ export function LineagePage({
                 </p>
               </div>
               <div className="lineage-detail-action">
-                <button
-                  className="primary-button"
+                <CandidateAddButton
                   disabled={!supportsCandidateCreation || !data.candidate_eligible}
                   title={supportsCandidateCreation ? data.candidate_reason : "この予測タスクは系譜からの候補化に対応していません"}
                   onClick={() => {
@@ -332,7 +344,7 @@ export function LineagePage({
                   }}
                 >
                   候補ストックへ追加
-                </button>
+                </CandidateAddButton>
                 <span className={`lineage-detail-action-reason ${supportsCandidateCreation && data.candidate_eligible ? "" : "muted"}`}>
                   {supportsCandidateCreation ? data.candidate_reason : "この予測タスクは系譜からの候補化に対応していません。"}
                 </span>
@@ -364,7 +376,7 @@ export function LineagePage({
                 </div>
                 <button type="button" className="text-button" onClick={() => setSelectedGroup(null)}>グループ選択を解除</button>
               </div>
-              {selectedGroupObservations.length ? (
+              {selectedGroupObservationsById.size ? (
                 <div className="lineage-group-facts-scroll">
                   <table>
                     <thead>
@@ -374,11 +386,11 @@ export function LineagePage({
                       </tr>
                     </thead>
                     <tbody>
-                      {selectedGroupObservations.map((observation) => (
-                        <tr key={observation.id}>
-                          <th scope="row">{observation.id}</th>
+                      {selectedGroupRows.map(({ nodeKey, observation }) => (
+                        <tr key={nodeKey}>
+                          <th scope="row">{nodeKey}</th>
                           {selectedGroupProperties.map((property) => {
-                            const value = observation.outputs[property];
+                            const value = observation?.outputs[property];
                             return <td key={property}>{value == null ? "—" : typeof value === "number" ? number(value, Math.abs(value) < 1 ? 3 : 1) : String(value)}</td>;
                           })}
                         </tr>
@@ -421,6 +433,8 @@ export function LineagePage({
                   role="img"
                   aria-label="実績ヒートパターン"
                 >
+                  {heatTemperatureTicks.map((tick) => <g key={`temp-${tick}`} className="lineage-heat-grid"><line x1="20" x2="400" y1={heatY(tick)} y2={heatY(tick)} /><text x="17" y={heatY(tick) + 3} textAnchor="end">{number(tick)}</text></g>)}
+                  {heatTimeTicks.map((tick) => <g key={`time-${tick}`} className="lineage-heat-grid"><line x1={heatX(tick)} x2={heatX(tick)} y1="20" y2="120" /><text x={heatX(tick)} y="132" textAnchor="middle">{number(tick)}</text></g>)}
                   <line x1="20" x2="400" y1="120" y2="120" />
                   <polyline
                     points={heatPoints}
@@ -440,14 +454,21 @@ export function LineagePage({
                   {heat.map((point) => (
                     <circle
                       key={point.time_s}
-                      cx={20 + (point.time_s / maxTime) * 380}
-                      cy={120 - (point.temperature_c / maxTemp) * 100}
+                      className="svg-chart-hit-target"
+                      tabIndex={0}
+                      aria-label={[point.stage_category, point.stage_name, `${point.time_s}s / ${point.temperature_c}°C`].filter(Boolean).join(" · ")}
+                      cx={heatX(point.time_s)}
+                      cy={heatY(point.temperature_c)}
                       r="3"
                       fill="#1f5fc4"
+                      onMouseEnter={() => setHoveredHeatPoint({ x: heatX(point.time_s), y: heatY(point.temperature_c), lines: [point.stage_name || point.stage_category || "実績温度", `時間 ${number(point.time_s, 1)} s`, `温度 ${number(point.temperature_c, 1)} °C`, ...(point.set_temperature_c == null ? [] : [`設定 ${number(point.set_temperature_c, 1)} °C`])] })}
+                      onMouseLeave={() => setHoveredHeatPoint(null)}
+                      onFocus={() => setHoveredHeatPoint({ x: heatX(point.time_s), y: heatY(point.temperature_c), lines: [point.stage_name || point.stage_category || "実績温度", `時間 ${number(point.time_s, 1)} s`, `温度 ${number(point.temperature_c, 1)} °C`, ...(point.set_temperature_c == null ? [] : [`設定 ${number(point.set_temperature_c, 1)} °C`])] })}
+                      onBlur={() => setHoveredHeatPoint(null)}
                     >
-                      <title>{[point.stage_category, point.stage_name, `${point.time_s}s / ${point.temperature_c}°C`].filter(Boolean).join(" · ")}</title>
                     </circle>
                   ))}
+                  {hoveredHeatPoint && <SvgChartTooltip {...hoveredHeatPoint} chartWidth={420} chartHeight={135} />}
                 </svg>
                 <div className="lineage-process-track" aria-label="工程区間">
                   {heatStageTrack.map((stage, index) => (

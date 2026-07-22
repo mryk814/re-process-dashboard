@@ -1,11 +1,14 @@
 import { type CSSProperties, type KeyboardEvent, type PointerEvent, useEffect, useRef, useState } from "react";
 import { provenanceLabel, type CandidateProvenance } from "../../shared/candidateProvenance";
+import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
+import { SvgChartTooltip } from "../../shared/ui/SvgChartTooltip";
 import {
   CandidateInspector,
   ComparisonTable,
   categoricalTaskInputs,
   fromApiCandidate,
   numericTaskInputs,
+  responseCurveVariables,
   type CandidateSaveState,
   type CandidateViewModel as Candidate,
   type NumericRange,
@@ -133,7 +136,6 @@ function SplitResizer({
 }
 
 type CurvePoint = ApiResponseCurve["points"][number];
-type CurveVariable = ApiResponseCurve["variable"];
 type CurveRange = { min: number; max: number };
 type ResponseCurveRanges = { x?: Record<string, CurveRange>; y?: Record<string, CurveRange> };
 type CurveRangeDraft = { min: string; max: string; enabled: boolean };
@@ -159,26 +161,6 @@ function candidateColor(candidateId: string, selectedId: string) {
   return CANDIDATE_COLORS[hash % CANDIDATE_COLORS.length];
 }
 
-function Icon({ name }: { name: "copy" | "trash" | "plus" }) {
-  const common = {
-    width: 18,
-    height: 18,
-    viewBox: "0 0 24 24",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 1.75,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
-    "aria-hidden": true,
-  };
-  const paths = {
-    copy: <><rect x="8" y="8" width="12" height="12" rx="1" /><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3" /></>,
-    trash: <><path d="M4 7h16M10 11v6m4-6v6M9 7l1-3h4l1 3m-9 0 1 13h10l1-13" /></>,
-    plus: <><circle cx="12" cy="12" r="9" /><path d="M12 8v8m-4-4h8" /></>,
-  };
-  return <svg {...common}>{paths[name]}</svg>;
-}
-
 export function WorkbenchEmptyState({
   loading,
   error,
@@ -198,10 +180,9 @@ export function WorkbenchEmptyState({
         </p>
       )}
       {!loading && !error && (
-        <button className="primary-button" onClick={onCreate}>
-          <Icon name="plus" />
+        <CandidateAddButton onClick={onCreate}>
           最初の候補を作る
-        </button>
+        </CandidateAddButton>
       )}
     </div>
   );
@@ -220,6 +201,7 @@ type WorkbenchProps = {
   taskDefinition: TaskDefinitionContract | null;
   operations?: RuntimeOperations;
   saveState: CandidateSaveState;
+  saveStates: Record<string, CandidateSaveState>;
   fieldErrors: Array<{ path: string; message: string }>;
   onReload: () => void;
   onCopyDraft: () => void;
@@ -233,10 +215,14 @@ type WorkbenchProps = {
   onText: (id: string, field: "label", value: string) => void;
   onAddHeat: () => void;
   onDeleteHeat: (index: number) => void;
-  onCopy: () => void;
+  onCopy: (candidateId: string) => void;
   onOpenOrigin: () => void;
   originBroken: boolean;
-  onDelete: () => void;
+  onDelete: (candidateId: string) => void;
+  onSave: (candidate: Candidate) => void;
+  savedRevisionsByCandidate: Record<string, number[]>;
+  savingCandidateIds: string[];
+  snapshotHistoryState: "loading" | "ready" | "error";
   onAdd: () => void;
   onAddCandidateFromLineage: (entityKey: string) => Promise<boolean>;
   onImported: (items: Candidate[]) => void;
@@ -257,6 +243,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
     taskDefinition,
     operations,
     saveState,
+    saveStates,
     fieldErrors,
     onReload,
     onCopyDraft,
@@ -274,6 +261,10 @@ export function WorkbenchPage(props: WorkbenchProps) {
     onOpenOrigin,
     originBroken,
     onDelete,
+    onSave,
+    savedRevisionsByCandidate,
+    savingCandidateIds,
+    snapshotHistoryState,
     onAdd,
     onAddCandidateFromLineage,
     onImported,
@@ -362,27 +353,8 @@ export function WorkbenchPage(props: WorkbenchProps) {
           </div>
           {previewError && <span className="comparison-preview-error" role="alert">{previewError}{operations?.preview && <button type="button" onClick={onRetryPreview}>再試行</button>}</span>}
           <div className="comparison-actions" aria-label="候補操作">
-            <button className="outline-button" onClick={onCopy}>
-              <Icon name="copy" />選択候補を複製
-            </button>
-            <button
-              className="outline-button"
-              onClick={onDelete}
-              disabled={
-                candidates.length <= 1 || decisionCandidateId === selectedId
-              }
-              title={
-                decisionCandidateId === selectedId
-                  ? "採用判断を解除してから削除してください"
-                  : undefined
-              }
-            >
-              <Icon name="trash" />削除
-            </button>
             <CandidateFileControls projectId={projectId} onImported={onImported} />
-            <button className="primary-button" onClick={onAdd}>
-              <Icon name="plus" />候補を追加
-            </button>
+            <CandidateAddButton onClick={onAdd}>候補を追加</CandidateAddButton>
           </div>
         </div>
         <CandidateOrigin candidate={selected} broken={originBroken} onOpen={onOpenOrigin} />
@@ -395,9 +367,18 @@ export function WorkbenchPage(props: WorkbenchProps) {
           previewsByCandidate={previewsByCandidate}
           targetValues={targetValues}
           displayDecimalOverrides={project?.display_decimals}
+          decisionCandidateId={decisionCandidateId}
+          detailedPredictionAvailable={operations?.detailed_prediction === true}
+          saveStates={saveStates}
+          savedRevisionsByCandidate={savedRevisionsByCandidate}
+          savingCandidateIds={savingCandidateIds}
+          snapshotHistoryState={snapshotHistoryState}
           onSelect={onSelect}
           onInput={onInput}
           onName={(id, value) => onText(id, "label", value)}
+          onCopy={onCopy}
+          onDelete={onDelete}
+          onSave={onSave}
         />}
         {taskDefinition?.curve_axis_path && operations?.response_curve ? (
           <CurveFamilyPanel
@@ -514,7 +495,7 @@ function CandidateFileControls({
         />
       </label>
       <button className="outline-button" onClick={download}>
-        結果をXLSX出力
+        候補・予測をXLSX出力
       </button>
       {message && <small>{message}</small>}
     </div>
@@ -523,6 +504,17 @@ function CandidateFileControls({
 
 function UnavailablePanel({ title }: { title: string }) {
   return <section className="response-curves-panel unavailable-panel" aria-label={`${title}は利用できません`}><div className="panel-title"><h2>{title}</h2></div><p className="empty-evidence">このタスクでは利用できません。</p></section>;
+}
+
+function chartDigits(min: number, max: number) {
+  const span = Math.abs(max - min);
+  if (span < 0.001) return 6;
+  if (span < 0.01) return 5;
+  if (span < 0.1) return 4;
+  if (span < 1) return 3;
+  if (span < 10) return 2;
+  if (span < 100) return 1;
+  return 0;
 }
 function HeatPattern({
   candidates,
@@ -560,6 +552,7 @@ function HeatPattern({
     .map((point) => `${x(point.time)},${y(point.temperature)}`)
     .join(" ");
   const timeTicks = [minTime, (minTime + maxTime) / 2, maxTime];
+  const [hoveredHeatPoint, setHoveredHeatPoint] = useState<{ x: number; y: number; lines: string[] } | null>(null);
   const dragPoint = (event: PointerEvent<SVGCircleElement>, index: number) => {
     const svg = event.currentTarget.ownerSVGElement;
     if (!svg) return;
@@ -577,6 +570,8 @@ function HeatPattern({
         ),
       ),
     );
+    const point = candidate.heat[index];
+    setHoveredHeatPoint({ x: x(point.time), y: y(temperature), lines: [candidate.label, point.stageName || point.stageCategory || `点 ${index + 1}`, `時間 ${number(point.time, 2)} min`, `温度 ${number(temperature, 0)} °C`] });
     onUpdate(index, "temperature", temperature);
   };
   return (
@@ -616,16 +611,26 @@ function HeatPattern({
         {candidates
           .filter((item) => item.id !== candidate.id)
           .map((item) => (
-            <polyline
-              key={item.id}
-              points={item.heat
-                .map((point) => `${x(point.time)},${y(point.temperature)}`)
-                .join(" ")}
-              fill="none"
-              stroke={candidateColor(item.id, candidate.id)}
-              strokeWidth="1.5"
-              opacity=".62"
-            />
+            <g key={item.id}>
+              <polyline
+                points={item.heat.map((point) => `${x(point.time)},${y(point.temperature)}`).join(" ")}
+                fill="none"
+                stroke={candidateColor(item.id, candidate.id)}
+                strokeWidth="1.5"
+                opacity=".62"
+              />
+              {item.heat.map((point, index) => <circle
+                className="svg-chart-hit-target"
+                tabIndex={-1}
+                aria-label={`${item.label}: ${number(point.time, 2)}分, ${point.temperature}度`}
+                key={`${item.id}-${point.time}-${index}`}
+                cx={x(point.time)} cy={y(point.temperature)} r="7" fill="transparent"
+                onMouseEnter={() => setHoveredHeatPoint({ x: x(point.time), y: y(point.temperature), lines: [item.label, `時間 ${number(point.time, 2)} min`, `温度 ${number(point.temperature, 0)} °C`] })}
+                onMouseLeave={() => setHoveredHeatPoint(null)}
+                onFocus={() => setHoveredHeatPoint({ x: x(point.time), y: y(point.temperature), lines: [item.label, `時間 ${number(point.time, 2)} min`, `温度 ${number(point.temperature, 0)} °C`] })}
+                onBlur={() => setHoveredHeatPoint(null)}
+              />)}
+            </g>
           ))}
         <polyline
           points={points}
@@ -642,6 +647,10 @@ function HeatPattern({
             cy={y(point.temperature)}
             r="5"
             fill="#1F5FC4"
+            onMouseEnter={() => setHoveredHeatPoint({ x: x(point.time), y: y(point.temperature), lines: [candidate.label, point.stageName || point.stageCategory || `点 ${index + 1}`, `時間 ${number(point.time, 2)} min`, `温度 ${number(point.temperature, 0)} °C`] })}
+            onMouseLeave={() => setHoveredHeatPoint(null)}
+            onFocus={() => setHoveredHeatPoint({ x: x(point.time), y: y(point.temperature), lines: [candidate.label, point.stageName || point.stageCategory || `点 ${index + 1}`, `時間 ${number(point.time, 2)} min`, `温度 ${number(point.temperature, 0)} °C`] })}
+            onBlur={() => setHoveredHeatPoint(null)}
             onPointerDown={(event) => {
               event.currentTarget.setPointerCapture(event.pointerId);
               dragPoint(event, index);
@@ -652,6 +661,7 @@ function HeatPattern({
             }
           />
         ))}
+        {hoveredHeatPoint && <SvgChartTooltip {...hoveredHeatPoint} chartWidth={width} chartHeight={height} />}
         <text className="axis-title" x="3" y="13">
           温度 (°C)
         </text>
@@ -816,20 +826,34 @@ function CurveFamilyChart({
   const maxValue = rawMax + padding;
   const x = (value: number) => 30 + ((value - minX) / Math.max(1e-6, maxX - minX)) * 252;
   const y = (value: number) => 124 - ((value - minValue) / Math.max(1, maxValue - minValue)) * 92;
+  const xTicks = [minX, (minX + maxX) / 2, maxX];
+  const yTicks = [minValue, (minValue + maxValue) / 2, maxValue];
+  const xDigits = chartDigits(minX, maxX);
+  const yDigits = chartDigits(minValue, maxValue);
+  const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; lines: string[] } | null>(null);
   return (
     <article className="response-curve-card">
       <header><b>{output.label}</b><span>{payload.axis.label}: {number(payload.axis.current)} {payload.axis.unit}</span></header>
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${output.label}の${payload.axis.label}に沿った曲線`}>
-        {[minValue, (minValue + maxValue) / 2, maxValue].map((tick) => <g key={tick}><line x1="28" y1={y(tick)} x2="284" y2={y(tick)} stroke="#e3e9f0" /><text x="25" y={y(tick) + 3} textAnchor="end" fontSize="9" fill="#617087">{number(tick)}</text></g>)}
+        {yTicks.map((tick) => <g key={tick}><line x1="28" y1={y(tick)} x2="284" y2={y(tick)} stroke="#e3e9f0" /><text x="25" y={y(tick) + 3} textAnchor="end" fontSize="9" fill="#617087">{number(tick, yDigits)}</text></g>)}
+        {xTicks.map((tick) => <line key={`grid-${tick}`} x1={x(tick)} y1="32" x2={x(tick)} y2="124" stroke="#edf1f6" />)}
         {series.map((item, index) => {
           const color = levelColor(index, series.length);
           const line = item.points.map((point, pointIndex) => `${pointIndex ? "L" : "M"}${x(point.x)} ${y(point.value)}`).join(" ");
           const band = `${item.points.map((point, pointIndex) => `${pointIndex ? "L" : "M"}${x(point.x)} ${y(point.upper)}`).join(" ")} ${[...item.points].reverse().map((point) => `L${x(point.x)} ${y(Math.max(point.lower, minValue))}`).join(" ")} Z`;
-          return <g key={item.label}>{bandVisible && <path d={band} fill={color} opacity=".12" />}<path d={line} fill="none" stroke={color} strokeWidth={series.length === 1 ? "2.5" : "1.8"} /></g>;
+          return <g key={item.label}>{bandVisible && <path d={band} fill={color} opacity=".12" />}<path d={line} fill="none" stroke={color} strokeWidth={series.length === 1 ? "2.5" : "1.8"} />{item.points.map((point, pointIndex) => <circle
+            className="svg-chart-hit-target" tabIndex={pointIndex === 0 ? 0 : -1} key={`${item.label}-${point.x}`} cx={x(point.x)} cy={y(point.value)} r="5" fill="transparent"
+            aria-label={`${item.label}, ${payload.axis.label} ${number(point.x, xDigits)}, ${output.label} ${number(point.value, yDigits)} ${output.unit}`}
+            onMouseEnter={() => setHoveredPoint({ x: x(point.x), y: y(point.value), lines: [item.label, `${payload.axis.label} ${number(point.x, xDigits)} ${payload.axis.unit}`, `${output.label} ${number(point.value, yDigits)} ${output.unit}`, ...(bandVisible ? [`90%区間 ${number(point.lower, yDigits)}–${number(point.upper, yDigits)}`] : [])] })}
+            onMouseLeave={() => setHoveredPoint(null)}
+            onFocus={() => setHoveredPoint({ x: x(point.x), y: y(point.value), lines: [item.label, `${payload.axis.label} ${number(point.x, xDigits)} ${payload.axis.unit}`, `${output.label} ${number(point.value, yDigits)} ${output.unit}`, ...(bandVisible ? [`90%区間 ${number(point.lower, yDigits)}–${number(point.upper, yDigits)}`] : [])] })}
+            onBlur={() => setHoveredPoint(null)}
+          />)}</g>;
         })}
         {Number.isFinite(goalValue) && <line x1="28" y1={y(goalValue!)} x2="284" y2={y(goalValue!)} stroke="#c17816" strokeDasharray="4 3" />}
         {Number.isFinite(payload.axis.current) && <line x1={x(payload.axis.current)} y1="32" x2={x(payload.axis.current)} y2="124" stroke="#94a5ba" strokeDasharray="2 3" />}
-        {[minX, (minX + maxX) / 2, maxX].map((tick) => <text key={tick} x={x(tick)} y="137" textAnchor="middle" fontSize="8" fill="#617087">{number(tick)}</text>)}
+        {xTicks.map((tick) => <text key={tick} x={x(tick)} y="137" textAnchor="middle" fontSize="8" fill="#617087">{number(tick, xDigits)}</text>)}
+        {hoveredPoint && <SvgChartTooltip {...hoveredPoint} chartWidth={width} chartHeight={height} />}
         <text x="158" y="150" textAnchor="middle" fontSize="9" fill="#617087">{payload.axis.label} ({payload.axis.unit})</text>
       </svg>
     </article>
@@ -864,44 +888,36 @@ function LiveResponseCurves({
   ready: boolean;
 }) {
   const outputs = taskDefinition?.outputs ?? [];
-  const variables: CurveVariable[] = [
-    ...numericTaskInputs(taskDefinition)
-      .filter((input) => input.editable)
-      .map((input) => {
-        const range = allowedRange(input);
-        return {
-          id: input.group === "composition" ? `${input.group}.${input.field}` : input.field,
-          label: input.label,
-          unit: input.unit,
-          min: range.min,
-          max: range.max,
-          current: input.group === "composition" ? candidate.raw.inputs.composition[input.field] ?? 0 : candidate.raw.inputs.process[input.field] ?? 0,
-        };
-      }),
-    ...candidate.heat.flatMap((point, index) => [
-      { id: `heat.${index}.temperature_c`, label: `ヒート ${index + 1}点目 温度`, unit: "°C", min: 0, max: 1000, current: point.temperature },
-      { id: `heat.${index}.time_min`, label: `ヒート ${index + 1}点目 時間`, unit: "min", min: 0, max: Math.max(1, candidate.heat.at(-1)?.time ?? 1), current: point.time },
-    ]),
-  ];
+  const curveCandidates = candidates.filter((item) => !item.raw.archived_at && previewsByCandidate[item.id]);
+  const variables = responseCurveVariables(
+    taskDefinition,
+    candidate.raw.inputs,
+    curveCandidates.map((item) => item.raw.inputs),
+    project?.heat_stage_positions_m ?? {},
+  );
   const [variableId, setVariableId] = useState(variables[0]?.id ?? "heat.peak_temperature_c");
   const [axisSettingsOpen, setAxisSettingsOpen] = useState(false);
-  const [axisDraft, setAxisDraft] = useState<{ x: CurveRangeDraft; y: Record<string, CurveRangeDraft> }>({ x: { min: "", max: "", enabled: false }, y: {} });
+  const [axisDraft, setAxisDraft] = useState<{ x: CurveRangeDraft; y: Record<string, CurveRangeDraft>; stagePosition: string }>({ x: { min: "", max: "", enabled: false }, y: {}, stagePosition: "" });
   const [axisDraftDirty, setAxisDraftDirty] = useState(false);
   const [axisError, setAxisError] = useState("");
   const [axisSaving, setAxisSaving] = useState(false);
   const [surfacesByKey, setSurfacesByKey] = useState<Record<string, InferenceSurfaceState<ApiResponseCurve>>>({});
+  const axisSettingsButtonRef = useRef<HTMLButtonElement>(null);
   const axisDraftRef = useRef(axisDraft);
   axisDraftRef.current = axisDraft;
   const surfaceRef = useRef(surfacesByKey);
   surfaceRef.current = surfacesByKey;
-  const curveCandidates = candidates.filter((item) => !item.raw.archived_at && previewsByCandidate[item.id]);
   const curveCandidatesKey = curveCandidates.map((item) => `${item.id}:${item.raw.revision}:${candidateInputIdentity(item.raw.inputs)}`).join("\u001e");
+  const variableIdsIdentity = variables.map((variable) => variable.id).join("\u001e");
   const outputKeys = outputs.map((output) => output.key).join("\u001e");
-  const xRangeOverride = responseCurveRanges.x?.[variableId];
-  const xRangeIdentity = xRangeOverride ? `${xRangeOverride.min}:${xRangeOverride.max}` : "auto";
+  const selectedVariable = variables.find((variable) => variable.id === variableId) ?? variables[0];
+  const activeVariableId = selectedVariable?.id ?? variableId;
+  const xRangeOverride = responseCurveRanges.x?.[activeVariableId];
+  const stageRequestIdentity = selectedVariable?.stageName ? `${selectedVariable.stageName}:${selectedVariable.stagePositionM}` : "scalar";
+  const xRangeIdentity = `${xRangeOverride ? `${xRangeOverride.min}:${xRangeOverride.max}` : "auto"}:${stageRequestIdentity}`;
   useEffect(() => {
     if (variables.length && !variables.some((variable) => variable.id === variableId)) setVariableId(variables[0].id);
-  }, [variableId, variables.length]);
+  }, [variableId, variableIdsIdentity]);
   useEffect(() => {
     if (!available || !ready || !taskDefinition || !curveCandidates.length || !outputs.length) return;
     const controller = new AbortController();
@@ -909,8 +925,8 @@ function LiveResponseCurves({
     for (const item of curveCandidates) {
       const inputIdentity = candidateInputIdentity(item.raw.inputs);
       for (const output of outputs) {
-        const storageKey = `${item.id}\u001f${output.key}\u001f${variableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`;
-        const identity = `${workbenchRequestKey({ projectId, taskId: taskDefinition.id, candidateId: item.id, candidateRevision: item.raw.revision }, "response_curve:9")}\u001f${inputIdentity}\u001f${output.key}\u001f${variableId}\u001f${xRangeIdentity}`;
+        const storageKey = `${item.id}\u001f${output.key}\u001f${activeVariableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`;
+        const identity = `${workbenchRequestKey({ projectId, taskId: taskDefinition.id, candidateId: item.id, candidateRevision: item.raw.revision }, "response_curve:9")}\u001f${inputIdentity}\u001f${output.key}\u001f${activeVariableId}\u001f${xRangeIdentity}`;
         const existing = surfaceRef.current[storageKey];
         if (existing?.currentIdentity === identity) continue;
         const requested = requestInferenceSurface(existing ?? emptyInferenceSurface<ApiResponseCurve>(), identity);
@@ -919,7 +935,7 @@ function LiveResponseCurves({
         setSurfacesByKey(requestedSurfaces);
         const timer = window.setTimeout(async () => {
           try {
-            const loaded = await workbenchApi.responseCurve(projectId, item.id, item.raw.revision, inputIdentity, output.key, variableId, 9, xRangeOverride?.min, xRangeOverride?.max, controller.signal);
+            const loaded = await workbenchApi.responseCurve(projectId, item.id, item.raw.revision, inputIdentity, output.key, selectedVariable.requestVariable, 9, xRangeOverride?.min, xRangeOverride?.max, selectedVariable.stageName, selectedVariable.stagePositionM, controller.signal);
             if (controller.signal.aborted) return;
             const current = surfaceRef.current[storageKey] ?? requested;
             const resolved = resolveInferenceSurface(current, requested.requestSequence, identity, loaded);
@@ -939,19 +955,23 @@ function LiveResponseCurves({
       }
     }
     return () => { timers.forEach((timer) => window.clearTimeout(timer)); controller.abort(); };
-  }, [available, ready, curveCandidatesKey, outputKeys, projectId, taskDefinition?.id, variableId, xRangeIdentity, xRangeOverride?.min, xRangeOverride?.max]);
-  const selectedVariable = variables.find((variable) => variable.id === variableId) ?? variables[0];
+  }, [available, ready, curveCandidatesKey, outputKeys, projectId, taskDefinition?.id, activeVariableId, xRangeIdentity, xRangeOverride?.min, xRangeOverride?.max, selectedVariable?.requestVariable, selectedVariable?.stageName, selectedVariable?.stagePositionM]);
   const curveStates = curveCandidates.flatMap((item) => outputs.map((output) => {
     const inputIdentity = candidateInputIdentity(item.raw.inputs);
-    const storageKey = `${item.id}\u001f${output.key}\u001f${variableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`;
+    const storageKey = `${item.id}\u001f${output.key}\u001f${activeVariableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`;
     return surfacesByKey[storageKey];
   }));
-  const payloadForOutput = (outputKey: string) => curveCandidates.map((item) => {
+  const payloadsForOutput = (outputKey: string) => curveCandidates.map((item) => {
     const inputIdentity = candidateInputIdentity(item.raw.inputs);
-    return surfacesByKey[`${item.id}\u001f${outputKey}\u001f${variableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`]?.data;
-  }).find((payload): payload is ApiResponseCurve => Boolean(payload));
+    return surfacesByKey[`${item.id}\u001f${outputKey}\u001f${activeVariableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`]?.data;
+  }).filter((payload): payload is ApiResponseCurve => Boolean(payload));
+  const payloadForOutput = (outputKey: string) => payloadsForOutput(outputKey)[0];
   const selectedPayload = outputs.map((output) => payloadForOutput(output.key)).find((payload): payload is ApiResponseCurve => Boolean(payload));
-  const effectiveXRange = selectedPayload?.variable ? { min: selectedPayload.variable.min, max: selectedPayload.variable.max } : selectedVariable ? { min: selectedVariable.min, max: selectedVariable.max } : null;
+  const loadedVariables = outputs.flatMap((output) => payloadsForOutput(output.key).map((payload) => payload.variable));
+  const automaticXValues = loadedVariables.flatMap((variable) => [variable.min, variable.max, variable.current]);
+  const effectiveXRange = automaticXValues.length
+    ? { min: Math.min(...automaticXValues), max: Math.max(...automaticXValues) }
+    : selectedVariable ? { min: selectedVariable.min, max: selectedVariable.max } : null;
   const makeDraft = (saved: CurveRange | undefined, effective: CurveRange | null | undefined): CurveRangeDraft => ({
     min: String(saved?.min ?? effective?.min ?? ""),
     max: String(saved?.max ?? effective?.max ?? ""),
@@ -961,6 +981,7 @@ function LiveResponseCurves({
     setAxisDraft({
       x: makeDraft(xRangeOverride, effectiveXRange),
       y: Object.fromEntries(outputs.map((output) => [output.key, makeDraft(responseCurveRanges.y?.[output.key], payloadForOutput(output.key)?.output_range)])),
+      stagePosition: selectedVariable?.stagePositionM == null ? "" : String(selectedVariable.stagePositionM),
     });
     setAxisDraftDirty(false);
     setAxisError("");
@@ -975,22 +996,28 @@ function LiveResponseCurves({
   };
   const saveAxisSettings = async (draft = axisDraft) => {
     if (!project) return;
-    const draftIdentity = JSON.stringify({ variableId, draft });
+    const draftIdentity = JSON.stringify({ variableId: activeVariableId, draft });
     try {
       const nextX = { ...(responseCurveRanges.x ?? {}) };
       const parsedX = draftRange(draft.x, "X軸");
-      if (parsedX) nextX[variableId] = parsedX;
-      else delete nextX[variableId];
+      if (parsedX) nextX[activeVariableId] = parsedX;
+      else delete nextX[activeVariableId];
       const nextY = { ...(responseCurveRanges.y ?? {}) };
       for (const output of outputs) {
         const parsedY = draftRange(draft.y[output.key] ?? { min: "", max: "", enabled: false }, `${output.label}のY軸`);
         if (parsedY) nextY[output.key] = parsedY;
         else delete nextY[output.key];
       }
+      const nextStagePositions = { ...(project.heat_stage_positions_m ?? {}) };
+      if (selectedVariable?.stageName) {
+        const position = Number(draft.stagePosition);
+        if (!Number.isFinite(position) || position < 0) throw new Error("工程位置は0以上の有限値にしてください");
+        nextStagePositions[selectedVariable.stageName] = position;
+      }
       setAxisSaving(true);
-      const updated = await workbenchApi.updateProject(projectId, { ...project, response_curve_ranges: { x: nextX, y: nextY } });
+      const updated = await workbenchApi.updateProject(projectId, { ...project, response_curve_ranges: { x: nextX, y: nextY }, heat_stage_positions_m: nextStagePositions });
       await onProjectChanged(updated);
-      if (JSON.stringify({ variableId, draft: axisDraftRef.current }) === draftIdentity) setAxisDraftDirty(false);
+      if (JSON.stringify({ variableId: activeVariableId, draft: axisDraftRef.current }) === draftIdentity) setAxisDraftDirty(false);
       setAxisError("");
     } catch (cause) {
       setAxisError(cause instanceof Error ? cause.message : "軸範囲を保存できませんでした。");
@@ -1002,7 +1029,7 @@ function LiveResponseCurves({
     if (!axisDraftDirty) return;
     const timer = window.setTimeout(() => { void saveAxisSettings(axisDraft); }, 420);
     return () => window.clearTimeout(timer);
-  }, [axisDraft, axisDraftDirty, variableId]);
+  }, [axisDraft, axisDraftDirty, activeVariableId]);
   const rangeText = (range: CurveRange | null | undefined) => range ? `${number(range.min, 2)} – ${number(range.max, 2)}` : "取得中";
   const setXDraft = (patch: Partial<CurveRangeDraft>) => { setAxisDraft((current) => ({ ...current, x: { ...current.x, ...patch } })); setAxisDraftDirty(true); };
   const setYDraft = (key: string, patch: Partial<CurveRangeDraft>) => { setAxisDraft((current) => ({ ...current, y: { ...current.y, [key]: { ...(current.y[key] ?? { min: "", max: "", enabled: false }), ...patch } } })); setAxisDraftDirty(true); };
@@ -1023,19 +1050,22 @@ function LiveResponseCurves({
           </div>
         </div>
         <div className="response-curve-controls">
-          <label>変数 <select aria-label="応答曲線の設計変数" value={variableId} disabled={axisSaving || axisDraftDirty} onChange={(event) => { setAxisSettingsOpen(false); setAxisDraftDirty(false); setVariableId(event.target.value); }}>{variables.map((variable) => <option key={variable.id} value={variable.id}>{variable.label} ({variable.unit})</option>)}</select></label>
-          <button type="button" className="outline-button curve-range-button" aria-expanded={axisSettingsOpen} onClick={axisSettingsOpen ? () => setAxisSettingsOpen(false) : openAxisSettings}>{axisSettingsOpen ? "閉じる" : "軸範囲"}</button>
+          <label>変数 <select aria-label="応答曲線の設計変数" value={activeVariableId} disabled={axisSaving || axisDraftDirty} onChange={(event) => { setAxisSettingsOpen(false); setAxisDraftDirty(false); setVariableId(event.target.value); }}>{[...new Set(variables.map((variable) => variable.group))].map((group) => <optgroup key={group} label={group}>{variables.filter((variable) => variable.group === group).map((variable) => <option key={variable.id} value={variable.id}>{variable.label} ({variable.unit})</option>)}</optgroup>)}</select></label>
+          <button ref={axisSettingsButtonRef} type="button" className={`outline-button curve-range-button${axisSettingsOpen ? " active" : ""}`} aria-label={axisSettingsOpen ? "軸範囲設定を閉じる" : "軸範囲を設定"} title={axisSettingsOpen ? "軸範囲設定を閉じる" : "軸範囲を設定"} aria-expanded={axisSettingsOpen} aria-controls="response-curve-axis-settings" onClick={axisSettingsOpen ? () => setAxisSettingsOpen(false) : openAxisSettings}>
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 8.3a3.7 3.7 0 1 0 0 7.4 3.7 3.7 0 0 0 0-7.4Zm8.1 4.9v-2.4l-2.3-.7a7.4 7.4 0 0 0-.7-1.6l1.1-2.1-1.7-1.7-2.1 1.1a7.4 7.4 0 0 0-1.6-.7L12.1 3H9.7L9 5.3a7.4 7.4 0 0 0-1.6.7L5.3 4.9 3.6 6.6l1.1 2.1a7.4 7.4 0 0 0-.7 1.6l-2.3.7v2.4l2.3.7a7.4 7.4 0 0 0 .7 1.6l-1.1 2.1 1.7 1.7 2.1-1.1a7.4 7.4 0 0 0 1.6.7l.7 2.3h2.4l.7-2.3a7.4 7.4 0 0 0 1.6-.7l2.1 1.1 1.7-1.7-1.1-2.1a7.4 7.4 0 0 0 .7-1.6l2.3-.7Z" /></svg>
+          </button>
         </div>
       </div>
       {axisSettingsOpen && (
-        <div className="response-curve-axis-settings">
-          <div className="axis-settings-heading"><b>描画範囲</b><small>変更は自動保存。未指定は自動範囲、学習データ範囲は参照値です。</small><button type="button" className="axis-settings-close" onClick={() => setAxisSettingsOpen(false)}>閉じる</button></div>
+        <div id="response-curve-axis-settings" className="response-curve-axis-settings">
+          <div className="axis-settings-heading"><b>描画範囲</b><small>変更は自動保存。未指定は自動範囲、学習データ範囲は参照値です。</small><button type="button" className="axis-settings-close" aria-label="軸範囲設定を閉じる" title="閉じる" onClick={() => { setAxisSettingsOpen(false); window.requestAnimationFrame(() => axisSettingsButtonRef.current?.focus()); }}>×</button></div>
           <div className="axis-settings-grid">
             <section>
               <h3>X軸 <span>{selectedVariable?.label ?? "選択変数"}</span></h3>
+              {selectedVariable?.stageName && <label className="stage-position-field">未登録候補への仮挿入位置<input type="number" min="0" step="0.1" disabled={axisSaving} value={axisDraft.stagePosition} onChange={(event) => { setAxisDraft((current) => ({ ...current, stagePosition: event.target.value })); setAxisDraftDirty(true); }} /><span>m</span></label>}
               <div className="axis-range-fields">
-                <label>最小<input type="number" value={axisDraft.x.min} onChange={(event) => setXDraft({ min: event.target.value, enabled: true })} /></label>
-                <label>最大<input type="number" value={axisDraft.x.max} onChange={(event) => setXDraft({ max: event.target.value, enabled: true })} /></label>
+                <label>最小<input type="number" disabled={axisSaving} value={axisDraft.x.min} onChange={(event) => setXDraft({ min: event.target.value, enabled: true })} /></label>
+                <label>最大<input type="number" disabled={axisSaving} value={axisDraft.x.max} onChange={(event) => setXDraft({ max: event.target.value, enabled: true })} /></label>
               </div>
               <small>学習データ範囲: {rangeText(selectedPayload?.variable?.training_range)}</small>
               <button type="button" className="text-button" onClick={() => setXDraft({ ...makeDraft(undefined, effectiveXRange) })}>自動</button>
@@ -1048,8 +1078,8 @@ function LiveResponseCurves({
                   return <div className="axis-settings-output" key={output.key}>
                     <b>{output.label}</b>
                     <div className="axis-range-fields">
-                      <label>最小<input type="number" value={draft.min} onChange={(event) => setYDraft(output.key, { min: event.target.value, enabled: true })} /></label>
-                      <label>最大<input type="number" value={draft.max} onChange={(event) => setYDraft(output.key, { max: event.target.value, enabled: true })} /></label>
+                      <label>最小<input type="number" disabled={axisSaving} value={draft.min} onChange={(event) => setYDraft(output.key, { min: event.target.value, enabled: true })} /></label>
+                      <label>最大<input type="number" disabled={axisSaving} value={draft.max} onChange={(event) => setYDraft(output.key, { max: event.target.value, enabled: true })} /></label>
                     </div>
                     <small>学習データ範囲: {rangeText(payloadForOutput(output.key)?.output_range)}</small>
                     <button type="button" className="text-button" onClick={() => setYDraft(output.key, { ...makeDraft(undefined, payloadForOutput(output.key)?.output_range) })}>自動</button>
@@ -1070,16 +1100,16 @@ function LiveResponseCurves({
           {outputs.map((output) => {
             const curveSeries = curveCandidates.flatMap((item) => {
               const inputIdentity = candidateInputIdentity(item.raw.inputs);
-              const storageKey = `${item.id}\u001f${output.key}\u001f${variableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`;
+              const storageKey = `${item.id}\u001f${output.key}\u001f${activeVariableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`;
               const payload = surfacesByKey[storageKey]?.data;
               if (!payload?.points.length) return [];
               return [{ candidate: item, points: payload.points, prediction: previewsByCandidate[item.id]?.predictions?.[output.key], currentX: payload.variable.current }];
             });
-  const firstPayload = curveCandidates.map((item) => {
-    const inputIdentity = candidateInputIdentity(item.raw.inputs);
-    return surfacesByKey[`${item.id}\u001f${output.key}\u001f${variableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`]?.data;
-  }).find((payload): payload is ApiResponseCurve => Boolean(payload));
-            return <ResponseCurveMiniChart key={output.key} output={output} series={curveSeries} selectedId={candidate.id} prediction={previewsByCandidate[candidate.id]?.predictions?.[output.key] ?? preview?.predictions?.[output.key]} goalValue={targetValues[output.key]} xRange={firstPayload?.variable ? { min: firstPayload.variable.min, max: firstPayload.variable.max } : selectedVariable ? { min: selectedVariable.min, max: selectedVariable.max } : undefined} yRange={responseCurveRanges.y?.[output.key] ?? firstPayload?.output_range ?? undefined} xLabel={firstPayload?.variable.label ?? selectedVariable?.label ?? "設計変数"} xUnit={firstPayload?.variable.unit ?? selectedVariable?.unit ?? ""} />;
+            const payloads = payloadsForOutput(output.key);
+            const firstPayload = payloads[0];
+            const autoValues = payloads.flatMap((payload) => [payload.variable.min, payload.variable.max, payload.variable.current]);
+            const chartXRange = xRangeOverride ?? (autoValues.length ? { min: Math.min(...autoValues), max: Math.max(...autoValues) } : undefined);
+            return <ResponseCurveMiniChart key={output.key} output={output} series={curveSeries} selectedId={candidate.id} prediction={previewsByCandidate[candidate.id]?.predictions?.[output.key] ?? preview?.predictions?.[output.key]} goalValue={targetValues[output.key]} xRange={chartXRange} yRange={responseCurveRanges.y?.[output.key] ?? firstPayload?.output_range ?? undefined} xLabel={firstPayload?.variable.label ?? selectedVariable?.label ?? "設計変数"} xUnit={firstPayload?.variable.unit ?? selectedVariable?.unit ?? ""} />;
           })}
         </div>
       )}
@@ -1122,19 +1152,37 @@ function ResponseCurveMiniChart({
   const x = (value: number) => 30 + ((value - minX) / Math.max(1e-6, maxX - minX)) * 252;
   const y = (value: number) => 124 - ((value - minValue) / Math.max(1, maxValue - minValue)) * 92;
   const xTicks = [minX, (minX + maxX) / 2, maxX];
+  const yTicks = [minValue, (minValue + maxValue) / 2, maxValue];
+  const xDigits = chartDigits(minX, maxX);
+  const yDigits = output.key === "EL" || output.key === "lambda" ? 1 : chartDigits(minValue, maxValue);
+  const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; lines: string[] } | null>(null);
   return (
     <article className="response-curve-card">
       <header><b>{output.label}</b><span>{prediction ? `${number(prediction.value, output.key === "EL" || output.key === "lambda" ? 1 : 0)} ${prediction.unit}` : "読み込み中"}</span></header>
       {series.length ? <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${output.label}の応答曲線`}>
-        {[minValue, (minValue + maxValue) / 2, maxValue].map((tick) => <g key={tick}><line x1="28" y1={y(tick)} x2="284" y2={y(tick)} stroke="#e3e9f0" /><text x="25" y={y(tick) + 3} textAnchor="end" fontSize="9" fill="#617087">{number(tick, output.key === "EL" || output.key === "lambda" ? 1 : 0)}</text></g>)}
+        {yTicks.map((tick) => <g key={tick}><line x1="28" y1={y(tick)} x2="284" y2={y(tick)} stroke="#e3e9f0" /><text x="25" y={y(tick) + 3} textAnchor="end" fontSize="9" fill="#617087">{number(tick, yDigits)}</text></g>)}
+        {xTicks.map((tick) => <line key={`grid-${tick}`} x1={x(tick)} y1="32" x2={x(tick)} y2="124" stroke="#edf1f6" />)}
         {series.map((item) => {
           const color = candidateColor(item.candidate.id, selectedId);
           const line = item.points.map((point, index) => `${index ? "L" : "M"}${x(point.x)} ${y(point.value)}`).join(" ");
           const band = `${item.points.map((point, index) => `${index ? "L" : "M"}${x(point.x)} ${y(point.upper)}`).join(" ")} ${[...item.points].reverse().map((point) => `L${x(point.x)} ${y(point.lower)}`).join(" ")} Z`;
-          return <g key={item.candidate.id}><path d={band} fill={color} opacity={item.candidate.id === selectedId ? ".18" : ".08"} /><path d={line} fill="none" stroke={color} strokeWidth={item.candidate.id === selectedId ? "2.5" : "1.5"} opacity={item.candidate.id === selectedId ? "1" : ".78"} />{item.prediction && Number.isFinite(item.currentX) && <circle cx={x(item.currentX)} cy={y(item.prediction.value)} r={item.candidate.id === selectedId ? "4" : "2.5"} fill="#fff" stroke={color} strokeWidth={item.candidate.id === selectedId ? "2.5" : "1.5"} />}</g>;
+          return <g key={item.candidate.id}><path d={band} fill={color} opacity={item.candidate.id === selectedId ? ".18" : ".08"} /><path d={line} fill="none" stroke={color} strokeWidth={item.candidate.id === selectedId ? "2.5" : "1.5"} opacity={item.candidate.id === selectedId ? "1" : ".78"} />{item.points.map((point) => <circle
+            className="svg-chart-hit-target" tabIndex={-1} key={`${item.candidate.id}-${point.x}`} cx={x(point.x)} cy={y(point.value)} r="5" fill="transparent"
+            aria-label={`${item.candidate.label}, ${xLabel} ${number(point.x, xDigits)}, ${output.label} ${number(point.value, yDigits)} ${output.unit}`}
+            onMouseEnter={() => setHoveredPoint({ x: x(point.x), y: y(point.value), lines: [item.candidate.label, `${xLabel} ${number(point.x, xDigits)} ${xUnit}`, `${output.label} ${number(point.value, yDigits)} ${output.unit}`, `90%区間 ${number(point.lower, yDigits)}–${number(point.upper, yDigits)}`] })}
+            onMouseLeave={() => setHoveredPoint(null)}
+          />)}{item.prediction && Number.isFinite(item.currentX) && <circle
+            className="svg-chart-hit-target" tabIndex={0} cx={x(item.currentX)} cy={y(item.prediction.value)} r={item.candidate.id === selectedId ? "4" : "2.5"} fill="#fff" stroke={color} strokeWidth={item.candidate.id === selectedId ? "2.5" : "1.5"}
+            aria-label={`${item.candidate.label}の現在値、${xLabel} ${number(item.currentX, xDigits)}、${output.label} ${number(item.prediction.value, yDigits)} ${output.unit}`}
+            onMouseEnter={() => setHoveredPoint({ x: x(item.currentX), y: y(item.prediction!.value), lines: [item.candidate.label, `現在の${xLabel} ${number(item.currentX, xDigits)} ${xUnit}`, `${output.label} ${number(item.prediction!.value, yDigits)} ${output.unit}`, `90%区間 ${number(item.prediction!.lower, yDigits)}–${number(item.prediction!.upper, yDigits)}`] })}
+            onMouseLeave={() => setHoveredPoint(null)}
+            onFocus={() => setHoveredPoint({ x: x(item.currentX), y: y(item.prediction!.value), lines: [item.candidate.label, `現在の${xLabel} ${number(item.currentX, xDigits)} ${xUnit}`, `${output.label} ${number(item.prediction!.value, yDigits)} ${output.unit}`, `90%区間 ${number(item.prediction!.lower, yDigits)}–${number(item.prediction!.upper, yDigits)}`] })}
+            onBlur={() => setHoveredPoint(null)}
+          />}</g>;
         })}
         {Number.isFinite(goalValue) && <line x1="28" y1={y(goalValue!)} x2="284" y2={y(goalValue!)} stroke="#c17816" strokeDasharray="4 3" />}
-        {xTicks.map((tick) => <text key={tick} x={x(tick)} y="137" textAnchor="middle" fontSize="8" fill="#617087">{number(tick, xUnit === "min" ? 2 : 1)}</text>)}
+        {xTicks.map((tick) => <text key={tick} x={x(tick)} y="137" textAnchor="middle" fontSize="8" fill="#617087">{number(tick, xDigits)}</text>)}
+        {hoveredPoint && <SvgChartTooltip {...hoveredPoint} chartWidth={width} chartHeight={height} />}
         <text x="156" y="153" textAnchor="middle" fontSize="8" fill="#617087">{xLabel} ({xUnit})</text>
       </svg> : <p className="empty-evidence">読み込み中…</p>}
     </article>
@@ -1239,9 +1287,9 @@ function LiveSimilarityEvidence({
                 <td className="similar-key">{item.process_key ?? item.parent_key}</td>
                 <td><div className="similar-value-list"><small>{item.source || item.observation_id || "実績"}</small>{measuredOutputs(item).map(({ output, summary }) => <span key={output.key} title={`${output.label}: ${number(summary.mean, 1)} ± ${number(summary.std, 1)} ${output.unit} / n=${summary.n}`}><b>{output.key === "lambda" ? "λ" : output.key}</b><strong>{number(summary.mean, 1)}</strong></span>)}</div></td>
                 <td className="similar-action-cell">
-                  <button type="button" className="outline-button similar-add-button" disabled={!item.process_key || addingKey === item.process_key || addedKeys.includes(item.process_key ?? "")} onClick={() => { if (item.process_key) void add(item.process_key); }}>
+                  <CandidateAddButton compact disabled={!item.process_key || addingKey === item.process_key || addedKeys.includes(item.process_key ?? "")} onClick={() => { if (item.process_key) void add(item.process_key); }}>
                     {addedKeys.includes(item.process_key ?? "") ? "追加済み" : addingKey === item.process_key ? "追加中…" : "候補に追加"}
-                  </button>
+                  </CandidateAddButton>
                 </td>
               </tr>
             ))}</tbody>

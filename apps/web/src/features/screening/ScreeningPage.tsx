@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { fromApiCandidate, setCandidateInputValue, toApiCandidate, type CandidateViewModel as Candidate, type ResolvedTaskDefinition, type TaskDefinitionContract } from "../candidates";
 import { workbenchApi, type ApiProject, type ApiScreeningRun } from "../../shared/api/workbench-api";
+import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
+import { SvgChartTooltip } from "../../shared/ui/SvgChartTooltip";
 import { ScreeningBaseEditor } from "./ScreeningBaseEditor";
 
 function cloneScreeningCandidate(candidate: Candidate): Candidate {
@@ -27,6 +29,17 @@ function number(value: number, digits = 0) {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   });
+}
+
+function chartDigits(min: number, max: number) {
+  const span = Math.abs(max - min);
+  if (span < 0.001) return 6;
+  if (span < 0.01) return 5;
+  if (span < 0.1) return 4;
+  if (span < 1) return 3;
+  if (span < 10) return 2;
+  if (span < 100) return 1;
+  return 0;
 }
 
 export function ScreeningPage({
@@ -114,6 +127,7 @@ export function ScreeningPage({
   const [colorMetric, setColorMetric] = useState("score");
   const [selectedPointIndices, setSelectedPointIndices] = useState<number[]>([]);
   const [focusedPointIndex, setFocusedPointIndex] = useState<number | null>(null);
+  const [hoveredScreenPoint, setHoveredScreenPoint] = useState<{ x: number; y: number; lines: string[] } | null>(null);
   const runRequestSequence = useRef(0);
   const activeProjectRef = useRef(projectId);
   activeProjectRef.current = projectId;
@@ -343,6 +357,8 @@ export function ScreeningPage({
       .filter(Number.isFinite) ?? [];
   const xValues = numeric(axes[0]);
   const yValues = numeric(axes[1] ?? axes[0]);
+  const xDigits = xValues.length ? chartDigits(Math.min(...xValues), Math.max(...xValues)) : 2;
+  const yDigits = yValues.length ? chartDigits(Math.min(...yValues), Math.max(...yValues)) : 2;
   const scale = (
     value: number,
     values: number[],
@@ -353,6 +369,16 @@ export function ScreeningPage({
     ((value - Math.min(...values)) /
       Math.max(1e-9, Math.max(...values) - Math.min(...values))) *
       span;
+  const screenX = (value: number) => scale(value, xValues, 35, 530);
+  const screenY = (value: number) => 270 - scale(value, yValues, 0, 235);
+  const tickValues = (values: number[]) => {
+    if (!values.length) return [];
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    return Array.from({ length: 5 }, (_, index) => min + ((max - min) * index) / 4);
+  };
+  const xTicks = tickValues(xValues);
+  const yTicks = tickValues(yValues);
   const scores = result?.points.map((point) => point.score).filter((score): score is number => score != null) ?? [];
   const colorValues = colorMetric === "score" ? scores : result?.points.map((point) => (point.predictions?.[colorMetric] ?? (colorMetric === result.target ? point.prediction : undefined))?.value).filter((value): value is number => typeof value === "number") ?? [];
   const opportunity = (point: ScreenPoint) => {
@@ -375,7 +401,7 @@ export function ScreeningPage({
     setFocusedPointIndex(index);
     setSelectedPointIndices((current) => current.includes(index) ? current.filter((item) => item !== index) : [...current, index]);
   };
-  if (!candidates.length) return <div className="page-panel explore-page"><div className="page-intro"><div><h2>範囲探索</h2><p>探索の基準になる候補を1件作ると、TaskDefinitionの入力範囲から条件を検討できます。</p></div></div><div className="project-empty-state"><p>まだ基準候補がありません。</p><button className="primary-button" onClick={onCreateStarter}>基準候補を作って探索を始める</button></div></div>;
+  if (!candidates.length) return <div className="page-panel explore-page"><div className="page-intro"><div><h2>範囲探索</h2><p>探索の基準になる候補を1件作ると、TaskDefinitionの入力範囲から条件を検討できます。</p></div></div><div className="project-empty-state"><p>まだ基準候補がありません。</p><CandidateAddButton onClick={onCreateStarter}>基準候補を作って探索を始める</CandidateAddButton></div></div>;
   return (
     <div className="page-panel explore-page">
       <div className="page-intro">
@@ -579,7 +605,7 @@ export function ScreeningPage({
           <div className="screening-action-bar" role="status">
             <span><b>{selectedPointIndices.length}</b>件選択 / 新規{selectedNewPointIndices.length}件 / 追加可能{remainingCandidateCapacity}件</span>
             {selectedPointIndices.some((index) => stockedPointIndices.has(index)) && <small>stock済みの点は再追加しません。</small>}
-            <button className="primary-button" disabled={!selectedNewPointIndices.length || selectedNewPointIndices.length > remainingCandidateCapacity} onClick={() => void persistSelected()}>{selectedNewPointIndices.length}件を候補へ追加</button>
+            <CandidateAddButton disabled={!selectedNewPointIndices.length || selectedNewPointIndices.length > remainingCandidateCapacity} onClick={() => void persistSelected()}>{selectedNewPointIndices.length}件を候補へ追加</CandidateAddButton>
             <button className="outline-button" disabled={!candidates.length} onClick={onCompare}>候補比較へ</button>
           </div>
           <div className="screen-legend">
@@ -595,14 +621,23 @@ export function ScreeningPage({
             role="img"
             aria-label={`${axes.map(axisLabel).join(" × ")} の探索結果。色が濃いほど目標方向に有望で、枠線が学習範囲を示します。`}
           >
+            {axes.length > 0 && xTicks.map((tick) => <g key={`x-${tick}`} className="screen-map-grid"><line x1={screenX(tick)} x2={screenX(tick)} y1="35" y2="270" /><text x={screenX(tick)} y="284" textAnchor="middle">{number(tick, xDigits)}</text></g>)}
+            {axes.length > 1 && yTicks.map((tick) => <g key={`y-${tick}`} className="screen-map-grid"><line x1="35" x2="565" y1={screenY(tick)} y2={screenY(tick)} /><text x="31" y={screenY(tick) + 3} textAnchor="end">{number(tick, yDigits)}</text></g>)}
             {result.points.map((point, index) => {
               const cx = axes.length
-                ? scale(Number(point.inputs[axes[0]]), xValues, 35, 530)
+                ? screenX(Number(point.inputs[axes[0]]))
                 : 35 + (index % 12) * 46;
               const cy =
                 axes.length > 1
-                  ? 270 - scale(Number(point.inputs[axes[1]]), yValues, 0, 235)
+                  ? screenY(Number(point.inputs[axes[1]]))
                   : 35 + Math.floor(index / 12) * 50;
+              const tooltipLines = [
+                `点 ${point.index + 1}`,
+                ...axes.map((axis, axisIndex) => `${axisLabel(axis)} ${number(Number(point.inputs[axis]), axisIndex === 0 ? xDigits : yDigits)}`),
+                `${outputs.find((output) => output.key === result.target)?.label ?? result.target} ${number(point.prediction.value, 1)} ${point.prediction.unit}`,
+                `90%区間 ${number(point.prediction.lower, 1)}–${number(point.prediction.upper, 1)}`,
+                point.support.message,
+              ];
               return (
                 <circle
                   key={point.index}
@@ -616,14 +651,28 @@ export function ScreeningPage({
                   opacity={
                     point.support.status === "extrapolated" ? ".55" : ".9"
                   }
+                  role="button"
+                  tabIndex={focusedPointIndex === point.index || (focusedPointIndex === null && index === 0) ? 0 : -1}
+                  aria-label={tooltipLines.join("、")}
+                  onMouseEnter={() => setHoveredScreenPoint({ x: cx, y: cy, lines: tooltipLines })}
+                  onMouseLeave={() => setHoveredScreenPoint(null)}
+                  onFocus={() => {
+                    setFocusedPointIndex(point.index);
+                    setHoveredScreenPoint({ x: cx, y: cy, lines: tooltipLines });
+                  }}
+                  onBlur={() => setHoveredScreenPoint(null)}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter" && event.key !== " ") return;
+                    event.preventDefault();
+                    togglePoint(point.index);
+                  }}
                   onClick={() => {
                     togglePoint(point.index);
                   }}
-                >
-                  <title>{`${axes.map((axis) => `${axis}: ${point.inputs[axis]}`).join(" / ")} / ${point.prediction.value.toFixed(1)} ${point.prediction.unit} / ${point.support.status}`}</title>
-                </circle>
+                />
               );
             })}
+            {hoveredScreenPoint && <SvgChartTooltip {...hoveredScreenPoint} chartWidth={600} chartHeight={300} />}
             <text x="300" y="296" textAnchor="middle">
               {axisLabel(axes[0])}
             </text>

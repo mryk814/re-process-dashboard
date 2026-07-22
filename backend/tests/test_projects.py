@@ -55,7 +55,11 @@ def test_project_crud_preserves_default_and_isolates_candidates_and_screening(cl
     assert client.get(f"/api/projects/{project['id']}").json()["name"] == "新規プロジェクト"
 
     changed = _project("更新後プロジェクト")
-    assert client.put(f"/api/projects/{project['id']}", json=changed).json()["name"] == "更新後プロジェクト"
+    changed["heat_stage_positions_m"] = {"加熱1": 42.5}
+    updated = client.put(f"/api/projects/{project['id']}", json=changed).json()
+    assert updated["name"] == "更新後プロジェクト"
+    assert updated["heat_stage_positions_m"] == {"加熱1": 42.5}
+    assert client.get(f"/api/projects/{project['id']}").json()["heat_stage_positions_m"] == {"加熱1": 42.5}
     assert client.get("/api/project").json()["name"] == default["name"]
     assert client.get("/api/projects/missing").status_code == 404
 

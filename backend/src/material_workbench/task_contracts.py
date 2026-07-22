@@ -135,6 +135,24 @@ class RelationalConstraint(ContractModel):
         return self
 
 
+class ResponseCurveVariableDefinition(ContractModel):
+    kind: Literal["numeric_input", "heat_stage_temperature"]
+    order: Annotated[int, Field(ge=0)]
+    label: Annotated[str, Field(min_length=1)]
+    path: str | None = None
+    time_transform: Literal["direct", "inverse_heat_time"] = "direct"
+
+    @model_validator(mode="after")
+    def shape_matches_kind(self) -> "ResponseCurveVariableDefinition":
+        if self.kind == "numeric_input" and not self.path:
+            raise ValueError("numeric response-curve variables require a path")
+        if self.kind == "heat_stage_temperature" and self.path is not None:
+            raise ValueError("heat-stage response-curve variables do not use a scalar path")
+        if self.kind == "heat_stage_temperature" and self.time_transform != "direct":
+            raise ValueError("heat-stage response-curve variables cannot transform time")
+        return self
+
+
 class TaskDefinition(ContractModel):
     schema_version: Literal[TASK_DEFINITION_SCHEMA_VERSION]
     id: Annotated[str, Field(min_length=1)]
@@ -145,6 +163,7 @@ class TaskDefinition(ContractModel):
     display_decimals: dict[str, Annotated[int, Field(ge=0, le=8)]]
     fixed_context: tuple[FixedContextDefinition, ...] = ()
     constraints: tuple[RelationalConstraint, ...] = ()
+    response_curve_variables: tuple[ResponseCurveVariableDefinition, ...] = ()
     # 予測対象が「この軸に沿った曲線」であるタスクだけが宣言する。宣言された
     # フィールドは候補入力上は1点の評価位置であり、曲線APIの横軸になる。
     curve_axis_path: str | None = None
@@ -178,6 +197,18 @@ class TaskDefinition(ContractModel):
         if len(context_orders) != len(set(context_orders)):
             raise ValueError("fixed context order must be unique")
         field_by_path = {field.path: field for group in self.input_groups for field in group.fields}
+        response_orders = [item.order for item in self.response_curve_variables]
+        if len(response_orders) != len(set(response_orders)):
+            raise ValueError("response-curve variable order must be unique")
+        if sum(item.kind == "heat_stage_temperature" for item in self.response_curve_variables) > 1:
+            raise ValueError("heat-stage response-curve variable can only be declared once")
+        for item in self.response_curve_variables:
+            if item.kind == "numeric_input":
+                field = field_by_path.get(item.path or "")
+                if field is None or field.kind != "number" or not field.editable:
+                    raise ValueError("numeric response-curve variables must reference editable number fields")
+            elif not any(group.key == "heat_pattern" for group in self.input_groups):
+                raise ValueError("heat-stage response-curve variables require a heat_pattern group")
         if self.curve_axis_path is not None:
             axis = field_by_path.get(self.curve_axis_path)
             if axis is None or axis.kind != "number" or not axis.required or not axis.editable:

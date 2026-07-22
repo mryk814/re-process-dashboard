@@ -1,12 +1,16 @@
 from copy import deepcopy
 from io import BytesIO
+from pathlib import Path
 
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 import numpy as np
 
 from material_workbench.feature_pipeline import build_feature_bundle
 from material_workbench.schemas import CandidateInput
-from material_workbench.services import candidate_from_lineage, import_candidates_xlsx
+from material_workbench.services import _candidate_xlsx_names, candidate_from_lineage, import_candidates_xlsx
+
+
+PROFILE_ROOT = Path(__file__).parents[1] / "src" / "material_workbench"
 
 
 def _screening_body(candidate: dict) -> dict:
@@ -167,6 +171,16 @@ def test_candidate_excel_import_and_exports(client) -> None:
     assert response.json()["created"] == 1
     exported = client.get("/api/projects/default/candidates/export.xlsx")
     assert exported.status_code == 200 and exported.content[:2] == b"PK"
+    exported_workbook = load_workbook(BytesIO(exported.content), read_only=True, data_only=True)
+    exported_headers = [cell.value for cell in next(exported_workbook["候補"].iter_rows())]
+    assert exported_headers[:4] == ["形式バージョン", "候補ID", "候補名", "C[mass%]"]
+    assert "ライン速度[m/min]" in exported_headers
+    assert "到達時間[s]_1" in exported_headers
+    assert "実績温度[℃]_1" in exported_headers
+    assert "TS[MPa]" in exported_headers
+    assert "学習範囲判定" in exported_headers
+    assert not {"ls_mpm", "time_s_1", "temperature_c_1", "support_status"} & set(exported_headers)
+    exported_workbook.close()
     round_tripped, errors = import_candidates_xlsx(exported.content)
     assert not errors
     source = CandidateInput.model_validate({key: value for key, value in response.json()["candidates"][0].items() if key not in {"id", "project_id", "created_at", "updated_at"}})
@@ -179,6 +193,53 @@ def test_candidate_excel_import_and_exports(client) -> None:
     assert quality.status_code == 200 and "issue_id" in quality_csv
     assert "focus_entity_key" in quality_csv and "suggested_view" in quality_csv
     assert quality.headers["content-type"].startswith("text/csv")
+
+
+def test_candidate_xlsx_names_follow_source_profile() -> None:
+    names = _candidate_xlsx_names(
+        "annealed-properties-v1",
+        str(PROFILE_ROOT / "dataset-input-profile-v5.json"),
+    )
+    assert names["composition.C"] == "C%"
+    assert names["process.ls_mpm"] == "ライン速度[m/min]"
+    assert names["time_s"] == "到達時刻[s]"
+    assert names["temperature_c"] == "温度[℃]"
+    assert names["stage_name"] == "工程"
+    assert names["TS"] == "TS[MPa]"
+
+
+def test_candidate_xlsx_import_rejects_duplicate_headers() -> None:
+    workbook = Workbook()
+    workbook.active.append(["候補名", "C[mass%]", "C[mass%]"])
+    buffer = BytesIO()
+    workbook.save(buffer)
+
+    candidates, errors = import_candidates_xlsx(buffer.getvalue())
+
+    assert candidates == []
+    assert errors == [{"row": 1, "message": "列名が重複しています: C[mass%]"}]
+
+
+def test_non_heat_candidate_xlsx_import_does_not_require_heat_headers() -> None:
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append([
+        "name", "C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N",
+        "soaking_temperature_c", "finish_temperature_c", "entry_thickness_mm", "exit_thickness_mm",
+        "hold_temperature_c", "hold_time_min",
+    ])
+    sheet.append([
+        "熱延候補", 0.08, 0.3, 1.5, 0.01, 0.005, 0.04, 0.0, 0.02, 0.01, 0.0, 0.01, 0.0003, 0.002, 0.004,
+        1200, 900, 30, 3, 1180, 20,
+    ])
+    buffer = BytesIO()
+    workbook.save(buffer)
+
+    candidates, errors = import_candidates_xlsx(buffer.getvalue(), task_id="hot-rolled-properties-v1")
+
+    assert not errors
+    assert candidates[0].name == "熱延候補"
+    assert candidates[0].inputs.heat_pattern is None
 
 
 def test_candidate_delete_preserves_actuals_and_snapshots(client) -> None:

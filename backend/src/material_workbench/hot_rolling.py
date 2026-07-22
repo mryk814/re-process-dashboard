@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 import json
+import math
 from pathlib import Path
 from typing import Any
 
@@ -41,6 +42,7 @@ class HotRollingRuntime:
 
     def __init__(self, data: WorkbookData, package_root: str | Path | None = None) -> None:
         self.data = data
+        self.task_definition = load_task_definitions()[TASK_ID]
         default = Path(__file__).resolve().parents[3] / "models" / "packages" / "hot-rolled-gp-2026-07"
         self.model_package = ModelPackageLoader().load(package_root or default)
         manifest = self.model_package.manifest
@@ -156,17 +158,35 @@ class HotRollingRuntime:
     def output_keys(self) -> frozenset[str]:
         return frozenset(self.predictors)
 
-    def predict_core(self, candidate: Candidate, detailed: bool = False, **_: Any) -> dict[str, Any]:
+    def predict_core(
+        self,
+        candidate: Candidate,
+        detailed: bool = False,
+        target_values: dict[str, float] | None = None,
+        **_: Any,
+    ) -> dict[str, Any]:
         bundle = build_hot_rolling_features(candidate, self.composition_defaults)
         values = bundle.as_dict()
         predictions: dict[str, Prediction] = {}
         for target, predictor in self.predictors.items():
             summary = predictor.predict(values)
+            output = next(item for item in self.task_definition.outputs if item.key == target)
+            goal_value = (target_values or {}).get(target)
+            goal_probability = None
+            standard_deviation = float(summary.distribution.get("std", 0.0))
+            if goal_value is not None and summary.distribution.get("family") == "normal" and standard_deviation > 0:
+                at_least = 0.5 * math.erfc(
+                    (goal_value - summary.point_estimate) / (standard_deviation * math.sqrt(2.0))
+                )
+                goal_probability = 1.0 - at_least if output.goal_direction == "at_most" else at_least
             predictions[target] = Prediction(
                 value=round(summary.point_estimate, 3),
                 lower=round(summary.quantiles.get("0.05", summary.point_estimate), 3),
                 upper=round(summary.quantiles.get("0.95", summary.point_estimate), 3),
                 unit=summary.unit,
+                goal_value=goal_value,
+                goal_probability=None if goal_probability is None else round(goal_probability, 4),
+                goal_direction=None if goal_value is None else output.goal_direction,
                 uncertainty_components=None if summary.uncertainty_components is None else {
                     name: round(float(value), 6) for name, value in summary.uncertainty_components.items()
                 },
@@ -204,6 +224,159 @@ class HotRollingRuntime:
 
     def similarity(self, candidate: Candidate, limit: int = 3) -> list[dict[str, Any]]:
         return self.evidence(candidate)[1][:limit]
+
+    def _response_curve_field(self, variable: str) -> tuple[Any, str, str]:
+        declared = {
+            item.path
+            for item in self.task_definition.response_curve_variables
+            if item.kind == "numeric_input"
+        }
+        if variable not in declared:
+            raise ValueError(f"Unsupported response-curve variable: {variable}")
+        group, name = variable.split(".", 1)
+        field = next(
+            (
+                field
+                for input_group in self.task_definition.input_groups
+                for field in input_group.fields
+                if field.path == variable
+            ),
+            None,
+        )
+        if field is None or field.training_range is None or field.allowed_range is None:
+            raise ValueError(f"Response-curve variable has no numeric range: {variable}")
+        return field, group, name
+
+    @staticmethod
+    def _candidate_value(candidate: Candidate, path: str) -> float:
+        group, name = path.split(".", 1)
+        values = candidate.inputs.composition if group == "composition" else candidate.inputs.process
+        return float(values[name])
+
+    def _validate_response_curve_value(self, candidate: Candidate, variable: str, value: float) -> None:
+        field, _, _ = self._response_curve_field(variable)
+        assert field.allowed_range is not None
+        if not field.allowed_range.min <= value <= field.allowed_range.max:
+            raise ValueError(
+                f"{field.label}は{field.allowed_range.min:g}〜{field.allowed_range.max:g}{field.unit or ''}で指定してください"
+            )
+        values = {
+            input_field.path: (value if input_field.path == variable else self._candidate_value(candidate, input_field.path))
+            for input_group in self.task_definition.input_groups
+            for input_field in input_group.fields
+            if input_field.kind == "number"
+        }
+        comparisons = {
+            "lt": lambda left, right: left < right,
+            "lte": lambda left, right: left <= right,
+            "gt": lambda left, right: left > right,
+            "gte": lambda left, right: left >= right,
+        }
+        for constraint in self.task_definition.constraints:
+            if not comparisons[constraint.operator](values[constraint.left_path], values[constraint.right_path]):
+                raise ValueError(constraint.message)
+
+    def _response_curve_bounds(self, candidate: Candidate, variable: str) -> tuple[float, float, float]:
+        field, _, _ = self._response_curve_field(variable)
+        assert field.allowed_range is not None
+        decimals = self.task_definition.display_decimals[variable]
+        epsilon = 10.0 ** -decimals
+        lower, upper = field.allowed_range.min, field.allowed_range.max
+        for constraint in self.task_definition.constraints:
+            if variable == constraint.left_path:
+                other = self._candidate_value(candidate, constraint.right_path)
+                if constraint.operator == "lt":
+                    upper = min(upper, other - epsilon)
+                elif constraint.operator == "lte":
+                    upper = min(upper, other)
+                elif constraint.operator == "gt":
+                    lower = max(lower, other + epsilon)
+                else:
+                    lower = max(lower, other)
+            elif variable == constraint.right_path:
+                other = self._candidate_value(candidate, constraint.left_path)
+                if constraint.operator == "lt":
+                    lower = max(lower, other + epsilon)
+                elif constraint.operator == "lte":
+                    lower = max(lower, other)
+                elif constraint.operator == "gt":
+                    upper = min(upper, other - epsilon)
+                else:
+                    upper = min(upper, other)
+        if lower >= upper:
+            raise ValueError(f"{field.label}を動かせる有効な範囲がありません")
+        return lower, upper, epsilon
+
+    def response_curve_result(
+        self,
+        candidate: Candidate,
+        target: str,
+        variable: str,
+        points: int,
+        axis_range: tuple[float, float] | None = None,
+    ) -> dict[str, Any]:
+        if target not in self.output_keys:
+            raise ValueError(f"Unsupported response-curve target: {target}")
+        field, group, name = self._response_curve_field(variable)
+        assert field.training_range is not None
+        if axis_range is None:
+            lower, upper, epsilon = self._response_curve_bounds(candidate, variable)
+            start = max(lower, field.training_range.min)
+            end = min(upper, field.training_range.max)
+            if end - start < epsilon:
+                current = self._candidate_value(candidate, variable)
+                span = max((field.training_range.max - field.training_range.min) * 0.1, epsilon * 2)
+                start = max(lower, current - span)
+                end = min(upper, current + span)
+        else:
+            start, end = axis_range
+        if start >= end:
+            raise ValueError(f"{field.label}を動かせる有効な範囲がありません")
+        self._validate_response_curve_value(candidate, variable, float(start))
+        self._validate_response_curve_value(candidate, variable, float(end))
+
+        curve: list[dict[str, float]] = []
+        predictor = self.predictors[target]
+        for x_value in np.linspace(start, end, points):
+            adjusted = candidate.model_copy(deep=True)
+            values = adjusted.inputs.composition if group == "composition" else adjusted.inputs.process
+            values[name] = float(x_value)
+            summary = predictor.predict(build_hot_rolling_features(adjusted, self.composition_defaults).as_dict())
+            value = summary.point_estimate
+            curve.append({
+                "x": round(float(x_value), 4),
+                "value": round(value, 3),
+                "lower": round(summary.quantiles.get("0.05", value), 3),
+                "upper": round(summary.quantiles.get("0.95", value), 3),
+            })
+
+        output = next(item for item in self.task_definition.outputs if item.key == target)
+        observed = [
+            float(row["outputs"][measurement_key])
+            for rows in self.reference_rows
+            for row in rows
+            for measurement_key in output.measurement_keys
+            if measurement_key in row["outputs"]
+        ]
+        return {
+            "target": target,
+            "variable": {
+                "id": variable,
+                "label": field.label,
+                "unit": field.unit or "",
+                "min": round(float(start), 4),
+                "max": round(float(end), 4),
+                "current": round(self._candidate_value(candidate, variable), 4),
+                "training_range": {
+                    "min": round(field.training_range.min, 4),
+                    "max": round(field.training_range.max, 4),
+                },
+            },
+            "points": curve,
+            "output_range": None if not observed else {"min": round(min(observed), 4), "max": round(max(observed), 4)},
+            "point_count": points,
+            "policy_id": "fixed-grid-v2",
+        }
 
     def predict(self, candidate: Candidate, detailed: bool = False, **kwargs: Any) -> dict[str, Any]:
         result = self.predict_core(candidate, detailed=detailed, **kwargs)

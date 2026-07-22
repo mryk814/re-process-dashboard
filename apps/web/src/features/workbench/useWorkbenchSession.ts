@@ -40,6 +40,9 @@ export function useWorkbenchSession({
   const candidatesRef = useRef(candidates);
   candidatesRef.current = candidates;
   const [selectedId, setSelectedId] = useState("");
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
+  const deletingCandidateIds = useRef(new Set<string>());
   const [apiState, setApiState] = useState<"ready" | "loading" | "offline">("loading");
   const [notice, setNotice] = useState("候補を読み込んでいます");
   const [brokenOriginCandidateId, setBrokenOriginCandidateId] = useState<string | null>(null);
@@ -75,8 +78,17 @@ export function useWorkbenchSession({
   });
 
   function selectCandidate(candidateId: string, notifyLocation = true) {
+    selectedIdRef.current = candidateId;
     setSelectedId(candidateId);
     if (notifyLocation) onCandidateSelected(activeProjectIdRef.current, candidateId);
+  }
+
+  function appendCandidate(candidate: CandidateViewModel) {
+    if (candidatesRef.current.some((item) => item.id === candidate.id)) return candidatesRef.current;
+    const next = [...candidatesRef.current, candidate];
+    candidatesRef.current = next;
+    setCandidates(next);
+    return next;
   }
 
   async function loadProject(projectId: string, candidateId?: string) {
@@ -120,6 +132,7 @@ export function useWorkbenchSession({
     const nextSelectedId = imported.some((candidate) => candidate.id === candidateId)
       ? candidateId!
       : (imported[0]?.id ?? "");
+    selectedIdRef.current = nextSelectedId;
     setSelectedId(nextSelectedId);
     onLocationReplace(projectId, nextSelectedId || undefined);
     prediction.reset();
@@ -180,6 +193,7 @@ export function useWorkbenchSession({
     ) {
       await loadProject(projectId, candidateId);
     } else if (candidateId) {
+      selectedIdRef.current = candidateId;
       setSelectedId(candidateId);
     }
   }
@@ -314,7 +328,7 @@ export function useWorkbenchSession({
       });
       request.provenance = { source_kind: "direct", source_ref: null };
       const created = fromApiCandidate(await workbenchApi.createCandidate(activeProjectId, request));
-      setCandidates((items) => [...items, created]);
+      appendCandidate(created);
       selectCandidate(created.id);
       setNotice("候補を追加しました");
     } catch {
@@ -324,13 +338,13 @@ export function useWorkbenchSession({
   }
 
   async function addCandidateFromLineage(entityKey: string): Promise<boolean> {
-    if (candidates.length >= 10) {
+    if (candidatesRef.current.length >= 10) {
       setNotice("比較候補は最大10件です。不要な候補を削除してから追加してください");
       return false;
     }
     try {
       const created = fromApiCandidate(await workbenchApi.createCandidateFromLineage(entityKey, activeProjectId));
-      setCandidates((items) => [...items, created]);
+      appendCandidate(created);
       selectCandidate(created.id);
       setNotice("近い過去実績を候補に追加しました");
       return true;
@@ -355,44 +369,54 @@ export function useWorkbenchSession({
     }
   }
 
-  async function copyCandidate() {
-    if (!selected) return;
-    if (candidates.length >= 10) {
+  async function copyCandidate(candidateId = selectedId) {
+    const source = candidatesRef.current.find((candidate) => candidate.id === candidateId);
+    if (!source) return;
+    const requestProjectId = activeProjectIdRef.current;
+    if (candidatesRef.current.length >= 10) {
       setNotice("比較候補は最大10件です。不要な候補を削除してから追加してください");
       return;
     }
     try {
       const request: ApiCandidateInput = {
-        ...toApiCandidate(selected),
-        name: `${selected.label} のコピー`,
+        ...toApiCandidate(source),
+        name: `${source.label} のコピー`,
         provenance: {
           source_kind: "copy",
           source_ref: {
-            project_id: activeProjectId,
-            candidate_id: selected.id,
-            candidate_revision: selected.raw.revision,
+            project_id: requestProjectId,
+            candidate_id: source.id,
+            candidate_revision: source.raw.revision,
           },
         },
       };
-      const created = fromApiCandidate(await workbenchApi.createCandidate(activeProjectId, request));
-      setCandidates((items) => [...items, created]);
+      const created = fromApiCandidate(await workbenchApi.createCandidate(requestProjectId, request));
+      if (activeProjectIdRef.current !== requestProjectId) return;
+      appendCandidate(created);
       selectCandidate(created.id);
       setNotice("由来を保持して候補をコピーしました");
     } catch (cause) {
-      setNotice(cause instanceof Error ? cause.message : "候補をコピーできませんでした。");
+      if (activeProjectIdRef.current === requestProjectId) setNotice(cause instanceof Error ? cause.message : "候補をコピーできませんでした。");
     }
   }
 
-  async function deleteCandidate() {
-    if (!selected || candidates.length === 1) return;
+  async function deleteCandidate(candidateId = selectedId) {
+    const target = candidatesRef.current.find((candidate) => candidate.id === candidateId);
+    if (!target || candidatesRef.current.length === 1 || deletingCandidateIds.current.has(candidateId)) return;
+    const requestProjectId = activeProjectIdRef.current;
+    deletingCandidateIds.current.add(candidateId);
     try {
-      await workbenchApi.deleteCandidate(activeProjectId, selectedId, selected.raw.revision);
-      const remaining = candidates.filter((candidate) => candidate.id !== selectedId);
+      await workbenchApi.deleteCandidate(requestProjectId, target.id, target.raw.revision);
+      if (activeProjectIdRef.current !== requestProjectId) return;
+      const remaining = candidatesRef.current.filter((candidate) => candidate.id !== target.id);
+      candidatesRef.current = remaining;
       setCandidates(remaining);
-      selectCandidate(remaining[0].id);
+      if (selectedIdRef.current === target.id && remaining[0]) selectCandidate(remaining[0].id);
       setNotice("候補を一覧から外しました");
     } catch {
-      setNotice("候補を削除できませんでした。API接続を確認してください。");
+      if (activeProjectIdRef.current === requestProjectId) setNotice("候補を削除できませんでした。API接続を確認してください。");
+    } finally {
+      deletingCandidateIds.current.delete(candidateId);
     }
   }
 
@@ -414,7 +438,8 @@ export function useWorkbenchSession({
   }
 
   function acceptCandidate(candidate: CandidateViewModel) {
-    setCandidates((items) => items.some((item) => item.id === candidate.id) ? items : [...items, candidate]);
+    appendCandidate(candidate);
+    selectedIdRef.current = candidate.id;
     setSelectedId(candidate.id);
     return candidatesRef.current.some((item) => item.id === candidate.id)
       ? candidatesRef.current.length
@@ -449,6 +474,7 @@ export function useWorkbenchSession({
       setCandidates((items) => items.some((item) => item.id === source.id)
         ? items.map((item) => item.id === source.id ? sourceCandidate : item)
         : [...items, sourceCandidate]);
+      selectedIdRef.current = source.id;
       setSelectedId(source.id);
       onOpenProvenance(provenance);
     } catch (cause) {

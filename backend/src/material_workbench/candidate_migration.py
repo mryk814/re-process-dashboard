@@ -80,7 +80,7 @@ def _hot_payload(row: sqlite3.Row) -> dict[str, Any]:
 
 def _create_common_tables(conn: sqlite3.Connection) -> None:
     statements = (
-        "CREATE TABLE IF NOT EXISTS projects (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', purpose TEXT NOT NULL DEFAULT '', task_id TEXT NOT NULL DEFAULT 'annealed-properties-v1', target_values TEXT NOT NULL DEFAULT '{}', input_ranges TEXT NOT NULL DEFAULT '{}', response_curve_ranges TEXT NOT NULL DEFAULT '{}', display_decimals TEXT NOT NULL DEFAULT '{}', notes TEXT NOT NULL DEFAULT '', decision_candidate_id TEXT NOT NULL DEFAULT '', decision_snapshot_id TEXT NOT NULL DEFAULT '', decision_note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT '')",
+        "CREATE TABLE IF NOT EXISTS projects (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', purpose TEXT NOT NULL DEFAULT '', task_id TEXT NOT NULL DEFAULT 'annealed-properties-v1', target_values TEXT NOT NULL DEFAULT '{}', input_ranges TEXT NOT NULL DEFAULT '{}', response_curve_ranges TEXT NOT NULL DEFAULT '{}', heat_stage_positions_m TEXT NOT NULL DEFAULT '{}', display_decimals TEXT NOT NULL DEFAULT '{}', notes TEXT NOT NULL DEFAULT '', decision_candidate_id TEXT NOT NULL DEFAULT '', decision_snapshot_id TEXT NOT NULL DEFAULT '', decision_note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT '')",
         "CREATE TABLE IF NOT EXISTS candidates (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, name TEXT NOT NULL, payload TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1 CHECK(revision >= 1), archived_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS snapshots (id TEXT PRIMARY KEY, candidate_id TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS screening_runs (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL)",
@@ -100,6 +100,7 @@ def _ensure_project_columns(conn: sqlite3.Connection) -> None:
         ("target_values", "TEXT NOT NULL DEFAULT '{}'"),
         ("input_ranges", "TEXT NOT NULL DEFAULT '{}'"),
         ("response_curve_ranges", "TEXT NOT NULL DEFAULT '{}'"),
+        ("heat_stage_positions_m", "TEXT NOT NULL DEFAULT '{}'"),
         ("display_decimals", "TEXT NOT NULL DEFAULT '{}'"),
         ("notes", "TEXT NOT NULL DEFAULT ''"),
         ("decision_candidate_id", "TEXT NOT NULL DEFAULT ''"),

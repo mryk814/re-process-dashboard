@@ -250,6 +250,22 @@ select:focus-visible,
 .primary-button:hover {
   background: #174da3;
 }
+.candidate-add-button svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+.candidate-add-button-compact {
+  min-height: 27px;
+  padding: 3px 7px;
+  gap: 5px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.candidate-add-button-compact svg {
+  width: 14px;
+  height: 14px;
+}
 
 /* Shared table semantics: opt numeric cells into the app-wide comparison rule. */
 table { font-variant-numeric: tabular-nums; }
@@ -422,3 +438,16 @@ table input[type="number"] { text-align: right; font-variant-numeric: tabular-nu
   opacity: 0.35;
   cursor: not-allowed;
 }
+.svg-chart-tooltip rect {
+  fill: rgba(18, 34, 54, 0.94);
+  stroke: rgba(255, 255, 255, 0.42);
+  stroke-width: 0.75;
+  filter: drop-shadow(0 2px 4px rgba(18, 34, 54, 0.24));
+}
+.svg-chart-tooltip text {
+  fill: #fff;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.svg-chart-hit-target { cursor: crosshair; outline: none; pointer-events: all; }
+.svg-chart-hit-target:focus-visible { stroke: #0f172a; stroke-width: 2; }

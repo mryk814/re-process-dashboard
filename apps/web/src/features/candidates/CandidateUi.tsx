@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, ty
 import type { CandidateViewModel } from "./candidateModel";
 import { getCandidateInputValue, numericTaskInputs, orderedInputGroups, type NumericRange, type NumericTaskInput, type TaskDefinitionContract, type TaskInputGroup } from "./taskDefinition";
 import type { ApiPreview } from "../../shared/api/workbench-api";
+import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
 import type { CandidateSaveState } from "./useCandidateEditor";
 import { formatDisplayNumber, formatInputNumber, type DisplayDecimalOverrides } from "./numberFormat";
 
@@ -13,6 +14,15 @@ const saveLabels: Record<CandidateSaveState, string> = {
   conflict: "競合",
   error: "保存失敗",
 };
+
+function RowActionIcon({ name }: { name: "trash" | "save" | "check" }) {
+  const path = name === "trash"
+    ? <path d="M4 7h16M10 11v6m4-6v6M9 7l1-3h4l1 3m-9 0 1 13h10l1-13" />
+    : name === "check"
+      ? <path d="m5 12 4 4L19 6" />
+      : <><path d="M5 4h12l2 2v14H5V4Z" /><path d="M8 4v6h8V4M8 20v-6h8v6" /></>;
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{path}</svg>;
+}
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -223,9 +233,18 @@ export function ComparisonTable({
   previewsByCandidate,
   targetValues,
   displayDecimalOverrides,
+  decisionCandidateId,
+  detailedPredictionAvailable,
+  saveStates,
+  savedRevisionsByCandidate,
+  savingCandidateIds,
+  snapshotHistoryState,
   onSelect,
   onName,
   onInput,
+  onCopy,
+  onDelete,
+  onSave,
 }: {
   candidates: CandidateViewModel[];
   selectedId: string;
@@ -235,9 +254,18 @@ export function ComparisonTable({
   previewsByCandidate: Record<string, ApiPreview>;
   targetValues: Record<string, number>;
   displayDecimalOverrides?: DisplayDecimalOverrides;
+  decisionCandidateId: string;
+  detailedPredictionAvailable: boolean;
+  saveStates: Record<string, CandidateSaveState>;
+  savedRevisionsByCandidate: Record<string, number[]>;
+  savingCandidateIds: string[];
+  snapshotHistoryState: "loading" | "ready" | "error";
   onSelect: (id: string) => void;
   onName: (id: string, value: string) => void;
   onInput: (id: string, path: string, value: number | string) => void;
+  onCopy: (id: string) => void;
+  onDelete: (id: string) => void;
+  onSave: (candidate: CandidateViewModel) => void;
 }) {
   const inputGroups = orderedInputGroups(taskDefinition).filter((group) => group.key !== "heat_pattern");
   const inputFields = inputGroups.flatMap((group) => group.fields);
@@ -249,14 +277,16 @@ export function ComparisonTable({
   const nameScrollRef = useRef<HTMLDivElement>(null);
   const inputScrollRef = useRef<HTMLDivElement>(null);
   const predictionScrollRef = useRef<HTMLDivElement>(null);
+  const actionScrollRef = useRef<HTMLDivElement>(null);
   const effectiveInputShare = clamp(inputShare, inputShareRange.min, inputShareRange.max);
   useEffect(() => {
     const updateRange = () => {
       const width = comparisonGridRef.current?.clientWidth ?? 0;
       if (!width) return;
+      const min = (220 / width) * 100;
       const nextRange = {
-        min: (220 / width) * 100,
-        max: ((width - 169 - 240) / width) * 100,
+        min,
+        max: Math.max(min, ((width - 169 - 240 - 120) / width) * 100),
       };
       setInputShareRange(nextRange);
     };
@@ -268,7 +298,7 @@ export function ComparisonTable({
   useEffect(() => saveComparisonInputShare(inputShare), [inputShare]);
   const syncVerticalScroll = (event: UIEvent<HTMLDivElement>) => {
     const scrollTop = event.currentTarget.scrollTop;
-    for (const pane of [nameScrollRef.current, inputScrollRef.current, predictionScrollRef.current]) {
+    for (const pane of [nameScrollRef.current, inputScrollRef.current, predictionScrollRef.current, actionScrollRef.current]) {
       if (pane && pane !== event.currentTarget && Math.abs(pane.scrollTop - scrollTop) > 0.5) pane.scrollTop = scrollTop;
     }
   };
@@ -305,7 +335,24 @@ export function ComparisonTable({
           <div ref={nameScrollRef} className={`comparison-pane-scroll comparison-name-scroll${comparisonExpanded ? " expanded" : ""}`} onScroll={syncVerticalScroll}><table className="candidate-name-table" aria-label="候補名"><colgroup><col className="candidate-select-column" /><col /></colgroup><thead><tr><th colSpan={2}>候補</th></tr><tr aria-hidden="true"><th /><th /></tr></thead><tbody>{candidates.map((candidate) => { const selected = candidate.id === selectedId; return <tr key={candidate.id} className={selected ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}><td className="candidate-select-cell"><button type="button" className="candidate-select-button" aria-label={`${candidate.label}を選択`} aria-pressed={selected} onClick={(event) => { event.stopPropagation(); onSelect(candidate.id); }}><span aria-hidden="true" /></button></td><th><input aria-label={`${candidate.label}の候補名`} maxLength={80} value={candidate.label} onFocus={() => onSelect(candidate.id)} onChange={(event) => onName(candidate.id, event.target.value)} /></th></tr>; })}</tbody></table></div>
           <div id="comparison-input-pane" ref={inputScrollRef} className={`comparison-pane-scroll comparison-input-scroll${comparisonExpanded ? " expanded" : ""}`} tabIndex={0} aria-label="入力条件" onScroll={syncVerticalScroll}><table className="comparison-detail-table comparison-input-table" aria-label="候補ごとの入力条件"><thead><tr>{inputGroups.map((group) => <th colSpan={group.fields.length} key={group.key}>{group.label}</th>)}</tr><tr>{inputFields.map((field) => <th className="composition-col" key={field.path}>{field.label}<small>{field.unit ?? ""}</small></th>)}</tr></thead><tbody>{candidates.map((candidate) => <tr key={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}>{inputFields.map((field) => renderField(candidate, field))}</tr>)}</tbody></table></div>
           <ComparisonSplitResizer value={effectiveInputShare} min={inputShareRange.min} max={inputShareRange.max} onChange={setInputShare} onDrag={(startValue, deltaX) => startValue + (deltaX / Math.max(comparisonGridRef.current?.clientWidth ?? 1, 1)) * 100} onReset={() => setInputShare(45)} />
-          <div id="comparison-prediction-pane" ref={predictionScrollRef} className={`comparison-pane-scroll comparison-prediction-scroll${comparisonExpanded ? " expanded" : ""}`} tabIndex={0} aria-label="予測値" onScroll={syncVerticalScroll}><table className="comparison-detail-table comparison-prediction-table" aria-label="候補ごとの予測値"><thead><tr><th colSpan={outputs.length}>予測値</th><th colSpan={outputs.length}>不確実性</th><th colSpan={outputs.length}>目標達成</th><th className="support-header">支持度</th></tr><tr>{outputs.map((output) => <th className="prediction-col" key={`value-${output.key}`}>{output.label}<small>{output.unit}</small></th>)}{outputs.map((output) => <th className="uncertainty-col" key={`uncertainty-${output.key}`}>{output.label}<small>90%区間</small></th>)}{outputs.map((output) => <th className="goal-col" key={`goal-${output.key}`}>{output.label}<small>{Number.isFinite(targetValues[output.key]) ? `目標 ${output.goal_direction === "at_most" ? "≤" : "≥"} ${targetValues[output.key]}` : "未設定"}</small></th>)}<th className="support-header">状態</th></tr></thead><tbody>{candidates.map((candidate) => { const preview = previewsByCandidate[candidate.id]; return <tr key={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}>{outputs.map((output) => { const prediction = preview?.predictions[output.key]; return <td className="prediction-cell prediction-col numeric-cell" key={`value-${output.key}`}>{prediction ? <span className="metric-value">{formatDisplayNumber(prediction.value, taskDefinition, `output.${output.key}`, displayDecimalOverrides)} <small>{prediction.unit}</small></span> : <span className="empty-cell">—</span>}</td>; })}{outputs.map((output) => { const prediction = preview?.predictions[output.key]; if (!prediction) return <td className="uncertainty-cell uncertainty-col numeric-cell" key={`uncertainty-${output.key}`}><span className="empty-cell">—</span></td>; const uncertainty = uncertaintySummary(prediction, output.key); return <td className="uncertainty-cell uncertainty-col numeric-cell" key={`uncertainty-${output.key}`}><span className="uncertainty-value" title={uncertainty.details} aria-label={uncertainty.details}>{uncertainty.interval}</span></td>; })}{outputs.map((output) => { const prediction = preview?.predictions[output.key]; const goalValue = prediction?.goal_value ?? targetValues[output.key]; return <td className="goal-cell goal-col numeric-cell" key={`goal-${output.key}`}>{prediction?.goal_probability == null ? <span className="empty-cell">{Number.isFinite(goalValue) ? "計算中" : "—"}</span> : <span className="goal-value"><b>{formatNumber(prediction.goal_probability * 100)}%</b><small>{prediction.goal_direction === "at_most" ? "以下" : prediction.goal_direction === "at_least" ? "以上" : "目標"}</small></span>}</td>; })}<td className="support-cell"><span className={`status-dot ${preview?.support.status === "supported" ? "success" : preview ? "caution" : ""}`} />{support(preview?.support.status)}</td></tr>; })}</tbody></table></div>
+          <div id="comparison-prediction-pane" ref={predictionScrollRef} className={`comparison-pane-scroll comparison-prediction-scroll${comparisonExpanded ? " expanded" : ""}`} tabIndex={0} aria-label="予測値" onScroll={syncVerticalScroll}><table className="comparison-detail-table comparison-prediction-table" aria-label="候補ごとの予測値"><thead><tr><th colSpan={outputs.length}>予測値</th><th colSpan={outputs.length}>不確実性</th><th colSpan={outputs.length}>目標達成</th><th className="support-header">支持度</th></tr><tr>{outputs.map((output) => <th className="prediction-col" key={`value-${output.key}`}>{output.label}<small>{output.unit}</small></th>)}{outputs.map((output) => <th className="uncertainty-col" key={`uncertainty-${output.key}`}>{output.label}<small>90%区間</small></th>)}{outputs.map((output) => <th className="goal-col" key={`goal-${output.key}`}>{output.label}<small>{Number.isFinite(targetValues[output.key]) ? `目標 ${output.goal_direction === "at_most" ? "≤" : "≥"} ${targetValues[output.key]}` : "未設定"}</small></th>)}<th className="support-header">状態</th></tr></thead><tbody>{candidates.map((candidate) => { const preview = previewsByCandidate[candidate.id]; return <tr key={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}>{outputs.map((output) => { const prediction = preview?.predictions[output.key]; const value = prediction ? formatDisplayNumber(prediction.value, taskDefinition, `output.${output.key}`, displayDecimalOverrides) : ""; return <td className="prediction-cell prediction-col numeric-cell" key={`value-${output.key}`}>{prediction ? <span className="metric-value" title={`${value} ${prediction.unit}`} aria-label={`${value} ${prediction.unit}`}>{value}</span> : <span className="empty-cell">—</span>}</td>; })}{outputs.map((output) => { const prediction = preview?.predictions[output.key]; if (!prediction) return <td className="uncertainty-cell uncertainty-col numeric-cell" key={`uncertainty-${output.key}`}><span className="empty-cell">—</span></td>; const uncertainty = uncertaintySummary(prediction, output.key); return <td className="uncertainty-cell uncertainty-col numeric-cell" key={`uncertainty-${output.key}`}><span className="uncertainty-value" title={uncertainty.details} aria-label={uncertainty.details}>{uncertainty.interval}</span></td>; })}{outputs.map((output) => { const prediction = preview?.predictions[output.key]; const goalValue = prediction?.goal_value ?? targetValues[output.key]; return <td className="goal-cell goal-col numeric-cell" key={`goal-${output.key}`}>{prediction?.goal_probability == null ? <span className="empty-cell">{Number.isFinite(goalValue) ? "計算中" : "—"}</span> : <span className="goal-value"><b>{formatNumber(prediction.goal_probability * 100)}%</b><small>{prediction.goal_direction === "at_most" ? "以下" : prediction.goal_direction === "at_least" ? "以上" : "目標"}</small></span>}</td>; })}<td className="support-cell"><span className={`status-dot ${preview?.support.status === "supported" ? "success" : preview ? "caution" : ""}`} />{support(preview?.support.status)}</td></tr>; })}</tbody></table></div>
+          <div ref={actionScrollRef} className={`comparison-pane-scroll comparison-action-scroll${comparisonExpanded ? " expanded" : ""}`} aria-label="候補ごとの操作" onScroll={syncVerticalScroll}>
+            <table className="comparison-action-table">
+              <thead><tr><th>操作</th></tr><tr><th><small>候補ごと</small></th></tr></thead>
+              <tbody>{candidates.map((candidate) => {
+                const saving = savingCandidateIds.includes(candidate.id);
+                const editableSaved = ["idle", "saved"].includes(saveStates[candidate.id] ?? "idle");
+                const saved = editableSaved && (savedRevisionsByCandidate[candidate.id]?.includes(candidate.raw.revision) ?? false);
+                const historyPending = snapshotHistoryState !== "ready";
+                const deleteBlocked = candidates.length <= 1 || decisionCandidateId === candidate.id;
+                return <tr key={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}><td><div className="candidate-row-actions">
+                  <CandidateAddButton compact className="candidate-row-icon-button" aria-label={`${candidate.label}を複製`} title="この候補を複製" onClick={(event) => { event.stopPropagation(); onCopy(candidate.id); }} />
+                  <button type="button" className="candidate-row-icon-button candidate-row-delete-button" aria-label={`${candidate.label}を削除`} title={decisionCandidateId === candidate.id ? "採用判断を解除してから削除してください" : "この候補を削除"} disabled={deleteBlocked} onClick={(event) => { event.stopPropagation(); onDelete(candidate.id); }}><RowActionIcon name="trash" /></button>
+                  <button type="button" className={`candidate-row-save-button${saved ? " saved" : ""}`} aria-label={`${candidate.label}の詳細予測を${saved ? "保存済み" : snapshotHistoryState === "loading" ? "確認中" : snapshotHistoryState === "error" ? "履歴確認失敗" : "保存"}`} title={!detailedPredictionAvailable ? "このタスクでは詳細予測を利用できません" : snapshotHistoryState === "loading" ? "保存履歴を確認しています" : snapshotHistoryState === "error" ? "保存履歴を確認できませんでした" : saved ? "現在の編集版は保存済みです" : !editableSaved ? "入力の保存完了後に実行できます" : "詳細予測を保存"} disabled={!detailedPredictionAvailable || historyPending || !editableSaved || saving || saved} onClick={(event) => { event.stopPropagation(); onSave(candidate); }}><RowActionIcon name={saved ? "check" : "save"} /></button>
+                </div></td></tr>;
+              })}</tbody>
+            </table>
+          </div>
         </section>
       </div>
     </div>
