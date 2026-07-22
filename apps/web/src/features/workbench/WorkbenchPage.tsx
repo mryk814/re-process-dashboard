@@ -916,12 +916,17 @@ function LiveResponseCurves({
     const storageKey = `${item.id}\u001f${output.key}\u001f${activeVariableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`;
     return surfacesByKey[storageKey];
   }));
-  const payloadForOutput = (outputKey: string) => curveCandidates.map((item) => {
+  const payloadsForOutput = (outputKey: string) => curveCandidates.map((item) => {
     const inputIdentity = candidateInputIdentity(item.raw.inputs);
     return surfacesByKey[`${item.id}\u001f${outputKey}\u001f${activeVariableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`]?.data;
-  }).find((payload): payload is ApiResponseCurve => Boolean(payload));
+  }).filter((payload): payload is ApiResponseCurve => Boolean(payload));
+  const payloadForOutput = (outputKey: string) => payloadsForOutput(outputKey)[0];
   const selectedPayload = outputs.map((output) => payloadForOutput(output.key)).find((payload): payload is ApiResponseCurve => Boolean(payload));
-  const effectiveXRange = selectedPayload?.variable ? { min: selectedPayload.variable.min, max: selectedPayload.variable.max } : selectedVariable ? { min: selectedVariable.min, max: selectedVariable.max } : null;
+  const loadedVariables = outputs.flatMap((output) => payloadsForOutput(output.key).map((payload) => payload.variable));
+  const automaticXValues = loadedVariables.flatMap((variable) => [variable.min, variable.max, variable.current]);
+  const effectiveXRange = automaticXValues.length
+    ? { min: Math.min(...automaticXValues), max: Math.max(...automaticXValues) }
+    : selectedVariable ? { min: selectedVariable.min, max: selectedVariable.max } : null;
   const makeDraft = (saved: CurveRange | undefined, effective: CurveRange | null | undefined): CurveRangeDraft => ({
     min: String(saved?.min ?? effective?.min ?? ""),
     max: String(saved?.max ?? effective?.max ?? ""),
@@ -1053,11 +1058,11 @@ function LiveResponseCurves({
               if (!payload?.points.length) return [];
               return [{ candidate: item, points: payload.points, prediction: previewsByCandidate[item.id]?.predictions?.[output.key], currentX: payload.variable.current }];
             });
-  const firstPayload = curveCandidates.map((item) => {
-    const inputIdentity = candidateInputIdentity(item.raw.inputs);
-    return surfacesByKey[`${item.id}\u001f${output.key}\u001f${activeVariableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`]?.data;
-  }).find((payload): payload is ApiResponseCurve => Boolean(payload));
-            return <ResponseCurveMiniChart key={output.key} output={output} series={curveSeries} selectedId={candidate.id} prediction={previewsByCandidate[candidate.id]?.predictions?.[output.key] ?? preview?.predictions?.[output.key]} goalValue={targetValues[output.key]} xRange={firstPayload?.variable ? { min: firstPayload.variable.min, max: firstPayload.variable.max } : selectedVariable ? { min: selectedVariable.min, max: selectedVariable.max } : undefined} yRange={responseCurveRanges.y?.[output.key] ?? firstPayload?.output_range ?? undefined} xLabel={firstPayload?.variable.label ?? selectedVariable?.label ?? "設計変数"} xUnit={firstPayload?.variable.unit ?? selectedVariable?.unit ?? ""} />;
+            const payloads = payloadsForOutput(output.key);
+            const firstPayload = payloads[0];
+            const autoValues = payloads.flatMap((payload) => [payload.variable.min, payload.variable.max, payload.variable.current]);
+            const chartXRange = xRangeOverride ?? (autoValues.length ? { min: Math.min(...autoValues), max: Math.max(...autoValues) } : undefined);
+            return <ResponseCurveMiniChart key={output.key} output={output} series={curveSeries} selectedId={candidate.id} prediction={previewsByCandidate[candidate.id]?.predictions?.[output.key] ?? preview?.predictions?.[output.key]} goalValue={targetValues[output.key]} xRange={chartXRange} yRange={responseCurveRanges.y?.[output.key] ?? firstPayload?.output_range ?? undefined} xLabel={firstPayload?.variable.label ?? selectedVariable?.label ?? "設計変数"} xUnit={firstPayload?.variable.unit ?? selectedVariable?.unit ?? ""} />;
           })}
         </div>
       )}

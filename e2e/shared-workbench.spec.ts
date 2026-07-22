@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 const tasks = [
   { projectId: "default", outputLabels: ["引張強さ", "降伏強さ", "全伸び", "穴広げ率 λ"], hasHeatPattern: true, responseCurve: true },
-  { projectId: "hot-rolling-default", outputLabels: ["引張強さ"], hasHeatPattern: false, responseCurve: false },
+  { projectId: "hot-rolling-default", outputLabels: ["引張強さ"], hasHeatPattern: false, responseCurve: true },
 ] as const;
 
 for (const task of tasks) {
@@ -31,8 +31,16 @@ for (const task of tasks) {
     if (task.projectId === "hot-rolling-default") {
       await expect(outputHeader.getByText("降伏強さ", { exact: false })).toHaveCount(0);
       await expect(page.locator(".heat-panel")).toHaveCount(0);
-      await expect(page.getByLabel("応答曲線は利用できません")).toBeVisible();
-      expect(curveRequests).toBe(0);
+      const responseVariable = page.getByRole("combobox", { name: "応答曲線の設計変数" });
+      await expect(responseVariable.locator("option").first()).toHaveText("C (%)");
+      await expect(responseVariable.locator("option")).toContainText(["C (%)", "Si (%)", "Mn (%)"]);
+      const responseOptions = await responseVariable.locator("option").allTextContents();
+      expect(responseOptions).toContain("均熱温度 (°C)");
+      expect(responseOptions).toContain("仕上げ温度 (°C)");
+      await expect(page.locator(".response-curve-card")).toHaveCount(1);
+      await expect.poll(() => curveRequests).toBeGreaterThan(0);
+      await expect(page.locator(".response-curves-panel .inference-surface-status")).toHaveText("最新");
+      await expect(page.getByRole("img", { name: "引張強さの応答曲線" })).toBeVisible();
     } else {
       await expect(page.locator(".heat-panel")).toBeVisible();
       const responseVariable = page.getByRole("combobox", { name: "応答曲線の設計変数" });
