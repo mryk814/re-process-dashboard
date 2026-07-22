@@ -56,7 +56,10 @@ export function ProfileWorkbenchPanel({ onOpenDataLibrary }: { onOpenDataLibrary
     && selectedProfileDigest
     && inspection?.validation?.registration_ready
     && !inspection.profile_error
-    && !registering,
+    && !loading
+    && !registering
+    && !registration
+    && !error,
   );
 
   function cancelInspection() {
@@ -82,6 +85,7 @@ export function ProfileWorkbenchPanel({ onOpenDataLibrary }: { onOpenDataLibrary
     inspectController.current = controller;
     setLoading(true);
     setError("");
+    setInspection(null);
     setRegistration(null);
     try {
       const result = await workbenchApi.inspectProfileWorkbook(
@@ -134,13 +138,13 @@ export function ProfileWorkbenchPanel({ onOpenDataLibrary }: { onOpenDataLibrary
     <section className="profile-workbench-inputs" aria-label="ExcelとDataset Profileの選択">
       <label className={file ? "profile-file-picker selected" : "profile-file-picker"}>
         <b>1</b><span><strong>{file?.name ?? "Excelを選択"}</strong><small>{file ? `${(file.size / 1024 / 1024).toLocaleString("ja-JP", { maximumFractionDigits: 1 })} MB` : ".xlsx · 100 MB以下"}</small></span>
-        <input type="file" disabled={registering} accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onClick={(event) => { event.currentTarget.value = ""; }} onChange={(event) => selectFile(event.target.files?.[0] ?? null)} />
+        <input type="file" disabled={registering || Boolean(registration)} accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onClick={(event) => { event.currentTarget.value = ""; }} onChange={(event) => selectFile(event.target.files?.[0] ?? null)} />
       </label>
-      <label className="profile-select-field"><b>2</b><span>Dataset Profile</span><select value={profileSelection} disabled={registering} onChange={(event) => selectProfile(event.target.value)}>
+      <label className="profile-select-field"><b>2</b><span>Dataset Profile</span><select value={profileSelection} disabled={registering || Boolean(registration)} onChange={(event) => selectProfile(event.target.value)}>
         <option value="auto">自動検出</option>
         {profiles.map((item) => <option value={item.profile_digest} key={item.profile_digest}>{item.profile_id} · {item.source_name.replace("dataset-input-profile-", "")}</option>)}
       </select></label>
-      <button className="primary-button profile-inspect-button" disabled={!file || loading || registering} onClick={() => void inspect()}>{loading ? "確認中…" : "3  内容を確認"}</button>
+      <button className="primary-button profile-inspect-button" disabled={!file || loading || registering || Boolean(registration)} onClick={() => void inspect()}>{loading ? "確認中…" : "3  内容を確認"}</button>
     </section>
 
     {error && <p className="panel-error" role="alert">{error}</p>}
@@ -160,13 +164,13 @@ export function ProfileWorkbenchPanel({ onOpenDataLibrary }: { onOpenDataLibrary
         {inspection.validation.entity_preview.length > 0 && <details className="profile-preview-details"><summary>正規化後の先頭{inspection.validation.entity_preview.length}件</summary><table><thead><tr><th>Entity</th><th>Key</th><th>Canonical fields</th></tr></thead><tbody>{inspection.validation.entity_preview.map((item, index) => <tr key={`${previewValue(item, "entity_type")}-${previewValue(item, "entity_key")}-${index}`}><td>{previewValue(item, "entity_type")}</td><td>{previewValue(item, "entity_key")}</td><td>{previewFields(item)}</td></tr>)}</tbody></table></details>}
       </section>}
 
-      {inspection.validation?.registration_ready && !inspection.profile_error && <section className="profile-registration-panel">
+      {inspection.validation?.registration_ready && !inspection.profile_error && !registration && <section className="profile-registration-panel">
         <div><span className="overline">REGISTER DATASET</span><h3>Data Libraryへ登録</h3><p>Excelの内容とProfileの組み合わせを不変のDatasetとして登録します。同じ組み合わせは重複しません。</p></div>
         <label>Dataset名<input value={datasetName} maxLength={160} onChange={(event) => setDatasetName(event.target.value)} /></label>
         <button className="primary-button" disabled={!canRegister} onClick={() => void register()}>{registering ? "登録中…" : "4  この内容で登録"}</button>
       </section>}
     </>}
 
-    {registration && <section className="profile-registration-success" role="status"><div><strong>{registration.reused_existing ? "既存Datasetを確認しました" : "Data Libraryへ登録しました"}</strong><span>{registration.profile_id} · {registration.task_ids.join(" / ")}</span><code>{shortDigest(registration.dataset_revision_id)}</code></div><button className="outline-button" onClick={onOpenDataLibrary}>データライブラリで確認</button></section>}
+    {registration && <section className="profile-registration-success" role="status"><div><strong>{registration.reused_existing ? "既存Datasetを確認しました" : "Data Libraryへ登録しました"}</strong><span>{registration.profile_id} · {registration.task_ids.join(" / ")}</span><code>{shortDigest(registration.dataset_revision_id)}</code></div><div className="profile-registration-success-actions"><button className="outline-button" onClick={onOpenDataLibrary}>データライブラリで確認</button><button className="text-button" onClick={() => selectFile(null)}>別のExcelを確認</button></div></section>}
   </div>;
 }

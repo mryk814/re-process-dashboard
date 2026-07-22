@@ -89,6 +89,7 @@
 .profile-registration-panel input { min-width: 0; border: 1px solid #cbd6e2; border-radius: 4px; padding: 8px; font: inherit; }
 .profile-registration-success { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid #72aa91; border-radius: 6px; background: #ecf8f2; padding: 11px 13px; }
 .profile-registration-success > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 7px; }
+.profile-registration-success > .profile-registration-success-actions { justify-content: flex-end; }
 .profile-registration-success strong { width: 100%; color: #205b46; }
 .profile-registration-success span, .profile-registration-success code { color: #527365; font-size: 10px; }
 
