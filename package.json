@@ -26,7 +26,7 @@
     "models:build:additive-examples": "uv run python backend/scripts/build_additive_model_examples.py --replace",
     "models:build:posterior-linear-example": "uv run --extra runtime-numpyro python backend/scripts/build_posterior_linear_model_example.py --replace",
     "model:data": "uv run python backend/scripts/model_workflow.py data",
-    "model:build": "uv run python backend/scripts/model_workflow.py build",
+    "model:build": "uv run --extra runtime-numpyro python backend/scripts/model_workflow.py build",
     "model:verify": "uv run python backend/scripts/model_workflow.py verify",
     "model:activate": "uv run python backend/scripts/model_workflow.py activate",
     "model:rollback": "uv run python backend/scripts/model_workflow.py rollback",

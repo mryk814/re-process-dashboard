@@ -1,4 +1,10 @@
-# 予測アンサンブルとBMAの契約判断
+# 予測アンサンブルとBMA
+
+| 項目 | 内容 |
+|---|---|
+| 状態 | Model Package v1では実装を見送る |
+| 決定日 | 2026-07-22 |
+| 関連 | [Issue #49](https://github.com/mryk814/re-process-dashboard/issues/49) |
 
 ## 判断
 
