@@ -11,7 +11,7 @@ import pytest
 
 from material_workbench.model_package_verify import verify_model_package_example
 from material_workbench.model_example_contracts import PredictiveMixtureDesignFixture, validate_mixture_component_digests
-from material_workbench.model_packages import ModelPackageLoader, PackageContractError
+from material_workbench.model_packages import ModelPackageLoader, PackageContractError, RUNTIME_TYPES
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -253,3 +253,25 @@ def test_predictive_mixture_design_golden_degeneracy_and_digest_binding() -> Non
 
     with pytest.raises(ValueError, match="digest mismatch"):
         validate_mixture_component_digests(fixture, {**actual, "model_b": "sha256:" + "d" * 64})
+
+
+def test_runtime_example_index_and_skill_cover_every_registered_runtime() -> None:
+    index_path = ROOT / "docs" / "model-runtime-examples" / "index.md"
+    index = index_path.read_text(encoding="utf-8")
+    skill = (ROOT / ".claude" / "skills" / "add-model-runtime" / "SKILL.md").read_text(encoding="utf-8")
+
+    assert all(runtime_type in index for runtime_type in RUNTIME_TYPES)
+    for card in (
+        "existing-runtimes.md",
+        "shared-multi-output.md",
+        "additive-terms.md",
+        "sparse-bayesian.md",
+        "quantile-only.md",
+        "non-continuous-targets.md",
+        "predictive-ensemble-decision.md",
+    ):
+        assert card in index
+        assert (index_path.parent / card).is_file()
+    assert "docs/model-runtime-examples/index.md" in skill
+    assert "--example" in skill
+    assert "active Package切替" in skill
