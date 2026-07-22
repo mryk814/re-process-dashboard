@@ -17,10 +17,10 @@ test("project hub keeps the active project visible across scoped navigation", as
   const projectList = page.getByRole("complementary", { name: "プロジェクト一覧" });
   await expect(projectList).toBeVisible();
   await expect(projectList.locator(".project-list-item[aria-current=page]")).toContainText("焼鈍条件の候補検討");
+  await expect(page.getByText("プロジェクトを切り替えました", { exact: true })).toHaveCount(0);
 
   await page.getByRole("button", { name: "候補比較", exact: true }).click();
-  await expect(page.locator(".context-breadcrumb")).toContainText("プロジェクト");
-  await expect(page.locator(".context-breadcrumb")).toContainText("候補比較");
+  await expect(page.getByRole("navigation", { name: "プロジェクト内メニュー" }).getByRole("button", { name: "候補比較" })).toHaveClass(/active/);
   await expect(page.locator(".context-bar h1")).toHaveText("焼鈍条件の候補検討");
 
   await page.getByRole("button", { name: "プロジェクト", exact: true }).click();

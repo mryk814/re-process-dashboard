@@ -141,7 +141,7 @@ export function useWorkbenchSession({
       requestedCandidateMissing
         ? "参照元の候補は削除済みか、このプロジェクトから参照できません"
         : imported.length
-          ? "プロジェクトを切り替えました"
+          ? ""
           : "候補がありません。過去条件または新規入力から追加できます",
     );
     if (!imported.length || !resolved.runtime_capability.operations.preview) return;
