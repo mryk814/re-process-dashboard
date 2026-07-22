@@ -1,28 +1,33 @@
-# Binary, count, and ordinal target I/O card
+# 二値、カウント、順序目的変数の入出力カード
 
-## When to use
+## 使用する場面
 
-Use these checked-in fixtures when a new model predicts a probability, a nonnegative count, or an ordered category rather than a continuous material property. They exercise the existing `numpyro.dense_posterior.v1` adapter without registering a fake production task or activating a Package.
+新しいモデルが連続値の材料特性ではなく、確率、非負のカウント、順序付きカテゴリを予測する場合は、リポジトリに含まれるこれらの検証用一式を使います。
+偽の本番タスクを登録したりモデルパッケージを有効化したりせずに、既存の `numpyro.dense_posterior.v1` アダプターを動かせます。
 
-## Contract matrix
+## 契約マトリクス
 
-| Kind | Predictive family | Point statistic | Required semantics | Fixture |
+| 種類 | 予測分布族 | 代表値統計量 | 必須の意味 | 検証用成果物 |
 |---|---|---|---|---|
-| binary | `bernoulli_logit` | probability | point and event probability agree and stay in `[0,1]`; dimensionless unit | `examples/model-packages/numpyro/bernoulli_logit` |
-| count | `poisson_log`, `negative_binomial_log`, `zero_inflated_poisson_log` | rate | point and quantiles are nonnegative; count support is explicit | `examples/model-packages/numpyro/poisson_log` and peers |
-| ordinal | `ordinal_logit` | expected category | finite increasing thresholds; unique ordered labels; outputs stay inside category index range | `examples/model-packages/numpyro/ordinal_logit` |
+| `binary` | `bernoulli_logit` | 確率 | 代表値と事象確率が一致して `[0,1]` の範囲に収まり、単位は無次元 | `examples/model-packages/numpyro/bernoulli_logit` |
+| `count` | `poisson_log`, `negative_binomial_log`, `zero_inflated_poisson_log` | 率 | 代表値と分位点が非負で、カウントの台が明示されている | `examples/model-packages/numpyro/poisson_log` と同種の検証用成果物 |
+| `ordinal` | `ordinal_logit` | 期待カテゴリ | 有限で単調増加するしきい値、一意で順序を持つラベル、カテゴリ添字の範囲内に収まる出力 | `examples/model-packages/numpyro/ordinal_logit` |
 
-All examples share canonical inputs `composition.C` and `composition.Mn`, an ordered two-value FeatureBundle, and a safe NPZ containing only fixed dense-network posterior arrays. Training may use NumPyro/JAX; production inference uses NumPy only and never loads a trainer object, Python graph, pickle, or import path.
+すべての例は、アプリ共通入力として `composition.C` と `composition.Mn` を共有し、順序を持つ2値のFeatureBundleと、固定全結合ネットワークの事後配列だけを含む安全なNPZを使います。
+学習にはNumPyroとJAXを使用できますが、本番推論ではNumPyだけを使い、学習器オブジェクト、Pythonグラフ、pickle、インポートパスは読み込みません。
 
-## Capability and presentation
+## 機能と表示
 
-- Binary exposes native event probability. Count and ordinal goal probability are unavailable unless a future contract defines the event.
-- Quantiles come from deterministic seeded posterior-predictive evaluation. Raw samples are not exposed, so `samples=false`.
-- Parametric family identity, target kind, point statistic, quantile levels, and ordered category metadata remain explicit.
-- The UI renders binary points as percentages, ordinal points as expected categories, and never attaches a material unit to either. Missing goal probability is `利用不可`, not a fabricated normal approximation.
-- Regression accuracy dashboards, confusion matrices, arbitrary categories, survival targets, and new production tasks are outside this fixture set.
+- `binary` はネイティブの事象確率を公開します。
+  `count` と `ordinal` の目標達成確率は、将来の契約で事象が定義されない限り利用できません。
+- 分位点は、乱数シードを指定した決定論的な事後予測評価から得ます。
+  生の標本は公開しないため、`samples=false` です。
+- パラメトリック分布族の識別情報、目的変数種別、代表値統計量、分位点水準、順序カテゴリのメタデータは明示された状態を保ちます。
+- UIは `binary` の代表値を百分率として、`ordinal` の代表値を期待カテゴリとして表示し、どちらにも材料単位を付けません。
+  目標達成確率がない場合は、作成した正規近似ではなく `利用不可` と表示します。
+- 回帰精度ダッシュボード、混同行列、任意のカテゴリ、生存時間目的変数、新しい本番タスクは、この検証用一式の対象外です。
 
-## Build and verify without activation
+## 有効化せずにビルドして検証する
 
 ```powershell
 npm run models:build:examples
@@ -31,4 +36,6 @@ uv run python backend/scripts/verify_model_package.py examples/model-packages/nu
 uv run python backend/scripts/verify_model_package.py examples/model-packages/numpyro/ordinal_logit --example
 ```
 
-Each Package includes hashed smoke input/expected output, a matching `TargetRuntimeCapability`, and explicit contract counts. Accuracy metrics are intentionally absent because these loader fixtures do not include observations. The commands do not modify `models/active-packages.json`.
+各モデルパッケージには、ハッシュ化されたスモークテストの入力と期待出力、一致する `TargetRuntimeCapability`、明示的な契約数が含まれます。
+これらの読み込み検証用一式には観測値が含まれないため、精度指標は意図的に省略しています。
+コマンドは `models/active-packages.json` を変更しません。

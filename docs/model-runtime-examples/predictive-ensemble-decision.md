@@ -1,39 +1,50 @@
-# Predictive ensemble / BMA contract decision
+# 予測アンサンブルとBMAの契約判断
 
-## Decision
+## 判断
 
-Do not add a predictive ensemble runtime in the current Model Package v1 contract.
+現在のModel Package v1契約には、予測アンサンブルのランタイムを追加しない。
 
-Variable shrinkage/selection uncertainty belongs to the sparse Bayesian example, where one posterior artifact produces one predictive distribution. Predictive stacking/BMA instead combines already-complete component predictive distributions and requires component-level provenance. Treating these as the same feature would hide different uncertainty and validation assumptions.
+変数の縮小と選択に伴う不確かさは、一つの事後分布の成果物から一つの予測分布を生成する疎ベイズの例で扱う。
+一方、予測スタッキングとBMAは、すでに完成した各構成要素の予測分布を組み合わせるため、構成要素単位の来歴を必要とする。
+両者を同じ機能として扱うと、不確かさと検証の前提にある違いが見えなくなる。
 
-## A/B comparison
+## A案とB案の比較
 
-### A. Refer to component predictors inside the same Package
+### A案：同じPackage内の構成予測器を参照する
 
-This preserves reusable components but is rejected for v1. The current manifest has no typed component graph, component digest binding, target/unit/capability compatibility check, cycle/depth limit, recursive cache identity, or rule for missing optional dependencies. Adding only predictor IDs and weights would create a partially trusted recursive execution path.
+この案では構成要素を再利用できるが、v1では採用しない。
+現在のマニフェストには、型付き構成グラフ、構成要素のダイジェスト固定、予測対象と単位と能力の互換性検査、循環と深さの制限、再帰的なキャッシュ識別情報、任意の依存関係が欠けた場合の規則がない。
+予測器のIDと重みだけを追加すると、部分的にしか信頼できない再帰実行経路が生じる。
 
-### B. Export one fixed mixture artifact
+### B案：固定された一つの混合モデル成果物を出力する
 
-This is the preferred future direction when a real use case justifies it. Training evaluates components and fixed weights, then exports one bounded, library-neutral artifact plus immutable provenance. Runtime complexity is lower, although component reuse decreases. The export must retain component Package/predictor IDs and digests, weight method, parent-block evaluation unit, CV settings, data digest, and code revision.
+実際のユースケースによって必要性が確認できた場合は、この案を将来の優先候補とする。
+学習時に構成要素と固定重みを評価し、上限が定められたライブラリ非依存のモデル成果物を、不変の来歴とともに一つ出力する。
+構成要素の再利用性は下がるが、ランタイムの複雑さは抑えられる。
+出力には、構成要素のPackageと予測器のIDおよびダイジェスト、重みの算出方法、親ブロック単位の評価、交差検証の設定、データのダイジェスト、コードのリビジョンを残す必要がある。
 
-## Why implementation is deferred
+## 実装を見送る理由
 
-- A mixture of normal distributions is not generally normal. Returning `predictive_family=normal` would be false.
-- `PredictiveSummary` does not expose raw samples or a typed mixture family, so exact median, arbitrary quantiles, and event probability are not uniformly available across component capabilities.
-- Snapshot and cache identity currently bind one Package, not an immutable component graph.
-- Ignoring a missing or changed component is forbidden; a digest mismatch must reject the ensemble and require regeneration.
-- The added complexity is not justified by a demonstrated quality gain. A single selected Package remains the production route; posterior model uncertainty within one sparse model is covered by the posterior-linear example.
+- 正規分布の混合は一般に正規分布にならないため、`predictive_family=normal` を返すと誤った表現になる。
+- `PredictiveSummary` は生のサンプルも型付きの混合分布族も公開しないため、正確な中央値、任意の分位点、事象確率を構成要素の能力にかかわらず一様には提供できない。
+- 現在のスナップショットとキャッシュ識別情報は一つのPackageに固定されており、不変の構成グラフには固定されていない。
+- 欠損または変更された構成要素を無視することは禁止するため、ダイジェストが一致しなければアンサンブルを拒否して再生成を要求する必要がある。
+- 品質向上が実証されていない現状では、複雑さの増加を正当化できない。
+  本番では選択した一つのPackageを使い、一つの疎モデル内にある事後モデルの不確かさはposterior-linearの例で扱う。
 
-## Design fixture
+## 将来設計の検証データ
 
-`examples/model-packages/design/predictive-mixture-v1.json` freezes the minimum future schema without registering a runtime. Its contract test verifies:
+`examples/model-packages/design/predictive-mixture-v1.json` は、ランタイムを登録せずに、将来必要となる最小限のスキーマを固定する。
+この検証データの契約テストは、次の内容を検証する。
 
-- finite nonnegative weights summing to one;
-- common target, target kind, unit, predictive family, and capability digest;
-- full component digest binding;
-- weight provenance;
-- fixed-weight mean composition;
-- exact 1/0 degeneration to a component;
-- rejection after a component digest changes.
+- 重みが有限かつ非負であり、合計が1であること
+- 予測対象、予測対象の種類、単位、予測分布族、能力のダイジェストが共通であること
+- すべての構成要素のダイジェストが固定されていること
+- 重みの来歴が残っていること
+- 固定重みによって平均を合成すること
+- 重みが1/0の場合に、対応する構成要素へ正確に退化すること
+- 構成要素のダイジェスト変更後に拒否されること
 
-This fixture is a design golden, not an executable Model Package. Before implementation, add a bounded mixture artifact schema, a non-normal predictive representation, component provenance in snapshots/cache keys, scoring-rule evaluation on nested parent-condition splits, and adversarial tests for cycles, dependency absence, and degraded components.
+この検証データは設計上の基準データであり、実行可能なModel Packageではない。
+実装前に、上限が定められた混合モデル成果物のスキーマ、非正規の予測表現、スナップショットとキャッシュキーに含める構成要素の来歴、入れ子にした親条件分割でのスコアリングルール評価を追加する必要がある。
+循環、依存関係の欠損、劣化した構成要素を対象とする敵対的テストも必要になる。

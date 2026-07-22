@@ -1,37 +1,48 @@
-# Sparse Bayesian posterior I/O card
+# 疎ベイズ事後分布のI/Oカード
 
-## When to use
+## 使用する場面
 
-Use this route when coefficient shrinkage uncertainty and posterior-predictive uncertainty must survive export without loading a PyMC/NumPyro object in production. This example keeps variable-selection reporting separate from predictive responses and from predictive ensemble/BMA.
+本番環境でPyMC/NumPyroオブジェクトを読み込まず、係数縮小の不確かさと事後予測の不確かさを出力後も保持する必要がある場合に、この経路を使用する。
+この例では、変数選択レポートを予測応答および予測アンサンブルとBMAから分離する。
 
-## Contract
+## 契約
 
-| Boundary | Value |
+| 境界 | 値 |
 |---|---|
-| Canonical input | `composition.x0` through `composition.x7` |
-| FeatureBundle | the same eight numeric features in fixed order |
-| Runtime | `builtin.posterior_linear.v1` / `posterior_linear_v1` |
-| Artifact | safe NPZ: `beta_draws [D,F]`, `intercept_draws [D]`, positive `noise_scale_draws [D]`, optional positive `local_scale_draws [D,F]` or binary `indicator_draws [D,F]` |
-| PredictiveSummary | mean, empirical q05/q50/q95, posterior-predictive std and epistemic/aleatoric components |
-| Capability | quantiles/std/components true; samples and parametric distribution false; goal probability unavailable |
-| Training dependency | NumPyro/JAX horseshoe in the builder |
-| Runtime dependency | NumPy only |
+| 正規化入力 | `composition.x0` から `composition.x7` |
+| FeatureBundle | 同じ8個の数値特徴量を固定順で格納 |
+| ランタイム | `builtin.posterior_linear.v1` / `posterior_linear_v1` |
+| モデル成果物 | 安全なNPZ。`beta_draws [D,F]`、`intercept_draws [D]`、正の `noise_scale_draws [D]`、任意の正の `local_scale_draws [D,F]` または二値の `indicator_draws [D,F]` |
+| PredictiveSummary | 平均値、経験分位点q05/q50/q95、事後予測標準偏差、モデル知識の不足による不確かさ（epistemic）と観測自体のばらつきによる不確かさ（aleatoric）の構成要素 |
+| 能力 | quantiles、std、componentsはtrue。samplesはfalse。パラメトリック分布と目標達成確率は利用不可 |
+| 学習時の依存関係 | 生成処理内のNumPyro/JAXホースシュー |
+| ランタイムの依存関係 | NumPyのみ |
 
-Draw count, feature width/order, finite values, positive noise/local scales, binary indicators, and exact tensor schema are checked before inference. A seed controls observation-noise sampling, making the smoke deterministic. Raw draws are not exposed by `PredictiveSummary`, so `samples=false` even though the artifact stores posterior draws.
+推論の前に、ドロー数、特徴量の数と順序、有限値、正のノイズスケールとローカルスケール、二値の指示変数、正確なテンソルスキーマを検査する。
+乱数シードで観測ノイズのサンプリングを制御するため、スモークテストは決定的に実行できる。
+モデル成果物には事後ドローを保存するが、`PredictiveSummary` は生のドローを公開しないため、`samples=false` とする。
 
-## Selection and quality reports
+## 選択レポートと品質レポート
 
-`reports/selection-report.json` contains coefficient mean/sd/quantiles, sign probability, ROPE-outside probability, local-scale mean, and the declared selection rule. Horseshoe shrinkage is continuous: the report does not call these values inclusion probabilities and does not delete unselected Feature Pipeline inputs.
+`reports/selection-report.json` には、係数の平均、標準偏差、分位点、符号確率、ROPE外確率、ローカルスケールの平均、宣言された選択規則が含まれる。
+ホースシュー縮小は連続的である。
+このレポートでは、これらの値を包含確率とは呼ばず、選択されなかったFeature Pipelineの入力も削除しない。
 
-The fixture deliberately contains two signals, six noise features, correlated signal candidates, and small parent-condition blocks. For every held-out parent block, `quality-report.json` trains a full horseshoe on the remaining blocks, applies the ROPE selection rule inside that training fold, retrains the selected reduced horseshoe, and reports both held-out RMSE values. A full-feature ridge score is retained only as a separate baseline.
+検証データには、2個の信号特徴量、6個のノイズ特徴量、相関した信号候補、小さな親条件ブロックを意図的に含めている。
+`quality-report.json` は、検証用に除外した親ブロックごとに、残りのブロックで全特徴量のホースシューモデルを学習し、その学習分割内でROPE選択規則を適用する。
+続いて、選択した縮小ホースシューモデルを再学習し、両方の検証RMSEを報告する。
+全特徴量のリッジ回帰スコアは、独立した基準値としてのみ保持する。
 
-Coefficient/shrinkage summaries are not causal importance. Correlated features may share posterior evidence. Arbitrary Bayesian graphs, runtime JAX/PyTensor restoration, automatic feature removal, UI prior editing, and all-subset BMA are outside this contract.
+係数と縮小の要約は、因果的な重要度を表さない。
+相関した特徴量は、事後分布の証拠を共有する場合がある。
+任意のベイズグラフ、ランタイムでのJAX/PyTensor復元、特徴量の自動削除、UIでの事前分布編集、全部分集合BMAは、この契約の対象外である。
 
-## Build and verify without activation
+## 有効化せずに構築して検証する
 
 ```powershell
 npm run models:build:posterior-linear-example
 uv run python backend/scripts/verify_model_package.py examples/model-packages/posterior-linear --example
 ```
 
-The build command trains with the optional NumPyro dependency, exports numeric arrays, and verifies them through the NumPy production adapter. It does not modify `models/active-packages.json`.
+構築コマンドは任意の依存関係であるNumPyroを使って学習し、数値配列を出力して、NumPyの本番用アダプターで検証する。
+`models/active-packages.json` は変更しない。

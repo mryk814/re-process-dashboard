@@ -1,8 +1,8 @@
-# Model Package Contract
+# モデルPackage契約（Model Package Contract）
 
-モデルパッケージは、学習済み重みと明示的なメタデータだけを配るデータ成果物です。
-パッケージはPythonコード、import path、callback、pickle、joblibを含めません。
-実行できるのはアプリ本体に実装され、Registryでallow-list化されたadapterだけです。
+モデルPackageは、学習済み重みと明示的なメタデータだけを配るデータ成果物です。
+PackageはPythonコード、import path、callback、pickle、joblibを含めません。
+実行できるのはアプリ本体に実装し、Registryの許可リストへ登録したアダプターだけです。
 
 ## 読込手順
 
@@ -54,9 +54,9 @@
 
 全ての`feature_pipeline.spec`、pipeline artifact、predictor artifactは`artifacts`配列にpath/hash/bytesとして列挙する。
 
-## 許可runtimeと資産形式
+## 許可する実行環境と資産形式
 
-| runtime type | 安全な資産 | 制約 |
+| 実行環境の種類 | 安全な資産 | 制約 |
 |---|---|---|
 | `builtin.linear.v1` | `.npz` | `weights/bias/lower_offset/upper_offset`のみ |
 | `builtin.additive_terms.v1` | `.npz`、`allow_pickle=False` | identity linkのlinear / B-spline / categorical lookup項。寄与は型付き説明契約で返す |
@@ -72,26 +72,29 @@ NumPyro adapterは学習用Python関数を復元しない。許可likelihoodは
 `normal`、`student_t`、`lognormal`、`bernoulli_logit`、`poisson_log`、
 `negative_binomial_log`、`zero_inflated_poisson_log`、`ordinal_logit`である。
 
-## NumPyro dense posterior
+## NumPyro全結合ネットワークの事後分布
 
-`w0..wN`は`[posterior_draw, input, output]`、`b0..bN`は
-`[posterior_draw, output]`のfloat tensorである。中間層activationは`tanh`または`relu`だけである。
-`obs_scale`、`df`、`dispersion`は必要なlikelihoodだけが任意で持てる。
+`w0..wN`は`[posterior_draw, input, output]`、`b0..bN`は`[posterior_draw, output]`の浮動小数点tensorです。
+中間層の活性化関数は`tanh`または`relu`だけです。
+`obs_scale`、`df`、`dispersion`は、必要な尤度だけが任意で保持できます。
 
-- Normal / Student-t: real-valued predictive quantiles
-- LogNormal: positive-valued median and quantiles
-- Bernoulli logit: event probability
-- Poisson / Negative Binomial / ZIP: nonnegative count quantiles
-- Ordinal logit: `config.thresholds`による有限カテゴリー
+- NormalとStudent-t：実数値の予測分位点
+- LogNormal：正の値を取る中央値と分位点
+- Bernoulli logit：事象確率
+- Poisson、Negative Binomial、ZIP：負にならない個数の分位点
+- Ordinal logit：`config.thresholds` で定義する有限個の順序カテゴリ
 
-posterior predictive samplingは`seed`で決定的に再現する。詳細予測のsnapshotにはPackage digest、adapter version、seed、draw policyを保存する。
+事後予測サンプリングは `seed` で決定的に再現します。
+詳細予測のスナップショットには、Packageダイジェスト、アダプターのバージョン、`seed`、サンプリング方針を保存します。
 
 npzはentry数、展開後総量、圧縮率、posterior draw数、layer数、tensor要素数に固定上限を設ける。圧縮後のartifact sizeだけを信頼しない。
 
-## Feature pipeline と再現性
+## 特徴量パイプラインと再現性
 
-feature pipelineはJSON宣言の組込み操作（単位正規化、欠損方針、標準化、one-hot、ヒートパターン要約）だけを使う。
-モデルPackageはfeature名・順序・pipeline versionを固定する。snapshotにはraw candidate、canonical input、Package manifest SHA-256、pipeline hash、training/support provenanceを残し、過去snapshotを新Packageで自動再評価しない。
+特徴量パイプラインは、JSONで宣言した組込み操作（単位正規化、欠損方針、標準化、one-hot、ヒートパターン要約）だけを使います。
+モデルPackageは特徴量名、順序、パイプラインのバージョンを固定します。
+スナップショットには元候補、アプリ共通入力（canonical input）、Package manifestのSHA-256、パイプラインのhash、学習データと学習範囲による裏付けの来歴を残します。
+過去のスナップショットは、新しいPackageで自動再評価しません。
 
 ## TaskDefinitionとの境界
 
@@ -109,9 +112,11 @@ Packageのpredictor targetは対応するTaskDefinitionのoutputに含まれな�
 
 TaskDefinitionは予測意味を固定するcontextとfield間制約も保持する。熱延v1では設備・試験片方向を固定contextにせず、仕上げ温度は均熱温度以下、出側板厚は入側板厚未満とする。これらをruntime固有コードだけに埋め込まない。
 
-## Runtime capability
+## 実行能力（Runtime capability）
 
-モデルの出力情報量はruntimeごとに異なるため、UIが推測せずに済むよう能力をデータとして宣言する。targetごとに、利用可能なpoint statistic、standard deviation、quantile、sample、parametric distribution、不確実性内訳、support、warning、目標達成確率の計算方式を持つ。マルチターゲット間のjoint sample可否はtask runtime全体の能力として分ける。
+モデルが返せる情報は実行環境ごとに異なるため、UIが推測せずに済むよう、能力をデータとして宣言します。
+目的変数ごとに、代表値の種類（point statistic）、標準偏差、分位点、サンプル、確率分布、不確かさの内訳、学習範囲による裏付け、警告、目標達成確率の計算方式を定義します。
+複数目的変数の同時サンプル可否は、タスク実行環境全体の能力として分けます。
 
 能力宣言は「すべて返せる」という共通最小形式を強制するものではない。宣言されていない表現を擬似生成せず、利用可能な表現だけを返す。平均と標準偏差だけから目標達成確率を計算できるのは、`normal_approximation` を明示した場合だけである。
 
@@ -119,10 +124,10 @@ TaskDefinition、CanonicalCandidate、runtime capabilityの機械検証可能な
 
 熱延PackageはTaskDefinitionの単一出力TSに一致し、production registry起動時にtask、pipeline、feature順序、predictor targetを照合する。出力契約が一致しないPackageは起動時に拒否する。
 
-## テスト必須項目
+## 必須テスト
 
-- path traversal、hash/size改竄、unknown field/runtime、未列挙artifactの拒否
-- feature goldenとadapter tensor shape検証
-- 各likelihoodのsupport/quantile/probability semantic test
-- production Packageごとのsmoke input/expected output
-- 予測→snapshot→Package更新後も過去結果が変わらないE2E
+- パストラバーサル、hashやサイズの改ざん、未知のフィールドや実行環境、未列挙artifactの拒否
+- 特徴量ゴールデンとアダプターのtensor形状検証
+- 各尤度について、値域、分位点、確率の意味を確認するテスト
+- 本番Packageごとのスモーク入力と期待出力
+- 予測をスナップショットへ保存し、Package更新後も過去結果が変わらないことを確認するE2E

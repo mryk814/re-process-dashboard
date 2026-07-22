@@ -1,71 +1,99 @@
-# Dataset Input Profile
+# データセット入力プロファイル（Dataset Input Profile）
 
-各Excelデータフローの外部sheet・列・単位・entity key・relation・適格性・技術メタデータは、`backend/src/material_workbench/dataset-input-profile-*.json` で管理します。既存のv2フローは `dataset-input-profile-v1.json`、別命名・生履歴入力のv3フローは `dataset-input-profile-v3.json`、具体的な2設備工程名を持つv5フローは `dataset-input-profile-v5.json`、部分欠損・relation親解決・測定点マスタを持つv7フローは `dataset-input-profile-v7.json` です。起動時はWorkbookのsheet構成とsource markerから最も具体的に一致するprofileを自動選択します。明示したい場合は `load_workbook_data(..., profile_path=...)` または検証コマンドの `--profile` を使います。
+各Excelデータフローの外部シート、列、単位、エンティティキー、リレーション、適格性、技術メタデータは、`backend/src/material_workbench/dataset-input-profile-*.json` で管理します。
+既存のv2フローは `dataset-input-profile-v1.json`、別名の列と未加工の履歴を持つv3フローは `dataset-input-profile-v3.json`、具体的な2設備の工程名を持つv5フローは `dataset-input-profile-v5.json` です。
+部分欠損、リレーションによる親解決、測定点マスターを持つv7フローは `dataset-input-profile-v7.json` です。
+v5はv3の正規化契約と予測契約を継承し、焼鈍履歴の工程名だけを標準工程カテゴリへ対応付けます。
+起動時はワークブックのシート構成とソースマーカーから、最も具体的に一致するプロファイルを自動選択します。
+プロファイルを明示する場合は、`load_workbook_data(..., profile_path=...)` または検証コマンドの `--profile` を使います。
 
-Production task contracts live in `backend/src/material_workbench/task_definitions/`. At startup the backend validates the profile against every production `TaskDefinition`, then preflights the workbook before model or database initialization.
+本番タスクの契約は `backend/src/material_workbench/task_definitions/` に置きます。
+起動時にバックエンドがプロファイルと各本番用 `TaskDefinition` の整合性を検証し、モデルとデータベースを初期化する前にワークブックを事前検証します。
 
 ```text
-Raw workbook + Dataset Input Profile + TaskDefinition
+元ワークブック + Dataset Input Profile + TaskDefinition
                          |
                          v
-                 Canonical Dataset
+          アプリ共通データセット（Canonical Dataset）
                          |
                          v
-       lineage / feature pipeline / model runtime / API
+       系譜 / 特徴量パイプライン / モデル実行環境 / API
 ```
 
-## Contract rules
+## 契約規則
 
-- Required sheets, mapped headers, units, numeric signal, categorical choices, observation parents, and observation targets are blocking requirements.
-- Header order and unmapped extra columns are not part of the model input contract.
-- Unknown fields, implicit unit conversions, duplicate mappings, missing task profiles, and incomplete output mappings are rejected.
-- Entity identity is `(entity_type, key)`, so equal source key strings in different entity types do not merge.
-- `median_by_parent/v1` and `stage_local_clock/v1` are the only executable normalizers. The profile cannot contain arbitrary code.
-- Eligibility policies declare their accepted source values. A policy with no accepted signal in the workbook is rejected during preflight.
-- Relation parent consistency is enforced only when a join declares `parent_consistency: exactly_one`. Known source-quality anomalies remain inspectable when the profile declares `allow_many`.
-- A profile can `extends` another profile. Object mappings are merged and arrays are replaced, so a renamed/new workbook flow can reuse the canonical contract without copying the old profile.
-- A source flow may declare `optional_roles`, `optional_technical_fields`, and explicit `policy_defaults` when that source genuinely does not contain the corresponding signal. Defaults are part of the profile contract; they are never inferred from a missing cell.
-- Observation measurements may declare one source `column` or an ordered `columns` list. The latter is an explicit first-numeric coalesce contract for alternate measurements such as yield point and 0.2% proof stress.
-- When an observation has no `parent_column`, its parent is resolved through the declared relation joins. Unresolved rows remain inspectable and ineligible rather than being silently attached.
-- A source without a derived `anneal_features` sheet may mark that role optional. The importer then derives display metadata and feature eligibility from canonical LS and ordered heat history; the model still consumes the versioned feature pipeline, not workbook formulas.
-- `task_definition_ids` freezes the task set supported by a profile. This lets a new task with completely different explanatory variables or targets be added without making old data flows pretend to support it.
+- 必須シート、対応付け済みヘッダー、単位、数値信号、カテゴリ選択肢、観測の親、観測対象が不足している場合は処理を停止します。
+- ヘッダーの順序と未対応の追加列は、モデル入力契約に含めません。
+- 未知のフィールド、暗黙の単位変換、重複した対応付け、タスクプロファイルの欠落、不完全な出力対応は拒否します。
+- エンティティの同一性は `(entity_type, key)` で判定するため、異なるエンティティ種別に同じソースキーがあっても統合しません。
+- 実行可能な正規化処理は `median_by_parent/v1` と `stage_local_clock/v1` だけです。
+- プロファイルに任意のコードは記述できません。
+- 適格性ポリシーには受け付けるソース値を明記します。
+- ワークブックに受理可能な信号が一つもないポリシーは、事前検証で拒否します。
+- リレーションの親整合性は、結合が `parent_consistency: exactly_one` を宣言した場合だけ強制します。
+- プロファイルが `allow_many` を宣言した既知のソース品質異常は、確認可能な状態で残します。
+- プロファイルは `extends` で別のプロファイルを継承できます。
+- オブジェクトの対応付けは統合し、配列は置換するため、列名を変更したワークブックや新しいワークブックでもアプリ共通契約を複製せずに再利用できます。
+- ソースに該当する信号が本当に存在しない場合は、`optional_roles`、`optional_technical_fields`、明示的な `policy_defaults` を宣言できます。
+- 既定値はプロファイル契約の一部であり、欠損セルから推測しません。
+- 観測測定値には、単一のソース `column` または優先順を持つ `columns` の一覧を宣言できます。
+- `columns` の一覧は、降伏点と0.2%耐力などの代替測定値から、最初の数値を明示的に採用する契約です。
+- 観測に `parent_column` がない場合は、宣言済みのリレーション結合から親を解決します。
+- 親を解決できない行は暗黙に結び付けず、確認可能かつ学習対象外の状態で残します。
+- 派生済みの `anneal_features` シートがないソースは、その役割を任意にできます。
+- その場合、importerはアプリ共通形式のLSと順序付き温度履歴から表示メタデータと特徴量化の適格性を導出します。
+- モデルはワークブックの数式ではなく、バージョン管理した特徴量パイプラインを使用します。
+- `task_definition_ids` は、そのプロファイルが対応するタスク集合を固定します。
+- この指定により、既存データフローへ未対応タスクを見せかけで追加せず、説明変数や目的変数が異なる新しいタスクを追加できます。
 
-## Adding a new workbook flow with the same canonical task
+## 同じアプリ共通タスク契約へ新しいワークブックを追加する
 
-1. Update the production `TaskDefinition`.
-2. Update the Dataset Input Profile mapping.
-3. Update and version the Feature Pipeline.
-4. Retrain and build a new Model Package.
-5. Run package contract, feature golden, smoke, and dataset-profile tests.
+1. 本番用 `TaskDefinition` を更新します。
+2. Dataset Input Profileの対応付けを更新します。
+3. Feature Pipelineを更新し、バージョンを上げます。
+4. モデルを再学習し、新しいModel Packageを構築します。
+5. Package契約、特徴量ゴールデン、スモーク、データセットプロファイルの各テストを実行します。
 
-For the v3 flow, this procedure is represented by `dataset-input-profile-v3.json`: it reuses the v2 task definitions and feature pipelines, maps the renamed sheets/headers, and explicitly declares that the curated `quality` sheet and hot-rolling learning flag are absent from v3.
+v3フローでは、`dataset-input-profile-v3.json` がこの手順を表します。
+このプロファイルはv2のタスク定義と特徴量パイプラインを再利用し、名前が変わったシートとヘッダーを対応付け、整備済みの `quality` シートと熱延学習フラグがv3には存在しないことを明示します。
 
-For the v5 flow, `dataset-input-profile-v5.json` extends v3 rather than replacing it. Its source markers distinguish `CGL-1` and concrete history labels such as `予熱1`, `加熱1`, `均熱出口`, and `水冷`. Its stage mappings add `stage_category` and `mapping_status` to the inspectable heat points, so the lineage screen can show the concrete source label on a time-aligned process track while preserving the original `stage_name`.
+v5フローの `dataset-input-profile-v5.json` は、v3を置き換えずに継承します。
+ソースマーカーは `CGL-1` と、`予熱1`、`加熱1`、`均熱出口`、`水冷` などの具体的な履歴ラベルを識別します。
+工程対応には確認可能な温度点の `stage_category` と `mapping_status` を追加します。
+これにより、元の `stage_name` を保ったまま、系譜画面の時間軸に沿った工程トラックへ具体的なソースラベルを表示できます。
 
-For the v7 flow, `dataset-input-profile-v7.json` maps bracketed composition names, relation-resolved tensile/hole-expansion parents, and alternate yield columns. `焼鈍特徴量` is intentionally absent: LS comes from `焼鈍条件-3CGL`, while the cached numeric time-temperature series and 26 stage mappings provide the model history. Missing targets are retained per property, so a row with TS but no elongation contributes to TS only.
+v7フローの `dataset-input-profile-v7.json` は、括弧付きの組成名、リレーションから解決する引張試験と穴広げ試験の親、代替の降伏値列を対応付けます。
+`焼鈍特徴量` シートは意図的に持ちません。
+LSは `焼鈍条件-3CGL` から取得し、キャッシュ済みの数値時間温度系列と26個の工程対応からモデル用の履歴を構築します。
+目的変数の欠損は特性ごとに保持するため、TSがあり伸びがない行はTSの学習だけに使います。
 
-## Adding genuinely new data (different variables or targets)
+## 説明変数や目的変数が異なるデータを追加する
 
-Do not force a new scientific quantity into an existing production task. Add a new vertical slice:
+新しい物理量や科学的な量を既存の本番タスクへ無理に組み込みません。
+次の縦一式を新しく追加します。
 
-1. Add `backend/src/material_workbench/task_definitions/<task-id>.json`. Define the new input groups, units, editable/allowed/training ranges, output targets, constraints, and runtime capability. Keep the file name equal to the task id.
-2. Add a new profile under `backend/src/material_workbench/dataset-input-profile-<flow>.json`. Set `task_definition_ids` to the task(s) this flow actually supports. Use `extends` only when the shared entity/relation contract is truly the same; otherwise write a separate profile.
-3. Add or extend a feature pipeline module with a new pipeline id/version. Keep raw source columns, canonical inputs, and derived features separately inspectable. Do not reuse an old feature vector merely because the column count happens to match.
-4. Add an allow-listed runtime/model adapter or task-specific runtime, then build a Model Package whose manifest records the new task id, input contract digest, profile digest, feature pipeline version, source digest, and output targets.
-5. Add focused contract, feature golden, source preflight, package smoke, and one API/E2E test. Only after those pass, add the package to `models/active-packages.json` for that task. Existing v2/v3 packages remain untouched.
+1. `backend/src/material_workbench/task_definitions/<task-id>.json` を追加します。入力グループ、単位、編集範囲、許容範囲、学習範囲、出力対象、制約、実行能力を定義し、ファイル名をタスクIDと一致させます。
+2. `backend/src/material_workbench/dataset-input-profile-<flow>.json` に新しいプロファイルを追加します。`task_definition_ids` には、そのフローが実際に対応するタスクだけを指定します。共有するエンティティ契約とリレーション契約が本当に同じ場合だけ `extends` を使い、それ以外は独立したプロファイルを作ります。
+3. 新しいパイプラインIDとバージョンを持つ特徴量パイプラインモジュールを追加するか、既存モジュールを拡張します。元のソース列、アプリ共通入力（canonical input）、派生特徴量は個別に確認できる状態を保ちます。列数が偶然同じという理由だけで、古い特徴量ベクトルを再利用しません。
+4. 許可リストへ登録した実行環境とモデルアダプター、またはタスク専用の実行環境を追加します。新しいタスクID、入力契約ダイジェスト、プロファイルダイジェスト、特徴量パイプラインのバージョン、ソースダイジェスト、出力対象をmanifestへ記録したModel Packageを構築します。
+5. 対象を絞った契約テスト、特徴量ゴールデン、ソース事前検証、Packageスモーク、APIまたはE2Eテストを1本追加します。すべて通過した後で、そのタスクのPackageを `models/active-packages.json` に追加します。既存のv2とv3のPackageは変更しません。
 
-The current application has three production TaskModules. A genuinely new task must add one explicit allow-listed entry in `task_modules.py`; startup, package verification, model workflow, source/profile selection, capabilities, and generated inventory all resolve from that entry. The profile and TaskDefinition alone must not make an unsupported task appear runnable.
+現在のアプリには、本番用TaskModuleが3つあります。
+新しいタスクでは、`task_modules.py` の許可リストへ明示的なエントリーを一つ追加します。
+起動、Package検証、モデル処理、ソースとプロファイルの選択、能力宣言、生成済みインベントリは、すべてこのエントリーから解決します。
+プロファイルとTaskDefinitionだけを追加して、未対応タスクを実行可能に見せてはいけません。
 
-## Repeatable source preflight
+## 再現可能なソース事前検証
 
-Run this before touching the runtime or database. It never writes to the source workbook:
+実行環境やデータベースを変更する前に、次のコマンドを実行します。
+このコマンドは元ワークブックへ書き込みません。
 
 ```powershell
 uv run python backend/scripts/verify_dataset_source.py data/source/process_dashboard_realistic_excel_v3.xlsx
 uv run python backend/scripts/verify_dataset_source.py path/to/new-source.xlsx --profile backend/src/material_workbench/dataset-input-profile-new.json --json
 ```
 
-Then run the focused contract checks and the normal full gate:
+続いて、対象を絞った契約確認と通常の全体検証を実行します。
 
 ```powershell
 uv run pytest backend/tests/test_dataset_profile.py backend/tests/test_importer.py
@@ -74,8 +102,12 @@ npm run typecheck
 npm run build
 ```
 
-The preflight report includes the selected profile id, source SHA-256, sheet row counts, relation row count, observation eligibility counts, and detected structural issues. A model package must be rebuilt for the selected source/profile; a package trained from another source is rejected by provenance validation.
+事前検証レポートには、選択したプロファイルID、ソースのSHA-256、シートごとの行数、リレーション数、観測の適格件数、検出した構造上の問題が含まれます。
+選択したソースとプロファイルに合わせてModel Packageを再構築する必要があります。
+別のソースで学習したPackageは、来歴検証で拒否します。
 
-The package loader verifies canonical input order across TaskDefinition, pipeline document, package manifest, and predictor feature order. A stale package is rejected at runtime startup.
+Packageローダーは、TaskDefinition、パイプライン文書、Package manifest、予測器の特徴量順序にあるアプリ共通入力の並びを照合します。
+古い契約のPackageは、実行環境の起動時に拒否します。
 
-Frontend field rendering is cut over to TaskDefinition in #7. Runtime registry activation is handled in #5, and the reproducible training/package activation route is completed in #19.
+フロントエンドの入力欄描画はIssue #7でTaskDefinition基準へ移行済みです。
+実行環境Registryの有効化はIssue #5で対応し、再現可能な学習とPackage有効化の経路はIssue #19で完成しています。

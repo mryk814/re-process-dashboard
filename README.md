@@ -33,27 +33,36 @@ npm run dev:desktop
 
 終了はアプリのウィンドウを閉じます。Electronは起動ごとに空きloopback portとlaunch tokenを作り、同時起動したAPIだけへ接続します。
 
-自己完結のper-user installerとフォルダZIPは `npm run package:windows` で生成する。Python/uvなしの配布物、保存先、削除方法、packaged smokeは [Windows配布](docs/windows-distribution.md) を参照してください。
+自己完結型のユーザー単位installerとフォルダZIPは `npm run package:windows` で生成します。
+Pythonやuvを必要としない配布物、保存先、削除方法、配布版のスモーク確認は [Windows配布](docs/windows-distribution.md) を参照してください。
 
 ## 確認
 
-実装中は変更箇所のtestと型だけを確認します。test pathや`-k`式を`--`以降へ渡せるため、全suiteは走りません。Windowsでは`npm.cmd`を使えます。
+実装中は変更箇所のテストと型だけを確認します。
+テストパスや`-k`式を`--`以降へ渡せるため、全テストは実行しません。
+Windowsでは`npm.cmd`を使えます。
 
 ```powershell
 npm.cmd run verify:focused -- backend/tests/test_screening_score.py
 ```
 
-PRをreadyにする直前とmerge前だけ、full gateを1回通します。pytest、typecheck、build、working treeと`origin/main...HEAD`のdiff checkを順に実行します。
+PRをレビュー可能にする直前とマージ前だけ、全体検証を1回実行します。
+pytest、型検査、build、作業ツリー、`origin/main...HEAD` の差分検査を順に実行します。
 
 ```powershell
 npm run verify:full
 ```
 
-GitHubのPRと`main`へのpushでも同じfull gateが自動実行されます。CIはNode `22.20.0`、npm `11.4.2`、uv `0.9.15`を固定し、`package-lock.json`と`uv.lock`から依存を導入します。browser確認、packaged desktop、実DB migrationなどは変更リスクに応じて手動実施し、PR本文へ結果を記録します。
+GitHubのPRと`main`へのpushでも同じ全体検証が自動実行されます。
+CIはNode `22.20.0`、npm `11.4.2`、uv `0.9.15`を固定し、`package-lock.json`と`uv.lock`から依存関係を導入します。
+ブラウザ確認、配布版デスクトップ、実データベース移行などは変更リスクに応じて手動実施し、PR本文へ結果を記録します。
 
-モデルPackageを更新した場合は `npm run models:build:annealed`、`npm run models:build:hot-rolling`、`npm run models:build:flank-wear` の対応するコマンドで、artifact・quality report・manifestを必ず同時に再生成します。新しいPackageの作成・検証・有効化・rollbackは [Model Package lifecycle](docs/model-package-lifecycle.md) の一本道を使います。現行3taskのsource/profile/runtime/capabilityは [生成済みTask inventory](docs/task-inventory.json) で確認でき、`npm run task:inventory:check` が実装とのdriftを検出します。
+モデルPackageを更新した場合は、`npm run models:build:annealed`、`npm run models:build:hot-rolling`、`npm run models:build:flank-wear` の対応するコマンドで、artifact、品質レポート、manifestを必ず同時に再生成します。
+新しいPackageの作成、検証、使用対象への切替、ロールバックは [モデルPackageのライフサイクル](docs/model-package-lifecycle.md) の手順を使います。
+現行3タスクのソース、プロファイル、推論環境、能力は [生成済みタスク一覧](docs/task-inventory.json) で確認できます。
+`npm run task:inventory:check` は実装とのずれを検出します。
 
-### Frontend API契約
+### フロントエンドAPI契約
 
 FastAPIのOpenAPIを正本として、`apps/web/src/generated/` のschemaとTypeScript型を生成します。生成物は手編集しません。
 
@@ -66,11 +75,15 @@ npm run api:check     # schema・生成型のdrift検出
 
 ## データ
 
-`data/source/` のExcelは読取専用の正本として扱います。現在は v2 (`process_dashboard_realistic_excel_v2.xlsx`)、別命名・生履歴入力の v3 (`process_dashboard_realistic_excel_v3.xlsx`)、具体的な2設備工程名を持つ v5 (`process_dashboard_two_equipment_v5.xlsx`) を併存させています。起動時にsheet構成とsource markerから対応するDataset Input Profileを選び、工程、観測、系譜、データ品質を構築します。元Excelは変更しません。
+`data/source/` のExcelは読取専用の正本として扱います。
+現在はv2（`process_dashboard_realistic_excel_v2.xlsx`）、別名の列と未加工の履歴を持つv3（`process_dashboard_realistic_excel_v3.xlsx`）、具体的な2設備の工程名を持つv5（`process_dashboard_two_equipment_v5.xlsx`）を併存させています。
+起動時にシート構成とソースマーカーから対応するDataset Input Profileを選び、工程、観測、系譜、データ品質を構築します。
+元Excelは変更しません。
 
-Excelの外部sheet・列とアプリ内部の意味の対応はDataset Input Profileで一元管理します。契約とデータ差替え手順は `docs/dataset-input-profile.md` を参照してください。
+Excelの外部シートや列と、アプリ内部の意味との対応はDataset Input Profileで一元管理します。
+契約とデータ差替え手順は [データセット入力プロファイル](docs/dataset-input-profile.md) を参照してください。
 
-新しいsourceを追加したときは、まず次でprofile選択・列契約・単位・観測親・適格性・件数を確認します。
+新しいソースを追加したときは、まず次のコマンドでプロファイル選択、列契約、単位、観測親、学習対象としての適格性、件数を確認します。
 
 ```powershell
 uv run python backend/scripts/verify_dataset_source.py data/source/process_dashboard_realistic_excel_v3.xlsx --json
@@ -78,7 +91,8 @@ uv run python backend/scripts/verify_dataset_source.py data/source/process_dashb
 uv run python backend/scripts/verify_dataset_source.py data/source/process_dashboard_two_equipment_v7.xlsx --json
 ```
 
-v3用のPackageを既存v2 Packageへ上書きせずに作る例です。Packageはsource digestとprofile digestに結び付くため、sourceを替えたら必ず再生成します。
+次は、v3用Packageを既存のv2 Packageへ上書きせずに作る例です。
+Packageはソースダイジェストとプロファイルダイジェストに結び付くため、ソースを替えたら必ず再生成します。
 
 ```powershell
 uv run python backend/scripts/build_default_model_package.py --source data/source/process_dashboard_realistic_excel_v3.xlsx --output output/v3-model-packages/annealed-gp-2026-07 --replace
@@ -92,7 +106,8 @@ uv run python backend/scripts/build_default_model_package.py --source data/sourc
 uv run --extra runtime-numpyro python backend/scripts/build_hot_rolling_model_package.py --source data/source/process_dashboard_two_equipment_v5.xlsx --output models/packages/hot-rolled-horseshoe-2026-07-v5 --replace
 ```
 
-v5を起動確認するときは、sourceと2つのPackageを同じフローで指定します。既定のactive Packageは変更しません。
+v5を起動確認するときは、ソースと2つのPackageを同じフローで指定します。
+既定の使用Packageは変更しません。
 
 ```powershell
 $env:WORKBENCH_SOURCE_PATH = "data/source/process_dashboard_two_equipment_v5.xlsx"
@@ -101,7 +116,8 @@ $env:MATERIAL_WORKBENCH_HOT_ROLLING_MODEL_PACKAGE = "models/packages/hot-rolled-
 npm run dev
 ```
 
-一時Packageでv3を起動確認する場合は、上記2つの絶対パスを `MATERIAL_WORKBENCH_MODEL_PACKAGE` / `MATERIAL_WORKBENCH_HOT_ROLLING_MODEL_PACKAGE` に指定します。新しい説明変数・目的変数を追加する手順は [Dataset Input Profile](docs/dataset-input-profile.md) の「Adding genuinely new data」を参照してください。
+一時Packageでv3を起動確認する場合は、上記2つの絶対パスを `MATERIAL_WORKBENCH_MODEL_PACKAGE` と `MATERIAL_WORKBENCH_HOT_ROLLING_MODEL_PACKAGE` に指定します。
+新しい説明変数や目的変数を追加する手順は、[データセット入力プロファイル](docs/dataset-input-profile.md)の「説明変数や目的変数が異なるデータを追加する」を参照してください。
 
 v7は名称差、目的変数の部分欠損、relation経由の観測親、詳細な焼鈍履歴をProfileで正規化します。検証済みのv7 sourceと両Packageをまとめて起動する場合は次だけでよいです。
 
@@ -124,7 +140,8 @@ uv run --extra runtime-numpyro python backend/scripts/build_hot_rolling_model_pa
 
 熱延タブは独立した `hot-rolled-properties-v1` タスクで、`models/packages/hot-rolled-horseshoe-2026-07` の正則化Horseshoe回帰を使用します。熱延v1は設備・試験片方向を推定条件として区別せず、利用可能な熱延引張観測をまとめて学習し、物理範囲外の観測だけを除外します。事後係数の縮小結果はPackage内の `reports/selection-report.json`、学習健全性は `reports/training-diagnostics.json` に保存します。
 
-既定のactive Packageは `models/active-packages.json` でタスクごとに固定します。開発中に検証済みPackageを一時的に試す場合だけ、信頼できるローカルPackageの絶対パスを指定します。
+既定で使用するPackageは、`models/active-packages.json` でタスクごとに固定します。
+開発中に検証済みPackageを一時的に試す場合だけ、信頼できるローカルPackageの絶対パスを指定します。
 
 ```powershell
 $env:MATERIAL_WORKBENCH_MODEL_PACKAGE = "C:\models\annealed-bnn"
@@ -132,7 +149,8 @@ $env:MATERIAL_WORKBENCH_HOT_ROLLING_MODEL_PACKAGE = "C:\models\hot-rolling-gp"
 npm run dev
 ```
 
-同じ契約で `sklearn/skops`、LightGBM native Booster、GPyTorch static RBF、NumPyro BNN posteriorを利用できます。optional runtimeをまとめて検証する場合:
+同じ契約で `sklearn/skops`、LightGBM native Booster、GPyTorch static RBF、NumPyro BNN posteriorを利用できます。
+任意導入の推論環境をまとめて検証する場合は、次を実行します。
 
 ```powershell
 uv sync --extra dev --extra runtime-sklearn --extra runtime-lightgbm --extra runtime-gpytorch

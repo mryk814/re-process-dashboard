@@ -1,36 +1,43 @@
-# Additive term model I/O card
+# 加算項モデルの入出力カード
 
-## When to use
+## 使用する場面
 
-Use this route for GAM/EBM-like models whose prediction is a fixed intercept plus auditable additive terms. The runtime artifact is independent of the training library and the explanation is the model's local additive decomposition, not SHAP, partial dependence, or a causal effect.
+予測が固定切片と監査可能な加算項の和で表される、GAMやEBMに似たモデルには、この経路を使います。
+ランタイム成果物は学習ライブラリから独立しています。
+説明が表すものはモデルの局所的な加算分解であり、SHAP、部分依存、因果効果ではありません。
 
-## Contract
+## 契約
 
-| Boundary | Value |
+| 境界 | 値 |
 |---|---|
-| Canonical input | `composition.x`, `categorical.route_code`, `process.z` |
-| FeatureBundle | ordered numeric `x`, encoded `route_code`, `z` |
-| Runtime | `builtin.additive_terms.v1` / `additive_terms_v1` |
-| Artifact | safe NPZ containing scalar intercept and fixed arrays for each allow-listed term |
-| Representative terms | two numeric `bspline_univariate` terms (including a nonlinear response) and one `categorical_lookup` |
-| Link | identity only; explanation sum is on the same scale as the prediction |
-| PredictiveSummary | point-only empirical family or an explicitly supplied normal approximation |
-| Explanation | typed `AdditiveExplanation` with intercept, typed term contributions, link score, and prediction |
-| Training dependency | builder uses NumPy least squares; another trainer may export the same arrays |
-| Runtime dependency | NumPy only |
+| アプリ共通入力 | `composition.x`, `categorical.route_code`, `process.z` |
+| FeatureBundle | 順序が定められた数値 `x`、符号化済みの `route_code`、`z` |
+| ランタイム | `builtin.additive_terms.v1` / `additive_terms_v1` |
+| モデル成果物 | スカラー切片と、許可リストに登録された各項の固定配列を含む安全なNPZ |
+| 代表的な項 | 数値の `bspline_univariate` 項2個（非線形応答を含む）と `categorical_lookup` 1個 |
+| リンク関数 | 恒等関数のみ。説明の合計は予測と同じ尺度になる |
+| PredictiveSummary | 点予測のみの経験分布族、または明示的に指定された正規近似 |
+| 説明 | 切片、型付きの項別寄与、リンクスコア、予測を含む型付きの `AdditiveExplanation` |
+| 学習時の依存関係 | ビルダーはNumPyの最小二乗法を使用。別の学習器でも同じ配列を書き出せる |
+| ランタイムの依存関係 | NumPyのみ |
 
-Each B-spline uses a fixed knot vector, degree 1–3, a positive-width domain, and constant-boundary extrapolation. Categorical values must match the exported numeric encoding exactly. Unknown kinds, fields, categories, non-finite tensors, degenerate knots, and incompatible shapes are rejected.
+各B-splineでは、固定ノットベクトル、1から3までの次数、幅が正の定義域、境界値を一定とする外挿を使います。
+カテゴリ値は、書き出された数値符号と厳密に一致する必要があります。
+未知の種類、フィールド、カテゴリ、非有限テンソル、退化したノット、互換性のない形状は拒否されます。
 
-## Capability variants
+## 機能別のバリエーション
 
-- `point/` returns no quantiles, std, or goal probability. It must not acquire fabricated uncertainty.
-- `normal/` contains a positive residual scale and returns mean/std/q05/q50/q95 with `predictive_family=normal`.
-- Both variants return identical additive scores and explanations for the same FeatureBundle.
-- Correlated inputs can make individual terms unstable. Contributions describe the fitted score and must not be presented as independent or causal effects.
+- `point/` は分位点、標準偏差、目標達成確率を返しません。
+  存在しない不確かさを作って追加することはできません。
+- `normal/` は正の残差尺度を含み、`predictive_family=normal` として平均、標準偏差、`q05`、`q50`、`q95` を返します。
+- 同じFeatureBundleを渡した場合、どちらのバリエーションも同じ加算スコアと説明を返します。
+- 入力同士に相関があると、個々の項が不安定になることがあります。
+  寄与は当てはめたスコアを説明するものであり、独立した効果や因果効果として提示することはできません。
 
-The checked response-curve golden perturbs `composition.x`, maps canonical paths through the declared Feature Pipeline order, and evaluates the additive runtime. Pairwise interactions, arbitrary basis plugins, causal interpretation, SHAP, and trainer visualization objects are outside the first contract.
+検査済みの応答曲線ゴールデンテストでは、`composition.x` を変化させ、宣言済みFeature Pipelineの順序に従って正規パスを対応付け、加算ランタイムを評価します。
+2変数間の交互作用、任意の基底プラグイン、因果的な解釈、SHAP、学習器の可視化オブジェクトは最初の契約の対象外です。
 
-## Build and verify without activation
+## 有効化せずにビルドして検証する
 
 ```powershell
 npm run models:build:additive-examples
@@ -38,4 +45,5 @@ uv run python backend/scripts/verify_model_package.py examples/model-packages/ad
 uv run python backend/scripts/verify_model_package.py examples/model-packages/additive-terms/normal --example
 ```
 
-The quality report records training RMSE, explanation reconstruction error, and response-curve span over fixed synthetic data. Neither Package is added to `models/active-packages.json`.
+品質レポートには、固定された合成データに対する学習RMSE、説明の再構成誤差、応答曲線の変動幅が記録されます。
+どちらのモデルパッケージも `models/active-packages.json` には追加されません。
