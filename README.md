@@ -79,14 +79,14 @@ v3用のPackageを既存v2 Packageへ上書きせずに作る例です。Package
 
 ```powershell
 uv run python backend/scripts/build_default_model_package.py --source data/source/process_dashboard_realistic_excel_v3.xlsx --output output/v3-model-packages/annealed-gp-2026-07 --replace
-uv run python backend/scripts/build_hot_rolling_model_package.py --source data/source/process_dashboard_realistic_excel_v3.xlsx --output output/v3-model-packages/hot-rolled-gp-2026-07 --replace
+uv run --extra runtime-numpyro python backend/scripts/build_hot_rolling_model_package.py --source data/source/process_dashboard_realistic_excel_v3.xlsx --output output/v3-model-packages/hot-rolled-horseshoe-2026-07 --replace
 ```
 
 v5用Packageは既存Packageと併存させます。現在の検証済みPackageは次の場所にあります。
 
 ```powershell
 uv run python backend/scripts/build_default_model_package.py --source data/source/process_dashboard_two_equipment_v5.xlsx --output models/packages/annealed-gp-2026-07-v5 --replace
-uv run python backend/scripts/build_hot_rolling_model_package.py --source data/source/process_dashboard_two_equipment_v5.xlsx --output models/packages/hot-rolled-gp-2026-07-v5 --replace
+uv run --extra runtime-numpyro python backend/scripts/build_hot_rolling_model_package.py --source data/source/process_dashboard_two_equipment_v5.xlsx --output models/packages/hot-rolled-horseshoe-2026-07-v5 --replace
 ```
 
 v5を起動確認するときは、sourceと2つのPackageを同じフローで指定します。既定のactive Packageは変更しません。
@@ -94,7 +94,7 @@ v5を起動確認するときは、sourceと2つのPackageを同じフローで�
 ```powershell
 $env:WORKBENCH_SOURCE_PATH = "data/source/process_dashboard_two_equipment_v5.xlsx"
 $env:MATERIAL_WORKBENCH_MODEL_PACKAGE = "models/packages/annealed-gp-2026-07-v5"
-$env:MATERIAL_WORKBENCH_HOT_ROLLING_MODEL_PACKAGE = "models/packages/hot-rolled-gp-2026-07-v5"
+$env:MATERIAL_WORKBENCH_HOT_ROLLING_MODEL_PACKAGE = "models/packages/hot-rolled-horseshoe-2026-07-v5"
 npm run dev
 ```
 
@@ -106,7 +106,7 @@ npm run dev
 
 既定の学習済みPackageは `models/packages/annealed-gp-2026-07` です。ガウス過程回帰が90%予測区間を返し、モデル由来の不確かさと反復測定由来のばらつきを分けて表示します。予測時にmanifest・artifact hash・特徴量順序・smoke inputを検証し、画面の「プロジェクト」で有効なPackageとruntimeを確認できます。
 
-熱延タブは独立した `hot-rolled-properties-v1` タスクで、`models/packages/hot-rolled-gp-2026-07` を使用します。熱延v1は `HR-LINE-1`・L方向引張を推定対象に固定し、物理範囲外の観測を学習から除外します。
+熱延タブは独立した `hot-rolled-properties-v1` タスクで、`models/packages/hot-rolled-horseshoe-2026-07` の正則化Horseshoe回帰を使用します。熱延v1は `HR-LINE-1`・L方向引張を推定対象に固定し、物理範囲外の観測を学習から除外します。事後係数の縮小結果はPackage内の `reports/selection-report.json`、学習健全性は `reports/training-diagnostics.json` に保存します。
 
 既定のactive Packageは `models/active-packages.json` でタスクごとに固定します。開発中に検証済みPackageを一時的に試す場合だけ、信頼できるローカルPackageの絶対パスを指定します。
 

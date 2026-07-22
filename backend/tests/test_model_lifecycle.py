@@ -32,14 +32,15 @@ SOURCE = ROOT / "data" / "source" / "process_dashboard_realistic_excel_v2.xlsx"
     ("task_id", "package_id"),
     [
         ("annealed-properties-v1", "annealed-gp-2026-07"),
-        ("hot-rolled-properties-v1", "hot-rolled-gp-2026-07"),
+        ("hot-rolled-properties-v1", "hot-rolled-horseshoe-2026-07"),
     ],
 )
 def test_checked_in_package_passes_production_runtime_verification(task_id: str, package_id: str) -> None:
     report = verify_model_package(ROOT / "models" / "packages" / package_id, task_id=task_id, source=SOURCE)
     assert report.task_id == task_id
     assert report.package_id == package_id
-    assert report.quality_report["split"] == "leave-one-parent-condition-out"
+    expected_split = "grouped-parent-condition-k-fold" if task_id == "hot-rolled-properties-v1" else "leave-one-parent-condition-out"
+    assert report.quality_report["split"] == expected_split
 
 
 def test_canonical_training_dataset_is_deterministic_and_task_specific() -> None:
@@ -55,7 +56,7 @@ def test_canonical_training_dataset_is_deterministic_and_task_specific() -> None
 
 
 def test_verify_rejects_contract_digest_and_quality_report_corruption(tmp_path: Path) -> None:
-    source = ROOT / "models" / "packages" / "hot-rolled-gp-2026-07"
+    source = ROOT / "models" / "packages" / "hot-rolled-horseshoe-2026-07"
     package = tmp_path / "package"
     import shutil
 
@@ -176,8 +177,8 @@ def test_alternate_verified_package_needs_no_api_change_and_snapshot_keeps_old_i
 def test_app_startup_rejects_package_trained_from_a_different_source(tmp_path: Path) -> None:
     import shutil
 
-    source = ROOT / "models" / "packages" / "hot-rolled-gp-2026-07"
-    package = tmp_path / "hot-rolled-gp"
+    source = ROOT / "models" / "packages" / "hot-rolled-horseshoe-2026-07"
+    package = tmp_path / "hot-rolled-horseshoe"
     shutil.copytree(source, package)
     manifest_path = package / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
