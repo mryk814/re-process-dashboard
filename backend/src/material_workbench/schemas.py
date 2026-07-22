@@ -14,6 +14,163 @@ COMPOSITION_ELEMENTS = {
 }
 
 
+class DataAssetCreateInput(BaseModel):
+    original_filename: Annotated[str, Field(min_length=1, max_length=255)]
+    sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    media_type: Annotated[str, Field(min_length=1, max_length=120)]
+    locator_kind: Literal["managed", "bundled"]
+    locator: Annotated[str, Field(min_length=1)]
+
+
+class DataAssetUpdateInput(BaseModel):
+    archived: bool
+
+
+class DataAsset(DataAssetCreateInput):
+    id: str
+    created_at: datetime
+    archived_at: datetime | None = None
+
+
+class ProfileRevisionCreateInput(BaseModel):
+    profile_id: Annotated[str, Field(min_length=1, max_length=120)]
+    revision: Annotated[int, Field(ge=1)]
+    name: Annotated[str, Field(min_length=1, max_length=160)]
+    profile_digest: Annotated[str, Field(min_length=1)]
+    canonical_contract_digest: Annotated[str, Field(min_length=1)]
+    effective_profile_json: dict[str, Any]
+
+
+class ProfileRevisionUpdateInput(BaseModel):
+    archived: bool
+
+
+class ProfileRevision(ProfileRevisionCreateInput):
+    id: str
+    created_at: datetime
+    archived_at: datetime | None = None
+
+
+class DatasetRevisionCreateInput(BaseModel):
+    data_asset_id: Annotated[str, Field(min_length=1)]
+    profile_revision_id: Annotated[str, Field(min_length=1)]
+    canonicalization_contract_digest: Annotated[str, Field(min_length=1)]
+
+
+class DatasetRevisionUpdateInput(BaseModel):
+    archived: bool
+
+
+class DatasetRevision(DatasetRevisionCreateInput):
+    id: str
+    dataset_digest: Annotated[str, Field(min_length=1)]
+    created_at: datetime
+    archived_at: datetime | None = None
+
+
+class DatasetViewMemberInput(BaseModel):
+    dataset_revision_id: Annotated[str, Field(min_length=1)]
+    ordinal: Annotated[int, Field(ge=0)]
+    cohort_key: Annotated[str, Field(max_length=120)] = ""
+    cohort_label: Annotated[str, Field(max_length=160)] = ""
+    provenance_json: dict[str, Any] = Field(default_factory=dict)
+
+
+class DatasetViewMember(DatasetViewMemberInput):
+    dataset_view_revision_id: str
+
+
+class DatasetViewRevisionCreateInput(BaseModel):
+    view_id: Annotated[str, Field(min_length=1, max_length=120)]
+    revision: Annotated[int, Field(ge=1)]
+    name: Annotated[str, Field(min_length=1, max_length=160)]
+    kind: Literal["single", "cohort_comparison"]
+    members: Annotated[list[DatasetViewMemberInput], Field(min_length=1)]
+
+    @model_validator(mode="after")
+    def members_match_view_kind(self) -> "DatasetViewRevisionCreateInput":
+        if self.kind == "single" and len(self.members) != 1:
+            raise ValueError("single Dataset ViewにはDataset Revisionを1件だけ指定してください")
+        if self.kind == "cohort_comparison" and len(self.members) < 2:
+            raise ValueError("cohort comparisonにはDataset Revisionを2件以上指定してください")
+        revision_ids = [member.dataset_revision_id for member in self.members]
+        if len(revision_ids) != len(set(revision_ids)):
+            raise ValueError("Dataset View内で同じDataset Revisionを重複指定できません")
+        ordinals = [member.ordinal for member in self.members]
+        if len(ordinals) != len(set(ordinals)):
+            raise ValueError("Dataset View内のordinalは重複できません")
+        cohort_keys = [member.cohort_key for member in self.members]
+        if len(cohort_keys) != len(set(cohort_keys)):
+            raise ValueError("Dataset View内のcohort_keyは重複できません")
+        return self
+
+
+class DatasetViewRevisionUpdateInput(BaseModel):
+    archived: bool
+
+
+class DatasetViewRevision(BaseModel):
+    id: str
+    view_id: str
+    revision: Annotated[int, Field(ge=1)]
+    name: str
+    kind: Literal["single", "cohort_comparison"]
+    view_digest: Annotated[str, Field(min_length=1)]
+    members: list[DatasetViewMember]
+    created_at: datetime
+    archived_at: datetime | None = None
+
+
+class ModelPackageRefCreateInput(BaseModel):
+    package_id: Annotated[str, Field(min_length=1)]
+    task_id: Annotated[str, Field(min_length=1)]
+    task_contract_digest: Annotated[str, Field(min_length=1)]
+    manifest_digest: Annotated[str, Field(min_length=1)]
+    locator: Annotated[str, Field(min_length=1)]
+    manifest_json: dict[str, Any]
+
+
+class ModelPackageRefUpdateInput(BaseModel):
+    archived: bool
+
+
+class ModelPackageRef(ModelPackageRefCreateInput):
+    id: str
+    created_at: datetime
+    archived_at: datetime | None = None
+
+
+class ProjectSeriesCreateInput(BaseModel):
+    name: Annotated[str, Field(min_length=1, max_length=160)]
+    description: str = ""
+
+
+class ProjectSeriesUpdateInput(ProjectSeriesCreateInput):
+    archived: bool = False
+
+
+class ProjectSeries(ProjectSeriesCreateInput):
+    id: str
+    archived_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class DataLibraryDataset(BaseModel):
+    dataset_revision: DatasetRevision
+    data_asset: DataAsset
+    profile_revision: ProfileRevision
+    supported_task_ids: list[str]
+    dataset_views: list[DatasetViewRevision] = Field(default_factory=list)
+
+
+class ProjectCreationOptions(BaseModel):
+    datasets: list[DataLibraryDataset]
+    dataset_views: list[DatasetViewRevision]
+    model_packages: list[ModelPackageRef]
+    project_series: list[ProjectSeries]
+
+
 class HeatPoint(BaseModel):
     time_s: Annotated[float, Field(ge=0, allow_inf_nan=False)]
     temperature_c: Annotated[float, Field(ge=-273.15, le=1800)]
@@ -127,6 +284,56 @@ class ProjectInput(BaseModel):
 
 class ProjectCreateInput(ProjectInput):
     initial_candidate: CandidateInput | None = None
+    dataset_view_revision_id: str | None = None
+    task_contract_digest: str = ""
+    model_package_ref_id: str | None = None
+    model_package_manifest_digest: str = ""
+    project_series_id: str | None = None
+    predecessor_project_id: str | None = None
+    continuation_reason: str = ""
+
+
+class ProjectUpdateInput(BaseModel):
+    """Fields that may change without changing a Project's scientific identity."""
+
+    name: Annotated[str, Field(min_length=1, max_length=120)] = "焼鈍条件の候補検討"
+    description: str = ""
+    purpose: str = ""
+    target_values: dict[str, float] = Field(default_factory=dict)
+    input_ranges: dict[str, InputRange] = Field(default_factory=dict)
+    response_curve_ranges: dict[str, dict[str, InputRange]] = Field(default_factory=dict)
+    heat_stage_positions_m: dict[str, Annotated[float, Field(ge=0, allow_inf_nan=False)]] = Field(default_factory=dict)
+    display_decimals: dict[str, Annotated[int, Field(ge=0, le=8)]] = Field(default_factory=dict)
+    notes: str = ""
+    decision_candidate_id: Annotated[str, Field(max_length=80)] = ""
+    decision_snapshot_id: Annotated[str, Field(max_length=80)] = ""
+    decision_note: Annotated[str, Field(max_length=500)] = ""
+    # Accepted only to detect stale/full-object clients. The service verifies
+    # these values and never persists them through the update path.
+    task_id: str | None = None
+    dataset_view_revision_id: str | None = None
+    task_contract_digest: str | None = None
+    model_package_ref_id: str | None = None
+    model_package_manifest_digest: str | None = None
+    project_series_id: str | None = None
+    predecessor_project_id: str | None = None
+
+    @field_validator("target_values")
+    @classmethod
+    def targets_are_finite(cls, value: dict[str, float]) -> dict[str, float]:
+        if any(not math.isfinite(target) for target in value.values()):
+            raise ValueError("目標値は有限の数値にしてください")
+        return value
+
+    @model_validator(mode="after")
+    def decision_note_requires_candidate(self) -> "ProjectUpdateInput":
+        if (self.decision_note or self.decision_snapshot_id) and not self.decision_candidate_id:
+            raise ValueError("判断理由またはスナップショットを保存する場合は採用候補を指定してください")
+        if self.decision_candidate_id and not self.decision_snapshot_id:
+            raise ValueError("採用候補には判断時点の予測スナップショットが必要です")
+        if self.decision_candidate_id and not self.decision_note:
+            raise ValueError("採用候補には判断理由が必要です")
+        return self
 
 
 class ProjectDecisionInput(BaseModel):
@@ -144,6 +351,15 @@ class ProjectDecisionInput(BaseModel):
 
 class Project(ProjectInput):
     id: str
+    dataset_view_revision_id: str | None = None
+    task_contract_digest: str = ""
+    model_package_ref_id: str | None = None
+    model_package_manifest_digest: str = ""
+    project_series_id: str | None = None
+    predecessor_project_id: str | None = None
+    continuation_reason: str = ""
+    binding_provenance: Literal["explicit", "assumed_current_at_upgrade", "unbound_legacy"] = "unbound_legacy"
+    binding_migrated_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -256,6 +472,7 @@ class SimilarObservation(BaseModel):
     parent_key: str
     source: str = ""
     layer: Literal["training", "historical"] | None = None
+    source_scope: Literal["model_training_data", "project_reference_data"] | None = None
     distance: float
     components: dict[str, float] = Field(default_factory=dict)
     outputs: dict[str, float] = Field(default_factory=dict)
@@ -337,6 +554,7 @@ class PredictionResponse(BaseModel):
     mode: Literal["preview", "detailed"]
     predictions: dict[str, Prediction]
     support: Support
+    model_support: dict[str, Support] = Field(default_factory=dict)
     warnings: list[str]
     model_meta: ModelMetadata
     canonical_input: dict[str, object]
@@ -626,6 +844,7 @@ class ApiError(BaseModel):
         "candidate_provenance_immutable",
         "project_task_locked",
         "protected_project",
+        "project_has_successors",
         "data_integrity_error",
         "validation_error",
         "runtime_unavailable",

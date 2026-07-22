@@ -7,6 +7,7 @@ import { ScreeningPage } from "../features/screening";
 import { LineagePage } from "../features/lineage";
 import { DataExploreNavigation, LiveDataQualityPage } from "../features/quality";
 import { DeveloperAdminPage } from "../features/admin";
+import { DataLibraryPage } from "../features/data-library";
 
 type Tab = WorkbenchView;
 const projectNavItems: Array<{ id: Tab; label: string; active: Tab[]; requiresDataExplorer?: boolean }> = [
@@ -71,6 +72,7 @@ function App() {
   const qualityAvailable = dataExplorer?.quality === true;
   const lineageAvailable = dataExplorer?.lineage === true;
   const visibleProjectNavItems = projectNavItems.filter((item) => !item.requiresDataExplorer || qualityAvailable || lineageAvailable);
+  const dataLibraryMode = tab === "data-library";
 
   function selectCandidate(candidateId: string, replace = true) {
     session.selectCandidate(candidateId, false);
@@ -116,10 +118,16 @@ function App() {
           >
             プロジェクト
           </button>
+          <button
+            className={dataLibraryMode ? "nav-button active" : "nav-button"}
+            onClick={() => navigate({ view: "data-library", projectId: activeProjectId })}
+          >
+            データライブラリ
+          </button>
         </nav>
       </header>
       <main>
-        <div className="context-bar">
+        {!dataLibraryMode && <div className="context-bar">
           <div className="context-primary-row">
             <h1 title={activeProject?.name ?? undefined}>{activeProject?.name ?? "プロジェクトを読み込んでいます"}</h1>
             <div className="run-actions">
@@ -158,7 +166,7 @@ function App() {
               </button>
             ))}
           </nav>
-        </div>
+        </div>}
         {notice && notice !== preview?.support.message && <div className="workspace-notice" role="status">{notice}</div>}
         {tab === "project" && (
           <ProjectHub
@@ -188,6 +196,7 @@ function App() {
             requestedSnapshotId={navigation.snapshotId}
           />
         )}
+        {tab === "data-library" && <DataLibraryPage projects={projects} />}
         {tab === "settings" && (
           <DeveloperAdminPage
             project={activeProject}

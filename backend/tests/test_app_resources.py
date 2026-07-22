@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from material_workbench.app import _AppResources, create_app
-from material_workbench.schemas import ProjectInput
+from material_workbench.schemas import ProjectCreateInput
 
 
 def test_prepared_resources_keep_each_app_database_and_work_graph_isolated(
@@ -21,7 +21,7 @@ def test_prepared_resources_keep_each_app_database_and_work_graph_isolated(
         assert first_app.state.inference_work_graph is not second_app.state.inference_work_graph
 
         created = first_app.state.store.create_project(
-            ProjectInput(name="分離確認", task_id="annealed-properties-v1")
+                ProjectCreateInput(name="分離確認", task_id="annealed-properties-v1")
         )
         assert second_app.state.store.get_project(created.id) is None
 

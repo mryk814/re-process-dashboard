@@ -5,7 +5,8 @@ from typing import Any, Mapping
 
 from .candidates import CandidateService
 from .projects import ProjectService
-from ..inference_work_graph import InferenceKey, InferenceWorkGraph
+from ..inference_work_graph import InferenceKey, InferenceWorkGraph, semantic_digest
+from ..project_runtime_resolver import ProjectRuntimeResolver
 from ..schemas import Candidate, Project
 from ..store import Store
 from ..task_registry import TaskRegistry, TaskRegistryError
@@ -16,40 +17,58 @@ class InferenceValidationError(ValueError):
 
 
 class InferenceService:
-    def __init__(self, store: Store, registry: TaskRegistry, graph: InferenceWorkGraph) -> None:
+    def __init__(
+        self,
+        store: Store,
+        registry: TaskRegistry,
+        graph: InferenceWorkGraph,
+        resolver: ProjectRuntimeResolver,
+    ) -> None:
         self.registry = registry
         self.graph = graph
+        self.resolver = resolver
         self.projects = ProjectService(store, registry)
-        self.candidates = CandidateService(store, registry)
+        self.candidates = CandidateService(store, registry, resolver)
 
     def preview(self, project_id: str, candidate_id: str, revision: int) -> dict[str, Any]:
         project = self.projects.require(project_id)
         self.require_operation(project.task_id, "preview")
         candidate = self.candidates.at_revision(project_id, candidate_id, revision)
-        runtime = self.registry.runtime_for(project.task_id)
+        runtime = self.resolver.runtime_for(project)
         prediction = self.graph.execute(
-            self.key(project.task_id, candidate, "preview", parameters={"target_values": project.target_values}, uses_package=True),
+            self.key(project, candidate, "preview", parameters={"target_values": project.target_values}, uses_package=True),
             lambda: runtime.predict_core(candidate, detailed=False, target_values=project.target_values),
         )
         support = self.graph.execute(
-            self.key(project.task_id, candidate, "support", uses_support=True),
-            lambda: self.registry.entry_for(project.task_id).support_provider.support_summary(candidate),
+            self.key(project, candidate, "support", uses_support=True),
+            lambda: runtime.support_summary(candidate),  # type: ignore[attr-defined]
         )
         prediction["candidate_id"] = candidate.id
         prediction["support"] = support
+        prediction["model_support"] = runtime.support_by_target(candidate)  # type: ignore[attr-defined]
         prediction["similar"] = []
+        prediction.setdefault("model_meta", {})["application_data"] = {
+            "dataset_view_revision_id": project.dataset_view_revision_id,
+            "source_sha256": self.resolver.context_runtime_for(project).data.source_sha256,
+        }
         if support.status != "supported" and support.message not in prediction["warnings"]:
             prediction["warnings"].append(support.message)
         return prediction
 
     def detailed_for(self, project: Project, candidate: Candidate) -> dict[str, Any]:
         self.require_operation(project.task_id, "detailed_prediction")
-        runtime = self.registry.runtime_for(project.task_id)
+        runtime = self.resolver.runtime_for(project)
         result = self.graph.execute(
-            self.key(project.task_id, candidate, "detailed", parameters={"target_values": project.target_values, "policy_id": "detailed-v1"}, uses_package=True, uses_support=True),
+            self.key(project, candidate, "detailed", parameters={"target_values": project.target_values, "policy_id": "detailed-v1"}, uses_package=True, uses_support=True),
             lambda: runtime.predict(candidate, detailed=True, include_curve=False, target_values=project.target_values),
         )
         result["candidate_id"] = candidate.id
+        result["model_support"] = runtime.support_by_target(candidate)  # type: ignore[attr-defined]
+        result["similar"] = self._context_similarity(project, candidate, 6)
+        result.setdefault("model_meta", {})["application_data"] = {
+            "dataset_view_revision_id": project.dataset_view_revision_id,
+            "source_sha256": self.resolver.context_runtime_for(project).data.source_sha256,
+        }
         return result
 
     def response_curve(self, project_id: str, candidate_id: str, revision: int, target: str, variable: str, points: int, range_min: float | None, range_max: float | None, stage_name: str | None, stage_position_m: float | None) -> dict[str, Any]:
@@ -72,10 +91,10 @@ class InferenceService:
                 raise InferenceValidationError("応答曲線の範囲は有限の数値で、最小値 < 最大値にしてください")
             axis_range = (range_min, range_max)
         try:
-            runtime = self.registry.runtime_for(project.task_id)
+            runtime = self.resolver.runtime_for(project)
             handler = self.registry.response_curve_for(project.task_id)
             return self.graph.execute(
-                self.key(project.task_id, candidate, "curve", parameters={"target": target, "variable": variable, "points": points, "range_min": range_min, "range_max": range_max, "stage_name": stage_name, "stage_position_m": stage_position_m, "policy_id": "fixed-grid-v2"}, uses_package=True),
+                self.key(project, candidate, "curve", parameters={"target": target, "variable": variable, "points": points, "range_min": range_min, "range_max": range_max, "stage_name": stage_name, "stage_position_m": stage_position_m, "policy_id": "fixed-grid-v2"}, uses_package=True),
                 lambda: handler(runtime, candidate, target, variable, points, axis_range, stage_name, stage_position_m),
             )
         except ValueError as exc:
@@ -90,10 +109,10 @@ class InferenceService:
         if contract.task_definition.curve_axis_path is None or not contract.runtime_capability.operations.response_curve:
             raise InferenceValidationError("この予測タスクは曲線ビューに対応していません")
         try:
-            runtime = self.registry.runtime_for(project.task_id)
+            runtime = self.resolver.runtime_for(project)
             handler = self.registry.curve_family_for(project.task_id)
             return self.graph.execute(
-                self.key(project.task_id, candidate, "curve_family", parameters={"target": target, "vary": vary, "levels": levels, "points": points, "policy_id": "axis-grid-v1"}, uses_package=True),
+                self.key(project, candidate, "curve_family", parameters={"target": target, "vary": vary, "levels": levels, "points": points, "policy_id": "axis-grid-v1"}, uses_package=True),
                 lambda: handler(runtime, candidate, target, vary or None, levels, points),
             )
         except ValueError as exc:
@@ -103,11 +122,25 @@ class InferenceService:
         project = self.projects.require(project_id)
         self.require_operation(project.task_id, "similarity")
         candidate = self.candidates.at_revision(project_id, candidate_id, revision)
-        provider = self.registry.entry_for(project.task_id).support_provider
+        provider = self.resolver.context_runtime_for(project)
         return self.graph.execute(
-            self.key(project.task_id, candidate, "similarity", parameters={"limit": limit}, uses_support=True),
-            lambda: provider.similarity(candidate, limit),
+            self.key(project, candidate, "similarity", parameters={"limit": limit}, uses_support=True),
+            lambda: self._context_similarity(project, candidate, limit),
         )
+
+    def _context_similarity(
+        self, project: Project, candidate: Candidate, limit: int
+    ) -> list[dict[str, object]]:
+        provider = self.resolver.context_runtime_for(project)
+        rows = provider.similarity(candidate, limit)  # type: ignore[attr-defined]
+        return [
+            {
+                **row,
+                "layer": "historical",
+                "source_scope": "project_reference_data",
+            }
+            for row in rows
+        ]
 
     def diagnostics(self) -> dict[str, Any]:
         return self.graph.diagnostics()
@@ -118,16 +151,25 @@ class InferenceService:
         except TaskRegistryError as exc:
             raise InferenceValidationError(str(exc)) from exc
 
-    def key(self, task_id: str, candidate: Candidate, operation: str, *, parameters: Mapping[str, Any] | None = None, uses_package: bool = False, uses_support: bool = False) -> InferenceKey:
-        entry = self.registry.entry_for(task_id)
-        canonical = self.registry.validate_candidate(task_id, candidate).model_dump(mode="json", exclude={"provenance"})
+    def key(self, project: Project, candidate: Candidate, operation: str, *, parameters: Mapping[str, Any] | None = None, uses_package: bool = False, uses_support: bool = False) -> InferenceKey:
+        runtime = self.resolver.runtime_for(project)
+        package = runtime.model_package
+        if package is None:
+            raise InferenceValidationError("Model Packageが解決されていません")
+        pipeline_digest = self.registry._pipeline_digest(package)
+        canonical = self.registry.validate_candidate(project.task_id, candidate).model_dump(mode="json", exclude={"provenance"})
         return InferenceKey.build(
-            task_id=task_id,
-            runtime_type=entry.runtime_type,
+            task_id=project.task_id,
+            runtime_type="+".join(sorted({item.runtime_type for item in package.manifest.predictors})),
             canonical_input=canonical,
-            package_digest=entry.package_digest if uses_package else "",
-            pipeline_digest=entry.pipeline_digest,
-            support_digest=entry.support_digest if uses_support else None,
+            package_digest=f"sha256:{package.manifest_sha256}" if uses_package else "",
+            pipeline_digest=pipeline_digest,
+            support_digest=semantic_digest({
+                "dataset_view_revision_id": project.dataset_view_revision_id,
+                "source_sha256": runtime.data.source_sha256,
+                "pipeline_digest": pipeline_digest,
+                "policy_id": runtime.support_policy_id,
+            }) if uses_support else None,
             operation=operation,
             operation_parameters=parameters,
         )

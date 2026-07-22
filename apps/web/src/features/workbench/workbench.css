@@ -676,3 +676,7 @@
   text-align: center;
   font-size: 11px;
 }
+.target-support-list { display: grid; gap: 2px; min-width: 104px; }
+.target-support-list > span { display: grid; grid-template-columns: 22px 8px 1fr; align-items: center; gap: 3px; color: #536478; font-size: 9px; line-height: 1.25; }
+.target-support-list b { color: #2d4259; font-size: 9px; }
+.target-support-list .status-dot { width: 6px; height: 6px; }

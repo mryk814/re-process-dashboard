@@ -8,7 +8,7 @@ from typing import Any, Callable
 import numpy as np
 from openpyxl import Workbook, load_workbook
 
-from .dataset_profile import load_dataset_profile
+from .dataset_profile import DatasetInputProfile, load_dataset_profile
 from .hot_rolling_feature_pipeline import PROCESS_NAMES
 from .importer import WorkbookData, composition_names
 from .task_modules import PredictionRuntime
@@ -214,8 +214,12 @@ def candidate_from_lineage(data: WorkbookData, entity_key: str) -> CandidateInpu
     )
 
 
-def _candidate_xlsx_names(task_id: str, profile_path: str | None = None) -> dict[str, str]:
-    profile = load_dataset_profile(profile_path)
+def _candidate_xlsx_names(
+    task_id: str,
+    profile_path: str | None = None,
+    profile: DatasetInputProfile | None = None,
+) -> dict[str, str]:
+    profile = profile or load_dataset_profile(profile_path)
     task_profile = profile.tasks[task_id]
     names = {
         "schema_version": "形式バージョン",
@@ -254,6 +258,7 @@ def import_candidates_xlsx(
     contents: bytes,
     task_id: str = "annealed-properties-v1",
     profile_path: str | None = None,
+    profile: DatasetInputProfile | None = None,
 ) -> tuple[list[CandidateInput], list[dict[str, Any]]]:
     try:
         workbook = load_workbook(BytesIO(contents), read_only=True, data_only=True)
@@ -270,7 +275,7 @@ def import_candidates_xlsx(
     process_fields = [field for field in fields.values() if field.path.startswith("process.")]
     categorical_fields = [field for field in fields.values() if field.path.startswith("categorical.")]
     heat_enabled = any(field.kind == "heat_pattern" for group in definition.input_groups for field in group.fields)
-    display_names = _candidate_xlsx_names(task_id, profile_path)
+    display_names = _candidate_xlsx_names(task_id, profile_path, profile)
     sheet = workbook.active
     rows = sheet.iter_rows(values_only=True)
     headers = [str(value).strip() if value is not None else "" for value in next(rows, [])]
@@ -362,7 +367,11 @@ def candidates_xlsx(candidates: list[Candidate], runtime: PredictionRuntime, tas
         if field.kind == "categorical"
     ]
     heat_enabled = any(field.kind == "heat_pattern" for group in definition.input_groups for field in group.fields)
-    display_names = _candidate_xlsx_names(task_id, runtime.data.profile_path)
+    display_names = _candidate_xlsx_names(
+        task_id,
+        runtime.data.profile_path if not runtime.data.profile_path.startswith("catalog:") else None,
+        getattr(runtime.data, "profile", None),
+    )
     max_points = max((len(candidate.inputs.heat_pattern or []) for candidate in candidates), default=2) if heat_enabled else 0
     heat_headers = [
         item for index in range(1, max_points + 1)

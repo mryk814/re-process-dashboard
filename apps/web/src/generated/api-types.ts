@@ -4,6 +4,58 @@
  */
 
 export interface paths {
+    "/api/data-library/datasets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Datasets */
+        get: operations["list_datasets_api_data_library_datasets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data-library/model-packages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Model Packages */
+        get: operations["list_model_packages_api_data_library_model_packages_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data-library/views": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Dataset Views */
+        get: operations["list_dataset_views_api_data_library_views_get"];
+        put?: never;
+        /** Create Dataset View */
+        post: operations["create_dataset_view_api_data_library_views_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/diagnostics/inference": {
         parameters: {
             query?: never;
@@ -31,6 +83,59 @@ export interface paths {
         /** Health */
         get: operations["health_api_health_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/project-creation-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Project Creation Options */
+        get: operations["project_creation_options_api_project_creation_options_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/project-series": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Project Series */
+        get: operations["list_project_series_api_project_series_get"];
+        put?: never;
+        /** Create Project Series */
+        post: operations["create_project_series_api_project_series_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/project-series/{series_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Project Series */
+        get: operations["get_project_series_api_project_series__series_id__get"];
+        /** Update Project Series */
+        put: operations["update_project_series_api_project_series__series_id__put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -652,7 +757,7 @@ export interface components {
              * Code
              * @enum {string}
              */
-            code: "not_found" | "revision_conflict" | "candidate_limit" | "adopted_candidate" | "candidate_archived" | "candidate_provenance_immutable" | "project_task_locked" | "protected_project" | "data_integrity_error" | "validation_error" | "runtime_unavailable";
+            code: "not_found" | "revision_conflict" | "candidate_limit" | "adopted_candidate" | "candidate_archived" | "candidate_provenance_immutable" | "project_task_locked" | "protected_project" | "project_has_successors" | "data_integrity_error" | "validation_error" | "runtime_unavailable";
             current_candidate?: components["schemas"]["Candidate"] | null;
             /** Field Errors */
             field_errors?: components["schemas"]["FieldError"][];
@@ -894,6 +999,31 @@ export interface components {
             /** Label */
             label: string;
         };
+        /** DataAsset */
+        DataAsset: {
+            /** Archived At */
+            archived_at?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: string;
+            /** Locator */
+            locator: string;
+            /**
+             * Locator Kind
+             * @enum {string}
+             */
+            locator_kind: "managed" | "bundled";
+            /** Media Type */
+            media_type: string;
+            /** Original Filename */
+            original_filename: string;
+            /** Sha256 */
+            sha256: string;
+        };
         /** DataExplorerCapability */
         DataExplorerCapability: {
             /** Candidate Creation */
@@ -908,6 +1038,16 @@ export interface components {
              * @constant
              */
             schema_version: "data-explorer-capability/v1";
+        };
+        /** DataLibraryDataset */
+        DataLibraryDataset: {
+            data_asset: components["schemas"]["DataAsset"];
+            dataset_revision: components["schemas"]["DatasetRevision"];
+            /** Dataset Views */
+            dataset_views?: components["schemas"]["DatasetViewRevision"][];
+            profile_revision: components["schemas"]["ProfileRevision"];
+            /** Supported Task Ids */
+            supported_task_ids: string[];
         };
         /** DataQualityIssue */
         DataQualityIssue: {
@@ -948,6 +1088,113 @@ export interface components {
             source_sha256: string;
             /** Task Id */
             task_id: string;
+        };
+        /** DatasetRevision */
+        DatasetRevision: {
+            /** Archived At */
+            archived_at?: string | null;
+            /** Canonicalization Contract Digest */
+            canonicalization_contract_digest: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Data Asset Id */
+            data_asset_id: string;
+            /** Dataset Digest */
+            dataset_digest: string;
+            /** Id */
+            id: string;
+            /** Profile Revision Id */
+            profile_revision_id: string;
+        };
+        /** DatasetViewMember */
+        DatasetViewMember: {
+            /**
+             * Cohort Key
+             * @default
+             */
+            cohort_key: string;
+            /**
+             * Cohort Label
+             * @default
+             */
+            cohort_label: string;
+            /** Dataset Revision Id */
+            dataset_revision_id: string;
+            /** Dataset View Revision Id */
+            dataset_view_revision_id: string;
+            /** Ordinal */
+            ordinal: number;
+            /** Provenance Json */
+            provenance_json?: {
+                [key: string]: unknown;
+            };
+        };
+        /** DatasetViewMemberInput */
+        DatasetViewMemberInput: {
+            /**
+             * Cohort Key
+             * @default
+             */
+            cohort_key: string;
+            /**
+             * Cohort Label
+             * @default
+             */
+            cohort_label: string;
+            /** Dataset Revision Id */
+            dataset_revision_id: string;
+            /** Ordinal */
+            ordinal: number;
+            /** Provenance Json */
+            provenance_json?: {
+                [key: string]: unknown;
+            };
+        };
+        /** DatasetViewRevision */
+        DatasetViewRevision: {
+            /** Archived At */
+            archived_at?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "single" | "cohort_comparison";
+            /** Members */
+            members: components["schemas"]["DatasetViewMember"][];
+            /** Name */
+            name: string;
+            /** Revision */
+            revision: number;
+            /** View Digest */
+            view_digest: string;
+            /** View Id */
+            view_id: string;
+        };
+        /** DatasetViewRevisionCreateInput */
+        DatasetViewRevisionCreateInput: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "single" | "cohort_comparison";
+            /** Members */
+            members: components["schemas"]["DatasetViewMemberInput"][];
+            /** Name */
+            name: string;
+            /** Revision */
+            revision: number;
+            /** View Id */
+            view_id: string;
         };
         /** DetailedPredictionResponse */
         DetailedPredictionResponse: {
@@ -1311,6 +1558,32 @@ export interface components {
             /** Target */
             target: string;
         };
+        /** ModelPackageRef */
+        ModelPackageRef: {
+            /** Archived At */
+            archived_at?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: string;
+            /** Locator */
+            locator: string;
+            /** Manifest Digest */
+            manifest_digest: string;
+            /** Manifest Json */
+            manifest_json: {
+                [key: string]: unknown;
+            };
+            /** Package Id */
+            package_id: string;
+            /** Task Contract Digest */
+            task_contract_digest: string;
+            /** Task Id */
+            task_id: string;
+        };
         /** ModelPackageStatus */
         ModelPackageStatus: {
             /** Active Runtimes */
@@ -1530,6 +1803,10 @@ export interface components {
              */
             mode: "preview" | "detailed";
             model_meta: components["schemas"]["ModelMetadata"];
+            /** Model Support */
+            model_support?: {
+                [key: string]: components["schemas"]["Support"];
+            };
             /** Predictions */
             predictions: {
                 [key: string]: components["schemas"]["Prediction"];
@@ -1555,13 +1832,54 @@ export interface components {
             /** Comparisons */
             comparisons: components["schemas"]["PredictionComparison"][];
         };
-        /** Project */
-        Project: {
+        /** ProfileRevision */
+        ProfileRevision: {
+            /** Archived At */
+            archived_at?: string | null;
+            /** Canonical Contract Digest */
+            canonical_contract_digest: string;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
+            /** Effective Profile Json */
+            effective_profile_json: {
+                [key: string]: unknown;
+            };
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Profile Digest */
+            profile_digest: string;
+            /** Profile Id */
+            profile_id: string;
+            /** Revision */
+            revision: number;
+        };
+        /** Project */
+        Project: {
+            /** Binding Migrated At */
+            binding_migrated_at?: string | null;
+            /**
+             * Binding Provenance
+             * @default unbound_legacy
+             * @enum {string}
+             */
+            binding_provenance: "explicit" | "assumed_current_at_upgrade" | "unbound_legacy";
+            /**
+             * Continuation Reason
+             * @default
+             */
+            continuation_reason: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Dataset View Revision Id */
+            dataset_view_revision_id?: string | null;
             /**
              * Decision Candidate Id
              * @default
@@ -1597,6 +1915,13 @@ export interface components {
                 [key: string]: components["schemas"]["InputRange"];
             };
             /**
+             * Model Package Manifest Digest
+             * @default
+             */
+            model_package_manifest_digest: string;
+            /** Model Package Ref Id */
+            model_package_ref_id?: string | null;
+            /**
              * Name
              * @default 焼鈍条件の候補検討
              */
@@ -1606,6 +1931,10 @@ export interface components {
              * @default
              */
             notes: string;
+            /** Predecessor Project Id */
+            predecessor_project_id?: string | null;
+            /** Project Series Id */
+            project_series_id?: string | null;
             /**
              * Purpose
              * @default
@@ -1622,6 +1951,11 @@ export interface components {
                 [key: string]: number;
             };
             /**
+             * Task Contract Digest
+             * @default
+             */
+            task_contract_digest: string;
+            /**
              * Task Id
              * @default annealed-properties-v1
              */
@@ -1634,6 +1968,13 @@ export interface components {
         };
         /** ProjectCreateInput */
         ProjectCreateInput: {
+            /**
+             * Continuation Reason
+             * @default
+             */
+            continuation_reason: string;
+            /** Dataset View Revision Id */
+            dataset_view_revision_id?: string | null;
             /**
              * Decision Candidate Id
              * @default
@@ -1668,6 +2009,13 @@ export interface components {
                 [key: string]: components["schemas"]["InputRange"];
             };
             /**
+             * Model Package Manifest Digest
+             * @default
+             */
+            model_package_manifest_digest: string;
+            /** Model Package Ref Id */
+            model_package_ref_id?: string | null;
+            /**
              * Name
              * @default 焼鈍条件の候補検討
              */
@@ -1677,6 +2025,10 @@ export interface components {
              * @default
              */
             notes: string;
+            /** Predecessor Project Id */
+            predecessor_project_id?: string | null;
+            /** Project Series Id */
+            project_series_id?: string | null;
             /**
              * Purpose
              * @default
@@ -1693,10 +2045,26 @@ export interface components {
                 [key: string]: number;
             };
             /**
+             * Task Contract Digest
+             * @default
+             */
+            task_contract_digest: string;
+            /**
              * Task Id
              * @default annealed-properties-v1
              */
             task_id: string;
+        };
+        /** ProjectCreationOptions */
+        ProjectCreationOptions: {
+            /** Dataset Views */
+            dataset_views: components["schemas"]["DatasetViewRevision"][];
+            /** Datasets */
+            datasets: components["schemas"]["DataLibraryDataset"][];
+            /** Model Packages */
+            model_packages: components["schemas"]["ModelPackageRef"][];
+            /** Project Series */
+            project_series: components["schemas"]["ProjectSeries"][];
         };
         /** ProjectDecisionHistory */
         ProjectDecisionHistory: {
@@ -1731,8 +2099,62 @@ export interface components {
             candidates: components["schemas"]["CandidateHistoryItem"][];
             project: components["schemas"]["Project"];
         };
-        /** ProjectInput */
-        ProjectInput: {
+        /** ProjectSeries */
+        ProjectSeries: {
+            /** Archived At */
+            archived_at?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ProjectSeriesCreateInput */
+        ProjectSeriesCreateInput: {
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Name */
+            name: string;
+        };
+        /** ProjectSeriesUpdateInput */
+        ProjectSeriesUpdateInput: {
+            /**
+             * Archived
+             * @default false
+             */
+            archived: boolean;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * ProjectUpdateInput
+         * @description Fields that may change without changing a Project's scientific identity.
+         */
+        ProjectUpdateInput: {
+            /** Dataset View Revision Id */
+            dataset_view_revision_id?: string | null;
             /**
              * Decision Candidate Id
              * @default
@@ -1765,6 +2187,10 @@ export interface components {
             input_ranges?: {
                 [key: string]: components["schemas"]["InputRange"];
             };
+            /** Model Package Manifest Digest */
+            model_package_manifest_digest?: string | null;
+            /** Model Package Ref Id */
+            model_package_ref_id?: string | null;
             /**
              * Name
              * @default 焼鈍条件の候補検討
@@ -1775,6 +2201,10 @@ export interface components {
              * @default
              */
             notes: string;
+            /** Predecessor Project Id */
+            predecessor_project_id?: string | null;
+            /** Project Series Id */
+            project_series_id?: string | null;
             /**
              * Purpose
              * @default
@@ -1790,11 +2220,10 @@ export interface components {
             target_values?: {
                 [key: string]: number;
             };
-            /**
-             * Task Id
-             * @default annealed-properties-v1
-             */
-            task_id: string;
+            /** Task Contract Digest */
+            task_contract_digest?: string | null;
+            /** Task Id */
+            task_id?: string | null;
         };
         /** PropertySummary */
         PropertySummary: {
@@ -2204,6 +2633,8 @@ export interface components {
              * @default
              */
             source: string;
+            /** Source Scope */
+            source_scope?: ("model_training_data" | "project_reference_data") | null;
         };
         /** SnapshotHistoryItem */
         SnapshotHistoryItem: {
@@ -2383,6 +2814,126 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    list_datasets_api_data_library_datasets_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataLibraryDataset"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    list_model_packages_api_data_library_model_packages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelPackageRef"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    list_dataset_views_api_data_library_views_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatasetViewRevision"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    create_dataset_view_api_data_library_views_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DatasetViewRevisionCreateInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatasetViewRevision"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     getInferenceDiagnostics: {
         parameters: {
             query?: never;
@@ -2430,6 +2981,163 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    project_creation_options_api_project_creation_options_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectCreationOptions"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    list_project_series_api_project_series_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectSeries"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    create_project_series_api_project_series_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectSeriesCreateInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectSeries"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    get_project_series_api_project_series__series_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                series_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectSeries"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    update_project_series_api_project_series__series_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                series_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectSeriesUpdateInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectSeries"];
                 };
             };
             /** @description Validation Error */
@@ -2547,7 +3255,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ProjectInput"];
+                "application/json": components["schemas"]["ProjectUpdateInput"];
             };
         };
         responses: {

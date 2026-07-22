@@ -95,8 +95,8 @@ export function SimilarityEvidencePanel({
     <section className="similar-evidence-panel">
       <div className="evidence-title">
         <div>
-          <h2>近い過去実績 <span>（予測対象の実績値）</span></h2>
-          <span className="similar-caption">距離が小さいほど、成分・工程・熱履歴が近い条件です</span>
+          <h2>参照データの近い条件 <span>（モデル学習範囲とは別）</span></h2>
+          <span className="similar-caption">このプロジェクトが参照するDataset内で、成分・工程・熱履歴が近い条件です</span>
         </div>
         {similar.length > 0 && <span className={`inference-surface-status ${status}`}>{status === "latest" ? "最新" : status === "refreshing" ? "更新中" : status === "stale" ? "旧revision・更新中" : "更新失敗・旧結果"}</span>}
       </div>
@@ -111,7 +111,7 @@ export function SimilarityEvidencePanel({
           <thead><tr><th>距離</th><th>溶製成績書 key</th><th>{processLabel} key</th><th>実績値</th><th /></tr></thead>
           <tbody>{similar.map((item) => (
             <tr key={`${item.layer ?? "training"}-${item.parent_key}`}>
-              <td className="similar-distance"><b>{item.distance.toFixed(2)}</b><span className={`layer-chip ${item.layer ?? "training"}`}>{item.layer === "historical" ? "学習外" : "学習内"}</span></td>
+              <td className="similar-distance"><b>{item.distance.toFixed(2)}</b><span className="layer-chip historical">参照</span></td>
               <td className="similar-key">{item.melt_key ?? "—"}</td>
               <td className="similar-key">{item.process_key ?? item.parent_key}</td>
               <td><div className="similar-value-list"><small>{item.source || item.observation_id || "実績"}</small>{measuredOutputs(item).map(({ output, summary }) => { const assessment = assessOutputValues(output, [summary.mean], "実測値"); return <span className={assessment.implausible ? "implausible-output" : undefined} key={output.key} title={assessment.warning ?? `${output.label}: ${formatNumber(summary.mean, 1)} ± ${formatNumber(summary.std, 1)} ${output.unit} / n=${summary.n}`}><b>{output.key === "lambda" ? "λ" : output.key}</b><strong>{formatNumber(summary.mean, 1)}</strong>{assessment.implausible && <small className="output-warning-badge">⚠</small>}</span>; })}</div></td>

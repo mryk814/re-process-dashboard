@@ -4,21 +4,25 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from .dependencies import get_store, get_task_registry
+from .dependencies import get_project_runtime_resolver, get_store, get_task_registry
 from .errors import DomainApiException, PROJECT_API_ERRORS
 from ..application.screening import ScreeningNotFoundError, ScreeningService, ScreeningValidationError
 from ..schemas import ScreeningCandidateBatchRequest, ScreeningCandidateBatchResponse, ScreeningRequest, ScreeningRunResponse
 from ..store import CandidateLimitError, ProjectNotFoundError, Store
 from ..task_registry import TaskRegistry
+from ..project_runtime_resolver import ProjectRuntimeResolver
 
 
 router = APIRouter()
 StoreDependency = Annotated[Store, Depends(get_store)]
 RegistryDependency = Annotated[TaskRegistry, Depends(get_task_registry)]
+ResolverDependency = Annotated[ProjectRuntimeResolver, Depends(get_project_runtime_resolver)]
 
 
-def get_screening_service(store: StoreDependency, registry: RegistryDependency) -> ScreeningService:
-    return ScreeningService(store, registry)
+def get_screening_service(
+    store: StoreDependency, registry: RegistryDependency, resolver: ResolverDependency
+) -> ScreeningService:
+    return ScreeningService(store, registry, resolver)
 
 
 ScreeningServiceDependency = Annotated[ScreeningService, Depends(get_screening_service)]

@@ -176,6 +176,7 @@
               "candidate_provenance_immutable",
               "project_task_locked",
               "protected_project",
+              "project_has_successors",
               "data_integrity_error",
               "validation_error",
               "runtime_unavailable"
@@ -930,6 +931,72 @@
         "title": "CurveVariableCategorical",
         "type": "object"
       },
+      "DataAsset": {
+        "properties": {
+          "archived_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "locator": {
+            "minLength": 1,
+            "title": "Locator",
+            "type": "string"
+          },
+          "locator_kind": {
+            "enum": [
+              "managed",
+              "bundled"
+            ],
+            "title": "Locator Kind",
+            "type": "string"
+          },
+          "media_type": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Media Type",
+            "type": "string"
+          },
+          "original_filename": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Original Filename",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "original_filename",
+          "sha256",
+          "media_type",
+          "locator_kind",
+          "locator",
+          "id",
+          "created_at"
+        ],
+        "title": "DataAsset",
+        "type": "object"
+      },
       "DataExplorerCapability": {
         "additionalProperties": false,
         "properties": {
@@ -958,6 +1025,41 @@
           "candidate_creation"
         ],
         "title": "DataExplorerCapability",
+        "type": "object"
+      },
+      "DataLibraryDataset": {
+        "properties": {
+          "data_asset": {
+            "$ref": "#/components/schemas/DataAsset"
+          },
+          "dataset_revision": {
+            "$ref": "#/components/schemas/DatasetRevision"
+          },
+          "dataset_views": {
+            "items": {
+              "$ref": "#/components/schemas/DatasetViewRevision"
+            },
+            "title": "Dataset Views",
+            "type": "array"
+          },
+          "profile_revision": {
+            "$ref": "#/components/schemas/ProfileRevision"
+          },
+          "supported_task_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Supported Task Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "dataset_revision",
+          "data_asset",
+          "profile_revision",
+          "supported_task_ids"
+        ],
+        "title": "DataLibraryDataset",
         "type": "object"
       },
       "DataQualityIssue": {
@@ -1071,6 +1173,256 @@
           "profile_path"
         ],
         "title": "DatasetIdentity",
+        "type": "object"
+      },
+      "DatasetRevision": {
+        "properties": {
+          "archived_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived At"
+          },
+          "canonicalization_contract_digest": {
+            "minLength": 1,
+            "title": "Canonicalization Contract Digest",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "data_asset_id": {
+            "minLength": 1,
+            "title": "Data Asset Id",
+            "type": "string"
+          },
+          "dataset_digest": {
+            "minLength": 1,
+            "title": "Dataset Digest",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "profile_revision_id": {
+            "minLength": 1,
+            "title": "Profile Revision Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data_asset_id",
+          "profile_revision_id",
+          "canonicalization_contract_digest",
+          "id",
+          "dataset_digest",
+          "created_at"
+        ],
+        "title": "DatasetRevision",
+        "type": "object"
+      },
+      "DatasetViewMember": {
+        "properties": {
+          "cohort_key": {
+            "default": "",
+            "maxLength": 120,
+            "title": "Cohort Key",
+            "type": "string"
+          },
+          "cohort_label": {
+            "default": "",
+            "maxLength": 160,
+            "title": "Cohort Label",
+            "type": "string"
+          },
+          "dataset_revision_id": {
+            "minLength": 1,
+            "title": "Dataset Revision Id",
+            "type": "string"
+          },
+          "dataset_view_revision_id": {
+            "title": "Dataset View Revision Id",
+            "type": "string"
+          },
+          "ordinal": {
+            "minimum": 0.0,
+            "title": "Ordinal",
+            "type": "integer"
+          },
+          "provenance_json": {
+            "additionalProperties": true,
+            "title": "Provenance Json",
+            "type": "object"
+          }
+        },
+        "required": [
+          "dataset_revision_id",
+          "ordinal",
+          "dataset_view_revision_id"
+        ],
+        "title": "DatasetViewMember",
+        "type": "object"
+      },
+      "DatasetViewMemberInput": {
+        "properties": {
+          "cohort_key": {
+            "default": "",
+            "maxLength": 120,
+            "title": "Cohort Key",
+            "type": "string"
+          },
+          "cohort_label": {
+            "default": "",
+            "maxLength": 160,
+            "title": "Cohort Label",
+            "type": "string"
+          },
+          "dataset_revision_id": {
+            "minLength": 1,
+            "title": "Dataset Revision Id",
+            "type": "string"
+          },
+          "ordinal": {
+            "minimum": 0.0,
+            "title": "Ordinal",
+            "type": "integer"
+          },
+          "provenance_json": {
+            "additionalProperties": true,
+            "title": "Provenance Json",
+            "type": "object"
+          }
+        },
+        "required": [
+          "dataset_revision_id",
+          "ordinal"
+        ],
+        "title": "DatasetViewMemberInput",
+        "type": "object"
+      },
+      "DatasetViewRevision": {
+        "properties": {
+          "archived_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "single",
+              "cohort_comparison"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/DatasetViewMember"
+            },
+            "title": "Members",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "view_digest": {
+            "minLength": 1,
+            "title": "View Digest",
+            "type": "string"
+          },
+          "view_id": {
+            "title": "View Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "view_id",
+          "revision",
+          "name",
+          "kind",
+          "view_digest",
+          "members",
+          "created_at"
+        ],
+        "title": "DatasetViewRevision",
+        "type": "object"
+      },
+      "DatasetViewRevisionCreateInput": {
+        "properties": {
+          "kind": {
+            "enum": [
+              "single",
+              "cohort_comparison"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/DatasetViewMemberInput"
+            },
+            "minItems": 1,
+            "title": "Members",
+            "type": "array"
+          },
+          "name": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "view_id": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "View Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "view_id",
+          "revision",
+          "name",
+          "kind",
+          "members"
+        ],
+        "title": "DatasetViewRevisionCreateInput",
         "type": "object"
       },
       "DetailedPredictionResponse": {
@@ -2111,6 +2463,73 @@
         "title": "ModelPackagePredictorStatus",
         "type": "object"
       },
+      "ModelPackageRef": {
+        "properties": {
+          "archived_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "locator": {
+            "minLength": 1,
+            "title": "Locator",
+            "type": "string"
+          },
+          "manifest_digest": {
+            "minLength": 1,
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "manifest_json": {
+            "additionalProperties": true,
+            "title": "Manifest Json",
+            "type": "object"
+          },
+          "package_id": {
+            "minLength": 1,
+            "title": "Package Id",
+            "type": "string"
+          },
+          "task_contract_digest": {
+            "minLength": 1,
+            "title": "Task Contract Digest",
+            "type": "string"
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "package_id",
+          "task_id",
+          "task_contract_digest",
+          "manifest_digest",
+          "locator",
+          "manifest_json",
+          "id",
+          "created_at"
+        ],
+        "title": "ModelPackageRef",
+        "type": "object"
+      },
       "ModelPackageStatus": {
         "properties": {
           "active_runtimes": {
@@ -2677,6 +3096,13 @@
           "model_meta": {
             "$ref": "#/components/schemas/ModelMetadata"
           },
+          "model_support": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Support"
+            },
+            "title": "Model Support",
+            "type": "object"
+          },
           "predictions": {
             "additionalProperties": {
               "$ref": "#/components/schemas/Prediction"
@@ -2767,12 +3193,119 @@
         "title": "PredictionVsActualResponse",
         "type": "object"
       },
-      "Project": {
+      "ProfileRevision": {
         "properties": {
+          "archived_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived At"
+          },
+          "canonical_contract_digest": {
+            "minLength": 1,
+            "title": "Canonical Contract Digest",
+            "type": "string"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
             "type": "string"
+          },
+          "effective_profile_json": {
+            "additionalProperties": true,
+            "title": "Effective Profile Json",
+            "type": "object"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "profile_digest": {
+            "minLength": 1,
+            "title": "Profile Digest",
+            "type": "string"
+          },
+          "profile_id": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "profile_id",
+          "revision",
+          "name",
+          "profile_digest",
+          "canonical_contract_digest",
+          "effective_profile_json",
+          "id",
+          "created_at"
+        ],
+        "title": "ProfileRevision",
+        "type": "object"
+      },
+      "Project": {
+        "properties": {
+          "binding_migrated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Binding Migrated At"
+          },
+          "binding_provenance": {
+            "default": "unbound_legacy",
+            "enum": [
+              "explicit",
+              "assumed_current_at_upgrade",
+              "unbound_legacy"
+            ],
+            "title": "Binding Provenance",
+            "type": "string"
+          },
+          "continuation_reason": {
+            "default": "",
+            "title": "Continuation Reason",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "dataset_view_revision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset View Revision Id"
           },
           "decision_candidate_id": {
             "default": "",
@@ -2825,6 +3358,22 @@
             "title": "Input Ranges",
             "type": "object"
           },
+          "model_package_manifest_digest": {
+            "default": "",
+            "title": "Model Package Manifest Digest",
+            "type": "string"
+          },
+          "model_package_ref_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Package Ref Id"
+          },
           "name": {
             "default": "焼鈍条件の候補検討",
             "maxLength": 120,
@@ -2836,6 +3385,28 @@
             "default": "",
             "title": "Notes",
             "type": "string"
+          },
+          "predecessor_project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Predecessor Project Id"
+          },
+          "project_series_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Series Id"
           },
           "purpose": {
             "default": "",
@@ -2859,6 +3430,11 @@
             "title": "Target Values",
             "type": "object"
           },
+          "task_contract_digest": {
+            "default": "",
+            "title": "Task Contract Digest",
+            "type": "string"
+          },
           "task_id": {
             "default": "annealed-properties-v1",
             "minLength": 1,
@@ -2881,6 +3457,22 @@
       },
       "ProjectCreateInput": {
         "properties": {
+          "continuation_reason": {
+            "default": "",
+            "title": "Continuation Reason",
+            "type": "string"
+          },
+          "dataset_view_revision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset View Revision Id"
+          },
           "decision_candidate_id": {
             "default": "",
             "maxLength": 80,
@@ -2938,6 +3530,22 @@
             "title": "Input Ranges",
             "type": "object"
           },
+          "model_package_manifest_digest": {
+            "default": "",
+            "title": "Model Package Manifest Digest",
+            "type": "string"
+          },
+          "model_package_ref_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Package Ref Id"
+          },
           "name": {
             "default": "焼鈍条件の候補検討",
             "maxLength": 120,
@@ -2949,6 +3557,28 @@
             "default": "",
             "title": "Notes",
             "type": "string"
+          },
+          "predecessor_project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Predecessor Project Id"
+          },
+          "project_series_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Series Id"
           },
           "purpose": {
             "default": "",
@@ -2972,6 +3602,11 @@
             "title": "Target Values",
             "type": "object"
           },
+          "task_contract_digest": {
+            "default": "",
+            "title": "Task Contract Digest",
+            "type": "string"
+          },
           "task_id": {
             "default": "annealed-properties-v1",
             "minLength": 1,
@@ -2980,6 +3615,46 @@
           }
         },
         "title": "ProjectCreateInput",
+        "type": "object"
+      },
+      "ProjectCreationOptions": {
+        "properties": {
+          "dataset_views": {
+            "items": {
+              "$ref": "#/components/schemas/DatasetViewRevision"
+            },
+            "title": "Dataset Views",
+            "type": "array"
+          },
+          "datasets": {
+            "items": {
+              "$ref": "#/components/schemas/DataLibraryDataset"
+            },
+            "title": "Datasets",
+            "type": "array"
+          },
+          "model_packages": {
+            "items": {
+              "$ref": "#/components/schemas/ModelPackageRef"
+            },
+            "title": "Model Packages",
+            "type": "array"
+          },
+          "project_series": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectSeries"
+            },
+            "title": "Project Series",
+            "type": "array"
+          }
+        },
+        "required": [
+          "datasets",
+          "dataset_views",
+          "model_packages",
+          "project_series"
+        ],
+        "title": "ProjectCreationOptions",
         "type": "object"
       },
       "ProjectDecisionHistory": {
@@ -3049,8 +3724,114 @@
         "title": "ProjectHistoryResponse",
         "type": "object"
       },
-      "ProjectInput": {
+      "ProjectSeries": {
         "properties": {
+          "archived_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ProjectSeries",
+        "type": "object"
+      },
+      "ProjectSeriesCreateInput": {
+        "properties": {
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ProjectSeriesCreateInput",
+        "type": "object"
+      },
+      "ProjectSeriesUpdateInput": {
+        "properties": {
+          "archived": {
+            "default": false,
+            "title": "Archived",
+            "type": "boolean"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ProjectSeriesUpdateInput",
+        "type": "object"
+      },
+      "ProjectUpdateInput": {
+        "description": "Fields that may change without changing a Project's scientific identity.",
+        "properties": {
+          "dataset_view_revision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset View Revision Id"
+          },
           "decision_candidate_id": {
             "default": "",
             "maxLength": 80,
@@ -3098,6 +3879,28 @@
             "title": "Input Ranges",
             "type": "object"
           },
+          "model_package_manifest_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Package Manifest Digest"
+          },
+          "model_package_ref_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Package Ref Id"
+          },
           "name": {
             "default": "焼鈍条件の候補検討",
             "maxLength": 120,
@@ -3109,6 +3912,28 @@
             "default": "",
             "title": "Notes",
             "type": "string"
+          },
+          "predecessor_project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Predecessor Project Id"
+          },
+          "project_series_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Series Id"
           },
           "purpose": {
             "default": "",
@@ -3132,14 +3957,30 @@
             "title": "Target Values",
             "type": "object"
           },
+          "task_contract_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Contract Digest"
+          },
           "task_id": {
-            "default": "annealed-properties-v1",
-            "minLength": 1,
-            "title": "Task Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Id"
           }
         },
-        "title": "ProjectInput",
+        "title": "ProjectUpdateInput",
         "type": "object"
       },
       "PropertySummary": {
@@ -4216,6 +5057,21 @@
             "default": "",
             "title": "Source",
             "type": "string"
+          },
+          "source_scope": {
+            "anyOf": [
+              {
+                "enum": [
+                  "model_training_data",
+                  "project_reference_data"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Scope"
           }
         },
         "required": [
@@ -4662,6 +5518,138 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/data-library/datasets": {
+      "get": {
+        "operationId": "list_datasets_api_data_library_datasets_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DataLibraryDataset"
+                  },
+                  "title": "Response List Datasets Api Data Library Datasets Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Datasets"
+      }
+    },
+    "/api/data-library/model-packages": {
+      "get": {
+        "operationId": "list_model_packages_api_data_library_model_packages_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ModelPackageRef"
+                  },
+                  "title": "Response List Model Packages Api Data Library Model Packages Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Model Packages"
+      }
+    },
+    "/api/data-library/views": {
+      "get": {
+        "operationId": "list_dataset_views_api_data_library_views_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DatasetViewRevision"
+                  },
+                  "title": "Response List Dataset Views Api Data Library Views Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Dataset Views"
+      },
+      "post": {
+        "operationId": "create_dataset_view_api_data_library_views_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatasetViewRevisionCreateInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatasetViewRevision"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Dataset View"
+      }
+    },
     "/api/diagnostics/inference": {
       "get": {
         "operationId": "getInferenceDiagnostics",
@@ -4718,6 +5706,188 @@
           }
         },
         "summary": "Health"
+      }
+    },
+    "/api/project-creation-options": {
+      "get": {
+        "operationId": "project_creation_options_api_project_creation_options_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectCreationOptions"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Project Creation Options"
+      }
+    },
+    "/api/project-series": {
+      "get": {
+        "operationId": "list_project_series_api_project_series_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProjectSeries"
+                  },
+                  "title": "Response List Project Series Api Project Series Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Project Series"
+      },
+      "post": {
+        "operationId": "create_project_series_api_project_series_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectSeriesCreateInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectSeries"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Project Series"
+      }
+    },
+    "/api/project-series/{series_id}": {
+      "get": {
+        "operationId": "get_project_series_api_project_series__series_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "series_id",
+            "required": true,
+            "schema": {
+              "title": "Series Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectSeries"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Project Series"
+      },
+      "put": {
+        "operationId": "update_project_series_api_project_series__series_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "series_id",
+            "required": true,
+            "schema": {
+              "title": "Series Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectSeriesUpdateInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectSeries"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Project Series"
       }
     },
     "/api/projects": {
@@ -4893,7 +6063,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ProjectInput"
+                "$ref": "#/components/schemas/ProjectUpdateInput"
               }
             }
           },

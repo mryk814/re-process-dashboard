@@ -139,7 +139,9 @@ class TaskRegistry:
             "artifacts": artifact_digests,
         })
 
-    def _validate_runtime(self, task_id: str, runtime: PredictionRuntime) -> None:
+    def _validate_runtime(
+        self, task_id: str, runtime: PredictionRuntime, *, validate_training_binding: bool = True
+    ) -> None:
         if not isinstance(runtime, PredictionRuntime) or runtime.task_id != task_id:
             raise TaskRegistryError(f"runtime does not implement the task protocol: {task_id}")
         if not isinstance(runtime.data, DataDescriptor):
@@ -192,8 +194,18 @@ class TaskRegistry:
             )
         if module.curve_family is not None and not callable(getattr(runtime, "curve_family_result", None)):
             raise TaskRegistryError(f"curve-family runtime operation is missing: {task_id}")
-        validate_lifecycle_metadata(package, self._contracts[task_id], profile_path=Path(runtime.data.profile_path))
-        validate_training_provenance(package, runtime.data, self._contracts[task_id])
+        if validate_training_binding:
+            validate_lifecycle_metadata(package, self._contracts[task_id], profile_path=Path(runtime.data.profile_path))
+            validate_training_provenance(package, runtime.data, self._contracts[task_id])
+
+    def validate_application_runtime(self, task_id: str, runtime: PredictionRuntime) -> None:
+        """Validate task/package compatibility without equating application data with training data."""
+
+        self._validate_runtime(task_id, runtime, validate_training_binding=False)
+
+    def module_for(self, task_id: str) -> TaskModule:
+        self.contract_for(task_id)
+        return self._modules[task_id]
 
     @property
     def task_ids(self) -> tuple[str, ...]:

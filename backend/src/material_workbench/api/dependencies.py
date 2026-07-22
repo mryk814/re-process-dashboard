@@ -6,6 +6,8 @@ from ..inference_work_graph import InferenceWorkGraph
 from ..schemas import Project
 from ..store import Store
 from ..task_registry import TaskRegistry
+from ..workspace_catalog import WorkspaceCatalog
+from ..project_runtime_resolver import ProjectRuntimeResolver
 
 
 def get_store(request: Request) -> Store:
@@ -14,6 +16,14 @@ def get_store(request: Request) -> Store:
 
 def get_task_registry(request: Request) -> TaskRegistry:
     return request.app.state.task_registry
+
+
+def get_workspace_catalog(request: Request) -> WorkspaceCatalog:
+    return request.app.state.workspace_catalog
+
+
+def get_project_runtime_resolver(request: Request) -> ProjectRuntimeResolver:
+    return request.app.state.project_runtime_resolver
 
 
 def get_inference_work_graph(request: Request) -> InferenceWorkGraph:

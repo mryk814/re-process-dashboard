@@ -16,6 +16,7 @@ from ..schemas import (
 from ..services import run_latin_hypercube
 from ..store import CandidateLimitError, Store
 from ..task_registry import TaskRegistry, TaskRegistryError
+from ..project_runtime_resolver import ProjectRuntimeResolver
 
 
 class ScreeningNotFoundError(LookupError):
@@ -27,9 +28,10 @@ class ScreeningValidationError(ValueError):
 
 
 class ScreeningService:
-    def __init__(self, store: Store, registry: TaskRegistry) -> None:
+    def __init__(self, store: Store, registry: TaskRegistry, resolver: ProjectRuntimeResolver) -> None:
         self.store = store
         self.registry = registry
+        self.resolver = resolver
         self.projects = ProjectService(store, registry)
 
     def run(self, payload: ScreeningRequest, project_id: str = "default") -> ScreeningRunResponse:
@@ -81,7 +83,7 @@ class ScreeningService:
         capabilities = {item.target: item for item in contract.runtime_capability.targets}
         try:
             result = run_latin_hypercube(
-                self.registry.runtime_for(project.task_id),
+                self.resolver.runtime_for(project),
                 base,
                 payload,
                 goal_directions={key: item.goal_direction for key, item in outputs.items()},

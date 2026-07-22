@@ -7,9 +7,18 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from .candidate_migration import migrate_candidate_storage
 from .candidate_migration import HOT_PROJECT_ID
-from .schemas import ActualMeasurement, ActualMeasurementInput, Candidate, CandidateInput, Project, ProjectInput
+from .schemas import (
+    ActualMeasurement,
+    ActualMeasurementInput,
+    Candidate,
+    CandidateInput,
+    Project,
+    ProjectCreateInput,
+    ProjectInput,
+    ProjectUpdateInput,
+)
+from .workspace_catalog_migration import migrate_workspace_catalog
 
 
 MAX_CANDIDATES_PER_PROJECT = 10
@@ -33,6 +42,10 @@ class CandidateCopyConflictError(ValueError):
 
 
 class ProtectedProjectError(ValueError):
+    pass
+
+
+class ProjectHasSuccessorsError(ValueError):
     pass
 
 
@@ -66,11 +79,11 @@ class Store:
         return conn
 
     def _init(self) -> None:
-        migrate_candidate_storage(self.path)
+        migrate_workspace_catalog(self.path)
 
     @staticmethod
     def _project(row: sqlite3.Row) -> Project:
-        return Project(id=row["id"], name=row["name"], description=row["description"], purpose=row["purpose"], task_id=row["task_id"], target_values=json.loads(row["target_values"]), input_ranges=json.loads(row["input_ranges"]), response_curve_ranges=json.loads(row["response_curve_ranges"]), heat_stage_positions_m=json.loads(row["heat_stage_positions_m"]), display_decimals=json.loads(row["display_decimals"]), notes=row["notes"], decision_candidate_id=row["decision_candidate_id"], decision_snapshot_id=row["decision_snapshot_id"], decision_note=row["decision_note"], created_at=datetime.fromisoformat(row["created_at"]), updated_at=datetime.fromisoformat(row["updated_at"]))
+        return Project(id=row["id"], name=row["name"], description=row["description"], purpose=row["purpose"], task_id=row["task_id"], target_values=json.loads(row["target_values"]), input_ranges=json.loads(row["input_ranges"]), response_curve_ranges=json.loads(row["response_curve_ranges"]), heat_stage_positions_m=json.loads(row["heat_stage_positions_m"]), display_decimals=json.loads(row["display_decimals"]), notes=row["notes"], decision_candidate_id=row["decision_candidate_id"], decision_snapshot_id=row["decision_snapshot_id"], decision_note=row["decision_note"], dataset_view_revision_id=row["dataset_view_revision_id"], task_contract_digest=row["task_contract_digest"], model_package_ref_id=row["model_package_ref_id"], model_package_manifest_digest=row["model_package_manifest_digest"], project_series_id=row["project_series_id"], predecessor_project_id=row["predecessor_project_id"], continuation_reason=row["continuation_reason"], binding_provenance=row["binding_provenance"], binding_migrated_at=datetime.fromisoformat(row["binding_migrated_at"]) if row["binding_migrated_at"] else None, created_at=datetime.fromisoformat(row["created_at"]), updated_at=datetime.fromisoformat(row["updated_at"]))
 
     def list_projects(self) -> list[Project]:
         with self._connect() as conn:
@@ -82,7 +95,7 @@ class Store:
             row = conn.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
         return self._project(row) if row else None
 
-    def create_project(self, payload: ProjectInput, initial_candidate: CandidateInput | None = None) -> Project:
+    def create_project(self, payload: ProjectCreateInput, initial_candidate: CandidateInput | None = None) -> Project:
         project_id, now = str(uuid.uuid4()), _now()
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
@@ -99,8 +112,24 @@ class Store:
                 if source["task_id"] != payload.task_id:
                     raise CandidateCopyConflictError("異なる予測タスクの候補はコピーできません")
             conn.execute(
-                "INSERT INTO projects(id, name, description, purpose, task_id, target_values, input_ranges, response_curve_ranges, heat_stage_positions_m, display_decimals, notes, decision_candidate_id, decision_snapshot_id, decision_note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (project_id, payload.name, payload.description, payload.purpose, payload.task_id, json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True), json.dumps({key: value.model_dump() for key, value in payload.input_ranges.items()}, ensure_ascii=False, sort_keys=True), json.dumps({axis: {key: value.model_dump() for key, value in ranges.items()} for axis, ranges in payload.response_curve_ranges.items()}, ensure_ascii=False, sort_keys=True), json.dumps(payload.heat_stage_positions_m, ensure_ascii=False, sort_keys=True), json.dumps(payload.display_decimals, ensure_ascii=False, sort_keys=True), payload.notes, payload.decision_candidate_id, payload.decision_snapshot_id, payload.decision_note, now, now),
+                "INSERT INTO projects(id,name,description,purpose,task_id,target_values,input_ranges,"
+                "response_curve_ranges,heat_stage_positions_m,display_decimals,notes,decision_candidate_id,"
+                "decision_snapshot_id,decision_note,dataset_view_revision_id,task_contract_digest,"
+                "model_package_ref_id,model_package_manifest_digest,project_series_id,predecessor_project_id,"
+                "continuation_reason,binding_provenance,created_at,updated_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'explicit',?,?)",
+                (
+                    project_id, payload.name, payload.description, payload.purpose, payload.task_id,
+                    json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True),
+                    json.dumps({key: value.model_dump() for key, value in payload.input_ranges.items()}, ensure_ascii=False, sort_keys=True),
+                    json.dumps({axis: {key: value.model_dump() for key, value in ranges.items()} for axis, ranges in payload.response_curve_ranges.items()}, ensure_ascii=False, sort_keys=True),
+                    json.dumps(payload.heat_stage_positions_m, ensure_ascii=False, sort_keys=True),
+                    json.dumps(payload.display_decimals, ensure_ascii=False, sort_keys=True), payload.notes,
+                    payload.decision_candidate_id, payload.decision_snapshot_id, payload.decision_note,
+                    payload.dataset_view_revision_id, payload.task_contract_digest, payload.model_package_ref_id,
+                    payload.model_package_manifest_digest, payload.project_series_id, payload.predecessor_project_id,
+                    payload.continuation_reason, now, now,
+                ),
             )
             if initial_candidate is not None:
                 candidate_id = str(uuid.uuid4())
@@ -124,12 +153,12 @@ class Store:
             )
         return self.get_project(project_id)  # type: ignore[return-value]
 
-    def update_project(self, project_id: str, payload: ProjectInput) -> Project | None:
+    def update_project(self, project_id: str, payload: ProjectUpdateInput) -> Project | None:
         now = _now()
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
             self._validate_decision(conn, project_id, payload.decision_candidate_id, payload.decision_snapshot_id)
-            result = conn.execute("UPDATE projects SET name=?, description=?, purpose=?, task_id=?, target_values=?, input_ranges=?, response_curve_ranges=?, heat_stage_positions_m=?, display_decimals=?, notes=?, decision_candidate_id=?, decision_snapshot_id=?, decision_note=?, updated_at=? WHERE id=?", (payload.name, payload.description, payload.purpose, payload.task_id, json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True), json.dumps({key: value.model_dump() for key, value in payload.input_ranges.items()}, ensure_ascii=False, sort_keys=True), json.dumps({axis: {key: value.model_dump() for key, value in ranges.items()} for axis, ranges in payload.response_curve_ranges.items()}, ensure_ascii=False, sort_keys=True), json.dumps(payload.heat_stage_positions_m, ensure_ascii=False, sort_keys=True), json.dumps(payload.display_decimals, ensure_ascii=False, sort_keys=True), payload.notes, payload.decision_candidate_id, payload.decision_snapshot_id, payload.decision_note, now, project_id))
+            result = conn.execute("UPDATE projects SET name=?, description=?, purpose=?, target_values=?, input_ranges=?, response_curve_ranges=?, heat_stage_positions_m=?, display_decimals=?, notes=?, decision_candidate_id=?, decision_snapshot_id=?, decision_note=?, updated_at=? WHERE id=?", (payload.name, payload.description, payload.purpose, json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True), json.dumps({key: value.model_dump() for key, value in payload.input_ranges.items()}, ensure_ascii=False, sort_keys=True), json.dumps({axis: {key: value.model_dump() for key, value in ranges.items()} for axis, ranges in payload.response_curve_ranges.items()}, ensure_ascii=False, sort_keys=True), json.dumps(payload.heat_stage_positions_m, ensure_ascii=False, sort_keys=True), json.dumps(payload.display_decimals, ensure_ascii=False, sort_keys=True), payload.notes, payload.decision_candidate_id, payload.decision_snapshot_id, payload.decision_note, now, project_id))
         return self.get_project(project_id) if result.rowcount else None
 
     def delete_project(self, project_id: str) -> bool:
@@ -139,6 +168,13 @@ class Store:
             conn.execute("BEGIN IMMEDIATE")
             if conn.execute("SELECT 1 FROM projects WHERE id=?", (project_id,)).fetchone() is None:
                 return False
+            successor = conn.execute(
+                "SELECT id FROM projects WHERE predecessor_project_id=? LIMIT 1", (project_id,)
+            ).fetchone()
+            if successor is not None:
+                raise ProjectHasSuccessorsError(
+                    "後続の検討があるプロジェクトは削除できません。一連の検討の系譜を保持してください"
+                )
             candidate_ids = [
                 row["id"]
                 for row in conn.execute("SELECT id FROM candidates WHERE project_id=?", (project_id,)).fetchall()

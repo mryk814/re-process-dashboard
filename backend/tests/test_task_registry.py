@@ -232,5 +232,5 @@ def test_both_tasks_use_the_same_project_preview_contract(client, task_id: str) 
     assert body["mode"] == "preview"
     assert set(body) == {
         "task_id", "candidate_id", "mode", "predictions", "support", "warnings", "model_meta",
-        "canonical_input", "similar", "heat_pattern", "response_curve",
+        "model_support", "canonical_input", "similar", "heat_pattern", "response_curve",
     }

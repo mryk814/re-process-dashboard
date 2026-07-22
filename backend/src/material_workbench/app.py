@@ -12,6 +12,8 @@ from fastapi import FastAPI
 from .api.errors import PROJECT_API_ERRORS, install_exception_handlers
 from .api.security import configure_local_access
 from .api.catalog import router as catalog_router
+from .api.data_library import router as data_library_router
+from .api.project_series import router as project_series_router
 from .api.projects import router as projects_router
 from .api.candidates import router as candidates_router
 from .api.data_exploration import router as data_exploration_router
@@ -23,6 +25,8 @@ from .inference_work_graph import InferenceWorkGraph
 from .model_lifecycle import ACTIVE_PACKAGES_PATH, load_active_packages, resolve_configured_package, validate_active_package_task_set
 from .store import Store
 from .task_registry import DataExplorerEntry, TaskRegistry
+from .workspace_catalog_bootstrap import bootstrap_workspace_catalog
+from .project_runtime_resolver import ProjectRuntimeResolver
 from .task_modules import PredictionRuntime, TaskModule, registered_task_modules
 
 
@@ -61,7 +65,7 @@ def _prepare_app_resources(
                 repository_source = Path(__file__).resolve().parents[3] / configured_source
                 if repository_source.exists():
                     configured_source = repository_source
-            data_by_source[module.source_kind] = module.data_loader(configured_source)
+            data_by_source[module.source_kind] = module.data_loader(configured_source, None)
         data = data_by_source[module.source_kind]
         package = resolve_configured_package(
             task_id,
@@ -116,6 +120,10 @@ def create_app(
             prepared.runtimes,
             seed_candidates=not database_existed or explicit_demo_seed,
         )
+        app.state.workspace_catalog = bootstrap_workspace_catalog(database, prepared.task_registry)
+        app.state.project_runtime_resolver = ProjectRuntimeResolver(
+            app.state.workspace_catalog, prepared.task_registry
+        )
         yield
 
     app = FastAPI(
@@ -127,6 +135,8 @@ def create_app(
     configure_local_access(app)
     install_exception_handlers(app)
     app.include_router(catalog_router)
+    app.include_router(data_library_router)
+    app.include_router(project_series_router)
     app.include_router(projects_router)
     app.include_router(candidates_router)
     app.include_router(data_exploration_router)

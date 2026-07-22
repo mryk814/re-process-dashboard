@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Response
 
 from .candidates import CANDIDATE_APPLICATION_ERRORS, candidate_http_error
-from .dependencies import get_inference_work_graph, get_store, get_task_registry
+from .dependencies import get_inference_work_graph, get_project_runtime_resolver, get_store, get_task_registry
 from .errors import DomainApiException, PROJECT_API_ERRORS
 from .inference import INFERENCE_ERRORS, get_inference_service, inference_http_error
 from ..application.records import RecordIntegrityError, RecordNotFoundError, RecordService, RecordValidationError
@@ -13,16 +13,28 @@ from ..inference_work_graph import InferenceWorkGraph
 from ..schemas import ActualMeasurement, ActualMeasurementInput, Candidate, DetailedPredictionResponse, PredictionVsActualResponse, SnapshotResponse
 from ..store import ProjectNotFoundError, Store
 from ..task_registry import TaskRegistry
+from ..project_runtime_resolver import ProjectRuntimeResolver
 
 
 router = APIRouter()
 StoreDependency = Annotated[Store, Depends(get_store)]
 RegistryDependency = Annotated[TaskRegistry, Depends(get_task_registry)]
 GraphDependency = Annotated[InferenceWorkGraph, Depends(get_inference_work_graph)]
+ResolverDependency = Annotated[ProjectRuntimeResolver, Depends(get_project_runtime_resolver)]
 
 
-def get_record_service(store: StoreDependency, registry: RegistryDependency, graph: GraphDependency) -> RecordService:
-    return RecordService(store, registry, get_inference_service(store, registry, graph))
+def get_record_service(
+    store: StoreDependency,
+    registry: RegistryDependency,
+    graph: GraphDependency,
+    resolver: ResolverDependency,
+) -> RecordService:
+    return RecordService(
+        store,
+        registry,
+        get_inference_service(store, registry, graph, resolver),
+        resolver,
+    )
 
 
 RecordServiceDependency = Annotated[RecordService, Depends(get_record_service)]
