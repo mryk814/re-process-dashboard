@@ -17,9 +17,30 @@ def test_resolver_rebuilds_runtime_from_project_pins_and_caches_it(client) -> No
 
     assert first is second
     assert first.runtime.task_id == project.task_id
+    assert first.context_runtime.task_id == project.task_id
     assert first.runtime.data.source_sha256
     assert first.data_explorer is not None
     assert first.data_explorer.data is first.runtime.data
+
+
+def test_preview_reports_target_specific_model_support_and_context_scope(client) -> None:
+    candidate = client.get("/api/projects/default/candidates").json()[0]
+    preview = client.post(
+        f"/api/projects/default/candidates/{candidate['id']}/preview",
+        params={"expected_revision": candidate["revision"]},
+    )
+    assert preview.status_code == 200, preview.text
+    support = preview.json()["model_support"]
+    assert set(support) == {"TS", "YS", "EL", "lambda"}
+    assert support["TS"]["reference_count"] == 143
+    assert support["lambda"]["reference_count"] == 134
+
+    similar = client.get(
+        f"/api/projects/default/candidates/{candidate['id']}/similar",
+        params={"expected_revision": candidate["revision"], "limit": 3},
+    )
+    assert similar.status_code == 200
+    assert all(item["source_scope"] == "project_reference_data" for item in similar.json())
 
 
 def test_resolver_rejects_a_changed_excel_instead_of_using_current_runtime(client) -> None:

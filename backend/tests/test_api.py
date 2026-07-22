@@ -129,7 +129,8 @@ def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
         params=params,
     ).json()
     assert len(similar) == 6
-    assert {item["layer"] for item in similar} == {"training", "historical"}
+    assert {item["layer"] for item in similar} == {"historical"}
+    assert {item["source_scope"] for item in similar} == {"project_reference_data"}
     assert all({"composition", "metallurgy", "process", "heat_pattern"} == set(item["components"]) for item in similar)
 
 

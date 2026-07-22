@@ -239,6 +239,10 @@ class HotRollingRuntime:
     def support_summary(self, candidate: Candidate) -> Support:
         return self._support(candidate, include_similarity=False)[0]
 
+    def support_by_target(self, candidate: Candidate) -> dict[str, Support]:
+        support = self.support_summary(candidate)
+        return {target: support for target in sorted(self.output_keys)}
+
     def similarity(self, candidate: Candidate, limit: int = 3) -> list[dict[str, Any]]:
         return self.evidence(candidate)[1][:limit]
 

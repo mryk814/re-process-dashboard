@@ -45,7 +45,12 @@ class InferenceService:
         )
         prediction["candidate_id"] = candidate.id
         prediction["support"] = support
+        prediction["model_support"] = runtime.support_by_target(candidate)  # type: ignore[attr-defined]
         prediction["similar"] = []
+        prediction.setdefault("model_meta", {})["application_data"] = {
+            "dataset_view_revision_id": project.dataset_view_revision_id,
+            "source_sha256": self.resolver.context_runtime_for(project).data.source_sha256,
+        }
         if support.status != "supported" and support.message not in prediction["warnings"]:
             prediction["warnings"].append(support.message)
         return prediction
@@ -58,6 +63,12 @@ class InferenceService:
             lambda: runtime.predict(candidate, detailed=True, include_curve=False, target_values=project.target_values),
         )
         result["candidate_id"] = candidate.id
+        result["model_support"] = runtime.support_by_target(candidate)  # type: ignore[attr-defined]
+        result["similar"] = self._context_similarity(project, candidate, 6)
+        result.setdefault("model_meta", {})["application_data"] = {
+            "dataset_view_revision_id": project.dataset_view_revision_id,
+            "source_sha256": self.resolver.context_runtime_for(project).data.source_sha256,
+        }
         return result
 
     def response_curve(self, project_id: str, candidate_id: str, revision: int, target: str, variable: str, points: int, range_min: float | None, range_max: float | None, stage_name: str | None, stage_position_m: float | None) -> dict[str, Any]:
@@ -111,11 +122,25 @@ class InferenceService:
         project = self.projects.require(project_id)
         self.require_operation(project.task_id, "similarity")
         candidate = self.candidates.at_revision(project_id, candidate_id, revision)
-        provider = self.resolver.runtime_for(project)
+        provider = self.resolver.context_runtime_for(project)
         return self.graph.execute(
             self.key(project, candidate, "similarity", parameters={"limit": limit}, uses_support=True),
-            lambda: provider.similarity(candidate, limit),  # type: ignore[attr-defined]
+            lambda: self._context_similarity(project, candidate, limit),
         )
+
+    def _context_similarity(
+        self, project: Project, candidate: Candidate, limit: int
+    ) -> list[dict[str, object]]:
+        provider = self.resolver.context_runtime_for(project)
+        rows = provider.similarity(candidate, limit)  # type: ignore[attr-defined]
+        return [
+            {
+                **row,
+                "layer": "historical",
+                "source_scope": "project_reference_data",
+            }
+            for row in rows
+        ]
 
     def diagnostics(self) -> dict[str, Any]:
         return self.graph.diagnostics()

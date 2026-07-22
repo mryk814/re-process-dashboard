@@ -470,6 +470,7 @@ class SimilarObservation(BaseModel):
     parent_key: str
     source: str = ""
     layer: Literal["training", "historical"] | None = None
+    source_scope: Literal["model_training_data", "project_reference_data"] | None = None
     distance: float
     components: dict[str, float] = Field(default_factory=dict)
     outputs: dict[str, float] = Field(default_factory=dict)
@@ -551,6 +552,7 @@ class PredictionResponse(BaseModel):
     mode: Literal["preview", "detailed"]
     predictions: dict[str, Prediction]
     support: Support
+    model_support: dict[str, Support] = Field(default_factory=dict)
     warnings: list[str]
     model_meta: ModelMetadata
     canonical_input: dict[str, object]

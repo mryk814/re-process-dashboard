@@ -135,6 +135,7 @@ class ModelRuntime:
             self._load_and_validate_package_feature_contract()
         self.models: dict[str, RidgeModel] = {}
         self.support_reference: SupportReference | None = None
+        self.target_support_references: dict[str, SupportReference] = {}
         self.historical_reference: SupportReference | None = None
         self._fit()
         self.package_predictors = {
@@ -285,9 +286,18 @@ class ModelRuntime:
             mean, scale, weights = _fit_ridge(x, y)
             normalized = (x - mean) / scale
             self.models[label] = RidgeModel(label, unit, mean, scale, weights, oof_residuals, normalized, [row for row, _, _ in rows], folds)
+            self.target_support_references[label] = self._support_reference(
+                [row for row, _, _ in rows], x
+            )
 
-    def _support(self, x: np.ndarray, *, include_similarity: bool = True) -> tuple[Support, list[dict[str, Any]]]:
-        reference = self.support_reference
+    def _support(
+        self,
+        x: np.ndarray,
+        *,
+        include_similarity: bool = True,
+        reference: SupportReference | None = None,
+    ) -> tuple[Support, list[dict[str, Any]]]:
+        reference = reference or self.support_reference
         if reference is None:
             raise RuntimeError("No eligible observations are available for support estimation")
         normalized = reference.normalized(x)
@@ -470,7 +480,18 @@ class ModelRuntime:
         return self._support(self.vector_for_candidate(candidate))
 
     def support_summary(self, candidate: Candidate) -> Support:
-        return self._support(self.vector_for_candidate(candidate), include_similarity=False)[0]
+        by_target = self.support_by_target(candidate)
+        if not by_target:
+            return self._support(self.vector_for_candidate(candidate), include_similarity=False)[0]
+        severity = {"supported": 0, "caution": 1, "extrapolated": 2}
+        return max(by_target.values(), key=lambda item: (severity[item.status], item.percentile, item.distance))
+
+    def support_by_target(self, candidate: Candidate) -> dict[str, Support]:
+        vector = self.vector_for_candidate(candidate)
+        return {
+            target: self._support(vector, include_similarity=False, reference=reference)[0]
+            for target, reference in sorted(self.target_support_references.items())
+        }
 
     def similarity(self, candidate: Candidate, limit: int = 6) -> list[dict[str, Any]]:
         return self.evidence(candidate)[1][:limit]
@@ -478,6 +499,7 @@ class ModelRuntime:
     def predict(self, candidate: Candidate, detailed: bool = False, include_curve: bool = False, target_values: dict[str, float] | None = None) -> dict[str, Any]:
         result = self.predict_core(candidate, detailed=detailed, target_values=target_values)
         support, similar = self.evidence(candidate)
+        result["model_support"] = self.support_by_target(candidate)
         if support.status != "supported":
             result["warnings"].append(support.message)
         result["support"] = support
