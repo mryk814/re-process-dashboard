@@ -189,6 +189,16 @@ class HotRollingRuntime:
         process = {**candidate.inputs.process}
         process["equipment"] = "HR-LINE-1"
         process["test_direction"] = "L"
+        is_horseshoe = any(
+            item.runtime_type == "builtin.posterior_linear.v1" and item.config.get("method") == "regularized_horseshoe"
+            for item in self.model_package.manifest.predictors
+        )
+        model_method = "Regularized Horseshoe sparse Bayesian regression" if is_horseshoe else "Gaussian process regression"
+        interval_identity = (
+            {"method": "posterior_predictive_moment_matched_normal", "coverage": "central 90% predictive interval", "grouping": "parent_key", "note": "Horseshoe posterior draws are summarized as a moment-matched Normal distribution for the shared decision UI."}
+            if is_horseshoe else
+            {"method": "gaussian_process_predictive_distribution", "coverage": "central 90% predictive interval", "grouping": "parent_key", "note": "Model uncertainty and observation noise are reported separately."}
+        )
         return {
             "task_id": self.task_id,
             "candidate_id": candidate.id,
@@ -203,11 +213,11 @@ class HotRollingRuntime:
             },
             "model_meta": {
                 "task_id": self.task_id,
-                "model": {"id": self.model_package.manifest.package_id, "version": self.model_package.manifest.package_version, "method": "Regularized Horseshoe sparse Bayesian regression"},
+                "model": {"id": self.model_package.manifest.package_id, "version": self.model_package.manifest.package_version, "method": model_method},
                 "package": {"id": self.model_package.manifest.package_id, "version": self.model_package.manifest.package_version, "manifest_sha256": self.model_package.manifest_sha256, "runtime_types": sorted({item.runtime_type for item in self.model_package.manifest.predictors})},
                 "feature_pipeline": {"id": PIPELINE_ID, "version": PIPELINE_VERSION, "input_schema_version": INPUT_SCHEMA_VERSION, "features": list(FEATURE_NAMES)},
                 "training_data": {"source_path": self.data.source_path, "source_sha256": self.data.source_sha256, "records": self.training_counts, "package_training_data_id": self.model_package.manifest.provenance.training_data_id, "package_feature_dataset_id": self.model_package.manifest.provenance.feature_dataset_id},
-                "prediction_interval": {"method": "posterior_predictive_moment_matched_normal", "coverage": "central 90% predictive interval", "grouping": "parent_key", "note": "Horseshoe posterior draws are summarized as a moment-matched Normal distribution for the shared decision UI."},
+                "prediction_interval": interval_identity,
                 "similarity": {"version": SUPPORT_POLICY_ID, "method": "parent-condition nearest-neighbor distance over composition, metallurgy, and process feature groups"},
             },
             "heat_pattern": [],

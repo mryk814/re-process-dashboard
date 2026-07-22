@@ -96,6 +96,23 @@ class QualityReport(LifecycleModel):
         return self
 
 
+class SamplingDiagnosticsReport(LifecycleModel):
+    schema_version: Literal["sampling-diagnostics/v1"]
+    chains: Annotated[int, Field(ge=2)]
+    draws_per_chain: Annotated[int, Field(ge=100)]
+    warmup_per_chain: Annotated[int, Field(ge=100)]
+    divergences: Annotated[int, Field(ge=0)]
+    minimum_effective_sample_size: Annotated[float, Field(ge=50, allow_inf_nan=False)]
+    maximum_r_hat: Annotated[float, Field(ge=0, le=1.1, allow_inf_nan=False)]
+    finite_export: Literal[True]
+
+    @model_validator(mode="after")
+    def has_no_divergences(self) -> "SamplingDiagnosticsReport":
+        if self.divergences:
+            raise ValueError("posterior sampling must have zero divergences")
+        return self
+
+
 def _semantic_digest(payload: Any) -> str:
     encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return "sha256:" + hashlib.sha256(encoded).hexdigest()
@@ -245,6 +262,18 @@ def validate_lifecycle_metadata(
     actual_targets = {metric.target for metric in report.targets}
     if actual_targets != expected_targets:
         raise PackageContractError("quality report targets do not match package predictors")
+    requires_sampling_diagnostics = any(
+        predictor.runtime_type == "builtin.posterior_linear.v1"
+        and predictor.config.get("method") == "regularized_horseshoe"
+        for predictor in manifest.predictors
+    )
+    if requires_sampling_diagnostics:
+        try:
+            SamplingDiagnosticsReport.model_validate_json(
+                package.artifact_path("reports/training-diagnostics.json").read_text(encoding="utf-8")
+            )
+        except (KeyError, OSError, ValueError) as exc:
+            raise PackageContractError(f"invalid posterior sampling diagnostics: {exc}") from exc
     return report
 
 

@@ -16,7 +16,7 @@ if __package__ in {None, ""}:
 from material_workbench.hot_rolling_feature_pipeline import CANONICAL_INPUT_PATHS, FEATURE_DEFINITIONS, FEATURE_NAMES, INPUT_SCHEMA_VERSION, PIPELINE_ID, PIPELINE_VERSION, build_hot_rolling_features, build_hot_rolling_features_from_observation, candidate_from_observation
 from material_workbench.importer import load_workbook_data
 from material_workbench.model_example_contracts import SparseSelectionReport
-from material_workbench.model_lifecycle import QualityReport, TargetQualityMetric, canonical_training_dataset, canonical_training_dataset_digest, dataset_profile_digest, runtime_capability_digest, staged_package_destination, task_input_contract_digest
+from material_workbench.model_lifecycle import QualityReport, SamplingDiagnosticsReport, TargetQualityMetric, canonical_training_dataset, canonical_training_dataset_digest, dataset_profile_digest, runtime_capability_digest, staged_package_destination, task_input_contract_digest
 from material_workbench.model_package_verify import verify_model_package
 from material_workbench.task_registry import load_task_contracts
 
@@ -26,7 +26,7 @@ PACKAGE_VERSION = "1.0.0"
 TRAINING_CODE_REVISION = "1.0.0-regularized-horseshoe"
 TASK_ID = "hot-rolled-properties-v1"
 SEED = 20260722
-POSTERIOR_DRAWS = 512
+POSTERIOR_DRAWS = 2048
 CV_FOLDS = 5
 
 
@@ -87,7 +87,7 @@ def _train_numpyro(
         numpyro.sample("observed", dist.Normal(intercept + jnp.asarray(features) @ beta, noise_scale), obs=observed)
 
     sampler = MCMC(
-        NUTS(model, target_accept_prob=0.97, max_tree_depth=12),
+        NUTS(model, target_accept_prob=0.99, max_tree_depth=13),
         num_warmup=warmup,
         num_samples=draws,
         num_chains=chains,
@@ -203,7 +203,7 @@ def _build(source: Path, destination: Path) -> None:
         target_y.append(float(np.mean([float(row["outputs"][column]) for row in group_rows])))
     raw, y = np.vstack(raw_x), np.asarray(target_y)
     x, y_scaled, feature_mean, feature_scale, target_mean, target_scale = _standardize(raw, y)
-    standardized_draws, diagnostics = _train_numpyro(x, y_scaled, seed=SEED, warmup=512, draws=POSTERIOR_DRAWS // 2, chains=2)
+    standardized_draws, diagnostics = _train_numpyro(x, y_scaled, seed=SEED, warmup=1536, draws=POSTERIOR_DRAWS // 2, chains=2)
     exported_draws = _raw_coordinate_draws(standardized_draws, feature_mean, feature_scale, target_mean, target_scale)
     if not all(np.isfinite(value).all() for value in exported_draws.values()):
         raise ValueError("Horseshoe export contains non-finite posterior draws")
@@ -223,7 +223,8 @@ def _build(source: Path, destination: Path) -> None:
     selection_path = report_dir / "selection-report.json"
     _write_json(selection_path, _selection_report(standardized_draws).model_dump(mode="json"))
     diagnostics_path = report_dir / "training-diagnostics.json"
-    _write_json(diagnostics_path, {"schema_version": "sampling-diagnostics/v1", **diagnostics, "finite_export": True})
+    sampling_diagnostics = SamplingDiagnosticsReport.model_validate({"schema_version": "sampling-diagnostics/v1", **diagnostics, "finite_export": True})
+    _write_json(diagnostics_path, sampling_diagnostics.model_dump(mode="json"))
 
     sample_candidate = candidate_from_observation(rows[0])
     if sample_candidate is None:

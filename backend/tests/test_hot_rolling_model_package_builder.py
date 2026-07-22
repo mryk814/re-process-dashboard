@@ -28,7 +28,7 @@ def fast_horseshoe_training(monkeypatch: pytest.MonkeyPatch) -> None:
             "intercept_draws": rng.normal(0, 0.02, draws),
             "noise_scale_draws": np.full(draws, 0.1),
             "local_scale_draws": np.ones((draws, x.shape[1])),
-        }, {"chains": 1, "draws_per_chain": draws, "warmup_per_chain": 1, "divergences": 0, "minimum_effective_sample_size": float(draws), "maximum_r_hat": 1.0}
+        }, {"chains": int(_kwargs.get("chains", 1)), "draws_per_chain": draws, "warmup_per_chain": int(_kwargs.get("warmup", 1)), "divergences": 0, "minimum_effective_sample_size": float(draws), "maximum_r_hat": 1.0}
 
     monkeypatch.setattr(builder, "_train_numpyro", fake_train)
 

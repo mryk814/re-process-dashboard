@@ -11,6 +11,7 @@ from material_workbench.app import create_app
 from material_workbench.importer import load_workbook_data
 from material_workbench.model_lifecycle import (
     QualityReport,
+    SamplingDiagnosticsReport,
     canonical_training_dataset,
     canonical_training_dataset_digest,
     exact_gp_loo_quality,
@@ -35,6 +36,20 @@ def test_grouped_quality_report_requires_an_explicit_fold_count() -> None:
             "schema_version": "model-quality-report/v1",
             "split": "grouped-parent-condition-k-fold",
             "targets": [{"target": "TS", "parent_conditions": 2, "mae": 1, "rmse": 1, "interval_coverage_90": 0.9}],
+        })
+
+
+def test_sampling_diagnostics_reject_low_effective_sample_size() -> None:
+    with pytest.raises(ValueError, match="greater than or equal to 50"):
+        SamplingDiagnosticsReport.model_validate({
+            "schema_version": "sampling-diagnostics/v1",
+            "chains": 2,
+            "draws_per_chain": 256,
+            "warmup_per_chain": 512,
+            "divergences": 0,
+            "minimum_effective_sample_size": 18.5,
+            "maximum_r_hat": 1.08,
+            "finite_export": True,
         })
 
 
@@ -199,3 +214,18 @@ def test_app_startup_rejects_package_trained_from_a_different_source(tmp_path: P
     with pytest.raises(PackageContractError, match="training data digest"):
         with TestClient(app):
             pass
+
+
+def test_hot_rolling_gp_rollback_reports_gp_prediction_identity(tmp_path: Path) -> None:
+    package = ROOT / "models" / "packages" / "hot-rolled-gp-2026-07"
+    app = create_app(SOURCE, tmp_path / "workbench.db", package_roots={"hot-rolled-properties-v1": package})
+    with TestClient(app) as client:
+        candidate = client.get("/api/projects/hot-rolling-default/candidates").json()[0]
+        response = client.post(
+            f"/api/projects/hot-rolling-default/candidates/{candidate['id']}/preview",
+            params={"expected_revision": candidate["revision"]},
+        )
+    assert response.status_code == 200
+    metadata = response.json()["model_meta"]
+    assert metadata["model"]["method"] == "Gaussian process regression"
+    assert metadata["prediction_interval"]["method"] == "gaussian_process_predictive_distribution"
