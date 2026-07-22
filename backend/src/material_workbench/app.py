@@ -1,14 +1,11 @@
 from __future__ import annotations
 
 import os
-import csv
 import math
 from collections import Counter
 from contextlib import asynccontextmanager
-from io import StringIO
 from pathlib import Path
-from statistics import fmean, pstdev
-from typing import Any, Literal, Mapping
+from typing import Any, Mapping
 
 from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.encoders import jsonable_encoder
@@ -18,8 +15,8 @@ from .api.security import configure_local_access
 from .api.catalog import router as catalog_router
 from .api.projects import router as projects_router
 from .api.candidates import CANDIDATE_APPLICATION_ERRORS, candidate_http_error, router as candidates_router
+from .api.data_exploration import router as data_exploration_router
 from .application.candidates import CandidateService
-from .importer import lineage_neighborhood, lineage_node_detail
 from .demo_seed import initialize_demo_projects
 from .inference_work_graph import InferenceKey, InferenceWorkGraph
 from .runtime import ModelRuntime
@@ -32,12 +29,9 @@ from .schemas import (
     CurveFamilyResponse,
     DetailedPredictionResponse,
     InferenceDiagnosticsResponse,
-    LineageIndexResponse,
-    LineageResponse,
     PredictionResponse,
     PredictionVsActualResponse,
     Project,
-    QualityResponse,
     ResponseCurveResponse,
     ScreeningRequest,
     ScreeningCandidateBatchRequest,
@@ -46,7 +40,7 @@ from .schemas import (
     SimilarObservation,
     SnapshotResponse,
 )
-from .services import candidate_from_lineage, run_latin_hypercube
+from .services import run_latin_hypercube
 from .snapshot_reader import SnapshotPayloadError, candidate_input_from_snapshot
 from .store import CandidateLimitError, CandidateRevisionConflictError, Store
 from .task_registry import DataExplorerEntry, TaskRegistry, TaskRegistryError
@@ -116,6 +110,7 @@ def create_app(
     app.include_router(catalog_router)
     app.include_router(projects_router)
     app.include_router(candidates_router)
+    app.include_router(data_exploration_router)
 
     def store() -> Store:
         return app.state.store
@@ -133,16 +128,6 @@ def create_app(
             task_registry().require_operation(task_id, operation)  # type: ignore[arg-type]
         except TaskRegistryError as exc:
             raise HTTPException(422, str(exc)) from exc
-
-    def project_data_explorer(project_id: str, capability: Literal["quality", "lineage"]) -> DataExplorerEntry:
-        project = require_project(project_id)
-        try:
-            explorer = task_registry().data_explorer_for(project.task_id)
-        except TaskRegistryError as exc:
-            raise HTTPException(404, "このプロジェクトではデータ探索を利用できません") from exc
-        if not getattr(explorer.capability, capability):
-            raise HTTPException(404, "このプロジェクトではデータ探索を利用できません")
-        return explorer
 
     def inference_work_graph() -> InferenceWorkGraph:
         return app.state.inference_work_graph
@@ -421,169 +406,6 @@ def create_app(
     )
     def inference_diagnostics() -> dict[str, Any]:
         return inference_work_graph().diagnostics()
-
-    @app.get("/api/projects/{project_id}/quality", response_model=QualityResponse, responses=PROJECT_API_ERRORS)
-    def quality(project_id: str) -> dict[str, Any]:
-        project = require_project(project_id)
-        data = project_data_explorer(project_id, "quality").data
-        scenarios = data.quality
-        detected = data.detected_quality
-        # Keep the original top-level fields for the current renderer.  The
-        # detected fields are actual structural checks, not workbook fixtures.
-        return {
-            "total": len(scenarios),
-            "by_category": Counter(
-                row[quality_category] for row in scenarios
-            ) if (quality_category := data.technical_columns.get(("quality", "category"))) else {},
-            "issues": scenarios,
-            "reference_scenarios": scenarios,
-            "detected_total": len(detected),
-            "detected_by_type": Counter(row["issue_type"] for row in detected),
-            "detected_issues": detected,
-            "dataset": {
-                "task_id": project.task_id,
-                "source_path": data.source_path,
-                "source_sha256": data.source_sha256,
-                "profile_id": data.profile_id,
-                "profile_path": data.profile_path,
-            },
-        }
-
-    @app.get(
-        "/api/projects/{project_id}/quality/export.csv",
-        response_class=Response,
-        responses={200: {"content": {"text/csv": {"schema": {"type": "string"}}}}},
-    )
-    def export_quality(project_id: str) -> Response:
-        output = StringIO()
-        issues = project_data_explorer(project_id, "quality").data.detected_quality
-        fieldnames = [
-            "issue_id", "issue_type", "source_sheet", "entity_key", "detail",
-            "focus_entity_key", "related_entity_keys", "missing_reference_key", "suggested_view",
-        ]
-        writer = csv.DictWriter(output, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows({**issue, "related_entity_keys": "|".join(issue["related_entity_keys"])} for issue in issues)
-        return Response(
-            content="\ufeff" + output.getvalue(),
-            media_type="text/csv; charset=utf-8",
-            headers={"Content-Disposition": "attachment; filename=detected-data-quality.csv"},
-        )
-
-    @app.get("/api/projects/{project_id}/lineage", response_model=LineageIndexResponse, response_model_exclude_none=True, responses=PROJECT_API_ERRORS)
-    def lineage_index(project_id: str, query: str = "", entity_type: str = "", issue_only: bool = False, limit: int = 40) -> dict[str, Any]:
-        data = project_data_explorer(project_id, "lineage").data
-        normalized = query.strip().casefold()
-        issue_keys = {issue["entity_key"] for issue in data.detected_quality if issue["entity_key"]}
-        items: list[dict[str, Any]] = []
-        counts: Counter[str] = Counter()
-        for sheet_name, key_column in data.entity_sheets.items():
-            records = data.entities[key_column]
-            counts[sheet_name] += len(records)
-            if entity_type and sheet_name != entity_type:
-                continue
-            for key, source_row in records.items():
-                metadata: dict[str, Any] = {}
-                if sheet_name == data.role_to_sheet["annealing"]:
-                    relations = data.lineage.get(key, {})
-                    melt_key_column = data.role_to_key["melt"]
-                    melt_keys = sorted(set(relations.get(melt_key_column, [])))
-                    melt_row = data.entities.get(melt_key_column, {}).get(melt_keys[0], {}) if len(melt_keys) == 1 else {}
-                    feature = data.anneal_features.get(key, {})
-                    values_by_property: dict[str, list[float]] = {}
-                    for observation in data.observations:
-                        if observation["parent_key"] != key or observation["source"] == data.role_to_sheet["hot_tensile"]:
-                            continue
-                        for property_name, value in observation["outputs"].items():
-                            values_by_property.setdefault(property_name, []).append(float(value))
-                    metadata = {
-                        "family": str(melt_row.get(data.technical_columns[("melt", "family")]) or ""),
-                        "project": str(source_row.get(data.technical_columns[("annealing", "project")]) or ""),
-                        "route": str(feature.get("standard_route") or ""),
-                        "peak_temperature_c": feature.get("max_temperature_c"),
-                        "learning_status": str(source_row.get(data.policy_columns[("annealing", "learning_flag/v1")]) or ""),
-                        "has_observation": bool(values_by_property),
-                        "observation_summary": {
-                            property_name: {
-                                "mean": round(float(fmean(values)), 3),
-                                "std": round(float(pstdev(values)), 3),
-                                "n": len(values),
-                            }
-                            for property_name, values in sorted(values_by_property.items())
-                        },
-                    }
-                search_text = " ".join([key, *(str(value) for value in metadata.values() if not isinstance(value, dict))]).casefold()
-                if normalized and normalized not in search_text:
-                    continue
-                if issue_only and key not in issue_keys:
-                    continue
-                items.append({"key": key, "entity_type": sheet_name, "has_issue": key in issue_keys, **metadata})
-        known_keys = {item["key"] for item in items}
-        for issue in data.detected_quality:
-            key = issue["entity_key"]
-            if not key or key in known_keys or key not in data.lineage:
-                continue
-            relations = data.lineage[key]
-            key_column = next((column for column, values in relations.items() if key in values), "")
-            sheet_name = next((sheet for sheet, column in data.entity_sheets.items() if column == key_column), issue["source_sheet"])
-            if entity_type and sheet_name != entity_type:
-                continue
-            if normalized and normalized not in key.casefold():
-                continue
-            items.append({"key": key, "entity_type": sheet_name, "has_issue": True})
-            known_keys.add(key)
-        items.sort(key=lambda item: (not item["has_issue"], item["entity_type"], item["key"]))
-        return {
-            "items": items[:max(1, min(limit, 100))],
-            "total_entities": sum(counts.values()),
-            "relation_rows": len(data.sheets[data.relation_sheet]),
-            "detected_issues": len(data.detected_quality),
-            "counts_by_type": counts,
-        }
-
-    @app.get("/api/projects/{project_id}/lineage/{entity_key}", response_model=LineageResponse, responses=PROJECT_API_ERRORS)
-    def lineage(project_id: str, entity_key: str, limit: int = Query(default=40, ge=1, le=200)) -> dict[str, Any]:
-        project = require_project(project_id)
-        data = project_data_explorer(project_id, "lineage").data
-        item = data.lineage.get(entity_key)
-        if item is None:
-            raise HTTPException(404, "来歴が見つかりません")
-        try:
-            node = lineage_node_detail(data, entity_key)
-        except KeyError:
-            raise HTTPException(404, "来歴ノードの元データが見つかりません") from None
-        graph = lineage_neighborhood(data, entity_key, max_nodes=limit)
-        connected_keys = {graph_node["key"] for graph_node in graph["nodes"]}
-        issues = [issue for issue in data.detected_quality if issue["entity_key"] in connected_keys]
-        try:
-            payload = candidate_from_lineage(data, entity_key)
-            task_registry().validate_candidate(project.task_id, payload)
-        except (TaskRegistryError, ValueError) as exc:
-            candidate_eligible = False
-            candidate_reason = str(exc)
-        else:
-            candidate_eligible = True
-            candidate_reason = "接続された実績を候補入力として引き継げます"
-        return {
-            "key": entity_key,
-            "relations": item,
-            "quality_issues": issues,
-            "node": node,
-            "graph": graph,
-            "candidate_eligible": candidate_eligible,
-            "candidate_reason": candidate_reason,
-        }
-
-    @app.post("/api/projects/{project_id}/lineage/{entity_key}/candidate", status_code=201, response_model=Candidate, responses=PROJECT_API_ERRORS)
-    def create_candidate_from_lineage(project_id: str, entity_key: str) -> dict[str, Any]:
-        explorer = project_data_explorer(project_id, "lineage")
-        if not explorer.capability.candidate_creation:
-            raise HTTPException(404, "このプロジェクトでは実績から候補を作成できません")
-        try:
-            payload = candidate_from_lineage(explorer.data, entity_key)
-        except ValueError as exc:
-            raise HTTPException(422, str(exc)) from exc
-        return create_candidate_in_project(payload, project_id).model_dump(mode="json")
 
     @app.post("/api/screening", status_code=201, response_model=ScreeningRunResponse)
     def screening(payload: ScreeningRequest, project_id: str = "default") -> dict[str, Any]:
