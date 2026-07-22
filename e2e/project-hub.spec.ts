@@ -62,13 +62,14 @@ test("new project creation requires an explicit empty or copy choice", async ({ 
   await expect(panel.getByRole("radio", { name: /空から開始/ })).toBeVisible();
   await expect(panel.getByRole("radio", { name: /現在候補をコピー/ })).toBeVisible();
   await panel.getByLabel("プロジェクト名").fill(`空の検討 ${Date.now()}`);
-  await panel.getByRole("combobox", { name: "予測タスク" }).selectOption("hot-rolled-properties-v1");
+  await panel.getByRole("combobox", { name: "Dataset", exact: true }).selectOption({ label: "process_dashboard_realistic_excel_v2 · thin-sheet-workbook-v2" });
+  await panel.getByRole("combobox", { name: "予測タスク" }).selectOption("annealed-properties-v1");
   await panel.getByRole("radio", { name: /空から開始/ }).check();
-  await panel.getByRole("button", { name: "この内容で作成" }).click();
+  await panel.getByRole("button", { name: "固定してプロジェクトを作成" }).click();
   await expect(page.getByText("まだ候補がありません", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: /条件範囲から探す/ }).first().click();
   await page.getByRole("button", { name: "基準候補を作って探索を始める" }).click();
   await page.getByRole("button", { name: "候補比較", exact: true }).click();
   await expect(page.locator(".comparison-detail-table thead .prediction-col").filter({ hasText: "引張強さ" })).toBeVisible();
-  await expect(page.locator(".comparison-detail-table thead").getByText("降伏強さ", { exact: false })).toHaveCount(0);
+  await expect(page.locator(".comparison-detail-table thead .prediction-col").filter({ hasText: "降伏強さ" })).toBeVisible();
 });
