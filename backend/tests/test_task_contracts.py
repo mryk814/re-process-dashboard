@@ -72,6 +72,10 @@ def test_fixtures_freeze_complete_task_specific_input_sets() -> None:
         "context.equipment": "HR-LINE-1",
         "context.test_direction": "L",
     }
+    assert [(item.kind, item.path, item.time_transform) for item in annealed.task_definition.response_curve_variables] == [
+        ("numeric_input", "process.ls_mpm", "inverse_heat_time"),
+        ("heat_stage_temperature", None, "direct"),
+    ]
 
 
 @pytest.mark.parametrize(
