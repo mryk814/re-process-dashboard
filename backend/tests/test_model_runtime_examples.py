@@ -11,7 +11,7 @@ import pytest
 
 from material_workbench.model_package_verify import verify_model_package_example
 from material_workbench.model_example_contracts import PredictiveMixtureDesignFixture, validate_mixture_component_digests
-from material_workbench.model_packages import ModelPackageLoader, PackageContractError, RUNTIME_TYPES
+from material_workbench.model_packages import ModelPackageLoader, PackageContractError, PredictiveSummary, RUNTIME_TYPES, predictive_interval
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -45,6 +45,16 @@ def test_quantile_example_builds_and_verifies_without_activation(tmp_path: Path)
     assert summary.quantiles == pytest.approx({"0.05": 0.64, "0.5": 1.84, "0.95": 3.04})
     assert summary.distribution == {"family": "empirical_quantiles", "support": "runtime_defined"}
     assert "quantile-linear-example" not in (ROOT / "models" / "active-packages.json").read_text(encoding="utf-8")
+
+
+def test_prediction_interval_uses_declared_outer_quantiles() -> None:
+    summary = PredictiveSummary(
+        target="y", target_kind="continuous", unit="1", point_statistic="median",
+        point_estimate=2.0, quantiles={"0.1": 1.0, "0.5": 2.0, "0.9": 4.0},
+        distribution={"family": "empirical_quantiles", "support": "real"},
+    )
+
+    assert predictive_interval(summary) == (1.0, 4.0)
 
 
 @pytest.mark.parametrize(
@@ -101,7 +111,8 @@ def test_additive_examples_verify_explain_and_keep_capability_difference(tmp_pat
     assert normal.distribution["std"] > 0
     assert explanation.intercept + sum(term.contribution for term in explanation.terms) == pytest.approx(explanation.link_score)
     assert explanation.prediction == pytest.approx(point.point_estimate)
-    assert {term.kind for term in explanation.terms} == {"linear", "bspline_univariate", "categorical_lookup"}
+    assert [term.kind for term in explanation.terms].count("bspline_univariate") == 2
+    assert [term.kind for term in explanation.terms].count("categorical_lookup") == 1
 
 
 def test_additive_response_curve_runs_from_canonical_input_through_declared_feature_order(tmp_path: Path) -> None:
@@ -153,6 +164,21 @@ def test_additive_adapter_rejects_unknown_terms_shapes_nonfinite_and_categories(
     artifact = root / "model-artifacts" / "additive.npz"
     with np.load(artifact, allow_pickle=False) as current:
         arrays = {name: current[name] for name in current.files}
+    arrays["term_0_knots"] = np.zeros_like(arrays["term_0_knots"])
+    np.savez(artifact, **arrays)
+    manifest_path = root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    entry = next(item for item in manifest["artifacts"] if item["path"] == "model-artifacts/additive.npz")
+    entry.update(sha256=hashlib.sha256(artifact.read_bytes()).hexdigest(), bytes=artifact.stat().st_size)
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(PackageContractError, match="incompatible shapes"):
+        ModelPackageLoader().load(root).load_predictor("target")
+
+    additive_builder.build(destination, replace=True)
+    root = destination / "point"
+    artifact = root / "model-artifacts" / "additive.npz"
+    with np.load(artifact, allow_pickle=False) as current:
+        arrays = {name: current[name] for name in current.files}
     arrays["term_0_coefficients"] = np.asarray([1.0, 2.0])
     np.savez(artifact, **arrays)
     manifest_path = root / "manifest.json"
@@ -165,8 +191,13 @@ def test_additive_adapter_rejects_unknown_terms_shapes_nonfinite_and_categories(
 
     additive_builder.build(destination, replace=True)
     predictor = ModelPackageLoader().load(destination / "point").load_predictor("target")
+    with pytest.raises(PackageContractError, match="missing model features"):
+        predictor.predict({"x": 0.3, "route_code": 1.0})
     with pytest.raises(PackageContractError, match="unknown category"):
         predictor.predict({"x": 0.3, "route_code": 99.0, "z": 0.2})
+    below = predictor.predict({"x": -10.0, "route_code": 1.0, "z": 0.2})
+    boundary = predictor.predict({"x": 0.0, "route_code": 1.0, "z": 0.2})
+    assert below.point_estimate == pytest.approx(boundary.point_estimate)
 
 
 def test_checked_posterior_linear_example_is_deterministic_and_reported() -> None:
@@ -177,9 +208,11 @@ def test_checked_posterior_linear_example_is_deterministic_and_reported() -> Non
     features = json.loads((root / "smoke" / "input.json").read_text(encoding="utf-8"))["features"]
     first = predictor.predict(features, seed=17)
     second = predictor.predict(features, seed=17)
+    another_seed = predictor.predict(features, seed=99)
     selection = json.loads((root / "reports" / "selection-report.json").read_text(encoding="utf-8"))
 
     assert first == second
+    assert first.point_estimate == another_seed.point_estimate
     assert first.quantiles["0.05"] < first.point_estimate < first.quantiles["0.95"]
     assert first.distribution["family"] == "empirical_quantiles"
     assert first.distribution["std_semantics"] == "posterior_predictive_samples"
@@ -239,7 +272,7 @@ def test_posterior_linear_rejects_feature_order_mismatch(tmp_path: Path) -> None
 def test_predictive_mixture_design_golden_degeneracy_and_digest_binding() -> None:
     path = ROOT / "examples" / "model-packages" / "design" / "predictive-mixture-v1.json"
     fixture = PredictiveMixtureDesignFixture.model_validate_json(path.read_text(encoding="utf-8"))
-    actual = {item.predictor_id: item.package_digest for item in fixture.components}
+    actual = {item.component_id: item.package_digest for item in fixture.components}
 
     validate_mixture_component_digests(fixture, actual)
     assert fixture.golden_mixture_mean == pytest.approx(13.5)
@@ -249,10 +282,10 @@ def test_predictive_mixture_design_golden_degeneracy_and_digest_binding() -> Non
     document["components"][1]["weight"] = 0.0
     document["golden_mixture_mean"] = 10.0
     degenerate = PredictiveMixtureDesignFixture.model_validate(document)
-    assert degenerate.golden_mixture_mean == degenerate.golden_component_means["model_a"]
+    assert degenerate.golden_mixture_mean == degenerate.golden_component_means["package-a::target"]
 
     with pytest.raises(ValueError, match="digest mismatch"):
-        validate_mixture_component_digests(fixture, {**actual, "model_b": "sha256:" + "d" * 64})
+        validate_mixture_component_digests(fixture, {**actual, "package-b::target": "sha256:" + "d" * 64})
 
 
 def test_runtime_example_index_and_skill_cover_every_registered_runtime() -> None:

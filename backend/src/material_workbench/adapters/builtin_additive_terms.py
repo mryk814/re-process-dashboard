@@ -158,7 +158,7 @@ class BuiltinAdditiveTermsAdapter:
             if kind == "bspline_univariate":
                 knots, coefficients = term_arrays
                 assert degree is not None
-                if knots.ndim != 1 or coefficients.shape != (len(knots) - degree - 1,) or len(knots) < 2 * degree + 2 or np.any(np.diff(knots) < 0):
+                if knots.ndim != 1 or coefficients.shape != (len(knots) - degree - 1,) or len(knots) < 2 * degree + 2 or np.any(np.diff(knots) < 0) or knots[degree] >= knots[-degree - 1]:
                     raise PackageContractError("B-spline knots and coefficients have incompatible shapes")
             if kind == "categorical_lookup":
                 categories, scores = term_arrays

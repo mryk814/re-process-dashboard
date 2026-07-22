@@ -21,6 +21,7 @@ from material_workbench.task_contracts import TargetRuntimeCapability
 
 
 KNOTS = np.asarray([0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0])
+Z_KNOTS = np.asarray([-1.0, -1.0, -1.0, 0.0, 1.0, 1.0, 1.0])
 DEGREE = 2
 CATEGORIES = np.asarray([0.0, 1.0, 2.0])
 
@@ -34,7 +35,7 @@ def _artifact(root: Path, path: Path) -> dict[str, object]:
     return {"path": path.relative_to(root).as_posix(), "sha256": hashlib.sha256(path.read_bytes()).hexdigest(), "bytes": path.stat().st_size}
 
 
-def _train() -> tuple[float, np.ndarray, np.ndarray, float, float]:
+def _train() -> tuple[float, np.ndarray, np.ndarray, np.ndarray, float]:
     rows: list[np.ndarray] = []
     targets: list[float] = []
     truth_spline = np.asarray([0.0, 1.5, -0.5, 2.0])
@@ -47,7 +48,8 @@ def _train() -> tuple[float, np.ndarray, np.ndarray, float, float]:
     ):
         basis = bspline_basis(float(x), KNOTS, DEGREE)
         one_hot = (CATEGORIES == category).astype(float)
-        rows.append(np.concatenate(([1.0], basis, one_hot, [z])))
+        z_basis = bspline_basis(float(z), Z_KNOTS, DEGREE)
+        rows.append(np.concatenate(([1.0], basis, one_hot, z_basis)))
         targets.append(float(5.0 + basis @ truth_spline + truth_categories[int(category)] + 0.4 * z + 0.03 * np.sin(row_index)))
     design = np.vstack(rows)
     observed = np.asarray(targets)
@@ -56,13 +58,13 @@ def _train() -> tuple[float, np.ndarray, np.ndarray, float, float]:
     intercept = float(coefficients[0])
     spline = coefficients[1:5]
     categories = coefficients[5:8]
-    linear = float(coefficients[8])
+    z_spline = coefficients[8:12]
     residual_scale = float(np.sqrt(np.mean(residuals**2)))
-    return intercept, spline, categories, linear, residual_scale
+    return intercept, spline, categories, z_spline, residual_scale
 
 
 def _build_one(staging: Path, *, normal: bool) -> None:
-    intercept, spline, category_scores, linear, residual_scale = _train()
+    intercept, spline, category_scores, z_spline, residual_scale = _train()
     pipeline = staging / "feature-pipeline" / "pipeline.json"
     model = staging / "model-artifacts" / "additive.npz"
     model.parent.mkdir(parents=True)
@@ -82,7 +84,8 @@ def _build_one(staging: Path, *, normal: bool) -> None:
         "term_0_coefficients": spline,
         "term_1_categories": CATEGORIES,
         "term_1_scores": category_scores,
-        "term_2_coefficients": np.asarray([linear]),
+        "term_2_knots": Z_KNOTS,
+        "term_2_coefficients": z_spline,
     }
     if normal:
         arrays["residual_scale"] = np.asarray(residual_scale)
@@ -119,7 +122,7 @@ def _build_one(staging: Path, *, normal: bool) -> None:
                 "terms": [
                     {"id": "x_spline", "kind": "bspline_univariate", "feature_index": 0, "degree": DEGREE},
                     {"id": "route", "kind": "categorical_lookup", "feature_index": 1},
-                    {"id": "z_linear", "kind": "linear", "feature_index": 2},
+                    {"id": "z_spline", "kind": "bspline_univariate", "feature_index": 2, "degree": DEGREE},
                 ],
             },
         }],

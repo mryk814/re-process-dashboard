@@ -12,14 +12,14 @@ Use this route for GAM/EBM-like models whose prediction is a fixed intercept plu
 | FeatureBundle | ordered numeric `x`, encoded `route_code`, `z` |
 | Runtime | `builtin.additive_terms.v1` / `additive_terms_v1` |
 | Artifact | safe NPZ containing scalar intercept and fixed arrays for each allow-listed term |
-| Term kinds | `linear`, `bspline_univariate`, `categorical_lookup` |
+| Representative terms | two numeric `bspline_univariate` terms (including a nonlinear response) and one `categorical_lookup` |
 | Link | identity only; explanation sum is on the same scale as the prediction |
 | PredictiveSummary | point-only empirical family or an explicitly supplied normal approximation |
 | Explanation | typed `AdditiveExplanation` with intercept, typed term contributions, link score, and prediction |
 | Training dependency | builder uses NumPy least squares; another trainer may export the same arrays |
 | Runtime dependency | NumPy only |
 
-The B-spline uses a fixed knot vector, degree 1–3, and constant-boundary extrapolation. Categorical values must match the exported numeric encoding exactly. Unknown kinds, fields, categories, non-finite tensors, and incompatible shapes are rejected.
+Each B-spline uses a fixed knot vector, degree 1–3, a positive-width domain, and constant-boundary extrapolation. Categorical values must match the exported numeric encoding exactly. Unknown kinds, fields, categories, non-finite tensors, degenerate knots, and incompatible shapes are rejected.
 
 ## Capability variants
 

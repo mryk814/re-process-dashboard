@@ -4,6 +4,7 @@ import numpy as np
 
 from ..model_packages import PackageContractError, PredictiveSummary, PredictorSpec, VerifiedModelPackage
 from .base import feature_vector
+from .safe_npz import safe_npz_arrays
 
 
 class _BuiltinLinearPredictor:
@@ -21,14 +22,14 @@ class BuiltinLinearAdapter:
     def load(self, package: VerifiedModelPackage, predictor: PredictorSpec) -> _BuiltinLinearPredictor:
         if predictor.predictive_family != "empirical_quantiles":
             raise PackageContractError("builtin.linear.v1 requires empirical_quantiles")
-        with np.load(package.artifact_path(predictor.artifact), allow_pickle=False) as arrays:
-            required = {"weights", "bias", "lower_offset", "upper_offset"}
-            if set(arrays.files) != required:
-                raise PackageContractError("builtin linear artifact has an unexpected tensor schema")
-            weights = np.asarray(arrays["weights"], dtype=float).reshape(-1)
-            if len(weights) != len(predictor.feature_names):
-                raise PackageContractError("builtin linear weights do not match feature_names")
-            bias, lower, upper = (float(np.asarray(arrays[name]).reshape(())) for name in ("bias", "lower_offset", "upper_offset"))
+        arrays = safe_npz_arrays(package.artifact_path(predictor.artifact), max_entries=4)
+        required = {"weights", "bias", "lower_offset", "upper_offset"}
+        if set(arrays) != required:
+            raise PackageContractError("builtin linear artifact has an unexpected tensor schema")
+        weights = np.asarray(arrays["weights"], dtype=float).reshape(-1)
+        if len(weights) != len(predictor.feature_names):
+            raise PackageContractError("builtin linear weights do not match feature_names")
+        bias, lower, upper = (float(np.asarray(arrays[name]).reshape(())) for name in ("bias", "lower_offset", "upper_offset"))
         if not np.isfinite(weights).all() or not np.isfinite([bias, lower, upper]).all() or lower > 0 or upper < 0:
             raise PackageContractError("invalid builtin linear parameters")
         return _BuiltinLinearPredictor(predictor, weights, bias, lower, upper)

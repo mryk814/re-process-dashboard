@@ -41,7 +41,7 @@ def _synthetic_data() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     return x, y, blocks
 
 
-def _train_numpyro(x: np.ndarray, y: np.ndarray) -> dict[str, np.ndarray]:
+def _train_numpyro(x: np.ndarray, y: np.ndarray, *, seed: int = 20260722, warmup: int = 160, draws: int = 192) -> dict[str, np.ndarray]:
     try:
         import jax.numpy as jnp
         from jax import random
@@ -53,14 +53,14 @@ def _train_numpyro(x: np.ndarray, y: np.ndarray) -> dict[str, np.ndarray]:
 
     def model(features: object, observed: object | None = None) -> None:
         global_scale = numpyro.sample("global_scale", dist.HalfCauchy(0.35))
-        local_scale = numpyro.sample("local_scale", dist.HalfCauchy(jnp.ones(len(FEATURE_NAMES))))
-        beta = numpyro.sample("beta", dist.Normal(jnp.zeros(len(FEATURE_NAMES)), global_scale * local_scale))
+        local_scale = numpyro.sample("local_scale", dist.HalfCauchy(jnp.ones(x.shape[1])))
+        beta = numpyro.sample("beta", dist.Normal(jnp.zeros(x.shape[1]), global_scale * local_scale))
         intercept = numpyro.sample("intercept", dist.Normal(0, 3))
         noise_scale = numpyro.sample("noise_scale", dist.HalfNormal(1))
         numpyro.sample("observed", dist.Normal(intercept + jnp.asarray(features) @ beta, noise_scale), obs=observed)
 
-    sampler = MCMC(NUTS(model, target_accept_prob=0.85), num_warmup=160, num_samples=192, num_chains=1, progress_bar=False)
-    sampler.run(random.PRNGKey(20260722), jnp.asarray(x), jnp.asarray(y))
+    sampler = MCMC(NUTS(model, target_accept_prob=0.85), num_warmup=warmup, num_samples=draws, num_chains=1, progress_bar=False)
+    sampler.run(random.PRNGKey(seed), jnp.asarray(x), jnp.asarray(y))
     samples = sampler.get_samples()
     return {
         "beta_draws": np.asarray(samples["beta"], dtype=float),
@@ -81,6 +81,30 @@ def _block_cv(x: np.ndarray, y: np.ndarray, blocks: np.ndarray, columns: np.ndar
         coefficients = np.linalg.solve(x_train.T @ x_train + penalty, x_train.T @ y[train])
         errors.extend((y[test] - x_test @ coefficients).tolist())
     return float(np.sqrt(np.mean(np.asarray(errors) ** 2)))
+
+
+def _posterior_block_cv(x: np.ndarray, y: np.ndarray, blocks: np.ndarray) -> tuple[float, float, float]:
+    full_errors: list[float] = []
+    reduced_errors: list[float] = []
+    selected_counts: list[int] = []
+    for block in np.unique(blocks):
+        train, test = blocks != block, blocks == block
+        full = _train_numpyro(x[train], y[train], seed=20260800 + int(block), warmup=48, draws=64)
+        full_mean = full["intercept_draws"].mean() + x[test] @ full["beta_draws"].mean(axis=0)
+        full_errors.extend((y[test] - full_mean).tolist())
+        inclusion = np.mean(np.abs(full["beta_draws"]) > 0.1, axis=0)
+        selected = np.flatnonzero(inclusion >= 0.8)
+        if not len(selected):
+            selected = np.asarray([int(np.argmax(inclusion))])
+        selected_counts.append(len(selected))
+        reduced = _train_numpyro(x[train][:, selected], y[train], seed=20260900 + int(block), warmup=48, draws=64)
+        reduced_mean = reduced["intercept_draws"].mean() + x[test][:, selected] @ reduced["beta_draws"].mean(axis=0)
+        reduced_errors.extend((y[test] - reduced_mean).tolist())
+    return (
+        float(np.sqrt(np.mean(np.square(full_errors)))),
+        float(np.sqrt(np.mean(np.square(reduced_errors)))),
+        float(np.mean(selected_counts)),
+    )
 
 
 def _build(staging: Path, arrays: dict[str, np.ndarray], x: np.ndarray, y: np.ndarray, blocks: np.ndarray) -> None:
@@ -166,20 +190,23 @@ def _build(staging: Path, arrays: dict[str, np.ndarray], x: np.ndarray, y: np.nd
     _write_json(smoke_expected_path, ExampleSmokeExpected(summary=summary, capability=capability).model_dump(mode="json"))
     _write_json(selection_path, {
         "schema_version": "sparse-selection-report/v1",
-        "method": "regularized_horseshoe",
+        "method": "horseshoe",
         "features": selection_rows,
         "selected_subset_rule": "ROPE outside probability >= 0.8; report only, Feature Pipeline order is unchanged",
         "interpretation_warning": "Shrinkage and sign probabilities are not causal importance; correlated features may share evidence.",
     })
+    full_cv_rmse, reduced_cv_rmse, selected_count = _posterior_block_cv(x, y, blocks)
     quality = ExampleQualityReport(
         schema_version="model-example-quality/v1",
         evaluation_unit="leave-one-parent-block-out",
         metrics={
-            "full_model_rmse": _block_cv(x, y, blocks, np.arange(x.shape[1])),
-            "predeclared_two_signal_rmse": _block_cv(x, y, blocks, np.asarray([0, 1])),
+            "full_horseshoe_block_cv_rmse": full_cv_rmse,
+            "selected_reduced_horseshoe_block_cv_rmse": reduced_cv_rmse,
+            "mean_selected_feature_count": selected_count,
+            "full_ridge_baseline_rmse": _block_cv(x, y, blocks, np.arange(x.shape[1])),
             "posterior_draw_count": float(len(beta)),
         },
-        notes=("Full and reduced baselines use the same held-out parent blocks. A data-selected reduced model would require nested selection inside each training fold.",),
+        notes=("Each held-out parent block trains a full horseshoe, selects features inside that training fold, then trains the reduced horseshoe. The ridge score is a separate full-feature baseline.",),
     )
     _write_json(quality_path, quality.model_dump(mode="json"))
     manifest["smoke_test"] = {"input": "smoke/input.json", "expected": "smoke/expected.json"}

@@ -1,11 +1,14 @@
 """Build small, loadable NumPyro posterior Package examples for every likelihood."""
 from __future__ import annotations
 
+import argparse
+from contextlib import contextmanager
 import hashlib
 import json
 import shutil
 from pathlib import Path
 import sys
+from uuid import uuid4
 
 import numpy as np
 
@@ -39,9 +42,7 @@ def _artifact(root: Path, path: Path) -> dict[str, object]:
     }
 
 
-def build(destination: Path) -> None:
-    if destination.exists():
-        shutil.rmtree(destination)
+def _build_contents(destination: Path) -> None:
     destination.mkdir(parents=True)
     readme_rows: list[str] = []
     for family, (target_kind, output_width, extras) in EXAMPLES.items():
@@ -100,12 +101,15 @@ def build(destination: Path) -> None:
         quality_path.parent.mkdir()
         smoke_input_path.write_text(json.dumps(smoke_input.model_dump(mode="json"), ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
         smoke_expected_path.write_text(json.dumps(ExampleSmokeExpected(summary=summary, capability=capability).model_dump(mode="json"), ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
-        metric_name = "brier_score" if target_kind == "binary" else "mean_absolute_count_error" if target_kind == "count" else "ranked_probability_score" if target_kind == "ordinal" else "mean_absolute_error"
         quality = ExampleQualityReport(
             schema_version="model-example-quality/v1",
             evaluation_unit="synthetic posterior contract fixture",
-            metrics={metric_name: 0.0},
-            notes=("Contract fixture metric over generated synthetic truth; not a production quality claim.",),
+            metrics={
+                "posterior_draw_count": float(draws),
+                "smoke_quantile_count": float(len(summary.quantiles)),
+                "contract_fixture_count": 1.0,
+            },
+            notes=("Contract checks only; accuracy metrics require observations and are intentionally absent.",),
         )
         quality_path.write_text(json.dumps(quality.model_dump(mode="json"), ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
         manifest["smoke_test"] = {"input": "smoke/input.json", "expected": "smoke/expected.json"}
@@ -125,5 +129,42 @@ def build(destination: Path) -> None:
     )
 
 
+@contextmanager
+def _staged_collection(destination: Path, *, replace: bool):
+    destination = destination.resolve()
+    if destination.exists() and not replace:
+        raise FileExistsError(f"refusing to replace existing example collection: {destination}")
+    if destination.exists() and (
+        not (destination / "README.md").is_file()
+        or any(not (destination / family / "manifest.json").is_file() for family in EXAMPLES)
+    ):
+        raise FileExistsError(f"refusing to replace a directory that is not the NumPyro example collection: {destination}")
+    staging = destination.with_name(f".{destination.name}.staging-{uuid4().hex}")
+    backup = destination.with_name(f".{destination.name}.backup-{uuid4().hex}")
+    try:
+        yield staging
+        if destination.exists():
+            destination.rename(backup)
+        staging.rename(destination)
+        if backup.exists():
+            shutil.rmtree(backup)
+    except Exception:
+        if backup.exists() and not destination.exists():
+            backup.rename(destination)
+        raise
+    finally:
+        if staging.exists():
+            shutil.rmtree(staging)
+
+
+def build(destination: Path, *, replace: bool = False) -> None:
+    with _staged_collection(destination, replace=replace) as staging:
+        _build_contents(staging)
+
+
 if __name__ == "__main__":
-    build(Path("examples/model-packages/numpyro"))
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output", type=Path, default=Path("examples/model-packages/numpyro"))
+    parser.add_argument("--replace", action="store_true")
+    args = parser.parse_args()
+    build(args.output, replace=args.replace)

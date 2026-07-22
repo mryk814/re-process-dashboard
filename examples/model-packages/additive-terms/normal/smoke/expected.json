@@ -4,17 +4,17 @@
     "target_kind": "continuous",
     "unit": "a.u.",
     "point_statistic": "mean",
-    "point_estimate": 5.953018025382949,
+    "point_estimate": 5.889131342776066,
     "quantiles": {
-      "0.05": 5.918247023643353,
-      "0.5": 5.953018025382949,
-      "0.95": 5.987789027122545
+      "0.05": 5.854360481564942,
+      "0.5": 5.889131342776066,
+      "0.95": 5.92390220398719
     },
     "event_probability": null,
     "distribution": {
       "family": "normal",
       "support": "real",
-      "std": 0.021139268060003408
+      "std": 0.021139182624758494
     },
     "uncertainty_components": null,
     "warnings": []

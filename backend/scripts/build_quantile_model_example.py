@@ -80,19 +80,31 @@ def _build(staging: Path) -> None:
     _write_json(smoke_expected_path, ExampleSmokeExpected(summary=summary, capability=capability).model_dump(mode="json"))
     grid = np.linspace(0, 1, 21)
     crossing_count = sum(int(np.any(np.diff(coefficients @ np.asarray([x, 1.0]) + intercepts) < 0)) for x in grid)
+    if crossing_count:
+        raise ValueError("quantile example crosses on the quality-gate grid")
+    parent_blocks = np.repeat(np.arange(7), len(grid))
+    evaluation_x = np.tile(grid, 7)
+    predictions_grid = np.asarray([
+        coefficients @ np.asarray([x, 1.0]) + intercepts for x in evaluation_x
+    ])
+    standardized = np.asarray([-1.15, -0.72, -0.36, 0.0, 0.31, 0.68, 1.08])
+    observations = predictions_grid[:, 1] + standardized[parent_blocks] * (predictions_grid[:, 2] - predictions_grid[:, 0]) / 2
+    errors = observations[:, None] - predictions_grid
+    pinball = np.mean(np.maximum(levels * errors, (levels - 1) * errors), axis=0)
     quality = ExampleQualityReport(
         schema_version="model-example-quality/v1",
-        evaluation_unit="synthetic fixed grid",
+        evaluation_unit="leave-one-synthetic-parent-block-out rows",
         metrics={
-            "median_mae": 0.0,
-            "pinball_q05": 0.0,
-            "pinball_q50": 0.0,
-            "pinball_q95": 0.0,
-            "interval_coverage": 0.9,
-            "mean_interval_width": float(np.mean([2 + x for x in grid])),
+            "pinball_q05": float(pinball[0]),
+            "pinball_q50": float(pinball[1]),
+            "pinball_q95": float(pinball[2]),
+            "median_mae": float(np.mean(np.abs(errors[:, 1]))),
+            "interval_coverage": float(np.mean((observations >= predictions_grid[:, 0]) & (observations <= predictions_grid[:, 2]))),
+            "mean_interval_width": float(np.mean(predictions_grid[:, 2] - predictions_grid[:, 0])),
             "quantile_crossing_count": float(crossing_count),
+            "parent_block_count": float(len(np.unique(parent_blocks))),
         },
-        notes=("Metrics are a contract fixture over known synthetic quantile functions, not a production accuracy claim.",),
+        notes=("Metrics use fixed heteroscedastic synthetic observations, grouped by parent condition; they are not a production quality claim.",),
     )
     _write_json(quality_path, quality.model_dump(mode="json"))
     artifacts = [_artifact(staging, path) for path in (pipeline, model, smoke_input_path, smoke_expected_path, quality_path)]

@@ -34,4 +34,4 @@ npm run models:build:quantile-example
 uv run python backend/scripts/verify_model_package.py examples/model-packages/quantile-linear --example
 ```
 
-The quality report records per-quantile pinball placeholders for the known synthetic truth, interval coverage/width, and the crossing count over a fixed grid. `models/active-packages.json` is not changed.
+The quality report computes per-quantile pinball loss, median MAE, interval coverage/width, and crossing count from fixed heteroscedastic synthetic observations grouped into parent-condition blocks. The builder rejects any crossing on the fixed grid. `models/active-packages.json` is not changed.

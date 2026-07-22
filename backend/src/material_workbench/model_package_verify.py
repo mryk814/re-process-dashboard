@@ -9,7 +9,7 @@ from typing import Any, Sequence
 
 from .importer import load_workbook_data
 from .model_lifecycle import validate_lifecycle_metadata, validate_training_provenance
-from .model_example_contracts import ExampleQualityReport, ExampleSmokeExpected, ExampleSmokeInput
+from .model_example_contracts import ExampleQualityReport, ExampleSmokeExpected, ExampleSmokeInput, SparseSelectionReport
 from .model_packages import MissingOptionalDependency, ModelPackageLoader, PackageContractError, validate_predictive_summary
 from .task_registry import load_task_contracts
 
@@ -63,6 +63,10 @@ def verify_model_package_example(package_root: str | Path) -> ExamplePackageVeri
         quality = ExampleQualityReport.model_validate_json(
             package.artifact_path(package.manifest.quality_report).read_text(encoding="utf-8")
         )
+        if any(item.path == "reports/selection-report.json" for item in package.manifest.artifacts):
+            SparseSelectionReport.model_validate_json(
+                package.artifact_path("reports/selection-report.json").read_text(encoding="utf-8")
+            )
     except (OSError, ValueError) as exc:
         raise ModelPackageVerificationError(f"invalid example verification artifact: {exc}") from exc
     spec = next((item for item in package.manifest.predictors if item.id == smoke_input.predictor_id), None)

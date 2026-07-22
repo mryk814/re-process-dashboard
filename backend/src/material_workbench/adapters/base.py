@@ -17,11 +17,12 @@ def feature_vector(spec: PredictorSpec, values: dict[str, float]) -> np.ndarray:
     return vector
 
 
-def quantile_summary(samples: np.ndarray) -> dict[str, float]:
+def quantile_summary(samples: np.ndarray, *, discrete: bool = False) -> dict[str, float]:
     values = np.asarray(samples, dtype=float).reshape(-1)
     if not len(values) or not np.isfinite(values).all():
         raise PackageContractError("predictive samples must be finite and nonempty")
-    return {"0.05": float(np.quantile(values, 0.05)), "0.50": float(np.quantile(values, 0.50)), "0.95": float(np.quantile(values, 0.95))}
+    method = "inverted_cdf" if discrete else "linear"
+    return {"0.05": float(np.quantile(values, 0.05, method=method)), "0.50": float(np.quantile(values, 0.50, method=method)), "0.95": float(np.quantile(values, 0.95, method=method))}
 
 
 def scalar_config(spec: PredictorSpec, name: str, default: float | None = None) -> float:

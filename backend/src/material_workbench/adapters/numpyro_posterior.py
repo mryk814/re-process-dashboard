@@ -120,7 +120,7 @@ class _DensePosteriorPredictor:
             point, distribution = float(np.mean(np.arange(probabilities.shape[1]) * probabilities.mean(axis=0))), {"family": family, "support": "ordered_categories", "categories": categories}
         else:
             raise PackageContractError(f"unsupported NumPyro likelihood: {family}")
-        return PredictiveSummary(target=self.spec.target, target_kind=self.spec.target_kind, unit=self.spec.unit, point_statistic="expected_category" if family == "ordinal_logit" else "rate", point_estimate=point, quantiles=quantile_summary(samples), distribution=distribution)
+        return PredictiveSummary(target=self.spec.target, target_kind=self.spec.target_kind, unit=self.spec.unit, point_statistic="expected_category" if family == "ordinal_logit" else "rate", point_estimate=point, quantiles=quantile_summary(samples, discrete=True), distribution=distribution)
 
 
 class NumpyroDensePosteriorAdapter:

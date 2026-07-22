@@ -4,7 +4,7 @@ import { getCandidateInputValue, numericTaskInputs, orderedInputGroups, type Num
 import type { ApiPreview } from "../../shared/api/workbench-api";
 import type { CandidateSaveState } from "./useCandidateEditor";
 import { formatDisplayNumber, formatInputNumber, type DisplayDecimalOverrides } from "./numberFormat";
-import { predictionHasInterval, predictionIntervalLabel } from "../../shared/predictionPresentation";
+import { formatPredictionPoint, predictionHasInterval, predictionIntervalLabel } from "../../shared/predictionPresentation";
 
 const saveLabels: Record<CandidateSaveState, string> = {
   idle: "",
@@ -275,11 +275,9 @@ export function ComparisonTable({
   };
   const support = (value?: string) => value === "supported" ? "範囲内" : value === "caution" ? "要確認" : value === "extrapolated" ? "外挿" : "未計算";
   const formatNumber = (value: number) => value.toLocaleString("ja-JP", { maximumFractionDigits: 1 });
-  const predictionValue = (prediction: ApiPreview["predictions"][string], outputKey: string) => prediction.target_kind === "binary"
-    ? `${formatNumber(prediction.value * 100)}%`
-    : prediction.target_kind === "ordinal"
-      ? `期待カテゴリ ${formatNumber(prediction.value)}`
-      : formatDisplayNumber(prediction.value, taskDefinition, `output.${outputKey}`, displayDecimalOverrides);
+  const predictionValue = (prediction: ApiPreview["predictions"][string], outputKey: string) => prediction.target_kind === "continuous" || prediction.target_kind === "continuous_positive" || prediction.target_kind === "count"
+    ? formatDisplayNumber(prediction.value, taskDefinition, `output.${outputKey}`, displayDecimalOverrides)
+    : formatPredictionPoint(prediction, formatNumber);
   const uncertaintySummary = (prediction: ApiPreview["predictions"][string], outputKey: string) => {
     const components = prediction.uncertainty_components ?? {};
     const model = components.latent_model_std ?? components.model_std;

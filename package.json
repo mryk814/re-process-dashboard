@@ -18,7 +18,7 @@
     "models:build:annealed": "uv run python backend/scripts/build_default_model_package.py --replace",
     "models:build:hot-rolling": "uv run python backend/scripts/build_hot_rolling_model_package.py --replace",
     "models:build:flank-wear": "uv run python backend/scripts/build_flank_wear_model_package.py --replace",
-    "models:build:examples": "uv run python backend/scripts/build_numpyro_package_examples.py",
+    "models:build:examples": "uv run python backend/scripts/build_numpyro_package_examples.py --replace",
     "models:build:quantile-example": "uv run python backend/scripts/build_quantile_model_example.py --replace",
     "models:build:additive-examples": "uv run python backend/scripts/build_additive_model_examples.py --replace",
     "models:build:posterior-linear-example": "uv run --extra runtime-numpyro python backend/scripts/build_posterior_linear_model_example.py --replace",

@@ -4,7 +4,7 @@
     "target_kind": "continuous",
     "unit": "a.u.",
     "point_statistic": "mean",
-    "point_estimate": -0.8548345630477515,
+    "point_estimate": -0.8476406527242567,
     "quantiles": {
       "0.05": -1.7156815567045136,
       "0.50": -0.841416745511024,

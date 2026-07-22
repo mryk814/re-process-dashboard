@@ -11,7 +11,7 @@ from .feature_contracts import feature_index_families
 from .hot_rolling_feature_pipeline import FEATURE_DEFINITIONS, FEATURE_NAMES, INPUT_SCHEMA_VERSION, PIPELINE_ID, PIPELINE_VERSION, build_hot_rolling_features, build_hot_rolling_features_from_observation
 from .dataset_profile import load_task_definitions
 from .importer import WorkbookData, lineage_reference_keys
-from .model_packages import ModelPackageLoader, validate_predictive_summary, validate_task_definition_canonical_inputs
+from .model_packages import ModelPackageLoader, predictive_interval, validate_predictive_summary, validate_task_definition_canonical_inputs
 from .schemas import Candidate, CandidateInput, Prediction, Support
 from .task_registry import load_task_contracts
 
@@ -162,15 +162,17 @@ class HotRollingRuntime:
         predictions: dict[str, Prediction] = {}
         for target, predictor in self.predictors.items():
             summary = predictor.predict(values)
+            lower, upper = predictive_interval(summary)
             predictions[target] = Prediction(
                 value=round(summary.point_estimate, 3),
-                lower=round(summary.quantiles.get("0.05", summary.point_estimate), 3),
-                upper=round(summary.quantiles.get("0.95", summary.point_estimate), 3),
+                lower=round(lower, 3),
+                upper=round(upper, 3),
                 unit=summary.unit,
                 target_kind=summary.target_kind,
                 point_statistic=summary.point_statistic,
                 predictive_family=summary.distribution.get("family", "empirical_quantiles"),
                 quantiles={level: round(float(item), 6) for level, item in summary.quantiles.items()},
+                categories=list(summary.distribution.get("categories", [])),
                 uncertainty_components=None if summary.uncertainty_components is None else {
                     name: round(float(value), 6) for name, value in summary.uncertainty_components.items()
                 },

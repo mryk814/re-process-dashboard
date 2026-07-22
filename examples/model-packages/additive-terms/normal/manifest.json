@@ -51,9 +51,10 @@
             "feature_index": 1
           },
           {
-            "id": "z_linear",
-            "kind": "linear",
-            "feature_index": 2
+            "id": "z_spline",
+            "kind": "bspline_univariate",
+            "feature_index": 2,
+            "degree": 2
           }
         ]
       }
@@ -72,8 +73,8 @@
     },
     {
       "path": "model-artifacts/additive.npz",
-      "sha256": "296a7ec591e453ce85ac6d82acd5ff10a7968ac283def0a044cdb5c89fd0dc3a",
-      "bytes": 2012
+      "sha256": "3d22d50590f126d8fb819fe8359d60f955bb31e22ed317bfdfb4267d0c9e4e84",
+      "bytes": 2348
     },
     {
       "path": "smoke/input.json",
@@ -82,12 +83,12 @@
     },
     {
       "path": "smoke/expected.json",
-      "sha256": "b8d4a1264eadf5f3e4a6f371474ccae347dfd63ef9cd15d27d60b027d70ab7a4",
-      "bytes": 852
+      "sha256": "8a0ac7c9a62c5a09539716726cbbfd33df015a93b4c1dee567e644f6733e7feb",
+      "bytes": 851
     },
     {
       "path": "reports/quality-report.json",
-      "sha256": "d0526c5e34686b97983201221668282fe46b3b462a65a132abdac6f201fdacae",
+      "sha256": "79024f29b5f8fb2633bd4c5aad5d7d37c2cf23f83f1150b3147ca512e089169f",
       "bytes": 361
     }
   ],

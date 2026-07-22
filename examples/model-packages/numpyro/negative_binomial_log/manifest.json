@@ -60,13 +60,13 @@
     },
     {
       "path": "smoke/expected.json",
-      "sha256": "e6d62fe63b70d7160e14529efe7ac417b19434403abe312829245101b9c124ce",
-      "bytes": 785
+      "sha256": "84e54683756f7e8c4a3540d2314d8c1f200b18197fcbc1d9a62180618aa6bd15",
+      "bytes": 770
     },
     {
       "path": "reports/quality-report.json",
-      "sha256": "f249ac1997855b9dd15bda1e2672461b87b31656ee53237311b7ba8fb665b1b3",
-      "bytes": 280
+      "sha256": "47cdf9fb257aec71f5c5a9071076103d70228449b3f15a35e91c3a9170711b06",
+      "bytes": 346
     }
   ],
   "smoke_test": {

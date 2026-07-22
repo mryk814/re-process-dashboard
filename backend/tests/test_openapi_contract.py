@@ -16,7 +16,8 @@ def test_tracked_openapi_schema_matches_fastapi_contract() -> None:
     candidate_response = tracked["paths"]["/api/projects/{project_id}/candidates"]["get"]["responses"]["200"]
     assert candidate_response["content"]["application/json"]["schema"]["items"]["$ref"].endswith("/Candidate")
     schemas = tracked["components"]["schemas"]
-    assert {"target_kind", "point_statistic", "predictive_family", "quantiles"} <= schemas["Prediction"]["properties"].keys()
+    assert {"target_kind", "point_statistic", "predictive_family", "quantiles", "categories"} <= schemas["Prediction"]["properties"].keys()
+    assert {"target_kind", "point_statistic", "predictive_family", "quantiles", "categories"} <= schemas["CurvePoint"]["properties"].keys()
     assert {"revision", "archived_at"} <= schemas["Candidate"]["properties"].keys()
     assert "expected_revision" in schemas["CandidateUpdate"]["required"]
     assert {"revision_conflict", "candidate_archived", "candidate_limit", "data_integrity_error"} <= set(
@@ -110,3 +111,12 @@ def test_quantile_semantics_survive_prediction_and_snapshot_payload_round_trip()
     assert decoded.point_statistic == "median"
     assert decoded.predictive_family == "empirical_quantiles"
     assert decoded.quantiles == {"0.05": 8.0, "0.5": 12.0, "0.95": 17.0}
+
+
+def test_legacy_snapshot_prediction_gets_explicit_read_semantics() -> None:
+    decoded = Prediction.model_validate({"value": 12.0, "lower": 8.0, "upper": 17.0, "unit": "MPa"})
+
+    assert decoded.target_kind == "continuous"
+    assert decoded.point_statistic == "mean"
+    assert decoded.predictive_family == "empirical_quantiles"
+    assert decoded.quantiles == {"0.05": 8.0, "0.95": 17.0}

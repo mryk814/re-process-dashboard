@@ -2,20 +2,31 @@
   "schema_version": "predictive-mixture-design/v1",
   "combination": "distribution_mixture",
   "target": "synthetic_response",
+  "target_kind": "continuous",
   "unit": "a.u.",
+  "predictive_family": "empirical_quantiles",
+  "capability_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
   "components": [
     {
-      "predictor_id": "model_a",
+      "package_id": "package-a",
+      "predictor_id": "target",
       "package_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "target": "synthetic_response",
+      "target_kind": "continuous",
       "unit": "a.u.",
+      "predictive_family": "empirical_quantiles",
+      "capability_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
       "weight": 0.65
     },
     {
-      "predictor_id": "model_b",
+      "package_id": "package-b",
+      "predictor_id": "target",
       "package_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       "target": "synthetic_response",
+      "target_kind": "continuous",
       "unit": "a.u.",
+      "predictive_family": "empirical_quantiles",
+      "capability_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
       "weight": 0.35
     }
   ],
@@ -27,8 +38,8 @@
     "code_revision": "design-fixture:not-a-runtime"
   },
   "golden_component_means": {
-    "model_a": 10.0,
-    "model_b": 20.0
+    "package-a::target": 10.0,
+    "package-b::target": 20.0
   },
   "golden_mixture_mean": 13.5
 }

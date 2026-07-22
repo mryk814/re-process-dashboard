@@ -282,6 +282,14 @@ class PredictiveSummary(PackageModel):
     warnings: tuple[str, ...] = ()
 
 
+def predictive_interval(summary: PredictiveSummary) -> tuple[float, float]:
+    """Return the outer declared quantiles; point-only outputs remain degenerate."""
+    if not summary.quantiles:
+        return summary.point_estimate, summary.point_estimate
+    ordered = sorted((float(level), float(value)) for level, value in summary.quantiles.items())
+    return ordered[0][1], ordered[-1][1]
+
+
 class TermContribution(PackageModel):
     term_id: str
     kind: Literal["linear", "bspline_univariate", "categorical_lookup"]
@@ -342,6 +350,8 @@ def validate_predictive_summary(
     )
     if requires_nonnegative_output and any(value < 0 for value in values):
         raise PackageContractError(f"predictor {spec.id!r} returned values outside nonnegative support")
+    if spec.target_kind in {"count", "ordinal"} and any(not float(value).is_integer() for _, value in ordered_quantiles):
+        raise PackageContractError(f"predictor {spec.id!r} returned non-discrete quantiles")
     if spec.target_kind in {"binary", "ordinal"} and spec.unit not in {"", "1"}:
         raise PackageContractError(f"predictor {spec.id!r} must use a dimensionless unit")
     if spec.target_kind == "ordinal":
@@ -354,11 +364,19 @@ def validate_predictive_summary(
             raise PackageContractError(f"predictor {spec.id!r} returned values outside ordinal support")
     if capability is None:
         return
+    if capability.target != spec.target:
+        raise PackageContractError(f"predictor {spec.id!r} capability target does not match predictor target")
     if summary.point_statistic not in capability.point_statistics:
         raise PackageContractError(f"predictor {spec.id!r} returned an undeclared point statistic")
     if bool(summary.quantiles) != capability.quantiles:
         raise PackageContractError(f"predictor {spec.id!r} quantile capability does not match its smoke output")
     has_standard_deviation = "std" in summary.distribution
+    if has_standard_deviation and (
+        not isinstance(summary.distribution["std"], (int, float))
+        or not math.isfinite(float(summary.distribution["std"]))
+        or float(summary.distribution["std"]) < 0
+    ):
+        raise PackageContractError(f"predictor {spec.id!r} returned an invalid standard deviation")
     if has_standard_deviation != capability.standard_deviation:
         raise PackageContractError(f"predictor {spec.id!r} standard-deviation capability does not match its smoke output")
     has_parametric_distribution = summary.distribution.get("family") != "empirical_quantiles"

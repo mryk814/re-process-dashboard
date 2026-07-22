@@ -65,8 +65,8 @@
     },
     {
       "path": "reports/quality-report.json",
-      "sha256": "e08bfdd2c6f456f76de4256541930adebb4c7a145f13ccb901f08aa4c59b2797",
-      "bytes": 274
+      "sha256": "47cdf9fb257aec71f5c5a9071076103d70228449b3f15a35e91c3a9170711b06",
+      "bytes": 346
     }
   ],
   "smoke_test": {

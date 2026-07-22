@@ -29,7 +29,7 @@ This is the preferred future direction when a real use case justifies it. Traini
 `examples/model-packages/design/predictive-mixture-v1.json` freezes the minimum future schema without registering a runtime. Its contract test verifies:
 
 - finite nonnegative weights summing to one;
-- common target and unit;
+- common target, target kind, unit, predictive family, and capability digest;
 - full component digest binding;
 - weight provenance;
 - fixed-weight mean composition;

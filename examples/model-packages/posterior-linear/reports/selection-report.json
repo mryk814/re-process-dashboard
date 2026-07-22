@@ -1,6 +1,6 @@
 {
   "schema_version": "sparse-selection-report/v1",
-  "method": "regularized_horseshoe",
+  "method": "horseshoe",
   "features": [
     {
       "feature": "x0",

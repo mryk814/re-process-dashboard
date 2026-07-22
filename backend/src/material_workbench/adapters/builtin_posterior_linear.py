@@ -27,7 +27,7 @@ class _PosteriorLinearPredictor:
             target_kind=self.spec.target_kind,
             unit=self.spec.unit,
             point_statistic="mean",
-            point_estimate=float(np.mean(samples)),
+            point_estimate=float(np.mean(latent)),
             quantiles=quantile_summary(samples),
             distribution={
                 "family": "empirical_quantiles",

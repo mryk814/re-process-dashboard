@@ -2,9 +2,11 @@
   "schema_version": "model-example-quality/v1",
   "evaluation_unit": "synthetic posterior contract fixture",
   "metrics": {
-    "ranked_probability_score": 0.0
+    "posterior_draw_count": 64.0,
+    "smoke_quantile_count": 3.0,
+    "contract_fixture_count": 1.0
   },
   "notes": [
-    "Contract fixture metric over generated synthetic truth; not a production quality claim."
+    "Contract checks only; accuracy metrics require observations and are intentionally absent."
   ]
 }

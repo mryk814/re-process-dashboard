@@ -167,14 +167,21 @@ test("binary count and ordinal outputs avoid regression-only presentation", () =
     predictions: {
       binary: { ...base, value: 0.42, lower: 0.2, upper: 0.7, unit: "1", target_kind: "binary", point_statistic: "probability", predictive_family: "bernoulli_logit", quantiles: { "0.05": 0.2, "0.95": 0.7 } },
       count: { ...base, value: 3, lower: 1, upper: 7, unit: "個", target_kind: "count", point_statistic: "rate", predictive_family: "poisson_log", quantiles: { "0.05": 1, "0.95": 7 } },
-      ordinal: { ...base, value: 1.4, lower: 0, upper: 3, unit: "1", target_kind: "ordinal", point_statistic: "expected_category", predictive_family: "ordinal_logit", quantiles: { "0.05": 0, "0.95": 3 } },
+      ordinal: { ...base, value: 1.4, lower: 0, upper: 3, unit: "1", target_kind: "ordinal", point_statistic: "expected_category", predictive_family: "ordinal_logit", quantiles: { "0.05": 0, "0.95": 3 }, categories: ["low", "medium", "high", "very high"] },
     },
     support: { status: "supported" },
   };
   const comparison = renderComparison({ candidates: [candidate], selectedId: candidate.id, taskDefinition: definition, previewsByCandidate: { [candidate.id]: preview }, targetValues: {}, onSelect() {}, onName() {}, onInput() {} });
   assert.match(comparison, />42%/);
   assert.match(comparison, /5–95%確率分位/);
-  assert.match(comparison, /期待カテゴリ 1.4/);
+  assert.match(comparison, /medium（期待 1.4）/);
   assert.match(comparison, /5–95%カテゴリ分位/);
-  assert.doesNotMatch(comparison, />0.42 <small>1|期待カテゴリ 1.4 <small>1/);
+  assert.doesNotMatch(comparison, />0.42 <small>1|medium（期待 1.4） <small>1/);
+});
+
+test("response curve source renders every declared quantile with explicit labeling", async () => {
+  const source = await import("node:fs/promises").then(({ readFile }) => readFile(new URL("../src/features/workbench/WorkbenchPage.tsx", import.meta.url), "utf8"));
+  assert.match(source, /data-quantile=\{level\}/);
+  assert.match(source, /分位線/);
+  assert.match(source, /point\.quantiles\[level\]/);
 });

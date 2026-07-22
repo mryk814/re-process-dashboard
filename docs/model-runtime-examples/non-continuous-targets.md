@@ -31,4 +31,4 @@ uv run python backend/scripts/verify_model_package.py examples/model-packages/nu
 uv run python backend/scripts/verify_model_package.py examples/model-packages/numpyro/ordinal_logit --example
 ```
 
-Each Package includes hashed smoke input/expected output, a matching `TargetRuntimeCapability`, and a target-appropriate minimal quality metric. The commands do not modify `models/active-packages.json`.
+Each Package includes hashed smoke input/expected output, a matching `TargetRuntimeCapability`, and explicit contract counts. Accuracy metrics are intentionally absent because these loader fixtures do not include observations. The commands do not modify `models/active-packages.json`.

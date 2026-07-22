@@ -100,6 +100,8 @@ def test_numpyro_dense_posterior_likelihoods_are_deterministic_and_semantic(tmp_
         assert 0 <= first.point_estimate <= 1 and first.event_probability == first.point_estimate
     if family in {"lognormal", "poisson_log", "negative_binomial_log", "zero_inflated_poisson_log"}:
         assert first.point_estimate >= 0 and first.quantiles["0.05"] >= 0
+    if target_kind in {"count", "ordinal"}:
+        assert all(float(value).is_integer() for value in first.quantiles.values())
     if family == "ordinal_logit":
         assert 0 <= first.point_estimate <= 2
 
@@ -116,6 +118,11 @@ def test_numpyro_dense_posterior_likelihoods_are_deterministic_and_semantic(tmp_
             PredictorSpec(id="p", target="y", unit="1", target_kind="count", runtime_type="numpyro.dense_posterior.v1", architecture_id="dense_mlp_v1", artifact="m.npz", predictive_family="poisson_log", feature_names=("x",)),
             PredictiveSummary(target="y", target_kind="count", unit="1", point_statistic="rate", point_estimate=-0.1, quantiles={"0.05": 0.0, "0.95": 2.0}, distribution={"family": "poisson_log", "support": "nonnegative_integers"}),
             "nonnegative support",
+        ),
+        (
+            PredictorSpec(id="p", target="y", unit="1", target_kind="count", runtime_type="numpyro.dense_posterior.v1", architecture_id="dense_mlp_v1", artifact="m.npz", predictive_family="poisson_log", feature_names=("x",)),
+            PredictiveSummary(target="y", target_kind="count", unit="1", point_statistic="rate", point_estimate=1.2, quantiles={"0.05": 0.0, "0.95": 2.5}, distribution={"family": "poisson_log", "support": "nonnegative_integers"}),
+            "non-discrete quantiles",
         ),
         (
             PredictorSpec(id="p", target="y", unit="MPa", target_kind="ordinal", runtime_type="numpyro.dense_posterior.v1", architecture_id="dense_mlp_v1", artifact="m.npz", predictive_family="ordinal_logit", feature_names=("x",)),
