@@ -5,23 +5,30 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from .candidates import CANDIDATE_APPLICATION_ERRORS, candidate_http_error
-from .dependencies import get_inference_work_graph, get_store, get_task_registry
+from .dependencies import get_inference_work_graph, get_project_runtime_resolver, get_store, get_task_registry
 from .errors import DomainApiException, PROJECT_API_ERRORS
 from ..application.inference import InferenceService, InferenceValidationError
 from ..inference_work_graph import InferenceWorkGraph
 from ..schemas import CurveFamilyResponse, InferenceDiagnosticsResponse, PredictionResponse, ResponseCurveResponse, SimilarObservation
 from ..store import CandidateRevisionConflictError, ProjectNotFoundError, Store
 from ..task_registry import TaskRegistry
+from ..project_runtime_resolver import ProjectRuntimeResolver
 
 
 router = APIRouter()
 StoreDependency = Annotated[Store, Depends(get_store)]
 RegistryDependency = Annotated[TaskRegistry, Depends(get_task_registry)]
 GraphDependency = Annotated[InferenceWorkGraph, Depends(get_inference_work_graph)]
+ResolverDependency = Annotated[ProjectRuntimeResolver, Depends(get_project_runtime_resolver)]
 
 
-def get_inference_service(store: StoreDependency, registry: RegistryDependency, graph: GraphDependency) -> InferenceService:
-    return InferenceService(store, registry, graph)
+def get_inference_service(
+    store: StoreDependency,
+    registry: RegistryDependency,
+    graph: GraphDependency,
+    resolver: ResolverDependency,
+) -> InferenceService:
+    return InferenceService(store, registry, graph, resolver)
 
 
 InferenceServiceDependency = Annotated[InferenceService, Depends(get_inference_service)]

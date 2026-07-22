@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
 from .candidates import CANDIDATE_APPLICATION_ERRORS, candidate_http_error
-from .dependencies import get_store, get_task_registry
+from .dependencies import get_project_runtime_resolver, get_store, get_task_registry
 from .errors import PROJECT_API_ERRORS
 from ..application.data_exploration import (
     DataExplorationService,
@@ -16,15 +16,19 @@ from ..application.data_exploration import (
 from ..schemas import Candidate, LineageIndexResponse, LineageResponse, QualityResponse
 from ..store import ProjectNotFoundError, Store
 from ..task_registry import TaskRegistry
+from ..project_runtime_resolver import ProjectRuntimeResolver
 
 
 router = APIRouter()
 StoreDependency = Annotated[Store, Depends(get_store)]
 RegistryDependency = Annotated[TaskRegistry, Depends(get_task_registry)]
+ResolverDependency = Annotated[ProjectRuntimeResolver, Depends(get_project_runtime_resolver)]
 
 
-def get_data_exploration_service(store: StoreDependency, registry: RegistryDependency) -> DataExplorationService:
-    return DataExplorationService(store, registry)
+def get_data_exploration_service(
+    store: StoreDependency, registry: RegistryDependency, resolver: ResolverDependency
+) -> DataExplorationService:
+    return DataExplorationService(store, registry, resolver)
 
 
 DataExplorationServiceDependency = Annotated[DataExplorationService, Depends(get_data_exploration_service)]

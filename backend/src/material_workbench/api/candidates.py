@@ -6,7 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 from fastapi.responses import StreamingResponse
 
-from .dependencies import get_store, get_task_registry
+from .dependencies import get_project_runtime_resolver, get_store, get_task_registry
 from .errors import DomainApiException, PROJECT_API_ERRORS
 from ..application.candidates import (
     CandidateNotFoundError,
@@ -24,15 +24,19 @@ from ..store import (
     StoreDataIntegrityError,
 )
 from ..task_registry import TaskRegistry
+from ..project_runtime_resolver import ProjectRuntimeResolver
 
 
 router = APIRouter()
 StoreDependency = Annotated[Store, Depends(get_store)]
 RegistryDependency = Annotated[TaskRegistry, Depends(get_task_registry)]
+ResolverDependency = Annotated[ProjectRuntimeResolver, Depends(get_project_runtime_resolver)]
 
 
-def get_candidate_service(store: StoreDependency, registry: RegistryDependency) -> CandidateService:
-    return CandidateService(store, registry)
+def get_candidate_service(
+    store: StoreDependency, registry: RegistryDependency, resolver: ResolverDependency
+) -> CandidateService:
+    return CandidateService(store, registry, resolver)
 
 
 CandidateServiceDependency = Annotated[CandidateService, Depends(get_candidate_service)]

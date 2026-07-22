@@ -17,7 +17,7 @@ from typing import Any, Mapping
 
 import numpy as np
 
-from .dataset_profile import canonicalize_workbook, load_dataset_profile
+from .dataset_profile import DatasetInputProfile, canonicalize_workbook, load_dataset_profile
 from .feature_contracts import feature_index_families
 from .flank_wear_feature_pipeline import (
     CATEGORICAL_CHOICES,
@@ -68,6 +68,7 @@ class FlankWearData:
     source_mtime_ns: int
     source_sha256: str
     profile_path: str
+    profile: DatasetInputProfile
     profile_id: str
     measurement_labels: dict[str, str]
     observations: list[dict[str, Any]]
@@ -75,14 +76,25 @@ class FlankWearData:
     run_count: int
 
 
-def load_flank_wear_data(path: str | Path, profile_path: str | Path | None = None) -> FlankWearData:
+def load_flank_wear_data(
+    path: str | Path,
+    profile_path: str | Path | None = None,
+    *,
+    profile: DatasetInputProfile | None = None,
+) -> FlankWearData:
     from openpyxl import load_workbook
 
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(f"Flank-wear Excel source not found: {path}")
-    selected_profile_path = Path(profile_path) if profile_path else PROFILE_PATH
-    profile = load_dataset_profile(selected_profile_path)
+    if profile is not None and profile_path is not None:
+        raise ValueError("profileとprofile_pathは同時に指定できません")
+    if profile is None:
+        selected_profile_path = Path(profile_path) if profile_path else PROFILE_PATH
+        profile = load_dataset_profile(selected_profile_path)
+        profile_locator = str(selected_profile_path)
+    else:
+        profile_locator = f"catalog:{profile.profile_id}"
     workbook = load_workbook(path, read_only=True, data_only=True)
     try:
         canonical = canonicalize_workbook(workbook, profile)
@@ -197,7 +209,8 @@ def load_flank_wear_data(path: str | Path, profile_path: str | Path | None = Non
         source_path=str(path),
         source_mtime_ns=path.stat().st_mtime_ns,
         source_sha256=source_sha256,
-        profile_path=str(selected_profile_path),
+        profile_path=profile_locator,
+        profile=profile,
         profile_id=profile.profile_id,
         measurement_labels=measurement_labels,
         observations=observations,

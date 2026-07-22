@@ -5,6 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from ..schemas import ApiError, Candidate
+from ..project_runtime_resolver import ProjectRuntimeResolutionError
 
 
 PROJECT_API_ERRORS = {
@@ -31,6 +32,14 @@ class DomainApiException(Exception):
 
 
 def install_exception_handlers(app: FastAPI) -> None:
+    @app.exception_handler(ProjectRuntimeResolutionError)
+    async def project_runtime_error(_: Request, exc: ProjectRuntimeResolutionError) -> JSONResponse:
+        payload = ApiError(code="runtime_unavailable", message=str(exc))
+        return JSONResponse(
+            status_code=503,
+            content=payload.model_dump(mode="json", exclude={"current_candidate"}),
+        )
+
     @app.exception_handler(HTTPException)
     async def http_error(_: Request, exc: HTTPException) -> JSONResponse:
         code = {

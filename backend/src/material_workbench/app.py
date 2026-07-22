@@ -26,6 +26,7 @@ from .model_lifecycle import ACTIVE_PACKAGES_PATH, load_active_packages, resolve
 from .store import Store
 from .task_registry import DataExplorerEntry, TaskRegistry
 from .workspace_catalog_bootstrap import bootstrap_workspace_catalog
+from .project_runtime_resolver import ProjectRuntimeResolver
 from .task_modules import PredictionRuntime, TaskModule, registered_task_modules
 
 
@@ -64,7 +65,7 @@ def _prepare_app_resources(
                 repository_source = Path(__file__).resolve().parents[3] / configured_source
                 if repository_source.exists():
                     configured_source = repository_source
-            data_by_source[module.source_kind] = module.data_loader(configured_source)
+            data_by_source[module.source_kind] = module.data_loader(configured_source, None)
         data = data_by_source[module.source_kind]
         package = resolve_configured_package(
             task_id,
@@ -120,6 +121,9 @@ def create_app(
             seed_candidates=not database_existed or explicit_demo_seed,
         )
         app.state.workspace_catalog = bootstrap_workspace_catalog(database, prepared.task_registry)
+        app.state.project_runtime_resolver = ProjectRuntimeResolver(
+            app.state.workspace_catalog, prepared.task_registry
+        )
         yield
 
     app = FastAPI(

@@ -12,6 +12,7 @@ from ..store import (
     StoreDataIntegrityError,
 )
 from ..task_registry import TaskRegistry, TaskRegistryError
+from ..project_runtime_resolver import ProjectRuntimeResolver
 
 
 class CandidateNotFoundError(LookupError):
@@ -27,9 +28,10 @@ class CandidateProvenanceImmutableError(ValueError):
 
 
 class CandidateService:
-    def __init__(self, store: Store, registry: TaskRegistry) -> None:
+    def __init__(self, store: Store, registry: TaskRegistry, resolver: ProjectRuntimeResolver) -> None:
         self.store = store
         self.registry = registry
+        self.resolver = resolver
         self.projects = ProjectService(store, registry)
 
     def list(self, project_id: str, *, include_archived: bool = False) -> list[Candidate]:
@@ -60,11 +62,11 @@ class CandidateService:
         entry = self.registry.entry_for(project.task_id)
         if not entry.application_capability.candidate_excel_import:
             raise CandidateValidationError("Excel候補importはこの予測タスクでは利用できません")
-        runtime = self.registry.runtime_for(project.task_id)
+        runtime = self.resolver.runtime_for(project)
         payloads, errors = import_candidates_xlsx(
             contents,
             task_id=project.task_id,
-            profile_path=runtime.data.profile_path,
+            profile=getattr(runtime.data, "profile", None),
         )
         created = self.store.create_candidates(payloads, project_id)
         return CandidateImportResponse(created=len(created), errors=errors, candidates=created)
@@ -76,7 +78,8 @@ class CandidateService:
             raise CandidateValidationError("Excel候補exportはこの予測タスクでは利用できません")
         return candidates_xlsx(
             self.store.list_candidates(project_id),
-            self.registry.runtime_for(project.task_id),
+            self.resolver.runtime_for(project),
+            task_id=project.task_id,
         )
 
     def get(self, project_id: str, candidate_id: str, *, include_archived: bool = False) -> Candidate:

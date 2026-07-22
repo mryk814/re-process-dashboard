@@ -13,6 +13,7 @@ from ..schemas import Candidate, LineageIndexResponse, LineageResponse, QualityR
 from ..services import candidate_from_lineage
 from ..store import Store
 from ..task_registry import DataExplorerEntry, TaskRegistry, TaskRegistryError
+from ..project_runtime_resolver import ProjectRuntimeResolver
 
 
 class DataExplorerUnavailableError(LookupError):
@@ -28,16 +29,17 @@ class DataExplorationValidationError(ValueError):
 
 
 class DataExplorationService:
-    def __init__(self, store: Store, registry: TaskRegistry) -> None:
+    def __init__(self, store: Store, registry: TaskRegistry, resolver: ProjectRuntimeResolver) -> None:
         self.store = store
         self.registry = registry
+        self.resolver = resolver
         self.projects = ProjectService(store, registry)
-        self.candidates = CandidateService(store, registry)
+        self.candidates = CandidateService(store, registry, resolver)
 
     def explorer(self, project_id: str, capability: Literal["quality", "lineage"]) -> DataExplorerEntry:
         project = self.projects.require(project_id)
         try:
-            explorer = self.registry.data_explorer_for(project.task_id)
+            explorer = self.resolver.data_explorer_for(project)
         except TaskRegistryError as exc:
             raise DataExplorerUnavailableError("このプロジェクトではデータ探索を利用できません") from exc
         if not getattr(explorer.capability, capability):

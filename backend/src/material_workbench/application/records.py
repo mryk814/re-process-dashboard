@@ -11,6 +11,7 @@ from ..schemas import ActualMeasurement, ActualMeasurementInput, Candidate, Deta
 from ..snapshot_reader import SnapshotPayloadError, candidate_input_from_snapshot
 from ..store import Store
 from ..task_registry import TaskRegistry
+from ..project_runtime_resolver import ProjectRuntimeResolver
 
 
 class RecordNotFoundError(LookupError):
@@ -26,12 +27,18 @@ class RecordIntegrityError(RuntimeError):
 
 
 class RecordService:
-    def __init__(self, store: Store, registry: TaskRegistry, inference: InferenceService) -> None:
+    def __init__(
+        self,
+        store: Store,
+        registry: TaskRegistry,
+        inference: InferenceService,
+        resolver: ProjectRuntimeResolver,
+    ) -> None:
         self.store = store
         self.registry = registry
         self.inference = inference
         self.projects = ProjectService(store, registry)
-        self.candidates = CandidateService(store, registry)
+        self.candidates = CandidateService(store, registry, resolver)
 
     def list_snapshots(self, project_id: str, candidate_id: str) -> list[SnapshotResponse]:
         project = self.projects.require(project_id)

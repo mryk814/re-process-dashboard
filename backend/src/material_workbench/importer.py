@@ -65,6 +65,7 @@ class WorkbookData:
     source_mtime_ns: int
     source_sha256: str
     profile_path: str
+    profile: DatasetInputProfile
     sheets: dict[str, list[dict[str, Any]]]
     composition: dict[str, dict[str, float]]
     hot_rolling_features: dict[str, dict[str, Any]]
@@ -555,12 +556,20 @@ def load_workbook_data(
     path: str | Path,
     profile_path: str | Path | None = None,
     task_definitions: Mapping[str, TaskDefinition] | None = None,
+    *,
+    profile: DatasetInputProfile | None = None,
 ) -> WorkbookData:
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(f"Excel source not found: {path}")
-    selected_profile_path = Path(profile_path) if profile_path else detect_dataset_profile_path(path, task_definitions=task_definitions)
-    profile = load_dataset_profile(selected_profile_path, task_definitions)
+    if profile is not None and profile_path is not None:
+        raise ValueError("profileとprofile_pathは同時に指定できません")
+    if profile is None:
+        selected_profile_path = Path(profile_path) if profile_path else detect_dataset_profile_path(path, task_definitions=task_definitions)
+        profile = load_dataset_profile(selected_profile_path, task_definitions)
+        profile_locator = str(selected_profile_path)
+    else:
+        profile_locator = f"catalog:{profile.profile_id}"
     anneal_task_id = next(
         task_id for task_id, task in profile.tasks.items()
         if any(mapping.kind == "ordered_heat_series" for mapping in task.mappings)
@@ -778,7 +787,8 @@ def load_workbook_data(
         source_path=str(path),
         source_mtime_ns=path.stat().st_mtime_ns,
         source_sha256=source_sha256,
-        profile_path=str(selected_profile_path),
+        profile_path=profile_locator,
+        profile=profile,
         sheets=sheets,
         composition=composition,
         hot_rolling_features=hot_rolling_features,

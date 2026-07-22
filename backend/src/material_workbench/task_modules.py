@@ -12,6 +12,7 @@ from types import MappingProxyType
 from typing import Any, Callable, Mapping, Protocol, runtime_checkable
 
 from .model_packages import VerifiedModelPackage
+from .dataset_profile import DatasetInputProfile
 from .schemas import Candidate, CandidateInput
 from .task_contracts import ApplicationCapability, DataExplorerCapability
 
@@ -60,7 +61,7 @@ ResponseCurveHandler = Callable[
     dict[str, Any],
 ]
 CurveFamilyHandler = Callable[[PredictionRuntime, Candidate, str, str | None, int, int], dict[str, Any]]
-DataLoader = Callable[[Path], DataDescriptor]
+DataLoader = Callable[[Path, DatasetInputProfile | None], DataDescriptor]
 RuntimeFactory = Callable[[DataDescriptor, Path], PredictionRuntime]
 FeatureRowBuilder = Callable[[dict[str, Any], dict[str, float]], Any]
 ModelBuilder = Callable[..., None]
@@ -139,16 +140,16 @@ def _hot_rolling_starter_candidates(medians: dict[str, float]) -> list[Candidate
     ) for name, *values in variants]
 
 
-def _load_workbook(path: Path) -> DataDescriptor:
+def _load_workbook(path: Path, profile: DatasetInputProfile | None = None) -> DataDescriptor:
     from .importer import load_workbook_data
 
-    return load_workbook_data(path)
+    return load_workbook_data(path, profile=profile)
 
 
-def _load_flank_wear(path: Path) -> DataDescriptor:
+def _load_flank_wear(path: Path, profile: DatasetInputProfile | None = None) -> DataDescriptor:
     from .flank_wear import load_flank_wear_data
 
-    return load_flank_wear_data(path)
+    return load_flank_wear_data(path, profile=profile)
 
 
 def _annealed_runtime(data: DataDescriptor, package: Path) -> PredictionRuntime:
