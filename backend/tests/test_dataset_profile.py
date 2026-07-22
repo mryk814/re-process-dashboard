@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -22,6 +23,7 @@ from material_workbench.app import create_app
 from material_workbench.schemas import CandidateInput
 from material_workbench.services import candidate_from_lineage
 from material_workbench.task_contracts import TaskDefinition
+from material_workbench.task_modules import registered_task_modules
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -482,7 +484,11 @@ def test_invalid_workbook_stops_before_runtime_and_database_initialization(tmp_p
         runtime_called = True
         raise AssertionError("runtime must not initialize before dataset preflight")
 
-    monkeypatch.setattr("material_workbench.app.ModelRuntime", forbidden_runtime)
+    guarded_modules = {
+        task_id: replace(module, runtime_factory=forbidden_runtime)
+        for task_id, module in registered_task_modules().items()
+    }
+    monkeypatch.setattr("material_workbench.app.registered_task_modules", lambda: guarded_modules)
     app = create_app(source, database)
     with pytest.raises(DatasetProfileError):
         with TestClient(app):
