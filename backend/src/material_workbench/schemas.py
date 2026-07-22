@@ -169,6 +169,7 @@ class ProjectCreationOptions(BaseModel):
     dataset_views: list[DatasetViewRevision]
     model_packages: list[ModelPackageRef]
     project_series: list[ProjectSeries]
+    task_contract_digests: dict[str, str]
 
 
 class HeatPoint(BaseModel):

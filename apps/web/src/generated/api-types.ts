@@ -2065,6 +2065,10 @@ export interface components {
             model_packages: components["schemas"]["ModelPackageRef"][];
             /** Project Series */
             project_series: components["schemas"]["ProjectSeries"][];
+            /** Task Contract Digests */
+            task_contract_digests: {
+                [key: string]: string;
+            };
         };
         /** ProjectDecisionHistory */
         ProjectDecisionHistory: {

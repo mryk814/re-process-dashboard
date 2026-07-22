@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from .dependencies import get_workspace_catalog
+from .dependencies import get_task_registry, get_workspace_catalog
 from ..schemas import (
     DataLibraryDataset,
     DatasetViewRevision,
@@ -13,10 +13,13 @@ from ..schemas import (
     ProjectCreationOptions,
 )
 from ..workspace_catalog import CatalogConflictError, CatalogReferenceError, WorkspaceCatalog
+from ..task_registry import TaskRegistry
+from ..workspace_catalog_bootstrap import task_definition_digest
 
 
 router = APIRouter(prefix="/api")
 CatalogDependency = Annotated[WorkspaceCatalog, Depends(get_workspace_catalog)]
+RegistryDependency = Annotated[TaskRegistry, Depends(get_task_registry)]
 
 
 def _datasets(catalog: WorkspaceCatalog) -> list[DataLibraryDataset]:
@@ -70,10 +73,17 @@ def list_model_packages(catalog: CatalogDependency) -> list[ModelPackageRef]:
 
 
 @router.get("/project-creation-options", response_model=ProjectCreationOptions)
-def project_creation_options(catalog: CatalogDependency) -> ProjectCreationOptions:
+def project_creation_options(
+    catalog: CatalogDependency,
+    registry: RegistryDependency,
+) -> ProjectCreationOptions:
     return ProjectCreationOptions(
         datasets=_datasets(catalog),
         dataset_views=catalog.list_dataset_view_revisions(),
         model_packages=catalog.list_model_package_refs(),
         project_series=catalog.list_project_series(),
+        task_contract_digests={
+            task_id: task_definition_digest(registry, task_id)
+            for task_id in registry.task_ids
+        },
     )

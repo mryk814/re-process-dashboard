@@ -3646,13 +3646,21 @@
             },
             "title": "Project Series",
             "type": "array"
+          },
+          "task_contract_digests": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Task Contract Digests",
+            "type": "object"
           }
         },
         "required": [
           "datasets",
           "dataset_views",
           "model_packages",
-          "project_series"
+          "project_series",
+          "task_contract_digests"
         ],
         "title": "ProjectCreationOptions",
         "type": "object"
