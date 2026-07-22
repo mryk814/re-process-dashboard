@@ -1,4 +1,4 @@
-import { type PointerEvent, useEffect, useRef, useState } from "react";
+import { type CSSProperties, type KeyboardEvent, type PointerEvent, useEffect, useRef, useState } from "react";
 import { provenanceLabel, type CandidateProvenance } from "../../shared/candidateProvenance";
 import {
   CandidateInspector,
@@ -49,6 +49,79 @@ type Metric = {
   modelStd?: number | null;
   observationStd?: number | null;
 };
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function SplitResizer({
+  className,
+  label,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+  onDrag,
+  onReset,
+}: {
+  className: string;
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (value: number) => void;
+  onDrag: (startValue: number, deltaX: number) => number;
+  onReset: () => void;
+}) {
+  const drag = useRef<{ pointerId: number; startX: number; startValue: number } | null>(null);
+  const changeByKeyboard = (event: KeyboardEvent<HTMLDivElement>) => {
+    const amount = event.shiftKey ? step * 4 : step;
+    const next = event.key === "ArrowLeft"
+      ? value - amount
+      : event.key === "ArrowRight"
+        ? value + amount
+        : event.key === "Home"
+          ? min
+          : event.key === "End"
+            ? max
+            : null;
+    if (next === null) return;
+    event.preventDefault();
+    onChange(clamp(next, min, max));
+  };
+  return (
+    <div
+      className={`split-resizer ${className}`}
+      role="separator"
+      tabIndex={0}
+      aria-label={label}
+      aria-orientation="vertical"
+      aria-valuemin={min}
+      aria-valuemax={max}
+      aria-valuenow={Math.round(value)}
+      title="ドラッグで幅を調整・ダブルクリックで初期幅"
+      onDoubleClick={onReset}
+      onKeyDown={changeByKeyboard}
+      onPointerDown={(event) => {
+        drag.current = { pointerId: event.pointerId, startX: event.clientX, startValue: value };
+        event.currentTarget.setPointerCapture(event.pointerId);
+      }}
+      onPointerMove={(event) => {
+        const current = drag.current;
+        if (!current || current.pointerId !== event.pointerId || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
+        onChange(clamp(onDrag(current.startValue, event.clientX - current.startX), min, max));
+      }}
+      onPointerUp={(event) => {
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+        drag.current = null;
+      }}
+      onPointerCancel={() => { drag.current = null; }}
+      onLostPointerCapture={() => { drag.current = null; }}
+    ><span aria-hidden="true" /></div>
+  );
+}
 
 type CurvePoint = ApiResponseCurve["points"][number];
 type CurveVariable = ApiResponseCurve["variable"];
@@ -202,11 +275,45 @@ export function WorkbenchPage(props: WorkbenchProps) {
     onProjectChanged,
   } = props;
   const [comparisonExpanded, setComparisonExpanded] = useState(false);
+  const [inspectorWidth, setInspectorWidth] = useState(330);
+  const [inspectorMax, setInspectorMax] = useState(520);
+  const [curveShare, setCurveShare] = useState(50);
+  const [curveShareRange, setCurveShareRange] = useState({ min: 30, max: 70 });
+  const workbenchRef = useRef<HTMLDivElement>(null);
+  const lowerPanelsRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (candidates.length <= 5) setComparisonExpanded(false);
   }, [candidates.length]);
+  useEffect(() => {
+    const updateWidths = () => {
+      const workbenchWidth = workbenchRef.current?.clientWidth ?? 0;
+      if (workbenchWidth > 0) {
+        const nextMax = Math.max(260, Math.min(520, workbenchWidth - 569));
+        setInspectorMax(nextMax);
+        setInspectorWidth((current) => clamp(current, 260, nextMax));
+      }
+      const lowerWidth = lowerPanelsRef.current?.clientWidth ?? 0;
+      if (lowerWidth > 0) {
+        const minPanelWidth = 340;
+        const nextMin = Math.min(50, (minPanelWidth / lowerWidth) * 100);
+        const nextMax = Math.max(50, ((lowerWidth - 9 - minPanelWidth) / lowerWidth) * 100);
+        const nextRange = { min: nextMin, max: nextMax };
+        setCurveShareRange(nextRange);
+        setCurveShare((current) => clamp(current, nextRange.min, nextRange.max));
+      }
+    };
+    const observer = new ResizeObserver(updateWidths);
+    if (workbenchRef.current) observer.observe(workbenchRef.current);
+    if (lowerPanelsRef.current) observer.observe(lowerPanelsRef.current);
+    updateWidths();
+    return () => observer.disconnect();
+  }, []);
   return (
-    <div className="workbench-grid candidate-workbench-grid">
+    <div
+      ref={workbenchRef}
+      className={`workbench-grid candidate-workbench-grid${taskDefinition ? " has-inspector" : ""}`}
+      style={{ "--candidate-inspector-width": `${inspectorWidth}px` } as CSSProperties}
+    >
       {taskDefinition && <CandidateInspector
         candidate={selected}
         taskDefinition={taskDefinition}
@@ -217,6 +324,17 @@ export function WorkbenchPage(props: WorkbenchProps) {
         onReload={onReload}
         onCopyDraft={onCopyDraft}
         heatPattern={taskDefinition.input_groups.some((group) => group.key === "heat_pattern") ? <HeatPattern candidates={candidates} candidate={selected} onUpdate={onHeat} onAdd={onAddHeat} onDelete={onDeleteHeat} /> : undefined}
+      />}
+      {taskDefinition && <SplitResizer
+        className="candidate-inspector-resizer"
+        label="選択候補の入力パネル幅を調整"
+        value={inspectorWidth}
+        min={260}
+        max={inspectorMax}
+        step={10}
+        onChange={setInspectorWidth}
+        onDrag={(startValue, deltaX) => startValue + deltaX}
+        onReset={() => setInspectorWidth(Math.min(330, inspectorMax))}
       />}
       <section className="central-workspace">
         <div className="table-heading">
@@ -282,7 +400,11 @@ export function WorkbenchPage(props: WorkbenchProps) {
             ready={["idle", "saved"].includes(saveState)}
           />
         ) : null}
-        <div className="workbench-lower-grid">
+        <div
+          ref={lowerPanelsRef}
+          className="workbench-lower-grid"
+          style={{ "--response-curve-share": `${curveShare}%` } as CSSProperties}
+        >
           {operations?.response_curve ? (
               <LiveResponseCurves
               projectId={projectId}
@@ -299,6 +421,17 @@ export function WorkbenchPage(props: WorkbenchProps) {
               ready={["idle", "saved"].includes(saveState)}
             />
           ) : <UnavailablePanel title="応答曲線" />}
+          <SplitResizer
+            className="lower-panel-resizer"
+            label="応答曲線と近い過去実績の幅を調整"
+            value={curveShare}
+            min={curveShareRange.min}
+            max={curveShareRange.max}
+            step={2}
+            onChange={setCurveShare}
+            onDrag={(startValue, deltaX) => startValue + (deltaX / Math.max(lowerPanelsRef.current?.clientWidth ?? 1, 1)) * 100}
+            onReset={() => setCurveShare(clamp(50, curveShareRange.min, curveShareRange.max))}
+          />
           <LiveSimilarityEvidence projectId={projectId} candidate={selected} outputs={taskDefinition?.outputs ?? []} available={operations?.similarity === true} ready={["idle", "saved"].includes(saveState)} onAddCandidate={onAddCandidateFromLineage} />
         </div>
         <EvidencePanel projectId={projectId} candidate={selected} inferenceReady={["idle", "saved"].includes(saveState)} metrics={metrics} outputs={taskDefinition?.outputs ?? []} preview={preview} previewStatus={previewStatus} candidateLabel={selected.label} actualsAvailable={operations?.actual_measurement === true} error={previewError} onRetry={onRetryPreview} />
