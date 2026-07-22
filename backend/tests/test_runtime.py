@@ -69,6 +69,42 @@ def test_missing_named_stage_is_inserted_on_the_existing_curve_without_changing_
     assert after == pytest.approx(before)
 
 
+def test_missing_named_stage_is_not_interpolated_across_a_segment_boundary() -> None:
+    candidate = CandidateInput.model_validate({
+        "name": "segmented",
+        "inputs": {
+            "composition": {"C": 0.1},
+            "process": {"ls_mpm": 60.0},
+            "heat_pattern": [
+                {"time_s": 0, "temperature_c": 20},
+                {"time_s": 60, "temperature_c": 600},
+                {"time_s": 120, "temperature_c": 800, "segment_start": True},
+            ],
+        },
+    })
+
+    with pytest.raises(ValueError, match="非連続な工程境界"):
+        ModelRuntime._heat_stage_temperature(candidate.inputs.heat_pattern or [], 60.0, "加熱1", 90.0)
+
+
+def test_named_stage_shift_rejects_any_point_outside_the_physical_temperature_range() -> None:
+    candidate = CandidateInput.model_validate({
+        "name": "too-hot",
+        "inputs": {
+            "composition": {"C": 0.1},
+            "process": {"ls_mpm": 60.0},
+            "heat_pattern": [
+                {"time_s": 0, "temperature_c": 20},
+                {"time_s": 60, "temperature_c": 1700, "stage_name": "加熱1"},
+                {"time_s": 120, "temperature_c": 1800, "stage_name": "加熱1"},
+            ],
+        },
+    })
+
+    with pytest.raises(ValueError, match="物理温度範囲"):
+        ModelRuntime._set_curve_variable(candidate, HEAT_STAGE_TEMPERATURE_VARIABLE, 1800, "加熱1", 60.0)  # type: ignore[arg-type]
+
+
 def test_grouped_oof_calibration_and_parent_condition_support(client) -> None:
     runtime: ModelRuntime = client.app.state.task_registry.runtime_for("annealed-properties-v1")
     assert runtime.support_reference is not None

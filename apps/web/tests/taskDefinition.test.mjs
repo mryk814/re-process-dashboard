@@ -75,14 +75,17 @@ test("response curves expose line speed and named stage temperatures without poi
   ] };
   const second = { composition: { C: 0.1 }, process: { ls_mpm: 60 }, categorical: {}, heat_pattern: [
     { time_s: 0, temperature_c: 20 },
-    { time_s: 60, temperature_c: 680, stage_name: "加熱1" },
+    { time_s: 30, temperature_c: 680, stage_name: "加熱1" },
     { time_s: 120, temperature_c: 400 },
   ] };
 
-  const variables = responseCurveVariables(definition, first, [first, second], {});
+  const variables = responseCurveVariables(definition, first, [first, second], { 合金化: 90 });
+  const variablesWithOtherSelection = responseCurveVariables(definition, second, [first, second], { 合金化: 90 });
 
-  assert.deepEqual(variables.map((item) => item.id), ["composition.C", "process.ls_mpm", "heat.stage_temperature_c:加熱1"]);
+  assert.deepEqual(variables.map((item) => item.id), ["composition.C", "process.ls_mpm", "heat.stage_temperature_c:加熱1", "heat.stage_temperature_c:合金化"]);
   assert.equal(variables[1].label, "ラインスピード");
   assert.equal(variables[2].stagePositionM, 60);
+  assert.equal(variablesWithOtherSelection[2].stagePositionM, 60);
+  assert.equal(variables[3].stagePositionM, 90);
   assert.equal(variables.some((item) => item.id.includes("time")), false);
 });

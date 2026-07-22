@@ -138,10 +138,13 @@ export function responseCurveVariables(
       });
       continue;
     }
-    const stageNames = [...new Set(comparisonInputs.flatMap((inputs) => (inputs.heat_pattern ?? []).map((point) => point.stage_name?.trim()).filter((name): name is string => Boolean(name))))];
+    const stageNames = [...new Set([
+      ...comparisonInputs.flatMap((inputs) => (inputs.heat_pattern ?? []).map((point) => point.stage_name?.trim()).filter((name): name is string => Boolean(name))),
+      ...Object.keys(configuredStagePositions).map((name) => name.trim()).filter(Boolean),
+    ])];
     for (const stageName of stageNames) {
       const observedPositions = comparisonInputs.map((inputs) => stagePositionM(inputs, stageName)).filter((value): value is number => value !== null).sort((a, b) => a - b);
-      const inferredPosition = stagePositionM(candidateInputs, stageName) ?? observedPositions[Math.floor(observedPositions.length / 2)];
+      const inferredPosition = observedPositions[Math.floor(observedPositions.length / 2)];
       const position = configuredStagePositions[stageName] ?? inferredPosition;
       if (!Number.isFinite(position)) continue;
       const ownPoints = (candidateInputs.heat_pattern ?? []).filter((point) => point.stage_name?.trim() === stageName);

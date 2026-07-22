@@ -883,14 +883,16 @@ function LiveResponseCurves({
   const surfaceRef = useRef(surfacesByKey);
   surfaceRef.current = surfacesByKey;
   const curveCandidatesKey = curveCandidates.map((item) => `${item.id}:${item.raw.revision}:${candidateInputIdentity(item.raw.inputs)}`).join("\u001e");
+  const variableIdsIdentity = variables.map((variable) => variable.id).join("\u001e");
   const outputKeys = outputs.map((output) => output.key).join("\u001e");
-  const xRangeOverride = responseCurveRanges.x?.[variableId];
   const selectedVariable = variables.find((variable) => variable.id === variableId) ?? variables[0];
+  const activeVariableId = selectedVariable?.id ?? variableId;
+  const xRangeOverride = responseCurveRanges.x?.[activeVariableId];
   const stageRequestIdentity = selectedVariable?.stageName ? `${selectedVariable.stageName}:${selectedVariable.stagePositionM}` : "scalar";
   const xRangeIdentity = `${xRangeOverride ? `${xRangeOverride.min}:${xRangeOverride.max}` : "auto"}:${stageRequestIdentity}`;
   useEffect(() => {
     if (variables.length && !variables.some((variable) => variable.id === variableId)) setVariableId(variables[0].id);
-  }, [variableId, variables.length]);
+  }, [variableId, variableIdsIdentity]);
   useEffect(() => {
     if (!available || !ready || !taskDefinition || !curveCandidates.length || !outputs.length) return;
     const controller = new AbortController();
@@ -898,8 +900,8 @@ function LiveResponseCurves({
     for (const item of curveCandidates) {
       const inputIdentity = candidateInputIdentity(item.raw.inputs);
       for (const output of outputs) {
-        const storageKey = `${item.id}\u001f${output.key}\u001f${variableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`;
-        const identity = `${workbenchRequestKey({ projectId, taskId: taskDefinition.id, candidateId: item.id, candidateRevision: item.raw.revision }, "response_curve:9")}\u001f${inputIdentity}\u001f${output.key}\u001f${variableId}\u001f${xRangeIdentity}`;
+        const storageKey = `${item.id}\u001f${output.key}\u001f${activeVariableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`;
+        const identity = `${workbenchRequestKey({ projectId, taskId: taskDefinition.id, candidateId: item.id, candidateRevision: item.raw.revision }, "response_curve:9")}\u001f${inputIdentity}\u001f${output.key}\u001f${activeVariableId}\u001f${xRangeIdentity}`;
         const existing = surfaceRef.current[storageKey];
         if (existing?.currentIdentity === identity) continue;
         const requested = requestInferenceSurface(existing ?? emptyInferenceSurface<ApiResponseCurve>(), identity);
@@ -928,15 +930,15 @@ function LiveResponseCurves({
       }
     }
     return () => { timers.forEach((timer) => window.clearTimeout(timer)); controller.abort(); };
-  }, [available, ready, curveCandidatesKey, outputKeys, projectId, taskDefinition?.id, variableId, xRangeIdentity, xRangeOverride?.min, xRangeOverride?.max, selectedVariable?.requestVariable, selectedVariable?.stageName, selectedVariable?.stagePositionM]);
+  }, [available, ready, curveCandidatesKey, outputKeys, projectId, taskDefinition?.id, activeVariableId, xRangeIdentity, xRangeOverride?.min, xRangeOverride?.max, selectedVariable?.requestVariable, selectedVariable?.stageName, selectedVariable?.stagePositionM]);
   const curveStates = curveCandidates.flatMap((item) => outputs.map((output) => {
     const inputIdentity = candidateInputIdentity(item.raw.inputs);
-    const storageKey = `${item.id}\u001f${output.key}\u001f${variableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`;
+    const storageKey = `${item.id}\u001f${output.key}\u001f${activeVariableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`;
     return surfacesByKey[storageKey];
   }));
   const payloadForOutput = (outputKey: string) => curveCandidates.map((item) => {
     const inputIdentity = candidateInputIdentity(item.raw.inputs);
-    return surfacesByKey[`${item.id}\u001f${outputKey}\u001f${variableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`]?.data;
+    return surfacesByKey[`${item.id}\u001f${outputKey}\u001f${activeVariableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`]?.data;
   }).find((payload): payload is ApiResponseCurve => Boolean(payload));
   const selectedPayload = outputs.map((output) => payloadForOutput(output.key)).find((payload): payload is ApiResponseCurve => Boolean(payload));
   const effectiveXRange = selectedPayload?.variable ? { min: selectedPayload.variable.min, max: selectedPayload.variable.max } : selectedVariable ? { min: selectedVariable.min, max: selectedVariable.max } : null;
@@ -964,12 +966,12 @@ function LiveResponseCurves({
   };
   const saveAxisSettings = async (draft = axisDraft) => {
     if (!project) return;
-    const draftIdentity = JSON.stringify({ variableId, draft });
+    const draftIdentity = JSON.stringify({ variableId: activeVariableId, draft });
     try {
       const nextX = { ...(responseCurveRanges.x ?? {}) };
       const parsedX = draftRange(draft.x, "X軸");
-      if (parsedX) nextX[variableId] = parsedX;
-      else delete nextX[variableId];
+      if (parsedX) nextX[activeVariableId] = parsedX;
+      else delete nextX[activeVariableId];
       const nextY = { ...(responseCurveRanges.y ?? {}) };
       for (const output of outputs) {
         const parsedY = draftRange(draft.y[output.key] ?? { min: "", max: "", enabled: false }, `${output.label}のY軸`);
@@ -985,7 +987,7 @@ function LiveResponseCurves({
       setAxisSaving(true);
       const updated = await workbenchApi.updateProject(projectId, { ...project, response_curve_ranges: { x: nextX, y: nextY }, heat_stage_positions_m: nextStagePositions });
       await onProjectChanged(updated);
-      if (JSON.stringify({ variableId, draft: axisDraftRef.current }) === draftIdentity) setAxisDraftDirty(false);
+      if (JSON.stringify({ variableId: activeVariableId, draft: axisDraftRef.current }) === draftIdentity) setAxisDraftDirty(false);
       setAxisError("");
     } catch (cause) {
       setAxisError(cause instanceof Error ? cause.message : "軸範囲を保存できませんでした。");
@@ -997,7 +999,7 @@ function LiveResponseCurves({
     if (!axisDraftDirty) return;
     const timer = window.setTimeout(() => { void saveAxisSettings(axisDraft); }, 420);
     return () => window.clearTimeout(timer);
-  }, [axisDraft, axisDraftDirty, variableId]);
+  }, [axisDraft, axisDraftDirty, activeVariableId]);
   const rangeText = (range: CurveRange | null | undefined) => range ? `${number(range.min, 2)} – ${number(range.max, 2)}` : "取得中";
   const setXDraft = (patch: Partial<CurveRangeDraft>) => { setAxisDraft((current) => ({ ...current, x: { ...current.x, ...patch } })); setAxisDraftDirty(true); };
   const setYDraft = (key: string, patch: Partial<CurveRangeDraft>) => { setAxisDraft((current) => ({ ...current, y: { ...current.y, [key]: { ...(current.y[key] ?? { min: "", max: "", enabled: false }), ...patch } } })); setAxisDraftDirty(true); };
@@ -1018,7 +1020,7 @@ function LiveResponseCurves({
           </div>
         </div>
         <div className="response-curve-controls">
-          <label>変数 <select aria-label="応答曲線の設計変数" value={variableId} disabled={axisSaving || axisDraftDirty} onChange={(event) => { setAxisSettingsOpen(false); setAxisDraftDirty(false); setVariableId(event.target.value); }}>{[...new Set(variables.map((variable) => variable.group))].map((group) => <optgroup key={group} label={group}>{variables.filter((variable) => variable.group === group).map((variable) => <option key={variable.id} value={variable.id}>{variable.label} ({variable.unit})</option>)}</optgroup>)}</select></label>
+          <label>変数 <select aria-label="応答曲線の設計変数" value={activeVariableId} disabled={axisSaving || axisDraftDirty} onChange={(event) => { setAxisSettingsOpen(false); setAxisDraftDirty(false); setVariableId(event.target.value); }}>{[...new Set(variables.map((variable) => variable.group))].map((group) => <optgroup key={group} label={group}>{variables.filter((variable) => variable.group === group).map((variable) => <option key={variable.id} value={variable.id}>{variable.label} ({variable.unit})</option>)}</optgroup>)}</select></label>
           <button type="button" className="outline-button curve-range-button" aria-expanded={axisSettingsOpen} onClick={axisSettingsOpen ? () => setAxisSettingsOpen(false) : openAxisSettings}>{axisSettingsOpen ? "閉じる" : "軸範囲"}</button>
         </div>
       </div>
@@ -1028,10 +1030,10 @@ function LiveResponseCurves({
           <div className="axis-settings-grid">
             <section>
               <h3>X軸 <span>{selectedVariable?.label ?? "選択変数"}</span></h3>
-              {selectedVariable?.stageName && <label className="stage-position-field">入口からの工程位置<input type="number" min="0" step="0.1" value={axisDraft.stagePosition} onChange={(event) => { setAxisDraft((current) => ({ ...current, stagePosition: event.target.value })); setAxisDraftDirty(true); }} /><span>m</span></label>}
+              {selectedVariable?.stageName && <label className="stage-position-field">未登録候補への仮挿入位置<input type="number" min="0" step="0.1" disabled={axisSaving} value={axisDraft.stagePosition} onChange={(event) => { setAxisDraft((current) => ({ ...current, stagePosition: event.target.value })); setAxisDraftDirty(true); }} /><span>m</span></label>}
               <div className="axis-range-fields">
-                <label>最小<input type="number" value={axisDraft.x.min} onChange={(event) => setXDraft({ min: event.target.value, enabled: true })} /></label>
-                <label>最大<input type="number" value={axisDraft.x.max} onChange={(event) => setXDraft({ max: event.target.value, enabled: true })} /></label>
+                <label>最小<input type="number" disabled={axisSaving} value={axisDraft.x.min} onChange={(event) => setXDraft({ min: event.target.value, enabled: true })} /></label>
+                <label>最大<input type="number" disabled={axisSaving} value={axisDraft.x.max} onChange={(event) => setXDraft({ max: event.target.value, enabled: true })} /></label>
               </div>
               <small>学習データ範囲: {rangeText(selectedPayload?.variable?.training_range)}</small>
               <button type="button" className="text-button" onClick={() => setXDraft({ ...makeDraft(undefined, effectiveXRange) })}>自動</button>
@@ -1044,8 +1046,8 @@ function LiveResponseCurves({
                   return <div className="axis-settings-output" key={output.key}>
                     <b>{output.label}</b>
                     <div className="axis-range-fields">
-                      <label>最小<input type="number" value={draft.min} onChange={(event) => setYDraft(output.key, { min: event.target.value, enabled: true })} /></label>
-                      <label>最大<input type="number" value={draft.max} onChange={(event) => setYDraft(output.key, { max: event.target.value, enabled: true })} /></label>
+                      <label>最小<input type="number" disabled={axisSaving} value={draft.min} onChange={(event) => setYDraft(output.key, { min: event.target.value, enabled: true })} /></label>
+                      <label>最大<input type="number" disabled={axisSaving} value={draft.max} onChange={(event) => setYDraft(output.key, { max: event.target.value, enabled: true })} /></label>
                     </div>
                     <small>学習データ範囲: {rangeText(payloadForOutput(output.key)?.output_range)}</small>
                     <button type="button" className="text-button" onClick={() => setYDraft(output.key, { ...makeDraft(undefined, payloadForOutput(output.key)?.output_range) })}>自動</button>
@@ -1066,14 +1068,14 @@ function LiveResponseCurves({
           {outputs.map((output) => {
             const curveSeries = curveCandidates.flatMap((item) => {
               const inputIdentity = candidateInputIdentity(item.raw.inputs);
-              const storageKey = `${item.id}\u001f${output.key}\u001f${variableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`;
+              const storageKey = `${item.id}\u001f${output.key}\u001f${activeVariableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`;
               const payload = surfacesByKey[storageKey]?.data;
               if (!payload?.points.length) return [];
               return [{ candidate: item, points: payload.points, prediction: previewsByCandidate[item.id]?.predictions?.[output.key], currentX: payload.variable.current }];
             });
   const firstPayload = curveCandidates.map((item) => {
     const inputIdentity = candidateInputIdentity(item.raw.inputs);
-    return surfacesByKey[`${item.id}\u001f${output.key}\u001f${variableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`]?.data;
+    return surfacesByKey[`${item.id}\u001f${output.key}\u001f${activeVariableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`]?.data;
   }).find((payload): payload is ApiResponseCurve => Boolean(payload));
             return <ResponseCurveMiniChart key={output.key} output={output} series={curveSeries} selectedId={candidate.id} prediction={previewsByCandidate[candidate.id]?.predictions?.[output.key] ?? preview?.predictions?.[output.key]} goalValue={targetValues[output.key]} xRange={firstPayload?.variable ? { min: firstPayload.variable.min, max: firstPayload.variable.max } : selectedVariable ? { min: selectedVariable.min, max: selectedVariable.max } : undefined} yRange={responseCurveRanges.y?.[output.key] ?? firstPayload?.output_range ?? undefined} xLabel={firstPayload?.variable.label ?? selectedVariable?.label ?? "設計変数"} xUnit={firstPayload?.variable.unit ?? selectedVariable?.unit ?? ""} />;
           })}

@@ -113,6 +113,16 @@ def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
     )
     assert point_time.status_code == 422
     assert "ラインスピード" in point_time.json()["message"]
+    blank_stage = client.get(
+        f"/api/projects/default/candidates/{candidate['id']}/response-curve",
+        params={**params, "target": "TS", "variable": "heat.stage_temperature_c", "stage_name": "   ", "stage_position_m": 10, "points": 5},
+    )
+    assert blank_stage.status_code == 422
+    indexed_temperature = client.get(
+        f"/api/projects/default/candidates/{candidate['id']}/response-curve",
+        params={**params, "target": "TS", "variable": "heat.1.temperature_c", "points": 5},
+    )
+    assert indexed_temperature.status_code == 422
     assert atomic_result["snapshot"]["payload"]["prediction"] == detailed
     similar = client.get(
         f"/api/projects/default/candidates/{candidate['id']}/similar",

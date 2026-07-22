@@ -722,8 +722,10 @@ def create_app(
         is_stage_temperature = variable == "heat.stage_temperature_c"
         if is_stage_temperature != (stage_name is not None and stage_position_m is not None):
             raise HTTPException(422, "工程温度の応答曲線は工程名と入口からの工程位置をセットで指定してください")
-        if project.task_id == "annealed-properties-v1" and variable.endswith(".time_min"):
-            raise HTTPException(422, "ヒートパターンの時間は単一点では変更できません。ラインスピードを使用してください")
+        if stage_name is not None and not stage_name.strip():
+            raise HTTPException(422, "工程名は空白以外の文字を指定してください")
+        if project.task_id == "annealed-properties-v1" and variable.startswith("heat.") and not is_stage_temperature:
+            raise HTTPException(422, "ヒートパターンは工程名温度またはラインスピードで操作してください")
         axis_range = None
         if range_min is not None and range_max is not None:
             if not math.isfinite(range_min) or not math.isfinite(range_max) or range_min >= range_max:

@@ -507,6 +507,8 @@ class ModelRuntime:
         upper_index = next(index for index, point in enumerate(points) if point.time_s >= target_time)
         upper = points[upper_index]
         lower = points[upper_index - 1]
+        if upper.segment_start and target_time < upper.time_s - 1e-9:
+            raise ValueError(f"工程位置 {stage_position_m:g} m はヒートパターンの非連続な工程境界内にあります")
         ratio = (target_time - lower.time_s) / (upper.time_s - lower.time_s)
         return float(lower.temperature_c + ratio * (upper.temperature_c - lower.temperature_c))
 
@@ -640,8 +642,11 @@ class ModelRuntime:
             if matches:
                 current = sum(point.temperature_c for point in matches) / len(matches)
                 delta = float(value) - current
-                for point in matches:
-                    point.temperature_c += delta
+                shifted = [point.temperature_c + delta for point in matches]
+                if any(temperature < -273.15 or temperature > 1800 for temperature in shifted):
+                    raise ValueError("工程温度の変更後に物理温度範囲を外れる点があります")
+                for point, temperature in zip(matches, shifted):
+                    point.temperature_c = temperature
                 return
             line_speed = float(candidate.inputs.process.get("ls_mpm", 0.0))
             target_time = cls._heat_stage_position(points, line_speed, stage_position_m)
@@ -650,6 +655,8 @@ class ModelRuntime:
                 coincident.temperature_c = float(value)
                 return
             insert_at = next(index for index, point in enumerate(points) if point.time_s > target_time)
+            if points[insert_at].segment_start:
+                raise ValueError(f"工程位置 {stage_position_m:g} m はヒートパターンの非連続な工程境界内にあります")
             points.insert(insert_at, HeatPoint(
                 time_s=target_time,
                 temperature_c=float(value),
