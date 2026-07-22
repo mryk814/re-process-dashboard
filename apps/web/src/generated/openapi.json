@@ -2354,6 +2354,39 @@
             "title": "Lower",
             "type": "number"
           },
+          "point_statistic": {
+            "enum": [
+              "mean",
+              "median",
+              "probability",
+              "rate",
+              "expected_category"
+            ],
+            "title": "Point Statistic",
+            "type": "string"
+          },
+          "predictive_family": {
+            "title": "Predictive Family",
+            "type": "string"
+          },
+          "quantiles": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Quantiles",
+            "type": "object"
+          },
+          "target_kind": {
+            "enum": [
+              "continuous",
+              "continuous_positive",
+              "binary",
+              "count",
+              "ordinal"
+            ],
+            "title": "Target Kind",
+            "type": "string"
+          },
           "uncertainty_components": {
             "anyOf": [
               {
@@ -2385,7 +2418,11 @@
           "value",
           "lower",
           "upper",
-          "unit"
+          "unit",
+          "target_kind",
+          "point_statistic",
+          "predictive_family",
+          "quantiles"
         ],
         "title": "Prediction",
         "type": "object"

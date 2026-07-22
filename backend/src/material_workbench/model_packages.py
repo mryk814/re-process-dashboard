@@ -171,6 +171,19 @@ class ProvenanceSpec(PackageModel):
     dataset_profile_id: str | None = None
 
 
+class SmokeTestSpec(PackageModel):
+    input: str
+    expected: str
+
+    @field_validator("input", "expected")
+    @classmethod
+    def package_relative_file(cls, value: str) -> str:
+        path = Path(value)
+        if not value or path.is_absolute() or ".." in path.parts:
+            raise ValueError("smoke path must be package-relative")
+        return value.replace("\\", "/")
+
+
 class ModelPackageManifest(PackageModel):
     schema_version: Literal[PACKAGE_SCHEMA_VERSION]
     package_id: str
@@ -183,7 +196,7 @@ class ModelPackageManifest(PackageModel):
     predictors: tuple[PredictorSpec, ...]
     provenance: ProvenanceSpec
     artifacts: tuple[ArtifactSpec, ...]
-    smoke_test: dict[str, str] | None = None
+    smoke_test: SmokeTestSpec | None = None
     quality_report: str | None = None
 
     @model_validator(mode="after")
@@ -194,6 +207,8 @@ class ModelPackageManifest(PackageModel):
         needed = {self.feature_pipeline.spec, *self.feature_pipeline.artifacts, *(predictor.artifact for predictor in self.predictors)}
         if self.quality_report:
             needed.add(self.quality_report)
+        if self.smoke_test:
+            needed.update((self.smoke_test.input, self.smoke_test.expected))
         missing = sorted(needed - listed)
         if missing:
             raise ValueError(f"manifest references unlisted artifacts: {', '.join(missing)}")
@@ -263,7 +278,13 @@ def validate_predictive_summary(
         raise PackageContractError(
             f"predictor {spec.id!r} returned distribution family {family!r}, expected {spec.predictive_family!r}"
         )
-    ordered_quantiles = sorted((float(level), value) for level, value in summary.quantiles.items())
+    try:
+        ordered_quantiles = sorted((float(level), value) for level, value in summary.quantiles.items())
+    except ValueError as exc:
+        raise PackageContractError(f"predictor {spec.id!r} returned an invalid quantile level") from exc
+    levels = [level for level, _ in ordered_quantiles]
+    if any(not math.isfinite(level) or not 0 <= level <= 1 for level in levels) or len(levels) != len(set(levels)):
+        raise PackageContractError(f"predictor {spec.id!r} returned invalid or duplicate quantile levels")
     if any(not math.isfinite(value) for _, value in ordered_quantiles):
         raise PackageContractError(f"predictor {spec.id!r} returned non-finite quantiles")
     if any(left[1] > right[1] for left, right in zip(ordered_quantiles, ordered_quantiles[1:])):
@@ -272,8 +293,17 @@ def validate_predictive_summary(
         0 <= summary.point_estimate <= 1
         and summary.event_probability is not None
         and 0 <= summary.event_probability <= 1
+        and math.isclose(summary.event_probability, summary.point_estimate, rel_tol=0, abs_tol=1e-12)
     ):
         raise PackageContractError(f"predictor {spec.id!r} returned invalid binary probability semantics")
+    values = [summary.point_estimate, *(value for _, value in ordered_quantiles)]
+    requires_nonnegative_output = spec.target_kind == "count" or (
+        spec.target_kind == "continuous_positive" and summary.distribution.get("support") == "positive"
+    )
+    if requires_nonnegative_output and any(value < 0 for value in values):
+        raise PackageContractError(f"predictor {spec.id!r} returned values outside nonnegative support")
+    if spec.target_kind in {"binary", "ordinal"} and spec.unit not in {"", "1"}:
+        raise PackageContractError(f"predictor {spec.id!r} must use a dimensionless unit")
     if capability is None:
         return
     if summary.point_statistic not in capability.point_statistics:

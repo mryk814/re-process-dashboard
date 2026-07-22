@@ -121,7 +121,7 @@ test("non-editable fields are disabled and goal probability remains visible", ()
     fixed_context: [],
   };
   const preview = {
-    predictions: { TS: { value: 500, lower: 480, upper: 520, unit: "MPa", goal_probability: 0.82, uncertainty_components: { latent_model_std: 12, observation_noise_std: 8 } } },
+    predictions: { TS: { value: 500, lower: 480, upper: 520, unit: "MPa", target_kind: "continuous", point_statistic: "mean", predictive_family: "normal", quantiles: { "0.05": 480, "0.95": 520 }, goal_probability: 0.82, uncertainty_components: { latent_model_std: 12, observation_noise_std: 8 } } },
     support: { status: "supported" },
   };
   const inspector = renderInspector({ candidate, taskDefinition: definition, saveState: "idle", fieldErrors: [], onInput() {}, onReload() {}, onCopyDraft() {} });

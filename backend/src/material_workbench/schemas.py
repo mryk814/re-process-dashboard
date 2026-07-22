@@ -217,6 +217,10 @@ class Prediction(BaseModel):
     lower: float
     upper: float
     unit: str
+    target_kind: Literal["continuous", "continuous_positive", "binary", "count", "ordinal"]
+    point_statistic: Literal["mean", "median", "probability", "rate", "expected_category"]
+    predictive_family: str
+    quantiles: dict[str, float]
     goal_value: float | None = None
     goal_probability: Annotated[float | None, Field(ge=0, le=1)] = None
     goal_direction: Literal["at_least", "at_most"] | None = None

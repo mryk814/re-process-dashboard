@@ -1429,6 +1429,22 @@ export interface components {
             goal_value?: number | null;
             /** Lower */
             lower: number;
+            /**
+             * Point Statistic
+             * @enum {string}
+             */
+            point_statistic: "mean" | "median" | "probability" | "rate" | "expected_category";
+            /** Predictive Family */
+            predictive_family: string;
+            /** Quantiles */
+            quantiles: {
+                [key: string]: number;
+            };
+            /**
+             * Target Kind
+             * @enum {string}
+             */
+            target_kind: "continuous" | "continuous_positive" | "binary" | "count" | "ordinal";
             /** Uncertainty Components */
             uncertainty_components?: {
                 [key: string]: number;

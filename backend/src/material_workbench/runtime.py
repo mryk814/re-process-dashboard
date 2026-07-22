@@ -184,8 +184,8 @@ class ModelRuntime:
         smoke = self.model_package.manifest.smoke_test
         if not smoke:
             raise ValueError("Production model package must declare a smoke test")
-        candidate = CandidateInput.model_validate(json.loads(self.model_package.artifact_path(smoke["input"]).read_text(encoding="utf-8")))
-        expected = json.loads(self.model_package.artifact_path(smoke["expected"]).read_text(encoding="utf-8"))
+        candidate = CandidateInput.model_validate(json.loads(self.model_package.artifact_path(smoke.input).read_text(encoding="utf-8")))
+        expected = json.loads(self.model_package.artifact_path(smoke.expected).read_text(encoding="utf-8"))
         values = build_feature_bundle(candidate, self.composition_defaults).as_dict()
         specs = {spec.target: spec for spec in self.model_package.manifest.predictors}
         capabilities = {item.target: item for item in load_task_contracts()[TASK_ID].runtime_capability.targets}
@@ -444,6 +444,10 @@ class ModelRuntime:
                 goal_probability = float(np.mean(value + model.oof_residuals >= goal_value))
             predictions[label] = Prediction(
                 value=round(value, 3), lower=round(lower, 3), upper=round(upper, 3), unit=unit,
+                target_kind=summary.target_kind if summary is not None else "continuous",
+                point_statistic=summary.point_statistic if summary is not None else "mean",
+                predictive_family=summary.distribution.get("family", "empirical_quantiles") if summary is not None else "empirical_quantiles",
+                quantiles={} if summary is None else {level: round(float(item), 6) for level, item in summary.quantiles.items()},
                 goal_value=goal_value,
                 goal_probability=None if goal_probability is None else round(goal_probability, 4),
                 goal_direction=None if goal_value is None else "at_least",

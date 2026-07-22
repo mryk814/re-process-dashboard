@@ -63,8 +63,8 @@ class HotRollingRuntime:
         smoke = self.model_package.manifest.smoke_test
         if not smoke:
             raise ValueError("Hot-rolling model package must declare a smoke test")
-        candidate = CandidateInput.model_validate(json.loads(self.model_package.artifact_path(smoke["input"]).read_text(encoding="utf-8")))
-        expected = json.loads(self.model_package.artifact_path(smoke["expected"]).read_text(encoding="utf-8"))
+        candidate = CandidateInput.model_validate(json.loads(self.model_package.artifact_path(smoke.input).read_text(encoding="utf-8")))
+        expected = json.loads(self.model_package.artifact_path(smoke.expected).read_text(encoding="utf-8"))
         values = build_hot_rolling_features(candidate, self.composition_defaults).as_dict()
         specs = {spec.target: spec for spec in self.model_package.manifest.predictors}
         capabilities = {item.target: item for item in load_task_contracts()[TASK_ID].runtime_capability.targets}
@@ -167,6 +167,10 @@ class HotRollingRuntime:
                 lower=round(summary.quantiles.get("0.05", summary.point_estimate), 3),
                 upper=round(summary.quantiles.get("0.95", summary.point_estimate), 3),
                 unit=summary.unit,
+                target_kind=summary.target_kind,
+                point_statistic=summary.point_statistic,
+                predictive_family=summary.distribution.get("family", "empirical_quantiles"),
+                quantiles={level: round(float(item), 6) for level, item in summary.quantiles.items()},
                 uncertainty_components=None if summary.uncertainty_components is None else {
                     name: round(float(value), 6) for name, value in summary.uncertainty_components.items()
                 },
