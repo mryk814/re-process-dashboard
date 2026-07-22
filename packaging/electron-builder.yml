@@ -1,0 +1,37 @@
+appId: jp.local.material-decision-workbench
+productName: Material Decision Workbench
+asar: false
+directories:
+  output: release
+extraMetadata:
+  name: material-decision-workbench
+  main: apps/desktop/dist/main.js
+files:
+  - apps/desktop/dist/**/*
+  - apps/web/dist/**/*
+  - package.json
+extraResources:
+  - from: dist/sidecar/material-workbench-sidecar
+    to: sidecar
+  - from: data/source/process_dashboard_realistic_excel_v2.xlsx
+    to: data/source/process_dashboard_realistic_excel_v2.xlsx
+  - from: data/source/cutting_tool_flank_wear_synthetic_dataset.xlsx
+    to: data/source/cutting_tool_flank_wear_synthetic_dataset.xlsx
+  - from: models/packages/annealed-gp-2026-07
+    to: models/packages/annealed-gp-2026-07
+  - from: models/packages/hot-rolled-horseshoe-2026-07
+    to: models/packages/hot-rolled-horseshoe-2026-07
+  - from: models/packages/flank-wear-gp-2026-07
+    to: models/packages/flank-wear-gp-2026-07
+win:
+  target:
+    - nsis
+  executableName: Material Decision Workbench
+  artifactName: Material-Decision-Workbench-Setup-${version}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  deleteAppDataOnUninstall: false

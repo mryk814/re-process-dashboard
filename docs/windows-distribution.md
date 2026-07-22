@@ -1,0 +1,43 @@
+# Windows配布
+
+## 現在の配布形態
+
+同じ `win-unpacked` ステージングから、次の2つを生成する。
+
+- `Material-Decision-Workbench-Setup-<version>.exe`: 管理者権限を要求しないper-user installer
+- `Material-Decision-Workbench-folder-<version>.zip`: 内部確認・開発者共有向けの展開式フォルダ版
+
+どちらもPython、uv、repository checkoutを必要としない。FastAPI sidecar、使用するExcel、検証済みModel Packageを同梱する。コード署名、GitHub Releases、自動更新は現段階では行わず、信頼できる社内経路から手動配布する。
+
+## 生成と確認
+
+```powershell
+npm install
+uv sync --extra dev
+npm run package:windows
+npm run smoke:packaged
+```
+
+成果物はgit管理外の `release/` に作る。`smoke:packaged` はZIPの展開・起動・削除と、installerの非管理者install・起動・uninstallを一時領域で実行し、次を確認する。
+
+- sidecar health後に実画面が表示される
+- tokenなしのloopback API requestが401になる
+- rendererが付与するtokenではAPIへ到達できる
+- repository外の同梱Excel・Model Packageで起動できる
+- フォルダ内にDBとsidecar logが作られる
+- installer版のDBとlogがLocalAppDataへ作られ、uninstall後も利用データが保持される
+
+## 保存先と削除
+
+installer版は `%LOCALAPPDATA%\Material Decision Workbench` にDBとログを保存する。アンインストール時に利用データを自動削除しない。完全に消す場合は、アンインストール後にこのフォルダを利用者が明示的に削除する。
+
+フォルダ版は展開先の `user-data/` にDBとログを保存する。削除するときはアプリを終了し、展開したフォルダを丸ごと削除できる。`portable.marker` が保存先切替の印であり、削除・移動しない。
+
+元ExcelとModel Packageはどちらの形式でも読取専用の配布resourceとして扱う。DBやログをインストール先の `resources/` へ書かない。
+
+## 配布時の注意
+
+- 未署名のためWindows SmartScreenの警告が出る可能性がある。配布時にファイル名、version、SHA-256を併記する。
+- installerとZIPは必ず同じ `npm run package:windows` 実行で生成する。
+- ZIPへ `user-data/` が混入していないことを確認する。
+- 更新機構、Model Package/DataのGUI import、署名は後続段階とする。

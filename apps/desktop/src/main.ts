@@ -1,14 +1,15 @@
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, session } from "electron";
 import { ChildProcess, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { createServer } from "node:net";
-import { existsSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { createWriteStream, existsSync, mkdirSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 
 const API_HOST = "127.0.0.1";
 const HEALTH_TIMEOUT_MS = 20_000;
 const HEALTH_RETRY_MS = 250;
 const LAUNCH_TOKEN = randomBytes(32).toString("base64url");
+const sidecarOutputs = new WeakMap<ChildProcess, string>();
 
 let mainWindow: BrowserWindow | undefined;
 let sidecar: ChildProcess | undefined;
@@ -16,9 +17,26 @@ let apiPort: number | undefined;
 let sidecarReady = false;
 let isQuitting = false;
 let shutdownInProgress: Promise<void> | undefined;
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) app.quit();
 
 function workspaceRoot(): string {
   return resolve(__dirname, "../../..");
+}
+
+function portableRoot(): string | undefined {
+  if (!app.isPackaged) return undefined;
+  const root = dirname(process.execPath);
+  return existsSync(join(root, "portable.marker")) ? root : undefined;
+}
+
+function configureUserDataPath(): void {
+  if (!app.isPackaged) return;
+  const root = portableRoot()
+    ?? join(process.env.LOCALAPPDATA ?? join(dirname(app.getPath("appData")), "Local"), "Material Decision Workbench");
+  const userData = portableRoot() ? join(root, "user-data") : root;
+  mkdirSync(userData, { recursive: true });
+  app.setPath("userData", userData);
 }
 
 function rendererPath(): string {
@@ -29,7 +47,27 @@ function frontendDevServerUrl(): string {
   return process.env.MATERIAL_WORKBENCH_DEV_SERVER_URL ?? "http://127.0.0.1:5180";
 }
 
-function sidecarCommand(port: number): { command: string; args: string[] } {
+function sidecarCommand(port: number): { command: string; args: string[]; cwd: string; env: NodeJS.ProcessEnv } {
+  if (app.isPackaged) {
+    const resources = process.resourcesPath;
+    return {
+      command: join(resources, "sidecar", "material-workbench-sidecar.exe"),
+      args: [],
+      cwd: resources,
+      env: {
+        ...process.env,
+        WORKBENCH_API_HOST: API_HOST,
+        WORKBENCH_API_PORT: String(port),
+        WORKBENCH_LAUNCH_TOKEN: LAUNCH_TOKEN,
+        WORKBENCH_DB_PATH: join(app.getPath("userData"), "workbench.db"),
+        WORKBENCH_SOURCE_PATH: join(resources, "data", "source", "process_dashboard_realistic_excel_v2.xlsx"),
+        WORKBENCH_FLANK_WEAR_SOURCE_PATH: join(resources, "data", "source", "cutting_tool_flank_wear_synthetic_dataset.xlsx"),
+        MATERIAL_WORKBENCH_MODEL_PACKAGE: join(resources, "models", "packages", "annealed-gp-2026-07"),
+        MATERIAL_WORKBENCH_HOT_ROLLING_MODEL_PACKAGE: join(resources, "models", "packages", "hot-rolled-horseshoe-2026-07"),
+        MATERIAL_WORKBENCH_FLANK_WEAR_MODEL_PACKAGE: join(resources, "models", "packages", "flank-wear-gp-2026-07"),
+      },
+    };
+  }
   return {
     command: "uv",
     args: [
@@ -43,15 +81,13 @@ function sidecarCommand(port: number): { command: string; args: string[] } {
       "--port",
       String(port),
     ],
+    cwd: workspaceRoot(),
+    env: { ...process.env, WORKBENCH_LAUNCH_TOKEN: LAUNCH_TOKEN },
   };
 }
 
 function sidecarOutput(process: ChildProcess): string {
-  return [process.stdout, process.stderr]
-    .map((stream) => (stream as (NodeJS.ReadableStream & { read?: () => Buffer | null }) | null)?.read?.()?.toString() ?? "")
-    .filter(Boolean)
-    .join("\n")
-    .trim();
+  return sidecarOutputs.get(process)?.trim() ?? "";
 }
 
 function wait(milliseconds: number): Promise<void> {
@@ -105,16 +141,28 @@ async function waitForHealthySidecar(process: ChildProcess, port: number): Promi
   );
 }
 
-async function startSidecar(): Promise<void> {
-  const port = await findAvailablePort();
+async function startSidecarOnPort(port: number): Promise<void> {
   apiPort = port;
-  const { command, args } = sidecarCommand(port);
+  const { command, args, cwd, env } = sidecarCommand(port);
+  const logDirectory = join(app.getPath("userData"), "logs");
+  mkdirSync(logDirectory, { recursive: true });
+  const logPath = join(logDirectory, "sidecar.log");
+  const logStream = createWriteStream(logPath, { flags: "w" });
   const childProcess = spawn(command, args, {
-    cwd: workspaceRoot(),
+    cwd,
     windowsHide: true,
     stdio: ["ignore", "pipe", "pipe"],
-    env: { ...process.env, WORKBENCH_LAUNCH_TOKEN: LAUNCH_TOKEN },
+    env,
   });
+  const captureOutput = (chunk: Buffer) => {
+    const next = `${sidecarOutputs.get(childProcess) ?? ""}${chunk.toString()}`;
+    sidecarOutputs.set(childProcess, next.slice(-16_384));
+  };
+  childProcess.stdout?.on("data", captureOutput);
+  childProcess.stderr?.on("data", captureOutput);
+  childProcess.stdout?.pipe(logStream, { end: false });
+  childProcess.stderr?.pipe(logStream, { end: false });
+  childProcess.once("exit", () => logStream.end());
   sidecar = childProcess;
 
   const startupFailure = new Promise<never>((_, reject) => {
@@ -151,6 +199,21 @@ async function startSidecar(): Promise<void> {
   });
 }
 
+async function startSidecar(): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await startSidecarOnPort(await findAvailablePort());
+      return;
+    } catch (error) {
+      lastError = error;
+      const message = error instanceof Error ? error.message : String(error);
+      if (!/address already in use|WinError 10048|EADDRINUSE/i.test(message) || attempt === 2) throw error;
+    }
+  }
+  throw lastError;
+}
+
 function stopSidecar(): Promise<void> {
   if (shutdownInProgress) {
     return shutdownInProgress;
@@ -166,7 +229,12 @@ function stopSidecar(): Promise<void> {
       return;
     }
 
-    const finish = () => resolveShutdown();
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      resolveShutdown();
+    };
     process.once("exit", finish);
 
     // uv may spawn the Python interpreter as a child on Windows. Kill only the
@@ -176,10 +244,15 @@ function stopSidecar(): Promise<void> {
       stdio: "ignore",
     });
     taskkill.once("error", () => {
-      process.kill();
-      resolveShutdown();
+      if (process.exitCode === null) process.kill();
     });
-    taskkill.once("exit", finish);
+    taskkill.once("exit", (code) => {
+      if (code !== 0 && process.exitCode === null) process.kill();
+    });
+    setTimeout(() => {
+      if (process.exitCode === null) process.kill();
+      setTimeout(finish, 1_000);
+    }, 5_000);
   });
 
   return shutdownInProgress;
@@ -236,8 +309,30 @@ async function failAndQuit(error: unknown): Promise<void> {
   app.quit();
 }
 
+if (hasSingleInstanceLock) {
+  try {
+    configureUserDataPath();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    dialog.showErrorBox("保存先を準備できません", message);
+    app.exit(1);
+  }
+}
+
+function configureSidecarRequestHeaders(): void {
+  if (!apiPort) throw new Error("sidecar port is unavailable");
+  session.defaultSession.webRequest.onBeforeSendHeaders(
+    { urls: [`http://${API_HOST}:${apiPort}/*`] },
+    (details, callback) => {
+      details.requestHeaders["X-Workbench-Launch-Token"] = LAUNCH_TOKEN;
+      callback({ requestHeaders: details.requestHeaders });
+    },
+  );
+}
+
 app.whenReady()
   .then(async () => {
+    if (!hasSingleInstanceLock) return;
     ipcMain.on("workbench:runtime-config", (event) => {
       event.returnValue = apiPort ? {
         apiBaseUrl: `http://${API_HOST}:${apiPort}`,
@@ -245,9 +340,17 @@ app.whenReady()
       } : null;
     });
     await startSidecar();
+    configureSidecarRequestHeaders();
     await createMainWindow();
   })
   .catch((error: unknown) => failAndQuit(error));
+
+app.on("second-instance", () => {
+  if (!mainWindow) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+});
 
 app.on("activate", () => {
   if (!mainWindow && sidecarReady && !isQuitting) {

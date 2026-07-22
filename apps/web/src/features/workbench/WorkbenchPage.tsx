@@ -479,9 +479,9 @@ function CandidateFileControls({
       );
     }
   };
-  const download = () => void workbenchApi.exportCandidates(projectId).catch((error) => {
-    setMessage(error instanceof Error ? error.message : "XLSXを出力できませんでした。");
-  });
+  const download = () => {
+    window.location.assign(workbenchApi.candidateExportUrl(projectId));
+  };
   return (
     <div className="file-controls">
       <label className="outline-button">
