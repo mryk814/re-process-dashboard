@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Annotated, Any, Iterator, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .dataset_profile import load_dataset_profile
 from .feature_pipeline import build_feature_bundle_from_observation
@@ -88,6 +88,12 @@ class QualityReport(LifecycleModel):
     split: Literal["leave-one-parent-condition-out", "grouped-parent-condition-k-fold"]
     folds: Annotated[int, Field(ge=2)] | None = None
     targets: Annotated[tuple[TargetQualityMetric, ...], Field(min_length=1)]
+
+    @model_validator(mode="after")
+    def split_has_matching_fold_count(self) -> "QualityReport":
+        if (self.split == "grouped-parent-condition-k-fold") != (self.folds is not None):
+            raise ValueError("grouped k-fold quality reports require folds, and leave-one-out reports must omit it")
+        return self
 
 
 def _semantic_digest(payload: Any) -> str:

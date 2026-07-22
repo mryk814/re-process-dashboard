@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from material_workbench.app import create_app
 from material_workbench.importer import load_workbook_data
 from material_workbench.model_lifecycle import (
+    QualityReport,
     canonical_training_dataset,
     canonical_training_dataset_digest,
     exact_gp_loo_quality,
@@ -26,6 +27,15 @@ from material_workbench.task_registry import load_task_contracts
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "data" / "source" / "process_dashboard_realistic_excel_v2.xlsx"
+
+
+def test_grouped_quality_report_requires_an_explicit_fold_count() -> None:
+    with pytest.raises(ValueError, match="require folds"):
+        QualityReport.model_validate({
+            "schema_version": "model-quality-report/v1",
+            "split": "grouped-parent-condition-k-fold",
+            "targets": [{"target": "TS", "parent_conditions": 2, "mae": 1, "rmse": 1, "interval_coverage_90": 0.9}],
+        })
 
 
 @pytest.mark.parametrize(
