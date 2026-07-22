@@ -6,7 +6,7 @@ const tasks = [
 ] as const;
 
 for (const task of tasks) {
-  test(`${task.projectId} uses the common candidate, prediction, snapshot, and actual flow`, async ({ page }) => {
+  test(`${task.projectId} uses the common candidate, prediction, and snapshot flow`, async ({ page }) => {
     const pageErrors: string[] = [];
     let curveRequests = 0;
     page.on("pageerror", (error) => pageErrors.push(error.message));
@@ -16,7 +16,7 @@ for (const task of tasks) {
 
     await page.goto(`/?view=candidates&project=${task.projectId}`);
     await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
-    await expect(page.locator(".evidence-panel .metric-table")).toBeVisible();
+    await expect(page.locator(".comparison-prediction-table")).toBeVisible();
     const outputHeader = page.locator(".comparison-detail-table thead");
     await expect(outputHeader.locator(".prediction-col")).toHaveCount(task.outputLabels.length);
     for (const output of task.outputLabels) await expect(outputHeader.locator(".prediction-col").filter({ hasText: output })).toBeVisible();
@@ -42,7 +42,7 @@ for (const task of tasks) {
     await selectedName.fill(editedName);
     await page.locator(".table-heading h2").click();
     expect((await updateResponse).status()).toBe(200);
-    await expect(page.getByRole("heading", { name: /予測特性/ })).toContainText(editedName);
+    await expect(selectedName).toHaveValue(editedName);
 
     const disposableResponse = page.waitForResponse((response) => response.request().method() === "POST" && /\/candidates$/.test(new URL(response.url()).pathname));
     await page.getByRole("button", { name: "候補を追加" }).click();
@@ -66,12 +66,6 @@ for (const task of tasks) {
     expect(detailed.snapshot.payload.raw_candidate.revision).toBe(currentCandidate.revision);
     await expect(page.locator(".notice")).toContainText("詳細予測を実行");
 
-    await page.getByRole("spinbutton", { name: "実測平均" }).fill("510");
-    const actualResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith(`/candidates/${keptCandidateId}/actuals`));
-    await page.getByRole("button", { name: "実測を追加" }).click();
-    expect((await actualResponse).status()).toBe(201);
-    await expect(page.locator(".actual-table tbody")).toContainText("510");
-
     await page.getByRole("button", { name: "プロジェクト概要", exact: true }).click();
     await expect(page.getByRole("heading", { name: "候補と判断履歴" })).toBeVisible();
     await expect(page.getByRole("button", { name: "詳細" }).first()).toBeVisible();
@@ -94,7 +88,7 @@ test("preview capability disables initial and edited-candidate requests", async 
 
   await page.goto("/?view=candidates&project=default");
   await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
-  await expect(page.locator(".evidence-panel .panel-error")).toContainText("このタスクではプレビューを利用できません");
+  await expect(page.getByRole("alert")).toContainText("このタスクではプレビューを利用できません");
   await page.waitForTimeout(600);
   expect(previewRequests).toBe(0);
 

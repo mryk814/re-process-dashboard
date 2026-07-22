@@ -318,7 +318,6 @@ export function ProjectHub({
                 {item.decision?.snapshot_id === snapshot.id && <span className="decision-note-inline">判断理由: {item.decision.note}</span>}
                 <button className="outline-button" onClick={() => void openSnapshot(snapshot.id)}>詳細</button><button className="outline-button" onClick={() => void restoreSnapshot(snapshot.id)}>新しい候補として複製</button>
               </div>)}</div> : <div className="project-empty-inline"><span>固定した予測はありません。候補比較で詳細予測を保存すると判断時点が残ります。</span><button className="outline-button" onClick={() => onNavigate("candidates", item.candidate.id)}>候補比較へ</button></div>}
-              {item.snapshots.length > 0 && item.actuals.length === 0 && !item.candidate.archived_at && <div className="project-empty-inline"><span>固定予測に実測を登録すると、予測との差を振り返れます。</span><button className="outline-button" onClick={() => onNavigate("candidates", item.candidate.id)}>実測を登録</button></div>}
             </article>;
           })}
         </div>}

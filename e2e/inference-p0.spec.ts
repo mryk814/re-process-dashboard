@@ -63,10 +63,8 @@ test("inference runs only for changed candidates and visible selected curves", a
   const selectedCandidateLabel = await nameInput.inputValue();
   expect(new URL(page.url()).searchParams.get("candidate")).toBe(selectedCandidateId);
   await expect(candidateRows.nth(1)).toHaveClass(/selected-row/);
-  await expect(page.getByRole("heading", { name: /予測特性/ })).toContainText(selectedCandidateLabel);
   await page.waitForTimeout(450);
   await expect(candidateRows.nth(1)).toHaveClass(/selected-row/);
-  await expect(page.getByRole("heading", { name: /予測特性/ })).toContainText(selectedCandidateLabel);
   expect(previewRequests).toBe(3);
   await expect(page.locator(".response-curves-panel")).toHaveAttribute("data-candidate-id", selectedCandidateId!);
   await expect.poll(() => curveRequests).toBeGreaterThanOrEqual(2);
@@ -75,7 +73,6 @@ test("inference runs only for changed candidates and visible selected curves", a
   expect(firstCurve).toEqual(expect.objectContaining({ candidateId: selectedCandidateId, status: 200 }));
   expect(firstCurve?.body).toEqual(expect.objectContaining({ target: expect.any(String), points: expect.any(Array), point_count: 9 }));
   await expect(page.locator(".response-curves-panel .candidate-color-legend .selected")).toContainText(selectedCandidateLabel);
-  await expect(page.getByRole("heading", { name: /予測特性/ })).toContainText(selectedCandidateLabel);
 
   let releasePreview = () => undefined;
   const previewGate = new Promise<void>((resolve) => { releasePreview = resolve; });
@@ -110,7 +107,6 @@ test("inference runs only for changed candidates and visible selected curves", a
   expect(createdCurve?.body).toEqual(expect.objectContaining({ target: expect.any(String), points: expect.any(Array), point_count: 9 }));
   await expect(page.locator(".response-curves-panel")).toHaveAttribute("data-candidate-id", createdCandidateId!);
   await expect(page.locator(".response-curves-panel .candidate-color-legend .selected")).toContainText(createdCandidateLabel);
-  await expect(page.getByRole("heading", { name: /予測特性/ })).toContainText(createdCandidateLabel);
 
   const selectedNumeric = page.locator(".comparison-detail-table tbody tr.selected-row input[type=number]").first();
   const currentValue = Number(await selectedNumeric.inputValue());
@@ -141,8 +137,8 @@ test("inference runs only for changed candidates and visible selected curves", a
   await page.locator(".table-heading h2").click();
   await saveBeforePendingPreview;
   await expect.poll(() => pendingPreviewHeld).toBe(true);
-  await expect(page.locator(".evidence-panel .metric-table")).toBeVisible();
-  await expect(page.getByText("旧revision・更新中", { exact: true })).toBeVisible();
+  const selectedPredictionCells = page.locator(".comparison-prediction-table tbody tr.selected-row .prediction-cell");
+  await expect(selectedPredictionCells.first()).not.toHaveText("—");
 
   const pendingCandidateName = page.locator(".candidate-name-table tbody tr.selected-row input");
   const saveNameDuringPreview = page.waitForResponse((response) => response.request().method() === "PUT" && response.url().includes("/candidates/"));
@@ -153,7 +149,7 @@ test("inference runs only for changed candidates and visible selected curves", a
   releasePendingPreview();
   await expect.poll(successfulCreatedPreviews).toBe(successfulPreviewsBeforePending + 1);
   expect(failedInferenceRequests.filter((path) => path.endsWith("/preview")).length).toBe(failedPreviewsBeforePending);
-  await expect(page.locator(".evidence-panel .metric-table")).toBeVisible();
+  await expect(selectedPredictionCells.first()).not.toHaveText("—");
   await page.unroute("**/preview*");
 
   const candidateApiUrl = `http://127.0.0.1:8875/api/projects/default/candidates/${createdCandidateId}`;
@@ -209,7 +205,7 @@ test("inference runs only for changed candidates and visible selected curves", a
   await recoveredSave;
   await expect.poll(() => previewRequests).toBe(previewsBeforeConflictRecovery + 1);
   await expect.poll(successfulCreatedPreviews).toBe(successfulPreviewsBeforeConflictRecovery + 1);
-  await expect(page.locator(".evidence-panel .metric-table")).toBeVisible();
+  await expect(selectedPredictionCells.first()).not.toHaveText("—");
   await page.unroute(`**/candidates/${createdCandidateId}`);
 
   let failedPreviewResponse = false;
@@ -224,7 +220,7 @@ test("inference runs only for changed candidates and visible selected curves", a
   await saveBeforeFailedPreview;
   await expect.poll(() => failedPreviewResponse).toBe(true);
   await expect(page.getByText("入力は保存しましたが、予測結果を更新できませんでした")).toBeVisible();
-  await expect(page.locator(".evidence-panel .metric-table")).toBeVisible();
-  await expect(page.getByText("更新失敗・旧結果", { exact: true })).toBeVisible();
+  await expect(selectedPredictionCells.first()).not.toHaveText("—");
+  await expect(page.getByRole("alert")).toContainText("プレビューを取得できませんでした");
   await expect.poll(() => inferenceResponses.some((item) => item.kind === "preview" && item.status === 500)).toBe(true);
 });

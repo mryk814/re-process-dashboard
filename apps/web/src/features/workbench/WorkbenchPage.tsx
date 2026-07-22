@@ -1,4 +1,4 @@
-import { type PointerEvent, useEffect, useRef, useState } from "react";
+import { type CSSProperties, type KeyboardEvent, type PointerEvent, useEffect, useRef, useState } from "react";
 import { provenanceLabel, type CandidateProvenance } from "../../shared/candidateProvenance";
 import {
   CandidateInspector,
@@ -18,10 +18,8 @@ import { candidateInputIdentity } from "../../shared/api/inferenceRequestCache";
 import { apiBaseUrl } from "../../shared/api/client";
 import {
   workbenchApi,
-  type ApiActual,
   type ApiCurveFamily,
   type ApiProject,
-  type ApiPredictionVsActual,
   type ApiPreview,
   type ApiResponseCurve,
   type ApiSimilarObservation,
@@ -34,21 +32,105 @@ import {
   requestInferenceSurface,
   resolveInferenceSurface,
   type InferenceSurfaceState,
-  type InferenceSurfaceStatus,
 } from "./inferenceSurfaceState";
 
-type Metric = {
-  key: string;
-  unit: string;
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+const workbenchLayoutStorage = {
+  inspectorWidth: "material-workbench:layout:inspector-width:v1",
+  curveShare: "material-workbench:layout:curve-share:v1",
+} as const;
+
+function storedLayoutNumber(key: string, fallback: number) {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (raw === null) return fallback;
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function saveLayoutNumber(key: string, value: number) {
+  try {
+    window.localStorage.setItem(key, String(value));
+  } catch {
+    // Layout persistence is optional when local storage is unavailable.
+  }
+}
+
+function SplitResizer({
+  className,
+  label,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+  onDrag,
+  onReset,
+}: {
+  className: string;
+  label: string;
   value: number;
-  low: number;
-  high: number;
-  status: string;
-  goalValue?: number | null;
-  goalProbability?: number | null;
-  modelStd?: number | null;
-  observationStd?: number | null;
-};
+  min: number;
+  max: number;
+  step: number;
+  onChange: (value: number) => void;
+  onDrag: (startValue: number, deltaX: number) => number;
+  onReset: () => void;
+}) {
+  const drag = useRef<{ pointerId: number; startX: number; startValue: number } | null>(null);
+  const changeByKeyboard = (event: KeyboardEvent<HTMLDivElement>) => {
+    const amount = event.shiftKey ? step * 4 : step;
+    const next = event.key === "ArrowLeft"
+      ? value - amount
+      : event.key === "ArrowRight"
+        ? value + amount
+        : event.key === "Home"
+          ? min
+          : event.key === "End"
+            ? max
+            : null;
+    if (next === null) return;
+    event.preventDefault();
+    onChange(clamp(next, min, max));
+  };
+  return (
+    <div
+      className={`split-resizer ${className}`}
+      role="separator"
+      tabIndex={0}
+      aria-label={label}
+      aria-orientation="vertical"
+      aria-valuemin={min}
+      aria-valuemax={max}
+      aria-valuenow={Math.round(value)}
+      title="ドラッグで幅を調整・ダブルクリックで初期幅"
+      onDoubleClick={onReset}
+      onKeyDown={changeByKeyboard}
+      onPointerDown={(event) => {
+        drag.current = { pointerId: event.pointerId, startX: event.clientX, startValue: value };
+        event.currentTarget.setPointerCapture(event.pointerId);
+      }}
+      onPointerMove={(event) => {
+        const current = drag.current;
+        if (!current || current.pointerId !== event.pointerId || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
+        onChange(clamp(onDrag(current.startValue, event.clientX - current.startX), min, max));
+      }}
+      onPointerUp={(event) => {
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+        drag.current = null;
+      }}
+      onPointerCancel={() => { drag.current = null; }}
+      onLostPointerCapture={() => { drag.current = null; }}
+    ><span aria-hidden="true" /></div>
+  );
+}
 
 type CurvePoint = ApiResponseCurve["points"][number];
 type CurveVariable = ApiResponseCurve["variable"];
@@ -141,9 +223,7 @@ type WorkbenchProps = {
   fieldErrors: Array<{ path: string; message: string }>;
   onReload: () => void;
   onCopyDraft: () => void;
-  metrics: Metric[];
   preview: ApiPreview | null;
-  previewStatus: InferenceSurfaceStatus;
   previewError: string;
   onRetryPreview: () => void;
   previewsByCandidate: Record<string, ApiPreview>;
@@ -180,9 +260,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
     fieldErrors,
     onReload,
     onCopyDraft,
-    metrics,
     preview,
-    previewStatus,
     previewError,
     onRetryPreview,
     previewsByCandidate,
@@ -202,11 +280,47 @@ export function WorkbenchPage(props: WorkbenchProps) {
     onProjectChanged,
   } = props;
   const [comparisonExpanded, setComparisonExpanded] = useState(false);
+  const [inspectorWidth, setInspectorWidth] = useState(() => clamp(storedLayoutNumber(workbenchLayoutStorage.inspectorWidth, 330), 260, 520));
+  const [inspectorMax, setInspectorMax] = useState(520);
+  const [curveShare, setCurveShare] = useState(() => clamp(storedLayoutNumber(workbenchLayoutStorage.curveShare, 50), 30, 70));
+  const [curveShareRange, setCurveShareRange] = useState({ min: 30, max: 70 });
+  const workbenchRef = useRef<HTMLDivElement>(null);
+  const lowerPanelsRef = useRef<HTMLDivElement>(null);
+  const effectiveInspectorWidth = clamp(inspectorWidth, 260, inspectorMax);
+  const effectiveCurveShare = clamp(curveShare, curveShareRange.min, curveShareRange.max);
   useEffect(() => {
     if (candidates.length <= 5) setComparisonExpanded(false);
   }, [candidates.length]);
+  useEffect(() => saveLayoutNumber(workbenchLayoutStorage.inspectorWidth, inspectorWidth), [inspectorWidth]);
+  useEffect(() => saveLayoutNumber(workbenchLayoutStorage.curveShare, curveShare), [curveShare]);
+  useEffect(() => {
+    const updateWidths = () => {
+      const workbenchWidth = workbenchRef.current?.clientWidth ?? 0;
+      if (workbenchWidth > 0) {
+        const nextMax = Math.max(260, Math.min(520, workbenchWidth - 569));
+        setInspectorMax(nextMax);
+      }
+      const lowerWidth = lowerPanelsRef.current?.clientWidth ?? 0;
+      if (lowerWidth > 0) {
+        const minPanelWidth = 340;
+        const nextMin = Math.min(50, (minPanelWidth / lowerWidth) * 100);
+        const nextMax = Math.max(50, ((lowerWidth - 9 - minPanelWidth) / lowerWidth) * 100);
+        const nextRange = { min: nextMin, max: nextMax };
+        setCurveShareRange(nextRange);
+      }
+    };
+    const observer = new ResizeObserver(updateWidths);
+    if (workbenchRef.current) observer.observe(workbenchRef.current);
+    if (lowerPanelsRef.current) observer.observe(lowerPanelsRef.current);
+    updateWidths();
+    return () => observer.disconnect();
+  }, []);
   return (
-    <div className="workbench-grid candidate-workbench-grid">
+    <div
+      ref={workbenchRef}
+      className={`workbench-grid candidate-workbench-grid${taskDefinition ? " has-inspector" : ""}`}
+      style={{ "--candidate-inspector-width": `${effectiveInspectorWidth}px` } as CSSProperties}
+    >
       {taskDefinition && <CandidateInspector
         candidate={selected}
         taskDefinition={taskDefinition}
@@ -217,6 +331,17 @@ export function WorkbenchPage(props: WorkbenchProps) {
         onReload={onReload}
         onCopyDraft={onCopyDraft}
         heatPattern={taskDefinition.input_groups.some((group) => group.key === "heat_pattern") ? <HeatPattern candidates={candidates} candidate={selected} onUpdate={onHeat} onAdd={onAddHeat} onDelete={onDeleteHeat} /> : undefined}
+      />}
+      {taskDefinition && <SplitResizer
+        className="candidate-inspector-resizer"
+        label="選択候補の入力パネル幅を調整"
+        value={effectiveInspectorWidth}
+        min={260}
+        max={inspectorMax}
+        step={10}
+        onChange={setInspectorWidth}
+        onDrag={(startValue, deltaX) => startValue + deltaX}
+        onReset={() => setInspectorWidth(330)}
       />}
       <section className="central-workspace">
         <div className="table-heading">
@@ -235,6 +360,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
               </button>
             )}
           </div>
+          {previewError && <span className="comparison-preview-error" role="alert">{previewError}{operations?.preview && <button type="button" onClick={onRetryPreview}>再試行</button>}</span>}
           <div className="comparison-actions" aria-label="候補操作">
             <button className="outline-button" onClick={onCopy}>
               <Icon name="copy" />選択候補を複製
@@ -282,7 +408,11 @@ export function WorkbenchPage(props: WorkbenchProps) {
             ready={["idle", "saved"].includes(saveState)}
           />
         ) : null}
-        <div className="workbench-lower-grid">
+        <div
+          ref={lowerPanelsRef}
+          className="workbench-lower-grid"
+          style={{ "--response-curve-share": `${effectiveCurveShare}%` } as CSSProperties}
+        >
           {operations?.response_curve ? (
               <LiveResponseCurves
               projectId={projectId}
@@ -299,9 +429,19 @@ export function WorkbenchPage(props: WorkbenchProps) {
               ready={["idle", "saved"].includes(saveState)}
             />
           ) : <UnavailablePanel title="応答曲線" />}
+          <SplitResizer
+            className="lower-panel-resizer"
+            label="応答曲線と近い過去実績の幅を調整"
+            value={effectiveCurveShare}
+            min={curveShareRange.min}
+            max={curveShareRange.max}
+            step={2}
+            onChange={setCurveShare}
+            onDrag={(startValue, deltaX) => startValue + (deltaX / Math.max(lowerPanelsRef.current?.clientWidth ?? 1, 1)) * 100}
+            onReset={() => setCurveShare(50)}
+          />
           <LiveSimilarityEvidence projectId={projectId} candidate={selected} outputs={taskDefinition?.outputs ?? []} available={operations?.similarity === true} ready={["idle", "saved"].includes(saveState)} onAddCandidate={onAddCandidateFromLineage} />
         </div>
-        <EvidencePanel projectId={projectId} candidate={selected} inferenceReady={["idle", "saved"].includes(saveState)} metrics={metrics} outputs={taskDefinition?.outputs ?? []} preview={preview} previewStatus={previewStatus} candidateLabel={selected.label} actualsAvailable={operations?.actual_measurement === true} error={previewError} onRetry={onRetryPreview} />
       </section>
     </div>
   );
@@ -382,259 +522,8 @@ function CandidateFileControls({
 }
 
 function UnavailablePanel({ title }: { title: string }) {
-  return <section className="actuals-panel unavailable-panel" aria-label={`${title}は利用できません`}><div className="panel-title"><h2>{title}</h2></div><p className="empty-evidence">このタスクでは利用できません。</p></section>;
+  return <section className="response-curves-panel unavailable-panel" aria-label={`${title}は利用できません`}><div className="panel-title"><h2>{title}</h2></div><p className="empty-evidence">このタスクでは利用できません。</p></section>;
 }
-
-function ActualsPanel({ projectId, candidate, outputs, enabled }: { projectId: string; candidate: Candidate; outputs: TaskOutputDefinition[]; enabled: boolean }) {
-  const [property, setProperty] = useState<ApiActual["property"]>((outputs[0]?.key ?? "TS") as ApiActual["property"]);
-  const [mean, setMean] = useState("");
-  const [std, setStd] = useState("0");
-  const [replicates, setReplicates] = useState("1");
-  const [experimentNo, setExperimentNo] = useState("");
-  const [measuredAt, setMeasuredAt] = useState("");
-  const [note, setNote] = useState("");
-  const [comparison, setComparison] = useState<ApiPredictionVsActual | null>(null);
-  const [error, setError] = useState("");
-  const identity = `${projectId}\u001f${candidate.id}\u001f${candidate.raw.revision}`;
-  const identityRef = useRef(identity);
-  identityRef.current = identity;
-  const refresh = async (signal?: AbortSignal, expectedIdentity = identity) => {
-    try {
-      const result = await workbenchApi.predictionVsActual(projectId, candidate.id, signal);
-      if (!signal?.aborted && identityRef.current === expectedIdentity) setComparison(result);
-    } catch {
-      if (signal?.aborted || identityRef.current !== expectedIdentity) return;
-      setError("実測値を取得できませんでした。");
-    }
-  };
-  useEffect(() => {
-    const controller = new AbortController();
-    setComparison(null);
-    setError("");
-    if (!outputs.some((output) => output.key === property)) setProperty((outputs[0]?.key ?? "TS") as ApiActual["property"]);
-    void refresh(controller.signal);
-    return () => controller.abort();
-  }, [candidate.id, candidate.raw.revision, projectId]);
-  useEffect(() => {
-    setMean("");
-    setStd("0");
-    setReplicates("1");
-    setExperimentNo("");
-    setMeasuredAt("");
-    setNote("");
-  }, [candidate.id, projectId]);
-  const add = async () => {
-    if (!enabled) return setError("候補の保存完了後に実測を登録してください。");
-    if (mean.trim() === "") return setError("実測平均を入力してください。");
-    const expectedIdentity = identity;
-    try {
-      setError("");
-      await workbenchApi.createActual(projectId, candidate.id, candidate.raw.revision, {
-        property,
-        mean: Number(mean),
-        std: Number(std),
-        replicates: Number(replicates),
-        unit: (outputs.find((output) => output.key === property)?.unit ?? "%") as "MPa" | "%",
-        experiment_no: experimentNo.trim(),
-        measured_at: measuredAt || null,
-        note: note.trim(),
-      });
-      if (identityRef.current !== expectedIdentity) return;
-      setMean("");
-      setExperimentNo("");
-      setMeasuredAt("");
-      setNote("");
-      await refresh(undefined, expectedIdentity);
-    } catch {
-      if (identityRef.current !== expectedIdentity) return;
-      setError("実測値を保存できませんでした。");
-    }
-  };
-  const remove = async (id: string) => {
-    const expectedIdentity = identity;
-    try {
-      await workbenchApi.deleteActual(projectId, candidate.id, id);
-      await refresh(undefined, expectedIdentity);
-    } catch {
-      if (identityRef.current !== expectedIdentity) return;
-      setError("実測値を削除できませんでした。");
-    }
-  };
-  const rows = comparison?.comparisons ?? [];
-  return (
-    <section className="actuals-panel">
-      <div className="panel-title">
-        <h2>予測と実測</h2>
-        <span>
-          {rows.length
-            ? "登録時点の予測スナップショットと比較"
-            : "実測を登録すると予測を固定保存します"}
-        </span>
-      </div>
-      <div className="actual-form">
-        <select
-          aria-label="実測特性"
-          disabled={!enabled}
-          value={property}
-          onChange={(e) => setProperty(e.target.value as ApiActual["property"])}
-        >
-          {outputs.map((output) => <option key={output.key} value={output.key}>{output.label}</option>)}
-        </select>
-        <input
-          aria-label="実測平均"
-          disabled={!enabled}
-          type="number"
-          placeholder="実測平均"
-          value={mean}
-          onChange={(e) => setMean(e.target.value)}
-        />
-        <input
-          aria-label="標準偏差"
-          disabled={!enabled}
-          type="number"
-          min="0"
-          placeholder="標準偏差"
-          value={std}
-          onChange={(e) => setStd(e.target.value)}
-        />
-        <input
-          aria-label="反復数"
-          disabled={!enabled}
-          type="number"
-          min="1"
-          placeholder="反復数"
-          value={replicates}
-          onChange={(e) => setReplicates(e.target.value)}
-        />
-        <button
-          className="outline-button"
-          disabled={!enabled}
-          onClick={() => {
-            void add();
-          }}
-        >
-          実測を追加
-        </button>
-      </div>
-      <details className="actual-meta-fields">
-        <summary>実験情報を追加</summary>
-        <div>
-          <label>
-            実験番号
-            <input
-              value={experimentNo}
-              onChange={(e) => setExperimentNo(e.target.value)}
-              placeholder="例: EXP-2026-014"
-            />
-          </label>
-          <label>
-            測定日
-            <input
-              type="date"
-              value={measuredAt}
-              onChange={(e) => setMeasuredAt(e.target.value)}
-            />
-          </label>
-          <label>
-            メモ
-            <input
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="試験片・測定条件など"
-            />
-          </label>
-        </div>
-      </details>
-      {error && <p className="empty-evidence">{error}</p>}
-      <div className="actual-table-wrap">
-        <table className="quality-table actual-table">
-        <thead>
-          <tr>
-            <th>特性 / 実験</th>
-            <th>固定予測</th>
-            <th>実測平均 ± SD</th>
-            <th>差（実測−予測）</th>
-            <th>予測区間</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => {
-            const prediction = row.prediction.predictions[row.actual.property];
-            const output = outputs.find((item) => item.key === row.actual.property);
-            const delta = row.actual.mean - prediction.value;
-            const inside =
-              row.actual.mean >= prediction.lower &&
-              row.actual.mean <= prediction.upper;
-            return (
-              <tr key={row.actual.id}>
-                <td>
-                  <b>{output?.label ?? row.actual.property} <small>({output?.unit ?? row.actual.unit})</small></b>
-                  {(row.actual.experiment_no ||
-                    row.actual.measured_at ||
-                    row.actual.note) && (
-                    <small className="actual-meta">
-                      {[
-                        row.actual.experiment_no,
-                        row.actual.measured_at,
-                        row.actual.note,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </small>
-                  )}
-                </td>
-                <td>
-                  {number(prediction.value, 1)} {prediction.unit}
-                </td>
-                <td>
-                  {number(row.actual.mean, 1)} ± {number(row.actual.std, 1)}{" "}
-                  {row.actual.unit}
-                  <small> n={row.actual.replicates}</small>
-                </td>
-                <td className={Math.abs(delta) > 0 ? "metric-value" : ""}>
-                  {delta >= 0 ? "+" : ""}
-                  {number(delta, 1)}
-                </td>
-                <td>
-                  <span
-                    className={`status-dot ${inside ? "success" : "caution"}`}
-                  />
-                  {inside ? "区間内" : "区間外"}
-                  <small>
-                    {" "}
-                    [{number(prediction.lower, 1)}–{number(prediction.upper, 1)}
-                    ]
-                  </small>
-                </td>
-                <td>
-                  <button
-                    className="icon-delete"
-                    aria-label={`${output?.label ?? row.actual.property}の実測を削除`}
-                    onClick={() => {
-                      void remove(row.actual.id);
-                    }}
-                  >
-                    ×
-                  </button>
-                </td>
-              </tr>
-            );
-          })}
-          {!rows.length && (
-            <tr>
-              <td colSpan={6} className="empty-evidence">
-                実測はまだありません。
-              </td>
-            </tr>
-          )}
-        </tbody>
-        </table>
-      </div>
-    </section>
-  );
-}
-
 function HeatPattern({
   candidates,
   candidate,
@@ -806,7 +695,6 @@ function HeatPattern({
     </section>
   );
 }
-
 function levelColor(index: number, count: number, selectedTone = "#1f5fc4") {
   if (count <= 1) return selectedTone;
   // 低水準→高水準を明→暗の同系色で塗り、傾きの変化を追いやすくする
@@ -1365,173 +1253,5 @@ function LiveSimilarityEvidence({
         <p className="empty-evidence">類似実験を取得しています。</p>
       )}
     </section>
-  );
-}
-
-function EvidencePanel({
-  projectId,
-  candidate,
-  inferenceReady,
-  metrics,
-  outputs,
-  preview,
-  previewStatus,
-  candidateLabel,
-  actualsAvailable,
-  error,
-  onRetry,
-}: {
-  projectId: string;
-  candidate: Candidate;
-  inferenceReady: boolean;
-  metrics: Metric[];
-  outputs: TaskOutputDefinition[];
-  preview: ApiPreview | null;
-  previewStatus: InferenceSurfaceStatus;
-  candidateLabel: string;
-  actualsAvailable: boolean;
-  error: string;
-  onRetry: () => void;
-}) {
-  const status = preview?.support?.status;
-  const training = preview?.model_meta?.training_data?.records;
-  const warnings = (preview?.warnings ?? []).filter(
-    (warning) => warning !== preview?.support?.message,
-  );
-  const outputForMetric = (key: string) => outputs.find((output) => output.key === key || (key === "λ" && output.key === "lambda"));
-  return (
-    <aside className="evidence-panel">
-      <section>
-        <div className="evidence-title">
-          <h2>予測特性 <span>— {candidateLabel}</span></h2>
-          {preview && <span className={`inference-surface-status ${previewStatus}`} role="status">
-            {previewStatus === "latest" ? "最新" : previewStatus === "refreshing" ? "更新中" : previewStatus === "stale" ? "旧revision・更新中" : "更新失敗・旧結果"}
-          </span>}
-        </div>
-        {metrics.length ? (
-          <table className="metric-table">
-            <thead>
-              <tr>
-                <th>特性</th>
-                <th>予測値</th>
-                <th>90%予測区間</th>
-                <th>目標達成</th>
-              </tr>
-            </thead>
-            <tbody>
-              {metrics.map((metric) => (
-                <tr key={metric.key}>
-                  <th>
-                    {outputForMetric(metric.key)?.label ?? metric.key} <small>({outputForMetric(metric.key)?.unit ?? metric.unit})</small>
-                  </th>
-                  <td>
-                    {number(
-                      metric.value,
-                      metric.key === "EL" || metric.key === "λ" ? 1 : 0,
-                    )}
-                  </td>
-                  <td>
-                    {number(metric.low, 1)}{" "}
-                      <span className="whisker">
-                       <i style={{ left: `${Math.max(0, Math.min(100, ((metric.value - metric.low) / Math.max(1e-9, metric.high - metric.low)) * 100))}%` }} />
-                    </span>{" "}
-                    {number(metric.high, 1)}
-                    {(metric.modelStd !== null || metric.observationStd !== null) && (
-                      <small className="uncertainty-detail">
-                        モデル ±{number(metric.modelStd ?? 0, 1)} / 測定 ±{number(metric.observationStd ?? 0, 1)}
-                      </small>
-                    )}
-                  </td>
-                  <td>
-                    {metric.goalProbability === null ||
-                    metric.goalProbability === undefined ? (
-                      "—"
-                    ) : (
-                      <>
-                        <b>{number(metric.goalProbability * 100, 0)}%</b>
-                        <small> {preview?.predictions?.[metric.key === "λ" ? "lambda" : metric.key]?.goal_direction === "at_most" ? "≤" : "≥"} {number(metric.goalValue ?? 0, 1)}</small>
-                      </>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : error ? (
-          <p className="empty-evidence panel-error">{error} <button className="text-button" onClick={onRetry}>再試行</button></p>
-        ) : (
-          <p className="empty-evidence">プレビュー結果を待っています。</p>
-        )}
-        <p className="interval-note">
-          {preview?.model_meta?.prediction_interval?.method === "gaussian_process_predictive_distribution"
-            ? "予測区間はモデルの不確かさと過去測定のばらつきを含みます。入力条件の支持度は別に判定しています。"
-            : "区間と目標達成率は、親工程単位の交差検証残差から求めた経験的な範囲です。"}
-        </p>
-        {preview?.support && (
-          <div className={`support-summary ${status ?? "caution"}`}>
-            <b>入力条件の支持度：{status === "supported" ? "範囲内" : status === "extrapolated" ? "外挿" : "要確認"}</b>
-            <span>条件全体に対する判定です。目的変数ごとの学習範囲判定ではありません。</span>
-          </div>
-        )}
-      </section>
-      {warnings.map((warning) => (
-        <div className="warning" key={warning}>
-          <span>⚠</span>
-          <p>{warning}</p>
-        </div>
-      ))}
-      {preview?.support?.message && (
-        <div className={status === "supported" ? "support-note" : "warning"}>
-          <span>{status === "supported" ? "✓" : "⚠"}</span>
-          <p>{preview.support.message}</p>
-        </div>
-      )}
-      {actualsAvailable ? <ActualsPanel projectId={projectId} candidate={candidate} outputs={outputs} enabled={inferenceReady} /> : <UnavailablePanel title="予測と実測" />}
-      <details className="evidence-card">
-        <summary>モデル・開発情報（再現性の詳細）</summary>
-        <h2>モデル・開発情報</h2>
-        <dl>
-          <dt>計算方法</dt>
-          <dd>
-            {preview?.model_meta?.model?.method ?? "—"} ·{" "}
-            {preview?.model_meta?.model?.id ?? "—"} v
-            {preview?.model_meta?.model?.version ?? "—"}
-          </dd>
-          <dt>Package</dt>
-          <dd>
-            {preview?.model_meta?.package
-              ? `${preview.model_meta.package.id} v${preview.model_meta.package.version} / ${preview.model_meta.package.manifest_sha256?.slice(0, 12)}`
-              : "—"}
-          </dd>
-          <dt>特徴量</dt>
-          <dd>
-            {preview?.model_meta?.feature_pipeline?.id ?? "—"} v
-            {preview?.model_meta?.feature_pipeline?.version ?? "—"}
-          </dd>
-          <dt>学習観測</dt>
-          <dd>
-            {training
-              ? Object.entries(training)
-                  .map(([key, value]) => `${key}: ${value}`)
-                  .join(" / ")
-              : "—"}
-          </dd>
-          <dt>検証方法</dt>
-          <dd>{preview?.model_meta?.prediction_interval?.method ?? "—"}</dd>
-          <dt>学習データ</dt>
-          <dd>
-            {preview?.model_meta?.training_data?.source_sha256?.slice(0, 12) ??
-              "—"}
-          </dd>
-          <dt>支持度</dt>
-          <dd>
-            {status ?? "—"}
-            {preview?.support?.percentile !== undefined
-              ? `（距離百分位 ${preview.support.percentile.toFixed(0)}%）`
-              : ""}
-          </dd>
-        </dl>
-      </details>
-    </aside>
   );
 }
