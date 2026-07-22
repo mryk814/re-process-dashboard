@@ -30,8 +30,17 @@
 - 複数特性の同時達成確率。各特性の達成確率を個別に表示する。
 - 候補の「検討中」「実験予定」などの厳密なステータス管理。
 
+## 採用済みの拡張方向
+
+- Data AssetとDataset Input Profileを不変なDataset RevisionとしてData Libraryへ登録する。
+- ProjectはDataset View、Prediction Task、Model Packageを固定し、過去の判断を自動更新しない。
+- 探索データ、目的変数別の学習コホート、モデル支持範囲、Project内の類似条件を分離する。
+- 同じ問いを継承する複数Projectは、任意のProject Seriesとして束ねる。
+
+詳細は [Data LibraryとProject参照境界](decisions/data-library-project-references.md) を参照する。
+
 ## 将来候補（導入条件つき）
 
 - 二変量応答面：描画・計算負荷を確認してから。
 - ライン速度・設備長・ゾーン条件からのヒートパターン生成：内部の「入力方式」と「正規化済み時間温度列」の分離を保っていれば追加できる。
-- 複数予測タスクを束ねる上位プロジェクト：焼鈍・熱延・切削摩耗を横断して検討するニーズが確認できてから。
+- 一つのProject内に複数Prediction Taskを持たせること：Taskごとの候補契約と判断単位を統合する具体的ニーズが確認できてから。
