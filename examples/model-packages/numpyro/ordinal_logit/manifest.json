@@ -3,7 +3,7 @@
   "package_id": "numpyro-ordinal_logit-example",
   "package_version": "1.0.0",
   "task_id": "model-package-example",
-  "input_schema_version": "candidate-v1",
+  "input_schema_version": "candidate-v2",
   "feature_pipeline": {
     "id": "two-feature-example",
     "version": "1.0.0",
@@ -38,6 +38,12 @@
           -0.7,
           0.2,
           1.0
+        ],
+        "categories": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
         ]
       }
     }
@@ -57,6 +63,26 @@
       "path": "model-artifacts/posterior.npz",
       "sha256": "c7604b51f665d34dbb0b9610b0ee1dea2061f232bff9f5136d691bc7bd78c8fc",
       "bytes": 9670
+    },
+    {
+      "path": "smoke/input.json",
+      "sha256": "6ec695207d1cedfcf529a27552f3b938b29fd65c95d3bbaba8dd96db233e4eec",
+      "bytes": 93
+    },
+    {
+      "path": "smoke/expected.json",
+      "sha256": "f0c68b5d350aff9943e4cfcc5137324983aa33c253a026a8448530d7bb1a50c7",
+      "bytes": 888
+    },
+    {
+      "path": "reports/quality-report.json",
+      "sha256": "3d386f5ddd7f32ec6cd18f24e425c5877068dcdc24cb43cb8ce9632a7cc5c256",
+      "bytes": 279
     }
-  ]
+  ],
+  "smoke_test": {
+    "input": "smoke/input.json",
+    "expected": "smoke/expected.json"
+  },
+  "quality_report": "reports/quality-report.json"
 }

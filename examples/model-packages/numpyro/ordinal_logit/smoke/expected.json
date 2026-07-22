@@ -1,0 +1,41 @@
+{
+  "summary": {
+    "target": "example",
+    "target_kind": "ordinal",
+    "unit": "1",
+    "point_statistic": "expected_category",
+    "point_estimate": 0.3454642902960188,
+    "quantiles": {
+      "0.05": 0.0,
+      "0.50": 1.0,
+      "0.95": 3.0
+    },
+    "event_probability": null,
+    "distribution": {
+      "family": "ordinal_logit",
+      "support": "ordered_categories",
+      "categories": [
+        "low",
+        "medium",
+        "high",
+        "very_high"
+      ]
+    },
+    "uncertainty_components": null,
+    "warnings": []
+  },
+  "capability": {
+    "target": "example",
+    "point_statistics": [
+      "expected_category"
+    ],
+    "standard_deviation": false,
+    "quantiles": true,
+    "samples": false,
+    "parametric_distribution": true,
+    "uncertainty_components": false,
+    "support": true,
+    "warnings": true,
+    "goal_probability": "unavailable"
+  }
+}

@@ -150,3 +150,31 @@ test("quantile-only output keeps quantile wording and unavailable goal semantics
   assert.match(comparison, /利用不可/);
   assert.doesNotMatch(comparison, /90%予測区間|計算中|±0/);
 });
+
+test("binary count and ordinal outputs avoid regression-only presentation", () => {
+  const definition = {
+    input_groups: [{ key: "composition", order: 0, label: "入力", fields: [numberField("composition.C", "C")] }],
+    outputs: [
+      { key: "binary", label: "合格確率", unit: "", goal_direction: "at_least" },
+      { key: "count", label: "欠陥数", unit: "個", goal_direction: "at_most" },
+      { key: "ordinal", label: "等級", unit: "", goal_direction: "at_least" },
+    ],
+    display_decimals: { "composition.C": 5, "output.binary": 2, "output.count": 0, "output.ordinal": 1 },
+    fixed_context: [],
+  };
+  const base = { goal_probability: null, uncertainty_components: null };
+  const preview = {
+    predictions: {
+      binary: { ...base, value: 0.42, lower: 0.2, upper: 0.7, unit: "1", target_kind: "binary", point_statistic: "probability", predictive_family: "bernoulli_logit", quantiles: { "0.05": 0.2, "0.95": 0.7 } },
+      count: { ...base, value: 3, lower: 1, upper: 7, unit: "個", target_kind: "count", point_statistic: "rate", predictive_family: "poisson_log", quantiles: { "0.05": 1, "0.95": 7 } },
+      ordinal: { ...base, value: 1.4, lower: 0, upper: 3, unit: "1", target_kind: "ordinal", point_statistic: "expected_category", predictive_family: "ordinal_logit", quantiles: { "0.05": 0, "0.95": 3 } },
+    },
+    support: { status: "supported" },
+  };
+  const comparison = renderComparison({ candidates: [candidate], selectedId: candidate.id, taskDefinition: definition, previewsByCandidate: { [candidate.id]: preview }, targetValues: {}, onSelect() {}, onName() {}, onInput() {} });
+  assert.match(comparison, />42%/);
+  assert.match(comparison, /5–95%確率分位/);
+  assert.match(comparison, /期待カテゴリ 1.4/);
+  assert.match(comparison, /5–95%カテゴリ分位/);
+  assert.doesNotMatch(comparison, />0.42 <small>1|期待カテゴリ 1.4 <small>1/);
+});

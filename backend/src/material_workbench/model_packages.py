@@ -33,6 +33,16 @@ LIKELIHOOD_IDS = {
     "normal", "student_t", "lognormal", "bernoulli_logit", "poisson_log",
     "negative_binomial_log", "zero_inflated_poisson_log", "ordinal_logit",
 }
+LIKELIHOOD_TARGET_KINDS = {
+    "normal": {"continuous", "continuous_positive"},
+    "student_t": {"continuous", "continuous_positive"},
+    "lognormal": {"continuous_positive"},
+    "bernoulli_logit": {"binary"},
+    "poisson_log": {"count"},
+    "negative_binomial_log": {"count"},
+    "zero_inflated_poisson_log": {"count"},
+    "ordinal_logit": {"ordinal"},
+}
 
 
 class PackageContractError(ValueError):
@@ -281,6 +291,9 @@ def validate_predictive_summary(
         raise PackageContractError(
             f"predictor {spec.id!r} returned distribution family {family!r}, expected {spec.predictive_family!r}"
         )
+    expected_kinds = LIKELIHOOD_TARGET_KINDS.get(family)
+    if expected_kinds is not None and spec.target_kind not in expected_kinds:
+        raise PackageContractError(f"predictor {spec.id!r} uses {family} with incompatible target kind")
     try:
         ordered_quantiles = sorted((float(level), value) for level, value in summary.quantiles.items())
     except ValueError as exc:
@@ -299,6 +312,8 @@ def validate_predictive_summary(
         and math.isclose(summary.event_probability, summary.point_estimate, rel_tol=0, abs_tol=1e-12)
     ):
         raise PackageContractError(f"predictor {spec.id!r} returned invalid binary probability semantics")
+    if spec.target_kind == "binary" and any(not 0 <= value <= 1 for _, value in ordered_quantiles):
+        raise PackageContractError(f"predictor {spec.id!r} returned binary quantiles outside probability support")
     values = [summary.point_estimate, *(value for _, value in ordered_quantiles)]
     requires_nonnegative_output = spec.target_kind == "count" or (
         spec.target_kind == "continuous_positive" and summary.distribution.get("support") == "positive"
@@ -307,6 +322,14 @@ def validate_predictive_summary(
         raise PackageContractError(f"predictor {spec.id!r} returned values outside nonnegative support")
     if spec.target_kind in {"binary", "ordinal"} and spec.unit not in {"", "1"}:
         raise PackageContractError(f"predictor {spec.id!r} must use a dimensionless unit")
+    if spec.target_kind == "ordinal":
+        categories = summary.distribution.get("categories")
+        if not isinstance(categories, list) or len(categories) < 2 or len(categories) != len(set(categories)):
+            raise PackageContractError(f"predictor {spec.id!r} returned invalid ordinal category metadata")
+        if not 0 <= summary.point_estimate <= len(categories) - 1 or any(
+            value < 0 or value > len(categories) - 1 for _, value in ordered_quantiles
+        ):
+            raise PackageContractError(f"predictor {spec.id!r} returned values outside ordinal support")
     if capability is None:
         return
     if summary.point_statistic not in capability.point_statistics:

@@ -1,0 +1,8 @@
+{
+  "predictor_id": "target",
+  "features": {
+    "C": 0.08,
+    "Mn": 1.5
+  },
+  "seed": 7
+}

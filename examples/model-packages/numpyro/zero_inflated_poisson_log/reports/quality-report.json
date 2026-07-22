@@ -1,0 +1,10 @@
+{
+  "schema_version": "model-example-quality/v1",
+  "evaluation_unit": "synthetic posterior contract fixture",
+  "metrics": {
+    "mean_absolute_count_error": 0.0
+  },
+  "notes": [
+    "Contract fixture metric over generated synthetic truth; not a production quality claim."
+  ]
+}

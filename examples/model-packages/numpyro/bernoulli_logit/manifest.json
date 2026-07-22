@@ -3,7 +3,7 @@
   "package_id": "numpyro-bernoulli_logit-example",
   "package_version": "1.0.0",
   "task_id": "model-package-example",
-  "input_schema_version": "candidate-v1",
+  "input_schema_version": "candidate-v2",
   "feature_pipeline": {
     "id": "two-feature-example",
     "version": "1.0.0",
@@ -52,6 +52,26 @@
       "path": "model-artifacts/posterior.npz",
       "sha256": "c7604b51f665d34dbb0b9610b0ee1dea2061f232bff9f5136d691bc7bd78c8fc",
       "bytes": 9670
+    },
+    {
+      "path": "smoke/input.json",
+      "sha256": "6ec695207d1cedfcf529a27552f3b938b29fd65c95d3bbaba8dd96db233e4eec",
+      "bytes": 93
+    },
+    {
+      "path": "smoke/expected.json",
+      "sha256": "de61dace295b6620aba582d609f2d5e6ec4f379eae58e0b3be50e19463336d06",
+      "bytes": 819
+    },
+    {
+      "path": "reports/quality-report.json",
+      "sha256": "b7f9116132a4bf408a3b89e7b2ce8586ee8f3b23568ea080eeda5bb81e198146",
+      "bytes": 266
     }
-  ]
+  ],
+  "smoke_test": {
+    "input": "smoke/input.json",
+    "expected": "smoke/expected.json"
+  },
+  "quality_report": "reports/quality-report.json"
 }

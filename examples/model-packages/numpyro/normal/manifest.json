@@ -3,7 +3,7 @@
   "package_id": "numpyro-normal-example",
   "package_version": "1.0.0",
   "task_id": "model-package-example",
-  "input_schema_version": "candidate-v1",
+  "input_schema_version": "candidate-v2",
   "feature_pipeline": {
     "id": "two-feature-example",
     "version": "1.0.0",
@@ -52,6 +52,26 @@
       "path": "model-artifacts/posterior.npz",
       "sha256": "879fdb68399094af1b709adee97ffee869ed94a12c4f443b241a8b2ed39aa85b",
       "bytes": 10432
+    },
+    {
+      "path": "smoke/input.json",
+      "sha256": "6ec695207d1cedfcf529a27552f3b938b29fd65c95d3bbaba8dd96db233e4eec",
+      "bytes": 93
+    },
+    {
+      "path": "smoke/expected.json",
+      "sha256": "e7834f1e45bb74f30ca54296b754cd5349e5e0a384bb3cf7c58471c583e3f64d",
+      "bytes": 796
+    },
+    {
+      "path": "reports/quality-report.json",
+      "sha256": "e08bfdd2c6f456f76de4256541930adebb4c7a145f13ccb901f08aa4c59b2797",
+      "bytes": 274
     }
-  ]
+  ],
+  "smoke_test": {
+    "input": "smoke/input.json",
+    "expected": "smoke/expected.json"
+  },
+  "quality_report": "reports/quality-report.json"
 }
