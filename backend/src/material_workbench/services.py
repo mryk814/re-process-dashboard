@@ -8,6 +8,7 @@ from typing import Any, Callable
 import numpy as np
 from openpyxl import Workbook, load_workbook
 
+from .hot_rolling_feature_pipeline import PROCESS_NAMES
 from .importer import WorkbookData, composition_names
 from .task_registry import RuntimeProtocol, load_task_contracts
 from .schemas import Candidate, CandidateInput, HeatPoint, ScreeningRequest
@@ -140,6 +141,7 @@ def run_latin_hypercube(
         "schema_version": "screening-run/v2",
         "seed": SCREENING_SEED,
         "base_candidate_id": base.id,
+        "base_inputs": base.inputs.model_dump(mode="json"),
         "base_canonical_input": base_prediction["canonical_input"],
         "model_provenance": base_prediction["model_meta"],
         "target": request.target,
@@ -158,34 +160,52 @@ def run_latin_hypercube(
 
 
 def candidate_from_lineage(data: WorkbookData, entity_key: str) -> CandidateInput:
-    anneal_key = entity_key
-    if anneal_key not in data.anneal_features:
+    process_role = "annealing"
+    process_key = entity_key
+    if process_key not in data.anneal_features and process_key not in data.hot_rolling_features:
         relations = data.lineage.get(entity_key, {})
-        candidates = relations.get(data.role_to_key["annealing"], [])
-        if len(candidates) != 1:
-            raise ValueError("焼鈍条件を一意にたどれないため候補化できません")
-        anneal_key = candidates[0]
-    relations = data.lineage.get(anneal_key, {})
+        anneal_candidates = relations.get(data.role_to_key["annealing"], [])
+        hot_candidates = relations.get(data.role_to_key["hot_rolling"], [])
+        if len(anneal_candidates) == 1:
+            process_key = anneal_candidates[0]
+        elif len(hot_candidates) == 1:
+            process_key = hot_candidates[0]
+            process_role = "hot_rolling"
+        else:
+            raise ValueError("焼鈍または熱延条件を一意にたどれないため候補化できません")
+    elif process_key in data.hot_rolling_features:
+        process_role = "hot_rolling"
+
+    relations = data.lineage.get(process_key, {})
     melt_keys = sorted(set(relations.get(data.role_to_key["melt"], [])))
     if len(melt_keys) != 1 or melt_keys[0] not in data.composition:
-        raise ValueError("焼鈍条件に一意な成分が接続されていません")
-    feature = data.anneal_features[anneal_key]
-    heat_pattern = [HeatPoint.model_validate(point) for point in deepcopy(feature["heat_pattern"])]
-    if len(heat_pattern) < 2:
-        raise ValueError("候補化に必要な焼鈍履歴がありません")
+        raise ValueError("工程条件に一意な成分が接続されていません")
+    feature = data.anneal_features.get(process_key) if process_role == "annealing" else data.hot_rolling_features.get(process_key)
+    if feature is None:
+        raise ValueError("候補化できる工程条件が見つかりません")
+    heat_pattern = None
+    if process_role == "annealing":
+        heat_pattern = [HeatPoint.model_validate(point) for point in deepcopy(feature["heat_pattern"])]
+        if len(heat_pattern) < 2:
+            raise ValueError("候補化に必要な焼鈍履歴がありません")
+        process_values = {"ls_mpm": float(feature["ls_mpm"])}
+        entity_type = "annealing"
+    else:
+        process_values = {name: float(feature[name]) for name in PROCESS_NAMES}
+        entity_type = "hot_rolling"
     return CandidateInput(
-        name=f"過去条件 {anneal_key}",
+        name=f"過去条件 {process_key}",
         inputs={
             "composition": deepcopy(data.composition[melt_keys[0]]),
-            "process": {"ls_mpm": float(feature["ls_mpm"])},
+            "process": process_values,
             "categorical": {},
             "heat_pattern": heat_pattern,
         },
         provenance={
-            "source_kind": "lineage",
-            "source_ref": {
-                "entity_type": "annealing",
-                "entity_key": anneal_key,
+                "source_kind": "lineage",
+                "source_ref": {
+                    "entity_type": entity_type,
+                    "entity_key": process_key,
                 "data_source_digest": data.source_sha256,
             },
         },

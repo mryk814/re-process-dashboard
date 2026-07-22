@@ -40,6 +40,9 @@ def test_similarity_summarizes_repeats_and_keeps_layers_distinct(client) -> None
         assert len(item["observation_ids"]) >= 1
         assert all(summary["n"] >= 1 for summary in item["repeat_summary"].values())
         assert item["outputs"] == {name: summary["mean"] for name, summary in item["repeat_summary"].items()}
+        assert item["melt_key"].startswith("ME-")
+        assert item["process_key"].startswith("AN-")
+        assert item["process_label"] == "焼鈍履歴"
 
 
 def test_default_model_package_loads_and_matches_its_smoke_contract(client) -> None:

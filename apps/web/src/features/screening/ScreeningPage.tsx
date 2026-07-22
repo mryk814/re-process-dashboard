@@ -1,6 +1,26 @@
 import { useEffect, useRef, useState } from "react";
-import { fromApiCandidate, type CandidateViewModel as Candidate, type ResolvedTaskDefinition, type TaskDefinitionContract } from "../candidates";
-import { workbenchApi, type ApiScreeningRun } from "../../shared/api/workbench-api";
+import { fromApiCandidate, setCandidateInputValue, toApiCandidate, type CandidateViewModel as Candidate, type ResolvedTaskDefinition, type TaskDefinitionContract } from "../candidates";
+import { workbenchApi, type ApiProject, type ApiScreeningRun } from "../../shared/api/workbench-api";
+import { ScreeningBaseEditor } from "./ScreeningBaseEditor";
+
+function cloneScreeningCandidate(candidate: Candidate): Candidate {
+  return {
+    ...candidate,
+    raw: {
+      ...candidate.raw,
+      inputs: {
+        ...candidate.raw.inputs,
+        composition: { ...candidate.raw.inputs.composition },
+        process: { ...candidate.raw.inputs.process },
+        categorical: candidate.raw.inputs.categorical ? { ...candidate.raw.inputs.categorical } : candidate.raw.inputs.categorical,
+        heat_pattern: candidate.raw.inputs.heat_pattern === null
+          ? null
+          : candidate.raw.inputs.heat_pattern?.map((point) => ({ ...point })),
+      },
+    },
+    heat: candidate.heat.map((point) => ({ ...point })),
+  };
+}
 
 function number(value: number, digits = 0) {
   return value.toLocaleString("ja-JP", {
@@ -11,6 +31,7 @@ function number(value: number, digits = 0) {
 
 export function ScreeningPage({
   projectId,
+  project,
   candidates,
   selectedId,
   taskDefinition,
@@ -22,6 +43,7 @@ export function ScreeningPage({
   onCreateStarter,
 }: {
   projectId: string;
+  project: ApiProject | undefined;
   candidates: Candidate[];
   selectedId: string;
   taskDefinition: TaskDefinitionContract | null;
@@ -46,7 +68,10 @@ export function ScreeningPage({
   const [targetValue, setTargetValue] = useState("500");
   const [secondaryTargets, setSecondaryTargets] = useState<Record<string, string>>({});
   const [baseCandidateId, setBaseCandidateId] = useState(selectedId);
-  const baseCandidate = candidates.find((candidate) => candidate.id === baseCandidateId);
+  const baseCandidateSource = candidates.find((candidate) => candidate.id === baseCandidateId);
+  const [baseCandidate, setBaseCandidate] = useState<Candidate>();
+  const [baseEditorVersion, setBaseEditorVersion] = useState(0);
+  const pendingBaseInputs = useRef<ApiScreeningRun["base_inputs"]>(undefined);
   const optionGroups = resolvedTaskDefinition
     ? resolvedTaskDefinition.task_definition.input_groups.map((group) => ({
         key: group.key,
@@ -114,12 +139,22 @@ export function ScreeningPage({
     }
   }, [outputs, target]);
   useEffect(() => {
-    if (candidates.some((candidate) => candidate.id === selectedId)) {
-      setBaseCandidateId(selectedId);
-    } else if (!candidates.some((candidate) => candidate.id === baseCandidateId)) {
-      setBaseCandidateId(candidates[0]?.id ?? "");
+    if (candidates.some((candidate) => candidate.id === selectedId)) setBaseCandidateId(selectedId);
+  }, [selectedId]);
+  useEffect(() => {
+    if (!candidates.some((candidate) => candidate.id === baseCandidateId)) setBaseCandidateId(candidates[0]?.id ?? "");
+  }, [candidates, baseCandidateId]);
+  useEffect(() => {
+    if (!baseCandidateSource) {
+      pendingBaseInputs.current = undefined;
+      return setBaseCandidate(undefined);
     }
-  }, [candidates, selectedId, baseCandidateId]);
+    const inputs = pendingBaseInputs.current;
+    pendingBaseInputs.current = undefined;
+    setBaseCandidate(inputs
+      ? fromApiCandidate({ ...baseCandidateSource.raw, inputs })
+      : cloneScreeningCandidate(baseCandidateSource));
+  }, [baseCandidateId, baseCandidateSource?.id]);
   useEffect(() => {
     const requestProjectId = projectId;
     runRequestSequence.current += 1;
@@ -137,6 +172,18 @@ export function ScreeningPage({
         rowIndex === index ? { ...row, ...patch } : row,
       ),
     ));
+  const updateBaseInput = (path: string, value: number | string) => {
+    setBaseCandidate((current) => current ? { ...current, raw: { ...current.raw, inputs: setCandidateInputValue(current.raw.inputs, path, value) } } : current);
+    setDraftDirty(true);
+  };
+  const updateBaseHeat = (index: number, field: "time" | "temperature" | "stageName", raw: number | string) => {
+    setBaseCandidate((current) => {
+      if (!current) return current;
+      const next = { ...current, heat: current.heat.map((point, pointIndex) => pointIndex === index ? { ...point, [field]: raw } : point) };
+      return { ...next, raw: { ...next.raw, inputs: toApiCandidate(next).inputs } };
+    });
+    setDraftDirty(true);
+  };
   const applyResult = (run: ScreenResult) => {
     setResult(run);
     const varying = Object.entries(run.variables).filter(([, spec]) => spec.mode !== "fixed").map(([field]) => field);
@@ -148,6 +195,7 @@ export function ScreeningPage({
     setDraftDirty(false);
   };
   const run = async () => {
+    if (!baseCandidate) return setError("基準条件を読み込めませんでした。");
     const sequence = ++runRequestSequence.current;
     const requestProjectId = projectId;
     try {
@@ -187,6 +235,7 @@ export function ScreeningPage({
       );
       const created = await workbenchApi.createScreeningRun(requestProjectId, {
         base_candidate_id: baseCandidateId,
+        base_inputs: toApiCandidate(baseCandidate).inputs,
         variables: specs,
         samples,
         target,
@@ -217,7 +266,21 @@ export function ScreeningPage({
     }
     if (sequence !== runRequestSequence.current || activeProjectRef.current !== requestProjectId) return;
     applyResult(run);
-    if (run.base_candidate_id) setBaseCandidateId(run.base_candidate_id);
+    if (run.base_candidate_id) {
+      const source = candidates.find((candidate) => candidate.id === run.base_candidate_id);
+      if (!source) {
+        pendingBaseInputs.current = undefined;
+      } else if (run.base_candidate_id === baseCandidateId) {
+        setBaseCandidate(run.base_inputs
+          ? fromApiCandidate({ ...source.raw, inputs: run.base_inputs })
+          : cloneScreeningCandidate(source));
+        setBaseEditorVersion((version) => version + 1);
+      } else if (source) {
+        pendingBaseInputs.current = run.base_inputs;
+        setBaseEditorVersion((version) => version + 1);
+        setBaseCandidateId(run.base_candidate_id);
+      }
+    }
     setTarget(run.target);
     setTargetValue(run.target_value == null ? "" : String(run.target_value));
     setSecondaryTargets(Object.fromEntries(Object.entries(run.secondary_targets ?? {}).map(([key, value]) => [key, String(value)])));
@@ -324,7 +387,7 @@ export function ScreeningPage({
         </div>
         <button
           className="primary-button"
-          disabled={!baseCandidateId}
+          disabled={!baseCandidateId || !baseCandidate}
           title={baseCandidateId ? "選択した候補を基準に探索します" : "基準候補が必要です"}
           onClick={() => {
             void run();
@@ -362,14 +425,16 @@ export function ScreeningPage({
       )}
       <div className="screening-settings">
         <div className="screening-target">
-          <label>
-            基準候補
-            <select value={baseCandidateId} onChange={(event) => { setBaseCandidateId(event.target.value); setDraftDirty(true); }}>
-              {candidates.map((candidate) => (
-                <option key={candidate.id} value={candidate.id}>{candidate.label}</option>
-              ))}
-            </select>
-          </label>
+          <div className="screening-base-candidate">
+            <label>
+              基準候補
+              <select value={baseCandidateId} onChange={(event) => { setBaseCandidateId(event.target.value); setDraftDirty(true); }}>
+                {candidates.map((candidate) => (
+                  <option key={candidate.id} value={candidate.id}>{candidate.label}</option>
+                ))}
+              </select>
+            </label>
+          </div>
           <label>
             評価点数
             <input
@@ -399,7 +464,16 @@ export function ScreeningPage({
           </label>
           {outputs.filter((output) => output.key !== target).map((output) => <label key={output.key}>副条件: {output.label}（{output.goal_direction === "at_most" ? "以下" : "以上"}）<input type="number" value={secondaryTargets[output.key] ?? ""} placeholder="指定なし" onChange={(event) => { setSecondaryTargets((current) => ({ ...current, [output.key]: event.target.value })); setDraftDirty(true); }} /></label>)}
         </div>
-        <table className="quality-table variable-table">
+        {baseCandidate && taskDefinition && (
+            <ScreeningBaseEditor key={`${baseCandidate.id}:${baseEditorVersion}`} candidate={baseCandidate} taskDefinition={taskDefinition} displayDecimalOverrides={project?.display_decimals} onInput={updateBaseInput} onHeat={updateBaseHeat} />
+        )}
+        <section className="screening-variable-editor" aria-label="探索で動かす項目">
+          <div className="screening-variable-heading">
+            <h3>探索で動かす項目</h3>
+            <small>ここで指定した項目だけ、上の基準値から動かします。</small>
+          </div>
+          <div className="screening-variable-table-scroll">
+            <table className="quality-table variable-table">
           <thead>
             <tr>
               <th>変数</th>
@@ -419,7 +493,7 @@ export function ScreeningPage({
                       const option = options.find((item) => item.value === event.target.value);
                       updateVariable(index, option?.kind === "categorical"
                         ? { field: event.target.value, mode: "list", first: option.choices.join(","), second: "" }
-                        : { field: event.target.value, mode: "fixed", first: String(option?.defaultRange?.min ?? ""), second: "" });
+                        : { field: event.target.value, mode: "range", first: String(option?.defaultRange?.min ?? ""), second: String(option?.defaultRange?.max ?? "") });
                     }}
                   >
                     {optionGroups.map((group) => <optgroup key={group.key} label={group.label}>{group.options.map((option) => <option key={option.value} value={option.value} disabled={variables.some((item, rowIndex) => rowIndex !== index && item.field === option.value)}>{option.label}</option>)}</optgroup>)}
@@ -477,19 +551,21 @@ export function ScreeningPage({
               </tr>
             ))}
           </tbody>
-        </table>
-        <button
+            </table>
+          </div>
+          <button
           className="outline-button"
           disabled={!options.some((option) => !variables.some((row) => row.field === option.value))}
           onClick={() => {
             const option = options.find((item) => !variables.some((row) => row.field === item.value));
             if (!option) return;
             setDraftDirty(true);
-            setVariables((rows) => [...rows, { field: option.value, mode: option.kind === "categorical" ? "list" : "fixed", first: option.kind === "categorical" ? option.choices.join(",") : String(option.defaultRange?.min ?? ""), second: "" }]);
+            setVariables((rows) => [...rows, { field: option.value, mode: option.kind === "categorical" ? "list" : "range", first: option.kind === "categorical" ? option.choices.join(",") : String(option.defaultRange?.min ?? ""), second: option.kind === "categorical" ? "" : String(option.defaultRange?.max ?? "") }]);
           }}
         >
           変数を追加
-        </button>
+          </button>
+        </section>
       </div>
       {error && <p className="warning">{error}</p>}
       {result && (

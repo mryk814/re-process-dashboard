@@ -22,7 +22,7 @@ test("annealed screening keeps draft separate and batches multiple points into s
   await expect(page.getByRole("heading", { name: "範囲探索" })).toBeVisible();
   await expect(page.locator("optgroup[label='成分']")).toHaveCount(2);
   await expect(page.locator("optgroup[label='焼鈍条件']")).toHaveCount(2);
-  await expect(page.locator("optgroup[label='ヒートパターン'] option[value='heat_pattern.1.temperature_c']")).toHaveCount(2);
+  await expect(page.locator("optgroup[label='焼鈍履歴'] option[value='heat_pattern.1.temperature_c']")).toHaveCount(2);
 
   await page.getByRole("button", { name: "変数を追加" }).click();
   const rows = page.locator(".variable-table tbody tr");
@@ -83,7 +83,7 @@ test("hot rolling screening accepts task-defined process fields", async ({ page,
   const runResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/screening");
   await page.getByRole("button", { name: "探索を実行" }).click();
   const response = await runResponse;
-  expect(response.status()).toBe(201);
+  expect(response.status(), await response.text()).toBe(201);
   const body = await response.json() as { points: Array<{ inputs: Record<string, number | string>; predictions: Record<string, unknown> }> };
   expect(body.points[0].inputs["process.soaking_temperature_c"]).toBeGreaterThanOrEqual(1170);
   expect(body.points[0].inputs["process.finish_temperature_c"]).toBeGreaterThanOrEqual(850);

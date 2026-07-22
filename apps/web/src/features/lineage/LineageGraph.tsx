@@ -59,6 +59,24 @@ function testLabel(entityType: string): string {
   return entityType;
 }
 
+function canonicalEntityType(entityType: string): string {
+  const type = entityType.replace(/_key\*\*$/, "");
+  if (type.startsWith("溶製")) return "溶製";
+  if (type.startsWith("熱延")) {
+    if (type.includes("引張")) return "熱延引張";
+    if (type.includes("組織")) return "熱延組織";
+    return "熱延";
+  }
+  if (type.startsWith("冷延")) return "冷延";
+  if (type.startsWith("焼鈍")) {
+    if (type.includes("引張")) return "焼鈍引張";
+    if (type.includes("穴広げ") || type.includes("穴拡げ")) return "焼鈍穴広げ";
+    if (type.includes("組織")) return "焼鈍組織";
+    return "焼鈍";
+  }
+  return entityType;
+}
+
 function groupSummary(nodes: GraphNode[]): string {
   return nodes.map((node) => node.key).join(" · ");
 }
@@ -93,7 +111,7 @@ function findProcessParent(
     if (!key || visited.has(key)) continue;
     visited.add(key);
     const node = nodesByKey.get(key);
-    if (node?.entity_type === parentType) return node;
+    if (node && canonicalEntityType(node.entity_type) === parentType) return node;
     pending.push(...(incoming.get(key) ?? []));
   }
   return null;
@@ -127,7 +145,7 @@ function graphContext(graph: Graph, selectedKey: string) {
 }
 
 function nodeState(node: GraphNode, selectedKey: string, upstream: Set<string>, downstream: Set<string>) {
-  const colorClass = groupColorClass(node.entity_type);
+  const colorClass = groupColorClass(canonicalEntityType(node.entity_type));
   const states = ["lineage-graph-node", colorClass].filter(Boolean);
   if (node.key === selectedKey) states.push("selected");
   else if (upstream.has(node.key)) states.push("upstream");
@@ -144,11 +162,13 @@ export function LineageGraph({
   graph,
   selectedKey,
   onSelect,
+  onGroupSelect,
   onLoadMore,
 }: {
   graph: Graph;
   selectedKey: string;
   onSelect: (key: string) => void;
+  onGroupSelect?: (selection: { parentKey: string; entityType: string; nodeKeys: string[] }) => void;
   onLoadMore: () => void;
 }) {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -157,25 +177,26 @@ export function LineageGraph({
   const grouped = STAGES.map((stage) => ({
     ...stage,
     nodes: graph.nodes
-      .filter((node) => stage.types.includes(node.entity_type as never))
+      .filter((node) => stage.types.includes(canonicalEntityType(node.entity_type) as never))
       .sort((left, right) => Number(right.key === selectedKey) - Number(left.key === selectedKey) || left.key.localeCompare(right.key)),
   }));
   const knownTypes = new Set(STAGES.flatMap((stage) => [...stage.types]));
-  const unknownNodes = graph.nodes.filter((node) => !knownTypes.has(node.entity_type as never));
+  const unknownNodes = graph.nodes.filter((node) => !knownTypes.has(canonicalEntityType(node.entity_type) as never));
   if (unknownNodes.length) grouped[grouped.length - 1].nodes.push(...unknownNodes);
 
   const stageItems: Array<{ label: string; nodes: GraphNode[]; items: StageItem[] }> = grouped.map((stage) => {
     const items: StageItem[] = [];
     const groups = new Map<string, TestGroup>();
     stage.nodes.forEach((node) => {
-      const parentType = parentTypeForTest(node.entity_type);
+      const normalizedType = canonicalEntityType(node.entity_type);
+      const parentType = parentTypeForTest(normalizedType);
       const parent = parentType ? findProcessParent(node.key, parentType, incoming, nodesByKey) : null;
       if (!parent) {
         items.push({ kind: "node", node });
         return;
       }
-      const key = `test-group:${parent.entity_type}:${parent.key}:${node.entity_type}`;
-      const group = groups.get(key) ?? { key, parent, entityType: node.entity_type, nodes: [] };
+      const key = `test-group:${parent.entity_type}:${parent.key}:${normalizedType}`;
+      const group = groups.get(key) ?? { key, parent, entityType: normalizedType, nodes: [] };
       group.nodes.push(node);
       groups.set(key, group);
     });
@@ -257,7 +278,7 @@ export function LineageGraph({
   };
   const endpointEntityType = (key: string) => {
     const group = groupLayouts.find((candidate) => candidate.key === key);
-    return group && !group.expanded ? group.entityType : nodesByKey.get(key)?.entity_type;
+    return group && !group.expanded ? group.entityType : nodesByKey.get(key) ? canonicalEntityType(nodesByKey.get(key)!.entity_type) : undefined;
   };
   const endpointLabel = (key: string) => {
     const group = groupLayouts.find((candidate) => candidate.key === key);
@@ -286,14 +307,40 @@ export function LineageGraph({
     );
   };
 
-  const processEdgePath = (x1: number, y1: number, x2: number, y2: number) => {
-    const routeY = TOP - 16;
+  const processEdgePath = (x1: number, y1: number, x2: number, y2: number, lane = 0) => {
+    const routeY = TOP - 16 - lane * 9;
     const bend = Math.max(24, (x2 - x1) * 0.18);
     return `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x1 + bend} ${routeY}, ${x1 + bend * 2} ${routeY} L ${x2 - bend * 2} ${routeY} C ${x2 - bend} ${routeY}, ${x2 - bend} ${y2}, ${x2} ${y2}`;
   };
 
+  const edgeKey = (edge: RenderableEdge) => `${edge.sourceKey}-${edge.targetKey}`;
+  const isRoutedProcessEdge = (edge: RenderableEdge) => {
+    const source = endpointPosition(edge.sourceKey);
+    const target = endpointPosition(edge.targetKey);
+    const sourceEntityType = endpointEntityType(edge.sourceKey);
+    const targetEntityType = endpointEntityType(edge.targetKey);
+    return Boolean(
+      source && target && sourceEntityType && targetEntityType
+      && PROCESS_NODE_TYPES.has(sourceEntityType)
+      && PROCESS_NODE_TYPES.has(targetEntityType)
+      && target.x - source.x > STAGE_WIDTH + 20,
+    );
+  };
+  const processRouteLanes = new Map<string, number>();
+  const processRouteLaneCounts = new Map<string, number>();
+  renderableEdges.forEach((edge) => {
+    if (!isRoutedProcessEdge(edge)) return;
+    const source = endpointPosition(edge.sourceKey);
+    const target = endpointPosition(edge.targetKey);
+    if (!source || !target) return;
+    const corridor = `${source.x}:${target.x}`;
+    const lane = processRouteLaneCounts.get(corridor) ?? 0;
+    processRouteLanes.set(edgeKey(edge), lane);
+    processRouteLaneCounts.set(corridor, lane + 1);
+  });
+
   return (
-    <section className="lineage-graph-panel" aria-label={`${selectedKey} の実工程系譜`}>
+    <section className="lineage-graph-panel" aria-label={`${selectedKey} の工程・試験関係`}>
       <header className="lineage-graph-header">
         <div>
           <b>{graph.relation_row_count} relation行から復元</b>
@@ -325,12 +372,20 @@ export function LineageGraph({
                 aria-expanded={group.expanded}
                 aria-label={`${group.parent.entity_type} ${group.parent.key} の${testLabel(group.entityType)}を${group.expanded ? "折りたたむ" : "展開する"}`}
                 title={`${group.parent.entity_type} ${group.parent.key} から伸びる${testLabel(group.entityType)}`}
-                onClick={() => setExpandedGroups((current) => {
-                  const next = new Set(current);
-                  if (next.has(group.key)) next.delete(group.key);
-                  else next.add(group.key);
-                  return next;
-                })}
+                onClick={() => {
+                  onSelect(group.parent.key);
+                  onGroupSelect?.({
+                    parentKey: group.parent.key,
+                    entityType: group.entityType,
+                    nodeKeys: group.nodes.map((node) => node.key),
+                  });
+                  setExpandedGroups((current) => {
+                    const next = new Set(current);
+                    if (next.has(group.key)) next.delete(group.key);
+                    else next.add(group.key);
+                    return next;
+                  });
+                }}
               >
                 <b>{group.parent.key}</b>
                 <span>{testLabel(group.entityType)} {group.nodes.length}件</span>
@@ -348,25 +403,19 @@ export function LineageGraph({
             {[...renderableEdges.values()].map((edge) => {
               const source = endpointPosition(edge.sourceKey);
               const target = endpointPosition(edge.targetKey);
-              const sourceEntityType = endpointEntityType(edge.sourceKey);
-              const targetEntityType = endpointEntityType(edge.targetKey);
               if (!source || !target) return null;
               const x1 = source.x + NODE_WIDTH;
               const y1 = source.y + NODE_HEIGHT / 2;
               const x2 = target.x;
               const y2 = target.y + NODE_HEIGHT / 2;
               const bend = Math.max(28, (x2 - x1) * 0.45);
-              const routedProcessEdge = Boolean(
-                sourceEntityType && targetEntityType
-                && PROCESS_NODE_TYPES.has(sourceEntityType)
-                && PROCESS_NODE_TYPES.has(targetEntityType)
-                && x2 - x1 > STAGE_WIDTH + 20,
-              );
+              const routedProcessEdge = processRouteLanes.has(edgeKey(edge));
+              const routeLane = processRouteLanes.get(edgeKey(edge)) ?? 0;
               return (
                 <path
                   key={`${edge.sourceKey}-${edge.targetKey}`}
                   className={`lineage-graph-edge ${edge.state}${routedProcessEdge ? " process-route" : ""}`}
-                  d={routedProcessEdge ? processEdgePath(x1, y1, x2, y2) : `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`}
+                  d={routedProcessEdge ? processEdgePath(x1, y1, x2, y2, routeLane) : `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`}
                   markerEnd="url(#lineage-arrow)"
                 >
                   <title>{`${endpointLabel(edge.sourceKey)} → ${endpointLabel(edge.targetKey)} / relation ${edge.routeRows.join(", ")}`}</title>

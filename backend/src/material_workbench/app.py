@@ -311,6 +311,11 @@ def create_app(
         except CandidateLimitError as exc:
             raise DomainApiException(409, "candidate_limit", str(exc)) from exc
 
+    def validate_display_decimals(payload: ProjectInput, definition: ResolvedTaskDefinition) -> None:
+        unsupported = sorted(set(payload.display_decimals) - set(definition.task_definition.display_decimals))
+        if unsupported:
+            raise HTTPException(422, f"タスクに存在しない表示項目です: {', '.join(unsupported)}")
+
     @app.get("/api/health")
     @app.get("/health", include_in_schema=False)
     def health() -> dict[str, Any]:
@@ -458,6 +463,7 @@ def create_app(
         unsupported_targets = sorted(set(payload.target_values) - {item.key for item in contract.task_definition.outputs})
         if unsupported_targets:
             raise HTTPException(422, f"タスクに存在しない目標特性です: {', '.join(unsupported_targets)}")
+        validate_display_decimals(payload, task_registry().resolved_definition_for(payload.task_id))
         if payload.decision_candidate_id:
             raise HTTPException(422, "新しいプロジェクトでは採用候補を空にしてください")
         initial = payload.initial_candidate
@@ -523,6 +529,7 @@ def create_app(
         unsupported_targets = sorted(set(payload.target_values) - {item.key for item in contract.task_definition.outputs})
         if unsupported_targets:
             raise HTTPException(422, f"タスクに存在しない目標特性です: {', '.join(unsupported_targets)}")
+        validate_display_decimals(payload, task_registry().resolved_definition_for(payload.task_id))
         if current.task_id != payload.task_id and store().list_candidates(project_id, include_archived=True):
             raise DomainApiException(409, "project_task_locked", "候補があるプロジェクトの予測タスクは変更できません")
         try:
@@ -698,6 +705,8 @@ def create_app(
         target: str,
         variable: str,
         points: int = Query(9, ge=3, le=51),
+        range_min: float | None = Query(None),
+        range_max: float | None = Query(None),
     ) -> dict[str, Any]:
         project = require_project(project_id)
         candidate = candidate_at_revision(project_id, candidate_id, expected_revision)
@@ -706,6 +715,13 @@ def create_app(
             raise HTTPException(422, "この予測タスクにない予測特性です")
         if not task_registry().contract_for(project.task_id).runtime_capability.operations.response_curve:
             raise HTTPException(422, "この予測タスクは応答曲線に対応していません")
+        if (range_min is None) != (range_max is None):
+            raise HTTPException(422, "応答曲線の範囲は最小値と最大値をセットで指定してください")
+        axis_range = None
+        if range_min is not None and range_max is not None:
+            if not math.isfinite(range_min) or not math.isfinite(range_max) or range_min >= range_max:
+                raise HTTPException(422, "応答曲線の範囲は有限の数値で、最小値 < 最大値にしてください")
+            axis_range = (range_min, range_max)
         try:
             task_runtime = task_registry().runtime_for(project.task_id)
             result = inference_work_graph().execute(
@@ -713,10 +729,10 @@ def create_app(
                     project.task_id,
                     candidate,
                     "curve",
-                    parameters={"target": target, "variable": variable, "points": points, "policy_id": "fixed-grid-v1"},
+                    parameters={"target": target, "variable": variable, "points": points, "range_min": range_min, "range_max": range_max, "policy_id": "fixed-grid-v1"},
                     uses_package=True,
                 ),
-                lambda: task_runtime.response_curve_result(candidate, target, variable, points),
+                lambda: task_runtime.response_curve_result(candidate, target, variable, points, axis_range),
             )
             return result
         except ValueError as exc:
@@ -948,6 +964,11 @@ def create_app(
         base = store().get_candidate(payload.base_candidate_id, project_id)
         if not base:
             raise HTTPException(404, "基準候補が見つかりません")
+        try:
+            base = Candidate.model_validate({**base.model_dump(), "inputs": payload.base_inputs.model_dump()})
+            task_registry().validate_candidate(project.task_id, CandidateInput.model_validate(base.model_dump()))
+        except (TaskRegistryError, ValueError) as exc:
+            raise HTTPException(422, str(exc)) from exc
         screenable_fields = {
             field.path: field
             for group in definition.input_groups

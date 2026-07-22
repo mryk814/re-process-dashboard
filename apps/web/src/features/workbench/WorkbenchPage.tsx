@@ -8,6 +8,7 @@ import {
   numericTaskInputs,
   type CandidateSaveState,
   type CandidateViewModel as Candidate,
+  type NumericRange,
   type NumericTaskInput,
   type RuntimeOperations,
   type TaskDefinitionContract,
@@ -19,6 +20,7 @@ import {
   workbenchApi,
   type ApiActual,
   type ApiCurveFamily,
+  type ApiProject,
   type ApiPredictionVsActual,
   type ApiPreview,
   type ApiResponseCurve,
@@ -50,6 +52,9 @@ type Metric = {
 
 type CurvePoint = ApiResponseCurve["points"][number];
 type CurveVariable = ApiResponseCurve["variable"];
+type CurveRange = { min: number; max: number };
+type ResponseCurveRanges = { x?: Record<string, CurveRange>; y?: Record<string, CurveRange> };
+type CurveRangeDraft = { min: string; max: string; enabled: boolean };
 
 function allowedRange(input: NumericTaskInput) {
   if (!input.allowed_range) throw new Error(`数値fieldにallowed_rangeがありません: ${input.path}`);
@@ -123,7 +128,10 @@ export function WorkbenchEmptyState({
 type WorkbenchProps = {
   candidates: Candidate[];
   projectId: string;
+  project: ApiProject | null;
   targetValues: Record<string, number>;
+  inputRanges: Record<string, NumericRange>;
+  responseCurveRanges: ResponseCurveRanges;
   decisionCandidateId: string;
   selected: Candidate;
   selectedId: string;
@@ -140,7 +148,7 @@ type WorkbenchProps = {
   onRetryPreview: () => void;
   previewsByCandidate: Record<string, ApiPreview>;
   onSelect: (id: string) => void;
-  onHeat: (index: number, field: "time" | "temperature", raw: number) => void;
+  onHeat: (index: number, field: "time" | "temperature" | "stageName", raw: number | string) => void;
   onInput: (id: string, path: string, value: number | string) => void;
   onText: (id: string, field: "label", value: string) => void;
   onAddHeat: () => void;
@@ -150,14 +158,19 @@ type WorkbenchProps = {
   originBroken: boolean;
   onDelete: () => void;
   onAdd: () => void;
+  onAddCandidateFromLineage: (entityKey: string) => Promise<boolean>;
   onImported: (items: Candidate[]) => void;
+  onProjectChanged: (project: ApiProject) => void | Promise<void>;
 };
 
 export function WorkbenchPage(props: WorkbenchProps) {
   const {
     candidates,
     projectId,
+    project,
     targetValues,
+    inputRanges,
+    responseCurveRanges,
     decisionCandidateId,
     selected,
     selectedId,
@@ -184,14 +197,21 @@ export function WorkbenchPage(props: WorkbenchProps) {
     originBroken,
     onDelete,
     onAdd,
+    onAddCandidateFromLineage,
     onImported,
+    onProjectChanged,
   } = props;
+  const [comparisonExpanded, setComparisonExpanded] = useState(false);
+  useEffect(() => {
+    if (candidates.length <= 5) setComparisonExpanded(false);
+  }, [candidates.length]);
   return (
     <div className="workbench-grid candidate-workbench-grid">
       {taskDefinition && <CandidateInspector
         candidate={selected}
         taskDefinition={taskDefinition}
         saveState={saveState}
+        inputRanges={inputRanges}
         fieldErrors={fieldErrors}
         onInput={(path, value) => onInput(selected.id, path, value)}
         onReload={onReload}
@@ -200,10 +220,20 @@ export function WorkbenchPage(props: WorkbenchProps) {
       />}
       <section className="central-workspace">
         <div className="table-heading">
-          <div>
+          <div className="table-title">
             <h2>
               候補比較表 <span>（セルを直接編集）</span>
             </h2>
+            {candidates.length > 5 && (
+              <button
+                type="button"
+                className="comparison-expand-button"
+                aria-expanded={comparisonExpanded}
+                onClick={() => setComparisonExpanded((value) => !value)}
+              >
+                {comparisonExpanded ? "5候補までに戻す" : `全${candidates.length}候補を表示`}
+              </button>
+            )}
           </div>
           <div className="comparison-actions" aria-label="候補操作">
             <button className="outline-button" onClick={onCopy}>
@@ -233,9 +263,12 @@ export function WorkbenchPage(props: WorkbenchProps) {
         {taskDefinition && <ComparisonTable
           candidates={candidates}
           selectedId={selectedId}
+          comparisonExpanded={comparisonExpanded}
+          onToggleComparisonExpanded={() => setComparisonExpanded((value) => !value)}
           taskDefinition={taskDefinition}
           previewsByCandidate={previewsByCandidate}
           targetValues={targetValues}
+          displayDecimalOverrides={project?.display_decimals}
           onSelect={onSelect}
           onInput={onInput}
           onName={(id, value) => onText(id, "label", value)}
@@ -249,22 +282,27 @@ export function WorkbenchPage(props: WorkbenchProps) {
             ready={["idle", "saved"].includes(saveState)}
           />
         ) : null}
-        {operations?.response_curve ? (
-          <LiveResponseCurves
-            projectId={projectId}
-            candidates={candidates}
-            candidate={selected}
-            preview={preview}
-            previewsByCandidate={previewsByCandidate}
-            targetValues={targetValues}
-            taskDefinition={taskDefinition}
-            available
-            ready={["idle", "saved"].includes(saveState)}
-          />
-        ) : <UnavailablePanel title="応答曲線" />}
-        {operations?.actual_measurement ? <ActualsPanel projectId={projectId} candidate={selected} outputs={taskDefinition?.outputs ?? []} enabled={["idle", "saved"].includes(saveState)} /> : <UnavailablePanel title="予測と実測" />}
+        <div className="workbench-lower-grid">
+          {operations?.response_curve ? (
+              <LiveResponseCurves
+              projectId={projectId}
+              project={project}
+              candidates={candidates}
+              candidate={selected}
+              preview={preview}
+              previewsByCandidate={previewsByCandidate}
+              targetValues={targetValues}
+              taskDefinition={taskDefinition}
+              responseCurveRanges={responseCurveRanges}
+              onProjectChanged={onProjectChanged}
+              available
+              ready={["idle", "saved"].includes(saveState)}
+            />
+          ) : <UnavailablePanel title="応答曲線" />}
+          <LiveSimilarityEvidence projectId={projectId} candidate={selected} outputs={taskDefinition?.outputs ?? []} available={operations?.similarity === true} ready={["idle", "saved"].includes(saveState)} onAddCandidate={onAddCandidateFromLineage} />
+        </div>
+        <EvidencePanel projectId={projectId} candidate={selected} inferenceReady={["idle", "saved"].includes(saveState)} metrics={metrics} outputs={taskDefinition?.outputs ?? []} preview={preview} previewStatus={previewStatus} candidateLabel={selected.label} actualsAvailable={operations?.actual_measurement === true} error={previewError} onRetry={onRetryPreview} />
       </section>
-      <EvidencePanel projectId={projectId} candidate={selected} inferenceReady={["idle", "saved"].includes(saveState)} metrics={metrics} outputs={taskDefinition?.outputs ?? []} preview={preview} previewStatus={previewStatus} candidateLabel={selected.label} similarityAvailable={operations?.similarity === true} error={previewError} onRetry={onRetryPreview} />
     </div>
   );
 }
@@ -508,7 +546,8 @@ function ActualsPanel({ projectId, candidate, outputs, enabled }: { projectId: s
         </div>
       </details>
       {error && <p className="empty-evidence">{error}</p>}
-      <table className="quality-table actual-table">
+      <div className="actual-table-wrap">
+        <table className="quality-table actual-table">
         <thead>
           <tr>
             <th>特性 / 実験</th>
@@ -590,7 +629,8 @@ function ActualsPanel({ projectId, candidate, outputs, enabled }: { projectId: s
             </tr>
           )}
         </tbody>
-      </table>
+        </table>
+      </div>
     </section>
   );
 }
@@ -604,7 +644,7 @@ function HeatPattern({
 }: {
   candidates: Candidate[];
   candidate: Candidate;
-  onUpdate: (index: number, field: "time" | "temperature", raw: number) => void;
+  onUpdate: (index: number, field: "time" | "temperature" | "stageName", raw: number | string) => void;
   onAdd: () => void;
   onDelete: (index: number) => void;
 }) {
@@ -752,7 +792,7 @@ function HeatPattern({
               {candidate.heat.map((point, index) => (
                 <tr key={`${point.time}-${index}`}>
                   <th scope="row">{index + 1}</th>
-                  <td>{point.stageName || point.stageCategory || "—"}</td>
+                  <td><input type="text" value={point.stageName ?? point.stageCategory ?? ""} aria-label={`点${index + 1}の工程名`} onChange={(event) => onUpdate(index, "stageName", event.target.value)} /></td>
                   <td><input type="number" step="0.01" value={Number(point.time.toFixed(3))} aria-label={`点${index + 1}の時間（分）`} onChange={(event) => onUpdate(index, "time", Number(event.target.value))} /></td>
                   <td><input type="number" value={point.temperature} aria-label={`点${index + 1}の温度（℃）`} onChange={(event) => onUpdate(index, "temperature", Number(event.target.value))} /></td>
                   <td><button className="icon-delete" aria-label={`点${index + 1}を削除`} disabled={candidate.heat.length <= 2} onClick={() => onDelete(index)}>×</button></td>
@@ -796,26 +836,29 @@ function CurveFamilyPanel({
   const [varyId, setVaryId] = useState("");
   const isCategoricalVary = varyCategoricalOptions.some((input) => input.path === varyId);
   const [levels, setLevels] = useState(5);
-  const [payloads, setPayloads] = useState<Record<string, ApiCurveFamily>>({});
+  const [loadedPayloads, setLoadedPayloads] = useState<{ identity: string; values: Record<string, ApiCurveFamily> }>({ identity: "", values: {} });
   const [error, setError] = useState<Error | null>(null);
   const inputIdentity = candidateInputIdentity(candidate.raw.inputs);
   const outputKeys = outputs.map((output) => output.key).join("");
+  const requestIdentity = JSON.stringify({ projectId, candidateId: candidate.id, revision: candidate.raw.revision, inputIdentity, varyId, levels, outputKeys, axisPath });
+  const payloads = loadedPayloads.identity === requestIdentity ? loadedPayloads.values : {};
   useEffect(() => {
     if (!ready || !axisPath || !outputs.length) return;
     const controller = new AbortController();
+    setError(null);
     const timer = window.setTimeout(async () => {
       try {
         const loaded = await Promise.all(outputs.map((output) =>
           workbenchApi.curveFamily(projectId, candidate.id, candidate.raw.revision, inputIdentity, output.key, varyId, varyId ? levels : 2, 15, controller.signal)));
         if (controller.signal.aborted) return;
-        setPayloads(Object.fromEntries(outputs.map((output, index) => [output.key, loaded[index]])));
+        setLoadedPayloads({ identity: requestIdentity, values: Object.fromEntries(outputs.map((output, index) => [output.key, loaded[index]])) });
         setError(null);
       } catch (cause) {
         if (!controller.signal.aborted) setError(cause instanceof Error ? cause : new Error(String(cause)));
       }
     }, 320);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [projectId, candidate.id, candidate.raw.revision, inputIdentity, varyId, levels, outputKeys, ready, axisPath]);
+  }, [requestIdentity, ready, axisPath]);
   if (!axisPath) return null;
   const axisLabel = axisInput?.label ?? axisPath;
   const firstPayload = outputs.map((output) => payloads[output.key]).find(Boolean);
@@ -907,22 +950,28 @@ function CurveFamilyChart({
 
 function LiveResponseCurves({
   projectId,
+  project,
   candidates,
   candidate,
   preview,
   previewsByCandidate,
   targetValues,
   taskDefinition,
+  responseCurveRanges,
+  onProjectChanged,
   available,
   ready,
 }: {
   projectId: string;
+  project: ApiProject | null;
   candidates: Candidate[];
   candidate: Candidate;
   preview: ApiPreview | null;
   previewsByCandidate: Record<string, ApiPreview>;
   targetValues: Record<string, number>;
   taskDefinition: TaskDefinitionContract | null;
+  responseCurveRanges: ResponseCurveRanges;
+  onProjectChanged: (project: ApiProject) => void | Promise<void>;
   available: boolean;
   ready: boolean;
 }) {
@@ -947,12 +996,21 @@ function LiveResponseCurves({
     ]),
   ];
   const [variableId, setVariableId] = useState(variables[0]?.id ?? "heat.peak_temperature_c");
+  const [axisSettingsOpen, setAxisSettingsOpen] = useState(false);
+  const [axisDraft, setAxisDraft] = useState<{ x: CurveRangeDraft; y: Record<string, CurveRangeDraft> }>({ x: { min: "", max: "", enabled: false }, y: {} });
+  const [axisDraftDirty, setAxisDraftDirty] = useState(false);
+  const [axisError, setAxisError] = useState("");
+  const [axisSaving, setAxisSaving] = useState(false);
   const [surfacesByKey, setSurfacesByKey] = useState<Record<string, InferenceSurfaceState<ApiResponseCurve>>>({});
+  const axisDraftRef = useRef(axisDraft);
+  axisDraftRef.current = axisDraft;
   const surfaceRef = useRef(surfacesByKey);
   surfaceRef.current = surfacesByKey;
   const curveCandidates = candidates.filter((item) => !item.raw.archived_at && previewsByCandidate[item.id]);
   const curveCandidatesKey = curveCandidates.map((item) => `${item.id}:${item.raw.revision}:${candidateInputIdentity(item.raw.inputs)}`).join("\u001e");
   const outputKeys = outputs.map((output) => output.key).join("\u001e");
+  const xRangeOverride = responseCurveRanges.x?.[variableId];
+  const xRangeIdentity = xRangeOverride ? `${xRangeOverride.min}:${xRangeOverride.max}` : "auto";
   useEffect(() => {
     if (variables.length && !variables.some((variable) => variable.id === variableId)) setVariableId(variables[0].id);
   }, [variableId, variables.length]);
@@ -963,8 +1021,8 @@ function LiveResponseCurves({
     for (const item of curveCandidates) {
       const inputIdentity = candidateInputIdentity(item.raw.inputs);
       for (const output of outputs) {
-        const storageKey = `${item.id}\u001f${output.key}\u001f${variableId}\u001f${inputIdentity}`;
-        const identity = `${workbenchRequestKey({ projectId, taskId: taskDefinition.id, candidateId: item.id, candidateRevision: item.raw.revision }, "response_curve:9")}\u001f${inputIdentity}\u001f${output.key}\u001f${variableId}`;
+        const storageKey = `${item.id}\u001f${output.key}\u001f${variableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`;
+        const identity = `${workbenchRequestKey({ projectId, taskId: taskDefinition.id, candidateId: item.id, candidateRevision: item.raw.revision }, "response_curve:9")}\u001f${inputIdentity}\u001f${output.key}\u001f${variableId}\u001f${xRangeIdentity}`;
         const existing = surfaceRef.current[storageKey];
         if (existing?.currentIdentity === identity) continue;
         const requested = requestInferenceSurface(existing ?? emptyInferenceSurface<ApiResponseCurve>(), identity);
@@ -973,7 +1031,7 @@ function LiveResponseCurves({
         setSurfacesByKey(requestedSurfaces);
         const timer = window.setTimeout(async () => {
           try {
-            const loaded = await workbenchApi.responseCurve(projectId, item.id, item.raw.revision, inputIdentity, output.key, variableId, 9, controller.signal);
+            const loaded = await workbenchApi.responseCurve(projectId, item.id, item.raw.revision, inputIdentity, output.key, variableId, 9, xRangeOverride?.min, xRangeOverride?.max, controller.signal);
             if (controller.signal.aborted) return;
             const current = surfaceRef.current[storageKey] ?? requested;
             const resolved = resolveInferenceSurface(current, requested.requestSequence, identity, loaded);
@@ -993,13 +1051,73 @@ function LiveResponseCurves({
       }
     }
     return () => { timers.forEach((timer) => window.clearTimeout(timer)); controller.abort(); };
-  }, [available, ready, curveCandidatesKey, outputKeys, projectId, taskDefinition?.id, variableId]);
+  }, [available, ready, curveCandidatesKey, outputKeys, projectId, taskDefinition?.id, variableId, xRangeIdentity, xRangeOverride?.min, xRangeOverride?.max]);
   const selectedVariable = variables.find((variable) => variable.id === variableId) ?? variables[0];
   const curveStates = curveCandidates.flatMap((item) => outputs.map((output) => {
     const inputIdentity = candidateInputIdentity(item.raw.inputs);
-    const storageKey = `${item.id}\u001f${output.key}\u001f${variableId}\u001f${inputIdentity}`;
+    const storageKey = `${item.id}\u001f${output.key}\u001f${variableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`;
     return surfacesByKey[storageKey];
   }));
+  const payloadForOutput = (outputKey: string) => curveCandidates.map((item) => {
+    const inputIdentity = candidateInputIdentity(item.raw.inputs);
+    return surfacesByKey[`${item.id}\u001f${outputKey}\u001f${variableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`]?.data;
+  }).find((payload): payload is ApiResponseCurve => Boolean(payload));
+  const selectedPayload = outputs.map((output) => payloadForOutput(output.key)).find((payload): payload is ApiResponseCurve => Boolean(payload));
+  const effectiveXRange = selectedPayload?.variable ? { min: selectedPayload.variable.min, max: selectedPayload.variable.max } : selectedVariable ? { min: selectedVariable.min, max: selectedVariable.max } : null;
+  const makeDraft = (saved: CurveRange | undefined, effective: CurveRange | null | undefined): CurveRangeDraft => ({
+    min: String(saved?.min ?? effective?.min ?? ""),
+    max: String(saved?.max ?? effective?.max ?? ""),
+    enabled: Boolean(saved),
+  });
+  const openAxisSettings = () => {
+    setAxisDraft({
+      x: makeDraft(xRangeOverride, effectiveXRange),
+      y: Object.fromEntries(outputs.map((output) => [output.key, makeDraft(responseCurveRanges.y?.[output.key], payloadForOutput(output.key)?.output_range)])),
+    });
+    setAxisDraftDirty(false);
+    setAxisError("");
+    setAxisSettingsOpen(true);
+  };
+  const draftRange = (draft: CurveRangeDraft, label: string): CurveRange | null => {
+    if (!draft.enabled) return null;
+    const min = Number(draft.min);
+    const max = Number(draft.max);
+    if (!Number.isFinite(min) || !Number.isFinite(max) || min >= max) throw new Error(`${label}は有限の数値で、最小値 < 最大値にしてください`);
+    return { min, max };
+  };
+  const saveAxisSettings = async (draft = axisDraft) => {
+    if (!project) return;
+    const draftIdentity = JSON.stringify({ variableId, draft });
+    try {
+      const nextX = { ...(responseCurveRanges.x ?? {}) };
+      const parsedX = draftRange(draft.x, "X軸");
+      if (parsedX) nextX[variableId] = parsedX;
+      else delete nextX[variableId];
+      const nextY = { ...(responseCurveRanges.y ?? {}) };
+      for (const output of outputs) {
+        const parsedY = draftRange(draft.y[output.key] ?? { min: "", max: "", enabled: false }, `${output.label}のY軸`);
+        if (parsedY) nextY[output.key] = parsedY;
+        else delete nextY[output.key];
+      }
+      setAxisSaving(true);
+      const updated = await workbenchApi.updateProject(projectId, { ...project, response_curve_ranges: { x: nextX, y: nextY } });
+      await onProjectChanged(updated);
+      if (JSON.stringify({ variableId, draft: axisDraftRef.current }) === draftIdentity) setAxisDraftDirty(false);
+      setAxisError("");
+    } catch (cause) {
+      setAxisError(cause instanceof Error ? cause.message : "軸範囲を保存できませんでした。");
+    } finally {
+      setAxisSaving(false);
+    }
+  };
+  useEffect(() => {
+    if (!axisDraftDirty) return;
+    const timer = window.setTimeout(() => { void saveAxisSettings(axisDraft); }, 420);
+    return () => window.clearTimeout(timer);
+  }, [axisDraft, axisDraftDirty, variableId]);
+  const rangeText = (range: CurveRange | null | undefined) => range ? `${number(range.min, 2)} – ${number(range.max, 2)}` : "取得中";
+  const setXDraft = (patch: Partial<CurveRangeDraft>) => { setAxisDraft((current) => ({ ...current, x: { ...current.x, ...patch } })); setAxisDraftDirty(true); };
+  const setYDraft = (key: string, patch: Partial<CurveRangeDraft>) => { setAxisDraft((current) => ({ ...current, y: { ...current.y, [key]: { ...(current.y[key] ?? { min: "", max: "", enabled: false }), ...patch } } })); setAxisDraftDirty(true); };
   const loadedCurveCount = curveStates.filter((state) => state?.data !== null && state?.data !== undefined).length;
   const curveStatus = curveStates.some((state) => state?.error) ? "error" : curveStates.some((state) => state?.pending) || loadedCurveCount < curveStates.length ? "refreshing" : "latest";
   const curveErrorMessage = curveStates.find((state) => state?.error)?.error;
@@ -1016,23 +1134,64 @@ function LiveResponseCurves({
             {curveCandidates.map((item) => <span className={item.id === candidate.id ? "selected" : ""} key={item.id}><i style={{ background: candidateColor(item.id, candidate.id) }} />{item.label}</span>)}
           </div>
         </div>
-        <label>変数 <select aria-label="応答曲線の設計変数" value={variableId} onChange={(event) => setVariableId(event.target.value)}>{variables.map((variable) => <option key={variable.id} value={variable.id}>{variable.label} ({variable.unit})</option>)}</select></label>
+        <div className="response-curve-controls">
+          <label>変数 <select aria-label="応答曲線の設計変数" value={variableId} disabled={axisSaving || axisDraftDirty} onChange={(event) => { setAxisSettingsOpen(false); setAxisDraftDirty(false); setVariableId(event.target.value); }}>{variables.map((variable) => <option key={variable.id} value={variable.id}>{variable.label} ({variable.unit})</option>)}</select></label>
+          <button type="button" className="outline-button curve-range-button" aria-expanded={axisSettingsOpen} onClick={axisSettingsOpen ? () => setAxisSettingsOpen(false) : openAxisSettings}>{axisSettingsOpen ? "閉じる" : "軸範囲"}</button>
+        </div>
       </div>
+      {axisSettingsOpen && (
+        <div className="response-curve-axis-settings">
+          <div className="axis-settings-heading"><b>描画範囲</b><small>変更は自動保存。未指定は自動範囲、学習データ範囲は参照値です。</small><button type="button" className="axis-settings-close" onClick={() => setAxisSettingsOpen(false)}>閉じる</button></div>
+          <div className="axis-settings-grid">
+            <section>
+              <h3>X軸 <span>{selectedVariable?.label ?? "選択変数"}</span></h3>
+              <div className="axis-range-fields">
+                <label>最小<input type="number" value={axisDraft.x.min} onChange={(event) => setXDraft({ min: event.target.value, enabled: true })} /></label>
+                <label>最大<input type="number" value={axisDraft.x.max} onChange={(event) => setXDraft({ max: event.target.value, enabled: true })} /></label>
+              </div>
+              <small>学習データ範囲: {rangeText(selectedPayload?.variable?.training_range)}</small>
+              <button type="button" className="text-button" onClick={() => setXDraft({ ...makeDraft(undefined, effectiveXRange) })}>自動</button>
+            </section>
+            <section>
+              <h3>Y軸 <span>目的変数ごと</span></h3>
+              <div className="axis-settings-output-list">
+                {outputs.map((output) => {
+                  const draft = axisDraft.y[output.key] ?? makeDraft(undefined, payloadForOutput(output.key)?.output_range);
+                  return <div className="axis-settings-output" key={output.key}>
+                    <b>{output.label}</b>
+                    <div className="axis-range-fields">
+                      <label>最小<input type="number" value={draft.min} onChange={(event) => setYDraft(output.key, { min: event.target.value, enabled: true })} /></label>
+                      <label>最大<input type="number" value={draft.max} onChange={(event) => setYDraft(output.key, { max: event.target.value, enabled: true })} /></label>
+                    </div>
+                    <small>学習データ範囲: {rangeText(payloadForOutput(output.key)?.output_range)}</small>
+                    <button type="button" className="text-button" onClick={() => setYDraft(output.key, { ...makeDraft(undefined, payloadForOutput(output.key)?.output_range) })}>自動</button>
+                  </div>;
+                })}
+              </div>
+            </section>
+          </div>
+          {axisError && <p className="axis-settings-error" role="alert">{axisError}</p>}
+          <div className="axis-settings-actions">
+            <button type="button" className="text-button" disabled={axisSaving} onClick={() => { setXDraft({ ...makeDraft(undefined, effectiveXRange) }); outputs.forEach((output) => setYDraft(output.key, { ...makeDraft(undefined, payloadForOutput(output.key)?.output_range) })); }}>すべて自動に戻す</button>
+            <small className="axis-settings-autosave" role="status">{axisSaving ? "自動保存中…" : axisDraftDirty ? "変更を確認中…" : "自動保存済み"}</small>
+          </div>
+        </div>
+      )}
       {!ready ? <p className="empty-evidence">入力を保存後に更新します。</p> : curveStatus === "error" && loadedCurveCount === 0 ? <p className="empty-evidence">応答曲線を取得できません。{curveErrorMessage instanceof Error ? ` (${curveErrorMessage.message})` : ""}</p> : (
         <div className={`response-curves-grid output-count-${Math.min(outputs.length, 4)}`}>
           {outputs.map((output) => {
             const curveSeries = curveCandidates.flatMap((item) => {
               const inputIdentity = candidateInputIdentity(item.raw.inputs);
-              const storageKey = `${item.id}\u001f${output.key}\u001f${variableId}\u001f${inputIdentity}`;
+              const storageKey = `${item.id}\u001f${output.key}\u001f${variableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`;
               const payload = surfacesByKey[storageKey]?.data;
               if (!payload?.points.length) return [];
               return [{ candidate: item, points: payload.points, prediction: previewsByCandidate[item.id]?.predictions?.[output.key], currentX: payload.variable.current }];
             });
-            const firstPayload = curveCandidates.map((item) => {
-              const inputIdentity = candidateInputIdentity(item.raw.inputs);
-              return surfacesByKey[`${item.id}\u001f${output.key}\u001f${variableId}\u001f${inputIdentity}`]?.data;
-            }).find((payload): payload is ApiResponseCurve => Boolean(payload));
-            return <ResponseCurveMiniChart key={output.key} output={output} series={curveSeries} selectedId={candidate.id} prediction={previewsByCandidate[candidate.id]?.predictions?.[output.key] ?? preview?.predictions?.[output.key]} goalValue={targetValues[output.key]} xRange={firstPayload?.variable ? { min: firstPayload.variable.min, max: firstPayload.variable.max } : selectedVariable ? { min: selectedVariable.min, max: selectedVariable.max } : undefined} yRange={firstPayload?.output_range ?? undefined} xLabel={firstPayload?.variable.label ?? selectedVariable?.label ?? "設計変数"} xUnit={firstPayload?.variable.unit ?? selectedVariable?.unit ?? ""} />;
+  const firstPayload = curveCandidates.map((item) => {
+    const inputIdentity = candidateInputIdentity(item.raw.inputs);
+    return surfacesByKey[`${item.id}\u001f${output.key}\u001f${variableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`]?.data;
+  }).find((payload): payload is ApiResponseCurve => Boolean(payload));
+            return <ResponseCurveMiniChart key={output.key} output={output} series={curveSeries} selectedId={candidate.id} prediction={previewsByCandidate[candidate.id]?.predictions?.[output.key] ?? preview?.predictions?.[output.key]} goalValue={targetValues[output.key]} xRange={firstPayload?.variable ? { min: firstPayload.variable.min, max: firstPayload.variable.max } : selectedVariable ? { min: selectedVariable.min, max: selectedVariable.max } : undefined} yRange={responseCurveRanges.y?.[output.key] ?? firstPayload?.output_range ?? undefined} xLabel={firstPayload?.variable.label ?? selectedVariable?.label ?? "設計変数"} xUnit={firstPayload?.variable.unit ?? selectedVariable?.unit ?? ""} />;
           })}
         </div>
       )}
@@ -1084,7 +1243,7 @@ function ResponseCurveMiniChart({
           const color = candidateColor(item.candidate.id, selectedId);
           const line = item.points.map((point, index) => `${index ? "L" : "M"}${x(point.x)} ${y(point.value)}`).join(" ");
           const band = `${item.points.map((point, index) => `${index ? "L" : "M"}${x(point.x)} ${y(point.upper)}`).join(" ")} ${[...item.points].reverse().map((point) => `L${x(point.x)} ${y(point.lower)}`).join(" ")} Z`;
-          return <g key={item.candidate.id}><path d={band} fill={color} opacity={item.candidate.id === selectedId ? ".12" : ".05"} /><path d={line} fill="none" stroke={color} strokeWidth={item.candidate.id === selectedId ? "2.5" : "1.5"} opacity={item.candidate.id === selectedId ? "1" : ".78"} />{item.prediction && Number.isFinite(item.currentX) && <circle cx={x(item.currentX)} cy={y(item.prediction.value)} r={item.candidate.id === selectedId ? "4" : "2.5"} fill="#fff" stroke={color} strokeWidth={item.candidate.id === selectedId ? "2.5" : "1.5"} />}</g>;
+          return <g key={item.candidate.id}><path d={band} fill={color} opacity={item.candidate.id === selectedId ? ".18" : ".08"} /><path d={line} fill="none" stroke={color} strokeWidth={item.candidate.id === selectedId ? "2.5" : "1.5"} opacity={item.candidate.id === selectedId ? "1" : ".78"} />{item.prediction && Number.isFinite(item.currentX) && <circle cx={x(item.currentX)} cy={y(item.prediction.value)} r={item.candidate.id === selectedId ? "4" : "2.5"} fill="#fff" stroke={color} strokeWidth={item.candidate.id === selectedId ? "2.5" : "1.5"} />}</g>;
         })}
         {Number.isFinite(goalValue) && <line x1="28" y1={y(goalValue!)} x2="284" y2={y(goalValue!)} stroke="#c17816" strokeDasharray="4 3" />}
         {xTicks.map((tick) => <text key={tick} x={x(tick)} y="137" textAnchor="middle" fontSize="8" fill="#617087">{number(tick, xUnit === "min" ? 2 : 1)}</text>)}
@@ -1097,16 +1256,21 @@ function ResponseCurveMiniChart({
 function LiveSimilarityEvidence({
   projectId,
   candidate,
+  outputs,
   available,
   ready,
+  onAddCandidate,
 }: {
   projectId: string;
   candidate: Candidate;
+  outputs: TaskOutputDefinition[];
   available: boolean;
   ready: boolean;
+  onAddCandidate: (entityKey: string) => Promise<boolean>;
 }) {
-  const [open, setOpen] = useState(false);
   const [surface, setSurface] = useState(() => emptyInferenceSurface<ApiSimilarObservation[]>());
+  const [addingKey, setAddingKey] = useState("");
+  const [addedKeys, setAddedKeys] = useState<string[]>([]);
   const surfaceRef = useRef(surface);
   const inputIdentity = candidateInputIdentity(candidate.raw.inputs);
   const similarityScope = `${projectId}\u001f${candidate.id}\u001fsimilarity:6`;
@@ -1115,9 +1279,11 @@ function LiveSimilarityEvidence({
     const empty = emptyInferenceSurface<ApiSimilarObservation[]>();
     surfaceRef.current = empty;
     setSurface(empty);
+    setAddedKeys([]);
+    setAddingKey("");
   }, [candidate.id]);
   useEffect(() => {
-    if (!open || !available || !ready || candidate.raw.archived_at) return;
+    if (!available || !ready || candidate.raw.archived_at) return;
     const controller = new AbortController();
     const requested = requestInferenceSurface(surfaceRef.current, identity);
     surfaceRef.current = requested;
@@ -1141,41 +1307,57 @@ function LiveSimilarityEvidence({
       setSurface(rejected);
     });
     return () => controller.abort();
-  }, [available, candidate.id, candidate.raw.archived_at, candidate.raw.revision, identity, inputIdentity, open, projectId, ready]);
+  }, [available, candidate.id, candidate.raw.archived_at, candidate.raw.revision, identity, inputIdentity, projectId, ready]);
   const status = inferenceSurfaceStatus(surface);
   const similar = surface.currentIdentity?.startsWith(`${similarityScope}\u001f`) ? surface.data ?? [] : [];
-  const nearest = similar.slice(0, 3);
+  const processLabel = similar.find((item) => item.process_label)?.process_label ?? "工程履歴";
+  const measuredOutputs = (item: ApiSimilarObservation) => outputs.flatMap((output) => {
+    const summaryKey = [...(output.measurement_keys ?? []), output.key, output.label]
+      .find((key) => item.repeat_summary?.[key]);
+    const summary = summaryKey ? item.repeat_summary?.[summaryKey] : undefined;
+    return summary ? [{ output, summary }] : [];
+  });
+  const add = async (entityKey: string) => {
+    setAddingKey(entityKey);
+    try {
+      if (await onAddCandidate(entityKey)) setAddedKeys((current) => current.includes(entityKey) ? current : [...current, entityKey]);
+    } finally {
+      setAddingKey("");
+    }
+  };
   return (
-    <section>
+    <section className="similar-evidence-panel">
       <div className="evidence-title">
-        <h2>近い過去実験</h2>
-        <button type="button" className="text-button" aria-expanded={open} onClick={() => setOpen((current) => !current)} disabled={!available || Boolean(candidate.raw.archived_at)}>
-          {open ? "閉じる" : "根拠を表示"}
-        </button>
+        <div>
+          <h2>近い過去実績 <span>（予測対象の実績値）</span></h2>
+          <span className="similar-caption">距離が小さいほど、成分・工程・熱履歴が近い条件です</span>
+        </div>
+        {similar.length > 0 && <span className={`inference-surface-status ${status}`}>{status === "latest" ? "最新" : status === "refreshing" ? "更新中" : status === "stale" ? "旧revision・更新中" : "更新失敗・旧結果"}</span>}
       </div>
       {!available ? (
         <p className="empty-evidence">このタスクでは類似実験を利用できません。</p>
       ) : candidate.raw.archived_at ? (
         <p className="empty-evidence">archive済み候補では新しい根拠計算を行いません。</p>
-      ) : !open ? (
-        <p className="empty-evidence">必要なときだけ成分・工程・熱履歴の近さを計算します。</p>
       ) : !ready ? (
-        <p className="empty-evidence">入力を保存後に根拠を更新します。</p>
-      ) : nearest.length ? (
+        <p className="empty-evidence">入力を保存後に近さを更新します。</p>
+      ) : similar.length ? (
         <>
-          <span className={`inference-surface-status ${status}`}>{status === "latest" ? "最新" : status === "refreshing" ? "更新中" : status === "stale" ? "旧revision・更新中" : "更新失敗・旧結果"}</span>
-          <table className="similar-table similar-summary-table">
-            <thead><tr><th>実験ID</th><th>層</th><th>総合</th><th>代表実測値</th></tr></thead>
-            <tbody>{nearest.map((item) => (
-              <tr key={`${item.layer ?? "training"}-${item.observation_id}`}>
-                <td>{item.observation_id}</td>
-                <td><span className={`layer-chip ${item.layer ?? "training"}`}>{item.layer === "historical" ? "学習外" : "学習内"}</span></td>
-                <td>{item.distance.toFixed(2)}</td>
-                <td>{Object.entries(item.repeat_summary ?? {}).map(([key, value]) => `${key === "lambda" ? "λ" : key} ${number(value.mean, 1)} ± ${number(value.std, 1)} (n=${value.n})`).join(" / ") || "—"}</td>
+          <div className="similar-table-scroll"><table className="similar-table similar-summary-table">
+            <thead><tr><th>距離</th><th>溶製成績書 key</th><th>{processLabel} key</th><th>実績値</th><th /></tr></thead>
+            <tbody>{similar.map((item) => (
+              <tr key={`${item.layer ?? "training"}-${item.parent_key}`}>
+                <td className="similar-distance"><b>{item.distance.toFixed(2)}</b><span className={`layer-chip ${item.layer ?? "training"}`}>{item.layer === "historical" ? "学習外" : "学習内"}</span></td>
+                <td className="similar-key">{item.melt_key ?? "—"}</td>
+                <td className="similar-key">{item.process_key ?? item.parent_key}</td>
+                <td><div className="similar-value-list"><small>{item.source || item.observation_id || "実績"}</small>{measuredOutputs(item).map(({ output, summary }) => <span key={output.key} title={`${output.label}: ${number(summary.mean, 1)} ± ${number(summary.std, 1)} ${output.unit} / n=${summary.n}`}><b>{output.key === "lambda" ? "λ" : output.key}</b><strong>{number(summary.mean, 1)}</strong></span>)}</div></td>
+                <td className="similar-action-cell">
+                  <button type="button" className="outline-button similar-add-button" disabled={!item.process_key || addingKey === item.process_key || addedKeys.includes(item.process_key ?? "")} onClick={() => { if (item.process_key) void add(item.process_key); }}>
+                    {addedKeys.includes(item.process_key ?? "") ? "追加済み" : addingKey === item.process_key ? "追加中…" : "候補に追加"}
+                  </button>
+                </td>
               </tr>
             ))}</tbody>
-          </table>
-          {similar.length > 3 && <details className="similar-more"><summary>ほかの近傍を表示</summary>{similar.slice(3).map((item) => <p key={`${item.layer ?? "training"}-${item.observation_id}`}>{item.parent_key} · {item.layer === "historical" ? "学習外" : "学習内"} · 距離 {item.distance.toFixed(2)} · {Object.entries(item.repeat_summary ?? {}).map(([key, value]) => `${key} ${number(value.mean, 1)} ± ${number(value.std, 1)} (n=${value.n})`).join(" / ")}</p>)}</details>}
+          </table></div>
         </>
       ) : status === "error" ? (
         <p className="empty-evidence">類似実験を取得できませんでした。閉じて再度開くと再試行します。</p>
@@ -1195,7 +1377,7 @@ function EvidencePanel({
   preview,
   previewStatus,
   candidateLabel,
-  similarityAvailable,
+  actualsAvailable,
   error,
   onRetry,
 }: {
@@ -1207,7 +1389,7 @@ function EvidencePanel({
   preview: ApiPreview | null;
   previewStatus: InferenceSurfaceStatus;
   candidateLabel: string;
-  similarityAvailable: boolean;
+  actualsAvailable: boolean;
   error: string;
   onRetry: () => void;
 }) {
@@ -1304,10 +1486,10 @@ function EvidencePanel({
           <p>{preview.support.message}</p>
         </div>
       )}
-      <LiveSimilarityEvidence projectId={projectId} candidate={candidate} available={similarityAvailable} ready={inferenceReady} />
+      {actualsAvailable ? <ActualsPanel projectId={projectId} candidate={candidate} outputs={outputs} enabled={inferenceReady} /> : <UnavailablePanel title="予測と実測" />}
       <details className="evidence-card">
-        <summary>予測の根拠（再現性の詳細）</summary>
-        <h2>予測の根拠</h2>
+        <summary>モデル・開発情報（再現性の詳細）</summary>
+        <h2>モデル・開発情報</h2>
         <dl>
           <dt>計算方法</dt>
           <dd>

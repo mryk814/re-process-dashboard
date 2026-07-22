@@ -6,6 +6,7 @@ __pycache__/
 dist/
 apps/web/dist/
 apps/desktop/dist/
+apps/web/.env.local
 data/app.db
 data/workbench.db
 data/workbench.db-*

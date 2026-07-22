@@ -202,6 +202,20 @@ def test_flank_wear_wear_curve_over_cutting_distance(client):
     assert all(later >= earlier for earlier, later in zip(values, values[1:]))
     assert values[0] < values[-1]
 
+    ranged = client.get(
+        f"/api/projects/{project['id']}/candidates/{candidate['id']}/response-curve",
+        params={
+            "expected_revision": candidate["revision"],
+            "target": "VB_mean",
+            "variable": "cutting_distance_m",
+            "points": 5,
+            "range_min": 100,
+            "range_max": 900,
+        },
+    )
+    assert ranged.status_code == 200
+    assert [point["x"] for point in ranged.json()["points"]] == [100.0, 300.0, 500.0, 700.0, 900.0]
+
 
 def test_flank_wear_curve_family_varies_composition_levels(client):
     project, candidate = _create_flank_project(client)

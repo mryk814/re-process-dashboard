@@ -12,7 +12,7 @@ import numpy as np
 from .feature_contracts import feature_index_families
 from .feature_pipeline import FEATURE_DEFINITIONS, FEATURE_NAMES as METALLURGY_FEATURE_NAMES, FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION, build_feature_bundle, build_feature_bundle_from_observation
 from .dataset_profile import load_task_definitions
-from .importer import WorkbookData, composition_names
+from .importer import WorkbookData, composition_names, lineage_reference_keys
 from .model_packages import ModelPackageLoader, VerifiedModelPackage, validate_predictive_summary, validate_task_definition_canonical_inputs
 from .schemas import Candidate, CandidateInput, Prediction, Support
 from .task_registry import load_task_contracts
@@ -340,6 +340,7 @@ class ModelRuntime:
                     },
                     "outputs": {key: summary["mean"] for key, summary in summaries.items()},
                     "repeat_summary": summaries,
+                    **lineage_reference_keys(self.data, parent_key, "annealing"),
                 })
                 if len(rows) >= limit:
                     break
@@ -562,7 +563,7 @@ class ModelRuntime:
             return
         raise ValueError(f"Unsupported response-curve variable: {variable}")
 
-    def curve_variable(self, candidate: Candidate, variable: str, model: RidgeModel | None = None) -> dict[str, Any]:
+    def curve_variable(self, candidate: Candidate, variable: str, model: RidgeModel | None = None, axis_range: tuple[float, float] | None = None) -> dict[str, Any]:
         reference = model or next(iter(self.models.values()))
         labels = {"heat.peak_temperature_c": ("焼鈍履歴 最高温度", "°C")}
         if variable.startswith("composition."):
@@ -578,14 +579,16 @@ class ModelRuntime:
             unit = "min" if field == "time_min" else "°C"
         else:
             label, unit = labels.get(variable, (variable, ""))
-        axis_min, axis_max = self._curve_axis(candidate, reference, variable)
-        return {"id": variable, "label": label, "unit": unit, "min": round(axis_min, 4), "max": round(axis_max, 4), "current": round(self._curve_variable_current(candidate, variable), 4)}
+        training_values = self._curve_training_values(reference, variable)
+        training_range = None if not training_values else {"min": round(min(training_values), 4), "max": round(max(training_values), 4)}
+        axis_min, axis_max = axis_range or self._curve_axis(candidate, reference, variable)
+        return {"id": variable, "label": label, "unit": unit, "min": round(axis_min, 4), "max": round(axis_max, 4), "current": round(self._curve_variable_current(candidate, variable), 4), "training_range": training_range}
 
-    def response_curve(self, candidate: Candidate, target: str = "TS", variable: str = "heat.peak_temperature_c", points: int = 9) -> list[dict[str, float]]:
+    def response_curve(self, candidate: Candidate, target: str = "TS", variable: str = "heat.peak_temperature_c", points: int = 9, axis_range: tuple[float, float] | None = None) -> list[dict[str, float]]:
         if target not in self.models:
             return []
         model = self.models[target]
-        start, end = self._curve_axis(candidate, model, variable)
+        start, end = axis_range or self._curve_axis(candidate, model, variable)
         lower_offset, upper_offset = model.interval_offsets()
         curve: list[dict[str, float]] = []
         for x_value in np.linspace(start, end, points):
@@ -602,7 +605,7 @@ class ModelRuntime:
             curve.append({"x": round(float(x_value), 4), "value": round(value, 3), "lower": round(lower, 3), "upper": round(upper, 3)})
         return curve
 
-    def response_curve_result(self, candidate: Candidate, target: str, variable: str, points: int) -> dict[str, Any]:
+    def response_curve_result(self, candidate: Candidate, target: str, variable: str, points: int, axis_range: tuple[float, float] | None = None) -> dict[str, Any]:
         if target not in self.output_keys:
             raise ValueError(f"Unsupported response-curve target: {target}")
         model = self.models.get(target)
@@ -613,8 +616,8 @@ class ModelRuntime:
         output_range = None if not observed else {"min": round(min(observed), 4), "max": round(max(observed), 4)}
         return {
             "target": target,
-            "variable": self.curve_variable(candidate, variable, model),
-            "points": self.response_curve(candidate, target, variable, points),
+            "variable": self.curve_variable(candidate, variable, model, axis_range),
+            "points": self.response_curve(candidate, target, variable, points, axis_range),
             "output_range": output_range,
             "point_count": points,
             "policy_id": "fixed-grid-v1",

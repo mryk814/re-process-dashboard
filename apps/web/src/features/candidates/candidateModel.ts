@@ -43,7 +43,7 @@ export function toApiCandidate(candidate: CandidateViewModel): ApiCandidateInput
               time_s: point.time * 60,
               temperature_c: point.temperature,
               segment_start: point.segmentStart ?? false,
-              ...(point.stageName ? { stage_name: point.stageName } : {}),
+              stage_name: point.stageName?.trim() || null,
               ...(point.stageCategory ? { stage_category: point.stageCategory } : {}),
             })),
           }),

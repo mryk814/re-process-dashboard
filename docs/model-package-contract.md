@@ -92,7 +92,7 @@ feature pipelineはJSON宣言の組込み操作（単位正規化、欠損方針
 
 ## TaskDefinitionとの境界
 
-TaskDefinitionは利用者が扱う入力group、field、output、単位、目標方向を定義する。モデルPackageは一つの `task_id` と `input_schema_version` を参照し、そのtaskのCanonicalCandidateを特徴量へ変換して予測する。Package manifestやruntime capabilityに画面配置、カード、テーブル列などのUIレイアウト情報を含めない。
+TaskDefinitionは利用者が扱う入力group、field、output、単位、目標方向を定義する。モデルPackageは一つの `task_id` と `input_schema_version` を参照し、そのtaskのCanonicalCandidateを特徴量へ変換して予測する。Package manifestやruntime capabilityに画面配置、カード、テーブル列などのUIレイアウト情報を含めない。変数ごとの表示桁数は利用者向け契約である `TaskDefinition.display_decimals` を既定値とし、モデルPackageの再学習やdigest変更を伴わせない。
 
 正本の出力は次の通りとする。
 

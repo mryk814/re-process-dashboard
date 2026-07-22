@@ -887,6 +887,7 @@ export interface components {
             max: number;
             /** Min */
             min: number;
+            training_range?: components["schemas"]["InputRange"] | null;
             /** Unit */
             unit: string;
         };
@@ -1388,6 +1389,11 @@ export interface components {
             key: string;
             /** Label */
             label: string;
+            /**
+             * Measurement Keys
+             * @default []
+             */
+            measurement_keys: string[];
             /** Unit */
             unit: string;
         };
@@ -1536,6 +1542,10 @@ export interface components {
              * @default
              */
             description: string;
+            /** Display Decimals */
+            display_decimals?: {
+                [key: string]: number;
+            };
             /** Id */
             id: string;
             /** Input Ranges */
@@ -1557,6 +1567,12 @@ export interface components {
              * @default
              */
             purpose: string;
+            /** Response Curve Ranges */
+            response_curve_ranges?: {
+                [key: string]: {
+                    [key: string]: components["schemas"]["InputRange"];
+                };
+            };
             /** Target Values */
             target_values?: {
                 [key: string]: number;
@@ -1595,6 +1611,10 @@ export interface components {
              * @default
              */
             description: string;
+            /** Display Decimals */
+            display_decimals?: {
+                [key: string]: number;
+            };
             initial_candidate?: components["schemas"]["CandidateInput"] | null;
             /** Input Ranges */
             input_ranges?: {
@@ -1615,6 +1635,12 @@ export interface components {
              * @default
              */
             purpose: string;
+            /** Response Curve Ranges */
+            response_curve_ranges?: {
+                [key: string]: {
+                    [key: string]: components["schemas"]["InputRange"];
+                };
+            };
             /** Target Values */
             target_values?: {
                 [key: string]: number;
@@ -1681,6 +1707,10 @@ export interface components {
              * @default
              */
             description: string;
+            /** Display Decimals */
+            display_decimals?: {
+                [key: string]: number;
+            };
             /** Input Ranges */
             input_ranges?: {
                 [key: string]: components["schemas"]["InputRange"];
@@ -1700,6 +1730,12 @@ export interface components {
              * @default
              */
             purpose: string;
+            /** Response Curve Ranges */
+            response_curve_ranges?: {
+                [key: string]: {
+                    [key: string]: components["schemas"]["InputRange"];
+                };
+            };
             /** Target Values */
             target_values?: {
                 [key: string]: number;
@@ -1916,6 +1952,7 @@ export interface components {
         ScreeningRequest: {
             /** Base Candidate Id */
             base_candidate_id: string;
+            base_inputs: components["schemas"]["CandidateInputs"];
             /**
              * Samples
              * @default 64
@@ -1945,6 +1982,7 @@ export interface components {
             base_canonical_input: {
                 [key: string]: unknown;
             };
+            base_inputs?: components["schemas"]["CandidateInputs"] | null;
             /**
              * Created At
              * Format: date-time
@@ -2059,6 +2097,8 @@ export interface components {
             distance: number;
             /** Layer */
             layer?: ("training" | "historical") | null;
+            /** Melt Key */
+            melt_key?: string | null;
             /**
              * Observation Id
              * @default
@@ -2072,6 +2112,13 @@ export interface components {
             };
             /** Parent Key */
             parent_key: string;
+            /** Process Key */
+            process_key?: string | null;
+            /**
+             * Process Label
+             * @default 工程履歴
+             */
+            process_label: string;
             /** Repeat Summary */
             repeat_summary?: {
                 [key: string]: components["schemas"]["RepeatSummary"];
@@ -2204,6 +2251,10 @@ export interface components {
             constraints: components["schemas"]["RelationalConstraint"][];
             /** Curve Axis Path */
             curve_axis_path?: string | null;
+            /** Display Decimals */
+            display_decimals: {
+                [key: string]: number;
+            };
             /**
              * Fixed Context
              * @default []
@@ -3327,6 +3378,8 @@ export interface operations {
             query: {
                 expected_revision: number;
                 points?: number;
+                range_max?: number | null;
+                range_min?: number | null;
                 target: string;
                 variable: string;
             };

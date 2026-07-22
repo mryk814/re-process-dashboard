@@ -262,14 +262,20 @@ export function useWorkbenchSession({
     editor.schedule(next, current);
   }
 
-  function updateHeat(index: number, field: "time" | "temperature", raw: number) {
+  function updateHeat(index: number, field: "time" | "temperature" | "stageName", raw: number | string) {
     if (!selected) return;
+    updateCandidateHeat(selected.id, index, field, raw);
+  }
+
+  function updateCandidateHeat(id: string, index: number, field: "time" | "temperature" | "stageName", raw: number | string) {
+    const current = candidates.find((candidate) => candidate.id === id);
+    if (!current) return;
     const next = {
-      ...selected,
-      heat: selected.heat.map((point, pointIndex) => pointIndex === index ? { ...point, [field]: raw } : point),
+      ...current,
+      heat: current.heat.map((point, pointIndex) => pointIndex === index ? { ...point, [field]: raw } : point),
     };
-    setCandidates((items) => items.map((candidate) => candidate.id === selected.id ? next : candidate));
-    editor.schedule(next, selected);
+    setCandidates((items) => items.map((candidate) => candidate.id === id ? next : candidate));
+    editor.schedule(next, current);
   }
 
   function addHeatPoint() {
@@ -314,6 +320,23 @@ export function useWorkbenchSession({
     } catch {
       setApiState("offline");
       setNotice("候補を追加できませんでした。API接続を確認してください。");
+    }
+  }
+
+  async function addCandidateFromLineage(entityKey: string): Promise<boolean> {
+    if (candidates.length >= 10) {
+      setNotice("比較候補は最大10件です。不要な候補を削除してから追加してください");
+      return false;
+    }
+    try {
+      const created = fromApiCandidate(await workbenchApi.createCandidateFromLineage(entityKey, activeProjectId));
+      setCandidates((items) => [...items, created]);
+      selectCandidate(created.id);
+      setNotice("近い過去実績を候補に追加しました");
+      return true;
+    } catch (cause) {
+      setNotice(cause instanceof Error ? cause.message : "過去実績を候補に追加できませんでした。");
+      return false;
     }
   }
 
@@ -464,6 +487,7 @@ export function useWorkbenchSession({
     activeProject,
     activeProjectId,
     addCandidate,
+    addCandidateFromLineage,
     addHeatPoint,
     apiState,
     brokenOriginCandidateId,
@@ -492,6 +516,7 @@ export function useWorkbenchSession({
     setNotice,
     taskDefinition,
     updateCandidateInput,
+    updateCandidateHeat,
     updateCandidateText,
     updateHeat,
     acceptCandidate,

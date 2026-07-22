@@ -45,9 +45,9 @@ export const workbenchApi = {
   async createProject(body: ApiProjectCreateInput) {
     return requireData(await apiClient.POST("/api/projects", { body }), "プロジェクトを作成できませんでした。");
   },
-  async updateProject(projectId: string, body: ApiProjectInput) {
+  async updateProject(projectId: string, body: ApiProjectInput, options?: { invalidateInference?: boolean }) {
     const project = requireData(await apiClient.PUT("/api/projects/{project_id}", { params: { path: { project_id: projectId } }, body }), "プロジェクトを保存できませんでした。");
-    inferenceRequestCache.invalidatePrefix(candidateInferencePrefix(projectId));
+    if (options?.invalidateInference !== false) inferenceRequestCache.invalidatePrefix(candidateInferencePrefix(projectId));
     return project;
   },
   async deleteProject(projectId: string) {
@@ -86,10 +86,10 @@ export const workbenchApi = {
   async predictCandidate(projectId: string, candidateId: string, expectedRevision: number) {
     return requireData(await apiClient.POST("/api/projects/{project_id}/candidates/{candidate_id}/predict", { params: { path: { project_id: projectId, candidate_id: candidateId }, query: { expected_revision: expectedRevision } } }), "詳細予測を取得できませんでした。");
   },
-  async responseCurve(projectId: string, candidateId: string, expectedRevision: number, inputIdentity: string, target: string, variable: string, points = 9, signal?: AbortSignal): Promise<ApiResponseCurve> {
+  async responseCurve(projectId: string, candidateId: string, expectedRevision: number, inputIdentity: string, target: string, variable: string, points = 9, rangeMin?: number, rangeMax?: number, signal?: AbortSignal): Promise<ApiResponseCurve> {
     return inferenceRequestCache.get(
-      inferenceRequestKey(projectId, candidateId, inputIdentity, "curve", `${target}\u001f${variable}\u001f${points}`),
-      async (sharedSignal) => requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/response-curve", { params: { path: { project_id: projectId, candidate_id: candidateId }, query: { expected_revision: expectedRevision, target, variable, points } }, signal: sharedSignal }), "応答曲線を取得できませんでした。"),
+      inferenceRequestKey(projectId, candidateId, inputIdentity, "curve", `${target}\u001f${variable}\u001f${points}\u001f${rangeMin ?? "auto"}\u001f${rangeMax ?? "auto"}`),
+      async (sharedSignal) => requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/response-curve", { params: { path: { project_id: projectId, candidate_id: candidateId }, query: { expected_revision: expectedRevision, target, variable, points, range_min: rangeMin, range_max: rangeMax } }, signal: sharedSignal }), "応答曲線を取得できませんでした。"),
       signal,
     );
   },
@@ -138,7 +138,8 @@ export const workbenchApi = {
     return requireData(await apiClient.GET("/api/quality/export.csv", { parseAs: "text" }), "データ品質CSVを取得できませんでした。");
   },
   async lineageIndex(query: string, entityType: string, issueOnly: boolean, signal?: AbortSignal) {
-    return requireData(await apiClient.GET("/api/lineage", { params: { query: { query, entity_type: entityType, issue_only: issueOnly, limit: 40 } }, signal }), "工程系譜を検索できませんでした。");
+    const normalizedEntityType = entityType === "すべて" ? "" : entityType;
+    return requireData(await apiClient.GET("/api/lineage", { params: { query: { query, entity_type: normalizedEntityType, issue_only: issueOnly, limit: 40 } }, signal }), "実績・工程を検索できませんでした。");
   },
   async lineage(entityKey: string, limit = 40) {
     return requireData(await apiClient.GET("/api/lineage/{entity_key}", { params: { path: { entity_key: entityKey }, query: { limit } } }), "系譜を取得できませんでした。");

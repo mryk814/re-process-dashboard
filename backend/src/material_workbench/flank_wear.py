@@ -42,7 +42,6 @@ SUPPORT_POLICY_ID = "flank-wear-run-knn-v1"
 DEFAULT_SOURCE_ENV = "WORKBENCH_FLANK_WEAR_SOURCE_PATH"
 DEFAULT_SOURCE = "data/source/cutting_tool_flank_wear_synthetic_dataset.xlsx"
 PROFILE_PATH = Path(__file__).with_name("dataset-input-profile-flank-wear-v1.json")
-TARGET_COLUMNS = {"VB_mean": "VB平均[µm]", "VB_max": "VB最大[µm]"}
 FEATURE_GROUP_INDICES = feature_index_families(
     FEATURE_DEFINITIONS,
     {
@@ -70,6 +69,7 @@ class FlankWearData:
     source_sha256: str
     profile_path: str
     profile_id: str
+    measurement_labels: dict[str, str]
     observations: list[dict[str, Any]]
     medians: dict[str, float]
     run_count: int
@@ -109,7 +109,7 @@ def load_flank_wear_data(path: str | Path, profile_path: str | Path | None = Non
     measurement_labels = {
         target.key: target.column
         for observation in profile.tasks[TASK_ID].observations
-        for target in (*observation.targets, *observation.auxiliary)
+        for target in observation.targets
     }
     observations: list[dict[str, Any]] = []
     for row in canonical.observations:
@@ -204,6 +204,7 @@ def load_flank_wear_data(path: str | Path, profile_path: str | Path | None = Non
         source_sha256=source_sha256,
         profile_path=str(selected_profile_path),
         profile_id=profile.profile_id,
+        measurement_labels=measurement_labels,
         observations=observations,
         medians=medians,
         run_count=len(run_links),
@@ -227,7 +228,16 @@ class FlankWearRuntime:
         default = Path(__file__).resolve().parents[3] / "models" / "packages" / "flank-wear-gp-2026-07"
         self.model_package = ModelPackageLoader().load(package_root or default)
         manifest = self.model_package.manifest
-        validate_task_definition_canonical_inputs(load_task_definitions()[TASK_ID], manifest)
+        task_definition = load_task_definitions()[TASK_ID]
+        validate_task_definition_canonical_inputs(task_definition, manifest)
+        contract_choices = {
+            field.path.removeprefix("categorical."): tuple(field.choices)
+            for group in task_definition.input_groups
+            for field in group.fields
+            if field.kind == "categorical"
+        }
+        if contract_choices != CATEGORICAL_CHOICES:
+            raise ValueError("Flank-wear categorical choices do not match TaskDefinition")
         if manifest.task_id != TASK_ID:
             raise ValueError(f"Model package task {manifest.task_id} is incompatible with {TASK_ID}")
         if (manifest.feature_pipeline.id, manifest.feature_pipeline.version) != (PIPELINE_ID, PIPELINE_VERSION):
@@ -559,7 +569,7 @@ class FlankWearRuntime:
         axis = definition.curve_axis_path
         assert axis is not None
         axis_meta = self._curve_variable_meta(candidate, axis)
-        column = TARGET_COLUMNS[target]
+        column = self.data.measurement_labels[target]
         observed = [
             float(row["outputs"][column])
             for rows in self.reference_rows for row in rows
@@ -620,12 +630,21 @@ class FlankWearRuntime:
             "policy_id": "axis-grid-v1",
         }
 
-    def response_curve_result(self, candidate: Candidate, target: str, variable: str, points: int) -> dict[str, Any]:
+    def response_curve_result(
+        self,
+        candidate: Candidate,
+        target: str,
+        variable: str,
+        points: int,
+        axis_range: tuple[float, float] | None = None,
+    ) -> dict[str, Any]:
         if target not in self.predictors:
             raise ValueError(f"Unsupported response-curve target: {target}")
         variable = _normalize_curve_variable(variable)
         meta = self._curve_variable_meta(candidate, variable)
-        column = TARGET_COLUMNS[target]
+        if axis_range is not None:
+            meta = {**meta, "min": axis_range[0], "max": axis_range[1]}
+        column = self.data.measurement_labels[target]
         observed = [
             float(row["outputs"][column])
             for rows in self.reference_rows for row in rows

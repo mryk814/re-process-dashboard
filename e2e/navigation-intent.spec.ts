@@ -21,7 +21,7 @@ test("quality finding opens the selected lineage node and returns with filters",
   page.on("pageerror", (error) => pageErrors.push(error.message));
   await page.goto("/?view=quality&project=default");
   await expect(page.getByRole("heading", { name: "問題から探す" })).toBeVisible();
-  await expect(page.locator(".topbar").getByRole("button", { name: "データ探索" })).toHaveClass(/active/);
+  await expect(page.getByRole("navigation", { name: "プロジェクト内メニュー" }).getByRole("button", { name: "データ探索" })).toHaveClass(/active/);
 
   await page.getByLabel("種別").selectOption("duplicate_key");
   await expect(page).toHaveURL(/quality_type=duplicate_key/);
@@ -154,14 +154,14 @@ test("lineage separates each process condition and test type into its own group"
   await page.getByRole("button", { name: "熱延 HR-00001 の熱延引張を展開する" }).click();
   await expect(page.getByRole("button", { name: "熱延 HR-00001 の熱延引張を折りたたむ" })).toHaveAttribute("aria-expanded", "true");
   await expect(page.locator(".lineage-graph-node.group-hot-tensile")).toHaveCount(2);
+  await expect(page.locator(".lineage-graph-node").filter({ hasText: "HT-00001" })).toBeVisible();
   await page.getByRole("button", { name: "熱延 HR-00001 の熱延組織を展開する" }).click();
+  await expect(page.locator(".lineage-graph-node.group-hot-microstructure")).toHaveCount(1);
+  await expect(page.locator(".lineage-graph-node").filter({ hasText: "HMS-00001" })).toBeVisible();
   await page.getByRole("button", { name: "焼鈍 AN-00001 の組織を展開する" }).click();
   await page.getByRole("button", { name: "焼鈍 AN-00001 の穴広げを展開する" }).click();
-  await expect(page.locator(".lineage-graph-node.group-hot-microstructure")).toHaveCount(1);
   await expect(page.locator(".lineage-graph-node.group-annealed-microstructure")).toHaveCount(2);
   await expect(page.locator(".lineage-graph-node.group-annealed-hole-expansion")).toHaveCount(3);
-  await expect(page.locator(".lineage-graph-node").filter({ hasText: "HT-00001" })).toBeVisible();
-  await expect(page.locator(".lineage-graph-node").filter({ hasText: "HMS-00001" })).toBeVisible();
 });
 
 test("lineage orders test groups by process condition before test type", async ({ page }) => {
@@ -189,16 +189,16 @@ test("lineage marks implausible observations without hiding raw values", async (
   await expect(detail).toContainText("妥当範囲 100–2500");
 });
 
-test("direct lineage key entry stays separate from result filtering", async ({ page }) => {
+test("lineage search recovers from an empty result and opens an exact key", async ({ page }) => {
   await page.goto("/?view=lineage&project=default");
   await page.getByLabel("ノードを検索").fill("does-not-exist");
   await expect(page.getByText("一致するキーはありません。")).toBeVisible();
 
-  await page.getByLabel("キーを直接指定").fill("AN-00003");
-  await page.getByRole("button", { name: "開く", exact: true }).click();
+  await page.getByLabel("ノードを検索").fill("AN-00003");
+  await page.getByRole("button", { name: /AN-00003/ }).click();
   await expect(page).toHaveURL(/entity=AN-00003/);
   await expect(page.getByRole("complementary", { name: "選択ノード詳細" })).toContainText("AN-00003");
-  await expect(page.getByLabel("ノードを検索")).toHaveValue("does-not-exist");
+  await expect(page.getByLabel("ノードを検索")).toHaveValue("AN-00003");
 });
 
 test("lineage expands the 40-node window and distinguishes data issues", async ({ page }) => {

@@ -20,3 +20,4 @@ export {
   type TaskOutputDefinition,
 } from "./taskDefinition";
 export { useCandidateEditor, type CandidateSaveState } from "./useCandidateEditor";
+export { displayDecimals, formatDisplayNumber, formatInputNumber, type DisplayDecimalOverrides } from "./numberFormat";

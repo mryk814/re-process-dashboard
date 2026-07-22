@@ -17,7 +17,7 @@ import numpy as np
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from material_workbench.flank_wear import FEATURE_GROUP_INDICES, TARGET_COLUMNS, load_flank_wear_data
+from material_workbench.flank_wear import FEATURE_GROUP_INDICES, load_flank_wear_data
 from material_workbench.flank_wear_feature_pipeline import (
     CANONICAL_INPUT_PATHS,
     FEATURE_DEFINITIONS,
@@ -175,7 +175,7 @@ def _build(source: Path, destination: Path) -> None:
     predictors: list[dict[str, object]] = []
     counts: dict[str, int] = {}
     quality_metrics: list[TargetQualityMetric] = []
-    for target, column in TARGET_COLUMNS.items():
+    for target, column in data.measurement_labels.items():
         y_raw = np.asarray([float(row["outputs"][column]) for row in training_rows])
         y_log = np.log1p(y_raw)
         lengthscale, outputscale, train_noise = _fit_hyperparameters(x, y_log)
@@ -242,7 +242,7 @@ def _build(source: Path, destination: Path) -> None:
     raw = build_flank_wear_features(sample, data.medians).values
     smoke_expected = smoke_dir / "expected.json"
     smoke_expected.write_text(json.dumps({
-        target: round(_point(artifact_dir / f"{target}.npz", raw), 8) for target in TARGET_COLUMNS
+        target: round(_point(artifact_dir / f"{target}.npz", raw), 8) for target in data.measurement_labels
     }, indent=2), encoding="utf-8", newline="\n")
     files.extend([smoke_input, smoke_expected])
 

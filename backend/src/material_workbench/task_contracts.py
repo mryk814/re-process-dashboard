@@ -112,6 +112,7 @@ class OutputDefinition(ContractModel):
     label: Annotated[str, Field(min_length=1)]
     unit: Annotated[str, Field(min_length=1)]
     goal_direction: Literal["at_least", "at_most", "target"]
+    measurement_keys: tuple[Annotated[str, Field(min_length=1)], ...] = ()
 
 
 class FixedContextDefinition(ContractModel):
@@ -141,6 +142,7 @@ class TaskDefinition(ContractModel):
     canonical_candidate_schema_version: Literal[CANONICAL_CANDIDATE_SCHEMA_VERSION]
     input_groups: Annotated[tuple[InputGroupDefinition, ...], Field(min_length=1)]
     outputs: Annotated[tuple[OutputDefinition, ...], Field(min_length=1)]
+    display_decimals: dict[str, Annotated[int, Field(ge=0, le=8)]]
     fixed_context: tuple[FixedContextDefinition, ...] = ()
     constraints: tuple[RelationalConstraint, ...] = ()
     # 予測対象が「この軸に沿った曲線」であるタスクだけが宣言する。宣言された
@@ -163,6 +165,12 @@ class TaskDefinition(ContractModel):
         output_keys = [output.key for output in self.outputs]
         if len(output_keys) != len(set(output_keys)):
             raise ValueError("output keys must be unique")
+        display_keys = {
+            *(field.path for group in self.input_groups for field in group.fields if field.kind == "number"),
+            *(f"output.{output.key}" for output in self.outputs),
+        }
+        if set(self.display_decimals) != display_keys:
+            raise ValueError("display_decimals must define every numeric input and output exactly once")
         context_paths = [item.path for item in self.fixed_context]
         context_orders = [item.order for item in self.fixed_context]
         if len(context_paths) != len(set(context_paths)):

@@ -43,7 +43,8 @@ test("inference runs only for changed candidates and visible selected curves", a
   await expect(page.locator(".response-curves-panel")).toHaveAttribute("data-candidate-count", "3");
   await expect(page.locator(".response-curves-panel .candidate-color-legend span")).toHaveCount(3);
   await expect.poll(() => curveRequests).toBeGreaterThanOrEqual(12);
-  expect(similarityRequests).toBe(0);
+  await expect.poll(() => similarityRequests).toBe(1);
+  await expect(page.locator(".similar-summary-table")).toBeVisible();
 
   const candidateRows = page.locator(".candidate-name-table tbody tr");
   await candidateRows.nth(1).click();
@@ -155,17 +156,6 @@ test("inference runs only for changed candidates and visible selected curves", a
   await expect(page.locator(".evidence-panel .metric-table")).toBeVisible();
   await page.unroute("**/preview*");
 
-  const similarityToggle = page.getByRole("button", { name: "根拠を表示" });
-  await expect(similarityToggle).toBeVisible();
-  expect(similarityRequests).toBe(0);
-  await similarityToggle.click();
-  await expect.poll(() => similarityRequests).toBe(1);
-  await expect(page.locator(".similar-summary-table")).toBeVisible();
-  await page.getByRole("button", { name: "閉じる" }).click();
-  await page.getByRole("button", { name: "根拠を表示" }).click();
-  await expect(page.locator(".similar-summary-table")).toBeVisible();
-  expect(similarityRequests).toBe(1);
-
   const candidateApiUrl = `http://127.0.0.1:8875/api/projects/default/candidates/${createdCandidateId}`;
   const currentCandidateResponse = await page.request.get(candidateApiUrl);
   expect(currentCandidateResponse.status()).toBe(200);
@@ -201,6 +191,7 @@ test("inference runs only for changed candidates and visible selected curves", a
     await route.fulfill({ response });
   }, { times: 1 });
   const previewsBeforeConflictRecovery = previewRequests;
+  const successfulPreviewsBeforeConflictRecovery = successfulCreatedPreviews();
   const conflictName = page.locator(".candidate-name-table tbody tr.selected-row input");
   await conflictName.fill(`${await conflictName.inputValue()} 競合1`);
   await page.locator(".table-heading h2").click();
@@ -217,6 +208,7 @@ test("inference runs only for changed candidates and visible selected curves", a
   releaseConflict();
   await recoveredSave;
   await expect.poll(() => previewRequests).toBe(previewsBeforeConflictRecovery + 1);
+  await expect.poll(successfulCreatedPreviews).toBe(successfulPreviewsBeforeConflictRecovery + 1);
   await expect(page.locator(".evidence-panel .metric-table")).toBeVisible();
   await page.unroute(`**/candidates/${createdCandidateId}`);
 
@@ -225,10 +217,10 @@ test("inference runs only for changed candidates and visible selected curves", a
     failedPreviewResponse = true;
     await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ detail: "forced preview failure" }) });
   }, { times: 1 });
-  const savedValue = Number(await selectedNumeric.inputValue());
+  const failedPreviewNumeric = page.locator(".candidate-inspector input.slider-number").first();
+  const savedValue = Number(await failedPreviewNumeric.inputValue());
   const saveBeforeFailedPreview = page.waitForResponse((response) => response.request().method() === "PUT" && response.url().includes("/candidates/"));
-  await selectedNumeric.fill(String(savedValue + 0.001));
-  await page.locator(".table-heading h2").click();
+  await failedPreviewNumeric.fill(String(savedValue + 0.001));
   await saveBeforeFailedPreview;
   await expect.poll(() => failedPreviewResponse).toBe(true);
   await expect(page.getByText("入力は保存しましたが、予測結果を更新できませんでした")).toBeVisible();

@@ -17,6 +17,20 @@ type HeatStageSegment = {
   duration: number;
 };
 
+type LineageGroupSelection = {
+  parentKey: string;
+  entityType: string;
+  nodeKeys: string[];
+};
+
+const GROUP_OBSERVATION_TYPES: Record<string, string> = {
+  熱延引張: "熱延引張実績",
+  熱延組織: "熱延組織",
+  焼鈍引張: "焼鈍引張実績",
+  焼鈍穴広げ: "焼鈍穴拡げ実績",
+  焼鈍組織: "焼鈍板組織",
+};
+
 function heatStageSegments(heat: ApiLineage["node"]["heat_pattern"]): HeatStageSegment[] {
   const segments: HeatStageSegment[] = [];
   heat.forEach((point, index) => {
@@ -59,14 +73,14 @@ export function LineagePage({
 }) {
   const [entityKey, setEntityKey] = useState(initialEntityKey ?? "");
   const [query, setQuery] = useState("");
-  const [directKey, setDirectKey] = useState("");
-  const [entityType, setEntityType] = useState("焼鈍");
+  const [entityType, setEntityType] = useState("");
   const [issueOnly, setIssueOnly] = useState(false);
   const [graphLimit, setGraphLimit] = useState(40);
   const [index, setIndex] = useState<ApiLineageIndex | null>(null);
   const [data, setData] = useState<ApiLineage | null>(null);
   const [error, setError] = useState("");
   const [candidateError, setCandidateError] = useState("");
+  const [selectedGroup, setSelectedGroup] = useState<LineageGroupSelection | null>(null);
   const activeProjectRef = useRef(projectId);
   const outputLabel = (raw: string) => {
     const definition = outputs.find((output) => raw === output.key || raw.startsWith(`${output.key}[`) || (output.key === "lambda" && raw.startsWith("λ")));
@@ -79,7 +93,8 @@ export function LineagePage({
   }, [projectId, initialEntityKey]);
   useEffect(() => {
     setQuery("");
-    setDirectKey("");
+    setEntityType("");
+    setIssueOnly(false);
     setError("");
     setCandidateError("");
   }, [projectId]);
@@ -144,6 +159,7 @@ export function LineagePage({
   };
   const openNode = (key: string) => {
     setGraphLimit(40);
+    setSelectedGroup(null);
     setEntityKey(key);
     onEntityChange(key);
   };
@@ -177,6 +193,14 @@ export function LineagePage({
     ).values(),
   );
   const heatStageTrack = heatStageSegments(heat);
+  const selectedGroupObservationType = selectedGroup ? GROUP_OBSERVATION_TYPES[selectedGroup.entityType] ?? selectedGroup.entityType : "";
+  const selectedGroupObservationGroups = selectedGroup && data
+    ? (data.node.observation_groups ?? []).filter((group) => group.test_type === selectedGroupObservationType)
+    : [];
+  const selectedGroupObservations = Array.from(
+    new Map(selectedGroupObservationGroups.flatMap((group) => group.observations).map((observation) => [observation.id, observation])).values(),
+  );
+  const selectedGroupProperties = Array.from(new Set(selectedGroupObservations.flatMap((observation) => Object.keys(observation.outputs))));
   return (
     <div className="page-panel lineage-page">
       {qualityIssueId && (
@@ -185,32 +209,13 @@ export function LineagePage({
           <button type="button" className="text-button" onClick={onReturnToQuality}>品質一覧へ戻る</button>
         </div>
       )}
-      <div className="page-intro lineage-intro">
+      <div className="page-intro">
         <div>
           <span className="overline">データ探索</span>
-          <h2>工程系譜</h2>
           <p>
             この材料・条件は、どの工程と試験結果につながっているか。
           </p>
         </div>
-        <form
-          className="lineage-direct-open"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (directKey.trim()) {
-              openNode(directKey.trim());
-            }
-          }}
-        >
-          <label htmlFor="lineage-direct-key">キーを直接指定</label>
-          <input
-            id="lineage-direct-key"
-            value={directKey}
-            onChange={(event) => setDirectKey(event.target.value)}
-            placeholder="例: AN-00001"
-          />
-          <button type="submit" className="secondary-button">開く</button>
-        </form>
       </div>
       <div className="lineage-workspace">
         <aside className="lineage-browser" aria-label="系譜ノード検索">
@@ -281,6 +286,7 @@ export function LineagePage({
             graph={data.graph}
             selectedKey={data.key}
             onSelect={openNode}
+            onGroupSelect={setSelectedGroup}
             onLoadMore={() => setGraphLimit((current) => Math.min(200, current + 40))}
           />
             {data.graph.edges.length > 0 && (
@@ -300,60 +306,109 @@ export function LineagePage({
             )}
         </main>
         <aside className="lineage-detail-panel" aria-label="選択ノード詳細">
-          <div className="lineage-detail-header">
-            <div>
-              <span className="overline">
-                {data.node.source_sheet} / {data.node.entity_type}
-              </span>
-              <h3>{data.key}</h3>
-              <p>
-                {Object.values(data.relations).reduce(
-                  (sum, values) => sum + values.length,
-                  0,
-                )}
-                件の関係、{data.node.connected_observation_count}件の接続観測
-              </p>
+          <section className="lineage-node-summary" aria-label="ノード情報">
+            <div className="lineage-node-summary-label">ノード情報</div>
+            <div className="lineage-detail-header">
+              <div>
+                <span className="overline">
+                  {data.node.source_sheet} / {data.node.entity_type}
+                </span>
+                <h3>{data.key}</h3>
+                <p>
+                  {Object.values(data.relations).reduce(
+                    (sum, values) => sum + values.length,
+                    0,
+                  )}
+                  件の関係、{data.node.connected_observation_count}件の接続観測
+                </p>
+              </div>
+              <div className="lineage-detail-action">
+                <button
+                  className="primary-button"
+                  disabled={!supportsCandidateCreation || !data.candidate_eligible}
+                  title={supportsCandidateCreation ? data.candidate_reason : "この予測タスクは系譜からの候補化に対応していません"}
+                  onClick={() => {
+                    void createCandidate();
+                  }}
+                >
+                  候補ストックへ追加
+                </button>
+                <span className={`lineage-detail-action-reason ${supportsCandidateCreation && data.candidate_eligible ? "" : "muted"}`}>
+                  {supportsCandidateCreation ? data.candidate_reason : "この予測タスクは系譜からの候補化に対応していません。"}
+                </span>
+                {candidateError && <span className="warning">{candidateError}</span>}
+              </div>
             </div>
-            <button
-              className="primary-button"
-              disabled={!supportsCandidateCreation || !data.candidate_eligible}
-              title={supportsCandidateCreation ? data.candidate_reason : "この予測タスクは系譜からの候補化に対応していません"}
-              onClick={() => {
-                void createCandidate();
-              }}
-            >
-              候補ストックへ追加
-            </button>
-          </div>
-          <p className={`lineage-candidate-note ${supportsCandidateCreation && data.candidate_eligible ? "" : "muted"}`}>{supportsCandidateCreation ? data.candidate_reason : "この予測タスクは系譜からの候補化に対応していません。工程の確認には引き続き利用できます。"}</p>
-          {candidateError && <p className="warning">{candidateError}</p>}
-          <div className="lineage-detail-grid">
-            <section>
+            <section className="lineage-node-facts">
               <h3>主要条件</h3>
-              <dl>
-                {Object.entries(data.node.primary_conditions).map(
-                  ([key, value]) => (
-                    <div key={key}>
-                      <dt>{key}</dt>
-                      <dd>{value === null ? "—" : String(value)}</dd>
-                    </div>
-                  ),
-                )}
-              </dl>
-            </section>
-            <section>
-              <h3>
-                上流組成 <small>mass%</small>
-              </h3>
-              <div className="composition-chips">
-                {Object.entries(data.node.composition).map(([key, value]) => (
-                  <span key={key}>
-                    <b>{key}</b>
-                    {number(value, value < 0.01 ? 5 : 3)}
-                  </span>
-                ))}
+              <div className="lineage-node-facts-scroll">
+                <table>
+                  <tbody>
+                    <tr>
+                      {Object.keys(data.node.primary_conditions).map((key) => <th scope="col" key={key}>{key}</th>)}
+                    </tr>
+                    <tr>
+                      {Object.entries(data.node.primary_conditions).map(([key, value]) => <td key={key}>{value === null ? "—" : String(value)}</td>)}
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </section>
+          </section>
+          {selectedGroup && (
+            <section className="lineage-group-facts">
+              <div className="lineage-group-facts-header">
+                <div>
+                  <h3>{selectedGroup.entityType} {selectedGroup.nodeKeys.length}件</h3>
+                  <p>{selectedGroup.parentKey} に接続された試験をまとめて表示</p>
+                </div>
+                <button type="button" className="text-button" onClick={() => setSelectedGroup(null)}>グループ選択を解除</button>
+              </div>
+              {selectedGroupObservations.length ? (
+                <div className="lineage-group-facts-scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th scope="col">試験キー</th>
+                        {selectedGroupProperties.map((property) => <th scope="col" key={property}>{outputLabel(property)}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedGroupObservations.map((observation) => (
+                        <tr key={observation.id}>
+                          <th scope="row">{observation.id}</th>
+                          {selectedGroupProperties.map((property) => {
+                            const value = observation.outputs[property];
+                            return <td key={property}>{value == null ? "—" : typeof value === "number" ? number(value, Math.abs(value) < 1 ? 3 : 1) : String(value)}</td>;
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="empty-evidence">このグループの実績値はありません。</p>
+              )}
+            </section>
+          )}
+          <section className="lineage-neighbor-facts">
+            <h3>
+              上流組成 <small>mass%</small>
+            </h3>
+            <div className="lineage-node-facts-scroll">
+              <table>
+                <tbody>
+                  <tr>
+                    {Object.keys(data.node.composition).map((key) => <th scope="col" key={key}>{key}</th>)}
+                  </tr>
+                  <tr>
+                    {Object.entries(data.node.composition).map(([key, value]) => <td key={key}>{number(value, value < 0.01 ? 5 : 3)}</td>)}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+          <div className="lineage-detail-grid">
             <section>
               <h3>
                 実績ヒートパターン <small>{heat.length}点</small>
@@ -493,7 +548,7 @@ export function LineagePage({
           <section className="lineage-empty-overview">
             <span className="overline">ノード未選択</span>
             <h3>調べるノードを選択してください</h3>
-            <p>左の検索結果を選ぶか、キーを直接指定すると、実在する関係線と前後工程を表示します。</p>
+            <p>左の検索欄からノードを選ぶと、実在する関係線と前後工程を表示します。</p>
             {index && <p>{number(index.total_entities)}ノード / {number(index.relation_rows)} relation行 / {index.detected_issues}件の品質問題</p>}
           </section>
         </main>

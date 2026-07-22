@@ -354,6 +354,7 @@ def test_importer_accepts_task_and_profile_composition_addition_without_code_cha
     vanadium = dict(composition_group["fields"][-1])
     vanadium.update({"path": "composition.V", "order": len(composition_group["fields"]), "label": "V"})
     composition_group["fields"].append(vanadium)
+    task_document["display_decimals"]["composition.V"] = 5
     definitions[task_id] = TaskDefinition.model_validate(task_document)
 
     raw_profile = json.loads(PROFILE.read_text(encoding="utf-8"))

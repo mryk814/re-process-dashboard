@@ -41,8 +41,14 @@ def test_task_fixtures_share_one_contract(
 
     assert fixture.task_definition.id == expected_task
     assert {output.key for output in fixture.task_definition.outputs} == expected_outputs
+    assert all(output.measurement_keys for output in fixture.task_definition.outputs)
     assert (fixture.canonical_candidate.heat_pattern is not None) is has_heat_pattern
     assert fixture.runtime_capability.task_id == expected_task
+    expected_display_keys = {
+        *(field.path for group in fixture.task_definition.input_groups for field in group.fields if field.kind == "number"),
+        *(f"output.{output.key}" for output in fixture.task_definition.outputs),
+    }
+    assert set(fixture.task_definition.display_decimals) == expected_display_keys
 
 
 def test_fixtures_freeze_complete_task_specific_input_sets() -> None:
@@ -124,6 +130,19 @@ def test_duplicate_field_path_is_rejected() -> None:
     composition["fields"][-1]["order"] = 99
 
     with pytest.raises(ValidationError, match="field paths must be unique"):
+        TaskDefinition.model_validate(task)
+
+
+def test_display_decimals_require_every_numeric_variable_and_valid_range() -> None:
+    raw = load_fixture("annealed-properties-v1.json")
+    task = raw["task_definition"]
+    task["display_decimals"].pop("composition.C")
+    with pytest.raises(ValidationError, match="display_decimals must define"):
+        TaskDefinition.model_validate(task)
+
+    task = load_fixture("annealed-properties-v1.json")["task_definition"]
+    task["display_decimals"]["composition.C"] = 9
+    with pytest.raises(ValidationError, match="less than or equal to 8"):
         TaskDefinition.model_validate(task)
 
 

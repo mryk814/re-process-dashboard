@@ -822,6 +822,16 @@
             "title": "Min",
             "type": "number"
           },
+          "training_range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InputRange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "unit": {
             "title": "Unit",
             "type": "string"
@@ -2246,6 +2256,15 @@
             "title": "Label",
             "type": "string"
           },
+          "measurement_keys": {
+            "default": [],
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "title": "Measurement Keys",
+            "type": "array"
+          },
           "unit": {
             "minLength": 1,
             "title": "Unit",
@@ -2598,6 +2617,15 @@
             "title": "Description",
             "type": "string"
           },
+          "display_decimals": {
+            "additionalProperties": {
+              "maximum": 8.0,
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "title": "Display Decimals",
+            "type": "object"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -2625,6 +2653,16 @@
             "default": "",
             "title": "Purpose",
             "type": "string"
+          },
+          "response_curve_ranges": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/InputRange"
+              },
+              "type": "object"
+            },
+            "title": "Response Curve Ranges",
+            "type": "object"
           },
           "target_values": {
             "additionalProperties": {
@@ -2682,6 +2720,15 @@
             "title": "Description",
             "type": "string"
           },
+          "display_decimals": {
+            "additionalProperties": {
+              "maximum": 8.0,
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "title": "Display Decimals",
+            "type": "object"
+          },
           "initial_candidate": {
             "anyOf": [
               {
@@ -2715,6 +2762,16 @@
             "default": "",
             "title": "Purpose",
             "type": "string"
+          },
+          "response_curve_ranges": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/InputRange"
+              },
+              "type": "object"
+            },
+            "title": "Response Curve Ranges",
+            "type": "object"
           },
           "target_values": {
             "additionalProperties": {
@@ -2829,6 +2886,15 @@
             "title": "Description",
             "type": "string"
           },
+          "display_decimals": {
+            "additionalProperties": {
+              "maximum": 8.0,
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "title": "Display Decimals",
+            "type": "object"
+          },
           "input_ranges": {
             "additionalProperties": {
               "$ref": "#/components/schemas/InputRange"
@@ -2852,6 +2918,16 @@
             "default": "",
             "title": "Purpose",
             "type": "string"
+          },
+          "response_curve_ranges": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/InputRange"
+              },
+              "type": "object"
+            },
+            "title": "Response Curve Ranges",
+            "type": "object"
           },
           "target_values": {
             "additionalProperties": {
@@ -3454,6 +3530,9 @@
             "title": "Base Candidate Id",
             "type": "string"
           },
+          "base_inputs": {
+            "$ref": "#/components/schemas/CandidateInputs"
+          },
           "samples": {
             "default": 64,
             "maximum": 128.0,
@@ -3496,6 +3575,7 @@
         },
         "required": [
           "base_candidate_id",
+          "base_inputs",
           "variables"
         ],
         "title": "ScreeningRequest",
@@ -3511,6 +3591,16 @@
             "additionalProperties": true,
             "title": "Base Canonical Input",
             "type": "object"
+          },
+          "base_inputs": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CandidateInputs"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "created_at": {
             "format": "date-time",
@@ -3802,6 +3892,17 @@
             ],
             "title": "Layer"
           },
+          "melt_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Melt Key"
+          },
           "observation_id": {
             "default": "",
             "title": "Observation Id",
@@ -3823,6 +3924,22 @@
           },
           "parent_key": {
             "title": "Parent Key",
+            "type": "string"
+          },
+          "process_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Process Key"
+          },
+          "process_label": {
+            "default": "工程履歴",
+            "title": "Process Label",
             "type": "string"
           },
           "repeat_summary": {
@@ -4181,6 +4298,15 @@
             ],
             "title": "Curve Axis Path"
           },
+          "display_decimals": {
+            "additionalProperties": {
+              "maximum": 8.0,
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "title": "Display Decimals",
+            "type": "object"
+          },
           "fixed_context": {
             "default": [],
             "items": {
@@ -4227,7 +4353,8 @@
           "label",
           "canonical_candidate_schema_version",
           "input_groups",
-          "outputs"
+          "outputs",
+          "display_decimals"
         ],
         "title": "TaskDefinition",
         "type": "object"
@@ -5906,6 +6033,38 @@
               "minimum": 3,
               "title": "Points",
               "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "range_min",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Range Min"
+            }
+          },
+          {
+            "in": "query",
+            "name": "range_max",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Range Max"
             }
           }
         ],

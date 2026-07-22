@@ -23,7 +23,14 @@ Quiet header, left inspector rail, central comparison table and charts, right ev
 - Property prediction table with interval whiskers and support status.
 - Similar-experiment list and reproducibility metadata.
 
+## Table rules
+
+- Column headers are centered. Row headers and identifier/text columns stay left-aligned.
+- Numeric cells and numeric inputs are right-aligned and use tabular numerals.
+- A variable uses the same decimal places across every row so candidates can be compared vertically.
+- `TaskDefinition.display_decimals` is the upstream default. A project's sparse `display_decimals` map overrides it without rounding stored or calculated values.
+- Editable tables may format an idle numeric input with trailing zeroes; editing and persistence continue to use the original numeric value.
+
 ## Copy lock for first viewport
 
 Material Decision Workbench / プロジェクト / 候補比較 / データ探索 / 範囲探索 / 焼鈍条件の候補検討 / プレビュー / 詳細予測を実行 / 選択候補 / 入力条件 / 候補操作 / 候補を追加 / 候補比較表 / ヒートパターン / 応答曲線 / 予測特性 / 類似する過去実験 / 予測の根拠。
-

@@ -172,6 +172,7 @@ def test_new_database_is_created_directly_at_current_schema(tmp_path: Path) -> N
         assert "hot_rolling_candidates" not in tables
         assert {"projects", "candidates", "snapshots", "screening_runs", "actual_measurements", "schema_migrations"} <= tables
         assert conn.execute("SELECT task_id FROM projects WHERE id='default'").fetchone()[0] == "annealed-properties-v1"
+        assert conn.execute("SELECT display_decimals FROM projects WHERE id='default'").fetchone()[0] == "{}"
 
 
 def _unification_v1_database(path: Path) -> None:
@@ -209,6 +210,7 @@ def test_candidate_safety_migration_backs_up_preserves_and_is_idempotent(tmp_pat
         assert row["created_at"] == "2026-01-02T00:00:00+00:00"
         assert row["updated_at"] == "2026-01-03T00:00:00+00:00"
         assert json.loads(row["payload"])["name"] == "既存共通候補"
+        assert conn.execute("SELECT display_decimals FROM projects WHERE id='default'").fetchone()[0] == "{}"
     assert migrate_candidate_storage(database).status == "already-current"
     assert len(list(tmp_path.glob("*.pre-candidate-safety-v1-*.bak"))) == 1
 

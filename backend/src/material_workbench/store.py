@@ -70,7 +70,7 @@ class Store:
 
     @staticmethod
     def _project(row: sqlite3.Row) -> Project:
-        return Project(id=row["id"], name=row["name"], description=row["description"], purpose=row["purpose"], task_id=row["task_id"], target_values=json.loads(row["target_values"]), input_ranges=json.loads(row["input_ranges"]), notes=row["notes"], decision_candidate_id=row["decision_candidate_id"], decision_snapshot_id=row["decision_snapshot_id"], decision_note=row["decision_note"], created_at=datetime.fromisoformat(row["created_at"]), updated_at=datetime.fromisoformat(row["updated_at"]))
+        return Project(id=row["id"], name=row["name"], description=row["description"], purpose=row["purpose"], task_id=row["task_id"], target_values=json.loads(row["target_values"]), input_ranges=json.loads(row["input_ranges"]), response_curve_ranges=json.loads(row["response_curve_ranges"]), display_decimals=json.loads(row["display_decimals"]), notes=row["notes"], decision_candidate_id=row["decision_candidate_id"], decision_snapshot_id=row["decision_snapshot_id"], decision_note=row["decision_note"], created_at=datetime.fromisoformat(row["created_at"]), updated_at=datetime.fromisoformat(row["updated_at"]))
 
     def list_projects(self) -> list[Project]:
         with self._connect() as conn:
@@ -99,8 +99,8 @@ class Store:
                 if source["task_id"] != payload.task_id:
                     raise CandidateCopyConflictError("異なる予測タスクの候補はコピーできません")
             conn.execute(
-                "INSERT INTO projects(id, name, description, purpose, task_id, target_values, input_ranges, notes, decision_candidate_id, decision_snapshot_id, decision_note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (project_id, payload.name, payload.description, payload.purpose, payload.task_id, json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True), json.dumps({key: value.model_dump() for key, value in payload.input_ranges.items()}, ensure_ascii=False, sort_keys=True), payload.notes, payload.decision_candidate_id, payload.decision_snapshot_id, payload.decision_note, now, now),
+                "INSERT INTO projects(id, name, description, purpose, task_id, target_values, input_ranges, response_curve_ranges, display_decimals, notes, decision_candidate_id, decision_snapshot_id, decision_note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (project_id, payload.name, payload.description, payload.purpose, payload.task_id, json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True), json.dumps({key: value.model_dump() for key, value in payload.input_ranges.items()}, ensure_ascii=False, sort_keys=True), json.dumps({axis: {key: value.model_dump() for key, value in ranges.items()} for axis, ranges in payload.response_curve_ranges.items()}, ensure_ascii=False, sort_keys=True), json.dumps(payload.display_decimals, ensure_ascii=False, sort_keys=True), payload.notes, payload.decision_candidate_id, payload.decision_snapshot_id, payload.decision_note, now, now),
             )
             if initial_candidate is not None:
                 candidate_id = str(uuid.uuid4())
@@ -119,8 +119,8 @@ class Store:
         now = _now()
         with self._connect() as conn:
             conn.execute(
-                "INSERT INTO projects(id, name, description, purpose, task_id, target_values, input_ranges, notes, decision_candidate_id, decision_snapshot_id, decision_note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (project_id, payload.name, payload.description, payload.purpose, payload.task_id, json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True), json.dumps({key: value.model_dump() for key, value in payload.input_ranges.items()}, ensure_ascii=False, sort_keys=True), payload.notes, "", "", "", now, now),
+                "INSERT INTO projects(id, name, description, purpose, task_id, target_values, input_ranges, response_curve_ranges, display_decimals, notes, decision_candidate_id, decision_snapshot_id, decision_note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (project_id, payload.name, payload.description, payload.purpose, payload.task_id, json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True), json.dumps({key: value.model_dump() for key, value in payload.input_ranges.items()}, ensure_ascii=False, sort_keys=True), json.dumps({axis: {key: value.model_dump() for key, value in ranges.items()} for axis, ranges in payload.response_curve_ranges.items()}, ensure_ascii=False, sort_keys=True), json.dumps(payload.display_decimals, ensure_ascii=False, sort_keys=True), payload.notes, "", "", "", now, now),
             )
         return self.get_project(project_id)  # type: ignore[return-value]
 
@@ -129,7 +129,7 @@ class Store:
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
             self._validate_decision(conn, project_id, payload.decision_candidate_id, payload.decision_snapshot_id)
-            result = conn.execute("UPDATE projects SET name=?, description=?, purpose=?, task_id=?, target_values=?, input_ranges=?, notes=?, decision_candidate_id=?, decision_snapshot_id=?, decision_note=?, updated_at=? WHERE id=?", (payload.name, payload.description, payload.purpose, payload.task_id, json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True), json.dumps({key: value.model_dump() for key, value in payload.input_ranges.items()}, ensure_ascii=False, sort_keys=True), payload.notes, payload.decision_candidate_id, payload.decision_snapshot_id, payload.decision_note, now, project_id))
+            result = conn.execute("UPDATE projects SET name=?, description=?, purpose=?, task_id=?, target_values=?, input_ranges=?, response_curve_ranges=?, display_decimals=?, notes=?, decision_candidate_id=?, decision_snapshot_id=?, decision_note=?, updated_at=? WHERE id=?", (payload.name, payload.description, payload.purpose, payload.task_id, json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True), json.dumps({key: value.model_dump() for key, value in payload.input_ranges.items()}, ensure_ascii=False, sort_keys=True), json.dumps({axis: {key: value.model_dump() for key, value in ranges.items()} for axis, ranges in payload.response_curve_ranges.items()}, ensure_ascii=False, sort_keys=True), json.dumps(payload.display_decimals, ensure_ascii=False, sort_keys=True), payload.notes, payload.decision_candidate_id, payload.decision_snapshot_id, payload.decision_note, now, project_id))
         return self.get_project(project_id) if result.rowcount else None
 
     def delete_project(self, project_id: str) -> bool:

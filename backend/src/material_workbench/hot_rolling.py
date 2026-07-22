@@ -10,7 +10,7 @@ import numpy as np
 from .feature_contracts import feature_index_families
 from .hot_rolling_feature_pipeline import FEATURE_DEFINITIONS, FEATURE_NAMES, INPUT_SCHEMA_VERSION, PIPELINE_ID, PIPELINE_VERSION, build_hot_rolling_features, build_hot_rolling_features_from_observation
 from .dataset_profile import load_task_definitions
-from .importer import WorkbookData
+from .importer import WorkbookData, lineage_reference_keys
 from .model_packages import ModelPackageLoader, validate_predictive_summary, validate_task_definition_canonical_inputs
 from .schemas import Candidate, CandidateInput, Prediction, Support
 from .task_registry import load_task_contracts
@@ -124,6 +124,10 @@ class HotRollingRuntime:
                     for name, value in repeat["outputs"].items():
                         values[name].append(float(value))
                 nearest_rows.append({
+                    "observation_id": repeats[0]["id"],
+                    "observation_ids": [repeat["id"] for repeat in repeats],
+                    "source": " / ".join(sorted({str(repeat["source"]) for repeat in repeats})),
+                    "layer": "training",
                     "parent_key": repeats[0]["parent_key"],
                     "test_direction": "L",
                     "distance": round(float(distances[index]), 4),
@@ -135,6 +139,7 @@ class HotRollingRuntime:
                         name: {"mean": round(float(np.mean(items)), 3), "std": round(float(np.std(items)), 3), "n": len(items)}
                         for name, items in sorted(values.items())
                     },
+                    **lineage_reference_keys(self.data, str(repeats[0]["parent_key"]), "hot_rolling"),
                 })
         return Support(
             status=status,
