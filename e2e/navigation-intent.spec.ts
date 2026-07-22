@@ -204,7 +204,7 @@ test("lineage marks implausible observations without hiding raw values", async (
   const detail = page.getByRole("complementary", { name: "選択ノード詳細" });
   await expect(detail.getByText("⚠ 物理範囲外").first()).toBeVisible();
   await expect(detail).toContainText("5223.3");
-  await expect(detail).toContainText("妥当範囲 100–2500");
+  await expect(detail).toContainText("妥当範囲 100–2,500 MPa");
 });
 
 test("lineage search recovers from an empty result and opens an exact key", async ({ page }) => {

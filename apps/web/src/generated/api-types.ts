@@ -11,7 +11,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Bootstrap */
+        /**
+         * Bootstrap
+         * @deprecated
+         */
         get: operations["bootstrap_api_bootstrap_get"];
         put?: never;
         post?: never;
@@ -62,9 +65,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Project */
+        /**
+         * Get Project
+         * @deprecated
+         */
         get: operations["get_project_api_project_get"];
-        /** Update Project */
+        /**
+         * Update Project
+         * @deprecated
+         */
         put: operations["update_project_api_project_put"];
         post?: never;
         delete?: never;
@@ -694,6 +703,19 @@ export interface components {
             /** Message */
             message: string;
         };
+        /** ApplicationCapability */
+        ApplicationCapability: {
+            /**
+             * Candidate Excel Export
+             * @default false
+             */
+            candidate_excel_export: boolean;
+            /**
+             * Candidate Excel Import
+             * @default false
+             */
+            candidate_excel_import: boolean;
+        };
         /** Body_import_candidates_api_projects__project_id__candidates_import_post */
         Body_import_candidates_api_projects__project_id__candidates_import_post: {
             /** File */
@@ -809,10 +831,6 @@ export interface components {
         ConnectedObservation: {
             /** Id */
             id: string;
-            /** Output Warnings */
-            output_warnings?: {
-                [key: string]: string[];
-            };
             /** Outputs */
             outputs: {
                 [key: string]: number;
@@ -961,6 +979,19 @@ export interface components {
              * @enum {string}
              */
             suggested_view: "lineage" | "source_sheet";
+        };
+        /** DatasetIdentity */
+        DatasetIdentity: {
+            /** Profile Id */
+            profile_id: string;
+            /** Profile Path */
+            profile_path: string;
+            /** Source Path */
+            source_path: string;
+            /** Source Sha256 */
+            source_sha256: string;
+            /** Task Id */
+            task_id: string;
         };
         /** DetailedPredictionResponse */
         DetailedPredictionResponse: {
@@ -1427,6 +1458,8 @@ export interface components {
              * @default []
              */
             measurement_keys: string[];
+            plausibility_range: components["schemas"]["NumericRange"] | null;
+            preferred_display_range: components["schemas"]["NumericRange"] | null;
             /** Unit */
             unit: string;
         };
@@ -1635,9 +1668,8 @@ export interface components {
             /**
              * Task Id
              * @default annealed-properties-v1
-             * @enum {string}
              */
-            task_id: "annealed-properties-v1" | "hot-rolled-properties-v1" | "flank-wear-v1";
+            task_id: string;
             /**
              * Updated At
              * Format: date-time
@@ -1707,9 +1739,8 @@ export interface components {
             /**
              * Task Id
              * @default annealed-properties-v1
-             * @enum {string}
              */
-            task_id: "annealed-properties-v1" | "hot-rolled-properties-v1" | "flank-wear-v1";
+            task_id: string;
         };
         /** ProjectDecisionHistory */
         ProjectDecisionHistory: {
@@ -1806,9 +1837,8 @@ export interface components {
             /**
              * Task Id
              * @default annealed-properties-v1
-             * @enum {string}
              */
-            task_id: "annealed-properties-v1" | "hot-rolled-properties-v1" | "flank-wear-v1";
+            task_id: string;
         };
         /** PropertySummary */
         PropertySummary: {
@@ -1831,6 +1861,7 @@ export interface components {
             by_category: {
                 [key: string]: number;
             };
+            dataset: components["schemas"]["DatasetIdentity"];
             /** Detected By Type */
             detected_by_type: {
                 [key: string]: number;
@@ -1886,6 +1917,11 @@ export interface components {
         };
         /** ResolvedTaskDefinition */
         ResolvedTaskDefinition: {
+            /** @default {
+             *       "candidate_excel_export": false,
+             *       "candidate_excel_import": false
+             *     } */
+            application: components["schemas"]["ApplicationCapability"];
             data_explorer?: components["schemas"]["DataExplorerCapability"] | null;
             runtime_capability: components["schemas"]["RuntimeCapability"];
             task_definition: components["schemas"]["TaskDefinition"];

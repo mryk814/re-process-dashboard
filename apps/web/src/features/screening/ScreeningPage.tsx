@@ -3,6 +3,7 @@ import { fromApiCandidate, setCandidateInputValue, toApiCandidate, type Candidat
 import { workbenchApi, type ApiProject, type ApiScreeningRun } from "../../shared/api/workbench-api";
 import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
 import { SvgChartTooltip } from "../../shared/ui/SvgChartTooltip";
+import { assessPrediction, clampToRange, resolveOutputDefinition } from "../../shared/outputPresentation";
 import { ScreeningBaseEditor } from "./ScreeningBaseEditor";
 
 function cloneScreeningCandidate(candidate: Candidate): Candidate {
@@ -381,10 +382,14 @@ export function ScreeningPage({
   const yTicks = tickValues(yValues);
   const scores = result?.points.map((point) => point.score).filter((score): score is number => score != null) ?? [];
   const colorValues = colorMetric === "score" ? scores : result?.points.map((point) => (point.predictions?.[colorMetric] ?? (colorMetric === result.target ? point.prediction : undefined))?.value).filter((value): value is number => typeof value === "number") ?? [];
+  const colorOutput = outputs.find((output) => output.key === colorMetric);
+  const colorRange = colorMetric === "score" ? undefined : colorOutput?.preferred_display_range ?? undefined;
   const opportunity = (point: ScreenPoint) => {
     const value = colorMetric === "score" ? point.score : (point.predictions?.[colorMetric] ?? (colorMetric === result?.target ? point.prediction : undefined))?.value;
     if (value == null || colorValues.length === 0) return "hsl(215 18% 72%)";
-    const normalized = (value - Math.min(...colorValues)) / Math.max(1e-9, Math.max(...colorValues) - Math.min(...colorValues));
+    const domainValues = colorRange ? [colorRange.min, colorRange.max] : colorValues;
+    const displayValue = colorRange ? clampToRange(value, colorRange) : value;
+    const normalized = (displayValue - Math.min(...domainValues)) / Math.max(1e-9, Math.max(...domainValues) - Math.min(...domainValues));
     const strength = colorMetric === "score" ? 1 - normalized : normalized;
     return `hsl(215 78% ${82 - strength * 42}%)`;
   };
@@ -631,11 +636,14 @@ export function ScreeningPage({
                 axes.length > 1
                   ? screenY(Number(point.inputs[axes[1]]))
                   : 35 + Math.floor(index / 12) * 50;
+              const targetOutput = resolveOutputDefinition(outputs, result.target);
+              const targetAssessment = assessPrediction(targetOutput, point.prediction);
               const tooltipLines = [
                 `点 ${point.index + 1}`,
                 ...axes.map((axis, axisIndex) => `${axisLabel(axis)} ${number(Number(point.inputs[axis]), axisIndex === 0 ? xDigits : yDigits)}`),
                 `${outputs.find((output) => output.key === result.target)?.label ?? result.target} ${number(point.prediction.value, 1)} ${point.prediction.unit}`,
                 `90%区間 ${number(point.prediction.lower, 1)}–${number(point.prediction.upper, 1)}`,
+                ...(targetAssessment.warning ? [`⚠ ${targetAssessment.warning}`] : []),
                 point.support.message,
               ];
               return (
@@ -682,7 +690,7 @@ export function ScreeningPage({
           </svg>
           {focusedPoint && <section className="screening-point-detail" aria-label="選択した探索点の詳細">
             <div className="panel-title"><h3>点 {focusedPoint.index + 1}</h3><span className={`support-badge ${focusedPoint.support.status}`}>{focusedPoint.support.message}</span></div>
-            <div className="screening-point-predictions">{Object.entries({ [result.target]: focusedPoint.prediction, ...(focusedPoint.predictions ?? {}) }).map(([key, prediction]) => <div key={key}><b>{outputs.find((output) => output.key === key)?.label ?? key}</b><strong>{number(prediction.value, 1)} {prediction.unit}</strong><small>{number(prediction.lower, 1)}–{number(prediction.upper, 1)}{prediction.goal_probability != null ? ` / 達成確率 ${Math.round(prediction.goal_probability * 100)}%` : ""}</small>{focusedPoint.secondary_goal_evaluations?.[key]?.achieved != null && <em>{focusedPoint.secondary_goal_evaluations[key].achieved ? "副条件を満たす" : "副条件を満たさない"}</em>}</div>)}</div>
+            <div className="screening-point-predictions">{Object.entries({ [result.target]: focusedPoint.prediction, ...(focusedPoint.predictions ?? {}) }).map(([key, prediction]) => { const output = resolveOutputDefinition(outputs, key); const assessment = assessPrediction(output, prediction); return <div className={assessment.implausible ? "implausible-output" : undefined} title={assessment.warning ?? undefined} key={key}><b>{output?.label ?? key}</b><strong>{number(prediction.value, 1)} {prediction.unit}</strong><small>{number(prediction.lower, 1)}–{number(prediction.upper, 1)}{prediction.goal_probability != null ? ` / 達成確率 ${Math.round(prediction.goal_probability * 100)}%` : ""}</small>{assessment.implausible && <em className="output-warning-badge">⚠ 物理範囲外</em>}{focusedPoint.secondary_goal_evaluations?.[key]?.achieved != null && <em>{focusedPoint.secondary_goal_evaluations[key].achieved ? "副条件を満たす" : "副条件を満たさない"}</em>}</div>; })}</div>
             <p><b>全変動条件:</b> {Object.entries(focusedPoint.inputs).map(([key, value]) => `${axisLabel(key)} ${typeof value === "number" ? number(value, 3) : value}`).join(" / ")}</p>
             <p><b>支持度:</b> {focusedPoint.support.status} / percentile {number(focusedPoint.support.percentile, 1)} / 参照{focusedPoint.support.reference_count}件</p>
             {focusedPoint.warnings?.map((warning) => <p className="warning" key={warning}>{warning}</p>)}
@@ -711,7 +719,7 @@ export function ScreeningPage({
                       .join(" / ")}
                   </td>
                   <td>
-                    {Object.entries({ [result.target]: point.prediction, ...(point.predictions ?? {}) }).map(([key, prediction]) => `${outputs.find((output) => output.key === key)?.label ?? key} ${number(prediction.value, 1)} ${prediction.unit}`).join(" / ")}<br /><small>{point.support.message}{stockedPointIndices.has(point.index) ? " / stock済み" : ""}</small>
+                    {Object.entries({ [result.target]: point.prediction, ...(point.predictions ?? {}) }).map(([key, prediction]) => { const output = resolveOutputDefinition(outputs, key); const assessment = assessPrediction(output, prediction); return <span className={assessment.implausible ? "implausible-output" : undefined} title={assessment.warning ?? undefined} key={key}>{output?.label ?? key} {number(prediction.value, 1)} {prediction.unit}{assessment.implausible && <small className="output-warning-badge">⚠ 物理範囲外</small>}</span>; })}<br /><small>{point.support.message}{stockedPointIndices.has(point.index) ? " / stock済み" : ""}</small>
                   </td>
                 </tr>
               ))}

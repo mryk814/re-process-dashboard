@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { provenanceLabel } from "../../shared/candidateProvenance";
 import { formatPredictionPoint, predictionHasInterval, predictionIntervalLabel } from "../../shared/predictionPresentation";
+import { assessOutputValues, assessPrediction, resolveOutputDefinition } from "../../shared/outputPresentation";
 import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
 import { fromApiCandidate, toApiCandidate, type CandidateViewModel, type RuntimeOperations, type TaskDefinitionContract } from "../candidates";
 import {
@@ -66,6 +67,7 @@ export function ProjectHub({
   const activeProjectRef = useRef(activeProjectId);
   const decisionDraftRef = useRef({ key: "", dirty: false });
   activeProjectRef.current = activeProjectId;
+  const outputDefinition = (key: string) => resolveOutputDefinition(taskDefinition?.outputs ?? [], key);
 
   const reloadHistory = async (signal?: AbortSignal, expectedProjectId = activeProjectId) => {
     const loaded = await workbenchApi.projectHistory(expectedProjectId, signal);
@@ -125,6 +127,10 @@ export function ProjectHub({
   const activeCandidates = history?.candidates.filter((item) => !item.candidate.archived_at) ?? [];
   const copyTaskId = candidate ? projects.find((item) => item.id === candidate.raw.project_id)?.task_id : undefined;
   const outputLabels = useMemo(() => new Map((taskDefinition?.outputs ?? []).map((output) => [output.key, output.label])), [taskDefinition]);
+  const taskLabels = useMemo(() => new Map(catalog.map((item) => [
+    item.definition.task_definition.id,
+    item.definition.task_definition.label,
+  ])), [catalog]);
 
   async function saveProject() {
     if (!project) return;
@@ -248,7 +254,7 @@ export function ProjectHub({
               onClick={() => onSwitch(item.id)}
             >
               <strong>{item.name}</strong>
-              <small>{item.task_id === "hot-rolled-properties-v1" ? "熱延条件" : item.task_id === "flank-wear-v1" ? "切削摩耗" : "焼鈍条件"}</small>
+              <small>{taskLabels.get(item.task_id) ?? item.task_id}</small>
             </button>
           ))}
         </div>
@@ -313,11 +319,11 @@ export function ProjectHub({
             return <article className="project-history-card" key={item.candidate.id}>
               <header><div><strong>{item.candidate.name}</strong>{item.candidate.archived_at && <span className="muted-badge">archive</span>}</div><button className="outline-button" disabled={Boolean(item.candidate.archived_at)} onClick={() => onNavigate("candidates", item.candidate.id)}>現在の候補を見る</button></header>
               <div className="history-current-row"><span className="history-kind current">現在</span><span>編集版 {item.current.revision}</span><span>{formatDate(item.current.updated_at)}</span><span>{item.candidate.provenance ? provenanceLabel(item.candidate.provenance) : "由来不明"}</span></div>
-              {preview ? <div className="history-preview"><span>現在のpreview</span>{Object.entries(preview.predictions).map(([key, value]) => <strong key={key}>{outputLabels.get(key) ?? key} {formatPredictionPoint(value, formatNumber)}</strong>)}</div> : <p className="history-muted">現在のpreviewは未計算です。候補比較を開くと必要な候補だけ計算します。</p>}
+              {preview ? <div className="history-preview"><span>現在のpreview</span>{Object.entries(preview.predictions).map(([key, value]) => { const assessment = assessPrediction(outputDefinition(key), value); return <strong className={assessment.implausible ? "implausible-output" : undefined} title={assessment.warning ?? undefined} key={key}>{outputLabels.get(key) ?? key} {formatPredictionPoint(value, formatNumber)}{assessment.implausible && <small className="output-warning-badge">⚠ 物理範囲外</small>}</strong>; })}</div> : <p className="history-muted">現在のpreviewは未計算です。候補比較を開くと必要な候補だけ計算します。</p>}
               {item.snapshots.length ? <div className="history-snapshots">{item.snapshots.map((snapshot) => <div className="history-snapshot-row" key={snapshot.id}>
                 <span className="history-kind fixed">固定した予測</span>{item.decision?.snapshot_id === snapshot.id && <span className="decision-snapshot-badge">採用判断</span>}<span>編集版 {snapshot.candidate_revision ?? "不明（旧形式）"}</span><span>{formatDate(snapshot.created_at)}</span>
-                <span className="history-predictions">{Object.entries(snapshot.prediction_summary).map(([key, value]) => `${outputLabels.get(key) ?? key} ${formatPredictionPoint(value, formatNumber)}`).join(" / ")}</span>
-                {item.actuals.filter((actual) => actual.snapshot_id === snapshot.id).map((actual) => <span className="history-actual" key={actual.id}>実測 {outputLabels.get(actual.property) ?? actual.property} {formatNumber(actual.mean)} ± {formatNumber(actual.std)} {actual.unit}{actual.experiment_no ? ` / ${actual.experiment_no}` : ""}</span>)}
+                <span className="history-predictions">{Object.entries(snapshot.prediction_summary).map(([key, value], index) => { const assessment = assessPrediction(outputDefinition(key), value); return <span className={assessment.implausible ? "implausible-output" : undefined} title={assessment.warning ?? undefined} key={key}>{index > 0 && " / "}{outputLabels.get(key) ?? key} {formatPredictionPoint(value, formatNumber)}{assessment.implausible && <small className="output-warning-badge">⚠ 物理範囲外</small>}</span>; })}</span>
+                {item.actuals.filter((actual) => actual.snapshot_id === snapshot.id).map((actual) => { const assessment = assessOutputValues(outputDefinition(actual.property), [actual.mean], "実測値"); return <span className={`history-actual${assessment.implausible ? " implausible-output" : ""}`} title={assessment.warning ?? undefined} key={actual.id}>実測 {outputLabels.get(actual.property) ?? actual.property} {formatNumber(actual.mean)} ± {formatNumber(actual.std)} {actual.unit}{actual.experiment_no ? ` / ${actual.experiment_no}` : ""}{assessment.implausible && <small className="output-warning-badge">⚠ 物理範囲外</small>}</span>; })}
                 {item.decision?.snapshot_id === snapshot.id && <span className="decision-note-inline">判断理由: {item.decision.note}</span>}
                 <button className="outline-button" onClick={() => void openSnapshot(snapshot.id)}>詳細</button><CandidateAddButton compact onClick={() => void restoreSnapshot(snapshot.id)}>新しい候補として複製</CandidateAddButton>
               </div>)}</div> : <div className="project-empty-inline"><span>固定した予測はありません。候補比較で詳細予測を保存すると判断時点が残ります。</span><button className="outline-button" onClick={() => onNavigate("candidates", item.candidate.id)}>候補比較へ</button></div>}
@@ -330,7 +336,7 @@ export function ProjectHub({
         <div className="panel-title"><h3>固定した予測の詳細</h3><button className="outline-button" onClick={() => { setSelectedSnapshot(null); onSnapshotNavigate(undefined); }}>閉じる</button></div>
         <p>{formatDate(selectedSnapshot.created_at)} / {history?.candidates.find((item) => item.candidate.id === selectedSnapshot.candidate_id)?.candidate.name ?? "保存時の候補"}</p>
         <span className="decision-snapshot-badge">{!selectedSnapshot.payload.provenance?.package?.manifest_sha256 || !modelPackage ? "予測モデル情報を確認できません" : selectedSnapshot.payload.provenance.package.manifest_sha256 === modelPackage.manifest_sha256 ? "現在と同じ予測モデル" : "現在とは別の予測モデル"}</span>
-        <table className="quality-table"><thead><tr><th>特性</th><th>固定予測</th><th>区間・分位</th><th>目標達成</th></tr></thead><tbody>{Object.entries(selectedSnapshot.payload.prediction.predictions).map(([key, value]) => <tr key={key}><th>{outputLabels.get(key) ?? key}</th><td>{formatPredictionPoint(value, formatNumber)}</td><td>{predictionHasInterval(value) ? <>{formatNumber(value.lower)}–{formatNumber(value.upper)} <small>{predictionIntervalLabel(value)}</small></> : "利用不可"}</td><td>{value.goal_probability == null ? value.goal_value == null ? "目標未設定" : "利用不可" : `${formatNumber(value.goal_probability * 100, 0)}%`}</td></tr>)}</tbody></table>
+        <table className="quality-table"><thead><tr><th>特性</th><th>固定予測</th><th>区間・分位</th><th>目標達成</th></tr></thead><tbody>{Object.entries(selectedSnapshot.payload.prediction.predictions).map(([key, value]) => { const assessment = assessPrediction(outputDefinition(key), value); return <tr className={assessment.implausible ? "implausible-output" : undefined} key={key}><th>{outputLabels.get(key) ?? key}{assessment.implausible && <small className="output-warning-badge">⚠ 物理範囲外</small>}</th><td title={assessment.warning ?? undefined}>{formatPredictionPoint(value, formatNumber)}</td><td>{predictionHasInterval(value) ? <>{formatNumber(value.lower)}–{formatNumber(value.upper)} <small>{predictionIntervalLabel(value)}</small></> : "利用不可"}</td><td>{value.goal_probability == null ? value.goal_value == null ? "目標未設定" : "利用不可" : `${formatNumber(value.goal_probability * 100, 0)}%`}</td></tr>; })}</tbody></table>
         <div className="snapshot-decision-form"><label>判断理由<textarea value={decisionNote} onChange={(event) => { decisionDraftRef.current.dirty = true; setDecisionNote(event.target.value); }} placeholder="この時点の予測を採用判断に使う理由" /></label><button className="outline-button" onClick={() => void saveDecision(false)}>採用判断として固定</button>{project?.decision_snapshot_id === selectedSnapshot.id && <button className="outline-button" onClick={() => void saveDecision(true)}>採用判断を解除</button>}</div>
         <CandidateAddButton onClick={() => void restoreSnapshot(selectedSnapshot.id)}>この時点から新しい候補を作る</CandidateAddButton>
       </section>}

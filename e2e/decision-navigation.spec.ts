@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 
-const api = "http://127.0.0.1:8875";
+const api = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8875"}`;
 
 async function createIsolatedProject(request: APIRequestContext) {
   const catalog = await (await request.get(`${api}/api/task-definitions`)).json() as Array<{ definition: { task_definition: { id: string } }; starter_candidate: Record<string, unknown> }>;
@@ -33,6 +33,9 @@ test("primary navigation follows the decision flow and separates developer admin
   await expect(page.locator(".quality-filters")).toBeVisible();
   await expect(page.locator(".quality-summary")).toHaveCount(0);
   await expect(page.locator(".reference-scenarios")).toHaveCount(0);
+  await page.getByText("参照データを確認", { exact: true }).click();
+  await expect(page.locator(".dataset-identity")).toContainText("annealed-properties-v1");
+  await expect(page.locator(".dataset-identity")).toContainText("source sha256:");
   await expect(page.getByRole("navigation", { name: "プロジェクト内メニュー" }).getByRole("button", { name: "データ探索" })).toHaveClass(/active/);
   const qualityUrl = page.url();
   await page.getByRole("navigation", { name: "プロジェクト内メニュー" }).getByRole("button", { name: "データ探索" }).click();

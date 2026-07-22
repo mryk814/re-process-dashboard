@@ -7,6 +7,7 @@ export type TaskInputGroup = components["schemas"]["InputGroupDefinition"];
 export type TaskOutputDefinition = components["schemas"]["OutputDefinition"];
 export type TaskDefinitionContract = components["schemas"]["TaskDefinition"];
 export type RuntimeOperations = components["schemas"]["RuntimeOperationsCapability"];
+export type ApplicationCapability = components["schemas"]["ApplicationCapability"];
 export type ResolvedTaskDefinition = components["schemas"]["ResolvedTaskDefinition"];
 export type ResponseCurveVariableOption = {
   id: string;

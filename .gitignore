@@ -4,6 +4,9 @@ __pycache__/
 .pytest_cache/
 .vite/
 dist/
+build/
+release/
+.playwright-cli/
 apps/web/dist/
 apps/desktop/dist/
 apps/web/.env.local

@@ -238,6 +238,7 @@ function App() {
               selectedId={selectedId}
               taskDefinition={taskDefinition}
               operations={operations}
+              application={resolvedTaskDefinition?.application}
               saveState={editor.saveStates[selected.id] ?? "idle"}
               saveStates={editor.saveStates}
               fieldErrors={editor.fieldErrors[selected.id] ?? []}

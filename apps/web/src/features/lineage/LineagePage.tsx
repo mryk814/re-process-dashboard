@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { fromApiCandidate, type CandidateViewModel as Candidate, type TaskOutputDefinition } from "../candidates";
+import { assessOutputValues, resolveOutputDefinition } from "../../shared/outputPresentation";
 import { workbenchApi, type ApiLineage, type ApiLineageIndex } from "../../shared/api/workbench-api";
 import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
 import { SvgChartTooltip } from "../../shared/ui/SvgChartTooltip";
@@ -522,10 +523,10 @@ export function LineagePage({
                     <tbody>
                       {(data.node.observation_groups ?? []).map(
                         (group) => {
-                          const warnings = group.observations.flatMap((observation) => (observation.output_warnings ?? {})[group.property] ?? []);
-                          return <tr key={`${group.test_type}-${group.property}`} className={warnings.length ? "plausibility-warning-row" : undefined}>
+                          const assessment = assessOutputValues(resolveOutputDefinition(outputs, group.property), [group.min, group.mean, group.median, group.max], "実測値");
+                          return <tr key={`${group.test_type}-${group.property}`} className={assessment.implausible ? "plausibility-warning-row" : undefined}>
                             <td><b>{group.stage}</b><br /><small>{group.test_type}</small></td>
-                            <td>{outputLabel(group.property)}{warnings.length ? <span className="plausibility-warning">⚠ 物理範囲外</span> : null}</td>
+                            <td>{outputLabel(group.property)}{assessment.implausible ? <span className="plausibility-warning" title={assessment.warning ?? undefined}>⚠ 物理範囲外</span> : null}</td>
                             <td>{group.count}</td>
                             <td>{number(group.min, 1)}</td>
                             <td>
@@ -546,8 +547,7 @@ export function LineagePage({
                       <p key={observation.id}>
                         {observation.id} · {observation.source} ·{" "}
                         {Object.entries(observation.outputs)
-                          .map(([key, value]) => <span key={key} className={(observation.output_warnings ?? {})[key]?.length ? "plausibility-value" : undefined}>{outputLabel(key)} {number(value, 1)}{(observation.output_warnings ?? {})[key]?.length ? <small>⚠ 物理範囲外</small> : null}</span>) }
-                        {Object.values(observation.output_warnings ?? {}).flat().map((warning) => <em className="plausibility-reason" key={warning}>{warning}</em>)}
+                          .map(([key, value]) => { const assessment = assessOutputValues(resolveOutputDefinition(outputs, key), [value], "実測値"); return <span key={key} title={assessment.warning ?? undefined} className={assessment.implausible ? "plausibility-value" : undefined}>{outputLabel(key)} {number(value, 1)}{assessment.implausible ? <><small>⚠ 物理範囲外</small><em className="plausibility-reason">{assessment.warning}</em></> : null}</span>; }) }
                       </p>
                     ))}
                   </details>

@@ -113,6 +113,18 @@ class OutputDefinition(ContractModel):
     unit: Annotated[str, Field(min_length=1)]
     goal_direction: Literal["at_least", "at_most", "target"]
     measurement_keys: tuple[Annotated[str, Field(min_length=1)], ...] = ()
+    plausibility_range: NumericRange | None
+    preferred_display_range: NumericRange | None
+
+    @model_validator(mode="after")
+    def display_range_is_plausible(self) -> "OutputDefinition":
+        if (
+            self.preferred_display_range is not None
+            and self.plausibility_range is not None
+            and not self.plausibility_range.contains(self.preferred_display_range)
+        ):
+            raise ValueError("preferred_display_range must be contained by plausibility_range")
+        return self
 
 
 class FixedContextDefinition(ContractModel):
@@ -357,6 +369,12 @@ class RuntimeOperationsCapability(ContractModel):
     snapshot: bool
     actual_measurement: bool
 
+    @model_validator(mode="after")
+    def stored_actuals_require_snapshots(self) -> "RuntimeOperationsCapability":
+        if self.actual_measurement and not self.snapshot:
+            raise ValueError("actual measurements require immutable prediction snapshots")
+        return self
+
 
 class RuntimeCapability(ContractModel):
     schema_version: Literal[RUNTIME_CAPABILITY_SCHEMA_VERSION]
@@ -389,10 +407,16 @@ class DataExplorerCapability(ContractModel):
         return self
 
 
+class ApplicationCapability(ContractModel):
+    candidate_excel_import: bool = False
+    candidate_excel_export: bool = False
+
+
 class ResolvedTaskDefinition(ContractModel):
     task_definition: TaskDefinition
     runtime_capability: RuntimeCapability
     data_explorer: DataExplorerCapability | None = None
+    application: ApplicationCapability = ApplicationCapability()
 
     @model_validator(mode="after")
     def task_ids_match(self) -> "ResolvedTaskDefinition":

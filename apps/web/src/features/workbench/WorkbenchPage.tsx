@@ -1,12 +1,10 @@
-import { type CSSProperties, type KeyboardEvent, type PointerEvent, useEffect, useRef, useState } from "react";
-import { provenanceLabel, type CandidateProvenance } from "../../shared/candidateProvenance";
+import { type CSSProperties, type PointerEvent, useEffect, useRef, useState } from "react";
 import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
 import { SvgChartTooltip } from "../../shared/ui/SvgChartTooltip";
 import {
   CandidateInspector,
   ComparisonTable,
   categoricalTaskInputs,
-  fromApiCandidate,
   numericTaskInputs,
   responseCurveVariables,
   type CandidateSaveState,
@@ -14,10 +12,20 @@ import {
   type NumericRange,
   type NumericTaskInput,
   type RuntimeOperations,
+  type ApplicationCapability,
   type TaskDefinitionContract,
   type TaskOutputDefinition,
 } from "../candidates";
 import { candidateInputIdentity } from "../../shared/api/inferenceRequestCache";
+import { CandidateFileControls, CandidateOrigin } from "./CandidateWorkspaceControls";
+import {
+  clampLayoutValue,
+  saveLayoutNumber,
+  SplitResizer,
+  storedLayoutNumber,
+  workbenchLayoutStorage,
+} from "./WorkbenchLayout";
+import { clampToRange, isOutsideRange } from "../../shared/outputPresentation";
 import { apiBaseUrl } from "../../shared/api/client";
 import {
   workbenchApi,
@@ -25,7 +33,6 @@ import {
   type ApiProject,
   type ApiPreview,
   type ApiResponseCurve,
-  type ApiSimilarObservation,
 } from "../../shared/api/workbench-api";
 import { workbenchRequestKey } from "./workbenchIdentity";
 import {
@@ -36,104 +43,7 @@ import {
   resolveInferenceSurface,
   type InferenceSurfaceState,
 } from "./inferenceSurfaceState";
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}
-
-const workbenchLayoutStorage = {
-  inspectorWidth: "material-workbench:layout:inspector-width:v1",
-  curveShare: "material-workbench:layout:curve-share:v1",
-} as const;
-
-function storedLayoutNumber(key: string, fallback: number) {
-  if (typeof window === "undefined") return fallback;
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (raw === null) return fallback;
-    const value = Number(raw);
-    return Number.isFinite(value) ? value : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function saveLayoutNumber(key: string, value: number) {
-  try {
-    window.localStorage.setItem(key, String(value));
-  } catch {
-    // Layout persistence is optional when local storage is unavailable.
-  }
-}
-
-function SplitResizer({
-  className,
-  label,
-  value,
-  min,
-  max,
-  step,
-  onChange,
-  onDrag,
-  onReset,
-}: {
-  className: string;
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (value: number) => void;
-  onDrag: (startValue: number, deltaX: number) => number;
-  onReset: () => void;
-}) {
-  const drag = useRef<{ pointerId: number; startX: number; startValue: number } | null>(null);
-  const changeByKeyboard = (event: KeyboardEvent<HTMLDivElement>) => {
-    const amount = event.shiftKey ? step * 4 : step;
-    const next = event.key === "ArrowLeft"
-      ? value - amount
-      : event.key === "ArrowRight"
-        ? value + amount
-        : event.key === "Home"
-          ? min
-          : event.key === "End"
-            ? max
-            : null;
-    if (next === null) return;
-    event.preventDefault();
-    onChange(clamp(next, min, max));
-  };
-  return (
-    <div
-      className={`split-resizer ${className}`}
-      role="separator"
-      tabIndex={0}
-      aria-label={label}
-      aria-orientation="vertical"
-      aria-valuemin={min}
-      aria-valuemax={max}
-      aria-valuenow={Math.round(value)}
-      title="ドラッグで幅を調整・ダブルクリックで初期幅"
-      onDoubleClick={onReset}
-      onKeyDown={changeByKeyboard}
-      onPointerDown={(event) => {
-        drag.current = { pointerId: event.pointerId, startX: event.clientX, startValue: value };
-        event.currentTarget.setPointerCapture(event.pointerId);
-      }}
-      onPointerMove={(event) => {
-        const current = drag.current;
-        if (!current || current.pointerId !== event.pointerId || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
-        onChange(clamp(onDrag(current.startValue, event.clientX - current.startX), min, max));
-      }}
-      onPointerUp={(event) => {
-        if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-        drag.current = null;
-      }}
-      onPointerCancel={() => { drag.current = null; }}
-      onLostPointerCapture={() => { drag.current = null; }}
-    ><span aria-hidden="true" /></div>
-  );
-}
+import { SimilarityEvidencePanel } from "./SimilarityEvidencePanel";
 
 type CurvePoint = ApiResponseCurve["points"][number];
 type CurveRange = { min: number; max: number };
@@ -200,6 +110,7 @@ type WorkbenchProps = {
   selectedId: string;
   taskDefinition: TaskDefinitionContract | null;
   operations?: RuntimeOperations;
+  application?: ApplicationCapability;
   saveState: CandidateSaveState;
   saveStates: Record<string, CandidateSaveState>;
   fieldErrors: Array<{ path: string; message: string }>;
@@ -242,6 +153,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
     selectedId,
     taskDefinition,
     operations,
+    application,
     saveState,
     saveStates,
     fieldErrors,
@@ -271,14 +183,14 @@ export function WorkbenchPage(props: WorkbenchProps) {
     onProjectChanged,
   } = props;
   const [comparisonExpanded, setComparisonExpanded] = useState(false);
-  const [inspectorWidth, setInspectorWidth] = useState(() => clamp(storedLayoutNumber(workbenchLayoutStorage.inspectorWidth, 330), 260, 520));
+  const [inspectorWidth, setInspectorWidth] = useState(() => clampLayoutValue(storedLayoutNumber(workbenchLayoutStorage.inspectorWidth, 330), 260, 520));
   const [inspectorMax, setInspectorMax] = useState(520);
-  const [curveShare, setCurveShare] = useState(() => clamp(storedLayoutNumber(workbenchLayoutStorage.curveShare, 50), 30, 70));
+  const [curveShare, setCurveShare] = useState(() => clampLayoutValue(storedLayoutNumber(workbenchLayoutStorage.curveShare, 50), 30, 70));
   const [curveShareRange, setCurveShareRange] = useState({ min: 30, max: 70 });
   const workbenchRef = useRef<HTMLDivElement>(null);
   const lowerPanelsRef = useRef<HTMLDivElement>(null);
-  const effectiveInspectorWidth = clamp(inspectorWidth, 260, inspectorMax);
-  const effectiveCurveShare = clamp(curveShare, curveShareRange.min, curveShareRange.max);
+  const effectiveInspectorWidth = clampLayoutValue(inspectorWidth, 260, inspectorMax);
+  const effectiveCurveShare = clampLayoutValue(curveShare, curveShareRange.min, curveShareRange.max);
   useEffect(() => {
     if (candidates.length <= 5) setComparisonExpanded(false);
   }, [candidates.length]);
@@ -353,7 +265,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
           </div>
           {previewError && <span className="comparison-preview-error" role="alert">{previewError}{operations?.preview && <button type="button" onClick={onRetryPreview}>再試行</button>}</span>}
           <div className="comparison-actions" aria-label="候補操作">
-            <CandidateFileControls projectId={projectId} onImported={onImported} />
+            <CandidateFileControls projectId={projectId} capability={application} onImported={onImported} />
             <CandidateAddButton onClick={onAdd}>候補を追加</CandidateAddButton>
           </div>
         </div>
@@ -421,83 +333,9 @@ export function WorkbenchPage(props: WorkbenchProps) {
             onDrag={(startValue, deltaX) => startValue + (deltaX / Math.max(lowerPanelsRef.current?.clientWidth ?? 1, 1)) * 100}
             onReset={() => setCurveShare(50)}
           />
-          <LiveSimilarityEvidence projectId={projectId} candidate={selected} outputs={taskDefinition?.outputs ?? []} available={operations?.similarity === true} ready={["idle", "saved"].includes(saveState)} onAddCandidate={onAddCandidateFromLineage} />
+          <SimilarityEvidencePanel projectId={projectId} candidate={selected} outputs={taskDefinition?.outputs ?? []} available={operations?.similarity === true} ready={["idle", "saved"].includes(saveState)} onAddCandidate={onAddCandidateFromLineage} />
         </div>
       </section>
-    </div>
-  );
-}
-
-function CandidateOrigin({
-  candidate,
-  broken,
-  onOpen,
-}: {
-  candidate: Candidate;
-  broken: boolean;
-  onOpen: () => void;
-}) {
-  const provenance = candidate.raw.provenance as CandidateProvenance;
-  const hasOriginNavigation = provenance.source_kind !== "direct" && provenance.source_kind !== "manual";
-  return (
-    <div className={`candidate-origin ${broken ? "missing" : ""}`}>
-      <span><b>作成元</b>{provenanceLabel(provenance)}</span>
-      {broken ? (
-        <em>コピー元は削除済みか参照できません</em>
-      ) : candidate.raw.archived_at ? (
-        <em>archive済み候補を参照中</em>
-      ) : hasOriginNavigation ? (
-        <button type="button" className="outline-button" onClick={onOpen}>作成元へ戻る</button>
-      ) : (
-        <small>この候補は比較画面で直接作成されました</small>
-      )}
-    </div>
-  );
-}
-
-function CandidateFileControls({
-  projectId,
-  onImported,
-}: {
-  projectId: string;
-  onImported: (items: Candidate[]) => void;
-}) {
-  const [message, setMessage] = useState("");
-  const upload = async (file?: File) => {
-    if (!file) return;
-    try {
-      const body = await workbenchApi.importCandidates(projectId, file);
-      const imported = body.candidates.map(fromApiCandidate);
-      onImported(imported);
-      setMessage(
-        `${body.created}件を取り込みました${body.errors.length ? `（${body.errors.length}件は確認が必要）` : ""}`,
-      );
-    } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "XLSXを取り込めませんでした。",
-      );
-    }
-  };
-  const download = () => {
-    window.location.assign(workbenchApi.candidateExportUrl(projectId));
-  };
-  return (
-    <div className="file-controls">
-      <label className="outline-button">
-        XLSXを読込
-        <input
-          type="file"
-          accept=".xlsx"
-          onChange={(e) => {
-            void upload(e.target.files?.[0]);
-          }}
-          hidden
-        />
-      </label>
-      <button className="outline-button" onClick={download}>
-        候補・予測をXLSX出力
-      </button>
-      {message && <small>{message}</small>}
     </div>
   );
 }
@@ -819,13 +657,18 @@ function CurveFamilyChart({
   const maxX = payload.axis.max;
   const bandVisible = series.length === 1;
   const valueSamples = points.flatMap((point) => bandVisible ? [point.lower, point.upper] : [point.value]);
-  const rawMin = Math.min(...valueSamples, goalValue ?? Infinity, 0);
-  const rawMax = Math.max(...valueSamples, goalValue ?? -Infinity);
+  const [showFullRange, setShowFullRange] = useState(false);
+  const preferredRange = output.preferred_display_range;
+  const rawMin = showFullRange || !preferredRange ? Math.min(...valueSamples, goalValue ?? Infinity, 0) : preferredRange.min;
+  const rawMax = showFullRange || !preferredRange ? Math.max(...valueSamples, goalValue ?? -Infinity) : preferredRange.max;
   const padding = Math.max(1, (rawMax - rawMin) * 0.08);
-  const minValue = rawMin;
-  const maxValue = rawMax + padding;
+  const minValue = showFullRange || !preferredRange ? rawMin : preferredRange.min;
+  const maxValue = showFullRange || !preferredRange ? rawMax + padding : preferredRange.max;
+  const visibleRange = { min: minValue, max: maxValue };
+  const clippedAbove = valueSamples.filter((value) => value > maxValue).length;
+  const clippedBelow = valueSamples.filter((value) => value < minValue).length;
   const x = (value: number) => 30 + ((value - minX) / Math.max(1e-6, maxX - minX)) * 252;
-  const y = (value: number) => 124 - ((value - minValue) / Math.max(1, maxValue - minValue)) * 92;
+  const y = (value: number) => 124 - ((clampToRange(value, visibleRange) - minValue) / Math.max(1, maxValue - minValue)) * 92;
   const xTicks = [minX, (minX + maxX) / 2, maxX];
   const yTicks = [minValue, (minValue + maxValue) / 2, maxValue];
   const xDigits = chartDigits(minX, maxX);
@@ -833,7 +676,7 @@ function CurveFamilyChart({
   const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; lines: string[] } | null>(null);
   return (
     <article className="response-curve-card">
-      <header><b>{output.label}</b><span>{payload.axis.label}: {number(payload.axis.current)} {payload.axis.unit}</span></header>
+      <header><b>{output.label}</b><span>{payload.axis.label}: {number(payload.axis.current)} {payload.axis.unit}</span>{preferredRange && <button type="button" className="text-button curve-display-range-toggle" onClick={() => setShowFullRange((value) => !value)}>{showFullRange ? "推奨範囲" : "全範囲"}</button>}</header>
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${output.label}の${payload.axis.label}に沿った曲線`}>
         {yTicks.map((tick) => <g key={tick}><line x1="28" y1={y(tick)} x2="284" y2={y(tick)} stroke="#e3e9f0" /><text x="25" y={y(tick) + 3} textAnchor="end" fontSize="9" fill="#617087">{number(tick, yDigits)}</text></g>)}
         {xTicks.map((tick) => <line key={`grid-${tick}`} x1={x(tick)} y1="32" x2={x(tick)} y2="124" stroke="#edf1f6" />)}
@@ -852,6 +695,8 @@ function CurveFamilyChart({
         })}
         {Number.isFinite(goalValue) && <line x1="28" y1={y(goalValue!)} x2="284" y2={y(goalValue!)} stroke="#c17816" strokeDasharray="4 3" />}
         {Number.isFinite(payload.axis.current) && <line x1={x(payload.axis.current)} y1="32" x2={x(payload.axis.current)} y2="124" stroke="#94a5ba" strokeDasharray="2 3" />}
+        {clippedAbove > 0 && <text className="curve-clip-indicator" x="280" y="40" textAnchor="end">▲ {clippedAbove}</text>}
+        {clippedBelow > 0 && <text className="curve-clip-indicator" x="280" y="121" textAnchor="end">▼ {clippedBelow}</text>}
         {xTicks.map((tick) => <text key={tick} x={x(tick)} y="137" textAnchor="middle" fontSize="8" fill="#617087">{number(tick, xDigits)}</text>)}
         {hoveredPoint && <SvgChartTooltip {...hoveredPoint} chartWidth={width} chartHeight={height} />}
         <text x="158" y="150" textAnchor="middle" fontSize="9" fill="#617087">{payload.axis.label} ({payload.axis.unit})</text>
@@ -859,7 +704,6 @@ function CurveFamilyChart({
     </article>
   );
 }
-
 function LiveResponseCurves({
   projectId,
   project,
@@ -897,6 +741,9 @@ function LiveResponseCurves({
   );
   const [variableId, setVariableId] = useState(variables[0]?.id ?? "heat.peak_temperature_c");
   const [axisSettingsOpen, setAxisSettingsOpen] = useState(false);
+  const [outputRangeMode, setOutputRangeMode] = useState<"preferred" | "full" | "configured">(
+    Object.keys(responseCurveRanges.y ?? {}).length ? "configured" : "preferred",
+  );
   const [axisDraft, setAxisDraft] = useState<{ x: CurveRangeDraft; y: Record<string, CurveRangeDraft>; stagePosition: string }>({ x: { min: "", max: "", enabled: false }, y: {}, stagePosition: "" });
   const [axisDraftDirty, setAxisDraftDirty] = useState(false);
   const [axisError, setAxisError] = useState("");
@@ -1051,6 +898,7 @@ function LiveResponseCurves({
         </div>
         <div className="response-curve-controls">
           <label>変数 <select aria-label="応答曲線の設計変数" value={activeVariableId} disabled={axisSaving || axisDraftDirty} onChange={(event) => { setAxisSettingsOpen(false); setAxisDraftDirty(false); setVariableId(event.target.value); }}>{[...new Set(variables.map((variable) => variable.group))].map((group) => <optgroup key={group} label={group}>{variables.filter((variable) => variable.group === group).map((variable) => <option key={variable.id} value={variable.id}>{variable.label} ({variable.unit})</option>)}</optgroup>)}</select></label>
+          <label>Y軸 <select aria-label="Y軸の表示範囲" value={outputRangeMode} onChange={(event) => setOutputRangeMode(event.target.value as "preferred" | "full" | "configured")}><option value="preferred">推奨範囲</option><option value="full">全範囲</option>{Object.keys(responseCurveRanges.y ?? {}).length > 0 && <option value="configured">保存設定</option>}</select></label>
           <button ref={axisSettingsButtonRef} type="button" className={`outline-button curve-range-button${axisSettingsOpen ? " active" : ""}`} aria-label={axisSettingsOpen ? "軸範囲設定を閉じる" : "軸範囲を設定"} title={axisSettingsOpen ? "軸範囲設定を閉じる" : "軸範囲を設定"} aria-expanded={axisSettingsOpen} aria-controls="response-curve-axis-settings" onClick={axisSettingsOpen ? () => setAxisSettingsOpen(false) : openAxisSettings}>
             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 8.3a3.7 3.7 0 1 0 0 7.4 3.7 3.7 0 0 0 0-7.4Zm8.1 4.9v-2.4l-2.3-.7a7.4 7.4 0 0 0-.7-1.6l1.1-2.1-1.7-1.7-2.1 1.1a7.4 7.4 0 0 0-1.6-.7L12.1 3H9.7L9 5.3a7.4 7.4 0 0 0-1.6.7L5.3 4.9 3.6 6.6l1.1 2.1a7.4 7.4 0 0 0-.7 1.6l-2.3.7v2.4l2.3.7a7.4 7.4 0 0 0 .7 1.6l-1.1 2.1 1.7 1.7 2.1-1.1a7.4 7.4 0 0 0 1.6.7l.7 2.3h2.4l.7-2.3a7.4 7.4 0 0 0 1.6-.7l2.1 1.1 1.7-1.7-1.1-2.1a7.4 7.4 0 0 0 .7-1.6l2.3-.7Z" /></svg>
           </button>
@@ -1109,7 +957,12 @@ function LiveResponseCurves({
             const firstPayload = payloads[0];
             const autoValues = payloads.flatMap((payload) => [payload.variable.min, payload.variable.max, payload.variable.current]);
             const chartXRange = xRangeOverride ?? (autoValues.length ? { min: Math.min(...autoValues), max: Math.max(...autoValues) } : undefined);
-            return <ResponseCurveMiniChart key={output.key} output={output} series={curveSeries} selectedId={candidate.id} prediction={previewsByCandidate[candidate.id]?.predictions?.[output.key] ?? preview?.predictions?.[output.key]} goalValue={targetValues[output.key]} xRange={chartXRange} yRange={responseCurveRanges.y?.[output.key] ?? firstPayload?.output_range ?? undefined} xLabel={firstPayload?.variable.label ?? selectedVariable?.label ?? "設計変数"} xUnit={firstPayload?.variable.unit ?? selectedVariable?.unit ?? ""} />;
+            const yRange = outputRangeMode === "full"
+              ? undefined
+              : outputRangeMode === "configured"
+                ? responseCurveRanges.y?.[output.key] ?? output.preferred_display_range ?? firstPayload?.output_range ?? undefined
+                : output.preferred_display_range ?? firstPayload?.output_range ?? undefined;
+            return <ResponseCurveMiniChart key={output.key} output={output} series={curveSeries} selectedId={candidate.id} prediction={previewsByCandidate[candidate.id]?.predictions?.[output.key] ?? preview?.predictions?.[output.key]} goalValue={targetValues[output.key]} xRange={chartXRange} yRange={yRange} xLabel={firstPayload?.variable.label ?? selectedVariable?.label ?? "設計変数"} xUnit={firstPayload?.variable.unit ?? selectedVariable?.unit ?? ""} />;
           })}
         </div>
       )}
@@ -1143,14 +996,23 @@ function ResponseCurveMiniChart({
   const points = series.flatMap((item) => item.points);
   const minX = xRange?.min ?? Math.min(...points.map((point) => point.x), 0);
   const maxX = xRange?.max ?? Math.max(...points.map((point) => point.x), 1);
-  const outputAxisValues = yRange ? [yRange.min, yRange.max] : points.flatMap((point) => [point.lower, point.upper]);
+  const outputAxisValues = yRange
+    ? [yRange.min, yRange.max]
+    : [
+        ...points.flatMap((point) => [point.value, point.lower, point.upper, ...Object.values(point.quantiles ?? {})]),
+        ...series.flatMap((item) => item.prediction ? [item.prediction.value, item.prediction.lower, item.prediction.upper, ...Object.values(item.prediction.quantiles ?? {})] : []),
+      ];
   const rawMin = Math.min(...outputAxisValues, goalValue ?? Infinity);
   const rawMax = Math.max(...outputAxisValues, goalValue ?? -Infinity);
   const valuePadding = Math.max(1, (rawMax - rawMin) * 0.08);
-  const minValue = rawMin - valuePadding;
-  const maxValue = rawMax + valuePadding;
+  const minValue = yRange?.min ?? rawMin - valuePadding;
+  const maxValue = yRange?.max ?? rawMax + valuePadding;
+  const visibleRange = { min: minValue, max: maxValue };
+  const clippedPoints = points.filter((point) => [point.value, point.lower, point.upper, ...Object.values(point.quantiles ?? {})].some((value) => isOutsideRange(value, visibleRange)));
+  const clippedAbove = clippedPoints.filter((point) => [point.value, point.lower, point.upper, ...Object.values(point.quantiles ?? {})].some((value) => value > maxValue)).length;
+  const clippedBelow = clippedPoints.filter((point) => [point.value, point.lower, point.upper, ...Object.values(point.quantiles ?? {})].some((value) => value < minValue)).length;
   const x = (value: number) => 30 + ((value - minX) / Math.max(1e-6, maxX - minX)) * 252;
-  const y = (value: number) => 124 - ((value - minValue) / Math.max(1, maxValue - minValue)) * 92;
+  const y = (value: number) => 124 - ((clampToRange(value, visibleRange) - minValue) / Math.max(1, maxValue - minValue)) * 92;
   const xTicks = [minX, (minX + maxX) / 2, maxX];
   const declaredQuantiles = [...new Set(points.flatMap((point) => Object.keys(point.quantiles ?? {})))].sort((left, right) => Number(left) - Number(right));
   const quantileLabel = declaredQuantiles.length ? `分位線 ${declaredQuantiles.map((level) => `q${Math.round(Number(level) * 100)}`).join("・")}` : "予測線";
@@ -1160,7 +1022,7 @@ function ResponseCurveMiniChart({
   const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; lines: string[] } | null>(null);
   return (
     <article className="response-curve-card">
-      <header><b>{output.label}</b><span>{prediction ? `${number(prediction.value, output.key === "EL" || output.key === "lambda" ? 1 : 0)} ${prediction.unit} / ${quantileLabel}` : "読み込み中"}</span></header>
+      <header><b>{output.label}</b><span>{prediction ? `${number(prediction.value, output.key === "EL" || output.key === "lambda" ? 1 : 0)} ${prediction.unit} / ${quantileLabel}` : "読み込み中"}</span>{clippedPoints.length > 0 && <span className="curve-clipped-summary" title="表示範囲外の実値は各点の詳細で確認できます">表示外 {clippedPoints.length}点</span>}</header>
       {series.length ? <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${output.label}の応答曲線、${quantileLabel}`}>
         {yTicks.map((tick) => <g key={tick}><line x1="28" y1={y(tick)} x2="284" y2={y(tick)} stroke="#e3e9f0" /><text x="25" y={y(tick) + 3} textAnchor="end" fontSize="9" fill="#617087">{number(tick, yDigits)}</text></g>)}
         {xTicks.map((tick) => <line key={`grid-${tick}`} x1={x(tick)} y1="32" x2={x(tick)} y2="124" stroke="#edf1f6" />)}
@@ -1186,125 +1048,12 @@ function ResponseCurveMiniChart({
           />}</g>;
         })}
         {Number.isFinite(goalValue) && <line x1="28" y1={y(goalValue!)} x2="284" y2={y(goalValue!)} stroke="#c17816" strokeDasharray="4 3" />}
+        {clippedAbove > 0 && <text className="curve-clip-indicator" x="280" y="40" textAnchor="end">▲ {clippedAbove}</text>}
+        {clippedBelow > 0 && <text className="curve-clip-indicator" x="280" y="121" textAnchor="end">▼ {clippedBelow}</text>}
         {xTicks.map((tick) => <text key={tick} x={x(tick)} y="137" textAnchor="middle" fontSize="8" fill="#617087">{number(tick, xDigits)}</text>)}
         {hoveredPoint && <SvgChartTooltip {...hoveredPoint} chartWidth={width} chartHeight={height} />}
         <text x="156" y="153" textAnchor="middle" fontSize="8" fill="#617087">{xLabel} ({xUnit})</text>
       </svg> : <p className="empty-evidence">読み込み中…</p>}
     </article>
-  );
-}
-
-function LiveSimilarityEvidence({
-  projectId,
-  candidate,
-  outputs,
-  available,
-  ready,
-  onAddCandidate,
-}: {
-  projectId: string;
-  candidate: Candidate;
-  outputs: TaskOutputDefinition[];
-  available: boolean;
-  ready: boolean;
-  onAddCandidate: (entityKey: string) => Promise<boolean>;
-}) {
-  const [surface, setSurface] = useState(() => emptyInferenceSurface<ApiSimilarObservation[]>());
-  const [addingKey, setAddingKey] = useState("");
-  const [addedKeys, setAddedKeys] = useState<string[]>([]);
-  const surfaceRef = useRef(surface);
-  const inputIdentity = candidateInputIdentity(candidate.raw.inputs);
-  const similarityScope = `${projectId}\u001f${candidate.id}\u001fsimilarity:6`;
-  const identity = `${similarityScope}\u001f${candidate.raw.revision}\u001f${inputIdentity}`;
-  useEffect(() => {
-    const empty = emptyInferenceSurface<ApiSimilarObservation[]>();
-    surfaceRef.current = empty;
-    setSurface(empty);
-    setAddedKeys([]);
-    setAddingKey("");
-  }, [candidate.id]);
-  useEffect(() => {
-    if (!available || !ready || candidate.raw.archived_at) return;
-    const controller = new AbortController();
-    const requested = requestInferenceSurface(surfaceRef.current, identity);
-    surfaceRef.current = requested;
-    setSurface(requested);
-    void workbenchApi.similarCandidates(
-      projectId,
-      candidate.id,
-      candidate.raw.revision,
-      inputIdentity,
-      6,
-      controller.signal,
-    ).then((loaded) => {
-      if (controller.signal.aborted) return;
-      const resolved = resolveInferenceSurface(surfaceRef.current, requested.requestSequence, identity, loaded);
-      surfaceRef.current = resolved;
-      setSurface(resolved);
-    }).catch((cause) => {
-      if (controller.signal.aborted) return;
-      const rejected = rejectInferenceSurface(surfaceRef.current, requested.requestSequence, identity, cause);
-      surfaceRef.current = rejected;
-      setSurface(rejected);
-    });
-    return () => controller.abort();
-  }, [available, candidate.id, candidate.raw.archived_at, candidate.raw.revision, identity, inputIdentity, projectId, ready]);
-  const status = inferenceSurfaceStatus(surface);
-  const similar = surface.currentIdentity?.startsWith(`${similarityScope}\u001f`) ? surface.data ?? [] : [];
-  const processLabel = similar.find((item) => item.process_label)?.process_label ?? "工程履歴";
-  const measuredOutputs = (item: ApiSimilarObservation) => outputs.flatMap((output) => {
-    const summaryKey = [...(output.measurement_keys ?? []), output.key, output.label]
-      .find((key) => item.repeat_summary?.[key]);
-    const summary = summaryKey ? item.repeat_summary?.[summaryKey] : undefined;
-    return summary ? [{ output, summary }] : [];
-  });
-  const add = async (entityKey: string) => {
-    setAddingKey(entityKey);
-    try {
-      if (await onAddCandidate(entityKey)) setAddedKeys((current) => current.includes(entityKey) ? current : [...current, entityKey]);
-    } finally {
-      setAddingKey("");
-    }
-  };
-  return (
-    <section className="similar-evidence-panel">
-      <div className="evidence-title">
-        <div>
-          <h2>近い過去実績 <span>（予測対象の実績値）</span></h2>
-          <span className="similar-caption">距離が小さいほど、成分・工程・熱履歴が近い条件です</span>
-        </div>
-        {similar.length > 0 && <span className={`inference-surface-status ${status}`}>{status === "latest" ? "最新" : status === "refreshing" ? "更新中" : status === "stale" ? "旧revision・更新中" : "更新失敗・旧結果"}</span>}
-      </div>
-      {!available ? (
-        <p className="empty-evidence">このタスクでは類似実験を利用できません。</p>
-      ) : candidate.raw.archived_at ? (
-        <p className="empty-evidence">archive済み候補では新しい根拠計算を行いません。</p>
-      ) : !ready ? (
-        <p className="empty-evidence">入力を保存後に近さを更新します。</p>
-      ) : similar.length ? (
-        <>
-          <div className="similar-table-scroll"><table className="similar-table similar-summary-table">
-            <thead><tr><th>距離</th><th>溶製成績書 key</th><th>{processLabel} key</th><th>実績値</th><th /></tr></thead>
-            <tbody>{similar.map((item) => (
-              <tr key={`${item.layer ?? "training"}-${item.parent_key}`}>
-                <td className="similar-distance"><b>{item.distance.toFixed(2)}</b><span className={`layer-chip ${item.layer ?? "training"}`}>{item.layer === "historical" ? "学習外" : "学習内"}</span></td>
-                <td className="similar-key">{item.melt_key ?? "—"}</td>
-                <td className="similar-key">{item.process_key ?? item.parent_key}</td>
-                <td><div className="similar-value-list"><small>{item.source || item.observation_id || "実績"}</small>{measuredOutputs(item).map(({ output, summary }) => <span key={output.key} title={`${output.label}: ${number(summary.mean, 1)} ± ${number(summary.std, 1)} ${output.unit} / n=${summary.n}`}><b>{output.key === "lambda" ? "λ" : output.key}</b><strong>{number(summary.mean, 1)}</strong></span>)}</div></td>
-                <td className="similar-action-cell">
-                  <CandidateAddButton compact disabled={!item.process_key || addingKey === item.process_key || addedKeys.includes(item.process_key ?? "")} onClick={() => { if (item.process_key) void add(item.process_key); }}>
-                    {addedKeys.includes(item.process_key ?? "") ? "追加済み" : addingKey === item.process_key ? "追加中…" : "候補に追加"}
-                  </CandidateAddButton>
-                </td>
-              </tr>
-            ))}</tbody>
-          </table></div>
-        </>
-      ) : status === "error" ? (
-        <p className="empty-evidence">類似実験を取得できませんでした。閉じて再度開くと再試行します。</p>
-      ) : (
-        <p className="empty-evidence">類似実験を取得しています。</p>
-      )}
-    </section>
   );
 }

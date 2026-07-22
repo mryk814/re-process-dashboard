@@ -10,12 +10,9 @@ from typing import Annotated, Any, Iterator, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .dataset_profile import load_dataset_profile
-from .feature_pipeline import build_feature_bundle_from_observation
-from .flank_wear_feature_pipeline import build_flank_wear_features_from_observation
-from .hot_rolling_feature_pipeline import build_hot_rolling_features_from_observation
-from .importer import WorkbookData
 from .model_packages import PackageContractError, VerifiedModelPackage
 from .task_contracts import RuntimeCapability, TaskContractFixture, TaskDefinition
+from .task_modules import DataDescriptor, registered_task_modules, task_module
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
@@ -143,7 +140,7 @@ def dataset_profile_digest(path: Path = DATASET_PROFILE_PATH) -> str:
 
 def canonical_training_dataset(
     task_id: str,
-    data: WorkbookData,
+    data: DataDescriptor,
     contract: TaskContractFixture,
 ) -> dict[str, Any]:
     profile = load_dataset_profile(data.profile_path)
@@ -152,14 +149,7 @@ def canonical_training_dataset(
         for observation in profile.tasks[task_id].observations
         for target in observation.targets
     }
-    builders = {
-        "annealed-properties-v1": build_feature_bundle_from_observation,
-        "hot-rolled-properties-v1": build_hot_rolling_features_from_observation,
-        "flank-wear-v1": build_flank_wear_features_from_observation,
-    }
-    builder = builders.get(task_id)
-    if builder is None:
-        raise ValueError(f"unsupported training task: {task_id}")
+    builder = task_module(task_id).feature_row_builder
     rows: list[dict[str, Any]] = []
     for observation in data.observations:
         if not observation["eligible"]:
@@ -279,7 +269,7 @@ def validate_lifecycle_metadata(
 
 def validate_training_provenance(
     package: VerifiedModelPackage,
-    data: WorkbookData,
+    data: DataDescriptor,
     contract: TaskContractFixture,
 ) -> None:
     if package.manifest.provenance.training_data_id != f"sha256:{data.source_sha256}":
@@ -294,6 +284,19 @@ def load_active_packages(path: Path = ACTIVE_PACKAGES_PATH) -> ActivePackagesCon
         return ActivePackagesConfig.model_validate_json(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         raise PackageContractError(f"invalid active model package configuration: {exc}") from exc
+
+
+def validate_active_package_task_set(
+    config: ActivePackagesConfig,
+    task_ids: set[str] | None = None,
+) -> None:
+    expected = set(registered_task_modules()) if task_ids is None else task_ids
+    actual = set(config.tasks)
+    if actual != expected:
+        raise PackageContractError(
+            "active package tasks must exactly match registered TaskModules; "
+            f"missing={sorted(expected - actual)}, unknown={sorted(actual - expected)}"
+        )
 
 
 def resolve_configured_package(

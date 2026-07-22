@@ -2,50 +2,41 @@ from __future__ import annotations
 
 import os
 import csv
-import importlib.util
 import math
 from collections import Counter
 from contextlib import asynccontextmanager
-from io import BytesIO, StringIO
+from io import StringIO
 from pathlib import Path
 from statistics import fmean, pstdev
 from typing import Any, Literal, Mapping
 
-from fastapi import FastAPI, File, HTTPException, Query, Request, Response, UploadFile
+from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.encoders import jsonable_encoder
-from fastapi.exceptions import RequestValidationError
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
 
-from .candidate_migration import HOT_PROJECT_ID
-from .importer import lineage_neighborhood, lineage_node_detail, load_workbook_data
-from .flank_wear import TASK_ID as FLANK_WEAR_TASK_ID, FlankWearRuntime, load_flank_wear_data, resolve_flank_wear_source
-from .hot_rolling import TASK_ID as HOT_ROLLING_TASK_ID, HotRollingRuntime
+from .api.errors import DomainApiException, PROJECT_API_ERRORS, install_exception_handlers
+from .api.security import configure_local_access
+from .api.catalog import router as catalog_router
+from .api.projects import router as projects_router
+from .api.candidates import CANDIDATE_APPLICATION_ERRORS, candidate_http_error, router as candidates_router
+from .application.candidates import CandidateService
+from .importer import lineage_neighborhood, lineage_node_detail
+from .demo_seed import initialize_demo_projects
 from .inference_work_graph import InferenceKey, InferenceWorkGraph
-from .runtime import ModelRuntime, TASK_ID as ANNEALED_TASK_ID
-from .model_lifecycle import ACTIVE_PACKAGES_PATH, resolve_configured_package, validate_lifecycle_metadata
-from .model_packages import RUNTIME_TYPES
+from .runtime import ModelRuntime
+from .model_lifecycle import ACTIVE_PACKAGES_PATH, load_active_packages, resolve_configured_package, validate_active_package_task_set
 from .schemas import (
-    ApiError,
     ActualMeasurement,
     ActualMeasurementInput,
     Candidate,
-    CandidateImportResponse,
     CandidateInput,
-    CandidateUpdate,
     CurveFamilyResponse,
     DetailedPredictionResponse,
     InferenceDiagnosticsResponse,
     LineageIndexResponse,
     LineageResponse,
-    ModelPackageStatus,
     PredictionResponse,
     PredictionVsActualResponse,
     Project,
-    ProjectCreateInput,
-    ProjectDecisionInput,
-    ProjectHistoryResponse,
-    ProjectInput,
     QualityResponse,
     ResponseCurveResponse,
     ScreeningRequest,
@@ -54,77 +45,12 @@ from .schemas import (
     ScreeningRunResponse,
     SimilarObservation,
     SnapshotResponse,
-    TaskCatalogItem,
 )
-from .services import candidate_from_lineage, candidates_xlsx, import_candidates_xlsx, run_latin_hypercube
+from .services import candidate_from_lineage, run_latin_hypercube
 from .snapshot_reader import SnapshotPayloadError, candidate_input_from_snapshot
-from .store import CandidateArchivedError, CandidateCopyConflictError, CandidateLimitError, CandidateRevisionConflictError, InvalidProjectDecisionError, ProjectNotFoundError, ProtectedProjectError, Store, StoreDataIntegrityError
-from .task_contracts import DataExplorerCapability, ResolvedTaskDefinition
+from .store import CandidateLimitError, CandidateRevisionConflictError, Store
 from .task_registry import DataExplorerEntry, TaskRegistry, TaskRegistryError
-
-
-PROJECT_API_ERRORS = {
-    404: {"model": ApiError, "description": "Not Found"},
-    409: {"model": ApiError, "description": "Conflict"},
-    422: {"model": ApiError, "description": "Validation Error"},
-}
-
-
-class DomainApiException(Exception):
-    def __init__(self, status_code: int, code: str, message: str, *, current_candidate: Candidate | None = None) -> None:
-        super().__init__(message)
-        self.status_code = status_code
-        self.code = code
-        self.message = message
-        self.current_candidate = current_candidate
-
-
-def _default_candidate_payloads(medians: dict[str, float]) -> list[CandidateInput]:
-    composition = {key: round(value, 5) for key, value in medians.items()}
-    variants = [
-        ("基準候補", 1.00, 810.0, 103.0),
-        ("高強度案", 1.16, 830.0, 96.0),
-        ("延性重視案", 0.88, 790.0, 112.0),
-    ]
-    return [
-        CandidateInput(
-            name=name,
-            inputs={
-                "composition": {**composition, "C": round(composition["C"] * carbon_factor, 5)},
-                "process": {"ls_mpm": line_speed},
-                "categorical": {},
-                "heat_pattern": [
-                    {"time_s": 0, "temperature_c": 25},
-                    {"time_s": 280, "temperature_c": peak - 10},
-                    {"time_s": 340, "temperature_c": peak},
-                    {"time_s": 650, "temperature_c": 120},
-                ],
-            },
-        )
-        for name, carbon_factor, peak, line_speed in variants
-    ]
-
-
-def _default_hot_rolling_candidates(medians: dict[str, float]) -> list[CandidateInput]:
-    composition = {key: round(value, 5) for key, value in medians.items()}
-    variants = [
-        ("基準熱延", 1170, 900, 34, 3.4, 1160, 30),
-        ("高温保持", 1200, 910, 36, 3.2, 1180, 42),
-        ("延性重視", 1160, 920, 34, 3.8, 1140, 34),
-    ]
-    keys = (
-        "soaking_temperature_c", "finish_temperature_c", "entry_thickness_mm",
-        "exit_thickness_mm", "hold_temperature_c", "hold_time_min",
-    )
-    return [CandidateInput(
-        name=name,
-        inputs={
-            "composition": composition,
-            "process": dict(zip(keys, values)),
-            "categorical": {},
-            "heat_pattern": None,
-        },
-    ) for name, *values in variants]
+from .task_modules import registered_task_modules
 
 
 def create_app(
@@ -136,64 +62,47 @@ def create_app(
     active_packages_path: str | Path | None = None,
 ) -> FastAPI:
     source = Path(source_path or os.getenv("WORKBENCH_SOURCE_PATH", "data/source/process_dashboard_realistic_excel_v2.xlsx"))
-    flank_wear_source = resolve_flank_wear_source(flank_wear_source_path)
     database = Path(db_path or os.getenv("WORKBENCH_DB_PATH", "data/workbench.db"))
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        app.state.data = load_workbook_data(source)
+        database_existed = database.exists()
         configured = Path(active_packages_path) if active_packages_path else ACTIVE_PACKAGES_PATH
         injected = dict(package_roots or {})
-        annealed_runtime = ModelRuntime(
-            app.state.data,
-            package_root=resolve_configured_package(
-                ANNEALED_TASK_ID,
+        modules = registered_task_modules()
+        validate_active_package_task_set(load_active_packages(configured), set(modules))
+        data_by_source: dict[str, Any] = {}
+        runtimes = {}
+        explorers = {}
+        for task_id, module in modules.items():
+            if module.source_kind not in data_by_source:
+                explicit_source = source if module.source_kind == "primary" else flank_wear_source_path
+                configured_source = Path(explicit_source or os.getenv(module.source_env, str(module.default_source)))
+                if not configured_source.is_absolute() and not configured_source.exists():
+                    repository_source = Path(__file__).resolve().parents[3] / configured_source
+                    if repository_source.exists():
+                        configured_source = repository_source
+                data_by_source[module.source_kind] = module.data_loader(configured_source)
+            data = data_by_source[module.source_kind]
+            package = resolve_configured_package(
+                task_id,
                 config_path=configured,
-                override=injected.get(ANNEALED_TASK_ID) or os.getenv("MATERIAL_WORKBENCH_MODEL_PACKAGE"),
-            ),
-        )
-        hot_rolling_runtime = HotRollingRuntime(
-            app.state.data,
-            package_root=resolve_configured_package(
-                HOT_ROLLING_TASK_ID,
-                config_path=configured,
-                override=injected.get(HOT_ROLLING_TASK_ID) or os.getenv("MATERIAL_WORKBENCH_HOT_ROLLING_MODEL_PACKAGE"),
-            ),
-        )
-        flank_wear_runtime = FlankWearRuntime(
-            load_flank_wear_data(flank_wear_source),
-            package_root=resolve_configured_package(
-                FLANK_WEAR_TASK_ID,
-                config_path=configured,
-                override=injected.get(FLANK_WEAR_TASK_ID) or os.getenv("MATERIAL_WORKBENCH_FLANK_WEAR_MODEL_PACKAGE"),
-            ),
-        )
-        app.state.task_registry = TaskRegistry({
-            ANNEALED_TASK_ID: annealed_runtime,
-            HOT_ROLLING_TASK_ID: hot_rolling_runtime,
-            FLANK_WEAR_TASK_ID: flank_wear_runtime,
-        }, data_explorers={
-            ANNEALED_TASK_ID: DataExplorerEntry(
-                data=app.state.data,
-                capability=DataExplorerCapability(quality=True, lineage=True, candidate_creation=True),
-            ),
-            HOT_ROLLING_TASK_ID: DataExplorerEntry(
-                data=app.state.data,
-                capability=DataExplorerCapability(quality=True, lineage=True, candidate_creation=True),
-            ),
-        })
+                override=injected.get(task_id) or os.getenv(module.package_override_env),
+            )
+            runtimes[task_id] = module.runtime_factory(data, package)
+            if module.data_explorer is not None:
+                explorers[task_id] = DataExplorerEntry(data=data, capability=module.data_explorer)
+        app.state.data = data_by_source["primary"]
+        app.state.task_registry = TaskRegistry(runtimes, data_explorers=explorers, modules=modules)
         app.state.inference_work_graph = InferenceWorkGraph(max_entries=256)
         app.state.store = Store(database)
-        app.state.store.ensure_project(
-            HOT_PROJECT_ID,
-            ProjectInput(name="熱延条件の候補検討", task_id=HOT_ROLLING_TASK_ID),
+        explicit_demo_seed = os.getenv("WORKBENCH_DEMO_SEED", "").strip().lower() in {"1", "true", "yes"}
+        initialize_demo_projects(
+            app.state.store,
+            modules,
+            runtimes,
+            seed_candidates=not database_existed or explicit_demo_seed,
         )
-        if not app.state.store.list_candidates():
-            for candidate in _default_candidate_payloads(app.state.data.medians):
-                app.state.store.create_candidate(candidate)
-        if not app.state.store.list_candidates(HOT_PROJECT_ID):
-            for candidate in _default_hot_rolling_candidates(app.state.data.medians):
-                app.state.store.create_candidate(candidate, HOT_PROJECT_ID)
         yield
 
     app = FastAPI(
@@ -202,63 +111,28 @@ def create_app(
         lifespan=lifespan,
         responses={422: PROJECT_API_ERRORS[422]},
     )
-    # Electron loads the packaged renderer from file://, which browsers serialize as Origin: null.
-    # The local sidecar only listens on loopback, and credentials are not accepted.
-    configured_cors_origins = [
-        origin.strip()
-        for origin in os.getenv("WORKBENCH_CORS_ORIGINS", "").split(",")
-        if origin.strip()
-    ]
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["null", *configured_cors_origins],
-        allow_origin_regex=r"^http://(127\.0\.0\.1|localhost):\d+$",
-        allow_methods=["*"],
-        allow_headers=["*"],
-        allow_credentials=False,
-    )
-
-    @app.exception_handler(HTTPException)
-    async def http_error(_: Request, exc: HTTPException) -> JSONResponse:
-        code = {
-            404: "not_found",
-            422: "validation_error",
-            503: "runtime_unavailable",
-        }.get(exc.status_code, "validation_error")
-        message = exc.detail if isinstance(exc.detail, str) else "リクエストを処理できません"
-        payload = ApiError(code=code, message=message)
-        return JSONResponse(status_code=exc.status_code, content=payload.model_dump(mode="json", exclude={"current_candidate"}))
-
-    @app.exception_handler(DomainApiException)
-    async def domain_error(_: Request, exc: DomainApiException) -> JSONResponse:
-        payload = ApiError(
-            code=exc.code,  # type: ignore[arg-type]
-            message=exc.message,
-            current_candidate=exc.current_candidate,
-        )
-        excluded = {"current_candidate"} if exc.current_candidate is None else None
-        return JSONResponse(status_code=exc.status_code, content=payload.model_dump(mode="json", exclude=excluded))
-
-    @app.exception_handler(RequestValidationError)
-    async def validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
-        payload = ApiError(
-            code="validation_error",
-            message="入力内容を確認してください",
-            field_errors=[
-                {"path": ".".join(str(part) for part in error["loc"]), "message": error["msg"]}
-                for error in exc.errors()
-            ],
-        )
-        return JSONResponse(status_code=422, content=payload.model_dump(mode="json", exclude={"current_candidate"}))
+    configure_local_access(app)
+    install_exception_handlers(app)
+    app.include_router(catalog_router)
+    app.include_router(projects_router)
+    app.include_router(candidates_router)
 
     def store() -> Store:
         return app.state.store
 
     def runtime() -> ModelRuntime:
-        return app.state.task_registry.runtime_for(ANNEALED_TASK_ID)
+        default_project = app.state.store.get_project("default")
+        assert default_project is not None
+        return app.state.task_registry.runtime_for(default_project.task_id)
 
     def task_registry() -> TaskRegistry:
         return app.state.task_registry
+
+    def require_task_operation(task_id: str, operation: str) -> None:
+        try:
+            task_registry().require_operation(task_id, operation)  # type: ignore[arg-type]
+        except TaskRegistryError as exc:
+            raise HTTPException(422, str(exc)) from exc
 
     def project_data_explorer(project_id: str, capability: Literal["quality", "lineage"]) -> DataExplorerEntry:
         project = require_project(project_id)
@@ -304,116 +178,17 @@ def create_app(
             raise HTTPException(404, "プロジェクトが見つかりません")
         return project
 
+    def candidate_service() -> CandidateService:
+        return CandidateService(store(), task_registry())
+
     def create_candidate_in_project(payload: CandidateInput, project_id: str):
-        project = require_project(project_id)
-        if payload.provenance.source_kind == "copy":
-            reference = payload.provenance.source_ref
-            source_candidate = store().get_candidate(
-                reference.candidate_id,
-                reference.project_id,
-                include_archived=True,
-            )
-            if source_candidate is None:
-                raise HTTPException(422, "コピー元候補が見つかりません")
-            if source_candidate.revision != reference.candidate_revision:
-                raise HTTPException(422, "コピー元候補のrevisionが一致しません")
-            source_project = require_project(reference.project_id)
-            if source_project.task_id != project.task_id:
-                raise HTTPException(422, "異なる予測タスクの候補はコピーできません")
         try:
-            task_registry().validate_candidate(project.task_id, payload)
-        except (TaskRegistryError, ValueError) as exc:
-            raise HTTPException(422, str(exc)) from exc
-        try:
-            return store().create_candidate(payload, project_id)
-        except ProjectNotFoundError as exc:
-            raise HTTPException(404, "プロジェクトが見つかりません") from exc
-        except CandidateLimitError as exc:
-            raise DomainApiException(409, "candidate_limit", str(exc)) from exc
-
-    def validate_display_decimals(payload: ProjectInput, definition: ResolvedTaskDefinition) -> None:
-        unsupported = sorted(set(payload.display_decimals) - set(definition.task_definition.display_decimals))
-        if unsupported:
-            raise HTTPException(422, f"タスクに存在しない表示項目です: {', '.join(unsupported)}")
-
-    @app.get("/api/health")
-    @app.get("/health", include_in_schema=False)
-    def health() -> dict[str, Any]:
-        return {"ok": True, "models": sorted(runtime().models), "source": str(source)}
-
-    @app.get(
-        "/api/projects/{project_id}/model-package",
-        response_model=ModelPackageStatus,
-        responses=PROJECT_API_ERRORS,
-        operation_id="getProjectModelPackage",
-    )
-    def model_package(project_id: str) -> dict[str, Any]:
-        project = require_project(project_id)
-        entry = task_registry().entry_for(project.task_id)
-        package = entry.model_package
-        manifest = package.manifest
-        quality = validate_lifecycle_metadata(
-            package,
-            task_registry().contract_for(project.task_id),
-            profile_path=Path(entry.predictor_runtime.data.profile_path),
-        )
-        optional_dependencies = {
-            "sklearn.skops.v1": importlib.util.find_spec("skops") is not None,
-            "lightgbm.booster.v1": importlib.util.find_spec("lightgbm") is not None,
-            "gpytorch.static_exact_rbf.v1": importlib.util.find_spec("torch") is not None and importlib.util.find_spec("safetensors") is not None,
-        }
-        dependencies = {runtime_type: optional_dependencies.get(runtime_type, True) for runtime_type in RUNTIME_TYPES}
-        return {
-            "id": manifest.package_id,
-            "version": manifest.package_version,
-            "task_id": manifest.task_id,
-            "manifest_sha256": package.manifest_sha256,
-            "active_runtimes": sorted({item.runtime_type for item in manifest.predictors}),
-            "supported_runtimes": [
-                {"runtime_type": runtime_type, "available": available}
-                for runtime_type, available in dependencies.items()
-            ],
-            "predictors": [
-                {"target": item.target, "runtime_type": item.runtime_type, "predictive_family": item.predictive_family}
-                for item in manifest.predictors
-            ],
-            "quality_report": quality.model_dump(mode="json"),
-        }
-
-    @app.get(
-        "/api/task-definitions",
-        response_model=list[TaskCatalogItem],
-        operation_id="listTaskDefinitions",
-    )
-    def task_definitions() -> list[dict[str, Any]]:
-        catalog = []
-        for task_id in task_registry().task_ids:
-            contract = task_registry().contract_for(task_id)
-            canonical = contract.canonical_candidate
-            catalog.append({
-                "definition": task_registry().resolved_definition_for(task_id),
-                "starter_candidate": {
-                    "name": "基準候補",
-                    "inputs": {
-                        "composition": canonical.composition,
-                        "process": canonical.process,
-                        "categorical": canonical.categorical,
-                        "heat_pattern": canonical.heat_pattern,
-                    },
-                    "provenance": {"source_kind": "direct", "source_ref": None},
-                },
-            })
-        return catalog
-
-    @app.get(
-        "/api/projects/{project_id}/task-definition",
-        response_model=ResolvedTaskDefinition,
-        responses=PROJECT_API_ERRORS,
-        operation_id="getProjectTaskDefinition",
-    )
-    def task_definition(project_id: str) -> ResolvedTaskDefinition:
-        project = require_project(project_id)
-        return task_registry().resolved_definition_for(project.task_id)
+            return candidate_service().create(project_id, payload)
+        except CANDIDATE_APPLICATION_ERRORS as exc:
+            converted = candidate_http_error(exc)
+            if converted is exc:
+                raise
+            raise converted from exc
 
     @app.post(
         "/api/projects/{project_id}/candidates/{candidate_id}/preview",
@@ -423,6 +198,7 @@ def create_app(
     )
     def preview_project_candidate(project_id: str, candidate_id: str, expected_revision: int) -> dict[str, Any]:
         project = require_project(project_id)
+        require_task_operation(project.task_id, "preview")
         candidate = candidate_at_revision(project_id, candidate_id, expected_revision)
         task_runtime = task_registry().runtime_for(project.task_id)
         prediction = inference_work_graph().execute(
@@ -441,7 +217,7 @@ def create_app(
         )
         support = inference_work_graph().execute(
             inference_key(project.task_id, candidate, "support", uses_support=True),
-            lambda: task_runtime.support_summary(candidate),
+            lambda: task_registry().entry_for(project.task_id).support_provider.support_summary(candidate),
         )
         prediction["candidate_id"] = candidate.id
         prediction["support"] = support
@@ -450,7 +226,7 @@ def create_app(
             prediction["warnings"].append(support.message)
         return prediction
 
-    @app.get("/api/bootstrap")
+    @app.get("/api/bootstrap", deprecated=True)
     def bootstrap() -> dict[str, Any]:
         data = app.state.data
         candidates = [candidate.model_dump(mode="json") for candidate in store().list_candidates()]
@@ -468,221 +244,24 @@ def create_app(
             },
         }
 
-    @app.get("/api/projects", response_model=list[Project])
-    def list_projects() -> list[dict[str, Any]]:
-        return [project.model_dump(mode="json") for project in store().list_projects()]
-
-    @app.post("/api/projects", status_code=201, response_model=Project)
-    def create_project(payload: ProjectCreateInput) -> dict[str, Any]:
-        try:
-            contract = task_registry().contract_for(payload.task_id)
-        except TaskRegistryError as exc:
-            raise HTTPException(422, str(exc)) from exc
-        unsupported_targets = sorted(set(payload.target_values) - {item.key for item in contract.task_definition.outputs})
-        if unsupported_targets:
-            raise HTTPException(422, f"タスクに存在しない目標特性です: {', '.join(unsupported_targets)}")
-        validate_display_decimals(payload, task_registry().resolved_definition_for(payload.task_id))
-        if payload.decision_candidate_id:
-            raise HTTPException(422, "新しいプロジェクトでは採用候補を空にしてください")
-        initial = payload.initial_candidate
-        if initial is not None:
-            if initial.provenance.source_kind != "copy":
-                raise HTTPException(422, "新規プロジェクトの初期候補はコピー由来にしてください")
-            reference = initial.provenance.source_ref
-            source = store().get_candidate(reference.candidate_id, reference.project_id, include_archived=True)
-            if source is None or source.revision != reference.candidate_revision:
-                raise HTTPException(422, "コピー元候補またはrevisionが一致しません")
-            source_project = require_project(reference.project_id)
-            if source_project.task_id != payload.task_id:
-                raise HTTPException(422, "異なる予測タスクの候補はコピーできません")
-            try:
-                task_registry().validate_candidate(payload.task_id, initial)
-            except (TaskRegistryError, ValueError) as exc:
-                raise HTTPException(422, str(exc)) from exc
-        project_input = ProjectInput.model_validate(payload.model_dump(exclude={"initial_candidate"}))
-        try:
-            return store().create_project(project_input, initial).model_dump(mode="json")
-        except CandidateCopyConflictError as exc:
-            raise HTTPException(422, str(exc)) from exc
-
-    @app.get("/api/projects/{project_id}", response_model=Project)
-    def get_project_by_id(project_id: str) -> dict[str, Any]:
-        return require_project(project_id).model_dump(mode="json")
-
-    @app.delete("/api/projects/{project_id}", status_code=204, responses=PROJECT_API_ERRORS)
-    def delete_project_by_id(project_id: str) -> Response:
-        require_project(project_id)
-        try:
-            deleted = store().delete_project(project_id)
-        except ProtectedProjectError as exc:
-            raise DomainApiException(409, "protected_project", str(exc)) from exc
-        if not deleted:
-            raise HTTPException(404, "プロジェクトが見つかりません")
-        return Response(status_code=204)
-
-    @app.get(
-        "/api/projects/{project_id}/history",
-        response_model=ProjectHistoryResponse,
-        responses=PROJECT_API_ERRORS,
-        operation_id="getProjectHistory",
-    )
-    def project_history(project_id: str) -> dict[str, Any]:
-        try:
-            history = store().project_history(project_id)
-            if history is None:
-                raise HTTPException(404, "プロジェクトが見つかりません")
-            return ProjectHistoryResponse.model_validate(history)
-        except StoreDataIntegrityError as exc:
-            raise DomainApiException(409, "data_integrity_error", str(exc)) from exc
-        except ValueError as exc:
-            raise DomainApiException(409, "data_integrity_error", "プロジェクト履歴の形式が不正です") from exc
-
-    @app.put("/api/projects/{project_id}", response_model=Project, responses=PROJECT_API_ERRORS)
-    def update_project_by_id(project_id: str, payload: ProjectInput) -> dict[str, Any]:
-        current = require_project(project_id)
-        try:
-            contract = task_registry().contract_for(payload.task_id)
-        except TaskRegistryError as exc:
-            raise HTTPException(422, str(exc)) from exc
-        unsupported_targets = sorted(set(payload.target_values) - {item.key for item in contract.task_definition.outputs})
-        if unsupported_targets:
-            raise HTTPException(422, f"タスクに存在しない目標特性です: {', '.join(unsupported_targets)}")
-        validate_display_decimals(payload, task_registry().resolved_definition_for(payload.task_id))
-        if current.task_id != payload.task_id and store().list_candidates(project_id, include_archived=True):
-            raise DomainApiException(409, "project_task_locked", "候補があるプロジェクトの予測タスクは変更できません")
-        try:
-            project = store().update_project(project_id, payload)
-        except InvalidProjectDecisionError as exc:
-            raise HTTPException(422, str(exc)) from exc
-        if not project:
-            raise HTTPException(404, "プロジェクトが見つかりません")
-        return project.model_dump(mode="json")
-
-    @app.put("/api/projects/{project_id}/decision", response_model=Project)
-    def update_project_decision(project_id: str, payload: ProjectDecisionInput) -> dict[str, Any]:
-        try:
-            project = store().update_project_decision(
-                project_id,
-                payload.candidate_id,
-                payload.snapshot_id,
-                payload.note,
-            )
-        except InvalidProjectDecisionError as exc:
-            raise HTTPException(422, str(exc)) from exc
-        if not project:
-            raise HTTPException(404, "プロジェクトが見つかりません")
-        return project.model_dump(mode="json")
-
-    @app.get("/api/project", response_model=Project)
-    def get_project() -> dict[str, Any]:
-        return require_project("default").model_dump(mode="json")
-
-    @app.put("/api/project", response_model=Project, responses=PROJECT_API_ERRORS)
-    def update_project(payload: ProjectInput) -> dict[str, Any]:
-        return update_project_by_id("default", payload)
-
-    @app.get("/api/projects/{project_id}/candidates", response_model=list[Candidate], responses=PROJECT_API_ERRORS)
-    def list_candidates(project_id: str, include_archived: bool = False) -> list[dict[str, Any]]:
-        require_project(project_id)
-        return [candidate.model_dump(mode="json") for candidate in store().list_candidates(project_id, include_archived=include_archived)]
-
-    @app.post("/api/projects/{project_id}/candidates", status_code=201, response_model=Candidate, responses=PROJECT_API_ERRORS)
-    def create_candidate(project_id: str, payload: CandidateInput) -> dict[str, Any]:
-        return create_candidate_in_project(payload, project_id).model_dump(mode="json")
-
-    @app.post("/api/projects/{project_id}/candidates/import", response_model=CandidateImportResponse, responses=PROJECT_API_ERRORS)
-    async def import_candidates(project_id: str, file: UploadFile = File(...)) -> dict[str, Any]:
-        project = require_project(project_id)
-        if project.task_id != ANNEALED_TASK_ID:
-            raise HTTPException(422, "Excel候補importはこの予測タスクでは利用できません")
-        if not file.filename or not file.filename.lower().endswith(".xlsx"):
-            raise HTTPException(422, "Excel .xlsx ファイルを選択してください")
-        runtime = task_registry().runtime_for(project.task_id)
-        payloads, errors = import_candidates_xlsx(
-            await file.read(),
-            task_id=project.task_id,
-            profile_path=runtime.data.profile_path,
-        )
-        try:
-            created = [candidate.model_dump(mode="json") for candidate in store().create_candidates(payloads, project_id)]
-        except ProjectNotFoundError as exc:
-            raise HTTPException(404, "プロジェクトが見つかりません") from exc
-        except CandidateLimitError as exc:
-            raise DomainApiException(409, "candidate_limit", str(exc)) from exc
-        return {"created": len(created), "errors": errors, "candidates": created}
-
-    @app.get("/api/projects/{project_id}/candidates/export.xlsx")
-    def export_candidates(project_id: str) -> StreamingResponse:
-        project = require_project(project_id)
-        if project.task_id != ANNEALED_TASK_ID:
-            raise HTTPException(422, "Excel候補exportはこの予測タスクでは利用できません")
-        contents = candidates_xlsx(store().list_candidates(project_id), task_registry().runtime_for(project.task_id))
-        return StreamingResponse(BytesIO(contents), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": "attachment; filename=candidates-with-predictions.xlsx"})
-
-    @app.get("/api/projects/{project_id}/candidates/{candidate_id}", response_model=Candidate, responses=PROJECT_API_ERRORS)
-    def get_candidate(project_id: str, candidate_id: str, include_archived: bool = False) -> dict[str, Any]:
-        require_project(project_id)
-        candidate = store().get_candidate(candidate_id, project_id, include_archived=include_archived)
-        if not candidate:
-            raise HTTPException(404, "候補が見つかりません")
-        return candidate.model_dump(mode="json")
-
-    @app.put("/api/projects/{project_id}/candidates/{candidate_id}", response_model=Candidate, responses=PROJECT_API_ERRORS)
-    def update_candidate(project_id: str, candidate_id: str, payload: CandidateUpdate) -> dict[str, Any]:
-        project = require_project(project_id)
-        existing = store().get_candidate(candidate_id, project_id, include_archived=True)
-        if existing is None:
-            raise HTTPException(404, "候補が見つかりません")
-        if existing.archived_at is not None:
-            raise DomainApiException(409, "candidate_archived", "archive済み候補は編集できません")
-        candidate_input = CandidateInput.model_validate(payload.model_dump(exclude={"expected_revision"}))
-        if existing.provenance != candidate_input.provenance:
-            raise DomainApiException(409, "candidate_provenance_immutable", "候補の作成元は変更できません")
-        try:
-            task_registry().validate_candidate(project.task_id, candidate_input)
-        except (TaskRegistryError, ValueError) as exc:
-            raise HTTPException(422, str(exc)) from exc
-        try:
-            candidate = store().update_candidate(candidate_id, project_id, candidate_input, payload.expected_revision)
-        except CandidateRevisionConflictError as exc:
-            raise DomainApiException(409, "revision_conflict", str(exc), current_candidate=exc.current) from exc
-        except CandidateArchivedError as exc:
-            raise DomainApiException(409, "candidate_archived", str(exc)) from exc
-        if not candidate:
-            raise HTTPException(404, "候補が見つかりません")
-        return candidate.model_dump(mode="json")
-
-    @app.delete("/api/projects/{project_id}/candidates/{candidate_id}", status_code=204, responses=PROJECT_API_ERRORS)
-    def delete_candidate(project_id: str, candidate_id: str, expected_revision: int) -> Response:
-        require_project(project_id)
-        if store().get_candidate(candidate_id, project_id, include_archived=True) is None:
-            raise HTTPException(404, "候補が見つかりません")
-        try:
-            deleted = store().delete_candidate(candidate_id, project_id, expected_revision)
-        except CandidateRevisionConflictError as exc:
-            raise DomainApiException(409, "revision_conflict", str(exc), current_candidate=exc.current) from exc
-        except CandidateArchivedError as exc:
-            raise DomainApiException(409, "candidate_archived", str(exc)) from exc
-        except StoreDataIntegrityError as exc:
-            raise DomainApiException(409, "data_integrity_error", str(exc)) from exc
-        if not deleted:
-            raise HTTPException(404, "候補が見つかりません")
-        return Response(status_code=204)
-
     def candidate_at_revision(project_id: str, candidate_id: str, expected_revision: int) -> Candidate:
-        candidate = store().get_candidate(candidate_id, project_id)
-        if not candidate:
-            raise HTTPException(404, "候補が見つかりません")
-        if candidate.revision != expected_revision:
-            raise DomainApiException(
-                409,
-                "revision_conflict",
-                f"候補はrevision {candidate.revision}へ更新されています",
-                current_candidate=candidate,
-            )
-        return candidate
+        try:
+            return candidate_service().at_revision(project_id, candidate_id, expected_revision)
+        except CANDIDATE_APPLICATION_ERRORS as exc:
+            converted = candidate_http_error(exc)
+            if isinstance(exc, CandidateRevisionConflictError):
+                converted = DomainApiException(
+                    409,
+                    "revision_conflict",
+                    f"候補はrevision {exc.current.revision}へ更新されています",
+                    current_candidate=exc.current,
+                )
+            if converted is exc:
+                raise
+            raise converted from exc
 
     def detailed_prediction_for(project: Project, candidate: Candidate) -> dict[str, Any]:
+        require_task_operation(project.task_id, "detailed_prediction")
         task_runtime = task_registry().runtime_for(project.task_id)
         result = inference_work_graph().execute(
             inference_key(
@@ -738,8 +317,7 @@ def create_app(
         definition = task_registry().contract_for(project.task_id).task_definition
         if target not in {item.key for item in definition.outputs}:
             raise HTTPException(422, "この予測タスクにない予測特性です")
-        if not task_registry().contract_for(project.task_id).runtime_capability.operations.response_curve:
-            raise HTTPException(422, "この予測タスクは応答曲線に対応していません")
+        require_task_operation(project.task_id, "response_curve")
         if (range_min is None) != (range_max is None):
             raise HTTPException(422, "応答曲線の範囲は最小値と最大値をセットで指定してください")
         is_stage_temperature = variable == "heat.stage_temperature_c"
@@ -747,8 +325,6 @@ def create_app(
             raise HTTPException(422, "工程温度の応答曲線は工程名と入口からの工程位置をセットで指定してください")
         if stage_name is not None and not stage_name.strip():
             raise HTTPException(422, "工程名は空白以外の文字を指定してください")
-        if project.task_id == "annealed-properties-v1" and variable.startswith("heat.") and not is_stage_temperature:
-            raise HTTPException(422, "ヒートパターンは工程名温度またはラインスピードで操作してください")
         axis_range = None
         if range_min is not None and range_max is not None:
             if not math.isfinite(range_min) or not math.isfinite(range_max) or range_min >= range_max:
@@ -756,6 +332,7 @@ def create_app(
             axis_range = (range_min, range_max)
         try:
             task_runtime = task_registry().runtime_for(project.task_id)
+            curve_handler = task_registry().response_curve_for(project.task_id)
             result = inference_work_graph().execute(
                 inference_key(
                     project.task_id,
@@ -764,9 +341,9 @@ def create_app(
                     parameters={"target": target, "variable": variable, "points": points, "range_min": range_min, "range_max": range_max, "stage_name": stage_name, "stage_position_m": stage_position_m, "policy_id": "fixed-grid-v2"},
                     uses_package=True,
                 ),
-                lambda: task_runtime.response_curve_result(candidate, target, variable, points, axis_range, stage_name, stage_position_m)
-                if project.task_id == "annealed-properties-v1"
-                else task_runtime.response_curve_result(candidate, target, variable, points, axis_range),
+                lambda: curve_handler(
+                    task_runtime, candidate, target, variable, points, axis_range, stage_name, stage_position_m
+                ),
             )
             return result
         except ValueError as exc:
@@ -796,6 +373,7 @@ def create_app(
             raise HTTPException(422, "この予測タスクは曲線ビューに対応していません")
         try:
             task_runtime = task_registry().runtime_for(project.task_id)
+            family_handler = task_registry().curve_family_for(project.task_id)
             return inference_work_graph().execute(
                 inference_key(
                     project.task_id,
@@ -804,7 +382,7 @@ def create_app(
                     parameters={"target": target, "vary": vary, "levels": levels, "points": points, "policy_id": "axis-grid-v1"},
                     uses_package=True,
                 ),
-                lambda: task_runtime.curve_family_result(candidate, target, vary or None, levels, points),
+                lambda: family_handler(task_runtime, candidate, target, vary or None, levels, points),
             )
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
@@ -822,8 +400,9 @@ def create_app(
         limit: int = Query(6, ge=1, le=20),
     ) -> list[dict[str, object]]:
         project = require_project(project_id)
+        require_task_operation(project.task_id, "similarity")
         candidate = candidate_at_revision(project_id, candidate_id, expected_revision)
-        task_runtime = task_registry().runtime_for(project.task_id)
+        support_provider = task_registry().entry_for(project.task_id).support_provider
         return inference_work_graph().execute(
             inference_key(
                 project.task_id,
@@ -832,7 +411,7 @@ def create_app(
                 parameters={"limit": limit},
                 uses_support=True,
             ),
-            lambda: task_runtime.similarity(candidate, limit),
+            lambda: support_provider.similarity(candidate, limit),
         )
 
     @app.get(
@@ -845,6 +424,7 @@ def create_app(
 
     @app.get("/api/projects/{project_id}/quality", response_model=QualityResponse, responses=PROJECT_API_ERRORS)
     def quality(project_id: str) -> dict[str, Any]:
+        project = require_project(project_id)
         data = project_data_explorer(project_id, "quality").data
         scenarios = data.quality
         detected = data.detected_quality
@@ -860,6 +440,13 @@ def create_app(
             "detected_total": len(detected),
             "detected_by_type": Counter(row["issue_type"] for row in detected),
             "detected_issues": detected,
+            "dataset": {
+                "task_id": project.task_id,
+                "source_path": data.source_path,
+                "source_sha256": data.source_sha256,
+                "profile_id": data.profile_id,
+                "profile_path": data.profile_path,
+            },
         }
 
     @app.get(
@@ -1107,22 +694,25 @@ def create_app(
 
     @app.get("/api/projects/{project_id}/candidates/{candidate_id}/snapshots", response_model=list[SnapshotResponse])
     def snapshots(project_id: str, candidate_id: str) -> list[dict[str, Any]]:
+        require_task_operation(require_project(project_id).task_id, "snapshot")
         if not store().get_candidate(candidate_id, project_id, include_archived=True):
             raise HTTPException(404, "候補が見つかりません")
         return store().list_snapshots(candidate_id)
 
     @app.post("/api/projects/{project_id}/candidates/{candidate_id}/snapshots", status_code=201, response_model=SnapshotResponse)
     def create_snapshot(project_id: str, candidate_id: str) -> dict[str, Any]:
+        require_task_operation(require_project(project_id).task_id, "snapshot")
         candidate = store().get_candidate(candidate_id, project_id)
         if not candidate:
             raise HTTPException(404, "候補が見つかりません")
         return snapshot_for_candidate(candidate)
 
     def snapshot_for_candidate(candidate: Any, result: dict[str, Any] | None = None) -> dict[str, Any]:
+        project = store().get_project(candidate.project_id)
+        if project is None:
+            raise HTTPException(404, "プロジェクトが見つかりません")
+        require_task_operation(project.task_id, "snapshot")
         if result is None:
-            project = store().get_project(candidate.project_id)
-            if project is None:
-                raise HTTPException(404, "プロジェクトが見つかりません")
             result = detailed_prediction_for(project, candidate)
         payload = {
             "snapshot_schema_version": "prediction-snapshot-v2",
@@ -1137,7 +727,7 @@ def create_app(
 
     @app.post("/api/projects/{project_id}/snapshots/{snapshot_id}/restore", status_code=201, response_model=Candidate, responses=PROJECT_API_ERRORS)
     def restore_snapshot(project_id: str, snapshot_id: str) -> dict[str, Any]:
-        require_project(project_id)
+        require_task_operation(require_project(project_id).task_id, "snapshot")
         snapshot = store().get_snapshot(snapshot_id)
         if not snapshot or store().get_candidate(snapshot["candidate_id"], project_id, include_archived=True) is None:
             raise HTTPException(404, "スナップショットが見つかりません")
@@ -1153,7 +743,7 @@ def create_app(
         responses=PROJECT_API_ERRORS,
     )
     def get_snapshot(project_id: str, snapshot_id: str) -> dict[str, Any]:
-        require_project(project_id)
+        require_task_operation(require_project(project_id).task_id, "snapshot")
         snapshot = store().get_snapshot(snapshot_id)
         if not snapshot or store().get_candidate(
             snapshot["candidate_id"], project_id, include_archived=True
@@ -1163,6 +753,7 @@ def create_app(
 
     @app.get("/api/projects/{project_id}/candidates/{candidate_id}/actuals", response_model=list[ActualMeasurement])
     def list_actuals(project_id: str, candidate_id: str) -> list[dict[str, Any]]:
+        require_task_operation(require_project(project_id).task_id, "actual_measurement")
         if not store().get_candidate(candidate_id, project_id, include_archived=True):
             raise HTTPException(404, "候補が見つかりません")
         return [actual.model_dump(mode="json") for actual in store().list_actuals(candidate_id)]
@@ -1170,6 +761,7 @@ def create_app(
     @app.post("/api/projects/{project_id}/candidates/{candidate_id}/actuals", status_code=201, response_model=ActualMeasurement, responses=PROJECT_API_ERRORS)
     def create_actual(project_id: str, candidate_id: str, payload: ActualMeasurementInput, expected_revision: int) -> dict[str, Any]:
         project = require_project(project_id)
+        require_task_operation(project.task_id, "actual_measurement")
         candidate = candidate_at_revision(project_id, candidate_id, expected_revision)
         outputs = {output.key: output.unit for output in task_registry().contract_for(project.task_id).task_definition.outputs}
         if outputs.get(payload.property) != payload.unit:
@@ -1179,6 +771,7 @@ def create_app(
 
     @app.delete("/api/projects/{project_id}/candidates/{candidate_id}/actuals/{actual_id}", status_code=204)
     def delete_actual(project_id: str, candidate_id: str, actual_id: str) -> Response:
+        require_task_operation(require_project(project_id).task_id, "actual_measurement")
         if not store().get_candidate(candidate_id, project_id, include_archived=True):
             raise HTTPException(404, "候補が見つかりません")
         if actual_id not in {item.id for item in store().list_actuals(candidate_id)}:

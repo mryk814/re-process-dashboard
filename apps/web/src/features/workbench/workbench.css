@@ -427,6 +427,9 @@
 .response-curve-card header { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; }
 .response-curve-card header span { color: #1f5fc4; font-variant-numeric: tabular-nums; }
 .response-curve-card svg { display: block; width: 100%; height: auto; }
+.curve-display-range-toggle { margin-left: auto; font-size: 10px; }
+.curve-clipped-summary { border-radius: 999px; background: #fff1dc; padding: 2px 6px; color: #91550d !important; font-size: 9px; font-weight: 700; }
+.curve-clip-indicator { fill: #a15d0a; font-size: 9px; font-weight: 700; }
 .similar-evidence-panel {
   margin-top: 10px;
   border: 1px solid #d8e0ea;

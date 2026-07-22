@@ -189,6 +189,8 @@
 .candidate-row-save-button:hover:not(:disabled) { background: #0b5f59; }
 .candidate-row-save-button.saved { border-color: #98cfbd; background: #eaf7f2; color: #147255; }
 .candidate-row-save-button:disabled:not(.saved) { border-color: #cbd5e1; background: #e2e8f0; color: #748093; cursor: not-allowed; }
+.comparison-prediction-table .prediction-cell { position: relative; }
+.comparison-prediction-table .output-warning-badge { position: absolute; right: 2px; bottom: 2px; width: 12px; overflow: hidden; padding: 1px; white-space: nowrap; }
 .candidate-row-icon-button svg,
 .candidate-row-save-button svg { width: 14px; height: 14px; flex: 0 0 auto; }
 

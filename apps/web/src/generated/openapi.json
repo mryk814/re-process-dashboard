@@ -212,6 +212,23 @@
         "title": "ApiError",
         "type": "object"
       },
+      "ApplicationCapability": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_excel_export": {
+            "default": false,
+            "title": "Candidate Excel Export",
+            "type": "boolean"
+          },
+          "candidate_excel_import": {
+            "default": false,
+            "title": "Candidate Excel Import",
+            "type": "boolean"
+          }
+        },
+        "title": "ApplicationCapability",
+        "type": "object"
+      },
       "Body_import_candidates_api_projects__project_id__candidates_import_post": {
         "properties": {
           "file": {
@@ -590,16 +607,6 @@
           "id": {
             "title": "Id",
             "type": "string"
-          },
-          "output_warnings": {
-            "additionalProperties": {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            "title": "Output Warnings",
-            "type": "object"
           },
           "outputs": {
             "additionalProperties": {
@@ -1031,6 +1038,39 @@
           "suggested_view"
         ],
         "title": "DataQualityIssue",
+        "type": "object"
+      },
+      "DatasetIdentity": {
+        "properties": {
+          "profile_id": {
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "profile_path": {
+            "title": "Profile Path",
+            "type": "string"
+          },
+          "source_path": {
+            "title": "Source Path",
+            "type": "string"
+          },
+          "source_sha256": {
+            "title": "Source Sha256",
+            "type": "string"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_id",
+          "source_path",
+          "source_sha256",
+          "profile_id",
+          "profile_path"
+        ],
+        "title": "DatasetIdentity",
         "type": "object"
       },
       "DetailedPredictionResponse": {
@@ -2339,6 +2379,26 @@
             "title": "Measurement Keys",
             "type": "array"
           },
+          "plausibility_range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NumericRange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "preferred_display_range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NumericRange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "unit": {
             "minLength": 1,
             "title": "Unit",
@@ -2349,7 +2409,9 @@
           "key",
           "label",
           "unit",
-          "goal_direction"
+          "goal_direction",
+          "plausibility_range",
+          "preferred_display_range"
         ],
         "title": "OutputDefinition",
         "type": "object"
@@ -2799,11 +2861,7 @@
           },
           "task_id": {
             "default": "annealed-properties-v1",
-            "enum": [
-              "annealed-properties-v1",
-              "hot-rolled-properties-v1",
-              "flank-wear-v1"
-            ],
+            "minLength": 1,
             "title": "Task Id",
             "type": "string"
           },
@@ -2916,11 +2974,7 @@
           },
           "task_id": {
             "default": "annealed-properties-v1",
-            "enum": [
-              "annealed-properties-v1",
-              "hot-rolled-properties-v1",
-              "flank-wear-v1"
-            ],
+            "minLength": 1,
             "title": "Task Id",
             "type": "string"
           }
@@ -3080,11 +3134,7 @@
           },
           "task_id": {
             "default": "annealed-properties-v1",
-            "enum": [
-              "annealed-properties-v1",
-              "hot-rolled-properties-v1",
-              "flank-wear-v1"
-            ],
+            "minLength": 1,
             "title": "Task Id",
             "type": "string"
           }
@@ -3139,6 +3189,9 @@
             "title": "By Category",
             "type": "object"
           },
+          "dataset": {
+            "$ref": "#/components/schemas/DatasetIdentity"
+          },
           "detected_by_type": {
             "additionalProperties": {
               "type": "integer"
@@ -3183,7 +3236,8 @@
           "reference_scenarios",
           "detected_total",
           "detected_by_type",
-          "detected_issues"
+          "detected_issues",
+          "dataset"
         ],
         "title": "QualityResponse",
         "type": "object"
@@ -3286,6 +3340,13 @@
       "ResolvedTaskDefinition": {
         "additionalProperties": false,
         "properties": {
+          "application": {
+            "$ref": "#/components/schemas/ApplicationCapability",
+            "default": {
+              "candidate_excel_export": false,
+              "candidate_excel_import": false
+            }
+          },
           "data_explorer": {
             "anyOf": [
               {
@@ -4603,6 +4664,7 @@
   "paths": {
     "/api/bootstrap": {
       "get": {
+        "deprecated": true,
         "operationId": "bootstrap_api_bootstrap_get",
         "responses": {
           "200": {
@@ -4691,6 +4753,7 @@
     },
     "/api/project": {
       "get": {
+        "deprecated": true,
         "operationId": "get_project_api_project_get",
         "responses": {
           "200": {
@@ -4717,6 +4780,7 @@
         "summary": "Get Project"
       },
       "put": {
+        "deprecated": true,
         "operationId": "update_project_api_project_put",
         "requestBody": {
           "content": {

@@ -11,7 +11,6 @@ BACKEND_SRC = Path(__file__).resolve().parents[1] / "src"
 if str(BACKEND_SRC) not in sys.path:
     sys.path.insert(0, str(BACKEND_SRC))
 
-from material_workbench.importer import load_workbook_data  # noqa: E402
 from material_workbench.model_lifecycle import (  # noqa: E402
     ACTIVE_PACKAGES_PATH,
     canonical_training_dataset,
@@ -20,30 +19,25 @@ from material_workbench.model_lifecycle import (  # noqa: E402
     resolve_configured_package,
     rollback_active_package,
     set_active_package,
+    validate_active_package_task_set,
     validate_lifecycle_metadata,
 )
 from material_workbench.model_package_verify import verify_model_package  # noqa: E402
 from material_workbench.model_packages import MissingOptionalDependency, ModelPackageLoader, PackageContractError  # noqa: E402
 from material_workbench.task_registry import load_task_contracts  # noqa: E402
+from material_workbench.task_modules import PRIMARY_DEFAULT_SOURCE, registered_task_modules, resolve_task_source, task_module  # noqa: E402
 
 
-TASKS = ("annealed-properties-v1", "hot-rolled-properties-v1", "flank-wear-v1")
-DEFAULT_SOURCE = Path("data/source/process_dashboard_realistic_excel_v2.xlsx")
-FLANK_WEAR_SOURCE = Path("data/source/cutting_tool_flank_wear_synthetic_dataset.xlsx")
+TASKS = tuple(registered_task_modules())
+DEFAULT_SOURCE = PRIMARY_DEFAULT_SOURCE
 
 
 def _task_source(task_id: str, source: Path) -> Path:
-    if task_id == "flank-wear-v1" and source == DEFAULT_SOURCE:
-        return FLANK_WEAR_SOURCE
-    return source
+    return resolve_task_source(task_id, source)
 
 
 def _load_task_data(task_id: str, source: Path):
-    if task_id == "flank-wear-v1":
-        from material_workbench.flank_wear import load_flank_wear_data
-
-        return load_flank_wear_data(source)
-    return load_workbook_data(source)
+    return task_module(task_id).data_loader(resolve_task_source(task_id, source))
 
 
 def _write_json(path: Path, payload: Any, *, replace: bool) -> None:
@@ -79,13 +73,7 @@ def build_package(task_id: str, source: Path, output: Path, dataset_output: Path
         raise FileExistsError(f"refusing to replace existing model package: {output}")
     source = _task_source(task_id, source)
     dataset = export_dataset(task_id, source, dataset_output, replace=replace)
-    if task_id == "annealed-properties-v1":
-        from build_default_model_package import build
-    elif task_id == "hot-rolled-properties-v1":
-        from build_hot_rolling_model_package import build
-    else:
-        from build_flank_wear_model_package import build
-    build(source, output, replace=replace)
+    task_module(task_id).model_builder(source, output, replace=replace)
     report = verify_model_package(output, task_id=task_id, source=source)
     return {"dataset": dataset, "package": report.model_dump()}
 
@@ -124,11 +112,17 @@ def rollback_package(task_id: str, source: Path, config: Path) -> dict[str, Any]
 def package_status(config: Path) -> dict[str, Any]:
     contracts = load_task_contracts()
     configured = load_active_packages(config)
+    validate_active_package_task_set(configured, set(TASKS))
     tasks: dict[str, Any] = {}
+    data_by_source: dict[str, Any] = {}
     for task_id, selection in configured.tasks.items():
+        module = task_module(task_id)
+        if module.source_kind not in data_by_source:
+            data_by_source[module.source_kind] = module.data_loader(resolve_task_source(task_id))
+        data = data_by_source[module.source_kind]
         root = resolve_configured_package(task_id, config_path=config)
         package = ModelPackageLoader().load(root)
-        validate_lifecycle_metadata(package, contracts[task_id])
+        validate_lifecycle_metadata(package, contracts[task_id], profile_path=Path(data.profile_path))
         tasks[task_id] = {
             "active": selection.active,
             "previous": selection.previous,

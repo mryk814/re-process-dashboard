@@ -4,6 +4,7 @@ const tasks = [
   { projectId: "default", outputLabels: ["引張強さ", "降伏強さ", "全伸び", "穴広げ率 λ"], hasHeatPattern: true, responseCurve: true },
   { projectId: "hot-rolling-default", outputLabels: ["引張強さ"], hasHeatPattern: false, responseCurve: true },
 ] as const;
+const apiPort = Number(process.env.PLAYWRIGHT_API_PORT ?? 8875);
 
 for (const task of tasks) {
   test(`${task.projectId} uses the common candidate, prediction, and snapshot flow`, async ({ page }) => {
@@ -25,6 +26,11 @@ for (const task of tasks) {
     await expect(firstPredictionCell).toContainText(/\d/);
     await expect(firstPredictionCell).not.toContainText(/MPa|%|µm/);
     await expect(firstPredictionCell.locator(".metric-value")).toHaveAttribute("aria-label", /\d+.*(?:MPa|%|µm)/);
+    if (task.projectId === "default") {
+      const exported = page.waitForResponse((response) => response.url().endsWith("/candidates/export.xlsx"));
+      await page.getByRole("button", { name: "候補・予測をXLSX出力" }).click();
+      expect((await exported).status()).toBe(200);
+    }
     expect((await page.locator(".comparison-action-scroll").boundingBox())?.width).toBeLessThanOrEqual(120);
     if (task.projectId === "default") {
       expect(await firstPredictionCell.evaluate((cell) => cell.getBoundingClientRect().width)).toBeLessThanOrEqual(90);
@@ -42,6 +48,15 @@ for (const task of tasks) {
       await expect.poll(() => curveRequests).toBeGreaterThan(0);
       await expect(page.locator(".response-curves-panel .inference-surface-status")).toHaveText("最新");
       await expect(page.getByRole("img", { name: "引張強さの応答曲線" })).toBeVisible();
+      const yAxisLabels = page.locator(".response-curve-card svg text").filter({ hasNotText: "C (%)" }).first();
+      await page.getByRole("combobox", { name: "Y軸の表示範囲" }).selectOption("preferred");
+      const preferredTopTick = await yAxisLabels.textContent();
+      const requestsBeforeDisplayRangeToggle = curveRequests;
+      await page.getByRole("combobox", { name: "Y軸の表示範囲" }).selectOption("full");
+      await expect(page.getByRole("combobox", { name: "Y軸の表示範囲" })).toHaveValue("full");
+      await page.waitForTimeout(500);
+      expect(curveRequests).toBe(requestsBeforeDisplayRangeToggle);
+      await expect(yAxisLabels).not.toHaveText(preferredTopTick ?? "");
       const axisSettingsButton = page.getByRole("button", { name: "軸範囲を設定" });
       await axisSettingsButton.click();
       const axisSettings = page.locator(".response-curve-axis-settings");
@@ -107,7 +122,7 @@ for (const task of tasks) {
 
     await page.getByRole("textbox", { name: `${editedName}の候補名` }).click();
     await expect(page).toHaveURL(new RegExp(`candidate=${keptCandidateId}`));
-    const candidateResponse = await page.request.get(`http://127.0.0.1:8875/api/projects/${task.projectId}/candidates/${keptCandidateId}`);
+    const candidateResponse = await page.request.get(`http://127.0.0.1:${apiPort}/api/projects/${task.projectId}/candidates/${keptCandidateId}`);
     const currentCandidate = await candidateResponse.json() as { revision: number };
     const detailedResponsePromise = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith(`/candidates/${keptCandidateId}/predict`));
     await page.getByRole("button", { name: new RegExp(`${editedName}の詳細予測を保存`) }).click();

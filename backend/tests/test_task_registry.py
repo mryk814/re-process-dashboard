@@ -2,16 +2,45 @@ from __future__ import annotations
 
 import copy
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from material_workbench.task_contracts import DataExplorerCapability
+from material_workbench.model_lifecycle import load_active_packages, validate_active_package_task_set
+from material_workbench.model_packages import PackageContractError
+from material_workbench.schemas import ProjectInput
+from material_workbench.task_modules import DataDescriptor, registered_task_modules
 from material_workbench.task_registry import DataExplorerEntry, TaskRegistry, TaskRegistryError
 
 
 TASK_IDS = ("annealed-properties-v1", "hot-rolled-properties-v1", "flank-wear-v1")
 SOURCE_ROOT = Path(__file__).parents[1] / "src" / "material_workbench" / "task_definitions"
+ACTIVE_PACKAGES = Path(__file__).parents[2] / "models" / "active-packages.json"
+
+
+def test_allow_list_contracts_active_packages_and_runtimes_share_one_task_set(client) -> None:
+    registered = set(registered_task_modules())
+    registry = client.app.state.task_registry
+    active = load_active_packages(ACTIVE_PACKAGES)
+
+    assert registered == set(TASK_IDS) == set(registry.task_ids) == set(active.tasks)
+    assert ProjectInput(task_id="future-allow-listed-task").task_id == "future-allow-listed-task"
+    validate_active_package_task_set(active, registered)
+    for task_id in registered:
+        module = registered_task_modules()[task_id]
+        runtime = registry.runtime_for(task_id)
+        assert module.task_id == task_id
+        assert callable(module.model_builder)
+        assert isinstance(runtime.data, DataDescriptor)
+
+
+def test_active_package_set_rejects_missing_or_unknown_task() -> None:
+    active = load_active_packages(ACTIVE_PACKAGES)
+    incomplete = active.model_copy(update={"tasks": {TASK_IDS[0]: active.tasks[TASK_IDS[0]]}})
+    with pytest.raises(PackageContractError, match="must exactly match"):
+        validate_active_package_task_set(incomplete)
 
 
 @pytest.mark.parametrize("task_id", TASK_IDS)
@@ -31,9 +60,15 @@ def test_registry_resolves_definition_runtime_and_package_from_one_task_id(clien
     assert entry.model_package is runtime.model_package
     assert entry.feature_pipeline is runtime.model_package.manifest.feature_pipeline
     assert entry.capability is contract.runtime_capability
+    assert entry.application_capability.candidate_excel_import is (task_id == "annealed-properties-v1")
+    assert entry.application_capability.candidate_excel_export is (task_id == "annealed-properties-v1")
     assert runtime.output_keys == frozenset(expected)
     assert {predictor.target for predictor in runtime.model_package.manifest.predictors} == expected
     assert {target.target for target in resolved.runtime_capability.targets} == expected
+    for operation in (
+        "preview", "detailed_prediction", "response_curve", "similarity", "snapshot", "actual_measurement"
+    ):
+        registry.require_operation(task_id, operation)
     if task_id == "flank-wear-v1":
         assert resolved.data_explorer is None
         with pytest.raises(TaskRegistryError, match="data explorer is not available"):
@@ -57,7 +92,7 @@ def test_registry_fails_fast_when_manifest_outputs_disagree_with_task_definition
     hot_path = contract_root / "hot-rolled-properties-v1.json"
     hot = json.loads(hot_path.read_text(encoding="utf-8"))
     hot["task_definition"]["outputs"].append(
-        {"key": "YS", "label": "降伏強さ", "unit": "MPa", "goal_direction": "at_least", "measurement_keys": ["YS[MPa]"]}
+        {"key": "YS", "label": "降伏強さ", "unit": "MPa", "goal_direction": "at_least", "measurement_keys": ["YS[MPa]"], "plausibility_range": {"min": 50, "max": 2200}, "preferred_display_range": {"min": 100, "max": 1200}}
     )
     hot["task_definition"]["display_decimals"]["output.YS"] = 1
     ys_capability = copy.deepcopy(hot["runtime_capability"]["targets"][0])
@@ -69,6 +104,43 @@ def test_registry_fails_fast_when_manifest_outputs_disagree_with_task_definition
     runtimes = {task_id: registry.runtime_for(task_id) for task_id in TASK_IDS}
     with pytest.raises(TaskRegistryError, match="model package outputs do not match"):
         TaskRegistry(runtimes, contract_root=contract_root)
+
+
+def test_registry_fails_fast_when_declared_curve_has_no_handler(client) -> None:
+    registry = client.app.state.task_registry
+    runtimes = {task_id: registry.runtime_for(task_id) for task_id in TASK_IDS}
+    modules = dict(registered_task_modules())
+    modules[TASK_IDS[0]] = replace(modules[TASK_IDS[0]], response_curve=None)
+
+    with pytest.raises(TaskRegistryError, match="capability and TaskModule handler disagree"):
+        TaskRegistry(runtimes, modules=modules)
+
+
+def test_optional_operation_is_explicitly_unavailable(client) -> None:
+    registry = client.app.state.task_registry
+
+    with pytest.raises(TaskRegistryError, match="curve family is not available"):
+        registry.curve_family_for(TASK_IDS[0])
+
+
+def test_registry_fails_fast_when_manifest_output_unit_disagrees_with_task_definition(client) -> None:
+    registry = client.app.state.task_registry
+    runtimes = {task_id: registry.runtime_for(task_id) for task_id in TASK_IDS}
+    runtime = copy.copy(runtimes["hot-rolled-properties-v1"])
+    package = runtime.model_package
+    assert package is not None
+    predictors = tuple(
+        predictor.model_copy(update={"unit": "ksi"}) if predictor.target == "TS" else predictor
+        for predictor in package.manifest.predictors
+    )
+    runtime.model_package = replace(
+        package,
+        manifest=package.manifest.model_copy(update={"predictors": predictors}),
+    )
+    runtimes["hot-rolled-properties-v1"] = runtime
+
+    with pytest.raises(TaskRegistryError, match="output units do not match"):
+        TaskRegistry(runtimes)
 
 
 def test_registry_rejects_an_explorer_bound_to_different_runtime_data(client) -> None:

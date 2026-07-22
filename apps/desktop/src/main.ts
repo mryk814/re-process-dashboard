@@ -1,23 +1,42 @@
-import { app, BrowserWindow, dialog } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, session } from "electron";
 import { ChildProcess, spawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { createServer } from "node:net";
-import { existsSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { createWriteStream, existsSync, mkdirSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 
 const API_HOST = "127.0.0.1";
-const API_PORT = 8765;
-const API_HEALTH_URL = `http://${API_HOST}:${API_PORT}/health`;
 const HEALTH_TIMEOUT_MS = 20_000;
 const HEALTH_RETRY_MS = 250;
+const LAUNCH_TOKEN = randomBytes(32).toString("base64url");
+const sidecarOutputs = new WeakMap<ChildProcess, string>();
 
 let mainWindow: BrowserWindow | undefined;
 let sidecar: ChildProcess | undefined;
+let apiPort: number | undefined;
 let sidecarReady = false;
 let isQuitting = false;
 let shutdownInProgress: Promise<void> | undefined;
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) app.quit();
 
 function workspaceRoot(): string {
   return resolve(__dirname, "../../..");
+}
+
+function portableRoot(): string | undefined {
+  if (!app.isPackaged) return undefined;
+  const root = dirname(process.execPath);
+  return existsSync(join(root, "portable.marker")) ? root : undefined;
+}
+
+function configureUserDataPath(): void {
+  if (!app.isPackaged) return;
+  const root = portableRoot()
+    ?? join(process.env.LOCALAPPDATA ?? join(dirname(app.getPath("appData")), "Local"), "Material Decision Workbench");
+  const userData = portableRoot() ? join(root, "user-data") : root;
+  mkdirSync(userData, { recursive: true });
+  app.setPath("userData", userData);
 }
 
 function rendererPath(): string {
@@ -28,7 +47,27 @@ function frontendDevServerUrl(): string {
   return process.env.MATERIAL_WORKBENCH_DEV_SERVER_URL ?? "http://127.0.0.1:5180";
 }
 
-function sidecarCommand(): { command: string; args: string[] } {
+function sidecarCommand(port: number): { command: string; args: string[]; cwd: string; env: NodeJS.ProcessEnv } {
+  if (app.isPackaged) {
+    const resources = process.resourcesPath;
+    return {
+      command: join(resources, "sidecar", "material-workbench-sidecar.exe"),
+      args: [],
+      cwd: resources,
+      env: {
+        ...process.env,
+        WORKBENCH_API_HOST: API_HOST,
+        WORKBENCH_API_PORT: String(port),
+        WORKBENCH_LAUNCH_TOKEN: LAUNCH_TOKEN,
+        WORKBENCH_DB_PATH: join(app.getPath("userData"), "workbench.db"),
+        WORKBENCH_SOURCE_PATH: join(resources, "data", "source", "process_dashboard_realistic_excel_v2.xlsx"),
+        WORKBENCH_FLANK_WEAR_SOURCE_PATH: join(resources, "data", "source", "cutting_tool_flank_wear_synthetic_dataset.xlsx"),
+        MATERIAL_WORKBENCH_MODEL_PACKAGE: join(resources, "models", "packages", "annealed-gp-2026-07"),
+        MATERIAL_WORKBENCH_HOT_ROLLING_MODEL_PACKAGE: join(resources, "models", "packages", "hot-rolled-horseshoe-2026-07"),
+        MATERIAL_WORKBENCH_FLANK_WEAR_MODEL_PACKAGE: join(resources, "models", "packages", "flank-wear-gp-2026-07"),
+      },
+    };
+  }
   return {
     command: "uv",
     args: [
@@ -40,46 +79,41 @@ function sidecarCommand(): { command: string; args: string[] } {
       "--host",
       API_HOST,
       "--port",
-      String(API_PORT),
+      String(port),
     ],
+    cwd: workspaceRoot(),
+    env: { ...process.env, WORKBENCH_LAUNCH_TOKEN: LAUNCH_TOKEN },
   };
 }
 
 function sidecarOutput(process: ChildProcess): string {
-  return [process.stdout, process.stderr]
-    .map((stream) => (stream as (NodeJS.ReadableStream & { read?: () => Buffer | null }) | null)?.read?.()?.toString() ?? "")
-    .filter(Boolean)
-    .join("\n")
-    .trim();
+  return sidecarOutputs.get(process)?.trim() ?? "";
 }
 
 function wait(milliseconds: number): Promise<void> {
   return new Promise((resolveWait) => setTimeout(resolveWait, milliseconds));
 }
 
-async function assertPortIsAvailable(): Promise<void> {
-  await new Promise<void>((resolveAvailable, rejectAvailable) => {
+async function findAvailablePort(): Promise<number> {
+  return new Promise<number>((resolveAvailable, rejectAvailable) => {
     const server = createServer();
-    server.once("error", (error: NodeJS.ErrnoException) => {
-      if (error.code === "EADDRINUSE") {
-        rejectAvailable(
-          new Error(
-            `ポート ${API_PORT} は別のプロセスが使用中です。既存のアプリまたは開発APIを終了してから再度起動してください。`,
-          ),
-        );
+    server.once("error", rejectAvailable);
+    server.listen(0, API_HOST, () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close();
+        rejectAvailable(new Error("空きloopback portを取得できませんでした。"));
         return;
       }
-      rejectAvailable(error);
-    });
-    server.listen(API_PORT, API_HOST, () => {
-      server.close((error) => (error ? rejectAvailable(error) : resolveAvailable()));
+      server.close((error) => (error ? rejectAvailable(error) : resolveAvailable(address.port)));
     });
   });
 }
 
-async function waitForHealthySidecar(process: ChildProcess): Promise<void> {
+async function waitForHealthySidecar(process: ChildProcess, port: number): Promise<void> {
   const deadline = Date.now() + HEALTH_TIMEOUT_MS;
   let lastFailure = "";
+  const healthUrl = `http://${API_HOST}:${port}/health`;
 
   while (Date.now() < deadline) {
     if (process.exitCode !== null) {
@@ -90,7 +124,7 @@ async function waitForHealthySidecar(process: ChildProcess): Promise<void> {
     }
 
     try {
-      const response = await fetch(API_HEALTH_URL);
+      const response = await fetch(healthUrl, { headers: { "X-Workbench-Launch-Token": LAUNCH_TOKEN } });
       if (response.ok && process.exitCode === null) {
         return;
       }
@@ -103,53 +137,81 @@ async function waitForHealthySidecar(process: ChildProcess): Promise<void> {
   }
 
   throw new Error(
-    `Python API の起動を ${HEALTH_TIMEOUT_MS / 1000} 秒待ちましたが、${API_HEALTH_URL} が応答しません。${lastFailure ? `\n最後の確認: ${lastFailure}` : ""}`,
+    `Python API の起動を ${HEALTH_TIMEOUT_MS / 1000} 秒待ちましたが、${healthUrl} が応答しません。${lastFailure ? `\n最後の確認: ${lastFailure}` : ""}`,
   );
 }
 
-async function startSidecar(): Promise<void> {
-  await assertPortIsAvailable();
-
-  const { command, args } = sidecarCommand();
-  const process = spawn(command, args, {
-    cwd: workspaceRoot(),
+async function startSidecarOnPort(port: number): Promise<void> {
+  apiPort = port;
+  const { command, args, cwd, env } = sidecarCommand(port);
+  const logDirectory = join(app.getPath("userData"), "logs");
+  mkdirSync(logDirectory, { recursive: true });
+  const logPath = join(logDirectory, "sidecar.log");
+  const logStream = createWriteStream(logPath, { flags: "w" });
+  const childProcess = spawn(command, args, {
+    cwd,
     windowsHide: true,
     stdio: ["ignore", "pipe", "pipe"],
+    env,
   });
-  sidecar = process;
+  const captureOutput = (chunk: Buffer) => {
+    const next = `${sidecarOutputs.get(childProcess) ?? ""}${chunk.toString()}`;
+    sidecarOutputs.set(childProcess, next.slice(-16_384));
+  };
+  childProcess.stdout?.on("data", captureOutput);
+  childProcess.stderr?.on("data", captureOutput);
+  childProcess.stdout?.pipe(logStream, { end: false });
+  childProcess.stderr?.pipe(logStream, { end: false });
+  childProcess.once("exit", () => logStream.end());
+  sidecar = childProcess;
 
   const startupFailure = new Promise<never>((_, reject) => {
-    process.once("error", (error) => {
+    childProcess.once("error", (error) => {
       reject(
         new Error(
           `Python API を起動できませんでした。\`${command}\` が実行可能か確認してください。\n${error.message}`,
         ),
       );
     });
-    process.once("exit", (code, signal) => {
+    childProcess.once("exit", (code, signal) => {
       if (!sidecarReady) {
         reject(
           new Error(
-            `Python API が起動に失敗しました (code: ${code ?? "none"}, signal: ${signal ?? "none"})。${sidecarOutput(process) ? `\n${sidecarOutput(process)}` : ""}`,
+            `Python API が起動に失敗しました (code: ${code ?? "none"}, signal: ${signal ?? "none"})。${sidecarOutput(childProcess) ? `\n${sidecarOutput(childProcess)}` : ""}`,
           ),
         );
       }
     });
   });
 
-  await Promise.race([waitForHealthySidecar(process), startupFailure]);
+  await Promise.race([waitForHealthySidecar(childProcess, port), startupFailure]);
   sidecarReady = true;
 
-  process.once("exit", (code, signal) => {
+  childProcess.once("exit", (code, signal) => {
     sidecarReady = false;
     if (!isQuitting) {
       void failAndQuit(
         new Error(
-          `Python API が予期せず終了しました (code: ${code ?? "none"}, signal: ${signal ?? "none"})。${sidecarOutput(process) ? `\n${sidecarOutput(process)}` : ""}`,
+          `Python API が予期せず終了しました (code: ${code ?? "none"}, signal: ${signal ?? "none"})。${sidecarOutput(childProcess) ? `\n${sidecarOutput(childProcess)}` : ""}`,
         ),
       );
     }
   });
+}
+
+async function startSidecar(): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await startSidecarOnPort(await findAvailablePort());
+      return;
+    } catch (error) {
+      lastError = error;
+      const message = error instanceof Error ? error.message : String(error);
+      if (!/address already in use|WinError 10048|EADDRINUSE/i.test(message) || attempt === 2) throw error;
+    }
+  }
+  throw lastError;
 }
 
 function stopSidecar(): Promise<void> {
@@ -167,7 +229,12 @@ function stopSidecar(): Promise<void> {
       return;
     }
 
-    const finish = () => resolveShutdown();
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      resolveShutdown();
+    };
     process.once("exit", finish);
 
     // uv may spawn the Python interpreter as a child on Windows. Kill only the
@@ -177,10 +244,15 @@ function stopSidecar(): Promise<void> {
       stdio: "ignore",
     });
     taskkill.once("error", () => {
-      process.kill();
-      resolveShutdown();
+      if (process.exitCode === null) process.kill();
     });
-    taskkill.once("exit", finish);
+    taskkill.once("exit", (code) => {
+      if (code !== 0 && process.exitCode === null) process.kill();
+    });
+    setTimeout(() => {
+      if (process.exitCode === null) process.kill();
+      setTimeout(finish, 1_000);
+    }, 5_000);
   });
 
   return shutdownInProgress;
@@ -198,6 +270,7 @@ async function createMainWindow(): Promise<void> {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      preload: join(__dirname, "preload.js"),
       // Keep web security enabled. The loopback API explicitly permits Origin: null for this file renderer.
       webSecurity: true,
     },
@@ -236,12 +309,48 @@ async function failAndQuit(error: unknown): Promise<void> {
   app.quit();
 }
 
+if (hasSingleInstanceLock) {
+  try {
+    configureUserDataPath();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    dialog.showErrorBox("保存先を準備できません", message);
+    app.exit(1);
+  }
+}
+
+function configureSidecarRequestHeaders(): void {
+  if (!apiPort) throw new Error("sidecar port is unavailable");
+  session.defaultSession.webRequest.onBeforeSendHeaders(
+    { urls: [`http://${API_HOST}:${apiPort}/*`] },
+    (details, callback) => {
+      details.requestHeaders["X-Workbench-Launch-Token"] = LAUNCH_TOKEN;
+      callback({ requestHeaders: details.requestHeaders });
+    },
+  );
+}
+
 app.whenReady()
   .then(async () => {
+    if (!hasSingleInstanceLock) return;
+    ipcMain.on("workbench:runtime-config", (event) => {
+      event.returnValue = apiPort ? {
+        apiBaseUrl: `http://${API_HOST}:${apiPort}`,
+        launchToken: LAUNCH_TOKEN,
+      } : null;
+    });
     await startSidecar();
+    configureSidecarRequestHeaders();
     await createMainWindow();
   })
   .catch((error: unknown) => failAndQuit(error));
+
+app.on("second-instance", () => {
+  if (!mainWindow) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+});
 
 app.on("activate", () => {
   if (!mainWindow && sidecarReady && !isQuitting) {
