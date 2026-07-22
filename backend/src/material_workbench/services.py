@@ -141,6 +141,7 @@ def run_latin_hypercube(
         "schema_version": "screening-run/v2",
         "seed": SCREENING_SEED,
         "base_candidate_id": base.id,
+        "base_inputs": base.inputs.model_dump(mode="json"),
         "base_canonical_input": base_prediction["canonical_input"],
         "model_provenance": base_prediction["model_meta"],
         "target": request.target,

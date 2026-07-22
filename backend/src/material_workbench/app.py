@@ -298,6 +298,11 @@ def create_app(
         except CandidateLimitError as exc:
             raise DomainApiException(409, "candidate_limit", str(exc)) from exc
 
+    def validate_display_decimals(payload: ProjectInput, definition: ResolvedTaskDefinition) -> None:
+        unsupported = sorted(set(payload.display_decimals) - set(definition.task_definition.display_decimals))
+        if unsupported:
+            raise HTTPException(422, f"タスクに存在しない表示項目です: {', '.join(unsupported)}")
+
     @app.get("/api/health")
     @app.get("/health", include_in_schema=False)
     def health() -> dict[str, Any]:
@@ -445,6 +450,7 @@ def create_app(
         unsupported_targets = sorted(set(payload.target_values) - {item.key for item in contract.task_definition.outputs})
         if unsupported_targets:
             raise HTTPException(422, f"タスクに存在しない目標特性です: {', '.join(unsupported_targets)}")
+        validate_display_decimals(payload, task_registry().resolved_definition_for(payload.task_id))
         if payload.decision_candidate_id:
             raise HTTPException(422, "新しいプロジェクトでは採用候補を空にしてください")
         initial = payload.initial_candidate
@@ -510,6 +516,7 @@ def create_app(
         unsupported_targets = sorted(set(payload.target_values) - {item.key for item in contract.task_definition.outputs})
         if unsupported_targets:
             raise HTTPException(422, f"タスクに存在しない目標特性です: {', '.join(unsupported_targets)}")
+        validate_display_decimals(payload, task_registry().resolved_definition_for(payload.task_id))
         if current.task_id != payload.task_id and store().list_candidates(project_id, include_archived=True):
             raise DomainApiException(409, "project_task_locked", "候補があるプロジェクトの予測タスクは変更できません")
         try:
@@ -907,6 +914,11 @@ def create_app(
         base = store().get_candidate(payload.base_candidate_id, project_id)
         if not base:
             raise HTTPException(404, "基準候補が見つかりません")
+        try:
+            base = Candidate.model_validate({**base.model_dump(), "inputs": payload.base_inputs.model_dump()})
+            task_registry().validate_candidate(project.task_id, CandidateInput.model_validate(base.model_dump()))
+        except (TaskRegistryError, ValueError) as exc:
+            raise HTTPException(422, str(exc)) from exc
         screenable_fields = {
             field.path: field
             for group in definition.input_groups

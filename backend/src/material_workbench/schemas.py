@@ -101,6 +101,7 @@ class ProjectInput(BaseModel):
     target_values: dict[str, float] = Field(default_factory=dict)
     input_ranges: dict[str, InputRange] = Field(default_factory=dict)
     response_curve_ranges: dict[str, dict[str, InputRange]] = Field(default_factory=dict)
+    display_decimals: dict[str, Annotated[int, Field(ge=0, le=8)]] = Field(default_factory=dict)
     notes: str = ""
     decision_candidate_id: Annotated[str, Field(max_length=80)] = ""
     decision_snapshot_id: Annotated[str, Field(max_length=80)] = ""
@@ -170,6 +171,7 @@ class ScreeningVariable(BaseModel):
 
 class ScreeningRequest(BaseModel):
     base_candidate_id: Annotated[str, Field(min_length=1)]
+    base_inputs: CandidateInputs
     variables: Annotated[dict[str, ScreeningVariable], Field(min_length=1)]
     samples: Annotated[int, Field(ge=48, le=128)] = 64
     target: Annotated[str, Field(min_length=1)] = "TS"
@@ -519,6 +521,7 @@ class ScreeningRunResponse(BaseModel):
     created_at: datetime
     seed: int
     base_candidate_id: str
+    base_inputs: CandidateInputs | None = None
     base_canonical_input: dict[str, object]
     model_provenance: ModelMetadata
     target: str

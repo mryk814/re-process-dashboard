@@ -91,6 +91,7 @@ def test_hot_rolling_screening_keeps_project_scope_and_nested_candidate_contract
         f"/api/screening?project_id={project_id}",
         json={
             "base_candidate_id": candidate["id"],
+            "base_inputs": candidate["inputs"],
             "samples": 48,
             "target": "TS",
             "target_value": 500,

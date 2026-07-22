@@ -37,7 +37,8 @@
         ]
       }
     ],
-    "outputs":[{"key":"TS","label":"引張強さ","unit":"MPa","goal_direction":"at_least"}],
+    "outputs":[{"key":"TS","label":"引張強さ","unit":"MPa","goal_direction":"at_least","measurement_keys":["TS[MPa]"]}],
+    "display_decimals":{"composition.C":5,"composition.Si":6,"composition.Mn":6,"composition.P":5,"composition.S":6,"composition.Al":6,"composition.Cu":5,"composition.Ni":5,"composition.Cr":5,"composition.Mo":5,"composition.Ti":5,"composition.B":5,"composition.O":5,"composition.N":5,"process.soaking_temperature_c":1,"process.finish_temperature_c":1,"process.entry_thickness_mm":3,"process.exit_thickness_mm":3,"process.hold_temperature_c":1,"process.hold_time_min":2,"output.TS":1},
     "fixed_context":[{"path":"context.equipment","order":0,"label":"設備","value":"HR-LINE-1"},{"path":"context.test_direction","order":1,"label":"引張方向","value":"L"}],
     "constraints":[{"left_path":"process.finish_temperature_c","operator":"lte","right_path":"process.soaking_temperature_c","message":"仕上げ温度は均熱温度以下にしてください"},{"left_path":"process.exit_thickness_mm","operator":"lt","right_path":"process.entry_thickness_mm","message":"出側板厚は入側板厚より小さくしてください"}]
   },

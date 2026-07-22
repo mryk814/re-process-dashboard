@@ -2119,6 +2119,15 @@
             "title": "Label",
             "type": "string"
           },
+          "measurement_keys": {
+            "default": [],
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "title": "Measurement Keys",
+            "type": "array"
+          },
           "unit": {
             "minLength": 1,
             "title": "Unit",
@@ -2471,6 +2480,15 @@
             "title": "Description",
             "type": "string"
           },
+          "display_decimals": {
+            "additionalProperties": {
+              "maximum": 8.0,
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "title": "Display Decimals",
+            "type": "object"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -2563,6 +2581,15 @@
             "default": "",
             "title": "Description",
             "type": "string"
+          },
+          "display_decimals": {
+            "additionalProperties": {
+              "maximum": 8.0,
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "title": "Display Decimals",
+            "type": "object"
           },
           "initial_candidate": {
             "anyOf": [
@@ -2719,6 +2746,15 @@
             "default": "",
             "title": "Description",
             "type": "string"
+          },
+          "display_decimals": {
+            "additionalProperties": {
+              "maximum": 8.0,
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "title": "Display Decimals",
+            "type": "object"
           },
           "input_ranges": {
             "additionalProperties": {
@@ -3354,6 +3390,9 @@
             "title": "Base Candidate Id",
             "type": "string"
           },
+          "base_inputs": {
+            "$ref": "#/components/schemas/CandidateInputs"
+          },
           "samples": {
             "default": 64,
             "maximum": 128.0,
@@ -3396,6 +3435,7 @@
         },
         "required": [
           "base_candidate_id",
+          "base_inputs",
           "variables"
         ],
         "title": "ScreeningRequest",
@@ -3411,6 +3451,16 @@
             "additionalProperties": true,
             "title": "Base Canonical Input",
             "type": "object"
+          },
+          "base_inputs": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CandidateInputs"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "created_at": {
             "format": "date-time",
@@ -4097,6 +4147,15 @@
             "title": "Constraints",
             "type": "array"
           },
+          "display_decimals": {
+            "additionalProperties": {
+              "maximum": 8.0,
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "title": "Display Decimals",
+            "type": "object"
+          },
           "fixed_context": {
             "default": [],
             "items": {
@@ -4143,7 +4202,8 @@
           "label",
           "canonical_candidate_schema_version",
           "input_groups",
-          "outputs"
+          "outputs",
+          "display_decimals"
         ],
         "title": "TaskDefinition",
         "type": "object"

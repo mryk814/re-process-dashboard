@@ -67,6 +67,7 @@ def test_project_crud_preserves_default_and_isolates_candidates_and_screening(cl
 
     screening_body = {
         "base_candidate_id": candidate_id,
+        "base_inputs": candidate.json()["inputs"],
         "samples": 48,
         "target": "TS",
         "target_value": 500,
@@ -105,6 +106,7 @@ def test_screening_accepts_hot_rolling_process_fields_from_task_definition(clien
         "/api/screening?project_id=hot-rolling-default",
         json={
             "base_candidate_id": base["id"],
+            "base_inputs": base["inputs"],
             "samples": 48,
             "target": "TS",
             "target_value": 520,
@@ -125,6 +127,7 @@ def test_screening_samples_only_hot_rolling_points_that_satisfy_relational_const
         "/api/screening?project_id=hot-rolling-default",
         json={
             "base_candidate_id": base["id"],
+            "base_inputs": base["inputs"],
             "samples": 48,
             "target": "TS",
             "variables": {
@@ -148,6 +151,7 @@ def test_screening_accepts_heat_pattern_point_fields_from_base_candidate(client)
         "/api/screening",
         json={
             "base_candidate_id": base["id"],
+            "base_inputs": base["inputs"],
             "samples": 48,
             "target": "TS",
             "variables": {
@@ -178,6 +182,16 @@ def test_project_accepts_each_registered_task_and_rejects_wrong_targets(client) 
     assert "タスクに存在しない目標特性" in invalid.json()["message"]
 
 
+def test_project_display_decimal_overrides_are_sparse_persisted_and_task_scoped(client) -> None:
+    project = client.post("/api/projects", json={**_project("表示桁数"), "display_decimals": {"composition.C": 4, "output.TS": 2}}).json()
+    assert project["display_decimals"] == {"composition.C": 4, "output.TS": 2}
+    assert client.get(f"/api/projects/{project['id']}").json()["display_decimals"] == project["display_decimals"]
+
+    invalid = client.put(f"/api/projects/{project['id']}", json={**_project("表示桁数"), "display_decimals": {"output.unknown": 2}})
+    assert invalid.status_code == 422
+    assert "タスクに存在しない表示項目" in invalid.json()["message"]
+
+
 def test_candidate_limit_is_enforced_for_every_creation_route(client) -> None:
     project = client.post("/api/projects", json=_project("上限確認")).json()
     project_id = project["id"]
@@ -187,6 +201,7 @@ def test_candidate_limit_is_enforced_for_every_creation_route(client) -> None:
         f"/api/screening?project_id={project_id}",
         json={
             "base_candidate_id": base["id"],
+            "base_inputs": base["inputs"],
             "samples": 48,
             "target": "TS",
             "target_value": 500,

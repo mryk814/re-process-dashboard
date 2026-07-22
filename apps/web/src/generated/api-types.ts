@@ -1337,6 +1337,11 @@ export interface components {
             key: string;
             /** Label */
             label: string;
+            /**
+             * Measurement Keys
+             * @default []
+             */
+            measurement_keys: string[];
             /** Unit */
             unit: string;
         };
@@ -1485,6 +1490,10 @@ export interface components {
              * @default
              */
             description: string;
+            /** Display Decimals */
+            display_decimals?: {
+                [key: string]: number;
+            };
             /** Id */
             id: string;
             /** Input Ranges */
@@ -1550,6 +1559,10 @@ export interface components {
              * @default
              */
             description: string;
+            /** Display Decimals */
+            display_decimals?: {
+                [key: string]: number;
+            };
             initial_candidate?: components["schemas"]["CandidateInput"] | null;
             /** Input Ranges */
             input_ranges?: {
@@ -1642,6 +1655,10 @@ export interface components {
              * @default
              */
             description: string;
+            /** Display Decimals */
+            display_decimals?: {
+                [key: string]: number;
+            };
             /** Input Ranges */
             input_ranges?: {
                 [key: string]: components["schemas"]["InputRange"];
@@ -1883,6 +1900,7 @@ export interface components {
         ScreeningRequest: {
             /** Base Candidate Id */
             base_candidate_id: string;
+            base_inputs: components["schemas"]["CandidateInputs"];
             /**
              * Samples
              * @default 64
@@ -1912,6 +1930,7 @@ export interface components {
             base_canonical_input: {
                 [key: string]: unknown;
             };
+            base_inputs?: components["schemas"]["CandidateInputs"] | null;
             /**
              * Created At
              * Format: date-time
@@ -2178,6 +2197,10 @@ export interface components {
              * @default []
              */
             constraints: components["schemas"]["RelationalConstraint"][];
+            /** Display Decimals */
+            display_decimals: {
+                [key: string]: number;
+            };
             /**
              * Fixed Context
              * @default []

@@ -1,3 +1,4 @@
+from copy import deepcopy
 from io import BytesIO
 
 from openpyxl import Workbook
@@ -8,9 +9,10 @@ from material_workbench.schemas import CandidateInput
 from material_workbench.services import candidate_from_lineage, import_candidates_xlsx
 
 
-def _screening_body(candidate_id: str) -> dict:
+def _screening_body(candidate: dict) -> dict:
     return {
-        "base_candidate_id": candidate_id,
+        "base_candidate_id": candidate["id"],
+        "base_inputs": candidate["inputs"],
         "samples": 48,
         "target": "TS",
         "target_value": 500,
@@ -30,8 +32,8 @@ def test_project_metadata_persists(client) -> None:
 
 def test_latin_hypercube_is_deterministic_bounded_and_convertible(client) -> None:
     candidate = client.get("/api/projects/default/candidates").json()[0]
-    first = client.post("/api/screening", json=_screening_body(candidate["id"])).json()
-    second = client.post("/api/screening", json=_screening_body(candidate["id"])).json()
+    first = client.post("/api/screening", json=_screening_body(candidate)).json()
+    second = client.post("/api/screening", json=_screening_body(candidate)).json()
     assert len(first["points"]) == 48
     assert [point["inputs"] for point in first["points"]] == [point["inputs"] for point in second["points"]]
     assert all(0.04 <= point["inputs"]["composition.C"] <= 0.12 for point in first["points"])
@@ -40,6 +42,7 @@ def test_latin_hypercube_is_deterministic_bounded_and_convertible(client) -> Non
     assert created.status_code == 201
     assert created.json()["candidates"][0]["name"].startswith("Screen")
     assert first["base_candidate_id"] == candidate["id"]
+    assert first["base_inputs"] == candidate["inputs"]
     assert first["model_provenance"]["model"]["version"]
     assert first["score_contract"] == {
         "version": "screening-score/v1",
@@ -58,21 +61,39 @@ def test_latin_hypercube_is_deterministic_bounded_and_convertible(client) -> Non
     assert any(run["id"] == first["id"] for run in client.get("/api/screening").json())
 
 
+def test_screening_uses_unsaved_base_inputs_without_updating_the_candidate(client) -> None:
+    candidate = client.get("/api/projects/default/candidates").json()[0]
+    payload = _screening_body(candidate)
+    payload["variables"] = {"composition.C": {"mode": "range", "min": 0.04, "max": 0.12}}
+    payload["base_inputs"] = deepcopy(candidate["inputs"])
+    payload["base_inputs"]["process"]["ls_mpm"] = 117.25
+    payload["base_inputs"]["heat_pattern"][0]["stage_name"] = "探索用の工程名"
+
+    response = client.post("/api/screening", json=payload)
+
+    assert response.status_code == 201, response.text
+    points = response.json()["points"]
+    assert all(point["candidate"]["inputs"]["process"]["ls_mpm"] == 117.25 for point in points)
+    assert all(point["candidate"]["inputs"]["heat_pattern"][0]["stage_name"] == "探索用の工程名" for point in points)
+    persisted = client.get(f"/api/projects/default/candidates/{candidate['id']}").json()
+    assert persisted["inputs"] == candidate["inputs"]
+
+
 def test_screening_rejects_invalid_field_values_and_empty_candidate_set(client) -> None:
     candidate = client.get("/api/projects/default/candidates").json()[0]
-    invalid = _screening_body(candidate["id"])
+    invalid = _screening_body(candidate)
     invalid["variables"]["process.removed_field"] = {"mode": "fixed", "value": 999}
     assert client.post("/api/screening", json=invalid).status_code == 422
     for item in client.get("/api/projects/default/candidates").json():
         assert client.delete(f"/api/projects/default/candidates/{item['id']}?expected_revision={item['revision']}").status_code == 204
-    no_base = _screening_body(candidate["id"])
+    no_base = _screening_body(candidate)
     no_base["base_candidate_id"] = None
     assert client.post("/api/screening", json=no_base).status_code == 422
 
 
 def test_screening_without_target_uses_support_distance_contract(client) -> None:
     candidate = client.get("/api/projects/default/candidates").json()[0]
-    payload = _screening_body(candidate["id"])
+    payload = _screening_body(candidate)
     payload["target_value"] = None
 
     response = client.post("/api/screening", json=payload)
