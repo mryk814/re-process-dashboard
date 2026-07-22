@@ -11,7 +11,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Bootstrap */
+        /**
+         * Bootstrap
+         * @deprecated
+         */
         get: operations["bootstrap_api_bootstrap_get"];
         put?: never;
         post?: never;
@@ -62,9 +65,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Project */
+        /**
+         * Get Project
+         * @deprecated
+         */
         get: operations["get_project_api_project_get"];
-        /** Update Project */
+        /**
+         * Update Project
+         * @deprecated
+         */
         put: operations["update_project_api_project_put"];
         post?: never;
         delete?: never;

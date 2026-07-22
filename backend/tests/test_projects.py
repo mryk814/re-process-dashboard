@@ -1,11 +1,15 @@
 from io import BytesIO
+from pathlib import Path
 import sqlite3
 
+from fastapi.testclient import TestClient
 from openpyxl import Workbook
 
+from material_workbench.app import create_app
 from material_workbench.store import Store
 
 ELEMENTS = ("C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N")
+SOURCE = Path(__file__).parents[2] / "data" / "source" / "process_dashboard_realistic_excel_v2.xlsx"
 
 
 def _candidate(name: str) -> dict:
@@ -325,3 +329,12 @@ def test_existing_project_database_migrates_without_losing_data(tmp_path) -> Non
     assert migrated.decision_candidate_id == ""
     assert migrated.decision_snapshot_id == ""
     assert migrated.decision_note == ""
+
+
+def test_existing_empty_database_is_not_reseeded(tmp_path) -> None:
+    database = tmp_path / "existing.db"
+    database.touch()
+
+    with TestClient(create_app(SOURCE, database)) as existing_client:
+        assert existing_client.get("/api/projects/default/candidates").json() == []
+        assert existing_client.get("/api/projects/hot-rolling-default/candidates").json() == []

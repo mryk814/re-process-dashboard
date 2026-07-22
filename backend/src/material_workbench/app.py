@@ -19,6 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from .importer import lineage_neighborhood, lineage_node_detail
+from .demo_seed import initialize_demo_projects
 from .inference_work_graph import InferenceKey, InferenceWorkGraph
 from .runtime import ModelRuntime
 from .model_lifecycle import ACTIVE_PACKAGES_PATH, load_active_packages, resolve_configured_package, validate_active_package_task_set, validate_lifecycle_metadata
@@ -91,6 +92,7 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        database_existed = database.exists()
         configured = Path(active_packages_path) if active_packages_path else ACTIVE_PACKAGES_PATH
         injected = dict(package_roots or {})
         modules = registered_task_modules()
@@ -120,17 +122,13 @@ def create_app(
         app.state.task_registry = TaskRegistry(runtimes, data_explorers=explorers, modules=modules)
         app.state.inference_work_graph = InferenceWorkGraph(max_entries=256)
         app.state.store = Store(database)
-        for task_id, module in modules.items():
-            starter = module.starter_project
-            if starter is None:
-                continue
-            app.state.store.ensure_project(
-                starter.project_id,
-                ProjectInput(name=starter.name, task_id=task_id),
-            )
-            if not app.state.store.list_candidates(starter.project_id):
-                for candidate in starter.candidate_factory(runtimes[task_id].data.medians):
-                    app.state.store.create_candidate(candidate, starter.project_id)
+        explicit_demo_seed = os.getenv("WORKBENCH_DEMO_SEED", "").strip().lower() in {"1", "true", "yes"}
+        initialize_demo_projects(
+            app.state.store,
+            modules,
+            runtimes,
+            seed_candidates=not database_existed or explicit_demo_seed,
+        )
         yield
 
     app = FastAPI(
@@ -427,7 +425,7 @@ def create_app(
             prediction["warnings"].append(support.message)
         return prediction
 
-    @app.get("/api/bootstrap")
+    @app.get("/api/bootstrap", deprecated=True)
     def bootstrap() -> dict[str, Any]:
         data = app.state.data
         candidates = [candidate.model_dump(mode="json") for candidate in store().list_candidates()]
@@ -550,11 +548,11 @@ def create_app(
             raise HTTPException(404, "プロジェクトが見つかりません")
         return project.model_dump(mode="json")
 
-    @app.get("/api/project", response_model=Project)
+    @app.get("/api/project", response_model=Project, deprecated=True)
     def get_project() -> dict[str, Any]:
         return require_project("default").model_dump(mode="json")
 
-    @app.put("/api/project", response_model=Project, responses=PROJECT_API_ERRORS)
+    @app.put("/api/project", response_model=Project, responses=PROJECT_API_ERRORS, deprecated=True)
     def update_project(payload: ProjectInput) -> dict[str, Any]:
         return update_project_by_id("default", payload)
 

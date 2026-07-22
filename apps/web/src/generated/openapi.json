@@ -4627,6 +4627,7 @@
   "paths": {
     "/api/bootstrap": {
       "get": {
+        "deprecated": true,
         "operationId": "bootstrap_api_bootstrap_get",
         "responses": {
           "200": {
@@ -4715,6 +4716,7 @@
     },
     "/api/project": {
       "get": {
+        "deprecated": true,
         "operationId": "get_project_api_project_get",
         "responses": {
           "200": {
@@ -4741,6 +4743,7 @@
         "summary": "Get Project"
       },
       "put": {
+        "deprecated": true,
         "operationId": "update_project_api_project_put",
         "requestBody": {
           "content": {
