@@ -1,7 +1,7 @@
 """Real artifact smoke tests for optional model-runtime profiles.
 
 Run all three with:
-uv run --extra runtime-sklearn --extra runtime-lightgbm --extra runtime-gpytorch pytest backend/tests/test_optional_adapters.py
+uv run --extra runtime-sklearn --extra runtime-lightgbm --extra runtime-gpytorch python -m pytest backend/tests/test_optional_adapters.py
 """
 from __future__ import annotations
 

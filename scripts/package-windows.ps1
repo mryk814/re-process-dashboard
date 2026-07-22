@@ -9,7 +9,7 @@ $portableZip = Join-Path $releaseRoot "Material-Decision-Workbench-folder-$versi
 Push-Location $repositoryRoot
 try {
     npm.cmd run build
-    uv run pyinstaller --noconfirm --clean --distpath dist/sidecar --workpath build/sidecar packaging/sidecar.spec
+    uv run python -m PyInstaller --noconfirm --clean --distpath dist/sidecar --workpath build/sidecar packaging/sidecar.spec
     npm.cmd exec electron-builder -- --config packaging/electron-builder.yml --win nsis
 
     if (Test-Path -LiteralPath $portableRoot) {

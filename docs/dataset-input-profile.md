@@ -96,8 +96,8 @@ uv run python backend/scripts/verify_dataset_source.py path/to/new-source.xlsx -
 続いて、対象を絞った契約確認と通常の全体検証を実行します。
 
 ```powershell
-uv run pytest backend/tests/test_dataset_profile.py backend/tests/test_importer.py
-uv run pytest
+uv run python -m pytest backend/tests/test_dataset_profile.py backend/tests/test_importer.py
+uv run python -m pytest
 npm run typecheck
 npm run build
 ```

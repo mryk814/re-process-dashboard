@@ -97,14 +97,14 @@ Windows環境では `openpyxl` の日本語ヘッダーがcp932でエラーに�
 - 新predictive familyのsemantics test（分位点の順序・support・point_statistic）。
 - APIのpreview/curve/curve-family/actuals/model-packageのcontractテスト。曲線ファミリは数値vary・カテゴリカルvary・vary未指定の3パターンを確認する。
 - `backend/tests/test_task_registry.py` の `TASK_IDS` タプルに新task_idを追加（パラメータ化テストが全task_idを回る設計なので、追加を忘れると新タスクだけ未検証のまま通ってしまう）。
-- 最終確認は `uv run pytest && npm run typecheck && npm run build`。
+- 最終確認は `uv run python -m pytest && npm run typecheck && npm run build`。
 
 ## 10. 実機で動作確認するときの注意（このマシン固有）
 
 開発機ではポート8765(-8768)に別セッション／別worktreeの古いuvicornが残留しがちで、`npm run dev` でbindできても実際は古いコードに繋がっていることがある（詳細は memory の `dev-server-port-8765-conflict` を参照）。worktreeでの動作確認は：
 
 ```
-uv run uvicorn main:app --app-dir backend/src --host 127.0.0.1 --port <空きポート>
+uv run python -m uvicorn main:app --app-dir backend/src --host 127.0.0.1 --port <空きポート>
 ```
 を別途起動し、`apps/web/.env.local` に `VITE_API_URL=http://127.0.0.1:<そのポート>` を一時的に置いて確認する。**確認が終わったら `.env.local` を必ず削除する**（コミットしない）。他セッションの既存プロセスは勝手に落とさない。
 
