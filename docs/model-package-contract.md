@@ -62,7 +62,7 @@ PackageはPythonコード、import path、callback、pickle、joblibを含めま
 | `builtin.additive_terms.v1` | `.npz`、`allow_pickle=False` | identity linkのlinear / B-spline / categorical lookup項。寄与は型付き説明契約で返す |
 | `builtin.exact_gp.v1` | `.npz`、`allow_pickle=False` | `exact_rbf_grouped_v1`の既知array schemaだけ。`predictive_family`は`normal`または`lognormal`（後者は`config.latent_transform=log1p`必須で、GPは`log(1+target)`空間、予測は単調変換で元単位へ戻す） |
 | `builtin.quantile_linear.v1` | `.npz`、`allow_pickle=False` | 固定分位点ごとの係数と切片。中央値必須、分位点交差は並べ替えず拒否する |
-| `builtin.posterior_linear.v1` | `.npz`、`allow_pickle=False` | 係数・切片・観測noiseのposterior draw。raw sampleはAPIへ出さず経験分位点と意味付きstdを返す |
+| `builtin.posterior_linear.v1` | `.npz`、`allow_pickle=False` | 係数・切片・観測noiseのposterior draw。raw sampleはAPIへ出さず、経験分位点またはモーメントマッチした正規要約を返す |
 | `sklearn.skops.v1` | `.skops` | アプリ固定の`estimator_family` allow-list外を拒否。manifestによる型自己申告、custom transformerは禁止 |
 | `lightgbm.booster.v1` | LightGBM native text | sklearn wrapperのpickleは禁止 |
 | `gpytorch.static_exact_rbf.v1` | `.safetensors` | `exact_rbf_v1`の既知tensor schemaだけ |
@@ -85,7 +85,7 @@ NumPyro adapterは学習用Python関数を復元しない。許可likelihoodは
 - Ordinal logit：`config.thresholds` で定義する有限個の順序カテゴリ
 
 事後予測サンプリングは `seed` で決定的に再現します。
-詳細予測のスナップショットには、Packageダイジェスト、アダプターのバージョン、`seed`、サンプリング方針を保存します。
+現在の詳細予測スナップショットは、`seed`やサンプリング方針を独立した項目として保存しません。
 
 npzはentry数、展開後総量、圧縮率、posterior draw数、layer数、tensor要素数に固定上限を設ける。圧縮後のartifact sizeだけを信頼しない。
 
@@ -93,7 +93,9 @@ npzはentry数、展開後総量、圧縮率、posterior draw数、layer数、te
 
 特徴量パイプラインは、JSONで宣言した組込み操作（単位正規化、欠損方針、標準化、one-hot、ヒートパターン要約）だけを使います。
 モデルPackageは特徴量名、順序、パイプラインのバージョンを固定します。
-スナップショットには元候補、アプリ共通入力（canonical input）、Package manifestのSHA-256、パイプラインのhash、学習データと学習範囲による裏付けの来歴を残します。
+スナップショットには元候補、アプリ共通入力（canonical input）、予測結果、予測時のモデルメタデータを保存します。
+モデルメタデータには、Package ID、Packageバージョン、manifestのSHA-256、実行環境の種類、Feature PipelineのIDとバージョン、入力schema、特徴量名、学習ソースのpathとSHA-256、レコード件数を記録します。
+焼鈍と熱延の実行環境は、Package manifestの学習データIDも学習データの識別情報へ追加します。
 過去のスナップショットは、新しいPackageで自動再評価しません。
 
 ## TaskDefinitionとの境界

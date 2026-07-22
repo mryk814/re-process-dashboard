@@ -1,6 +1,12 @@
 {
-  "schema_version": "task-inventory/v1",
-  "source_of_truth": "backend/src/material_workbench/task_modules.py",
+  "schema_version": "task-inventory/v2",
+  "generated_from": [
+    "backend/src/material_workbench/task_modules.py",
+    "backend/src/material_workbench/task_definitions",
+    "models/active-packages.json",
+    "resolved dataset input profiles",
+    "resolved Model Package manifests"
+  ],
   "tasks": [
     {
       "task_id": "annealed-properties-v1",

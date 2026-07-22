@@ -318,16 +318,16 @@ def test_runtime_example_index_and_skill_cover_every_registered_runtime() -> Non
 
     assert all(runtime_type in index for runtime_type in RUNTIME_TYPES)
     for card in (
-        "existing-runtimes.md",
-        "shared-multi-output.md",
-        "additive-terms.md",
-        "sparse-bayesian.md",
-        "quantile-only.md",
-        "non-continuous-targets.md",
-        "predictive-ensemble-decision.md",
+        "model-runtime-examples/existing-runtimes.md",
+        "decisions/shared-multi-output.md",
+        "model-runtime-examples/additive-terms.md",
+        "model-runtime-examples/sparse-bayesian.md",
+        "model-runtime-examples/quantile-only.md",
+        "model-runtime-examples/non-continuous-targets.md",
+        "decisions/predictive-ensemble-decision.md",
     ):
-        assert card in index
-        assert (index_path.parent / card).is_file()
+        assert Path(card).name in index
+        assert (ROOT / "docs" / card).is_file()
     assert "docs/model-runtime-examples/index.md" in skill
     assert "--example" in skill
     assert "active Package切替" in skill

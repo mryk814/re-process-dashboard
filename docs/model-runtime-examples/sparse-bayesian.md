@@ -1,15 +1,24 @@
-# 疎ベイズ事後分布のI/Oカード
+# 線形事後予測のI/Oカード
+
+`builtin.posterior_linear.v1` には、現行の熱延後特性で使用する経路と、ランタイム契約を検査する未有効化の例があります。
+両者は同じ安全な事後ドロー成果物を使いますが、外部へ返す予測表現が異なります。
+
+| 経路 | 状態 | 予測表現 | ビルダー |
+|---|---|---|---|
+| 熱延後特性 | active | 事後予測の平均と分散をモーメントマッチングした正規分布 | `backend/scripts/build_hot_rolling_model_package.py` |
+| 疎ベイズ検査例 | 未有効化 | 観測ノイズを標本化した経験分位点 | `backend/scripts/build_posterior_linear_model_example.py` |
 
 ## 使用する場面
 
 本番環境でPyMC/NumPyroオブジェクトを読み込まず、係数縮小の不確かさと事後予測の不確かさを出力後も保持する必要がある場合に、この経路を使用する。
-この例では、変数選択レポートを予測応答および予測アンサンブルとBMAから分離する。
+この節以降は、未有効化の疎ベイズ検査例を扱う。
+この例では、変数選択レポートを予測応答、予測アンサンブル、BMAから分離する。
 
 ## 契約
 
 | 境界 | 値 |
 |---|---|
-| 正規化入力 | `composition.x0` から `composition.x7` |
+| アプリ共通入力 | `composition.x0` から `composition.x7` |
 | FeatureBundle | 同じ8個の数値特徴量を固定順で格納 |
 | ランタイム | `builtin.posterior_linear.v1` / `posterior_linear_v1` |
 | モデル成果物 | 安全なNPZ。`beta_draws [D,F]`、`intercept_draws [D]`、正の `noise_scale_draws [D]`、任意の正の `local_scale_draws [D,F]` または二値の `indicator_draws [D,F]` |
@@ -21,6 +30,10 @@
 推論の前に、ドロー数、特徴量の数と順序、有限値、正のノイズスケールとローカルスケール、二値の指示変数、正確なテンソルスキーマを検査する。
 乱数シードで観測ノイズのサンプリングを制御するため、スモークテストは決定的に実行できる。
 モデル成果物には事後ドローを保存するが、`PredictiveSummary` は生のドローを公開しないため、`samples=false` とする。
+
+熱延後特性のactive Packageは、同じ事後ドローからepistemic分散とaleatoric分散を合成し、`predictive_family=normal` として返す。
+その要約は決定論的であり、分布には `approximation=posterior_predictive_moment_matched` を明記する。
+未有効化の検査例は `predictive_family=empirical_quantiles` を使い、指定した乱数シードで観測ノイズを標本化する。
 
 ## 選択レポートと品質レポート
 

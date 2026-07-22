@@ -13,6 +13,9 @@ PowerShellから次の順に実行します。
 `<task>` は `annealed-properties-v1`、`hot-rolled-properties-v1`、`flank-wear-v1` のいずれかです。
 タスクごとのソース、プロファイル、現在使用中のPackageは [タスク一覧](task-inventory.json) で確認できます。
 
+`--source`を省略すると、TaskModuleに登録されたタスク固有の既定ソースを使います。
+`annealed-properties-v1` と `hot-rolled-properties-v1` は既定の工程ワークブック、`flank-wear-v1` は専用の切削摩耗ワークブックへ解決されます。
+
 ```powershell
 npm run model:data -- --task <task> --output artifacts/model-data/<task>.json
 
@@ -29,7 +32,37 @@ npm run model:activate -- `
   --task <task> `
   --package models/packages/<new-package-directory>
 
+npm run task:inventory
 npm run model:status
+```
+
+切削逃げ面摩耗で、既定値に依存せず使用ソースを記録したい場合は、次のように明示できます。
+
+```powershell
+$source = "data/source/cutting_tool_flank_wear_synthetic_dataset.xlsx"
+
+npm run model:data -- `
+  --task flank-wear-v1 `
+  --source $source `
+  --output artifacts/model-data/flank-wear-v1.json
+
+npm run model:build -- `
+  --task flank-wear-v1 `
+  --source $source `
+  --output models/packages/<new-package-directory> `
+  --dataset-output artifacts/model-data/flank-wear-v1.json
+
+npm run model:verify -- `
+  --task flank-wear-v1 `
+  --source $source `
+  --package models/packages/<new-package-directory>
+
+npm run model:activate -- `
+  --task flank-wear-v1 `
+  --source $source `
+  --package models/packages/<new-package-directory>
+
+npm run task:inventory
 ```
 
 `model:build` はアプリ共通形式のデータセットを出力してから、タスク専用builderで学習とPackage構築を行います。
@@ -64,8 +97,12 @@ Packageを使用対象へ切り替えると、直前の参照が `previous` に�
 
 ```powershell
 npm run model:rollback -- --task <task>
+npm run task:inventory
 npm run model:status
 ```
+
+切削逃げ面摩耗のロールバックも、`--source`を省略すれば同じタスク固有ソースへ解決されます。
+別の検証済みソースを使う場合だけ、activate時とrollback時に同じ `--source` を明示します。
 
 ロールバック後もアプリを再起動します。
 保存済みスナップショットは再計算されず、保存時のPackage ID、バージョン、manifest hashを保持します。

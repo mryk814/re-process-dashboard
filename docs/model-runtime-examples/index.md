@@ -6,17 +6,17 @@
 
 | 入出力契約 | 代表的な経路 | 状態とカード |
 |---|---|---|
-| 固定ベクトル → 決定論的スカラー | `builtin.linear.v1` | 本番基準モデル。[既存ランタイムカード](existing-runtimes.md#固定ベクトルから決定論的スカラーへ) |
+| 固定ベクトル → 決定論的スカラー | `builtin.linear.v1` | 利用可能だが、現行のactive Packageでは未使用。[既存ランタイムカード](existing-runtimes.md#固定ベクトルから決定論的スカラーへ) |
 | 固定ベクトル → 許可リスト登録済みsklearn推定器 | `sklearn.skops.v1` | 任意の信頼済み型ランタイム。[既存ランタイムカード](existing-runtimes.md#固定ベクトルから許可リスト登録済みsklearn推定器へ) |
 | 固定ベクトル → ネイティブ木予測 | `lightgbm.booster.v1` | 任意のネイティブランタイム。[既存ランタイムカード](existing-runtimes.md#固定ベクトルからネイティブ木予測へ) |
-| 固定ベクトル → パラメトリック正規分布または対数正規分布 | `builtin.exact_gp.v1`, `gpytorch.static_exact_rbf.v1` | 本番経路と例示経路。[既存ランタイムカード](existing-runtimes.md#固定ベクトルからパラメトリック正規分布または対数正規分布へ) |
+| 固定ベクトル → パラメトリック正規分布または対数正規分布 | `builtin.exact_gp.v1`, `gpytorch.static_exact_rbf.v1` | `builtin.exact_gp.v1`は焼鈍後特性と逃げ面摩耗で使用中。GPyTorch経路は任意。[既存ランタイムカード](existing-runtimes.md#固定ベクトルからパラメトリック正規分布または対数正規分布へ) |
 | 固定ベクトル → 事後予測 | `numpyro.dense_posterior.v1` | 安全な固定全結合グラフ。[既存ランタイムカード](existing-runtimes.md#固定ベクトルから事後予測へ) |
-| 固定ベクトル → 複数出力を共有するモデル成果物 | PR #44の構想 | 設計は承認済みで、コードは未採用。[判断カード](shared-multi-output.md) |
+| 固定ベクトル → 複数出力を共有するモデル成果物 | PR #44の構想 | 設計は承認済みで、コードは未採用。[判断記録](../decisions/shared-multi-output.md) |
 | 固定ベクトル → 加算スコアと項別寄与 | `builtin.additive_terms.v1` | 検査済みの点予測例と正規分布例。[入出力カード](additive-terms.md) |
-| 固定ベクトル → 疎な事後予測 | `builtin.posterior_linear.v1` | NumPyroで学習した検査済みの例。[入出力カード](sparse-bayesian.md) |
+| 固定ベクトル → 線形事後予測 | `builtin.posterior_linear.v1` | 熱延後特性では正規分布へのモーメントマッチングを使用中。経験分位点を返す未有効化の例もある。[入出力カード](sparse-bayesian.md) |
 | 固定ベクトル → 固定経験分位点 | `builtin.quantile_linear.v1` | 分位点だけを返す検査済みの例。[入出力カード](quantile-only.md) |
 | 固定ベクトル → 二値、カウント、順序尤度 | `numpyro.dense_posterior.v1` | 3種類すべての目的変数種別について検査済みの例。[入出力カード](non-continuous-targets.md) |
-| 各構成要素の予測分布 → アンサンブル | ランタイムなし | 契約上は保留中。[判断と設計用資料](predictive-ensemble-decision.md) |
+| 各構成要素の予測分布 → アンサンブル | ランタイムなし | Model Package v1では実装を見送り。[判断記録](../decisions/predictive-ensemble-decision.md) |
 
 ## 新しいモデル要求に対応する最短経路
 
