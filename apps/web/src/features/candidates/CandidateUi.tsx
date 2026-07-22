@@ -18,6 +18,28 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
+const comparisonInputShareStorageKey = "material-workbench:layout:comparison-input-share:v1";
+
+function storedComparisonInputShare() {
+  if (typeof window === "undefined") return 45;
+  try {
+    const raw = window.localStorage.getItem(comparisonInputShareStorageKey);
+    if (raw === null) return 45;
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : 45;
+  } catch {
+    return 45;
+  }
+}
+
+function saveComparisonInputShare(value: number) {
+  try {
+    window.localStorage.setItem(comparisonInputShareStorageKey, String(value));
+  } catch {
+    // Layout persistence is optional when local storage is unavailable.
+  }
+}
+
 function ComparisonSplitResizer({
   value,
   min,
@@ -221,12 +243,13 @@ export function ComparisonTable({
   const inputFields = inputGroups.flatMap((group) => group.fields);
   const outputs = taskDefinition.outputs;
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [inputShare, setInputShare] = useState(45);
+  const [inputShare, setInputShare] = useState(() => clamp(storedComparisonInputShare(), 28, 58));
   const [inputShareRange, setInputShareRange] = useState({ min: 28, max: 58 });
   const comparisonGridRef = useRef<HTMLElement>(null);
   const nameScrollRef = useRef<HTMLDivElement>(null);
   const inputScrollRef = useRef<HTMLDivElement>(null);
   const predictionScrollRef = useRef<HTMLDivElement>(null);
+  const effectiveInputShare = clamp(inputShare, inputShareRange.min, inputShareRange.max);
   useEffect(() => {
     const updateRange = () => {
       const width = comparisonGridRef.current?.clientWidth ?? 0;
@@ -236,13 +259,13 @@ export function ComparisonTable({
         max: ((width - 169 - 240) / width) * 100,
       };
       setInputShareRange(nextRange);
-      setInputShare((current) => clamp(current, nextRange.min, nextRange.max));
     };
     const observer = new ResizeObserver(updateRange);
     if (comparisonGridRef.current) observer.observe(comparisonGridRef.current);
     updateRange();
     return () => observer.disconnect();
   }, []);
+  useEffect(() => saveComparisonInputShare(inputShare), [inputShare]);
   const syncVerticalScroll = (event: UIEvent<HTMLDivElement>) => {
     const scrollTop = event.currentTarget.scrollTop;
     for (const pane of [nameScrollRef.current, inputScrollRef.current, predictionScrollRef.current]) {
@@ -277,11 +300,11 @@ export function ComparisonTable({
           ref={comparisonGridRef}
           className="comparison-grid"
           aria-label="候補の入力と予測結果比較"
-          style={{ "--comparison-input-share": `${inputShare}%` } as CSSProperties}
+          style={{ "--comparison-input-share": `${effectiveInputShare}%` } as CSSProperties}
         >
           <div ref={nameScrollRef} className={`comparison-pane-scroll comparison-name-scroll${comparisonExpanded ? " expanded" : ""}`} onScroll={syncVerticalScroll}><table className="candidate-name-table" aria-label="候補名"><colgroup><col className="candidate-select-column" /><col /></colgroup><thead><tr><th colSpan={2}>候補</th></tr><tr aria-hidden="true"><th /><th /></tr></thead><tbody>{candidates.map((candidate) => { const selected = candidate.id === selectedId; return <tr key={candidate.id} className={selected ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}><td className="candidate-select-cell"><button type="button" className="candidate-select-button" aria-label={`${candidate.label}を選択`} aria-pressed={selected} onClick={(event) => { event.stopPropagation(); onSelect(candidate.id); }}><span aria-hidden="true" /></button></td><th><input aria-label={`${candidate.label}の候補名`} maxLength={80} value={candidate.label} onFocus={() => onSelect(candidate.id)} onChange={(event) => onName(candidate.id, event.target.value)} /></th></tr>; })}</tbody></table></div>
           <div id="comparison-input-pane" ref={inputScrollRef} className={`comparison-pane-scroll comparison-input-scroll${comparisonExpanded ? " expanded" : ""}`} tabIndex={0} aria-label="入力条件" onScroll={syncVerticalScroll}><table className="comparison-detail-table comparison-input-table" aria-label="候補ごとの入力条件"><thead><tr>{inputGroups.map((group) => <th colSpan={group.fields.length} key={group.key}>{group.label}</th>)}</tr><tr>{inputFields.map((field) => <th className="composition-col" key={field.path}>{field.label}<small>{field.unit ?? ""}</small></th>)}</tr></thead><tbody>{candidates.map((candidate) => <tr key={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}>{inputFields.map((field) => renderField(candidate, field))}</tr>)}</tbody></table></div>
-          <ComparisonSplitResizer value={inputShare} min={inputShareRange.min} max={inputShareRange.max} onChange={setInputShare} onDrag={(startValue, deltaX) => startValue + (deltaX / Math.max(comparisonGridRef.current?.clientWidth ?? 1, 1)) * 100} onReset={() => setInputShare(clamp(45, inputShareRange.min, inputShareRange.max))} />
+          <ComparisonSplitResizer value={effectiveInputShare} min={inputShareRange.min} max={inputShareRange.max} onChange={setInputShare} onDrag={(startValue, deltaX) => startValue + (deltaX / Math.max(comparisonGridRef.current?.clientWidth ?? 1, 1)) * 100} onReset={() => setInputShare(45)} />
           <div id="comparison-prediction-pane" ref={predictionScrollRef} className={`comparison-pane-scroll comparison-prediction-scroll${comparisonExpanded ? " expanded" : ""}`} tabIndex={0} aria-label="予測値" onScroll={syncVerticalScroll}><table className="comparison-detail-table comparison-prediction-table" aria-label="候補ごとの予測値"><thead><tr><th colSpan={outputs.length}>予測値</th><th colSpan={outputs.length}>不確実性</th><th colSpan={outputs.length}>目標達成</th><th className="support-header">支持度</th></tr><tr>{outputs.map((output) => <th className="prediction-col" key={`value-${output.key}`}>{output.label}<small>{output.unit}</small></th>)}{outputs.map((output) => <th className="uncertainty-col" key={`uncertainty-${output.key}`}>{output.label}<small>90%区間</small></th>)}{outputs.map((output) => <th className="goal-col" key={`goal-${output.key}`}>{output.label}<small>{Number.isFinite(targetValues[output.key]) ? `目標 ${output.goal_direction === "at_most" ? "≤" : "≥"} ${targetValues[output.key]}` : "未設定"}</small></th>)}<th className="support-header">状態</th></tr></thead><tbody>{candidates.map((candidate) => { const preview = previewsByCandidate[candidate.id]; return <tr key={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}>{outputs.map((output) => { const prediction = preview?.predictions[output.key]; return <td className="prediction-cell prediction-col numeric-cell" key={`value-${output.key}`}>{prediction ? <span className="metric-value">{formatDisplayNumber(prediction.value, taskDefinition, `output.${output.key}`, displayDecimalOverrides)} <small>{prediction.unit}</small></span> : <span className="empty-cell">—</span>}</td>; })}{outputs.map((output) => { const prediction = preview?.predictions[output.key]; if (!prediction) return <td className="uncertainty-cell uncertainty-col numeric-cell" key={`uncertainty-${output.key}`}><span className="empty-cell">—</span></td>; const uncertainty = uncertaintySummary(prediction, output.key); return <td className="uncertainty-cell uncertainty-col numeric-cell" key={`uncertainty-${output.key}`}><span className="uncertainty-value" title={uncertainty.details} aria-label={uncertainty.details}>{uncertainty.interval}</span></td>; })}{outputs.map((output) => { const prediction = preview?.predictions[output.key]; const goalValue = prediction?.goal_value ?? targetValues[output.key]; return <td className="goal-cell goal-col numeric-cell" key={`goal-${output.key}`}>{prediction?.goal_probability == null ? <span className="empty-cell">{Number.isFinite(goalValue) ? "計算中" : "—"}</span> : <span className="goal-value"><b>{formatNumber(prediction.goal_probability * 100)}%</b><small>{prediction.goal_direction === "at_most" ? "以下" : prediction.goal_direction === "at_least" ? "以上" : "目標"}</small></span>}</td>; })}<td className="support-cell"><span className={`status-dot ${preview?.support.status === "supported" ? "success" : preview ? "caution" : ""}`} />{support(preview?.support.status)}</td></tr>; })}</tbody></table></div>
         </section>
       </div>

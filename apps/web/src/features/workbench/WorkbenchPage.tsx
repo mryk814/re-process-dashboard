@@ -54,6 +54,31 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
+const workbenchLayoutStorage = {
+  inspectorWidth: "material-workbench:layout:inspector-width:v1",
+  curveShare: "material-workbench:layout:curve-share:v1",
+} as const;
+
+function storedLayoutNumber(key: string, fallback: number) {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (raw === null) return fallback;
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function saveLayoutNumber(key: string, value: number) {
+  try {
+    window.localStorage.setItem(key, String(value));
+  } catch {
+    // Layout persistence is optional when local storage is unavailable.
+  }
+}
+
 function SplitResizer({
   className,
   label,
@@ -275,22 +300,25 @@ export function WorkbenchPage(props: WorkbenchProps) {
     onProjectChanged,
   } = props;
   const [comparisonExpanded, setComparisonExpanded] = useState(false);
-  const [inspectorWidth, setInspectorWidth] = useState(330);
+  const [inspectorWidth, setInspectorWidth] = useState(() => clamp(storedLayoutNumber(workbenchLayoutStorage.inspectorWidth, 330), 260, 520));
   const [inspectorMax, setInspectorMax] = useState(520);
-  const [curveShare, setCurveShare] = useState(50);
+  const [curveShare, setCurveShare] = useState(() => clamp(storedLayoutNumber(workbenchLayoutStorage.curveShare, 50), 30, 70));
   const [curveShareRange, setCurveShareRange] = useState({ min: 30, max: 70 });
   const workbenchRef = useRef<HTMLDivElement>(null);
   const lowerPanelsRef = useRef<HTMLDivElement>(null);
+  const effectiveInspectorWidth = clamp(inspectorWidth, 260, inspectorMax);
+  const effectiveCurveShare = clamp(curveShare, curveShareRange.min, curveShareRange.max);
   useEffect(() => {
     if (candidates.length <= 5) setComparisonExpanded(false);
   }, [candidates.length]);
+  useEffect(() => saveLayoutNumber(workbenchLayoutStorage.inspectorWidth, inspectorWidth), [inspectorWidth]);
+  useEffect(() => saveLayoutNumber(workbenchLayoutStorage.curveShare, curveShare), [curveShare]);
   useEffect(() => {
     const updateWidths = () => {
       const workbenchWidth = workbenchRef.current?.clientWidth ?? 0;
       if (workbenchWidth > 0) {
         const nextMax = Math.max(260, Math.min(520, workbenchWidth - 569));
         setInspectorMax(nextMax);
-        setInspectorWidth((current) => clamp(current, 260, nextMax));
       }
       const lowerWidth = lowerPanelsRef.current?.clientWidth ?? 0;
       if (lowerWidth > 0) {
@@ -299,7 +327,6 @@ export function WorkbenchPage(props: WorkbenchProps) {
         const nextMax = Math.max(50, ((lowerWidth - 9 - minPanelWidth) / lowerWidth) * 100);
         const nextRange = { min: nextMin, max: nextMax };
         setCurveShareRange(nextRange);
-        setCurveShare((current) => clamp(current, nextRange.min, nextRange.max));
       }
     };
     const observer = new ResizeObserver(updateWidths);
@@ -312,7 +339,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
     <div
       ref={workbenchRef}
       className={`workbench-grid candidate-workbench-grid${taskDefinition ? " has-inspector" : ""}`}
-      style={{ "--candidate-inspector-width": `${inspectorWidth}px` } as CSSProperties}
+      style={{ "--candidate-inspector-width": `${effectiveInspectorWidth}px` } as CSSProperties}
     >
       {taskDefinition && <CandidateInspector
         candidate={selected}
@@ -328,13 +355,13 @@ export function WorkbenchPage(props: WorkbenchProps) {
       {taskDefinition && <SplitResizer
         className="candidate-inspector-resizer"
         label="選択候補の入力パネル幅を調整"
-        value={inspectorWidth}
+        value={effectiveInspectorWidth}
         min={260}
         max={inspectorMax}
         step={10}
         onChange={setInspectorWidth}
         onDrag={(startValue, deltaX) => startValue + deltaX}
-        onReset={() => setInspectorWidth(Math.min(330, inspectorMax))}
+        onReset={() => setInspectorWidth(330)}
       />}
       <section className="central-workspace">
         <div className="table-heading">
@@ -403,7 +430,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
         <div
           ref={lowerPanelsRef}
           className="workbench-lower-grid"
-          style={{ "--response-curve-share": `${curveShare}%` } as CSSProperties}
+          style={{ "--response-curve-share": `${effectiveCurveShare}%` } as CSSProperties}
         >
           {operations?.response_curve ? (
               <LiveResponseCurves
@@ -424,13 +451,13 @@ export function WorkbenchPage(props: WorkbenchProps) {
           <SplitResizer
             className="lower-panel-resizer"
             label="応答曲線と近い過去実績の幅を調整"
-            value={curveShare}
+            value={effectiveCurveShare}
             min={curveShareRange.min}
             max={curveShareRange.max}
             step={2}
             onChange={setCurveShare}
             onDrag={(startValue, deltaX) => startValue + (deltaX / Math.max(lowerPanelsRef.current?.clientWidth ?? 1, 1)) * 100}
-            onReset={() => setCurveShare(clamp(50, curveShareRange.min, curveShareRange.max))}
+            onReset={() => setCurveShare(50)}
           />
           <LiveSimilarityEvidence projectId={projectId} candidate={selected} outputs={taskDefinition?.outputs ?? []} available={operations?.similarity === true} ready={["idle", "saved"].includes(saveState)} onAddCandidate={onAddCandidateFromLineage} />
         </div>
