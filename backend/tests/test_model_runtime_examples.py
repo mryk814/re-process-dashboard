@@ -224,6 +224,29 @@ def test_checked_posterior_linear_example_is_deterministic_and_reported() -> Non
     assert "posterior-linear-sparse-example" not in (ROOT / "models" / "active-packages.json").read_text(encoding="utf-8")
 
 
+def test_posterior_linear_can_publish_a_deterministic_moment_matched_normal(tmp_path: Path) -> None:
+    source = ROOT / "examples" / "model-packages" / "posterior-linear"
+    destination = tmp_path / "posterior-linear-normal"
+    shutil.copytree(source, destination)
+    manifest_path = destination / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    predictor = manifest["predictors"][0]
+    predictor["predictive_family"] = "normal"
+    predictor["config"]["output_representation"] = "moment_matched_normal"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    loaded = ModelPackageLoader().load(destination).load_predictor("target")
+    features = json.loads((destination / "smoke" / "input.json").read_text(encoding="utf-8"))["features"]
+    first = loaded.predict(features, seed=17)
+    second = loaded.predict(features, seed=99)
+
+    assert first == second
+    assert first.distribution["family"] == "normal"
+    assert first.distribution["approximation"] == "posterior_predictive_moment_matched"
+    assert first.quantiles["0.05"] < first.point_estimate < first.quantiles["0.95"]
+    assert first.uncertainty_components["total_predictive_std"] == pytest.approx(first.distribution["std"])
+
+
 @pytest.mark.parametrize(
     ("mutation", "message"),
     [

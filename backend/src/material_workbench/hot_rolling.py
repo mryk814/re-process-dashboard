@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 import json
+import math
 from pathlib import Path
 from typing import Any
 
@@ -41,7 +42,7 @@ class HotRollingRuntime:
 
     def __init__(self, data: WorkbookData, package_root: str | Path | None = None) -> None:
         self.data = data
-        default = Path(__file__).resolve().parents[3] / "models" / "packages" / "hot-rolled-gp-2026-07"
+        default = Path(__file__).resolve().parents[3] / "models" / "packages" / "hot-rolled-horseshoe-2026-07"
         self.model_package = ModelPackageLoader().load(package_root or default)
         manifest = self.model_package.manifest
         validate_task_definition_canonical_inputs(load_task_definitions()[TASK_ID], manifest)
@@ -156,13 +157,18 @@ class HotRollingRuntime:
     def output_keys(self) -> frozenset[str]:
         return frozenset(self.predictors)
 
-    def predict_core(self, candidate: Candidate, detailed: bool = False, **_: Any) -> dict[str, Any]:
+    def predict_core(self, candidate: Candidate, detailed: bool = False, target_values: dict[str, float] | None = None, **_: Any) -> dict[str, Any]:
         bundle = build_hot_rolling_features(candidate, self.composition_defaults)
         values = bundle.as_dict()
         predictions: dict[str, Prediction] = {}
         for target, predictor in self.predictors.items():
             summary = predictor.predict(values)
             lower, upper = predictive_interval(summary)
+            goal_value = (target_values or {}).get(target)
+            standard_deviation = float(summary.distribution.get("std", 0))
+            goal_probability = None
+            if goal_value is not None and standard_deviation > 0:
+                goal_probability = 0.5 * math.erfc((goal_value - summary.point_estimate) / (standard_deviation * math.sqrt(2.0)))
             predictions[target] = Prediction(
                 value=round(summary.point_estimate, 3),
                 lower=round(lower, 3),
@@ -173,6 +179,9 @@ class HotRollingRuntime:
                 predictive_family=summary.distribution.get("family", "empirical_quantiles"),
                 quantiles={level: round(float(item), 6) for level, item in summary.quantiles.items()},
                 categories=list(summary.distribution.get("categories", [])),
+                goal_value=goal_value,
+                goal_probability=None if goal_probability is None else round(goal_probability, 4),
+                goal_direction=None if goal_value is None else "at_least",
                 uncertainty_components=None if summary.uncertainty_components is None else {
                     name: round(float(value), 6) for name, value in summary.uncertainty_components.items()
                 },
@@ -180,6 +189,16 @@ class HotRollingRuntime:
         process = {**candidate.inputs.process}
         process["equipment"] = "HR-LINE-1"
         process["test_direction"] = "L"
+        is_horseshoe = any(
+            item.runtime_type == "builtin.posterior_linear.v1" and item.config.get("method") == "regularized_horseshoe"
+            for item in self.model_package.manifest.predictors
+        )
+        model_method = "Regularized Horseshoe sparse Bayesian regression" if is_horseshoe else "Gaussian process regression"
+        interval_identity = (
+            {"method": "posterior_predictive_moment_matched_normal", "coverage": "central 90% predictive interval", "grouping": "parent_key", "note": "Horseshoe posterior draws are summarized as a moment-matched Normal distribution for the shared decision UI."}
+            if is_horseshoe else
+            {"method": "gaussian_process_predictive_distribution", "coverage": "central 90% predictive interval", "grouping": "parent_key", "note": "Model uncertainty and observation noise are reported separately."}
+        )
         return {
             "task_id": self.task_id,
             "candidate_id": candidate.id,
@@ -193,10 +212,13 @@ class HotRollingRuntime:
                 "feature_vector": values,
             },
             "model_meta": {
-                "model": {"id": self.model_package.manifest.package_id, "version": self.model_package.manifest.package_version, "method": "Gaussian process regression"},
-                "feature_pipeline": {"id": PIPELINE_ID, "version": PIPELINE_VERSION},
-                "training_data": {"records": self.training_counts},
-                "prediction_interval": {"method": "gaussian_process_predictive_distribution", "coverage": "central 90% predictive interval"},
+                "task_id": self.task_id,
+                "model": {"id": self.model_package.manifest.package_id, "version": self.model_package.manifest.package_version, "method": model_method},
+                "package": {"id": self.model_package.manifest.package_id, "version": self.model_package.manifest.package_version, "manifest_sha256": self.model_package.manifest_sha256, "runtime_types": sorted({item.runtime_type for item in self.model_package.manifest.predictors})},
+                "feature_pipeline": {"id": PIPELINE_ID, "version": PIPELINE_VERSION, "input_schema_version": INPUT_SCHEMA_VERSION, "features": list(FEATURE_NAMES)},
+                "training_data": {"source_path": self.data.source_path, "source_sha256": self.data.source_sha256, "records": self.training_counts, "package_training_data_id": self.model_package.manifest.provenance.training_data_id, "package_feature_dataset_id": self.model_package.manifest.provenance.feature_dataset_id},
+                "prediction_interval": interval_identity,
+                "similarity": {"version": SUPPORT_POLICY_ID, "method": "parent-condition nearest-neighbor distance over composition, metallurgy, and process feature groups"},
             },
             "heat_pattern": [],
             "response_curve": None,

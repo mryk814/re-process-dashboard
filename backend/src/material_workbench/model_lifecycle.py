@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Annotated, Any, Iterator, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .dataset_profile import load_dataset_profile
 from .feature_pipeline import build_feature_bundle_from_observation
@@ -85,8 +85,32 @@ class TargetQualityMetric(LifecycleModel):
 
 class QualityReport(LifecycleModel):
     schema_version: Literal["model-quality-report/v1"]
-    split: Literal["leave-one-parent-condition-out"]
+    split: Literal["leave-one-parent-condition-out", "grouped-parent-condition-k-fold"]
+    folds: Annotated[int, Field(ge=2)] | None = None
     targets: Annotated[tuple[TargetQualityMetric, ...], Field(min_length=1)]
+
+    @model_validator(mode="after")
+    def split_has_matching_fold_count(self) -> "QualityReport":
+        if (self.split == "grouped-parent-condition-k-fold") != (self.folds is not None):
+            raise ValueError("grouped k-fold quality reports require folds, and leave-one-out reports must omit it")
+        return self
+
+
+class SamplingDiagnosticsReport(LifecycleModel):
+    schema_version: Literal["sampling-diagnostics/v1"]
+    chains: Annotated[int, Field(ge=2)]
+    draws_per_chain: Annotated[int, Field(ge=100)]
+    warmup_per_chain: Annotated[int, Field(ge=100)]
+    divergences: Annotated[int, Field(ge=0)]
+    minimum_effective_sample_size: Annotated[float, Field(ge=50, allow_inf_nan=False)]
+    maximum_r_hat: Annotated[float, Field(ge=0, le=1.1, allow_inf_nan=False)]
+    finite_export: Literal[True]
+
+    @model_validator(mode="after")
+    def has_no_divergences(self) -> "SamplingDiagnosticsReport":
+        if self.divergences:
+            raise ValueError("posterior sampling must have zero divergences")
+        return self
 
 
 def _semantic_digest(payload: Any) -> str:
@@ -238,6 +262,18 @@ def validate_lifecycle_metadata(
     actual_targets = {metric.target for metric in report.targets}
     if actual_targets != expected_targets:
         raise PackageContractError("quality report targets do not match package predictors")
+    requires_sampling_diagnostics = any(
+        predictor.runtime_type == "builtin.posterior_linear.v1"
+        and predictor.config.get("method") == "regularized_horseshoe"
+        for predictor in manifest.predictors
+    )
+    if requires_sampling_diagnostics:
+        try:
+            SamplingDiagnosticsReport.model_validate_json(
+                package.artifact_path("reports/training-diagnostics.json").read_text(encoding="utf-8")
+            )
+        except (KeyError, OSError, ValueError) as exc:
+            raise PackageContractError(f"invalid posterior sampling diagnostics: {exc}") from exc
     return report
 
 
