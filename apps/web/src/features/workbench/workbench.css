@@ -432,26 +432,39 @@
   padding: 9px 10px 10px;
 }
 .similar-evidence-panel .evidence-title { margin-bottom: 8px; }
-.similar-table-scroll { overflow-x: auto; }
+.similar-table-scroll { overflow-x: auto; isolation: isolate; scrollbar-gutter: stable; container-type: inline-size; }
 .similar-caption { display: block; margin-top: -7px; color: #657386; font-size: 11px; }
 .similar-summary-table th,
 .similar-summary-table td { padding: 7px 5px; }
-.similar-summary-table { width: 100%; table-layout: fixed; min-width: 420px; }
+.similar-summary-table { width: 100%; table-layout: fixed; min-width: 480px; }
 .similar-summary-table th:nth-child(1) { width: 52px; }
 .similar-summary-table th:nth-child(2),
 .similar-summary-table th:nth-child(3) { width: 82px; }
-.similar-summary-table th:nth-child(5) { width: 68px; }
+.similar-summary-table th:nth-child(5) { width: 94px; }
+.similar-summary-table th:last-child,
+.similar-summary-table td:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  background: #fff;
+  box-shadow: -2px 0 0 #d5deea, -7px 0 10px rgb(35 59 91 / 8%);
+}
+.similar-summary-table th:last-child { z-index: 3; background: #edf2f8; }
 .similar-distance { text-align: left !important; }
 .similar-distance b { display: block; font-variant-numeric: tabular-nums; }
 .similar-key { font-weight: 700; color: #1d4f91; font-variant-numeric: tabular-nums; }
-.similar-value-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px 6px; text-align: left; line-height: 1.2; }
+.similar-value-list { display: grid; grid-template-columns: repeat(2, max-content); justify-content: start; gap: 3px 12px; text-align: left; line-height: 1.2; }
 .similar-value-list > small { color: #657386; font-size: 10px; }
 .similar-value-list > small { grid-column: 1 / -1; }
-.similar-value-list span { display: flex; align-items: baseline; justify-content: space-between; gap: 5px; min-width: 0; white-space: nowrap; }
-.similar-value-list span b { flex: 0 0 auto; color: #52657c; font-size: 10px; }
-.similar-value-list span strong { overflow: hidden; color: #173f75; font-size: 11px; font-variant-numeric: tabular-nums; text-overflow: ellipsis; }
+.similar-value-list span { display: grid; grid-template-columns: minmax(16px, max-content) minmax(42px, max-content); align-items: baseline; justify-content: start; gap: 4px; white-space: nowrap; }
+.similar-value-list span b { color: #52657c; font-size: 10px; }
+.similar-value-list span strong { color: #173f75; text-align: right; font-size: 11px; font-variant-numeric: tabular-nums; }
 .similar-value-list span small { color: #657386; font-size: 9px; }
-.similar-action-cell { padding-left: 2px !important; padding-right: 2px !important; }
+.similar-action-cell { width: 94px; min-width: 94px; box-sizing: border-box; padding-left: 4px !important; padding-right: 4px !important; }
+.similar-action-cell .candidate-add-button { width: 100%; padding-inline: 4px; }
+@container (max-width: 520px) {
+  .similar-value-list { grid-template-columns: max-content; }
+}
 @media (max-width: 1250px) {
   .response-curve-axis-settings { right: 10px; left: 10px; width: auto; }
 }
