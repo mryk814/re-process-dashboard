@@ -41,7 +41,7 @@
 .runtime-list .available { border-color: #69a98b; color: #25624a; }
 .runtime-list .optional { color: #657386; }
 .input-range-settings .project-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.profile-workbench-page { display: grid; gap: 14px; }
+.profile-workbench-page { display: grid; align-content: start; gap: 14px; }
 .profile-workbench-inputs { display: grid; grid-template-columns: minmax(260px, 1.1fr) minmax(260px, 1fr) auto; align-items: stretch; gap: 9px; }
 .profile-file-picker, .profile-select-field { display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: center; gap: 3px 8px; min-height: 62px; border: 1px solid #ccd7e3; border-radius: 6px; background: #f8fafc; padding: 9px 11px; color: #53647a; }
 .profile-file-picker { cursor: pointer; }
