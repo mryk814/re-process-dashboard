@@ -134,7 +134,7 @@ export function responseCurveVariables(
         min: field.allowed_range.min,
         max: field.allowed_range.max,
         current: field.group === "composition" ? candidateInputs.composition[field.field] ?? 0 : candidateInputs.process[field.field] ?? 0,
-        group: "工程条件",
+        group: field.group === "composition" ? "成分" : "工程条件",
       });
       continue;
     }

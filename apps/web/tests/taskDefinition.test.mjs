@@ -63,8 +63,9 @@ test("response curves expose line speed and named stage temperatures without poi
       { key: "heat_pattern", order: 2, label: "履歴", fields: [{ path: "heat_pattern", kind: "heat_pattern", order: 0, label: "履歴", editable: true, required: true }] },
     ],
     response_curve_variables: [
-      { kind: "numeric_input", order: 0, label: "ラインスピード", path: "process.ls_mpm", time_transform: "inverse_heat_time" },
-      { kind: "heat_stage_temperature", order: 1, label: "工程温度", path: null, time_transform: "direct" },
+      { kind: "numeric_input", order: 0, label: "C", path: "composition.C", time_transform: "direct" },
+      { kind: "numeric_input", order: 1, label: "ラインスピード", path: "process.ls_mpm", time_transform: "inverse_heat_time" },
+      { kind: "heat_stage_temperature", order: 2, label: "工程温度", path: null, time_transform: "direct" },
     ],
   };
   const first = { composition: { C: 0.1 }, process: { ls_mpm: 120 }, categorical: {}, heat_pattern: [
@@ -80,8 +81,8 @@ test("response curves expose line speed and named stage temperatures without poi
 
   const variables = responseCurveVariables(definition, first, [first, second], {});
 
-  assert.deepEqual(variables.map((item) => item.id), ["process.ls_mpm", "heat.stage_temperature_c:加熱1"]);
-  assert.equal(variables[0].label, "ラインスピード");
-  assert.equal(variables[1].stagePositionM, 60);
+  assert.deepEqual(variables.map((item) => item.id), ["composition.C", "process.ls_mpm", "heat.stage_temperature_c:加熱1"]);
+  assert.equal(variables[1].label, "ラインスピード");
+  assert.equal(variables[2].stagePositionM, 60);
   assert.equal(variables.some((item) => item.id.includes("time")), false);
 });

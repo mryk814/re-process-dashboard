@@ -28,9 +28,10 @@ for (const task of tasks) {
     } else {
       await expect(page.locator(".heat-panel")).toBeVisible();
       const responseVariable = page.getByRole("combobox", { name: "応答曲線の設計変数" });
-      await expect(responseVariable.locator("option").first()).toHaveText("ラインスピード (mpm)");
+      await expect(responseVariable.locator("option").first()).toHaveText("C (%)");
       const responseOptions = await responseVariable.locator("option").allTextContents();
-      expect(responseOptions.some((label) => label.includes("点目") || label.includes("時間") || label === "C (%)")).toBe(false);
+      expect(responseOptions).toContain("ラインスピード (mpm)");
+      expect(responseOptions.some((label) => label.includes("点目") || label.includes("時間"))).toBe(false);
     }
 
     const createResponse = page.waitForResponse((response) => response.request().method() === "POST" && /\/candidates$/.test(new URL(response.url()).pathname));
