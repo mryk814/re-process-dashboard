@@ -902,6 +902,7 @@ function LiveResponseCurves({
   const [axisError, setAxisError] = useState("");
   const [axisSaving, setAxisSaving] = useState(false);
   const [surfacesByKey, setSurfacesByKey] = useState<Record<string, InferenceSurfaceState<ApiResponseCurve>>>({});
+  const axisSettingsButtonRef = useRef<HTMLButtonElement>(null);
   const axisDraftRef = useRef(axisDraft);
   axisDraftRef.current = axisDraft;
   const surfaceRef = useRef(surfacesByKey);
@@ -1050,12 +1051,14 @@ function LiveResponseCurves({
         </div>
         <div className="response-curve-controls">
           <label>変数 <select aria-label="応答曲線の設計変数" value={activeVariableId} disabled={axisSaving || axisDraftDirty} onChange={(event) => { setAxisSettingsOpen(false); setAxisDraftDirty(false); setVariableId(event.target.value); }}>{[...new Set(variables.map((variable) => variable.group))].map((group) => <optgroup key={group} label={group}>{variables.filter((variable) => variable.group === group).map((variable) => <option key={variable.id} value={variable.id}>{variable.label} ({variable.unit})</option>)}</optgroup>)}</select></label>
-          <button type="button" className="outline-button curve-range-button" aria-expanded={axisSettingsOpen} onClick={axisSettingsOpen ? () => setAxisSettingsOpen(false) : openAxisSettings}>{axisSettingsOpen ? "閉じる" : "軸範囲"}</button>
+          <button ref={axisSettingsButtonRef} type="button" className={`outline-button curve-range-button${axisSettingsOpen ? " active" : ""}`} aria-label={axisSettingsOpen ? "軸範囲設定を閉じる" : "軸範囲を設定"} title={axisSettingsOpen ? "軸範囲設定を閉じる" : "軸範囲を設定"} aria-expanded={axisSettingsOpen} aria-controls="response-curve-axis-settings" onClick={axisSettingsOpen ? () => setAxisSettingsOpen(false) : openAxisSettings}>
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 8.3a3.7 3.7 0 1 0 0 7.4 3.7 3.7 0 0 0 0-7.4Zm8.1 4.9v-2.4l-2.3-.7a7.4 7.4 0 0 0-.7-1.6l1.1-2.1-1.7-1.7-2.1 1.1a7.4 7.4 0 0 0-1.6-.7L12.1 3H9.7L9 5.3a7.4 7.4 0 0 0-1.6.7L5.3 4.9 3.6 6.6l1.1 2.1a7.4 7.4 0 0 0-.7 1.6l-2.3.7v2.4l2.3.7a7.4 7.4 0 0 0 .7 1.6l-1.1 2.1 1.7 1.7 2.1-1.1a7.4 7.4 0 0 0 1.6.7l.7 2.3h2.4l.7-2.3a7.4 7.4 0 0 0 1.6-.7l2.1 1.1 1.7-1.7-1.1-2.1a7.4 7.4 0 0 0 .7-1.6l2.3-.7Z" /></svg>
+          </button>
         </div>
       </div>
       {axisSettingsOpen && (
-        <div className="response-curve-axis-settings">
-          <div className="axis-settings-heading"><b>描画範囲</b><small>変更は自動保存。未指定は自動範囲、学習データ範囲は参照値です。</small><button type="button" className="axis-settings-close" onClick={() => setAxisSettingsOpen(false)}>閉じる</button></div>
+        <div id="response-curve-axis-settings" className="response-curve-axis-settings">
+          <div className="axis-settings-heading"><b>描画範囲</b><small>変更は自動保存。未指定は自動範囲、学習データ範囲は参照値です。</small><button type="button" className="axis-settings-close" aria-label="軸範囲設定を閉じる" title="閉じる" onClick={() => { setAxisSettingsOpen(false); window.requestAnimationFrame(() => axisSettingsButtonRef.current?.focus()); }}>×</button></div>
           <div className="axis-settings-grid">
             <section>
               <h3>X軸 <span>{selectedVariable?.label ?? "選択変数"}</span></h3>

@@ -25,6 +25,7 @@ for (const task of tasks) {
     await expect(firstPredictionCell).toContainText(/\d/);
     await expect(firstPredictionCell).not.toContainText(/MPa|%|µm/);
     await expect(firstPredictionCell.locator(".metric-value")).toHaveAttribute("aria-label", /\d+.*(?:MPa|%|µm)/);
+    expect((await page.locator(".comparison-action-scroll").boundingBox())?.width).toBeLessThanOrEqual(120);
     if (task.projectId === "default") {
       expect(await firstPredictionCell.evaluate((cell) => cell.getBoundingClientRect().width)).toBeLessThanOrEqual(90);
     }
@@ -41,6 +42,17 @@ for (const task of tasks) {
       await expect.poll(() => curveRequests).toBeGreaterThan(0);
       await expect(page.locator(".response-curves-panel .inference-surface-status")).toHaveText("最新");
       await expect(page.getByRole("img", { name: "引張強さの応答曲線" })).toBeVisible();
+      const axisSettingsButton = page.getByRole("button", { name: "軸範囲を設定" });
+      await axisSettingsButton.click();
+      const axisSettings = page.locator(".response-curve-axis-settings");
+      const curveGrid = page.locator(".response-curves-grid");
+      await expect(axisSettings).toBeVisible();
+      const settingsBox = await axisSettings.boundingBox();
+      const curveGridBox = await curveGrid.boundingBox();
+      expect((settingsBox?.y ?? 0) + (settingsBox?.height ?? 0)).toBeLessThanOrEqual(curveGridBox?.y ?? 0);
+      await page.locator(".axis-settings-close").click();
+      await expect(axisSettings).toHaveCount(0);
+      await expect(axisSettingsButton).toBeFocused();
       await page.locator(".response-curve-card .svg-chart-hit-target").first().hover({ force: true });
       const responseTooltip = page.locator(".response-curve-card .svg-chart-tooltip");
       await expect(responseTooltip).toContainText("90%区間");

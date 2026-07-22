@@ -42,7 +42,7 @@
 
 .candidate-comparison { display: grid; gap: 10px; }
 .comparison-grid-viewport { min-width: 0; overflow-x: auto; }
-.comparison-grid { display: grid; grid-template-columns: 160px minmax(220px, var(--comparison-input-share, 45%)) 9px minmax(240px, 1fr) 146px; width: 100%; min-width: 775px; align-items: start; border: 1px solid #cfd9e5; border-radius: 4px; }
+.comparison-grid { display: grid; grid-template-columns: 160px minmax(220px, var(--comparison-input-share, 45%)) 9px minmax(240px, 1fr) 120px; width: 100%; min-width: 749px; align-items: start; border: 1px solid #cfd9e5; border-radius: 4px; }
 .comparison-pane-scroll { min-width: 0; max-height: 270px; overflow: scroll; background: #fff; }
 .comparison-pane-scroll.expanded { max-height: 70vh; }
 .comparison-name-scroll { position: sticky; left: 0; z-index: 6; }
@@ -193,6 +193,6 @@
 .candidate-row-save-button svg { width: 14px; height: 14px; flex: 0 0 auto; }
 
 @media (max-width: 820px) {
-  .comparison-grid { grid-template-columns: 132px minmax(220px, var(--comparison-input-share, 45%)) 9px minmax(240px, 1fr) 146px; }
+  .comparison-grid { grid-template-columns: 132px minmax(220px, var(--comparison-input-share, 45%)) 9px minmax(240px, 1fr) 120px; }
   .comparison-grid-viewport { overflow-x: auto; }
 }

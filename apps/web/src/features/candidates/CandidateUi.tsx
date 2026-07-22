@@ -283,9 +283,10 @@ export function ComparisonTable({
     const updateRange = () => {
       const width = comparisonGridRef.current?.clientWidth ?? 0;
       if (!width) return;
+      const min = (220 / width) * 100;
       const nextRange = {
-        min: (220 / width) * 100,
-        max: ((width - 169 - 240 - 146) / width) * 100,
+        min,
+        max: Math.max(min, ((width - 169 - 240 - 120) / width) * 100),
       };
       setInputShareRange(nextRange);
     };
