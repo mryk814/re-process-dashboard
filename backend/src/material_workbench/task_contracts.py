@@ -145,6 +145,9 @@ class TaskDefinition(ContractModel):
     display_decimals: dict[str, Annotated[int, Field(ge=0, le=8)]]
     fixed_context: tuple[FixedContextDefinition, ...] = ()
     constraints: tuple[RelationalConstraint, ...] = ()
+    # 予測対象が「この軸に沿った曲線」であるタスクだけが宣言する。宣言された
+    # フィールドは候補入力上は1点の評価位置であり、曲線APIの横軸になる。
+    curve_axis_path: str | None = None
 
     @model_validator(mode="after")
     def unique_groups_fields_and_outputs(self) -> "TaskDefinition":
@@ -175,6 +178,10 @@ class TaskDefinition(ContractModel):
         if len(context_orders) != len(set(context_orders)):
             raise ValueError("fixed context order must be unique")
         field_by_path = {field.path: field for group in self.input_groups for field in group.fields}
+        if self.curve_axis_path is not None:
+            axis = field_by_path.get(self.curve_axis_path)
+            if axis is None or axis.kind != "number" or not axis.required or not axis.editable:
+                raise ValueError("curve_axis_path must reference a required, editable number field")
         for constraint in self.constraints:
             referenced = (constraint.left_path, constraint.right_path)
             if any(path not in field_by_path for path in referenced):

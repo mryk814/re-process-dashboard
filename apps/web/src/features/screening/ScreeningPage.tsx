@@ -13,7 +13,9 @@ function cloneScreeningCandidate(candidate: Candidate): Candidate {
         composition: { ...candidate.raw.inputs.composition },
         process: { ...candidate.raw.inputs.process },
         categorical: candidate.raw.inputs.categorical ? { ...candidate.raw.inputs.categorical } : candidate.raw.inputs.categorical,
-        heat_pattern: candidate.raw.inputs.heat_pattern?.map((point) => ({ ...point })),
+        heat_pattern: candidate.raw.inputs.heat_pattern === null
+          ? null
+          : candidate.raw.inputs.heat_pattern?.map((point) => ({ ...point })),
       },
     },
     heat: candidate.heat.map((point) => ({ ...point })),
@@ -152,7 +154,7 @@ export function ScreeningPage({
     setBaseCandidate(inputs
       ? fromApiCandidate({ ...baseCandidateSource.raw, inputs })
       : cloneScreeningCandidate(baseCandidateSource));
-  }, [baseCandidateId]);
+  }, [baseCandidateId, baseCandidateSource?.id]);
   useEffect(() => {
     const requestProjectId = projectId;
     runRequestSequence.current += 1;

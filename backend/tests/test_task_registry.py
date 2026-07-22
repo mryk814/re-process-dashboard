@@ -9,7 +9,7 @@ import pytest
 from material_workbench.task_registry import TaskRegistry, TaskRegistryError
 
 
-TASK_IDS = ("annealed-properties-v1", "hot-rolled-properties-v1")
+TASK_IDS = ("annealed-properties-v1", "hot-rolled-properties-v1", "flank-wear-v1")
 SOURCE_ROOT = Path(__file__).parents[1] / "src" / "material_workbench" / "task_definitions"
 
 
@@ -108,9 +108,17 @@ def test_both_tasks_use_the_same_project_preview_contract(client, task_id: str) 
     if task_id == "annealed-properties-v1":
         project_id = "default"
         candidate_id = client.get("/api/projects/default/candidates").json()[0]["id"]
-    else:
+    elif task_id == "hot-rolled-properties-v1":
         project_id = "hot-rolling-default"
         candidate_id = client.get(f"/api/projects/{project_id}/candidates").json()[0]["id"]
+    else:
+        catalog = client.get("/api/task-definitions").json()
+        starter = next(
+            item for item in catalog
+            if item["definition"]["task_definition"]["id"] == task_id
+        )["starter_candidate"]
+        project_id = client.post("/api/projects", json={"name": "preview契約確認", "task_id": task_id}).json()["id"]
+        candidate_id = client.post(f"/api/projects/{project_id}/candidates", json=starter).json()["id"]
 
     candidate = client.get(f"/api/projects/{project_id}/candidates/{candidate_id}").json()
     response = client.post(

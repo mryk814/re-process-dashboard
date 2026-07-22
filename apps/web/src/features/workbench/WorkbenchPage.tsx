@@ -3,6 +3,7 @@ import { provenanceLabel, type CandidateProvenance } from "../../shared/candidat
 import {
   CandidateInspector,
   ComparisonTable,
+  categoricalTaskInputs,
   fromApiCandidate,
   numericTaskInputs,
   type CandidateSaveState,
@@ -18,6 +19,7 @@ import { apiBaseUrl } from "../../shared/api/client";
 import {
   workbenchApi,
   type ApiActual,
+  type ApiCurveFamily,
   type ApiProject,
   type ApiPredictionVsActual,
   type ApiPreview,
@@ -139,7 +141,11 @@ type WorkbenchProps = {
   fieldErrors: Array<{ path: string; message: string }>;
   onReload: () => void;
   onCopyDraft: () => void;
+  metrics: Metric[];
   preview: ApiPreview | null;
+  previewStatus: InferenceSurfaceStatus;
+  previewError: string;
+  onRetryPreview: () => void;
   previewsByCandidate: Record<string, ApiPreview>;
   onSelect: (id: string) => void;
   onHeat: (index: number, field: "time" | "temperature" | "stageName", raw: number | string) => void;
@@ -174,7 +180,11 @@ export function WorkbenchPage(props: WorkbenchProps) {
     fieldErrors,
     onReload,
     onCopyDraft,
+    metrics,
     preview,
+    previewStatus,
+    previewError,
+    onRetryPreview,
     previewsByCandidate,
     onSelect,
     onInput,
@@ -263,6 +273,15 @@ export function WorkbenchPage(props: WorkbenchProps) {
           onInput={onInput}
           onName={(id, value) => onText(id, "label", value)}
         />}
+        {taskDefinition?.curve_axis_path && operations?.response_curve ? (
+          <CurveFamilyPanel
+            projectId={projectId}
+            candidate={selected}
+            taskDefinition={taskDefinition}
+            targetValues={targetValues}
+            ready={["idle", "saved"].includes(saveState)}
+          />
+        ) : null}
         <div className="workbench-lower-grid">
           {operations?.response_curve ? (
               <LiveResponseCurves
@@ -282,6 +301,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
           ) : <UnavailablePanel title="応答曲線" />}
           <LiveSimilarityEvidence projectId={projectId} candidate={selected} outputs={taskDefinition?.outputs ?? []} available={operations?.similarity === true} ready={["idle", "saved"].includes(saveState)} onAddCandidate={onAddCandidateFromLineage} />
         </div>
+        <EvidencePanel projectId={projectId} candidate={selected} inferenceReady={["idle", "saved"].includes(saveState)} metrics={metrics} outputs={taskDefinition?.outputs ?? []} preview={preview} previewStatus={previewStatus} candidateLabel={selected.label} actualsAvailable={operations?.actual_measurement === true} error={previewError} onRetry={onRetryPreview} />
       </section>
     </div>
   );
@@ -787,6 +807,147 @@ function HeatPattern({
   );
 }
 
+function levelColor(index: number, count: number, selectedTone = "#1f5fc4") {
+  if (count <= 1) return selectedTone;
+  // 低水準→高水準を明→暗の同系色で塗り、傾きの変化を追いやすくする
+  const ratio = count === 1 ? 1 : index / (count - 1);
+  const lightness = 72 - ratio * 42;
+  return `hsl(215, 72%, ${lightness}%)`;
+}
+
+function CurveFamilyPanel({
+  projectId,
+  candidate,
+  taskDefinition,
+  targetValues,
+  ready,
+}: {
+  projectId: string;
+  candidate: Candidate;
+  taskDefinition: TaskDefinitionContract;
+  targetValues: Record<string, number>;
+  ready: boolean;
+}) {
+  const outputs = taskDefinition.outputs;
+  const axisPath = taskDefinition.curve_axis_path ?? "";
+  const axisInput = numericTaskInputs(taskDefinition).find((input) => input.path === axisPath);
+  const varyOptions = numericTaskInputs(taskDefinition).filter((input) => input.editable && input.path !== axisPath);
+  const varyCategoricalOptions = categoricalTaskInputs(taskDefinition).filter((input) => input.editable);
+  const [varyId, setVaryId] = useState("");
+  const isCategoricalVary = varyCategoricalOptions.some((input) => input.path === varyId);
+  const [levels, setLevels] = useState(5);
+  const [loadedPayloads, setLoadedPayloads] = useState<{ identity: string; values: Record<string, ApiCurveFamily> }>({ identity: "", values: {} });
+  const [error, setError] = useState<Error | null>(null);
+  const inputIdentity = candidateInputIdentity(candidate.raw.inputs);
+  const outputKeys = outputs.map((output) => output.key).join("");
+  const requestIdentity = JSON.stringify({ projectId, candidateId: candidate.id, revision: candidate.raw.revision, inputIdentity, varyId, levels, outputKeys, axisPath });
+  const payloads = loadedPayloads.identity === requestIdentity ? loadedPayloads.values : {};
+  useEffect(() => {
+    if (!ready || !axisPath || !outputs.length) return;
+    const controller = new AbortController();
+    setError(null);
+    const timer = window.setTimeout(async () => {
+      try {
+        const loaded = await Promise.all(outputs.map((output) =>
+          workbenchApi.curveFamily(projectId, candidate.id, candidate.raw.revision, inputIdentity, output.key, varyId, varyId ? levels : 2, 15, controller.signal)));
+        if (controller.signal.aborted) return;
+        setLoadedPayloads({ identity: requestIdentity, values: Object.fromEntries(outputs.map((output, index) => [output.key, loaded[index]])) });
+        setError(null);
+      } catch (cause) {
+        if (!controller.signal.aborted) setError(cause instanceof Error ? cause : new Error(String(cause)));
+      }
+    }, 320);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [requestIdentity, ready, axisPath]);
+  if (!axisPath) return null;
+  const axisLabel = axisInput?.label ?? axisPath;
+  const firstPayload = outputs.map((output) => payloads[output.key]).find(Boolean);
+  const legendSeries = firstPayload?.series ?? [];
+  return (
+    <section className="response-curves-panel curve-family-panel" aria-label={`${axisLabel}に沿った特性曲線`}>
+      <div className="panel-title">
+        <div className="response-curves-title-group">
+          <h2>特性曲線 <span>（横軸: {axisLabel}。選んだ変数を数水準ふって重ね描き）</span></h2>
+          {varyId && legendSeries.length > 1 ? (
+            <div className="candidate-color-legend" aria-label="水準の凡例">
+              {legendSeries.map((series, index) => (
+                <span key={series.label}><i style={{ background: levelColor(index, legendSeries.length) }} />{series.label}</span>
+              ))}
+            </div>
+          ) : <span className="curve-scope">現在の候補の曲線</span>}
+        </div>
+        <label>ふる変数 <select aria-label="水準をふる変数" value={varyId} onChange={(event) => setVaryId(event.target.value)}>
+          <option value="">なし（現在の候補のみ）</option>
+          {varyOptions.length ? <optgroup label="数値">
+            {varyOptions.map((input) => <option key={input.path} value={input.path}>{input.label}{input.unit ? ` (${input.unit})` : ""}</option>)}
+          </optgroup> : null}
+          {varyCategoricalOptions.length ? <optgroup label="区分">
+            {varyCategoricalOptions.map((input) => <option key={input.path} value={input.path}>{input.label}</option>)}
+          </optgroup> : null}
+        </select></label>
+        {varyId && !isCategoricalVary ? <label>水準数 <select aria-label="水準数" value={levels} onChange={(event) => setLevels(Number(event.target.value))}>
+          {[3, 5, 7].map((count) => <option key={count} value={count}>{count}</option>)}
+        </select></label> : null}
+      </div>
+      {!ready ? <p className="empty-evidence">入力を保存後に更新します。</p> : error && !firstPayload ? <p className="empty-evidence">曲線を取得できません。 ({error.message})</p> : !firstPayload ? <p className="empty-evidence">曲線を読み込んでいます。</p> : (
+        <div className={`response-curves-grid output-count-${Math.min(outputs.length, 4)}`}>
+          {outputs.map((output) => {
+            const payload = payloads[output.key];
+            if (!payload) return <article key={output.key} className="response-curve-card"><header><b>{output.label}</b><span>読み込み中</span></header></article>;
+            return <CurveFamilyChart key={output.key} output={output} payload={payload} goalValue={targetValues[output.key]} showVaryLevels={Boolean(varyId)} />;
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function CurveFamilyChart({
+  output,
+  payload,
+  goalValue,
+  showVaryLevels,
+}: {
+  output: TaskOutputDefinition;
+  payload: ApiCurveFamily;
+  goalValue?: number;
+  showVaryLevels: boolean;
+}) {
+  const width = 300;
+  const height = 156;
+  const series = showVaryLevels ? payload.series : payload.series.slice(0, 1);
+  const points = series.flatMap((item) => item.points);
+  const minX = payload.axis.min;
+  const maxX = payload.axis.max;
+  const bandVisible = series.length === 1;
+  const valueSamples = points.flatMap((point) => bandVisible ? [point.lower, point.upper] : [point.value]);
+  const rawMin = Math.min(...valueSamples, goalValue ?? Infinity, 0);
+  const rawMax = Math.max(...valueSamples, goalValue ?? -Infinity);
+  const padding = Math.max(1, (rawMax - rawMin) * 0.08);
+  const minValue = rawMin;
+  const maxValue = rawMax + padding;
+  const x = (value: number) => 30 + ((value - minX) / Math.max(1e-6, maxX - minX)) * 252;
+  const y = (value: number) => 124 - ((value - minValue) / Math.max(1, maxValue - minValue)) * 92;
+  return (
+    <article className="response-curve-card">
+      <header><b>{output.label}</b><span>{payload.axis.label}: {number(payload.axis.current)} {payload.axis.unit}</span></header>
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${output.label}の${payload.axis.label}に沿った曲線`}>
+        {[minValue, (minValue + maxValue) / 2, maxValue].map((tick) => <g key={tick}><line x1="28" y1={y(tick)} x2="284" y2={y(tick)} stroke="#e3e9f0" /><text x="25" y={y(tick) + 3} textAnchor="end" fontSize="9" fill="#617087">{number(tick)}</text></g>)}
+        {series.map((item, index) => {
+          const color = levelColor(index, series.length);
+          const line = item.points.map((point, pointIndex) => `${pointIndex ? "L" : "M"}${x(point.x)} ${y(point.value)}`).join(" ");
+          const band = `${item.points.map((point, pointIndex) => `${pointIndex ? "L" : "M"}${x(point.x)} ${y(point.upper)}`).join(" ")} ${[...item.points].reverse().map((point) => `L${x(point.x)} ${y(Math.max(point.lower, minValue))}`).join(" ")} Z`;
+          return <g key={item.label}>{bandVisible && <path d={band} fill={color} opacity=".12" />}<path d={line} fill="none" stroke={color} strokeWidth={series.length === 1 ? "2.5" : "1.8"} /></g>;
+        })}
+        {Number.isFinite(goalValue) && <line x1="28" y1={y(goalValue!)} x2="284" y2={y(goalValue!)} stroke="#c17816" strokeDasharray="4 3" />}
+        {Number.isFinite(payload.axis.current) && <line x1={x(payload.axis.current)} y1="32" x2={x(payload.axis.current)} y2="124" stroke="#94a5ba" strokeDasharray="2 3" />}
+        {[minX, (minX + maxX) / 2, maxX].map((tick) => <text key={tick} x={x(tick)} y="137" textAnchor="middle" fontSize="8" fill="#617087">{number(tick)}</text>)}
+        <text x="158" y="150" textAnchor="middle" fontSize="9" fill="#617087">{payload.axis.label} ({payload.axis.unit})</text>
+      </svg>
+    </article>
+  );
+}
+
 function LiveResponseCurves({
   projectId,
   project,
@@ -959,6 +1120,7 @@ function LiveResponseCurves({
   const setYDraft = (key: string, patch: Partial<CurveRangeDraft>) => { setAxisDraft((current) => ({ ...current, y: { ...current.y, [key]: { ...(current.y[key] ?? { min: "", max: "", enabled: false }), ...patch } } })); setAxisDraftDirty(true); };
   const loadedCurveCount = curveStates.filter((state) => state?.data !== null && state?.data !== undefined).length;
   const curveStatus = curveStates.some((state) => state?.error) ? "error" : curveStates.some((state) => state?.pending) || loadedCurveCount < curveStates.length ? "refreshing" : "latest";
+  const curveErrorMessage = curveStates.find((state) => state?.error)?.error;
   if (!available) return <UnavailablePanel title="応答曲線" />;
   if (!preview && !curveCandidates.length) return <section className="response-curves-panel"><div className="panel-title"><h2>応答曲線</h2></div><p className="empty-evidence">候補の保存とプレビュー完了後に表示します。</p></section>;
   return (
@@ -1015,7 +1177,7 @@ function LiveResponseCurves({
           </div>
         </div>
       )}
-      {!ready ? <p className="empty-evidence">入力を保存後に更新します。</p> : curveStatus === "error" && loadedCurveCount === 0 ? <p className="empty-evidence">応答曲線を取得できません。</p> : (
+      {!ready ? <p className="empty-evidence">入力を保存後に更新します。</p> : curveStatus === "error" && loadedCurveCount === 0 ? <p className="empty-evidence">応答曲線を取得できません。{curveErrorMessage instanceof Error ? ` (${curveErrorMessage.message})` : ""}</p> : (
         <div className={`response-curves-grid output-count-${Math.min(outputs.length, 4)}`}>
           {outputs.map((output) => {
             const curveSeries = curveCandidates.flatMap((item) => {

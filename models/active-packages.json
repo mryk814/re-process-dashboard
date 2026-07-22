@@ -8,6 +8,10 @@
     "hot-rolled-properties-v1": {
       "active": "packages/hot-rolled-gp-2026-07",
       "previous": null
+    },
+    "flank-wear-v1": {
+      "active": "packages/flank-wear-gp-2026-07",
+      "previous": null
     }
   }
 }

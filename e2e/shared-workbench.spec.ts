@@ -19,7 +19,7 @@ for (const task of tasks) {
     await expect(page.locator(".evidence-panel .metric-table")).toBeVisible();
     const outputHeader = page.locator(".comparison-detail-table thead");
     await expect(outputHeader.locator(".prediction-col")).toHaveCount(task.outputLabels.length);
-    for (const output of task.outputLabels) await expect(outputHeader.getByText(output, { exact: false })).toBeVisible();
+    for (const output of task.outputLabels) await expect(outputHeader.locator(".prediction-col").filter({ hasText: output })).toBeVisible();
     if (task.projectId === "hot-rolling-default") {
       await expect(outputHeader.getByText("降伏強さ", { exact: false })).toHaveCount(0);
       await expect(page.locator(".heat-panel")).toHaveCount(0);

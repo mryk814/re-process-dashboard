@@ -47,7 +47,9 @@
               "TS",
               "YS",
               "EL",
-              "lambda"
+              "lambda",
+              "VB_mean",
+              "VB_max"
             ],
             "title": "Property",
             "type": "string"
@@ -72,7 +74,8 @@
           "unit": {
             "enum": [
               "MPa",
-              "%"
+              "%",
+              "µm"
             ],
             "title": "Unit",
             "type": "string"
@@ -123,7 +126,9 @@
               "TS",
               "YS",
               "EL",
-              "lambda"
+              "lambda",
+              "VB_mean",
+              "VB_max"
             ],
             "title": "Property",
             "type": "string"
@@ -144,7 +149,8 @@
           "unit": {
             "enum": [
               "MPa",
-              "%"
+              "%",
+              "µm"
             ],
             "title": "Unit",
             "type": "string"
@@ -666,6 +672,106 @@
         "title": "CopySourceRef",
         "type": "object"
       },
+      "CurveFamilyResponse": {
+        "properties": {
+          "axis": {
+            "$ref": "#/components/schemas/CurveVariable"
+          },
+          "output_range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InputRange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "point_count": {
+            "title": "Point Count",
+            "type": "integer"
+          },
+          "policy_id": {
+            "title": "Policy Id",
+            "type": "string"
+          },
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/CurveFamilySeries"
+            },
+            "title": "Series",
+            "type": "array"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "vary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CurveVariable"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "vary_categorical": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CurveVariableCategorical"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "target",
+          "axis",
+          "series",
+          "point_count",
+          "policy_id"
+        ],
+        "title": "CurveFamilyResponse",
+        "type": "object"
+      },
+      "CurveFamilySeries": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "level": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Level"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/CurvePoint"
+            },
+            "title": "Points",
+            "type": "array"
+          }
+        },
+        "required": [
+          "label",
+          "points"
+        ],
+        "title": "CurveFamilySeries",
+        "type": "object"
+      },
       "CurvePoint": {
         "properties": {
           "lower": {
@@ -740,6 +846,37 @@
           "current"
         ],
         "title": "CurveVariable",
+        "type": "object"
+      },
+      "CurveVariableCategorical": {
+        "properties": {
+          "choices": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Choices",
+            "type": "array"
+          },
+          "current": {
+            "title": "Current",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "choices",
+          "current"
+        ],
+        "title": "CurveVariableCategorical",
         "type": "object"
       },
       "DataQualityIssue": {
@@ -2538,7 +2675,8 @@
             "default": "annealed-properties-v1",
             "enum": [
               "annealed-properties-v1",
-              "hot-rolled-properties-v1"
+              "hot-rolled-properties-v1",
+              "flank-wear-v1"
             ],
             "title": "Task Id",
             "type": "string"
@@ -2646,7 +2784,8 @@
             "default": "annealed-properties-v1",
             "enum": [
               "annealed-properties-v1",
-              "hot-rolled-properties-v1"
+              "hot-rolled-properties-v1",
+              "flank-wear-v1"
             ],
             "title": "Task Id",
             "type": "string"
@@ -2801,7 +2940,8 @@
             "default": "annealed-properties-v1",
             "enum": [
               "annealed-properties-v1",
-              "hot-rolled-properties-v1"
+              "hot-rolled-properties-v1",
+              "flank-wear-v1"
             ],
             "title": "Task Id",
             "type": "string"
@@ -4147,6 +4287,17 @@
             "title": "Constraints",
             "type": "array"
           },
+          "curve_axis_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Curve Axis Path"
+          },
           "display_decimals": {
             "additionalProperties": {
               "maximum": 8.0,
@@ -5479,6 +5630,126 @@
           }
         },
         "summary": "Delete Actual"
+      }
+    },
+    "/api/projects/{project_id}/candidates/{candidate_id}/curve-family": {
+      "get": {
+        "operationId": "getCandidateCurveFamily",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expected_revision",
+            "required": true,
+            "schema": {
+              "title": "Expected Revision",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target",
+            "required": true,
+            "schema": {
+              "title": "Target",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "vary",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Vary",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "levels",
+            "required": false,
+            "schema": {
+              "default": 5,
+              "maximum": 9,
+              "minimum": 2,
+              "title": "Levels",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "points",
+            "required": false,
+            "schema": {
+              "default": 15,
+              "maximum": 51,
+              "minimum": 3,
+              "title": "Points",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveFamilyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Curve Family"
       }
     },
     "/api/projects/{project_id}/candidates/{candidate_id}/predict": {

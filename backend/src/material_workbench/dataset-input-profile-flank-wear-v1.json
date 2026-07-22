@@ -1,0 +1,100 @@
+{
+  "schema_version": "dataset-input-profile/v2",
+  "id": "cutting-flank-wear-v1",
+  "task_definition_ids": ["flank-wear-v1"],
+  "shared": {
+    "sheets": {
+      "material": "試作材成分",
+      "tool": "工具マスタ",
+      "condition": "切削条件",
+      "wear_history": "逃げ面摩耗履歴",
+      "relation": "relationEx"
+    },
+    "entities": [
+      {"type": "material", "role": "material", "key": "試作材成分_key**"},
+      {"type": "tool", "role": "tool", "key": "工具マスタ_key**"},
+      {"type": "condition", "role": "condition", "key": "切削条件_key**"},
+      {"type": "wear_test", "role": "wear_history", "key": "摩耗試験_key**"}
+    ],
+    "relation": {
+      "role": "relation",
+      "joins": [
+        {"path": "material", "entity_type": "material", "column": "試作材成分_key**", "cardinality": "exactly_one", "stage": 0, "parent_entity_types": []},
+        {"path": "tool", "entity_type": "tool", "column": "工具マスタ_key**", "cardinality": "exactly_one", "stage": 1, "parent_entity_types": []},
+        {"path": "condition", "entity_type": "condition", "column": "切削条件_key**", "cardinality": "exactly_one", "stage": 2, "parent_entity_types": []},
+        {"path": "wear_test", "entity_type": "wear_test", "column": "摩耗試験_key**", "cardinality": "exactly_one", "stage": 3, "parent_entity_types": ["material", "tool", "condition"], "parent_consistency": "exactly_one"}
+      ]
+    },
+    "eligibility": [
+      {"role": "wear_history", "column": "測定状態", "policy": "valid_observation/v1", "accepted_values": ["有効"]}
+    ],
+    "policy_defaults": {
+      "hot_rolling.learning_flag/v1": true,
+      "annealing.learning_flag/v1": true,
+      "anneal_features.anneal_feature_status/v1": true,
+      "hot_tensile.valid_observation/v1": true,
+      "hot_tensile.hot_l_direction/v1": true,
+      "anneal_tensile.valid_observation/v1": true,
+      "anneal_hole.valid_observation/v1": true
+    },
+    "technical": [
+      {"role": "material", "name": "family", "column": "材料系"},
+      {"role": "condition", "name": "condition_name", "column": "条件名"},
+      {"role": "condition", "name": "project", "column": "プロジェクト名"}
+    ],
+    "optional_roles": ["melt", "annealing", "quality", "hot_rolling", "anneal_features", "anneal_history"],
+    "metadata_columns": ["ロット", "プロジェクト名", "登録者", "登録日", "測定者", "測定日", "備考"],
+    "physical_ranges": {
+      "flank-wear-v1": {"VB_mean": [0, 2000], "VB_max": [0, 2500]}
+    }
+  },
+  "tasks": {
+    "flank-wear-v1": {
+      "mappings": [
+        {"path":"process.cutting_distance_m","role":"wear_history","column":"切削距離[m]","kind":"observation_scoped","source_unit":"m","canonical_unit":"m","normalizer_id":"median_by_parent/v1","parent_entity_type":"wear_test","observation_sources":[{"role":"wear_history","column":"切削距離[m]"}]},
+        {"path":"process.cutting_speed_mpm","role":"condition","column":"切削速度Vc[m/min]","kind":"entity_scalar","source_unit":"m/min","canonical_unit":"m/min"},
+        {"path":"process.feed_mm_rev","role":"condition","column":"送りf[mm/rev]","kind":"entity_scalar","source_unit":"mm/rev","canonical_unit":"mm/rev"},
+        {"path":"process.depth_of_cut_mm","role":"condition","column":"切込みap[mm]","kind":"entity_scalar","source_unit":"mm","canonical_unit":"mm"},
+        {"path":"process.hardness_hv","role":"material","column":"硬さ[HV]","kind":"entity_scalar","source_unit":"HV","canonical_unit":"HV"},
+        {"path":"process.tensile_mpa","role":"material","column":"引張強さ[MPa]","kind":"entity_scalar","source_unit":"MPa","canonical_unit":"MPa"},
+        {"path":"process.wear_resistance_index","role":"tool","column":"耐摩耗指数[-]","kind":"entity_scalar","source_unit":"-","canonical_unit":"-"},
+        {"path":"process.fracture_resistance_index","role":"tool","column":"耐欠損指数[-]","kind":"entity_scalar","source_unit":"-","canonical_unit":"-"},
+        {"path":"process.nose_radius_mm","role":"tool","column":"ノーズR[mm]","kind":"entity_scalar","source_unit":"mm","canonical_unit":"mm"},
+        {"path":"process.rake_angle_deg","role":"tool","column":"すくい角[deg]","kind":"entity_scalar","source_unit":"deg","canonical_unit":"deg"},
+        {"path":"composition.C","role":"material","column":"C%","kind":"entity_scalar","source_unit":"%","canonical_unit":"%"},
+        {"path":"composition.Si","role":"material","column":"Si%","kind":"entity_scalar","source_unit":"%","canonical_unit":"%"},
+        {"path":"composition.Mn","role":"material","column":"Mn%","kind":"entity_scalar","source_unit":"%","canonical_unit":"%"},
+        {"path":"composition.Cr","role":"material","column":"Cr%","kind":"entity_scalar","source_unit":"%","canonical_unit":"%"},
+        {"path":"composition.Ni","role":"material","column":"Ni%","kind":"entity_scalar","source_unit":"%","canonical_unit":"%"},
+        {"path":"composition.Mo","role":"material","column":"Mo%","kind":"entity_scalar","source_unit":"%","canonical_unit":"%"},
+        {"path":"composition.V","role":"material","column":"V%","kind":"entity_scalar","source_unit":"%","canonical_unit":"%"},
+        {"path":"composition.W","role":"material","column":"W%","kind":"entity_scalar","source_unit":"%","canonical_unit":"%"},
+        {"path":"composition.Co","role":"material","column":"Co%","kind":"entity_scalar","source_unit":"%","canonical_unit":"%"},
+        {"path":"composition.Ti","role":"material","column":"Ti%","kind":"entity_scalar","source_unit":"%","canonical_unit":"%"},
+        {"path":"composition.Al","role":"material","column":"Al%","kind":"entity_scalar","source_unit":"%","canonical_unit":"%"},
+        {"path":"composition.Cu","role":"material","column":"Cu%","kind":"entity_scalar","source_unit":"%","canonical_unit":"%"},
+        {"path":"categorical.coating_method","role":"tool","column":"成膜方式","kind":"categorical"},
+        {"path":"categorical.coolant_method","role":"condition","column":"クーラント方式","kind":"categorical"},
+        {"path":"categorical.cutting_mode","role":"condition","column":"切削モード","kind":"categorical"},
+        {"path":"categorical.holder_rigidity","role":"condition","column":"ホルダ剛性","kind":"categorical"}
+      ],
+      "observations": [
+        {
+          "role": "wear_history",
+          "id_column": "逃げ面摩耗履歴_key**",
+          "parent_column": "摩耗試験_key**",
+          "parent_entity_type": "wear_test",
+          "metadata_columns": {"status": "測定状態", "date": "測定日", "order": "測定順"},
+          "targets": [
+            {"key": "VB_mean", "column": "VB平均[µm]", "unit": "µm"},
+            {"key": "VB_max", "column": "VB最大[µm]", "unit": "µm"}
+          ],
+          "auxiliary": [
+            {"key": "distance_m", "column": "切削距離[m]", "unit": "m"},
+            {"key": "notch_wear", "column": "ノッチ摩耗[µm]", "unit": "µm"}
+          ]
+        }
+      ]
+    }
+  }
+}

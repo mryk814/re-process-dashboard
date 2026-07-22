@@ -68,6 +68,6 @@ test("new project creation requires an explicit empty or copy choice", async ({ 
   await page.getByRole("button", { name: /条件範囲から始める/ }).first().click();
   await page.getByRole("button", { name: "基準候補を作って探索を始める" }).click();
   await page.getByRole("button", { name: "候補比較", exact: true }).click();
-  await expect(page.locator(".comparison-detail-table thead").getByText("引張強さ", { exact: false })).toBeVisible();
+  await expect(page.locator(".comparison-detail-table thead .prediction-col").filter({ hasText: "引張強さ" })).toBeVisible();
   await expect(page.locator(".comparison-detail-table thead").getByText("降伏強さ", { exact: false })).toHaveCount(0);
 });
