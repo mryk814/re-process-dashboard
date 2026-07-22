@@ -85,7 +85,8 @@ class TargetQualityMetric(LifecycleModel):
 
 class QualityReport(LifecycleModel):
     schema_version: Literal["model-quality-report/v1"]
-    split: Literal["leave-one-parent-condition-out"]
+    split: Literal["leave-one-parent-condition-out", "grouped-parent-condition-k-fold"]
+    folds: Annotated[int, Field(ge=2)] | None = None
     targets: Annotated[tuple[TargetQualityMetric, ...], Field(min_length=1)]
 
 
