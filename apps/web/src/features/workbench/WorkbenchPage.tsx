@@ -1,5 +1,6 @@
 import { type CSSProperties, type KeyboardEvent, type PointerEvent, useEffect, useRef, useState } from "react";
 import { provenanceLabel, type CandidateProvenance } from "../../shared/candidateProvenance";
+import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
 import {
   CandidateInspector,
   ComparisonTable,
@@ -159,7 +160,7 @@ function candidateColor(candidateId: string, selectedId: string) {
   return CANDIDATE_COLORS[hash % CANDIDATE_COLORS.length];
 }
 
-function Icon({ name }: { name: "copy" | "trash" | "plus" }) {
+function Icon({ name }: { name: "trash" }) {
   const common = {
     width: 18,
     height: 18,
@@ -172,9 +173,7 @@ function Icon({ name }: { name: "copy" | "trash" | "plus" }) {
     "aria-hidden": true,
   };
   const paths = {
-    copy: <><rect x="8" y="8" width="12" height="12" rx="1" /><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3" /></>,
     trash: <><path d="M4 7h16M10 11v6m4-6v6M9 7l1-3h4l1 3m-9 0 1 13h10l1-13" /></>,
-    plus: <><circle cx="12" cy="12" r="9" /><path d="M12 8v8m-4-4h8" /></>,
   };
   return <svg {...common}>{paths[name]}</svg>;
 }
@@ -198,10 +197,9 @@ export function WorkbenchEmptyState({
         </p>
       )}
       {!loading && !error && (
-        <button className="primary-button" onClick={onCreate}>
-          <Icon name="plus" />
+        <CandidateAddButton onClick={onCreate}>
           最初の候補を作る
-        </button>
+        </CandidateAddButton>
       )}
     </div>
   );
@@ -362,9 +360,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
           </div>
           {previewError && <span className="comparison-preview-error" role="alert">{previewError}{operations?.preview && <button type="button" onClick={onRetryPreview}>再試行</button>}</span>}
           <div className="comparison-actions" aria-label="候補操作">
-            <button className="outline-button" onClick={onCopy}>
-              <Icon name="copy" />選択候補を複製
-            </button>
+            <CandidateAddButton onClick={onCopy}>選択候補を複製</CandidateAddButton>
             <button
               className="outline-button"
               onClick={onDelete}
@@ -380,9 +376,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
               <Icon name="trash" />削除
             </button>
             <CandidateFileControls projectId={projectId} onImported={onImported} />
-            <button className="primary-button" onClick={onAdd}>
-              <Icon name="plus" />候補を追加
-            </button>
+            <CandidateAddButton onClick={onAdd}>候補を追加</CandidateAddButton>
           </div>
         </div>
         <CandidateOrigin candidate={selected} broken={originBroken} onOpen={onOpenOrigin} />
@@ -1237,9 +1231,9 @@ function LiveSimilarityEvidence({
                 <td className="similar-key">{item.process_key ?? item.parent_key}</td>
                 <td><div className="similar-value-list"><small>{item.source || item.observation_id || "実績"}</small>{measuredOutputs(item).map(({ output, summary }) => <span key={output.key} title={`${output.label}: ${number(summary.mean, 1)} ± ${number(summary.std, 1)} ${output.unit} / n=${summary.n}`}><b>{output.key === "lambda" ? "λ" : output.key}</b><strong>{number(summary.mean, 1)}</strong></span>)}</div></td>
                 <td className="similar-action-cell">
-                  <button type="button" className="outline-button similar-add-button" disabled={!item.process_key || addingKey === item.process_key || addedKeys.includes(item.process_key ?? "")} onClick={() => { if (item.process_key) void add(item.process_key); }}>
+                  <CandidateAddButton compact disabled={!item.process_key || addingKey === item.process_key || addedKeys.includes(item.process_key ?? "")} onClick={() => { if (item.process_key) void add(item.process_key); }}>
                     {addedKeys.includes(item.process_key ?? "") ? "追加済み" : addingKey === item.process_key ? "追加中…" : "候補に追加"}
-                  </button>
+                  </CandidateAddButton>
                 </td>
               </tr>
             ))}</tbody>

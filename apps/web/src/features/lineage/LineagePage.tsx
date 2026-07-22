@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { fromApiCandidate, type CandidateViewModel as Candidate, type TaskOutputDefinition } from "../candidates";
 import { workbenchApi, type ApiLineage, type ApiLineageIndex } from "../../shared/api/workbench-api";
+import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
 import { LineageGraph } from "./LineageGraph";
 
 function number(value: number, digits = 0) {
@@ -323,8 +324,7 @@ export function LineagePage({
                 </p>
               </div>
               <div className="lineage-detail-action">
-                <button
-                  className="primary-button"
+                <CandidateAddButton
                   disabled={!supportsCandidateCreation || !data.candidate_eligible}
                   title={supportsCandidateCreation ? data.candidate_reason : "この予測タスクは系譜からの候補化に対応していません"}
                   onClick={() => {
@@ -332,7 +332,7 @@ export function LineagePage({
                   }}
                 >
                   候補ストックへ追加
-                </button>
+                </CandidateAddButton>
                 <span className={`lineage-detail-action-reason ${supportsCandidateCreation && data.candidate_eligible ? "" : "muted"}`}>
                   {supportsCandidateCreation ? data.candidate_reason : "この予測タスクは系譜からの候補化に対応していません。"}
                 </span>

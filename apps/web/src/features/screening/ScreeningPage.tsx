@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { fromApiCandidate, setCandidateInputValue, toApiCandidate, type CandidateViewModel as Candidate, type ResolvedTaskDefinition, type TaskDefinitionContract } from "../candidates";
 import { workbenchApi, type ApiProject, type ApiScreeningRun } from "../../shared/api/workbench-api";
+import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
 import { ScreeningBaseEditor } from "./ScreeningBaseEditor";
 
 function cloneScreeningCandidate(candidate: Candidate): Candidate {
@@ -375,7 +376,7 @@ export function ScreeningPage({
     setFocusedPointIndex(index);
     setSelectedPointIndices((current) => current.includes(index) ? current.filter((item) => item !== index) : [...current, index]);
   };
-  if (!candidates.length) return <div className="page-panel explore-page"><div className="page-intro"><div><h2>範囲探索</h2><p>探索の基準になる候補を1件作ると、TaskDefinitionの入力範囲から条件を検討できます。</p></div></div><div className="project-empty-state"><p>まだ基準候補がありません。</p><button className="primary-button" onClick={onCreateStarter}>基準候補を作って探索を始める</button></div></div>;
+  if (!candidates.length) return <div className="page-panel explore-page"><div className="page-intro"><div><h2>範囲探索</h2><p>探索の基準になる候補を1件作ると、TaskDefinitionの入力範囲から条件を検討できます。</p></div></div><div className="project-empty-state"><p>まだ基準候補がありません。</p><CandidateAddButton onClick={onCreateStarter}>基準候補を作って探索を始める</CandidateAddButton></div></div>;
   return (
     <div className="page-panel explore-page">
       <div className="page-intro">
@@ -579,7 +580,7 @@ export function ScreeningPage({
           <div className="screening-action-bar" role="status">
             <span><b>{selectedPointIndices.length}</b>件選択 / 新規{selectedNewPointIndices.length}件 / 追加可能{remainingCandidateCapacity}件</span>
             {selectedPointIndices.some((index) => stockedPointIndices.has(index)) && <small>stock済みの点は再追加しません。</small>}
-            <button className="primary-button" disabled={!selectedNewPointIndices.length || selectedNewPointIndices.length > remainingCandidateCapacity} onClick={() => void persistSelected()}>{selectedNewPointIndices.length}件を候補へ追加</button>
+            <CandidateAddButton disabled={!selectedNewPointIndices.length || selectedNewPointIndices.length > remainingCandidateCapacity} onClick={() => void persistSelected()}>{selectedNewPointIndices.length}件を候補へ追加</CandidateAddButton>
             <button className="outline-button" disabled={!candidates.length} onClick={onCompare}>候補比較へ</button>
           </div>
           <div className="screen-legend">
