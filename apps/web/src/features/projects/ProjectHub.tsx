@@ -149,6 +149,7 @@ export function ProjectHub({
   const fixedDataset = project?.dataset_view_revision_id ? datasetByView.get(project.dataset_view_revision_id) : undefined;
   const fixedPackage = creationOptions?.model_packages.find((item) => item.id === project?.model_package_ref_id);
   const fixedSeries = creationOptions?.project_series.find((item) => item.id === project?.project_series_id);
+  const selectedSeries = creationOptions?.project_series.find((item) => item.id === newProjectSeriesId);
   const selectedPackage = creationOptions?.model_packages.find((item) => item.id === newModelPackageRefId);
   const selectedTrainingDataset = trainingDataset(selectedPackage, creationOptions?.datasets ?? []);
   const fixedTrainingDataset = trainingDataset(fixedPackage, creationOptions?.datasets ?? []);
@@ -364,6 +365,7 @@ export function ProjectHub({
           <div><span>参照Dataset</span><strong>{selectedDataset ? datasetDisplayName(selectedDataset) : "選択してください"}</strong><small>{selectedDataset ? `${selectedDataset.profile_revision.name} · r${selectedDataset.profile_revision.revision}` : "DatasetとProfileを選択"}</small></div>
           <div><span>Prediction Task</span><strong>{taskLabels.get(selectedTaskId) ?? (selectedTaskId || "選択してください")}</strong><small>Projectの予測目的</small></div>
           <div><span>Model Package</span><strong>{selectedPackage?.package_id ?? "選択してください"}</strong><small>学習元: {selectedPackage ? selectedTrainingDataset ? datasetDisplayName(selectedTrainingDataset) : "未登録または記録なし" : "Model Packageを選択してください"}</small></div>
+          <div><span>一連の検討</span><strong>{selectedSeries?.name ?? (newProjectName.trim() || "プロジェクト名から新規作成")}</strong><small>{selectedSeries ? "既存の一連の検討に追加" : "新しい一連の検討として開始"}</small></div>
         </section>
         {predecessorProjectId && <label>続ける理由<textarea value={continuationReason} onChange={(event) => setContinuationReason(event.target.value)} placeholder="データ追加、条件変更、判断の再検討など" /></label>}
         <div className="project-start-options">
