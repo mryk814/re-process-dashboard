@@ -90,6 +90,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/profile-workbench/inspect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Inspect Uploaded Workbook */
+        post: operations["inspect_uploaded_workbook_api_profile_workbench_inspect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile-workbench/profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Profile Options */
+        get: operations["list_profile_options_api_profile_workbench_profiles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile-workbench/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Register Uploaded Workbook */
+        post: operations["register_uploaded_workbook_api_profile_workbench_register_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/project-creation-options": {
         parameters: {
             query?: never;
@@ -781,6 +832,24 @@ export interface components {
         Body_import_candidates_api_projects__project_id__candidates_import_post: {
             /** File */
             file: string;
+        };
+        /** Body_inspect_uploaded_workbook_api_profile_workbench_inspect_post */
+        Body_inspect_uploaded_workbook_api_profile_workbench_inspect_post: {
+            /** File */
+            file: string;
+            /** Profile Digest */
+            profile_digest?: string | null;
+        };
+        /** Body_register_uploaded_workbook_api_profile_workbench_register_post */
+        Body_register_uploaded_workbook_api_profile_workbench_register_post: {
+            /** Expected Source Sha256 */
+            expected_source_sha256: string;
+            /** File */
+            file: string;
+            /** Name */
+            name?: string | null;
+            /** Profile Digest */
+            profile_digest: string;
         };
         /** Candidate */
         Candidate: {
@@ -1857,6 +1926,95 @@ export interface components {
             profile_id: string;
             /** Revision */
             revision: number;
+        };
+        /** ProfileWorkbenchInspection */
+        ProfileWorkbenchInspection: {
+            /**
+             * Auto Detected
+             * @default false
+             */
+            auto_detected: boolean;
+            /** Profile Error */
+            profile_error?: string | null;
+            /** Selected Profile Digest */
+            selected_profile_digest?: string | null;
+            /** Sheets */
+            sheets: components["schemas"]["ProfileWorkbenchSheetInventory"][];
+            /** Source Filename */
+            source_filename: string;
+            /** Source Sha256 */
+            source_sha256: string;
+            validation?: components["schemas"]["ProfileWorkbenchValidation"] | null;
+        };
+        /** ProfileWorkbenchProfileOption */
+        ProfileWorkbenchProfileOption: {
+            /** Profile Digest */
+            profile_digest: string;
+            /** Profile Id */
+            profile_id: string;
+            /** Source Name */
+            source_name: string;
+            /** Task Ids */
+            task_ids: string[];
+        };
+        /** ProfileWorkbenchRegistration */
+        ProfileWorkbenchRegistration: {
+            /** Data Asset Id */
+            data_asset_id: string;
+            /** Dataset Revision Id */
+            dataset_revision_id: string;
+            /** Dataset View Revision Id */
+            dataset_view_revision_id: string;
+            /** Profile Id */
+            profile_id: string;
+            /** Profile Revision Id */
+            profile_revision_id: string;
+            /** Reused Existing */
+            reused_existing: boolean;
+            /** Source Sha256 */
+            source_sha256: string;
+            /** Task Ids */
+            task_ids: string[];
+        };
+        /** ProfileWorkbenchSheetInventory */
+        ProfileWorkbenchSheetInventory: {
+            /** Headers */
+            headers: string[];
+            /** Name */
+            name: string;
+            /** Rows */
+            rows: number;
+        };
+        /** ProfileWorkbenchValidation */
+        ProfileWorkbenchValidation: {
+            /** Entities */
+            entities: number;
+            /** Entity Preview */
+            entity_preview: {
+                [key: string]: unknown;
+            }[];
+            /** Heat Series Parents */
+            heat_series_parents: number;
+            /** Observations */
+            observations: number;
+            /** Observations By Task */
+            observations_by_task: {
+                [key: string]: number;
+            };
+            /** Profile Digest */
+            profile_digest: string;
+            /** Profile Id */
+            profile_id: string;
+            /** Registration Ready */
+            registration_ready: boolean;
+            /** Rejected By Policy */
+            rejected_by_policy: {
+                [key: string]: number;
+            };
+            /** Relations */
+            relations: number;
+            /** Task Ids */
+            task_ids: string[];
         };
         /** Project */
         Project: {
@@ -2981,6 +3139,155 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    inspect_uploaded_workbook_api_profile_workbench_inspect_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_inspect_uploaded_workbook_api_profile_workbench_inspect_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileWorkbenchInspection"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Payload Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    list_profile_options_api_profile_workbench_profiles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileWorkbenchProfileOption"][];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Payload Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    register_uploaded_workbook_api_profile_workbench_register_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_register_uploaded_workbook_api_profile_workbench_register_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileWorkbenchRegistration"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Payload Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
                 };
             };
             /** @description Validation Error */

@@ -31,6 +31,9 @@ export type ApiDatasetView = components["schemas"]["DatasetViewRevision"];
 export type ApiDatasetViewCreateInput = components["schemas"]["DatasetViewRevisionCreateInput"];
 export type ApiModelPackageRef = components["schemas"]["ModelPackageRef"];
 export type ApiProjectSeries = components["schemas"]["ProjectSeries"];
+export type ApiProfileWorkbenchInspection = components["schemas"]["ProfileWorkbenchInspection"];
+export type ApiProfileWorkbenchProfile = components["schemas"]["ProfileWorkbenchProfileOption"];
+export type ApiProfileWorkbenchRegistration = components["schemas"]["ProfileWorkbenchRegistration"];
 
 const path = (projectId: string, suffix = "") =>
   `/api/projects/${encodeURIComponent(projectId)}${suffix}`;
@@ -53,6 +56,35 @@ export const workbenchApi = {
   },
   async createProjectSeries(name: string, description = "") {
     return requireData(await apiClient.POST("/api/project-series", { body: { name, description } }), "一連の検討を作成できませんでした。");
+  },
+  async listProfileWorkbenchProfiles() {
+    return requireData(await apiClient.GET("/api/profile-workbench/profiles"), "Dataset Profileを取得できませんでした。");
+  },
+  async inspectProfileWorkbook(file: File, profileDigest?: string, signal?: AbortSignal) {
+    const form = new FormData();
+    form.append("file", file);
+    if (profileDigest) form.append("profile_digest", profileDigest);
+    return requireData(await apiClient.POST("/api/profile-workbench/inspect", {
+      body: { file: file.name, profile_digest: profileDigest },
+      bodySerializer: () => form,
+      signal,
+    }), "Excelの内容を確認できませんでした。");
+  },
+  async registerProfileWorkbook(file: File, profileDigest: string, expectedSourceSha256: string, name: string) {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("profile_digest", profileDigest);
+    form.append("expected_source_sha256", expectedSourceSha256);
+    if (name.trim()) form.append("name", name.trim());
+    return requireData(await apiClient.POST("/api/profile-workbench/register", {
+      body: {
+        file: file.name,
+        profile_digest: profileDigest,
+        expected_source_sha256: expectedSourceSha256,
+        name: name.trim() || undefined,
+      },
+      bodySerializer: () => form,
+    }), "Datasetを登録できませんでした。");
   },
   async projectHistory(projectId: string, signal?: AbortSignal) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/history", { params: { path: { project_id: projectId } }, signal }), "プロジェクト履歴を取得できませんでした。");

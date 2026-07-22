@@ -73,6 +73,7 @@ function App() {
   const lineageAvailable = dataExplorer?.lineage === true;
   const visibleProjectNavItems = projectNavItems.filter((item) => !item.requiresDataExplorer || qualityAvailable || lineageAvailable);
   const dataLibraryMode = tab === "data-library";
+  const profileWorkbenchMode = tab === "settings" && navigation.adminSection === "profile";
 
   function selectCandidate(candidateId: string, replace = true) {
     session.selectCandidate(candidateId, false);
@@ -127,7 +128,7 @@ function App() {
         </nav>
       </header>
       <main>
-        {!dataLibraryMode && <div className="context-bar">
+        {!dataLibraryMode && !profileWorkbenchMode && <div className="context-bar">
           <div className="context-primary-row">
             <h1 title={activeProject?.name ?? undefined}>{activeProject?.name ?? "プロジェクトを読み込んでいます"}</h1>
             <div className="run-actions">
@@ -228,6 +229,7 @@ function App() {
               qualitySheet: filters.sheet,
               qualityKey: filters.key,
             })}
+            onOpenDataLibrary={() => navigate({ view: "data-library", projectId: activeProjectId })}
             onProjectChanged={(project) => {
               void session.refreshAdminProject(project);
             }}

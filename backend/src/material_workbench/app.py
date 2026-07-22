@@ -14,6 +14,7 @@ from .api.security import configure_local_access
 from .api.catalog import router as catalog_router
 from .api.data_library import router as data_library_router
 from .api.project_series import router as project_series_router
+from .api.profile_workbench import router as profile_workbench_router
 from .api.projects import router as projects_router
 from .api.candidates import router as candidates_router
 from .api.data_exploration import router as data_exploration_router
@@ -91,9 +92,15 @@ def create_app(
     flank_wear_source_path: str | Path | None = None,
     package_roots: Mapping[str, str | Path] | None = None,
     active_packages_path: str | Path | None = None,
+    data_library_path: str | Path | None = None,
     _resources: _AppResources | None = None,
 ) -> FastAPI:
     database = Path(db_path or os.getenv("WORKBENCH_DB_PATH", "data/workbench.db"))
+    data_library_root = Path(
+        data_library_path
+        or os.getenv("WORKBENCH_DATA_LIBRARY_PATH", "")
+        or database.parent / "data-library"
+    )
     if _resources is not None and any(
         value is not None
         for value in (source_path, flank_wear_source_path, package_roots, active_packages_path)
@@ -121,6 +128,7 @@ def create_app(
             seed_candidates=not database_existed or explicit_demo_seed,
         )
         app.state.workspace_catalog = bootstrap_workspace_catalog(database, prepared.task_registry)
+        app.state.data_library_root = data_library_root.resolve()
         app.state.project_runtime_resolver = ProjectRuntimeResolver(
             app.state.workspace_catalog, prepared.task_registry
         )
@@ -137,6 +145,7 @@ def create_app(
     app.include_router(catalog_router)
     app.include_router(data_library_router)
     app.include_router(project_series_router)
+    app.include_router(profile_workbench_router)
     app.include_router(projects_router)
     app.include_router(candidates_router)
     app.include_router(data_exploration_router)
