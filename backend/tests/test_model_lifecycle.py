@@ -233,6 +233,18 @@ def test_v7_source_and_packages_start_and_predict_through_the_api(tmp_path: Path
         assert client.get("/api/projects/default/model-package").json()["id"] == "annealed-gp-2026-07-v7"
         assert client.get("/api/projects/hot-rolling-default/model-package").json()["id"] == "hot-rolled-horseshoe-2026-07-v7"
 
+        lineage_index = client.get("/api/projects/default/lineage", params={"query": "AN-00001"})
+        assert lineage_index.status_code == 200
+        lineage_item = lineage_index.json()["items"][0]
+        assert lineage_item["key"] == "AN-00001"
+        assert lineage_item["family"] == ""
+        assert lineage_item["learning_status"] == ""
+        assert lineage_item["observation_summary"]
+
+        lineage = client.get("/api/projects/default/lineage/AN-00001")
+        assert lineage.status_code == 200
+        assert lineage.json()["node"]["heat_pattern"]
+
         created = client.post("/api/projects/default/lineage/AN-00001/candidate")
         assert created.status_code == 201
         candidate = created.json()
