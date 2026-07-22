@@ -6,7 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from material_workbench.task_registry import TaskRegistry, TaskRegistryError
+from material_workbench.task_contracts import DataExplorerCapability
+from material_workbench.task_registry import DataExplorerEntry, TaskRegistry, TaskRegistryError
 
 
 TASK_IDS = ("annealed-properties-v1", "hot-rolled-properties-v1", "flank-wear-v1")
@@ -33,6 +34,16 @@ def test_registry_resolves_definition_runtime_and_package_from_one_task_id(clien
     assert runtime.output_keys == frozenset(expected)
     assert {predictor.target for predictor in runtime.model_package.manifest.predictors} == expected
     assert {target.target for target in resolved.runtime_capability.targets} == expected
+    if task_id == "flank-wear-v1":
+        assert resolved.data_explorer is None
+        with pytest.raises(TaskRegistryError, match="data explorer is not available"):
+            registry.data_explorer_for(task_id)
+    else:
+        assert resolved.data_explorer is not None
+        assert resolved.data_explorer.quality is True
+        assert resolved.data_explorer.lineage is True
+        assert resolved.data_explorer.candidate_creation is True
+        assert registry.data_explorer_for(task_id).data is entry.predictor_runtime.data
 
 
 def test_registry_fails_fast_when_manifest_outputs_disagree_with_task_definition(
@@ -58,6 +69,23 @@ def test_registry_fails_fast_when_manifest_outputs_disagree_with_task_definition
     runtimes = {task_id: registry.runtime_for(task_id) for task_id in TASK_IDS}
     with pytest.raises(TaskRegistryError, match="model package outputs do not match"):
         TaskRegistry(runtimes, contract_root=contract_root)
+
+
+def test_registry_rejects_an_explorer_bound_to_different_runtime_data(client) -> None:
+    registry = client.app.state.task_registry
+    runtimes = {task_id: registry.runtime_for(task_id) for task_id in TASK_IDS}
+    mismatched_data = copy.copy(runtimes["annealed-properties-v1"].data)
+
+    with pytest.raises(TaskRegistryError, match="data explorer source does not match runtime data"):
+        TaskRegistry(
+            runtimes,
+            data_explorers={
+                "annealed-properties-v1": DataExplorerEntry(
+                    data=mismatched_data,
+                    capability=DataExplorerCapability(quality=True, lineage=True, candidate_creation=True),
+                ),
+            },
+        )
 
 
 def test_project_contracts_have_stable_openapi_operations_and_named_errors(client) -> None:

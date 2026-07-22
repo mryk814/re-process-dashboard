@@ -18,6 +18,7 @@ type Props = {
   activeProjectId: string;
   candidate?: CandidateViewModel;
   taskDefinition: TaskDefinitionContract | null;
+  supportsLineageCandidate: boolean;
   operations?: RuntimeOperations;
   currentPreviews: Record<string, ApiPreview>;
   requestedSnapshotId?: string;
@@ -37,6 +38,7 @@ export function ProjectHub({
   activeProjectId,
   candidate,
   taskDefinition,
+  supportsLineageCandidate,
   operations,
   currentPreviews,
   requestedSnapshotId,
@@ -121,7 +123,6 @@ export function ProjectHub({
   }, [activeProjectId, selectedSnapshot?.id, history]);
 
   const activeCandidates = history?.candidates.filter((item) => !item.candidate.archived_at) ?? [];
-  const supportsLineageCandidate = taskDefinition?.input_groups.some((group) => group.key === "heat_pattern") ?? false;
   const copyTaskId = candidate ? projects.find((item) => item.id === candidate.raw.project_id)?.task_id : undefined;
   const outputLabels = useMemo(() => new Map((taskDefinition?.outputs ?? []).map((output) => [output.key, output.label])), [taskDefinition]);
 

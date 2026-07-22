@@ -218,7 +218,7 @@ def test_candidate_limit_is_enforced_for_every_creation_route(client) -> None:
 
     direct = client.post(f"/api/projects/{project_id}/candidates", json=_candidate("11件目"))
     assert direct.status_code == 409 and "最大10件" in direct.json()["message"]
-    assert client.post(f"/api/lineage/AN-00001/candidate?project_id={project_id}").status_code == 409
+    assert client.post(f"/api/projects/{project_id}/lineage/AN-00001/candidate").status_code == 409
     assert client.post(f"/api/screening/{screening['id']}/candidates?project_id={project_id}", json={"point_indices": [0]}).status_code == 409
     assert client.post(f"/api/projects/{project_id}/snapshots/{snapshot['id']}/restore").status_code == 409
     imported = client.post(

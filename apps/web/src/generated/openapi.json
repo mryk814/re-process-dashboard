@@ -923,6 +923,36 @@
         "title": "CurveVariableCategorical",
         "type": "object"
       },
+      "DataExplorerCapability": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_creation": {
+            "title": "Candidate Creation",
+            "type": "boolean"
+          },
+          "lineage": {
+            "title": "Lineage",
+            "type": "boolean"
+          },
+          "quality": {
+            "title": "Quality",
+            "type": "boolean"
+          },
+          "schema_version": {
+            "const": "data-explorer-capability/v1",
+            "default": "data-explorer-capability/v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "quality",
+          "lineage",
+          "candidate_creation"
+        ],
+        "title": "DataExplorerCapability",
+        "type": "object"
+      },
       "DataQualityIssue": {
         "properties": {
           "detail": {
@@ -3256,6 +3286,16 @@
       "ResolvedTaskDefinition": {
         "additionalProperties": false,
         "properties": {
+          "data_explorer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DataExplorerCapability"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "runtime_capability": {
             "$ref": "#/components/schemas/RuntimeCapability"
           },
@@ -4647,196 +4687,6 @@
           }
         },
         "summary": "Health"
-      }
-    },
-    "/api/lineage": {
-      "get": {
-        "operationId": "lineage_index_api_lineage_get",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "query",
-            "required": false,
-            "schema": {
-              "default": "",
-              "title": "Query",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "entity_type",
-            "required": false,
-            "schema": {
-              "default": "",
-              "title": "Entity Type",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "issue_only",
-            "required": false,
-            "schema": {
-              "default": false,
-              "title": "Issue Only",
-              "type": "boolean"
-            }
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 40,
-              "title": "Limit",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LineageIndexResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Lineage Index"
-      }
-    },
-    "/api/lineage/{entity_key}": {
-      "get": {
-        "operationId": "lineage_api_lineage__entity_key__get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "entity_key",
-            "required": true,
-            "schema": {
-              "title": "Entity Key",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 40,
-              "maximum": 200,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LineageResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Lineage"
-      }
-    },
-    "/api/lineage/{entity_key}/candidate": {
-      "post": {
-        "operationId": "create_candidate_from_lineage_api_lineage__entity_key__candidate_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "entity_key",
-            "required": true,
-            "schema": {
-              "title": "Entity Key",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "project_id",
-            "required": false,
-            "schema": {
-              "default": "default",
-              "title": "Project Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Candidate"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            },
-            "description": "Not Found"
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            },
-            "description": "Conflict"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Create Candidate From Lineage"
       }
     },
     "/api/project": {
@@ -6616,6 +6466,253 @@
         "summary": "Project History"
       }
     },
+    "/api/projects/{project_id}/lineage": {
+      "get": {
+        "operationId": "lineage_index_api_projects__project_id__lineage_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "query",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Query",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "entity_type",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Entity Type",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "issue_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Issue Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 40,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LineageIndexResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Lineage Index"
+      }
+    },
+    "/api/projects/{project_id}/lineage/{entity_key}": {
+      "get": {
+        "operationId": "lineage_api_projects__project_id__lineage__entity_key__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entity_key",
+            "required": true,
+            "schema": {
+              "title": "Entity Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 40,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LineageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Lineage"
+      }
+    },
+    "/api/projects/{project_id}/lineage/{entity_key}/candidate": {
+      "post": {
+        "operationId": "create_candidate_from_lineage_api_projects__project_id__lineage__entity_key__candidate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entity_key",
+            "required": true,
+            "schema": {
+              "title": "Entity Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Candidate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Candidate From Lineage"
+      }
+    },
     "/api/projects/{project_id}/model-package": {
       "get": {
         "operationId": "getProjectModelPackage",
@@ -6673,6 +6770,104 @@
           }
         },
         "summary": "Model Package"
+      }
+    },
+    "/api/projects/{project_id}/quality": {
+      "get": {
+        "operationId": "quality_api_projects__project_id__quality_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QualityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Quality"
+      }
+    },
+    "/api/projects/{project_id}/quality/export.csv": {
+      "get": {
+        "operationId": "export_quality_api_projects__project_id__quality_export_csv_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Quality"
       }
     },
     "/api/projects/{project_id}/snapshots/{snapshot_id}": {
@@ -6868,62 +7063,6 @@
           }
         },
         "summary": "Task Definition"
-      }
-    },
-    "/api/quality": {
-      "get": {
-        "operationId": "quality_api_quality_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/QualityResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Quality"
-      }
-    },
-    "/api/quality/export.csv": {
-      "get": {
-        "operationId": "export_quality_api_quality_export_csv_get",
-        "responses": {
-          "200": {
-            "content": {
-              "text/csv": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Export Quality"
       }
     },
     "/api/screening": {

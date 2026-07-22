@@ -119,21 +119,21 @@ export const workbenchApi = {
   async snapshot(projectId: string, snapshotId: string, signal?: AbortSignal) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/snapshots/{snapshot_id}", { params: { path: { project_id: projectId, snapshot_id: snapshotId } }, signal }), "保存済み予測を参照できませんでした。");
   },
-  async quality() {
-    return requireData(await apiClient.GET("/api/quality"), "データ品質を取得できませんでした。");
+  async quality(projectId: string) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/quality", { params: { path: { project_id: projectId } } }), "データ品質を取得できませんでした。");
   },
-  async qualityCsv() {
-    return requireData(await apiClient.GET("/api/quality/export.csv", { parseAs: "text" }), "データ品質CSVを取得できませんでした。");
+  async qualityCsv(projectId: string) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/quality/export.csv", { params: { path: { project_id: projectId } }, parseAs: "text" }), "データ品質CSVを取得できませんでした。");
   },
-  async lineageIndex(query: string, entityType: string, issueOnly: boolean, signal?: AbortSignal) {
+  async lineageIndex(projectId: string, query: string, entityType: string, issueOnly: boolean, signal?: AbortSignal) {
     const normalizedEntityType = entityType === "すべて" ? "" : entityType;
-    return requireData(await apiClient.GET("/api/lineage", { params: { query: { query, entity_type: normalizedEntityType, issue_only: issueOnly, limit: 40 } }, signal }), "実績・工程を検索できませんでした。");
+    return requireData(await apiClient.GET("/api/projects/{project_id}/lineage", { params: { path: { project_id: projectId }, query: { query, entity_type: normalizedEntityType, issue_only: issueOnly, limit: 40 } }, signal }), "実績・工程を検索できませんでした。");
   },
-  async lineage(entityKey: string, limit = 40) {
-    return requireData(await apiClient.GET("/api/lineage/{entity_key}", { params: { path: { entity_key: entityKey }, query: { limit } } }), "系譜を取得できませんでした。");
+  async lineage(projectId: string, entityKey: string, limit = 40, signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/lineage/{entity_key}", { params: { path: { project_id: projectId, entity_key: entityKey }, query: { limit } }, signal }), "系譜を取得できませんでした。");
   },
   async createCandidateFromLineage(entityKey: string, projectId: string) {
-    return requireData(await apiClient.POST("/api/lineage/{entity_key}/candidate", { params: { path: { entity_key: entityKey }, query: { project_id: projectId } } }), "候補を作成できませんでした。");
+    return requireData(await apiClient.POST("/api/projects/{project_id}/lineage/{entity_key}/candidate", { params: { path: { project_id: projectId, entity_key: entityKey } } }), "候補を作成できませんでした。");
   },
   async listScreeningRuns(projectId: string) {
     return requireData(await apiClient.GET("/api/screening", { params: { query: { project_id: projectId } } }), "保存済み探索を取得できませんでした。");

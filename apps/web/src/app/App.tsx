@@ -9,13 +9,19 @@ import { DataExploreNavigation, LiveDataQualityPage } from "../features/quality"
 import { DeveloperAdminPage } from "../features/admin";
 
 type Tab = WorkbenchView;
-const projectNavItems: Array<{ id: Tab; label: string; active: Tab[] }> = [
+const projectNavItems: Array<{ id: Tab; label: string; active: Tab[]; requiresDataExplorer?: boolean }> = [
   { id: "project", label: "概要", active: ["project"] },
-  { id: "lineage", label: "データ探索", active: ["lineage", "quality"] },
+  { id: "lineage", label: "データ探索", active: ["lineage", "quality"], requiresDataExplorer: true },
   { id: "explore", label: "範囲探索", active: ["explore"] },
   { id: "candidates", label: "候補比較", active: ["candidates"] },
   { id: "settings", label: "開発・管理", active: ["settings"] },
 ];
+
+function DataExploreUnavailable() {
+  return <div className="page-panel">
+    <div className="page-intro"><div><h2>データ探索</h2><p>この予測タスクではデータ探索に対応していません。</p></div></div>
+  </div>;
+}
 
 function App() {
   const [navigation, setNavigation] = useState<NavigationIntent>(() => readNavigationIntent());
@@ -61,6 +67,10 @@ function App() {
     taskDefinition,
   } = session;
   const { error: previewError, preview, previewsByCandidate } = prediction;
+  const dataExplorer = resolvedTaskDefinition?.data_explorer;
+  const qualityAvailable = dataExplorer?.quality === true;
+  const lineageAvailable = dataExplorer?.lineage === true;
+  const visibleProjectNavItems = projectNavItems.filter((item) => !item.requiresDataExplorer || qualityAvailable || lineageAvailable);
 
   function selectCandidate(candidateId: string, replace = true) {
     session.selectCandidate(candidateId, false);
@@ -137,7 +147,7 @@ function App() {
             </div>
           </div>
           <nav className="project-nav" aria-label="プロジェクト内メニュー">
-            {projectNavItems.map((item) => (
+            {visibleProjectNavItems.map((item) => (
               <button
                 type="button"
                 className={item.active.includes(tab) ? "project-nav-button active" : "project-nav-button"}
@@ -156,6 +166,7 @@ function App() {
             activeProjectId={activeProjectId}
             candidate={selected}
             taskDefinition={taskDefinition}
+            supportsLineageCandidate={dataExplorer?.candidate_creation === true}
             operations={operations}
             currentPreviews={prediction.previewsByCandidate}
             onProjectChanged={(project) => {
@@ -270,10 +281,11 @@ function App() {
               onCreate={() => void session.createStarterCandidate()}
             />
           ))}
-        {tab === "quality" && (
+        {tab === "quality" && (qualityAvailable ? (
           <div className="data-explore-page">
-            <DataExploreNavigation active="quality" onNavigate={(view) => navigate(withView(navigationRef.current, view))} />
+            <DataExploreNavigation active="quality" qualityAvailable={qualityAvailable} lineageAvailable={lineageAvailable} onNavigate={(view) => navigate(withView(navigationRef.current, view))} />
             <LiveDataQualityPage
+            projectId={activeProjectId}
             filters={{
               issueId: navigation.qualityIssueId,
               type: navigation.qualityType,
@@ -302,13 +314,13 @@ function App() {
             })}
             />
           </div>
-        )}
-        {tab === "lineage" && (
+        ) : <DataExploreUnavailable />)}
+        {tab === "lineage" && (lineageAvailable ? (
           <div className="data-explore-page">
-            <DataExploreNavigation active="lineage" onNavigate={(view) => navigate(withView(navigationRef.current, view))} />
+            <DataExploreNavigation active="lineage" qualityAvailable={qualityAvailable} lineageAvailable={lineageAvailable} onNavigate={(view) => navigate(withView(navigationRef.current, view))} />
             <LineagePage
             projectId={activeProjectId}
-            supportsCandidateCreation={taskDefinition?.input_groups.some((group) => group.key === "heat_pattern") ?? false}
+            supportsCandidateCreation={dataExplorer?.candidate_creation ?? false}
             outputs={taskDefinition?.outputs ?? []}
             initialEntityKey={navigation.entityKey}
             qualityIssueId={navigation.qualityIssueId}
@@ -326,7 +338,7 @@ function App() {
             }}
             />
           </div>
-        )}
+        ) : <DataExploreUnavailable />)}
         {tab === "explore" && (
           <ScreeningPage
             projectId={activeProjectId}
