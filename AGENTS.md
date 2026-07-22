@@ -44,10 +44,10 @@ npm run build
 10. テストは網羅カバレッジを狙わず、モデル契約テスト・特徴量ゴールデン・Package smoke・一本のE2Eなど、科学的な誤判断や再現性崩壊につながる箇所へ絞る。
 11. UIの基本言語は日本語。不確実性は専門用語のまま出さず、判断に使える表現へ翻訳する。UI上で予測値と実測値を混同させない。
 12. 元データにあるシート名や列名などに関する名称などをコード内にハードコーディングすることなどは極力避ける
+13. もし、実装の中で前提の変更や作業環境の改善が望ましい場面があればその旨を伝えること
 
 ## 詳細ドキュメント
 
-- [docs/README.md](docs/README.md) — 現役文書、設計判断、ベンチ記録の索引
 - [docs/app-charter.md](docs/app-charter.md) — 対象範囲、対象外、将来候補
 - [docs/model-package-contract.md](docs/model-package-contract.md) — モデルPackageの契約と読込手順
 - [docs/feature-engineering.md](docs/feature-engineering.md) — 特徴量パイプラインの定義
