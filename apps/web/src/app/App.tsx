@@ -26,6 +26,7 @@ function DataExploreUnavailable() {
 
 function App() {
   const [navigation, setNavigation] = useState<NavigationIntent>(() => readNavigationIntent());
+  const [requestedDatasetViewId, setRequestedDatasetViewId] = useState<string>();
   const navigationRef = useRef(navigation);
   const tab = navigation.view;
 
@@ -194,9 +195,14 @@ function App() {
               session.restoreCandidate(candidate);
             }}
             requestedSnapshotId={navigation.snapshotId}
+            requestedDatasetViewId={requestedDatasetViewId}
+            onCreationIntentConsumed={() => setRequestedDatasetViewId(undefined)}
           />
         )}
-        {tab === "data-library" && <DataLibraryPage projects={projects} />}
+        {tab === "data-library" && <DataLibraryPage projects={projects} onStartProject={(datasetViewRevisionId) => {
+          setRequestedDatasetViewId(datasetViewRevisionId);
+          navigate({ view: "project", projectId: activeProjectId });
+        }} />}
         {tab === "settings" && (
           <DeveloperAdminPage
             project={activeProject}

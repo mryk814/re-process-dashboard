@@ -25,12 +25,14 @@ type Props = {
   operations?: RuntimeOperations;
   currentPreviews: Record<string, ApiPreview>;
   requestedSnapshotId?: string;
+  requestedDatasetViewId?: string;
   onProjectChanged: (project: ApiProject) => void;
   onProjectDeleted: (projectId: string) => Promise<boolean>;
   onSwitch: (projectId: string) => void;
   onRestore: (candidate: CandidateViewModel) => void;
   onNavigate: (view: "candidates" | "lineage" | "explore" | "settings", candidateId?: string) => void;
   onSnapshotNavigate: (snapshotId?: string) => void;
+  onCreationIntentConsumed: () => void;
 };
 
 const formatNumber = (value: number, digits = 1) => value.toLocaleString("ja-JP", { maximumFractionDigits: digits });
@@ -45,12 +47,14 @@ export function ProjectHub({
   operations,
   currentPreviews,
   requestedSnapshotId,
+  requestedDatasetViewId,
   onProjectChanged,
   onProjectDeleted,
   onSwitch,
   onRestore,
   onNavigate,
   onSnapshotNavigate,
+  onCreationIntentConsumed,
 }: Props) {
   const [project, setProject] = useState<ApiProject | null>(null);
   const [history, setHistory] = useState<ApiProjectHistory | null>(null);
@@ -170,6 +174,27 @@ export function ProjectHub({
     }
     return [...groups.values()];
   }, [creationOptions?.project_series, projects]);
+
+  useEffect(() => {
+    if (!requestedDatasetViewId || !creationOptions) return;
+    const dataset = datasetByView.get(requestedDatasetViewId);
+    if (!dataset) {
+      setError("選択したDatasetをプロジェクト作成に利用できません。");
+      onCreationIntentConsumed();
+      return;
+    }
+    const taskId = dataset.supported_task_ids[0] ?? "";
+    setCreateOpen(true);
+    setCreateMode("empty");
+    setNewProjectName(`${datasetDisplayName(dataset)} 検討`);
+    setNewDatasetViewId(requestedDatasetViewId);
+    setNewTaskId(taskId);
+    setNewModelPackageRefId(creationOptions.model_packages.find((item) => item.task_id === taskId)?.id ?? "");
+    setNewProjectSeriesId("");
+    setPredecessorProjectId("");
+    setContinuationReason("");
+    onCreationIntentConsumed();
+  }, [creationOptions, datasetByView, onCreationIntentConsumed, requestedDatasetViewId]);
 
   async function saveProject() {
     if (!project) return;

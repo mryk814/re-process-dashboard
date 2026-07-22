@@ -10,7 +10,13 @@ import { datasetDisplayName, trainingDataSha, trainingDataset } from "../../shar
 const shortDigest = (value: string) => value.replace(/^sha256:/, "").slice(0, 10);
 const formatDate = (value: string) => new Date(value).toLocaleDateString("ja-JP");
 
-export function DataLibraryPage({ projects }: { projects: ApiProject[] }) {
+export function DataLibraryPage({
+  projects,
+  onStartProject,
+}: {
+  projects: ApiProject[];
+  onStartProject: (datasetViewRevisionId: string) => void;
+}) {
   const [options, setOptions] = useState<ApiProjectCreationOptions | null>(null);
   const [error, setError] = useState("");
   const [compareOpen, setCompareOpen] = useState(false);
@@ -88,7 +94,10 @@ export function DataLibraryPage({ projects }: { projects: ApiProject[] }) {
             return <article className="dataset-card" key={item.dataset_revision.id}>
               <div className="dataset-card-main"><strong title={item.data_asset.original_filename}>{item.data_asset.original_filename}</strong><span>{item.data_asset.locator_kind === "managed" ? "取り込みデータ" : "同梱データ"} · {formatDate(item.dataset_revision.created_at)}</span></div>
               <dl><div><dt>Profile</dt><dd>{item.profile_revision.name} · r{item.profile_revision.revision}</dd></div><div><dt>Prediction Tasks</dt><dd>{item.supported_task_ids.join(" / ")}</dd></div><div><dt>Dataset Identity</dt><dd title={item.dataset_revision.dataset_digest}>{shortDigest(item.dataset_revision.dataset_digest)}</dd></div></dl>
-              <div className="dataset-project-links">{usingProjects.length ? usingProjects.map((project) => <span key={project.id}>{project.name}</span>) : <small>参照中のプロジェクトなし</small>}</div>
+              <div className="dataset-project-links">
+                <div>{usingProjects.length ? usingProjects.map((project) => <span key={project.id}>{project.name}</span>) : <small>参照中のプロジェクトなし</small>}</div>
+                {singleView && <button className="outline-button dataset-start-project" aria-label={`${datasetDisplayName(item)}でプロジェクトを作成`} onClick={() => onStartProject(singleView.id)}>プロジェクト作成</button>}
+              </div>
             </article>;
           })}</div>
         </section>

@@ -18,8 +18,10 @@
 .dataset-card dl div { min-width: 0; }
 .dataset-card dt { color: #788698; font-size: 9px; text-transform: uppercase; }
 .dataset-card dd { overflow: hidden; margin: 2px 0 0; color: #354a62; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.dataset-project-links { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+.dataset-project-links { display: grid; justify-items: end; gap: 7px; }
+.dataset-project-links > div { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
 .dataset-project-links span { border-radius: 999px; background: #eaf2ff; padding: 3px 7px; color: #245b9e; font-size: 9px; }
+.dataset-start-project { min-height: 30px; padding: 5px 9px; font-size: 11px; }
 .data-library-grid { display: grid; grid-template-columns: minmax(280px, .7fr) minmax(0, 1.3fr); gap: 14px; }
 .comparison-set-list, .model-package-list { display: grid; gap: 0; }
 .comparison-set-list > div { display: grid; grid-template-columns: minmax(140px, .45fr) minmax(0, 1fr) auto; gap: 8px; border-top: 1px solid #e5eaf0; padding: 9px 2px; font-size: 11px; }
@@ -33,5 +35,5 @@
 .model-package-list dt { color: #2d6c63; font-size: 9px; font-weight: 700; text-transform: uppercase; }
 .model-package-list dd { margin: 2px 0 0; color: #354a62; font-size: 10px; overflow-wrap: anywhere; }
 .library-empty { margin: 8px 0 0; color: #718096; font-size: 11px; }
-@media (max-width: 900px) { .dataset-card { grid-template-columns: 1fr; } .dataset-card dl { grid-template-columns: 1fr 1fr; } .dataset-project-links { justify-content: flex-start; } .data-library-grid { grid-template-columns: 1fr; } .dataset-compare-builder { grid-template-columns: 1fr; } .model-package-list article { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .dataset-card { grid-template-columns: 1fr; } .dataset-card dl { grid-template-columns: 1fr 1fr; } .dataset-project-links { justify-items: start; } .dataset-project-links > div { justify-content: flex-start; } .data-library-grid { grid-template-columns: 1fr; } .dataset-compare-builder { grid-template-columns: 1fr; } .model-package-list article { grid-template-columns: 1fr; } }
 @media (max-width: 560px) { .dataset-card dl, .model-package-list dl { grid-template-columns: 1fr; } .comparison-set-list > div { grid-template-columns: 1fr auto; } .comparison-set-list span { grid-column: 1 / -1; grid-row: 2; white-space: normal; } }
