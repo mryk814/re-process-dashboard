@@ -5,19 +5,20 @@ import csv
 import math
 from collections import Counter
 from contextlib import asynccontextmanager
-from io import BytesIO, StringIO
+from io import StringIO
 from pathlib import Path
 from statistics import fmean, pstdev
 from typing import Any, Literal, Mapping
 
-from fastapi import FastAPI, File, HTTPException, Query, Response, UploadFile
+from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import StreamingResponse
 
 from .api.errors import DomainApiException, PROJECT_API_ERRORS, install_exception_handlers
 from .api.security import configure_local_access
 from .api.catalog import router as catalog_router
 from .api.projects import router as projects_router
+from .api.candidates import CANDIDATE_APPLICATION_ERRORS, candidate_http_error, router as candidates_router
+from .application.candidates import CandidateService
 from .importer import lineage_neighborhood, lineage_node_detail
 from .demo_seed import initialize_demo_projects
 from .inference_work_graph import InferenceKey, InferenceWorkGraph
@@ -27,9 +28,7 @@ from .schemas import (
     ActualMeasurement,
     ActualMeasurementInput,
     Candidate,
-    CandidateImportResponse,
     CandidateInput,
-    CandidateUpdate,
     CurveFamilyResponse,
     DetailedPredictionResponse,
     InferenceDiagnosticsResponse,
@@ -47,9 +46,9 @@ from .schemas import (
     SimilarObservation,
     SnapshotResponse,
 )
-from .services import candidate_from_lineage, candidates_xlsx, import_candidates_xlsx, run_latin_hypercube
+from .services import candidate_from_lineage, run_latin_hypercube
 from .snapshot_reader import SnapshotPayloadError, candidate_input_from_snapshot
-from .store import CandidateArchivedError, CandidateLimitError, CandidateRevisionConflictError, ProjectNotFoundError, Store, StoreDataIntegrityError
+from .store import CandidateLimitError, CandidateRevisionConflictError, Store
 from .task_registry import DataExplorerEntry, TaskRegistry, TaskRegistryError
 from .task_modules import registered_task_modules
 
@@ -116,6 +115,7 @@ def create_app(
     install_exception_handlers(app)
     app.include_router(catalog_router)
     app.include_router(projects_router)
+    app.include_router(candidates_router)
 
     def store() -> Store:
         return app.state.store
@@ -178,32 +178,17 @@ def create_app(
             raise HTTPException(404, "プロジェクトが見つかりません")
         return project
 
+    def candidate_service() -> CandidateService:
+        return CandidateService(store(), task_registry())
+
     def create_candidate_in_project(payload: CandidateInput, project_id: str):
-        project = require_project(project_id)
-        if payload.provenance.source_kind == "copy":
-            reference = payload.provenance.source_ref
-            source_candidate = store().get_candidate(
-                reference.candidate_id,
-                reference.project_id,
-                include_archived=True,
-            )
-            if source_candidate is None:
-                raise HTTPException(422, "コピー元候補が見つかりません")
-            if source_candidate.revision != reference.candidate_revision:
-                raise HTTPException(422, "コピー元候補のrevisionが一致しません")
-            source_project = require_project(reference.project_id)
-            if source_project.task_id != project.task_id:
-                raise HTTPException(422, "異なる予測タスクの候補はコピーできません")
         try:
-            task_registry().validate_candidate(project.task_id, payload)
-        except (TaskRegistryError, ValueError) as exc:
-            raise HTTPException(422, str(exc)) from exc
-        try:
-            return store().create_candidate(payload, project_id)
-        except ProjectNotFoundError as exc:
-            raise HTTPException(404, "プロジェクトが見つかりません") from exc
-        except CandidateLimitError as exc:
-            raise DomainApiException(409, "candidate_limit", str(exc)) from exc
+            return candidate_service().create(project_id, payload)
+        except CANDIDATE_APPLICATION_ERRORS as exc:
+            converted = candidate_http_error(exc)
+            if converted is exc:
+                raise
+            raise converted from exc
 
     @app.post(
         "/api/projects/{project_id}/candidates/{candidate_id}/preview",
@@ -259,106 +244,21 @@ def create_app(
             },
         }
 
-    @app.get("/api/projects/{project_id}/candidates", response_model=list[Candidate], responses=PROJECT_API_ERRORS)
-    def list_candidates(project_id: str, include_archived: bool = False) -> list[dict[str, Any]]:
-        require_project(project_id)
-        return [candidate.model_dump(mode="json") for candidate in store().list_candidates(project_id, include_archived=include_archived)]
-
-    @app.post("/api/projects/{project_id}/candidates", status_code=201, response_model=Candidate, responses=PROJECT_API_ERRORS)
-    def create_candidate(project_id: str, payload: CandidateInput) -> dict[str, Any]:
-        return create_candidate_in_project(payload, project_id).model_dump(mode="json")
-
-    @app.post("/api/projects/{project_id}/candidates/import", response_model=CandidateImportResponse, responses=PROJECT_API_ERRORS)
-    async def import_candidates(project_id: str, file: UploadFile = File(...)) -> dict[str, Any]:
-        project = require_project(project_id)
-        if not task_registry().entry_for(project.task_id).application_capability.candidate_excel_import:
-            raise HTTPException(422, "Excel候補importはこの予測タスクでは利用できません")
-        if not file.filename or not file.filename.lower().endswith(".xlsx"):
-            raise HTTPException(422, "Excel .xlsx ファイルを選択してください")
-        runtime = task_registry().runtime_for(project.task_id)
-        payloads, errors = import_candidates_xlsx(
-            await file.read(),
-            task_id=project.task_id,
-            profile_path=runtime.data.profile_path,
-        )
-        try:
-            created = [candidate.model_dump(mode="json") for candidate in store().create_candidates(payloads, project_id)]
-        except ProjectNotFoundError as exc:
-            raise HTTPException(404, "プロジェクトが見つかりません") from exc
-        except CandidateLimitError as exc:
-            raise DomainApiException(409, "candidate_limit", str(exc)) from exc
-        return {"created": len(created), "errors": errors, "candidates": created}
-
-    @app.get("/api/projects/{project_id}/candidates/export.xlsx")
-    def export_candidates(project_id: str) -> StreamingResponse:
-        project = require_project(project_id)
-        if not task_registry().entry_for(project.task_id).application_capability.candidate_excel_export:
-            raise HTTPException(422, "Excel候補exportはこの予測タスクでは利用できません")
-        contents = candidates_xlsx(store().list_candidates(project_id), task_registry().runtime_for(project.task_id))
-        return StreamingResponse(BytesIO(contents), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": "attachment; filename=candidates-with-predictions.xlsx"})
-
-    @app.get("/api/projects/{project_id}/candidates/{candidate_id}", response_model=Candidate, responses=PROJECT_API_ERRORS)
-    def get_candidate(project_id: str, candidate_id: str, include_archived: bool = False) -> dict[str, Any]:
-        require_project(project_id)
-        candidate = store().get_candidate(candidate_id, project_id, include_archived=include_archived)
-        if not candidate:
-            raise HTTPException(404, "候補が見つかりません")
-        return candidate.model_dump(mode="json")
-
-    @app.put("/api/projects/{project_id}/candidates/{candidate_id}", response_model=Candidate, responses=PROJECT_API_ERRORS)
-    def update_candidate(project_id: str, candidate_id: str, payload: CandidateUpdate) -> dict[str, Any]:
-        project = require_project(project_id)
-        existing = store().get_candidate(candidate_id, project_id, include_archived=True)
-        if existing is None:
-            raise HTTPException(404, "候補が見つかりません")
-        if existing.archived_at is not None:
-            raise DomainApiException(409, "candidate_archived", "archive済み候補は編集できません")
-        candidate_input = CandidateInput.model_validate(payload.model_dump(exclude={"expected_revision"}))
-        if existing.provenance != candidate_input.provenance:
-            raise DomainApiException(409, "candidate_provenance_immutable", "候補の作成元は変更できません")
-        try:
-            task_registry().validate_candidate(project.task_id, candidate_input)
-        except (TaskRegistryError, ValueError) as exc:
-            raise HTTPException(422, str(exc)) from exc
-        try:
-            candidate = store().update_candidate(candidate_id, project_id, candidate_input, payload.expected_revision)
-        except CandidateRevisionConflictError as exc:
-            raise DomainApiException(409, "revision_conflict", str(exc), current_candidate=exc.current) from exc
-        except CandidateArchivedError as exc:
-            raise DomainApiException(409, "candidate_archived", str(exc)) from exc
-        if not candidate:
-            raise HTTPException(404, "候補が見つかりません")
-        return candidate.model_dump(mode="json")
-
-    @app.delete("/api/projects/{project_id}/candidates/{candidate_id}", status_code=204, responses=PROJECT_API_ERRORS)
-    def delete_candidate(project_id: str, candidate_id: str, expected_revision: int) -> Response:
-        require_project(project_id)
-        if store().get_candidate(candidate_id, project_id, include_archived=True) is None:
-            raise HTTPException(404, "候補が見つかりません")
-        try:
-            deleted = store().delete_candidate(candidate_id, project_id, expected_revision)
-        except CandidateRevisionConflictError as exc:
-            raise DomainApiException(409, "revision_conflict", str(exc), current_candidate=exc.current) from exc
-        except CandidateArchivedError as exc:
-            raise DomainApiException(409, "candidate_archived", str(exc)) from exc
-        except StoreDataIntegrityError as exc:
-            raise DomainApiException(409, "data_integrity_error", str(exc)) from exc
-        if not deleted:
-            raise HTTPException(404, "候補が見つかりません")
-        return Response(status_code=204)
-
     def candidate_at_revision(project_id: str, candidate_id: str, expected_revision: int) -> Candidate:
-        candidate = store().get_candidate(candidate_id, project_id)
-        if not candidate:
-            raise HTTPException(404, "候補が見つかりません")
-        if candidate.revision != expected_revision:
-            raise DomainApiException(
-                409,
-                "revision_conflict",
-                f"候補はrevision {candidate.revision}へ更新されています",
-                current_candidate=candidate,
-            )
-        return candidate
+        try:
+            return candidate_service().at_revision(project_id, candidate_id, expected_revision)
+        except CANDIDATE_APPLICATION_ERRORS as exc:
+            converted = candidate_http_error(exc)
+            if isinstance(exc, CandidateRevisionConflictError):
+                converted = DomainApiException(
+                    409,
+                    "revision_conflict",
+                    f"候補はrevision {exc.current.revision}へ更新されています",
+                    current_candidate=exc.current,
+                )
+            if converted is exc:
+                raise
+            raise converted from exc
 
     def detailed_prediction_for(project: Project, candidate: Candidate) -> dict[str, Any]:
         require_task_operation(project.task_id, "detailed_prediction")
