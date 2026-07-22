@@ -126,6 +126,12 @@ test("lineage opens without a fixed node and renders real selectable edges", asy
   const annealedHoleGroup = page.locator(".lineage-graph-group.group-annealed-hole-expansion .lineage-graph-group-toggle");
   await annealedHoleGroup.click();
   await expect(page.getByRole("button", { name: "焼鈍 AN-00001 の穴広げを折りたたむ" })).toHaveAttribute("aria-expanded", "true");
+  const holeGroupFacts = page.locator(".lineage-group-facts");
+  await expect(holeGroupFacts).toContainText("焼鈍穴広げ 3件");
+  await expect(holeGroupFacts).toContainText("HE-00001");
+  await expect(holeGroupFacts).toContainText("116.8");
+  await expect(holeGroupFacts.locator("tbody tr")).toHaveCount(3);
+  await expect(holeGroupFacts).not.toContainText("このグループの実績値はありません。");
   await expect(page.locator(".lineage-graph-edge")).not.toHaveCount(0);
   await expect(page.locator('.lineage-graph-node[aria-current="true"]')).toContainText("AN-00001");
   await expect(page.locator(".lineage-graph-node.upstream").first()).toBeVisible();

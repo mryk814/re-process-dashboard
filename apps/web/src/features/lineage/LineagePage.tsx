@@ -24,14 +24,6 @@ type LineageGroupSelection = {
   nodeKeys: string[];
 };
 
-const GROUP_OBSERVATION_TYPES: Record<string, string> = {
-  熱延引張: "熱延引張実績",
-  熱延組織: "熱延組織",
-  焼鈍引張: "焼鈍引張実績",
-  焼鈍穴広げ: "焼鈍穴拡げ実績",
-  焼鈍組織: "焼鈍板組織",
-};
-
 function heatStageSegments(heat: ApiLineage["node"]["heat_pattern"]): HeatStageSegment[] {
   const segments: HeatStageSegment[] = [];
   heat.forEach((point, index) => {
@@ -92,6 +84,9 @@ export function LineagePage({
     setEntityKey(initialEntityKey ?? "");
     setGraphLimit(40);
   }, [projectId, initialEntityKey]);
+  useEffect(() => {
+    setSelectedGroup(null);
+  }, [entityKey]);
   useEffect(() => {
     setQuery("");
     setEntityType("");
@@ -194,14 +189,28 @@ export function LineagePage({
     ).values(),
   );
   const heatStageTrack = heatStageSegments(heat);
-  const selectedGroupObservationType = selectedGroup ? GROUP_OBSERVATION_TYPES[selectedGroup.entityType] ?? selectedGroup.entityType : "";
-  const selectedGroupObservationGroups = selectedGroup && data
-    ? (data.node.observation_groups ?? []).filter((group) => group.test_type === selectedGroupObservationType)
-    : [];
-  const selectedGroupObservations = Array.from(
-    new Map(selectedGroupObservationGroups.flatMap((group) => group.observations).map((observation) => [observation.id, observation])).values(),
+  const selectedGroupNodes = new Map(
+    (data?.graph.nodes ?? [])
+      .filter((node) => selectedGroup?.nodeKeys.includes(node.key))
+      .map((node) => [node.key, node]),
   );
-  const selectedGroupProperties = Array.from(new Set(selectedGroupObservations.flatMap((observation) => Object.keys(observation.outputs))));
+  const selectedGroupObservationsById = new Map(
+    (data?.node.observation_groups ?? [])
+      .flatMap((group) => group.observations)
+      .filter((observation) => {
+        const graphNode = selectedGroupNodes.get(observation.id);
+        return observation.parent_key === selectedGroup?.parentKey
+          && graphNode?.source_sheet === observation.source;
+      })
+      .map((observation) => [observation.id, observation] as const),
+  );
+  const selectedGroupRows = (selectedGroup?.nodeKeys ?? []).map((nodeKey) => ({
+    nodeKey,
+    observation: selectedGroupObservationsById.get(nodeKey),
+  }));
+  const selectedGroupProperties = Array.from(new Set(
+    selectedGroupRows.flatMap(({ observation }) => Object.keys(observation?.outputs ?? {})),
+  ));
   return (
     <div className="page-panel lineage-page">
       {qualityIssueId && (
@@ -364,7 +373,7 @@ export function LineagePage({
                 </div>
                 <button type="button" className="text-button" onClick={() => setSelectedGroup(null)}>グループ選択を解除</button>
               </div>
-              {selectedGroupObservations.length ? (
+              {selectedGroupObservationsById.size ? (
                 <div className="lineage-group-facts-scroll">
                   <table>
                     <thead>
@@ -374,11 +383,11 @@ export function LineagePage({
                       </tr>
                     </thead>
                     <tbody>
-                      {selectedGroupObservations.map((observation) => (
-                        <tr key={observation.id}>
-                          <th scope="row">{observation.id}</th>
+                      {selectedGroupRows.map(({ nodeKey, observation }) => (
+                        <tr key={nodeKey}>
+                          <th scope="row">{nodeKey}</th>
                           {selectedGroupProperties.map((property) => {
-                            const value = observation.outputs[property];
+                            const value = observation?.outputs[property];
                             return <td key={property}>{value == null ? "—" : typeof value === "number" ? number(value, Math.abs(value) < 1 ? 3 : 1) : String(value)}</td>;
                           })}
                         </tr>
