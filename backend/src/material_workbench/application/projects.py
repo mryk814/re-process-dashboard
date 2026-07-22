@@ -166,12 +166,17 @@ class ProjectService:
 
         compatible_views = [
             view for view in self.catalog.list_dataset_view_revisions()
-            if all(self._profile_supports_task(member.dataset_revision_id, payload.task_id) for member in view.members)
+            if view.kind == "single"
+            and all(self._profile_supports_task(member.dataset_revision_id, payload.task_id) for member in view.members)
         ]
         if payload.dataset_view_revision_id:
             view = self.catalog.get_dataset_view_revision(payload.dataset_view_revision_id)
             if view is None:
                 raise ProjectValidationError("選択したDataset Viewが見つかりません")
+            if view.kind != "single":
+                raise ProjectValidationError(
+                    "複数Datasetの比較セットはProjectの参照データにできません。Data Libraryの比較Activityで利用してください"
+                )
             if view.id not in {item.id for item in compatible_views}:
                 raise ProjectValidationError("Dataset ViewのProfileはこのPrediction Taskに対応していません")
         elif len(compatible_views) == 1:

@@ -60,6 +60,32 @@ def test_project_creation_pins_explicit_references_and_rejects_rebinding(client)
     assert rejected.json()["code"] == "project_task_locked"
 
 
+def test_cohort_comparison_is_not_a_project_reference_dataset(client) -> None:
+    options = client.get("/api/project-creation-options").json()
+    members = [
+        {"dataset_revision_id": item["dataset_revision"]["id"], "ordinal": index, "cohort_key": f"c{index}"}
+        for index, item in enumerate(options["datasets"][:2])
+    ]
+    view_response = client.post("/api/data-library/views", json={
+        "view_id": "comparison-not-project-input",
+        "revision": 1,
+        "name": "設備比較",
+        "kind": "cohort_comparison",
+        "members": members,
+    })
+    assert view_response.status_code == 201, view_response.text
+
+    package = next(item for item in options["model_packages"] if item["task_id"] == "annealed-properties-v1")
+    created = client.post("/api/projects", json={
+        "name": "比較セットを誤用する検討",
+        "task_id": "annealed-properties-v1",
+        "dataset_view_revision_id": view_response.json()["id"],
+        "model_package_ref_id": package["id"],
+    })
+    assert created.status_code == 422
+    assert "比較Activity" in created.json()["message"]
+
+
 def test_continuation_stays_in_series_and_requires_reason(client) -> None:
     original = client.get("/api/projects/default").json()
     missing_reason = client.post("/api/projects", json={

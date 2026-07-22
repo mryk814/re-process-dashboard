@@ -91,6 +91,8 @@ class DatasetViewRevisionCreateInput(BaseModel):
     def members_match_view_kind(self) -> "DatasetViewRevisionCreateInput":
         if self.kind == "single" and len(self.members) != 1:
             raise ValueError("single Dataset ViewにはDataset Revisionを1件だけ指定してください")
+        if self.kind == "cohort_comparison" and len(self.members) < 2:
+            raise ValueError("cohort comparisonにはDataset Revisionを2件以上指定してください")
         revision_ids = [member.dataset_revision_id for member in self.members]
         if len(revision_ids) != len(set(revision_ids)):
             raise ValueError("Dataset View内で同じDataset Revisionを重複指定できません")
