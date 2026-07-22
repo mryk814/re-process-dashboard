@@ -1,17 +1,18 @@
-import { app, BrowserWindow, dialog } from "electron";
+import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import { ChildProcess, spawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { createServer } from "node:net";
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const API_HOST = "127.0.0.1";
-const API_PORT = 8765;
-const API_HEALTH_URL = `http://${API_HOST}:${API_PORT}/health`;
 const HEALTH_TIMEOUT_MS = 20_000;
 const HEALTH_RETRY_MS = 250;
+const LAUNCH_TOKEN = randomBytes(32).toString("base64url");
 
 let mainWindow: BrowserWindow | undefined;
 let sidecar: ChildProcess | undefined;
+let apiPort: number | undefined;
 let sidecarReady = false;
 let isQuitting = false;
 let shutdownInProgress: Promise<void> | undefined;
@@ -28,7 +29,7 @@ function frontendDevServerUrl(): string {
   return process.env.MATERIAL_WORKBENCH_DEV_SERVER_URL ?? "http://127.0.0.1:5180";
 }
 
-function sidecarCommand(): { command: string; args: string[] } {
+function sidecarCommand(port: number): { command: string; args: string[] } {
   return {
     command: "uv",
     args: [
@@ -40,7 +41,7 @@ function sidecarCommand(): { command: string; args: string[] } {
       "--host",
       API_HOST,
       "--port",
-      String(API_PORT),
+      String(port),
     ],
   };
 }
@@ -57,29 +58,26 @@ function wait(milliseconds: number): Promise<void> {
   return new Promise((resolveWait) => setTimeout(resolveWait, milliseconds));
 }
 
-async function assertPortIsAvailable(): Promise<void> {
-  await new Promise<void>((resolveAvailable, rejectAvailable) => {
+async function findAvailablePort(): Promise<number> {
+  return new Promise<number>((resolveAvailable, rejectAvailable) => {
     const server = createServer();
-    server.once("error", (error: NodeJS.ErrnoException) => {
-      if (error.code === "EADDRINUSE") {
-        rejectAvailable(
-          new Error(
-            `ポート ${API_PORT} は別のプロセスが使用中です。既存のアプリまたは開発APIを終了してから再度起動してください。`,
-          ),
-        );
+    server.once("error", rejectAvailable);
+    server.listen(0, API_HOST, () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close();
+        rejectAvailable(new Error("空きloopback portを取得できませんでした。"));
         return;
       }
-      rejectAvailable(error);
-    });
-    server.listen(API_PORT, API_HOST, () => {
-      server.close((error) => (error ? rejectAvailable(error) : resolveAvailable()));
+      server.close((error) => (error ? rejectAvailable(error) : resolveAvailable(address.port)));
     });
   });
 }
 
-async function waitForHealthySidecar(process: ChildProcess): Promise<void> {
+async function waitForHealthySidecar(process: ChildProcess, port: number): Promise<void> {
   const deadline = Date.now() + HEALTH_TIMEOUT_MS;
   let lastFailure = "";
+  const healthUrl = `http://${API_HOST}:${port}/health`;
 
   while (Date.now() < deadline) {
     if (process.exitCode !== null) {
@@ -90,7 +88,7 @@ async function waitForHealthySidecar(process: ChildProcess): Promise<void> {
     }
 
     try {
-      const response = await fetch(API_HEALTH_URL);
+      const response = await fetch(healthUrl, { headers: { "X-Workbench-Launch-Token": LAUNCH_TOKEN } });
       if (response.ok && process.exitCode === null) {
         return;
       }
@@ -103,49 +101,50 @@ async function waitForHealthySidecar(process: ChildProcess): Promise<void> {
   }
 
   throw new Error(
-    `Python API の起動を ${HEALTH_TIMEOUT_MS / 1000} 秒待ちましたが、${API_HEALTH_URL} が応答しません。${lastFailure ? `\n最後の確認: ${lastFailure}` : ""}`,
+    `Python API の起動を ${HEALTH_TIMEOUT_MS / 1000} 秒待ちましたが、${healthUrl} が応答しません。${lastFailure ? `\n最後の確認: ${lastFailure}` : ""}`,
   );
 }
 
 async function startSidecar(): Promise<void> {
-  await assertPortIsAvailable();
-
-  const { command, args } = sidecarCommand();
-  const process = spawn(command, args, {
+  const port = await findAvailablePort();
+  apiPort = port;
+  const { command, args } = sidecarCommand(port);
+  const childProcess = spawn(command, args, {
     cwd: workspaceRoot(),
     windowsHide: true,
     stdio: ["ignore", "pipe", "pipe"],
+    env: { ...process.env, WORKBENCH_LAUNCH_TOKEN: LAUNCH_TOKEN },
   });
-  sidecar = process;
+  sidecar = childProcess;
 
   const startupFailure = new Promise<never>((_, reject) => {
-    process.once("error", (error) => {
+    childProcess.once("error", (error) => {
       reject(
         new Error(
           `Python API を起動できませんでした。\`${command}\` が実行可能か確認してください。\n${error.message}`,
         ),
       );
     });
-    process.once("exit", (code, signal) => {
+    childProcess.once("exit", (code, signal) => {
       if (!sidecarReady) {
         reject(
           new Error(
-            `Python API が起動に失敗しました (code: ${code ?? "none"}, signal: ${signal ?? "none"})。${sidecarOutput(process) ? `\n${sidecarOutput(process)}` : ""}`,
+            `Python API が起動に失敗しました (code: ${code ?? "none"}, signal: ${signal ?? "none"})。${sidecarOutput(childProcess) ? `\n${sidecarOutput(childProcess)}` : ""}`,
           ),
         );
       }
     });
   });
 
-  await Promise.race([waitForHealthySidecar(process), startupFailure]);
+  await Promise.race([waitForHealthySidecar(childProcess, port), startupFailure]);
   sidecarReady = true;
 
-  process.once("exit", (code, signal) => {
+  childProcess.once("exit", (code, signal) => {
     sidecarReady = false;
     if (!isQuitting) {
       void failAndQuit(
         new Error(
-          `Python API が予期せず終了しました (code: ${code ?? "none"}, signal: ${signal ?? "none"})。${sidecarOutput(process) ? `\n${sidecarOutput(process)}` : ""}`,
+          `Python API が予期せず終了しました (code: ${code ?? "none"}, signal: ${signal ?? "none"})。${sidecarOutput(childProcess) ? `\n${sidecarOutput(childProcess)}` : ""}`,
         ),
       );
     }
@@ -198,6 +197,7 @@ async function createMainWindow(): Promise<void> {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      preload: join(__dirname, "preload.js"),
       // Keep web security enabled. The loopback API explicitly permits Origin: null for this file renderer.
       webSecurity: true,
     },
@@ -238,6 +238,12 @@ async function failAndQuit(error: unknown): Promise<void> {
 
 app.whenReady()
   .then(async () => {
+    ipcMain.on("workbench:runtime-config", (event) => {
+      event.returnValue = apiPort ? {
+        apiBaseUrl: `http://${API_HOST}:${apiPort}`,
+        launchToken: LAUNCH_TOKEN,
+      } : null;
+    });
     await startSidecar();
     await createMainWindow();
   })

@@ -19,12 +19,26 @@ export class ApiClientError extends Error {
   }
 }
 
-const baseUrl = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8765";
+declare global {
+  interface Window {
+    workbenchDesktop?: Readonly<{
+      apiBaseUrl: string;
+      launchToken: string;
+    }>;
+  }
+}
+
+const desktopConfig = window.workbenchDesktop;
+const baseUrl = desktopConfig?.apiBaseUrl ?? import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8765";
 export const apiBaseUrl = baseUrl;
 
 const normalizedFetch: typeof fetch = async (input, init) => {
   try {
-    return await fetch(input, init);
+    const request = new Request(input, init);
+    if (!desktopConfig?.launchToken) return await fetch(request);
+    const headers = new Headers(request.headers);
+    headers.set("X-Workbench-Launch-Token", desktopConfig.launchToken);
+    return await fetch(new Request(request, { headers }));
   } catch (cause) {
     throw new ApiClientError(
       cause instanceof Error ? cause.message : "APIへ接続できませんでした。",
@@ -92,4 +106,20 @@ export function requireSuccess(
 
 export function apiDownloadUrl(path: string): string {
   return `${baseUrl}${path}`;
+}
+
+export async function downloadApiFile(path: string, filename: string): Promise<void> {
+  const response = await normalizedFetch(apiDownloadUrl(path));
+  if (!response.ok) {
+    throw new ApiClientError("ファイルをダウンロードできませんでした。", "server", response.status);
+  }
+  const url = URL.createObjectURL(await response.blob());
+  try {
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }

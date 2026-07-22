@@ -1,5 +1,5 @@
 import type { components } from "../../generated/api-types";
-import { apiClient, apiDownloadUrl, requireData, requireSuccess } from "./client";
+import { apiClient, downloadApiFile, requireData, requireSuccess } from "./client";
 import { candidateInferencePrefix, inferenceRequestCache, inferenceRequestKey } from "./inferenceRequestCache";
 
 export type ApiCandidate = components["schemas"]["Candidate"];
@@ -156,7 +156,7 @@ export const workbenchApi = {
       bodySerializer: () => form,
     }), "XLSXを取り込めませんでした。");
   },
-  candidateExportUrl(projectId: string) {
-    return apiDownloadUrl(`${path(projectId, "/candidates/export.xlsx")}`);
+  exportCandidates(projectId: string) {
+    return downloadApiFile(`${path(projectId, "/candidates/export.xlsx")}`, "candidates-with-predictions.xlsx");
   },
 };
