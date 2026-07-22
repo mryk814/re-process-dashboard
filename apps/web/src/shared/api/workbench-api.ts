@@ -6,7 +6,7 @@ export type ApiCandidate = components["schemas"]["Candidate"];
 export type ApiCandidateInput = components["schemas"]["CandidateInput"];
 export type ApiCandidateUpdate = components["schemas"]["CandidateUpdate"];
 export type ApiProject = components["schemas"]["Project"];
-export type ApiProjectInput = components["schemas"]["ProjectInput"];
+export type ApiProjectInput = components["schemas"]["ProjectUpdateInput"];
 export type ApiProjectCreateInput = components["schemas"]["ProjectCreateInput"];
 export type ApiModelPackage = components["schemas"]["ModelPackageStatus"];
 export type ApiPreview = components["schemas"]["PredictionResponse"];
@@ -25,6 +25,12 @@ export type ApiTaskDefinition = components["schemas"]["ResolvedTaskDefinition"];
 export type ApiTaskCatalogItem = components["schemas"]["TaskCatalogItem"];
 export type ApiProjectHistory = components["schemas"]["ProjectHistoryResponse"];
 export type ApiProjectDecisionInput = components["schemas"]["ProjectDecisionInput"];
+export type ApiProjectCreationOptions = components["schemas"]["ProjectCreationOptions"];
+export type ApiDataLibraryDataset = components["schemas"]["DataLibraryDataset"];
+export type ApiDatasetView = components["schemas"]["DatasetViewRevision"];
+export type ApiDatasetViewCreateInput = components["schemas"]["DatasetViewRevisionCreateInput"];
+export type ApiModelPackageRef = components["schemas"]["ModelPackageRef"];
+export type ApiProjectSeries = components["schemas"]["ProjectSeries"];
 
 const path = (projectId: string, suffix = "") =>
   `/api/projects/${encodeURIComponent(projectId)}${suffix}`;
@@ -35,6 +41,18 @@ export const workbenchApi = {
   },
   async listTaskDefinitions() {
     return requireData(await apiClient.GET("/api/task-definitions"), "予測タスクを取得できませんでした。");
+  },
+  async projectCreationOptions() {
+    return requireData(await apiClient.GET("/api/project-creation-options"), "プロジェクト作成条件を取得できませんでした。");
+  },
+  async listDataLibraryDatasets() {
+    return requireData(await apiClient.GET("/api/data-library/datasets"), "データライブラリを取得できませんでした。");
+  },
+  async createDatasetView(body: ApiDatasetViewCreateInput) {
+    return requireData(await apiClient.POST("/api/data-library/views", { body }), "比較セットを作成できませんでした。");
+  },
+  async createProjectSeries(name: string, description = "") {
+    return requireData(await apiClient.POST("/api/project-series", { body: { name, description } }), "一連の検討を作成できませんでした。");
   },
   async projectHistory(projectId: string, signal?: AbortSignal) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/history", { params: { path: { project_id: projectId } }, signal }), "プロジェクト履歴を取得できませんでした。");

@@ -5,6 +5,7 @@ export const WORKBENCH_VIEWS = [
   "quality",
   "lineage",
   "explore",
+  "data-library",
 ] as const;
 
 export type WorkbenchView = (typeof WORKBENCH_VIEWS)[number];

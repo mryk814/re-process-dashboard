@@ -30,12 +30,25 @@
 .project-list-item.active small { color: #4773ab; }
 .project-list-create { width: 100%; margin-top: 12px; font-size: 12px; }
 .project-hub-content { min-width: 0; display: grid; gap: 18px; padding: 22px; }
+.project-hub-content:has(.project-create-panel) > :not(.project-create-panel):not(.panel-error) { display: none; }
+.project-hub-content:has(.project-create-panel) { align-content: start; }
+.project-hub-content:has(.project-create-panel) .project-create-panel { min-height: calc(100vh - 190px); align-content: start; padding: 20px; }
 .project-hub-header { align-items: flex-start; }
 .project-create-panel, .project-settings-panel, .project-next-actions, .project-history-section, .project-model-summary, .project-snapshot-detail { border: 1px solid #d8e0ea; border-radius: 6px; background: #fff; padding: 14px; }
 .project-delete-panel { display: flex; align-items: center; justify-content: space-between; gap: 14px; border: 1px solid #e2aaaa; border-radius: 6px; background: #fff8f8; padding: 12px 14px; color: #6f2c2c; }
 .project-delete-panel p { margin: 4px 0 0; color: #8b5252; font-size: 12px; }
 .project-delete-actions { display: flex; flex: 0 0 auto; gap: 8px; }
 .project-create-panel { display: grid; gap: 12px; }
+.project-binding-flow, .project-reference-strip, .project-fixed-bindings { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.project-binding-flow label { display: grid; grid-template-columns: 24px 1fr; align-items: center; gap: 4px 7px; color: #526276; font-size: 10px; }
+.project-binding-flow label b { grid-row: 1 / 3; display: grid; width: 22px; height: 22px; place-items: center; border-radius: 50%; background: #dbeafe; color: #174f97; }
+.project-binding-flow select { grid-column: 2; min-width: 0; border: 1px solid #cbd6e2; border-radius: 4px; padding: 7px; color: #263d57; }
+.project-reference-strip { border: 1px solid #d8e0ea; border-radius: 6px; background: #f8fafc; padding: 10px 12px; }
+.project-reference-strip > div, .project-fixed-bindings > div { display: grid; min-width: 0; gap: 2px; }
+.project-reference-strip span, .project-fixed-bindings span { color: #788698; font-size: 9px; text-transform: uppercase; }
+.project-reference-strip strong, .project-fixed-bindings strong { overflow: hidden; color: #29435f; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.project-reference-strip small, .project-fixed-bindings small { overflow: hidden; color: #6b7b8e; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.project-fixed-bindings { border-bottom: 1px solid #e1e7ee; padding-bottom: 12px; }
 .project-create-panel > label { display: grid; gap: 5px; max-width: 520px; color: #526276; font-size: 12px; }
 .project-start-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .project-start-options label { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; border: 1px solid #d8e0ea; border-radius: 5px; padding: 11px; color: #20344b; }
@@ -75,6 +88,7 @@
   .project-list-create { width: auto; }
   .project-hub-content { padding: 16px; }
   .project-action-grid, .project-start-options { grid-template-columns: 1fr; }
+  .project-binding-flow, .project-reference-strip, .project-fixed-bindings { grid-template-columns: 1fr 1fr; }
   .project-history-card > header, .project-hub .project-empty-state { align-items: stretch; flex-direction: column; }
   .project-delete-panel { align-items: stretch; flex-direction: column; }
   .project-delete-actions { flex-wrap: wrap; }
