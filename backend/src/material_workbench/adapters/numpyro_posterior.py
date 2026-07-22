@@ -5,13 +5,11 @@ the fixed dense_mlp_v1 forward pass and one of the finite likelihood ids below.
 """
 from __future__ import annotations
 
-from pathlib import Path
-from zipfile import BadZipFile, ZipFile
-
 import numpy as np
 
 from ..model_packages import PackageContractError, PredictiveSummary, PredictorSpec, VerifiedModelPackage
 from .base import feature_vector, quantile_summary, scalar_config
+from .safe_npz import MAX_NPZ_COMPRESSION_RATIO, safe_npz_arrays
 
 
 _KINDS = {
@@ -19,39 +17,9 @@ _KINDS = {
     "bernoulli_logit": "binary", "poisson_log": "count", "negative_binomial_log": "count",
     "zero_inflated_poisson_log": "count", "ordinal_logit": "ordinal",
 }
-MAX_NPZ_ENTRIES = 32
-MAX_NPZ_UNCOMPRESSED_BYTES = 64 * 1024 * 1024
-MAX_NPZ_COMPRESSION_RATIO = 100
 MAX_POSTERIOR_DRAWS = 4096
 MAX_DENSE_LAYERS = 8
 MAX_TENSOR_ELEMENTS = 4_000_000
-
-
-def _safe_npz_arrays(path: Path) -> dict[str, np.ndarray]:
-    """Reject archive bombs before NumPy materializes any model tensor."""
-    try:
-        with ZipFile(path) as archive:
-            infos = archive.infolist()
-            if not 1 <= len(infos) <= MAX_NPZ_ENTRIES:
-                raise PackageContractError("posterior npz has too many entries")
-            total_uncompressed = sum(info.file_size for info in infos)
-            if total_uncompressed > MAX_NPZ_UNCOMPRESSED_BYTES:
-                raise PackageContractError("posterior npz expands beyond the allowed size")
-            for info in infos:
-                if info.is_dir() or not info.filename.endswith(".npy") or "/" in info.filename or "\\" in info.filename:
-                    raise PackageContractError("posterior npz has an invalid entry name")
-                if info.file_size and (not info.compress_size or info.file_size / info.compress_size > MAX_NPZ_COMPRESSION_RATIO):
-                    raise PackageContractError("posterior npz compression ratio is too high")
-        with np.load(path, allow_pickle=False) as archive:
-            arrays = {name: np.asarray(archive[name], dtype=float) for name in archive.files}
-    except (BadZipFile, OSError, ValueError) as exc:
-        if isinstance(exc, PackageContractError):
-            raise
-        raise PackageContractError("posterior artifact is not a safe npz archive") from exc
-    total_elements = sum(array.size for array in arrays.values())
-    if total_elements > MAX_TENSOR_ELEMENTS or any(array.size > MAX_TENSOR_ELEMENTS for array in arrays.values()):
-        raise PackageContractError("posterior tensors exceed the allowed element count")
-    return arrays
 
 
 def _sigmoid(value: np.ndarray) -> np.ndarray:
@@ -159,7 +127,11 @@ class NumpyroDensePosteriorAdapter:
         activation = predictor.config.get("activation", "tanh")
         if activation not in {"tanh", "relu"}:
             raise PackageContractError("dense_mlp_v1 activation must be tanh or relu")
-        arrays = _safe_npz_arrays(package.artifact_path(predictor.artifact))
+        arrays = safe_npz_arrays(
+            package.artifact_path(predictor.artifact),
+            max_entries=32,
+            max_tensor_elements=MAX_TENSOR_ELEMENTS,
+        )
         keys = set(arrays)
         try:
             layer_indexes = sorted(int(key[1:]) for key in keys if key.startswith("w") and key[1:].isdigit())
