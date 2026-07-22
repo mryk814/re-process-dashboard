@@ -41,16 +41,41 @@
 .slider-field input[type="range"]::-webkit-slider-thumb { width: 13px; height: 13px; appearance: none; border: 2px solid #fff; border-radius: 50%; background: #1f5fc4; box-shadow: 0 0 0 1px #1f5fc4; }
 
 .candidate-comparison { display: grid; gap: 10px; }
-.comparison-grid-viewport { max-height: 270px; overflow: auto; }
-.comparison-grid-viewport.expanded { max-height: 70vh; }
-.comparison-grid { display: grid; grid-template-columns: 160px max-content max-content; width: max-content; min-width: 100%; align-items: start; overflow: visible; border: 1px solid #cfd9e5; border-radius: 4px; }
+.comparison-grid-viewport { min-width: 0; overflow-x: auto; }
+.comparison-grid { display: grid; grid-template-columns: 160px minmax(220px, var(--comparison-input-share, 45%)) 9px minmax(240px, 1fr); width: 100%; min-width: 629px; align-items: start; border: 1px solid #cfd9e5; border-radius: 4px; }
+.comparison-pane-scroll { min-width: 0; max-height: 270px; overflow: scroll; background: #fff; }
+.comparison-pane-scroll.expanded { max-height: 70vh; }
+.comparison-name-scroll { position: sticky; left: 0; z-index: 6; }
 .candidate-name-table,
 .comparison-detail-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 12px; }
-.candidate-name-table { align-self: start; position: sticky; left: 0; z-index: 4; background: #fff; box-shadow: 2px 0 0 #cfd9e5; }
+.candidate-name-table { background: #fff; box-shadow: 2px 0 0 #cfd9e5; }
 .candidate-name-table .candidate-select-column { width: 32px; }
 .comparison-input-scroll,
-.comparison-prediction-scroll { min-width: 0; overflow: visible; background: #fff; }
-.comparison-prediction-scroll { position: relative; border-left: 2px solid #9fb1c7; }
+.comparison-prediction-scroll { background: #fff; }
+.comparison-pane-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.comparison-name-scroll::-webkit-scrollbar,
+.comparison-input-scroll::-webkit-scrollbar { width: 0; height: 8px; }
+.comparison-split-resizer {
+  position: relative;
+  z-index: 5;
+  align-self: stretch;
+  width: 21px;
+  min-height: 90px;
+  margin-inline: -6px;
+  touch-action: none;
+  cursor: col-resize;
+}
+.comparison-split-resizer::before {
+  content: "";
+  position: absolute;
+  inset: 0 9px;
+  border-radius: 999px;
+  background: #9fb1c7;
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+.comparison-split-resizer:hover::before,
+.comparison-split-resizer:focus-visible::before { background: #1f5fc4; box-shadow: 0 0 0 2px #dceaff; }
+.comparison-split-resizer:focus-visible { outline: 0; }
 .comparison-detail-table { width: max-content; min-width: 100%; }
 .candidate-name-table th,
 .candidate-name-table td,
@@ -58,17 +83,17 @@
 .comparison-detail-table td { height: 37px; padding: 0 5px; border-right: 1px solid #d8e0ea; border-bottom: 1px solid #d8e0ea; text-align: center; white-space: nowrap; }
 .candidate-name-table thead th,
 .comparison-detail-table thead th { height: 41px; background: #edf2f8; color: #46566c; font-size: 12px; font-weight: 700; letter-spacing: 0.02em; }
-.comparison-grid-viewport .candidate-name-table thead th,
-.comparison-grid-viewport .comparison-detail-table thead th {
+.comparison-pane-scroll .candidate-name-table thead th,
+.comparison-pane-scroll .comparison-detail-table thead th {
   position: sticky;
   z-index: 3;
 }
-.comparison-grid-viewport .candidate-name-table thead tr:first-child th,
-.comparison-grid-viewport .comparison-detail-table thead tr:first-child th {
+.comparison-pane-scroll .candidate-name-table thead tr:first-child th,
+.comparison-pane-scroll .comparison-detail-table thead tr:first-child th {
   top: 0;
 }
-.comparison-grid-viewport .candidate-name-table thead tr:nth-child(2) th,
-.comparison-grid-viewport .comparison-detail-table thead tr:nth-child(2) th {
+.comparison-pane-scroll .candidate-name-table thead tr:nth-child(2) th,
+.comparison-pane-scroll .comparison-detail-table thead tr:nth-child(2) th {
   top: 41px;
   z-index: 2;
 }
@@ -133,5 +158,6 @@
 .comparison-detail-table .support-cell { text-align: center; }
 
 @media (max-width: 820px) {
-  .comparison-grid { grid-template-columns: 132px minmax(0, 1fr) minmax(320px, 52%); }
+  .comparison-grid { grid-template-columns: 132px minmax(220px, var(--comparison-input-share, 45%)) 9px minmax(240px, 1fr); }
+  .comparison-grid-viewport { overflow-x: auto; }
 }
