@@ -591,16 +591,6 @@
             "title": "Id",
             "type": "string"
           },
-          "output_warnings": {
-            "additionalProperties": {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            "title": "Output Warnings",
-            "type": "object"
-          },
           "outputs": {
             "additionalProperties": {
               "type": "number"
@@ -2339,6 +2329,26 @@
             "title": "Measurement Keys",
             "type": "array"
           },
+          "plausibility_range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NumericRange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "preferred_display_range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NumericRange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "unit": {
             "minLength": 1,
             "title": "Unit",
@@ -2349,7 +2359,9 @@
           "key",
           "label",
           "unit",
-          "goal_direction"
+          "goal_direction",
+          "plausibility_range",
+          "preferred_display_range"
         ],
         "title": "OutputDefinition",
         "type": "object"

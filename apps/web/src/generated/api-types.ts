@@ -809,10 +809,6 @@ export interface components {
         ConnectedObservation: {
             /** Id */
             id: string;
-            /** Output Warnings */
-            output_warnings?: {
-                [key: string]: string[];
-            };
             /** Outputs */
             outputs: {
                 [key: string]: number;
@@ -1427,6 +1423,8 @@ export interface components {
              * @default []
              */
             measurement_keys: string[];
+            plausibility_range: components["schemas"]["NumericRange"] | null;
+            preferred_display_range: components["schemas"]["NumericRange"] | null;
             /** Unit */
             unit: string;
         };

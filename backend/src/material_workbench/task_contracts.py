@@ -113,6 +113,18 @@ class OutputDefinition(ContractModel):
     unit: Annotated[str, Field(min_length=1)]
     goal_direction: Literal["at_least", "at_most", "target"]
     measurement_keys: tuple[Annotated[str, Field(min_length=1)], ...] = ()
+    plausibility_range: NumericRange | None
+    preferred_display_range: NumericRange | None
+
+    @model_validator(mode="after")
+    def display_range_is_plausible(self) -> "OutputDefinition":
+        if (
+            self.preferred_display_range is not None
+            and self.plausibility_range is not None
+            and not self.plausibility_range.contains(self.preferred_display_range)
+        ):
+            raise ValueError("preferred_display_range must be contained by plausibility_range")
+        return self
 
 
 class FixedContextDefinition(ContractModel):

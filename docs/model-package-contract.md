@@ -97,6 +97,8 @@ feature pipelineはJSON宣言の組込み操作（単位正規化、欠損方針
 
 TaskDefinitionは利用者が扱う入力group、field、output、単位、目標方向を定義する。モデルPackageは一つの `task_id` と `input_schema_version` を参照し、そのtaskのCanonicalCandidateを特徴量へ変換して予測する。Package manifestやruntime capabilityに画面配置、カード、テーブル列などのUIレイアウト情報を含めない。変数ごとの表示桁数は利用者向け契約である `TaskDefinition.display_decimals` を既定値とし、モデルPackageの再学習やdigest変更を伴わせない。
 
+各OutputDefinitionはcanonical unitで `plausibility_range` と `preferred_display_range` を明示する。前者は予測値・予測区間・実測値・系譜観測・探索結果へ共通の物理範囲外警告を付ける契約であり、値の削除・丸め・学習除外を指示しない。後者はグラフの初期表示だけを決め、範囲外の点や区間は境界記号と実値への導線を残す。表示範囲の切替は推論入力やcache identityを変更しない。
+
 正本の出力は次の通りとする。
 
 - `annealed-properties-v1`: TS / YS / EL / lambda

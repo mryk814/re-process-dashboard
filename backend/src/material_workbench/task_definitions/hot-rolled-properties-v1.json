@@ -37,7 +37,7 @@
         ]
       }
     ],
-    "outputs":[{"key":"TS","label":"引張強さ","unit":"MPa","goal_direction":"at_least","measurement_keys":["TS[MPa]"]}],
+    "outputs":[{"key":"TS","label":"引張強さ","unit":"MPa","goal_direction":"at_least","measurement_keys":["TS[MPa]"],"plausibility_range":{"min":100,"max":2500},"preferred_display_range":{"min":200,"max":1500}}],
     "response_curve_variables":[
       {"kind":"numeric_input","order":0,"label":"C","path":"composition.C"},
       {"kind":"numeric_input","order":1,"label":"Si","path":"composition.Si"},

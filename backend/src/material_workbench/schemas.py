@@ -685,7 +685,6 @@ class ConnectedObservation(BaseModel):
     source: str
     parent_key: str
     outputs: dict[str, float]
-    output_warnings: dict[str, list[str]] = Field(default_factory=dict)
 
 
 class ObservationGroup(BaseModel):

@@ -361,13 +361,12 @@ def test_lineage_keeps_hot_rolled_and_annealed_observations_separate(client) -> 
     assert ("HR-00003", "AN-00003") not in edge_pairs
 
 
-def test_lineage_keeps_out_of_range_observations_and_exposes_warnings(client) -> None:
+def test_lineage_keeps_out_of_range_observations_without_mutating_raw_values(client) -> None:
     response = client.get("/api/projects/default/lineage/HT-00024")
     assert response.status_code == 200
     observation = next(item for item in response.json()["node"]["connected_observations"] if item["id"] == "HT-00024")
     assert observation["outputs"]["TS[MPa]"] > 5_000
-    assert "物理範囲外" in observation["output_warnings"]["TS[MPa]"][0]
-    assert "100–2500" in observation["output_warnings"]["TS[MPa]"][0]
+    assert "output_warnings" not in observation
 
     incompatible = client.post(
         "/api/projects/hot-rolling-default/lineage/AN-00001/candidate",

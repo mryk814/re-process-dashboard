@@ -42,6 +42,15 @@ for (const task of tasks) {
       await expect.poll(() => curveRequests).toBeGreaterThan(0);
       await expect(page.locator(".response-curves-panel .inference-surface-status")).toHaveText("最新");
       await expect(page.getByRole("img", { name: "引張強さの応答曲線" })).toBeVisible();
+      const yAxisLabels = page.locator(".response-curve-card svg text").filter({ hasNotText: "C (%)" }).first();
+      await page.getByRole("combobox", { name: "Y軸の表示範囲" }).selectOption("preferred");
+      const preferredTopTick = await yAxisLabels.textContent();
+      const requestsBeforeDisplayRangeToggle = curveRequests;
+      await page.getByRole("combobox", { name: "Y軸の表示範囲" }).selectOption("full");
+      await expect(page.getByRole("combobox", { name: "Y軸の表示範囲" })).toHaveValue("full");
+      await page.waitForTimeout(500);
+      expect(curveRequests).toBe(requestsBeforeDisplayRangeToggle);
+      await expect(yAxisLabels).not.toHaveText(preferredTopTick ?? "");
       const axisSettingsButton = page.getByRole("button", { name: "軸範囲を設定" });
       await axisSettingsButton.click();
       const axisSettings = page.locator(".response-curve-axis-settings");

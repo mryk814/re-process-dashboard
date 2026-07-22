@@ -26,7 +26,7 @@
       }
     ],
     "outputs": [
-      {"key": "new_target", "label": "新しい目的変数", "unit": "unit", "goal_direction": "at_least"}
+      {"key": "new_target", "label": "新しい目的変数", "unit": "unit", "goal_direction": "at_least", "measurement_keys": ["target_column"], "plausibility_range": {"min": 0, "max": 100}, "preferred_display_range": {"min": 0, "max": 80}}
     ],
     "fixed_context": [],
     "constraints": []

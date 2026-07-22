@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -57,7 +58,7 @@ def test_registry_fails_fast_when_manifest_outputs_disagree_with_task_definition
     hot_path = contract_root / "hot-rolled-properties-v1.json"
     hot = json.loads(hot_path.read_text(encoding="utf-8"))
     hot["task_definition"]["outputs"].append(
-        {"key": "YS", "label": "降伏強さ", "unit": "MPa", "goal_direction": "at_least", "measurement_keys": ["YS[MPa]"]}
+        {"key": "YS", "label": "降伏強さ", "unit": "MPa", "goal_direction": "at_least", "measurement_keys": ["YS[MPa]"], "plausibility_range": {"min": 50, "max": 2200}, "preferred_display_range": {"min": 100, "max": 1200}}
     )
     hot["task_definition"]["display_decimals"]["output.YS"] = 1
     ys_capability = copy.deepcopy(hot["runtime_capability"]["targets"][0])
@@ -69,6 +70,26 @@ def test_registry_fails_fast_when_manifest_outputs_disagree_with_task_definition
     runtimes = {task_id: registry.runtime_for(task_id) for task_id in TASK_IDS}
     with pytest.raises(TaskRegistryError, match="model package outputs do not match"):
         TaskRegistry(runtimes, contract_root=contract_root)
+
+
+def test_registry_fails_fast_when_manifest_output_unit_disagrees_with_task_definition(client) -> None:
+    registry = client.app.state.task_registry
+    runtimes = {task_id: registry.runtime_for(task_id) for task_id in TASK_IDS}
+    runtime = copy.copy(runtimes["hot-rolled-properties-v1"])
+    package = runtime.model_package
+    assert package is not None
+    predictors = tuple(
+        predictor.model_copy(update={"unit": "ksi"}) if predictor.target == "TS" else predictor
+        for predictor in package.manifest.predictors
+    )
+    runtime.model_package = replace(
+        package,
+        manifest=package.manifest.model_copy(update={"predictors": predictors}),
+    )
+    runtimes["hot-rolled-properties-v1"] = runtime
+
+    with pytest.raises(TaskRegistryError, match="output units do not match"):
+        TaskRegistry(runtimes)
 
 
 def test_registry_rejects_an_explorer_bound_to_different_runtime_data(client) -> None:

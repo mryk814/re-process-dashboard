@@ -54,8 +54,8 @@
       }
     ],
     "outputs": [
-      {"key":"VB_mean","label":"VB平均","unit":"µm","goal_direction":"at_most","measurement_keys":["VB_mean"]},
-      {"key":"VB_max","label":"VB最大","unit":"µm","goal_direction":"at_most","measurement_keys":["VB_max"]}
+      {"key":"VB_mean","label":"VB平均","unit":"µm","goal_direction":"at_most","measurement_keys":["VB_mean"],"plausibility_range":{"min":0,"max":2000},"preferred_display_range":{"min":0,"max":1000}},
+      {"key":"VB_max","label":"VB最大","unit":"µm","goal_direction":"at_most","measurement_keys":["VB_max"],"plausibility_range":{"min":0,"max":2500},"preferred_display_range":{"min":0,"max":1200}}
     ],
     "display_decimals": {"process.cutting_distance_m":0,"process.cutting_speed_mpm":1,"process.feed_mm_rev":3,"process.depth_of_cut_mm":2,"process.hardness_hv":1,"process.tensile_mpa":1,"process.wear_resistance_index":2,"process.fracture_resistance_index":2,"process.nose_radius_mm":2,"process.rake_angle_deg":1,"composition.C":5,"composition.Si":5,"composition.Mn":5,"composition.Cr":5,"composition.Ni":5,"composition.Mo":5,"composition.V":5,"composition.W":5,"composition.Co":5,"composition.Ti":5,"composition.Al":5,"composition.Cu":5,"output.VB_mean":1,"output.VB_max":1},
     "fixed_context": [

@@ -42,6 +42,8 @@ def test_task_fixtures_share_one_contract(
     assert fixture.task_definition.id == expected_task
     assert {output.key for output in fixture.task_definition.outputs} == expected_outputs
     assert all(output.measurement_keys for output in fixture.task_definition.outputs)
+    assert all(output.plausibility_range is not None for output in fixture.task_definition.outputs)
+    assert all(output.preferred_display_range is not None for output in fixture.task_definition.outputs)
     assert (fixture.canonical_candidate.heat_pattern is not None) is has_heat_pattern
     assert fixture.runtime_capability.task_id == expected_task
     expected_display_keys = {
@@ -190,6 +192,18 @@ def test_default_and_training_ranges_must_be_inside_allowed_range() -> None:
     field["training_range"] = {"min": -1.0, "max": 0.5}
 
     with pytest.raises(ValidationError, match="training_range must be contained"):
+        TaskDefinition.model_validate(task)
+
+
+def test_output_ranges_must_be_explicit_and_preferred_must_be_plausible() -> None:
+    task = load_fixture("annealed-properties-v1.json")["task_definition"]
+    task["outputs"][0].pop("plausibility_range")
+    with pytest.raises(ValidationError, match="plausibility_range"):
+        TaskDefinition.model_validate(task)
+
+    task = load_fixture("annealed-properties-v1.json")["task_definition"]
+    task["outputs"][0]["preferred_display_range"] = {"min": 0, "max": 3000}
+    with pytest.raises(ValidationError, match="preferred_display_range must be contained"):
         TaskDefinition.model_validate(task)
 
 

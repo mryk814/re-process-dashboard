@@ -18,6 +18,7 @@ import {
   type TaskOutputDefinition,
 } from "../candidates";
 import { candidateInputIdentity } from "../../shared/api/inferenceRequestCache";
+import { assessOutputValues, clampToRange, isOutsideRange } from "../../shared/outputPresentation";
 import { apiBaseUrl } from "../../shared/api/client";
 import {
   workbenchApi,
@@ -819,13 +820,18 @@ function CurveFamilyChart({
   const maxX = payload.axis.max;
   const bandVisible = series.length === 1;
   const valueSamples = points.flatMap((point) => bandVisible ? [point.lower, point.upper] : [point.value]);
-  const rawMin = Math.min(...valueSamples, goalValue ?? Infinity, 0);
-  const rawMax = Math.max(...valueSamples, goalValue ?? -Infinity);
+  const [showFullRange, setShowFullRange] = useState(false);
+  const preferredRange = output.preferred_display_range;
+  const rawMin = showFullRange || !preferredRange ? Math.min(...valueSamples, goalValue ?? Infinity, 0) : preferredRange.min;
+  const rawMax = showFullRange || !preferredRange ? Math.max(...valueSamples, goalValue ?? -Infinity) : preferredRange.max;
   const padding = Math.max(1, (rawMax - rawMin) * 0.08);
-  const minValue = rawMin;
-  const maxValue = rawMax + padding;
+  const minValue = showFullRange || !preferredRange ? rawMin : preferredRange.min;
+  const maxValue = showFullRange || !preferredRange ? rawMax + padding : preferredRange.max;
+  const visibleRange = { min: minValue, max: maxValue };
+  const clippedAbove = valueSamples.filter((value) => value > maxValue).length;
+  const clippedBelow = valueSamples.filter((value) => value < minValue).length;
   const x = (value: number) => 30 + ((value - minX) / Math.max(1e-6, maxX - minX)) * 252;
-  const y = (value: number) => 124 - ((value - minValue) / Math.max(1, maxValue - minValue)) * 92;
+  const y = (value: number) => 124 - ((clampToRange(value, visibleRange) - minValue) / Math.max(1, maxValue - minValue)) * 92;
   const xTicks = [minX, (minX + maxX) / 2, maxX];
   const yTicks = [minValue, (minValue + maxValue) / 2, maxValue];
   const xDigits = chartDigits(minX, maxX);
@@ -833,7 +839,7 @@ function CurveFamilyChart({
   const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; lines: string[] } | null>(null);
   return (
     <article className="response-curve-card">
-      <header><b>{output.label}</b><span>{payload.axis.label}: {number(payload.axis.current)} {payload.axis.unit}</span></header>
+      <header><b>{output.label}</b><span>{payload.axis.label}: {number(payload.axis.current)} {payload.axis.unit}</span>{preferredRange && <button type="button" className="text-button curve-display-range-toggle" onClick={() => setShowFullRange((value) => !value)}>{showFullRange ? "推奨範囲" : "全範囲"}</button>}</header>
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${output.label}の${payload.axis.label}に沿った曲線`}>
         {yTicks.map((tick) => <g key={tick}><line x1="28" y1={y(tick)} x2="284" y2={y(tick)} stroke="#e3e9f0" /><text x="25" y={y(tick) + 3} textAnchor="end" fontSize="9" fill="#617087">{number(tick, yDigits)}</text></g>)}
         {xTicks.map((tick) => <line key={`grid-${tick}`} x1={x(tick)} y1="32" x2={x(tick)} y2="124" stroke="#edf1f6" />)}
@@ -852,6 +858,8 @@ function CurveFamilyChart({
         })}
         {Number.isFinite(goalValue) && <line x1="28" y1={y(goalValue!)} x2="284" y2={y(goalValue!)} stroke="#c17816" strokeDasharray="4 3" />}
         {Number.isFinite(payload.axis.current) && <line x1={x(payload.axis.current)} y1="32" x2={x(payload.axis.current)} y2="124" stroke="#94a5ba" strokeDasharray="2 3" />}
+        {clippedAbove > 0 && <text className="curve-clip-indicator" x="280" y="40" textAnchor="end">▲ {clippedAbove}</text>}
+        {clippedBelow > 0 && <text className="curve-clip-indicator" x="280" y="121" textAnchor="end">▼ {clippedBelow}</text>}
         {xTicks.map((tick) => <text key={tick} x={x(tick)} y="137" textAnchor="middle" fontSize="8" fill="#617087">{number(tick, xDigits)}</text>)}
         {hoveredPoint && <SvgChartTooltip {...hoveredPoint} chartWidth={width} chartHeight={height} />}
         <text x="158" y="150" textAnchor="middle" fontSize="9" fill="#617087">{payload.axis.label} ({payload.axis.unit})</text>
@@ -897,6 +905,9 @@ function LiveResponseCurves({
   );
   const [variableId, setVariableId] = useState(variables[0]?.id ?? "heat.peak_temperature_c");
   const [axisSettingsOpen, setAxisSettingsOpen] = useState(false);
+  const [outputRangeMode, setOutputRangeMode] = useState<"preferred" | "full" | "configured">(
+    Object.keys(responseCurveRanges.y ?? {}).length ? "configured" : "preferred",
+  );
   const [axisDraft, setAxisDraft] = useState<{ x: CurveRangeDraft; y: Record<string, CurveRangeDraft>; stagePosition: string }>({ x: { min: "", max: "", enabled: false }, y: {}, stagePosition: "" });
   const [axisDraftDirty, setAxisDraftDirty] = useState(false);
   const [axisError, setAxisError] = useState("");
@@ -1051,6 +1062,7 @@ function LiveResponseCurves({
         </div>
         <div className="response-curve-controls">
           <label>変数 <select aria-label="応答曲線の設計変数" value={activeVariableId} disabled={axisSaving || axisDraftDirty} onChange={(event) => { setAxisSettingsOpen(false); setAxisDraftDirty(false); setVariableId(event.target.value); }}>{[...new Set(variables.map((variable) => variable.group))].map((group) => <optgroup key={group} label={group}>{variables.filter((variable) => variable.group === group).map((variable) => <option key={variable.id} value={variable.id}>{variable.label} ({variable.unit})</option>)}</optgroup>)}</select></label>
+          <label>Y軸 <select aria-label="Y軸の表示範囲" value={outputRangeMode} onChange={(event) => setOutputRangeMode(event.target.value as "preferred" | "full" | "configured")}><option value="preferred">推奨範囲</option><option value="full">全範囲</option>{Object.keys(responseCurveRanges.y ?? {}).length > 0 && <option value="configured">保存設定</option>}</select></label>
           <button ref={axisSettingsButtonRef} type="button" className={`outline-button curve-range-button${axisSettingsOpen ? " active" : ""}`} aria-label={axisSettingsOpen ? "軸範囲設定を閉じる" : "軸範囲を設定"} title={axisSettingsOpen ? "軸範囲設定を閉じる" : "軸範囲を設定"} aria-expanded={axisSettingsOpen} aria-controls="response-curve-axis-settings" onClick={axisSettingsOpen ? () => setAxisSettingsOpen(false) : openAxisSettings}>
             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 8.3a3.7 3.7 0 1 0 0 7.4 3.7 3.7 0 0 0 0-7.4Zm8.1 4.9v-2.4l-2.3-.7a7.4 7.4 0 0 0-.7-1.6l1.1-2.1-1.7-1.7-2.1 1.1a7.4 7.4 0 0 0-1.6-.7L12.1 3H9.7L9 5.3a7.4 7.4 0 0 0-1.6.7L5.3 4.9 3.6 6.6l1.1 2.1a7.4 7.4 0 0 0-.7 1.6l-2.3.7v2.4l2.3.7a7.4 7.4 0 0 0 .7 1.6l-1.1 2.1 1.7 1.7 2.1-1.1a7.4 7.4 0 0 0 1.6.7l.7 2.3h2.4l.7-2.3a7.4 7.4 0 0 0 1.6-.7l2.1 1.1 1.7-1.7-1.1-2.1a7.4 7.4 0 0 0 .7-1.6l2.3-.7Z" /></svg>
           </button>
@@ -1109,7 +1121,12 @@ function LiveResponseCurves({
             const firstPayload = payloads[0];
             const autoValues = payloads.flatMap((payload) => [payload.variable.min, payload.variable.max, payload.variable.current]);
             const chartXRange = xRangeOverride ?? (autoValues.length ? { min: Math.min(...autoValues), max: Math.max(...autoValues) } : undefined);
-            return <ResponseCurveMiniChart key={output.key} output={output} series={curveSeries} selectedId={candidate.id} prediction={previewsByCandidate[candidate.id]?.predictions?.[output.key] ?? preview?.predictions?.[output.key]} goalValue={targetValues[output.key]} xRange={chartXRange} yRange={responseCurveRanges.y?.[output.key] ?? firstPayload?.output_range ?? undefined} xLabel={firstPayload?.variable.label ?? selectedVariable?.label ?? "設計変数"} xUnit={firstPayload?.variable.unit ?? selectedVariable?.unit ?? ""} />;
+            const yRange = outputRangeMode === "full"
+              ? undefined
+              : outputRangeMode === "configured"
+                ? responseCurveRanges.y?.[output.key] ?? output.preferred_display_range ?? firstPayload?.output_range ?? undefined
+                : output.preferred_display_range ?? firstPayload?.output_range ?? undefined;
+            return <ResponseCurveMiniChart key={output.key} output={output} series={curveSeries} selectedId={candidate.id} prediction={previewsByCandidate[candidate.id]?.predictions?.[output.key] ?? preview?.predictions?.[output.key]} goalValue={targetValues[output.key]} xRange={chartXRange} yRange={yRange} xLabel={firstPayload?.variable.label ?? selectedVariable?.label ?? "設計変数"} xUnit={firstPayload?.variable.unit ?? selectedVariable?.unit ?? ""} />;
           })}
         </div>
       )}
@@ -1143,14 +1160,23 @@ function ResponseCurveMiniChart({
   const points = series.flatMap((item) => item.points);
   const minX = xRange?.min ?? Math.min(...points.map((point) => point.x), 0);
   const maxX = xRange?.max ?? Math.max(...points.map((point) => point.x), 1);
-  const outputAxisValues = yRange ? [yRange.min, yRange.max] : points.flatMap((point) => [point.lower, point.upper]);
+  const outputAxisValues = yRange
+    ? [yRange.min, yRange.max]
+    : [
+        ...points.flatMap((point) => [point.value, point.lower, point.upper, ...Object.values(point.quantiles ?? {})]),
+        ...series.flatMap((item) => item.prediction ? [item.prediction.value, item.prediction.lower, item.prediction.upper, ...Object.values(item.prediction.quantiles ?? {})] : []),
+      ];
   const rawMin = Math.min(...outputAxisValues, goalValue ?? Infinity);
   const rawMax = Math.max(...outputAxisValues, goalValue ?? -Infinity);
   const valuePadding = Math.max(1, (rawMax - rawMin) * 0.08);
-  const minValue = rawMin - valuePadding;
-  const maxValue = rawMax + valuePadding;
+  const minValue = yRange?.min ?? rawMin - valuePadding;
+  const maxValue = yRange?.max ?? rawMax + valuePadding;
+  const visibleRange = { min: minValue, max: maxValue };
+  const clippedPoints = points.filter((point) => [point.value, point.lower, point.upper, ...Object.values(point.quantiles ?? {})].some((value) => isOutsideRange(value, visibleRange)));
+  const clippedAbove = clippedPoints.filter((point) => [point.value, point.lower, point.upper, ...Object.values(point.quantiles ?? {})].some((value) => value > maxValue)).length;
+  const clippedBelow = clippedPoints.filter((point) => [point.value, point.lower, point.upper, ...Object.values(point.quantiles ?? {})].some((value) => value < minValue)).length;
   const x = (value: number) => 30 + ((value - minX) / Math.max(1e-6, maxX - minX)) * 252;
-  const y = (value: number) => 124 - ((value - minValue) / Math.max(1, maxValue - minValue)) * 92;
+  const y = (value: number) => 124 - ((clampToRange(value, visibleRange) - minValue) / Math.max(1, maxValue - minValue)) * 92;
   const xTicks = [minX, (minX + maxX) / 2, maxX];
   const declaredQuantiles = [...new Set(points.flatMap((point) => Object.keys(point.quantiles ?? {})))].sort((left, right) => Number(left) - Number(right));
   const quantileLabel = declaredQuantiles.length ? `分位線 ${declaredQuantiles.map((level) => `q${Math.round(Number(level) * 100)}`).join("・")}` : "予測線";
@@ -1160,7 +1186,7 @@ function ResponseCurveMiniChart({
   const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; lines: string[] } | null>(null);
   return (
     <article className="response-curve-card">
-      <header><b>{output.label}</b><span>{prediction ? `${number(prediction.value, output.key === "EL" || output.key === "lambda" ? 1 : 0)} ${prediction.unit} / ${quantileLabel}` : "読み込み中"}</span></header>
+      <header><b>{output.label}</b><span>{prediction ? `${number(prediction.value, output.key === "EL" || output.key === "lambda" ? 1 : 0)} ${prediction.unit} / ${quantileLabel}` : "読み込み中"}</span>{clippedPoints.length > 0 && <span className="curve-clipped-summary" title="表示範囲外の実値は各点の詳細で確認できます">表示外 {clippedPoints.length}点</span>}</header>
       {series.length ? <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${output.label}の応答曲線、${quantileLabel}`}>
         {yTicks.map((tick) => <g key={tick}><line x1="28" y1={y(tick)} x2="284" y2={y(tick)} stroke="#e3e9f0" /><text x="25" y={y(tick) + 3} textAnchor="end" fontSize="9" fill="#617087">{number(tick, yDigits)}</text></g>)}
         {xTicks.map((tick) => <line key={`grid-${tick}`} x1={x(tick)} y1="32" x2={x(tick)} y2="124" stroke="#edf1f6" />)}
@@ -1186,6 +1212,8 @@ function ResponseCurveMiniChart({
           />}</g>;
         })}
         {Number.isFinite(goalValue) && <line x1="28" y1={y(goalValue!)} x2="284" y2={y(goalValue!)} stroke="#c17816" strokeDasharray="4 3" />}
+        {clippedAbove > 0 && <text className="curve-clip-indicator" x="280" y="40" textAnchor="end">▲ {clippedAbove}</text>}
+        {clippedBelow > 0 && <text className="curve-clip-indicator" x="280" y="121" textAnchor="end">▼ {clippedBelow}</text>}
         {xTicks.map((tick) => <text key={tick} x={x(tick)} y="137" textAnchor="middle" fontSize="8" fill="#617087">{number(tick, xDigits)}</text>)}
         {hoveredPoint && <SvgChartTooltip {...hoveredPoint} chartWidth={width} chartHeight={height} />}
         <text x="156" y="153" textAnchor="middle" fontSize="8" fill="#617087">{xLabel} ({xUnit})</text>
@@ -1290,7 +1318,7 @@ function LiveSimilarityEvidence({
                 <td className="similar-distance"><b>{item.distance.toFixed(2)}</b><span className={`layer-chip ${item.layer ?? "training"}`}>{item.layer === "historical" ? "学習外" : "学習内"}</span></td>
                 <td className="similar-key">{item.melt_key ?? "—"}</td>
                 <td className="similar-key">{item.process_key ?? item.parent_key}</td>
-                <td><div className="similar-value-list"><small>{item.source || item.observation_id || "実績"}</small>{measuredOutputs(item).map(({ output, summary }) => <span key={output.key} title={`${output.label}: ${number(summary.mean, 1)} ± ${number(summary.std, 1)} ${output.unit} / n=${summary.n}`}><b>{output.key === "lambda" ? "λ" : output.key}</b><strong>{number(summary.mean, 1)}</strong></span>)}</div></td>
+                <td><div className="similar-value-list"><small>{item.source || item.observation_id || "実績"}</small>{measuredOutputs(item).map(({ output, summary }) => { const assessment = assessOutputValues(output, [summary.mean], "実測値"); return <span className={assessment.implausible ? "implausible-output" : undefined} key={output.key} title={assessment.warning ?? `${output.label}: ${number(summary.mean, 1)} ± ${number(summary.std, 1)} ${output.unit} / n=${summary.n}`}><b>{output.key === "lambda" ? "λ" : output.key}</b><strong>{number(summary.mean, 1)}</strong>{assessment.implausible && <small className="output-warning-badge">⚠</small>}</span>; })}</div></td>
                 <td className="similar-action-cell">
                   <CandidateAddButton compact disabled={!item.process_key || addingKey === item.process_key || addedKeys.includes(item.process_key ?? "")} onClick={() => { if (item.process_key) void add(item.process_key); }}>
                     {addedKeys.includes(item.process_key ?? "") ? "追加済み" : addingKey === item.process_key ? "追加中…" : "候補に追加"}

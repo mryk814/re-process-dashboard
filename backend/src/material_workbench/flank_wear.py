@@ -143,7 +143,6 @@ def load_flank_wear_data(path: str | Path, profile_path: str | Path | None = Non
             for key, value in row.targets.items()
         }
         eligibility_reasons: list[str] = []
-        output_warnings: dict[str, list[str]] = {}
         if not row.policy_results.get("valid_observation/v1", False):
             eligibility_reasons.append("測定状態が有効ではありません")
         if not link or len(link) < 3:
@@ -163,9 +162,6 @@ def load_flank_wear_data(path: str | Path, profile_path: str | Path | None = Non
             if bounds and not bounds[0] <= value <= bounds[1]:
                 label = measurement_labels[key]
                 eligibility_reasons.append(f"{label}が物理範囲外です")
-                output_warnings.setdefault(label, []).append(
-                    f"{label}が物理範囲外です（妥当範囲 {bounds[0]:g}–{bounds[1]:g}）"
-                )
         observations.append({
             "id": row.id,
             "task_id": TASK_ID,
@@ -176,7 +172,6 @@ def load_flank_wear_data(path: str | Path, profile_path: str | Path | None = Non
             "outputs": outputs,
             "eligible": not eligibility_reasons,
             "eligibility_reasons": eligibility_reasons,
-            "output_warnings": output_warnings,
             "date": row.metadata.get("date"),
             "measurement_order": row.metadata.get("order"),
             "run_context": {
