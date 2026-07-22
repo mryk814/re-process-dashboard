@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import secrets
 import csv
 import importlib.util
 import math
@@ -12,12 +11,12 @@ from pathlib import Path
 from statistics import fmean, pstdev
 from typing import Any, Literal, Mapping
 
-from fastapi import FastAPI, File, HTTPException, Query, Request, Response, UploadFile
+from fastapi import FastAPI, File, HTTPException, Query, Response, UploadFile
 from fastapi.encoders import jsonable_encoder
-from fastapi.exceptions import RequestValidationError
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 
+from .api.errors import DomainApiException, PROJECT_API_ERRORS, install_exception_handlers
+from .api.security import configure_local_access
 from .importer import lineage_neighborhood, lineage_node_detail
 from .demo_seed import initialize_demo_projects
 from .inference_work_graph import InferenceKey, InferenceWorkGraph
@@ -25,7 +24,6 @@ from .runtime import ModelRuntime
 from .model_lifecycle import ACTIVE_PACKAGES_PATH, load_active_packages, resolve_configured_package, validate_active_package_task_set, validate_lifecycle_metadata
 from .model_packages import RUNTIME_TYPES
 from .schemas import (
-    ApiError,
     ActualMeasurement,
     ActualMeasurementInput,
     Candidate,
@@ -61,22 +59,6 @@ from .store import CandidateArchivedError, CandidateCopyConflictError, Candidate
 from .task_contracts import ResolvedTaskDefinition
 from .task_registry import DataExplorerEntry, TaskRegistry, TaskRegistryError
 from .task_modules import registered_task_modules
-
-
-PROJECT_API_ERRORS = {
-    404: {"model": ApiError, "description": "Not Found"},
-    409: {"model": ApiError, "description": "Conflict"},
-    422: {"model": ApiError, "description": "Validation Error"},
-}
-
-
-class DomainApiException(Exception):
-    def __init__(self, status_code: int, code: str, message: str, *, current_candidate: Candidate | None = None) -> None:
-        super().__init__(message)
-        self.status_code = status_code
-        self.code = code
-        self.message = message
-        self.current_candidate = current_candidate
 
 
 def create_app(
@@ -137,73 +119,8 @@ def create_app(
         lifespan=lifespan,
         responses={422: PROJECT_API_ERRORS[422]},
     )
-    # Electron loads the packaged renderer from file://, which browsers serialize as Origin: null.
-    # The local sidecar only listens on loopback, and credentials are not accepted.
-    configured_cors_origins = [
-        origin.strip()
-        for origin in os.getenv("WORKBENCH_CORS_ORIGINS", "").split(",")
-        if origin.strip()
-    ]
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["null", *configured_cors_origins],
-        allow_origin_regex=r"^http://(127\.0\.0\.1|localhost):\d+$",
-        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "X-Workbench-Launch-Token"],
-        allow_credentials=False,
-    )
-    launch_token = os.getenv("WORKBENCH_LAUNCH_TOKEN", "")
-
-    @app.middleware("http")
-    async def require_launch_token(request: Request, call_next: Any) -> Any:
-        if (
-            launch_token
-            and request.method != "OPTIONS"
-            and (request.url.path == "/health" or request.url.path.startswith("/api/"))
-            and not secrets.compare_digest(request.headers.get("X-Workbench-Launch-Token", ""), launch_token)
-        ):
-            return JSONResponse(
-                status_code=401,
-                content={
-                    "code": "launch_token_required",
-                    "message": "このAPIは起動中のデスクトップアプリ専用です。",
-                    "field_errors": [],
-                },
-            )
-        return await call_next(request)
-
-    @app.exception_handler(HTTPException)
-    async def http_error(_: Request, exc: HTTPException) -> JSONResponse:
-        code = {
-            404: "not_found",
-            422: "validation_error",
-            503: "runtime_unavailable",
-        }.get(exc.status_code, "validation_error")
-        message = exc.detail if isinstance(exc.detail, str) else "リクエストを処理できません"
-        payload = ApiError(code=code, message=message)
-        return JSONResponse(status_code=exc.status_code, content=payload.model_dump(mode="json", exclude={"current_candidate"}))
-
-    @app.exception_handler(DomainApiException)
-    async def domain_error(_: Request, exc: DomainApiException) -> JSONResponse:
-        payload = ApiError(
-            code=exc.code,  # type: ignore[arg-type]
-            message=exc.message,
-            current_candidate=exc.current_candidate,
-        )
-        excluded = {"current_candidate"} if exc.current_candidate is None else None
-        return JSONResponse(status_code=exc.status_code, content=payload.model_dump(mode="json", exclude=excluded))
-
-    @app.exception_handler(RequestValidationError)
-    async def validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
-        payload = ApiError(
-            code="validation_error",
-            message="入力内容を確認してください",
-            field_errors=[
-                {"path": ".".join(str(part) for part in error["loc"]), "message": error["msg"]}
-                for error in exc.errors()
-            ],
-        )
-        return JSONResponse(status_code=422, content=payload.model_dump(mode="json", exclude={"current_candidate"}))
+    configure_local_access(app)
+    install_exception_handlers(app)
 
     def store() -> Store:
         return app.state.store
