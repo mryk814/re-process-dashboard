@@ -105,6 +105,27 @@ uv run python backend/scripts/verify_dataset_source.py data/source/process_dashb
 uv run python backend/scripts/verify_dataset_source.py path/to/new-source.xlsx --profile backend/src/material_workbench/dataset-input-profile-new.json --json
 ```
 
+### Profile Workbench
+
+新しいExcelのシート・列と、選択されたProfileでの正規化結果をまとめて確認できます。
+
+```powershell
+uv run python backend/scripts/profile_workbench.py inspect path/to/new-source.xlsx
+uv run python backend/scripts/profile_workbench.py inspect path/to/new-source.xlsx --profile backend/src/material_workbench/dataset-input-profile-new.json
+uv run python backend/scripts/profile_workbench.py validate path/to/new-source.xlsx --profile backend/src/material_workbench/dataset-input-profile-new.json
+```
+
+Profileが確定したら、元Excelを変更せずmanaged libraryへ内容ハッシュ単位でコピーし、Data Asset、Profile Revision、Dataset Revision、単一Dataset Viewをまとめて登録します。
+
+```powershell
+uv run python backend/scripts/profile_workbench.py register path/to/new-source.xlsx `
+  --profile backend/src/material_workbench/dataset-input-profile-new.json `
+  --database path/to/workspace.db `
+  --library path/to/data-library
+```
+
+同じExcelと同じ実効Profileを再度登録しても、別Datasetには増えません。Profileの実効内容が変われば新しいProfile RevisionおよびDataset Revisionになります。
+
 続いて、対象を絞った契約確認と通常の全体検証を実行します。
 
 ```powershell

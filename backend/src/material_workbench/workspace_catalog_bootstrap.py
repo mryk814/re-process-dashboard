@@ -6,23 +6,19 @@ from datetime import UTC, datetime
 from pathlib import Path
 import sqlite3
 
-from .dataset_profile import load_dataset_profile
+from .dataset_registration import (
+    CANONICAL_DATASET_CONTRACT_DIGEST,
+    CANONICALIZATION_CONTRACT_DIGEST,
+    EXCEL_MEDIA_TYPE,
+    register_dataset_records,
+)
 from .inference_work_graph import semantic_digest
-from .model_lifecycle import dataset_profile_digest
 from .schemas import (
-    DataAssetCreateInput,
-    DatasetRevisionCreateInput,
     ModelPackageRefCreateInput,
-    ProfileRevisionCreateInput,
     ProjectSeriesCreateInput,
 )
 from .task_registry import TaskRegistry
 from .workspace_catalog import WorkspaceCatalog
-
-
-CANONICAL_DATASET_CONTRACT_DIGEST = semantic_digest({"id": "canonical-dataset/v1"})
-CANONICALIZATION_CONTRACT_DIGEST = semantic_digest({"id": "workbook-canonicalizer/v1"})
-EXCEL_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
 class WorkspaceCatalogBootstrapError(RuntimeError):
@@ -43,12 +39,6 @@ def task_definition_digest(registry: TaskRegistry, task_id: str) -> str:
     return semantic_digest(definition.model_dump(mode="json"))
 
 
-def _profile_revision_number(catalog: WorkspaceCatalog, profile_id: str, profile_digest: str) -> int:
-    revisions = [item for item in catalog.list_profile_revisions(include_archived=True) if item.profile_id == profile_id]
-    matching = next((item for item in revisions if item.profile_digest == profile_digest), None)
-    return matching.revision if matching else max((item.revision for item in revisions), default=0) + 1
-
-
 def register_runtime_resources(catalog: WorkspaceCatalog, registry: TaskRegistry) -> dict[str, ProjectBinding]:
     """Register every currently configured task runtime as immutable catalog records."""
 
@@ -59,33 +49,17 @@ def register_runtime_resources(catalog: WorkspaceCatalog, registry: TaskRegistry
         data = entry.predictor_runtime.data
         source_path = Path(data.source_path)
         profile_path = Path(data.profile_path)
-        profile = load_dataset_profile(profile_path)
-        effective_profile = profile.model_dump(mode="json", exclude={"task_definitions"})
-        effective_digest = dataset_profile_digest(profile_path)
-
-        asset = catalog.upsert_data_asset(DataAssetCreateInput(
-            original_filename=source_path.name,
-            sha256=data.source_sha256,
-            media_type=EXCEL_MEDIA_TYPE if source_path.suffix.lower() == ".xlsx" else "application/octet-stream",
+        registered = register_dataset_records(
+            catalog=catalog,
+            source_path=source_path,
+            source_sha256=data.source_sha256,
+            profile_path=profile_path,
             locator_kind="bundled",
-            locator=str(source_path),
-        ))
-        profile_revision = catalog.upsert_profile_revision(ProfileRevisionCreateInput(
-            profile_id=profile.profile_id,
-            revision=_profile_revision_number(catalog, profile.profile_id, effective_digest),
-            name=profile.profile_id,
-            profile_digest=effective_digest,
-            canonical_contract_digest=CANONICAL_DATASET_CONTRACT_DIGEST,
-            effective_profile_json=effective_profile,
-        ))
-        dataset = catalog.upsert_dataset_revision(DatasetRevisionCreateInput(
-            data_asset_id=asset.id,
-            profile_revision_id=profile_revision.id,
-            canonicalization_contract_digest=CANONICALIZATION_CONTRACT_DIGEST,
-        ))
-        if dataset.id not in views_by_dataset:
-            view = catalog.ensure_single_dataset_view(dataset.id, name=source_path.stem)
-            views_by_dataset[dataset.id] = view.id
+            locator=source_path,
+            name=source_path.stem,
+        )
+        if registered.dataset_revision_id not in views_by_dataset:
+            views_by_dataset[registered.dataset_revision_id] = registered.dataset_view_revision_id
 
         package = entry.model_package
         contract_digest = task_definition_digest(registry, task_id)
@@ -99,7 +73,7 @@ def register_runtime_resources(catalog: WorkspaceCatalog, registry: TaskRegistry
         ))
         bindings[task_id] = ProjectBinding(
             task_id=task_id,
-            dataset_view_revision_id=views_by_dataset[dataset.id],
+            dataset_view_revision_id=views_by_dataset[registered.dataset_revision_id],
             task_contract_digest=contract_digest,
             model_package_ref_id=package_ref.id,
             model_package_manifest_digest=package.manifest_sha256,
