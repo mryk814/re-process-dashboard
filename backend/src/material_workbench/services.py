@@ -8,6 +8,7 @@ from typing import Any, Callable
 import numpy as np
 from openpyxl import Workbook, load_workbook
 
+from .dataset_profile import load_dataset_profile
 from .hot_rolling_feature_pipeline import PROCESS_NAMES
 from .importer import WorkbookData, composition_names
 from .task_registry import RuntimeProtocol, load_task_contracts
@@ -212,7 +213,47 @@ def candidate_from_lineage(data: WorkbookData, entity_key: str) -> CandidateInpu
     )
 
 
-def import_candidates_xlsx(contents: bytes, task_id: str = "annealed-properties-v1") -> tuple[list[CandidateInput], list[dict[str, Any]]]:
+def _candidate_xlsx_names(task_id: str, profile_path: str | None = None) -> dict[str, str]:
+    profile = load_dataset_profile(profile_path)
+    task_profile = profile.tasks[task_id]
+    names = {
+        "schema_version": "形式バージョン",
+        "id": "候補ID",
+        "name": "候補名",
+        "support_status": "学習範囲判定",
+        "support_distance": "学習範囲からの距離",
+        "segment_start": "工程境界",
+    }
+    names.update({mapping.path: mapping.column for mapping in task_profile.mappings if mapping.column})
+    heat_mapping = next((mapping for mapping in task_profile.mappings if mapping.kind == "ordered_heat_series"), None)
+    if heat_mapping and heat_mapping.series_columns:
+        names["time_s"] = heat_mapping.series_columns.time
+        names["temperature_c"] = heat_mapping.series_columns.value
+    technical_names = {
+        item.name: item.column
+        for item in profile.shared.technical
+        if item.role == "anneal_history"
+    }
+    names["stage_name"] = technical_names.get("stage_name", "工程")
+    names["stage_category"] = technical_names.get("stage_category", "標準工程カテゴリ")
+    for observation in task_profile.observations:
+        for target in (*observation.targets, *observation.auxiliary):
+            names.setdefault(target.key, target.column)
+    return names
+
+
+def _xlsx_position(positions: dict[str, int], internal_name: str, source_name: str | None = None) -> int | None:
+    for name in (source_name, internal_name):
+        if name and name in positions:
+            return positions[name]
+    return None
+
+
+def import_candidates_xlsx(
+    contents: bytes,
+    task_id: str = "annealed-properties-v1",
+    profile_path: str | None = None,
+) -> tuple[list[CandidateInput], list[dict[str, Any]]]:
     try:
         workbook = load_workbook(BytesIO(contents), read_only=True, data_only=True)
     except Exception as exc:
@@ -228,54 +269,67 @@ def import_candidates_xlsx(contents: bytes, task_id: str = "annealed-properties-
     process_fields = [field for field in fields.values() if field.path.startswith("process.")]
     categorical_fields = [field for field in fields.values() if field.path.startswith("categorical.")]
     heat_enabled = any(field.kind == "heat_pattern" for group in definition.input_groups for field in group.fields)
+    display_names = _candidate_xlsx_names(task_id, profile_path)
     sheet = workbook.active
     rows = sheet.iter_rows(values_only=True)
     headers = [str(value).strip() if value is not None else "" for value in next(rows, [])]
+    duplicate_headers = sorted({header for header in headers if header and headers.count(header) > 1})
+    if duplicate_headers:
+        workbook.close()
+        return [], [{"row": 1, "message": f"列名が重複しています: {', '.join(duplicate_headers)}"}]
     positions = {header: index for index, header in enumerate(headers) if header}
-    if not headers or "name" not in positions:
-        return [], [{"row": 1, "message": "必須列 name がありません"}]
+    if not headers or _xlsx_position(positions, "name", display_names["name"]) is None:
+        return [], [{"row": 1, "message": f"必須列 {display_names['name']} がありません"}]
     imported: list[CandidateInput] = []
     errors: list[dict[str, Any]] = []
     for row_number, row in enumerate(rows, start=2):
         if not any(value is not None for value in row):
             continue
         try:
-            value = lambda header, default=None: row[positions[header]] if header in positions and positions[header] < len(row) else default
+            def value(header: str, source_header: str | None = None, default: Any = None) -> Any:
+                position = _xlsx_position(positions, header, source_header)
+                return row[position] if position is not None and position < len(row) else default
+
             composition = {
-                field.path.removeprefix("composition."): float(value(field.path.removeprefix("composition.")))
+                field.path.removeprefix("composition."): float(value(field.path.removeprefix("composition."), display_names.get(field.path)))
                 for field in composition_fields
-                if value(field.path.removeprefix("composition.")) is not None
+                if value(field.path.removeprefix("composition."), display_names.get(field.path)) is not None
             }
             process = {
-                field.path.removeprefix("process."): float(value(field.path.removeprefix("process.")))
+                field.path.removeprefix("process."): float(value(field.path.removeprefix("process."), display_names.get(field.path)))
                 for field in process_fields
-                if value(field.path.removeprefix("process.")) is not None
+                if value(field.path.removeprefix("process."), display_names.get(field.path)) is not None
             }
             categorical = {
-                field.path.removeprefix("categorical."): str(value(field.path.removeprefix("categorical.")))
+                field.path.removeprefix("categorical."): str(value(field.path.removeprefix("categorical."), display_names.get(field.path)))
                 for field in categorical_fields
-                if value(field.path.removeprefix("categorical.")) is not None
+                if value(field.path.removeprefix("categorical."), display_names.get(field.path)) is not None
             }
             points: list[dict[str, Any]] = []
-            index = 1
-            while f"time_s_{index}" in positions and f"temperature_c_{index}" in positions:
-                time, temperature = value(f"time_s_{index}"), value(f"temperature_c_{index}")
-                if time is not None and temperature is not None:
-                    segment_raw = value(f"segment_start_{index}", False)
-                    segment_start = segment_raw is True or str(segment_raw).strip().lower() in {"1", "true", "yes", "あり"}
-                    points.append({
-                        "time_s": float(time),
-                        "temperature_c": float(temperature),
-                        "segment_start": segment_start,
-                        "stage_name": str(value(f"stage_name_{index}")).strip() if value(f"stage_name_{index}") is not None else None,
-                        "stage_category": str(value(f"stage_category_{index}")).strip() if value(f"stage_category_{index}") is not None else None,
-                    })
-                index += 1
-            if heat_enabled and len(points) < 2:
-                raise ValueError("time_s_1 / temperature_c_1 から少なくとも2点が必要です")
-            name = value("name")
+            if heat_enabled:
+                index = 1
+                while (
+                    _xlsx_position(positions, f"time_s_{index}", f"{display_names['time_s']}_{index}") is not None
+                    and _xlsx_position(positions, f"temperature_c_{index}", f"{display_names['temperature_c']}_{index}") is not None
+                ):
+                    time = value(f"time_s_{index}", f"{display_names['time_s']}_{index}")
+                    temperature = value(f"temperature_c_{index}", f"{display_names['temperature_c']}_{index}")
+                    if time is not None and temperature is not None:
+                        segment_raw = value(f"segment_start_{index}", f"{display_names['segment_start']}_{index}", False)
+                        segment_start = segment_raw is True or str(segment_raw).strip().lower() in {"1", "true", "yes", "あり"}
+                        points.append({
+                            "time_s": float(time),
+                            "temperature_c": float(temperature),
+                            "segment_start": segment_start,
+                            "stage_name": str(value(f"stage_name_{index}", f"{display_names['stage_name']}_{index}")).strip() if value(f"stage_name_{index}", f"{display_names['stage_name']}_{index}") is not None else None,
+                            "stage_category": str(value(f"stage_category_{index}", f"{display_names['stage_category']}_{index}")).strip() if value(f"stage_category_{index}", f"{display_names['stage_category']}_{index}") is not None else None,
+                        })
+                    index += 1
+                if len(points) < 2:
+                    raise ValueError(f"{display_names['time_s']}_1 / {display_names['temperature_c']}_1 から少なくとも2点が必要です")
+            name = value("name", display_names["name"])
             if name is None or not str(name).strip():
-                raise ValueError("nameは空にできません")
+                raise ValueError(f"{display_names['name']}は空にできません")
             imported.append(CandidateInput(
                 name=str(name).strip(),
                 inputs={
@@ -307,12 +361,26 @@ def candidates_xlsx(candidates: list[Candidate], runtime: RuntimeProtocol, task_
         if field.kind == "categorical"
     ]
     heat_enabled = any(field.kind == "heat_pattern" for group in definition.input_groups for field in group.fields)
+    display_names = _candidate_xlsx_names(task_id, runtime.data.profile_path)
     max_points = max((len(candidate.inputs.heat_pattern or []) for candidate in candidates), default=2) if heat_enabled else 0
     heat_headers = [
         item for index in range(1, max_points + 1)
         for item in (f"time_s_{index}", f"temperature_c_{index}", f"segment_start_{index}", f"stage_name_{index}", f"stage_category_{index}")
     ]
-    headers = ["schema_version", "id", "name", *[field.path.split(".", 1)[1] for field in numeric_fields], *[field.path.split(".", 1)[1] for field in categorical_fields], *heat_headers, *[output.key for output in definition.outputs], "support_status", "support_distance"]
+    headers = [
+        display_names["schema_version"], display_names["id"], display_names["name"],
+        *[display_names.get(field.path, field.label) for field in numeric_fields],
+        *[display_names.get(field.path, field.label) for field in categorical_fields],
+        *[
+            f"{display_names.get(header.rsplit('_', 1)[0], header.rsplit('_', 1)[0])}_{header.rsplit('_', 1)[1]}"
+            for header in heat_headers
+        ],
+        *[display_names.get(output.key, output.label) for output in definition.outputs],
+        display_names["support_status"], display_names["support_distance"],
+    ]
+    if len(headers) != len(set(headers)):
+        duplicates = sorted({header for header in headers if headers.count(header) > 1})
+        raise ValueError(f"候補XLSXの見出しが重複しています: {', '.join(duplicates)}")
     sheet.append(headers)
     for candidate in candidates:
         result = runtime.predict(candidate, detailed=False)
@@ -341,11 +409,11 @@ def candidates_xlsx(candidates: list[Candidate], runtime: RuntimeProtocol, task_
         letter = column[0].column_letter
         sheet.column_dimensions[letter].width = min(22, max(12, max(len(str(cell.value or "")) for cell in column) + 2))
     guide = workbook.create_sheet("説明")
-    guide.append(["schema_version", "material-workbench-candidate-v2"])
+    guide.append([display_names["schema_version"], "material-workbench-candidate-v2"])
     guide.append(["用途", "候補入力と軽量プレビュー予測の出力。候補シートはそのまま候補importに使用できます。"])
     guide.append(["入力項目", " / ".join(f"{field.label}[{field.unit}]" for field in (*numeric_fields, *categorical_fields))])
     if heat_enabled:
-        guide.append(["焼鈍履歴", "time_s_N / temperature_c_N を縦方向の履歴点として指定し、stage_name_N を工程名として横に表示します。工程境界は segment_start_N で表します。"])
+        guide.append(["焼鈍履歴", f"{display_names['time_s']}_N / {display_names['temperature_c']}_N を履歴点として指定し、{display_names['stage_name']}_N を工程名として表示します。工程の先頭は {display_names['segment_start']}_N で表します。"])
     guide.append(["予測", "出力単位はTaskDefinitionの定義に従います。"])
     guide.column_dimensions["A"].width = 20
     guide.column_dimensions["B"].width = 110

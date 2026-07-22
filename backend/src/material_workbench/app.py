@@ -579,7 +579,12 @@ def create_app(
             raise HTTPException(422, "Excel候補importはこの予測タスクでは利用できません")
         if not file.filename or not file.filename.lower().endswith(".xlsx"):
             raise HTTPException(422, "Excel .xlsx ファイルを選択してください")
-        payloads, errors = import_candidates_xlsx(await file.read())
+        runtime = task_registry().runtime_for(project.task_id)
+        payloads, errors = import_candidates_xlsx(
+            await file.read(),
+            task_id=project.task_id,
+            profile_path=runtime.data.profile_path,
+        )
         try:
             created = [candidate.model_dump(mode="json") for candidate in store().create_candidates(payloads, project_id)]
         except ProjectNotFoundError as exc:

@@ -494,7 +494,7 @@ function CandidateFileControls({
         />
       </label>
       <button className="outline-button" onClick={download}>
-        結果をXLSX出力
+        候補・予測をXLSX出力
       </button>
       {message && <small>{message}</small>}
     </div>
