@@ -1,6 +1,8 @@
 """Pure NumPy posterior-predictive inference for exported linear draws."""
 from __future__ import annotations
 
+import math
+
 import numpy as np
 
 from ..model_packages import PackageContractError, PredictiveSummary, PredictorSpec, VerifiedModelPackage
@@ -17,10 +19,34 @@ class _PosteriorLinearPredictor:
 
     def predict(self, values: dict[str, float], *, seed: int = 0) -> PredictiveSummary:
         latent = self.beta @ feature_vector(self.spec, values) + self.intercept
-        rng = np.random.default_rng(seed)
-        samples = latent + self.noise_scale * rng.standard_normal(len(latent))
         epistemic_std = float(np.std(latent))
         aleatoric_std = float(np.sqrt(np.mean(self.noise_scale**2)))
+        if self.spec.predictive_family == "normal":
+            total_std = math.sqrt(epistemic_std**2 + aleatoric_std**2)
+            mean = float(np.mean(latent))
+            z90 = 1.6448536269514722
+            return PredictiveSummary(
+                target=self.spec.target,
+                target_kind=self.spec.target_kind,
+                unit=self.spec.unit,
+                point_statistic="mean",
+                point_estimate=mean,
+                quantiles={"0.05": mean - z90 * total_std, "0.50": mean, "0.95": mean + z90 * total_std},
+                distribution={
+                    "family": "normal",
+                    "support": "real",
+                    "mean": mean,
+                    "std": total_std,
+                    "approximation": "posterior_predictive_moment_matched",
+                },
+                uncertainty_components={
+                    "epistemic_std": epistemic_std,
+                    "aleatoric_std": aleatoric_std,
+                    "total_predictive_std": total_std,
+                },
+            )
+        rng = np.random.default_rng(seed)
+        samples = latent + self.noise_scale * rng.standard_normal(len(latent))
         total_std = float(np.std(samples))
         return PredictiveSummary(
             target=self.spec.target,
@@ -46,8 +72,10 @@ class BuiltinPosteriorLinearAdapter:
     runtime_type = "builtin.posterior_linear.v1"
 
     def load(self, package: VerifiedModelPackage, predictor: PredictorSpec) -> _PosteriorLinearPredictor:
-        if predictor.architecture_id != "posterior_linear_v1" or predictor.predictive_family != "empirical_quantiles":
-            raise PackageContractError("posterior linear requires posterior_linear_v1 empirical quantiles")
+        if predictor.architecture_id != "posterior_linear_v1" or predictor.predictive_family not in {"empirical_quantiles", "normal"}:
+            raise PackageContractError("posterior linear requires posterior_linear_v1 with empirical quantiles or moment-matched normal output")
+        if predictor.predictive_family == "normal" and predictor.config.get("output_representation") != "moment_matched_normal":
+            raise PackageContractError("posterior linear normal output requires output_representation=moment_matched_normal")
         arrays = safe_npz_arrays(package.artifact_path(predictor.artifact), max_entries=5)
         required = {"beta_draws", "intercept_draws", "noise_scale_draws"}
         optional = {"indicator_draws", "local_scale_draws"}
