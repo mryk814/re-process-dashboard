@@ -55,8 +55,9 @@ for (const task of tasks) {
     expect(createdDisposableResponse.status()).toBe(201);
     const disposableId = ((await createdDisposableResponse.json()) as { id: string }).id;
     await expect(page).toHaveURL(new RegExp(`candidate=${disposableId}`));
+    const disposableName = await page.locator(".candidate-name-table tbody tr.selected-row input").inputValue();
     const deleteResponse = page.waitForResponse((response) => response.request().method() === "DELETE" && response.url().includes(`/candidates/${disposableId}`));
-    await page.getByRole("button", { name: "削除", exact: true }).click();
+    await page.getByRole("button", { name: `${disposableName}を削除`, exact: true }).click();
     expect((await deleteResponse).status()).toBe(204);
 
     await page.getByRole("textbox", { name: `${editedName}の候補名` }).click();
@@ -69,7 +70,8 @@ for (const task of tasks) {
     expect(detailedResponse.status()).toBe(200);
     const detailed = await detailedResponse.json() as { snapshot: { payload: { raw_candidate: { revision: number } } } };
     expect(detailed.snapshot.payload.raw_candidate.revision).toBe(currentCandidate.revision);
-    await expect(page.locator(".notice")).toContainText("詳細予測を実行");
+    await expect(page.locator(".notice")).toContainText("詳細予測を保存しました");
+    await expect(page.getByRole("button", { name: `${editedName}の詳細予測を保存済み` })).toBeDisabled();
 
     await page.getByRole("button", { name: "プロジェクト概要", exact: true }).click();
     await expect(page.getByRole("heading", { name: "候補と判断履歴" })).toBeVisible();

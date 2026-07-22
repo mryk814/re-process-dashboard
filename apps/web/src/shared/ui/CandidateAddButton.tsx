@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 type CandidateAddButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  children: ReactNode;
+  children?: ReactNode;
   compact?: boolean;
 };
 

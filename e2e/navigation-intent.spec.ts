@@ -1,4 +1,16 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type APIRequestContext } from "@playwright/test";
+
+const api = "http://127.0.0.1:8875";
+
+async function createCandidateProject(request: APIRequestContext) {
+  const catalog = await (await request.get(`${api}/api/task-definitions`)).json() as Array<{ definition: { task_definition: { id: string } }; starter_candidate: Record<string, unknown> }>;
+  const task = catalog.find((item) => item.definition.task_definition.id === "annealed-properties-v1")!;
+  const created = await request.post(`${api}/api/projects`, { data: { name: `候補操作E2E ${Date.now()}`, task_id: "annealed-properties-v1" } });
+  const project = await created.json() as { id: string };
+  const candidate = await request.post(`${api}/api/projects/${project.id}/candidates`, { data: { ...task.starter_candidate, name: "操作元候補" } });
+  expect(candidate.status()).toBe(201);
+  return project.id;
+}
 
 test("project hub keeps the active project visible across scoped navigation", async ({ page }) => {
   await page.goto("/?view=project&project=default");
@@ -222,41 +234,45 @@ test("lineage expands the 40-node window and distinguishes data issues", async (
   await expect(page.locator(".lineage-graph-node.selected")).toHaveClass(/duplicate/);
 });
 
-test("copied candidate keeps its source and reports a deleted source", async ({ page }) => {
-  await page.goto("/?view=candidates&project=default");
+test("copied candidate keeps its source and reports a deleted source", async ({ page, request }) => {
+  const projectId = await createCandidateProject(request);
+  await page.goto(`/?view=candidates&project=${projectId}`);
   await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
   const sourceId = new URL(page.url()).searchParams.get("candidate");
   expect(sourceId).toBeTruthy();
+  const sourceName = await page.locator(".candidate-name-table tbody tr.selected-row input").inputValue();
 
-  await page.getByRole("button", { name: "選択候補を複製" }).click();
+  await page.getByRole("button", { name: `${sourceName}を複製` }).click();
   await expect(page.locator(".candidate-origin")).toContainText("候補コピー");
   const copiedId = new URL(page.url()).searchParams.get("candidate");
   expect(copiedId).toBeTruthy();
 
   await page.getByRole("button", { name: "作成元へ戻る" }).click();
   await expect(page).toHaveURL(new RegExp(`candidate=${sourceId}`));
-  await page.getByRole("button", { name: "削除", exact: true }).click();
-  await page.goto(`/?view=candidates&project=default&candidate=${copiedId}`);
+  await page.getByRole("button", { name: `${sourceName}を削除`, exact: true }).click();
+  await page.goto(`/?view=candidates&project=${projectId}&candidate=${copiedId}`);
   await expect(page.locator(".candidate-origin")).toContainText("コピー元は削除済みか参照できません");
 });
 
-test("archived copy source remains navigable", async ({ page }) => {
-  await page.goto("/?view=candidates&project=default");
+test("archived copy source remains navigable", async ({ page, request }) => {
+  const projectId = await createCandidateProject(request);
+  await page.goto(`/?view=candidates&project=${projectId}`);
   await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
   const sourceId = new URL(page.url()).searchParams.get("candidate");
   expect(sourceId).toBeTruthy();
+  const sourceName = await page.locator(".candidate-name-table tbody tr.selected-row input").inputValue();
 
-  await page.getByRole("button", { name: /詳細予測を保存/ }).click();
-  await expect(page.locator(".notice")).toContainText("詳細予測を実行");
-  await page.getByRole("button", { name: "選択候補を複製" }).click();
+  await page.getByRole("button", { name: `${sourceName}の詳細予測を保存` }).click();
+  await expect(page.locator(".notice")).toContainText("詳細予測を保存しました");
+  await page.getByRole("button", { name: `${sourceName}を複製` }).click();
   await expect(page.locator(".candidate-origin")).toContainText("候補コピー");
   const copiedId = new URL(page.url()).searchParams.get("candidate");
   expect(copiedId).toBeTruthy();
 
   await page.getByRole("button", { name: "作成元へ戻る" }).click();
   await expect(page).toHaveURL(new RegExp(`candidate=${sourceId}`));
-  await page.getByRole("button", { name: "削除", exact: true }).click();
-  await page.goto(`/?view=candidates&project=default&candidate=${copiedId}`);
+  await page.getByRole("button", { name: `${sourceName}を削除`, exact: true }).click();
+  await page.goto(`/?view=candidates&project=${projectId}&candidate=${copiedId}`);
   await expect(page.locator(".candidate-origin")).not.toContainText("削除済みか参照できません");
   await page.getByRole("button", { name: "作成元へ戻る" }).click();
   await expect(page.locator(".candidate-origin")).toContainText("archive済み候補を参照中");

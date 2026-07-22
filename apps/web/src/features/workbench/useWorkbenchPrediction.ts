@@ -21,11 +21,20 @@ type PreviewIdentity = Readonly<{
 const activeKey = (requestKey: string, inputIdentity: string) => `${requestKey}\u001f${inputIdentity}`;
 export function useWorkbenchPrediction({ projectId, taskId, candidate, operations, onNotice, setApiState }: Options) {
   const [previewsByCandidate, setPreviewsByCandidate] = useState<Record<string, ApiPreview>>({});
+  const [savedRevisionsByCandidate, setSavedRevisionsByCandidate] = useState<Record<string, number[]>>({});
+  const [snapshotHistoryState, setSnapshotHistoryState] = useState<"loading" | "ready" | "error">("loading");
+  const [savingCandidateIds, setSavingCandidateIds] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [retrySequence, setRetrySequence] = useState(0);
   const identities = useRef(new Map<string, PreviewIdentity>());
   const requestedInputIdentities = useRef(new Map<string, string>());
   const previewController = useRef<AbortController | null>(null);
+  const detailedRequestKeys = useRef(new Map<string, string>());
+  const detailedScope = `${projectId}\u001f${taskId}`;
+  const detailedScopeRef = useRef(detailedScope);
+  detailedScopeRef.current = detailedScope;
+  const selectedCandidateIdRef = useRef(candidate?.id ?? "");
+  selectedCandidateIdRef.current = candidate?.id ?? "";
   const identity: WorkbenchIdentity | null = candidate && taskId
     ? { projectId, taskId, candidateId: candidate.id, candidateRevision: candidate.raw.revision }
     : null;
@@ -36,9 +45,6 @@ export function useWorkbenchPrediction({ projectId, taskId, candidate, operation
     : "";
   const currentPreviewActiveKeyRef = useRef(currentPreviewActiveKey);
   currentPreviewActiveKeyRef.current = currentPreviewActiveKey;
-  const currentDetailedActiveKey = identity ? activeKey(workbenchRequestKey(identity, "detailed"), inputIdentity) : "";
-  const currentDetailedActiveKeyRef = useRef(currentDetailedActiveKey);
-  currentDetailedActiveKeyRef.current = currentDetailedActiveKey;
   const storedIdentity = candidate ? identities.current.get(candidate.id) : undefined;
   const preview = candidate ? previewsByCandidate[candidate.id] ?? null : null;
 
@@ -74,6 +80,35 @@ export function useWorkbenchPrediction({ projectId, taskId, candidate, operation
     setPreviewsByCandidate({});
     setError("");
   }
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setSavedRevisionsByCandidate({});
+    setSnapshotHistoryState("loading");
+    workbenchApi.projectHistory(projectId, controller.signal).then((history) => {
+      if (controller.signal.aborted) return;
+      const next: Record<string, number[]> = {};
+      for (const item of history.candidates) {
+        next[item.candidate.id] = Array.from(new Set(item.snapshots.flatMap((snapshot) => snapshot.candidate_revision == null ? [] : [snapshot.candidate_revision])));
+      }
+      setSavedRevisionsByCandidate((current) => {
+        const merged = { ...next };
+        for (const [candidateId, revisions] of Object.entries(current)) {
+          merged[candidateId] = Array.from(new Set([...(merged[candidateId] ?? []), ...revisions]));
+        }
+        return merged;
+      });
+      setSnapshotHistoryState("ready");
+    }).catch(() => {
+      if (!controller.signal.aborted) setSnapshotHistoryState("error");
+    });
+    return () => controller.abort();
+  }, [projectId]);
+
+  useEffect(() => {
+    detailedRequestKeys.current.clear();
+    setSavingCandidateIds([]);
+  }, [projectId, taskId]);
 
   function acceptProjectPreviews(candidates: CandidateViewModel[], currentCandidates: CandidateViewModel[], loaded: Record<string, ApiPreview>, loadedTaskId: string) {
     const currentById = new Map(currentCandidates.map((item) => [item.id, item]));
@@ -139,23 +174,48 @@ export function useWorkbenchPrediction({ projectId, taskId, candidate, operation
     };
   }, [candidate?.id, projectId, taskId, operations?.preview, retrySequence]);
 
-  async function runDetailedPrediction() {
-    if (!candidate || !identity || !operations?.detailed_prediction) return false;
-    const requestActiveKey = currentDetailedActiveKey;
+  async function runDetailedPrediction(targetCandidate = candidate) {
+    if (!targetCandidate || !taskId || !operations?.detailed_prediction) return false;
+    if (detailedRequestKeys.current.has(targetCandidate.id)) return false;
+    const requestScope = detailedScopeRef.current;
+    const targetIdentity = candidateInputIdentity(targetCandidate.raw.inputs);
+    const requestActiveKey = activeKey(workbenchRequestKey({
+      projectId,
+      taskId,
+      candidateId: targetCandidate.id,
+      candidateRevision: targetCandidate.raw.revision,
+    }, "detailed"), targetIdentity);
+    detailedRequestKeys.current.set(targetCandidate.id, requestActiveKey);
+    setSavingCandidateIds((current) => current.includes(targetCandidate.id) ? current : [...current, targetCandidate.id]);
     setApiState("loading");
     try {
-      const payload = await workbenchApi.predictCandidate(projectId, candidate.id, candidate.raw.revision);
-      if (currentDetailedActiveKeyRef.current !== requestActiveKey) return false;
-      identities.current.set(candidate.id, { inputIdentity, requestKey: previewRequestKey });
-      setPreviewsByCandidate((current) => ({ ...current, [candidate.id]: payload.prediction }));
-      setError("");
-      onNotice("詳細予測を実行し、スナップショットを保存しました。");
+      const payload = await workbenchApi.predictCandidate(projectId, targetCandidate.id, targetCandidate.raw.revision);
+      if (detailedScopeRef.current !== requestScope || detailedRequestKeys.current.get(targetCandidate.id) !== requestActiveKey) return false;
+      identities.current.set(targetCandidate.id, {
+        inputIdentity: targetIdentity,
+        requestKey: workbenchRequestKey({ projectId, taskId, candidateId: targetCandidate.id, candidateRevision: targetCandidate.raw.revision }, "preview"),
+      });
+      setPreviewsByCandidate((current) => ({ ...current, [targetCandidate.id]: payload.prediction }));
+      setSavedRevisionsByCandidate((current) => ({
+        ...current,
+        [targetCandidate.id]: Array.from(new Set([...(current[targetCandidate.id] ?? []), targetCandidate.raw.revision])),
+      }));
+      setSnapshotHistoryState("ready");
+      if (selectedCandidateIdRef.current === targetCandidate.id) setError("");
+      onNotice(`${targetCandidate.label}の詳細予測を保存しました。`);
       return true;
     } catch {
-      if (currentDetailedActiveKeyRef.current === requestActiveKey) setError("詳細予測または保存に失敗しました");
+      if (detailedScopeRef.current === requestScope && detailedRequestKeys.current.get(targetCandidate.id) === requestActiveKey) {
+        if (selectedCandidateIdRef.current === targetCandidate.id) setError("詳細予測または保存に失敗しました");
+        onNotice(`${targetCandidate.label}の詳細予測を保存できませんでした。`);
+      }
       return false;
     } finally {
-      if (currentDetailedActiveKeyRef.current === requestActiveKey) setApiState("ready");
+      if (detailedScopeRef.current === requestScope && detailedRequestKeys.current.get(targetCandidate.id) === requestActiveKey) {
+        detailedRequestKeys.current.delete(targetCandidate.id);
+        setSavingCandidateIds((current) => current.filter((candidateId) => candidateId !== targetCandidate.id));
+        if (detailedRequestKeys.current.size === 0) setApiState("ready");
+      }
     }
   }
 
@@ -169,5 +229,8 @@ export function useWorkbenchPrediction({ projectId, taskId, candidate, operation
     reset,
     retry: () => setRetrySequence((value) => value + 1),
     runDetailedPrediction,
+    savedRevisionsByCandidate,
+    savingCandidateIds,
+    snapshotHistoryState,
   };
 }

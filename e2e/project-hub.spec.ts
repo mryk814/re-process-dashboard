@@ -26,6 +26,7 @@ test("project hub separates current revision from fixed snapshot and restores a 
   await numeric.fill(String(value + 0.001));
   await page.locator(".table-heading h2").click();
   expect((await saved).status()).toBe(200);
+  await expect(page.getByRole("button", { name: `${candidateName}の詳細予測を保存` })).toBeEnabled();
 
   await page.getByRole("button", { name: "プロジェクト概要", exact: true }).click();
   const card = page.locator(".project-history-card", { hasText: candidateName });

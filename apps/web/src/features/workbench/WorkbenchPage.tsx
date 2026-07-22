@@ -160,24 +160,6 @@ function candidateColor(candidateId: string, selectedId: string) {
   return CANDIDATE_COLORS[hash % CANDIDATE_COLORS.length];
 }
 
-function Icon({ name }: { name: "trash" }) {
-  const common = {
-    width: 18,
-    height: 18,
-    viewBox: "0 0 24 24",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 1.75,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
-    "aria-hidden": true,
-  };
-  const paths = {
-    trash: <><path d="M4 7h16M10 11v6m4-6v6M9 7l1-3h4l1 3m-9 0 1 13h10l1-13" /></>,
-  };
-  return <svg {...common}>{paths[name]}</svg>;
-}
-
 export function WorkbenchEmptyState({
   loading,
   error,
@@ -218,6 +200,7 @@ type WorkbenchProps = {
   taskDefinition: TaskDefinitionContract | null;
   operations?: RuntimeOperations;
   saveState: CandidateSaveState;
+  saveStates: Record<string, CandidateSaveState>;
   fieldErrors: Array<{ path: string; message: string }>;
   onReload: () => void;
   onCopyDraft: () => void;
@@ -231,10 +214,14 @@ type WorkbenchProps = {
   onText: (id: string, field: "label", value: string) => void;
   onAddHeat: () => void;
   onDeleteHeat: (index: number) => void;
-  onCopy: () => void;
+  onCopy: (candidateId: string) => void;
   onOpenOrigin: () => void;
   originBroken: boolean;
-  onDelete: () => void;
+  onDelete: (candidateId: string) => void;
+  onSave: (candidate: Candidate) => void;
+  savedRevisionsByCandidate: Record<string, number[]>;
+  savingCandidateIds: string[];
+  snapshotHistoryState: "loading" | "ready" | "error";
   onAdd: () => void;
   onAddCandidateFromLineage: (entityKey: string) => Promise<boolean>;
   onImported: (items: Candidate[]) => void;
@@ -255,6 +242,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
     taskDefinition,
     operations,
     saveState,
+    saveStates,
     fieldErrors,
     onReload,
     onCopyDraft,
@@ -272,6 +260,10 @@ export function WorkbenchPage(props: WorkbenchProps) {
     onOpenOrigin,
     originBroken,
     onDelete,
+    onSave,
+    savedRevisionsByCandidate,
+    savingCandidateIds,
+    snapshotHistoryState,
     onAdd,
     onAddCandidateFromLineage,
     onImported,
@@ -360,21 +352,6 @@ export function WorkbenchPage(props: WorkbenchProps) {
           </div>
           {previewError && <span className="comparison-preview-error" role="alert">{previewError}{operations?.preview && <button type="button" onClick={onRetryPreview}>再試行</button>}</span>}
           <div className="comparison-actions" aria-label="候補操作">
-            <CandidateAddButton onClick={onCopy}>選択候補を複製</CandidateAddButton>
-            <button
-              className="outline-button"
-              onClick={onDelete}
-              disabled={
-                candidates.length <= 1 || decisionCandidateId === selectedId
-              }
-              title={
-                decisionCandidateId === selectedId
-                  ? "採用判断を解除してから削除してください"
-                  : undefined
-              }
-            >
-              <Icon name="trash" />削除
-            </button>
             <CandidateFileControls projectId={projectId} onImported={onImported} />
             <CandidateAddButton onClick={onAdd}>候補を追加</CandidateAddButton>
           </div>
@@ -389,9 +366,18 @@ export function WorkbenchPage(props: WorkbenchProps) {
           previewsByCandidate={previewsByCandidate}
           targetValues={targetValues}
           displayDecimalOverrides={project?.display_decimals}
+          decisionCandidateId={decisionCandidateId}
+          detailedPredictionAvailable={operations?.detailed_prediction === true}
+          saveStates={saveStates}
+          savedRevisionsByCandidate={savedRevisionsByCandidate}
+          savingCandidateIds={savingCandidateIds}
+          snapshotHistoryState={snapshotHistoryState}
           onSelect={onSelect}
           onInput={onInput}
           onName={(id, value) => onText(id, "label", value)}
+          onCopy={onCopy}
+          onDelete={onDelete}
+          onSave={onSave}
         />}
         {taskDefinition?.curve_axis_path && operations?.response_curve ? (
           <CurveFamilyPanel
