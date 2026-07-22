@@ -3,7 +3,13 @@ import { provenanceLabel } from "../../shared/candidateProvenance";
 import { formatPredictionPoint, predictionHasInterval, predictionIntervalLabel } from "../../shared/predictionPresentation";
 import { assessOutputValues, assessPrediction, resolveOutputDefinition } from "../../shared/outputPresentation";
 import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
-import { datasetDisplayName, trainingDataset } from "../../shared/dataLibraryPresentation";
+import {
+  compatiblePackagesForTask,
+  compatibleTaskIdsForDataset,
+  datasetDisplayName,
+  initialProjectBindingForDataset,
+  trainingDataset,
+} from "../../shared/dataLibraryPresentation";
 import { fromApiCandidate, toApiCandidate, type CandidateViewModel, type RuntimeOperations, type TaskDefinitionContract } from "../candidates";
 import {
   workbenchApi,
@@ -78,6 +84,8 @@ export function ProjectHub({
   const [decisionNote, setDecisionNote] = useState("");
   const activeProjectRef = useRef(activeProjectId);
   const decisionDraftRef = useRef({ key: "", dirty: false });
+  const projectNameInputRef = useRef<HTMLInputElement>(null);
+  const focusCreationFormRef = useRef(false);
   activeProjectRef.current = activeProjectId;
   const outputDefinition = (key: string) => resolveOutputDefinition(taskDefinition?.outputs ?? [], key);
 
@@ -148,8 +156,12 @@ export function ProjectHub({
     (creationOptions?.datasets ?? []).flatMap((dataset) => (dataset.dataset_views ?? []).map((view) => [view.id, dataset] as const)),
   ), [creationOptions]);
   const selectedDataset = datasetByView.get(newDatasetViewId);
-  const availableTaskIds = selectedDataset?.supported_task_ids ?? [];
-  const availablePackages = (creationOptions?.model_packages ?? []).filter((item) => item.task_id === newTaskId);
+  const availableTaskIds = creationOptions
+    ? compatibleTaskIdsForDataset(selectedDataset, creationOptions)
+    : [];
+  const availablePackages = creationOptions
+    ? compatiblePackagesForTask(newTaskId, creationOptions)
+    : [];
   const fixedDataset = project?.dataset_view_revision_id ? datasetByView.get(project.dataset_view_revision_id) : undefined;
   const fixedPackage = creationOptions?.model_packages.find((item) => item.id === project?.model_package_ref_id);
   const fixedSeries = creationOptions?.project_series.find((item) => item.id === project?.project_series_id);
@@ -183,18 +195,25 @@ export function ProjectHub({
       onCreationIntentConsumed();
       return;
     }
-    const taskId = dataset.supported_task_ids[0] ?? "";
+    const binding = initialProjectBindingForDataset(dataset, creationOptions);
+    focusCreationFormRef.current = true;
     setCreateOpen(true);
     setCreateMode("empty");
     setNewProjectName(`${datasetDisplayName(dataset)} 検討`);
     setNewDatasetViewId(requestedDatasetViewId);
-    setNewTaskId(taskId);
-    setNewModelPackageRefId(creationOptions.model_packages.find((item) => item.task_id === taskId)?.id ?? "");
+    setNewTaskId(binding.taskId);
+    setNewModelPackageRefId(binding.modelPackageRefId);
     setNewProjectSeriesId("");
     setPredecessorProjectId("");
     setContinuationReason("");
     onCreationIntentConsumed();
   }, [creationOptions, datasetByView, onCreationIntentConsumed, requestedDatasetViewId]);
+
+  useEffect(() => {
+    if (!createOpen || !focusCreationFormRef.current) return;
+    focusCreationFormRef.current = false;
+    projectNameInputRef.current?.focus();
+  }, [createOpen]);
 
   async function saveProject() {
     if (!project) return;
@@ -228,8 +247,8 @@ export function ProjectHub({
         initial_candidate: initialCandidate,
         dataset_view_revision_id: newDatasetViewId || undefined,
         model_package_ref_id: newModelPackageRefId || undefined,
-        task_contract_digest: "",
-        model_package_manifest_digest: "",
+        task_contract_digest: selectedPackage?.task_contract_digest ?? "",
+        model_package_manifest_digest: selectedPackage?.manifest_digest ?? "",
         project_series_id: newProjectSeriesId || undefined,
         predecessor_project_id: predecessorProjectId || undefined,
         continuation_reason: continuationReason,
@@ -296,7 +315,9 @@ export function ProjectHub({
   };
 
   const toggleCreateProject = () => {
-    setCreateOpen((value) => !value);
+    const nextOpen = !createOpen;
+    if (nextOpen) focusCreationFormRef.current = true;
+    setCreateOpen(nextOpen);
     setCreateMode("empty");
     setNewProjectName("");
     setNewTaskId("");
@@ -313,6 +334,7 @@ export function ProjectHub({
       setError("このプロジェクトは固定参照が不足しているため、続きとして作成できません。開発・管理で参照状態を確認してください。");
       return;
     }
+    focusCreationFormRef.current = true;
     setCreateOpen(true);
     setCreateMode("empty");
     setNewProjectName(`${project.name} 続き`);
@@ -378,12 +400,12 @@ export function ProjectHub({
 
       {createOpen && <section className="project-create-panel" aria-label="新規プロジェクトの開始方法">
         <div className="panel-title"><h3>新しいプロジェクト</h3><span>開始方法を選んでから作成します</span></div>
-        <label>プロジェクト名<input value={newProjectName} onChange={(event) => setNewProjectName(event.target.value)} placeholder="例: 2026年7月 焼鈍条件の再検討" /></label>
+        <label>プロジェクト名<input ref={projectNameInputRef} value={newProjectName} onChange={(event) => setNewProjectName(event.target.value)} placeholder="例: 2026年7月 焼鈍条件の再検討" /></label>
         <div className="project-binding-flow">
-          <label><b>1</b><span>Dataset</span><select disabled={createMode === "copy" || Boolean(predecessorProjectId)} value={newDatasetViewId} onChange={(event) => { const viewId = event.target.value; const dataset = datasetByView.get(viewId); const taskId = dataset?.supported_task_ids[0] ?? ""; setNewDatasetViewId(viewId); setNewTaskId(taskId); setNewModelPackageRefId(creationOptions?.model_packages.find((item) => item.task_id === taskId)?.id ?? ""); }}><option value="">選択してください</option>{(creationOptions?.dataset_views ?? []).filter((item) => item.kind === "single").map((view) => <option key={view.id} value={view.id}>{view.name} · {datasetByView.get(view.id)?.profile_revision.name}</option>)}</select></label>
-          <label><b>2</b><span>Prediction Task</span><select disabled={createMode === "copy" || Boolean(predecessorProjectId)} value={createMode === "copy" ? copyTaskId : newTaskId} onChange={(event) => { const taskId = event.target.value; setNewTaskId(taskId); setNewModelPackageRefId(creationOptions?.model_packages.find((item) => item.task_id === taskId)?.id ?? ""); }}><option value="">選択してください</option>{catalog.filter((item) => availableTaskIds.includes(item.definition.task_definition.id)).map((item) => <option key={item.definition.task_definition.id} value={item.definition.task_definition.id}>{item.definition.task_definition.label}</option>)}</select></label>
-          <label><b>3</b><span>Model Package</span><select disabled={createMode === "copy" || Boolean(predecessorProjectId)} value={newModelPackageRefId} onChange={(event) => setNewModelPackageRefId(event.target.value)}><option value="">選択してください</option>{availablePackages.map((item) => <option key={item.id} value={item.id}>{item.package_id}</option>)}</select></label>
-          <label><b>4</b><span>検討のつながり</span><select disabled={Boolean(predecessorProjectId)} value={newProjectSeriesId} onChange={(event) => setNewProjectSeriesId(event.target.value)}><option value="">新しい一連の検討として開始</option>{(creationOptions?.project_series ?? []).map((series) => <option key={series.id} value={series.id}>{series.name}</option>)}</select></label>
+          <label><b aria-hidden="true">1</b><span>Dataset</span><select disabled={createMode === "copy" || Boolean(predecessorProjectId)} value={newDatasetViewId} onChange={(event) => { const viewId = event.target.value; const dataset = datasetByView.get(viewId); const binding = creationOptions ? initialProjectBindingForDataset(dataset, creationOptions) : { taskId: "", modelPackageRefId: "" }; setNewDatasetViewId(viewId); setNewTaskId(binding.taskId); setNewModelPackageRefId(binding.modelPackageRefId); }}><option value="">選択してください</option>{(creationOptions?.dataset_views ?? []).filter((item) => item.kind === "single").map((view) => <option key={view.id} value={view.id}>{view.name} · {datasetByView.get(view.id)?.profile_revision.name}</option>)}</select></label>
+          <label><b aria-hidden="true">2</b><span>予測タスク（Prediction Task）</span><select disabled={createMode === "copy" || Boolean(predecessorProjectId)} value={createMode === "copy" ? copyTaskId : newTaskId} onChange={(event) => { const taskId = event.target.value; const packages = creationOptions ? compatiblePackagesForTask(taskId, creationOptions) : []; setNewTaskId(taskId); setNewModelPackageRefId(packages.length === 1 ? packages[0].id : ""); }}><option value="">選択してください</option>{catalog.filter((item) => availableTaskIds.includes(item.definition.task_definition.id)).map((item) => <option key={item.definition.task_definition.id} value={item.definition.task_definition.id}>{item.definition.task_definition.label}</option>)}</select></label>
+          <label><b aria-hidden="true">3</b><span>Model Package</span><select disabled={createMode === "copy" || Boolean(predecessorProjectId)} value={newModelPackageRefId} onChange={(event) => setNewModelPackageRefId(event.target.value)}><option value="">選択してください</option>{availablePackages.map((item) => <option key={item.id} value={item.id}>{item.package_id}</option>)}</select></label>
+          <label><b aria-hidden="true">4</b><span>検討のつながり</span><select disabled={Boolean(predecessorProjectId)} value={newProjectSeriesId} onChange={(event) => setNewProjectSeriesId(event.target.value)}><option value="">新しい一連の検討として開始</option>{(creationOptions?.project_series ?? []).map((series) => <option key={series.id} value={series.id}>{series.name}</option>)}</select></label>
         </div>
         <section className="project-binding-confirmation" aria-label="作成後に固定される内容">
           <header><strong>作成後に固定される内容</strong><span>Dataset・Prediction Task・Model Packageは後から変更できません</span></header>

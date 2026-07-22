@@ -1,6 +1,7 @@
 import type {
   ApiDataLibraryDataset,
   ApiModelPackageRef,
+  ApiProjectCreationOptions,
 } from "./api/workbench-api";
 
 const asRecord = (value: unknown): Record<string, unknown> | null => (
@@ -38,4 +39,37 @@ export function trainingDataset(
 
 export function datasetDisplayName(dataset: ApiDataLibraryDataset | undefined): string {
   return dataset?.data_asset.original_filename.replace(/\.xlsx$/i, "") ?? "Dataset未解決";
+}
+
+export function compatiblePackagesForTask(
+  taskId: string,
+  options: Pick<ApiProjectCreationOptions, "model_packages" | "task_contract_digests">,
+): ApiModelPackageRef[] {
+  const currentDigest = options.task_contract_digests[taskId];
+  if (!currentDigest) return [];
+  return options.model_packages.filter((item) => (
+    item.task_id === taskId && item.task_contract_digest === currentDigest
+  ));
+}
+
+export function compatibleTaskIdsForDataset(
+  dataset: ApiDataLibraryDataset | undefined,
+  options: Pick<ApiProjectCreationOptions, "model_packages" | "task_contract_digests">,
+): string[] {
+  return (dataset?.supported_task_ids ?? []).filter((taskId) => (
+    compatiblePackagesForTask(taskId, options).length > 0
+  ));
+}
+
+export function initialProjectBindingForDataset(
+  dataset: ApiDataLibraryDataset | undefined,
+  options: Pick<ApiProjectCreationOptions, "model_packages" | "task_contract_digests">,
+): { taskId: string; modelPackageRefId: string } {
+  const taskIds = compatibleTaskIdsForDataset(dataset, options);
+  if (taskIds.length !== 1) return { taskId: "", modelPackageRefId: "" };
+  const packages = compatiblePackagesForTask(taskIds[0], options);
+  return {
+    taskId: taskIds[0],
+    modelPackageRefId: packages.length === 1 ? packages[0].id : "",
+  };
 }

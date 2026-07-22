@@ -21,6 +21,16 @@ def test_data_library_exposes_semantic_dataset_records_and_creation_options(clie
     assert len(payload["dataset_views"]) == 2
     assert len(payload["model_packages"]) == 3
     assert payload["project_series"]
+    assert set(payload["task_contract_digests"]) >= {
+        "annealed-properties-v1",
+        "hot-rolled-properties-v1",
+        "flank-wear-v1",
+    }
+    assert all(
+        package["task_contract_digest"]
+        == payload["task_contract_digests"][package["task_id"]]
+        for package in payload["model_packages"]
+    )
 
 
 def test_project_creation_pins_explicit_references_and_rejects_rebinding(client) -> None:

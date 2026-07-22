@@ -115,12 +115,14 @@ function App() {
         <nav aria-label="ホーム">
           <button
             className="nav-button"
+            aria-current={!dataLibraryMode ? "page" : undefined}
             onClick={() => navigate({ view: "project", projectId: activeProjectId })}
           >
             プロジェクト
           </button>
           <button
             className={dataLibraryMode ? "nav-button active" : "nav-button"}
+            aria-current={dataLibraryMode ? "page" : undefined}
             onClick={() => navigate({ view: "data-library", projectId: activeProjectId })}
           >
             データライブラリ
@@ -168,7 +170,7 @@ function App() {
             ))}
           </nav>
         </div>}
-        {notice && notice !== preview?.support.message && <div className="workspace-notice" role="status">{notice}</div>}
+        {!dataLibraryMode && notice && notice !== preview?.support.message && <div className="workspace-notice" role="status">{notice}</div>}
         {tab === "project" && (
           <ProjectHub
             projects={projects}
