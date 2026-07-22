@@ -46,8 +46,9 @@ def test_registry_fails_fast_when_manifest_outputs_disagree_with_task_definition
     hot_path = contract_root / "hot-rolled-properties-v1.json"
     hot = json.loads(hot_path.read_text(encoding="utf-8"))
     hot["task_definition"]["outputs"].append(
-        {"key": "YS", "label": "降伏強さ", "unit": "MPa", "goal_direction": "at_least"}
+        {"key": "YS", "label": "降伏強さ", "unit": "MPa", "goal_direction": "at_least", "measurement_keys": ["YS[MPa]"]}
     )
+    hot["task_definition"]["display_decimals"]["output.YS"] = 1
     ys_capability = copy.deepcopy(hot["runtime_capability"]["targets"][0])
     ys_capability["target"] = "YS"
     hot["runtime_capability"]["targets"].append(ys_capability)
