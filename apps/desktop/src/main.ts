@@ -72,6 +72,8 @@ function sidecarCommand(port: number): { command: string; args: string[]; cwd: s
     command: "uv",
     args: [
       "run",
+      "python",
+      "-m",
       "uvicorn",
       "main:app",
       "--app-dir",

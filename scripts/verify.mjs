@@ -29,11 +29,11 @@ if (mode === "focused") {
     );
     process.exit(2);
   }
-  run("focused pytest", "uv", ["run", "pytest", ...forwarded]);
+  run("focused pytest", "uv", ["run", "python", "-m", "pytest", ...forwarded]);
   runNpm("TypeScript typecheck", ["run", "typecheck"]);
 } else if (mode === "full") {
   const baseRef = process.env.VERIFY_BASE_REF || "origin/main";
-  run("full pytest", "uv", ["run", "pytest"]);
+  run("full pytest", "uv", ["run", "python", "-m", "pytest"]);
   runNpm("web unit tests", ["run", "test", "-w", "apps/web"]);
   runNpm("TypeScript typecheck", ["run", "typecheck"]);
   runNpm("application build", ["run", "build"]);

@@ -19,7 +19,7 @@ npm run dev   # Web UI: 127.0.0.1:5180 / API: 127.0.0.1:8765
 変更後は次の3つを通してから完了とする。
 
 ```powershell
-uv run pytest
+uv run python -m pytest
 npm run typecheck
 npm run build
 ```

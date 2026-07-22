@@ -18,7 +18,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: `uv run uvicorn main:app --app-dir backend/src --host 127.0.0.1 --port ${apiPort}`,
+      command: `uv run python -m uvicorn main:app --app-dir backend/src --host 127.0.0.1 --port ${apiPort}`,
       port: apiPort,
       reuseExistingServer: false,
       env: { WORKBENCH_DB_PATH: database },

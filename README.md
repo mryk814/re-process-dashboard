@@ -133,7 +133,7 @@ npm run dev
 
 ```powershell
 uv sync --extra dev --extra runtime-sklearn --extra runtime-lightgbm --extra runtime-gpytorch
-uv run pytest backend/tests/test_optional_adapters.py
+uv run python -m pytest backend/tests/test_optional_adapters.py
 ```
 
 NumPyroのNormal、Student-t、LogNormal、Bernoulli、Poisson、Negative Binomial、zero-inflated Poisson、ordinal logitの8つの実Package例は `examples/model-packages/numpyro` にあります。新しいモデルは [I/O契約別のModel Runtime事例索引](docs/model-runtime-examples/index.md) から最も近い経路を選びます。契約と安全境界は `docs/model-package-contract.md`、冶金・ヒートパターン特徴は `docs/feature-engineering.md` を参照してください。

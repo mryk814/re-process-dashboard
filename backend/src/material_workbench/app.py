@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import os
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, Mapping
 
 from fastapi import FastAPI
@@ -21,7 +23,61 @@ from .inference_work_graph import InferenceWorkGraph
 from .model_lifecycle import ACTIVE_PACKAGES_PATH, load_active_packages, resolve_configured_package, validate_active_package_task_set
 from .store import Store
 from .task_registry import DataExplorerEntry, TaskRegistry
-from .task_modules import registered_task_modules
+from .task_modules import PredictionRuntime, TaskModule, registered_task_modules
+
+
+@dataclass(frozen=True)
+class _AppResources:
+    """Prepared source data and model runtimes treated as read-only by the app."""
+
+    modules: Mapping[str, TaskModule]
+    data_by_source: Mapping[str, Any]
+    runtimes: Mapping[str, PredictionRuntime]
+    task_registry: TaskRegistry
+
+
+def _prepare_app_resources(
+    source_path: str | Path | None = None,
+    *,
+    flank_wear_source_path: str | Path | None = None,
+    package_roots: Mapping[str, str | Path] | None = None,
+    active_packages_path: str | Path | None = None,
+) -> _AppResources:
+    """Load workbook and package resources that callers treat as read-only."""
+
+    source = Path(source_path or os.getenv("WORKBENCH_SOURCE_PATH", "data/source/process_dashboard_realistic_excel_v2.xlsx"))
+    configured = Path(active_packages_path) if active_packages_path else ACTIVE_PACKAGES_PATH
+    injected = dict(package_roots or {})
+    modules = dict(registered_task_modules())
+    validate_active_package_task_set(load_active_packages(configured), set(modules))
+    data_by_source: dict[str, Any] = {}
+    runtimes: dict[str, PredictionRuntime] = {}
+    explorers: dict[str, DataExplorerEntry] = {}
+    for task_id, module in modules.items():
+        if module.source_kind not in data_by_source:
+            explicit_source = source if module.source_kind == "primary" else flank_wear_source_path
+            configured_source = Path(explicit_source or os.getenv(module.source_env, str(module.default_source)))
+            if not configured_source.is_absolute() and not configured_source.exists():
+                repository_source = Path(__file__).resolve().parents[3] / configured_source
+                if repository_source.exists():
+                    configured_source = repository_source
+            data_by_source[module.source_kind] = module.data_loader(configured_source)
+        data = data_by_source[module.source_kind]
+        package = resolve_configured_package(
+            task_id,
+            config_path=configured,
+            override=injected.get(task_id) or os.getenv(module.package_override_env),
+        )
+        runtimes[task_id] = module.runtime_factory(data, package)
+        if module.data_explorer is not None:
+            explorers[task_id] = DataExplorerEntry(data=data, capability=module.data_explorer)
+    task_registry = TaskRegistry(runtimes, data_explorers=explorers, modules=modules)
+    return _AppResources(
+        modules=MappingProxyType(modules),
+        data_by_source=MappingProxyType(data_by_source),
+        runtimes=MappingProxyType(runtimes),
+        task_registry=task_registry,
+    )
 
 
 def create_app(
@@ -31,47 +87,33 @@ def create_app(
     flank_wear_source_path: str | Path | None = None,
     package_roots: Mapping[str, str | Path] | None = None,
     active_packages_path: str | Path | None = None,
+    _resources: _AppResources | None = None,
 ) -> FastAPI:
-    source = Path(source_path or os.getenv("WORKBENCH_SOURCE_PATH", "data/source/process_dashboard_realistic_excel_v2.xlsx"))
     database = Path(db_path or os.getenv("WORKBENCH_DB_PATH", "data/workbench.db"))
+    if _resources is not None and any(
+        value is not None
+        for value in (source_path, flank_wear_source_path, package_roots, active_packages_path)
+    ):
+        raise ValueError("preloaded resources cannot be combined with source or package overrides")
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         database_existed = database.exists()
-        configured = Path(active_packages_path) if active_packages_path else ACTIVE_PACKAGES_PATH
-        injected = dict(package_roots or {})
-        modules = registered_task_modules()
-        validate_active_package_task_set(load_active_packages(configured), set(modules))
-        data_by_source: dict[str, Any] = {}
-        runtimes = {}
-        explorers = {}
-        for task_id, module in modules.items():
-            if module.source_kind not in data_by_source:
-                explicit_source = source if module.source_kind == "primary" else flank_wear_source_path
-                configured_source = Path(explicit_source or os.getenv(module.source_env, str(module.default_source)))
-                if not configured_source.is_absolute() and not configured_source.exists():
-                    repository_source = Path(__file__).resolve().parents[3] / configured_source
-                    if repository_source.exists():
-                        configured_source = repository_source
-                data_by_source[module.source_kind] = module.data_loader(configured_source)
-            data = data_by_source[module.source_kind]
-            package = resolve_configured_package(
-                task_id,
-                config_path=configured,
-                override=injected.get(task_id) or os.getenv(module.package_override_env),
-            )
-            runtimes[task_id] = module.runtime_factory(data, package)
-            if module.data_explorer is not None:
-                explorers[task_id] = DataExplorerEntry(data=data, capability=module.data_explorer)
-        app.state.data = data_by_source["primary"]
-        app.state.task_registry = TaskRegistry(runtimes, data_explorers=explorers, modules=modules)
+        prepared = _resources or _prepare_app_resources(
+            source_path,
+            flank_wear_source_path=flank_wear_source_path,
+            package_roots=package_roots,
+            active_packages_path=active_packages_path,
+        )
+        app.state.data = prepared.data_by_source["primary"]
+        app.state.task_registry = prepared.task_registry
         app.state.inference_work_graph = InferenceWorkGraph(max_entries=256)
         app.state.store = Store(database)
         explicit_demo_seed = os.getenv("WORKBENCH_DEMO_SEED", "").strip().lower() in {"1", "true", "yes"}
         initialize_demo_projects(
             app.state.store,
-            modules,
-            runtimes,
+            prepared.modules,
+            prepared.runtimes,
             seed_candidates=not database_existed or explicit_demo_seed,
         )
         yield
