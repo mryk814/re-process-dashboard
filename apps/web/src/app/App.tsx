@@ -154,7 +154,7 @@ function App() {
                 <span>比較へ</span>
               </button>
             )}
-            <span className="notice" role="status">{notice}</span>
+            {notice && <span className="notice" role="status">{notice}</span>}
             <span className={`api-state ${apiState}`}>
               {apiState === "loading"
                 ? "プレビュー更新中"
