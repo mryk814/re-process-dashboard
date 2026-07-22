@@ -7,7 +7,7 @@ from typing import Any
 
 from openpyxl import load_workbook
 
-from .dataset_profile import canonicalize_workbook, load_dataset_profile
+from .dataset_profile import DatasetProfileError, canonicalize_workbook, load_dataset_profile
 from .dataset_registration import file_sha256
 from .importer import detect_dataset_profile_path
 from .model_lifecycle import dataset_profile_digest
@@ -43,7 +43,10 @@ def inspect_workbook(source: Path, profile_path: Path | None = None) -> dict[str
             "canonicalization": None,
         }
         if selected is not None:
-            result["canonicalization"] = validate_workbook_profile(source, selected)
+            try:
+                result["canonicalization"] = validate_workbook_profile(source, selected)
+            except DatasetProfileError as exc:
+                result["profile_error"] = "\n".join(exc.errors)
         return result
     finally:
         workbook.close()
@@ -61,6 +64,20 @@ def validate_workbook_profile(source: Path, profile_path: Path) -> dict[str, Any
     finally:
         workbook.close()
     observations_by_task = Counter(item.task_id for item in canonical.observations)
+    rejected_by_policy = Counter(
+        f"{item.source_role}.{policy}"
+        for item in canonical.observations
+        for policy, accepted in item.policy_results.items()
+        if not accepted
+    )
+    entity_preview = [
+        {
+            "entity_type": identity[0],
+            "entity_key": identity[1],
+            "values": dict(entity.values),
+        }
+        for identity, entity in list(canonical.entities.items())[:5]
+    ]
     return {
         "ok": True,
         "registration_ready": True,
@@ -75,4 +92,6 @@ def validate_workbook_profile(source: Path, profile_path: Path) -> dict[str, Any
         "observations": len(canonical.observations),
         "observations_by_task": dict(sorted(observations_by_task.items())),
         "heat_series_parents": len(canonical.heat_series),
+        "rejected_by_policy": dict(sorted(rejected_by_policy.items())),
+        "entity_preview": entity_preview,
     }

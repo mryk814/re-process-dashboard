@@ -244,6 +244,66 @@
         "title": "Body_import_candidates_api_projects__project_id__candidates_import_post",
         "type": "object"
       },
+      "Body_inspect_uploaded_workbook_api_profile_workbench_inspect_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          },
+          "profile_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Digest"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_inspect_uploaded_workbook_api_profile_workbench_inspect_post",
+        "type": "object"
+      },
+      "Body_register_uploaded_workbook_api_profile_workbench_register_post": {
+        "properties": {
+          "expected_source_sha256": {
+            "title": "Expected Source Sha256",
+            "type": "string"
+          },
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "profile_digest": {
+            "title": "Profile Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "profile_digest",
+          "expected_source_sha256"
+        ],
+        "title": "Body_register_uploaded_workbook_api_profile_workbench_register_post",
+        "type": "object"
+      },
       "Candidate": {
         "properties": {
           "archived_at": {
@@ -3262,6 +3322,260 @@
         "title": "ProfileRevision",
         "type": "object"
       },
+      "ProfileWorkbenchInspection": {
+        "properties": {
+          "auto_detected": {
+            "default": false,
+            "title": "Auto Detected",
+            "type": "boolean"
+          },
+          "profile_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Error"
+          },
+          "selected_profile_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Profile Digest"
+          },
+          "sheets": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileWorkbenchSheetInventory"
+            },
+            "title": "Sheets",
+            "type": "array"
+          },
+          "source_filename": {
+            "title": "Source Filename",
+            "type": "string"
+          },
+          "source_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Sha256",
+            "type": "string"
+          },
+          "validation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProfileWorkbenchValidation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "source_filename",
+          "source_sha256",
+          "sheets"
+        ],
+        "title": "ProfileWorkbenchInspection",
+        "type": "object"
+      },
+      "ProfileWorkbenchProfileOption": {
+        "properties": {
+          "profile_digest": {
+            "title": "Profile Digest",
+            "type": "string"
+          },
+          "profile_id": {
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          },
+          "task_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Task Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "profile_id",
+          "source_name",
+          "profile_digest",
+          "task_ids"
+        ],
+        "title": "ProfileWorkbenchProfileOption",
+        "type": "object"
+      },
+      "ProfileWorkbenchRegistration": {
+        "properties": {
+          "data_asset_id": {
+            "title": "Data Asset Id",
+            "type": "string"
+          },
+          "dataset_revision_id": {
+            "title": "Dataset Revision Id",
+            "type": "string"
+          },
+          "dataset_view_revision_id": {
+            "title": "Dataset View Revision Id",
+            "type": "string"
+          },
+          "profile_id": {
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "profile_revision_id": {
+            "title": "Profile Revision Id",
+            "type": "string"
+          },
+          "reused_existing": {
+            "title": "Reused Existing",
+            "type": "boolean"
+          },
+          "source_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Sha256",
+            "type": "string"
+          },
+          "task_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Task Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "reused_existing",
+          "data_asset_id",
+          "profile_revision_id",
+          "dataset_revision_id",
+          "dataset_view_revision_id",
+          "source_sha256",
+          "profile_id",
+          "task_ids"
+        ],
+        "title": "ProfileWorkbenchRegistration",
+        "type": "object"
+      },
+      "ProfileWorkbenchSheetInventory": {
+        "properties": {
+          "headers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Headers",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "rows": {
+            "minimum": 0.0,
+            "title": "Rows",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "headers",
+          "rows"
+        ],
+        "title": "ProfileWorkbenchSheetInventory",
+        "type": "object"
+      },
+      "ProfileWorkbenchValidation": {
+        "properties": {
+          "entities": {
+            "minimum": 0.0,
+            "title": "Entities",
+            "type": "integer"
+          },
+          "entity_preview": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Entity Preview",
+            "type": "array"
+          },
+          "heat_series_parents": {
+            "minimum": 0.0,
+            "title": "Heat Series Parents",
+            "type": "integer"
+          },
+          "observations": {
+            "minimum": 0.0,
+            "title": "Observations",
+            "type": "integer"
+          },
+          "observations_by_task": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Observations By Task",
+            "type": "object"
+          },
+          "profile_digest": {
+            "title": "Profile Digest",
+            "type": "string"
+          },
+          "profile_id": {
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "registration_ready": {
+            "title": "Registration Ready",
+            "type": "boolean"
+          },
+          "rejected_by_policy": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Rejected By Policy",
+            "type": "object"
+          },
+          "relations": {
+            "minimum": 0.0,
+            "title": "Relations",
+            "type": "integer"
+          },
+          "task_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Task Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "registration_ready",
+          "profile_id",
+          "profile_digest",
+          "task_ids",
+          "entities",
+          "relations",
+          "observations",
+          "observations_by_task",
+          "heat_series_parents",
+          "rejected_by_policy",
+          "entity_preview"
+        ],
+        "title": "ProfileWorkbenchValidation",
+        "type": "object"
+      },
       "Project": {
         "properties": {
           "binding_migrated_at": {
@@ -5714,6 +6028,183 @@
           }
         },
         "summary": "Health"
+      }
+    },
+    "/api/profile-workbench/inspect": {
+      "post": {
+        "operationId": "inspect_uploaded_workbook_api_profile_workbench_inspect_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_inspect_uploaded_workbook_api_profile_workbench_inspect_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileWorkbenchInspection"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Payload Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Inspect Uploaded Workbook",
+        "tags": [
+          "profile-workbench"
+        ]
+      }
+    },
+    "/api/profile-workbench/profiles": {
+      "get": {
+        "operationId": "list_profile_options_api_profile_workbench_profiles_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProfileWorkbenchProfileOption"
+                  },
+                  "title": "Response List Profile Options Api Profile Workbench Profiles Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Payload Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Profile Options",
+        "tags": [
+          "profile-workbench"
+        ]
+      }
+    },
+    "/api/profile-workbench/register": {
+      "post": {
+        "operationId": "register_uploaded_workbook_api_profile_workbench_register_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_register_uploaded_workbook_api_profile_workbench_register_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileWorkbenchRegistration"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Payload Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register Uploaded Workbook",
+        "tags": [
+          "profile-workbench"
+        ]
       }
     },
     "/api/project-creation-options": {

@@ -164,6 +164,54 @@ class DataLibraryDataset(BaseModel):
     dataset_views: list[DatasetViewRevision] = Field(default_factory=list)
 
 
+class ProfileWorkbenchProfileOption(BaseModel):
+    profile_id: str
+    source_name: str
+    profile_digest: str
+    task_ids: list[str]
+
+
+class ProfileWorkbenchSheetInventory(BaseModel):
+    name: str
+    headers: list[str]
+    rows: Annotated[int, Field(ge=0)]
+
+
+class ProfileWorkbenchValidation(BaseModel):
+    registration_ready: bool
+    profile_id: str
+    profile_digest: str
+    task_ids: list[str]
+    entities: Annotated[int, Field(ge=0)]
+    relations: Annotated[int, Field(ge=0)]
+    observations: Annotated[int, Field(ge=0)]
+    observations_by_task: dict[str, int]
+    heat_series_parents: Annotated[int, Field(ge=0)]
+    rejected_by_policy: dict[str, int]
+    entity_preview: list[dict[str, Any]]
+
+
+class ProfileWorkbenchInspection(BaseModel):
+    source_filename: str
+    source_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    sheets: list[ProfileWorkbenchSheetInventory]
+    selected_profile_digest: str | None = None
+    auto_detected: bool = False
+    profile_error: str | None = None
+    validation: ProfileWorkbenchValidation | None = None
+
+
+class ProfileWorkbenchRegistration(BaseModel):
+    reused_existing: bool
+    data_asset_id: str
+    profile_revision_id: str
+    dataset_revision_id: str
+    dataset_view_revision_id: str
+    source_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    profile_id: str
+    task_ids: list[str]
+
+
 class ProjectCreationOptions(BaseModel):
     datasets: list[DataLibraryDataset]
     dataset_views: list[DatasetViewRevision]

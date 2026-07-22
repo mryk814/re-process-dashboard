@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import HTTPException, Request
 
 from ..inference_work_graph import InferenceWorkGraph
@@ -20,6 +22,10 @@ def get_task_registry(request: Request) -> TaskRegistry:
 
 def get_workspace_catalog(request: Request) -> WorkspaceCatalog:
     return request.app.state.workspace_catalog
+
+
+def get_data_library_root(request: Request) -> Path:
+    return request.app.state.data_library_root
 
 
 def get_project_runtime_resolver(request: Request) -> ProjectRuntimeResolver:

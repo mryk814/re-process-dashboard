@@ -21,11 +21,11 @@ export type NavigationIntent = Readonly<{
   qualityKey?: string;
   screeningRunId?: string;
   snapshotId?: string;
-  adminSection?: "quality" | "ranges" | "display" | "task" | "model";
+  adminSection?: "quality" | "ranges" | "display" | "task" | "model" | "profile";
 }>;
 
 const VIEW_SET = new Set<string>(WORKBENCH_VIEWS);
-const ADMIN_SECTIONS = new Set(["quality", "ranges", "display", "task", "model"] as const);
+const ADMIN_SECTIONS = new Set(["quality", "ranges", "display", "task", "model", "profile"] as const);
 
 export function readNavigationIntent(
   search = window.location.search,
@@ -46,7 +46,7 @@ export function readNavigationIntent(
     qualityKey: params.get("quality_key") || undefined,
     screeningRunId: params.get("screening") || undefined,
     snapshotId: params.get("snapshot") || undefined,
-    adminSection: adminSection && ADMIN_SECTIONS.has(adminSection as "quality" | "ranges" | "display" | "task" | "model") ? adminSection as "quality" | "ranges" | "display" | "task" | "model" : undefined,
+    adminSection: adminSection && ADMIN_SECTIONS.has(adminSection as "quality" | "ranges" | "display" | "task" | "model" | "profile") ? adminSection as "quality" | "ranges" | "display" | "task" | "model" | "profile" : undefined,
   });
 }
 
