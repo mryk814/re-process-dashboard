@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 import csv
-import importlib.util
 import math
 from collections import Counter
 from contextlib import asynccontextmanager
@@ -17,12 +16,12 @@ from fastapi.responses import StreamingResponse
 
 from .api.errors import DomainApiException, PROJECT_API_ERRORS, install_exception_handlers
 from .api.security import configure_local_access
+from .api.catalog import router as catalog_router
 from .importer import lineage_neighborhood, lineage_node_detail
 from .demo_seed import initialize_demo_projects
 from .inference_work_graph import InferenceKey, InferenceWorkGraph
 from .runtime import ModelRuntime
-from .model_lifecycle import ACTIVE_PACKAGES_PATH, load_active_packages, resolve_configured_package, validate_active_package_task_set, validate_lifecycle_metadata
-from .model_packages import RUNTIME_TYPES
+from .model_lifecycle import ACTIVE_PACKAGES_PATH, load_active_packages, resolve_configured_package, validate_active_package_task_set
 from .schemas import (
     ActualMeasurement,
     ActualMeasurementInput,
@@ -35,7 +34,6 @@ from .schemas import (
     InferenceDiagnosticsResponse,
     LineageIndexResponse,
     LineageResponse,
-    ModelPackageStatus,
     PredictionResponse,
     PredictionVsActualResponse,
     Project,
@@ -51,7 +49,6 @@ from .schemas import (
     ScreeningRunResponse,
     SimilarObservation,
     SnapshotResponse,
-    TaskCatalogItem,
 )
 from .services import candidate_from_lineage, candidates_xlsx, import_candidates_xlsx, run_latin_hypercube
 from .snapshot_reader import SnapshotPayloadError, candidate_input_from_snapshot
@@ -121,6 +118,7 @@ def create_app(
     )
     configure_local_access(app)
     install_exception_handlers(app)
+    app.include_router(catalog_router)
 
     def store() -> Store:
         return app.state.store
@@ -214,97 +212,6 @@ def create_app(
         unsupported = sorted(set(payload.display_decimals) - set(definition.task_definition.display_decimals))
         if unsupported:
             raise HTTPException(422, f"タスクに存在しない表示項目です: {', '.join(unsupported)}")
-
-    @app.get("/api/health")
-    @app.get("/health", include_in_schema=False)
-    def health() -> dict[str, Any]:
-        return {
-            "ok": True,
-            "models": sorted(runtime().models),
-            "source": str(source),
-            "tasks": {
-                task_id: {
-                    "package_id": task_registry().entry_for(task_id).model_package.manifest.package_id,
-                    "outputs": sorted(task_registry().runtime_for(task_id).output_keys),
-                    "source": task_registry().runtime_for(task_id).data.source_path,
-                }
-                for task_id in task_registry().task_ids
-            },
-        }
-
-    @app.get(
-        "/api/projects/{project_id}/model-package",
-        response_model=ModelPackageStatus,
-        responses=PROJECT_API_ERRORS,
-        operation_id="getProjectModelPackage",
-    )
-    def model_package(project_id: str) -> dict[str, Any]:
-        project = require_project(project_id)
-        entry = task_registry().entry_for(project.task_id)
-        package = entry.model_package
-        manifest = package.manifest
-        quality = validate_lifecycle_metadata(
-            package,
-            task_registry().contract_for(project.task_id),
-            profile_path=Path(entry.predictor_runtime.data.profile_path),
-        )
-        optional_dependencies = {
-            "sklearn.skops.v1": importlib.util.find_spec("skops") is not None,
-            "lightgbm.booster.v1": importlib.util.find_spec("lightgbm") is not None,
-            "gpytorch.static_exact_rbf.v1": importlib.util.find_spec("torch") is not None and importlib.util.find_spec("safetensors") is not None,
-        }
-        dependencies = {runtime_type: optional_dependencies.get(runtime_type, True) for runtime_type in RUNTIME_TYPES}
-        return {
-            "id": manifest.package_id,
-            "version": manifest.package_version,
-            "task_id": manifest.task_id,
-            "manifest_sha256": package.manifest_sha256,
-            "active_runtimes": sorted({item.runtime_type for item in manifest.predictors}),
-            "supported_runtimes": [
-                {"runtime_type": runtime_type, "available": available}
-                for runtime_type, available in dependencies.items()
-            ],
-            "predictors": [
-                {"target": item.target, "runtime_type": item.runtime_type, "predictive_family": item.predictive_family}
-                for item in manifest.predictors
-            ],
-            "quality_report": quality.model_dump(mode="json"),
-        }
-
-    @app.get(
-        "/api/task-definitions",
-        response_model=list[TaskCatalogItem],
-        operation_id="listTaskDefinitions",
-    )
-    def task_definitions() -> list[dict[str, Any]]:
-        catalog = []
-        for task_id in task_registry().task_ids:
-            contract = task_registry().contract_for(task_id)
-            canonical = contract.canonical_candidate
-            catalog.append({
-                "definition": task_registry().resolved_definition_for(task_id),
-                "starter_candidate": {
-                    "name": "基準候補",
-                    "inputs": {
-                        "composition": canonical.composition,
-                        "process": canonical.process,
-                        "categorical": canonical.categorical,
-                        "heat_pattern": canonical.heat_pattern,
-                    },
-                    "provenance": {"source_kind": "direct", "source_ref": None},
-                },
-            })
-        return catalog
-
-    @app.get(
-        "/api/projects/{project_id}/task-definition",
-        response_model=ResolvedTaskDefinition,
-        responses=PROJECT_API_ERRORS,
-        operation_id="getProjectTaskDefinition",
-    )
-    def task_definition(project_id: str) -> ResolvedTaskDefinition:
-        project = require_project(project_id)
-        return task_registry().resolved_definition_for(project.task_id)
 
     @app.post(
         "/api/projects/{project_id}/candidates/{candidate_id}/preview",
