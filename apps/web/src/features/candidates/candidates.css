@@ -139,9 +139,6 @@
 .comparison-detail-table input { width: 100%; height: 27px; border: 1px solid transparent; border-radius: 3px; text-align: center; background: transparent; color: #18202c; }
 .comparison-detail-table .numeric-cell,
 .comparison-detail-table .numeric-cell input { text-align: right; font-variant-numeric: tabular-nums; }
-.comparison-detail-table input[type="number"] { appearance: textfield; -moz-appearance: textfield; }
-.comparison-detail-table input[type="number"]::-webkit-inner-spin-button,
-.comparison-detail-table input[type="number"]::-webkit-outer-spin-button { appearance: none; margin: 0; }
 .candidate-name-table input { text-align: left; font-weight: 700; }
 .candidate-name-table input:focus,
 .comparison-detail-table input:focus { border-color: #1f5fc4; background: #fff; }
