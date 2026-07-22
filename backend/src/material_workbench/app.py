@@ -23,6 +23,7 @@ from .inference_work_graph import InferenceWorkGraph
 from .model_lifecycle import ACTIVE_PACKAGES_PATH, load_active_packages, resolve_configured_package, validate_active_package_task_set
 from .store import Store
 from .task_registry import DataExplorerEntry, TaskRegistry
+from .workspace_catalog_bootstrap import bootstrap_workspace_catalog
 from .task_modules import PredictionRuntime, TaskModule, registered_task_modules
 
 
@@ -116,6 +117,7 @@ def create_app(
             prepared.runtimes,
             seed_candidates=not database_existed or explicit_demo_seed,
         )
+        app.state.workspace_catalog = bootstrap_workspace_catalog(database, prepared.task_registry)
         yield
 
     app = FastAPI(
