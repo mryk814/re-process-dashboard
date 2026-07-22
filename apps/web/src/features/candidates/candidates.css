@@ -41,15 +41,16 @@
 .slider-field input[type="range"]::-webkit-slider-thumb { width: 13px; height: 13px; appearance: none; border: 2px solid #fff; border-radius: 50%; background: #1f5fc4; box-shadow: 0 0 0 1px #1f5fc4; }
 
 .candidate-comparison { display: grid; gap: 10px; }
-.comparison-grid-viewport { max-height: 270px; overflow-x: hidden; overflow-y: auto; }
-.comparison-grid-viewport.expanded { max-height: none; }
-.comparison-grid { display: grid; grid-template-columns: 160px minmax(0, 1fr) minmax(360px, 42%); width: 100%; max-width: 100%; min-width: 0; align-items: start; overflow: visible; border: 1px solid #cfd9e5; border-radius: 4px; }
+.comparison-grid-viewport { max-height: 270px; overflow: auto; }
+.comparison-grid-viewport.expanded { max-height: 70vh; }
+.comparison-grid { display: grid; grid-template-columns: 160px max-content max-content; width: max-content; min-width: 100%; align-items: start; overflow: visible; border: 1px solid #cfd9e5; border-radius: 4px; }
 .candidate-name-table,
 .comparison-detail-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 12px; }
 .candidate-name-table { align-self: start; position: sticky; left: 0; z-index: 4; background: #fff; box-shadow: 2px 0 0 #cfd9e5; }
 .candidate-name-table .candidate-select-column { width: 32px; }
 .comparison-input-scroll,
-.comparison-prediction-scroll { min-width: 0; overflow-x: auto; background: #fff; }
+.comparison-prediction-scroll { min-width: 0; overflow: visible; background: #fff; }
+.comparison-prediction-scroll { position: relative; border-left: 2px solid #9fb1c7; }
 .comparison-detail-table { width: max-content; min-width: 100%; }
 .candidate-name-table th,
 .candidate-name-table td,
