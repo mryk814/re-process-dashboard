@@ -980,6 +980,19 @@ export interface components {
              */
             suggested_view: "lineage" | "source_sheet";
         };
+        /** DatasetIdentity */
+        DatasetIdentity: {
+            /** Profile Id */
+            profile_id: string;
+            /** Profile Path */
+            profile_path: string;
+            /** Source Path */
+            source_path: string;
+            /** Source Sha256 */
+            source_sha256: string;
+            /** Task Id */
+            task_id: string;
+        };
         /** DetailedPredictionResponse */
         DetailedPredictionResponse: {
             prediction: components["schemas"]["PredictionResponse"];
@@ -1848,6 +1861,7 @@ export interface components {
             by_category: {
                 [key: string]: number;
             };
+            dataset: components["schemas"]["DatasetIdentity"];
             /** Detected By Type */
             detected_by_type: {
                 [key: string]: number;

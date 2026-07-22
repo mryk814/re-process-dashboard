@@ -645,6 +645,7 @@ def create_app(
 
     @app.get("/api/projects/{project_id}/quality", response_model=QualityResponse, responses=PROJECT_API_ERRORS)
     def quality(project_id: str) -> dict[str, Any]:
+        project = require_project(project_id)
         data = project_data_explorer(project_id, "quality").data
         scenarios = data.quality
         detected = data.detected_quality
@@ -660,6 +661,13 @@ def create_app(
             "detected_total": len(detected),
             "detected_by_type": Counter(row["issue_type"] for row in detected),
             "detected_issues": detected,
+            "dataset": {
+                "task_id": project.task_id,
+                "source_path": data.source_path,
+                "source_sha256": data.source_sha256,
+                "profile_id": data.profile_id,
+                "profile_path": data.profile_path,
+            },
         }
 
     @app.get(

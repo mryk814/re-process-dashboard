@@ -1,0 +1,159 @@
+{
+  "schema_version": "task-inventory/v1",
+  "source_of_truth": "backend/src/material_workbench/task_modules.py",
+  "tasks": [
+    {
+      "task_id": "annealed-properties-v1",
+      "label": "焼鈍後特性",
+      "outputs": [
+        {
+          "key": "TS",
+          "label": "引張強さ",
+          "unit": "MPa"
+        },
+        {
+          "key": "YS",
+          "label": "降伏強さ",
+          "unit": "MPa"
+        },
+        {
+          "key": "EL",
+          "label": "全伸び",
+          "unit": "%"
+        },
+        {
+          "key": "lambda",
+          "label": "穴広げ率 λ",
+          "unit": "%"
+        }
+      ],
+      "source": {
+        "kind": "primary",
+        "path": "data/source/process_dashboard_realistic_excel_v2.xlsx",
+        "sha256": "d8197cc77ee5ffaef0a5ed75446acaaae56d5fab5b6b625383c99750b4fb57a5",
+        "profile_id": "thin-sheet-workbook-v2",
+        "profile_path": "backend/src/material_workbench/dataset-input-profile-v1.json"
+      },
+      "active_package": {
+        "path": "packages/annealed-gp-2026-07",
+        "previous": null,
+        "package_id": "annealed-gp-2026-07",
+        "version": "0.9.0-input-contract-v2",
+        "manifest_sha256": "4146c3e9eb32b9f8f6aae547c2abe03040feafd2ce2a422731a32aa76cb4f0ac",
+        "runtime_types": [
+          "builtin.exact_gp.v1"
+        ]
+      },
+      "runtime_operations": {
+        "preview": true,
+        "detailed_prediction": true,
+        "response_curve": true,
+        "similarity": true,
+        "snapshot": true,
+        "actual_measurement": true
+      },
+      "application_capability": {
+        "candidate_excel_import": true,
+        "candidate_excel_export": true
+      },
+      "data_explorer": {
+        "schema_version": "data-explorer-capability/v1",
+        "quality": true,
+        "lineage": true,
+        "candidate_creation": true
+      }
+    },
+    {
+      "task_id": "hot-rolled-properties-v1",
+      "label": "熱延後特性予測",
+      "outputs": [
+        {
+          "key": "TS",
+          "label": "引張強さ",
+          "unit": "MPa"
+        }
+      ],
+      "source": {
+        "kind": "primary",
+        "path": "data/source/process_dashboard_realistic_excel_v2.xlsx",
+        "sha256": "d8197cc77ee5ffaef0a5ed75446acaaae56d5fab5b6b625383c99750b4fb57a5",
+        "profile_id": "thin-sheet-workbook-v2",
+        "profile_path": "backend/src/material_workbench/dataset-input-profile-v1.json"
+      },
+      "active_package": {
+        "path": "packages/hot-rolled-horseshoe-2026-07",
+        "previous": "packages/hot-rolled-gp-2026-07",
+        "package_id": "hot-rolled-horseshoe-2026-07",
+        "version": "1.0.0",
+        "manifest_sha256": "7dbe04af398358f55a2874934993db5d3c0f5eeda2d89349e515a8ba0382b31c",
+        "runtime_types": [
+          "builtin.posterior_linear.v1"
+        ]
+      },
+      "runtime_operations": {
+        "preview": true,
+        "detailed_prediction": true,
+        "response_curve": true,
+        "similarity": true,
+        "snapshot": true,
+        "actual_measurement": true
+      },
+      "application_capability": {
+        "candidate_excel_import": false,
+        "candidate_excel_export": false
+      },
+      "data_explorer": {
+        "schema_version": "data-explorer-capability/v1",
+        "quality": true,
+        "lineage": true,
+        "candidate_creation": true
+      }
+    },
+    {
+      "task_id": "flank-wear-v1",
+      "label": "逃げ面摩耗予測",
+      "outputs": [
+        {
+          "key": "VB_mean",
+          "label": "VB平均",
+          "unit": "µm"
+        },
+        {
+          "key": "VB_max",
+          "label": "VB最大",
+          "unit": "µm"
+        }
+      ],
+      "source": {
+        "kind": "flank_wear",
+        "path": "data/source/cutting_tool_flank_wear_synthetic_dataset.xlsx",
+        "sha256": "0641464e069d30e1284ffabde648d5ba4db86f100df00ed41bc414606e7f4144",
+        "profile_id": "cutting-flank-wear-v1",
+        "profile_path": "backend/src/material_workbench/dataset-input-profile-flank-wear-v1.json"
+      },
+      "active_package": {
+        "path": "packages/flank-wear-gp-2026-07",
+        "previous": null,
+        "package_id": "flank-wear-gp-2026-07",
+        "version": "0.1.0",
+        "manifest_sha256": "cfc787b362dcadd29e4904853c3fd559c3c6fc1a3444449083044a81e4d423fd",
+        "runtime_types": [
+          "builtin.exact_gp.v1"
+        ]
+      },
+      "runtime_operations": {
+        "preview": true,
+        "detailed_prediction": true,
+        "response_curve": true,
+        "similarity": true,
+        "snapshot": true,
+        "actual_measurement": true
+      },
+      "application_capability": {
+        "candidate_excel_import": false,
+        "candidate_excel_export": false
+      },
+      "data_explorer": null
+    }
+  ]
+}

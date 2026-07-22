@@ -1040,6 +1040,39 @@
         "title": "DataQualityIssue",
         "type": "object"
       },
+      "DatasetIdentity": {
+        "properties": {
+          "profile_id": {
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "profile_path": {
+            "title": "Profile Path",
+            "type": "string"
+          },
+          "source_path": {
+            "title": "Source Path",
+            "type": "string"
+          },
+          "source_sha256": {
+            "title": "Source Sha256",
+            "type": "string"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_id",
+          "source_path",
+          "source_sha256",
+          "profile_id",
+          "profile_path"
+        ],
+        "title": "DatasetIdentity",
+        "type": "object"
+      },
       "DetailedPredictionResponse": {
         "properties": {
           "prediction": {
@@ -3156,6 +3189,9 @@
             "title": "By Category",
             "type": "object"
           },
+          "dataset": {
+            "$ref": "#/components/schemas/DatasetIdentity"
+          },
           "detected_by_type": {
             "additionalProperties": {
               "type": "integer"
@@ -3200,7 +3236,8 @@
           "reference_scenarios",
           "detected_total",
           "detected_by_type",
-          "detected_issues"
+          "detected_issues",
+          "dataset"
         ],
         "title": "QualityResponse",
         "type": "object"

@@ -41,7 +41,7 @@ For the v5 flow, `dataset-input-profile-v5.json` extends v3 rather than replacin
 
 ## Adding genuinely new data (different variables or targets)
 
-Do not force a new scientific quantity into `hot-rolled-properties-v1` or `annealed-properties-v1`. Add a new vertical slice:
+Do not force a new scientific quantity into an existing production task. Add a new vertical slice:
 
 1. Add `backend/src/material_workbench/task_definitions/<task-id>.json`. Define the new input groups, units, editable/allowed/training ranges, output targets, constraints, and runtime capability. Keep the file name equal to the task id.
 2. Add a new profile under `backend/src/material_workbench/dataset-input-profile-<flow>.json`. Set `task_definition_ids` to the task(s) this flow actually supports. Use `extends` only when the shared entity/relation contract is truly the same; otherwise write a separate profile.
@@ -49,7 +49,7 @@ Do not force a new scientific quantity into `hot-rolled-properties-v1` or `annea
 4. Add an allow-listed runtime/model adapter or task-specific runtime, then build a Model Package whose manifest records the new task id, input contract digest, profile digest, feature pipeline version, source digest, and output targets.
 5. Add focused contract, feature golden, source preflight, package smoke, and one API/E2E test. Only after those pass, add the package to `models/active-packages.json` for that task. Existing v2/v3 packages remain untouched.
 
-The current application has two production runtime implementations, so a genuinely new task also requires one explicit runtime registration seam in `app.py`/`task_registry.py`; the profile and TaskDefinition alone must not make an unsupported task appear runnable.
+The current application has three production TaskModules. A genuinely new task must add one explicit allow-listed entry in `task_modules.py`; startup, package verification, model workflow, source/profile selection, capabilities, and generated inventory all resolve from that entry. The profile and TaskDefinition alone must not make an unsupported task appear runnable.
 
 ## Repeatable source preflight
 

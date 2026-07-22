@@ -8,7 +8,7 @@ TaskDefinitionとDataset Input Profileを起点に、Canonical training dataset�
 
 ## 標準ルート
 
-PowerShellから次の順に実行します。`<task>` は `annealed-properties-v1` または `hot-rolled-properties-v1` です。
+PowerShellから次の順に実行します。`<task>` は `annealed-properties-v1`、`hot-rolled-properties-v1`、`flank-wear-v1` のいずれかです。taskごとのsource/profile/active Packageは [Task inventory](task-inventory.json) で確認できます。
 
 ```powershell
 npm run model:data -- --task <task> --output artifacts/model-data/<task>.json
@@ -67,5 +67,6 @@ rollback後もアプリを再起動します。保存済みsnapshotは再計算�
 ```powershell
 $env:MATERIAL_WORKBENCH_MODEL_PACKAGE = "C:\trusted-models\annealed-candidate"
 $env:MATERIAL_WORKBENCH_HOT_ROLLING_MODEL_PACKAGE = "C:\trusted-models\hot-rolling-candidate"
+$env:MATERIAL_WORKBENCH_FLANK_WEAR_MODEL_PACKAGE = "C:\trusted-models\flank-wear-candidate"
 npm run dev
 ```

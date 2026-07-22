@@ -1,0 +1,112 @@
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+import sys
+from typing import Any
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+BACKEND_SRC = REPOSITORY_ROOT / "backend" / "src"
+if str(BACKEND_SRC) not in sys.path:
+    sys.path.insert(0, str(BACKEND_SRC))
+
+from material_workbench.model_lifecycle import (  # noqa: E402
+    ACTIVE_PACKAGES_PATH,
+    load_active_packages,
+    resolve_configured_package,
+    validate_active_package_task_set,
+)
+from material_workbench.model_packages import ModelPackageLoader  # noqa: E402
+from material_workbench.task_modules import registered_task_modules, resolve_task_source  # noqa: E402
+from material_workbench.task_registry import load_task_contracts  # noqa: E402
+
+
+DEFAULT_OUTPUT = REPOSITORY_ROOT / "docs" / "task-inventory.json"
+
+
+def _repository_path(value: str | Path) -> str:
+    path = Path(value).resolve()
+    try:
+        return path.relative_to(REPOSITORY_ROOT).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def build_inventory() -> dict[str, Any]:
+    modules = registered_task_modules()
+    contracts = load_task_contracts()
+    active = load_active_packages(ACTIVE_PACKAGES_PATH)
+    validate_active_package_task_set(active, set(modules))
+    if set(contracts) != set(modules):
+        raise ValueError("TaskDefinition and TaskModule task sets differ")
+
+    data_by_source: dict[str, Any] = {}
+    tasks = []
+    for task_id, module in modules.items():
+        if module.source_kind not in data_by_source:
+            data_by_source[module.source_kind] = module.data_loader(resolve_task_source(task_id))
+        data = data_by_source[module.source_kind]
+        contract = contracts[task_id]
+        package = ModelPackageLoader().load(
+            resolve_configured_package(task_id, config_path=ACTIVE_PACKAGES_PATH)
+        )
+        selection = active.tasks[task_id]
+        tasks.append({
+            "task_id": task_id,
+            "label": contract.task_definition.label,
+            "outputs": [
+                {"key": output.key, "label": output.label, "unit": output.unit}
+                for output in contract.task_definition.outputs
+            ],
+            "source": {
+                "kind": module.source_kind,
+                "path": _repository_path(data.source_path),
+                "sha256": data.source_sha256,
+                "profile_id": data.profile_id,
+                "profile_path": _repository_path(data.profile_path),
+            },
+            "active_package": {
+                "path": selection.active,
+                "previous": selection.previous,
+                "package_id": package.manifest.package_id,
+                "version": package.manifest.package_version,
+                "manifest_sha256": package.manifest_sha256,
+                "runtime_types": sorted({item.runtime_type for item in package.manifest.predictors}),
+            },
+            "runtime_operations": contract.runtime_capability.operations.model_dump(mode="json"),
+            "application_capability": module.application.model_dump(mode="json"),
+            "data_explorer": None if module.data_explorer is None else module.data_explorer.model_dump(mode="json"),
+        })
+    return {
+        "schema_version": "task-inventory/v1",
+        "source_of_truth": "backend/src/material_workbench/task_modules.py",
+        "tasks": tasks,
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Generate or verify the production task inventory.")
+    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--check", action="store_true")
+    args = parser.parse_args()
+    expected = json.dumps(build_inventory(), ensure_ascii=False, indent=2) + "\n"
+    if args.check:
+        try:
+            current = args.output.read_text(encoding="utf-8")
+        except OSError:
+            current = ""
+        if current != expected:
+            print(f"Task inventory is stale: {args.output}", file=sys.stderr)
+            return 1
+        print(f"Task inventory is current: {args.output}")
+        return 0
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(expected, encoding="utf-8", newline="\n")
+    print(f"Wrote {args.output}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

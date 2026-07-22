@@ -51,7 +51,7 @@ npm run verify:full
 
 GitHubのPRと`main`へのpushでも同じfull gateが自動実行されます。CIはNode `22.20.0`、npm `11.4.2`、uv `0.9.15`を固定し、`package-lock.json`と`uv.lock`から依存を導入します。browser確認、packaged desktop、実DB migrationなどは変更リスクに応じて手動実施し、PR本文へ結果を記録します。
 
-モデルPackageを更新した場合は `npm run models:build:annealed` または `npm run models:build:hot-rolling` で、artifact・quality report・manifestを必ず同時に再生成します。新しいPackageの作成・検証・有効化・rollbackは [Model Package lifecycle](docs/model-package-lifecycle.md) の一本道を使います。
+モデルPackageを更新した場合は `npm run models:build:annealed`、`npm run models:build:hot-rolling`、`npm run models:build:flank-wear` の対応するコマンドで、artifact・quality report・manifestを必ず同時に再生成します。新しいPackageの作成・検証・有効化・rollbackは [Model Package lifecycle](docs/model-package-lifecycle.md) の一本道を使います。現行3taskのsource/profile/runtime/capabilityは [生成済みTask inventory](docs/task-inventory.json) で確認でき、`npm run task:inventory:check` が実装とのdriftを検出します。
 
 ### Frontend API契約
 

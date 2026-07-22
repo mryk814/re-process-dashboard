@@ -16,6 +16,6 @@ workbench -> candidates -> shared -> generated
 
 ## Enforcement
 
-`npm run typecheck` runs `scripts/check-import-boundaries.mjs` before TypeScript. The checker rejects reverse dependencies, forbidden cross-feature imports, bypasses of feature public entries, dependency cycles, root-level domain modules, and growth past the agreed App/global CSS budgets.
+`npm run typecheck` runs `scripts/check-import-boundaries.mjs` before TypeScript. The checker rejects reverse dependencies, forbidden cross-feature imports, bypasses of feature public entries, dependency cycles, and root-level domain modules. It does not currently enforce file-size or CSS budgets; large-module reduction is handled by structural review and focused refactoring.
 
 The common-flow browser contract is `e2e/shared-workbench.spec.ts`; inference invalidation and visible-surface request counts are fixed by `e2e/inference-p0.spec.ts`.

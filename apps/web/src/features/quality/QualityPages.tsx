@@ -112,6 +112,14 @@ export function LiveDataQualityPage({
         <p className="empty-evidence">データ品質を取得できません。API接続を確認してください。</p>
       ) : data ? (
         <>
+          <details className="technical-contract dataset-identity">
+            <summary>参照データを確認</summary>
+            <span>{data.dataset.task_id}</span>
+            <span>{data.dataset.profile_id}</span>
+            <code title={data.dataset.source_sha256}>source sha256:{data.dataset.source_sha256.slice(0, 12)}…</code>
+            <small>{data.dataset.source_path}</small>
+            <small>{data.dataset.profile_path}</small>
+          </details>
           {mode === "summary" && <div className="quality-summary">
             <button type="button" className={!filters.type ? "active" : ""} onClick={() => updateFilters({ type: undefined })}>
               <b>{data.detected_total}</b>件を実検出

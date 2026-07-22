@@ -656,6 +656,14 @@ class QualityScenario(BaseModel):
     expected_insight: str = Field(alias="期待する気づき")
 
 
+class DatasetIdentity(BaseModel):
+    task_id: str
+    source_path: str
+    source_sha256: str
+    profile_id: str
+    profile_path: str
+
+
 class QualityResponse(BaseModel):
     # Legacy scenario fields remain until the UI is switched to detected issues.
     total: int
@@ -665,6 +673,7 @@ class QualityResponse(BaseModel):
     detected_total: int
     detected_by_type: dict[str, int]
     detected_issues: list[DataQualityIssue]
+    dataset: DatasetIdentity
 
 
 class PropertySummary(BaseModel):
