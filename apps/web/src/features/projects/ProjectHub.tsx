@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { provenanceLabel } from "../../shared/candidateProvenance";
 import { formatPredictionPoint, predictionHasInterval, predictionIntervalLabel } from "../../shared/predictionPresentation";
+import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
 import { fromApiCandidate, toApiCandidate, type CandidateViewModel, type RuntimeOperations, type TaskDefinitionContract } from "../candidates";
 import {
   workbenchApi,
@@ -317,7 +318,7 @@ export function ProjectHub({
                 <span className="history-predictions">{Object.entries(snapshot.prediction_summary).map(([key, value]) => `${outputLabels.get(key) ?? key} ${formatPredictionPoint(value, formatNumber)}`).join(" / ")}</span>
                 {item.actuals.filter((actual) => actual.snapshot_id === snapshot.id).map((actual) => <span className="history-actual" key={actual.id}>実測 {outputLabels.get(actual.property) ?? actual.property} {formatNumber(actual.mean)} ± {formatNumber(actual.std)} {actual.unit}{actual.experiment_no ? ` / ${actual.experiment_no}` : ""}</span>)}
                 {item.decision?.snapshot_id === snapshot.id && <span className="decision-note-inline">判断理由: {item.decision.note}</span>}
-                <button className="outline-button" onClick={() => void openSnapshot(snapshot.id)}>詳細</button><button className="outline-button" onClick={() => void restoreSnapshot(snapshot.id)}>新しい候補として複製</button>
+                <button className="outline-button" onClick={() => void openSnapshot(snapshot.id)}>詳細</button><CandidateAddButton compact onClick={() => void restoreSnapshot(snapshot.id)}>新しい候補として複製</CandidateAddButton>
               </div>)}</div> : <div className="project-empty-inline"><span>固定した予測はありません。候補比較で詳細予測を保存すると判断時点が残ります。</span><button className="outline-button" onClick={() => onNavigate("candidates", item.candidate.id)}>候補比較へ</button></div>}
             </article>;
           })}
@@ -330,7 +331,7 @@ export function ProjectHub({
         <span className="decision-snapshot-badge">{!selectedSnapshot.payload.provenance?.package?.manifest_sha256 || !modelPackage ? "予測モデル情報を確認できません" : selectedSnapshot.payload.provenance.package.manifest_sha256 === modelPackage.manifest_sha256 ? "現在と同じ予測モデル" : "現在とは別の予測モデル"}</span>
         <table className="quality-table"><thead><tr><th>特性</th><th>固定予測</th><th>区間・分位</th><th>目標達成</th></tr></thead><tbody>{Object.entries(selectedSnapshot.payload.prediction.predictions).map(([key, value]) => <tr key={key}><th>{outputLabels.get(key) ?? key}</th><td>{formatPredictionPoint(value, formatNumber)}</td><td>{predictionHasInterval(value) ? <>{formatNumber(value.lower)}–{formatNumber(value.upper)} <small>{predictionIntervalLabel(value)}</small></> : "利用不可"}</td><td>{value.goal_probability == null ? value.goal_value == null ? "目標未設定" : "利用不可" : `${formatNumber(value.goal_probability * 100, 0)}%`}</td></tr>)}</tbody></table>
         <div className="snapshot-decision-form"><label>判断理由<textarea value={decisionNote} onChange={(event) => { decisionDraftRef.current.dirty = true; setDecisionNote(event.target.value); }} placeholder="この時点の予測を採用判断に使う理由" /></label><button className="outline-button" onClick={() => void saveDecision(false)}>採用判断として固定</button>{project?.decision_snapshot_id === selectedSnapshot.id && <button className="outline-button" onClick={() => void saveDecision(true)}>採用判断を解除</button>}</div>
-        <button className="primary-button" onClick={() => void restoreSnapshot(selectedSnapshot.id)}>この時点から新しい候補を作る</button>
+        <CandidateAddButton onClick={() => void restoreSnapshot(selectedSnapshot.id)}>この時点から新しい候補を作る</CandidateAddButton>
       </section>}
 
       {!Object.keys(targetValues).length && <div className="project-empty-inline"><span>目標値が未設定です。設定すると候補の目標達成率を比較できます。</span><button className="outline-button" onClick={() => setSettingsOpen(true)}>目標値を設定</button></div>}

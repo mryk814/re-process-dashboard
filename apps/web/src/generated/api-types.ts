@@ -1582,6 +1582,10 @@ export interface components {
             display_decimals?: {
                 [key: string]: number;
             };
+            /** Heat Stage Positions M */
+            heat_stage_positions_m?: {
+                [key: string]: number;
+            };
             /** Id */
             id: string;
             /** Input Ranges */
@@ -1649,6 +1653,10 @@ export interface components {
             description: string;
             /** Display Decimals */
             display_decimals?: {
+                [key: string]: number;
+            };
+            /** Heat Stage Positions M */
+            heat_stage_positions_m?: {
                 [key: string]: number;
             };
             initial_candidate?: components["schemas"]["CandidateInput"] | null;
@@ -1745,6 +1753,10 @@ export interface components {
             description: string;
             /** Display Decimals */
             display_decimals?: {
+                [key: string]: number;
+            };
+            /** Heat Stage Positions M */
+            heat_stage_positions_m?: {
                 [key: string]: number;
             };
             /** Input Ranges */
@@ -1874,6 +1886,26 @@ export interface components {
             /** Target */
             target: string;
             variable: components["schemas"]["CurveVariable"];
+        };
+        /** ResponseCurveVariableDefinition */
+        ResponseCurveVariableDefinition: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "numeric_input" | "heat_stage_temperature";
+            /** Label */
+            label: string;
+            /** Order */
+            order: number;
+            /** Path */
+            path?: string | null;
+            /**
+             * Time Transform
+             * @default direct
+             * @enum {string}
+             */
+            time_transform: "direct" | "inverse_heat_time";
         };
         /** RuntimeAvailability */
         RuntimeAvailability: {
@@ -2304,6 +2336,11 @@ export interface components {
             label: string;
             /** Outputs */
             outputs: components["schemas"]["OutputDefinition"][];
+            /**
+             * Response Curve Variables
+             * @default []
+             */
+            response_curve_variables: components["schemas"]["ResponseCurveVariableDefinition"][];
             /**
              * Schema Version
              * @constant
@@ -3416,6 +3453,8 @@ export interface operations {
                 points?: number;
                 range_max?: number | null;
                 range_min?: number | null;
+                stage_name?: string | null;
+                stage_position_m?: number | null;
                 target: string;
                 variable: string;
             };

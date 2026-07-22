@@ -72,6 +72,20 @@ def test_fixtures_freeze_complete_task_specific_input_sets() -> None:
         "context.equipment": "HR-LINE-1",
         "context.test_direction": "L",
     }
+    response_variables = annealed.task_definition.response_curve_variables
+    assert [item.path for item in response_variables[:14]] == [f"composition.{name}" for name in ("C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N")]
+    assert (response_variables[14].path, response_variables[14].time_transform) == ("process.ls_mpm", "inverse_heat_time")
+    assert response_variables[15].kind == "heat_stage_temperature"
+    assert [item.path for item in hot_rolled.task_definition.response_curve_variables] == [
+        *(f"composition.{name}" for name in ("C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N")),
+        "process.soaking_temperature_c",
+        "process.finish_temperature_c",
+        "process.entry_thickness_mm",
+        "process.exit_thickness_mm",
+        "process.hold_temperature_c",
+        "process.hold_time_min",
+    ]
+    assert hot_rolled.runtime_capability.operations.response_curve is True
 
 
 @pytest.mark.parametrize(

@@ -5,9 +5,104 @@ import shutil
 import numpy as np
 import pytest
 
-from material_workbench.feature_pipeline import build_feature_bundle
-from material_workbench.runtime import FEATURE_NAMES, ModelRuntime
+from material_workbench.feature_pipeline import COMPOSITION_NAMES, build_feature_bundle
+from material_workbench.runtime import FEATURE_NAMES, HEAT_STAGE_TEMPERATURE_VARIABLE, ModelRuntime
 from material_workbench.schemas import CandidateInput
+
+
+def _heat_candidate(*, stage_names: tuple[str | None, ...] = (None, None, None)) -> CandidateInput:
+    return CandidateInput.model_validate({
+        "name": "curve",
+        "inputs": {
+            "composition": {"C": 0.1},
+            "process": {"ls_mpm": 60.0},
+            "heat_pattern": [
+                {"time_s": 0, "temperature_c": 20, "stage_name": stage_names[0]},
+                {"time_s": 60, "temperature_c": 620, "stage_name": stage_names[1]},
+                {"time_s": 120, "temperature_c": 820, "stage_name": stage_names[2]},
+            ],
+        },
+    })
+
+
+def test_line_speed_response_scales_every_heat_time_from_the_entry() -> None:
+    candidate = _heat_candidate()
+
+    ModelRuntime._set_curve_variable(candidate, "process.ls_mpm", 120.0)  # type: ignore[arg-type]
+
+    assert candidate.inputs.process["ls_mpm"] == 120.0
+    assert [point.time_s for point in candidate.inputs.heat_pattern or []] == [0.0, 30.0, 60.0]
+
+
+def test_named_stage_response_shifts_all_matching_points_without_flattening_shape() -> None:
+    candidate = CandidateInput.model_validate({
+        "name": "curve",
+        "inputs": {
+            "composition": {"C": 0.1},
+            "process": {"ls_mpm": 60.0},
+            "heat_pattern": [
+                {"time_s": 0, "temperature_c": 20},
+                {"time_s": 40, "temperature_c": 600, "stage_name": "加熱1"},
+                {"time_s": 60, "temperature_c": 640, "stage_name": "加熱1"},
+                {"time_s": 120, "temperature_c": 400},
+            ],
+        },
+    })
+
+    ModelRuntime._set_curve_variable(candidate, HEAT_STAGE_TEMPERATURE_VARIABLE, 670.0, "加熱1", 50.0)  # type: ignore[arg-type]
+
+    matching = [point.temperature_c for point in candidate.inputs.heat_pattern or [] if point.stage_name == "加熱1"]
+    assert matching == [650.0, 690.0]
+
+
+def test_missing_named_stage_is_inserted_on_the_existing_curve_without_changing_baseline_features() -> None:
+    candidate = _heat_candidate()
+    defaults = {name: 0.0 for name in COMPOSITION_NAMES}
+    before = build_feature_bundle(candidate, defaults).as_dict()
+    current = ModelRuntime._heat_stage_temperature(candidate.inputs.heat_pattern or [], 60.0, "加熱1", 30.0)
+
+    ModelRuntime._set_curve_variable(candidate, HEAT_STAGE_TEMPERATURE_VARIABLE, current, "加熱1", 30.0)  # type: ignore[arg-type]
+
+    after = build_feature_bundle(candidate, defaults).as_dict()
+    assert len(candidate.inputs.heat_pattern or []) == 4
+    assert next(point for point in candidate.inputs.heat_pattern or [] if point.stage_name == "加熱1").time_s == 30.0
+    assert after == pytest.approx(before)
+
+
+def test_missing_named_stage_is_not_interpolated_across_a_segment_boundary() -> None:
+    candidate = CandidateInput.model_validate({
+        "name": "segmented",
+        "inputs": {
+            "composition": {"C": 0.1},
+            "process": {"ls_mpm": 60.0},
+            "heat_pattern": [
+                {"time_s": 0, "temperature_c": 20},
+                {"time_s": 60, "temperature_c": 600},
+                {"time_s": 120, "temperature_c": 800, "segment_start": True},
+            ],
+        },
+    })
+
+    with pytest.raises(ValueError, match="非連続な工程境界"):
+        ModelRuntime._heat_stage_temperature(candidate.inputs.heat_pattern or [], 60.0, "加熱1", 90.0)
+
+
+def test_named_stage_shift_rejects_any_point_outside_the_physical_temperature_range() -> None:
+    candidate = CandidateInput.model_validate({
+        "name": "too-hot",
+        "inputs": {
+            "composition": {"C": 0.1},
+            "process": {"ls_mpm": 60.0},
+            "heat_pattern": [
+                {"time_s": 0, "temperature_c": 20},
+                {"time_s": 60, "temperature_c": 1700, "stage_name": "加熱1"},
+                {"time_s": 120, "temperature_c": 1800, "stage_name": "加熱1"},
+            ],
+        },
+    })
+
+    with pytest.raises(ValueError, match="物理温度範囲"):
+        ModelRuntime._set_curve_variable(candidate, HEAT_STAGE_TEMPERATURE_VARIABLE, 1800, "加熱1", 60.0)  # type: ignore[arg-type]
 
 
 def test_grouped_oof_calibration_and_parent_condition_support(client) -> None:

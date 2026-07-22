@@ -65,6 +65,60 @@ def test_hot_rolling_candidate_edit_is_persisted(client) -> None:
     assert saved["inputs"]["process"]["hold_temperature_c"] == 1150.0
 
 
+def test_hot_rolling_response_curve_uses_existing_numeric_inputs(client) -> None:
+    project_id = "hot-rolling-default"
+    candidate = client.get(f"/api/projects/{project_id}/candidates").json()[0]
+    response = client.get(
+        f"/api/projects/{project_id}/candidates/{candidate['id']}/response-curve",
+        params={
+            "expected_revision": candidate["revision"],
+            "target": "TS",
+            "variable": "process.finish_temperature_c",
+            "points": 7,
+        },
+    )
+
+    assert response.status_code == 200
+    curve = response.json()
+    assert curve["target"] == "TS"
+    assert curve["variable"]["id"] == "process.finish_temperature_c"
+    assert curve["variable"]["label"] == "仕上げ温度"
+    assert curve["variable"]["unit"] == "°C"
+    assert curve["variable"]["training_range"] == {"min": 830.762, "max": 931.334}
+    assert len(curve["points"]) == 7
+    assert curve["points"][0]["x"] == 830.762
+    assert curve["points"][-1]["x"] == 931.334
+    assert all(point["lower"] < point["upper"] for point in curve["points"])
+
+    unsupported = client.get(
+        f"/api/projects/{project_id}/candidates/{candidate['id']}/response-curve",
+        params={
+            "expected_revision": candidate["revision"],
+            "target": "TS",
+            "variable": "process.not_a_field",
+        },
+    )
+    assert unsupported.status_code == 422
+
+    candidate["inputs"]["process"].update({"soaking_temperature_c": 850.0, "finish_temperature_c": 840.0})
+    constrained_payload = {key: candidate[key] for key in ("name", "inputs", "provenance")}
+    constrained_payload["expected_revision"] = candidate["revision"]
+    constrained = client.put(
+        f"/api/projects/{project_id}/candidates/{candidate['id']}",
+        json=constrained_payload,
+    ).json()
+    clipped = client.get(
+        f"/api/projects/{project_id}/candidates/{candidate['id']}/response-curve",
+        params={
+            "expected_revision": constrained["revision"],
+            "target": "TS",
+            "variable": "process.finish_temperature_c",
+        },
+    )
+    assert clipped.status_code == 200
+    assert clipped.json()["variable"]["max"] == 850.0
+
+
 def test_hot_rolling_detailed_snapshot_and_actual_use_the_common_project_api(client) -> None:
     project_id = "hot-rolling-default"
     candidate = client.get(f"/api/projects/{project_id}/candidates").json()[0]
@@ -151,12 +205,15 @@ def test_hot_rolling_project_runs_the_full_common_candidate_flow(client) -> None
     )
     assert updated.status_code == 200
     assert updated.json()["name"] == "熱延E2E 更新"
-    preview = client.post(f"/api/projects/{project_id}/candidates/{candidate_id}/preview", params={"expected_revision": updated.json()["revision"]})
+    preview = client.post(
+        f"/api/projects/{project_id}/candidates/{candidate_id}/preview",
+        params={"expected_revision": updated.json()["revision"]},
+    )
     assert preview.status_code == 200
-    goal_prediction = preview.json()["predictions"]["TS"]
-    assert goal_prediction["goal_value"] == 500
-    assert 0 <= goal_prediction["goal_probability"] <= 1
-    assert goal_prediction["goal_direction"] == "at_least"
+    target_prediction = preview.json()["predictions"]["TS"]
+    assert target_prediction["goal_value"] == 500
+    assert 0 <= target_prediction["goal_probability"] <= 1
+    assert target_prediction["goal_direction"] == "at_least"
 
     disposable = client.post(f"/api/projects/{project_id}/candidates", json=payload).json()
     assert client.delete(f"/api/projects/{project_id}/candidates/{disposable['id']}?expected_revision={disposable['revision']}").status_code == 204

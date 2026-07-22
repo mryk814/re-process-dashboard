@@ -5,7 +5,7 @@
   "task_id": "hot-rolled-properties-v1",
   "input_schema_version": "hot-rolling-candidate-v2",
   "input_contract_digest": "sha256:1a2fe24fcdd492d411f07f5aadd5bda4b75a001f3aa749ca233f7024f146be74",
-  "runtime_capability_digest": "sha256:30027c98fad501501a2786922eb18ff5b27066d96205e42e0ceae8b4cb71b33c",
+  "runtime_capability_digest": "sha256:98fb62b42f98b61ddb9ca562ba05ed9d84ba9217e8f5a900d0838e724bfc96c5",
   "feature_pipeline": {
     "id": "metallurgy-hot-rolling",
     "version": "2.0.0",

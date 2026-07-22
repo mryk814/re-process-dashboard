@@ -14,7 +14,7 @@ from .feature_pipeline import FEATURE_DEFINITIONS, FEATURE_NAMES as METALLURGY_F
 from .dataset_profile import load_task_definitions
 from .importer import WorkbookData, composition_names, lineage_reference_keys
 from .model_packages import ModelPackageLoader, VerifiedModelPackage, predictive_interval, validate_predictive_summary, validate_task_definition_canonical_inputs
-from .schemas import Candidate, CandidateInput, Prediction, Support
+from .schemas import Candidate, CandidateInput, HeatPoint, Prediction, Support
 from .task_registry import load_task_contracts
 
 
@@ -25,6 +25,7 @@ MODEL_VERSION = "0.4.0-oof-v1"
 SIMILARITY_VERSION = "parent-condition-knn-v3-repeat-summary"
 INPUT_SCHEMA_VERSION = "candidate-v2"
 TARGETS = {"TS": ("TS[MPa]", "MPa"), "YS": ("YS[MPa]", "MPa"), "EL": ("EL[%]", "%"), "lambda": ("λ[%]", "%")}
+HEAT_STAGE_TEMPERATURE_VARIABLE = "heat.stage_temperature_c"
 FEATURE_NAMES = METALLURGY_FEATURE_NAMES
 FEATURE_GROUP_INDICES = feature_index_families(
     FEATURE_DEFINITIONS,
@@ -485,7 +486,43 @@ class ModelRuntime:
             result["response_curve"] = self.response_curve(candidate)
         return result
 
-    def _curve_variable_current(self, candidate: Candidate, variable: str) -> float:
+    @staticmethod
+    def _heat_stage_position(points: list[HeatPoint], line_speed_mpm: float, stage_position_m: float) -> float:
+        if line_speed_mpm <= 0:
+            raise ValueError("ラインスピードは0より大きくしてください")
+        if stage_position_m < 0:
+            raise ValueError("工程位置は0以上にしてください")
+        target_time = points[0].time_s + 60.0 * stage_position_m / line_speed_mpm
+        if target_time > points[-1].time_s + 1e-9:
+            available_distance = (points[-1].time_s - points[0].time_s) * line_speed_mpm / 60.0
+            raise ValueError(f"工程位置 {stage_position_m:g} m がヒートパターン範囲 {available_distance:g} m を超えています")
+        return min(target_time, points[-1].time_s)
+
+    @classmethod
+    def _heat_stage_temperature(cls, points: list[HeatPoint], line_speed_mpm: float, stage_name: str, stage_position_m: float) -> float:
+        matches = [point.temperature_c for point in points if (point.stage_name or "").strip() == stage_name]
+        if matches:
+            return float(sum(matches) / len(matches))
+        target_time = cls._heat_stage_position(points, line_speed_mpm, stage_position_m)
+        if target_time <= points[0].time_s:
+            return float(points[0].temperature_c)
+        if target_time >= points[-1].time_s:
+            return float(points[-1].temperature_c)
+        upper_index = next(index for index, point in enumerate(points) if point.time_s >= target_time)
+        upper = points[upper_index]
+        lower = points[upper_index - 1]
+        if upper.segment_start and target_time < upper.time_s - 1e-9:
+            raise ValueError(f"工程位置 {stage_position_m:g} m はヒートパターンの非連続な工程境界内にあります")
+        ratio = (target_time - lower.time_s) / (upper.time_s - lower.time_s)
+        return float(lower.temperature_c + ratio * (upper.temperature_c - lower.temperature_c))
+
+    def _curve_variable_current(
+        self,
+        candidate: Candidate,
+        variable: str,
+        stage_name: str | None = None,
+        stage_position_m: float | None = None,
+    ) -> float:
         if variable.startswith("composition."):
             field = variable.removeprefix("composition.")
             if field not in COMPOSITION_COLUMNS:
@@ -495,6 +532,12 @@ class ModelRuntime:
             return float(candidate.inputs.process[variable.removeprefix("process.")])
         if variable == "heat.peak_temperature_c":
             return float(max(point.temperature_c for point in (candidate.inputs.heat_pattern or [])))
+        if variable == HEAT_STAGE_TEMPERATURE_VARIABLE:
+            points = candidate.inputs.heat_pattern or []
+            if not points or not stage_name or stage_position_m is None:
+                raise ValueError("工程温度の応答曲線には工程名と工程位置が必要です")
+            line_speed = float(candidate.inputs.process.get("ls_mpm", 0.0))
+            return self._heat_stage_temperature(points, line_speed, stage_name.strip(), stage_position_m)
         if variable.startswith("heat."):
             parts = variable.split(".")
             if len(parts) != 3 or not parts[1].isdigit() or parts[2] not in {"time_min", "temperature_c"}:
@@ -506,7 +549,13 @@ class ModelRuntime:
             return float(points[index].time_s / 60 if parts[2] == "time_min" else points[index].temperature_c)
         raise ValueError(f"Unsupported response-curve variable: {variable}")
 
-    def _curve_training_values(self, model: RidgeModel, variable: str) -> list[float]:
+    def _curve_training_values(
+        self,
+        model: RidgeModel,
+        variable: str,
+        stage_name: str | None = None,
+        stage_position_m: float | None = None,
+    ) -> list[float]:
         values: list[float] = []
         for row in model.rows:
             try:
@@ -516,6 +565,14 @@ class ModelRuntime:
                     value = row["features"].get(variable.removeprefix("process."))
                 elif variable == "heat.peak_temperature_c":
                     value = max(point["temperature_c"] for point in row["features"].get("heat_pattern", []))
+                elif variable == HEAT_STAGE_TEMPERATURE_VARIABLE:
+                    raw_points = row["features"].get("heat_pattern", [])
+                    if not raw_points or not stage_name or stage_position_m is None:
+                        value = None
+                    else:
+                        heat_points = [HeatPoint.model_validate(point) for point in raw_points]
+                        line_speed = float(row["features"].get("ls_mpm", 0.0))
+                        value = self._heat_stage_temperature(heat_points, line_speed, stage_name.strip(), stage_position_m)
                 elif variable.startswith("heat."):
                     parts = variable.split(".")
                     index = int(parts[1])
@@ -530,28 +587,86 @@ class ModelRuntime:
                 continue
         return values
 
-    def _curve_axis(self, candidate: Candidate, model: RidgeModel, variable: str) -> tuple[float, float]:
-        values = self._curve_training_values(model, variable)
+    def _curve_axis(
+        self,
+        candidate: Candidate,
+        model: RidgeModel,
+        variable: str,
+        stage_name: str | None = None,
+        stage_position_m: float | None = None,
+    ) -> tuple[float, float]:
+        values = self._curve_training_values(model, variable, stage_name, stage_position_m)
         if not values:
-            current = self._curve_variable_current(candidate, variable)
+            current = self._curve_variable_current(candidate, variable, stage_name, stage_position_m)
             values = [current - max(abs(current) * 0.08, 1.0), current + max(abs(current) * 0.08, 1.0)]
         low, high = min(values), max(values)
         padding = max((high - low) * 0.08, 1e-6)
         lower_bound = 0.0 if variable.startswith(("composition.", "process.")) or variable.endswith(".time_min") else -273.15
         return max(lower_bound, low - padding), high + padding
 
-    @staticmethod
-    def _set_curve_variable(candidate: Candidate, variable: str, value: float) -> None:
+    @classmethod
+    def _set_curve_variable(
+        cls,
+        candidate: Candidate,
+        variable: str,
+        value: float,
+        stage_name: str | None = None,
+        stage_position_m: float | None = None,
+    ) -> None:
         if variable.startswith("composition."):
             candidate.inputs.composition[variable.removeprefix("composition.")] = min(100.0, max(0.0, float(value)))
             return
         if variable.startswith("process."):
+            if variable == "process.ls_mpm":
+                old_speed = float(candidate.inputs.process["ls_mpm"])
+                new_speed = max(0.001, float(value))
+                points = candidate.inputs.heat_pattern or []
+                if old_speed <= 0:
+                    raise ValueError("基準ラインスピードは0より大きくしてください")
+                if points:
+                    origin = points[0].time_s
+                    scale = old_speed / new_speed
+                    for point in points:
+                        point.time_s = origin + (point.time_s - origin) * scale
+                candidate.inputs.process["ls_mpm"] = new_speed
+                return
             candidate.inputs.process[variable.removeprefix("process.")] = max(0.001, float(value))
             return
         if variable == "heat.peak_temperature_c":
             points = candidate.inputs.heat_pattern or []
             index = max(range(len(points)), key=lambda i: points[i].temperature_c)
             points[index].temperature_c = float(value)
+            return
+        if variable == HEAT_STAGE_TEMPERATURE_VARIABLE:
+            points = candidate.inputs.heat_pattern or []
+            if not points or not stage_name or stage_position_m is None:
+                raise ValueError("工程温度の応答曲線には工程名と工程位置が必要です")
+            normalized_name = stage_name.strip()
+            matches = [point for point in points if (point.stage_name or "").strip() == normalized_name]
+            if matches:
+                current = sum(point.temperature_c for point in matches) / len(matches)
+                delta = float(value) - current
+                shifted = [point.temperature_c + delta for point in matches]
+                if any(temperature < -273.15 or temperature > 1800 for temperature in shifted):
+                    raise ValueError("工程温度の変更後に物理温度範囲を外れる点があります")
+                for point, temperature in zip(matches, shifted):
+                    point.temperature_c = temperature
+                return
+            line_speed = float(candidate.inputs.process.get("ls_mpm", 0.0))
+            target_time = cls._heat_stage_position(points, line_speed, stage_position_m)
+            coincident = next((point for point in points if math.isclose(point.time_s, target_time, abs_tol=1e-9)), None)
+            if coincident is not None:
+                coincident.temperature_c = float(value)
+                return
+            insert_at = next(index for index, point in enumerate(points) if point.time_s > target_time)
+            if points[insert_at].segment_start:
+                raise ValueError(f"工程位置 {stage_position_m:g} m はヒートパターンの非連続な工程境界内にあります")
+            points.insert(insert_at, HeatPoint(
+                time_s=target_time,
+                temperature_c=float(value),
+                stage_name=normalized_name,
+                mapping_status="synthetic_response_curve",
+            ))
             return
         if variable.startswith("heat."):
             parts = variable.split(".")
@@ -567,7 +682,15 @@ class ModelRuntime:
             return
         raise ValueError(f"Unsupported response-curve variable: {variable}")
 
-    def curve_variable(self, candidate: Candidate, variable: str, model: RidgeModel | None = None, axis_range: tuple[float, float] | None = None) -> dict[str, Any]:
+    def curve_variable(
+        self,
+        candidate: Candidate,
+        variable: str,
+        model: RidgeModel | None = None,
+        axis_range: tuple[float, float] | None = None,
+        stage_name: str | None = None,
+        stage_position_m: float | None = None,
+    ) -> dict[str, Any]:
         reference = model or next(iter(self.models.values()))
         labels = {"heat.peak_temperature_c": ("焼鈍履歴 最高温度", "°C")}
         if variable.startswith("composition."):
@@ -577,27 +700,39 @@ class ModelRuntime:
             field_path = variable
             field = next((field for group in load_task_definitions()[TASK_ID].input_groups for field in group.fields if field.path == field_path), None)
             label, unit = (field.label, field.unit or "") if field else (variable.removeprefix("process."), "")
+        elif variable == HEAT_STAGE_TEMPERATURE_VARIABLE:
+            label, unit = (f"{stage_name} 温度", "°C")
         elif variable.startswith("heat.") and variable.count(".") == 2:
             _, raw_index, field = variable.split(".")
             label = f"ヒートパターン {int(raw_index) + 1}点目 { '時間' if field == 'time_min' else '温度' }"
             unit = "min" if field == "time_min" else "°C"
         else:
             label, unit = labels.get(variable, (variable, ""))
-        training_values = self._curve_training_values(reference, variable)
+        training_values = self._curve_training_values(reference, variable, stage_name, stage_position_m)
         training_range = None if not training_values else {"min": round(min(training_values), 4), "max": round(max(training_values), 4)}
-        axis_min, axis_max = axis_range or self._curve_axis(candidate, reference, variable)
-        return {"id": variable, "label": label, "unit": unit, "min": round(axis_min, 4), "max": round(axis_max, 4), "current": round(self._curve_variable_current(candidate, variable), 4), "training_range": training_range}
+        axis_min, axis_max = axis_range or self._curve_axis(candidate, reference, variable, stage_name, stage_position_m)
+        variable_id = f"{variable}:{stage_name}" if variable == HEAT_STAGE_TEMPERATURE_VARIABLE else variable
+        return {"id": variable_id, "label": label, "unit": unit, "min": round(axis_min, 4), "max": round(axis_max, 4), "current": round(self._curve_variable_current(candidate, variable, stage_name, stage_position_m), 4), "training_range": training_range}
 
-    def response_curve(self, candidate: Candidate, target: str = "TS", variable: str = "heat.peak_temperature_c", points: int = 9, axis_range: tuple[float, float] | None = None) -> list[dict[str, float]]:
+    def response_curve(
+        self,
+        candidate: Candidate,
+        target: str = "TS",
+        variable: str = "heat.peak_temperature_c",
+        points: int = 9,
+        axis_range: tuple[float, float] | None = None,
+        stage_name: str | None = None,
+        stage_position_m: float | None = None,
+    ) -> list[dict[str, float]]:
         if target not in self.models:
             return []
         model = self.models[target]
-        start, end = axis_range or self._curve_axis(candidate, model, variable)
+        start, end = axis_range or self._curve_axis(candidate, model, variable, stage_name, stage_position_m)
         lower_offset, upper_offset = model.interval_offsets()
         curve: list[dict[str, float]] = []
         for x_value in np.linspace(start, end, points):
             adjusted = candidate.model_copy(deep=True)
-            self._set_curve_variable(adjusted, variable, float(x_value))
+            self._set_curve_variable(adjusted, variable, float(x_value), stage_name, stage_position_m)
             adjusted_vector = self.vector_for_candidate(adjusted)
             summary = None
             if target in self.package_predictors:
@@ -620,7 +755,16 @@ class ModelRuntime:
             })
         return curve
 
-    def response_curve_result(self, candidate: Candidate, target: str, variable: str, points: int, axis_range: tuple[float, float] | None = None) -> dict[str, Any]:
+    def response_curve_result(
+        self,
+        candidate: Candidate,
+        target: str,
+        variable: str,
+        points: int,
+        axis_range: tuple[float, float] | None = None,
+        stage_name: str | None = None,
+        stage_position_m: float | None = None,
+    ) -> dict[str, Any]:
         if target not in self.output_keys:
             raise ValueError(f"Unsupported response-curve target: {target}")
         model = self.models.get(target)
@@ -631,9 +775,9 @@ class ModelRuntime:
         output_range = None if not observed else {"min": round(min(observed), 4), "max": round(max(observed), 4)}
         return {
             "target": target,
-            "variable": self.curve_variable(candidate, variable, model, axis_range),
-            "points": self.response_curve(candidate, target, variable, points, axis_range),
+            "variable": self.curve_variable(candidate, variable, model, axis_range, stage_name, stage_position_m),
+            "points": self.response_curve(candidate, target, variable, points, axis_range, stage_name, stage_position_m),
             "output_range": output_range,
             "point_count": points,
-            "policy_id": "fixed-grid-v1",
+            "policy_id": "fixed-grid-v2",
         }

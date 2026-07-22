@@ -58,16 +58,43 @@ test("primary navigation follows the decision flow and separates developer admin
 test("saved prediction returns directly to project history", async ({ page, request }) => {
   const projectId = await createIsolatedProject(request);
   await page.goto(`/?view=candidates&project=${projectId}`);
+  await expect(page.getByLabel("候補ごとの操作")).toBeVisible();
   const save = page.getByRole("button", { name: /の詳細予測を保存/ });
   await expect(save).toBeEnabled();
   const snapshotResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/predict"));
   await save.click();
   expect((await snapshotResponse).status()).toBe(200);
+  await expect(page.getByRole("button", { name: /の詳細予測を保存済み/ })).toBeDisabled();
+  await page.reload();
+  await expect(page.getByRole("button", { name: /の詳細予測を保存済み/ })).toBeDisabled();
 
   await page.getByRole("button", { name: "保存結果・履歴" }).click();
   await expect(page).toHaveURL(new RegExp(`view=project.*project=${projectId}`));
   await expect(page.getByRole("heading", { name: "候補と判断履歴" })).toBeVisible();
   await expect(page.getByText("固定した予測").first()).toBeVisible();
+});
+
+test("candidate row actions target their own row", async ({ page, request }) => {
+  const projectId = await createIsolatedProject(request);
+  const listed = await (await request.get(`${api}/api/projects/${projectId}/candidates`)).json() as Array<{ id: string; name: string }>;
+  const first = listed[0];
+  await page.goto(`/?view=candidates&project=${projectId}&candidate=${first.id}`);
+
+  const createResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/candidates"));
+  await page.getByRole("button", { name: "候補を追加" }).click();
+  const second = await (await createResponse).json() as { id: string };
+  await expect(page).toHaveURL(new RegExp(`candidate=${second.id}`));
+
+  const predictResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith(`/candidates/${first.id}/predict`));
+  await page.getByRole("button", { name: `${first.name}の詳細予測を保存` }).click();
+  expect((await predictResponse).status()).toBe(200);
+  await expect(page).toHaveURL(new RegExp(`candidate=${second.id}`));
+  await expect(page.getByRole("button", { name: `${first.name}の詳細予測を保存済み` })).toBeDisabled();
+
+  const deleteResponse = page.waitForResponse((response) => response.request().method() === "DELETE" && new URL(response.url()).pathname.endsWith(`/candidates/${first.id}`));
+  await page.getByRole("button", { name: `${first.name}を削除` }).click();
+  expect((await deleteResponse).status()).toBe(204);
+  await expect(page).toHaveURL(new RegExp(`candidate=${second.id}`));
 });
 
 test("hot rolling remains a project task and uses task labels", async ({ page }) => {

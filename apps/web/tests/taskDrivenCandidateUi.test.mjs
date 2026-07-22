@@ -13,7 +13,18 @@ const bundle = await build({
       import { CandidateInspector, ComparisonTable } from "./features/candidates/CandidateUi.tsx";
       export const element = (text) => React.createElement("div", null, text);
       export const renderInspector = (props) => renderToStaticMarkup(React.createElement(CandidateInspector, props));
-      export const renderComparison = (props) => renderToStaticMarkup(React.createElement(ComparisonTable, props));
+      export const renderComparison = (props) => renderToStaticMarkup(React.createElement(ComparisonTable, {
+        decisionCandidateId: "",
+        detailedPredictionAvailable: true,
+        saveStates: {},
+        savedRevisionsByCandidate: {},
+        savingCandidateIds: [],
+        snapshotHistoryState: "ready",
+        onCopy() {},
+        onDelete() {},
+        onSave() {},
+        ...props,
+      }));
     `,
     resolveDir: sourceRoot,
     loader: "tsx",

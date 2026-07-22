@@ -8,6 +8,18 @@ export type TaskOutputDefinition = components["schemas"]["OutputDefinition"];
 export type TaskDefinitionContract = components["schemas"]["TaskDefinition"];
 export type RuntimeOperations = components["schemas"]["RuntimeOperationsCapability"];
 export type ResolvedTaskDefinition = components["schemas"]["ResolvedTaskDefinition"];
+export type ResponseCurveVariableOption = {
+  id: string;
+  requestVariable: string;
+  label: string;
+  unit: string;
+  min: number;
+  max: number;
+  current: number;
+  group: string;
+  stageName?: string;
+  stagePositionM?: number;
+};
 
 export type NumericTaskInput = TaskFieldDefinition & {
   id: string;
@@ -76,6 +88,82 @@ export function numericTaskInputs(definition: TaskDefinitionContract | null): Nu
       unit: field.unit ?? "",
     }));
   });
+}
+
+function stagePositionM(inputs: CandidateInputs, stageName: string): number | null {
+  const points = inputs.heat_pattern ?? [];
+  const speed = inputs.process.ls_mpm;
+  if (!points.length || !Number.isFinite(speed) || speed <= 0) return null;
+  const matches = points.filter((point) => point.stage_name?.trim() === stageName);
+  if (!matches.length) return null;
+  const meanTime = matches.reduce((sum, point) => sum + point.time_s, 0) / matches.length;
+  return (meanTime - points[0].time_s) * speed / 60;
+}
+
+export function responseCurveVariables(
+  definition: TaskDefinitionContract | null,
+  candidateInputs: CandidateInputs,
+  comparisonInputs: CandidateInputs[],
+  configuredStagePositions: Record<string, number>,
+): ResponseCurveVariableOption[] {
+  if (!definition) return [];
+  const numeric = new Map(numericTaskInputs(definition).map((field) => [field.path, field]));
+  const declarations = [...(definition.response_curve_variables ?? [])].sort((left, right) => left.order - right.order);
+  if (!declarations.length) {
+    return [...numeric.values()].filter((field) => field.editable).map((field) => ({
+      id: field.path,
+      requestVariable: field.path,
+      label: field.label,
+      unit: field.unit,
+      min: field.allowed_range!.min,
+      max: field.allowed_range!.max,
+      current: field.group === "composition" ? candidateInputs.composition[field.field] ?? 0 : candidateInputs.process[field.field] ?? 0,
+      group: field.group === "composition" ? "成分" : "工程条件",
+    }));
+  }
+  const variables: ResponseCurveVariableOption[] = [];
+  for (const declaration of declarations) {
+    if (declaration.kind === "numeric_input") {
+      const field = numeric.get(declaration.path ?? "");
+      if (!field?.allowed_range) continue;
+      variables.push({
+        id: field.path,
+        requestVariable: field.path,
+        label: declaration.label,
+        unit: field.unit,
+        min: field.allowed_range.min,
+        max: field.allowed_range.max,
+        current: field.group === "composition" ? candidateInputs.composition[field.field] ?? 0 : candidateInputs.process[field.field] ?? 0,
+        group: field.group === "composition" ? "成分" : "工程条件",
+      });
+      continue;
+    }
+    const stageNames = [...new Set([
+      ...comparisonInputs.flatMap((inputs) => (inputs.heat_pattern ?? []).map((point) => point.stage_name?.trim()).filter((name): name is string => Boolean(name))),
+      ...Object.keys(configuredStagePositions).map((name) => name.trim()).filter(Boolean),
+    ])];
+    for (const stageName of stageNames) {
+      const observedPositions = comparisonInputs.map((inputs) => stagePositionM(inputs, stageName)).filter((value): value is number => value !== null).sort((a, b) => a - b);
+      const inferredPosition = observedPositions[Math.floor(observedPositions.length / 2)];
+      const position = configuredStagePositions[stageName] ?? inferredPosition;
+      if (!Number.isFinite(position)) continue;
+      const ownPoints = (candidateInputs.heat_pattern ?? []).filter((point) => point.stage_name?.trim() === stageName);
+      const current = ownPoints.length ? ownPoints.reduce((sum, point) => sum + point.temperature_c, 0) / ownPoints.length : 0;
+      variables.push({
+        id: `heat.stage_temperature_c:${stageName}`,
+        requestVariable: "heat.stage_temperature_c",
+        label: `${stageName} 温度`,
+        unit: "°C",
+        min: -273.15,
+        max: 1800,
+        current,
+        group: declaration.label,
+        stageName,
+        stagePositionM: position,
+      });
+    }
+  }
+  return variables;
 }
 
 export type CategoricalTaskInput = TaskFieldDefinition & {

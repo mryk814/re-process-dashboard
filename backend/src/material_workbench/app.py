@@ -578,7 +578,12 @@ def create_app(
             raise HTTPException(422, "Excel候補importはこの予測タスクでは利用できません")
         if not file.filename or not file.filename.lower().endswith(".xlsx"):
             raise HTTPException(422, "Excel .xlsx ファイルを選択してください")
-        payloads, errors = import_candidates_xlsx(await file.read())
+        runtime = task_registry().runtime_for(project.task_id)
+        payloads, errors = import_candidates_xlsx(
+            await file.read(),
+            task_id=project.task_id,
+            profile_path=runtime.data.profile_path,
+        )
         try:
             created = [candidate.model_dump(mode="json") for candidate in store().create_candidates(payloads, project_id)]
         except ProjectNotFoundError as exc:
@@ -706,6 +711,8 @@ def create_app(
         points: int = Query(9, ge=3, le=51),
         range_min: float | None = Query(None),
         range_max: float | None = Query(None),
+        stage_name: str | None = Query(None, min_length=1),
+        stage_position_m: float | None = Query(None, ge=0),
     ) -> dict[str, Any]:
         project = require_project(project_id)
         candidate = candidate_at_revision(project_id, candidate_id, expected_revision)
@@ -716,6 +723,13 @@ def create_app(
             raise HTTPException(422, "この予測タスクは応答曲線に対応していません")
         if (range_min is None) != (range_max is None):
             raise HTTPException(422, "応答曲線の範囲は最小値と最大値をセットで指定してください")
+        is_stage_temperature = variable == "heat.stage_temperature_c"
+        if is_stage_temperature != (stage_name is not None and stage_position_m is not None):
+            raise HTTPException(422, "工程温度の応答曲線は工程名と入口からの工程位置をセットで指定してください")
+        if stage_name is not None and not stage_name.strip():
+            raise HTTPException(422, "工程名は空白以外の文字を指定してください")
+        if project.task_id == "annealed-properties-v1" and variable.startswith("heat.") and not is_stage_temperature:
+            raise HTTPException(422, "ヒートパターンは工程名温度またはラインスピードで操作してください")
         axis_range = None
         if range_min is not None and range_max is not None:
             if not math.isfinite(range_min) or not math.isfinite(range_max) or range_min >= range_max:
@@ -728,10 +742,12 @@ def create_app(
                     project.task_id,
                     candidate,
                     "curve",
-                    parameters={"target": target, "variable": variable, "points": points, "range_min": range_min, "range_max": range_max, "policy_id": "fixed-grid-v1"},
+                    parameters={"target": target, "variable": variable, "points": points, "range_min": range_min, "range_max": range_max, "stage_name": stage_name, "stage_position_m": stage_position_m, "policy_id": "fixed-grid-v2"},
                     uses_package=True,
                 ),
-                lambda: task_runtime.response_curve_result(candidate, target, variable, points, axis_range),
+                lambda: task_runtime.response_curve_result(candidate, target, variable, points, axis_range, stage_name, stage_position_m)
+                if project.task_id == "annealed-properties-v1"
+                else task_runtime.response_curve_result(candidate, target, variable, points, axis_range),
             )
             return result
         except ValueError as exc:

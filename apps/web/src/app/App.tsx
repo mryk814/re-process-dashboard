@@ -16,13 +16,6 @@ const projectNavItems: Array<{ id: Tab; label: string; active: Tab[] }> = [
   { id: "candidates", label: "候補比較", active: ["candidates"] },
   { id: "settings", label: "開発・管理", active: ["settings"] },
 ];
-function PlayIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="m9 5 10 7-10 7V5Z" />
-    </svg>
-  );
-}
 
 function App() {
   const [navigation, setNavigation] = useState<NavigationIntent>(() => readNavigationIntent());
@@ -139,17 +132,7 @@ function App() {
                 </span>
               )}
               {tab === "candidates" && selected && (
-                <><button
-                  className="primary-button"
-                  disabled={!operations?.detailed_prediction || !["idle", "saved"].includes(editor.saveStates[selected.id] ?? "idle")}
-                  title={!operations?.detailed_prediction ? "このタスクでは詳細予測を利用できません" : undefined}
-                  onClick={() => {
-                    void prediction.runDetailedPrediction();
-                  }}
-                >
-                  <PlayIcon />
-                  {selected.label}の詳細予測を保存
-                </button><button className="outline-button" onClick={() => navigate({ view: "project", projectId: activeProjectId, candidateId: selected.id })}>保存結果・履歴</button></>
+                <button className="outline-button" onClick={() => navigate({ view: "project", projectId: activeProjectId, candidateId: selected.id })}>保存結果・履歴</button>
               )}
             </div>
           </div>
@@ -166,7 +149,7 @@ function App() {
             ))}
           </nav>
         </div>
-        {notice !== preview?.support.message && <div className="workspace-notice" role="status">{notice}</div>}
+        {notice && notice !== preview?.support.message && <div className="workspace-notice" role="status">{notice}</div>}
         {tab === "project" && (
           <ProjectHub
             projects={projects}
@@ -245,6 +228,7 @@ function App() {
               taskDefinition={taskDefinition}
               operations={operations}
               saveState={editor.saveStates[selected.id] ?? "idle"}
+              saveStates={editor.saveStates}
               fieldErrors={editor.fieldErrors[selected.id] ?? []}
               onReload={() => editor.reload(selected.id)}
               onCopyDraft={() => void editor.copyDraft(selected)}
@@ -262,10 +246,12 @@ function App() {
               onHeat={session.updateHeat}
               onAddHeat={session.addHeatPoint}
               onDeleteHeat={session.deleteHeatPoint}
-              onCopy={session.copyCandidate}
-              onDelete={() => {
-                void session.deleteCandidate();
-              }}
+              onCopy={(candidateId) => void session.copyCandidate(candidateId)}
+              onDelete={(candidateId) => void session.deleteCandidate(candidateId)}
+              onSave={(candidate) => void prediction.runDetailedPrediction(candidate)}
+              savedRevisionsByCandidate={prediction.savedRevisionsByCandidate}
+              savingCandidateIds={prediction.savingCandidateIds}
+              snapshotHistoryState={prediction.snapshotHistoryState}
               onAdd={() => {
                 void session.addCandidate();
               }}

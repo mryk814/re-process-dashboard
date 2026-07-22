@@ -4,6 +4,7 @@ import {
   getCandidateInputValue,
   numericTaskInputs,
   orderedInputGroups,
+  responseCurveVariables,
   setCandidateInputValue,
   validateResolvedTaskDefinition,
 } from "../src/features/candidates/taskDefinition.ts";
@@ -52,4 +53,39 @@ test("candidate path getter/setter preserves nested suffixes and unrelated group
   const changed = setCandidateInputValue(inputs, "categorical.route", "B");
   assert.equal(changed.categorical.route, "B");
   assert.deepEqual(changed.process, inputs.process);
+});
+
+test("response curves expose line speed and named stage temperatures without point-wise time", () => {
+  const definition = {
+    input_groups: [
+      { key: "composition", order: 0, label: "成分", fields: [{ path: "composition.C", kind: "number", order: 0, label: "C", unit: "%", editable: true, required: true, allowed_range: { min: 0, max: 100 } }] },
+      { key: "process", order: 1, label: "工程", fields: [{ path: "process.ls_mpm", kind: "number", order: 0, label: "LS", unit: "mpm", editable: true, required: true, allowed_range: { min: 1, max: 1000 } }] },
+      { key: "heat_pattern", order: 2, label: "履歴", fields: [{ path: "heat_pattern", kind: "heat_pattern", order: 0, label: "履歴", editable: true, required: true }] },
+    ],
+    response_curve_variables: [
+      { kind: "numeric_input", order: 0, label: "C", path: "composition.C", time_transform: "direct" },
+      { kind: "numeric_input", order: 1, label: "ラインスピード", path: "process.ls_mpm", time_transform: "inverse_heat_time" },
+      { kind: "heat_stage_temperature", order: 2, label: "工程温度", path: null, time_transform: "direct" },
+    ],
+  };
+  const first = { composition: { C: 0.1 }, process: { ls_mpm: 120 }, categorical: {}, heat_pattern: [
+    { time_s: 10, temperature_c: 20 },
+    { time_s: 40, temperature_c: 700, stage_name: "加熱1" },
+    { time_s: 70, temperature_c: 400 },
+  ] };
+  const second = { composition: { C: 0.1 }, process: { ls_mpm: 60 }, categorical: {}, heat_pattern: [
+    { time_s: 0, temperature_c: 20 },
+    { time_s: 30, temperature_c: 680, stage_name: "加熱1" },
+    { time_s: 120, temperature_c: 400 },
+  ] };
+
+  const variables = responseCurveVariables(definition, first, [first, second], { 合金化: 90 });
+  const variablesWithOtherSelection = responseCurveVariables(definition, second, [first, second], { 合金化: 90 });
+
+  assert.deepEqual(variables.map((item) => item.id), ["composition.C", "process.ls_mpm", "heat.stage_temperature_c:加熱1", "heat.stage_temperature_c:合金化"]);
+  assert.equal(variables[1].label, "ラインスピード");
+  assert.equal(variables[2].stagePositionM, 60);
+  assert.equal(variablesWithOtherSelection[2].stagePositionM, 60);
+  assert.equal(variables[3].stagePositionM, 90);
+  assert.equal(variables.some((item) => item.id.includes("time")), false);
 });
