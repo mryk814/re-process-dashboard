@@ -96,6 +96,11 @@ function App() {
     });
   }
 
+  function startProjectForDataset(datasetViewRevisionId: string) {
+    setRequestedDatasetViewId(datasetViewRevisionId);
+    navigate({ view: "project", projectId: activeProjectId });
+  }
+
   useEffect(() => {
     const onPopState = () => {
       const intent = readNavigationIntent();
@@ -202,10 +207,11 @@ function App() {
             onCreationIntentConsumed={() => setRequestedDatasetViewId(undefined)}
           />
         )}
-        {tab === "data-library" && <DataLibraryPage projects={projects} onStartProject={(datasetViewRevisionId) => {
-          setRequestedDatasetViewId(datasetViewRevisionId);
-          navigate({ view: "project", projectId: activeProjectId });
-        }} />}
+        {tab === "data-library" && <DataLibraryPage
+          projects={projects}
+          onAddDataset={() => navigate({ view: "settings", projectId: activeProjectId, adminSection: "profile" })}
+          onStartProject={startProjectForDataset}
+        />}
         {tab === "settings" && (
           <DeveloperAdminPage
             project={activeProject}
@@ -238,6 +244,7 @@ function App() {
               qualityKey: filters.key,
             })}
             onOpenDataLibrary={() => navigate({ view: "data-library", projectId: activeProjectId })}
+            onStartProject={startProjectForDataset}
             onProjectChanged={(project) => {
               void session.refreshAdminProject(project);
             }}
