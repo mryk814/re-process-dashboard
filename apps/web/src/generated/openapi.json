@@ -2626,6 +2626,14 @@
             "title": "Display Decimals",
             "type": "object"
           },
+          "heat_stage_positions_m": {
+            "additionalProperties": {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            "title": "Heat Stage Positions M",
+            "type": "object"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -2727,6 +2735,14 @@
               "type": "integer"
             },
             "title": "Display Decimals",
+            "type": "object"
+          },
+          "heat_stage_positions_m": {
+            "additionalProperties": {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            "title": "Heat Stage Positions M",
             "type": "object"
           },
           "initial_candidate": {
@@ -2893,6 +2909,14 @@
               "type": "integer"
             },
             "title": "Display Decimals",
+            "type": "object"
+          },
+          "heat_stage_positions_m": {
+            "additionalProperties": {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            "title": "Heat Stage Positions M",
             "type": "object"
           },
           "input_ranges": {
@@ -3201,6 +3225,56 @@
           "policy_id"
         ],
         "title": "ResponseCurveResponse",
+        "type": "object"
+      },
+      "ResponseCurveVariableDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "numeric_input",
+              "heat_stage_temperature"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "order": {
+            "minimum": 0.0,
+            "title": "Order",
+            "type": "integer"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "time_transform": {
+            "default": "direct",
+            "enum": [
+              "direct",
+              "inverse_heat_time"
+            ],
+            "title": "Time Transform",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "order",
+          "label"
+        ],
+        "title": "ResponseCurveVariableDefinition",
         "type": "object"
       },
       "RuntimeAvailability": {
@@ -4339,6 +4413,14 @@
             },
             "minItems": 1,
             "title": "Outputs",
+            "type": "array"
+          },
+          "response_curve_variables": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ResponseCurveVariableDefinition"
+            },
+            "title": "Response Curve Variables",
             "type": "array"
           },
           "schema_version": {
@@ -6065,6 +6147,40 @@
                 }
               ],
               "title": "Range Max"
+            }
+          },
+          {
+            "in": "query",
+            "name": "stage_name",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Stage Name"
+            }
+          },
+          {
+            "in": "query",
+            "name": "stage_position_m",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Stage Position M"
             }
           }
         ],
