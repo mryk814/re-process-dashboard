@@ -112,6 +112,9 @@
   color: #965b09;
   font-style: normal;
 }
+.candidate-origin.reference-data { border-color: #8fb6ad; background: #f2faf8; color: #426c66; }
+.candidate-origin.reference-data span { align-items: center; }
+.candidate-origin.reference-data i, .reference-data-kicker { border-radius: 999px; background: #d8eee9; padding: 2px 7px; color: #245d55; font-size: 9px; font-style: normal; font-weight: 700; }
 .workbench-grid {
   display: grid;
   grid-template-columns: minmax(760px, 1fr) minmax(388px, 27%);
@@ -437,6 +440,8 @@
   padding: 9px 10px 10px;
 }
 .similar-evidence-panel .evidence-title { margin-bottom: 8px; }
+.similar-evidence-panel .evidence-title h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.reference-data-kicker { margin-right: 2px; }
 .similar-table-scroll { overflow-x: auto; isolation: isolate; scrollbar-gutter: stable; container-type: inline-size; }
 .similar-caption { display: block; margin-top: -7px; color: #657386; font-size: 11px; }
 .similar-summary-table th,

@@ -19,9 +19,10 @@ export function CandidateOrigin({
 }) {
   const provenance = candidate.raw.provenance as CandidateProvenance;
   const hasOriginNavigation = provenance.source_kind !== "direct" && provenance.source_kind !== "manual";
+  const referenceOrigin = provenance.source_kind === "lineage";
   return (
-    <div className={`candidate-origin ${broken ? "missing" : ""}`}>
-      <span><b>作成元</b>{provenanceLabel(provenance)}</span>
+    <div className={`candidate-origin${broken ? " missing" : ""}${referenceOrigin ? " reference-data" : ""}`}>
+      <span><b>作成元</b>{referenceOrigin && <i>参照データ由来</i>}{provenanceLabel(provenance)}</span>
       {broken ? (
         <em>コピー元は削除済みか参照できません</em>
       ) : candidate.raw.archived_at ? (
