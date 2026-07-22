@@ -17,6 +17,7 @@ from fastapi.responses import StreamingResponse
 from .api.errors import DomainApiException, PROJECT_API_ERRORS, install_exception_handlers
 from .api.security import configure_local_access
 from .api.catalog import router as catalog_router
+from .api.projects import router as projects_router
 from .importer import lineage_neighborhood, lineage_node_detail
 from .demo_seed import initialize_demo_projects
 from .inference_work_graph import InferenceKey, InferenceWorkGraph
@@ -37,10 +38,6 @@ from .schemas import (
     PredictionResponse,
     PredictionVsActualResponse,
     Project,
-    ProjectCreateInput,
-    ProjectDecisionInput,
-    ProjectHistoryResponse,
-    ProjectInput,
     QualityResponse,
     ResponseCurveResponse,
     ScreeningRequest,
@@ -52,8 +49,7 @@ from .schemas import (
 )
 from .services import candidate_from_lineage, candidates_xlsx, import_candidates_xlsx, run_latin_hypercube
 from .snapshot_reader import SnapshotPayloadError, candidate_input_from_snapshot
-from .store import CandidateArchivedError, CandidateCopyConflictError, CandidateLimitError, CandidateRevisionConflictError, InvalidProjectDecisionError, ProjectNotFoundError, ProtectedProjectError, Store, StoreDataIntegrityError
-from .task_contracts import ResolvedTaskDefinition
+from .store import CandidateArchivedError, CandidateLimitError, CandidateRevisionConflictError, ProjectNotFoundError, Store, StoreDataIntegrityError
 from .task_registry import DataExplorerEntry, TaskRegistry, TaskRegistryError
 from .task_modules import registered_task_modules
 
@@ -119,6 +115,7 @@ def create_app(
     configure_local_access(app)
     install_exception_handlers(app)
     app.include_router(catalog_router)
+    app.include_router(projects_router)
 
     def store() -> Store:
         return app.state.store
@@ -208,11 +205,6 @@ def create_app(
         except CandidateLimitError as exc:
             raise DomainApiException(409, "candidate_limit", str(exc)) from exc
 
-    def validate_display_decimals(payload: ProjectInput, definition: ResolvedTaskDefinition) -> None:
-        unsupported = sorted(set(payload.display_decimals) - set(definition.task_definition.display_decimals))
-        if unsupported:
-            raise HTTPException(422, f"タスクに存在しない表示項目です: {', '.join(unsupported)}")
-
     @app.post(
         "/api/projects/{project_id}/candidates/{candidate_id}/preview",
         response_model=PredictionResponse,
@@ -266,119 +258,6 @@ def create_app(
                 "quality_by_category": Counter(row.get(quality_category) for row in data.quality) if quality_category else {},
             },
         }
-
-    @app.get("/api/projects", response_model=list[Project])
-    def list_projects() -> list[dict[str, Any]]:
-        return [project.model_dump(mode="json") for project in store().list_projects()]
-
-    @app.post("/api/projects", status_code=201, response_model=Project)
-    def create_project(payload: ProjectCreateInput) -> dict[str, Any]:
-        try:
-            contract = task_registry().contract_for(payload.task_id)
-        except TaskRegistryError as exc:
-            raise HTTPException(422, str(exc)) from exc
-        unsupported_targets = sorted(set(payload.target_values) - {item.key for item in contract.task_definition.outputs})
-        if unsupported_targets:
-            raise HTTPException(422, f"タスクに存在しない目標特性です: {', '.join(unsupported_targets)}")
-        validate_display_decimals(payload, task_registry().resolved_definition_for(payload.task_id))
-        if payload.decision_candidate_id:
-            raise HTTPException(422, "新しいプロジェクトでは採用候補を空にしてください")
-        initial = payload.initial_candidate
-        if initial is not None:
-            if initial.provenance.source_kind != "copy":
-                raise HTTPException(422, "新規プロジェクトの初期候補はコピー由来にしてください")
-            reference = initial.provenance.source_ref
-            source = store().get_candidate(reference.candidate_id, reference.project_id, include_archived=True)
-            if source is None or source.revision != reference.candidate_revision:
-                raise HTTPException(422, "コピー元候補またはrevisionが一致しません")
-            source_project = require_project(reference.project_id)
-            if source_project.task_id != payload.task_id:
-                raise HTTPException(422, "異なる予測タスクの候補はコピーできません")
-            try:
-                task_registry().validate_candidate(payload.task_id, initial)
-            except (TaskRegistryError, ValueError) as exc:
-                raise HTTPException(422, str(exc)) from exc
-        project_input = ProjectInput.model_validate(payload.model_dump(exclude={"initial_candidate"}))
-        try:
-            return store().create_project(project_input, initial).model_dump(mode="json")
-        except CandidateCopyConflictError as exc:
-            raise HTTPException(422, str(exc)) from exc
-
-    @app.get("/api/projects/{project_id}", response_model=Project)
-    def get_project_by_id(project_id: str) -> dict[str, Any]:
-        return require_project(project_id).model_dump(mode="json")
-
-    @app.delete("/api/projects/{project_id}", status_code=204, responses=PROJECT_API_ERRORS)
-    def delete_project_by_id(project_id: str) -> Response:
-        require_project(project_id)
-        try:
-            deleted = store().delete_project(project_id)
-        except ProtectedProjectError as exc:
-            raise DomainApiException(409, "protected_project", str(exc)) from exc
-        if not deleted:
-            raise HTTPException(404, "プロジェクトが見つかりません")
-        return Response(status_code=204)
-
-    @app.get(
-        "/api/projects/{project_id}/history",
-        response_model=ProjectHistoryResponse,
-        responses=PROJECT_API_ERRORS,
-        operation_id="getProjectHistory",
-    )
-    def project_history(project_id: str) -> dict[str, Any]:
-        try:
-            history = store().project_history(project_id)
-            if history is None:
-                raise HTTPException(404, "プロジェクトが見つかりません")
-            return ProjectHistoryResponse.model_validate(history)
-        except StoreDataIntegrityError as exc:
-            raise DomainApiException(409, "data_integrity_error", str(exc)) from exc
-        except ValueError as exc:
-            raise DomainApiException(409, "data_integrity_error", "プロジェクト履歴の形式が不正です") from exc
-
-    @app.put("/api/projects/{project_id}", response_model=Project, responses=PROJECT_API_ERRORS)
-    def update_project_by_id(project_id: str, payload: ProjectInput) -> dict[str, Any]:
-        current = require_project(project_id)
-        try:
-            contract = task_registry().contract_for(payload.task_id)
-        except TaskRegistryError as exc:
-            raise HTTPException(422, str(exc)) from exc
-        unsupported_targets = sorted(set(payload.target_values) - {item.key for item in contract.task_definition.outputs})
-        if unsupported_targets:
-            raise HTTPException(422, f"タスクに存在しない目標特性です: {', '.join(unsupported_targets)}")
-        validate_display_decimals(payload, task_registry().resolved_definition_for(payload.task_id))
-        if current.task_id != payload.task_id and store().list_candidates(project_id, include_archived=True):
-            raise DomainApiException(409, "project_task_locked", "候補があるプロジェクトの予測タスクは変更できません")
-        try:
-            project = store().update_project(project_id, payload)
-        except InvalidProjectDecisionError as exc:
-            raise HTTPException(422, str(exc)) from exc
-        if not project:
-            raise HTTPException(404, "プロジェクトが見つかりません")
-        return project.model_dump(mode="json")
-
-    @app.put("/api/projects/{project_id}/decision", response_model=Project)
-    def update_project_decision(project_id: str, payload: ProjectDecisionInput) -> dict[str, Any]:
-        try:
-            project = store().update_project_decision(
-                project_id,
-                payload.candidate_id,
-                payload.snapshot_id,
-                payload.note,
-            )
-        except InvalidProjectDecisionError as exc:
-            raise HTTPException(422, str(exc)) from exc
-        if not project:
-            raise HTTPException(404, "プロジェクトが見つかりません")
-        return project.model_dump(mode="json")
-
-    @app.get("/api/project", response_model=Project, deprecated=True)
-    def get_project() -> dict[str, Any]:
-        return require_project("default").model_dump(mode="json")
-
-    @app.put("/api/project", response_model=Project, responses=PROJECT_API_ERRORS, deprecated=True)
-    def update_project(payload: ProjectInput) -> dict[str, Any]:
-        return update_project_by_id("default", payload)
 
     @app.get("/api/projects/{project_id}/candidates", response_model=list[Candidate], responses=PROJECT_API_ERRORS)
     def list_candidates(project_id: str, include_archived: bool = False) -> list[dict[str, Any]]:
