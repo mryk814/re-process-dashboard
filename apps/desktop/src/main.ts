@@ -62,9 +62,6 @@ function sidecarCommand(port: number): { command: string; args: string[]; cwd: s
         WORKBENCH_DB_PATH: join(app.getPath("userData"), "workbench.db"),
         WORKBENCH_SOURCE_PATH: join(resources, "data", "source", "process_dashboard_realistic_excel_v2.xlsx"),
         WORKBENCH_FLANK_WEAR_SOURCE_PATH: join(resources, "data", "source", "cutting_tool_flank_wear_synthetic_dataset.xlsx"),
-        MATERIAL_WORKBENCH_MODEL_PACKAGE: join(resources, "models", "packages", "annealed-gp-2026-07"),
-        MATERIAL_WORKBENCH_HOT_ROLLING_MODEL_PACKAGE: join(resources, "models", "packages", "hot-rolled-horseshoe-2026-07"),
-        MATERIAL_WORKBENCH_FLANK_WEAR_MODEL_PACKAGE: join(resources, "models", "packages", "flank-wear-gp-2026-07"),
       },
     };
   }
