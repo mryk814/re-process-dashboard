@@ -175,6 +175,7 @@
               "candidate_archived",
               "candidate_provenance_immutable",
               "project_task_locked",
+              "project_group_conflict",
               "protected_project",
               "project_has_successors",
               "data_integrity_error",
@@ -4024,6 +4025,32 @@
           }
         },
         "title": "ProjectDecisionInput",
+        "type": "object"
+      },
+      "ProjectGroupMoveInput": {
+        "properties": {
+          "expected_project_series_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Project Series Id"
+          },
+          "project_series_id": {
+            "minLength": 1,
+            "title": "Project Series Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_series_id",
+          "expected_project_series_id"
+        ],
+        "title": "ProjectGroupMoveInput",
         "type": "object"
       },
       "ProjectHistoryResponse": {
@@ -8054,6 +8081,75 @@
           }
         },
         "summary": "Update Project Decision"
+      }
+    },
+    "/api/projects/{project_id}/group": {
+      "put": {
+        "operationId": "moveProjectToGroup",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectGroupMoveInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Move Project To Group"
       }
     },
     "/api/projects/{project_id}/history": {

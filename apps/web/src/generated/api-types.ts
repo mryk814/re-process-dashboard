@@ -491,6 +491,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/group": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Move Project To Group */
+        put: operations["moveProjectToGroup"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/history": {
         parameters: {
             query?: never;
@@ -825,7 +842,7 @@ export interface components {
              * Code
              * @enum {string}
              */
-            code: "not_found" | "revision_conflict" | "candidate_limit" | "adopted_candidate" | "candidate_archived" | "candidate_provenance_immutable" | "project_task_locked" | "protected_project" | "project_has_successors" | "data_integrity_error" | "validation_error" | "runtime_unavailable";
+            code: "not_found" | "revision_conflict" | "candidate_limit" | "adopted_candidate" | "candidate_archived" | "candidate_provenance_immutable" | "project_task_locked" | "project_group_conflict" | "protected_project" | "project_has_successors" | "data_integrity_error" | "validation_error" | "runtime_unavailable";
             current_candidate?: components["schemas"]["Candidate"] | null;
             /** Field Errors */
             field_errors?: components["schemas"]["FieldError"][];
@@ -2271,6 +2288,13 @@ export interface components {
              * @default
              */
             snapshot_id: string;
+        };
+        /** ProjectGroupMoveInput */
+        ProjectGroupMoveInput: {
+            /** Expected Project Series Id */
+            expected_project_series_id: string | null;
+            /** Project Series Id */
+            project_series_id: string;
         };
         /** ProjectHistoryResponse */
         ProjectHistoryResponse: {
@@ -4574,6 +4598,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Project"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    moveProjectToGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectGroupMoveInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Project"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
                 };
             };
             /** @description Validation Error */

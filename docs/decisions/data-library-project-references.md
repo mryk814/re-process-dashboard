@@ -35,7 +35,7 @@ Profileはデータの意味を与えるが、分析目的は持たない。何�
 `cohort_comparison` は行を暗黙にpoolしない。設備、試験場所、取得時期などの由来とDataset Revision IDを保持する。
 学習用のpool、entity join、lookup enrichmentは科学的意味とcardinalityを持つ別の派生レシピであり、汎用UIから作成しない。
 
-### ProjectとProject Series
+### Projectと検討グループ
 
 Projectは、ある時点で再現可能な一つの検討と意思決定を表し、次を固定する。
 
@@ -46,12 +46,12 @@ Projectは、ある時点で再現可能な一つの検討と意思決定を表�
 使用データ、タスク、モデルを変更して既存Projectの意味を上書きしない。
 変更後の検討は新しいProjectとして作り、必要ならコピー元Projectを記録する。
 
-`ProjectSeries` は、同じ科学的・意思決定上の問いを継承するProject群である。
-Series自身はデータ、タスク、モデルを固定しない。
-ProjectはPrediction Taskが異なっていても任意のSeriesに所属でき、前のProject、継続理由（タスク変更、データ追加、追試、モデル更新、再評価）を記録できる。
-Series内の分岐を表せるよう、Projectは任意の `predecessor_project_id` を持つ。
+内部モデルの `ProjectSeries` は、利用者向けUIでは「検討グループ」として扱う。
+検討グループ自身はデータ、タスク、モデルを固定せず、ProjectはPrediction Taskが異なっていても任意のグループへ所属・移動できる。
+前のProjectと継続理由（タスク変更、データ追加、追試、モデル更新、再評価）はグループ所属とは独立して記録する。
+Projectは任意の `predecessor_project_id` を持ち、別グループのProjectを続き元にしてもよい。
 
-UIでは常に「シリーズ」という箱を要求せず、「一連の検討」「この検討の続き」として扱う。
+UIの階層は「検討グループ > プロジェクト > 候補」に統一し、前後関係の操作だけを「このプロジェクトの続き」と表現する。
 
 ### Prediction TaskとActivity
 
