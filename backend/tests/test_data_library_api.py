@@ -117,6 +117,34 @@ def test_continuation_stays_in_series_and_requires_reason(client) -> None:
     assert project["predecessor_project_id"] == original["id"]
 
 
+def test_continuation_can_switch_prediction_task_within_the_same_series(client) -> None:
+    options = client.get("/api/project-creation-options").json()
+    original = client.get("/api/projects/default").json()
+    other_series = client.get("/api/projects/hot-rolling-default").json()["project_series_id"]
+    hot_package = next(item for item in options["model_packages"] if item["task_id"] == "hot-rolled-properties-v1")
+    payload = {
+        "name": "同じテーマの熱延検討",
+        "task_id": "hot-rolled-properties-v1",
+        "dataset_view_revision_id": original["dataset_view_revision_id"],
+        "model_package_ref_id": hot_package["id"],
+        "project_series_id": original["project_series_id"],
+        "predecessor_project_id": original["id"],
+        "continuation_reason": "同じ材料テーマを熱延特性でも評価するため",
+    }
+
+    mismatched_series = client.post("/api/projects", json={**payload, "project_series_id": other_series})
+    assert mismatched_series.status_code == 422
+    assert "継続元と異なる一連の検討" in mismatched_series.json()["message"]
+
+    created = client.post("/api/projects", json=payload)
+
+    assert created.status_code == 201, created.text
+    project = created.json()
+    assert project["task_id"] == "hot-rolled-properties-v1"
+    assert project["project_series_id"] == original["project_series_id"]
+    assert project["predecessor_project_id"] == original["id"]
+
+
 def test_project_with_successor_cannot_be_deleted(client) -> None:
     first = client.post("/api/projects", json={
         "name": "系譜の起点", "task_id": "annealed-properties-v1",

@@ -48,7 +48,7 @@ Projectは、ある時点で再現可能な一つの検討と意思決定を表�
 
 `ProjectSeries` は、同じ科学的・意思決定上の問いを継承するProject群である。
 Series自身はデータ、タスク、モデルを固定しない。
-Projectは任意のSeriesに所属し、前のProject、継続理由（データ追加、追試、モデル更新、再評価）を記録できる。
+ProjectはPrediction Taskが異なっていても任意のSeriesに所属でき、前のProject、継続理由（タスク変更、データ追加、追試、モデル更新、再評価）を記録できる。
 Series内の分岐を表せるよう、Projectは任意の `predecessor_project_id` を持つ。
 
 UIでは常に「シリーズ」という箱を要求せず、「一連の検討」「この検討の続き」として扱う。
