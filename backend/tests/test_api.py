@@ -168,6 +168,32 @@ def _validation_error(payload: dict) -> ValueError:
     raise AssertionError("invalid candidate must not be accepted")
 
 
+def test_model_training_data_exposes_selected_observations_and_actual_model_rows(client) -> None:
+    selected_response = client.get(
+        "/api/projects/default/model-package/training-data",
+        params={"stage": "selected", "target": "TS", "limit": 5},
+    )
+    assert selected_response.status_code == 200
+    selected = selected_response.json()
+    assert selected["training_unit"] == "parent_condition_mean"
+    assert selected["total"] > selected["parent_conditions"]
+    assert len(selected["rows"]) == 5
+    assert "composition.C" in {column["key"] for column in selected["columns"]}
+    assert all("output.TS" in row["values"] for row in selected["rows"])
+
+    features_response = client.get(
+        "/api/projects/default/model-package/training-data",
+        params={"stage": "features", "target": "TS", "limit": 5},
+    )
+    assert features_response.status_code == 200
+    features = features_response.json()
+    assert features["total"] == selected["parent_conditions"]
+    assert features["columns"][0]["key"] == "parent_key"
+    assert features["columns"][1]["key"] == "replicate_count"
+    assert any(column["key"].startswith("feature.") for column in features["columns"])
+    assert features["feature_dataset_digest"].startswith("sha256:")
+
+
 def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
     assert client.get("/api/health").json()["ok"] is True
     assert client.get("/api/model-package").status_code == 404

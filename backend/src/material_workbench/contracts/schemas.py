@@ -658,6 +658,36 @@ class ModelPackageStatus(BaseModel):
     quality_report: ModelQualityReport
 
 
+class TrainingDataColumn(BaseModel):
+    key: str
+    label: str
+    unit: str | None = None
+    group: Literal["識別", "入力", "特徴量", "実測"]
+
+
+class TrainingDataRow(BaseModel):
+    observation_id: str
+    parent_key: str
+    values: dict[str, str | float | int | bool | None]
+
+
+class ModelTrainingDataPage(BaseModel):
+    stage: Literal["selected", "features"]
+    target: str
+    target_label: str
+    source_data_digest: str
+    feature_dataset_digest: str
+    feature_pipeline_id: str
+    feature_pipeline_version: str
+    training_unit: Literal["individual_observation", "parent_condition_mean"]
+    total: int
+    parent_conditions: int
+    offset: int
+    limit: int
+    columns: list[TrainingDataColumn]
+    rows: list[TrainingDataRow]
+
+
 class SnapshotPayload(BaseModel):
     model_config = ConfigDict(extra="allow")
     prediction: PredictionResponse | None = None

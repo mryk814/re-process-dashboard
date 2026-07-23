@@ -2,15 +2,19 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
-from typing import Any, Annotated
+from typing import Any, Annotated, Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from .dependencies import get_store, get_task_registry, project_or_404
 from .errors import PROJECT_API_ERRORS
-from material_workbench.modeling.model_lifecycle import validate_lifecycle_metadata
+from material_workbench.modeling.model_lifecycle import (
+    canonical_training_dataset,
+    canonical_training_dataset_digest,
+    validate_lifecycle_metadata,
+)
 from material_workbench.modeling.model_packages import RUNTIME_TYPES
-from material_workbench.contracts.schemas import ModelPackageStatus, TaskCatalogItem
+from material_workbench.contracts.schemas import ModelPackageStatus, ModelTrainingDataPage, TaskCatalogItem
 from material_workbench.persistence.store import Store
 from material_workbench.contracts.task_contracts import ResolvedTaskDefinition
 from material_workbench.tasks.task_registry import TaskRegistry
@@ -92,6 +96,165 @@ def model_package(
             for item in manifest.predictors
         ],
         "quality_report": quality.model_dump(mode="json"),
+    }
+
+
+def _heat_pattern_label(points: Any) -> str | None:
+    if not isinstance(points, list) or not points:
+        return None
+    labels = [
+        f"{float(point['time_s']):g}s / {float(point['temperature_c']):g}℃"
+        for point in points
+        if isinstance(point, dict) and point.get("time_s") is not None and point.get("temperature_c") is not None
+    ]
+    return " → ".join(labels) if labels else None
+
+
+@router.get(
+    "/api/projects/{project_id}/model-package/training-data",
+    response_model=ModelTrainingDataPage,
+    responses=PROJECT_API_ERRORS,
+    operation_id="getProjectModelTrainingData",
+)
+def model_training_data(
+    project_id: str,
+    store: StoreDependency,
+    registry: RegistryDependency,
+    stage: Annotated[Literal["selected", "features"], Query()] = "selected",
+    target: Annotated[str | None, Query()] = None,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 25,
+) -> dict[str, Any]:
+    project = project_or_404(store, project_id)
+    entry = registry.entry_for(project.task_id)
+    package = entry.model_package
+    contract = registry.contract_for(project.task_id)
+    data = entry.predictor_runtime.data
+    validate_lifecycle_metadata(package, contract, profile_path=Path(data.profile_path))
+    available_targets = [item.target for item in package.manifest.predictors]
+    selected_target = target or available_targets[0]
+    if selected_target not in available_targets:
+        raise HTTPException(status_code=422, detail=f"model package does not predict target: {selected_target}")
+    canonical = canonical_training_dataset(
+        project.task_id,
+        data,
+        contract,
+        pipeline_version=package.manifest.feature_pipeline.version,
+    )
+    selected_rows = [row for row in canonical["rows"] if selected_target in row["outputs"]]
+    predictor = next(item for item in package.manifest.predictors if item.target == selected_target)
+    training_unit = predictor.config.get("training_unit", "individual_observation")
+    if training_unit not in {"individual_observation", "parent_condition_mean"}:
+        training_unit = "individual_observation"
+    observations = {str(row["id"]): row for row in data.observations}
+    output = next(item for item in contract.task_definition.outputs if item.key == selected_target)
+    identifier_columns = [
+        {"key": "observation_id", "label": "実測ID", "unit": None, "group": "識別"},
+        {"key": "parent_key", "label": "親工程条件", "unit": None, "group": "識別"},
+    ]
+    if stage == "selected":
+        input_fields = [
+            field
+            for group in contract.task_definition.input_groups
+            for field in group.fields
+        ]
+        columns = [
+            *identifier_columns,
+            *[
+                {"key": field.path, "label": field.label, "unit": field.unit, "group": "入力"}
+                for field in input_fields
+            ],
+            {"key": f"output.{selected_target}", "label": f"{output.label}（実測）", "unit": output.unit, "group": "実測"},
+        ]
+        page_rows = []
+        for row in selected_rows[offset:offset + limit]:
+            observation = observations[row["observation_id"]]
+            process = observation.get("features") or {}
+            composition = observation.get("composition") or {}
+            values: dict[str, Any] = {
+                "observation_id": row["observation_id"],
+                "parent_key": row["parent_key"],
+                f"output.{selected_target}": row["outputs"][selected_target],
+            }
+            for field in input_fields:
+                if field.path == "heat_pattern":
+                    values[field.path] = _heat_pattern_label(process.get("heat_pattern"))
+                    continue
+                group, key = field.path.split(".", 1)
+                values[field.path] = composition.get(key) if group == "composition" else process.get(key)
+            page_rows.append({
+                "observation_id": row["observation_id"],
+                "parent_key": row["parent_key"],
+                "values": values,
+            })
+    else:
+        model_rows = selected_rows
+        feature_identifier_columns = identifier_columns
+        if training_unit == "parent_condition_mean":
+            grouped: dict[str, list[dict[str, Any]]] = {}
+            for row in selected_rows:
+                grouped.setdefault(row["parent_key"], []).append(row)
+            model_rows = [
+                {
+                    "observation_id": parent_key,
+                    "parent_key": parent_key,
+                    "replicate_count": len(group_rows),
+                    "features": {
+                        key: sum(float(row["features"][key]) for row in group_rows) / len(group_rows)
+                        for key in group_rows[0]["features"]
+                    },
+                    "outputs": {
+                        selected_target: sum(float(row["outputs"][selected_target]) for row in group_rows) / len(group_rows)
+                    },
+                }
+                for parent_key, group_rows in sorted(grouped.items())
+            ]
+            feature_identifier_columns = [
+                {"key": "parent_key", "label": "親工程条件", "unit": None, "group": "識別"},
+                {"key": "replicate_count", "label": "個々値数", "unit": "件", "group": "識別"},
+            ]
+        columns = [
+            *feature_identifier_columns,
+            *[
+                {
+                    "key": f"feature.{feature['name']}",
+                    "label": feature["name"],
+                    "unit": feature["unit"],
+                    "group": "特徴量",
+                }
+                for feature in canonical["feature_pipeline"]["features"]
+            ],
+            {"key": f"output.{selected_target}", "label": f"{output.label}（実測）", "unit": output.unit, "group": "実測"},
+        ]
+        page_rows = [
+            {
+                "observation_id": row["observation_id"],
+                "parent_key": row["parent_key"],
+                "values": {
+                    "parent_key": row["parent_key"],
+                    **({"observation_id": row["observation_id"]} if training_unit == "individual_observation" else {}),
+                    **({"replicate_count": row["replicate_count"]} if training_unit == "parent_condition_mean" else {}),
+                    **{f"feature.{key}": value for key, value in row["features"].items()},
+                    f"output.{selected_target}": row["outputs"][selected_target],
+                },
+            }
+            for row in model_rows[offset:offset + limit]
+        ]
+    return {
+        "stage": stage,
+        "target": selected_target,
+        "target_label": output.label,
+        "source_data_digest": canonical["source_data_digest"],
+        "feature_dataset_digest": canonical_training_dataset_digest(canonical),
+        "feature_pipeline_id": canonical["feature_pipeline"]["id"],
+        "feature_pipeline_version": canonical["feature_pipeline"]["version"],
+        "training_unit": training_unit,
+        "total": len(selected_rows) if stage == "selected" else len(model_rows),
+        "parent_conditions": len({row["parent_key"] for row in selected_rows}),
+        "offset": offset,
+        "limit": limit,
+        "columns": columns,
+        "rows": page_rows,
     }
 
 

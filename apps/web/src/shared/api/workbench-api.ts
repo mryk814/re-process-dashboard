@@ -9,6 +9,7 @@ export type ApiProject = components["schemas"]["Project"];
 export type ApiProjectInput = components["schemas"]["ProjectUpdateInput"];
 export type ApiProjectCreateInput = components["schemas"]["ProjectCreateInput"];
 export type ApiModelPackage = components["schemas"]["ModelPackageStatus"];
+export type ApiModelTrainingDataPage = components["schemas"]["ModelTrainingDataPage"];
 export type ApiPreview = components["schemas"]["PredictionResponse"];
 export type ApiSnapshot = components["schemas"]["SnapshotResponse"];
 export type ApiResponseCurve = components["schemas"]["ResponseCurveResponse"];
@@ -122,6 +123,12 @@ export const workbenchApi = {
   },
   async modelPackage(projectId: string) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/model-package", { params: { path: { project_id: projectId } } }), "モデルPackageを取得できませんでした。");
+  },
+  async modelTrainingData(projectId: string, stage: "selected" | "features", target: string, offset = 0, limit = 25, signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/model-package/training-data", {
+      params: { path: { project_id: projectId }, query: { stage, target, offset, limit } },
+      signal,
+    }), "学習データを取得できませんでした。");
   },
   async listCandidates(projectId: string, includeArchived = false) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/candidates", { params: { path: { project_id: projectId }, query: { include_archived: includeArchived } } }), "候補を取得できませんでした。");

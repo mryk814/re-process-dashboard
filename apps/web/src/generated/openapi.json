@@ -2712,6 +2712,98 @@
         "title": "ModelQualityTarget",
         "type": "object"
       },
+      "ModelTrainingDataPage": {
+        "properties": {
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/TrainingDataColumn"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "feature_dataset_digest": {
+            "title": "Feature Dataset Digest",
+            "type": "string"
+          },
+          "feature_pipeline_id": {
+            "title": "Feature Pipeline Id",
+            "type": "string"
+          },
+          "feature_pipeline_version": {
+            "title": "Feature Pipeline Version",
+            "type": "string"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "parent_conditions": {
+            "title": "Parent Conditions",
+            "type": "integer"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/TrainingDataRow"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "source_data_digest": {
+            "title": "Source Data Digest",
+            "type": "string"
+          },
+          "stage": {
+            "enum": [
+              "selected",
+              "features"
+            ],
+            "title": "Stage",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "target_label": {
+            "title": "Target Label",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "training_unit": {
+            "enum": [
+              "individual_observation",
+              "parent_condition_mean"
+            ],
+            "title": "Training Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage",
+          "target",
+          "target_label",
+          "source_data_digest",
+          "feature_dataset_digest",
+          "feature_pipeline_id",
+          "feature_pipeline_version",
+          "training_unit",
+          "total",
+          "parent_conditions",
+          "offset",
+          "limit",
+          "columns",
+          "rows"
+        ],
+        "title": "ModelTrainingDataPage",
+        "type": "object"
+      },
       "NumericRange": {
         "additionalProperties": false,
         "properties": {
@@ -5914,6 +6006,46 @@
         "title": "TaskDefinition",
         "type": "object"
       },
+      "TrainingDataColumn": {
+        "properties": {
+          "group": {
+            "enum": [
+              "識別",
+              "入力",
+              "特徴量",
+              "実測"
+            ],
+            "title": "Group",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "group"
+        ],
+        "title": "TrainingDataColumn",
+        "type": "object"
+      },
       "TrainingDataIdentity": {
         "additionalProperties": true,
         "properties": {
@@ -5936,6 +6068,48 @@
           }
         },
         "title": "TrainingDataIdentity",
+        "type": "object"
+      },
+      "TrainingDataRow": {
+        "properties": {
+          "observation_id": {
+            "title": "Observation Id",
+            "type": "string"
+          },
+          "parent_key": {
+            "title": "Parent Key",
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "observation_id",
+          "parent_key",
+          "values"
+        ],
+        "title": "TrainingDataRow",
         "type": "object"
       }
     }
@@ -8594,6 +8768,118 @@
           }
         },
         "summary": "Model Package"
+      }
+    },
+    "/api/projects/{project_id}/model-package/training-data": {
+      "get": {
+        "operationId": "getProjectModelTrainingData",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "stage",
+            "required": false,
+            "schema": {
+              "default": "selected",
+              "enum": [
+                "selected",
+                "features"
+              ],
+              "title": "Stage",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Target"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelTrainingDataPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Model Training Data"
       }
     },
     "/api/projects/{project_id}/quality": {

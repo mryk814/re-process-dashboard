@@ -593,6 +593,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/model-package/training-data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Model Training Data */
+        get: operations["getProjectModelTrainingData"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/quality": {
         parameters: {
             query?: never;
@@ -1734,6 +1751,43 @@ export interface components {
             target: string;
         } & {
             [key: string]: unknown;
+        };
+        /** ModelTrainingDataPage */
+        ModelTrainingDataPage: {
+            /** Columns */
+            columns: components["schemas"]["TrainingDataColumn"][];
+            /** Feature Dataset Digest */
+            feature_dataset_digest: string;
+            /** Feature Pipeline Id */
+            feature_pipeline_id: string;
+            /** Feature Pipeline Version */
+            feature_pipeline_version: string;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Parent Conditions */
+            parent_conditions: number;
+            /** Rows */
+            rows: components["schemas"]["TrainingDataRow"][];
+            /** Source Data Digest */
+            source_data_digest: string;
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "selected" | "features";
+            /** Target */
+            target: string;
+            /** Target Label */
+            target_label: string;
+            /** Total */
+            total: number;
+            /**
+             * Training Unit
+             * @enum {string}
+             */
+            training_unit: "individual_observation" | "parent_condition_mean";
         };
         /** NumericRange */
         NumericRange: {
@@ -3010,6 +3064,20 @@ export interface components {
              */
             schema_version: "task-definition/v1";
         };
+        /** TrainingDataColumn */
+        TrainingDataColumn: {
+            /**
+             * Group
+             * @enum {string}
+             */
+            group: "識別" | "入力" | "特徴量" | "実測";
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Unit */
+            unit?: string | null;
+        };
         /** TrainingDataIdentity */
         TrainingDataIdentity: {
             /** Records */
@@ -3028,6 +3096,17 @@ export interface components {
             source_sha256: string;
         } & {
             [key: string]: unknown;
+        };
+        /** TrainingDataRow */
+        TrainingDataRow: {
+            /** Observation Id */
+            observation_id: string;
+            /** Parent Key */
+            parent_key: string;
+            /** Values */
+            values: {
+                [key: string]: string | number | boolean | null;
+            };
         };
     };
     responses: never;
@@ -4908,6 +4987,60 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModelPackageStatus"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getProjectModelTrainingData: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                stage?: "selected" | "features";
+                target?: string | null;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelTrainingDataPage"];
                 };
             };
             /** @description Not Found */

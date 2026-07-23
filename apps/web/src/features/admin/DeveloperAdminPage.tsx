@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { numericTaskInputs, type NumericTaskInput, type ResolvedTaskDefinition, type TaskDefinitionContract } from "../candidates";
 import { LiveDataQualityPage, type QualityFilters } from "../quality";
 import { workbenchApi, type ApiModelPackage, type ApiProject, type ApiQuality } from "../../shared/api/workbench-api";
+import { ModelTrainingDataInspector } from "./ModelTrainingDataInspector";
 
 function allowedRange(input: NumericTaskInput) {
   if (!input.allowed_range) throw new Error(`数値fieldにallowed_rangeがありません: ${input.path}`);
@@ -88,6 +89,7 @@ export function DeveloperAdminPage({
           <div className="admin-model-identity"><span>有効</span><strong>{modelPackage.id}</strong><b>v{modelPackage.version}</b></div>
           <table className="quality-table"><thead><tr><th>特性</th><th>Runtime</th><th>RMSE</th><th>90%区間coverage</th></tr></thead><tbody>{modelPackage.predictors.map((predictor) => { const quality = modelPackage.quality_report.targets.find((item) => item.target === predictor.target); return <tr key={predictor.target}><th>{taskDefinition?.outputs.find((item) => item.key === predictor.target)?.label ?? predictor.target}</th><td>{predictor.runtime_type}</td><td>{quality ? number(quality.rmse, 2) : "—"}</td><td>{quality ? `${number(quality.interval_coverage_90 * 100, 0)}%` : "—"}</td></tr>; })}</tbody></table>
           <div className="runtime-list">{modelPackage.supported_runtimes.map((item) => <span className={item.available ? "available" : "optional"} key={item.runtime_type}>{item.runtime_type}{item.available ? " ✓" : " (追加導入)"}</span>)}</div>
+          {project?.id && <ModelTrainingDataInspector projectId={project.id} modelPackage={modelPackage} taskDefinition={taskDefinition} />}
           <details className="technical-contract"><summary>識別情報を表示</summary><code>{modelPackage.manifest_sha256}</code></details>
         </> : !modelError && <p className="empty-evidence">モデル情報を読み込んでいます。</p>}
       </div>}
