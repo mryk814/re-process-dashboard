@@ -12,6 +12,24 @@ async function createCandidateProject(request: APIRequestContext) {
   return project.id;
 }
 
+test("startup restores the last opened location", async ({ page }) => {
+  await page.goto("/?view=lineage&project=default&entity=AN-00001");
+  await expect(page.getByRole("heading", { name: "AN-00001" })).toBeVisible();
+
+  await page.goto("/");
+  await expect(page).toHaveURL(/view=lineage.*project=default.*entity=AN-00001/);
+  await expect(page.getByRole("heading", { name: "AN-00001" })).toBeVisible();
+
+  await page.goto("/?view=project&project=default");
+  await expect(page).toHaveURL(/view=project/);
+  await expect(page.getByRole("complementary", { name: "プロジェクト一覧" })).toBeVisible();
+
+  await page.goto("/?view=lineage&project=missing-project&entity=AN-00001");
+  await expect(page).toHaveURL(/view=lineage.*project=default/);
+  await expect(page).not.toHaveURL(/entity=/);
+  await expect(page.getByRole("heading", { name: "調べるノードを選択してください" })).toBeVisible();
+});
+
 test("project hub keeps the active project visible across scoped navigation", async ({ page }) => {
   await page.goto("/?view=project&project=default");
   const projectList = page.getByRole("complementary", { name: "プロジェクト一覧" });
