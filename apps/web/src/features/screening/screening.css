@@ -296,6 +296,17 @@
   padding: 7px;
 }
 
+.screening-variable-range {
+  display: block;
+  margin-top: 4px;
+  color: #47736c;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.screening-variable-range.outside { color: #a65b00; }
+.screening-variable-range b { font-weight: 700; }
+
 .variable-table td:first-child {
   min-width: 190px;
 }

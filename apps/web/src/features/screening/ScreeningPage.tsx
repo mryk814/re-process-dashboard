@@ -98,6 +98,7 @@ export function ScreeningPage({
             kind: field.kind,
             choices: field.choices,
             defaultRange: field.default_range,
+            trainingRange: field.training_range,
           }];
           return (baseCandidate?.raw.inputs.heat_pattern ?? []).flatMap((point, index) => [
             {
@@ -106,6 +107,7 @@ export function ScreeningPage({
               kind: "number" as const,
               choices: [] as string[],
               defaultRange: { min: Math.max(0, point.temperature_c - 50), max: point.temperature_c + 50 },
+              trainingRange: undefined,
             },
             {
               value: `heat_pattern.${index}.time_s`,
@@ -113,6 +115,7 @@ export function ScreeningPage({
               kind: "number" as const,
               choices: [] as string[],
               defaultRange: { min: Math.max(0, point.time_s - 10), max: point.time_s + 10 },
+              trainingRange: undefined,
             },
           ]);
         }),
@@ -515,8 +518,16 @@ export function ScreeningPage({
             </tr>
           </thead>
           <tbody>
-            {variables.map((row, index) => (
-              <tr key={`${row.field}-${index}`}>
+            {variables.map((row, index) => {
+              const option = options.find((item) => item.value === row.field);
+              const first = Number(row.first);
+              const second = Number(row.second);
+              const outsideTraining = row.mode === "range"
+                && option?.trainingRange
+                && Number.isFinite(first)
+                && Number.isFinite(second)
+                && (first < option.trainingRange.min || second > option.trainingRange.max);
+              return <tr key={`${row.field}-${index}`}>
                 <td>
                   <select
                     value={row.field}
@@ -529,6 +540,10 @@ export function ScreeningPage({
                   >
                     {optionGroups.map((group) => <optgroup key={group.key} label={group.label}>{group.options.map((option) => <option key={option.value} value={option.value} disabled={variables.some((item, rowIndex) => rowIndex !== index && item.field === option.value)}>{option.label}</option>)}</optgroup>)}
                   </select>
+                  {option?.trainingRange && <small className={outsideTraining ? "screening-variable-range outside" : "screening-variable-range"}>
+                    学習範囲 {number(option.trainingRange.min, 3)}–{number(option.trainingRange.max, 3)}
+                    {outsideTraining && <b> · 範囲外を含む</b>}
+                  </small>}
                 </td>
                 <td>
                   <select
@@ -579,8 +594,8 @@ export function ScreeningPage({
                     ×
                   </button>
                 </td>
-              </tr>
-            ))}
+              </tr>;
+            })}
           </tbody>
             </table>
           </div>
