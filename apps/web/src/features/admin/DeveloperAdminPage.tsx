@@ -3,6 +3,9 @@ import { numericTaskInputs, type NumericTaskInput, type ResolvedTaskDefinition, 
 import { LiveDataQualityPage, type QualityFilters } from "../quality";
 import { workbenchApi, type ApiModelPackage, type ApiProject, type ApiQuality } from "../../shared/api/workbench-api";
 import { ModelTrainingDataInspector } from "./ModelTrainingDataInspector";
+import { DeveloperControlCenter } from "./DeveloperControlCenter";
+
+export type AdminSection = "developer" | "quality" | "ranges" | "display" | "task" | "model";
 
 function allowedRange(input: NumericTaskInput) {
   if (!input.allowed_range) throw new Error(`数値fieldにallowed_rangeがありません: ${input.path}`);
@@ -31,19 +34,18 @@ export function DeveloperAdminPage({
   project: ApiProject | undefined;
   taskDefinition: TaskDefinitionContract | null;
   resolvedTaskDefinition: ResolvedTaskDefinition | null;
-  initialSection?: "quality" | "ranges" | "display" | "task" | "model";
-  onSectionChange: (section: "quality" | "ranges" | "display" | "task" | "model") => void;
+  initialSection?: AdminSection;
+  onSectionChange: (section: AdminSection) => void;
   qualityFilters: QualityFilters;
   onQualityFiltersChange: (filters: QualityFilters) => void;
   onOpenLineage: (issue: ApiQuality["detected_issues"][number], filters: QualityFilters) => void;
   onProjectChanged: (project: ApiProject) => void;
 }) {
-  type AdminSection = "quality" | "ranges" | "display" | "task" | "model";
-  const [section, setSection] = useState<AdminSection>(initialSection ?? "quality");
+  const [section, setSection] = useState<AdminSection>(initialSection ?? "developer");
   const [modelPackage, setModelPackage] = useState<ApiModelPackage | null>(null);
   const [modelError, setModelError] = useState("");
   useEffect(() => {
-    if (!project?.id) return;
+    if (!project?.id || section !== "model") return;
     const controller = new AbortController();
     setModelPackage(null);
     setModelError("");
@@ -51,10 +53,11 @@ export function DeveloperAdminPage({
       .then((item) => { if (!controller.signal.aborted) setModelPackage(item); })
       .catch((cause) => { if (!controller.signal.aborted) setModelError(cause instanceof Error ? cause.message : "モデル情報を取得できませんでした。"); });
     return () => controller.abort();
-  }, [project?.id]);
-  useEffect(() => setSection(initialSection ?? "quality"), [initialSection]);
+  }, [project?.id, section]);
+  useEffect(() => setSection(initialSection ?? "developer"), [initialSection]);
   const qualityAvailable = resolvedTaskDefinition?.data_explorer?.quality === true;
   const allSections: Array<{ id: AdminSection; label: string }> = [
+    { id: "developer", label: "Developer Center" },
     { id: "quality", label: "データ品質集計" },
     { id: "ranges", label: "入力範囲" },
     { id: "display", label: "表示桁数" },
@@ -69,6 +72,7 @@ export function DeveloperAdminPage({
       <nav aria-label="開発・管理メニュー">{sections.map((item) => <button key={item.id} className={visibleSection === item.id ? "active" : ""} onClick={() => { setSection(item.id); onSectionChange(item.id); }}>{item.label}</button>)}</nav>
     </aside>
     <div className="admin-content">
+      {visibleSection === "developer" && <DeveloperControlCenter />}
       {visibleSection === "quality" && (project?.id
         ? <LiveDataQualityPage projectId={project.id} filters={qualityFilters} onFiltersChange={onQualityFiltersChange} onOpenLineage={onOpenLineage} showReferenceScenarios mode="summary" />
         : <p className="empty-evidence">プロジェクトを読み込んでいます。</p>)}

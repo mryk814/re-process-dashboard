@@ -56,6 +56,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/developer/change-guide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Change Guide */
+        get: operations["get_change_guide_api_developer_change_guide_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/developer/diagnostics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Diagnostics */
+        get: operations["get_diagnostics_api_developer_diagnostics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/developer/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Overview */
+        get: operations["get_overview_api_developer_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/diagnostics/inference": {
         parameters: {
             query?: never;
@@ -1066,6 +1117,30 @@ export interface components {
             /** Provenance */
             provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"];
         };
+        /** ChangeGuideEntry */
+        ChangeGuideEntry: {
+            /** Artifacts */
+            artifacts: string[];
+            /** Changes */
+            changes: string[];
+            /** Commands */
+            commands: string[];
+            /** Documents */
+            documents: string[];
+            /** Human Review */
+            human_review?: string | null;
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /**
+             * Risk
+             * @enum {string}
+             */
+            risk: "safe" | "review" | "specialist";
+            /** Unchanged */
+            unchanged: string[];
+        };
         /** ConnectedObservation */
         ConnectedObservation: {
             /** Id */
@@ -1378,6 +1453,112 @@ export interface components {
         DetailedPredictionResponse: {
             prediction: components["schemas"]["PredictionResponse"];
             snapshot: components["schemas"]["SnapshotResponse"];
+        };
+        /** DeveloperCheck */
+        DeveloperCheck: {
+            /** Cause */
+            cause?: string | null;
+            /**
+             * Commands
+             * @default []
+             */
+            commands: string[];
+            /**
+             * Details
+             * @default {}
+             */
+            details: {
+                [key: string]: unknown;
+            };
+            /** Id */
+            id: string;
+            /** Impact */
+            impact?: string | null;
+            /** Section */
+            section: string;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "ok" | "warning" | "error";
+            /** Summary */
+            summary: string;
+            /** Title */
+            title: string;
+        };
+        /** DeveloperDoctorReport */
+        DeveloperDoctorReport: {
+            /** Checks */
+            checks: components["schemas"]["DeveloperCheck"][];
+            /**
+             * Code
+             * @enum {integer}
+             */
+            code: 0 | 1 | 2 | 3;
+            /** Generated At */
+            generated_at: string;
+            /** Recommendations */
+            recommendations: string[];
+            /**
+             * Schema Version
+             * @default developer-doctor/v1
+             * @constant
+             */
+            schema_version: "developer-doctor/v1";
+            source_inspection?: components["schemas"]["SourceInspection"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "warning" | "error";
+            /** Task Ids */
+            task_ids: string[];
+        };
+        /** DeveloperOverview */
+        DeveloperOverview: {
+            /** Items */
+            items: components["schemas"]["DeveloperOverviewItem"][];
+        };
+        /** DeveloperOverviewItem */
+        DeveloperOverviewItem: {
+            /**
+             * Dataset Revision Ids
+             * @default []
+             */
+            dataset_revision_ids: string[];
+            /** Dataset View Revision Id */
+            dataset_view_revision_id?: string | null;
+            /** Feature Pipeline Id */
+            feature_pipeline_id?: string | null;
+            /** Feature Pipeline Version */
+            feature_pipeline_version?: string | null;
+            /** Package Id */
+            package_id?: string | null;
+            /** Package Manifest Digest */
+            package_manifest_digest?: string | null;
+            /** Profile Digest */
+            profile_digest?: string | null;
+            /** Profile Id */
+            profile_id?: string | null;
+            /** Project Id */
+            project_id: string;
+            /** Project Name */
+            project_name: string;
+            /** Runtime Type */
+            runtime_type?: string | null;
+            /** Source Filename */
+            source_filename?: string | null;
+            /** Source Sha256 */
+            source_sha256?: string | null;
+            /** Task Contract Digest */
+            task_contract_digest?: string | null;
+            /** Task Id */
+            task_id: string;
+            /**
+             * Validation Status
+             * @enum {string}
+             */
+            validation_status: "ok" | "warning" | "error";
         };
         /** DirectSourceRef */
         DirectSourceRef: {
@@ -2132,6 +2313,48 @@ export interface components {
             candidate_id: string;
             /** Comparisons */
             comparisons: components["schemas"]["PredictionComparison"][];
+        };
+        /** ProfileCandidate */
+        ProfileCandidate: {
+            /**
+             * Extra Columns
+             * @default {}
+             */
+            extra_columns: {
+                [key: string]: string[];
+            };
+            /**
+             * Extra Sheets
+             * @default []
+             */
+            extra_sheets: string[];
+            /**
+             * Missing Columns
+             * @default {}
+             */
+            missing_columns: {
+                [key: string]: string[];
+            };
+            /**
+             * Missing Sheets
+             * @default []
+             */
+            missing_sheets: string[];
+            /**
+             * Possible Unit Differences
+             * @default []
+             */
+            possible_unit_differences: string[];
+            /** Profile Id */
+            profile_id: string;
+            /** Profile Path */
+            profile_path: string;
+            /** Score */
+            score: number;
+            /** Task Ids */
+            task_ids: string[];
+            /** Validation Error */
+            validation_error?: string | null;
         };
         /** ProfileRevision */
         ProfileRevision: {
@@ -3094,6 +3317,41 @@ export interface components {
             source_kind: "snapshot";
             source_ref: components["schemas"]["SnapshotReference"];
         };
+        /** SourceInspection */
+        SourceInspection: {
+            /**
+             * Ambiguous
+             * @default false
+             */
+            ambiguous: boolean;
+            /** Candidates */
+            candidates: components["schemas"]["ProfileCandidate"][];
+            /**
+             * Canonical Counts
+             * @default {}
+             */
+            canonical_counts: {
+                [key: string]: unknown;
+            };
+            /**
+             * Decisions
+             * @default {}
+             */
+            decisions: {
+                [key: string]: boolean;
+            };
+            /**
+             * Recommendations
+             * @default []
+             */
+            recommendations: string[];
+            /** Selected Profile */
+            selected_profile?: string | null;
+            /** Source */
+            source: string;
+            /** Source Sha256 */
+            source_sha256: string;
+        };
         /** Support */
         Support: {
             /** Caution Threshold */
@@ -3358,6 +3616,93 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DatasetViewRevision"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    get_change_guide_api_developer_change_guide_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeGuideEntry"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    get_diagnostics_api_developer_diagnostics_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeveloperDoctorReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    get_overview_api_developer_overview_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeveloperOverview"];
                 };
             };
             /** @description Validation Error */

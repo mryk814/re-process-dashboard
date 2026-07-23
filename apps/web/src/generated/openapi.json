@@ -673,6 +673,86 @@
         "title": "CandidateUpdate",
         "type": "object"
       },
+      "ChangeGuideEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "artifacts": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Artifacts",
+            "type": "array"
+          },
+          "changes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "commands": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Commands",
+            "type": "array"
+          },
+          "documents": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Documents",
+            "type": "array"
+          },
+          "human_review": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Human Review"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "risk": {
+            "enum": [
+              "safe",
+              "review",
+              "specialist"
+            ],
+            "title": "Risk",
+            "type": "string"
+          },
+          "unchanged": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unchanged",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "risk",
+          "changes",
+          "unchanged",
+          "artifacts",
+          "commands",
+          "documents"
+        ],
+        "title": "ChangeGuideEntry",
+        "type": "object"
+      },
       "ConnectedObservation": {
         "properties": {
           "id": {
@@ -1509,6 +1589,336 @@
           "snapshot"
         ],
         "title": "DetailedPredictionResponse",
+        "type": "object"
+      },
+      "DeveloperCheck": {
+        "additionalProperties": false,
+        "properties": {
+          "cause": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cause"
+          },
+          "commands": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Commands",
+            "type": "array"
+          },
+          "details": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Details",
+            "type": "object"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "impact": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Impact"
+          },
+          "section": {
+            "title": "Section",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "ok",
+              "warning",
+              "error"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "section",
+          "title",
+          "severity",
+          "summary"
+        ],
+        "title": "DeveloperCheck",
+        "type": "object"
+      },
+      "DeveloperDoctorReport": {
+        "additionalProperties": false,
+        "properties": {
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/DeveloperCheck"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "code": {
+            "enum": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "title": "Code",
+            "type": "integer"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "recommendations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Recommendations",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "developer-doctor/v1",
+            "default": "developer-doctor/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source_inspection": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceInspection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "warning",
+              "error"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "task_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Task Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "generated_at",
+          "status",
+          "code",
+          "checks",
+          "task_ids",
+          "recommendations"
+        ],
+        "title": "DeveloperDoctorReport",
+        "type": "object"
+      },
+      "DeveloperOverview": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DeveloperOverviewItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "DeveloperOverview",
+        "type": "object"
+      },
+      "DeveloperOverviewItem": {
+        "additionalProperties": false,
+        "properties": {
+          "dataset_revision_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Dataset Revision Ids",
+            "type": "array"
+          },
+          "dataset_view_revision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset View Revision Id"
+          },
+          "feature_pipeline_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feature Pipeline Id"
+          },
+          "feature_pipeline_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feature Pipeline Version"
+          },
+          "package_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Package Id"
+          },
+          "package_manifest_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Package Manifest Digest"
+          },
+          "profile_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Digest"
+          },
+          "profile_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Id"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "project_name": {
+            "title": "Project Name",
+            "type": "string"
+          },
+          "runtime_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtime Type"
+          },
+          "source_filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Filename"
+          },
+          "source_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Sha256"
+          },
+          "task_contract_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Contract Digest"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          },
+          "validation_status": {
+            "enum": [
+              "ok",
+              "warning",
+              "error"
+            ],
+            "title": "Validation Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "project_name",
+          "task_id",
+          "validation_status"
+        ],
+        "title": "DeveloperOverviewItem",
         "type": "object"
       },
       "DirectSourceRef": {
@@ -3593,6 +4003,95 @@
           "comparisons"
         ],
         "title": "PredictionVsActualResponse",
+        "type": "object"
+      },
+      "ProfileCandidate": {
+        "additionalProperties": false,
+        "properties": {
+          "extra_columns": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "default": {},
+            "title": "Extra Columns",
+            "type": "object"
+          },
+          "extra_sheets": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Extra Sheets",
+            "type": "array"
+          },
+          "missing_columns": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "default": {},
+            "title": "Missing Columns",
+            "type": "object"
+          },
+          "missing_sheets": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Sheets",
+            "type": "array"
+          },
+          "possible_unit_differences": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Possible Unit Differences",
+            "type": "array"
+          },
+          "profile_id": {
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "profile_path": {
+            "title": "Profile Path",
+            "type": "string"
+          },
+          "score": {
+            "title": "Score",
+            "type": "integer"
+          },
+          "task_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Task Ids",
+            "type": "array"
+          },
+          "validation_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validation Error"
+          }
+        },
+        "required": [
+          "profile_id",
+          "profile_path",
+          "score",
+          "task_ids"
+        ],
+        "title": "ProfileCandidate",
         "type": "object"
       },
       "ProfileRevision": {
@@ -5959,6 +6458,71 @@
         "title": "SnapshotSourceRef",
         "type": "object"
       },
+      "SourceInspection": {
+        "additionalProperties": false,
+        "properties": {
+          "ambiguous": {
+            "default": false,
+            "title": "Ambiguous",
+            "type": "boolean"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileCandidate"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "canonical_counts": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Canonical Counts",
+            "type": "object"
+          },
+          "decisions": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "default": {},
+            "title": "Decisions",
+            "type": "object"
+          },
+          "recommendations": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Recommendations",
+            "type": "array"
+          },
+          "selected_profile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Profile"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "source_sha256": {
+            "title": "Source Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "source_sha256",
+          "candidates"
+        ],
+        "title": "SourceInspection",
+        "type": "object"
+      },
       "Support": {
         "properties": {
           "caution_threshold": {
@@ -6467,6 +7031,103 @@
           }
         },
         "summary": "Create Dataset View"
+      }
+    },
+    "/api/developer/change-guide": {
+      "get": {
+        "operationId": "get_change_guide_api_developer_change_guide_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ChangeGuideEntry"
+                  },
+                  "title": "Response Get Change Guide Api Developer Change Guide Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Change Guide",
+        "tags": [
+          "developer"
+        ]
+      }
+    },
+    "/api/developer/diagnostics": {
+      "get": {
+        "operationId": "get_diagnostics_api_developer_diagnostics_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeveloperDoctorReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Diagnostics",
+        "tags": [
+          "developer"
+        ]
+      }
+    },
+    "/api/developer/overview": {
+      "get": {
+        "operationId": "get_overview_api_developer_overview_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeveloperOverview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Overview",
+        "tags": [
+          "developer"
+        ]
       }
     },
     "/api/diagnostics/inference": {

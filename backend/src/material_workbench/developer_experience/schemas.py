@@ -61,3 +61,44 @@ class DeveloperDoctorReport(BaseModel):
     task_ids: list[str]
     recommendations: list[str]
     source_inspection: SourceInspection | None = None
+
+
+class ChangeGuideEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    label: str
+    risk: Literal["safe", "review", "specialist"]
+    changes: list[str]
+    unchanged: list[str]
+    artifacts: list[str]
+    commands: list[str]
+    documents: list[str]
+    human_review: str | None = None
+
+
+class DeveloperOverviewItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    project_id: str
+    project_name: str
+    dataset_view_revision_id: str | None = None
+    dataset_revision_ids: list[str] = []
+    source_filename: str | None = None
+    source_sha256: str | None = None
+    profile_id: str | None = None
+    profile_digest: str | None = None
+    task_id: str
+    task_contract_digest: str | None = None
+    package_id: str | None = None
+    package_manifest_digest: str | None = None
+    feature_pipeline_id: str | None = None
+    feature_pipeline_version: str | None = None
+    runtime_type: str | None = None
+    validation_status: Severity
+
+
+class DeveloperOverview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[DeveloperOverviewItem]

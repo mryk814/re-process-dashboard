@@ -39,11 +39,23 @@ export type ApiProjectSeries = components["schemas"]["ProjectSeries"];
 export type ApiProfileWorkbenchInspection = components["schemas"]["ProfileWorkbenchInspection"];
 export type ApiProfileWorkbenchProfile = components["schemas"]["ProfileWorkbenchProfileOption"];
 export type ApiProfileWorkbenchRegistration = components["schemas"]["ProfileWorkbenchRegistration"];
+export type ApiDeveloperOverview = components["schemas"]["DeveloperOverview"];
+export type ApiDeveloperDoctor = components["schemas"]["DeveloperDoctorReport"];
+export type ApiChangeGuideEntry = components["schemas"]["ChangeGuideEntry"];
 
 const path = (projectId: string, suffix = "") =>
   `/api/projects/${encodeURIComponent(projectId)}${suffix}`;
 
 export const workbenchApi = {
+  async developerOverview() {
+    return requireData(await apiClient.GET("/api/developer/overview"), "Developer構成を取得できませんでした。");
+  },
+  async developerDiagnostics() {
+    return requireData(await apiClient.GET("/api/developer/diagnostics"), "Developer診断を実行できませんでした。");
+  },
+  async developerChangeGuide() {
+    return requireData(await apiClient.GET("/api/developer/change-guide"), "変更判断ガイドを取得できませんでした。");
+  },
   async listProjects() {
     return requireData(await apiClient.GET("/api/projects"), "プロジェクトを取得できませんでした。");
   },

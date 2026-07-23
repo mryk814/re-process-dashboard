@@ -13,6 +13,7 @@ from .api.errors import PROJECT_API_ERRORS, install_exception_handlers
 from .api.security import configure_local_access
 from .api.catalog import router as catalog_router
 from .api.data_library import router as data_library_router
+from .api.developer import router as developer_router
 from .api.project_series import router as project_series_router
 from .api.profile_workbench import router as profile_workbench_router
 from .api.projects import router as projects_router
@@ -152,6 +153,7 @@ def create_app(
     install_exception_handlers(app)
     app.include_router(catalog_router)
     app.include_router(data_library_router)
+    app.include_router(developer_router)
     app.include_router(project_series_router)
     app.include_router(profile_workbench_router)
     app.include_router(projects_router)
