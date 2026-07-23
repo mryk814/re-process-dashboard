@@ -639,7 +639,6 @@ def test_v7_explicit_heat_history_takes_priority_over_measurement_master() -> No
     ("mutation", "expected_error"),
     [
         ("decreasing_position", "positions must increase"),
-        ("missing_temperature_column", "missing temperature columns"),
         ("missing_history_time_header", "existing ordered heat series sheet"),
         ("missing_history_stage_header", "existing ordered heat series sheet"),
     ],
@@ -670,23 +669,6 @@ def test_v7_rejects_heat_series_inputs_that_would_silently_change_the_pattern(
             )
             phf_row = next(cell.row for cell in master["E"] if cell.value == "PHF")
             master.cell(phf_row, position_column).value = 999.0
-        elif mutation == "missing_temperature_column":
-            annealing = workbook["焼鈍条件-3CGL"]
-            phf_column = next(cell.column for cell in annealing[1] if cell.value == "PHF[℃]")
-            annealing.cell(1, phf_column).value = "PHF temperature"
-        else:
-            annealing = workbook["焼鈍条件-3CGL"]
-            key_column = next(
-                cell.column for cell in annealing[1]
-                if cell.value == "焼鈍条件-3CGL_key**"
-            )
-            entry_column = next(cell.column for cell in annealing[1] if cell.value == "開始[℃]")
-            row = next(
-                cells[0].row
-                for cells in annealing.iter_rows(min_col=key_column, max_col=key_column)
-                if cells[0].value == "AN-00001"
-            )
-            annealing.cell(row, entry_column).value = None
     profile = load_dataset_profile(
         ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-v7.json"
     )
@@ -695,6 +677,27 @@ def test_v7_rejects_heat_series_inputs_that_would_silently_change_the_pattern(
         canonicalize_workbook(workbook, profile)
 
     assert any(expected_error in error for error in caught.value.errors)
+
+
+def test_v7_allows_master_stage_unused_by_current_condition_data() -> None:
+    workbook = load_workbook(V7_SOURCE, read_only=False, data_only=True)
+    workbook.remove(workbook["焼鈍履歴"])
+    annealing = workbook["焼鈍条件-3CGL"]
+    phf_column = next(
+        cell.column for cell in annealing[1] if cell.value == "PHF[℃]"
+    )
+    annealing.cell(1, phf_column).value = "未使用工程のため条件列なし"
+    profile = load_dataset_profile(
+        ROOT / "backend" / "src" / "material_workbench" / "data"
+        / "dataset-input-profile-v7.json"
+    )
+
+    canonical = canonicalize_workbook(workbook, profile)
+    points = canonical.heat_series[("annealing", "AN-00001")]
+
+    assert len(points) >= 2
+    assert "PHF" not in {point["stage_name"] for point in points}
+    assert {point["mapping_status"] for point in points} == {"測定点マスタ補完"}
 
 
 def test_v7_accepts_parent_without_history_or_derivable_measurement_series() -> None:
