@@ -135,6 +135,9 @@ def dataset_profile_digest(path: Path = DATASET_PROFILE_PATH) -> str:
         for key in ("policy_defaults", "optional_roles", "optional_technical_fields"):
             if not shared.get(key):
                 shared.pop(key, None)
+        for join in shared.get("relation", {}).get("joins", []):
+            if not join.get("alternate_columns"):
+                join.pop("alternate_columns", None)
     for task in payload.get("tasks", {}).values():
         for mapping in task.get("mappings", []):
             if mapping.get("measurement_point_fallback") is None:

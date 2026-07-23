@@ -1,0 +1,35 @@
+{
+  "schema_version": "model-quality-report/v1",
+  "split": "leave-one-parent-condition-out",
+  "folds": null,
+  "targets": [
+    {
+      "target": "EL",
+      "parent_conditions": 142,
+      "mae": 2.861449749157654,
+      "rmse": 15.911850068044089,
+      "interval_coverage_90": 0.8661971830985915
+    },
+    {
+      "target": "TS",
+      "parent_conditions": 142,
+      "mae": 61.56045618884839,
+      "rmse": 394.6522388975204,
+      "interval_coverage_90": 0.8661971830985915
+    },
+    {
+      "target": "YS",
+      "parent_conditions": 142,
+      "mae": 45.262272200746594,
+      "rmse": 293.14144668236014,
+      "interval_coverage_90": 0.6619718309859155
+    },
+    {
+      "target": "lambda",
+      "parent_conditions": 130,
+      "mae": 3.06032927593187,
+      "rmse": 5.660057495851998,
+      "interval_coverage_90": 0.9923076923076923
+    }
+  ]
+}
