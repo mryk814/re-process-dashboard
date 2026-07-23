@@ -6770,9 +6770,7 @@
         "responses": {
           "200": {
             "content": {
-              "application/json": {
-                "schema": {}
-              }
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
             },
             "description": "Successful Response"
           },
@@ -6857,6 +6855,41 @@
           }
         },
         "summary": "Import Candidates"
+      }
+    },
+    "/api/projects/{project_id}/candidates/template.xlsx": {
+      "get": {
+        "operationId": "candidate_import_template_api_projects__project_id__candidates_template_xlsx_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Candidate Import Template"
       }
     },
     "/api/projects/{project_id}/candidates/{candidate_id}": {
