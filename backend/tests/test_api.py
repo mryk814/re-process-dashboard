@@ -39,6 +39,21 @@ def test_existing_candidate_payload_defaults_to_line_speed_time_basis() -> None:
     assert candidate.inputs.heat_time_basis == "line_speed"
 
 
+def test_data_library_model_packages_can_include_archived_refs(client) -> None:
+    current = client.get("/api/data-library/model-packages").json()
+    archived_id = current[0]["id"]
+    client.app.state.workspace_catalog.archive_model_package_ref(archived_id)
+
+    active = client.get("/api/data-library/model-packages")
+    complete = client.get("/api/data-library/model-packages", params={"include_archived": True})
+
+    assert active.status_code == 200
+    assert complete.status_code == 200
+    assert archived_id not in {item["id"] for item in active.json()}
+    archived = next(item for item in complete.json() if item["id"] == archived_id)
+    assert archived["archived_at"] is not None
+
+
 def test_candidate_update_canonicalizes_line_speed_times_and_rejects_direct_edits(client) -> None:
     candidate = client.post("/api/projects/default/candidates", json=_payload("LS基準")).json()
     changed_speed = _payload("LS基準")
