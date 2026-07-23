@@ -127,9 +127,12 @@ def test_task_catalog_starters_validate_and_cross_task_copy_is_rejected(client) 
 
 def test_project_and_initial_copy_are_created_atomically(client) -> None:
     source = client.get("/api/projects/default/candidates").json()[0]
+    reference = client.get("/api/projects/default").json()
     project_payload = {
         "name": "atomic copy project",
         "task_id": "annealed-properties-v1",
+        "dataset_view_revision_id": reference["dataset_view_revision_id"],
+        "model_package_ref_id": reference["model_package_ref_id"],
         "initial_candidate": {
             **_candidate_payload(source, "初期コピー"),
             "provenance": {

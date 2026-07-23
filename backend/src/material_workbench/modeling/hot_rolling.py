@@ -257,9 +257,23 @@ class HotRollingRuntime:
             else "Gaussian process regression"
         )
         interval_identity = (
-            {"method": "posterior_predictive_moment_matched_normal", "coverage": "central 90% predictive interval", "grouping": "parent_key", "note": "Horseshoe posterior draws are summarized as a moment-matched Normal distribution for the shared decision UI."}
-            if is_horseshoe else
-            {"method": "gaussian_process_predictive_distribution", "coverage": "central 90% predictive interval", "grouping": "parent_key", "note": "Model uncertainty and observation noise are reported separately."}
+            {
+                "method": "posterior_predictive_moment_matched_normal",
+                "coverage": "central 90% predictive interval",
+                "grouping": "parent_key",
+                "note": (
+                    "Horseshoe posterior draws are summarized as a moment-matched Normal distribution for the shared decision UI."
+                    if is_horseshoe
+                    else "The tiny teaching posterior is summarized as a moment-matched Normal distribution for the shared decision UI."
+                ),
+            }
+            if is_horseshoe or is_tiny_demo
+            else {
+                "method": "gaussian_process_predictive_distribution",
+                "coverage": "central 90% predictive interval",
+                "grouping": "parent_key",
+                "note": "Model uncertainty and observation noise are reported separately.",
+            }
         )
         return {
             "task_id": self.task_id,

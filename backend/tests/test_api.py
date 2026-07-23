@@ -203,7 +203,7 @@ def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
     assert package["quality_report"]["split"] == "leave-one-parent-condition-out"
     assert {item["target"] for item in package["quality_report"]["targets"]} == {"TS", "YS", "EL", "lambda"}
     assert {item["runtime_type"] for item in package["supported_runtimes"]} == {
-        "builtin.linear.v1", "builtin.exact_gp.v1", "builtin.additive_terms.v1", "builtin.quantile_linear.v1", "builtin.posterior_linear.v1", "sklearn.skops.v1", "lightgbm.booster.v1",
+        "builtin.linear.v1", "builtin.exact_gp.v1", "builtin.heteroscedastic_exact_gp.v1", "builtin.additive_terms.v1", "builtin.quantile_linear.v1", "builtin.posterior_linear.v1", "sklearn.skops.v1", "lightgbm.booster.v1",
         "gpytorch.static_exact_rbf.v1", "numpyro.dense_posterior.v1",
     }
     task = client.get("/api/projects/default/task-definition").json()
@@ -273,7 +273,7 @@ def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
         f"/api/projects/default/candidates/{candidate['id']}/similar",
         params=params,
     ).json()
-    assert len(similar) == 6
+    assert len(similar) == 3
     assert {item["layer"] for item in similar} == {"historical"}
     assert {item["source_scope"] for item in similar} == {"project_reference_data"}
     assert all({"composition", "metallurgy", "process", "heat_pattern"} == set(item["components"]) for item in similar)
@@ -407,28 +407,20 @@ def test_local_web_origin_allows_parallel_development_ports(client) -> None:
 
 def test_quality_and_lineage(client) -> None:
     quality = client.get("/api/projects/default/quality").json()
-    assert quality["total"] == 36
-    assert quality["by_category"]["関連ファイル欠損"] == 19
+    assert quality["total"] == 0
+    assert quality["by_category"] == {}
     assert quality["reference_scenarios"] == quality["issues"]
-    assert quality["detected_total"] == len(quality["detected_issues"])
-    assert {issue["issue_type"] for issue in quality["detected_issues"]} <= {"missing_key", "orphan_entity", "duplicate_key", "invalid_reference"}
-    assert {
-        "issue_id", "source_sheet", "entity_key", "detail", "focus_entity_key",
-        "related_entity_keys", "missing_reference_key", "suggested_view",
-    } <= set(quality["detected_issues"][0])
-    destinations = {issue["issue_type"]: issue for issue in quality["detected_issues"]}
-    assert destinations["duplicate_key"]["suggested_view"] == "lineage"
-    assert destinations["orphan_entity"]["focus_entity_key"]
-    assert destinations["invalid_reference"]["missing_reference_key"]
-    lineage = client.get("/api/projects/default/lineage/AN-00001")
+    assert quality["detected_total"] == 0
+    assert quality["detected_issues"] == []
+    lineage = client.get("/api/projects/default/lineage/AN-01")
     assert lineage.status_code == 200
     assert "relations" in lineage.json()
     node = lineage.json()["node"]
     assert node["entity_type"] == "焼鈍"
     assert node["source_sheet"] == "焼鈍"
-    assert node["source_row"]["焼鈍_key"] == "AN-00001"
+    assert node["source_row"]["焼鈍_key"] == "AN-01"
     assert node["composition"]
-    assert len(node["heat_pattern"]) == 14
+    assert len(node["heat_pattern"]) == 6
     assert node["property_summary"]["TS[MPa]"]["count"] > 0
     assert isinstance(node["property_summary"]["TS[MPa]"]["mean"], float)
     assert isinstance(node["property_summary"]["TS[MPa]"]["std"], float)
@@ -439,36 +431,19 @@ def test_quality_and_lineage(client) -> None:
     assert lineage.json()["graph"]["relation_row_count"] > 0
     assert any(edge["route_rows"] for edge in lineage.json()["graph"]["edges"])
     assert lineage.json()["candidate_eligible"] is True
-    assert any(edge["source"] == "HR-00001" and edge["target"] == "AN-00001" for edge in lineage.json()["graph"]["edges"])
+    assert any(edge["source"] == "CR-01" and edge["target"] == "AN-01" for edge in lineage.json()["graph"]["edges"])
 
 
-def test_lineage_index_and_isolated_nodes_are_inspectable(client) -> None:
-    index = client.get("/api/projects/default/lineage", params={"query": "AN-00001"}).json()
-    assert index["relation_rows"] > 1_800
+def test_lineage_index_is_inspectable(client) -> None:
+    index = client.get("/api/projects/default/lineage", params={"query": "AN-01"}).json()
+    assert index["relation_rows"] == 26
     assert index["total_entities"] > index["relation_rows"]
-    assert index["items"][0]["key"] == "AN-00001"
+    assert index["items"][0]["key"] == "AN-01"
     assert index["items"][0]["family"]
     assert index["items"][0]["route"]
     assert index["items"][0]["peak_temperature_c"] > 0
     assert index["items"][0]["observation_summary"]
     assert client.get("/api/projects/default/lineage", params={"query": index["items"][0]["family"], "entity_type": "焼鈍"}).json()["items"]
-    isolated = client.get("/api/projects/default/lineage/CR-00010")
-    assert isolated.status_code == 200
-    assert isolated.json()["node"]["entity_type"] == "冷延"
-    assert isolated.json()["graph"]["relation_row_count"] == 0
-    assert isolated.json()["candidate_eligible"] is False
-    invalid_key = next(
-        issue["entity_key"]
-        for issue in client.get("/api/projects/default/quality").json()["detected_issues"]
-        if issue["issue_type"] == "invalid_reference"
-    )
-    invalid_index = client.get("/api/projects/default/lineage", params={"query": invalid_key}).json()
-    assert invalid_index["items"] == [{"key": invalid_key, "entity_type": "熱延引張", "has_issue": True}]
-    invalid = client.get(f"/api/projects/default/lineage/{invalid_key}")
-    assert invalid.status_code == 200
-    assert invalid.json()["node"]["missing_source"] is True
-
-
 def test_lineage_graph_can_expand_beyond_the_initial_node_limit(client) -> None:
     assert client.get("/api/projects/default/lineage/AN-01", params={"limit": 0}).status_code == 422
     assert client.get("/api/projects/default/lineage/AN-01", params={"limit": 201}).status_code == 422
@@ -509,37 +484,38 @@ def test_lineage_graph_can_show_every_node_reachable_from_the_selected_key(clien
 
 
 def test_lineage_keeps_hot_rolled_and_annealed_observations_separate(client) -> None:
-    payload = client.get("/api/projects/default/lineage/AN-00003").json()
+    payload = client.get("/api/projects/default/lineage/AN-03").json()
     node = payload["node"]
     ts_groups = [group for group in node["observation_groups"] if group["property"] == "TS[MPa]"]
     assert {group["stage"] for group in ts_groups} == {"熱延後", "焼鈍後"}
     assert all(group["count"] == len(group["observations"]) for group in ts_groups)
     annealed_properties = {group["property"] for group in node["observation_groups"] if group["stage"] == "焼鈍後"}
-    assert {"均一伸び[%]", "r値[-]", "n値[-]"} <= annealed_properties
+    assert {"TS[MPa]", "YS[MPa]", "EL[%]", "均一伸び[%]"} <= annealed_properties
     assert any(point["stage_category"] for point in node["heat_pattern"])
     assert any(point["set_temperature_c"] is not None for point in node["heat_pattern"])
     edge_pairs = {(edge["source"], edge["target"]) for edge in payload["graph"]["edges"]}
-    assert ("HR-00003", "CR-00002") in edge_pairs
-    assert ("CR-00002", "AN-00003") in edge_pairs
-    assert ("HR-00003", "AN-00003") not in edge_pairs
+    assert ("HR-03", "CR-03") in edge_pairs
+    assert ("CR-03", "AN-03") in edge_pairs
+    assert ("HR-03", "AN-03") not in edge_pairs
 
 
-def test_lineage_keeps_out_of_range_observations_without_mutating_raw_values(client) -> None:
-    response = client.get("/api/projects/default/lineage/HT-00024")
+def test_lineage_keeps_partial_observations_without_inventing_outputs(client) -> None:
+    response = client.get("/api/projects/default/lineage/HT-03")
     assert response.status_code == 200
-    observation = next(item for item in response.json()["node"]["connected_observations"] if item["id"] == "HT-00024")
-    assert observation["outputs"]["TS[MPa]"] > 5_000
+    observation = next(item for item in response.json()["node"]["connected_observations"] if item["id"] == "HT-03")
+    assert observation["outputs"]["TS[MPa]"] == 472
+    assert "EL[%]" not in observation["outputs"]
     assert "output_warnings" not in observation
 
     incompatible = client.post(
-        "/api/projects/hot-rolling-default/lineage/AN-00001/candidate",
+        "/api/projects/hot-rolling-default/lineage/AN-01/candidate",
     )
     assert incompatible.status_code == 422
-    incompatible_detail = client.get("/api/projects/hot-rolling-default/lineage/AN-00001").json()
+    incompatible_detail = client.get("/api/projects/hot-rolling-default/lineage/AN-01").json()
     assert incompatible_detail["candidate_eligible"] is False
 
-    compatible_detail = client.get("/api/projects/hot-rolling-default/lineage/HR-00001").json()
+    compatible_detail = client.get("/api/projects/hot-rolling-default/lineage/HR-01").json()
     assert compatible_detail["candidate_eligible"] is True
-    compatible = client.post("/api/projects/hot-rolling-default/lineage/HR-00001/candidate")
+    compatible = client.post("/api/projects/hot-rolling-default/lineage/HR-01/candidate")
     assert compatible.status_code == 201
     assert compatible.json()["project_id"] == "hot-rolling-default"

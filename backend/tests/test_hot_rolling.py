@@ -20,7 +20,7 @@ def test_hot_rolling_task_candidates_and_horseshoe_uncertainty(client) -> None:
     assert package["task_id"] == "hot-rolled-properties-v1"
     assert package["id"] == "hot-rolled-tutorial-v1"
     assert package["active_runtimes"] == ["builtin.posterior_linear.v1"]
-    assert package["quality_report"]["split"] == "grouped-parent-condition-k-fold"
+    assert package["quality_report"]["split"] == "leave-one-parent-condition-out"
     assert {item["target"] for item in package["quality_report"]["targets"]} == {"TS"}
 
     candidates = client.get(f"/api/projects/{project_id}/candidates").json()
@@ -48,7 +48,7 @@ def test_hot_rolling_task_candidates_and_horseshoe_uncertainty(client) -> None:
         assert components["epistemic_std"] >= 0
         assert components["aleatoric_std"] > 0
         assert components["total_predictive_std"] == pytest.approx((components["epistemic_std"] ** 2 + components["aleatoric_std"] ** 2) ** 0.5, abs=2e-6)
-    assert result["model_meta"]["model"]["method"] == "Regularized Horseshoe sparse Bayesian regression"
+    assert result["model_meta"]["model"]["method"] == "Ridge approximate posterior for tiny teaching data"
     assert result["model_meta"]["prediction_interval"]["method"] == "posterior_predictive_moment_matched_normal"
 
 
@@ -171,17 +171,20 @@ def test_hot_rolling_screening_keeps_project_scope_and_nested_candidate_contract
     assert created.status_code == 201
     candidate_from_point = created.json()["candidates"][0]
     assert candidate_from_point["project_id"] == project_id
-    assert set(candidate_from_point["inputs"]) == {"composition", "process", "categorical", "heat_pattern"}
+    assert set(candidate_from_point["inputs"]) == {"composition", "process", "categorical", "heat_pattern", "heat_time_basis"}
     assert candidate_from_point["provenance"]["source_kind"] == "screening"
 
 
 def test_hot_rolling_project_runs_the_full_common_candidate_flow(client) -> None:
+    reference = client.get("/api/projects/hot-rolling-default").json()
     project = client.post(
         "/api/projects",
         json={
             "name": "熱延E2E",
             "task_id": "hot-rolled-properties-v1",
             "target_values": {"TS": 500},
+            "dataset_view_revision_id": reference["dataset_view_revision_id"],
+            "model_package_ref_id": reference["model_package_ref_id"],
         },
     )
     assert project.status_code == 201

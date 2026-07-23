@@ -32,8 +32,8 @@ def test_preview_reports_target_specific_model_support_and_context_scope(client)
     assert preview.status_code == 200, preview.text
     support = preview.json()["model_support"]
     assert set(support) == {"TS", "YS", "EL", "lambda"}
-    assert support["TS"]["reference_count"] == 143
-    assert support["lambda"]["reference_count"] == 134
+    assert support["TS"]["reference_count"] == 6
+    assert support["lambda"]["reference_count"] == 6
 
     similar = client.get(
         f"/api/projects/default/candidates/{candidate['id']}/similar",

@@ -10,6 +10,7 @@
 | 固定ベクトル → 許可リスト登録済みsklearn推定器 | `sklearn.skops.v1` | 任意の信頼済み型ランタイム。[既存ランタイムカード](existing-runtimes.md#固定ベクトルから許可リスト登録済みsklearn推定器へ) |
 | 固定ベクトル → ネイティブ木予測 | `lightgbm.booster.v1` | 任意のネイティブランタイム。[既存ランタイムカード](existing-runtimes.md#固定ベクトルからネイティブ木予測へ) |
 | 固定ベクトル → パラメトリック正規分布または対数正規分布 | `builtin.exact_gp.v1`, `gpytorch.static_exact_rbf.v1` | `builtin.exact_gp.v1`は焼鈍後特性と逃げ面摩耗で使用中。GPyTorch経路は任意。[既存ランタイムカード](existing-runtimes.md#固定ベクトルからパラメトリック正規分布または対数正規分布へ) |
+| 固定ベクトルと観測ごとの分散 → 異分散正規分布 | `builtin.heteroscedastic_exact_gp.v1` | 個々の観測を保持する焼鈍後特性Packageで使用中。平均側とノイズ側を別々のRBF GPで表現します。[既存ランタイムカード](existing-runtimes.md#固定ベクトルからパラメトリック正規分布または対数正規分布へ) |
 | 固定ベクトル → 事後予測 | `numpyro.dense_posterior.v1` | 安全な固定全結合グラフ。[既存ランタイムカード](existing-runtimes.md#固定ベクトルから事後予測へ) |
 | 固定ベクトル → 複数出力を共有するモデル成果物 | PR #44の構想 | 設計は承認済みで、コードは未採用。[判断記録](../decisions/shared-multi-output.md) |
 | 固定ベクトル → 加算スコアと項別寄与 | `builtin.additive_terms.v1` | 検査済みの点予測例と正規分布例。[入出力カード](additive-terms.md) |

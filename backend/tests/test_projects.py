@@ -28,14 +28,18 @@ def _candidate(name: str) -> dict:
     }
 
 
-def _project(name: str) -> dict:
+def _project(client, name: str, task_id: str = "annealed-properties-v1") -> dict:
+    reference_id = "hot-rolling-default" if task_id == "hot-rolled-properties-v1" else "default"
+    reference = client.get(f"/api/projects/{reference_id}").json()
     return {
         "name": name,
         "description": "独立した検討",
         "purpose": "プロジェクト分離の確認",
-        "task_id": "annealed-properties-v1",
+        "task_id": task_id,
         "target_values": {"TS": 500},
         "notes": "",
+        "dataset_view_revision_id": reference["dataset_view_revision_id"],
+        "model_package_ref_id": reference["model_package_ref_id"],
     }
 
 
@@ -52,14 +56,14 @@ def _xlsx_candidate(name: str) -> bytes:
 
 def test_project_crud_preserves_default_and_isolates_candidates_and_screening(client) -> None:
     default = client.get("/api/projects/default").json()
-    created = client.post("/api/projects", json=_project("新規プロジェクト"))
+    created = client.post("/api/projects", json=_project(client, "新規プロジェクト"))
     assert created.status_code == 201
     project = created.json()
     assert project["id"] != "default"
     assert {item["id"] for item in client.get("/api/projects").json()} >= {"default", project["id"]}
     assert client.get(f"/api/projects/{project['id']}").json()["name"] == "新規プロジェクト"
 
-    changed = _project("更新後プロジェクト")
+    changed = _project(client, "更新後プロジェクト")
     changed["heat_stage_positions_m"] = {"加熱1": 42.5}
     updated = client.put(f"/api/projects/{project['id']}", json=changed).json()
     assert updated["name"] == "更新後プロジェクト"
@@ -123,7 +127,7 @@ def test_project_group_move_is_atomic_and_preserves_scientific_state(client) -> 
     ).json()
     project = client.post(
         "/api/projects",
-        json={**_project("所属変更"), "project_series_id": source_group["id"]},
+        json={**_project(client, "所属変更"), "project_series_id": source_group["id"]},
     ).json()
     candidate = client.post(
         f"/api/projects/{project['id']}/candidates",
@@ -197,11 +201,11 @@ def test_project_group_move_keeps_nonempty_source_and_rejects_unavailable_target
     ).raise_for_status()
     first = client.post(
         "/api/projects",
-        json={**_project("移動対象"), "project_series_id": source_group["id"]},
+        json={**_project(client, "移動対象"), "project_series_id": source_group["id"]},
     ).json()
     client.post(
         "/api/projects",
-        json={**_project("残留対象"), "project_series_id": source_group["id"]},
+        json={**_project(client, "残留対象"), "project_series_id": source_group["id"]},
     ).raise_for_status()
 
     for unavailable_group_id in (archived_group["id"], "missing-group"):
@@ -294,8 +298,7 @@ def test_screening_accepts_heat_pattern_point_fields_from_base_candidate(client)
 
 
 def test_project_accepts_each_registered_task_and_rejects_wrong_targets(client) -> None:
-    payload = _project("熱延タスク")
-    payload["task_id"] = "hot-rolled-properties-v1"
+    payload = _project(client, "熱延タスク", "hot-rolled-properties-v1")
     response = client.post("/api/projects", json=payload)
     assert response.status_code == 201
     definition = client.get(f"/api/projects/{response.json()['id']}/task-definition").json()
@@ -309,18 +312,18 @@ def test_project_accepts_each_registered_task_and_rejects_wrong_targets(client) 
 
 
 def test_project_display_decimal_overrides_are_sparse_persisted_and_task_scoped(client) -> None:
-    project = client.post("/api/projects", json={**_project("表示桁数"), "display_decimals": {"composition.C": 4, "output.TS": 2}}).json()
+    project = client.post("/api/projects", json={**_project(client, "表示桁数"), "display_decimals": {"composition.C": 4, "output.TS": 2}}).json()
     assert project["display_decimals"] == {"composition.C": 4, "output.TS": 2}
     assert client.get(f"/api/projects/{project['id']}").json()["display_decimals"] == project["display_decimals"]
 
-    invalid = client.put(f"/api/projects/{project['id']}", json={**_project("表示桁数"), "display_decimals": {"output.unknown": 2}})
+    invalid = client.put(f"/api/projects/{project['id']}", json={**_project(client, "表示桁数"), "display_decimals": {"output.unknown": 2}})
     assert invalid.status_code == 422
     assert "タスクに存在しない表示項目" in invalid.json()["message"]
 
 
 def test_candidate_limit_is_enforced_for_every_creation_route(client) -> None:
     assert MAX_CANDIDATES_PER_PROJECT == 100
-    project = client.post("/api/projects", json=_project("上限確認")).json()
+    project = client.post("/api/projects", json=_project(client, "上限確認")).json()
     project_id = project["id"]
     base = client.post(f"/api/projects/{project_id}/candidates", json=_candidate("基準")).json()
     snapshot = client.post(f"/api/projects/{project_id}/candidates/{base['id']}/snapshots").json()
@@ -341,7 +344,7 @@ def test_candidate_limit_is_enforced_for_every_creation_route(client) -> None:
 
     direct = client.post(f"/api/projects/{project_id}/candidates", json=_candidate(f"{MAX_CANDIDATES_PER_PROJECT + 1}件目"))
     assert direct.status_code == 409 and f"最大{MAX_CANDIDATES_PER_PROJECT}件" in direct.json()["message"]
-    assert client.post(f"/api/projects/{project_id}/lineage/AN-00001/candidate").status_code == 409
+    assert client.post(f"/api/projects/{project_id}/lineage/AN-01/candidate").status_code == 409
     assert client.post(f"/api/screening/{screening['id']}/candidates?project_id={project_id}", json={"point_indices": [0]}).status_code == 409
     assert client.post(f"/api/projects/{project_id}/snapshots/{snapshot['id']}/restore").status_code == 409
     imported = client.post(
@@ -355,14 +358,14 @@ def test_candidate_limit_is_enforced_for_every_creation_route(client) -> None:
 def test_project_decision_is_scoped_persisted_and_cleared_with_candidate(client) -> None:
     assert client.post(
         "/api/projects",
-        json={**_project("不正な初期判断"), "decision_candidate_id": "not-yet-created"},
+        json={**_project(client, "不正な初期判断"), "decision_candidate_id": "not-yet-created"},
     ).status_code == 422
     assert client.post(
         "/api/projects",
-        json={**_project("理由だけ"), "decision_note": "候補がない"},
+        json={**_project(client, "理由だけ"), "decision_note": "候補がない"},
     ).status_code == 422
-    project = client.post("/api/projects", json=_project("判断記録")).json()
-    other = client.post("/api/projects", json=_project("別プロジェクト")).json()
+    project = client.post("/api/projects", json=_project(client, "判断記録")).json()
+    other = client.post("/api/projects", json=_project(client, "別プロジェクト")).json()
     selected = client.post(
         f"/api/projects/{project['id']}/candidates",
         json=_candidate("次実験候補"),

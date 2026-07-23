@@ -5,7 +5,7 @@ def test_data_library_exposes_semantic_dataset_records_and_creation_options(clie
     datasets = client.get("/api/data-library/datasets")
     assert datasets.status_code == 200
     items = datasets.json()
-    assert len(items) == 2
+    assert len(items) == 3
     assert all(item["data_asset"]["sha256"] for item in items)
     assert all(item["profile_revision"]["profile_digest"] for item in items)
     assert all(item["dataset_revision"]["dataset_digest"] for item in items)
@@ -18,8 +18,8 @@ def test_data_library_exposes_semantic_dataset_records_and_creation_options(clie
     options = client.get("/api/project-creation-options")
     assert options.status_code == 200
     payload = options.json()
-    assert len(payload["dataset_views"]) == 2
-    assert len(payload["model_packages"]) == 3
+    assert len(payload["dataset_views"]) == 3
+    assert len(payload["model_packages"]) == 9
     assert payload["project_series"]
     assert set(payload["task_contract_digests"]) >= {
         "annealed-properties-v1",
@@ -35,15 +35,9 @@ def test_data_library_exposes_semantic_dataset_records_and_creation_options(clie
 
 def test_project_creation_pins_explicit_references_and_rejects_rebinding(client) -> None:
     options = client.get("/api/project-creation-options").json()
-    dataset = next(
-        item for item in options["datasets"]
-        if "annealed-properties-v1" in item["supported_task_ids"]
-    )
-    view = dataset["dataset_views"][0]
-    package = next(
-        item for item in options["model_packages"]
-        if item["task_id"] == "annealed-properties-v1"
-    )
+    reference = client.get("/api/projects/default").json()
+    view = next(item for item in options["dataset_views"] if item["id"] == reference["dataset_view_revision_id"])
+    package = next(item for item in options["model_packages"] if item["id"] == reference["model_package_ref_id"])
     series = client.post(
         "/api/project-series", json={"name": "一連の材料検討", "description": "2026年の検討"}
     ).json()
@@ -101,6 +95,8 @@ def test_continuation_uses_the_explicit_group_and_accepts_an_empty_reason(client
     created = client.post("/api/projects", json={
         "name": "継続検討",
         "task_id": original["task_id"],
+        "dataset_view_revision_id": original["dataset_view_revision_id"],
+        "model_package_ref_id": original["model_package_ref_id"],
         "project_series_id": original["project_series_id"],
         "predecessor_project_id": original["id"],
     })
@@ -115,12 +111,12 @@ def test_continuation_can_switch_prediction_task_and_belong_to_another_group(cli
     options = client.get("/api/project-creation-options").json()
     original = client.get("/api/projects/default").json()
     other_series = client.get("/api/projects/hot-rolling-default").json()["project_series_id"]
-    hot_package = next(item for item in options["model_packages"] if item["task_id"] == "hot-rolled-properties-v1")
+    hot_reference = client.get("/api/projects/hot-rolling-default").json()
     payload = {
         "name": "同じテーマの熱延検討",
         "task_id": "hot-rolled-properties-v1",
-        "dataset_view_revision_id": original["dataset_view_revision_id"],
-        "model_package_ref_id": hot_package["id"],
+        "dataset_view_revision_id": hot_reference["dataset_view_revision_id"],
+        "model_package_ref_id": hot_reference["model_package_ref_id"],
         "project_series_id": other_series,
         "predecessor_project_id": original["id"],
         "continuation_reason": "同じ材料テーマを熱延特性でも評価するため",
@@ -136,13 +132,19 @@ def test_continuation_can_switch_prediction_task_and_belong_to_another_group(cli
 
 
 def test_project_with_successor_cannot_be_deleted(client) -> None:
+    reference = client.get("/api/projects/default").json()
+    binding = {
+        "dataset_view_revision_id": reference["dataset_view_revision_id"],
+        "model_package_ref_id": reference["model_package_ref_id"],
+    }
     first = client.post("/api/projects", json={
-        "name": "系譜の起点", "task_id": "annealed-properties-v1",
+        "name": "系譜の起点", "task_id": "annealed-properties-v1", **binding,
     })
     assert first.status_code == 201, first.text
     successor = client.post("/api/projects", json={
         "name": "系譜の続き",
         "task_id": "annealed-properties-v1",
+        **binding,
         "predecessor_project_id": first.json()["id"],
         "continuation_reason": "データ追加",
     })

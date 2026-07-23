@@ -60,8 +60,8 @@ def test_builder_emits_ts_only_hot_rolling_package(tmp_path: Path) -> None:
     assert predictor.spec.runtime_type == "builtin.posterior_linear.v1"
     assert predictor.spec.predictive_family == "normal"
     assert package.manifest.quality_report == "reports/quality-report.json"
-    assert (destination / "reports" / "selection-report.json").is_file()
-    assert (destination / "reports" / "training-diagnostics.json").is_file()
+    assert not (destination / "reports" / "selection-report.json").exists()
+    assert not (destination / "reports" / "training-diagnostics.json").exists()
 
     with pytest.raises(FileExistsError, match="refusing to replace"):
         build(SOURCE, destination)

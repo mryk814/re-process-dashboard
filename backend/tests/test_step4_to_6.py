@@ -109,7 +109,7 @@ def test_screening_without_target_uses_support_distance_contract(client) -> None
 
 
 def test_lineage_candidate_actuals_and_snapshot_restore(client) -> None:
-    lineage_candidate = client.post("/api/projects/default/lineage/AN-00001/candidate")
+    lineage_candidate = client.post("/api/projects/default/lineage/AN-01/candidate")
     assert lineage_candidate.status_code == 201
     candidate = lineage_candidate.json()
     assert len(candidate["inputs"]["heat_pattern"]) >= 2
@@ -135,19 +135,19 @@ def test_lineage_candidate_actuals_and_snapshot_restore(client) -> None:
 
 
 def test_lineage_candidate_preserves_stage_order_and_boundaries(client) -> None:
-    expected = candidate_from_lineage(client.app.state.data, "AN-00009")
-    response = client.post("/api/projects/default/lineage/AN-00009/candidate")
+    expected = candidate_from_lineage(client.app.state.data, "AN-03")
+    response = client.post("/api/projects/default/lineage/AN-03/candidate")
     assert response.status_code == 201
     payload = {key: value for key, value in response.json().items() if key not in {"id", "project_id", "created_at", "updated_at"}}
     actual = CandidateInput.model_validate(payload)
     assert actual.inputs.heat_pattern == expected.inputs.heat_pattern
     assert actual.inputs.heat_pattern is not None
-    assert any(point.segment_start for point in actual.inputs.heat_pattern)
+    assert all(not point.segment_start for point in actual.inputs.heat_pattern)
     assert all(right.time_s > left.time_s for left, right in zip(actual.inputs.heat_pattern, actual.inputs.heat_pattern[1:]))
 
 
 def test_hot_lineage_candidate_uses_hot_rolling_inputs(client) -> None:
-    expected = candidate_from_lineage(client.app.state.data, "HR-00001")
+    expected = candidate_from_lineage(client.app.state.data, "HR-01")
     assert expected.inputs.heat_pattern is None
     assert set(expected.inputs.process) == {
         "soaking_temperature_c",
@@ -300,12 +300,12 @@ def test_candidate_xlsx_names_follow_source_profile() -> None:
         "annealed-properties-v1",
         str(PROFILE_ROOT / "dataset-input-profile-process-v1.json"),
     )
-    assert names["composition.C"] == "C%"
-    assert names["process.ls_mpm"] == "ライン速度[m/min]"
-    assert names["time_s"] == "到達時刻[s]"
+    assert names["composition.C"] == "C[%]"
+    assert names["process.ls_mpm"] == "LS[mpm]"
+    assert names["time_s"] == "total時間[秒]"
     assert names["temperature_c"] == "温度[℃]"
     assert names["stage_name"] == "工程"
-    assert names["TS"] == "TS[MPa]"
+    assert names["TS"] == "引張強さ[MPa]"
 
 
 def test_candidate_xlsx_import_rejects_duplicate_headers() -> None:
