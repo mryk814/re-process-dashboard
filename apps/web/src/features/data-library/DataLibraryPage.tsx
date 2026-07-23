@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   workbenchApi,
   type ApiDataLibraryDataset,
-  type ApiModelPackageRef,
   type ApiProject,
   type ApiProjectCreationOptions,
 } from "../../shared/api/workbench-api";
@@ -27,29 +26,18 @@ export function DataLibraryPage({
   onStartProject: (datasetViewRevisionId: string) => void;
 }) {
   const [options, setOptions] = useState<ApiProjectCreationOptions | null>(null);
-  const [modelPackages, setModelPackages] = useState<ApiModelPackageRef[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [compareOpen, setCompareOpen] = useState(false);
   const [compareName, setCompareName] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [packageTaskFilter, setPackageTaskFilter] = useState("");
-  const [packageDatasetFilter, setPackageDatasetFilter] = useState("");
-  const [packageStateFilter, setPackageStateFilter] = useState("");
 
   const load = () => {
     setLoading(true);
     setError("");
     setOptions(null);
-    setModelPackages([]);
-    return Promise.all([
-      workbenchApi.projectCreationOptions(),
-      workbenchApi.listModelPackageRefs(true),
-    ])
-      .then(([nextOptions, nextModelPackages]) => {
-        setOptions(nextOptions);
-        setModelPackages(nextModelPackages);
-      })
+    return workbenchApi.projectCreationOptions()
+      .then(setOptions)
       .catch((cause) => setError(cause instanceof Error ? cause.message : "データライブラリを取得できませんでした。"))
       .finally(() => setLoading(false));
   };
@@ -64,26 +52,6 @@ export function DataLibraryPage({
     return grouped;
   }, [projects]);
   const comparisonSets = options?.dataset_views.filter((view) => view.kind === "cohort_comparison") ?? [];
-  const packageTaskIds = useMemo(
-    () => [...new Set(modelPackages.map((item) => item.task_id))].sort(),
-    [modelPackages],
-  );
-  const packageDatasets = useMemo(
-    () => options?.datasets.filter((dataset) => modelPackages.some(
-      (item) => trainingDataset(item, options.datasets)?.dataset_revision.id === dataset.dataset_revision.id,
-    )) ?? [],
-    [modelPackages, options],
-  );
-  const filteredModelPackages = useMemo(
-    () => modelPackages.filter((item) => {
-      if (packageTaskFilter && item.task_id !== packageTaskFilter) return false;
-      if (packageStateFilter === "available" && item.archived_at) return false;
-      if (packageStateFilter === "archived" && !item.archived_at) return false;
-      if (!packageDatasetFilter) return true;
-      return trainingDataset(item, options?.datasets ?? [])?.dataset_revision.id === packageDatasetFilter;
-    }),
-    [modelPackages, options, packageDatasetFilter, packageStateFilter, packageTaskFilter],
-  );
 
   const toggleDataset = (dataset: ApiDataLibraryDataset) => {
     const id = dataset.dataset_revision.id;
@@ -177,18 +145,7 @@ export function DataLibraryPage({
 
         <section className="data-library-grid">
           <div className="data-library-section"><div className="panel-title"><h3>比較セット</h3><span>{comparisonSets.length}件</span></div>{comparisonSets.length ? <div className="comparison-set-list">{comparisonSets.map((view) => { const members = view.members.map((member) => member.cohort_label || datasetDisplayName(options.datasets.find((dataset) => dataset.dataset_revision.id === member.dataset_revision_id))).join(" / "); return <div key={view.id}><strong>{view.name}</strong><span title={members}>{members}</span><code title={view.view_digest}>{shortDigest(view.view_digest)}</code></div>; })}</div> : <p className="library-empty">設備・場所などの境界を保って比べたいときに作成します。</p>}</div>
-          <div className="data-library-section model-package-library">
-            <div className="panel-title"><h3>Model Packages</h3><span>{filteredModelPackages.length} / {modelPackages.length}件</span></div>
-            <div className="model-package-toolbar" aria-label="Model Packageの絞り込み">
-              <label>Prediction Task<select value={packageTaskFilter} onChange={(event) => setPackageTaskFilter(event.target.value)}><option value="">すべて</option>{packageTaskIds.map((taskId) => <option key={taskId} value={taskId}>{taskId}</option>)}</select></label>
-              <label>学習元Dataset<select value={packageDatasetFilter} onChange={(event) => setPackageDatasetFilter(event.target.value)}><option value="">すべて</option>{packageDatasets.map((dataset) => <option key={dataset.dataset_revision.id} value={dataset.dataset_revision.id}>{datasetDisplayName(dataset)}</option>)}</select></label>
-              <label>状態<select value={packageStateFilter} onChange={(event) => setPackageStateFilter(event.target.value)}><option value="">すべて</option><option value="available">利用可能</option><option value="archived">アーカイブ</option></select></label>
-              {(packageTaskFilter || packageDatasetFilter || packageStateFilter) && <button type="button" className="text-button" onClick={() => { setPackageTaskFilter(""); setPackageDatasetFilter(""); setPackageStateFilter(""); }}>絞り込みを解除</button>}
-            </div>
-            {filteredModelPackages.length > 0
-              ? <div className="model-package-list">{filteredModelPackages.map((item) => { const source = trainingDataset(item, options.datasets); const sourceSha = trainingDataSha(item); return <article key={item.id}><div><strong>{modelPackageDisplayName(item)}</strong><span>{item.task_id}</span><small className={item.archived_at ? "package-state archived" : "package-state"}>{item.archived_at ? "アーカイブ" : "利用可能"}</small></div><dl><div><dt>学習元Dataset</dt><dd title={source?.data_asset.original_filename ?? sourceSha ?? undefined}>{source ? datasetDisplayName(source) : sourceSha ? `未登録 ${sourceSha.slice(0, 10)}` : "manifestに記録なし"}</dd></div><div><dt>学習時Profile</dt><dd>{source ? `${source.profile_revision.name} · r${source.profile_revision.revision}` : "—"}</dd></div></dl><details className="model-package-technical"><summary>技術情報</summary><dl><div><dt>Package ID</dt><dd>{item.package_id}</dd></div><div><dt>Manifest</dt><dd title={item.manifest_digest}>{shortDigest(item.manifest_digest)}</dd></div></dl></details></article>; })}</div>
-              : <p className="library-empty">条件に合うModel Packageはありません。</p>}
-          </div>
+          <div className="data-library-section"><div className="panel-title"><h3>Model Packages</h3><span>{options.model_packages.length}件</span></div><div className="model-package-list">{options.model_packages.map((item) => { const source = trainingDataset(item, options.datasets); const sourceSha = trainingDataSha(item); return <article key={item.id}><div><strong>{modelPackageDisplayName(item)}</strong><span>{item.task_id}</span></div><dl><div><dt>学習元Dataset</dt><dd title={source?.data_asset.original_filename ?? sourceSha ?? undefined}>{source ? datasetDisplayName(source) : sourceSha ? `未登録 ${sourceSha.slice(0, 10)}` : "manifestに記録なし"}</dd></div><div><dt>学習時Profile</dt><dd>{source ? `${source.profile_revision.name} · r${source.profile_revision.revision}` : "—"}</dd></div><div><dt>Manifest</dt><dd title={item.manifest_digest}>{shortDigest(item.manifest_digest)}</dd></div></dl></article>; })}</div></div>
         </section>
       </>}
     </div>

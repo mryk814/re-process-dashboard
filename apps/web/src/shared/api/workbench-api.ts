@@ -69,11 +69,6 @@ export const workbenchApi = {
   async listDataLibraryDatasets() {
     return requireData(await apiClient.GET("/api/data-library/datasets"), "データライブラリを取得できませんでした。");
   },
-  async listModelPackageRefs(includeArchived = false) {
-    return requireData(await apiClient.GET("/api/data-library/model-packages", {
-      params: { query: { include_archived: includeArchived } },
-    }), "Model Package一覧を取得できませんでした。");
-  },
   async createDatasetView(body: ApiDatasetViewCreateInput) {
     return requireData(await apiClient.POST("/api/data-library/views", { body }), "比較セットを作成できませんでした。");
   },

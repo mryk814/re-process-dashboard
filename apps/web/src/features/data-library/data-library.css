@@ -33,21 +33,12 @@
 .comparison-set-list strong, .model-package-list strong { min-width: 0; overflow-wrap: anywhere; }
 .comparison-set-list span { overflow: hidden; color: #68788c; text-overflow: ellipsis; white-space: nowrap; }
 .comparison-set-list code { color: #526276; font-size: 10px; }
-.model-package-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 7px; margin: 8px 0 2px; padding: 8px; border-radius: 4px; background: #f4f7fa; }
-.model-package-toolbar label { display: grid; gap: 3px; color: #68788c; font-size: 10px; }
-.model-package-toolbar select { min-width: 150px; border: 1px solid #cbd6e2; border-radius: 4px; background: #fff; padding: 5px 7px; color: #354a62; font: inherit; }
-.model-package-toolbar .text-button { margin-left: auto; align-self: center; }
-.model-package-list article { display: grid; grid-template-columns: minmax(160px, .65fr) minmax(260px, 1.35fr) auto; align-items: start; gap: 14px; border-top: 1px solid #e5eaf0; padding: 11px 2px; }
+.model-package-list article { display: grid; grid-template-columns: minmax(210px, .75fr) minmax(0, 1.25fr); gap: 14px; border-top: 1px solid #e5eaf0; padding: 11px 2px; }
 .model-package-list article > div { display: grid; align-content: start; gap: 3px; min-width: 0; }
 .model-package-list article > div span { color: #68788c; font-size: 11px; }
-.package-state { width: fit-content; border-radius: 999px; background: #e4f5ef; padding: 2px 6px; color: #216a55; font-size: 9px; font-weight: 700; }
-.package-state.archived { background: #eef1f5; color: #66758a; }
-.model-package-list dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.model-package-list dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
 .model-package-list dt { color: #2d6c63; font-size: 10px; font-weight: 700; text-transform: uppercase; }
 .model-package-list dd { margin: 3px 0 0; color: #354a62; font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
-.model-package-technical { min-width: 82px; color: #66758a; font-size: 10px; }
-.model-package-technical summary { cursor: pointer; white-space: nowrap; }
-.model-package-technical dl { display: grid; min-width: 190px; margin-top: 7px; border-left: 2px solid #d8e0ea; padding-left: 8px; }
 .library-empty { margin: 8px 0 0; color: #718096; font-size: 11px; }
 .library-error-state { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid #efc0bb; border-radius: 6px; background: #fff8f7; padding: 12px 14px; }
 .library-error-state .panel-error { margin: 0; }
@@ -104,7 +95,7 @@
 .profile-registration-success > .profile-registration-success-actions { justify-content: flex-end; }
 .profile-registration-success strong { width: 100%; color: #205b46; }
 .profile-registration-success span, .profile-registration-success code { color: #527365; font-size: 10px; }
-@media (max-width: 900px) { .dataset-card { grid-template-columns: 1fr; } .dataset-card dl { grid-template-columns: 1fr 1fr; } .dataset-project-links { justify-items: start; } .dataset-project-links > div { justify-content: flex-start; } .data-library-grid { grid-template-columns: 1fr; } .dataset-compare-builder { grid-template-columns: 1fr; } .model-package-list article { grid-template-columns: 1fr; } .model-package-toolbar .text-button { margin-left: 0; } }
+@media (max-width: 900px) { .dataset-card { grid-template-columns: 1fr; } .dataset-card dl { grid-template-columns: 1fr 1fr; } .dataset-project-links { justify-items: start; } .dataset-project-links > div { justify-content: flex-start; } .data-library-grid { grid-template-columns: 1fr; } .dataset-compare-builder { grid-template-columns: 1fr; } .model-package-list article { grid-template-columns: 1fr; } }
 @media (max-width: 560px) { .data-library-header-actions { justify-content: flex-start; } .dataset-card dl, .model-package-list dl { grid-template-columns: 1fr; } .comparison-set-list > div { grid-template-columns: 1fr auto; } .comparison-set-list span { grid-column: 1 / -1; grid-row: 2; white-space: normal; } }
 @media (max-width: 760px) { .profile-workbench-inputs, .profile-registration-panel { grid-template-columns: 1fr; } .profile-inspect-button { min-height: 40px; } .profile-inspection-summary > header, .profile-validation-metrics { grid-template-columns: 1fr 1fr; } .profile-registration-success { align-items: stretch; flex-direction: column; } }
 .profile-workbench-steps { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); margin: 0 0 14px; padding: 0; list-style: none; }
