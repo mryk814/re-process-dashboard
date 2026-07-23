@@ -190,9 +190,15 @@ def lineage(
     entity_key: str,
     service: DataExplorationServiceDependency,
     limit: int = Query(default=40, ge=1, le=200),
+    all_reachable: bool = Query(default=False),
 ) -> LineageResponse:
     try:
-        return service.lineage(project_id, entity_key, limit=limit)
+        return service.lineage(
+            project_id,
+            entity_key,
+            limit=limit,
+            all_reachable=all_reachable,
+        )
     except DATA_EXPLORATION_ERRORS as exc:
         _raise_data_error(exc)
 

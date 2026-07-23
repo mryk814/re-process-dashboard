@@ -470,24 +470,42 @@ def test_lineage_index_and_isolated_nodes_are_inspectable(client) -> None:
 
 
 def test_lineage_graph_can_expand_beyond_the_initial_node_limit(client) -> None:
-    assert client.get("/api/projects/default/lineage/AN-00001", params={"limit": 0}).status_code == 422
-    assert client.get("/api/projects/default/lineage/AN-00001", params={"limit": 201}).status_code == 422
-    initial = client.get("/api/projects/default/lineage/AN-00001", params={"limit": 1})
+    assert client.get("/api/projects/default/lineage/AN-01", params={"limit": 0}).status_code == 422
+    assert client.get("/api/projects/default/lineage/AN-01", params={"limit": 201}).status_code == 422
+    initial = client.get("/api/projects/default/lineage/AN-01", params={"limit": 1})
     assert initial.status_code == 200
     initial_graph = initial.json()["graph"]
     assert initial_graph["node_limit"] == 1
     assert initial_graph["visible_node_count"] == 1
-    assert initial_graph["nodes"][0]["key"] == "AN-00001"
+    assert initial_graph["nodes"][0]["key"] == "AN-01"
     assert initial_graph["total_node_count"] > 1
     assert initial_graph["has_more"] is True
     assert initial_graph["omitted_node_count"] == initial_graph["total_node_count"] - 1
 
-    expanded = client.get("/api/projects/default/lineage/AN-00001", params={"limit": 200})
+    expanded = client.get("/api/projects/default/lineage/AN-01", params={"limit": 200})
     assert expanded.status_code == 200
     expanded_graph = expanded.json()["graph"]
     assert expanded_graph["visible_node_count"] == expanded_graph["total_node_count"]
     assert expanded_graph["has_more"] is False
     assert expanded_graph["omitted_node_count"] == 0
+
+
+def test_lineage_graph_can_show_every_node_reachable_from_the_selected_key(client) -> None:
+    direct = client.get("/api/projects/default/lineage/AN-01", params={"limit": 200})
+    assert direct.status_code == 200
+    reachable = client.get(
+        "/api/projects/default/lineage/AN-01",
+        params={"all_reachable": True},
+    )
+    assert reachable.status_code == 200
+    direct_graph = direct.json()["graph"]
+    reachable_graph = reachable.json()["graph"]
+    assert direct_graph["all_reachable"] is False
+    assert reachable_graph["all_reachable"] is True
+    assert reachable_graph["visible_node_count"] == reachable_graph["total_node_count"]
+    assert reachable_graph["has_more"] is False
+    assert reachable_graph["omitted_node_count"] == 0
+    assert reachable_graph["visible_node_count"] > direct_graph["visible_node_count"]
 
 
 def test_lineage_keeps_hot_rolled_and_annealed_observations_separate(client) -> None:

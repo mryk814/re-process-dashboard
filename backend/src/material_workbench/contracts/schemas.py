@@ -1057,6 +1057,7 @@ class LineageGraph(BaseModel):
     visible_node_count: int
     total_node_count: int
     node_limit: int
+    all_reachable: bool
     has_more: bool
     omitted_node_count: int
 

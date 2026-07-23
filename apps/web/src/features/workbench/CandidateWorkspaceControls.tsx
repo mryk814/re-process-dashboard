@@ -31,7 +31,7 @@ export function CandidateOrigin({
     setMeasurements(null);
     if (provenance.source_kind !== "lineage") return;
     const controller = new AbortController();
-    void workbenchApi.lineage(projectId, provenance.source_ref.entity_key, 1, controller.signal)
+    void workbenchApi.lineage(projectId, provenance.source_ref.entity_key, 1, false, controller.signal)
       .then((lineage) => {
         if (!controller.signal.aborted) setMeasurements(originMeasurements(lineage, outputs));
       })

@@ -202,8 +202,8 @@ export const workbenchApi = {
     const normalizedEntityType = entityType === "すべて" ? "" : entityType;
     return requireData(await apiClient.GET("/api/projects/{project_id}/lineage", { params: { path: { project_id: projectId }, query: { query, entity_type: normalizedEntityType, issue_filter: issueFilter, include_hidden: false, limit: 200 } }, signal }), "実績・工程を検索できませんでした。");
   },
-  async lineage(projectId: string, entityKey: string, limit = 40, signal?: AbortSignal) {
-    return requireData(await apiClient.GET("/api/projects/{project_id}/lineage/{entity_key}", { params: { path: { project_id: projectId, entity_key: entityKey }, query: { limit } }, signal }), "系譜を取得できませんでした。");
+  async lineage(projectId: string, entityKey: string, limit = 40, allReachable = false, signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/lineage/{entity_key}", { params: { path: { project_id: projectId, entity_key: entityKey }, query: { limit, all_reachable: allReachable } }, signal }), "系譜を取得できませんでした。");
   },
   async createCandidateFromLineage(entityKey: string, projectId: string, processKey?: string, meltKey?: string) {
     return requireData(await apiClient.POST("/api/projects/{project_id}/lineage/{entity_key}/candidate", { params: { path: { project_id: projectId, entity_key: entityKey }, query: { process_key: processKey, melt_key: meltKey } } }), "候補を作成できませんでした。");

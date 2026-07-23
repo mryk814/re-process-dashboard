@@ -1939,6 +1939,10 @@
       },
       "LineageGraph": {
         "properties": {
+          "all_reachable": {
+            "title": "All Reachable",
+            "type": "boolean"
+          },
           "edges": {
             "items": {
               "$ref": "#/components/schemas/LineageGraphEdge"
@@ -1985,6 +1989,7 @@
           "visible_node_count",
           "total_node_count",
           "node_limit",
+          "all_reachable",
           "has_more",
           "omitted_node_count"
         ],
@@ -9059,6 +9064,16 @@
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "all_reachable",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "All Reachable",
+              "type": "boolean"
             }
           }
         ],

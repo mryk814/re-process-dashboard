@@ -167,7 +167,14 @@ class DataExplorationService:
             "review_count": len(reviews),
         })
 
-    def lineage(self, project_id: str, entity_key: str, *, limit: int = 40) -> LineageResponse:
+    def lineage(
+        self,
+        project_id: str,
+        entity_key: str,
+        *,
+        limit: int = 40,
+        all_reachable: bool = False,
+    ) -> LineageResponse:
         project = self.projects.require(project_id)
         data = self.explorer(project_id, "lineage").data
         item = data.lineage.get(entity_key)
@@ -177,7 +184,12 @@ class DataExplorationService:
             node = lineage_node_detail(data, entity_key)
         except KeyError as exc:
             raise LineageNotFoundError("来歴ノードの元データが見つかりません") from exc
-        graph = lineage_neighborhood(data, entity_key, max_nodes=limit)
+        graph = lineage_neighborhood(
+            data,
+            entity_key,
+            max_nodes=limit,
+            all_reachable=all_reachable,
+        )
         connected_keys = {graph_node["key"] for graph_node in graph["nodes"]}
         issues = [issue for issue in data.detected_quality if issue["entity_key"] in connected_keys]
         candidate_options = []

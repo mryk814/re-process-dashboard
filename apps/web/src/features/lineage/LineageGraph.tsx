@@ -164,12 +164,16 @@ export function LineageGraph({
   onSelect,
   onGroupSelect,
   onLoadMore,
+  showAllReachable,
+  onShowAllReachableChange,
 }: {
   graph: Graph;
   selectedKey: string;
   onSelect: (key: string) => void;
   onGroupSelect?: (selection: { parentKey: string; entityType: string; nodeKeys: string[] }) => void;
   onLoadMore: () => void;
+  showAllReachable: boolean;
+  onShowAllReachableChange: (value: boolean) => void;
 }) {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const { upstream, downstream, incoming } = graphContext(graph, selectedKey);
@@ -344,13 +348,37 @@ export function LineageGraph({
       <header className="lineage-graph-header">
         <div>
           <b>{graph.relation_row_count} relation行から復元</b>
-          <span>{graph.visible_node_count}/{graph.total_node_count}ノード表示 · 初期上限40件</span>
+          <span>
+            {graph.all_reachable
+              ? `到達可能な${graph.visible_node_count}ノードをすべて表示`
+              : `${graph.visible_node_count}/${graph.total_node_count}ノード表示 · 上限${graph.node_limit}件`}
+          </span>
         </div>
-        <div className="lineage-graph-legend" aria-label="グラフ凡例">
-          <span className="upstream">上流</span>
-          <span className="downstream">下流</span>
-          <span className="missing">欠損先</span>
-          <span className="issue">品質問題</span>
+        <div className="lineage-graph-tools">
+          <div className="lineage-graph-scope" role="group" aria-label="ノード表示範囲">
+            <button
+              type="button"
+              className={!showAllReachable ? "active" : ""}
+              aria-pressed={!showAllReachable}
+              onClick={() => onShowAllReachableChange(false)}
+            >
+              周辺
+            </button>
+            <button
+              type="button"
+              className={showAllReachable ? "active" : ""}
+              aria-pressed={showAllReachable}
+              onClick={() => onShowAllReachableChange(true)}
+            >
+              つながり全部
+            </button>
+          </div>
+          <div className="lineage-graph-legend" aria-label="グラフ凡例">
+            <span className="upstream">上流</span>
+            <span className="downstream">下流</span>
+            <span className="missing">欠損先</span>
+            <span className="issue">品質問題</span>
+          </div>
         </div>
       </header>
       <div className="lineage-graph-scroll">

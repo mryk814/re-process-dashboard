@@ -1542,6 +1542,8 @@ export interface components {
         };
         /** LineageGraph */
         LineageGraph: {
+            /** All Reachable */
+            all_reachable: boolean;
             /** Edges */
             edges: components["schemas"]["LineageGraphEdge"][];
             /** Has More */
@@ -5185,6 +5187,7 @@ export interface operations {
     lineage_api_projects__project_id__lineage__entity_key__get: {
         parameters: {
             query?: {
+                all_reachable?: boolean;
                 limit?: number;
             };
             header?: never;

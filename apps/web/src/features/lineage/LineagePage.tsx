@@ -96,6 +96,7 @@ export function LineagePage({
   const [reviewSaveState, setReviewSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [indexRevision, setIndexRevision] = useState(0);
   const [graphLimit, setGraphLimit] = useState(40);
+  const [showAllReachable, setShowAllReachable] = useState(false);
   const [index, setIndex] = useState<ApiLineageIndex | null>(null);
   const [data, setData] = useState<ApiLineage | null>(null);
   const [error, setError] = useState("");
@@ -114,6 +115,9 @@ export function LineagePage({
     setEntityKey(initialEntityKey ?? "");
     setGraphLimit(40);
   }, [projectId, initialEntityKey]);
+  useEffect(() => {
+    setShowAllReachable(false);
+  }, [projectId]);
   useEffect(() => {
     setSelectedGroup(null);
     setCandidateOptionIndex(0);
@@ -167,7 +171,7 @@ export function LineagePage({
     setData(null);
     setError("");
     setCandidateError("");
-    workbenchApi.lineage(projectId, entityKey, graphLimit, controller.signal)
+    workbenchApi.lineage(projectId, entityKey, graphLimit, showAllReachable, controller.signal)
       .then((lineage) => {
         if (!controller.signal.aborted) {
           setData(lineage);
@@ -187,7 +191,7 @@ export function LineagePage({
     return () => {
       controller.abort();
     };
-  }, [projectId, entityKey, graphLimit]);
+  }, [projectId, entityKey, graphLimit, showAllReachable]);
   const saveReview = async () => {
     if (!data) return;
     setReviewSaveState("saving");
@@ -448,6 +452,8 @@ export function LineagePage({
             onSelect={openNode}
             onGroupSelect={setSelectedGroup}
             onLoadMore={() => setGraphLimit((current) => Math.min(200, current + 40))}
+            showAllReachable={showAllReachable}
+            onShowAllReachableChange={setShowAllReachable}
           />
             {data.graph.edges.length > 0 && (
               <details className="route-evidence">

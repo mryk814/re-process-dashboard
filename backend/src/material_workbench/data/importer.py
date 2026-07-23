@@ -346,20 +346,60 @@ def lineage_node_detail(data: WorkbookData, entity_key: str) -> dict[str, Any]:
     }
 
 
-def lineage_neighborhood(data: WorkbookData, entity_key: str, max_nodes: int = 40) -> dict[str, Any]:
-    """Build a bounded route graph while preserving evidence from relation rows."""
+def lineage_neighborhood(
+    data: WorkbookData,
+    entity_key: str,
+    max_nodes: int = 40,
+    *,
+    all_reachable: bool = False,
+) -> dict[str, Any]:
+    """Build a route graph while preserving evidence from relation rows.
+
+    The default view stays bounded to relation rows that directly contain the
+    selected key. The optional reachable view follows shared keys across
+    relation rows until the selected key's whole connected component is found.
+    """
     if entity_key not in data.lineage:
         raise KeyError(entity_key)
-    route_rows: list[tuple[int, dict[str, Any]]] = []
     relation_columns = {
         column
         for columns in data.relation_join_columns.values()
         for column in columns
     }
+    indexed_rows: list[tuple[int, dict[str, Any], set[str]]] = []
     for row_number, row in enumerate(data.sheets[data.relation_sheet], start=2):
         keys = {str(value) for column, value in row.items() if column in relation_columns and value}
-        if entity_key in keys:
-            route_rows.append((row_number, row))
+        indexed_rows.append((row_number, row, keys))
+
+    if all_reachable:
+        rows_by_key: dict[str, list[int]] = defaultdict(list)
+        for index, (_, _, keys) in enumerate(indexed_rows):
+            for key in keys:
+                rows_by_key[key].append(index)
+        reachable_keys = {entity_key}
+        reachable_rows: set[int] = set()
+        pending = [entity_key]
+        while pending:
+            current = pending.pop()
+            for row_index in rows_by_key.get(current, []):
+                if row_index in reachable_rows:
+                    continue
+                reachable_rows.add(row_index)
+                for key in indexed_rows[row_index][2]:
+                    if key not in reachable_keys:
+                        reachable_keys.add(key)
+                        pending.append(key)
+        route_rows = [
+            (row_number, row)
+            for index, (row_number, row, _) in enumerate(indexed_rows)
+            if index in reachable_rows
+        ]
+    else:
+        route_rows = [
+            (row_number, row)
+            for row_number, row, keys in indexed_rows
+            if entity_key in keys
+        ]
 
     candidate_nodes: dict[str, str] = {}
     if not route_rows:
@@ -375,7 +415,7 @@ def lineage_neighborhood(data: WorkbookData, entity_key: str, max_nodes: int = 4
         candidate_nodes.items(),
         key=lambda item: (item[0] != entity_key, data.lineage_stage_order.get(item[1], 99), item[0]),
     )
-    node_limit = max(1, max_nodes)
+    node_limit = len(ordered) if all_reachable else max(1, max_nodes)
     visible = dict(ordered[:node_limit])
     issue_by_key: dict[str, list[str]] = defaultdict(list)
     for issue in data.detected_quality:
@@ -420,6 +460,7 @@ def lineage_neighborhood(data: WorkbookData, entity_key: str, max_nodes: int = 4
         "visible_node_count": len(visible),
         "total_node_count": len(ordered),
         "node_limit": node_limit,
+        "all_reachable": all_reachable,
         "has_more": len(visible) < len(ordered),
         "omitted_node_count": max(0, len(ordered) - len(visible)),
     }
