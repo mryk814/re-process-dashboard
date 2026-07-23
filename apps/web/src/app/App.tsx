@@ -10,6 +10,7 @@ import { DeveloperAdminPage } from "../features/admin";
 import { DataLibraryPage, ProfileWorkbenchPage } from "../features/data-library";
 
 type Tab = WorkbenchView;
+const lastNavigationStorageKey = "material-workbench-last-navigation";
 const projectNavItems: Array<{ id: Tab; label: string; active: Tab[]; requiresDataExplorer?: boolean }> = [
   { id: "project", label: "概要", active: ["project"] },
   { id: "lineage", label: "データ探索", active: ["lineage", "quality"], requiresDataExplorer: true },
@@ -24,8 +25,26 @@ function DataExploreUnavailable() {
   </div>;
 }
 
+function readStartupNavigation(): NavigationIntent {
+  if (new URLSearchParams(window.location.search).has("view")) return readNavigationIntent();
+  try {
+    const savedSearch = window.localStorage.getItem(lastNavigationStorageKey);
+    return savedSearch ? readNavigationIntent(savedSearch) : readNavigationIntent();
+  } catch {
+    return readNavigationIntent();
+  }
+}
+
+function rememberNavigation(intent: NavigationIntent) {
+  try {
+    window.localStorage.setItem(lastNavigationStorageKey, new URL(navigationUrl(intent), window.location.href).search);
+  } catch {
+    // Navigation remains usable when browser storage is unavailable.
+  }
+}
+
 function App() {
-  const [navigation, setNavigation] = useState<NavigationIntent>(() => readNavigationIntent());
+  const [navigation, setNavigation] = useState<NavigationIntent>(() => readStartupNavigation());
   const [requestedDatasetViewId, setRequestedDatasetViewId] = useState<string>();
   const navigationRef = useRef(navigation);
   const tab = navigation.view;
@@ -34,6 +53,7 @@ function App() {
     const next = Object.freeze(intent);
     navigationRef.current = next;
     setNavigation(next);
+    rememberNavigation(next);
     window.history[replace ? "replaceState" : "pushState"]({}, "", navigationUrl(next));
   }
 
@@ -45,7 +65,9 @@ function App() {
       navigate(
         current.view === "data-library" || current.view === "profile-workbench"
           ? current
-          : { ...current, projectId, candidateId },
+          : current.projectId && current.projectId !== projectId
+            ? withView({ view: current.view, projectId, candidateId, adminSection: current.adminSection }, current.view)
+            : { ...current, projectId, candidateId },
         true,
       );
     },
@@ -111,12 +133,21 @@ function App() {
       const intent = readNavigationIntent();
       navigationRef.current = intent;
       setNavigation(intent);
+      rememberNavigation(intent);
       const targetProjectId = intent.projectId ?? activeProjectId;
       void session.openLocation(targetProjectId, intent.candidateId);
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, [activeProjectId, candidates]);
+
+  useEffect(() => {
+    const current = navigationRef.current;
+    rememberNavigation(current);
+    if (!new URLSearchParams(window.location.search).has("view")) {
+      window.history.replaceState({}, "", navigationUrl(current));
+    }
+  }, []);
 
 
   return (
