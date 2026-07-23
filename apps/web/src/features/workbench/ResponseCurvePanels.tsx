@@ -19,7 +19,10 @@ import {
   type ApiPreview,
   type ApiResponseCurve,
 } from "../../shared/api/workbench-api";
-import { workbenchRequestKey } from "./workbenchIdentity";
+import {
+  curveFamilyScopeIdentity,
+  responseCurveSurfaceIdentity,
+} from "./curveSurfaceIdentity";
 import {
   emptyInferenceSurface,
   inferenceSurfaceStatus,
@@ -99,12 +102,13 @@ export function CurveFamilyPanel({
   const [varyId, setVaryId] = useState("");
   const isCategoricalVary = varyCategoricalOptions.some((input) => input.path === varyId);
   const [levels, setLevels] = useState(5);
-  const [loadedPayloads, setLoadedPayloads] = useState<{ identity: string; values: Record<string, ApiCurveFamily> }>({ identity: "", values: {} });
+  const [loadedPayloads, setLoadedPayloads] = useState<{ scopeIdentity: string; values: Record<string, ApiCurveFamily> }>({ scopeIdentity: "", values: {} });
   const [error, setError] = useState<Error | null>(null);
   const inputIdentity = candidateInputIdentity(candidate.raw.inputs);
   const outputKeys = outputs.map((output) => output.key).join("");
+  const scopeIdentity = curveFamilyScopeIdentity({ projectId, taskId: taskDefinition.id, candidateId: candidate.id, axisPath, varyId, levels, outputKeys });
   const requestIdentity = JSON.stringify({ projectId, candidateId: candidate.id, revision: candidate.raw.revision, inputIdentity, varyId, levels, outputKeys, axisPath });
-  const payloads = loadedPayloads.identity === requestIdentity ? loadedPayloads.values : {};
+  const payloads = loadedPayloads.scopeIdentity === scopeIdentity ? loadedPayloads.values : {};
   useEffect(() => {
     if (!ready || !axisPath || !outputs.length) return;
     const controller = new AbortController();
@@ -114,7 +118,7 @@ export function CurveFamilyPanel({
         const loaded = await Promise.all(outputs.map((output) =>
           workbenchApi.curveFamily(projectId, candidate.id, candidate.raw.revision, inputIdentity, output.key, varyId, varyId ? levels : 2, 15, controller.signal)));
         if (controller.signal.aborted) return;
-        setLoadedPayloads({ identity: requestIdentity, values: Object.fromEntries(outputs.map((output, index) => [output.key, loaded[index]])) });
+        setLoadedPayloads({ scopeIdentity, values: Object.fromEntries(outputs.map((output, index) => [output.key, loaded[index]])) });
         setError(null);
       } catch (cause) {
         if (!controller.signal.aborted) setError(cause instanceof Error ? cause : new Error(String(cause)));
@@ -152,7 +156,7 @@ export function CurveFamilyPanel({
           {[3, 5, 7].map((count) => <option key={count} value={count}>{count}</option>)}
         </select></label> : null}
       </div>
-      {!ready ? <p className="empty-evidence">入力を保存後に更新します。</p> : error && !firstPayload ? <p className="empty-evidence">曲線を取得できません。 ({error.message})</p> : !firstPayload ? <p className="empty-evidence">曲線を読み込んでいます。</p> : (
+      {!ready && !firstPayload ? <p className="empty-evidence">入力を保存後に更新します。</p> : error && !firstPayload ? <p className="empty-evidence">曲線を取得できません。 ({error.message})</p> : !firstPayload ? <p className="empty-evidence">曲線を読み込んでいます。</p> : (
         <div className={`response-curves-grid output-count-${Math.min(outputs.length, 4)}`}>
           {outputs.map((output) => {
             const payload = payloads[output.key];
@@ -300,8 +304,16 @@ export function LiveResponseCurves({
     for (const item of curveCandidates) {
       const inputIdentity = candidateInputIdentity(item.raw.inputs);
       for (const output of outputs) {
-        const storageKey = `${item.id}\u001f${output.key}\u001f${activeVariableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`;
-        const identity = `${workbenchRequestKey({ projectId, taskId: taskDefinition.id, candidateId: item.id, candidateRevision: item.raw.revision }, "response_curve:9")}\u001f${inputIdentity}\u001f${output.key}\u001f${activeVariableId}\u001f${xRangeIdentity}`;
+        const { storageKey, requestIdentity: identity } = responseCurveSurfaceIdentity({
+          projectId,
+          taskId: taskDefinition.id,
+          candidateId: item.id,
+          candidateRevision: item.raw.revision,
+          inputIdentity,
+          outputKey: output.key,
+          variableId: activeVariableId,
+          rangeIdentity: xRangeIdentity,
+        });
         const existing = surfaceRef.current[storageKey];
         if (existing?.currentIdentity === identity) continue;
         const requested = requestInferenceSurface(existing ?? emptyInferenceSurface<ApiResponseCurve>(), identity);
@@ -333,12 +345,31 @@ export function LiveResponseCurves({
   }, [available, ready, curveCandidatesKey, outputKeys, projectId, taskDefinition?.id, activeVariableId, xRangeIdentity, xRangeOverride?.min, xRangeOverride?.max, selectedVariable?.requestVariable, selectedVariable?.stageName, selectedVariable?.stagePositionM]);
   const curveStates = curveCandidates.flatMap((item) => outputs.map((output) => {
     const inputIdentity = candidateInputIdentity(item.raw.inputs);
-    const storageKey = `${item.id}\u001f${output.key}\u001f${activeVariableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`;
+    const { storageKey } = responseCurveSurfaceIdentity({
+      projectId,
+      taskId: taskDefinition?.id ?? "",
+      candidateId: item.id,
+      candidateRevision: item.raw.revision,
+      inputIdentity,
+      outputKey: output.key,
+      variableId: activeVariableId,
+      rangeIdentity: xRangeIdentity,
+    });
     return surfacesByKey[storageKey];
   }));
   const payloadsForOutput = (outputKey: string) => curveCandidates.map((item) => {
     const inputIdentity = candidateInputIdentity(item.raw.inputs);
-    return surfacesByKey[`${item.id}\u001f${outputKey}\u001f${activeVariableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`]?.data;
+    const { storageKey } = responseCurveSurfaceIdentity({
+      projectId,
+      taskId: taskDefinition?.id ?? "",
+      candidateId: item.id,
+      candidateRevision: item.raw.revision,
+      inputIdentity,
+      outputKey,
+      variableId: activeVariableId,
+      rangeIdentity: xRangeIdentity,
+    });
+    return surfacesByKey[storageKey]?.data;
   }).filter((payload): payload is ApiResponseCurve => Boolean(payload));
   const payloadForOutput = (outputKey: string) => payloadsForOutput(outputKey)[0];
   const selectedPayload = outputs.map((output) => payloadForOutput(output.key)).find((payload): payload is ApiResponseCurve => Boolean(payload));
@@ -411,6 +442,13 @@ export function LiveResponseCurves({
   const loadedCurveCount = curveStates.filter((state) => state?.data !== null && state?.data !== undefined).length;
   const curveStatus = curveStates.some((state) => state?.error) ? "error" : curveStates.some((state) => state?.pending) || loadedCurveCount < curveStates.length ? "refreshing" : "latest";
   const curveErrorMessage = curveStates.find((state) => state?.error)?.error;
+  const curveStatusLabel = !ready && loadedCurveCount
+    ? "入力を保存中"
+    : curveStatus === "latest"
+      ? "最新"
+      : curveStatus === "refreshing"
+        ? `${loadedCurveCount}/${curveStates.length}件を更新中`
+        : "一部取得失敗";
   if (!available) return <UnavailablePanel title="応答曲線" />;
   if (!preview && !curveCandidates.length) return <section className="response-curves-panel"><div className="panel-title"><h2>応答曲線</h2></div><p className="empty-evidence">候補の保存とプレビュー完了後に表示します。</p></section>;
   return (
@@ -419,7 +457,7 @@ export function LiveResponseCurves({
         <div className="response-curves-title-group">
           <h2>応答曲線 <span>（選択した変数を動かしたときの特性）</span></h2>
           <span className="curve-scope">{curveCandidates.length}候補 × {outputs.length}特性</span>
-          <span className={`inference-surface-status ${curveStatus}`}>{curveStatus === "latest" ? "最新" : curveStatus === "refreshing" ? `${loadedCurveCount}/${curveStates.length}件を更新中` : "一部取得失敗"}</span>
+          <span className={`inference-surface-status ${!ready && loadedCurveCount ? "refreshing" : curveStatus}`}>{curveStatusLabel}</span>
           <div className="candidate-color-legend" aria-label="応答曲線の候補色">
             {curveCandidates.map((item) => <span className={item.id === candidate.id ? "selected" : ""} key={item.id}><i style={{ background: candidateColor(item.id, candidate.id) }} />{item.label}</span>)}
           </div>
@@ -471,12 +509,21 @@ export function LiveResponseCurves({
           </div>
         </div>
       )}
-      {!ready ? <p className="empty-evidence">入力を保存後に更新します。</p> : curveStatus === "error" && loadedCurveCount === 0 ? <p className="empty-evidence">応答曲線を取得できません。{curveErrorMessage instanceof Error ? ` (${curveErrorMessage.message})` : ""}</p> : (
+      {!ready && loadedCurveCount === 0 ? <p className="empty-evidence">入力を保存後に更新します。</p> : curveStatus === "error" && loadedCurveCount === 0 ? <p className="empty-evidence">応答曲線を取得できません。{curveErrorMessage instanceof Error ? ` (${curveErrorMessage.message})` : ""}</p> : (
         <div className={`response-curves-grid output-count-${Math.min(outputs.length, 4)}`}>
           {outputs.map((output) => {
             const curveSeries = curveCandidates.flatMap((item) => {
               const inputIdentity = candidateInputIdentity(item.raw.inputs);
-              const storageKey = `${item.id}\u001f${output.key}\u001f${activeVariableId}\u001f${xRangeIdentity}\u001f${inputIdentity}`;
+              const { storageKey } = responseCurveSurfaceIdentity({
+                projectId,
+                taskId: taskDefinition?.id ?? "",
+                candidateId: item.id,
+                candidateRevision: item.raw.revision,
+                inputIdentity,
+                outputKey: output.key,
+                variableId: activeVariableId,
+                rangeIdentity: xRangeIdentity,
+              });
               const payload = surfacesByKey[storageKey]?.data;
               if (!payload?.points.length) return [];
               return [{ candidate: item, points: payload.points, prediction: previewsByCandidate[item.id]?.predictions?.[output.key], currentX: payload.variable.current }];
