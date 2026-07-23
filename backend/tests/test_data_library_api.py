@@ -96,25 +96,18 @@ def test_cohort_comparison_is_not_a_project_reference_dataset(client) -> None:
     assert "比較Activity" in created.json()["message"]
 
 
-def test_continuation_stays_in_series_and_requires_reason(client) -> None:
+def test_continuation_stays_in_series_and_accepts_an_empty_reason(client) -> None:
     original = client.get("/api/projects/default").json()
-    missing_reason = client.post("/api/projects", json={
-        "name": "継続検討",
-        "task_id": original["task_id"],
-        "predecessor_project_id": original["id"],
-    })
-    assert missing_reason.status_code == 422
-
     created = client.post("/api/projects", json={
         "name": "継続検討",
         "task_id": original["task_id"],
         "predecessor_project_id": original["id"],
-        "continuation_reason": "実験データを追加したため",
     })
     assert created.status_code == 201, created.text
     project = created.json()
     assert project["project_series_id"] == original["project_series_id"]
     assert project["predecessor_project_id"] == original["id"]
+    assert project["continuation_reason"] == ""
 
 
 def test_continuation_can_switch_prediction_task_within_the_same_series(client) -> None:

@@ -249,8 +249,34 @@ def _candidate_xlsx_names(
     return names
 
 
-def _xlsx_position(positions: dict[str, int], internal_name: str, source_name: str | None = None) -> int | None:
-    for name in (source_name, internal_name):
+def _candidate_template_unit(field: Any) -> str | None:
+    unit = {"mpm": "m/min"}.get(field.unit, field.unit)
+    return "mass%" if field.path.startswith("composition.") and unit == "%" else unit
+
+
+def _candidate_template_names(definition: Any) -> dict[str, str]:
+    names = {
+        "name": "候補名",
+        "time_s": "経過時間[s]",
+        "temperature_c": "温度[℃]",
+    }
+    response_labels = {
+        item.path: item.label
+        for item in definition.response_curve_variables
+        if item.kind == "numeric_input" and item.path
+    }
+    for group in definition.input_groups:
+        for field in group.fields:
+            if field.kind not in {"number", "categorical"}:
+                continue
+            label = "ライン速度" if field.path == "process.ls_mpm" else response_labels.get(field.path, field.label)
+            unit = _candidate_template_unit(field)
+            names[field.path] = f"{label}[{unit}]" if unit else label
+    return names
+
+
+def _xlsx_position(positions: dict[str, int], internal_name: str, *display_names: str | None) -> int | None:
+    for name in (*display_names, internal_name):
         if name and name in positions:
             return positions[name]
     return None
@@ -279,6 +305,7 @@ def import_candidates_xlsx(
     categorical_fields = [field for field in fields.values() if field.path.startswith("categorical.")]
     heat_enabled = any(field.kind == "heat_pattern" for group in definition.input_groups for field in group.fields)
     display_names = _candidate_xlsx_names(task_id, profile_path, profile)
+    template_names = _candidate_template_names(definition)
     sheet = workbook.active
     rows = sheet.iter_rows(values_only=True)
     headers = [str(value).strip() if value is not None else "" for value in next(rows, [])]
@@ -287,44 +314,44 @@ def import_candidates_xlsx(
         workbook.close()
         return [], [{"row": 1, "message": f"列名が重複しています: {', '.join(duplicate_headers)}"}]
     positions = {header: index for index, header in enumerate(headers) if header}
-    if not headers or _xlsx_position(positions, "name", display_names["name"]) is None:
-        return [], [{"row": 1, "message": f"必須列 {display_names['name']} がありません"}]
+    if not headers or _xlsx_position(positions, "name", template_names["name"], display_names["name"]) is None:
+        return [], [{"row": 1, "message": f"必須列 {template_names['name']} がありません"}]
     imported: list[CandidateInput] = []
     errors: list[dict[str, Any]] = []
     for row_number, row in enumerate(rows, start=2):
         if not any(value is not None for value in row):
             continue
         try:
-            def value(header: str, source_header: str | None = None, default: Any = None) -> Any:
-                position = _xlsx_position(positions, header, source_header)
+            def value(header: str, *display_headers: str | None, default: Any = None) -> Any:
+                position = _xlsx_position(positions, header, *display_headers)
                 return row[position] if position is not None and position < len(row) else default
 
             composition = {
-                field.path.removeprefix("composition."): float(value(field.path.removeprefix("composition."), display_names.get(field.path)))
+                field.path.removeprefix("composition."): float(value(field.path.removeprefix("composition."), template_names.get(field.path), display_names.get(field.path)))
                 for field in composition_fields
-                if value(field.path.removeprefix("composition."), display_names.get(field.path)) is not None
+                if value(field.path.removeprefix("composition."), template_names.get(field.path), display_names.get(field.path)) is not None
             }
             process = {
-                field.path.removeprefix("process."): float(value(field.path.removeprefix("process."), display_names.get(field.path)))
+                field.path.removeprefix("process."): float(value(field.path.removeprefix("process."), template_names.get(field.path), display_names.get(field.path)))
                 for field in process_fields
-                if value(field.path.removeprefix("process."), display_names.get(field.path)) is not None
+                if value(field.path.removeprefix("process."), template_names.get(field.path), display_names.get(field.path)) is not None
             }
             categorical = {
-                field.path.removeprefix("categorical."): str(value(field.path.removeprefix("categorical."), display_names.get(field.path)))
+                field.path.removeprefix("categorical."): str(value(field.path.removeprefix("categorical."), template_names.get(field.path), display_names.get(field.path)))
                 for field in categorical_fields
-                if value(field.path.removeprefix("categorical."), display_names.get(field.path)) is not None
+                if value(field.path.removeprefix("categorical."), template_names.get(field.path), display_names.get(field.path)) is not None
             }
             points: list[dict[str, Any]] = []
             if heat_enabled:
                 index = 1
                 while (
-                    _xlsx_position(positions, f"time_s_{index}", f"{display_names['time_s']}_{index}") is not None
-                    and _xlsx_position(positions, f"temperature_c_{index}", f"{display_names['temperature_c']}_{index}") is not None
+                    _xlsx_position(positions, f"time_s_{index}", f"{template_names['time_s']}_{index}", f"{display_names['time_s']}_{index}") is not None
+                    and _xlsx_position(positions, f"temperature_c_{index}", f"{template_names['temperature_c']}_{index}", f"{display_names['temperature_c']}_{index}") is not None
                 ):
-                    time = value(f"time_s_{index}", f"{display_names['time_s']}_{index}")
-                    temperature = value(f"temperature_c_{index}", f"{display_names['temperature_c']}_{index}")
+                    time = value(f"time_s_{index}", f"{template_names['time_s']}_{index}", f"{display_names['time_s']}_{index}")
+                    temperature = value(f"temperature_c_{index}", f"{template_names['temperature_c']}_{index}", f"{display_names['temperature_c']}_{index}")
                     if time is not None and temperature is not None:
-                        segment_raw = value(f"segment_start_{index}", f"{display_names['segment_start']}_{index}", False)
+                        segment_raw = value(f"segment_start_{index}", f"{display_names['segment_start']}_{index}", default=False)
                         segment_start = segment_raw is True or str(segment_raw).strip().lower() in {"1", "true", "yes", "あり"}
                         points.append({
                             "time_s": float(time),
@@ -335,10 +362,10 @@ def import_candidates_xlsx(
                         })
                     index += 1
                 if len(points) < 2:
-                    raise ValueError(f"{display_names['time_s']}_1 / {display_names['temperature_c']}_1 から少なくとも2点が必要です")
-            name = value("name", display_names["name"])
+                    raise ValueError(f"{template_names['time_s']}_1 / {template_names['temperature_c']}_1 から少なくとも2点が必要です")
+            name = value("name", template_names["name"], display_names["name"])
             if name is None or not str(name).strip():
-                raise ValueError(f"{display_names['name']}は空にできません")
+                raise ValueError(f"{template_names['name']}は空にできません")
             payload = CandidateInput(
                 name=str(name).strip(),
                 inputs={
@@ -362,6 +389,8 @@ def _candidate_xlsx_input_schema(
     heat_point_count: int,
     profile_path: str | None = None,
     profile: DatasetInputProfile | None = None,
+    *,
+    for_template: bool = False,
 ) -> tuple[Any, list[Any], list[Any], bool, dict[str, str], list[str], list[str]]:
     definition = load_task_contracts()[task_id].task_definition
     numeric_fields = [
@@ -375,10 +404,10 @@ def _candidate_xlsx_input_schema(
         if field.kind == "categorical"
     ]
     heat_enabled = any(field.kind == "heat_pattern" for group in definition.input_groups for field in group.fields)
-    display_names = _candidate_xlsx_names(task_id, profile_path, profile)
+    display_names = _candidate_template_names(definition) if for_template else _candidate_xlsx_names(task_id, profile_path, profile)
     heat_headers = [
         item for index in range(1, heat_point_count + 1)
-        for item in (f"time_s_{index}", f"temperature_c_{index}", f"segment_start_{index}", f"stage_name_{index}", f"stage_category_{index}")
+        for item in ((f"time_s_{index}", f"temperature_c_{index}") if for_template else (f"time_s_{index}", f"temperature_c_{index}", f"segment_start_{index}", f"stage_name_{index}", f"stage_category_{index}"))
     ] if heat_enabled else []
     input_headers = [
         display_names["name"],
@@ -401,6 +430,7 @@ def candidate_template_xlsx(runtime: PredictionRuntime, task_id: str = "annealed
         heat_point_count,
         runtime.data.profile_path if not runtime.data.profile_path.startswith("catalog:") else None,
         getattr(runtime.data, "profile", None),
+        for_template=True,
     )
     workbook = Workbook()
     sheet = workbook.active
@@ -408,8 +438,8 @@ def candidate_template_xlsx(runtime: PredictionRuntime, task_id: str = "annealed
     sheet.append(input_headers)
     heat_values = [
         item
-        for index, point in enumerate(canonical.heat_pattern or ())
-        for item in (point.time_s, point.temperature_c, index == 0, None, None)
+        for point in (canonical.heat_pattern or ())
+        for item in (point.time_s, point.temperature_c)
     ] if heat_enabled else []
     heat_values.extend([None] * (len(heat_headers) - len(heat_values)))
     example_values = [
@@ -441,6 +471,11 @@ def candidate_template_xlsx(runtime: PredictionRuntime, task_id: str = "annealed
             letter = column[0].column_letter
             target_sheet.column_dimensions[letter].width = min(24, max(13, max(len(str(cell.value or "")) for cell in column) + 2))
         target_sheet.column_dimensions["A"].width = 40
+        for column_index, header in enumerate(input_headers, start=1):
+            if header == "ライン速度[m/min]":
+                target_sheet.column_dimensions[target_sheet.cell(1, column_index).column_letter].width = 20
+            elif header.startswith(("経過時間[s]_", "温度[℃]_")):
+                target_sheet.column_dimensions[target_sheet.cell(1, column_index).column_letter].width = 18
     for cell in example_sheet[2]:
         cell.fill = example_fill
     for index, field in enumerate((*numeric_fields, *categorical_fields), start=2):
@@ -449,7 +484,7 @@ def candidate_template_xlsx(runtime: PredictionRuntime, task_id: str = "annealed
             validation = DataValidation(type="decimal", operator="between", formula1=str(field.allowed_range.min), formula2=str(field.allowed_range.max), allow_blank=not field.required)
             validation.error = f"{field.allowed_range.min}～{field.allowed_range.max} の数値を入力してください"
             validation.errorTitle = "入力範囲外"
-            validation.prompt = f"単位: {field.unit or 'なし'} / 許容範囲: {field.allowed_range.min}～{field.allowed_range.max}"
+            validation.prompt = f"単位: {_candidate_template_unit(field) or 'なし'} / 許容範囲: {field.allowed_range.min}～{field.allowed_range.max}"
             validation.promptTitle = field.label
             validation.showErrorMessage = True
             validation.showInputMessage = True
@@ -467,8 +502,7 @@ def candidate_template_xlsx(runtime: PredictionRuntime, task_id: str = "annealed
     guide.append(["候補名", f"{display_names['name']} は必須です。「記入例」の2行目を「候補」へコピーし、名前と値を変更して使えます。"])
     guide.append(["数値", "数値だけを入力します。単位は列名に記載されているため、セル内には書きません。"])
     if heat_enabled:
-        guide.append(["履歴点", f"{display_names['time_s']}_N と {display_names['temperature_c']}_N を同じ番号で最低2点入力します。番号は1から連続、時刻は昇順です。点を増やす場合は右へ同じ列セットを追加します。"])
-        guide.append(["工程境界", f"{display_names['segment_start']}_N は工程の先頭だけ TRUE、それ以外は FALSE または空欄にします。工程名は任意です。"])
+        guide.append(["履歴点", f"{display_names['time_s']}_N と {display_names['temperature_c']}_N を同じ番号で最低2点入力します。時間は候補全体の開始からの連続した経過時間で、工程が変わっても0へ戻さず昇順にします。点を増やす場合は右へ同じ列セットを追加します。"])
     guide.append([])
     rules_header_row = guide.max_row + 1
     for row_number in range(1, rules_header_row - 1):
@@ -478,8 +512,9 @@ def candidate_template_xlsx(runtime: PredictionRuntime, task_id: str = "annealed
     for field in (*numeric_fields, *categorical_fields):
         if field.kind == "number":
             assert field.allowed_range is not None and field.training_range is not None
-            rule = f"{field.allowed_range.min}～{field.allowed_range.max} {field.unit or ''}".strip()
-            training = f"{field.training_range.min}～{field.training_range.max} {field.unit or ''}".strip()
+            display_unit = _candidate_template_unit(field) or ""
+            rule = f"{field.allowed_range.min}～{field.allowed_range.max} {display_unit}".strip()
+            training = f"{field.training_range.min}～{field.training_range.max} {display_unit}".strip()
         else:
             rule = " / ".join(field.choices)
             training = "—"

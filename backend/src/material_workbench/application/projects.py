@@ -204,8 +204,6 @@ class ProjectService:
         predecessor = None
         if payload.predecessor_project_id:
             predecessor = self.require(payload.predecessor_project_id)
-            if not payload.continuation_reason.strip():
-                raise ProjectValidationError("この検討を続ける理由を入力してください")
         series_id = payload.project_series_id or (predecessor.project_series_id if predecessor else None)
         if series_id:
             series = self.catalog.get_project_series(series_id)

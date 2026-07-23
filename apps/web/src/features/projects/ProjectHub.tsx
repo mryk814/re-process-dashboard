@@ -81,6 +81,7 @@ export function ProjectHub({
   const [newProjectSeriesId, setNewProjectSeriesId] = useState("");
   const [predecessorProjectId, setPredecessorProjectId] = useState("");
   const [continuationReason, setContinuationReason] = useState("");
+  const [seriesName, setSeriesName] = useState("");
   const [decisionNote, setDecisionNote] = useState("");
   const [collapsedSeriesIds, setCollapsedSeriesIds] = useState<Set<string>>(() => new Set());
   const activeProjectRef = useRef(activeProjectId);
@@ -173,6 +174,10 @@ export function ProjectHub({
   const selectedTrainingDataset = trainingDataset(selectedPackage, creationOptions?.datasets ?? []);
   const fixedTrainingDataset = trainingDataset(fixedPackage, creationOptions?.datasets ?? []);
   const selectedTaskId = createMode === "copy" ? copyTaskId ?? "" : newTaskId;
+
+  useEffect(() => {
+    if (!settingsOpen) setSeriesName(fixedSeries?.name ?? "");
+  }, [fixedSeries?.id, fixedSeries?.name, settingsOpen]);
   const projectGroups = useMemo(() => {
     const series = new Map((creationOptions?.project_series ?? []).map((item) => [item.id, item]));
     const groups = new Map((creationOptions?.project_series ?? []).map((item) => [item.id, { id: item.id, name: item.name, projects: [] as ApiProject[] }]));
@@ -253,10 +258,24 @@ export function ProjectHub({
     }
   }
 
+  async function saveSeriesName() {
+    const trimmedSeriesName = seriesName.trim();
+    if (!fixedSeries || !trimmedSeriesName) return;
+    try {
+      const savedSeries = await workbenchApi.updateProjectSeries(fixedSeries.id, trimmedSeriesName, fixedSeries.description);
+      setCreationOptions((current) => current ? {
+        ...current,
+        project_series: current.project_series.map((item) => item.id === savedSeries.id ? savedSeries : item),
+      } : current);
+      setError("");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "一連の検討名を保存できませんでした。");
+    }
+  }
+
   async function createProject() {
     const taskId = createMode === "copy" ? copyTaskId : newTaskId;
     if (!taskId || !newProjectName.trim() || !newDatasetViewId || !newModelPackageRefId) return setError("Dataset・予測タスク・Model Packageを確認してください。");
-    if (predecessorProjectId && !continuationReason.trim()) return setError("この検討を続ける理由を入力してください。");
     if (createMode === "copy" && !candidate) return setError("コピーする現在候補がありません。");
     try {
       const initialCandidate = createMode === "copy" && candidate ? {
@@ -438,16 +457,10 @@ export function ProjectHub({
           <div className="project-actions">
             <button className="outline-button" onClick={continueCurrentProject}>この検討の続き</button>
             <button className="outline-button" onClick={() => setSettingsOpen((value) => !value)}>設定を編集</button>
-            {canDeleteProject && <button className="danger-outline-button" onClick={() => setDeleteOpen((value) => !value)}>プロジェクトを削除</button>}
           </div>
         </div>
       {error && <p className="panel-error" role="alert">{error}</p>}
-      {project && <section className="project-reference-strip" aria-label="プロジェクトの固定参照"><div><span>参照Dataset</span><strong>{fixedDataset?.data_asset.original_filename ?? "—"}</strong><small>{fixedDataset ? `${fixedDataset.profile_revision.name} · r${fixedDataset.profile_revision.revision}` : ""}</small></div><div><span>Prediction Task</span><strong>{taskLabels.get(project.task_id) ?? project.task_id}</strong><small>固定</small></div><div><span>Model Package</span><strong>{fixedPackage?.package_id ?? "—"}</strong><small>学習元: {fixedTrainingDataset ? datasetDisplayName(fixedTrainingDataset) : "未登録または記録なし"} · Manifest {project.model_package_manifest_digest.slice(0, 10)}</small></div><div><span>一連の検討</span><strong>{fixedSeries?.name ?? "—"}</strong><small>{project.predecessor_project_id ? `継続: ${project.continuation_reason}` : "起点"}</small></div></section>}
-
-      {deleteOpen && project && <section className="project-delete-panel" aria-label="プロジェクト削除の確認">
-        <div><strong>「{project.name}」を削除しますか？</strong><p>候補・予測履歴・実測データもまとめて削除され、元に戻せません。</p></div>
-        <div className="project-delete-actions"><button className="danger-button" disabled={deleting} onClick={() => void deleteCurrentProject()}>{deleting ? "削除中…" : "削除する"}</button><button className="outline-button" disabled={deleting} onClick={() => setDeleteOpen(false)}>キャンセル</button></div>
-      </section>}
+      {project && <section className="project-reference-strip" aria-label="プロジェクトの固定参照"><div><span>参照Dataset</span><strong>{fixedDataset?.data_asset.original_filename ?? "—"}</strong><small>{fixedDataset ? `${fixedDataset.profile_revision.name} · r${fixedDataset.profile_revision.revision}` : ""}</small></div><div><span>Prediction Task</span><strong>{taskLabels.get(project.task_id) ?? project.task_id}</strong><small>固定</small></div><div><span>Model Package</span><strong>{fixedPackage?.package_id ?? "—"}</strong><small>学習元: {fixedTrainingDataset ? datasetDisplayName(fixedTrainingDataset) : "未登録または記録なし"} · Manifest {project.model_package_manifest_digest.slice(0, 10)}</small></div><div><span>一連の検討</span><strong>{fixedSeries?.name ?? "—"}</strong><small>{project.predecessor_project_id ? project.continuation_reason ? `継続: ${project.continuation_reason}` : "継続" : "起点"}</small></div></section>}
 
       {createOpen && <section className="project-create-panel" aria-label="新規プロジェクトの開始方法">
         <div className="panel-title"><h3>新しいプロジェクト</h3><span>開始方法を選んでから作成します</span></div>
@@ -465,7 +478,7 @@ export function ProjectHub({
           <div><span>Model Package</span><strong>{selectedPackage?.package_id ?? "選択してください"}</strong><small>学習元: {selectedPackage ? selectedTrainingDataset ? datasetDisplayName(selectedTrainingDataset) : "未登録または記録なし" : "Model Packageを選択してください"}</small></div>
           <div><span>一連の検討</span><strong>{selectedSeries?.name ?? (newProjectName.trim() || "プロジェクト名から新規作成")}</strong><small>{selectedSeries ? "既存の一連の検討に追加" : "新しい一連の検討として開始"}</small></div>
         </section>
-        {predecessorProjectId && <label>続ける理由<textarea value={continuationReason} onChange={(event) => setContinuationReason(event.target.value)} placeholder="予測タスク変更、データ追加、条件変更、判断の再検討など" /></label>}
+        {predecessorProjectId && <label>続ける理由（任意）<textarea value={continuationReason} onChange={(event) => setContinuationReason(event.target.value)} placeholder="予測タスク変更、データ追加、条件変更、判断の再検討など" /></label>}
         <div className="project-start-options">
           <label><input type="radio" checked={createMode === "empty"} onChange={() => setCreateMode("empty")} />空から開始<span>候補を持たない検討として作成</span></label>
           <label><input type="radio" checked={createMode === "copy"} disabled={!candidate || Boolean(predecessorProjectId)} onChange={() => { setCreateMode("copy"); if (project) { setNewDatasetViewId(project.dataset_view_revision_id ?? ""); setNewTaskId(project.task_id); setNewModelPackageRefId(project.model_package_ref_id ?? ""); } }} />現在候補をコピー<span>{candidate ? `${candidate.label}（編集版 ${candidate.raw.revision}）` : "コピーできる候補がありません"}</span></label>
@@ -474,15 +487,16 @@ export function ProjectHub({
       </section>}
 
       {settingsOpen && project && <section className="project-settings-panel">
-        <div className="project-fixed-bindings"><div><span>Dataset</span><strong>{fixedDataset?.data_asset.original_filename ?? project.dataset_view_revision_id}</strong><small>{fixedDataset ? `${fixedDataset.profile_revision.name} · r${fixedDataset.profile_revision.revision}` : ""}</small></div><div><span>Prediction Task</span><strong>{taskLabels.get(project.task_id) ?? project.task_id}</strong><small>{project.task_contract_digest.slice(0, 10)}</small></div><div><span>Model Package</span><strong>{fixedPackage?.package_id ?? project.model_package_ref_id}</strong><small>{project.model_package_manifest_digest.slice(0, 10)}</small></div><div><span>一連の検討</span><strong>{fixedSeries?.name ?? project.project_series_id}</strong><small>参照は作成後に変更できません</small></div></div>
+        <div className="project-fixed-bindings"><div><span>Dataset</span><strong>{fixedDataset?.data_asset.original_filename ?? project.dataset_view_revision_id}</strong><small>{fixedDataset ? `${fixedDataset.profile_revision.name} · r${fixedDataset.profile_revision.revision}` : ""}</small></div><div><span>Prediction Task</span><strong>{taskLabels.get(project.task_id) ?? project.task_id}</strong><small>{project.task_contract_digest.slice(0, 10)}</small></div><div><span>Model Package</span><strong>{fixedPackage?.package_id ?? project.model_package_ref_id}</strong><small>{project.model_package_manifest_digest.slice(0, 10)}</small></div><div><span>一連の検討</span><strong>{fixedSeries?.name ?? project.project_series_id}</strong><small>所属は固定、名称は変更できます</small></div></div>
         <div className="project-form">
+          <div className="series-name-setting"><label>一連の検討名<input value={seriesName} onChange={(event) => setSeriesName(event.target.value)} /></label><button className="outline-button" disabled={!seriesName.trim()} onClick={() => void saveSeriesName()}>名前を保存</button><small>同じ一連の検討に含まれるすべてのプロジェクトへ反映されます</small></div>
           <label>プロジェクト名<input value={project.name} onChange={(event) => setProject({ ...project, name: event.target.value })} /></label>
           <label>説明<textarea value={project.description} onChange={(event) => setProject({ ...project, description: event.target.value })} /></label>
           <label>目的<textarea value={project.purpose} onChange={(event) => setProject({ ...project, purpose: event.target.value })} /></label>
           <fieldset className="target-grid"><legend>目標値</legend>{(taskDefinition?.outputs ?? []).map((output) => <label key={output.key}>{output.label}<input type="number" value={targetValues[output.key] ?? ""} placeholder="未設定" onChange={(event) => setTarget(output.key, event.target.value)} /></label>)}</fieldset>
           <label>メモ<textarea value={project.notes} onChange={(event) => setProject({ ...project, notes: event.target.value })} /></label>
         </div>
-        <button className="primary-button" onClick={() => void saveProject()}>設定を保存</button>
+        <button className="primary-button" disabled={!project.name.trim()} onClick={() => void saveProject()}>設定を保存</button>
       </section>}
 
       <section className="project-next-actions">
@@ -525,6 +539,13 @@ export function ProjectHub({
       </section>}
 
       {!Object.keys(targetValues).length && <div className="project-empty-inline"><span>目標値が未設定です。設定すると候補の目標達成率を比較できます。</span><button className="outline-button" onClick={() => setSettingsOpen(true)}>目標値を設定</button></div>}
+
+      {canDeleteProject && project && <section className="project-danger-zone" aria-label="プロジェクト削除">
+        {!deleteOpen ? <button className="danger-outline-button" onClick={() => setDeleteOpen(true)}>プロジェクトを削除</button> : <div className="project-delete-panel" aria-label="プロジェクト削除の確認">
+          <div><strong>「{project.name}」を削除しますか？</strong><p>候補・予測履歴・実測データもまとめて削除され、元に戻せません。</p></div>
+          <div className="project-delete-actions"><button className="danger-button" disabled={deleting} onClick={() => void deleteCurrentProject()}>{deleting ? "削除中…" : "削除する"}</button><button className="outline-button" disabled={deleting} onClick={() => setDeleteOpen(false)}>キャンセル</button></div>
+        </div>}
+      </section>}
       </div>
     </div>
   );

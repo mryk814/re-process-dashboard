@@ -39,7 +39,6 @@
 .comparison-actions .file-controls small {
   flex-basis: 100%;
 }
-.comparison-actions .candidate-xlsx-hint { max-width: 560px; margin-left: auto; color: #657386; line-height: 1.35; text-align: right; }
 .table-heading {
   display: flex;
   justify-content: space-between;
