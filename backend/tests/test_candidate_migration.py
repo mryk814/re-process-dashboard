@@ -212,6 +212,14 @@ def test_candidate_safety_migration_backs_up_preserves_and_is_idempotent(tmp_pat
         assert json.loads(row["payload"])["name"] == "既存共通候補"
         assert conn.execute("SELECT display_decimals FROM projects WHERE id='default'").fetchone()[0] == "{}"
     assert migrate_candidate_storage(database).status == "already-current"
+    with sqlite3.connect(database) as conn:
+        payload = json.loads(conn.execute("SELECT payload FROM candidates WHERE id='candidate-1'").fetchone()[0])
+        payload["inputs"]["heat_time_basis"] = "elapsed_time"
+        conn.execute(
+            "UPDATE candidates SET payload=? WHERE id='candidate-1'",
+            (json.dumps(payload, ensure_ascii=False),),
+        )
+    assert migrate_candidate_storage(database).status == "already-current"
     assert len(list(tmp_path.glob("*.pre-candidate-safety-v1-*.bak"))) == 1
 
 

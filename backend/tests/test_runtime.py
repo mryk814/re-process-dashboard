@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 from material_workbench.feature_pipeline import COMPOSITION_NAMES, build_feature_bundle
+from material_workbench.heat_time import line_speed_scaled_times
 from material_workbench.runtime import FEATURE_NAMES, HEAT_STAGE_TEMPERATURE_VARIABLE, ModelRuntime
 from material_workbench.schemas import CandidateInput
 
@@ -32,6 +33,26 @@ def test_line_speed_response_scales_every_heat_time_from_the_entry() -> None:
 
     assert candidate.inputs.process["ls_mpm"] == 120.0
     assert [point.time_s for point in candidate.inputs.heat_pattern or []] == [0.0, 30.0, 60.0]
+
+
+def test_line_speed_time_scaling_helper_is_pure() -> None:
+    candidate = _heat_candidate()
+    points = candidate.inputs.heat_pattern or []
+
+    scaled = line_speed_scaled_times(points, 60.0, 120.0)
+
+    assert scaled == (0.0, 30.0, 60.0)
+    assert [point.time_s for point in points] == [0.0, 60.0, 120.0]
+
+
+def test_elapsed_time_response_keeps_heat_times_when_line_speed_changes() -> None:
+    candidate = _heat_candidate()
+    candidate.inputs.heat_time_basis = "elapsed_time"
+
+    ModelRuntime._set_curve_variable(candidate, "process.ls_mpm", 120.0)  # type: ignore[arg-type]
+
+    assert candidate.inputs.process["ls_mpm"] == 120.0
+    assert [point.time_s for point in candidate.inputs.heat_pattern or []] == [0.0, 60.0, 120.0]
 
 
 def test_named_stage_response_shifts_all_matching_points_without_flattening_shape() -> None:

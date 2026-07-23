@@ -1,6 +1,6 @@
 import { type PointerEvent, useState } from "react";
 import { SvgChartTooltip } from "../../shared/ui/SvgChartTooltip";
-import type { CandidateViewModel as Candidate } from "../candidates";
+import type { CandidateViewModel as Candidate, HeatTimeBasis } from "../candidates";
 
 function number(value: number, digits = 0) {
   return value.toLocaleString("ja-JP", {
@@ -21,12 +21,14 @@ function candidateColor(candidateId: string, selectedId: string) {
 export function HeatPattern({
   candidates,
   candidate,
+  onTimeBasisChange,
   onUpdate,
   onAdd,
   onDelete,
 }: {
   candidates: Candidate[];
   candidate: Candidate;
+  onTimeBasisChange: (basis: HeatTimeBasis) => void;
   onUpdate: (index: number, field: "time" | "temperature" | "stageName", raw: number | string) => void;
   onAdd: () => void;
   onDelete: (index: number) => void;
@@ -85,6 +87,24 @@ export function HeatPattern({
         <div className="candidate-color-legend" aria-label="候補の色">
           {candidates.map((item) => <span className={item.id === candidate.id ? "selected" : ""} key={item.id}><i style={{ background: candidateColor(item.id, candidate.id) }} />{item.label}</span>)}
         </div>
+      </div>
+      <div className="heat-time-basis">
+        <label>
+          <span>時間基準</span>
+          <select
+            aria-label="ヒートパターンの時間基準"
+            value={candidate.heatTimeBasis}
+            onChange={(event) => onTimeBasisChange(event.target.value as HeatTimeBasis)}
+          >
+            <option value="line_speed">ライン速度連動</option>
+            <option value="elapsed_time">経過時間を直接指定</option>
+          </select>
+        </label>
+        <small>
+          {candidate.heatTimeBasis === "line_speed"
+            ? "LSを変えると現在の各点を設備位置とみなし、全時刻を再計算します。"
+            : "時間を直接編集します。現行モデルではLSも特徴に使うため、LSは別途必要です。"}
+        </small>
       </div>
       <svg
         viewBox={`0 0 ${width} ${height}`}
@@ -194,7 +214,7 @@ export function HeatPattern({
                 <tr key={`${point.time}-${index}`}>
                   <th scope="row">{index + 1}</th>
                   <td><input type="text" value={point.stageName ?? point.stageCategory ?? ""} aria-label={`点${index + 1}の工程名`} onChange={(event) => onUpdate(index, "stageName", event.target.value)} /></td>
-                  <td><input type="number" step="0.01" value={Number(point.time.toFixed(3))} aria-label={`点${index + 1}の時間（分）`} onChange={(event) => onUpdate(index, "time", Number(event.target.value))} /></td>
+                  <td><input type="number" step="0.01" disabled={candidate.heatTimeBasis === "line_speed"} value={Number(point.time.toFixed(3))} aria-label={`点${index + 1}の時間（分）`} onChange={(event) => onUpdate(index, "time", Number(event.target.value))} /></td>
                   <td><input type="number" value={point.temperature} aria-label={`点${index + 1}の温度（℃）`} onChange={(event) => onUpdate(index, "temperature", Number(event.target.value))} /></td>
                   <td><button className="icon-delete" aria-label={`点${index + 1}を削除`} disabled={candidate.heat.length <= 2} onClick={() => onDelete(index)}>×</button></td>
                 </tr>

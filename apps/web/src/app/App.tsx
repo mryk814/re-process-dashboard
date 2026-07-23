@@ -320,6 +320,7 @@ function App() {
               onInput={session.updateCandidateInput}
               onText={session.updateCandidateText}
               onHeat={session.updateHeat}
+              onHeatTimeBasis={session.updateCandidateHeatTimeBasis}
               onAddHeat={session.addHeatPoint}
               onDeleteHeat={session.deleteHeatPoint}
               onCopy={(candidateId) => void session.copyCandidate(candidateId)}

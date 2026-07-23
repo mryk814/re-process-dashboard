@@ -973,6 +973,12 @@ export interface components {
             };
             /** Heat Pattern */
             heat_pattern?: components["schemas"]["HeatPoint"][] | null;
+            /**
+             * Heat Time Basis
+             * @default line_speed
+             * @enum {string}
+             */
+            heat_time_basis: "line_speed" | "elapsed_time";
             /** Process */
             process: {
                 [key: string]: number;

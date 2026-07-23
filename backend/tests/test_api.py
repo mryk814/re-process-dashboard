@@ -33,6 +33,124 @@ def test_heat_pattern_rejects_non_monotonic_time() -> None:
         raise AssertionError("non-monotonic heat pattern must not be accepted")
 
 
+def test_existing_candidate_payload_defaults_to_line_speed_time_basis() -> None:
+    candidate = CandidateInput.model_validate(_payload())
+
+    assert candidate.inputs.heat_time_basis == "line_speed"
+
+
+def test_candidate_update_canonicalizes_line_speed_times_and_rejects_direct_edits(client) -> None:
+    candidate = client.post("/api/projects/default/candidates", json=_payload("LS基準")).json()
+    changed_speed = _payload("LS基準")
+    changed_speed["inputs"]["process"]["ls_mpm"] = 206.0
+    changed_speed["inputs"]["heat_pattern"][1]["time_s"] = 290
+
+    updated = client.put(
+        f"/api/projects/default/candidates/{candidate['id']}",
+        json={**changed_speed, "expected_revision": candidate["revision"]},
+    )
+
+    assert updated.status_code == 200
+    assert updated.json()["inputs"]["heat_time_basis"] == "line_speed"
+    assert [point["time_s"] for point in updated.json()["inputs"]["heat_pattern"]] == [0.0, 140.0, 170.0, 325.0]
+
+    direct_edit = deepcopy(updated.json())
+    direct_edit["inputs"]["heat_pattern"][1]["time_s"] = 150.0
+    rejected = client.put(
+        f"/api/projects/default/candidates/{candidate['id']}",
+        json={
+            key: value
+            for key, value in direct_edit.items()
+            if key not in {"id", "project_id", "created_at", "updated_at", "archived_at", "revision"}
+        }
+        | {"expected_revision": updated.json()["revision"]},
+    )
+    assert rejected.status_code == 422
+    assert "経過時間基準" in rejected.json()["message"]
+
+
+def test_elapsed_time_candidate_update_allows_independent_time_and_speed_edits(client) -> None:
+    candidate = client.post("/api/projects/default/candidates", json=_payload("経過時間基準")).json()
+    switch = _payload("経過時間基準")
+    switch["inputs"]["heat_time_basis"] = "elapsed_time"
+    switch["inputs"]["heat_pattern"][1]["time_s"] = 290
+    switched = client.put(
+        f"/api/projects/default/candidates/{candidate['id']}",
+        json={**switch, "expected_revision": candidate["revision"]},
+    )
+
+    assert switched.status_code == 200
+    assert [point["time_s"] for point in switched.json()["inputs"]["heat_pattern"]] == [0.0, 290.0, 340.0, 650.0]
+
+    edit = _payload("経過時間基準")
+    edit["inputs"]["heat_time_basis"] = "elapsed_time"
+    edit["inputs"]["process"]["ls_mpm"] = 206.0
+    edit["inputs"]["heat_pattern"][1]["time_s"] = 300.0
+    edited = client.put(
+        f"/api/projects/default/candidates/{candidate['id']}",
+        json={**edit, "expected_revision": switched.json()["revision"]},
+    )
+    assert edited.status_code == 200
+    assert edited.json()["inputs"]["process"]["ls_mpm"] == 206.0
+    assert [point["time_s"] for point in edited.json()["inputs"]["heat_pattern"]] == [0.0, 300.0, 340.0, 650.0]
+
+
+def test_time_basis_switch_accepts_simultaneous_line_speed_change(client) -> None:
+    candidate = client.post("/api/projects/default/candidates", json=_payload("基準切替")).json()
+    update = _payload("基準切替")
+    update["inputs"]["heat_time_basis"] = "elapsed_time"
+    update["inputs"]["process"]["ls_mpm"] = 120.0
+    update["inputs"]["heat_pattern"][1]["time_s"] = 300.0
+
+    response = client.put(
+        f"/api/projects/default/candidates/{candidate['id']}",
+        json={**update, "expected_revision": candidate["revision"]},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["inputs"]["process"]["ls_mpm"] == 120.0
+    assert response.json()["inputs"]["heat_pattern"][1]["time_s"] == 300.0
+
+
+def test_line_speed_candidate_accepts_speed_and_point_count_change_as_new_layout(client) -> None:
+    candidate = client.post("/api/projects/default/candidates", json=_payload("点数変更")).json()
+    changed = _payload("点数変更")
+    changed["inputs"]["process"]["ls_mpm"] = 120.0
+    scale = 103.0 / 120.0
+    for point in changed["inputs"]["heat_pattern"]:
+        point["time_s"] *= scale
+    changed["inputs"]["heat_pattern"].append({"time_s": 700 * scale, "temperature_c": 80})
+
+    response = client.put(
+        f"/api/projects/default/candidates/{candidate['id']}",
+        json={**changed, "expected_revision": candidate["revision"]},
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()["inputs"]["heat_pattern"]) == 5
+    assert response.json()["inputs"]["heat_pattern"][-1]["time_s"] == 700 * scale
+
+
+def test_line_speed_candidate_allows_point_count_change_without_speed_change(client) -> None:
+    candidate = client.post("/api/projects/default/candidates", json=_payload("点追加")).json()
+    changed = _payload("点追加")
+    changed["inputs"]["heat_pattern"].insert(2, {"time_s": 310, "temperature_c": 805})
+
+    response = client.put(
+        f"/api/projects/default/candidates/{candidate['id']}",
+        json={**changed, "expected_revision": candidate["revision"]},
+    )
+
+    assert response.status_code == 200
+    assert [point["time_s"] for point in response.json()["inputs"]["heat_pattern"]] == [
+        0.0,
+        280.0,
+        310.0,
+        340.0,
+        650.0,
+    ]
+
+
 def test_candidate_rejects_unknown_or_non_physical_composition(client) -> None:
     unknown = _payload()
     unknown["inputs"]["composition"]["Unobtainium"] = 0.1
@@ -87,6 +205,7 @@ def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
     assert first["model_meta"]["prediction_interval"]["grouping"] == "parent_key"
     assert all(prediction["uncertainty_components"] for prediction in first["predictions"].values())
     assert first["canonical_input"]["input_schema_version"] == "candidate-v2"
+    assert first["canonical_input"]["heat_time_basis"] == "line_speed"
     atomic_result = client.post(f"/api/projects/default/candidates/{candidate['id']}/predict", params={"expected_revision": candidate["revision"]}).json()
     detailed = atomic_result["prediction"]
     assert detailed["mode"] == "detailed"
@@ -146,6 +265,7 @@ def test_snapshot_is_immutable_after_candidate_edit(client) -> None:
     assert stored[0]["payload"]["candidate_id"] == candidate["id"]
     assert stored[0]["payload"]["raw_candidate"]["name"] == "固定化テスト"
     assert "feature_vector" in stored[0]["payload"]["canonical_input"]
+    assert stored[0]["payload"]["canonical_input"]["heat_time_basis"] == "line_speed"
     assert "TS" in stored[0]["payload"]["canonical_input"]["normalized_feature_vectors"]
     provenance = stored[0]["payload"]["provenance"]
     assert provenance["model"]["version"]

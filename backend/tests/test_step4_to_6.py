@@ -163,8 +163,8 @@ def test_hot_lineage_candidate_uses_hot_rolling_inputs(client) -> None:
 def test_candidate_excel_import_and_exports(client) -> None:
     workbook = Workbook()
     sheet = workbook.active
-    sheet.append(["name", "C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N", "ls_mpm", "time_s_1", "temperature_c_1", "segment_start_1", "stage_name_1", "time_s_2", "temperature_c_2", "segment_start_2", "stage_name_2", "time_s_3", "temperature_c_3", "segment_start_3", "stage_name_3"])
-    sheet.append(["Excel候補", 0.08, 0.3, 1.5, 0.01, 0.005, 0.04, 0.0, 0.02, 0.01, 0.0, 0.01, 0.0003, 0.002, 0.004, 100, 0, 25, False, "加熱", 300, 810, True, "均熱", 650, 120, False, "冷却"])
+    sheet.append(["name", "C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N", "ls_mpm", "heat_time_basis", "time_s_1", "temperature_c_1", "segment_start_1", "stage_name_1", "time_s_2", "temperature_c_2", "segment_start_2", "stage_name_2", "time_s_3", "temperature_c_3", "segment_start_3", "stage_name_3"])
+    sheet.append(["Excel候補", 0.08, 0.3, 1.5, 0.01, 0.005, 0.04, 0.0, 0.02, 0.01, 0.0, 0.01, 0.0003, 0.002, 0.004, 100, "経過時間を直接指定", 0, 25, False, "加熱", 300, 810, True, "均熱", 650, 120, False, "冷却"])
     buffer = BytesIO()
     workbook.save(buffer)
     response = client.post("/api/projects/default/candidates/import", files={"file": ("candidates.xlsx", buffer.getvalue(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")})
@@ -176,6 +176,7 @@ def test_candidate_excel_import_and_exports(client) -> None:
     exported_headers = [cell.value for cell in next(exported_workbook["候補"].iter_rows())]
     assert exported_headers[:4] == ["形式バージョン", "候補ID", "候補名", "C[mass%]"]
     assert "ライン速度[m/min]" in exported_headers
+    assert "時間基準" in exported_headers
     assert "到達時間[s]_1" in exported_headers
     assert "実績温度[℃]_1" in exported_headers
     assert "TS[MPa]" in exported_headers
@@ -196,6 +197,29 @@ def test_candidate_excel_import_and_exports(client) -> None:
     assert quality.headers["content-type"].startswith("text/csv")
 
 
+def test_candidate_excel_import_rejects_unknown_heat_time_basis() -> None:
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append([
+        "name", "C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N",
+        "ls_mpm", "heat_time_basis", "time_s_1", "temperature_c_1", "time_s_2", "temperature_c_2",
+    ])
+    sheet.append([
+        "誤記候補", 0.08, 0.3, 1.5, 0.01, 0.005, 0.04, 0.0, 0.02, 0.01, 0.0, 0.01, 0.0003,
+        0.002, 0.004, 100, "LSにたぶん連動", 0, 25, 300, 810,
+    ])
+    buffer = BytesIO()
+    workbook.save(buffer)
+
+    imported, errors = import_candidates_xlsx(buffer.getvalue())
+
+    assert imported == []
+    assert errors == [{
+        "row": 2,
+        "message": "時間基準は「ライン速度連動」または「経過時間を直接指定」で入力してください",
+    }]
+
+
 def test_candidate_excel_template_explains_and_round_trips_the_project_contract(client) -> None:
     response = client.get("/api/projects/default/candidates/template.xlsx")
 
@@ -206,6 +230,7 @@ def test_candidate_excel_template_explains_and_round_trips_the_project_contract(
     headers = [cell.value for cell in workbook["候補"][1]]
     assert headers[:3] == ["候補名", "C[mass%]", "Si[mass%]"]
     assert "ライン速度[m/min]" in headers
+    assert "時間基準" in headers
     assert "経過時間[s]_1" in headers
     assert "温度[℃]_3" in headers
     assert not any(
@@ -233,6 +258,7 @@ def test_candidate_excel_template_explains_and_round_trips_the_project_contract(
     assert not errors
     assert len(imported) == 1
     assert imported[0].name == "記入例（候補シートへコピーして変更）"
+    assert imported[0].inputs.heat_time_basis == "line_speed"
     assert all(
         not point.segment_start and point.stage_name is None and point.stage_category is None
         for point in imported[0].inputs.heat_pattern or []

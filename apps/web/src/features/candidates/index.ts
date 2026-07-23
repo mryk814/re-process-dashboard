@@ -1,5 +1,11 @@
 export { CandidateInspector, ComparisonTable } from "./CandidateUi";
-export { fromApiCandidate, toApiCandidate, type CandidateViewModel } from "./candidateModel";
+export {
+  fromApiCandidate,
+  scaleHeatTimesForLineSpeed,
+  toApiCandidate,
+  type CandidateViewModel,
+  type HeatTimeBasis,
+} from "./candidateModel";
 export {
   categoricalTaskInputs,
   getCandidateInputValue,
