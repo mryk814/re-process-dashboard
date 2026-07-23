@@ -43,6 +43,7 @@ type Props = {
 
 const formatNumber = (value: number, digits = 1) => value.toLocaleString("ja-JP", { maximumFractionDigits: digits });
 const formatDate = (value: string) => new Date(value).toLocaleString("ja-JP");
+const goalRelation = (direction: "at_least" | "at_most" | "target") => direction === "at_most" ? "≤" : direction === "target" ? "≈" : "≥";
 
 export function ProjectHub({
   projects,
@@ -393,6 +394,8 @@ export function ProjectHub({
   }
 
   const targetValues = (project?.target_values ?? {}) as Record<string, number>;
+  const savedTargetValues = (projects.find((item) => item.id === activeProjectId)?.target_values ?? {}) as Record<string, number>;
+  const configuredTargets = (taskDefinition?.outputs ?? []).filter((output) => savedTargetValues[output.key] != null);
   const setTarget = (key: string, value: string) => {
     if (!project) return;
     const next = { ...targetValues };
@@ -505,6 +508,15 @@ export function ProjectHub({
         </div>
       {error && <p className="panel-error" role="alert">{error}</p>}
       {project && <section className="project-reference-strip" aria-label="プロジェクトの参照と所属"><div><span>参照Dataset</span><strong>{fixedDataset?.data_asset.original_filename ?? "—"}</strong><small>{fixedDataset ? `${fixedDataset.profile_revision.name} · r${fixedDataset.profile_revision.revision}` : ""}</small></div><div><span>Prediction Task</span><strong>{taskLabels.get(project.task_id) ?? project.task_id}</strong><small>固定</small></div><div><span>Model Package</span><strong>{fixedPackage?.package_id ?? "—"}</strong><small>学習元: {fixedTrainingDataset ? datasetDisplayName(fixedTrainingDataset) : "未登録または記録なし"} · Manifest {project.model_package_manifest_digest.slice(0, 10)}</small></div><div><span>所属グループ</span><strong>{fixedSeries?.name ?? "—"}</strong><small>設定から変更できます</small></div></section>}
+      {project && <section className={`project-goal-strip${configuredTargets.length ? "" : " unset"}`} aria-label="プロジェクトの目標値">
+        <div className="project-goal-heading"><span>目標値</span><strong>{configuredTargets.length ? "候補を判断する基準" : "候補を探す前に設定"}</strong></div>
+        <div className="project-goal-values">
+          {configuredTargets.length
+            ? configuredTargets.map((output) => <span key={output.key}><b>{output.label}</b>{goalRelation(output.goal_direction)} {formatNumber(savedTargetValues[output.key])} {output.unit}</span>)
+            : <span>未設定です。設定すると候補の目標達成率を比較できます。</span>}
+        </div>
+        <button className={configuredTargets.length ? "outline-button" : "primary-button"} onClick={() => setSettingsOpen(true)}>{configuredTargets.length ? "目標値を変更" : "目標値を設定"}</button>
+      </section>}
       {predecessorProject && <section className="project-continuation-link" aria-label="このプロジェクトの続き元"><span>続き元</span><button type="button" onClick={() => onSwitch(predecessorProject.id)}>{predecessorProject.name}</button><small>{predecessorSeries?.name ?? "所属グループ不明"}{project?.continuation_reason ? ` · ${project.continuation_reason}` : ""}</small></section>}
 
       {createOpen && <section className="project-create-panel" aria-label="新規プロジェクトの開始方法">
@@ -583,8 +595,6 @@ export function ProjectHub({
         <div className="snapshot-decision-form"><label>判断理由<textarea value={decisionNote} onChange={(event) => { decisionDraftRef.current.dirty = true; setDecisionNote(event.target.value); }} placeholder="この時点の予測を採用判断に使う理由" /></label><button className="outline-button" onClick={() => void saveDecision(false)}>採用判断として固定</button>{project?.decision_snapshot_id === selectedSnapshot.id && <button className="outline-button" onClick={() => void saveDecision(true)}>採用判断を解除</button>}</div>
         <CandidateAddButton onClick={() => void restoreSnapshot(selectedSnapshot.id)}>この時点から新しい候補を作る</CandidateAddButton>
       </section>}
-
-      {!Object.keys(targetValues).length && <div className="project-empty-inline"><span>目標値が未設定です。設定すると候補の目標達成率を比較できます。</span><button className="outline-button" onClick={() => setSettingsOpen(true)}>目標値を設定</button></div>}
 
       {canDeleteProject && project && <section className="project-danger-zone" aria-label="プロジェクト削除">
         {!deleteOpen ? <button className="danger-outline-button" onClick={() => setDeleteOpen(true)}>プロジェクトを削除</button> : <div className="project-delete-panel" aria-label="プロジェクト削除の確認">
