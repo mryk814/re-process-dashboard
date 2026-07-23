@@ -102,6 +102,10 @@ def _validation(raw: object) -> ProfileWorkbenchValidation | None:
         observations=int(raw.get("observations", 0)),
         observations_by_task={str(key): int(value) for key, value in dict(raw.get("observations_by_task", {})).items()},
         heat_series_parents=int(raw.get("heat_series_parents", 0)),
+        unresolved_heat_series_by_task={
+            str(key): int(value)
+            for key, value in dict(raw.get("unresolved_heat_series_by_task", {})).items()
+        },
         rejected_by_policy={str(key): int(value) for key, value in dict(raw.get("rejected_by_policy", {})).items()},
         entity_preview=[dict(item) for item in raw.get("entity_preview", []) if isinstance(item, dict)],
     )

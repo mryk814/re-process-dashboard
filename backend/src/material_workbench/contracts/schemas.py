@@ -187,6 +187,7 @@ class ProfileWorkbenchValidation(BaseModel):
     observations: Annotated[int, Field(ge=0)]
     observations_by_task: dict[str, int]
     heat_series_parents: Annotated[int, Field(ge=0)]
+    unresolved_heat_series_by_task: dict[str, Annotated[int, Field(ge=0)]] = Field(default_factory=dict)
     rejected_by_policy: dict[str, int]
     entity_preview: list[dict[str, Any]]
 

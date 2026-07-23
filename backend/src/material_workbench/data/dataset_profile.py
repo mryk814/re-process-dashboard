@@ -987,7 +987,6 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
                             f"{task_id}: ordered heat series {mapping.path!r} has {invalid_point_count} incomplete or non-numeric points"
                         )
                 fallback_series: dict[str, list[dict[str, Any]]] = {}
-                fallback_parent_keys: set[str] = set()
                 fallback = mapping.measurement_point_fallback
                 if fallback is not None:
                     source_sheet = profile.sheet_for_role(fallback.source_role)
@@ -1004,12 +1003,6 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
                     ):
                         source_records = _sheet_records(workbook[source_sheet])
                         master_records = _sheet_records(workbook[master_sheet])
-                        fallback_parent_keys = {
-                            str(row[source_entity.key])
-                            for row in source_records
-                            if row.get(source_entity.key) is not None
-                            and str(row[source_entity.key]).strip()
-                        }
                         if _header_unit(fallback.position_column) != fallback.position_unit:
                             errors.append(
                                 f"{task_id}: measurement-point position column {fallback.position_column!r} "
@@ -1094,19 +1087,10 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
                             fallback=fallback,
                             profile=profile,
                         )
-                missing_parents = sorted(
-                    fallback_parent_keys
-                    - {
-                        parent for parent, count in points_by_parent.items()
-                        if count >= 2
-                    }
-                    - set(fallback_series)
-                )
-                if missing_parents:
-                    errors.append(
-                        f"{task_id}: {len(missing_parents)} parent rows have neither a complete heat history "
-                        "nor a derivable measurement-point series"
-                    )
+                # Partial source coverage is normal in real workbooks. Parents
+                # without either representation remain in the canonical
+                # lineage but do not receive a heat series, so downstream
+                # feature builders naturally exclude only those rows.
                 if not any(count >= 2 for count in points_by_parent.values()) and not fallback_series:
                     errors.append(
                         f"{task_id}: required ordered heat series {mapping.path!r} has no parent with at least two numeric "

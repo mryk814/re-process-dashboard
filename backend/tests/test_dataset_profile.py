@@ -631,7 +631,6 @@ def test_v7_explicit_heat_history_takes_priority_over_measurement_master() -> No
         ("missing_temperature_column", "missing temperature columns"),
         ("missing_history_time_header", "existing ordered heat series sheet"),
         ("missing_history_stage_header", "existing ordered heat series sheet"),
-        ("missing_entry_temperature", "neither a complete heat history nor a derivable"),
     ],
 )
 def test_v7_rejects_heat_series_inputs_that_would_silently_change_the_pattern(
@@ -692,6 +691,31 @@ def test_v7_rejects_heat_series_inputs_that_would_silently_change_the_pattern(
         canonicalize_workbook(workbook, profile)
 
     assert any(expected_error in error for error in caught.value.errors)
+
+
+def test_v7_accepts_parent_without_history_or_derivable_measurement_series() -> None:
+    workbook = load_workbook(V7_SOURCE, read_only=False, data_only=True)
+    workbook.remove(workbook["焼鈍履歴"])
+    annealing = workbook["焼鈍条件-3CGL"]
+    key_column = next(
+        cell.column for cell in annealing[1]
+        if cell.value == "焼鈍条件-3CGL_key**"
+    )
+    entry_column = next(cell.column for cell in annealing[1] if cell.value == "開始[℃]")
+    row = next(
+        cells[0].row
+        for cells in annealing.iter_rows(min_col=key_column, max_col=key_column)
+        if cells[0].value == "AN-00001"
+    )
+    annealing.cell(row, entry_column).value = None
+    profile = load_dataset_profile(
+        ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-v7.json"
+    )
+
+    canonical = canonicalize_workbook(workbook, profile)
+
+    assert ("annealing", "AN-00001") in canonical.entities
+    assert ("annealing", "AN-00001") not in canonical.heat_series
 
 
 def test_invalid_workbook_stops_before_runtime_and_database_initialization(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

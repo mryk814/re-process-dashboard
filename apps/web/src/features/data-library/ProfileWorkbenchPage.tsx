@@ -57,6 +57,8 @@ export function ProfileWorkbenchPage({
     () => Object.values(inspection?.validation?.rejected_by_policy ?? {}).reduce((sum, count) => sum + count, 0),
     [inspection?.validation?.rejected_by_policy],
   );
+  const unresolvedHeatSeries = inspection?.validation?.unresolved_heat_series_by_task ?? {};
+  const unresolvedHeatSeriesTotal = Object.values(unresolvedHeatSeries).reduce((sum, count) => sum + count, 0);
   const canRegister = Boolean(
     file
     && selectedProfileDigest
@@ -167,6 +169,7 @@ export function ProfileWorkbenchPage({
         <div className="panel-title"><h3>Canonical preview</h3><span className="profile-ready-badge">登録可能</span></div>
         <div className="profile-validation-metrics"><div><span>Entities</span><strong>{inspection.validation.entities.toLocaleString("ja-JP")}</strong></div><div><span>Relations</span><strong>{inspection.validation.relations.toLocaleString("ja-JP")}</strong></div><div><span>Observations</span><strong>{inspection.validation.observations.toLocaleString("ja-JP")}</strong></div><div><span>Heat series</span><strong>{inspection.validation.heat_series_parents.toLocaleString("ja-JP")}</strong></div></div>
         <div className="profile-task-row"><span>対応Prediction Task</span>{inspection.validation.task_ids.map((task) => <b key={task}>{task}</b>)}</div>
+        {unresolvedHeatSeriesTotal > 0 && <details className="profile-rejection-details"><summary>ヒートパターンを作れない工程条件: {unresolvedHeatSeriesTotal.toLocaleString("ja-JP")}件</summary>{Object.entries(unresolvedHeatSeries).map(([task, count]) => <span key={task}><code>{task}</code><b>{count.toLocaleString("ja-JP")}件</b></span>)}<p>Datasetには登録できますが、この工程条件はヒートパターンを必要とする学習・候補参照には使われません。</p></details>}
         {rejectedTotal > 0 && <details className="profile-rejection-details"><summary>Eligibilityで除外される観測: {rejectedTotal.toLocaleString("ja-JP")}件</summary>{Object.entries(inspection.validation.rejected_by_policy).map(([policy, count]) => <span key={policy}><code>{policy}</code><b>{count.toLocaleString("ja-JP")}件</b></span>)}</details>}
         {inspection.validation.entity_preview.length > 0 && <details className="profile-preview-details"><summary>正規化後の先頭{inspection.validation.entity_preview.length}件</summary><table><thead><tr><th>Entity</th><th>Key</th><th>Canonical fields</th></tr></thead><tbody>{inspection.validation.entity_preview.map((item, index) => <tr key={`${previewValue(item, "entity_type")}-${previewValue(item, "entity_key")}-${index}`}><td>{previewValue(item, "entity_type")}</td><td>{previewValue(item, "entity_key")}</td><td>{previewFields(item)}</td></tr>)}</tbody></table></details>}
       </section>}

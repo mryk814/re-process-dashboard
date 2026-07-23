@@ -3591,6 +3591,14 @@
             },
             "title": "Task Ids",
             "type": "array"
+          },
+          "unresolved_heat_series_by_task": {
+            "additionalProperties": {
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "title": "Unresolved Heat Series By Task",
+            "type": "object"
           }
         },
         "required": [
