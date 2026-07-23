@@ -22,7 +22,7 @@ function previewFields(value: unknown): string {
   return keys.length ? `${keys.slice(0, 4).join(" / ")}${keys.length > 4 ? ` ほか${keys.length - 4}項目` : ""}` : "値なし";
 }
 
-export function ProfileWorkbenchPanel({
+export function ProfileWorkbenchPage({
   onOpenDataLibrary,
   onStartProject,
 }: {
@@ -139,6 +139,7 @@ export function ProfileWorkbenchPanel({
   return <div className="page-panel profile-workbench-page">
     <div className="page-intro">
       <div><span className="overline">PROFILE WORKBENCH</span><h2>新しいDatasetを準備</h2><p>Excelを変更せず、既存Profileとの対応と正規化結果を確認してからData Libraryへ登録します。</p></div>
+      <button className="outline-button" onClick={onOpenDataLibrary}>データライブラリに戻る</button>
     </div>
 
     <section className="profile-workbench-inputs" aria-label="ExcelとDataset Profileの選択">
