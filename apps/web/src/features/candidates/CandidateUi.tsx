@@ -31,6 +31,7 @@ function clamp(value: number, min: number, max: number) {
 }
 
 const comparisonInputShareStorageKey = "material-workbench:layout:comparison-input-share:v1";
+const prominentHeatPatternInputPaths = new Set(["process.ls_mpm"]);
 
 function storedComparisonInputShare() {
   if (typeof window === "undefined") return 45;
@@ -205,8 +206,20 @@ export function CandidateInspector({
   const numeric = new Map(numericTaskInputs(taskDefinition).map((input) => [input.path, input]));
   const groups = orderedInputGroups(taskDefinition);
   const heatGroup = groups.find((group) => group.key === "heat_pattern");
-  const primaryGroups = heatGroup ? groups.filter((group) => group.key === "composition") : groups.filter((group) => group.key !== "heat_pattern");
-  const auxiliaryGroups = heatGroup ? groups.filter((group) => group.key !== "composition" && group.key !== "heat_pattern") : [];
+  const primaryGroups = heatGroup
+    ? groups.flatMap((group) => {
+        if (group.key === "composition") return [group];
+        const fields = group.fields.filter((field) => prominentHeatPatternInputPaths.has(field.path));
+        return fields.length > 0 ? [{ ...group, fields }] : [];
+      })
+    : groups.filter((group) => group.key !== "heat_pattern");
+  const auxiliaryGroups = heatGroup
+    ? groups.flatMap((group) => {
+        if (group.key === "composition" || group.key === "heat_pattern") return [];
+        const fields = group.fields.filter((field) => !prominentHeatPatternInputPaths.has(field.path));
+        return fields.length > 0 ? [{ ...group, fields }] : [];
+      })
+    : [];
   const ordinaryPaths = groups.filter((group) => group.key !== "heat_pattern").flatMap((group) => group.fields.map((field) => field.path));
   const unplacedErrors = fieldErrors.filter((error) => !ordinaryPaths.some((path) => error.path.endsWith(path)));
   return (
