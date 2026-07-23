@@ -76,6 +76,16 @@
 .project-reference-strip span, .project-fixed-bindings span { color: #788698; font-size: 9px; text-transform: uppercase; }
 .project-reference-strip strong, .project-fixed-bindings strong { overflow: hidden; color: #29435f; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .project-reference-strip small, .project-fixed-bindings small { overflow: hidden; color: #6b7b8e; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.project-goal-strip { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px 16px; margin-top: -8px; border: 1px solid #b7cce5; border-radius: 6px; background: #f7faff; padding: 10px 12px; }
+.project-goal-strip.unset { border-color: #7da7d8; background: #eef5ff; }
+.project-goal-heading { display: grid; gap: 1px; }
+.project-goal-heading span { color: #6b7b8e; font-size: 9px; font-weight: 700; text-transform: uppercase; }
+.project-goal-heading strong { color: #26486e; font-size: 11px; white-space: nowrap; }
+.project-goal-values { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: #607086; font-size: 11px; }
+.project-goal-values > span { border-radius: 999px; background: #fff; padding: 4px 8px; font-variant-numeric: tabular-nums; }
+.project-goal-strip.unset .project-goal-values > span { background: transparent; padding: 0; }
+.project-goal-values b { margin-right: 5px; color: #29435f; }
+.project-goal-strip button { min-height: 32px; padding: 5px 11px; font-size: 11px; white-space: nowrap; }
 .project-fixed-bindings { border-bottom: 1px solid #e1e7ee; padding-bottom: 12px; }
 .project-group-summary { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: baseline; gap: 8px; border: 1px solid #d8e0ea; border-radius: 5px; background: #f8fafc; padding: 9px 11px; }
 .project-group-summary span { color: #6d7c8e; font-size: 10px; font-weight: 700; }
@@ -132,6 +142,8 @@
   .project-binding-confirmation { grid-template-columns: 1fr; }
   .project-binding-confirmation header { grid-column: 1; align-items: flex-start; flex-direction: column; }
   .project-history-card > header, .project-hub .project-empty-state { align-items: stretch; flex-direction: column; }
+  .project-goal-strip { grid-template-columns: 1fr auto; }
+  .project-goal-values { grid-column: 1 / -1; grid-row: 2; }
   .project-delete-panel { align-items: stretch; flex-direction: column; }
   .project-delete-actions { flex-wrap: wrap; }
   .project-group-summary { grid-template-columns: 1fr; }
@@ -146,4 +158,6 @@
   .project-binding-flow, .project-reference-strip, .project-fixed-bindings { grid-template-columns: 1fr; }
   .project-binding-confirmation > div > strong,
   .project-binding-confirmation > div > small { overflow: visible; overflow-wrap: anywhere; white-space: normal; }
+  .project-goal-strip { grid-template-columns: 1fr; }
+  .project-goal-strip button, .project-goal-values { grid-column: 1; }
 }
