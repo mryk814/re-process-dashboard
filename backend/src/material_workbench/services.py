@@ -7,6 +7,8 @@ from typing import Any, Callable
 
 import numpy as np
 from openpyxl import Workbook, load_workbook
+from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.worksheet.datavalidation import DataValidation
 
 from .dataset_profile import DatasetInputProfile, load_dataset_profile
 from .hot_rolling_feature_pipeline import PROCESS_NAMES
@@ -259,6 +261,7 @@ def import_candidates_xlsx(
     task_id: str = "annealed-properties-v1",
     profile_path: str | None = None,
     profile: DatasetInputProfile | None = None,
+    validate_candidate: Callable[[CandidateInput], Any] | None = None,
 ) -> tuple[list[CandidateInput], list[dict[str, Any]]]:
     try:
         workbook = load_workbook(BytesIO(contents), read_only=True, data_only=True)
@@ -336,7 +339,7 @@ def import_candidates_xlsx(
             name = value("name", display_names["name"])
             if name is None or not str(name).strip():
                 raise ValueError(f"{display_names['name']}は空にできません")
-            imported.append(CandidateInput(
+            payload = CandidateInput(
                 name=str(name).strip(),
                 inputs={
                     "composition": composition,
@@ -344,17 +347,22 @@ def import_candidates_xlsx(
                     "categorical": categorical,
                     "heat_pattern": points if heat_enabled else None,
                 },
-            ))
+            )
+            if validate_candidate is not None:
+                validate_candidate(payload)
+            imported.append(payload)
         except (TypeError, ValueError) as exc:
             errors.append({"row": row_number, "message": str(exc)})
     workbook.close()
     return imported, errors
 
 
-def candidates_xlsx(candidates: list[Candidate], runtime: PredictionRuntime, task_id: str = "annealed-properties-v1") -> bytes:
-    workbook = Workbook()
-    sheet = workbook.active
-    sheet.title = "候補"
+def _candidate_xlsx_input_schema(
+    task_id: str,
+    heat_point_count: int,
+    profile_path: str | None = None,
+    profile: DatasetInputProfile | None = None,
+) -> tuple[Any, list[Any], list[Any], bool, dict[str, str], list[str], list[str]]:
     definition = load_task_contracts()[task_id].task_definition
     numeric_fields = [
         field for group in definition.input_groups
@@ -367,24 +375,153 @@ def candidates_xlsx(candidates: list[Candidate], runtime: PredictionRuntime, tas
         if field.kind == "categorical"
     ]
     heat_enabled = any(field.kind == "heat_pattern" for group in definition.input_groups for field in group.fields)
-    display_names = _candidate_xlsx_names(
-        task_id,
-        runtime.data.profile_path if not runtime.data.profile_path.startswith("catalog:") else None,
-        getattr(runtime.data, "profile", None),
-    )
-    max_points = max((len(candidate.inputs.heat_pattern or []) for candidate in candidates), default=2) if heat_enabled else 0
+    display_names = _candidate_xlsx_names(task_id, profile_path, profile)
     heat_headers = [
-        item for index in range(1, max_points + 1)
+        item for index in range(1, heat_point_count + 1)
         for item in (f"time_s_{index}", f"temperature_c_{index}", f"segment_start_{index}", f"stage_name_{index}", f"stage_category_{index}")
-    ]
-    headers = [
-        display_names["schema_version"], display_names["id"], display_names["name"],
+    ] if heat_enabled else []
+    input_headers = [
+        display_names["name"],
         *[display_names.get(field.path, field.label) for field in numeric_fields],
         *[display_names.get(field.path, field.label) for field in categorical_fields],
         *[
             f"{display_names.get(header.rsplit('_', 1)[0], header.rsplit('_', 1)[0])}_{header.rsplit('_', 1)[1]}"
             for header in heat_headers
         ],
+    ]
+    return definition, numeric_fields, categorical_fields, heat_enabled, display_names, heat_headers, input_headers
+
+
+def candidate_template_xlsx(runtime: PredictionRuntime, task_id: str = "annealed-properties-v1") -> bytes:
+    contract = load_task_contracts()[task_id]
+    canonical = contract.canonical_candidate
+    heat_point_count = max(2, len(canonical.heat_pattern or ())) if canonical.heat_pattern is not None else 0
+    definition, numeric_fields, categorical_fields, heat_enabled, display_names, heat_headers, input_headers = _candidate_xlsx_input_schema(
+        task_id,
+        heat_point_count,
+        runtime.data.profile_path if not runtime.data.profile_path.startswith("catalog:") else None,
+        getattr(runtime.data, "profile", None),
+    )
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "候補"
+    sheet.append(input_headers)
+    heat_values = [
+        item
+        for index, point in enumerate(canonical.heat_pattern or ())
+        for item in (point.time_s, point.temperature_c, index == 0, None, None)
+    ] if heat_enabled else []
+    heat_values.extend([None] * (len(heat_headers) - len(heat_values)))
+    example_values = [
+        canonical.composition.get(field.path.removeprefix("composition."))
+        if field.path.startswith("composition.")
+        else canonical.process.get(field.path.removeprefix("process."))
+        for field in numeric_fields
+    ]
+    example_values.extend([
+        canonical.categorical.get(field.path.removeprefix("categorical."))
+        for field in categorical_fields
+    ])
+    example_sheet = workbook.create_sheet("記入例")
+    example_sheet.append(input_headers)
+    example_sheet.append(["記入例（候補シートへコピーして変更）", *example_values, *heat_values])
+    sheet.freeze_panes = "B2"
+    sheet.auto_filter.ref = sheet.dimensions
+    header_fill = PatternFill("solid", fgColor="1F5FC4")
+    example_fill = PatternFill("solid", fgColor="FFF4D6")
+    for target_sheet in (sheet, example_sheet):
+        for cell in target_sheet[1]:
+            cell.fill = header_fill
+            cell.font = Font(color="FFFFFF", bold=True)
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+        target_sheet.row_dimensions[1].height = 28
+        target_sheet.freeze_panes = "B2"
+        target_sheet.auto_filter.ref = target_sheet.dimensions
+        for column in target_sheet.columns:
+            letter = column[0].column_letter
+            target_sheet.column_dimensions[letter].width = min(24, max(13, max(len(str(cell.value or "")) for cell in column) + 2))
+        target_sheet.column_dimensions["A"].width = 40
+    for cell in example_sheet[2]:
+        cell.fill = example_fill
+    for index, field in enumerate((*numeric_fields, *categorical_fields), start=2):
+        column_letter = sheet.cell(1, index).column_letter
+        if field.kind == "number" and field.allowed_range is not None:
+            validation = DataValidation(type="decimal", operator="between", formula1=str(field.allowed_range.min), formula2=str(field.allowed_range.max), allow_blank=not field.required)
+            validation.error = f"{field.allowed_range.min}～{field.allowed_range.max} の数値を入力してください"
+            validation.errorTitle = "入力範囲外"
+            validation.prompt = f"単位: {field.unit or 'なし'} / 許容範囲: {field.allowed_range.min}～{field.allowed_range.max}"
+            validation.promptTitle = field.label
+            validation.showErrorMessage = True
+            validation.showInputMessage = True
+            sheet.add_data_validation(validation)
+            validation.add(f"{column_letter}2:{column_letter}501")
+        elif field.kind == "categorical":
+            validation = DataValidation(type="list", formula1='"' + ','.join(field.choices) + '"', allow_blank=not field.required)
+            validation.showErrorMessage = True
+            sheet.add_data_validation(validation)
+            validation.add(f"{column_letter}2:{column_letter}501")
+
+    guide = workbook.create_sheet("入力ルール")
+    guide.append([f"{definition.label} 候補XLSX", "「記入例」を参考に「候補」シートへ入力し、アプリへ読み込みます。読み込まれるのは「候補」シートだけです。"])
+    guide.append(["基本ルール", "1行＝1候補です。1行目の列名と単位は変更しないでください。空行は無視されます。"])
+    guide.append(["候補名", f"{display_names['name']} は必須です。「記入例」の2行目を「候補」へコピーし、名前と値を変更して使えます。"])
+    guide.append(["数値", "数値だけを入力します。単位は列名に記載されているため、セル内には書きません。"])
+    if heat_enabled:
+        guide.append(["履歴点", f"{display_names['time_s']}_N と {display_names['temperature_c']}_N を同じ番号で最低2点入力します。番号は1から連続、時刻は昇順です。点を増やす場合は右へ同じ列セットを追加します。"])
+        guide.append(["工程境界", f"{display_names['segment_start']}_N は工程の先頭だけ TRUE、それ以外は FALSE または空欄にします。工程名は任意です。"])
+    guide.append([])
+    rules_header_row = guide.max_row + 1
+    for row_number in range(1, rules_header_row - 1):
+        guide.merge_cells(start_row=row_number, start_column=2, end_row=row_number, end_column=5)
+    guide.append(["列名", "区分", "必須", "入力ルール", "学習データ範囲（参照）"])
+    guide.append([display_names["name"], "識別", "必須", "候補ごとに異なる名前", "—"])
+    for field in (*numeric_fields, *categorical_fields):
+        if field.kind == "number":
+            assert field.allowed_range is not None and field.training_range is not None
+            rule = f"{field.allowed_range.min}～{field.allowed_range.max} {field.unit or ''}".strip()
+            training = f"{field.training_range.min}～{field.training_range.max} {field.unit or ''}".strip()
+        else:
+            rule = " / ".join(field.choices)
+            training = "—"
+        guide.append([display_names.get(field.path, field.label), field.label, "必須" if field.required else "任意", rule, training])
+    if heat_enabled:
+        guide.append([f"{display_names['time_s']}_N / {display_names['temperature_c']}_N", "履歴点", "最低2点", "同じNの時刻と温度を対で入力", "—"])
+    guide.freeze_panes = f"A{rules_header_row + 1}"
+    guide.column_dimensions["A"].width = 34
+    guide.column_dimensions["B"].width = 22
+    guide.column_dimensions["C"].width = 12
+    guide.column_dimensions["D"].width = 42
+    guide.column_dimensions["E"].width = 34
+    for cell in guide[1]:
+        cell.fill = header_fill
+        cell.font = Font(color="FFFFFF", bold=True)
+    for cell in guide[rules_header_row]:
+        cell.fill = PatternFill("solid", fgColor="DCEAFB")
+        cell.font = Font(bold=True, color="173F75")
+    for row in guide.iter_rows():
+        for cell in row:
+            cell.alignment = Alignment(vertical="top", wrap_text=True)
+    for row_number in range(1, rules_header_row - 1):
+        guide.cell(row_number, 2).alignment = Alignment(vertical="center", wrap_text=False)
+        guide.row_dimensions[row_number].height = 24
+    output = BytesIO()
+    workbook.save(output)
+    return output.getvalue()
+
+
+def candidates_xlsx(candidates: list[Candidate], runtime: PredictionRuntime, task_id: str = "annealed-properties-v1") -> bytes:
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "候補"
+    max_points = max((len(candidate.inputs.heat_pattern or []) for candidate in candidates), default=2)
+    definition, numeric_fields, categorical_fields, heat_enabled, display_names, heat_headers, input_headers = _candidate_xlsx_input_schema(
+        task_id,
+        max_points,
+        runtime.data.profile_path if not runtime.data.profile_path.startswith("catalog:") else None,
+        getattr(runtime.data, "profile", None),
+    )
+    headers = [
+        display_names["schema_version"], display_names["id"], *input_headers,
         *[display_names.get(output.key, output.label) for output in definition.outputs],
         display_names["support_status"], display_names["support_distance"],
     ]
