@@ -221,6 +221,20 @@
 .candidate-origin.reference-data { border-color: #8fb6ad; background: #f2faf8; color: #426c66; }
 .candidate-origin.reference-data span { align-items: center; }
 .candidate-origin.reference-data i, .reference-data-kicker { border-radius: 999px; background: #d8eee9; padding: 2px 7px; color: #245d55; font-size: 9px; font-style: normal; font-weight: 700; }
+.candidate-origin-measurements {
+  min-width: 0;
+  gap: 8px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.candidate-origin-measurements small {
+  margin-left: 0;
+  color: #54756f;
+}
+.candidate-origin-measurements b {
+  color: #245d55;
+  font-variant-numeric: tabular-nums;
+}
 .workbench-grid {
   display: grid;
   grid-template-columns: minmax(760px, 1fr) minmax(388px, 27%);

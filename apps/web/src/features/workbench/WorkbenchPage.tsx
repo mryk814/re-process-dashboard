@@ -235,7 +235,13 @@ export function WorkbenchPage(props: WorkbenchProps) {
             <CandidateAddButton onClick={onAdd}>候補を追加</CandidateAddButton>
           </div>
         </div>
-        <CandidateOrigin candidate={selected} broken={originBroken} onOpen={onOpenOrigin} />
+        <CandidateOrigin
+          projectId={projectId}
+          candidate={selected}
+          outputs={taskDefinition?.outputs ?? []}
+          broken={originBroken}
+          onOpen={onOpenOrigin}
+        />
         {taskDefinition && <ComparisonTable
           candidates={candidates}
           selectedId={selectedId}

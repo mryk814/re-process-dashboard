@@ -1,28 +1,66 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { provenanceLabel, type CandidateProvenance } from "../../shared/candidateProvenance";
 import {
   fromApiCandidate,
   type ApplicationCapability,
   type CandidateViewModel as Candidate,
+  type TaskOutputDefinition,
 } from "../candidates";
 import { workbenchApi } from "../../shared/api/workbench-api";
+import { originMeasurements, type OriginMeasurement } from "./originEvidence";
 
 
 export function CandidateOrigin({
+  projectId,
   candidate,
+  outputs,
   broken,
   onOpen,
 }: {
+  projectId: string;
   candidate: Candidate;
+  outputs: TaskOutputDefinition[];
   broken: boolean;
   onOpen: () => void;
 }) {
   const provenance = candidate.raw.provenance as CandidateProvenance;
   const hasOriginNavigation = provenance.source_kind !== "direct" && provenance.source_kind !== "manual";
   const referenceOrigin = provenance.source_kind === "lineage";
+  const [measurements, setMeasurements] = useState<OriginMeasurement[] | null>(null);
+  useEffect(() => {
+    setMeasurements(null);
+    if (provenance.source_kind !== "lineage") return;
+    const controller = new AbortController();
+    void workbenchApi.lineage(projectId, provenance.source_ref.entity_key, 1, controller.signal)
+      .then((lineage) => {
+        if (!controller.signal.aborted) setMeasurements(originMeasurements(lineage, outputs));
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setMeasurements([]);
+      });
+    return () => controller.abort();
+  }, [outputs, projectId, provenance]);
   return (
     <div className={`candidate-origin${broken ? " missing" : ""}${referenceOrigin ? " reference-data" : ""}`}>
       <span><b>作成元</b>{referenceOrigin && <i>参照データ由来</i>}{provenanceLabel(provenance)}</span>
+      {referenceOrigin && (
+        <span
+          className="candidate-origin-measurements"
+          title="候補化した時点の作成元実測です。候補の条件を編集しても、この参考値は変わりません。"
+        >
+          <small>作成元実測</small>
+          {measurements?.length
+            ? measurements.map((measurement) => (
+                <b
+                  key={measurement.key}
+                  title={`${measurement.mean.toLocaleString("ja-JP", { maximumFractionDigits: 1 })} ± ${measurement.std.toLocaleString("ja-JP", { maximumFractionDigits: 1 })} ${measurement.unit} / n=${measurement.count}`}
+                >
+                  {measurement.label} {measurement.mean.toLocaleString("ja-JP", { maximumFractionDigits: 1 })}
+                </b>
+              ))
+            : <b>—</b>}
+        </span>
+      )}
       {broken ? (
         <em>コピー元は削除済みか参照できません</em>
       ) : candidate.raw.archived_at ? (
