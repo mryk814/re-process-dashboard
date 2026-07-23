@@ -612,13 +612,9 @@
 }
 .lineage-review-editor {
   display: grid;
-  grid-template-columns: 120px minmax(0, 1fr) auto;
+  grid-template-columns: 1fr;
   gap: 7px;
-  align-items: end;
-  margin: 0 0 10px;
-  border-top: 1px solid #cbdcf0;
-  border-bottom: 1px solid #cbdcf0;
-  padding: 9px 0;
+  margin: 0;
 }
 .lineage-review-editor label {
   display: grid;
@@ -639,10 +635,10 @@
   font-weight: 400;
 }
 .lineage-review-editor select { height: 32px; }
-.lineage-review-editor textarea { min-height: 46px; resize: vertical; }
+.lineage-review-editor textarea { min-height: 92px; resize: vertical; }
 .lineage-review-editor > div {
   display: grid;
-  grid-template-columns: auto auto;
+  grid-template-columns: 1fr auto;
   gap: 4px;
   align-items: center;
 }
@@ -654,6 +650,21 @@
   text-align: right;
 }
 .lineage-review-editor > div small.error { color: #a33b2d; }
+.lineage-review-panel {
+  min-width: 0;
+  align-self: start;
+  border: 1px solid #b8cbe0;
+  border-radius: 5px;
+  background: #f5f9ff;
+  padding: 10px;
+}
+.lineage-review-panel-label {
+  margin-bottom: 8px;
+  color: #1f5fc4;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
 .lineage-node-facts {
   margin-bottom: 0;
   border: 0;
@@ -983,7 +994,7 @@
 }
 
 .lineage-workspace {
-  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-columns: 220px minmax(0, 1fr) 270px;
   gap: 10px;
 }
 .lineage-page { max-width: none; }
@@ -996,8 +1007,12 @@
     grid-column: 2;
     grid-row: 1;
   }
+  .lineage-review-panel {
+    grid-column: 3;
+    grid-row: 1;
+  }
   .lineage-detail-panel {
-    grid-column: 2;
+    grid-column: 2 / 4;
     grid-row: 2;
     position: static;
     max-height: none;
@@ -1014,13 +1029,22 @@
   .lineage-workspace { grid-template-columns: 220px minmax(0, 1fr); }
   .lineage-browser,
   .lineage-main,
+  .lineage-review-panel,
   .lineage-detail-panel { grid-row: auto; }
+  .lineage-main,
+  .lineage-review-panel { grid-column: 2; }
   .lineage-detail-panel { grid-column: 1 / -1; position: static; max-height: none; }
-  .lineage-review-editor { grid-template-columns: 120px minmax(0, 1fr); }
-  .lineage-review-editor > div { grid-column: 1 / -1; justify-self: end; }
+  .lineage-review-editor { grid-template-columns: 120px minmax(0, 1fr) auto; align-items: end; }
+  .lineage-review-editor > div { grid-template-columns: auto auto; }
+  .lineage-review-editor textarea { min-height: 46px; }
 }
 @media (max-width: 760px) {
   .lineage-workspace { grid-template-columns: 1fr; }
+  .lineage-main,
+  .lineage-review-panel,
+  .lineage-detail-panel { grid-column: 1; }
+  .lineage-review-editor { grid-template-columns: 1fr; }
+  .lineage-review-editor > div { grid-template-columns: 1fr auto; }
 }
 .investigation-context {
   display: flex;

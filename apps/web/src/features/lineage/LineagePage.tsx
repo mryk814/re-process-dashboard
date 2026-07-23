@@ -465,6 +465,47 @@ export function LineagePage({
               </details>
             )}
         </main>
+        <aside className="lineage-review-panel" aria-label="このノードの確認メモ">
+          <div className="lineage-review-panel-label">確認メモ</div>
+          <section className="lineage-review-editor">
+            <label>
+              対応
+              <select
+                value={reviewStatus}
+                onChange={(event) => {
+                  setReviewStatus(event.target.value as ReviewStatus);
+                  setReviewSaveState("idle");
+                }}
+              >
+                {Object.entries(reviewLabels).map(([status, label]) => (
+                  <option key={status} value={status}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              メモ
+              <textarea
+                maxLength={1000}
+                rows={5}
+                value={reviewNote}
+                placeholder="このままでよい理由、修正内容、後で確認する観点"
+                onChange={(event) => {
+                  setReviewNote(event.target.value);
+                  setReviewSaveState("idle");
+                }}
+              />
+            </label>
+            <div>
+              {data.review && <button type="button" className="text-button" disabled={reviewSaveState === "saving"} onClick={() => void clearReview()}>記録を削除</button>}
+              <button type="button" className="outline-button" disabled={reviewSaveState === "saving"} onClick={() => void saveReview()}>
+                {reviewSaveState === "saving" ? "保存中" : "保存"}
+              </button>
+              <small className={reviewSaveState === "error" ? "error" : ""}>
+                {reviewSaveState === "saved" ? "保存しました" : reviewSaveState === "error" ? "保存できませんでした" : data.review ? `更新 ${new Date(data.review.updated_at).toLocaleString("ja-JP")}` : ""}
+              </small>
+            </div>
+          </section>
+        </aside>
         <aside className="lineage-detail-panel" aria-label="選択ノード詳細">
           <section className="lineage-node-summary" aria-label="ノード情報">
             <div className="lineage-node-summary-label">ノード情報</div>
@@ -513,44 +554,6 @@ export function LineagePage({
                 {candidateError && <span className="warning">{candidateError}</span>}
               </div>
             </div>
-            <section className="lineage-review-editor" aria-label="このノードの確認メモ">
-              <label>
-                対応
-                <select
-                  value={reviewStatus}
-                  onChange={(event) => {
-                    setReviewStatus(event.target.value as ReviewStatus);
-                    setReviewSaveState("idle");
-                  }}
-                >
-                  {Object.entries(reviewLabels).map(([status, label]) => (
-                    <option key={status} value={status}>{label}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                メモ
-                <textarea
-                  maxLength={1000}
-                  rows={2}
-                  value={reviewNote}
-                  placeholder="このままでよい理由、修正内容、後で確認する観点"
-                  onChange={(event) => {
-                    setReviewNote(event.target.value);
-                    setReviewSaveState("idle");
-                  }}
-                />
-              </label>
-              <div>
-                {data.review && <button type="button" className="text-button" disabled={reviewSaveState === "saving"} onClick={() => void clearReview()}>記録を削除</button>}
-                <button type="button" className="outline-button" disabled={reviewSaveState === "saving"} onClick={() => void saveReview()}>
-                  {reviewSaveState === "saving" ? "保存中" : "確認メモを保存"}
-                </button>
-                <small className={reviewSaveState === "error" ? "error" : ""}>
-                  {reviewSaveState === "saved" ? "保存しました" : reviewSaveState === "error" ? "保存できませんでした" : data.review ? `更新 ${new Date(data.review.updated_at).toLocaleString("ja-JP")}` : ""}
-                </small>
-              </div>
-            </section>
             <section className="lineage-node-facts">
               <h3>主要条件</h3>
               <div className="lineage-node-facts-scroll">
