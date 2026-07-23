@@ -29,8 +29,8 @@ from material_workbench.task_registry import load_task_contracts
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "data" / "source" / "process_dashboard_realistic_excel_v2.xlsx"
 V7_SOURCE = ROOT / "data" / "source" / "process_dashboard_two_equipment_v7.xlsx"
-V7_ANNEALED_PACKAGE = ROOT / "models" / "packages" / "annealed-gp-2026-07-v7"
-V7_HOT_PACKAGE = ROOT / "models" / "packages" / "hot-rolled-horseshoe-2026-07-v7"
+V7_ANNEALED_PACKAGE = ROOT / "models" / "packages" / "annealed-gp-2026-07-v7-measurement-master"
+V7_HOT_PACKAGE = ROOT / "models" / "packages" / "hot-rolled-horseshoe-2026-07-v7-measurement-master"
 
 
 def test_grouped_quality_report_requires_an_explicit_fold_count() -> None:
@@ -230,8 +230,8 @@ def test_v7_source_and_packages_start_and_predict_through_the_api(tmp_path: Path
     )
     with TestClient(app) as client:
         assert client.get("/api/health").json()["ok"] is True
-        assert client.get("/api/projects/default/model-package").json()["id"] == "annealed-gp-2026-07-v7"
-        assert client.get("/api/projects/hot-rolling-default/model-package").json()["id"] == "hot-rolled-horseshoe-2026-07-v7"
+        assert client.get("/api/projects/default/model-package").json()["id"] == "annealed-gp-2026-07-v7-measurement-master"
+        assert client.get("/api/projects/hot-rolling-default/model-package").json()["id"] == "hot-rolled-horseshoe-2026-07-v7-measurement-master"
 
         lineage_index = client.get("/api/projects/default/lineage", params={"query": "AN-00001"})
         assert lineage_index.status_code == 200

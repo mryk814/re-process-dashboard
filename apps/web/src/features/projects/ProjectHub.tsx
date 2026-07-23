@@ -403,10 +403,7 @@ export function ProjectHub({
     setProject({ ...project, target_values: next });
   };
 
-  const toggleCreateProject = () => {
-    const nextOpen = !createOpen;
-    if (nextOpen) focusCreationFormRef.current = true;
-    setCreateOpen(nextOpen);
+  const resetCreateProjectForm = () => {
     setCreateMode("empty");
     setNewProjectName("");
     setNewTaskId("");
@@ -415,6 +412,26 @@ export function ProjectHub({
     setNewProjectSeriesId("");
     setPredecessorProjectId("");
     setContinuationReason("");
+  };
+
+  const closeCreateProject = () => {
+    setCreateOpen(false);
+    resetCreateProjectForm();
+  };
+
+  const toggleCreateProject = () => {
+    if (createOpen) {
+      closeCreateProject();
+      return;
+    }
+    focusCreationFormRef.current = true;
+    resetCreateProjectForm();
+    setCreateOpen(true);
+  };
+
+  const switchProject = (projectId: string) => {
+    if (createOpen) closeCreateProject();
+    onSwitch(projectId);
   };
 
   const continueCurrentProject = () => {
@@ -482,7 +499,7 @@ export function ProjectHub({
                     key={item.id}
                     className={item.id === activeProjectId ? "project-list-item active" : "project-list-item"}
                     aria-current={item.id === activeProjectId ? "page" : undefined}
-                    onClick={() => onSwitch(item.id)}
+                    onClick={() => switchProject(item.id)}
                   >
                     <strong>{item.name}</strong>
                     <small>{datasetByView.get(item.dataset_view_revision_id ?? "")?.data_asset.original_filename.replace(/\.xlsx$/i, "") ?? "Dataset未解決"} · {taskLabels.get(item.task_id) ?? item.task_id}</small>
@@ -492,7 +509,7 @@ export function ProjectHub({
             </section>
           );
         })}</div>
-        <button type="button" className="outline-button project-list-create" onClick={toggleCreateProject}>＋ 新規プロジェクト</button>
+        <button type="button" className="outline-button project-list-create" onClick={toggleCreateProject}>{createOpen ? "作成をやめる" : "＋ 新規プロジェクト"}</button>
       </aside>
       <div className="project-hub-content">
         <div className="page-intro project-hub-header">
@@ -520,7 +537,10 @@ export function ProjectHub({
       {predecessorProject && <section className="project-continuation-link" aria-label="このプロジェクトの続き元"><span>続き元</span><button type="button" onClick={() => onSwitch(predecessorProject.id)}>{predecessorProject.name}</button><small>{predecessorSeries?.name ?? "所属グループ不明"}{project?.continuation_reason ? ` · ${project.continuation_reason}` : ""}</small></section>}
 
       {createOpen && <section className="project-create-panel" aria-label="新規プロジェクトの開始方法">
-        <div className="panel-title"><h3>新しいプロジェクト</h3><span>開始方法を選んでから作成します</span></div>
+        <div className="panel-title project-create-heading">
+          <div><h3>新しいプロジェクト</h3><span>開始方法を選んでから作成します</span></div>
+          <button type="button" className="outline-button" onClick={closeCreateProject}>作成をやめる</button>
+        </div>
         <label>プロジェクト名<input ref={projectNameInputRef} value={newProjectName} onChange={(event) => setNewProjectName(event.target.value)} placeholder="例: 2026年7月 焼鈍条件の再検討" /></label>
         <div className="project-binding-flow">
           <label><b aria-hidden="true">1</b><span>Dataset</span><select disabled={createMode === "copy"} value={newDatasetViewId} onChange={(event) => { const viewId = event.target.value; const dataset = datasetByView.get(viewId); const binding = creationOptions ? initialProjectBindingForDataset(dataset, creationOptions) : { taskId: "", modelPackageRefId: "" }; setNewDatasetViewId(viewId); setNewTaskId(binding.taskId); setNewModelPackageRefId(binding.modelPackageRefId); }}><option value="">選択してください</option>{(creationOptions?.dataset_views ?? []).filter((item) => item.kind === "single").map((view) => <option key={view.id} value={view.id}>{view.name} · {datasetByView.get(view.id)?.profile_revision.name}</option>)}</select></label>

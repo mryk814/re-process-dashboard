@@ -136,6 +136,9 @@ def dataset_profile_digest(path: Path = DATASET_PROFILE_PATH) -> str:
             if not shared.get(key):
                 shared.pop(key, None)
     for task in payload.get("tasks", {}).values():
+        for mapping in task.get("mappings", []):
+            if mapping.get("measurement_point_fallback") is None:
+                mapping.pop("measurement_point_fallback", None)
         for observation in task.get("observations", []):
             if observation.get("parent_column") is None:
                 observation.pop("parent_column", None)

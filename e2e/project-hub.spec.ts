@@ -21,6 +21,27 @@ test("project series keep the active series open and let other series expand", a
   await expect(projects).toBeVisible();
 });
 
+test("new project creation can be cancelled or left by selecting an existing project", async ({ page }) => {
+  await page.goto("/?view=project&project=default");
+  const createPanel = page.getByRole("region", { name: "新規プロジェクトの開始方法" });
+
+  await page.getByRole("button", { name: "新規プロジェクト" }).click();
+  await expect(createPanel).toBeVisible();
+  await createPanel.getByRole("button", { name: "作成をやめる" }).click();
+  await expect(createPanel).toBeHidden();
+  await expect(page.locator(".project-hub-header")).toContainText("焼鈍条件の候補検討");
+
+  await page.getByRole("button", { name: "新規プロジェクト" }).click();
+  const collapsedGroup = page.locator('.project-list-group-toggle[aria-expanded="false"]').first();
+  if (await collapsedGroup.count()) await collapsedGroup.click();
+  const otherProject = page.locator(".project-list-item:not(.active):visible").first();
+  const otherProjectName = await otherProject.locator("strong").innerText();
+  await otherProject.click();
+
+  await expect(createPanel).toBeHidden();
+  await expect(page.locator(".project-hub-header h2")).toHaveText(otherProjectName);
+});
+
 test("a continuation can switch prediction task without leaving its series", async ({ page }) => {
   await page.goto("/?view=project&project=default");
   await expect(page.locator(".project-hub-header").getByRole("heading", { name: "焼鈍条件の候補検討" })).toBeVisible();
