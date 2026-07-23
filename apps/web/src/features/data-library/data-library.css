@@ -47,6 +47,7 @@
 .model-package-list dd { margin: 3px 0 0; color: #354a62; font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
 .model-package-technical { min-width: 82px; color: #66758a; font-size: 10px; }
 .model-package-technical summary { cursor: pointer; white-space: nowrap; }
+.model-package-technical > p { max-width: 240px; margin: 6px 0 0; color: #66758a; line-height: 1.4; white-space: normal; }
 .model-package-technical dl { display: grid; min-width: 190px; margin-top: 7px; border-left: 2px solid #d8e0ea; padding-left: 8px; }
 .library-empty { margin: 8px 0 0; color: #718096; font-size: 11px; }
 .library-error-state { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid #efc0bb; border-radius: 6px; background: #fff8f7; padding: 12px 14px; }

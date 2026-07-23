@@ -9,6 +9,7 @@ import {
 import {
   compatibleTaskIdsForDataset,
   datasetDisplayName,
+  modelPackageDecisionSummary,
   modelPackageDisplayName,
   trainingDataSha,
   trainingDataset,
@@ -186,7 +187,21 @@ export function DataLibraryPage({
               {(packageTaskFilter || packageDatasetFilter || packageStateFilter) && <button type="button" className="text-button" onClick={() => { setPackageTaskFilter(""); setPackageDatasetFilter(""); setPackageStateFilter(""); }}>絞り込みを解除</button>}
             </div>
             {filteredModelPackages.length > 0
-              ? <div className="model-package-list">{filteredModelPackages.map((item) => { const source = trainingDataset(item, options.datasets); const sourceSha = trainingDataSha(item); return <article key={item.id}><div><strong>{modelPackageDisplayName(item)}</strong><span>{item.task_id}</span><small className={item.archived_at ? "package-state archived" : "package-state"}>{item.archived_at ? "アーカイブ" : "利用可能"}</small></div><dl><div><dt>学習元Dataset</dt><dd title={source?.data_asset.original_filename ?? sourceSha ?? undefined}>{source ? datasetDisplayName(source) : sourceSha ? `未登録 ${sourceSha.slice(0, 10)}` : "manifestに記録なし"}</dd></div><div><dt>学習時Profile</dt><dd>{source ? `${source.profile_revision.name} · r${source.profile_revision.revision}` : "—"}</dd></div></dl><details className="model-package-technical"><summary>技術情報</summary><dl><div><dt>Package ID</dt><dd>{item.package_id}</dd></div><div><dt>Manifest</dt><dd title={item.manifest_digest}>{shortDigest(item.manifest_digest)}</dd></div></dl></details></article>; })}</div>
+              ? <div className="model-package-list">{filteredModelPackages.map((item) => {
+                const source = trainingDataset(item, options.datasets);
+                const sourceSha = trainingDataSha(item);
+                const decision = modelPackageDecisionSummary(item);
+                return <article key={item.id}>
+                  <div><strong>{modelPackageDisplayName(item)}</strong><span>{item.task_id}</span><small className={item.archived_at ? "package-state archived" : "package-state"}>{item.archived_at ? "アーカイブ" : decision?.experimental ? "試験モデル" : "利用可能"}</small></div>
+                  <dl>
+                    <div><dt>使いどころ</dt><dd>{decision?.useCase ?? "—"}</dd></div>
+                    <div><dt>学習単位</dt><dd>{decision?.trainingUnit ?? "—"}</dd></div>
+                    <div><dt>学習元Dataset</dt><dd title={source?.data_asset.original_filename ?? sourceSha ?? undefined}>{source ? datasetDisplayName(source) : sourceSha ? `未登録 ${sourceSha.slice(0, 10)}` : "manifestに記録なし"}</dd></div>
+                    <div><dt>学習時Profile</dt><dd>{source ? `${source.profile_revision.name} · r${source.profile_revision.revision}` : "—"}</dd></div>
+                  </dl>
+                  <details className="model-package-technical"><summary>前提・技術情報</summary><p>{decision?.uncertainty}</p><p>{decision?.caution}</p><dl><div><dt>Package ID</dt><dd>{item.package_id}</dd></div><div><dt>Manifest</dt><dd title={item.manifest_digest}>{shortDigest(item.manifest_digest)}</dd></div></dl></details>
+                </article>;
+              })}</div>
               : <p className="library-empty">条件に合うModel Packageはありません。</p>}
           </div>
         </section>

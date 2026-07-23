@@ -3,6 +3,7 @@ import { provenanceLabel } from "../../shared/candidateProvenance";
 import { formatPredictionPoint, predictionHasInterval, predictionIntervalLabel } from "../../shared/predictionPresentation";
 import { assessOutputValues, assessPrediction, resolveOutputDefinition } from "../../shared/outputPresentation";
 import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
+import { ModelPackageDecisionCard } from "../../shared/ui/ModelPackageDecisionCard";
 import { hasValidTargetGoal, isTargetRange, targetGoalText, type TargetGoal } from "../../shared/targetGoals";
 import {
   compatiblePackagesForDatasetTask,
@@ -555,7 +556,12 @@ export function ProjectHub({
             ? configuredTargets.map((output) => <span key={output.key}><b>{output.label}</b>{targetGoalText(savedTargetValues[output.key], output.goal_direction, formatNumber)} {output.unit}</span>)
             : <span>未設定です。設定すると候補の目標達成率を比較できます。</span>}
         </div>
-        <button className={configuredTargets.length ? "outline-button" : "primary-button"} onClick={() => setSettingsOpen(true)}>{configuredTargets.length ? "目標値を変更" : "目標値を設定"}</button>
+        <button className={configuredTargets.length ? "outline-button" : "primary-button"} onClick={() => {
+          setSettingsOpen(true);
+          window.requestAnimationFrame(() => document.querySelector<HTMLElement>(
+            ".project-settings-panel .target-grid input, .project-settings-panel .target-grid select",
+          )?.focus());
+        }}>{configuredTargets.length ? "目標値を変更" : "目標値を設定"}</button>
       </section>}
       {predecessorProject && <section className="project-continuation-link" aria-label="このプロジェクトの続き元"><span>続き元</span><button type="button" onClick={() => onSwitch(predecessorProject.id)}>{predecessorProject.name}</button><small>{predecessorSeries?.name ?? "所属グループ不明"}{project?.continuation_reason ? ` · ${project.continuation_reason}` : ""}</small></section>}
 
@@ -571,6 +577,7 @@ export function ProjectHub({
           <label><b aria-hidden="true">3</b><span>Model Package</span><select disabled={createMode === "copy" || !newTaskId} value={newModelPackageRefId} onChange={(event) => setNewModelPackageRefId(event.target.value)}><option value="">{newTaskId ? "手法を選択してください" : "先にPrediction Taskを選択"}</option>{availablePackages.map((item) => <option key={item.id} value={item.id}>{modelPackageDisplayName(item)}</option>)}</select></label>
           <label><b aria-hidden="true">4</b><span>所属グループ</span><select value={newProjectSeriesId} onChange={(event) => setNewProjectSeriesId(event.target.value)}><option value="">新しいグループを作成</option>{activeProjectSeries.map((series) => <option key={series.id} value={series.id}>{series.name}</option>)}</select></label>
         </div>
+        {selectedPackage && <ModelPackageDecisionCard modelPackage={selectedPackage} />}
         <section className="project-binding-confirmation" aria-label="作成後に固定される内容">
           <header><strong>作成後に固定される内容</strong><span>Dataset・Prediction Task・Model Packageは後から変更できません</span></header>
           <div><span>参照Dataset</span><strong>{selectedDataset ? datasetDisplayName(selectedDataset) : "選択してください"}</strong><small>{selectedDataset ? `${selectedDataset.profile_revision.name} · r${selectedDataset.profile_revision.revision}` : "DatasetとProfileを選択"}</small></div>
