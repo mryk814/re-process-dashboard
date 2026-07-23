@@ -144,6 +144,18 @@ class WorkspaceCatalog:
                      payload.locator_kind, payload.locator, _now()),
                 )
                 row = conn.execute("SELECT * FROM data_assets WHERE id=?", (asset_id,)).fetchone()
+            elif (
+                row["locator_kind"] == "bundled"
+                and payload.locator_kind == "bundled"
+                and row["locator"] != payload.locator
+            ):
+                # A portable installation may be moved without changing the
+                # immutable asset identity. Managed copies remain authoritative.
+                conn.execute(
+                    "UPDATE data_assets SET locator=? WHERE id=?",
+                    (payload.locator, row["id"]),
+                )
+                row = conn.execute("SELECT * FROM data_assets WHERE id=?", (row["id"],)).fetchone()
         assert row is not None
         return self._asset(row)
 
@@ -455,10 +467,36 @@ class WorkspaceCatalog:
                 stored = tuple(row[key] for key in (
                     "package_id", "task_id", "task_contract_digest", "manifest_digest", "locator", "manifest_json"
                 ))
-                if stored != immutable:
+                stored_without_locator = (
+                    row["package_id"],
+                    row["task_id"],
+                    row["task_contract_digest"],
+                    row["manifest_digest"],
+                    row["manifest_json"],
+                )
+                immutable_without_locator = (
+                    payload.package_id,
+                    payload.task_id,
+                    payload.task_contract_digest,
+                    payload.manifest_digest,
+                    manifest_json,
+                )
+                if stored_without_locator != immutable_without_locator:
                     raise CatalogConflictError(
                         f"Model Package {payload.package_id} ({payload.manifest_digest}) は別内容で登録済みです"
                     )
+                if stored != immutable:
+                    # Package identity is fixed by package_id + manifest digest.
+                    # Rebind only the operational location when a portable
+                    # installation has moved.
+                    conn.execute(
+                        "UPDATE model_package_refs SET locator=? WHERE id=?",
+                        (payload.locator, row["id"]),
+                    )
+                    row = conn.execute(
+                        "SELECT * FROM model_package_refs WHERE id=?",
+                        (row["id"],),
+                    ).fetchone()
             else:
                 conn.execute(
                     "INSERT INTO model_package_refs(id,package_id,task_id,task_contract_digest,manifest_digest,"

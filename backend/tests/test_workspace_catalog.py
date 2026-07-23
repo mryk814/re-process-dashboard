@@ -78,6 +78,51 @@ def test_catalog_upserts_are_deterministic_across_databases(tmp_path: Path) -> N
     assert first.upsert_model_package_ref(package_payload).id == second.upsert_model_package_ref(package_payload).id
 
 
+def test_bundled_resources_rebind_after_portable_installation_moves(tmp_path: Path) -> None:
+    catalog = WorkspaceCatalog(tmp_path / "catalog.db")
+    original_asset = _asset().model_copy(update={"locator": str(tmp_path / "old" / "source.xlsx")})
+    moved_asset = original_asset.model_copy(update={"locator": str(tmp_path / "moved" / "source.xlsx")})
+
+    asset = catalog.upsert_data_asset(original_asset)
+    rebound_asset = catalog.upsert_data_asset(moved_asset)
+
+    assert rebound_asset.id == asset.id
+    assert rebound_asset.locator == moved_asset.locator
+
+    original_package = ModelPackageRefCreateInput(
+        package_id="annealed-gp-v1",
+        task_id="annealed-properties-v1",
+        task_contract_digest="task-contract-v1",
+        manifest_digest="manifest-v1",
+        locator=str(tmp_path / "old" / "models" / "annealed-gp-v1"),
+        manifest_json={"schema_version": "model-package-v1", "targets": ["TS"]},
+    )
+    moved_package = original_package.model_copy(
+        update={"locator": str(tmp_path / "moved" / "models" / "annealed-gp-v1")}
+    )
+
+    package = catalog.upsert_model_package_ref(original_package)
+    rebound_package = catalog.upsert_model_package_ref(moved_package)
+
+    assert rebound_package.id == package.id
+    assert rebound_package.locator == moved_package.locator
+
+
+def test_managed_dataset_locator_is_not_replaced_by_bundled_bootstrap(tmp_path: Path) -> None:
+    catalog = WorkspaceCatalog(tmp_path / "catalog.db")
+    managed = _asset().model_copy(
+        update={"locator_kind": "managed", "locator": str(tmp_path / "library" / "source.xlsx")}
+    )
+    bundled = _asset().model_copy(update={"locator": str(tmp_path / "resources" / "source.xlsx")})
+
+    asset = catalog.upsert_data_asset(managed)
+    after_bootstrap = catalog.upsert_data_asset(bundled)
+
+    assert after_bootstrap.id == asset.id
+    assert after_bootstrap.locator_kind == "managed"
+    assert after_bootstrap.locator == managed.locator
+
+
 def test_profile_logical_revision_rejects_different_immutable_content(tmp_path: Path) -> None:
     catalog = WorkspaceCatalog(tmp_path / "catalog.db")
     catalog.upsert_profile_revision(_profile())
