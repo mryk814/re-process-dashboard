@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
+import { join } from "node:path";
 
 const api = "http://127.0.0.1:8875";
 
@@ -54,6 +55,35 @@ test("dataset import stays in the global data library context", async ({ page })
   await page.goto("/?view=settings&project=default&admin=profile");
   await expect(page.getByRole("navigation", { name: "開発・管理メニュー" })).not.toContainText("Profile Workbench");
   await expect(page.getByRole("heading", { name: "新しいDatasetを準備" })).toHaveCount(0);
+});
+
+test("developer guide continues through Profile Workbench to project creation", async ({ page }) => {
+  await page.goto("/?view=settings&project=default&admin=developer");
+  await page.getByRole("button", { name: "Change Guide" }).click();
+  await page.getByRole("button", { name: "Profile WorkbenchでExcelを確認" }).click();
+
+  await expect(page).toHaveURL(/view=profile-workbench/);
+  const steps = page.getByRole("list", { name: "Dataset登録からProject作成まで" });
+  await expect(steps).toContainText("Excel");
+  await expect(steps).toContainText("Profile候補");
+  await expect(steps).toContainText("構造差分");
+  await expect(steps).toContainText("Project作成");
+
+  await page.locator('input[type="file"]').setInputFiles(
+    join(process.cwd(), "data", "source", "material_workbench_tutorial_v1.xlsx"),
+  );
+  await page.getByRole("button", { name: "3 内容を確認" }).click();
+  await expect(page.getByRole("heading", { name: "Canonical preview" })).toBeVisible();
+  await expect(page.getByText("必須構造はProfileに対応")).toBeVisible();
+  await expect(page.locator(".profile-candidate-summary").getByText("Profile候補", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "4 この内容で登録" }).click();
+  await expect(page.getByRole("button", { name: "このDatasetでプロジェクト作成" })).toBeVisible();
+  await page.getByRole("button", { name: "このDatasetでプロジェクト作成" }).click();
+
+  await expect(page).toHaveURL(/view=project/);
+  await expect(page.getByRole("heading", { name: "新しいプロジェクト" })).toBeVisible();
+  await expect(page.getByLabel("Dataset")).not.toHaveValue("");
 });
 
 test("project hub keeps the active project visible across scoped navigation", async ({ page }) => {

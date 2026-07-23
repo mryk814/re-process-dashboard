@@ -69,6 +69,8 @@ export function ProfileWorkbenchPage({
     && !registration
     && !error,
   );
+  const currentStep = registration ? 6 : inspection?.validation?.registration_ready && !inspection.profile_error ? 5 : inspection ? 3 : file ? 2 : 1;
+  const steps = ["Excel", "Profile候補", "構造差分", "Validate", "Dataset登録", "Project作成"];
 
   function cancelInspection() {
     inspectController.current?.abort();
@@ -143,6 +145,9 @@ export function ProfileWorkbenchPage({
       <div><span className="overline">PROFILE WORKBENCH</span><h2>新しいDatasetを準備</h2><p>Excelを変更せず、既存Profileとの対応と正規化結果を確認してからData Libraryへ登録します。</p></div>
       <button className="outline-button" onClick={onOpenDataLibrary}>データライブラリに戻る</button>
     </div>
+    <ol className="profile-workbench-steps" aria-label="Dataset登録からProject作成まで">
+      {steps.map((step, index) => <li key={step} className={currentStep >= index + 1 ? currentStep === index + 1 ? "current" : "complete" : ""}><b>{index + 1}</b><span>{step}</span></li>)}
+    </ol>
 
     <section className="profile-workbench-inputs" aria-label="ExcelとDataset Profileの選択">
       <label className={file ? "profile-file-picker selected" : "profile-file-picker"}>
@@ -162,6 +167,16 @@ export function ProfileWorkbenchPage({
       <section className="profile-inspection-summary">
         <header><div><span>確認したExcel</span><strong>{inspection.source_filename}</strong><code title={inspection.source_sha256}>{shortDigest(inspection.source_sha256)}</code></div><div><span>Dataset Profile</span><strong>{selectedProfile?.profile_id ?? "検出できませんでした"}</strong>{inspection.auto_detected && <b>自動検出</b>}</div></header>
         {inspection.profile_error && <div className="profile-validation-error" role="alert"><strong>このProfileでは登録できません</strong><p>{inspection.profile_error}</p><small>Profileを選び直して、もう一度「内容を確認」してください。</small></div>}
+        <div className="profile-candidate-summary">
+          <span>Profile候補</span>
+          {profiles.map((item) => <button type="button" key={item.profile_digest} className={item.profile_digest === selectedProfileDigest ? "selected" : ""} disabled={registering || Boolean(registration)} onClick={() => selectProfile(item.profile_digest)}>
+            <b>{item.profile_id}</b><small>{item.task_ids.join(" / ")}</small>
+          </button>)}
+        </div>
+        <div className={inspection.profile_error ? "profile-structure-diff mismatch" : "profile-structure-diff match"}>
+          <b>{inspection.profile_error ? "構造差分あり" : "必須構造はProfileに対応"}</b>
+          <span>{inspection.sheets.length}シートを確認 · 未使用の補助列はDatasetへ残し、予測入力へ自動追加しません。</span>
+        </div>
         <div className="profile-sheet-list" aria-label="Workbook inventory">{inspection.sheets.map((sheet) => <article key={sheet.name}><header><strong>{sheet.name}</strong><span>{sheet.rows.toLocaleString("ja-JP")}行</span></header><p title={sheet.headers.join(" / ")}>{sheet.headers.slice(0, 6).join(" / ")}{sheet.headers.length > 6 ? ` / ほか${sheet.headers.length - 6}列` : ""}</p></article>)}</div>
       </section>
 

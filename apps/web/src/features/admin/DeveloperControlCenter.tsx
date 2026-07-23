@@ -30,7 +30,7 @@ function CopyCommand({ command }: { command: string }) {
   return <div className="developer-command"><code>{command}</code><button type="button" onClick={() => void copy()}>{copied ? "コピー済み" : "コピー"}</button></div>;
 }
 
-export function DeveloperControlCenter() {
+export function DeveloperControlCenter({ onOpenProfileWorkbench }: { onOpenProfileWorkbench: () => void }) {
   const [tab, setTab] = useState<ControlTab>("overview");
   const [overview, setOverview] = useState<ApiDeveloperOverview | null>(null);
   const [guide, setGuide] = useState<ApiChangeGuideEntry[]>([]);
@@ -113,6 +113,7 @@ export function DeveloperControlCenter() {
           <section><h3>関連文書</h3><ul>{selected.documents.map((item) => <li key={item}><code>{item}</code></li>)}</ul></section>
         </div>
         {selected.human_review && <p className="developer-review">人の判断: {selected.human_review}</p>}
+        {(selected.id === "new-excel" || selected.id === "workbook-shape") && <button type="button" className="primary-button developer-open-profile" onClick={onOpenProfileWorkbench}>Profile WorkbenchでExcelを確認</button>}
         <h3>推奨コマンド</h3>
         {selected.commands.map((command) => <CopyCommand command={command} key={command} />)}
       </article>}

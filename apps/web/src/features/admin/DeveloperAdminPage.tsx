@@ -30,6 +30,7 @@ export function DeveloperAdminPage({
   onQualityFiltersChange,
   onOpenLineage,
   onProjectChanged,
+  onOpenProfileWorkbench,
 }: {
   project: ApiProject | undefined;
   taskDefinition: TaskDefinitionContract | null;
@@ -40,6 +41,7 @@ export function DeveloperAdminPage({
   onQualityFiltersChange: (filters: QualityFilters) => void;
   onOpenLineage: (issue: ApiQuality["detected_issues"][number], filters: QualityFilters) => void;
   onProjectChanged: (project: ApiProject) => void;
+  onOpenProfileWorkbench: () => void;
 }) {
   const [section, setSection] = useState<AdminSection>(initialSection ?? "developer");
   const [modelPackage, setModelPackage] = useState<ApiModelPackage | null>(null);
@@ -72,7 +74,7 @@ export function DeveloperAdminPage({
       <nav aria-label="開発・管理メニュー">{sections.map((item) => <button key={item.id} className={visibleSection === item.id ? "active" : ""} onClick={() => { setSection(item.id); onSectionChange(item.id); }}>{item.label}</button>)}</nav>
     </aside>
     <div className="admin-content">
-      {visibleSection === "developer" && <DeveloperControlCenter />}
+      {visibleSection === "developer" && <DeveloperControlCenter onOpenProfileWorkbench={onOpenProfileWorkbench} />}
       {visibleSection === "quality" && (project?.id
         ? <LiveDataQualityPage projectId={project.id} filters={qualityFilters} onFiltersChange={onQualityFiltersChange} onOpenLineage={onOpenLineage} showReferenceScenarios mode="summary" />
         : <p className="empty-evidence">プロジェクトを読み込んでいます。</p>)}

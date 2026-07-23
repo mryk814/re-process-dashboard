@@ -286,6 +286,7 @@ function App() {
             onProjectChanged={(project) => {
               void session.refreshAdminProject(project);
             }}
+            onOpenProfileWorkbench={() => navigate({ view: "profile-workbench" })}
           />
         )}
         {tab === "candidates" &&
