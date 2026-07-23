@@ -21,7 +21,7 @@ from .schemas import (
 from .workspace_catalog_migration import migrate_workspace_catalog
 
 
-MAX_CANDIDATES_PER_PROJECT = 10
+MAX_CANDIDATES_PER_PROJECT = 100
 PROTECTED_PROJECT_IDS = frozenset({"default", HOT_PROJECT_ID})
 
 

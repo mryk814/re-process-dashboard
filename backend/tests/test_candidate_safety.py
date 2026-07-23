@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import sqlite3
 
+from material_workbench.store import MAX_CANDIDATES_PER_PROJECT
+
 
 def _create_candidate(client, name: str = "競合確認") -> dict:
     source = client.get("/api/projects/default/candidates").json()[0]
@@ -155,7 +157,7 @@ def test_domain_error_codes_and_openapi_contract_are_distinct(client) -> None:
     assert locked.status_code == 409
     assert locked.json()["code"] == "project_task_locked"
 
-    for index in range(10 - len(client.get("/api/projects/default/candidates").json())):
+    for index in range(MAX_CANDIDATES_PER_PROJECT - len(client.get("/api/projects/default/candidates").json())):
         assert _create_candidate(client, f"上限{index}")
     limit = client.post(
         "/api/projects/default/candidates",
