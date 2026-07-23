@@ -172,7 +172,7 @@ def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
     assert client.get("/api/health").json()["ok"] is True
     assert client.get("/api/model-package").status_code == 404
     package = client.get("/api/projects/default/model-package").json()
-    assert package["id"] == "annealed-gp-2026-07"
+    assert package["id"] == "annealed-gp-2026-07-feature-design-v3"
     assert len(package["manifest_sha256"]) == 64
     assert package["quality_report"]["split"] == "leave-one-parent-condition-out"
     assert {item["target"] for item in package["quality_report"]["targets"]} == {"TS", "YS", "EL", "lambda"}

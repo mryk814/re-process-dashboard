@@ -1,0 +1,14 @@
+{
+  "schema_version": "model-quality-report/v1",
+  "split": "grouped-parent-condition-k-fold",
+  "folds": 5,
+  "targets": [
+    {
+      "target": "TS",
+      "parent_conditions": 183,
+      "mae": 6.818917695277944,
+      "rmse": 8.46389817696078,
+      "interval_coverage_90": 0.8961748633879781
+    }
+  ]
+}

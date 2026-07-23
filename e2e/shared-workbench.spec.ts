@@ -6,6 +6,27 @@ const tasks = [
 ] as const;
 const apiPort = Number(process.env.PLAYWRIGHT_API_PORT ?? 8875);
 
+test("engineered material features are inspectable for annealing and hot rolling", async ({ page }, testInfo) => {
+  await page.goto("/?view=candidates&project=default");
+  const annealing = page.locator(".feature-engineering-panel");
+  await expect(annealing.getByText("内部で作った特徴量")).toBeVisible();
+  await expect(annealing).not.toHaveAttribute("open", "");
+  await expect(page.locator(".central-workspace > :last-child")).toHaveClass(/feature-engineering-panel/);
+  await annealing.locator("summary").click();
+  await expect(annealing.getByText("Ac1 目安", { exact: true })).toBeVisible();
+  await expect(annealing.getByText("最高温度−Ac3目安", { exact: true })).toBeVisible();
+
+  await page.goto("/?view=candidates&project=hot-rolling-default");
+  const hotRolling = page.locator(".feature-engineering-panel");
+  await expect(hotRolling.getByText("内部で作った特徴量")).toBeVisible();
+  await expect(hotRolling).not.toHaveAttribute("open", "");
+  await expect(page.locator(".central-workspace > :last-child")).toHaveClass(/feature-engineering-panel/);
+  await hotRolling.locator("summary").click();
+  await expect(hotRolling.getByText("総圧下率", { exact: true })).toBeVisible();
+  await expect(hotRolling.getByText("仕上温度−Ar3目安", { exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("feature-engineering-hot-rolling.png"), fullPage: true });
+});
+
 for (const task of tasks) {
   test(`${task.projectId} uses the common candidate, prediction, and snapshot flow`, async ({ page }) => {
     const pageErrors: string[] = [];

@@ -9,7 +9,19 @@ from typing import Any
 import numpy as np
 
 from .feature_contracts import feature_index_families
-from .hot_rolling_feature_pipeline import FEATURE_DEFINITIONS, FEATURE_NAMES, INPUT_SCHEMA_VERSION, PIPELINE_ID, PIPELINE_VERSION, build_hot_rolling_features, build_hot_rolling_features_from_observation
+from .hot_rolling_feature_pipeline import (
+    FEATURE_DEFINITIONS,
+    FEATURE_NAMES,
+    INPUT_SCHEMA_VERSION,
+    PIPELINE_ID,
+    PIPELINE_VERSION,
+    V2_FEATURE_DEFINITIONS,
+    V2_FEATURE_NAMES,
+    V2_PIPELINE_VERSION,
+    build_hot_rolling_features,
+    build_hot_rolling_features_v2,
+    candidate_from_observation,
+)
 from .dataset_profile import load_task_definitions
 from .importer import WorkbookData, lineage_reference_keys
 from .model_packages import ModelPackageLoader, predictive_interval, validate_predictive_summary, validate_task_definition_canonical_inputs
@@ -29,10 +41,15 @@ FEATURE_GROUP_INDICES = feature_index_families(
 )
 
 
-def _distance(reference: np.ndarray, point: np.ndarray, columns: tuple[int, ...] | None = None) -> np.ndarray:
+def _distance(
+    reference: np.ndarray,
+    point: np.ndarray,
+    columns: tuple[int, ...] | None = None,
+    groups: dict[str, tuple[int, ...]] = FEATURE_GROUP_INDICES,
+) -> np.ndarray:
     if columns is not None:
         return np.sqrt(((reference[:, columns] - point[list(columns)]) ** 2).mean(axis=1))
-    parts = [((reference[:, columns] - point[list(columns)]) ** 2).mean(axis=1) for columns in FEATURE_GROUP_INDICES.values()]
+    parts = [((reference[:, columns] - point[list(columns)]) ** 2).mean(axis=1) for columns in groups.values()]
     return np.sqrt(np.vstack(parts).mean(axis=0))
 
 
@@ -43,16 +60,35 @@ class HotRollingRuntime:
     def __init__(self, data: WorkbookData, package_root: str | Path | None = None) -> None:
         self.data = data
         self.task_definition = load_task_definitions()[TASK_ID]
-        default = Path(__file__).resolve().parents[3] / "models" / "packages" / "hot-rolled-horseshoe-2026-07"
+        default = Path(__file__).resolve().parents[3] / "models" / "packages" / "hot-rolled-horseshoe-2026-07-feature-design-v3"
         self.model_package = ModelPackageLoader().load(package_root or default)
         manifest = self.model_package.manifest
+        self.feature_names = FEATURE_NAMES
+        self.feature_definitions = FEATURE_DEFINITIONS
+        self.pipeline_version = PIPELINE_VERSION
+        self._feature_builder = build_hot_rolling_features
         validate_task_definition_canonical_inputs(self.task_definition, manifest)
         if manifest.task_id != TASK_ID:
             raise ValueError(f"Model package task {manifest.task_id} is incompatible with {TASK_ID}")
-        if (manifest.feature_pipeline.id, manifest.feature_pipeline.version) != (PIPELINE_ID, PIPELINE_VERSION):
+        if manifest.feature_pipeline.id != PIPELINE_ID:
             raise ValueError("Hot-rolling model package feature pipeline is incompatible")
-        if tuple(manifest.feature_pipeline.output_features) != FEATURE_NAMES:
+        if manifest.feature_pipeline.version == V2_PIPELINE_VERSION:
+            self.feature_names = V2_FEATURE_NAMES
+            self.feature_definitions = V2_FEATURE_DEFINITIONS
+            self.pipeline_version = V2_PIPELINE_VERSION
+            self._feature_builder = build_hot_rolling_features_v2
+        elif manifest.feature_pipeline.version != PIPELINE_VERSION:
+            raise ValueError("Hot-rolling model package feature pipeline is incompatible")
+        if tuple(manifest.feature_pipeline.output_features) != self.feature_names:
             raise ValueError("Hot-rolling model package feature order is incompatible")
+        self.feature_group_indices = feature_index_families(
+            self.feature_definitions,
+            {
+                "composition": ("composition",),
+                "metallurgy": ("metallurgy",),
+                "process": ("process",),
+            },
+        )
         stats_path = next(path for path in manifest.feature_pipeline.artifacts if path.endswith("training_stats.json"))
         stats = json.loads(self.model_package.artifact_path(stats_path).read_text(encoding="utf-8"))
         self.composition_defaults = {name: float(value) for name, value in stats["composition_defaults"].items()}
@@ -67,7 +103,7 @@ class HotRollingRuntime:
             raise ValueError("Hot-rolling model package must declare a smoke test")
         candidate = CandidateInput.model_validate(json.loads(self.model_package.artifact_path(smoke.input).read_text(encoding="utf-8")))
         expected = json.loads(self.model_package.artifact_path(smoke.expected).read_text(encoding="utf-8"))
-        values = build_hot_rolling_features(candidate, self.composition_defaults).as_dict()
+        values = self._feature_builder(candidate, self.composition_defaults).as_dict()
         specs = {spec.target: spec for spec in self.model_package.manifest.predictors}
         capabilities = {item.target: item for item in load_task_contracts()[TASK_ID].runtime_capability.targets}
         summaries = {target: predictor.predict(values) for target, predictor in self.predictors.items()}
@@ -86,7 +122,11 @@ class HotRollingRuntime:
         for row in observations:
             grouped[str(row["parent_key"])].append(row)
         self.reference_rows = [rows for _, rows in sorted(grouped.items())]
-        bundles = [build_hot_rolling_features_from_observation(rows[0], self.composition_defaults) for rows in self.reference_rows]
+        bundles = [
+            self._feature_builder(candidate, self.composition_defaults)
+            if (candidate := candidate_from_observation(rows[0])) is not None else None
+            for rows in self.reference_rows
+        ]
         if any(bundle is None for bundle in bundles):
             raise ValueError("eligible hot-rolling observations must convert to candidates")
         raw = np.vstack([
@@ -103,11 +143,11 @@ class HotRollingRuntime:
         self.loo_nearest = pairwise.min(axis=1)
 
     def vector(self, candidate: CandidateInput) -> np.ndarray:
-        return build_hot_rolling_features(candidate, self.composition_defaults).values
+        return self._feature_builder(candidate, self.composition_defaults).values
 
     def _support(self, candidate: CandidateInput, *, include_similarity: bool = True) -> tuple[Support, list[dict[str, Any]]]:
         normalized = (self.vector(candidate) - self.reference_mean) / self.reference_scale
-        distances = _distance(self.reference_vectors, normalized)
+        distances = _distance(self.reference_vectors, normalized, groups=self.feature_group_indices)
         nearest_index = int(np.argmin(distances))
         nearest = float(distances[nearest_index])
         supported_limit, caution_limit = (float(value) for value in np.quantile(self.loo_nearest, (0.80, 0.95)))
@@ -135,7 +175,7 @@ class HotRollingRuntime:
                     "distance": round(float(distances[index]), 4),
                     "components": {
                         name: round(float(_distance(self.reference_vectors, normalized, columns)[int(index)]), 4)
-                        for name, columns in FEATURE_GROUP_INDICES.items()
+                        for name, columns in self.feature_group_indices.items()
                     },
                     "repeat_summary": {
                         name: {"mean": round(float(np.mean(items)), 3), "std": round(float(np.std(items)), 3), "n": len(items)}
@@ -148,7 +188,7 @@ class HotRollingRuntime:
             distance=round(nearest, 4),
             percentile=round(float((self.loo_nearest <= nearest).mean() * 100), 1),
             message=message,
-            components={name: round(float(_distance(self.reference_vectors, normalized, columns)[nearest_index]), 4) for name, columns in FEATURE_GROUP_INDICES.items()},
+            components={name: round(float(_distance(self.reference_vectors, normalized, columns)[nearest_index]), 4) for name, columns in self.feature_group_indices.items()},
             reference_count=len(self.reference_rows),
             supported_threshold=round(supported_limit, 4),
             caution_threshold=round(caution_limit, 4),
@@ -165,7 +205,7 @@ class HotRollingRuntime:
         target_values: dict[str, float] | None = None,
         **_: Any,
     ) -> dict[str, Any]:
-        bundle = build_hot_rolling_features(candidate, self.composition_defaults)
+        bundle = self._feature_builder(candidate, self.composition_defaults)
         values = bundle.as_dict()
         predictions: dict[str, Prediction] = {}
         for target, predictor in self.predictors.items():
@@ -218,13 +258,14 @@ class HotRollingRuntime:
                 "input_schema_version": INPUT_SCHEMA_VERSION,
                 "composition_mass_percent": {name: values[name] for name in self.composition_defaults},
                 "process": process,
+                "feature_engineering": bundle.explanation_rows(),
                 "feature_vector": values,
             },
             "model_meta": {
                 "task_id": self.task_id,
                 "model": {"id": self.model_package.manifest.package_id, "version": self.model_package.manifest.package_version, "method": model_method},
                 "package": {"id": self.model_package.manifest.package_id, "version": self.model_package.manifest.package_version, "manifest_sha256": self.model_package.manifest_sha256, "runtime_types": sorted({item.runtime_type for item in self.model_package.manifest.predictors})},
-                "feature_pipeline": {"id": PIPELINE_ID, "version": PIPELINE_VERSION, "input_schema_version": INPUT_SCHEMA_VERSION, "features": list(FEATURE_NAMES)},
+                "feature_pipeline": {"id": PIPELINE_ID, "version": self.pipeline_version, "input_schema_version": INPUT_SCHEMA_VERSION, "features": list(self.feature_names)},
                 "training_data": {"source_path": self.data.source_path, "source_sha256": self.data.source_sha256, "records": self.training_counts, "package_training_data_id": self.model_package.manifest.provenance.training_data_id, "package_feature_dataset_id": self.model_package.manifest.provenance.feature_dataset_id},
                 "prediction_interval": interval_identity,
                 "similarity": {"version": SUPPORT_POLICY_ID, "method": "parent-condition nearest-neighbor distance over composition, metallurgy, and process feature groups"},
@@ -362,7 +403,7 @@ class HotRollingRuntime:
             adjusted = candidate.model_copy(deep=True)
             values = adjusted.inputs.composition if group == "composition" else adjusted.inputs.process
             values[name] = float(x_value)
-            summary = predictor.predict(build_hot_rolling_features(adjusted, self.composition_defaults).as_dict())
+            summary = predictor.predict(self._feature_builder(adjusted, self.composition_defaults).as_dict())
             value = summary.point_estimate
             interval_lower, interval_upper = predictive_interval(summary)
             curve.append({

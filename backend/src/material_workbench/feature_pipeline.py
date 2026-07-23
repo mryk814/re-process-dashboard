@@ -6,6 +6,7 @@ from typing import Any, Mapping, Sequence
 import numpy as np
 
 from .feature_contracts import FeatureBundle, FeatureDefinition
+from .metallurgy_features import transformation_temperature_proxies
 from .schemas import CandidateInput, HeatPoint
 
 
@@ -18,29 +19,63 @@ CANONICAL_INPUT_PATHS = (
     "heat_pattern",
 )
 FEATURE_PIPELINE_ID = "metallurgy-thermal"
-FEATURE_PIPELINE_VERSION = "2.0.0"
+FEATURE_PIPELINE_VERSION = "3.0.0"
 
 FEATURE_DEFINITIONS = (
     *(FeatureDefinition(name, "%", f"{name} composition", "composition") for name in COMPOSITION_NAMES),
     FeatureDefinition("ls_mpm", "mpm", "Annealing line speed", "process"),
-    FeatureDefinition("ce_iiw", "%", "IIW carbon-equivalent proxy", "metallurgy"),
-    FeatureDefinition("pcm", "%", "Ito-Bessyo weld-cracking composition parameter", "metallurgy"),
-    FeatureDefinition("c_times_mn", "%^2", "Carbon-manganese interaction proxy", "metallurgy"),
-    FeatureDefinition("si_plus_al", "%", "Combined silicon and aluminium content", "metallurgy"),
-    FeatureDefinition("cr_plus_mo", "%", "Combined chromium and molybdenum content", "metallurgy"),
-    FeatureDefinition("microalloy_sum", "%", "Available microalloying content, Ti + B", "metallurgy"),
-    FeatureDefinition("peak_temperature_c", "°C", "Peak temperature of the annealing history", "heat_pattern"),
-    FeatureDefinition("max_heating_rate_c_s", "°C/s", "Maximum positive segment heating rate", "heat_pattern"),
-    FeatureDefinition("time_at_or_above_95pct_peak_s", "s", "Time at or above 95% of peak", "heat_pattern"),
-    FeatureDefinition("time_at_or_above_700c_s", "s", "Time at or above 700°C", "heat_pattern"),
-    FeatureDefinition("thermal_exposure_above_600c_c_s", "°C*s", "Thermal exposure above 600°C", "heat_pattern"),
-    FeatureDefinition("cooling_rate_800_to_500_c_s", "°C/s", "Cooling rate between 800°C and 500°C", "heat_pattern"),
-    FeatureDefinition("cooling_800_to_500_observed", "1", "Whether the cooling rate is observed", "heat_pattern"),
-    FeatureDefinition("reheat_count", "count", "Cooling-to-heating excursions", "heat_pattern"),
-    FeatureDefinition("has_reheat", "1", "Whether a reheat excursion exists", "heat_pattern"),
+    FeatureDefinition("ce_iiw", "%", "IIW carbon-equivalent proxy", "metallurgy", "炭素当量 CEIIW", "組成指標", "C + Mn/6 + (Cr+Mo)/5 + Ni/15", "規格判定や因果量ではありません。"),
+    FeatureDefinition("pcm", "%", "Ito-Bessyo weld-cracking composition parameter", "metallurgy", "割れ感受性組成 Pcm", "組成指標", "C + Si/30 + (Mn+Cr)/20 + Ni/60 + Mo/15 + 5B + Cu/20", "水素量・拘束・板厚は含みません。"),
+    FeatureDefinition("c_times_mn", "%²", "Carbon-manganese interaction proxy", "metallurgy", "C×Mn 相互作用", "組成指標", "C × Mn", "機構式ではなく低次数の相互作用項です。"),
+    FeatureDefinition("si_plus_al", "%", "Combined silicon and aluminium content", "metallurgy", "Si+Al", "組成指標", "Si + Al", "有効固溶量や酸化物形態は表しません。"),
+    FeatureDefinition("cr_plus_mo", "%", "Combined chromium and molybdenum content", "metallurgy", "Cr+Mo", "組成指標", "Cr + Mo", "両元素が同じ効果という意味ではありません。"),
+    FeatureDefinition("microalloy_sum", "%", "Available microalloying content, Ti + B", "metallurgy", "微量添加量 Ti+B", "組成指標", "Ti + B", "Nb・Vを含まない取得範囲内の指標です。"),
+    FeatureDefinition("ac1_proxy_c", "°C", "Simplified Ac1 transformation-temperature proxy", "metallurgy", "Ac1 目安", "変態点の目安", "723 - 10.7Mn - 16.9Ni + 29.1Si + 16.9Cr", "組成だけから求めた簡易式です。実測変態点ではありません。"),
+    FeatureDefinition("ac3_proxy_c", "°C", "Simplified Ac3 transformation-temperature proxy", "metallurgy", "Ac3 目安", "変態点の目安", "910 - 203√C - 15.2Ni + 44.7Si + 31.5Mo", "利用可能元素だけの簡易式です。"),
+    FeatureDefinition("ms_proxy_c", "°C", "Simplified martensite-start temperature proxy", "metallurgy", "Ms 目安", "変態点の目安", "539 - 423C - 30.4Mn - 17.7Ni - 12.1Cr - 7.5Mo", "冷却条件や旧γ粒径を含まない組成指標です。"),
+    FeatureDefinition("ti_after_tin_proxy", "%", "Titanium remaining after stoichiometric TiN allocation", "metallurgy", "TiN固定後Tiの目安", "析出・固溶の目安", "max(Ti - 3.42N, 0)", "TiとNが全量TiNになる単純仮定です。"),
+    FeatureDefinition("peak_temperature_c", "°C", "Peak temperature of the annealing history", "heat_pattern", "最高温度", "温度履歴", "max(T(t))"),
+    FeatureDefinition("max_heating_rate_c_s", "°C/s", "Maximum positive segment heating rate", "heat_pattern", "最大加熱速度", "温度履歴", "max(ΔT/Δt, 0)", "点列の刻み方に敏感です。"),
+    FeatureDefinition("time_at_or_above_95pct_peak_s", "s", "Time at or above 95% of peak", "heat_pattern", "最高温度95%以上の時間", "保持", "∫ I[T ≥ 0.95×peak] dt"),
+    FeatureDefinition("time_at_or_above_700c_s", "s", "Time at or above 700°C", "heat_pattern", "700℃以上の時間", "保持", "∫ I[T ≥ 700] dt"),
+    FeatureDefinition("thermal_exposure_above_600c_c_s", "°C·s", "Thermal exposure above 600°C", "heat_pattern", "600℃超過の熱履歴量", "保持", "∫ max(T-600, 0) dt"),
+    FeatureDefinition("cooling_rate_800_to_500_c_s", "°C/s", "Cooling rate between 800°C and 500°C", "heat_pattern", "800→500℃冷却速度", "冷却", "300 / (t500 - t800)", "両温度の通過を観測できた場合だけ計算します。"),
+    FeatureDefinition("cooling_800_to_500_observed", "1", "Whether the cooling rate is observed", "heat_pattern", "800→500℃観測あり", "冷却", "0 / 1"),
+    FeatureDefinition("reheat_count", "count", "Cooling-to-heating excursions", "heat_pattern", "再加熱回数", "再加熱", "25℃以上の冷却→加熱反転数"),
+    FeatureDefinition("has_reheat", "1", "Whether a reheat excursion exists", "heat_pattern", "再加熱あり", "再加熱", "reheat_count ≥ 1"),
+    FeatureDefinition("peak_minus_ac1_c", "°C", "Peak-temperature margin above the Ac1 proxy", "heat_pattern", "最高温度−Ac1目安", "変態点×温度履歴", "peak - Ac1"),
+    FeatureDefinition("peak_minus_ac3_c", "°C", "Peak-temperature margin above the Ac3 proxy", "heat_pattern", "最高温度−Ac3目安", "変態点×温度履歴", "peak - Ac3"),
+    FeatureDefinition("time_above_ac1_s", "s", "Time above the composition-derived Ac1 proxy", "heat_pattern", "Ac1目安以上の時間", "変態点×温度履歴", "∫ I[T ≥ Ac1] dt"),
+    FeatureDefinition("time_above_ac3_s", "s", "Time above the composition-derived Ac3 proxy", "heat_pattern", "Ac3目安以上の時間", "変態点×温度履歴", "∫ I[T ≥ Ac3] dt"),
+    FeatureDefinition("intercritical_time_s", "s", "Time between the Ac1 and Ac3 proxies", "heat_pattern", "Ac1–Ac3間の時間", "変態点×温度履歴", "time(T≥Ac1) - time(T≥Ac3)", "二相域滞在の厳密な相分率ではありません。"),
+    FeatureDefinition("time_within_10c_of_peak_s", "s", "Time within 10°C of the peak temperature", "heat_pattern", "最高温度±10℃の時間", "保持", "∫ I[T ≥ peak-10] dt"),
+    FeatureDefinition("thermal_exposure_above_ac3_c_s", "°C·s", "Thermal exposure above the Ac3 proxy", "heat_pattern", "Ac3超過の熱履歴量", "変態点×温度履歴", "∫ max(T-Ac3, 0) dt"),
+    FeatureDefinition("cooling_reaches_ms", "1", "Whether post-peak cooling reaches the Ms proxy", "heat_pattern", "冷却がMs目安へ到達", "変態点×冷却", "min(T after peak) ≤ Ms", "実際のマルテンサイト生成を保証しません。"),
 )
 FEATURE_NAMES = tuple(item.name for item in FEATURE_DEFINITIONS)
 FEATURE_UNITS = tuple(item.unit for item in FEATURE_DEFINITIONS)
+V2_FEATURE_PIPELINE_VERSION = "2.0.0"
+V2_FEATURE_NAMES = (
+    *COMPOSITION_NAMES,
+    "ls_mpm",
+    "ce_iiw", "pcm", "c_times_mn", "si_plus_al", "cr_plus_mo", "microalloy_sum",
+    "peak_temperature_c", "max_heating_rate_c_s", "time_at_or_above_95pct_peak_s",
+    "time_at_or_above_700c_s", "thermal_exposure_above_600c_c_s",
+    "cooling_rate_800_to_500_c_s", "cooling_800_to_500_observed", "reheat_count", "has_reheat",
+)
+V2_FEATURE_DEFINITIONS = tuple(
+    FeatureDefinition(
+        item.name,
+        {
+            "c_times_mn": "%^2",
+            "thermal_exposure_above_600c_c_s": "°C*s",
+        }.get(item.name, item.unit),
+        item.meaning,
+        item.group,
+    )
+    for item in FEATURE_DEFINITIONS
+    if item.name in V2_FEATURE_NAMES
+)
 
 
 def _composition(candidate: CandidateInput, defaults: Mapping[str, float] | None) -> dict[str, float]:
@@ -185,15 +220,42 @@ def build_feature_bundle(candidate: CandidateInput, composition_defaults: Mappin
     c, si, mn = composition["C"], composition["Si"], composition["Mn"]
     cr, mo, ni = composition["Cr"], composition["Mo"], composition["Ni"]
     al, ti, b, cu = composition["Al"], composition["Ti"], composition["B"], composition["Cu"]
+    transformations = transformation_temperature_proxies(composition)
+    ac1 = transformations["ac1_proxy_c"]
+    ac3 = transformations["ac3_proxy_c"]
+    ms = transformations["ms_proxy_c"]
+    time_above_ac1 = _time_above(points, ac1)
+    time_above_ac3 = _time_above(points, ac3)
+    peak_stage = next(stage for stage in _stages(points) if points[peak_index] in stage)
+    stage_peak_index = peak_stage.index(points[peak_index])
+    post_peak_minimum = min(point.temperature_c for point in peak_stage[stage_peak_index:])
     values = np.asarray([
         *(composition[name] for name in COMPOSITION_NAMES),
         candidate.inputs.process["ls_mpm"],
         c + mn / 6.0 + (cr + mo) / 5.0 + ni / 15.0,
         c + si / 30.0 + (mn + cr) / 20.0 + ni / 60.0 + mo / 15.0 + 5.0 * b + cu / 20.0,
         c * mn, si + al, cr + mo, ti + b,
+        ac1, ac3, ms, transformations["ti_after_tin_proxy"],
         peak, max(0.0, *rates), _time_above(points, peak * 0.95), _time_above(points, 700.0),
         _excess_integral(points, 600.0), cooling_rate, cooling_observed, float(reheat_count), float(bool(reheat_count)),
+        peak - ac1, peak - ac3, time_above_ac1, time_above_ac3,
+        max(time_above_ac1 - time_above_ac3, 0.0), _time_above(points, peak - 10.0),
+        _excess_integral(points, ac3), float(post_peak_minimum <= ms),
     ], dtype=np.float64)
     if values.shape != (len(FEATURE_DEFINITIONS),) or not np.isfinite(values).all():
         raise ValueError("Annealing feature pipeline produced an invalid vector")
     return FeatureBundle(FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION, FEATURE_DEFINITIONS, values)
+
+
+def build_feature_bundle_v2(
+    candidate: CandidateInput,
+    composition_defaults: Mapping[str, float] | None = None,
+) -> FeatureBundle:
+    current = build_feature_bundle(candidate, composition_defaults).as_dict()
+    values = np.asarray([current[name] for name in V2_FEATURE_NAMES], dtype=np.float64)
+    return FeatureBundle(
+        FEATURE_PIPELINE_ID,
+        V2_FEATURE_PIPELINE_VERSION,
+        V2_FEATURE_DEFINITIONS,
+        values,
+    )

@@ -10,7 +10,18 @@ from typing import Any
 import numpy as np
 
 from .feature_contracts import feature_index_families
-from .feature_pipeline import FEATURE_DEFINITIONS, FEATURE_NAMES as METALLURGY_FEATURE_NAMES, FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION, build_feature_bundle, build_feature_bundle_from_observation
+from .feature_pipeline import (
+    FEATURE_DEFINITIONS,
+    FEATURE_NAMES as METALLURGY_FEATURE_NAMES,
+    FEATURE_PIPELINE_ID,
+    FEATURE_PIPELINE_VERSION,
+    V2_FEATURE_DEFINITIONS,
+    V2_FEATURE_NAMES,
+    V2_FEATURE_PIPELINE_VERSION,
+    build_feature_bundle,
+    build_feature_bundle_v2,
+    candidate_from_observation,
+)
 from .heat_time import line_speed_scaled_times
 from .dataset_profile import load_task_definitions
 from .importer import WorkbookData, composition_names, lineage_reference_keys
@@ -73,14 +84,19 @@ def _grouped_oof_residuals(x: np.ndarray, y: np.ndarray, groups: list[str]) -> t
     return residuals, folds
 
 
-def _rms_distance(reference: np.ndarray, point: np.ndarray, columns: tuple[int, ...] | None = None) -> np.ndarray:
+def _rms_distance(
+    reference: np.ndarray,
+    point: np.ndarray,
+    columns: tuple[int, ...] | None = None,
+    groups: dict[str, tuple[int, ...]] = FEATURE_GROUP_INDICES,
+) -> np.ndarray:
     if columns is not None:
         return np.sqrt(((reference[:, columns] - point[list(columns)]) ** 2).mean(axis=1))
     # Give composition, process, metallurgy and heat-history evidence equal
     # influence regardless of how many scalar features each group contains.
     component_mse = [
         ((reference[:, group] - point[list(group)]) ** 2).mean(axis=1)
-        for group in FEATURE_GROUP_INDICES.values()
+        for group in groups.values()
     ]
     return np.sqrt(np.vstack(component_mse).mean(axis=0))
 
@@ -124,7 +140,12 @@ class ModelRuntime:
 
     def __init__(self, data: WorkbookData, package_root: str | Path | None = None, *, load_package: bool = True) -> None:
         self.data = data
-        default_package = Path(__file__).resolve().parents[3] / "models" / "packages" / "annealed-gp-2026-07"
+        self.feature_names = FEATURE_NAMES
+        self.feature_definitions = FEATURE_DEFINITIONS
+        self.feature_pipeline_version = FEATURE_PIPELINE_VERSION
+        self._feature_builder = build_feature_bundle
+        self.feature_group_indices = FEATURE_GROUP_INDICES
+        default_package = Path(__file__).resolve().parents[3] / "models" / "packages" / "annealed-gp-2026-07-feature-design-v3"
         self.model_package: VerifiedModelPackage | None = (
             ModelPackageLoader().load(package_root or default_package)
             if load_package and (package_root or default_package.exists())
@@ -159,15 +180,31 @@ class ModelRuntime:
         validate_task_definition_canonical_inputs(load_task_definitions()[TASK_ID], manifest)
         if manifest.task_id != TASK_ID:
             raise ValueError(f"Model package task {manifest.task_id} is incompatible with {TASK_ID}")
-        expected = tuple(FEATURE_NAMES)
-        if (manifest.feature_pipeline.id, manifest.feature_pipeline.version) != (FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION):
+        if manifest.feature_pipeline.id != FEATURE_PIPELINE_ID:
             raise ValueError("Model package feature pipeline id/version is incompatible")
+        if manifest.feature_pipeline.version == V2_FEATURE_PIPELINE_VERSION:
+            self.feature_names = V2_FEATURE_NAMES
+            self.feature_definitions = V2_FEATURE_DEFINITIONS
+            self.feature_pipeline_version = V2_FEATURE_PIPELINE_VERSION
+            self._feature_builder = build_feature_bundle_v2
+        elif manifest.feature_pipeline.version != FEATURE_PIPELINE_VERSION:
+            raise ValueError("Model package feature pipeline id/version is incompatible")
+        expected = tuple(self.feature_names)
+        self.feature_group_indices = feature_index_families(
+            self.feature_definitions,
+            {
+                "composition": ("composition",),
+                "process": ("process",),
+                "metallurgy": ("metallurgy",),
+                "heat_pattern": ("heat_pattern",),
+            },
+        )
         if tuple(manifest.feature_pipeline.output_features) != expected:
             raise ValueError("Model package feature order does not match the application pipeline")
         if any(tuple(predictor.feature_names) != expected for predictor in manifest.predictors):
             raise ValueError("Model package predictor feature order is inconsistent")
         pipeline = json.loads(self.model_package.artifact_path(manifest.feature_pipeline.spec).read_text(encoding="utf-8"))
-        if (pipeline.get("id"), pipeline.get("version")) != (FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION):
+        if (pipeline.get("id"), pipeline.get("version")) != (FEATURE_PIPELINE_ID, self.feature_pipeline_version):
             raise ValueError("Model package pipeline specification id/version is incompatible")
         if tuple(item["name"] for item in pipeline.get("features", [])) != expected:
             raise ValueError("Model package pipeline specification is inconsistent")
@@ -189,7 +226,7 @@ class ModelRuntime:
             raise ValueError("Production model package must declare a smoke test")
         candidate = CandidateInput.model_validate(json.loads(self.model_package.artifact_path(smoke.input).read_text(encoding="utf-8")))
         expected = json.loads(self.model_package.artifact_path(smoke.expected).read_text(encoding="utf-8"))
-        values = build_feature_bundle(candidate, self.composition_defaults).as_dict()
+        values = self._feature_builder(candidate, self.composition_defaults).as_dict()
         specs = {spec.target: spec for spec in self.model_package.manifest.predictors}
         capabilities = {item.target: item for item in load_task_contracts()[TASK_ID].runtime_capability.targets}
         summaries = {target: predictor.predict(values, seed=0) for target, predictor in self.package_predictors.items()}
@@ -200,14 +237,14 @@ class ModelRuntime:
             raise ValueError("Model package smoke test did not reproduce its expected predictions")
 
     def vector_for_candidate(self, candidate: Candidate) -> np.ndarray:
-        return build_feature_bundle(candidate, self.composition_defaults).values.copy()
+        return self._feature_builder(candidate, self.composition_defaults).values.copy()
 
     def canonical_input(self, candidate: Candidate) -> dict[str, Any]:
-        bundle = build_feature_bundle(candidate, self.composition_defaults)
+        bundle = self._feature_builder(candidate, self.composition_defaults)
         vector = bundle.values.copy()
         feature_values = bundle.as_dict()
         normalized_vectors = {
-            target: {name: round(float(value), 10) for name, value in zip(FEATURE_NAMES, (vector - model.feature_mean) / model.feature_scale)}
+            target: {name: round(float(value), 10) for name, value in zip(self.feature_names, (vector - model.feature_mean) / model.feature_scale)}
             for target, model in self.models.items()
         }
         return {
@@ -234,13 +271,14 @@ class ModelRuntime:
                 "reheat_count": int(feature_values["reheat_count"]),
                 "has_reheat": bool(feature_values["has_reheat"]),
             },
-            "feature_vector": {name: round(float(value), 10) for name, value in zip(FEATURE_NAMES, vector)},
+            "feature_engineering": bundle.explanation_rows(),
+            "feature_vector": {name: round(float(value), 10) for name, value in zip(self.feature_names, vector)},
             "normalized_feature_vectors": normalized_vectors,
         }
 
     def _vector_for_observation(self, row: dict[str, Any]) -> np.ndarray | None:
-        bundle = build_feature_bundle_from_observation(row, self.data.medians)
-        return None if bundle is None else bundle.values.copy()
+        candidate = candidate_from_observation(row)
+        return None if candidate is None else self._feature_builder(candidate, self.data.medians).values.copy()
 
     @staticmethod
     def _support_reference(rows: list[dict[str, Any]], x: np.ndarray, mean: np.ndarray | None = None, scale: np.ndarray | None = None) -> SupportReference:
@@ -303,7 +341,7 @@ class ModelRuntime:
         if reference is None:
             raise RuntimeError("No eligible observations are available for support estimation")
         normalized = reference.normalized(x)
-        distances = _rms_distance(reference.parent_vectors, normalized)
+        distances = _rms_distance(reference.parent_vectors, normalized, groups=self.feature_group_indices)
         nearest_index = int(np.argmin(distances))
         nearest = float(distances[nearest_index])
         loo = reference.loo_nearest_distances
@@ -317,11 +355,11 @@ class ModelRuntime:
             status, message = "extrapolated", "独立した学習条件の近傍から外れています。予測値は探索的な参考です"
         components = {
             name: round(float(_rms_distance(reference.parent_vectors, normalized, columns)[nearest_index]), 4)
-            for name, columns in FEATURE_GROUP_INDICES.items()
+            for name, columns in self.feature_group_indices.items()
         }
         def nearest_rows(source: SupportReference, layer: str, limit: int, exclude: set[str] | None = None) -> list[dict[str, Any]]:
             source_normalized = source.normalized(x)
-            source_distances = _rms_distance(source.parent_vectors, source_normalized)
+            source_distances = _rms_distance(source.parent_vectors, source_normalized, groups=self.feature_group_indices)
             rows: list[dict[str, Any]] = []
             for index in np.argsort(source_distances):
                 row = source.parent_rows[int(index)]
@@ -349,7 +387,7 @@ class ModelRuntime:
                     "layer": layer, "distance": round(float(source_distances[index]), 4),
                     "components": {
                         name: round(float(_rms_distance(source.parent_vectors, source_normalized, columns)[int(index)]), 4)
-                        for name, columns in FEATURE_GROUP_INDICES.items()
+                        for name, columns in self.feature_group_indices.items()
                     },
                     "outputs": {key: summary["mean"] for key, summary in summaries.items()},
                     "repeat_summary": summaries,
@@ -380,7 +418,7 @@ class ModelRuntime:
         meta = {
             "task_id": TASK_ID,
             "model": {"id": MODEL_ID, "version": MODEL_VERSION, "method": "ridge regression"},
-            "feature_pipeline": {"id": FEATURE_PIPELINE_ID, "version": FEATURE_PIPELINE_VERSION, "input_schema_version": INPUT_SCHEMA_VERSION, "features": list(FEATURE_NAMES)},
+            "feature_pipeline": {"id": FEATURE_PIPELINE_ID, "version": self.feature_pipeline_version, "input_schema_version": INPUT_SCHEMA_VERSION, "features": list(self.feature_names)},
             "training_data": {"source_path": self.data.source_path, "source_sha256": self.data.source_sha256, "source_mtime_ns": self.data.source_mtime_ns, "records": {name: len(model.rows) for name, model in self.models.items()}},
             "prediction_interval": {
                 "method": "grouped_oof_residual_quantiles",
@@ -419,7 +457,7 @@ class ModelRuntime:
             model = self.models.get(label)
             summary = None
             if label in self.package_predictors:
-                summary = self.package_predictors[label].predict({name: float(value) for name, value in zip(FEATURE_NAMES, x)}, seed=0)
+                summary = self.package_predictors[label].predict({name: float(value) for name, value in zip(self.feature_names, x)}, seed=0)
                 value = summary.point_estimate
                 lower, upper = predictive_interval(summary)
                 unit = summary.unit
@@ -757,7 +795,7 @@ class ModelRuntime:
             adjusted_vector = self.vector_for_candidate(adjusted)
             summary = None
             if target in self.package_predictors:
-                summary = self.package_predictors[target].predict({name: float(value) for name, value in zip(FEATURE_NAMES, adjusted_vector)}, seed=0)
+                summary = self.package_predictors[target].predict({name: float(value) for name, value in zip(self.feature_names, adjusted_vector)}, seed=0)
                 value = summary.point_estimate
                 lower, upper = predictive_interval(summary)
             else:

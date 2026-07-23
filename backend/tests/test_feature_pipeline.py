@@ -18,9 +18,13 @@ EXPECTED_FEATURE_NAMES = (
     "C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N",
     "ls_mpm",
     "ce_iiw", "pcm", "c_times_mn", "si_plus_al", "cr_plus_mo", "microalloy_sum",
+    "ac1_proxy_c", "ac3_proxy_c", "ms_proxy_c", "ti_after_tin_proxy",
     "peak_temperature_c", "max_heating_rate_c_s", "time_at_or_above_95pct_peak_s",
     "time_at_or_above_700c_s", "thermal_exposure_above_600c_c_s",
     "cooling_rate_800_to_500_c_s", "cooling_800_to_500_observed", "reheat_count", "has_reheat",
+    "peak_minus_ac1_c", "peak_minus_ac3_c", "time_above_ac1_s", "time_above_ac3_s",
+    "intercritical_time_s", "time_within_10c_of_peak_s", "thermal_exposure_above_ac3_c_s",
+    "cooling_reaches_ms",
 )
 EXPECTED_CANONICAL_INPUT_PATHS = (
     *(f"composition.{name}" for name in COMPOSITION),
@@ -57,15 +61,15 @@ def test_feature_bundle_golden_for_piecewise_linear_route() -> None:
     assert bundle.indices_by_group() == {
         "composition": tuple(range(14)),
         "process": (14,),
-        "metallurgy": (15, 16, 17, 18, 19, 20),
-        "heat_pattern": tuple(range(21, 30)),
+        "metallurgy": tuple(range(15, 25)),
+        "heat_pattern": tuple(range(25, 42)),
     }
     assert tuple(item.group for item in bundle.features) == tuple(
-        group for group, count in (("composition", 14), ("process", 1), ("metallurgy", 6), ("heat_pattern", 9))
+        group for group, count in (("composition", 14), ("process", 1), ("metallurgy", 10), ("heat_pattern", 17))
         for _ in range(count)
     )
     assert CANONICAL_INPUT_PATHS == EXPECTED_CANONICAL_INPUT_PATHS
-    assert len(bundle.names) == 30
+    assert len(bundle.names) == 42
     assert len(set(bundle.names)) == len(bundle.names)
     assert bundle.values.dtype == np.float64
     assert not bundle.values.flags.writeable
@@ -75,6 +79,10 @@ def test_feature_bundle_golden_for_piecewise_linear_route() -> None:
     assert actual["si_plus_al"] == pytest.approx(0.34)
     assert actual["cr_plus_mo"] == pytest.approx(0.30)
     assert actual["microalloy_sum"] == pytest.approx(0.022)
+    assert actual["ac1_proxy_c"] == pytest.approx(716.525)
+    assert actual["ac3_proxy_c"] == pytest.approx(860.0857635)
+    assert actual["ms_proxy_c"] == pytest.approx(445.275)
+    assert actual["ti_after_tin_proxy"] == pytest.approx(0.00632)
     assert actual["peak_temperature_c"] == pytest.approx(820.0)
     assert actual["max_heating_rate_c_s"] == pytest.approx(8.0)
     assert actual["time_at_or_above_95pct_peak_s"] == pytest.approx(50.98214285714286)
@@ -84,6 +92,14 @@ def test_feature_bundle_golden_for_piecewise_linear_route() -> None:
     assert actual["cooling_800_to_500_observed"] == 1
     assert actual["reheat_count"] == 0
     assert actual["has_reheat"] == 0
+    assert actual["peak_minus_ac1_c"] == pytest.approx(103.475)
+    assert actual["peak_minus_ac3_c"] == pytest.approx(-40.0857635)
+    assert actual["time_above_ac1_s"] == pytest.approx(67.7165179)
+    assert actual["time_above_ac3_s"] == 0
+    assert actual["intercritical_time_s"] == pytest.approx(67.7165179)
+    assert actual["time_within_10c_of_peak_s"] == pytest.approx(42.6785714)
+    assert actual["thermal_exposure_above_ac3_c_s"] == 0
+    assert actual["cooling_reaches_ms"] == 1
 
 
 def test_reheat_count_uses_25_degree_excursion_and_ignores_small_noise() -> None:
@@ -173,6 +189,7 @@ def test_stage_boundary_is_excluded_from_rates_and_threshold_crossings() -> None
     assert values["max_heating_rate_c_s"] == pytest.approx(880 / 45)
     assert values["cooling_rate_800_to_500_c_s"] == 0
     assert values["cooling_800_to_500_observed"] == 0
+    assert values["cooling_reaches_ms"] == 0
 
 
 def test_cooling_crossings_and_reheat_state_never_chain_across_stages() -> None:

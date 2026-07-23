@@ -164,7 +164,7 @@ def test_similarity_summarizes_repeats_and_keeps_layers_distinct(client) -> None
 def test_default_model_package_loads_and_matches_its_smoke_contract(client) -> None:
     runtime: ModelRuntime = client.app.state.task_registry.runtime_for("annealed-properties-v1")
     assert runtime.model_package is not None
-    assert runtime.model_package.manifest.package_id == "annealed-gp-2026-07"
+    assert runtime.model_package.manifest.package_id == "annealed-gp-2026-07-feature-design-v3"
     smoke = runtime.model_package.manifest.smoke_test
     assert smoke is not None
     candidate = CandidateInput.model_validate(json.loads(runtime.model_package.artifact_path(smoke.input).read_text(encoding="utf-8")))

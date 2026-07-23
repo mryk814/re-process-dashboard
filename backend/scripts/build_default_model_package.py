@@ -29,9 +29,9 @@ def artifact(root: Path, path: Path) -> dict[str, object]:
     return {"path": path.relative_to(root).as_posix(), "sha256": digest(path), "bytes": path.stat().st_size}
 
 
-PACKAGE_ID = "annealed-gp-2026-07"
-PACKAGE_VERSION = "0.9.0-input-contract-v2"
-TRAINING_CODE_REVISION = "0.9.0-input-contract-v2"
+PACKAGE_ID = "annealed-gp-2026-07-feature-design-v3"
+PACKAGE_VERSION = "1.0.0-feature-design-v3"
+TRAINING_CODE_REVISION = "1.0.0-feature-design-v3"
 FEATURE_GROUP_INDICES = feature_index_families(
     FEATURE_DEFINITIONS,
     {
@@ -245,7 +245,7 @@ def build(source: Path, destination: Path, *, replace: bool = False, package_id:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", type=Path, default=Path("data/source/process_dashboard_realistic_excel_v2.xlsx"))
-    parser.add_argument("--output", type=Path, default=Path("models/packages/annealed-gp-2026-07"))
+    parser.add_argument("--output", type=Path, default=Path("models/packages/annealed-gp-2026-07-feature-design-v3"))
     parser.add_argument("--replace", action="store_true")
     parser.add_argument("--package-id", default=PACKAGE_ID)
     args = parser.parse_args()

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 import pytest
@@ -37,8 +38,8 @@ def test_hot_rolling_features_are_fixed_order_and_non_redundant() -> None:
     assert tuple(values) == FEATURE_NAMES
     assert bundle.indices_by_group() == {
         "composition": tuple(range(14)),
-        "metallurgy": (14, 15, 16, 17, 18),
-        "process": (19, 20, 21, 22, 23, 24),
+        "metallurgy": (14, 15, 16, 17, 18, 19, 20, 21, 22, 31),
+        "process": (23, 24, 25, 26, 27, 28, 29, 30, 32, 33, 34, 35, 36),
     }
     assert CANONICAL_INPUT_PATHS == EXPECTED_CANONICAL_INPUT_PATHS
     assert "reduction_percent" not in values
@@ -46,6 +47,14 @@ def test_hot_rolling_features_are_fixed_order_and_non_redundant() -> None:
     assert values["pcm"] == pytest.approx(0.175)
     assert values["c_times_mn"] == pytest.approx(0.15)
     assert values["finish_temperature_c"] == 900
+    assert values["ac1_proxy_c"] == pytest.approx(706.95)
+    assert values["ac3_proxy_c"] == pytest.approx(845.8057635)
+    assert values["ms_proxy_c"] == pytest.approx(451.1)
+    assert values["total_reduction_percent"] == pytest.approx(90)
+    assert values["log_thickness_strain"] == pytest.approx(math.log(10))
+    assert values["ar3_proxy_c"] == pytest.approx(757.425)
+    assert values["finish_minus_ar3_c"] == pytest.approx(142.575)
+    assert values["hold_exposure_above_ac1_c_min"] == pytest.approx(13_591.5)
 
 
 def test_hot_rolling_task_contract_rejects_invalid_thickness_order() -> None:

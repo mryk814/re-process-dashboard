@@ -15,6 +15,10 @@ class FeatureDefinition:
     unit: str
     meaning: str
     group: FeatureGroup
+    label: str | None = None
+    family: str | None = None
+    formula: str | None = None
+    caveat: str | None = None
 
 
 @dataclass(frozen=True)
@@ -64,6 +68,23 @@ class FeatureBundle:
         for index, definition in enumerate(self.definitions):
             groups.setdefault(definition.group, []).append(index)
         return {group: tuple(indexes) for group, indexes in groups.items()}
+
+    def explanation_rows(self) -> list[dict[str, str | float]]:
+        return [
+            {
+                "name": definition.name,
+                "label": definition.label,
+                "value": float(value),
+                "unit": definition.unit,
+                "group": definition.group,
+                "family": definition.family or definition.group,
+                "formula": definition.formula or "",
+                "meaning": definition.meaning,
+                "caveat": definition.caveat or "",
+            }
+            for definition, value in zip(self.definitions, self.values, strict=True)
+            if definition.label is not None
+        ]
 
 
 def feature_indices_by_group(

@@ -25,6 +25,7 @@ import {
   type ApiPreview,
 } from "../../shared/api/workbench-api";
 import { SimilarityEvidencePanel } from "./SimilarityEvidencePanel";
+import { FeatureEngineeringPanel } from "./FeatureEngineeringPanel";
 import { HeatPattern } from "./HeatPatternPanel";
 import {
   CurveFamilyPanel,
@@ -299,6 +300,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
           />
           <SimilarityEvidencePanel projectId={projectId} candidate={selected} outputs={taskDefinition?.outputs ?? []} available={operations?.similarity === true} ready={["idle", "saved"].includes(saveState)} onAddCandidate={onAddCandidateFromLineage} />
         </div>
+        <FeatureEngineeringPanel preview={preview} />
       </section>
     </div>
   );

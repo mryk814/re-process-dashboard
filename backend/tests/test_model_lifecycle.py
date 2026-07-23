@@ -29,8 +29,8 @@ from material_workbench.task_registry import load_task_contracts
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "data" / "source" / "process_dashboard_realistic_excel_v2.xlsx"
 V7_SOURCE = ROOT / "data" / "source" / "process_dashboard_two_equipment_v7.xlsx"
-V7_ANNEALED_PACKAGE = ROOT / "models" / "packages" / "annealed-gp-2026-07-v7-measurement-master"
-V7_HOT_PACKAGE = ROOT / "models" / "packages" / "hot-rolled-horseshoe-2026-07-v7-measurement-master"
+V7_ANNEALED_PACKAGE = ROOT / "models" / "packages" / "annealed-gp-2026-07-v7-feature-design-v3"
+V7_HOT_PACKAGE = ROOT / "models" / "packages" / "hot-rolled-horseshoe-2026-07-v7-feature-design-v3"
 
 
 def test_grouped_quality_report_requires_an_explicit_fold_count() -> None:
@@ -59,8 +59,8 @@ def test_sampling_diagnostics_reject_low_effective_sample_size() -> None:
 @pytest.mark.parametrize(
     ("task_id", "package_id"),
     [
-        ("annealed-properties-v1", "annealed-gp-2026-07"),
-        ("hot-rolled-properties-v1", "hot-rolled-horseshoe-2026-07"),
+        ("annealed-properties-v1", "annealed-gp-2026-07-feature-design-v3"),
+        ("hot-rolled-properties-v1", "hot-rolled-horseshoe-2026-07-feature-design-v3"),
     ],
 )
 def test_checked_in_package_passes_production_runtime_verification(task_id: str, package_id: str) -> None:
@@ -84,7 +84,7 @@ def test_canonical_training_dataset_is_deterministic_and_task_specific() -> None
 
 
 def test_verify_rejects_contract_digest_and_quality_report_corruption(tmp_path: Path) -> None:
-    source = ROOT / "models" / "packages" / "hot-rolled-horseshoe-2026-07"
+    source = ROOT / "models" / "packages" / "hot-rolled-horseshoe-2026-07-feature-design-v3"
     package = tmp_path / "package"
     import shutil
 
@@ -176,7 +176,7 @@ def test_parent_mean_loo_coverage_does_not_add_observation_noise() -> None:
 def test_alternate_verified_package_needs_no_api_change_and_snapshot_keeps_old_identity(tmp_path: Path) -> None:
     import shutil
 
-    original = ROOT / "models" / "packages" / "annealed-gp-2026-07"
+    original = ROOT / "models" / "packages" / "annealed-gp-2026-07-feature-design-v3"
     alternate = tmp_path / "annealed-gp-alternate"
     shutil.copytree(original, alternate)
     manifest_path = alternate / "manifest.json"
@@ -197,7 +197,7 @@ def test_alternate_verified_package_needs_no_api_change_and_snapshot_keeps_old_i
     with TestClient(create_app(SOURCE, database)) as client:
         current = client.get("/api/projects/default/model-package").json()
         stored = client.get(f"/api/projects/default/candidates/{candidate['id']}/snapshots").json()[0]
-        assert current["id"] == "annealed-gp-2026-07"
+        assert current["id"] == "annealed-gp-2026-07-feature-design-v3"
         assert stored["payload"]["provenance"]["package"]["manifest_sha256"] == old_hash
         assert old_hash != current["manifest_sha256"]
 
@@ -205,7 +205,7 @@ def test_alternate_verified_package_needs_no_api_change_and_snapshot_keeps_old_i
 def test_app_startup_rejects_package_trained_from_a_different_source(tmp_path: Path) -> None:
     import shutil
 
-    source = ROOT / "models" / "packages" / "hot-rolled-horseshoe-2026-07"
+    source = ROOT / "models" / "packages" / "hot-rolled-horseshoe-2026-07-feature-design-v3"
     package = tmp_path / "hot-rolled-horseshoe"
     shutil.copytree(source, package)
     manifest_path = package / "manifest.json"
@@ -230,8 +230,8 @@ def test_v7_source_and_packages_start_and_predict_through_the_api(tmp_path: Path
     )
     with TestClient(app) as client:
         assert client.get("/api/health").json()["ok"] is True
-        assert client.get("/api/projects/default/model-package").json()["id"] == "annealed-gp-2026-07-v7-measurement-master"
-        assert client.get("/api/projects/hot-rolling-default/model-package").json()["id"] == "hot-rolled-horseshoe-2026-07-v7-measurement-master"
+        assert client.get("/api/projects/default/model-package").json()["id"] == "annealed-gp-2026-07-v7-feature-design-v3"
+        assert client.get("/api/projects/hot-rolling-default/model-package").json()["id"] == "hot-rolled-horseshoe-2026-07-v7-feature-design-v3"
 
         lineage_index = client.get("/api/projects/default/lineage", params={"query": "AN-00001"})
         assert lineage_index.status_code == 200
@@ -254,3 +254,29 @@ def test_v7_source_and_packages_start_and_predict_through_the_api(tmp_path: Path
         )
         assert preview.status_code == 200
         assert set(preview.json()["predictions"]) == {"TS", "YS", "EL", "lambda"}
+
+
+def test_projects_pinned_to_v2_packages_remain_reproducible(tmp_path: Path) -> None:
+    old_annealed = ROOT / "models" / "packages" / "annealed-gp-2026-07-v7-measurement-master"
+    old_hot = ROOT / "models" / "packages" / "hot-rolled-horseshoe-2026-07-v7-measurement-master"
+    app = create_app(
+        V7_SOURCE,
+        tmp_path / "v2-projects.db",
+        package_roots={
+            "annealed-properties-v1": old_annealed,
+            "hot-rolled-properties-v1": old_hot,
+        },
+    )
+    with TestClient(app) as client:
+        assert client.get("/api/health").json()["ok"] is True
+        for project_id, package_id in (
+            ("default", "annealed-gp-2026-07-v7-measurement-master"),
+            ("hot-rolling-default", "hot-rolled-horseshoe-2026-07-v7-measurement-master"),
+        ):
+            assert client.get(f"/api/projects/{project_id}/model-package").json()["id"] == package_id
+            candidate = client.get(f"/api/projects/{project_id}/candidates").json()[0]
+            preview = client.post(
+                f"/api/projects/{project_id}/candidates/{candidate['id']}/preview",
+                params={"expected_revision": candidate["revision"]},
+            )
+            assert preview.status_code == 200

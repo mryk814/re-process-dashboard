@@ -154,6 +154,8 @@ def canonical_training_dataset(
     task_id: str,
     data: DataDescriptor,
     contract: TaskContractFixture,
+    *,
+    pipeline_version: str | None = None,
 ) -> dict[str, Any]:
     profile = load_dataset_profile(data.profile_path)
     profile_columns = {
@@ -166,6 +168,23 @@ def canonical_training_dataset(
         for output in contract.task_definition.outputs
     }
     builder = task_module(task_id).feature_row_builder
+    if pipeline_version == "2.0.0":
+        if task_id == "annealed-properties-v1":
+            from .feature_pipeline import build_feature_bundle_v2, candidate_from_observation
+
+            builder = lambda row, defaults: (
+                None
+                if (candidate := candidate_from_observation(row)) is None
+                else build_feature_bundle_v2(candidate, defaults)
+            )
+        elif task_id == "hot-rolled-properties-v1":
+            from .hot_rolling_feature_pipeline import build_hot_rolling_features_v2, candidate_from_observation
+
+            builder = lambda row, defaults: (
+                None
+                if (candidate := candidate_from_observation(row)) is None
+                else build_hot_rolling_features_v2(candidate, defaults)
+            )
     rows: list[dict[str, Any]] = []
     for observation in data.observations:
         if not observation["eligible"]:
@@ -292,7 +311,12 @@ def validate_training_provenance(
 ) -> None:
     if package.manifest.provenance.training_data_id != f"sha256:{data.source_sha256}":
         raise PackageContractError("model package training data digest does not match the active source")
-    canonical = canonical_training_dataset(package.manifest.task_id, data, contract)
+    canonical = canonical_training_dataset(
+        package.manifest.task_id,
+        data,
+        contract,
+        pipeline_version=package.manifest.feature_pipeline.version,
+    )
     if package.manifest.provenance.feature_dataset_id != canonical_training_dataset_digest(canonical):
         raise PackageContractError("model package canonical training dataset digest does not match the active source")
 

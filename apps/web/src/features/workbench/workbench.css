@@ -20,6 +20,112 @@
   gap: 6px;
   flex-wrap: wrap;
 }
+
+.feature-engineering-panel {
+  border: 1px solid #d6e0ec;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.feature-engineering-panel > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 40px;
+  padding: 7px 12px;
+  cursor: pointer;
+  list-style-position: inside;
+}
+
+.feature-engineering-panel > summary span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.feature-engineering-panel > summary small,
+.feature-engineering-panel > summary i {
+  color: #66758a;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 400;
+}
+
+.feature-engineering-intro {
+  padding: 8px 12px;
+  border-top: 1px solid #d6e0ec;
+  background: #f7f9fc;
+  color: #66758a;
+  font-size: 12px;
+}
+
+.feature-engineering-families {
+  display: grid;
+  gap: 14px;
+  padding: 12px;
+}
+
+.feature-engineering-families h3 {
+  margin: 0 0 6px;
+  color: #66758a;
+  font-size: 11px;
+  letter-spacing: .04em;
+}
+
+.feature-engineering-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 6px;
+}
+
+.feature-engineering-grid article {
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid #d6e0ec;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.feature-engineering-grid header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.feature-engineering-grid header span {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.feature-engineering-grid header strong {
+  white-space: nowrap;
+  color: #1f5fc4;
+  font-variant-numeric: tabular-nums;
+}
+
+.feature-engineering-grid header small {
+  color: #66758a;
+  font-weight: 400;
+}
+
+.feature-engineering-grid code {
+  display: block;
+  overflow: hidden;
+  margin-top: 4px;
+  color: #66758a;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feature-engineering-grid p {
+  margin: 4px 0 0;
+  color: #66758a;
+  font-size: 10px;
+  line-height: 1.35;
+}
 .comparison-actions .outline-button,
 .comparison-actions .primary-button {
   min-height: 32px;
