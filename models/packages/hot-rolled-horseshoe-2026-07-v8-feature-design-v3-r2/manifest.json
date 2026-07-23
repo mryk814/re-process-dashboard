@@ -1,6 +1,6 @@
 {
   "schema_version": "model-package/v1",
-  "package_id": "hot-rolled-horseshoe-2026-07-v8-feature-design-v3",
+  "package_id": "hot-rolled-horseshoe-2026-07-v8-feature-design-v3-r2",
   "package_version": "1.1.0-feature-design-v3",
   "task_id": "hot-rolled-properties-v1",
   "input_schema_version": "hot-rolling-candidate-v2",
@@ -132,10 +132,10 @@
     }
   ],
   "provenance": {
-    "training_data_id": "sha256:5a2f3660fb27149b78b104371e6da38bcbae1e402e6a06b896996bc957f136ec",
-    "feature_dataset_id": "sha256:2f7c7737acdc68a89848f8281fa7215edb4ec87f6ba52f6f13877f458186def1",
+    "training_data_id": "sha256:87e2321d5ce1071c9fe57bea95ed773609a88d63c7d5cc08bd0a15592634bef9",
+    "feature_dataset_id": "sha256:9cbb5c67622d59d12358fe2ffdc71fd7b6366ca52cb8e114210971d604795e1b",
     "training_code_revision": "1.1.0-feature-design-v3",
-    "dataset_profile_id": "sha256:91eed45830575c78851e4dc891168ad19754bc15d5899b8ccbe362c84c3a96cc"
+    "dataset_profile_id": "sha256:792304292d0b3532ded40bcd6c43480702bdfc9e32a9dbb814abee449c3f637d"
   },
   "artifacts": [
     {
@@ -150,23 +150,13 @@
     },
     {
       "path": "reference/training_stats.json",
-      "sha256": "fcece12efdf55d9de08f1a1adbdaeb0e375575f3fbcf12b777a07f227e3a71ec",
+      "sha256": "12659115ac8808655fe48534ea36035639e0fba0210e78451572a118e74ea050",
       "bytes": 407
     },
     {
       "path": "reports/quality-report.json",
       "sha256": "9cbe701615ffc0d588b615f55980a89a7b50f3a93fc78dc0ff25b12adaf23896",
       "bytes": 310
-    },
-    {
-      "path": "reports/selection-report.json",
-      "sha256": "f91184e9d4f2a74ba46ee9a9de0a8075c4214f0a420fd55f2ad4d6e6e0b00f67",
-      "bytes": 12881
-    },
-    {
-      "path": "reports/training-diagnostics.json",
-      "sha256": "695af4f5d4e0dee31e96f3899a0f7366db6189e74a50c2fa17e2a9b10b8544cf",
-      "bytes": 257
     },
     {
       "path": "smoke/input.json",
@@ -177,6 +167,16 @@
       "path": "smoke/expected.json",
       "sha256": "b388c6b06ca032d30a40fe7ad45ba36f795461c640dc73ac55cd865606e1f2b0",
       "bytes": 24
+    },
+    {
+      "path": "reports/training-diagnostics.json",
+      "sha256": "695af4f5d4e0dee31e96f3899a0f7366db6189e74a50c2fa17e2a9b10b8544cf",
+      "bytes": 257
+    },
+    {
+      "path": "reports/selection-report.json",
+      "sha256": "f91184e9d4f2a74ba46ee9a9de0a8075c4214f0a420fd55f2ad4d6e6e0b00f67",
+      "bytes": 12881
     }
   ],
   "smoke_test": {

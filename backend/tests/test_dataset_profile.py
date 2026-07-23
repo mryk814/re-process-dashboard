@@ -540,6 +540,13 @@ def test_v7_source_resolves_relation_parents_coalesces_measurements_and_derives_
 
 
 def test_v8_source_maps_renamed_prediction_fields_and_tolerates_optional_context() -> None:
+    profile_document = json.loads(
+        (
+            ROOT / "backend" / "src" / "material_workbench" / "data"
+            / "dataset-input-profile-v8.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert "extends" not in profile_document
     assert detect_dataset_profile_path(V8_SOURCE).name == "dataset-input-profile-v8.json"
     data = load_workbook_data(V8_SOURCE)
 
