@@ -19,6 +19,29 @@ test("project series keep the active series open and let other series expand", a
   await expect(projects).toBeVisible();
 });
 
+test("a continuation can switch prediction task without leaving its series", async ({ page }) => {
+  await page.goto("/?view=project&project=default");
+  await expect(page.locator(".project-hub-header").getByRole("heading", { name: "焼鈍条件の候補検討" })).toBeVisible();
+  await page.getByRole("button", { name: "この検討の続き" }).click();
+
+  const panel = page.getByRole("region", { name: "新規プロジェクトの開始方法" });
+  await expect(panel.getByRole("combobox", { name: "Dataset" })).toBeEnabled();
+  const task = panel.getByRole("combobox", { name: "予測タスク（Prediction Task）" });
+  await expect(task).toBeEnabled();
+  await task.selectOption("hot-rolled-properties-v1");
+  await panel.getByLabel("続ける理由").fill("同じ材料テーマを熱延特性でも評価するため");
+  const series = panel.getByRole("combobox", { name: "検討のつながり" });
+  await expect(series).toBeDisabled();
+  const seriesId = await series.inputValue();
+
+  const createdResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/projects");
+  await panel.getByRole("button", { name: "固定してプロジェクトを作成" }).click();
+  const created = await (await createdResponse).json() as { task_id: string; project_series_id: string; predecessor_project_id: string };
+  expect(created.task_id).toBe("hot-rolled-properties-v1");
+  expect(created.project_series_id).toBe(seriesId);
+  expect(created.predecessor_project_id).toBe("default");
+});
+
 test("project hub separates current revision from fixed snapshot and restores a new candidate", async ({ page }) => {
   await page.goto("/?view=project&project=default");
   await expect(page.getByRole("heading", { name: "次の作業" })).toBeVisible();
