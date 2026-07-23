@@ -517,6 +517,111 @@ def test_v7_source_resolves_relation_parents_coalesces_measurements_and_derives_
     assert unresolved["parent_key"] == ""
 
 
+def test_v7_derives_heat_pattern_from_measurement_master_when_history_is_absent(
+    tmp_path: Path,
+) -> None:
+    workbook = load_workbook(V7_SOURCE, read_only=False, data_only=True)
+    workbook.remove(workbook["焼鈍履歴"])
+    profile = load_dataset_profile(
+        ROOT / "backend" / "src" / "material_workbench" / "dataset-input-profile-v7.json"
+    )
+
+    canonical = canonicalize_workbook(workbook, profile)
+    points = canonical.entities[("annealing", "AN-00001")].values[
+        "annealed-properties-v1"
+    ]["heat_pattern"]
+
+    assert points[0] == {
+        "time_s": 0.0,
+        "temperature_c": 34.3,
+        "stage_name": "開始",
+        "stage_category": "ENTRY",
+        "mapping_status": "測定点マスタ補完",
+    }
+    phf = next(point for point in points if point["stage_name"] == "PHF")
+    assert phf["time_s"] == pytest.approx(60 * 15 / 119.742)
+    assert phf["temperature_c"] == pytest.approx(164.1)
+    assert all(
+        right["time_s"] > left["time_s"]
+        for left, right in zip(points, points[1:])
+    )
+    source = tmp_path / "v7-without-heat-history.xlsx"
+    workbook.save(source)
+    workbook.close()
+    data = load_workbook_data(source, profile=profile)
+    candidate = candidate_from_lineage(data, "AN-00001")
+
+    assert candidate.inputs.heat_time_basis == "line_speed"
+    assert candidate.inputs.heat_pattern is not None
+    assert candidate.inputs.heat_pattern[1].mapping_status == "測定点マスタ補完"
+
+
+def test_v7_explicit_heat_history_takes_priority_over_measurement_master() -> None:
+    workbook = load_workbook(V7_SOURCE, read_only=False, data_only=True)
+    master = workbook["測定点マスタ"]
+    position_column = next(
+        cell.column for cell in master[1] if cell.value == "入口からの距離[m]"
+    )
+    phf_row = next(
+        cell.row for cell in master["E"] if cell.value == "PHF"
+    )
+    master.cell(phf_row, position_column).value = 16.0
+    profile = load_dataset_profile(
+        ROOT / "backend" / "src" / "material_workbench" / "dataset-input-profile-v7.json"
+    )
+
+    canonical = canonicalize_workbook(workbook, profile)
+    points = canonical.entities[("annealing", "AN-00001")].values[
+        "annealed-properties-v1"
+    ]["heat_pattern"]
+    phf = next(point for point in points if point["stage_name"] == "PHF")
+
+    assert phf["time_s"] == pytest.approx(60 * 15 / 119.742)
+    assert phf["mapping_status"] == "工程辞書一致"
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected_error"),
+    [
+        ("decreasing_position", "positions must increase"),
+        ("partial_history", "incomplete or non-numeric points"),
+        ("missing_temperature_column", "missing temperature columns"),
+    ],
+)
+def test_v7_rejects_heat_series_inputs_that_would_silently_change_the_pattern(
+    mutation: str,
+    expected_error: str,
+) -> None:
+    workbook = load_workbook(V7_SOURCE, read_only=False, data_only=True)
+    if mutation == "partial_history":
+        history = workbook["焼鈍履歴"]
+        time_column = next(
+            cell.column for cell in history[1] if cell.value == "到達時間[秒]"
+        )
+        history.cell(2, time_column).value = None
+    else:
+        workbook.remove(workbook["焼鈍履歴"])
+        if mutation == "decreasing_position":
+            master = workbook["測定点マスタ"]
+            position_column = next(
+                cell.column for cell in master[1] if cell.value == "入口からの距離[m]"
+            )
+            phf_row = next(cell.row for cell in master["E"] if cell.value == "PHF")
+            master.cell(phf_row, position_column).value = 999.0
+        else:
+            annealing = workbook["焼鈍条件-3CGL"]
+            phf_column = next(cell.column for cell in annealing[1] if cell.value == "PHF[℃]")
+            annealing.cell(1, phf_column).value = "PHF temperature"
+    profile = load_dataset_profile(
+        ROOT / "backend" / "src" / "material_workbench" / "dataset-input-profile-v7.json"
+    )
+
+    with pytest.raises(DatasetProfileError) as caught:
+        canonicalize_workbook(workbook, profile)
+
+    assert any(expected_error in error for error in caught.value.errors)
+
+
 def test_invalid_workbook_stops_before_runtime_and_database_initialization(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     workbook = Workbook()
     source = tmp_path / "invalid.xlsx"

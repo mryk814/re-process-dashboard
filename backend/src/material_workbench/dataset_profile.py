@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -134,6 +135,31 @@ class ObservationSource(ProfileModel):
     column: str
 
 
+class MeasurementPointSeriesFallback(ProfileModel):
+    """Build a heat series from line speed and temperatures at known positions."""
+
+    source_role: str
+    master_role: str
+    line_speed_path: str
+    equipment_column: str
+    equipment_value: str
+    order_column: str
+    stage_column: str
+    position_column: str
+    position_unit: Literal["m"]
+    temperature_column_template: str
+    temperature_source_unit: str
+    temperature_canonical_unit: str
+
+    @field_validator("temperature_column_template")
+    @classmethod
+    def template_contains_stage(cls, value: str) -> str:
+        remainder = value.replace("{stage}", "", 1)
+        if value.count("{stage}") != 1 or "{" in remainder or "}" in remainder:
+            raise ValueError("temperature_column_template must contain exactly one {stage} placeholder")
+        return value
+
+
 class FieldMapping(ProfileModel):
     path: str
     role: str
@@ -145,6 +171,7 @@ class FieldMapping(ProfileModel):
     series_columns: SeriesColumns | None = None
     parent_entity_type: str | None = None
     observation_sources: tuple[ObservationSource, ...] = ()
+    measurement_point_fallback: MeasurementPointSeriesFallback | None = None
 
 
 class ObservationTarget(ProfileModel):
@@ -503,6 +530,49 @@ def validate_profile(profile: DatasetInputProfile, task_definitions: Mapping[str
                 errors.append(f"{task_id}: ordered heat series {mapping.path!r} requires series columns and a built-in normalizer id")
             if mapping.kind != "ordered_heat_series" and not mapping.column:
                 errors.append(f"{task_id}: mapping {mapping.path!r} requires a source column")
+            fallback = mapping.measurement_point_fallback
+            if fallback is not None:
+                if mapping.kind != "ordered_heat_series":
+                    errors.append(
+                        f"{task_id}: measurement-point fallback is only valid for an ordered heat series"
+                    )
+                for role in (fallback.source_role, fallback.master_role):
+                    if role not in sheets:
+                        errors.append(
+                            f"{task_id}: measurement-point fallback references unknown role {role!r}"
+                        )
+                speed_matches = [
+                    item for item in task.mappings
+                    if item.path == fallback.line_speed_path
+                    and item.kind == "entity_scalar"
+                    and item.role == fallback.source_role
+                ]
+                if len(speed_matches) != 1:
+                    errors.append(
+                        f"{task_id}: measurement-point fallback line speed {fallback.line_speed_path!r} "
+                        f"must have one scalar mapping on role {fallback.source_role!r}"
+                    )
+                elif speed_matches[0].canonical_unit != "mpm":
+                    errors.append(
+                        f"{task_id}: measurement-point fallback line speed must use canonical unit 'mpm'"
+                    )
+                if unit_conversion(
+                    fallback.temperature_source_unit,
+                    fallback.temperature_canonical_unit,
+                ) is None:
+                    errors.append(
+                        f"{task_id}: measurement-point fallback has an unknown temperature unit conversion"
+                    )
+                source_entities = [
+                    item for item in profile.shared.entities if item.role == fallback.source_role
+                ]
+                if (
+                    len(source_entities) != 1
+                    or mapping.parent_entity_type != source_entities[0].type
+                ):
+                    errors.append(
+                        f"{task_id}: measurement-point fallback source role must identify the heat-series parent entity"
+                    )
             if mapping.kind == "observation_scoped" and (mapping.normalizer_id != "median_by_parent/v1" or not mapping.parent_entity_type):
                 errors.append(f"{task_id}: observation-scoped field {mapping.path!r} requires median_by_parent/v1 and parent entity type")
             if mapping.kind == "observation_scoped" and not mapping.observation_sources:
@@ -596,9 +666,102 @@ def _headers(sheet: Any) -> tuple[str, ...]:
     return tuple("" if value is None else str(value) for value in row)
 
 
+def _sheet_records(sheet: Any) -> list[dict[str, Any]]:
+    iterator = sheet.iter_rows(values_only=True)
+    headers = tuple(
+        str(value) if value is not None else f"column_{index}"
+        for index, value in enumerate(next(iterator, ()))
+    )
+    return [
+        {headers[index]: value for index, value in enumerate(values) if index < len(headers)}
+        for values in iterator
+        if any(value is not None for value in values)
+    ]
+
+
+def _measurement_point_fallback_series(
+    source_rows: Iterable[Mapping[str, Any]],
+    master_rows: Iterable[Mapping[str, Any]],
+    *,
+    parent_column: str,
+    speed_column: str,
+    fallback: MeasurementPointSeriesFallback,
+    profile: DatasetInputProfile,
+) -> dict[str, list[dict[str, Any]]]:
+    temperature_conversion = unit_conversion(
+        fallback.temperature_source_unit,
+        fallback.temperature_canonical_unit,
+    )
+    if temperature_conversion is None:
+        return {}
+    master_points = sorted(
+        (
+            (
+                float(row[fallback.order_column]),
+                str(row[fallback.stage_column]),
+                float(row[fallback.position_column]),
+            )
+            for row in master_rows
+            if str(row.get(fallback.equipment_column) or "") == fallback.equipment_value
+            and isinstance(row.get(fallback.order_column), (int, float))
+            and math.isfinite(float(row[fallback.order_column]))
+            and row.get(fallback.stage_column) is not None
+            and str(row.get(fallback.stage_column)).strip()
+            and isinstance(row.get(fallback.position_column), (int, float))
+            and math.isfinite(float(row[fallback.position_column]))
+            and float(row[fallback.position_column]) >= 0
+        ),
+        key=lambda item: item[0],
+    )
+    derived: dict[str, list[dict[str, Any]]] = {}
+    for row in source_rows:
+        parent = row.get(parent_column)
+        speed = row.get(speed_column)
+        if (
+            parent is None
+            or not str(parent).strip()
+            or not isinstance(speed, (int, float))
+            or not math.isfinite(float(speed))
+            or speed <= 0
+        ):
+            continue
+        points: list[dict[str, Any]] = []
+        for _, stage, position_m in master_points:
+            temperature_column = fallback.temperature_column_template.format(stage=stage)
+            temperature = row.get(temperature_column)
+            if (
+                not isinstance(temperature, (int, float))
+                or not math.isfinite(float(temperature))
+            ):
+                continue
+            point = {
+                "time_s": 60.0 * position_m / float(speed),
+                "temperature_c": (
+                    float(temperature) * temperature_conversion.scale
+                    + temperature_conversion.offset
+                ),
+                "stage_name": stage,
+                "mapping_status": "測定点マスタ補完",
+            }
+            stage_category = profile.stage_category_for(stage)
+            if stage_category:
+                point["stage_category"] = stage_category
+            points.append(point)
+        if len(points) >= 2:
+            derived[str(parent)] = points
+    return derived
+
+
 def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
     errors: list[str] = []
     required: dict[str, set[str]] = {}
+    fallback_series_roles = {
+        mapping.role
+        for task in profile.tasks.values()
+        for mapping in task.mappings
+        if mapping.kind == "ordered_heat_series"
+        and mapping.measurement_point_fallback is not None
+    }
 
     def require(role: str, column: str) -> None:
         required.setdefault(profile.sheet_for_role(role), set()).add(column)
@@ -611,17 +774,28 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
     for item in profile.shared.eligibility:
         require(item.role, item.column)
     for item in profile.shared.technical:
-        require(item.role, item.column)
+        if item.role not in fallback_series_roles:
+            require(item.role, item.column)
     for task in profile.tasks.values():
         for mapping in task.mappings:
             if mapping.column:
                 require(mapping.role, mapping.column)
             if mapping.kind == "ordered_heat_series":
-                    for column in (
-                        (mapping.series_columns.parent, mapping.series_columns.order, mapping.series_columns.time, mapping.series_columns.value)
-                        if mapping.series_columns else ()
-                    ):
-                        require(mapping.role, column)
+                    if mapping.measurement_point_fallback is None:
+                        for column in (
+                            (mapping.series_columns.parent, mapping.series_columns.order, mapping.series_columns.time, mapping.series_columns.value)
+                            if mapping.series_columns else ()
+                        ):
+                            require(mapping.role, column)
+            if mapping.measurement_point_fallback:
+                fallback = mapping.measurement_point_fallback
+                for column in (
+                    fallback.equipment_column,
+                    fallback.order_column,
+                    fallback.stage_column,
+                    fallback.position_column,
+                ):
+                    require(fallback.master_role, column)
             for source in mapping.observation_sources:
                 require(source.role, source.column)
         for observation in task.observations:
@@ -718,43 +892,178 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
     for task_id, task in profile.tasks.items():
         for mapping in task.mappings:
             sheet_name = profile.sheet_for_role(mapping.role)
-            if mapping.kind == "ordered_heat_series" and mapping.series_columns and sheet_name in workbook.sheetnames:
+            if mapping.kind == "ordered_heat_series" and mapping.series_columns:
                 columns = mapping.series_columns
-                for column, declared_unit in ((columns.time, columns.time_source_unit), (columns.value, columns.value_source_unit)):
-                    header_unit = _header_unit(column)
-                    if header_unit != declared_unit:
-                        errors.append(
-                            f"{task_id}: ordered series column {column!r} declares {header_unit!r}, expected {declared_unit!r}"
-                        )
-                headers = _headers(workbook[sheet_name])
+                headers = _headers(workbook[sheet_name]) if sheet_name in workbook.sheetnames else ()
                 required_series_columns = (columns.parent, columns.order, columns.time, columns.value)
+                points_by_parent: dict[str, int] = {}
                 if all(column in headers for column in required_series_columns):
+                    for column, declared_unit in (
+                        (columns.time, columns.time_source_unit),
+                        (columns.value, columns.value_source_unit),
+                    ):
+                        header_unit = _header_unit(column)
+                        if header_unit != declared_unit:
+                            errors.append(
+                                f"{task_id}: ordered series column {column!r} declares {header_unit!r}, expected {declared_unit!r}"
+                            )
                     parent_index, order_index, time_index, value_index = (
                         headers.index(column) for column in required_series_columns
                     )
-                    points_by_parent: dict[str, int] = {}
                     invalid_order_count = 0
+                    invalid_point_count = 0
                     for row in workbook[sheet_name].iter_rows(min_row=2, values_only=True):
                         parent = row[parent_index]
-                        if (
+                        order = row[order_index]
+                        time = row[time_index]
+                        value = row[value_index]
+                        if all(item is None or not str(item).strip() for item in (parent, order, time, value)):
+                            continue
+                        valid_point = (
                             parent is not None
                             and str(parent).strip()
-                            and isinstance(row[time_index], (int, float))
-                            and isinstance(row[value_index], (int, float))
+                            and isinstance(time, (int, float))
+                            and math.isfinite(float(time))
+                            and isinstance(value, (int, float))
+                            and math.isfinite(float(value))
+                        )
+                        if not valid_point:
+                            invalid_point_count += 1
+                            continue
+                        if (
+                            not isinstance(order, (int, float))
+                            or not math.isfinite(float(order))
                         ):
-                            if not isinstance(row[order_index], (int, float)):
-                                invalid_order_count += 1
-                                continue
-                            key = str(parent)
-                            points_by_parent[key] = points_by_parent.get(key, 0) + 1
+                            invalid_order_count += 1
+                            continue
+                        key = str(parent)
+                        points_by_parent[key] = points_by_parent.get(key, 0) + 1
                     if invalid_order_count:
                         errors.append(
                             f"{task_id}: ordered heat series {mapping.path!r} has {invalid_order_count} points with a non-numeric order"
                         )
-                    if not any(count >= 2 for count in points_by_parent.values()):
+                    if invalid_point_count:
                         errors.append(
-                            f"{task_id}: required ordered heat series {mapping.path!r} has no parent with at least two numeric points"
+                            f"{task_id}: ordered heat series {mapping.path!r} has {invalid_point_count} incomplete or non-numeric points"
                         )
+                fallback_series: dict[str, list[dict[str, Any]]] = {}
+                fallback_parent_keys: set[str] = set()
+                fallback = mapping.measurement_point_fallback
+                if fallback is not None:
+                    source_sheet = profile.sheet_for_role(fallback.source_role)
+                    master_sheet = profile.sheet_for_role(fallback.master_role)
+                    speed_mapping = task.mapping(fallback.line_speed_path)
+                    source_entity = next(
+                        item for item in profile.shared.entities
+                        if item.role == fallback.source_role
+                    )
+                    if (
+                        source_sheet in workbook.sheetnames
+                        and master_sheet in workbook.sheetnames
+                        and speed_mapping.column
+                    ):
+                        source_records = _sheet_records(workbook[source_sheet])
+                        master_records = _sheet_records(workbook[master_sheet])
+                        fallback_parent_keys = {
+                            str(row[source_entity.key])
+                            for row in source_records
+                            if row.get(source_entity.key) is not None
+                            and str(row[source_entity.key]).strip()
+                        }
+                        if _header_unit(fallback.position_column) != fallback.position_unit:
+                            errors.append(
+                                f"{task_id}: measurement-point position column {fallback.position_column!r} "
+                                f"must declare unit {fallback.position_unit!r}"
+                            )
+                        selected_master = [
+                            row for row in master_records
+                            if str(row.get(fallback.equipment_column) or "")
+                            == fallback.equipment_value
+                        ]
+                        master_geometry = [
+                            (
+                                float(row[fallback.order_column]),
+                                str(row[fallback.stage_column]),
+                                float(row[fallback.position_column]),
+                            )
+                            for row in selected_master
+                            if isinstance(row.get(fallback.order_column), (int, float))
+                            and math.isfinite(float(row[fallback.order_column]))
+                            and row.get(fallback.stage_column) is not None
+                            and str(row.get(fallback.stage_column)).strip()
+                            and isinstance(row.get(fallback.position_column), (int, float))
+                            and math.isfinite(float(row[fallback.position_column]))
+                            and float(row[fallback.position_column]) >= 0
+                        ]
+                        if len(master_geometry) != len(selected_master) or len(master_geometry) < 2:
+                            errors.append(
+                                f"{task_id}: measurement-point master {fallback.equipment_value!r} "
+                                "requires at least two points with numeric order and non-negative position"
+                            )
+                        orders = [item[0] for item in master_geometry]
+                        stages = [item[1] for item in master_geometry]
+                        if len(orders) != len(set(orders)) or len(stages) != len(set(stages)):
+                            errors.append(
+                                f"{task_id}: measurement-point master {fallback.equipment_value!r} "
+                                "requires unique order and stage values"
+                            )
+                        ordered_geometry = sorted(master_geometry)
+                        if any(
+                            right[2] <= left[2]
+                            for left, right in zip(ordered_geometry, ordered_geometry[1:])
+                        ):
+                            errors.append(
+                                f"{task_id}: measurement-point master {fallback.equipment_value!r} "
+                                "positions must increase with point order"
+                            )
+                        source_headers = set(_headers(workbook[source_sheet]))
+                        expected_temperature_columns = {
+                            fallback.temperature_column_template.format(stage=stage)
+                            for _, stage, _ in master_geometry
+                        }
+                        missing_temperature_columns = sorted(
+                            expected_temperature_columns - source_headers
+                        )
+                        if missing_temperature_columns:
+                            errors.append(
+                                f"{task_id}: measurement-point fallback is missing temperature columns: "
+                                + ", ".join(missing_temperature_columns)
+                            )
+                        unit_mismatches = sorted(
+                            column for column in expected_temperature_columns & source_headers
+                            if _header_unit(column) != fallback.temperature_source_unit
+                        )
+                        if unit_mismatches:
+                            errors.append(
+                                f"{task_id}: measurement-point fallback temperature columns have unexpected units: "
+                                + ", ".join(unit_mismatches)
+                            )
+                        fallback_series = _measurement_point_fallback_series(
+                            source_records,
+                            master_records,
+                            parent_column=source_entity.key,
+                            speed_column=speed_mapping.column,
+                            fallback=fallback,
+                            profile=profile,
+                        )
+                missing_parents = sorted(
+                    fallback_parent_keys
+                    - {
+                        parent for parent, count in points_by_parent.items()
+                        if count >= 2
+                    }
+                    - set(fallback_series)
+                )
+                if missing_parents:
+                    errors.append(
+                        f"{task_id}: {len(missing_parents)} parent rows have neither a complete heat history "
+                        "nor a derivable measurement-point series"
+                    )
+                if not any(count >= 2 for count in points_by_parent.values()) and not fallback_series:
+                    errors.append(
+                        f"{task_id}: required ordered heat series {mapping.path!r} has no parent with at least two numeric "
+                        "points and cannot be derived from the measurement-point master"
+                    )
             if sheet_name not in workbook.sheetnames or not mapping.column:
                 continue
             headers = _headers(workbook[sheet_name])
@@ -1088,7 +1397,7 @@ def canonicalize_workbook(workbook: Any, profile: DatasetInputProfile) -> Canoni
                 if item.role == mapping.role and item.name in {"set_temperature_c", "stage_category", "stage_name", "mapping_status"}
             }
             grouped: dict[str, list[tuple[Any, dict[str, Any]]]] = {}
-            for row in rows[profile.sheet_for_role(mapping.role)]:
+            for row in rows.get(profile.sheet_for_role(mapping.role), []):
                 if not isinstance(row.get(columns.time), (int, float)) or not isinstance(row.get(columns.value), (int, float)):
                     continue
                 parent = str(row.get(columns.parent, ""))
@@ -1102,11 +1411,39 @@ def canonicalize_workbook(workbook: Any, profile: DatasetInputProfile) -> Canoni
                 grouped.setdefault(parent, []).append((row.get(columns.order, 0), point))
             for parent, ordered in grouped.items():
                 points = [point for _, point in sorted(ordered, key=lambda item: item[0])]
+                if len(points) < 2:
+                    continue
                 _normalize_heat_series(points)
                 parent_entity_type = mapping.parent_entity_type or "annealing"
                 parent_identity = (parent_entity_type, parent)
                 heat_series[parent_identity] = points
                 entity = entities.get((parent_entity_type, parent))
+                if entity is not None:
+                    entity.values.setdefault(task.task_id, {})[mapping.path] = points
+            fallback = mapping.measurement_point_fallback
+            if fallback is None:
+                continue
+            source_entity = next(
+                item for item in profile.shared.entities if item.role == fallback.source_role
+            )
+            speed_mapping = task.mapping(fallback.line_speed_path)
+            if speed_mapping.column is None:
+                continue
+            derived = _measurement_point_fallback_series(
+                rows[profile.sheet_for_role(fallback.source_role)],
+                rows[profile.sheet_for_role(fallback.master_role)],
+                parent_column=source_entity.key,
+                speed_column=speed_mapping.column,
+                fallback=fallback,
+                profile=profile,
+            )
+            parent_entity_type = mapping.parent_entity_type or "annealing"
+            for parent, points in derived.items():
+                parent_identity = (parent_entity_type, parent)
+                if parent_identity in heat_series:
+                    continue
+                heat_series[parent_identity] = points
+                entity = entities.get(parent_identity)
                 if entity is not None:
                     entity.values.setdefault(task.task_id, {})[mapping.path] = points
     return CanonicalDataset(profile, rows, entities, relations, tuple(observations), heat_series)

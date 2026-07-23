@@ -112,7 +112,28 @@
         {"path":"composition.O","role":"melt","column":"O[%]","kind":"entity_scalar","source_unit":"%","canonical_unit":"%"},
         {"path":"composition.N","role":"melt","column":"N[%]","kind":"entity_scalar","source_unit":"%","canonical_unit":"%"},
         {"path":"process.ls_mpm","role":"annealing","column":"LS[mpm]","kind":"entity_scalar","source_unit":"mpm","canonical_unit":"mpm"},
-        {"path":"heat_pattern","role":"anneal_history","kind":"ordered_heat_series","normalizer_id":"stage_local_clock/v1","series_columns":{"parent":"焼鈍履歴_key**","order":"チャンネル","time":"到達時間[秒]","value":"温度[℃]","time_source_unit":"秒","time_canonical_unit":"s","value_source_unit":"℃","value_canonical_unit":"°C"},"parent_entity_type":"annealing"}
+        {
+          "path":"heat_pattern",
+          "role":"anneal_history",
+          "kind":"ordered_heat_series",
+          "normalizer_id":"stage_local_clock/v1",
+          "series_columns":{"parent":"焼鈍履歴_key**","order":"チャンネル","time":"到達時間[秒]","value":"温度[℃]","time_source_unit":"秒","time_canonical_unit":"s","value_source_unit":"℃","value_canonical_unit":"°C"},
+          "parent_entity_type":"annealing",
+          "measurement_point_fallback":{
+            "source_role":"annealing",
+            "master_role":"measurement_points",
+            "line_speed_path":"process.ls_mpm",
+            "equipment_column":"設備コード",
+            "equipment_value":"AN-LINE-1",
+            "order_column":"点順",
+            "stage_column":"工程",
+            "position_column":"入口からの距離[m]",
+            "position_unit":"m",
+            "temperature_column_template":"{stage}[℃]",
+            "temperature_source_unit":"℃",
+            "temperature_canonical_unit":"°C"
+          }
+        }
       ],
       "observations": [
         {
