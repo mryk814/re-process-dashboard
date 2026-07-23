@@ -197,13 +197,13 @@ export const workbenchApi = {
   },
   async lineageIndex(projectId: string, query: string, entityType: string, issueOnly: boolean, signal?: AbortSignal) {
     const normalizedEntityType = entityType === "すべて" ? "" : entityType;
-    return requireData(await apiClient.GET("/api/projects/{project_id}/lineage", { params: { path: { project_id: projectId }, query: { query, entity_type: normalizedEntityType, issue_only: issueOnly, limit: 40 } }, signal }), "実績・工程を検索できませんでした。");
+    return requireData(await apiClient.GET("/api/projects/{project_id}/lineage", { params: { path: { project_id: projectId }, query: { query, entity_type: normalizedEntityType, issue_only: issueOnly, limit: 200 } }, signal }), "実績・工程を検索できませんでした。");
   },
   async lineage(projectId: string, entityKey: string, limit = 40, signal?: AbortSignal) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/lineage/{entity_key}", { params: { path: { project_id: projectId, entity_key: entityKey }, query: { limit } }, signal }), "系譜を取得できませんでした。");
   },
-  async createCandidateFromLineage(entityKey: string, projectId: string) {
-    return requireData(await apiClient.POST("/api/projects/{project_id}/lineage/{entity_key}/candidate", { params: { path: { project_id: projectId, entity_key: entityKey } } }), "候補を作成できませんでした。");
+  async createCandidateFromLineage(entityKey: string, projectId: string, processKey?: string, meltKey?: string) {
+    return requireData(await apiClient.POST("/api/projects/{project_id}/lineage/{entity_key}/candidate", { params: { path: { project_id: projectId, entity_key: entityKey }, query: { process_key: processKey, melt_key: meltKey } } }), "候補を作成できませんでした。");
   },
   async listScreeningRuns(projectId: string) {
     return requireData(await apiClient.GET("/api/screening", { params: { query: { project_id: projectId } } }), "保存済み探索を取得できませんでした。");

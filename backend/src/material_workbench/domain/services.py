@@ -15,7 +15,13 @@ from material_workbench.modeling.hot_rolling_feature_pipeline import PROCESS_NAM
 from material_workbench.data.importer import WorkbookData, composition_names
 from material_workbench.task_modules import PredictionRuntime
 from material_workbench.tasks.task_registry import load_task_contracts
-from material_workbench.contracts.schemas import Candidate, CandidateInput, HeatPoint, ScreeningRequest
+from material_workbench.contracts.schemas import (
+    Candidate,
+    CandidateInput,
+    HeatPoint,
+    LineageCandidateOption,
+    ScreeningRequest,
+)
 from material_workbench.domain.screening_score import GoalDirection, evaluate_screening_goal, score_contract
 
 
@@ -163,27 +169,74 @@ def run_latin_hypercube(
     }
 
 
-def candidate_from_lineage(data: WorkbookData, entity_key: str) -> CandidateInput:
-    process_role = "annealing"
-    process_key = entity_key
-    if process_key not in data.anneal_features and process_key not in data.hot_rolling_features:
+def lineage_candidate_options(data: WorkbookData, entity_key: str) -> list[LineageCandidateOption]:
+    candidates: list[tuple[str, str]] = []
+    if entity_key in data.anneal_features:
+        candidates.append(("annealing", entity_key))
+    if entity_key in data.hot_rolling_features:
+        candidates.append(("hot_rolling", entity_key))
+    if not candidates:
         relations = data.lineage.get(entity_key, {})
-        anneal_candidates = relations.get(data.role_to_key["annealing"], [])
-        hot_candidates = relations.get(data.role_to_key["hot_rolling"], [])
-        if len(anneal_candidates) == 1:
-            process_key = anneal_candidates[0]
-        elif len(hot_candidates) == 1:
-            process_key = hot_candidates[0]
-            process_role = "hot_rolling"
-        else:
-            raise ValueError("焼鈍または熱延条件を一意にたどれないため候補化できません")
-    elif process_key in data.hot_rolling_features:
-        process_role = "hot_rolling"
+        candidates.extend(
+            ("annealing", key)
+            for key in sorted(set(relations.get(data.role_to_key["annealing"], [])))
+            if key in data.anneal_features
+        )
+        candidates.extend(
+            ("hot_rolling", key)
+            for key in sorted(set(relations.get(data.role_to_key["hot_rolling"], [])))
+            if key in data.hot_rolling_features
+        )
+    options: list[LineageCandidateOption] = []
+    for process_role, process_key in candidates:
+        melt_keys = sorted(set(
+            data.lineage.get(process_key, {}).get(data.role_to_key["melt"], [])
+        ))
+        for melt_key in melt_keys:
+            if melt_key not in data.composition:
+                continue
+            feature = (
+                data.anneal_features.get(process_key)
+                if process_role == "annealing"
+                else data.hot_rolling_features.get(process_key)
+            )
+            if feature is None:
+                continue
+            if process_role == "annealing" and len(feature.get("heat_pattern", [])) < 2:
+                continue
+            options.append(LineageCandidateOption(
+                process_key=process_key,
+                process_role=process_role,
+                process_label="焼鈍条件" if process_role == "annealing" else "熱延条件",
+                melt_key=melt_key,
+            ))
+    return options
 
-    relations = data.lineage.get(process_key, {})
-    melt_keys = sorted(set(relations.get(data.role_to_key["melt"], [])))
-    if len(melt_keys) != 1 or melt_keys[0] not in data.composition:
-        raise ValueError("工程条件に一意な成分が接続されていません")
+
+def candidate_from_lineage(
+    data: WorkbookData,
+    entity_key: str,
+    *,
+    process_key: str | None = None,
+    melt_key: str | None = None,
+) -> CandidateInput:
+    options = lineage_candidate_options(data, entity_key)
+    if process_key is not None or melt_key is not None:
+        selected = next((
+            option for option in options
+            if option.process_key == process_key and option.melt_key == melt_key
+        ), None)
+        if selected is None:
+            raise ValueError("選択した工程条件と成分の組み合わせを候補化できません")
+    elif len(options) == 1:
+        selected = options[0]
+    elif options:
+        raise ValueError("候補化できる上流条件が複数あります。工程条件と成分を選択してください")
+    else:
+        raise ValueError("候補化できる工程条件と成分の組み合わせが見つかりません")
+    process_role = selected.process_role
+    process_key = selected.process_key
+    melt_key = selected.melt_key
     feature = data.anneal_features.get(process_key) if process_role == "annealing" else data.hot_rolling_features.get(process_key)
     if feature is None:
         raise ValueError("候補化できる工程条件が見つかりません")
@@ -200,16 +253,17 @@ def candidate_from_lineage(data: WorkbookData, entity_key: str) -> CandidateInpu
     return CandidateInput(
         name=f"過去条件 {process_key}",
         inputs={
-            "composition": deepcopy(data.composition[melt_keys[0]]),
+            "composition": deepcopy(data.composition[melt_key]),
             "process": process_values,
             "categorical": {},
             "heat_pattern": heat_pattern,
         },
         provenance={
-                "source_kind": "lineage",
-                "source_ref": {
-                    "entity_type": entity_type,
-                    "entity_key": process_key,
+            "source_kind": "lineage",
+            "source_ref": {
+                "entity_type": entity_type,
+                "entity_key": process_key,
+                "composition_entity_key": melt_key,
                 "data_source_digest": data.source_sha256,
             },
         },

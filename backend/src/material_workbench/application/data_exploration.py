@@ -10,7 +10,7 @@ from .candidates import CandidateService
 from .projects import ProjectService
 from material_workbench.data.importer import lineage_neighborhood, lineage_node_detail
 from material_workbench.contracts.schemas import Candidate, LineageIndexResponse, LineageResponse, QualityResponse
-from material_workbench.domain.services import candidate_from_lineage
+from material_workbench.domain.services import candidate_from_lineage, lineage_candidate_options
 from material_workbench.persistence.store import Store
 from material_workbench.tasks.task_registry import DataExplorerEntry, TaskRegistry, TaskRegistryError
 from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
@@ -88,7 +88,7 @@ class DataExplorationService:
         query: str = "",
         entity_type: str = "",
         issue_only: bool = False,
-        limit: int = 40,
+        limit: int = 200,
     ) -> LineageIndexResponse:
         data = self.explorer(project_id, "lineage").data
         normalized = query.strip().casefold()
@@ -124,7 +124,8 @@ class DataExplorationService:
             known_keys.add(key)
         items.sort(key=lambda item: (not item["has_issue"], item["entity_type"], item["key"]))
         return LineageIndexResponse.model_validate({
-            "items": items[:max(1, min(limit, 100))],
+            "items": items[:max(1, min(limit, 500))],
+            "matched_entities": len(items),
             "total_entities": sum(counts.values()),
             "relation_rows": len(data.sheets[data.relation_sheet]),
             "detected_issues": len(data.detected_quality),
@@ -144,15 +145,26 @@ class DataExplorationService:
         graph = lineage_neighborhood(data, entity_key, max_nodes=limit)
         connected_keys = {graph_node["key"] for graph_node in graph["nodes"]}
         issues = [issue for issue in data.detected_quality if issue["entity_key"] in connected_keys]
-        try:
-            payload = candidate_from_lineage(data, entity_key)
-            self.registry.validate_candidate(project.task_id, payload)
-        except (TaskRegistryError, ValueError) as exc:
-            candidate_eligible = False
-            candidate_reason = str(exc)
-        else:
-            candidate_eligible = True
+        candidate_options = []
+        for option in lineage_candidate_options(data, entity_key):
+            try:
+                payload = candidate_from_lineage(
+                    data,
+                    entity_key,
+                    process_key=option.process_key,
+                    melt_key=option.melt_key,
+                )
+                self.registry.validate_candidate(project.task_id, payload)
+            except (TaskRegistryError, ValueError):
+                continue
+            candidate_options.append(option)
+        candidate_eligible = bool(candidate_options)
+        if len(candidate_options) == 1:
             candidate_reason = "接続された実績を候補入力として引き継げます"
+        elif candidate_options:
+            candidate_reason = f"候補化する上流条件を選択してください（{len(candidate_options)}通り）"
+        else:
+            candidate_reason = "候補化できる工程条件と成分の組み合わせが見つかりません"
         return LineageResponse.model_validate({
             "key": entity_key,
             "relations": item,
@@ -161,14 +173,27 @@ class DataExplorationService:
             "graph": graph,
             "candidate_eligible": candidate_eligible,
             "candidate_reason": candidate_reason,
+            "candidate_options": candidate_options,
         })
 
-    def create_candidate_from_lineage(self, project_id: str, entity_key: str) -> Candidate:
+    def create_candidate_from_lineage(
+        self,
+        project_id: str,
+        entity_key: str,
+        *,
+        process_key: str | None = None,
+        melt_key: str | None = None,
+    ) -> Candidate:
         explorer = self.explorer(project_id, "lineage")
         if not explorer.capability.candidate_creation:
             raise DataExplorerUnavailableError("このプロジェクトでは実績から候補を作成できません")
         try:
-            payload = candidate_from_lineage(explorer.data, entity_key)
+            payload = candidate_from_lineage(
+                explorer.data,
+                entity_key,
+                process_key=process_key,
+                melt_key=melt_key,
+            )
         except ValueError as exc:
             raise DataExplorationValidationError(str(exc)) from exc
         return self.candidates.create(project_id, payload)

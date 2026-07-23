@@ -79,6 +79,7 @@ export function LineagePage({
   const [data, setData] = useState<ApiLineage | null>(null);
   const [error, setError] = useState("");
   const [candidateError, setCandidateError] = useState("");
+  const [candidateOptionIndex, setCandidateOptionIndex] = useState(0);
   const [selectedGroup, setSelectedGroup] = useState<LineageGroupSelection | null>(null);
   const [hoveredHeatPoint, setHoveredHeatPoint] = useState<{ x: number; y: number; lines: string[] } | null>(null);
   const activeProjectRef = useRef(projectId);
@@ -87,12 +88,14 @@ export function LineagePage({
     return definition ? `${definition.label}${definition.unit ? ` (${definition.unit})` : ""}` : raw;
   };
   activeProjectRef.current = projectId;
+  const candidateOptions = data?.candidate_options ?? [];
   useEffect(() => {
     setEntityKey(initialEntityKey ?? "");
     setGraphLimit(40);
   }, [projectId, initialEntityKey]);
   useEffect(() => {
     setSelectedGroup(null);
+    setCandidateOptionIndex(0);
   }, [entityKey]);
   useEffect(() => {
     setQuery("");
@@ -146,8 +149,14 @@ export function LineagePage({
   const createCandidate = async () => {
     const requestProjectId = projectId;
     const requestEntityKey = entityKey;
+    const option = candidateOptions[candidateOptionIndex];
     try {
-      const created = fromApiCandidate(await workbenchApi.createCandidateFromLineage(requestEntityKey, requestProjectId));
+      const created = fromApiCandidate(await workbenchApi.createCandidateFromLineage(
+        requestEntityKey,
+        requestProjectId,
+        option?.process_key,
+        option?.melt_key,
+      ));
       if (activeProjectRef.current !== requestProjectId) return;
       onCandidate(created);
     } catch (cause) {
@@ -280,7 +289,10 @@ export function LineagePage({
             ))}
             {index && !index.items.length && <p className="empty-evidence">一致するキーはありません。</p>}
           </div>
-          <small className="lineage-result-limit">検索結果は最大40件。選択するとグラフを開きます。</small>
+          <small className="lineage-result-limit">
+            {index ? `${number(index.matched_entities ?? index.items.length)}件中${number(index.items.length)}件を表示` : "検索中"}
+            {" · "}最大200件。選択するとグラフを開きます。
+          </small>
         </aside>
       {error ? (
         <main className="lineage-main">
@@ -334,8 +346,23 @@ export function LineagePage({
                 </p>
               </div>
               <div className="lineage-detail-action">
+                {supportsCandidateCreation && candidateOptions.length > 1 && (
+                  <label className="lineage-candidate-option">
+                    上流条件
+                    <select
+                      value={candidateOptionIndex}
+                      onChange={(event) => setCandidateOptionIndex(Number(event.target.value))}
+                    >
+                      {candidateOptions.map((option, index) => (
+                        <option key={`${option.process_key}-${option.melt_key}`} value={index}>
+                          {option.process_label} {option.process_key} / 成分 {option.melt_key}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
                 <CandidateAddButton
-                  disabled={!supportsCandidateCreation || !data.candidate_eligible}
+                  disabled={!supportsCandidateCreation || !data.candidate_eligible || !candidateOptions[candidateOptionIndex]}
                   title={supportsCandidateCreation ? data.candidate_reason : "この予測タスクは系譜からの候補化に対応していません"}
                   onClick={() => {
                     void createCandidate();

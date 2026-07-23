@@ -494,6 +494,24 @@
   padding: 6px 12px;
   font-size: 12px;
 }
+.lineage-candidate-option {
+  display: grid;
+  width: 100%;
+  gap: 3px;
+  color: #4d657f;
+  font-size: 10px;
+  text-align: left;
+}
+.lineage-candidate-option select {
+  width: 100%;
+  min-height: 30px;
+  border: 1px solid #b8c8da;
+  border-radius: 4px;
+  background: #fff;
+  padding: 4px 7px;
+  color: #263448;
+  font: inherit;
+}
 .lineage-detail-action-reason {
   color: #4d657f;
   font-size: 10px;

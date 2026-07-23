@@ -1905,6 +1905,38 @@
         "title": "InputRange",
         "type": "object"
       },
+      "LineageCandidateOption": {
+        "properties": {
+          "melt_key": {
+            "title": "Melt Key",
+            "type": "string"
+          },
+          "process_key": {
+            "title": "Process Key",
+            "type": "string"
+          },
+          "process_label": {
+            "title": "Process Label",
+            "type": "string"
+          },
+          "process_role": {
+            "enum": [
+              "annealing",
+              "hot_rolling"
+            ],
+            "title": "Process Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "process_key",
+          "process_role",
+          "process_label",
+          "melt_key"
+        ],
+        "title": "LineageCandidateOption",
+        "type": "object"
+      },
       "LineageGraph": {
         "properties": {
           "edges": {
@@ -2149,6 +2181,10 @@
             "title": "Items",
             "type": "array"
           },
+          "matched_entities": {
+            "title": "Matched Entities",
+            "type": "integer"
+          },
           "relation_rows": {
             "title": "Relation Rows",
             "type": "integer"
@@ -2160,6 +2196,7 @@
         },
         "required": [
           "items",
+          "matched_entities",
           "total_entities",
           "relation_rows",
           "detected_issues",
@@ -2303,6 +2340,18 @@
       "LineageReference": {
         "additionalProperties": false,
         "properties": {
+          "composition_entity_key": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Composition Entity Key"
+          },
           "data_source_digest": {
             "anyOf": [
               {
@@ -2338,6 +2387,13 @@
           "candidate_eligible": {
             "title": "Candidate Eligible",
             "type": "boolean"
+          },
+          "candidate_options": {
+            "items": {
+              "$ref": "#/components/schemas/LineageCandidateOption"
+            },
+            "title": "Candidate Options",
+            "type": "array"
           },
           "candidate_reason": {
             "title": "Candidate Reason",
@@ -8512,7 +8568,9 @@
             "name": "limit",
             "required": false,
             "schema": {
-              "default": 40,
+              "default": 200,
+              "maximum": 500,
+              "minimum": 1,
               "title": "Limit",
               "type": "integer"
             }
@@ -8663,6 +8721,38 @@
             "schema": {
               "title": "Entity Key",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "process_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Process Key"
+            }
+          },
+          {
+            "in": "query",
+            "name": "melt_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Melt Key"
             }
           }
         ],

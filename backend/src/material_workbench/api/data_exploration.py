@@ -89,7 +89,7 @@ def lineage_index(
     query: str = "",
     entity_type: str = "",
     issue_only: bool = False,
-    limit: int = 40,
+    limit: int = Query(default=200, ge=1, le=500),
 ) -> LineageIndexResponse:
     try:
         return service.lineage_index(project_id, query=query, entity_type=entity_type, issue_only=issue_only, limit=limit)
@@ -115,8 +115,15 @@ def create_candidate_from_lineage(
     project_id: str,
     entity_key: str,
     service: DataExplorationServiceDependency,
+    process_key: str | None = None,
+    melt_key: str | None = None,
 ) -> Candidate:
     try:
-        return service.create_candidate_from_lineage(project_id, entity_key)
+        return service.create_candidate_from_lineage(
+            project_id,
+            entity_key,
+            process_key=process_key,
+            melt_key=melt_key,
+        )
     except DATA_EXPLORATION_ERRORS as exc:
         _raise_data_error(exc)

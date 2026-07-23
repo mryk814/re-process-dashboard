@@ -1474,6 +1474,20 @@ export interface components {
             /** Min */
             min: number;
         };
+        /** LineageCandidateOption */
+        LineageCandidateOption: {
+            /** Melt Key */
+            melt_key: string;
+            /** Process Key */
+            process_key: string;
+            /** Process Label */
+            process_label: string;
+            /**
+             * Process Role
+             * @enum {string}
+             */
+            process_role: "annealing" | "hot_rolling";
+        };
         /** LineageGraph */
         LineageGraph: {
             /** Edges */
@@ -1552,6 +1566,8 @@ export interface components {
             detected_issues: number;
             /** Items */
             items: components["schemas"]["LineageIndexItem"][];
+            /** Matched Entities */
+            matched_entities: number;
             /** Relation Rows */
             relation_rows: number;
             /** Total Entities */
@@ -1601,6 +1617,8 @@ export interface components {
         };
         /** LineageReference */
         LineageReference: {
+            /** Composition Entity Key */
+            composition_entity_key?: string | null;
             /** Data Source Digest */
             data_source_digest?: string | null;
             /** Entity Key */
@@ -1612,6 +1630,8 @@ export interface components {
         LineageResponse: {
             /** Candidate Eligible */
             candidate_eligible: boolean;
+            /** Candidate Options */
+            candidate_options?: components["schemas"]["LineageCandidateOption"][];
             /** Candidate Reason */
             candidate_reason: string;
             graph: components["schemas"]["LineageGraph"];
@@ -4921,7 +4941,10 @@ export interface operations {
     };
     create_candidate_from_lineage_api_projects__project_id__lineage__entity_key__candidate_post: {
         parameters: {
-            query?: never;
+            query?: {
+                melt_key?: string | null;
+                process_key?: string | null;
+            };
             header?: never;
             path: {
                 entity_key: string;

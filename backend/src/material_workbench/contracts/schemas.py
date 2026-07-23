@@ -832,6 +832,7 @@ class LineageIndexItem(BaseModel):
 
 class LineageIndexResponse(BaseModel):
     items: list[LineageIndexItem]
+    matched_entities: int
     total_entities: int
     relation_rows: int
     detected_issues: int
@@ -1055,6 +1056,13 @@ class LineageNodeDetail(BaseModel):
     missing_source: bool = False
 
 
+class LineageCandidateOption(BaseModel):
+    process_key: str
+    process_role: Literal["annealing", "hot_rolling"]
+    process_label: str
+    melt_key: str
+
+
 class LineageResponse(BaseModel):
     # key/relations/quality_issues are the existing renderer contract.
     key: str
@@ -1064,6 +1072,7 @@ class LineageResponse(BaseModel):
     graph: LineageGraph
     candidate_eligible: bool
     candidate_reason: str
+    candidate_options: list[LineageCandidateOption] = Field(default_factory=list)
 
 
 class StrictModel(BaseModel):

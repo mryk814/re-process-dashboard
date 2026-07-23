@@ -19,6 +19,35 @@ def test_v8_registers_and_runs_both_individual_observation_packages(tmp_path: Pa
     )
     app = create_app(db_path=tmp_path / "workbench.db", _resources=resources)
     with TestClient(app) as client:
+        lineage_index = client.get(
+            "/api/projects/default/lineage",
+            params={"limit": 200},
+        )
+        assert lineage_index.status_code == 200
+        assert len(lineage_index.json()["items"]) == 200
+        assert lineage_index.json()["matched_entities"] > 200
+        lineage = client.get("/api/projects/default/lineage/ME-00001")
+        assert lineage.status_code == 200
+        options_for_annealing = [
+            option for option in lineage.json()["candidate_options"]
+            if option["process_role"] == "annealing"
+        ]
+        assert len(options_for_annealing) == 2
+        ambiguous = client.post("/api/projects/default/lineage/ME-00001/candidate")
+        assert ambiguous.status_code == 422
+        selected = options_for_annealing[0]
+        created_from_selected_upstream = client.post(
+            "/api/projects/default/lineage/ME-00001/candidate",
+            params={
+                "process_key": selected["process_key"],
+                "melt_key": selected["melt_key"],
+            },
+        )
+        assert created_from_selected_upstream.status_code == 201
+        assert (
+            created_from_selected_upstream.json()["provenance"]["source_ref"]["composition_entity_key"]
+            == selected["melt_key"]
+        )
         options = client.get("/api/project-creation-options").json()
         annealed_packages = [
             item for item in options["model_packages"]
