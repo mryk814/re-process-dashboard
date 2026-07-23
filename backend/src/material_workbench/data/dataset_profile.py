@@ -1084,14 +1084,10 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
                             fallback.temperature_column_template.format(stage=stage)
                             for _, stage, _ in master_geometry
                         }
-                        missing_temperature_columns = sorted(
-                            expected_temperature_columns - source_headers
-                        )
-                        if missing_temperature_columns:
-                            errors.append(
-                                f"{task_id}: measurement-point fallback is missing temperature columns: "
-                                + ", ".join(missing_temperature_columns)
-                            )
+                        # The master describes every stage the equipment can
+                        # expose, including stages unused by the current
+                        # dataset. Only source columns that actually exist
+                        # participate in fallback construction.
                         unit_mismatches = sorted(
                             column for column in expected_temperature_columns & source_headers
                             if _header_unit(column) != fallback.temperature_source_unit
