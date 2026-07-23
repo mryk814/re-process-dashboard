@@ -1,5 +1,7 @@
 # ドキュメント索引
 
+開発者は最初に [Developer Start Here](developer-start-here.md) で変更の種類と影響範囲を判断してください。その後、該当する個別契約文書、[教材ガイド](tutorial-data-pipeline.md)、実装Skillの順で読みます。
+
 `docs/` 直下には、現在の実装や運用を規定する文書だけを置きます。
 過去の判断は `decisions/`、特定時点の計測結果は `benchmarks/` に分離します。
 完了済みIssueの受入記録はIssue、Pull Request、Git履歴を正本とし、常設文書として複製しません。
@@ -13,6 +15,7 @@
 
 ## データ、特徴量、モデル
 
+- [developer-start-here.md](developer-start-here.md) — やりたい変更から契約、成果物、検証を判断する入口
 - [dataset-input-profile.md](dataset-input-profile.md) — Workbookをアプリ共通入力へ対応付ける手順
 - [feature-engineering.md](feature-engineering.md) — 特徴量パイプラインの定義
 - [model-package-contract.md](model-package-contract.md) — Model Packageの安全境界と読込契約
