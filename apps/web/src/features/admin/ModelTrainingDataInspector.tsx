@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { TaskDefinitionContract } from "../candidates";
 import {
   workbenchApi,
@@ -30,6 +30,8 @@ export function ModelTrainingDataInspector({
   const [offset, setOffset] = useState(0);
   const [page, setPage] = useState<ApiModelTrainingDataPage | null>(null);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const tableWrapRef = useRef<HTMLDivElement>(null);
   const limit = 25;
 
   useEffect(() => {
@@ -37,23 +39,44 @@ export function ModelTrainingDataInspector({
     setStage("selected");
     setOffset(0);
     setPage(null);
-  }, [modelPackage.id]);
+    tableWrapRef.current?.scrollTo({ top: 0 });
+  }, [modelPackage.id, projectId]);
 
   useEffect(() => {
     if (!open || !target) return;
     const controller = new AbortController();
     setError("");
+    setLoading(true);
     workbenchApi.modelTrainingData(projectId, stage, target, offset, limit, controller.signal)
       .then((value) => {
-        if (!controller.signal.aborted) setPage(value);
+        if (controller.signal.aborted) return;
+        setPage((current) => {
+          if (offset === 0 || !current || current.stage !== value.stage || current.target !== value.target) return value;
+          return { ...value, offset: 0, rows: [...current.rows, ...value.rows] };
+        });
       })
       .catch((cause) => {
         if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "学習データを取得できませんでした。");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
   }, [limit, offset, open, projectId, stage, target]);
 
-  const last = page ? Math.min(page.offset + page.rows.length, page.total) : 0;
+  const resetRows = () => {
+    setOffset(0);
+    setPage(null);
+    setError("");
+    tableWrapRef.current?.scrollTo({ top: 0 });
+  };
+  const loadMoreOnScroll = () => {
+    const element = tableWrapRef.current;
+    if (!element || !page || loading || page.rows.length >= page.total) return;
+    if (element.scrollHeight - element.scrollTop - element.clientHeight <= 80) {
+      setOffset(page.rows.length);
+    }
+  };
   return <details className="model-training-data" open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
     <summary>
       <span><b>学習データ</b><small>採用行とモデル入力を確認</small></span>
@@ -61,15 +84,15 @@ export function ModelTrainingDataInspector({
     </summary>
     <div className="training-data-controls">
       <label>目的変数
-        <select value={target} onChange={(event) => { setTarget(event.target.value); setOffset(0); }}>
+        <select value={target} onChange={(event) => { setTarget(event.target.value); resetRows(); }}>
           {modelPackage.predictors.map((predictor) => <option key={predictor.target} value={predictor.target}>
             {taskDefinition?.outputs.find((output) => output.key === predictor.target)?.label ?? predictor.target}
           </option>)}
         </select>
       </label>
       <div className="training-data-tabs" role="tablist" aria-label="学習データの段階">
-        <button type="button" role="tab" aria-selected={stage === "selected"} className={stage === "selected" ? "active" : ""} onClick={() => { setStage("selected"); setOffset(0); }}>採用された個々値</button>
-        <button type="button" role="tab" aria-selected={stage === "features"} className={stage === "features" ? "active" : ""} onClick={() => { setStage("features"); setOffset(0); }}>モデル入力特徴量</button>
+        <button type="button" role="tab" aria-selected={stage === "selected"} className={stage === "selected" ? "active" : ""} onClick={() => { setStage("selected"); resetRows(); }}>採用された個々値</button>
+        <button type="button" role="tab" aria-selected={stage === "features"} className={stage === "features" ? "active" : ""} onClick={() => { setStage("features"); resetRows(); }}>モデル入力特徴量</button>
       </div>
     </div>
     <p className="training-data-note">
@@ -81,7 +104,7 @@ export function ModelTrainingDataInspector({
     </p>
     {error && <p className="panel-error">{error}</p>}
     {page && !error ? <>
-      <div className="training-data-table-wrap">
+      <div className="training-data-table-wrap" ref={tableWrapRef} onScroll={loadMoreOnScroll}>
         <table className="training-data-table">
           <thead><tr>{page.columns.map((column) => <th key={column.key}>
             <small>{column.group}</small>{column.label}{column.unit && <span>{column.unit}</span>}
@@ -95,11 +118,8 @@ export function ModelTrainingDataInspector({
         </table>
       </div>
       <div className="training-data-footer">
-        <span>{page.total ? `${page.offset + 1}–${last} / ${page.total}行` : "0行"}</span>
-        <div>
-          <button type="button" disabled={page.offset === 0} onClick={() => setOffset(Math.max(0, page.offset - limit))}>前へ</button>
-          <button type="button" disabled={last >= page.total} onClick={() => setOffset(page.offset + limit)}>次へ</button>
-        </div>
+        <span>{page.total ? `${page.rows.length} / ${page.total}行を表示` : "0行"}</span>
+        <span>{loading ? "続きを読み込み中…" : page.rows.length < page.total ? "下へスクロールして続きを表示" : "すべて表示しました"}</span>
       </div>
       <details className="training-data-identity"><summary>再現情報</summary>
         <dl>

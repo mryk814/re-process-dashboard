@@ -66,9 +66,6 @@
 .training-data-table td:first-child { position: sticky; left: 0; z-index: 2; background: #f8fafc; }
 .training-data-table th:first-child { z-index: 3; background: #edf2f8; }
 .training-data-footer { display: flex; align-items: center; justify-content: space-between; padding: 9px 13px; color: #617086; font-size: 11px; }
-.training-data-footer div { display: flex; gap: 5px; }
-.training-data-footer button { border: 1px solid #c7d2df; border-radius: 3px; background: #fff; padding: 4px 9px; color: #39516e; font: inherit; }
-.training-data-footer button:disabled { opacity: .45; }
 .training-data-identity { margin: 0 13px 12px; color: #667589; font-size: 11px; }
 .training-data-identity dl { display: grid; gap: 5px; margin: 8px 0 0; }
 .training-data-identity dl div { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 8px; }
