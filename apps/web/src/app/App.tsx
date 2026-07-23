@@ -7,9 +7,10 @@ import { ScreeningPage } from "../features/screening";
 import { LineagePage } from "../features/lineage";
 import { DataExploreNavigation, LiveDataQualityPage } from "../features/quality";
 import { DeveloperAdminPage } from "../features/admin";
-import { DataLibraryPage } from "../features/data-library";
+import { DataLibraryPage, ProfileWorkbenchPage } from "../features/data-library";
 
 type Tab = WorkbenchView;
+const lastNavigationStorageKey = "material-workbench-last-navigation";
 const projectNavItems: Array<{ id: Tab; label: string; active: Tab[]; requiresDataExplorer?: boolean }> = [
   { id: "project", label: "概要", active: ["project"] },
   { id: "lineage", label: "データ探索", active: ["lineage", "quality"], requiresDataExplorer: true },
@@ -24,8 +25,26 @@ function DataExploreUnavailable() {
   </div>;
 }
 
+function readStartupNavigation(): NavigationIntent {
+  if (new URLSearchParams(window.location.search).has("view")) return readNavigationIntent();
+  try {
+    const savedSearch = window.localStorage.getItem(lastNavigationStorageKey);
+    return savedSearch ? readNavigationIntent(savedSearch) : readNavigationIntent();
+  } catch {
+    return readNavigationIntent();
+  }
+}
+
+function rememberNavigation(intent: NavigationIntent) {
+  try {
+    window.localStorage.setItem(lastNavigationStorageKey, new URL(navigationUrl(intent), window.location.href).search);
+  } catch {
+    // Navigation remains usable when browser storage is unavailable.
+  }
+}
+
 function App() {
-  const [navigation, setNavigation] = useState<NavigationIntent>(() => readNavigationIntent());
+  const [navigation, setNavigation] = useState<NavigationIntent>(() => readStartupNavigation());
   const [requestedDatasetViewId, setRequestedDatasetViewId] = useState<string>();
   const navigationRef = useRef(navigation);
   const tab = navigation.view;
@@ -34,6 +53,7 @@ function App() {
     const next = Object.freeze(intent);
     navigationRef.current = next;
     setNavigation(next);
+    rememberNavigation(next);
     window.history[replace ? "replaceState" : "pushState"]({}, "", navigationUrl(next));
   }
 
@@ -41,7 +61,15 @@ function App() {
     requestedProjectId: navigation.projectId,
     requestedCandidateId: navigation.candidateId,
     onLocationReplace: (projectId, candidateId) => {
-      navigate({ ...navigationRef.current, projectId, candidateId }, true);
+      const current = navigationRef.current;
+      navigate(
+        current.view === "data-library" || current.view === "profile-workbench"
+          ? current
+          : current.projectId && current.projectId !== projectId
+            ? withView({ view: current.view, projectId, candidateId, adminSection: current.adminSection }, current.view)
+            : { ...current, projectId, candidateId },
+        true,
+      );
     },
     onCandidateSelected: (projectId, candidateId) => {
       navigate({ view: "candidates", projectId, candidateId }, true);
@@ -73,8 +101,7 @@ function App() {
   const qualityAvailable = dataExplorer?.quality === true;
   const lineageAvailable = dataExplorer?.lineage === true;
   const visibleProjectNavItems = projectNavItems.filter((item) => !item.requiresDataExplorer || qualityAvailable || lineageAvailable);
-  const dataLibraryMode = tab === "data-library";
-  const profileWorkbenchMode = tab === "settings" && navigation.adminSection === "profile";
+  const dataLibraryMode = tab === "data-library" || tab === "profile-workbench";
 
   function selectCandidate(candidateId: string, replace = true) {
     session.selectCandidate(candidateId, false);
@@ -106,12 +133,21 @@ function App() {
       const intent = readNavigationIntent();
       navigationRef.current = intent;
       setNavigation(intent);
+      rememberNavigation(intent);
       const targetProjectId = intent.projectId ?? activeProjectId;
       void session.openLocation(targetProjectId, intent.candidateId);
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, [activeProjectId, candidates]);
+
+  useEffect(() => {
+    const current = navigationRef.current;
+    rememberNavigation(current);
+    if (!new URLSearchParams(window.location.search).has("view")) {
+      window.history.replaceState({}, "", navigationUrl(current));
+    }
+  }, []);
 
 
   return (
@@ -129,14 +165,14 @@ function App() {
           <button
             className={dataLibraryMode ? "nav-button active" : "nav-button"}
             aria-current={dataLibraryMode ? "page" : undefined}
-            onClick={() => navigate({ view: "data-library", projectId: activeProjectId })}
+            onClick={() => navigate({ view: "data-library" })}
           >
             データライブラリ
           </button>
         </nav>
       </header>
       <main>
-        {!dataLibraryMode && !profileWorkbenchMode && <div className="context-bar">
+        {!dataLibraryMode && <div className="context-bar">
           <div className="context-primary-row">
             <h1 title={activeProject?.name ?? undefined}>{activeProject?.name ?? "プロジェクトを読み込んでいます"}</h1>
             <div className="run-actions">
@@ -209,7 +245,11 @@ function App() {
         )}
         {tab === "data-library" && <DataLibraryPage
           projects={projects}
-          onAddDataset={() => navigate({ view: "settings", projectId: activeProjectId, adminSection: "profile" })}
+          onAddDataset={() => navigate({ view: "profile-workbench" })}
+          onStartProject={startProjectForDataset}
+        />}
+        {tab === "profile-workbench" && <ProfileWorkbenchPage
+          onOpenDataLibrary={() => navigate({ view: "data-library" })}
           onStartProject={startProjectForDataset}
         />}
         {tab === "settings" && (
@@ -243,8 +283,6 @@ function App() {
               qualitySheet: filters.sheet,
               qualityKey: filters.key,
             })}
-            onOpenDataLibrary={() => navigate({ view: "data-library", projectId: activeProjectId })}
-            onStartProject={startProjectForDataset}
             onProjectChanged={(project) => {
               void session.refreshAdminProject(project);
             }}

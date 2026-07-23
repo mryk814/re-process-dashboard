@@ -12,6 +12,50 @@ async function createCandidateProject(request: APIRequestContext) {
   return project.id;
 }
 
+test("startup restores the last opened location", async ({ page }) => {
+  await page.goto("/?view=lineage&project=default&entity=AN-00001");
+  await expect(page.getByRole("heading", { name: "AN-00001" })).toBeVisible();
+
+  await page.goto("/");
+  await expect(page).toHaveURL(/view=lineage.*project=default.*entity=AN-00001/);
+  await expect(page.getByRole("heading", { name: "AN-00001" })).toBeVisible();
+
+  await page.goto("/?view=project&project=default");
+  await expect(page).toHaveURL(/view=project/);
+  await expect(page.getByRole("complementary", { name: "プロジェクト一覧" })).toBeVisible();
+
+  await page.goto("/?view=lineage&project=missing-project&entity=AN-00001");
+  await expect(page).toHaveURL(/view=lineage.*project=default/);
+  await expect(page).not.toHaveURL(/entity=/);
+  await expect(page.getByRole("heading", { name: "調べるノードを選択してください" })).toBeVisible();
+});
+
+test("dataset import stays in the global data library context", async ({ page }) => {
+  await page.goto("/?view=data-library");
+  await page.getByRole("button", { name: "ExcelからDatasetを追加" }).click();
+
+  await expect(page).toHaveURL(/view=profile-workbench/);
+  expect(new URL(page.url()).searchParams.get("project")).toBeNull();
+  expect(new URL(page.url()).searchParams.get("admin")).toBeNull();
+  await expect(page.getByRole("heading", { name: "新しいDatasetを準備" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "データライブラリ", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("navigation", { name: "プロジェクト内メニュー" })).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "開発・管理メニュー" })).toHaveCount(0);
+
+  await page.reload();
+  await expect(page).toHaveURL(/view=profile-workbench/);
+  expect(new URL(page.url()).searchParams.get("project")).toBeNull();
+  await expect(page.getByRole("heading", { name: "新しいDatasetを準備" })).toBeVisible();
+
+  await page.getByRole("button", { name: "データライブラリに戻る" }).click();
+  await expect(page).toHaveURL(/view=data-library/);
+  await expect(page.getByRole("heading", { name: "データライブラリ" })).toBeVisible();
+
+  await page.goto("/?view=settings&project=default&admin=profile");
+  await expect(page.getByRole("navigation", { name: "開発・管理メニュー" })).not.toContainText("Profile Workbench");
+  await expect(page.getByRole("heading", { name: "新しいDatasetを準備" })).toHaveCount(0);
+});
+
 test("project hub keeps the active project visible across scoped navigation", async ({ page }) => {
   await page.goto("/?view=project&project=default");
   const projectList = page.getByRole("complementary", { name: "プロジェクト一覧" });

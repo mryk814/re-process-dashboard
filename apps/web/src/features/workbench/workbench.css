@@ -464,7 +464,7 @@
 .similar-summary-table th:nth-child(1) { width: 52px; }
 .similar-summary-table th:nth-child(2),
 .similar-summary-table th:nth-child(3) { width: 82px; }
-.similar-summary-table th:nth-child(5) { width: 94px; }
+.similar-summary-table th:nth-child(5) { width: 112px; }
 .similar-summary-table th:last-child,
 .similar-summary-table td:last-child {
   position: sticky;
@@ -484,7 +484,7 @@
 .similar-value-list span b { color: #52657c; font-size: 10px; }
 .similar-value-list span strong { color: #173f75; text-align: right; font-size: 11px; font-variant-numeric: tabular-nums; }
 .similar-value-list span small { color: #657386; font-size: 9px; }
-.similar-action-cell { width: 94px; min-width: 94px; box-sizing: border-box; padding-left: 4px !important; padding-right: 4px !important; }
+.similar-action-cell { width: 112px; min-width: 112px; box-sizing: border-box; padding-left: 4px !important; padding-right: 4px !important; }
 .similar-action-cell .candidate-add-button { width: 100%; padding-inline: 4px; }
 @container (max-width: 520px) {
   .similar-value-list { grid-template-columns: max-content; }
