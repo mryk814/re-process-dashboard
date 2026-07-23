@@ -21,6 +21,7 @@ def test_inspect_workbook_reports_profile_and_canonical_counts() -> None:
     assert report["canonicalization"]["profile_id"] == "thin-sheet-workbook-v2"
     assert report["canonicalization"]["observations"] > 0
     assert "annealed-properties-v1" in report["canonicalization"]["task_ids"]
+    assert isinstance(report["canonicalization"]["unresolved_heat_series_by_task"], dict)
 
 
 def test_validate_reports_effective_profile_and_task_cohorts() -> None:

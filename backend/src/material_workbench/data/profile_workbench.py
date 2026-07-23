@@ -70,6 +70,25 @@ def validate_workbook_profile(source: Path, profile_path: Path) -> dict[str, Any
         for policy, accepted in item.policy_results.items()
         if not accepted
     )
+    unresolved_heat_series_by_task: dict[str, int] = {}
+    for task_id, task in profile.tasks.items():
+        mappings = [
+            mapping for mapping in task.mappings
+            if mapping.kind == "ordered_heat_series"
+        ]
+        if not mappings:
+            continue
+        parent_types = {
+            mapping.parent_entity_type or "annealing"
+            for mapping in mappings
+        }
+        unresolved = sum(
+            1
+            for identity in canonical.entities
+            if identity[0] in parent_types and identity not in canonical.heat_series
+        )
+        if unresolved:
+            unresolved_heat_series_by_task[task_id] = unresolved
     entity_preview = [
         {
             "entity_type": identity[0],
@@ -92,6 +111,7 @@ def validate_workbook_profile(source: Path, profile_path: Path) -> dict[str, Any
         "observations": len(canonical.observations),
         "observations_by_task": dict(sorted(observations_by_task.items())),
         "heat_series_parents": len(canonical.heat_series),
+        "unresolved_heat_series_by_task": unresolved_heat_series_by_task,
         "rejected_by_policy": dict(sorted(rejected_by_policy.items())),
         "entity_preview": entity_preview,
     }

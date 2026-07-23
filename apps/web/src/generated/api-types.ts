@@ -2059,6 +2059,10 @@ export interface components {
             relations: number;
             /** Task Ids */
             task_ids: string[];
+            /** Unresolved Heat Series By Task */
+            unresolved_heat_series_by_task?: {
+                [key: string]: number;
+            };
         };
         /** Project */
         Project: {
