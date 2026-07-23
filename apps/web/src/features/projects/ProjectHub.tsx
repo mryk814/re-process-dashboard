@@ -82,7 +82,10 @@ export function ProjectHub({
   const [predecessorProjectId, setPredecessorProjectId] = useState("");
   const [continuationReason, setContinuationReason] = useState("");
   const [decisionNote, setDecisionNote] = useState("");
+  const [collapsedSeriesIds, setCollapsedSeriesIds] = useState<Set<string>>(() => new Set());
   const activeProjectRef = useRef(activeProjectId);
+  const initializedSeriesIdsRef = useRef(new Set<string>());
+  const previousActiveSeriesIdRef = useRef<string | null>(null);
   const decisionDraftRef = useRef({ key: "", dirty: false });
   const projectNameInputRef = useRef<HTMLInputElement>(null);
   const focusCreationFormRef = useRef(false);
@@ -184,8 +187,28 @@ export function ProjectHub({
       group.projects.push(item);
       groups.set(id, group);
     }
-    return [...groups.values()];
+    return [...groups.values()].filter((group) => group.projects.length > 0);
   }, [creationOptions?.project_series, projects]);
+  const activeSeriesId = projectGroups.find((group) => group.projects.some((item) => item.id === activeProjectId))?.id ?? "unassigned";
+
+  useEffect(() => {
+    const newGroupIds = projectGroups
+      .map((group) => group.id)
+      .filter((id) => !initializedSeriesIdsRef.current.has(id));
+    newGroupIds.forEach((id) => initializedSeriesIdsRef.current.add(id));
+    const previousActiveSeriesId = previousActiveSeriesIdRef.current;
+    const activeSeriesChanged = previousActiveSeriesId !== activeSeriesId;
+    previousActiveSeriesIdRef.current = activeSeriesId;
+    setCollapsedSeriesIds((current) => {
+      const next = new Set(current);
+      newGroupIds.filter((id) => id !== activeSeriesId).forEach((id) => next.add(id));
+      if (activeSeriesChanged) {
+        if (previousActiveSeriesId !== null) next.add(previousActiveSeriesId);
+        next.delete(activeSeriesId);
+      }
+      return next;
+    });
+  }, [activeSeriesId, projectGroups]);
 
   useEffect(() => {
     if (!requestedDatasetViewId || !creationOptions) return;
@@ -363,18 +386,46 @@ export function ProjectHub({
           <div><span className="overline">WORKSPACES</span><h2>プロジェクト</h2></div>
           <small>{projects.length}件</small>
         </div>
-        <div className="project-list-items">{projectGroups.map((group) => <section className="project-list-group" key={group.id}><header><span>一連の検討</span><strong>{group.name}</strong></header>{group.projects.length ? group.projects.map((item) => (
-          <button
-            type="button"
-            key={item.id}
-            className={item.id === activeProjectId ? "project-list-item active" : "project-list-item"}
-            aria-current={item.id === activeProjectId ? "page" : undefined}
-            onClick={() => onSwitch(item.id)}
-          >
-            <strong>{item.name}</strong>
-            <small>{datasetByView.get(item.dataset_view_revision_id ?? "")?.data_asset.original_filename.replace(/\.xlsx$/i, "") ?? "Dataset未解決"} · {taskLabels.get(item.task_id) ?? item.task_id}</small>
-          </button>
-        )) : <small className="project-list-group-empty">プロジェクトなし</small>}</section>)}</div>
+        <div className="project-list-items">{projectGroups.map((group) => {
+          const collapsed = collapsedSeriesIds.has(group.id);
+          const contentId = `project-series-${group.id}`;
+          return (
+            <section className={`project-list-group${collapsed ? " collapsed" : ""}`} key={group.id}>
+              <header>
+                <button
+                  type="button"
+                  className="project-list-group-toggle"
+                  aria-expanded={!collapsed}
+                  aria-controls={contentId}
+                  onClick={() => setCollapsedSeriesIds((current) => {
+                    const next = new Set(current);
+                    if (next.has(group.id)) next.delete(group.id);
+                    else next.add(group.id);
+                    return next;
+                  })}
+                >
+                  <span><small>一連の検討</small><strong>{group.name}</strong></span>
+                  <em>{group.projects.length}件</em>
+                  <i aria-hidden="true" />
+                </button>
+              </header>
+              <div className="project-list-group-projects" id={contentId} hidden={collapsed}>
+                {group.projects.length ? group.projects.map((item) => (
+                  <button
+                    type="button"
+                    key={item.id}
+                    className={item.id === activeProjectId ? "project-list-item active" : "project-list-item"}
+                    aria-current={item.id === activeProjectId ? "page" : undefined}
+                    onClick={() => onSwitch(item.id)}
+                  >
+                    <strong>{item.name}</strong>
+                    <small>{datasetByView.get(item.dataset_view_revision_id ?? "")?.data_asset.original_filename.replace(/\.xlsx$/i, "") ?? "Dataset未解決"} · {taskLabels.get(item.task_id) ?? item.task_id}</small>
+                  </button>
+                )) : <small className="project-list-group-empty">プロジェクトなし</small>}
+              </div>
+            </section>
+          );
+        })}</div>
         <button type="button" className="outline-button project-list-create" onClick={toggleCreateProject}>＋ 新規プロジェクト</button>
       </aside>
       <div className="project-hub-content">
