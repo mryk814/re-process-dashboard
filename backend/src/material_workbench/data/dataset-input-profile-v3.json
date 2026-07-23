@@ -38,7 +38,7 @@
         {"path":"melt","entity_type":"melt","column":"溶製成績書_key**","cardinality":"zero_or_one","stage":0,"parent_entity_types":[]},
         {"path":"hot_rolling","entity_type":"hot_rolling","column":"熱延条件_key**","cardinality":"zero_or_one","stage":1,"parent_entity_types":["melt"]},
         {"path":"cold_rolling","entity_type":"cold_rolling","column":"冷延条件_key**","cardinality":"zero_or_one","stage":3,"parent_entity_types":["hot_rolling"]},
-        {"path":"annealing","entity_type":"annealing","column":"焼鈍履歴_key**","cardinality":"zero_or_one","stage":4,"parent_entity_types":["cold_rolling","hot_rolling"],"edge_parent_entity_types":["cold_rolling"]},
+        {"path":"annealing","entity_type":"annealing","column":"焼鈍条件-3CGL_key**","alternate_columns":["焼鈍履歴_key**"],"cardinality":"zero_or_one","stage":4,"parent_entity_types":["cold_rolling","hot_rolling"],"edge_parent_entity_types":["cold_rolling"]},
         {"path":"hot_tensile","entity_type":"hot_tensile","column":"熱延引張実績_key**","cardinality":"zero_or_one","stage":2,"parent_entity_types":["hot_rolling"]},
         {"path":"hot_microstructure","entity_type":"hot_microstructure","column":"熱延組織_key**","cardinality":"zero_or_one","stage":2,"parent_entity_types":["hot_rolling"]},
         {"path":"anneal_tensile","entity_type":"anneal_tensile","column":"焼鈍引張実績_key**","cardinality":"zero_or_one","stage":5,"parent_entity_types":["annealing"]},

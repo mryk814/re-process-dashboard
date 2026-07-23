@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -85,7 +86,7 @@ class WorkbookData:
     technical_columns: dict[tuple[str, str], str]
     policy_columns: dict[tuple[str, str], str]
     relation_sheet: str
-    relation_join_columns: dict[str, str]
+    relation_join_columns: dict[str, tuple[str, ...]]
     lineage_stage_order: dict[str, int]
     lineage_adjacencies: tuple[tuple[str, str], ...]
 
@@ -163,7 +164,11 @@ def _detect_data_quality(
     if relation_sheet is None or relation_columns is None:
         assert profile is not None
         relation_sheet = profile.sheet_for_role(profile.shared.relation.role)
-        relation_columns = tuple(join.column for join in profile.shared.relation.joins)
+        relation_columns = tuple(
+            column
+            for join in profile.shared.relation.joins
+            for column in join.source_columns
+        )
     relation_entity_keys = relation_entity_keys or {column: column for column in relation_columns}
     issues: list[dict[str, str]] = []
     seen: set[tuple[str, str, str, str]] = set()
@@ -346,7 +351,11 @@ def lineage_neighborhood(data: WorkbookData, entity_key: str, max_nodes: int = 4
     if entity_key not in data.lineage:
         raise KeyError(entity_key)
     route_rows: list[tuple[int, dict[str, Any]]] = []
-    relation_columns = set(data.relation_join_columns.values())
+    relation_columns = {
+        column
+        for columns in data.relation_join_columns.values()
+        for column in columns
+    }
     for row_number, row in enumerate(data.sheets[data.relation_sheet], start=2):
         keys = {str(value) for column, value in row.items() if column in relation_columns and value}
         if entity_key in keys:
@@ -478,6 +487,45 @@ def _derived_anneal_feature_row(
         "heat_pattern": points,
         "parent_key": parent_key,
     }
+
+
+def _line_speed_from_history(
+    points: list[dict[str, Any]],
+    master_rows: list[dict[str, Any]],
+    *,
+    equipment_column: str,
+    equipment_value: str,
+    stage_column: str,
+    position_column: str,
+) -> float | None:
+    """Infer line speed from elapsed history and fixed measurement positions."""
+    stage_positions = {
+        str(row.get(stage_column)): float(position)
+        for row in master_rows
+        if str(row.get(equipment_column) or "") == equipment_value
+        and isinstance((position := row.get(position_column)), (int, float))
+        and math.isfinite(float(position))
+    }
+    positioned_points = sorted(
+        (
+            (float(point["time_s"]), stage_positions[str(point.get("stage_name"))])
+            for point in points
+            if isinstance(point.get("time_s"), (int, float))
+            and math.isfinite(float(point["time_s"]))
+            and str(point.get("stage_name")) in stage_positions
+        ),
+        key=lambda item: item[0],
+    )
+    speed_estimates = [
+        60.0 * (right_position - left_position) / (right_time - left_time)
+        for (left_time, left_position), (right_time, right_position)
+        in zip(positioned_points, positioned_points[1:])
+        if right_time > left_time and right_position > left_position
+    ]
+    if not speed_estimates:
+        return None
+    inferred = float(median(speed_estimates))
+    return inferred if math.isfinite(inferred) and inferred > 0 else None
 
 
 def detect_dataset_profile_path(
@@ -648,15 +696,54 @@ def load_workbook_data(
             for row in canonical.rows("anneal_features")
         }
     else:
-        anneal_features = {
-            str(row[anneal_key]): _derived_anneal_feature_row(
-                str(row[anneal_key]),
-                canonical.mapped_values(row, anneal_task_id, ("process.", "categorical.")),
-                anneal_history_by_key.get(str(row[anneal_key]), []),
-            )
+        anneal_rows_by_key = {
+            str(row[anneal_key]): row
             for row in canonical.rows("annealing")
             if row.get(anneal_key) is not None and str(row[anneal_key]).strip()
         }
+        anneal_keys = set(anneal_rows_by_key) | set(anneal_history_by_key)
+        history_mapping = next(
+            mapping
+            for mapping in profile.tasks[anneal_task_id].mappings
+            if mapping.kind == "ordered_heat_series"
+        )
+        history_parent_column = (
+            history_mapping.series_columns.parent
+            if history_mapping.series_columns is not None else None
+        )
+        source_history_keys = {
+            str(row[history_parent_column])
+            for row in sheets.get(profile.sheet_for_role(history_mapping.role), [])
+            if history_parent_column
+            and row.get(history_parent_column) is not None
+            and str(row[history_parent_column]).strip()
+        }
+        anneal_keys |= source_history_keys
+        fallback = history_mapping.measurement_point_fallback
+        anneal_features = {}
+        for parent in sorted(anneal_keys):
+            row = anneal_rows_by_key.get(parent)
+            mapped_process = (
+                canonical.mapped_values(row, anneal_task_id, ("process.", "categorical."))
+                if row is not None else {}
+            )
+            points = anneal_history_by_key.get(parent, [])
+            if mapped_process.get("ls_mpm") is None and fallback is not None:
+                inferred_speed = _line_speed_from_history(
+                    points,
+                    sheets[profile.sheet_for_role(fallback.master_role)],
+                    equipment_column=fallback.equipment_column,
+                    equipment_value=fallback.equipment_value,
+                    stage_column=fallback.stage_column,
+                    position_column=fallback.position_column,
+                )
+                if inferred_speed is not None:
+                    mapped_process["ls_mpm"] = inferred_speed
+            anneal_features[parent] = _derived_anneal_feature_row(
+                parent,
+                mapped_process,
+                points,
+            )
     lineage: dict[str, dict[str, list[str]]] = defaultdict(lambda: defaultdict(list))
     key_by_type = {entity.type: entity.key for entity in profile.shared.entities}
     for relation in canonical.relations:
@@ -685,6 +772,7 @@ def load_workbook_data(
         str(row[anneal_key]): canonical.policy_allows(row, "annealing", "learning_flag/v1")
         for row in canonical.rows("annealing")
     }
+    anneal_condition_keys = set(anneal_status)
     hot_status = {
         str(row[hot_key]): canonical.policy_allows(row, "hot_rolling", "learning_flag/v1")
         for row in canonical.rows("hot_rolling")
@@ -718,7 +806,7 @@ def load_workbook_data(
             if is_anneal:
                 if process and not process["feature_eligible"]:
                     eligibility_reasons.append("焼鈍履歴を特徴量化できません")
-                if not anneal_status.get(parent, False):
+                if parent in anneal_condition_keys and not anneal_status[parent]:
                     eligibility_reasons.append("焼鈍条件が学習対象外です")
                 if not canonical_observation.policy_results.get("valid_observation/v1", False):
                     eligibility_reasons.append("試験判定が有効ではありません")
@@ -755,20 +843,30 @@ def load_workbook_data(
         if observation.parent_column is not None
     }
     relation_sheet = profile.sheet_for_role(profile.shared.relation.role)
-    relation_join_columns = {join.entity_type: join.column for join in profile.shared.relation.joins}
-    relation_entity_keys = {
-        join.column: next(entity.key for entity in profile.shared.entities if entity.type == join.entity_type)
+    relation_join_columns = {
+        join.entity_type: join.source_columns
         for join in profile.shared.relation.joins
     }
-    lineage_stage_order = {join.column: join.stage for join in profile.shared.relation.joins}
+    relation_entity_keys = {
+        column: next(entity.key for entity in profile.shared.entities if entity.type == join.entity_type)
+        for join in profile.shared.relation.joins
+        for column in join.source_columns
+    }
+    lineage_stage_order = {
+        column: join.stage
+        for join in profile.shared.relation.joins
+        for column in join.source_columns
+    }
     lineage_adjacencies = tuple(
-        (relation_join_columns[parent_type], join.column)
+        (parent_column, child_column)
         for join in profile.shared.relation.joins
         for parent_type in (
             join.edge_parent_entity_types
             if join.edge_parent_entity_types is not None
             else join.parent_entity_types
         )
+        for parent_column in relation_join_columns[parent_type]
+        for child_column in join.source_columns
     )
     detected_quality = _attach_quality_navigation(
         _detect_data_quality(
@@ -778,7 +876,11 @@ def load_workbook_data(
             key_to_sheet,
             observation_parent_columns,
             relation_sheet,
-            tuple(relation_join_columns.values()),
+            tuple(
+                column
+                for join in profile.shared.relation.joins
+                for column in join.source_columns
+            ),
             relation_entity_keys,
         ),
         normalized_lineage,

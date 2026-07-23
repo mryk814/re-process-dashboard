@@ -215,11 +215,16 @@ class RelationJoin(ProfileModel):
     path: str
     entity_type: str
     column: str
+    alternate_columns: tuple[str, ...] = ()
     cardinality: Literal["zero_or_one", "exactly_one"]
     stage: int = Field(ge=0)
     parent_entity_types: tuple[str, ...] = ()
     edge_parent_entity_types: tuple[str, ...] | None = None
     parent_consistency: Literal["allow_many", "exactly_one"] = "allow_many"
+
+    @property
+    def source_columns(self) -> tuple[str, ...]:
+        return (self.column, *self.alternate_columns)
 
 
 class RelationMapping(ProfileModel):
@@ -433,7 +438,11 @@ def validate_profile(profile: DatasetInputProfile, task_definitions: Mapping[str
         if join.edge_parent_entity_types is not None and not set(join.edge_parent_entity_types) <= set(join.parent_entity_types):
             errors.append(f"relation join {join.path!r} edge parents must be declared parent entity types")
     join_paths = [join.path for join in profile.shared.relation.joins]
-    join_columns = [join.column for join in profile.shared.relation.joins]
+    join_columns = [
+        column
+        for join in profile.shared.relation.joins
+        for column in join.source_columns
+    ]
     join_types = [join.entity_type for join in profile.shared.relation.joins]
     if (
         len(join_paths) != len(set(join_paths))
@@ -787,8 +796,6 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
     for entity in profile.shared.entities:
         require(entity.role, entity.key)
     relation = profile.shared.relation
-    for join in relation.joins:
-        require(relation.role, join.column)
     for item in profile.shared.eligibility:
         require(item.role, item.column)
     for item in profile.shared.technical:
@@ -861,29 +868,50 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
     if relation_sheet in workbook.sheetnames:
         headers = _headers(workbook[relation_sheet])
         for join in profile.shared.relation.joins:
-            if join.cardinality != "exactly_one" or join.column not in headers:
+            if not any(column in headers for column in join.source_columns):
+                errors.append(
+                    f"sheet {relation_sheet!r} is missing every source column for "
+                    f"relation {join.path!r}: {', '.join(join.source_columns)}"
+                )
+
+        def relation_value(row: tuple[Any, ...], join: RelationJoin) -> Any:
+            for column in join.source_columns:
+                if column not in headers:
+                    continue
+                value = row[headers.index(column)]
+                if value is not None and str(value).strip():
+                    return value
+            return None
+
+        for join in profile.shared.relation.joins:
+            if join.cardinality != "exactly_one":
                 continue
-            index = headers.index(join.column)
             missing_count = sum(
-                index >= len(row) or row[index] is None or not str(row[index]).strip()
+                relation_value(row, join) is None
                 for row in workbook[relation_sheet].iter_rows(min_row=2, values_only=True)
             )
             if missing_count:
                 errors.append(f"relation {join.path!r} violates exactly_one cardinality in {missing_count} rows")
-        if all(join.column in headers for join in profile.shared.relation.joins):
-            indices = {join.entity_type: headers.index(join.column) for join in profile.shared.relation.joins}
+        if all(
+            any(column in headers for column in join.source_columns)
+            for join in profile.shared.relation.joins
+        ):
+            joins_by_type = {
+                join.entity_type: join
+                for join in profile.shared.relation.joins
+            }
             parent_signatures: dict[tuple[str, str], set[tuple[tuple[str, str], ...]]] = {}
             for row in workbook[relation_sheet].iter_rows(min_row=2, values_only=True):
                 for join in profile.shared.relation.joins:
                     if join.parent_consistency != "exactly_one":
                         continue
-                    child_value = row[indices[join.entity_type]]
+                    child_value = relation_value(row, join)
                     if child_value is None or not str(child_value).strip() or not join.parent_entity_types:
                         continue
                     signature = tuple(
-                        (parent_type, str(row[indices[parent_type]]))
+                        (parent_type, str(parent_value))
                         for parent_type in join.parent_entity_types
-                        if row[indices[parent_type]] is not None and str(row[indices[parent_type]]).strip()
+                        if (parent_value := relation_value(row, joins_by_type[parent_type])) is not None
                     )
                     if signature:
                         parent_signatures.setdefault((join.entity_type, str(child_value)), set()).add(signature)
@@ -919,6 +947,7 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
                 headers = _headers(workbook[sheet_name]) if sheet_name in workbook.sheetnames else ()
                 required_series_columns = (columns.parent, columns.order, columns.time, columns.value)
                 points_by_parent: dict[str, int] = {}
+                invalid_parents: set[str] = set()
                 if sheet_name in workbook.sheetnames:
                     required_existing_columns = {
                         *required_series_columns,
@@ -950,8 +979,6 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
                     parent_index, order_index, time_index, value_index = (
                         headers.index(column) for column in required_series_columns
                     )
-                    invalid_order_count = 0
-                    invalid_point_count = 0
                     for row in workbook[sheet_name].iter_rows(min_row=2, values_only=True):
                         parent = row[parent_index]
                         order = row[order_index]
@@ -968,24 +995,19 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
                             and math.isfinite(float(value))
                         )
                         if not valid_point:
-                            invalid_point_count += 1
+                            if parent is not None and str(parent).strip():
+                                invalid_parents.add(str(parent))
                             continue
                         if (
                             not isinstance(order, (int, float))
                             or not math.isfinite(float(order))
                         ):
-                            invalid_order_count += 1
+                            invalid_parents.add(str(parent))
                             continue
                         key = str(parent)
                         points_by_parent[key] = points_by_parent.get(key, 0) + 1
-                    if invalid_order_count:
-                        errors.append(
-                            f"{task_id}: ordered heat series {mapping.path!r} has {invalid_order_count} points with a non-numeric order"
-                        )
-                    if invalid_point_count:
-                        errors.append(
-                            f"{task_id}: ordered heat series {mapping.path!r} has {invalid_point_count} incomplete or non-numeric points"
-                        )
+                    for parent in invalid_parents:
+                        points_by_parent.pop(parent, None)
                 fallback_series: dict[str, list[dict[str, Any]]] = {}
                 fallback = mapping.measurement_point_fallback
                 if fallback is not None:
@@ -1164,9 +1186,17 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
                 child_join = next((join for join in profile.shared.relation.joins if source_entity and join.entity_type == source_entity.type), None)
                 parent_join = next((join for join in profile.shared.relation.joins if join.entity_type == observation.parent_entity_type), None)
                 relation_headers = _headers(workbook[relation_sheet]) if relation_sheet in workbook.sheetnames else ()
-                if child_join and parent_join and child_join.column in relation_headers and parent_join.column in relation_headers:
-                    child_index = relation_headers.index(child_join.column)
-                    relation_parent_index = relation_headers.index(parent_join.column)
+                child_column = next(
+                    (column for column in child_join.source_columns if column in relation_headers),
+                    None,
+                ) if child_join else None
+                parent_column = next(
+                    (column for column in parent_join.source_columns if column in relation_headers),
+                    None,
+                ) if parent_join else None
+                if child_column and parent_column:
+                    child_index = relation_headers.index(child_column)
+                    relation_parent_index = relation_headers.index(parent_column)
                     known = {
                         str(row[child_index])
                         for row in workbook[relation_sheet].iter_rows(min_row=2, values_only=True)
@@ -1332,11 +1362,21 @@ def canonicalize_workbook(workbook: Any, profile: DatasetInputProfile) -> Canoni
                 source_locator={"sheet": source_sheet, "row": row_number},
                 source_metadata={key: value for key, value in row.items() if key not in mapped_columns},
             ))
+    def relation_value(row: Mapping[str, Any], join: RelationJoin) -> Any:
+        return next(
+            (
+                row.get(column)
+                for column in join.source_columns
+                if row.get(column) is not None and str(row.get(column)).strip()
+            ),
+            None,
+        )
+
     relations = tuple(
         {
-            join.entity_type: (join.entity_type, str(row[join.column]))
+            join.entity_type: (join.entity_type, str(value))
             for join in profile.shared.relation.joins
-            if row.get(join.column) is not None and str(row[join.column]).strip()
+            if (value := relation_value(row, join)) is not None
         }
         for row in rows[profile.sheet_for_role(profile.shared.relation.role)]
     )
@@ -1431,10 +1471,25 @@ def canonicalize_workbook(workbook: Any, profile: DatasetInputProfile) -> Canoni
                 if item.role == mapping.role and item.name in {"set_temperature_c", "stage_category", "stage_name", "mapping_status"}
             }
             grouped: dict[str, list[tuple[Any, dict[str, Any]]]] = {}
+            invalid_parents: set[str] = set()
             for row in rows.get(profile.sheet_for_role(mapping.role), []):
-                if not isinstance(row.get(columns.time), (int, float)) or not isinstance(row.get(columns.value), (int, float)):
+                parent_value = row.get(columns.parent)
+                if parent_value is None or not str(parent_value).strip():
                     continue
-                parent = str(row.get(columns.parent, ""))
+                parent = str(parent_value)
+                order = row.get(columns.order)
+                time = row.get(columns.time)
+                value = row.get(columns.value)
+                if (
+                    not isinstance(order, (int, float))
+                    or not math.isfinite(float(order))
+                    or not isinstance(time, (int, float))
+                    or not math.isfinite(float(time))
+                    or not isinstance(value, (int, float))
+                    or not math.isfinite(float(value))
+                ):
+                    invalid_parents.add(parent)
+                    continue
                 point = {"time_s": float(row[columns.time]), "temperature_c": float(row[columns.value])}
                 for name, column in series_metadata.items():
                     point[name] = row.get(column)
@@ -1442,8 +1497,10 @@ def canonicalize_workbook(workbook: Any, profile: DatasetInputProfile) -> Canoni
                 if stage_category:
                     point["stage_category"] = stage_category
                     point["mapping_status"] = "工程辞書一致"
-                grouped.setdefault(parent, []).append((row.get(columns.order, 0), point))
+                grouped.setdefault(parent, []).append((float(order), point))
             for parent, ordered in grouped.items():
+                if parent in invalid_parents:
+                    continue
                 points = [point for _, point in sorted(ordered, key=lambda item: item[0])]
                 if len(points) < 2:
                     continue
