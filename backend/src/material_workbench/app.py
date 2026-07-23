@@ -28,7 +28,12 @@ from material_workbench.persistence.store import Store
 from material_workbench.tasks.task_registry import DataExplorerEntry, TaskRegistry
 from material_workbench.persistence.workspace_catalog_bootstrap import bootstrap_workspace_catalog
 from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
-from .task_modules import PredictionRuntime, TaskModule, registered_task_modules
+from .task_modules import (
+    PRIMARY_DEFAULT_SOURCE,
+    PredictionRuntime,
+    TaskModule,
+    registered_task_modules,
+)
 
 
 @dataclass(frozen=True)
@@ -50,7 +55,10 @@ def _prepare_app_resources(
 ) -> _AppResources:
     """Load workbook and package resources that callers treat as read-only."""
 
-    source = Path(source_path or os.getenv("WORKBENCH_SOURCE_PATH", "data/source/process_dashboard_realistic_excel_v2.xlsx"))
+    source = Path(
+        source_path
+        or os.getenv("WORKBENCH_SOURCE_PATH", str(PRIMARY_DEFAULT_SOURCE))
+    )
     configured = Path(active_packages_path) if active_packages_path else ACTIVE_PACKAGES_PATH
     injected = dict(package_roots or {})
     modules = dict(registered_task_modules())

@@ -1,4 +1,5 @@
 models/packages/**/*.json text eol=lf
+models/packages/**/model-artifacts/*.txt binary
 examples/model-packages/**/*.json text eol=lf
 models/active-packages.json text eol=lf
 apps/web/src/generated/*.json text eol=lf
