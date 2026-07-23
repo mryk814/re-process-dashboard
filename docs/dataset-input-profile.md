@@ -2,7 +2,7 @@
 
 各Excelデータフローの外部シート、列、単位、エンティティキー、リレーション、適格性、技術メタデータは、`backend/src/material_workbench/dataset-input-profile-*.json` で管理します。
 既存のv2フローは `dataset-input-profile-v1.json`、別名の列と未加工の履歴を持つv3フローは `dataset-input-profile-v3.json`、具体的な2設備の工程名を持つv5フローは `dataset-input-profile-v5.json` です。
-部分欠損、リレーションによる親解決、測定点マスターを持つv7フローは `dataset-input-profile-v7.json` です。
+部分欠損、リレーションによる親解決、測定点マスターを持つv7フローは `dataset-input-profile-v7.json` です。列名を整理し、予測に使わない補助測定・メタデータ・技術列を任意化したv8フローは `dataset-input-profile-v8.json` です。
 切削逃げ面摩耗フローは `dataset-input-profile-flank-wear-v1.json` です。
 このフローは材料、工具、切削条件、摩耗履歴を対応付け、`flank-wear-v1` だけを対象とします。
 v5はv3の正規化契約と予測契約を継承し、焼鈍履歴の工程名だけを標準工程カテゴリへ対応付けます。
@@ -75,6 +75,8 @@ v5フローの `dataset-input-profile-v5.json` は、v3を置き換えずに継�
 これにより、元の `stage_name` を保ったまま、系譜画面の時間軸に沿った工程トラックへ具体的なソースラベルを表示できます。
 
 v7フローの `dataset-input-profile-v7.json` は、括弧付きの組成名、リレーションから解決する引張試験と穴広げ試験の親、代替の降伏値列を対応付けます。
+
+v8フローでは、TaskDefinitionの入力と出力に直結する列は従来どおり必須です。一方、`optional_auxiliary_keys`、`optional_metadata_keys`、`optional_technical_fields` に指定した探索・表示用の列は、存在すれば取り込み、欠けていてもDataset登録を止めません。
 `焼鈍特徴量` シートは意図的に持ちません。
 LSは `焼鈍条件-3CGL` から取得し、キャッシュ済みの数値時間温度系列を優先してモデル用の履歴を構築します。
 `焼鈍履歴` がない場合は、同じ焼鈍条件行の工程別温度と `測定点マスタ` の設備位置から時間軸を補完します。

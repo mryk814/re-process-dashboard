@@ -494,7 +494,7 @@ def detect_dataset_profile_path(
     workbook = load_workbook(source_path, read_only=True, data_only=True)
     try:
         sheet_names = set(workbook.sheetnames)
-        matches: list[tuple[int, Path]] = []
+        matches: list[tuple[tuple[int, int], Path]] = []
         diagnostics: list[str] = []
         for candidate in candidates:
             try:
@@ -514,7 +514,7 @@ def detect_dataset_profile_path(
             if marker_failure:
                 diagnostics.append(f"{candidate.name}: {marker_failure}")
                 continue
-            matches.append((len(required_sheets), candidate))
+            matches.append(((len(required_sheets), len(profile.source_markers)), candidate))
     finally:
         workbook.close()
     if not matches:
@@ -621,7 +621,7 @@ def load_workbook_data(
     hot_rolling_features = {
         str(row[hot_key]): {
             **canonical.mapped_values(row, hot_task, ("process.", "categorical.")),
-            "equipment": str(canonical.technical_value(row, "hot_rolling", "equipment")),
+            "equipment": str(canonical.technical_value(row, "hot_rolling", "equipment") or ""),
         }
         for row in canonical.rows("hot_rolling")
     }

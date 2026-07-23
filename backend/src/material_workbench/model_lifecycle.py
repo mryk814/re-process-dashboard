@@ -142,6 +142,9 @@ def dataset_profile_digest(path: Path = DATASET_PROFILE_PATH) -> str:
         for observation in task.get("observations", []):
             if observation.get("parent_column") is None:
                 observation.pop("parent_column", None)
+            for key in ("optional_metadata_keys", "optional_auxiliary_keys"):
+                if not observation.get(key):
+                    observation.pop(key, None)
             for target in (*observation.get("targets", []), *observation.get("auxiliary", [])):
                 if target.get("column") is None:
                     target.pop("column", None)

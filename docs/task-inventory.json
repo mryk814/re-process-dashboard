@@ -41,11 +41,11 @@
         "profile_path": "backend/src/material_workbench/dataset-input-profile-v1.json"
       },
       "active_package": {
-        "path": "packages/annealed-gp-2026-07",
-        "previous": null,
-        "package_id": "annealed-gp-2026-07",
-        "version": "0.9.0-input-contract-v2",
-        "manifest_sha256": "1cf2a2dc454b822e10993ca3d4652c1efcea589a8e2f6bafe4cccd7578d6f2fe",
+        "path": "packages/annealed-gp-2026-07-feature-design-v3",
+        "previous": "packages/annealed-gp-2026-07",
+        "package_id": "annealed-gp-2026-07-feature-design-v3",
+        "version": "1.0.0-feature-design-v3",
+        "manifest_sha256": "49b0c824ec31dae21f3c728f34d3f8487d2eaed5d894e072fd0af4b2daa16358",
         "runtime_types": [
           "builtin.exact_gp.v1"
         ]
@@ -87,11 +87,11 @@
         "profile_path": "backend/src/material_workbench/dataset-input-profile-v1.json"
       },
       "active_package": {
-        "path": "packages/hot-rolled-horseshoe-2026-07",
-        "previous": null,
-        "package_id": "hot-rolled-horseshoe-2026-07",
-        "version": "1.0.0",
-        "manifest_sha256": "183c0417544553c16ce3aacf046d712a6c0250c4521ddb456d6504bcfe8dd3d7",
+        "path": "packages/hot-rolled-horseshoe-2026-07-feature-design-v3",
+        "previous": "packages/hot-rolled-horseshoe-2026-07",
+        "package_id": "hot-rolled-horseshoe-2026-07-feature-design-v3",
+        "version": "1.1.0-feature-design-v3",
+        "manifest_sha256": "d659556edffd43d08e40885c220865216ad94246e7d786a0f5a5a7fa738f1474",
         "runtime_types": [
           "builtin.posterior_linear.v1"
         ]

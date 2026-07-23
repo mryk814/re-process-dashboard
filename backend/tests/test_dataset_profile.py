@@ -31,6 +31,7 @@ SOURCE = ROOT / "data" / "source" / "process_dashboard_realistic_excel_v2.xlsx"
 V3_SOURCE = ROOT / "data" / "source" / "process_dashboard_realistic_excel_v3.xlsx"
 V5_SOURCE = ROOT / "data" / "source" / "process_dashboard_two_equipment_v5.xlsx"
 V7_SOURCE = ROOT / "data" / "source" / "process_dashboard_two_equipment_v7.xlsx"
+V8_SOURCE = ROOT / "data" / "source" / "process_dashboard_two_equipment_v8.xlsx"
 PROFILE = ROOT / "backend" / "src" / "material_workbench" / "dataset-input-profile-v1.json"
 
 
@@ -515,6 +516,29 @@ def test_v7_source_resolves_relation_parents_coalesces_measurements_and_derives_
     unresolved = next(row for row in hot if row["id"] == "HT-00388")
     assert unresolved["eligible"] is False
     assert unresolved["parent_key"] == ""
+
+
+def test_v8_source_maps_renamed_prediction_fields_and_tolerates_optional_context() -> None:
+    assert detect_dataset_profile_path(V8_SOURCE).name == "dataset-input-profile-v8.json"
+    data = load_workbook_data(V8_SOURCE)
+
+    assert data.profile_id == "process-dashboard-two-equipment-v8"
+    assert len(data.composition) == 120
+    assert len(data.anneal_features) == 196
+    assert data.hot_rolling_features["HR-00001"]["equipment"] == ""
+    assert data.anneal_features["AN-00001"]["heat_pattern"][0]["time_s"] == 0.0
+
+    annealed = [row for row in data.observations if row["task_id"] == "annealed-properties-v1"]
+    tensile = [row for row in annealed if row["source"] == "焼鈍引張実績"]
+    holes = [row for row in annealed if row["source"] == "焼鈍穴拡げ実績"]
+    assert len(tensile) == 292
+    assert len(holes) == 518
+    assert all({"TS[MPa]", "YS[MPa]", "EL[%]"} <= set(row["outputs"]) for row in tensile)
+    assert all(row["date"] is None for row in holes)
+
+    hot = [row for row in data.observations if row["task_id"] == "hot-rolled-properties-v1"]
+    assert sum("TS[MPa]" in row["outputs"] for row in hot) == 348
+    assert {row["test_direction"] for row in hot} == {None}
 
 
 def test_v7_derives_heat_pattern_from_measurement_master_when_history_is_absent(

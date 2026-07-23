@@ -201,6 +201,8 @@ class ObservationMapping(ProfileModel):
     metadata_columns: Mapping[str, str]
     targets: tuple[ObservationTarget, ...]
     auxiliary: tuple[ObservationTarget, ...]
+    optional_metadata_keys: tuple[str, ...] = ()
+    optional_auxiliary_keys: tuple[str, ...] = ()
 
 
 class EntityMapping(ProfileModel):
@@ -630,6 +632,19 @@ def validate_profile(profile: DatasetInputProfile, task_definitions: Mapping[str
                 errors.append(f"{task_id}: observation {observation.role!r} measurement columns must be unique")
             if len(observation.metadata_columns.values()) != len(set(observation.metadata_columns.values())):
                 errors.append(f"{task_id}: observation {observation.role!r} metadata columns must be unique")
+            unknown_optional_metadata = set(observation.optional_metadata_keys) - set(observation.metadata_columns)
+            if unknown_optional_metadata:
+                errors.append(
+                    f"{task_id}: observation {observation.role!r} optional metadata keys are unknown: "
+                    + ", ".join(sorted(unknown_optional_metadata))
+                )
+            auxiliary_keys = {target.key for target in observation.auxiliary}
+            unknown_optional_auxiliary = set(observation.optional_auxiliary_keys) - auxiliary_keys
+            if unknown_optional_auxiliary:
+                errors.append(
+                    f"{task_id}: observation {observation.role!r} optional auxiliary keys are unknown: "
+                    + ", ".join(sorted(unknown_optional_auxiliary))
+                )
             for target in measurements:
                 if unit_conversion(target.unit, target.unit) is None:
                     errors.append(
@@ -810,9 +825,13 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
                 for column in target.source_columns:
                     require(role, column)
             for target in observation.auxiliary:
+                if target.key in observation.optional_auxiliary_keys:
+                    continue
                 for column in target.source_columns:
                     require(role, column)
-            for column in observation.metadata_columns.values():
+            for key, column in observation.metadata_columns.items():
+                if key in observation.optional_metadata_keys:
+                    continue
                 require(role, str(column))
 
     for sheet_name, columns in required.items():
@@ -1252,6 +1271,8 @@ class CanonicalDataset:
             item for item in self.profile.shared.technical
             if item.role == role and item.name == name
         ]
+        if not matches and f"{role}.{name}" in self.profile.shared.optional_technical_fields:
+            return None
         if len(matches) != 1:
             raise DatasetProfileError([f"technical field {role}.{name} must have exactly one mapping"])
         return row.get(matches[0].column)

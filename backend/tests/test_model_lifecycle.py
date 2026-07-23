@@ -31,6 +31,9 @@ SOURCE = ROOT / "data" / "source" / "process_dashboard_realistic_excel_v2.xlsx"
 V7_SOURCE = ROOT / "data" / "source" / "process_dashboard_two_equipment_v7.xlsx"
 V7_ANNEALED_PACKAGE = ROOT / "models" / "packages" / "annealed-gp-2026-07-v7-feature-design-v3"
 V7_HOT_PACKAGE = ROOT / "models" / "packages" / "hot-rolled-horseshoe-2026-07-v7-feature-design-v3"
+V8_SOURCE = ROOT / "data" / "source" / "process_dashboard_two_equipment_v8.xlsx"
+V8_ANNEALED_PACKAGE = ROOT / "models" / "packages" / "annealed-gp-2026-07-v8-feature-design-v3"
+V8_HOT_PACKAGE = ROOT / "models" / "packages" / "hot-rolled-horseshoe-2026-07-v8-feature-design-v3"
 
 
 def test_grouped_quality_report_requires_an_explicit_fold_count() -> None:
@@ -254,6 +257,41 @@ def test_v7_source_and_packages_start_and_predict_through_the_api(tmp_path: Path
         )
         assert preview.status_code == 200
         assert set(preview.json()["predictions"]) == {"TS", "YS", "EL", "lambda"}
+
+
+def test_v8_source_and_packages_start_and_predict_through_the_api(tmp_path: Path) -> None:
+    app = create_app(
+        V8_SOURCE,
+        tmp_path / "v8-workbench.db",
+        package_roots={
+            "annealed-properties-v1": V8_ANNEALED_PACKAGE,
+            "hot-rolled-properties-v1": V8_HOT_PACKAGE,
+        },
+    )
+    with TestClient(app) as client:
+        assert client.get("/api/health").json()["ok"] is True
+        assert client.get("/api/projects/default/model-package").json()["id"] == "annealed-gp-2026-07-v8-feature-design-v3"
+        assert client.get("/api/projects/hot-rolling-default/model-package").json()["id"] == "hot-rolled-horseshoe-2026-07-v8-feature-design-v3"
+
+        lineage = client.get("/api/projects/default/lineage", params={"query": "AN-00001"})
+        assert lineage.status_code == 200
+        assert lineage.json()["items"][0]["project"] == ""
+
+        annealed = client.post("/api/projects/default/lineage/AN-00001/candidate").json()
+        annealed_preview = client.post(
+            f"/api/projects/default/candidates/{annealed['id']}/preview",
+            params={"expected_revision": annealed["revision"]},
+        )
+        assert annealed_preview.status_code == 200
+        assert set(annealed_preview.json()["predictions"]) == {"TS", "YS", "EL", "lambda"}
+
+        hot = client.get("/api/projects/hot-rolling-default/candidates").json()[0]
+        hot_preview = client.post(
+            f"/api/projects/hot-rolling-default/candidates/{hot['id']}/preview",
+            params={"expected_revision": hot["revision"]},
+        )
+        assert hot_preview.status_code == 200
+        assert set(hot_preview.json()["predictions"]) == {"TS"}
 
 
 def test_projects_pinned_to_v2_packages_remain_reproducible(tmp_path: Path) -> None:
