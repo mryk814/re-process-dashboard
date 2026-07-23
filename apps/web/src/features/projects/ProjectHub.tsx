@@ -169,7 +169,11 @@ export function ProjectHub({
   const fixedDataset = project?.dataset_view_revision_id ? datasetByView.get(project.dataset_view_revision_id) : undefined;
   const fixedPackage = creationOptions?.model_packages.find((item) => item.id === project?.model_package_ref_id);
   const fixedSeries = creationOptions?.project_series.find((item) => item.id === project?.project_series_id);
-  const selectedSeries = creationOptions?.project_series.find((item) => item.id === newProjectSeriesId);
+  const activeProjectSeries = useMemo(() => {
+    const usedSeriesIds = new Set(projects.map((item) => item.project_series_id).filter(Boolean));
+    return (creationOptions?.project_series ?? []).filter((item) => usedSeriesIds.has(item.id));
+  }, [creationOptions?.project_series, projects]);
+  const selectedSeries = activeProjectSeries.find((item) => item.id === newProjectSeriesId);
   const selectedPackage = creationOptions?.model_packages.find((item) => item.id === newModelPackageRefId);
   const selectedTrainingDataset = trainingDataset(selectedPackage, creationOptions?.datasets ?? []);
   const fixedTrainingDataset = trainingDataset(fixedPackage, creationOptions?.datasets ?? []);
@@ -469,7 +473,7 @@ export function ProjectHub({
           <label><b aria-hidden="true">1</b><span>Dataset</span><select disabled={createMode === "copy"} value={newDatasetViewId} onChange={(event) => { const viewId = event.target.value; const dataset = datasetByView.get(viewId); const binding = creationOptions ? initialProjectBindingForDataset(dataset, creationOptions) : { taskId: "", modelPackageRefId: "" }; setNewDatasetViewId(viewId); setNewTaskId(binding.taskId); setNewModelPackageRefId(binding.modelPackageRefId); }}><option value="">選択してください</option>{(creationOptions?.dataset_views ?? []).filter((item) => item.kind === "single").map((view) => <option key={view.id} value={view.id}>{view.name} · {datasetByView.get(view.id)?.profile_revision.name}</option>)}</select></label>
           <label><b aria-hidden="true">2</b><span>予測タスク（Prediction Task）</span><select disabled={createMode === "copy"} value={createMode === "copy" ? copyTaskId : newTaskId} onChange={(event) => { const taskId = event.target.value; const packages = creationOptions ? compatiblePackagesForTask(taskId, creationOptions) : []; setNewTaskId(taskId); setNewModelPackageRefId(packages.length === 1 ? packages[0].id : ""); }}><option value="">選択してください</option>{catalog.filter((item) => availableTaskIds.includes(item.definition.task_definition.id)).map((item) => <option key={item.definition.task_definition.id} value={item.definition.task_definition.id}>{item.definition.task_definition.label}</option>)}</select></label>
           <label><b aria-hidden="true">3</b><span>Model Package</span><select disabled={createMode === "copy"} value={newModelPackageRefId} onChange={(event) => setNewModelPackageRefId(event.target.value)}><option value="">選択してください</option>{availablePackages.map((item) => <option key={item.id} value={item.id}>{item.package_id}</option>)}</select></label>
-          <label><b aria-hidden="true">4</b><span>検討のつながり</span><select disabled={Boolean(predecessorProjectId)} value={newProjectSeriesId} onChange={(event) => setNewProjectSeriesId(event.target.value)}><option value="">新しい一連の検討として開始</option>{(creationOptions?.project_series ?? []).map((series) => <option key={series.id} value={series.id}>{series.name}</option>)}</select></label>
+          <label><b aria-hidden="true">4</b><span>検討のつながり</span><select disabled={Boolean(predecessorProjectId)} value={newProjectSeriesId} onChange={(event) => setNewProjectSeriesId(event.target.value)}><option value="">新しい一連の検討として開始</option>{activeProjectSeries.map((series) => <option key={series.id} value={series.id}>{series.name}</option>)}</select></label>
         </div>
         <section className="project-binding-confirmation" aria-label="作成後に固定される内容">
           <header><strong>作成後に固定される内容</strong><span>Dataset・Prediction Task・Model Packageは後から変更できません</span></header>

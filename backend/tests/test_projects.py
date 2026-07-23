@@ -102,6 +102,9 @@ def test_project_crud_preserves_default_and_isolates_candidates_and_screening(cl
     assert client.get(f"/api/projects/{project['id']}").status_code == 404
     assert client.get(f"/api/projects/{project['id']}/candidates").status_code == 404
     assert project["id"] not in {item["id"] for item in client.get("/api/projects").json()}
+    assert project["project_series_id"] not in {
+        item["id"] for item in client.get("/api/project-series").json()
+    }
 
     assert client.delete("/api/projects/default").status_code == 409
     assert client.delete("/api/projects/hot-rolling-default").status_code == 409
