@@ -1,5 +1,24 @@
 import { expect, test } from "@playwright/test";
 
+test("project series keep the active series open and let other series expand", async ({ page }) => {
+  await page.goto("/?view=project&project=default");
+
+  const toggles = page.locator(".project-list-group-toggle");
+  await expect(toggles).toHaveCount(2);
+  const activeGroup = page.locator('.project-list-item[aria-current="page"]').locator("xpath=ancestor::section");
+  await expect(activeGroup.locator(".project-list-group-toggle")).toHaveAttribute("aria-expanded", "true");
+
+  const collapsedToggle = page.locator('.project-list-group-toggle[aria-expanded="false"]').first();
+  const contentId = await collapsedToggle.getAttribute("aria-controls");
+  expect(contentId).toBeTruthy();
+  const stableToggle = page.locator(`[aria-controls="${contentId}"]`);
+  const projects = page.locator(`#${contentId}`);
+  await expect(projects).toBeHidden();
+  await stableToggle.click();
+  await expect(stableToggle).toHaveAttribute("aria-expanded", "true");
+  await expect(projects).toBeVisible();
+});
+
 test("project hub separates current revision from fixed snapshot and restores a new candidate", async ({ page }) => {
   await page.goto("/?view=project&project=default");
   await expect(page.getByRole("heading", { name: "次の作業" })).toBeVisible();
