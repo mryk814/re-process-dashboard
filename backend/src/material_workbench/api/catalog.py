@@ -8,12 +8,12 @@ from fastapi import APIRouter, Depends
 
 from .dependencies import get_store, get_task_registry, project_or_404
 from .errors import PROJECT_API_ERRORS
-from ..model_lifecycle import validate_lifecycle_metadata
-from ..model_packages import RUNTIME_TYPES
-from ..schemas import ModelPackageStatus, TaskCatalogItem
-from ..store import Store
-from ..task_contracts import ResolvedTaskDefinition
-from ..task_registry import TaskRegistry
+from material_workbench.modeling.model_lifecycle import validate_lifecycle_metadata
+from material_workbench.modeling.model_packages import RUNTIME_TYPES
+from material_workbench.contracts.schemas import ModelPackageStatus, TaskCatalogItem
+from material_workbench.persistence.store import Store
+from material_workbench.contracts.task_contracts import ResolvedTaskDefinition
+from material_workbench.tasks.task_registry import TaskRegistry
 
 
 router = APIRouter()

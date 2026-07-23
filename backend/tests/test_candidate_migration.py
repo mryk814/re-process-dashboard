@@ -6,7 +6,7 @@ import sqlite3
 
 import pytest
 
-from material_workbench.candidate_migration import (
+from material_workbench.persistence.candidate_migration import (
     CandidateMigrationError,
     HOT_PROJECT_ID,
     MIGRATION_CHECKSUM,

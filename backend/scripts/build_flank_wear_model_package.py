@@ -17,8 +17,8 @@ import numpy as np
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from material_workbench.flank_wear import FEATURE_GROUP_INDICES, load_flank_wear_data
-from material_workbench.flank_wear_feature_pipeline import (
+from material_workbench.modeling.flank_wear import FEATURE_GROUP_INDICES, load_flank_wear_data
+from material_workbench.modeling.flank_wear_feature_pipeline import (
     CANONICAL_INPUT_PATHS,
     FEATURE_DEFINITIONS,
     FEATURE_NAMES,
@@ -30,7 +30,7 @@ from material_workbench.flank_wear_feature_pipeline import (
     build_flank_wear_features_from_observation,
     candidate_from_observation,
 )
-from material_workbench.model_lifecycle import (
+from material_workbench.modeling.model_lifecycle import (
     QualityReport,
     TargetQualityMetric,
     canonical_training_dataset,
@@ -40,8 +40,8 @@ from material_workbench.model_lifecycle import (
     staged_package_destination,
     task_input_contract_digest,
 )
-from material_workbench.model_package_verify import verify_model_package
-from material_workbench.task_registry import load_task_contracts
+from material_workbench.modeling.model_package_verify import verify_model_package
+from material_workbench.tasks.task_registry import load_task_contracts
 
 
 PACKAGE_ID = "flank-wear-gp-2026-07"

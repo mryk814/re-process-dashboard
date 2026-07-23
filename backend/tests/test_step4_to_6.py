@@ -5,12 +5,12 @@ from pathlib import Path
 from openpyxl import Workbook, load_workbook
 import numpy as np
 
-from material_workbench.feature_pipeline import build_feature_bundle
-from material_workbench.schemas import CandidateInput
-from material_workbench.services import _candidate_xlsx_names, candidate_from_lineage, import_candidates_xlsx
+from material_workbench.modeling.feature_pipeline import build_feature_bundle
+from material_workbench.contracts.schemas import CandidateInput
+from material_workbench.domain.services import _candidate_xlsx_names, candidate_from_lineage, import_candidates_xlsx
 
 
-PROFILE_ROOT = Path(__file__).parents[1] / "src" / "material_workbench"
+PROFILE_ROOT = Path(__file__).parents[1] / "src" / "material_workbench" / "data"
 
 
 def _screening_body(candidate: dict) -> dict:

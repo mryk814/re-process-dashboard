@@ -5,16 +5,16 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 
 from .dependencies import get_task_registry, get_workspace_catalog
-from ..schemas import (
+from material_workbench.contracts.schemas import (
     DataLibraryDataset,
     DatasetViewRevision,
     DatasetViewRevisionCreateInput,
     ModelPackageRef,
     ProjectCreationOptions,
 )
-from ..workspace_catalog import CatalogConflictError, CatalogReferenceError, WorkspaceCatalog
-from ..task_registry import TaskRegistry
-from ..workspace_catalog_bootstrap import task_definition_digest
+from material_workbench.persistence.workspace_catalog import CatalogConflictError, CatalogReferenceError, WorkspaceCatalog
+from material_workbench.tasks.task_registry import TaskRegistry
+from material_workbench.persistence.workspace_catalog_bootstrap import task_definition_digest
 
 
 router = APIRouter(prefix="/api")

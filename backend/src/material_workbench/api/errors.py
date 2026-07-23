@@ -4,8 +4,8 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from ..schemas import ApiError, Candidate
-from ..project_runtime_resolver import ProjectRuntimeResolutionError
+from material_workbench.contracts.schemas import ApiError, Candidate
+from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolutionError
 
 
 PROJECT_API_ERRORS = {

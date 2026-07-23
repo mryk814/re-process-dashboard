@@ -6,7 +6,7 @@ from time import perf_counter, sleep
 
 import pytest
 
-from material_workbench.inference_work_graph import InferenceKey, InferenceWorkGraph
+from material_workbench.execution.inference_work_graph import InferenceKey, InferenceWorkGraph
 
 
 def _key(operation: str, *, canonical: object = None, package: str = "package-a", support: str = "") -> InferenceKey:

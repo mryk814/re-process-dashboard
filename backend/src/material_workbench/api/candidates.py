@@ -14,8 +14,8 @@ from ..application.candidates import (
     CandidateService,
     CandidateValidationError,
 )
-from ..schemas import Candidate, CandidateImportResponse, CandidateInput, CandidateUpdate
-from ..store import (
+from material_workbench.contracts.schemas import Candidate, CandidateImportResponse, CandidateInput, CandidateUpdate
+from material_workbench.persistence.store import (
     CandidateArchivedError,
     CandidateLimitError,
     CandidateRevisionConflictError,
@@ -23,8 +23,8 @@ from ..store import (
     Store,
     StoreDataIntegrityError,
 )
-from ..task_registry import TaskRegistry
-from ..project_runtime_resolver import ProjectRuntimeResolver
+from material_workbench.tasks.task_registry import TaskRegistry
+from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
 
 
 XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

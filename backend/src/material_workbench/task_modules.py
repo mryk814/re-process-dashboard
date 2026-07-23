@@ -11,10 +11,10 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Callable, Mapping, Protocol, runtime_checkable
 
-from .model_packages import VerifiedModelPackage
-from .dataset_profile import DatasetInputProfile
-from .schemas import Candidate, CandidateInput
-from .task_contracts import ApplicationCapability, DataExplorerCapability
+from material_workbench.modeling.model_packages import VerifiedModelPackage
+from material_workbench.data.dataset_profile import DatasetInputProfile
+from material_workbench.contracts.schemas import Candidate, CandidateInput
+from material_workbench.contracts.task_contracts import ApplicationCapability, DataExplorerCapability
 
 ANNEALED_TASK_ID = "annealed-properties-v1"
 HOT_ROLLING_TASK_ID = "hot-rolled-properties-v1"
@@ -150,49 +150,49 @@ def _hot_rolling_starter_candidates(medians: dict[str, float]) -> list[Candidate
 
 
 def _load_workbook(path: Path, profile: DatasetInputProfile | None = None) -> DataDescriptor:
-    from .importer import load_workbook_data
+    from material_workbench.data.importer import load_workbook_data
 
     return load_workbook_data(path, profile=profile)
 
 
 def _load_flank_wear(path: Path, profile: DatasetInputProfile | None = None) -> DataDescriptor:
-    from .flank_wear import load_flank_wear_data
+    from material_workbench.modeling.flank_wear import load_flank_wear_data
 
     return load_flank_wear_data(path, profile=profile)
 
 
 def _annealed_runtime(data: DataDescriptor, package: Path) -> PredictionRuntime:
-    from .runtime import ModelRuntime
+    from material_workbench.modeling.runtime import ModelRuntime
 
     return ModelRuntime(data, package_root=package)  # type: ignore[arg-type]
 
 
 def _hot_rolling_runtime(data: DataDescriptor, package: Path) -> PredictionRuntime:
-    from .hot_rolling import HotRollingRuntime
+    from material_workbench.modeling.hot_rolling import HotRollingRuntime
 
     return HotRollingRuntime(data, package_root=package)  # type: ignore[arg-type]
 
 
 def _flank_wear_runtime(data: DataDescriptor, package: Path) -> PredictionRuntime:
-    from .flank_wear import FlankWearRuntime
+    from material_workbench.modeling.flank_wear import FlankWearRuntime
 
     return FlankWearRuntime(data, package_root=package)  # type: ignore[arg-type]
 
 
 def _annealed_features(row: dict[str, Any], medians: dict[str, float]) -> Any:
-    from .feature_pipeline import build_feature_bundle_from_observation
+    from material_workbench.modeling.feature_pipeline import build_feature_bundle_from_observation
 
     return build_feature_bundle_from_observation(row, medians)
 
 
 def _hot_rolling_features(row: dict[str, Any], medians: dict[str, float]) -> Any:
-    from .hot_rolling_feature_pipeline import build_hot_rolling_features_from_observation
+    from material_workbench.modeling.hot_rolling_feature_pipeline import build_hot_rolling_features_from_observation
 
     return build_hot_rolling_features_from_observation(row, medians)
 
 
 def _flank_wear_features(row: dict[str, Any], medians: dict[str, float]) -> Any:
-    from .flank_wear_feature_pipeline import build_flank_wear_features_from_observation
+    from material_workbench.modeling.flank_wear_feature_pipeline import build_flank_wear_features_from_observation
 
     return build_flank_wear_features_from_observation(row, medians)
 

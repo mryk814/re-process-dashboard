@@ -4,8 +4,8 @@ from pathlib import Path
 root = Path(SPECPATH).parent
 package_root = root / "backend" / "src" / "material_workbench"
 datas = [
-    *((str(path), "material_workbench") for path in package_root.glob("*.json")),
-    *((str(path), "material_workbench/task_definitions") for path in (package_root / "task_definitions").glob("*.json")),
+    *((str(path), "material_workbench/data") for path in (package_root / "data").glob("*.json")),
+    *((str(path), "material_workbench/tasks/task_definitions") for path in (package_root / "tasks" / "task_definitions").glob("*.json")),
 ]
 
 analysis = Analysis(

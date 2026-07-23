@@ -2,7 +2,7 @@
   "schema_version": "task-inventory/v2",
   "generated_from": [
     "backend/src/material_workbench/task_modules.py",
-    "backend/src/material_workbench/task_definitions",
+    "backend/src/material_workbench/tasks/task_definitions",
     "models/active-packages.json",
     "resolved dataset input profiles",
     "resolved Model Package manifests"
@@ -38,7 +38,7 @@
         "path": "data/source/material_workbench_tutorial_v1.xlsx",
         "sha256": "007a6910abb4293d79597d3e137e784cd775f3011b4caac4bcfdd8c275b338b8",
         "profile_id": "thin-sheet-tutorial-v1",
-        "profile_path": "backend/src/material_workbench/dataset-input-profile-tutorial.json"
+        "profile_path": "backend/src/material_workbench/data/dataset-input-profile-tutorial.json"
       },
       "active_package": {
         "path": "packages/annealed-gp-tutorial-v1",
@@ -84,7 +84,7 @@
         "path": "data/source/material_workbench_tutorial_v1.xlsx",
         "sha256": "007a6910abb4293d79597d3e137e784cd775f3011b4caac4bcfdd8c275b338b8",
         "profile_id": "thin-sheet-tutorial-v1",
-        "profile_path": "backend/src/material_workbench/dataset-input-profile-tutorial.json"
+        "profile_path": "backend/src/material_workbench/data/dataset-input-profile-tutorial.json"
       },
       "active_package": {
         "path": "packages/hot-rolled-tutorial-v1",
@@ -135,7 +135,7 @@
         "path": "data/source/cutting_tool_flank_wear_synthetic_dataset.xlsx",
         "sha256": "0641464e069d30e1284ffabde648d5ba4db86f100df00ed41bc414606e7f4144",
         "profile_id": "cutting-flank-wear-v1",
-        "profile_path": "backend/src/material_workbench/dataset-input-profile-flank-wear-v1.json"
+        "profile_path": "backend/src/material_workbench/data/dataset-input-profile-flank-wear-v1.json"
       },
       "active_package": {
         "path": "packages/flank-wear-gp-2026-07",

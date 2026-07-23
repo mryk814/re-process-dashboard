@@ -4,7 +4,7 @@ import sqlite3
 
 import pytest
 
-from material_workbench.project_runtime_resolver import ProjectRuntimeResolutionError
+from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolutionError
 
 
 def test_resolver_rebuilds_runtime_from_project_pins_and_caches_it(client) -> None:

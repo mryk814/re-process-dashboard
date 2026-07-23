@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from material_workbench.app import app
-from material_workbench.schemas import CandidateInput, Prediction
+from material_workbench.contracts.schemas import CandidateInput, Prediction
 
 
 ROOT = Path(__file__).resolve().parents[2]

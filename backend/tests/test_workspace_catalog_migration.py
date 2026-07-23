@@ -6,12 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from material_workbench.candidate_migration import (
+from material_workbench.persistence.candidate_migration import (
     CANDIDATE_SAFETY_MIGRATION_ID,
     MIGRATION_ID as CANDIDATE_MIGRATION_ID,
     migrate_candidate_storage,
 )
-from material_workbench.workspace_catalog_migration import (
+from material_workbench.persistence.workspace_catalog_migration import (
     CATALOG_TABLE_COLUMNS,
     MIGRATION_CHECKSUM,
     MIGRATION_ID,

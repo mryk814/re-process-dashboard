@@ -21,13 +21,13 @@ from .api.data_exploration import router as data_exploration_router
 from .api.screening import router as screening_router
 from .api.inference import router as inference_router
 from .api.records import router as records_router
-from .demo_seed import initialize_demo_projects
-from .inference_work_graph import InferenceWorkGraph
-from .model_lifecycle import ACTIVE_PACKAGES_PATH, load_active_packages, resolve_configured_package, validate_active_package_task_set
-from .store import Store
-from .task_registry import DataExplorerEntry, TaskRegistry
-from .workspace_catalog_bootstrap import bootstrap_workspace_catalog
-from .project_runtime_resolver import ProjectRuntimeResolver
+from material_workbench.persistence.demo_seed import initialize_demo_projects
+from material_workbench.execution.inference_work_graph import InferenceWorkGraph
+from material_workbench.modeling.model_lifecycle import ACTIVE_PACKAGES_PATH, load_active_packages, resolve_configured_package, validate_active_package_task_set
+from material_workbench.persistence.store import Store
+from material_workbench.tasks.task_registry import DataExplorerEntry, TaskRegistry
+from material_workbench.persistence.workspace_catalog_bootstrap import bootstrap_workspace_catalog
+from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
 from .task_modules import PredictionRuntime, TaskModule, registered_task_modules
 
 

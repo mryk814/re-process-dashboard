@@ -4,9 +4,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from material_workbench.feature_pipeline import CANONICAL_INPUT_PATHS, FEATURE_NAMES, FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION, build_feature_bundle, build_feature_bundle_from_observation, candidate_from_observation
-from material_workbench.importer import _normalize_stage_local_times, load_workbook_data
-from material_workbench.schemas import CandidateInput
+from material_workbench.modeling.feature_pipeline import CANONICAL_INPUT_PATHS, FEATURE_NAMES, FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION, build_feature_bundle, build_feature_bundle_from_observation, candidate_from_observation
+from material_workbench.data.importer import _normalize_stage_local_times, load_workbook_data
+from material_workbench.contracts.schemas import CandidateInput
 
 
 COMPOSITION = {

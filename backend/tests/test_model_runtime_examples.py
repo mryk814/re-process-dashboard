@@ -9,9 +9,9 @@ import sys
 import numpy as np
 import pytest
 
-from material_workbench.model_package_verify import verify_model_package_example
-from material_workbench.model_example_contracts import PredictiveMixtureDesignFixture, validate_mixture_component_digests
-from material_workbench.model_packages import ModelPackageLoader, PackageContractError, PredictiveSummary, RUNTIME_TYPES, predictive_interval
+from material_workbench.modeling.model_package_verify import verify_model_package_example
+from material_workbench.contracts.model_example_contracts import PredictiveMixtureDesignFixture, validate_mixture_component_digests
+from material_workbench.modeling.model_packages import ModelPackageLoader, PackageContractError, PredictiveSummary, RUNTIME_TYPES, predictive_interval
 
 
 ROOT = Path(__file__).resolve().parents[2]

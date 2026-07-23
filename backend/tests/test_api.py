@@ -1,6 +1,6 @@
 from copy import deepcopy
 
-from material_workbench.schemas import CandidateInput
+from material_workbench.contracts.schemas import CandidateInput
 
 ELEMENTS = ("C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N")
 

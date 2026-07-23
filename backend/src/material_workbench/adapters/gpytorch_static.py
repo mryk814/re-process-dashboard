@@ -5,7 +5,7 @@ or imports a model class named by a package.
 """
 from __future__ import annotations
 
-from ..model_packages import MissingOptionalDependency, PackageContractError, PredictiveSummary, PredictorSpec, VerifiedModelPackage
+from material_workbench.modeling.model_packages import MissingOptionalDependency, PackageContractError, PredictiveSummary, PredictorSpec, VerifiedModelPackage
 from .base import feature_vector
 
 try:

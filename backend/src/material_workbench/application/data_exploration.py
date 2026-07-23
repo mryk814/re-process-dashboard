@@ -8,12 +8,12 @@ from typing import Literal
 
 from .candidates import CandidateService
 from .projects import ProjectService
-from ..importer import lineage_neighborhood, lineage_node_detail
-from ..schemas import Candidate, LineageIndexResponse, LineageResponse, QualityResponse
-from ..services import candidate_from_lineage
-from ..store import Store
-from ..task_registry import DataExplorerEntry, TaskRegistry, TaskRegistryError
-from ..project_runtime_resolver import ProjectRuntimeResolver
+from material_workbench.data.importer import lineage_neighborhood, lineage_node_detail
+from material_workbench.contracts.schemas import Candidate, LineageIndexResponse, LineageResponse, QualityResponse
+from material_workbench.domain.services import candidate_from_lineage
+from material_workbench.persistence.store import Store
+from material_workbench.tasks.task_registry import DataExplorerEntry, TaskRegistry, TaskRegistryError
+from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
 
 
 class DataExplorerUnavailableError(LookupError):

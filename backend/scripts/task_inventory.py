@@ -12,15 +12,15 @@ BACKEND_SRC = REPOSITORY_ROOT / "backend" / "src"
 if str(BACKEND_SRC) not in sys.path:
     sys.path.insert(0, str(BACKEND_SRC))
 
-from material_workbench.model_lifecycle import (  # noqa: E402
+from material_workbench.modeling.model_lifecycle import (  # noqa: E402
     ACTIVE_PACKAGES_PATH,
     load_active_packages,
     resolve_configured_package,
     validate_active_package_task_set,
 )
-from material_workbench.model_packages import ModelPackageLoader  # noqa: E402
+from material_workbench.modeling.model_packages import ModelPackageLoader  # noqa: E402
 from material_workbench.task_modules import registered_task_modules, resolve_task_source  # noqa: E402
-from material_workbench.task_registry import load_task_contracts  # noqa: E402
+from material_workbench.tasks.task_registry import load_task_contracts  # noqa: E402
 
 
 DEFAULT_OUTPUT = REPOSITORY_ROOT / "docs" / "task-inventory.json"
@@ -83,7 +83,7 @@ def build_inventory() -> dict[str, Any]:
         "schema_version": "task-inventory/v2",
         "generated_from": [
             "backend/src/material_workbench/task_modules.py",
-            "backend/src/material_workbench/task_definitions",
+            "backend/src/material_workbench/tasks/task_definitions",
             "models/active-packages.json",
             "resolved dataset input profiles",
             "resolved Model Package manifests",

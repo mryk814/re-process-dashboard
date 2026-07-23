@@ -7,7 +7,7 @@ import sys
 import pytest
 import numpy as np
 
-from material_workbench.model_packages import ModelPackageLoader
+from material_workbench.modeling.model_packages import ModelPackageLoader
 
 
 ROOT = Path(__file__).resolve().parents[2]

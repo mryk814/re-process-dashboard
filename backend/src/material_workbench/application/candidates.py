@@ -3,10 +3,10 @@ from __future__ import annotations
 import math
 
 from .projects import ProjectService
-from ..heat_time import line_speed_scaled_times
-from ..schemas import Candidate, CandidateImportResponse, CandidateInput, CandidateUpdate
-from ..services import candidate_template_xlsx, candidates_xlsx, import_candidates_xlsx
-from ..store import (
+from material_workbench.domain.heat_time import line_speed_scaled_times
+from material_workbench.contracts.schemas import Candidate, CandidateImportResponse, CandidateInput, CandidateUpdate
+from material_workbench.domain.services import candidate_template_xlsx, candidates_xlsx, import_candidates_xlsx
+from material_workbench.persistence.store import (
     CandidateArchivedError,
     CandidateLimitError,
     CandidateRevisionConflictError,
@@ -14,8 +14,8 @@ from ..store import (
     Store,
     StoreDataIntegrityError,
 )
-from ..task_registry import TaskRegistry, TaskRegistryError
-from ..project_runtime_resolver import ProjectRuntimeResolver
+from material_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
+from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
 
 
 class CandidateNotFoundError(LookupError):

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 
-from material_workbench.store import MAX_CANDIDATES_PER_PROJECT
+from material_workbench.persistence.store import MAX_CANDIDATES_PER_PROJECT
 
 
 def _create_candidate(client, name: str = "競合確認") -> dict:

@@ -5,12 +5,12 @@ from typing import Any, Mapping
 
 from .candidates import CandidateService
 from .projects import ProjectService
-from ..goal_targets import serialize_target_values
-from ..inference_work_graph import InferenceKey, InferenceWorkGraph, semantic_digest
-from ..project_runtime_resolver import ProjectRuntimeResolver
-from ..schemas import Candidate, Project
-from ..store import Store
-from ..task_registry import TaskRegistry, TaskRegistryError
+from material_workbench.domain.goal_targets import serialize_target_values
+from material_workbench.execution.inference_work_graph import InferenceKey, InferenceWorkGraph, semantic_digest
+from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
+from material_workbench.contracts.schemas import Candidate, Project
+from material_workbench.persistence.store import Store
+from material_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
 
 
 class InferenceValidationError(ValueError):

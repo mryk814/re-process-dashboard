@@ -10,10 +10,10 @@ from typing import Sequence
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from material_workbench.dataset_profile import DatasetProfileError
-from material_workbench.dataset_registration import register_managed_dataset
-from material_workbench.profile_workbench import inspect_workbook, validate_workbook_profile
-from material_workbench.workspace_catalog import CatalogConflictError, CatalogReferenceError
+from material_workbench.data.dataset_profile import DatasetProfileError
+from material_workbench.data.dataset_registration import register_managed_dataset
+from material_workbench.data.profile_workbench import inspect_workbook, validate_workbook_profile
+from material_workbench.persistence.workspace_catalog import CatalogConflictError, CatalogReferenceError
 
 
 def _parser() -> argparse.ArgumentParser:

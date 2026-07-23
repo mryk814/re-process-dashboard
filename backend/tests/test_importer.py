@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from material_workbench.importer import _attach_quality_navigation, _detect_data_quality, load_workbook_data
+from material_workbench.data.importer import _attach_quality_navigation, _detect_data_quality, load_workbook_data
 
 
 SOURCE = Path(__file__).resolve().parents[2] / "data" / "source" / "process_dashboard_realistic_excel_v2.xlsx"

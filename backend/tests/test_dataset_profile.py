@@ -9,20 +9,20 @@ import pytest
 from fastapi.testclient import TestClient
 from openpyxl import Workbook, load_workbook
 
-from material_workbench.dataset_profile import (
+from material_workbench.data.dataset_profile import (
     DatasetProfileError,
     canonicalize_workbook,
     load_dataset_profile,
     load_task_definitions,
     preflight_workbook,
 )
-from material_workbench.feature_pipeline import build_feature_bundle
-from material_workbench.hot_rolling_feature_pipeline import build_hot_rolling_features
-from material_workbench.importer import detect_dataset_profile_path, load_workbook_data
+from material_workbench.modeling.feature_pipeline import build_feature_bundle
+from material_workbench.modeling.hot_rolling_feature_pipeline import build_hot_rolling_features
+from material_workbench.data.importer import detect_dataset_profile_path, load_workbook_data
 from material_workbench.app import create_app
-from material_workbench.schemas import CandidateInput
-from material_workbench.services import candidate_from_lineage
-from material_workbench.task_contracts import TaskDefinition
+from material_workbench.contracts.schemas import CandidateInput
+from material_workbench.domain.services import candidate_from_lineage
+from material_workbench.contracts.task_contracts import TaskDefinition
 from material_workbench.task_modules import registered_task_modules
 
 
@@ -33,7 +33,7 @@ V5_SOURCE = ROOT / "data" / "source" / "process_dashboard_two_equipment_v5.xlsx"
 V7_SOURCE = ROOT / "data" / "source" / "process_dashboard_two_equipment_v7.xlsx"
 V8_SOURCE = ROOT / "data" / "source" / "process_dashboard_two_equipment_v8.xlsx"
 TUTORIAL_SOURCE = ROOT / "data" / "source" / "material_workbench_tutorial_v1.xlsx"
-PROFILE = ROOT / "backend" / "src" / "material_workbench" / "dataset-input-profile-v1.json"
+PROFILE = ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-v1.json"
 
 
 def test_tutorial_profile_keeps_relations_repeats_and_partial_targets_explicit() -> None:
@@ -566,7 +566,7 @@ def test_v7_derives_heat_pattern_from_measurement_master_when_history_is_absent(
     workbook = load_workbook(V7_SOURCE, read_only=False, data_only=True)
     workbook.remove(workbook["焼鈍履歴"])
     profile = load_dataset_profile(
-        ROOT / "backend" / "src" / "material_workbench" / "dataset-input-profile-v7.json"
+        ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-v7.json"
     )
 
     canonical = canonicalize_workbook(workbook, profile)
@@ -610,7 +610,7 @@ def test_v7_explicit_heat_history_takes_priority_over_measurement_master() -> No
     )
     master.cell(phf_row, position_column).value = 16.0
     profile = load_dataset_profile(
-        ROOT / "backend" / "src" / "material_workbench" / "dataset-input-profile-v7.json"
+        ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-v7.json"
     )
 
     canonical = canonicalize_workbook(workbook, profile)
@@ -685,7 +685,7 @@ def test_v7_rejects_heat_series_inputs_that_would_silently_change_the_pattern(
             )
             annealing.cell(row, entry_column).value = None
     profile = load_dataset_profile(
-        ROOT / "backend" / "src" / "material_workbench" / "dataset-input-profile-v7.json"
+        ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-v7.json"
     )
 
     with pytest.raises(DatasetProfileError) as caught:

@@ -12,11 +12,11 @@ import numpy as np
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from material_workbench.model_example_contracts import ExampleQualityReport, ExampleSmokeExpected, ExampleSmokeInput
-from material_workbench.model_lifecycle import staged_package_destination
-from material_workbench.model_package_verify import verify_model_package_example
-from material_workbench.model_packages import ModelPackageLoader
-from material_workbench.task_contracts import TargetRuntimeCapability
+from material_workbench.contracts.model_example_contracts import ExampleQualityReport, ExampleSmokeExpected, ExampleSmokeInput
+from material_workbench.modeling.model_lifecycle import staged_package_destination
+from material_workbench.modeling.model_package_verify import verify_model_package_example
+from material_workbench.modeling.model_packages import ModelPackageLoader
+from material_workbench.contracts.task_contracts import TargetRuntimeCapability
 
 
 FEATURE_NAMES = tuple(f"x{index}" for index in range(8))
