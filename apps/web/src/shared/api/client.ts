@@ -41,7 +41,7 @@ const normalizedFetch: typeof fetch = async (input, init) => {
     return await fetch(new Request(request, { headers }));
   } catch (cause) {
     throw new ApiClientError(
-      cause instanceof Error ? cause.message : "APIへ接続できませんでした。",
+      "APIへ接続できませんでした。接続状態を確認して、もう一度お試しください。",
       "network",
       0,
     );

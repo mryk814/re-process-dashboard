@@ -1,16 +1,12 @@
 import { useEffect, useState } from "react";
-import { numericTaskInputs, type NumericTaskInput, type ResolvedTaskDefinition, type TaskDefinitionContract } from "../candidates";
+import { numericTaskInputs, type ResolvedTaskDefinition, type TaskDefinitionContract } from "../candidates";
 import { LiveDataQualityPage, type QualityFilters } from "../quality";
 import { workbenchApi, type ApiModelPackage, type ApiProject, type ApiQuality } from "../../shared/api/workbench-api";
 import { ModelTrainingDataInspector } from "./ModelTrainingDataInspector";
 import { DeveloperControlCenter } from "./DeveloperControlCenter";
+import { suggestedInputRange } from "./inputRangeDefaults";
 
 export type AdminSection = "developer" | "quality" | "ranges" | "display" | "task" | "model";
-
-function allowedRange(input: NumericTaskInput) {
-  if (!input.allowed_range) throw new Error(`数値fieldにallowed_rangeがありません: ${input.path}`);
-  return input.allowed_range;
-}
 
 function number(value: number, digits = 0) {
   return value.toLocaleString("ja-JP", { minimumFractionDigits: digits, maximumFractionDigits: digits });
@@ -59,7 +55,7 @@ export function DeveloperAdminPage({
   useEffect(() => setSection(initialSection ?? "developer"), [initialSection]);
   const qualityAvailable = resolvedTaskDefinition?.data_explorer?.quality === true;
   const allSections: Array<{ id: AdminSection; label: string }> = [
-    { id: "developer", label: "Developer Center" },
+    { id: "developer", label: "開発者ガイド" },
     { id: "quality", label: "データ品質集計" },
     { id: "ranges", label: "入力範囲" },
     { id: "display", label: "表示桁数" },
@@ -163,7 +159,7 @@ export function InputRangeSettingsPage({ project, taskDefinition, onProjectChang
   useEffect(() => {
     if (!project || !taskDefinition) return;
     setDraft(Object.fromEntries(numericTaskInputs(taskDefinition).filter((input) => input.editable).map((input) => {
-      const configured = project.input_ranges?.[input.id] ?? allowedRange(input);
+      const configured = project.input_ranges?.[input.id] ?? suggestedInputRange(input);
       return [input.id, { min: String(configured.min), max: String(configured.max) }];
     })));
     setError("");
@@ -172,7 +168,7 @@ export function InputRangeSettingsPage({ project, taskDefinition, onProjectChang
   const inputs = numericTaskInputs(taskDefinition).filter((input) => input.editable);
   const update = (id: string, side: "min" | "max", value: string) => setDraft((current) => ({ ...current, [id]: { ...current[id], [side]: value } }));
   const resetDefaults = () => setDraft(Object.fromEntries(inputs.map((input) => {
-    const range = input.default_range ?? allowedRange(input);
+    const range = suggestedInputRange(input);
     return [input.id, { min: String(range.min), max: String(range.max) }];
   })));
   const save = async () => {
@@ -198,13 +194,13 @@ export function InputRangeSettingsPage({ project, taskDefinition, onProjectChang
     }
   };
   return <div className="page-panel input-range-settings">
-    <div className="page-intro"><div><h2>入力範囲設定</h2><p>スライダーと数値入力で使う許容範囲を、プロジェクトごとに設定します。</p></div><div className="project-actions"><button className="outline-button" onClick={resetDefaults}>デフォルトに戻す</button><button className="primary-button" disabled={saving} onClick={() => void save()}>{saving ? "保存中…" : "保存"}</button></div></div>
-    <p className="settings-explanation"><b>スライダー全体</b>が許容範囲、<b>色付き帯</b>が学習データ範囲です。許容範囲を広げても、学習範囲外は外挿として表示されます。</p>
+    <div className="page-intro"><div><h2>入力範囲設定</h2><p>スライダーと数値入力で使う実用的な範囲を、プロジェクトごとに設定します。</p></div><div className="project-actions"><button className="outline-button" onClick={resetDefaults}>初期値に戻す</button><button className="primary-button" disabled={saving} onClick={() => void save()}>{saving ? "保存中…" : "保存"}</button></div></div>
+    <p className="settings-explanation"><b>許容範囲</b>は現実的な初期値、<b>学習範囲</b>はモデルが見た範囲です。初期値が未定義の項目は、学習範囲を両側へ10%広げます。</p>
     {error && <p className="empty-evidence">{error}</p>}
-    <table className="input-range-table"><thead><tr><th>入力項目</th><th>許容最小</th><th>許容最大</th><th>デフォルト</th><th>学習範囲</th></tr></thead><tbody>{inputs.map((input) => {
-      const range = input.default_range ?? allowedRange(input);
+    <table className="input-range-table"><thead><tr><th>入力項目</th><th>許容最小</th><th>許容最大</th><th>初期値</th><th>学習範囲</th></tr></thead><tbody>{inputs.map((input) => {
+      const range = suggestedInputRange(input);
       const training = input.training_range;
-      return <tr key={input.id}><th>{input.label}<small>{input.unit}</small></th><td><input type="number" step="any" value={draft[input.id]?.min ?? ""} onChange={(event) => update(input.id, "min", event.target.value)} /></td><td><input type="number" step="any" value={draft[input.id]?.max ?? ""} onChange={(event) => update(input.id, "max", event.target.value)} /></td><td>{rangeNumber(range.min)}–{rangeNumber(range.max)}</td><td>{training ? `${rangeNumber(training.min)}–${rangeNumber(training.max)}` : "—"}</td></tr>;
+      return <tr key={input.id}><th>{input.label}<small>{input.unit}</small></th><td><input type="number" step="any" aria-label={`${input.label}の許容最小`} value={draft[input.id]?.min ?? ""} onChange={(event) => update(input.id, "min", event.target.value)} /></td><td><input type="number" step="any" aria-label={`${input.label}の許容最大`} value={draft[input.id]?.max ?? ""} onChange={(event) => update(input.id, "max", event.target.value)} /></td><td>{rangeNumber(range.min)}–{rangeNumber(range.max)}</td><td>{training ? `${rangeNumber(training.min)}–${rangeNumber(training.max)}` : "—"}</td></tr>;
     })}</tbody></table>
   </div>;
 }

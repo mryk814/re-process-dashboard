@@ -347,7 +347,7 @@ export function LineageGraph({
     <section className="lineage-graph-panel" aria-label={`${selectedKey} の工程・試験関係`}>
       <header className="lineage-graph-header">
         <div>
-          <b>{graph.relation_row_count} relation行から復元</b>
+          <b>{graph.relation_row_count}件の関係から復元</b>
           <span>
             {graph.all_reachable
               ? `到達可能な${graph.visible_node_count}ノードをすべて表示`

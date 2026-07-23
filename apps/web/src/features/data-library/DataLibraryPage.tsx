@@ -133,6 +133,7 @@ export function DataLibraryPage({
                 {singleView && <button
                   className="outline-button dataset-start-project"
                   aria-label={`${datasetDisplayName(item)}でプロジェクトを作成${startUnavailableReason ? `：${startUnavailableReason}` : ""}`}
+                  title={startUnavailableReason || `${datasetDisplayName(item)}でプロジェクトを作成`}
                   disabled={Boolean(startUnavailableReason)}
                   onClick={() => onStartProject(singleView.id)}
                 >プロジェクト作成</button>}

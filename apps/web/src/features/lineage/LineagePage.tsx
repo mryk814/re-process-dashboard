@@ -335,7 +335,7 @@ export function LineagePage({
           {index && (
             <div className="lineage-source-facts">
               <span><b>{number(index.total_entities)}</b> エンティティ</span>
-              <span><b>{number(index.relation_rows)}</b> relation行</span>
+              <span><b>{number(index.relation_rows)}</b> 関係レコード</span>
               <span className={index.detected_issues ? "has-issue" : ""}><b>{index.detected_issues}</b> 検出問題</span>
             </div>
           )}
@@ -430,7 +430,7 @@ export function LineagePage({
               </div>
               <small className="lineage-result-limit">
                 {index ? `${number(index.matched_entities ?? index.items.length)}件中${number(index.items.length)}件を表示` : "検索中"}
-                {" · "}最大200件。選択するとグラフを開きます。
+                {" · "}一度に最大200件まで表示。選択するとグラフを開きます。
               </small>
             </>
           )}
@@ -791,7 +791,7 @@ export function LineagePage({
             <span className="overline">ノード未選択</span>
             <h3>調べるノードを選択してください</h3>
             <p>左の検索欄からノードを選ぶと、実在する関係線と前後工程を表示します。</p>
-            {index && <p>{number(index.total_entities)}ノード / {number(index.relation_rows)} relation行 / {index.detected_issues}件の品質問題</p>}
+            {index && <p>{number(index.total_entities)}ノード / {number(index.relation_rows)}関係 / {index.detected_issues}件の品質問題</p>}
           </section>
         </main>
       )}

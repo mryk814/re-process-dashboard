@@ -616,7 +616,7 @@ export function ProjectHub({
         <div className="panel-title"><h3>次の作業</h3><span>{activeCandidates.length ? `${activeCandidates.length}候補を検討中` : "まだ候補がありません"}</span></div>
         <div className="project-action-grid">
           <button className="project-action-card primary" onClick={() => onNavigate(activeCandidates.length ? "candidates" : supportsLineageCandidate ? "lineage" : "explore")}><strong>{activeCandidates.length ? "候補を比較" : supportsLineageCandidate ? "過去データから探す" : "条件範囲から始める"}</strong><span>{activeCandidates.length ? "入力・予測・根拠を横並びで確認" : supportsLineageCandidate ? "既存の条件と問題から出発" : "基準候補を作り、入力範囲から探索"}</span></button>
-          <button className="project-action-card" onClick={() => onNavigate("explore")}><strong>条件範囲から探す</strong><span>目標と入力範囲から候補を生成</span></button>
+          <button className="project-action-card" onClick={() => onNavigate("explore")}><strong>範囲探索</strong><span>目標と入力範囲から候補を生成</span></button>
           <button className="project-action-card" onClick={() => onNavigate("candidates")}><strong>直接候補を作る</strong><span>具体的な成分・工程条件を入力</span></button>
         </div>
       </section>
