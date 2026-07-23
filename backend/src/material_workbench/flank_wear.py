@@ -34,7 +34,8 @@ from .flank_wear_feature_pipeline import (
 )
 from .model_packages import ModelPackageLoader, predictive_interval, validate_predictive_summary, validate_task_definition_canonical_inputs
 from .dataset_profile import load_task_definitions
-from .schemas import Candidate, CandidateInput, Prediction, Support
+from .goal_targets import goal_fields, probability_from_cdf
+from .schemas import Candidate, CandidateInput, Prediction, Support, TargetValue
 from .task_registry import load_task_contracts
 
 
@@ -381,16 +382,20 @@ class FlankWearRuntime:
         ), nearest_rows
 
     @staticmethod
-    def _goal_probability(summary: Any, goal_value: float) -> float | None:
+    def _goal_probability(summary: Any, goal: TargetValue) -> float | None:
         distribution = summary.distribution
         log_mean = distribution.get("log_mean")
         log_std = distribution.get("log_std")
-        if log_mean is None or log_std is None or float(log_std) <= 0 or goal_value < 0:
+        if log_mean is None or log_std is None or float(log_std) <= 0:
             return None
-        z = (math.log1p(goal_value) - float(log_mean)) / float(log_std)
-        return 0.5 * math.erfc(-z / math.sqrt(2.0))
+        def cdf(value: float) -> float:
+            if value < 0:
+                return 0.0
+            z = (math.log1p(value) - float(log_mean)) / float(log_std)
+            return 0.5 * math.erfc(-z / math.sqrt(2.0))
+        return probability_from_cdf(goal, cdf, "at_most")
 
-    def predict_core(self, candidate: Candidate, detailed: bool = False, target_values: dict[str, float] | None = None, **_: Any) -> dict[str, Any]:
+    def predict_core(self, candidate: Candidate, detailed: bool = False, target_values: dict[str, TargetValue] | None = None, **_: Any) -> dict[str, Any]:
         bundle = build_flank_wear_features(candidate, self.composition_defaults)
         values = bundle.as_dict()
         predictions: dict[str, Prediction] = {}
@@ -398,8 +403,9 @@ class FlankWearRuntime:
         for target, predictor in self.predictors.items():
             summary = predictor.predict(values)
             warnings.extend(summary.warnings)
-            goal_value = (target_values or {}).get(target)
-            goal_probability = None if goal_value is None else self._goal_probability(summary, goal_value)
+            goal = (target_values or {}).get(target)
+            goal_probability = None if goal is None else self._goal_probability(summary, goal)
+            goal_value, goal_lower, goal_upper, goal_direction = goal_fields(goal, "at_most")
             lower, upper = predictive_interval(summary)
             predictions[target] = Prediction(
                 value=round(summary.point_estimate, 3),
@@ -412,8 +418,10 @@ class FlankWearRuntime:
                 quantiles={level: round(float(item), 6) for level, item in summary.quantiles.items()},
                 categories=list(summary.distribution.get("categories", [])),
                 goal_value=goal_value,
+                goal_lower=goal_lower,
+                goal_upper=goal_upper,
                 goal_probability=None if goal_probability is None else round(goal_probability, 4),
-                goal_direction=None if goal_value is None else "at_most",
+                goal_direction=goal_direction,
                 uncertainty_components=None if summary.uncertainty_components is None else {
                     name: round(float(value), 6) for name, value in summary.uncertainty_components.items()
                 },

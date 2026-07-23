@@ -18,6 +18,14 @@
 .project-hub .project-actions select { margin-left: 6px; min-width: 180px; height: 36px; border: 1px solid #cbd6e2; border-radius: 4px; }
 .target-grid { border: 1px solid #d8e0ea; border-radius: 4px; display: grid; grid-template-columns: repeat(4, minmax(100px, 1fr)); gap: 10px; padding: 12px; }
 .target-grid legend { font-size: 13px; font-weight: 700; padding: 0 6px; }
+.target-setting { display: grid; gap: 6px; align-content: start; }
+.target-setting > label { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+.target-setting select { min-width: 92px; }
+.target-range-inputs { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 5px; align-items: end; }
+.target-range-inputs label { display: grid; gap: 3px; font-size: 11px; color: #607087; }
+.target-range-inputs input { min-width: 0; width: 100%; }
+.target-range-inputs span { padding-bottom: 7px; color: #607087; }
+.target-range-error { grid-column: 1 / -1; color: #b42318; }
 .project-form label small { display: block; color: #657386; font-weight: 400; margin-top: 4px; }
 .project-hub { display: grid; grid-template-columns: 224px minmax(0, 1fr); gap: 0; max-width: none; padding: 0; overflow: hidden; }
 .project-list-panel { min-width: 0; align-self: stretch; border-right: 1px solid #d8e0ea; background: #f8fafc; padding: 16px 12px; }

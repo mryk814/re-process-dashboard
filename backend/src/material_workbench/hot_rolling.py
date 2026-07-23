@@ -25,7 +25,8 @@ from .hot_rolling_feature_pipeline import (
 from .dataset_profile import load_task_definitions
 from .importer import WorkbookData, lineage_reference_keys
 from .model_packages import ModelPackageLoader, predictive_interval, validate_predictive_summary, validate_task_definition_canonical_inputs
-from .schemas import Candidate, CandidateInput, Prediction, Support
+from .goal_targets import goal_fields, normal_goal_probability
+from .schemas import Candidate, CandidateInput, Prediction, Support, TargetValue
 from .task_registry import load_task_contracts
 
 
@@ -202,7 +203,7 @@ class HotRollingRuntime:
         self,
         candidate: Candidate,
         detailed: bool = False,
-        target_values: dict[str, float] | None = None,
+        target_values: dict[str, TargetValue] | None = None,
         **_: Any,
     ) -> dict[str, Any]:
         bundle = self._feature_builder(candidate, self.composition_defaults)
@@ -212,14 +213,14 @@ class HotRollingRuntime:
             summary = predictor.predict(values)
             output = next(item for item in self.task_definition.outputs if item.key == target)
             lower, upper = predictive_interval(summary)
-            goal_value = (target_values or {}).get(target)
+            goal = (target_values or {}).get(target)
             goal_probability = None
             standard_deviation = float(summary.distribution.get("std", 0.0))
-            if goal_value is not None and summary.distribution.get("family") == "normal" and standard_deviation > 0:
-                at_least = 0.5 * math.erfc(
-                    (goal_value - summary.point_estimate) / (standard_deviation * math.sqrt(2.0))
+            if goal is not None and summary.distribution.get("family") == "normal" and standard_deviation > 0:
+                goal_probability = normal_goal_probability(
+                    summary.point_estimate, standard_deviation, goal, output.goal_direction
                 )
-                goal_probability = 1.0 - at_least if output.goal_direction == "at_most" else at_least
+            goal_value, goal_lower, goal_upper, goal_direction = goal_fields(goal, output.goal_direction)
             predictions[target] = Prediction(
                 value=round(summary.point_estimate, 3),
                 lower=round(lower, 3),
@@ -231,8 +232,10 @@ class HotRollingRuntime:
                 quantiles={level: round(float(item), 6) for level, item in summary.quantiles.items()},
                 categories=list(summary.distribution.get("categories", [])),
                 goal_value=goal_value,
+                goal_lower=goal_lower,
+                goal_upper=goal_upper,
                 goal_probability=None if goal_probability is None else round(goal_probability, 4),
-                goal_direction=None if goal_value is None else output.goal_direction,
+                goal_direction=goal_direction,
                 uncertainty_components=None if summary.uncertainty_components is None else {
                     name: round(float(value), 6) for name, value in summary.uncertainty_components.items()
                 },

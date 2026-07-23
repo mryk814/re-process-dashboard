@@ -215,6 +215,23 @@ def test_hot_rolling_project_runs_the_full_common_candidate_flow(client) -> None
     assert 0 <= target_prediction["goal_probability"] <= 1
     assert target_prediction["goal_direction"] == "at_least"
 
+    range_project = project.json()
+    range_project["target_values"] = {"TS": {"lower": 450, "upper": 550}}
+    saved_range = client.put(f"/api/projects/{project_id}", json=range_project)
+    assert saved_range.status_code == 200
+    assert saved_range.json()["target_values"]["TS"] == {"lower": 450, "upper": 550}
+    range_preview = client.post(
+        f"/api/projects/{project_id}/candidates/{candidate_id}/preview",
+        params={"expected_revision": updated.json()["revision"]},
+    )
+    assert range_preview.status_code == 200
+    range_prediction = range_preview.json()["predictions"]["TS"]
+    assert range_prediction["goal_value"] is None
+    assert range_prediction["goal_lower"] == 450
+    assert range_prediction["goal_upper"] == 550
+    assert range_prediction["goal_direction"] == "between"
+    assert 0 <= range_prediction["goal_probability"] <= 1
+
     disposable = client.post(f"/api/projects/{project_id}/candidates", json=payload).json()
     assert client.delete(f"/api/projects/{project_id}/candidates/{disposable['id']}?expected_revision={disposable['revision']}").status_code == 204
 

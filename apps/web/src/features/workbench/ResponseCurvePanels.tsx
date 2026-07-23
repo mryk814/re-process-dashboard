@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { SvgChartTooltip } from "../../shared/ui/SvgChartTooltip";
 import { candidateInputIdentity } from "../../shared/api/inferenceRequestCache";
 import { clampToRange, isOutsideRange } from "../../shared/outputPresentation";
+import { isTargetRange, type TargetGoal } from "../../shared/targetGoals";
 import {
   categoricalTaskInputs,
   numericTaskInputs,
@@ -32,6 +33,7 @@ type CurvePoint = ApiResponseCurve["points"][number];
 type CurveRange = { min: number; max: number };
 export type ResponseCurveRanges = { x?: Record<string, CurveRange>; y?: Record<string, CurveRange> };
 type CurveRangeDraft = { min: string; max: string; enabled: boolean };
+const goalAxisValues = (goal: TargetGoal | undefined) => isTargetRange(goal) ? [goal.lower, goal.upper] : typeof goal === "number" ? [goal] : [];
 
 function allowedRange(input: NumericTaskInput) {
   if (!input.allowed_range) throw new Error(`数値fieldにallowed_rangeがありません: ${input.path}`);
@@ -86,7 +88,7 @@ export function CurveFamilyPanel({
   projectId: string;
   candidate: Candidate;
   taskDefinition: TaskDefinitionContract;
-  targetValues: Record<string, number>;
+  targetValues: Record<string, TargetGoal>;
   ready: boolean;
 }) {
   const outputs = taskDefinition.outputs;
@@ -171,7 +173,7 @@ function CurveFamilyChart({
 }: {
   output: TaskOutputDefinition;
   payload: ApiCurveFamily;
-  goalValue?: number;
+  goalValue?: TargetGoal;
   showVaryLevels: boolean;
 }) {
   const width = 300;
@@ -184,8 +186,9 @@ function CurveFamilyChart({
   const valueSamples = points.flatMap((point) => bandVisible ? [point.lower, point.upper] : [point.value]);
   const [showFullRange, setShowFullRange] = useState(false);
   const preferredRange = output.preferred_display_range;
-  const rawMin = showFullRange || !preferredRange ? Math.min(...valueSamples, goalValue ?? Infinity, 0) : preferredRange.min;
-  const rawMax = showFullRange || !preferredRange ? Math.max(...valueSamples, goalValue ?? -Infinity) : preferredRange.max;
+  const goalValues = goalAxisValues(goalValue);
+  const rawMin = showFullRange || !preferredRange ? Math.min(...valueSamples, ...goalValues, 0) : preferredRange.min;
+  const rawMax = showFullRange || !preferredRange ? Math.max(...valueSamples, ...goalValues) : preferredRange.max;
   const padding = Math.max(1, (rawMax - rawMin) * 0.08);
   const minValue = showFullRange || !preferredRange ? rawMin : preferredRange.min;
   const maxValue = showFullRange || !preferredRange ? rawMax + padding : preferredRange.max;
@@ -218,7 +221,7 @@ function CurveFamilyChart({
             onBlur={() => setHoveredPoint(null)}
           />)}</g>;
         })}
-        {Number.isFinite(goalValue) && <line x1="28" y1={y(goalValue!)} x2="284" y2={y(goalValue!)} stroke="#c17816" strokeDasharray="4 3" />}
+        {isTargetRange(goalValue) ? <rect x="28" y={y(goalValue.upper)} width="256" height={Math.max(1, y(goalValue.lower) - y(goalValue.upper))} fill="#c17816" opacity=".1" /> : Number.isFinite(goalValue) && <line x1="28" y1={y(goalValue as number)} x2="284" y2={y(goalValue as number)} stroke="#c17816" strokeDasharray="4 3" />}
         {Number.isFinite(payload.axis.current) && <line x1={x(payload.axis.current)} y1="32" x2={x(payload.axis.current)} y2="124" stroke="#94a5ba" strokeDasharray="2 3" />}
         {clippedAbove > 0 && <text className="curve-clip-indicator" x="280" y="40" textAnchor="end">▲ {clippedAbove}</text>}
         {clippedBelow > 0 && <text className="curve-clip-indicator" x="280" y="121" textAnchor="end">▼ {clippedBelow}</text>}
@@ -249,7 +252,7 @@ export function LiveResponseCurves({
   candidate: Candidate;
   preview: ApiPreview | null;
   previewsByCandidate: Record<string, ApiPreview>;
-  targetValues: Record<string, number>;
+  targetValues: Record<string, TargetGoal>;
   taskDefinition: TaskDefinitionContract | null;
   responseCurveRanges: ResponseCurveRanges;
   onProjectChanged: (project: ApiProject) => void | Promise<void>;
@@ -510,7 +513,7 @@ function ResponseCurveMiniChart({
   series: Array<{ candidate: Candidate; points: CurvePoint[]; prediction?: NonNullable<ApiPreview["predictions"]>[string]; currentX: number }>;
   selectedId: string;
   prediction?: NonNullable<ApiPreview["predictions"]>[string];
-  goalValue?: number;
+  goalValue?: TargetGoal;
   xRange?: { min: number; max: number };
   yRange?: { min: number; max: number };
   xLabel: string;
@@ -527,8 +530,9 @@ function ResponseCurveMiniChart({
         ...points.flatMap((point) => [point.value, point.lower, point.upper, ...Object.values(point.quantiles ?? {})]),
         ...series.flatMap((item) => item.prediction ? [item.prediction.value, item.prediction.lower, item.prediction.upper, ...Object.values(item.prediction.quantiles ?? {})] : []),
       ];
-  const rawMin = Math.min(...outputAxisValues, goalValue ?? Infinity);
-  const rawMax = Math.max(...outputAxisValues, goalValue ?? -Infinity);
+  const goalValues = goalAxisValues(goalValue);
+  const rawMin = Math.min(...outputAxisValues, ...goalValues);
+  const rawMax = Math.max(...outputAxisValues, ...goalValues);
   const valuePadding = Math.max(1, (rawMax - rawMin) * 0.08);
   const minValue = yRange?.min ?? rawMin - valuePadding;
   const maxValue = yRange?.max ?? rawMax + valuePadding;
@@ -572,7 +576,7 @@ function ResponseCurveMiniChart({
             onBlur={() => setHoveredPoint(null)}
           />}</g>;
         })}
-        {Number.isFinite(goalValue) && <line x1="28" y1={y(goalValue!)} x2="284" y2={y(goalValue!)} stroke="#c17816" strokeDasharray="4 3" />}
+        {isTargetRange(goalValue) ? <rect x="28" y={y(goalValue.upper)} width="256" height={Math.max(1, y(goalValue.lower) - y(goalValue.upper))} fill="#c17816" opacity=".1" /> : Number.isFinite(goalValue) && <line x1="28" y1={y(goalValue as number)} x2="284" y2={y(goalValue as number)} stroke="#c17816" strokeDasharray="4 3" />}
         {clippedAbove > 0 && <text className="curve-clip-indicator" x="280" y="40" textAnchor="end">▲ {clippedAbove}</text>}
         {clippedBelow > 0 && <text className="curve-clip-indicator" x="280" y="121" textAnchor="end">▼ {clippedBelow}</text>}
         {xTicks.map((tick) => <text key={tick} x={x(tick)} y="137" textAnchor="middle" fontSize="8" fill="#617087">{number(tick, xDigits)}</text>)}

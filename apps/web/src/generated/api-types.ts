@@ -1828,9 +1828,13 @@ export interface components {
             /** Categories */
             categories?: string[];
             /** Goal Direction */
-            goal_direction?: ("at_least" | "at_most") | null;
+            goal_direction?: ("at_least" | "at_most" | "between") | null;
+            /** Goal Lower */
+            goal_lower?: number | null;
             /** Goal Probability */
             goal_probability?: number | null;
+            /** Goal Upper */
+            goal_upper?: number | null;
             /** Goal Value */
             goal_value?: number | null;
             /** Lower */
@@ -2146,7 +2150,7 @@ export interface components {
             };
             /** Target Values */
             target_values?: {
-                [key: string]: number;
+                [key: string]: number | components["schemas"]["TargetRange"];
             };
             /**
              * Task Contract Digest
@@ -2240,7 +2244,7 @@ export interface components {
             };
             /** Target Values */
             target_values?: {
-                [key: string]: number;
+                [key: string]: number | components["schemas"]["TargetRange"];
             };
             /**
              * Task Contract Digest
@@ -2427,7 +2431,7 @@ export interface components {
             };
             /** Target Values */
             target_values?: {
-                [key: string]: number;
+                [key: string]: number | components["schemas"]["TargetRange"];
             };
             /** Task Contract Digest */
             task_contract_digest?: string | null;
@@ -2921,6 +2925,13 @@ export interface components {
             status: "supported" | "caution" | "extrapolated";
             /** Supported Threshold */
             supported_threshold: number;
+        };
+        /** TargetRange */
+        TargetRange: {
+            /** Lower */
+            lower: number;
+            /** Upper */
+            upper: number;
         };
         /** TargetRuntimeCapability */
         TargetRuntimeCapability: {

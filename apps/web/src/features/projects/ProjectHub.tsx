@@ -3,6 +3,7 @@ import { provenanceLabel } from "../../shared/candidateProvenance";
 import { formatPredictionPoint, predictionHasInterval, predictionIntervalLabel } from "../../shared/predictionPresentation";
 import { assessOutputValues, assessPrediction, resolveOutputDefinition } from "../../shared/outputPresentation";
 import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
+import { hasValidTargetGoal, isTargetRange, targetGoalText, type TargetGoal } from "../../shared/targetGoals";
 import {
   compatiblePackagesForTask,
   compatibleTaskIdsForDataset,
@@ -43,7 +44,7 @@ type Props = {
 
 const formatNumber = (value: number, digits = 1) => value.toLocaleString("ja-JP", { maximumFractionDigits: digits });
 const formatDate = (value: string) => new Date(value).toLocaleString("ja-JP");
-const goalRelation = (direction: "at_least" | "at_most" | "target") => direction === "at_most" ? "≤" : direction === "target" ? "≈" : "≥";
+const defaultGoalLabel = (direction: "at_least" | "at_most" | "target") => direction === "at_most" ? "以下" : direction === "target" ? "目標値付近" : "以上";
 
 export function ProjectHub({
   projects,
@@ -393,14 +394,38 @@ export function ProjectHub({
     }
   }
 
-  const targetValues = (project?.target_values ?? {}) as Record<string, number>;
-  const savedTargetValues = (projects.find((item) => item.id === activeProjectId)?.target_values ?? {}) as Record<string, number>;
-  const configuredTargets = (taskDefinition?.outputs ?? []).filter((output) => savedTargetValues[output.key] != null);
-  const setTarget = (key: string, value: string) => {
+  const targetValues = (project?.target_values ?? {}) as Record<string, TargetGoal>;
+  const savedTargetValues = (projects.find((item) => item.id === activeProjectId)?.target_values ?? {}) as Record<string, TargetGoal>;
+  const configuredTargets = (taskDefinition?.outputs ?? []).filter((output) => hasValidTargetGoal(savedTargetValues[output.key]));
+  const invalidTargetRange = Object.values(targetValues).some((goal) => isTargetRange(goal) && !hasValidTargetGoal(goal))
+    || (taskDefinition?.outputs ?? []).some((output) => output.goal_direction === "target" && typeof targetValues[output.key] === "number");
+  const setScalarTarget = (key: string, value: string) => {
     if (!project) return;
     const next = { ...targetValues };
     if (value === "") delete next[key]; else next[key] = Number(value);
     setProject({ ...project, target_values: next });
+  };
+  const setTargetMode = (key: string, mode: "directional" | "between") => {
+    if (!project) return;
+    const current = targetValues[key];
+    const next = { ...targetValues };
+    if (mode === "between") {
+      const seed = typeof current === "number" ? current : undefined;
+      next[key] = { lower: seed ?? Number.NaN, upper: Number.NaN };
+    } else if (isTargetRange(current)) {
+      const seed = Number.isFinite(current.lower) ? current.lower : Number.isFinite(current.upper) ? current.upper : undefined;
+      if (seed == null) delete next[key]; else next[key] = seed;
+    }
+    setProject({ ...project, target_values: next });
+  };
+  const setRangeTarget = (key: string, bound: "lower" | "upper", value: string) => {
+    if (!project) return;
+    const current = targetValues[key];
+    const range = isTargetRange(current) ? current : { lower: Number.NaN, upper: Number.NaN };
+    setProject({
+      ...project,
+      target_values: { ...targetValues, [key]: { ...range, [bound]: value === "" ? Number.NaN : Number(value) } },
+    });
   };
 
   const resetCreateProjectForm = () => {
@@ -529,7 +554,7 @@ export function ProjectHub({
         <div className="project-goal-heading"><span>目標値</span><strong>{configuredTargets.length ? "候補を判断する基準" : "候補を探す前に設定"}</strong></div>
         <div className="project-goal-values">
           {configuredTargets.length
-            ? configuredTargets.map((output) => <span key={output.key}><b>{output.label}</b>{goalRelation(output.goal_direction)} {formatNumber(savedTargetValues[output.key])} {output.unit}</span>)
+            ? configuredTargets.map((output) => <span key={output.key}><b>{output.label}</b>{targetGoalText(savedTargetValues[output.key], output.goal_direction, formatNumber)} {output.unit}</span>)
             : <span>未設定です。設定すると候補の目標達成率を比較できます。</span>}
         </div>
         <button className={configuredTargets.length ? "outline-button" : "primary-button"} onClick={() => setSettingsOpen(true)}>{configuredTargets.length ? "目標値を変更" : "目標値を設定"}</button>
@@ -571,10 +596,22 @@ export function ProjectHub({
           <label>プロジェクト名<input value={project.name} onChange={(event) => setProject({ ...project, name: event.target.value })} /></label>
           <label>説明<textarea value={project.description} onChange={(event) => setProject({ ...project, description: event.target.value })} /></label>
           <label>目的<textarea value={project.purpose} onChange={(event) => setProject({ ...project, purpose: event.target.value })} /></label>
-          <fieldset className="target-grid"><legend>目標値</legend>{(taskDefinition?.outputs ?? []).map((output) => <label key={output.key}>{output.label}<input type="number" value={targetValues[output.key] ?? ""} placeholder="未設定" onChange={(event) => setTarget(output.key, event.target.value)} /></label>)}</fieldset>
+          <fieldset className="target-grid"><legend>目標値</legend>{(taskDefinition?.outputs ?? []).map((output) => {
+            const goal = targetValues[output.key];
+            const range = isTargetRange(goal) ? goal : undefined;
+            const rangeOnly = output.goal_direction === "target";
+            const showRange = rangeOnly || range != null;
+            const rangeDraft = range ?? { lower: Number.NaN, upper: Number.NaN };
+            return <div className="target-setting" key={output.key}>
+              <label>{output.label}<select disabled={rangeOnly} value={showRange ? "between" : "directional"} onChange={(event) => setTargetMode(output.key, event.target.value as "directional" | "between")}><option value="directional">{defaultGoalLabel(output.goal_direction)}</option><option value="between">範囲内</option></select></label>
+              {showRange
+                ? <div className="target-range-inputs"><label>下限<input type="number" value={Number.isFinite(rangeDraft.lower) ? rangeDraft.lower : ""} placeholder="下限" onChange={(event) => setRangeTarget(output.key, "lower", event.target.value)} /></label><span>–</span><label>上限<input type="number" value={Number.isFinite(rangeDraft.upper) ? rangeDraft.upper : ""} placeholder="上限" onChange={(event) => setRangeTarget(output.key, "upper", event.target.value)} /></label></div>
+                : <input type="number" value={typeof goal === "number" ? goal : ""} placeholder="未設定" onChange={(event) => setScalarTarget(output.key, event.target.value)} />}
+            </div>;
+          })}{invalidTargetRange && <small className="target-range-error">範囲目標は、下限を上限より小さく設定してください。</small>}</fieldset>
           <label>メモ<textarea value={project.notes} onChange={(event) => setProject({ ...project, notes: event.target.value })} /></label>
         </div>
-        <button className="primary-button" disabled={!project.name.trim()} onClick={() => void saveProject()}>設定を保存</button>
+        <button className="primary-button" disabled={!project.name.trim() || invalidTargetRange} onClick={() => void saveProject()}>設定を保存</button>
       </section>}
 
       <section className="project-next-actions">

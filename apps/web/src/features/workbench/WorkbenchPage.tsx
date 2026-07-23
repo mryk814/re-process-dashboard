@@ -20,6 +20,7 @@ import {
   workbenchLayoutStorage,
 } from "./WorkbenchLayout";
 import { apiBaseUrl } from "../../shared/api/client";
+import type { TargetGoal } from "../../shared/targetGoals";
 import {
   type ApiProject,
   type ApiPreview,
@@ -65,7 +66,7 @@ type WorkbenchProps = {
   candidates: Candidate[];
   projectId: string;
   project: ApiProject | null;
-  targetValues: Record<string, number>;
+  targetValues: Record<string, TargetGoal>;
   inputRanges: Record<string, NumericRange>;
   responseCurveRanges: ResponseCurveRanges;
   decisionCandidateId: string;

@@ -5,6 +5,7 @@ from typing import Any, Mapping
 
 from .candidates import CandidateService
 from .projects import ProjectService
+from ..goal_targets import serialize_target_values
 from ..inference_work_graph import InferenceKey, InferenceWorkGraph, semantic_digest
 from ..project_runtime_resolver import ProjectRuntimeResolver
 from ..schemas import Candidate, Project
@@ -36,7 +37,7 @@ class InferenceService:
         candidate = self.candidates.at_revision(project_id, candidate_id, revision)
         runtime = self.resolver.runtime_for(project)
         prediction = self.graph.execute(
-            self.key(project, candidate, "preview", parameters={"target_values": project.target_values}, uses_package=True),
+            self.key(project, candidate, "preview", parameters={"target_values": serialize_target_values(project.target_values)}, uses_package=True),
             lambda: runtime.predict_core(candidate, detailed=False, target_values=project.target_values),
         )
         support = self.graph.execute(
@@ -59,7 +60,7 @@ class InferenceService:
         self.require_operation(project.task_id, "detailed_prediction")
         runtime = self.resolver.runtime_for(project)
         result = self.graph.execute(
-            self.key(project, candidate, "detailed", parameters={"target_values": project.target_values, "policy_id": "detailed-v1"}, uses_package=True, uses_support=True),
+            self.key(project, candidate, "detailed", parameters={"target_values": serialize_target_values(project.target_values), "policy_id": "detailed-v1"}, uses_package=True, uses_support=True),
             lambda: runtime.predict(candidate, detailed=True, include_curve=False, target_values=project.target_values),
         )
         result["candidate_id"] = candidate.id

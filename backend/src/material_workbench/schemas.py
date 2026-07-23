@@ -299,12 +299,26 @@ class InputRange(BaseModel):
         return self
 
 
+class TargetRange(BaseModel):
+    lower: Annotated[float, Field(allow_inf_nan=False)]
+    upper: Annotated[float, Field(allow_inf_nan=False)]
+
+    @model_validator(mode="after")
+    def range_is_valid(self) -> "TargetRange":
+        if self.lower >= self.upper:
+            raise ValueError("目標範囲の下限は上限より小さくしてください")
+        return self
+
+
+TargetValue = Annotated[float, Field(allow_inf_nan=False)] | TargetRange
+
+
 class ProjectInput(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=120)] = "焼鈍条件の候補検討"
     description: str = ""
     purpose: str = ""
     task_id: Annotated[str, Field(min_length=1)] = "annealed-properties-v1"
-    target_values: dict[str, float] = Field(default_factory=dict)
+    target_values: dict[str, TargetValue] = Field(default_factory=dict)
     input_ranges: dict[str, InputRange] = Field(default_factory=dict)
     response_curve_ranges: dict[str, dict[str, InputRange]] = Field(default_factory=dict)
     heat_stage_positions_m: dict[str, Annotated[float, Field(ge=0, allow_inf_nan=False)]] = Field(default_factory=dict)
@@ -313,13 +327,6 @@ class ProjectInput(BaseModel):
     decision_candidate_id: Annotated[str, Field(max_length=80)] = ""
     decision_snapshot_id: Annotated[str, Field(max_length=80)] = ""
     decision_note: Annotated[str, Field(max_length=500)] = ""
-
-    @field_validator("target_values")
-    @classmethod
-    def targets_are_supported_and_finite(cls, value: dict[str, float]) -> dict[str, float]:
-        if any(not math.isfinite(target) for target in value.values()):
-            raise ValueError("目標値は有限の数値にしてください")
-        return value
 
     @model_validator(mode="after")
     def decision_note_requires_candidate(self) -> "ProjectInput":
@@ -349,7 +356,7 @@ class ProjectUpdateInput(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=120)] = "焼鈍条件の候補検討"
     description: str = ""
     purpose: str = ""
-    target_values: dict[str, float] = Field(default_factory=dict)
+    target_values: dict[str, TargetValue] = Field(default_factory=dict)
     input_ranges: dict[str, InputRange] = Field(default_factory=dict)
     response_curve_ranges: dict[str, dict[str, InputRange]] = Field(default_factory=dict)
     heat_stage_positions_m: dict[str, Annotated[float, Field(ge=0, allow_inf_nan=False)]] = Field(default_factory=dict)
@@ -367,13 +374,6 @@ class ProjectUpdateInput(BaseModel):
     model_package_manifest_digest: str | None = None
     project_series_id: str | None = None
     predecessor_project_id: str | None = None
-
-    @field_validator("target_values")
-    @classmethod
-    def targets_are_finite(cls, value: dict[str, float]) -> dict[str, float]:
-        if any(not math.isfinite(target) for target in value.values()):
-            raise ValueError("目標値は有限の数値にしてください")
-        return value
 
     @model_validator(mode="after")
     def decision_note_requires_candidate(self) -> "ProjectUpdateInput":
@@ -491,8 +491,10 @@ class Prediction(BaseModel):
     quantiles: dict[str, float]
     categories: list[str] = Field(default_factory=list)
     goal_value: float | None = None
+    goal_lower: float | None = None
+    goal_upper: float | None = None
     goal_probability: Annotated[float | None, Field(ge=0, le=1)] = None
-    goal_direction: Literal["at_least", "at_most"] | None = None
+    goal_direction: Literal["at_least", "at_most", "between"] | None = None
     uncertainty_components: dict[str, float] | None = None
 
     @model_validator(mode="before")

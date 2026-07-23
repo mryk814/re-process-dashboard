@@ -8,6 +8,7 @@ from ..schemas import (
     ProjectHistoryResponse,
     ProjectInput,
     ProjectSeriesCreateInput,
+    TargetRange,
     ProjectUpdateInput,
 )
 from ..store import (
@@ -157,6 +158,16 @@ class ProjectService:
         unsupported = sorted(set(payload.target_values) - {item.key for item in outputs})
         if unsupported:
             raise ProjectValidationError(f"タスクに存在しない目標特性です: {', '.join(unsupported)}")
+        output_by_key = {item.key: item for item in outputs}
+        scalar_target_outputs = [
+            key
+            for key, goal in payload.target_values.items()
+            if output_by_key[key].goal_direction == "target" and not isinstance(goal, TargetRange)
+        ]
+        if scalar_target_outputs:
+            raise ProjectValidationError(
+                f"方向のない目標特性は下限・上限を指定してください: {', '.join(sorted(scalar_target_outputs))}"
+            )
 
     def _validate_display_decimals(
         self, payload: ProjectInput | ProjectUpdateInput, task_id: str | None = None

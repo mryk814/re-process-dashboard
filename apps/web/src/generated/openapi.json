@@ -2948,7 +2948,8 @@
               {
                 "enum": [
                   "at_least",
-                  "at_most"
+                  "at_most",
+                  "between"
                 ],
                 "type": "string"
               },
@@ -2957,6 +2958,17 @@
               }
             ],
             "title": "Goal Direction"
+          },
+          "goal_lower": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Goal Lower"
           },
           "goal_probability": {
             "anyOf": [
@@ -2970,6 +2982,17 @@
               }
             ],
             "title": "Goal Probability"
+          },
+          "goal_upper": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Goal Upper"
           },
           "goal_value": {
             "anyOf": [
@@ -3749,7 +3772,14 @@
           },
           "target_values": {
             "additionalProperties": {
-              "type": "number"
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "$ref": "#/components/schemas/TargetRange"
+                }
+              ]
             },
             "title": "Target Values",
             "type": "object"
@@ -3921,7 +3951,14 @@
           },
           "target_values": {
             "additionalProperties": {
-              "type": "number"
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "$ref": "#/components/schemas/TargetRange"
+                }
+              ]
             },
             "title": "Target Values",
             "type": "object"
@@ -4310,7 +4347,14 @@
           },
           "target_values": {
             "additionalProperties": {
-              "type": "number"
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "$ref": "#/components/schemas/TargetRange"
+                }
+              ]
             },
             "title": "Target Values",
             "type": "object"
@@ -5652,6 +5696,24 @@
           "caution_threshold"
         ],
         "title": "Support",
+        "type": "object"
+      },
+      "TargetRange": {
+        "properties": {
+          "lower": {
+            "title": "Lower",
+            "type": "number"
+          },
+          "upper": {
+            "title": "Upper",
+            "type": "number"
+          }
+        },
+        "required": [
+          "lower",
+          "upper"
+        ],
+        "title": "TargetRange",
         "type": "object"
       },
       "TargetRuntimeCapability": {

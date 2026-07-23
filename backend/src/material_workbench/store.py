@@ -19,6 +19,14 @@ from .schemas import (
     ProjectInput,
     ProjectUpdateInput,
 )
+
+
+def _target_values_json(values: dict[str, object]) -> str:
+    serializable = {
+        key: value.model_dump() if hasattr(value, "model_dump") else value
+        for key, value in values.items()
+    }
+    return json.dumps(serializable, ensure_ascii=False, sort_keys=True)
 from .workspace_catalog_migration import migrate_workspace_catalog
 
 
@@ -129,7 +137,7 @@ class Store:
                 "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'explicit',?,?)",
                 (
                     project_id, payload.name, payload.description, payload.purpose, payload.task_id,
-                    json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True),
+                    _target_values_json(payload.target_values),
                     json.dumps({key: value.model_dump() for key, value in payload.input_ranges.items()}, ensure_ascii=False, sort_keys=True),
                     json.dumps({axis: {key: value.model_dump() for key, value in ranges.items()} for axis, ranges in payload.response_curve_ranges.items()}, ensure_ascii=False, sort_keys=True),
                     json.dumps(payload.heat_stage_positions_m, ensure_ascii=False, sort_keys=True),
@@ -158,7 +166,7 @@ class Store:
         with self._connect() as conn:
             conn.execute(
                 "INSERT INTO projects(id, name, description, purpose, task_id, target_values, input_ranges, response_curve_ranges, heat_stage_positions_m, display_decimals, notes, decision_candidate_id, decision_snapshot_id, decision_note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (project_id, payload.name, payload.description, payload.purpose, payload.task_id, json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True), json.dumps({key: value.model_dump() for key, value in payload.input_ranges.items()}, ensure_ascii=False, sort_keys=True), json.dumps({axis: {key: value.model_dump() for key, value in ranges.items()} for axis, ranges in payload.response_curve_ranges.items()}, ensure_ascii=False, sort_keys=True), json.dumps(payload.heat_stage_positions_m, ensure_ascii=False, sort_keys=True), json.dumps(payload.display_decimals, ensure_ascii=False, sort_keys=True), payload.notes, "", "", "", now, now),
+                (project_id, payload.name, payload.description, payload.purpose, payload.task_id, _target_values_json(payload.target_values), json.dumps({key: value.model_dump() for key, value in payload.input_ranges.items()}, ensure_ascii=False, sort_keys=True), json.dumps({axis: {key: value.model_dump() for key, value in ranges.items()} for axis, ranges in payload.response_curve_ranges.items()}, ensure_ascii=False, sort_keys=True), json.dumps(payload.heat_stage_positions_m, ensure_ascii=False, sort_keys=True), json.dumps(payload.display_decimals, ensure_ascii=False, sort_keys=True), payload.notes, "", "", "", now, now),
             )
         return self.get_project(project_id)  # type: ignore[return-value]
 
@@ -167,7 +175,7 @@ class Store:
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
             self._validate_decision(conn, project_id, payload.decision_candidate_id, payload.decision_snapshot_id)
-            result = conn.execute("UPDATE projects SET name=?, description=?, purpose=?, target_values=?, input_ranges=?, response_curve_ranges=?, heat_stage_positions_m=?, display_decimals=?, notes=?, decision_candidate_id=?, decision_snapshot_id=?, decision_note=?, updated_at=? WHERE id=?", (payload.name, payload.description, payload.purpose, json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True), json.dumps({key: value.model_dump() for key, value in payload.input_ranges.items()}, ensure_ascii=False, sort_keys=True), json.dumps({axis: {key: value.model_dump() for key, value in ranges.items()} for axis, ranges in payload.response_curve_ranges.items()}, ensure_ascii=False, sort_keys=True), json.dumps(payload.heat_stage_positions_m, ensure_ascii=False, sort_keys=True), json.dumps(payload.display_decimals, ensure_ascii=False, sort_keys=True), payload.notes, payload.decision_candidate_id, payload.decision_snapshot_id, payload.decision_note, now, project_id))
+            result = conn.execute("UPDATE projects SET name=?, description=?, purpose=?, target_values=?, input_ranges=?, response_curve_ranges=?, heat_stage_positions_m=?, display_decimals=?, notes=?, decision_candidate_id=?, decision_snapshot_id=?, decision_note=?, updated_at=? WHERE id=?", (payload.name, payload.description, payload.purpose, _target_values_json(payload.target_values), json.dumps({key: value.model_dump() for key, value in payload.input_ranges.items()}, ensure_ascii=False, sort_keys=True), json.dumps({axis: {key: value.model_dump() for key, value in ranges.items()} for axis, ranges in payload.response_curve_ranges.items()}, ensure_ascii=False, sort_keys=True), json.dumps(payload.heat_stage_positions_m, ensure_ascii=False, sort_keys=True), json.dumps(payload.display_decimals, ensure_ascii=False, sort_keys=True), payload.notes, payload.decision_candidate_id, payload.decision_snapshot_id, payload.decision_note, now, project_id))
         return self.get_project(project_id) if result.rowcount else None
 
     def move_project_to_group(self, project_id: str, payload: ProjectGroupMoveInput) -> Project:

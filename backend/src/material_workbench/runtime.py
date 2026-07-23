@@ -26,7 +26,8 @@ from .heat_time import line_speed_scaled_times
 from .dataset_profile import load_task_definitions
 from .importer import WorkbookData, composition_names, lineage_reference_keys
 from .model_packages import ModelPackageLoader, VerifiedModelPackage, predictive_interval, validate_predictive_summary, validate_task_definition_canonical_inputs
-from .schemas import Candidate, CandidateInput, HeatPoint, Prediction, Support
+from .goal_targets import empirical_goal_probability, goal_fields, normal_goal_probability
+from .schemas import Candidate, CandidateInput, HeatPoint, Prediction, Support, TargetRange, TargetValue
 from .task_registry import load_task_contracts
 
 
@@ -448,7 +449,7 @@ class ModelRuntime:
                 }
         return meta
 
-    def predict_core(self, candidate: Candidate, detailed: bool = False, target_values: dict[str, float] | None = None) -> dict[str, Any]:
+    def predict_core(self, candidate: Candidate, detailed: bool = False, target_values: dict[str, TargetValue] | None = None) -> dict[str, Any]:
         x = self.vector_for_candidate(candidate)
         predictions: dict[str, Prediction] = {}
         warnings: list[str] = []
@@ -468,19 +469,19 @@ class ModelRuntime:
                 lower_offset, upper_offset = model.interval_offsets()
                 lower, upper = value + lower_offset, value + upper_offset
                 unit = model.unit
-            goal_value = (target_values or {}).get(label)
+            goal = (target_values or {}).get(label)
             goal_probability = None
-            if goal_value is not None and summary is not None and summary.event_probability is not None:
+            if goal is not None and not isinstance(goal, TargetRange) and summary is not None and summary.event_probability is not None:
                 goal_probability = summary.event_probability
             elif (
-                goal_value is not None
+                goal is not None
                 and summary is not None
                 and summary.distribution.get("family") == "normal"
                 and float(summary.distribution.get("std", 0.0)) > 0
             ):
                 standard_deviation = float(summary.distribution["std"])
-                goal_probability = 0.5 * math.erfc((goal_value - value) / (standard_deviation * math.sqrt(2.0)))
-            elif goal_value is not None and summary is not None and model is not None:
+                goal_probability = normal_goal_probability(value, standard_deviation, goal, "at_least")
+            elif goal is not None and summary is not None and model is not None:
                 spec = self.package_predictor_specs[label]
                 package_data_id = self.model_package.manifest.provenance.training_data_id if self.model_package else ""
                 calibrated_same_data = (
@@ -489,9 +490,10 @@ class ModelRuntime:
                     and package_data_id == f"sha256:{self.data.source_sha256}"
                 )
                 if calibrated_same_data:
-                    goal_probability = float(np.mean(value + model.oof_residuals >= goal_value))
-            elif goal_value is not None and model is not None:
-                goal_probability = float(np.mean(value + model.oof_residuals >= goal_value))
+                    goal_probability = empirical_goal_probability(value + model.oof_residuals, goal, "at_least")
+            elif goal is not None and model is not None:
+                goal_probability = empirical_goal_probability(value + model.oof_residuals, goal, "at_least")
+            goal_value, goal_lower, goal_upper, goal_direction = goal_fields(goal, "at_least")
             predictions[label] = Prediction(
                 value=round(value, 3), lower=round(lower, 3), upper=round(upper, 3), unit=unit,
                 target_kind=summary.target_kind if summary is not None else "continuous",
@@ -500,8 +502,10 @@ class ModelRuntime:
                 quantiles={} if summary is None else {level: round(float(item), 6) for level, item in summary.quantiles.items()},
                 categories=[] if summary is None else list(summary.distribution.get("categories", [])),
                 goal_value=goal_value,
+                goal_lower=goal_lower,
+                goal_upper=goal_upper,
                 goal_probability=None if goal_probability is None else round(goal_probability, 4),
-                goal_direction=None if goal_value is None else "at_least",
+                goal_direction=goal_direction,
                 uncertainty_components=None if summary is None or summary.uncertainty_components is None else {
                     name: round(float(component), 6)
                     for name, component in summary.uncertainty_components.items()
@@ -536,7 +540,7 @@ class ModelRuntime:
     def similarity(self, candidate: Candidate, limit: int = 6) -> list[dict[str, Any]]:
         return self.evidence(candidate)[1][:limit]
 
-    def predict(self, candidate: Candidate, detailed: bool = False, include_curve: bool = False, target_values: dict[str, float] | None = None) -> dict[str, Any]:
+    def predict(self, candidate: Candidate, detailed: bool = False, include_curve: bool = False, target_values: dict[str, TargetValue] | None = None) -> dict[str, Any]:
         result = self.predict_core(candidate, detailed=detailed, target_values=target_values)
         support, similar = self.evidence(candidate)
         result["model_support"] = self.support_by_target(candidate)
