@@ -1,6 +1,10 @@
 {
   "schema_version": "available-model-packages/v1",
   "packages": [
+    "packages/annealed-gp-stable-ard-tutorial-v1",
+    "packages/annealed-lightgbm-standard-tutorial-v1",
+    "packages/annealed-gp-stable-ard-v8-v1",
+    "packages/annealed-lightgbm-standard-v8-v1",
     "packages/annealed-heteroscedastic-gp-2026-07-v8-v1",
     "packages/annealed-hierarchical-bayes-2026-07-v8-v1"
   ]

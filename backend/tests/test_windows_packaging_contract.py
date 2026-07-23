@@ -10,16 +10,21 @@ ROOT = Path(__file__).parents[2]
 
 def test_windows_bundle_declares_active_model_configuration_and_packages() -> None:
     active_packages = json.loads((ROOT / "models" / "active-packages.json").read_text(encoding="utf-8"))
+    available_packages = json.loads((ROOT / "models" / "available-packages.json").read_text(encoding="utf-8"))
     builder_config = (ROOT / "packaging" / "electron-builder.yml").read_text(encoding="utf-8")
     packaged_resources = set(re.findall(
         r"(?m)^  - from: ([^\r\n]+)\r?\n    to: ([^\r\n]+)$",
         builder_config,
     ))
 
-    required_resources = {"models/active-packages.json"}
+    required_resources = {"models/active-packages.json", "models/available-packages.json"}
     required_resources.update(
         f"models/{selection['active']}"
         for selection in active_packages["tasks"].values()
+    )
+    required_resources.update(
+        f"models/{package}"
+        for package in available_packages["packages"]
     )
 
     for resource in required_resources:

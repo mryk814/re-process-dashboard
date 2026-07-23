@@ -42,6 +42,16 @@ test("shows only Prediction Tasks with a Package trained on the selected Dataset
 
 test("uses model-family names instead of Package ids", () => {
   assert.equal(modelPackageDisplayName({
+    package_id: "stable-ard-package",
+    manifest_json: {
+      predictors: [{
+        runtime_type: "builtin.exact_gp.v1",
+        architecture_id: "exact_rbf_grouped_v1",
+        config: { kernel: "ARD-RBF" },
+      }],
+    },
+  }), "GP（安定ARD）");
+  assert.equal(modelPackageDisplayName({
     package_id: "opaque-versioned-package-id",
     manifest_json: {
       predictors: [{ runtime_type: "builtin.exact_gp.v1", architecture_id: "exact_rbf_grouped_v1" }],

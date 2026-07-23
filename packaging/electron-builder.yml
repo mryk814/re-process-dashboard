@@ -21,12 +21,26 @@ extraResources:
     to: data/source/cutting_tool_flank_wear_synthetic_dataset.xlsx
   - from: models/active-packages.json
     to: models/active-packages.json
+  - from: models/available-packages.json
+    to: models/available-packages.json
   - from: models/packages/annealed-gp-2026-07
     to: models/packages/annealed-gp-2026-07
   - from: models/packages/annealed-gp-2026-07-feature-design-v3
     to: models/packages/annealed-gp-2026-07-feature-design-v3
   - from: models/packages/annealed-gp-tutorial-v1
     to: models/packages/annealed-gp-tutorial-v1
+  - from: models/packages/annealed-gp-stable-ard-tutorial-v1
+    to: models/packages/annealed-gp-stable-ard-tutorial-v1
+  - from: models/packages/annealed-lightgbm-standard-tutorial-v1
+    to: models/packages/annealed-lightgbm-standard-tutorial-v1
+  - from: models/packages/annealed-gp-stable-ard-v8-v1
+    to: models/packages/annealed-gp-stable-ard-v8-v1
+  - from: models/packages/annealed-lightgbm-standard-v8-v1
+    to: models/packages/annealed-lightgbm-standard-v8-v1
+  - from: models/packages/annealed-heteroscedastic-gp-2026-07-v8-v1
+    to: models/packages/annealed-heteroscedastic-gp-2026-07-v8-v1
+  - from: models/packages/annealed-hierarchical-bayes-2026-07-v8-v1
+    to: models/packages/annealed-hierarchical-bayes-2026-07-v8-v1
   - from: models/packages/hot-rolled-horseshoe-2026-07
     to: models/packages/hot-rolled-horseshoe-2026-07
   - from: models/packages/hot-rolled-horseshoe-2026-07-feature-design-v3

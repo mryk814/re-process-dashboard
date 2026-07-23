@@ -173,8 +173,14 @@ class PredictorSpec(PackageModel):
             raise ValueError("numpyro adapter only permits architecture_id=dense_mlp_v1")
         if self.runtime_type == "gpytorch.static_exact_rbf.v1" and self.architecture_id != "exact_rbf_v1":
             raise ValueError("gpytorch adapter only permits architecture_id=exact_rbf_v1")
-        if self.runtime_type == "builtin.exact_gp.v1" and self.architecture_id != "exact_rbf_grouped_v1":
-            raise ValueError("built-in exact GP adapter only permits architecture_id=exact_rbf_grouped_v1")
+        if (
+            self.runtime_type == "builtin.exact_gp.v1"
+            and self.architecture_id not in {"exact_rbf_grouped_v1", "exact_rbf_ard_v1"}
+        ):
+            raise ValueError(
+                "built-in exact GP adapter only permits "
+                "architecture_id=exact_rbf_grouped_v1 or exact_rbf_ard_v1"
+            )
         if (
             self.runtime_type == "builtin.heteroscedastic_exact_gp.v1"
             and self.architecture_id != "heteroscedastic_rbf_individual_v1"

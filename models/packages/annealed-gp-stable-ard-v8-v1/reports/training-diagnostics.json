@@ -1,0 +1,91 @@
+{
+  "schema_version": "gp-training-diagnostics/v1",
+  "training_policy": "standardized-ard-multistart-v1",
+  "note": "Synthetic demo data; diagnostics describe numerical fitting, not scientific validity.",
+  "targets": {
+    "EL": {
+      "optimizer": "L-BFGS-B",
+      "restarts": 3,
+      "converged_restarts": 3,
+      "best_objective": -87.70040009194028,
+      "input_standardization": "per_feature_training_mean_std",
+      "output_standardization": {
+        "mean": 42.355828638497655,
+        "scale": 16.430458817043235
+      },
+      "kernel": "ARD-RBF",
+      "ard_shrinkage": "log_lengthscale_common_center",
+      "lengthscale": {
+        "min": 5.670604671713519,
+        "median": 19.999999999999996,
+        "max": 19.999999999999996
+      },
+      "outputscale": 1157.0010797982054,
+      "train_noise": 1.304132894512199,
+      "replicate_noise_anchor": 0.2918470023809522
+    },
+    "TS": {
+      "optimizer": "L-BFGS-B",
+      "restarts": 3,
+      "converged_restarts": 3,
+      "best_objective": -99.59895554809604,
+      "input_standardization": "per_feature_training_mean_std",
+      "output_standardization": {
+        "mean": 502.60995422535217,
+        "scale": 410.3721904841161
+      },
+      "kernel": "ARD-RBF",
+      "ard_shrinkage": "log_lengthscale_common_center",
+      "lengthscale": {
+        "min": 9.86230793454946,
+        "median": 19.999999999999996,
+        "max": 19.999999999999996
+      },
+      "outputscale": 685549.2382045102,
+      "train_noise": 769.7453710625459,
+      "replicate_noise_anchor": 358.92168420059517
+    },
+    "YS": {
+      "optimizer": "L-BFGS-B",
+      "restarts": 3,
+      "converged_restarts": 3,
+      "best_objective": -126.94487091693756,
+      "input_standardization": "per_feature_training_mean_std",
+      "output_standardization": {
+        "mean": 392.6816009389671,
+        "scale": 304.30469796192745
+      },
+      "kernel": "ARD-RBF",
+      "ard_shrinkage": "log_lengthscale_common_center",
+      "lengthscale": {
+        "min": 8.675844136116279,
+        "median": 19.999999999999996,
+        "max": 19.999999999999996
+      },
+      "outputscale": 362222.8574333738,
+      "train_noise": 214.88516490731269,
+      "replicate_noise_anchor": 43.3579348785716
+    },
+    "lambda": {
+      "optimizer": "L-BFGS-B",
+      "restarts": 3,
+      "converged_restarts": 3,
+      "best_objective": -151.82725920935863,
+      "input_standardization": "per_feature_training_mean_std",
+      "output_standardization": {
+        "mean": 93.97479358974358,
+        "scale": 71.91041956058193
+      },
+      "kernel": "ARD-RBF",
+      "ard_shrinkage": "log_lengthscale_common_center",
+      "lengthscale": {
+        "min": 4.7861344057602135,
+        "median": 19.999999999999996,
+        "max": 19.999999999999996
+      },
+      "outputscale": 9503.719132056842,
+      "train_noise": 5.582896393339852,
+      "replicate_noise_anchor": 24.75541431002223
+    }
+  }
+}

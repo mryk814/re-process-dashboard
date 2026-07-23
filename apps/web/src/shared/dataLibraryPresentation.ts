@@ -55,6 +55,7 @@ export function modelPackageDisplayName(modelPackage: ApiModelPackageRef | undef
     return "階層Bayes（個々値・反復）";
   }
   if ([...architectureIds].some((item) => item.toLowerCase().includes("lightgbm"))) return "LightGBM";
+  if (records.some((item) => asRecord(item.config)?.kernel === "ARD-RBF")) return "GP（安定ARD）";
   if (runtimeTypes.has("builtin.exact_gp.v1")) return "GP";
   if (runtimeTypes.has("builtin.posterior_linear.v1")) return "Bayes線形回帰";
   if (runtimeTypes.has("builtin.linear.v1")) return "線形回帰";

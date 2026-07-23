@@ -1,6 +1,14 @@
 from __future__ import annotations
 
-from material_workbench.modeling.model_packages import MissingOptionalDependency, PredictiveSummary, PredictorSpec, VerifiedModelPackage
+import math
+
+from material_workbench.modeling.model_packages import (
+    MissingOptionalDependency,
+    PackageContractError,
+    PredictiveSummary,
+    PredictorSpec,
+    VerifiedModelPackage,
+)
 from .base import feature_vector
 
 try:
@@ -12,10 +20,61 @@ except ModuleNotFoundError:  # Optional runtime profile.
 class _LightGBMPredictor:
     def __init__(self, spec: PredictorSpec, booster: object) -> None:
         self.spec, self.booster = spec, booster
+        residual_std = spec.config.get("residual_std")
+        self.residual_std = (
+            float(residual_std)
+            if isinstance(residual_std, (int, float)) and math.isfinite(float(residual_std))
+            else None
+        )
+        if spec.predictive_family == "normal" and (
+            self.residual_std is None or self.residual_std <= 0
+        ):
+            raise PackageContractError(
+                "normal LightGBM predictors require a positive finite residual_std"
+            )
 
     def predict(self, values: dict[str, float], *, seed: int = 0) -> PredictiveSummary:
+        del seed
         value = float(self.booster.predict(feature_vector(self.spec, values).reshape(1, -1))[0])  # type: ignore[attr-defined]
-        return PredictiveSummary(target=self.spec.target, target_kind=self.spec.target_kind, unit=self.spec.unit, point_statistic="mean", point_estimate=value, quantiles={"0.50": value}, distribution={"family": "empirical_quantiles", "support": "runtime_defined"})
+        if self.spec.predictive_family == "normal":
+            assert self.residual_std is not None
+            z90 = 1.6448536269514722
+            variance = self.residual_std * self.residual_std
+            return PredictiveSummary(
+                target=self.spec.target,
+                target_kind=self.spec.target_kind,
+                unit=self.spec.unit,
+                point_statistic="mean",
+                point_estimate=value,
+                quantiles={
+                    "0.05": value - z90 * self.residual_std,
+                    "0.50": value,
+                    "0.95": value + z90 * self.residual_std,
+                },
+                distribution={
+                    "family": "normal",
+                    "support": "real",
+                    "mean": value,
+                    "std": self.residual_std,
+                },
+                uncertainty_components={
+                    "latent_model_variance": 0.0,
+                    "latent_model_std": 0.0,
+                    "observation_noise_variance": variance,
+                    "observation_noise_std": self.residual_std,
+                    "total_predictive_variance": variance,
+                    "total_predictive_std": self.residual_std,
+                },
+            )
+        return PredictiveSummary(
+            target=self.spec.target,
+            target_kind=self.spec.target_kind,
+            unit=self.spec.unit,
+            point_statistic="mean",
+            point_estimate=value,
+            quantiles={"0.50": value},
+            distribution={"family": "empirical_quantiles", "support": "runtime_defined"},
+        )
 
 
 class LightGBMBoosterAdapter:
@@ -24,4 +83,8 @@ class LightGBMBoosterAdapter:
     def load(self, package: VerifiedModelPackage, predictor: PredictorSpec) -> _LightGBMPredictor:
         if lightgbm is None:
             raise MissingOptionalDependency("install runtime-lightgbm to load lightgbm.booster.v1")
+        if predictor.predictive_family not in {"normal", "empirical_quantiles"}:
+            raise PackageContractError(
+                "lightgbm.booster.v1 requires normal or empirical_quantiles"
+            )
         return _LightGBMPredictor(predictor, lightgbm.Booster(model_file=str(package.artifact_path(predictor.artifact))))

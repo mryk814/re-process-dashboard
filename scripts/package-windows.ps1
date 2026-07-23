@@ -40,10 +40,15 @@ try {
     $requiredPackagedFiles = @(
         "sidecar/material-workbench-sidecar.exe"
         "models/active-packages.json"
+        "models/available-packages.json"
     )
     $activePackages = Get-Content -LiteralPath (Join-Path $repositoryRoot "models/active-packages.json") -Raw | ConvertFrom-Json
     $requiredPackagedFiles += $activePackages.tasks.PSObject.Properties.Value | ForEach-Object {
         "models/$($_.active)/manifest.json"
+    }
+    $availablePackages = Get-Content -LiteralPath (Join-Path $repositoryRoot "models/available-packages.json") -Raw | ConvertFrom-Json
+    $requiredPackagedFiles += $availablePackages.packages | ForEach-Object {
+        "models/$($_)/manifest.json"
     }
     foreach ($relativePath in $requiredPackagedFiles) {
         $packagedPath = Join-Path $unpackedResources $relativePath

@@ -7,11 +7,11 @@ import sys
 from pathlib import Path
 
 import numpy as np
+from scipy.optimize import minimize
 
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from material_workbench.contracts.feature_contracts import feature_index_families
 from material_workbench.modeling.feature_pipeline import CANONICAL_INPUT_PATHS, FEATURE_DEFINITIONS, FEATURE_NAMES, FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION
 from material_workbench.data.importer import load_workbook_data
 from material_workbench.modeling.model_lifecycle import QualityReport, canonical_training_dataset, canonical_training_dataset_digest, dataset_profile_digest, exact_gp_loo_quality, runtime_capability_digest, staged_package_destination, task_input_contract_digest
@@ -29,20 +29,9 @@ def artifact(root: Path, path: Path) -> dict[str, object]:
     return {"path": path.relative_to(root).as_posix(), "sha256": digest(path), "bytes": path.stat().st_size}
 
 
-PACKAGE_ID = "annealed-gp-2026-07-feature-design-v3"
-PACKAGE_VERSION = "1.0.0-feature-design-v3"
-TRAINING_CODE_REVISION = "1.0.0-feature-design-v3"
-FEATURE_GROUP_INDICES = feature_index_families(
-    FEATURE_DEFINITIONS,
-    {
-        "composition": ("composition",),
-        "process": ("process", "categorical"),
-        "metallurgy": ("metallurgy",),
-        "heat_pattern": ("heat_pattern",),
-    },
-)
-
-
+PACKAGE_ID = "annealed-gp-stable-ard-v1"
+PACKAGE_VERSION = "2.0.0-stable-ard"
+TRAINING_CODE_REVISION = "stable-ard-multistart-v1"
 def _grouped_training(model: object, target: str) -> tuple[np.ndarray, np.ndarray, float, float]:
     column = TARGETS[target][0]
     grouped: dict[str, list[int]] = {}
@@ -76,32 +65,131 @@ def _fit_gp_hyperparameters(
     train_x: np.ndarray,
     train_y: np.ndarray,
     train_noise: float,
-) -> tuple[np.ndarray, float, float]:
-    centered = train_y - train_y.mean()
-    between_variance = max(float(np.var(train_y)), 1e-6)
-    best: tuple[float, np.ndarray, float, float] | None = None
-    for global_scale in (0.5, 0.75, 1.0, 1.5, 2.25, 3.5):
-        lengthscale = np.ones(train_x.shape[1], dtype=np.float64)
-        for columns in FEATURE_GROUP_INDICES.values():
-            lengthscale[list(columns)] = global_scale * np.sqrt(len(columns))
-        scaled = (train_x[:, None, :] - train_x[None, :, :]) / lengthscale
-        base = np.exp(-0.5 * np.sum(scaled * scaled, axis=2))
-        for signal_multiplier in (0.5, 1.0, 2.0):
-            outputscale = between_variance * signal_multiplier
-            covariance = outputscale * base
-            covariance.flat[:: len(train_x) + 1] += train_noise
-            try:
-                cholesky = np.linalg.cholesky(covariance)
-            except np.linalg.LinAlgError:
-                continue
-            solved = np.linalg.solve(cholesky, centered)
-            nll = float(0.5 * (solved @ solved) + np.log(np.diag(cholesky)).sum())
-            candidate = (nll, lengthscale.copy(), outputscale, train_noise)
-            if best is None or candidate[0] < best[0]:
-                best = candidate
-    if best is None:
-        raise RuntimeError("Gaussian-process hyperparameter search found no positive-definite covariance")
-    return best[1], best[2], best[3]
+    *,
+    restarts: int = 3,
+    seed: int = 20260723,
+) -> tuple[np.ndarray, float, float, dict[str, object]]:
+    """Fit a regularized ARD-RBF GP in standardized X/Y space.
+
+    The exported covariance is converted back to the target unit, so the
+    inference adapter remains simple and deterministic.
+    """
+
+    if train_x.ndim != 2 or train_y.shape != (len(train_x),) or len(train_x) < 3:
+        raise ValueError("GP training arrays have incompatible shapes")
+    target_mean = float(np.mean(train_y))
+    target_scale = max(float(np.std(train_y)), 1e-8)
+    target = (train_y - target_mean) / target_scale
+    pairwise_sq = (train_x[:, None, :] - train_x[None, :, :]) ** 2
+    noise_anchor = float(np.clip(train_noise / (target_scale * target_scale), 1e-5, 1.0))
+    feature_count = train_x.shape[1]
+    log_length_prior = np.log(2.0)
+    length_bounds = (np.log(0.08), np.log(20.0))
+    signal_bounds = (np.log(0.03), np.log(20.0))
+    noise_bounds = (
+        np.log(max(1e-6, noise_anchor / 8.0)),
+        np.log(min(2.0, max(noise_anchor * 8.0, 2e-5))),
+    )
+    identity = np.eye(len(train_x))
+
+    def objective(theta: np.ndarray) -> tuple[float, np.ndarray]:
+        log_length = theta[:feature_count]
+        signal = float(np.exp(theta[-2]))
+        noise = float(np.exp(theta[-1]))
+        scaled_sq = pairwise_sq / np.exp(2.0 * log_length)[None, None, :]
+        signal_kernel = signal * np.exp(-0.5 * np.sum(scaled_sq, axis=2))
+        covariance = signal_kernel + (noise + 1e-8) * identity
+        try:
+            cholesky = np.linalg.cholesky(covariance)
+        except np.linalg.LinAlgError:
+            return 1e30, np.zeros_like(theta)
+        alpha = np.linalg.solve(cholesky.T, np.linalg.solve(cholesky, target))
+        precision = np.linalg.solve(cholesky.T, np.linalg.solve(cholesky, identity))
+        common = precision - np.outer(alpha, alpha)
+        nll = float(
+            0.5 * target @ alpha
+            + np.log(np.diag(cholesky)).sum()
+            + 0.5 * len(train_x) * np.log(2.0 * np.pi)
+        )
+
+        # ARD is useful here, but 42 weakly identified dimensions should not
+        # drift independently. Shrink log-lengthscales toward their common
+        # center and gently toward a two-standard-deviation prior scale.
+        centered_length = log_length - float(np.mean(log_length))
+        shrinkage = 0.04 * float(centered_length @ centered_length)
+        prior = 0.01 * float(np.sum((log_length - log_length_prior) ** 2))
+        noise_prior = 0.04 * float((theta[-1] - np.log(noise_anchor)) ** 2)
+        nll += shrinkage + prior + noise_prior
+
+        gradient = np.empty_like(theta)
+        gradient[:feature_count] = 0.5 * np.einsum(
+            "ij,ijk->k",
+            common * signal_kernel,
+            scaled_sq,
+            optimize=True,
+        )
+        gradient[:feature_count] += (
+            0.08 * centered_length
+            + 0.02 * (log_length - log_length_prior)
+        )
+        gradient[-2] = 0.5 * np.sum(common * signal_kernel)
+        gradient[-1] = (
+            0.5 * noise * np.trace(common)
+            + 0.08 * (theta[-1] - np.log(noise_anchor))
+        )
+        return nll, gradient
+
+    base = np.r_[
+        np.full(feature_count, log_length_prior),
+        np.log(1.0),
+        np.log(noise_anchor),
+    ]
+    rng = np.random.default_rng(seed)
+    starts = [base]
+    for restart in range(1, max(restarts, 1)):
+        candidate = base.copy()
+        candidate[:feature_count] += rng.normal(0.0, 0.55, feature_count)
+        candidate[-2] += rng.normal(0.0, 0.45)
+        candidate[-1] += rng.normal(0.0, 0.35)
+        starts.append(candidate)
+    bounds = [length_bounds] * feature_count + [signal_bounds, noise_bounds]
+    results = [
+        minimize(
+            objective,
+            np.clip(start, [item[0] for item in bounds], [item[1] for item in bounds]),
+            method="L-BFGS-B",
+            jac=True,
+            bounds=bounds,
+            options={"maxiter": 90, "ftol": 1e-6, "gtol": 1e-5, "maxls": 20},
+        )
+        for start in starts
+    ]
+    finite = [result for result in results if np.isfinite(result.fun)]
+    if not finite:
+        raise RuntimeError("Gaussian-process hyperparameter optimization found no finite solution")
+    best = min(finite, key=lambda result: float(result.fun))
+    lengthscale = np.exp(best.x[:feature_count])
+    outputscale = float(np.exp(best.x[-2]) * target_scale * target_scale)
+    fitted_noise = float(np.exp(best.x[-1]) * target_scale * target_scale)
+    diagnostics: dict[str, object] = {
+        "optimizer": "L-BFGS-B",
+        "restarts": len(results),
+        "converged_restarts": sum(bool(result.success) for result in results),
+        "best_objective": float(best.fun),
+        "input_standardization": "per_feature_training_mean_std",
+        "output_standardization": {"mean": target_mean, "scale": target_scale},
+        "kernel": "ARD-RBF",
+        "ard_shrinkage": "log_lengthscale_common_center",
+        "lengthscale": {
+            "min": float(np.min(lengthscale)),
+            "median": float(np.median(lengthscale)),
+            "max": float(np.max(lengthscale)),
+        },
+        "outputscale": outputscale,
+        "train_noise": fitted_noise,
+        "replicate_noise_anchor": train_noise,
+    }
+    return lengthscale, outputscale, fitted_noise, diagnostics
 
 
 def _gp_point(artifact_path: Path, raw_features: np.ndarray) -> float:
@@ -140,9 +228,12 @@ def _build(source: Path, destination: Path) -> None:
     files = [pipeline_path]
     training_counts: dict[str, int] = {}
     quality_metrics = []
+    training_diagnostics: dict[str, object] = {}
     for target, model in sorted(runtime.models.items()):
         train_x, train_y, train_noise, observation_noise = _grouped_training(model, target)
-        lengthscale, outputscale, train_noise = _fit_gp_hyperparameters(train_x, train_y, train_noise)
+        lengthscale, outputscale, train_noise, diagnostics = _fit_gp_hyperparameters(
+            train_x, train_y, train_noise
+        )
         scaled = (train_x[:, None, :] - train_x[None, :, :]) / lengthscale
         covariance = outputscale * np.exp(-0.5 * np.sum(scaled * scaled, axis=2))
         covariance.flat[:: len(train_x) + 1] += train_noise
@@ -168,14 +259,24 @@ def _build(source: Path, destination: Path) -> None:
         )
         files.append(path)
         training_counts[target] = len(train_y)
+        training_diagnostics[target] = diagnostics
         unit = model.unit
         predictors.append({
             "id": f"{target.lower()}-gp", "target": target, "unit": unit,
             "target_kind": "continuous_positive" if target == "lambda" else "continuous",
-            "runtime_type": "builtin.exact_gp.v1", "architecture_id": "exact_rbf_grouped_v1",
+            "runtime_type": "builtin.exact_gp.v1", "architecture_id": "exact_rbf_ard_v1",
             "artifact": path.relative_to(destination).as_posix(),
             "predictive_family": "normal", "feature_names": list(FEATURE_NAMES),
-            "config": {"training_unit": "parent_condition_mean", "replicate_noise": "pooled_within_parent"},
+            "config": {
+                "training_unit": "parent_condition_mean",
+                "replicate_noise": "pooled_within_parent",
+                "input_standardization": "per_feature_training_mean_std",
+                "output_standardization": True,
+                "kernel": "ARD-RBF",
+                "hyperparameter_optimizer": "L-BFGS-B",
+                "optimizer_restarts": 3,
+                "ard_shrinkage": "weak_common_log_lengthscale",
+            },
         })
 
     stats_path = reference_dir / "training_stats.json"
@@ -194,6 +295,14 @@ def _build(source: Path, destination: Path) -> None:
     )
     quality_path.write_text(quality.model_dump_json(indent=2) + "\n", encoding="utf-8", newline="\n")
     files.append(quality_path)
+    diagnostics_path = report_dir / "training-diagnostics.json"
+    diagnostics_path.write_text(json.dumps({
+        "schema_version": "gp-training-diagnostics/v1",
+        "training_policy": "standardized-ard-multistart-v1",
+        "note": "Synthetic demo data; diagnostics describe numerical fitting, not scientific validity.",
+        "targets": training_diagnostics,
+    }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
+    files.append(diagnostics_path)
 
     smoke_input = {
         "name": "package smoke",
@@ -245,7 +354,7 @@ def build(source: Path, destination: Path, *, replace: bool = False, package_id:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", type=Path, default=Path("data/source/process_dashboard_realistic_excel_v2.xlsx"))
-    parser.add_argument("--output", type=Path, default=Path("models/packages/annealed-gp-2026-07-feature-design-v3"))
+    parser.add_argument("--output", type=Path, default=Path("models/packages/annealed-gp-stable-ard-v1"))
     parser.add_argument("--replace", action="store_true")
     parser.add_argument("--package-id", default=PACKAGE_ID)
     args = parser.parse_args()

@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "data" / "source" / "process_dashboard_two_equipment_v8.xlsx"
 
 
-def test_v8_registers_and_runs_both_individual_observation_packages(tmp_path: Path) -> None:
+def test_v8_registers_and_runs_standard_and_individual_observation_packages(tmp_path: Path) -> None:
     resources = _prepare_app_resources(
         SOURCE,
         package_roots={
@@ -102,6 +102,8 @@ def test_v8_registers_and_runs_both_individual_observation_packages(tmp_path: Pa
         ]
         assert {item["package_id"] for item in annealed_packages} >= {
             "annealed-gp-2026-07-v8-feature-design-v3-r2",
+            "annealed-gp-stable-ard-v8-v1",
+            "annealed-lightgbm-standard-v8-v1",
             "annealed-heteroscedastic-gp-2026-07-v8-v1",
             "annealed-hierarchical-bayes-2026-07-v8-v1",
         }
@@ -111,15 +113,18 @@ def test_v8_registers_and_runs_both_individual_observation_packages(tmp_path: Pa
             and item["data_asset"]["sha256"] == resources.runtimes["annealed-properties-v1"].data.source_sha256
         )
         dataset_view = dataset["dataset_views"][0]
-        for package_id in (
-            "annealed-heteroscedastic-gp-2026-07-v8-v1",
-            "annealed-hierarchical-bayes-2026-07-v8-v1",
-        ):
+        package_training_units = {
+            "annealed-gp-stable-ard-v8-v1": "parent_condition_mean",
+            "annealed-lightgbm-standard-v8-v1": "parent_condition_mean",
+            "annealed-heteroscedastic-gp-2026-07-v8-v1": "individual_observation",
+            "annealed-hierarchical-bayes-2026-07-v8-v1": "individual_observation",
+        }
+        for package_id, training_unit in package_training_units.items():
             package = next(item for item in annealed_packages if item["package_id"] == package_id)
             created = client.post("/api/projects", json={
                 "name": package_id,
                 "description": "",
-                "purpose": "個々値モデル確認",
+                "purpose": "標準モデルと個々値モデルの確認",
                 "task_id": "annealed-properties-v1",
                 "target_values": {"TS": 500},
                 "notes": "",
@@ -136,5 +141,8 @@ def test_v8_registers_and_runs_both_individual_observation_packages(tmp_path: Pa
                 params={"stage": "features", "target": "TS", "limit": 1},
             )
             assert training.status_code == 200, training.text
-            assert training.json()["training_unit"] == "individual_observation"
-            assert training.json()["total"] > training.json()["parent_conditions"]
+            assert training.json()["training_unit"] == training_unit
+            if training_unit == "individual_observation":
+                assert training.json()["total"] > training.json()["parent_conditions"]
+            else:
+                assert training.json()["total"] == training.json()["parent_conditions"]

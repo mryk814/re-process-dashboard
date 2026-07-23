@@ -2,8 +2,8 @@
   "schema_version": "active-model-packages/v1",
   "tasks": {
     "annealed-properties-v1": {
-      "active": "packages/annealed-gp-tutorial-v1",
-      "previous": "packages/annealed-gp-2026-07-feature-design-v3"
+      "active": "packages/annealed-gp-stable-ard-tutorial-v1",
+      "previous": "packages/annealed-gp-tutorial-v1"
     },
     "hot-rolled-properties-v1": {
       "active": "packages/hot-rolled-tutorial-v1",

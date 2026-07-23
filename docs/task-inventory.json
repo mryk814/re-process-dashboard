@@ -41,11 +41,11 @@
         "profile_path": "backend/src/material_workbench/data/dataset-input-profile-tutorial.json"
       },
       "active_package": {
-        "path": "packages/annealed-gp-tutorial-v1",
-        "previous": "packages/annealed-gp-2026-07-feature-design-v3",
-        "package_id": "annealed-gp-tutorial-v1",
-        "version": "1.0.0-feature-design-v3",
-        "manifest_sha256": "5d248f756f8a75e52aa5a16d89708fd875efff4e16adb6c482aebea4d418008b",
+        "path": "packages/annealed-gp-stable-ard-tutorial-v1",
+        "previous": "packages/annealed-gp-tutorial-v1",
+        "package_id": "annealed-gp-stable-ard-tutorial-v1",
+        "version": "2.0.0-stable-ard",
+        "manifest_sha256": "13aa9ee4b61a3be3a5a4b915d82ce694ee8fb60b368256c396c793c3c813d56c",
         "runtime_types": [
           "builtin.exact_gp.v1"
         ]

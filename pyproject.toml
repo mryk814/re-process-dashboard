@@ -5,10 +5,12 @@ description = "Local material candidate comparison and evidence workbench"
 requires-python = ">=3.12"
 dependencies = [
   "fastapi>=0.116,<1",
+  "lightgbm>=4.6,<5",
   "numpy>=2.0,<3",
   "openpyxl>=3.1,<4",
   "pydantic>=2.11,<3",
   "python-multipart>=0.0.20,<1",
+  "scipy>=1.14,<2",
   "uvicorn>=0.35,<1",
 ]
 
@@ -22,9 +24,7 @@ runtime-sklearn = [
   "scikit-learn>=1.6,<2",
   "skops>=0.11,<1",
 ]
-runtime-lightgbm = [
-  "lightgbm>=4.6,<5",
-]
+runtime-lightgbm = []
 runtime-gpytorch = [
   "torch>=2.6,<3",
   "gpytorch>=1.14,<2",

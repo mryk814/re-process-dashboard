@@ -1,4 +1,5 @@
 from pathlib import Path
+from PyInstaller.utils.hooks import collect_all
 
 
 root = Path(SPECPATH).parent
@@ -7,13 +8,15 @@ datas = [
     *((str(path), "material_workbench/data") for path in (package_root / "data").glob("*.json")),
     *((str(path), "material_workbench/tasks/task_definitions") for path in (package_root / "tasks" / "task_definitions").glob("*.json")),
 ]
+lightgbm_datas, lightgbm_binaries, lightgbm_hiddenimports = collect_all("lightgbm")
+datas.extend(lightgbm_datas)
 
 analysis = Analysis(
     [str(root / "backend" / "src" / "sidecar.py")],
     pathex=[str(root / "backend" / "src")],
-    binaries=[],
+    binaries=lightgbm_binaries,
     datas=datas,
-    hiddenimports=[],
+    hiddenimports=lightgbm_hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

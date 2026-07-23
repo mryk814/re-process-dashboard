@@ -123,8 +123,14 @@ class BuiltinExactGPAdapter:
     runtime_type = "builtin.exact_gp.v1"
 
     def load(self, package: VerifiedModelPackage, predictor: PredictorSpec) -> _ExactGPPredictor:
-        if predictor.predictive_family not in {"normal", "lognormal"} or predictor.architecture_id != "exact_rbf_grouped_v1":
-            raise PackageContractError("builtin.exact_gp.v1 requires normal or lognormal / exact_rbf_grouped_v1")
+        if (
+            predictor.predictive_family not in {"normal", "lognormal"}
+            or predictor.architecture_id not in {"exact_rbf_grouped_v1", "exact_rbf_ard_v1"}
+        ):
+            raise PackageContractError(
+                "builtin.exact_gp.v1 requires normal or lognormal / "
+                "exact_rbf_grouped_v1 or exact_rbf_ard_v1"
+            )
         if predictor.predictive_family == "lognormal" and predictor.config.get("latent_transform") != "log1p":
             raise PackageContractError("builtin.exact_gp.v1 lognormal requires config.latent_transform=log1p")
         if predictor.predictive_family == "lognormal" and predictor.target_kind != "continuous_positive":

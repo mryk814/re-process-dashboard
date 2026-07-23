@@ -82,11 +82,15 @@ def test_lightgbm_adapter_loads_and_predicts_a_native_text_booster(tmp_path: Pat
     booster = lightgbm.train({"objective": "regression", "verbosity": -1, "min_data_in_leaf": 1, "num_leaves": 3, "seed": 1}, lightgbm.Dataset(features, label=target), num_boost_round=4)
     model_path = artifacts / "booster.txt"
     booster.save_model(str(model_path))
-    predictor = {"id": "ts", "target": "TS", "unit": "MPa", "target_kind": "continuous", "runtime_type": "lightgbm.booster.v1", "artifact": "model-artifacts/booster.txt", "predictive_family": "empirical_quantiles", "feature_names": ["C", "Mn"], "config": {}}
+    predictor = {"id": "ts", "target": "TS", "unit": "MPa", "target_kind": "continuous", "runtime_type": "lightgbm.booster.v1", "architecture_id": "lightgbm_regression_standard_v1", "artifact": "model-artifacts/booster.txt", "predictive_family": "normal", "feature_names": ["C", "Mn"], "config": {"residual_std": 0.5}}
     package = ModelPackageLoader().load(_package_root(tmp_path, "lightgbm", predictor, model_path))
     result = package.load_predictor("ts").predict({"C": 0.5, "Mn": 0.5})
     assert np.isfinite(result.point_estimate)
     assert result.point_estimate == pytest.approx(float(booster.predict(np.array([[0.5, 0.5]]))[0]))
+    assert result.distribution["std"] == pytest.approx(0.5)
+    assert result.quantiles["0.05"] < result.point_estimate < result.quantiles["0.95"]
+    assert result.uncertainty_components is not None
+    assert result.uncertainty_components["observation_noise_variance"] == pytest.approx(0.25)
 
 
 def test_gpytorch_static_adapter_loads_and_predicts_safetensors(tmp_path: Path) -> None:
