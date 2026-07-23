@@ -88,7 +88,9 @@
   transform: rotate(90deg);
 }
 
-.screening-base-editor-heading > div {
+.screening-base-editor-heading-copy {
+  display: grid;
+  gap: 2px;
   flex: 1;
 }
 
@@ -98,8 +100,7 @@
   font-weight: 700;
 }
 
-.screening-base-editor-heading h3 {
-  margin: 0;
+.screening-base-editor-heading b {
   font-size: 14px;
 }
 

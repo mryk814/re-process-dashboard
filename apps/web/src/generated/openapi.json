@@ -6808,6 +6808,18 @@
     "/api/data-library/model-packages": {
       "get": {
         "operationId": "list_model_packages_api_data_library_model_packages_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "include_archived",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Archived",
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {

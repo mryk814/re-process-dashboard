@@ -35,9 +35,9 @@
 ## 設計根拠
 
 - 材料インフォマティクスでは、モデルの適用領域を明示し、領域外の予測を同じ確度で扱わないことが重要である。  
-  [Applicability Domain of Machine Learning Models in Materials Science](https://www.nature.com/articles/s41467-020-17112-9)
+  [Identifying domains of applicability of machine learning models for materials science](https://www.nature.com/articles/s41467-020-17112-9)
 - 材料の分布外予測では、平均的なテスト精度だけでなく、どの条件で学習分布から外れるかを扱う必要がある。  
-  [Systematic Evaluation of Out-of-Distribution Generalization in Materials Property Prediction](https://arxiv.org/abs/2406.06489)
+  [Probing out-of-distribution generalization in machine learning for materials](https://arxiv.org/abs/2406.06489)
 - 不確かさ表示は精密に見せること自体が目的ではなく、利用者が信頼を適切に調整できることが目的である。  
   [Supporting Trust Calibration in Decision-Making Through Uncertainty Visualization](https://diglib.eg.org/items/59b9e652-5422-4d7b-b105-ff7ba33bcad6)
 

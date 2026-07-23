@@ -362,11 +362,14 @@ export function ComparisonTable({
   const configuredTargetCount = outputs.filter((output) => hasValidTargetGoal(targetValues[output.key])).length;
   const selectedCandidate = candidates.find((candidate) => candidate.id === selectedId);
   const supportConcernCount = decisionSummary.supportCounts.caution + decisionSummary.supportCounts.extrapolated;
-  const uncertaintyMessage = decisionSummary.assessableOutputKeys.length === 0
-    ? "予測区間の比較を準備しています。"
+  const supportUnknownCount = decisionSummary.supportCounts.unknown + candidates.length - decisionSummary.loadedCandidateCount;
+  const uncertaintyMessage = candidates.length < 2
+    ? "予測区間を比較するには、候補が2件以上必要です。"
+    : decisionSummary.assessableOutputKeys.length === 0
+      ? "予測区間を比較できる候補を確認しています。"
     : decisionSummary.overlappingOutputKeys.length > 0
       ? `${decisionSummary.overlappingOutputKeys.length} / ${decisionSummary.assessableOutputKeys.length}特性で全候補の予測区間が重なっています。点予測の差だけでは優劣を決めにくい状態です。`
-      : "候補間の差が予測区間にも表れています。近い実績と支持範囲を合わせて確認してください。";
+      : "全候補に共通する予測区間はありません。候補間の差そのものを示す検定ではないため、近い実績と支持範囲も確認してください。";
   const predictionValue = (prediction: ApiPreview["predictions"][string], outputKey: string) => prediction.target_kind === "continuous" || prediction.target_kind === "continuous_positive" || prediction.target_kind === "count"
     ? formatDisplayNumber(prediction.value, taskDefinition, `output.${outputKey}`, displayDecimalOverrides)
     : formatPredictionPoint(prediction, formatNumber);
@@ -407,12 +410,18 @@ export function ComparisonTable({
           </div>
           <div>
             <dt>支持範囲</dt>
-            <dd className={supportConcernCount > 0 ? "needs-attention" : "is-ready"}>
-              {decisionSummary.loadedCandidateCount === 0 ? "確認中" : supportConcernCount > 0 ? `${supportConcernCount}候補を要確認` : "全候補が範囲内"}
+            <dd className={supportConcernCount > 0 || supportUnknownCount > 0 ? "needs-attention" : "is-ready"}>
+              {decisionSummary.loadedCandidateCount === 0
+                ? "確認中"
+                : supportUnknownCount > 0
+                  ? `${supportUnknownCount}候補は未確認`
+                  : supportConcernCount > 0
+                    ? `${supportConcernCount}候補を要確認`
+                    : "全候補が範囲内"}
             </dd>
           </div>
           <div>
-            <dt>区間の重なり</dt>
+            <dt>区間の共通部分</dt>
             <dd className={decisionSummary.overlappingOutputKeys.length > 0 ? "needs-attention" : "is-ready"}>
               {decisionSummary.assessableOutputKeys.length === 0
                 ? "確認中"

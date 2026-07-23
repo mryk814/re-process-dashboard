@@ -3485,7 +3485,9 @@ export interface operations {
     };
     list_model_packages_api_data_library_model_packages_get: {
         parameters: {
-            query?: never;
+            query?: {
+                include_archived?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;

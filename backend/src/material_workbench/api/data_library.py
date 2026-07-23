@@ -68,8 +68,11 @@ def create_dataset_view(
 
 
 @router.get("/data-library/model-packages", response_model=list[ModelPackageRef])
-def list_model_packages(catalog: CatalogDependency) -> list[ModelPackageRef]:
-    return catalog.list_model_package_refs()
+def list_model_packages(
+    catalog: CatalogDependency,
+    include_archived: bool = False,
+) -> list[ModelPackageRef]:
+    return catalog.list_model_package_refs(include_archived=include_archived)
 
 
 @router.get("/project-creation-options", response_model=ProjectCreationOptions)

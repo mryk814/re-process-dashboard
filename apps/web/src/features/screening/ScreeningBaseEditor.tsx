@@ -34,10 +34,10 @@ export function ScreeningBaseEditor({
   return (
     <details className="screening-base-editor">
       <summary className="screening-base-editor-heading">
-        <div>
-          <h3>基準条件</h3>
+        <span className="screening-base-editor-heading-copy">
+          <b>基準条件</b>
           <small>{candidate.label} · {groups.length}入力グループ{candidate.heat.length > 0 ? ` · ヒートパターン${candidate.heat.length}点` : ""}</small>
-        </div>
+        </span>
         <span>確認・調整</span>
       </summary>
       <div className="screening-base-groups">
