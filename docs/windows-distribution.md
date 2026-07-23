@@ -15,10 +15,9 @@
 npm install
 uv sync --extra dev
 npm run package:windows
-npm run smoke:packaged
 ```
 
-成果物はgit管理外の `release/` に作る。`smoke:packaged` はZIPの展開・起動・削除と、installerの非管理者install・起動・uninstallを一時領域で実行し、次を確認する。
+成果物はgit管理外の `release/` に作る。`package:windows` は必要resourceの同梱を検査した後、ZIPの展開・起動・削除と、installerの非管理者install・起動・uninstallを一時領域で実行し、次を確認する。不完全な成果物やsmoke失敗時はコマンド自体が失敗する。
 
 - sidecar health後に実画面が表示される
 - tokenなしのloopback API requestが401になる

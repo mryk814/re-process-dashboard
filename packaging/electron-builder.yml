@@ -17,6 +17,8 @@ extraResources:
     to: data/source/process_dashboard_realistic_excel_v2.xlsx
   - from: data/source/cutting_tool_flank_wear_synthetic_dataset.xlsx
     to: data/source/cutting_tool_flank_wear_synthetic_dataset.xlsx
+  - from: models/active-packages.json
+    to: models/active-packages.json
   - from: models/packages/annealed-gp-2026-07
     to: models/packages/annealed-gp-2026-07
   - from: models/packages/hot-rolled-horseshoe-2026-07
