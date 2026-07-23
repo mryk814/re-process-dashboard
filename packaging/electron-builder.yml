@@ -26,11 +26,14 @@ extraResources:
   - from: models/packages/flank-wear-gp-2026-07
     to: models/packages/flank-wear-gp-2026-07
 win:
+  icon: packaging/icons/icon.ico
   target:
     - nsis
   executableName: Material Decision Workbench
   artifactName: Material-Decision-Workbench-Setup-${version}.${ext}
 nsis:
+  installerIcon: packaging/icons/icon.ico
+  uninstallerIcon: packaging/icons/icon.ico
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: false

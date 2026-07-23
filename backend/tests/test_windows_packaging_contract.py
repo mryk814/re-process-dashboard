@@ -35,3 +35,23 @@ def test_packaged_launcher_uses_active_model_configuration_as_single_source() ->
         "MATERIAL_WORKBENCH_FLANK_WEAR_MODEL_PACKAGE:",
     ):
         assert override not in desktop_launcher
+
+
+def test_application_icon_is_configured_for_windows_and_web() -> None:
+    builder_config = (ROOT / "packaging" / "electron-builder.yml").read_text(encoding="utf-8")
+    web_document = (ROOT / "apps" / "web" / "index.html").read_text(encoding="utf-8")
+    web_build = (ROOT / "apps" / "web" / "build.mjs").read_text(encoding="utf-8")
+    windows_icon = (ROOT / "packaging" / "icons" / "icon.ico").read_bytes()
+    web_icon = (ROOT / "apps" / "web" / "public" / "app-icon.png").read_bytes()
+
+    assert "icon: packaging/icons/icon.ico" in builder_config
+    assert "installerIcon: packaging/icons/icon.ico" in builder_config
+    assert "uninstallerIcon: packaging/icons/icon.ico" in builder_config
+    assert windows_icon[:4] == b"\x00\x00\x01\x00"
+    assert int.from_bytes(windows_icon[4:6], "little") >= 7
+    assert web_icon.startswith(b"\x89PNG\r\n\x1a\n")
+    assert 'rel="icon" type="image/png" href="/app-icon.png"' in web_document
+    assert 'rel="apple-touch-icon" href="/app-icon.png"' in web_document
+    assert 'copyFile(resolve("public/app-icon.png"), resolve(outdir, "app-icon.png"))' in web_build
+    assert 'rel="icon" type="image/png" href="./app-icon.png"' in web_build
+    assert 'rel="apple-touch-icon" href="./app-icon.png"' in web_build
