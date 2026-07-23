@@ -209,4 +209,7 @@ export const workbenchApi = {
   candidateExportUrl(projectId: string) {
     return apiDownloadUrl(`${path(projectId, "/candidates/export.xlsx")}`);
   },
+  candidateTemplateUrl(projectId: string) {
+    return apiDownloadUrl(`${path(projectId, "/candidates/template.xlsx")}`);
+  },
 };

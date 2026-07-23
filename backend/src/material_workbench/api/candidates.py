@@ -27,6 +27,10 @@ from ..task_registry import TaskRegistry
 from ..project_runtime_resolver import ProjectRuntimeResolver
 
 
+XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+XLSX_RESPONSE = {200: {"content": {XLSX_MEDIA_TYPE: {}}}}
+
+
 router = APIRouter()
 StoreDependency = Annotated[Store, Depends(get_store)]
 RegistryDependency = Annotated[TaskRegistry, Depends(get_task_registry)]
@@ -105,13 +109,22 @@ async def import_candidates(project_id: str, service: CandidateServiceDependency
         raise_candidate_http_error(exc)
 
 
-@router.get("/api/projects/{project_id}/candidates/export.xlsx")
+@router.get("/api/projects/{project_id}/candidates/export.xlsx", response_class=Response, responses=XLSX_RESPONSE)
 def export_candidates(project_id: str, service: CandidateServiceDependency) -> StreamingResponse:
     try:
         contents = service.export_xlsx(project_id)
     except CANDIDATE_APPLICATION_ERRORS as exc:
         raise_candidate_http_error(exc)
-    return StreamingResponse(BytesIO(contents), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": "attachment; filename=candidates-with-predictions.xlsx"})
+    return StreamingResponse(BytesIO(contents), media_type=XLSX_MEDIA_TYPE, headers={"Content-Disposition": "attachment; filename=candidates-with-predictions.xlsx"})
+
+
+@router.get("/api/projects/{project_id}/candidates/template.xlsx", response_class=Response, responses=XLSX_RESPONSE)
+def candidate_import_template(project_id: str, service: CandidateServiceDependency) -> StreamingResponse:
+    try:
+        contents = service.template_xlsx(project_id)
+    except CANDIDATE_APPLICATION_ERRORS as exc:
+        raise_candidate_http_error(exc)
+    return StreamingResponse(BytesIO(contents), media_type=XLSX_MEDIA_TYPE, headers={"Content-Disposition": "attachment; filename=candidate-import-template.xlsx"})
 
 
 @router.get("/api/projects/{project_id}/candidates/{candidate_id}", response_model=Candidate, responses=PROJECT_API_ERRORS)

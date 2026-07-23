@@ -196,6 +196,68 @@ def test_candidate_excel_import_and_exports(client) -> None:
     assert quality.headers["content-type"].startswith("text/csv")
 
 
+def test_candidate_excel_template_explains_and_round_trips_the_project_contract(client) -> None:
+    response = client.get("/api/projects/default/candidates/template.xlsx")
+
+    assert response.status_code == 200
+    assert response.content[:2] == b"PK"
+    workbook = load_workbook(BytesIO(response.content), read_only=False, data_only=True)
+    assert workbook.sheetnames == ["候補", "記入例", "入力ルール"]
+    headers = [cell.value for cell in workbook["候補"][1]]
+    assert headers[:3] == ["候補名", "C[mass%]", "Si[mass%]"]
+    assert "到達時間[s]_1" in headers
+    assert "実績温度[℃]_3" in headers
+    assert workbook["候補"]["A2"].value is None
+    assert workbook["記入例"]["A2"].value == "記入例（候補シートへコピーして変更）"
+    guide_text = "\n".join(str(cell.value) for row in workbook["入力ルール"].iter_rows() for cell in row if cell.value is not None)
+    assert "1行＝1候補" in guide_text
+    assert "最低2点" in guide_text
+    assert "学習データ範囲（参照）" in guide_text
+    for column, cell in enumerate(workbook["記入例"][2], start=1):
+        workbook["候補"].cell(2, column).value = cell.value
+    buffer = BytesIO()
+    workbook.save(buffer)
+    workbook.close()
+
+    untouched, untouched_errors = import_candidates_xlsx(response.content)
+    assert not untouched_errors
+    assert untouched == []
+    imported, errors = import_candidates_xlsx(buffer.getvalue())
+    assert not errors
+    assert len(imported) == 1
+    assert imported[0].name == "記入例（候補シートへコピーして変更）"
+
+
+def test_candidate_excel_import_rejects_rows_outside_the_project_contract(client) -> None:
+    template = client.get("/api/projects/default/candidates/template.xlsx").content
+
+    def invalid_workbook(header: str, value: object) -> bytes:
+        workbook = load_workbook(BytesIO(template), read_only=False, data_only=True)
+        candidate_sheet = workbook["候補"]
+        for column, cell in enumerate(workbook["記入例"][2], start=1):
+            candidate_sheet.cell(2, column).value = cell.value
+        headers = {cell.value: cell.column for cell in candidate_sheet[1]}
+        candidate_sheet.cell(2, headers[header]).value = value
+        buffer = BytesIO()
+        workbook.save(buffer)
+        workbook.close()
+        return buffer.getvalue()
+
+    invalid_values = [
+        ("C[mass%]", None),
+        ("C[mass%]", 1000),
+        ("到達時間[s]_2", 0),
+    ]
+    for header, value in invalid_values:
+        response = client.post(
+            "/api/projects/default/candidates/import",
+            files={"file": ("invalid.xlsx", invalid_workbook(header, value), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        )
+        assert response.status_code == 200
+        assert response.json()["created"] == 0
+        assert response.json()["errors"][0]["row"] == 2
+
+
 def test_candidate_xlsx_names_follow_source_profile() -> None:
     names = _candidate_xlsx_names(
         "annealed-properties-v1",

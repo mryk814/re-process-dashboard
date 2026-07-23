@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { numericTaskInputs, type NumericTaskInput, type ResolvedTaskDefinition, type TaskDefinitionContract } from "../candidates";
 import { LiveDataQualityPage, type QualityFilters } from "../quality";
 import { workbenchApi, type ApiModelPackage, type ApiProject, type ApiQuality } from "../../shared/api/workbench-api";
-import { ProfileWorkbenchPanel } from "./ProfileWorkbenchPanel";
 
 function allowedRange(input: NumericTaskInput) {
   if (!input.allowed_range) throw new Error(`数値fieldにallowed_rangeがありません: ${input.path}`);
@@ -26,23 +25,19 @@ export function DeveloperAdminPage({
   qualityFilters,
   onQualityFiltersChange,
   onOpenLineage,
-  onOpenDataLibrary,
-  onStartProject,
   onProjectChanged,
 }: {
   project: ApiProject | undefined;
   taskDefinition: TaskDefinitionContract | null;
   resolvedTaskDefinition: ResolvedTaskDefinition | null;
-  initialSection?: "quality" | "ranges" | "display" | "task" | "model" | "profile";
-  onSectionChange: (section: "quality" | "ranges" | "display" | "task" | "model" | "profile") => void;
+  initialSection?: "quality" | "ranges" | "display" | "task" | "model";
+  onSectionChange: (section: "quality" | "ranges" | "display" | "task" | "model") => void;
   qualityFilters: QualityFilters;
   onQualityFiltersChange: (filters: QualityFilters) => void;
   onOpenLineage: (issue: ApiQuality["detected_issues"][number], filters: QualityFilters) => void;
-  onOpenDataLibrary: () => void;
-  onStartProject: (datasetViewRevisionId: string) => void;
   onProjectChanged: (project: ApiProject) => void;
 }) {
-  type AdminSection = "quality" | "ranges" | "display" | "task" | "model" | "profile";
+  type AdminSection = "quality" | "ranges" | "display" | "task" | "model";
   const [section, setSection] = useState<AdminSection>(initialSection ?? "quality");
   const [modelPackage, setModelPackage] = useState<ApiModelPackage | null>(null);
   const [modelError, setModelError] = useState("");
@@ -64,7 +59,6 @@ export function DeveloperAdminPage({
     { id: "display", label: "表示桁数" },
     { id: "task", label: "予測タスク定義" },
     { id: "model", label: "モデルと実行環境" },
-    { id: "profile", label: "Profile Workbench" },
   ];
   const sections = allSections.filter((item) => item.id !== "quality" || qualityAvailable);
   const visibleSection: AdminSection = section === "quality" && resolvedTaskDefinition && !qualityAvailable ? "task" : section;
@@ -79,7 +73,6 @@ export function DeveloperAdminPage({
         : <p className="empty-evidence">プロジェクトを読み込んでいます。</p>)}
       {visibleSection === "ranges" && <InputRangeSettingsPage project={project} taskDefinition={taskDefinition} onProjectChanged={onProjectChanged} />}
       {visibleSection === "display" && <DisplayDecimalSettingsPage project={project} taskDefinition={taskDefinition} onProjectChanged={onProjectChanged} />}
-      {visibleSection === "profile" && <ProfileWorkbenchPanel onOpenDataLibrary={onOpenDataLibrary} onStartProject={onStartProject} />}
       {visibleSection === "task" && <div className="page-panel admin-contract-page">
         <div className="page-intro"><div><h2>予測タスク定義</h2><p>{taskDefinition?.label ?? "読み込み中"}で利用者が入力・確認する項目です。</p></div></div>
         {taskDefinition ? <>

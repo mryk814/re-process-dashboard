@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from .projects import ProjectService
 from ..schemas import Candidate, CandidateImportResponse, CandidateInput, CandidateUpdate
-from ..services import candidates_xlsx, import_candidates_xlsx
+from ..services import candidate_template_xlsx, candidates_xlsx, import_candidates_xlsx
 from ..store import (
     CandidateArchivedError,
     CandidateLimitError,
@@ -67,6 +67,7 @@ class CandidateService:
             contents,
             task_id=project.task_id,
             profile=getattr(runtime.data, "profile", None),
+            validate_candidate=lambda payload: self.registry.validate_candidate(project.task_id, payload),
         )
         created = self.store.create_candidates(payloads, project_id)
         return CandidateImportResponse(created=len(created), errors=errors, candidates=created)
@@ -78,6 +79,16 @@ class CandidateService:
             raise CandidateValidationError("Excel候補exportはこの予測タスクでは利用できません")
         return candidates_xlsx(
             self.store.list_candidates(project_id),
+            self.resolver.runtime_for(project),
+            task_id=project.task_id,
+        )
+
+    def template_xlsx(self, project_id: str) -> bytes:
+        project = self.projects.require(project_id)
+        entry = self.registry.entry_for(project.task_id)
+        if not entry.application_capability.candidate_excel_import:
+            raise CandidateValidationError("Excel候補importはこの予測タスクでは利用できません")
+        return candidate_template_xlsx(
             self.resolver.runtime_for(project),
             task_id=project.task_id,
         )

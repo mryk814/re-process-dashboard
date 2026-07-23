@@ -65,10 +65,16 @@ export function CandidateFileControls({
   const download = () => {
     window.location.assign(workbenchApi.candidateExportUrl(projectId));
   };
+  const downloadTemplate = () => {
+    window.location.assign(workbenchApi.candidateTemplateUrl(projectId));
+  };
   return (
     <div className="file-controls">
+      {capability?.candidate_excel_import && <button className="outline-button" onClick={downloadTemplate}>
+        入力テンプレート
+      </button>}
       {capability?.candidate_excel_import && <label className="outline-button">
-        XLSXを読込
+        候補XLSXを読込
         <input
           type="file"
           accept=".xlsx"
@@ -81,6 +87,7 @@ export function CandidateFileControls({
       {capability?.candidate_excel_export && <button className="outline-button" onClick={download}>
         候補・予測をXLSX出力
       </button>}
+      {capability?.candidate_excel_import && <small className="candidate-xlsx-hint">1行＝1候補。列名・単位は変更しません。詳細はテンプレート内「入力ルール」。</small>}
       {message && <small>{message}</small>}
     </div>
   );
