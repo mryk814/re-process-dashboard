@@ -46,23 +46,42 @@ export function modelPackageDisplayName(modelPackage: ApiModelPackageRef | undef
   const manifest = asRecord(modelPackage.manifest_json);
   const predictors = Array.isArray(manifest?.predictors) ? manifest.predictors : [];
   const records = predictors.map(asRecord).filter((item): item is Record<string, unknown> => item != null);
+  const runtimeTypes = new Set(records.map((item) => item.runtime_type).filter((item): item is string => typeof item === "string"));
+  const architectureIds = new Set(records.map((item) => item.architecture_id).filter((item): item is string => typeof item === "string"));
   if (records.some((item) => item.runtime_type === "builtin.heteroscedastic_exact_gp.v1")) {
-    return "個々値・異分散GP（試験）";
+    return "異分散GP（個々値）";
   }
   if (records.some((item) => item.architecture_id === "hierarchical_parent_random_intercept_v1")) {
-    return "個々値・反復階層Bayes（試験）";
+    return "階層Bayes（個々値・反復）";
   }
+  if ([...architectureIds].some((item) => item.toLowerCase().includes("lightgbm"))) return "LightGBM";
+  if (runtimeTypes.has("builtin.exact_gp.v1")) return "GP";
+  if (runtimeTypes.has("builtin.posterior_linear.v1")) return "Bayes線形回帰";
+  if (runtimeTypes.has("builtin.linear.v1")) return "線形回帰";
   return modelPackage.package_id;
 }
 
-export function compatiblePackagesForTask(
+export function modelPackageTrainedOnDataset(
+  modelPackage: ApiModelPackageRef,
+  dataset: ApiDataLibraryDataset | undefined,
+): boolean {
+  if (!dataset) return false;
+  return (
+    trainingDataSha(modelPackage) === dataset.data_asset.sha256
+    && trainingProfileDigest(modelPackage) === dataset.profile_revision.profile_digest
+  );
+}
+
+export function compatiblePackagesForDatasetTask(
+  dataset: ApiDataLibraryDataset | undefined,
   taskId: string,
   options: Pick<ApiProjectCreationOptions, "model_packages" | "task_contract_digests">,
 ): ApiModelPackageRef[] {
   const currentDigest = options.task_contract_digests[taskId];
-  if (!currentDigest) return [];
+  if (!dataset || !currentDigest) return [];
   return options.model_packages.filter((item) => (
     item.task_id === taskId && item.task_contract_digest === currentDigest
+    && modelPackageTrainedOnDataset(item, dataset)
   ));
 }
 
@@ -71,19 +90,6 @@ export function compatibleTaskIdsForDataset(
   options: Pick<ApiProjectCreationOptions, "model_packages" | "task_contract_digests">,
 ): string[] {
   return (dataset?.supported_task_ids ?? []).filter((taskId) => (
-    compatiblePackagesForTask(taskId, options).length > 0
+    compatiblePackagesForDatasetTask(dataset, taskId, options).length > 0
   ));
-}
-
-export function initialProjectBindingForDataset(
-  dataset: ApiDataLibraryDataset | undefined,
-  options: Pick<ApiProjectCreationOptions, "model_packages" | "task_contract_digests">,
-): { taskId: string; modelPackageRefId: string } {
-  const taskIds = compatibleTaskIdsForDataset(dataset, options);
-  if (taskIds.length !== 1) return { taskId: "", modelPackageRefId: "" };
-  const packages = compatiblePackagesForTask(taskIds[0], options);
-  return {
-    taskId: taskIds[0],
-    modelPackageRefId: packages.length === 1 ? packages[0].id : "",
-  };
 }

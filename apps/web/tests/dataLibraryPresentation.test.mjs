@@ -1,43 +1,62 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  compatiblePackagesForTask,
+  compatiblePackagesForDatasetTask,
   compatibleTaskIdsForDataset,
-  initialProjectBindingForDataset,
+  modelPackageDisplayName,
 } from "../src/shared/dataLibraryPresentation.ts";
 
 const dataset = {
   supported_task_ids: ["annealed", "hot-rolled"],
+  data_asset: { sha256: "dataset-a" },
+  profile_revision: { profile_digest: "profile-a" },
 };
 
+const provenance = {
+  provenance: {
+    training_data_id: "sha256:dataset-a",
+    dataset_profile_id: "profile-a",
+  },
+};
 const options = {
   task_contract_digests: { annealed: "digest-a", "hot-rolled": "digest-h" },
   model_packages: [
-    { id: "a-current", task_id: "annealed", task_contract_digest: "digest-a" },
-    { id: "a-stale", task_id: "annealed", task_contract_digest: "old-digest" },
-    { id: "h-current", task_id: "hot-rolled", task_contract_digest: "digest-h" },
+    { id: "a-current", task_id: "annealed", task_contract_digest: "digest-a", manifest_json: provenance },
+    { id: "a-other-data", task_id: "annealed", task_contract_digest: "digest-a", manifest_json: { provenance: { training_data_id: "sha256:dataset-b", dataset_profile_id: "profile-a" } } },
+    { id: "a-other-profile", task_id: "annealed", task_contract_digest: "digest-a", manifest_json: { provenance: { training_data_id: "sha256:dataset-a", dataset_profile_id: "profile-b" } } },
+    { id: "a-stale", task_id: "annealed", task_contract_digest: "old-digest", manifest_json: provenance },
+    { id: "h-current", task_id: "hot-rolled", task_contract_digest: "digest-h", manifest_json: provenance },
   ],
 };
 
-test("filters stale Model Packages using the active Prediction Task contract", () => {
+test("filters Model Packages by Dataset, Profile, and active Prediction Task contract", () => {
   assert.deepEqual(
-    compatiblePackagesForTask("annealed", options).map((item) => item.id),
+    compatiblePackagesForDatasetTask(dataset, "annealed", options).map((item) => item.id),
     ["a-current"],
   );
 });
 
-test("does not silently choose between multiple compatible Prediction Tasks", () => {
+test("shows only Prediction Tasks with a Package trained on the selected Dataset and Profile", () => {
   assert.deepEqual(compatibleTaskIdsForDataset(dataset, options), ["annealed", "hot-rolled"]);
-  assert.deepEqual(initialProjectBindingForDataset(dataset, options), {
-    taskId: "",
-    modelPackageRefId: "",
-  });
 });
 
-test("preselects the only compatible task and package", () => {
-  const singleTaskDataset = { supported_task_ids: ["annealed"] };
-  assert.deepEqual(initialProjectBindingForDataset(singleTaskDataset, options), {
-    taskId: "annealed",
-    modelPackageRefId: "a-current",
-  });
+test("uses model-family names instead of Package ids", () => {
+  assert.equal(modelPackageDisplayName({
+    package_id: "opaque-versioned-package-id",
+    manifest_json: {
+      predictors: [{ runtime_type: "builtin.exact_gp.v1", architecture_id: "exact_rbf_grouped_v1" }],
+    },
+  }), "GP");
+  assert.equal(modelPackageDisplayName({
+    package_id: "opaque-versioned-package-id",
+    manifest_json: {
+      predictors: [{ runtime_type: "sklearn.skops.v1", architecture_id: "lightgbm_regressor_v1" }],
+    },
+  }), "LightGBM");
+  assert.equal(modelPackageDisplayName({
+    package_id: "opaque-versioned-package-id",
+    manifest_json: {
+      predictors: [{ runtime_type: "builtin.linear.v1", architecture_id: "linear_v1" }],
+    },
+  }), "線形回帰");
 });

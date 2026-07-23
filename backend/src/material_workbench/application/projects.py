@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from material_workbench.contracts.schemas import (
+    ModelPackageRef,
     Project,
     ProjectCreateInput,
     ProjectDecisionInput,
@@ -207,13 +208,16 @@ class ProjectService:
         compatible_packages = [
             item for item in self.catalog.list_model_package_refs()
             if item.task_id == payload.task_id and item.task_contract_digest == task_digest
+            and self._package_trained_on_dataset(item, view.members[0].dataset_revision_id)
         ]
         if payload.model_package_ref_id:
             package = self.catalog.get_model_package_ref(payload.model_package_ref_id)
             if package is None:
                 raise ProjectValidationError("選択したModel Packageが見つかりません")
             if package.id not in {item.id for item in compatible_packages}:
-                raise ProjectValidationError("Model PackageはこのPrediction Taskと互換ではありません")
+                raise ProjectValidationError(
+                    "Model Packageは選択したDataset・Profile・Prediction Taskを学習元としていません"
+                )
         elif len(compatible_packages) == 1:
             package = compatible_packages[0]
         else:
@@ -251,3 +255,21 @@ class ProjectService:
             return False
         tasks = profile.effective_profile_json.get("tasks")
         return isinstance(tasks, dict) and task_id in tasks
+
+    def _package_trained_on_dataset(
+        self, package: ModelPackageRef, dataset_revision_id: str
+    ) -> bool:
+        if self.catalog is None:
+            return False
+        dataset = self.catalog.get_dataset_revision(dataset_revision_id)
+        if dataset is None:
+            return False
+        asset = self.catalog.get_data_asset(dataset.data_asset_id)
+        profile = self.catalog.get_profile_revision(dataset.profile_revision_id)
+        provenance = package.manifest_json.get("provenance")
+        if asset is None or profile is None or not isinstance(provenance, dict):
+            return False
+        return (
+            provenance.get("training_data_id") == f"sha256:{asset.sha256}"
+            and provenance.get("dataset_profile_id") == profile.profile_digest
+        )

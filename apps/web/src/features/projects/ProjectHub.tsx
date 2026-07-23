@@ -5,10 +5,9 @@ import { assessOutputValues, assessPrediction, resolveOutputDefinition } from ".
 import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
 import { hasValidTargetGoal, isTargetRange, targetGoalText, type TargetGoal } from "../../shared/targetGoals";
 import {
-  compatiblePackagesForTask,
+  compatiblePackagesForDatasetTask,
   compatibleTaskIdsForDataset,
   datasetDisplayName,
-  initialProjectBindingForDataset,
   modelPackageDisplayName,
   trainingDataset,
 } from "../../shared/dataLibraryPresentation";
@@ -125,7 +124,6 @@ export function ProjectHub({
       workbenchApi.listTaskDefinitions().then((items) => {
         if (!controller.signal.aborted) {
           setCatalog(items);
-          setNewTaskId((current) => current || items[0]?.definition.task_definition.id || "");
         }
       }),
       workbenchApi.modelPackage(activeProjectId).then((item) => !controller.signal.aborted && activeProjectRef.current === activeProjectId && setModelPackage(item)),
@@ -172,7 +170,7 @@ export function ProjectHub({
     ? compatibleTaskIdsForDataset(selectedDataset, creationOptions)
     : [];
   const availablePackages = creationOptions
-    ? compatiblePackagesForTask(newTaskId, creationOptions)
+    ? compatiblePackagesForDatasetTask(selectedDataset, newTaskId, creationOptions)
     : [];
   const fixedDataset = project?.dataset_view_revision_id ? datasetByView.get(project.dataset_view_revision_id) : undefined;
   const fixedPackage = creationOptions?.model_packages.find((item) => item.id === project?.model_package_ref_id);
@@ -242,14 +240,13 @@ export function ProjectHub({
       onCreationIntentConsumed();
       return;
     }
-    const binding = initialProjectBindingForDataset(dataset, creationOptions);
     focusCreationFormRef.current = true;
     setCreateOpen(true);
     setCreateMode("empty");
     setNewProjectName(`${datasetDisplayName(dataset)} 検討`);
     setNewDatasetViewId(requestedDatasetViewId);
-    setNewTaskId(binding.taskId);
-    setNewModelPackageRefId(binding.modelPackageRefId);
+    setNewTaskId("");
+    setNewModelPackageRefId("");
     setNewProjectSeriesId("");
     setPredecessorProjectId("");
     setContinuationReason("");
@@ -569,9 +566,9 @@ export function ProjectHub({
         </div>
         <label>プロジェクト名<input ref={projectNameInputRef} value={newProjectName} onChange={(event) => setNewProjectName(event.target.value)} placeholder="例: 2026年7月 焼鈍条件の再検討" /></label>
         <div className="project-binding-flow">
-          <label><b aria-hidden="true">1</b><span>Dataset</span><select disabled={createMode === "copy"} value={newDatasetViewId} onChange={(event) => { const viewId = event.target.value; const dataset = datasetByView.get(viewId); const binding = creationOptions ? initialProjectBindingForDataset(dataset, creationOptions) : { taskId: "", modelPackageRefId: "" }; setNewDatasetViewId(viewId); setNewTaskId(binding.taskId); setNewModelPackageRefId(binding.modelPackageRefId); }}><option value="">選択してください</option>{(creationOptions?.dataset_views ?? []).filter((item) => item.kind === "single").map((view) => <option key={view.id} value={view.id}>{view.name} · {datasetByView.get(view.id)?.profile_revision.name}</option>)}</select></label>
-          <label><b aria-hidden="true">2</b><span>予測タスク（Prediction Task）</span><select disabled={createMode === "copy"} value={createMode === "copy" ? copyTaskId : newTaskId} onChange={(event) => { const taskId = event.target.value; const packages = creationOptions ? compatiblePackagesForTask(taskId, creationOptions) : []; setNewTaskId(taskId); setNewModelPackageRefId(packages.length === 1 ? packages[0].id : ""); }}><option value="">選択してください</option>{catalog.filter((item) => availableTaskIds.includes(item.definition.task_definition.id)).map((item) => <option key={item.definition.task_definition.id} value={item.definition.task_definition.id}>{item.definition.task_definition.label}</option>)}</select></label>
-          <label><b aria-hidden="true">3</b><span>Model Package</span><select disabled={createMode === "copy"} value={newModelPackageRefId} onChange={(event) => setNewModelPackageRefId(event.target.value)}><option value="">選択してください</option>{availablePackages.map((item) => <option key={item.id} value={item.id}>{modelPackageDisplayName(item)}</option>)}</select></label>
+          <label><b aria-hidden="true">1</b><span>Dataset</span><select disabled={createMode === "copy"} value={newDatasetViewId} onChange={(event) => { setNewDatasetViewId(event.target.value); setNewTaskId(""); setNewModelPackageRefId(""); }}><option value="">選択してください</option>{(creationOptions?.dataset_views ?? []).filter((item) => item.kind === "single").map((view) => <option key={view.id} value={view.id}>{view.name} · {datasetByView.get(view.id)?.profile_revision.name}</option>)}</select></label>
+          <label><b aria-hidden="true">2</b><span>予測タスク（Prediction Task）</span><select disabled={createMode === "copy" || !newDatasetViewId} value={createMode === "copy" ? copyTaskId : newTaskId} onChange={(event) => { setNewTaskId(event.target.value); setNewModelPackageRefId(""); }}><option value="">{newDatasetViewId ? "選択してください" : "先にDatasetを選択"}</option>{catalog.filter((item) => availableTaskIds.includes(item.definition.task_definition.id)).map((item) => <option key={item.definition.task_definition.id} value={item.definition.task_definition.id}>{item.definition.task_definition.label}</option>)}</select></label>
+          <label><b aria-hidden="true">3</b><span>Model Package</span><select disabled={createMode === "copy" || !newTaskId} value={newModelPackageRefId} onChange={(event) => setNewModelPackageRefId(event.target.value)}><option value="">{newTaskId ? "手法を選択してください" : "先にPrediction Taskを選択"}</option>{availablePackages.map((item) => <option key={item.id} value={item.id}>{modelPackageDisplayName(item)}</option>)}</select></label>
           <label><b aria-hidden="true">4</b><span>所属グループ</span><select value={newProjectSeriesId} onChange={(event) => setNewProjectSeriesId(event.target.value)}><option value="">新しいグループを作成</option>{activeProjectSeries.map((series) => <option key={series.id} value={series.id}>{series.name}</option>)}</select></label>
         </div>
         <section className="project-binding-confirmation" aria-label="作成後に固定される内容">
