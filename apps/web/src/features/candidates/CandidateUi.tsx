@@ -8,6 +8,7 @@ import { formatDisplayNumber, formatInputNumber, type DisplayDecimalOverrides } 
 import { formatPredictionPoint, predictionHasInterval, predictionIntervalLabel } from "../../shared/predictionPresentation";
 import { assessPrediction } from "../../shared/outputPresentation";
 import { hasValidTargetGoal, targetGoalText, type TargetGoal } from "../../shared/targetGoals";
+import { buildCandidateDecisionSummary } from "./decisionSummary";
 
 const saveLabels: Record<CandidateSaveState, string> = {
   idle: "",
@@ -353,6 +354,19 @@ export function ComparisonTable({
   };
   const support = (value?: string) => value === "supported" ? "範囲内" : value === "caution" ? "要確認" : value === "extrapolated" ? "外挿" : "未計算";
   const formatNumber = (value: number) => value.toLocaleString("ja-JP", { maximumFractionDigits: 1 });
+  const decisionSummary = buildCandidateDecisionSummary({
+    candidateIds: candidates.map((candidate) => candidate.id),
+    outputKeys: outputs.map((output) => output.key),
+    previewsByCandidate,
+  });
+  const configuredTargetCount = outputs.filter((output) => hasValidTargetGoal(targetValues[output.key])).length;
+  const selectedCandidate = candidates.find((candidate) => candidate.id === selectedId);
+  const supportConcernCount = decisionSummary.supportCounts.caution + decisionSummary.supportCounts.extrapolated;
+  const uncertaintyMessage = decisionSummary.assessableOutputKeys.length === 0
+    ? "予測区間の比較を準備しています。"
+    : decisionSummary.overlappingOutputKeys.length > 0
+      ? `${decisionSummary.overlappingOutputKeys.length} / ${decisionSummary.assessableOutputKeys.length}特性で全候補の予測区間が重なっています。点予測の差だけでは優劣を決めにくい状態です。`
+      : "候補間の差が予測区間にも表れています。近い実績と支持範囲を合わせて確認してください。";
   const predictionValue = (prediction: ApiPreview["predictions"][string], outputKey: string) => prediction.target_kind === "continuous" || prediction.target_kind === "continuous_positive" || prediction.target_kind === "count"
     ? formatDisplayNumber(prediction.value, taskDefinition, `output.${outputKey}`, displayDecimalOverrides)
     : formatPredictionPoint(prediction, formatNumber);
@@ -379,6 +393,39 @@ export function ComparisonTable({
   };
   return (
     <div className="candidate-comparison">
+      <aside className="candidate-decision-summary" aria-label="候補比較の判断サマリー">
+        <div className="candidate-decision-summary-heading">
+          <strong>判断サマリー</strong>
+          <span>選択中: {selectedCandidate?.label ?? "—"}</span>
+        </div>
+        <dl>
+          <div>
+            <dt>目標</dt>
+            <dd className={configuredTargetCount === outputs.length ? "is-ready" : "needs-attention"}>
+              {configuredTargetCount} / {outputs.length}特性
+            </dd>
+          </div>
+          <div>
+            <dt>支持範囲</dt>
+            <dd className={supportConcernCount > 0 ? "needs-attention" : "is-ready"}>
+              {decisionSummary.loadedCandidateCount === 0 ? "確認中" : supportConcernCount > 0 ? `${supportConcernCount}候補を要確認` : "全候補が範囲内"}
+            </dd>
+          </div>
+          <div>
+            <dt>区間の重なり</dt>
+            <dd className={decisionSummary.overlappingOutputKeys.length > 0 ? "needs-attention" : "is-ready"}>
+              {decisionSummary.assessableOutputKeys.length === 0
+                ? "確認中"
+                : `${decisionSummary.overlappingOutputKeys.length} / ${decisionSummary.assessableOutputKeys.length}特性`}
+            </dd>
+          </div>
+        </dl>
+        <p>
+          {configuredTargetCount === 0
+            ? "目標値が未設定です。目標を設定すると、達成確率を比較できます。"
+            : uncertaintyMessage}
+        </p>
+      </aside>
       <div className="comparison-grid-viewport">
         <section
           ref={comparisonGridRef}
