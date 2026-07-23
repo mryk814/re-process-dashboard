@@ -20,6 +20,7 @@ ANNEALED_TASK_ID = "annealed-properties-v1"
 HOT_ROLLING_TASK_ID = "hot-rolled-properties-v1"
 FLANK_WEAR_TASK_ID = "flank-wear-v1"
 PRIMARY_DEFAULT_SOURCE = Path("data/source/material_workbench_tutorial_v1.xlsx")
+PROCESS_SOURCE = Path("data/source/material_workbench_process_v1.xlsx")
 
 
 @runtime_checkable

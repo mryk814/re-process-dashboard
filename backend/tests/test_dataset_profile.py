@@ -27,13 +27,10 @@ from material_workbench.task_modules import registered_task_modules
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = ROOT / "data" / "source" / "process_dashboard_realistic_excel_v2.xlsx"
-V3_SOURCE = ROOT / "data" / "source" / "process_dashboard_realistic_excel_v3.xlsx"
-V5_SOURCE = ROOT / "data" / "source" / "process_dashboard_two_equipment_v5.xlsx"
-V7_SOURCE = ROOT / "data" / "source" / "process_dashboard_two_equipment_v7.xlsx"
-V8_SOURCE = ROOT / "data" / "source" / "process_dashboard_two_equipment_v8.xlsx"
 TUTORIAL_SOURCE = ROOT / "data" / "source" / "material_workbench_tutorial_v1.xlsx"
-PROFILE = ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-v1.json"
+PROCESS_SOURCE = ROOT / "data" / "source" / "material_workbench_process_v1.xlsx"
+SOURCE = TUTORIAL_SOURCE
+PROFILE = ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-tutorial-base.json"
 
 
 def test_tutorial_profile_keeps_relations_repeats_and_partial_targets_explicit() -> None:
@@ -105,13 +102,13 @@ def test_reordered_columns_and_unmapped_metadata_do_not_change_canonical_values(
     assert actual.medians == baseline.medians
 
     def representative_vector(data) -> np.ndarray:
-        parent = "AN-00001"
+        parent = "AN-01"
         process = data.anneal_features[parent]
         observation = next(row for row in data.observations if row["parent_key"] == parent)
         candidate = CandidateInput(
             name="dataset-profile-golden",
             inputs={
-                "composition": data.composition["ME-00001"],
+                "composition": data.composition["ME-01"],
                 "process": {"ls_mpm": process["ls_mpm"]},
                 "categorical": {},
                 "heat_pattern": [
@@ -123,16 +120,16 @@ def test_reordered_columns_and_unmapped_metadata_do_not_change_canonical_values(
         return build_feature_bundle(candidate).values
 
     expected = representative_vector(baseline)
-    assert expected.shape == (30,)
+    assert expected.shape == (42,)
     assert np.isfinite(expected).all()
     np.testing.assert_allclose(representative_vector(actual), expected, rtol=1e-12, atol=1e-12)
 
     def representative_hot_vector(data) -> np.ndarray:
-        process = data.hot_rolling_features["HR-00001"]
+        process = data.hot_rolling_features["HR-01"]
         candidate = CandidateInput(
             name="hot-dataset-profile-golden",
             inputs={
-                "composition": data.composition["ME-00001"],
+                "composition": data.composition["ME-01"],
                 "process": {
                     key: process[key]
                     for key in (
@@ -147,7 +144,7 @@ def test_reordered_columns_and_unmapped_metadata_do_not_change_canonical_values(
         return build_hot_rolling_features(candidate, data.medians).values
 
     hot_expected = representative_hot_vector(baseline)
-    assert hot_expected.shape == (25,)
+    assert hot_expected.shape == (37,)
     assert np.isfinite(hot_expected).all()
     np.testing.assert_allclose(representative_hot_vector(actual), hot_expected, rtol=1e-12, atol=1e-12)
 
@@ -312,19 +309,19 @@ def test_preflight_executes_declared_parent_consistency(tmp_path: Path) -> None:
 def test_canonical_entities_separate_values_from_source_metadata() -> None:
     workbook = load_workbook(SOURCE, read_only=True, data_only=True)
     dataset = canonicalize_workbook(workbook, load_dataset_profile())
-    entity = dataset.entities[("melt", "ME-00001")]
+    entity = dataset.entities[("melt", "ME-01")]
     anneal_values = entity.values["annealed-properties-v1"]
 
     assert set(anneal_values) == {f"composition.{name}" for name in ("C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N")}
     assert "プロジェクト名" in entity.source_metadata
     assert entity.source_locator == {"sheet": "溶製", "row": 2}
-    anneal = dataset.entities[("annealing", "AN-00001")]
+    anneal = dataset.entities[("annealing", "AN-01")]
     anneal_feature_row = next(
         row for row in dataset.rows("anneal_features")
-        if dataset.technical_value(row, "anneal_features", "parent_key") == "AN-00001"
+        if dataset.technical_value(row, "anneal_features", "parent_key") == "AN-01"
     )
     assert dataset.value(anneal_feature_row, "annealed-properties-v1", "process.ls_mpm") > 0
-    assert len(anneal.values["annealed-properties-v1"]["heat_pattern"]) == 14
+    assert len(anneal.values["annealed-properties-v1"]["heat_pattern"]) == 6
 
 
 def test_canonical_entity_identity_does_not_merge_equal_keys_across_types() -> None:
@@ -365,10 +362,10 @@ def test_lineage_candidate_uses_profile_key_mapping_not_external_header_names(tm
     workbook.close()
 
     data = load_workbook_data(source, profile_path)
-    candidate = candidate_from_lineage(data, "AN-00001")
+    candidate = candidate_from_lineage(data, "AN-01")
 
-    assert len(data.composition) == 120
-    assert candidate.inputs.composition == data.composition["ME-00001"]
+    assert len(data.composition) == 4
+    assert candidate.inputs.composition == data.composition["ME-01"]
 
 
 def test_importer_accepts_task_and_profile_composition_addition_without_code_change(tmp_path: Path) -> None:
@@ -410,147 +407,21 @@ def test_importer_accepts_task_and_profile_composition_addition_without_code_cha
 
     data = load_workbook_data(source, profile_path, definitions)
 
-    assert data.composition["ME-00001"]["V"] == pytest.approx(0.0123)
+    assert data.composition["ME-01"]["V"] == pytest.approx(0.0123)
 
 
-def test_current_workbook_entity_and_eligibility_golden() -> None:
-    data = load_workbook_data(SOURCE)
-    assert {key: len(rows) for key, rows in data.entities.items()} == {
-        "溶製_key": 120, "熱延_key": 225, "冷延_key": 178, "焼鈍_key": 196,
-        "熱延引張_key": 388, "熱延組織_key": 259, "焼鈍引張_key": 292,
-        "焼鈍穴広げ_key": 532, "焼鈍組織_key": 219,
-    }
-    eligible = {}
-    for observation in data.observations:
-        key = (observation["source"], observation["eligible"])
-        eligible[key] = eligible.get(key, 0) + 1
-    assert eligible == {
-        ("熱延引張", True): 370, ("熱延引張", False): 18,
-        ("焼鈍引張", True): 283, ("焼鈍引張", False): 9,
-        ("焼鈍穴広げ", True): 512, ("焼鈍穴広げ", False): 20,
-    }
-    assert data.composition["ME-00001"] == {
-        "C": 0.04232, "Si": 0.1678, "Mn": 0.80214, "P": 0.00973, "S": 0.0059,
-        "Al": 0.03804, "Cu": 0.0, "Ni": 0.07294, "Cr": 0.01699, "Mo": 0.0,
-        "Ti": 0.00592, "B": 0.0003, "O": 0.00256, "N": 0.00443,
-    }
-    workbook = load_workbook(SOURCE, read_only=True, data_only=True)
-    canonical = canonicalize_workbook(workbook, load_dataset_profile())
-    workbook.close()
-    assert len(canonical.relations) == 1905
-    assert canonical.relations[0] == {
-        "melt": ("melt", "ME-00001"),
-        "hot_rolling": ("hot_rolling", "HR-00001"),
-        "hot_tensile": ("hot_tensile", "HT-00001"),
-    }
-    assert canonical.entities[("hot_rolling", "HR-00001")].values["hot-rolled-properties-v1"] == {
-        "process.soaking_temperature_c": 1168.038,
-        "process.finish_temperature_c": 904.873,
-        "process.entry_thickness_mm": 33.318,
-        "process.exit_thickness_mm": 3.459,
-        "process.hold_temperature_c": 1168.038,
-        "process.hold_time_min": 29.341,
-    }
-
-
-def test_v3_source_auto_selects_its_profile_and_preserves_canonical_flow() -> None:
-    assert detect_dataset_profile_path(V3_SOURCE).name == "dataset-input-profile-v3.json"
-    data = load_workbook_data(V3_SOURCE)
-
-    assert data.profile_id == "process-dashboard-realistic-v3"
-    assert data.relation_sheet == "relationEx"
-    assert len(data.sheets[data.relation_sheet]) == 1905
-    assert len(data.composition) == 120
-    assert len(data.anneal_features) == 196
-    assert len(data.observations) == 1212
-    assert data.quality == []
-    assert data.anneal_features["AN-00001"]["heat_pattern"][0] == {
-        "time_s": 2.533,
-        "temperature_c": 35.0,
-        "stage_name": "入口",
-    }
-    assert data.observations[0]["source"] in {"熱延引張実績", "焼鈍引張実績", "焼鈍穴拡げ実績"}
-
-
-def test_v5_source_auto_selects_additional_profile_and_maps_concrete_stages() -> None:
-    assert detect_dataset_profile_path(V5_SOURCE).name == "dataset-input-profile-v5.json"
-    data = load_workbook_data(V5_SOURCE)
-
-    assert data.profile_id == "process-dashboard-two-equipment-v5"
-    assert data.relation_sheet == "relationEx"
-    assert len(data.composition) == 120
-    assert len(data.anneal_features) == 196
-    assert data.anneal_features["AN-00001"]["heat_pattern"][0] == {
-        "time_s": 2.533,
-        "temperature_c": 35.0,
-        "stage_name": "入口",
-        "stage_category": "ENTRY",
-        "mapping_status": "工程辞書一致",
-    }
-    reheat = next(
-        point for point in data.anneal_features["AN-00001"]["heat_pattern"]
-        if point["stage_name"] == "加熱3"
-    )
-    assert reheat["stage_category"] == "REHEAT"
-    assert reheat["mapping_status"] == "工程辞書一致"
-
-
-def test_v7_source_resolves_relation_parents_coalesces_measurements_and_derives_history() -> None:
-    assert detect_dataset_profile_path(V7_SOURCE).name == "dataset-input-profile-v7.json"
-    data = load_workbook_data(V7_SOURCE)
-
-    assert data.profile_id == "process-dashboard-two-equipment-v7"
-    assert len(data.composition) == 120
-    assert len(data.anneal_features) == 196
-    assert len(data.sheets["焼鈍履歴"]) == 3507
-    assert len(data.detected_quality) == 44
-
-    first = data.anneal_features["AN-00001"]
-    assert first["ls_mpm"] == pytest.approx(119.742)
-    assert first["input_points"] == 18
-    assert first["feature_eligible"] is True
-    assert first["unmapped_stage_count"] == 0
-    assert first["heat_pattern"][0] == {
-        "time_s": 0.0,
-        "temperature_c": 34.3,
-        "stage_name": "開始",
-        "stage_category": "ENTRY",
-        "mapping_status": "工程辞書一致",
-    }
-    assert {point["stage_name"] for feature in data.anneal_features.values() for point in feature["heat_pattern"]} == {
-        item.raw_name for item in load_dataset_profile(data.profile_path).stage_mappings
-    }
-
-    annealed = [row for row in data.observations if row["task_id"] == "annealed-properties-v1"]
-    tensile = [row for row in annealed if row["source"] == "焼鈍引張実績"]
-    assert len(tensile) == 292
-    assert all(row["parent_key"].startswith("AN-") for row in tensile)
-    assert sum("YS[MPa]" in row["outputs"] for row in tensile) == 292
-    assert sum("TS[MPa]" in row["outputs"] for row in tensile) == 292
-    assert sum("EL[%]" in row["outputs"] for row in tensile) == 292
-
-    hot = [row for row in data.observations if row["task_id"] == "hot-rolled-properties-v1"]
-    assert sum("TS[MPa]" in row["outputs"] for row in hot) == 348
-    assert any("TS[MPa]" in row["outputs"] and "一様伸び[%]" not in row["outputs"] for row in hot)
-    assert {row["test_direction"] for row in hot} == {"L", "C"}
-    assert {row["test_direction"] for row in hot if row["eligible"]} == {"L", "C"}
-    unresolved = next(row for row in hot if row["id"] == "HT-00388")
-    assert unresolved["eligible"] is False
-    assert unresolved["parent_key"] == ""
-
-
-def test_v8_source_maps_renamed_prediction_fields_and_tolerates_optional_context() -> None:
+def test_process_source_maps_prediction_fields_and_tolerates_optional_context() -> None:
     profile_document = json.loads(
         (
             ROOT / "backend" / "src" / "material_workbench" / "data"
-            / "dataset-input-profile-v8.json"
+            / "dataset-input-profile-process-v1.json"
         ).read_text(encoding="utf-8")
     )
     assert "extends" not in profile_document
-    assert detect_dataset_profile_path(V8_SOURCE).name == "dataset-input-profile-v8.json"
-    data = load_workbook_data(V8_SOURCE)
+    assert detect_dataset_profile_path(PROCESS_SOURCE).name == "dataset-input-profile-process-v1.json"
+    data = load_workbook_data(PROCESS_SOURCE)
 
-    assert data.profile_id == "process-dashboard-two-equipment-v8"
+    assert data.profile_id == "material-workbench-process-v1"
     assert len(data.composition) == 120
     assert len(data.anneal_features) == 196
     assert data.hot_rolling_features["HR-00001"]["equipment"] == ""
@@ -579,13 +450,13 @@ def test_v8_source_maps_renamed_prediction_fields_and_tolerates_optional_context
     assert {row["test_direction"] for row in hot} == {None}
 
 
-def test_v7_derives_heat_pattern_from_measurement_master_when_history_is_absent(
+def test_process_derives_heat_pattern_from_measurement_master_when_history_is_absent(
     tmp_path: Path,
 ) -> None:
-    workbook = load_workbook(V7_SOURCE, read_only=False, data_only=True)
+    workbook = load_workbook(PROCESS_SOURCE, read_only=False, data_only=True)
     workbook.remove(workbook["焼鈍履歴"])
     profile = load_dataset_profile(
-        ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-v7.json"
+        ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-process-v1.json"
     )
 
     canonical = canonicalize_workbook(workbook, profile)
@@ -618,76 +489,8 @@ def test_v7_derives_heat_pattern_from_measurement_master_when_history_is_absent(
     assert candidate.inputs.heat_pattern[1].mapping_status == "測定点マスタ補完"
 
 
-def test_v7_explicit_heat_history_takes_priority_over_measurement_master() -> None:
-    workbook = load_workbook(V7_SOURCE, read_only=False, data_only=True)
-    master = workbook["測定点マスタ"]
-    position_column = next(
-        cell.column for cell in master[1] if cell.value == "入口からの距離[m]"
-    )
-    phf_row = next(
-        cell.row for cell in master["E"] if cell.value == "PHF"
-    )
-    master.cell(phf_row, position_column).value = 16.0
-    profile = load_dataset_profile(
-        ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-v7.json"
-    )
-
-    canonical = canonicalize_workbook(workbook, profile)
-    points = canonical.entities[("annealing", "AN-00001")].values[
-        "annealed-properties-v1"
-    ]["heat_pattern"]
-    phf = next(point for point in points if point["stage_name"] == "PHF")
-
-    assert phf["time_s"] == pytest.approx(60 * 15 / 119.742)
-    assert phf["mapping_status"] == "工程辞書一致"
-
-
-@pytest.mark.parametrize(
-    ("mutation", "expected_error"),
-    [
-        ("decreasing_position", "positions must increase"),
-        ("missing_history_time_header", "existing ordered heat series sheet"),
-        ("missing_history_stage_header", "existing ordered heat series sheet"),
-    ],
-)
-def test_v7_rejects_heat_series_inputs_that_would_silently_change_the_pattern(
-    mutation: str,
-    expected_error: str,
-) -> None:
-    workbook = load_workbook(V7_SOURCE, read_only=False, data_only=True)
-    if mutation in {
-        "missing_history_time_header",
-        "missing_history_stage_header",
-    }:
-        history = workbook["焼鈍履歴"]
-        target = (
-            "到達時間[秒]"
-            if mutation == "missing_history_time_header"
-            else "工程"
-        )
-        column = next(cell.column for cell in history[1] if cell.value == target)
-        history.cell(1, column).value = f"broken-{target}"
-    else:
-        workbook.remove(workbook["焼鈍履歴"])
-        if mutation == "decreasing_position":
-            master = workbook["測定点マスタ"]
-            position_column = next(
-                cell.column for cell in master[1] if cell.value == "入口からの距離[m]"
-            )
-            phf_row = next(cell.row for cell in master["E"] if cell.value == "PHF")
-            master.cell(phf_row, position_column).value = 999.0
-    profile = load_dataset_profile(
-        ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-v7.json"
-    )
-
-    with pytest.raises(DatasetProfileError) as caught:
-        canonicalize_workbook(workbook, profile)
-
-    assert any(expected_error in error for error in caught.value.errors)
-
-
-def test_v7_allows_master_stage_unused_by_current_condition_data() -> None:
-    workbook = load_workbook(V7_SOURCE, read_only=False, data_only=True)
+def test_process_allows_master_stage_unused_by_current_condition_data() -> None:
+    workbook = load_workbook(PROCESS_SOURCE, read_only=False, data_only=True)
     workbook.remove(workbook["焼鈍履歴"])
     annealing = workbook["焼鈍条件-3CGL"]
     phf_column = next(
@@ -696,7 +499,7 @@ def test_v7_allows_master_stage_unused_by_current_condition_data() -> None:
     annealing.cell(1, phf_column).value = "未使用工程のため条件列なし"
     profile = load_dataset_profile(
         ROOT / "backend" / "src" / "material_workbench" / "data"
-        / "dataset-input-profile-v7.json"
+        / "dataset-input-profile-process-v1.json"
     )
 
     canonical = canonicalize_workbook(workbook, profile)
@@ -707,8 +510,8 @@ def test_v7_allows_master_stage_unused_by_current_condition_data() -> None:
     assert {point["mapping_status"] for point in points} == {"測定点マスタ補完"}
 
 
-def test_v7_accepts_parent_without_history_or_derivable_measurement_series() -> None:
-    workbook = load_workbook(V7_SOURCE, read_only=False, data_only=True)
+def test_process_accepts_parent_without_history_or_derivable_measurement_series() -> None:
+    workbook = load_workbook(PROCESS_SOURCE, read_only=False, data_only=True)
     workbook.remove(workbook["焼鈍履歴"])
     annealing = workbook["焼鈍条件-3CGL"]
     key_column = next(
@@ -723,74 +526,13 @@ def test_v7_accepts_parent_without_history_or_derivable_measurement_series() -> 
     )
     annealing.cell(row, entry_column).value = None
     profile = load_dataset_profile(
-        ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-v7.json"
+        ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-process-v1.json"
     )
 
     canonical = canonicalize_workbook(workbook, profile)
 
     assert ("annealing", "AN-00001") in canonical.entities
     assert ("annealing", "AN-00001") not in canonical.heat_series
-
-
-def test_v7_partial_explicit_history_uses_measurement_master_fallback() -> None:
-    workbook = load_workbook(V7_SOURCE, read_only=False, data_only=True)
-    history = workbook["焼鈍履歴"]
-    time_column = next(
-        cell.column for cell in history[1] if cell.value == "到達時間[秒]"
-    )
-    history.cell(2, time_column).value = None
-    profile = load_dataset_profile(
-        ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-v7.json"
-    )
-
-    canonical = canonicalize_workbook(workbook, profile)
-    points = canonical.heat_series[("annealing", "AN-00001")]
-
-    assert len(points) >= 2
-    assert {point["mapping_status"] for point in points} == {"測定点マスタ補完"}
-
-
-def test_v7_complete_history_without_condition_remains_training_eligible(
-    tmp_path: Path,
-) -> None:
-    workbook = load_workbook(V7_SOURCE, read_only=False, data_only=True)
-    annealing = workbook["焼鈍条件-3CGL"]
-    condition_key_column = next(
-        cell.column for cell in annealing[1]
-        if cell.value == "焼鈍条件-3CGL_key**"
-    )
-    condition_row = next(
-        cells[0].row
-        for cells in annealing.iter_rows(
-            min_col=condition_key_column,
-            max_col=condition_key_column,
-        )
-        if cells[0].value == "AN-00001"
-    )
-    annealing.delete_rows(condition_row)
-
-    source = tmp_path / "history-without-condition.xlsx"
-    workbook.save(source)
-    data = load_workbook_data(
-        source,
-        ROOT / "backend" / "src" / "material_workbench" / "data"
-        / "dataset-input-profile-v7.json",
-    )
-
-    feature = data.anneal_features["AN-00001"]
-    assert feature["feature_eligible"] is True
-    assert feature["ls_mpm"] == pytest.approx(119.742, rel=0.01)
-    observations = [
-        row for row in data.observations
-        if row["task_id"] == "annealed-properties-v1"
-        and row["parent_key"] == "AN-00001"
-    ]
-    assert observations
-    assert all(row["eligible"] for row in observations)
-    assert all(
-        "焼鈍条件が学習対象外です" not in row["eligibility_reasons"]
-        for row in observations
-    )
 
 
 def test_invalid_workbook_stops_before_runtime_and_database_initialization(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -11,7 +11,7 @@ from material_workbench.modeling.model_packages import ModelPackageLoader
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = ROOT / "data" / "source" / "process_dashboard_realistic_excel_v2.xlsx"
+SOURCE = ROOT / "data" / "source" / "material_workbench_tutorial_v1.xlsx"
 sys.path.insert(0, str(ROOT / "backend" / "scripts"))
 
 import build_hot_rolling_model_package as builder  # noqa: E402
@@ -42,7 +42,7 @@ def test_builder_emits_ts_only_hot_rolling_package(tmp_path: Path) -> None:
     expected = json.loads((destination / "smoke" / "expected.json").read_text(encoding="utf-8"))
     stats = json.loads((destination / "reference" / "training_stats.json").read_text(encoding="utf-8"))
 
-    assert manifest["package_id"] == "hot-rolled-horseshoe-2026-07-feature-design-v3"
+    assert manifest["package_id"] == "hot-rolled-tutorial-v1"
     assert manifest["package_version"] == "1.1.0-feature-design-v3"
     assert [predictor["target"] for predictor in manifest["predictors"]] == ["TS"]
     assert {artifact["path"] for artifact in manifest["artifacts"] if artifact["path"].startswith("model-artifacts/")} == {

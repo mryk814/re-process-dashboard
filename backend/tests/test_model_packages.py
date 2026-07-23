@@ -197,10 +197,10 @@ def test_builtin_linear_package_and_registry_are_dependency_free(tmp_path: Path)
 def test_checked_in_individual_observation_packages_expose_distinct_uncertainty_components() -> None:
     root = Path(__file__).resolve().parents[2]
     hetero = ModelPackageLoader().load(
-        root / "models" / "packages" / "annealed-heteroscedastic-gp-2026-07-v8-v1"
+        root / "models" / "packages" / "annealed-heteroscedastic-gp-process-v1"
     )
     hierarchical = ModelPackageLoader().load(
-        root / "models" / "packages" / "annealed-hierarchical-bayes-2026-07-v8-v1"
+        root / "models" / "packages" / "annealed-hierarchical-bayes-process-v1"
     )
     for package in (hetero, hierarchical):
         spec = package.manifest.predictors[0]
@@ -315,8 +315,8 @@ def test_loader_rejects_unknown_pipeline_document_fields(tmp_path: Path) -> None
 @pytest.mark.parametrize(
     ("task_id", "package_id", "package_version", "pipeline_version"),
     [
-        ("annealed-properties-v1", "annealed-gp-2026-07-feature-design-v3", "1.0.0-feature-design-v3", "3.0.0"),
-        ("hot-rolled-properties-v1", "hot-rolled-horseshoe-2026-07-feature-design-v3", "1.1.0-feature-design-v3", "3.0.0"),
+        ("annealed-properties-v1", "annealed-gp-stable-ard-tutorial-v1", "2.0.0-stable-ard", "3.0.0"),
+        ("hot-rolled-properties-v1", "hot-rolled-tutorial-v1", "1.1.0-feature-design-v3", "3.0.0"),
     ],
 )
 def test_checked_in_packages_match_task_definition_canonical_input_order(

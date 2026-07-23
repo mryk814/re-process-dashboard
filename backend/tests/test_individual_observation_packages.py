@@ -6,15 +6,15 @@ from material_workbench.app import _prepare_app_resources, create_app
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = ROOT / "data" / "source" / "process_dashboard_two_equipment_v8.xlsx"
+SOURCE = ROOT / "data" / "source" / "material_workbench_process_v1.xlsx"
 
 
-def test_v8_registers_and_runs_standard_and_individual_observation_packages(tmp_path: Path) -> None:
+def test_process_registers_and_runs_standard_and_individual_observation_packages(tmp_path: Path) -> None:
     resources = _prepare_app_resources(
         SOURCE,
         package_roots={
-            "annealed-properties-v1": ROOT / "models" / "packages" / "annealed-gp-2026-07-v8-feature-design-v3-r2",
-            "hot-rolled-properties-v1": ROOT / "models" / "packages" / "hot-rolled-horseshoe-2026-07-v8-feature-design-v3-r2",
+            "annealed-properties-v1": ROOT / "models" / "packages" / "annealed-gp-stable-ard-process-v1",
+            "hot-rolled-properties-v1": ROOT / "models" / "packages" / "hot-rolled-horseshoe-process-v1",
         },
     )
     app = create_app(db_path=tmp_path / "workbench.db", _resources=resources)
@@ -101,11 +101,10 @@ def test_v8_registers_and_runs_standard_and_individual_observation_packages(tmp_
             if item["task_id"] == "annealed-properties-v1"
         ]
         assert {item["package_id"] for item in annealed_packages} >= {
-            "annealed-gp-2026-07-v8-feature-design-v3-r2",
-            "annealed-gp-stable-ard-v8-v1",
-            "annealed-lightgbm-standard-v8-v1",
-            "annealed-heteroscedastic-gp-2026-07-v8-v1",
-            "annealed-hierarchical-bayes-2026-07-v8-v1",
+            "annealed-gp-stable-ard-process-v1",
+            "annealed-lightgbm-standard-process-v1",
+            "annealed-heteroscedastic-gp-process-v1",
+            "annealed-hierarchical-bayes-process-v1",
         }
         dataset = next(
             item for item in options["datasets"]
@@ -114,10 +113,10 @@ def test_v8_registers_and_runs_standard_and_individual_observation_packages(tmp_
         )
         dataset_view = dataset["dataset_views"][0]
         package_training_units = {
-            "annealed-gp-stable-ard-v8-v1": "parent_condition_mean",
-            "annealed-lightgbm-standard-v8-v1": "parent_condition_mean",
-            "annealed-heteroscedastic-gp-2026-07-v8-v1": "individual_observation",
-            "annealed-hierarchical-bayes-2026-07-v8-v1": "individual_observation",
+            "annealed-gp-stable-ard-process-v1": "parent_condition_mean",
+            "annealed-lightgbm-standard-process-v1": "parent_condition_mean",
+            "annealed-heteroscedastic-gp-process-v1": "individual_observation",
+            "annealed-hierarchical-bayes-process-v1": "individual_observation",
         }
         for package_id, training_unit in package_training_units.items():
             package = next(item for item in annealed_packages if item["package_id"] == package_id)

@@ -3,9 +3,10 @@
   "packages": [
     "packages/annealed-gp-stable-ard-tutorial-v1",
     "packages/annealed-lightgbm-standard-tutorial-v1",
-    "packages/annealed-gp-stable-ard-v8-v1",
-    "packages/annealed-lightgbm-standard-v8-v1",
-    "packages/annealed-heteroscedastic-gp-2026-07-v8-v1",
-    "packages/annealed-hierarchical-bayes-2026-07-v8-v1"
+    "packages/annealed-gp-stable-ard-process-v1",
+    "packages/annealed-lightgbm-standard-process-v1",
+    "packages/annealed-heteroscedastic-gp-process-v1",
+    "packages/annealed-hierarchical-bayes-process-v1",
+    "packages/hot-rolled-horseshoe-process-v1"
   ]
 }

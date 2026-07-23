@@ -21,7 +21,7 @@ from material_workbench.modeling.model_package_verify import verify_model_packag
 from material_workbench.tasks.task_registry import load_task_contracts
 
 
-PACKAGE_ID = "hot-rolled-horseshoe-2026-07-feature-design-v3"
+PACKAGE_ID = "hot-rolled-tutorial-v1"
 PACKAGE_VERSION = "1.1.0-feature-design-v3"
 TRAINING_CODE_REVISION = "1.1.0-feature-design-v3"
 TASK_ID = "hot-rolled-properties-v1"
@@ -336,8 +336,8 @@ def build(source: Path, destination: Path, *, replace: bool = False, package_id:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--source", type=Path, default=Path("data/source/process_dashboard_realistic_excel_v2.xlsx"))
-    parser.add_argument("--output", type=Path, default=Path("models/packages/hot-rolled-horseshoe-2026-07-feature-design-v3"))
+    parser.add_argument("--source", type=Path, default=Path("data/source/material_workbench_tutorial_v1.xlsx"))
+    parser.add_argument("--output", type=Path, default=Path("models/packages/hot-rolled-tutorial-v1"))
     parser.add_argument("--replace", action="store_true")
     parser.add_argument("--package-id", default=PACKAGE_ID)
     arguments = parser.parse_args()

@@ -236,7 +236,7 @@ def test_unknown_or_non_finite_composition_is_rejected() -> None:
 
 
 def test_annealed_training_row_uses_the_candidate_pipeline() -> None:
-    source = Path(__file__).parents[2] / "data" / "source" / "process_dashboard_realistic_excel_v2.xlsx"
+    source = Path(__file__).parents[2] / "data" / "source" / "material_workbench_tutorial_v1.xlsx"
     data = load_workbook_data(source)
     row = next(item for item in data.observations if item["source"] == "焼鈍引張" and item["eligible"])
     candidate = candidate_from_observation(row)

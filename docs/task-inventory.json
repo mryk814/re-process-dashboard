@@ -42,7 +42,7 @@
       },
       "active_package": {
         "path": "packages/annealed-gp-stable-ard-tutorial-v1",
-        "previous": "packages/annealed-gp-tutorial-v1",
+        "previous": null,
         "package_id": "annealed-gp-stable-ard-tutorial-v1",
         "version": "2.0.0-stable-ard",
         "manifest_sha256": "13aa9ee4b61a3be3a5a4b915d82ce694ee8fb60b368256c396c793c3c813d56c",
@@ -88,7 +88,7 @@
       },
       "active_package": {
         "path": "packages/hot-rolled-tutorial-v1",
-        "previous": "packages/hot-rolled-horseshoe-2026-07-feature-design-v3",
+        "previous": null,
         "package_id": "hot-rolled-tutorial-v1",
         "version": "1.1.0-feature-design-v3",
         "manifest_sha256": "3604d3cf44c74b0aabfaa6a4baa65a59fd82f9d32b53c76f2cca254fd04bfce8",

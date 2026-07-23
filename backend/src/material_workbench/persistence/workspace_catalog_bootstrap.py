@@ -11,6 +11,7 @@ from material_workbench.data.dataset_registration import (
     CANONICAL_DATASET_CONTRACT_DIGEST,
     CANONICALIZATION_CONTRACT_DIGEST,
     EXCEL_MEDIA_TYPE,
+    file_sha256,
     register_dataset_records,
 )
 from material_workbench.execution.inference_work_graph import semantic_digest
@@ -21,9 +22,15 @@ from material_workbench.contracts.schemas import (
 from material_workbench.tasks.task_registry import TaskRegistry
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from material_workbench.modeling.model_packages import ModelPackageLoader, PackageContractError
+from material_workbench.task_modules import PRIMARY_DEFAULT_SOURCE, PROCESS_SOURCE
 
 
 AVAILABLE_PACKAGES_PATH = Path("models/available-packages.json")
+PROFILE_ROOT = Path(__file__).parent.parent / "data"
+PRIMARY_DATASET_PROFILES = {
+    PRIMARY_DEFAULT_SOURCE: PROFILE_ROOT / "dataset-input-profile-tutorial.json",
+    PROCESS_SOURCE: PROFILE_ROOT / "dataset-input-profile-process-v1.json",
+}
 
 
 class WorkspaceCatalogBootstrapError(RuntimeError):
@@ -84,6 +91,21 @@ def register_runtime_resources(catalog: WorkspaceCatalog, registry: TaskRegistry
             model_package_manifest_digest=package.manifest_sha256,
         )
     return bindings
+
+
+def register_primary_datasets(catalog: WorkspaceCatalog) -> None:
+    """Keep both supported thin-sheet sources visible regardless of the active runtime."""
+
+    for source_path, profile_path in PRIMARY_DATASET_PROFILES.items():
+        register_dataset_records(
+            catalog=catalog,
+            source_path=source_path,
+            source_sha256=file_sha256(source_path),
+            profile_path=profile_path,
+            locator_kind="bundled",
+            locator=source_path,
+            name=source_path.stem,
+        )
 
 
 def register_available_packages(
@@ -219,6 +241,7 @@ def audit_project_bindings(database: str | Path) -> None:
 def bootstrap_workspace_catalog(database: str | Path, registry: TaskRegistry) -> WorkspaceCatalog:
     catalog = WorkspaceCatalog(database)
     bindings = register_runtime_resources(catalog, registry)
+    register_primary_datasets(catalog)
     register_available_packages(catalog, registry)
     bind_legacy_projects(database, catalog, bindings)
     audit_project_bindings(database)

@@ -9,7 +9,7 @@ from material_workbench.app import _AppResources, create_app
 from material_workbench.persistence.store import MAX_CANDIDATES_PER_PROJECT, Store
 
 ELEMENTS = ("C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N")
-SOURCE = Path(__file__).parents[2] / "data" / "source" / "process_dashboard_realistic_excel_v2.xlsx"
+SOURCE = Path(__file__).parents[2] / "data" / "source" / "material_workbench_tutorial_v1.xlsx"
 
 
 def _candidate(name: str) -> dict:

@@ -151,7 +151,7 @@ test("new project creation requires an explicit empty or copy choice", async ({ 
   await expect(panel.getByRole("radio", { name: /空から開始/ })).toBeVisible();
   await expect(panel.getByRole("radio", { name: /現在候補をコピー/ })).toBeVisible();
   await panel.getByLabel("プロジェクト名").fill(`空の検討 ${Date.now()}`);
-  await panel.getByRole("combobox", { name: "Dataset", exact: true }).selectOption({ label: "process_dashboard_realistic_excel_v2 · thin-sheet-workbook-v2" });
+  await panel.getByRole("combobox", { name: "Dataset", exact: true }).selectOption({ label: "material_workbench_tutorial_v1 · thin-sheet-tutorial-v1" });
   await panel.getByRole("combobox", { name: "予測タスク" }).selectOption("annealed-properties-v1");
   await panel.getByRole("radio", { name: /空から開始/ }).check();
   await panel.getByRole("button", { name: "固定してプロジェクトを作成" }).click();

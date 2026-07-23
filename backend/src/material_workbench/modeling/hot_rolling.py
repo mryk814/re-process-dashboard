@@ -61,7 +61,7 @@ class HotRollingRuntime:
     def __init__(self, data: WorkbookData, package_root: str | Path | None = None) -> None:
         self.data = data
         self.task_definition = load_task_definitions()[TASK_ID]
-        default = Path(__file__).resolve().parents[4] / "models" / "packages" / "hot-rolled-horseshoe-2026-07-feature-design-v3"
+        default = Path(__file__).resolve().parents[4] / "models" / "packages" / "hot-rolled-tutorial-v1"
         self.model_package = ModelPackageLoader().load(package_root or default)
         manifest = self.model_package.manifest
         self.feature_names = FEATURE_NAMES

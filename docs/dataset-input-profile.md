@@ -1,12 +1,10 @@
 # データセット入力プロファイル（Dataset Input Profile）
 
-各Excelデータフローの外部シート、列、単位、エンティティキー、リレーション、適格性、技術メタデータは、`backend/src/material_workbench/dataset-input-profile-*.json` で管理します。
-既存のv2フローは `dataset-input-profile-v1.json`、別名の列と未加工の履歴を持つv3フローは `dataset-input-profile-v3.json`、具体的な2設備の工程名を持つv5フローは `dataset-input-profile-v5.json` です。
-部分欠損、リレーションによる親解決、測定点マスターを持つv7フローは `dataset-input-profile-v7.json` です。列名を整理し、予測に使わない補助測定・メタデータ・技術列を任意化したv8フローは `dataset-input-profile-v8.json` です。
+各Excelデータフローの外部シート、列、単位、エンティティキー、リレーション、適格性、技術メタデータは、`backend/src/material_workbench/data/dataset-input-profile-*.json` で管理します。
+最小教材は `dataset-input-profile-tutorial.json`、工程データは `dataset-input-profile-process-v1.json` です。
 切削逃げ面摩耗フローは `dataset-input-profile-flank-wear-v1.json` です。
 このフローは材料、工具、切削条件、摩耗履歴を対応付け、`flank-wear-v1` だけを対象とします。
-v5はv3の正規化契約と予測契約を継承し、焼鈍履歴の工程名だけを標準工程カテゴリへ対応付けます。
-v2、v3、v5、v7は、起動時にワークブックのシート構成とソースマーカーから、最も具体的に一致するプロファイルを自動選択します。
+最小教材と工程データは、起動時にワークブックのシート構成とソースマーカーからプロファイルを自動選択します。
 切削逃げ面摩耗は専用ローダーが `dataset-input-profile-flank-wear-v1.json` を選択します。
 プロファイルを明示する場合は、`load_workbook_data(..., profile_path=...)` または検証コマンドの `--profile` を使います。
 
@@ -66,17 +64,7 @@ v2、v3、v5、v7は、起動時にワークブックのシート構成とソー
 TaskDefinitionまたはFeature Pipelineを変更するのは、入力や出力の意味、単位、制約、特徴量の計算が変わる場合です。
 その変更は単なるソース追加ではなく、後述する新しいタスク契約または既存契約の版更新として扱います。
 
-v3フローでは、`dataset-input-profile-v3.json` がこの手順を表します。
-このプロファイルはv2のタスク定義と特徴量パイプラインを再利用し、名前が変わったシートとヘッダーを対応付け、整備済みの `quality` シートと熱延学習フラグがv3には存在しないことを明示します。
-
-v5フローの `dataset-input-profile-v5.json` は、v3を置き換えずに継承します。
-ソースマーカーは `CGL-1` と、`予熱1`、`加熱1`、`均熱出口`、`水冷` などの具体的な履歴ラベルを識別します。
-工程対応には確認可能な温度点の `stage_category` と `mapping_status` を追加します。
-これにより、元の `stage_name` を保ったまま、系譜画面の時間軸に沿った工程トラックへ具体的なソースラベルを表示できます。
-
-v7フローの `dataset-input-profile-v7.json` は、括弧付きの組成名、リレーションから解決する引張試験と穴広げ試験の親、代替の降伏値列を対応付けます。
-
-v8フローでは、TaskDefinitionの入力と出力に直結する列は従来どおり必須です。一方、`optional_auxiliary_keys`、`optional_metadata_keys`、`optional_technical_fields` に指定した探索・表示用の列は、存在すれば取り込み、欠けていてもDataset登録を止めません。
+工程データでは、TaskDefinitionの入力と出力に直結する列は必須です。一方、`optional_auxiliary_keys`、`optional_metadata_keys`、`optional_technical_fields` に指定した探索・表示用の列は、存在すれば取り込み、欠けていてもDataset登録を止めません。
 `焼鈍特徴量` シートは意図的に持ちません。
 LSは `焼鈍条件-3CGL` から取得し、キャッシュ済みの数値時間温度系列を優先してモデル用の履歴を構築します。
 `焼鈍履歴` がない場合は、同じ焼鈍条件行の工程別温度と `測定点マスタ` の設備位置から時間軸を補完します。
@@ -94,7 +82,7 @@ LSは `焼鈍条件-3CGL` から取得し、キャッシュ済みの数値時間
 2. `backend/src/material_workbench/dataset-input-profile-<flow>.json` に新しいプロファイルを追加します。`task_definition_ids` には、そのフローが実際に対応するタスクだけを指定します。共有するエンティティ契約とリレーション契約が本当に同じ場合だけ `extends` を使い、それ以外は独立したプロファイルを作ります。
 3. 新しいパイプラインIDとバージョンを持つ特徴量パイプラインモジュールを追加するか、既存モジュールを拡張します。元のソース列、アプリ共通入力（canonical input）、派生特徴量は個別に確認できる状態を保ちます。列数が偶然同じという理由だけで、古い特徴量ベクトルを再利用しません。
 4. 許可リストへ登録した実行環境とモデルアダプター、またはタスク専用の実行環境を追加します。新しいタスクID、入力契約ダイジェスト、プロファイルダイジェスト、特徴量パイプラインのバージョン、ソースダイジェスト、出力対象をmanifestへ記録したModel Packageを構築します。
-5. 対象を絞った契約テスト、特徴量ゴールデン、ソース事前検証、Packageスモーク、APIまたはE2Eテストを1本追加します。すべて通過した後で、そのタスクのPackageを `models/active-packages.json` に追加します。既存のv2とv3のPackageは変更しません。
+5. 対象を絞った契約テスト、特徴量ゴールデン、ソース事前検証、Packageスモーク、APIまたはE2Eテストを1本追加します。すべて通過した後で、そのタスクのPackageを `models/active-packages.json` に追加します。
 
 現在のアプリには、本番用TaskModuleが3つあります。
 新しいタスクでは、`task_modules.py` の許可リストへ明示的なエントリーを一つ追加します。
@@ -107,7 +95,7 @@ LSは `焼鈍条件-3CGL` から取得し、キャッシュ済みの数値時間
 このコマンドは元ワークブックへ書き込みません。
 
 ```powershell
-uv run python backend/scripts/verify_dataset_source.py data/source/process_dashboard_realistic_excel_v3.xlsx
+uv run python backend/scripts/verify_dataset_source.py data/source/material_workbench_process_v1.xlsx
 uv run python backend/scripts/verify_dataset_source.py path/to/new-source.xlsx --profile backend/src/material_workbench/dataset-input-profile-new.json --json
 ```
 

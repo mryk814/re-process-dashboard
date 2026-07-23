@@ -48,7 +48,7 @@ from material_workbench.modeling.runtime import (
 from material_workbench.tasks.task_registry import load_task_contracts
 
 
-PACKAGE_ID = "annealed-lightgbm-standard-v1"
+PACKAGE_ID = "annealed-lightgbm-standard-tutorial-v1"
 PACKAGE_VERSION = "1.0.0-standard"
 TRAINING_CODE_REVISION = "lightgbm-grouped-cv-v1"
 
@@ -396,12 +396,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--source",
         type=Path,
-        default=Path("data/source/process_dashboard_realistic_excel_v2.xlsx"),
+        default=Path("data/source/material_workbench_tutorial_v1.xlsx"),
     )
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("models/packages/annealed-lightgbm-standard-v1"),
+        default=Path("models/packages/annealed-lightgbm-standard-tutorial-v1"),
     )
     parser.add_argument("--replace", action="store_true")
     parser.add_argument("--package-id", default=PACKAGE_ID)

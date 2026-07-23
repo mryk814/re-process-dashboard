@@ -8,8 +8,8 @@ from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = ROOT / "data" / "source" / "process_dashboard_realistic_excel_v2.xlsx"
-PROFILE = ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-v1.json"
+SOURCE = ROOT / "data" / "source" / "material_workbench_tutorial_v1.xlsx"
+PROFILE = ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-tutorial.json"
 
 
 def test_inspect_workbook_reports_profile_and_canonical_counts() -> None:
@@ -18,7 +18,7 @@ def test_inspect_workbook_reports_profile_and_canonical_counts() -> None:
     assert report["profile_error"] is None
     assert report["source_sha256"]
     assert len(report["sheets"]) >= 5
-    assert report["canonicalization"]["profile_id"] == "thin-sheet-workbook-v2"
+    assert report["canonicalization"]["profile_id"] == "thin-sheet-tutorial-v1"
     assert report["canonicalization"]["observations"] > 0
     assert "annealed-properties-v1" in report["canonicalization"]["task_ids"]
     assert isinstance(report["canonicalization"]["unresolved_heat_series_by_task"], dict)

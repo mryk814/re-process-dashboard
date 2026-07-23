@@ -146,7 +146,7 @@ class ModelRuntime:
         self.feature_pipeline_version = FEATURE_PIPELINE_VERSION
         self._feature_builder = build_feature_bundle
         self.feature_group_indices = FEATURE_GROUP_INDICES
-        default_package = Path(__file__).resolve().parents[4] / "models" / "packages" / "annealed-gp-2026-07-feature-design-v3"
+        default_package = Path(__file__).resolve().parents[4] / "models" / "packages" / "annealed-gp-stable-ard-tutorial-v1"
         self.model_package: VerifiedModelPackage | None = (
             ModelPackageLoader().load(package_root or default_package)
             if load_package and (package_root or default_package.exists())

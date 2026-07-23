@@ -298,7 +298,7 @@ def test_candidate_excel_import_rejects_rows_outside_the_project_contract(client
 def test_candidate_xlsx_names_follow_source_profile() -> None:
     names = _candidate_xlsx_names(
         "annealed-properties-v1",
-        str(PROFILE_ROOT / "dataset-input-profile-v5.json"),
+        str(PROFILE_ROOT / "dataset-input-profile-process-v1.json"),
     )
     assert names["composition.C"] == "C%"
     assert names["process.ls_mpm"] == "ライン速度[m/min]"

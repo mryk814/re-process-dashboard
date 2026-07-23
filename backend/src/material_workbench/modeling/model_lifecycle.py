@@ -18,7 +18,7 @@ from material_workbench.task_modules import DataDescriptor, registered_task_modu
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 MODELS_ROOT = REPOSITORY_ROOT / "models"
 ACTIVE_PACKAGES_PATH = MODELS_ROOT / "active-packages.json"
-DATASET_PROFILE_PATH = Path(__file__).parent.parent / "data" / "dataset-input-profile-v1.json"
+DATASET_PROFILE_PATH = Path(__file__).parent.parent / "data" / "dataset-input-profile-tutorial.json"
 
 
 @contextmanager

@@ -330,7 +330,7 @@ def load_dataset_profile(
     path: str | Path | None = None,
     task_definitions: Mapping[str, TaskDefinition] | None = None,
 ) -> DatasetInputProfile:
-    profile_path = Path(path) if path else Path(__file__).with_name("dataset-input-profile-v1.json")
+    profile_path = Path(path) if path else Path(__file__).with_name("dataset-input-profile-tutorial.json")
     try:
         raw = _load_profile_document(profile_path)
         if raw.get("schema_version") != PROFILE_SCHEMA_VERSION:

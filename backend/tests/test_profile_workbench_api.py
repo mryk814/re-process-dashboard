@@ -9,8 +9,8 @@ from openpyxl import load_workbook
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = ROOT / "data" / "source" / "process_dashboard_realistic_excel_v2.xlsx"
-PROFILE_SOURCE_NAME = "dataset-input-profile-v1"
+SOURCE = ROOT / "data" / "source" / "material_workbench_tutorial_v1.xlsx"
+PROFILE_SOURCE_NAME = "dataset-input-profile-tutorial"
 MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
@@ -108,7 +108,7 @@ def test_register_adds_managed_dataset_and_reuses_duplicate(client: TestClient) 
     assert first.status_code == 200, first.text
     first_body = first.json()
     assert first_body["reused_existing"] is False
-    assert first_body["profile_id"] == "thin-sheet-workbook-v2"
+    assert first_body["profile_id"] == "thin-sheet-tutorial-v1"
     after_first = client.get("/api/data-library/datasets").json()
     assert len(after_first) == len(before) + 1
     registered = next(

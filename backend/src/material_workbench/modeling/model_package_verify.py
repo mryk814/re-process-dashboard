@@ -130,7 +130,7 @@ def _parser() -> argparse.ArgumentParser:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--task", dest="task_id")
     mode.add_argument("--example", action="store_true")
-    parser.add_argument("--source", type=Path, default=Path("data/source/process_dashboard_realistic_excel_v2.xlsx"))
+    parser.add_argument("--source", type=Path, default=Path("data/source/material_workbench_tutorial_v1.xlsx"))
     parser.add_argument("--json", action="store_true", dest="json_output")
     return parser
 

@@ -78,16 +78,13 @@ npm run api:check     # schema・生成型のdrift検出
 ## データ
 
 `data/source/` のExcelは読取専用の正本として扱います。
-現在は次のソースを併存させています。
+同梱する正本は次の3つだけです。
 
 - 最小教材（既定）：`material_workbench_tutorial_v1.xlsx`
-- v2：`process_dashboard_realistic_excel_v2.xlsx`
-- v3：`process_dashboard_realistic_excel_v3.xlsx`
-- v5：`process_dashboard_two_equipment_v5.xlsx`
-- v7：`process_dashboard_two_equipment_v7.xlsx`
+- 工程データ：`material_workbench_process_v1.xlsx`
 - 切削逃げ面摩耗：`cutting_tool_flank_wear_synthetic_dataset.xlsx`
 
-最小教材、v2、v3、v5、v7は焼鈍特性と熱延特性に使う同じタスク契約へ正規化します。
+最小教材と工程データは、焼鈍特性と熱延特性に使う同じタスク契約へ正規化します。
 切削逃げ面摩耗は、独立したタスク契約、Dataset Input Profile、特徴量パイプラインを使います。
 現行3タスクが実際に参照するソースとProfileは [生成済みタスク一覧](docs/task-inventory.json) で確認できます。
 最小教材を使ってExcelからModel Packageまで追う場合は [開発者向け教材ガイド](docs/tutorial-data-pipeline.md) を参照してください。
@@ -96,10 +93,10 @@ Excelの外部シートや列と、アプリ内部の意味との対応はDatase
 起動時はソースの構造から対応するProfileを選び、工程、観測、系譜、データ品質を構築します。
 契約とソース追加の手順は [データセット入力プロファイル](docs/dataset-input-profile.md) を参照してください。
 
-焼鈍特性と熱延特性をv7データで起動する場合は、検証済みのソースとPackageをまとめて指定するスクリプトを使えます。
+焼鈍特性と熱延特性を工程データで起動する場合は、検証済みのソースとPackageをまとめて指定するスクリプトを使えます。
 
 ```powershell
-npm run dev:v7
+npm run dev:process
 ```
 
 焼鈍特性と熱延特性へ新しいソースを追加するときは、アプリを起動する前に構造と契約を確認します。
@@ -114,9 +111,9 @@ uv run python backend/scripts/verify_dataset_source.py path/to/new-source.xlsx -
 
 ## モデルPackage
 
-既定の学習済みPackageは `models/packages/annealed-gp-2026-07` です。ガウス過程回帰が90%予測区間を返し、モデル由来の不確かさと反復測定由来のばらつきを分けて表示します。予測時にmanifest・artifact hash・特徴量順序・smoke inputを検証し、画面の「プロジェクト」で有効なPackageとruntimeを確認できます。
+既定の学習済みPackageは `models/packages/annealed-gp-stable-ard-tutorial-v1` です。ガウス過程回帰が90%予測区間を返し、モデル由来の不確かさと反復測定由来のばらつきを分けて表示します。予測時にmanifest・artifact hash・特徴量順序・smoke inputを検証し、画面の「プロジェクト」で有効なPackageとruntimeを確認できます。
 
-熱延後特性は独立した `hot-rolled-properties-v1` タスクで、`models/packages/hot-rolled-horseshoe-2026-07` の正則化Horseshoe回帰を使用します。熱延v1は設備・試験片方向を推定条件として区別せず、利用可能な熱延引張観測をまとめて学習し、物理範囲外の観測だけを除外します。事後係数の縮小結果はPackage内の `reports/selection-report.json`、学習健全性は `reports/training-diagnostics.json` に保存します。
+熱延後特性は独立した `hot-rolled-properties-v1` タスクで、`models/packages/hot-rolled-tutorial-v1` の正則化Horseshoe回帰を使用します。熱延v1は設備・試験片方向を推定条件として区別せず、利用可能な熱延引張観測をまとめて学習し、物理範囲外の観測だけを除外します。事後係数の縮小結果はPackage内の `reports/selection-report.json`、学習健全性は `reports/training-diagnostics.json` に保存します。
 
 切削逃げ面摩耗は `flank-wear-v1` タスクで、`models/packages/flank-wear-gp-2026-07` のexact GPを使用します。切削距離に対する`VB_mean`と`VB_max`の応答曲線を、材料、工具、切削条件とともに比較します。
 
