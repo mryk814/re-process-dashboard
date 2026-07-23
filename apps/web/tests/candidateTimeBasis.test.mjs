@@ -9,6 +9,7 @@ const bundle = await build({
   stdin: {
     contents: `
       export {
+        candidateSaveContractError,
         fromApiCandidate,
         scaleHeatTimesForLineSpeed,
         toApiCandidate,
@@ -29,6 +30,7 @@ new Function("module", "exports", "require", bundle.outputFiles[0].text)(
   createRequire(import.meta.url),
 );
 const {
+  candidateSaveContractError,
   fromApiCandidate,
   scaleHeatTimesForLineSpeed,
   toApiCandidate,
@@ -71,4 +73,20 @@ test("elapsed-time basis round-trips without changing heat times", () => {
   const payload = toApiCandidate(candidate);
   assert.equal(payload.inputs.heat_time_basis, "elapsed_time");
   assert.deepEqual(payload.inputs.heat_pattern.map((point) => point.time_s), [10, 70, 130]);
+});
+
+test("rejects a save response from an API that drops the requested time basis", () => {
+  const candidate = fromApiCandidate(apiCandidate("line_speed"));
+  candidate.heatTimeBasis = "elapsed_time";
+  const requested = toApiCandidate(candidate);
+  const savedByOldApi = apiCandidate();
+
+  assert.match(
+    candidateSaveContractError(savedByOldApi, requested),
+    /APIが時間基準の保存に対応していません/,
+  );
+  assert.equal(
+    candidateSaveContractError(apiCandidate("elapsed_time"), requested),
+    null,
+  );
 });

@@ -72,3 +72,13 @@ export function toApiCandidate(candidate: CandidateViewModel): ApiCandidateInput
     provenance: candidate.raw.provenance,
   };
 }
+
+export function candidateSaveContractError(
+  saved: ApiCandidate,
+  requested: ApiCandidateInput,
+): string | null {
+  if (saved.inputs.heat_time_basis !== requested.inputs.heat_time_basis) {
+    return "起動中のAPIが時間基準の保存に対応していません。開発サーバーまたはアプリを再起動してください";
+  }
+  return null;
+}

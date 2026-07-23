@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import { fromApiCandidate, toApiCandidate, type CandidateViewModel } from "./candidateModel";
+import {
+  candidateSaveContractError,
+  fromApiCandidate,
+  toApiCandidate,
+  type CandidateViewModel,
+} from "./candidateModel";
 import { LatestSaveQueue, rebaseChangedFields } from "./latestSaveQueue";
 import { ApiClientError } from "../../shared/api/client";
 import { workbenchApi, type ApiCandidate, type ApiCandidateInput, type ApiCandidateUpdate, type ApiPreview } from "../../shared/api/workbench-api";
@@ -69,6 +74,12 @@ export function useCandidateEditor({ projectId, setCandidates, previewAvailable,
       const saved = await queued.promise;
       authoritative.current.set(candidateId, saved);
       if (!queued.isLatest() || activeProjectId.current !== projectId) return;
+      const contractError = candidateSaveContractError(saved, draftPayload);
+      if (contractError) {
+        setSaveState(candidateId, "error");
+        onNotice(contractError);
+        return;
+      }
       setCandidates((items) => items.map((item) => item.id === candidateId ? fromApiCandidate(saved) : item));
       setSaveState(candidateId, "saved");
       if (!previewAvailable) return;
