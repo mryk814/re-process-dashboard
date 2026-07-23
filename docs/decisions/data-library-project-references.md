@@ -105,7 +105,8 @@ Projectが固定したPackageが見つからない場合、履歴は閲覧でき
 
 ### Profile authoring
 
-Profileの作成・変更は一般利用者向け機能ではなく、開発者向け `Profile Workbench` とする。
+Profileの作成・変更はProjectに紐づけず、Data LibraryへDatasetを登録する独立フロー `Profile Workbench` とする。
+Project内のDeveloper領域には置かない。
 任意JSON editorを主UIにせず、次を支援する。
 
 - workbook inventoryと既存Profile類似度
@@ -119,7 +120,7 @@ Profileの作成・変更は一般利用者向け機能ではなく、開発者�
 
 ## APIとUIの境界
 
-- トップレベルに `Projects` と `Data Library` を置く。Model管理とProfile WorkbenchはDeveloper領域に置く。
+- トップレベルに `Projects` と `Data Library` を置く。Profile WorkbenchはData Libraryから開始するDataset登録フローとし、Model管理のみProject内のDeveloper領域に置く。
 - データが一つしかない場合、Project作成時のデータ選択を自動化する。常時表示の「起動中データ」切替は置かない。
 - Project作成は、Dataset View選択、互換Prediction Task選択、Model Package選択の順に行う。
 - Project内には利用可能なActivityだけを表示する。
@@ -143,7 +144,7 @@ SQLite migrationは追加的に行い、既存Project、候補、スナップシ
 4. Package来歴検証と推論互換性検証の分離
 5. 目的変数別Training CohortとModel support
 6. Data Library／Project作成／Series UI
-7. Developer向けProfile Workbench
+7. Data Library配下のProfile Workbench
 
 ## 対象外
 

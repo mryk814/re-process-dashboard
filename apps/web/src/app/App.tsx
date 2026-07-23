@@ -7,7 +7,7 @@ import { ScreeningPage } from "../features/screening";
 import { LineagePage } from "../features/lineage";
 import { DataExploreNavigation, LiveDataQualityPage } from "../features/quality";
 import { DeveloperAdminPage } from "../features/admin";
-import { DataLibraryPage } from "../features/data-library";
+import { DataLibraryPage, ProfileWorkbenchPage } from "../features/data-library";
 
 type Tab = WorkbenchView;
 const projectNavItems: Array<{ id: Tab; label: string; active: Tab[]; requiresDataExplorer?: boolean }> = [
@@ -41,7 +41,13 @@ function App() {
     requestedProjectId: navigation.projectId,
     requestedCandidateId: navigation.candidateId,
     onLocationReplace: (projectId, candidateId) => {
-      navigate({ ...navigationRef.current, projectId, candidateId }, true);
+      const current = navigationRef.current;
+      navigate(
+        current.view === "data-library" || current.view === "profile-workbench"
+          ? current
+          : { ...current, projectId, candidateId },
+        true,
+      );
     },
     onCandidateSelected: (projectId, candidateId) => {
       navigate({ view: "candidates", projectId, candidateId }, true);
@@ -73,8 +79,7 @@ function App() {
   const qualityAvailable = dataExplorer?.quality === true;
   const lineageAvailable = dataExplorer?.lineage === true;
   const visibleProjectNavItems = projectNavItems.filter((item) => !item.requiresDataExplorer || qualityAvailable || lineageAvailable);
-  const dataLibraryMode = tab === "data-library";
-  const profileWorkbenchMode = tab === "settings" && navigation.adminSection === "profile";
+  const dataLibraryMode = tab === "data-library" || tab === "profile-workbench";
 
   function selectCandidate(candidateId: string, replace = true) {
     session.selectCandidate(candidateId, false);
@@ -129,14 +134,14 @@ function App() {
           <button
             className={dataLibraryMode ? "nav-button active" : "nav-button"}
             aria-current={dataLibraryMode ? "page" : undefined}
-            onClick={() => navigate({ view: "data-library", projectId: activeProjectId })}
+            onClick={() => navigate({ view: "data-library" })}
           >
             データライブラリ
           </button>
         </nav>
       </header>
       <main>
-        {!dataLibraryMode && !profileWorkbenchMode && <div className="context-bar">
+        {!dataLibraryMode && <div className="context-bar">
           <div className="context-primary-row">
             <h1 title={activeProject?.name ?? undefined}>{activeProject?.name ?? "プロジェクトを読み込んでいます"}</h1>
             <div className="run-actions">
@@ -209,7 +214,11 @@ function App() {
         )}
         {tab === "data-library" && <DataLibraryPage
           projects={projects}
-          onAddDataset={() => navigate({ view: "settings", projectId: activeProjectId, adminSection: "profile" })}
+          onAddDataset={() => navigate({ view: "profile-workbench" })}
+          onStartProject={startProjectForDataset}
+        />}
+        {tab === "profile-workbench" && <ProfileWorkbenchPage
+          onOpenDataLibrary={() => navigate({ view: "data-library" })}
           onStartProject={startProjectForDataset}
         />}
         {tab === "settings" && (
@@ -243,8 +252,6 @@ function App() {
               qualitySheet: filters.sheet,
               qualityKey: filters.key,
             })}
-            onOpenDataLibrary={() => navigate({ view: "data-library", projectId: activeProjectId })}
-            onStartProject={startProjectForDataset}
             onProjectChanged={(project) => {
               void session.refreshAdminProject(project);
             }}
