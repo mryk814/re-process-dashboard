@@ -95,34 +95,40 @@ def test_elapsed_time_candidate_update_allows_independent_time_and_speed_edits(c
     assert [point["time_s"] for point in edited.json()["inputs"]["heat_pattern"]] == [0.0, 300.0, 340.0, 650.0]
 
 
-def test_time_basis_switch_rejects_simultaneous_line_speed_change(client) -> None:
+def test_time_basis_switch_accepts_simultaneous_line_speed_change(client) -> None:
     candidate = client.post("/api/projects/default/candidates", json=_payload("基準切替")).json()
     update = _payload("基準切替")
     update["inputs"]["heat_time_basis"] = "elapsed_time"
     update["inputs"]["process"]["ls_mpm"] = 120.0
+    update["inputs"]["heat_pattern"][1]["time_s"] = 300.0
 
     response = client.put(
         f"/api/projects/default/candidates/{candidate['id']}",
         json={**update, "expected_revision": candidate["revision"]},
     )
 
-    assert response.status_code == 422
-    assert "時間基準の切替とラインスピード変更" in response.json()["message"]
+    assert response.status_code == 200
+    assert response.json()["inputs"]["process"]["ls_mpm"] == 120.0
+    assert response.json()["inputs"]["heat_pattern"][1]["time_s"] == 300.0
 
 
-def test_line_speed_candidate_update_rejects_point_count_change(client) -> None:
+def test_line_speed_candidate_accepts_speed_and_point_count_change_as_new_layout(client) -> None:
     candidate = client.post("/api/projects/default/candidates", json=_payload("点数変更")).json()
     changed = _payload("点数変更")
     changed["inputs"]["process"]["ls_mpm"] = 120.0
-    changed["inputs"]["heat_pattern"].append({"time_s": 700, "temperature_c": 80})
+    scale = 103.0 / 120.0
+    for point in changed["inputs"]["heat_pattern"]:
+        point["time_s"] *= scale
+    changed["inputs"]["heat_pattern"].append({"time_s": 700 * scale, "temperature_c": 80})
 
     response = client.put(
         f"/api/projects/default/candidates/{candidate['id']}",
         json={**changed, "expected_revision": candidate["revision"]},
     )
 
-    assert response.status_code == 422
-    assert "点数" in response.json()["message"]
+    assert response.status_code == 200
+    assert len(response.json()["inputs"]["heat_pattern"]) == 5
+    assert response.json()["inputs"]["heat_pattern"][-1]["time_s"] == 700 * scale
 
 
 def test_line_speed_candidate_allows_point_count_change_without_speed_change(client) -> None:

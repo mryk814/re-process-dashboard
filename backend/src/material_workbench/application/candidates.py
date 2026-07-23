@@ -147,16 +147,6 @@ class CandidateService:
         requested_basis = updated.inputs.heat_time_basis
 
         if current_basis != requested_basis:
-            old_speed = existing.inputs.process.get("ls_mpm")
-            new_speed = updated.inputs.process.get("ls_mpm")
-            if (
-                old_speed is not None
-                and new_speed is not None
-                and not math.isclose(old_speed, new_speed, rel_tol=0.0, abs_tol=1e-12)
-            ):
-                raise CandidateValidationError(
-                    "時間基準の切替とラインスピード変更は同時にできません"
-                )
             return
 
         if requested_basis == "elapsed_time":
@@ -167,10 +157,6 @@ class CandidateService:
             return
         speed_changed = not math.isclose(old_speed, new_speed, rel_tol=0.0, abs_tol=1e-12)
         if len(current_points) != len(requested_points):
-            if speed_changed:
-                raise CandidateValidationError(
-                    "ラインスピード変更とヒートパターン点数の変更は同時にできません"
-                )
             return
         if not speed_changed:
             if any(
