@@ -15,6 +15,7 @@ from .schemas import (
     CandidateInput,
     Project,
     ProjectCreateInput,
+    ProjectGroupMoveInput,
     ProjectInput,
     ProjectUpdateInput,
 )
@@ -46,6 +47,14 @@ class ProtectedProjectError(ValueError):
 
 
 class ProjectHasSuccessorsError(ValueError):
+    pass
+
+
+class ProjectGroupConflictError(ValueError):
+    pass
+
+
+class ProjectGroupUnavailableError(ValueError):
     pass
 
 
@@ -161,6 +170,44 @@ class Store:
             result = conn.execute("UPDATE projects SET name=?, description=?, purpose=?, target_values=?, input_ranges=?, response_curve_ranges=?, heat_stage_positions_m=?, display_decimals=?, notes=?, decision_candidate_id=?, decision_snapshot_id=?, decision_note=?, updated_at=? WHERE id=?", (payload.name, payload.description, payload.purpose, json.dumps(payload.target_values, ensure_ascii=False, sort_keys=True), json.dumps({key: value.model_dump() for key, value in payload.input_ranges.items()}, ensure_ascii=False, sort_keys=True), json.dumps({axis: {key: value.model_dump() for key, value in ranges.items()} for axis, ranges in payload.response_curve_ranges.items()}, ensure_ascii=False, sort_keys=True), json.dumps(payload.heat_stage_positions_m, ensure_ascii=False, sort_keys=True), json.dumps(payload.display_decimals, ensure_ascii=False, sort_keys=True), payload.notes, payload.decision_candidate_id, payload.decision_snapshot_id, payload.decision_note, now, project_id))
         return self.get_project(project_id) if result.rowcount else None
 
+    def move_project_to_group(self, project_id: str, payload: ProjectGroupMoveInput) -> Project:
+        now = _now()
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            project_row = conn.execute(
+                "SELECT project_series_id FROM projects WHERE id=?", (project_id,)
+            ).fetchone()
+            if project_row is None:
+                raise ProjectNotFoundError(project_id)
+            current_group_id = project_row["project_series_id"]
+            if current_group_id != payload.expected_project_series_id:
+                raise ProjectGroupConflictError(
+                    "このプロジェクトの所属グループは別の操作で変更されています"
+                )
+            target_group = conn.execute(
+                "SELECT archived_at FROM project_series WHERE id=?",
+                (payload.project_series_id,),
+            ).fetchone()
+            if target_group is None or target_group["archived_at"] is not None:
+                raise ProjectGroupUnavailableError("移動先の検討グループを利用できません")
+            if current_group_id == payload.project_series_id:
+                return self._project(
+                    conn.execute("SELECT * FROM projects WHERE id=?", (project_id,)).fetchone()
+                )
+            conn.execute(
+                "UPDATE projects SET project_series_id=?,updated_at=? WHERE id=?",
+                (payload.project_series_id, now, project_id),
+            )
+            if current_group_id:
+                conn.execute(
+                    "UPDATE project_series SET archived_at=?,updated_at=? "
+                    "WHERE id=? AND archived_at IS NULL "
+                    "AND NOT EXISTS (SELECT 1 FROM projects WHERE project_series_id=?)",
+                    (now, now, current_group_id, current_group_id),
+                )
+            row = conn.execute("SELECT * FROM projects WHERE id=?", (project_id,)).fetchone()
+        return self._project(row)
+
     def delete_project(self, project_id: str) -> bool:
         if project_id in PROTECTED_PROJECT_IDS:
             raise ProtectedProjectError("予約プロジェクトは削除できません")
@@ -176,7 +223,7 @@ class Store:
             ).fetchone()
             if successor is not None:
                 raise ProjectHasSuccessorsError(
-                    "後続の検討があるプロジェクトは削除できません。一連の検討の系譜を保持してください"
+                    "後続プロジェクトがあるため削除できません。続き元の関係を保持してください"
                 )
             candidate_ids = [
                 row["id"]

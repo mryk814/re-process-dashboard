@@ -112,6 +112,120 @@ def test_project_crud_preserves_default_and_isolates_candidates_and_screening(cl
     assert client.delete("/api/projects/missing").status_code == 404
 
 
+def test_project_group_move_is_atomic_and_preserves_scientific_state(client) -> None:
+    source_group = client.post(
+        "/api/project-series",
+        json={"name": "旧グループ", "description": ""},
+    ).json()
+    target_group = client.post(
+        "/api/project-series",
+        json={"name": "移動先グループ", "description": ""},
+    ).json()
+    project = client.post(
+        "/api/projects",
+        json={**_project("所属変更"), "project_series_id": source_group["id"]},
+    ).json()
+    candidate = client.post(
+        f"/api/projects/{project['id']}/candidates",
+        json=_candidate("固定候補"),
+    ).json()
+    snapshot = client.post(
+        f"/api/projects/{project['id']}/candidates/{candidate['id']}/snapshots",
+    ).json()
+    decision = {
+        "candidate_id": candidate["id"],
+        "snapshot_id": snapshot["id"],
+        "note": "所属変更で変わらない判断",
+    }
+    client.put(f"/api/projects/{project['id']}/decision", json=decision).raise_for_status()
+    before = client.get(f"/api/projects/{project['id']}").json()
+
+    moved = client.put(
+        f"/api/projects/{project['id']}/group",
+        json={
+            "project_series_id": target_group["id"],
+            "expected_project_series_id": source_group["id"],
+        },
+    )
+    assert moved.status_code == 200, moved.text
+    after = moved.json()
+    assert after["project_series_id"] == target_group["id"]
+    for field in (
+        "task_id",
+        "dataset_view_revision_id",
+        "task_contract_digest",
+        "model_package_ref_id",
+        "model_package_manifest_digest",
+        "predecessor_project_id",
+        "decision_candidate_id",
+        "decision_snapshot_id",
+        "decision_note",
+    ):
+        assert after[field] == before[field]
+    assert client.get(f"/api/projects/{project['id']}/candidates").json() == [candidate]
+    assert client.get(f"/api/projects/{project['id']}/snapshots/{snapshot['id']}").status_code == 200
+    assert client.get(f"/api/project-series/{source_group['id']}").status_code == 404
+
+    stale = client.put(
+        f"/api/projects/{project['id']}/group",
+        json={
+            "project_series_id": source_group["id"],
+            "expected_project_series_id": source_group["id"],
+        },
+    )
+    assert stale.status_code == 409
+    assert stale.json()["code"] == "project_group_conflict"
+    assert client.get(f"/api/projects/{project['id']}").json()["project_series_id"] == target_group["id"]
+
+
+def test_project_group_move_keeps_nonempty_source_and_rejects_unavailable_targets(client) -> None:
+    source_group = client.post(
+        "/api/project-series",
+        json={"name": "複数所属", "description": ""},
+    ).json()
+    target_group = client.post(
+        "/api/project-series",
+        json={"name": "有効な移動先", "description": ""},
+    ).json()
+    archived_group = client.post(
+        "/api/project-series",
+        json={"name": "終了済み", "description": ""},
+    ).json()
+    client.put(
+        f"/api/project-series/{archived_group['id']}",
+        json={"name": archived_group["name"], "description": "", "archived": True},
+    ).raise_for_status()
+    first = client.post(
+        "/api/projects",
+        json={**_project("移動対象"), "project_series_id": source_group["id"]},
+    ).json()
+    client.post(
+        "/api/projects",
+        json={**_project("残留対象"), "project_series_id": source_group["id"]},
+    ).raise_for_status()
+
+    for unavailable_group_id in (archived_group["id"], "missing-group"):
+        rejected = client.put(
+            f"/api/projects/{first['id']}/group",
+            json={
+                "project_series_id": unavailable_group_id,
+                "expected_project_series_id": source_group["id"],
+            },
+        )
+        assert rejected.status_code == 422
+        assert client.get(f"/api/projects/{first['id']}").json()["project_series_id"] == source_group["id"]
+
+    moved = client.put(
+        f"/api/projects/{first['id']}/group",
+        json={
+            "project_series_id": target_group["id"],
+            "expected_project_series_id": source_group["id"],
+        },
+    )
+    assert moved.status_code == 200
+    assert client.get(f"/api/project-series/{source_group['id']}").status_code == 200
+
+
 def test_screening_accepts_hot_rolling_process_fields_from_task_definition(client) -> None:
     base = client.get("/api/projects/hot-rolling-default/candidates").json()[0]
     response = client.post(

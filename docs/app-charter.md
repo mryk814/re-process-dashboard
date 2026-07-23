@@ -35,7 +35,7 @@
 - Data AssetとDataset Input Profileを不変なDataset RevisionとしてData Libraryへ登録する。
 - ProjectはDataset View、Prediction Task、Model Packageを固定し、過去の判断を自動更新しない。
 - 探索データ、目的変数別の学習コホート、モデル支持範囲、Project内の類似条件を分離する。
-- 同じ問いを継承する複数Projectは、任意のProject Seriesとして束ねる。
+- 複数Projectは任意の検討グループへ束ね、所属は後から変更できる。前後関係はグループとは独立して記録する。
 
 詳細は [Data LibraryとProject参照境界](decisions/data-library-project-references.md) を参照する。
 

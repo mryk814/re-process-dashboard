@@ -398,6 +398,11 @@ class ProjectDecisionInput(BaseModel):
         return self
 
 
+class ProjectGroupMoveInput(BaseModel):
+    project_series_id: Annotated[str, Field(min_length=1)]
+    expected_project_series_id: str | None
+
+
 class Project(ProjectInput):
     id: str
     dataset_view_revision_id: str | None = None
@@ -892,6 +897,7 @@ class ApiError(BaseModel):
         "candidate_archived",
         "candidate_provenance_immutable",
         "project_task_locked",
+        "project_group_conflict",
         "protected_project",
         "project_has_successors",
         "data_integrity_error",

@@ -27,7 +27,7 @@ def create_project_series(payload: ProjectSeriesCreateInput, catalog: CatalogDep
 def get_project_series(series_id: str, catalog: CatalogDependency) -> ProjectSeries:
     series = catalog.get_project_series(series_id)
     if series is None:
-        raise HTTPException(404, "一連の検討が見つかりません")
+        raise HTTPException(404, "検討グループが見つかりません")
     return series
 
 
@@ -37,5 +37,5 @@ def update_project_series(
 ) -> ProjectSeries:
     series = catalog.update_project_series(series_id, payload)
     if series is None:
-        raise HTTPException(404, "一連の検討が見つかりません")
+        raise HTTPException(404, "検討グループが見つかりません")
     return series

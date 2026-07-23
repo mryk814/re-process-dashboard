@@ -82,6 +82,7 @@ export function ProjectHub({
   const [predecessorProjectId, setPredecessorProjectId] = useState("");
   const [continuationReason, setContinuationReason] = useState("");
   const [seriesName, setSeriesName] = useState("");
+  const [groupMembershipId, setGroupMembershipId] = useState("");
   const [decisionNote, setDecisionNote] = useState("");
   const [collapsedSeriesIds, setCollapsedSeriesIds] = useState<Set<string>>(() => new Set());
   const activeProjectRef = useRef(activeProjectId);
@@ -106,6 +107,10 @@ export function ProjectHub({
     setDecisionNote("");
     decisionDraftRef.current = { key: "", dirty: false };
   }, [projects, activeProjectId]);
+
+  useEffect(() => {
+    setSettingsOpen(false);
+  }, [activeProjectId]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -174,14 +179,21 @@ export function ProjectHub({
     return (creationOptions?.project_series ?? []).filter((item) => usedSeriesIds.has(item.id));
   }, [creationOptions?.project_series, projects]);
   const selectedSeries = activeProjectSeries.find((item) => item.id === newProjectSeriesId);
+  const predecessorProject = projects.find((item) => item.id === project?.predecessor_project_id);
+  const predecessorSeries = creationOptions?.project_series.find(
+    (item) => item.id === predecessorProject?.project_series_id,
+  );
   const selectedPackage = creationOptions?.model_packages.find((item) => item.id === newModelPackageRefId);
   const selectedTrainingDataset = trainingDataset(selectedPackage, creationOptions?.datasets ?? []);
   const fixedTrainingDataset = trainingDataset(fixedPackage, creationOptions?.datasets ?? []);
   const selectedTaskId = createMode === "copy" ? copyTaskId ?? "" : newTaskId;
 
   useEffect(() => {
-    if (!settingsOpen) setSeriesName(fixedSeries?.name ?? "");
-  }, [fixedSeries?.id, fixedSeries?.name, settingsOpen]);
+    if (!settingsOpen) {
+      setSeriesName(fixedSeries?.name ?? "");
+      setGroupMembershipId(project?.project_series_id ?? "");
+    }
+  }, [fixedSeries?.id, fixedSeries?.name, project?.project_series_id, settingsOpen]);
   const projectGroups = useMemo(() => {
     const series = new Map((creationOptions?.project_series ?? []).map((item) => [item.id, item]));
     const groups = new Map((creationOptions?.project_series ?? []).map((item) => [item.id, { id: item.id, name: item.name, projects: [] as ApiProject[] }]));
@@ -273,7 +285,35 @@ export function ProjectHub({
       } : current);
       setError("");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "一連の検討名を保存できませんでした。");
+      setError(cause instanceof Error ? cause.message : "検討グループ名を保存できませんでした。");
+    }
+  }
+
+  async function moveProjectToGroup() {
+    if (!project || !groupMembershipId || groupMembershipId === project.project_series_id) return;
+    const requestProjectId = project.id;
+    try {
+      const moved = await workbenchApi.moveProjectToGroup(requestProjectId, {
+        project_series_id: groupMembershipId,
+        expected_project_series_id: project.project_series_id ?? null,
+      });
+      if (activeProjectRef.current !== requestProjectId) return;
+      setProject(moved);
+      onProjectChanged(moved);
+      setError("");
+      try {
+        const refreshedOptions = await workbenchApi.projectCreationOptions();
+        if (activeProjectRef.current !== requestProjectId) return;
+        setCreationOptions(refreshedOptions);
+        setSeriesName(
+          refreshedOptions.project_series.find((item) => item.id === moved.project_series_id)?.name ?? "",
+        );
+      } catch {
+        setError("所属は変更しましたが、グループ一覧を更新できませんでした。");
+      }
+    } catch (cause) {
+      setGroupMembershipId(project.project_series_id ?? "");
+      setError(cause instanceof Error ? cause.message : "所属グループを変更できませんでした。");
     }
   }
 
@@ -427,7 +467,7 @@ export function ProjectHub({
                     return next;
                   })}
                 >
-                  <span><small>一連の検討</small><strong>{group.name}</strong></span>
+                  <span><small>検討グループ</small><strong>{group.name}</strong></span>
                   <em>{group.projects.length}件</em>
                   <i aria-hidden="true" />
                 </button>
@@ -459,12 +499,13 @@ export function ProjectHub({
             <p>{project?.purpose || project?.description || "検討の入口、候補比較、判断時点の記録をここからたどれます。"}</p>
           </div>
           <div className="project-actions">
-            <button className="outline-button" onClick={continueCurrentProject}>この検討の続き</button>
+            <button className="outline-button" onClick={continueCurrentProject}>このプロジェクトの続き</button>
             <button className="outline-button" onClick={() => setSettingsOpen((value) => !value)}>設定を編集</button>
           </div>
         </div>
       {error && <p className="panel-error" role="alert">{error}</p>}
-      {project && <section className="project-reference-strip" aria-label="プロジェクトの固定参照"><div><span>参照Dataset</span><strong>{fixedDataset?.data_asset.original_filename ?? "—"}</strong><small>{fixedDataset ? `${fixedDataset.profile_revision.name} · r${fixedDataset.profile_revision.revision}` : ""}</small></div><div><span>Prediction Task</span><strong>{taskLabels.get(project.task_id) ?? project.task_id}</strong><small>固定</small></div><div><span>Model Package</span><strong>{fixedPackage?.package_id ?? "—"}</strong><small>学習元: {fixedTrainingDataset ? datasetDisplayName(fixedTrainingDataset) : "未登録または記録なし"} · Manifest {project.model_package_manifest_digest.slice(0, 10)}</small></div><div><span>一連の検討</span><strong>{fixedSeries?.name ?? "—"}</strong><small>{project.predecessor_project_id ? project.continuation_reason ? `継続: ${project.continuation_reason}` : "継続" : "起点"}</small></div></section>}
+      {project && <section className="project-reference-strip" aria-label="プロジェクトの参照と所属"><div><span>参照Dataset</span><strong>{fixedDataset?.data_asset.original_filename ?? "—"}</strong><small>{fixedDataset ? `${fixedDataset.profile_revision.name} · r${fixedDataset.profile_revision.revision}` : ""}</small></div><div><span>Prediction Task</span><strong>{taskLabels.get(project.task_id) ?? project.task_id}</strong><small>固定</small></div><div><span>Model Package</span><strong>{fixedPackage?.package_id ?? "—"}</strong><small>学習元: {fixedTrainingDataset ? datasetDisplayName(fixedTrainingDataset) : "未登録または記録なし"} · Manifest {project.model_package_manifest_digest.slice(0, 10)}</small></div><div><span>所属グループ</span><strong>{fixedSeries?.name ?? "—"}</strong><small>設定から変更できます</small></div></section>}
+      {predecessorProject && <section className="project-continuation-link" aria-label="このプロジェクトの続き元"><span>続き元</span><button type="button" onClick={() => onSwitch(predecessorProject.id)}>{predecessorProject.name}</button><small>{predecessorSeries?.name ?? "所属グループ不明"}{project?.continuation_reason ? ` · ${project.continuation_reason}` : ""}</small></section>}
 
       {createOpen && <section className="project-create-panel" aria-label="新規プロジェクトの開始方法">
         <div className="panel-title"><h3>新しいプロジェクト</h3><span>開始方法を選んでから作成します</span></div>
@@ -473,15 +514,15 @@ export function ProjectHub({
           <label><b aria-hidden="true">1</b><span>Dataset</span><select disabled={createMode === "copy"} value={newDatasetViewId} onChange={(event) => { const viewId = event.target.value; const dataset = datasetByView.get(viewId); const binding = creationOptions ? initialProjectBindingForDataset(dataset, creationOptions) : { taskId: "", modelPackageRefId: "" }; setNewDatasetViewId(viewId); setNewTaskId(binding.taskId); setNewModelPackageRefId(binding.modelPackageRefId); }}><option value="">選択してください</option>{(creationOptions?.dataset_views ?? []).filter((item) => item.kind === "single").map((view) => <option key={view.id} value={view.id}>{view.name} · {datasetByView.get(view.id)?.profile_revision.name}</option>)}</select></label>
           <label><b aria-hidden="true">2</b><span>予測タスク（Prediction Task）</span><select disabled={createMode === "copy"} value={createMode === "copy" ? copyTaskId : newTaskId} onChange={(event) => { const taskId = event.target.value; const packages = creationOptions ? compatiblePackagesForTask(taskId, creationOptions) : []; setNewTaskId(taskId); setNewModelPackageRefId(packages.length === 1 ? packages[0].id : ""); }}><option value="">選択してください</option>{catalog.filter((item) => availableTaskIds.includes(item.definition.task_definition.id)).map((item) => <option key={item.definition.task_definition.id} value={item.definition.task_definition.id}>{item.definition.task_definition.label}</option>)}</select></label>
           <label><b aria-hidden="true">3</b><span>Model Package</span><select disabled={createMode === "copy"} value={newModelPackageRefId} onChange={(event) => setNewModelPackageRefId(event.target.value)}><option value="">選択してください</option>{availablePackages.map((item) => <option key={item.id} value={item.id}>{item.package_id}</option>)}</select></label>
-          <label><b aria-hidden="true">4</b><span>検討のつながり</span><select disabled={Boolean(predecessorProjectId)} value={newProjectSeriesId} onChange={(event) => setNewProjectSeriesId(event.target.value)}><option value="">新しい一連の検討として開始</option>{activeProjectSeries.map((series) => <option key={series.id} value={series.id}>{series.name}</option>)}</select></label>
+          <label><b aria-hidden="true">4</b><span>所属グループ</span><select value={newProjectSeriesId} onChange={(event) => setNewProjectSeriesId(event.target.value)}><option value="">新しいグループを作成</option>{activeProjectSeries.map((series) => <option key={series.id} value={series.id}>{series.name}</option>)}</select></label>
         </div>
         <section className="project-binding-confirmation" aria-label="作成後に固定される内容">
           <header><strong>作成後に固定される内容</strong><span>Dataset・Prediction Task・Model Packageは後から変更できません</span></header>
           <div><span>参照Dataset</span><strong>{selectedDataset ? datasetDisplayName(selectedDataset) : "選択してください"}</strong><small>{selectedDataset ? `${selectedDataset.profile_revision.name} · r${selectedDataset.profile_revision.revision}` : "DatasetとProfileを選択"}</small></div>
           <div><span>Prediction Task</span><strong>{taskLabels.get(selectedTaskId) ?? (selectedTaskId || "選択してください")}</strong><small>Projectの予測目的</small></div>
           <div><span>Model Package</span><strong>{selectedPackage?.package_id ?? "選択してください"}</strong><small>学習元: {selectedPackage ? selectedTrainingDataset ? datasetDisplayName(selectedTrainingDataset) : "未登録または記録なし" : "Model Packageを選択してください"}</small></div>
-          <div><span>一連の検討</span><strong>{selectedSeries?.name ?? (newProjectName.trim() || "プロジェクト名から新規作成")}</strong><small>{selectedSeries ? "既存の一連の検討に追加" : "新しい一連の検討として開始"}</small></div>
         </section>
+        <div className="project-group-summary"><span>所属グループ</span><strong>{selectedSeries?.name ?? (newProjectName.trim() || "プロジェクト名から新規作成")}</strong><small>{selectedSeries ? "既存グループに追加" : "プロジェクト名で新しいグループを作成"}</small></div>
         {predecessorProjectId && <label>続ける理由（任意）<textarea value={continuationReason} onChange={(event) => setContinuationReason(event.target.value)} placeholder="予測タスク変更、データ追加、条件変更、判断の再検討など" /></label>}
         <div className="project-start-options">
           <label><input type="radio" checked={createMode === "empty"} onChange={() => setCreateMode("empty")} />空から開始<span>候補を持たない検討として作成</span></label>
@@ -491,9 +532,10 @@ export function ProjectHub({
       </section>}
 
       {settingsOpen && project && <section className="project-settings-panel">
-        <div className="project-fixed-bindings"><div><span>Dataset</span><strong>{fixedDataset?.data_asset.original_filename ?? project.dataset_view_revision_id}</strong><small>{fixedDataset ? `${fixedDataset.profile_revision.name} · r${fixedDataset.profile_revision.revision}` : ""}</small></div><div><span>Prediction Task</span><strong>{taskLabels.get(project.task_id) ?? project.task_id}</strong><small>{project.task_contract_digest.slice(0, 10)}</small></div><div><span>Model Package</span><strong>{fixedPackage?.package_id ?? project.model_package_ref_id}</strong><small>{project.model_package_manifest_digest.slice(0, 10)}</small></div><div><span>一連の検討</span><strong>{fixedSeries?.name ?? project.project_series_id}</strong><small>所属は固定、名称は変更できます</small></div></div>
+        <div className="project-fixed-bindings"><div><span>Dataset</span><strong>{fixedDataset?.data_asset.original_filename ?? project.dataset_view_revision_id}</strong><small>{fixedDataset ? `${fixedDataset.profile_revision.name} · r${fixedDataset.profile_revision.revision}` : ""}</small></div><div><span>Prediction Task</span><strong>{taskLabels.get(project.task_id) ?? project.task_id}</strong><small>{project.task_contract_digest.slice(0, 10)}</small></div><div><span>Model Package</span><strong>{fixedPackage?.package_id ?? project.model_package_ref_id}</strong><small>{project.model_package_manifest_digest.slice(0, 10)}</small></div></div>
         <div className="project-form">
-          <div className="series-name-setting"><label>一連の検討名<input value={seriesName} onChange={(event) => setSeriesName(event.target.value)} /></label><button className="outline-button" disabled={!seriesName.trim()} onClick={() => void saveSeriesName()}>名前を保存</button><small>同じ一連の検討に含まれるすべてのプロジェクトへ反映されます</small></div>
+          <div className="group-membership-setting"><label>所属グループ<select value={groupMembershipId} onChange={(event) => setGroupMembershipId(event.target.value)}>{activeProjectSeries.map((series) => <option key={series.id} value={series.id}>{series.name}</option>)}</select></label><button className="outline-button" disabled={!groupMembershipId || groupMembershipId === project.project_series_id} onClick={() => void moveProjectToGroup()}>このプロジェクトを移動</button><small>現在のプロジェクトだけを移動します。候補・判断履歴・続き元は変わりません</small></div>
+          <div className="series-name-setting"><label>グループ名<input value={seriesName} onChange={(event) => setSeriesName(event.target.value)} /></label><button className="outline-button" disabled={!seriesName.trim()} onClick={() => void saveSeriesName()}>名前を保存</button><small>このグループに含まれるすべてのプロジェクトへ反映されます</small></div>
           <label>プロジェクト名<input value={project.name} onChange={(event) => setProject({ ...project, name: event.target.value })} /></label>
           <label>説明<textarea value={project.description} onChange={(event) => setProject({ ...project, description: event.target.value })} /></label>
           <label>目的<textarea value={project.purpose} onChange={(event) => setProject({ ...project, purpose: event.target.value })} /></label>

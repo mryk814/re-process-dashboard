@@ -12,8 +12,8 @@ from ..application.projects import (
     ProjectTaskLockedError,
     ProjectValidationError,
 )
-from ..schemas import Project, ProjectCreateInput, ProjectDecisionInput, ProjectHistoryResponse, ProjectUpdateInput
-from ..store import ProjectHasSuccessorsError, ProjectNotFoundError, ProtectedProjectError, Store
+from ..schemas import Project, ProjectCreateInput, ProjectDecisionInput, ProjectGroupMoveInput, ProjectHistoryResponse, ProjectUpdateInput
+from ..store import ProjectGroupConflictError, ProjectHasSuccessorsError, ProjectNotFoundError, ProtectedProjectError, Store
 from ..task_registry import TaskRegistry
 from ..workspace_catalog import WorkspaceCatalog
 
@@ -124,5 +124,26 @@ def update_project_decision(project_id: str, payload: ProjectDecisionInput, serv
         return service.update_decision(project_id, payload)
     except ProjectNotFoundError as exc:
         raise _not_found(exc) from exc
+    except ProjectValidationError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@router.put(
+    "/api/projects/{project_id}/group",
+    response_model=Project,
+    responses=PROJECT_API_ERRORS,
+    operation_id="moveProjectToGroup",
+)
+def move_project_to_group(
+    project_id: str,
+    payload: ProjectGroupMoveInput,
+    service: ProjectServiceDependency,
+) -> Project:
+    try:
+        return service.move_to_group(project_id, payload)
+    except ProjectNotFoundError as exc:
+        raise _not_found(exc) from exc
+    except ProjectGroupConflictError as exc:
+        raise DomainApiException(409, "project_group_conflict", str(exc)) from exc
     except ProjectValidationError as exc:
         raise HTTPException(422, str(exc)) from exc

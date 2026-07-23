@@ -4,6 +4,7 @@ from ..schemas import (
     Project,
     ProjectCreateInput,
     ProjectDecisionInput,
+    ProjectGroupMoveInput,
     ProjectHistoryResponse,
     ProjectInput,
     ProjectSeriesCreateInput,
@@ -13,6 +14,8 @@ from ..store import (
     CandidateCopyConflictError,
     InvalidProjectDecisionError,
     ProjectNotFoundError,
+    ProjectGroupConflictError,
+    ProjectGroupUnavailableError,
     Store,
     StoreDataIntegrityError,
 )
@@ -111,7 +114,7 @@ class ProjectService:
         ]
         if changed:
             raise ProjectTaskLockedError(
-                "プロジェクトの固定参照は変更できません。『この検討の続き』として新規作成してください"
+                "プロジェクトの固定参照は変更できません。『このプロジェクトの続き』として新規作成してください"
             )
         contract = self._contract(current.task_id)
         self._validate_targets(payload, contract.task_definition.outputs)
@@ -137,6 +140,12 @@ class ProjectService:
         if project is None:
             raise ProjectNotFoundError(project_id)
         return project
+
+    def move_to_group(self, project_id: str, payload: ProjectGroupMoveInput) -> Project:
+        try:
+            return self.store.move_project_to_group(project_id, payload)
+        except ProjectGroupUnavailableError as exc:
+            raise ProjectValidationError(str(exc)) from exc
 
     def _contract(self, task_id: str) -> TaskContractFixture:
         try:
@@ -204,13 +213,11 @@ class ProjectService:
         predecessor = None
         if payload.predecessor_project_id:
             predecessor = self.require(payload.predecessor_project_id)
-        series_id = payload.project_series_id or (predecessor.project_series_id if predecessor else None)
+        series_id = payload.project_series_id
         if series_id:
             series = self.catalog.get_project_series(series_id)
             if series is None:
-                raise ProjectValidationError("選択した一連の検討が見つかりません")
-            if predecessor and predecessor.project_series_id != series.id:
-                raise ProjectValidationError("継続元と異なる一連の検討には接続できません")
+                raise ProjectValidationError("選択した検討グループが見つかりません")
         else:
             series = self.catalog.create_project_series(
                 ProjectSeriesCreateInput(name=payload.name, description=payload.description)

@@ -25,6 +25,7 @@ export type ApiTaskDefinition = components["schemas"]["ResolvedTaskDefinition"];
 export type ApiTaskCatalogItem = components["schemas"]["TaskCatalogItem"];
 export type ApiProjectHistory = components["schemas"]["ProjectHistoryResponse"];
 export type ApiProjectDecisionInput = components["schemas"]["ProjectDecisionInput"];
+export type ApiProjectGroupMoveInput = components["schemas"]["ProjectGroupMoveInput"];
 export type ApiProjectCreationOptions = components["schemas"]["ProjectCreationOptions"];
 export type ApiDataLibraryDataset = components["schemas"]["DataLibraryDataset"];
 export type ApiDatasetView = components["schemas"]["DatasetViewRevision"];
@@ -55,13 +56,13 @@ export const workbenchApi = {
     return requireData(await apiClient.POST("/api/data-library/views", { body }), "比較セットを作成できませんでした。");
   },
   async createProjectSeries(name: string, description = "") {
-    return requireData(await apiClient.POST("/api/project-series", { body: { name, description } }), "一連の検討を作成できませんでした。");
+    return requireData(await apiClient.POST("/api/project-series", { body: { name, description } }), "検討グループを作成できませんでした。");
   },
   async updateProjectSeries(seriesId: string, name: string, description = "") {
     return requireData(await apiClient.PUT("/api/project-series/{series_id}", {
       params: { path: { series_id: seriesId } },
       body: { name, description, archived: false },
-    }), "一連の検討を保存できませんでした。");
+    }), "検討グループを保存できませんでした。");
   },
   async listProfileWorkbenchProfiles() {
     return requireData(await apiClient.GET("/api/profile-workbench/profiles"), "Dataset Profileを取得できませんでした。");
@@ -102,6 +103,12 @@ export const workbenchApi = {
     const project = requireData(await apiClient.PUT("/api/projects/{project_id}", { params: { path: { project_id: projectId } }, body }), "プロジェクトを保存できませんでした。");
     if (options?.invalidateInference !== false) inferenceRequestCache.invalidatePrefix(candidateInferencePrefix(projectId));
     return project;
+  },
+  async moveProjectToGroup(projectId: string, body: ApiProjectGroupMoveInput) {
+    return requireData(await apiClient.PUT("/api/projects/{project_id}/group", {
+      params: { path: { project_id: projectId } },
+      body,
+    }), "所属グループを変更できませんでした。");
   },
   async deleteProject(projectId: string) {
     requireSuccess(await apiClient.DELETE("/api/projects/{project_id}", { params: { path: { project_id: projectId } } }), "プロジェクトを削除できませんでした。");
