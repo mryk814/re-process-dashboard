@@ -18,7 +18,10 @@ from material_workbench.contracts.schemas import (
     ProjectGroupMoveInput,
     ProjectInput,
     ProjectUpdateInput,
+    LineageNodeReview,
+    LineageNodeReviewInput,
 )
+from material_workbench.persistence.lineage_review_migration import migrate_lineage_reviews
 
 
 def _target_values_json(values: dict[str, object]) -> str:
@@ -97,6 +100,7 @@ class Store:
 
     def _init(self) -> None:
         migrate_workspace_catalog(self.path)
+        migrate_lineage_reviews(self.path)
 
     @staticmethod
     def _project(row: sqlite3.Row) -> Project:
@@ -243,6 +247,7 @@ class Store:
                 conn.execute(f"DELETE FROM snapshots WHERE candidate_id IN ({placeholders})", candidate_ids)
             conn.execute("DELETE FROM candidates WHERE project_id=?", (project_id,))
             conn.execute("DELETE FROM screening_runs WHERE project_id=?", (project_id,))
+            conn.execute("DELETE FROM lineage_node_reviews WHERE project_id=?", (project_id,))
             conn.execute("DELETE FROM projects WHERE id=?", (project_id,))
             series_id = project_row["project_series_id"]
             if series_id:
@@ -256,6 +261,72 @@ class Store:
                     (now, now, series_id),
                 )
             return True
+
+    @staticmethod
+    def _lineage_review(row: sqlite3.Row) -> LineageNodeReview:
+        return LineageNodeReview(
+            project_id=row["project_id"],
+            entity_key=row["entity_key"],
+            entity_type=row["entity_type"],
+            status=row["status"],
+            note=row["note"],
+            created_at=datetime.fromisoformat(row["created_at"]),
+            updated_at=datetime.fromisoformat(row["updated_at"]),
+        )
+
+    def list_lineage_reviews(self, project_id: str) -> list[LineageNodeReview]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM lineage_node_reviews WHERE project_id=? "
+                "ORDER BY updated_at DESC, entity_key",
+                (project_id,),
+            ).fetchall()
+        return [self._lineage_review(row) for row in rows]
+
+    def get_lineage_review(
+        self, project_id: str, entity_key: str
+    ) -> LineageNodeReview | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM lineage_node_reviews WHERE project_id=? AND entity_key=?",
+                (project_id, entity_key),
+            ).fetchone()
+        return self._lineage_review(row) if row else None
+
+    def upsert_lineage_review(
+        self,
+        project_id: str,
+        entity_key: str,
+        payload: LineageNodeReviewInput,
+    ) -> LineageNodeReview:
+        now = _now()
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT INTO lineage_node_reviews("
+                "project_id,entity_key,entity_type,status,note,created_at,updated_at"
+                ") VALUES (?,?,?,?,?,?,?) "
+                "ON CONFLICT(project_id,entity_key) DO UPDATE SET "
+                "entity_type=excluded.entity_type,status=excluded.status,"
+                "note=excluded.note,updated_at=excluded.updated_at",
+                (
+                    project_id,
+                    entity_key,
+                    payload.entity_type,
+                    payload.status,
+                    payload.note,
+                    now,
+                    now,
+                ),
+            )
+        return self.get_lineage_review(project_id, entity_key)  # type: ignore[return-value]
+
+    def delete_lineage_review(self, project_id: str, entity_key: str) -> bool:
+        with self._connect() as conn:
+            result = conn.execute(
+                "DELETE FROM lineage_node_reviews WHERE project_id=? AND entity_key=?",
+                (project_id, entity_key),
+            )
+        return bool(result.rowcount)
 
     @staticmethod
     def _validate_decision(conn: sqlite3.Connection, project_id: str, candidate_id: str, snapshot_id: str) -> None:

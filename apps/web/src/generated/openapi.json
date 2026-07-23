@@ -2141,6 +2141,35 @@
             ],
             "title": "Project"
           },
+          "review_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Note"
+          },
+          "review_status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "noted",
+                  "later",
+                  "accepted",
+                  "needs_fix",
+                  "hidden"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Status"
+          },
           "route": {
             "anyOf": [
               {
@@ -2189,6 +2218,10 @@
             "title": "Relation Rows",
             "type": "integer"
           },
+          "review_count": {
+            "title": "Review Count",
+            "type": "integer"
+          },
           "total_entities": {
             "title": "Total Entities",
             "type": "integer"
@@ -2200,7 +2233,8 @@
           "total_entities",
           "relation_rows",
           "detected_issues",
-          "counts_by_type"
+          "counts_by_type",
+          "review_count"
         ],
         "title": "LineageIndexResponse",
         "type": "object"
@@ -2337,6 +2371,118 @@
         "title": "LineageNodeDetail",
         "type": "object"
       },
+      "LineageNodeReview": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "entity_key": {
+            "title": "Entity Key",
+            "type": "string"
+          },
+          "entity_type": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Entity Type",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 1000,
+            "title": "Note",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "noted",
+              "later",
+              "accepted",
+              "needs_fix",
+              "hidden"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entity_type",
+          "status",
+          "project_id",
+          "entity_key",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "LineageNodeReview",
+        "type": "object"
+      },
+      "LineageNodeReviewInput": {
+        "properties": {
+          "entity_type": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Entity Type",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 1000,
+            "title": "Note",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "noted",
+              "later",
+              "accepted",
+              "needs_fix",
+              "hidden"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entity_type",
+          "status"
+        ],
+        "title": "LineageNodeReviewInput",
+        "type": "object"
+      },
+      "LineageNodeReviewList": {
+        "properties": {
+          "counts_by_status": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts By Status",
+            "type": "object"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LineageNodeReview"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items",
+          "counts_by_status"
+        ],
+        "title": "LineageNodeReviewList",
+        "type": "object"
+      },
       "LineageReference": {
         "additionalProperties": false,
         "properties": {
@@ -2425,6 +2571,16 @@
             },
             "title": "Relations",
             "type": "object"
+          },
+          "review": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LineageNodeReview"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -8570,6 +8726,16 @@
           },
           {
             "in": "query",
+            "name": "include_hidden",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Hidden",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
@@ -8624,6 +8790,241 @@
           }
         },
         "summary": "Lineage Index"
+      }
+    },
+    "/api/projects/{project_id}/lineage-reviews": {
+      "get": {
+        "operationId": "lineage_reviews_api_projects__project_id__lineage_reviews_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LineageNodeReviewList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Lineage Reviews"
+      }
+    },
+    "/api/projects/{project_id}/lineage-reviews/export.csv": {
+      "get": {
+        "operationId": "export_lineage_reviews_api_projects__project_id__lineage_reviews_export_csv_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Lineage Reviews"
+      }
+    },
+    "/api/projects/{project_id}/lineage-reviews/{entity_key}": {
+      "delete": {
+        "operationId": "delete_lineage_review_api_projects__project_id__lineage_reviews__entity_key__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entity_key",
+            "required": true,
+            "schema": {
+              "title": "Entity Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Lineage Review"
+      },
+      "put": {
+        "operationId": "save_lineage_review_api_projects__project_id__lineage_reviews__entity_key__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entity_key",
+            "required": true,
+            "schema": {
+              "title": "Entity Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LineageNodeReviewInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LineageNodeReview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Lineage Review"
       }
     },
     "/api/projects/{project_id}/lineage/{entity_key}": {

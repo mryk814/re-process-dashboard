@@ -542,6 +542,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/lineage-reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lineage Reviews */
+        get: operations["lineage_reviews_api_projects__project_id__lineage_reviews_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/lineage-reviews/{entity_key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save Lineage Review */
+        put: operations["save_lineage_review_api_projects__project_id__lineage_reviews__entity_key__put"];
+        post?: never;
+        /** Delete Lineage Review */
+        delete: operations["delete_lineage_review_api_projects__project_id__lineage_reviews__entity_key__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/lineage-reviews/export.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export Lineage Reviews */
+        get: operations["export_lineage_reviews_api_projects__project_id__lineage_reviews_export_csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/lineage/{entity_key}": {
         parameters: {
             query?: never;
@@ -1553,6 +1605,10 @@ export interface components {
             peak_temperature_c?: number | null;
             /** Project */
             project?: string | null;
+            /** Review Note */
+            review_note?: string | null;
+            /** Review Status */
+            review_status?: ("noted" | "later" | "accepted" | "needs_fix" | "hidden") | null;
             /** Route */
             route?: string | null;
         };
@@ -1570,6 +1626,8 @@ export interface components {
             matched_entities: number;
             /** Relation Rows */
             relation_rows: number;
+            /** Review Count */
+            review_count: number;
             /** Total Entities */
             total_entities: number;
         };
@@ -1615,6 +1673,59 @@ export interface components {
             /** Source Sheet */
             source_sheet: string;
         };
+        /** LineageNodeReview */
+        LineageNodeReview: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Entity Key */
+            entity_key: string;
+            /** Entity Type */
+            entity_type: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** Project Id */
+            project_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "noted" | "later" | "accepted" | "needs_fix" | "hidden";
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** LineageNodeReviewInput */
+        LineageNodeReviewInput: {
+            /** Entity Type */
+            entity_type: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "noted" | "later" | "accepted" | "needs_fix" | "hidden";
+        };
+        /** LineageNodeReviewList */
+        LineageNodeReviewList: {
+            /** Counts By Status */
+            counts_by_status: {
+                [key: string]: number;
+            };
+            /** Items */
+            items: components["schemas"]["LineageNodeReview"][];
+        };
         /** LineageReference */
         LineageReference: {
             /** Composition Entity Key */
@@ -1644,6 +1755,7 @@ export interface components {
             relations: {
                 [key: string]: string[];
             };
+            review?: components["schemas"]["LineageNodeReview"] | null;
         };
         /** LineageSourceRef */
         LineageSourceRef: {
@@ -4837,6 +4949,7 @@ export interface operations {
         parameters: {
             query?: {
                 entity_type?: string;
+                include_hidden?: boolean;
                 issue_filter?: "all" | "with_issues" | "without_issues";
                 limit?: number;
                 query?: string;
@@ -4874,6 +4987,188 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    lineage_reviews_api_projects__project_id__lineage_reviews_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LineageNodeReviewList"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    save_lineage_review_api_projects__project_id__lineage_reviews__entity_key__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_key: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LineageNodeReviewInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LineageNodeReview"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    delete_lineage_review_api_projects__project_id__lineage_reviews__entity_key__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_key: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    export_lineage_reviews_api_projects__project_id__lineage_reviews_export_csv_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
                 };
             };
             /** @description Validation Error */

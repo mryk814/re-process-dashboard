@@ -9,7 +9,15 @@ from typing import Literal
 from .candidates import CandidateService
 from .projects import ProjectService
 from material_workbench.data.importer import lineage_neighborhood, lineage_node_detail
-from material_workbench.contracts.schemas import Candidate, LineageIndexResponse, LineageResponse, QualityResponse
+from material_workbench.contracts.schemas import (
+    Candidate,
+    LineageIndexResponse,
+    LineageNodeReview,
+    LineageNodeReviewInput,
+    LineageNodeReviewList,
+    LineageResponse,
+    QualityResponse,
+)
 from material_workbench.domain.services import candidate_from_lineage, lineage_candidate_options
 from material_workbench.persistence.store import Store
 from material_workbench.tasks.task_registry import DataExplorerEntry, TaskRegistry, TaskRegistryError
@@ -88,11 +96,14 @@ class DataExplorationService:
         query: str = "",
         entity_type: str = "",
         issue_filter: Literal["all", "with_issues", "without_issues"] = "all",
+        include_hidden: bool = False,
         limit: int = 200,
     ) -> LineageIndexResponse:
         data = self.explorer(project_id, "lineage").data
         normalized = query.strip().casefold()
         issue_keys = {issue["entity_key"] for issue in data.detected_quality if issue["entity_key"]}
+        reviews = self.store.list_lineage_reviews(project_id)
+        review_by_key = {review.entity_key: review for review in reviews}
         items: list[dict] = []
         counts: Counter[str] = Counter()
         for sheet_name, key_column in data.entity_sheets.items():
@@ -101,6 +112,9 @@ class DataExplorationService:
             if entity_type and sheet_name != entity_type:
                 continue
             for key, source_row in records.items():
+                review = review_by_key.get(key)
+                if review is not None and review.status == "hidden" and not include_hidden:
+                    continue
                 metadata = self._lineage_metadata(data, sheet_name, key, source_row)
                 search_text = " ".join([key, *(str(value) for value in metadata.values() if not isinstance(value, dict))]).casefold()
                 if normalized and normalized not in search_text:
@@ -109,13 +123,23 @@ class DataExplorationService:
                     continue
                 if issue_filter == "without_issues" and key in issue_keys:
                     continue
-                items.append({"key": key, "entity_type": sheet_name, "has_issue": key in issue_keys, **metadata})
+                items.append({
+                    "key": key,
+                    "entity_type": sheet_name,
+                    "has_issue": key in issue_keys,
+                    "review_status": review.status if review else None,
+                    "review_note": review.note if review else None,
+                    **metadata,
+                })
         known_keys = {item["key"] for item in items}
         for issue in data.detected_quality:
             if issue_filter == "without_issues":
                 break
             key = issue["entity_key"]
             if not key or key in known_keys or key not in data.lineage:
+                continue
+            review = review_by_key.get(key)
+            if review is not None and review.status == "hidden" and not include_hidden:
                 continue
             relations = data.lineage[key]
             key_column = next((column for column, values in relations.items() if key in values), "")
@@ -124,7 +148,13 @@ class DataExplorationService:
                 continue
             if normalized and normalized not in key.casefold():
                 continue
-            items.append({"key": key, "entity_type": sheet_name, "has_issue": True})
+            items.append({
+                "key": key,
+                "entity_type": sheet_name,
+                "has_issue": True,
+                "review_status": review.status if review else None,
+                "review_note": review.note if review else None,
+            })
             known_keys.add(key)
         items.sort(key=lambda item: (not item["has_issue"], item["entity_type"], item["key"]))
         return LineageIndexResponse.model_validate({
@@ -134,6 +164,7 @@ class DataExplorationService:
             "relation_rows": len(data.sheets[data.relation_sheet]),
             "detected_issues": len(data.detected_quality),
             "counts_by_type": counts,
+            "review_count": len(reviews),
         })
 
     def lineage(self, project_id: str, entity_key: str, *, limit: int = 40) -> LineageResponse:
@@ -178,7 +209,58 @@ class DataExplorationService:
             "candidate_eligible": candidate_eligible,
             "candidate_reason": candidate_reason,
             "candidate_options": candidate_options,
+            "review": self.store.get_lineage_review(project_id, entity_key),
         })
+
+    def lineage_reviews(self, project_id: str) -> LineageNodeReviewList:
+        self.explorer(project_id, "lineage")
+        items = self.store.list_lineage_reviews(project_id)
+        return LineageNodeReviewList(
+            items=items,
+            counts_by_status=Counter(item.status for item in items),
+        )
+
+    def save_lineage_review(
+        self,
+        project_id: str,
+        entity_key: str,
+        payload: LineageNodeReviewInput,
+    ) -> LineageNodeReview:
+        data = self.explorer(project_id, "lineage").data
+        if entity_key not in data.lineage:
+            raise LineageNotFoundError(f"キー {entity_key} は系譜に存在しません")
+        return self.store.upsert_lineage_review(project_id, entity_key, payload)
+
+    def delete_lineage_review(self, project_id: str, entity_key: str) -> bool:
+        self.projects.require(project_id)
+        return self.store.delete_lineage_review(project_id, entity_key)
+
+    def lineage_reviews_csv(self, project_id: str) -> str:
+        labels = {
+            "noted": "メモ",
+            "later": "後で確認",
+            "accepted": "問題なし",
+            "needs_fix": "要修正",
+            "hidden": "非表示",
+        }
+        output = StringIO()
+        writer = csv.DictWriter(
+            output,
+            fieldnames=[
+                "status", "status_label", "entity_key", "entity_type",
+                "note", "updated_at",
+            ],
+        )
+        writer.writeheader()
+        writer.writerows({
+            "status": review.status,
+            "status_label": labels[review.status],
+            "entity_key": review.entity_key,
+            "entity_type": review.entity_type,
+            "note": review.note,
+            "updated_at": review.updated_at.isoformat(),
+        } for review in self.lineage_reviews(project_id).items)
+        return "\ufeff" + output.getvalue()
 
     def create_candidate_from_lineage(
         self,

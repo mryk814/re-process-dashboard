@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { fromApiCandidate, type CandidateViewModel as Candidate, type TaskOutputDefinition } from "../candidates";
 import { assessOutputValues, resolveOutputDefinition } from "../../shared/outputPresentation";
-import { workbenchApi, type ApiLineage, type ApiLineageIndex } from "../../shared/api/workbench-api";
+import {
+  workbenchApi,
+  type ApiLineage,
+  type ApiLineageIndex,
+  type ApiLineageNodeReview,
+} from "../../shared/api/workbench-api";
 import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
 import { SvgChartTooltip } from "../../shared/ui/SvgChartTooltip";
 import { LineageGraph } from "./LineageGraph";
@@ -25,6 +30,16 @@ type LineageGroupSelection = {
   parentKey: string;
   entityType: string;
   nodeKeys: string[];
+};
+
+type ReviewStatus = ApiLineageNodeReview["status"];
+
+const reviewLabels: Record<ReviewStatus, string> = {
+  noted: "メモ",
+  later: "後で確認",
+  accepted: "問題なし",
+  needs_fix: "要修正",
+  hidden: "非表示",
 };
 
 function heatStageSegments(heat: ApiLineage["node"]["heat_pattern"]): HeatStageSegment[] {
@@ -74,6 +89,12 @@ export function LineagePage({
   const [query, setQuery] = useState("");
   const [entityType, setEntityType] = useState("");
   const [issueFilter, setIssueFilter] = useState<"all" | "with_issues" | "without_issues">("all");
+  const [reviews, setReviews] = useState<ApiLineageNodeReview[]>([]);
+  const [reviewLedgerOpen, setReviewLedgerOpen] = useState(false);
+  const [reviewStatus, setReviewStatus] = useState<ReviewStatus>("noted");
+  const [reviewNote, setReviewNote] = useState("");
+  const [reviewSaveState, setReviewSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [indexRevision, setIndexRevision] = useState(0);
   const [graphLimit, setGraphLimit] = useState(40);
   const [index, setIndex] = useState<ApiLineageIndex | null>(null);
   const [data, setData] = useState<ApiLineage | null>(null);
@@ -105,6 +126,24 @@ export function LineagePage({
     setData(null);
     setError("");
     setCandidateError("");
+    setReviews([]);
+    setReviewLedgerOpen(false);
+    setReviewStatus("noted");
+    setReviewNote("");
+    setReviewSaveState("idle");
+  }, [projectId]);
+  const refreshReviews = () =>
+    workbenchApi.lineageReviews(projectId).then((payload) => setReviews(payload.items));
+  useEffect(() => {
+    let cancelled = false;
+    workbenchApi.lineageReviews(projectId)
+      .then((payload) => {
+        if (!cancelled) setReviews(payload.items);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
   }, [projectId]);
   useEffect(() => {
     const controller = new AbortController();
@@ -117,7 +156,7 @@ export function LineagePage({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [projectId, query, entityType, issueFilter]);
+  }, [projectId, query, entityType, issueFilter, indexRevision]);
   useEffect(() => {
     if (!entityKey) {
       setData(null);
@@ -132,6 +171,9 @@ export function LineagePage({
       .then((lineage) => {
         if (!controller.signal.aborted) {
           setData(lineage);
+          setReviewStatus(lineage.review?.status ?? "noted");
+          setReviewNote(lineage.review?.note ?? "");
+          setReviewSaveState("idle");
         }
       })
       .catch((cause) => {
@@ -146,6 +188,53 @@ export function LineagePage({
       controller.abort();
     };
   }, [projectId, entityKey, graphLimit]);
+  const saveReview = async () => {
+    if (!data) return;
+    setReviewSaveState("saving");
+    try {
+      const review = await workbenchApi.saveLineageReview(projectId, data.key, {
+        entity_type: data.node.entity_type,
+        status: reviewStatus,
+        note: reviewNote.trim(),
+      });
+      setData({ ...data, review });
+      await refreshReviews();
+      setIndexRevision((value) => value + 1);
+      setReviewSaveState("saved");
+    } catch {
+      setReviewSaveState("error");
+    }
+  };
+  const clearReview = async () => {
+    if (!data?.review) return;
+    setReviewSaveState("saving");
+    try {
+      await workbenchApi.deleteLineageReview(projectId, data.key);
+      setData({ ...data, review: null });
+      setReviewStatus("noted");
+      setReviewNote("");
+      await refreshReviews();
+      setIndexRevision((value) => value + 1);
+      setReviewSaveState("idle");
+    } catch {
+      setReviewSaveState("error");
+    }
+  };
+  const exportReviews = async () => {
+    try {
+      const csv = await workbenchApi.lineageReviewsCsv(projectId);
+      const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "lineage-node-reviews.csv";
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    } catch {
+      setReviewSaveState("error");
+    }
+  };
   const createCandidate = async () => {
     const requestProjectId = projectId;
     const requestEntityKey = entityKey;
@@ -274,32 +363,73 @@ export function LineagePage({
               <option value="without_issues">問題なし</option>
             </select>
           </label>
-          <div className="lineage-result-list">
-            {(index?.items ?? []).map((item) => (
-              <button
-                key={`${item.entity_type}-${item.key}`}
-                type="button"
-                className={item.key === entityKey ? "active" : ""}
-                onClick={() => openNode(item.key)}
-              >
-                <span className="lineage-result-title"><b>{item.key}</b><small>{item.entity_type}{item.has_issue ? " · 要確認" : ""}</small></span>
-                {item.entity_type === "焼鈍" && (
-                  <>
-                    <span className="lineage-result-meta">{item.family || "family不明"} · {item.project || "PJ不明"} · {item.route || "route不明"}</span>
-                    <span className="lineage-result-meta">peak {item.peak_temperature_c == null ? "—" : `${number(item.peak_temperature_c)}°C`} · {item.learning_status || "区分なし"}</span>
-                    <span className="lineage-result-observations">
-                      {Object.entries(item.observation_summary ?? {}).slice(0, 4).map(([property, summary]) => `${property.replace("[MPa]", "").replace("[%]", "")} ${number(summary.mean, 1)}±${number(summary.std, 1)} (n=${summary.n})`).join(" / ") || "焼鈍後観測なし"}
-                    </span>
-                  </>
-                )}
-              </button>
-            ))}
-            {index && !index.items.length && <p className="empty-evidence">一致するキーはありません。</p>}
+          <div className="lineage-review-ledger-tools">
+            <button
+              type="button"
+              className={reviewLedgerOpen ? "active" : ""}
+              onClick={() => setReviewLedgerOpen((open) => !open)}
+            >
+              確認メモ {reviews.length}件
+            </button>
+            <button type="button" disabled={!reviews.length} onClick={() => void exportReviews()}>CSV</button>
           </div>
-          <small className="lineage-result-limit">
-            {index ? `${number(index.matched_entities ?? index.items.length)}件中${number(index.items.length)}件を表示` : "検索中"}
-            {" · "}最大200件。選択するとグラフを開きます。
-          </small>
+          {reviewLedgerOpen ? (
+            <>
+              <div className="lineage-result-list lineage-review-list">
+                {reviews.map((review) => (
+                  <button
+                    key={review.entity_key}
+                    type="button"
+                    className={review.entity_key === entityKey ? "active" : ""}
+                    onClick={() => openNode(review.entity_key)}
+                  >
+                    <span className="lineage-result-title">
+                      <b>{review.entity_key}</b>
+                      <small className={`review-${review.status}`}>{reviewLabels[review.status]}</small>
+                    </span>
+                    <span className="lineage-result-meta">{review.entity_type}</span>
+                    {review.note && <span className="lineage-review-note">{review.note}</span>}
+                  </button>
+                ))}
+                {!reviews.length && <p className="empty-evidence">確認メモはまだありません。</p>}
+              </div>
+              <small className="lineage-result-limit">非表示にしたキーもここから開けます。</small>
+            </>
+          ) : (
+            <>
+              <div className="lineage-result-list">
+                {(index?.items ?? []).map((item) => (
+                  <button
+                    key={`${item.entity_type}-${item.key}`}
+                    type="button"
+                    className={item.key === entityKey ? "active" : ""}
+                    onClick={() => openNode(item.key)}
+                  >
+                    <span className="lineage-result-title"><b>{item.key}</b><small>{item.entity_type}{item.has_issue ? " · 要確認" : ""}</small></span>
+                    {item.review_status && (
+                      <span className={`lineage-review-badge review-${item.review_status}`}>
+                        {reviewLabels[item.review_status]}
+                      </span>
+                    )}
+                    {item.entity_type === "焼鈍" && (
+                      <>
+                        <span className="lineage-result-meta">{item.family || "family不明"} · {item.project || "PJ不明"} · {item.route || "route不明"}</span>
+                        <span className="lineage-result-meta">peak {item.peak_temperature_c == null ? "—" : `${number(item.peak_temperature_c)}°C`} · {item.learning_status || "区分なし"}</span>
+                        <span className="lineage-result-observations">
+                          {Object.entries(item.observation_summary ?? {}).slice(0, 4).map(([property, summary]) => `${property.replace("[MPa]", "").replace("[%]", "")} ${number(summary.mean, 1)}±${number(summary.std, 1)} (n=${summary.n})`).join(" / ") || "焼鈍後観測なし"}
+                        </span>
+                      </>
+                    )}
+                  </button>
+                ))}
+                {index && !index.items.length && <p className="empty-evidence">一致するキーはありません。</p>}
+              </div>
+              <small className="lineage-result-limit">
+                {index ? `${number(index.matched_entities ?? index.items.length)}件中${number(index.items.length)}件を表示` : "検索中"}
+                {" · "}最大200件。選択するとグラフを開きます。
+              </small>
+            </>
+          )}
         </aside>
       {error ? (
         <main className="lineage-main">
@@ -383,6 +513,44 @@ export function LineagePage({
                 {candidateError && <span className="warning">{candidateError}</span>}
               </div>
             </div>
+            <section className="lineage-review-editor" aria-label="このノードの確認メモ">
+              <label>
+                対応
+                <select
+                  value={reviewStatus}
+                  onChange={(event) => {
+                    setReviewStatus(event.target.value as ReviewStatus);
+                    setReviewSaveState("idle");
+                  }}
+                >
+                  {Object.entries(reviewLabels).map(([status, label]) => (
+                    <option key={status} value={status}>{label}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                メモ
+                <textarea
+                  maxLength={1000}
+                  rows={2}
+                  value={reviewNote}
+                  placeholder="このままでよい理由、修正内容、後で確認する観点"
+                  onChange={(event) => {
+                    setReviewNote(event.target.value);
+                    setReviewSaveState("idle");
+                  }}
+                />
+              </label>
+              <div>
+                {data.review && <button type="button" className="text-button" disabled={reviewSaveState === "saving"} onClick={() => void clearReview()}>記録を削除</button>}
+                <button type="button" className="outline-button" disabled={reviewSaveState === "saving"} onClick={() => void saveReview()}>
+                  {reviewSaveState === "saving" ? "保存中" : "確認メモを保存"}
+                </button>
+                <small className={reviewSaveState === "error" ? "error" : ""}>
+                  {reviewSaveState === "saved" ? "保存しました" : reviewSaveState === "error" ? "保存できませんでした" : data.review ? `更新 ${new Date(data.review.updated_at).toLocaleString("ja-JP")}` : ""}
+                </small>
+              </div>
+            </section>
             <section className="lineage-node-facts">
               <h3>主要条件</h3>
               <div className="lineage-node-facts-scroll">

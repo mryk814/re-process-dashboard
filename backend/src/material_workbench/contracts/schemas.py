@@ -828,6 +828,8 @@ class LineageIndexItem(BaseModel):
     learning_status: str | None = None
     has_observation: bool | None = None
     observation_summary: dict[str, RepeatSummary] | None = None
+    review_status: Literal["noted", "later", "accepted", "needs_fix", "hidden"] | None = None
+    review_note: str | None = None
 
 
 class LineageIndexResponse(BaseModel):
@@ -837,6 +839,25 @@ class LineageIndexResponse(BaseModel):
     relation_rows: int
     detected_issues: int
     counts_by_type: dict[str, int]
+    review_count: int
+
+
+class LineageNodeReviewInput(BaseModel):
+    entity_type: Annotated[str, Field(min_length=1, max_length=120)]
+    status: Literal["noted", "later", "accepted", "needs_fix", "hidden"]
+    note: Annotated[str, Field(max_length=1000)] = ""
+
+
+class LineageNodeReview(LineageNodeReviewInput):
+    project_id: str
+    entity_key: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class LineageNodeReviewList(BaseModel):
+    items: list[LineageNodeReview]
+    counts_by_status: dict[str, int]
 
 
 class ScreeningPoint(BaseModel):
@@ -1073,6 +1094,7 @@ class LineageResponse(BaseModel):
     candidate_eligible: bool
     candidate_reason: str
     candidate_options: list[LineageCandidateOption] = Field(default_factory=list)
+    review: LineageNodeReview | None = None
 
 
 class StrictModel(BaseModel):

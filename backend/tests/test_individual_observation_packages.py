@@ -40,8 +40,41 @@ def test_v8_registers_and_runs_both_individual_observation_packages(tmp_path: Pa
         assert without_issues.status_code == 200
         assert without_issues.json()["items"]
         assert all(not item["has_issue"] for item in without_issues.json()["items"])
+        saved_review = client.put(
+            "/api/projects/default/lineage-reviews/ME-00001",
+            json={
+                "entity_type": "溶製",
+                "status": "needs_fix",
+                "note": "元データで成分値を確認する",
+            },
+        )
+        assert saved_review.status_code == 200
+        assert saved_review.json()["status"] == "needs_fix"
+        hidden_review = client.put(
+            "/api/projects/default/lineage-reviews/ME-00002",
+            json={"entity_type": "溶製", "status": "hidden", "note": "確認済み"},
+        )
+        assert hidden_review.status_code == 200
+        hidden_default = client.get(
+            "/api/projects/default/lineage",
+            params={"query": "ME-00002"},
+        )
+        assert hidden_default.status_code == 200
+        assert hidden_default.json()["items"] == []
+        hidden_included = client.get(
+            "/api/projects/default/lineage",
+            params={"query": "ME-00002", "include_hidden": True},
+        )
+        assert hidden_included.json()["items"][0]["review_status"] == "hidden"
+        reviews = client.get("/api/projects/default/lineage-reviews")
+        assert reviews.status_code == 200
+        assert reviews.json()["counts_by_status"] == {"needs_fix": 1, "hidden": 1}
+        reviews_csv = client.get("/api/projects/default/lineage-reviews/export.csv")
+        assert reviews_csv.status_code == 200
+        assert "元データで成分値を確認する" in reviews_csv.text
         lineage = client.get("/api/projects/default/lineage/ME-00001")
         assert lineage.status_code == 200
+        assert lineage.json()["review"]["status"] == "needs_fix"
         options_for_annealing = [
             option for option in lineage.json()["candidate_options"]
             if option["process_role"] == "annealing"
