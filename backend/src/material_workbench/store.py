@@ -166,7 +166,10 @@ class Store:
             raise ProtectedProjectError("予約プロジェクトは削除できません")
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
-            if conn.execute("SELECT 1 FROM projects WHERE id=?", (project_id,)).fetchone() is None:
+            project_row = conn.execute(
+                "SELECT project_series_id FROM projects WHERE id=?", (project_id,)
+            ).fetchone()
+            if project_row is None:
                 return False
             successor = conn.execute(
                 "SELECT id FROM projects WHERE predecessor_project_id=? LIMIT 1", (project_id,)
@@ -186,6 +189,17 @@ class Store:
             conn.execute("DELETE FROM candidates WHERE project_id=?", (project_id,))
             conn.execute("DELETE FROM screening_runs WHERE project_id=?", (project_id,))
             conn.execute("DELETE FROM projects WHERE id=?", (project_id,))
+            series_id = project_row["project_series_id"]
+            if series_id:
+                now = _now()
+                conn.execute(
+                    "UPDATE project_series SET archived_at=?,updated_at=? "
+                    "WHERE id=? AND archived_at IS NULL "
+                    "AND NOT EXISTS ("
+                    "SELECT 1 FROM projects WHERE projects.project_series_id=project_series.id"
+                    ")",
+                    (now, now, series_id),
+                )
             return True
 
     @staticmethod

@@ -17,7 +17,8 @@ type HeatStageSegment = {
   category: string;
   name: string;
   status: string;
-  duration: number;
+  startTime: number;
+  endTime: number;
 };
 
 type LineageGroupSelection = {
@@ -32,20 +33,23 @@ function heatStageSegments(heat: ApiLineage["node"]["heat_pattern"]): HeatStageS
     const category = point.stage_category ?? "工程";
     const name = point.stage_name ?? "工程点";
     const status = point.mapping_status ?? "";
-    const previousTime = index === 0 ? 0 : heat[index - 1].time_s;
+    const startTime = index === 0 ? 0 : point.time_s;
+    const endTime = heat[index + 1]?.time_s ?? point.time_s;
     const last = segments[segments.length - 1];
-    if (last && last.category === category && last.name === name && last.status === status) {
-      last.duration += Math.max(0.001, point.time_s - previousTime);
+    if (last && last.category === category && last.name === name) {
+      last.endTime = Math.max(last.endTime, endTime);
+      if (last.status !== status) last.status = "複数の対応状態";
     } else {
       segments.push({
         category,
         name,
         status,
-        duration: Math.max(0.001, point.time_s - previousTime),
+        startTime,
+        endTime,
       });
     }
   });
-  return segments;
+  return segments.filter((stage) => stage.endTime > stage.startTime);
 }
 export function LineagePage({
   projectId,
@@ -185,16 +189,6 @@ export function LineagePage({
         `${heatX(point.time_s)},${heatY(point.set_temperature_c ?? 0)}`,
     )
     .join(" ");
-  const heatStages = Array.from(
-    new Map(
-      heat
-        .filter((point) => point.stage_category || point.stage_name)
-        .map((point) => [
-          `${point.stage_category ?? "工程"}-${point.stage_name ?? ""}`,
-          { category: point.stage_category ?? "工程", name: point.stage_name ?? "", status: point.mapping_status ?? "" },
-        ]),
-    ).values(),
-  );
   const heatStageTrack = heatStageSegments(heat);
   const selectedGroupNodes = new Map(
     (data?.graph.nodes ?? [])
@@ -479,23 +473,31 @@ export function LineagePage({
                     <div
                       className={`lineage-process-segment stage-${stage.category.toLowerCase().replaceAll("_", "-")}`}
                       key={`${stage.category}-${stage.name}-${index}`}
-                      style={{ flexGrow: stage.duration }}
-                      title={`${stage.category} / ${stage.name}${stage.status ? ` · ${stage.status}` : ""}`}
+                      style={{ flexBasis: `${((stage.endTime - stage.startTime) / maxTime) * 100}%` }}
+                      title={`${stage.category} / ${stage.name} · ${number(stage.startTime, 1)}–${number(stage.endTime, 1)} s${stage.status ? ` · ${stage.status}` : ""}`}
+                      aria-label={`${stage.name}、${number(stage.startTime, 1)}秒から${number(stage.endTime, 1)}秒${stage.status ? `、${stage.status}` : ""}`}
+                      tabIndex={0}
                     >
-                      <b>{stage.category}</b>
-                      <span>{stage.name}</span>
+                      {(stage.endTime - stage.startTime) / maxTime >= 0.1 && <b>{stage.name}</b>}
                     </div>
                   ))}
                 </div>
                 <div className="lineage-heat-legend">
                   <span><i className="actual" />実績温度</span>
                   <span><i className="setting" />設定温度</span>
-                  {heatStages.map((stage) => (
-                    <span className={stage.status && stage.status !== "確定" ? "unmapped" : ""} key={`${stage.category}-${stage.name}`}>
-                      {stage.category}{stage.name ? ` / ${stage.name}` : ""}{stage.status ? ` · ${stage.status}` : ""}
-                    </span>
-                  ))}
                 </div>
+                <details className="lineage-stage-details">
+                  <summary>工程区間 {heatStageTrack.length}段階</summary>
+                  <ol>
+                    {heatStageTrack.map((stage, index) => (
+                      <li key={`detail-${stage.category}-${stage.name}-${index}`}>
+                        <b>{stage.name}</b>
+                        <span>{number(stage.startTime, 1)}–{number(stage.endTime, 1)} s</span>
+                        {stage.status && <small>{stage.status}</small>}
+                      </li>
+                    ))}
+                  </ol>
+                </details>
                 </>
               ) : (
                 <p className="empty-evidence">
