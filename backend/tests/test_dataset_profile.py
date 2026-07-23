@@ -251,7 +251,7 @@ def test_preflight_rejects_empty_required_heat_series_and_policy_without_signal(
     assert any("has no accepted source values" in error for error in caught.value.errors)
 
 
-def test_preflight_reports_non_numeric_heat_series_order() -> None:
+def test_non_numeric_heat_series_order_excludes_only_its_parent() -> None:
     workbook = load_workbook(SOURCE, read_only=False, data_only=True)
     profile = load_dataset_profile()
     heat_mapping = next(
@@ -263,12 +263,14 @@ def test_preflight_reports_non_numeric_heat_series_order() -> None:
     order_column = next(
         cell.column for cell in sheet[1] if cell.value == heat_mapping.series_columns.order
     )
+    parent = str(sheet.cell(2, next(
+        cell.column for cell in sheet[1] if cell.value == heat_mapping.series_columns.parent
+    )).value)
     sheet.cell(2, order_column).value = "bad-order"
 
-    with pytest.raises(DatasetProfileError) as caught:
-        preflight_workbook(workbook, profile)
+    canonical = canonicalize_workbook(workbook, profile)
 
-    assert any("non-numeric order" in error for error in caught.value.errors)
+    assert (heat_mapping.parent_entity_type or "annealing", parent) not in canonical.heat_series
 
 
 def test_preflight_executes_declared_parent_consistency(tmp_path: Path) -> None:
@@ -554,6 +556,16 @@ def test_v8_source_maps_renamed_prediction_fields_and_tolerates_optional_context
     assert len(holes) == 518
     assert all({"TS[MPa]", "YS[MPa]", "EL[%]"} <= set(row["outputs"]) for row in tensile)
     assert all(row["date"] is None for row in holes)
+    history_only = [
+        row for row in annealed
+        if row["parent_key"] in {f"AN-{index:05d}" for index in range(191, 197)}
+    ]
+    assert len(history_only) == 23
+    assert not any(row["eligible"] for row in history_only)
+    assert all(
+        row["eligibility_reasons"] == ["焼鈍履歴を特徴量化できません"]
+        for row in history_only
+    )
 
     hot = [row for row in data.observations if row["task_id"] == "hot-rolled-properties-v1"]
     assert sum("TS[MPa]" in row["outputs"] for row in hot) == 348
@@ -627,7 +639,6 @@ def test_v7_explicit_heat_history_takes_priority_over_measurement_master() -> No
     ("mutation", "expected_error"),
     [
         ("decreasing_position", "positions must increase"),
-        ("partial_history", "incomplete or non-numeric points"),
         ("missing_temperature_column", "missing temperature columns"),
         ("missing_history_time_header", "existing ordered heat series sheet"),
         ("missing_history_stage_header", "existing ordered heat series sheet"),
@@ -639,24 +650,17 @@ def test_v7_rejects_heat_series_inputs_that_would_silently_change_the_pattern(
 ) -> None:
     workbook = load_workbook(V7_SOURCE, read_only=False, data_only=True)
     if mutation in {
-        "partial_history",
         "missing_history_time_header",
         "missing_history_stage_header",
     }:
         history = workbook["焼鈍履歴"]
-        if mutation == "partial_history":
-            time_column = next(
-                cell.column for cell in history[1] if cell.value == "到達時間[秒]"
-            )
-            history.cell(2, time_column).value = None
-        else:
-            target = (
-                "到達時間[秒]"
-                if mutation == "missing_history_time_header"
-                else "工程"
-            )
-            column = next(cell.column for cell in history[1] if cell.value == target)
-            history.cell(1, column).value = f"broken-{target}"
+        target = (
+            "到達時間[秒]"
+            if mutation == "missing_history_time_header"
+            else "工程"
+        )
+        column = next(cell.column for cell in history[1] if cell.value == target)
+        history.cell(1, column).value = f"broken-{target}"
     else:
         workbook.remove(workbook["焼鈍履歴"])
         if mutation == "decreasing_position":
@@ -716,6 +720,67 @@ def test_v7_accepts_parent_without_history_or_derivable_measurement_series() -> 
 
     assert ("annealing", "AN-00001") in canonical.entities
     assert ("annealing", "AN-00001") not in canonical.heat_series
+
+
+def test_v7_partial_explicit_history_uses_measurement_master_fallback() -> None:
+    workbook = load_workbook(V7_SOURCE, read_only=False, data_only=True)
+    history = workbook["焼鈍履歴"]
+    time_column = next(
+        cell.column for cell in history[1] if cell.value == "到達時間[秒]"
+    )
+    history.cell(2, time_column).value = None
+    profile = load_dataset_profile(
+        ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-v7.json"
+    )
+
+    canonical = canonicalize_workbook(workbook, profile)
+    points = canonical.heat_series[("annealing", "AN-00001")]
+
+    assert len(points) >= 2
+    assert {point["mapping_status"] for point in points} == {"測定点マスタ補完"}
+
+
+def test_v7_complete_history_without_condition_remains_training_eligible(
+    tmp_path: Path,
+) -> None:
+    workbook = load_workbook(V7_SOURCE, read_only=False, data_only=True)
+    annealing = workbook["焼鈍条件-3CGL"]
+    condition_key_column = next(
+        cell.column for cell in annealing[1]
+        if cell.value == "焼鈍条件-3CGL_key**"
+    )
+    condition_row = next(
+        cells[0].row
+        for cells in annealing.iter_rows(
+            min_col=condition_key_column,
+            max_col=condition_key_column,
+        )
+        if cells[0].value == "AN-00001"
+    )
+    annealing.delete_rows(condition_row)
+
+    source = tmp_path / "history-without-condition.xlsx"
+    workbook.save(source)
+    data = load_workbook_data(
+        source,
+        ROOT / "backend" / "src" / "material_workbench" / "data"
+        / "dataset-input-profile-v7.json",
+    )
+
+    feature = data.anneal_features["AN-00001"]
+    assert feature["feature_eligible"] is True
+    assert feature["ls_mpm"] == pytest.approx(119.742, rel=0.01)
+    observations = [
+        row for row in data.observations
+        if row["task_id"] == "annealed-properties-v1"
+        and row["parent_key"] == "AN-00001"
+    ]
+    assert observations
+    assert all(row["eligible"] for row in observations)
+    assert all(
+        "焼鈍条件が学習対象外です" not in row["eligibility_reasons"]
+        for row in observations
+    )
 
 
 def test_invalid_workbook_stops_before_runtime_and_database_initialization(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -3,7 +3,7 @@
   "id": "process-dashboard-two-equipment-v8",
   "extends": "dataset-input-profile-v7.json",
   "source_markers": [
-    {"sheet":"測定点マスタ","column":"設備コード","values":["AN-LINE-1"]},
+    {"sheet":"測定点マスタ","column":"設備コード","values":["3CGL"]},
     {"sheet":"測定点マスタ","column":"工程","values":["PHF","RTS","3RCS","OAS出口","水冷"]},
     {"sheet":"熱延条件","column":"熱延条件_key**","values":["HR-00001"]}
   ],
@@ -83,7 +83,7 @@
             "master_role":"measurement_points",
             "line_speed_path":"process.ls_mpm",
             "equipment_column":"設備コード",
-            "equipment_value":"AN-LINE-1",
+            "equipment_value":"3CGL",
             "order_column":"点順",
             "stage_column":"工程",
             "position_column":"入口からの距離[m]",
@@ -104,7 +104,7 @@
           "targets":[
             {"key":"TS","column":"引張強さ[MPa]","unit":"MPa"},
             {"key":"YS","columns":["降伏点[MPa]","0.2耐力点[MPa]"],"unit":"MPa"},
-            {"key":"EL","column":"伸び_突き合わせ[%]","unit":"%"}
+            {"key":"EL","column":"伸び_突き合せ[%]","unit":"%"}
           ],
           "auxiliary":[
             {"key":"uniform_elongation","column":"一様伸び[%]","unit":"%"},
