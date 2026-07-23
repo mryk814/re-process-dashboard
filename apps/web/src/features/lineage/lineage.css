@@ -687,11 +687,37 @@
   padding: 10px;
 }
 .lineage-review-panel-label {
-  margin-bottom: 8px;
+  margin-bottom: 3px;
   color: #1f5fc4;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: .04em;
+}
+.lineage-review-target {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #dce7f3;
+  min-width: 0;
+}
+.lineage-review-target span,
+.lineage-review-target small {
+  color: #718096;
+  font-size: 9px;
+}
+.lineage-review-target strong {
+  overflow: hidden;
+  color: #263448;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lineage-review-target small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .lineage-node-facts {
   margin-bottom: 0;

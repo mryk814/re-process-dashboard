@@ -473,6 +473,11 @@ export function LineagePage({
         </main>
         <aside className="lineage-review-panel" aria-label="このノードの確認メモ">
           <div className="lineage-review-panel-label">確認メモ</div>
+          <div className="lineage-review-target">
+            <span>確認対象</span>
+            <strong>{data.key}</strong>
+            <small>{data.node.entity_type}</small>
+          </div>
           <section className="lineage-review-editor">
             <label>
               対応
