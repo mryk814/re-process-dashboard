@@ -6,7 +6,7 @@ from typing import Literal
 
 import numpy as np
 
-from ..model_packages import (
+from material_workbench.modeling.model_packages import (
     AdditiveExplanation,
     PackageContractError,
     PredictiveSummary,

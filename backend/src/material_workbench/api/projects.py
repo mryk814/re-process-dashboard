@@ -12,10 +12,10 @@ from ..application.projects import (
     ProjectTaskLockedError,
     ProjectValidationError,
 )
-from ..schemas import Project, ProjectCreateInput, ProjectDecisionInput, ProjectGroupMoveInput, ProjectHistoryResponse, ProjectUpdateInput
-from ..store import ProjectGroupConflictError, ProjectHasSuccessorsError, ProjectNotFoundError, ProtectedProjectError, Store
-from ..task_registry import TaskRegistry
-from ..workspace_catalog import WorkspaceCatalog
+from material_workbench.contracts.schemas import Project, ProjectCreateInput, ProjectDecisionInput, ProjectGroupMoveInput, ProjectHistoryResponse, ProjectUpdateInput
+from material_workbench.persistence.store import ProjectGroupConflictError, ProjectHasSuccessorsError, ProjectNotFoundError, ProtectedProjectError, Store
+from material_workbench.tasks.task_registry import TaskRegistry
+from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 
 
 router = APIRouter()

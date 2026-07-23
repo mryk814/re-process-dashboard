@@ -5,7 +5,7 @@ import math
 from pydantic_core import to_jsonable_python
 
 from .projects import ProjectService
-from ..schemas import (
+from material_workbench.contracts.schemas import (
     Candidate,
     CandidateInput,
     ScreeningCandidateBatchRequest,
@@ -13,10 +13,10 @@ from ..schemas import (
     ScreeningRequest,
     ScreeningRunResponse,
 )
-from ..services import run_latin_hypercube
-from ..store import CandidateLimitError, Store
-from ..task_registry import TaskRegistry, TaskRegistryError
-from ..project_runtime_resolver import ProjectRuntimeResolver
+from material_workbench.domain.services import run_latin_hypercube
+from material_workbench.persistence.store import CandidateLimitError, Store
+from material_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
+from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
 
 
 class ScreeningNotFoundError(LookupError):

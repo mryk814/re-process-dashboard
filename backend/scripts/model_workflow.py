@@ -11,7 +11,7 @@ BACKEND_SRC = Path(__file__).resolve().parents[1] / "src"
 if str(BACKEND_SRC) not in sys.path:
     sys.path.insert(0, str(BACKEND_SRC))
 
-from material_workbench.model_lifecycle import (  # noqa: E402
+from material_workbench.modeling.model_lifecycle import (  # noqa: E402
     ACTIVE_PACKAGES_PATH,
     canonical_training_dataset,
     canonical_training_dataset_digest,
@@ -22,9 +22,9 @@ from material_workbench.model_lifecycle import (  # noqa: E402
     validate_active_package_task_set,
     validate_lifecycle_metadata,
 )
-from material_workbench.model_package_verify import verify_model_package  # noqa: E402
-from material_workbench.model_packages import MissingOptionalDependency, ModelPackageLoader, PackageContractError  # noqa: E402
-from material_workbench.task_registry import load_task_contracts  # noqa: E402
+from material_workbench.modeling.model_package_verify import verify_model_package  # noqa: E402
+from material_workbench.modeling.model_packages import MissingOptionalDependency, ModelPackageLoader, PackageContractError  # noqa: E402
+from material_workbench.tasks.task_registry import load_task_contracts  # noqa: E402
 from material_workbench.task_modules import PRIMARY_DEFAULT_SOURCE, registered_task_modules, resolve_task_source, task_module  # noqa: E402
 
 

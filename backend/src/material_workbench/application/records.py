@@ -7,11 +7,11 @@ from pydantic_core import to_jsonable_python
 from .candidates import CandidateService
 from .inference import InferenceService, InferenceValidationError
 from .projects import ProjectService
-from ..schemas import ActualMeasurement, ActualMeasurementInput, Candidate, DetailedPredictionResponse, PredictionVsActualResponse, SnapshotResponse
-from ..snapshot_reader import SnapshotPayloadError, candidate_input_from_snapshot
-from ..store import Store
-from ..task_registry import TaskRegistry
-from ..project_runtime_resolver import ProjectRuntimeResolver
+from material_workbench.contracts.schemas import ActualMeasurement, ActualMeasurementInput, Candidate, DetailedPredictionResponse, PredictionVsActualResponse, SnapshotResponse
+from material_workbench.persistence.snapshot_reader import SnapshotPayloadError, candidate_input_from_snapshot
+from material_workbench.persistence.store import Store
+from material_workbench.tasks.task_registry import TaskRegistry
+from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
 
 
 class RecordNotFoundError(LookupError):

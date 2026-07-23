@@ -10,8 +10,8 @@ from typing import Sequence
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from material_workbench.dataset_profile import DatasetProfileError
-from material_workbench.importer import load_workbook_data
+from material_workbench.data.dataset_profile import DatasetProfileError
+from material_workbench.data.importer import load_workbook_data
 
 
 def verify(source: Path, profile: Path | None = None) -> dict[str, object]:

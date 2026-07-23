@@ -7,16 +7,16 @@ from pathlib import Path
 
 import pytest
 
-from material_workbench.task_contracts import DataExplorerCapability
-from material_workbench.model_lifecycle import load_active_packages, validate_active_package_task_set
-from material_workbench.model_packages import PackageContractError
-from material_workbench.schemas import ProjectInput
+from material_workbench.contracts.task_contracts import DataExplorerCapability
+from material_workbench.modeling.model_lifecycle import load_active_packages, validate_active_package_task_set
+from material_workbench.modeling.model_packages import PackageContractError
+from material_workbench.contracts.schemas import ProjectInput
 from material_workbench.task_modules import DataDescriptor, registered_task_modules
-from material_workbench.task_registry import DataExplorerEntry, TaskRegistry, TaskRegistryError
+from material_workbench.tasks.task_registry import DataExplorerEntry, TaskRegistry, TaskRegistryError
 
 
 TASK_IDS = ("annealed-properties-v1", "hot-rolled-properties-v1", "flank-wear-v1")
-SOURCE_ROOT = Path(__file__).parents[1] / "src" / "material_workbench" / "task_definitions"
+SOURCE_ROOT = Path(__file__).parents[1] / "src" / "material_workbench" / "tasks" / "task_definitions"
 ACTIVE_PACKAGES = Path(__file__).parents[2] / "models" / "active-packages.json"
 
 

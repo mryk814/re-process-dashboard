@@ -13,18 +13,18 @@ from starlette.concurrency import run_in_threadpool
 
 from .dependencies import get_data_library_root, get_workspace_catalog
 from .errors import PROJECT_API_ERRORS
-from ..dataset_profile import DatasetProfileError, load_dataset_profile
-from ..dataset_registration import file_sha256, register_managed_dataset
-from ..model_lifecycle import dataset_profile_digest
-from ..profile_workbench import inspect_workbook
-from ..schemas import (
+from material_workbench.data.dataset_profile import DatasetProfileError, load_dataset_profile
+from material_workbench.data.dataset_registration import file_sha256, register_managed_dataset
+from material_workbench.modeling.model_lifecycle import dataset_profile_digest
+from material_workbench.data.profile_workbench import inspect_workbook
+from material_workbench.contracts.schemas import (
     ApiError,
     ProfileWorkbenchInspection,
     ProfileWorkbenchProfileOption,
     ProfileWorkbenchRegistration,
     ProfileWorkbenchValidation,
 )
-from ..workspace_catalog import CatalogConflictError, WorkspaceCatalog
+from material_workbench.persistence.workspace_catalog import CatalogConflictError, WorkspaceCatalog
 
 
 router = APIRouter(prefix="/api/profile-workbench", tags=["profile-workbench"])
@@ -36,7 +36,7 @@ PROFILE_WORKBENCH_API_ERRORS = {
 MAX_WORKBOOK_BYTES = 100 * 1024 * 1024
 MAX_EXPANDED_WORKBOOK_BYTES = 1024 * 1024 * 1024
 MAX_ARCHIVE_MEMBERS = 10_000
-_PROFILE_ROOT = Path(__file__).resolve().parent.parent
+_PROFILE_ROOT = Path(__file__).resolve().parent.parent / "data"
 
 
 def _profile_registry() -> dict[str, Path]:

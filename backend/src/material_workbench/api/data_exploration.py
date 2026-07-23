@@ -13,10 +13,10 @@ from ..application.data_exploration import (
     DataExplorerUnavailableError,
     LineageNotFoundError,
 )
-from ..schemas import Candidate, LineageIndexResponse, LineageResponse, QualityResponse
-from ..store import ProjectNotFoundError, Store
-from ..task_registry import TaskRegistry
-from ..project_runtime_resolver import ProjectRuntimeResolver
+from material_workbench.contracts.schemas import Candidate, LineageIndexResponse, LineageResponse, QualityResponse
+from material_workbench.persistence.store import ProjectNotFoundError, Store
+from material_workbench.tasks.task_registry import TaskRegistry
+from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
 
 
 router = APIRouter()

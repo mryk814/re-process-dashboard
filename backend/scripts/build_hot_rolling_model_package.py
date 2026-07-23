@@ -13,12 +13,12 @@ import numpy as np
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from material_workbench.hot_rolling_feature_pipeline import CANONICAL_INPUT_PATHS, FEATURE_DEFINITIONS, FEATURE_NAMES, INPUT_SCHEMA_VERSION, PIPELINE_ID, PIPELINE_VERSION, build_hot_rolling_features, build_hot_rolling_features_from_observation, candidate_from_observation
-from material_workbench.importer import load_workbook_data
-from material_workbench.model_example_contracts import SparseSelectionReport
-from material_workbench.model_lifecycle import QualityReport, SamplingDiagnosticsReport, TargetQualityMetric, canonical_training_dataset, canonical_training_dataset_digest, dataset_profile_digest, runtime_capability_digest, staged_package_destination, task_input_contract_digest
-from material_workbench.model_package_verify import verify_model_package
-from material_workbench.task_registry import load_task_contracts
+from material_workbench.modeling.hot_rolling_feature_pipeline import CANONICAL_INPUT_PATHS, FEATURE_DEFINITIONS, FEATURE_NAMES, INPUT_SCHEMA_VERSION, PIPELINE_ID, PIPELINE_VERSION, build_hot_rolling_features, build_hot_rolling_features_from_observation, candidate_from_observation
+from material_workbench.data.importer import load_workbook_data
+from material_workbench.contracts.model_example_contracts import SparseSelectionReport
+from material_workbench.modeling.model_lifecycle import QualityReport, SamplingDiagnosticsReport, TargetQualityMetric, canonical_training_dataset, canonical_training_dataset_digest, dataset_profile_digest, runtime_capability_digest, staged_package_destination, task_input_contract_digest
+from material_workbench.modeling.model_package_verify import verify_model_package
+from material_workbench.tasks.task_registry import load_task_contracts
 
 
 PACKAGE_ID = "hot-rolled-horseshoe-2026-07-feature-design-v3"

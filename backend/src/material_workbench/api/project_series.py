@@ -5,8 +5,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 
 from .dependencies import get_workspace_catalog
-from ..schemas import ProjectSeries, ProjectSeriesCreateInput, ProjectSeriesUpdateInput
-from ..workspace_catalog import WorkspaceCatalog
+from material_workbench.contracts.schemas import ProjectSeries, ProjectSeriesCreateInput, ProjectSeriesUpdateInput
+from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 
 
 router = APIRouter(prefix="/api/project-series")

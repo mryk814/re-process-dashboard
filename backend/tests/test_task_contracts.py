@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from material_workbench.importer import load_workbook_data
-from material_workbench.task_contracts import (
+from material_workbench.data.importer import load_workbook_data
+from material_workbench.contracts.task_contracts import (
     CanonicalCandidate,
     RuntimeCapability,
     TaskContractFixture,
@@ -16,7 +16,7 @@ from material_workbench.task_contracts import (
 )
 
 
-FIXTURE_ROOT = Path(__file__).parents[1] / "src" / "material_workbench" / "task_definitions"
+FIXTURE_ROOT = Path(__file__).parents[1] / "src" / "material_workbench" / "tasks" / "task_definitions"
 SOURCE_WORKBOOK = Path(__file__).parents[2] / "data" / "source" / "process_dashboard_realistic_excel_v2.xlsx"
 
 

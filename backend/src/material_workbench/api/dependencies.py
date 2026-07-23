@@ -4,12 +4,12 @@ from pathlib import Path
 
 from fastapi import HTTPException, Request
 
-from ..inference_work_graph import InferenceWorkGraph
-from ..schemas import Project
-from ..store import Store
-from ..task_registry import TaskRegistry
-from ..workspace_catalog import WorkspaceCatalog
-from ..project_runtime_resolver import ProjectRuntimeResolver
+from material_workbench.execution.inference_work_graph import InferenceWorkGraph
+from material_workbench.contracts.schemas import Project
+from material_workbench.persistence.store import Store
+from material_workbench.tasks.task_registry import TaskRegistry
+from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
+from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
 
 
 def get_store(request: Request) -> Store:

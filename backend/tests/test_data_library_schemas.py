@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from material_workbench.schemas import (
+from material_workbench.contracts.schemas import (
     DatasetViewRevisionCreateInput,
     Project,
     ProjectCreateInput,

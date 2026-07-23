@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ..schemas import (
+from material_workbench.contracts.schemas import (
     Project,
     ProjectCreateInput,
     ProjectDecisionInput,
@@ -11,7 +11,7 @@ from ..schemas import (
     TargetRange,
     ProjectUpdateInput,
 )
-from ..store import (
+from material_workbench.persistence.store import (
     CandidateCopyConflictError,
     InvalidProjectDecisionError,
     ProjectNotFoundError,
@@ -20,10 +20,10 @@ from ..store import (
     Store,
     StoreDataIntegrityError,
 )
-from ..task_contracts import OutputDefinition, TaskContractFixture
-from ..task_registry import TaskRegistry, TaskRegistryError
-from ..workspace_catalog import WorkspaceCatalog
-from ..workspace_catalog_bootstrap import task_definition_digest
+from material_workbench.contracts.task_contracts import OutputDefinition, TaskContractFixture
+from material_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
+from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
+from material_workbench.persistence.workspace_catalog_bootstrap import task_definition_digest
 
 
 class ProjectValidationError(ValueError):

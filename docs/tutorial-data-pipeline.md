@@ -90,7 +90,7 @@ Excel「C[mass%]」
 
 ## 4. Importerが作る正規化データ
 
-入口は `material_workbench.importer.load_workbook_data()` です。教材Workbookでは次の結果になります。
+入口は `material_workbench.data.importer.load_workbook_data()` です。教材Workbookでは次の結果になります。
 
 ```text
 composition          4
@@ -115,7 +115,7 @@ detected_quality     0
 
 ```powershell
 $env:PYTHONPATH = "backend/src"
-uv run python -c "from material_workbench.importer import load_workbook_data; d=load_workbook_data('data/source/material_workbench_tutorial_v1.xlsx'); print(d.profile_id, len(d.observations))"
+uv run python -c "from material_workbench.data.importer import load_workbook_data; d=load_workbook_data('data/source/material_workbench_tutorial_v1.xlsx'); print(d.profile_id, len(d.observations))"
 ```
 
 ## 5. Feature Pipelineはcanonical inputから決定的に計算する
@@ -124,7 +124,7 @@ Feature PipelineはModel Packageに含まれるPythonコードではありませ
 
 ### 焼鈍
 
-実装は [`feature_pipeline.py`](../backend/src/material_workbench/feature_pipeline.py) です。
+実装は [`feature_pipeline.py`](../backend/src/material_workbench/modeling/feature_pipeline.py) です。
 
 - 成分値
 - LS
@@ -135,7 +135,7 @@ Feature PipelineはModel Packageに含まれるPythonコードではありませ
 
 ### 熱延
 
-実装は [`hot_rolling_feature_pipeline.py`](../backend/src/material_workbench/hot_rolling_feature_pipeline.py) です。
+実装は [`hot_rolling_feature_pipeline.py`](../backend/src/material_workbench/modeling/hot_rolling_feature_pipeline.py) です。
 
 - 成分値
 - 熱延工程値

@@ -1,0 +1,206 @@
+"""Resolve a Project's immutable data/profile/package references into a runtime."""
+from __future__ import annotations
+
+from dataclasses import dataclass
+import hashlib
+from pathlib import Path
+from threading import RLock
+
+from material_workbench.data.dataset_profile import DatasetInputProfile, load_task_definitions, validate_profile
+from material_workbench.modeling.model_packages import ModelPackageLoader, PackageContractError
+from material_workbench.contracts.schemas import Project
+from material_workbench.task_modules import PredictionRuntime
+from material_workbench.tasks.task_registry import DataExplorerEntry, TaskRegistry, TaskRegistryError
+from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
+from material_workbench.persistence.workspace_catalog_bootstrap import (
+    CANONICALIZATION_CONTRACT_DIGEST,
+    CANONICAL_DATASET_CONTRACT_DIGEST,
+    task_definition_digest,
+)
+
+
+class ProjectRuntimeResolutionError(RuntimeError):
+    pass
+
+
+@dataclass(frozen=True)
+class ResolvedProjectRuntime:
+    # The prediction runtime is built against the package's declared training
+    # dataset so model support never drifts with the Project reference data.
+    runtime: PredictionRuntime
+    context_runtime: PredictionRuntime
+    data_explorer: DataExplorerEntry | None
+
+
+class ProjectRuntimeResolver:
+    def __init__(self, catalog: WorkspaceCatalog, registry: TaskRegistry) -> None:
+        self.catalog = catalog
+        self.registry = registry
+        self._cache: dict[tuple[str, str, str], ResolvedProjectRuntime] = {}
+        self._lock = RLock()
+
+    def resolve(self, project: Project) -> ResolvedProjectRuntime:
+        if not project.dataset_view_revision_id or not project.model_package_ref_id:
+            raise ProjectRuntimeResolutionError("プロジェクトのData Library参照が固定されていません")
+        key = (
+            project.dataset_view_revision_id,
+            project.task_contract_digest,
+            project.model_package_manifest_digest,
+        )
+        with self._lock:
+            cached = self._cache.get(key)
+            if cached is not None:
+                return cached
+            resolved = self._build(project)
+            self._cache[key] = resolved
+            return resolved
+
+    def runtime_for(self, project: Project) -> PredictionRuntime:
+        return self.resolve(project).runtime
+
+    def data_explorer_for(self, project: Project) -> DataExplorerEntry:
+        explorer = self.resolve(project).data_explorer
+        if explorer is None:
+            raise TaskRegistryError(f"data explorer is not available for task: {project.task_id}")
+        return explorer
+
+    def context_runtime_for(self, project: Project) -> PredictionRuntime:
+        return self.resolve(project).context_runtime
+
+    def _build(self, project: Project) -> ResolvedProjectRuntime:
+        expected_task_digest = task_definition_digest(self.registry, project.task_id)
+        if project.task_contract_digest != expected_task_digest:
+            raise ProjectRuntimeResolutionError("プロジェクトのPrediction Task契約digestが現在の定義と一致しません")
+
+        view = self.catalog.get_dataset_view_revision(
+            project.dataset_view_revision_id or "", include_archived=True
+        )
+        if view is None:
+            raise ProjectRuntimeResolutionError("プロジェクトのDataset Viewが見つかりません")
+        if view.kind != "single" or len(view.members) != 1:
+            raise ProjectRuntimeResolutionError(
+                "cohort比較ビューは比較Activity専用です。推論には単一Dataset Viewを選択してください"
+            )
+        application_path, application_profile, application_sha, application_profile_digest = self._dataset_resources(
+            view.members[0].dataset_revision_id, project.task_id
+        )
+
+        package_ref = self.catalog.get_model_package_ref(
+            project.model_package_ref_id or "", include_archived=True
+        )
+        if package_ref is None:
+            raise ProjectRuntimeResolutionError("Model Package参照が見つかりません")
+        if (
+            package_ref.task_id != project.task_id
+            or package_ref.task_contract_digest != expected_task_digest
+            or package_ref.manifest_digest != project.model_package_manifest_digest
+        ):
+            raise ProjectRuntimeResolutionError("Model Package参照とプロジェクトの固定値が一致しません")
+        try:
+            package = ModelPackageLoader().load(package_ref.locator)
+        except PackageContractError as exc:
+            raise ProjectRuntimeResolutionError(f"Model Packageを検証できません: {exc}") from exc
+        if package.manifest_sha256 != package_ref.manifest_digest:
+            raise ProjectRuntimeResolutionError("Model Package manifestが登録時から変わっています")
+
+        module = self.registry.module_for(project.task_id)
+        training_data_id = package.manifest.provenance.training_data_id
+        if not training_data_id.startswith("sha256:"):
+            raise ProjectRuntimeResolutionError("Model Packageのtraining_data_id形式に対応していません")
+        training_sha = training_data_id.removeprefix("sha256:")
+        training_profile_digest = package.manifest.provenance.dataset_profile_id
+        training_dataset_id = next((
+            item.id
+            for item in self.catalog.list_dataset_revisions(include_archived=True)
+            if (candidate_asset := self.catalog.get_data_asset(item.data_asset_id, include_archived=True)) is not None
+            and candidate_asset.sha256 == training_sha
+            and (candidate_profile := self.catalog.get_profile_revision(
+                item.profile_revision_id, include_archived=True
+            )) is not None
+            and (
+                training_profile_digest is None
+                or candidate_profile.profile_digest == training_profile_digest
+            )
+        ), None)
+        if training_dataset_id is None:
+            raise ProjectRuntimeResolutionError(
+                "Model Packageの学習DatasetがData Libraryにありません。Packageのsupport provenanceを確認してください"
+            )
+        training_path, training_profile, _, resolved_training_profile_digest = self._dataset_resources(
+            training_dataset_id, project.task_id
+        )
+        try:
+            context_data = module.data_loader(application_path, application_profile)
+            if (
+                application_sha == training_sha
+                and application_profile_digest == resolved_training_profile_digest
+            ):
+                training_data = context_data
+            else:
+                training_data = module.data_loader(training_path, training_profile)
+            runtime = module.runtime_factory(training_data, Path(package_ref.locator))
+            self.registry.validate_application_runtime(project.task_id, runtime)
+            context_runtime = (
+                runtime
+                if context_data is training_data
+                else module.runtime_factory(context_data, Path(package_ref.locator))
+            )
+            self.registry.validate_application_runtime(project.task_id, context_runtime)
+        except (TaskRegistryError, ValueError, OSError) as exc:
+            raise ProjectRuntimeResolutionError(f"プロジェクトruntimeを構築できません: {exc}") from exc
+        explorer = (
+            DataExplorerEntry(data=context_data, capability=module.data_explorer)
+            if module.data_explorer is not None
+            else None
+        )
+        return ResolvedProjectRuntime(
+            runtime=runtime,
+            context_runtime=context_runtime,
+            data_explorer=explorer,
+        )
+
+    def _dataset_resources(
+        self, dataset_revision_id: str, task_id: str
+    ) -> tuple[Path, DatasetInputProfile, str, str]:
+        dataset = self.catalog.get_dataset_revision(dataset_revision_id, include_archived=True)
+        if dataset is None:
+            raise ProjectRuntimeResolutionError("Dataset Revisionが見つかりません")
+        if dataset.canonicalization_contract_digest != CANONICALIZATION_CONTRACT_DIGEST:
+            raise ProjectRuntimeResolutionError("Dataset Revisionの正規化契約に対応していません")
+        asset = self.catalog.get_data_asset(dataset.data_asset_id, include_archived=True)
+        profile_revision = self.catalog.get_profile_revision(
+            dataset.profile_revision_id, include_archived=True
+        )
+        if asset is None or profile_revision is None:
+            raise ProjectRuntimeResolutionError("Dataset Revisionの構成要素が見つかりません")
+        if profile_revision.canonical_contract_digest != CANONICAL_DATASET_CONTRACT_DIGEST:
+            raise ProjectRuntimeResolutionError("Profile Revisionのcanonical契約に対応していません")
+
+        source_path = Path(asset.locator)
+        try:
+            with source_path.open("rb") as source:
+                actual_sha = hashlib.file_digest(source, "sha256").hexdigest()
+        except OSError as exc:
+            raise ProjectRuntimeResolutionError(f"DatasetのExcelを読み取れません: {source_path}") from exc
+        if actual_sha != asset.sha256:
+            raise ProjectRuntimeResolutionError("DatasetのExcel内容が登録時から変わっています")
+
+        definitions = load_task_definitions()
+        raw_profile = dict(profile_revision.effective_profile_json)
+        raw_tasks = raw_profile.get("tasks")
+        if not isinstance(raw_tasks, dict) or task_id not in raw_tasks:
+            raise ProjectRuntimeResolutionError("Profile RevisionはこのPrediction Taskに対応していません")
+        selected_definitions = {
+            selected_task_id: definitions[selected_task_id]
+            for selected_task_id in raw_tasks
+            if selected_task_id in definitions
+        }
+        try:
+            profile = DatasetInputProfile.model_validate({
+                **raw_profile,
+                "task_definitions": selected_definitions,
+            })
+            validate_profile(profile, selected_definitions)
+        except ValueError as exc:
+            raise ProjectRuntimeResolutionError("Profile Revisionを再構成できません") from exc
+        return source_path, profile, asset.sha256, profile_revision.profile_digest

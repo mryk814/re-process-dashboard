@@ -7,10 +7,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from .dependencies import get_project_runtime_resolver, get_store, get_task_registry
 from .errors import DomainApiException, PROJECT_API_ERRORS
 from ..application.screening import ScreeningNotFoundError, ScreeningService, ScreeningValidationError
-from ..schemas import ScreeningCandidateBatchRequest, ScreeningCandidateBatchResponse, ScreeningRequest, ScreeningRunResponse
-from ..store import CandidateLimitError, ProjectNotFoundError, Store
-from ..task_registry import TaskRegistry
-from ..project_runtime_resolver import ProjectRuntimeResolver
+from material_workbench.contracts.schemas import ScreeningCandidateBatchRequest, ScreeningCandidateBatchResponse, ScreeningRequest, ScreeningRunResponse
+from material_workbench.persistence.store import CandidateLimitError, ProjectNotFoundError, Store
+from material_workbench.tasks.task_registry import TaskRegistry
+from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
 
 
 router = APIRouter()

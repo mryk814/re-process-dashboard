@@ -8,11 +8,11 @@ from .candidates import CANDIDATE_APPLICATION_ERRORS, candidate_http_error
 from .dependencies import get_inference_work_graph, get_project_runtime_resolver, get_store, get_task_registry
 from .errors import DomainApiException, PROJECT_API_ERRORS
 from ..application.inference import InferenceService, InferenceValidationError
-from ..inference_work_graph import InferenceWorkGraph
-from ..schemas import CurveFamilyResponse, InferenceDiagnosticsResponse, PredictionResponse, ResponseCurveResponse, SimilarObservation
-from ..store import CandidateRevisionConflictError, ProjectNotFoundError, Store
-from ..task_registry import TaskRegistry
-from ..project_runtime_resolver import ProjectRuntimeResolver
+from material_workbench.execution.inference_work_graph import InferenceWorkGraph
+from material_workbench.contracts.schemas import CurveFamilyResponse, InferenceDiagnosticsResponse, PredictionResponse, ResponseCurveResponse, SimilarObservation
+from material_workbench.persistence.store import CandidateRevisionConflictError, ProjectNotFoundError, Store
+from material_workbench.tasks.task_registry import TaskRegistry
+from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
 
 
 router = APIRouter()

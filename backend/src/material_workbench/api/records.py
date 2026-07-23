@@ -9,11 +9,11 @@ from .dependencies import get_inference_work_graph, get_project_runtime_resolver
 from .errors import DomainApiException, PROJECT_API_ERRORS
 from .inference import INFERENCE_ERRORS, get_inference_service, inference_http_error
 from ..application.records import RecordIntegrityError, RecordNotFoundError, RecordService, RecordValidationError
-from ..inference_work_graph import InferenceWorkGraph
-from ..schemas import ActualMeasurement, ActualMeasurementInput, Candidate, DetailedPredictionResponse, PredictionVsActualResponse, SnapshotResponse
-from ..store import ProjectNotFoundError, Store
-from ..task_registry import TaskRegistry
-from ..project_runtime_resolver import ProjectRuntimeResolver
+from material_workbench.execution.inference_work_graph import InferenceWorkGraph
+from material_workbench.contracts.schemas import ActualMeasurement, ActualMeasurementInput, Candidate, DetailedPredictionResponse, PredictionVsActualResponse, SnapshotResponse
+from material_workbench.persistence.store import ProjectNotFoundError, Store
+from material_workbench.tasks.task_registry import TaskRegistry
+from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
 
 
 router = APIRouter()

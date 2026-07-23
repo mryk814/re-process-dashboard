@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from ..model_packages import PackageContractError, PredictiveSummary, PredictorSpec, VerifiedModelPackage
+from material_workbench.modeling.model_packages import PackageContractError, PredictiveSummary, PredictorSpec, VerifiedModelPackage
 from .base import feature_vector, quantile_summary, scalar_config
 from .safe_npz import MAX_NPZ_COMPRESSION_RATIO, safe_npz_arrays
 

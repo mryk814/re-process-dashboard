@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from material_workbench.schemas import (
+from material_workbench.contracts.schemas import (
     DataAssetCreateInput,
     DatasetRevisionCreateInput,
     DatasetViewMemberInput,
@@ -13,7 +13,7 @@ from material_workbench.schemas import (
     ProfileRevisionCreateInput,
     ProjectSeriesCreateInput,
 )
-from material_workbench.workspace_catalog import (
+from material_workbench.persistence.workspace_catalog import (
     CatalogConflictError,
     CatalogReferenceError,
     WorkspaceCatalog,

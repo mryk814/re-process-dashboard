@@ -5,10 +5,10 @@ import shutil
 import numpy as np
 import pytest
 
-from material_workbench.feature_pipeline import COMPOSITION_NAMES, build_feature_bundle
-from material_workbench.heat_time import line_speed_scaled_times
-from material_workbench.runtime import FEATURE_NAMES, HEAT_STAGE_TEMPERATURE_VARIABLE, ModelRuntime
-from material_workbench.schemas import CandidateInput
+from material_workbench.modeling.feature_pipeline import COMPOSITION_NAMES, build_feature_bundle
+from material_workbench.domain.heat_time import line_speed_scaled_times
+from material_workbench.modeling.runtime import FEATURE_NAMES, HEAT_STAGE_TEMPERATURE_VARIABLE, ModelRuntime
+from material_workbench.contracts.schemas import CandidateInput
 
 
 def _heat_candidate(*, stage_names: tuple[str | None, ...] = (None, None, None)) -> CandidateInput:

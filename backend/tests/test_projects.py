@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from openpyxl import Workbook
 
 from material_workbench.app import _AppResources, create_app
-from material_workbench.store import MAX_CANDIDATES_PER_PROJECT, Store
+from material_workbench.persistence.store import MAX_CANDIDATES_PER_PROJECT, Store
 
 ELEMENTS = ("C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N")
 SOURCE = Path(__file__).parents[2] / "data" / "source" / "process_dashboard_realistic_excel_v2.xlsx"
