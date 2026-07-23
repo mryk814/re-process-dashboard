@@ -205,14 +205,21 @@ def test_candidate_excel_template_explains_and_round_trips_the_project_contract(
     assert workbook.sheetnames == ["候補", "記入例", "入力ルール"]
     headers = [cell.value for cell in workbook["候補"][1]]
     assert headers[:3] == ["候補名", "C[mass%]", "Si[mass%]"]
-    assert "到達時間[s]_1" in headers
-    assert "実績温度[℃]_3" in headers
+    assert "ライン速度[m/min]" in headers
+    assert "経過時間[s]_1" in headers
+    assert "温度[℃]_3" in headers
+    assert not any(
+        header.startswith(("工程境界_", "標準工程名_", "標準工程カテゴリ_"))
+        for header in headers
+    )
     assert workbook["候補"]["A2"].value is None
     assert workbook["記入例"]["A2"].value == "記入例（候補シートへコピーして変更）"
     guide_text = "\n".join(str(cell.value) for row in workbook["入力ルール"].iter_rows() for cell in row if cell.value is not None)
     assert "1行＝1候補" in guide_text
     assert "最低2点" in guide_text
+    assert "工程が変わっても0へ戻さず昇順" in guide_text
     assert "学習データ範囲（参照）" in guide_text
+    assert "mpm" not in guide_text
     for column, cell in enumerate(workbook["記入例"][2], start=1):
         workbook["候補"].cell(2, column).value = cell.value
     buffer = BytesIO()
@@ -226,6 +233,10 @@ def test_candidate_excel_template_explains_and_round_trips_the_project_contract(
     assert not errors
     assert len(imported) == 1
     assert imported[0].name == "記入例（候補シートへコピーして変更）"
+    assert all(
+        not point.segment_start and point.stage_name is None and point.stage_category is None
+        for point in imported[0].inputs.heat_pattern or []
+    )
 
 
 def test_candidate_excel_import_rejects_rows_outside_the_project_contract(client) -> None:
@@ -246,7 +257,7 @@ def test_candidate_excel_import_rejects_rows_outside_the_project_contract(client
     invalid_values = [
         ("C[mass%]", None),
         ("C[mass%]", 1000),
-        ("到達時間[s]_2", 0),
+        ("経過時間[s]_2", 0),
     ]
     for header, value in invalid_values:
         response = client.post(

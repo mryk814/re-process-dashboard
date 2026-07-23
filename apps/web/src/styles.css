@@ -254,10 +254,17 @@ table input[type="number"] { text-align: right; font-variant-numeric: tabular-nu
   cursor: not-allowed;
 }
 .workspace-notice {
-  min-height: 29px;
-  padding: 6px 23px;
-  border-bottom: 1px solid #d8e0ea;
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 50;
+  max-width: min(520px, calc(100vw - 36px));
+  padding: 8px 12px;
+  border: 1px solid #d8e0ea;
+  border-radius: 5px;
   background: #f8fafc;
+  box-shadow: 0 4px 14px rgba(25, 45, 70, 0.14);
+  pointer-events: none;
   font-size: 12px;
   color: #5d6775;
 }
@@ -390,7 +397,7 @@ table input[type="number"] { text-align: right; font-variant-numeric: tabular-nu
     width: 100%;
     flex-wrap: wrap;
   }
-  .workspace-notice { padding-inline: 13px; }
+  .workspace-notice { right: 10px; bottom: 10px; max-width: calc(100vw - 20px); }
   .outline-button,
   .primary-button {
     font-size: 13px;

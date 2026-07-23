@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+const apiBaseUrl = `http://127.0.0.1:${Number(process.env.PLAYWRIGHT_API_PORT ?? 8875)}`;
+
 test("project series keep the active series open and let other series expand", async ({ page }) => {
   await page.goto("/?view=project&project=default");
 
@@ -29,7 +31,7 @@ test("a continuation can switch prediction task without leaving its series", asy
   const task = panel.getByRole("combobox", { name: "予測タスク（Prediction Task）" });
   await expect(task).toBeEnabled();
   await task.selectOption("hot-rolled-properties-v1");
-  await panel.getByLabel("続ける理由").fill("同じ材料テーマを熱延特性でも評価するため");
+  await expect(panel.getByLabel("続ける理由（任意）")).toBeVisible();
   const series = panel.getByRole("combobox", { name: "検討のつながり" });
   await expect(series).toBeDisabled();
   const seriesId = await series.inputValue();
@@ -40,6 +42,30 @@ test("a continuation can switch prediction task without leaving its series", asy
   expect(created.task_id).toBe("hot-rolled-properties-v1");
   expect(created.project_series_id).toBe(seriesId);
   expect(created.predecessor_project_id).toBe("default");
+});
+
+test("project settings rename the series and keep deletion at the bottom", async ({ page }) => {
+  const createdResponse = await page.request.post(`${apiBaseUrl}/api/projects`, {
+    data: { name: `削除位置確認 ${Date.now()}`, task_id: "annealed-properties-v1" },
+  });
+  expect(createdResponse.status()).toBe(201);
+  const created = await createdResponse.json() as { id: string };
+  await page.goto(`/?view=project&project=${created.id}`);
+  const content = page.locator(".project-hub-content");
+  const deleteButton = content.getByRole("button", { name: "プロジェクトを削除" });
+  await expect(deleteButton).toBeVisible();
+  await expect(content.locator(":scope > :last-child")).toHaveClass(/project-danger-zone/);
+
+  await page.getByRole("button", { name: "設定を編集" }).click();
+  const seriesName = page.getByLabel("一連の検討名");
+  const renamed = `焼鈍条件シリーズ ${Date.now()}`;
+  await seriesName.fill(renamed);
+  await expect(seriesName).toHaveValue(renamed);
+  const response = page.waitForResponse((item) => item.request().method() === "PUT" && new URL(item.url()).pathname.startsWith("/api/project-series/"));
+  await page.getByRole("button", { name: "名前を保存" }).click();
+  expect((await response).status()).toBe(200);
+  await expect(page.locator(".project-list-group-toggle").filter({ hasText: renamed })).toBeVisible();
+  expect((await page.request.delete(`${apiBaseUrl}/api/projects/${created.id}`)).status()).toBe(204);
 });
 
 test("project hub separates current revision from fixed snapshot and restores a new candidate", async ({ page }) => {
@@ -55,7 +81,7 @@ test("project hub separates current revision from fixed snapshot and restores a 
   const candidateName = await selectedRow.getByRole("textbox").inputValue();
   const candidateId = new URL(page.url()).searchParams.get("candidate");
   expect(candidateId).toBeTruthy();
-  const beforeResponse = await page.request.get(`http://127.0.0.1:8875/api/projects/default/candidates/${candidateId}`);
+  const beforeResponse = await page.request.get(`${apiBaseUrl}/api/projects/default/candidates/${candidateId}`);
   const before = await beforeResponse.json() as { revision: number };
 
   const detailed = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith(`/candidates/${candidateId}/predict`));

@@ -57,6 +57,12 @@ export const workbenchApi = {
   async createProjectSeries(name: string, description = "") {
     return requireData(await apiClient.POST("/api/project-series", { body: { name, description } }), "一連の検討を作成できませんでした。");
   },
+  async updateProjectSeries(seriesId: string, name: string, description = "") {
+    return requireData(await apiClient.PUT("/api/project-series/{series_id}", {
+      params: { path: { series_id: seriesId } },
+      body: { name, description, archived: false },
+    }), "一連の検討を保存できませんでした。");
+  },
   async listProfileWorkbenchProfiles() {
     return requireData(await apiClient.GET("/api/profile-workbench/profiles"), "Dataset Profileを取得できませんでした。");
   },

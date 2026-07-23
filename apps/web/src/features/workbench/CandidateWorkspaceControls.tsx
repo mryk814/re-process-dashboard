@@ -87,7 +87,6 @@ export function CandidateFileControls({
       {capability?.candidate_excel_export && <button className="outline-button" onClick={download}>
         候補・予測をXLSX出力
       </button>}
-      {capability?.candidate_excel_import && <small className="candidate-xlsx-hint">1行＝1候補。列名・単位は変更しません。詳細はテンプレート内「入力ルール」。</small>}
       {message && <small>{message}</small>}
     </div>
   );
