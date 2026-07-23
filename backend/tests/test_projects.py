@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from openpyxl import Workbook
 
 from material_workbench.app import _AppResources, create_app
-from material_workbench.store import Store
+from material_workbench.store import MAX_CANDIDATES_PER_PROJECT, Store
 
 ELEMENTS = ("C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N")
 SOURCE = Path(__file__).parents[2] / "data" / "source" / "process_dashboard_realistic_excel_v2.xlsx"
@@ -42,8 +42,9 @@ def _project(name: str) -> dict:
 def _xlsx_candidate(name: str) -> bytes:
     workbook = Workbook()
     sheet = workbook.active
-    sheet.append(["name", "C", "Si", "Mn", "time_s_1", "temperature_c_1", "time_s_2", "temperature_c_2"])
-    sheet.append([name, 0.08, 0.3, 1.5, 0, 25, 300, 810])
+    composition = {**{key: 0.0 for key in ELEMENTS}, "C": 0.08, "Si": 0.3, "Mn": 1.5}
+    sheet.append(["name", *ELEMENTS, "ls_mpm", "time_s_1", "temperature_c_1", "time_s_2", "temperature_c_2"])
+    sheet.append([name, *[composition[key] for key in ELEMENTS], 103, 0, 25, 300, 810])
     output = BytesIO()
     workbook.save(output)
     return output.getvalue()
@@ -204,6 +205,7 @@ def test_project_display_decimal_overrides_are_sparse_persisted_and_task_scoped(
 
 
 def test_candidate_limit_is_enforced_for_every_creation_route(client) -> None:
+    assert MAX_CANDIDATES_PER_PROJECT == 100
     project = client.post("/api/projects", json=_project("上限確認")).json()
     project_id = project["id"]
     base = client.post(f"/api/projects/{project_id}/candidates", json=_candidate("基準")).json()
@@ -219,12 +221,12 @@ def test_candidate_limit_is_enforced_for_every_creation_route(client) -> None:
             "variables": {"composition.C": {"mode": "range", "min": 0.06, "max": 0.1}},
         },
     ).json()
-    for index in range(2, 11):
+    for index in range(2, MAX_CANDIDATES_PER_PROJECT + 1):
         assert client.post(f"/api/projects/{project_id}/candidates", json=_candidate(f"候補{index}")).status_code == 201
-    assert len(client.get(f"/api/projects/{project_id}/candidates").json()) == 10
+    assert len(client.get(f"/api/projects/{project_id}/candidates").json()) == MAX_CANDIDATES_PER_PROJECT
 
-    direct = client.post(f"/api/projects/{project_id}/candidates", json=_candidate("11件目"))
-    assert direct.status_code == 409 and "最大10件" in direct.json()["message"]
+    direct = client.post(f"/api/projects/{project_id}/candidates", json=_candidate(f"{MAX_CANDIDATES_PER_PROJECT + 1}件目"))
+    assert direct.status_code == 409 and f"最大{MAX_CANDIDATES_PER_PROJECT}件" in direct.json()["message"]
     assert client.post(f"/api/projects/{project_id}/lineage/AN-00001/candidate").status_code == 409
     assert client.post(f"/api/screening/{screening['id']}/candidates?project_id={project_id}", json={"point_indices": [0]}).status_code == 409
     assert client.post(f"/api/projects/{project_id}/snapshots/{snapshot['id']}/restore").status_code == 409
@@ -233,7 +235,7 @@ def test_candidate_limit_is_enforced_for_every_creation_route(client) -> None:
         files={"file": ("candidate.xlsx", _xlsx_candidate("Excel候補"), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
     )
     assert imported.status_code == 409
-    assert len(client.get(f"/api/projects/{project_id}/candidates").json()) == 10
+    assert len(client.get(f"/api/projects/{project_id}/candidates").json()) == MAX_CANDIDATES_PER_PROJECT
 
 
 def test_project_decision_is_scoped_persisted_and_cleared_with_candidate(client) -> None:

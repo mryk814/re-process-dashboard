@@ -21,6 +21,8 @@ import {
 import { loadSelectedFirstBounded } from "./boundedPreviewLoader";
 import { useWorkbenchPrediction } from "./useWorkbenchPrediction";
 
+const INITIAL_PROJECT_PREVIEW_LIMIT = 5;
+
 type WorkbenchSessionOptions = {
   requestedProjectId?: string;
   requestedCandidateId?: string;
@@ -145,8 +147,14 @@ export function useWorkbenchSession({
           : "候補がありません。過去条件または新規入力から追加できます",
     );
     if (!imported.length || !resolved.runtime_capability.operations.preview) return;
+    const activeCandidates = imported.filter((candidate) => !candidate.raw.archived_at);
+    const selectedCandidate = activeCandidates.find((candidate) => candidate.id === nextSelectedId);
+    const initialPreviewCandidates = [
+      ...(selectedCandidate ? [selectedCandidate] : []),
+      ...activeCandidates.filter((candidate) => candidate.id !== nextSelectedId),
+    ].slice(0, INITIAL_PROJECT_PREVIEW_LIMIT);
     const previewEntries = await loadSelectedFirstBounded<CandidateViewModel, ApiPreview>({
-      items: imported.filter((candidate) => !candidate.raw.archived_at),
+      items: initialPreviewCandidates,
       selectedId: nextSelectedId,
       concurrency: 2,
       signal: previewController.signal,
@@ -179,7 +187,7 @@ export function useWorkbenchSession({
     if (sequence !== loadSequence.current || previewController.signal.aborted) return;
     const backgroundEntries = previewEntries.filter(([candidateId]) => candidateId !== nextSelectedId);
     prediction.acceptProjectPreviews(
-      imported.filter((candidate) => candidate.id !== nextSelectedId),
+      initialPreviewCandidates.filter((candidate) => candidate.id !== nextSelectedId),
       candidatesRef.current,
       Object.fromEntries(backgroundEntries),
       definition.id,
@@ -316,10 +324,6 @@ export function useWorkbenchSession({
 
   async function addCandidate() {
     if (!selected) return;
-    if (candidates.length >= 10) {
-      setNotice("比較候補は最大10件です。不要な候補を削除してから追加してください");
-      return;
-    }
     try {
       const request = toApiCandidate({
         ...selected,
@@ -331,17 +335,17 @@ export function useWorkbenchSession({
       appendCandidate(created);
       selectCandidate(created.id);
       setNotice("候補を追加しました");
-    } catch {
-      setApiState("offline");
-      setNotice("候補を追加できませんでした。API接続を確認してください。");
+    } catch (cause) {
+      if (cause instanceof ApiClientError && cause.kind !== "network") {
+        setNotice(cause.message);
+      } else {
+        setApiState("offline");
+        setNotice("候補を追加できませんでした。API接続を確認してください。");
+      }
     }
   }
 
   async function addCandidateFromLineage(entityKey: string): Promise<boolean> {
-    if (candidatesRef.current.length >= 10) {
-      setNotice("比較候補は最大10件です。不要な候補を削除してから追加してください");
-      return false;
-    }
     try {
       const created = fromApiCandidate(await workbenchApi.createCandidateFromLineage(entityKey, activeProjectId));
       appendCandidate(created);
@@ -373,10 +377,6 @@ export function useWorkbenchSession({
     const source = candidatesRef.current.find((candidate) => candidate.id === candidateId);
     if (!source) return;
     const requestProjectId = activeProjectIdRef.current;
-    if (candidatesRef.current.length >= 10) {
-      setNotice("比較候補は最大10件です。不要な候補を削除してから追加してください");
-      return;
-    }
     try {
       const request: ApiCandidateInput = {
         ...toApiCandidate(source),
