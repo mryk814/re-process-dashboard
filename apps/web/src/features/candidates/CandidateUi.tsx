@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type UIEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type UIEvent } from "react";
 import type { CandidateViewModel } from "./candidateModel";
 import { getCandidateInputValue, numericTaskInputs, orderedInputGroups, type NumericRange, type NumericTaskInput, type TaskDefinitionContract, type TaskInputGroup } from "./taskDefinition";
 import type { ApiPreview } from "../../shared/api/workbench-api";
@@ -312,6 +312,39 @@ export function ComparisonTable({
     return () => observer.disconnect();
   }, []);
   useEffect(() => saveComparisonInputShare(inputShare), [inputShare]);
+  useLayoutEffect(() => {
+    const panes = [
+      nameScrollRef.current,
+      inputScrollRef.current,
+      predictionScrollRef.current,
+      actionScrollRef.current,
+    ];
+    const rowSets = panes.map((pane) =>
+      Array.from(pane?.querySelectorAll<HTMLTableRowElement>("tbody > tr") ?? []),
+    );
+    const rowCount = Math.max(0, ...rowSets.map((rows) => rows.length));
+    rowSets.flat().forEach((row) => {
+      row.style.height = "";
+    });
+    for (let index = 0; index < rowCount; index += 1) {
+      const rows = rowSets.flatMap((items) => items[index] ? [items[index]] : []);
+      const sharedHeight = Math.max(37, ...rows.map((row) => row.getBoundingClientRect().height));
+      rows.forEach((row) => {
+        row.style.height = `${Math.ceil(sharedHeight)}px`;
+      });
+    }
+  }, [
+    candidates,
+    comparisonExpanded,
+    displayDecimalOverrides,
+    effectiveInputShare,
+    previewsByCandidate,
+    saveStates,
+    savedRevisionsByCandidate,
+    savingCandidateIds,
+    snapshotHistoryState,
+    targetValues,
+  ]);
   const syncVerticalScroll = (event: UIEvent<HTMLDivElement>) => {
     const scrollTop = event.currentTarget.scrollTop;
     for (const pane of [nameScrollRef.current, inputScrollRef.current, predictionScrollRef.current, actionScrollRef.current]) {
