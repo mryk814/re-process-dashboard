@@ -87,7 +87,7 @@ class DataExplorationService:
         *,
         query: str = "",
         entity_type: str = "",
-        issue_only: bool = False,
+        issue_filter: Literal["all", "with_issues", "without_issues"] = "all",
         limit: int = 200,
     ) -> LineageIndexResponse:
         data = self.explorer(project_id, "lineage").data
@@ -105,11 +105,15 @@ class DataExplorationService:
                 search_text = " ".join([key, *(str(value) for value in metadata.values() if not isinstance(value, dict))]).casefold()
                 if normalized and normalized not in search_text:
                     continue
-                if issue_only and key not in issue_keys:
+                if issue_filter == "with_issues" and key not in issue_keys:
+                    continue
+                if issue_filter == "without_issues" and key in issue_keys:
                     continue
                 items.append({"key": key, "entity_type": sheet_name, "has_issue": key in issue_keys, **metadata})
         known_keys = {item["key"] for item in items}
         for issue in data.detected_quality:
+            if issue_filter == "without_issues":
+                break
             key = issue["entity_key"]
             if not key or key in known_keys or key not in data.lineage:
                 continue

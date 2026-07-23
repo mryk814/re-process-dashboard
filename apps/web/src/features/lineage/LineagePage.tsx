@@ -73,7 +73,7 @@ export function LineagePage({
   const [entityKey, setEntityKey] = useState(initialEntityKey ?? "");
   const [query, setQuery] = useState("");
   const [entityType, setEntityType] = useState("");
-  const [issueOnly, setIssueOnly] = useState(false);
+  const [issueFilter, setIssueFilter] = useState<"all" | "with_issues" | "without_issues">("all");
   const [graphLimit, setGraphLimit] = useState(40);
   const [index, setIndex] = useState<ApiLineageIndex | null>(null);
   const [data, setData] = useState<ApiLineage | null>(null);
@@ -100,7 +100,7 @@ export function LineagePage({
   useEffect(() => {
     setQuery("");
     setEntityType("");
-    setIssueOnly(false);
+    setIssueFilter("all");
     setIndex(null);
     setData(null);
     setError("");
@@ -109,7 +109,7 @@ export function LineagePage({
   useEffect(() => {
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
-      workbenchApi.lineageIndex(projectId, query.trim(), entityType, issueOnly, controller.signal)
+      workbenchApi.lineageIndex(projectId, query.trim(), entityType, issueFilter, controller.signal)
         .then(setIndex)
         .catch(() => undefined);
     }, 180);
@@ -117,7 +117,7 @@ export function LineagePage({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [projectId, query, entityType, issueOnly]);
+  }, [projectId, query, entityType, issueFilter]);
   useEffect(() => {
     if (!entityKey) {
       setData(null);
@@ -263,9 +263,16 @@ export function LineagePage({
               ))}
             </select>
           </label>
-          <label className="lineage-issue-filter">
-            <input type="checkbox" checked={issueOnly} onChange={(event) => setIssueOnly(event.target.checked)} />
-            問題があるノードだけ
+          <label>
+            問題
+            <select
+              value={issueFilter}
+              onChange={(event) => setIssueFilter(event.target.value as typeof issueFilter)}
+            >
+              <option value="all">すべて</option>
+              <option value="with_issues">問題あり</option>
+              <option value="without_issues">問題なし</option>
+            </select>
           </label>
           <div className="lineage-result-list">
             {(index?.items ?? []).map((item) => (

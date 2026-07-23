@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
@@ -88,11 +88,17 @@ def lineage_index(
     service: DataExplorationServiceDependency,
     query: str = "",
     entity_type: str = "",
-    issue_only: bool = False,
+    issue_filter: Literal["all", "with_issues", "without_issues"] = "all",
     limit: int = Query(default=200, ge=1, le=500),
 ) -> LineageIndexResponse:
     try:
-        return service.lineage_index(project_id, query=query, entity_type=entity_type, issue_only=issue_only, limit=limit)
+        return service.lineage_index(
+            project_id,
+            query=query,
+            entity_type=entity_type,
+            issue_filter=issue_filter,
+            limit=limit,
+        )
     except DATA_EXPLORATION_ERRORS as exc:
         _raise_data_error(exc)
 

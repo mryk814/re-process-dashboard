@@ -8555,12 +8555,17 @@
           },
           {
             "in": "query",
-            "name": "issue_only",
+            "name": "issue_filter",
             "required": false,
             "schema": {
-              "default": false,
-              "title": "Issue Only",
-              "type": "boolean"
+              "default": "all",
+              "enum": [
+                "all",
+                "with_issues",
+                "without_issues"
+              ],
+              "title": "Issue Filter",
+              "type": "string"
             }
           },
           {

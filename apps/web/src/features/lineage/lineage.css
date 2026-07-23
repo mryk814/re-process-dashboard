@@ -300,12 +300,6 @@
   border-radius: 4px;
   background: #fff;
 }
-.lineage-browser .lineage-issue-filter {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  font-weight: 400;
-}
 .lineage-result-list {
   display: grid;
   gap: 3px;

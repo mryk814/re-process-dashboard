@@ -26,6 +26,20 @@ def test_v8_registers_and_runs_both_individual_observation_packages(tmp_path: Pa
         assert lineage_index.status_code == 200
         assert len(lineage_index.json()["items"]) == 200
         assert lineage_index.json()["matched_entities"] > 200
+        with_issues = client.get(
+            "/api/projects/default/lineage",
+            params={"issue_filter": "with_issues", "limit": 20},
+        )
+        assert with_issues.status_code == 200
+        assert with_issues.json()["items"]
+        assert all(item["has_issue"] for item in with_issues.json()["items"])
+        without_issues = client.get(
+            "/api/projects/default/lineage",
+            params={"issue_filter": "without_issues", "limit": 20},
+        )
+        assert without_issues.status_code == 200
+        assert without_issues.json()["items"]
+        assert all(not item["has_issue"] for item in without_issues.json()["items"])
         lineage = client.get("/api/projects/default/lineage/ME-00001")
         assert lineage.status_code == 200
         options_for_annealing = [

@@ -4837,7 +4837,7 @@ export interface operations {
         parameters: {
             query?: {
                 entity_type?: string;
-                issue_only?: boolean;
+                issue_filter?: "all" | "with_issues" | "without_issues";
                 limit?: number;
                 query?: string;
             };

@@ -195,9 +195,9 @@ export const workbenchApi = {
   async qualityCsv(projectId: string) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/quality/export.csv", { params: { path: { project_id: projectId } }, parseAs: "text" }), "データ品質CSVを取得できませんでした。");
   },
-  async lineageIndex(projectId: string, query: string, entityType: string, issueOnly: boolean, signal?: AbortSignal) {
+  async lineageIndex(projectId: string, query: string, entityType: string, issueFilter: "all" | "with_issues" | "without_issues", signal?: AbortSignal) {
     const normalizedEntityType = entityType === "すべて" ? "" : entityType;
-    return requireData(await apiClient.GET("/api/projects/{project_id}/lineage", { params: { path: { project_id: projectId }, query: { query, entity_type: normalizedEntityType, issue_only: issueOnly, limit: 200 } }, signal }), "実績・工程を検索できませんでした。");
+    return requireData(await apiClient.GET("/api/projects/{project_id}/lineage", { params: { path: { project_id: projectId }, query: { query, entity_type: normalizedEntityType, issue_filter: issueFilter, limit: 200 } }, signal }), "実績・工程を検索できませんでした。");
   },
   async lineage(projectId: string, entityKey: string, limit = 40, signal?: AbortSignal) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/lineage/{entity_key}", { params: { path: { project_id: projectId, entity_key: entityKey }, query: { limit } }, signal }), "系譜を取得できませんでした。");
