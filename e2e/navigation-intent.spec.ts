@@ -86,6 +86,16 @@ test("developer guide continues through Profile Workbench to project creation", 
   await expect(page.getByLabel("Dataset")).not.toHaveValue("");
 });
 
+test("developer diagnostics shows runtime checks without repository tooling", async ({ page }) => {
+  await page.goto("/?view=settings&project=default&admin=developer");
+  await page.getByRole("button", { name: "Diagnostics" }).click();
+
+  await expect(page.getByRole("heading", { name: "Runtime Diagnostics" })).toBeVisible();
+  await expect(page.getByText("Projectの固定参照")).toBeVisible();
+  await expect(page.getByText("API／sidecar状態")).toBeVisible();
+  await expect(page.getByText(/npm|uv|OpenAPI check/)).toHaveCount(0);
+});
+
 test("project hub keeps the active project visible across scoped navigation", async ({ page }) => {
   await page.goto("/?view=project&project=default");
   const projectList = page.getByRole("complementary", { name: "プロジェクト一覧" });

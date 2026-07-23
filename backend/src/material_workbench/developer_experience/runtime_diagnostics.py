@@ -1,0 +1,179 @@
+from __future__ import annotations
+
+import os
+import sqlite3
+from datetime import datetime, timezone
+
+from material_workbench.developer_experience.schemas import (
+    DeveloperCheck,
+    RuntimeDiagnosticsReport,
+)
+from material_workbench.persistence.candidate_migration import (
+    CANDIDATE_SAFETY_MIGRATION_ID,
+    MIGRATION_ID as CANDIDATE_MIGRATION_ID,
+)
+from material_workbench.persistence.lineage_review_migration import (
+    MIGRATION_ID as LINEAGE_REVIEW_MIGRATION_ID,
+)
+from material_workbench.persistence.store import Store
+from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
+from material_workbench.persistence.workspace_catalog_migration import (
+    MIGRATION_ID as WORKSPACE_CATALOG_MIGRATION_ID,
+)
+from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
+from material_workbench.tasks.task_registry import TaskRegistry
+
+
+EXPECTED_MIGRATIONS = {
+    CANDIDATE_MIGRATION_ID,
+    CANDIDATE_SAFETY_MIGRATION_ID,
+    WORKSPACE_CATALOG_MIGRATION_ID,
+    LINEAGE_REVIEW_MIGRATION_ID,
+}
+
+
+def _database_check(store: Store) -> DeveloperCheck:
+    try:
+        with sqlite3.connect(store.path) as connection:
+            quick_check = str(connection.execute("PRAGMA quick_check").fetchone()[0])
+            applied = {
+                str(row[0])
+                for row in connection.execute("SELECT id FROM schema_migrations")
+            }
+        missing = sorted(EXPECTED_MIGRATIONS - applied)
+    except (OSError, sqlite3.Error) as exc:
+        return DeveloperCheck(
+            id="database",
+            section="runtime",
+            title="Database migration",
+            severity="error",
+            summary="DBの整合性を確認できませんでした。",
+            cause=str(exc),
+            impact="Project・候補・固定参照を安全に読み込めません。",
+        )
+    healthy = quick_check == "ok" and not missing
+    return DeveloperCheck(
+        id="database",
+        section="runtime",
+        title="Database migration",
+        severity="ok" if healthy else "error",
+        summary="DBとmigration markerは現在のアプリに対応しています。" if healthy else "DB migrationに不足があります。",
+        impact=None if healthy else "一部の保存データを現在の契約で読めない可能性があります。",
+        details={"quick_check": quick_check, "applied": sorted(applied), "missing": missing},
+    )
+
+
+def run_runtime_diagnostics(
+    *,
+    store: Store,
+    registry: TaskRegistry,
+    catalog: WorkspaceCatalog,
+    resolver: ProjectRuntimeResolver,
+) -> RuntimeDiagnosticsReport:
+    checks = [_database_check(store)]
+    projects = store.list_projects()
+    resolution_errors: dict[str, str] = {}
+    runtime_details: dict[str, object] = {}
+    archived: dict[str, list[str]] = {}
+
+    for project in projects:
+        try:
+            resolved = resolver.resolve(project)
+            runtime_details[project.id] = {
+                "task_id": project.task_id,
+                "package_id": resolved.runtime.model_package.manifest.package_id,
+                "runtime_types": sorted({
+                    predictor.runtime_type
+                    for predictor in resolved.runtime.model_package.manifest.predictors
+                }),
+                "dataset_source_sha256": resolved.runtime.data.source_sha256,
+            }
+        except Exception as exc:  # runtime boundary: report every broken project
+            resolution_errors[project.id] = str(exc)
+
+        archived_references: list[str] = []
+        view = (
+            catalog.get_dataset_view_revision(project.dataset_view_revision_id, include_archived=True)
+            if project.dataset_view_revision_id
+            else None
+        )
+        if view and view.archived_at:
+            archived_references.append("Dataset View")
+        if view:
+            for member in view.members:
+                dataset = catalog.get_dataset_revision(member.dataset_revision_id, include_archived=True)
+                if dataset and dataset.archived_at:
+                    archived_references.append(f"Dataset Revision {dataset.id}")
+                if dataset:
+                    asset = catalog.get_data_asset(dataset.data_asset_id, include_archived=True)
+                    profile = catalog.get_profile_revision(dataset.profile_revision_id, include_archived=True)
+                    if asset and asset.archived_at:
+                        archived_references.append(f"Data Asset {asset.id}")
+                    if profile and profile.archived_at:
+                        archived_references.append(f"Profile Revision {profile.id}")
+        package = (
+            catalog.get_model_package_ref(project.model_package_ref_id, include_archived=True)
+            if project.model_package_ref_id
+            else None
+        )
+        if package and package.archived_at:
+            archived_references.append(f"Model Package {package.id}")
+        if archived_references:
+            archived[project.id] = archived_references
+
+    checks.append(DeveloperCheck(
+        id="project-references",
+        section="runtime",
+        title="Projectの固定参照",
+        severity="error" if resolution_errors else "ok",
+        summary="全ProjectのDataset・Profile・Packageを解決できます。" if not resolution_errors else "解決できないProject参照があります。",
+        cause=None if not resolution_errors else " / ".join(f"{key}: {value}" for key, value in resolution_errors.items()),
+        impact=None if not resolution_errors else "該当Projectでは探索・推論を実行できません。",
+        details={"resolved": runtime_details, "errors": resolution_errors},
+    ))
+    checks.append(DeveloperCheck(
+        id="archived-resources",
+        section="runtime",
+        title="Archived／missing resource",
+        severity="warning" if archived else "ok",
+        summary="Archive済み参照があります。" if archived else "現在参照中のリソースは利用可能です。",
+        impact="履歴は表示できますが、新しいProjectの参照候補には使えません。" if archived else None,
+        details={"projects": archived},
+    ))
+
+    capabilities = {
+        task_id: registry.contract_for(task_id).runtime_capability.model_dump(mode="json")
+        for task_id in registry.task_ids
+    }
+    checks.append(DeveloperCheck(
+        id="runtime-capabilities",
+        section="runtime",
+        title="Runtime capability",
+        severity="ok",
+        summary="登録TaskのRuntime capabilityを読み込めます。",
+        details=capabilities,
+    ))
+    desktop_sidecar = bool(os.getenv("WORKBENCH_LAUNCH_TOKEN"))
+    checks.append(DeveloperCheck(
+        id="sidecar",
+        section="runtime",
+        title="API／sidecar状態",
+        severity="ok",
+        summary="Desktop sidecarとして稼働中です。" if desktop_sidecar else "ローカルAPIとして稼働中です。",
+        details={"mode": "desktop-sidecar" if desktop_sidecar else "local-api"},
+    ))
+
+    status = (
+        "error"
+        if any(check.severity == "error" for check in checks)
+        else "warning"
+        if any(check.severity == "warning" for check in checks)
+        else "ok"
+    )
+    return RuntimeDiagnosticsReport(
+        generated_at=datetime.now(timezone.utc).isoformat(),
+        status=status,
+        checks=checks,
+        project_count=len(projects),
+        task_ids=list(registry.task_ids),
+    )

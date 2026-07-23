@@ -1124,7 +1124,7 @@ export interface components {
             /** Changes */
             changes: string[];
             /** Commands */
-            commands: string[];
+            commands: components["schemas"]["DeveloperCommand"][];
             /** Documents */
             documents: string[];
             /** Human Review */
@@ -1462,7 +1462,7 @@ export interface components {
              * Commands
              * @default []
              */
-            commands: string[];
+            commands: components["schemas"]["DeveloperCommand"][];
             /**
              * Details
              * @default {}
@@ -1486,33 +1486,23 @@ export interface components {
             /** Title */
             title: string;
         };
-        /** DeveloperDoctorReport */
-        DeveloperDoctorReport: {
-            /** Checks */
-            checks: components["schemas"]["DeveloperCheck"][];
+        /** DeveloperCommand */
+        DeveloperCommand: {
             /**
-             * Code
-             * @enum {integer}
+             * Arguments
+             * @default []
              */
-            code: 0 | 1 | 2 | 3;
-            /** Generated At */
-            generated_at: string;
-            /** Recommendations */
-            recommendations: string[];
+            arguments: string[];
+            /** Display Text */
+            display_text: string;
+            /** Executable */
+            executable: string;
             /**
-             * Schema Version
-             * @default developer-doctor/v1
-             * @constant
-             */
-            schema_version: "developer-doctor/v1";
-            source_inspection?: components["schemas"]["SourceInspection"] | null;
-            /**
-             * Status
+             * Platform
+             * @default cross-platform
              * @enum {string}
              */
-            status: "ok" | "warning" | "error";
-            /** Task Ids */
-            task_ids: string[];
+            platform: "cross-platform" | "windows" | "powershell";
         };
         /** DeveloperOverview */
         DeveloperOverview: {
@@ -2324,48 +2314,6 @@ export interface components {
             /** Comparisons */
             comparisons: components["schemas"]["PredictionComparison"][];
         };
-        /** ProfileCandidate */
-        ProfileCandidate: {
-            /**
-             * Extra Columns
-             * @default {}
-             */
-            extra_columns: {
-                [key: string]: string[];
-            };
-            /**
-             * Extra Sheets
-             * @default []
-             */
-            extra_sheets: string[];
-            /**
-             * Missing Columns
-             * @default {}
-             */
-            missing_columns: {
-                [key: string]: string[];
-            };
-            /**
-             * Missing Sheets
-             * @default []
-             */
-            missing_sheets: string[];
-            /**
-             * Possible Unit Differences
-             * @default []
-             */
-            possible_unit_differences: string[];
-            /** Profile Id */
-            profile_id: string;
-            /** Profile Path */
-            profile_path: string;
-            /** Score */
-            score: number;
-            /** Task Ids */
-            task_ids: string[];
-            /** Validation Error */
-            validation_error?: string | null;
-        };
         /** ProfileRevision */
         ProfileRevision: {
             /** Archived At */
@@ -3012,6 +2960,28 @@ export interface components {
             /** Task Id */
             task_id: string;
         };
+        /** RuntimeDiagnosticsReport */
+        RuntimeDiagnosticsReport: {
+            /** Checks */
+            checks: components["schemas"]["DeveloperCheck"][];
+            /** Generated At */
+            generated_at: string;
+            /** Project Count */
+            project_count: number;
+            /**
+             * Schema Version
+             * @default runtime-diagnostics/v1
+             * @constant
+             */
+            schema_version: "runtime-diagnostics/v1";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "warning" | "error";
+            /** Task Ids */
+            task_ids: string[];
+        };
         /** RuntimeOperationsCapability */
         RuntimeOperationsCapability: {
             /** Actual Measurement */
@@ -3326,67 +3296,6 @@ export interface components {
              */
             source_kind: "snapshot";
             source_ref: components["schemas"]["SnapshotReference"];
-        };
-        /** SourceInspection */
-        SourceInspection: {
-            /**
-             * Ambiguous
-             * @default false
-             */
-            ambiguous: boolean;
-            /** Candidates */
-            candidates: components["schemas"]["ProfileCandidate"][];
-            /**
-             * Canonical Counts
-             * @default {}
-             */
-            canonical_counts: {
-                [key: string]: unknown;
-            };
-            /**
-             * Commands
-             * @default []
-             */
-            commands: string[];
-            /**
-             * Decisions
-             * @default {}
-             */
-            decisions: {
-                [key: string]: boolean;
-            };
-            /**
-             * Learning Counts
-             * @default {}
-             */
-            learning_counts: {
-                [key: string]: number;
-            };
-            /**
-             * Output Counts
-             * @default {}
-             */
-            output_counts: {
-                [key: string]: number;
-            };
-            /**
-             * Recommendations
-             * @default []
-             */
-            recommendations: string[];
-            /** Selected Profile */
-            selected_profile?: string | null;
-            /** Source */
-            source: string;
-            /** Source Sha256 */
-            source_sha256: string;
-            /**
-             * Structural Differences
-             * @default {}
-             */
-            structural_differences: {
-                [key: string]: string[];
-            };
         };
         /** Support */
         Support: {
@@ -3709,7 +3618,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DeveloperDoctorReport"];
+                    "application/json": components["schemas"]["RuntimeDiagnosticsReport"];
                 };
             };
             /** @description Validation Error */

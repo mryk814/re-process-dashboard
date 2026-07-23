@@ -6,6 +6,36 @@ from pydantic import BaseModel, ConfigDict
 
 
 Severity = Literal["ok", "warning", "error"]
+Decision = Literal["no", "yes", "review_required"]
+Confidence = Literal["low", "medium", "high"]
+CommandPlatform = Literal["cross-platform", "windows", "powershell"]
+
+
+class DeveloperCommand(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    executable: str
+    arguments: list[str] = []
+    display_text: str
+    platform: CommandPlatform = "cross-platform"
+
+
+class InspectionDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    decision: Decision
+    reason: str
+    confidence: Confidence
+    evidence: list[str] = []
+
+
+class DataPurposeGuidance(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: Literal["application", "training", "candidate_input"]
+    label: str
+    description: str
+    package_rebuild: Decision
 
 
 class DeveloperCheck(BaseModel):
@@ -18,7 +48,7 @@ class DeveloperCheck(BaseModel):
     summary: str
     cause: str | None = None
     impact: str | None = None
-    commands: list[str] = []
+    commands: list[DeveloperCommand] = []
     details: dict[str, Any] = {}
 
 
@@ -49,9 +79,10 @@ class SourceInspection(BaseModel):
     learning_counts: dict[str, int] = {}
     output_counts: dict[str, int] = {}
     structural_differences: dict[str, list[str]] = {}
-    decisions: dict[str, bool] = {}
+    decisions: dict[str, InspectionDecision] = {}
+    data_purposes: list[DataPurposeGuidance] = []
     recommendations: list[str] = []
-    commands: list[str] = []
+    commands: list[DeveloperCommand] = []
 
 
 class DeveloperDoctorReport(BaseModel):
@@ -76,7 +107,7 @@ class ChangeGuideEntry(BaseModel):
     changes: list[str]
     unchanged: list[str]
     artifacts: list[str]
-    commands: list[str]
+    commands: list[DeveloperCommand]
     documents: list[str]
     human_review: str | None = None
 
@@ -108,3 +139,14 @@ class DeveloperOverview(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     items: list[DeveloperOverviewItem]
+
+
+class RuntimeDiagnosticsReport(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal["runtime-diagnostics/v1"] = "runtime-diagnostics/v1"
+    generated_at: str
+    status: Severity
+    checks: list[DeveloperCheck]
+    project_count: int
+    task_ids: list[str]

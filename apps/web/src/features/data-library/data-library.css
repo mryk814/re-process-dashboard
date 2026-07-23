@@ -43,6 +43,8 @@
 .library-error-state { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid #efc0bb; border-radius: 6px; background: #fff8f7; padding: 12px 14px; }
 .library-error-state .panel-error { margin: 0; }
 .profile-workbench-page { display: grid; align-content: start; gap: 14px; }
+.profile-data-purpose { display: flex; align-items: baseline; gap: 10px; margin-top: -5px; padding: 7px 10px; border-left: 3px solid #5b9b82; background: #f1f8f5; color: #4f6172; font-size: 11px; }
+.profile-data-purpose strong { flex: 0 0 auto; color: #2f6e56; }
 .profile-workbench-inputs { display: grid; grid-template-columns: minmax(260px, 1.1fr) minmax(260px, 1fr) auto; align-items: stretch; gap: 9px; }
 .profile-file-picker, .profile-select-field { display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: center; gap: 3px 8px; min-height: 62px; border: 1px solid #ccd7e3; border-radius: 6px; background: #f8fafc; padding: 9px 11px; color: #53647a; }
 .profile-file-picker { cursor: pointer; }

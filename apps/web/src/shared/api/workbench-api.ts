@@ -40,7 +40,8 @@ export type ApiProfileWorkbenchInspection = components["schemas"]["ProfileWorkbe
 export type ApiProfileWorkbenchProfile = components["schemas"]["ProfileWorkbenchProfileOption"];
 export type ApiProfileWorkbenchRegistration = components["schemas"]["ProfileWorkbenchRegistration"];
 export type ApiDeveloperOverview = components["schemas"]["DeveloperOverview"];
-export type ApiDeveloperDoctor = components["schemas"]["DeveloperDoctorReport"];
+export type ApiRuntimeDiagnostics = components["schemas"]["RuntimeDiagnosticsReport"];
+export type ApiDeveloperCommand = components["schemas"]["DeveloperCommand"];
 export type ApiChangeGuideEntry = components["schemas"]["ChangeGuideEntry"];
 
 const path = (projectId: string, suffix = "") =>

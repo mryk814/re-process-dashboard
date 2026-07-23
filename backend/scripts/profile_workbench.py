@@ -16,7 +16,7 @@ from material_workbench.data.profile_workbench import inspect_workbook, validate
 from material_workbench.persistence.workspace_catalog import CatalogConflictError, CatalogReferenceError
 
 
-def _parser() -> argparse.ArgumentParser:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Excel + Profile Dataset developer workbench.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -38,7 +38,7 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    args = _parser().parse_args(argv)
+    args = build_parser().parse_args(argv)
     try:
         if args.command == "inspect":
             result = inspect_workbook(args.source, args.profile)

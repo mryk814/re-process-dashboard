@@ -148,6 +148,10 @@ export function ProfileWorkbenchPage({
     <ol className="profile-workbench-steps" aria-label="Dataset登録からProject作成まで">
       {steps.map((step, index) => <li key={step} className={currentStep >= index + 1 ? currentStep === index + 1 ? "current" : "complete" : ""}><b>{index + 1}</b><span>{step}</span></li>)}
     </ol>
+    <aside className="profile-data-purpose">
+      <strong>ここで登録するのは参照・探索用Datasetです</strong>
+      <span>登録だけならModel Packageの再構築は不要です。学習データとして採用するときは、別途Packageを作成・検証します。</span>
+    </aside>
 
     <section className="profile-workbench-inputs" aria-label="ExcelとDataset Profileの選択">
       <label className={file ? "profile-file-picker selected" : "profile-file-picker"}>

@@ -2,17 +2,23 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from material_workbench.api.dependencies import get_store, get_task_registry, get_workspace_catalog
+from material_workbench.api.dependencies import (
+    get_project_runtime_resolver,
+    get_store,
+    get_task_registry,
+    get_workspace_catalog,
+)
 from material_workbench.developer_experience.change_guide import change_guide_entries
-from material_workbench.developer_experience.diagnostics import run_developer_doctor
+from material_workbench.developer_experience.runtime_diagnostics import run_runtime_diagnostics
 from material_workbench.developer_experience.schemas import (
     ChangeGuideEntry,
-    DeveloperDoctorReport,
     DeveloperOverview,
     DeveloperOverviewItem,
+    RuntimeDiagnosticsReport,
 )
 from material_workbench.persistence.store import Store
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
+from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
 from material_workbench.tasks.task_registry import TaskRegistry
 
 
@@ -24,9 +30,19 @@ def get_change_guide() -> list[ChangeGuideEntry]:
     return change_guide_entries()
 
 
-@router.get("/diagnostics", response_model=DeveloperDoctorReport)
-def get_diagnostics() -> DeveloperDoctorReport:
-    return run_developer_doctor(include_generated_checks=True)
+@router.get("/diagnostics", response_model=RuntimeDiagnosticsReport)
+def get_diagnostics(
+    store: Store = Depends(get_store),
+    registry: TaskRegistry = Depends(get_task_registry),
+    catalog: WorkspaceCatalog = Depends(get_workspace_catalog),
+    resolver: ProjectRuntimeResolver = Depends(get_project_runtime_resolver),
+) -> RuntimeDiagnosticsReport:
+    return run_runtime_diagnostics(
+        store=store,
+        registry=registry,
+        catalog=catalog,
+        resolver=resolver,
+    )
 
 
 @router.get("/overview", response_model=DeveloperOverview)

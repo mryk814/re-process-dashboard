@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from fastapi.testclient import TestClient
+import subprocess
 
-from material_workbench.developer_experience.diagnostics import run_developer_doctor
+from fastapi.testclient import TestClient
 
 
 def test_change_guide_is_machine_readable_and_requires_human_review(client: TestClient) -> None:
@@ -13,6 +13,14 @@ def test_change_guide_is_machine_readable_and_requires_human_review(client: Test
     task = next(item for item in items if item["id"] == "task")
     assert task["risk"] == "specialist"
     assert task["human_review"]
+    profile_command = next(
+        command
+        for item in items
+        for command in item["commands"]
+        if "profile_workbench.py" in command["display_text"]
+    )
+    assert profile_command["arguments"][-2:] == ["inspect", "path/to/file.xlsx"]
+    assert "--source" not in profile_command["arguments"]
 
 
 def test_overview_connects_project_to_runtime_contracts(client: TestClient) -> None:
@@ -25,16 +33,26 @@ def test_overview_connects_project_to_runtime_contracts(client: TestClient) -> N
     assert all(isinstance(item["active_package"], bool) for item in items)
 
 
-def test_diagnostics_reuses_doctor_json(
+def test_runtime_diagnostics_does_not_run_repository_commands(
     client: TestClient,
     monkeypatch,
 ) -> None:
-    expected = run_developer_doctor(include_generated_checks=False)
-    monkeypatch.setattr(
-        "material_workbench.api.developer.run_developer_doctor",
-        lambda **_: expected,
-    )
+    def reject_subprocess(*_args, **_kwargs):
+        raise AssertionError("Runtime Diagnostics must not start repository tools")
+
+    monkeypatch.setattr(subprocess, "run", reject_subprocess)
     response = client.get("/api/developer/diagnostics")
-    assert response.status_code == 200
-    assert response.json()["schema_version"] == "developer-doctor/v1"
-    assert response.json()["task_ids"] == expected.task_ids
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["schema_version"] == "runtime-diagnostics/v1"
+    assert {check["id"] for check in payload["checks"]} == {
+        "database",
+        "project-references",
+        "archived-resources",
+        "runtime-capabilities",
+        "sidecar",
+    }
+    assert all(
+        "toolchain" not in check["id"] and "generated" not in check["id"]
+        for check in payload["checks"]
+    )

@@ -6,7 +6,8 @@
 
 | やりたいこと | 主に変える場所 | 原則変えない場所 | 必要な成果物 |
 | --- | --- | --- | --- |
-| Excelの行・値だけ変更 | Dataset登録、Package | TaskDefinition、Feature Pipeline | Dataset Revision、Model Package |
+| Excelを参照・探索データとして追加 | Dataset登録 | TaskDefinition、Feature Pipeline、Package | Dataset Revision |
+| Excelを学習データとして変更 | Dataset登録、Package builder | TaskDefinition、意味が同じFeature Pipeline | Dataset Revision、新Model Package |
 | 列名・シート名だけ変更 | `backend/src/material_workbench/data/dataset-input-profile-*.json` | TaskDefinition、Feature Pipeline | Profile Revision、Dataset Revision |
 | 単位表記のみ変更 | Profileの単位対応 | canonical unit | Profile Revision |
 | 補助列の追加・削除 | Profile metadata / technical fields | 予測契約 | Profile Revision |
@@ -17,6 +18,18 @@
 | 表示のみ変更 | `apps/web/src` | データ・モデル契約 | frontend build |
 
 判断に迷ったら `npm run dev:doctor -- --source path/to/file.xlsx` を実行します。Doctorは変更や学習を行わず、差分と次のコマンドだけを示します。
+
+## 先にデータの用途を決める
+
+同じExcelでも用途によって変更範囲が異なります。
+
+| 用途 | 何に使うか | Model Package再構築 |
+| --- | --- | --- |
+| Projectで参照・探索するデータ | Data Library、Project固定参照、類似実績の確認 | 不要 |
+| モデルを学習するデータ | 学習行・目的変数・品質評価 | 必要 |
+| 候補入力として使うデータ | canonical入力へ変換して候補化 | TaskDefinition・Feature Pipelineとの対応を要確認 |
+
+Profile候補が見つかることは、TaskDefinitionやFeature Pipelineの意味が同じことを保証しません。Doctorは構造差分を提示しますが、入力・目的変数・学習単位の意味は人が判断します。
 
 ## 変更リスク
 
@@ -36,7 +49,7 @@ Profile継承、単位変換追加、新カテゴリ値、既存Feature Pipeline
 
 | # | 変更の分類 | 主に変更 | 変更しない | 再生成・Revision | コマンドと対象テスト | Project / Snapshotと誤り |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Excelの行や値だけ増えた | 新Data Assetを登録、同じTaskで再学習 | TaskDefinition、Profile、Feature Pipeline | Dataset Revision、新Model Package | `profile_workbench.py validate`、`model:build`、Package smoke | 既存Projectは旧Revision固定。元Assetを上書きしない |
+| 1 | Excelの行や値だけ増えた | 参照用途なら新Data Assetを登録。学習用途なら同じTaskで再学習 | TaskDefinition、Profile、Feature Pipeline | Dataset Revision。学習用途だけ新Model Package | `profile_workbench.py validate`。学習用途は`model:build`とPackage smoke | 既存Projectは旧Revision固定。元Assetを上書きしない |
 | 2 | シート名や列名が違う | Dataset Input Profile | TaskDefinition、Feature Pipeline | Profile Revision、Dataset Revision | `dev:doctor -- --source ...`、Profile tests | canonical名まで変えない |
 | 3 | 単位表記が違う | Profileのsource/canonical unit | canonical unit、意味 | Profile Revision。値が変わればPackageも再構築 | Profile validate、golden | 表記差と物理量変更を混同しない |
 | 4 | optional補助列が増減 | Profile metadata / technical / optional宣言 | 入出力契約 | Profile Revision | Profile Workbench、dataset profile tests | 必須入力をoptionalに逃がさない |

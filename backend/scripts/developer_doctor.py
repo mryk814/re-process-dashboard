@@ -26,25 +26,75 @@ def _render_human(report: dict[str, object]) -> str:
         if item.get("cause"):
             lines.append(f"  原因: {item['cause']}")
         for command in item.get("commands", []):
-            lines.append(f"  次: {command}")
+            lines.append(f"  次: {command['display_text']}")
     inspection = report.get("source_inspection")
     if inspection:
-        lines.extend(["", "Profile候補:"])
+        lines.extend(["", "Excel / Profile診断:", "  選択候補:"])
         for candidate in inspection["candidates"]:
-            lines.append(f"  {candidate['score']:>3}%  {candidate['profile_id']}")
+            selected = " *" if candidate["profile_path"] == inspection["selected_profile"] else ""
+            lines.append(f"    {candidate['score']:>3}%  {candidate['profile_id']}{selected}")
+        selected_candidate = next(
+            (
+                candidate
+                for candidate in inspection["candidates"]
+                if candidate["profile_path"] == inspection["selected_profile"]
+            ),
+            None,
+        )
+        if selected_candidate:
+            lines.append(f"  対応Task: {', '.join(selected_candidate['task_ids']) or 'なし'}")
+            lines.append(f"  不足シート: {', '.join(selected_candidate['missing_sheets']) or 'なし'}")
+            missing_columns = [
+                f"{sheet}: {', '.join(columns)}"
+                for sheet, columns in selected_candidate["missing_columns"].items()
+            ]
+            lines.append(f"  不足列: {' / '.join(missing_columns) or 'なし'}")
+            lines.append(f"  単位差候補: {', '.join(selected_candidate['possible_unit_differences']) or 'なし'}")
+            extra_columns = [
+                f"{sheet}: {', '.join(columns)}"
+                for sheet, columns in selected_candidate["extra_columns"].items()
+            ]
+            lines.append(f"  未知の追加列: {' / '.join(extra_columns) or 'なし'}")
+        lines.extend([
+            "  学習可能件数（eligibilityを満たす観測行）:",
+            *(
+                [f"    {task}: {count}" for task, count in inspection["learning_counts"].items()]
+                or ["    なし"]
+            ),
+            "  出力別観測件数（値が存在する観測行）:",
+            *(
+                [f"    {output}: {count}" for output, count in inspection["output_counts"].items()]
+                or ["    なし"]
+            ),
+            "  判定:",
+        ])
+        for name, decision in inspection["decisions"].items():
+            lines.append(f"    {name}: {decision['decision']} — {decision['reason']}")
+        lines.append("  データの用途:")
+        for purpose in inspection["data_purposes"]:
+            lines.append(
+                f"    {purpose['label']}: Package再構築 {purpose['package_rebuild']} — {purpose['description']}"
+            )
+        lines.append("  次のコマンド:")
+        for command in inspection["commands"]:
+            lines.append(f"    {command['display_text']}")
     return "\n".join(lines)
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="開発環境・Task登録・データ/Profile差分を診断します。")
+    parser.add_argument("--source", type=Path)
+    parser.add_argument("--profile", type=Path)
+    parser.add_argument("--json", action="store_true")
+    parser.add_argument("--skip-generated", action="store_true", help=argparse.SUPPRESS)
+    return parser
 
 
 def main() -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
         sys.stderr.reconfigure(encoding="utf-8")
-    parser = argparse.ArgumentParser(description="開発環境・Task登録・データ/Profile差分を診断します。")
-    parser.add_argument("--source", type=Path)
-    parser.add_argument("--profile", type=Path)
-    parser.add_argument("--json", action="store_true")
-    parser.add_argument("--skip-generated", action="store_true", help=argparse.SUPPRESS)
-    args = parser.parse_args()
+    args = build_parser().parse_args()
     report = run_developer_doctor(
         root=ROOT,
         source=args.source,

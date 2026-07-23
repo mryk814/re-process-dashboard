@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, Mapping
 
+from material_workbench.developer_experience.commands import developer_command as command
 from material_workbench.developer_experience.schemas import (
     DeveloperCheck,
     DeveloperDoctorReport,
@@ -40,7 +41,10 @@ def compare_task_sets(task_sets: Mapping[str, Iterable[str]]) -> DeveloperCheck:
         else "Task登録集合にずれがあります。",
         cause=None if severity == "ok" else "Task追加時にTaskModuleまたはactive package更新が漏れています。",
         impact=None if severity == "ok" else "起動時検証・学習・推論で異なるTask集合を参照します。",
-        commands=["npm run task:inventory", "npm run dev:doctor -- --json"],
+        commands=[
+            command("npm", ["run", "task:inventory"]),
+            command("npm", ["run", "dev:doctor", "--", "--json"]),
+        ],
         details=normalized,
     )
 
@@ -65,7 +69,7 @@ def _command_check(root: Path, identifier: str, title: str, command: list[str]) 
             severity="error",
             summary="診断コマンドを実行できませんでした。",
             cause=str(exc),
-            commands=[" ".join(command)],
+            commands=[command_from_argv(command)],
         )
     output = "\n".join(value.strip() for value in (completed.stdout, completed.stderr) if value.strip())
     return DeveloperCheck(
@@ -76,8 +80,15 @@ def _command_check(root: Path, identifier: str, title: str, command: list[str]) 
         summary="生成物は現在の定義と一致しています。" if completed.returncode == 0 else "生成物が定義からずれています。",
         cause=None if completed.returncode == 0 else output[-2000:],
         impact=None if completed.returncode == 0 else "API型または開発者向け一覧が古い可能性があります。",
-        commands=[" ".join(command).replace(str(root) + os.sep, "")],
+        commands=[command_from_argv(command, root=root)],
     )
+
+
+def command_from_argv(arguments: list[str], *, root: Path | None = None):
+    display = " ".join(arguments)
+    if root is not None:
+        display = display.replace(str(root) + os.sep, "")
+    return command(arguments[0], arguments[1:], display_text=display, platform="windows" if arguments[0].lower().endswith(".cmd") else "cross-platform")
 
 
 def _environment_checks(root: Path) -> list[DeveloperCheck]:
@@ -93,7 +104,7 @@ def _environment_checks(root: Path) -> list[DeveloperCheck]:
         title="開発ツール",
         severity="ok" if not missing else "error",
         summary="uv・Node.js・npmを利用できます。" if not missing else f"不足: {', '.join(missing)}",
-        commands=["uv sync --extra dev", "npm install"],
+        commands=[command("uv", ["sync", "--extra", "dev"]), command("npm", ["install"])],
         details={name: value for name, value in required.items()},
     )]
     for name in (".venv", "node_modules"):
@@ -104,7 +115,11 @@ def _environment_checks(root: Path) -> list[DeveloperCheck]:
             title=name,
             severity="ok" if exists else "warning",
             summary="存在します。" if exists else "未作成です。",
-            commands=["uv sync --extra dev" if name == ".venv" else "npm install"],
+            commands=[
+                command("uv", ["sync", "--extra", "dev"])
+                if name == ".venv"
+                else command("npm", ["install"])
+            ],
         ))
     return checks
 
@@ -160,7 +175,7 @@ def run_developer_doctor(
         title="active-packages.json",
         severity="ok" if active_path.exists() else "error",
         summary="active package設定を読み込めます。" if active_path.exists() else "active package設定がありません。",
-        commands=["npm run model:status"],
+        commands=[command("npm", ["run", "model:status"])],
         details={"path": str(active_path)},
     ))
     package_errors: dict[str, str] = {}
@@ -182,7 +197,7 @@ def run_developer_doctor(
         else "active packageの契約違反があります。",
         cause=None if not package_errors else json.dumps(package_errors, ensure_ascii=False),
         impact=None if not package_errors else "起動または推論が失敗します。",
-        commands=["npm run model:verify -- --task <task-id>"],
+        commands=[command("npm", ["run", "model:verify", "--", "--task", "<task-id>"])],
         details=package_details,
     ))
 
@@ -202,10 +217,11 @@ def run_developer_doctor(
         if packaging.exists() and not missing_packaged_resources
         else "Desktop同梱定義に不足があります。",
         details={"missing": missing_packaged_resources, "config": str(packaging)},
-        commands=["npm run package:windows", "npm run smoke:packaged"],
+        commands=[command("npm", ["run", "package:windows"]), command("npm", ["run", "smoke:packaged"])],
     ))
 
     if include_generated_checks:
+        npm_executable = shutil.which("npm.cmd") or shutil.which("npm") or "npm"
         checks.extend([
             _command_check(
                 root, "task-inventory", "Task inventory",
@@ -217,7 +233,7 @@ def run_developer_doctor(
             ),
             _command_check(
                 root, "typescript-api", "TypeScript API types",
-                ["npm.cmd", "run", "api:check", "-w", "apps/web"],
+                [npm_executable, "run", "api:check", "-w", "apps/web"],
             ),
         ])
 
@@ -237,12 +253,13 @@ def run_developer_doctor(
                 cause=str(exc),
             ))
         else:
+            profile_decision = inspection.decisions["new_profile_required"].decision
             checks.append(DeveloperCheck(
                 id="source-inspection",
                 section="source",
                 title="指定Excel",
-                severity="warning" if inspection.decisions["new_profile_required"] else "ok",
-                summary="Profile差分を検出しました。" if inspection.decisions["new_profile_required"] else "既存Profileを再利用できます。",
+                severity="warning" if profile_decision != "no" else "ok",
+                summary="Profile差分の確認が必要です。" if profile_decision != "no" else "既存Profileを再利用できます。",
                 details={"selected_profile": inspection.selected_profile},
             ))
 
@@ -258,10 +275,10 @@ def run_developer_doctor(
         code = 0
     status = "error" if errors or code in (2, 3) else "warning" if warnings else "ok"
     recommendations = [
-        command
+        next_command.display_text
         for check in checks
         if check.severity != "ok"
-        for command in check.commands
+        for next_command in check.commands
     ]
     if inspection:
         recommendations.extend(inspection.recommendations)

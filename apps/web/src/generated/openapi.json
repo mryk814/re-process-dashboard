@@ -692,7 +692,7 @@
           },
           "commands": {
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/DeveloperCommand"
             },
             "title": "Commands",
             "type": "array"
@@ -1608,7 +1608,7 @@
           "commands": {
             "default": [],
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/DeveloperCommand"
             },
             "title": "Commands",
             "type": "array"
@@ -1666,79 +1666,41 @@
         "title": "DeveloperCheck",
         "type": "object"
       },
-      "DeveloperDoctorReport": {
+      "DeveloperCommand": {
         "additionalProperties": false,
         "properties": {
-          "checks": {
-            "items": {
-              "$ref": "#/components/schemas/DeveloperCheck"
-            },
-            "title": "Checks",
-            "type": "array"
-          },
-          "code": {
-            "enum": [
-              0,
-              1,
-              2,
-              3
-            ],
-            "title": "Code",
-            "type": "integer"
-          },
-          "generated_at": {
-            "title": "Generated At",
-            "type": "string"
-          },
-          "recommendations": {
+          "arguments": {
+            "default": [],
             "items": {
               "type": "string"
             },
-            "title": "Recommendations",
+            "title": "Arguments",
             "type": "array"
           },
-          "schema_version": {
-            "const": "developer-doctor/v1",
-            "default": "developer-doctor/v1",
-            "title": "Schema Version",
+          "display_text": {
+            "title": "Display Text",
             "type": "string"
           },
-          "source_inspection": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/SourceInspection"
-              },
-              {
-                "type": "null"
-              }
-            ]
+          "executable": {
+            "title": "Executable",
+            "type": "string"
           },
-          "status": {
+          "platform": {
+            "default": "cross-platform",
             "enum": [
-              "ok",
-              "warning",
-              "error"
+              "cross-platform",
+              "windows",
+              "powershell"
             ],
-            "title": "Status",
+            "title": "Platform",
             "type": "string"
-          },
-          "task_ids": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Task Ids",
-            "type": "array"
           }
         },
         "required": [
-          "generated_at",
-          "status",
-          "code",
-          "checks",
-          "task_ids",
-          "recommendations"
+          "executable",
+          "display_text"
         ],
-        "title": "DeveloperDoctorReport",
+        "title": "DeveloperCommand",
         "type": "object"
       },
       "DeveloperOverview": {
@@ -4018,95 +3980,6 @@
         "title": "PredictionVsActualResponse",
         "type": "object"
       },
-      "ProfileCandidate": {
-        "additionalProperties": false,
-        "properties": {
-          "extra_columns": {
-            "additionalProperties": {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            "default": {},
-            "title": "Extra Columns",
-            "type": "object"
-          },
-          "extra_sheets": {
-            "default": [],
-            "items": {
-              "type": "string"
-            },
-            "title": "Extra Sheets",
-            "type": "array"
-          },
-          "missing_columns": {
-            "additionalProperties": {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            "default": {},
-            "title": "Missing Columns",
-            "type": "object"
-          },
-          "missing_sheets": {
-            "default": [],
-            "items": {
-              "type": "string"
-            },
-            "title": "Missing Sheets",
-            "type": "array"
-          },
-          "possible_unit_differences": {
-            "default": [],
-            "items": {
-              "type": "string"
-            },
-            "title": "Possible Unit Differences",
-            "type": "array"
-          },
-          "profile_id": {
-            "title": "Profile Id",
-            "type": "string"
-          },
-          "profile_path": {
-            "title": "Profile Path",
-            "type": "string"
-          },
-          "score": {
-            "title": "Score",
-            "type": "integer"
-          },
-          "task_ids": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Task Ids",
-            "type": "array"
-          },
-          "validation_error": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Validation Error"
-          }
-        },
-        "required": [
-          "profile_id",
-          "profile_path",
-          "score",
-          "task_ids"
-        ],
-        "title": "ProfileCandidate",
-        "type": "object"
-      },
       "ProfileRevision": {
         "properties": {
           "archived_at": {
@@ -5601,6 +5474,57 @@
         "title": "RuntimeCapability",
         "type": "object"
       },
+      "RuntimeDiagnosticsReport": {
+        "additionalProperties": false,
+        "properties": {
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/DeveloperCheck"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "project_count": {
+            "title": "Project Count",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "runtime-diagnostics/v1",
+            "default": "runtime-diagnostics/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "warning",
+              "error"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "task_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Task Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "generated_at",
+          "status",
+          "checks",
+          "project_count",
+          "task_ids"
+        ],
+        "title": "RuntimeDiagnosticsReport",
+        "type": "object"
+      },
       "RuntimeOperationsCapability": {
         "additionalProperties": false,
         "properties": {
@@ -6471,106 +6395,6 @@
         "title": "SnapshotSourceRef",
         "type": "object"
       },
-      "SourceInspection": {
-        "additionalProperties": false,
-        "properties": {
-          "ambiguous": {
-            "default": false,
-            "title": "Ambiguous",
-            "type": "boolean"
-          },
-          "candidates": {
-            "items": {
-              "$ref": "#/components/schemas/ProfileCandidate"
-            },
-            "title": "Candidates",
-            "type": "array"
-          },
-          "canonical_counts": {
-            "additionalProperties": true,
-            "default": {},
-            "title": "Canonical Counts",
-            "type": "object"
-          },
-          "commands": {
-            "default": [],
-            "items": {
-              "type": "string"
-            },
-            "title": "Commands",
-            "type": "array"
-          },
-          "decisions": {
-            "additionalProperties": {
-              "type": "boolean"
-            },
-            "default": {},
-            "title": "Decisions",
-            "type": "object"
-          },
-          "learning_counts": {
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "default": {},
-            "title": "Learning Counts",
-            "type": "object"
-          },
-          "output_counts": {
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "default": {},
-            "title": "Output Counts",
-            "type": "object"
-          },
-          "recommendations": {
-            "default": [],
-            "items": {
-              "type": "string"
-            },
-            "title": "Recommendations",
-            "type": "array"
-          },
-          "selected_profile": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Selected Profile"
-          },
-          "source": {
-            "title": "Source",
-            "type": "string"
-          },
-          "source_sha256": {
-            "title": "Source Sha256",
-            "type": "string"
-          },
-          "structural_differences": {
-            "additionalProperties": {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            "default": {},
-            "title": "Structural Differences",
-            "type": "object"
-          }
-        },
-        "required": [
-          "source",
-          "source_sha256",
-          "candidates"
-        ],
-        "title": "SourceInspection",
-        "type": "object"
-      },
       "Support": {
         "properties": {
           "caution_threshold": {
@@ -7124,7 +6948,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DeveloperDoctorReport"
+                  "$ref": "#/components/schemas/RuntimeDiagnosticsReport"
                 }
               }
             },
