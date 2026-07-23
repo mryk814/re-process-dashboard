@@ -747,7 +747,10 @@ def _measurement_point_fallback_series(
             if stage_category:
                 point["stage_category"] = stage_category
             points.append(point)
-        if len(points) >= 2:
+        if (
+            len(points) >= 2
+            and math.isclose(float(points[0]["time_s"]), 0.0, abs_tol=1e-9)
+        ):
             derived[str(parent)] = points
     return derived
 
@@ -897,6 +900,24 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
                 headers = _headers(workbook[sheet_name]) if sheet_name in workbook.sheetnames else ()
                 required_series_columns = (columns.parent, columns.order, columns.time, columns.value)
                 points_by_parent: dict[str, int] = {}
+                if sheet_name in workbook.sheetnames:
+                    required_existing_columns = {
+                        *required_series_columns,
+                        *(
+                            item.column
+                            for item in profile.shared.technical
+                            if item.role == mapping.role
+                        ),
+                    }
+                    missing_existing_columns = sorted(
+                        required_existing_columns - set(headers)
+                    )
+                    if missing_existing_columns:
+                        errors.append(
+                            f"{task_id}: existing ordered heat series sheet {sheet_name!r} "
+                            "is missing required columns: "
+                            + ", ".join(missing_existing_columns)
+                        )
                 if all(column in headers for column in required_series_columns):
                     for column, declared_unit in (
                         (columns.time, columns.time_source_unit),
@@ -1008,6 +1029,14 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
                                 "requires unique order and stage values"
                             )
                         ordered_geometry = sorted(master_geometry)
+                        if (
+                            ordered_geometry
+                            and not math.isclose(ordered_geometry[0][2], 0.0, abs_tol=1e-9)
+                        ):
+                            errors.append(
+                                f"{task_id}: measurement-point master {fallback.equipment_value!r} "
+                                "must start at position 0"
+                            )
                         if any(
                             right[2] <= left[2]
                             for left, right in zip(ordered_geometry, ordered_geometry[1:])

@@ -586,6 +586,9 @@ def test_v7_explicit_heat_history_takes_priority_over_measurement_master() -> No
         ("decreasing_position", "positions must increase"),
         ("partial_history", "incomplete or non-numeric points"),
         ("missing_temperature_column", "missing temperature columns"),
+        ("missing_history_time_header", "existing ordered heat series sheet"),
+        ("missing_history_stage_header", "existing ordered heat series sheet"),
+        ("missing_entry_temperature", "neither a complete heat history nor a derivable"),
     ],
 )
 def test_v7_rejects_heat_series_inputs_that_would_silently_change_the_pattern(
@@ -593,12 +596,25 @@ def test_v7_rejects_heat_series_inputs_that_would_silently_change_the_pattern(
     expected_error: str,
 ) -> None:
     workbook = load_workbook(V7_SOURCE, read_only=False, data_only=True)
-    if mutation == "partial_history":
+    if mutation in {
+        "partial_history",
+        "missing_history_time_header",
+        "missing_history_stage_header",
+    }:
         history = workbook["焼鈍履歴"]
-        time_column = next(
-            cell.column for cell in history[1] if cell.value == "到達時間[秒]"
-        )
-        history.cell(2, time_column).value = None
+        if mutation == "partial_history":
+            time_column = next(
+                cell.column for cell in history[1] if cell.value == "到達時間[秒]"
+            )
+            history.cell(2, time_column).value = None
+        else:
+            target = (
+                "到達時間[秒]"
+                if mutation == "missing_history_time_header"
+                else "工程"
+            )
+            column = next(cell.column for cell in history[1] if cell.value == target)
+            history.cell(1, column).value = f"broken-{target}"
     else:
         workbook.remove(workbook["焼鈍履歴"])
         if mutation == "decreasing_position":
@@ -608,10 +624,23 @@ def test_v7_rejects_heat_series_inputs_that_would_silently_change_the_pattern(
             )
             phf_row = next(cell.row for cell in master["E"] if cell.value == "PHF")
             master.cell(phf_row, position_column).value = 999.0
-        else:
+        elif mutation == "missing_temperature_column":
             annealing = workbook["焼鈍条件-3CGL"]
             phf_column = next(cell.column for cell in annealing[1] if cell.value == "PHF[℃]")
             annealing.cell(1, phf_column).value = "PHF temperature"
+        else:
+            annealing = workbook["焼鈍条件-3CGL"]
+            key_column = next(
+                cell.column for cell in annealing[1]
+                if cell.value == "焼鈍条件-3CGL_key**"
+            )
+            entry_column = next(cell.column for cell in annealing[1] if cell.value == "開始[℃]")
+            row = next(
+                cells[0].row
+                for cells in annealing.iter_rows(min_col=key_column, max_col=key_column)
+                if cells[0].value == "AN-00001"
+            )
+            annealing.cell(row, entry_column).value = None
     profile = load_dataset_profile(
         ROOT / "backend" / "src" / "material_workbench" / "dataset-input-profile-v7.json"
     )
