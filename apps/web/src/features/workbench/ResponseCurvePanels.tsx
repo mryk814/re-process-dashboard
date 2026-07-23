@@ -430,7 +430,7 @@ export function LiveResponseCurves({
         </div>
       </div>
       {axisSettingsOpen && (
-        <div id="response-curve-axis-settings" className="response-curve-axis-settings">
+        <div id="response-curve-axis-settings" className="response-curve-axis-settings" role="dialog" aria-label="描画範囲">
           <div className="axis-settings-heading"><b>描画範囲</b><small>変更は自動保存。未指定は自動範囲、学習データ範囲は参照値です。</small><button type="button" className="axis-settings-close" aria-label="軸範囲設定を閉じる" title="閉じる" onClick={() => { setAxisSettingsOpen(false); window.requestAnimationFrame(() => axisSettingsButtonRef.current?.focus()); }}>×</button></div>
           <div className="axis-settings-grid">
             <section>
