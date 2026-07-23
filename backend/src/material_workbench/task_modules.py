@@ -96,6 +96,8 @@ class TaskModule:
 
 def _annealed_starter_candidates(medians: dict[str, float]) -> list[CandidateInput]:
     composition = {key: round(value, 5) for key, value in medians.items()}
+    reference_line_speed = 103.0
+    reference_times = (0.0, 280.0, 340.0, 650.0)
     variants = (
         ("基準候補", 1.00, 810.0, 103.0),
         ("高強度案", 1.16, 830.0, 96.0),
@@ -109,10 +111,15 @@ def _annealed_starter_candidates(medians: dict[str, float]) -> list[CandidateInp
                 "process": {"ls_mpm": line_speed},
                 "categorical": {},
                 "heat_pattern": [
-                    {"time_s": 0, "temperature_c": 25},
-                    {"time_s": 280, "temperature_c": peak - 10},
-                    {"time_s": 340, "temperature_c": peak},
-                    {"time_s": 650, "temperature_c": 120},
+                    {
+                        "time_s": round(time_s * reference_line_speed / line_speed, 6),
+                        "temperature_c": temperature_c,
+                    }
+                    for time_s, temperature_c in zip(
+                        reference_times,
+                        (25.0, peak - 10.0, peak, 120.0),
+                        strict=True,
+                    )
                 ],
             },
         )

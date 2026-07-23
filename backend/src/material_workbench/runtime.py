@@ -11,6 +11,7 @@ import numpy as np
 
 from .feature_contracts import feature_index_families
 from .feature_pipeline import FEATURE_DEFINITIONS, FEATURE_NAMES as METALLURGY_FEATURE_NAMES, FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION, build_feature_bundle, build_feature_bundle_from_observation
+from .heat_time import line_speed_scaled_times
 from .dataset_profile import load_task_definitions
 from .importer import WorkbookData, composition_names, lineage_reference_keys
 from .model_packages import ModelPackageLoader, VerifiedModelPackage, predictive_interval, validate_predictive_summary, validate_task_definition_canonical_inputs
@@ -221,6 +222,7 @@ class ModelRuntime:
                 **candidate.inputs.process,
                 **candidate.inputs.categorical,
             },
+            "heat_time_basis": candidate.inputs.heat_time_basis,
             "heat_pattern": [point.model_dump(mode="json") for point in (candidate.inputs.heat_pattern or [])],
             "heat_summary": {
                 "peak_temperature_c": feature_values["peak_temperature_c"],
@@ -643,13 +645,10 @@ class ModelRuntime:
                 old_speed = float(candidate.inputs.process["ls_mpm"])
                 new_speed = max(0.001, float(value))
                 points = candidate.inputs.heat_pattern or []
-                if old_speed <= 0:
-                    raise ValueError("基準ラインスピードは0より大きくしてください")
-                if points:
-                    origin = points[0].time_s
-                    scale = old_speed / new_speed
-                    for point in points:
-                        point.time_s = origin + (point.time_s - origin) * scale
+                if candidate.inputs.heat_time_basis == "line_speed":
+                    scaled_times = line_speed_scaled_times(points, old_speed, new_speed)
+                    for point, time_s in zip(points, scaled_times):
+                        point.time_s = time_s
                 candidate.inputs.process["ls_mpm"] = new_speed
                 return
             candidate.inputs.process[variable.removeprefix("process.")] = max(0.001, float(value))

@@ -194,7 +194,9 @@ def _assert_canonical_rows(conn: sqlite3.Connection) -> None:
         payload = _json_object(row["payload"], table="candidates", row_id=row["id"])
         if set(payload) != {"name", "inputs", "provenance"} or not isinstance(payload.get("inputs"), dict):
             raise CandidateMigrationError(f"candidates {row['id']}: migration marker exists but payload is not nested candidate storage")
-        if set(payload["inputs"]) != {"composition", "process", "categorical", "heat_pattern"}:
+        input_keys = set(payload["inputs"])
+        required_inputs = {"composition", "process", "categorical", "heat_pattern"}
+        if not required_inputs <= input_keys or input_keys - required_inputs != ({"heat_time_basis"} if "heat_time_basis" in input_keys else set()):
             raise CandidateMigrationError(f"candidates {row['id']}: nested inputs are incomplete")
         project = conn.execute("SELECT task_id FROM projects WHERE id=?", (row["project_id"],)).fetchone()
         if project is None:

@@ -5,6 +5,7 @@ import {
   ComparisonTable,
   type CandidateSaveState,
   type CandidateViewModel as Candidate,
+  type HeatTimeBasis,
   type NumericRange,
   type RuntimeOperations,
   type ApplicationCapability,
@@ -83,6 +84,7 @@ type WorkbenchProps = {
   previewsByCandidate: Record<string, ApiPreview>;
   onSelect: (id: string) => void;
   onHeat: (index: number, field: "time" | "temperature" | "stageName", raw: number | string) => void;
+  onHeatTimeBasis: (candidateId: string, basis: HeatTimeBasis) => void;
   onInput: (id: string, path: string, value: number | string) => void;
   onText: (id: string, field: "label", value: string) => void;
   onAddHeat: () => void;
@@ -128,6 +130,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
     onInput,
     onText,
     onHeat,
+    onHeatTimeBasis,
     onAddHeat,
     onDeleteHeat,
     onCopy,
@@ -194,7 +197,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
         onInput={(path, value) => onInput(selected.id, path, value)}
         onReload={onReload}
         onCopyDraft={onCopyDraft}
-        heatPattern={taskDefinition.input_groups.some((group) => group.key === "heat_pattern") ? <HeatPattern candidates={candidates} candidate={selected} onUpdate={onHeat} onAdd={onAddHeat} onDelete={onDeleteHeat} /> : undefined}
+        heatPattern={taskDefinition.input_groups.some((group) => group.key === "heat_pattern") ? <HeatPattern candidates={candidates} candidate={selected} onTimeBasisChange={(basis) => onHeatTimeBasis(selected.id, basis)} onUpdate={onHeat} onAdd={onAddHeat} onDelete={onDeleteHeat} /> : undefined}
       />}
       {taskDefinition && <SplitResizer
         className="candidate-inspector-resizer"

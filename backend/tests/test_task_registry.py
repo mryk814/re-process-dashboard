@@ -203,6 +203,25 @@ def test_project_api_errors_have_machine_readable_code_and_fields(client) -> Non
     assert any(error["path"].endswith("name") for error in body["field_errors"])
 
 
+def test_annealing_starter_candidates_share_equipment_positions(client) -> None:
+    candidates = client.get("/api/projects/default/candidates").json()
+    line_speed_candidates = [
+        candidate
+        for candidate in candidates
+        if candidate["name"] in {"基準候補", "高強度案", "延性重視案"}
+    ]
+
+    assert len(line_speed_candidates) == 3
+    for point_index in range(4):
+        positions = [
+            candidate["inputs"]["heat_pattern"][point_index]["time_s"]
+            * candidate["inputs"]["process"]["ls_mpm"]
+            / 60.0
+            for candidate in line_speed_candidates
+        ]
+        assert positions == pytest.approx([positions[0]] * len(positions))
+
+
 @pytest.mark.parametrize("task_id", TASK_IDS)
 def test_both_tasks_use_the_same_project_preview_contract(client, task_id: str) -> None:
     if task_id == "annealed-properties-v1":

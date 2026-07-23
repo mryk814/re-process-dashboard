@@ -235,6 +235,7 @@ class CandidateInputs(BaseModel):
     process: dict[str, float]
     categorical: dict[str, str] = Field(default_factory=dict)
     heat_pattern: list[HeatPoint] | None = Field(default=None, max_length=30)
+    heat_time_basis: Literal["line_speed", "elapsed_time"] = "line_speed"
 
     @field_validator("composition", "process")
     @classmethod

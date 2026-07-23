@@ -230,6 +230,7 @@ def _candidate_xlsx_names(
         "support_status": "学習範囲判定",
         "support_distance": "学習範囲からの距離",
         "segment_start": "工程境界",
+        "heat_time_basis": "時間基準",
     }
     names.update({mapping.path: mapping.column for mapping in task_profile.mappings if mapping.column})
     heat_mapping = next((mapping for mapping in task_profile.mappings if mapping.kind == "ordered_heat_series"), None)
@@ -259,6 +260,7 @@ def _candidate_template_names(definition: Any) -> dict[str, str]:
         "name": "候補名",
         "time_s": "経過時間[s]",
         "temperature_c": "温度[℃]",
+        "heat_time_basis": "時間基準",
     }
     response_labels = {
         item.path: item.label
@@ -366,6 +368,21 @@ def import_candidates_xlsx(
             name = value("name", template_names["name"], display_names["name"])
             if name is None or not str(name).strip():
                 raise ValueError(f"{template_names['name']}は空にできません")
+            raw_time_basis = str(value(
+                "heat_time_basis",
+                template_names["heat_time_basis"],
+                display_names["heat_time_basis"],
+                default="ライン速度連動",
+            )).strip()
+            if raw_time_basis in {"", "line_speed", "ライン速度連動"}:
+                heat_time_basis = "line_speed"
+            elif raw_time_basis in {"elapsed_time", "経過時間を直接指定", "経過時間"}:
+                heat_time_basis = "elapsed_time"
+            else:
+                raise ValueError(
+                    f"{template_names['heat_time_basis']}は"
+                    "「ライン速度連動」または「経過時間を直接指定」で入力してください"
+                )
             payload = CandidateInput(
                 name=str(name).strip(),
                 inputs={
@@ -373,6 +390,7 @@ def import_candidates_xlsx(
                     "process": process,
                     "categorical": categorical,
                     "heat_pattern": points if heat_enabled else None,
+                    "heat_time_basis": heat_time_basis,
                 },
             )
             if validate_candidate is not None:
@@ -413,6 +431,7 @@ def _candidate_xlsx_input_schema(
         display_names["name"],
         *[display_names.get(field.path, field.label) for field in numeric_fields],
         *[display_names.get(field.path, field.label) for field in categorical_fields],
+        *([display_names["heat_time_basis"]] if heat_enabled else []),
         *[
             f"{display_names.get(header.rsplit('_', 1)[0], header.rsplit('_', 1)[0])}_{header.rsplit('_', 1)[1]}"
             for header in heat_headers
@@ -452,6 +471,8 @@ def candidate_template_xlsx(runtime: PredictionRuntime, task_id: str = "annealed
         canonical.categorical.get(field.path.removeprefix("categorical."))
         for field in categorical_fields
     ])
+    if heat_enabled:
+        example_values.append("ライン速度連動")
     example_sheet = workbook.create_sheet("記入例")
     example_sheet.append(input_headers)
     example_sheet.append(["記入例（候補シートへコピーして変更）", *example_values, *heat_values])
@@ -495,6 +516,16 @@ def candidate_template_xlsx(runtime: PredictionRuntime, task_id: str = "annealed
             validation.showErrorMessage = True
             sheet.add_data_validation(validation)
             validation.add(f"{column_letter}2:{column_letter}501")
+    if heat_enabled:
+        basis_column = sheet.cell(1, 2 + len(numeric_fields) + len(categorical_fields)).column_letter
+        validation = DataValidation(
+            type="list",
+            formula1='"ライン速度連動,経過時間を直接指定"',
+            allow_blank=True,
+        )
+        validation.showErrorMessage = True
+        sheet.add_data_validation(validation)
+        validation.add(f"{basis_column}2:{basis_column}501")
 
     guide = workbook.create_sheet("入力ルール")
     guide.append([f"{definition.label} 候補XLSX", "「記入例」を参考に「候補」シートへ入力し、アプリへ読み込みます。読み込まれるのは「候補」シートだけです。"])
@@ -502,6 +533,7 @@ def candidate_template_xlsx(runtime: PredictionRuntime, task_id: str = "annealed
     guide.append(["候補名", f"{display_names['name']} は必須です。「記入例」の2行目を「候補」へコピーし、名前と値を変更して使えます。"])
     guide.append(["数値", "数値だけを入力します。単位は列名に記載されているため、セル内には書きません。"])
     if heat_enabled:
+        guide.append(["時間基準", "「ライン速度連動」はLS変更時に全時刻を再計算します。「経過時間を直接指定」は入力した時刻をそのまま使います。空欄はライン速度連動です。"])
         guide.append(["履歴点", f"{display_names['time_s']}_N と {display_names['temperature_c']}_N を同じ番号で最低2点入力します。時間は候補全体の開始からの連続した経過時間で、工程が変わっても0へ戻さず昇順にします。点を増やす場合は右へ同じ列セットを追加します。"])
     guide.append([])
     rules_header_row = guide.max_row + 1
@@ -520,6 +552,7 @@ def candidate_template_xlsx(runtime: PredictionRuntime, task_id: str = "annealed
             training = "—"
         guide.append([display_names.get(field.path, field.label), field.label, "必須" if field.required else "任意", rule, training])
     if heat_enabled:
+        guide.append([display_names["heat_time_basis"], "時間軸", "任意", "ライン速度連動 / 経過時間を直接指定", "—"])
         guide.append([f"{display_names['time_s']}_N / {display_names['temperature_c']}_N", "履歴点", "最低2点", "同じNの時刻と温度を対で入力", "—"])
     guide.freeze_panes = f"A{rules_header_row + 1}"
     guide.column_dimensions["A"].width = 34
@@ -582,6 +615,12 @@ def candidates_xlsx(candidates: list[Candidate], runtime: PredictionRuntime, tas
             candidate.inputs.categorical.get(field.path.removeprefix("categorical."))
             for field in categorical_fields
         ])
+        if heat_enabled:
+            input_values.append(
+                "経過時間を直接指定"
+                if candidate.inputs.heat_time_basis == "elapsed_time"
+                else "ライン速度連動"
+            )
         sheet.append([
             "material-workbench-candidate-v2", candidate.id, candidate.name, *input_values, *heat_values,
             *(result["predictions"][output.key].value for output in definition.outputs),
@@ -595,6 +634,7 @@ def candidates_xlsx(candidates: list[Candidate], runtime: PredictionRuntime, tas
     guide.append(["用途", "候補入力と軽量プレビュー予測の出力。候補シートはそのまま候補importに使用できます。"])
     guide.append(["入力項目", " / ".join(f"{field.label}[{field.unit}]" for field in (*numeric_fields, *categorical_fields))])
     if heat_enabled:
+        guide.append(["時間基準", "ライン速度連動ではLS変更時に全時刻を再計算します。経過時間を直接指定では入力時刻を保持します。"])
         guide.append(["焼鈍履歴", f"{display_names['time_s']}_N / {display_names['temperature_c']}_N を履歴点として指定し、{display_names['stage_name']}_N を工程名として表示します。工程の先頭は {display_names['segment_start']}_N で表します。"])
     guide.append(["予測", "出力単位はTaskDefinitionの定義に従います。"])
     guide.column_dimensions["A"].width = 20

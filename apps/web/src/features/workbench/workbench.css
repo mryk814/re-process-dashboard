@@ -369,6 +369,10 @@
 .candidate-inspector .panel-title h2 span { display: block; font-size: 11px; margin-top: 2px; }
 .candidate-inspector .legend { display: none; }
 .candidate-inspector .candidate-color-legend { display: none; }
+.heat-time-basis { display: grid; gap: 5px; margin: 2px 0 8px; border-radius: 4px; background: #f3f6fa; padding: 7px 8px; }
+.heat-time-basis label { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #526276; font-size: 10px; font-weight: 700; }
+.heat-time-basis select { min-width: 0; max-width: 190px; height: 27px; border: 1px solid #c5d1df; border-radius: 3px; background: #fff; padding: 2px 5px; color: #263d57; font-size: 10px; }
+.heat-time-basis small { color: #657386; font-size: 10px; line-height: 1.45; }
 .candidate-inspector .heat-edit { padding: 8px 0 0; }
 .candidate-inspector .heat-edit > div:first-child { display: grid; grid-template-columns: 1fr auto; gap: 4px; }
 .candidate-inspector .heat-edit > div:first-child span { grid-column: 1 / -1; }
@@ -383,6 +387,7 @@
 .heat-point-table th:last-child { width: 30px; }
 .heat-point-table thead small { display: block; color: #8a96a5; font-size: 9px; font-weight: 400; }
 .heat-point-table input { display: block; width: 100%; height: 25px; border: 1px solid #cbd6e2; border-radius: 3px; padding: 2px 4px; color: #18202c; font-size: 11px; }
+.heat-point-table input:disabled { border-color: #e0e5eb; background: #f1f3f6; color: #7c8795; cursor: not-allowed; }
 .response-curves-panel { position: relative; margin-top: 10px; border: 1px solid #d8e0ea; border-radius: 4px; }
 .curve-scope { color: #5d6775; font-size: 12px; }
 .response-curves-panel > .panel-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-bottom: 1px solid #e0e7ef; padding: 8px 11px; }

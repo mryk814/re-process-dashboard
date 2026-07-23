@@ -590,6 +590,15 @@
             ],
             "title": "Heat Pattern"
           },
+          "heat_time_basis": {
+            "default": "line_speed",
+            "enum": [
+              "line_speed",
+              "elapsed_time"
+            ],
+            "title": "Heat Time Basis",
+            "type": "string"
+          },
           "process": {
             "additionalProperties": {
               "type": "number"

@@ -10,11 +10,13 @@ import {
 } from "../../shared/api/workbench-api";
 import {
   fromApiCandidate,
+  scaleHeatTimesForLineSpeed,
   setCandidateInputValue,
   toApiCandidate,
   useCandidateEditor,
   validateResolvedTaskDefinition,
   type CandidateViewModel,
+  type HeatTimeBasis,
   type ResolvedTaskDefinition,
   type TaskDefinitionContract,
 } from "../candidates";
@@ -268,12 +270,29 @@ export function useWorkbenchSession({
   function updateCandidateInput(id: string, path: string, value: number | string) {
     const current = candidates.find((candidate) => candidate.id === id);
     if (!current) return;
+    const oldLineSpeed = Number(current.raw.inputs.process.ls_mpm);
+    const newLineSpeed = Number(value);
     const next: CandidateViewModel = {
       ...current,
       raw: { ...current.raw, inputs: setCandidateInputValue(current.raw.inputs, path, value) },
+      heat: path === "process.ls_mpm" && current.heatTimeBasis === "line_speed"
+        ? scaleHeatTimesForLineSpeed(current.heat, oldLineSpeed, newLineSpeed)
+        : current.heat,
     };
     setCandidates((items) => items.map((candidate) => candidate.id === id ? next : candidate));
-    editor.schedule(next, current);
+    if (path === "process.ls_mpm" && current.heatTimeBasis === "line_speed") {
+      void editor.flush(next, current);
+    } else {
+      editor.schedule(next, current);
+    }
+  }
+
+  function updateCandidateHeatTimeBasis(id: string, basis: HeatTimeBasis) {
+    const current = candidates.find((candidate) => candidate.id === id);
+    if (!current || current.heatTimeBasis === basis) return;
+    const next = { ...current, heatTimeBasis: basis };
+    setCandidates((items) => items.map((candidate) => candidate.id === id ? next : candidate));
+    void editor.flush(next, current);
   }
 
   function updateCandidateText(id: string, field: "label", value: string) {
@@ -542,6 +561,7 @@ export function useWorkbenchSession({
     setNotice,
     taskDefinition,
     updateCandidateInput,
+    updateCandidateHeatTimeBasis,
     updateCandidateHeat,
     updateCandidateText,
     updateHeat,
