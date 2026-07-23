@@ -33,6 +33,7 @@ export function DataLibraryPage({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [packageTaskFilter, setPackageTaskFilter] = useState("");
   const [packageDatasetFilter, setPackageDatasetFilter] = useState("");
+  const [packageStateFilter, setPackageStateFilter] = useState("");
 
   const load = () => {
     setLoading(true);
@@ -67,10 +68,12 @@ export function DataLibraryPage({
   const filteredModelPackages = useMemo(
     () => options?.model_packages.filter((item) => {
       if (packageTaskFilter && item.task_id !== packageTaskFilter) return false;
+      if (packageStateFilter === "available" && item.archived_at) return false;
+      if (packageStateFilter === "archived" && !item.archived_at) return false;
       if (!packageDatasetFilter) return true;
       return trainingDataset(item, options.datasets)?.dataset_revision.id === packageDatasetFilter;
     }) ?? [],
-    [options, packageDatasetFilter, packageTaskFilter],
+    [options, packageDatasetFilter, packageStateFilter, packageTaskFilter],
   );
 
   const toggleDataset = (dataset: ApiDataLibraryDataset) => {
@@ -170,10 +173,11 @@ export function DataLibraryPage({
             <div className="model-package-toolbar" aria-label="Model Packageの絞り込み">
               <label>Prediction Task<select value={packageTaskFilter} onChange={(event) => setPackageTaskFilter(event.target.value)}><option value="">すべて</option>{packageTaskIds.map((taskId) => <option key={taskId} value={taskId}>{taskId}</option>)}</select></label>
               <label>学習元Dataset<select value={packageDatasetFilter} onChange={(event) => setPackageDatasetFilter(event.target.value)}><option value="">すべて</option>{packageDatasets.map((dataset) => <option key={dataset.dataset_revision.id} value={dataset.dataset_revision.id}>{datasetDisplayName(dataset)}</option>)}</select></label>
-              {(packageTaskFilter || packageDatasetFilter) && <button type="button" className="text-button" onClick={() => { setPackageTaskFilter(""); setPackageDatasetFilter(""); }}>絞り込みを解除</button>}
+              <label>状態<select value={packageStateFilter} onChange={(event) => setPackageStateFilter(event.target.value)}><option value="">すべて</option><option value="available">利用可能</option><option value="archived">アーカイブ</option></select></label>
+              {(packageTaskFilter || packageDatasetFilter || packageStateFilter) && <button type="button" className="text-button" onClick={() => { setPackageTaskFilter(""); setPackageDatasetFilter(""); setPackageStateFilter(""); }}>絞り込みを解除</button>}
             </div>
             {filteredModelPackages.length > 0
-              ? <div className="model-package-list">{filteredModelPackages.map((item) => { const source = trainingDataset(item, options.datasets); const sourceSha = trainingDataSha(item); return <article key={item.id}><div><strong>{modelPackageDisplayName(item)}</strong><span>{item.task_id}</span></div><dl><div><dt>学習元Dataset</dt><dd title={source?.data_asset.original_filename ?? sourceSha ?? undefined}>{source ? datasetDisplayName(source) : sourceSha ? `未登録 ${sourceSha.slice(0, 10)}` : "manifestに記録なし"}</dd></div><div><dt>学習時Profile</dt><dd>{source ? `${source.profile_revision.name} · r${source.profile_revision.revision}` : "—"}</dd></div></dl><details className="model-package-technical"><summary>技術情報</summary><dl><div><dt>Package ID</dt><dd>{item.package_id}</dd></div><div><dt>Manifest</dt><dd title={item.manifest_digest}>{shortDigest(item.manifest_digest)}</dd></div></dl></details></article>; })}</div>
+              ? <div className="model-package-list">{filteredModelPackages.map((item) => { const source = trainingDataset(item, options.datasets); const sourceSha = trainingDataSha(item); return <article key={item.id}><div><strong>{modelPackageDisplayName(item)}</strong><span>{item.task_id}</span><small className={item.archived_at ? "package-state archived" : "package-state"}>{item.archived_at ? "アーカイブ" : "利用可能"}</small></div><dl><div><dt>学習元Dataset</dt><dd title={source?.data_asset.original_filename ?? sourceSha ?? undefined}>{source ? datasetDisplayName(source) : sourceSha ? `未登録 ${sourceSha.slice(0, 10)}` : "manifestに記録なし"}</dd></div><div><dt>学習時Profile</dt><dd>{source ? `${source.profile_revision.name} · r${source.profile_revision.revision}` : "—"}</dd></div></dl><details className="model-package-technical"><summary>技術情報</summary><dl><div><dt>Package ID</dt><dd>{item.package_id}</dd></div><div><dt>Manifest</dt><dd title={item.manifest_digest}>{shortDigest(item.manifest_digest)}</dd></div></dl></details></article>; })}</div>
               : <p className="library-empty">条件に合うModel Packageはありません。</p>}
           </div>
         </section>
