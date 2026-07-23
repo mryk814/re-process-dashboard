@@ -41,10 +41,6 @@ from .task_modules import (
 logger = logging.getLogger(__name__)
 
 
-class AppStartupError(RuntimeError):
-    """A startup failure with a stable stage code for the desktop shell."""
-
-
 def _raise_startup_error(stage: str, label: str, exc: Exception) -> None:
     payload = {
         "stage": stage,
@@ -56,7 +52,7 @@ def _raise_startup_error(stage: str, label: str, exc: Exception) -> None:
         "WORKBENCH_STARTUP_ERROR %s",
         json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
     )
-    raise AppStartupError(f"{label}の準備に失敗しました: {exc}") from exc
+    raise exc
 
 
 @dataclass(frozen=True)

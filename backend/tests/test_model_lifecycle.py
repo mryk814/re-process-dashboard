@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from material_workbench.app import AppStartupError, create_app
+from material_workbench.app import create_app
 from material_workbench.data.importer import load_workbook_data
 from material_workbench.modeling.model_lifecycle import (
     QualityReport,
@@ -217,7 +217,7 @@ def test_app_startup_rejects_package_trained_from_a_different_source(
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
     app = create_app(DEFAULT_SOURCE, tmp_path / "workbench.db", package_roots={"hot-rolled-properties-v1": package})
-    with pytest.raises(AppStartupError, match="データ・Model Package"):
+    with pytest.raises(PackageContractError, match="training data digest"):
         with TestClient(app):
             pass
     marker = next(
