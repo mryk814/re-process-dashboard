@@ -245,7 +245,17 @@ class HotRollingRuntime:
             item.runtime_type == "builtin.posterior_linear.v1" and item.config.get("method") == "regularized_horseshoe"
             for item in self.model_package.manifest.predictors
         )
-        model_method = "Regularized Horseshoe sparse Bayesian regression" if is_horseshoe else "Gaussian process regression"
+        is_tiny_demo = any(
+            item.runtime_type == "builtin.posterior_linear.v1" and item.config.get("method") == "tiny_demo_ridge_posterior"
+            for item in self.model_package.manifest.predictors
+        )
+        model_method = (
+            "Regularized Horseshoe sparse Bayesian regression"
+            if is_horseshoe
+            else "Ridge approximate posterior for tiny teaching data"
+            if is_tiny_demo
+            else "Gaussian process regression"
+        )
         interval_identity = (
             {"method": "posterior_predictive_moment_matched_normal", "coverage": "central 90% predictive interval", "grouping": "parent_key", "note": "Horseshoe posterior draws are summarized as a moment-matched Normal distribution for the shared decision UI."}
             if is_horseshoe else

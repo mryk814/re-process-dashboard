@@ -13,6 +13,8 @@ files:
 extraResources:
   - from: dist/sidecar/material-workbench-sidecar
     to: sidecar
+  - from: data/source/material_workbench_tutorial_v1.xlsx
+    to: data/source/material_workbench_tutorial_v1.xlsx
   - from: data/source/process_dashboard_realistic_excel_v2.xlsx
     to: data/source/process_dashboard_realistic_excel_v2.xlsx
   - from: data/source/cutting_tool_flank_wear_synthetic_dataset.xlsx
@@ -21,8 +23,16 @@ extraResources:
     to: models/active-packages.json
   - from: models/packages/annealed-gp-2026-07
     to: models/packages/annealed-gp-2026-07
+  - from: models/packages/annealed-gp-2026-07-feature-design-v3
+    to: models/packages/annealed-gp-2026-07-feature-design-v3
+  - from: models/packages/annealed-gp-tutorial-v1
+    to: models/packages/annealed-gp-tutorial-v1
   - from: models/packages/hot-rolled-horseshoe-2026-07
     to: models/packages/hot-rolled-horseshoe-2026-07
+  - from: models/packages/hot-rolled-horseshoe-2026-07-feature-design-v3
+    to: models/packages/hot-rolled-horseshoe-2026-07-feature-design-v3
+  - from: models/packages/hot-rolled-tutorial-v1
+    to: models/packages/hot-rolled-tutorial-v1
   - from: models/packages/flank-wear-gp-2026-07
     to: models/packages/flank-wear-gp-2026-07
 win:

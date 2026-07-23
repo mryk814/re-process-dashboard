@@ -7,7 +7,7 @@ from material_workbench.app import _AppResources, _prepare_app_resources, create
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = ROOT / "data" / "source" / "process_dashboard_realistic_excel_v2.xlsx"
+SOURCE = ROOT / "data" / "source" / "material_workbench_tutorial_v1.xlsx"
 
 
 @pytest.fixture(scope="session")

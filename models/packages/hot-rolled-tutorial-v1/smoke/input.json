@@ -1,0 +1,36 @@
+{
+  "name": "hot rolling Horseshoe package smoke",
+  "inputs": {
+    "composition": {
+      "C": 0.05,
+      "Si": 0.2,
+      "Mn": 1.0,
+      "P": 0.01,
+      "S": 0.003,
+      "Al": 0.03,
+      "Cu": 0.02,
+      "Ni": 0.02,
+      "Cr": 0.1,
+      "Mo": 0.01,
+      "Ti": 0.01,
+      "B": 0.0005,
+      "O": 0.002,
+      "N": 0.004
+    },
+    "process": {
+      "soaking_temperature_c": 1200.0,
+      "finish_temperature_c": 850.0,
+      "entry_thickness_mm": 30.0,
+      "exit_thickness_mm": 3.0,
+      "hold_temperature_c": 1200.0,
+      "hold_time_min": 30.0
+    },
+    "categorical": {},
+    "heat_pattern": null,
+    "heat_time_basis": "line_speed"
+  },
+  "provenance": {
+    "source_kind": "direct",
+    "source_ref": null
+  }
+}

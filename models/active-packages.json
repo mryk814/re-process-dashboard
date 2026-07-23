@@ -2,12 +2,12 @@
   "schema_version": "active-model-packages/v1",
   "tasks": {
     "annealed-properties-v1": {
-      "active": "packages/annealed-gp-2026-07-feature-design-v3",
-      "previous": "packages/annealed-gp-2026-07"
+      "active": "packages/annealed-gp-tutorial-v1",
+      "previous": "packages/annealed-gp-2026-07-feature-design-v3"
     },
     "hot-rolled-properties-v1": {
-      "active": "packages/hot-rolled-horseshoe-2026-07-feature-design-v3",
-      "previous": "packages/hot-rolled-horseshoe-2026-07"
+      "active": "packages/hot-rolled-tutorial-v1",
+      "previous": "packages/hot-rolled-horseshoe-2026-07-feature-design-v3"
     },
     "flank-wear-v1": {
       "active": "packages/flank-wear-gp-2026-07",

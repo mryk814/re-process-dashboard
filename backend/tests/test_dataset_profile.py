@@ -32,7 +32,26 @@ V3_SOURCE = ROOT / "data" / "source" / "process_dashboard_realistic_excel_v3.xls
 V5_SOURCE = ROOT / "data" / "source" / "process_dashboard_two_equipment_v5.xlsx"
 V7_SOURCE = ROOT / "data" / "source" / "process_dashboard_two_equipment_v7.xlsx"
 V8_SOURCE = ROOT / "data" / "source" / "process_dashboard_two_equipment_v8.xlsx"
+TUTORIAL_SOURCE = ROOT / "data" / "source" / "material_workbench_tutorial_v1.xlsx"
 PROFILE = ROOT / "backend" / "src" / "material_workbench" / "dataset-input-profile-v1.json"
+
+
+def test_tutorial_profile_keeps_relations_repeats_and_partial_targets_explicit() -> None:
+    assert detect_dataset_profile_path(TUTORIAL_SOURCE).name == "dataset-input-profile-tutorial.json"
+    data = load_workbook_data(TUTORIAL_SOURCE)
+
+    assert data.profile_id == "thin-sheet-tutorial-v1"
+    assert len(data.composition) == 4
+    assert len(data.hot_rolling_features) == 6
+    assert len(data.anneal_features) == 6
+    assert len(data.observations) == 26
+    assert len([row for row in data.observations if row["parent_key"] == "AN-02"]) == 4
+
+    tt03 = next(row for row in data.observations if row["id"] == "TT-03")
+    tt07 = next(row for row in data.observations if row["id"] == "TT-07")
+    assert "YS[MPa]" not in tt03["outputs"]
+    assert "EL[%]" not in tt07["outputs"]
+    assert data.detected_quality == []
 
 
 def test_profile_is_driven_by_production_task_definitions() -> None:

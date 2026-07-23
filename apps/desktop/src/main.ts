@@ -60,7 +60,7 @@ function sidecarCommand(port: number): { command: string; args: string[]; cwd: s
         WORKBENCH_API_PORT: String(port),
         WORKBENCH_LAUNCH_TOKEN: LAUNCH_TOKEN,
         WORKBENCH_DB_PATH: join(app.getPath("userData"), "workbench.db"),
-        WORKBENCH_SOURCE_PATH: join(resources, "data", "source", "process_dashboard_realistic_excel_v2.xlsx"),
+        WORKBENCH_SOURCE_PATH: join(resources, "data", "source", "material_workbench_tutorial_v1.xlsx"),
         WORKBENCH_FLANK_WEAR_SOURCE_PATH: join(resources, "data", "source", "cutting_tool_flank_wear_synthetic_dataset.xlsx"),
       },
     };

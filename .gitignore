@@ -13,6 +13,7 @@ apps/web/.env.local
 data/app.db
 data/workbench.db
 data/workbench.db-*
+data/tutorial-smoke.db
 output/
 artifacts/
 *.pyc
@@ -20,3 +21,4 @@ artifacts/
 *.tsbuildinfo
 playwright-report/
 test-results/
+.codex-tmp/

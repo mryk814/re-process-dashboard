@@ -19,7 +19,7 @@ from .task_contracts import ApplicationCapability, DataExplorerCapability
 ANNEALED_TASK_ID = "annealed-properties-v1"
 HOT_ROLLING_TASK_ID = "hot-rolled-properties-v1"
 FLANK_WEAR_TASK_ID = "flank-wear-v1"
-PRIMARY_DEFAULT_SOURCE = Path("data/source/process_dashboard_realistic_excel_v2.xlsx")
+PRIMARY_DEFAULT_SOURCE = Path("data/source/material_workbench_tutorial_v1.xlsx")
 
 
 @runtime_checkable

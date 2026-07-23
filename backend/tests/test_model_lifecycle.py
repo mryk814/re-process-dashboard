@@ -28,6 +28,7 @@ from material_workbench.task_registry import load_task_contracts
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "data" / "source" / "process_dashboard_realistic_excel_v2.xlsx"
+DEFAULT_SOURCE = ROOT / "data" / "source" / "material_workbench_tutorial_v1.xlsx"
 V7_SOURCE = ROOT / "data" / "source" / "process_dashboard_two_equipment_v7.xlsx"
 V7_ANNEALED_PACKAGE = ROOT / "models" / "packages" / "annealed-gp-2026-07-v7-feature-design-v3"
 V7_HOT_PACKAGE = ROOT / "models" / "packages" / "hot-rolled-horseshoe-2026-07-v7-feature-design-v3"
@@ -179,7 +180,7 @@ def test_parent_mean_loo_coverage_does_not_add_observation_noise() -> None:
 def test_alternate_verified_package_needs_no_api_change_and_snapshot_keeps_old_identity(tmp_path: Path) -> None:
     import shutil
 
-    original = ROOT / "models" / "packages" / "annealed-gp-2026-07-feature-design-v3"
+    original = ROOT / "models" / "packages" / "annealed-gp-tutorial-v1"
     alternate = tmp_path / "annealed-gp-alternate"
     shutil.copytree(original, alternate)
     manifest_path = alternate / "manifest.json"
@@ -189,7 +190,7 @@ def test_alternate_verified_package_needs_no_api_change_and_snapshot_keeps_old_i
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False), encoding="utf-8")
     database = tmp_path / "workbench.db"
 
-    with TestClient(create_app(SOURCE, database, package_roots={"annealed-properties-v1": alternate})) as client:
+    with TestClient(create_app(DEFAULT_SOURCE, database, package_roots={"annealed-properties-v1": alternate})) as client:
         status = client.get("/api/projects/default/model-package").json()
         assert status["id"] == "annealed-gp-alternate"
         candidate = client.get("/api/projects/default/candidates").json()[0]
@@ -197,10 +198,10 @@ def test_alternate_verified_package_needs_no_api_change_and_snapshot_keeps_old_i
         assert snapshot["payload"]["provenance"]["package"]["id"] == "annealed-gp-alternate"
         old_hash = snapshot["payload"]["provenance"]["package"]["manifest_sha256"]
 
-    with TestClient(create_app(SOURCE, database)) as client:
+    with TestClient(create_app(DEFAULT_SOURCE, database)) as client:
         current = client.get("/api/projects/default/model-package").json()
         stored = client.get(f"/api/projects/default/candidates/{candidate['id']}/snapshots").json()[0]
-        assert current["id"] == "annealed-gp-2026-07-feature-design-v3"
+        assert current["id"] == "annealed-gp-tutorial-v1"
         assert stored["payload"]["provenance"]["package"]["manifest_sha256"] == old_hash
         assert old_hash != current["manifest_sha256"]
 
@@ -208,7 +209,7 @@ def test_alternate_verified_package_needs_no_api_change_and_snapshot_keeps_old_i
 def test_app_startup_rejects_package_trained_from_a_different_source(tmp_path: Path) -> None:
     import shutil
 
-    source = ROOT / "models" / "packages" / "hot-rolled-horseshoe-2026-07-feature-design-v3"
+    source = ROOT / "models" / "packages" / "hot-rolled-tutorial-v1"
     package = tmp_path / "hot-rolled-horseshoe"
     shutil.copytree(source, package)
     manifest_path = package / "manifest.json"
@@ -216,7 +217,7 @@ def test_app_startup_rejects_package_trained_from_a_different_source(tmp_path: P
     manifest["provenance"]["training_data_id"] = "sha256:different-source"
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
-    app = create_app(SOURCE, tmp_path / "workbench.db", package_roots={"hot-rolled-properties-v1": package})
+    app = create_app(DEFAULT_SOURCE, tmp_path / "workbench.db", package_roots={"hot-rolled-properties-v1": package})
     with pytest.raises(PackageContractError, match="training data digest"):
         with TestClient(app):
             pass

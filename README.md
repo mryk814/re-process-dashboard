@@ -80,15 +80,17 @@ npm run api:check     # schema・生成型のdrift検出
 `data/source/` のExcelは読取専用の正本として扱います。
 現在は次のソースを併存させています。
 
+- 最小教材（既定）：`material_workbench_tutorial_v1.xlsx`
 - v2：`process_dashboard_realistic_excel_v2.xlsx`
 - v3：`process_dashboard_realistic_excel_v3.xlsx`
 - v5：`process_dashboard_two_equipment_v5.xlsx`
 - v7：`process_dashboard_two_equipment_v7.xlsx`
 - 切削逃げ面摩耗：`cutting_tool_flank_wear_synthetic_dataset.xlsx`
 
-v2、v3、v5、v7は焼鈍特性と熱延特性に使う同じタスク契約へ正規化します。
+最小教材、v2、v3、v5、v7は焼鈍特性と熱延特性に使う同じタスク契約へ正規化します。
 切削逃げ面摩耗は、独立したタスク契約、Dataset Input Profile、特徴量パイプラインを使います。
 現行3タスクが実際に参照するソースとProfileは [生成済みタスク一覧](docs/task-inventory.json) で確認できます。
+最小教材を使ってExcelからModel Packageまで追う場合は [開発者向け教材ガイド](docs/tutorial-data-pipeline.md) を参照してください。
 
 Excelの外部シートや列と、アプリ内部の意味との対応はDataset Input Profileで一元管理します。
 起動時はソースの構造から対応するProfileを選び、工程、観測、系譜、データ品質を構築します。

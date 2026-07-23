@@ -35,17 +35,17 @@
       ],
       "source": {
         "kind": "primary",
-        "path": "data/source/process_dashboard_realistic_excel_v2.xlsx",
-        "sha256": "d8197cc77ee5ffaef0a5ed75446acaaae56d5fab5b6b625383c99750b4fb57a5",
-        "profile_id": "thin-sheet-workbook-v2",
-        "profile_path": "backend/src/material_workbench/dataset-input-profile-v1.json"
+        "path": "data/source/material_workbench_tutorial_v1.xlsx",
+        "sha256": "007a6910abb4293d79597d3e137e784cd775f3011b4caac4bcfdd8c275b338b8",
+        "profile_id": "thin-sheet-tutorial-v1",
+        "profile_path": "backend/src/material_workbench/dataset-input-profile-tutorial.json"
       },
       "active_package": {
-        "path": "packages/annealed-gp-2026-07-feature-design-v3",
-        "previous": "packages/annealed-gp-2026-07",
-        "package_id": "annealed-gp-2026-07-feature-design-v3",
+        "path": "packages/annealed-gp-tutorial-v1",
+        "previous": "packages/annealed-gp-2026-07-feature-design-v3",
+        "package_id": "annealed-gp-tutorial-v1",
         "version": "1.0.0-feature-design-v3",
-        "manifest_sha256": "49b0c824ec31dae21f3c728f34d3f8487d2eaed5d894e072fd0af4b2daa16358",
+        "manifest_sha256": "5d248f756f8a75e52aa5a16d89708fd875efff4e16adb6c482aebea4d418008b",
         "runtime_types": [
           "builtin.exact_gp.v1"
         ]
@@ -81,17 +81,17 @@
       ],
       "source": {
         "kind": "primary",
-        "path": "data/source/process_dashboard_realistic_excel_v2.xlsx",
-        "sha256": "d8197cc77ee5ffaef0a5ed75446acaaae56d5fab5b6b625383c99750b4fb57a5",
-        "profile_id": "thin-sheet-workbook-v2",
-        "profile_path": "backend/src/material_workbench/dataset-input-profile-v1.json"
+        "path": "data/source/material_workbench_tutorial_v1.xlsx",
+        "sha256": "007a6910abb4293d79597d3e137e784cd775f3011b4caac4bcfdd8c275b338b8",
+        "profile_id": "thin-sheet-tutorial-v1",
+        "profile_path": "backend/src/material_workbench/dataset-input-profile-tutorial.json"
       },
       "active_package": {
-        "path": "packages/hot-rolled-horseshoe-2026-07-feature-design-v3",
-        "previous": "packages/hot-rolled-horseshoe-2026-07",
-        "package_id": "hot-rolled-horseshoe-2026-07-feature-design-v3",
+        "path": "packages/hot-rolled-tutorial-v1",
+        "previous": "packages/hot-rolled-horseshoe-2026-07-feature-design-v3",
+        "package_id": "hot-rolled-tutorial-v1",
         "version": "1.1.0-feature-design-v3",
-        "manifest_sha256": "d659556edffd43d08e40885c220865216ad94246e7d786a0f5a5a7fa738f1474",
+        "manifest_sha256": "3604d3cf44c74b0aabfaa6a4baa65a59fd82f9d32b53c76f2cca254fd04bfce8",
         "runtime_types": [
           "builtin.posterior_linear.v1"
         ]

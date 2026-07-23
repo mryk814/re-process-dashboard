@@ -1,0 +1,12 @@
+{
+  "schema_version": "dataset-input-profile/v2",
+  "id": "thin-sheet-tutorial-v1",
+  "extends": "dataset-input-profile-v1.json",
+  "source_markers": [
+    {
+      "sheet": "概要",
+      "column": "項目",
+      "values": ["教材データID"]
+    }
+  ]
+}

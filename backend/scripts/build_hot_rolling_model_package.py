@@ -50,6 +50,61 @@ def _standardize(x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray, 
     return (x - feature_mean) / feature_scale, (y - target_mean) / target_scale, feature_mean, feature_scale, target_mean, target_scale
 
 
+def _train_tiny_demo_posterior(
+    x: np.ndarray,
+    y: np.ndarray,
+    *,
+    seed: int,
+    draws: int = 512,
+) -> tuple[dict[str, np.ndarray], dict[str, float | int]]:
+    """Stable approximate posterior for a deliberately tiny teaching dataset."""
+    design = np.column_stack([np.ones(len(x)), x])
+    penalty = np.eye(design.shape[1]) * 1.0
+    penalty[0, 0] = 0.01
+    precision = design.T @ design + penalty
+    covariance = np.linalg.inv(precision)
+    coefficients = covariance @ design.T @ y
+    residual = y - design @ coefficients
+    noise = max(float(np.sqrt(np.mean(residual**2))), 0.15)
+    rng = np.random.default_rng(seed)
+    sampled = rng.multivariate_normal(coefficients, covariance * noise**2, size=draws)
+    return {
+        "beta_draws": sampled[:, 1:],
+        "intercept_draws": sampled[:, 0],
+        "noise_scale_draws": np.full(draws, noise),
+        "local_scale_draws": np.maximum(np.abs(sampled[:, 1:]), 0.05),
+    }, {
+        "chains": 1,
+        "draws_per_chain": draws,
+        "warmup_per_chain": 0,
+        "divergences": 0,
+        "minimum_effective_sample_size": float(draws),
+        "maximum_r_hat": 1.0,
+    }
+
+
+def _tiny_demo_loo_quality(raw_x: np.ndarray, y: np.ndarray) -> TargetQualityMetric:
+    predicted: list[float] = []
+    uncertainty: list[float] = []
+    for index in range(len(y)):
+        mask = np.arange(len(y)) != index
+        x_train, y_train, x_mean, x_scale, y_mean, y_scale = _standardize(raw_x[mask], y[mask])
+        arrays, _ = _train_tiny_demo_posterior(x_train, y_train, seed=SEED + index + 1, draws=256)
+        point = (raw_x[index] - x_mean) / x_scale
+        latent = arrays["intercept_draws"] + arrays["beta_draws"] @ point
+        predicted.append(float(y_mean + y_scale * latent.mean()))
+        uncertainty.append(float(y_scale * np.sqrt(latent.var() + np.mean(arrays["noise_scale_draws"] ** 2))))
+    errors = y - np.asarray(predicted)
+    spread = np.asarray(uncertainty)
+    return TargetQualityMetric(
+        target="TS",
+        parent_conditions=len(y),
+        mae=float(np.mean(np.abs(errors))),
+        rmse=float(np.sqrt(np.mean(errors**2))),
+        interval_coverage_90=float(np.mean(np.abs(errors) <= 1.6448536269514722 * spread)),
+    )
+
+
 def _train_numpyro(
     x: np.ndarray,
     y: np.ndarray,
@@ -203,7 +258,11 @@ def _build(source: Path, destination: Path) -> None:
         target_y.append(float(np.mean([float(row["outputs"][column]) for row in group_rows])))
     raw, y = np.vstack(raw_x), np.asarray(target_y)
     x, y_scaled, feature_mean, feature_scale, target_mean, target_scale = _standardize(raw, y)
-    standardized_draws, diagnostics = _train_numpyro(x, y_scaled, seed=SEED, warmup=1536, draws=POSTERIOR_DRAWS // 2, chains=2)
+    tiny_demo = len(y) < 12
+    if tiny_demo:
+        standardized_draws, diagnostics = _train_tiny_demo_posterior(x, y_scaled, seed=SEED)
+    else:
+        standardized_draws, diagnostics = _train_numpyro(x, y_scaled, seed=SEED, warmup=1536, draws=POSTERIOR_DRAWS // 2, chains=2)
     exported_draws = _raw_coordinate_draws(standardized_draws, feature_mean, feature_scale, target_mean, target_scale)
     if not all(np.isfinite(value).all() for value in exported_draws.values()):
         raise ValueError("Horseshoe export contains non-finite posterior draws")
@@ -218,13 +277,13 @@ def _build(source: Path, destination: Path) -> None:
     stats_path = reference_dir / "training_stats.json"
     _write_json(stats_path, {"records": {"TS": len(y)}, "source_sha256": data.source_sha256, "composition_defaults": data.medians})
     quality_path = report_dir / "quality-report.json"
-    quality = QualityReport(schema_version="model-quality-report/v1", split="grouped-parent-condition-k-fold", folds=CV_FOLDS, targets=(_grouped_cv_quality(raw, y),))
+    quality = QualityReport(
+        schema_version="model-quality-report/v1",
+        split="leave-one-parent-condition-out" if tiny_demo else "grouped-parent-condition-k-fold",
+        **({} if tiny_demo else {"folds": CV_FOLDS}),
+        targets=(_tiny_demo_loo_quality(raw, y) if tiny_demo else _grouped_cv_quality(raw, y),),
+    )
     _write_json(quality_path, quality.model_dump(mode="json"))
-    selection_path = report_dir / "selection-report.json"
-    _write_json(selection_path, _selection_report(standardized_draws).model_dump(mode="json"))
-    diagnostics_path = report_dir / "training-diagnostics.json"
-    sampling_diagnostics = SamplingDiagnosticsReport.model_validate({"schema_version": "sampling-diagnostics/v1", **diagnostics, "finite_export": True})
-    _write_json(diagnostics_path, sampling_diagnostics.model_dump(mode="json"))
 
     sample_candidate = candidate_from_observation(rows[0])
     if sample_candidate is None:
@@ -237,7 +296,14 @@ def _build(source: Path, destination: Path) -> None:
     smoke_expected = smoke_dir / "expected.json"
     _write_json(smoke_expected, {"TS": round(point, 8)})
 
-    files = [pipeline_path, model_path, stats_path, quality_path, selection_path, diagnostics_path, smoke_input, smoke_expected]
+    files = [pipeline_path, model_path, stats_path, quality_path, smoke_input, smoke_expected]
+    if not tiny_demo:
+        diagnostics_path = report_dir / "training-diagnostics.json"
+        sampling_diagnostics = SamplingDiagnosticsReport.model_validate({"schema_version": "sampling-diagnostics/v1", **diagnostics, "finite_export": True})
+        _write_json(diagnostics_path, sampling_diagnostics.model_dump(mode="json"))
+        selection_path = report_dir / "selection-report.json"
+        _write_json(selection_path, _selection_report(standardized_draws).model_dump(mode="json"))
+        files.extend([diagnostics_path, selection_path])
     canonical_dataset = canonical_training_dataset(TASK_ID, data, contract)
     manifest = {
         "schema_version": "model-package/v1",
@@ -248,7 +314,7 @@ def _build(source: Path, destination: Path) -> None:
         "input_contract_digest": task_input_contract_digest(contract.task_definition),
         "runtime_capability_digest": runtime_capability_digest(contract.runtime_capability),
         "feature_pipeline": {"id": PIPELINE_ID, "version": PIPELINE_VERSION, "spec": pipeline_path.relative_to(destination).as_posix(), "canonical_input_paths": list(CANONICAL_INPUT_PATHS), "output_features": list(FEATURE_NAMES), "artifacts": [stats_path.relative_to(destination).as_posix()]},
-        "predictors": [{"id": "ts-horseshoe", "target": "TS", "unit": output.unit, "target_kind": "continuous", "runtime_type": "builtin.posterior_linear.v1", "architecture_id": "posterior_linear_v1", "artifact": model_path.relative_to(destination).as_posix(), "predictive_family": "normal", "feature_names": list(FEATURE_NAMES), "config": {"training_unit": "parent_condition_mean", "method": "regularized_horseshoe", "output_representation": "moment_matched_normal"}}],
+        "predictors": [{"id": "ts-horseshoe", "target": "TS", "unit": output.unit, "target_kind": "continuous", "runtime_type": "builtin.posterior_linear.v1", "architecture_id": "posterior_linear_v1", "artifact": model_path.relative_to(destination).as_posix(), "predictive_family": "normal", "feature_names": list(FEATURE_NAMES), "config": {"training_unit": "parent_condition_mean", "method": "tiny_demo_ridge_posterior" if tiny_demo else "regularized_horseshoe", "output_representation": "moment_matched_normal"}}],
         "provenance": {"training_data_id": f"sha256:{data.source_sha256}", "feature_dataset_id": canonical_training_dataset_digest(canonical_dataset), "training_code_revision": TRAINING_CODE_REVISION, "dataset_profile_id": dataset_profile_digest(Path(data.profile_path))},
         "artifacts": [_artifact(destination, path) for path in files],
         "smoke_test": {"input": smoke_input.relative_to(destination).as_posix(), "expected": smoke_expected.relative_to(destination).as_posix()},
