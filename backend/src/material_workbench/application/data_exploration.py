@@ -96,7 +96,7 @@ class DataExplorationService:
         items: list[dict] = []
         counts: Counter[str] = Counter()
         for sheet_name, key_column in data.entity_sheets.items():
-            records = data.entities[key_column]
+            records = data.entities.get(key_column, {})
             counts[sheet_name] += len(records)
             if entity_type and sheet_name != entity_type:
                 continue

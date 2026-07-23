@@ -71,14 +71,20 @@ def register_dataset_records(
         locator_kind=locator_kind,
         locator=str(locator.resolve()),
     ))
-    profile_revision = catalog.upsert_profile_revision(ProfileRevisionCreateInput(
-        profile_id=profile.profile_id,
-        revision=profile_revision_number(catalog, profile.profile_id, effective_digest),
-        name=profile.profile_id,
-        profile_digest=effective_digest,
-        canonical_contract_digest=CANONICAL_DATASET_CONTRACT_DIGEST,
-        effective_profile_json=effective_profile,
-    ))
+    profile_revision = next((
+        item
+        for item in catalog.list_profile_revisions()
+        if item.profile_id == profile.profile_id and item.profile_digest == effective_digest
+    ), None)
+    if profile_revision is None:
+        profile_revision = catalog.upsert_profile_revision(ProfileRevisionCreateInput(
+            profile_id=profile.profile_id,
+            revision=profile_revision_number(catalog, profile.profile_id, effective_digest),
+            name=profile.profile_id,
+            profile_digest=effective_digest,
+            canonical_contract_digest=CANONICAL_DATASET_CONTRACT_DIGEST,
+            effective_profile_json=effective_profile,
+        ))
     dataset = catalog.upsert_dataset_revision(DatasetRevisionCreateInput(
         data_asset_id=asset.id,
         profile_revision_id=profile_revision.id,
