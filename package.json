@@ -34,7 +34,8 @@
     "task:inventory": "uv run python backend/scripts/task_inventory.py",
     "task:inventory:check": "uv run python backend/scripts/task_inventory.py --check",
     "api:generate": "uv run python backend/scripts/export_openapi.py && npm run api:types -w apps/web",
-    "api:check": "uv run python backend/scripts/export_openapi.py --check && npm run api:check -w apps/web"
+    "api:check": "uv run python backend/scripts/export_openapi.py --check && npm run api:check -w apps/web",
+    "dev:doctor": "uv run python backend/scripts/developer_doctor.py"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
