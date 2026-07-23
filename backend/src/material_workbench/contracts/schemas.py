@@ -883,11 +883,13 @@ class ScreeningGoalEvaluation(BaseModel):
 
 
 class ScreeningScoreContract(BaseModel):
-    version: Literal["screening-score/v1"]
+    version: Literal["screening-score/v1", "screening-score/v2"]
     preference: Literal["lower_is_better"]
     direction: Literal["at_least", "at_most", "target"] | None
     target_value: float | None
     probability_available: bool
+    probability_semantics: Literal["probability_of_achieving_goal"] | None = None
+    ranking_policy: Literal["support_tier_then_secondary_goals_then_score"] | None = None
     fallback: Literal["directional_shortfall", "absolute_distance", "support_distance"]
     display_label: str
 

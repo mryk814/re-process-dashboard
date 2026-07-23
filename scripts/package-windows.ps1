@@ -11,7 +11,7 @@ try {
     npm.cmd run build
     if ($LASTEXITCODE -ne 0) { throw "application build failed with exit code $LASTEXITCODE" }
 
-    uv run python -m PyInstaller --noconfirm --clean --distpath dist/sidecar --workpath build/sidecar packaging/sidecar.spec
+    uv run --extra dev python -m PyInstaller --noconfirm --clean --distpath dist/sidecar --workpath build/sidecar packaging/sidecar.spec
     if ($LASTEXITCODE -ne 0) { throw "sidecar build failed with exit code $LASTEXITCODE" }
 
     $releasePrefix = $releaseRoot.TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar

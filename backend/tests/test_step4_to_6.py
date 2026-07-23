@@ -49,18 +49,23 @@ def test_latin_hypercube_is_deterministic_bounded_and_convertible(client) -> Non
     assert first["base_inputs"] == candidate["inputs"]
     assert first["model_provenance"]["model"]["version"]
     assert first["score_contract"] == {
-        "version": "screening-score/v1",
+        "version": "screening-score/v2",
         "preference": "lower_is_better",
         "direction": "at_least",
         "target_value": 500.0,
         "probability_available": True,
+        "probability_semantics": "probability_of_achieving_goal",
+        "ranking_policy": "support_tier_then_secondary_goals_then_score",
         "fallback": "directional_shortfall",
         "display_label": "目標以上ほど有望",
     }
     assert all(point["prediction"]["goal_direction"] == "at_least" for point in first["points"])
-    assert [point["score"] for point in first["representative_points"]] == sorted(
-        point["score"] for point in first["representative_points"]
-    )
+    support_rank = {"supported": 0, "caution": 1, "extrapolated": 2}
+    representative_rank = [
+        (support_rank[point["support"]["status"]], point["score"])
+        for point in first["representative_points"]
+    ]
+    assert representative_rank == sorted(representative_rank)
     assert client.get(f"/api/screening/{first['id']}").json()["base_canonical_input"] == first["base_canonical_input"]
     assert any(run["id"] == first["id"] for run in client.get("/api/screening").json())
 

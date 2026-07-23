@@ -101,7 +101,7 @@ def run_latin_hypercube(
             selected.value,
             target_value=request.target_value,
             direction=goal_directions.get(request.target),
-            at_least_probability=selected.goal_probability if probability_available.get(request.target, False) else None,
+            achievement_probability=selected.goal_probability if probability_available.get(request.target, False) else None,
             support_distance=support.distance,
         )
         secondary_evaluations = {
@@ -109,7 +109,7 @@ def run_latin_hypercube(
                 prediction["predictions"][key].value,
                 target_value=value,
                 direction=goal_directions.get(key),
-                at_least_probability=prediction["predictions"][key].goal_probability if probability_available.get(key, False) else None,
+                achievement_probability=prediction["predictions"][key].goal_probability if probability_available.get(key, False) else None,
                 support_distance=support.distance,
             )
             for key, value in request.secondary_targets.items()
@@ -140,10 +140,10 @@ def run_latin_hypercube(
     ranked = sorted(
         points,
         key=lambda point: (
+            support_rank[point["support"]["status"]],
             sum(item["achieved"] is False for item in point["secondary_goal_evaluations"].values()),
             point["score"] is None,
-            point["score"] if point["score"] is not None else support_rank[point["support"]["status"]],
-            support_rank[point["support"]["status"]],
+            point["score"] if point["score"] is not None else point["support"]["distance"],
             point["index"],
         ),
     )

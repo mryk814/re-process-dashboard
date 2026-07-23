@@ -6000,6 +6000,30 @@
             "title": "Probability Available",
             "type": "boolean"
           },
+          "probability_semantics": {
+            "anyOf": [
+              {
+                "const": "probability_of_achieving_goal",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Probability Semantics"
+          },
+          "ranking_policy": {
+            "anyOf": [
+              {
+                "const": "support_tier_then_secondary_goals_then_score",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ranking Policy"
+          },
           "target_value": {
             "anyOf": [
               {
@@ -6012,7 +6036,10 @@
             "title": "Target Value"
           },
           "version": {
-            "const": "screening-score/v1",
+            "enum": [
+              "screening-score/v1",
+              "screening-score/v2"
+            ],
             "title": "Version",
             "type": "string"
           }

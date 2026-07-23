@@ -3152,13 +3152,17 @@ export interface components {
             preference: "lower_is_better";
             /** Probability Available */
             probability_available: boolean;
+            /** Probability Semantics */
+            probability_semantics?: "probability_of_achieving_goal" | null;
+            /** Ranking Policy */
+            ranking_policy?: "support_tier_then_secondary_goals_then_score" | null;
             /** Target Value */
             target_value: number | null;
             /**
              * Version
-             * @constant
+             * @enum {string}
              */
-            version: "screening-score/v1";
+            version: "screening-score/v1" | "screening-score/v2";
         };
         /** ScreeningSourceRef */
         ScreeningSourceRef: {

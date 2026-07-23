@@ -26,7 +26,7 @@ def evaluate_screening_goal(
     *,
     target_value: float | None,
     direction: GoalDirection | None,
-    at_least_probability: float | None = None,
+    achievement_probability: float | None = None,
     support_distance: float = 0.0,
 ) -> ScreeningScore:
     if target_value is None or direction is None:
@@ -36,9 +36,8 @@ def evaluate_screening_goal(
         return ScreeningScore(abs(prediction - target_value), "absolute_distance", prediction == target_value, None)
 
     achieved = prediction >= target_value if direction == "at_least" else prediction <= target_value
-    if at_least_probability is not None:
-        probability = at_least_probability if direction == "at_least" else 1.0 - at_least_probability
-        probability = min(1.0, max(0.0, probability))
+    if achievement_probability is not None:
+        probability = min(1.0, max(0.0, achievement_probability))
         return ScreeningScore(1.0 - probability, "achievement_probability", achieved, probability)
 
     shortfall = max(target_value - prediction, 0.0) if direction == "at_least" else max(prediction - target_value, 0.0)
@@ -60,11 +59,13 @@ def score_contract(
     else:
         label = "目標値に近いほど有望"
     return {
-        "version": "screening-score/v1",
+        "version": "screening-score/v2",
         "preference": "lower_is_better",
         "direction": direction,
         "target_value": target_value,
         "probability_available": probability_available,
+        "probability_semantics": "probability_of_achieving_goal",
+        "ranking_policy": "support_tier_then_secondary_goals_then_score",
         "fallback": "support_distance" if target_value is None else "directional_shortfall" if direction in {"at_least", "at_most"} else "absolute_distance",
         "display_label": label,
     }
