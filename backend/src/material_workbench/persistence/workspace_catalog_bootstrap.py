@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+import json
 import sqlite3
 
 from material_workbench.data.dataset_registration import (
@@ -19,6 +20,10 @@ from material_workbench.contracts.schemas import (
 )
 from material_workbench.tasks.task_registry import TaskRegistry
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
+from material_workbench.modeling.model_packages import ModelPackageLoader, PackageContractError
+
+
+AVAILABLE_PACKAGES_PATH = Path("models/available-packages.json")
 
 
 class WorkspaceCatalogBootstrapError(RuntimeError):
@@ -79,6 +84,66 @@ def register_runtime_resources(catalog: WorkspaceCatalog, registry: TaskRegistry
             model_package_manifest_digest=package.manifest_sha256,
         )
     return bindings
+
+
+def register_available_packages(
+    catalog: WorkspaceCatalog,
+    registry: TaskRegistry,
+    path: Path = AVAILABLE_PACKAGES_PATH,
+) -> int:
+    """Register explicit alternatives whose training Dataset is currently available."""
+
+    if not path.exists():
+        return 0
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+        if document.get("schema_version") != "available-model-packages/v1":
+            raise ValueError("unsupported schema version")
+        references = document["packages"]
+        if not isinstance(references, list) or not all(isinstance(item, str) for item in references):
+            raise ValueError("packages must be a string list")
+    except (OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
+        raise WorkspaceCatalogBootstrapError(f"利用可能なModel Package一覧を読めません: {exc}") from exc
+
+    models_root = path.resolve().parent
+    available_training = {
+        (asset.sha256, profile.profile_digest)
+        for dataset in catalog.list_dataset_revisions()
+        if (asset := catalog.get_data_asset(dataset.data_asset_id)) is not None
+        and (profile := catalog.get_profile_revision(dataset.profile_revision_id)) is not None
+    }
+    registered = 0
+    for reference in references:
+        relative = Path(reference)
+        if relative.is_absolute():
+            raise WorkspaceCatalogBootstrapError("利用可能なModel Package参照は相対パスで指定してください")
+        package_root = (models_root / relative).resolve()
+        if models_root not in package_root.parents:
+            raise WorkspaceCatalogBootstrapError("利用可能なModel Package参照がmodels外を指しています")
+        try:
+            package = ModelPackageLoader().load(package_root)
+        except (OSError, PackageContractError) as exc:
+            raise WorkspaceCatalogBootstrapError(f"Model Packageを検証できません: {package_root}: {exc}") from exc
+        training_id = package.manifest.provenance.training_data_id
+        profile_id = package.manifest.provenance.dataset_profile_id
+        if not training_id.startswith("sha256:") or (
+            training_id.removeprefix("sha256:"), profile_id
+        ) not in available_training:
+            continue
+        if package.manifest.task_id not in registry.task_ids:
+            raise WorkspaceCatalogBootstrapError(
+                f"Model PackageのPrediction Taskが登録されていません: {package.manifest.task_id}"
+            )
+        catalog.upsert_model_package_ref(ModelPackageRefCreateInput(
+            package_id=package.manifest.package_id,
+            task_id=package.manifest.task_id,
+            task_contract_digest=task_definition_digest(registry, package.manifest.task_id),
+            manifest_digest=package.manifest_sha256,
+            locator=str(package.root),
+            manifest_json=package.manifest.model_dump(mode="json"),
+        ))
+        registered += 1
+    return registered
 
 
 def bind_legacy_projects(database: str | Path, catalog: WorkspaceCatalog, bindings: dict[str, ProjectBinding]) -> int:
@@ -154,6 +219,7 @@ def audit_project_bindings(database: str | Path) -> None:
 def bootstrap_workspace_catalog(database: str | Path, registry: TaskRegistry) -> WorkspaceCatalog:
     catalog = WorkspaceCatalog(database)
     bindings = register_runtime_resources(catalog, registry)
+    register_available_packages(catalog, registry)
     bind_legacy_projects(database, catalog, bindings)
     audit_project_bindings(database)
     return catalog

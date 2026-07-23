@@ -23,6 +23,7 @@ PACKAGE_SCHEMA_VERSION = "model-package/v1"
 RUNTIME_TYPES = {
     "builtin.linear.v1",
     "builtin.exact_gp.v1",
+    "builtin.heteroscedastic_exact_gp.v1",
     "builtin.additive_terms.v1",
     "builtin.quantile_linear.v1",
     "builtin.posterior_linear.v1",
@@ -174,12 +175,22 @@ class PredictorSpec(PackageModel):
             raise ValueError("gpytorch adapter only permits architecture_id=exact_rbf_v1")
         if self.runtime_type == "builtin.exact_gp.v1" and self.architecture_id != "exact_rbf_grouped_v1":
             raise ValueError("built-in exact GP adapter only permits architecture_id=exact_rbf_grouped_v1")
+        if (
+            self.runtime_type == "builtin.heteroscedastic_exact_gp.v1"
+            and self.architecture_id != "heteroscedastic_rbf_individual_v1"
+        ):
+            raise ValueError(
+                "built-in heteroscedastic GP only permits architecture_id=heteroscedastic_rbf_individual_v1"
+            )
         if self.runtime_type == "builtin.additive_terms.v1" and self.architecture_id != "additive_terms_v1":
             raise ValueError("built-in additive adapter only permits architecture_id=additive_terms_v1")
         if self.runtime_type == "builtin.quantile_linear.v1" and self.architecture_id != "quantile_linear_v1":
             raise ValueError("built-in quantile adapter only permits architecture_id=quantile_linear_v1")
-        if self.runtime_type == "builtin.posterior_linear.v1" and self.architecture_id != "posterior_linear_v1":
-            raise ValueError("built-in posterior linear adapter only permits architecture_id=posterior_linear_v1")
+        if self.runtime_type == "builtin.posterior_linear.v1" and self.architecture_id not in {
+            "posterior_linear_v1",
+            "hierarchical_parent_random_intercept_v1",
+        }:
+            raise ValueError("built-in posterior linear adapter received an unsupported architecture_id")
         return self
 
 
@@ -440,12 +451,13 @@ class AdapterRegistry:
             from material_workbench.adapters.builtin_quantile_linear import BuiltinQuantileLinearAdapter
             from material_workbench.adapters.builtin_posterior_linear import BuiltinPosteriorLinearAdapter
             from material_workbench.adapters.builtin_exact_gp import BuiltinExactGPAdapter
+            from material_workbench.adapters.builtin_heteroscedastic_gp import BuiltinHeteroscedasticExactGPAdapter
             from material_workbench.adapters.gpytorch_static import GPyTorchStaticAdapter
             from material_workbench.adapters.lightgbm_booster import LightGBMBoosterAdapter
             from material_workbench.adapters.numpyro_posterior import NumpyroDensePosteriorAdapter
             from material_workbench.adapters.sklearn_skops import SklearnSkopsAdapter
 
-            adapters = (BuiltinLinearAdapter(), BuiltinExactGPAdapter(), BuiltinAdditiveTermsAdapter(), BuiltinQuantileLinearAdapter(), BuiltinPosteriorLinearAdapter(), SklearnSkopsAdapter(), LightGBMBoosterAdapter(), GPyTorchStaticAdapter(), NumpyroDensePosteriorAdapter())
+            adapters = (BuiltinLinearAdapter(), BuiltinExactGPAdapter(), BuiltinHeteroscedasticExactGPAdapter(), BuiltinAdditiveTermsAdapter(), BuiltinQuantileLinearAdapter(), BuiltinPosteriorLinearAdapter(), SklearnSkopsAdapter(), LightGBMBoosterAdapter(), GPyTorchStaticAdapter(), NumpyroDensePosteriorAdapter())
         self._adapters = {adapter.runtime_type: adapter for adapter in adapters}
         if set(self._adapters) != RUNTIME_TYPES:
             raise PackageContractError("adapter registry must implement exactly the approved runtime types")

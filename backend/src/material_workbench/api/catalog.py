@@ -6,7 +6,12 @@ from typing import Any, Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from .dependencies import get_store, get_task_registry, project_or_404
+from .dependencies import (
+    get_project_runtime_resolver,
+    get_store,
+    get_task_registry,
+    project_or_404,
+)
 from .errors import PROJECT_API_ERRORS
 from material_workbench.modeling.model_lifecycle import (
     canonical_training_dataset,
@@ -18,11 +23,13 @@ from material_workbench.contracts.schemas import ModelPackageStatus, ModelTraini
 from material_workbench.persistence.store import Store
 from material_workbench.contracts.task_contracts import ResolvedTaskDefinition
 from material_workbench.tasks.task_registry import TaskRegistry
+from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
 
 
 router = APIRouter()
 StoreDependency = Annotated[Store, Depends(get_store)]
 RegistryDependency = Annotated[TaskRegistry, Depends(get_task_registry)]
+ResolverDependency = Annotated[ProjectRuntimeResolver, Depends(get_project_runtime_resolver)]
 
 
 @router.get("/api/health")
@@ -55,15 +62,17 @@ def model_package(
     project_id: str,
     store: StoreDependency,
     registry: RegistryDependency,
+    resolver: ResolverDependency,
 ) -> dict[str, Any]:
     project = project_or_404(store, project_id)
-    entry = registry.entry_for(project.task_id)
-    package = entry.model_package
+    resolved = resolver.resolve(project)
+    package = resolved.runtime.model_package
+    assert package is not None
     manifest = package.manifest
     quality = validate_lifecycle_metadata(
         package,
         registry.contract_for(project.task_id),
-        profile_path=Path(entry.predictor_runtime.data.profile_path),
+        profile_path=getattr(resolved.runtime.data, "profile", Path(resolved.runtime.data.profile_path)),
     )
     optional_dependencies = {
         "sklearn.skops.v1": importlib.util.find_spec("skops") is not None,
@@ -120,17 +129,23 @@ def model_training_data(
     project_id: str,
     store: StoreDependency,
     registry: RegistryDependency,
+    resolver: ResolverDependency,
     stage: Annotated[Literal["selected", "features"], Query()] = "selected",
     target: Annotated[str | None, Query()] = None,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 25,
 ) -> dict[str, Any]:
     project = project_or_404(store, project_id)
-    entry = registry.entry_for(project.task_id)
-    package = entry.model_package
+    resolved = resolver.resolve(project)
+    package = resolved.runtime.model_package
+    assert package is not None
     contract = registry.contract_for(project.task_id)
-    data = entry.predictor_runtime.data
-    validate_lifecycle_metadata(package, contract, profile_path=Path(data.profile_path))
+    data = resolved.runtime.data
+    validate_lifecycle_metadata(
+        package,
+        contract,
+        profile_path=getattr(data, "profile", Path(data.profile_path)),
+    )
     available_targets = [item.target for item in package.manifest.predictors]
     selected_target = target or available_targets[0]
     if selected_target not in available_targets:

@@ -186,7 +186,38 @@ def test_builtin_linear_package_and_registry_are_dependency_free(tmp_path: Path)
     package = ModelPackageLoader().load(root)
     result = package.load_predictor("linear").predict({"C": 0.1, "Mn": 1.5})
     assert result.point_estimate == pytest.approx(5.7)
-    assert set(AdapterRegistry()._adapters) == {"builtin.linear.v1", "builtin.exact_gp.v1", "builtin.additive_terms.v1", "builtin.quantile_linear.v1", "builtin.posterior_linear.v1", "sklearn.skops.v1", "lightgbm.booster.v1", "gpytorch.static_exact_rbf.v1", "numpyro.dense_posterior.v1"}
+    assert set(AdapterRegistry()._adapters) == {
+        "builtin.linear.v1", "builtin.exact_gp.v1", "builtin.heteroscedastic_exact_gp.v1",
+        "builtin.additive_terms.v1", "builtin.quantile_linear.v1", "builtin.posterior_linear.v1",
+        "sklearn.skops.v1", "lightgbm.booster.v1", "gpytorch.static_exact_rbf.v1",
+        "numpyro.dense_posterior.v1",
+    }
+
+
+def test_checked_in_individual_observation_packages_expose_distinct_uncertainty_components() -> None:
+    root = Path(__file__).resolve().parents[2]
+    hetero = ModelPackageLoader().load(
+        root / "models" / "packages" / "annealed-heteroscedastic-gp-2026-07-v8-v1"
+    )
+    hierarchical = ModelPackageLoader().load(
+        root / "models" / "packages" / "annealed-hierarchical-bayes-2026-07-v8-v1"
+    )
+    for package in (hetero, hierarchical):
+        spec = package.manifest.predictors[0]
+        assert spec.config["training_unit"] == "individual_observation"
+        values = {name: 0.0 for name in spec.feature_names}
+        summary = package.load_predictor(spec.id).predict(values, seed=7)
+        assert summary.quantiles["0.05"] <= summary.quantiles["0.50"] <= summary.quantiles["0.95"]
+        assert summary.distribution["std"] > 0
+    hetero_summary = hetero.load_predictor(hetero.manifest.predictors[0].id).predict(
+        {name: 0.0 for name in hetero.manifest.predictors[0].feature_names}
+    )
+    hierarchy_summary = hierarchical.load_predictor(hierarchical.manifest.predictors[0].id).predict(
+        {name: 0.0 for name in hierarchical.manifest.predictors[0].feature_names}
+    )
+    assert "input_dependent_observation_variance" in hetero_summary.uncertainty_components
+    assert hierarchy_summary.uncertainty_components["between_parent_std"] > 0
+    assert hierarchy_summary.uncertainty_components["within_parent_observation_std"] > 0
 
 
 def test_loader_rejects_hash_tampering_traversal_and_unknown_manifest_fields(tmp_path: Path) -> None:

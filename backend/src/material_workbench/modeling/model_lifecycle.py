@@ -127,8 +127,8 @@ def runtime_capability_digest(capability: RuntimeCapability) -> str:
     return _semantic_digest(capability.model_dump(mode="json"))
 
 
-def dataset_profile_digest(path: Path = DATASET_PROFILE_PATH) -> str:
-    profile = load_dataset_profile(path)
+def dataset_profile_digest(path: Path | Any = DATASET_PROFILE_PATH) -> str:
+    profile = path if hasattr(path, "model_dump") else load_dataset_profile(path)
     payload = profile.model_dump(mode="json", exclude={"task_definitions"})
     shared = payload.get("shared")
     if isinstance(shared, dict):
@@ -163,7 +163,7 @@ def canonical_training_dataset(
     *,
     pipeline_version: str | None = None,
 ) -> dict[str, Any]:
-    profile = load_dataset_profile(data.profile_path)
+    profile = getattr(data, "profile", None) or load_dataset_profile(data.profile_path)
     profile_columns = {
         target.key: target.source_columns
         for observation in profile.tasks[task_id].observations
@@ -225,7 +225,7 @@ def canonical_training_dataset(
         "schema_version": "canonical-training-dataset/v1",
         "task_id": task_id,
         "input_contract_digest": task_input_contract_digest(contract.task_definition),
-        "dataset_profile_digest": dataset_profile_digest(Path(data.profile_path)),
+        "dataset_profile_digest": dataset_profile_digest(profile),
         "source_data_digest": f"sha256:{data.source_sha256}",
         "feature_pipeline": {
             "id": first_bundle.pipeline_id,

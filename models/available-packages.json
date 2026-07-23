@@ -1,0 +1,7 @@
+{
+  "schema_version": "available-model-packages/v1",
+  "packages": [
+    "packages/annealed-heteroscedastic-gp-2026-07-v8-v1",
+    "packages/annealed-hierarchical-bayes-2026-07-v8-v1"
+  ]
+}

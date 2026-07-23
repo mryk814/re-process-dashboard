@@ -41,6 +41,20 @@ export function datasetDisplayName(dataset: ApiDataLibraryDataset | undefined): 
   return dataset?.data_asset.original_filename.replace(/\.xlsx$/i, "") ?? "Dataset未解決";
 }
 
+export function modelPackageDisplayName(modelPackage: ApiModelPackageRef | undefined): string {
+  if (!modelPackage) return "—";
+  const manifest = asRecord(modelPackage.manifest_json);
+  const predictors = Array.isArray(manifest?.predictors) ? manifest.predictors : [];
+  const records = predictors.map(asRecord).filter((item): item is Record<string, unknown> => item != null);
+  if (records.some((item) => item.runtime_type === "builtin.heteroscedastic_exact_gp.v1")) {
+    return "個々値・異分散GP（試験）";
+  }
+  if (records.some((item) => item.architecture_id === "hierarchical_parent_random_intercept_v1")) {
+    return "個々値・反復階層Bayes（試験）";
+  }
+  return modelPackage.package_id;
+}
+
 export function compatiblePackagesForTask(
   taskId: string,
   options: Pick<ApiProjectCreationOptions, "model_packages" | "task_contract_digests">,
