@@ -1522,6 +1522,16 @@ export interface components {
         /** DeveloperOverviewItem */
         DeveloperOverviewItem: {
             /**
+             * Active Package
+             * @default false
+             */
+            active_package: boolean;
+            /**
+             * Archived References
+             * @default []
+             */
+            archived_references: string[];
+            /**
              * Dataset Revision Ids
              * @default []
              */
@@ -3334,11 +3344,30 @@ export interface components {
                 [key: string]: unknown;
             };
             /**
+             * Commands
+             * @default []
+             */
+            commands: string[];
+            /**
              * Decisions
              * @default {}
              */
             decisions: {
                 [key: string]: boolean;
+            };
+            /**
+             * Learning Counts
+             * @default {}
+             */
+            learning_counts: {
+                [key: string]: number;
+            };
+            /**
+             * Output Counts
+             * @default {}
+             */
+            output_counts: {
+                [key: string]: number;
             };
             /**
              * Recommendations
@@ -3351,6 +3380,13 @@ export interface components {
             source: string;
             /** Source Sha256 */
             source_sha256: string;
+            /**
+             * Structural Differences
+             * @default {}
+             */
+            structural_differences: {
+                [key: string]: string[];
+            };
         };
         /** Support */
         Support: {

@@ -46,8 +46,12 @@ class SourceInspection(BaseModel):
     ambiguous: bool = False
     candidates: list[ProfileCandidate]
     canonical_counts: dict[str, Any] = {}
+    learning_counts: dict[str, int] = {}
+    output_counts: dict[str, int] = {}
+    structural_differences: dict[str, list[str]] = {}
     decisions: dict[str, bool] = {}
     recommendations: list[str] = []
+    commands: list[str] = []
 
 
 class DeveloperDoctorReport(BaseModel):
@@ -95,6 +99,8 @@ class DeveloperOverviewItem(BaseModel):
     feature_pipeline_id: str | None = None
     feature_pipeline_version: str | None = None
     runtime_type: str | None = None
+    active_package: bool = False
+    archived_references: list[str] = []
     validation_status: Severity
 
 

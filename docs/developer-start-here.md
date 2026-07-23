@@ -40,7 +40,7 @@ Profile継承、単位変換追加、新カテゴリ値、既存Feature Pipeline
 | 2 | シート名や列名が違う | Dataset Input Profile | TaskDefinition、Feature Pipeline | Profile Revision、Dataset Revision | `dev:doctor -- --source ...`、Profile tests | canonical名まで変えない |
 | 3 | 単位表記が違う | Profileのsource/canonical unit | canonical unit、意味 | Profile Revision。値が変わればPackageも再構築 | Profile validate、golden | 表記差と物理量変更を混同しない |
 | 4 | optional補助列が増減 | Profile metadata / technical / optional宣言 | 入出力契約 | Profile Revision | Profile Workbench、dataset profile tests | 必須入力をoptionalに逃がさない |
-| 5 | 既存入力の範囲変更 | TaskDefinitionのallowed/default/training range | canonical path、既存Snapshot | Task contract digest。必要なら新Package | contract tests、`api:generate` | 学習範囲を科学的妥当範囲とみなさない |
+| 5 | 既存入力の範囲変更 | TaskDefinitionのallowed/default/training range | canonical path、既存Snapshot | Task contract digest。必要なら新Package | contract tests、`npm run api:generate` | 学習範囲を科学的妥当範囲とみなさない |
 | 6 | 予測入力を追加 | TaskDefinition、Profile、Feature Pipeline、Package、capability | 既存Package | 新contract、新Package、生成型 | feature golden、Package smoke、API | Profileだけ足してモデル入力を暗黙変更しない |
 | 7 | 予測出力を追加 | TaskDefinition、観測mapping、builder、Runtime、UI | 旧Snapshot | 新contract、新Package、OpenAPI | output semantics、preview/snapshot tests | 旧Snapshotを再計算しない |
 | 8 | 特徴量変更 | Feature Pipeline、builder、Package | 元Excel、旧Package | Pipeline version、新Package | feature golden、Package verify | 列順だけ合わせて旧artifactを流用しない |
@@ -103,4 +103,3 @@ tutorial-data-pipeline.md
   ↓
 .claude/skills の実装手順
 ```
-

@@ -22,6 +22,7 @@ def test_overview_connects_project_to_runtime_contracts(client: TestClient) -> N
     assert items
     assert all(item["project_id"] and item["task_id"] and item["package_id"] for item in items)
     assert all(item["feature_pipeline_id"] and item["runtime_type"] for item in items)
+    assert all(isinstance(item["active_package"], bool) for item in items)
 
 
 def test_diagnostics_reuses_doctor_json(

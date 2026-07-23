@@ -20,6 +20,8 @@
 .developer-overview-list article > header { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; background: #f4f7fa; }
 .developer-overview-list article > header div { display: flex; align-items: center; gap: 8px; }
 .developer-overview-list article > header span { color: #257255; font-size: 11px; font-weight: 700; }
+.developer-overview-list article > header em { border-radius: 999px; background: #e2edf9; padding: 2px 6px; color: #315f94; font-size: 9px; font-style: normal; }
+.developer-archived { margin: 0; padding: 7px 11px; background: #fff7e8; color: #855f1d; font-size: 10px; }
 .developer-overview-list h3 { margin: 0; font-size: 14px; }
 .developer-overview-list header code { color: #6d7b8e; font-size: 10px; }
 .developer-overview-list dl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; }

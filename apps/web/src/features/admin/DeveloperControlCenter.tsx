@@ -85,7 +85,8 @@ export function DeveloperControlCenter({ onOpenProfileWorkbench }: { onOpenProfi
       </div>
       <p className="developer-note">Projectごとに固定された参照です。Dataset Revision・Package・Snapshotは上書きしません。</p>
       {overview ? <div className="developer-overview-list">{overview.items.map((item) => <article key={item.project_id}>
-        <header><div><span>{item.validation_status === "ok" ? "✓ 検証済み" : "要確認"}</span><h3>{item.project_name}</h3></div><code>{item.project_id}</code></header>
+        <header><div><span>{item.validation_status === "ok" ? "✓ 検証済み" : item.validation_status === "warning" ? "△ Archive参照" : "✕ 参照不足"}</span><h3>{item.project_name}</h3>{item.active_package && <em>active</em>}</div><code>{item.project_id}</code></header>
+        {item.archived_references.length > 0 && <p className="developer-archived">Archive参照: {item.archived_references.join(" / ")}</p>}
         <dl>
           <div><dt>Dataset</dt><dd>{item.source_filename ?? "—"}<small>{item.dataset_revision_ids.join(", ") || "revisionなし"}</small></dd></div>
           <div><dt>Source SHA</dt><dd><ShortDigest value={item.source_sha256} /></dd></div>

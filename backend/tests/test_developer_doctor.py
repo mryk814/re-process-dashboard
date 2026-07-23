@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from material_workbench.developer_experience.diagnostics import compare_task_sets, run_developer_doctor
+from material_workbench.developer_experience.source_inspection import inspect_source_against_profiles
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -35,3 +36,15 @@ def test_missing_source_uses_invalid_input_exit_code(tmp_path: Path) -> None:
     )
     assert report.code == 2
     assert report.status == "error"
+
+
+def test_known_source_reports_profile_and_learning_counts() -> None:
+    inspection = inspect_source_against_profiles(
+        ROOT / "data" / "source" / "material_workbench_process_v1.xlsx",
+    )
+    assert inspection.selected_profile
+    assert inspection.candidates[0].score == 100
+    assert inspection.decisions["new_profile_required"] is False
+    assert inspection.learning_counts
+    assert inspection.output_counts
+    assert inspection.commands

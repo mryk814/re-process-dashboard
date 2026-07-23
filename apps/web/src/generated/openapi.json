@@ -1761,6 +1761,19 @@
       "DeveloperOverviewItem": {
         "additionalProperties": false,
         "properties": {
+          "active_package": {
+            "default": false,
+            "title": "Active Package",
+            "type": "boolean"
+          },
+          "archived_references": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Archived References",
+            "type": "array"
+          },
           "dataset_revision_ids": {
             "default": [],
             "items": {
@@ -6479,12 +6492,36 @@
             "title": "Canonical Counts",
             "type": "object"
           },
+          "commands": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Commands",
+            "type": "array"
+          },
           "decisions": {
             "additionalProperties": {
               "type": "boolean"
             },
             "default": {},
             "title": "Decisions",
+            "type": "object"
+          },
+          "learning_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "default": {},
+            "title": "Learning Counts",
+            "type": "object"
+          },
+          "output_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "default": {},
+            "title": "Output Counts",
             "type": "object"
           },
           "recommendations": {
@@ -6513,6 +6550,17 @@
           "source_sha256": {
             "title": "Source Sha256",
             "type": "string"
+          },
+          "structural_differences": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "default": {},
+            "title": "Structural Differences",
+            "type": "object"
           }
         },
         "required": [

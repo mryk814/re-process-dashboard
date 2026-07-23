@@ -121,10 +121,20 @@ def run_developer_doctor(
     modules = registered_task_modules()
     contracts = load_task_contracts()
     active = load_active_packages(ACTIVE_PACKAGES_PATH)
+    inventory_path = root / "docs" / "task-inventory.json"
+    try:
+        inventory_document = json.loads(inventory_path.read_text(encoding="utf-8"))
+        inventory_tasks = {
+            str(item["task_id"])
+            for item in inventory_document.get("tasks", [])
+        }
+    except (OSError, ValueError, TypeError, KeyError):
+        inventory_tasks = set()
     checks.append(compare_task_sets({
         "TaskDefinition": contracts,
         "TaskModule": modules,
         "active-packages": active.tasks,
+        "task-inventory": inventory_tasks,
         "workflow": modules,
         "verifier": modules,
     }))

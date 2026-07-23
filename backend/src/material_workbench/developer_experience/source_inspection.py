@@ -8,7 +8,11 @@ from typing import Iterable
 
 from openpyxl import load_workbook
 
-from material_workbench.data.dataset_profile import DatasetInputProfile, load_dataset_profile
+from material_workbench.data.dataset_profile import (
+    DatasetInputProfile,
+    canonicalize_workbook,
+    load_dataset_profile,
+)
 from material_workbench.data.profile_workbench import validate_workbook_profile
 from material_workbench.developer_experience.schemas import ProfileCandidate, SourceInspection
 
@@ -184,11 +188,49 @@ def inspect_source_against_profiles(
         and candidates[0].score == candidates[1].score
     )
     counts: dict[str, object] = {}
+    learning_counts: dict[str, int] = {}
+    output_counts: dict[str, int] = {}
+    structural_differences: dict[str, list[str]] = {
+        "relation": [],
+        "keys": [],
+        "cardinality": [],
+    }
     if selected and not selected.missing_sheets and not selected.missing_columns:
         try:
             counts = validate_workbook_profile(source, Path(selected.profile_path))
-        except Exception:
-            pass
+            selected_profile = load_dataset_profile(Path(selected.profile_path))
+            workbook = load_workbook(source, read_only=True, data_only=True)
+            try:
+                canonical = canonicalize_workbook(workbook, selected_profile)
+            finally:
+                workbook.close()
+            for observation in canonical.observations:
+                if all(observation.policy_results.values()):
+                    learning_counts[observation.task_id] = learning_counts.get(observation.task_id, 0) + 1
+                for output in observation.canonical_measurements:
+                    output_counts[output] = output_counts.get(output, 0) + 1
+        except Exception as exc:
+            message = str(exc)
+            if "relation" in message.lower():
+                structural_differences["relation"].append(message)
+            if "key" in message.lower() or "参照" in message:
+                structural_differences["keys"].append(message)
+            if "cardinal" in message.lower() or "一意" in message:
+                structural_differences["cardinality"].append(message)
+    if selected:
+        relation_sheet = next(
+            (
+                sheet for sheet in selected.missing_sheets
+                if "relation" in sheet.lower() or "関係" in sheet
+            ),
+            None,
+        )
+        if relation_sheet:
+            structural_differences["relation"].append(f"relation sheet missing: {relation_sheet}")
+        for sheet, columns in selected.missing_columns.items():
+            key_like = [column for column in columns if "key" in column.lower() or "id" in column.lower() or "キー" in column]
+            if key_like:
+                structural_differences["keys"].append(f"{sheet}: {', '.join(key_like)}")
     new_profile_required = bool(
         selected is None
         or selected.missing_sheets
@@ -209,6 +251,9 @@ def inspect_source_against_profiles(
         ambiguous=ambiguous,
         candidates=candidates,
         canonical_counts=counts,
+        learning_counts=learning_counts,
+        output_counts=output_counts,
+        structural_differences=structural_differences,
         decisions={
             "new_profile_required": new_profile_required,
             "reuse_task_definition": bool(selected and selected.task_ids),
@@ -217,4 +262,17 @@ def inspect_source_against_profiles(
             "new_task_may_be_required": False,
         },
         recommendations=recommendations,
+        commands=[
+            f"uv run python backend/scripts/profile_workbench.py inspect \"{source}\""
+            + (f" --profile \"{selected.profile_path}\"" if selected else ""),
+            *(
+                [
+                    f"uv run python backend/scripts/profile_workbench.py validate \"{source}\" --profile \"{selected.profile_path}\"",
+                    f"uv run python backend/scripts/profile_workbench.py register \"{source}\" --profile \"{selected.profile_path}\" --database data/workbench.db --library data/data-library",
+                ]
+                if selected else []
+            ),
+            "npm run model:build -- --task <task-id> --source <source> --output models/packages/<new-id>",
+            "npm run model:verify -- --task <task-id> --source <source> --package models/packages/<new-id>",
+        ],
     )
