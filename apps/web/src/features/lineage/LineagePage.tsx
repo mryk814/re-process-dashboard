@@ -281,6 +281,8 @@ export function LineagePage({
     orphan_entity: "孤立",
     duplicate_key: "重複",
     invalid_reference: "参照切れ",
+    out_of_range: "範囲外",
+    suspicious_distribution: "分布の偏り",
   };
   const openNode = (key: string) => {
     setGraphLimit(40);

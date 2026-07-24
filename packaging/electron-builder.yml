@@ -49,6 +49,8 @@ extraResources:
     to: models/packages/concrete-strength-ridge-external-v1
   - from: models/packages/wear-curve-ridge-external-v1
     to: models/packages/wear-curve-ridge-external-v1
+  - from: models/packages/battery-degradation-lightgbm-external-v1
+    to: models/packages/battery-degradation-lightgbm-external-v1
 win:
   icon: packaging/icons/icon.ico
   target:

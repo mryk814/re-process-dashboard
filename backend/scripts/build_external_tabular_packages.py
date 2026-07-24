@@ -28,6 +28,11 @@ JOBS = {
         ROOT / "backend/src/material_workbench/data/tabular-profile-wear-curve-v1.json",
         ROOT / "models/packages/wear-curve-ridge-external-v1",
     ),
+    "battery-degradation-v1": (
+        ROOT / "data/source/external/battery_cycle_samples.csv",
+        ROOT / "backend/src/material_workbench/data/tabular-profile-battery-degradation-v1.json",
+        ROOT / "models/packages/battery-degradation-lightgbm-external-v1",
+    ),
 }
 
 

@@ -24,6 +24,10 @@
     "wear-curve-v1": {
       "active": "packages/wear-curve-ridge-external-v1",
       "previous": null
+    },
+    "battery-degradation-v1": {
+      "active": "packages/battery-degradation-lightgbm-external-v1",
+      "previous": null
     }
   }
 }

@@ -1,0 +1,109 @@
+{
+  "schema_version": "model-package/v1",
+  "package_id": "battery-degradation-lightgbm-external-v1",
+  "package_version": "1.0.0",
+  "task_id": "battery-degradation-v1",
+  "input_schema_version": "canonical-candidate/v1",
+  "input_contract_digest": "sha256:8c963fad9e880841b70cde3dc2b87aa9c8d8103ef541dd159058c022fa7433af",
+  "runtime_capability_digest": "sha256:6672b3675a8e08c69313290e4e503cba752a28c4768417d1ab62e23863115c09",
+  "feature_pipeline": {
+    "id": "battery-degradation-v1-profile-transform",
+    "version": "1.0.0",
+    "spec": "feature-pipeline/pipeline.json",
+    "canonical_input_paths": [
+      "process.ambient_temp_c",
+      "process.charge_rate_c",
+      "process.discharge_rate_c",
+      "process.depth_of_discharge",
+      "process.cycle_index",
+      "categorical.cell_type"
+    ],
+    "output_features": [
+      "process.ambient_temp_c",
+      "process.charge_rate_c",
+      "process.discharge_rate_c",
+      "process.depth_of_discharge",
+      "process.cycle_index",
+      "categorical.cell_type__LFP_graphite",
+      "categorical.cell_type__NMC_graphite",
+      "categorical.cell_type__NCA_graphite"
+    ],
+    "artifacts": [
+      "reference/training_stats.json"
+    ]
+  },
+  "predictors": [
+    {
+      "id": "capacity_percent-lightgbm",
+      "target": "capacity_percent",
+      "unit": "%",
+      "target_kind": "continuous",
+      "runtime_type": "lightgbm.booster.v1",
+      "architecture_id": "lightgbm_monotone_regression_v1",
+      "artifact": "model-artifacts/capacity_percent.txt",
+      "predictive_family": "normal",
+      "feature_names": [
+        "process.ambient_temp_c",
+        "process.charge_rate_c",
+        "process.discharge_rate_c",
+        "process.depth_of_discharge",
+        "process.cycle_index",
+        "categorical.cell_type__LFP_graphite",
+        "categorical.cell_type__NMC_graphite",
+        "categorical.cell_type__NCA_graphite"
+      ],
+      "config": {
+        "training_unit": "source_row_grouped_by_parent",
+        "validation": "5-fold grouped by cell_id",
+        "source_profile": "external-battery-degradation-v1",
+        "residual_std": 11.453840209587606,
+        "monotone_decreasing_paths": [
+          "process.cycle_index"
+        ]
+      }
+    }
+  ],
+  "provenance": {
+    "training_data_id": "sha256:49831491555f62ffc51527fc1f2e5e4c24a0409acf9abd9d30cf4f04faf0061e",
+    "feature_dataset_id": "sha256:07044645c2058d78bf4afd488dbf27bf822b340085a16a17209a5ecb5f8db1dc",
+    "training_code_revision": "tabular-lightgbm-monotone-v1",
+    "dataset_profile_id": "sha256:0d2b383ca85730079afdc1bc472434532471cb12bd5f3acbe2b9ec275a9a4b02"
+  },
+  "artifacts": [
+    {
+      "path": "feature-pipeline/pipeline.json",
+      "sha256": "e152b61e62606e2c16bf39b05318babd089549e03f44682b430f564a58edcea5",
+      "bytes": 1591
+    },
+    {
+      "path": "model-artifacts/capacity_percent.txt",
+      "sha256": "cf5ef202462f98a21e8a0f96cc79e0bc25f7f3bf7263bde2740395f18c5cb853",
+      "bytes": 115926
+    },
+    {
+      "path": "reference/training_stats.json",
+      "sha256": "459820632e72f402fa3fdb876a93095490ac6a465902358feb8d2f5214ff3f14",
+      "bytes": 170
+    },
+    {
+      "path": "reports/quality-report.json",
+      "sha256": "9fa0ba4af7467594db623f70828a525979ad076ef3740b13926d6238d38224b6",
+      "bytes": 323
+    },
+    {
+      "path": "smoke/input.json",
+      "sha256": "597ee6b4a24fc7b5b7a4a38c6a4aa1d7dd5b2a3187bee4c6cf85cc9168c6fca4",
+      "bytes": 482
+    },
+    {
+      "path": "smoke/expected.json",
+      "sha256": "e6f9bd6788d5299892bf4ce7e8461ae61e0326b373caa61558b6ae6523b89b24",
+      "bytes": 37
+    }
+  ],
+  "smoke_test": {
+    "input": "smoke/input.json",
+    "expected": "smoke/expected.json"
+  },
+  "quality_report": "reports/quality-report.json"
+}

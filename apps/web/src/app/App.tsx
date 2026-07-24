@@ -114,7 +114,11 @@ function App() {
   }
 
   function navigateProjectView(item: { id: Tab; active: Tab[] }) {
-    const destination = item.active.includes(tab) ? tab : item.id;
+    const destination = item.active.includes(tab)
+      ? tab
+      : item.id === "lineage" && !lineageAvailable && qualityAvailable
+        ? "quality"
+        : item.id;
     const intent = withView(navigationRef.current, destination);
     navigate({
       ...intent,

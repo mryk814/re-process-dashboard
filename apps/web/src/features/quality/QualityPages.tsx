@@ -63,6 +63,8 @@ export function LiveDataQualityPage({
     orphan_entity: "孤立",
     duplicate_key: "重複",
     invalid_reference: "不正参照",
+    out_of_range: "範囲外",
+    suspicious_distribution: "分布の偏り",
   };
   const updateFilters = (patch: Partial<QualityFilters>) => onFiltersChange({ ...filters, ...patch, issueId: undefined });
   const sheets = Array.from(new Set(data?.detected_issues.map((issue) => issue.source_sheet) ?? [])).sort();
@@ -102,7 +104,7 @@ export function LiveDataQualityPage({
       <div className="page-intro">
         <div>
           <h2>{mode === "summary" ? "データ品質集計" : "問題から探す"}</h2>
-          <p>元Excelを変更せず、関係と各工程シートを照合して実際の問題を検出します。</p>
+          <p>元データを変更せず、関係・値域・分布から実際の問題を検出します。</p>
         </div>
         {mode === "summary" && <button className="outline-button" onClick={() => void exportCsv()}>検出結果をCSV出力</button>}
       </div>
@@ -136,7 +138,7 @@ export function LiveDataQualityPage({
                 <option value="">すべて</option>
                 {Object.entries(labels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}
               </select></label>
-              <label>元シート<select value={filters.sheet ?? ""} onChange={(event) => updateFilters({ sheet: event.target.value || undefined })}>
+              <label>元データ<select value={filters.sheet ?? ""} onChange={(event) => updateFilters({ sheet: event.target.value || undefined })}>
                 <option value="">すべて</option>
                 {sheets.map((sheet) => <option value={sheet} key={sheet}>{sheet}</option>)}
               </select></label>
@@ -145,14 +147,14 @@ export function LiveDataQualityPage({
             </div>
             <div className="table-scroll">
               <table className="quality-table">
-                <thead><tr><th>検出種別</th><th>対象キー</th><th>元シート</th><th>検出内容</th><th>調査</th></tr></thead>
+                <thead><tr><th>検出種別</th><th>対象キー</th><th>元データ</th><th>検出内容</th><th>調査</th></tr></thead>
                 <tbody>
                   {visibleIssues.map((issue) => (
                     <tr key={issue.issue_id} className={filters.issueId === issue.issue_id ? "quality-focus-row" : ""}>
-                      <td><span className={`status-tag ${issue.issue_type === "invalid_reference" || issue.issue_type === "duplicate_key" ? "warn" : ""}`}>{labels[issue.issue_type]}</span></td>
+                      <td><span className={`status-tag ${issue.issue_type !== "missing_key" && issue.issue_type !== "orphan_entity" ? "warn" : ""}`}>{labels[issue.issue_type]}</span></td>
                       <td>{issue.entity_key || "（空）"}</td><td>{issue.source_sheet}</td><td>{issue.detail}</td>
                       <td className="quality-actions">
-                        {issue.focus_entity_key ? <button type="button" className="text-button" onClick={() => onOpenLineage(issue, filters)}>系譜で確認</button> : <span className="quality-unavailable">系譜を開けません。{issue.source_sheet}の該当行を確認</span>}
+                        {issue.focus_entity_key ? <button type="button" className="text-button" onClick={() => onOpenLineage(issue, filters)}>系譜で確認</button> : <span className="quality-unavailable">{issue.source_sheet}の該当列を確認</span>}
                         {issue.entity_key && <button type="button" className="text-button" onClick={() => void copyKey(issue.entity_key)}>{copiedKey === issue.entity_key ? "コピー済み" : "キーをコピー"}</button>}
                       </td>
                     </tr>

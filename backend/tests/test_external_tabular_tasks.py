@@ -17,6 +17,7 @@ EXTERNAL_TASKS = (
     "heat-treatment-tradeoff-v1",
     "concrete-strength-v1",
     "wear-curve-v1",
+    "battery-degradation-v1",
 )
 
 
@@ -50,6 +51,7 @@ def test_external_tasks_are_registered_with_their_source_rows(resources) -> None
     assert len(resources.data_by_source["external_heat_treatment"].observations) == 2400
     assert len(resources.data_by_source["external_concrete"].observations) == 1600
     assert len(resources.data_by_source["external_wear_curve"].observations) == 14640
+    assert len(resources.data_by_source["external_battery_degradation"].observations) == 9090
 
 
 @pytest.mark.parametrize("task_id", EXTERNAL_TASKS)
@@ -100,12 +102,46 @@ def test_concrete_age_curve_does_not_decrease(resources) -> None:
     assert values == sorted(values)
 
 
+def test_battery_curves_are_monotone_and_conditions_change_degradation(resources) -> None:
+    runtime = resources.task_registry.runtime_for("battery-degradation-v1")
+    candidate = _candidate("battery-degradation-v1")
+    end_values: list[float] = []
+    for temperature in (15.0, 25.0, 45.0):
+        candidate.inputs.process["ambient_temp_c"] = temperature
+        curve = runtime.response_curve_result(
+            candidate,
+            "capacity_percent",
+            "process.cycle_index",
+            101,
+        )
+        values = [point["value"] for point in curve["points"]]
+        assert values == sorted(values, reverse=True)
+        end_values.append(values[-1])
+    assert len(set(end_values)) == 3
+    candidate.inputs.process["cycle_index"] = 0.0
+    prediction = runtime.predict(candidate)
+    capacity = prediction["predictions"]["capacity_percent"]
+    assert capacity.value <= 110
+    assert capacity.upper <= 110
+    assert max(capacity.quantiles.values()) <= 110
+    assert prediction["model_meta"]["model"]["method"].startswith("monotonic")
+    assert prediction["model_meta"]["package"]["runtime_types"] == ["lightgbm.booster.v1"]
+
+
+def test_battery_similarity_deduplicates_cells(resources) -> None:
+    runtime = resources.task_registry.runtime_for("battery-degradation-v1")
+    similar = runtime.similarity(_candidate("battery-degradation-v1"))
+    assert len(similar) == 6
+    assert len({item["parent_key"] for item in similar}) == 6
+
+
 def test_external_sources_are_bundled_with_readme_provenance() -> None:
     root = Path(__file__).resolve().parents[2] / "data/source/external"
     assert {path.name for path in root.glob("*_README.md")} == {
         "concrete_README.md",
         "heat_treatment_README.md",
         "wear_curve_README.md",
+        "battery_README.md",
     }
 
 
@@ -129,6 +165,7 @@ def test_new_external_starters_are_seeded_when_opening_an_existing_database(
         ("tabular-profile-heat-treatment-v1.json", "heat-treatment-tradeoff-v1"),
         ("tabular-profile-concrete-v1.json", "concrete-strength-v1"),
         ("tabular-profile-wear-curve-v1.json", "wear-curve-v1"),
+        ("tabular-profile-battery-degradation-v1.json", "battery-degradation-v1"),
     ),
 )
 def test_tabular_profile_exposes_its_task_to_project_creation(
@@ -195,3 +232,37 @@ def test_external_dataset_and_package_can_create_a_project(client, task_id: str)
     )
     assert curve_response.status_code == 200, curve_response.text
     assert len(curve_response.json()["points"]) == 9
+    if task_id == "battery-degradation-v1":
+        family_response = client.get(
+            f"/api/projects/{project_id}/candidates/{candidate['id']}/curve-family",
+            params={
+                "expected_revision": candidate["revision"],
+                "target": fixture.outputs[0].key,
+                "points": 9,
+            },
+        )
+        assert family_response.status_code == 200, family_response.text
+        family = family_response.json()
+        assert len(family["series"]) == 1
+        assert len(family["series"][0]["points"]) == 9
+        assert family["output_range"]["min"] < family["output_range"]["max"]
+
+
+def test_battery_quality_flags_keep_dirty_rows_visible_and_trainable(client) -> None:
+    response = client.get("/api/projects/battery-degradation-v1-default/quality")
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["detected_total"] == 2
+    assert payload["detected_by_type"] == {
+        "out_of_range": 1,
+        "suspicious_distribution": 1,
+    }
+    details = " ".join(item["detail"] for item in payload["detected_issues"])
+    assert "4,577/9,090" in details
+    assert "5,864/9,090" in details
+    assert "自動除外していません" in details
+    candidates = client.get(
+        "/api/projects/battery-degradation-v1-default/candidates"
+    ).json()
+    assert len(candidates) == 3
+    assert len({item["inputs"]["process"]["cycle_index"] for item in candidates}) == 1

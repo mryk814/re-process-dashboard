@@ -79,9 +79,7 @@ def test_registry_resolves_definition_runtime_and_package_from_one_task_id(clien
             registry.data_explorer_for(task_id)
     else:
         assert resolved.data_explorer is not None
-        assert resolved.data_explorer.quality is True
-        assert resolved.data_explorer.lineage is True
-        assert resolved.data_explorer.candidate_creation is True
+        assert resolved.data_explorer == registered_task_modules()[task_id].data_explorer
         assert registry.data_explorer_for(task_id).data is entry.predictor_runtime.data
 
 

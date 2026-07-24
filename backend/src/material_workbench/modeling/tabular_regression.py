@@ -40,7 +40,9 @@ class TabularInput(BaseModel):
     kind: Literal["number", "categorical"]
     unit: str = ""
     choices: tuple[str, ...] = ()
-    transform: Literal["quadratic", "log1p"] = "quadratic"
+    transform: Literal["quadratic", "linear", "log1p"] = "quadratic"
+    interact_with_axis: bool = False
+    main_effect: bool = True
 
     @model_validator(mode="after")
     def categorical_shape(self) -> "TabularInput":
@@ -57,6 +59,37 @@ class TabularOutput(BaseModel):
     column: str
     unit: str
     lower_bound: float | None = None
+    upper_bound: float | None = None
+
+    @model_validator(mode="after")
+    def ordered_bounds(self) -> "TabularOutput":
+        if (
+            self.lower_bound is not None
+            and self.upper_bound is not None
+            and self.lower_bound > self.upper_bound
+        ):
+            raise ValueError("output lower_bound must not exceed upper_bound")
+        return self
+
+
+class TabularQualityRule(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    id: str
+    column: str
+    label: str
+    kind: Literal["below_minimum", "repeated_value_fraction"]
+    minimum: float | None = None
+    value: float | None = None
+    fraction: float | None = Field(default=None, gt=0, le=1)
+
+    @model_validator(mode="after")
+    def rule_parameters_match_kind(self) -> "TabularQualityRule":
+        if self.kind == "below_minimum":
+            if self.minimum is None or self.value is not None or self.fraction is not None:
+                raise ValueError("below_minimum requires only minimum")
+        elif self.value is None or self.fraction is None or self.minimum is not None:
+            raise ValueError("repeated_value_fraction requires value and fraction")
+        return self
 
 
 class TabularDatasetProfile(BaseModel):
@@ -69,8 +102,12 @@ class TabularDatasetProfile(BaseModel):
     id_column: str | None = None
     group_column: str | None = None
     curve_axis_path: str | None = None
+    interaction_axis_path: str | None = None
+    model_family: Literal["ridge", "lightgbm_monotone"] = "ridge"
+    monotone_decreasing_paths: tuple[str, ...] = ()
     inputs: tuple[TabularInput, ...] = Field(min_length=1)
     outputs: tuple[TabularOutput, ...] = Field(min_length=1)
+    quality_rules: tuple[TabularQualityRule, ...] = ()
 
     @model_validator(mode="after")
     def unique_contract(self) -> "TabularDatasetProfile":
@@ -81,6 +118,24 @@ class TabularDatasetProfile(BaseModel):
             raise ValueError("tabular input paths and columns must be unique")
         if len(targets) != len(set(targets)):
             raise ValueError("tabular output keys must be unique")
+        if self.interaction_axis_path is not None:
+            axis = next(
+                (item for item in self.inputs if item.path == self.interaction_axis_path),
+                None,
+            )
+            if axis is None or axis.kind != "number":
+                raise ValueError("interaction_axis_path must identify a numeric input")
+            if axis.interact_with_axis:
+                raise ValueError("interaction axis cannot interact with itself")
+        elif any(item.interact_with_axis for item in self.inputs):
+            raise ValueError("interact_with_axis requires interaction_axis_path")
+        if any(not item.main_effect and not item.interact_with_axis for item in self.inputs):
+            raise ValueError("inputs without a main effect must interact with the axis")
+        numeric_paths = {item.path for item in self.inputs if item.kind == "number"}
+        if not set(self.monotone_decreasing_paths) <= numeric_paths:
+            raise ValueError("monotone paths must identify numeric inputs")
+        if (self.model_family == "lightgbm_monotone") != bool(self.monotone_decreasing_paths):
+            raise ValueError("lightgbm_monotone requires monotone_decreasing_paths")
         return self
 
 
@@ -100,6 +155,9 @@ class TabularData:
     medians: dict[str, float]
     measurement_labels: dict[str, str]
     row_count: int
+    quality: list[dict[str, Any]]
+    detected_quality: list[dict[str, Any]]
+    technical_columns: dict[tuple[str, str], str]
 
 
 def _get_path(candidate: CandidateInput, path: str) -> float | str:
@@ -116,6 +174,8 @@ def _set_path(candidate: CandidateInput, path: str, value: float) -> None:
 def feature_definitions(profile: TabularDatasetProfile) -> tuple[FeatureDefinition, ...]:
     definitions: list[FeatureDefinition] = []
     for item in profile.inputs:
+        if not item.main_effect:
+            continue
         group = item.path.split(".", 1)[0]
         feature_group = group if group in {"composition", "process", "categorical"} else "other"
         if item.kind == "number":
@@ -128,11 +188,15 @@ def feature_definitions(profile: TabularDatasetProfile) -> tuple[FeatureDefiniti
                         feature_group,
                     )
                 )
-            else:
+            elif item.transform == "quadratic":
                 definitions.extend((
                     FeatureDefinition(item.path, item.unit, f"{item.path} raw value", feature_group),
                     FeatureDefinition(f"{item.path}__square", f"{item.unit}^2", f"{item.path} quadratic term", feature_group),
                 ))
+            else:
+                definitions.append(
+                    FeatureDefinition(item.path, item.unit, f"{item.path} raw value", feature_group)
+                )
         else:
             definitions.extend(
                 FeatureDefinition(
@@ -143,6 +207,30 @@ def feature_definitions(profile: TabularDatasetProfile) -> tuple[FeatureDefiniti
                 )
                 for choice in item.choices
             )
+    if profile.interaction_axis_path is not None:
+        axis = next(item for item in profile.inputs if item.path == profile.interaction_axis_path)
+        for item in profile.inputs:
+            if not item.interact_with_axis:
+                continue
+            group = item.path.split(".", 1)[0]
+            feature_group = group if group in {"composition", "process", "categorical"} else "other"
+            if item.kind == "number":
+                definitions.append(FeatureDefinition(
+                    f"{axis.path}__x__{item.path}",
+                    f"{axis.unit}*{item.unit}",
+                    f"{axis.path} interaction with {item.path}",
+                    feature_group,
+                ))
+            else:
+                definitions.extend(
+                    FeatureDefinition(
+                        f"{axis.path}__x__{item.path}__{choice}",
+                        axis.unit,
+                        f"{axis.path} interaction with {item.path} is {choice}",
+                        "categorical",
+                    )
+                    for choice in item.choices
+                )
     return tuple(definitions)
 
 
@@ -153,16 +241,30 @@ def build_tabular_features(
     values: list[float] = []
     for item in profile.inputs:
         value = _get_path(candidate, item.path)
+        if not item.main_effect:
+            continue
         if item.kind == "number":
             numeric = float(value)
             if item.transform == "log1p":
                 if numeric < 0:
                     raise ValueError(f"{item.path} must be non-negative for log1p transform")
                 values.append(math.log1p(numeric))
-            else:
+            elif item.transform == "quadratic":
                 values.extend((numeric, numeric * numeric))
+            else:
+                values.append(numeric)
         else:
             values.extend(float(value == choice) for choice in item.choices)
+    if profile.interaction_axis_path is not None:
+        axis_value = float(_get_path(candidate, profile.interaction_axis_path))
+        for item in profile.inputs:
+            if not item.interact_with_axis:
+                continue
+            value = _get_path(candidate, item.path)
+            if item.kind == "number":
+                values.append(axis_value * float(value))
+            else:
+                values.extend(axis_value * float(value == choice) for choice in item.choices)
     return FeatureBundle(
         pipeline_id=f"{profile.task_id}-profile-transform",
         pipeline_version="1.0.0",
@@ -208,11 +310,26 @@ def load_tabular_data(
     numeric_series: dict[str, list[float]] = {
         item.path: [] for item in profile.inputs if item.kind == "number"
     }
+    quality_values: dict[str, list[float]] = {
+        rule.column: [] for rule in profile.quality_rules
+    }
+    quality_records: dict[str, list[tuple[str, str, float]]] = {
+        rule.column: [] for rule in profile.quality_rules
+    }
+    curve_axis_column = next(
+        (
+            item.column
+            for item in profile.inputs
+            if item.path == profile.curve_axis_path
+        ),
+        None,
+    )
     with source.open("r", encoding="utf-8-sig", newline="") as stream:
         reader = csv.DictReader(stream)
         required = {
             *(item.column for item in profile.inputs),
             *(item.column for item in profile.outputs),
+            *(rule.column for rule in profile.quality_rules),
         }
         required.update(
             column for column in (profile.id_column, profile.group_column) if column is not None
@@ -251,6 +368,13 @@ def load_tabular_data(
                     outputs[item.key] = value
                 except ValueError:
                     reasons.append(f"{item.column}が有限数ではありません")
+            for column, values in quality_values.items():
+                try:
+                    value = float((raw.get(column) or "").strip())
+                    if math.isfinite(value):
+                        values.append(value)
+                except ValueError:
+                    continue
             observation_id = (
                 (raw.get(profile.id_column) or "").strip()
                 if profile.id_column is not None
@@ -261,6 +385,13 @@ def load_tabular_data(
                 if profile.group_column is not None
                 else ""
             ) or observation_id
+            for column in quality_records:
+                try:
+                    quality_value = float((raw.get(column) or "").strip())
+                except ValueError:
+                    continue
+                axis_value = (raw.get(curve_axis_column) or "").strip() if curve_axis_column else ""
+                quality_records[column].append((group_id, axis_value, quality_value))
             observations.append({
                 "id": observation_id if observation_id != group_id else f"{observation_id}:{index}",
                 "task_id": profile.task_id,
@@ -281,6 +412,66 @@ def load_tabular_data(
         for path, values in numeric_series.items()
         if path.startswith("composition.") and values
     }
+    detected_quality: list[dict[str, Any]] = []
+    for rule in profile.quality_rules:
+        values = quality_values[rule.column]
+        if not values:
+            continue
+        if rule.kind == "below_minimum":
+            assert rule.minimum is not None
+            affected = [value for value in values if value < rule.minimum]
+            if not affected:
+                continue
+            affected_records = [
+                record for record in quality_records[rule.column]
+                if record[2] < rule.minimum
+            ]
+            examples = ", ".join(
+                f"{group}@{axis or 'row'}={value:g}"
+                for group, axis, value in affected_records[:3]
+            )
+            detail = (
+                f"{rule.label}が下限{rule.minimum:g}未満の行が"
+                f"{len(affected):,}/{len(values):,}件あります（最小{min(affected):g}）。"
+                f"影響する親条件は{len({record[0] for record in affected_records}):,}件です。"
+                f"例: {examples}。"
+                "学習からは自動除外していません。"
+            )
+            issue_type = "out_of_range"
+        else:
+            assert rule.value is not None and rule.fraction is not None
+            affected = [value for value in values if value == rule.value]
+            share = len(affected) / len(values)
+            if share < rule.fraction:
+                continue
+            affected_records = [
+                record for record in quality_records[rule.column]
+                if record[2] == rule.value
+            ]
+            examples = ", ".join(
+                f"{group}@{axis or 'row'}={value:g}"
+                for group, axis, value in affected_records[:3]
+            )
+            detail = (
+                f"{rule.label}が{rule.value:g}に一致する行が"
+                f"{len(affected):,}/{len(values):,}件（{share:.1%}）あります。"
+                f"影響する親条件は{len({record[0] for record in affected_records}):,}件です。"
+                f"例: {examples}。"
+                "打ち切り・クリップ・測定限界の可能性を確認してください。"
+                "学習からは自動除外していません。"
+            )
+            issue_type = "suspicious_distribution"
+        detected_quality.append({
+            "issue_id": f"tabular:{profile.task_id}:{rule.id}",
+            "issue_type": issue_type,
+            "source_sheet": source.name,
+            "entity_key": rule.column,
+            "detail": detail,
+            "focus_entity_key": None,
+            "related_entity_keys": [],
+            "missing_reference_key": None,
+            "suggested_view": "source_sheet",
+        })
     return TabularData(
         source_path=str(source),
         source_mtime_ns=source.stat().st_mtime_ns,
@@ -292,6 +483,9 @@ def load_tabular_data(
         medians=medians,
         measurement_labels={item.key: item.key for item in profile.outputs},
         row_count=len(observations),
+        quality=[],
+        detected_quality=detected_quality,
+        technical_columns={},
     )
 
 
@@ -360,13 +554,16 @@ class TabularRegressionRuntime:
         self.reference_vectors = (raw - self.reference_mean) / self.reference_scale
         if len(raw) > 1:
             sample = self.reference_vectors
+            sample_groups = np.asarray([str(row["parent_key"]) for row in eligible])
             # Support calibration is only a robust distance scale estimate.
             # A deterministic 500-row sample avoids an O(n²d) startup allocation
             # (the wear example has more than 14k reference observations).
             if len(sample) > 500:
-                sample = sample[np.linspace(0, len(sample) - 1, 500, dtype=int)]
+                sample_indexes = np.linspace(0, len(sample) - 1, 500, dtype=int)
+                sample = sample[sample_indexes]
+                sample_groups = sample_groups[sample_indexes]
             distances = np.sqrt(((sample[:, None, :] - sample[None, :, :]) ** 2).mean(axis=2))
-            np.fill_diagonal(distances, np.inf)
+            distances[sample_groups[:, None] == sample_groups[None, :]] = np.inf
             self.loo_nearest = distances.min(axis=1)
         else:
             self.loo_nearest = np.asarray([0.0])
@@ -385,8 +582,13 @@ class TabularRegressionRuntime:
             status, message = "extrapolated", "学習条件から外れています。予測は探索的な参考です"
         similar: list[dict[str, Any]] = []
         if include_similarity:
-            for index in np.argsort(distances)[:6]:
+            used_groups: set[str] = set()
+            for index in np.argsort(distances):
                 row = self.reference_rows[int(index)]
+                parent_key = str(row["parent_key"])
+                if self.profile.group_column and parent_key in used_groups:
+                    continue
+                used_groups.add(parent_key)
                 similar.append({
                     "observation_id": row["id"],
                     "observation_ids": [row["id"]],
@@ -395,6 +597,8 @@ class TabularRegressionRuntime:
                     "distance": round(float(distances[index]), 4),
                     "outputs": {key: round(float(value), 4) for key, value in row["outputs"].items()},
                 })
+                if len(similar) == 6:
+                    break
         return Support(
             status=status,
             distance=round(nearest, 4),
@@ -447,6 +651,14 @@ class TabularRegressionRuntime:
                     level: max(output_profile.lower_bound, value)
                     for level, value in quantiles.items()
                 }
+            if output_profile.upper_bound is not None:
+                point_estimate = min(output_profile.upper_bound, point_estimate)
+                lower = min(output_profile.upper_bound, lower)
+                upper = min(output_profile.upper_bound, upper)
+                quantiles = {
+                    level: min(output_profile.upper_bound, value)
+                    for level, value in quantiles.items()
+                }
             goal = (target_values or {}).get(target)
             goal_probability = None
             goal_value, goal_lower, goal_upper, goal_direction = goal_fields(
@@ -468,6 +680,10 @@ class TabularRegressionRuntime:
                 goal_direction=goal_direction,
             )
             warnings.extend(summary.warnings)
+        runtime_types = sorted({
+            item.runtime_type for item in self.model_package.manifest.predictors
+        })
+        uses_monotone_lightgbm = runtime_types == ["lightgbm.booster.v1"]
         return {
             "task_id": self.task_id,
             "candidate_id": candidate.id,
@@ -487,16 +703,20 @@ class TabularRegressionRuntime:
                     "id": self.model_package.manifest.package_id,
                     "version": self.model_package.manifest.package_version,
                     "method": (
-                        "regularized regression with grouped validation"
-                        if self.profile.group_column
-                        else "regularized regression with row-wise validation"
+                        "monotonic gradient-boosted trees with grouped validation"
+                        if uses_monotone_lightgbm
+                        else (
+                            "regularized regression with grouped validation"
+                            if self.profile.group_column
+                            else "regularized regression with row-wise validation"
+                        )
                     ),
                 },
                 "package": {
                     "id": self.model_package.manifest.package_id,
                     "version": self.model_package.manifest.package_version,
                     "manifest_sha256": self.model_package.manifest_sha256,
-                    "runtime_types": ["builtin.linear.v1"],
+                    "runtime_types": runtime_types,
                 },
                 "feature_pipeline": {
                     "id": self.model_package.manifest.feature_pipeline.id,
@@ -511,9 +731,13 @@ class TabularRegressionRuntime:
                 },
                 "prediction_interval": {
                     "method": (
-                        "grouped out-of-fold residual quantiles"
-                        if self.profile.group_column
-                        else "row-wise out-of-fold residual quantiles"
+                        "grouped out-of-fold calibrated normal interval"
+                        if uses_monotone_lightgbm
+                        else (
+                            "grouped out-of-fold residual quantiles"
+                            if self.profile.group_column
+                            else "row-wise out-of-fold residual quantiles"
+                        )
                     ),
                     "coverage": "central 90% empirical interval",
                     "grouping": self.profile.group_column or "independent source row",
@@ -572,6 +796,10 @@ class TabularRegressionRuntime:
                 value = max(output_profile.lower_bound, value)
                 lower = max(output_profile.lower_bound, lower)
                 upper = max(output_profile.lower_bound, upper)
+            if output_profile.upper_bound is not None:
+                value = min(output_profile.upper_bound, value)
+                lower = min(output_profile.upper_bound, lower)
+                upper = min(output_profile.upper_bound, upper)
             curve.append({
                 "x": round(float(x_value), 5),
                 "value": round(value, 5),
@@ -668,7 +896,7 @@ class TabularRegressionRuntime:
             "vary": vary_meta,
             "vary_categorical": vary_categorical,
             "series": series,
-            "output_range": axis_result["observed_range"],
+            "output_range": axis_result["output_range"],
             "point_count": points,
             "policy_id": "anchored-axis-grid-v1",
         }

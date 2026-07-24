@@ -188,7 +188,7 @@
         "previous": null,
         "package_id": "heat-treatment-ridge-external-v1",
         "version": "1.0.0",
-        "manifest_sha256": "a3f4508849403323d98ccfdc01c468aa8a287388f42d086f6ae8fa68aed394c1",
+        "manifest_sha256": "4d9ef9654f060b566c1a0e20786bf59b2542078d81fc4b2979845a4633e9c2e5",
         "runtime_types": [
           "builtin.linear.v1"
         ]
@@ -205,7 +205,12 @@
         "candidate_excel_import": false,
         "candidate_excel_export": false
       },
-      "data_explorer": null
+      "data_explorer": {
+        "schema_version": "data-explorer-capability/v1",
+        "quality": true,
+        "lineage": false,
+        "candidate_creation": false
+      }
     },
     {
       "task_id": "concrete-strength-v1",
@@ -229,7 +234,7 @@
         "previous": null,
         "package_id": "concrete-strength-ridge-external-v1",
         "version": "1.0.0",
-        "manifest_sha256": "d299820f4e7991faf4bca397c14e666b3ec98d50f6af0f9b5ca2ebb7d8ecdf9d",
+        "manifest_sha256": "b419994459254ba21fe4b33f5492ee378133fb4e23a8fd41078c26deef345412",
         "runtime_types": [
           "builtin.linear.v1"
         ]
@@ -246,7 +251,12 @@
         "candidate_excel_import": false,
         "candidate_excel_export": false
       },
-      "data_explorer": null
+      "data_explorer": {
+        "schema_version": "data-explorer-capability/v1",
+        "quality": true,
+        "lineage": false,
+        "candidate_creation": false
+      }
     },
     {
       "task_id": "wear-curve-v1",
@@ -270,7 +280,7 @@
         "previous": null,
         "package_id": "wear-curve-ridge-external-v1",
         "version": "1.0.0",
-        "manifest_sha256": "84e45b67faa0af04ae1e65aeed46ea85c4f2d34119594d0a4963aaab420a7e86",
+        "manifest_sha256": "9b545e8bc06bf23a8856fc5c3ee2435fd56d7c6dcf0fa0668139fa3758e6b0d4",
         "runtime_types": [
           "builtin.linear.v1"
         ]
@@ -287,7 +297,58 @@
         "candidate_excel_import": false,
         "candidate_excel_export": false
       },
-      "data_explorer": null
+      "data_explorer": {
+        "schema_version": "data-explorer-capability/v1",
+        "quality": true,
+        "lineage": false,
+        "candidate_creation": false
+      }
+    },
+    {
+      "task_id": "battery-degradation-v1",
+      "label": "電池容量劣化",
+      "outputs": [
+        {
+          "key": "capacity_percent",
+          "label": "容量維持率",
+          "unit": "%"
+        }
+      ],
+      "source": {
+        "kind": "external_battery_degradation",
+        "path": "data/source/external/battery_cycle_samples.csv",
+        "sha256": "49831491555f62ffc51527fc1f2e5e4c24a0409acf9abd9d30cf4f04faf0061e",
+        "profile_id": "external-battery-degradation-v1",
+        "profile_path": "backend/src/material_workbench/data/tabular-profile-battery-degradation-v1.json"
+      },
+      "active_package": {
+        "path": "packages/battery-degradation-lightgbm-external-v1",
+        "previous": null,
+        "package_id": "battery-degradation-lightgbm-external-v1",
+        "version": "1.0.0",
+        "manifest_sha256": "0e9efdaa3527e975f4767623c9d1344dd048930ce39ef641361ffe2e553e678d",
+        "runtime_types": [
+          "lightgbm.booster.v1"
+        ]
+      },
+      "runtime_operations": {
+        "preview": true,
+        "detailed_prediction": true,
+        "response_curve": true,
+        "similarity": true,
+        "snapshot": true,
+        "actual_measurement": false
+      },
+      "application_capability": {
+        "candidate_excel_import": false,
+        "candidate_excel_export": false
+      },
+      "data_explorer": {
+        "schema_version": "data-explorer-capability/v1",
+        "quality": true,
+        "lineage": false,
+        "candidate_creation": false
+      }
     }
   ]
 }

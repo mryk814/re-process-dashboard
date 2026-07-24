@@ -1316,7 +1316,7 @@ export interface components {
              * Issue Type
              * @enum {string}
              */
-            issue_type: "missing_key" | "orphan_entity" | "duplicate_key" | "invalid_reference";
+            issue_type: "missing_key" | "orphan_entity" | "duplicate_key" | "invalid_reference" | "out_of_range" | "suspicious_distribution";
             /** Missing Reference Key */
             missing_reference_key: string | null;
             /** Related Entity Keys */

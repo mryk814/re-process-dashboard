@@ -22,6 +22,7 @@ FLANK_WEAR_TASK_ID = "flank-wear-v1"
 HEAT_TREATMENT_TASK_ID = "heat-treatment-tradeoff-v1"
 CONCRETE_TASK_ID = "concrete-strength-v1"
 WEAR_CURVE_TASK_ID = "wear-curve-v1"
+BATTERY_DEGRADATION_TASK_ID = "battery-degradation-v1"
 PRIMARY_DEFAULT_SOURCE = Path("data/source/material_workbench_tutorial_v1.xlsx")
 PROCESS_SOURCE = Path("data/source/material_workbench_process_v1.xlsx")
 _DATA_ROOT = Path(__file__).parent / "data"
@@ -29,6 +30,7 @@ _TABULAR_PROFILES = {
     HEAT_TREATMENT_TASK_ID: _DATA_ROOT / "tabular-profile-heat-treatment-v1.json",
     CONCRETE_TASK_ID: _DATA_ROOT / "tabular-profile-concrete-v1.json",
     WEAR_CURVE_TASK_ID: _DATA_ROOT / "tabular-profile-wear-curve-v1.json",
+    BATTERY_DEGRADATION_TASK_ID: _DATA_ROOT / "tabular-profile-battery-degradation-v1.json",
 }
 
 
@@ -316,17 +318,39 @@ def _tabular_starter(task_id: str, name: str) -> StarterProject:
         eligible = [row for row in data.observations if row["eligible"]]
         from material_workbench.modeling.tabular_regression import candidate_from_observation
 
-        indexes = (len(eligible) // 4, len(eligible) // 2, len(eligible) * 3 // 4)
+        if data.profile.group_column and data.profile.curve_axis_path:
+            axis_key = data.profile.curve_axis_path.split(".", 1)[1]
+            axis_values = [float(row["features"][axis_key]) for row in eligible]
+            comparison_axis = min(axis_values) + (max(axis_values) - min(axis_values)) * 0.1
+            by_group: dict[str, list[dict[str, Any]]] = {}
+            for row in eligible:
+                by_group.setdefault(str(row["parent_key"]), []).append(row)
+            comparable = [
+                min(rows, key=lambda row: abs(float(row["features"][axis_key]) - comparison_axis))
+                for rows in by_group.values()
+            ]
+            target = data.profile.outputs[0].key
+            comparable.sort(key=lambda row: float(row["outputs"][target]))
+            indexes = (
+                len(comparable) // 10,
+                len(comparable) // 2,
+                len(comparable) * 9 // 10,
+            )
+            selected = [comparable[index] for index in indexes]
+        else:
+            indexes = (len(eligible) // 4, len(eligible) // 2, len(eligible) * 3 // 4)
+            selected = [eligible[index] for index in indexes]
         return [
-            candidate_from_observation(eligible[index], data.profile).model_copy(
+            candidate_from_observation(row, data.profile).model_copy(
                 update={"name": label}
             )
-            for index, label in zip(indexes, ("低位条件", "代表条件", "高位条件"), strict=True)
+            for row, label in zip(selected, ("低位条件", "代表条件", "高位条件"), strict=True)
         ]
     return StarterProject(f"{task_id}-default", name, candidates, seed_on_upgrade=True)
 
 
 _EXPLORER = DataExplorerCapability(quality=True, lineage=True, candidate_creation=True)
+_TABULAR_EXPLORER = DataExplorerCapability(quality=True, lineage=False, candidate_creation=False)
 
 TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
     ANNEALED_TASK_ID: TaskModule(
@@ -383,6 +407,7 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         model_builder=_tabular_builder(HEAT_TREATMENT_TASK_ID),
         starter_project=_tabular_starter(HEAT_TREATMENT_TASK_ID, "熱処理の硬さ・靭性"),
         response_curve=_standard_response_curve,
+        data_explorer=_TABULAR_EXPLORER,
     ),
     CONCRETE_TASK_ID: TaskModule(
         task_id=CONCRETE_TASK_ID,
@@ -397,6 +422,7 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         starter_project=_tabular_starter(CONCRETE_TASK_ID, "コンクリート配合と強度"),
         response_curve=_standard_response_curve,
         curve_family=_curve_family,
+        data_explorer=_TABULAR_EXPLORER,
     ),
     WEAR_CURVE_TASK_ID: TaskModule(
         task_id=WEAR_CURVE_TASK_ID,
@@ -411,6 +437,22 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         starter_project=_tabular_starter(WEAR_CURVE_TASK_ID, "工具摩耗曲線"),
         response_curve=_standard_response_curve,
         curve_family=_curve_family,
+        data_explorer=_TABULAR_EXPLORER,
+    ),
+    BATTERY_DEGRADATION_TASK_ID: TaskModule(
+        task_id=BATTERY_DEGRADATION_TASK_ID,
+        package_override_env="MATERIAL_WORKBENCH_BATTERY_DEGRADATION_MODEL_PACKAGE",
+        source_env="WORKBENCH_BATTERY_DEGRADATION_SOURCE_PATH",
+        source_kind="external_battery_degradation",
+        default_source=Path("data/source/external/battery_cycle_samples.csv"),
+        data_loader=_tabular_loader(BATTERY_DEGRADATION_TASK_ID),
+        runtime_factory=_tabular_runtime,
+        feature_row_builder=_tabular_features(BATTERY_DEGRADATION_TASK_ID),
+        model_builder=_tabular_builder(BATTERY_DEGRADATION_TASK_ID),
+        starter_project=_tabular_starter(BATTERY_DEGRADATION_TASK_ID, "電池容量劣化"),
+        response_curve=_standard_response_curve,
+        curve_family=_curve_family,
+        data_explorer=_TABULAR_EXPLORER,
     ),
 })
 

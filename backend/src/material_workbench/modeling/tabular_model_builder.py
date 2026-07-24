@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from typing import Callable
 
 import numpy as np
 
@@ -70,6 +71,70 @@ def _grouped_oof(x: np.ndarray, y: np.ndarray, groups: list[str]) -> tuple[np.nd
     return residuals, folds
 
 
+def _lightgbm_parameters(monotone_constraints: list[int], seed: int) -> dict[str, object]:
+    return {
+        "objective": "regression_l2",
+        "metric": "l2",
+        "learning_rate": 0.035,
+        "num_leaves": 15,
+        "max_depth": 6,
+        "min_data_in_leaf": 30,
+        "feature_fraction": 0.9,
+        "bagging_fraction": 0.9,
+        "bagging_freq": 1,
+        "lambda_l1": 0.05,
+        "lambda_l2": 1.0,
+        "verbosity": -1,
+        "deterministic": True,
+        "force_col_wise": True,
+        "num_threads": 1,
+        "seed": seed,
+        "feature_fraction_seed": seed,
+        "bagging_seed": seed,
+        "data_random_seed": seed,
+        "monotone_constraints": monotone_constraints,
+        "monotone_constraints_method": "advanced",
+    }
+
+
+def _lightgbm_grouped_fit(
+    x: np.ndarray,
+    y: np.ndarray,
+    groups: list[str],
+    monotone_constraints: list[int],
+) -> tuple[object, np.ndarray, int]:
+    import lightgbm as lgb
+
+    unique = sorted(set(groups))
+    folds = min(5, len(unique))
+    if folds < 2:
+        raise ValueError("At least two independent groups are required")
+    assignment = {group: index % folds for index, group in enumerate(unique)}
+    oof = np.empty(len(y))
+    rounds: list[int] = []
+    for fold in range(folds):
+        test = np.asarray([assignment[group] == fold for group in groups])
+        train = ~test
+        booster = lgb.train(
+            _lightgbm_parameters(monotone_constraints, 20260724 + fold),
+            lgb.Dataset(x[train], label=y[train], free_raw_data=False),
+            num_boost_round=600,
+            valid_sets=[lgb.Dataset(x[test], label=y[test], free_raw_data=False)],
+            callbacks=[lgb.early_stopping(50, verbose=False), lgb.log_evaluation(0)],
+        )
+        iteration = max(int(booster.best_iteration), 1)
+        rounds.append(iteration)
+        oof[test] = booster.predict(x[test], num_iteration=iteration)
+    final_rounds = max(int(np.median(rounds)), 40)
+    final = lgb.train(
+        _lightgbm_parameters(monotone_constraints, 20260724),
+        lgb.Dataset(x, label=y),
+        num_boost_round=final_rounds,
+        callbacks=[lgb.log_evaluation(0)],
+    )
+    return final, y - oof, folds
+
+
 def _build(source: Path, profile_path: Path, destination: Path) -> None:
     data = load_tabular_data(source, profile_path)
     profile = data.profile
@@ -108,24 +173,81 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
     predictors: list[dict[str, object]] = []
     metrics: list[TargetQualityMetric] = []
     records: dict[str, int] = {}
-    fitted_by_target: dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
+    predict_by_target: dict[str, Callable[[np.ndarray], np.ndarray]] = {}
     for output in profile.outputs:
         y = np.asarray([float(row["outputs"][output.key]) for row in rows])
-        residuals, folds = _grouped_oof(x, y, groups)
-        fitted = _fit(x, y)
-        fitted_by_target[output.key] = fitted
-        mean, scale, weights = fitted
-        raw_weights = weights[1:] / scale
-        raw_bias = float(weights[0] - np.sum(weights[1:] * mean / scale))
-        lower, upper = np.quantile(residuals, (0.05, 0.95))
-        artifact_path = artifact_dir / f"{output.key}.npz"
-        np.savez(
-            artifact_path,
-            weights=raw_weights,
-            bias=np.asarray(raw_bias),
-            lower_offset=np.asarray(float(lower)),
-            upper_offset=np.asarray(float(upper)),
-        )
+        if profile.model_family == "lightgbm_monotone":
+            monotone_constraints = [
+                -1 if name in profile.monotone_decreasing_paths else 0
+                for name in feature_names
+            ]
+            fitted, residuals, folds = _lightgbm_grouped_fit(
+                x, y, groups, monotone_constraints
+            )
+            residual_std = max(float(np.sqrt(np.mean(residuals ** 2))), 1e-6)
+            artifact_path = artifact_dir / f"{output.key}.txt"
+            fitted.save_model(str(artifact_path))
+            predict_by_target[output.key] = (
+                lambda values, model=fitted: np.asarray(model.predict(values), dtype=float)
+            )
+            predictor = {
+                "id": f"{output.key}-lightgbm",
+                "target": output.key,
+                "unit": output.unit,
+                "target_kind": "continuous",
+                "runtime_type": "lightgbm.booster.v1",
+                "architecture_id": "lightgbm_monotone_regression_v1",
+                "artifact": artifact_path.relative_to(destination).as_posix(),
+                "predictive_family": "normal",
+                "feature_names": list(feature_names),
+                "config": {
+                    "training_unit": "source_row_grouped_by_parent",
+                    "validation": f"{folds}-fold grouped by {profile.group_column}",
+                    "source_profile": profile.profile_id,
+                    "residual_std": residual_std,
+                    "monotone_decreasing_paths": list(profile.monotone_decreasing_paths),
+                },
+            }
+            z90 = 1.6448536269514722
+            lower, upper = -z90 * residual_std, z90 * residual_std
+        else:
+            residuals, folds = _grouped_oof(x, y, groups)
+            fitted = _fit(x, y)
+            predict_by_target[output.key] = (
+                lambda values, model=fitted: _predict(values, model)
+            )
+            mean, scale, weights = fitted
+            raw_weights = weights[1:] / scale
+            raw_bias = float(weights[0] - np.sum(weights[1:] * mean / scale))
+            lower, upper = np.quantile(residuals, (0.05, 0.95))
+            artifact_path = artifact_dir / f"{output.key}.npz"
+            np.savez(
+                artifact_path,
+                weights=raw_weights,
+                bias=np.asarray(raw_bias),
+                lower_offset=np.asarray(float(lower)),
+                upper_offset=np.asarray(float(upper)),
+            )
+            predictor = {
+                "id": f"{output.key}-ridge",
+                "target": output.key,
+                "unit": output.unit,
+                "target_kind": "continuous",
+                "runtime_type": "builtin.linear.v1",
+                "architecture_id": "profile_transformed_ridge_v1",
+                "artifact": artifact_path.relative_to(destination).as_posix(),
+                "predictive_family": "empirical_quantiles",
+                "feature_names": list(feature_names),
+                "config": {
+                    "training_unit": "source_row",
+                    "validation": (
+                        f"{folds}-fold grouped by {profile.group_column}"
+                        if profile.group_column
+                        else f"{folds}-fold by independent source row"
+                    ),
+                    "source_profile": profile.profile_id,
+                },
+            }
         files.append(artifact_path)
         records[output.key] = len(y)
         metrics.append(TargetQualityMetric(
@@ -135,26 +257,7 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
             rmse=float(np.sqrt(np.mean(residuals ** 2))),
             interval_coverage_90=float(np.mean((residuals >= lower) & (residuals <= upper))),
         ))
-        predictors.append({
-            "id": f"{output.key}-ridge",
-            "target": output.key,
-            "unit": output.unit,
-            "target_kind": "continuous",
-            "runtime_type": "builtin.linear.v1",
-            "architecture_id": "profile_transformed_ridge_v1",
-            "artifact": artifact_path.relative_to(destination).as_posix(),
-            "predictive_family": "empirical_quantiles",
-            "feature_names": list(feature_names),
-            "config": {
-                "training_unit": "source_row",
-                "validation": (
-                    f"{folds}-fold grouped by {profile.group_column}"
-                    if profile.group_column
-                    else f"{folds}-fold by independent source row"
-                ),
-                "source_profile": profile.profile_id,
-            },
-        })
+        predictors.append(predictor)
 
     stats_path = reference_dir / "training_stats.json"
     stats_path.write_text(json.dumps({
@@ -185,8 +288,8 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
     sample_x = build_tabular_features(sample, profile).values.reshape(1, -1)
     smoke_expected = smoke_dir / "expected.json"
     smoke_expected.write_text(json.dumps({
-        target: round(float(_predict(sample_x, fitted)[0]), 8)
-        for target, fitted in fitted_by_target.items()
+        target: round(float(predict(sample_x)[0]), 8)
+        for target, predict in predict_by_target.items()
     }, indent=2), encoding="utf-8", newline="\n")
     files.extend((smoke_input, smoke_expected))
 
@@ -211,7 +314,11 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
         "provenance": {
             "training_data_id": f"sha256:{data.source_sha256}",
             "feature_dataset_id": canonical_training_dataset_digest(canonical),
-            "training_code_revision": "tabular-ridge-v1",
+            "training_code_revision": (
+                "tabular-lightgbm-monotone-v1"
+                if profile.model_family == "lightgbm_monotone"
+                else "tabular-ridge-v1"
+            ),
             "dataset_profile_id": dataset_profile_digest(profile),
         },
         "artifacts": [_artifact(destination, path) for path in files],

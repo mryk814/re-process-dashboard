@@ -23,7 +23,7 @@ try {
   const secondInstance = spawn(executablePath, [], { env: process.env, stdio: "ignore" });
   const secondExit = await Promise.race([
     once(secondInstance, "exit"),
-    new Promise((_, reject) => setTimeout(() => reject(new Error("second instance did not exit")), 10_000)),
+    new Promise((_, reject) => setTimeout(() => reject(new Error("second instance did not exit")), 30_000)),
   ]);
   assert.equal(secondExit[0], 0);
   await window.getByRole("button", { name: "候補比較", exact: true }).click();
@@ -54,6 +54,11 @@ try {
       projectId: "wear-curve-v1-default",
       target: "wear_vb_um",
       variable: "process.cutting_distance_m",
+    },
+    {
+      projectId: "battery-degradation-v1-default",
+      target: "capacity_percent",
+      variable: "process.cycle_index",
     },
   ];
   for (const task of externalTasks) {

@@ -973,7 +973,14 @@ class ApiError(BaseModel):
 
 class DataQualityIssue(BaseModel):
     issue_id: str
-    issue_type: Literal["missing_key", "orphan_entity", "duplicate_key", "invalid_reference"]
+    issue_type: Literal[
+        "missing_key",
+        "orphan_entity",
+        "duplicate_key",
+        "invalid_reference",
+        "out_of_range",
+        "suspicious_distribution",
+    ]
     source_sheet: str
     entity_key: str
     detail: str

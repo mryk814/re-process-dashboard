@@ -1242,7 +1242,9 @@
               "missing_key",
               "orphan_entity",
               "duplicate_key",
-              "invalid_reference"
+              "invalid_reference",
+              "out_of_range",
+              "suspicious_distribution"
             ],
             "title": "Issue Type",
             "type": "string"
