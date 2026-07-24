@@ -29,11 +29,18 @@ with reasons, and quality issues summarize both quarantine and target missingnes
   model evaluation.
 - Objective Definition and acquisition functions are intentionally deferred.
 
-The existing 範囲探索 screen remains the product surface. New runs now persist
-their validated Design Space, semantic digest, LHS strategy/seed and rejection
-summary alongside the prediction result. The screen will become three
-stages—設計空間, 有効候補, 予測・絞り込み—rather than adding a parallel optimizer.
-The existing Latin-hypercube sampler will be extracted as a Proposal Strategy.
+The existing 範囲探索 screen remains the product surface. New runs persist their
+validated Design Space, semantic digest, LHS strategy/seed and rejection summary
+alongside the prediction result. The allow-listed LHS strategy now takes the
+Design Space itself as input: fixed values, numeric and categorical domains,
+conditional inactive values, and a balance component are applied before
+candidate validation. A composition-total constraint with `balance_path`
+therefore produces an exact remainder rather than relying on later rejection.
+
+This is the common generator boundary for future simplex samplers, Bayesian
+proposal strategies and process-program decoders. It does **not** yet make an
+MPEA composition field generally editable: enabling that UI must be paired with
+the corresponding total-composition contract, not independent numeric knobs.
 
 ## Not in v1
 

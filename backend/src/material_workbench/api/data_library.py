@@ -159,13 +159,22 @@ def project_creation_options(
     catalog: CatalogDependency,
     registry: RegistryDependency,
 ) -> ProjectCreationOptions:
+    visible_task_ids = {
+        task_id
+        for task_id in registry.task_ids
+        if registry.entry_for(task_id).application_capability.project_creation
+    }
     return ProjectCreationOptions(
         datasets=_datasets(catalog),
         dataset_views=_available_views(catalog),
-        model_packages=catalog.list_model_package_refs(),
+        model_packages=[
+            package
+            for package in catalog.list_model_package_refs()
+            if package.task_id in visible_task_ids
+        ],
         project_series=catalog.list_project_series(),
         task_contract_digests={
             task_id: task_definition_digest(registry, task_id)
-            for task_id in registry.task_ids
+            for task_id in visible_task_ids
         },
     )

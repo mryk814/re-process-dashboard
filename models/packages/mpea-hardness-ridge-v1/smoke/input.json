@@ -1,0 +1,43 @@
+{
+  "name": "MPEA文献データ：硬さ・工程正規化 package smoke",
+  "inputs": {
+    "composition": {
+      "Fe": 35.0,
+      "Ni": 5.0,
+      "Co": 35.0,
+      "Mn": 0.0,
+      "Cr": 25.0,
+      "Al": 0.0,
+      "Ti": 0.0,
+      "Cu": 0.0,
+      "Si": 0.0,
+      "V": 0.0,
+      "Nb": 0.0,
+      "B": 0.0,
+      "Mo": 0.0,
+      "Ta": 0.0
+    },
+    "process": {
+      "homogenization_temp_c": 1200.0,
+      "homogenization_time_h": 4.0,
+      "rolling_temp_c": 20.0,
+      "rolling_reduction_pct": 67.0,
+      "recrystallization_temp_c": 1150.0,
+      "recrystallization_time_min": 5.0,
+      "aging_temp_c": 0.0,
+      "aging_time_h": 0.0
+    },
+    "categorical": {
+      "homogenized": "yes",
+      "rolled": "yes",
+      "recrystallized": "yes",
+      "aged": "no"
+    },
+    "heat_pattern": null,
+    "heat_time_basis": "line_speed"
+  },
+  "provenance": {
+    "source_kind": "direct",
+    "source_ref": null
+  }
+}

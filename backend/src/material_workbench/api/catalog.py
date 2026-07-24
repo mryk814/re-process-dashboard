@@ -131,7 +131,7 @@ def model_training_data(
     store: StoreDependency,
     registry: RegistryDependency,
     resolver: ResolverDependency,
-    stage: Annotated[Literal["selected", "features"], Query()] = "selected",
+    stage: Annotated[Literal["curation", "selected", "features"], Query()] = "selected",
     target: Annotated[str | None, Query()] = None,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 25,
@@ -164,11 +164,126 @@ def model_training_data(
         training_unit = "individual_observation"
     observations = {str(row["id"]): row for row in data.observations}
     output = next(item for item in contract.task_definition.outputs if item.key == selected_target)
+    curation_rows = [
+        (
+            row,
+            row.get("run_context", {}).get("curation", {}).get("status", "accepted"),
+        )
+        for row in data.observations
+    ]
+    target_curation_summaries = []
+    for target_key in available_targets:
+        target_rows = [
+            row
+            for row, _ in curation_rows
+            if row["eligible"] and target_key in row["outputs"]
+        ]
+        target_exclusion_reasons: dict[str, int] = {}
+        for row, _ in curation_rows:
+            state = (
+                row.get("run_context", {})
+                .get("curation", {})
+                .get("target_status", {})
+                .get(target_key, {})
+            )
+            if state.get("usable"):
+                continue
+            reason = str(state.get("reason") or "値なし")
+            target_exclusion_reasons[reason] = target_exclusion_reasons.get(reason, 0) + 1
+        target_curation_summaries.append({
+            "target": target_key,
+            "usable_rows": len(target_rows),
+            "source_groups": len({str(row["parent_key"]) for row in target_rows}),
+            "exclusion_reasons": dict(
+                sorted(target_exclusion_reasons.items(), key=lambda item: (-item[1], item[0]))
+            ),
+        })
+    exclusion_reasons: dict[str, int] = {}
+    for row, _ in curation_rows:
+        for reason in row.get("run_context", {}).get("curation", {}).get("reasons", []):
+            exclusion_reasons[str(reason)] = exclusion_reasons.get(str(reason), 0) + 1
+    curation_summary = {
+        "source_rows": len(data.observations),
+        "input_usable_rows": sum(status in {"accepted", "warning"} for _, status in curation_rows),
+        "accepted_rows": sum(status == "accepted" for _, status in curation_rows),
+        "warning_rows": sum(status == "warning" for _, status in curation_rows),
+        "quarantined_rows": sum(status == "quarantined" for _, status in curation_rows),
+        "blocked_rows": sum(status == "blocked" for _, status in curation_rows),
+        "exclusion_reasons": dict(
+            sorted(exclusion_reasons.items(), key=lambda item: (-item[1], item[0]))
+        ),
+        "targets": target_curation_summaries,
+    }
     identifier_columns = [
         {"key": "observation_id", "label": "実測ID", "unit": None, "group": "識別"},
         {"key": "parent_key", "label": "親工程条件", "unit": None, "group": "識別"},
     ]
-    if stage == "selected":
+    if stage == "curation":
+        curation_columns = tuple(
+            resolved.runtime.data.profile.curation_recipe.columns
+            if getattr(resolved.runtime.data.profile, "curation_recipe", None)
+            else ()
+        )
+        columns = [
+            *identifier_columns,
+            {"key": "curation.status", "label": "採否", "unit": None, "group": "判定"},
+            {"key": "curation.notes", "label": "理由・注意", "unit": None, "group": "判定"},
+            {"key": "curation.transforms", "label": "適用した前処理", "unit": None, "group": "判定"},
+            {"key": "curation.targets", "label": "目的変数の利用可否", "unit": None, "group": "判定"},
+            *[
+                {"key": f"raw.{column}", "label": column, "unit": None, "group": "原値"}
+                for column in curation_columns
+            ],
+            *[
+                {
+                    "key": f"normalized.{column}",
+                    "label": column,
+                    "unit": None,
+                    "group": "正規化",
+                }
+                for column in curation_columns
+            ],
+        ]
+        source_rows = data.observations
+        page_rows = []
+        for observation in source_rows[offset:offset + limit]:
+            curation = observation.get("run_context", {}).get("curation", {})
+            values_by_column = curation.get("values", {})
+            notes = [*curation.get("reasons", []), *curation.get("warnings", [])]
+            transforms = []
+            for column, trace in values_by_column.items():
+                raw_value = str(trace.get("raw", ""))
+                normalized_value = trace.get("normalized")
+                changed = raw_value != str(normalized_value)
+                if changed:
+                    try:
+                        changed = float(raw_value) != float(normalized_value)
+                    except (TypeError, ValueError):
+                        pass
+                if changed:
+                    transforms.append(f"{column}: {raw_value or '空欄'} → {normalized_value}")
+            target_states = [
+                f"{target_key}: {'採用' if state.get('usable') else state.get('reason') or '不採用'}"
+                for target_key, state in curation.get("target_status", {}).items()
+            ]
+            values: dict[str, Any] = {
+                "observation_id": observation["id"],
+                "parent_key": observation["parent_key"],
+                "curation.status": curation.get("status", "accepted"),
+                "curation.notes": " / ".join(notes) if notes else "—",
+                "curation.transforms": " / ".join(transforms) if transforms else "変換なし",
+                "curation.targets": " / ".join(target_states) if target_states else "—",
+            }
+            for column in curation_columns:
+                trace = values_by_column.get(column, {})
+                values[f"raw.{column}"] = trace.get("raw")
+                values[f"normalized.{column}"] = trace.get("normalized")
+            page_rows.append({
+                "observation_id": observation["id"],
+                "parent_key": observation["parent_key"],
+                "values": values,
+            })
+    elif stage == "selected":
         input_fields = [
             field
             for group in contract.task_definition.input_groups
@@ -269,12 +384,23 @@ def model_training_data(
         "feature_pipeline_id": canonical["feature_pipeline"]["id"],
         "feature_pipeline_version": canonical["feature_pipeline"]["version"],
         "training_unit": training_unit,
-        "total": len(selected_rows) if stage == "selected" else len(model_rows),
-        "parent_conditions": len({training_context_key(row) for row in selected_rows}),
+        "total": (
+            len(data.observations)
+            if stage == "curation"
+            else len(selected_rows)
+            if stage == "selected"
+            else len(model_rows)
+        ),
+        "parent_conditions": (
+            len({str(row["parent_key"]) for row in data.observations})
+            if stage == "curation"
+            else len({training_context_key(row) for row in selected_rows})
+        ),
         "offset": offset,
         "limit": limit,
         "columns": columns,
         "rows": page_rows,
+        "curation_summary": curation_summary,
     }
 
 

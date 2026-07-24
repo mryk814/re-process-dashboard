@@ -23,7 +23,9 @@ HEAT_TREATMENT_TASK_ID = "heat-treatment-tradeoff-v1"
 CONCRETE_TASK_ID = "concrete-strength-v1"
 WEAR_CURVE_TASK_ID = "wear-curve-v1"
 BATTERY_DEGRADATION_TASK_ID = "battery-degradation-v1"
-MPEA_LITERATURE_TASK_ID = "mpea-literature-tys-v1"
+MPEA_LEGACY_TYS_TASK_ID = "mpea-literature-tys-v1"
+MPEA_ROOM_TENSILE_TASK_ID = "mpea-room-tensile-v1"
+MPEA_HARDNESS_TASK_ID = "mpea-hardness-process-v1"
 PRIMARY_DEFAULT_SOURCE = Path("data/source/material_workbench_tutorial_v1.xlsx")
 PROCESS_SOURCE = Path("data/source/material_workbench_process_v1.xlsx")
 _DATA_ROOT = Path(__file__).parent / "data"
@@ -32,7 +34,9 @@ _TABULAR_PROFILES = {
     CONCRETE_TASK_ID: _DATA_ROOT / "tabular-profile-concrete-v1.json",
     WEAR_CURVE_TASK_ID: _DATA_ROOT / "tabular-profile-wear-curve-v1.json",
     BATTERY_DEGRADATION_TASK_ID: _DATA_ROOT / "tabular-profile-battery-degradation-v1.json",
-    MPEA_LITERATURE_TASK_ID: _DATA_ROOT / "tabular-profile-mpea-literature-tys-v1.json",
+    MPEA_LEGACY_TYS_TASK_ID: _DATA_ROOT / "tabular-profile-mpea-literature-tys-v1.json",
+    MPEA_ROOM_TENSILE_TASK_ID: _DATA_ROOT / "tabular-profile-mpea-room-tensile-v1.json",
+    MPEA_HARDNESS_TASK_ID: _DATA_ROOT / "tabular-profile-mpea-hardness-v1.json",
 }
 
 
@@ -69,7 +73,9 @@ class SupportProvider(Protocol):
 
     def support_by_target(self, candidate: Any) -> dict[str, Any]: ...
 
-    def similarity(self, candidate: Any, limit: int = 6) -> list[dict[str, Any]]: ...
+    def similarity(
+        self, candidate: Any, limit: int = 6, target: str | None = None
+    ) -> list[dict[str, Any]]: ...
 
 
 ResponseCurveHandler = Callable[
@@ -461,17 +467,42 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         curve_family=_curve_family,
         data_explorer=_TABULAR_EXPLORER,
     ),
-    MPEA_LITERATURE_TASK_ID: TaskModule(
-        task_id=MPEA_LITERATURE_TASK_ID,
-        package_override_env="MATERIAL_WORKBENCH_MPEA_LITERATURE_MODEL_PACKAGE",
+    MPEA_LEGACY_TYS_TASK_ID: TaskModule(
+        task_id=MPEA_LEGACY_TYS_TASK_ID,
+        package_override_env="MATERIAL_WORKBENCH_MPEA_LEGACY_TYS_MODEL_PACKAGE",
         source_env="WORKBENCH_MPEA_LITERATURE_SOURCE_PATH",
         source_kind="external_mpea_literature",
         default_source=Path("data/source/external/mpea_ground_truth_18021833.csv"),
-        data_loader=_tabular_loader(MPEA_LITERATURE_TASK_ID),
+        data_loader=_tabular_loader(MPEA_LEGACY_TYS_TASK_ID),
         runtime_factory=_tabular_runtime,
-        feature_row_builder=_tabular_features(MPEA_LITERATURE_TASK_ID),
-        model_builder=_tabular_builder(MPEA_LITERATURE_TASK_ID),
-        starter_project=_tabular_starter(MPEA_LITERATURE_TASK_ID, "MPEA文献の降伏強さ"),
+        feature_row_builder=_tabular_features(MPEA_LEGACY_TYS_TASK_ID),
+        model_builder=_tabular_builder(MPEA_LEGACY_TYS_TASK_ID),
+        application=ApplicationCapability(project_creation=False),
+    ),
+    MPEA_ROOM_TENSILE_TASK_ID: TaskModule(
+        task_id=MPEA_ROOM_TENSILE_TASK_ID,
+        package_override_env="MATERIAL_WORKBENCH_MPEA_ROOM_TENSILE_MODEL_PACKAGE",
+        source_env="WORKBENCH_MPEA_LITERATURE_SOURCE_PATH",
+        source_kind="external_mpea_literature",
+        default_source=Path("data/source/external/mpea_ground_truth_18021833.csv"),
+        data_loader=_tabular_loader(MPEA_ROOM_TENSILE_TASK_ID),
+        runtime_factory=_tabular_runtime,
+        feature_row_builder=_tabular_features(MPEA_ROOM_TENSILE_TASK_ID),
+        model_builder=_tabular_builder(MPEA_ROOM_TENSILE_TASK_ID),
+        starter_project=_tabular_starter(MPEA_ROOM_TENSILE_TASK_ID, "MPEA文献の室温引張特性"),
+        data_explorer=_TABULAR_EXPLORER,
+    ),
+    MPEA_HARDNESS_TASK_ID: TaskModule(
+        task_id=MPEA_HARDNESS_TASK_ID,
+        package_override_env="MATERIAL_WORKBENCH_MPEA_HARDNESS_MODEL_PACKAGE",
+        source_env="WORKBENCH_MPEA_LITERATURE_SOURCE_PATH",
+        source_kind="external_mpea_literature",
+        default_source=Path("data/source/external/mpea_ground_truth_18021833.csv"),
+        data_loader=_tabular_loader(MPEA_HARDNESS_TASK_ID),
+        runtime_factory=_tabular_runtime,
+        feature_row_builder=_tabular_features(MPEA_HARDNESS_TASK_ID),
+        model_builder=_tabular_builder(MPEA_HARDNESS_TASK_ID),
+        starter_project=_tabular_starter(MPEA_HARDNESS_TASK_ID, "MPEA文献の硬さ"),
         data_explorer=_TABULAR_EXPLORER,
     ),
 })

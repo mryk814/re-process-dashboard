@@ -2,7 +2,7 @@
   "task_definition": {
     "schema_version": "task-definition/v1",
     "id": "mpea-literature-tys-v1",
-    "label": "MPEA文献：組成のみの降伏強さ参考推定",
+    "label": "MPEA文献：組成のみの降伏強さ参考推定（旧版）",
     "canonical_candidate_schema_version": "canonical-candidate/v1",
     "input_groups": [{
       "key": "composition", "order": 0, "label": "組成（原報 at%）",
@@ -24,33 +24,22 @@
       ]
     }],
     "outputs": [{"key":"TYS","label":"室温引張降伏強さ","unit":"MPa","goal_direction":"at_least","measurement_keys":["TYS"],"plausibility_range":{"min":0,"max":3000},"preferred_display_range":{"min":0,"max":2200}}],
-    "display_decimals": {
-      "composition.Fe":2,"composition.Ni":2,"composition.Co":2,"composition.Mn":2,
-      "composition.Cr":2,"composition.Al":2,"composition.Ti":2,"composition.Cu":2,
-      "composition.Si":2,"composition.V":2,"composition.Nb":2,"composition.B":3,
-      "composition.Mo":2,"composition.Ta":2,"output.TYS":0
-    },
+    "display_decimals": {"composition.Fe":2,"composition.Ni":2,"composition.Co":2,"composition.Mn":2,"composition.Cr":2,"composition.Al":2,"composition.Ti":2,"composition.Cu":2,"composition.Si":2,"composition.V":2,"composition.Nb":2,"composition.B":3,"composition.Mo":2,"composition.Ta":2,"output.TYS":0},
     "fixed_context": [
       {"path":"context.source","order":0,"label":"出典","value":"Zenodo 18021833 / CC BY 4.0"},
-      {"path":"context.caution","order":1,"label":"注意","value":"工程未調整の粗い文献ベースライン。候補固有の物性値や意思決定には使用しない"},
+      {"path":"context.caution","order":1,"label":"注意","value":"旧Project再現専用。新規検討には工程を含む室温引張Taskを使用"},
       {"path":"context.validation","order":2,"label":"検証","value":"論文単位で分割。組織・析出物・論文名は入力に使用しない"}
     ],
-    "constraints": [],
-    "response_curve_variables": [],
-    "curve_axis_path": null
+    "constraints": [], "response_curve_variables": [], "curve_axis_path": null
   },
   "canonical_candidate": {
-    "schema_version":"canonical-candidate/v1",
-    "task_id":"mpea-literature-tys-v1",
+    "schema_version":"canonical-candidate/v1","task_id":"mpea-literature-tys-v1",
     "composition":{"Fe":18.29,"Ni":37.55,"Co":18.69,"Mn":0.0,"Cr":18.94,"Al":2.72,"Ti":0.0,"Cu":3.81,"Si":0.0,"V":0.0,"Nb":0.0,"B":0.0,"Mo":0.0,"Ta":0.0},
-    "process":{},"heat_pattern":null,"categorical":{},
-    "provenance":{"source_kind":"direct","source_ref":null}
+    "process":{},"heat_pattern":null,"categorical":{},"provenance":{"source_kind":"direct","source_ref":null}
   },
   "runtime_capability": {
-    "schema_version":"runtime-capability/v1","task_id":"mpea-literature-tys-v1",
-    "model_package_schema_version":"model-package/v1",
+    "schema_version":"runtime-capability/v1","task_id":"mpea-literature-tys-v1","model_package_schema_version":"model-package/v1",
     "targets":[{"target":"TYS","point_statistics":["mean"],"standard_deviation":false,"quantiles":true,"samples":false,"parametric_distribution":false,"uncertainty_components":false,"support":true,"warnings":true,"goal_probability":"unavailable"}],
-    "joint_samples":false,
-    "operations":{"preview":true,"detailed_prediction":true,"response_curve":false,"similarity":true,"snapshot":true,"actual_measurement":false}
+    "joint_samples":false,"operations":{"preview":true,"detailed_prediction":true,"response_curve":false,"similarity":true,"snapshot":true,"actual_measurement":false}
   }
 }

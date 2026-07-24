@@ -1,0 +1,175 @@
+{
+  "schema_version": "model-package/v1",
+  "package_id": "mpea-hardness-ridge-v1",
+  "package_version": "1.0.0",
+  "task_id": "mpea-hardness-process-v1",
+  "input_schema_version": "canonical-candidate/v1",
+  "input_contract_digest": "sha256:8b2a7f210cbfc9226d00e998b6cb215fa0b542c8d576348e16f069136ebf8b85",
+  "runtime_capability_digest": "sha256:cd5bdce7925cd5e69cdb7b711fb0f789f0c524cb0734845300a31b324f910228",
+  "feature_pipeline": {
+    "id": "mpea-hardness-process-v1-profile-transform",
+    "version": "1.0.0",
+    "spec": "feature-pipeline/pipeline.json",
+    "canonical_input_paths": [
+      "composition.Fe",
+      "composition.Ni",
+      "composition.Co",
+      "composition.Mn",
+      "composition.Cr",
+      "composition.Al",
+      "composition.Ti",
+      "composition.Cu",
+      "composition.Si",
+      "composition.V",
+      "composition.Nb",
+      "composition.B",
+      "composition.Mo",
+      "composition.Ta",
+      "process.homogenization_temp_c",
+      "process.homogenization_time_h",
+      "process.rolling_temp_c",
+      "process.rolling_reduction_pct",
+      "process.recrystallization_temp_c",
+      "process.recrystallization_time_min",
+      "process.aging_temp_c",
+      "process.aging_time_h",
+      "categorical.homogenized",
+      "categorical.rolled",
+      "categorical.recrystallized",
+      "categorical.aged"
+    ],
+    "output_features": [
+      "composition.Fe",
+      "composition.Ni",
+      "composition.Co",
+      "composition.Mn",
+      "composition.Cr",
+      "composition.Al",
+      "composition.Ti",
+      "composition.Cu",
+      "composition.Si",
+      "composition.V",
+      "composition.Nb",
+      "composition.B",
+      "composition.Mo",
+      "composition.Ta",
+      "categorical.homogenized__no",
+      "categorical.homogenized__yes",
+      "process.homogenization_temp_c",
+      "process.homogenization_time_h__log1p",
+      "categorical.rolled__no",
+      "categorical.rolled__yes",
+      "process.rolling_temp_c",
+      "process.rolling_reduction_pct",
+      "categorical.recrystallized__no",
+      "categorical.recrystallized__yes",
+      "process.recrystallization_temp_c",
+      "process.recrystallization_time_min__log1p",
+      "categorical.aged__no",
+      "categorical.aged__yes",
+      "process.aging_temp_c",
+      "process.aging_time_h__log1p"
+    ],
+    "artifacts": [
+      "reference/training_stats.json"
+    ]
+  },
+  "predictors": [
+    {
+      "id": "HV-ridge",
+      "target": "HV",
+      "unit": "HV",
+      "target_kind": "continuous",
+      "runtime_type": "builtin.linear.v1",
+      "architecture_id": "profile_transformed_ridge_v1",
+      "artifact": "model-artifacts/HV.npz",
+      "predictive_family": "empirical_quantiles",
+      "feature_names": [
+        "composition.Fe",
+        "composition.Ni",
+        "composition.Co",
+        "composition.Mn",
+        "composition.Cr",
+        "composition.Al",
+        "composition.Ti",
+        "composition.Cu",
+        "composition.Si",
+        "composition.V",
+        "composition.Nb",
+        "composition.B",
+        "composition.Mo",
+        "composition.Ta",
+        "categorical.homogenized__no",
+        "categorical.homogenized__yes",
+        "process.homogenization_temp_c",
+        "process.homogenization_time_h__log1p",
+        "categorical.rolled__no",
+        "categorical.rolled__yes",
+        "process.rolling_temp_c",
+        "process.rolling_reduction_pct",
+        "categorical.recrystallized__no",
+        "categorical.recrystallized__yes",
+        "process.recrystallization_temp_c",
+        "process.recrystallization_time_min__log1p",
+        "categorical.aged__no",
+        "categorical.aged__yes",
+        "process.aging_temp_c",
+        "process.aging_time_h__log1p"
+      ],
+      "config": {
+        "training_unit": "source_row",
+        "validation": "5-fold grouped by File_Name",
+        "source_profile": "mpea-zenodo-18021833-hardness-v1",
+        "ridge_alpha": 1000.0
+      }
+    }
+  ],
+  "provenance": {
+    "training_data_id": "sha256:a3b4230ff150e32ed51050a4813fc3fbad01b2bc2fc61b5d4fb8a5be3cc5e476",
+    "feature_dataset_id": "sha256:5b81d476b9824804ae86013c9a2aa25c0eb7f40266a247ba447a368296c1d032",
+    "training_code_revision": "tabular-ridge-v1",
+    "dataset_profile_id": "sha256:7bfec1998a843dcf35c8018445752d0c02f75dfcf5848ab7476942eef01aa740"
+  },
+  "artifacts": [
+    {
+      "path": "feature-pipeline/pipeline.json",
+      "sha256": "f6adcd01a226730509357389268464e5cbbbc777f4db04ea7927cda94d4e44d9",
+      "bytes": 5338
+    },
+    {
+      "path": "reference/curation-recipe.json",
+      "sha256": "ff58448a8124f6c7b236eee2678c62316a6587b2e3173759ab0be34e0ba911c0",
+      "bytes": 7696
+    },
+    {
+      "path": "model-artifacts/HV.npz",
+      "sha256": "88a00f69ecfa1f4d64fbbb34472bf334b23275fff634c812cf200cf7d09dfe3e",
+      "bytes": 1284
+    },
+    {
+      "path": "reference/training_stats.json",
+      "sha256": "cba2e6b30cb0fcfe4506a9ec539661df7608e8624c608bbdffde6b7f2fb27055",
+      "bytes": 254
+    },
+    {
+      "path": "reports/quality-report.json",
+      "sha256": "320e8ed157a287132b345d15ba029671091450716b53812ad245eae40711761d",
+      "bytes": 311
+    },
+    {
+      "path": "smoke/input.json",
+      "sha256": "6f4de2e9656cae95112996381c13faaf0ecadc7485621632c0302b455a215195",
+      "bytes": 929
+    },
+    {
+      "path": "smoke/expected.json",
+      "sha256": "a4bfc18542a448fbf14cbf71d9f695b69e2188076d31faf81cb67d5c7ab348ad",
+      "bytes": 24
+    }
+  ],
+  "smoke_test": {
+    "input": "smoke/input.json",
+    "expected": "smoke/expected.json"
+  },
+  "quality_report": "reports/quality-report.json"
+}

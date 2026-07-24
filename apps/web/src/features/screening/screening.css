@@ -26,6 +26,15 @@
   margin: 20px 0;
 }
 
+.screening-balance-notice {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-left: 3px solid #2b70c9;
+  background: #f3f8ff;
+  color: #34516e;
+  font-size: 12px;
+}
+
 .screening-target {
   display: grid;
   grid-template-columns: repeat(4, minmax(140px, 220px));

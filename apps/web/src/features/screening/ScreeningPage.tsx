@@ -86,12 +86,26 @@ export function ScreeningPage({
   const [baseCandidate, setBaseCandidate] = useState<Candidate>();
   const [baseEditorVersion, setBaseEditorVersion] = useState(0);
   const pendingBaseInputs = useRef<ApiScreeningRun["base_inputs"]>(undefined);
+  const balancePaths = new Set(
+    resolvedTaskDefinition?.task_definition.composition_totals
+      ?.map((constraint) => constraint.balance_path)
+      .filter((path): path is string => path != null) ?? [],
+  );
+  const compositionBalanceNotice = resolvedTaskDefinition?.task_definition.composition_totals
+    ?.map((constraint) => {
+      const balance = resolvedTaskDefinition.task_definition.input_groups
+        .flatMap((group) => group.fields)
+        .find((field) => field.path === constraint.balance_path);
+      return balance ? `${balance.label.replace("（balance）", "")}は残量として自動配分（合計 ${constraint.total} ${constraint.unit}）` : null;
+    })
+    .filter((message): message is string => message != null)
+    .join(" / ");
   const optionGroups = resolvedTaskDefinition
     ? resolvedTaskDefinition.task_definition.input_groups.map((group) => ({
         key: group.key,
         label: group.label,
         options: group.fields.flatMap((field) => {
-          if (!field.editable) return [];
+          if (!field.editable || balancePaths.has(field.path)) return [];
           if (field.kind !== "heat_pattern") return [{
             value: field.path,
             label: `${field.label}${field.unit ? ` (${field.unit})` : ""}`,
@@ -430,6 +444,7 @@ export function ScreeningPage({
           探索を実行
         </button>
       </div>
+      {compositionBalanceNotice && <p className="screening-balance-notice">組成制約: {compositionBalanceNotice}</p>}
       {draftDirty && result && <p className="screening-draft-notice">未実行の条件変更があります。図と点詳細は最後に実行した条件のままです。</p>}
       {savedRuns.length > 0 && (
         <section className="saved-runs">

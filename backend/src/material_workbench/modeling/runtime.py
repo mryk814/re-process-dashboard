@@ -541,7 +541,7 @@ class ModelRuntime:
             for target, reference in sorted(self.target_support_references.items())
         }
 
-    def similarity(self, candidate: Candidate, limit: int = 6) -> list[dict[str, Any]]:
+    def similarity(self, candidate: Candidate, limit: int = 6, target: str | None = None) -> list[dict[str, Any]]:
         return self.evidence(candidate)[1][:limit]
 
     def predict(self, candidate: Candidate, detailed: bool = False, include_curve: bool = False, target_values: dict[str, TargetValue] | None = None) -> dict[str, Any]:

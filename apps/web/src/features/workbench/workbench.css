@@ -585,6 +585,9 @@
 .reference-data-kicker { margin-right: 2px; }
 .similar-table-scroll { overflow-x: auto; isolation: isolate; scrollbar-gutter: stable; container-type: inline-size; }
 .similar-caption { display: block; margin-top: -7px; color: #657386; font-size: 11px; }
+.similar-evidence-actions { display: flex; align-items: center; gap: 7px; }
+.similar-evidence-actions label { display: flex; align-items: center; gap: 5px; color: #657386; font-size: 10px; white-space: nowrap; }
+.similar-evidence-actions select { max-width: 160px; border: 1px solid #c7d3e1; border-radius: 3px; padding: 3px 22px 3px 6px; background: #fff; color: #173f75; font-size: 11px; }
 .similar-summary-table th,
 .similar-summary-table td { padding: 7px 5px; }
 .similar-summary-table { width: 100%; table-layout: fixed; min-width: 480px; }
@@ -592,6 +595,9 @@
 .similar-summary-table th:nth-child(2),
 .similar-summary-table th:nth-child(3) { width: 82px; }
 .similar-summary-table th:nth-child(5) { width: 112px; }
+.similar-summary-table.no-melt-key th:nth-child(2) { width: auto; }
+.similar-summary-table.no-melt-key th:nth-child(3) { width: 112px; }
+.similar-summary-table.no-melt-key th:nth-child(4) { width: 112px; }
 .similar-summary-table th:last-child,
 .similar-summary-table td:last-child {
   position: sticky;
@@ -603,7 +609,7 @@
 .similar-summary-table th:last-child { z-index: 3; background: #edf2f8; }
 .similar-distance { text-align: left !important; }
 .similar-distance b { display: block; font-variant-numeric: tabular-nums; }
-.similar-key { font-weight: 700; color: #1d4f91; font-variant-numeric: tabular-nums; }
+.similar-key { display: -webkit-box; overflow: hidden; color: #1d4f91; font-size: 10px; font-weight: 700; line-height: 1.25; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .similar-value-list { display: grid; grid-template-columns: repeat(2, max-content); justify-content: start; gap: 3px 12px; text-align: left; line-height: 1.2; }
 .similar-value-list > small { color: #657386; font-size: 10px; }
 .similar-value-list > small { grid-column: 1 / -1; }

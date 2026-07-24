@@ -1,0 +1,281 @@
+{
+  "schema_version": "model-package/v1",
+  "package_id": "mpea-room-tensile-ridge-v1",
+  "package_version": "1.0.0",
+  "task_id": "mpea-room-tensile-v1",
+  "input_schema_version": "canonical-candidate/v1",
+  "input_contract_digest": "sha256:8973d33d0c52b5ecda793b0fc5611697f60198cda21b0728340c28ca2002646f",
+  "runtime_capability_digest": "sha256:e74ea1ed9c13f7d573d5c9ac979605368977fc7f574b777987ab82752cbbd17e",
+  "feature_pipeline": {
+    "id": "mpea-room-tensile-v1-profile-transform",
+    "version": "1.0.0",
+    "spec": "feature-pipeline/pipeline.json",
+    "canonical_input_paths": [
+      "composition.Fe",
+      "composition.Ni",
+      "composition.Co",
+      "composition.Mn",
+      "composition.Cr",
+      "composition.Al",
+      "composition.Ti",
+      "composition.Cu",
+      "composition.Si",
+      "composition.V",
+      "composition.Nb",
+      "composition.B",
+      "composition.Mo",
+      "composition.Ta",
+      "process.homogenization_temp_c",
+      "process.homogenization_time_h",
+      "process.rolling_temp_c",
+      "process.rolling_reduction_pct",
+      "process.recrystallization_temp_c",
+      "process.recrystallization_time_min",
+      "process.aging_temp_c",
+      "process.aging_time_h",
+      "categorical.homogenized",
+      "categorical.rolled",
+      "categorical.recrystallized",
+      "categorical.aged"
+    ],
+    "output_features": [
+      "composition.Fe",
+      "composition.Ni",
+      "composition.Co",
+      "composition.Mn",
+      "composition.Cr",
+      "composition.Al",
+      "composition.Ti",
+      "composition.Cu",
+      "composition.Si",
+      "composition.V",
+      "composition.Nb",
+      "composition.B",
+      "composition.Mo",
+      "composition.Ta",
+      "categorical.homogenized__no",
+      "categorical.homogenized__yes",
+      "process.homogenization_temp_c",
+      "process.homogenization_time_h__log1p",
+      "categorical.rolled__no",
+      "categorical.rolled__yes",
+      "process.rolling_temp_c",
+      "process.rolling_reduction_pct",
+      "categorical.recrystallized__no",
+      "categorical.recrystallized__yes",
+      "process.recrystallization_temp_c",
+      "process.recrystallization_time_min__log1p",
+      "categorical.aged__no",
+      "categorical.aged__yes",
+      "process.aging_temp_c",
+      "process.aging_time_h__log1p"
+    ],
+    "artifacts": [
+      "reference/training_stats.json"
+    ]
+  },
+  "predictors": [
+    {
+      "id": "TYS-ridge",
+      "target": "TYS",
+      "unit": "MPa",
+      "target_kind": "continuous",
+      "runtime_type": "builtin.linear.v1",
+      "architecture_id": "profile_transformed_ridge_v1",
+      "artifact": "model-artifacts/TYS.npz",
+      "predictive_family": "empirical_quantiles",
+      "feature_names": [
+        "composition.Fe",
+        "composition.Ni",
+        "composition.Co",
+        "composition.Mn",
+        "composition.Cr",
+        "composition.Al",
+        "composition.Ti",
+        "composition.Cu",
+        "composition.Si",
+        "composition.V",
+        "composition.Nb",
+        "composition.B",
+        "composition.Mo",
+        "composition.Ta",
+        "categorical.homogenized__no",
+        "categorical.homogenized__yes",
+        "process.homogenization_temp_c",
+        "process.homogenization_time_h__log1p",
+        "categorical.rolled__no",
+        "categorical.rolled__yes",
+        "process.rolling_temp_c",
+        "process.rolling_reduction_pct",
+        "categorical.recrystallized__no",
+        "categorical.recrystallized__yes",
+        "process.recrystallization_temp_c",
+        "process.recrystallization_time_min__log1p",
+        "categorical.aged__no",
+        "categorical.aged__yes",
+        "process.aging_temp_c",
+        "process.aging_time_h__log1p"
+      ],
+      "config": {
+        "training_unit": "source_row",
+        "validation": "5-fold grouped by File_Name",
+        "source_profile": "mpea-zenodo-18021833-room-tensile-v1",
+        "ridge_alpha": 1000.0
+      }
+    },
+    {
+      "id": "UTS-ridge",
+      "target": "UTS",
+      "unit": "MPa",
+      "target_kind": "continuous",
+      "runtime_type": "builtin.linear.v1",
+      "architecture_id": "profile_transformed_ridge_v1",
+      "artifact": "model-artifacts/UTS.npz",
+      "predictive_family": "empirical_quantiles",
+      "feature_names": [
+        "composition.Fe",
+        "composition.Ni",
+        "composition.Co",
+        "composition.Mn",
+        "composition.Cr",
+        "composition.Al",
+        "composition.Ti",
+        "composition.Cu",
+        "composition.Si",
+        "composition.V",
+        "composition.Nb",
+        "composition.B",
+        "composition.Mo",
+        "composition.Ta",
+        "categorical.homogenized__no",
+        "categorical.homogenized__yes",
+        "process.homogenization_temp_c",
+        "process.homogenization_time_h__log1p",
+        "categorical.rolled__no",
+        "categorical.rolled__yes",
+        "process.rolling_temp_c",
+        "process.rolling_reduction_pct",
+        "categorical.recrystallized__no",
+        "categorical.recrystallized__yes",
+        "process.recrystallization_temp_c",
+        "process.recrystallization_time_min__log1p",
+        "categorical.aged__no",
+        "categorical.aged__yes",
+        "process.aging_temp_c",
+        "process.aging_time_h__log1p"
+      ],
+      "config": {
+        "training_unit": "source_row",
+        "validation": "5-fold grouped by File_Name",
+        "source_profile": "mpea-zenodo-18021833-room-tensile-v1",
+        "ridge_alpha": 1000.0
+      }
+    },
+    {
+      "id": "EL-ridge",
+      "target": "EL",
+      "unit": "%",
+      "target_kind": "continuous",
+      "runtime_type": "builtin.linear.v1",
+      "architecture_id": "profile_transformed_ridge_v1",
+      "artifact": "model-artifacts/EL.npz",
+      "predictive_family": "empirical_quantiles",
+      "feature_names": [
+        "composition.Fe",
+        "composition.Ni",
+        "composition.Co",
+        "composition.Mn",
+        "composition.Cr",
+        "composition.Al",
+        "composition.Ti",
+        "composition.Cu",
+        "composition.Si",
+        "composition.V",
+        "composition.Nb",
+        "composition.B",
+        "composition.Mo",
+        "composition.Ta",
+        "categorical.homogenized__no",
+        "categorical.homogenized__yes",
+        "process.homogenization_temp_c",
+        "process.homogenization_time_h__log1p",
+        "categorical.rolled__no",
+        "categorical.rolled__yes",
+        "process.rolling_temp_c",
+        "process.rolling_reduction_pct",
+        "categorical.recrystallized__no",
+        "categorical.recrystallized__yes",
+        "process.recrystallization_temp_c",
+        "process.recrystallization_time_min__log1p",
+        "categorical.aged__no",
+        "categorical.aged__yes",
+        "process.aging_temp_c",
+        "process.aging_time_h__log1p"
+      ],
+      "config": {
+        "training_unit": "source_row",
+        "validation": "5-fold grouped by File_Name",
+        "source_profile": "mpea-zenodo-18021833-room-tensile-v1",
+        "ridge_alpha": 1000.0
+      }
+    }
+  ],
+  "provenance": {
+    "training_data_id": "sha256:a3b4230ff150e32ed51050a4813fc3fbad01b2bc2fc61b5d4fb8a5be3cc5e476",
+    "feature_dataset_id": "sha256:5c447d97462c1d433697b2427ce93995f36ade81a66ab56aa72b831bf070599f",
+    "training_code_revision": "tabular-ridge-v1",
+    "dataset_profile_id": "sha256:51de725021caaf4be761531c5ccbddad2b90625bbfe9ad3890d13f79fb2821a7"
+  },
+  "artifacts": [
+    {
+      "path": "feature-pipeline/pipeline.json",
+      "sha256": "cd09573d4ddf2d21754a4180d965f0e7e9ec9f60c83d527a57d929e5bc51a9e7",
+      "bytes": 5334
+    },
+    {
+      "path": "reference/curation-recipe.json",
+      "sha256": "2c037784eb7d136bfa094b2e9cdce3302bbf03a936c9881564adbaf43b69ab70",
+      "bytes": 8321
+    },
+    {
+      "path": "model-artifacts/TYS.npz",
+      "sha256": "404f99d965f4c6ac2cb53c1ba36da142c60fa3c73073ac9c64ff76d7abcbb95f",
+      "bytes": 1284
+    },
+    {
+      "path": "model-artifacts/UTS.npz",
+      "sha256": "ebb646b2abdfa785bc3472ba65f0ccb0c820846d75c5f55b7c9298db3ec54502",
+      "bytes": 1284
+    },
+    {
+      "path": "model-artifacts/EL.npz",
+      "sha256": "381977fc0b409196bf6596cdf76e8bb1bfc1a96996dbe3361ffe3dac051368ef",
+      "bytes": 1284
+    },
+    {
+      "path": "reference/training_stats.json",
+      "sha256": "b23b0741f88f37f1282627e2a4a876cb041d4b8b98fddeff13b8044747b49137",
+      "bytes": 285
+    },
+    {
+      "path": "reports/quality-report.json",
+      "sha256": "ccc19dd4890bad59b961893ce997ff2404cc1ee5c42fb2d4281238ede2b9a9f9",
+      "bytes": 673
+    },
+    {
+      "path": "smoke/input.json",
+      "sha256": "ffa46465f268e1778357615e9915c9e71973924a1a2575ce79ea7150abb29f88",
+      "bytes": 945
+    },
+    {
+      "path": "smoke/expected.json",
+      "sha256": "046b182d8cf121088d6098b19f4a2e51238e44a442f68df98db976daa1e5420b",
+      "bytes": 70
+    }
+  ],
+  "smoke_test": {
+    "input": "smoke/input.json",
+    "expected": "smoke/expected.json"
+  },
+  "quality_report": "reports/quality-report.json"
+}

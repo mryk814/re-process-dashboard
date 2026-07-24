@@ -316,7 +316,7 @@ class HotRollingRuntime:
         support = self.support_summary(candidate)
         return {target: support for target in sorted(self.output_keys)}
 
-    def similarity(self, candidate: Candidate, limit: int = 3) -> list[dict[str, Any]]:
+    def similarity(self, candidate: Candidate, limit: int = 3, target: str | None = None) -> list[dict[str, Any]]:
         return self.evidence(candidate)[1][:limit]
 
     def _response_curve_field(self, variable: str) -> tuple[Any, str, str]:

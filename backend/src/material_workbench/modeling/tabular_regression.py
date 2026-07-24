@@ -107,6 +107,10 @@ class CurationColumnRule(BaseModel):
     condition_column: str | None = None
     inactive_value: float | str | None = None
     allowed_units: tuple[str, ...] = ()
+    warn_below: float | None = None
+    warn_above: float | None = None
+    reject_below: float | None = None
+    reject_above: float | None = None
 
     @model_validator(mode="after")
     def conditional_shape(self) -> "CurationColumnRule":
@@ -114,6 +118,18 @@ class CurationColumnRule(BaseModel):
             raise ValueError("conditional curation requires condition_column and inactive_value")
         if self.allowed_units and self.parser != "reported_scalar":
             raise ValueError("allowed_units is only valid for reported_scalar")
+        if (
+            self.warn_below is not None
+            and self.warn_above is not None
+            and self.warn_below >= self.warn_above
+        ):
+            raise ValueError("curation warning bounds must be ascending")
+        if (
+            self.reject_below is not None
+            and self.reject_above is not None
+            and self.reject_below >= self.reject_above
+        ):
+            raise ValueError("curation rejection bounds must be ascending")
         return self
 
 
@@ -426,6 +442,14 @@ def _curate_value(text: str, rule: CurationColumnRule) -> tuple[float | str, str
         normalized = tuple(item.casefold().replace(" ", "") for item in rule.allowed_units)
         if normalized and unit not in normalized:
             raise ValueError("許可されていない単位です")
+    if rule.reject_below is not None and value < rule.reject_below:
+        raise ValueError(f"{value:g} は採用下限 {rule.reject_below:g} 未満です")
+    if rule.reject_above is not None and value > rule.reject_above:
+        raise ValueError(f"{value:g} は採用上限 {rule.reject_above:g} を超えます")
+    if rule.warn_below is not None and value < rule.warn_below:
+        warning = f"要確認: {value:g} は通常の下限 {rule.warn_below:g} 未満です"
+    if rule.warn_above is not None and value > rule.warn_above:
+        warning = f"要確認: {value:g} は通常の上限 {rule.warn_above:g} を超えます"
     return value, warning
 
 
@@ -479,6 +503,7 @@ def load_tabular_data(
         for index, raw in enumerate(reader, start=header_offset):
             input_reasons: list[str] = []
             warnings: list[str] = []
+            curation_errors: dict[str, str] = {}
             curated: dict[str, float | str] = {}
             if profile.curation_recipe is not None:
                 for column, rule in profile.curation_recipe.columns.items():
@@ -498,6 +523,7 @@ def load_tabular_data(
                             warnings.append(f"{column}: {warning}")
                     except ValueError as exc:
                         curated[column] = source_text.strip()
+                        curation_errors[column] = str(exc)
                         if column in {item.column for item in profile.inputs}:
                             input_reasons.append(f"{column}: {exc}")
             composition: dict[str, float] = {}
@@ -543,7 +569,11 @@ def load_tabular_data(
                     target_status[item.key] = {"usable": True, "reason": None}
                 except ValueError:
                     raw_target = (raw.get(item.column) or "").strip()
-                    reason = "欠損" if not raw_target else "数値・単位を安全に解釈できません"
+                    reason = (
+                        "欠損"
+                        if not raw_target
+                        else curation_errors.get(item.column, "値がProfileの採用範囲外です")
+                    )
                     target_status[item.key] = {"usable": False, "reason": reason}
             for column, values in quality_values.items():
                 try:
@@ -574,7 +604,7 @@ def load_tabular_data(
                 "quarantined"
                 if input_reasons
                 else "warning"
-                if warnings or len(outputs) < len(profile.outputs)
+                if warnings
                 else "accepted"
             )
             observations.append({
@@ -599,6 +629,30 @@ def load_tabular_data(
                         "reasons": input_reasons,
                         "warnings": warnings,
                         "target_status": target_status,
+                        "values": {
+                            column: {
+                                "raw": (raw.get(column) or "").strip(),
+                                "normalized": curated.get(
+                                    column, (raw.get(column) or "").strip()
+                                ),
+                                "parser": profile.curation_recipe.columns[column].parser,
+                                "conversion": (
+                                    "inactive-stage-neutral"
+                                    if profile.curation_recipe.columns[column].condition_column
+                                    and _reported_state(
+                                        raw.get(
+                                            profile.curation_recipe.columns[column].condition_column
+                                        ) or ""
+                                    ) == "inactive"
+                                    else profile.curation_recipe.columns[column].parser
+                                ),
+                            }
+                            for column in (
+                                profile.curation_recipe.columns
+                                if profile.curation_recipe is not None
+                                else ()
+                            )
+                        },
                     },
                 },
             })
@@ -770,38 +824,62 @@ class TabularRegressionRuntime:
                 raise ValueError("Tabular model package smoke prediction is not reproducible")
 
     def _build_support_reference(self) -> None:
-        eligible = [row for row in self.data.observations if row["eligible"]]
-        self.reference_rows = eligible
-        raw = np.vstack([
-            build_tabular_features_from_observation(row, self.data.medians, self.profile).values
-            for row in eligible
-        ])
-        self.reference_mean = raw.mean(axis=0)
-        self.reference_scale = raw.std(axis=0)
-        self.reference_scale[self.reference_scale < 1e-9] = 1.0
-        self.reference_vectors = (raw - self.reference_mean) / self.reference_scale
-        if len(raw) > 1:
-            sample = self.reference_vectors
-            sample_groups = np.asarray([str(row["parent_key"]) for row in eligible])
+        self.support_references: dict[str, dict[str, Any]] = {}
+        for target in self.output_keys:
+            eligible = [
+                row for row in self.data.observations
+                if row["eligible"] and target in row["outputs"]
+            ]
+            raw = np.vstack([
+                build_tabular_features_from_observation(
+                    row, self.data.medians, self.profile
+                ).values
+                for row in eligible
+            ])
+            reference_mean = raw.mean(axis=0)
+            reference_scale = raw.std(axis=0)
+            reference_scale[reference_scale < 1e-9] = 1.0
+            reference_vectors = (raw - reference_mean) / reference_scale
+            if len(raw) > 1:
+                sample = reference_vectors
+                sample_groups = np.asarray([str(row["parent_key"]) for row in eligible])
             # Support calibration is only a robust distance scale estimate.
             # A deterministic 500-row sample avoids an O(n²d) startup allocation
             # (the wear example has more than 14k reference observations).
-            if len(sample) > 500:
-                sample_indexes = np.linspace(0, len(sample) - 1, 500, dtype=int)
-                sample = sample[sample_indexes]
-                sample_groups = sample_groups[sample_indexes]
-            distances = np.sqrt(((sample[:, None, :] - sample[None, :, :]) ** 2).mean(axis=2))
-            distances[sample_groups[:, None] == sample_groups[None, :]] = np.inf
-            self.loo_nearest = distances.min(axis=1)
-        else:
-            self.loo_nearest = np.asarray([0.0])
+                if len(sample) > 500:
+                    sample_indexes = np.linspace(0, len(sample) - 1, 500, dtype=int)
+                    sample = sample[sample_indexes]
+                    sample_groups = sample_groups[sample_indexes]
+                distances = np.sqrt(
+                    ((sample[:, None, :] - sample[None, :, :]) ** 2).mean(axis=2)
+                )
+                distances[sample_groups[:, None] == sample_groups[None, :]] = np.inf
+                loo_nearest = distances.min(axis=1)
+            else:
+                loo_nearest = np.asarray([0.0])
+            self.support_references[target] = {
+                "rows": eligible,
+                "mean": reference_mean,
+                "scale": reference_scale,
+                "vectors": reference_vectors,
+                "loo_nearest": loo_nearest,
+            }
 
-    def _support(self, candidate: CandidateInput, include_similarity: bool) -> tuple[Support, list[dict[str, Any]]]:
+    def _support(
+        self,
+        candidate: CandidateInput,
+        target: str,
+        include_similarity: bool,
+    ) -> tuple[Support, list[dict[str, Any]]]:
+        reference = self.support_references[target]
         vector = build_tabular_features(candidate, self.profile).values
-        normalized = (vector - self.reference_mean) / self.reference_scale
-        distances = np.sqrt(((self.reference_vectors - normalized) ** 2).mean(axis=1))
+        normalized = (vector - reference["mean"]) / reference["scale"]
+        distances = np.sqrt(((reference["vectors"] - normalized) ** 2).mean(axis=1))
         nearest = float(distances.min())
-        supported, caution = (float(value) for value in np.quantile(self.loo_nearest, (0.80, 0.95)))
+        loo_nearest = reference["loo_nearest"]
+        supported, caution = (
+            float(value) for value in np.quantile(loo_nearest, (0.80, 0.95))
+        )
         if nearest <= supported:
             status, message = "supported", "近い学習条件に実測があります"
         elif nearest <= caution:
@@ -812,7 +890,7 @@ class TabularRegressionRuntime:
         if include_similarity:
             used_groups: set[str] = set()
             for index in np.argsort(distances):
-                row = self.reference_rows[int(index)]
+                row = reference["rows"][int(index)]
                 parent_key = str(row["parent_key"])
                 if self.profile.group_column and parent_key in used_groups:
                     continue
@@ -830,26 +908,38 @@ class TabularRegressionRuntime:
         return Support(
             status=status,
             distance=round(nearest, 4),
-            percentile=round(float((self.loo_nearest <= nearest).mean() * 100), 1),
+            percentile=round(float((loo_nearest <= nearest).mean() * 100), 1),
             message=message,
             components={"all_inputs": round(nearest, 4)},
-            reference_count=len(self.reference_rows),
+            reference_count=len(reference["rows"]),
             supported_threshold=round(supported, 4),
             caution_threshold=round(caution, 4),
         ), similar
 
     def evidence(self, candidate: Candidate) -> tuple[Support, list[dict[str, Any]]]:
-        return self._support(candidate, True)
+        target = self.profile.outputs[0].key
+        return self._support(candidate, target, True)
 
     def support_summary(self, candidate: Candidate) -> Support:
-        return self._support(candidate, False)[0]
+        target = self.profile.outputs[0].key
+        return self._support(candidate, target, False)[0]
 
     def support_by_target(self, candidate: Candidate) -> dict[str, Support]:
-        support = self.support_summary(candidate)
-        return {target: support for target in self.output_keys}
+        return {
+            target: self._support(candidate, target, False)[0]
+            for target in self.output_keys
+        }
 
-    def similarity(self, candidate: Candidate, limit: int = 6) -> list[dict[str, Any]]:
-        return self.evidence(candidate)[1][:limit]
+    def similarity(
+        self,
+        candidate: Candidate,
+        limit: int = 6,
+        target: str | None = None,
+    ) -> list[dict[str, Any]]:
+        selected_target = target or self.profile.outputs[0].key
+        if selected_target not in self.output_keys:
+            raise ValueError(f"unknown similarity target: {selected_target}")
+        return self._support(candidate, selected_target, True)[1][:limit]
 
     def predict_core(
         self,
@@ -1002,9 +1092,10 @@ class TabularRegressionRuntime:
         item = next((item for item in self.profile.inputs if item.path == variable and item.kind == "number"), None)
         if item is None:
             raise ValueError(f"この予測タスクで応答曲線にできない変数です: {variable}")
+        reference_rows = self.support_references[target]["rows"]
         training = [
             float((row["composition"] if variable.startswith("composition.") else row["features"])[variable.split(".", 1)[1]])
-            for row in self.reference_rows
+            for row in reference_rows
         ]
         current = float(_get_path(candidate, variable))
         low, high = min(training), max(training)
@@ -1043,7 +1134,7 @@ class TabularRegressionRuntime:
             })
         definition = load_task_definitions()[self.task_id]
         field = next(field for group in definition.input_groups for field in group.fields if field.path == variable)
-        observed = [float(row["outputs"][target]) for row in self.reference_rows]
+        observed = [float(row["outputs"][target]) for row in reference_rows]
         return {
             "target": target,
             "variable": {
@@ -1097,7 +1188,7 @@ class TabularRegressionRuntime:
             else:
                 training = [
                     float((row["composition"] if vary_variable.startswith("composition.") else row["features"])[vary_variable.split(".", 1)[1]])
-                    for row in self.reference_rows
+                    for row in self.support_references[target]["rows"]
                 ]
                 low, high = min(training), max(training)
                 vary_meta = {

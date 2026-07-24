@@ -1015,6 +1015,11 @@ export interface components {
              * @default false
              */
             candidate_excel_import: boolean;
+            /**
+             * Project Creation
+             * @default true
+             */
+            project_creation: boolean;
         };
         /** Body_import_candidates_api_projects__project_id__candidates_import_post */
         Body_import_candidates_api_projects__project_id__candidates_import_post: {
@@ -1174,6 +1179,22 @@ export interface components {
             risk: "safe" | "review" | "specialist";
             /** Unchanged */
             unchanged: string[];
+        };
+        /** CompositionTotalDefinition */
+        CompositionTotalDefinition: {
+            /** Balance Path */
+            balance_path?: string | null;
+            /** Component Paths */
+            component_paths: string[];
+            /**
+             * Tolerance
+             * @default 0.000001
+             */
+            tolerance: number;
+            /** Total */
+            total: number;
+            /** Unit */
+            unit: string;
         };
         /** ConnectedObservation */
         ConnectedObservation: {
@@ -2118,10 +2139,45 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** ModelTrainingCurationSummary */
+        ModelTrainingCurationSummary: {
+            /** Accepted Rows */
+            accepted_rows: number;
+            /** Blocked Rows */
+            blocked_rows: number;
+            /** Exclusion Reasons */
+            exclusion_reasons?: {
+                [key: string]: number;
+            };
+            /** Input Usable Rows */
+            input_usable_rows: number;
+            /** Quarantined Rows */
+            quarantined_rows: number;
+            /** Source Rows */
+            source_rows: number;
+            /** Targets */
+            targets: components["schemas"]["ModelTrainingCurationTargetSummary"][];
+            /** Warning Rows */
+            warning_rows: number;
+        };
+        /** ModelTrainingCurationTargetSummary */
+        ModelTrainingCurationTargetSummary: {
+            /** Exclusion Reasons */
+            exclusion_reasons?: {
+                [key: string]: number;
+            };
+            /** Source Groups */
+            source_groups: number;
+            /** Target */
+            target: string;
+            /** Usable Rows */
+            usable_rows: number;
+        };
         /** ModelTrainingDataPage */
         ModelTrainingDataPage: {
             /** Columns */
             columns: components["schemas"]["TrainingDataColumn"][];
+            curation_summary: components["schemas"]["ModelTrainingCurationSummary"];
             /** Feature Dataset Digest */
             feature_dataset_digest: string;
             /** Feature Pipeline Id */
@@ -2142,7 +2198,7 @@ export interface components {
              * Stage
              * @enum {string}
              */
-            stage: "selected" | "features";
+            stage: "curation" | "selected" | "features";
             /** Target */
             target: string;
             /** Target Label */
@@ -2956,7 +3012,8 @@ export interface components {
         ResolvedTaskDefinition: {
             /** @default {
              *       "candidate_excel_export": false,
-             *       "candidate_excel_import": false
+             *       "candidate_excel_import": false,
+             *       "project_creation": true
              *     } */
             application: components["schemas"]["ApplicationCapability"];
             data_explorer?: components["schemas"]["DataExplorerCapability"] | null;
@@ -3062,6 +3119,11 @@ export interface components {
             similarity: boolean;
             /** Snapshot */
             snapshot: boolean;
+            /**
+             * Target Specific Similarity
+             * @default false
+             */
+            target_specific_similarity: boolean;
         };
         /** ScreeningCandidateBatchRequest */
         ScreeningCandidateBatchRequest: {
@@ -3453,6 +3515,11 @@ export interface components {
              */
             canonical_candidate_schema_version: "canonical-candidate/v1";
             /**
+             * Composition Totals
+             * @default []
+             */
+            composition_totals: components["schemas"]["CompositionTotalDefinition"][];
+            /**
              * Constraints
              * @default []
              */
@@ -3493,7 +3560,7 @@ export interface components {
              * Group
              * @enum {string}
              */
-            group: "識別" | "入力" | "特徴量" | "実測";
+            group: "識別" | "原値" | "正規化" | "判定" | "入力" | "特徴量" | "実測";
             /** Key */
             key: string;
             /** Label */
@@ -5033,6 +5100,7 @@ export interface operations {
             query: {
                 expected_revision: number;
                 limit?: number;
+                target?: string | null;
             };
             header?: never;
             path: {
@@ -5794,7 +5862,7 @@ export interface operations {
             query?: {
                 limit?: number;
                 offset?: number;
-                stage?: "selected" | "features";
+                stage?: "curation" | "selected" | "features";
                 target?: string | null;
             };
             header?: never;

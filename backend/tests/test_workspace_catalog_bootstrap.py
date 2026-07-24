@@ -25,9 +25,9 @@ def test_startup_registers_runtime_resources_and_binds_projects(
         assert projects["default"]["model_package_ref_id"] != projects["hot-rolling-default"]["model_package_ref_id"]
         assert projects["default"]["project_series_id"] != projects["hot-rolling-default"]["project_series_id"]
         assert len(catalog.list_data_assets()) == 8
-        assert len(catalog.list_dataset_revisions()) == 8
-        assert len(catalog.list_dataset_view_revisions()) == 8
-        assert len(catalog.list_model_package_refs()) == 14
+        assert len(catalog.list_dataset_revisions()) == 10
+        assert len(catalog.list_dataset_view_revisions()) == 10
+        assert len(catalog.list_model_package_refs()) == 16
 
 
 def test_bootstrap_is_idempotent_and_preserves_first_binding(
@@ -149,3 +149,45 @@ def test_bootstrap_reuses_digest_equivalent_legacy_profile_json(
         assert client.get("/api/health").json()["ok"] is True
         assert client.get("/api/projects/default/lineage?limit=1").status_code == 200
         assert len(client.app.state.workspace_catalog.list_profile_revisions()) == before
+
+
+def test_bootstrap_migrates_only_the_replaced_three_output_mpea_binding(
+    tmp_path: Path,
+    app_resources: _AppResources,
+) -> None:
+    database = tmp_path / "workbench.db"
+    with TestClient(create_app(db_path=database, _resources=app_resources)) as client:
+        current = next(
+            item for item in client.get("/api/projects").json()
+            if item["task_id"] == "mpea-room-tensile-v1"
+        )
+
+    old_manifest = "a5c116ca97f84c8ba9f3731531387773d3c6d7448116bcf3a9a77ba7a0e052b0"
+    legacy_id = "legacy-mpea-room-project"
+    with sqlite3.connect(database) as conn:
+        conn.execute("UPDATE projects SET id=? WHERE id=?", (legacy_id, current["id"]))
+        conn.execute("UPDATE candidates SET project_id=? WHERE project_id=?", (legacy_id, current["id"]))
+        conn.execute(
+            "INSERT INTO model_package_refs(id,package_id,task_id,task_contract_digest,manifest_digest,locator,manifest_json,created_at) "
+            "VALUES(?,?,?,?,?,?,?,?)",
+            (
+                "replaced-mpea-room-package",
+                "mpea-room-tensile-ridge-v1",
+                "mpea-literature-tys-v1",
+                "sha256:00b438d60f3903fc99fdcc1d4d7c93961438e04f5459d1207621b5b686df7ab0",
+                old_manifest,
+                "models/packages/mpea-room-tensile-ridge-v1",
+                "{}",
+                datetime.now(UTC).isoformat(),
+            ),
+        )
+        conn.execute(
+            "UPDATE projects SET task_id='mpea-literature-tys-v1',task_contract_digest=?,"
+            "model_package_ref_id='replaced-mpea-room-package',model_package_manifest_digest=? WHERE id=?",
+            ("sha256:00b438d60f3903fc99fdcc1d4d7c93961438e04f5459d1207621b5b686df7ab0", old_manifest, legacy_id),
+        )
+
+    with TestClient(create_app(db_path=database, _resources=app_resources)) as client:
+        migrated = client.get(f"/api/projects/{legacy_id}").json()
+        assert migrated["task_id"] == "mpea-room-tensile-v1"
+        assert migrated["model_package_manifest_digest"] != old_manifest

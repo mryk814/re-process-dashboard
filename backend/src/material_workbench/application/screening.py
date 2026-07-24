@@ -16,6 +16,7 @@ from material_workbench.contracts.schemas import (
 from material_workbench.domain.services import run_latin_hypercube
 from material_workbench.contracts.design_space_contracts import (
     CategoricalDomain,
+    CompositionTotalConstraint,
     DesignSpaceDefinition,
     NumericDomain,
 )
@@ -147,6 +148,16 @@ class ScreeningService:
                 )
                 for path, spec in heat_specs.items()
             ),
+            composition_constraints=tuple(
+                CompositionTotalConstraint(
+                    component_paths=item.component_paths,
+                    total=item.total,
+                    tolerance=item.tolerance,
+                    unit=item.unit,
+                    balance_path=item.balance_path,
+                )
+                for item in definition.composition_totals
+            ),
         )
         try:
             design_space.validate_against(definition)
@@ -168,6 +179,7 @@ class ScreeningService:
                 goal_directions={key: item.goal_direction for key, item in outputs.items()},
                 probability_available={key: item.goal_probability != "unavailable" for key, item in capabilities.items()},
                 candidate_validator=lambda candidate: self.registry.validate_candidate(project.task_id, candidate),
+                design_space=design_space,
             )
         except ValueError as exc:
             raise ScreeningValidationError(str(exc)) from exc

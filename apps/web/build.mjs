@@ -17,6 +17,11 @@ await build({
   entryNames: "app",
   assetNames: "[name]-[hash]",
   loader: { ".png": "file", ".svg": "file" },
+  define: {
+    "import.meta.env": JSON.stringify({
+      VITE_API_URL: process.env.VITE_API_URL,
+    }),
+  },
 });
 
 await copyFile(resolve("public/app-icon.png"), resolve(outdir, "app-icon.png"));

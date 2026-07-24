@@ -119,21 +119,41 @@ class InferenceService:
         except ValueError as exc:
             raise InferenceValidationError(str(exc)) from exc
 
-    def similar(self, project_id: str, candidate_id: str, revision: int, limit: int) -> list[dict[str, object]]:
+    def similar(
+        self,
+        project_id: str,
+        candidate_id: str,
+        revision: int,
+        limit: int,
+        target: str | None = None,
+    ) -> list[dict[str, object]]:
         project = self.projects.require(project_id)
         self.require_operation(project.task_id, "similarity")
+        definition = self.registry.contract_for(project.task_id).task_definition
+        targets = {item.key for item in definition.outputs}
+        if target is not None and target not in targets:
+            raise InferenceValidationError("この予測タスクにない実測特性です")
         candidate = self.candidates.at_revision(project_id, candidate_id, revision)
-        provider = self.resolver.context_runtime_for(project)
         return self.graph.execute(
-            self.key(project, candidate, "similarity", parameters={"limit": limit}, uses_support=True),
-            lambda: self._context_similarity(project, candidate, limit),
+            self.key(
+                project,
+                candidate,
+                "similarity",
+                parameters={"limit": limit, "target": target},
+                uses_support=True,
+            ),
+            lambda: self._context_similarity(project, candidate, limit, target),
         )
 
     def _context_similarity(
-        self, project: Project, candidate: Candidate, limit: int
+        self,
+        project: Project,
+        candidate: Candidate,
+        limit: int,
+        target: str | None = None,
     ) -> list[dict[str, object]]:
         provider = self.resolver.context_runtime_for(project)
-        rows = provider.similarity(candidate, limit)  # type: ignore[attr-defined]
+        rows = provider.similarity(candidate, limit, target=target)  # type: ignore[attr-defined]
         return [
             {
                 **row,

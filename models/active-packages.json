@@ -32,6 +32,14 @@
     "mpea-literature-tys-v1": {
       "active": "packages/mpea-literature-tys-ridge-v1",
       "previous": null
+    },
+    "mpea-room-tensile-v1": {
+      "active": "packages/mpea-room-tensile-ridge-v1",
+      "previous": null
+    },
+    "mpea-hardness-process-v1": {
+      "active": "packages/mpea-hardness-ridge-v1",
+      "previous": null
     }
   }
 }

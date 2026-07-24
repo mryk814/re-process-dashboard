@@ -129,7 +129,12 @@ def task_input_contract_digest(task: TaskDefinition) -> str:
 
 
 def runtime_capability_digest(capability: RuntimeCapability) -> str:
-    return _semantic_digest(capability.model_dump(mode="json"))
+    payload = capability.model_dump(mode="json")
+    # Added after the first packaged contracts.  Omitting only its false value
+    # preserves the immutable digest of every pre-existing Package.
+    if not payload["operations"].get("target_specific_similarity", False):
+        payload["operations"].pop("target_specific_similarity", None)
+    return _semantic_digest(payload)
 
 
 def dataset_profile_digest(path: Path | Any = DATASET_PROFILE_PATH) -> str:
@@ -145,6 +150,17 @@ def dataset_profile_digest(path: Path | Any = DATASET_PROFILE_PATH) -> str:
         else:
             profile = load_dataset_profile(profile_path)
     payload = profile.model_dump(mode="json", exclude={"task_definitions"})
+    if isinstance(payload.get("curation_recipe"), dict):
+        for rule in payload["curation_recipe"].get("columns", {}).values():
+            if isinstance(rule, dict):
+                if rule.get("warn_below") is None:
+                    rule.pop("warn_below", None)
+                if rule.get("warn_above") is None:
+                    rule.pop("warn_above", None)
+                if rule.get("reject_below") is None:
+                    rule.pop("reject_below", None)
+                if rule.get("reject_above") is None:
+                    rule.pop("reject_above", None)
     # Optional contract additions must not invalidate existing packages when the
     # active profile does not use them.
     if payload.get("curation_recipe") is None:

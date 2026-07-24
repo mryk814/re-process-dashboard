@@ -159,7 +159,7 @@ export const workbenchApi = {
   async modelPackage(projectId: string) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/model-package", { params: { path: { project_id: projectId } } }), "モデルPackageを取得できませんでした。");
   },
-  async modelTrainingData(projectId: string, stage: "selected" | "features", target: string, offset = 0, limit = 25, signal?: AbortSignal) {
+  async modelTrainingData(projectId: string, stage: "curation" | "selected" | "features", target: string, offset = 0, limit = 25, signal?: AbortSignal) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/model-package/training-data", {
       params: { path: { project_id: projectId }, query: { stage, target, offset, limit } },
       signal,
@@ -202,10 +202,10 @@ export const workbenchApi = {
       signal,
     );
   },
-  async similarCandidates(projectId: string, candidateId: string, expectedRevision: number, inputIdentity: string, limit = 6, signal?: AbortSignal) {
+  async similarCandidates(projectId: string, candidateId: string, expectedRevision: number, inputIdentity: string, target?: string, limit = 6, signal?: AbortSignal) {
     return inferenceRequestCache.get(
-      inferenceRequestKey(projectId, candidateId, inputIdentity, "similarity", String(limit)),
-      async (sharedSignal) => requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/similar", { params: { path: { project_id: projectId, candidate_id: candidateId }, query: { expected_revision: expectedRevision, limit } }, signal: sharedSignal }), "類似実験を取得できませんでした。"),
+      inferenceRequestKey(projectId, candidateId, inputIdentity, "similarity", `${target ?? ""}\u001f${limit}`),
+      async (sharedSignal) => requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/similar", { params: { path: { project_id: projectId, candidate_id: candidateId }, query: { expected_revision: expectedRevision, limit, target } }, signal: sharedSignal }), "類似実験を取得できませんでした。"),
       signal,
     );
   },

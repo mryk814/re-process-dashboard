@@ -38,7 +38,9 @@ export function trainingDataset(
 }
 
 export function datasetDisplayName(dataset: ApiDataLibraryDataset | undefined): string {
-  return dataset?.data_asset.original_filename.replace(/\.xlsx$/i, "") ?? "Dataset未解決";
+  if (!dataset) return "Dataset未解決";
+  const source = dataset.data_asset.original_filename.replace(/\.(xlsx|csv)$/i, "");
+  return `${source} · ${dataset.profile_revision.name}`;
 }
 
 export function modelPackageDisplayName(modelPackage: ApiModelPackageRef | undefined): string {

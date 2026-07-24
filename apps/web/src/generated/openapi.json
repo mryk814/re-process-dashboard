@@ -226,6 +226,11 @@
             "default": false,
             "title": "Candidate Excel Import",
             "type": "boolean"
+          },
+          "project_creation": {
+            "default": true,
+            "title": "Project Creation",
+            "type": "boolean"
           }
         },
         "title": "ApplicationCapability",
@@ -751,6 +756,52 @@
           "documents"
         ],
         "title": "ChangeGuideEntry",
+        "type": "object"
+      },
+      "CompositionTotalDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "balance_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Balance Path"
+          },
+          "component_paths": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 2,
+            "title": "Component Paths",
+            "type": "array"
+          },
+          "tolerance": {
+            "default": 1e-06,
+            "minimum": 0.0,
+            "title": "Tolerance",
+            "type": "number"
+          },
+          "total": {
+            "title": "Total",
+            "type": "number"
+          },
+          "unit": {
+            "minLength": 1,
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component_paths",
+          "total",
+          "unit"
+        ],
+        "title": "CompositionTotalDefinition",
         "type": "object"
       },
       "ConnectedObservation": {
@@ -3360,6 +3411,89 @@
         "title": "ModelQualityTarget",
         "type": "object"
       },
+      "ModelTrainingCurationSummary": {
+        "properties": {
+          "accepted_rows": {
+            "title": "Accepted Rows",
+            "type": "integer"
+          },
+          "blocked_rows": {
+            "title": "Blocked Rows",
+            "type": "integer"
+          },
+          "exclusion_reasons": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Exclusion Reasons",
+            "type": "object"
+          },
+          "input_usable_rows": {
+            "title": "Input Usable Rows",
+            "type": "integer"
+          },
+          "quarantined_rows": {
+            "title": "Quarantined Rows",
+            "type": "integer"
+          },
+          "source_rows": {
+            "title": "Source Rows",
+            "type": "integer"
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/ModelTrainingCurationTargetSummary"
+            },
+            "title": "Targets",
+            "type": "array"
+          },
+          "warning_rows": {
+            "title": "Warning Rows",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "source_rows",
+          "input_usable_rows",
+          "accepted_rows",
+          "warning_rows",
+          "quarantined_rows",
+          "blocked_rows",
+          "targets"
+        ],
+        "title": "ModelTrainingCurationSummary",
+        "type": "object"
+      },
+      "ModelTrainingCurationTargetSummary": {
+        "properties": {
+          "exclusion_reasons": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Exclusion Reasons",
+            "type": "object"
+          },
+          "source_groups": {
+            "title": "Source Groups",
+            "type": "integer"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "usable_rows": {
+            "title": "Usable Rows",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "target",
+          "usable_rows",
+          "source_groups"
+        ],
+        "title": "ModelTrainingCurationTargetSummary",
+        "type": "object"
+      },
       "ModelTrainingDataPage": {
         "properties": {
           "columns": {
@@ -3368,6 +3502,9 @@
             },
             "title": "Columns",
             "type": "array"
+          },
+          "curation_summary": {
+            "$ref": "#/components/schemas/ModelTrainingCurationSummary"
           },
           "feature_dataset_digest": {
             "title": "Feature Dataset Digest",
@@ -3406,6 +3543,7 @@
           },
           "stage": {
             "enum": [
+              "curation",
               "selected",
               "features"
             ],
@@ -3447,7 +3585,8 @@
           "offset",
           "limit",
           "columns",
-          "rows"
+          "rows",
+          "curation_summary"
         ],
         "title": "ModelTrainingDataPage",
         "type": "object"
@@ -5356,7 +5495,8 @@
             "$ref": "#/components/schemas/ApplicationCapability",
             "default": {
               "candidate_excel_export": false,
-              "candidate_excel_import": false
+              "candidate_excel_import": false,
+              "project_creation": true
             }
           },
           "data_explorer": {
@@ -5617,6 +5757,11 @@
           },
           "snapshot": {
             "title": "Snapshot",
+            "type": "boolean"
+          },
+          "target_specific_similarity": {
+            "default": false,
+            "title": "Target Specific Similarity",
             "type": "boolean"
           }
         },
@@ -6714,6 +6859,14 @@
             "title": "Canonical Candidate Schema Version",
             "type": "string"
           },
+          "composition_totals": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CompositionTotalDefinition"
+            },
+            "title": "Composition Totals",
+            "type": "array"
+          },
           "constraints": {
             "default": [],
             "items": {
@@ -6807,6 +6960,9 @@
           "group": {
             "enum": [
               "識別",
+              "原値",
+              "正規化",
+              "判定",
               "入力",
               "特徴量",
               "実測"
@@ -9153,6 +9309,22 @@
               "title": "Limit",
               "type": "integer"
             }
+          },
+          {
+            "in": "query",
+            "name": "target",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Target"
+            }
           }
         ],
         "responses": {
@@ -10099,6 +10271,7 @@
             "schema": {
               "default": "selected",
               "enum": [
+                "curation",
                 "selected",
                 "features"
               ],

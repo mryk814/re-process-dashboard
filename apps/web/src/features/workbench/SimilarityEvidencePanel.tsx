@@ -24,6 +24,7 @@ export function SimilarityEvidencePanel({
   candidate,
   outputs,
   available,
+  targetSpecific,
   ready,
   onAddCandidate,
 }: {
@@ -31,15 +32,17 @@ export function SimilarityEvidencePanel({
   candidate: Candidate;
   outputs: TaskOutputDefinition[];
   available: boolean;
+  targetSpecific: boolean;
   ready: boolean;
   onAddCandidate: (entityKey: string) => Promise<boolean>;
 }) {
   const [surface, setSurface] = useState(() => emptyInferenceSurface<ApiSimilarObservation[]>());
   const [addingKey, setAddingKey] = useState("");
   const [addedKeys, setAddedKeys] = useState<string[]>([]);
+  const [selectedTarget, setSelectedTarget] = useState(outputs[0]?.key ?? "");
   const surfaceRef = useRef(surface);
   const inputIdentity = candidateInputIdentity(candidate.raw.inputs);
-  const similarityScope = `${projectId}\u001f${candidate.id}\u001fsimilarity:6`;
+  const similarityScope = `${projectId}\u001f${candidate.id}\u001fsimilarity:${selectedTarget}:6`;
   const identity = `${similarityScope}\u001f${candidate.raw.revision}\u001f${inputIdentity}`;
   useEffect(() => {
     const empty = emptyInferenceSurface<ApiSimilarObservation[]>();
@@ -48,6 +51,11 @@ export function SimilarityEvidencePanel({
     setAddedKeys([]);
     setAddingKey("");
   }, [candidate.id]);
+  useEffect(() => {
+    if (!outputs.some((output) => output.key === selectedTarget)) {
+      setSelectedTarget(outputs[0]?.key ?? "");
+    }
+  }, [outputs, selectedTarget]);
   useEffect(() => {
     if (!available || !ready || candidate.raw.archived_at) return;
     const controller = new AbortController();
@@ -59,6 +67,7 @@ export function SimilarityEvidencePanel({
       candidate.id,
       candidate.raw.revision,
       inputIdentity,
+      selectedTarget || undefined,
       6,
       controller.signal,
     ).then((loaded) => {
@@ -73,15 +82,21 @@ export function SimilarityEvidencePanel({
       setSurface(rejected);
     });
     return () => controller.abort();
-  }, [available, candidate.id, candidate.raw.archived_at, candidate.raw.revision, identity, inputIdentity, projectId, ready]);
+  }, [available, candidate.id, candidate.raw.archived_at, candidate.raw.revision, identity, inputIdentity, projectId, ready, selectedTarget]);
   const status = inferenceSurfaceStatus(surface);
   const similar = surface.currentIdentity?.startsWith(`${similarityScope}\u001f`) ? surface.data ?? [] : [];
   const processLabel = similar.find((item) => item.process_label)?.process_label ?? "工程履歴";
+  const hasMeltKey = similar.some((item) => item.melt_key);
   const measuredOutputs = (item: ApiSimilarObservation) => outputs.flatMap((output) => {
     const summaryKey = [...(output.measurement_keys ?? []), output.key, output.label]
       .find((key) => item.repeat_summary?.[key]);
     const summary = summaryKey ? item.repeat_summary?.[summaryKey] : undefined;
-    return summary ? [{ output, summary }] : [];
+    const raw = item.outputs?.[output.key];
+    return summary
+      ? [{ output, summary }]
+      : typeof raw === "number"
+        ? [{ output, summary: { mean: raw, std: 0, n: 1 } }]
+        : [];
   });
   const add = async (entityKey: string) => {
     setAddingKey(entityKey);
@@ -98,7 +113,14 @@ export function SimilarityEvidencePanel({
           <h2><span className="reference-data-kicker">参照データ</span>近い実測条件 <span>（モデル学習範囲とは別）</span></h2>
           <span className="similar-caption">このプロジェクトが参照するDataset内で、成分・工程・熱履歴が近い条件です</span>
         </div>
-        {similar.length > 0 && <span className={`inference-surface-status ${status}`}>{status === "latest" ? "最新" : status === "refreshing" ? "更新中" : status === "stale" ? "旧revision・更新中" : "更新失敗・旧結果"}</span>}
+        <div className="similar-evidence-actions">
+          {targetSpecific && outputs.length > 1 && <label>近さの基準
+            <select value={selectedTarget} onChange={(event) => setSelectedTarget(event.target.value)}>
+              {outputs.map((output) => <option key={output.key} value={output.key}>{output.label}</option>)}
+            </select>
+          </label>}
+          {similar.length > 0 && <span className={`inference-surface-status ${status}`}>{status === "latest" ? "最新" : status === "refreshing" ? "更新中" : status === "stale" ? "旧revision・更新中" : "更新失敗・旧結果"}</span>}
+        </div>
       </div>
       {!available ? (
         <p className="empty-evidence">このタスクでは類似実験を利用できません。</p>
@@ -107,14 +129,14 @@ export function SimilarityEvidencePanel({
       ) : !ready ? (
         <p className="empty-evidence">入力を保存後に近さを更新します。</p>
       ) : similar.length ? (
-        <div className="similar-table-scroll"><table className="similar-table similar-summary-table">
-          <thead><tr><th>距離</th><th>溶製成績書 key</th><th>{processLabel} key</th><th>実績値</th><th /></tr></thead>
+        <div className="similar-table-scroll"><table className={`similar-table similar-summary-table${hasMeltKey ? "" : " no-melt-key"}`}>
+          <thead><tr><th>距離</th>{hasMeltKey && <th>溶製成績書 key</th>}<th>{processLabel} key</th><th>実績値</th><th /></tr></thead>
           <tbody>{similar.map((item) => (
             <tr key={`${item.layer ?? "training"}-${item.parent_key}`}>
               <td className="similar-distance"><b>{item.distance.toFixed(2)}</b><span className="layer-chip historical">参照データ</span></td>
-              <td className="similar-key">{item.melt_key ?? "—"}</td>
-              <td className="similar-key">{item.process_key ?? item.parent_key}</td>
-              <td><div className="similar-value-list"><small>{item.source || item.observation_id || "実績"}</small>{measuredOutputs(item).map(({ output, summary }) => { const assessment = assessOutputValues(output, [summary.mean], "実測値"); return <span className={assessment.implausible ? "implausible-output" : undefined} key={output.key} title={assessment.warning ?? `${output.label}: ${formatNumber(summary.mean, 1)} ± ${formatNumber(summary.std, 1)} ${output.unit} / n=${summary.n}`}><b>{output.key === "lambda" ? "λ" : output.key}</b><strong>{formatNumber(summary.mean, 1)}</strong>{assessment.implausible && <small className="output-warning-badge">⚠</small>}</span>; })}</div></td>
+              {hasMeltKey && <td><span className="similar-key" title={item.melt_key ?? undefined}>{item.melt_key ?? "—"}</span></td>}
+              <td><span className="similar-key" title={item.process_key ?? item.parent_key}>{item.process_key ?? item.parent_key}</span></td>
+              <td><div className="similar-value-list">{measuredOutputs(item).map(({ output, summary }) => { const assessment = assessOutputValues(output, [summary.mean], "実測値"); return <span className={assessment.implausible ? "implausible-output" : undefined} key={output.key} title={assessment.warning ?? `${output.label}: ${formatNumber(summary.mean, 1)} ± ${formatNumber(summary.std, 1)} ${output.unit} / n=${summary.n}`}><b>{output.key === "lambda" ? "λ" : output.key}</b><strong>{formatNumber(summary.mean, 1)}</strong>{assessment.implausible && <small className="output-warning-badge">⚠</small>}</span>; })}</div></td>
               <td className="similar-action-cell">
                 <CandidateAddButton compact disabled={!item.process_key || addingKey === item.process_key || addedKeys.includes(item.process_key ?? "")} onClick={() => { if (item.process_key) void add(item.process_key); }}>
                   {addedKeys.includes(item.process_key ?? "") ? "追加済み" : addingKey === item.process_key ? "追加中…" : "実測から候補化"}

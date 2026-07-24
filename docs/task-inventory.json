@@ -55,10 +55,12 @@
         "detailed_prediction": true,
         "response_curve": true,
         "similarity": true,
+        "target_specific_similarity": false,
         "snapshot": true,
         "actual_measurement": true
       },
       "application_capability": {
+        "project_creation": true,
         "candidate_excel_import": true,
         "candidate_excel_export": true
       },
@@ -101,10 +103,12 @@
         "detailed_prediction": true,
         "response_curve": true,
         "similarity": true,
+        "target_specific_similarity": false,
         "snapshot": true,
         "actual_measurement": true
       },
       "application_capability": {
+        "project_creation": true,
         "candidate_excel_import": false,
         "candidate_excel_export": false
       },
@@ -152,10 +156,12 @@
         "detailed_prediction": true,
         "response_curve": true,
         "similarity": true,
+        "target_specific_similarity": false,
         "snapshot": true,
         "actual_measurement": true
       },
       "application_capability": {
+        "project_creation": true,
         "candidate_excel_import": false,
         "candidate_excel_export": false
       },
@@ -198,10 +204,12 @@
         "detailed_prediction": true,
         "response_curve": true,
         "similarity": true,
+        "target_specific_similarity": false,
         "snapshot": true,
         "actual_measurement": false
       },
       "application_capability": {
+        "project_creation": true,
         "candidate_excel_import": false,
         "candidate_excel_export": false
       },
@@ -244,10 +252,12 @@
         "detailed_prediction": true,
         "response_curve": true,
         "similarity": true,
+        "target_specific_similarity": false,
         "snapshot": true,
         "actual_measurement": false
       },
       "application_capability": {
+        "project_creation": true,
         "candidate_excel_import": false,
         "candidate_excel_export": false
       },
@@ -290,10 +300,12 @@
         "detailed_prediction": true,
         "response_curve": true,
         "similarity": true,
+        "target_specific_similarity": false,
         "snapshot": true,
         "actual_measurement": false
       },
       "application_capability": {
+        "project_creation": true,
         "candidate_excel_import": false,
         "candidate_excel_export": false
       },
@@ -336,10 +348,12 @@
         "detailed_prediction": true,
         "response_curve": true,
         "similarity": true,
+        "target_specific_similarity": false,
         "snapshot": true,
         "actual_measurement": false
       },
       "application_capability": {
+        "project_creation": true,
         "candidate_excel_import": false,
         "candidate_excel_export": false
       },
@@ -352,7 +366,7 @@
     },
     {
       "task_id": "mpea-literature-tys-v1",
-      "label": "MPEA文献：組成のみの降伏強さ参考推定",
+      "label": "MPEA文献：組成のみの降伏強さ参考推定（旧版）",
       "outputs": [
         {
           "key": "TYS",
@@ -382,10 +396,113 @@
         "detailed_prediction": true,
         "response_curve": false,
         "similarity": true,
+        "target_specific_similarity": false,
         "snapshot": true,
         "actual_measurement": false
       },
       "application_capability": {
+        "project_creation": false,
+        "candidate_excel_import": false,
+        "candidate_excel_export": false
+      },
+      "data_explorer": null
+    },
+    {
+      "task_id": "mpea-room-tensile-v1",
+      "label": "MPEA文献：室温引張特性と工程",
+      "outputs": [
+        {
+          "key": "TYS",
+          "label": "室温引張降伏強さ",
+          "unit": "MPa"
+        },
+        {
+          "key": "UTS",
+          "label": "室温引張強さ",
+          "unit": "MPa"
+        },
+        {
+          "key": "EL",
+          "label": "室温引張伸び",
+          "unit": "%"
+        }
+      ],
+      "source": {
+        "kind": "external_mpea_literature",
+        "path": "data/source/external/mpea_ground_truth_18021833.csv",
+        "sha256": "a3b4230ff150e32ed51050a4813fc3fbad01b2bc2fc61b5d4fb8a5be3cc5e476",
+        "profile_id": "mpea-zenodo-18021833-room-tensile-v1",
+        "profile_path": "backend/src/material_workbench/data/tabular-profile-mpea-room-tensile-v1.json"
+      },
+      "active_package": {
+        "path": "packages/mpea-room-tensile-ridge-v1",
+        "previous": null,
+        "package_id": "mpea-room-tensile-ridge-v1",
+        "version": "1.0.0",
+        "manifest_sha256": "2a1abd8f1227b178284f0730001944c23b81080f05a746577b586471d5e1d585",
+        "runtime_types": [
+          "builtin.linear.v1"
+        ]
+      },
+      "runtime_operations": {
+        "preview": true,
+        "detailed_prediction": true,
+        "response_curve": false,
+        "similarity": true,
+        "target_specific_similarity": true,
+        "snapshot": true,
+        "actual_measurement": false
+      },
+      "application_capability": {
+        "project_creation": true,
+        "candidate_excel_import": false,
+        "candidate_excel_export": false
+      },
+      "data_explorer": {
+        "schema_version": "data-explorer-capability/v1",
+        "quality": true,
+        "lineage": false,
+        "candidate_creation": false
+      }
+    },
+    {
+      "task_id": "mpea-hardness-process-v1",
+      "label": "MPEA文献：硬さと工程",
+      "outputs": [
+        {
+          "key": "HV",
+          "label": "硬さ",
+          "unit": "HV"
+        }
+      ],
+      "source": {
+        "kind": "external_mpea_literature",
+        "path": "data/source/external/mpea_ground_truth_18021833.csv",
+        "sha256": "a3b4230ff150e32ed51050a4813fc3fbad01b2bc2fc61b5d4fb8a5be3cc5e476",
+        "profile_id": "mpea-zenodo-18021833-hardness-v1",
+        "profile_path": "backend/src/material_workbench/data/tabular-profile-mpea-hardness-v1.json"
+      },
+      "active_package": {
+        "path": "packages/mpea-hardness-ridge-v1",
+        "previous": null,
+        "package_id": "mpea-hardness-ridge-v1",
+        "version": "1.0.0",
+        "manifest_sha256": "a75769b594acc7a8540c3ffc6c3f605315963006be67f394220c9b458e02ede3",
+        "runtime_types": [
+          "builtin.linear.v1"
+        ]
+      },
+      "runtime_operations": {
+        "preview": true,
+        "detailed_prediction": true,
+        "response_curve": false,
+        "similarity": true,
+        "target_specific_similarity": false,
+        "snapshot": true,
+        "actual_measurement": false
+      },
+      "application_capability": {
+        "project_creation": true,
         "candidate_excel_import": false,
         "candidate_excel_export": false
       },
