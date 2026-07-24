@@ -36,6 +36,7 @@
 .quality-issue-group[open] summary::before { transform: translateX(-10px) rotate(90deg); }
 .quality-issue-group summary strong { font-size: 13px; }
 .quality-issue-group summary span:not(.status-tag) { overflow: hidden; color: #536277; text-overflow: ellipsis; white-space: nowrap; }
+.quality-issue-group[open] summary span:not(.status-tag) { overflow: visible; text-overflow: clip; white-space: normal; }
 .quality-issue-group summary b { color: #174f98; font-size: 12px; white-space: nowrap; }
 .quality-issue-group .table-scroll { border-top: 1px solid #d8e0ea; }
 .quality-issue-group .quality-table { border: 0; }

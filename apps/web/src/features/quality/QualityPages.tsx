@@ -182,12 +182,12 @@ export function LiveDataQualityPage({
               {visibleGroups.map((group) => {
                 const hasFocusedIssue = group.issues.some((issue) => issue.issue_id === filters.issueId);
                 const isRepeated = group.issues.length > 1;
-                const isOpen = groupOpenState[group.key] ?? (!isRepeated || hasFocusedIssue);
+                const isOpen = hasFocusedIssue || Boolean(normalizedKey) || (groupOpenState[group.key] ?? !isRepeated);
                 return <details className="quality-issue-group" key={group.key} open={isOpen} onToggle={(event) => setGroupOpenState((current) => ({ ...current, [group.key]: event.currentTarget.open }))}>
                   <summary>
                     <span className={`status-tag ${group.issueType !== "missing_key" && group.issueType !== "orphan_entity" ? "warn" : ""}`}>{labels[group.issueType]}</span>
                     <strong>{group.sourceSheet}</strong>
-                    <span>{group.detail}</span>
+                    <span title={group.detail}>{group.detail}</span>
                     <b>{group.issues.length}件</b>
                   </summary>
                   <div className="table-scroll">
