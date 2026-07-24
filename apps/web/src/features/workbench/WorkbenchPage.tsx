@@ -27,6 +27,7 @@ import {
 } from "../../shared/api/workbench-api";
 import { SimilarityEvidencePanel } from "./SimilarityEvidencePanel";
 import { FeatureEngineeringPanel } from "./FeatureEngineeringPanel";
+import { DecisionActivityPanel } from "./DecisionActivityPanel";
 import { HeatPattern } from "./HeatPatternPanel";
 import {
   CurveFamilyPanel,
@@ -149,6 +150,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
     onProjectChanged,
   } = props;
   const [comparisonExpanded, setComparisonExpanded] = useState(false);
+  const [activityOpen, setActivityOpen] = useState(false);
   const [inspectorWidth, setInspectorWidth] = useState(() => clampLayoutValue(storedLayoutNumber(workbenchLayoutStorage.inspectorWidth, 330), 260, 520));
   const [inspectorMax, setInspectorMax] = useState(520);
   const [curveShare, setCurveShare] = useState(() => clampLayoutValue(storedLayoutNumber(workbenchLayoutStorage.curveShare, 50), 30, 70));
@@ -231,6 +233,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
           </div>
           {previewError && <span className="comparison-preview-error" role="alert">{previewError}{operations?.preview && <button type="button" onClick={onRetryPreview}>再試行</button>}</span>}
           <div className="comparison-actions" aria-label="候補操作">
+            <button type="button" className="outline-button" aria-expanded={activityOpen} onClick={() => setActivityOpen((value) => !value)}>検討アクティビティ</button>
             <CandidateFileControls projectId={projectId} capability={application} onImported={onImported} />
             <CandidateAddButton onClick={onAdd}>候補を追加</CandidateAddButton>
           </div>
@@ -309,6 +312,13 @@ export function WorkbenchPage(props: WorkbenchProps) {
         </div>
         <FeatureEngineeringPanel preview={preview} />
       </section>
+      {activityOpen && taskDefinition && <DecisionActivityPanel
+        projectId={projectId}
+        candidate={selected}
+        taskDefinition={taskDefinition}
+        ready={["idle", "saved"].includes(saveState)}
+        onClose={() => setActivityOpen(false)}
+      />}
     </div>
   );
 }

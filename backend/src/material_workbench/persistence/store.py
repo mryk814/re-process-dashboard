@@ -22,6 +22,7 @@ from material_workbench.contracts.schemas import (
     LineageNodeReviewInput,
 )
 from material_workbench.persistence.lineage_review_migration import migrate_lineage_reviews
+from material_workbench.persistence.decision_activity_migration import migrate_decision_activity_runs
 
 
 def _target_values_json(values: dict[str, object]) -> str:
@@ -101,6 +102,7 @@ class Store:
     def _init(self) -> None:
         migrate_workspace_catalog(self.path)
         migrate_lineage_reviews(self.path)
+        migrate_decision_activity_runs(self.path)
 
     @staticmethod
     def _project(row: sqlite3.Row) -> Project:
@@ -246,6 +248,7 @@ class Store:
                 placeholders = ",".join("?" for _ in candidate_ids)
                 conn.execute(f"DELETE FROM actual_measurements WHERE candidate_id IN ({placeholders})", candidate_ids)
                 conn.execute(f"DELETE FROM snapshots WHERE candidate_id IN ({placeholders})", candidate_ids)
+            conn.execute("DELETE FROM decision_activity_runs WHERE project_id=?", (project_id,))
             conn.execute("DELETE FROM candidates WHERE project_id=?", (project_id,))
             conn.execute("DELETE FROM screening_runs WHERE project_id=?", (project_id,))
             conn.execute("DELETE FROM lineage_node_reviews WHERE project_id=?", (project_id,))
@@ -539,6 +542,7 @@ class Store:
                 conn.execute("SELECT 1 FROM projects WHERE decision_candidate_id=?", (candidate_id,)).fetchone()
                 or conn.execute("SELECT 1 FROM snapshots WHERE candidate_id=?", (candidate_id,)).fetchone()
                 or conn.execute("SELECT 1 FROM actual_measurements WHERE candidate_id=?", (candidate_id,)).fetchone()
+                or conn.execute("SELECT 1 FROM decision_activity_runs WHERE candidate_id=?", (candidate_id,)).fetchone()
             )
             if not referenced:
                 for screening_row in conn.execute("SELECT payload FROM screening_runs WHERE project_id=?", (project_id,)):
@@ -601,6 +605,91 @@ class Store:
         with self._connect() as conn:
             rows = conn.execute("SELECT * FROM screening_runs WHERE project_id = ? ORDER BY created_at DESC", (project_id,)).fetchall()
         return [{"id": row["id"], "project_id": row["project_id"], "created_at": row["created_at"], **json.loads(row["payload"])} for row in rows]
+
+    @staticmethod
+    def _decision_activity_run(row: sqlite3.Row) -> dict[str, Any]:
+        return {
+            "id": row["id"],
+            "semantic_identity": row["semantic_identity"],
+            "project_id": row["project_id"],
+            "created_at": row["created_at"],
+            **json.loads(row["payload"]),
+        }
+
+    def create_decision_activity_run(
+        self,
+        *,
+        semantic_identity: str,
+        project_id: str,
+        candidate_id: str,
+        activity_id: str,
+        activity_version: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        run_id = f"activity-{semantic_identity.removeprefix('sha256:')[:24]}"
+        created_at = _now()
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            if conn.execute(
+                "SELECT 1 FROM candidates WHERE id=? AND project_id=?",
+                (candidate_id, project_id),
+            ).fetchone() is None:
+                raise ProjectNotFoundError(project_id)
+            conn.execute(
+                "INSERT OR IGNORE INTO decision_activity_runs("
+                "id,semantic_identity,project_id,candidate_id,activity_id,"
+                "activity_version,payload,created_at) VALUES (?,?,?,?,?,?,?,?)",
+                (
+                    run_id,
+                    semantic_identity,
+                    project_id,
+                    candidate_id,
+                    activity_id,
+                    activity_version,
+                    json.dumps(payload, ensure_ascii=False, sort_keys=True),
+                    created_at,
+                ),
+            )
+            row = conn.execute(
+                "SELECT * FROM decision_activity_runs WHERE semantic_identity=?",
+                (semantic_identity,),
+            ).fetchone()
+        if row is None:
+            raise StoreDataIntegrityError("検討アクティビティを保存できませんでした")
+        return self._decision_activity_run(row)
+
+    def get_decision_activity_run_by_identity(
+        self, semantic_identity: str
+    ) -> dict[str, Any] | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM decision_activity_runs WHERE semantic_identity=?",
+                (semantic_identity,),
+            ).fetchone()
+        return self._decision_activity_run(row) if row else None
+
+    def get_decision_activity_run(
+        self, run_id: str, project_id: str
+    ) -> dict[str, Any] | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM decision_activity_runs WHERE id=? AND project_id=?",
+                (run_id, project_id),
+            ).fetchone()
+        return self._decision_activity_run(row) if row else None
+
+    def list_decision_activity_runs(
+        self, project_id: str, candidate_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        query = "SELECT * FROM decision_activity_runs WHERE project_id=?"
+        parameters: tuple[str, ...] = (project_id,)
+        if candidate_id is not None:
+            query += " AND candidate_id=?"
+            parameters = (project_id, candidate_id)
+        query += " ORDER BY created_at DESC"
+        with self._connect() as conn:
+            rows = conn.execute(query, parameters).fetchall()
+        return [self._decision_activity_run(row) for row in rows]
 
     @staticmethod
     def _actual(row: sqlite3.Row) -> ActualMeasurement:

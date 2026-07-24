@@ -15,6 +15,7 @@ from .api.errors import PROJECT_API_ERRORS, install_exception_handlers
 from .api.security import configure_local_access
 from .api.catalog import router as catalog_router
 from .api.data_library import router as data_library_router
+from .api.decision_activities import router as decision_activities_router
 from .api.developer import router as developer_router
 from .api.project_series import router as project_series_router
 from .api.profile_workbench import router as profile_workbench_router
@@ -193,6 +194,7 @@ def create_app(
     app.include_router(candidates_router)
     app.include_router(data_exploration_router)
     app.include_router(screening_router)
+    app.include_router(decision_activities_router)
     app.include_router(inference_router)
     app.include_router(records_router)
 
