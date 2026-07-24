@@ -87,6 +87,22 @@ def test_fixtures_freeze_complete_task_specific_input_sets() -> None:
     assert hot_rolled.runtime_capability.operations.response_curve is True
 
 
+def test_annealed_line_speed_is_optional_when_heat_pattern_is_available() -> None:
+    raw = load_fixture("annealed-properties-v1.json")
+    process_fields = next(
+        group["fields"]
+        for group in raw["task_definition"]["input_groups"]
+        if group["key"] == "process"
+    )
+    line_speed = next(field for field in process_fields if field["path"] == "process.ls_mpm")
+    assert line_speed["required"] is False
+
+    raw["canonical_candidate"]["process"].pop("ls_mpm")
+
+    fixture = TaskContractFixture.model_validate(raw)
+    assert fixture.canonical_candidate.process == {}
+
+
 @pytest.mark.parametrize(
     ("fixture_name", "source_name", "expected_parent_count"),
     [

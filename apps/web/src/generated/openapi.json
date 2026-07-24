@@ -2495,6 +2495,13 @@
             ],
             "title": "Learning Status"
           },
+          "melt_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Melt Keys",
+            "type": "array"
+          },
           "observation_summary": {
             "anyOf": [
               {

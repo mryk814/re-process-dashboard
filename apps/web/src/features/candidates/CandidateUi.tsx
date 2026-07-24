@@ -153,7 +153,7 @@ function CandidateInputGroup({ candidate, group, numeric, inputRanges, fieldErro
   numeric: Map<string, NumericTaskInput>;
   inputRanges: Record<string, NumericRange>;
   fieldErrors: Array<{ path: string; message: string }>;
-  onInput: (path: string, value: number | string) => void;
+  onInput: (path: string, value: number | string | undefined) => void;
 }) {
   return (
     <section className={`inspector-section task-input-group ${group.key}`} data-input-group={group.key}>
@@ -167,12 +167,15 @@ function CandidateInputGroup({ candidate, group, numeric, inputRanges, fieldErro
           }
           const input = numeric.get(field.path);
           if (!input) throw new Error(`Numeric TaskDefinition field is unavailable: ${field.path}`);
+          const missingOptionalValue = value === undefined && !field.required;
           const numberValue = Number(value ?? 0);
           const scale = sliderScale(input, numberValue, inputRanges);
           return (
             <label className="slider-field" key={field.path}>
-              <span><b>{field.label}</b><em><input disabled={!field.editable} className="slider-number" type="number" min={scale.min} max={scale.max} step="any" value={numberValue} aria-label={`${candidate.label} ${field.label}の数値`} onChange={(event) => onInput(field.path, Number(event.target.value))} /> {field.unit}</em></span>
-              <input disabled={!field.editable} type="range" min={scale.min} max={scale.max} step="any" value={scale.value} style={scale.style} aria-label={`${candidate.label} ${field.label}`} onChange={(event) => onInput(field.path, Number(event.target.value))} />
+              <span><b>{field.label}</b><em><input disabled={!field.editable} className="slider-number" type="number" min={scale.min} max={scale.max} step="any" value={missingOptionalValue ? "" : numberValue} placeholder={missingOptionalValue ? "未設定" : undefined} aria-label={`${candidate.label} ${field.label}の数値`} onChange={(event) => onInput(field.path, event.target.value === "" && !field.required ? undefined : Number(event.target.value))} /> {field.unit}</em></span>
+              {missingOptionalValue
+                ? <small>ヒートパターンの経過時間を使用中</small>
+                : <input disabled={!field.editable} type="range" min={scale.min} max={scale.max} step="any" value={scale.value} style={scale.style} aria-label={`${candidate.label} ${field.label}`} onChange={(event) => onInput(field.path, Number(event.target.value))} />}
               {errors.map((error) => <small className="field-error" key={error.path}>{error.message}</small>)}
             </label>
           );
@@ -199,7 +202,7 @@ export function CandidateInspector({
   saveState: CandidateSaveState;
   inputRanges?: Record<string, NumericRange>;
   fieldErrors: Array<{ path: string; message: string }>;
-  onInput: (path: string, value: number | string) => void;
+  onInput: (path: string, value: number | string | undefined) => void;
   onReload: () => void;
   onCopyDraft: () => void;
   heatPattern?: ReactNode;
@@ -279,7 +282,7 @@ export function ComparisonTable({
   snapshotHistoryState: "loading" | "ready" | "error";
   onSelect: (id: string) => void;
   onName: (id: string, value: string) => void;
-  onInput: (id: string, path: string, value: number | string) => void;
+  onInput: (id: string, path: string, value: number | string | undefined) => void;
   onCopy: (id: string) => void;
   onDelete: (id: string) => void;
   onSave: (candidate: CandidateViewModel) => void;
@@ -392,7 +395,7 @@ export function ComparisonTable({
     if (field.kind === "categorical") return <td className="composition-col" key={field.path}><select disabled={!field.editable} aria-label={`${candidate.label} ${field.label}`} value={String(current ?? "")} onFocus={() => onSelect(candidate.id)} onChange={(event) => onInput(candidate.id, field.path, event.target.value)}>{field.choices.map((choice) => <option key={choice}>{choice}</option>)}</select></td>;
     const key = `${candidate.id}:${field.path}`;
     const value = drafts[key] ?? (typeof current === "number" ? formatInputNumber(current, taskDefinition, field.path, displayDecimalOverrides) : "");
-    return <td className="composition-col numeric-cell" key={field.path}><input disabled={!field.editable} type="number" step="any" value={value} aria-label={`${candidate.label} ${field.label}`} onFocus={() => { onSelect(candidate.id); setDrafts((items) => ({ ...items, [key]: typeof current === "number" ? String(current) : "" })); }} onChange={(event) => setDrafts((items) => ({ ...items, [key]: event.target.value }))} onBlur={(event) => { const next = Number(event.target.value); setDrafts((items) => { const { [key]: _, ...rest } = items; return rest; }); if (Number.isFinite(next) && next !== current) onInput(candidate.id, field.path, next); }} /></td>;
+    return <td className="composition-col numeric-cell" key={field.path}><input disabled={!field.editable} type="number" step="any" value={value} aria-label={`${candidate.label} ${field.label}`} onFocus={() => { onSelect(candidate.id); setDrafts((items) => ({ ...items, [key]: typeof current === "number" ? String(current) : "" })); }} onChange={(event) => setDrafts((items) => ({ ...items, [key]: event.target.value }))} onBlur={(event) => { const raw = event.target.value; const next = Number(raw); setDrafts((items) => { const { [key]: _, ...rest } = items; return rest; }); if (raw === "" && !field.required) onInput(candidate.id, field.path, undefined); else if (Number.isFinite(next) && next !== current) onInput(candidate.id, field.path, next); }} /></td>;
   };
   return (
     <div className="candidate-comparison">

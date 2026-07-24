@@ -13,7 +13,7 @@
         1
       ],
       "final_iterations": 20,
-      "residual_std": 4.337842205521082,
+      "residual_std": 3.9279927423719845,
       "calibration": "deterministic_grouped_parent_condition_oof",
       "parameters": {
         "objective": "regression_l2",
@@ -50,7 +50,7 @@
         1
       ],
       "final_iterations": 20,
-      "residual_std": 56.67434016672211,
+      "residual_std": 51.918099422253974,
       "calibration": "deterministic_grouped_parent_condition_oof",
       "parameters": {
         "objective": "regression_l2",
@@ -124,7 +124,7 @@
         1
       ],
       "final_iterations": 20,
-      "residual_std": 14.556813982919936,
+      "residual_std": 13.375052291842593,
       "calibration": "deterministic_grouped_parent_condition_oof",
       "parameters": {
         "objective": "regression_l2",

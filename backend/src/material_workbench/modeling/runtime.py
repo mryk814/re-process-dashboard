@@ -599,7 +599,12 @@ class ModelRuntime:
                 raise ValueError(f"Unsupported response-curve variable: {variable}")
             return float(candidate.inputs.composition.get(field, self.composition_defaults[field]))
         if variable.startswith("process."):
-            return float(candidate.inputs.process[variable.removeprefix("process.")])
+            field = variable.removeprefix("process.")
+            if field not in candidate.inputs.process:
+                raise ValueError(
+                    f"{variable}はこの候補で未設定のため、応答曲線を作成できません"
+                )
+            return float(candidate.inputs.process[field])
         if variable == "heat.peak_temperature_c":
             return float(max(point.temperature_c for point in (candidate.inputs.heat_pattern or [])))
         if variable == HEAT_STAGE_TEMPERATURE_VARIABLE:
@@ -688,6 +693,10 @@ class ModelRuntime:
             return
         if variable.startswith("process."):
             if variable == "process.ls_mpm":
+                if "ls_mpm" not in candidate.inputs.process:
+                    raise ValueError(
+                        "ライン速度はこの候補で未設定のため、応答曲線を作成できません"
+                    )
                 old_speed = float(candidate.inputs.process["ls_mpm"])
                 new_speed = max(0.001, float(value))
                 points = candidate.inputs.heat_pattern or []

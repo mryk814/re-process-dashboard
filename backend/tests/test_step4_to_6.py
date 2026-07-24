@@ -151,6 +151,33 @@ def test_lineage_candidate_preserves_stage_order_and_boundaries(client) -> None:
     assert all(right.time_s > left.time_s for left, right in zip(actual.inputs.heat_pattern, actual.inputs.heat_pattern[1:]))
 
 
+def test_lineage_candidate_without_line_speed_predicts_and_rejects_ls_curve(client) -> None:
+    response = client.post("/api/projects/default/lineage/AN-06/candidate")
+    assert response.status_code == 201
+    candidate = response.json()
+    assert candidate["inputs"]["process"] == {}
+    assert candidate["inputs"]["heat_time_basis"] == "elapsed_time"
+
+    preview = client.post(
+        f"/api/projects/default/candidates/{candidate['id']}/preview",
+        params={"expected_revision": candidate["revision"]},
+    )
+    assert preview.status_code == 200
+    assert set(preview.json()["predictions"]) == {"TS", "YS", "EL", "lambda"}
+
+    curve = client.get(
+        f"/api/projects/default/candidates/{candidate['id']}/response-curve",
+        params={
+            "expected_revision": candidate["revision"],
+            "target": "TS",
+            "variable": "process.ls_mpm",
+            "points": 9,
+        },
+    )
+    assert curve.status_code == 422
+    assert "未設定" in curve.json()["message"]
+
+
 def test_hot_lineage_candidate_uses_hot_rolling_inputs(client) -> None:
     expected = candidate_from_lineage(client.app.state.data, "HR-01")
     assert expected.inputs.heat_pattern is None

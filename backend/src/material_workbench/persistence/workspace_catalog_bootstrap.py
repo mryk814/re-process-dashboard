@@ -213,6 +213,129 @@ def bind_legacy_projects(database: str | Path, catalog: WorkspaceCatalog, bindin
     return len(prepared)
 
 
+def refresh_replaced_tutorial_projects(
+    database: str | Path, bindings: dict[str, ProjectBinding]
+) -> int:
+    """Move Projects backed by the replaced bundled tutorial to its new contract.
+
+    This migration is deliberately scoped by the bundled tutorial filename and
+    never touches Projects backed by user-managed or other bundled data. Once
+    every tutorial Project is rebound, unreachable stale catalog records are
+    archived so Data Library does not expose broken duplicate entries.
+    """
+
+    migrated_at = datetime.now(UTC).isoformat()
+    updated = 0
+    stale_view_ids: set[str] = set()
+    stale_package_ref_ids: set[str] = set()
+    with sqlite3.connect(database) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT p.id,p.task_id,p.dataset_view_revision_id,p.task_contract_digest,"
+            "p.model_package_ref_id,p.model_package_manifest_digest,"
+            "a.original_filename,a.locator_kind "
+            "FROM projects p "
+            "JOIN dataset_view_revisions v ON v.id=p.dataset_view_revision_id AND v.kind='single' "
+            "JOIN dataset_view_members vm ON vm.dataset_view_revision_id=v.id "
+            "JOIN dataset_revisions d ON d.id=vm.dataset_revision_id "
+            "JOIN data_assets a ON a.id=d.data_asset_id "
+            "WHERE a.locator_kind='bundled' AND a.original_filename=?",
+            (Path(PRIMARY_DEFAULT_SOURCE).name,),
+        ).fetchall()
+        conn.execute("BEGIN IMMEDIATE")
+        for row in rows:
+            binding = bindings.get(row["task_id"])
+            if binding is None:
+                continue
+            desired = (
+                binding.dataset_view_revision_id,
+                binding.task_contract_digest,
+                binding.model_package_ref_id,
+                binding.model_package_manifest_digest,
+            )
+            if (
+                row["dataset_view_revision_id"] == binding.dataset_view_revision_id
+                and row["task_contract_digest"] == binding.task_contract_digest
+            ):
+                continue
+            stale_view_ids.add(row["dataset_view_revision_id"])
+            stale_package_ref_ids.add(row["model_package_ref_id"])
+            conn.execute(
+                "UPDATE projects SET dataset_view_revision_id=?,task_contract_digest=?,"
+                "model_package_ref_id=?,model_package_manifest_digest=?,binding_migrated_at=? "
+                "WHERE id=?",
+                (*desired, migrated_at, row["id"]),
+            )
+            updated += 1
+
+        for view_id in stale_view_ids:
+            conn.execute(
+                "UPDATE dataset_view_revisions SET archived_at=? WHERE id=? "
+                "AND NOT EXISTS (SELECT 1 FROM projects WHERE dataset_view_revision_id=?)",
+                (migrated_at, view_id, view_id),
+            )
+        conn.execute(
+            "UPDATE dataset_revisions SET archived_at=? "
+            "WHERE archived_at IS NULL "
+            "AND NOT EXISTS ("
+            "SELECT 1 FROM dataset_view_members vm "
+            "JOIN dataset_view_revisions v ON v.id=vm.dataset_view_revision_id AND v.archived_at IS NULL "
+            "WHERE vm.dataset_revision_id=dataset_revisions.id"
+            ")",
+            (migrated_at,),
+        )
+        conn.execute(
+            "UPDATE data_assets SET archived_at=? "
+            "WHERE archived_at IS NULL "
+            "AND NOT EXISTS ("
+            "SELECT 1 FROM dataset_revisions d "
+            "WHERE d.data_asset_id=data_assets.id AND d.archived_at IS NULL"
+            ")",
+            (migrated_at,),
+        )
+        for package_ref_id in stale_package_ref_ids:
+            conn.execute(
+                "UPDATE model_package_refs SET archived_at=? WHERE id=? "
+                "AND NOT EXISTS (SELECT 1 FROM projects WHERE model_package_ref_id=?)",
+                (migrated_at, package_ref_id, package_ref_id),
+            )
+    return updated
+
+
+def archive_unreachable_stale_package_refs(database: str | Path) -> int:
+    """Hide unreferenced catalog refs whose on-disk Package was replaced."""
+
+    archived_at = datetime.now(UTC).isoformat()
+    archived = 0
+    with sqlite3.connect(database) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT id,locator,manifest_digest FROM model_package_refs "
+            "WHERE archived_at IS NULL"
+        ).fetchall()
+        actual_by_locator: dict[str, str | None] = {}
+        conn.execute("BEGIN IMMEDIATE")
+        for row in rows:
+            locator = row["locator"]
+            if locator not in actual_by_locator:
+                try:
+                    actual_by_locator[locator] = ModelPackageLoader().load(
+                        Path(locator)
+                    ).manifest_sha256
+                except (OSError, PackageContractError):
+                    actual_by_locator[locator] = None
+            actual_digest = actual_by_locator[locator]
+            if actual_digest is None or row["manifest_digest"] == actual_digest:
+                continue
+            result = conn.execute(
+                "UPDATE model_package_refs SET archived_at=? WHERE id=? "
+                "AND NOT EXISTS (SELECT 1 FROM projects WHERE model_package_ref_id=?)",
+                (archived_at, row["id"], row["id"]),
+            )
+            archived += result.rowcount
+    return archived
+
+
 def audit_project_bindings(database: str | Path) -> None:
     checks = (
         (
@@ -244,5 +367,7 @@ def bootstrap_workspace_catalog(database: str | Path, registry: TaskRegistry) ->
     register_primary_datasets(catalog)
     register_available_packages(catalog, registry)
     bind_legacy_projects(database, catalog, bindings)
+    refresh_replaced_tutorial_projects(database, bindings)
+    archive_unreachable_stale_package_refs(database)
     audit_project_bindings(database)
     return catalog

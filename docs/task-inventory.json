@@ -36,7 +36,7 @@
       "source": {
         "kind": "primary",
         "path": "data/source/material_workbench_tutorial_v1.xlsx",
-        "sha256": "007a6910abb4293d79597d3e137e784cd775f3011b4caac4bcfdd8c275b338b8",
+        "sha256": "a011476eb6514de278635e52f58a86bcce8f1078ee3933c121e5a463fa7af382",
         "profile_id": "thin-sheet-tutorial-v1",
         "profile_path": "backend/src/material_workbench/data/dataset-input-profile-tutorial.json"
       },
@@ -45,7 +45,7 @@
         "previous": null,
         "package_id": "annealed-gp-stable-ard-tutorial-v1",
         "version": "2.0.0-stable-ard",
-        "manifest_sha256": "aec17fd601a224ba1ab4db94c79c3e0db1cc0bc8387dcf09054b2f50b9d9e71f",
+        "manifest_sha256": "9e0e25859643aaeb7a6f5d7c8bc9ff4438dc04bb2e0eee8121db6e04da7c9b15",
         "runtime_types": [
           "builtin.exact_gp.v1"
         ]
@@ -82,7 +82,7 @@
       "source": {
         "kind": "primary",
         "path": "data/source/material_workbench_tutorial_v1.xlsx",
-        "sha256": "007a6910abb4293d79597d3e137e784cd775f3011b4caac4bcfdd8c275b338b8",
+        "sha256": "a011476eb6514de278635e52f58a86bcce8f1078ee3933c121e5a463fa7af382",
         "profile_id": "thin-sheet-tutorial-v1",
         "profile_path": "backend/src/material_workbench/data/dataset-input-profile-tutorial.json"
       },
@@ -91,7 +91,7 @@
         "previous": null,
         "package_id": "hot-rolled-tutorial-v1",
         "version": "1.1.0-feature-design-v3",
-        "manifest_sha256": "473164828ff11b62be0b3646266bd1bd9f15aa3e91561437ec145b27076518bb",
+        "manifest_sha256": "35564d807e682c2773125126109b82c918d24aedd46182155981798c96418a0d",
         "runtime_types": [
           "builtin.posterior_linear.v1"
         ]

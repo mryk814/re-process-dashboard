@@ -53,8 +53,35 @@ def test_tutorial_profile_keeps_relations_repeats_and_partial_targets_explicit()
 
     tt03 = next(row for row in data.observations if row["id"] == "TT-03")
     tt07 = next(row for row in data.observations if row["id"] == "TT-07")
+    ht01 = next(row for row in data.observations if row["id"] == "HT-01")
+    an06 = data.anneal_features["AN-06"]
     assert "YS[MPa]" not in tt03["outputs"]
     assert "EL[%]" not in tt07["outputs"]
+    assert {
+        row["composition_key"]
+        for row in data.observations
+        if row["parent_key"] == "AN-02"
+    } == {"ME-01", "ME-02"}
+    assert ht01["composition_key"] == "ME-01"
+    assert len(ht01["relation_context_ids"]) >= 2
+    assert an06["ls_mpm"] is None
+    assert an06["feature_eligible"] is True
+    assert [
+        (option.process_key, option.melt_key)
+        for option in lineage_candidate_options(data, "HT-01")
+    ] == [("HR-01", "ME-01")]
+    shared_candidate = candidate_from_lineage(
+        data, "AN-02", process_key="AN-02", melt_key="ME-01"
+    )
+    shared_route_ids = set(
+        shared_candidate.provenance.source_ref.relation_context_ids
+    )
+    assert shared_route_ids
+    assert all(
+        route.members.get("melt") in {None, "ME-01"}
+        for route in data.relation_routes
+        if route.id in shared_route_ids
+    )
     assert data.detected_quality == []
 
 

@@ -5,17 +5,17 @@
   "targets": [
     {
       "target": "EL",
-      "parent_conditions": 6,
-      "mae": 3.9000000000000004,
-      "rmse": 4.337842205521082,
-      "interval_coverage_90": 1.0
+      "parent_conditions": 7,
+      "mae": 3.2142857142857144,
+      "rmse": 3.9279927423719845,
+      "interval_coverage_90": 0.8571428571428571
     },
     {
       "target": "TS",
-      "parent_conditions": 6,
-      "mae": 50.86666666666664,
-      "rmse": 56.67434016672211,
-      "interval_coverage_90": 1.0
+      "parent_conditions": 7,
+      "mae": 42.166666666666664,
+      "rmse": 51.918099422253974,
+      "interval_coverage_90": 0.8571428571428571
     },
     {
       "target": "YS",
@@ -26,10 +26,10 @@
     },
     {
       "target": "lambda",
-      "parent_conditions": 6,
-      "mae": 13.066666666666668,
-      "rmse": 14.556813982919936,
-      "interval_coverage_90": 0.8333333333333334
+      "parent_conditions": 7,
+      "mae": 11.178571428571427,
+      "rmse": 13.375052291842593,
+      "interval_coverage_90": 0.8571428571428571
     }
   ]
 }

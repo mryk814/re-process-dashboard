@@ -315,6 +315,7 @@ class DataExplorationService:
                 values_by_property.setdefault(property_name, []).append(float(value))
         return {
             "family": str(melt_row.get(family_column) or "") if family_column else "",
+            "melt_keys": melt_keys,
             "project": str(source_row.get(data.technical_columns.get(("annealing", "project"))) or ""),
             "route": str(feature.get("standard_route") or ""),
             "peak_temperature_c": feature.get("max_temperature_c"),

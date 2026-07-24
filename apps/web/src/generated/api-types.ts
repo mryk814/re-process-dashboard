@@ -1780,6 +1780,8 @@ export interface components {
             key: string;
             /** Learning Status */
             learning_status?: string | null;
+            /** Melt Keys */
+            melt_keys?: string[];
             /** Observation Summary */
             observation_summary?: {
                 [key: string]: components["schemas"]["RepeatSummary"];

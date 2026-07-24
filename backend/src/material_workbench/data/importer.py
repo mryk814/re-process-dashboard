@@ -885,6 +885,27 @@ def load_workbook_data(
             )
             composition_key = observation_melt_keys[0] if len(observation_melt_keys) == 1 else None
             comp = composition.get(composition_key) if composition_key else None
+            relation_context_ids = {
+                route.id
+                for route in matching_routes
+            }
+            if composition_key and not any(
+                route.members.get("melt") == composition_key
+                for route in matching_routes
+            ):
+                bridge_routes = [
+                    route
+                    for route in relation_routes
+                    if route.members.get(process_entity_type) == parent
+                    and route.members.get("melt") == composition_key
+                ]
+                if bridge_routes:
+                    minimum_members = min(len(route.members) for route in bridge_routes)
+                    relation_context_ids.update(
+                        route.id
+                        for route in bridge_routes
+                        if len(route.members) == minimum_members
+                    )
             canonical_output_labels = {
                 output.key: output.measurement_keys[0]
                 for output in profile.task_definitions[canonical_observation.task_id].outputs
@@ -934,7 +955,7 @@ def load_workbook_data(
                     if composition_key and parent
                     else None
                 ),
-                "relation_context_ids": [route.id for route in matching_routes],
+                "relation_context_ids": sorted(relation_context_ids),
                 "eligible": not eligibility_reasons,
                 "eligibility_reasons": eligibility_reasons,
                 "date": _as_date(canonical_observation.metadata.get("date")),

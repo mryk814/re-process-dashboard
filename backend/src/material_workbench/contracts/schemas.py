@@ -825,6 +825,7 @@ class LineageIndexItem(BaseModel):
     entity_type: str
     has_issue: bool
     family: str | None = None
+    melt_keys: list[str] = Field(default_factory=list)
     project: str | None = None
     route: str | None = None
     peak_temperature_c: float | None = None

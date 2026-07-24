@@ -479,7 +479,7 @@ def test_lineage_candidate_options_do_not_invent_routes_from_flat_adjacency(clie
 
 def test_lineage_index_is_inspectable(client) -> None:
     index = client.get("/api/projects/default/lineage", params={"query": "AN-01"}).json()
-    assert index["relation_rows"] == 26
+    assert index["relation_rows"] == 27
     assert index["total_entities"] > index["relation_rows"]
     assert index["items"][0]["key"] == "AN-01"
     assert index["items"][0]["family"]
@@ -487,6 +487,9 @@ def test_lineage_index_is_inspectable(client) -> None:
     assert index["items"][0]["peak_temperature_c"] > 0
     assert index["items"][0]["observation_summary"]
     assert client.get("/api/projects/default/lineage", params={"query": index["items"][0]["family"], "entity_type": "焼鈍"}).json()["items"]
+
+    shared = client.get("/api/projects/default/lineage", params={"query": "AN-02"}).json()["items"][0]
+    assert shared["melt_keys"] == ["ME-01", "ME-02"]
 def test_lineage_graph_can_expand_beyond_the_initial_node_limit(client) -> None:
     assert client.get("/api/projects/default/lineage/AN-01", params={"limit": 0}).status_code == 422
     assert client.get("/api/projects/default/lineage/AN-01", params={"limit": 201}).status_code == 422
@@ -543,11 +546,11 @@ def test_lineage_keeps_hot_rolled_and_annealed_observations_separate(client) -> 
 
 
 def test_lineage_keeps_partial_observations_without_inventing_outputs(client) -> None:
-    response = client.get("/api/projects/default/lineage/HT-03")
+    response = client.get("/api/projects/default/lineage/HT-07")
     assert response.status_code == 200
-    observation = next(item for item in response.json()["node"]["connected_observations"] if item["id"] == "HT-03")
-    assert observation["outputs"]["TS[MPa]"] == 472
-    assert "EL[%]" not in observation["outputs"]
+    observation = next(item for item in response.json()["node"]["connected_observations"] if item["id"] == "HT-07")
+    assert observation["outputs"]["TS[MPa]"] == 538
+    assert "YS[MPa]" not in observation["outputs"]
     assert "output_warnings" not in observation
 
     incompatible = client.post(

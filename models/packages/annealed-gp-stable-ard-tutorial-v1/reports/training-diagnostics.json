@@ -7,43 +7,43 @@
       "optimizer": "L-BFGS-B",
       "restarts": 3,
       "converged_restarts": 3,
-      "best_objective": 5.170506514596627,
+      "best_objective": 4.532782967436468,
       "input_standardization": "per_feature_training_mean_std",
       "output_standardization": {
-        "mean": 24.416666666666668,
-        "scale": 4.086733278413076
+        "mean": 24.5,
+        "scale": 3.789082059964241
       },
       "kernel": "ARD-RBF",
       "ard_shrinkage": "log_lengthscale_common_center",
       "lengthscale": {
-        "min": 5.68109327370324,
-        "median": 6.888602026739776,
+        "min": 6.425919694263783,
+        "median": 7.266183415373592,
         "max": 19.999999999999996
       },
-      "outputscale": 23.115370162889825,
-      "train_noise": 0.035719410559970494,
-      "replicate_noise_anchor": 0.1111111111111111
+      "outputscale": 21.824096644891174,
+      "train_noise": 0.031249999999999997,
+      "replicate_noise_anchor": 0.25
     },
     "TS": {
       "optimizer": "L-BFGS-B",
       "restarts": 3,
       "converged_restarts": 3,
-      "best_objective": 5.174106349104088,
+      "best_objective": 4.256172072649818,
       "input_standardization": "per_feature_training_mean_std",
       "output_standardization": {
-        "mean": 555.8333333333334,
-        "scale": 53.657607931111585
+        "mean": 554.5714285714286,
+        "scale": 49.87944650528381
       },
       "kernel": "ARD-RBF",
       "ard_shrinkage": "log_lengthscale_common_center",
       "lengthscale": {
-        "min": 6.129479279801922,
-        "median": 6.852117010403663,
+        "min": 6.593717363719233,
+        "median": 7.21018806452774,
         "max": 19.999999999999996
       },
-      "outputscale": 4101.952842186037,
-      "train_noise": 0.8629885863245254,
-      "replicate_noise_anchor": 1.0
+      "outputscale": 3744.96905830519,
+      "train_noise": 0.9567156561283646,
+      "replicate_noise_anchor": 2.0
     },
     "YS": {
       "optimizer": "L-BFGS-B",
@@ -70,21 +70,21 @@
       "optimizer": "L-BFGS-B",
       "restarts": 3,
       "converged_restarts": 3,
-      "best_objective": 4.838681691174061,
+      "best_objective": 3.812713194508211,
       "input_standardization": "per_feature_training_mean_std",
       "output_standardization": {
-        "mean": 92.83333333333333,
-        "scale": 13.652431610848264
+        "mean": 93.5,
+        "scale": 12.786711852544421
       },
       "kernel": "ARD-RBF",
       "ard_shrinkage": "log_lengthscale_common_center",
       "lengthscale": {
-        "min": 4.845476143723168,
-        "median": 6.874006639639728,
+        "min": 4.773272363767992,
+        "median": 7.497256885801291,
         "max": 19.999999999999996
       },
-      "outputscale": 262.829704062881,
-      "train_noise": 0.22517029891826423,
+      "outputscale": 241.10650551188246,
+      "train_noise": 0.1044722651149501,
       "replicate_noise_anchor": 0.5
     }
   }

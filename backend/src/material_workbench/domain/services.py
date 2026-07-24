@@ -184,9 +184,6 @@ def lineage_candidate_options(data: WorkbookData, entity_key: str) -> list[Linea
     options: list[LineageCandidateOption] = []
     seen: set[tuple[str, str, str]] = set()
     for route in routes:
-        melt_key = route.members.get("melt")
-        if not melt_key or melt_key not in data.composition:
-            continue
         for process_role in process_roles:
             features = (
                 data.anneal_features
@@ -195,6 +192,17 @@ def lineage_candidate_options(data: WorkbookData, entity_key: str) -> list[Linea
             )
             process_key = route.members.get(process_role)
             if not process_key or process_key not in features:
+                continue
+            melt_key = route.members.get("melt")
+            if not melt_key:
+                process_melt_keys = {
+                    candidate_route.members["melt"]
+                    for candidate_route in data.relation_routes
+                    if candidate_route.members.get(process_role) == process_key
+                    and candidate_route.members.get("melt") in data.composition
+                }
+                melt_key = next(iter(process_melt_keys)) if len(process_melt_keys) == 1 else None
+            if not melt_key or melt_key not in data.composition:
                 continue
             identity = (process_role, process_key, melt_key)
             if identity in seen:
@@ -256,6 +264,28 @@ def candidate_from_lineage(
     else:
         process_values = {name: float(feature[name]) for name in PROCESS_NAMES}
         entity_type = "hot_rolling"
+    direct_context_routes = [
+        route
+        for route in data.relation_routes
+        if entity_key in route.members.values()
+        and route.members.get(process_role) == process_key
+        and route.members.get("melt") in {None, melt_key}
+    ]
+    relation_context_ids = {route.id for route in direct_context_routes}
+    if not any(route.members.get("melt") == melt_key for route in direct_context_routes):
+        bridge_routes = [
+            route
+            for route in data.relation_routes
+            if route.members.get(process_role) == process_key
+            and route.members.get("melt") == melt_key
+        ]
+        if bridge_routes:
+            minimum_members = min(len(route.members) for route in bridge_routes)
+            relation_context_ids.update(
+                route.id
+                for route in bridge_routes
+                if len(route.members) == minimum_members
+            )
     return CandidateInput(
         name=f"過去条件 {process_key} / 成分 {melt_key}",
         inputs={
@@ -275,13 +305,7 @@ def candidate_from_lineage(
                 "entity_type": entity_type,
                 "entity_key": process_key,
                 "composition_entity_key": melt_key,
-                "relation_context_ids": [
-                    route.id
-                    for route in data.relation_routes
-                    if entity_key in route.members.values()
-                    and route.members.get(process_role) == process_key
-                    and route.members.get("melt") == melt_key
-                ],
+                "relation_context_ids": sorted(relation_context_ids),
                 "data_source_digest": data.source_sha256,
             },
         },
