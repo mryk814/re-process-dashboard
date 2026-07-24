@@ -1,0 +1,14 @@
+{
+  "schema_version": "model-quality-report/v1",
+  "split": "independent-source-row-k-fold",
+  "folds": 5,
+  "targets": [
+    {
+      "target": "compressive_strength_mpa",
+      "parent_conditions": 1600,
+      "mae": 4.2175558356882155,
+      "rmse": 5.3425537209092395,
+      "interval_coverage_90": 0.9
+    }
+  ]
+}

@@ -15,6 +15,7 @@ from material_workbench.contracts.schemas import (
 from material_workbench.persistence.workspace_catalog import CatalogConflictError, CatalogReferenceError, WorkspaceCatalog
 from material_workbench.tasks.task_registry import TaskRegistry
 from material_workbench.persistence.workspace_catalog_bootstrap import task_definition_digest
+from material_workbench.data.profile_document import supported_task_ids
 
 
 router = APIRouter(prefix="/api")
@@ -30,13 +31,11 @@ def _datasets(catalog: WorkspaceCatalog) -> list[DataLibraryDataset]:
         profile = catalog.get_profile_revision(dataset.profile_revision_id)
         if asset is None or profile is None:
             continue
-        tasks = profile.effective_profile_json.get("tasks", {})
-        supported = sorted(tasks) if isinstance(tasks, dict) else []
         result.append(DataLibraryDataset(
             dataset_revision=dataset,
             data_asset=asset,
             profile_revision=profile,
-            supported_task_ids=supported,
+            supported_task_ids=list(supported_task_ids(profile.effective_profile_json)),
             dataset_views=[
                 view for view in views
                 if any(member.dataset_revision_id == dataset.id for member in view.members)

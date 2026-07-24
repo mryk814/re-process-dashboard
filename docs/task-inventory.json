@@ -160,6 +160,134 @@
         "candidate_excel_export": false
       },
       "data_explorer": null
+    },
+    {
+      "task_id": "heat-treatment-tradeoff-v1",
+      "label": "熱処理の硬さ・靭性",
+      "outputs": [
+        {
+          "key": "hardness_hv",
+          "label": "硬さ",
+          "unit": "HV"
+        },
+        {
+          "key": "charpy_j",
+          "label": "シャルピー吸収エネルギー",
+          "unit": "J"
+        }
+      ],
+      "source": {
+        "kind": "external_heat_treatment",
+        "path": "data/source/external/heat_treatment_tradeoff_samples.csv",
+        "sha256": "226a9b8e77820459f51382e40d8df12ac6fe3c0a4648dc15ad068f9372d7c34b",
+        "profile_id": "external-heat-treatment-v1",
+        "profile_path": "backend/src/material_workbench/data/tabular-profile-heat-treatment-v1.json"
+      },
+      "active_package": {
+        "path": "packages/heat-treatment-ridge-external-v1",
+        "previous": null,
+        "package_id": "heat-treatment-ridge-external-v1",
+        "version": "1.0.0",
+        "manifest_sha256": "a3f4508849403323d98ccfdc01c468aa8a287388f42d086f6ae8fa68aed394c1",
+        "runtime_types": [
+          "builtin.linear.v1"
+        ]
+      },
+      "runtime_operations": {
+        "preview": true,
+        "detailed_prediction": true,
+        "response_curve": true,
+        "similarity": true,
+        "snapshot": true,
+        "actual_measurement": false
+      },
+      "application_capability": {
+        "candidate_excel_import": false,
+        "candidate_excel_export": false
+      },
+      "data_explorer": null
+    },
+    {
+      "task_id": "concrete-strength-v1",
+      "label": "コンクリート圧縮強度",
+      "outputs": [
+        {
+          "key": "compressive_strength_mpa",
+          "label": "圧縮強度",
+          "unit": "MPa"
+        }
+      ],
+      "source": {
+        "kind": "external_concrete",
+        "path": "data/source/external/concrete_mix_samples.csv",
+        "sha256": "5af081de0f3936a2a7432fbed22c99b13e3c28d669f46da801d54ed425a63afd",
+        "profile_id": "external-concrete-v1",
+        "profile_path": "backend/src/material_workbench/data/tabular-profile-concrete-v1.json"
+      },
+      "active_package": {
+        "path": "packages/concrete-strength-ridge-external-v1",
+        "previous": null,
+        "package_id": "concrete-strength-ridge-external-v1",
+        "version": "1.0.0",
+        "manifest_sha256": "d299820f4e7991faf4bca397c14e666b3ec98d50f6af0f9b5ca2ebb7d8ecdf9d",
+        "runtime_types": [
+          "builtin.linear.v1"
+        ]
+      },
+      "runtime_operations": {
+        "preview": true,
+        "detailed_prediction": true,
+        "response_curve": true,
+        "similarity": true,
+        "snapshot": true,
+        "actual_measurement": false
+      },
+      "application_capability": {
+        "candidate_excel_import": false,
+        "candidate_excel_export": false
+      },
+      "data_explorer": null
+    },
+    {
+      "task_id": "wear-curve-v1",
+      "label": "工具摩耗曲線",
+      "outputs": [
+        {
+          "key": "wear_vb_um",
+          "label": "逃げ面摩耗量",
+          "unit": "µm"
+        }
+      ],
+      "source": {
+        "kind": "external_wear_curve",
+        "path": "data/source/external/wear_curve_samples.csv",
+        "sha256": "d5f5ed40f99af0c9d632c8d86c2d5bd01e90afa86e19487953b0b697245d303a",
+        "profile_id": "external-wear-curve-v1",
+        "profile_path": "backend/src/material_workbench/data/tabular-profile-wear-curve-v1.json"
+      },
+      "active_package": {
+        "path": "packages/wear-curve-ridge-external-v1",
+        "previous": null,
+        "package_id": "wear-curve-ridge-external-v1",
+        "version": "1.0.0",
+        "manifest_sha256": "84e45b67faa0af04ae1e65aeed46ea85c4f2d34119594d0a4963aaab420a7e86",
+        "runtime_types": [
+          "builtin.linear.v1"
+        ]
+      },
+      "runtime_operations": {
+        "preview": true,
+        "detailed_prediction": true,
+        "response_curve": true,
+        "similarity": true,
+        "snapshot": true,
+        "actual_measurement": false
+      },
+      "application_capability": {
+        "candidate_excel_import": false,
+        "candidate_excel_export": false
+      },
+      "data_explorer": null
     }
   ]
 }

@@ -1,0 +1,133 @@
+{
+  "schema_version": "model-package/v1",
+  "package_id": "wear-curve-ridge-external-v1",
+  "package_version": "1.0.0",
+  "task_id": "wear-curve-v1",
+  "input_schema_version": "canonical-candidate/v1",
+  "input_contract_digest": "sha256:2be2664ab0ef42be5e2ad4759c6d3d5a417bff73a9bfa8e6eb05c3aa90b722da",
+  "runtime_capability_digest": "sha256:647d021e1e3c75621fd423e31893d75c236f71fc12dbc37e92f5df153a940139",
+  "feature_pipeline": {
+    "id": "wear-curve-v1-profile-transform",
+    "version": "1.0.0",
+    "spec": "feature-pipeline/pipeline.json",
+    "canonical_input_paths": [
+      "composition.carbon_pct",
+      "process.cutting_speed_m_per_min",
+      "process.feed_mm_per_rev",
+      "process.depth_of_cut_mm",
+      "process.cutting_distance_m",
+      "categorical.tool_type",
+      "categorical.material_family",
+      "categorical.cooling"
+    ],
+    "output_features": [
+      "composition.carbon_pct",
+      "composition.carbon_pct__square",
+      "process.cutting_speed_m_per_min",
+      "process.cutting_speed_m_per_min__square",
+      "process.feed_mm_per_rev",
+      "process.feed_mm_per_rev__square",
+      "process.depth_of_cut_mm",
+      "process.depth_of_cut_mm__square",
+      "process.cutting_distance_m",
+      "process.cutting_distance_m__square",
+      "categorical.tool_type__carbide_A",
+      "categorical.tool_type__coated_C",
+      "categorical.tool_type__carbide_B",
+      "categorical.tool_type__ceramic_D",
+      "categorical.material_family__stainless",
+      "categorical.material_family__low_carbon_steel",
+      "categorical.material_family__alloy_steel",
+      "categorical.material_family__cast_iron",
+      "categorical.cooling__dry",
+      "categorical.cooling__flood",
+      "categorical.cooling__mist"
+    ],
+    "artifacts": [
+      "reference/training_stats.json"
+    ]
+  },
+  "predictors": [
+    {
+      "id": "wear_vb_um-ridge",
+      "target": "wear_vb_um",
+      "unit": "µm",
+      "target_kind": "continuous",
+      "runtime_type": "builtin.linear.v1",
+      "architecture_id": "profile_transformed_ridge_v1",
+      "artifact": "model-artifacts/wear_vb_um.npz",
+      "predictive_family": "empirical_quantiles",
+      "feature_names": [
+        "composition.carbon_pct",
+        "composition.carbon_pct__square",
+        "process.cutting_speed_m_per_min",
+        "process.cutting_speed_m_per_min__square",
+        "process.feed_mm_per_rev",
+        "process.feed_mm_per_rev__square",
+        "process.depth_of_cut_mm",
+        "process.depth_of_cut_mm__square",
+        "process.cutting_distance_m",
+        "process.cutting_distance_m__square",
+        "categorical.tool_type__carbide_A",
+        "categorical.tool_type__coated_C",
+        "categorical.tool_type__carbide_B",
+        "categorical.tool_type__ceramic_D",
+        "categorical.material_family__stainless",
+        "categorical.material_family__low_carbon_steel",
+        "categorical.material_family__alloy_steel",
+        "categorical.material_family__cast_iron",
+        "categorical.cooling__dry",
+        "categorical.cooling__flood",
+        "categorical.cooling__mist"
+      ],
+      "config": {
+        "training_unit": "source_row",
+        "validation": "5-fold grouped by run_id",
+        "source_profile": "external-wear-curve-v1"
+      }
+    }
+  ],
+  "provenance": {
+    "training_data_id": "sha256:d5f5ed40f99af0c9d632c8d86c2d5bd01e90afa86e19487953b0b697245d303a",
+    "feature_dataset_id": "sha256:22460de4d768bdfb0e9e0414a34fcd381829282c1110b27427525cc4b0908c96",
+    "training_code_revision": "tabular-ridge-v1",
+    "dataset_profile_id": "sha256:eb95ed5d14d11979406373255a14688b08d1dc7286e9bffe9255a0a5ffb15ed4"
+  },
+  "artifacts": [
+    {
+      "path": "feature-pipeline/pipeline.json",
+      "sha256": "ae31d4cdd5fe833eaad0cc83fee20064600fc7b8705d0f4648b3bfbc73520698",
+      "bytes": 3887
+    },
+    {
+      "path": "model-artifacts/wear_vb_um.npz",
+      "sha256": "f032dd14936c8383a9342979dea2a2c313b0559752e952d6d277b69ac60679cc",
+      "bytes": 1212
+    },
+    {
+      "path": "reference/training_stats.json",
+      "sha256": "21ef8543d03418551a80034674bd39e88494a72d8b0c0cab86a1a6b40921bea7",
+      "bytes": 167
+    },
+    {
+      "path": "reports/quality-report.json",
+      "sha256": "70598bf2e3f2deb4dad4bacce36e5f81aeb104a9d2d06e4d06827feb8ea66b0d",
+      "bytes": 302
+    },
+    {
+      "path": "smoke/input.json",
+      "sha256": "64ff89fca81f409f6bb4b3d387afe037ce15428af12a8d3e8f4e7a0248bf2a4b",
+      "bytes": 560
+    },
+    {
+      "path": "smoke/expected.json",
+      "sha256": "6f8fe0c7f760a4a8305e318590d0b4db67dcb23bf20be99f28bc541918819684",
+      "bytes": 32
+    }
+  ],
+  "smoke_test": {
+    "input": "smoke/input.json",
+    "expected": "smoke/expected.json"
+  },
+  "quality_report": "reports/quality-report.json"
+}

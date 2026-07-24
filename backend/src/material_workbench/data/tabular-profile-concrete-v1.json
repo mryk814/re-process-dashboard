@@ -1,0 +1,23 @@
+{
+  "schema_version": "tabular-dataset-profile/v1",
+  "profile_id": "external-concrete-v1",
+  "name": "外部例題：コンクリート配合強度",
+  "task_id": "concrete-strength-v1",
+  "package_id": "concrete-strength-ridge-external-v1",
+  "id_column": null,
+  "group_column": null,
+  "curve_axis_path": "process.age_days",
+  "inputs": [
+    {"path":"composition.cement_kg_m3","column":"cement_kg_m3","kind":"number","unit":"kg/m³"},
+    {"path":"composition.blast_furnace_slag_kg_m3","column":"blast_furnace_slag_kg_m3","kind":"number","unit":"kg/m³"},
+    {"path":"composition.fly_ash_kg_m3","column":"fly_ash_kg_m3","kind":"number","unit":"kg/m³"},
+    {"path":"composition.water_kg_m3","column":"water_kg_m3","kind":"number","unit":"kg/m³"},
+    {"path":"composition.superplasticizer_kg_m3","column":"superplasticizer_kg_m3","kind":"number","unit":"kg/m³"},
+    {"path":"composition.coarse_aggregate_kg_m3","column":"coarse_aggregate_kg_m3","kind":"number","unit":"kg/m³"},
+    {"path":"composition.fine_aggregate_kg_m3","column":"fine_aggregate_kg_m3","kind":"number","unit":"kg/m³"},
+    {"path":"process.age_days","column":"age_days","kind":"number","unit":"日","transform":"log1p"}
+  ],
+  "outputs": [
+    {"key":"compressive_strength_mpa","column":"compressive_strength_mpa","unit":"MPa","lower_bound":0}
+  ]
+}

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import hashlib
 from pathlib import Path
 from threading import RLock
+from typing import Any
 
 from material_workbench.data.dataset_profile import DatasetInputProfile, load_task_definitions, validate_profile
 from material_workbench.modeling.model_packages import ModelPackageLoader, PackageContractError
@@ -161,7 +162,7 @@ class ProjectRuntimeResolver:
 
     def _dataset_resources(
         self, dataset_revision_id: str, task_id: str
-    ) -> tuple[Path, DatasetInputProfile, str, str]:
+    ) -> tuple[Path, Any, str, str]:
         dataset = self.catalog.get_dataset_revision(dataset_revision_id, include_archived=True)
         if dataset is None:
             raise ProjectRuntimeResolutionError("Dataset Revisionが見つかりません")
@@ -181,12 +182,22 @@ class ProjectRuntimeResolver:
             with source_path.open("rb") as source:
                 actual_sha = hashlib.file_digest(source, "sha256").hexdigest()
         except OSError as exc:
-            raise ProjectRuntimeResolutionError(f"DatasetのExcelを読み取れません: {source_path}") from exc
+            raise ProjectRuntimeResolutionError(f"Datasetを読み取れません: {source_path}") from exc
         if actual_sha != asset.sha256:
             raise ProjectRuntimeResolutionError("DatasetのExcel内容が登録時から変わっています")
 
         definitions = load_task_definitions()
         raw_profile = dict(profile_revision.effective_profile_json)
+        if raw_profile.get("schema_version") == "tabular-dataset-profile/v1":
+            from material_workbench.modeling.tabular_regression import TabularDatasetProfile
+
+            try:
+                profile = TabularDatasetProfile.model_validate(raw_profile)
+            except ValueError as exc:
+                raise ProjectRuntimeResolutionError("Profile Revisionを再構成できません") from exc
+            if profile.task_id != task_id:
+                raise ProjectRuntimeResolutionError("Profile RevisionはこのPrediction Taskに対応していません")
+            return source_path, profile, asset.sha256, profile_revision.profile_digest
         raw_tasks = raw_profile.get("tasks")
         if not isinstance(raw_tasks, dict) or task_id not in raw_tasks:
             raise ProjectRuntimeResolutionError("Profile RevisionはこのPrediction Taskに対応していません")

@@ -12,6 +12,18 @@
     "flank-wear-v1": {
       "active": "packages/flank-wear-gp-2026-07",
       "previous": null
+    },
+    "heat-treatment-tradeoff-v1": {
+      "active": "packages/heat-treatment-ridge-external-v1",
+      "previous": null
+    },
+    "concrete-strength-v1": {
+      "active": "packages/concrete-strength-ridge-external-v1",
+      "previous": null
+    },
+    "wear-curve-v1": {
+      "active": "packages/wear-curve-ridge-external-v1",
+      "previous": null
     }
   }
 }

@@ -1,0 +1,142 @@
+{
+  "id": "wear-curve-v1-profile-transform",
+  "version": "1.0.0",
+  "canonical_input_paths": [
+    "composition.carbon_pct",
+    "process.cutting_speed_m_per_min",
+    "process.feed_mm_per_rev",
+    "process.depth_of_cut_mm",
+    "process.cutting_distance_m",
+    "categorical.tool_type",
+    "categorical.material_family",
+    "categorical.cooling"
+  ],
+  "features": [
+    {
+      "name": "composition.carbon_pct",
+      "unit": "%",
+      "meaning": "composition.carbon_pct raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.carbon_pct__square",
+      "unit": "%^2",
+      "meaning": "composition.carbon_pct quadratic term",
+      "group": "composition"
+    },
+    {
+      "name": "process.cutting_speed_m_per_min",
+      "unit": "m/min",
+      "meaning": "process.cutting_speed_m_per_min raw value",
+      "group": "process"
+    },
+    {
+      "name": "process.cutting_speed_m_per_min__square",
+      "unit": "m/min^2",
+      "meaning": "process.cutting_speed_m_per_min quadratic term",
+      "group": "process"
+    },
+    {
+      "name": "process.feed_mm_per_rev",
+      "unit": "mm/rev",
+      "meaning": "process.feed_mm_per_rev raw value",
+      "group": "process"
+    },
+    {
+      "name": "process.feed_mm_per_rev__square",
+      "unit": "mm/rev^2",
+      "meaning": "process.feed_mm_per_rev quadratic term",
+      "group": "process"
+    },
+    {
+      "name": "process.depth_of_cut_mm",
+      "unit": "mm",
+      "meaning": "process.depth_of_cut_mm raw value",
+      "group": "process"
+    },
+    {
+      "name": "process.depth_of_cut_mm__square",
+      "unit": "mm^2",
+      "meaning": "process.depth_of_cut_mm quadratic term",
+      "group": "process"
+    },
+    {
+      "name": "process.cutting_distance_m",
+      "unit": "m",
+      "meaning": "process.cutting_distance_m raw value",
+      "group": "process"
+    },
+    {
+      "name": "process.cutting_distance_m__square",
+      "unit": "m^2",
+      "meaning": "process.cutting_distance_m quadratic term",
+      "group": "process"
+    },
+    {
+      "name": "categorical.tool_type__carbide_A",
+      "unit": "1",
+      "meaning": "categorical.tool_type is carbide_A",
+      "group": "categorical"
+    },
+    {
+      "name": "categorical.tool_type__coated_C",
+      "unit": "1",
+      "meaning": "categorical.tool_type is coated_C",
+      "group": "categorical"
+    },
+    {
+      "name": "categorical.tool_type__carbide_B",
+      "unit": "1",
+      "meaning": "categorical.tool_type is carbide_B",
+      "group": "categorical"
+    },
+    {
+      "name": "categorical.tool_type__ceramic_D",
+      "unit": "1",
+      "meaning": "categorical.tool_type is ceramic_D",
+      "group": "categorical"
+    },
+    {
+      "name": "categorical.material_family__stainless",
+      "unit": "1",
+      "meaning": "categorical.material_family is stainless",
+      "group": "categorical"
+    },
+    {
+      "name": "categorical.material_family__low_carbon_steel",
+      "unit": "1",
+      "meaning": "categorical.material_family is low_carbon_steel",
+      "group": "categorical"
+    },
+    {
+      "name": "categorical.material_family__alloy_steel",
+      "unit": "1",
+      "meaning": "categorical.material_family is alloy_steel",
+      "group": "categorical"
+    },
+    {
+      "name": "categorical.material_family__cast_iron",
+      "unit": "1",
+      "meaning": "categorical.material_family is cast_iron",
+      "group": "categorical"
+    },
+    {
+      "name": "categorical.cooling__dry",
+      "unit": "1",
+      "meaning": "categorical.cooling is dry",
+      "group": "categorical"
+    },
+    {
+      "name": "categorical.cooling__flood",
+      "unit": "1",
+      "meaning": "categorical.cooling is flood",
+      "group": "categorical"
+    },
+    {
+      "name": "categorical.cooling__mist",
+      "unit": "1",
+      "meaning": "categorical.cooling is mist",
+      "group": "categorical"
+    }
+  ]
+}

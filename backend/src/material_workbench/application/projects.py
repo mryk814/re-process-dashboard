@@ -12,6 +12,7 @@ from material_workbench.contracts.schemas import (
     TargetRange,
     ProjectUpdateInput,
 )
+from material_workbench.data.profile_document import supported_task_ids
 from material_workbench.persistence.store import (
     CandidateCopyConflictError,
     InvalidProjectDecisionError,
@@ -253,8 +254,7 @@ class ProjectService:
         profile = self.catalog.get_profile_revision(dataset.profile_revision_id)
         if profile is None:
             return False
-        tasks = profile.effective_profile_json.get("tasks")
-        return isinstance(tasks, dict) and task_id in tasks
+        return task_id in supported_task_ids(profile.effective_profile_json)
 
     def _package_trained_on_dataset(
         self, package: ModelPackageRef, dataset_revision_id: str

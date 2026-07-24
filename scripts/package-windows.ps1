@@ -41,6 +41,9 @@ try {
         "sidecar/material-workbench-sidecar.exe"
         "models/active-packages.json"
         "models/available-packages.json"
+        "data/source/external/heat_treatment_tradeoff_samples.csv"
+        "data/source/external/concrete_mix_samples.csv"
+        "data/source/external/wear_curve_samples.csv"
     )
     $activePackages = Get-Content -LiteralPath (Join-Path $repositoryRoot "models/active-packages.json") -Raw | ConvertFrom-Json
     $requiredPackagedFiles += $activePackages.tasks.PSObject.Properties.Value | ForEach-Object {

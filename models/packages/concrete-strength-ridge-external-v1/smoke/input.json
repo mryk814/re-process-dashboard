@@ -1,0 +1,24 @@
+{
+  "name": "外部例題：コンクリート配合強度 package smoke",
+  "inputs": {
+    "composition": {
+      "cement_kg_m3": 294.23,
+      "blast_furnace_slag_kg_m3": 105.09,
+      "fly_ash_kg_m3": 120.81,
+      "water_kg_m3": 183.39,
+      "superplasticizer_kg_m3": 18.13,
+      "coarse_aggregate_kg_m3": 831.11,
+      "fine_aggregate_kg_m3": 575.85
+    },
+    "process": {
+      "age_days": 90.0
+    },
+    "categorical": {},
+    "heat_pattern": null,
+    "heat_time_basis": "line_speed"
+  },
+  "provenance": {
+    "source_kind": "direct",
+    "source_ref": null
+  }
+}

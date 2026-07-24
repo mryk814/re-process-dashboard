@@ -5,7 +5,7 @@ def test_data_library_exposes_semantic_dataset_records_and_creation_options(clie
     datasets = client.get("/api/data-library/datasets")
     assert datasets.status_code == 200
     items = datasets.json()
-    assert len(items) == 3
+    assert len(items) == 6
     assert all(item["data_asset"]["sha256"] for item in items)
     assert all(item["profile_revision"]["profile_digest"] for item in items)
     assert all(item["dataset_revision"]["dataset_digest"] for item in items)
@@ -13,18 +13,24 @@ def test_data_library_exposes_semantic_dataset_records_and_creation_options(clie
         "annealed-properties-v1",
         "hot-rolled-properties-v1",
         "flank-wear-v1",
+        "heat-treatment-tradeoff-v1",
+        "concrete-strength-v1",
+        "wear-curve-v1",
     }
 
     options = client.get("/api/project-creation-options")
     assert options.status_code == 200
     payload = options.json()
-    assert len(payload["dataset_views"]) == 3
-    assert len(payload["model_packages"]) == 9
+    assert len(payload["dataset_views"]) == 6
+    assert len(payload["model_packages"]) == 12
     assert payload["project_series"]
     assert set(payload["task_contract_digests"]) >= {
         "annealed-properties-v1",
         "hot-rolled-properties-v1",
         "flank-wear-v1",
+        "heat-treatment-tradeoff-v1",
+        "concrete-strength-v1",
+        "wear-curve-v1",
     }
     assert all(
         package["task_contract_digest"]

@@ -188,8 +188,8 @@ class TaskDefinition(ContractModel):
             raise ValueError("input group keys must be unique")
         if len(group_orders) != len(set(group_orders)):
             raise ValueError("input group order must be unique")
-        if "composition" not in group_keys:
-            raise ValueError("all material prediction tasks require a composition group")
+        if not any(key in group_keys for key in ("composition", "process")):
+            raise ValueError("prediction tasks require at least one numeric input group")
         paths = [field.path for group in self.input_groups for field in group.fields]
         if len(paths) != len(set(paths)):
             raise ValueError("field paths must be unique across the task definition")

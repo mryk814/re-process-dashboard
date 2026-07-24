@@ -61,7 +61,15 @@ def register_dataset_records(
 ) -> DatasetRegistrationResult:
     """Create the same content-addressed identities for startup and developer imports."""
 
-    profile = load_dataset_profile(profile_path)
+    raw_profile = __import__("json").loads(profile_path.read_text(encoding="utf-8"))
+    if raw_profile.get("schema_version") == "tabular-dataset-profile/v1":
+        from material_workbench.modeling.tabular_regression import load_tabular_profile
+
+        profile = load_tabular_profile(profile_path)
+        task_ids = (profile.task_id,)
+    else:
+        profile = load_dataset_profile(profile_path)
+        task_ids = tuple(sorted(profile.tasks))
     effective_profile = profile.model_dump(mode="json", exclude={"task_definitions"})
     effective_digest = dataset_profile_digest(profile_path)
     asset = catalog.upsert_data_asset(DataAssetCreateInput(
@@ -99,7 +107,7 @@ def register_dataset_records(
         source_sha256=source_sha256,
         locator=str(locator.resolve()),
         profile_id=profile.profile_id,
-        task_ids=tuple(sorted(profile.tasks)),
+        task_ids=task_ids,
     )
 
 

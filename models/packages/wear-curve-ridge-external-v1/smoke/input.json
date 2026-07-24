@@ -1,0 +1,25 @@
+{
+  "name": "外部例題：工具摩耗曲線 package smoke",
+  "inputs": {
+    "composition": {
+      "carbon_pct": 0.1574
+    },
+    "process": {
+      "cutting_speed_m_per_min": 238.036,
+      "feed_mm_per_rev": 0.095,
+      "depth_of_cut_mm": 1.5034,
+      "cutting_distance_m": 0.0
+    },
+    "categorical": {
+      "tool_type": "carbide_A",
+      "material_family": "cast_iron",
+      "cooling": "flood"
+    },
+    "heat_pattern": null,
+    "heat_time_basis": "line_speed"
+  },
+  "provenance": {
+    "source_kind": "direct",
+    "source_ref": null
+  }
+}

@@ -1,0 +1,106 @@
+{
+  "id": "concrete-strength-v1-profile-transform",
+  "version": "1.0.0",
+  "canonical_input_paths": [
+    "composition.cement_kg_m3",
+    "composition.blast_furnace_slag_kg_m3",
+    "composition.fly_ash_kg_m3",
+    "composition.water_kg_m3",
+    "composition.superplasticizer_kg_m3",
+    "composition.coarse_aggregate_kg_m3",
+    "composition.fine_aggregate_kg_m3",
+    "process.age_days"
+  ],
+  "features": [
+    {
+      "name": "composition.cement_kg_m3",
+      "unit": "kg/m³",
+      "meaning": "composition.cement_kg_m3 raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.cement_kg_m3__square",
+      "unit": "kg/m³^2",
+      "meaning": "composition.cement_kg_m3 quadratic term",
+      "group": "composition"
+    },
+    {
+      "name": "composition.blast_furnace_slag_kg_m3",
+      "unit": "kg/m³",
+      "meaning": "composition.blast_furnace_slag_kg_m3 raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.blast_furnace_slag_kg_m3__square",
+      "unit": "kg/m³^2",
+      "meaning": "composition.blast_furnace_slag_kg_m3 quadratic term",
+      "group": "composition"
+    },
+    {
+      "name": "composition.fly_ash_kg_m3",
+      "unit": "kg/m³",
+      "meaning": "composition.fly_ash_kg_m3 raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.fly_ash_kg_m3__square",
+      "unit": "kg/m³^2",
+      "meaning": "composition.fly_ash_kg_m3 quadratic term",
+      "group": "composition"
+    },
+    {
+      "name": "composition.water_kg_m3",
+      "unit": "kg/m³",
+      "meaning": "composition.water_kg_m3 raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.water_kg_m3__square",
+      "unit": "kg/m³^2",
+      "meaning": "composition.water_kg_m3 quadratic term",
+      "group": "composition"
+    },
+    {
+      "name": "composition.superplasticizer_kg_m3",
+      "unit": "kg/m³",
+      "meaning": "composition.superplasticizer_kg_m3 raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.superplasticizer_kg_m3__square",
+      "unit": "kg/m³^2",
+      "meaning": "composition.superplasticizer_kg_m3 quadratic term",
+      "group": "composition"
+    },
+    {
+      "name": "composition.coarse_aggregate_kg_m3",
+      "unit": "kg/m³",
+      "meaning": "composition.coarse_aggregate_kg_m3 raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.coarse_aggregate_kg_m3__square",
+      "unit": "kg/m³^2",
+      "meaning": "composition.coarse_aggregate_kg_m3 quadratic term",
+      "group": "composition"
+    },
+    {
+      "name": "composition.fine_aggregate_kg_m3",
+      "unit": "kg/m³",
+      "meaning": "composition.fine_aggregate_kg_m3 raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.fine_aggregate_kg_m3__square",
+      "unit": "kg/m³^2",
+      "meaning": "composition.fine_aggregate_kg_m3 quadratic term",
+      "group": "composition"
+    },
+    {
+      "name": "process.age_days__log1p",
+      "unit": "1",
+      "meaning": "log1p transformed process.age_days",
+      "group": "process"
+    }
+  ]
+}

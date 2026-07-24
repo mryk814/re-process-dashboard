@@ -19,8 +19,17 @@ from material_workbench.contracts.task_contracts import ApplicationCapability, D
 ANNEALED_TASK_ID = "annealed-properties-v1"
 HOT_ROLLING_TASK_ID = "hot-rolled-properties-v1"
 FLANK_WEAR_TASK_ID = "flank-wear-v1"
+HEAT_TREATMENT_TASK_ID = "heat-treatment-tradeoff-v1"
+CONCRETE_TASK_ID = "concrete-strength-v1"
+WEAR_CURVE_TASK_ID = "wear-curve-v1"
 PRIMARY_DEFAULT_SOURCE = Path("data/source/material_workbench_tutorial_v1.xlsx")
 PROCESS_SOURCE = Path("data/source/material_workbench_process_v1.xlsx")
+_DATA_ROOT = Path(__file__).parent / "data"
+_TABULAR_PROFILES = {
+    HEAT_TREATMENT_TASK_ID: _DATA_ROOT / "tabular-profile-heat-treatment-v1.json",
+    CONCRETE_TASK_ID: _DATA_ROOT / "tabular-profile-concrete-v1.json",
+    WEAR_CURVE_TASK_ID: _DATA_ROOT / "tabular-profile-wear-curve-v1.json",
+}
 
 
 @runtime_checkable
@@ -75,6 +84,7 @@ class StarterProject:
     project_id: str
     name: str
     candidate_factory: Callable[[dict[str, float]], list[CandidateInput]]
+    seed_on_upgrade: bool = False
 
 
 @dataclass(frozen=True)
@@ -162,6 +172,18 @@ def _load_flank_wear(path: Path, profile: DatasetInputProfile | None = None) -> 
     return load_flank_wear_data(path, profile=profile)
 
 
+def _tabular_loader(task_id: str) -> DataLoader:
+    def load(path: Path, profile: DatasetInputProfile | None = None) -> DataDescriptor:
+        from material_workbench.modeling.tabular_regression import (
+            TabularDatasetProfile,
+            load_tabular_data,
+        )
+
+        selected = profile if isinstance(profile, TabularDatasetProfile) else _TABULAR_PROFILES[task_id]
+        return load_tabular_data(path, selected)
+    return load
+
+
 def _annealed_runtime(data: DataDescriptor, package: Path) -> PredictionRuntime:
     from material_workbench.modeling.runtime import ModelRuntime
 
@@ -178,6 +200,12 @@ def _flank_wear_runtime(data: DataDescriptor, package: Path) -> PredictionRuntim
     from material_workbench.modeling.flank_wear import FlankWearRuntime
 
     return FlankWearRuntime(data, package_root=package)  # type: ignore[arg-type]
+
+
+def _tabular_runtime(data: DataDescriptor, package: Path) -> PredictionRuntime:
+    from material_workbench.modeling.tabular_regression import TabularRegressionRuntime
+
+    return TabularRegressionRuntime(data, package)  # type: ignore[arg-type]
 
 
 def _annealed_features(row: dict[str, Any], medians: dict[str, float]) -> Any:
@@ -198,6 +226,19 @@ def _flank_wear_features(row: dict[str, Any], medians: dict[str, float]) -> Any:
     return build_flank_wear_features_from_observation(row, medians)
 
 
+def _tabular_features(task_id: str) -> FeatureRowBuilder:
+    def build(row: dict[str, Any], medians: dict[str, float]) -> Any:
+        from material_workbench.modeling.tabular_regression import (
+            build_tabular_features_from_observation,
+            load_tabular_profile,
+        )
+
+        return build_tabular_features_from_observation(
+            row, medians, load_tabular_profile(_TABULAR_PROFILES[task_id])
+        )
+    return build
+
+
 def _build_annealed(source: Path, output: Path, *, replace: bool) -> None:
     from build_default_model_package import build
 
@@ -214,6 +255,14 @@ def _build_flank_wear(source: Path, output: Path, *, replace: bool) -> None:
     from build_flank_wear_model_package import build
 
     build(source, output, replace=replace)
+
+
+def _tabular_builder(task_id: str) -> ModelBuilder:
+    def build(source: Path, output: Path, *, replace: bool) -> None:
+        from material_workbench.modeling.tabular_model_builder import build as build_package
+
+        build_package(source, _TABULAR_PROFILES[task_id], output, replace=replace)
+    return build
 
 
 def _standard_response_curve(
@@ -255,6 +304,26 @@ def _curve_family(
     points: int,
 ) -> dict[str, Any]:
     return runtime.curve_family_result(candidate, target, vary, levels, points)  # type: ignore[attr-defined]
+
+
+def _tabular_starter(task_id: str, name: str) -> StarterProject:
+    def candidates(_medians: dict[str, float]) -> list[CandidateInput]:
+        from material_workbench.modeling.tabular_regression import load_tabular_data
+
+        module = TASK_MODULES[task_id]
+        source = resolve_task_source(task_id)
+        data = load_tabular_data(source, _TABULAR_PROFILES[task_id])
+        eligible = [row for row in data.observations if row["eligible"]]
+        from material_workbench.modeling.tabular_regression import candidate_from_observation
+
+        indexes = (len(eligible) // 4, len(eligible) // 2, len(eligible) * 3 // 4)
+        return [
+            candidate_from_observation(eligible[index], data.profile).model_copy(
+                update={"name": label}
+            )
+            for index, label in zip(indexes, ("低位条件", "代表条件", "高位条件"), strict=True)
+        ]
+    return StarterProject(f"{task_id}-default", name, candidates, seed_on_upgrade=True)
 
 
 _EXPLORER = DataExplorerCapability(quality=True, lineage=True, candidate_creation=True)
@@ -299,6 +368,47 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         runtime_factory=_flank_wear_runtime,
         feature_row_builder=_flank_wear_features,
         model_builder=_build_flank_wear,
+        response_curve=_standard_response_curve,
+        curve_family=_curve_family,
+    ),
+    HEAT_TREATMENT_TASK_ID: TaskModule(
+        task_id=HEAT_TREATMENT_TASK_ID,
+        package_override_env="MATERIAL_WORKBENCH_HEAT_TREATMENT_MODEL_PACKAGE",
+        source_env="WORKBENCH_HEAT_TREATMENT_SOURCE_PATH",
+        source_kind="external_heat_treatment",
+        default_source=Path("data/source/external/heat_treatment_tradeoff_samples.csv"),
+        data_loader=_tabular_loader(HEAT_TREATMENT_TASK_ID),
+        runtime_factory=_tabular_runtime,
+        feature_row_builder=_tabular_features(HEAT_TREATMENT_TASK_ID),
+        model_builder=_tabular_builder(HEAT_TREATMENT_TASK_ID),
+        starter_project=_tabular_starter(HEAT_TREATMENT_TASK_ID, "熱処理の硬さ・靭性"),
+        response_curve=_standard_response_curve,
+    ),
+    CONCRETE_TASK_ID: TaskModule(
+        task_id=CONCRETE_TASK_ID,
+        package_override_env="MATERIAL_WORKBENCH_CONCRETE_MODEL_PACKAGE",
+        source_env="WORKBENCH_CONCRETE_SOURCE_PATH",
+        source_kind="external_concrete",
+        default_source=Path("data/source/external/concrete_mix_samples.csv"),
+        data_loader=_tabular_loader(CONCRETE_TASK_ID),
+        runtime_factory=_tabular_runtime,
+        feature_row_builder=_tabular_features(CONCRETE_TASK_ID),
+        model_builder=_tabular_builder(CONCRETE_TASK_ID),
+        starter_project=_tabular_starter(CONCRETE_TASK_ID, "コンクリート配合と強度"),
+        response_curve=_standard_response_curve,
+        curve_family=_curve_family,
+    ),
+    WEAR_CURVE_TASK_ID: TaskModule(
+        task_id=WEAR_CURVE_TASK_ID,
+        package_override_env="MATERIAL_WORKBENCH_WEAR_CURVE_MODEL_PACKAGE",
+        source_env="WORKBENCH_WEAR_CURVE_SOURCE_PATH",
+        source_kind="external_wear_curve",
+        default_source=Path("data/source/external/wear_curve_samples.csv"),
+        data_loader=_tabular_loader(WEAR_CURVE_TASK_ID),
+        runtime_factory=_tabular_runtime,
+        feature_row_builder=_tabular_features(WEAR_CURVE_TASK_ID),
+        model_builder=_tabular_builder(WEAR_CURVE_TASK_ID),
+        starter_project=_tabular_starter(WEAR_CURVE_TASK_ID, "工具摩耗曲線"),
         response_curve=_standard_response_curve,
         curve_family=_curve_family,
     ),

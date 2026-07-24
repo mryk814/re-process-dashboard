@@ -87,7 +87,11 @@ def _prepare_app_resources(
     explorers: dict[str, DataExplorerEntry] = {}
     for task_id, module in modules.items():
         if module.source_kind not in data_by_source:
-            explicit_source = source if module.source_kind == "primary" else flank_wear_source_path
+            explicit_source = (
+                source
+                if module.source_kind == "primary"
+                else flank_wear_source_path if module.source_kind == "flank_wear" else None
+            )
             configured_source = Path(explicit_source or os.getenv(module.source_env, str(module.default_source)))
             if not configured_source.is_absolute() and not configured_source.exists():
                 repository_source = Path(__file__).resolve().parents[3] / configured_source

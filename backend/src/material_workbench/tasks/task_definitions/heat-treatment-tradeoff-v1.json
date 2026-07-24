@@ -1,0 +1,41 @@
+{
+  "task_definition": {
+    "schema_version":"task-definition/v1",
+    "id":"heat-treatment-tradeoff-v1",
+    "label":"熱処理の硬さ・靭性",
+    "canonical_candidate_schema_version":"canonical-candidate/v1",
+    "input_groups":[
+      {"key":"composition","order":0,"label":"合金成分","fields":[
+        {"path":"composition.carbon_pct","kind":"number","order":0,"label":"C","unit":"%","required":true,"editable":true,"default_range":{"min":0.15,"max":1.05},"allowed_range":{"min":0,"max":2},"training_range":{"min":0.1506,"max":1.0499}},
+        {"path":"composition.chromium_pct","kind":"number","order":1,"label":"Cr","unit":"%","required":true,"editable":true,"default_range":{"min":0.1,"max":4},"allowed_range":{"min":0,"max":30},"training_range":{"min":0.1002,"max":3.9918}},
+        {"path":"composition.nickel_pct","kind":"number","order":2,"label":"Ni","unit":"%","required":true,"editable":true,"default_range":{"min":0,"max":2.5},"allowed_range":{"min":0,"max":40},"training_range":{"min":0.0009,"max":2.4989}}
+      ]},
+      {"key":"process","order":1,"label":"熱処理条件","fields":[
+        {"path":"process.austenitize_temp_c","kind":"number","order":0,"label":"オーステナイト化温度","unit":"°C","required":true,"editable":true,"default_range":{"min":760,"max":980},"allowed_range":{"min":600,"max":1300},"training_range":{"min":760.14,"max":979.91}},
+        {"path":"process.tempering_temp_c","kind":"number","order":1,"label":"焼戻し温度","unit":"°C","required":true,"editable":true,"default_range":{"min":150,"max":650},"allowed_range":{"min":20,"max":1000},"training_range":{"min":150.1,"max":649.76}},
+        {"path":"process.hold_time_h","kind":"number","order":2,"label":"保持時間","unit":"h","required":true,"editable":true,"default_range":{"min":0.2,"max":4},"allowed_range":{"min":0.01,"max":24},"training_range":{"min":0.2,"max":3.996}},
+        {"path":"process.cooling_rate_c_per_s","kind":"number","order":3,"label":"冷却速度","unit":"°C/s","required":true,"editable":true,"default_range":{"min":0.1,"max":160},"allowed_range":{"min":0.01,"max":1000},"training_range":{"min":0.1,"max":157.6114}}
+      ]},
+      {"key":"categorical","order":2,"label":"合金系","fields":[
+        {"path":"categorical.alloy_family","kind":"categorical","order":0,"label":"合金系","required":true,"editable":true,"choices":["martensitic_stainless","low_alloy_steel","spring_steel","bearing_steel"]}
+      ]}
+    ],
+    "outputs":[
+      {"key":"hardness_hv","label":"硬さ","unit":"HV","goal_direction":"at_least","measurement_keys":["hardness_hv"],"plausibility_range":{"min":0,"max":1200},"preferred_display_range":{"min":100,"max":800}},
+      {"key":"charpy_j","label":"シャルピー吸収エネルギー","unit":"J","goal_direction":"at_least","measurement_keys":["charpy_j"],"plausibility_range":{"min":0,"max":300},"preferred_display_range":{"min":20,"max":180}}
+    ],
+    "display_decimals":{"composition.carbon_pct":3,"composition.chromium_pct":3,"composition.nickel_pct":3,"process.austenitize_temp_c":1,"process.tempering_temp_c":1,"process.hold_time_h":2,"process.cooling_rate_c_per_s":2,"output.hardness_hv":1,"output.charpy_j":1},
+    "fixed_context":[{"path":"context.source","order":0,"label":"データ","value":"Synthetic heat-treatment starter pack"}],
+    "constraints":[{"left_path":"process.tempering_temp_c","operator":"lt","right_path":"process.austenitize_temp_c","message":"焼戻し温度はオーステナイト化温度より低くしてください"}],
+    "response_curve_variables":[
+      {"kind":"numeric_input","order":0,"label":"焼戻し温度","path":"process.tempering_temp_c"},
+      {"kind":"numeric_input","order":1,"label":"冷却速度","path":"process.cooling_rate_c_per_s"},
+      {"kind":"numeric_input","order":2,"label":"C","path":"composition.carbon_pct"}
+    ]
+  },
+  "canonical_candidate":{"schema_version":"canonical-candidate/v1","task_id":"heat-treatment-tradeoff-v1","composition":{"carbon_pct":0.6,"chromium_pct":1.5,"nickel_pct":0.8},"process":{"austenitize_temp_c":860,"tempering_temp_c":450,"hold_time_h":1.5,"cooling_rate_c_per_s":25},"heat_pattern":null,"categorical":{"alloy_family":"low_alloy_steel"},"provenance":{"source_kind":"direct","source_ref":null}},
+  "runtime_capability":{"schema_version":"runtime-capability/v1","task_id":"heat-treatment-tradeoff-v1","model_package_schema_version":"model-package/v1","targets":[
+    {"target":"hardness_hv","point_statistics":["mean"],"standard_deviation":false,"quantiles":true,"samples":false,"parametric_distribution":false,"uncertainty_components":false,"support":true,"warnings":true,"goal_probability":"unavailable"},
+    {"target":"charpy_j","point_statistics":["mean"],"standard_deviation":false,"quantiles":true,"samples":false,"parametric_distribution":false,"uncertainty_components":false,"support":true,"warnings":true,"goal_probability":"unavailable"}
+  ],"joint_samples":false,"operations":{"preview":true,"detailed_prediction":true,"response_curve":true,"similarity":true,"snapshot":true,"actual_measurement":false}}
+}

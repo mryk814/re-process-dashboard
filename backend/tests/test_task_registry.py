@@ -15,7 +15,7 @@ from material_workbench.task_modules import DataDescriptor, registered_task_modu
 from material_workbench.tasks.task_registry import DataExplorerEntry, TaskRegistry, TaskRegistryError
 
 
-TASK_IDS = ("annealed-properties-v1", "hot-rolled-properties-v1", "flank-wear-v1")
+TASK_IDS = tuple(sorted(registered_task_modules()))
 SOURCE_ROOT = Path(__file__).parents[1] / "src" / "material_workbench" / "tasks" / "task_definitions"
 ACTIVE_PACKAGES = Path(__file__).parents[2] / "models" / "active-packages.json"
 
@@ -68,8 +68,12 @@ def test_registry_resolves_definition_runtime_and_package_from_one_task_id(clien
     for operation in (
         "preview", "detailed_prediction", "response_curve", "similarity", "snapshot", "actual_measurement"
     ):
-        registry.require_operation(task_id, operation)
-    if task_id == "flank-wear-v1":
+        if getattr(resolved.runtime_capability.operations, operation):
+            registry.require_operation(task_id, operation)
+        else:
+            with pytest.raises(TaskRegistryError, match="is not available"):
+                registry.require_operation(task_id, operation)
+    if registered_task_modules()[task_id].data_explorer is None:
         assert resolved.data_explorer is None
         with pytest.raises(TaskRegistryError, match="data explorer is not available"):
             registry.data_explorer_for(task_id)

@@ -1,0 +1,8 @@
+{
+  "records": {
+    "compressive_strength_mpa": 1600
+  },
+  "groups": 1600,
+  "rows": 1600,
+  "source_sha256": "5af081de0f3936a2a7432fbed22c99b13e3c28d669f46da801d54ed425a63afd"
+}

@@ -1,0 +1,124 @@
+{
+  "id": "heat-treatment-tradeoff-v1-profile-transform",
+  "version": "1.0.0",
+  "canonical_input_paths": [
+    "composition.carbon_pct",
+    "composition.chromium_pct",
+    "composition.nickel_pct",
+    "process.austenitize_temp_c",
+    "process.tempering_temp_c",
+    "process.hold_time_h",
+    "process.cooling_rate_c_per_s",
+    "categorical.alloy_family"
+  ],
+  "features": [
+    {
+      "name": "composition.carbon_pct",
+      "unit": "%",
+      "meaning": "composition.carbon_pct raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.carbon_pct__square",
+      "unit": "%^2",
+      "meaning": "composition.carbon_pct quadratic term",
+      "group": "composition"
+    },
+    {
+      "name": "composition.chromium_pct",
+      "unit": "%",
+      "meaning": "composition.chromium_pct raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.chromium_pct__square",
+      "unit": "%^2",
+      "meaning": "composition.chromium_pct quadratic term",
+      "group": "composition"
+    },
+    {
+      "name": "composition.nickel_pct",
+      "unit": "%",
+      "meaning": "composition.nickel_pct raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.nickel_pct__square",
+      "unit": "%^2",
+      "meaning": "composition.nickel_pct quadratic term",
+      "group": "composition"
+    },
+    {
+      "name": "process.austenitize_temp_c",
+      "unit": "°C",
+      "meaning": "process.austenitize_temp_c raw value",
+      "group": "process"
+    },
+    {
+      "name": "process.austenitize_temp_c__square",
+      "unit": "°C^2",
+      "meaning": "process.austenitize_temp_c quadratic term",
+      "group": "process"
+    },
+    {
+      "name": "process.tempering_temp_c",
+      "unit": "°C",
+      "meaning": "process.tempering_temp_c raw value",
+      "group": "process"
+    },
+    {
+      "name": "process.tempering_temp_c__square",
+      "unit": "°C^2",
+      "meaning": "process.tempering_temp_c quadratic term",
+      "group": "process"
+    },
+    {
+      "name": "process.hold_time_h",
+      "unit": "h",
+      "meaning": "process.hold_time_h raw value",
+      "group": "process"
+    },
+    {
+      "name": "process.hold_time_h__square",
+      "unit": "h^2",
+      "meaning": "process.hold_time_h quadratic term",
+      "group": "process"
+    },
+    {
+      "name": "process.cooling_rate_c_per_s",
+      "unit": "°C/s",
+      "meaning": "process.cooling_rate_c_per_s raw value",
+      "group": "process"
+    },
+    {
+      "name": "process.cooling_rate_c_per_s__square",
+      "unit": "°C/s^2",
+      "meaning": "process.cooling_rate_c_per_s quadratic term",
+      "group": "process"
+    },
+    {
+      "name": "categorical.alloy_family__martensitic_stainless",
+      "unit": "1",
+      "meaning": "categorical.alloy_family is martensitic_stainless",
+      "group": "categorical"
+    },
+    {
+      "name": "categorical.alloy_family__low_alloy_steel",
+      "unit": "1",
+      "meaning": "categorical.alloy_family is low_alloy_steel",
+      "group": "categorical"
+    },
+    {
+      "name": "categorical.alloy_family__spring_steel",
+      "unit": "1",
+      "meaning": "categorical.alloy_family is spring_steel",
+      "group": "categorical"
+    },
+    {
+      "name": "categorical.alloy_family__bearing_steel",
+      "unit": "1",
+      "meaning": "categorical.alloy_family is bearing_steel",
+      "group": "categorical"
+    }
+  ]
+}

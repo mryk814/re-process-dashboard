@@ -83,14 +83,18 @@ class TargetQualityMetric(LifecycleModel):
 
 class QualityReport(LifecycleModel):
     schema_version: Literal["model-quality-report/v1"]
-    split: Literal["leave-one-parent-condition-out", "grouped-parent-condition-k-fold"]
+    split: Literal[
+        "leave-one-parent-condition-out",
+        "grouped-parent-condition-k-fold",
+        "independent-source-row-k-fold",
+    ]
     folds: Annotated[int, Field(ge=2)] | None = None
     targets: Annotated[tuple[TargetQualityMetric, ...], Field(min_length=1)]
 
     @model_validator(mode="after")
     def split_has_matching_fold_count(self) -> "QualityReport":
-        if (self.split == "grouped-parent-condition-k-fold") != (self.folds is not None):
-            raise ValueError("grouped k-fold quality reports require folds, and leave-one-out reports must omit it")
+        if (self.split != "leave-one-parent-condition-out") != (self.folds is not None):
+            raise ValueError("k-fold quality reports require folds, and leave-one-out reports must omit it")
         return self
 
 
@@ -129,7 +133,17 @@ def runtime_capability_digest(capability: RuntimeCapability) -> str:
 
 
 def dataset_profile_digest(path: Path | Any = DATASET_PROFILE_PATH) -> str:
-    profile = path if hasattr(path, "model_dump") else load_dataset_profile(path)
+    if hasattr(path, "model_dump"):
+        profile = path
+    else:
+        profile_path = Path(path)
+        raw = json.loads(profile_path.read_text(encoding="utf-8"))
+        if raw.get("schema_version") == "tabular-dataset-profile/v1":
+            from material_workbench.modeling.tabular_regression import load_tabular_profile
+
+            profile = load_tabular_profile(profile_path)
+        else:
+            profile = load_dataset_profile(profile_path)
     payload = profile.model_dump(mode="json", exclude={"task_definitions"})
     shared = payload.get("shared")
     if isinstance(shared, dict):
@@ -165,11 +179,14 @@ def canonical_training_dataset(
     pipeline_version: str | None = None,
 ) -> dict[str, Any]:
     profile = getattr(data, "profile", None) or load_dataset_profile(data.profile_path)
-    profile_columns = {
-        target.key: target.source_columns
-        for observation in profile.tasks[task_id].observations
-        for target in observation.targets
-    }
+    if getattr(profile, "schema_version", "") == "tabular-dataset-profile/v1":
+        profile_columns = {target.key: (target.key, target.column) for target in profile.outputs}
+    else:
+        profile_columns = {
+            target.key: target.source_columns
+            for observation in profile.tasks[task_id].observations
+            for target in observation.targets
+        }
     output_columns = {
         output.key: tuple(dict.fromkeys((*output.measurement_keys, *profile_columns.get(output.key, ()))))
         for output in contract.task_definition.outputs

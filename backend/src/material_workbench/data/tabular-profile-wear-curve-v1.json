@@ -1,0 +1,23 @@
+{
+  "schema_version": "tabular-dataset-profile/v1",
+  "profile_id": "external-wear-curve-v1",
+  "name": "外部例題：工具摩耗曲線",
+  "task_id": "wear-curve-v1",
+  "package_id": "wear-curve-ridge-external-v1",
+  "id_column": "run_id",
+  "group_column": "run_id",
+  "curve_axis_path": "process.cutting_distance_m",
+  "inputs": [
+    {"path":"composition.carbon_pct","column":"carbon_pct","kind":"number","unit":"%"},
+    {"path":"process.cutting_speed_m_per_min","column":"cutting_speed_m_per_min","kind":"number","unit":"m/min"},
+    {"path":"process.feed_mm_per_rev","column":"feed_mm_per_rev","kind":"number","unit":"mm/rev"},
+    {"path":"process.depth_of_cut_mm","column":"depth_of_cut_mm","kind":"number","unit":"mm"},
+    {"path":"process.cutting_distance_m","column":"cutting_distance_m","kind":"number","unit":"m"},
+    {"path":"categorical.tool_type","column":"tool_type","kind":"categorical","choices":["carbide_A","coated_C","carbide_B","ceramic_D"]},
+    {"path":"categorical.material_family","column":"material_family","kind":"categorical","choices":["stainless","low_carbon_steel","alloy_steel","cast_iron"]},
+    {"path":"categorical.cooling","column":"cooling","kind":"categorical","choices":["dry","flood","mist"]}
+  ],
+  "outputs": [
+    {"key":"wear_vb_um","column":"wear_vb_um","unit":"µm","lower_bound":0}
+  ]
+}

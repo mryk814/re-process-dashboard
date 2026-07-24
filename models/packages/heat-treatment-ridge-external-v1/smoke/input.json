@@ -1,0 +1,25 @@
+{
+  "name": "外部例題：熱処理の硬さ・靭性 package smoke",
+  "inputs": {
+    "composition": {
+      "carbon_pct": 0.6047,
+      "chromium_pct": 3.1869,
+      "nickel_pct": 2.2554
+    },
+    "process": {
+      "austenitize_temp_c": 910.96,
+      "tempering_temp_c": 589.51,
+      "hold_time_h": 3.966,
+      "cooling_rate_c_per_s": 44.1621
+    },
+    "categorical": {
+      "alloy_family": "martensitic_stainless"
+    },
+    "heat_pattern": null,
+    "heat_time_basis": "line_speed"
+  },
+  "provenance": {
+    "source_kind": "direct",
+    "source_ref": null
+  }
+}

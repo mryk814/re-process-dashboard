@@ -1,0 +1,21 @@
+{
+  "schema_version": "model-quality-report/v1",
+  "split": "independent-source-row-k-fold",
+  "folds": 5,
+  "targets": [
+    {
+      "target": "hardness_hv",
+      "parent_conditions": 2400,
+      "mae": 19.326120647646967,
+      "rmse": 23.93112579604444,
+      "interval_coverage_90": 0.9
+    },
+    {
+      "target": "charpy_j",
+      "parent_conditions": 2400,
+      "mae": 6.851903168414265,
+      "rmse": 8.609752941905269,
+      "interval_coverage_90": 0.9
+    }
+  ]
+}
