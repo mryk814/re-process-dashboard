@@ -551,6 +551,8 @@
 .axis-range-fields input { width: 84px; height: 25px; padding: 2px 5px; border: 1px solid #c5d1df; border-radius: 3px; color: #1d3147; font-size: 11px; font-variant-numeric: tabular-nums; }
 .stage-position-field { display: grid; grid-template-columns: 1fr 58px auto; align-items: center; gap: 4px; margin-bottom: 7px; color: #526579; font-size: 10px; }
 .stage-position-field input { width: 58px; height: 25px; padding: 2px 5px; border: 1px solid #c5d1df; border-radius: 3px; color: #1d3147; font-size: 11px; font-variant-numeric: tabular-nums; }
+.curve-point-count-field { display: grid; gap: 3px; margin-bottom: 7px; color: #526579; font-size: 10px; }
+.curve-point-count-field select { width: 100%; height: 27px; padding: 2px 5px; border: 1px solid #c5d1df; border-radius: 3px; background: #fff; color: #1d3147; font-size: 11px; }
 .axis-settings-output-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
 .axis-settings-output { position: relative; min-width: 0; padding-bottom: 1px; }
 .axis-settings-output > b { display: block; margin-bottom: 3px; color: #34465b; font-size: 11px; }

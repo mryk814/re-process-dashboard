@@ -322,6 +322,7 @@ class ProjectInput(BaseModel):
     target_values: dict[str, TargetValue] = Field(default_factory=dict)
     input_ranges: dict[str, InputRange] = Field(default_factory=dict)
     response_curve_ranges: dict[str, dict[str, InputRange]] = Field(default_factory=dict)
+    response_curve_points: Annotated[int, Field(ge=9, le=51)] = 17
     heat_stage_positions_m: dict[str, Annotated[float, Field(ge=0, allow_inf_nan=False)]] = Field(default_factory=dict)
     display_decimals: dict[str, Annotated[int, Field(ge=0, le=8)]] = Field(default_factory=dict)
     notes: str = ""
@@ -360,6 +361,7 @@ class ProjectUpdateInput(BaseModel):
     target_values: dict[str, TargetValue] = Field(default_factory=dict)
     input_ranges: dict[str, InputRange] = Field(default_factory=dict)
     response_curve_ranges: dict[str, dict[str, InputRange]] = Field(default_factory=dict)
+    response_curve_points: Annotated[int, Field(ge=9, le=51)] = 17
     heat_stage_positions_m: dict[str, Annotated[float, Field(ge=0, allow_inf_nan=False)]] = Field(default_factory=dict)
     display_decimals: dict[str, Annotated[int, Field(ge=0, le=8)]] = Field(default_factory=dict)
     notes: str = ""

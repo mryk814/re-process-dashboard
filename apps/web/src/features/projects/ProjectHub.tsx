@@ -330,7 +330,7 @@ export function ProjectHub({
       } : null;
       const created = await workbenchApi.createProject({
         name: newProjectName.trim(), description: "", purpose: "", task_id: taskId as ApiProject["task_id"],
-        target_values: {}, input_ranges: {}, notes: "", decision_candidate_id: "", decision_snapshot_id: "", decision_note: "",
+        target_values: {}, input_ranges: {}, response_curve_points: 17, notes: "", decision_candidate_id: "", decision_snapshot_id: "", decision_note: "",
         initial_candidate: initialCandidate,
         dataset_view_revision_id: newDatasetViewId || undefined,
         model_package_ref_id: newModelPackageRefId || undefined,

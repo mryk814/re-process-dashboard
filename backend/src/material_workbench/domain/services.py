@@ -251,7 +251,7 @@ def candidate_from_lineage(
         process_values = {name: float(feature[name]) for name in PROCESS_NAMES}
         entity_type = "hot_rolling"
     return CandidateInput(
-        name=f"過去条件 {process_key}",
+        name=f"過去条件 {process_key} / 成分 {melt_key}",
         inputs={
             "composition": deepcopy(data.composition[melt_key]),
             "process": process_values,

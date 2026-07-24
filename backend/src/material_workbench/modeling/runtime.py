@@ -793,7 +793,8 @@ class ModelRuntime:
         start, end = axis_range or self._curve_axis(candidate, model, variable, stage_name, stage_position_m)
         lower_offset, upper_offset = model.interval_offsets()
         curve: list[dict[str, float]] = []
-        for x_value in np.linspace(start, end, points):
+        current = self._curve_variable_current(candidate, variable, stage_name, stage_position_m)
+        for x_value in anchored_curve_grid(start, end, points, current=current):
             adjusted = candidate.model_copy(deep=True)
             self._set_curve_variable(adjusted, variable, float(x_value), stage_name, stage_position_m)
             adjusted_vector = self.vector_for_candidate(adjusted)
@@ -842,5 +843,6 @@ class ModelRuntime:
             "points": self.response_curve(candidate, target, variable, points, axis_range, stage_name, stage_position_m),
             "output_range": output_range,
             "point_count": points,
-            "policy_id": "fixed-grid-v2",
+            "policy_id": "anchored-grid-v1",
         }
+from material_workbench.modeling.curve_grid import anchored_curve_grid

@@ -426,7 +426,8 @@ class HotRollingRuntime:
 
         curve: list[dict[str, Any]] = []
         predictor = self.predictors[target]
-        for x_value in np.linspace(start, end, points):
+        current = self._candidate_value(candidate, variable)
+        for x_value in anchored_curve_grid(start, end, points, current=current):
             adjusted = candidate.model_copy(deep=True)
             values = adjusted.inputs.composition if group == "composition" else adjusted.inputs.process
             values[name] = float(x_value)
@@ -470,7 +471,7 @@ class HotRollingRuntime:
             "points": curve,
             "output_range": None if not observed else {"min": round(min(observed), 4), "max": round(max(observed), 4)},
             "point_count": points,
-            "policy_id": "fixed-grid-v2",
+            "policy_id": "anchored-grid-v1",
         }
 
     def predict(self, candidate: Candidate, detailed: bool = False, **kwargs: Any) -> dict[str, Any]:
@@ -481,3 +482,4 @@ class HotRollingRuntime:
         if support.status != "supported":
             result["warnings"].append(support.message)
         return result
+from material_workbench.modeling.curve_grid import anchored_curve_grid

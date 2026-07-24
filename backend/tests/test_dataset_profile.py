@@ -21,7 +21,7 @@ from material_workbench.modeling.hot_rolling_feature_pipeline import build_hot_r
 from material_workbench.data.importer import detect_dataset_profile_path, load_workbook_data
 from material_workbench.app import create_app
 from material_workbench.contracts.schemas import CandidateInput
-from material_workbench.domain.services import candidate_from_lineage
+from material_workbench.domain.services import candidate_from_lineage, lineage_candidate_options
 from material_workbench.contracts.task_contracts import TaskDefinition
 from material_workbench.task_modules import registered_task_modules
 
@@ -366,6 +366,47 @@ def test_lineage_candidate_uses_profile_key_mapping_not_external_header_names(tm
 
     assert len(data.composition) == 4
     assert candidate.inputs.composition == data.composition["ME-01"]
+
+
+def test_imported_relations_keep_every_composition_that_shares_one_process(tmp_path: Path) -> None:
+    workbook = load_workbook(SOURCE, read_only=False, data_only=True)
+    melt_sheet = workbook["溶製"]
+    melt_key_column = next(cell.column for cell in melt_sheet[1] if cell.value == "溶製_key")
+    copied_melt = [cell.value for cell in melt_sheet[2]]
+    copied_melt[melt_key_column - 1] = "ME-SHARED-PROCESS"
+    melt_sheet.append(copied_melt)
+
+    relation_sheet = workbook["relation"]
+    relation_headers = {cell.value: cell.column for cell in relation_sheet[1]}
+    source_relation = next(
+        row
+        for row in relation_sheet.iter_rows(min_row=2)
+        if row[relation_headers["溶製_key"] - 1].value == "ME-01"
+        and row[relation_headers["焼鈍_key"] - 1].value == "AN-01"
+    )
+    copied_relation = [cell.value for cell in source_relation]
+    copied_relation[relation_headers["溶製_key"] - 1] = "ME-SHARED-PROCESS"
+    relation_sheet.append(copied_relation)
+    source = tmp_path / "shared-process.xlsx"
+    workbook.save(source)
+    workbook.close()
+
+    data = load_workbook_data(source)
+    process_options = [
+        option
+        for option in lineage_candidate_options(data, "ME-01")
+        if option.process_key == "AN-01"
+    ]
+
+    assert {option.melt_key for option in process_options} == {"ME-01", "ME-SHARED-PROCESS"}
+    candidate = candidate_from_lineage(
+        data,
+        "ME-01",
+        process_key="AN-01",
+        melt_key="ME-SHARED-PROCESS",
+    )
+    assert candidate.name == "過去条件 AN-01 / 成分 ME-SHARED-PROCESS"
+    assert candidate.inputs.composition == data.composition["ME-SHARED-PROCESS"]
 
 
 def test_importer_accepts_task_and_profile_composition_addition_without_code_change(tmp_path: Path) -> None:

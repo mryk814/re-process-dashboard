@@ -4462,6 +4462,13 @@
             "title": "Purpose",
             "type": "string"
           },
+          "response_curve_points": {
+            "default": 17,
+            "maximum": 51.0,
+            "minimum": 9.0,
+            "title": "Response Curve Points",
+            "type": "integer"
+          },
           "response_curve_ranges": {
             "additionalProperties": {
               "additionalProperties": {
@@ -4640,6 +4647,13 @@
             "default": "",
             "title": "Purpose",
             "type": "string"
+          },
+          "response_curve_points": {
+            "default": 17,
+            "maximum": 51.0,
+            "minimum": 9.0,
+            "title": "Response Curve Points",
+            "type": "integer"
           },
           "response_curve_ranges": {
             "additionalProperties": {
@@ -5036,6 +5050,13 @@
             "default": "",
             "title": "Purpose",
             "type": "string"
+          },
+          "response_curve_points": {
+            "default": 17,
+            "maximum": 51.0,
+            "minimum": 9.0,
+            "title": "Response Curve Points",
+            "type": "integer"
           },
           "response_curve_ranges": {
             "additionalProperties": {

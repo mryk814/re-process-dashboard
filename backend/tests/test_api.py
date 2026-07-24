@@ -258,6 +258,7 @@ def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
     assert curve["target"] == "TS"
     assert curve["variable"]["id"] == "composition.C"
     assert len(curve["points"]) == 9
+    assert curve["variable"]["current"] in {point["x"] for point in curve["points"]}
     stage_payload = _payload("工程温度")
     stage_payload["inputs"]["heat_pattern"][1]["stage_name"] = "加熱1"
     stage_candidate = client.post("/api/projects/default/candidates", json=stage_payload).json()
@@ -447,6 +448,33 @@ def test_quality_and_lineage(client) -> None:
     assert any(edge["route_rows"] for edge in lineage.json()["graph"]["edges"])
     assert lineage.json()["candidate_eligible"] is True
     assert any(edge["source"] == "CR-01" and edge["target"] == "AN-01" for edge in lineage.json()["graph"]["edges"])
+
+
+def test_lineage_candidate_options_keep_multiple_compositions_for_one_process(client, monkeypatch) -> None:
+    project = client.app.state.store.get_project("default")
+    assert project is not None
+    data = client.app.state.project_runtime_resolver.data_explorer_for(project).data
+    melt_column = data.role_to_key["melt"]
+    existing_melts = list(data.lineage["AN-01"][melt_column])
+    assert len(existing_melts) == 1
+    shared_process_melt = "ME-SHARED-PROCESS"
+    monkeypatch.setitem(data.composition, shared_process_melt, deepcopy(data.composition[existing_melts[0]]))
+    monkeypatch.setitem(data.lineage["AN-01"], melt_column, [*existing_melts, shared_process_melt])
+
+    lineage = client.get("/api/projects/default/lineage/AN-01")
+    assert lineage.status_code == 200
+    options = [
+        option
+        for option in lineage.json()["candidate_options"]
+        if option["process_key"] == "AN-01"
+    ]
+    assert {option["melt_key"] for option in options} == {existing_melts[0], shared_process_melt}
+    created = client.post(
+        "/api/projects/default/lineage/AN-01/candidate",
+        params={"process_key": "AN-01", "melt_key": shared_process_melt},
+    )
+    assert created.status_code == 201
+    assert created.json()["provenance"]["source_ref"]["composition_entity_key"] == shared_process_melt
 
 
 def test_lineage_index_is_inspectable(client) -> None:

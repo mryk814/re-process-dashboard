@@ -2515,6 +2515,11 @@ export interface components {
              * @default
              */
             purpose: string;
+            /**
+             * Response Curve Points
+             * @default 17
+             */
+            response_curve_points: number;
             /** Response Curve Ranges */
             response_curve_ranges?: {
                 [key: string]: {
@@ -2609,6 +2614,11 @@ export interface components {
              * @default
              */
             purpose: string;
+            /**
+             * Response Curve Points
+             * @default 17
+             */
+            response_curve_points: number;
             /** Response Curve Ranges */
             response_curve_ranges?: {
                 [key: string]: {
@@ -2796,6 +2806,11 @@ export interface components {
              * @default
              */
             purpose: string;
+            /**
+             * Response Curve Points
+             * @default 17
+             */
+            response_curve_points: number;
             /** Response Curve Ranges */
             response_curve_ranges?: {
                 [key: string]: {

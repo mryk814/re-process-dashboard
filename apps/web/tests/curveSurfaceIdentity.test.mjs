@@ -13,6 +13,7 @@ test("response curve keeps the rendered surface while a changed input gets a new
     outputKey: "TS",
     variableId: "composition.C",
     rangeIdentity: "auto:scalar",
+    pointCount: 17,
   };
   const before = responseCurveSurfaceIdentity({
     ...base,
@@ -39,6 +40,7 @@ test("response curve does not reuse a rendered surface across candidate or varia
     outputKey: "TS",
     variableId: "composition.C",
     rangeIdentity: "auto:scalar",
+    pointCount: 17,
   };
 
   assert.notEqual(
@@ -52,6 +54,14 @@ test("response curve does not reuse a rendered surface across candidate or varia
   assert.notEqual(
     responseCurveSurfaceIdentity({ ...base, variableId: "composition.Mn" }).storageKey,
     responseCurveSurfaceIdentity(base).storageKey,
+  );
+  assert.equal(
+    responseCurveSurfaceIdentity({ ...base, pointCount: 33 }).storageKey,
+    responseCurveSurfaceIdentity(base).storageKey,
+  );
+  assert.notEqual(
+    responseCurveSurfaceIdentity({ ...base, pointCount: 33 }).requestIdentity,
+    responseCurveSurfaceIdentity(base).requestIdentity,
   );
 });
 
