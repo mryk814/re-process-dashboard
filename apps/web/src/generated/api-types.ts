@@ -2142,7 +2142,7 @@ export interface components {
              * Stage
              * @enum {string}
              */
-            stage: "selected" | "features";
+            stage: "curation" | "selected" | "features";
             /** Target */
             target: string;
             /** Target Label */
@@ -3493,7 +3493,7 @@ export interface components {
              * Group
              * @enum {string}
              */
-            group: "識別" | "入力" | "特徴量" | "実測";
+            group: "識別" | "原値" | "正規化" | "判定" | "入力" | "特徴量" | "実測";
             /** Key */
             key: string;
             /** Label */
@@ -5794,7 +5794,7 @@ export interface operations {
             query?: {
                 limit?: number;
                 offset?: number;
-                stage?: "selected" | "features";
+                stage?: "curation" | "selected" | "features";
                 target?: string | null;
             };
             header?: never;

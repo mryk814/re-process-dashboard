@@ -352,27 +352,37 @@
     },
     {
       "task_id": "mpea-literature-tys-v1",
-      "label": "MPEA文献：組成のみの降伏強さ参考推定",
+      "label": "MPEA文献：室温引張特性と工程",
       "outputs": [
         {
           "key": "TYS",
           "label": "室温引張降伏強さ",
           "unit": "MPa"
+        },
+        {
+          "key": "UTS",
+          "label": "室温引張強さ",
+          "unit": "MPa"
+        },
+        {
+          "key": "EL",
+          "label": "室温引張伸び",
+          "unit": "%"
         }
       ],
       "source": {
         "kind": "external_mpea_literature",
         "path": "data/source/external/mpea_ground_truth_18021833.csv",
         "sha256": "a3b4230ff150e32ed51050a4813fc3fbad01b2bc2fc61b5d4fb8a5be3cc5e476",
-        "profile_id": "mpea-zenodo-18021833-v1",
-        "profile_path": "backend/src/material_workbench/data/tabular-profile-mpea-literature-tys-v1.json"
+        "profile_id": "mpea-zenodo-18021833-room-tensile-v1",
+        "profile_path": "backend/src/material_workbench/data/tabular-profile-mpea-room-tensile-v1.json"
       },
       "active_package": {
-        "path": "packages/mpea-literature-tys-ridge-v1",
+        "path": "packages/mpea-room-tensile-ridge-v1",
         "previous": null,
-        "package_id": "mpea-literature-tys-ridge-v1",
+        "package_id": "mpea-room-tensile-ridge-v1",
         "version": "1.0.0",
-        "manifest_sha256": "07ff3979b2448fc735bf39f9896af8a02caa149b89dd0120177b07e6b8e50662",
+        "manifest_sha256": "a5c116ca97f84c8ba9f3731531387773d3c6d7448116bcf3a9a77ba7a0e052b0",
         "runtime_types": [
           "builtin.linear.v1"
         ]

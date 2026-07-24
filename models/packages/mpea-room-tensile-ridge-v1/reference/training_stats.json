@@ -1,0 +1,16 @@
+{
+  "records": {
+    "TYS": 99,
+    "UTS": 90,
+    "EL": 71
+  },
+  "groups": 41,
+  "rows": 104,
+  "source_sha256": "a3b4230ff150e32ed51050a4813fc3fbad01b2bc2fc61b5d4fb8a5be3cc5e476",
+  "curation": {
+    "accepted": 225,
+    "warning": 17,
+    "quarantined": 154,
+    "blocked": 0
+  }
+}

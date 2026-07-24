@@ -3406,6 +3406,7 @@
           },
           "stage": {
             "enum": [
+              "curation",
               "selected",
               "features"
             ],
@@ -6807,6 +6808,9 @@
           "group": {
             "enum": [
               "識別",
+              "原値",
+              "正規化",
+              "判定",
               "入力",
               "特徴量",
               "実測"
@@ -10099,6 +10103,7 @@
             "schema": {
               "default": "selected",
               "enum": [
+                "curation",
                 "selected",
                 "features"
               ],

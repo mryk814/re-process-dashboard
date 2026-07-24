@@ -199,12 +199,33 @@ def test_mpea_bundled_task_runs_from_registered_dataset_and_package(client) -> N
     )
     assert preview.status_code == 200, preview.text
     payload = preview.json()
-    assert set(payload["predictions"]) == {"TYS"}
+    assert set(payload["predictions"]) == {"TYS", "UTS", "EL"}
+    assert {
+        target: support["reference_count"]
+        for target, support in payload["model_support"].items()
+    } == {"TYS": 99, "UTS": 90, "EL": 71}
     assert set(payload["canonical_input"]["composition"]) == {
         "Fe", "Ni", "Co", "Mn", "Cr", "Al", "Ti", "Cu",
         "Si", "V", "Nb", "B", "Mo", "Ta",
     }
-    assert payload["model_meta"]["package"]["id"] == "mpea-literature-tys-ridge-v1"
+    assert set(payload["canonical_input"]["process"]) == {
+        "homogenization_temp_c", "homogenization_time_h",
+        "rolling_temp_c", "rolling_reduction_pct",
+        "recrystallization_temp_c", "recrystallization_time_min",
+        "aging_temp_c", "aging_time_h",
+    }
+    assert payload["model_meta"]["package"]["id"] == "mpea-room-tensile-ridge-v1"
+    curation = client.get(
+        f"/api/projects/{project['id']}/model-package/training-data",
+        params={"stage": "curation", "target": "TYS", "limit": 5},
+    )
+    assert curation.status_code == 200, curation.text
+    curation_payload = curation.json()
+    assert curation_payload["total"] == 396
+    assert {column["group"] for column in curation_payload["columns"]} >= {
+        "原値", "正規化", "判定",
+    }
+    assert "curation.status" in curation_payload["rows"][0]["values"]
 
 
 def test_project_creation_pins_explicit_references_and_rejects_rebinding(client) -> None:

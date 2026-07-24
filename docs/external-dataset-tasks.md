@@ -1,5 +1,9 @@
 # 外部データをアプリのPrediction Taskにする
 
+MPEA文献データの具体例は
+[MPEA文献データの前処理と学習母集団](mpea-literature-data-pipeline.md)
+を参照してください。
+
 `prediction_insight_data_starter_pack` から、性格の異なる4件を選び、起動時に利用できるTask・Dataset・Model Packageとして同梱している。
 
 | Task | データ | 学習単位 | 出力 | 画面で確認すること |

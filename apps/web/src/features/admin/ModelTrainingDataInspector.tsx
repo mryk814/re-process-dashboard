@@ -6,7 +6,7 @@ import {
   type ApiModelTrainingDataPage,
 } from "../../shared/api/workbench-api";
 
-type Stage = "selected" | "features";
+type Stage = "curation" | "selected" | "features";
 
 function displayValue(value: string | number | boolean | null | undefined) {
   if (value == null || value === "") return "—";
@@ -79,7 +79,7 @@ export function ModelTrainingDataInspector({
   };
   return <details className="model-training-data" open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
     <summary>
-      <span><b>学習データ</b><small>採用行とモデル入力を確認</small></span>
+      <span><b>学習データ</b><small>原値からモデル入力まで確認</small></span>
       {page && <em>{page.total.toLocaleString("ja-JP")}行 · {page.parent_conditions.toLocaleString("ja-JP")}条件</em>}
     </summary>
     <div className="training-data-controls">
@@ -91,12 +91,15 @@ export function ModelTrainingDataInspector({
         </select>
       </label>
       <div className="training-data-tabs" role="tablist" aria-label="学習データの段階">
+        <button type="button" role="tab" aria-selected={stage === "curation"} className={stage === "curation" ? "active" : ""} onClick={() => { setStage("curation"); resetRows(); }}>原値と前処理</button>
         <button type="button" role="tab" aria-selected={stage === "selected"} className={stage === "selected" ? "active" : ""} onClick={() => { setStage("selected"); resetRows(); }}>採用された個々値</button>
         <button type="button" role="tab" aria-selected={stage === "features"} className={stage === "features" ? "active" : ""} onClick={() => { setStage("features"); resetRows(); }}>モデル入力特徴量</button>
       </div>
     </div>
     <p className="training-data-note">
-      {stage === "selected"
+      {stage === "curation"
+        ? "元データは変更せず、Profileが解釈した値と採否理由を並べています。原値と正規化値が同じ場合も省略しません。"
+        : stage === "selected"
         ? "目的変数に実測があり、学習条件を通過した行です。正規化・結合後、特徴量変換前の入力を表示します。"
         : page?.training_unit === "parent_condition_mean"
           ? "Feature Pipelineで変換後、同じ親工程条件の個々値を平均した実際のモデル入力です。個々値数も併記します。"

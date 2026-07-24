@@ -131,7 +131,7 @@ def model_training_data(
     store: StoreDependency,
     registry: RegistryDependency,
     resolver: ResolverDependency,
-    stage: Annotated[Literal["selected", "features"], Query()] = "selected",
+    stage: Annotated[Literal["curation", "selected", "features"], Query()] = "selected",
     target: Annotated[str | None, Query()] = None,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 25,
@@ -168,7 +168,52 @@ def model_training_data(
         {"key": "observation_id", "label": "実測ID", "unit": None, "group": "識別"},
         {"key": "parent_key", "label": "親工程条件", "unit": None, "group": "識別"},
     ]
-    if stage == "selected":
+    if stage == "curation":
+        curation_columns = tuple(
+            resolved.runtime.data.profile.curation_recipe.columns
+            if getattr(resolved.runtime.data.profile, "curation_recipe", None)
+            else ()
+        )
+        columns = [
+            *identifier_columns,
+            {"key": "curation.status", "label": "採否", "unit": None, "group": "判定"},
+            {"key": "curation.notes", "label": "理由・注意", "unit": None, "group": "判定"},
+            *[
+                {"key": f"raw.{column}", "label": column, "unit": None, "group": "原値"}
+                for column in curation_columns
+            ],
+            *[
+                {
+                    "key": f"normalized.{column}",
+                    "label": column,
+                    "unit": None,
+                    "group": "正規化",
+                }
+                for column in curation_columns
+            ],
+        ]
+        source_rows = data.observations
+        page_rows = []
+        for observation in source_rows[offset:offset + limit]:
+            curation = observation.get("run_context", {}).get("curation", {})
+            values_by_column = curation.get("values", {})
+            notes = [*curation.get("reasons", []), *curation.get("warnings", [])]
+            values: dict[str, Any] = {
+                "observation_id": observation["id"],
+                "parent_key": observation["parent_key"],
+                "curation.status": curation.get("status", "accepted"),
+                "curation.notes": " / ".join(notes) if notes else "—",
+            }
+            for column in curation_columns:
+                trace = values_by_column.get(column, {})
+                values[f"raw.{column}"] = trace.get("raw")
+                values[f"normalized.{column}"] = trace.get("normalized")
+            page_rows.append({
+                "observation_id": observation["id"],
+                "parent_key": observation["parent_key"],
+                "values": values,
+            })
+    elif stage == "selected":
         input_fields = [
             field
             for group in contract.task_definition.input_groups
@@ -269,7 +314,13 @@ def model_training_data(
         "feature_pipeline_id": canonical["feature_pipeline"]["id"],
         "feature_pipeline_version": canonical["feature_pipeline"]["version"],
         "training_unit": training_unit,
-        "total": len(selected_rows) if stage == "selected" else len(model_rows),
+        "total": (
+            len(data.observations)
+            if stage == "curation"
+            else len(selected_rows)
+            if stage == "selected"
+            else len(model_rows)
+        ),
         "parent_conditions": len({training_context_key(row) for row in selected_rows}),
         "offset": offset,
         "limit": limit,

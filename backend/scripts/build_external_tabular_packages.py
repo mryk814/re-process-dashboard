@@ -33,6 +33,11 @@ JOBS = {
         ROOT / "backend/src/material_workbench/data/tabular-profile-battery-degradation-v1.json",
         ROOT / "models/packages/battery-degradation-lightgbm-external-v1",
     ),
+    "mpea-literature-tys-v1": (
+        ROOT / "data/source/external/mpea_ground_truth_18021833.csv",
+        ROOT / "backend/src/material_workbench/data/tabular-profile-mpea-room-tensile-v1.json",
+        ROOT / "models/packages/mpea-room-tensile-ridge-v1",
+    ),
 }
 
 

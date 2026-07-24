@@ -32,7 +32,7 @@ _TABULAR_PROFILES = {
     CONCRETE_TASK_ID: _DATA_ROOT / "tabular-profile-concrete-v1.json",
     WEAR_CURVE_TASK_ID: _DATA_ROOT / "tabular-profile-wear-curve-v1.json",
     BATTERY_DEGRADATION_TASK_ID: _DATA_ROOT / "tabular-profile-battery-degradation-v1.json",
-    MPEA_LITERATURE_TASK_ID: _DATA_ROOT / "tabular-profile-mpea-literature-tys-v1.json",
+    MPEA_LITERATURE_TASK_ID: _DATA_ROOT / "tabular-profile-mpea-room-tensile-v1.json",
 }
 
 
@@ -471,7 +471,7 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(MPEA_LITERATURE_TASK_ID),
         model_builder=_tabular_builder(MPEA_LITERATURE_TASK_ID),
-        starter_project=_tabular_starter(MPEA_LITERATURE_TASK_ID, "MPEA文献の降伏強さ"),
+        starter_project=_tabular_starter(MPEA_LITERATURE_TASK_ID, "MPEA文献の室温引張特性"),
         data_explorer=_TABULAR_EXPLORER,
     ),
 })

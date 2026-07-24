@@ -31,7 +31,7 @@ PRIMARY_DATASET_PROFILES = {
     PRIMARY_DEFAULT_SOURCE: PROFILE_ROOT / "dataset-input-profile-tutorial.json",
     PROCESS_SOURCE: PROFILE_ROOT / "dataset-input-profile-process-v1.json",
     Path("data/source/external/mpea_ground_truth_18021833.csv"):
-        PROFILE_ROOT / "tabular-profile-mpea-literature-tys-v1.json",
+        PROFILE_ROOT / "tabular-profile-mpea-room-tensile-v1.json",
 }
 
 

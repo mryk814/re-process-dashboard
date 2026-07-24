@@ -665,7 +665,7 @@ class TrainingDataColumn(BaseModel):
     key: str
     label: str
     unit: str | None = None
-    group: Literal["識別", "入力", "特徴量", "実測"]
+    group: Literal["識別", "原値", "正規化", "判定", "入力", "特徴量", "実測"]
 
 
 class TrainingDataRow(BaseModel):
@@ -675,7 +675,7 @@ class TrainingDataRow(BaseModel):
 
 
 class ModelTrainingDataPage(BaseModel):
-    stage: Literal["selected", "features"]
+    stage: Literal["curation", "selected", "features"]
     target: str
     target_label: str
     source_data_digest: str

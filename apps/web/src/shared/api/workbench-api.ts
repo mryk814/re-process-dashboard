@@ -159,7 +159,7 @@ export const workbenchApi = {
   async modelPackage(projectId: string) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/model-package", { params: { path: { project_id: projectId } } }), "モデルPackageを取得できませんでした。");
   },
-  async modelTrainingData(projectId: string, stage: "selected" | "features", target: string, offset = 0, limit = 25, signal?: AbortSignal) {
+  async modelTrainingData(projectId: string, stage: "curation" | "selected" | "features", target: string, offset = 0, limit = 25, signal?: AbortSignal) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/model-package/training-data", {
       params: { path: { project_id: projectId }, query: { stage, target, offset, limit } },
       signal,
