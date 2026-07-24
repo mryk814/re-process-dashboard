@@ -1384,6 +1384,19 @@
         "title": "DatasetRevision",
         "type": "object"
       },
+      "DatasetRevisionUpdateInput": {
+        "properties": {
+          "archived": {
+            "title": "Archived",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "archived"
+        ],
+        "title": "DatasetRevisionUpdateInput",
+        "type": "object"
+      },
       "DatasetViewMember": {
         "properties": {
           "cohort_key": {
@@ -3220,6 +3233,19 @@
           "created_at"
         ],
         "title": "ModelPackageRef",
+        "type": "object"
+      },
+      "ModelPackageRefUpdateInput": {
+        "properties": {
+          "archived": {
+            "title": "Archived",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "archived"
+        ],
+        "title": "ModelPackageRefUpdateInput",
         "type": "object"
       },
       "ModelPackageStatus": {
@@ -6893,6 +6919,18 @@
     "/api/data-library/datasets": {
       "get": {
         "operationId": "list_datasets_api_data_library_datasets_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "include_archived",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Archived",
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -6920,6 +6958,55 @@
           }
         },
         "summary": "List Datasets"
+      }
+    },
+    "/api/data-library/datasets/{revision_id}": {
+      "patch": {
+        "operationId": "update_dataset_api_data_library_datasets__revision_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatasetRevisionUpdateInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataLibraryDataset"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Dataset"
       }
     },
     "/api/data-library/model-packages": {
@@ -6964,6 +7051,55 @@
           }
         },
         "summary": "List Model Packages"
+      }
+    },
+    "/api/data-library/model-packages/{reference_id}": {
+      "patch": {
+        "operationId": "update_model_package_api_data_library_model_packages__reference_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "reference_id",
+            "required": true,
+            "schema": {
+              "title": "Reference Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelPackageRefUpdateInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelPackageRef"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Model Package"
       }
     },
     "/api/data-library/views": {

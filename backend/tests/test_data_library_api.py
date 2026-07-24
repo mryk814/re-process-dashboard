@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import sqlite3
+
+from material_workbench.persistence.workspace_catalog_bootstrap import bootstrap_workspace_catalog
+
 
 def test_data_library_exposes_semantic_dataset_records_and_creation_options(client) -> None:
     datasets = client.get("/api/data-library/datasets")
@@ -43,6 +47,140 @@ def test_data_library_exposes_semantic_dataset_records_and_creation_options(clie
         == payload["task_contract_digests"][package["task_id"]]
         for package in payload["model_packages"]
     )
+
+
+def test_unused_dataset_can_be_disabled_and_restored_with_its_views(client) -> None:
+    projects = client.get("/api/projects").json()
+    used_view_ids = {project["dataset_view_revision_id"] for project in projects}
+    datasets = client.get(
+        "/api/data-library/datasets", params={"include_archived": True}
+    ).json()
+    dataset = next(
+        item
+        for item in datasets
+        if not ({view["id"] for view in item["dataset_views"]} & used_view_ids)
+    )
+    revision_id = dataset["dataset_revision"]["id"]
+    related_view_ids = {view["id"] for view in dataset["dataset_views"]}
+
+    disabled = client.patch(
+        f"/api/data-library/datasets/{revision_id}", json={"archived": True}
+    )
+
+    assert disabled.status_code == 200, disabled.text
+    assert disabled.json()["dataset_revision"]["archived_at"] is not None
+    active_ids = {
+        item["dataset_revision"]["id"]
+        for item in client.get("/api/data-library/datasets").json()
+    }
+    assert revision_id not in active_ids
+    active_view_ids = {
+        view["id"] for view in client.get("/api/data-library/views").json()
+    }
+    assert related_view_ids.isdisjoint(active_view_ids)
+
+    restarted_catalog = bootstrap_workspace_catalog(
+        client.app.state.store.path,
+        client.app.state.task_registry,
+    )
+    assert restarted_catalog.get_dataset_revision(
+        revision_id, include_archived=True
+    ).archived_at is not None
+
+    restored = client.patch(
+        f"/api/data-library/datasets/{revision_id}", json={"archived": False}
+    )
+
+    assert restored.status_code == 200, restored.text
+    assert restored.json()["dataset_revision"]["archived_at"] is None
+    assert related_view_ids <= {
+        view["id"] for view in client.get("/api/data-library/views").json()
+    }
+
+
+def test_referenced_dataset_and_model_package_cannot_be_disabled(client) -> None:
+    project = client.get("/api/projects/default").json()
+    view = next(
+        item
+        for item in client.get("/api/data-library/views").json()
+        if item["id"] == project["dataset_view_revision_id"]
+    )
+    dataset_revision_id = view["members"][0]["dataset_revision_id"]
+
+    dataset_response = client.patch(
+        f"/api/data-library/datasets/{dataset_revision_id}",
+        json={"archived": True},
+    )
+    package_response = client.patch(
+        f"/api/data-library/model-packages/{project['model_package_ref_id']}",
+        json={"archived": True},
+    )
+
+    assert dataset_response.status_code == 409
+    assert "参照中のプロジェクト" in dataset_response.json()["message"]
+    assert package_response.status_code == 409
+    assert "参照中のプロジェクト" in package_response.json()["message"]
+
+
+def test_unused_model_package_can_be_disabled_and_restored(client) -> None:
+    used_package_ids = {
+        project["model_package_ref_id"]
+        for project in client.get("/api/projects").json()
+    }
+    package = next(
+        item
+        for item in client.get(
+            "/api/data-library/model-packages",
+            params={"include_archived": True},
+        ).json()
+        if item["id"] not in used_package_ids
+    )
+
+    disabled = client.patch(
+        f"/api/data-library/model-packages/{package['id']}",
+        json={"archived": True},
+    )
+    restored = client.patch(
+        f"/api/data-library/model-packages/{package['id']}",
+        json={"archived": False},
+    )
+
+    assert disabled.status_code == 200, disabled.text
+    assert disabled.json()["archived_at"] is not None
+    assert restored.status_code == 200, restored.text
+    assert restored.json()["archived_at"] is None
+
+
+def test_model_package_restore_revalidates_the_package_files(client) -> None:
+    used_package_ids = {
+        project["model_package_ref_id"]
+        for project in client.get("/api/projects").json()
+    }
+    package = next(
+        item
+        for item in client.get(
+            "/api/data-library/model-packages",
+            params={"include_archived": True},
+        ).json()
+        if item["id"] not in used_package_ids
+    )
+    assert client.patch(
+        f"/api/data-library/model-packages/{package['id']}",
+        json={"archived": True},
+    ).status_code == 200
+    with sqlite3.connect(client.app.state.store.path) as conn:
+        conn.execute(
+            "UPDATE model_package_refs SET locator=? WHERE id=?",
+            ("missing-model-package", package["id"]),
+        )
+
+    rejected = client.patch(
+        f"/api/data-library/model-packages/{package['id']}",
+        json={"archived": False},
+    )
+
+    assert rejected.status_code == 409
+    assert "実体を検証できません" in rejected.json()["message"]
 
 
 def test_mpea_bundled_task_runs_from_registered_dataset_and_package(client) -> None:

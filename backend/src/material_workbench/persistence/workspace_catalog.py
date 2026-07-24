@@ -312,6 +312,43 @@ class WorkspaceCatalog:
     def archive_dataset_revision(self, revision_id: str, *, archived: bool = True) -> DatasetRevision | None:
         return self._set_archived("dataset_revisions", revision_id, archived, self._dataset)
 
+    def set_dataset_revision_availability(
+        self, revision_id: str, *, archived: bool
+    ) -> DatasetRevision | None:
+        """Change Dataset availability atomically with the Project reference guard."""
+
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                "SELECT * FROM dataset_revisions WHERE id=?", (revision_id,)
+            ).fetchone()
+            if row is None:
+                return None
+            if archived:
+                projects = [
+                    project["name"]
+                    for project in conn.execute(
+                        "SELECT DISTINCT p.name FROM projects p "
+                        "JOIN dataset_view_members vm "
+                        "ON vm.dataset_view_revision_id=p.dataset_view_revision_id "
+                        "WHERE vm.dataset_revision_id=? ORDER BY p.name",
+                        (revision_id,),
+                    )
+                ]
+                if projects:
+                    raise CatalogReferenceError(
+                        f"参照中のプロジェクトがあるため利用停止できません: {', '.join(projects)}"
+                    )
+            if (row["archived_at"] is not None) != archived:
+                conn.execute(
+                    "UPDATE dataset_revisions SET archived_at=? WHERE id=?",
+                    (_archived_at(archived), revision_id),
+                )
+                row = conn.execute(
+                    "SELECT * FROM dataset_revisions WHERE id=?", (revision_id,)
+                ).fetchone()
+            return self._dataset(row)
+
     def _view(self, conn: sqlite3.Connection, row: sqlite3.Row) -> DatasetViewRevision:
         members = [
             DatasetViewMember(
@@ -527,6 +564,40 @@ class WorkspaceCatalog:
         self, reference_id: str, *, archived: bool = True
     ) -> ModelPackageRef | None:
         return self._set_archived("model_package_refs", reference_id, archived, self._package)
+
+    def set_model_package_ref_availability(
+        self, reference_id: str, *, archived: bool
+    ) -> ModelPackageRef | None:
+        """Change Package availability atomically with the Project reference guard."""
+
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                "SELECT * FROM model_package_refs WHERE id=?", (reference_id,)
+            ).fetchone()
+            if row is None:
+                return None
+            if archived:
+                projects = [
+                    project["name"]
+                    for project in conn.execute(
+                        "SELECT name FROM projects WHERE model_package_ref_id=? ORDER BY name",
+                        (reference_id,),
+                    )
+                ]
+                if projects:
+                    raise CatalogReferenceError(
+                        f"参照中のプロジェクトがあるため利用停止できません: {', '.join(projects)}"
+                    )
+            if (row["archived_at"] is not None) != archived:
+                conn.execute(
+                    "UPDATE model_package_refs SET archived_at=? WHERE id=?",
+                    (_archived_at(archived), reference_id),
+                )
+                row = conn.execute(
+                    "SELECT * FROM model_package_refs WHERE id=?", (reference_id,)
+                ).fetchone()
+            return self._package(row)
 
     def create_project_series(self, payload: ProjectSeriesCreateInput) -> ProjectSeries:
         return self.ensure_project_series(f"project-series-{uuid4()}", payload)

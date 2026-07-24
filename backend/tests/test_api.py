@@ -54,6 +54,20 @@ def test_data_library_model_packages_can_include_archived_refs(client) -> None:
     assert archived["archived_at"] is not None
 
 
+def test_local_web_origin_can_preflight_patch_requests(client) -> None:
+    response = client.options(
+        "/api/data-library/datasets/example",
+        headers={
+            "Origin": "http://127.0.0.1:5180",
+            "Access-Control-Request-Method": "PATCH",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+
+    assert response.status_code == 200
+    assert "PATCH" in response.headers["access-control-allow-methods"]
+
+
 def test_candidate_update_canonicalizes_line_speed_times_and_rejects_direct_edits(client) -> None:
     candidate = client.post("/api/projects/default/candidates", json=_payload("LS基準")).json()
     changed_speed = _payload("LS基準")

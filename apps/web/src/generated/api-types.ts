@@ -21,6 +21,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/data-library/datasets/{revision_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Dataset */
+        patch: operations["update_dataset_api_data_library_datasets__revision_id__patch"];
+        trace?: never;
+    };
     "/api/data-library/model-packages": {
         parameters: {
             query?: never;
@@ -36,6 +53,23 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/data-library/model-packages/{reference_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Model Package */
+        patch: operations["update_model_package_api_data_library_model_packages__reference_id__patch"];
         trace?: never;
     };
     "/api/data-library/views": {
@@ -1362,6 +1396,11 @@ export interface components {
             /** Profile Revision Id */
             profile_revision_id: string;
         };
+        /** DatasetRevisionUpdateInput */
+        DatasetRevisionUpdateInput: {
+            /** Archived */
+            archived: boolean;
+        };
         /** DatasetViewMember */
         DatasetViewMember: {
             /**
@@ -2031,6 +2070,11 @@ export interface components {
             task_contract_digest: string;
             /** Task Id */
             task_id: string;
+        };
+        /** ModelPackageRefUpdateInput */
+        ModelPackageRefUpdateInput: {
+            /** Archived */
+            archived: boolean;
         };
         /** ModelPackageStatus */
         ModelPackageStatus: {
@@ -3498,7 +3542,9 @@ export type $defs = Record<string, never>;
 export interface operations {
     list_datasets_api_data_library_datasets_get: {
         parameters: {
-            query?: never;
+            query?: {
+                include_archived?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -3512,6 +3558,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DataLibraryDataset"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    update_dataset_api_data_library_datasets__revision_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                revision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DatasetRevisionUpdateInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataLibraryDataset"];
                 };
             };
             /** @description Validation Error */
@@ -3543,6 +3624,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModelPackageRef"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    update_model_package_api_data_library_model_packages__reference_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reference_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModelPackageRefUpdateInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelPackageRef"];
                 };
             };
             /** @description Validation Error */
