@@ -91,6 +91,31 @@ def test_mpea_similarity_uses_the_requested_measurement_cohort(resources) -> Non
         assert all(target in item["outputs"] for item in similar)
 
 
+def test_mpea_screening_uses_fe_as_an_exact_balance_component(client) -> None:
+    project = next(
+        item for item in client.get("/api/projects").json()
+        if item["task_id"] == "mpea-room-tensile-v1"
+    )
+    candidate = client.get(f"/api/projects/{project['id']}/candidates").json()[0]
+    response = client.post("/api/screening", params={"project_id": project["id"]}, json={
+        "base_candidate_id": candidate["id"],
+        "base_inputs": candidate["inputs"],
+        "samples": 48,
+        "target": "TYS",
+        "variables": {
+            "composition.Ni": {"mode": "range", "min": 20, "max": 30},
+            "composition.Co": {"mode": "range", "min": 20, "max": 30},
+        },
+    })
+    assert response.status_code == 201, response.text
+    payload = response.json()
+    assert payload["design_space"]["composition_constraints"][0]["balance_path"] == "composition.Fe"
+    assert all(
+        sum(point["candidate"]["inputs"]["composition"].values()) == pytest.approx(100, abs=0.01)
+        for point in payload["points"]
+    )
+
+
 @pytest.mark.parametrize("task_id", EXTERNAL_TASKS)
 def test_external_task_package_predicts_and_draws_a_curve(resources, task_id: str) -> None:
     fixture = load_task_contracts()[task_id]

@@ -1180,6 +1180,22 @@ export interface components {
             /** Unchanged */
             unchanged: string[];
         };
+        /** CompositionTotalDefinition */
+        CompositionTotalDefinition: {
+            /** Balance Path */
+            balance_path?: string | null;
+            /** Component Paths */
+            component_paths: string[];
+            /**
+             * Tolerance
+             * @default 0.000001
+             */
+            tolerance: number;
+            /** Total */
+            total: number;
+            /** Unit */
+            unit: string;
+        };
         /** ConnectedObservation */
         ConnectedObservation: {
             /** Id */
@@ -3498,6 +3514,11 @@ export interface components {
              * @constant
              */
             canonical_candidate_schema_version: "canonical-candidate/v1";
+            /**
+             * Composition Totals
+             * @default []
+             */
+            composition_totals: components["schemas"]["CompositionTotalDefinition"][];
             /**
              * Constraints
              * @default []

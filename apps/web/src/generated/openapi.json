@@ -758,6 +758,52 @@
         "title": "ChangeGuideEntry",
         "type": "object"
       },
+      "CompositionTotalDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "balance_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Balance Path"
+          },
+          "component_paths": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 2,
+            "title": "Component Paths",
+            "type": "array"
+          },
+          "tolerance": {
+            "default": 1e-06,
+            "minimum": 0.0,
+            "title": "Tolerance",
+            "type": "number"
+          },
+          "total": {
+            "title": "Total",
+            "type": "number"
+          },
+          "unit": {
+            "minLength": 1,
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component_paths",
+          "total",
+          "unit"
+        ],
+        "title": "CompositionTotalDefinition",
+        "type": "object"
+      },
       "ConnectedObservation": {
         "properties": {
           "id": {
@@ -6812,6 +6858,14 @@
             "const": "canonical-candidate/v1",
             "title": "Canonical Candidate Schema Version",
             "type": "string"
+          },
+          "composition_totals": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CompositionTotalDefinition"
+            },
+            "title": "Composition Totals",
+            "type": "array"
           },
           "constraints": {
             "default": [],

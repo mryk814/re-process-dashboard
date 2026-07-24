@@ -147,6 +147,24 @@ class RelationalConstraint(ContractModel):
         return self
 
 
+class CompositionTotalDefinition(ContractModel):
+    component_paths: Annotated[tuple[str, ...], Field(min_length=2)]
+    total: StrictFloat
+    tolerance: Annotated[StrictFloat, Field(ge=0)] = 1e-6
+    unit: Annotated[str, Field(min_length=1)]
+    balance_path: str | None = None
+
+    @model_validator(mode="after")
+    def components_and_total_are_valid(self) -> "CompositionTotalDefinition":
+        if not math.isfinite(self.total):
+            raise ValueError("composition total must be finite")
+        if len(self.component_paths) != len(set(self.component_paths)):
+            raise ValueError("composition total components must be unique")
+        if self.balance_path is not None and self.balance_path not in self.component_paths:
+            raise ValueError("composition total balance must be a component")
+        return self
+
+
 class ResponseCurveVariableDefinition(ContractModel):
     kind: Literal["numeric_input", "heat_stage_temperature"]
     order: Annotated[int, Field(ge=0)]
@@ -175,6 +193,7 @@ class TaskDefinition(ContractModel):
     display_decimals: dict[str, Annotated[int, Field(ge=0, le=8)]]
     fixed_context: tuple[FixedContextDefinition, ...] = ()
     constraints: tuple[RelationalConstraint, ...] = ()
+    composition_totals: tuple[CompositionTotalDefinition, ...] = ()
     response_curve_variables: tuple[ResponseCurveVariableDefinition, ...] = ()
     # 予測対象が「この軸に沿った曲線」であるタスクだけが宣言する。宣言された
     # フィールドは候補入力上は1点の評価位置であり、曲線APIの横軸になる。
@@ -233,6 +252,15 @@ class TaskDefinition(ContractModel):
                 raise ValueError("relational constraints can only compare number fields")
             if any(not field_by_path[path].required for path in referenced):
                 raise ValueError("relational constraints must reference required fields")
+        for constraint in self.composition_totals:
+            components = [field_by_path.get(path) for path in constraint.component_paths]
+            if any(
+                field is None or field.kind != "number" or not path.startswith("composition.")
+                for path, field in zip(constraint.component_paths, components, strict=True)
+            ):
+                raise ValueError("composition total must reference declared composition number fields")
+            if any(field.unit != constraint.unit for field in components if field is not None):
+                raise ValueError("composition total units must match fields")
         return self
 
 
@@ -497,4 +525,11 @@ class TaskContractFixture(ContractModel):
                 flat_values[constraint.left_path], flat_values[constraint.right_path]
             ):
                 raise ValueError(constraint.message)
+        for constraint in task.composition_totals:
+            actual = sum(float(flat_values[path]) for path in constraint.component_paths)
+            if abs(actual - constraint.total) > constraint.tolerance:
+                raise ValueError(
+                    f"candidate composition total must be {constraint.total:g} {constraint.unit} "
+                    f"(actual {actual:g})"
+                )
         return self

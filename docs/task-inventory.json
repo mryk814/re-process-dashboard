@@ -439,7 +439,7 @@
         "previous": null,
         "package_id": "mpea-room-tensile-ridge-v1",
         "version": "1.0.0",
-        "manifest_sha256": "70cbbbb46cf2db3e5d499d220e7896eb2e38cdddf1871859372eb9b1cdc4be80",
+        "manifest_sha256": "2a1abd8f1227b178284f0730001944c23b81080f05a746577b586471d5e1d585",
         "runtime_types": [
           "builtin.linear.v1"
         ]

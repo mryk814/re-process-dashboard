@@ -4,7 +4,7 @@
   "package_version": "1.0.0",
   "task_id": "mpea-room-tensile-v1",
   "input_schema_version": "canonical-candidate/v1",
-  "input_contract_digest": "sha256:fbc341ad740bd79cbe7181b336f2d699c6b42acb001cf7201fa7a647aa400e59",
+  "input_contract_digest": "sha256:8973d33d0c52b5ecda793b0fc5611697f60198cda21b0728340c28ca2002646f",
   "runtime_capability_digest": "sha256:e74ea1ed9c13f7d573d5c9ac979605368977fc7f574b777987ab82752cbbd17e",
   "feature_pipeline": {
     "id": "mpea-room-tensile-v1-profile-transform",
@@ -222,7 +222,7 @@
   ],
   "provenance": {
     "training_data_id": "sha256:a3b4230ff150e32ed51050a4813fc3fbad01b2bc2fc61b5d4fb8a5be3cc5e476",
-    "feature_dataset_id": "sha256:ec16bfa87e88f6ffb4312095be388114de950c72da4323aaeac54fbe4c40fedc",
+    "feature_dataset_id": "sha256:5c447d97462c1d433697b2427ce93995f36ade81a66ab56aa72b831bf070599f",
     "training_code_revision": "tabular-ridge-v1",
     "dataset_profile_id": "sha256:51de725021caaf4be761531c5ccbddad2b90625bbfe9ad3890d13f79fb2821a7"
   },

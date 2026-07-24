@@ -86,12 +86,17 @@ export function ScreeningPage({
   const [baseCandidate, setBaseCandidate] = useState<Candidate>();
   const [baseEditorVersion, setBaseEditorVersion] = useState(0);
   const pendingBaseInputs = useRef<ApiScreeningRun["base_inputs"]>(undefined);
+  const balancePaths = new Set(
+    resolvedTaskDefinition?.task_definition.composition_totals
+      ?.map((constraint) => constraint.balance_path)
+      .filter((path): path is string => path != null) ?? [],
+  );
   const optionGroups = resolvedTaskDefinition
     ? resolvedTaskDefinition.task_definition.input_groups.map((group) => ({
         key: group.key,
         label: group.label,
         options: group.fields.flatMap((field) => {
-          if (!field.editable) return [];
+          if (!field.editable || balancePaths.has(field.path)) return [];
           if (field.kind !== "heat_pattern") return [{
             value: field.path,
             label: `${field.label}${field.unit ? ` (${field.unit})` : ""}`,
