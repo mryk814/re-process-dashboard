@@ -8,6 +8,36 @@ export type QualityFilters = Readonly<{
   key?: string;
 }>;
 
+type DetectedIssue = ApiQuality["detected_issues"][number];
+
+type QualityIssueGroup = Readonly<{
+  key: string;
+  issueType: DetectedIssue["issue_type"];
+  sourceSheet: string;
+  detail: string;
+  issues: readonly DetectedIssue[];
+}>;
+
+function groupQualityIssues(issues: readonly DetectedIssue[]): readonly QualityIssueGroup[] {
+  const groups = new Map<string, QualityIssueGroup>();
+  for (const issue of issues) {
+    const key = [issue.issue_type, issue.source_sheet, issue.detail].join("\u0000");
+    const group = groups.get(key);
+    if (group) {
+      groups.set(key, { ...group, issues: [...group.issues, issue] });
+    } else {
+      groups.set(key, {
+        key,
+        issueType: issue.issue_type,
+        sourceSheet: issue.source_sheet,
+        detail: issue.detail,
+        issues: [issue],
+      });
+    }
+  }
+  return [...groups.values()];
+}
+
 export function DataExploreNavigation({
   active,
   qualityAvailable,
@@ -43,12 +73,12 @@ export function LiveDataQualityPage({
   showReferenceScenarios?: boolean;
   mode?: "issues" | "summary";
 }) {
-  type DetectedIssue = ApiQuality["detected_issues"][number];
   const [data, setData] = useState<ApiQuality | null>(null);
   const [error, setError] = useState(false);
   const [exportError, setExportError] = useState("");
   const [copiedKey, setCopiedKey] = useState("");
   const [copyError, setCopyError] = useState("");
+  const [groupOpenState, setGroupOpenState] = useState<Record<string, boolean>>({});
   useEffect(() => {
     let cancelled = false;
     setData(null);
@@ -76,6 +106,7 @@ export function LiveDataQualityPage({
     && (!filters.sheet || issue.source_sheet === filters.sheet)
     && (!normalizedKey || `${issue.entity_key} ${issue.missing_reference_key ?? ""}`.toLocaleLowerCase("ja-JP").includes(normalizedKey))
   ) ?? [];
+  const visibleGroups = groupQualityIssues(visibleIssues);
   const exportCsv = async () => {
     setExportError("");
     try {
@@ -145,26 +176,37 @@ export function LiveDataQualityPage({
                 {sheets.map((sheet) => <option value={sheet} key={sheet}>{sheet}</option>)}
               </select></label>
               <label>キー<input value={filters.key ?? ""} onChange={(event) => updateFilters({ key: event.target.value || undefined })} placeholder="キーを絞り込み" /></label>
-              <span>{visibleIssues.length}件</span>
+              <span>{visibleGroups.length}種類・{visibleIssues.length}件</span>
             </div>
-            <div className="table-scroll">
-              <table className="quality-table">
-                <thead><tr><th>検出種別</th><th>対象キー</th><th>元データ</th><th>検出内容</th><th>調査</th></tr></thead>
-                <tbody>
-                  {visibleIssues.map((issue) => (
-                    <tr key={issue.issue_id} className={filters.issueId === issue.issue_id ? "quality-focus-row" : ""}>
-                      <td><span className={`status-tag ${issue.issue_type !== "missing_key" && issue.issue_type !== "orphan_entity" ? "warn" : ""}`}>{labels[issue.issue_type]}</span></td>
-                      <td>{issue.entity_key || "（空）"}</td><td>{issue.source_sheet}</td><td>{issue.detail}</td>
-                      <td className="quality-actions">
-                        {issue.focus_entity_key ? <button type="button" className="text-button" onClick={() => onOpenLineage(issue, filters)}>系譜で確認</button> : <span className="quality-unavailable">{issue.source_sheet}の該当列を確認</span>}
-                        {issue.entity_key && <button type="button" className="text-button" onClick={() => void copyKey(issue.entity_key)}>{copiedKey === issue.entity_key ? "コピー済み" : "キーをコピー"}</button>}
-                      </td>
-                    </tr>
-                  ))}
-                  {!visibleIssues.length && <tr><td colSpan={5}>条件に一致する検出結果はありません。</td></tr>}
-                </tbody>
-              </table>
-            </div>
+            {visibleGroups.length ? <div className="quality-issue-groups">
+              {visibleGroups.map((group) => {
+                const hasFocusedIssue = group.issues.some((issue) => issue.issue_id === filters.issueId);
+                const isRepeated = group.issues.length > 1;
+                const isOpen = hasFocusedIssue || Boolean(normalizedKey) || (groupOpenState[group.key] ?? !isRepeated);
+                return <details className="quality-issue-group" key={group.key} open={isOpen} onToggle={(event) => setGroupOpenState((current) => ({ ...current, [group.key]: event.currentTarget.open }))}>
+                  <summary>
+                    <span className={`status-tag ${group.issueType !== "missing_key" && group.issueType !== "orphan_entity" ? "warn" : ""}`}>{labels[group.issueType]}</span>
+                    <strong>{group.sourceSheet}</strong>
+                    <span title={group.detail}>{group.detail}</span>
+                    <b>{group.issues.length}件</b>
+                  </summary>
+                  <div className="table-scroll">
+                    <table className="quality-table">
+                      <thead><tr><th>対象キー</th><th>調査</th></tr></thead>
+                      <tbody>{group.issues.map((issue) => (
+                        <tr key={issue.issue_id} className={filters.issueId === issue.issue_id ? "quality-focus-row" : ""}>
+                          <td>{issue.entity_key || "（空）"}</td>
+                          <td className="quality-actions">
+                            {issue.focus_entity_key ? <button type="button" className="text-button" onClick={() => onOpenLineage(issue, filters)}>系譜で確認</button> : <span className="quality-unavailable">{issue.source_sheet}の該当列を確認</span>}
+                            {issue.entity_key && <button type="button" className="text-button" onClick={() => void copyKey(issue.entity_key)}>{copiedKey === issue.entity_key ? "コピー済み" : "キーをコピー"}</button>}
+                          </td>
+                        </tr>
+                      ))}</tbody>
+                    </table>
+                  </div>
+                </details>;
+              })}
+            </div> : <p className="empty-evidence">条件に一致する検出結果はありません。</p>}
           </>}
           {showReferenceScenarios && <details className="reference-scenarios">
             <summary>Excelに用意された確認用シナリオ（{data.reference_scenarios.length}件）</summary>
