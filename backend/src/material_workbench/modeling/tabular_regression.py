@@ -109,6 +109,8 @@ class CurationColumnRule(BaseModel):
     allowed_units: tuple[str, ...] = ()
     warn_below: float | None = None
     warn_above: float | None = None
+    reject_below: float | None = None
+    reject_above: float | None = None
 
     @model_validator(mode="after")
     def conditional_shape(self) -> "CurationColumnRule":
@@ -122,6 +124,12 @@ class CurationColumnRule(BaseModel):
             and self.warn_below >= self.warn_above
         ):
             raise ValueError("curation warning bounds must be ascending")
+        if (
+            self.reject_below is not None
+            and self.reject_above is not None
+            and self.reject_below >= self.reject_above
+        ):
+            raise ValueError("curation rejection bounds must be ascending")
         return self
 
 
@@ -434,6 +442,10 @@ def _curate_value(text: str, rule: CurationColumnRule) -> tuple[float | str, str
         normalized = tuple(item.casefold().replace(" ", "") for item in rule.allowed_units)
         if normalized and unit not in normalized:
             raise ValueError("許可されていない単位です")
+    if rule.reject_below is not None and value < rule.reject_below:
+        raise ValueError(f"{value:g} は採用下限 {rule.reject_below:g} 未満です")
+    if rule.reject_above is not None and value > rule.reject_above:
+        raise ValueError(f"{value:g} は採用上限 {rule.reject_above:g} を超えます")
     if rule.warn_below is not None and value < rule.warn_below:
         warning = f"要確認: {value:g} は通常の下限 {rule.warn_below:g} 未満です"
     if rule.warn_above is not None and value > rule.warn_above:
@@ -491,6 +503,7 @@ def load_tabular_data(
         for index, raw in enumerate(reader, start=header_offset):
             input_reasons: list[str] = []
             warnings: list[str] = []
+            curation_errors: dict[str, str] = {}
             curated: dict[str, float | str] = {}
             if profile.curation_recipe is not None:
                 for column, rule in profile.curation_recipe.columns.items():
@@ -510,6 +523,7 @@ def load_tabular_data(
                             warnings.append(f"{column}: {warning}")
                     except ValueError as exc:
                         curated[column] = source_text.strip()
+                        curation_errors[column] = str(exc)
                         if column in {item.column for item in profile.inputs}:
                             input_reasons.append(f"{column}: {exc}")
             composition: dict[str, float] = {}
@@ -555,7 +569,11 @@ def load_tabular_data(
                     target_status[item.key] = {"usable": True, "reason": None}
                 except ValueError:
                     raw_target = (raw.get(item.column) or "").strip()
-                    reason = "欠損" if not raw_target else "数値・単位を安全に解釈できません"
+                    reason = (
+                        "欠損"
+                        if not raw_target
+                        else curation_errors.get(item.column, "値がProfileの採用範囲外です")
+                    )
                     target_status[item.key] = {"usable": False, "reason": reason}
             for column, values in quality_values.items():
                 try:
@@ -899,11 +917,11 @@ class TabularRegressionRuntime:
         ), similar
 
     def evidence(self, candidate: Candidate) -> tuple[Support, list[dict[str, Any]]]:
-        target = next(iter(self.output_keys))
+        target = self.profile.outputs[0].key
         return self._support(candidate, target, True)
 
     def support_summary(self, candidate: Candidate) -> Support:
-        target = next(iter(self.output_keys))
+        target = self.profile.outputs[0].key
         return self._support(candidate, target, False)[0]
 
     def support_by_target(self, candidate: Candidate) -> dict[str, Support]:
@@ -912,9 +930,16 @@ class TabularRegressionRuntime:
             for target in self.output_keys
         }
 
-    def similarity(self, candidate: Candidate, limit: int = 6) -> list[dict[str, Any]]:
-        target = next(iter(self.output_keys))
-        return self._support(candidate, target, True)[1][:limit]
+    def similarity(
+        self,
+        candidate: Candidate,
+        limit: int = 6,
+        target: str | None = None,
+    ) -> list[dict[str, Any]]:
+        selected_target = target or self.profile.outputs[0].key
+        if selected_target not in self.output_keys:
+            raise ValueError(f"unknown similarity target: {selected_target}")
+        return self._support(candidate, selected_target, True)[1][:limit]
 
     def predict_core(
         self,

@@ -2,7 +2,7 @@
   "task_definition": {
     "schema_version": "task-definition/v1",
     "id": "mpea-literature-tys-v1",
-    "label": "MPEA文献：室温引張特性と工程",
+    "label": "MPEA文献：組成のみの降伏強さ参考推定（旧版）",
     "canonical_candidate_schema_version": "canonical-candidate/v1",
     "input_groups": [{
       "key": "composition", "order": 0, "label": "組成（原報 at%）",
@@ -22,70 +22,24 @@
         {"path":"composition.Mo","kind":"number","order":12,"label":"Mo","unit":"at%","required":true,"editable":false,"default_range":{"min":0,"max":10},"allowed_range":{"min":0,"max":100},"training_range":{"min":0,"max":10}},
         {"path":"composition.Ta","kind":"number","order":13,"label":"Ta","unit":"at%","required":true,"editable":false,"default_range":{"min":0,"max":1},"allowed_range":{"min":0,"max":100},"training_range":{"min":0,"max":1}}
       ]
-    },{
-      "key":"process","order":1,"label":"工程条件（安全に単一値へ正規化できた行）",
-      "fields":[
-        {"path":"process.homogenization_temp_c","kind":"number","order":0,"label":"均質化温度","unit":"°C","required":true,"editable":true,"default_range":{"min":0,"max":1373},"allowed_range":{"min":0,"max":1600},"training_range":{"min":0,"max":1373}},
-        {"path":"process.homogenization_time_h","kind":"number","order":1,"label":"均質化時間","unit":"h","required":true,"editable":true,"default_range":{"min":0,"max":96},"allowed_range":{"min":0,"max":1200},"training_range":{"min":0,"max":96}},
-        {"path":"process.rolling_temp_c","kind":"number","order":2,"label":"圧延温度","unit":"°C","required":true,"editable":true,"default_range":{"min":0,"max":1100},"allowed_range":{"min":0,"max":1400},"training_range":{"min":0,"max":1100}},
-        {"path":"process.rolling_reduction_pct","kind":"number","order":3,"label":"圧下率","unit":"%","required":true,"editable":true,"default_range":{"min":0,"max":95},"allowed_range":{"min":0,"max":100},"training_range":{"min":0,"max":95}},
-        {"path":"process.recrystallization_temp_c","kind":"number","order":4,"label":"再結晶温度","unit":"°C","required":true,"editable":true,"default_range":{"min":0,"max":1373},"allowed_range":{"min":0,"max":1600},"training_range":{"min":0,"max":1373}},
-        {"path":"process.recrystallization_time_min","kind":"number","order":5,"label":"再結晶時間","unit":"min","required":true,"editable":true,"default_range":{"min":0,"max":5760},"allowed_range":{"min":0,"max":10000},"training_range":{"min":0,"max":5760}},
-        {"path":"process.aging_temp_c","kind":"number","order":6,"label":"時効温度","unit":"°C","required":true,"editable":true,"default_range":{"min":0,"max":1173},"allowed_range":{"min":0,"max":1400},"training_range":{"min":0,"max":1173}},
-        {"path":"process.aging_time_h","kind":"number","order":7,"label":"時効時間","unit":"h","required":true,"editable":true,"default_range":{"min":0,"max":1022},"allowed_range":{"min":0,"max":2000},"training_range":{"min":0,"max":1022}}
-      ]
-    },{
-      "key":"categorical","order":2,"label":"工程の実施状態",
-      "fields":[
-        {"path":"categorical.homogenized","kind":"categorical","order":0,"label":"均質化","required":true,"editable":true,"choices":["no","yes"]},
-        {"path":"categorical.rolled","kind":"categorical","order":1,"label":"圧延","required":true,"editable":true,"choices":["no","yes"]},
-        {"path":"categorical.recrystallized","kind":"categorical","order":2,"label":"再結晶","required":true,"editable":true,"choices":["no","yes"]},
-        {"path":"categorical.aged","kind":"categorical","order":3,"label":"時効","required":true,"editable":true,"choices":["no","yes"]}
-      ]
     }],
-    "outputs": [
-      {"key":"TYS","label":"室温引張降伏強さ","unit":"MPa","goal_direction":"at_least","measurement_keys":["TYS"],"plausibility_range":{"min":0,"max":3000},"preferred_display_range":{"min":0,"max":2200}},
-      {"key":"UTS","label":"室温引張強さ","unit":"MPa","goal_direction":"at_least","measurement_keys":["UTS"],"plausibility_range":{"min":0,"max":3500},"preferred_display_range":{"min":0,"max":2500}},
-      {"key":"EL","label":"室温引張伸び","unit":"%","goal_direction":"at_least","measurement_keys":["EL"],"plausibility_range":{"min":0,"max":100},"preferred_display_range":{"min":0,"max":80}}
-    ],
-    "display_decimals": {
-      "composition.Fe":2,"composition.Ni":2,"composition.Co":2,"composition.Mn":2,
-      "composition.Cr":2,"composition.Al":2,"composition.Ti":2,"composition.Cu":2,
-      "composition.Si":2,"composition.V":2,"composition.Nb":2,"composition.B":3,
-      "composition.Mo":2,"composition.Ta":2,
-      "process.homogenization_temp_c":0,"process.homogenization_time_h":2,
-      "process.rolling_temp_c":0,"process.rolling_reduction_pct":1,
-      "process.recrystallization_temp_c":0,"process.recrystallization_time_min":1,
-      "process.aging_temp_c":0,"process.aging_time_h":2,
-      "output.TYS":0,"output.UTS":0,"output.EL":1
-    },
+    "outputs": [{"key":"TYS","label":"室温引張降伏強さ","unit":"MPa","goal_direction":"at_least","measurement_keys":["TYS"],"plausibility_range":{"min":0,"max":3000},"preferred_display_range":{"min":0,"max":2200}}],
+    "display_decimals": {"composition.Fe":2,"composition.Ni":2,"composition.Co":2,"composition.Mn":2,"composition.Cr":2,"composition.Al":2,"composition.Ti":2,"composition.Cu":2,"composition.Si":2,"composition.V":2,"composition.Nb":2,"composition.B":3,"composition.Mo":2,"composition.Ta":2,"output.TYS":0},
     "fixed_context": [
       {"path":"context.source","order":0,"label":"出典","value":"Zenodo 18021833 / CC BY 4.0"},
-      {"path":"context.test","order":1,"label":"試験条件","value":"室温・引張"},
-      {"path":"context.caution","order":2,"label":"注意","value":"自由記述工程を安全に単一値へ正規化できた行だけを使用。多段工程は除外"},
-      {"path":"context.validation","order":3,"label":"検証","value":"論文単位で分割。工程後の組織・析出物・論文名は入力に使用しない"}
+      {"path":"context.caution","order":1,"label":"注意","value":"旧Project再現専用。新規検討には工程を含む室温引張Taskを使用"},
+      {"path":"context.validation","order":2,"label":"検証","value":"論文単位で分割。組織・析出物・論文名は入力に使用しない"}
     ],
-    "constraints": [],
-    "response_curve_variables": [],
-    "curve_axis_path": null
+    "constraints": [], "response_curve_variables": [], "curve_axis_path": null
   },
   "canonical_candidate": {
-    "schema_version":"canonical-candidate/v1",
-    "task_id":"mpea-literature-tys-v1",
+    "schema_version":"canonical-candidate/v1","task_id":"mpea-literature-tys-v1",
     "composition":{"Fe":18.29,"Ni":37.55,"Co":18.69,"Mn":0.0,"Cr":18.94,"Al":2.72,"Ti":0.0,"Cu":3.81,"Si":0.0,"V":0.0,"Nb":0.0,"B":0.0,"Mo":0.0,"Ta":0.0},
-    "process":{"homogenization_temp_c":1200,"homogenization_time_h":24,"rolling_temp_c":20,"rolling_reduction_pct":70,"recrystallization_temp_c":1000,"recrystallization_time_min":60,"aging_temp_c":700,"aging_time_h":24},
-    "heat_pattern":null,"categorical":{"homogenized":"yes","rolled":"yes","recrystallized":"yes","aged":"yes"},
-    "provenance":{"source_kind":"direct","source_ref":null}
+    "process":{},"heat_pattern":null,"categorical":{},"provenance":{"source_kind":"direct","source_ref":null}
   },
   "runtime_capability": {
-    "schema_version":"runtime-capability/v1","task_id":"mpea-literature-tys-v1",
-    "model_package_schema_version":"model-package/v1",
-    "targets":[
-      {"target":"TYS","point_statistics":["mean"],"standard_deviation":false,"quantiles":true,"samples":false,"parametric_distribution":false,"uncertainty_components":false,"support":true,"warnings":true,"goal_probability":"unavailable"},
-      {"target":"UTS","point_statistics":["mean"],"standard_deviation":false,"quantiles":true,"samples":false,"parametric_distribution":false,"uncertainty_components":false,"support":true,"warnings":true,"goal_probability":"unavailable"},
-      {"target":"EL","point_statistics":["mean"],"standard_deviation":false,"quantiles":true,"samples":false,"parametric_distribution":false,"uncertainty_components":false,"support":true,"warnings":true,"goal_probability":"unavailable"}
-    ],
-    "joint_samples":false,
-    "operations":{"preview":true,"detailed_prediction":true,"response_curve":false,"similarity":true,"snapshot":true,"actual_measurement":false}
+    "schema_version":"runtime-capability/v1","task_id":"mpea-literature-tys-v1","model_package_schema_version":"model-package/v1",
+    "targets":[{"target":"TYS","point_statistics":["mean"],"standard_deviation":false,"quantiles":true,"samples":false,"parametric_distribution":false,"uncertainty_components":false,"support":true,"warnings":true,"goal_probability":"unavailable"}],
+    "joint_samples":false,"operations":{"preview":true,"detailed_prediction":true,"response_curve":false,"similarity":true,"snapshot":true,"actual_measurement":false}
   }
 }

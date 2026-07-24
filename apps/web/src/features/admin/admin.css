@@ -130,6 +130,21 @@
 .training-data-tabs button { border: 0; border-radius: 3px; background: transparent; color: #526176; padding: 6px 9px; font: inherit; font-size: 12px; font-weight: 600; }
 .training-data-tabs button.active { background: #fff; color: #174f98; box-shadow: 0 1px 3px rgba(24, 48, 77, .14); }
 .training-data-note { margin: 0; padding: 4px 13px 10px; color: #6c7888; font-size: 11px; }
+.curation-summary { display: grid; grid-template-columns: repeat(4, minmax(90px, 1fr)); gap: 6px; margin: 0 13px 12px; }
+.curation-summary > div { display: grid; grid-template-columns: auto auto 1fr; align-items: baseline; gap: 4px; border: 1px solid #dbe3ec; border-radius: 4px; background: #f8fafc; padding: 8px 9px; }
+.curation-summary > div small { grid-column: 1 / -1; color: #68768a; font-size: 10px; }
+.curation-summary > div strong { color: #153f74; font-size: 17px; font-variant-numeric: tabular-nums; }
+.curation-summary > div span { color: #718096; font-size: 10px; }
+.curation-summary dl { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 5px 14px; margin: 2px 0 0; border-top: 1px solid #dfe6ee; padding-top: 8px; }
+.curation-summary dl div { display: flex; align-items: baseline; gap: 6px; }
+.curation-summary dt { color: #506177; font-size: 10px; }
+.curation-summary dd { margin: 0; color: #40516a; font-size: 10px; }
+.curation-summary > details { grid-column: 1 / -1; border-top: 1px solid #dfe6ee; padding-top: 6px; }
+.curation-summary > details summary { cursor: pointer; color: #40516a; font-size: 10px; font-weight: 700; }
+.curation-summary > details ul { display: grid; gap: 3px; margin: 6px 0 0; padding: 0; list-style: none; }
+.curation-summary > details li { display: flex; justify-content: space-between; gap: 12px; color: #596a80; font-size: 10px; }
+.curation-summary > details li b { white-space: nowrap; color: #334a68; }
+@media (max-width: 900px) { .curation-summary { grid-template-columns: repeat(2, minmax(90px, 1fr)); } }
 .training-data-table-wrap { max-width: 100%; max-height: 430px; overflow: auto; border-top: 1px solid #e3e8ef; border-bottom: 1px solid #e3e8ef; }
 .training-data-table { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11px; font-variant-numeric: tabular-nums; }
 .training-data-table th,

@@ -1015,6 +1015,11 @@ export interface components {
              * @default false
              */
             candidate_excel_import: boolean;
+            /**
+             * Project Creation
+             * @default true
+             */
+            project_creation: boolean;
         };
         /** Body_import_candidates_api_projects__project_id__candidates_import_post */
         Body_import_candidates_api_projects__project_id__candidates_import_post: {
@@ -2118,10 +2123,45 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** ModelTrainingCurationSummary */
+        ModelTrainingCurationSummary: {
+            /** Accepted Rows */
+            accepted_rows: number;
+            /** Blocked Rows */
+            blocked_rows: number;
+            /** Exclusion Reasons */
+            exclusion_reasons?: {
+                [key: string]: number;
+            };
+            /** Input Usable Rows */
+            input_usable_rows: number;
+            /** Quarantined Rows */
+            quarantined_rows: number;
+            /** Source Rows */
+            source_rows: number;
+            /** Targets */
+            targets: components["schemas"]["ModelTrainingCurationTargetSummary"][];
+            /** Warning Rows */
+            warning_rows: number;
+        };
+        /** ModelTrainingCurationTargetSummary */
+        ModelTrainingCurationTargetSummary: {
+            /** Exclusion Reasons */
+            exclusion_reasons?: {
+                [key: string]: number;
+            };
+            /** Source Groups */
+            source_groups: number;
+            /** Target */
+            target: string;
+            /** Usable Rows */
+            usable_rows: number;
+        };
         /** ModelTrainingDataPage */
         ModelTrainingDataPage: {
             /** Columns */
             columns: components["schemas"]["TrainingDataColumn"][];
+            curation_summary: components["schemas"]["ModelTrainingCurationSummary"];
             /** Feature Dataset Digest */
             feature_dataset_digest: string;
             /** Feature Pipeline Id */
@@ -2956,7 +2996,8 @@ export interface components {
         ResolvedTaskDefinition: {
             /** @default {
              *       "candidate_excel_export": false,
-             *       "candidate_excel_import": false
+             *       "candidate_excel_import": false,
+             *       "project_creation": true
              *     } */
             application: components["schemas"]["ApplicationCapability"];
             data_explorer?: components["schemas"]["DataExplorerCapability"] | null;
@@ -3062,6 +3103,11 @@ export interface components {
             similarity: boolean;
             /** Snapshot */
             snapshot: boolean;
+            /**
+             * Target Specific Similarity
+             * @default false
+             */
+            target_specific_similarity: boolean;
         };
         /** ScreeningCandidateBatchRequest */
         ScreeningCandidateBatchRequest: {
@@ -5033,6 +5079,7 @@ export interface operations {
             query: {
                 expected_revision: number;
                 limit?: number;
+                target?: string | null;
             };
             header?: never;
             path: {

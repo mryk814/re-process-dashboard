@@ -75,9 +75,16 @@ def curve_family(project_id: str, candidate_id: str, expected_revision: int, tar
 
 
 @router.get("/api/projects/{project_id}/candidates/{candidate_id}/similar", response_model=list[SimilarObservation], responses=PROJECT_API_ERRORS, operation_id="getCandidateSimilarity")
-def similar(project_id: str, candidate_id: str, expected_revision: int, service: InferenceServiceDependency, limit: int = Query(6, ge=1, le=20)) -> list[dict[str, object]]:
+def similar(
+    project_id: str,
+    candidate_id: str,
+    expected_revision: int,
+    service: InferenceServiceDependency,
+    limit: int = Query(6, ge=1, le=20),
+    target: str | None = Query(None),
+) -> list[dict[str, object]]:
     try:
-        return service.similar(project_id, candidate_id, expected_revision, limit)
+        return service.similar(project_id, candidate_id, expected_revision, limit, target)
     except INFERENCE_ERRORS as exc:
         _raise_inference_error(exc)
 

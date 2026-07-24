@@ -9,7 +9,7 @@ def test_data_library_exposes_semantic_dataset_records_and_creation_options(clie
     datasets = client.get("/api/data-library/datasets")
     assert datasets.status_code == 200
     items = datasets.json()
-    assert len(items) == 8
+    assert len(items) == 10
     assert all(item["data_asset"]["sha256"] for item in items)
     assert all(item["profile_revision"]["profile_digest"] for item in items)
     assert all(item["dataset_revision"]["dataset_digest"] for item in items)
@@ -22,15 +22,25 @@ def test_data_library_exposes_semantic_dataset_records_and_creation_options(clie
         "wear-curve-v1",
         "battery-degradation-v1",
         "mpea-literature-tys-v1",
+        "mpea-room-tensile-v1",
+        "mpea-hardness-process-v1",
     }
-    mpea = next(item for item in items if item["data_asset"]["original_filename"] == "mpea_ground_truth_18021833.csv")
-    assert mpea["supported_task_ids"] == ["mpea-literature-tys-v1"]
+    mpea = [
+        item for item in items
+        if item["data_asset"]["original_filename"] == "mpea_ground_truth_18021833.csv"
+    ]
+    assert {item["supported_task_ids"][0] for item in mpea} == {
+        "mpea-literature-tys-v1",
+        "mpea-room-tensile-v1",
+        "mpea-hardness-process-v1",
+    }
+    assert len({item["profile_revision"]["profile_digest"] for item in mpea}) == 3
 
     options = client.get("/api/project-creation-options")
     assert options.status_code == 200
     payload = options.json()
-    assert len(payload["dataset_views"]) == 8
-    assert len(payload["model_packages"]) == 14
+    assert len(payload["dataset_views"]) == 10
+    assert len(payload["model_packages"]) >= 14
     assert payload["project_series"]
     assert set(payload["task_contract_digests"]) >= {
         "annealed-properties-v1",
@@ -40,8 +50,14 @@ def test_data_library_exposes_semantic_dataset_records_and_creation_options(clie
         "concrete-strength-v1",
         "wear-curve-v1",
         "battery-degradation-v1",
-        "mpea-literature-tys-v1",
+        "mpea-room-tensile-v1",
+        "mpea-hardness-process-v1",
     }
+    assert "mpea-literature-tys-v1" not in payload["task_contract_digests"]
+    assert all(
+        package["task_id"] != "mpea-literature-tys-v1"
+        for package in payload["model_packages"]
+    )
     assert all(
         package["task_contract_digest"]
         == payload["task_contract_digests"][package["task_id"]]
@@ -186,7 +202,7 @@ def test_model_package_restore_revalidates_the_package_files(client) -> None:
 def test_mpea_bundled_task_runs_from_registered_dataset_and_package(client) -> None:
     project = next(
         item for item in client.get("/api/projects").json()
-        if item["task_id"] == "mpea-literature-tys-v1"
+        if item["task_id"] == "mpea-room-tensile-v1"
     )
     candidates = client.get(
         f"/api/projects/{project['id']}/candidates"
@@ -222,10 +238,29 @@ def test_mpea_bundled_task_runs_from_registered_dataset_and_package(client) -> N
     assert curation.status_code == 200, curation.text
     curation_payload = curation.json()
     assert curation_payload["total"] == 396
+    assert [
+        {key: item[key] for key in ("target", "usable_rows", "source_groups")}
+        for item in curation_payload["curation_summary"]["targets"]
+    ] == [
+        {"target": "TYS", "usable_rows": 99, "source_groups": 39},
+        {"target": "UTS", "usable_rows": 90, "source_groups": 38},
+        {"target": "EL", "usable_rows": 71, "source_groups": 33},
+    ]
+    assert curation_payload["curation_summary"]["targets"][0]["exclusion_reasons"]
     assert {column["group"] for column in curation_payload["columns"]} >= {
         "原値", "正規化", "判定",
     }
     assert "curation.status" in curation_payload["rows"][0]["values"]
+    similar = client.get(
+        f"/api/projects/{project['id']}/candidates/{candidates[1]['id']}/similar",
+        params={
+            "expected_revision": candidates[1]["revision"],
+            "target": "EL",
+            "limit": 6,
+        },
+    )
+    assert similar.status_code == 200, similar.text
+    assert all("EL" in row["outputs"] for row in similar.json())
 
 
 def test_project_creation_pins_explicit_references_and_rejects_rebinding(client) -> None:

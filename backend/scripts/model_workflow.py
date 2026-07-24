@@ -117,9 +117,9 @@ def package_status(config: Path) -> dict[str, Any]:
     data_by_source: dict[str, Any] = {}
     for task_id, selection in configured.tasks.items():
         module = task_module(task_id)
-        if module.source_kind not in data_by_source:
-            data_by_source[module.source_kind] = module.data_loader(resolve_task_source(task_id))
-        data = data_by_source[module.source_kind]
+        if task_id not in data_by_source:
+            data_by_source[task_id] = module.data_loader(resolve_task_source(task_id))
+        data = data_by_source[task_id]
         root = resolve_configured_package(task_id, config_path=config)
         package = ModelPackageLoader().load(root)
         validate_lifecycle_metadata(package, contracts[task_id], profile_path=Path(data.profile_path))

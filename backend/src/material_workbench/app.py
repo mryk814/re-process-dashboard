@@ -86,7 +86,7 @@ def _prepare_app_resources(
     runtimes: dict[str, PredictionRuntime] = {}
     explorers: dict[str, DataExplorerEntry] = {}
     for task_id, module in modules.items():
-        if module.source_kind not in data_by_source:
+        if task_id not in data_by_source:
             explicit_source = (
                 source
                 if module.source_kind == "primary"
@@ -97,8 +97,10 @@ def _prepare_app_resources(
                 repository_source = Path(__file__).resolve().parents[3] / configured_source
                 if repository_source.exists():
                     configured_source = repository_source
-            data_by_source[module.source_kind] = module.data_loader(configured_source, None)
-        data = data_by_source[module.source_kind]
+            loaded = module.data_loader(configured_source, None)
+            data_by_source[task_id] = loaded
+            data_by_source.setdefault(module.source_kind, loaded)
+        data = data_by_source[task_id]
         package = resolve_configured_package(
             task_id,
             config_path=configured,

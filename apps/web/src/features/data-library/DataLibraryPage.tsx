@@ -160,13 +160,16 @@ export function DataLibraryPage({
         revision: 1,
         name: compareName.trim(),
         kind: "cohort_comparison",
-        members: selectedIds.map((dataset_revision_id, ordinal) => ({
-          dataset_revision_id,
-          ordinal,
-          cohort_key: `cohort-${ordinal + 1}`,
-          cohort_label: options.datasets.find((item) => item.dataset_revision.id === dataset_revision_id)?.data_asset.original_filename ?? `Cohort ${ordinal + 1}`,
-          provenance_json: {},
-        })),
+        members: selectedIds.map((dataset_revision_id, ordinal) => {
+          const dataset = options.datasets.find((item) => item.dataset_revision.id === dataset_revision_id);
+          return {
+            dataset_revision_id,
+            ordinal,
+            cohort_key: `cohort-${ordinal + 1}`,
+            cohort_label: dataset ? datasetDisplayName(dataset) : `Cohort ${ordinal + 1}`,
+            provenance_json: {},
+          };
+        }),
       });
       setCompareOpen(false);
       setCompareName("");
@@ -200,7 +203,7 @@ export function DataLibraryPage({
       {compareOpen && options && <section id="dataset-comparison-builder" className="dataset-compare-builder" aria-labelledby="dataset-comparison-heading">
         <div><h3 id="dataset-comparison-heading">境界を保った比較セット</h3><p>設備・場所などの違いを残したまま並べます。学習用に自動結合はしません。</p></div>
         <label>比較名<input value={compareName} onChange={(event) => setCompareName(event.target.value)} placeholder="設備A / 設備B 比較" /></label>
-        <div className="dataset-compare-options">{options.datasets.map((item) => <label key={item.dataset_revision.id}><input type="checkbox" checked={selectedIds.includes(item.dataset_revision.id)} onChange={() => toggleDataset(item)} />{item.data_asset.original_filename}</label>)}</div>
+        <div className="dataset-compare-options">{options.datasets.map((item) => <label key={item.dataset_revision.id}><input type="checkbox" checked={selectedIds.includes(item.dataset_revision.id)} onChange={() => toggleDataset(item)} />{datasetDisplayName(item)}</label>)}</div>
         <button className="primary-button" disabled={selectedIds.length < 2} onClick={() => void createComparison()}>比較セットを作成</button>
       </section>}
 

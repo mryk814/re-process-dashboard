@@ -674,6 +674,24 @@ class TrainingDataRow(BaseModel):
     values: dict[str, str | float | int | bool | None]
 
 
+class ModelTrainingCurationTargetSummary(BaseModel):
+    target: str
+    usable_rows: int
+    source_groups: int
+    exclusion_reasons: dict[str, int] = Field(default_factory=dict)
+
+
+class ModelTrainingCurationSummary(BaseModel):
+    source_rows: int
+    input_usable_rows: int
+    accepted_rows: int
+    warning_rows: int
+    quarantined_rows: int
+    blocked_rows: int
+    exclusion_reasons: dict[str, int] = Field(default_factory=dict)
+    targets: list[ModelTrainingCurationTargetSummary]
+
+
 class ModelTrainingDataPage(BaseModel):
     stage: Literal["curation", "selected", "features"]
     target: str
@@ -689,6 +707,7 @@ class ModelTrainingDataPage(BaseModel):
     limit: int
     columns: list[TrainingDataColumn]
     rows: list[TrainingDataRow]
+    curation_summary: ModelTrainingCurationSummary
 
 
 class SnapshotPayload(BaseModel):

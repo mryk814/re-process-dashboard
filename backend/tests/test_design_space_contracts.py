@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from datetime import UTC, datetime
 
 from material_workbench.contracts.design_space_contracts import (
     CategoricalDomain,
@@ -11,6 +12,8 @@ from material_workbench.contracts.design_space_contracts import (
 from material_workbench.contracts.task_contracts import NumericRange
 from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.tasks.task_registry import load_task_contracts
+from material_workbench.contracts.schemas import Candidate
+from material_workbench.domain.services import generate_from_design_space
 
 
 def _battery_space(**updates: object) -> DesignSpaceDefinition:
@@ -86,3 +89,39 @@ def test_composition_constraint_requires_declared_components_and_balance() -> No
     )
     with pytest.raises(ValueError, match="宣言済み組成"):
         invalid.validate_against(task)
+
+
+def test_design_space_generator_applies_simplex_balance() -> None:
+    task_id = "annealed-properties-v1"
+    fixture = load_task_contracts()[task_id]
+    canonical = fixture.canonical_candidate
+    now = datetime.now(UTC)
+    base = Candidate(
+        id="design-space-base", project_id="test", revision=1, created_at=now, updated_at=now,
+        name="base", inputs={
+            "composition": canonical.composition,
+            "process": canonical.process,
+            "categorical": canonical.categorical,
+            "heat_pattern": [point.model_dump() for point in canonical.heat_pattern or ()],
+        }, provenance=canonical.provenance,
+    )
+    space = DesignSpaceDefinition(
+        schema_version="design-space-definition/v1",
+        design_space_id="simplex-space", name="Simplex", task_id=task_id,
+        task_contract_digest=semantic_digest(fixture.task_definition.model_dump(mode="json")),
+        numeric_domains=(NumericDomain(
+            path="composition.C", mode="range", range=NumericRange(min=1, max=2),
+        ),),
+        composition_constraints=(CompositionTotalConstraint(
+            component_paths=("composition.C", "composition.Si"), total=100, unit="%",
+            balance_path="composition.Si",
+        ),),
+    )
+    space.validate_against(fixture.task_definition)
+    generated = generate_from_design_space(base, space, count=12)
+    assert len(generated) == 12
+    assert all(
+        candidate.inputs.composition["C"] + candidate.inputs.composition["Si"] == pytest.approx(100)
+        and applied["composition.Si"] == candidate.inputs.composition["Si"]
+        for candidate, applied in generated
+    )

@@ -168,6 +168,7 @@ class ScreeningService:
                 goal_directions={key: item.goal_direction for key, item in outputs.items()},
                 probability_available={key: item.goal_probability != "unavailable" for key, item in capabilities.items()},
                 candidate_validator=lambda candidate: self.registry.validate_candidate(project.task_id, candidate),
+                design_space=design_space,
             )
         except ValueError as exc:
             raise ScreeningValidationError(str(exc)) from exc

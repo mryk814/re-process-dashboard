@@ -368,6 +368,7 @@ class RuntimeOperationsCapability(ContractModel):
     detailed_prediction: bool
     response_curve: bool
     similarity: bool
+    target_specific_similarity: bool = False
     snapshot: bool
     actual_measurement: bool
 
@@ -410,6 +411,7 @@ class DataExplorerCapability(ContractModel):
 
 
 class ApplicationCapability(ContractModel):
+    project_creation: bool = True
     candidate_excel_import: bool = False
     candidate_excel_export: bool = False
 

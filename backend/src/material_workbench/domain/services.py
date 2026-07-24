@@ -22,6 +22,7 @@ from material_workbench.contracts.schemas import (
     LineageCandidateOption,
     ScreeningRequest,
 )
+from material_workbench.contracts.design_space_contracts import DesignSpaceDefinition
 from material_workbench.domain.screening_score import GoalDirection, evaluate_screening_goal, score_contract
 
 
@@ -47,6 +48,76 @@ def _set_screen_value(candidate: Candidate, name: str, value: float | str) -> Ca
     return updated
 
 
+def generate_from_design_space(
+    base: Candidate,
+    design_space: DesignSpaceDefinition,
+    *,
+    count: int,
+    seed: int = SCREENING_SEED,
+) -> list[tuple[Candidate, dict[str, float | str]]]:
+    """Generate candidates from the immutable design-space contract.
+
+    Sampling is deliberately kept as the first allow-listed strategy.  The
+    important boundary is that it consumes the DesignSpace, rather than a UI
+    request, so later simplex, Bayesian, or program decoders share the same
+    fixed values, domains and conditional rules.
+    """
+    rng = np.random.default_rng(seed)
+    sample_values: dict[str, list[float | str]] = {}
+    numeric = (*design_space.numeric_domains, *design_space.heat_pattern_domains)
+    for domain in numeric:
+        if domain.mode == "range":
+            assert domain.range is not None
+            permutation = rng.permutation(count)
+            sample_values[domain.path] = [
+                float(domain.range.min + (permutation[index] + rng.random()) / count * (domain.range.max - domain.range.min))
+                for index in range(count)
+            ]
+        else:
+            permutation = rng.permutation(count)
+            sample_values[domain.path] = [
+                domain.values[int(np.floor((permutation[index] + rng.random()) / count * len(domain.values))) % len(domain.values)]
+                for index in range(count)
+            ]
+    for domain in design_space.categorical_domains:
+        permutation = rng.permutation(count)
+        sample_values[domain.path] = [
+            domain.choices[int(np.floor((permutation[index] + rng.random()) / count * len(domain.choices))) % len(domain.choices)]
+            for index in range(count)
+        ]
+
+    generated: list[tuple[Candidate, dict[str, float | str]]] = []
+    for index in range(count):
+        candidate = base.model_copy(deep=True)
+        applied = dict(design_space.fixed_values)
+        for path, value in design_space.fixed_values.items():
+            candidate = _set_screen_value(candidate, path, value)
+        for path, values in sample_values.items():
+            value = values[index]
+            applied[path] = value
+            candidate = _set_screen_value(candidate, path, value)
+        for conditional in design_space.conditional_constraints:
+            group, key = conditional.controller_path.split(".", 1)
+            controller = getattr(candidate.inputs, group).get(key)
+            if controller not in conditional.active_choices:
+                for path, value in conditional.inactive_values.items():
+                    applied[path] = value
+                    candidate = _set_screen_value(candidate, path, value)
+        for constraint in design_space.composition_constraints:
+            if constraint.balance_path is None:
+                continue
+            balance_group, balance_key = constraint.balance_path.split(".", 1)
+            remainder = constraint.total - sum(
+                float(getattr(candidate.inputs, path.split(".", 1)[0])[path.split(".", 1)[1]])
+                for path in constraint.component_paths
+                if path != constraint.balance_path
+            )
+            applied[constraint.balance_path] = remainder
+            candidate = _set_screen_value(candidate, constraint.balance_path, remainder)
+        generated.append((candidate, applied))
+    return generated
+
+
 def run_latin_hypercube(
     runtime: PredictionRuntime,
     base: Candidate,
@@ -55,31 +126,18 @@ def run_latin_hypercube(
     goal_directions: dict[str, GoalDirection | None],
     probability_available: dict[str, bool],
     candidate_validator: Callable[[CandidateInput], None],
+    design_space: DesignSpaceDefinition | None = None,
 ) -> dict[str, Any]:
-    rng = np.random.default_rng(SCREENING_SEED)
     pool_size = request.samples * 4
-    sample_values: dict[str, list[float | str]] = {}
-    for name in sorted(request.variables):
-        spec = request.variables[name]
-        if spec.mode == "fixed":
-            sample_values[name] = [spec.value] * pool_size  # type: ignore[list-item]
-        elif spec.mode == "range":
-            permutation = rng.permutation(pool_size)
-            sample_values[name] = [float(spec.min + (permutation[index] + rng.random()) / pool_size * (spec.max - spec.min)) for index in range(pool_size)]  # type: ignore[operator]
-        else:
-            values = spec.values or []
-            permutation = rng.permutation(pool_size)
-            sample_values[name] = [values[int(np.floor((permutation[index] + rng.random()) / pool_size * len(values))) % len(values)] for index in range(pool_size)]
+    if design_space is None:
+        raise ValueError("Design Spaceなしでは候補を生成できません")
+    generated = generate_from_design_space(base, design_space, count=pool_size)
     points: list[dict[str, Any]] = []
     rejected_by_reason: defaultdict[str, int] = defaultdict(int)
     base_prediction = runtime.predict(base, detailed=False)
-    for sample_index in range(pool_size):
+    for candidate, applied in generated:
         if len(points) >= request.samples:
             break
-        candidate = base.model_copy(deep=True)
-        applied = {name: sample_values[name][sample_index] for name in sorted(sample_values)}
-        for name, value in applied.items():
-            candidate = _set_screen_value(candidate, name, value)
         try:
             candidate_input = CandidateInput.model_validate(candidate.model_dump())
             candidate_validator(candidate_input)

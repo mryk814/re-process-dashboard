@@ -105,6 +105,25 @@ export function ModelTrainingDataInspector({
           ? "Feature Pipelineで変換後、同じ親工程条件の個々値を平均した実際のモデル入力です。個々値数も併記します。"
           : "Feature Pipelineで変換し、個々の観測ごとにモデルへ渡した数値を特徴量順に表示します。"}
     </p>
+    {page && stage === "curation" && <div className="curation-summary" aria-label="前処理結果の集計">
+      <div><small>元データ</small><strong>{page.curation_summary.source_rows.toLocaleString("ja-JP")}</strong><span>行</span></div>
+      <div><small>入力を解釈可能</small><strong>{page.curation_summary.input_usable_rows.toLocaleString("ja-JP")}</strong><span>行</span></div>
+      <div><small>注意あり</small><strong>{page.curation_summary.warning_rows.toLocaleString("ja-JP")}</strong><span>行</span></div>
+      <div><small>隔離</small><strong>{page.curation_summary.quarantined_rows.toLocaleString("ja-JP")}</strong><span>行</span></div>
+      <dl>{page.curation_summary.targets.map((item) => <div key={item.target}>
+        <dt>{taskDefinition?.outputs.find((output) => output.key === item.target)?.label ?? item.target}</dt>
+        <dd><b>{item.usable_rows.toLocaleString("ja-JP")}</b>行 · {item.source_groups.toLocaleString("ja-JP")}グループ</dd>
+        {Object.keys(item.exclusion_reasons ?? {}).length > 0 && <details><summary>不採用理由</summary><ul>
+          {Object.entries(item.exclusion_reasons ?? {}).map(([reason, count]) => <li key={reason}>{reason}<b>{count.toLocaleString("ja-JP")}行</b></li>)}
+        </ul></details>}
+      </div>)}</dl>
+      {Object.keys(page.curation_summary.exclusion_reasons ?? {}).length > 0 && <details>
+        <summary>隔離理由</summary>
+        <ul>{Object.entries(page.curation_summary.exclusion_reasons ?? {}).map(([reason, count]) => <li key={reason}>
+          <span>{reason}</span><b>{count.toLocaleString("ja-JP")}行</b>
+        </li>)}</ul>
+      </details>}
+    </div>}
     {error && <p className="panel-error">{error}</p>}
     {page && !error ? <>
       <div className="training-data-table-wrap" ref={tableWrapRef} onScroll={loadMoreOnScroll}>

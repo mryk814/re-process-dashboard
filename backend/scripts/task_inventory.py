@@ -45,9 +45,9 @@ def build_inventory() -> dict[str, Any]:
     data_by_source: dict[str, Any] = {}
     tasks = []
     for task_id, module in modules.items():
-        if module.source_kind not in data_by_source:
-            data_by_source[module.source_kind] = module.data_loader(resolve_task_source(task_id))
-        data = data_by_source[module.source_kind]
+        if task_id not in data_by_source:
+            data_by_source[task_id] = module.data_loader(resolve_task_source(task_id))
+        data = data_by_source[task_id]
         contract = contracts[task_id]
         package = ModelPackageLoader().load(
             resolve_configured_package(task_id, config_path=ACTIVE_PACKAGES_PATH)

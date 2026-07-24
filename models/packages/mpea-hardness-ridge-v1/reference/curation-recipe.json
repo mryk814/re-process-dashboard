@@ -1,6 +1,6 @@
 {
   "schema_version": "curation-recipe/v1",
-  "id": "mpea-room-tensile-process-aware",
+  "id": "mpea-hardness-process-aware",
   "version": "1.0.0",
   "header_row_index": 1,
   "columns": {
@@ -162,7 +162,7 @@
       "warn_below": null,
       "warn_above": 1300.0,
       "reject_below": null,
-      "reject_above": null
+      "reject_above": 1350.0
     },
     "Homogenization time (hr)": {
       "parser": "duration_hours",
@@ -222,7 +222,7 @@
       "warn_below": null,
       "warn_above": 1300.0,
       "reject_below": null,
-      "reject_above": null
+      "reject_above": 1350.0
     },
     "Recrystallization Time (min)": {
       "parser": "duration_minutes",
@@ -252,7 +252,7 @@
       "warn_below": null,
       "warn_above": null,
       "reject_below": null,
-      "reject_above": null
+      "reject_above": 1050.0
     },
     "Aging time (hr)": {
       "parser": "duration_hours",
@@ -264,39 +264,13 @@
       "reject_below": null,
       "reject_above": null
     },
-    "Tensile Yield Strength (Mpa)": {
+    "Hardness (HV)": {
       "parser": "reported_scalar",
       "condition_column": null,
       "inactive_value": null,
       "allowed_units": [
         "",
-        "MPa"
-      ],
-      "warn_below": null,
-      "warn_above": null,
-      "reject_below": null,
-      "reject_above": null
-    },
-    "Ultimate Tensile Strength (MPa)": {
-      "parser": "reported_scalar",
-      "condition_column": null,
-      "inactive_value": null,
-      "allowed_units": [
-        "",
-        "MPa"
-      ],
-      "warn_below": null,
-      "warn_above": null,
-      "reject_below": null,
-      "reject_above": null
-    },
-    "Tensile Ductility(%)": {
-      "parser": "reported_scalar",
-      "condition_column": null,
-      "inactive_value": null,
-      "allowed_units": [
-        "",
-        "%"
+        "HV"
       ],
       "warn_below": null,
       "warn_above": null,

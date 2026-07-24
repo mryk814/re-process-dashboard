@@ -202,10 +202,10 @@ export const workbenchApi = {
       signal,
     );
   },
-  async similarCandidates(projectId: string, candidateId: string, expectedRevision: number, inputIdentity: string, limit = 6, signal?: AbortSignal) {
+  async similarCandidates(projectId: string, candidateId: string, expectedRevision: number, inputIdentity: string, target?: string, limit = 6, signal?: AbortSignal) {
     return inferenceRequestCache.get(
-      inferenceRequestKey(projectId, candidateId, inputIdentity, "similarity", String(limit)),
-      async (sharedSignal) => requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/similar", { params: { path: { project_id: projectId, candidate_id: candidateId }, query: { expected_revision: expectedRevision, limit } }, signal: sharedSignal }), "類似実験を取得できませんでした。"),
+      inferenceRequestKey(projectId, candidateId, inputIdentity, "similarity", `${target ?? ""}\u001f${limit}`),
+      async (sharedSignal) => requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/similar", { params: { path: { project_id: projectId, candidate_id: candidateId }, query: { expected_revision: expectedRevision, limit, target } }, signal: sharedSignal }), "類似実験を取得できませんでした。"),
       signal,
     );
   },

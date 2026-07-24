@@ -2,12 +2,12 @@
   "schema_version": "model-package/v1",
   "package_id": "mpea-room-tensile-ridge-v1",
   "package_version": "1.0.0",
-  "task_id": "mpea-literature-tys-v1",
+  "task_id": "mpea-room-tensile-v1",
   "input_schema_version": "canonical-candidate/v1",
-  "input_contract_digest": "sha256:00b438d60f3903fc99fdcc1d4d7c93961438e04f5459d1207621b5b686df7ab0",
-  "runtime_capability_digest": "sha256:5e67184a0d3f86aed8f7199ae49a4ea09ef90c0f0e37b5fb05b5e6dc9e7db0a7",
+  "input_contract_digest": "sha256:fbc341ad740bd79cbe7181b336f2d699c6b42acb001cf7201fa7a647aa400e59",
+  "runtime_capability_digest": "sha256:e74ea1ed9c13f7d573d5c9ac979605368977fc7f574b777987ab82752cbbd17e",
   "feature_pipeline": {
-    "id": "mpea-literature-tys-v1-profile-transform",
+    "id": "mpea-room-tensile-v1-profile-transform",
     "version": "1.0.0",
     "spec": "feature-pipeline/pipeline.json",
     "canonical_input_paths": [
@@ -222,20 +222,20 @@
   ],
   "provenance": {
     "training_data_id": "sha256:a3b4230ff150e32ed51050a4813fc3fbad01b2bc2fc61b5d4fb8a5be3cc5e476",
-    "feature_dataset_id": "sha256:e572f393ae7c66335bc6d6ea932a5249efda2e046b420c4da80e994bbb1b448f",
+    "feature_dataset_id": "sha256:ec16bfa87e88f6ffb4312095be388114de950c72da4323aaeac54fbe4c40fedc",
     "training_code_revision": "tabular-ridge-v1",
-    "dataset_profile_id": "sha256:d92da16fc2539a6e1f9f98fb1fd85a82faa622a57dbc9927f872f7ccb8691147"
+    "dataset_profile_id": "sha256:51de725021caaf4be761531c5ccbddad2b90625bbfe9ad3890d13f79fb2821a7"
   },
   "artifacts": [
     {
       "path": "feature-pipeline/pipeline.json",
-      "sha256": "692af41e0340adc18b6dbaba39cfced288b96837254e9f8e30fb29be60013648",
-      "bytes": 5336
+      "sha256": "cd09573d4ddf2d21754a4180d965f0e7e9ec9f60c83d527a57d929e5bc51a9e7",
+      "bytes": 5334
     },
     {
       "path": "reference/curation-recipe.json",
-      "sha256": "3e79dab6ac2f91696143183670e8d09b25fdd9eaa16b15bc88393619c34bb953",
-      "bytes": 6697
+      "sha256": "2c037784eb7d136bfa094b2e9cdce3302bbf03a936c9881564adbaf43b69ab70",
+      "bytes": 8321
     },
     {
       "path": "model-artifacts/TYS.npz",

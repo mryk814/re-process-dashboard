@@ -1,5 +1,5 @@
 {
-  "id": "mpea-room-tensile-v1-profile-transform",
+  "id": "mpea-hardness-process-v1-profile-transform",
   "version": "1.0.0",
   "canonical_input_paths": [
     "composition.Fe",

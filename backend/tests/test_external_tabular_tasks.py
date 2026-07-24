@@ -54,6 +54,41 @@ def test_external_tasks_are_registered_with_their_source_rows(resources) -> None
     assert len(resources.data_by_source["external_battery_degradation"].observations) == 9090
     assert len(resources.data_by_source["external_mpea_literature"].observations) == 396
     assert "mpea-literature-tys-v1" in resources.task_registry.task_ids
+    assert "mpea-room-tensile-v1" in resources.task_registry.task_ids
+    assert "mpea-hardness-process-v1" in resources.task_registry.task_ids
+    hardness_rows = resources.data_by_source["mpea-hardness-process-v1"].observations
+    assert sum(row["eligible"] and "HV" in row["outputs"] for row in hardness_rows) == 52
+    assert len({
+        row["parent_key"]
+        for row in hardness_rows
+        if row["eligible"] and "HV" in row["outputs"]
+    }) == 17
+
+
+def test_mpea_hardness_curation_keeps_only_explicit_hv_scalars(resources) -> None:
+    rows = resources.data_by_source["mpea-hardness-process-v1"].observations
+
+    def state(raw_value: str) -> dict[str, object]:
+        row = next(
+            item for item in rows
+            if item["run_context"]["curation"]["values"]["Hardness (HV)"]["raw"] == raw_value
+        )
+        return row["run_context"]["curation"]["target_status"]["HV"]
+
+    assert state("216 ± 2 HV")["usable"] is True
+    assert state("444")["usable"] is True
+    assert state("4.6 ± 0.3 GPa")["usable"] is False
+    assert state("5.96 GPa (peak nanoindentation hardness)")["usable"] is False
+    assert state("10")["usable"] is False
+
+
+def test_mpea_similarity_uses_the_requested_measurement_cohort(resources) -> None:
+    runtime = resources.task_registry.runtime_for("mpea-room-tensile-v1")
+    candidate = _candidate("mpea-room-tensile-v1")
+    for target in ("TYS", "UTS", "EL"):
+        similar = runtime.similarity(candidate, target=target)
+        assert similar
+        assert all(target in item["outputs"] for item in similar)
 
 
 @pytest.mark.parametrize("task_id", EXTERNAL_TASKS)

@@ -1,9 +1,9 @@
 {
   "schema_version": "tabular-dataset-profile/v1",
-  "profile_id": "mpea-zenodo-18021833-room-tensile-v1",
-  "name": "MPEA文献データ：室温引張特性・工程正規化",
-  "task_id": "mpea-room-tensile-v1",
-  "package_id": "mpea-room-tensile-ridge-v1",
+  "profile_id": "mpea-zenodo-18021833-hardness-v1",
+  "name": "MPEA文献データ：硬さ・工程正規化",
+  "task_id": "mpea-hardness-process-v1",
+  "package_id": "mpea-hardness-ridge-v1",
   "id_column": "Material",
   "group_column": "File_Name",
   "model_family": "ridge",
@@ -37,13 +37,11 @@
     {"path":"process.aging_time_h","column":"Aging time (hr)","kind":"number","unit":"h","transform":"log1p"}
   ],
   "outputs": [
-    {"key":"TYS","column":"Tensile Yield Strength (Mpa)","unit":"MPa","lower_bound":0,"upper_bound":3000},
-    {"key":"UTS","column":"Ultimate Tensile Strength (MPa)","unit":"MPa","lower_bound":0,"upper_bound":3500},
-    {"key":"EL","column":"Tensile Ductility(%)","unit":"%","lower_bound":0,"upper_bound":100}
+    {"key":"HV","column":"Hardness (HV)","unit":"HV","lower_bound":50,"upper_bound":1500}
   ],
   "curation_recipe": {
     "schema_version": "curation-recipe/v1",
-    "id": "mpea-room-tensile-process-aware",
+    "id": "mpea-hardness-process-aware",
     "version": "1.0.0",
     "header_row_index": 1,
     "columns": {
@@ -55,20 +53,18 @@
       "Nb":{"parser":"finite_number"},"B":{"parser":"finite_number"},
       "Mo":{"parser":"finite_number"},"Ta":{"parser":"finite_number"},
       "Homogenization? (Yes=1, No=0)":{"parser":"reported_flag"},
-      "Homogenization temp (°C)":{"parser":"temperature_c","condition_column":"Homogenization? (Yes=1, No=0)","inactive_value":0,"warn_above":1300},
+      "Homogenization temp (°C)":{"parser":"temperature_c","condition_column":"Homogenization? (Yes=1, No=0)","inactive_value":0,"warn_above":1300,"reject_above":1350},
       "Homogenization time (hr)":{"parser":"duration_hours","condition_column":"Homogenization? (Yes=1, No=0)","inactive_value":0},
       "Rolling? (Yes=1, No=0)":{"parser":"reported_flag"},
       "Rolling temp (°C)":{"parser":"temperature_c","condition_column":"Rolling? (Yes=1, No=0)","inactive_value":0},
       "Rolling %":{"parser":"percentage","condition_column":"Rolling? (Yes=1, No=0)","inactive_value":0},
       "Recrystallization (Y=1, N=0)":{"parser":"reported_flag"},
-      "Recrystallization temp (°C)":{"parser":"temperature_c","condition_column":"Recrystallization (Y=1, N=0)","inactive_value":0,"warn_above":1300},
+      "Recrystallization temp (°C)":{"parser":"temperature_c","condition_column":"Recrystallization (Y=1, N=0)","inactive_value":0,"warn_above":1300,"reject_above":1350},
       "Recrystallization Time (min)":{"parser":"duration_minutes","condition_column":"Recrystallization (Y=1, N=0)","inactive_value":0},
       "Aging? (yes=1, No=0)":{"parser":"reported_flag"},
-      "Aging temp (°C)":{"parser":"temperature_c","condition_column":"Aging? (yes=1, No=0)","inactive_value":0},
+      "Aging temp (°C)":{"parser":"temperature_c","condition_column":"Aging? (yes=1, No=0)","inactive_value":0,"reject_above":1050},
       "Aging time (hr)":{"parser":"duration_hours","condition_column":"Aging? (yes=1, No=0)","inactive_value":0},
-      "Tensile Yield Strength (Mpa)":{"parser":"reported_scalar","allowed_units":["","MPa"]},
-      "Ultimate Tensile Strength (MPa)":{"parser":"reported_scalar","allowed_units":["","MPa"]},
-      "Tensile Ductility(%)":{"parser":"reported_scalar","allowed_units":["","%"]}
+      "Hardness (HV)":{"parser":"reported_scalar","allowed_units":["","HV"]}
     },
     "sum_rules": [{
       "id":"composition-total-at-pct",
