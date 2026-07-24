@@ -53,6 +53,10 @@ extraResources:
     to: models/packages/battery-degradation-lightgbm-external-v1
   - from: models/packages/mpea-literature-tys-ridge-v1
     to: models/packages/mpea-literature-tys-ridge-v1
+  - from: models/packages/mpea-room-tensile-ridge-v1
+    to: models/packages/mpea-room-tensile-ridge-v1
+  - from: models/packages/mpea-hardness-ridge-v1
+    to: models/packages/mpea-hardness-ridge-v1
 win:
   icon: packaging/icons/icon.ico
   target:
