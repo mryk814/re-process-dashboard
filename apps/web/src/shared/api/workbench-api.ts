@@ -43,6 +43,9 @@ export type ApiDeveloperOverview = components["schemas"]["DeveloperOverview"];
 export type ApiRuntimeDiagnostics = components["schemas"]["RuntimeDiagnosticsReport"];
 export type ApiDeveloperCommand = components["schemas"]["DeveloperCommand"];
 export type ApiChangeGuideEntry = components["schemas"]["ChangeGuideEntry"];
+export type ApiDecisionActivityAvailability = components["schemas"]["DecisionActivityAvailability"];
+export type ApiDecisionActivityRun = components["schemas"]["DecisionActivityRun"];
+export type ApiDecisionActivityRunRequest = components["schemas"]["DecisionActivityRunRequest"];
 
 const path = (projectId: string, suffix = "") =>
   `/api/projects/${encodeURIComponent(projectId)}${suffix}`;
@@ -211,6 +214,25 @@ export const workbenchApi = {
   },
   async inferenceDiagnostics() {
     return requireData(await apiClient.GET("/api/diagnostics/inference"), "推論diagnosticsを取得できませんでした。");
+  },
+  async decisionActivities(projectId: string, candidateId: string, expectedRevision: number, signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/decision-activities", {
+      params: { path: { project_id: projectId }, query: { candidate_id: candidateId, expected_revision: expectedRevision } },
+      signal,
+    }), "検討アクティビティを取得できませんでした。");
+  },
+  async decisionActivityRuns(projectId: string, candidateId: string, signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/decision-activity-runs", {
+      params: { path: { project_id: projectId }, query: { candidate_id: candidateId } },
+      signal,
+    }), "保存済みの検討アクティビティを取得できませんでした。");
+  },
+  async runDecisionActivity(projectId: string, candidateId: string, activityId: string, body: ApiDecisionActivityRunRequest, signal?: AbortSignal) {
+    return requireData(await apiClient.POST("/api/projects/{project_id}/candidates/{candidate_id}/decision-activities/{activity_id}/runs", {
+      params: { path: { project_id: projectId, candidate_id: candidateId, activity_id: activityId } },
+      body,
+      signal,
+    }), "検討アクティビティを実行できませんでした。");
   },
   async snapshots(projectId: string, candidateId: string, signal?: AbortSignal) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/snapshots", { params: { path: { project_id: projectId, candidate_id: candidateId } }, signal }), "スナップショットを取得できませんでした。");

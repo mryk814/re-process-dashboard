@@ -1,6 +1,27 @@
 {
   "components": {
     "schemas": {
+      "AbsoluteTolerance": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "exclusiveMinimum": 0.0,
+            "title": "Amount",
+            "type": "number"
+          },
+          "kind": {
+            "const": "absolute",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "amount"
+        ],
+        "title": "AbsoluteTolerance",
+        "type": "object"
+      },
       "ActualMeasurement": {
         "properties": {
           "candidate_id": {
@@ -308,6 +329,31 @@
           "expected_source_sha256"
         ],
         "title": "Body_register_uploaded_workbook_api_profile_workbench_register_post",
+        "type": "object"
+      },
+      "BoundedUniformTolerance": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "bounded_uniform",
+            "title": "Kind",
+            "type": "string"
+          },
+          "lower": {
+            "title": "Lower",
+            "type": "number"
+          },
+          "upper": {
+            "title": "Upper",
+            "type": "number"
+          }
+        },
+        "required": [
+          "kind",
+          "lower",
+          "upper"
+        ],
+        "title": "BoundedUniformTolerance",
         "type": "object"
       },
       "Candidate": {
@@ -879,6 +925,42 @@
           "source_ref"
         ],
         "title": "CopySourceRef",
+        "type": "object"
+      },
+      "CriticalInput": {
+        "additionalProperties": false,
+        "properties": {
+          "absolute_correlation": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Absolute Correlation",
+            "type": "number"
+          },
+          "direction": {
+            "enum": [
+              "increases_output",
+              "decreases_output",
+              "unclear"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "target",
+          "absolute_correlation",
+          "direction"
+        ],
+        "title": "CriticalInput",
         "type": "object"
       },
       "CurveFamilyResponse": {
@@ -1643,6 +1725,223 @@
         "title": "DatasetViewRevisionCreateInput",
         "type": "object"
       },
+      "DecisionActivityAvailability": {
+        "additionalProperties": false,
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "definition": {
+            "$ref": "#/components/schemas/DecisionActivityDefinition"
+          },
+          "reasons": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          }
+        },
+        "required": [
+          "definition",
+          "available"
+        ],
+        "title": "DecisionActivityAvailability",
+        "type": "object"
+      },
+      "DecisionActivityDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "activity_id": {
+            "minLength": 1,
+            "title": "Activity Id",
+            "type": "string"
+          },
+          "execution_policy": {
+            "const": "explicit",
+            "title": "Execution Policy",
+            "type": "string"
+          },
+          "label": {
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "question": {
+            "minLength": 1,
+            "title": "Question",
+            "type": "string"
+          },
+          "required_operations": {
+            "items": {
+              "const": "preview",
+              "type": "string"
+            },
+            "title": "Required Operations",
+            "type": "array"
+          },
+          "required_resources": {
+            "items": {
+              "const": "candidate",
+              "type": "string"
+            },
+            "title": "Required Resources",
+            "type": "array"
+          },
+          "result_kind": {
+            "minLength": 1,
+            "title": "Result Kind",
+            "type": "string"
+          },
+          "version": {
+            "minLength": 1,
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "activity_id",
+          "version",
+          "label",
+          "question",
+          "required_operations",
+          "required_resources",
+          "result_kind",
+          "execution_policy"
+        ],
+        "title": "DecisionActivityDefinition",
+        "type": "object"
+      },
+      "DecisionActivityProvenance": {
+        "additionalProperties": false,
+        "properties": {
+          "activity_id": {
+            "title": "Activity Id",
+            "type": "string"
+          },
+          "activity_version": {
+            "title": "Activity Version",
+            "type": "string"
+          },
+          "candidate_id": {
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "candidate_revision": {
+            "title": "Candidate Revision",
+            "type": "integer"
+          },
+          "canonical_input_digest": {
+            "title": "Canonical Input Digest",
+            "type": "string"
+          },
+          "feature_pipeline_digest": {
+            "title": "Feature Pipeline Digest",
+            "type": "string"
+          },
+          "model": {
+            "$ref": "#/components/schemas/ModelMetadata"
+          },
+          "model_package_digest": {
+            "title": "Model Package Digest",
+            "type": "string"
+          },
+          "parameters_digest": {
+            "title": "Parameters Digest",
+            "type": "string"
+          },
+          "task_contract_digest": {
+            "title": "Task Contract Digest",
+            "type": "string"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_id",
+          "task_contract_digest",
+          "candidate_id",
+          "candidate_revision",
+          "canonical_input_digest",
+          "model_package_digest",
+          "feature_pipeline_digest",
+          "activity_id",
+          "activity_version",
+          "parameters_digest",
+          "model"
+        ],
+        "title": "DecisionActivityProvenance",
+        "type": "object"
+      },
+      "DecisionActivityRun": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "definition": {
+            "$ref": "#/components/schemas/DecisionActivityDefinition"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "parameters": {
+            "$ref": "#/components/schemas/RobustnessParameters"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/DecisionActivityProvenance"
+          },
+          "result": {
+            "$ref": "#/components/schemas/RobustnessSummary"
+          },
+          "semantic_identity": {
+            "title": "Semantic Identity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "semantic_identity",
+          "project_id",
+          "created_at",
+          "definition",
+          "parameters",
+          "provenance",
+          "result"
+        ],
+        "title": "DecisionActivityRun",
+        "type": "object"
+      },
+      "DecisionActivityRunRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "parameters": {
+            "$ref": "#/components/schemas/RobustnessParameters"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "parameters"
+        ],
+        "title": "DecisionActivityRunRequest",
+        "type": "object"
+      },
       "DetailedPredictionResponse": {
         "properties": {
           "prediction": {
@@ -2356,6 +2655,36 @@
           "max"
         ],
         "title": "InputRange",
+        "type": "object"
+      },
+      "InputVariationInterval": {
+        "additionalProperties": false,
+        "properties": {
+          "coverage": {
+            "const": "central_90_percent",
+            "default": "central_90_percent",
+            "title": "Coverage",
+            "type": "string"
+          },
+          "lower": {
+            "title": "Lower",
+            "type": "number"
+          },
+          "median": {
+            "title": "Median",
+            "type": "number"
+          },
+          "upper": {
+            "title": "Upper",
+            "type": "number"
+          }
+        },
+        "required": [
+          "median",
+          "lower",
+          "upper"
+        ],
+        "title": "InputVariationInterval",
         "type": "object"
       },
       "LineageCandidateOption": {
@@ -3589,6 +3918,31 @@
           "curation_summary"
         ],
         "title": "ModelTrainingDataPage",
+        "type": "object"
+      },
+      "ModelUncertaintyInterval": {
+        "additionalProperties": false,
+        "properties": {
+          "lower": {
+            "title": "Lower",
+            "type": "number"
+          },
+          "semantics": {
+            "const": "runtime_predictive_interval",
+            "default": "runtime_predictive_interval",
+            "title": "Semantics",
+            "type": "string"
+          },
+          "upper": {
+            "title": "Upper",
+            "type": "number"
+          }
+        },
+        "required": [
+          "lower",
+          "upper"
+        ],
+        "title": "ModelUncertaintyInterval",
         "type": "object"
       },
       "NumericRange": {
@@ -5465,6 +5819,28 @@
         "title": "RelationalConstraint",
         "type": "object"
       },
+      "RelativeTolerance": {
+        "additionalProperties": false,
+        "properties": {
+          "fraction": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 1.0,
+            "title": "Fraction",
+            "type": "number"
+          },
+          "kind": {
+            "const": "relative",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "fraction"
+        ],
+        "title": "RelativeTolerance",
+        "type": "object"
+      },
       "RepeatSummary": {
         "properties": {
           "mean": {
@@ -5616,6 +5992,206 @@
           "label"
         ],
         "title": "ResponseCurveVariableDefinition",
+        "type": "object"
+      },
+      "RobustnessFailureExample": {
+        "additionalProperties": false,
+        "properties": {
+          "failed_targets": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Failed Targets",
+            "type": "array"
+          },
+          "outputs": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Outputs",
+            "type": "object"
+          },
+          "sample_index": {
+            "title": "Sample Index",
+            "type": "integer"
+          },
+          "support": {
+            "$ref": "#/components/schemas/Support"
+          },
+          "varied_inputs": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Varied Inputs",
+            "type": "object"
+          }
+        },
+        "required": [
+          "sample_index",
+          "varied_inputs",
+          "outputs",
+          "failed_targets",
+          "support"
+        ],
+        "title": "RobustnessFailureExample",
+        "type": "object"
+      },
+      "RobustnessParameters": {
+        "additionalProperties": false,
+        "properties": {
+          "sample_count": {
+            "default": 64,
+            "maximum": 500.0,
+            "minimum": 8.0,
+            "title": "Sample Count",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "robustness-parameters/v1",
+            "default": "robustness-parameters/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "seed": {
+            "default": 0,
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "tolerance_profile": {
+            "$ref": "#/components/schemas/ToleranceProfile"
+          }
+        },
+        "required": [
+          "tolerance_profile"
+        ],
+        "title": "RobustnessParameters",
+        "type": "object"
+      },
+      "RobustnessSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted_samples": {
+            "title": "Accepted Samples",
+            "type": "integer"
+          },
+          "caution_rate": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Caution Rate",
+            "type": "number"
+          },
+          "critical_inputs": {
+            "items": {
+              "$ref": "#/components/schemas/CriticalInput"
+            },
+            "title": "Critical Inputs",
+            "type": "array"
+          },
+          "extrapolated_rate": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Extrapolated Rate",
+            "type": "number"
+          },
+          "failure_examples": {
+            "items": {
+              "$ref": "#/components/schemas/RobustnessFailureExample"
+            },
+            "title": "Failure Examples",
+            "type": "array"
+          },
+          "rejected_samples": {
+            "title": "Rejected Samples",
+            "type": "integer"
+          },
+          "requested_samples": {
+            "title": "Requested Samples",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "robustness-summary/v1",
+            "default": "robustness-summary/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "target_summaries": {
+            "items": {
+              "$ref": "#/components/schemas/RobustnessTargetSummary"
+            },
+            "title": "Target Summaries",
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "requested_samples",
+          "accepted_samples",
+          "rejected_samples",
+          "target_summaries",
+          "critical_inputs",
+          "failure_examples",
+          "extrapolated_rate",
+          "caution_rate",
+          "warnings"
+        ],
+        "title": "RobustnessSummary",
+        "type": "object"
+      },
+      "RobustnessTargetSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "base_prediction": {
+            "$ref": "#/components/schemas/Prediction"
+          },
+          "goal_achievement_rate": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Goal Achievement Rate"
+          },
+          "input_variation": {
+            "$ref": "#/components/schemas/InputVariationInterval"
+          },
+          "model_uncertainty": {
+            "$ref": "#/components/schemas/ModelUncertaintyInterval"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          },
+          "worst_observed": {
+            "title": "Worst Observed",
+            "type": "number"
+          }
+        },
+        "required": [
+          "target",
+          "unit",
+          "base_prediction",
+          "input_variation",
+          "model_uncertainty",
+          "worst_observed"
+        ],
+        "title": "RobustnessTargetSummary",
         "type": "object"
       },
       "RuntimeAvailability": {
@@ -6955,6 +7531,47 @@
         "title": "TaskDefinition",
         "type": "object"
       },
+      "ToleranceProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "fields": {
+            "additionalProperties": {
+              "discriminator": {
+                "mapping": {
+                  "absolute": "#/components/schemas/AbsoluteTolerance",
+                  "bounded_uniform": "#/components/schemas/BoundedUniformTolerance",
+                  "relative": "#/components/schemas/RelativeTolerance",
+                  "truncated_normal": "#/components/schemas/TruncatedNormalTolerance"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/AbsoluteTolerance"
+                },
+                {
+                  "$ref": "#/components/schemas/RelativeTolerance"
+                },
+                {
+                  "$ref": "#/components/schemas/BoundedUniformTolerance"
+                },
+                {
+                  "$ref": "#/components/schemas/TruncatedNormalTolerance"
+                }
+              ]
+            },
+            "maxProperties": 12,
+            "minProperties": 1,
+            "title": "Fields",
+            "type": "object"
+          }
+        },
+        "required": [
+          "fields"
+        ],
+        "title": "ToleranceProfile",
+        "type": "object"
+      },
       "TrainingDataColumn": {
         "properties": {
           "group": {
@@ -7062,6 +7679,37 @@
           "values"
         ],
         "title": "TrainingDataRow",
+        "type": "object"
+      },
+      "TruncatedNormalTolerance": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "truncated_normal",
+            "title": "Kind",
+            "type": "string"
+          },
+          "lower": {
+            "title": "Lower",
+            "type": "number"
+          },
+          "standard_deviation": {
+            "exclusiveMinimum": 0.0,
+            "title": "Standard Deviation",
+            "type": "number"
+          },
+          "upper": {
+            "title": "Upper",
+            "type": "number"
+          }
+        },
+        "required": [
+          "kind",
+          "standard_deviation",
+          "lower",
+          "upper"
+        ],
+        "title": "TruncatedNormalTolerance",
         "type": "object"
       }
     }
@@ -8872,6 +9520,73 @@
         "summary": "Curve Family"
       }
     },
+    "/api/projects/{project_id}/candidates/{candidate_id}/decision-activities/{activity_id}/runs": {
+      "post": {
+        "operationId": "run_decision_activity_api_projects__project_id__candidates__candidate_id__decision_activities__activity_id__runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "activity_id",
+            "required": true,
+            "schema": {
+              "title": "Activity Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionActivityRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionActivityRun"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Decision Activity"
+      }
+    },
     "/api/projects/{project_id}/candidates/{candidate_id}/predict": {
       "post": {
         "operationId": "createDetailedCandidatePrediction",
@@ -9521,6 +10236,189 @@
           }
         },
         "summary": "Update Project Decision"
+      }
+    },
+    "/api/projects/{project_id}/decision-activities": {
+      "get": {
+        "operationId": "list_decision_activities_api_projects__project_id__decision_activities_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "candidate_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Candidate Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expected_revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Expected Revision"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DecisionActivityAvailability"
+                  },
+                  "title": "Response List Decision Activities Api Projects  Project Id  Decision Activities Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Decision Activities"
+      }
+    },
+    "/api/projects/{project_id}/decision-activity-runs": {
+      "get": {
+        "operationId": "list_decision_activity_runs_api_projects__project_id__decision_activity_runs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "candidate_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Candidate Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DecisionActivityRun"
+                  },
+                  "title": "Response List Decision Activity Runs Api Projects  Project Id  Decision Activity Runs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Decision Activity Runs"
+      }
+    },
+    "/api/projects/{project_id}/decision-activity-runs/{run_id}": {
+      "get": {
+        "operationId": "get_decision_activity_run_api_projects__project_id__decision_activity_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionActivityRun"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Decision Activity Run"
       }
     },
     "/api/projects/{project_id}/group": {

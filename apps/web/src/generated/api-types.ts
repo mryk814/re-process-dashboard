@@ -405,6 +405,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/candidates/{candidate_id}/decision-activities/{activity_id}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run Decision Activity */
+        post: operations["run_decision_activity_api_projects__project_id__candidates__candidate_id__decision_activities__activity_id__runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/candidates/{candidate_id}/predict": {
         parameters: {
             query?: never;
@@ -569,6 +586,57 @@ export interface paths {
         get?: never;
         /** Update Project Decision */
         put: operations["update_project_decision_api_projects__project_id__decision_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/decision-activities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Decision Activities */
+        get: operations["list_decision_activities_api_projects__project_id__decision_activities_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/decision-activity-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Decision Activity Runs */
+        get: operations["list_decision_activity_runs_api_projects__project_id__decision_activity_runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/decision-activity-runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Decision Activity Run */
+        get: operations["get_decision_activity_run_api_projects__project_id__decision_activity_runs__run_id__get"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -905,6 +973,16 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AbsoluteTolerance */
+        AbsoluteTolerance: {
+            /** Amount */
+            amount: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "absolute";
+        };
         /** ActualMeasurement */
         ActualMeasurement: {
             /** Candidate Id */
@@ -1043,6 +1121,18 @@ export interface components {
             name?: string | null;
             /** Profile Digest */
             profile_digest: string;
+        };
+        /** BoundedUniformTolerance */
+        BoundedUniformTolerance: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "bounded_uniform";
+            /** Lower */
+            lower: number;
+            /** Upper */
+            upper: number;
         };
         /** Candidate */
         Candidate: {
@@ -1226,6 +1316,20 @@ export interface components {
              */
             source_kind: "copy";
             source_ref: components["schemas"]["CopyReference"];
+        };
+        /** CriticalInput */
+        CriticalInput: {
+            /** Absolute Correlation */
+            absolute_correlation: number;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "increases_output" | "decreases_output" | "unclear";
+            /** Path */
+            path: string;
+            /** Target */
+            target: string;
         };
         /** CurveFamilyResponse */
         CurveFamilyResponse: {
@@ -1509,6 +1613,87 @@ export interface components {
             /** View Id */
             view_id: string;
         };
+        /** DecisionActivityAvailability */
+        DecisionActivityAvailability: {
+            /** Available */
+            available: boolean;
+            definition: components["schemas"]["DecisionActivityDefinition"];
+            /**
+             * Reasons
+             * @default []
+             */
+            reasons: string[];
+        };
+        /** DecisionActivityDefinition */
+        DecisionActivityDefinition: {
+            /** Activity Id */
+            activity_id: string;
+            /**
+             * Execution Policy
+             * @constant
+             */
+            execution_policy: "explicit";
+            /** Label */
+            label: string;
+            /** Question */
+            question: string;
+            /** Required Operations */
+            required_operations: "preview"[];
+            /** Required Resources */
+            required_resources: "candidate"[];
+            /** Result Kind */
+            result_kind: string;
+            /** Version */
+            version: string;
+        };
+        /** DecisionActivityProvenance */
+        DecisionActivityProvenance: {
+            /** Activity Id */
+            activity_id: string;
+            /** Activity Version */
+            activity_version: string;
+            /** Candidate Id */
+            candidate_id: string;
+            /** Candidate Revision */
+            candidate_revision: number;
+            /** Canonical Input Digest */
+            canonical_input_digest: string;
+            /** Feature Pipeline Digest */
+            feature_pipeline_digest: string;
+            model: components["schemas"]["ModelMetadata"];
+            /** Model Package Digest */
+            model_package_digest: string;
+            /** Parameters Digest */
+            parameters_digest: string;
+            /** Task Contract Digest */
+            task_contract_digest: string;
+            /** Task Id */
+            task_id: string;
+        };
+        /** DecisionActivityRun */
+        DecisionActivityRun: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            definition: components["schemas"]["DecisionActivityDefinition"];
+            /** Id */
+            id: string;
+            parameters: components["schemas"]["RobustnessParameters"];
+            /** Project Id */
+            project_id: string;
+            provenance: components["schemas"]["DecisionActivityProvenance"];
+            result: components["schemas"]["RobustnessSummary"];
+            /** Semantic Identity */
+            semantic_identity: string;
+        };
+        /** DecisionActivityRunRequest */
+        DecisionActivityRunRequest: {
+            /** Expected Revision */
+            expected_revision: number;
+            parameters: components["schemas"]["RobustnessParameters"];
+        };
         /** DetailedPredictionResponse */
         DetailedPredictionResponse: {
             prediction: components["schemas"]["PredictionResponse"];
@@ -1766,6 +1951,21 @@ export interface components {
             max: number;
             /** Min */
             min: number;
+        };
+        /** InputVariationInterval */
+        InputVariationInterval: {
+            /**
+             * Coverage
+             * @default central_90_percent
+             * @constant
+             */
+            coverage: "central_90_percent";
+            /** Lower */
+            lower: number;
+            /** Median */
+            median: number;
+            /** Upper */
+            upper: number;
         };
         /** LineageCandidateOption */
         LineageCandidateOption: {
@@ -2210,6 +2410,19 @@ export interface components {
              * @enum {string}
              */
             training_unit: "individual_observation" | "parent_condition_mean";
+        };
+        /** ModelUncertaintyInterval */
+        ModelUncertaintyInterval: {
+            /** Lower */
+            lower: number;
+            /**
+             * Semantics
+             * @default runtime_predictive_interval
+             * @constant
+             */
+            semantics: "runtime_predictive_interval";
+            /** Upper */
+            upper: number;
         };
         /** NumericRange */
         NumericRange: {
@@ -2999,6 +3212,16 @@ export interface components {
             /** Right Path */
             right_path: string;
         };
+        /** RelativeTolerance */
+        RelativeTolerance: {
+            /** Fraction */
+            fraction: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "relative";
+        };
         /** RepeatSummary */
         RepeatSummary: {
             /** Mean */
@@ -3052,6 +3275,83 @@ export interface components {
              * @enum {string}
              */
             time_transform: "direct" | "inverse_heat_time";
+        };
+        /** RobustnessFailureExample */
+        RobustnessFailureExample: {
+            /** Failed Targets */
+            failed_targets: string[];
+            /** Outputs */
+            outputs: {
+                [key: string]: number;
+            };
+            /** Sample Index */
+            sample_index: number;
+            support: components["schemas"]["Support"];
+            /** Varied Inputs */
+            varied_inputs: {
+                [key: string]: number;
+            };
+        };
+        /** RobustnessParameters */
+        RobustnessParameters: {
+            /**
+             * Sample Count
+             * @default 64
+             */
+            sample_count: number;
+            /**
+             * Schema Version
+             * @default robustness-parameters/v1
+             * @constant
+             */
+            schema_version: "robustness-parameters/v1";
+            /**
+             * Seed
+             * @default 0
+             */
+            seed: number;
+            tolerance_profile: components["schemas"]["ToleranceProfile"];
+        };
+        /** RobustnessSummary */
+        RobustnessSummary: {
+            /** Accepted Samples */
+            accepted_samples: number;
+            /** Caution Rate */
+            caution_rate: number;
+            /** Critical Inputs */
+            critical_inputs: components["schemas"]["CriticalInput"][];
+            /** Extrapolated Rate */
+            extrapolated_rate: number;
+            /** Failure Examples */
+            failure_examples: components["schemas"]["RobustnessFailureExample"][];
+            /** Rejected Samples */
+            rejected_samples: number;
+            /** Requested Samples */
+            requested_samples: number;
+            /**
+             * Schema Version
+             * @default robustness-summary/v1
+             * @constant
+             */
+            schema_version: "robustness-summary/v1";
+            /** Target Summaries */
+            target_summaries: components["schemas"]["RobustnessTargetSummary"][];
+            /** Warnings */
+            warnings: string[];
+        };
+        /** RobustnessTargetSummary */
+        RobustnessTargetSummary: {
+            base_prediction: components["schemas"]["Prediction"];
+            /** Goal Achievement Rate */
+            goal_achievement_rate?: number | null;
+            input_variation: components["schemas"]["InputVariationInterval"];
+            model_uncertainty: components["schemas"]["ModelUncertaintyInterval"];
+            /** Target */
+            target: string;
+            /** Unit */
+            unit: string;
+            /** Worst Observed */
+            worst_observed: number;
         };
         /** RuntimeAvailability */
         RuntimeAvailability: {
@@ -3554,6 +3854,13 @@ export interface components {
              */
             schema_version: "task-definition/v1";
         };
+        /** ToleranceProfile */
+        ToleranceProfile: {
+            /** Fields */
+            fields: {
+                [key: string]: components["schemas"]["AbsoluteTolerance"] | components["schemas"]["RelativeTolerance"] | components["schemas"]["BoundedUniformTolerance"] | components["schemas"]["TruncatedNormalTolerance"];
+            };
+        };
         /** TrainingDataColumn */
         TrainingDataColumn: {
             /**
@@ -3597,6 +3904,20 @@ export interface components {
             values: {
                 [key: string]: string | number | boolean | null;
             };
+        };
+        /** TruncatedNormalTolerance */
+        TruncatedNormalTolerance: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "truncated_normal";
+            /** Lower */
+            lower: number;
+            /** Standard Deviation */
+            standard_deviation: number;
+            /** Upper */
+            upper: number;
         };
     };
     responses: never;
@@ -4882,6 +5203,43 @@ export interface operations {
             };
         };
     };
+    run_decision_activity_api_projects__project_id__candidates__candidate_id__decision_activities__activity_id__runs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                activity_id: string;
+                candidate_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecisionActivityRunRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionActivityRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     createDetailedCandidatePrediction: {
         parameters: {
             query: {
@@ -5350,6 +5708,105 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Project"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    list_decision_activities_api_projects__project_id__decision_activities_get: {
+        parameters: {
+            query?: {
+                candidate_id?: string | null;
+                expected_revision?: number | null;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionActivityAvailability"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    list_decision_activity_runs_api_projects__project_id__decision_activity_runs_get: {
+        parameters: {
+            query?: {
+                candidate_id?: string | null;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionActivityRun"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    get_decision_activity_run_api_projects__project_id__decision_activity_runs__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionActivityRun"];
                 };
             };
             /** @description Validation Error */
