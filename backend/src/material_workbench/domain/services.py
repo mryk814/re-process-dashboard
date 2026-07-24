@@ -71,6 +71,7 @@ def run_latin_hypercube(
             permutation = rng.permutation(pool_size)
             sample_values[name] = [values[int(np.floor((permutation[index] + rng.random()) / pool_size * len(values))) % len(values)] for index in range(pool_size)]
     points: list[dict[str, Any]] = []
+    rejected_by_reason: defaultdict[str, int] = defaultdict(int)
     base_prediction = runtime.predict(base, detailed=False)
     for sample_index in range(pool_size):
         if len(points) >= request.samples:
@@ -82,7 +83,8 @@ def run_latin_hypercube(
         try:
             candidate_input = CandidateInput.model_validate(candidate.model_dump())
             candidate_validator(candidate_input)
-        except ValueError:
+        except ValueError as exc:
+            rejected_by_reason[str(exc) or "candidate_constraint"] += 1
             continue
         candidate = Candidate.model_validate({**candidate.model_dump(), **candidate_input.model_dump()})
         target_values = {
@@ -101,7 +103,7 @@ def run_latin_hypercube(
             selected.value,
             target_value=request.target_value,
             direction=goal_directions.get(request.target),
-            at_least_probability=selected.goal_probability if probability_available.get(request.target, False) else None,
+            achievement_probability=selected.goal_probability if probability_available.get(request.target, False) else None,
             support_distance=support.distance,
         )
         secondary_evaluations = {
@@ -109,7 +111,7 @@ def run_latin_hypercube(
                 prediction["predictions"][key].value,
                 target_value=value,
                 direction=goal_directions.get(key),
-                at_least_probability=prediction["predictions"][key].goal_probability if probability_available.get(key, False) else None,
+                achievement_probability=prediction["predictions"][key].goal_probability if probability_available.get(key, False) else None,
                 support_distance=support.distance,
             )
             for key, value in request.secondary_targets.items()
@@ -140,10 +142,10 @@ def run_latin_hypercube(
     ranked = sorted(
         points,
         key=lambda point: (
+            support_rank[point["support"]["status"]],
             sum(item["achieved"] is False for item in point["secondary_goal_evaluations"].values()),
             point["score"] is None,
-            point["score"] if point["score"] is not None else support_rank[point["support"]["status"]],
-            support_rank[point["support"]["status"]],
+            point["score"] if point["score"] is not None else point["support"]["distance"],
             point["index"],
         ),
     )
@@ -166,42 +168,50 @@ def run_latin_hypercube(
         "variables": {name: spec.model_dump() for name, spec in request.variables.items()},
         "points": points,
         "representative_points": ranked[:10],
+        "_rejection_summary": dict(sorted(rejected_by_reason.items())),
     }
 
 
 def lineage_candidate_options(data: WorkbookData, entity_key: str) -> list[LineageCandidateOption]:
-    candidates: list[tuple[str, str]] = []
-    if entity_key in data.anneal_features:
-        candidates.append(("annealing", entity_key))
-    if entity_key in data.hot_rolling_features:
-        candidates.append(("hot_rolling", entity_key))
-    if not candidates:
-        relations = data.lineage.get(entity_key, {})
-        candidates.extend(
-            ("annealing", key)
-            for key in sorted(set(relations.get(data.role_to_key["annealing"], [])))
-            if key in data.anneal_features
-        )
-        candidates.extend(
-            ("hot_rolling", key)
-            for key in sorted(set(relations.get(data.role_to_key["hot_rolling"], [])))
-            if key in data.hot_rolling_features
-        )
+    routes = tuple(
+        route for route in data.relation_routes
+        if entity_key in route.members.values()
+    )
+    process_roles = (
+        ("annealing",)
+        if entity_key in data.anneal_features
+        else ("hot_rolling",)
+        if entity_key in data.hot_rolling_features
+        else ("annealing", "hot_rolling")
+    )
     options: list[LineageCandidateOption] = []
-    for process_role, process_key in candidates:
-        melt_keys = sorted(set(
-            data.lineage.get(process_key, {}).get(data.role_to_key["melt"], [])
-        ))
-        for melt_key in melt_keys:
-            if melt_key not in data.composition:
-                continue
-            feature = (
-                data.anneal_features.get(process_key)
+    seen: set[tuple[str, str, str]] = set()
+    for route in routes:
+        for process_role in process_roles:
+            features = (
+                data.anneal_features
                 if process_role == "annealing"
-                else data.hot_rolling_features.get(process_key)
+                else data.hot_rolling_features
             )
-            if feature is None:
+            process_key = route.members.get(process_role)
+            if not process_key or process_key not in features:
                 continue
+            melt_key = route.members.get("melt")
+            if not melt_key:
+                process_melt_keys = {
+                    candidate_route.members["melt"]
+                    for candidate_route in data.relation_routes
+                    if candidate_route.members.get(process_role) == process_key
+                    and candidate_route.members.get("melt") in data.composition
+                }
+                melt_key = next(iter(process_melt_keys)) if len(process_melt_keys) == 1 else None
+            if not melt_key or melt_key not in data.composition:
+                continue
+            identity = (process_role, process_key, melt_key)
+            if identity in seen:
+                continue
+            seen.add(identity)
+            feature = features[process_key]
             if process_role == "annealing" and len(feature.get("heat_pattern", [])) < 2:
                 continue
             options.append(LineageCandidateOption(
@@ -210,7 +220,10 @@ def lineage_candidate_options(data: WorkbookData, entity_key: str) -> list[Linea
                 process_label="焼鈍条件" if process_role == "annealing" else "熱延条件",
                 melt_key=melt_key,
             ))
-    return options
+    return sorted(
+        options,
+        key=lambda option: (option.process_role, option.process_key, option.melt_key),
+    )
 
 
 def candidate_from_lineage(
@@ -245,18 +258,49 @@ def candidate_from_lineage(
         heat_pattern = [HeatPoint.model_validate(point) for point in deepcopy(feature["heat_pattern"])]
         if len(heat_pattern) < 2:
             raise ValueError("候補化に必要な焼鈍履歴がありません")
-        process_values = {"ls_mpm": float(feature["ls_mpm"])}
+        process_values = (
+            {"ls_mpm": float(feature["ls_mpm"])}
+            if isinstance(feature.get("ls_mpm"), (int, float))
+            else {}
+        )
         entity_type = "annealing"
     else:
         process_values = {name: float(feature[name]) for name in PROCESS_NAMES}
         entity_type = "hot_rolling"
+    direct_context_routes = [
+        route
+        for route in data.relation_routes
+        if entity_key in route.members.values()
+        and route.members.get(process_role) == process_key
+        and route.members.get("melt") in {None, melt_key}
+    ]
+    relation_context_ids = {route.id for route in direct_context_routes}
+    if not any(route.members.get("melt") == melt_key for route in direct_context_routes):
+        bridge_routes = [
+            route
+            for route in data.relation_routes
+            if route.members.get(process_role) == process_key
+            and route.members.get("melt") == melt_key
+        ]
+        if bridge_routes:
+            minimum_members = min(len(route.members) for route in bridge_routes)
+            relation_context_ids.update(
+                route.id
+                for route in bridge_routes
+                if len(route.members) == minimum_members
+            )
     return CandidateInput(
-        name=f"過去条件 {process_key}",
+        name=f"過去条件 {process_key} / 成分 {melt_key}",
         inputs={
             "composition": deepcopy(data.composition[melt_key]),
             "process": process_values,
             "categorical": {},
             "heat_pattern": heat_pattern,
+            "heat_time_basis": (
+                "elapsed_time"
+                if process_role == "annealing" and "ls_mpm" not in process_values
+                else "line_speed"
+            ),
         },
         provenance={
             "source_kind": "lineage",
@@ -264,6 +308,7 @@ def candidate_from_lineage(
                 "entity_type": entity_type,
                 "entity_key": process_key,
                 "composition_entity_key": melt_key,
+                "relation_context_ids": sorted(relation_context_ids),
                 "data_source_digest": data.source_sha256,
             },
         },

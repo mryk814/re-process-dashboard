@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import json
+import logging
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -36,6 +38,22 @@ from .task_modules import (
     registered_task_modules,
 )
 
+logger = logging.getLogger(__name__)
+
+
+def _raise_startup_error(stage: str, label: str, exc: Exception) -> None:
+    payload = {
+        "stage": stage,
+        "label": label,
+        "error_type": type(exc).__name__,
+        "detail": str(exc),
+    }
+    logger.exception(
+        "WORKBENCH_STARTUP_ERROR %s",
+        json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
+    )
+    raise exc
+
 
 @dataclass(frozen=True)
 class _AppResources:
@@ -69,7 +87,11 @@ def _prepare_app_resources(
     explorers: dict[str, DataExplorerEntry] = {}
     for task_id, module in modules.items():
         if module.source_kind not in data_by_source:
-            explicit_source = source if module.source_kind == "primary" else flank_wear_source_path
+            explicit_source = (
+                source
+                if module.source_kind == "primary"
+                else flank_wear_source_path if module.source_kind == "flank_wear" else None
+            )
             configured_source = Path(explicit_source or os.getenv(module.source_env, str(module.default_source)))
             if not configured_source.is_absolute() and not configured_source.exists():
                 repository_source = Path(__file__).resolve().parents[3] / configured_source
@@ -119,24 +141,33 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         database_existed = database.exists()
-        prepared = _resources or _prepare_app_resources(
-            source_path,
-            flank_wear_source_path=flank_wear_source_path,
-            package_roots=package_roots,
-            active_packages_path=active_packages_path,
-        )
+        try:
+            prepared = _resources or _prepare_app_resources(
+                source_path,
+                flank_wear_source_path=flank_wear_source_path,
+                package_roots=package_roots,
+                active_packages_path=active_packages_path,
+            )
+        except Exception as exc:
+            _raise_startup_error("resources", "データ・Model Package", exc)
         app.state.data = prepared.data_by_source["primary"]
         app.state.task_registry = prepared.task_registry
         app.state.inference_work_graph = InferenceWorkGraph(max_entries=256)
-        app.state.store = Store(database)
-        explicit_demo_seed = os.getenv("WORKBENCH_DEMO_SEED", "").strip().lower() in {"1", "true", "yes"}
-        initialize_demo_projects(
-            app.state.store,
-            prepared.modules,
-            prepared.runtimes,
-            seed_candidates=not database_existed or explicit_demo_seed,
-        )
-        app.state.workspace_catalog = bootstrap_workspace_catalog(database, prepared.task_registry)
+        try:
+            app.state.store = Store(database)
+            explicit_demo_seed = os.getenv("WORKBENCH_DEMO_SEED", "").strip().lower() in {"1", "true", "yes"}
+            initialize_demo_projects(
+                app.state.store,
+                prepared.modules,
+                prepared.runtimes,
+                seed_candidates=not database_existed or explicit_demo_seed,
+            )
+        except Exception as exc:
+            _raise_startup_error("database", "ワークスペースDB", exc)
+        try:
+            app.state.workspace_catalog = bootstrap_workspace_catalog(database, prepared.task_registry)
+        except Exception as exc:
+            _raise_startup_error("catalog", "データ・モデルカタログ", exc)
         app.state.data_library_root = data_library_root.resolve()
         app.state.project_runtime_resolver = ProjectRuntimeResolver(
             app.state.workspace_catalog, prepared.task_registry

@@ -11,7 +11,7 @@ try {
     npm.cmd run build
     if ($LASTEXITCODE -ne 0) { throw "application build failed with exit code $LASTEXITCODE" }
 
-    uv run python -m PyInstaller --noconfirm --clean --distpath dist/sidecar --workpath build/sidecar packaging/sidecar.spec
+    uv run --extra dev python -m PyInstaller --noconfirm --clean --distpath dist/sidecar --workpath build/sidecar packaging/sidecar.spec
     if ($LASTEXITCODE -ne 0) { throw "sidecar build failed with exit code $LASTEXITCODE" }
 
     $releasePrefix = $releaseRoot.TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
@@ -41,6 +41,10 @@ try {
         "sidecar/material-workbench-sidecar.exe"
         "models/active-packages.json"
         "models/available-packages.json"
+        "data/source/external/heat_treatment_tradeoff_samples.csv"
+        "data/source/external/concrete_mix_samples.csv"
+        "data/source/external/wear_curve_samples.csv"
+        "data/source/external/battery_cycle_samples.csv"
     )
     $activePackages = Get-Content -LiteralPath (Join-Path $repositoryRoot "models/active-packages.json") -Raw | ConvertFrom-Json
     $requiredPackagedFiles += $activePackages.tasks.PSObject.Properties.Value | ForEach-Object {

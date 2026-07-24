@@ -209,7 +209,7 @@ class DataExplorationService:
         if len(candidate_options) == 1:
             candidate_reason = "接続された実績を候補入力として引き継げます"
         elif candidate_options:
-            candidate_reason = f"候補化する上流条件を選択してください（{len(candidate_options)}通り）"
+            candidate_reason = f"工程条件と成分の組合せを選んで候補にできます（{len(candidate_options)}通り）"
         else:
             candidate_reason = "候補化できる工程条件と成分の組み合わせが見つかりません"
         return LineageResponse.model_validate({
@@ -315,6 +315,7 @@ class DataExplorationService:
                 values_by_property.setdefault(property_name, []).append(float(value))
         return {
             "family": str(melt_row.get(family_column) or "") if family_column else "",
+            "melt_keys": melt_keys,
             "project": str(source_row.get(data.technical_columns.get(("annealing", "project"))) or ""),
             "route": str(feature.get("standard_route") or ""),
             "peak_temperature_c": feature.get("max_temperature_c"),

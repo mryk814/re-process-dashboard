@@ -188,8 +188,8 @@ class TaskDefinition(ContractModel):
             raise ValueError("input group keys must be unique")
         if len(group_orders) != len(set(group_orders)):
             raise ValueError("input group order must be unique")
-        if "composition" not in group_keys:
-            raise ValueError("all material prediction tasks require a composition group")
+        if not any(key in group_keys for key in ("composition", "process")):
+            raise ValueError("prediction tasks require at least one numeric input group")
         paths = [field.path for group in self.input_groups for field in group.fields]
         if len(paths) != len(set(paths)):
             raise ValueError("field paths must be unique across the task definition")
@@ -250,6 +250,7 @@ class LineageReference(ContractModel):
     entity_type: Annotated[str, Field(min_length=1)]
     entity_key: Annotated[str, Field(min_length=1)]
     composition_entity_key: Annotated[str, Field(min_length=1)] | None = None
+    relation_context_ids: tuple[Annotated[str, Field(min_length=1)], ...] = ()
     data_source_digest: Annotated[str, Field(min_length=1)] | None = None
 
 

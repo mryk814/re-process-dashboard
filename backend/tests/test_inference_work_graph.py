@@ -156,7 +156,7 @@ def test_preview_similarity_curve_and_diagnostics_follow_independent_operation_c
     assert [point["x"] for point in curve_payload["points"]] == sorted(point["x"] for point in curve_payload["points"])
     assert all(point["lower"] < point["value"] < point["upper"] for point in curve_payload["points"])
     assert curve_payload["output_range"]["min"] < curve_payload["output_range"]["max"]
-    assert curve_payload["policy_id"] == "fixed-grid-v2"
+    assert curve_payload["policy_id"] == "anchored-grid-v1"
 
     diagnostics = client.get("/api/diagnostics/inference")
     assert diagnostics.status_code == 200

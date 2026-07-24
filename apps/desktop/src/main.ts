@@ -17,6 +17,7 @@ let apiPort: number | undefined;
 let sidecarReady = false;
 let isQuitting = false;
 let shutdownInProgress: Promise<void> | undefined;
+let sidecarLogPath: string | undefined;
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) app.quit();
 
@@ -89,6 +90,35 @@ function sidecarOutput(process: ChildProcess): string {
   return sidecarOutputs.get(process)?.trim() ?? "";
 }
 
+function timestampForFilename(date = new Date()): string {
+  return date.toISOString().replace(/[-:]/g, "").replace(/\..+/, "").replace("T", "-");
+}
+
+function startupFailureMessage(
+  output: string,
+  code: number | null,
+  signal: NodeJS.Signals | null,
+): string {
+  const marker = output.match(/WORKBENCH_STARTUP_ERROR\s+(\{[^\r\n]+\})/);
+  if (marker) {
+    try {
+      const diagnosis = JSON.parse(marker[1]) as {
+        label?: string;
+        detail?: string;
+        error_type?: string;
+      };
+      const label = diagnosis.label || "起動処理";
+      const detail = diagnosis.detail || diagnosis.error_type || "原因を特定できませんでした";
+      return `${label}の準備に失敗しました。\n${detail}${sidecarLogPath ? `\n\n診断ログ: ${sidecarLogPath}` : ""}`;
+    } catch {
+      // Fall through to the generic summary while preserving the log.
+    }
+  }
+  return `Python API が起動に失敗しました (code: ${code ?? "none"}, signal: ${signal ?? "none"})。${
+    sidecarLogPath ? `\n診断ログ: ${sidecarLogPath}` : ""
+  }`;
+}
+
 function wait(milliseconds: number): Promise<void> {
   return new Promise((resolveWait) => setTimeout(resolveWait, milliseconds));
 }
@@ -145,7 +175,8 @@ async function startSidecarOnPort(port: number): Promise<void> {
   const { command, args, cwd, env } = sidecarCommand(port);
   const logDirectory = join(app.getPath("userData"), "logs");
   mkdirSync(logDirectory, { recursive: true });
-  const logPath = join(logDirectory, "sidecar.log");
+  const logPath = join(logDirectory, `sidecar-${timestampForFilename()}.log`);
+  sidecarLogPath = logPath;
   const logStream = createWriteStream(logPath, { flags: "w" });
   const childProcess = spawn(command, args, {
     cwd,
@@ -176,7 +207,7 @@ async function startSidecarOnPort(port: number): Promise<void> {
       if (!sidecarReady) {
         reject(
           new Error(
-            `Python API が起動に失敗しました (code: ${code ?? "none"}, signal: ${signal ?? "none"})。${sidecarOutput(childProcess) ? `\n${sidecarOutput(childProcess)}` : ""}`,
+            startupFailureMessage(sidecarOutput(childProcess), code, signal),
           ),
         );
       }
@@ -191,7 +222,9 @@ async function startSidecarOnPort(port: number): Promise<void> {
     if (!isQuitting) {
       void failAndQuit(
         new Error(
-          `Python API が予期せず終了しました (code: ${code ?? "none"}, signal: ${signal ?? "none"})。${sidecarOutput(childProcess) ? `\n${sidecarOutput(childProcess)}` : ""}`,
+          `Python API が予期せず終了しました (code: ${code ?? "none"}, signal: ${signal ?? "none"})。${
+            sidecarLogPath ? `\n診断ログ: ${sidecarLogPath}` : ""
+          }`,
         ),
       );
     }

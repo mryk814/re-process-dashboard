@@ -1,0 +1,14 @@
+{
+  "schema_version": "model-quality-report/v1",
+  "split": "grouped-parent-condition-k-fold",
+  "folds": 5,
+  "targets": [
+    {
+      "target": "TYS",
+      "parent_conditions": 58,
+      "mae": 316.95545996231516,
+      "rmse": 402.0036417540023,
+      "interval_coverage_90": 0.893491124260355
+    }
+  ]
+}

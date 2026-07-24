@@ -5,30 +5,30 @@
   "targets": [
     {
       "target": "EL",
-      "parent_conditions": 6,
-      "mae": 0.40249056053884696,
-      "rmse": 0.4797252365209823,
+      "parent_conditions": 7,
+      "mae": 0.23479428447827536,
+      "rmse": 0.3252419789233433,
       "interval_coverage_90": 1.0
     },
     {
       "target": "TS",
-      "parent_conditions": 6,
-      "mae": 6.0756358030263975,
-      "rmse": 7.26409188607342,
+      "parent_conditions": 7,
+      "mae": 3.4801896206367053,
+      "rmse": 4.805763386694478,
       "interval_coverage_90": 1.0
     },
     {
       "target": "YS",
       "parent_conditions": 6,
-      "mae": 6.502052968335377,
-      "rmse": 7.619629209377296,
+      "mae": 6.393715908059576,
+      "rmse": 7.48407260597768,
       "interval_coverage_90": 1.0
     },
     {
       "target": "lambda",
-      "parent_conditions": 6,
-      "mae": 1.047026262701143,
-      "rmse": 1.9427983618654054,
+      "parent_conditions": 7,
+      "mae": 0.7610491339694156,
+      "rmse": 1.6039146546405785,
       "interval_coverage_90": 1.0
     }
   ]

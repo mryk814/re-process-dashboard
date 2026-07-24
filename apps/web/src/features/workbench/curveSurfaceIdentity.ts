@@ -7,6 +7,7 @@ type ResponseCurveSurfaceIdentity = Readonly<{
   outputKey: string;
   variableId: string;
   rangeIdentity: string;
+  pointCount: number;
 }>;
 
 export function responseCurveSurfaceIdentity(identity: ResponseCurveSurfaceIdentity) {
@@ -23,7 +24,7 @@ export function responseCurveSurfaceIdentity(identity: ResponseCurveSurfaceIdent
     identity.taskId,
     identity.candidateId,
     identity.candidateRevision,
-    "response_curve:9",
+    `response_curve:${identity.pointCount}`,
     identity.inputIdentity,
     identity.outputKey,
     identity.variableId,

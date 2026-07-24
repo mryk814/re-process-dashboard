@@ -146,7 +146,7 @@ def test_similarity_summarizes_repeats_and_keeps_layers_distinct(client) -> None
     preview = client.post(f"/api/projects/default/candidates/{candidate['id']}/preview", params={"expected_revision": candidate["revision"]}).json()
     similar = preview["similar"]
     assert preview["support"]["distance"] >= 0
-    assert set(preview["support"]["components"]) == {"composition", "process", "metallurgy", "heat_pattern"}
+    assert set(preview["support"]["components"]) == {"composition", "metallurgy", "heat_pattern"}
     assert all(value >= 0 for value in preview["support"]["components"].values())
     training_parents = {item["parent_key"] for item in similar if item["layer"] == "training"}
     historical_parents = {item["parent_key"] for item in similar if item["layer"] == "historical"}

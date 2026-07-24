@@ -24,7 +24,7 @@ from material_workbench.modeling.feature_pipeline import (
 )
 from material_workbench.domain.heat_time import line_speed_scaled_times
 from material_workbench.data.dataset_profile import load_task_definitions
-from material_workbench.data.importer import WorkbookData, composition_names, lineage_reference_keys
+from material_workbench.data.importer import WorkbookData, composition_names, lineage_reference_keys, training_context_key
 from material_workbench.modeling.model_packages import ModelPackageLoader, VerifiedModelPackage, predictive_interval, validate_predictive_summary, validate_task_definition_canonical_inputs
 from material_workbench.domain.goal_targets import empirical_goal_probability, goal_fields, normal_goal_probability
 from material_workbench.contracts.schemas import Candidate, CandidateInput, HeatPoint, Prediction, Support, TargetRange, TargetValue
@@ -44,7 +44,6 @@ FEATURE_GROUP_INDICES = feature_index_families(
     FEATURE_DEFINITIONS,
     {
         "composition": ("composition",),
-        "process": ("process",),
         "metallurgy": ("metallurgy",),
         "heat_pattern": ("heat_pattern",),
     },
@@ -191,13 +190,18 @@ class ModelRuntime:
         elif manifest.feature_pipeline.version != FEATURE_PIPELINE_VERSION:
             raise ValueError("Model package feature pipeline id/version is incompatible")
         expected = tuple(self.feature_names)
+        available_groups = {item.group for item in self.feature_definitions}
         self.feature_group_indices = feature_index_families(
             self.feature_definitions,
             {
-                "composition": ("composition",),
-                "process": ("process",),
-                "metallurgy": ("metallurgy",),
-                "heat_pattern": ("heat_pattern",),
+                name: selectors
+                for name, selectors in {
+                    "composition": ("composition",),
+                    "process": ("process",),
+                    "metallurgy": ("metallurgy",),
+                    "heat_pattern": ("heat_pattern",),
+                }.items()
+                if any(selector in available_groups for selector in selectors)
             },
         )
         if tuple(manifest.feature_pipeline.output_features) != expected:
@@ -289,7 +293,7 @@ class ModelRuntime:
         normalized = (x - mean) / scale
         grouped_indexes: dict[str, list[int]] = defaultdict(list)
         for index, row in enumerate(rows):
-            grouped_indexes[str(row["parent_key"])].append(index)
+            grouped_indexes[training_context_key(row)].append(index)
         ordered_groups = sorted(grouped_indexes)
         parent_vectors = np.vstack([normalized[grouped_indexes[group]].mean(axis=0) for group in ordered_groups])
         parent_rows = [rows[grouped_indexes[group][0]] for group in ordered_groups]
@@ -322,7 +326,7 @@ class ModelRuntime:
                 continue
             x = np.vstack([vector for _, vector, _ in rows])
             y = np.array([value for _, _, value in rows], dtype=float)
-            groups = [str(row["parent_key"]) for row, _, _ in rows]
+            groups = [training_context_key(row) for row, _, _ in rows]
             oof_residuals, folds = _grouped_oof_residuals(x, y, groups)
             mean, scale, weights = _fit_ridge(x, y)
             normalized = (x - mean) / scale
@@ -365,7 +369,7 @@ class ModelRuntime:
             for index in np.argsort(source_distances):
                 row = source.parent_rows[int(index)]
                 parent_key = str(row["parent_key"])
-                if exclude and parent_key in exclude:
+                if exclude and training_context_key(row) in exclude:
                     continue
                 repeats = source.parent_observation_rows[int(index)]
                 values_by_property: dict[str, list[float]] = defaultdict(list)
@@ -392,7 +396,7 @@ class ModelRuntime:
                     },
                     "outputs": {key: summary["mean"] for key, summary in summaries.items()},
                     "repeat_summary": summaries,
-                    **lineage_reference_keys(self.data, parent_key, "annealing"),
+                    **lineage_reference_keys(self.data, parent_key, "annealing", row),
                 })
                 if len(rows) >= limit:
                     break
@@ -401,8 +405,8 @@ class ModelRuntime:
         similar: list[dict[str, Any]] = []
         if include_similarity:
             training_nearest = nearest_rows(reference, "training", 3)
-            training_parents = {str(row["parent_key"]) for row in reference.parent_rows}
-            historical_nearest = nearest_rows(self.historical_reference, "historical", 3, training_parents) if self.historical_reference else []
+            training_contexts = {training_context_key(row) for row in reference.parent_rows}
+            historical_nearest = nearest_rows(self.historical_reference, "historical", 3, training_contexts) if self.historical_reference else []
             similar = [*training_nearest, *historical_nearest]
         return Support(
             status=status,
@@ -424,7 +428,7 @@ class ModelRuntime:
             "prediction_interval": {
                 "method": "grouped_oof_residual_quantiles",
                 "coverage": "empirical central 90% residual interval",
-                "grouping": "parent_key",
+                "grouping": "condition_context_id",
                 "folds": {name: model.calibration_folds for name, model in self.models.items()},
                 "note": "Validation residuals are grouped by parent condition; this is not an uncertainty decomposition.",
             },
@@ -444,7 +448,7 @@ class ModelRuntime:
                 meta["prediction_interval"] = {
                     "method": "gaussian_process_predictive_distribution",
                     "coverage": "central 90% predictive interval",
-                    "grouping": "parent_key",
+                    "grouping": "condition_context_id",
                     "note": "Model uncertainty and observation noise are reported separately; data support remains an independent distance-based check.",
                 }
         return meta
@@ -595,7 +599,12 @@ class ModelRuntime:
                 raise ValueError(f"Unsupported response-curve variable: {variable}")
             return float(candidate.inputs.composition.get(field, self.composition_defaults[field]))
         if variable.startswith("process."):
-            return float(candidate.inputs.process[variable.removeprefix("process.")])
+            field = variable.removeprefix("process.")
+            if field not in candidate.inputs.process:
+                raise ValueError(
+                    f"{variable}はこの候補で未設定のため、応答曲線を作成できません"
+                )
+            return float(candidate.inputs.process[field])
         if variable == "heat.peak_temperature_c":
             return float(max(point.temperature_c for point in (candidate.inputs.heat_pattern or [])))
         if variable == HEAT_STAGE_TEMPERATURE_VARIABLE:
@@ -684,6 +693,10 @@ class ModelRuntime:
             return
         if variable.startswith("process."):
             if variable == "process.ls_mpm":
+                if "ls_mpm" not in candidate.inputs.process:
+                    raise ValueError(
+                        "ライン速度はこの候補で未設定のため、応答曲線を作成できません"
+                    )
                 old_speed = float(candidate.inputs.process["ls_mpm"])
                 new_speed = max(0.001, float(value))
                 points = candidate.inputs.heat_pattern or []
@@ -793,7 +806,8 @@ class ModelRuntime:
         start, end = axis_range or self._curve_axis(candidate, model, variable, stage_name, stage_position_m)
         lower_offset, upper_offset = model.interval_offsets()
         curve: list[dict[str, float]] = []
-        for x_value in np.linspace(start, end, points):
+        current = self._curve_variable_current(candidate, variable, stage_name, stage_position_m)
+        for x_value in anchored_curve_grid(start, end, points, current=current):
             adjusted = candidate.model_copy(deep=True)
             self._set_curve_variable(adjusted, variable, float(x_value), stage_name, stage_position_m)
             adjusted_vector = self.vector_for_candidate(adjusted)
@@ -842,5 +856,6 @@ class ModelRuntime:
             "points": self.response_curve(candidate, target, variable, points, axis_range, stage_name, stage_position_m),
             "output_range": output_range,
             "point_count": points,
-            "policy_id": "fixed-grid-v2",
+            "policy_id": "anchored-grid-v1",
         }
+from material_workbench.modeling.curve_grid import anchored_curve_grid

@@ -14,7 +14,7 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from material_workbench.modeling.hot_rolling_feature_pipeline import CANONICAL_INPUT_PATHS, FEATURE_DEFINITIONS, FEATURE_NAMES, INPUT_SCHEMA_VERSION, PIPELINE_ID, PIPELINE_VERSION, build_hot_rolling_features, build_hot_rolling_features_from_observation, candidate_from_observation
-from material_workbench.data.importer import load_workbook_data
+from material_workbench.data.importer import load_workbook_data, training_context_key
 from material_workbench.contracts.model_example_contracts import SparseSelectionReport
 from material_workbench.modeling.model_lifecycle import QualityReport, SamplingDiagnosticsReport, TargetQualityMetric, canonical_training_dataset, canonical_training_dataset_digest, dataset_profile_digest, runtime_capability_digest, staged_package_destination, task_input_contract_digest
 from material_workbench.modeling.model_package_verify import verify_model_package
@@ -247,7 +247,7 @@ def _build(source: Path, destination: Path) -> None:
     rows = [row for row in data.observations if row["task_id"] == TASK_ID and row["eligible"] and row["features"] and row["composition"] and column in row["outputs"]]
     grouped: dict[str, list[dict[str, object]]] = {}
     for row in rows:
-        grouped.setdefault(str(row["parent_key"]), []).append(row)
+        grouped.setdefault(training_context_key(row), []).append(row)
     raw_x: list[np.ndarray] = []
     target_y: list[float] = []
     for group_rows in grouped.values():

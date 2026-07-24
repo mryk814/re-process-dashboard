@@ -19,6 +19,8 @@ extraResources:
     to: data/source/material_workbench_process_v1.xlsx
   - from: data/source/cutting_tool_flank_wear_synthetic_dataset.xlsx
     to: data/source/cutting_tool_flank_wear_synthetic_dataset.xlsx
+  - from: data/source/external
+    to: data/source/external
   - from: models/active-packages.json
     to: models/active-packages.json
   - from: models/available-packages.json
@@ -41,6 +43,16 @@ extraResources:
     to: models/packages/hot-rolled-horseshoe-process-v1
   - from: models/packages/flank-wear-gp-2026-07
     to: models/packages/flank-wear-gp-2026-07
+  - from: models/packages/heat-treatment-ridge-external-v1
+    to: models/packages/heat-treatment-ridge-external-v1
+  - from: models/packages/concrete-strength-ridge-external-v1
+    to: models/packages/concrete-strength-ridge-external-v1
+  - from: models/packages/wear-curve-ridge-external-v1
+    to: models/packages/wear-curve-ridge-external-v1
+  - from: models/packages/battery-degradation-lightgbm-external-v1
+    to: models/packages/battery-degradation-lightgbm-external-v1
+  - from: models/packages/mpea-literature-tys-ridge-v1
+    to: models/packages/mpea-literature-tys-ridge-v1
 win:
   icon: packaging/icons/icon.ico
   target:

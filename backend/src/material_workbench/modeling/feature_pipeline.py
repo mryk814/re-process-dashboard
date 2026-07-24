@@ -19,9 +19,9 @@ CANONICAL_INPUT_PATHS = (
     "heat_pattern",
 )
 FEATURE_PIPELINE_ID = "metallurgy-thermal"
-FEATURE_PIPELINE_VERSION = "3.0.0"
+FEATURE_PIPELINE_VERSION = "4.0.0"
 
-FEATURE_DEFINITIONS = (
+_ALL_FEATURE_DEFINITIONS = (
     *(FeatureDefinition(name, "%", f"{name} composition", "composition") for name in COMPOSITION_NAMES),
     FeatureDefinition("ls_mpm", "mpm", "Annealing line speed", "process"),
     FeatureDefinition("ce_iiw", "%", "IIW carbon-equivalent proxy", "metallurgy", "炭素当量 CEIIW", "組成指標", "C + Mn/6 + (Cr+Mo)/5 + Ni/15", "規格判定や因果量ではありません。"),
@@ -52,6 +52,10 @@ FEATURE_DEFINITIONS = (
     FeatureDefinition("thermal_exposure_above_ac3_c_s", "°C·s", "Thermal exposure above the Ac3 proxy", "heat_pattern", "Ac3超過の熱履歴量", "変態点×温度履歴", "∫ max(T-Ac3, 0) dt"),
     FeatureDefinition("cooling_reaches_ms", "1", "Whether post-peak cooling reaches the Ms proxy", "heat_pattern", "冷却がMs目安へ到達", "変態点×冷却", "min(T after peak) ≤ Ms", "実際のマルテンサイト生成を保証しません。"),
 )
+FEATURE_DEFINITIONS = tuple(
+    definition for definition in _ALL_FEATURE_DEFINITIONS
+    if definition.name != "ls_mpm"
+)
 FEATURE_NAMES = tuple(item.name for item in FEATURE_DEFINITIONS)
 FEATURE_UNITS = tuple(item.unit for item in FEATURE_DEFINITIONS)
 V2_FEATURE_PIPELINE_VERSION = "2.0.0"
@@ -73,7 +77,7 @@ V2_FEATURE_DEFINITIONS = tuple(
         item.meaning,
         item.group,
     )
-    for item in FEATURE_DEFINITIONS
+    for item in _ALL_FEATURE_DEFINITIONS
     if item.name in V2_FEATURE_NAMES
 )
 
@@ -105,15 +109,21 @@ def candidate_from_observation(row: dict[str, Any]) -> CandidateInput | None:
         return None
     process, composition = row.get("features"), row.get("composition")
     points = (process or {}).get("heat_pattern", [])
-    if not process or not composition or process.get("ls_mpm") is None or len(points) < 2:
+    if not process or not composition or len(points) < 2:
         return None
+    process_inputs = (
+        {"ls_mpm": float(process["ls_mpm"])}
+        if isinstance(process.get("ls_mpm"), (int, float))
+        else {}
+    )
     return CandidateInput(
         name=str(row["parent_key"]),
         inputs={
             "composition": composition,
-            "process": {"ls_mpm": process["ls_mpm"]},
+            "process": process_inputs,
             "categorical": {},
             "heat_pattern": points,
+            "heat_time_basis": "line_speed" if process_inputs else "elapsed_time",
         },
     )
 
@@ -231,7 +241,6 @@ def build_feature_bundle(candidate: CandidateInput, composition_defaults: Mappin
     post_peak_minimum = min(point.temperature_c for point in peak_stage[stage_peak_index:])
     values = np.asarray([
         *(composition[name] for name in COMPOSITION_NAMES),
-        candidate.inputs.process["ls_mpm"],
         c + mn / 6.0 + (cr + mo) / 5.0 + ni / 15.0,
         c + si / 30.0 + (mn + cr) / 20.0 + ni / 60.0 + mo / 15.0 + 5.0 * b + cu / 20.0,
         c * mn, si + al, cr + mo, ti + b,
@@ -251,7 +260,13 @@ def build_feature_bundle_v2(
     candidate: CandidateInput,
     composition_defaults: Mapping[str, float] | None = None,
 ) -> FeatureBundle:
+    if not isinstance(candidate.inputs.process.get("ls_mpm"), (int, float)):
+        raise ValueError(
+            "Feature Pipeline 2.0.0 requires line speed; "
+            "use a 4.0.0 model package for elapsed-time heat patterns"
+        )
     current = build_feature_bundle(candidate, composition_defaults).as_dict()
+    current["ls_mpm"] = float(candidate.inputs.process["ls_mpm"])
     values = np.asarray([current[name] for name in V2_FEATURE_NAMES], dtype=np.float64)
     return FeatureBundle(
         FEATURE_PIPELINE_ID,

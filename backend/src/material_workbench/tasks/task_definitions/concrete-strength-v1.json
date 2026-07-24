@@ -1,0 +1,26 @@
+{
+  "task_definition":{
+    "schema_version":"task-definition/v1","id":"concrete-strength-v1","label":"コンクリート圧縮強度","canonical_candidate_schema_version":"canonical-candidate/v1",
+    "input_groups":[
+      {"key":"composition","order":0,"label":"配合","fields":[
+        {"path":"composition.cement_kg_m3","kind":"number","order":0,"label":"セメント","unit":"kg/m³","required":true,"editable":true,"default_range":{"min":120,"max":540},"allowed_range":{"min":0,"max":1000},"training_range":{"min":120.06,"max":539.86}},
+        {"path":"composition.blast_furnace_slag_kg_m3","kind":"number","order":1,"label":"高炉スラグ","unit":"kg/m³","required":true,"editable":true,"default_range":{"min":0,"max":220},"allowed_range":{"min":0,"max":600},"training_range":{"min":0.05,"max":219.95}},
+        {"path":"composition.fly_ash_kg_m3","kind":"number","order":2,"label":"フライアッシュ","unit":"kg/m³","required":true,"editable":true,"default_range":{"min":0,"max":200},"allowed_range":{"min":0,"max":600},"training_range":{"min":0.05,"max":199.91}},
+        {"path":"composition.water_kg_m3","kind":"number","order":3,"label":"水","unit":"kg/m³","required":true,"editable":true,"default_range":{"min":120,"max":240},"allowed_range":{"min":0,"max":500},"training_range":{"min":120.1,"max":239.97}},
+        {"path":"composition.superplasticizer_kg_m3","kind":"number","order":4,"label":"高性能減水剤","unit":"kg/m³","required":true,"editable":true,"default_range":{"min":0,"max":30},"allowed_range":{"min":0,"max":100},"training_range":{"min":0.02,"max":29.97}},
+        {"path":"composition.coarse_aggregate_kg_m3","kind":"number","order":5,"label":"粗骨材","unit":"kg/m³","required":true,"editable":true,"default_range":{"min":800,"max":1150},"allowed_range":{"min":0,"max":2000},"training_range":{"min":800.08,"max":1149.95}},
+        {"path":"composition.fine_aggregate_kg_m3","kind":"number","order":6,"label":"細骨材","unit":"kg/m³","required":true,"editable":true,"default_range":{"min":550,"max":950},"allowed_range":{"min":0,"max":2000},"training_range":{"min":550.18,"max":949.49}}
+      ]},
+      {"key":"process","order":1,"label":"評価条件","fields":[
+        {"path":"process.age_days","kind":"number","order":0,"label":"材齢","unit":"日","required":true,"editable":true,"default_range":{"min":1,"max":365},"allowed_range":{"min":0.1,"max":3650},"training_range":{"min":1,"max":365}}
+      ]}
+    ],
+    "outputs":[{"key":"compressive_strength_mpa","label":"圧縮強度","unit":"MPa","goal_direction":"at_least","measurement_keys":["compressive_strength_mpa"],"plausibility_range":{"min":0,"max":200},"preferred_display_range":{"min":0,"max":120}}],
+    "display_decimals":{"composition.cement_kg_m3":1,"composition.blast_furnace_slag_kg_m3":1,"composition.fly_ash_kg_m3":1,"composition.water_kg_m3":1,"composition.superplasticizer_kg_m3":1,"composition.coarse_aggregate_kg_m3":1,"composition.fine_aggregate_kg_m3":1,"process.age_days":0,"output.compressive_strength_mpa":1},
+    "fixed_context":[{"path":"context.source","order":0,"label":"データ","value":"Synthetic concrete starter pack"}],
+    "constraints":[],"response_curve_variables":[{"kind":"numeric_input","order":0,"label":"材齢","path":"process.age_days"},{"kind":"numeric_input","order":1,"label":"水量","path":"composition.water_kg_m3"},{"kind":"numeric_input","order":2,"label":"セメント量","path":"composition.cement_kg_m3"}],
+    "curve_axis_path":"process.age_days"
+  },
+  "canonical_candidate":{"schema_version":"canonical-candidate/v1","task_id":"concrete-strength-v1","composition":{"cement_kg_m3":320,"blast_furnace_slag_kg_m3":70,"fly_ash_kg_m3":50,"water_kg_m3":175,"superplasticizer_kg_m3":8,"coarse_aggregate_kg_m3":980,"fine_aggregate_kg_m3":760},"process":{"age_days":28},"heat_pattern":null,"categorical":{},"provenance":{"source_kind":"direct","source_ref":null}},
+  "runtime_capability":{"schema_version":"runtime-capability/v1","task_id":"concrete-strength-v1","model_package_schema_version":"model-package/v1","targets":[{"target":"compressive_strength_mpa","point_statistics":["mean"],"standard_deviation":false,"quantiles":true,"samples":false,"parametric_distribution":false,"uncertainty_components":false,"support":true,"warnings":true,"goal_probability":"unavailable"}],"joint_samples":false,"operations":{"preview":true,"detailed_prediction":true,"response_curve":true,"similarity":true,"snapshot":true,"actual_measurement":false}}
+}

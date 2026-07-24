@@ -267,20 +267,22 @@ export function useWorkbenchSession({
     };
   }, [selected?.id]);
 
-  function updateCandidateInput(id: string, path: string, value: number | string) {
+  function updateCandidateInput(id: string, path: string, value: number | string | undefined) {
     const current = candidates.find((candidate) => candidate.id === id);
     if (!current) return;
     const oldLineSpeed = Number(current.raw.inputs.process.ls_mpm);
     const newLineSpeed = Number(value);
+    const removesLineSpeed = path === "process.ls_mpm" && value === undefined;
     const next: CandidateViewModel = {
       ...current,
       raw: { ...current.raw, inputs: setCandidateInputValue(current.raw.inputs, path, value) },
-      heat: path === "process.ls_mpm" && current.heatTimeBasis === "line_speed"
+      heatTimeBasis: removesLineSpeed ? "elapsed_time" : current.heatTimeBasis,
+      heat: path === "process.ls_mpm" && current.heatTimeBasis === "line_speed" && !removesLineSpeed
         ? scaleHeatTimesForLineSpeed(current.heat, oldLineSpeed, newLineSpeed)
         : current.heat,
     };
     setCandidates((items) => items.map((candidate) => candidate.id === id ? next : candidate));
-    if (path === "process.ls_mpm" && current.heatTimeBasis === "line_speed") {
+    if (path === "process.ls_mpm") {
       void editor.flush(next, current);
     } else {
       editor.schedule(next, current);

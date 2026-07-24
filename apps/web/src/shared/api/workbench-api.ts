@@ -66,8 +66,27 @@ export const workbenchApi = {
   async projectCreationOptions() {
     return requireData(await apiClient.GET("/api/project-creation-options"), "プロジェクト作成条件を取得できませんでした。");
   },
-  async listDataLibraryDatasets() {
-    return requireData(await apiClient.GET("/api/data-library/datasets"), "データライブラリを取得できませんでした。");
+  async listDataLibraryDatasets(includeArchived = false) {
+    return requireData(await apiClient.GET("/api/data-library/datasets", {
+      params: { query: { include_archived: includeArchived } },
+    }), "データライブラリを取得できませんでした。");
+  },
+  async setDatasetArchived(revisionId: string, archived: boolean) {
+    return requireData(await apiClient.PATCH("/api/data-library/datasets/{revision_id}", {
+      params: { path: { revision_id: revisionId } },
+      body: { archived },
+    }), archived ? "Datasetを利用停止できませんでした。" : "Datasetを復元できませんでした。");
+  },
+  async listModelPackageRefs(includeArchived = false) {
+    return requireData(await apiClient.GET("/api/data-library/model-packages", {
+      params: { query: { include_archived: includeArchived } },
+    }), "Model Package一覧を取得できませんでした。");
+  },
+  async setModelPackageArchived(referenceId: string, archived: boolean) {
+    return requireData(await apiClient.PATCH("/api/data-library/model-packages/{reference_id}", {
+      params: { path: { reference_id: referenceId } },
+      body: { archived },
+    }), archived ? "Model Packageを利用停止できませんでした。" : "Model Packageを復元できませんでした。");
   },
   async createDatasetView(body: ApiDatasetViewCreateInput) {
     return requireData(await apiClient.POST("/api/data-library/views", { body }), "比較セットを作成できませんでした。");

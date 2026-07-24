@@ -48,19 +48,34 @@ def test_latin_hypercube_is_deterministic_bounded_and_convertible(client) -> Non
     assert first["base_candidate_id"] == candidate["id"]
     assert first["base_inputs"] == candidate["inputs"]
     assert first["model_provenance"]["model"]["version"]
+    assert first["design_space"]["schema_version"] == "design-space-definition/v1"
+    assert first["design_space"]["task_id"] == "annealed-properties-v1"
+    assert first["design_space_digest"].startswith("sha256:")
+    assert first["proposal_strategy"] == {
+        "id": "latin_hypercube_v1",
+        "version": "1.0.0",
+        "seed": 20260719,
+        "requested_count": 48,
+    }
+    assert isinstance(first["rejection_summary"], dict)
     assert first["score_contract"] == {
-        "version": "screening-score/v1",
+        "version": "screening-score/v2",
         "preference": "lower_is_better",
         "direction": "at_least",
         "target_value": 500.0,
         "probability_available": True,
+        "probability_semantics": "probability_of_achieving_goal",
+        "ranking_policy": "support_tier_then_secondary_goals_then_score",
         "fallback": "directional_shortfall",
         "display_label": "目標以上ほど有望",
     }
     assert all(point["prediction"]["goal_direction"] == "at_least" for point in first["points"])
-    assert [point["score"] for point in first["representative_points"]] == sorted(
-        point["score"] for point in first["representative_points"]
-    )
+    support_rank = {"supported": 0, "caution": 1, "extrapolated": 2}
+    representative_rank = [
+        (support_rank[point["support"]["status"]], point["score"])
+        for point in first["representative_points"]
+    ]
+    assert representative_rank == sorted(representative_rank)
     assert client.get(f"/api/screening/{first['id']}").json()["base_canonical_input"] == first["base_canonical_input"]
     assert any(run["id"] == first["id"] for run in client.get("/api/screening").json())
 
@@ -144,6 +159,33 @@ def test_lineage_candidate_preserves_stage_order_and_boundaries(client) -> None:
     assert actual.inputs.heat_pattern is not None
     assert all(not point.segment_start for point in actual.inputs.heat_pattern)
     assert all(right.time_s > left.time_s for left, right in zip(actual.inputs.heat_pattern, actual.inputs.heat_pattern[1:]))
+
+
+def test_lineage_candidate_without_line_speed_predicts_and_rejects_ls_curve(client) -> None:
+    response = client.post("/api/projects/default/lineage/AN-06/candidate")
+    assert response.status_code == 201
+    candidate = response.json()
+    assert candidate["inputs"]["process"] == {}
+    assert candidate["inputs"]["heat_time_basis"] == "elapsed_time"
+
+    preview = client.post(
+        f"/api/projects/default/candidates/{candidate['id']}/preview",
+        params={"expected_revision": candidate["revision"]},
+    )
+    assert preview.status_code == 200
+    assert set(preview.json()["predictions"]) == {"TS", "YS", "EL", "lambda"}
+
+    curve = client.get(
+        f"/api/projects/default/candidates/{candidate['id']}/response-curve",
+        params={
+            "expected_revision": candidate["revision"],
+            "target": "TS",
+            "variable": "process.ls_mpm",
+            "points": 9,
+        },
+    )
+    assert curve.status_code == 422
+    assert "未設定" in curve.json()["message"]
 
 
 def test_hot_lineage_candidate_uses_hot_rolling_inputs(client) -> None:

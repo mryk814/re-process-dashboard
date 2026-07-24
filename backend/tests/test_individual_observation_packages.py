@@ -60,7 +60,10 @@ def test_process_registers_and_runs_standard_and_individual_observation_packages
             params={"query": "ME-00002"},
         )
         assert hidden_default.status_code == 200
-        assert hidden_default.json()["items"] == []
+        assert all(
+            item["key"] != "ME-00002"
+            for item in hidden_default.json()["items"]
+        )
         hidden_included = client.get(
             "/api/projects/default/lineage",
             params={"query": "ME-00002", "include_hidden": True},

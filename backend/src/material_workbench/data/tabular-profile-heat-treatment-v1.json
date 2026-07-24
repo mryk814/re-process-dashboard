@@ -1,0 +1,23 @@
+{
+  "schema_version": "tabular-dataset-profile/v1",
+  "profile_id": "external-heat-treatment-v1",
+  "name": "外部例題：熱処理の硬さ・靭性",
+  "task_id": "heat-treatment-tradeoff-v1",
+  "package_id": "heat-treatment-ridge-external-v1",
+  "id_column": null,
+  "group_column": null,
+  "inputs": [
+    {"path":"composition.carbon_pct","column":"carbon_pct","kind":"number","unit":"%"},
+    {"path":"composition.chromium_pct","column":"chromium_pct","kind":"number","unit":"%"},
+    {"path":"composition.nickel_pct","column":"nickel_pct","kind":"number","unit":"%"},
+    {"path":"process.austenitize_temp_c","column":"austenitize_temp_c","kind":"number","unit":"°C"},
+    {"path":"process.tempering_temp_c","column":"tempering_temp_c","kind":"number","unit":"°C"},
+    {"path":"process.hold_time_h","column":"hold_time_h","kind":"number","unit":"h"},
+    {"path":"process.cooling_rate_c_per_s","column":"cooling_rate_c_per_s","kind":"number","unit":"°C/s"},
+    {"path":"categorical.alloy_family","column":"alloy_family","kind":"categorical","choices":["martensitic_stainless","low_alloy_steel","spring_steel","bearing_steel"]}
+  ],
+  "outputs": [
+    {"key":"hardness_hv","column":"hardness_hv","unit":"HV","lower_bound":0},
+    {"key":"charpy_j","column":"charpy_j","unit":"J","lower_bound":0}
+  ]
+}

@@ -21,6 +21,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/data-library/datasets/{revision_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Dataset */
+        patch: operations["update_dataset_api_data_library_datasets__revision_id__patch"];
+        trace?: never;
+    };
     "/api/data-library/model-packages": {
         parameters: {
             query?: never;
@@ -36,6 +53,23 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/data-library/model-packages/{reference_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Model Package */
+        patch: operations["update_model_package_api_data_library_model_packages__reference_id__patch"];
         trace?: never;
     };
     "/api/data-library/views": {
@@ -1316,7 +1350,7 @@ export interface components {
              * Issue Type
              * @enum {string}
              */
-            issue_type: "missing_key" | "orphan_entity" | "duplicate_key" | "invalid_reference";
+            issue_type: "missing_key" | "orphan_entity" | "duplicate_key" | "invalid_reference" | "out_of_range" | "suspicious_distribution" | "curation_quarantine" | "missing_target";
             /** Missing Reference Key */
             missing_reference_key: string | null;
             /** Related Entity Keys */
@@ -1361,6 +1395,11 @@ export interface components {
             id: string;
             /** Profile Revision Id */
             profile_revision_id: string;
+        };
+        /** DatasetRevisionUpdateInput */
+        DatasetRevisionUpdateInput: {
+            /** Archived */
+            archived: boolean;
         };
         /** DatasetViewMember */
         DatasetViewMember: {
@@ -1780,6 +1819,8 @@ export interface components {
             key: string;
             /** Learning Status */
             learning_status?: string | null;
+            /** Melt Keys */
+            melt_keys?: string[];
             /** Observation Summary */
             observation_summary?: {
                 [key: string]: components["schemas"]["RepeatSummary"];
@@ -1919,6 +1960,11 @@ export interface components {
             entity_key: string;
             /** Entity Type */
             entity_type: string;
+            /**
+             * Relation Context Ids
+             * @default []
+             */
+            relation_context_ids: string[];
         };
         /** LineageResponse */
         LineageResponse: {
@@ -2024,6 +2070,11 @@ export interface components {
             task_contract_digest: string;
             /** Task Id */
             task_id: string;
+        };
+        /** ModelPackageRefUpdateInput */
+        ModelPackageRefUpdateInput: {
+            /** Archived */
+            archived: boolean;
         };
         /** ModelPackageStatus */
         ModelPackageStatus: {
@@ -2515,6 +2566,11 @@ export interface components {
              * @default
              */
             purpose: string;
+            /**
+             * Response Curve Points
+             * @default 17
+             */
+            response_curve_points: number;
             /** Response Curve Ranges */
             response_curve_ranges?: {
                 [key: string]: {
@@ -2609,6 +2665,11 @@ export interface components {
              * @default
              */
             purpose: string;
+            /**
+             * Response Curve Points
+             * @default 17
+             */
+            response_curve_points: number;
             /** Response Curve Ranges */
             response_curve_ranges?: {
                 [key: string]: {
@@ -2796,6 +2857,11 @@ export interface components {
              * @default
              */
             purpose: string;
+            /**
+             * Response Curve Points
+             * @default 17
+             */
+            response_curve_points: number;
             /** Response Curve Ranges */
             response_curve_ranges?: {
                 [key: string]: {
@@ -3101,6 +3167,12 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Design Space */
+            design_space?: {
+                [key: string]: unknown;
+            } | null;
+            /** Design Space Digest */
+            design_space_digest?: string | null;
             /** Id */
             id: string;
             model_provenance: components["schemas"]["ModelMetadata"];
@@ -3108,6 +3180,14 @@ export interface components {
             points: components["schemas"]["ScreeningPoint"][];
             /** Project Id */
             project_id: string;
+            /** Proposal Strategy */
+            proposal_strategy?: {
+                [key: string]: unknown;
+            } | null;
+            /** Rejection Summary */
+            rejection_summary?: {
+                [key: string]: number;
+            };
             /** Representative Points */
             representative_points: components["schemas"]["ScreeningPoint"][];
             /** Samples */
@@ -3152,13 +3232,17 @@ export interface components {
             preference: "lower_is_better";
             /** Probability Available */
             probability_available: boolean;
+            /** Probability Semantics */
+            probability_semantics?: "probability_of_achieving_goal" | null;
+            /** Ranking Policy */
+            ranking_policy?: "support_tier_then_secondary_goals_then_score" | null;
             /** Target Value */
             target_value: number | null;
             /**
              * Version
-             * @constant
+             * @enum {string}
              */
-            version: "screening-score/v1";
+            version: "screening-score/v1" | "screening-score/v2";
         };
         /** ScreeningSourceRef */
         ScreeningSourceRef: {
@@ -3232,6 +3316,8 @@ export interface components {
              * @default 工程履歴
              */
             process_label: string;
+            /** Relation Context Ids */
+            relation_context_ids?: string[];
             /** Repeat Summary */
             repeat_summary?: {
                 [key: string]: components["schemas"]["RepeatSummary"];
@@ -3456,7 +3542,9 @@ export type $defs = Record<string, never>;
 export interface operations {
     list_datasets_api_data_library_datasets_get: {
         parameters: {
-            query?: never;
+            query?: {
+                include_archived?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -3483,9 +3571,46 @@ export interface operations {
             };
         };
     };
-    list_model_packages_api_data_library_model_packages_get: {
+    update_dataset_api_data_library_datasets__revision_id__patch: {
         parameters: {
             query?: never;
+            header?: never;
+            path: {
+                revision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DatasetRevisionUpdateInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataLibraryDataset"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    list_model_packages_api_data_library_model_packages_get: {
+        parameters: {
+            query?: {
+                include_archived?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -3499,6 +3624,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModelPackageRef"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    update_model_package_api_data_library_model_packages__reference_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reference_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModelPackageRefUpdateInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelPackageRef"];
                 };
             };
             /** @description Validation Error */

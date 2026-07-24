@@ -1,6 +1,6 @@
 {
   "id": "metallurgy-thermal",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "canonical_input_paths": [
     "composition.C",
     "composition.Si",
@@ -103,12 +103,6 @@
       "unit": "%",
       "meaning": "N composition",
       "group": "composition"
-    },
-    {
-      "name": "ls_mpm",
-      "unit": "mpm",
-      "meaning": "Annealing line speed",
-      "group": "process"
     },
     {
       "name": "ce_iiw",

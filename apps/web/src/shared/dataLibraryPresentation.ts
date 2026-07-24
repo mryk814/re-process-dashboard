@@ -49,10 +49,10 @@ export function modelPackageDisplayName(modelPackage: ApiModelPackageRef | undef
   const runtimeTypes = new Set(records.map((item) => item.runtime_type).filter((item): item is string => typeof item === "string"));
   const architectureIds = new Set(records.map((item) => item.architecture_id).filter((item): item is string => typeof item === "string"));
   if (records.some((item) => item.runtime_type === "builtin.heteroscedastic_exact_gp.v1")) {
-    return "異分散GP（個々値）";
+    return "異分散GP（試験・個々値）";
   }
   if (records.some((item) => item.architecture_id === "hierarchical_parent_random_intercept_v1")) {
-    return "階層Bayes（個々値・反復）";
+    return "階層線形モデル（試験・個々値）";
   }
   if ([...architectureIds].some((item) => item.toLowerCase().includes("lightgbm"))) return "LightGBM";
   if (records.some((item) => asRecord(item.config)?.kernel === "ARD-RBF")) return "GP（安定ARD）";
@@ -60,6 +60,92 @@ export function modelPackageDisplayName(modelPackage: ApiModelPackageRef | undef
   if (runtimeTypes.has("builtin.posterior_linear.v1")) return "Bayes線形回帰";
   if (runtimeTypes.has("builtin.linear.v1")) return "線形回帰";
   return modelPackage.package_id;
+}
+
+export type ModelPackageDecisionSummary = {
+  label: string;
+  useCase: string;
+  trainingUnit: string;
+  uncertainty: string;
+  experimental: boolean;
+  caution: string;
+};
+
+export function modelPackageDecisionSummary(
+  modelPackage: ApiModelPackageRef | undefined,
+): ModelPackageDecisionSummary | null {
+  if (!modelPackage) return null;
+  const manifest = asRecord(modelPackage.manifest_json);
+  const predictors = Array.isArray(manifest?.predictors) ? manifest.predictors : [];
+  const records = predictors.map(asRecord).filter((item): item is Record<string, unknown> => item != null);
+  const configs = records.map((item) => asRecord(item.config)).filter(
+    (item): item is Record<string, unknown> => item != null,
+  );
+  const runtimeTypes = new Set(records.map((item) => item.runtime_type).filter(
+    (item): item is string => typeof item === "string",
+  ));
+  const architectures = new Set(records.map((item) => item.architecture_id).filter(
+    (item): item is string => typeof item === "string",
+  ));
+  const trainingUnits = new Set(configs.map((item) => item.training_unit).filter(
+    (item): item is string => typeof item === "string",
+  ));
+  const experimental = configs.some((item) => item.experimental === true)
+    || (typeof manifest?.package_version === "string" && manifest.package_version.includes("experimental"));
+  const trainingUnit = trainingUnits.has("individual_observation")
+    ? "個々の測定値"
+    : trainingUnits.has("parent_condition_mean")
+      ? "条件ごとの平均値"
+      : "Package定義を確認";
+
+  if (runtimeTypes.has("builtin.heteroscedastic_exact_gp.v1")) {
+    return {
+      label: modelPackageDisplayName(modelPackage),
+      useCase: "反復測定のばらつきも判断したいとき",
+      trainingUnit,
+      uncertainty: "条件間の傾向と条件内ばらつきを分けて近似",
+      experimental,
+      caution: "試験実装です。標準GPと評価対象・区間の意味が同じとは限りません。",
+    };
+  }
+  if (architectures.has("hierarchical_parent_random_intercept_v1")) {
+    return {
+      label: modelPackageDisplayName(modelPackage),
+      useCase: "親条件と反復測定の階層を試したいとき",
+      trainingUnit,
+      uncertainty: "親条件差と個々値ばらつきを階層線形モデルで近似",
+      experimental,
+      caution: "階層線形の試験モデルです。汎用的な階層Bayesモデルを意味しません。",
+    };
+  }
+  if ([...architectures].some((item) => item.toLowerCase().includes("lightgbm"))) {
+    return {
+      label: modelPackageDisplayName(modelPackage),
+      useCase: "非線形な点予測を比較したいとき",
+      trainingUnit,
+      uncertainty: "残差に基づく区間。確率モデルの事後分布ではありません",
+      experimental,
+      caution: "GPとは評価法が異なるため、RMSEだけで自動的に優劣を決めません。",
+    };
+  }
+  if (runtimeTypes.has("builtin.exact_gp.v1")) {
+    return {
+      label: modelPackageDisplayName(modelPackage),
+      useCase: "まず候補の傾向と不確かさを比較するとき",
+      trainingUnit,
+      uncertainty: "条件平均についての予測分布",
+      experimental,
+      caution: "反復測定の個々のばらつきではなく、主に条件平均を扱います。",
+    };
+  }
+  return {
+    label: modelPackageDisplayName(modelPackage),
+    useCase: "手法の違いを比較するとき",
+    trainingUnit,
+    uncertainty: "Packageの技術情報を確認",
+    experimental,
+    caution: "同じDataset・Prediction Task・評価法の結果だけを比較してください。",
+  };
 }
 
 export function modelPackageTrainedOnDataset(

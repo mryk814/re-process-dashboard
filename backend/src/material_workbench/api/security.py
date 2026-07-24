@@ -19,7 +19,7 @@ def configure_local_access(app: FastAPI) -> None:
         CORSMiddleware,
         allow_origins=["null", *configured_origins],
         allow_origin_regex=r"^http://(127\.0\.0\.1|localhost):\d+$",
-        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type", "X-Workbench-Launch-Token"],
         allow_credentials=False,
     )

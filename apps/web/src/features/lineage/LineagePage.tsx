@@ -101,7 +101,8 @@ export function LineagePage({
   const [data, setData] = useState<ApiLineage | null>(null);
   const [error, setError] = useState("");
   const [candidateError, setCandidateError] = useState("");
-  const [candidateOptionIndex, setCandidateOptionIndex] = useState(0);
+  const [selectedCandidateOptions, setSelectedCandidateOptions] = useState<string[]>([]);
+  const [candidateCreating, setCandidateCreating] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<LineageGroupSelection | null>(null);
   const [hoveredHeatPoint, setHoveredHeatPoint] = useState<{ x: number; y: number; lines: string[] } | null>(null);
   const activeProjectRef = useRef(projectId);
@@ -111,6 +112,8 @@ export function LineagePage({
   };
   activeProjectRef.current = projectId;
   const candidateOptions = data?.candidate_options ?? [];
+  const candidateOptionKey = (option: (typeof candidateOptions)[number]) => `${option.process_role}\u001f${option.process_key}\u001f${option.melt_key}`;
+  const candidateOptionsIdentity = candidateOptions.map(candidateOptionKey).join("\u001e");
   useEffect(() => {
     setEntityKey(initialEntityKey ?? "");
     setGraphLimit(40);
@@ -120,8 +123,11 @@ export function LineagePage({
   }, [projectId]);
   useEffect(() => {
     setSelectedGroup(null);
-    setCandidateOptionIndex(0);
+    setSelectedCandidateOptions([]);
   }, [entityKey]);
+  useEffect(() => {
+    setSelectedCandidateOptions(candidateOptions.map(candidateOptionKey));
+  }, [entityKey, candidateOptionsIdentity]);
   useEffect(() => {
     setQuery("");
     setEntityType("");
@@ -239,24 +245,35 @@ export function LineagePage({
       setReviewSaveState("error");
     }
   };
-  const createCandidate = async () => {
+  const createCandidates = async () => {
     const requestProjectId = projectId;
     const requestEntityKey = entityKey;
-    const option = candidateOptions[candidateOptionIndex];
-    try {
-      const created = fromApiCandidate(await workbenchApi.createCandidateFromLineage(
-        requestEntityKey,
-        requestProjectId,
-        option?.process_key,
-        option?.melt_key,
-      ));
-      if (activeProjectRef.current !== requestProjectId) return;
-      onCandidate(created);
-    } catch (cause) {
-      if (activeProjectRef.current !== requestProjectId) return;
-      setCandidateError(
-        cause instanceof Error ? cause.message : "候補を作成できませんでした。",
-      );
+    const selected = candidateOptions.filter((option) => selectedCandidateOptions.includes(candidateOptionKey(option)));
+    setCandidateCreating(true);
+    setCandidateError("");
+    setCandidateCreating(false);
+    const createdKeys: string[] = [];
+    const errors: string[] = [];
+    for (const option of selected) {
+      try {
+        const created = fromApiCandidate(await workbenchApi.createCandidateFromLineage(
+          requestEntityKey,
+          requestProjectId,
+          option.process_key,
+          option.melt_key,
+        ));
+        if (activeProjectRef.current !== requestProjectId) break;
+        onCandidate(created);
+        createdKeys.push(candidateOptionKey(option));
+      } catch (cause) {
+        if (activeProjectRef.current !== requestProjectId) break;
+        errors.push(cause instanceof Error ? cause.message : "候補を作成できませんでした。");
+      }
+    }
+    if (activeProjectRef.current === requestProjectId) {
+      setSelectedCandidateOptions((current) => current.filter((key) => !createdKeys.includes(key)));
+      if (errors.length) setCandidateError(`${createdKeys.length}件を追加、${errors.length}件は追加できませんでした。${errors[0]}`);
+      setCandidateCreating(false);
     }
   };
   const issueLabels: Record<string, string> = {
@@ -264,6 +281,10 @@ export function LineagePage({
     orphan_entity: "孤立",
     duplicate_key: "重複",
     invalid_reference: "参照切れ",
+    out_of_range: "範囲外",
+    suspicious_distribution: "分布の偏り",
+    curation_quarantine: "学習利用から隔離",
+    missing_target: "目的変数の欠損",
   };
   const openNode = (key: string) => {
     setGraphLimit(40);
@@ -417,7 +438,12 @@ export function LineagePage({
                     )}
                     {item.entity_type === "焼鈍" && (
                       <>
-                        <span className="lineage-result-meta">{item.family || "family不明"} · {item.project || "PJ不明"} · {item.route || "route不明"}</span>
+                        <span className="lineage-result-meta">
+                          {(item.melt_keys?.length ?? 0) > 1
+                            ? `${item.melt_keys!.length}成分共有 (${item.melt_keys!.join(" / ")})`
+                            : item.family || "成分未特定"}
+                          {" · "}{item.project || "PJ不明"} · {item.route || "route不明"}
+                        </span>
                         <span className="lineage-result-meta">peak {item.peak_temperature_c == null ? "—" : `${number(item.peak_temperature_c)}°C`} · {item.learning_status || "区分なし"}</span>
                         <span className="lineage-result-observations">
                           {Object.entries(item.observation_summary ?? {}).slice(0, 4).map(([property, summary]) => `${property.replace("[MPa]", "").replace("[%]", "")} ${number(summary.mean, 1)}±${number(summary.std, 1)} (n=${summary.n})`).join(" / ") || "焼鈍後観測なし"}
@@ -536,28 +562,42 @@ export function LineagePage({
               </div>
               <div className="lineage-detail-action">
                 {supportsCandidateCreation && candidateOptions.length > 1 && (
-                  <label className="lineage-candidate-option">
-                    上流条件
-                    <select
-                      value={candidateOptionIndex}
-                      onChange={(event) => setCandidateOptionIndex(Number(event.target.value))}
-                    >
-                      {candidateOptions.map((option, index) => (
-                        <option key={`${option.process_key}-${option.melt_key}`} value={index}>
-                          {option.process_label} {option.process_key} / 成分 {option.melt_key}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <div className="lineage-candidate-options">
+                    <div>
+                      <b>候補にする組合せ</b>
+                      <button type="button" className="text-button" onClick={() => setSelectedCandidateOptions(
+                        selectedCandidateOptions.length === candidateOptions.length ? [] : candidateOptions.map(candidateOptionKey),
+                      )}>
+                        {selectedCandidateOptions.length === candidateOptions.length ? "すべて外す" : "すべて選ぶ"}
+                      </button>
+                    </div>
+                    <div className="lineage-candidate-option-list">
+                      {candidateOptions.map((option) => {
+                        const key = candidateOptionKey(option);
+                        return (
+                          <label key={key}>
+                            <input
+                              type="checkbox"
+                              checked={selectedCandidateOptions.includes(key)}
+                              onChange={(event) => setSelectedCandidateOptions((current) => (
+                                event.target.checked ? [...current, key] : current.filter((item) => item !== key)
+                              ))}
+                            />
+                            <span><b>{option.process_key}</b><small>{option.process_label} / 成分 {option.melt_key}</small></span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
                 <CandidateAddButton
-                  disabled={!supportsCandidateCreation || !data.candidate_eligible || !candidateOptions[candidateOptionIndex]}
+                  disabled={!supportsCandidateCreation || !data.candidate_eligible || !selectedCandidateOptions.length || candidateCreating}
                   title={supportsCandidateCreation ? data.candidate_reason : "この予測タスクは系譜からの候補化に対応していません"}
                   onClick={() => {
-                    void createCandidate();
+                    void createCandidates();
                   }}
                 >
-                  候補ストックへ追加
+                  {candidateCreating ? "追加中…" : candidateOptions.length > 1 ? `${selectedCandidateOptions.length}件を候補へ追加` : "候補ストックへ追加"}
                 </CandidateAddButton>
                 <span className={`lineage-detail-action-reason ${supportsCandidateCreation && data.candidate_eligible ? "" : "muted"}`}>
                   {supportsCandidateCreation ? data.candidate_reason : "この予測タスクは系譜からの候補化に対応していません。"}

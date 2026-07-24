@@ -19,6 +19,7 @@ dev = [
   "httpx>=0.28,<1",
   "pyinstaller>=6.14,<7",
   "pytest>=8.4,<9",
+  "pytest-xdist>=3.8,<4",
 ]
 runtime-sklearn = [
   "scikit-learn>=1.6,<2",
@@ -42,4 +43,4 @@ model-package-signing = [
 [tool.pytest.ini_options]
 pythonpath = ["backend/src"]
 testpaths = ["backend/tests"]
-addopts = "-q"
+addopts = "-q -n 4 --dist loadfile"

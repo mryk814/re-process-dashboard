@@ -10,6 +10,7 @@ from typing import Annotated, Any, Iterator, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from material_workbench.data.dataset_profile import load_dataset_profile
+from material_workbench.data.importer import training_context_key
 from material_workbench.modeling.model_packages import PackageContractError, VerifiedModelPackage
 from material_workbench.contracts.task_contracts import RuntimeCapability, TaskContractFixture, TaskDefinition
 from material_workbench.task_modules import DataDescriptor, registered_task_modules, task_module
@@ -82,14 +83,18 @@ class TargetQualityMetric(LifecycleModel):
 
 class QualityReport(LifecycleModel):
     schema_version: Literal["model-quality-report/v1"]
-    split: Literal["leave-one-parent-condition-out", "grouped-parent-condition-k-fold"]
+    split: Literal[
+        "leave-one-parent-condition-out",
+        "grouped-parent-condition-k-fold",
+        "independent-source-row-k-fold",
+    ]
     folds: Annotated[int, Field(ge=2)] | None = None
     targets: Annotated[tuple[TargetQualityMetric, ...], Field(min_length=1)]
 
     @model_validator(mode="after")
     def split_has_matching_fold_count(self) -> "QualityReport":
-        if (self.split == "grouped-parent-condition-k-fold") != (self.folds is not None):
-            raise ValueError("grouped k-fold quality reports require folds, and leave-one-out reports must omit it")
+        if (self.split != "leave-one-parent-condition-out") != (self.folds is not None):
+            raise ValueError("k-fold quality reports require folds, and leave-one-out reports must omit it")
         return self
 
 
@@ -128,8 +133,24 @@ def runtime_capability_digest(capability: RuntimeCapability) -> str:
 
 
 def dataset_profile_digest(path: Path | Any = DATASET_PROFILE_PATH) -> str:
-    profile = path if hasattr(path, "model_dump") else load_dataset_profile(path)
+    if hasattr(path, "model_dump"):
+        profile = path
+    else:
+        profile_path = Path(path)
+        raw = json.loads(profile_path.read_text(encoding="utf-8"))
+        if raw.get("schema_version") == "tabular-dataset-profile/v1":
+            from material_workbench.modeling.tabular_regression import load_tabular_profile
+
+            profile = load_tabular_profile(profile_path)
+        else:
+            profile = load_dataset_profile(profile_path)
     payload = profile.model_dump(mode="json", exclude={"task_definitions"})
+    # Optional contract additions must not invalidate existing packages when the
+    # active profile does not use them.
+    if payload.get("curation_recipe") is None:
+        payload.pop("curation_recipe", None)
+    if payload.get("ridge_alpha") == 1.0:
+        payload.pop("ridge_alpha", None)
     shared = payload.get("shared")
     if isinstance(shared, dict):
         for key in ("policy_defaults", "optional_roles", "optional_technical_fields"):
@@ -164,11 +185,14 @@ def canonical_training_dataset(
     pipeline_version: str | None = None,
 ) -> dict[str, Any]:
     profile = getattr(data, "profile", None) or load_dataset_profile(data.profile_path)
-    profile_columns = {
-        target.key: target.source_columns
-        for observation in profile.tasks[task_id].observations
-        for target in observation.targets
-    }
+    if getattr(profile, "schema_version", "") == "tabular-dataset-profile/v1":
+        profile_columns = {target.key: (target.key, target.column) for target in profile.outputs}
+    else:
+        profile_columns = {
+            target.key: target.source_columns
+            for observation in profile.tasks[task_id].observations
+            for target in observation.targets
+        }
     output_columns = {
         output.key: tuple(dict.fromkeys((*output.measurement_keys, *profile_columns.get(output.key, ()))))
         for output in contract.task_definition.outputs
@@ -207,13 +231,20 @@ def canonical_training_dataset(
                 outputs[output.key] = float(observation["outputs"][source_column])
         if not outputs:
             continue
-        rows.append({
+        training_row = {
             "observation_id": str(observation["id"]),
             "parent_key": str(observation["parent_key"]),
             "features": bundle.as_dict(),
             "outputs": outputs,
-        })
-    rows.sort(key=lambda item: (item["parent_key"], item["observation_id"]))
+        }
+        if observation.get("condition_context_id"):
+            training_row.update({
+                "condition_context_id": training_context_key(observation),
+                "composition_key": observation.get("composition_key"),
+                "relation_context_ids": list(observation.get("relation_context_ids", [])),
+            })
+        rows.append(training_row)
+    rows.sort(key=lambda item: (training_context_key(item), item["observation_id"]))
     if not rows:
         raise ValueError(f"no eligible canonical training rows for {task_id}")
     first_bundle = builder(

@@ -19,6 +19,10 @@ const ISSUE_LABELS: Record<string, string> = {
   orphan_entity: "孤立",
   duplicate_key: "重複",
   invalid_reference: "参照切れ",
+  out_of_range: "範囲外",
+  suspicious_distribution: "分布の偏り",
+  curation_quarantine: "学習利用から隔離",
+  missing_target: "目的変数の欠損",
 };
 
 const NODE_WIDTH = 120;

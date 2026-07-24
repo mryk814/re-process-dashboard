@@ -202,7 +202,10 @@ def test_alternate_verified_package_needs_no_api_change_and_snapshot_keeps_old_i
         assert old_hash == current["manifest_sha256"]
 
 
-def test_app_startup_rejects_package_trained_from_a_different_source(tmp_path: Path) -> None:
+def test_app_startup_rejects_package_trained_from_a_different_source(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     import shutil
 
     source = ROOT / "models" / "packages" / "hot-rolled-tutorial-v1"
@@ -217,6 +220,15 @@ def test_app_startup_rejects_package_trained_from_a_different_source(tmp_path: P
     with pytest.raises(PackageContractError, match="training data digest"):
         with TestClient(app):
             pass
+    marker = next(
+        record.message
+        for record in caplog.records
+        if "WORKBENCH_STARTUP_ERROR" in record.message
+    )
+    diagnosis = json.loads(marker.split("WORKBENCH_STARTUP_ERROR ", 1)[1])
+    assert diagnosis["stage"] == "resources"
+    assert diagnosis["error_type"] == "PackageContractError"
+    assert "training data digest" in diagnosis["detail"]
 
 
 def test_process_source_and_packages_start_and_predict_through_the_api(tmp_path: Path) -> None:

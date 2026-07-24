@@ -1,0 +1,29 @@
+{
+  "name": "MPEA文献データ：組成のみ・工程未調整の参考推定 package smoke",
+  "inputs": {
+    "composition": {
+      "Fe": 32.9,
+      "Ni": 4.7,
+      "Co": 32.9,
+      "Mn": 0.0,
+      "Cr": 23.5,
+      "Al": 3.0,
+      "Ti": 3.0,
+      "Cu": 0.0,
+      "Si": 0.0,
+      "V": 0.0,
+      "Nb": 0.0,
+      "B": 0.0,
+      "Mo": 0.0,
+      "Ta": 0.0
+    },
+    "process": {},
+    "categorical": {},
+    "heat_pattern": null,
+    "heat_time_basis": "line_speed"
+  },
+  "provenance": {
+    "source_kind": "direct",
+    "source_ref": null
+  }
+}

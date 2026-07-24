@@ -4,11 +4,11 @@
   "package_version": "1.0.0-experimental",
   "task_id": "annealed-properties-v1",
   "input_schema_version": "candidate-v2",
-  "input_contract_digest": "sha256:54f8999febbf00155490bd47920a278e4a49e3c879337910ab3c8c523cde4b28",
+  "input_contract_digest": "sha256:e96ea9275b22ae5fb63afd9ac68694e5ac0a7777defd753f56a78088c61fe6b3",
   "runtime_capability_digest": "sha256:0dd83e49dccb9c12b87b0ea6ce0555ccfeba13208f0e9a4116c76371506c463f",
   "feature_pipeline": {
     "id": "metallurgy-thermal",
-    "version": "3.0.0",
+    "version": "4.0.0",
     "spec": "feature-pipeline/pipeline.json",
     "canonical_input_paths": [
       "composition.C",
@@ -43,7 +43,6 @@
       "B",
       "O",
       "N",
-      "ls_mpm",
       "ce_iiw",
       "pcm",
       "c_times_mn",
@@ -102,7 +101,6 @@
         "B",
         "O",
         "N",
-        "ls_mpm",
         "ce_iiw",
         "pcm",
         "c_times_mn",
@@ -163,7 +161,6 @@
         "B",
         "O",
         "N",
-        "ls_mpm",
         "ce_iiw",
         "pcm",
         "c_times_mn",
@@ -224,7 +221,6 @@
         "B",
         "O",
         "N",
-        "ls_mpm",
         "ce_iiw",
         "pcm",
         "c_times_mn",
@@ -285,7 +281,6 @@
         "B",
         "O",
         "N",
-        "ls_mpm",
         "ce_iiw",
         "pcm",
         "c_times_mn",
@@ -325,40 +320,40 @@
   ],
   "provenance": {
     "training_data_id": "sha256:87e2321d5ce1071c9fe57bea95ed773609a88d63c7d5cc08bd0a15592634bef9",
-    "feature_dataset_id": "sha256:5b48d2b4b3c3a5c8bf6e6bbae74c790ae02efba8778599e25e0b719c90bcc029",
+    "feature_dataset_id": "sha256:d753458252eb4ac4e4fa97e91a8096daec566fff2b7fae8b70519dde1a29c816",
     "training_code_revision": "build_annealed_individual_model_packages.py:v1",
     "dataset_profile_id": "sha256:f622242f2fa9399d8af9cf5faded2469fb6777b073190350f7a2c9f095d7e976"
   },
   "artifacts": [
     {
       "path": "feature-pipeline/pipeline.json",
-      "sha256": "215e5000c6fa7be018ec40d7801128079dbe04da2ecfeccfbdcb22312d67d5b5",
-      "bytes": 6540
+      "sha256": "b85a5a0c869feeec73b646273c89649367c00e63f9923c1c5e368d79a91c4b5c",
+      "bytes": 6416
     },
     {
       "path": "model-artifacts/EL.npz",
-      "sha256": "5a8742955c206bc59697ffc6bb6576c640bf2c90d49fadd01e6fde94d27fcef8",
-      "bytes": 139310
+      "sha256": "601b976c5feb00582ce9bed4b5fc53688e54c1c5478f875ba2c82c9504edd455",
+      "bytes": 136238
     },
     {
       "path": "model-artifacts/TS.npz",
-      "sha256": "8997f1e134c13a65ffef5b50bed7d3866cb0c29a8798b803061b1cf365e5a1b5",
-      "bytes": 139310
+      "sha256": "7081fa1c30b4442ab817b99bcab6b5a775737a7d00445b9592295bf7c89fc292",
+      "bytes": 136238
     },
     {
       "path": "model-artifacts/YS.npz",
-      "sha256": "01c9bc078466d0cec47e4e13fc79f761f48d23734c3c3459cae47f5c6a4e7362",
-      "bytes": 139310
+      "sha256": "a1ec4ff2710d62b44f3d4085bb6c5ff7a6bbf55d2628f50c7f987fe91b0255b0",
+      "bytes": 136238
     },
     {
       "path": "model-artifacts/lambda.npz",
-      "sha256": "b0058993f0c1a8a428c6472ef1d6c57958bf07ec1c4b5d0bdc5be936ab00a60d",
-      "bytes": 139310
+      "sha256": "70ce0503b00d3b58b03fe067a10af72b4499e25e11e281d273392754526be5b1",
+      "bytes": 136238
     },
     {
       "path": "reference/training-groups.json",
-      "sha256": "2427a2de0cb348d3488e75667f3baf7c90b8df058bee62847d977e36c4a36468",
-      "bytes": 51778
+      "sha256": "b8413ee24a502da705b03bddb74b09e4ce5aa104d5934ad31737cd4ef38710eb",
+      "bytes": 57338
     },
     {
       "path": "reference/training_stats.json",
@@ -367,8 +362,8 @@
     },
     {
       "path": "reports/quality-report.json",
-      "sha256": "ae1b25e4f0dd04ad4ef04726d48c319bd7c278bb10a6afe0d82f74ed976a6201",
-      "bytes": 855
+      "sha256": "5fb830e12a7edcf4ec0f352f3585d580693c804a9736140a64755117f02551f7",
+      "bytes": 859
     },
     {
       "path": "reports/training-diagnostics.json",
@@ -382,8 +377,8 @@
     },
     {
       "path": "smoke/expected.json",
-      "sha256": "733a719fe9b61cda5b957983a1083ca42d7763cb801c543ad0139dec0d3b9e9c",
-      "bytes": 93
+      "sha256": "c17a759414c4db45147ad2f2bda2aa3aad5d82519eee01ac38940971633ab744",
+      "bytes": 92
     }
   ],
   "smoke_test": {

@@ -1,0 +1,131 @@
+{
+  "schema_version": "model-package/v1",
+  "package_id": "mpea-literature-tys-ridge-v1",
+  "package_version": "1.0.0",
+  "task_id": "mpea-literature-tys-v1",
+  "input_schema_version": "canonical-candidate/v1",
+  "input_contract_digest": "sha256:a7787b19c7f65cb28e73d41d161d45e05fa664a915340987133c3f46f7ca1e17",
+  "runtime_capability_digest": "sha256:82c35c797df8e8258993cc152ac6e57911dea4ad0c96cf612d43e36159c84de6",
+  "feature_pipeline": {
+    "id": "mpea-literature-tys-v1-profile-transform",
+    "version": "1.0.0",
+    "spec": "feature-pipeline/pipeline.json",
+    "canonical_input_paths": [
+      "composition.Fe",
+      "composition.Ni",
+      "composition.Co",
+      "composition.Mn",
+      "composition.Cr",
+      "composition.Al",
+      "composition.Ti",
+      "composition.Cu",
+      "composition.Si",
+      "composition.V",
+      "composition.Nb",
+      "composition.B",
+      "composition.Mo",
+      "composition.Ta"
+    ],
+    "output_features": [
+      "composition.Fe",
+      "composition.Ni",
+      "composition.Co",
+      "composition.Mn",
+      "composition.Cr",
+      "composition.Al",
+      "composition.Ti",
+      "composition.Cu",
+      "composition.Si",
+      "composition.V",
+      "composition.Nb",
+      "composition.B",
+      "composition.Mo",
+      "composition.Ta"
+    ],
+    "artifacts": [
+      "reference/training_stats.json"
+    ]
+  },
+  "predictors": [
+    {
+      "id": "TYS-ridge",
+      "target": "TYS",
+      "unit": "MPa",
+      "target_kind": "continuous",
+      "runtime_type": "builtin.linear.v1",
+      "architecture_id": "profile_transformed_ridge_v1",
+      "artifact": "model-artifacts/TYS.npz",
+      "predictive_family": "empirical_quantiles",
+      "feature_names": [
+        "composition.Fe",
+        "composition.Ni",
+        "composition.Co",
+        "composition.Mn",
+        "composition.Cr",
+        "composition.Al",
+        "composition.Ti",
+        "composition.Cu",
+        "composition.Si",
+        "composition.V",
+        "composition.Nb",
+        "composition.B",
+        "composition.Mo",
+        "composition.Ta"
+      ],
+      "config": {
+        "training_unit": "source_row",
+        "validation": "5-fold grouped by File_Name",
+        "source_profile": "mpea-zenodo-18021833-v1",
+        "ridge_alpha": 1000.0
+      }
+    }
+  ],
+  "provenance": {
+    "training_data_id": "sha256:a3b4230ff150e32ed51050a4813fc3fbad01b2bc2fc61b5d4fb8a5be3cc5e476",
+    "feature_dataset_id": "sha256:2d942321fbfb8a8ec6f7ddda553b627b972a8a7b8fc03e2d88d332753dc65c6c",
+    "training_code_revision": "tabular-ridge-v1",
+    "dataset_profile_id": "sha256:7c5f0fa3471344e3960c6140124be38d5bf6c9006249a3aa988686542030e596"
+  },
+  "artifacts": [
+    {
+      "path": "feature-pipeline/pipeline.json",
+      "sha256": "87842cbdd9762fa37d7e44286293be4d3856cce8cfc812a22138616a164e932f",
+      "bytes": 2391
+    },
+    {
+      "path": "reference/curation-recipe.json",
+      "sha256": "f5b2eb4cda9f4d8fc20b179ca4a2d6bdefe35154b166e6c31b87b677bf1064dd",
+      "bytes": 2689
+    },
+    {
+      "path": "model-artifacts/TYS.npz",
+      "sha256": "2391ad2d05c95434a6358706522787aad6ec641fd1d6b602a3d9fbba13dd4922",
+      "bytes": 1156
+    },
+    {
+      "path": "reference/training_stats.json",
+      "sha256": "275e0b2dd9c60f1a2f177131101bb257fe1b3fe89efe9f5642f7574d29ac77b3",
+      "bytes": 257
+    },
+    {
+      "path": "reports/quality-report.json",
+      "sha256": "efe0efcf94ae98014ccd056de548ef335270fe4bf8f73948d902ea0f4b132b71",
+      "bytes": 310
+    },
+    {
+      "path": "smoke/input.json",
+      "sha256": "393a7da00e51fbf29c1a267f332e8feceaa19609205764fe68fcc15e19e50340",
+      "bytes": 561
+    },
+    {
+      "path": "smoke/expected.json",
+      "sha256": "357d86eb31224942502bc621c2d8e4ae4e251ca48c4175960275d30e100c17bd",
+      "bytes": 25
+    }
+  ],
+  "smoke_test": {
+    "input": "smoke/input.json",
+    "expected": "smoke/expected.json"
+  },
+  "quality_report": "reports/quality-report.json"
+}

@@ -5,9 +5,9 @@
   "targets": [
     {
       "target": "TS",
-      "parent_conditions": 6,
-      "mae": 5.004284587101343,
-      "rmse": 5.874538855541114,
+      "parent_conditions": 7,
+      "mae": 4.358955959714698,
+      "rmse": 5.3653933683722785,
       "interval_coverage_90": 1.0
     }
   ]

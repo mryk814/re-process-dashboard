@@ -1,0 +1,167 @@
+{
+  "schema_version": "model-package/v1",
+  "package_id": "heat-treatment-ridge-external-v1",
+  "package_version": "1.0.0",
+  "task_id": "heat-treatment-tradeoff-v1",
+  "input_schema_version": "canonical-candidate/v1",
+  "input_contract_digest": "sha256:2b55df6bc1fe5a60242c663c6bb97520609105ab8643b837835c839b6c0c590e",
+  "runtime_capability_digest": "sha256:06b05e9094b372236d47af6a0c37a54dc4d23c5cea34d51a36d115542cf3e8a6",
+  "feature_pipeline": {
+    "id": "heat-treatment-tradeoff-v1-profile-transform",
+    "version": "1.0.0",
+    "spec": "feature-pipeline/pipeline.json",
+    "canonical_input_paths": [
+      "composition.carbon_pct",
+      "composition.chromium_pct",
+      "composition.nickel_pct",
+      "process.austenitize_temp_c",
+      "process.tempering_temp_c",
+      "process.hold_time_h",
+      "process.cooling_rate_c_per_s",
+      "categorical.alloy_family"
+    ],
+    "output_features": [
+      "composition.carbon_pct",
+      "composition.carbon_pct__square",
+      "composition.chromium_pct",
+      "composition.chromium_pct__square",
+      "composition.nickel_pct",
+      "composition.nickel_pct__square",
+      "process.austenitize_temp_c",
+      "process.austenitize_temp_c__square",
+      "process.tempering_temp_c",
+      "process.tempering_temp_c__square",
+      "process.hold_time_h",
+      "process.hold_time_h__square",
+      "process.cooling_rate_c_per_s",
+      "process.cooling_rate_c_per_s__square",
+      "categorical.alloy_family__martensitic_stainless",
+      "categorical.alloy_family__low_alloy_steel",
+      "categorical.alloy_family__spring_steel",
+      "categorical.alloy_family__bearing_steel"
+    ],
+    "artifacts": [
+      "reference/training_stats.json"
+    ]
+  },
+  "predictors": [
+    {
+      "id": "hardness_hv-ridge",
+      "target": "hardness_hv",
+      "unit": "HV",
+      "target_kind": "continuous",
+      "runtime_type": "builtin.linear.v1",
+      "architecture_id": "profile_transformed_ridge_v1",
+      "artifact": "model-artifacts/hardness_hv.npz",
+      "predictive_family": "empirical_quantiles",
+      "feature_names": [
+        "composition.carbon_pct",
+        "composition.carbon_pct__square",
+        "composition.chromium_pct",
+        "composition.chromium_pct__square",
+        "composition.nickel_pct",
+        "composition.nickel_pct__square",
+        "process.austenitize_temp_c",
+        "process.austenitize_temp_c__square",
+        "process.tempering_temp_c",
+        "process.tempering_temp_c__square",
+        "process.hold_time_h",
+        "process.hold_time_h__square",
+        "process.cooling_rate_c_per_s",
+        "process.cooling_rate_c_per_s__square",
+        "categorical.alloy_family__martensitic_stainless",
+        "categorical.alloy_family__low_alloy_steel",
+        "categorical.alloy_family__spring_steel",
+        "categorical.alloy_family__bearing_steel"
+      ],
+      "config": {
+        "training_unit": "source_row",
+        "validation": "5-fold by independent source row",
+        "source_profile": "external-heat-treatment-v1"
+      }
+    },
+    {
+      "id": "charpy_j-ridge",
+      "target": "charpy_j",
+      "unit": "J",
+      "target_kind": "continuous",
+      "runtime_type": "builtin.linear.v1",
+      "architecture_id": "profile_transformed_ridge_v1",
+      "artifact": "model-artifacts/charpy_j.npz",
+      "predictive_family": "empirical_quantiles",
+      "feature_names": [
+        "composition.carbon_pct",
+        "composition.carbon_pct__square",
+        "composition.chromium_pct",
+        "composition.chromium_pct__square",
+        "composition.nickel_pct",
+        "composition.nickel_pct__square",
+        "process.austenitize_temp_c",
+        "process.austenitize_temp_c__square",
+        "process.tempering_temp_c",
+        "process.tempering_temp_c__square",
+        "process.hold_time_h",
+        "process.hold_time_h__square",
+        "process.cooling_rate_c_per_s",
+        "process.cooling_rate_c_per_s__square",
+        "categorical.alloy_family__martensitic_stainless",
+        "categorical.alloy_family__low_alloy_steel",
+        "categorical.alloy_family__spring_steel",
+        "categorical.alloy_family__bearing_steel"
+      ],
+      "config": {
+        "training_unit": "source_row",
+        "validation": "5-fold by independent source row",
+        "source_profile": "external-heat-treatment-v1"
+      }
+    }
+  ],
+  "provenance": {
+    "training_data_id": "sha256:226a9b8e77820459f51382e40d8df12ac6fe3c0a4648dc15ad068f9372d7c34b",
+    "feature_dataset_id": "sha256:a1b216bad683291eafe78fff2acb8e78f6bd85ea156ddf622704c294e0c4062d",
+    "training_code_revision": "tabular-ridge-v1",
+    "dataset_profile_id": "sha256:ea50e9d335c76f3de9dede60b25351fc87bb87055ad0dffae896249f5a989edb"
+  },
+  "artifacts": [
+    {
+      "path": "feature-pipeline/pipeline.json",
+      "sha256": "7186f02ad3ff9f340fdfb5ca922f645de48624b43f5d68ce694555079a07b610",
+      "bytes": 3413
+    },
+    {
+      "path": "model-artifacts/hardness_hv.npz",
+      "sha256": "7b2e7042cffb1bc54f26864577380d50e5c5bad1908df944b46a760583ed1b02",
+      "bytes": 1188
+    },
+    {
+      "path": "model-artifacts/charpy_j.npz",
+      "sha256": "508bf66c3fa48f55c983741734bcf6d8e486731c03be77d7888b45b4373f2111",
+      "bytes": 1188
+    },
+    {
+      "path": "reference/training_stats.json",
+      "sha256": "775ecfcea833f941d9519bc7c2748da0f66a93e14946224f697133878069616a",
+      "bytes": 189
+    },
+    {
+      "path": "reports/quality-report.json",
+      "sha256": "bbcab1ebbc409be01a95f741d410c92fd863423cfdbac25c8f17b2382a74253d",
+      "bytes": 477
+    },
+    {
+      "path": "smoke/input.json",
+      "sha256": "5f669eb3575ee23771c350ea2c33fd564b0e094f5effaa51ea36969ec41dcf62",
+      "bytes": 575
+    },
+    {
+      "path": "smoke/expected.json",
+      "sha256": "e596432122ef40115c532080dce45149a97481478bc576d5f0b35326e9f4050b",
+      "bytes": 60
+    }
+  ],
+  "smoke_test": {
+    "input": "smoke/input.json",
+    "expected": "smoke/expected.json"
+  },
+  "quality_report": "reports/quality-report.json"
+}

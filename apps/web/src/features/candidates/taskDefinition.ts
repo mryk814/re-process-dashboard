@@ -127,6 +127,10 @@ export function responseCurveVariables(
     if (declaration.kind === "numeric_input") {
       const field = numeric.get(declaration.path ?? "");
       if (!field?.allowed_range) continue;
+      const current = field.group === "composition"
+        ? candidateInputs.composition[field.field]
+        : candidateInputs.process[field.field];
+      if (current === undefined && !field.required) continue;
       variables.push({
         id: field.path,
         requestVariable: field.path,
@@ -134,7 +138,7 @@ export function responseCurveVariables(
         unit: field.unit,
         min: field.allowed_range.min,
         max: field.allowed_range.max,
-        current: field.group === "composition" ? candidateInputs.composition[field.field] ?? 0 : candidateInputs.process[field.field] ?? 0,
+        current: current ?? 0,
         group: field.group === "composition" ? "成分" : "工程条件",
       });
       continue;
@@ -197,13 +201,17 @@ export function getCandidateInputValue(inputs: CandidateInputs, path: string): n
   throw new Error(`Unsupported candidate input path: ${path}`);
 }
 
-export function setCandidateInputValue(inputs: CandidateInputs, path: string, value: number | string | CandidateInputs["heat_pattern"]): CandidateInputs {
+export function setCandidateInputValue(inputs: CandidateInputs, path: string, value: number | string | CandidateInputs["heat_pattern"] | undefined): CandidateInputs {
   if (path === "heat_pattern") return { ...inputs, heat_pattern: value as CandidateInputs["heat_pattern"] };
   const separator = path.indexOf(".");
   if (separator < 1 || separator === path.length - 1) throw new Error(`Invalid candidate input path: ${path}`);
   const group = path.slice(0, separator);
   const field = path.slice(separator + 1);
   if (group === "composition" || group === "process") {
+    if (value === undefined) {
+      const { [field]: _, ...remaining } = inputs[group];
+      return { ...inputs, [group]: remaining };
+    }
     return { ...inputs, [group]: { ...inputs[group], [field]: Number(value) } };
   }
   if (group === "categorical") return { ...inputs, categorical: { ...inputs.categorical, [field]: String(value) } };

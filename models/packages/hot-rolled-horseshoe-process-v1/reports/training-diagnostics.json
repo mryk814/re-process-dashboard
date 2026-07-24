@@ -4,7 +4,7 @@
   "draws_per_chain": 1024,
   "warmup_per_chain": 1536,
   "divergences": 0,
-  "minimum_effective_sample_size": 100.0648820240994,
-  "maximum_r_hat": 1.0129603147506714,
+  "minimum_effective_sample_size": 89.47945957869109,
+  "maximum_r_hat": 1.0098989009857178,
   "finite_export": true
 }

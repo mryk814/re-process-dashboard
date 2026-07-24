@@ -7,49 +7,49 @@
       "optimizer": "L-BFGS-B",
       "restarts": 3,
       "converged_restarts": 3,
-      "best_objective": 5.269018984050071,
+      "best_objective": 4.532782967436468,
       "input_standardization": "per_feature_training_mean_std",
       "output_standardization": {
-        "mean": 24.416666666666668,
-        "scale": 4.086733278413076
+        "mean": 24.5,
+        "scale": 3.789082059964241
       },
       "kernel": "ARD-RBF",
       "ard_shrinkage": "log_lengthscale_common_center",
       "lengthscale": {
-        "min": 5.510074610251385,
-        "median": 6.995239073074608,
+        "min": 6.425919694263783,
+        "median": 7.266183415373592,
         "max": 19.999999999999996
       },
-      "outputscale": 22.698262072535396,
-      "train_noise": 0.03628113265865798,
-      "replicate_noise_anchor": 0.1111111111111111
+      "outputscale": 21.824096644891174,
+      "train_noise": 0.031249999999999997,
+      "replicate_noise_anchor": 0.25
     },
     "TS": {
       "optimizer": "L-BFGS-B",
       "restarts": 3,
       "converged_restarts": 3,
-      "best_objective": 5.2664568408870585,
+      "best_objective": 4.256172072649818,
       "input_standardization": "per_feature_training_mean_std",
       "output_standardization": {
-        "mean": 555.8333333333334,
-        "scale": 53.657607931111585
+        "mean": 554.5714285714286,
+        "scale": 49.87944650528381
       },
       "kernel": "ARD-RBF",
       "ard_shrinkage": "log_lengthscale_common_center",
       "lengthscale": {
-        "min": 5.864329270889931,
-        "median": 6.9626119487235405,
+        "min": 6.593717363719233,
+        "median": 7.21018806452774,
         "max": 19.999999999999996
       },
-      "outputscale": 4040.4481127339773,
-      "train_noise": 0.8654512277337446,
-      "replicate_noise_anchor": 1.0
+      "outputscale": 3744.96905830519,
+      "train_noise": 0.9567156561283646,
+      "replicate_noise_anchor": 2.0
     },
     "YS": {
       "optimizer": "L-BFGS-B",
       "restarts": 3,
       "converged_restarts": 3,
-      "best_objective": 5.323361145206262,
+      "best_objective": 5.233794421434083,
       "input_standardization": "per_feature_training_mean_std",
       "output_standardization": {
         "mean": 389.8333333333333,
@@ -58,33 +58,33 @@
       "kernel": "ARD-RBF",
       "ard_shrinkage": "log_lengthscale_common_center",
       "lengthscale": {
-        "min": 6.95293573772915,
-        "median": 7.093036399071487,
+        "min": 6.845111428025961,
+        "median": 6.847151811883073,
         "max": 19.999999999999996
       },
-      "outputscale": 3771.8857392350073,
-      "train_noise": 1.090593971421048,
+      "outputscale": 3828.8586166682753,
+      "train_noise": 1.0851094810208872,
       "replicate_noise_anchor": 1.3333333333333333
     },
     "lambda": {
       "optimizer": "L-BFGS-B",
       "restarts": 3,
       "converged_restarts": 3,
-      "best_objective": 4.946095151301348,
+      "best_objective": 3.812713194508211,
       "input_standardization": "per_feature_training_mean_std",
       "output_standardization": {
-        "mean": 92.83333333333333,
-        "scale": 13.652431610848264
+        "mean": 93.5,
+        "scale": 12.786711852544421
       },
       "kernel": "ARD-RBF",
       "ard_shrinkage": "log_lengthscale_common_center",
       "lengthscale": {
-        "min": 4.908689663963638,
-        "median": 6.982721167226896,
+        "min": 4.773272363767992,
+        "median": 7.497256885801291,
         "max": 19.999999999999996
       },
-      "outputscale": 257.40046913094835,
-      "train_noise": 0.22943742893048366,
+      "outputscale": 241.10650551188246,
+      "train_noise": 0.1044722651149501,
       "replicate_noise_anchor": 0.5
     }
   }

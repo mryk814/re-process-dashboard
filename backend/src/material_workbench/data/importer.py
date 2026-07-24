@@ -61,6 +61,17 @@ def _records(sheet: Any) -> list[dict[str, Any]]:
 
 
 @dataclass(frozen=True)
+class RelationRoute:
+    id: str
+    source_row: int
+    members: Mapping[str, str]
+
+
+def training_context_key(row: Mapping[str, Any]) -> str:
+    return str(row.get("condition_context_id") or row["parent_key"])
+
+
+@dataclass(frozen=True)
 class WorkbookData:
     source_path: str
     source_mtime_ns: int
@@ -89,6 +100,7 @@ class WorkbookData:
     relation_join_columns: dict[str, tuple[str, ...]]
     lineage_stage_order: dict[str, int]
     lineage_adjacencies: tuple[tuple[str, str], ...]
+    relation_routes: tuple[RelationRoute, ...]
 
     @property
     def source_summary(self) -> dict[str, Any]:
@@ -104,7 +116,19 @@ class WorkbookData:
         }
 
 
-def lineage_reference_keys(data: WorkbookData, parent_key: str, process_role: str) -> dict[str, str | None]:
+def lineage_reference_keys(
+    data: WorkbookData,
+    parent_key: str,
+    process_role: str,
+    observation: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    if observation and observation.get("composition_key"):
+        return {
+            "melt_key": str(observation["composition_key"]),
+            "process_key": parent_key,
+            "process_label": "焼鈍履歴" if process_role == "annealing" else "熱延履歴" if process_role == "hot_rolling" else "工程履歴",
+            "relation_context_ids": list(observation.get("relation_context_ids", [])),
+        }
     relations = data.lineage.get(parent_key, {})
 
     def first_key(role: str) -> str | None:
@@ -118,6 +142,7 @@ def lineage_reference_keys(data: WorkbookData, parent_key: str, process_role: st
         "melt_key": first_key("melt"),
         "process_key": first_key(process_role),
         "process_label": "焼鈍履歴" if process_role == "annealing" else "熱延履歴" if process_role == "hot_rolling" else "工程履歴",
+        "relation_context_ids": [],
     }
 
 
@@ -509,7 +534,7 @@ def _derived_anneal_feature_row(
         if isinstance(point.get("time_s"), (int, float))
         and isinstance(point.get("temperature_c"), (int, float))
     ]
-    eligible = len(finite_points) >= 2 and mapped_process.get("ls_mpm") is not None
+    eligible = len(finite_points) >= 2
     peak = max((float(point["temperature_c"]) for point in finite_points), default=0.0)
     stage_names = [str(point.get("stage_name") or "") for point in finite_points]
     stage_categories = [str(point.get("stage_category") or "") for point in finite_points]
@@ -673,6 +698,18 @@ def load_workbook_data(
     finally:
         wb.close()
     sheets = dict(canonical.source_rows)
+    relation_sheet = profile.sheet_for_role(profile.shared.relation.role)
+    relation_routes = tuple(
+        RelationRoute(
+            id=f"{relation_sheet}:{row_number}",
+            source_row=row_number,
+            members={
+                entity_type: identity[1]
+                for entity_type, identity in relation.items()
+            },
+        )
+        for row_number, relation in enumerate(canonical.relations, start=2)
+    )
     entity_sheets = {
         profile.sheet_for_role(entity.role): entity.key
         for entity in profile.shared.entities
@@ -682,6 +719,7 @@ def load_workbook_data(
     technical_columns = {(item.role, item.name): item.column for item in profile.shared.technical}
     policy_columns = {(item.role, item.policy): item.column for item in profile.shared.eligibility}
     key_to_sheet = {key: sheet for sheet, key in entity_sheets.items()}
+    entity_type_by_role = {entity.role: entity.type for entity in profile.shared.entities}
     entities: dict[str, dict[str, dict[str, Any]]] = defaultdict(dict)
     for sheet_name, key_column in entity_sheets.items():
         for row in sheets[sheet_name]:
@@ -805,10 +843,6 @@ def load_workbook_data(
         for key in records:
             lineage.setdefault(key, defaultdict(list))
 
-    def upstream_composition(parent_key: str) -> dict[str, float] | None:
-        melt_keys = sorted(set(lineage.get(parent_key, {}).get(melt_key, [])))
-        return composition.get(melt_keys[0]) if len(melt_keys) == 1 else None
-
     anneal_status = {
         str(row[anneal_key]): canonical.policy_allows(row, "annealing", "learning_flag/v1")
         for row in canonical.rows("annealing")
@@ -823,7 +857,55 @@ def load_workbook_data(
             parent = canonical_observation.parent_key
             is_anneal = canonical_observation.task_id == anneal_task_id
             process = anneal_features.get(parent) if is_anneal else hot_rolling_features.get(parent)
-            comp = upstream_composition(parent)
+            source_entity_type = entity_type_by_role[canonical_observation.source_role]
+            process_entity_type = "annealing" if is_anneal else "hot_rolling"
+            matching_routes = tuple(
+                route
+                for route in relation_routes
+                if route.members.get(source_entity_type) == canonical_observation.id
+                and route.members.get(process_entity_type) == parent
+            )
+            direct_melt_keys = {
+                route.members["melt"]
+                for route in matching_routes
+                if route.members.get("melt")
+            }
+            process_melt_keys = {
+                route.members["melt"]
+                for route in relation_routes
+                if route.members.get(process_entity_type) == parent
+                and route.members.get("melt")
+            }
+            observation_melt_keys = sorted(
+                direct_melt_keys
+                if direct_melt_keys
+                else process_melt_keys
+                if len(process_melt_keys) == 1
+                else set()
+            )
+            composition_key = observation_melt_keys[0] if len(observation_melt_keys) == 1 else None
+            comp = composition.get(composition_key) if composition_key else None
+            relation_context_ids = {
+                route.id
+                for route in matching_routes
+            }
+            if composition_key and not any(
+                route.members.get("melt") == composition_key
+                for route in matching_routes
+            ):
+                bridge_routes = [
+                    route
+                    for route in relation_routes
+                    if route.members.get(process_entity_type) == parent
+                    and route.members.get("melt") == composition_key
+                ]
+                if bridge_routes:
+                    minimum_members = min(len(route.members) for route in bridge_routes)
+                    relation_context_ids.update(
+                        route.id
+                        for route in bridge_routes
+                        if len(route.members) == minimum_members
+                    )
             canonical_output_labels = {
                 output.key: output.measurement_keys[0]
                 for output in profile.task_definitions[canonical_observation.task_id].outputs
@@ -842,8 +924,10 @@ def load_workbook_data(
             eligibility_reasons: list[str] = []
             if not process:
                 eligibility_reasons.append("工程条件が見つかりません")
-            if not comp:
-                eligibility_reasons.append("上流の成分が一意に決まりません")
+            if len(observation_melt_keys) > 1:
+                eligibility_reasons.append("試験に対応する上流成分が複数あります")
+            elif not comp:
+                eligibility_reasons.append("試験に対応する上流成分が見つかりません")
             if is_anneal:
                 if process and not process["feature_eligible"]:
                     eligibility_reasons.append("焼鈍履歴を特徴量化できません")
@@ -865,6 +949,13 @@ def load_workbook_data(
             observations.append({
                 "id": canonical_observation.id, "task_id": canonical_observation.task_id, "source": profile.sheet_for_role(canonical_observation.source_role), "parent_key": parent,
                 "features": process, "composition": comp, "outputs": outputs,
+                "composition_key": composition_key,
+                "condition_context_id": (
+                    f"{composition_key}::{parent}"
+                    if composition_key and parent
+                    else None
+                ),
+                "relation_context_ids": sorted(relation_context_ids),
                 "eligible": not eligibility_reasons,
                 "eligibility_reasons": eligibility_reasons,
                 "date": _as_date(canonical_observation.metadata.get("date")),
@@ -883,7 +974,6 @@ def load_workbook_data(
         for task in profile.tasks.values() for observation in task.observations
         if observation.parent_column is not None
     }
-    relation_sheet = profile.sheet_for_role(profile.shared.relation.role)
     relation_join_columns = {
         join.entity_type: join.source_columns
         for join in profile.shared.relation.joins
@@ -954,4 +1044,5 @@ def load_workbook_data(
         relation_join_columns=relation_join_columns,
         lineage_stage_order=lineage_stage_order,
         lineage_adjacencies=lineage_adjacencies,
+        relation_routes=relation_routes,
     )

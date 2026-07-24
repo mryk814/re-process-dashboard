@@ -39,6 +39,35 @@ def test_existing_candidate_payload_defaults_to_line_speed_time_basis() -> None:
     assert candidate.inputs.heat_time_basis == "line_speed"
 
 
+def test_data_library_model_packages_can_include_archived_refs(client) -> None:
+    current = client.get("/api/data-library/model-packages").json()
+    archived_id = current[0]["id"]
+    client.app.state.workspace_catalog.archive_model_package_ref(archived_id)
+
+    active = client.get("/api/data-library/model-packages")
+    complete = client.get("/api/data-library/model-packages", params={"include_archived": True})
+
+    assert active.status_code == 200
+    assert complete.status_code == 200
+    assert archived_id not in {item["id"] for item in active.json()}
+    archived = next(item for item in complete.json() if item["id"] == archived_id)
+    assert archived["archived_at"] is not None
+
+
+def test_local_web_origin_can_preflight_patch_requests(client) -> None:
+    response = client.options(
+        "/api/data-library/datasets/example",
+        headers={
+            "Origin": "http://127.0.0.1:5180",
+            "Access-Control-Request-Method": "PATCH",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+
+    assert response.status_code == 200
+    assert "PATCH" in response.headers["access-control-allow-methods"]
+
+
 def test_candidate_update_canonicalizes_line_speed_times_and_rejects_direct_edits(client) -> None:
     candidate = client.post("/api/projects/default/candidates", json=_payload("LS基準")).json()
     changed_speed = _payload("LS基準")
@@ -189,7 +218,8 @@ def test_model_training_data_exposes_selected_observations_and_actual_model_rows
     features = features_response.json()
     assert features["total"] == selected["parent_conditions"]
     assert features["columns"][0]["key"] == "parent_key"
-    assert features["columns"][1]["key"] == "replicate_count"
+    assert features["columns"][1]["key"] == "composition_key"
+    assert features["columns"][2]["key"] == "replicate_count"
     assert any(column["key"].startswith("feature.") for column in features["columns"])
     assert features["feature_dataset_digest"].startswith("sha256:")
 
@@ -225,10 +255,10 @@ def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
     assert {"TS", "YS", "EL", "lambda"} <= set(first["predictions"])
     assert first["support"]["status"] in {"supported", "caution", "extrapolated"}
     assert 0 <= first["support"]["percentile"] <= 100
-    assert {"composition", "metallurgy", "process", "heat_pattern"} == set(first["support"]["components"])
+    assert {"composition", "metallurgy", "heat_pattern"} == set(first["support"]["components"])
     assert first["support"]["reference_count"] > 1
     assert first["model_meta"]["prediction_interval"]["method"] == "gaussian_process_predictive_distribution"
-    assert first["model_meta"]["prediction_interval"]["grouping"] == "parent_key"
+    assert first["model_meta"]["prediction_interval"]["grouping"] == "condition_context_id"
     assert all(prediction["uncertainty_components"] for prediction in first["predictions"].values())
     assert first["canonical_input"]["input_schema_version"] == "candidate-v2"
     assert first["canonical_input"]["heat_time_basis"] == "line_speed"
@@ -243,6 +273,7 @@ def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
     assert curve["target"] == "TS"
     assert curve["variable"]["id"] == "composition.C"
     assert len(curve["points"]) == 9
+    assert curve["variable"]["current"] in {point["x"] for point in curve["points"]}
     stage_payload = _payload("工程温度")
     stage_payload["inputs"]["heat_pattern"][1]["stage_name"] = "加熱1"
     stage_candidate = client.post("/api/projects/default/candidates", json=stage_payload).json()
@@ -276,7 +307,7 @@ def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
     assert len(similar) == 3
     assert {item["layer"] for item in similar} == {"historical"}
     assert {item["source_scope"] for item in similar} == {"project_reference_data"}
-    assert all({"composition", "metallurgy", "process", "heat_pattern"} == set(item["components"]) for item in similar)
+    assert all({"composition", "metallurgy", "heat_pattern"} == set(item["components"]) for item in similar)
 
 
 def test_snapshot_is_immutable_after_candidate_edit(client) -> None:
@@ -434,9 +465,35 @@ def test_quality_and_lineage(client) -> None:
     assert any(edge["source"] == "CR-01" and edge["target"] == "AN-01" for edge in lineage.json()["graph"]["edges"])
 
 
+def test_lineage_candidate_options_do_not_invent_routes_from_flat_adjacency(client, monkeypatch) -> None:
+    project = client.app.state.store.get_project("default")
+    assert project is not None
+    data = client.app.state.project_runtime_resolver.data_explorer_for(project).data
+    melt_column = data.role_to_key["melt"]
+    existing_melts = list(data.lineage["AN-01"][melt_column])
+    assert len(existing_melts) == 1
+    shared_process_melt = "ME-SHARED-PROCESS"
+    monkeypatch.setitem(data.composition, shared_process_melt, deepcopy(data.composition[existing_melts[0]]))
+    monkeypatch.setitem(data.lineage["AN-01"], melt_column, [*existing_melts, shared_process_melt])
+
+    lineage = client.get("/api/projects/default/lineage/AN-01")
+    assert lineage.status_code == 200
+    options = [
+        option
+        for option in lineage.json()["candidate_options"]
+        if option["process_key"] == "AN-01"
+    ]
+    assert {option["melt_key"] for option in options} == {existing_melts[0]}
+    created = client.post(
+        "/api/projects/default/lineage/AN-01/candidate",
+        params={"process_key": "AN-01", "melt_key": shared_process_melt},
+    )
+    assert created.status_code == 422
+
+
 def test_lineage_index_is_inspectable(client) -> None:
     index = client.get("/api/projects/default/lineage", params={"query": "AN-01"}).json()
-    assert index["relation_rows"] == 26
+    assert index["relation_rows"] == 27
     assert index["total_entities"] > index["relation_rows"]
     assert index["items"][0]["key"] == "AN-01"
     assert index["items"][0]["family"]
@@ -444,6 +501,9 @@ def test_lineage_index_is_inspectable(client) -> None:
     assert index["items"][0]["peak_temperature_c"] > 0
     assert index["items"][0]["observation_summary"]
     assert client.get("/api/projects/default/lineage", params={"query": index["items"][0]["family"], "entity_type": "焼鈍"}).json()["items"]
+
+    shared = client.get("/api/projects/default/lineage", params={"query": "AN-02"}).json()["items"][0]
+    assert shared["melt_keys"] == ["ME-01", "ME-02"]
 def test_lineage_graph_can_expand_beyond_the_initial_node_limit(client) -> None:
     assert client.get("/api/projects/default/lineage/AN-01", params={"limit": 0}).status_code == 422
     assert client.get("/api/projects/default/lineage/AN-01", params={"limit": 201}).status_code == 422
@@ -500,11 +560,11 @@ def test_lineage_keeps_hot_rolled_and_annealed_observations_separate(client) -> 
 
 
 def test_lineage_keeps_partial_observations_without_inventing_outputs(client) -> None:
-    response = client.get("/api/projects/default/lineage/HT-03")
+    response = client.get("/api/projects/default/lineage/HT-07")
     assert response.status_code == 200
-    observation = next(item for item in response.json()["node"]["connected_observations"] if item["id"] == "HT-03")
-    assert observation["outputs"]["TS[MPa]"] == 472
-    assert "EL[%]" not in observation["outputs"]
+    observation = next(item for item in response.json()["node"]["connected_observations"] if item["id"] == "HT-07")
+    assert observation["outputs"]["TS[MPa]"] == 538
+    assert "YS[MPa]" not in observation["outputs"]
     assert "output_warnings" not in observation
 
     incompatible = client.post(

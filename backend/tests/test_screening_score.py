@@ -21,14 +21,25 @@ def test_at_most_achievement_is_never_ranked_behind_failure_without_probability(
     assert failed.score == 10
 
 
-def test_probability_is_direction_aware_and_only_used_when_supplied() -> None:
-    at_least = evaluate_screening_goal(510, target_value=500, direction="at_least", at_least_probability=0.8)
-    at_most = evaluate_screening_goal(490, target_value=500, direction="at_most", at_least_probability=0.2)
+def test_goal_achievement_probability_has_the_same_semantics_for_both_directions() -> None:
+    at_least = evaluate_screening_goal(
+        510,
+        target_value=500,
+        direction="at_least",
+        achievement_probability=0.8,
+    )
+    at_most = evaluate_screening_goal(
+        490,
+        target_value=500,
+        direction="at_most",
+        achievement_probability=0.8,
+    )
     fallback = evaluate_screening_goal(510, target_value=500, direction="at_least")
 
     assert at_least.score == pytest.approx(0.2)
     assert at_most.score == pytest.approx(0.2)
     assert at_least.method == at_most.method == "achievement_probability"
+    assert at_least.achievement_probability == at_most.achievement_probability == 0.8
     assert fallback.method == "directional_shortfall"
 
 

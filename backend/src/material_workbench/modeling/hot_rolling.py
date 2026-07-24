@@ -23,7 +23,7 @@ from material_workbench.modeling.hot_rolling_feature_pipeline import (
     candidate_from_observation,
 )
 from material_workbench.data.dataset_profile import load_task_definitions
-from material_workbench.data.importer import WorkbookData, lineage_reference_keys
+from material_workbench.data.importer import WorkbookData, lineage_reference_keys, training_context_key
 from material_workbench.modeling.model_packages import ModelPackageLoader, predictive_interval, validate_predictive_summary, validate_task_definition_canonical_inputs
 from material_workbench.domain.goal_targets import goal_fields, normal_goal_probability
 from material_workbench.contracts.schemas import Candidate, CandidateInput, Prediction, Support, TargetValue
@@ -121,7 +121,7 @@ class HotRollingRuntime:
         ]
         grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for row in observations:
-            grouped[str(row["parent_key"])].append(row)
+            grouped[training_context_key(row)].append(row)
         self.reference_rows = [rows for _, rows in sorted(grouped.items())]
         bundles = [
             self._feature_builder(candidate, self.composition_defaults)
@@ -182,7 +182,12 @@ class HotRollingRuntime:
                         name: {"mean": round(float(np.mean(items)), 3), "std": round(float(np.std(items)), 3), "n": len(items)}
                         for name, items in sorted(values.items())
                     },
-                    **lineage_reference_keys(self.data, str(repeats[0]["parent_key"]), "hot_rolling"),
+                    **lineage_reference_keys(
+                        self.data,
+                        str(repeats[0]["parent_key"]),
+                        "hot_rolling",
+                        repeats[0],
+                    ),
                 })
         return Support(
             status=status,
@@ -260,7 +265,7 @@ class HotRollingRuntime:
             {
                 "method": "posterior_predictive_moment_matched_normal",
                 "coverage": "central 90% predictive interval",
-                "grouping": "parent_key",
+                "grouping": "condition_context_id",
                 "note": (
                     "Horseshoe posterior draws are summarized as a moment-matched Normal distribution for the shared decision UI."
                     if is_horseshoe
@@ -271,7 +276,7 @@ class HotRollingRuntime:
             else {
                 "method": "gaussian_process_predictive_distribution",
                 "coverage": "central 90% predictive interval",
-                "grouping": "parent_key",
+                "grouping": "condition_context_id",
                 "note": "Model uncertainty and observation noise are reported separately.",
             }
         )
@@ -426,7 +431,8 @@ class HotRollingRuntime:
 
         curve: list[dict[str, Any]] = []
         predictor = self.predictors[target]
-        for x_value in np.linspace(start, end, points):
+        current = self._candidate_value(candidate, variable)
+        for x_value in anchored_curve_grid(start, end, points, current=current):
             adjusted = candidate.model_copy(deep=True)
             values = adjusted.inputs.composition if group == "composition" else adjusted.inputs.process
             values[name] = float(x_value)
@@ -470,7 +476,7 @@ class HotRollingRuntime:
             "points": curve,
             "output_range": None if not observed else {"min": round(min(observed), 4), "max": round(max(observed), 4)},
             "point_count": points,
-            "policy_id": "fixed-grid-v2",
+            "policy_id": "anchored-grid-v1",
         }
 
     def predict(self, candidate: Candidate, detailed: bool = False, **kwargs: Any) -> dict[str, Any]:
@@ -481,3 +487,4 @@ class HotRollingRuntime:
         if support.status != "supported":
             result["warnings"].append(support.message)
         return result
+from material_workbench.modeling.curve_grid import anchored_curve_grid

@@ -96,14 +96,19 @@ export function HeatPattern({
             value={candidate.heatTimeBasis}
             onChange={(event) => onTimeBasisChange(event.target.value as HeatTimeBasis)}
           >
-            <option value="line_speed">ライン速度連動</option>
+            <option
+              value="line_speed"
+              disabled={!Number.isFinite(candidate.raw.inputs.process.ls_mpm) || Number(candidate.raw.inputs.process.ls_mpm) <= 0}
+            >
+              ライン速度連動
+            </option>
             <option value="elapsed_time">経過時間を直接指定</option>
           </select>
         </label>
         <small>
           {candidate.heatTimeBasis === "line_speed"
             ? "LSを変えると現在の各点を設備位置とみなし、全時刻を再計算します。"
-            : "時間を直接編集します。現行モデルではLSも特徴に使うため、LSは別途必要です。"}
+            : "時間を直接編集します。ヒートパターンがあればLSは未設定でも予測できます。"}
         </small>
       </div>
       <svg

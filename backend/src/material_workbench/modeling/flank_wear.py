@@ -554,7 +554,12 @@ class FlankWearRuntime:
 
     def _sweep_axis(self, candidate: Candidate, target: str, axis: str, axis_meta: dict[str, Any], points: int) -> list[dict[str, float]]:
         curve: list[dict[str, float]] = []
-        for x_value in np.linspace(axis_meta["min"], axis_meta["max"], points):
+        for x_value in anchored_curve_grid(
+            axis_meta["min"],
+            axis_meta["max"],
+            points,
+            current=axis_meta.get("current"),
+        ):
             adjusted = candidate.model_copy(deep=True)
             self._set_curve_variable(adjusted, axis, float(x_value))
             summary = self.predictors[target].predict(build_flank_wear_features(adjusted, self.composition_defaults).as_dict())
@@ -659,7 +664,7 @@ class FlankWearRuntime:
             "series": series,
             "output_range": None if not observed else {"min": round(min(observed), 4), "max": round(max(observed), 4)},
             "point_count": points,
-            "policy_id": "axis-grid-v1",
+            "policy_id": "anchored-axis-grid-v1",
         }
 
     def response_curve_result(
@@ -688,5 +693,6 @@ class FlankWearRuntime:
             "points": self._sweep_axis(candidate, target, variable, meta, points),
             "output_range": None if not observed else {"min": round(min(observed), 4), "max": round(max(observed), 4)},
             "point_count": points,
-            "policy_id": "fixed-grid-v1",
+            "policy_id": "anchored-grid-v1",
         }
+from material_workbench.modeling.curve_grid import anchored_curve_grid

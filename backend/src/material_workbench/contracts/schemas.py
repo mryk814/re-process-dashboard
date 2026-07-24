@@ -322,6 +322,7 @@ class ProjectInput(BaseModel):
     target_values: dict[str, TargetValue] = Field(default_factory=dict)
     input_ranges: dict[str, InputRange] = Field(default_factory=dict)
     response_curve_ranges: dict[str, dict[str, InputRange]] = Field(default_factory=dict)
+    response_curve_points: Annotated[int, Field(ge=9, le=51)] = 17
     heat_stage_positions_m: dict[str, Annotated[float, Field(ge=0, allow_inf_nan=False)]] = Field(default_factory=dict)
     display_decimals: dict[str, Annotated[int, Field(ge=0, le=8)]] = Field(default_factory=dict)
     notes: str = ""
@@ -360,6 +361,7 @@ class ProjectUpdateInput(BaseModel):
     target_values: dict[str, TargetValue] = Field(default_factory=dict)
     input_ranges: dict[str, InputRange] = Field(default_factory=dict)
     response_curve_ranges: dict[str, dict[str, InputRange]] = Field(default_factory=dict)
+    response_curve_points: Annotated[int, Field(ge=9, le=51)] = 17
     heat_stage_positions_m: dict[str, Annotated[float, Field(ge=0, allow_inf_nan=False)]] = Field(default_factory=dict)
     display_decimals: dict[str, Annotated[int, Field(ge=0, le=8)]] = Field(default_factory=dict)
     notes: str = ""
@@ -538,6 +540,7 @@ class SimilarObservation(BaseModel):
     melt_key: str | None = None
     process_key: str | None = None
     process_label: str = "工程履歴"
+    relation_context_ids: list[str] = Field(default_factory=list)
 
 
 class ModelIdentity(BaseModel):
@@ -822,6 +825,7 @@ class LineageIndexItem(BaseModel):
     entity_type: str
     has_issue: bool
     family: str | None = None
+    melt_keys: list[str] = Field(default_factory=list)
     project: str | None = None
     route: str | None = None
     peak_temperature_c: float | None = None
@@ -883,11 +887,13 @@ class ScreeningGoalEvaluation(BaseModel):
 
 
 class ScreeningScoreContract(BaseModel):
-    version: Literal["screening-score/v1"]
+    version: Literal["screening-score/v1", "screening-score/v2"]
     preference: Literal["lower_is_better"]
     direction: Literal["at_least", "at_most", "target"] | None
     target_value: float | None
     probability_available: bool
+    probability_semantics: Literal["probability_of_achieving_goal"] | None = None
+    ranking_policy: Literal["support_tier_then_secondary_goals_then_score"] | None = None
     fallback: Literal["directional_shortfall", "absolute_distance", "support_distance"]
     display_label: str
 
@@ -908,6 +914,10 @@ class ScreeningRunResponse(BaseModel):
     score_contract: ScreeningScoreContract
     samples: int
     variables: dict[str, ScreeningVariable]
+    design_space: dict[str, Any] | None = None
+    design_space_digest: str | None = None
+    proposal_strategy: dict[str, Any] | None = None
+    rejection_summary: dict[str, int] = Field(default_factory=dict)
     points: list[ScreeningPoint]
     representative_points: list[ScreeningPoint]
 
@@ -967,7 +977,16 @@ class ApiError(BaseModel):
 
 class DataQualityIssue(BaseModel):
     issue_id: str
-    issue_type: Literal["missing_key", "orphan_entity", "duplicate_key", "invalid_reference"]
+    issue_type: Literal[
+        "missing_key",
+        "orphan_entity",
+        "duplicate_key",
+        "invalid_reference",
+        "out_of_range",
+        "suspicious_distribution",
+        "curation_quarantine",
+        "missing_target",
+    ]
     source_sheet: str
     entity_key: str
     detail: str

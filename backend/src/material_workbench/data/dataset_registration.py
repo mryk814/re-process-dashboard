@@ -61,7 +61,15 @@ def register_dataset_records(
 ) -> DatasetRegistrationResult:
     """Create the same content-addressed identities for startup and developer imports."""
 
-    profile = load_dataset_profile(profile_path)
+    raw_profile = __import__("json").loads(profile_path.read_text(encoding="utf-8"))
+    if raw_profile.get("schema_version") == "tabular-dataset-profile/v1":
+        from material_workbench.modeling.tabular_regression import load_tabular_profile
+
+        profile = load_tabular_profile(profile_path)
+        task_ids = (profile.task_id,)
+    else:
+        profile = load_dataset_profile(profile_path)
+        task_ids = tuple(sorted(profile.tasks))
     effective_profile = profile.model_dump(mode="json", exclude={"task_definitions"})
     effective_digest = dataset_profile_digest(profile_path)
     asset = catalog.upsert_data_asset(DataAssetCreateInput(
@@ -90,7 +98,20 @@ def register_dataset_records(
         profile_revision_id=profile_revision.id,
         canonicalization_contract_digest=CANONICALIZATION_CONTRACT_DIGEST,
     ))
-    view = catalog.ensure_single_dataset_view(dataset.id, name=name)
+    if dataset.archived_at is None:
+        view = catalog.ensure_single_dataset_view(dataset.id, name=name)
+    else:
+        view = next((
+            item
+            for item in catalog.list_dataset_view_revisions(include_archived=True)
+            if item.kind == "single"
+            and len(item.members) == 1
+            and item.members[0].dataset_revision_id == dataset.id
+        ), None)
+        if view is None:
+            raise CatalogConflictError(
+                f"利用停止中のDatasetに対応するDataset Viewが見つかりません: {dataset.id}"
+            )
     return DatasetRegistrationResult(
         data_asset_id=asset.id,
         profile_revision_id=profile_revision.id,
@@ -99,7 +120,7 @@ def register_dataset_records(
         source_sha256=source_sha256,
         locator=str(locator.resolve()),
         profile_id=profile.profile_id,
-        task_ids=tuple(sorted(profile.tasks)),
+        task_ids=task_ids,
     )
 
 

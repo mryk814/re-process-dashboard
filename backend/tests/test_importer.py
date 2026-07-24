@@ -9,7 +9,7 @@ SOURCE = Path(__file__).resolve().parents[2] / "data" / "source" / "material_wor
 def test_importer_preserves_relation_as_lineage_and_direct_observations() -> None:
     data = load_workbook_data(SOURCE)
     assert data.sheets["relation"]
-    assert len(data.sheets["relation"]) == 26
+    assert len(data.sheets["relation"]) == 27
     assert len(data.observations) == 26
     anneal = [row for row in data.observations if row["source"] == "焼鈍引張"]
     assert {row["parent_key"] for row in anneal} <= set(data.anneal_features)
@@ -21,7 +21,10 @@ def test_hot_rolling_training_preserves_partial_eligible_observations() -> None:
     data = load_workbook_data(SOURCE)
     hot = {row["id"]: row for row in data.observations if row["source"] == "熱延引張"}
     assert hot["HT-03"]["eligible"] is True
-    assert hot["HT-03"]["outputs"] == {"TS[MPa]": 472.0, "YS[MPa]": 316.0}
+    assert hot["HT-03"]["outputs"] == {"TS[MPa]": 505.0, "YS[MPa]": 342.0, "EL[%]": 27.0}
+    assert hot["HT-02"]["parent_key"] == hot["HT-03"]["parent_key"] == "HR-02"
+    assert hot["HT-02"]["composition_key"] == "ME-01"
+    assert hot["HT-03"]["composition_key"] == "ME-02"
     assert hot["HT-07"]["eligible"] is True
     assert "YS[MPa]" not in hot["HT-07"]["outputs"]
     assert all(row["test_direction"] == "L" for row in hot.values())

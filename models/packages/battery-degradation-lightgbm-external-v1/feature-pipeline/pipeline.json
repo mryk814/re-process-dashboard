@@ -1,0 +1,62 @@
+{
+  "id": "battery-degradation-v1-profile-transform",
+  "version": "1.0.0",
+  "canonical_input_paths": [
+    "process.ambient_temp_c",
+    "process.charge_rate_c",
+    "process.discharge_rate_c",
+    "process.depth_of_discharge",
+    "process.cycle_index",
+    "categorical.cell_type"
+  ],
+  "features": [
+    {
+      "name": "process.ambient_temp_c",
+      "unit": "℃",
+      "meaning": "process.ambient_temp_c raw value",
+      "group": "process"
+    },
+    {
+      "name": "process.charge_rate_c",
+      "unit": "C",
+      "meaning": "process.charge_rate_c raw value",
+      "group": "process"
+    },
+    {
+      "name": "process.discharge_rate_c",
+      "unit": "C",
+      "meaning": "process.discharge_rate_c raw value",
+      "group": "process"
+    },
+    {
+      "name": "process.depth_of_discharge",
+      "unit": "比率",
+      "meaning": "process.depth_of_discharge raw value",
+      "group": "process"
+    },
+    {
+      "name": "process.cycle_index",
+      "unit": "cycle",
+      "meaning": "process.cycle_index raw value",
+      "group": "process"
+    },
+    {
+      "name": "categorical.cell_type__LFP_graphite",
+      "unit": "1",
+      "meaning": "categorical.cell_type is LFP_graphite",
+      "group": "categorical"
+    },
+    {
+      "name": "categorical.cell_type__NMC_graphite",
+      "unit": "1",
+      "meaning": "categorical.cell_type is NMC_graphite",
+      "group": "categorical"
+    },
+    {
+      "name": "categorical.cell_type__NCA_graphite",
+      "unit": "1",
+      "meaning": "categorical.cell_type is NCA_graphite",
+      "group": "categorical"
+    }
+  ]
+}

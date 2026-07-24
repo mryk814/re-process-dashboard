@@ -95,7 +95,7 @@ class InferenceService:
             runtime = self.resolver.runtime_for(project)
             handler = self.registry.response_curve_for(project.task_id)
             return self.graph.execute(
-                self.key(project, candidate, "curve", parameters={"target": target, "variable": variable, "points": points, "range_min": range_min, "range_max": range_max, "stage_name": stage_name, "stage_position_m": stage_position_m, "policy_id": "fixed-grid-v2"}, uses_package=True),
+                self.key(project, candidate, "curve", parameters={"target": target, "variable": variable, "points": points, "range_min": range_min, "range_max": range_max, "stage_name": stage_name, "stage_position_m": stage_position_m, "policy_id": "anchored-grid-v1"}, uses_package=True),
                 lambda: handler(runtime, candidate, target, variable, points, axis_range, stage_name, stage_position_m),
             )
         except ValueError as exc:
@@ -113,7 +113,7 @@ class InferenceService:
             runtime = self.resolver.runtime_for(project)
             handler = self.registry.curve_family_for(project.task_id)
             return self.graph.execute(
-                self.key(project, candidate, "curve_family", parameters={"target": target, "vary": vary, "levels": levels, "points": points, "policy_id": "axis-grid-v1"}, uses_package=True),
+                self.key(project, candidate, "curve_family", parameters={"target": target, "vary": vary, "levels": levels, "points": points, "policy_id": "anchored-axis-grid-v1"}, uses_package=True),
                 lambda: handler(runtime, candidate, target, vary or None, levels, points),
             )
         except ValueError as exc:

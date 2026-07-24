@@ -1,0 +1,121 @@
+{
+  "schema_version": "model-package/v1",
+  "package_id": "concrete-strength-ridge-external-v1",
+  "package_version": "1.0.0",
+  "task_id": "concrete-strength-v1",
+  "input_schema_version": "canonical-candidate/v1",
+  "input_contract_digest": "sha256:37c3c0b6b543c1238cc97fccb7ae57ee67796514aedec0d4ae6fd66e7eaac4d4",
+  "runtime_capability_digest": "sha256:195aba97d16058a58dbd01115d6f600a09b047a135dea79da94158a8fb24da85",
+  "feature_pipeline": {
+    "id": "concrete-strength-v1-profile-transform",
+    "version": "1.0.0",
+    "spec": "feature-pipeline/pipeline.json",
+    "canonical_input_paths": [
+      "composition.cement_kg_m3",
+      "composition.blast_furnace_slag_kg_m3",
+      "composition.fly_ash_kg_m3",
+      "composition.water_kg_m3",
+      "composition.superplasticizer_kg_m3",
+      "composition.coarse_aggregate_kg_m3",
+      "composition.fine_aggregate_kg_m3",
+      "process.age_days"
+    ],
+    "output_features": [
+      "composition.cement_kg_m3",
+      "composition.cement_kg_m3__square",
+      "composition.blast_furnace_slag_kg_m3",
+      "composition.blast_furnace_slag_kg_m3__square",
+      "composition.fly_ash_kg_m3",
+      "composition.fly_ash_kg_m3__square",
+      "composition.water_kg_m3",
+      "composition.water_kg_m3__square",
+      "composition.superplasticizer_kg_m3",
+      "composition.superplasticizer_kg_m3__square",
+      "composition.coarse_aggregate_kg_m3",
+      "composition.coarse_aggregate_kg_m3__square",
+      "composition.fine_aggregate_kg_m3",
+      "composition.fine_aggregate_kg_m3__square",
+      "process.age_days__log1p"
+    ],
+    "artifacts": [
+      "reference/training_stats.json"
+    ]
+  },
+  "predictors": [
+    {
+      "id": "compressive_strength_mpa-ridge",
+      "target": "compressive_strength_mpa",
+      "unit": "MPa",
+      "target_kind": "continuous",
+      "runtime_type": "builtin.linear.v1",
+      "architecture_id": "profile_transformed_ridge_v1",
+      "artifact": "model-artifacts/compressive_strength_mpa.npz",
+      "predictive_family": "empirical_quantiles",
+      "feature_names": [
+        "composition.cement_kg_m3",
+        "composition.cement_kg_m3__square",
+        "composition.blast_furnace_slag_kg_m3",
+        "composition.blast_furnace_slag_kg_m3__square",
+        "composition.fly_ash_kg_m3",
+        "composition.fly_ash_kg_m3__square",
+        "composition.water_kg_m3",
+        "composition.water_kg_m3__square",
+        "composition.superplasticizer_kg_m3",
+        "composition.superplasticizer_kg_m3__square",
+        "composition.coarse_aggregate_kg_m3",
+        "composition.coarse_aggregate_kg_m3__square",
+        "composition.fine_aggregate_kg_m3",
+        "composition.fine_aggregate_kg_m3__square",
+        "process.age_days__log1p"
+      ],
+      "config": {
+        "training_unit": "source_row",
+        "validation": "5-fold by independent source row",
+        "source_profile": "external-concrete-v1"
+      }
+    }
+  ],
+  "provenance": {
+    "training_data_id": "sha256:5af081de0f3936a2a7432fbed22c99b13e3c28d669f46da801d54ed425a63afd",
+    "feature_dataset_id": "sha256:bf0b5cc4f675aee35f434d320244f541465613aa4f9d9867af99303cac5a0057",
+    "training_code_revision": "tabular-ridge-v1",
+    "dataset_profile_id": "sha256:23736e50f542d4fa42dd541491d03954ab7f42b2ac7b0ee78fcf6a0c475cc42a"
+  },
+  "artifacts": [
+    {
+      "path": "feature-pipeline/pipeline.json",
+      "sha256": "ddb6587cf3cdf5c49d20c529a84cc4f0ad9d6ce34a72f5e25267d4c246ef55bc",
+      "bytes": 3115
+    },
+    {
+      "path": "model-artifacts/compressive_strength_mpa.npz",
+      "sha256": "3dfe455cab01eaf8413040855a385a25cc0fadd0195b31e3c9c126380ddfd961",
+      "bytes": 1164
+    },
+    {
+      "path": "reference/training_stats.json",
+      "sha256": "bf2795bfe4cbf6fcda0f04916303675346d22f73e7a83d45685b70e2335d7559",
+      "bytes": 180
+    },
+    {
+      "path": "reports/quality-report.json",
+      "sha256": "e3cb9e5cb75a93c8d8e5008698036c390383e9b9de15ddd3c6a40059d87d5b29",
+      "bytes": 318
+    },
+    {
+      "path": "smoke/input.json",
+      "sha256": "aaa32aef76b7d2627e6611c25b86651c6854ae56011c2f837b4812eff4373dd4",
+      "bytes": 577
+    },
+    {
+      "path": "smoke/expected.json",
+      "sha256": "30893d9ea99fbbf4b70b49e03baf31aaca695cec36c24740e9439fa0406dad5b",
+      "bytes": 45
+    }
+  ],
+  "smoke_test": {
+    "input": "smoke/input.json",
+    "expected": "smoke/expected.json"
+  },
+  "quality_report": "reports/quality-report.json"
+}

@@ -1,0 +1,28 @@
+{
+  "task_definition":{
+    "schema_version":"task-definition/v1","id":"wear-curve-v1","label":"工具摩耗曲線","canonical_candidate_schema_version":"canonical-candidate/v1",
+    "input_groups":[
+      {"key":"composition","order":0,"label":"被削材","fields":[
+        {"path":"composition.carbon_pct","kind":"number","order":0,"label":"C","unit":"%","required":true,"editable":true,"default_range":{"min":0.05,"max":0.93},"allowed_range":{"min":0,"max":2},"training_range":{"min":0.05,"max":0.9203}}
+      ]},
+      {"key":"process","order":1,"label":"切削条件と評価点","fields":[
+        {"path":"process.cutting_speed_m_per_min","kind":"number","order":0,"label":"切削速度","unit":"m/min","required":true,"editable":true,"default_range":{"min":80,"max":280},"allowed_range":{"min":1,"max":2000},"training_range":{"min":80.167,"max":278.865}},
+        {"path":"process.feed_mm_per_rev","kind":"number","order":1,"label":"送り","unit":"mm/rev","required":true,"editable":true,"default_range":{"min":0.08,"max":0.35},"allowed_range":{"min":0.001,"max":5},"training_range":{"min":0.0812,"max":0.3495}},
+        {"path":"process.depth_of_cut_mm","kind":"number","order":2,"label":"切込み","unit":"mm","required":true,"editable":true,"default_range":{"min":0.3,"max":2},"allowed_range":{"min":0.01,"max":20},"training_range":{"min":0.3185,"max":1.9921}},
+        {"path":"process.cutting_distance_m","kind":"number","order":3,"label":"切削距離","unit":"m","required":true,"editable":true,"default_range":{"min":0,"max":6000},"allowed_range":{"min":0,"max":100000},"training_range":{"min":0,"max":6000}}
+      ]},
+      {"key":"categorical","order":2,"label":"工具・材料・冷却","fields":[
+        {"path":"categorical.tool_type","kind":"categorical","order":0,"label":"工具種","required":true,"editable":true,"choices":["carbide_A","coated_C","carbide_B","ceramic_D"]},
+        {"path":"categorical.material_family","kind":"categorical","order":1,"label":"材料系","required":true,"editable":true,"choices":["stainless","low_carbon_steel","alloy_steel","cast_iron"]},
+        {"path":"categorical.cooling","kind":"categorical","order":2,"label":"冷却","required":true,"editable":true,"choices":["dry","flood","mist"]}
+      ]}
+    ],
+    "outputs":[{"key":"wear_vb_um","label":"逃げ面摩耗量","unit":"µm","goal_direction":"at_most","measurement_keys":["wear_vb_um"],"plausibility_range":{"min":0,"max":5000},"preferred_display_range":{"min":0,"max":2500}}],
+    "display_decimals":{"composition.carbon_pct":4,"process.cutting_speed_m_per_min":1,"process.feed_mm_per_rev":4,"process.depth_of_cut_mm":3,"process.cutting_distance_m":0,"output.wear_vb_um":1},
+    "fixed_context":[{"path":"context.source","order":0,"label":"データ","value":"Synthetic wear-curve starter pack"}],
+    "constraints":[],"response_curve_variables":[{"kind":"numeric_input","order":0,"label":"切削距離","path":"process.cutting_distance_m"},{"kind":"numeric_input","order":1,"label":"切削速度","path":"process.cutting_speed_m_per_min"},{"kind":"numeric_input","order":2,"label":"送り","path":"process.feed_mm_per_rev"}],
+    "curve_axis_path":"process.cutting_distance_m"
+  },
+  "canonical_candidate":{"schema_version":"canonical-candidate/v1","task_id":"wear-curve-v1","composition":{"carbon_pct":0.3},"process":{"cutting_speed_m_per_min":180,"feed_mm_per_rev":0.2,"depth_of_cut_mm":1,"cutting_distance_m":3000},"heat_pattern":null,"categorical":{"tool_type":"carbide_A","material_family":"alloy_steel","cooling":"flood"},"provenance":{"source_kind":"direct","source_ref":null}},
+  "runtime_capability":{"schema_version":"runtime-capability/v1","task_id":"wear-curve-v1","model_package_schema_version":"model-package/v1","targets":[{"target":"wear_vb_um","point_statistics":["mean"],"standard_deviation":false,"quantiles":true,"samples":false,"parametric_distribution":false,"uncertainty_components":false,"support":true,"warnings":true,"goal_probability":"unavailable"}],"joint_samples":false,"operations":{"preview":true,"detailed_prediction":true,"response_curve":true,"similarity":true,"snapshot":true,"actual_measurement":false}}
+}
