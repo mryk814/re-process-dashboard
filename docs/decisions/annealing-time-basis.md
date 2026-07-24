@@ -13,11 +13,15 @@
 明示履歴がなく、LSと工程別温度だけがある場合は、Dataset Input Profileで指定した測定点マスタの入口距離から `時間[s] = 60 × 距離[m] / LS[mpm]` を計算し、`line_speed` の初期履歴を生成する。
 利用者が生成時間を調整したい場合は、候補画面で `elapsed_time` へ切り替えて直接編集する。
 
-## 現行Model Packageの制約
+## Feature Pipelineとの境界
 
-現在のFeature Pipeline `metallurgy-thermal` version `2.0.0` は、raw LSと時間–温度履歴から計算する熱履歴特徴の両方をモデル入力に含む。そのため、`elapsed_time` を選んでも現行PackageではLSの入力が必要である。画面ではこの制約を隠さず表示する。
+現行のFeature Pipeline `metallurgy-thermal` version `4.0.0` は、時間温度履歴から熱履歴特徴を計算し、raw LSを予測特徴へ重ねて入れない。
+したがって、2点以上の実時間履歴があれば、`elapsed_time` はLSなしでも特徴量化と予測ができる。
+`line_speed` ではLSと設備位置から時間列を更新し、その時間列をversion 4へ渡す。
 
-LSを指定しない時間–温度履歴だけの予測、raw LSの削除、工程別の加熱・均熱・冷却・再加熱特徴の追加は、Feature PipelineとModel Packageを改版して比較評価する。既存Packageの30特徴を暗黙に変更しない。
+version `2.0.0` のPackageはraw LSを含む30特徴を必要とする。
+既存Projectと保存済み予測の再現に限ってversion 2の計算経路を残し、version 4へ自動変換しない。
+同じ親条件foldを使った比較とLSの共線性は [焼鈍Feature Pipeline v2とv4の比較](../reports/annealing-feature-pipeline-v4-comparison.md) に記録する。
 
 現在のデータは形式とUIを検証するための合成デモデータである。LSと時間由来特徴の相関や、候補pipeline間の指標差を現実の冶金因果の証拠として解釈しない。統計比較は実装上の重複と安定性を調べる補助に限定する。
 
@@ -35,4 +39,5 @@ LSを指定しない時間–温度履歴だけの予測、raw LSの削除、工
 
 時間–温度点列は区分線形として扱い、最高温度、最大加熱速度、高温域滞在、熱積分、800→500℃冷却速度、再加熱回数などへ集約する。`stage_name` と工程位置は応答曲線の操作補助であり、現行の特徴ベクトルには入らない。`segment_start` は不連続な工程境界を跨いで速度や滞在時間を計算しないために使用する。
 
-工程別特徴の次版設計は [GitHub Issue #108](https://github.com/mryk814/re-process-dashboard/issues/108) で扱う。
+工程名は応答曲線の操作に使う表示メタデータであり、モデル特徴は`segment_start`で区切った数値履歴から計算する。
+生の工程名にモデル固有の効果を割り当てない。

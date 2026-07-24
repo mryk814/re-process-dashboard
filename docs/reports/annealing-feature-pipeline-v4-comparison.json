@@ -1,0 +1,232 @@
+{
+  "schema_version": "annealing-feature-pipeline-comparison/v1",
+  "source": "data/source/material_workbench_process_v1.xlsx",
+  "source_sha256": "87e2321d5ce1071c9fe57bea95ed773609a88d63c7d5cc08bd0a15592634bef9",
+  "task_id": "annealed-properties-v1",
+  "comparison_policy": {
+    "training_unit": "parent_condition_mean",
+    "split": "deterministic-parent-condition-5-fold",
+    "model": "fixed-standardized-rbf-kernel-ridge",
+    "kernel": "exp(-0.5 * mean(standardized squared distance))",
+    "kernel_ridge_alpha": 0.1,
+    "ls_stability_model": "standardized-linear-ridge",
+    "linear_ridge_alpha": 10.0,
+    "same_parent_folds_for_both_pipelines": true
+  },
+  "pipelines": {
+    "v2": {
+      "version": "2.0.0",
+      "features": 30,
+      "includes_raw_line_speed": true
+    },
+    "v4": {
+      "version": "4.0.0",
+      "features": 41,
+      "includes_raw_line_speed": false
+    }
+  },
+  "parents": {
+    "v4_eligible": 180,
+    "v2_eligible": 180,
+    "comparison": 180
+  },
+  "target_metrics": {
+    "TS": {
+      "v2": {
+        "parent_conditions": 142,
+        "mae": 57.842189043065495,
+        "rmse": 398.97857599999423
+      },
+      "v4": {
+        "parent_conditions": 142,
+        "mae": 58.517243551766335,
+        "rmse": 399.0031370385747
+      }
+    },
+    "YS": {
+      "v2": {
+        "parent_conditions": 142,
+        "mae": 41.67848470869993,
+        "rmse": 295.93260690264054
+      },
+      "v4": {
+        "parent_conditions": 142,
+        "mae": 42.28801129355991,
+        "rmse": 295.97347410076947
+      }
+    },
+    "EL": {
+      "v2": {
+        "parent_conditions": 142,
+        "mae": 2.621743778252616,
+        "rmse": 15.98940029497116
+      },
+      "v4": {
+        "parent_conditions": 142,
+        "mae": 2.6389712521902955,
+        "rmse": 15.992795528036178
+      }
+    },
+    "lambda": {
+      "v2": {
+        "parent_conditions": 130,
+        "mae": 4.495745663918253,
+        "rmse": 14.719801107495739
+      },
+      "v4": {
+        "parent_conditions": 130,
+        "mae": 5.509594912447095,
+        "rmse": 23.279681201570064
+      }
+    }
+  },
+  "line_speed_heat_feature_correlations": [
+    {
+      "feature": "peak_temperature_c",
+      "unit": "°C",
+      "pearson_r": -0.6990553049539705,
+      "absolute_r": 0.6990553049539705
+    },
+    {
+      "feature": "max_heating_rate_c_s",
+      "unit": "°C/s",
+      "pearson_r": 0.6942434078996513,
+      "absolute_r": 0.6942434078996513
+    },
+    {
+      "feature": "peak_minus_ac1_c",
+      "unit": "°C",
+      "pearson_r": -0.6813073662959264,
+      "absolute_r": 0.6813073662959264
+    },
+    {
+      "feature": "peak_minus_ac3_c",
+      "unit": "°C",
+      "pearson_r": -0.6460046612312303,
+      "absolute_r": 0.6460046612312303
+    },
+    {
+      "feature": "cooling_800_to_500_observed",
+      "unit": "1",
+      "pearson_r": -0.5898474062829564,
+      "absolute_r": 0.5898474062829564
+    },
+    {
+      "feature": "cooling_rate_800_to_500_c_s",
+      "unit": "°C/s",
+      "pearson_r": -0.46120885742372264,
+      "absolute_r": 0.46120885742372264
+    },
+    {
+      "feature": "time_above_ac1_s",
+      "unit": "s",
+      "pearson_r": -0.4503096119288981,
+      "absolute_r": 0.4503096119288981
+    },
+    {
+      "feature": "thermal_exposure_above_600c_c_s",
+      "unit": "°C·s",
+      "pearson_r": -0.44575596628274217,
+      "absolute_r": 0.44575596628274217
+    },
+    {
+      "feature": "intercritical_time_s",
+      "unit": "s",
+      "pearson_r": -0.4349435457341059,
+      "absolute_r": 0.4349435457341059
+    },
+    {
+      "feature": "time_at_or_above_700c_s",
+      "unit": "s",
+      "pearson_r": -0.42636859945634376,
+      "absolute_r": 0.42636859945634376
+    },
+    {
+      "feature": "time_at_or_above_95pct_peak_s",
+      "unit": "s",
+      "pearson_r": -0.37769941695622306,
+      "absolute_r": 0.37769941695622306
+    },
+    {
+      "feature": "time_within_10c_of_peak_s",
+      "unit": "s",
+      "pearson_r": -0.36226294598941383,
+      "absolute_r": 0.36226294598941383
+    },
+    {
+      "feature": "time_above_ac3_s",
+      "unit": "s",
+      "pearson_r": -0.17200218069965348,
+      "absolute_r": 0.17200218069965348
+    },
+    {
+      "feature": "thermal_exposure_above_ac3_c_s",
+      "unit": "°C·s",
+      "pearson_r": -0.1683362655118098,
+      "absolute_r": 0.1683362655118098
+    },
+    {
+      "feature": "cooling_reaches_ms",
+      "unit": "1",
+      "pearson_r": 0.165722429330819,
+      "absolute_r": 0.165722429330819
+    },
+    {
+      "feature": "reheat_count",
+      "unit": "count",
+      "pearson_r": 0.01520395871966479,
+      "absolute_r": 0.01520395871966479
+    }
+  ],
+  "line_speed_coefficient_stability": {
+    "TS": {
+      "standardized_ls_coefficients": [
+        -3.856043671097565,
+        -2.85657202700135,
+        -3.441624428349159,
+        -0.7252863287488553,
+        2.7292975054818718
+      ],
+      "sign_agreement": 0.8,
+      "mean": -1.630045789943011,
+      "std": 2.4316132089710627
+    },
+    "YS": {
+      "standardized_ls_coefficients": [
+        -2.5197509119069634,
+        -3.149409969991529,
+        -4.0727815800226805,
+        -0.9591301834896839,
+        0.5749779176579786
+      ],
+      "sign_agreement": 0.8,
+      "mean": -2.025218945550576,
+      "std": 1.6491482070026569
+    },
+    "EL": {
+      "standardized_ls_coefficients": [
+        0.3660448442735517,
+        0.3922722167822189,
+        0.2322971121167844,
+        0.16249555633287283,
+        0.05106776556334696
+      ],
+      "sign_agreement": 1.0,
+      "mean": 0.24083549901375495,
+      "std": 0.12714739710888598
+    },
+    "lambda": {
+      "standardized_ls_coefficients": [
+        -0.05338876207407859,
+        0.1741393090412417,
+        0.11821990214568633,
+        -0.6794352641987433,
+        -0.5124811998940191
+      ],
+      "sign_agreement": 0.6,
+      "mean": -0.1905892029959826,
+      "std": 0.3434527161403472
+    }
+  },
+  "interpretation_limit": "The source is synthetic demo data. CV differences, correlations, and coefficients evaluate implementation redundancy and numerical behavior; they are not evidence of metallurgical causality or production accuracy."
+}
