@@ -2909,6 +2909,15 @@
             "minLength": 1,
             "title": "Entity Type",
             "type": "string"
+          },
+          "relation_context_ids": {
+            "default": [],
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "title": "Relation Context Ids",
+            "type": "array"
           }
         },
         "required": [
@@ -6248,6 +6257,13 @@
             "default": "工程履歴",
             "title": "Process Label",
             "type": "string"
+          },
+          "relation_context_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Relation Context Ids",
+            "type": "array"
           },
           "repeat_summary": {
             "additionalProperties": {

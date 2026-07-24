@@ -8,7 +8,7 @@
   "runtime_capability_digest": "sha256:0dd83e49dccb9c12b87b0ea6ce0555ccfeba13208f0e9a4116c76371506c463f",
   "feature_pipeline": {
     "id": "metallurgy-thermal",
-    "version": "3.0.0",
+    "version": "4.0.0",
     "spec": "feature-pipeline/pipeline.json",
     "canonical_input_paths": [
       "composition.C",
@@ -43,7 +43,6 @@
       "B",
       "O",
       "N",
-      "ls_mpm",
       "ce_iiw",
       "pcm",
       "c_times_mn",
@@ -101,7 +100,6 @@
         "B",
         "O",
         "N",
-        "ls_mpm",
         "ce_iiw",
         "pcm",
         "c_times_mn",
@@ -162,7 +160,6 @@
         "B",
         "O",
         "N",
-        "ls_mpm",
         "ce_iiw",
         "pcm",
         "c_times_mn",
@@ -223,7 +220,6 @@
         "B",
         "O",
         "N",
-        "ls_mpm",
         "ce_iiw",
         "pcm",
         "c_times_mn",
@@ -284,7 +280,6 @@
         "B",
         "O",
         "N",
-        "ls_mpm",
         "ce_iiw",
         "pcm",
         "c_times_mn",
@@ -324,35 +319,35 @@
   ],
   "provenance": {
     "training_data_id": "sha256:007a6910abb4293d79597d3e137e784cd775f3011b4caac4bcfdd8c275b338b8",
-    "feature_dataset_id": "sha256:996887f5d1930bdc985217d5646dac17f420b3b3332154f567cfe1cf20381153",
+    "feature_dataset_id": "sha256:645f4d389f355c2bd39657d5130268fee52757d9810af4f8a3082c694ed3d6df",
     "training_code_revision": "lightgbm-grouped-cv-v1",
     "dataset_profile_id": "sha256:5b9ad0dd95a3e5f6d792959d0009e31afc250f983688372691fba4f68e3a3bde"
   },
   "artifacts": [
     {
       "path": "feature-pipeline/pipeline.json",
-      "sha256": "215e5000c6fa7be018ec40d7801128079dbe04da2ecfeccfbdcb22312d67d5b5",
-      "bytes": 6540
+      "sha256": "b85a5a0c869feeec73b646273c89649367c00e63f9923c1c5e368d79a91c4b5c",
+      "bytes": 6416
     },
     {
       "path": "model-artifacts/EL.txt",
-      "sha256": "40642b336daf9b1bd76b2c3cbb007797f6f207d2d280bd7a729e20e4797a2e2f",
-      "bytes": 3694
+      "sha256": "6f84a9088bb91eb367ebb39a787b2b1c088f7071a597b950f07b004626af0e89",
+      "bytes": 3679
     },
     {
       "path": "model-artifacts/TS.txt",
-      "sha256": "13795c1ed4c5416ed2900e1cbcd296cf2f1899fe8d754358b7c3b95f91ae0176",
-      "bytes": 3694
+      "sha256": "93a900f7457fee6842382e82daeeb6cb512399e8135ff06e490c5a7ffc9f07a0",
+      "bytes": 3679
     },
     {
       "path": "model-artifacts/YS.txt",
-      "sha256": "98a014ebcf9525dbfc15d47388e2d93798bf4162576e86cd75f0b1106445ab5f",
-      "bytes": 3694
+      "sha256": "11eef15563a0b36dfbdec0c3315dd74f3a9fa72d4169ec04842936526a050179",
+      "bytes": 3679
     },
     {
       "path": "model-artifacts/lambda.txt",
-      "sha256": "f4a67ec5261d74d12c0293cce7901826d97d2c88be7a7a08ae78b1fdc398af38",
-      "bytes": 3694
+      "sha256": "def3d50798355c828c24594c01d27d5f0318bd992f3d9150348c6c92cd3f2818",
+      "bytes": 3679
     },
     {
       "path": "reference/training_stats.json",

@@ -6,30 +6,30 @@
     {
       "target": "EL",
       "parent_conditions": 142,
-      "mae": 2.5058880893333484,
-      "rmse": 15.762430672780509,
-      "interval_coverage_90": 0.8873239436619719
+      "mae": 2.467716233565523,
+      "rmse": 15.735387596745975,
+      "interval_coverage_90": 0.8802816901408451
     },
     {
       "target": "TS",
       "parent_conditions": 142,
-      "mae": 56.40130136563268,
-      "rmse": 381.4500409831687,
-      "interval_coverage_90": 0.9507042253521126
+      "mae": 55.86956446749465,
+      "rmse": 380.32351422614676,
+      "interval_coverage_90": 0.9366197183098591
     },
     {
       "target": "YS",
       "parent_conditions": 142,
-      "mae": 40.73405927675959,
-      "rmse": 287.2369490798936,
-      "interval_coverage_90": 0.8943661971830986
+      "mae": 40.30257001712612,
+      "rmse": 286.6169123371021,
+      "interval_coverage_90": 0.9084507042253521
     },
     {
       "target": "lambda",
       "parent_conditions": 130,
-      "mae": 2.7098347702103576,
-      "rmse": 3.9352936747377396,
-      "interval_coverage_90": 0.8538461538461538
+      "mae": 2.7088124507169367,
+      "rmse": 3.935663979776941,
+      "interval_coverage_90": 0.8461538461538461
     }
   ]
 }

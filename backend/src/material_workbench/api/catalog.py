@@ -19,6 +19,7 @@ from material_workbench.modeling.model_lifecycle import (
     validate_lifecycle_metadata,
 )
 from material_workbench.modeling.model_packages import RUNTIME_TYPES
+from material_workbench.data.importer import training_context_key
 from material_workbench.contracts.schemas import ModelPackageStatus, ModelTrainingDataPage, TaskCatalogItem
 from material_workbench.persistence.store import Store
 from material_workbench.contracts.task_contracts import ResolvedTaskDefinition
@@ -208,11 +209,13 @@ def model_training_data(
         if training_unit == "parent_condition_mean":
             grouped: dict[str, list[dict[str, Any]]] = {}
             for row in selected_rows:
-                grouped.setdefault(row["parent_key"], []).append(row)
+                grouped.setdefault(training_context_key(row), []).append(row)
             model_rows = [
                 {
-                    "observation_id": parent_key,
-                    "parent_key": parent_key,
+                    "observation_id": context_key,
+                    "parent_key": group_rows[0]["parent_key"],
+                    "condition_context_id": context_key,
+                    "composition_key": group_rows[0].get("composition_key"),
                     "replicate_count": len(group_rows),
                     "features": {
                         key: sum(float(row["features"][key]) for row in group_rows) / len(group_rows)
@@ -222,10 +225,11 @@ def model_training_data(
                         selected_target: sum(float(row["outputs"][selected_target]) for row in group_rows) / len(group_rows)
                     },
                 }
-                for parent_key, group_rows in sorted(grouped.items())
+                for context_key, group_rows in sorted(grouped.items())
             ]
             feature_identifier_columns = [
                 {"key": "parent_key", "label": "親工程条件", "unit": None, "group": "識別"},
+                {"key": "composition_key", "label": "成分キー", "unit": None, "group": "識別"},
                 {"key": "replicate_count", "label": "個々値数", "unit": "件", "group": "識別"},
             ]
         columns = [
@@ -248,6 +252,7 @@ def model_training_data(
                 "values": {
                     "parent_key": row["parent_key"],
                     **({"observation_id": row["observation_id"]} if training_unit == "individual_observation" else {}),
+                    **({"composition_key": row.get("composition_key")} if training_unit == "parent_condition_mean" else {}),
                     **({"replicate_count": row["replicate_count"]} if training_unit == "parent_condition_mean" else {}),
                     **{f"feature.{key}": value for key, value in row["features"].items()},
                     f"output.{selected_target}": row["outputs"][selected_target],
@@ -265,7 +270,7 @@ def model_training_data(
         "feature_pipeline_version": canonical["feature_pipeline"]["version"],
         "training_unit": training_unit,
         "total": len(selected_rows) if stage == "selected" else len(model_rows),
-        "parent_conditions": len({row["parent_key"] for row in selected_rows}),
+        "parent_conditions": len({training_context_key(row) for row in selected_rows}),
         "offset": offset,
         "limit": limit,
         "columns": columns,

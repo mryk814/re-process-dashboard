@@ -204,7 +204,8 @@ def test_model_training_data_exposes_selected_observations_and_actual_model_rows
     features = features_response.json()
     assert features["total"] == selected["parent_conditions"]
     assert features["columns"][0]["key"] == "parent_key"
-    assert features["columns"][1]["key"] == "replicate_count"
+    assert features["columns"][1]["key"] == "composition_key"
+    assert features["columns"][2]["key"] == "replicate_count"
     assert any(column["key"].startswith("feature.") for column in features["columns"])
     assert features["feature_dataset_digest"].startswith("sha256:")
 
@@ -240,10 +241,10 @@ def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
     assert {"TS", "YS", "EL", "lambda"} <= set(first["predictions"])
     assert first["support"]["status"] in {"supported", "caution", "extrapolated"}
     assert 0 <= first["support"]["percentile"] <= 100
-    assert {"composition", "metallurgy", "process", "heat_pattern"} == set(first["support"]["components"])
+    assert {"composition", "metallurgy", "heat_pattern"} == set(first["support"]["components"])
     assert first["support"]["reference_count"] > 1
     assert first["model_meta"]["prediction_interval"]["method"] == "gaussian_process_predictive_distribution"
-    assert first["model_meta"]["prediction_interval"]["grouping"] == "parent_key"
+    assert first["model_meta"]["prediction_interval"]["grouping"] == "condition_context_id"
     assert all(prediction["uncertainty_components"] for prediction in first["predictions"].values())
     assert first["canonical_input"]["input_schema_version"] == "candidate-v2"
     assert first["canonical_input"]["heat_time_basis"] == "line_speed"
@@ -292,7 +293,7 @@ def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
     assert len(similar) == 3
     assert {item["layer"] for item in similar} == {"historical"}
     assert {item["source_scope"] for item in similar} == {"project_reference_data"}
-    assert all({"composition", "metallurgy", "process", "heat_pattern"} == set(item["components"]) for item in similar)
+    assert all({"composition", "metallurgy", "heat_pattern"} == set(item["components"]) for item in similar)
 
 
 def test_snapshot_is_immutable_after_candidate_edit(client) -> None:
@@ -450,7 +451,7 @@ def test_quality_and_lineage(client) -> None:
     assert any(edge["source"] == "CR-01" and edge["target"] == "AN-01" for edge in lineage.json()["graph"]["edges"])
 
 
-def test_lineage_candidate_options_keep_multiple_compositions_for_one_process(client, monkeypatch) -> None:
+def test_lineage_candidate_options_do_not_invent_routes_from_flat_adjacency(client, monkeypatch) -> None:
     project = client.app.state.store.get_project("default")
     assert project is not None
     data = client.app.state.project_runtime_resolver.data_explorer_for(project).data
@@ -468,13 +469,12 @@ def test_lineage_candidate_options_keep_multiple_compositions_for_one_process(cl
         for option in lineage.json()["candidate_options"]
         if option["process_key"] == "AN-01"
     ]
-    assert {option["melt_key"] for option in options} == {existing_melts[0], shared_process_melt}
+    assert {option["melt_key"] for option in options} == {existing_melts[0]}
     created = client.post(
         "/api/projects/default/lineage/AN-01/candidate",
         params={"process_key": "AN-01", "melt_key": shared_process_melt},
     )
-    assert created.status_code == 201
-    assert created.json()["provenance"]["source_ref"]["composition_entity_key"] == shared_process_melt
+    assert created.status_code == 422
 
 
 def test_lineage_index_is_inspectable(client) -> None:

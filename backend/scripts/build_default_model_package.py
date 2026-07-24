@@ -13,7 +13,7 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from material_workbench.modeling.feature_pipeline import CANONICAL_INPUT_PATHS, FEATURE_DEFINITIONS, FEATURE_NAMES, FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION
-from material_workbench.data.importer import load_workbook_data
+from material_workbench.data.importer import load_workbook_data, training_context_key
 from material_workbench.modeling.model_lifecycle import QualityReport, canonical_training_dataset, canonical_training_dataset_digest, dataset_profile_digest, exact_gp_loo_quality, runtime_capability_digest, staged_package_destination, task_input_contract_digest
 from material_workbench.modeling.model_package_verify import verify_model_package
 from material_workbench.modeling.runtime import INPUT_SCHEMA_VERSION, TARGETS, TASK_ID, ModelRuntime
@@ -37,7 +37,7 @@ def _grouped_training(model: object, target: str) -> tuple[np.ndarray, np.ndarra
     grouped: dict[str, list[int]] = {}
     rows = model.rows  # type: ignore[attr-defined]
     for index, row in enumerate(rows):
-        grouped.setdefault(str(row["parent_key"]), []).append(index)
+        grouped.setdefault(training_context_key(row), []).append(index)
     x_rows: list[np.ndarray] = []
     y_rows: list[float] = []
     within_sse = 0.0

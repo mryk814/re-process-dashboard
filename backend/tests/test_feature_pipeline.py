@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from material_workbench.modeling.feature_pipeline import CANONICAL_INPUT_PATHS, FEATURE_NAMES, FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION, build_feature_bundle, build_feature_bundle_from_observation, candidate_from_observation
+from material_workbench.modeling.feature_pipeline import CANONICAL_INPUT_PATHS, FEATURE_NAMES, FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION, build_feature_bundle, build_feature_bundle_from_observation, build_feature_bundle_v2, candidate_from_observation
 from material_workbench.data.importer import _normalize_stage_local_times, load_workbook_data
 from material_workbench.contracts.schemas import CandidateInput
 
@@ -16,7 +16,6 @@ COMPOSITION = {
 }
 EXPECTED_FEATURE_NAMES = (
     "C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N",
-    "ls_mpm",
     "ce_iiw", "pcm", "c_times_mn", "si_plus_al", "cr_plus_mo", "microalloy_sum",
     "ac1_proxy_c", "ac3_proxy_c", "ms_proxy_c", "ti_after_tin_proxy",
     "peak_temperature_c", "max_heating_rate_c_s", "time_at_or_above_95pct_peak_s",
@@ -60,16 +59,15 @@ def test_feature_bundle_golden_for_piecewise_linear_route() -> None:
     assert bundle.names == FEATURE_NAMES == EXPECTED_FEATURE_NAMES
     assert bundle.indices_by_group() == {
         "composition": tuple(range(14)),
-        "process": (14,),
-        "metallurgy": tuple(range(15, 25)),
-        "heat_pattern": tuple(range(25, 42)),
+        "metallurgy": tuple(range(14, 24)),
+        "heat_pattern": tuple(range(24, 41)),
     }
     assert tuple(item.group for item in bundle.features) == tuple(
-        group for group, count in (("composition", 14), ("process", 1), ("metallurgy", 10), ("heat_pattern", 17))
+        group for group, count in (("composition", 14), ("metallurgy", 10), ("heat_pattern", 17))
         for _ in range(count)
     )
     assert CANONICAL_INPUT_PATHS == EXPECTED_CANONICAL_INPUT_PATHS
-    assert len(bundle.names) == 42
+    assert len(bundle.names) == 41
     assert len(set(bundle.names)) == len(bundle.names)
     assert bundle.values.dtype == np.float64
     assert not bundle.values.flags.writeable
@@ -100,6 +98,34 @@ def test_feature_bundle_golden_for_piecewise_linear_route() -> None:
     assert actual["time_within_10c_of_peak_s"] == pytest.approx(42.6785714)
     assert actual["thermal_exposure_above_ac3_c_s"] == 0
     assert actual["cooling_reaches_ms"] == 1
+
+
+def test_line_speed_does_not_duplicate_an_explicit_heat_pattern_feature() -> None:
+    route = [
+        {"time_s": 0, "temperature_c": 20},
+        {"time_s": 100, "temperature_c": 820},
+        {"time_s": 200, "temperature_c": 400},
+    ]
+    first = build_feature_bundle(_candidate(route)).values
+    second = build_feature_bundle(
+        _candidate(route, process={"ls_mpm": 250.0})
+    ).values
+
+    assert np.array_equal(first, second)
+
+
+def test_v2_pipeline_rejects_elapsed_time_pattern_without_line_speed() -> None:
+    candidate = _candidate(
+        [
+            {"time_s": 0, "temperature_c": 20},
+            {"time_s": 100, "temperature_c": 820},
+        ],
+        process={},
+        heat_time_basis="elapsed_time",
+    )
+
+    with pytest.raises(ValueError, match="requires line speed"):
+        build_feature_bundle_v2(candidate)
 
 
 def test_reheat_count_uses_25_degree_excursion_and_ignores_small_noise() -> None:

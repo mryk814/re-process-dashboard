@@ -540,6 +540,7 @@ class SimilarObservation(BaseModel):
     melt_key: str | None = None
     process_key: str | None = None
     process_label: str = "工程履歴"
+    relation_context_ids: list[str] = Field(default_factory=list)
 
 
 class ModelIdentity(BaseModel):

@@ -15,7 +15,7 @@ if __package__ in {None, ""}:
 
 from material_workbench.contracts.feature_contracts import feature_index_families
 from material_workbench.contracts.schemas import CandidateInput
-from material_workbench.data.importer import load_workbook_data
+from material_workbench.data.importer import load_workbook_data, training_context_key
 from material_workbench.modeling.feature_pipeline import (
     CANONICAL_INPUT_PATHS,
     FEATURE_DEFINITIONS,
@@ -45,7 +45,6 @@ FEATURE_GROUP_INDICES = feature_index_families(
     FEATURE_DEFINITIONS,
     {
         "composition": ("composition",),
-        "process": ("process", "categorical"),
         "metallurgy": ("metallurgy",),
         "heat_pattern": ("heat_pattern",),
     },
@@ -75,7 +74,7 @@ def _groups(model: Any, target: str) -> dict[str, Any]:
     column = TARGETS[target][0]
     indexes_by_parent: dict[str, list[int]] = {}
     for index, row in enumerate(model.rows):
-        indexes_by_parent.setdefault(str(row["parent_key"]), []).append(index)
+        indexes_by_parent.setdefault(training_context_key(row), []).append(index)
     parent_keys = sorted(indexes_by_parent)
     x_rows: list[np.ndarray] = []
     means: list[float] = []
@@ -240,9 +239,9 @@ def _fit_hierarchical(
     column = TARGETS[target][0]
     x = np.asarray(model.x_train, dtype=np.float64)
     y = np.asarray([float(row["outputs"][column]) for row in model.rows], dtype=np.float64)
-    parent_keys = sorted({str(row["parent_key"]) for row in model.rows})
+    parent_keys = sorted({training_context_key(row) for row in model.rows})
     parent_index = {key: index for index, key in enumerate(parent_keys)}
-    group = np.asarray([parent_index[str(row["parent_key"])] for row in model.rows], dtype=np.int64)
+    group = np.asarray([parent_index[training_context_key(row)] for row in model.rows], dtype=np.int64)
     y_mean = float(y.mean())
     y_scale = max(float(y.std()), 1e-6)
     z = (y - y_mean) / y_scale

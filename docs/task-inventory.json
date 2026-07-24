@@ -45,7 +45,7 @@
         "previous": null,
         "package_id": "annealed-gp-stable-ard-tutorial-v1",
         "version": "2.0.0-stable-ard",
-        "manifest_sha256": "13aa9ee4b61a3be3a5a4b915d82ce694ee8fb60b368256c396c793c3c813d56c",
+        "manifest_sha256": "aec17fd601a224ba1ab4db94c79c3e0db1cc0bc8387dcf09054b2f50b9d9e71f",
         "runtime_types": [
           "builtin.exact_gp.v1"
         ]
@@ -91,7 +91,7 @@
         "previous": null,
         "package_id": "hot-rolled-tutorial-v1",
         "version": "1.1.0-feature-design-v3",
-        "manifest_sha256": "3604d3cf44c74b0aabfaa6a4baa65a59fd82f9d32b53c76f2cca254fd04bfce8",
+        "manifest_sha256": "473164828ff11b62be0b3646266bd1bd9f15aa3e91561437ec145b27076518bb",
         "runtime_types": [
           "builtin.posterior_linear.v1"
         ]

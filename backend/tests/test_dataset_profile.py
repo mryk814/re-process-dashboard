@@ -16,9 +16,16 @@ from material_workbench.data.dataset_profile import (
     load_task_definitions,
     preflight_workbook,
 )
-from material_workbench.modeling.feature_pipeline import build_feature_bundle
+from material_workbench.modeling.feature_pipeline import (
+    build_feature_bundle,
+    candidate_from_observation as anneal_candidate_from_observation,
+)
 from material_workbench.modeling.hot_rolling_feature_pipeline import build_hot_rolling_features
-from material_workbench.data.importer import detect_dataset_profile_path, load_workbook_data
+from material_workbench.data.importer import (
+    _derived_anneal_feature_row,
+    detect_dataset_profile_path,
+    load_workbook_data,
+)
 from material_workbench.app import create_app
 from material_workbench.contracts.schemas import CandidateInput
 from material_workbench.domain.services import candidate_from_lineage, lineage_candidate_options
@@ -120,7 +127,7 @@ def test_reordered_columns_and_unmapped_metadata_do_not_change_canonical_values(
         return build_feature_bundle(candidate).values
 
     expected = representative_vector(baseline)
-    assert expected.shape == (42,)
+    assert expected.shape == (41,)
     assert np.isfinite(expected).all()
     np.testing.assert_allclose(representative_vector(actual), expected, rtol=1e-12, atol=1e-12)
 
@@ -398,15 +405,66 @@ def test_imported_relations_keep_every_composition_that_shares_one_process(tmp_p
         if option.process_key == "AN-01"
     ]
 
-    assert {option.melt_key for option in process_options} == {"ME-01", "ME-SHARED-PROCESS"}
+    assert {option.melt_key for option in process_options} == {"ME-01"}
+    ambiguous = next(row for row in data.observations if row["id"] == "TT-01")
+    assert not ambiguous["eligible"]
+    assert "試験に対応する上流成分が複数あります" in ambiguous["eligibility_reasons"]
+    with pytest.raises(ValueError, match="組み合わせを候補化できません"):
+        candidate_from_lineage(
+            data,
+            "ME-01",
+            process_key="AN-01",
+            melt_key="ME-SHARED-PROCESS",
+        )
     candidate = candidate_from_lineage(
         data,
-        "ME-01",
+        "ME-SHARED-PROCESS",
         process_key="AN-01",
         melt_key="ME-SHARED-PROCESS",
     )
     assert candidate.name == "過去条件 AN-01 / 成分 ME-SHARED-PROCESS"
     assert candidate.inputs.composition == data.composition["ME-SHARED-PROCESS"]
+
+
+def test_training_observation_uses_composition_from_its_relation_route() -> None:
+    data = load_workbook_data(PROCESS_SOURCE)
+
+    first = next(row for row in data.observations if row["id"] == "HT-00006")
+    second = next(row for row in data.observations if row["id"] == "HT-00007")
+
+    assert first["parent_key"] == second["parent_key"] == "HR-00004"
+    assert first["composition_key"] == second["composition_key"] == "ME-00003"
+    assert first["eligible"] and second["eligible"]
+    assert first["condition_context_id"] == "ME-00003::HR-00004"
+    assert first["relation_context_ids"] == ["relationEx:15"]
+
+
+def test_explicit_anneal_history_is_trainable_without_line_speed() -> None:
+    data = load_workbook_data(PROCESS_SOURCE)
+    points = [
+        {"time_s": 0.0, "temperature_c": 25.0, "stage_name": "入口"},
+        {"time_s": 45.0, "temperature_c": 780.0, "stage_name": "均熱"},
+        {"time_s": 110.0, "temperature_c": 420.0, "stage_name": "冷却"},
+    ]
+    features = _derived_anneal_feature_row(
+        "AN-NO-LS",
+        {"ls_mpm": None},
+        points,
+    )
+    observation = {
+        "task_id": "annealed-properties-v1",
+        "parent_key": "AN-NO-LS",
+        "features": features,
+        "composition": data.composition["ME-00001"],
+    }
+    candidate = anneal_candidate_from_observation(observation)
+
+    assert features["ls_mpm"] is None
+    assert features["feature_eligible"]
+    assert candidate is not None
+    assert candidate.inputs.process == {}
+    assert candidate.inputs.heat_time_basis == "elapsed_time"
+    assert np.isfinite(build_feature_bundle(candidate, data.medians).values).all()
 
 
 def test_importer_accepts_task_and_profile_composition_addition_without_code_change(tmp_path: Path) -> None:

@@ -20,7 +20,7 @@ except ModuleNotFoundError as exc:  # pragma: no cover - exercised by CLI users.
     ) from exc
 
 from material_workbench.contracts.schemas import CandidateInput
-from material_workbench.data.importer import load_workbook_data
+from material_workbench.data.importer import load_workbook_data, training_context_key
 from material_workbench.modeling.feature_pipeline import (
     CANONICAL_INPUT_PATHS,
     FEATURE_DEFINITIONS,
@@ -72,7 +72,7 @@ def _grouped_training(
     rows = model.rows  # type: ignore[attr-defined]
     grouped: dict[str, list[int]] = {}
     for index, row in enumerate(rows):
-        grouped.setdefault(str(row["parent_key"]), []).append(index)
+        grouped.setdefault(training_context_key(row), []).append(index)
     normalized = model.x_train  # type: ignore[attr-defined]
     x_rows: list[np.ndarray] = []
     y_rows: list[float] = []

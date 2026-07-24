@@ -250,6 +250,7 @@ class LineageReference(ContractModel):
     entity_type: Annotated[str, Field(min_length=1)]
     entity_key: Annotated[str, Field(min_length=1)]
     composition_entity_key: Annotated[str, Field(min_length=1)] | None = None
+    relation_context_ids: tuple[Annotated[str, Field(min_length=1)], ...] = ()
     data_source_digest: Annotated[str, Field(min_length=1)] | None = None
 
 

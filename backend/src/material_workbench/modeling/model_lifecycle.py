@@ -10,6 +10,7 @@ from typing import Annotated, Any, Iterator, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from material_workbench.data.dataset_profile import load_dataset_profile
+from material_workbench.data.importer import training_context_key
 from material_workbench.modeling.model_packages import PackageContractError, VerifiedModelPackage
 from material_workbench.contracts.task_contracts import RuntimeCapability, TaskContractFixture, TaskDefinition
 from material_workbench.task_modules import DataDescriptor, registered_task_modules, task_module
@@ -207,13 +208,20 @@ def canonical_training_dataset(
                 outputs[output.key] = float(observation["outputs"][source_column])
         if not outputs:
             continue
-        rows.append({
+        training_row = {
             "observation_id": str(observation["id"]),
             "parent_key": str(observation["parent_key"]),
             "features": bundle.as_dict(),
             "outputs": outputs,
-        })
-    rows.sort(key=lambda item: (item["parent_key"], item["observation_id"]))
+        }
+        if observation.get("condition_context_id"):
+            training_row.update({
+                "condition_context_id": training_context_key(observation),
+                "composition_key": observation.get("composition_key"),
+                "relation_context_ids": list(observation.get("relation_context_ids", [])),
+            })
+        rows.append(training_row)
+    rows.sort(key=lambda item: (training_context_key(item), item["observation_id"]))
     if not rows:
         raise ValueError(f"no eligible canonical training rows for {task_id}")
     first_bundle = builder(

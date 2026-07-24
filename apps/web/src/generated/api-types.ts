@@ -1919,6 +1919,11 @@ export interface components {
             entity_key: string;
             /** Entity Type */
             entity_type: string;
+            /**
+             * Relation Context Ids
+             * @default []
+             */
+            relation_context_ids: string[];
         };
         /** LineageResponse */
         LineageResponse: {
@@ -3251,6 +3256,8 @@ export interface components {
              * @default 工程履歴
              */
             process_label: string;
+            /** Relation Context Ids */
+            relation_context_ids?: string[];
             /** Repeat Summary */
             repeat_summary?: {
                 [key: string]: components["schemas"]["RepeatSummary"];

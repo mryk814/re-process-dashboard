@@ -315,7 +315,7 @@ def test_loader_rejects_unknown_pipeline_document_fields(tmp_path: Path) -> None
 @pytest.mark.parametrize(
     ("task_id", "package_id", "package_version", "pipeline_version"),
     [
-        ("annealed-properties-v1", "annealed-gp-stable-ard-tutorial-v1", "2.0.0-stable-ard", "3.0.0"),
+        ("annealed-properties-v1", "annealed-gp-stable-ard-tutorial-v1", "2.0.0-stable-ard", "4.0.0"),
         ("hot-rolled-properties-v1", "hot-rolled-tutorial-v1", "1.1.0-feature-design-v3", "3.0.0"),
     ],
 )
