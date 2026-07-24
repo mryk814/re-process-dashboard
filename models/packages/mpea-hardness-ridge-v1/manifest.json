@@ -4,7 +4,7 @@
   "package_version": "1.0.0",
   "task_id": "mpea-hardness-process-v1",
   "input_schema_version": "canonical-candidate/v1",
-  "input_contract_digest": "sha256:3984afa0b6858cd32c01e7feea920ccec0862db1cb43e87a2bc77c4b575f3415",
+  "input_contract_digest": "sha256:8b2a7f210cbfc9226d00e998b6cb215fa0b542c8d576348e16f069136ebf8b85",
   "runtime_capability_digest": "sha256:cd5bdce7925cd5e69cdb7b711fb0f789f0c524cb0734845300a31b324f910228",
   "feature_pipeline": {
     "id": "mpea-hardness-process-v1-profile-transform",
@@ -126,7 +126,7 @@
   ],
   "provenance": {
     "training_data_id": "sha256:a3b4230ff150e32ed51050a4813fc3fbad01b2bc2fc61b5d4fb8a5be3cc5e476",
-    "feature_dataset_id": "sha256:4a05a046ccfe463190584be31ae99525ed6109b24ad37d51f4b272545619c88e",
+    "feature_dataset_id": "sha256:5b81d476b9824804ae86013c9a2aa25c0eb7f40266a247ba447a368296c1d032",
     "training_code_revision": "tabular-ridge-v1",
     "dataset_profile_id": "sha256:7bfec1998a843dcf35c8018445752d0c02f75dfcf5848ab7476942eef01aa740"
   },

@@ -487,7 +487,7 @@
         "previous": null,
         "package_id": "mpea-hardness-ridge-v1",
         "version": "1.0.0",
-        "manifest_sha256": "68a43683f604633b56472be99ffc1035677ce56f69700f560d7d737a848dc8b6",
+        "manifest_sha256": "a75769b594acc7a8540c3ffc6c3f605315963006be67f394220c9b458e02ede3",
         "runtime_types": [
           "builtin.linear.v1"
         ]
