@@ -58,7 +58,9 @@ def _predict(x: np.ndarray, fitted: tuple[np.ndarray, np.ndarray, np.ndarray]) -
     return np.column_stack([np.ones(len(x)), (x - mean) / scale]) @ weights
 
 
-def _grouped_oof(x: np.ndarray, y: np.ndarray, groups: list[str]) -> tuple[np.ndarray, int]:
+def _grouped_oof(
+    x: np.ndarray, y: np.ndarray, groups: list[str], ridge: float = 1.0
+) -> tuple[np.ndarray, int]:
     unique = sorted(set(groups))
     folds = min(5, len(unique))
     if folds < 2:
@@ -67,7 +69,7 @@ def _grouped_oof(x: np.ndarray, y: np.ndarray, groups: list[str]) -> tuple[np.nd
     residuals = np.empty(len(y))
     for fold in range(folds):
         test = np.asarray([assignment[group] == fold for group in groups])
-        residuals[test] = y[test] - _predict(x[test], _fit(x[~test], y[~test]))
+        residuals[test] = y[test] - _predict(x[test], _fit(x[~test], y[~test], ridge))
     return residuals, folds
 
 
@@ -140,9 +142,8 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
     profile = data.profile
     contract = load_task_contracts()[profile.task_id]
     rows = [row for row in data.observations if row["eligible"]]
-    bundles = [build_tabular_features_from_observation(row, data.medians, profile) for row in rows]
-    x = np.vstack([bundle.values for bundle in bundles])
-    groups = [str(row["parent_key"]) for row in rows]
+    if not rows:
+        raise ValueError("Curation後に学習可能な行がありません")
     definitions = feature_definitions(profile)
     feature_names = tuple(item.name for item in definitions)
 
@@ -170,12 +171,29 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
         ],
     }, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
     files = [pipeline_path]
+    if profile.curation_recipe is not None:
+        curation_path = reference_dir / "curation-recipe.json"
+        curation_path.write_text(
+            profile.curation_recipe.model_dump_json(indent=2) + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        files.append(curation_path)
     predictors: list[dict[str, object]] = []
     metrics: list[TargetQualityMetric] = []
     records: dict[str, int] = {}
     predict_by_target: dict[str, Callable[[np.ndarray], np.ndarray]] = {}
     for output in profile.outputs:
-        y = np.asarray([float(row["outputs"][output.key]) for row in rows])
+        target_rows = [row for row in rows if output.key in row["outputs"]]
+        if not target_rows:
+            raise ValueError(f"{output.key}の学習可能な行がありません")
+        target_bundles = [
+            build_tabular_features_from_observation(row, data.medians, profile)
+            for row in target_rows
+        ]
+        x = np.vstack([bundle.values for bundle in target_bundles])
+        groups = [str(row["parent_key"]) for row in target_rows]
+        y = np.asarray([float(row["outputs"][output.key]) for row in target_rows])
         if profile.model_family == "lightgbm_monotone":
             monotone_constraints = [
                 -1 if name in profile.monotone_decreasing_paths else 0
@@ -211,8 +229,8 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
             z90 = 1.6448536269514722
             lower, upper = -z90 * residual_std, z90 * residual_std
         else:
-            residuals, folds = _grouped_oof(x, y, groups)
-            fitted = _fit(x, y)
+            residuals, folds = _grouped_oof(x, y, groups, profile.ridge_alpha)
+            fitted = _fit(x, y, profile.ridge_alpha)
             predict_by_target[output.key] = (
                 lambda values, model=fitted: _predict(values, model)
             )
@@ -246,6 +264,7 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
                         else f"{folds}-fold by independent source row"
                     ),
                     "source_profile": profile.profile_id,
+                    "ridge_alpha": profile.ridge_alpha,
                 },
             }
         files.append(artifact_path)
@@ -262,9 +281,16 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
     stats_path = reference_dir / "training_stats.json"
     stats_path.write_text(json.dumps({
         "records": records,
-        "groups": len(set(groups)),
+        "groups": len({str(row["parent_key"]) for row in rows}),
         "rows": len(rows),
         "source_sha256": data.source_sha256,
+        "curation": {
+            status: sum(
+                row["run_context"].get("curation", {}).get("status") == status
+                for row in data.observations
+            )
+            for status in ("accepted", "warning", "quarantined", "blocked")
+        },
     }, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
     files.append(stats_path)
     quality_path = report_dir / "quality-report.json"
@@ -275,12 +301,17 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
             if profile.group_column
             else "independent-source-row-k-fold"
         ),
-        folds=min(5, len(set(groups))),
+        folds=min(5, min(metric.parent_conditions for metric in metrics)),
         targets=tuple(metrics),
     ).model_dump_json(indent=2) + "\n", encoding="utf-8", newline="\n")
     files.append(quality_path)
 
-    sample = candidate_from_observation(rows[len(rows) // 2], profile).model_copy(
+    complete_rows = [
+        row for row in rows
+        if all(output.key in row["outputs"] for output in profile.outputs)
+    ]
+    sample_row = (complete_rows or rows)[len(complete_rows or rows) // 2]
+    sample = candidate_from_observation(sample_row, profile).model_copy(
         update={"name": f"{profile.name} package smoke"}
     )
     smoke_input = smoke_dir / "input.json"

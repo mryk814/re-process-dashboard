@@ -23,6 +23,7 @@ HEAT_TREATMENT_TASK_ID = "heat-treatment-tradeoff-v1"
 CONCRETE_TASK_ID = "concrete-strength-v1"
 WEAR_CURVE_TASK_ID = "wear-curve-v1"
 BATTERY_DEGRADATION_TASK_ID = "battery-degradation-v1"
+MPEA_LITERATURE_TASK_ID = "mpea-literature-tys-v1"
 PRIMARY_DEFAULT_SOURCE = Path("data/source/material_workbench_tutorial_v1.xlsx")
 PROCESS_SOURCE = Path("data/source/material_workbench_process_v1.xlsx")
 _DATA_ROOT = Path(__file__).parent / "data"
@@ -31,6 +32,7 @@ _TABULAR_PROFILES = {
     CONCRETE_TASK_ID: _DATA_ROOT / "tabular-profile-concrete-v1.json",
     WEAR_CURVE_TASK_ID: _DATA_ROOT / "tabular-profile-wear-curve-v1.json",
     BATTERY_DEGRADATION_TASK_ID: _DATA_ROOT / "tabular-profile-battery-degradation-v1.json",
+    MPEA_LITERATURE_TASK_ID: _DATA_ROOT / "tabular-profile-mpea-literature-tys-v1.json",
 }
 
 
@@ -338,8 +340,13 @@ def _tabular_starter(task_id: str, name: str) -> StarterProject:
             )
             selected = [comparable[index] for index in indexes]
         else:
-            indexes = (len(eligible) // 4, len(eligible) // 2, len(eligible) * 3 // 4)
-            selected = [eligible[index] for index in indexes]
+            target = data.profile.outputs[0].key
+            comparable = sorted(
+                (row for row in eligible if target in row["outputs"]),
+                key=lambda row: float(row["outputs"][target]),
+            )
+            indexes = (len(comparable) // 4, len(comparable) // 2, len(comparable) * 3 // 4)
+            selected = [comparable[index] for index in indexes]
         return [
             candidate_from_observation(row, data.profile).model_copy(
                 update={"name": label}
@@ -452,6 +459,19 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         starter_project=_tabular_starter(BATTERY_DEGRADATION_TASK_ID, "電池容量劣化"),
         response_curve=_standard_response_curve,
         curve_family=_curve_family,
+        data_explorer=_TABULAR_EXPLORER,
+    ),
+    MPEA_LITERATURE_TASK_ID: TaskModule(
+        task_id=MPEA_LITERATURE_TASK_ID,
+        package_override_env="MATERIAL_WORKBENCH_MPEA_LITERATURE_MODEL_PACKAGE",
+        source_env="WORKBENCH_MPEA_LITERATURE_SOURCE_PATH",
+        source_kind="external_mpea_literature",
+        default_source=Path("data/source/external/mpea_ground_truth_18021833.csv"),
+        data_loader=_tabular_loader(MPEA_LITERATURE_TASK_ID),
+        runtime_factory=_tabular_runtime,
+        feature_row_builder=_tabular_features(MPEA_LITERATURE_TASK_ID),
+        model_builder=_tabular_builder(MPEA_LITERATURE_TASK_ID),
+        starter_project=_tabular_starter(MPEA_LITERATURE_TASK_ID, "MPEA文献の降伏強さ"),
         data_explorer=_TABULAR_EXPLORER,
     ),
 })

@@ -30,6 +30,8 @@ PROFILE_ROOT = Path(__file__).parent.parent / "data"
 PRIMARY_DATASET_PROFILES = {
     PRIMARY_DEFAULT_SOURCE: PROFILE_ROOT / "dataset-input-profile-tutorial.json",
     PROCESS_SOURCE: PROFILE_ROOT / "dataset-input-profile-process-v1.json",
+    Path("data/source/external/mpea_ground_truth_18021833.csv"):
+        PROFILE_ROOT / "tabular-profile-mpea-literature-tys-v1.json",
 }
 
 
@@ -94,7 +96,7 @@ def register_runtime_resources(catalog: WorkspaceCatalog, registry: TaskRegistry
 
 
 def register_primary_datasets(catalog: WorkspaceCatalog) -> None:
-    """Keep both supported thin-sheet sources visible regardless of the active runtime."""
+    """Keep bundled datasets visible even when they intentionally lack an active model."""
 
     for source_path, profile_path in PRIMARY_DATASET_PROFILES.items():
         register_dataset_records(

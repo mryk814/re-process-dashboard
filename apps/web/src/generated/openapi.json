@@ -1244,7 +1244,9 @@
               "duplicate_key",
               "invalid_reference",
               "out_of_range",
-              "suspicious_distribution"
+              "suspicious_distribution",
+              "curation_quarantine",
+              "missing_target"
             ],
             "title": "Issue Type",
             "type": "string"
@@ -5905,6 +5907,29 @@
             "title": "Created At",
             "type": "string"
           },
+          "design_space": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Design Space"
+          },
+          "design_space_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Design Space Digest"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -5922,6 +5947,25 @@
           "project_id": {
             "title": "Project Id",
             "type": "string"
+          },
+          "proposal_strategy": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposal Strategy"
+          },
+          "rejection_summary": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Rejection Summary",
+            "type": "object"
           },
           "representative_points": {
             "items": {

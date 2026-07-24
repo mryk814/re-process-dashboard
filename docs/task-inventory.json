@@ -349,6 +349,52 @@
         "lineage": false,
         "candidate_creation": false
       }
+    },
+    {
+      "task_id": "mpea-literature-tys-v1",
+      "label": "MPEA文献：組成のみの降伏強さ参考推定",
+      "outputs": [
+        {
+          "key": "TYS",
+          "label": "室温引張降伏強さ",
+          "unit": "MPa"
+        }
+      ],
+      "source": {
+        "kind": "external_mpea_literature",
+        "path": "data/source/external/mpea_ground_truth_18021833.csv",
+        "sha256": "a3b4230ff150e32ed51050a4813fc3fbad01b2bc2fc61b5d4fb8a5be3cc5e476",
+        "profile_id": "mpea-zenodo-18021833-v1",
+        "profile_path": "backend/src/material_workbench/data/tabular-profile-mpea-literature-tys-v1.json"
+      },
+      "active_package": {
+        "path": "packages/mpea-literature-tys-ridge-v1",
+        "previous": null,
+        "package_id": "mpea-literature-tys-ridge-v1",
+        "version": "1.0.0",
+        "manifest_sha256": "07ff3979b2448fc735bf39f9896af8a02caa149b89dd0120177b07e6b8e50662",
+        "runtime_types": [
+          "builtin.linear.v1"
+        ]
+      },
+      "runtime_operations": {
+        "preview": true,
+        "detailed_prediction": true,
+        "response_curve": false,
+        "similarity": true,
+        "snapshot": true,
+        "actual_measurement": false
+      },
+      "application_capability": {
+        "candidate_excel_import": false,
+        "candidate_excel_export": false
+      },
+      "data_explorer": {
+        "schema_version": "data-explorer-capability/v1",
+        "quality": true,
+        "lineage": false,
+        "candidate_creation": false
+      }
     }
   ]
 }

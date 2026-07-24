@@ -1,0 +1,125 @@
+{
+  "schema_version": "curation-recipe/v1",
+  "id": "mpea-literature-safe-tys",
+  "version": "1.0.0",
+  "header_row_index": 1,
+  "columns": {
+    "Fe": {
+      "parser": "finite_number",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": []
+    },
+    "Ni": {
+      "parser": "finite_number",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": []
+    },
+    "Co": {
+      "parser": "finite_number",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": []
+    },
+    "Mn": {
+      "parser": "finite_number",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": []
+    },
+    "Cr": {
+      "parser": "finite_number",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": []
+    },
+    "Al": {
+      "parser": "finite_number",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": []
+    },
+    "Ti": {
+      "parser": "finite_number",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": []
+    },
+    "Cu": {
+      "parser": "finite_number",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": []
+    },
+    "Si": {
+      "parser": "finite_number",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": []
+    },
+    "V": {
+      "parser": "finite_number",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": []
+    },
+    "Nb": {
+      "parser": "finite_number",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": []
+    },
+    "B": {
+      "parser": "finite_number",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": []
+    },
+    "Mo": {
+      "parser": "finite_number",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": []
+    },
+    "Ta": {
+      "parser": "finite_number",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": []
+    },
+    "Tensile Yield Strength (Mpa)": {
+      "parser": "reported_scalar",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": [
+        "",
+        "MPa"
+      ]
+    }
+  },
+  "sum_rules": [
+    {
+      "id": "composition-total-at-pct",
+      "label": "14元素の組成合計",
+      "columns": [
+        "Fe",
+        "Ni",
+        "Co",
+        "Mn",
+        "Cr",
+        "Al",
+        "Ti",
+        "Cu",
+        "Si",
+        "V",
+        "Nb",
+        "B",
+        "Mo",
+        "Ta"
+      ],
+      "minimum": 99.0,
+      "maximum": 101.0
+    }
+  ]
+}

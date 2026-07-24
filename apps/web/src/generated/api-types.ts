@@ -1316,7 +1316,7 @@ export interface components {
              * Issue Type
              * @enum {string}
              */
-            issue_type: "missing_key" | "orphan_entity" | "duplicate_key" | "invalid_reference" | "out_of_range" | "suspicious_distribution";
+            issue_type: "missing_key" | "orphan_entity" | "duplicate_key" | "invalid_reference" | "out_of_range" | "suspicious_distribution" | "curation_quarantine" | "missing_target";
             /** Missing Reference Key */
             missing_reference_key: string | null;
             /** Related Entity Keys */
@@ -3123,6 +3123,12 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Design Space */
+            design_space?: {
+                [key: string]: unknown;
+            } | null;
+            /** Design Space Digest */
+            design_space_digest?: string | null;
             /** Id */
             id: string;
             model_provenance: components["schemas"]["ModelMetadata"];
@@ -3130,6 +3136,14 @@ export interface components {
             points: components["schemas"]["ScreeningPoint"][];
             /** Project Id */
             project_id: string;
+            /** Proposal Strategy */
+            proposal_strategy?: {
+                [key: string]: unknown;
+            } | null;
+            /** Rejection Summary */
+            rejection_summary?: {
+                [key: string]: number;
+            };
             /** Representative Points */
             representative_points: components["schemas"]["ScreeningPoint"][];
             /** Samples */

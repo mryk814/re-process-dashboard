@@ -71,6 +71,7 @@ def run_latin_hypercube(
             permutation = rng.permutation(pool_size)
             sample_values[name] = [values[int(np.floor((permutation[index] + rng.random()) / pool_size * len(values))) % len(values)] for index in range(pool_size)]
     points: list[dict[str, Any]] = []
+    rejected_by_reason: defaultdict[str, int] = defaultdict(int)
     base_prediction = runtime.predict(base, detailed=False)
     for sample_index in range(pool_size):
         if len(points) >= request.samples:
@@ -82,7 +83,8 @@ def run_latin_hypercube(
         try:
             candidate_input = CandidateInput.model_validate(candidate.model_dump())
             candidate_validator(candidate_input)
-        except ValueError:
+        except ValueError as exc:
+            rejected_by_reason[str(exc) or "candidate_constraint"] += 1
             continue
         candidate = Candidate.model_validate({**candidate.model_dump(), **candidate_input.model_dump()})
         target_values = {
@@ -166,6 +168,7 @@ def run_latin_hypercube(
         "variables": {name: spec.model_dump() for name, spec in request.variables.items()},
         "points": points,
         "representative_points": ranked[:10],
+        "_rejection_summary": dict(sorted(rejected_by_reason.items())),
     }
 
 

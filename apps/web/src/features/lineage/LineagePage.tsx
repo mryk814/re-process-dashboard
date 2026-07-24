@@ -283,6 +283,8 @@ export function LineagePage({
     invalid_reference: "参照切れ",
     out_of_range: "範囲外",
     suspicious_distribution: "分布の偏り",
+    curation_quarantine: "学習利用から隔離",
+    missing_target: "目的変数の欠損",
   };
   const openNode = (key: string) => {
     setGraphLimit(40);

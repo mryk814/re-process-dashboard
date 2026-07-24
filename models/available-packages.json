@@ -11,6 +11,7 @@
     "packages/heat-treatment-ridge-external-v1",
     "packages/concrete-strength-ridge-external-v1",
     "packages/wear-curve-ridge-external-v1",
-    "packages/battery-degradation-lightgbm-external-v1"
+    "packages/battery-degradation-lightgbm-external-v1",
+    "packages/mpea-literature-tys-ridge-v1"
   ]
 }

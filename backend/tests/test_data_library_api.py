@@ -5,7 +5,7 @@ def test_data_library_exposes_semantic_dataset_records_and_creation_options(clie
     datasets = client.get("/api/data-library/datasets")
     assert datasets.status_code == 200
     items = datasets.json()
-    assert len(items) == 7
+    assert len(items) == 8
     assert all(item["data_asset"]["sha256"] for item in items)
     assert all(item["profile_revision"]["profile_digest"] for item in items)
     assert all(item["dataset_revision"]["dataset_digest"] for item in items)
@@ -17,13 +17,16 @@ def test_data_library_exposes_semantic_dataset_records_and_creation_options(clie
         "concrete-strength-v1",
         "wear-curve-v1",
         "battery-degradation-v1",
+        "mpea-literature-tys-v1",
     }
+    mpea = next(item for item in items if item["data_asset"]["original_filename"] == "mpea_ground_truth_18021833.csv")
+    assert mpea["supported_task_ids"] == ["mpea-literature-tys-v1"]
 
     options = client.get("/api/project-creation-options")
     assert options.status_code == 200
     payload = options.json()
-    assert len(payload["dataset_views"]) == 7
-    assert len(payload["model_packages"]) == 13
+    assert len(payload["dataset_views"]) == 8
+    assert len(payload["model_packages"]) == 14
     assert payload["project_series"]
     assert set(payload["task_contract_digests"]) >= {
         "annealed-properties-v1",
@@ -33,12 +36,37 @@ def test_data_library_exposes_semantic_dataset_records_and_creation_options(clie
         "concrete-strength-v1",
         "wear-curve-v1",
         "battery-degradation-v1",
+        "mpea-literature-tys-v1",
     }
     assert all(
         package["task_contract_digest"]
         == payload["task_contract_digests"][package["task_id"]]
         for package in payload["model_packages"]
     )
+
+
+def test_mpea_bundled_task_runs_from_registered_dataset_and_package(client) -> None:
+    project = next(
+        item for item in client.get("/api/projects").json()
+        if item["task_id"] == "mpea-literature-tys-v1"
+    )
+    candidates = client.get(
+        f"/api/projects/{project['id']}/candidates"
+    ).json()
+
+    assert len(candidates) == 3
+    preview = client.post(
+        f"/api/projects/{project['id']}/candidates/{candidates[1]['id']}/preview",
+        params={"expected_revision": candidates[1]["revision"]},
+    )
+    assert preview.status_code == 200, preview.text
+    payload = preview.json()
+    assert set(payload["predictions"]) == {"TYS"}
+    assert set(payload["canonical_input"]["composition"]) == {
+        "Fe", "Ni", "Co", "Mn", "Cr", "Al", "Ti", "Cu",
+        "Si", "V", "Nb", "B", "Mo", "Ta",
+    }
+    assert payload["model_meta"]["package"]["id"] == "mpea-literature-tys-ridge-v1"
 
 
 def test_project_creation_pins_explicit_references_and_rejects_rebinding(client) -> None:

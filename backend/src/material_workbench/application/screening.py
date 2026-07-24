@@ -14,6 +14,13 @@ from material_workbench.contracts.schemas import (
     ScreeningRunResponse,
 )
 from material_workbench.domain.services import run_latin_hypercube
+from material_workbench.contracts.design_space_contracts import (
+    CategoricalDomain,
+    DesignSpaceDefinition,
+    NumericDomain,
+)
+from material_workbench.contracts.task_contracts import NumericRange
+from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.persistence.store import CandidateLimitError, Store
 from material_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
 from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
@@ -46,11 +53,14 @@ class ScreeningService:
             self.registry.validate_candidate(project.task_id, CandidateInput.model_validate(base.model_dump()))
         except (TaskRegistryError, ValueError) as exc:
             raise ScreeningValidationError(str(exc)) from exc
-        screenable_fields = {
+        all_scalar_fields = {
             field.path: field
             for group in definition.input_groups
             for field in group.fields
-            if field.editable and field.kind != "heat_pattern"
+            if field.kind != "heat_pattern"
+        }
+        screenable_fields = {
+            path: field for path, field in all_scalar_fields.items() if field.editable
         }
         heat_pattern_paths = {
             f"heat_pattern.{index}.{field}"
@@ -73,6 +83,75 @@ class ScreeningService:
                 raise ScreeningValidationError(f"{field.label if field is not None else 'ヒートパターン'}には有限の数値を指定してください")
             elif spec.mode == "range" and (not math.isfinite(float(spec.min)) or not math.isfinite(float(spec.max))):
                 raise ScreeningValidationError(f"{field.label if field is not None else 'ヒートパターン'}には有限の範囲を指定してください")
+        scalar_specs = {
+            path: spec for path, spec in payload.variables.items()
+            if path in screenable_fields
+        }
+        implicit_fixed: dict[str, float | str] = {}
+        for path, field in all_scalar_fields.items():
+            if path in scalar_specs:
+                continue
+            group, key = path.split(".", 1)
+            values = getattr(base.inputs, group)
+            if key in values:
+                implicit_fixed[path] = values[key]
+        heat_specs = {
+            path: spec for path, spec in payload.variables.items()
+            if path in heat_pattern_paths
+        }
+        design_space = DesignSpaceDefinition(
+            schema_version="design-space-definition/v1",
+            design_space_id=f"screening-{semantic_digest({
+                'task_id': project.task_id,
+                'variables': {path: spec.model_dump(mode='json') for path, spec in scalar_specs.items()},
+            }).removeprefix('sha256:')[:16]}",
+            name="範囲探索の設計空間",
+            task_id=project.task_id,
+            task_contract_digest=project.task_contract_digest,
+            fixed_values=implicit_fixed | {
+                path: spec.value for path, spec in scalar_specs.items()
+                if spec.mode == "fixed" and spec.value is not None
+            },
+            fixed_heat_pattern=tuple(
+                point.model_dump(mode="json") for point in (base.inputs.heat_pattern or ())
+            ) or None,
+            numeric_domains=tuple(
+                NumericDomain(
+                    path=path,
+                    mode="range" if spec.mode == "range" else "values",
+                    range=NumericRange(min=float(spec.min), max=float(spec.max))
+                    if spec.mode == "range"
+                    else None,
+                    values=tuple(float(value) for value in (spec.values or ()))
+                    if spec.mode == "list"
+                    else (),
+                )
+                for path, spec in scalar_specs.items()
+                if screenable_fields[path].kind == "number" and spec.mode != "fixed"
+            ),
+            categorical_domains=tuple(
+                CategoricalDomain(path=path, choices=tuple(str(value) for value in spec.values or ()))
+                for path, spec in scalar_specs.items()
+                if screenable_fields[path].kind == "categorical" and spec.mode == "list"
+            ),
+            heat_pattern_domains=tuple(
+                NumericDomain(
+                    path=path,
+                    mode="range" if spec.mode == "range" else "values",
+                    range=NumericRange(min=float(spec.min), max=float(spec.max))
+                    if spec.mode == "range"
+                    else None,
+                    values=(float(spec.value),)
+                    if spec.mode == "fixed"
+                    else tuple(float(value) for value in (spec.values or ())),
+                )
+                for path, spec in heat_specs.items()
+            ),
+        )
+        try:
+            design_space.validate_against(definition)
+        except ValueError as exc:
+            raise ScreeningValidationError(str(exc)) from exc
         output = next((item for item in definition.outputs if item.key == payload.target), None)
         if output is None:
             raise ScreeningValidationError("この予測タスクにない目標特性です")
@@ -92,6 +171,15 @@ class ScreeningService:
             )
         except ValueError as exc:
             raise ScreeningValidationError(str(exc)) from exc
+        result["design_space"] = design_space.model_dump(mode="json")
+        result["design_space_digest"] = semantic_digest(result["design_space"])
+        result["proposal_strategy"] = {
+            "id": "latin_hypercube_v1",
+            "version": "1.0.0",
+            "seed": result["seed"],
+            "requested_count": payload.samples,
+        }
+        result["rejection_summary"] = result.pop("_rejection_summary", {})
         stored = self.store.create_screening_run(to_jsonable_python(result), project_id)
         return ScreeningRunResponse.model_validate(stored)
 

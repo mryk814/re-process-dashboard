@@ -1,0 +1,14 @@
+{
+  "records": {
+    "TYS": 169
+  },
+  "groups": 58,
+  "rows": 169,
+  "source_sha256": "a3b4230ff150e32ed51050a4813fc3fbad01b2bc2fc61b5d4fb8a5be3cc5e476",
+  "curation": {
+    "accepted": 155,
+    "warning": 218,
+    "quarantined": 23,
+    "blocked": 0
+  }
+}

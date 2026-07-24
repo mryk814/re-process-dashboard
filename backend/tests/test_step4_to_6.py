@@ -48,6 +48,16 @@ def test_latin_hypercube_is_deterministic_bounded_and_convertible(client) -> Non
     assert first["base_candidate_id"] == candidate["id"]
     assert first["base_inputs"] == candidate["inputs"]
     assert first["model_provenance"]["model"]["version"]
+    assert first["design_space"]["schema_version"] == "design-space-definition/v1"
+    assert first["design_space"]["task_id"] == "annealed-properties-v1"
+    assert first["design_space_digest"].startswith("sha256:")
+    assert first["proposal_strategy"] == {
+        "id": "latin_hypercube_v1",
+        "version": "1.0.0",
+        "seed": 20260719,
+        "requested_count": 48,
+    }
+    assert isinstance(first["rejection_summary"], dict)
     assert first["score_contract"] == {
         "version": "screening-score/v2",
         "preference": "lower_is_better",

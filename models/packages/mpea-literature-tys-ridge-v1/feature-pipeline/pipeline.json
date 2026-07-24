@@ -1,0 +1,106 @@
+{
+  "id": "mpea-literature-tys-v1-profile-transform",
+  "version": "1.0.0",
+  "canonical_input_paths": [
+    "composition.Fe",
+    "composition.Ni",
+    "composition.Co",
+    "composition.Mn",
+    "composition.Cr",
+    "composition.Al",
+    "composition.Ti",
+    "composition.Cu",
+    "composition.Si",
+    "composition.V",
+    "composition.Nb",
+    "composition.B",
+    "composition.Mo",
+    "composition.Ta"
+  ],
+  "features": [
+    {
+      "name": "composition.Fe",
+      "unit": "at%",
+      "meaning": "composition.Fe raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Ni",
+      "unit": "at%",
+      "meaning": "composition.Ni raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Co",
+      "unit": "at%",
+      "meaning": "composition.Co raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Mn",
+      "unit": "at%",
+      "meaning": "composition.Mn raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Cr",
+      "unit": "at%",
+      "meaning": "composition.Cr raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Al",
+      "unit": "at%",
+      "meaning": "composition.Al raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Ti",
+      "unit": "at%",
+      "meaning": "composition.Ti raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Cu",
+      "unit": "at%",
+      "meaning": "composition.Cu raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Si",
+      "unit": "at%",
+      "meaning": "composition.Si raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.V",
+      "unit": "at%",
+      "meaning": "composition.V raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Nb",
+      "unit": "at%",
+      "meaning": "composition.Nb raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.B",
+      "unit": "at%",
+      "meaning": "composition.B raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Mo",
+      "unit": "at%",
+      "meaning": "composition.Mo raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Ta",
+      "unit": "at%",
+      "meaning": "composition.Ta raw value",
+      "group": "composition"
+    }
+  ]
+}

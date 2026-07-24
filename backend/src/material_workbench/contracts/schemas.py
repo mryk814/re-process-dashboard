@@ -914,6 +914,10 @@ class ScreeningRunResponse(BaseModel):
     score_contract: ScreeningScoreContract
     samples: int
     variables: dict[str, ScreeningVariable]
+    design_space: dict[str, Any] | None = None
+    design_space_digest: str | None = None
+    proposal_strategy: dict[str, Any] | None = None
+    rejection_summary: dict[str, int] = Field(default_factory=dict)
     points: list[ScreeningPoint]
     representative_points: list[ScreeningPoint]
 
@@ -980,6 +984,8 @@ class DataQualityIssue(BaseModel):
         "invalid_reference",
         "out_of_range",
         "suspicious_distribution",
+        "curation_quarantine",
+        "missing_target",
     ]
     source_sheet: str
     entity_key: str

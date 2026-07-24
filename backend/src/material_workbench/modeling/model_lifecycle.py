@@ -145,6 +145,12 @@ def dataset_profile_digest(path: Path | Any = DATASET_PROFILE_PATH) -> str:
         else:
             profile = load_dataset_profile(profile_path)
     payload = profile.model_dump(mode="json", exclude={"task_definitions"})
+    # Optional contract additions must not invalidate existing packages when the
+    # active profile does not use them.
+    if payload.get("curation_recipe") is None:
+        payload.pop("curation_recipe", None)
+    if payload.get("ridge_alpha") == 1.0:
+        payload.pop("ridge_alpha", None)
     shared = payload.get("shared")
     if isinstance(shared, dict):
         for key in ("policy_defaults", "optional_roles", "optional_technical_fields"):

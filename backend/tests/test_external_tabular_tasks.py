@@ -52,6 +52,8 @@ def test_external_tasks_are_registered_with_their_source_rows(resources) -> None
     assert len(resources.data_by_source["external_concrete"].observations) == 1600
     assert len(resources.data_by_source["external_wear_curve"].observations) == 14640
     assert len(resources.data_by_source["external_battery_degradation"].observations) == 9090
+    assert len(resources.data_by_source["external_mpea_literature"].observations) == 396
+    assert "mpea-literature-tys-v1" in resources.task_registry.task_ids
 
 
 @pytest.mark.parametrize("task_id", EXTERNAL_TASKS)
@@ -142,6 +144,7 @@ def test_external_sources_are_bundled_with_readme_provenance() -> None:
         "heat_treatment_README.md",
         "wear_curve_README.md",
         "battery_README.md",
+        "mpea_zenodo_18021833_README.md",
     }
 
 
