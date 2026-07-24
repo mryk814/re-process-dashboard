@@ -28,6 +28,17 @@
 .quality-filters label { display: grid; gap: 4px; color: #5d6775; font-size: 12px; }
 .quality-filters select,
 .quality-filters input { min-width: 150px; border: 1px solid #c6d0dc; border-radius: 4px; padding: 7px 9px; background: #fff; color: #18202c; }
+.quality-issue-groups { display: grid; gap: 8px; }
+.quality-issue-group { border: 1px solid #d8e0ea; border-radius: 5px; background: #fff; overflow: hidden; }
+.quality-issue-group summary { position: relative; display: grid; grid-template-columns: auto minmax(88px, auto) minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 11px 13px 11px 22px; color: #263448; cursor: pointer; list-style: none; }
+.quality-issue-group summary::-webkit-details-marker { display: none; }
+.quality-issue-group summary::before { content: "›"; position: absolute; transform: translateX(-10px); color: #52708f; font-size: 18px; transition: transform 120ms ease; }
+.quality-issue-group[open] summary::before { transform: translateX(-10px) rotate(90deg); }
+.quality-issue-group summary strong { font-size: 13px; }
+.quality-issue-group summary span:not(.status-tag) { overflow: hidden; color: #536277; text-overflow: ellipsis; white-space: nowrap; }
+.quality-issue-group summary b { color: #174f98; font-size: 12px; white-space: nowrap; }
+.quality-issue-group .table-scroll { border-top: 1px solid #d8e0ea; }
+.quality-issue-group .quality-table { border: 0; }
 .quality-focus-row { background: #eef5ff; }
 .quality-actions { min-width: 170px; }
 .quality-actions .text-button { display: block; margin: 3px 0; }
@@ -40,4 +51,8 @@
   .quality-summary { display: block; }
   .quality-summary button { display: block; width: 100%; margin: 6px 0; }
   .quality-filters { align-items: stretch; flex-direction: column; }
+  .quality-issue-group summary { grid-template-columns: auto 1fr auto; }
+  .quality-issue-group summary strong { grid-column: 2; }
+  .quality-issue-group summary span:not(.status-tag) { grid-column: 2; }
+  .quality-issue-group summary b { grid-column: 3; grid-row: 1 / span 2; }
 }

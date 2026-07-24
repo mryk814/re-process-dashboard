@@ -120,9 +120,9 @@
 .project-start-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .project-start-options label { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; border: 1px solid #d8e0ea; border-radius: 5px; padding: 11px; color: #20344b; }
 .project-start-options label span { grid-column: 2; color: #718096; font-size: 11px; }
-.project-action-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.project-action-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .project-action-card { display: grid; gap: 5px; min-height: 82px; border: 1px solid #cbd6e3; border-radius: 6px; background: #f8fafc; padding: 12px; text-align: left; color: #233b55; cursor: pointer; }
-.project-action-card.primary { border-color: #1f5fc4; background: #eff6ff; color: #164f9f; }
+.project-action-card.primary { grid-column: 1 / -1; border-color: #1f5fc4; background: #eff6ff; color: #164f9f; }
 .project-action-card span { color: #65758a; font-size: 11px; }
 .project-history-list { display: grid; gap: 10px; }
 .project-history-card { border: 1px solid #dce4ed; border-radius: 5px; overflow: hidden; }
