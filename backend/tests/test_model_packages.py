@@ -3,6 +3,8 @@ from __future__ import annotations
 import ast
 import hashlib
 import json
+import subprocess
+import sys
 from io import BytesIO
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
@@ -24,6 +26,24 @@ from material_workbench.modeling.model_packages import (
 from material_workbench.contracts.task_contracts import TaskContractFixture
 from material_workbench.adapters.numpyro_posterior import MAX_NPZ_COMPRESSION_RATIO
 from material_workbench.adapters.sklearn_skops import _TRUSTED_TYPES_BY_FAMILY
+
+
+def test_stage_c_builder_bootstraps_backend_src_outside_repository(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[2]
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(root / "backend" / "scripts" / "build_welding_stage_c_model_package.py"),
+            "--help",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+
+    assert "Build the allow-listed Stage C Model Package" in completed.stdout
 
 
 def _artifact(path: Path, relative: str) -> dict[str, object]:
