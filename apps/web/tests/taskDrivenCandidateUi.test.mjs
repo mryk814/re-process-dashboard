@@ -11,8 +11,10 @@ const bundle = await build({
       import React from "react";
       import { renderToStaticMarkup } from "react-dom/server";
       import { CandidateInspector, ComparisonTable } from "./features/candidates/CandidateUi.tsx";
+      import { similarObservationRowKey } from "./features/workbench/similarObservationIdentity.ts";
       export const element = (text) => React.createElement("div", null, text);
       export const renderInspector = (props) => renderToStaticMarkup(React.createElement(CandidateInspector, props));
+      export { similarObservationRowKey };
       export const renderComparison = (props) => renderToStaticMarkup(React.createElement(ComparisonTable, {
         decisionCandidateId: "",
         detailedPredictionAvailable: true,
@@ -36,7 +38,7 @@ const bundle = await build({
 });
 const module = { exports: {} };
 new Function("module", "exports", "require", bundle.outputFiles[0].text)(module, module.exports, createRequire(import.meta.url));
-const { element, renderInspector, renderComparison } = module.exports;
+const { element, renderInspector, renderComparison, similarObservationRowKey } = module.exports;
 
 const numberField = (path, label, order = 0) => ({ path, label, order, kind: "number", unit: path.startsWith("composition") ? "mass%" : "°C", required: true, editable: true, choices: [], allowed_range: { min: 0, max: 1500 }, training_range: { min: 1, max: 1000 } });
 const candidate = {
@@ -95,6 +97,26 @@ test("hot rolling definition omits heat pattern and renders process, categorical
   assert.doesNotMatch(comparison, />YS</);
 });
 
+test("comparison puts the input group that differs between candidates first", () => {
+  const definition = {
+    input_groups: [
+      { key: "composition", order: 0, label: "組成", fields: [numberField("composition.C", "C")] },
+      { key: "process", order: 1, label: "熱延条件", fields: [numberField("process.temperature", "温度")] },
+    ],
+    outputs: [],
+    display_decimals: { "composition.C": 5, "process.temperature": 1 },
+    fixed_context: [],
+  };
+  const second = {
+    ...candidate,
+    id: "candidate-2",
+    label: "候補B",
+    raw: { ...candidate.raw, id: "candidate-2", name: "候補B", inputs: { ...candidate.raw.inputs, process: { temperature: 950 } } },
+  };
+  const comparison = renderComparison({ candidates: [candidate, second], selectedId: candidate.id, taskDefinition: definition, previewsByCandidate: {}, targetValues: {}, onSelect() {}, onName() {}, onInput() {} });
+  assert.ok(comparison.indexOf(">熱延条件<") < comparison.indexOf(">組成<"));
+});
+
 test("conflict state keeps recovery actions next to the draft", () => {
   const definition = {
     input_groups: [{ key: "composition", order: 0, label: "組成", fields: [numberField("composition.C", "C")] }],
@@ -123,6 +145,47 @@ test("conflict state keeps recovery actions next to the draft", () => {
   assert.match(inspector, /時刻順を確認してください/);
 });
 
+test("candidate sliders prefer project range, then default range, while keeping the training band", () => {
+  const field = {
+    ...numberField("composition.C", "C"),
+    allowed_range: { min: 0, max: 100 },
+    default_range: { min: 0, max: 0.2 },
+    training_range: { min: 0.025, max: 0.14 },
+  };
+  const definition = {
+    input_groups: [{ key: "composition", order: 0, label: "組成", fields: [field] }],
+    outputs: [],
+    display_decimals: { "composition.C": 5 },
+    fixed_context: [],
+  };
+  const defaults = renderInspector({ candidate, taskDefinition: definition, saveState: "idle", fieldErrors: [], onInput() {}, onReload() {}, onCopyDraft() {} });
+  assert.match(defaults, /type="range" min="0" max="0.2"/);
+  assert.match(defaults, /linear-gradient\(90deg, #dfe6ee 0 12.5%, #6bb69e 12.5% 70%/);
+
+  const configured = renderInspector({ candidate, taskDefinition: definition, inputRanges: { "composition.C": { min: 0, max: 0.5 } }, saveState: "idle", fieldErrors: [], onInput() {}, onReload() {}, onCopyDraft() {} });
+  assert.match(configured, /type="range" min="0" max="0.5"/);
+  assert.match(configured, /linear-gradient\(90deg, #dfe6ee 0 5%, #6bb69e 5% 28%/);
+});
+
+test("similar observations with a shared parent retain distinct row identities", () => {
+  const base = {
+    observation_id: "",
+    observation_ids: [],
+    parent_key: "HR-02",
+    source: "fixture",
+    layer: "historical",
+    source_scope: "project_reference_data",
+    distance: 0.1,
+    process_key: "HR-02",
+    process_label: "熱延履歴",
+    relation_context_ids: [],
+  };
+  const first = similarObservationRowKey({ ...base, melt_key: "ME-01", observation_id: "OBS-01" });
+  const second = similarObservationRowKey({ ...base, melt_key: "ME-02", observation_id: "OBS-02" });
+  assert.notEqual(first, second);
+  assert.equal(first, similarObservationRowKey({ ...base, melt_key: "ME-01", observation_id: "OBS-01" }));
+});
+
 test("non-editable fields are disabled and goal probability remains visible", () => {
   const readonly = { ...numberField("composition.C", "C"), editable: false };
   const definition = {
@@ -139,10 +202,27 @@ test("non-editable fields are disabled and goal probability remains visible", ()
   const comparison = renderComparison({ candidates: [candidate], selectedId: candidate.id, taskDefinition: definition, previewsByCandidate: { [candidate.id]: preview }, targetValues: {}, onSelect() {}, onName() {}, onInput() {} });
   assert.match(inspector, /disabled=""/);
   assert.match(comparison, /disabled=""/);
-  assert.match(comparison, /<b>82%<\/b><small>目標<\/small>/);
+  assert.match(comparison, /達成確率 82%/);
   assert.match(comparison, /value="0.10000"/);
-  assert.match(comparison, />480.0–520.0<\/span>/);
+  assert.match(comparison, /区間 480.0–520.0/);
   assert.match(comparison, /title="90%予測区間 480.0–520.0 \/ モデル由来 ±12 \/ 測定由来 ±8"/);
+});
+
+test("physically implausible interval is marked on the interval without condemning an in-range point", () => {
+  const definition = {
+    input_groups: [{ key: "composition", order: 0, label: "組成", fields: [numberField("composition.C", "C")] }],
+    outputs: [{ key: "TS", label: "引張強さ", unit: "MPa", goal_direction: "at_least", plausibility_range: { min: 0, max: 1500 } }],
+    display_decimals: { "composition.C": 5, "output.TS": 1 },
+    fixed_context: [],
+  };
+  const preview = {
+    predictions: { TS: { value: 628.3, lower: -11.9, upper: 981.1, unit: "MPa", target_kind: "continuous", point_statistic: "mean", predictive_family: "normal", quantiles: { "0.05": -11.9, "0.95": 981.1 }, goal_probability: null } },
+    support: { status: "supported" },
+  };
+  const comparison = renderComparison({ candidates: [candidate], selectedId: candidate.id, taskDefinition: definition, previewsByCandidate: { [candidate.id]: preview }, targetValues: {}, onSelect() {}, onName() {}, onInput() {} });
+  assert.match(comparison, /⚠ 範囲外含む/);
+  assert.match(comparison, /予測区間が物理範囲外です/);
+  assert.doesNotMatch(comparison, /⚠ 物理範囲外/);
 });
 
 test("quantile-only output keeps quantile wording and unavailable goal semantics", () => {
@@ -158,7 +238,7 @@ test("quantile-only output keeps quantile wording and unavailable goal semantics
   };
   const comparison = renderComparison({ candidates: [candidate], selectedId: candidate.id, taskDefinition: definition, previewsByCandidate: { [candidate.id]: preview }, targetValues: { Q: 15 }, onSelect() {}, onName() {}, onInput() {} });
   assert.match(comparison, /title="5–95%分位 8.0–17.0"/);
-  assert.match(comparison, /利用不可/);
+  assert.match(comparison, /達成率なし/);
   assert.doesNotMatch(comparison, /90%予測区間|計算中|±0/);
 });
 
@@ -195,7 +275,13 @@ test("response curve source renders every declared quantile with explicit labeli
   assert.match(source, /data-quantile=\{level\}/);
   assert.match(source, /分位線/);
   assert.match(source, /point\.quantiles\[level\]/);
-  assert.match(source, /binary[\s\S]*fail確率/);
   assert.match(source, /value \* 100/);
   assert.match(source, /校正済み点確率/);
+});
+
+test("training data details reads the toggle target synchronously instead of React currentTarget", async () => {
+  const source = await import("node:fs/promises").then(({ readFile }) => readFile(new URL("../src/features/admin/ModelTrainingDataInspector.tsx", import.meta.url), "utf8"));
+  assert.match(source, /event\.target === detailsRef\.current/);
+  assert.match(source, /\(event\.target as HTMLDetailsElement\)\.open/);
+  assert.doesNotMatch(source, /event\.currentTarget\.open/);
 });

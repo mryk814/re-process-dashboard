@@ -11,6 +11,7 @@ import {
   requestInferenceSurface,
   resolveInferenceSurface,
 } from "./inferenceSurfaceState";
+import { similarObservationRowKey } from "./similarObservationIdentity";
 
 function formatNumber(value: number, digits = 0) {
   return value.toLocaleString("ja-JP", {
@@ -137,7 +138,7 @@ export function SimilarityEvidencePanel({
         <div className="similar-table-scroll"><table className={`similar-table similar-summary-table${hasMeltKey ? "" : " no-melt-key"}`}>
           <thead><tr><th>距離</th>{hasMeltKey && <th>溶製成績書 key</th>}<th>{processLabel} key</th><th>実績値</th><th /></tr></thead>
           <tbody>{similar.map((item) => (
-            <tr key={`${item.layer ?? "training"}-${item.parent_key}`}>
+            <tr key={similarObservationRowKey(item)}>
               <td className="similar-distance"><b>{item.distance.toFixed(2)}</b><span className="layer-chip historical">参照データ</span></td>
               {hasMeltKey && <td><span className="similar-key" title={item.melt_key ?? undefined}>{item.melt_key ?? "—"}</span></td>}
               <td><span className="similar-key" title={item.process_key ?? item.parent_key}>{item.process_key ?? item.parent_key}</span></td>

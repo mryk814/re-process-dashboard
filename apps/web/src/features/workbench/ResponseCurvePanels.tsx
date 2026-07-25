@@ -110,13 +110,13 @@ export function CurveFamilyPanel({
   const requestIdentity = JSON.stringify({ projectId, candidateId: candidate.id, revision: candidate.raw.revision, inputIdentity, varyId, levels, outputKeys, axisPath });
   const payloads = loadedPayloads.scopeIdentity === scopeIdentity ? loadedPayloads.values : {};
   useEffect(() => {
-    if (!ready || !axisPath || !outputs.length) return;
+    if (!ready || !axisPath || !varyId || !outputs.length) return;
     const controller = new AbortController();
     setError(null);
     const timer = window.setTimeout(async () => {
       try {
         const loaded = await Promise.all(outputs.map((output) =>
-          workbenchApi.curveFamily(projectId, candidate.id, candidate.raw.revision, inputIdentity, output.key, varyId, varyId ? levels : 2, 15, controller.signal)));
+          workbenchApi.curveFamily(projectId, candidate.id, candidate.raw.revision, inputIdentity, output.key, varyId, levels, 15, controller.signal)));
         if (controller.signal.aborted) return;
         setLoadedPayloads({ scopeIdentity, values: Object.fromEntries(outputs.map((output, index) => [output.key, loaded[index]])) });
         setError(null);
@@ -131,20 +131,20 @@ export function CurveFamilyPanel({
   const firstPayload = outputs.map((output) => payloads[output.key]).find(Boolean);
   const legendSeries = firstPayload?.series ?? [];
   return (
-    <section className="response-curves-panel curve-family-panel" aria-label={`${axisLabel}に沿った特性曲線`}>
+    <section className="response-curves-panel curve-family-panel" aria-label={`${axisLabel}に沿った二変数感度`}>
       <div className="panel-title">
         <div className="response-curves-title-group">
-          <h2>特性曲線 <span>（横軸: {axisLabel}。選んだ変数を数水準ふって重ね描き）</span></h2>
-          {varyId && legendSeries.length > 1 ? (
+          <h2>二変数感度 <span>（横軸: {axisLabel}。もう1変数の水準ごとに比較）</span></h2>
+          {legendSeries.length > 1 ? (
             <div className="candidate-color-legend" aria-label="水準の凡例">
               {legendSeries.map((series, index) => (
                 <span key={series.label}><i style={{ background: levelColor(index, legendSeries.length) }} />{series.label}</span>
               ))}
             </div>
-          ) : <span className="curve-scope">現在の候補の曲線</span>}
+          ) : null}
         </div>
-        <label>ふる変数 <select aria-label="水準をふる変数" value={varyId} onChange={(event) => setVaryId(event.target.value)}>
-          <option value="">なし（現在の候補のみ）</option>
+        <label>比較する変数 <select aria-label="水準を比較する変数" value={varyId} onChange={(event) => setVaryId(event.target.value)}>
+          <option value="">選択してください</option>
           {varyOptions.length ? <optgroup label="数値">
             {varyOptions.map((input) => <option key={input.path} value={input.path}>{input.label}{input.unit ? ` (${input.unit})` : ""}</option>)}
           </optgroup> : null}
@@ -156,12 +156,12 @@ export function CurveFamilyPanel({
           {[3, 5, 7].map((count) => <option key={count} value={count}>{count}</option>)}
         </select></label> : null}
       </div>
-      {!ready && !firstPayload ? <p className="empty-evidence">入力を保存後に更新します。</p> : error && !firstPayload ? <p className="empty-evidence">曲線を取得できません。 ({error.message})</p> : !firstPayload ? <p className="empty-evidence">曲線を読み込んでいます。</p> : (
+      {!varyId ? <p className="curve-family-prompt">比較する変数を選ぶと、{axisLabel}との組み合わせによる変化を確認できます。</p> : !ready && !firstPayload ? <p className="empty-evidence">入力を保存後に更新します。</p> : error && !firstPayload ? <p className="empty-evidence">曲線を取得できません。 ({error.message})</p> : !firstPayload ? <p className="empty-evidence">曲線を読み込んでいます。</p> : (
         <div className={`response-curves-grid output-count-${Math.min(outputs.length, 4)}`}>
           {outputs.map((output) => {
             const payload = payloads[output.key];
             if (!payload) return <article key={output.key} className="response-curve-card"><header><b>{output.label}</b><span>読み込み中</span></header></article>;
-            return <CurveFamilyChart key={output.key} output={output} payload={payload} goalValue={targetValues[output.key]} showVaryLevels={Boolean(varyId)} />;
+            return <CurveFamilyChart key={output.key} output={output} payload={payload} goalValue={targetValues[output.key]} />;
           })}
         </div>
       )}
@@ -173,16 +173,14 @@ function CurveFamilyChart({
   output,
   payload,
   goalValue,
-  showVaryLevels,
 }: {
   output: TaskOutputDefinition;
   payload: ApiCurveFamily;
   goalValue?: TargetGoal;
-  showVaryLevels: boolean;
 }) {
   const width = 300;
   const height = 156;
-  const series = showVaryLevels ? payload.series : payload.series.slice(0, 1);
+  const series = payload.series;
   const points = series.flatMap((item) => item.points);
   const minX = payload.axis.min;
   const maxX = payload.axis.max;
