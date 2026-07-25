@@ -17,6 +17,12 @@ export function provenanceNavigation(
         projectId: provenance.source_ref.project_id,
         candidateId: provenance.source_ref.candidate_id,
       };
+    case "blend_optimization":
+      return {
+        view: "candidates",
+        projectId: provenance.source_ref.project_id,
+        candidateId: provenance.source_ref.baseline_candidate_id,
+      };
     case "snapshot":
       return { view: "project", projectId, snapshotId: provenance.source_ref.snapshot_id };
     case "direct":

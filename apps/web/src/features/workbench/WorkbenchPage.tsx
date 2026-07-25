@@ -22,6 +22,7 @@ import {
 import { apiBaseUrl } from "../../shared/api/client";
 import type { TargetGoal } from "../../shared/targetGoals";
 import {
+  type ApiCandidate,
   type ApiProject,
   type ApiPreview,
 } from "../../shared/api/workbench-api";
@@ -30,6 +31,7 @@ import { FeatureEngineeringPanel } from "./FeatureEngineeringPanel";
 import { DecisionActivityPanel } from "./DecisionActivityPanel";
 import { ActualMeasurementPanel } from "./ActualMeasurementPanel";
 import { BlendComparisonPanel } from "./BlendComparisonPanel";
+import { BlendOptimizationPanel } from "./BlendOptimizationPanel";
 import { HeatPattern } from "./HeatPatternPanel";
 import {
   CurveFamilyPanel,
@@ -104,6 +106,7 @@ type WorkbenchProps = {
   onAdd: () => void;
   onAddCandidateFromLineage: (entityKey: string) => Promise<boolean>;
   onImported: (items: Candidate[]) => void;
+  onOptimizedCandidate: (candidate: ApiCandidate) => void;
   onProjectChanged: (project: ApiProject) => void | Promise<void>;
   onConfigureGoals: () => void;
   onConfigureSupport: () => void;
@@ -150,6 +153,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
     onAdd,
     onAddCandidateFromLineage,
     onImported,
+    onOptimizedCandidate,
     onProjectChanged,
     onConfigureGoals,
     onConfigureSupport,
@@ -280,6 +284,11 @@ export function WorkbenchPage(props: WorkbenchProps) {
           projectId={projectId}
           candidates={candidates}
           selected={selected}
+        />
+        <BlendOptimizationPanel
+          projectId={projectId}
+          candidate={selected.raw}
+          onCandidateCreated={onOptimizedCandidate}
         />
         {taskDefinition && operations?.actual_measurement && <ActualMeasurementPanel
           projectId={projectId}
