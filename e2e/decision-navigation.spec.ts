@@ -1,22 +1,20 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
-
-const api = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8875"}`;
+import { apiBaseUrl as api, createProjectWithCandidate } from "./helpers";
 
 async function createIsolatedProject(request: APIRequestContext) {
-  const catalog = await (await request.get(`${api}/api/task-definitions`)).json() as Array<{ definition: { task_definition: { id: string } }; starter_candidate: Record<string, unknown> }>;
-  const task = catalog.find((item) => item.definition.task_definition.id === "annealed-properties-v1")!;
-  const created = await request.post(`${api}/api/projects`, { data: { name: `振り返りE2E ${Date.now()}`, task_id: "annealed-properties-v1" } });
-  expect(created.status()).toBe(201);
-  const project = await created.json() as { id: string };
-  const candidate = await request.post(`${api}/api/projects/${project.id}/candidates`, { data: { ...task.starter_candidate, name: "振り返り候補" } });
-  expect(candidate.status()).toBe(201);
+  const project = await createProjectWithCandidate(
+    request,
+    "annealed-properties-v1",
+    `振り返りE2E ${Date.now()}`,
+    "振り返り候補",
+  );
   return project.id;
 }
 
 test("primary navigation follows the decision flow and separates developer administration", async ({ page }) => {
   await page.goto("/?view=project&project=default");
 
-  await expect(page.locator(".topbar nav").getByRole("button")).toHaveText(["プロジェクト"]);
+  await expect(page.locator(".topbar nav").getByRole("button")).toHaveText(["プロジェクト", "データライブラリ"]);
   await expect(page.getByRole("navigation", { name: "プロジェクト内メニュー" }).getByRole("button")).toHaveText([
     "概要",
     "データ探索",
@@ -43,6 +41,8 @@ test("primary navigation follows the decision flow and separates developer admin
 
   await page.getByRole("button", { name: "開発・管理", exact: true }).click();
   await expect(page.getByRole("heading", { name: "検証と構成" })).toBeVisible();
+  await page.getByRole("navigation", { name: "開発・管理メニュー" })
+    .getByRole("button", { name: "データ品質集計" }).click();
   await expect(page.getByRole("heading", { name: "データ品質集計" })).toBeVisible();
   await expect(page.locator(".quality-summary")).toBeVisible();
   await expect(page.locator(".quality-filters")).toHaveCount(0);
@@ -106,5 +106,7 @@ test("hot rolling remains a project task and uses task labels", async ({ page })
   await expect(page.locator(".topbar nav")).not.toContainText("熱延");
   await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
   await expect(page.getByText("均熱温度", { exact: true }).first()).toBeVisible();
-  await expect(page.locator(".comparison-detail-table thead .prediction-col").filter({ hasText: "引張強さ" })).toBeVisible();
+  await expect(
+    page.locator(".comparison-detail-table thead").getByRole("columnheader", { name: /引張強さ/ }),
+  ).toBeVisible();
 });

@@ -20,8 +20,15 @@ from material_workbench.modeling.model_lifecycle import (
 from material_workbench.tasks.task_registry import load_task_contracts
 
 
-# 現行リポジトリで training_range が実データからずれているTask。
-# 契約とPackageの作り直しが必要なため、ここでは失敗させず現状を記録する。
+# 宣言済み training_range が実データからずれているTask。
+#
+# 直すには TaskDefinition の training_range を実データへ合わせるだけでは済まない。
+# task_input_contract_digest が input_groups 全体を対象にしているため、
+# training_range を1つ変えるだけでそのTaskの**全Model Package**が無効になる
+# （active だけでなく models/available-packages.json のものも）。
+# 現状 annealed 系は6件、hot-rolled 系は2件あり、うち複数は numpyro でサンプリングした
+# Bayesian モデルなので、再構築はモデルの作り直しであり人の承認が必要になる。
+# 詳細は docs/architecture/extensibility-inventory.md §1.4 を参照。
 KNOWN_TRAINING_RANGE_DRIFT = {
     "annealed-properties-v1",
     "hot-rolled-properties-v1",

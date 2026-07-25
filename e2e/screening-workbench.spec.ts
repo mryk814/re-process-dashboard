@@ -1,19 +1,13 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
-
-const api = "http://127.0.0.1:8875";
+import { apiBaseUrl as api, createProjectWithCandidate } from "./helpers";
 
 async function createProject(request: APIRequestContext, taskId: string) {
-  const catalog = await (await request.get(`${api}/api/task-definitions`)).json() as Array<{ definition: { task_definition: { id: string } }; starter_candidate: Record<string, unknown> }>;
-  const task = catalog.find((item) => item.definition.task_definition.id === taskId)!;
-  const response = await request.post(`${api}/api/projects`, { data: {
-    name: `探索E2E ${taskId} ${Date.now()}`,
-    task_id: taskId,
-  } });
-  expect(response.status()).toBe(201);
-  const project = await response.json() as { id: string };
-  const candidate = await request.post(`${api}/api/projects/${project.id}/candidates`, { data: { ...task.starter_candidate, name: "探索基準" } });
-  expect(candidate.status()).toBe(201);
-  return project;
+  return createProjectWithCandidate(
+    request,
+    taskId,
+    `探索E2E ${taskId} ${Date.now()}`,
+    "探索基準",
+  );
 }
 
 test("annealed screening keeps draft separate and batches multiple points into stock", async ({ page, request }) => {
@@ -29,7 +23,7 @@ test("annealed screening keeps draft separate and batches multiple points into s
   await rows.nth(2).getByRole("combobox").nth(1).selectOption("range");
   await rows.nth(2).locator("input").nth(0).fill("0.8");
   await rows.nth(2).locator("input").nth(1).fill("2.0");
-  await page.getByLabel(/副条件: 降伏強さ/).fill("350");
+  await page.getByLabel("副条件: 降伏強さの下限").fill("350");
 
   const runResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/screening");
   await page.getByRole("button", { name: "探索を実行" }).click();

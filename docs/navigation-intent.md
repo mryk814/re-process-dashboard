@@ -7,7 +7,7 @@
 
 | query | 意味 |
 |---|---|
-| `view` | 表示画面。`project`、`candidates`、`settings`、`quality`、`lineage`、`explore` |
+| `view` | 表示画面。`project`、`candidates`、`settings`、`quality`、`lineage`、`explore`、`data-library`、`profile-workbench` |
 | `project` | 対象プロジェクトID |
 | `candidate` | 比較または履歴で選択する候補ID |
 | `entity` | 工程系譜で選択するentity key |

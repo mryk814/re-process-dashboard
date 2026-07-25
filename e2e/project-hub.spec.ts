@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const apiBaseUrl = `http://127.0.0.1:${Number(process.env.PLAYWRIGHT_API_PORT ?? 8875)}`;
+import { apiBaseUrl } from "./helpers";
 
 async function createProjectFromDefault(page: import("@playwright/test").Page, name: string) {
   const referenceResponse = await page.request.get(`${apiBaseUrl}/api/projects/default`);
@@ -90,9 +90,9 @@ test("a continuation can switch prediction task without leaving its series", asy
 
   const panel = page.getByRole("region", { name: "新規プロジェクトの開始方法" });
   await expect(panel.getByRole("combobox", { name: "Dataset" })).toBeEnabled();
-  const task = panel.getByRole("combobox", { name: "予測タスク（Prediction Task）" });
+  const task = panel.getByRole("combobox", { name: "予測構成" });
   await expect(task).toBeEnabled();
-  await task.selectOption("hot-rolled-properties-v1");
+  await task.selectOption("task:hot-rolled-properties-v1");
   await panel.getByRole("combobox", { name: "Model Package" }).selectOption({ index: 1 });
   await expect(panel.getByLabel("続ける理由（任意）")).toBeVisible();
   const series = panel.getByRole("combobox", { name: "所属グループ" });
@@ -186,7 +186,7 @@ test("new project creation requires an explicit empty or copy choice", async ({ 
   await expect(panel.getByRole("radio", { name: /現在候補をコピー/ })).toBeVisible();
   await panel.getByLabel("プロジェクト名").fill(`空の検討 ${Date.now()}`);
   await panel.getByRole("combobox", { name: "Dataset", exact: true }).selectOption({ label: "material_workbench_tutorial_v1 · thin-sheet-tutorial-v1" });
-  await panel.getByRole("combobox", { name: "予測タスク" }).selectOption("annealed-properties-v1");
+  await panel.getByRole("combobox", { name: "予測構成" }).selectOption("task:annealed-properties-v1");
   await panel.getByRole("combobox", { name: "Model Package" }).selectOption({ index: 1 });
   await panel.getByRole("radio", { name: /空から開始/ }).check();
   await panel.getByRole("button", { name: "固定してプロジェクトを作成" }).click();

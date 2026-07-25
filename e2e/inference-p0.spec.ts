@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { apiBaseUrl } from "./helpers";
 
 test("inference runs only for changed candidates and visible selected curves", async ({ page }) => {
   let previewRequests = 0;
@@ -71,7 +72,8 @@ test("inference runs only for changed candidates and visible selected curves", a
   await expect.poll(() => inferenceResponses.filter((item) => item.kind === "curve").length).toBeGreaterThanOrEqual(2);
   const firstCurve = inferenceResponses.find((item) => item.kind === "curve" && item.candidateId === selectedCandidateId);
   expect(firstCurve).toEqual(expect.objectContaining({ candidateId: selectedCandidateId, status: 200 }));
-  expect(firstCurve?.body).toEqual(expect.objectContaining({ target: expect.any(String), points: expect.any(Array), point_count: 9 }));
+  // 17 is the project's default response_curve_points.
+  expect(firstCurve?.body).toEqual(expect.objectContaining({ target: expect.any(String), points: expect.any(Array), point_count: 17 }));
   await expect(page.locator(".response-curves-panel .candidate-color-legend .selected")).toContainText(selectedCandidateLabel);
 
   let releasePreview = () => undefined;
@@ -104,7 +106,7 @@ test("inference runs only for changed candidates and visible selected curves", a
   expect(createdPreview).toEqual(expect.objectContaining({ status: 200 }));
   expect(createdPreview?.body).toEqual(expect.objectContaining({ canonical_input: expect.any(Object), predictions: expect.any(Object) }));
   expect(createdCurve).toEqual(expect.objectContaining({ status: 200 }));
-  expect(createdCurve?.body).toEqual(expect.objectContaining({ target: expect.any(String), points: expect.any(Array), point_count: 9 }));
+  expect(createdCurve?.body).toEqual(expect.objectContaining({ target: expect.any(String), points: expect.any(Array), point_count: 17 }));
   await expect(page.locator(".response-curves-panel")).toHaveAttribute("data-candidate-id", createdCandidateId!);
   await expect(page.locator(".response-curves-panel .candidate-color-legend .selected")).toContainText(createdCandidateLabel);
 
@@ -152,7 +154,7 @@ test("inference runs only for changed candidates and visible selected curves", a
   await expect(selectedPredictionCells.first()).not.toHaveText("—");
   await page.unroute("**/preview*");
 
-  const candidateApiUrl = `http://127.0.0.1:8875/api/projects/default/candidates/${createdCandidateId}`;
+  const candidateApiUrl = `${apiBaseUrl}/api/projects/default/candidates/${createdCandidateId}`;
   const currentCandidateResponse = await page.request.get(candidateApiUrl);
   expect(currentCandidateResponse.status()).toBe(200);
   const externalCandidate = await currentCandidateResponse.json() as {
