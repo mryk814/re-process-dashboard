@@ -40,6 +40,9 @@ export function blendTargetValidationError(targets: BlendTargetDraft[]): string 
   if (components.some((component) => !component)) return "成分を選択してください";
   if (new Set(components).size !== components.length) return "同じ成分は1回だけ指定してください";
   for (const target of targets) {
+    if (target.lower.trim() === "" || target.upper.trim() === "") {
+      return `${target.component} の許容範囲を入力してください`;
+    }
     const lower = Number(target.lower);
     const upper = Number(target.upper);
     if (

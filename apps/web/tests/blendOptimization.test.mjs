@@ -72,4 +72,10 @@ test("duplicate and invalid target ranges block request serialization", () => {
     { id: 0, component: "Mn", lower: "2", upper: "1" },
   ];
   assert.match(blendTargetValidationError(descending), /昇順/);
+
+  const empty = [
+    { id: 0, component: "C", lower: "", upper: "1" },
+  ];
+  assert.match(blendTargetValidationError(empty), /入力/);
+  assert.throws(() => serializeBlendTargets(empty), /入力/);
 });
