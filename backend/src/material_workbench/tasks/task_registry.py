@@ -10,7 +10,7 @@ from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.modeling.model_packages import FeaturePipelineSpec, VerifiedModelPackage
 from material_workbench.modeling.model_lifecycle import validate_lifecycle_metadata, validate_training_provenance
 from material_workbench.contracts.schemas import CandidateInput
-from material_workbench.contracts.task_contracts import ApplicationCapability, CanonicalCandidate, CanonicalHeatPoint, DataExplorerCapability, ResolvedTaskDefinition, RuntimeCapability, TaskContractFixture, TaskDefinition
+from material_workbench.contracts.task_contracts import ApplicationCapability, CanonicalCandidate, CanonicalHeatPoint, DataExplorerCapability, ResolvedTaskDefinition, RuntimeCapability, TaskAvailability, TaskContractFixture, TaskDefinition
 from material_workbench.task_modules import (
     CurveFamilyHandler,
     DataDescriptor,
@@ -24,6 +24,13 @@ from material_workbench.task_modules import (
 
 class TaskRegistryError(ValueError):
     """A task contract cannot be resolved or disagrees with its runtime package."""
+
+
+class TaskUnavailableError(TaskRegistryError):
+    def __init__(self, task_id: str, availability: TaskAvailability) -> None:
+        super().__init__(availability.message)
+        self.task_id = task_id
+        self.availability = availability
 
 
 @dataclass(frozen=True)
@@ -74,10 +81,13 @@ class TaskRegistry:
         contract_root: Path | None = None,
         data_explorers: dict[str, DataExplorerEntry] | None = None,
         modules: Mapping[str, TaskModule] | None = None,
+        unavailable: Mapping[str, TaskAvailability] | None = None,
+        degrade_invalid_runtimes: bool = False,
     ) -> None:
         self._contracts = load_task_contracts(contract_root)
         self._modules = dict(registered_task_modules() if modules is None else modules)
         explorers = data_explorers or {}
+        unavailable_tasks = dict(unavailable or {})
         registered = set(self._modules)
         if registered != set(self._contracts):
             missing = sorted(set(self._contracts) - registered)
@@ -85,22 +95,38 @@ class TaskRegistry:
             raise TaskRegistryError(
                 f"TaskModule registry must exactly match task definitions; missing={missing}, unknown={unknown}"
             )
-        if set(runtimes) != registered:
-            missing = sorted(set(self._contracts) - set(runtimes))
+        if set(runtimes) & set(unavailable_tasks):
+            raise TaskRegistryError("a task cannot be both available and unavailable")
+        if set(runtimes) | set(unavailable_tasks) != registered:
+            missing = sorted(set(self._contracts) - set(runtimes) - set(unavailable_tasks))
             unknown = sorted(set(runtimes) - set(self._contracts))
             raise TaskRegistryError(
                 f"runtime registry must exactly match task definitions; missing={missing}, unknown={unknown}"
             )
+        invalid_unavailable = sorted(set(unavailable_tasks) - registered)
+        if invalid_unavailable:
+            raise TaskRegistryError(f"unavailable registry contains unknown tasks: {invalid_unavailable}")
         unknown_explorers = sorted(set(explorers) - set(self._contracts))
         if unknown_explorers:
             raise TaskRegistryError(f"data explorer registry contains unknown tasks: {unknown_explorers}")
+        self._unavailable = unavailable_tasks
         self._entries: dict[str, TaskRuntimeEntry] = {}
         for task_id, runtime in runtimes.items():
-            self._validate_runtime(task_id, runtime)
-            module = self._modules[task_id]
-            explorer = explorers.get(task_id)
-            if explorer is not None and explorer.data is not runtime.data:
-                raise TaskRegistryError(f"data explorer source does not match runtime data: {task_id}")
+            try:
+                self._validate_runtime(task_id, runtime)
+                module = self._modules[task_id]
+                explorer = explorers.get(task_id)
+                if explorer is not None and explorer.data is not runtime.data:
+                    raise TaskRegistryError(f"data explorer source does not match runtime data: {task_id}")
+            except (OSError, ValueError, KeyError) as exc:
+                if not degrade_invalid_runtimes:
+                    raise
+                self._unavailable[task_id] = TaskAvailability(
+                    status="unavailable",
+                    stage="runtime",
+                    message=f"予測runtimeの契約を検証できません: {exc}",
+                )
+                continue
             package = runtime.model_package
             assert package is not None
             contract = self._contracts[task_id]
@@ -211,6 +237,19 @@ class TaskRegistry:
     def task_ids(self) -> tuple[str, ...]:
         return tuple(sorted(self._contracts))
 
+    @property
+    def available_task_ids(self) -> tuple[str, ...]:
+        return tuple(sorted(self._entries))
+
+    def availability_for(self, task_id: str) -> TaskAvailability:
+        self.contract_for(task_id)
+        return self._unavailable.get(task_id, TaskAvailability())
+
+    def require_available(self, task_id: str) -> None:
+        availability = self.availability_for(task_id)
+        if availability.status == "unavailable":
+            raise TaskUnavailableError(task_id, availability)
+
     def contract_for(self, task_id: str) -> TaskContractFixture:
         try:
             return self._contracts[task_id]
@@ -227,7 +266,17 @@ class TaskRegistry:
             "preview", "detailed_prediction", "response_curve", "similarity", "snapshot", "actual_measurement"
         ],
     ) -> None:
-        if not getattr(self.entry_for(task_id).capability.operations, operation):
+        self.require_available(task_id)
+        self.require_declared_operation(task_id, operation)
+
+    def require_declared_operation(
+        self,
+        task_id: str,
+        operation: Literal[
+            "preview", "detailed_prediction", "response_curve", "similarity", "snapshot", "actual_measurement"
+        ],
+    ) -> None:
+        if not getattr(self.contract_for(task_id).runtime_capability.operations, operation):
             raise TaskRegistryError(f"{operation} is not available for task: {task_id}")
 
     def response_curve_for(self, task_id: str) -> ResponseCurveHandler:
@@ -273,13 +322,16 @@ class TaskRegistry:
 
     def entry_for(self, task_id: str) -> TaskRuntimeEntry:
         self.contract_for(task_id)
+        self.require_available(task_id)
         return self._entries[task_id]
 
     def resolved_definition_for(self, task_id: str) -> ResolvedTaskDefinition:
-        entry = self.entry_for(task_id)
+        contract = self.contract_for(task_id)
+        module = self.module_for(task_id)
         return ResolvedTaskDefinition(
-            task_definition=entry.task_definition,
-            runtime_capability=entry.capability,
-            data_explorer=None if entry.data_explorer is None else entry.data_explorer.capability,
-            application=entry.application_capability,
+            task_definition=contract.task_definition,
+            runtime_capability=contract.runtime_capability,
+            data_explorer=module.data_explorer,
+            application=module.application,
+            availability=self.availability_for(task_id),
         )

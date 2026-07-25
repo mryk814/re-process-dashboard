@@ -10,7 +10,7 @@ from material_workbench.execution.inference_work_graph import InferenceKey, Infe
 from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
 from material_workbench.contracts.schemas import Candidate, Project
 from material_workbench.persistence.store import Store
-from material_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
+from material_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError, TaskUnavailableError
 
 
 class InferenceValidationError(ValueError):
@@ -169,6 +169,8 @@ class InferenceService:
     def require_operation(self, task_id: str, operation: str) -> None:
         try:
             self.registry.require_operation(task_id, operation)  # type: ignore[arg-type]
+        except TaskUnavailableError:
+            raise
         except TaskRegistryError as exc:
             raise InferenceValidationError(str(exc)) from exc
 

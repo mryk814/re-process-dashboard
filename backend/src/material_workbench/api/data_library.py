@@ -161,7 +161,7 @@ def project_creation_options(
 ) -> ProjectCreationOptions:
     visible_task_ids = {
         task_id
-        for task_id in registry.task_ids
+        for task_id in registry.available_task_ids
         if registry.entry_for(task_id).application_capability.project_creation
     }
     return ProjectCreationOptions(

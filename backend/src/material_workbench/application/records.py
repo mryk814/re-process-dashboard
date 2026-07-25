@@ -42,7 +42,7 @@ class RecordService:
 
     def list_snapshots(self, project_id: str, candidate_id: str) -> list[SnapshotResponse]:
         project = self.projects.require(project_id)
-        self.inference.require_operation(project.task_id, "snapshot")
+        self.registry.require_declared_operation(project.task_id, "snapshot")
         self.candidates.get(project_id, candidate_id, include_archived=True)
         return [SnapshotResponse.model_validate(item) for item in self.store.list_snapshots(candidate_id)]
 
@@ -87,7 +87,7 @@ class RecordService:
 
     def get_snapshot(self, project_id: str, snapshot_id: str) -> SnapshotResponse:
         project = self.projects.require(project_id)
-        self.inference.require_operation(project.task_id, "snapshot")
+        self.registry.require_declared_operation(project.task_id, "snapshot")
         snapshot = self.store.get_snapshot(snapshot_id)
         if snapshot is None or self.store.get_candidate(snapshot["candidate_id"], project_id, include_archived=True) is None:
             raise RecordNotFoundError("スナップショットが見つかりません")
@@ -95,7 +95,7 @@ class RecordService:
 
     def list_actuals(self, project_id: str, candidate_id: str) -> list[ActualMeasurement]:
         project = self.projects.require(project_id)
-        self.inference.require_operation(project.task_id, "actual_measurement")
+        self.registry.require_declared_operation(project.task_id, "actual_measurement")
         self.candidates.get(project_id, candidate_id, include_archived=True)
         return self.store.list_actuals(candidate_id)
 
