@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |---|---|
-| 状態 | 決定済み。未実装。Epic [#154](https://github.com/mryk814/re-process-dashboard/issues/154) で追跡する |
+| 状態 | 決定済み。契約・段別実行基盤を実装中。Epic [#154](https://github.com/mryk814/re-process-dashboard/issues/154) で追跡する |
 | 記録日 | 2026-07-25 |
 | 対象 | 予測タスク契約、候補入力表現、Design Space、Model Package、予測スナップショット、逆算 |
 | 検証用データ | `data/source/welding_consumable_multistage_synthetic_dataset.xlsx`（合成データ） |
@@ -380,4 +380,8 @@ design-system.md は「候補比較表では候補名を左側に固定し、入
 方針の検証に使える合成データを `data/source/welding_consumable_multistage_synthetic_dataset.xlsx` として同梱する。
 生成手順、シート構成、埋め込んだ物理的な関係は [合成データの説明](../welding-consumable-sample-dataset.md) を参照する。
 観測family別のDataset Profile契約と再生成可能な正規化artifactはIssue #156で接続した。
-本番TaskとModel Packageはまだ接続しておらず、Issue #157でStage Cのsingle-task Projectへ結ぶ。
+Stage A/B/CのTask・Package・Dataset/Profile identityは固定済みであり、
+Issue #165のChain実行基盤がそのRevisionを順序どおりに実行する。
+
+段別のcontent hash、部分再計算、鮮度、immutable snapshotの実装契約は
+[Chain実行と証跡](../chain-execution.md)を参照する。

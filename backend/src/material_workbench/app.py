@@ -15,7 +15,10 @@ from material_workbench.contracts.blend_contracts import BlendContractRegistry
 from .api.errors import PROJECT_API_ERRORS, install_exception_handlers
 from .api.security import configure_local_access
 from .api.catalog import router as catalog_router
-from .api.chains import router as chains_router
+from .api.chains import (
+    execution_router as chain_execution_router,
+    router as chains_router,
+)
 from .api.data_library import router as data_library_router
 from .api.decision_activities import router as decision_activities_router
 from .api.developer import router as developer_router
@@ -40,6 +43,10 @@ from material_workbench.persistence.store import Store
 from material_workbench.tasks.task_registry import DataExplorerEntry, TaskRegistry
 from material_workbench.persistence.workspace_catalog_bootstrap import bootstrap_workspace_catalog
 from material_workbench.persistence.welding_chain_bootstrap import bootstrap_welding_chain
+from material_workbench.application.chain_execution import (
+    ChainExecutionCoordinator,
+    ChainExecutionService,
+)
 from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
 from .task_modules import (
     PRIMARY_DEFAULT_SOURCE,
@@ -260,6 +267,12 @@ def create_app(
                 "多段Chainカタログ",
                 exc,
             )
+        app.state.chain_execution_service = ChainExecutionService(
+            app.state.store,
+            prepared.task_registry,
+            app.state.deterministic_transform_catalog,
+            ChainExecutionCoordinator(),
+        )
         yield
 
     app = FastAPI(
@@ -272,6 +285,7 @@ def create_app(
     install_exception_handlers(app)
     app.include_router(catalog_router)
     app.include_router(chains_router)
+    app.include_router(chain_execution_router)
     app.include_router(data_library_router)
     app.include_router(developer_router)
     app.include_router(project_series_router)

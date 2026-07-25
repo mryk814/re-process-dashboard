@@ -23,6 +23,7 @@ from material_workbench.contracts.blend_contracts import (
     describe_blend_materials,
 )
 from material_workbench.contracts.stage_a_contracts import STAGE_A_COMPONENTS
+from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.modeling.model_lifecycle import REPOSITORY_ROOT
 from material_workbench.modeling.model_package_verify import (
     verify_deterministic_transform_package,
@@ -115,8 +116,25 @@ class LoadedTransform:
 
 @dataclass(frozen=True)
 class HistoricalTransformResolution:
+    transform_id: str
+    package: VerifiedModelPackage
+    contract_digest: str
     transform: Any
     contracts: ResolvedBlendContracts
+
+
+def deterministic_transform_contract_digest(
+    package: VerifiedModelPackage,
+) -> str:
+    spec = package.manifest.deterministic_transforms[0]
+    return semantic_digest(
+        {
+            "schema_version": "deterministic-transform-contract/v1",
+            "task_id": package.manifest.task_id,
+            "input_schema_version": package.manifest.input_schema_version,
+            "transform": spec.model_dump(mode="json"),
+        }
+    )
 
 
 class DeterministicTransformCatalog:
@@ -127,9 +145,15 @@ class DeterministicTransformCatalog:
             tuple[RevisionRef, RevisionRef, RevisionRef],
             HistoricalTransformResolution,
         ],
+        historical_by_package: tuple[HistoricalTransformResolution, ...] | None = None,
     ) -> None:
         self._entries = entries
         self._historical = historical
+        self._historical_by_package = (
+            historical_by_package
+            if historical_by_package is not None
+            else tuple(historical.values())
+        )
 
     @property
     def transform_ids(self) -> tuple[str, ...]:
@@ -174,6 +198,89 @@ class DeterministicTransformCatalog:
 
     def resolve_blend(self, blend: SparseBlend) -> ResolvedBlendContracts:
         return self._resolution_for(blend).contracts
+
+    def resolve_execution(
+        self,
+        transform_id: str,
+        blend: SparseBlend,
+        package_manifest_digest: str | None = None,
+        contract_digest: str | None = None,
+    ) -> HistoricalTransformResolution:
+        candidates = [
+            resolution
+            for resolution in self._historical_by_package
+            if resolution.transform_id == transform_id
+            and resolution.contracts.scientific_master.ref
+            == blend.scientific_master
+            and resolution.contracts.commercial_catalog.ref
+            == blend.commercial_catalog
+            and resolution.contracts.design_space.ref == blend.design_space
+            and (
+                package_manifest_digest is None
+                or f"sha256:{resolution.package.manifest_sha256}"
+                == package_manifest_digest
+            )
+            and (
+                contract_digest is None
+                or resolution.contract_digest == contract_digest
+            )
+        ]
+        if not candidates:
+            raise BlendStructuralError(
+                "配合とStage A Package/contractの完全一致revisionが見つかりません"
+            )
+        if package_manifest_digest is None:
+            active_digest = f"sha256:{self.entry(transform_id).package.manifest_sha256}"
+            active = [
+                item
+                for item in candidates
+                if f"sha256:{item.package.manifest_sha256}" == active_digest
+            ]
+            if active:
+                return active[0]
+        return candidates[0]
+
+    def initial_blend_for_package(
+        self,
+        transform_id: str,
+        package_manifest_digest: str,
+        contract_digest: str,
+    ) -> SparseBlend:
+        candidates = [
+            resolution
+            for resolution in self._historical_by_package
+            if resolution.transform_id == transform_id
+            and f"sha256:{resolution.package.manifest_sha256}"
+            == package_manifest_digest
+            and resolution.contract_digest == contract_digest
+        ]
+        if not candidates:
+            raise BlendStructuralError(
+                "Chain Revisionに固定されたStage A Package/contractが"
+                "historical registryに見つかりません"
+            )
+        resolution = max(
+            candidates,
+            key=lambda item: (
+                item.contracts.design_space.revision,
+                item.contracts.commercial_catalog.revision,
+            ),
+        )
+        space = resolution.contracts.design_space
+        return SparseBlend(
+            items=(
+                {
+                    "material_id": space.balance_material_id,
+                    "ratio": space.total,
+                },
+            ),
+            hoop_id=space.fixed_hoop_id,
+            fill_ratio=space.fixed_fill_ratio,
+            balance_material_id=space.balance_material_id,
+            scientific_master=space.scientific_master,
+            commercial_catalog=space.commercial_catalog,
+            design_space=space.ref,
+        )
 
     def _resolution_for(self, blend: SparseBlend) -> HistoricalTransformResolution:
         try:
@@ -226,6 +333,7 @@ def load_deterministic_transform_catalog(
         tuple[RevisionRef, RevisionRef, RevisionRef],
         HistoricalTransformResolution,
     ] = {}
+    historical_by_package: list[HistoricalTransformResolution] = []
     for transform_id, selection in config.transforms.items():
         loader = ModelPackageLoader()
         available_packages: dict[str, tuple[VerifiedModelPackage, Any]] = {}
@@ -315,26 +423,38 @@ def load_deterministic_transform_catalog(
                 ) from exc
         design_space = available_design_spaces[selection.design_space]
 
-        transforms_by_science = {
-            loaded_transform.artifact.scientific_master.ref: loaded_transform
-            for _, loaded_transform in available_packages.values()
-        }
+        packages_by_science: dict[
+            RevisionRef,
+            list[tuple[VerifiedModelPackage, Any]],
+        ] = {}
+        for available_package, loaded_transform in available_packages.values():
+            packages_by_science.setdefault(
+                loaded_transform.artifact.scientific_master.ref, []
+            ).append((available_package, loaded_transform))
         catalogs_by_ref = {
             available_catalog.ref: available_catalog
             for available_catalog in available_catalogs.values()
         }
         for historical_space in available_design_spaces.values():
-            historical_transform = transforms_by_science.get(
+            historical_packages_and_transforms = packages_by_science.get(
                 historical_space.scientific_master
             )
             historical_catalog = catalogs_by_ref.get(
                 historical_space.commercial_catalog
             )
-            if historical_transform is None or historical_catalog is None:
+            if not historical_packages_and_transforms or historical_catalog is None:
                 raise PackageContractError(
                     f"Design Space for transform {transform_id} does not reference "
                     "an available scientific/commercial revision"
                 )
+            historical_package, historical_transform = next(
+                (
+                    item
+                    for item in historical_packages_and_transforms
+                    if item[0].manifest_sha256 == package.manifest_sha256
+                ),
+                historical_packages_and_transforms[0],
+            )
             scientific_by_id = {
                 material.material_id: material
                 for material in historical_transform.artifact.scientific_master.materials
@@ -383,10 +503,40 @@ def load_deterministic_transform_catalog(
                 raise PackageContractError(
                     "duplicate immutable deterministic transform resource combination"
                 )
-            historical[key] = HistoricalTransformResolution(
+            default_resolution = HistoricalTransformResolution(
+                transform_id=transform_id,
+                package=historical_package,
+                contract_digest=deterministic_transform_contract_digest(
+                    historical_package
+                ),
                 transform=historical_transform,
                 contracts=contracts,
             )
+            historical[key] = default_resolution
+            exact_keys: set[tuple[str, str]] = set()
+            for exact_package, exact_transform in historical_packages_and_transforms:
+                exact_key = (
+                    exact_package.manifest_sha256,
+                    deterministic_transform_contract_digest(exact_package),
+                )
+                if exact_key in exact_keys:
+                    raise PackageContractError(
+                        "duplicate immutable deterministic transform Package/contract"
+                    )
+                exact_keys.add(exact_key)
+                historical_by_package.append(
+                    HistoricalTransformResolution(
+                        transform_id=transform_id,
+                        package=exact_package,
+                        contract_digest=exact_key[1],
+                        transform=exact_transform,
+                        contracts=ResolvedBlendContracts(
+                            exact_transform.artifact.scientific_master,
+                            historical_catalog,
+                            historical_space,
+                        ),
+                    )
+                )
 
         active_key = (
             transform.artifact.scientific_master.ref,
@@ -408,4 +558,8 @@ def load_deterministic_transform_catalog(
             commercial_catalog_locator=selection.commercial_catalog,
             design_space_locator=selection.design_space,
         )
-    return DeterministicTransformCatalog(entries, historical)
+    return DeterministicTransformCatalog(
+        entries,
+        historical,
+        tuple(historical_by_package),
+    )

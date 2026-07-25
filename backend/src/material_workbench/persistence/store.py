@@ -16,6 +16,10 @@ from material_workbench.contracts.chain_contracts import (
     StageContractSurface,
     validate_chain_revision,
 )
+from material_workbench.contracts.chain_execution_contracts import (
+    ChainExecution,
+    ChainSnapshot,
+)
 from material_workbench.contracts.schemas import (
     ActualMeasurement,
     ActualMeasurementInput,
@@ -69,6 +73,10 @@ def _single_task_identity_json(payload: ProjectCreateInput) -> str:
     return identity.model_dump_json()
 from material_workbench.persistence.workspace_catalog_migration import migrate_workspace_catalog
 from material_workbench.persistence.chain_catalog_migration import migrate_chain_catalog
+from material_workbench.persistence.chain_execution_migration import migrate_chain_execution
+from material_workbench.persistence.chain_execution_cas_migration import (
+    migrate_chain_execution_cas,
+)
 
 
 MAX_CANDIDATES_PER_PROJECT = 100
@@ -147,6 +155,8 @@ class Store:
     def _init(self) -> None:
         migrate_workspace_catalog(self.path)
         migrate_chain_catalog(self.path)
+        migrate_chain_execution(self.path)
+        migrate_chain_execution_cas(self.path)
         migrate_candidate_revisions(self.path)
         migrate_lineage_reviews(self.path)
         migrate_decision_activity_runs(self.path)
@@ -194,6 +204,21 @@ class Store:
             ChainDefinition.model_validate_json(row["definition_json"])
             for row in rows
         ]
+
+    def get_chain_definition(
+        self, chain_id: str, definition_digest: str
+    ) -> ChainDefinition | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT definition_json FROM chain_definitions "
+                "WHERE chain_id=? AND definition_digest=?",
+                (chain_id, definition_digest),
+            ).fetchone()
+        return (
+            ChainDefinition.model_validate_json(row["definition_json"])
+            if row is not None
+            else None
+        )
 
     def register_chain_revision(
         self,
@@ -282,6 +307,224 @@ class Store:
             ).fetchone()
         return (
             ChainRevision.model_validate_json(row["revision_json"])
+            if row is not None
+            else None
+        )
+
+    def get_chain_stage_memo(self, memo_key: str) -> dict[str, Any] | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT canonical_input_json,result_json FROM chain_stage_memo "
+                "WHERE memo_key=?",
+                (memo_key,),
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            "canonical_input": json.loads(row["canonical_input_json"]),
+            "result": json.loads(row["result_json"]),
+        }
+
+    def put_chain_stage_memo(
+        self,
+        *,
+        memo_key: str,
+        stage_id: str,
+        input_digest: str,
+        contract_digest: str,
+        package_manifest_digest: str,
+        canonical_input: Mapping[str, Any],
+        result: Mapping[str, Any],
+    ) -> None:
+        encoded_input = json.dumps(
+            canonical_input, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        )
+        encoded_result = json.dumps(
+            result, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        )
+        with self._connect() as conn:
+            existing = conn.execute(
+                "SELECT canonical_input_json,result_json FROM chain_stage_memo "
+                "WHERE memo_key=?",
+                (memo_key,),
+            ).fetchone()
+            if existing is not None:
+                if (
+                    existing["canonical_input_json"] != encoded_input
+                    or existing["result_json"] != encoded_result
+                ):
+                    raise StoreDataIntegrityError(
+                        "同じChain stage memo identityに異なる内容があります"
+                    )
+                return
+            conn.execute(
+                "INSERT INTO chain_stage_memo("
+                "memo_key,stage_id,input_digest,contract_digest,package_manifest_digest,"
+                "canonical_input_json,result_json,created_at"
+                ") VALUES (?,?,?,?,?,?,?,?)",
+                (
+                    memo_key,
+                    stage_id,
+                    input_digest,
+                    contract_digest,
+                    package_manifest_digest,
+                    encoded_input,
+                    encoded_result,
+                    _now(),
+                ),
+            )
+
+    @staticmethod
+    def chain_execution_scope(project_id: str, candidate_id: str) -> str:
+        return f"{project_id}:{candidate_id}"
+
+    def get_chain_execution(
+        self, project_id: str, candidate_id: str
+    ) -> ChainExecution | None:
+        scope_id = self.chain_execution_scope(project_id, candidate_id)
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT execution_json FROM chain_execution_state WHERE scope_id=?",
+                (scope_id,),
+            ).fetchone()
+        return (
+            ChainExecution.model_validate_json(row["execution_json"])
+            if row is not None
+            else None
+        )
+
+    @staticmethod
+    def _claim_chain_execution(
+        conn: sqlite3.Connection,
+        scope_id: str,
+        request_id: str,
+    ) -> int:
+        row = conn.execute(
+            "SELECT generation FROM chain_execution_claims WHERE scope_id=?",
+            (scope_id,),
+        ).fetchone()
+        generation = int(row["generation"]) + 1 if row is not None else 1
+        conn.execute(
+            "INSERT INTO chain_execution_claims("
+            "scope_id,request_id,generation,updated_at"
+            ") VALUES (?,?,?,?) "
+            "ON CONFLICT(scope_id) DO UPDATE SET "
+            "request_id=excluded.request_id,generation=excluded.generation,"
+            "updated_at=excluded.updated_at",
+            (scope_id, request_id, generation, _now()),
+        )
+        return generation
+
+    def claim_chain_execution(
+        self,
+        project_id: str,
+        candidate_id: str,
+        candidate_revision: int,
+        request_id: str,
+    ) -> int | None:
+        """Claim execution only while the resolved candidate revision is current."""
+
+        scope_id = self.chain_execution_scope(project_id, candidate_id)
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            candidate = conn.execute(
+                "SELECT 1 FROM candidates "
+                "WHERE id=? AND project_id=? AND revision=? AND archived_at IS NULL",
+                (candidate_id, project_id, candidate_revision),
+            ).fetchone()
+            if candidate is None:
+                return None
+            return self._claim_chain_execution(conn, scope_id, request_id)
+
+    def chain_execution_generation(
+        self, project_id: str, candidate_id: str, request_id: str
+    ) -> int | None:
+        scope_id = self.chain_execution_scope(project_id, candidate_id)
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT generation FROM chain_execution_claims "
+                "WHERE scope_id=? AND request_id=?",
+                (scope_id, request_id),
+            ).fetchone()
+        return int(row["generation"]) if row is not None else None
+
+    def save_chain_execution_if_current(
+        self, execution: ChainExecution, generation: int
+    ) -> bool:
+        scope_id = self.chain_execution_scope(
+            execution.project_id, execution.candidate_id
+        )
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            claim = conn.execute(
+                "SELECT 1 FROM chain_execution_claims "
+                "WHERE scope_id=? AND request_id=? AND generation=?",
+                (scope_id, execution.request_id, generation),
+            ).fetchone()
+            if claim is None:
+                return False
+            conn.execute(
+                "INSERT INTO chain_execution_state("
+                "scope_id,request_id,execution_json,updated_at"
+                ") VALUES (?,?,?,?) "
+                "ON CONFLICT(scope_id) DO UPDATE SET "
+                "request_id=excluded.request_id,execution_json=excluded.execution_json,"
+                "updated_at=excluded.updated_at",
+                (
+                    scope_id,
+                    execution.request_id,
+                    execution.model_dump_json(),
+                    execution.updated_at.isoformat(),
+                ),
+            )
+        return True
+
+    def insert_chain_snapshot(
+        self, project_id: str, snapshot: ChainSnapshot
+    ) -> ChainSnapshot:
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            candidate = conn.execute(
+                "SELECT * FROM candidates WHERE id=? AND project_id=?",
+                (
+                    snapshot.identity.candidate_id,
+                    project_id,
+                ),
+            ).fetchone()
+            if candidate is None:
+                raise StoreDataIntegrityError(
+                    "Chain snapshotのcandidateが見つかりません"
+                )
+            current = self._candidate(candidate)
+            if (
+                current.archived_at is not None
+                or current.revision != snapshot.identity.candidate_revision
+            ):
+                raise CandidateRevisionConflictError(current)
+            conn.execute(
+                "INSERT INTO chain_snapshot_records("
+                "id,project_id,candidate_id,candidate_revision,identity_json,payload_json,created_at"
+                ") VALUES (?,?,?,?,?,?,?)",
+                (
+                    snapshot.snapshot_id,
+                    project_id,
+                    snapshot.identity.candidate_id,
+                    snapshot.identity.candidate_revision,
+                    snapshot.identity.model_dump_json(),
+                    snapshot.model_dump_json(),
+                    snapshot.created_at.isoformat(),
+                ),
+            )
+        return snapshot
+
+    def get_chain_snapshot(self, snapshot_id: str) -> ChainSnapshot | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT payload_json FROM chain_snapshot_records WHERE id=?",
+                (snapshot_id,),
+            ).fetchone()
+        return (
+            ChainSnapshot.model_validate_json(row["payload_json"])
             if row is not None
             else None
         )
@@ -984,6 +1227,54 @@ class Store:
             ).fetchone()
             self._record_candidate_revision(conn, row)
         return self.get_candidate(candidate_id, project_id)
+
+    def update_chain_candidate(
+        self,
+        candidate_id: str,
+        project_id: str,
+        payload: CandidateInput,
+        expected_revision: int,
+        invalidation_request_id: str,
+    ) -> tuple[Candidate | None, int]:
+        """Update a Chain candidate and invalidate older execution writes atomically."""
+
+        now = _now()
+        scope_id = self.chain_execution_scope(project_id, candidate_id)
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            result = conn.execute(
+                "UPDATE candidates SET name=?,payload=?,revision=revision+1,updated_at=? "
+                "WHERE id=? AND project_id=? AND revision=? AND archived_at IS NULL",
+                (
+                    payload.name,
+                    payload.model_dump_json(),
+                    now,
+                    candidate_id,
+                    project_id,
+                    expected_revision,
+                ),
+            )
+            if not result.rowcount:
+                row = conn.execute(
+                    "SELECT * FROM candidates WHERE id=? AND project_id=?",
+                    (candidate_id, project_id),
+                ).fetchone()
+                if row is None:
+                    return None, 0
+                current = self._candidate(row)
+                if current.archived_at is not None:
+                    raise CandidateArchivedError("archive済み候補は編集できません")
+                raise CandidateRevisionConflictError(current)
+            row = conn.execute(
+                "SELECT * FROM candidates WHERE id=? AND project_id=?",
+                (candidate_id, project_id),
+            ).fetchone()
+            self._record_candidate_revision(conn, row)
+            generation = self._claim_chain_execution(
+                conn, scope_id, invalidation_request_id
+            )
+            updated = self._candidate(row)
+        return updated, generation
 
     def delete_candidate(self, candidate_id: str, project_id: str, expected_revision: int) -> bool:
         with self._connect() as conn:
