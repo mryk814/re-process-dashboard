@@ -324,8 +324,19 @@ class ModelPackageManifest(PackageModel):
             raise ValueError("deterministic transform ids must be unique")
         if self.feature_pipeline is not None:
             expected = self.feature_pipeline.output_features
-            if any(predictor.feature_names != expected for predictor in self.predictors):
-                raise ValueError("predictor feature order must match feature pipeline output_features")
+            positions = {name: index for index, name in enumerate(expected)}
+            for predictor in self.predictors:
+                if any(name not in positions for name in predictor.feature_names):
+                    raise ValueError(
+                        "predictor features must be declared by feature pipeline output_features"
+                    )
+                if (
+                    tuple(sorted(predictor.feature_names, key=positions.__getitem__))
+                    != predictor.feature_names
+                ):
+                    raise ValueError(
+                        "predictor feature order must follow feature pipeline output_features"
+                    )
         return self
 
 

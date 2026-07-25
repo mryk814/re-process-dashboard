@@ -571,6 +571,85 @@
         "lineage": false,
         "candidate_creation": false
       }
+    },
+    {
+      "task_id": "welding-stage-c-properties-v1",
+      "label": "溶着金属成分から特性を予測",
+      "outputs": [
+        {
+          "key": "TS",
+          "label": "引張強さ",
+          "unit": "MPa"
+        },
+        {
+          "key": "YS",
+          "label": "0.2%耐力",
+          "unit": "MPa"
+        },
+        {
+          "key": "EL",
+          "label": "破断伸び",
+          "unit": "%"
+        },
+        {
+          "key": "RA",
+          "label": "絞り",
+          "unit": "%"
+        },
+        {
+          "key": "CHARPY_ENERGY",
+          "label": "吸収エネルギー",
+          "unit": "J"
+        },
+        {
+          "key": "BRITTLE_FRACTURE",
+          "label": "脆性破面率",
+          "unit": "%"
+        },
+        {
+          "key": "CORROSION_RATE",
+          "label": "腐食速度",
+          "unit": "mm/year"
+        }
+      ],
+      "source": {
+        "kind": "welding_stage_c",
+        "path": "data/source/welding_consumable_multistage_synthetic_dataset.xlsx",
+        "sha256": "dcaad240b934a4ada810fc9577d075ea58ad457b2a373938463f29f72301a7c8",
+        "profile_id": "welding-consumable-stage-c-observations-v1",
+        "profile_path": "backend/src/material_workbench/data/observation-profile-welding-consumable-stage-c-v1.json"
+      },
+      "active_package": {
+        "path": "packages/welding-stage-c-ridge-v1",
+        "previous": null,
+        "package_id": "welding-stage-c-ridge-v1",
+        "version": "1.0.0",
+        "manifest_sha256": "04af8944e0fa3eac1039407d5f8e3f9b4d5461bd967039741e0831babcaa9b76",
+        "runtime_types": [
+          "builtin.linear.v1"
+        ]
+      },
+      "runtime_operations": {
+        "preview": true,
+        "detailed_prediction": true,
+        "response_curve": true,
+        "similarity": true,
+        "target_specific_similarity": true,
+        "snapshot": true,
+        "actual_measurement": false
+      },
+      "application_capability": {
+        "project_creation": true,
+        "candidate_excel_import": false,
+        "candidate_excel_export": false,
+        "sparse_blend": false
+      },
+      "data_explorer": {
+        "schema_version": "data-explorer-capability/v1",
+        "quality": true,
+        "lineage": false,
+        "candidate_creation": false
+      }
     }
   ]
 }

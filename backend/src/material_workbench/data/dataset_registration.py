@@ -67,6 +67,11 @@ def register_dataset_records(
 
         profile = load_tabular_profile(profile_path)
         task_ids = (profile.task_id,)
+    elif raw_profile.get("schema_version") == "observation-dataset-profile/v1":
+        from material_workbench.data.observation_profile import load_observation_profile
+
+        profile = load_observation_profile(profile_path)
+        task_ids = (profile.task_id,)
     else:
         profile = load_dataset_profile(profile_path)
         task_ids = tuple(sorted(profile.tasks))
