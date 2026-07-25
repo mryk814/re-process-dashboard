@@ -58,6 +58,7 @@ class ProjectService:
         return self.store.list_projects()
 
     def create(self, payload: ProjectCreateInput) -> Project:
+        self.registry.require_available(payload.task_id)
         contract = self._contract(payload.task_id)
         self._validate_targets(payload, contract.task_definition.outputs)
         self._validate_display_decimals(payload)
@@ -85,7 +86,8 @@ class ProjectService:
             raise ProjectValidationError(str(exc)) from exc
 
     def delete(self, project_id: str) -> None:
-        self.require(project_id)
+        project = self.require(project_id)
+        self.registry.require_available(project.task_id)
         if not self.store.delete_project(project_id):
             raise ProjectNotFoundError(project_id)
 
@@ -102,6 +104,7 @@ class ProjectService:
 
     def update(self, project_id: str, payload: ProjectUpdateInput) -> Project:
         current = self.require(project_id)
+        self.registry.require_available(current.task_id)
         frozen = {
             "task_id": current.task_id,
             "dataset_view_revision_id": current.dataset_view_revision_id,
@@ -131,6 +134,8 @@ class ProjectService:
         return project
 
     def update_decision(self, project_id: str, payload: ProjectDecisionInput) -> Project:
+        current = self.require(project_id)
+        self.registry.require_available(current.task_id)
         try:
             project = self.store.update_project_decision(
                 project_id,
@@ -145,6 +150,8 @@ class ProjectService:
         return project
 
     def move_to_group(self, project_id: str, payload: ProjectGroupMoveInput) -> Project:
+        current = self.require(project_id)
+        self.registry.require_available(current.task_id)
         try:
             return self.store.move_project_to_group(project_id, payload)
         except ProjectGroupUnavailableError as exc:

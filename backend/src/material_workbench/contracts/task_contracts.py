@@ -444,11 +444,27 @@ class ApplicationCapability(ContractModel):
     candidate_excel_export: bool = False
 
 
+class TaskAvailability(ContractModel):
+    schema_version: Literal["task-availability/v1"] = "task-availability/v1"
+    status: Literal["available", "unavailable"] = "available"
+    stage: Literal["ready", "source", "package", "runtime"] = "ready"
+    message: str = ""
+
+    @model_validator(mode="after")
+    def status_matches_reason(self) -> "TaskAvailability":
+        if self.status == "available" and (self.stage != "ready" or self.message):
+            raise ValueError("available task must not carry an unavailable reason")
+        if self.status == "unavailable" and (self.stage == "ready" or not self.message.strip()):
+            raise ValueError("unavailable task requires a stage and message")
+        return self
+
+
 class ResolvedTaskDefinition(ContractModel):
     task_definition: TaskDefinition
     runtime_capability: RuntimeCapability
     data_explorer: DataExplorerCapability | None = None
     application: ApplicationCapability = ApplicationCapability()
+    availability: TaskAvailability = TaskAvailability()
 
     @model_validator(mode="after")
     def task_ids_match(self) -> "ResolvedTaskDefinition":

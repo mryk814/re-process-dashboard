@@ -68,6 +68,7 @@ class ProjectRuntimeResolver:
         self._lock = RLock()
 
     def resolve(self, project: Project) -> ResolvedProjectRuntime:
+        self.registry.require_available(project.task_id)
         if not project.dataset_view_revision_id or not project.model_package_ref_id:
             raise ProjectRuntimeResolutionError("プロジェクトのData Library参照が固定されていません")
         key = (

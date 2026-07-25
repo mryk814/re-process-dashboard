@@ -900,6 +900,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Readiness */
+        get: operations["getReadiness"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/screening": {
         parameters: {
             query?: never;
@@ -3239,6 +3256,13 @@ export interface components {
              *       "project_creation": true
              *     } */
             application: components["schemas"]["ApplicationCapability"];
+            /** @default {
+             *       "message": "",
+             *       "schema_version": "task-availability/v1",
+             *       "stage": "ready",
+             *       "status": "available"
+             *     } */
+            availability: components["schemas"]["TaskAvailability"];
             data_explorer?: components["schemas"]["DataExplorerCapability"] | null;
             runtime_capability: components["schemas"]["RuntimeCapability"];
             task_definition: components["schemas"]["TaskDefinition"];
@@ -3801,6 +3825,32 @@ export interface components {
             uncertainty_components: boolean;
             /** Warnings */
             warnings: boolean;
+        };
+        /** TaskAvailability */
+        TaskAvailability: {
+            /**
+             * Message
+             * @default
+             */
+            message: string;
+            /**
+             * Schema Version
+             * @default task-availability/v1
+             * @constant
+             */
+            schema_version: "task-availability/v1";
+            /**
+             * Stage
+             * @default ready
+             * @enum {string}
+             */
+            stage: "ready" | "source" | "package" | "runtime";
+            /**
+             * Status
+             * @default available
+             * @enum {string}
+             */
+            status: "available" | "unavailable";
         };
         /** TaskCatalogItem */
         TaskCatalogItem: {
@@ -4719,6 +4769,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
         };
     };
     delete_project_by_id_api_projects__project_id__delete: {
@@ -4759,6 +4818,15 @@ export interface operations {
             };
             /** @description Validation Error */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4810,6 +4878,15 @@ export interface operations {
             };
             /** @description Validation Error */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4870,6 +4947,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
         };
     };
     get_candidate_api_projects__project_id__candidates__candidate_id__get: {
@@ -4915,6 +5001,15 @@ export interface operations {
             };
             /** @description Validation Error */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4976,6 +5071,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
         };
     };
     delete_candidate_api_projects__project_id__candidates__candidate_id__delete: {
@@ -5019,6 +5123,15 @@ export interface operations {
             };
             /** @description Validation Error */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5114,6 +5227,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
         };
     };
     delete_actual_api_projects__project_id__candidates__candidate_id__actuals__actual_id__delete: {
@@ -5194,6 +5316,15 @@ export interface operations {
             };
             /** @description Validation Error */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5290,6 +5421,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
         };
     };
     prediction_vs_actual_api_projects__project_id__candidates__candidate_id__prediction_vs_actual_get: {
@@ -5333,6 +5473,15 @@ export interface operations {
             };
             /** @description Validation Error */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5385,6 +5534,15 @@ export interface operations {
             };
             /** @description Validation Error */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5451,6 +5609,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
         };
     };
     getCandidateSimilarity: {
@@ -5498,6 +5665,15 @@ export interface operations {
             };
             /** @description Validation Error */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5646,6 +5822,15 @@ export interface operations {
             };
             /** @description Validation Error */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5871,6 +6056,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
         };
     };
     getProjectHistory: {
@@ -5913,6 +6107,15 @@ export interface operations {
             };
             /** @description Validation Error */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5975,6 +6178,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
         };
     };
     lineage_reviews_api_projects__project_id__lineage_reviews_get: {
@@ -6017,6 +6229,15 @@ export interface operations {
             };
             /** @description Validation Error */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6078,6 +6299,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
         };
     };
     delete_lineage_review_api_projects__project_id__lineage_reviews__entity_key__delete: {
@@ -6119,6 +6349,15 @@ export interface operations {
             };
             /** @description Validation Error */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6210,6 +6449,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
         };
     };
     create_candidate_from_lineage_api_projects__project_id__lineage__entity_key__candidate_post: {
@@ -6263,6 +6511,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
         };
     };
     getProjectModelPackage: {
@@ -6305,6 +6562,15 @@ export interface operations {
             };
             /** @description Validation Error */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6366,6 +6632,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
         };
     };
     quality_api_projects__project_id__quality_get: {
@@ -6408,6 +6683,15 @@ export interface operations {
             };
             /** @description Validation Error */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6496,6 +6780,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
         };
     };
     restore_snapshot_api_projects__project_id__snapshots__snapshot_id__restore_post: {
@@ -6546,6 +6839,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
         };
     };
     getProjectTaskDefinition: {
@@ -6584,6 +6886,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getReadiness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */
@@ -6742,6 +7084,15 @@ export interface operations {
             };
             /** @description Validation Error */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
