@@ -29,6 +29,8 @@ extraResources:
     to: models/available-packages.json
   - from: models/active-transforms.json
     to: models/active-transforms.json
+  - from: models/evaluations/welding-consumable-a-b-c-v1.json
+    to: models/evaluations/welding-consumable-a-b-c-v1.json
   - from: models/catalogs/welding-stage-a-commercial-v1.json
     to: models/catalogs/welding-stage-a-commercial-v1.json
   - from: models/catalogs/welding-stage-a-commercial-v2.json

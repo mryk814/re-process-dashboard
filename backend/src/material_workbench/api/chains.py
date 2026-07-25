@@ -11,6 +11,10 @@ from material_workbench.application.chain_execution import (
     ChainExecutionError,
     ChainExecutionService,
 )
+from material_workbench.application.chain_evaluation import (
+    ChainEvaluationCatalog,
+    ChainEvaluationError,
+)
 from material_workbench.contracts.chain_contracts import (
     ChainDefinition,
     ChainRevision,
@@ -18,6 +22,9 @@ from material_workbench.contracts.chain_contracts import (
 from material_workbench.contracts.chain_execution_contracts import (
     ChainExecution,
     ChainSnapshot,
+)
+from material_workbench.contracts.chain_evaluation_contracts import (
+    ResolvedChainEvaluation,
 )
 from material_workbench.contracts.blend_contracts import (
     RevisionRef,
@@ -105,6 +112,41 @@ def get_chain_revision(
 
 def _execution_service(request: Request) -> ChainExecutionService:
     return request.app.state.chain_execution_service
+
+
+def _evaluation_catalog(request: Request) -> ChainEvaluationCatalog:
+    return request.app.state.chain_evaluation_catalog
+
+
+@execution_router.get(
+    "/{project_id}/chain/evaluation",
+    response_model=ResolvedChainEvaluation,
+    operation_id="getProjectChainEvaluation",
+)
+def get_project_chain_evaluation(
+    project_id: str,
+    catalog: Annotated[ChainEvaluationCatalog, Depends(_evaluation_catalog)],
+    store: StoreDependency,
+) -> ResolvedChainEvaluation:
+    project = store.get_project(project_id)
+    if project is None:
+        raise HTTPException(404, "Chain Projectが見つかりません")
+    identity = project.scientific_identity
+    if identity.identity_kind != "chain":
+        raise HTTPException(409, "このAPIはChain Project専用です")
+    revision = store.get_chain_revision(identity.chain_revision_id)
+    if (
+        revision is None
+        or revision.revision_digest != identity.chain_revision_digest
+    ):
+        raise HTTPException(409, "固定されたChain Revisionを解決できません")
+    try:
+        return catalog.resolve(
+            revision_id=identity.chain_revision_id,
+            revision=revision,
+        )
+    except ChainEvaluationError as exc:
+        raise HTTPException(409, str(exc)) from exc
 
 
 @execution_router.get(
