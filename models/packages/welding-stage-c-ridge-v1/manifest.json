@@ -1,0 +1,419 @@
+{
+  "schema_version": "model-package/v1",
+  "package_id": "welding-stage-c-ridge-v1",
+  "package_version": "1.0.0",
+  "task_id": "welding-stage-c-properties-v1",
+  "input_schema_version": "canonical-candidate/v1",
+  "input_contract_digest": "sha256:bf30d88e2b773899a07e94a4df015afe86153fed562e08472e5a1527566c2772",
+  "runtime_capability_digest": "sha256:f3e6c70e29538df66fc70cbead7c2e02336f267fab8dd79019516c9ae60eb0a2",
+  "feature_pipeline": {
+    "id": "welding-stage-c-observation-transform",
+    "version": "1.0.0",
+    "spec": "feature-pipeline/pipeline.json",
+    "canonical_input_paths": [
+      "composition.C",
+      "composition.Si",
+      "composition.Mn",
+      "composition.P",
+      "composition.S",
+      "composition.Ni",
+      "composition.Cr",
+      "composition.Mo",
+      "composition.Cu",
+      "composition.Ti",
+      "composition.B",
+      "composition.Nb",
+      "composition.V",
+      "composition.Al",
+      "composition.N",
+      "composition.O",
+      "process.heat_input_kj_per_mm",
+      "process.preheat_temp_c",
+      "process.test_temperature_c",
+      "categorical.test_solution"
+    ],
+    "output_features": [
+      "composition.C",
+      "composition.Si",
+      "composition.Mn",
+      "composition.P",
+      "composition.S",
+      "composition.Ni",
+      "composition.Cr",
+      "composition.Mo",
+      "composition.Cu",
+      "composition.Ti",
+      "composition.B",
+      "composition.Nb",
+      "composition.V",
+      "composition.Al",
+      "composition.N",
+      "composition.O",
+      "process.heat_input_kj_per_mm",
+      "process.preheat_temp_c",
+      "process.test_temperature_c",
+      "categorical.test_solution::3.5%NaCl",
+      "categorical.test_solution::5%H2SO4"
+    ],
+    "artifacts": [
+      "reference/training_stats.json"
+    ]
+  },
+  "predictors": [
+    {
+      "id": "TS-ridge",
+      "target": "TS",
+      "unit": "MPa",
+      "target_kind": "continuous",
+      "runtime_type": "builtin.linear.v1",
+      "architecture_id": "stage_c_family_ridge_v1",
+      "artifact": "model-artifacts/TS.npz",
+      "predictive_family": "empirical_quantiles",
+      "feature_names": [
+        "composition.C",
+        "composition.Si",
+        "composition.Mn",
+        "composition.P",
+        "composition.S",
+        "composition.Ni",
+        "composition.Cr",
+        "composition.Mo",
+        "composition.Cu",
+        "composition.Ti",
+        "composition.B",
+        "composition.Nb",
+        "composition.V",
+        "composition.Al",
+        "composition.N",
+        "composition.O",
+        "process.heat_input_kj_per_mm",
+        "process.preheat_temp_c"
+      ],
+      "config": {
+        "training_unit": "individual_observation",
+        "validation": "5-fold grouped by weld-run key",
+        "observation_family": "tensile",
+        "training_cohort": "tensile:target-usable",
+        "training_rows": 600,
+        "evaluation_groups": 300,
+        "profile_digest": "sha256:e58004fc974f4e2a1fe0f64be055f09eaa9fedf7e9efc26a809533b3a93e0145",
+        "ridge_alpha": 1.0
+      }
+    },
+    {
+      "id": "YS-ridge",
+      "target": "YS",
+      "unit": "MPa",
+      "target_kind": "continuous",
+      "runtime_type": "builtin.linear.v1",
+      "architecture_id": "stage_c_family_ridge_v1",
+      "artifact": "model-artifacts/YS.npz",
+      "predictive_family": "empirical_quantiles",
+      "feature_names": [
+        "composition.C",
+        "composition.Si",
+        "composition.Mn",
+        "composition.P",
+        "composition.S",
+        "composition.Ni",
+        "composition.Cr",
+        "composition.Mo",
+        "composition.Cu",
+        "composition.Ti",
+        "composition.B",
+        "composition.Nb",
+        "composition.V",
+        "composition.Al",
+        "composition.N",
+        "composition.O",
+        "process.heat_input_kj_per_mm",
+        "process.preheat_temp_c"
+      ],
+      "config": {
+        "training_unit": "individual_observation",
+        "validation": "5-fold grouped by weld-run key",
+        "observation_family": "tensile",
+        "training_cohort": "tensile:target-usable",
+        "training_rows": 600,
+        "evaluation_groups": 300,
+        "profile_digest": "sha256:e58004fc974f4e2a1fe0f64be055f09eaa9fedf7e9efc26a809533b3a93e0145",
+        "ridge_alpha": 1.0
+      }
+    },
+    {
+      "id": "EL-ridge",
+      "target": "EL",
+      "unit": "%",
+      "target_kind": "continuous",
+      "runtime_type": "builtin.linear.v1",
+      "architecture_id": "stage_c_family_ridge_v1",
+      "artifact": "model-artifacts/EL.npz",
+      "predictive_family": "empirical_quantiles",
+      "feature_names": [
+        "composition.C",
+        "composition.Si",
+        "composition.Mn",
+        "composition.P",
+        "composition.S",
+        "composition.Ni",
+        "composition.Cr",
+        "composition.Mo",
+        "composition.Cu",
+        "composition.Ti",
+        "composition.B",
+        "composition.Nb",
+        "composition.V",
+        "composition.Al",
+        "composition.N",
+        "composition.O",
+        "process.heat_input_kj_per_mm",
+        "process.preheat_temp_c"
+      ],
+      "config": {
+        "training_unit": "individual_observation",
+        "validation": "5-fold grouped by weld-run key",
+        "observation_family": "tensile",
+        "training_cohort": "tensile:target-usable",
+        "training_rows": 600,
+        "evaluation_groups": 300,
+        "profile_digest": "sha256:e58004fc974f4e2a1fe0f64be055f09eaa9fedf7e9efc26a809533b3a93e0145",
+        "ridge_alpha": 1.0
+      }
+    },
+    {
+      "id": "RA-ridge",
+      "target": "RA",
+      "unit": "%",
+      "target_kind": "continuous",
+      "runtime_type": "builtin.linear.v1",
+      "architecture_id": "stage_c_family_ridge_v1",
+      "artifact": "model-artifacts/RA.npz",
+      "predictive_family": "empirical_quantiles",
+      "feature_names": [
+        "composition.C",
+        "composition.Si",
+        "composition.Mn",
+        "composition.P",
+        "composition.S",
+        "composition.Ni",
+        "composition.Cr",
+        "composition.Mo",
+        "composition.Cu",
+        "composition.Ti",
+        "composition.B",
+        "composition.Nb",
+        "composition.V",
+        "composition.Al",
+        "composition.N",
+        "composition.O",
+        "process.heat_input_kj_per_mm",
+        "process.preheat_temp_c"
+      ],
+      "config": {
+        "training_unit": "individual_observation",
+        "validation": "5-fold grouped by weld-run key",
+        "observation_family": "tensile",
+        "training_cohort": "tensile:target-usable",
+        "training_rows": 600,
+        "evaluation_groups": 300,
+        "profile_digest": "sha256:e58004fc974f4e2a1fe0f64be055f09eaa9fedf7e9efc26a809533b3a93e0145",
+        "ridge_alpha": 1.0
+      }
+    },
+    {
+      "id": "CHARPY_ENERGY-ridge",
+      "target": "CHARPY_ENERGY",
+      "unit": "J",
+      "target_kind": "continuous",
+      "runtime_type": "builtin.linear.v1",
+      "architecture_id": "stage_c_family_ridge_v1",
+      "artifact": "model-artifacts/CHARPY_ENERGY.npz",
+      "predictive_family": "empirical_quantiles",
+      "feature_names": [
+        "composition.C",
+        "composition.Si",
+        "composition.Mn",
+        "composition.P",
+        "composition.S",
+        "composition.Ni",
+        "composition.Cr",
+        "composition.Mo",
+        "composition.Cu",
+        "composition.Ti",
+        "composition.B",
+        "composition.Nb",
+        "composition.V",
+        "composition.Al",
+        "composition.N",
+        "composition.O",
+        "process.heat_input_kj_per_mm",
+        "process.preheat_temp_c",
+        "process.test_temperature_c"
+      ],
+      "config": {
+        "training_unit": "individual_observation",
+        "validation": "5-fold grouped by weld-run key",
+        "observation_family": "charpy",
+        "training_cohort": "charpy:target-usable",
+        "training_rows": 2700,
+        "evaluation_groups": 300,
+        "profile_digest": "sha256:e58004fc974f4e2a1fe0f64be055f09eaa9fedf7e9efc26a809533b3a93e0145",
+        "ridge_alpha": 1.0
+      }
+    },
+    {
+      "id": "BRITTLE_FRACTURE-ridge",
+      "target": "BRITTLE_FRACTURE",
+      "unit": "%",
+      "target_kind": "continuous",
+      "runtime_type": "builtin.linear.v1",
+      "architecture_id": "stage_c_family_ridge_v1",
+      "artifact": "model-artifacts/BRITTLE_FRACTURE.npz",
+      "predictive_family": "empirical_quantiles",
+      "feature_names": [
+        "composition.C",
+        "composition.Si",
+        "composition.Mn",
+        "composition.P",
+        "composition.S",
+        "composition.Ni",
+        "composition.Cr",
+        "composition.Mo",
+        "composition.Cu",
+        "composition.Ti",
+        "composition.B",
+        "composition.Nb",
+        "composition.V",
+        "composition.Al",
+        "composition.N",
+        "composition.O",
+        "process.heat_input_kj_per_mm",
+        "process.preheat_temp_c",
+        "process.test_temperature_c"
+      ],
+      "config": {
+        "training_unit": "individual_observation",
+        "validation": "5-fold grouped by weld-run key",
+        "observation_family": "charpy",
+        "training_cohort": "charpy:target-usable",
+        "training_rows": 2700,
+        "evaluation_groups": 300,
+        "profile_digest": "sha256:e58004fc974f4e2a1fe0f64be055f09eaa9fedf7e9efc26a809533b3a93e0145",
+        "ridge_alpha": 1.0
+      }
+    },
+    {
+      "id": "CORROSION_RATE-ridge",
+      "target": "CORROSION_RATE",
+      "unit": "mm/year",
+      "target_kind": "continuous",
+      "runtime_type": "builtin.linear.v1",
+      "architecture_id": "stage_c_family_ridge_v1",
+      "artifact": "model-artifacts/CORROSION_RATE.npz",
+      "predictive_family": "empirical_quantiles",
+      "feature_names": [
+        "composition.C",
+        "composition.Si",
+        "composition.Mn",
+        "composition.P",
+        "composition.S",
+        "composition.Ni",
+        "composition.Cr",
+        "composition.Mo",
+        "composition.Cu",
+        "composition.Ti",
+        "composition.B",
+        "composition.Nb",
+        "composition.V",
+        "composition.Al",
+        "composition.N",
+        "composition.O",
+        "categorical.test_solution::3.5%NaCl",
+        "categorical.test_solution::5%H2SO4"
+      ],
+      "config": {
+        "training_unit": "individual_observation",
+        "validation": "5-fold grouped by weld-run key",
+        "observation_family": "corrosion",
+        "training_cohort": "corrosion:target-usable",
+        "training_rows": 103,
+        "evaluation_groups": 103,
+        "profile_digest": "sha256:e58004fc974f4e2a1fe0f64be055f09eaa9fedf7e9efc26a809533b3a93e0145",
+        "ridge_alpha": 1.0
+      }
+    }
+  ],
+  "provenance": {
+    "training_data_id": "sha256:dcaad240b934a4ada810fc9577d075ea58ad457b2a373938463f29f72301a7c8",
+    "feature_dataset_id": "sha256:3a477b897537c47f5827282412fe1d1b096f576f804f02e1029898a9268a0485",
+    "training_code_revision": "stage-c-family-ridge-grouped-v1",
+    "dataset_profile_id": "sha256:e58004fc974f4e2a1fe0f64be055f09eaa9fedf7e9efc26a809533b3a93e0145"
+  },
+  "artifacts": [
+    {
+      "path": "feature-pipeline/pipeline.json",
+      "sha256": "5201f678912eab32077ddbfe4da6322acd4249371051cb16710236ebb9d28ae2",
+      "bytes": 3744
+    },
+    {
+      "path": "model-artifacts/TS.npz",
+      "sha256": "4ff2640c41183f889338b6ca82bbb25eca56946c857732eb3ab8a420698a5449",
+      "bytes": 1188
+    },
+    {
+      "path": "model-artifacts/YS.npz",
+      "sha256": "68ba448272d0353b3857db9e1e78c3541dd554364c876266beb259338d6607c2",
+      "bytes": 1188
+    },
+    {
+      "path": "model-artifacts/EL.npz",
+      "sha256": "eb3b870309941413ddaac14b81b421bc54bb3d4b5b33ea46db717abcbc5d6635",
+      "bytes": 1188
+    },
+    {
+      "path": "model-artifacts/RA.npz",
+      "sha256": "8ec37865318cc131a196a8ce6f1b393a1838d6da0d5e49da8d25ad22f7359641",
+      "bytes": 1188
+    },
+    {
+      "path": "model-artifacts/CHARPY_ENERGY.npz",
+      "sha256": "086322d437785c8c7863acbd594cf346a2913cf06cde3619da995cdb87dd6fdf",
+      "bytes": 1196
+    },
+    {
+      "path": "model-artifacts/BRITTLE_FRACTURE.npz",
+      "sha256": "26299c14ec49d65339281ddec41284ccd78a08ef0665bf2a456e7e2425be811c",
+      "bytes": 1196
+    },
+    {
+      "path": "model-artifacts/CORROSION_RATE.npz",
+      "sha256": "d3fe2925cde361ad14a9c81a0324a24046e1793bdccad8151b6a0833a490b64a",
+      "bytes": 1188
+    },
+    {
+      "path": "reference/training_stats.json",
+      "sha256": "8bdaa18d7aa375f9d1bb9e01f7496ec5a0913f138813c766e600330252e4e13b",
+      "bytes": 975
+    },
+    {
+      "path": "reports/quality-report.json",
+      "sha256": "b98eca4adcfefead0d8772df7e1027fba0a509277a961b404bd3e2879f69ada5",
+      "bytes": 2272
+    },
+    {
+      "path": "smoke/input.json",
+      "sha256": "06f8d1c4aead57c9d507bddc816304fee234a5675e7b223a1b78fe34f2c68f92",
+      "bytes": 903
+    },
+    {
+      "path": "smoke/expected.json",
+      "sha256": "14bdfdf26c328b35cc7679b21f362e486f87bdf959f783a448ff9d90c587fa57",
+      "bytes": 188
+    }
+  ],
+  "smoke_test": {
+    "input": "smoke/input.json",
+    "expected": "smoke/expected.json"
+  },
+  "quality_report": "reports/quality-report.json"
+}

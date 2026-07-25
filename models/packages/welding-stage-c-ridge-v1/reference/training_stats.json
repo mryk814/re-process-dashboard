@@ -1,0 +1,41 @@
+{
+  "schema_version": "stage-c-training-stats/v1",
+  "records": {
+    "TS": 600,
+    "YS": 600,
+    "EL": 600,
+    "RA": 600,
+    "CHARPY_ENERGY": 2700,
+    "BRITTLE_FRACTURE": 2700,
+    "CORROSION_RATE": 103
+  },
+  "groups_by_target": {
+    "TS": 300,
+    "YS": 300,
+    "EL": 300,
+    "RA": 300,
+    "CHARPY_ENERGY": 300,
+    "BRITTLE_FRACTURE": 300,
+    "CORROSION_RATE": 103
+  },
+  "families": {
+    "tensile": {
+      "source_rows": 600,
+      "usable_input_rows": 600,
+      "split_groups": 300
+    },
+    "charpy": {
+      "source_rows": 2700,
+      "usable_input_rows": 2700,
+      "split_groups": 300
+    },
+    "corrosion": {
+      "source_rows": 103,
+      "usable_input_rows": 103,
+      "split_groups": 103
+    }
+  },
+  "profile_id": "welding-consumable-stage-c-observations-v1",
+  "profile_digest": "sha256:e58004fc974f4e2a1fe0f64be055f09eaa9fedf7e9efc26a809533b3a93e0145",
+  "source_sha256": "dcaad240b934a4ada810fc9577d075ea58ad457b2a373938463f29f72301a7c8"
+}

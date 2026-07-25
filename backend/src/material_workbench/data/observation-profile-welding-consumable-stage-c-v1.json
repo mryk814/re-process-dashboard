@@ -1,6 +1,7 @@
 {
   "schema_version": "observation-dataset-profile/v1",
   "id": "welding-consumable-stage-c-observations-v1",
+  "task_id": "welding-stage-c-properties-v1",
   "relation_sheet": "relationEx",
   "entities": [
     {

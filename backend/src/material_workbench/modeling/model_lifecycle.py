@@ -154,6 +154,10 @@ def dataset_profile_digest(path: Path | Any = DATASET_PROFILE_PATH) -> str:
             from material_workbench.modeling.tabular_regression import load_tabular_profile
 
             profile = load_tabular_profile(profile_path)
+        elif raw.get("schema_version") == "observation-dataset-profile/v1":
+            from material_workbench.data.observation_profile import load_observation_profile
+
+            profile = load_observation_profile(profile_path)
         else:
             profile = load_dataset_profile(profile_path)
     payload = profile.model_dump(mode="json", exclude={"task_definitions"})
@@ -207,6 +211,9 @@ def canonical_training_dataset(
     *,
     pipeline_version: str | None = None,
 ) -> dict[str, Any]:
+    specialized = getattr(data, "canonical_training_dataset", None)
+    if callable(specialized):
+        return specialized(contract, pipeline_version=pipeline_version)
     profile = getattr(data, "profile", None) or load_dataset_profile(data.profile_path)
     if getattr(profile, "schema_version", "") == "tabular-dataset-profile/v1":
         profile_columns = {target.key: (target.key, target.column) for target in profile.outputs}
