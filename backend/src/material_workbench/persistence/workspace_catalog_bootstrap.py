@@ -26,6 +26,9 @@ from material_workbench.modeling.model_lifecycle import (
     runtime_capability_digest,
     task_input_contract_digest,
 )
+from material_workbench.persistence.chain_catalog_migration import (
+    refresh_single_task_project_identities,
+)
 from material_workbench.task_modules import PRIMARY_DEFAULT_SOURCE, PROCESS_SOURCE
 
 
@@ -409,12 +412,14 @@ def audit_project_bindings(database: str | Path) -> None:
     checks = (
         (
             "SELECT p.id FROM projects p LEFT JOIN dataset_view_revisions v ON v.id=p.dataset_view_revision_id "
-            "WHERE p.binding_provenance<>'unbound_legacy' AND v.id IS NULL LIMIT 1",
+            "WHERE json_extract(p.scientific_identity_json,'$.identity_kind')='single_task' "
+            "AND p.binding_provenance<>'unbound_legacy' AND v.id IS NULL LIMIT 1",
             "Dataset View",
         ),
         (
             "SELECT p.id FROM projects p LEFT JOIN model_package_refs m ON m.id=p.model_package_ref_id "
-            "WHERE p.binding_provenance<>'unbound_legacy' "
+            "WHERE json_extract(p.scientific_identity_json,'$.identity_kind')='single_task' "
+            "AND p.binding_provenance<>'unbound_legacy' "
             "AND (m.id IS NULL OR m.task_id<>p.task_id OR m.manifest_digest<>p.model_package_manifest_digest) LIMIT 1",
             "Model Package",
         ),
@@ -422,6 +427,14 @@ def audit_project_bindings(database: str | Path) -> None:
             "SELECT p.id FROM projects p LEFT JOIN project_series s ON s.id=p.project_series_id "
             "WHERE p.binding_provenance<>'unbound_legacy' AND s.id IS NULL LIMIT 1",
             "Project Series",
+        ),
+        (
+            "SELECT p.id FROM projects p LEFT JOIN chain_revisions r "
+            "ON r.id=json_extract(p.scientific_identity_json,'$.chain_revision_id') "
+            "WHERE json_extract(p.scientific_identity_json,'$.identity_kind')='chain' "
+            "AND (r.id IS NULL OR r.revision_digest<>"
+            "json_extract(p.scientific_identity_json,'$.chain_revision_digest')) LIMIT 1",
+            "Chain Revision",
         ),
     )
     with sqlite3.connect(database) as conn:
@@ -441,4 +454,5 @@ def bootstrap_workspace_catalog(database: str | Path, registry: TaskRegistry) ->
     migrate_replaced_mpea_room_projects(database, bindings)
     archive_unreachable_stale_package_refs(database)
     audit_project_bindings(database)
+    refresh_single_task_project_identities(database)
     return catalog

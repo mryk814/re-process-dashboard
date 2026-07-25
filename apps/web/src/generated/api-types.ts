@@ -4,6 +4,40 @@
  */
 
 export interface paths {
+    "/api/chains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Chain Templates */
+        get: operations["listChainTemplates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chains/revisions/{revision_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Chain Revision */
+        get: operations["getChainRevision"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/data-library/datasets": {
         parameters: {
             query?: never;
@@ -1447,6 +1481,129 @@ export interface components {
             /** Provenance */
             provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"];
         };
+        /** ChainBinding */
+        ChainBinding: {
+            conversion?: components["schemas"]["UnitConversion"] | null;
+            /** Source */
+            source: components["schemas"]["ExternalBindingSource"] | components["schemas"]["StageOutputBindingSource"];
+            /** Target Input Path */
+            target_input_path: string;
+            /** Target Stage Id */
+            target_stage_id: string;
+        };
+        /** ChainDefinition */
+        ChainDefinition: {
+            /** Bindings */
+            bindings: components["schemas"]["ChainBinding"][];
+            /** Chain Id */
+            chain_id: string;
+            /**
+             * External Inputs
+             * @default []
+             */
+            external_inputs: components["schemas"]["ChainPort"][];
+            /** Label */
+            label: string;
+            /**
+             * Schema Version
+             * @default chain-definition/v1
+             * @constant
+             */
+            schema_version: "chain-definition/v1";
+            /** Stages */
+            stages: components["schemas"]["ChainStage"][];
+        };
+        /** ChainPort */
+        ChainPort: {
+            /** Basis */
+            basis?: string | null;
+            /** Path */
+            path: string;
+            /** Quantity */
+            quantity: string;
+            /** Unit */
+            unit?: string | null;
+            /**
+             * Value Kind
+             * @enum {string}
+             */
+            value_kind: "number" | "categorical" | "sparse_blend";
+        };
+        /** ChainProjectIdentity */
+        ChainProjectIdentity: {
+            /** Chain Revision Digest */
+            chain_revision_digest: string;
+            /** Chain Revision Id */
+            chain_revision_id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            identity_kind: "chain";
+        };
+        /** ChainRevision */
+        ChainRevision: {
+            /** Binding Digest */
+            binding_digest: string;
+            /** Chain Definition Digest */
+            chain_definition_digest: string;
+            /** Chain Id */
+            chain_id: string;
+            /** Revision */
+            revision: number;
+            /** Revision Digest */
+            revision_digest: string;
+            /**
+             * Schema Version
+             * @default chain-revision/v1
+             * @constant
+             */
+            schema_version: "chain-revision/v1";
+            /** Stages */
+            stages: components["schemas"]["ChainStageRevision"][];
+            /** Unit Conversion Digest */
+            unit_conversion_digest: string;
+        };
+        /** ChainStage */
+        ChainStage: {
+            /** Contract Id */
+            contract_id: string;
+            /** Stage Id */
+            stage_id: string;
+            /**
+             * Stage Kind
+             * @enum {string}
+             */
+            stage_kind: "task" | "deterministic_transform";
+        };
+        /** ChainStageRevision */
+        ChainStageRevision: {
+            /** Contract Digest */
+            contract_digest: string;
+            /** Contract Id */
+            contract_id: string;
+            /** Dataset Profile Digest */
+            dataset_profile_digest?: string | null;
+            /** Dataset View Revision Id */
+            dataset_view_revision_id?: string | null;
+            /** Package Manifest Digest */
+            package_manifest_digest: string;
+            /** Stage Id */
+            stage_id: string;
+            /**
+             * Stage Kind
+             * @enum {string}
+             */
+            stage_kind: "task" | "deterministic_transform";
+        };
+        /** ChainTemplateItem */
+        ChainTemplateItem: {
+            definition: components["schemas"]["ChainDefinition"];
+            /** Definition Id */
+            definition_id: string;
+            /** Revisions */
+            revisions: components["schemas"]["ChainRevision"][];
+        };
         /** ChangeGuideEntry */
         ChangeGuideEntry: {
             /** Artifacts */
@@ -2082,6 +2239,16 @@ export interface components {
             max: number;
             /** Total */
             total: number;
+        };
+        /** ExternalBindingSource */
+        ExternalBindingSource: {
+            /** Path */
+            path: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            source_kind: "external";
         };
         /** FamilyTrainingSummary */
         FamilyTrainingSummary: {
@@ -3237,6 +3404,8 @@ export interface components {
                     [key: string]: components["schemas"]["InputRange"];
                 };
             };
+            /** Scientific Identity */
+            scientific_identity: components["schemas"]["SingleTaskProjectIdentity"] | components["schemas"]["ChainProjectIdentity"];
             /** Target Values */
             target_values?: {
                 [key: string]: number | components["schemas"]["TargetRange"];
@@ -3336,6 +3505,8 @@ export interface components {
                     [key: string]: components["schemas"]["InputRange"];
                 };
             };
+            /** Scientific Identity */
+            scientific_identity?: (components["schemas"]["SingleTaskProjectIdentity"] | components["schemas"]["ChainProjectIdentity"]) | null;
             /** Target Values */
             target_values?: {
                 [key: string]: number | components["schemas"]["TargetRange"];
@@ -3528,6 +3699,8 @@ export interface components {
                     [key: string]: components["schemas"]["InputRange"];
                 };
             };
+            /** Scientific Identity */
+            scientific_identity?: (components["schemas"]["SingleTaskProjectIdentity"] | components["schemas"]["ChainProjectIdentity"]) | null;
             /** Target Values */
             target_values?: {
                 [key: string]: number | components["schemas"]["TargetRange"];
@@ -4165,6 +4338,30 @@ export interface components {
             /** Source Scope */
             source_scope?: ("model_training_data" | "project_reference_data") | null;
         };
+        /** SingleTaskProjectIdentity */
+        SingleTaskProjectIdentity: {
+            /**
+             * Binding Provenance
+             * @default explicit
+             * @enum {string}
+             */
+            binding_provenance: "explicit" | "assumed_current_at_upgrade" | "unbound_legacy";
+            /** Dataset View Revision Id */
+            dataset_view_revision_id?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            identity_kind: "single_task";
+            /** Model Package Manifest Digest */
+            model_package_manifest_digest?: string | null;
+            /** Model Package Ref Id */
+            model_package_ref_id?: string | null;
+            /** Task Contract Digest */
+            task_contract_digest?: string | null;
+            /** Task Id */
+            task_id: string;
+        };
         /** SnapshotHistoryItem */
         SnapshotHistoryItem: {
             /** Candidate Id */
@@ -4240,6 +4437,18 @@ export interface components {
              */
             schema_version: "sparse-blend/v1";
             scientific_master: components["schemas"]["RevisionRef"];
+        };
+        /** StageOutputBindingSource */
+        StageOutputBindingSource: {
+            /** Output Key */
+            output_key: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            source_kind: "stage_output";
+            /** Stage Id */
+            stage_id: string;
         };
         /** Support */
         Support: {
@@ -4464,6 +4673,25 @@ export interface components {
             /** Upper */
             upper: number;
         };
+        /**
+         * UnitConversion
+         * @description An explicit affine conversion; its full payload participates in revision identity.
+         */
+        UnitConversion: {
+            /** Conversion Id */
+            conversion_id: string;
+            /** Factor */
+            factor: number;
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: number;
+            /** Source Unit */
+            source_unit: string;
+            /** Target Unit */
+            target_unit: string;
+        };
         /** WholeWireCoordinate */
         WholeWireCoordinate: {
             /** Mass Fraction */
@@ -4480,6 +4708,66 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    listChainTemplates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChainTemplateItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getChainRevision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                revision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChainRevision"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     list_datasets_api_data_library_datasets_get: {
         parameters: {
             query?: {

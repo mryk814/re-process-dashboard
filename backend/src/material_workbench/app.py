@@ -15,6 +15,7 @@ from material_workbench.contracts.blend_contracts import BlendContractRegistry
 from .api.errors import PROJECT_API_ERRORS, install_exception_handlers
 from .api.security import configure_local_access
 from .api.catalog import router as catalog_router
+from .api.chains import router as chains_router
 from .api.data_library import router as data_library_router
 from .api.decision_activities import router as decision_activities_router
 from .api.developer import router as developer_router
@@ -37,6 +38,7 @@ from material_workbench.modeling.transform_catalog import (
 from material_workbench.persistence.store import Store
 from material_workbench.tasks.task_registry import DataExplorerEntry, TaskRegistry
 from material_workbench.persistence.workspace_catalog_bootstrap import bootstrap_workspace_catalog
+from material_workbench.persistence.welding_chain_bootstrap import bootstrap_welding_chain
 from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
 from .task_modules import (
     PRIMARY_DEFAULT_SOURCE,
@@ -244,6 +246,19 @@ def create_app(
                 "決定論的Transform Package",
                 exc,
             )
+        try:
+            app.state.welding_chain_revision_id = bootstrap_welding_chain(
+                store=app.state.store,
+                workspace_catalog=app.state.workspace_catalog,
+                task_registry=prepared.task_registry,
+                transform_catalog=app.state.deterministic_transform_catalog,
+            )
+        except Exception as exc:
+            _raise_startup_error(
+                "chain_catalog",
+                "多段Chainカタログ",
+                exc,
+            )
         yield
 
     app = FastAPI(
@@ -255,6 +270,7 @@ def create_app(
     configure_local_access(app)
     install_exception_handlers(app)
     app.include_router(catalog_router)
+    app.include_router(chains_router)
     app.include_router(data_library_router)
     app.include_router(developer_router)
     app.include_router(project_series_router)

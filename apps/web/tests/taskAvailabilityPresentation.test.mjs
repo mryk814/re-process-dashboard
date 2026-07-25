@@ -15,9 +15,25 @@ const session = readFileSync(
 test("unavailable tasks keep the overview while replacing mutation and inference surfaces", () => {
   assert.match(app, /TaskUnavailablePanel/);
   assert.match(app, /保存済みの候補・予測・実測・判断履歴/);
-  assert.match(app, /!taskUnavailable \|\| item\.id === "project"/);
+  assert.match(app, /\(!taskUnavailable && !chainProject\) \|\| item\.id === "project"/);
   assert.match(session, /resolved\.availability\.status === "unavailable"/);
   assert.match(session, /resolved\.availability\.message/);
+});
+
+test("chain projects load their immutable revision without entering the single-task candidate runtime", () => {
+  assert.match(session, /project\?\.scientific_identity\?\.identity_kind === "chain"/);
+  assert.match(session, /setTaskDefinition\(null\)/);
+  assert.match(session, /setResolvedTaskDefinition\(null\)/);
+  assert.match(session, /editor\.acceptServerCandidates\(\[\]\)/);
+  assert.match(session, /setNotice\("Chain Revisionを固定しました/);
+  assert.match(app, /const chainProject = activeProject\?\.scientific_identity\?\.identity_kind === "chain"/);
+  assert.match(app, /\(!taskUnavailable && !chainProject\) \|\| item\.id === "project"/);
+});
+
+test("chain projects are labelled by template, revision, and stages instead of unresolved single-task data", () => {
+  assert.match(projectHub, /revision\.template\.definition\.label/);
+  assert.match(projectHub, /revision\.revision\.stages\.map\(\(stage\) => stage\.stage_id\)\.join\(" → "\)/);
+  assert.match(projectHub, /Chain Revisionを固定したプロジェクトです/);
 });
 
 test("project history shows a Japanese reason and disables changes for unavailable tasks", () => {

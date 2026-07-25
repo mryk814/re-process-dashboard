@@ -914,6 +914,373 @@
         "title": "CandidateUpdate",
         "type": "object"
       },
+      "ChainBinding": {
+        "additionalProperties": false,
+        "properties": {
+          "conversion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UnitConversion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source": {
+            "discriminator": {
+              "mapping": {
+                "external": "#/components/schemas/ExternalBindingSource",
+                "stage_output": "#/components/schemas/StageOutputBindingSource"
+              },
+              "propertyName": "source_kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ExternalBindingSource"
+              },
+              {
+                "$ref": "#/components/schemas/StageOutputBindingSource"
+              }
+            ],
+            "title": "Source"
+          },
+          "target_input_path": {
+            "minLength": 1,
+            "title": "Target Input Path",
+            "type": "string"
+          },
+          "target_stage_id": {
+            "minLength": 1,
+            "title": "Target Stage Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_stage_id",
+          "target_input_path",
+          "source"
+        ],
+        "title": "ChainBinding",
+        "type": "object"
+      },
+      "ChainDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "bindings": {
+            "items": {
+              "$ref": "#/components/schemas/ChainBinding"
+            },
+            "minItems": 1,
+            "title": "Bindings",
+            "type": "array"
+          },
+          "chain_id": {
+            "minLength": 1,
+            "title": "Chain Id",
+            "type": "string"
+          },
+          "external_inputs": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ChainPort"
+            },
+            "title": "External Inputs",
+            "type": "array"
+          },
+          "label": {
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "chain-definition/v1",
+            "default": "chain-definition/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/ChainStage"
+            },
+            "minItems": 1,
+            "title": "Stages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "chain_id",
+          "label",
+          "stages",
+          "bindings"
+        ],
+        "title": "ChainDefinition",
+        "type": "object"
+      },
+      "ChainPort": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Basis"
+          },
+          "path": {
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          },
+          "quantity": {
+            "minLength": 1,
+            "title": "Quantity",
+            "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "value_kind": {
+            "enum": [
+              "number",
+              "categorical",
+              "sparse_blend"
+            ],
+            "title": "Value Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "value_kind",
+          "quantity"
+        ],
+        "title": "ChainPort",
+        "type": "object"
+      },
+      "ChainProjectIdentity": {
+        "additionalProperties": false,
+        "properties": {
+          "chain_revision_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Chain Revision Digest",
+            "type": "string"
+          },
+          "chain_revision_id": {
+            "minLength": 1,
+            "title": "Chain Revision Id",
+            "type": "string"
+          },
+          "identity_kind": {
+            "const": "chain",
+            "title": "Identity Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "identity_kind",
+          "chain_revision_id",
+          "chain_revision_digest"
+        ],
+        "title": "ChainProjectIdentity",
+        "type": "object"
+      },
+      "ChainRevision": {
+        "additionalProperties": false,
+        "properties": {
+          "binding_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Binding Digest",
+            "type": "string"
+          },
+          "chain_definition_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Chain Definition Digest",
+            "type": "string"
+          },
+          "chain_id": {
+            "minLength": 1,
+            "title": "Chain Id",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "revision_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Revision Digest",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "chain-revision/v1",
+            "default": "chain-revision/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/ChainStageRevision"
+            },
+            "minItems": 1,
+            "title": "Stages",
+            "type": "array"
+          },
+          "unit_conversion_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Unit Conversion Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "chain_id",
+          "revision",
+          "chain_definition_digest",
+          "binding_digest",
+          "unit_conversion_digest",
+          "stages",
+          "revision_digest"
+        ],
+        "title": "ChainRevision",
+        "type": "object"
+      },
+      "ChainStage": {
+        "additionalProperties": false,
+        "properties": {
+          "contract_id": {
+            "minLength": 1,
+            "title": "Contract Id",
+            "type": "string"
+          },
+          "stage_id": {
+            "minLength": 1,
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]*$",
+            "title": "Stage Id",
+            "type": "string"
+          },
+          "stage_kind": {
+            "enum": [
+              "task",
+              "deterministic_transform"
+            ],
+            "title": "Stage Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage_id",
+          "stage_kind",
+          "contract_id"
+        ],
+        "title": "ChainStage",
+        "type": "object"
+      },
+      "ChainStageRevision": {
+        "additionalProperties": false,
+        "properties": {
+          "contract_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Contract Digest",
+            "type": "string"
+          },
+          "contract_id": {
+            "minLength": 1,
+            "title": "Contract Id",
+            "type": "string"
+          },
+          "dataset_profile_digest": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset Profile Digest"
+          },
+          "dataset_view_revision_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset View Revision Id"
+          },
+          "package_manifest_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Package Manifest Digest",
+            "type": "string"
+          },
+          "stage_id": {
+            "minLength": 1,
+            "title": "Stage Id",
+            "type": "string"
+          },
+          "stage_kind": {
+            "enum": [
+              "task",
+              "deterministic_transform"
+            ],
+            "title": "Stage Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage_id",
+          "stage_kind",
+          "contract_id",
+          "contract_digest",
+          "package_manifest_digest"
+        ],
+        "title": "ChainStageRevision",
+        "type": "object"
+      },
+      "ChainTemplateItem": {
+        "additionalProperties": false,
+        "properties": {
+          "definition": {
+            "$ref": "#/components/schemas/ChainDefinition"
+          },
+          "definition_id": {
+            "title": "Definition Id",
+            "type": "string"
+          },
+          "revisions": {
+            "items": {
+              "$ref": "#/components/schemas/ChainRevision"
+            },
+            "title": "Revisions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "definition_id",
+          "definition",
+          "revisions"
+        ],
+        "title": "ChainTemplateItem",
+        "type": "object"
+      },
       "ChangeGuideEntry": {
         "additionalProperties": false,
         "properties": {
@@ -2664,6 +3031,27 @@
           "average"
         ],
         "title": "DurationDiagnostic",
+        "type": "object"
+      },
+      "ExternalBindingSource": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          },
+          "source_kind": {
+            "const": "external",
+            "title": "Source Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_kind",
+          "path"
+        ],
+        "title": "ExternalBindingSource",
         "type": "object"
       },
       "FamilyTrainingSummary": {
@@ -5785,6 +6173,24 @@
             "title": "Response Curve Ranges",
             "type": "object"
           },
+          "scientific_identity": {
+            "discriminator": {
+              "mapping": {
+                "chain": "#/components/schemas/ChainProjectIdentity",
+                "single_task": "#/components/schemas/SingleTaskProjectIdentity"
+              },
+              "propertyName": "identity_kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SingleTaskProjectIdentity"
+              },
+              {
+                "$ref": "#/components/schemas/ChainProjectIdentity"
+              }
+            ],
+            "title": "Scientific Identity"
+          },
           "target_values": {
             "additionalProperties": {
               "anyOf": [
@@ -5806,7 +6212,6 @@
           },
           "task_id": {
             "default": "annealed-properties-v1",
-            "minLength": 1,
             "title": "Task Id",
             "type": "string"
           },
@@ -5818,6 +6223,7 @@
         },
         "required": [
           "id",
+          "scientific_identity",
           "created_at",
           "updated_at"
         ],
@@ -5971,6 +6377,31 @@
             "title": "Response Curve Ranges",
             "type": "object"
           },
+          "scientific_identity": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "chain": "#/components/schemas/ChainProjectIdentity",
+                    "single_task": "#/components/schemas/SingleTaskProjectIdentity"
+                  },
+                  "propertyName": "identity_kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/SingleTaskProjectIdentity"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ChainProjectIdentity"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Identity"
+          },
           "target_values": {
             "additionalProperties": {
               "anyOf": [
@@ -5992,7 +6423,6 @@
           },
           "task_id": {
             "default": "annealed-properties-v1",
-            "minLength": 1,
             "title": "Task Id",
             "type": "string"
           }
@@ -6373,6 +6803,31 @@
             },
             "title": "Response Curve Ranges",
             "type": "object"
+          },
+          "scientific_identity": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "chain": "#/components/schemas/ChainProjectIdentity",
+                    "single_task": "#/components/schemas/SingleTaskProjectIdentity"
+                  },
+                  "propertyName": "identity_kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/SingleTaskProjectIdentity"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ChainProjectIdentity"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Identity"
           },
           "target_values": {
             "additionalProperties": {
@@ -8117,6 +8572,85 @@
         "title": "SimilarityIdentity",
         "type": "object"
       },
+      "SingleTaskProjectIdentity": {
+        "additionalProperties": false,
+        "properties": {
+          "binding_provenance": {
+            "default": "explicit",
+            "enum": [
+              "explicit",
+              "assumed_current_at_upgrade",
+              "unbound_legacy"
+            ],
+            "title": "Binding Provenance",
+            "type": "string"
+          },
+          "dataset_view_revision_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset View Revision Id"
+          },
+          "identity_kind": {
+            "const": "single_task",
+            "title": "Identity Kind",
+            "type": "string"
+          },
+          "model_package_manifest_digest": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Package Manifest Digest"
+          },
+          "model_package_ref_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Package Ref Id"
+          },
+          "task_contract_digest": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Contract Digest"
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "identity_kind",
+          "task_id"
+        ],
+        "title": "SingleTaskProjectIdentity",
+        "type": "object"
+      },
       "SnapshotHistoryItem": {
         "properties": {
           "candidate_id": {
@@ -8311,6 +8845,33 @@
           "design_space"
         ],
         "title": "SparseBlend",
+        "type": "object"
+      },
+      "StageOutputBindingSource": {
+        "additionalProperties": false,
+        "properties": {
+          "output_key": {
+            "minLength": 1,
+            "title": "Output Key",
+            "type": "string"
+          },
+          "source_kind": {
+            "const": "stage_output",
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "stage_id": {
+            "minLength": 1,
+            "title": "Stage Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_kind",
+          "stage_id",
+          "output_key"
+        ],
+        "title": "StageOutputBindingSource",
         "type": "object"
       },
       "Support": {
@@ -8858,6 +9419,44 @@
         "title": "TruncatedNormalTolerance",
         "type": "object"
       },
+      "UnitConversion": {
+        "additionalProperties": false,
+        "description": "An explicit affine conversion; its full payload participates in revision identity.",
+        "properties": {
+          "conversion_id": {
+            "minLength": 1,
+            "title": "Conversion Id",
+            "type": "string"
+          },
+          "factor": {
+            "title": "Factor",
+            "type": "number"
+          },
+          "offset": {
+            "default": 0.0,
+            "title": "Offset",
+            "type": "number"
+          },
+          "source_unit": {
+            "minLength": 1,
+            "title": "Source Unit",
+            "type": "string"
+          },
+          "target_unit": {
+            "minLength": 1,
+            "title": "Target Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "conversion_id",
+          "source_unit",
+          "target_unit",
+          "factor"
+        ],
+        "title": "UnitConversion",
+        "type": "object"
+      },
       "WholeWireCoordinate": {
         "additionalProperties": false,
         "properties": {
@@ -8885,6 +9484,83 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/chains": {
+      "get": {
+        "operationId": "listChainTemplates",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ChainTemplateItem"
+                  },
+                  "title": "Response Listchaintemplates",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Chain Templates",
+        "tags": [
+          "chains"
+        ]
+      }
+    },
+    "/api/chains/revisions/{revision_id}": {
+      "get": {
+        "operationId": "getChainRevision",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainRevision"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Chain Revision",
+        "tags": [
+          "chains"
+        ]
+      }
+    },
     "/api/data-library/datasets": {
       "get": {
         "operationId": "list_datasets_api_data_library_datasets_get",

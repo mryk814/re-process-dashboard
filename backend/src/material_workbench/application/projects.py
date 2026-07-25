@@ -15,6 +15,7 @@ from material_workbench.contracts.schemas import (
 from material_workbench.data.profile_document import supported_task_ids
 from material_workbench.persistence.store import (
     CandidateCopyConflictError,
+    ChainCatalogConflictError,
     InvalidProjectDecisionError,
     ProjectNotFoundError,
     ProjectGroupConflictError,
@@ -58,6 +59,29 @@ class ProjectService:
         return self.store.list_projects()
 
     def create(self, payload: ProjectCreateInput) -> Project:
+        if (
+            payload.scientific_identity is not None
+            and payload.scientific_identity.identity_kind == "chain"
+        ):
+            return self._create_chain_project(payload)
+        if payload.scientific_identity is not None:
+            identity = payload.scientific_identity
+            if identity.binding_provenance != "explicit":
+                raise ProjectValidationError(
+                    "新しいsingle-Task Projectには明示的な固定参照が必要です"
+                )
+            payload = payload.model_copy(
+                update={
+                    "task_id": identity.task_id,
+                    "dataset_view_revision_id": identity.dataset_view_revision_id,
+                    "task_contract_digest": identity.task_contract_digest or "",
+                    "model_package_ref_id": identity.model_package_ref_id,
+                    "model_package_manifest_digest": (
+                        identity.model_package_manifest_digest or ""
+                    ),
+                    "scientific_identity": None,
+                }
+            )
         self.registry.require_available(payload.task_id)
         contract = self._contract(payload.task_id)
         self._validate_targets(payload, contract.task_definition.outputs)
@@ -87,7 +111,7 @@ class ProjectService:
 
     def delete(self, project_id: str) -> None:
         project = self.require(project_id)
-        self.registry.require_available(project.task_id)
+        self.registry.require_available(self._terminal_task_id(project))
         if not self.store.delete_project(project_id):
             raise ProjectNotFoundError(project_id)
 
@@ -104,7 +128,8 @@ class ProjectService:
 
     def update(self, project_id: str, payload: ProjectUpdateInput) -> Project:
         current = self.require(project_id)
-        self.registry.require_available(current.task_id)
+        task_id = self._terminal_task_id(current)
+        self.registry.require_available(task_id)
         frozen = {
             "task_id": current.task_id,
             "dataset_view_revision_id": current.dataset_view_revision_id,
@@ -113,6 +138,7 @@ class ProjectService:
             "model_package_manifest_digest": current.model_package_manifest_digest,
             "project_series_id": current.project_series_id,
             "predecessor_project_id": current.predecessor_project_id,
+            "scientific_identity": current.scientific_identity,
         }
         changed = [
             key for key, expected in frozen.items()
@@ -122,9 +148,9 @@ class ProjectService:
             raise ProjectTaskLockedError(
                 "プロジェクトの固定参照は変更できません。『このプロジェクトの続き』として新規作成してください"
             )
-        contract = self._contract(current.task_id)
+        contract = self._contract(task_id)
         self._validate_targets(payload, contract.task_definition.outputs)
-        self._validate_display_decimals(payload, current.task_id)
+        self._validate_display_decimals(payload, task_id)
         try:
             project = self.store.update_project(project_id, payload)
         except InvalidProjectDecisionError as exc:
@@ -135,7 +161,7 @@ class ProjectService:
 
     def update_decision(self, project_id: str, payload: ProjectDecisionInput) -> Project:
         current = self.require(project_id)
-        self.registry.require_available(current.task_id)
+        self.registry.require_available(self._terminal_task_id(current))
         try:
             project = self.store.update_project_decision(
                 project_id,
@@ -151,7 +177,7 @@ class ProjectService:
 
     def move_to_group(self, project_id: str, payload: ProjectGroupMoveInput) -> Project:
         current = self.require(project_id)
-        self.registry.require_available(current.task_id)
+        self.registry.require_available(self._terminal_task_id(current))
         try:
             return self.store.move_project_to_group(project_id, payload)
         except ProjectGroupUnavailableError as exc:
@@ -161,6 +187,67 @@ class ProjectService:
         try:
             return self.registry.contract_for(task_id)
         except TaskRegistryError as exc:
+            raise ProjectValidationError(str(exc)) from exc
+
+    def _terminal_task_id(self, project: Project) -> str:
+        identity = project.scientific_identity
+        if identity.identity_kind == "single_task":
+            return identity.task_id
+        revision = self.store.get_chain_revision(identity.chain_revision_id)
+        if revision is None or revision.revision_digest != identity.chain_revision_digest:
+            raise ProjectValidationError(
+                "プロジェクトに固定されたChain Revisionを読み込めません"
+            )
+        task_stages = [
+            stage for stage in revision.stages if stage.stage_kind == "task"
+        ]
+        if not task_stages:
+            raise ProjectValidationError("Chainに予測Taskがありません")
+        return task_stages[-1].contract_id
+
+    def _create_chain_project(self, payload: ProjectCreateInput) -> Project:
+        identity = payload.scientific_identity
+        assert identity is not None
+        revision = self.store.get_chain_revision(identity.chain_revision_id)
+        if revision is None or revision.revision_digest != identity.chain_revision_digest:
+            raise ProjectValidationError(
+                "選択したChain RevisionのIDまたはdigestが登録内容と一致しません"
+            )
+        task_stages = [
+            stage for stage in revision.stages if stage.stage_kind == "task"
+        ]
+        if not task_stages:
+            raise ProjectValidationError("Chainに予測Taskがありません")
+        terminal_task_id = task_stages[-1].contract_id
+        self.registry.require_available(terminal_task_id)
+        contract = self._contract(terminal_task_id)
+        self._validate_targets(payload, contract.task_definition.outputs)
+        self._validate_display_decimals(payload, terminal_task_id)
+        if payload.decision_candidate_id:
+            raise ProjectValidationError("新しいプロジェクトでは採用候補を空にしてください")
+        if (
+            payload.initial_candidate is not None
+            and payload.initial_candidate.provenance.source_kind != "copy"
+        ):
+            raise ProjectValidationError(
+                "Chain Projectの初期候補は同じChain Revisionのコピー由来にしてください"
+            )
+        resolved = self._resolve_project_series(payload).model_copy(
+            update={
+                "task_id": "",
+                "dataset_view_revision_id": None,
+                "task_contract_digest": "",
+                "model_package_ref_id": None,
+                "model_package_manifest_digest": "",
+            }
+        )
+        try:
+            return self.store.create_chain_project(
+                resolved,
+                identity,
+                payload.initial_candidate,
+            )
+        except (CandidateCopyConflictError, ChainCatalogConflictError) as exc:
             raise ProjectValidationError(str(exc)) from exc
 
     def _validate_targets(self, payload: ProjectInput | ProjectUpdateInput, outputs: tuple[OutputDefinition, ...]) -> None:
@@ -233,9 +320,22 @@ class ProjectService:
         if payload.model_package_manifest_digest and payload.model_package_manifest_digest != package.manifest_digest:
             raise ProjectValidationError("Model Packageのmanifest digestが登録内容と一致しません")
 
-        predecessor = None
+        payload = self._resolve_project_series(payload)
+        assert payload.project_series_id is not None
+        return payload.model_copy(update={
+            "dataset_view_revision_id": view.id,
+            "task_contract_digest": task_digest,
+            "model_package_ref_id": package.id,
+            "model_package_manifest_digest": package.manifest_digest,
+        })
+
+    def _resolve_project_series(
+        self, payload: ProjectCreateInput
+    ) -> ProjectCreateInput:
+        if self.catalog is None:
+            raise ProjectValidationError("Data Libraryを利用できません")
         if payload.predecessor_project_id:
-            predecessor = self.require(payload.predecessor_project_id)
+            self.require(payload.predecessor_project_id)
         series_id = payload.project_series_id
         if series_id:
             series = self.catalog.get_project_series(series_id)
@@ -245,12 +345,7 @@ class ProjectService:
             series = self.catalog.create_project_series(
                 ProjectSeriesCreateInput(name=payload.name, description=payload.description)
             )
-
         return payload.model_copy(update={
-            "dataset_view_revision_id": view.id,
-            "task_contract_digest": task_digest,
-            "model_package_ref_id": package.id,
-            "model_package_manifest_digest": package.manifest_digest,
             "project_series_id": series.id,
         })
 
