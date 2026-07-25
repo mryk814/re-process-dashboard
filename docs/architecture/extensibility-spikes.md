@@ -419,13 +419,25 @@ A（標準表形式Task）          実行済み
 
 4ケースの実測を根拠に、次のリファクタリングを分割します。依存関係は実測により解消済みです。
 
-### P1-a｜Decision Activityのparameter/result union化
+### P1-a｜Decision Activityのparameter/result union化 — **完了**
 
 - 根拠: [inventory §4](extensibility-inventory.md#4-decision-activity追加時の変更点)。2件目のActivity追加で**既存契約の破壊的変更が2件**発生する
-- 範囲: `DecisionActivityRunRequest` / `DecisionActivityRun` のdiscriminated union化、registryのcapability宣言化（必要runtime operation / candidate shape / project resource / parameter schema / result schema）、`DecisionActivityPanel.tsx` のactivity_idハードコード解消
-- 併せて片付ける: `_with_values` の焼鈍固有処理（`ls_mpm` / `heat_time_basis`）の所在を決める
-- 完了条件: 2件目のActivityを、既存Activityのservice / API / UIへTask固有分岐を追加せず登録できる
-- 依存: なし。**着手可**
+- 実施内容:
+  - `DecisionActivityRunRequest.parameters` / `DecisionActivityRun.parameters` / `.result` を `schema_version` 判別のdiscriminated unionへ
+  - handler registry（`application/decision_activity_registry.py`）を追加し、`if definition != ROBUSTNESS_ACTIVITY` を削除
+  - 必要条件をresource種別ごとの1関数へ（`candidate` / `comparison_candidate`）
+  - 焼鈍固有だった `ls_mpm` / `heat_time_basis` の処理を `domain/candidate_inputs.py` へ移し、対象入力を
+    TaskDefinitionの `time_transform = "inverse_heat_time"` から解決するよう変更（共通処理が列名を知らなくなった）
+  - UIを generic shell + activity別view registry（`decisionActivities/`）へ分割
+  - 2件目のActivity「候補差分の要因分解」を実装してunionを実証
+- 完了条件の確認: 共通部分（service / API / `DecisionActivityPanel.tsx`）が activity_id を名指ししないことを
+  `test_shared_activity_shells_do_not_name_a_specific_activity` で固定。E2Eで両Activityの実行を確認
+- **union化の技術的制約**: pydanticの `Field(discriminator=)` は Union が2メンバー以上でないと使えないため、
+  「union化だけ」は成立しない。2件目のActivityと同時にしか導入できない
+- **破壊的変更**: リクエストの `parameters.schema_version` が必須になった（以前は既定値で省略できた）。
+  discriminated unionは判別子の省略を許さない。保存済みrunは常に `schema_version` を含むため読み出しは影響なし
+- Activity追加時に触る箇所は4か所（contracts / handler module / registry / UI view+registry）。
+  [decision-activities.md](../decision-activities.md) に記載
 
 ### P1-b｜Chain Coreと溶接adapterの分離
 
@@ -491,7 +503,7 @@ A（標準表形式Task）          実行済み
 | 1 | 同じ意味・同じ構造のデータ差し替えがProfile / Dataset Revision / Package更新だけで済む | 未計測（今回のスパイク対象外） |
 | 2 | 新しい標準表形式Taskが既存機能をTask固有実装なしで使える | **達成済み**（ケースA） |
 | 3 | 新しいCandidate Shapeを既存shapeを壊さず追加できる | 未達（ケースC。7/7が表現不可） |
-| 4 | 新しいDecision Activityを既存Activity serviceへ分岐追加せず登録できる | 未達（inventory §4。破壊的変更2件が必要） |
+| 4 | 新しいDecision Activityを既存Activity serviceへ分岐追加せず登録できる | **達成済み**（P1-a完了。共通部分がactivity_idを名指ししないことをテストで固定） |
 | 5 | 疎配合を使わないChainがChain Coreの変更なしで実行できる | 未達（ケースD。6点で塞がる） |
 | 6 | 異質な第二ユースケースで共通境界が実証される | **部分達成**（ケースBでObservation Profile / Training Viewが実証。runtime / builderは未達） |
 | 7 | 安全性・再現性の契約を緩めず、変更ファイル数と専用分岐数が減る | 契約は一切変更していない。分岐削減はP1で計測 |

@@ -325,6 +325,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
         {activityOpen && taskDefinition && <DecisionActivityPanel
           projectId={projectId}
           candidate={selected}
+          candidates={candidates}
           taskDefinition={taskDefinition}
           ready={["idle", "saved"].includes(saveState)}
           onClose={() => setActivityOpen(false)}

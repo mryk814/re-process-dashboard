@@ -11,6 +11,27 @@
 現行版は次のアクティビティを提供する。
 
 - **ロバストネス／公差解析**：候補の入力を指定した公差内で変動させ、目標達成の安定性を確認する。
+- **候補差分の要因分解**：保存済みの2つの候補revisionで予測が違う理由を、入力別の置換寄与と残差で示す。
+
+## アクティビティの追加境界
+
+パラメーターと結果は `schema_version` を判別子とする型付きunionである。
+任意JSONは受け取らず、新しいアクティビティは明示的にallow-listする。
+
+アクティビティを1件追加するときに触るのは次の4か所だけである。
+
+1. `contracts/decision_activity_contracts.py` — パラメーターモデル、結果モデル、definition、unionへのメンバー追加
+2. `application/decision_activity_<name>.py` — そのアクティビティの `prepare` と `compute`
+3. `application/decision_activity_registry.py` — registryへの1 entry
+4. `apps/web/src/features/workbench/decisionActivities/` — そのアクティビティのview 1件とregistryへの1 entry
+
+既存アクティビティのservice、API、UIへ分岐を追加しない。
+共通部分（`application/decision_activities.py`、`api/decision_activities.py`、`DecisionActivityPanel.tsx`）は
+activity_idを名指ししてはならず、テストで固定している。
+
+必要条件はresource種別ごとに1か所で判定する。
+`candidate` は保存済み候補revision、`comparison_candidate` は別候補または同じ候補の過去revisionを要求する。
+アクティビティごとに利用可否のコードを増やさない。
 
 ## 利用可否の判定
 
@@ -32,8 +53,28 @@ APIは、Projectに固定されたTask DefinitionとModel Packageから、アク
 値を許容範囲へclipすると指定した分布とは別の分布になるため、clipは行わない。
 
 ライン速度連動のヒートパターンでは、ライン速度を変えたときに各測定点の経過時間も設備位置に対応して変える。
+どの入力が経過時間を逆比例で動かすかは、TaskDefinitionの
+`response_curve_variables[].time_transform = "inverse_heat_time"` が正本である。
+共通処理は特定の列名を知らない。
+
 組成合計にbalance項目が宣言されているTaskでは、他成分の変動分だけbalance項目を再計算する。
 宣言のない補正を推測して適用せず、balance項目そのものを公差対象にする指定も拒否する。
+
+## 候補差分の要因分解
+
+基準候補と比較候補の予測差を、入力ごとの寄与と残差に分ける。
+
+寄与は、比較候補にその入力だけを基準候補の値へ戻したときの出力差である。
+1入力ずつの局所的な置換であり、因果効果ではない。
+寄与の合計と実際の差の残りは、入力どうしの交互作用として**残差へ明示する**。
+残差を各入力へ按分しない。
+
+置換した条件がTaskの制約を満たさない場合は実行を拒否する。値を制約内へ寄せない。
+相違した入力が多い比較は、1入力あたり1回の追加予測が必要になるため上限で拒否する。
+黙って一部の入力を切り捨てることはしない。
+
+予測値の差とモデルの予測不確実性は別々に表示する。両者を合算した帯は作らない。
+基準候補と比較候補それぞれのモデル支持状態も併記する。
 
 ## 二種類の区間
 

@@ -1939,6 +1939,42 @@ export interface components {
              */
             updated_at: string;
         };
+        /** CandidateDifferenceParameters */
+        CandidateDifferenceParameters: {
+            /** Comparison Candidate Id */
+            comparison_candidate_id: string;
+            /** Comparison Revision */
+            comparison_revision: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            schema_version: "candidate-difference-parameters/v1";
+        };
+        /** CandidateDifferenceSummary */
+        CandidateDifferenceSummary: {
+            base_support: components["schemas"]["Support"];
+            /** Changed Input Count */
+            changed_input_count: number;
+            /** Comparison Candidate Id */
+            comparison_candidate_id: string;
+            /** Comparison Candidate Revision */
+            comparison_candidate_revision: number;
+            comparison_support: components["schemas"]["Support"];
+            /** Contributions */
+            contributions: components["schemas"]["DifferenceContribution"][];
+            /** Input Changes */
+            input_changes: components["schemas"]["DifferenceInputChange"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            schema_version: "candidate-difference-summary/v1";
+            /** Target Summaries */
+            target_summaries: components["schemas"]["DifferenceTargetSummary"][];
+            /** Warnings */
+            warnings: string[];
+        };
         /** CandidateHistoryItem */
         CandidateHistoryItem: {
             /** Actuals */
@@ -2952,7 +2988,7 @@ export interface components {
             /** Required Operations */
             required_operations: "preview"[];
             /** Required Resources */
-            required_resources: "candidate"[];
+            required_resources: ("candidate" | "comparison_candidate")[];
             /** Result Kind */
             result_kind: string;
             /** Version */
@@ -2992,11 +3028,13 @@ export interface components {
             definition: components["schemas"]["DecisionActivityDefinition"];
             /** Id */
             id: string;
-            parameters: components["schemas"]["RobustnessParameters"];
+            /** Parameters */
+            parameters: components["schemas"]["RobustnessParameters"] | components["schemas"]["CandidateDifferenceParameters"];
             /** Project Id */
             project_id: string;
             provenance: components["schemas"]["DecisionActivityProvenance"];
-            result: components["schemas"]["RobustnessSummary"];
+            /** Result */
+            result: components["schemas"]["RobustnessSummary"] | components["schemas"]["CandidateDifferenceSummary"];
             /** Semantic Identity */
             semantic_identity: string;
         };
@@ -3004,7 +3042,8 @@ export interface components {
         DecisionActivityRunRequest: {
             /** Expected Revision */
             expected_revision: number;
-            parameters: components["schemas"]["RobustnessParameters"];
+            /** Parameters */
+            parameters: components["schemas"]["RobustnessParameters"] | components["schemas"]["CandidateDifferenceParameters"];
         };
         /** DetailedPredictionResponse */
         DetailedPredictionResponse: {
@@ -3165,6 +3204,56 @@ export interface components {
              * @enum {string}
              */
             validation_status: "ok" | "warning" | "error";
+        };
+        /**
+         * DifferenceContribution
+         * @description Effect of substituting one input, measured from the comparison candidate.
+         */
+        DifferenceContribution: {
+            /** Contribution */
+            contribution: number;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "increases_output" | "decreases_output" | "no_change";
+            /** Path */
+            path: string;
+            /** Target */
+            target: string;
+        };
+        /** DifferenceInputChange */
+        DifferenceInputChange: {
+            /** Base Value */
+            base_value: number | string | null;
+            /** Comparison Value */
+            comparison_value: number | string | null;
+            /** Difference */
+            difference?: number | null;
+            /** Label */
+            label: string;
+            /** Path */
+            path: string;
+            /** Unit */
+            unit?: string | null;
+        };
+        /**
+         * DifferenceTargetSummary
+         * @description One target's prediction gap, kept separate from model uncertainty.
+         */
+        DifferenceTargetSummary: {
+            /** Attributed Difference */
+            attributed_difference: number;
+            base_prediction: components["schemas"]["Prediction"];
+            comparison_prediction: components["schemas"]["Prediction"];
+            /** Difference */
+            difference: number;
+            /** Target */
+            target: string;
+            /** Unexplained Difference */
+            unexplained_difference: number;
+            /** Unit */
+            unit: string;
         };
         /** DirectSourceRef */
         DirectSourceRef: {
@@ -4917,9 +5006,8 @@ export interface components {
              */
             sample_count: number;
             /**
-             * Schema Version
-             * @default robustness-parameters/v1
-             * @constant
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
              */
             schema_version: "robustness-parameters/v1";
             /**
@@ -4946,9 +5034,8 @@ export interface components {
             /** Requested Samples */
             requested_samples: number;
             /**
-             * Schema Version
-             * @default robustness-summary/v1
-             * @constant
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
              */
             schema_version: "robustness-summary/v1";
             /** Target Summaries */

@@ -1,171 +1,37 @@
+"""Decision activity service.
+
+The service is activity-agnostic: it resolves a handler from the registry and
+never branches on a specific activity or task. Resource preconditions are
+declared per resource kind, not per activity.
+"""
 from __future__ import annotations
 
-import math
-import random
-import statistics
 from collections.abc import Callable
-from typing import Any
 
 from material_workbench.application.candidates import CandidateService
+from material_workbench.application.decision_activity_registry import (
+    ActivityContext,
+    DecisionActivityHandler,
+    DecisionActivityNotFoundError,
+    DecisionActivityValidationError,
+    build_registry,
+)
 from material_workbench.application.projects import ProjectService
 from material_workbench.contracts.decision_activity_contracts import (
-    AbsoluteTolerance,
-    BoundedUniformTolerance,
-    CriticalInput,
-    DECISION_ACTIVITY_REGISTRY,
     DecisionActivityAvailability,
-    DecisionActivityDefinition,
     DecisionActivityProvenance,
     DecisionActivityRun,
     DecisionActivityRunRequest,
-    InputVariationInterval,
-    ModelUncertaintyInterval,
-    RelativeTolerance,
-    ROBUSTNESS_ACTIVITY,
-    RobustnessFailureExample,
-    RobustnessParameters,
-    RobustnessSummary,
-    RobustnessTargetSummary,
-    ToleranceSpec,
-    TruncatedNormalTolerance,
 )
-from material_workbench.contracts.schemas import Candidate, CandidateInputs, ModelMetadata, Prediction, Project, Support, TargetRange
-from material_workbench.contracts.task_contracts import CompositionTotalDefinition
-from material_workbench.domain.goal_targets import empirical_goal_probability
-from material_workbench.domain.heat_time import line_speed_scaled_times
-from material_workbench.execution.inference_work_graph import InferenceKey, InferenceWorkGraph, semantic_digest
+from material_workbench.contracts.schemas import Candidate, Project
+from material_workbench.execution.inference_work_graph import (
+    InferenceKey,
+    InferenceWorkGraph,
+    semantic_digest,
+)
 from material_workbench.persistence.store import Store
 from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
 from material_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
-
-
-class DecisionActivityNotFoundError(LookupError):
-    pass
-
-
-class DecisionActivityValidationError(ValueError):
-    pass
-
-
-def _quantile(values: list[float], probability: float) -> float:
-    ordered = sorted(values)
-    if not ordered:
-        raise ValueError("quantile requires values")
-    position = (len(ordered) - 1) * probability
-    lower = math.floor(position)
-    upper = math.ceil(position)
-    if lower == upper:
-        return ordered[lower]
-    weight = position - lower
-    return ordered[lower] * (1.0 - weight) + ordered[upper] * weight
-
-
-def _field_value(candidate: Candidate, path: str) -> float:
-    group, key = path.split(".", 1)
-    values = getattr(candidate.inputs, group, None)
-    if not isinstance(values, dict) or key not in values:
-        raise DecisionActivityValidationError(f"候補に公差対象の入力がありません: {path}")
-    value = values[key]
-    if not isinstance(value, (int, float)) or isinstance(value, bool):
-        raise DecisionActivityValidationError(f"公差解析は数値入力だけを扱います: {path}")
-    return float(value)
-
-
-def _bounds(base: float, spec: ToleranceSpec) -> tuple[float, float]:
-    if isinstance(spec, AbsoluteTolerance):
-        return base - spec.amount, base + spec.amount
-    if isinstance(spec, RelativeTolerance):
-        lower, upper = sorted((base * (1.0 - spec.fraction), base * (1.0 + spec.fraction)))
-        return lower, upper
-    return spec.lower, spec.upper
-
-
-def _sampler(base: float, spec: ToleranceSpec, rng: random.Random) -> Callable[[], float]:
-    lower, upper = _bounds(base, spec)
-    if isinstance(spec, TruncatedNormalTolerance):
-        def sample_normal() -> float:
-            for _ in range(10_000):
-                value = rng.gauss(base, spec.standard_deviation)
-                if lower <= value <= upper:
-                    return value
-            raise DecisionActivityValidationError("打切り正規分布から値を生成できません")
-        return sample_normal
-    return lambda: rng.uniform(lower, upper)
-
-
-def _with_values(candidate: Candidate, values: dict[str, float]) -> Candidate:
-    inputs = candidate.inputs.model_copy(deep=True)
-    old_line_speed = inputs.process.get("ls_mpm")
-    for path, value in values.items():
-        group, key = path.split(".", 1)
-        mapping = getattr(inputs, group)
-        mapping[key] = value
-    new_line_speed = inputs.process.get("ls_mpm")
-    if (
-        "process.ls_mpm" in values
-        and inputs.heat_time_basis == "line_speed"
-        and inputs.heat_pattern
-        and old_line_speed is not None
-        and new_line_speed is not None
-    ):
-        scaled = line_speed_scaled_times(inputs.heat_pattern, float(old_line_speed), float(new_line_speed))
-        inputs.heat_pattern = [
-            point.model_copy(update={"time_s": time_s})
-            for point, time_s in zip(inputs.heat_pattern, scaled)
-        ]
-    return candidate.model_copy(update={"inputs": CandidateInputs.model_validate(inputs)})
-
-
-def _with_declared_balance(
-    candidate: Candidate,
-    values: dict[str, float],
-    composition_totals: tuple[CompositionTotalDefinition, ...],
-) -> Candidate:
-    adjusted = dict(values)
-    for constraint in composition_totals:
-        balance_path = constraint.balance_path
-        varied_components = set(values) & set(constraint.component_paths)
-        if not balance_path or not varied_components or balance_path in values:
-            continue
-        other_total = sum(
-            adjusted.get(path, _field_value(candidate, path))
-            for path in constraint.component_paths
-            if path != balance_path
-        )
-        adjusted[balance_path] = constraint.total - other_total
-    return _with_values(candidate, adjusted)
-
-
-def _goal_failed(project: Project, direction: str, target: str, value: float) -> bool:
-    goal = project.target_values.get(target)
-    if goal is None:
-        return False
-    if isinstance(goal, TargetRange):
-        return not goal.lower <= value <= goal.upper
-    if direction == "at_most":
-        return value > float(goal)
-    return value < float(goal)
-
-
-def _worst(values: list[float], project: Project, direction: str, target: str, base: float) -> float:
-    goal = project.target_values.get(target)
-    if isinstance(goal, TargetRange):
-        return max(values, key=lambda value: max(goal.lower - value, value - goal.upper, 0.0))
-    if goal is not None and direction == "at_most":
-        return max(values)
-    if goal is not None and direction == "at_least":
-        return min(values)
-    return max(values, key=lambda value: abs(value - base))
-
-
-def _correlation(xs: list[float], ys: list[float]) -> tuple[float, str]:
-    try:
-        correlation = statistics.correlation(xs, ys)
-    except statistics.StatisticsError:
-        return 0.0, "unclear"
-    if not math.isfinite(correlation) or abs(correlation) < 0.05:
-        return 0.0, "unclear"
-    return abs(correlation), "increases_output" if correlation > 0 else "decreases_output"
 
 
 class DecisionActivityService:
@@ -175,6 +41,7 @@ class DecisionActivityService:
         registry: TaskRegistry,
         graph: InferenceWorkGraph,
         resolver: ProjectRuntimeResolver,
+        activities: dict[str, DecisionActivityHandler] | None = None,
     ) -> None:
         self.store = store
         self.registry = registry
@@ -182,6 +49,49 @@ class DecisionActivityService:
         self.resolver = resolver
         self.projects = ProjectService(store, registry)
         self.candidates = CandidateService(store, registry, resolver)
+        self.activities = build_registry() if activities is None else dict(activities)
+
+    def _handler(self, activity_id: str) -> DecisionActivityHandler:
+        handler = self.activities.get(activity_id)
+        if handler is None:
+            raise DecisionActivityNotFoundError("検討アクティビティが見つかりません")
+        return handler
+
+    def _resource_checks(
+        self,
+        project_id: str,
+        candidate_id: str | None,
+        expected_revision: int | None,
+    ) -> dict[str, Callable[[], str | None]]:
+        """One precondition per resource kind, shared by every activity."""
+
+        def saved_candidate() -> str | None:
+            if candidate_id is None or expected_revision is None:
+                return "保存済みの候補revisionが必要です"
+            try:
+                candidate = self.candidates.at_revision(
+                    project_id, candidate_id, expected_revision
+                )
+            except (LookupError, ValueError):
+                return "保存済みの候補revisionが必要です"
+            if candidate.blend_validation.status == "invalid":
+                return "保存済みの候補revisionが必要です"
+            return None
+
+        def comparison_candidate() -> str | None:
+            others = [
+                item
+                for item in self.store.list_candidates(project_id)
+                if item.id != candidate_id
+            ]
+            if others or (expected_revision is not None and expected_revision > 1):
+                return None
+            return "比較できる別の候補、または同じ候補の過去revisionが必要です"
+
+        return {
+            "candidate": saved_candidate,
+            "comparison_candidate": comparison_candidate,
+        }
 
     def availability(
         self,
@@ -191,28 +101,62 @@ class DecisionActivityService:
     ) -> list[DecisionActivityAvailability]:
         project = self.projects.require(project_id)
         contract = self.registry.contract_for(project.task_id)
-        candidate_available = False
-        if candidate_id is not None and expected_revision is not None:
-            try:
-                candidate = self.candidates.at_revision(project_id, candidate_id, expected_revision)
-            except (LookupError, ValueError):
-                candidate_available = False
-            else:
-                candidate_available = candidate.blend_validation.status != "invalid"
+        checks = self._resource_checks(project_id, candidate_id, expected_revision)
+        cached: dict[str, str | None] = {}
         results = []
-        for definition in DECISION_ACTIVITY_REGISTRY:
+        # 登録順がUIの表示順の正本。activity_idの辞書順で並べ替えない。
+        for handler in self.activities.values():
+            definition = handler.definition
             reasons: list[str] = []
             for operation in definition.required_operations:
                 if not getattr(contract.runtime_capability.operations, operation):
                     reasons.append(f"{operation}に対応する予測runtimeがありません")
-            if "candidate" in definition.required_resources and not candidate_available:
-                reasons.append("保存済みの候補revisionが必要です")
+            for resource in definition.required_resources:
+                if resource not in cached:
+                    cached[resource] = checks[resource]()
+                reason = cached[resource]
+                if reason is not None and reason not in reasons:
+                    reasons.append(reason)
             results.append(DecisionActivityAvailability(
                 definition=definition,
                 available=not reasons,
                 reasons=tuple(reasons),
             ))
         return results
+
+    def _context(
+        self,
+        project: Project,
+        candidate: Candidate,
+        parameters: object,
+    ) -> tuple[ActivityContext, object]:
+        resolved = self.resolver.resolve(project)
+        runtime = resolved.runtime
+        if runtime.model_package is None:
+            raise DecisionActivityValidationError("Model Packageが解決されていません")
+        definition = self.registry.contract_for(project.task_id).task_definition
+
+        def validate_candidate(item: Candidate) -> None:
+            try:
+                self.registry.validate_candidate(project.task_id, item)
+            except TaskRegistryError as exc:
+                raise ValueError(str(exc)) from exc
+
+        def resolve_candidate(candidate_id: str, revision: int) -> Candidate:
+            # Any stored revision is immutable, so a comparison may reference an
+            # older revision of the same candidate as well as another candidate.
+            return self.candidates.historical_revision(project.id, candidate_id, revision)
+
+        context = ActivityContext(
+            project=project,
+            candidate=candidate,
+            task_definition=definition,
+            runtime=runtime,  # type: ignore[arg-type]
+            parameters=parameters,
+            validate_candidate=validate_candidate,
+            resolve_candidate=resolve_candidate,
+        )
+        return context, resolved.identity
 
     def run(
         self,
@@ -221,16 +165,16 @@ class DecisionActivityService:
         activity_id: str,
         payload: DecisionActivityRunRequest,
     ) -> DecisionActivityRun:
-        definition = next(
-            (item for item in DECISION_ACTIVITY_REGISTRY if item.activity_id == activity_id),
-            None,
-        )
-        if definition is None:
-            raise DecisionActivityNotFoundError("検討アクティビティが見つかりません")
-        if definition != ROBUSTNESS_ACTIVITY:
-            raise DecisionActivityNotFoundError("この検討アクティビティはまだ実行できません")
+        handler = self._handler(activity_id)
+        definition = handler.definition
+        if payload.parameters.schema_version != handler.parameters_kind:
+            raise DecisionActivityValidationError(
+                f"{definition.label}には{handler.parameters_kind}のパラメーターが必要です"
+            )
         project = self.projects.require(project_id)
-        candidate = self.candidates.at_revision(project_id, candidate_id, payload.expected_revision)
+        candidate = self.candidates.at_revision(
+            project_id, candidate_id, payload.expected_revision
+        )
         if candidate.blend_validation.status == "invalid":
             reasons = " / ".join(issue.message for issue in candidate.blend_validation.issues)
             raise DecisionActivityValidationError(
@@ -243,21 +187,16 @@ class DecisionActivityService:
         )
         if not availability.available:
             raise DecisionActivityValidationError(" / ".join(availability.reasons))
-        parameters = payload.parameters
-        samplers = self._validate_tolerances(project, candidate, parameters)
-        resolved = self.resolver.resolve(project)
-        runtime = resolved.runtime
-        identity = resolved.identity
-        package = runtime.model_package
-        if package is None:
-            raise DecisionActivityValidationError("Model Packageが解決されていません")
+
+        context, identity = self._context(project, candidate, payload.parameters)
+        prepared = handler.prepare(context)
+
         canonical = self.registry.validate_candidate(project.task_id, candidate).model_dump(
             mode="json", exclude={"provenance"}
         )
         if candidate.blend is not None:
             canonical["blend"] = candidate.blend.model_input_payload()
-        pipeline_digest = identity.pipeline_digest
-        parameter_payload = parameters.model_dump(mode="json")
+        parameter_payload = payload.parameters.model_dump(mode="json")
         provenance_identity = {
             "project_id": project.id,
             "task_id": project.task_id,
@@ -266,7 +205,7 @@ class DecisionActivityService:
             "candidate_revision": candidate.revision,
             "canonical_input_digest": semantic_digest(canonical),
             "model_package_digest": identity.package_manifest_digest,
-            "feature_pipeline_digest": pipeline_digest,
+            "feature_pipeline_digest": identity.pipeline_digest,
             "activity_id": definition.activity_id,
             "activity_version": definition.version,
             "parameters": parameter_payload,
@@ -280,15 +219,16 @@ class DecisionActivityService:
             runtime_type=identity.runtime_type,
             canonical_input=canonical,
             package_digest=identity.package_digest,
-            pipeline_digest=pipeline_digest,
+            pipeline_digest=identity.pipeline_digest,
             support_digest=identity.support_digest,
             operation=definition.activity_id,
             operation_parameters=parameter_payload,
         )
-        computed = self.graph.execute(
-            key,
-            lambda: self._compute_robustness(project, candidate, parameters, samplers),
-        )
+        computed = self.graph.execute(key, lambda: handler.compute(context, prepared))
+        if computed.result.schema_version != definition.result_kind:
+            raise DecisionActivityValidationError(
+                f"{definition.label}の結果契約が宣言と一致しません"
+            )
         provenance = DecisionActivityProvenance(
             task_id=project.task_id,
             task_contract_digest=project.task_contract_digest,
@@ -296,11 +236,11 @@ class DecisionActivityService:
             candidate_revision=candidate.revision,
             canonical_input_digest=semantic_digest(canonical),
             model_package_digest=identity.package_manifest_digest,
-            feature_pipeline_digest=pipeline_digest,
+            feature_pipeline_digest=identity.pipeline_digest,
             activity_id=definition.activity_id,
             activity_version=definition.version,
             parameters_digest=semantic_digest(parameter_payload),
-            model=computed["model"],
+            model=computed.model,
         )
         stored = self.store.create_decision_activity_run(
             semantic_identity=semantic_identity,
@@ -312,12 +252,14 @@ class DecisionActivityService:
                 "definition": definition.model_dump(mode="json"),
                 "parameters": parameter_payload,
                 "provenance": provenance.model_dump(mode="json"),
-                "result": computed["result"].model_dump(mode="json"),
+                "result": computed.result.model_dump(mode="json"),
             },
         )
         return DecisionActivityRun.model_validate(stored)
 
-    def list_runs(self, project_id: str, candidate_id: str | None = None) -> list[DecisionActivityRun]:
+    def list_runs(
+        self, project_id: str, candidate_id: str | None = None
+    ) -> list[DecisionActivityRun]:
         self.projects.require(project_id)
         return [
             DecisionActivityRun.model_validate(item)
@@ -331,174 +273,9 @@ class DecisionActivityService:
             raise DecisionActivityNotFoundError("保存済みの検討アクティビティが見つかりません")
         return DecisionActivityRun.model_validate(run)
 
-    def _validate_tolerances(
-        self,
-        project: Project,
-        candidate: Candidate,
-        parameters: RobustnessParameters,
-    ) -> dict[str, Callable[[], float]]:
-        fields = {
-            field.path: field
-            for group in self.registry.contract_for(project.task_id).task_definition.input_groups
-            for field in group.fields
-        }
-        balance_paths = {
-            item.balance_path
-            for item in self.registry.contract_for(project.task_id).task_definition.composition_totals
-            if item.balance_path
-        }
-        rng = random.Random(parameters.seed)
-        samplers: dict[str, Callable[[], float]] = {}
-        for path, spec in parameters.tolerance_profile.fields.items():
-            field = fields.get(path)
-            if field is None or field.kind != "number" or not field.editable:
-                raise DecisionActivityValidationError(f"公差解析に使えない入力です: {path}")
-            if path in balance_paths:
-                raise DecisionActivityValidationError(
-                    f"{field.label}は組成合計のbalance項目なので直接は変動させられません"
-                )
-            base = _field_value(candidate, path)
-            lower, upper = _bounds(base, spec)
-            assert field.allowed_range is not None
-            if lower < field.allowed_range.min or upper > field.allowed_range.max:
-                raise DecisionActivityValidationError(
-                    f"{field.label}の公差範囲がTaskの許容範囲を超えています"
-                )
-            if isinstance(spec, TruncatedNormalTolerance) and not lower <= base <= upper:
-                raise DecisionActivityValidationError(
-                    f"{field.label}の打切り範囲に現在値が含まれていません"
-                )
-            samplers[path] = _sampler(base, spec, rng)
-        return samplers
 
-    def _compute_robustness(
-        self,
-        project: Project,
-        candidate: Candidate,
-        parameters: RobustnessParameters,
-        samplers: dict[str, Callable[[], float]],
-    ) -> dict[str, object]:
-        runtime = self.resolver.runtime_for(project)
-        definition = self.registry.contract_for(project.task_id).task_definition
-        outputs = {item.key: item for item in definition.outputs}
-        base_result = runtime.predict_core(
-            candidate, detailed=False, target_values=project.target_values
-        )
-        base_predictions = {
-            key: Prediction.model_validate(value)
-            for key, value in base_result["predictions"].items()
-        }
-        accepted_inputs: list[dict[str, float]] = []
-        accepted_outputs: dict[str, list[float]] = {key: [] for key in outputs}
-        supports: list[Support] = []
-        failures: list[RobustnessFailureExample] = []
-        rejected = 0
-        max_attempts = parameters.sample_count * 20
-        for attempt in range(max_attempts):
-            if len(accepted_inputs) >= parameters.sample_count:
-                break
-            varied = {path: sample() for path, sample in samplers.items()}
-            sample_candidate = _with_declared_balance(
-                candidate, varied, definition.composition_totals
-            )
-            try:
-                self.registry.validate_candidate(project.task_id, sample_candidate)
-            except (TaskRegistryError, ValueError):
-                rejected += 1
-                continue
-            result = runtime.predict_core(
-                sample_candidate, detailed=False, target_values=project.target_values
-            )
-            point_outputs = {
-                key: Prediction.model_validate(value).value
-                for key, value in result["predictions"].items()
-            }
-            support = Support.model_validate(runtime.support_summary(sample_candidate))
-            accepted_inputs.append(varied)
-            supports.append(support)
-            for key, value in point_outputs.items():
-                accepted_outputs[key].append(value)
-            failed_targets = tuple(
-                key for key, value in point_outputs.items()
-                if _goal_failed(project, outputs[key].goal_direction, key, value)
-            )
-            if (failed_targets or support.status == "extrapolated") and len(failures) < 5:
-                failures.append(RobustnessFailureExample(
-                    sample_index=attempt,
-                    varied_inputs=varied,
-                    outputs=point_outputs,
-                    failed_targets=failed_targets,
-                    support=support,
-                ))
-        if not accepted_inputs:
-            raise DecisionActivityValidationError(
-                "Task制約を満たす公差サンプルを生成できませんでした"
-            )
-        target_summaries = []
-        for key, output in outputs.items():
-            values = accepted_outputs[key]
-            base_prediction = base_predictions[key]
-            goal = project.target_values.get(key)
-            goal_rate = (
-                empirical_goal_probability(values, goal, output.goal_direction)
-                if goal is not None
-                else None
-            )
-            target_summaries.append(RobustnessTargetSummary(
-                target=key,
-                unit=output.unit,
-                base_prediction=base_prediction,
-                input_variation=InputVariationInterval(
-                    median=_quantile(values, 0.5),
-                    lower=_quantile(values, 0.05),
-                    upper=_quantile(values, 0.95),
-                ),
-                model_uncertainty=ModelUncertaintyInterval(
-                    lower=base_prediction.lower,
-                    upper=base_prediction.upper,
-                ),
-                goal_achievement_rate=goal_rate,
-                worst_observed=_worst(
-                    values, project, output.goal_direction, key, base_prediction.value
-                ),
-            ))
-        critical: list[CriticalInput] = []
-        for path in samplers:
-            xs = [item[path] for item in accepted_inputs]
-            for target, ys in accepted_outputs.items():
-                score, direction = _correlation(xs, ys)
-                critical.append(CriticalInput(
-                    path=path,
-                    target=target,
-                    absolute_correlation=score,
-                    direction=direction,
-                ))
-        critical.sort(key=lambda item: (-item.absolute_correlation, item.target, item.path))
-        warnings = [
-            "入力ばらつきによる出力分布とモデルの予測不確実性は別々に表示しています。",
-            "入力との相関は局所的な結び付きであり、因果効果ではありません。",
-            "Projectへ固定されたDesign Spaceはないため、TaskDefinitionの制約で検証しています。",
-        ]
-        if rejected:
-            warnings.append(
-                f"Task制約を満たさない{rejected}サンプルは結果へ含めていません。値はclipしていません。"
-            )
-        if len(accepted_inputs) < parameters.sample_count:
-            warnings.append(
-                f"要求{parameters.sample_count}件のうち{len(accepted_inputs)}件だけを評価できました。"
-            )
-        summary = RobustnessSummary(
-            requested_samples=parameters.sample_count,
-            accepted_samples=len(accepted_inputs),
-            rejected_samples=rejected,
-            target_summaries=tuple(target_summaries),
-            critical_inputs=tuple(critical[:8]),
-            failure_examples=tuple(failures),
-            extrapolated_rate=sum(item.status == "extrapolated" for item in supports) / len(supports),
-            caution_rate=sum(item.status == "caution" for item in supports) / len(supports),
-            warnings=tuple(warnings),
-        )
-        return {
-            "model": ModelMetadata.model_validate(base_result.get("model_meta", {})),
-            "result": summary,
-        }
+__all__ = [
+    "DecisionActivityNotFoundError",
+    "DecisionActivityService",
+    "DecisionActivityValidationError",
+]

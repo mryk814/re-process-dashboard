@@ -1248,6 +1248,104 @@
         "title": "CandidateCurrentHistory",
         "type": "object"
       },
+      "CandidateDifferenceParameters": {
+        "additionalProperties": false,
+        "properties": {
+          "comparison_candidate_id": {
+            "minLength": 1,
+            "title": "Comparison Candidate Id",
+            "type": "string"
+          },
+          "comparison_revision": {
+            "minimum": 1.0,
+            "title": "Comparison Revision",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "candidate-difference-parameters/v1",
+            "default": "candidate-difference-parameters/v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "comparison_candidate_id",
+          "comparison_revision"
+        ],
+        "title": "CandidateDifferenceParameters",
+        "type": "object"
+      },
+      "CandidateDifferenceSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "base_support": {
+            "$ref": "#/components/schemas/Support"
+          },
+          "changed_input_count": {
+            "minimum": 1.0,
+            "title": "Changed Input Count",
+            "type": "integer"
+          },
+          "comparison_candidate_id": {
+            "title": "Comparison Candidate Id",
+            "type": "string"
+          },
+          "comparison_candidate_revision": {
+            "title": "Comparison Candidate Revision",
+            "type": "integer"
+          },
+          "comparison_support": {
+            "$ref": "#/components/schemas/Support"
+          },
+          "contributions": {
+            "items": {
+              "$ref": "#/components/schemas/DifferenceContribution"
+            },
+            "title": "Contributions",
+            "type": "array"
+          },
+          "input_changes": {
+            "items": {
+              "$ref": "#/components/schemas/DifferenceInputChange"
+            },
+            "title": "Input Changes",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "candidate-difference-summary/v1",
+            "default": "candidate-difference-summary/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "target_summaries": {
+            "items": {
+              "$ref": "#/components/schemas/DifferenceTargetSummary"
+            },
+            "title": "Target Summaries",
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "comparison_candidate_id",
+          "comparison_candidate_revision",
+          "changed_input_count",
+          "target_summaries",
+          "input_changes",
+          "contributions",
+          "base_support",
+          "comparison_support",
+          "warnings"
+        ],
+        "title": "CandidateDifferenceSummary",
+        "type": "object"
+      },
       "CandidateHistoryItem": {
         "properties": {
           "actuals": {
@@ -4029,7 +4127,10 @@
           },
           "required_resources": {
             "items": {
-              "const": "candidate",
+              "enum": [
+                "candidate",
+                "comparison_candidate"
+              ],
               "type": "string"
             },
             "title": "Required Resources",
@@ -4138,7 +4239,22 @@
             "type": "string"
           },
           "parameters": {
-            "$ref": "#/components/schemas/RobustnessParameters"
+            "discriminator": {
+              "mapping": {
+                "candidate-difference-parameters/v1": "#/components/schemas/CandidateDifferenceParameters",
+                "robustness-parameters/v1": "#/components/schemas/RobustnessParameters"
+              },
+              "propertyName": "schema_version"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/RobustnessParameters"
+              },
+              {
+                "$ref": "#/components/schemas/CandidateDifferenceParameters"
+              }
+            ],
+            "title": "Parameters"
           },
           "project_id": {
             "title": "Project Id",
@@ -4148,7 +4264,22 @@
             "$ref": "#/components/schemas/DecisionActivityProvenance"
           },
           "result": {
-            "$ref": "#/components/schemas/RobustnessSummary"
+            "discriminator": {
+              "mapping": {
+                "candidate-difference-summary/v1": "#/components/schemas/CandidateDifferenceSummary",
+                "robustness-summary/v1": "#/components/schemas/RobustnessSummary"
+              },
+              "propertyName": "schema_version"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/RobustnessSummary"
+              },
+              {
+                "$ref": "#/components/schemas/CandidateDifferenceSummary"
+              }
+            ],
+            "title": "Result"
           },
           "semantic_identity": {
             "title": "Semantic Identity",
@@ -4177,7 +4308,22 @@
             "type": "integer"
           },
           "parameters": {
-            "$ref": "#/components/schemas/RobustnessParameters"
+            "discriminator": {
+              "mapping": {
+                "candidate-difference-parameters/v1": "#/components/schemas/CandidateDifferenceParameters",
+                "robustness-parameters/v1": "#/components/schemas/RobustnessParameters"
+              },
+              "propertyName": "schema_version"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/RobustnessParameters"
+              },
+              {
+                "$ref": "#/components/schemas/CandidateDifferenceParameters"
+              }
+            ],
+            "title": "Parameters"
           }
         },
         "required": [
@@ -4650,6 +4796,155 @@
           "validation_status"
         ],
         "title": "DeveloperOverviewItem",
+        "type": "object"
+      },
+      "DifferenceContribution": {
+        "additionalProperties": false,
+        "description": "Effect of substituting one input, measured from the comparison candidate.",
+        "properties": {
+          "contribution": {
+            "title": "Contribution",
+            "type": "number"
+          },
+          "direction": {
+            "enum": [
+              "increases_output",
+              "decreases_output",
+              "no_change"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "target",
+          "contribution",
+          "direction"
+        ],
+        "title": "DifferenceContribution",
+        "type": "object"
+      },
+      "DifferenceInputChange": {
+        "additionalProperties": false,
+        "properties": {
+          "base_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Value"
+          },
+          "comparison_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comparison Value"
+          },
+          "difference": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Difference"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "path",
+          "label",
+          "base_value",
+          "comparison_value"
+        ],
+        "title": "DifferenceInputChange",
+        "type": "object"
+      },
+      "DifferenceTargetSummary": {
+        "additionalProperties": false,
+        "description": "One target's prediction gap, kept separate from model uncertainty.",
+        "properties": {
+          "attributed_difference": {
+            "title": "Attributed Difference",
+            "type": "number"
+          },
+          "base_prediction": {
+            "$ref": "#/components/schemas/Prediction"
+          },
+          "comparison_prediction": {
+            "$ref": "#/components/schemas/Prediction"
+          },
+          "difference": {
+            "title": "Difference",
+            "type": "number"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "unexplained_difference": {
+            "title": "Unexplained Difference",
+            "type": "number"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "unit",
+          "base_prediction",
+          "comparison_prediction",
+          "difference",
+          "attributed_difference",
+          "unexplained_difference"
+        ],
+        "title": "DifferenceTargetSummary",
         "type": "object"
       },
       "DirectSourceRef": {

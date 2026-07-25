@@ -1,4 +1,9 @@
-"""Typed contracts for decision-oriented analysis activities."""
+"""Typed contracts for decision-oriented analysis activities.
+
+Parameters and results are discriminated unions keyed on ``schema_version``.
+Adding an activity means adding one parameters model, one result model, and one
+registry entry; it must not require a branch inside an existing activity.
+"""
 from __future__ import annotations
 
 from datetime import datetime
@@ -11,7 +16,7 @@ from material_workbench.contracts.task_contracts import ContractModel
 
 
 ActivityOperation = Literal["preview"]
-ActivityResource = Literal["candidate"]
+ActivityResource = Literal["candidate", "comparison_candidate"]
 
 
 class DecisionActivityDefinition(ContractModel):
@@ -94,9 +99,23 @@ class RobustnessParameters(ContractModel):
     tolerance_profile: ToleranceProfile
 
 
+class CandidateDifferenceParameters(ContractModel):
+    schema_version: Literal["candidate-difference-parameters/v1"] = (
+        "candidate-difference-parameters/v1"
+    )
+    comparison_candidate_id: Annotated[str, Field(min_length=1)]
+    comparison_revision: Annotated[int, Field(ge=1)]
+
+
+DecisionActivityParameters = Annotated[
+    RobustnessParameters | CandidateDifferenceParameters,
+    Field(discriminator="schema_version"),
+]
+
+
 class DecisionActivityRunRequest(ContractModel):
     expected_revision: Annotated[int, Field(ge=1)]
-    parameters: RobustnessParameters
+    parameters: DecisionActivityParameters
 
 
 class InputVariationInterval(ContractModel):
@@ -150,6 +169,57 @@ class RobustnessSummary(ContractModel):
     warnings: tuple[str, ...]
 
 
+class DifferenceTargetSummary(ContractModel):
+    """One target's prediction gap, kept separate from model uncertainty."""
+
+    target: str
+    unit: str
+    base_prediction: Prediction
+    comparison_prediction: Prediction
+    difference: float
+    attributed_difference: float
+    unexplained_difference: float
+
+
+class DifferenceInputChange(ContractModel):
+    path: str
+    label: str
+    unit: str | None = None
+    base_value: float | str | None
+    comparison_value: float | str | None
+    difference: float | None = None
+
+
+class DifferenceContribution(ContractModel):
+    """Effect of substituting one input, measured from the comparison candidate."""
+
+    path: str
+    target: str
+    contribution: float
+    direction: Literal["increases_output", "decreases_output", "no_change"]
+
+
+class CandidateDifferenceSummary(ContractModel):
+    schema_version: Literal["candidate-difference-summary/v1"] = (
+        "candidate-difference-summary/v1"
+    )
+    comparison_candidate_id: str
+    comparison_candidate_revision: int
+    changed_input_count: Annotated[int, Field(ge=1)]
+    target_summaries: tuple[DifferenceTargetSummary, ...]
+    input_changes: tuple[DifferenceInputChange, ...]
+    contributions: tuple[DifferenceContribution, ...]
+    base_support: Support
+    comparison_support: Support
+    warnings: tuple[str, ...]
+
+
+DecisionActivityResult = Annotated[
+    RobustnessSummary | CandidateDifferenceSummary,
+    Field(discriminator="schema_version"),
+]
+
+
 class DecisionActivityProvenance(ContractModel):
     task_id: str
     task_contract_digest: str
@@ -170,9 +240,22 @@ class DecisionActivityRun(ContractModel):
     project_id: str
     created_at: datetime
     definition: DecisionActivityDefinition
-    parameters: RobustnessParameters
+    parameters: DecisionActivityParameters
     provenance: DecisionActivityProvenance
-    result: RobustnessSummary
+    result: DecisionActivityResult
+
+    @model_validator(mode="after")
+    def result_matches_its_definition(self) -> "DecisionActivityRun":
+        if self.result.schema_version != self.definition.result_kind:
+            raise ValueError(
+                "stored result kind does not match the activity definition: "
+                f"{self.result.schema_version} != {self.definition.result_kind}"
+            )
+        if self.provenance.activity_id != self.definition.activity_id:
+            raise ValueError("provenance activity does not match the definition")
+        if self.provenance.activity_version != self.definition.version:
+            raise ValueError("provenance activity version does not match the definition")
+        return self
 
 
 ROBUSTNESS_ACTIVITY = DecisionActivityDefinition(
@@ -186,4 +269,13 @@ ROBUSTNESS_ACTIVITY = DecisionActivityDefinition(
     execution_policy="explicit",
 )
 
-DECISION_ACTIVITY_REGISTRY = (ROBUSTNESS_ACTIVITY,)
+CANDIDATE_DIFFERENCE_ACTIVITY = DecisionActivityDefinition(
+    activity_id="candidate-difference-v1",
+    version="1.0.0",
+    label="候補差分の要因分解",
+    question="この候補と比較候補で予測が違うのは、どの入力が効いているのか",
+    required_operations=("preview",),
+    required_resources=("candidate", "comparison_candidate"),
+    result_kind="candidate-difference-summary/v1",
+    execution_policy="explicit",
+)
