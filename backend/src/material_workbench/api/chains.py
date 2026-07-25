@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Annotated
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
@@ -186,11 +187,13 @@ def update_chain_candidate(
                 payload.model_dump(exclude={"expected_revision"})
             ),
         )
-        updated = store.update_candidate(
+        invalidation_request_id = f"candidate-revision:{uuid.uuid4()}"
+        updated, generation = store.update_chain_candidate(
             candidate_id,
             project_id,
             prepared,
             payload.expected_revision,
+            invalidation_request_id,
         )
     except ChainExecutionError as exc:
         raise HTTPException(422, str(exc)) from exc
@@ -204,10 +207,14 @@ def update_chain_candidate(
         ) from exc
     if updated is None:
         raise HTTPException(404, "Chain候補が見つかりません")
+    scope_id = store.chain_execution_scope(project_id, candidate_id)
+    service.coordinator.begin(scope_id, invalidation_request_id)
     service.mark_candidate_changed(
         project_id=project_id,
         candidate_id=candidate_id,
         candidate_revision=updated.revision,
+        request_id=invalidation_request_id,
+        generation=generation,
     )
     return updated
 

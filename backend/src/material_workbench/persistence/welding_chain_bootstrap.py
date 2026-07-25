@@ -16,7 +16,10 @@ from material_workbench.contracts.chain_contracts import (
     task_contract_surface,
 )
 from material_workbench.execution.inference_work_graph import semantic_digest
-from material_workbench.modeling.transform_catalog import DeterministicTransformCatalog
+from material_workbench.modeling.transform_catalog import (
+    DeterministicTransformCatalog,
+    deterministic_transform_contract_digest,
+)
 from material_workbench.persistence.store import Store
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from material_workbench.tasks.task_registry import TaskRegistry
@@ -38,14 +41,7 @@ def _stage_a_surface(
     entry = catalog.entry(STAGE_A_ID)
     manifest = entry.package.manifest
     spec = manifest.deterministic_transforms[0]
-    contract_digest = semantic_digest(
-        {
-            "schema_version": "deterministic-transform-contract/v1",
-            "task_id": manifest.task_id,
-            "input_schema_version": manifest.input_schema_version,
-            "transform": spec.model_dump(mode="json"),
-        }
-    )
+    contract_digest = deterministic_transform_contract_digest(entry.package)
     outputs = [
         ChainPort(
             path=name,

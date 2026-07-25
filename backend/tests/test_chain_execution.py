@@ -1,16 +1,20 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import json
 from pathlib import Path
 import threading
 import time
+from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
+from pydantic import BaseModel
 
 from material_workbench.contracts.blend_contracts import (
     CommercialMaterialCatalog,
     SparseBlendDesignSpace,
 )
+from material_workbench.contracts.schemas import CandidateInputs
 from material_workbench.persistence.store import Store
 
 
@@ -18,6 +22,22 @@ ROOT = Path(__file__).resolve().parents[2]
 STAGE_A_SMOKE = ROOT / "models/packages/welding-stage-a-deterministic-v1/smoke/input.json"
 STAGE_B_SMOKE = ROOT / "models/packages/welding-consumable-stage-b-ridge-v1/smoke/input.json"
 STAGE_C_SMOKE = ROOT / "models/packages/welding-stage-c-ridge-v1/smoke/input.json"
+
+
+def _json_payload(value):
+    return json.loads(
+        json.dumps(
+            value,
+            ensure_ascii=False,
+            default=lambda item: (
+                item.model_dump(mode="json")
+                if isinstance(item, BaseModel)
+                else str(item)
+            ),
+        )
+    )
+
+
 def _chain_identity(client: TestClient) -> dict:
     item = next(
         item
@@ -125,6 +145,55 @@ def test_explicit_a_b_c_execution_matches_bindings_and_partial_recomputation(
         "predictions"
     ]["C"]["value"]
 
+    stored_candidate = client.app.state.store.get_candidate_revision(
+        candidate["id"], candidate["revision"], project["id"]
+    )
+    assert stored_candidate is not None and stored_candidate.blend is not None
+    resolution = client.app.state.deterministic_transform_catalog.resolve_execution(
+        "welding-stage-a-v1", stored_candidate.blend
+    )
+    independent_a = resolution.transform.transform(stored_candidate.blend)
+    independent_a_payload = independent_a.model_dump(mode="json")
+    assert independent_a_payload == stage_a["result"]
+
+    independent_b_candidate = stored_candidate.model_copy(
+        deep=True,
+        update={
+            "inputs": CandidateInputs.model_validate(
+                {
+                    **stage_b["canonical_input"],
+                    "heat_pattern": None,
+                    "heat_time_basis": "line_speed",
+                }
+            ),
+            "blend": None,
+        },
+    )
+    independent_b = client.app.state.task_registry.entry_for(
+        "welding-consumable-stage-b-v1"
+    ).predictor_runtime.predict_core(independent_b_candidate, detailed=False)
+    independent_b_payload = _json_payload(independent_b)
+    assert independent_b_payload == stage_b["result"]
+
+    independent_c_candidate = stored_candidate.model_copy(
+        deep=True,
+        update={
+            "inputs": CandidateInputs.model_validate(
+                {
+                    **stage_c["canonical_input"],
+                    "heat_pattern": None,
+                    "heat_time_basis": "line_speed",
+                }
+            ),
+            "blend": None,
+        },
+    )
+    independent_c = client.app.state.task_registry.entry_for(
+        "welding-stage-c-properties-v1"
+    ).predictor_runtime.predict_core(independent_c_candidate, detailed=False)
+    independent_c_payload = _json_payload(independent_c)
+    assert independent_c_payload == stage_c["result"]
+
     temperature_payload = _candidate_payload(client, project["id"])
     temperature_payload["inputs"]["process"]["test_temperature_c"] = -45.0
     temperature = _update(client, project, candidate, temperature_payload)
@@ -229,6 +298,100 @@ def test_chain_candidate_accepts_a_registered_historical_catalog_pair(
     assert response.json()["blend"]["design_space"]["revision"] == 1
 
 
+def test_pinned_stage_a_ignores_a_new_active_transform_package(
+    client: TestClient,
+    monkeypatch,
+) -> None:
+    project_response = client.post(
+        "/api/projects",
+        json={
+            "name": "Pinned Stage A",
+            "scientific_identity": _chain_identity(client),
+        },
+    )
+    assert project_response.status_code == 201
+    project = project_response.json()
+    catalog = client.app.state.deterministic_transform_catalog
+    active = catalog.entry("welding-stage-a-v1")
+    historical_catalog = CommercialMaterialCatalog.model_validate_json(
+        (ROOT / "models/catalogs/welding-stage-a-commercial-v1.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    historical_space = SparseBlendDesignSpace.model_validate_json(
+        (ROOT / "models/design-spaces/welding-stage-a-v1.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    monkeypatch.setitem(
+        catalog._entries,  # noqa: SLF001
+        "welding-stage-a-v1",
+        replace(
+            active,
+            package=SimpleNamespace(manifest_sha256="f" * 64),
+            commercial_catalog=historical_catalog,
+            design_space=historical_space,
+        ),
+    )
+
+    contract = client.get(
+        f"/api/projects/{project['id']}/chain/candidate-contract"
+    )
+    assert contract.status_code == 200, contract.text
+    assert contract.json()["commercial_catalog"]["revision"] == 2
+    assert contract.json()["design_space_ref"]["revision"] == 2
+
+    candidate_response = client.post(
+        f"/api/projects/{project['id']}/chain/candidates",
+        json=_candidate_payload(client, project["id"]),
+    )
+    assert candidate_response.status_code == 201, candidate_response.text
+    execution = _execute(client, project, candidate_response.json())
+    assert execution["status"] == "latest"
+    assert execution["stages"][0]["package_manifest_digest"] != (
+        "sha256:" + "f" * 64
+    )
+
+
+def test_model_stage_rejects_task_contract_drift_with_the_same_package(
+    client: TestClient,
+    monkeypatch,
+) -> None:
+    project, candidate = _project_and_candidate(client)
+    first = _execute(client, project, candidate)
+    assert first["status"] == "latest"
+    registry = client.app.state.task_registry
+    task_id = "welding-consumable-stage-b-v1"
+    contract = registry.contract_for(task_id)
+    drifted_definition = contract.task_definition.model_copy(
+        update={"label": contract.task_definition.label + " drifted"}
+    )
+    monkeypatch.setitem(
+        registry._contracts,  # noqa: SLF001
+        task_id,
+        contract.model_copy(update={"task_definition": drifted_definition}),
+    )
+
+    response = client.post(
+        f"/api/projects/{project['id']}/chain/candidates/"
+        f"{candidate['id']}/executions",
+        json={
+            "candidate_revision": candidate["revision"],
+            "request_id": "contract-drift",
+            "debounce_ms": 0,
+        },
+    )
+    assert response.status_code == 200, response.text
+    execution = response.json()
+    assert execution["status"] == "failed"
+    assert [stage["status"] for stage in execution["stages"]] == [
+        "latest",
+        "failed",
+        "stale",
+    ]
+    assert "contract digest" in execution["stages"][1]["error"]
+
+
 def test_failure_retains_previous_downstream_result_and_marks_freshness(
     client: TestClient,
     monkeypatch,
@@ -265,6 +428,7 @@ def test_failure_retains_previous_downstream_result_and_marks_freshness(
     stale_c = failed["stages"][2]
     assert stale_c["result"] == previous_c["result"]
     assert stale_c["result_input_digest"] == previous_c["result_input_digest"]
+    assert stale_c["requested_input_digest"] != stale_c["result_input_digest"]
 
 
 def test_chain_snapshot_pins_every_identity_and_survives_store_restart(
@@ -344,3 +508,126 @@ def test_debounce_discards_an_older_request_without_overwriting_latest(
     )
     assert persisted.status_code == 200
     assert persisted.json()["request_id"] == "latest"
+
+
+def test_candidate_update_invalidates_an_inflight_older_revision(
+    client: TestClient,
+    monkeypatch,
+) -> None:
+    project, candidate = _project_and_candidate(client)
+    runtime = client.app.state.task_registry.entry_for(
+        "welding-consumable-stage-b-v1"
+    ).predictor_runtime
+    original_predict = runtime.predict_core
+    entered_stage_b = threading.Event()
+    release_stage_b = threading.Event()
+    responses: dict[str, dict] = {}
+
+    def paused_predict(*args, **kwargs):
+        entered_stage_b.set()
+        assert release_stage_b.wait(timeout=3)
+        return original_predict(*args, **kwargs)
+
+    monkeypatch.setattr(runtime, "predict_core", paused_predict)
+    url = (
+        f"/api/projects/{project['id']}/chain/candidates/"
+        f"{candidate['id']}/executions"
+    )
+
+    def older_revision() -> None:
+        response = client.post(
+            url,
+            json={
+                "candidate_revision": candidate["revision"],
+                "request_id": "revision-1-inflight",
+                "debounce_ms": 0,
+            },
+        )
+        assert response.status_code == 200, response.text
+        responses["old"] = response.json()
+
+    thread = threading.Thread(target=older_revision)
+    thread.start()
+    assert entered_stage_b.wait(timeout=3)
+
+    changed_payload = _candidate_payload(client, project["id"])
+    changed_payload["inputs"]["process"]["test_temperature_c"] = -45.0
+    changed = _update(client, project, candidate, changed_payload)
+    assert changed["revision"] == 2
+    invalidated = client.get(
+        f"/api/projects/{project['id']}/chain/candidates/"
+        f"{candidate['id']}/execution"
+    ).json()
+    assert invalidated["candidate_revision"] == 2
+    assert invalidated["status"] == "stale"
+
+    release_stage_b.set()
+    thread.join(timeout=3)
+    assert not thread.is_alive()
+    assert responses["old"]["status"] == "superseded"
+    persisted = client.get(
+        f"/api/projects/{project['id']}/chain/candidates/"
+        f"{candidate['id']}/execution"
+    ).json()
+    assert persisted["candidate_revision"] == 2
+    assert persisted["request_id"].startswith("candidate-revision:")
+
+
+def test_final_save_uses_store_compare_and_swap(
+    client: TestClient,
+    monkeypatch,
+) -> None:
+    project, candidate = _project_and_candidate(client)
+    store = client.app.state.store
+    original_save = store.save_chain_execution_if_current
+    old_final_entered = threading.Event()
+    release_old_final = threading.Event()
+    responses: dict[str, dict] = {}
+
+    def pause_old_final(execution, generation):
+        if execution.request_id == "old-final" and execution.status == "latest":
+            old_final_entered.set()
+            assert release_old_final.wait(timeout=3)
+        return original_save(execution, generation)
+
+    monkeypatch.setattr(store, "save_chain_execution_if_current", pause_old_final)
+    url = (
+        f"/api/projects/{project['id']}/chain/candidates/"
+        f"{candidate['id']}/executions"
+    )
+
+    def older_request() -> None:
+        response = client.post(
+            url,
+            json={
+                "candidate_revision": candidate["revision"],
+                "request_id": "old-final",
+                "debounce_ms": 0,
+            },
+        )
+        assert response.status_code == 200, response.text
+        responses["old"] = response.json()
+
+    thread = threading.Thread(target=older_request)
+    thread.start()
+    assert old_final_entered.wait(timeout=3)
+    latest = client.post(
+        url,
+        json={
+            "candidate_revision": candidate["revision"],
+            "request_id": "new-final",
+            "debounce_ms": 0,
+        },
+    )
+    assert latest.status_code == 200, latest.text
+    assert latest.json()["status"] == "latest"
+
+    release_old_final.set()
+    thread.join(timeout=3)
+    assert not thread.is_alive()
+    assert responses["old"]["status"] == "superseded"
+    persisted = client.get(
+        f"/api/projects/{project['id']}/chain/candidates/"
+        f"{candidate['id']}/execution"
+    ).json()
+    assert persisted["request_id"] == "new-final"
