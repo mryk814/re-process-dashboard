@@ -24,6 +24,7 @@
     "models:build:examples": "uv run python backend/scripts/build_numpyro_package_examples.py --replace",
     "models:build:quantile-example": "uv run python backend/scripts/build_quantile_model_example.py --replace",
     "models:build:additive-examples": "uv run python backend/scripts/build_additive_model_examples.py --replace",
+    "models:build:welding-chain-evaluation": "uv run python backend/scripts/build_welding_chain_evaluation.py",
     "models:build:posterior-linear-example": "uv run --extra runtime-numpyro python backend/scripts/build_posterior_linear_model_example.py --replace",
     "data:build:welding-sample": "uv run python backend/scripts/build_welding_consumable_sample_dataset.py",
     "data:build:welding-stage-c-views": "uv run python backend/scripts/materialize_observation_training_views.py",

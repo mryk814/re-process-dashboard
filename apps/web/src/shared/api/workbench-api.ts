@@ -34,6 +34,7 @@ export type ApiProjectDecisionInput = components["schemas"]["ProjectDecisionInpu
 export type ApiProjectGroupMoveInput = components["schemas"]["ProjectGroupMoveInput"];
 export type ApiProjectCreationOptions = components["schemas"]["ProjectCreationOptions"];
 export type ApiChainTemplate = components["schemas"]["ChainTemplateItem"];
+export type ApiChainEvaluation = components["schemas"]["ResolvedChainEvaluation"];
 export type ApiChainCandidateContract = components["schemas"]["ChainCandidateContractResponse"];
 export type ApiChainExecution = components["schemas"]["ChainExecution"];
 export type ApiChainSnapshot = components["schemas"]["ChainSnapshot"];
@@ -178,6 +179,12 @@ export const workbenchApi = {
   },
   async listChainTemplates() {
     return requireData(await apiClient.GET("/api/chains"), "Chain Templateを取得できませんでした。");
+  },
+  async projectChainEvaluation(projectId: string, signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/chain/evaluation", {
+      params: { path: { project_id: projectId } },
+      signal,
+    }), "Chain評価を取得できませんでした。");
   },
   async listDataLibraryDatasets(includeArchived = false) {
     return requireData(await apiClient.GET("/api/data-library/datasets", {

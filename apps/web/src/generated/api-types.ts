@@ -852,6 +852,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/chain/evaluation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Project Chain Evaluation */
+        get: operations["getProjectChainEvaluation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/decision": {
         parameters: {
             query?: never;
@@ -1974,6 +1991,148 @@ export interface components {
             schema_version: "chain-definition/v1";
             /** Stages */
             stages: components["schemas"]["ChainStage"][];
+        };
+        /** ChainEvaluationFoldEvidence */
+        ChainEvaluationFoldEvidence: {
+            /** Outer Fold */
+            outer_fold: number;
+            /**
+             * Outer Test Training Overlap
+             * @constant
+             */
+            outer_test_training_overlap: 0;
+            /** Target */
+            target: string;
+            /** Test Group Digest */
+            test_group_digest: string;
+            /** Test Groups */
+            test_groups: number;
+            /** Test Observations */
+            test_observations: number;
+            /** Train Group Digest */
+            train_group_digest: string;
+            /** Train Groups */
+            train_groups: number;
+            /**
+             * Upstream Self Fit Violations
+             * @constant
+             */
+            upstream_self_fit_violations: 0;
+            /** Upstream Test Predictions */
+            upstream_test_predictions: number;
+            /**
+             * Upstream Test Source
+             * @constant
+             */
+            upstream_test_source: "outer-train-only";
+            /** Upstream Training Predictions */
+            upstream_training_predictions: number;
+            /**
+             * Upstream Training Source
+             * @constant
+             */
+            upstream_training_source: "inner-grouped-oof";
+        };
+        /** ChainEvaluationMetricValue */
+        ChainEvaluationMetricValue: {
+            /** Mae */
+            mae: number;
+            /** Rmse */
+            rmse: number;
+        };
+        /** ChainEvaluationReport */
+        ChainEvaluationReport: {
+            /** Binding Digest */
+            binding_digest: string;
+            /** Chain Definition Digest */
+            chain_definition_digest: string;
+            /** Chain Id */
+            chain_id: string;
+            /** Evaluation Id */
+            evaluation_id: string;
+            /** Fold Evidence */
+            fold_evidence: components["schemas"]["ChainEvaluationFoldEvidence"][];
+            /** Metric Definitions */
+            metric_definitions: {
+                [key: string]: string;
+            };
+            /**
+             * Notes
+             * @default []
+             */
+            notes: string[];
+            /**
+             * Schema Version
+             * @default chain-evaluation/v1
+             * @constant
+             */
+            schema_version: "chain-evaluation/v1";
+            /** Source Data Digest */
+            source_data_digest: string;
+            split: components["schemas"]["ChainEvaluationSplit"];
+            /** Stages */
+            stages: components["schemas"]["ChainEvaluationStageIdentity"][];
+            /** Targets */
+            targets: components["schemas"]["ChainEvaluationTarget"][];
+            /** Unit Conversion Digest */
+            unit_conversion_digest: string;
+        };
+        /** ChainEvaluationSplit */
+        ChainEvaluationSplit: {
+            /** Assignment Digest */
+            assignment_digest: string;
+            /**
+             * Assignment Policy
+             * @constant
+             */
+            assignment_policy: "sorted-group-round-robin";
+            /** Assignments */
+            assignments: {
+                [key: string]: {
+                    [key: string]: number;
+                };
+            };
+            /** Folds */
+            folds: number;
+            /** Group Key */
+            group_key: string;
+            /**
+             * Strategy
+             * @constant
+             */
+            strategy: "nested-grouped-outer-k-fold";
+        };
+        /** ChainEvaluationStageIdentity */
+        ChainEvaluationStageIdentity: {
+            /** Contract Digest */
+            contract_digest: string;
+            /** Contract Id */
+            contract_id: string;
+            /** Dataset Profile Digest */
+            dataset_profile_digest?: string | null;
+            /** Package Manifest Digest */
+            package_manifest_digest: string;
+            /** Stage Id */
+            stage_id: string;
+        };
+        /** ChainEvaluationTarget */
+        ChainEvaluationTarget: {
+            /** Cohort */
+            cohort: string;
+            end_to_end: components["schemas"]["ChainEvaluationMetricValue"];
+            /** Label */
+            label: string;
+            /** Observation Family */
+            observation_family: string;
+            /** Observations */
+            observations: number;
+            /** Split Groups */
+            split_groups: number;
+            stage_only: components["schemas"]["ChainEvaluationMetricValue"];
+            /** Target */
+            target: string;
+            /** Unit */
+            unit: string;
         };
         /** ChainExecution */
         ChainExecution: {
@@ -4463,6 +4622,20 @@ export interface components {
             n: number;
             /** Std */
             std: number;
+        };
+        /** ResolvedChainEvaluation */
+        ResolvedChainEvaluation: {
+            /** Artifact Digest */
+            artifact_digest: string;
+            /** Chain Revision Digest */
+            chain_revision_digest: string;
+            /** Chain Revision Id */
+            chain_revision_id: string;
+            /** Dataset View Revision Ids */
+            dataset_view_revision_ids: {
+                [key: string]: string;
+            };
+            report: components["schemas"]["ChainEvaluationReport"];
         };
         /** ResolvedTaskDefinition */
         ResolvedTaskDefinition: {
@@ -8074,6 +8247,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChainSnapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getProjectChainEvaluation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResolvedChainEvaluation"];
                 };
             };
             /** @description Validation Error */

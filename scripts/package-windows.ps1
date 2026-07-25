@@ -42,6 +42,7 @@ try {
         "models/active-packages.json"
         "models/available-packages.json"
         "models/active-transforms.json"
+        "models/evaluations/welding-consumable-a-b-c-v1.json"
         "data/source/welding_consumable_multistage_synthetic_dataset.xlsx"
     )
     $sourceInventoryJson = uv run python backend/scripts/task_inventory.py --print-source-paths

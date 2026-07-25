@@ -145,6 +145,19 @@ def test_packaged_launcher_uses_active_model_configuration_as_single_source() ->
     assert "WORKBENCH_RESOURCE_ROOT: resources" in desktop_launcher
 
 
+def test_packaged_resources_include_chain_evaluation_artifact() -> None:
+    builder_config = (ROOT / "packaging" / "electron-builder.yml").read_text(
+        encoding="utf-8"
+    )
+    package_script = (ROOT / "scripts" / "package-windows.ps1").read_text(
+        encoding="utf-8"
+    )
+    artifact = "models/evaluations/welding-consumable-a-b-c-v1.json"
+
+    assert builder_config.count(artifact) == 2
+    assert artifact in package_script
+
+
 def test_packaged_smoke_executes_the_stage_a_transform_api() -> None:
     packaged_smoke = (ROOT / "scripts" / "smoke-packaged.mjs").read_text(
         encoding="utf-8"

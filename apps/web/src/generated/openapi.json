@@ -1681,6 +1681,371 @@
         "title": "ChainDefinition",
         "type": "object"
       },
+      "ChainEvaluationFoldEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "outer_fold": {
+            "minimum": 0.0,
+            "title": "Outer Fold",
+            "type": "integer"
+          },
+          "outer_test_training_overlap": {
+            "const": 0,
+            "title": "Outer Test Training Overlap",
+            "type": "integer"
+          },
+          "target": {
+            "minLength": 1,
+            "title": "Target",
+            "type": "string"
+          },
+          "test_group_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Test Group Digest",
+            "type": "string"
+          },
+          "test_groups": {
+            "minimum": 1.0,
+            "title": "Test Groups",
+            "type": "integer"
+          },
+          "test_observations": {
+            "minimum": 1.0,
+            "title": "Test Observations",
+            "type": "integer"
+          },
+          "train_group_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Train Group Digest",
+            "type": "string"
+          },
+          "train_groups": {
+            "minimum": 1.0,
+            "title": "Train Groups",
+            "type": "integer"
+          },
+          "upstream_self_fit_violations": {
+            "const": 0,
+            "title": "Upstream Self Fit Violations",
+            "type": "integer"
+          },
+          "upstream_test_predictions": {
+            "minimum": 1.0,
+            "title": "Upstream Test Predictions",
+            "type": "integer"
+          },
+          "upstream_test_source": {
+            "const": "outer-train-only",
+            "title": "Upstream Test Source",
+            "type": "string"
+          },
+          "upstream_training_predictions": {
+            "minimum": 1.0,
+            "title": "Upstream Training Predictions",
+            "type": "integer"
+          },
+          "upstream_training_source": {
+            "const": "inner-grouped-oof",
+            "title": "Upstream Training Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "outer_fold",
+          "train_groups",
+          "test_groups",
+          "test_observations",
+          "train_group_digest",
+          "test_group_digest",
+          "upstream_training_source",
+          "upstream_test_source",
+          "upstream_training_predictions",
+          "upstream_test_predictions",
+          "upstream_self_fit_violations",
+          "outer_test_training_overlap"
+        ],
+        "title": "ChainEvaluationFoldEvidence",
+        "type": "object"
+      },
+      "ChainEvaluationMetricValue": {
+        "additionalProperties": false,
+        "properties": {
+          "mae": {
+            "minimum": 0.0,
+            "title": "Mae",
+            "type": "number"
+          },
+          "rmse": {
+            "minimum": 0.0,
+            "title": "Rmse",
+            "type": "number"
+          }
+        },
+        "required": [
+          "mae",
+          "rmse"
+        ],
+        "title": "ChainEvaluationMetricValue",
+        "type": "object"
+      },
+      "ChainEvaluationReport": {
+        "additionalProperties": false,
+        "properties": {
+          "binding_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Binding Digest",
+            "type": "string"
+          },
+          "chain_definition_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Chain Definition Digest",
+            "type": "string"
+          },
+          "chain_id": {
+            "minLength": 1,
+            "title": "Chain Id",
+            "type": "string"
+          },
+          "evaluation_id": {
+            "minLength": 1,
+            "title": "Evaluation Id",
+            "type": "string"
+          },
+          "fold_evidence": {
+            "items": {
+              "$ref": "#/components/schemas/ChainEvaluationFoldEvidence"
+            },
+            "minItems": 1,
+            "title": "Fold Evidence",
+            "type": "array"
+          },
+          "metric_definitions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "enum": [
+                "mae",
+                "rmse"
+              ]
+            },
+            "title": "Metric Definitions",
+            "type": "object"
+          },
+          "notes": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "chain-evaluation/v1",
+            "default": "chain-evaluation/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source_data_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Source Data Digest",
+            "type": "string"
+          },
+          "split": {
+            "$ref": "#/components/schemas/ChainEvaluationSplit"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/ChainEvaluationStageIdentity"
+            },
+            "minItems": 3,
+            "title": "Stages",
+            "type": "array"
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/ChainEvaluationTarget"
+            },
+            "minItems": 1,
+            "title": "Targets",
+            "type": "array"
+          },
+          "unit_conversion_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Unit Conversion Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evaluation_id",
+          "chain_id",
+          "chain_definition_digest",
+          "binding_digest",
+          "unit_conversion_digest",
+          "source_data_digest",
+          "stages",
+          "split",
+          "metric_definitions",
+          "targets",
+          "fold_evidence"
+        ],
+        "title": "ChainEvaluationReport",
+        "type": "object"
+      },
+      "ChainEvaluationSplit": {
+        "additionalProperties": false,
+        "properties": {
+          "assignment_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Assignment Digest",
+            "type": "string"
+          },
+          "assignment_policy": {
+            "const": "sorted-group-round-robin",
+            "title": "Assignment Policy",
+            "type": "string"
+          },
+          "assignments": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "title": "Assignments",
+            "type": "object"
+          },
+          "folds": {
+            "minimum": 2.0,
+            "title": "Folds",
+            "type": "integer"
+          },
+          "group_key": {
+            "minLength": 1,
+            "title": "Group Key",
+            "type": "string"
+          },
+          "strategy": {
+            "const": "nested-grouped-outer-k-fold",
+            "title": "Strategy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "strategy",
+          "group_key",
+          "folds",
+          "assignment_policy",
+          "assignment_digest",
+          "assignments"
+        ],
+        "title": "ChainEvaluationSplit",
+        "type": "object"
+      },
+      "ChainEvaluationStageIdentity": {
+        "additionalProperties": false,
+        "properties": {
+          "contract_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Contract Digest",
+            "type": "string"
+          },
+          "contract_id": {
+            "minLength": 1,
+            "title": "Contract Id",
+            "type": "string"
+          },
+          "dataset_profile_digest": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset Profile Digest"
+          },
+          "package_manifest_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Package Manifest Digest",
+            "type": "string"
+          },
+          "stage_id": {
+            "minLength": 1,
+            "title": "Stage Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage_id",
+          "contract_id",
+          "contract_digest",
+          "package_manifest_digest"
+        ],
+        "title": "ChainEvaluationStageIdentity",
+        "type": "object"
+      },
+      "ChainEvaluationTarget": {
+        "additionalProperties": false,
+        "properties": {
+          "cohort": {
+            "minLength": 1,
+            "title": "Cohort",
+            "type": "string"
+          },
+          "end_to_end": {
+            "$ref": "#/components/schemas/ChainEvaluationMetricValue"
+          },
+          "label": {
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "observation_family": {
+            "minLength": 1,
+            "title": "Observation Family",
+            "type": "string"
+          },
+          "observations": {
+            "minimum": 1.0,
+            "title": "Observations",
+            "type": "integer"
+          },
+          "split_groups": {
+            "minimum": 2.0,
+            "title": "Split Groups",
+            "type": "integer"
+          },
+          "stage_only": {
+            "$ref": "#/components/schemas/ChainEvaluationMetricValue"
+          },
+          "target": {
+            "minLength": 1,
+            "title": "Target",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "label",
+          "unit",
+          "cohort",
+          "observation_family",
+          "observations",
+          "split_groups",
+          "stage_only",
+          "end_to_end"
+        ],
+        "title": "ChainEvaluationTarget",
+        "type": "object"
+      },
       "ChainExecution": {
         "additionalProperties": false,
         "properties": {
@@ -8287,6 +8652,45 @@
         "title": "RepeatSummary",
         "type": "object"
       },
+      "ResolvedChainEvaluation": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Artifact Digest",
+            "type": "string"
+          },
+          "chain_revision_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Chain Revision Digest",
+            "type": "string"
+          },
+          "chain_revision_id": {
+            "minLength": 1,
+            "title": "Chain Revision Id",
+            "type": "string"
+          },
+          "dataset_view_revision_ids": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Dataset View Revision Ids",
+            "type": "object"
+          },
+          "report": {
+            "$ref": "#/components/schemas/ChainEvaluationReport"
+          }
+        },
+        "required": [
+          "report",
+          "artifact_digest",
+          "chain_revision_id",
+          "chain_revision_digest",
+          "dataset_view_revision_ids"
+        ],
+        "title": "ResolvedChainEvaluation",
+        "type": "object"
+      },
       "ResolvedTaskDefinition": {
         "additionalProperties": false,
         "properties": {
@@ -14667,6 +15071,48 @@
           }
         },
         "summary": "Create Project Chain Snapshot",
+        "tags": [
+          "chain-execution"
+        ]
+      }
+    },
+    "/api/projects/{project_id}/chain/evaluation": {
+      "get": {
+        "operationId": "getProjectChainEvaluation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolvedChainEvaluation"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Project Chain Evaluation",
         "tags": [
           "chain-execution"
         ]
