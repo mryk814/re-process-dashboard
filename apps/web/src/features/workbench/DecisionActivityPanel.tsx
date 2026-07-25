@@ -185,7 +185,7 @@ export function DecisionActivityPanel({
   }
 
   const outputLabels = new Map(taskDefinition.outputs.map((output) => [output.key, output.label]));
-  return <aside className="decision-activity-drawer" aria-label="検討アクティビティ">
+  return <aside className="decision-activity-panel" aria-label="検討アクティビティ">
     <header>
       <div><span className="overline">DECISION ACTIVITY</span><h2>ロバストネス／公差解析</h2></div>
       <button type="button" className="outline-button" onClick={onClose}>閉じる</button>

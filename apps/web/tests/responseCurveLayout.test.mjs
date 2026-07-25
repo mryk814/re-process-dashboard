@@ -12,3 +12,37 @@ test("two-variable sensitivity stays distinct from compact multi-candidate respo
   assert.match(styles, /\.curve-family-panel \.response-curve-card svg \{ width: min\(100%, 400px\); margin-inline: auto; \}/);
   assert.match(styles, /\.response-curve-card svg \{ display: block; width: 100%; height: auto; \}/);
 });
+
+test("response curves use an adaptive default and expose calculation-range gaps", async () => {
+  const source = await readFile(new URL("../src/features/workbench/ResponseCurvePanels.tsx", import.meta.url), "utf8");
+  const workbench = await readFile(new URL("../src/features/workbench/WorkbenchPage.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../src/features/workbench/workbench.css", import.meta.url), "utf8");
+
+  assert.match(source, /Object\.keys\(responseCurveRanges\.y \?\? \{\}\)\.length \? "configured" : "full"/);
+  assert.match(source, /<option value="full">曲線に合わせる<\/option><option value="preferred">基準範囲<\/option>/);
+  assert.match(source, /現在値は計算範囲外/);
+  assert.match(source, /className="curve-endpoint"/);
+  assert.doesNotMatch(workbench, /<UnavailablePanel title="応答曲線"/);
+  assert.match(workbench, /no-response-curves/);
+  assert.match(styles, /\.response-curves-panel > \.panel-title h2 span \{ display: inline-block; \}/);
+});
+
+test("heat-pattern axes keep labels inside the plot and anchor edge ticks inward", async () => {
+  const source = await readFile(new URL("../src/features/workbench/HeatPatternPanel.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /const height = 228/);
+  assert.match(source, /bottom: 42/);
+  assert.match(source, /index === 0 \? "start" : index === timeTicks\.length - 1 \? "end"/);
+  assert.match(source, /時間（min）/);
+});
+
+test("similar evidence uses task outputs as comparable columns and omits unusable actions", async () => {
+  const source = await readFile(new URL("../src/features/workbench/SimilarityEvidencePanel.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /モデル入力が近い実測条件です/);
+  assert.match(source, /visibleOutputs\.map\(\(output\) => <th className="similar-output-header"/);
+  assert.match(source, /canAddCandidates && <th className="similar-action-header"/);
+  assert.match(source, /canAddCandidates && <td className="similar-action-cell"/);
+  assert.match(source, /\? similar\.find\(\(item\) => item\.process_label\)\?\.process_label \?\? "参照条件"/);
+  assert.match(source, /: "観測キー"/);
+});

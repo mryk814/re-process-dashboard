@@ -272,7 +272,7 @@ export function LiveResponseCurves({
   const [variableId, setVariableId] = useState(variables[0]?.id ?? "heat.peak_temperature_c");
   const [axisSettingsOpen, setAxisSettingsOpen] = useState(false);
   const [outputRangeMode, setOutputRangeMode] = useState<"preferred" | "full" | "configured">(
-    Object.keys(responseCurveRanges.y ?? {}).length ? "configured" : "preferred",
+    Object.keys(responseCurveRanges.y ?? {}).length ? "configured" : "full",
   );
   const [axisDraft, setAxisDraft] = useState<{ x: CurveRangeDraft; y: Record<string, CurveRangeDraft>; stagePosition: string; pointCount: number }>({ x: { min: "", max: "", enabled: false }, y: {}, stagePosition: "", pointCount: 17 });
   const [axisDraftDirty, setAxisDraftDirty] = useState(false);
@@ -467,7 +467,7 @@ export function LiveResponseCurves({
         </div>
         <div className="response-curve-controls">
           <label>変数 <select aria-label="応答曲線の設計変数" value={activeVariableId} disabled={axisSaving || axisDraftDirty} onChange={(event) => { setAxisSettingsOpen(false); setAxisDraftDirty(false); setVariableId(event.target.value); }}>{[...new Set(variables.map((variable) => variable.group))].map((group) => <optgroup key={group} label={group}>{variables.filter((variable) => variable.group === group).map((variable) => <option key={variable.id} value={variable.id}>{variable.label}{variable.unit ? ` (${variable.unit})` : ""}</option>)}</optgroup>)}</select></label>
-          <label>Y軸 <select aria-label="Y軸の表示範囲" value={outputRangeMode} onChange={(event) => setOutputRangeMode(event.target.value as "preferred" | "full" | "configured")}><option value="preferred">推奨範囲</option><option value="full">全範囲</option>{Object.keys(responseCurveRanges.y ?? {}).length > 0 && <option value="configured">保存設定</option>}</select></label>
+          <label>Y軸 <select aria-label="Y軸の表示範囲" value={outputRangeMode} onChange={(event) => setOutputRangeMode(event.target.value as "preferred" | "full" | "configured")}><option value="full">曲線に合わせる</option><option value="preferred">基準範囲</option>{Object.keys(responseCurveRanges.y ?? {}).length > 0 && <option value="configured">保存設定</option>}</select></label>
           <button ref={axisSettingsButtonRef} type="button" className={`outline-button curve-range-button${axisSettingsOpen ? " active" : ""}`} aria-label={axisSettingsOpen ? "軸範囲設定を閉じる" : "軸範囲を設定"} title={axisSettingsOpen ? "軸範囲設定を閉じる" : "軸範囲を設定"} aria-expanded={axisSettingsOpen} aria-controls="response-curve-axis-settings" onClick={axisSettingsOpen ? () => setAxisSettingsOpen(false) : openAxisSettings}>
             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 8.3a3.7 3.7 0 1 0 0 7.4 3.7 3.7 0 0 0 0-7.4Zm8.1 4.9v-2.4l-2.3-.7a7.4 7.4 0 0 0-.7-1.6l1.1-2.1-1.7-1.7-2.1 1.1a7.4 7.4 0 0 0-1.6-.7L12.1 3H9.7L9 5.3a7.4 7.4 0 0 0-1.6.7L5.3 4.9 3.6 6.6l1.1 2.1a7.4 7.4 0 0 0-.7 1.6l-2.3.7v2.4l2.3.7a7.4 7.4 0 0 0 .7 1.6l-1.1 2.1 1.7 1.7 2.1-1.1a7.4 7.4 0 0 0 1.6.7l.7 2.3h2.4l.7-2.3a7.4 7.4 0 0 0 1.6-.7l2.1 1.1 1.7-1.7-1.1-2.1a7.4 7.4 0 0 0 .7-1.6l2.3-.7Z" /></svg>
           </button>
@@ -580,7 +580,7 @@ function ResponseCurveMiniChart({
   xUnit: string;
 }) {
   const width = 300;
-  const height = 156;
+  const height = 168;
   const points = series.flatMap((item) => item.points);
   const binary = prediction?.target_kind === "binary"
     || points.some((point) => point.target_kind === "binary");
@@ -593,9 +593,11 @@ function ResponseCurveMiniChart({
         ...series.flatMap((item) => item.prediction ? [item.prediction.value, item.prediction.lower, item.prediction.upper, ...Object.values(item.prediction.quantiles ?? {})] : []),
       ];
   const goalValues = goalAxisValues(goalValue);
-  const rawMin = Math.min(...outputAxisValues, ...goalValues);
-  const rawMax = Math.max(...outputAxisValues, ...goalValues);
-  const valuePadding = Math.max(1, (rawMax - rawMin) * 0.08);
+  const rawMin = binary && !yRange ? 0 : Math.min(...outputAxisValues, ...goalValues);
+  const rawMax = binary && !yRange ? 1 : Math.max(...outputAxisValues, ...goalValues);
+  const valuePadding = yRange || binary
+    ? 0
+    : Math.max((rawMax - rawMin) * 0.08, Math.abs(rawMax || 1) * 1e-6, 1e-6);
   const minValue = yRange?.min ?? rawMin - valuePadding;
   const maxValue = yRange?.max ?? rawMax + valuePadding;
   const visibleRange = { min: minValue, max: maxValue };
@@ -603,7 +605,7 @@ function ResponseCurveMiniChart({
   const clippedAbove = clippedPoints.filter((point) => [point.value, point.lower, point.upper, ...Object.values(point.quantiles ?? {})].some((value) => value > maxValue)).length;
   const clippedBelow = clippedPoints.filter((point) => [point.value, point.lower, point.upper, ...Object.values(point.quantiles ?? {})].some((value) => value < minValue)).length;
   const x = (value: number) => 30 + ((value - minX) / Math.max(1e-6, maxX - minX)) * 252;
-  const y = (value: number) => 124 - ((clampToRange(value, visibleRange) - minValue) / Math.max(1, maxValue - minValue)) * 92;
+  const y = (value: number) => 128 - ((clampToRange(value, visibleRange) - minValue) / Math.max(1e-9, maxValue - minValue)) * 96;
   const xTicks = [minX, (minX + maxX) / 2, maxX];
   const declaredQuantiles = [...new Set(points.flatMap((point) => Object.keys(point.quantiles ?? {})))].sort((left, right) => Number(left) - Number(right));
   const quantileLabel = binary
@@ -618,13 +620,19 @@ function ResponseCurveMiniChart({
     ? `${number(value * 100, 1)}%`
     : `${number(value, yDigits)} ${output.unit}`.trim();
   const xAxisLabel = xUnit ? `${xLabel} (${xUnit})` : xLabel;
+  const outsideCurrentCandidates = series.filter((item) => {
+    if (!item.points.length) return false;
+    const curveMinX = Math.min(...item.points.map((point) => point.x));
+    const curveMaxX = Math.max(...item.points.map((point) => point.x));
+    return item.currentX < curveMinX || item.currentX > curveMaxX;
+  });
   const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; lines: string[] } | null>(null);
   return (
     <article className="response-curve-card">
-      <header><b>{output.label}</b><span>{prediction ? `${yText(prediction.value)} / ${quantileLabel}` : "読み込み中"}</span>{clippedPoints.length > 0 && <span className="curve-clipped-summary" title="表示範囲外の実値は各点の詳細で確認できます">表示外 {clippedPoints.length}点</span>}</header>
+      <header><b>{output.label}</b><span>{prediction ? `${yText(prediction.value)} / ${quantileLabel}` : "読み込み中"}</span>{outsideCurrentCandidates.length > 0 && <span className="curve-current-outside">{outsideCurrentCandidates.length}候補の現在値は計算範囲外</span>}{clippedPoints.length > 0 && <span className="curve-clipped-summary" title="表示範囲外の実値は各点の詳細で確認できます">表示外 {clippedPoints.length}点</span>}</header>
       {series.length ? <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${output.label}の応答曲線、${quantileLabel}`}>
         {yTicks.map((tick) => <g key={tick}><line x1="28" y1={y(tick)} x2="284" y2={y(tick)} stroke="#e3e9f0" /><text x="25" y={y(tick) + 3} textAnchor="end" fontSize="9" fill="#617087">{binary ? number(tick * 100, 0) : number(tick, yDigits)}</text></g>)}
-        {xTicks.map((tick) => <line key={`grid-${tick}`} x1={x(tick)} y1="32" x2={x(tick)} y2="124" stroke="#edf1f6" />)}
+        {xTicks.map((tick) => <line key={`grid-${tick}`} x1={x(tick)} y1="32" x2={x(tick)} y2="128" stroke="#edf1f6" />)}
         {series.map((item) => {
           const color = candidateColor(item.candidate.id, selectedId);
           const line = item.points.map((point, index) => `${index ? "L" : "M"}${x(point.x)} ${y(point.value)}`).join(" ");
@@ -637,7 +645,15 @@ function ResponseCurveMiniChart({
             aria-label={`${item.candidate.label}, ${xLabel} ${number(point.x, xDigits)}, ${output.label} ${yText(point.value)}`}
             onMouseEnter={() => setHoveredPoint({ x: x(point.x), y: y(point.value), lines: [item.candidate.label, `${xLabel} ${number(point.x, xDigits)} ${xUnit}`.trim(), `${output.label} ${yText(point.value)}`, binary ? "校正済み点確率" : `予測区間 ${number(point.lower, yDigits)}–${number(point.upper, yDigits)}`] })}
             onMouseLeave={() => setHoveredPoint(null)}
-          />)}{item.prediction && Number.isFinite(item.currentX) && <circle
+          />)}{item.points.map((point, pointIndex) => pointIndex === 0 || pointIndex === item.points.length - 1 ? <circle
+            key={`endpoint-${item.candidate.id}-${point.x}`}
+            className="curve-endpoint"
+            cx={x(point.x)}
+            cy={y(point.value)}
+            r={item.candidate.id === selectedId ? "2.7" : "2"}
+            fill={color}
+            aria-hidden="true"
+          /> : null)}{item.prediction && Number.isFinite(item.currentX) && <circle
             className="svg-chart-hit-target" tabIndex={0} cx={x(item.currentX)} cy={y(item.prediction.value)} r={item.candidate.id === selectedId ? "4" : "2.5"} fill="#fff" stroke={color} strokeWidth={item.candidate.id === selectedId ? "2.5" : "1.5"}
             aria-label={`${item.candidate.label}の現在値、${xLabel} ${number(item.currentX, xDigits)}、${output.label} ${yText(item.prediction.value)}`}
             onMouseEnter={() => setHoveredPoint({ x: x(item.currentX), y: y(item.prediction!.value), lines: [item.candidate.label, `現在の${xLabel} ${number(item.currentX, xDigits)} ${xUnit}`.trim(), `${output.label} ${yText(item.prediction!.value)}`, binary ? "校正済み点確率" : `予測区間 ${number(item.prediction!.lower, yDigits)}–${number(item.prediction!.upper, yDigits)}`] })}
@@ -648,10 +664,10 @@ function ResponseCurveMiniChart({
         })}
         {isTargetRange(goalValue) ? <rect x="28" y={y(goalValue.upper)} width="256" height={Math.max(1, y(goalValue.lower) - y(goalValue.upper))} fill="#c17816" opacity=".1" /> : Number.isFinite(goalValue) && <line x1="28" y1={y(goalValue as number)} x2="284" y2={y(goalValue as number)} stroke="#c17816" strokeDasharray="4 3" />}
         {clippedAbove > 0 && <text className="curve-clip-indicator" x="280" y="40" textAnchor="end">▲ {clippedAbove}</text>}
-        {clippedBelow > 0 && <text className="curve-clip-indicator" x="280" y="121" textAnchor="end">▼ {clippedBelow}</text>}
-        {xTicks.map((tick) => <text key={tick} x={x(tick)} y="137" textAnchor="middle" fontSize="8" fill="#617087">{number(tick, xDigits)}</text>)}
+        {clippedBelow > 0 && <text className="curve-clip-indicator" x="280" y="125" textAnchor="end">▼ {clippedBelow}</text>}
+        {xTicks.map((tick, index) => <text key={tick} x={x(tick)} y="143" textAnchor={index === 0 ? "start" : index === xTicks.length - 1 ? "end" : "middle"} fontSize="9" fill="#617087">{number(tick, xDigits)}</text>)}
         {hoveredPoint && <SvgChartTooltip {...hoveredPoint} chartWidth={width} chartHeight={height} />}
-        <text x="156" y="153" textAnchor="middle" fontSize="8" fill="#617087">{xAxisLabel}</text>
+        <text x="156" y="162" textAnchor="middle" fontSize="9" fill="#617087">{xAxisLabel}</text>
       </svg> : <p className="empty-evidence">読み込み中…</p>}
     </article>
   );

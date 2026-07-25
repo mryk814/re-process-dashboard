@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { candidateInputIdentity } from "../../shared/api/inferenceRequestCache";
 import { workbenchApi, type ApiSimilarObservation } from "../../shared/api/workbench-api";
 import { assessOutputValues } from "../../shared/outputPresentation";
 import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
-import { type CandidateViewModel as Candidate, type TaskOutputDefinition } from "../candidates";
+import { formatTaskNumber } from "../../shared/taskPresentation";
+import { type CandidateViewModel as Candidate, type TaskDefinitionContract, type TaskOutputDefinition } from "../candidates";
 import {
   emptyInferenceSurface,
   inferenceSurfaceStatus,
@@ -24,6 +25,8 @@ export function SimilarityEvidencePanel({
   projectId,
   candidate,
   outputs,
+  taskDefinition,
+  displayDecimalOverrides,
   available,
   targetSpecific,
   ready,
@@ -32,6 +35,8 @@ export function SimilarityEvidencePanel({
   projectId: string;
   candidate: Candidate;
   outputs: TaskOutputDefinition[];
+  taskDefinition: TaskDefinitionContract | null;
+  displayDecimalOverrides?: Record<string, number>;
   available: boolean;
   targetSpecific: boolean;
   ready: boolean;
@@ -86,24 +91,31 @@ export function SimilarityEvidencePanel({
   }, [available, candidate.id, candidate.raw.archived_at, candidate.raw.revision, identity, inputIdentity, projectId, ready, selectedTarget]);
   const status = inferenceSurfaceStatus(surface);
   const similar = surface.currentIdentity?.startsWith(`${similarityScope}\u001f`) ? surface.data ?? [] : [];
-  const processLabel = similar.find((item) => item.process_label)?.process_label ?? "工程履歴";
   const hasMeltKey = similar.some((item) => item.melt_key);
-  const measuredOutputs = (item: ApiSimilarObservation) => outputs.flatMap((output) => {
+  const canAddCandidates = similar.some((item) => item.process_key);
+  const processLabel = canAddCandidates
+    ? similar.find((item) => item.process_label)?.process_label ?? "参照条件"
+    : "観測キー";
+  const visibleOutputs = targetSpecific ? outputs.filter((output) => output.key === selectedTarget) : outputs;
+  const measurementForOutput = (item: ApiSimilarObservation, output: TaskOutputDefinition) => {
     const summaryKey = [...(output.measurement_keys ?? []), output.key, output.label]
       .find((key) => item.repeat_summary?.[key]);
     const summary = summaryKey ? item.repeat_summary?.[summaryKey] : undefined;
     const raw = item.outputs?.[output.key];
     return summary
-      ? [{ output, summary }]
+      ? summary
       : typeof raw === "number"
-        ? [{ output, summary: { mean: raw, std: 0, n: 1 } }]
-        : [];
-  });
+        ? { mean: raw, std: 0, n: 1 }
+        : null;
+  };
   const isBinaryMeasurement = (output: TaskOutputDefinition) => (
     output.unit === "1"
     && output.plausibility_range?.min === 0
     && output.plausibility_range?.max === 1
   );
+  const outputNumber = (value: number, output: TaskOutputDefinition) => taskDefinition
+    ? formatTaskNumber(value, taskDefinition, `output.${output.key}`, displayDecimalOverrides)
+    : formatNumber(value, 1);
   const add = async (entityKey: string) => {
     setAddingKey(entityKey);
     try {
@@ -117,7 +129,7 @@ export function SimilarityEvidencePanel({
       <div className="evidence-title">
         <div>
           <h2><span className="reference-data-kicker">参照データ</span>近い実測条件 <span>（モデル学習範囲とは別）</span></h2>
-          <span className="similar-caption">このプロジェクトが参照するDataset内で、成分・工程・熱履歴が近い条件です</span>
+          <span className="similar-caption">このプロジェクトが参照するデータセット内で、モデル入力が近い実測条件です</span>
         </div>
         <div className="similar-evidence-actions">
           {targetSpecific && outputs.length > 1 && <label>近さの基準
@@ -135,19 +147,26 @@ export function SimilarityEvidencePanel({
       ) : !ready ? (
         <p className="empty-evidence">入力を保存後に近さを更新します。</p>
       ) : similar.length ? (
-        <div className="similar-table-scroll"><table className={`similar-table similar-summary-table${hasMeltKey ? "" : " no-melt-key"}`}>
-          <thead><tr><th>距離</th>{hasMeltKey && <th>溶製成績書</th>}<th>{processLabel}</th><th>実績値</th><th /></tr></thead>
+        <div className="similar-table-scroll"><table className={`similar-table similar-summary-table${hasMeltKey ? "" : " no-melt-key"}`} style={{ "--similar-output-count": Math.max(visibleOutputs.length, 1) } as CSSProperties}>
+          <thead><tr><th className="similar-distance-header">距離</th>{hasMeltKey && <th className="similar-key-header">溶製成績書</th>}<th className="similar-key-header">{processLabel}</th>{visibleOutputs.map((output) => <th className="similar-output-header" key={output.key}>{output.label}<small>{output.unit === "1" ? "" : output.unit}</small></th>)}{canAddCandidates && <th className="similar-action-header" />}</tr></thead>
           <tbody>{similar.map((item) => (
             <tr key={similarObservationRowKey(item)}>
               <td className="similar-distance"><b>{item.distance.toFixed(2)}</b><span className="layer-chip historical">参照データ</span></td>
               {hasMeltKey && <td><span className="similar-key" title={item.melt_key ?? undefined}>{item.melt_key ?? "—"}</span></td>}
               <td><span className="similar-key" title={item.process_key ?? item.parent_key}>{item.process_key ?? item.parent_key}</span></td>
-              <td><div className="similar-value-list">{measuredOutputs(item).map(({ output, summary }) => { const assessment = assessOutputValues(output, [summary.mean], "実測値"); const binary = isBinaryMeasurement(output); const value = binary ? (summary.mean >= 0.5 ? "fail" : "pass") : formatNumber(summary.mean, 1); return <span className={assessment.implausible ? "implausible-output" : undefined} key={output.key} title={assessment.warning ?? (binary ? `${output.label}: ${value} / n=${summary.n}` : `${output.label}: ${formatNumber(summary.mean, 1)} ± ${formatNumber(summary.std, 1)} ${output.unit} / n=${summary.n}`)}><b>{output.key === "lambda" ? "λ" : output.label}</b><strong>{value}</strong>{assessment.implausible && <small className="output-warning-badge">⚠</small>}</span>; })}</div></td>
-              <td className="similar-action-cell">
+              {visibleOutputs.map((output) => {
+                const summary = measurementForOutput(item, output);
+                if (!summary) return <td className="similar-output-cell empty-cell" key={output.key}>—</td>;
+                const assessment = assessOutputValues(output, [summary.mean], "実測値");
+                const binary = isBinaryMeasurement(output);
+                const value = binary ? (summary.mean >= 0.5 ? "fail" : "pass") : outputNumber(summary.mean, output);
+                return <td className={`similar-output-cell${assessment.implausible ? " implausible-output" : ""}`} key={output.key} title={assessment.warning ?? (binary ? `${output.label}: ${value} / n=${summary.n}` : `${output.label}: ${value} ± ${outputNumber(summary.std, output)} ${output.unit} / n=${summary.n}`)}><strong>{value}</strong>{!binary && <small>±{outputNumber(summary.std, output)} · n={summary.n}</small>}{assessment.implausible && <small className="output-warning-badge">⚠</small>}</td>;
+              })}
+              {canAddCandidates && <td className="similar-action-cell">
                 <CandidateAddButton compact disabled={!item.process_key || addingKey === item.process_key || addedKeys.includes(item.process_key ?? "")} onClick={() => { if (item.process_key) void add(item.process_key); }}>
                   {addedKeys.includes(item.process_key ?? "") ? "追加済み" : addingKey === item.process_key ? "追加中…" : "実測から候補化"}
                 </CandidateAddButton>
-              </td>
+              </td>}
             </tr>
           ))}</tbody>
         </table></div>

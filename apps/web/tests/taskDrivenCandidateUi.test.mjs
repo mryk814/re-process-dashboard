@@ -117,6 +117,29 @@ test("mixed-unit input groups do not borrow the first field unit for the group h
   assert.doesNotMatch(inspector, /<h3>工程条件<\/h3>.*?<\/div><span>°C<\/span>/);
 });
 
+test("candidate inspector keeps the candidate identity and one shared training-range legend", () => {
+  const definition = {
+    input_groups: [{
+      key: "process",
+      order: 0,
+      label: "工程条件（安全に単一値へ正規化できた行）",
+      fields: [
+        numberField("process.temperature", "温度"),
+        { ...numberField("process.time", "時間", 1), unit: "s" },
+      ],
+    }],
+    outputs: [],
+    display_decimals: { "process.temperature": 1, "process.time": 1 },
+    fixed_context: [],
+  };
+  const inspector = renderInspector({ candidate, taskDefinition: definition, saveState: "idle", fieldErrors: [], onInput() {} });
+  assert.match(inspector, /選択候補の入力/);
+  assert.match(inspector, /<h2>候補A<\/h2>/);
+  assert.match(inspector, /<h3>工程条件<\/h3>/);
+  assert.doesNotMatch(inspector, /安全に単一値へ正規化できた行/);
+  assert.equal((inspector.match(/緑帯：学習範囲/g) ?? []).length, 1);
+});
+
 test("comparison puts the input group that differs between candidates first", () => {
   const definition = {
     input_groups: [
