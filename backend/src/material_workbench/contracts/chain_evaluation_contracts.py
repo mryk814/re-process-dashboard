@@ -6,6 +6,7 @@ from typing import Annotated, Literal
 from pydantic import Field, model_validator
 
 from material_workbench.contracts.chain_contracts import ChainContractModel
+from material_workbench.execution.inference_work_graph import semantic_digest
 
 
 Digest = Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
@@ -68,6 +69,8 @@ class ChainEvaluationSplit(ChainContractModel):
             values = sorted(set(assignment.values()))
             if values != list(range(self.folds)):
                 raise ValueError("target fold IDs must be contiguous and use every fold")
+        if semantic_digest(self.assignments) != self.assignment_digest:
+            raise ValueError("fold assignment digest does not match assignments")
         return self
 
 
@@ -75,6 +78,9 @@ class ChainEvaluationReport(ChainContractModel):
     schema_version: Literal["chain-evaluation/v1"] = "chain-evaluation/v1"
     evaluation_id: Annotated[str, Field(min_length=1)]
     chain_id: Annotated[str, Field(min_length=1)]
+    chain_definition_digest: Digest
+    binding_digest: Digest
+    unit_conversion_digest: Digest
     source_data_digest: Digest
     stages: Annotated[tuple[ChainEvaluationStageIdentity, ...], Field(min_length=3)]
     split: ChainEvaluationSplit
@@ -85,6 +91,9 @@ class ChainEvaluationReport(ChainContractModel):
 
     @model_validator(mode="after")
     def evidence_covers_every_target_fold(self) -> "ChainEvaluationReport":
+        stage_ids = [item.stage_id for item in self.stages]
+        if len(stage_ids) != len(set(stage_ids)):
+            raise ValueError("Chain evaluation stages must be unique")
         target_names = [item.target for item in self.targets]
         if len(target_names) != len(set(target_names)):
             raise ValueError("Chain evaluation targets must be unique")

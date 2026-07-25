@@ -1614,6 +1614,16 @@
       "ChainEvaluationReport": {
         "additionalProperties": false,
         "properties": {
+          "binding_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Binding Digest",
+            "type": "string"
+          },
+          "chain_definition_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Chain Definition Digest",
+            "type": "string"
+          },
           "chain_id": {
             "minLength": 1,
             "title": "Chain Id",
@@ -1682,11 +1692,19 @@
             "minItems": 1,
             "title": "Targets",
             "type": "array"
+          },
+          "unit_conversion_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Unit Conversion Digest",
+            "type": "string"
           }
         },
         "required": [
           "evaluation_id",
           "chain_id",
+          "chain_definition_digest",
+          "binding_digest",
+          "unit_conversion_digest",
           "source_data_digest",
           "stages",
           "split",

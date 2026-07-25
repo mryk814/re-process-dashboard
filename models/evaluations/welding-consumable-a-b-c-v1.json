@@ -2,6 +2,9 @@
   "schema_version": "chain-evaluation/v1",
   "evaluation_id": "welding-consumable-a-b-c-nested-oof-v1",
   "chain_id": "welding-consumable-a-b-c-v1",
+  "chain_definition_digest": "sha256:64cd1a1af0881233ba1bf2773a9e4850240cccb7c8b124bb6ad1650c4563635e",
+  "binding_digest": "sha256:579e7095d684afc27c88f7c84d334837fb859d55841a26f9ec00b9088bab07c7",
+  "unit_conversion_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "source_data_digest": "sha256:dcaad240b934a4ada810fc9577d075ea58ad457b2a373938463f29f72301a7c8",
   "stages": [
     {

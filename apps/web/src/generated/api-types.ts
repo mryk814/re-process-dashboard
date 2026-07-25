@@ -1944,6 +1944,10 @@ export interface components {
         };
         /** ChainEvaluationReport */
         ChainEvaluationReport: {
+            /** Binding Digest */
+            binding_digest: string;
+            /** Chain Definition Digest */
+            chain_definition_digest: string;
             /** Chain Id */
             chain_id: string;
             /** Evaluation Id */
@@ -1972,6 +1976,8 @@ export interface components {
             stages: components["schemas"]["ChainEvaluationStageIdentity"][];
             /** Targets */
             targets: components["schemas"]["ChainEvaluationTarget"][];
+            /** Unit Conversion Digest */
+            unit_conversion_digest: string;
         };
         /** ChainEvaluationSplit */
         ChainEvaluationSplit: {

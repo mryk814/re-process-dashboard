@@ -20,6 +20,7 @@ from material_workbench.modeling.transform_catalog import (
     DeterministicTransformCatalog,
     deterministic_transform_contract_digest,
 )
+from material_workbench.modeling.model_packages import VerifiedModelPackage
 from material_workbench.persistence.store import Store
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from material_workbench.tasks.task_registry import TaskRegistry
@@ -35,13 +36,10 @@ class WeldingChainBootstrapError(RuntimeError):
     """Bundled Task/Package/Profile records cannot form the declared Chain."""
 
 
-def _stage_a_surface(
-    catalog: DeterministicTransformCatalog,
-) -> StageContractSurface:
-    entry = catalog.entry(STAGE_A_ID)
-    manifest = entry.package.manifest
+def welding_stage_a_surface(package: VerifiedModelPackage) -> StageContractSurface:
+    manifest = package.manifest
     spec = manifest.deterministic_transforms[0]
-    contract_digest = deterministic_transform_contract_digest(entry.package)
+    contract_digest = deterministic_transform_contract_digest(package)
     outputs = [
         ChainPort(
             path=name,
@@ -76,6 +74,12 @@ def _stage_a_surface(
         ),
         output_ports=tuple(outputs),
     )
+
+
+def _stage_a_surface(
+    catalog: DeterministicTransformCatalog,
+) -> StageContractSurface:
+    return welding_stage_a_surface(catalog.entry(STAGE_A_ID).package)
 
 
 def _task_surface(
@@ -172,7 +176,7 @@ def _stage_binding(
     )
 
 
-def _definition(
+def welding_chain_definition(
     stage_a: StageContractSurface,
     stage_b: StageContractSurface,
     stage_c: StageContractSurface,
@@ -358,7 +362,7 @@ def bootstrap_welding_chain(
         (surface.stage_kind, surface.contract_id): surface
         for surface in (stage_a, stage_b, stage_c)
     }
-    definition = _definition(stage_a, stage_b, stage_c)
+    definition = welding_chain_definition(stage_a, stage_b, stage_c)
     stage_a_entry = transform_catalog.entry(STAGE_A_ID)
     revision = build_chain_revision(
         definition,

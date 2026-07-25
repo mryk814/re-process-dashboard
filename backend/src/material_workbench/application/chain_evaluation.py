@@ -51,6 +51,7 @@ class ChainEvaluationCatalog:
         *,
         revision_id: str,
         revision: ChainRevision,
+        stage_source_digests: dict[str, set[str]],
     ) -> ResolvedChainEvaluation:
         matching = [
             (report, digest)
@@ -62,6 +63,18 @@ class ChainEvaluationCatalog:
                 "固定されたChain Revisionに対応する評価成果物がありません"
             )
         report, artifact_digest = matching[0]
+        if (
+            report.chain_definition_digest != revision.chain_definition_digest
+            or report.binding_digest != revision.binding_digest
+            or report.unit_conversion_digest != revision.unit_conversion_digest
+        ):
+            raise ChainEvaluationError(
+                "評価成果物のChain Definition・binding identityが一致しません"
+            )
+        report_stage_order = [item.stage_id for item in report.stages]
+        revision_stage_order = [item.stage_id for item in revision.stages]
+        if report_stage_order != revision_stage_order:
+            raise ChainEvaluationError("評価成果物のStage順序がChain Revisionと一致しません")
         report_stages = {item.stage_id: item for item in report.stages}
         revision_stages = {item.stage_id: item for item in revision.stages}
         if set(report_stages) != set(revision_stages):
@@ -82,6 +95,13 @@ class ChainEvaluationCatalog:
                 raise ChainEvaluationError(
                     f"評価成果物の固定identityが一致しません: Stage {stage_id}"
                 )
+            if expected.dataset_profile_digest is not None:
+                if stage_source_digests.get(stage_id) != {
+                    report.source_data_digest
+                }:
+                    raise ChainEvaluationError(
+                        f"評価成果物のsource identityが一致しません: Stage {stage_id}"
+                    )
         return ResolvedChainEvaluation(
             report=report,
             artifact_digest=artifact_digest,

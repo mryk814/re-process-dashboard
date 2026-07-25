@@ -6,7 +6,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
-from material_workbench.api.dependencies import get_store
+from material_workbench.api.dependencies import get_store, get_workspace_catalog
 from material_workbench.application.chain_execution import (
     ChainExecutionError,
     ChainExecutionService,
@@ -39,11 +39,13 @@ from material_workbench.persistence.store import (
     CandidateRevisionConflictError,
     Store,
 )
+from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 
 
 router = APIRouter(prefix="/api/chains", tags=["chains"])
 execution_router = APIRouter(prefix="/api/projects", tags=["chain-execution"])
 StoreDependency = Annotated[Store, Depends(get_store)]
+CatalogDependency = Annotated[WorkspaceCatalog, Depends(get_workspace_catalog)]
 
 
 class ChainApiModel(BaseModel):
@@ -127,6 +129,7 @@ def get_project_chain_evaluation(
     project_id: str,
     catalog: Annotated[ChainEvaluationCatalog, Depends(_evaluation_catalog)],
     store: StoreDependency,
+    workspace_catalog: CatalogDependency,
 ) -> ResolvedChainEvaluation:
     project = store.get_project(project_id)
     if project is None:
@@ -140,10 +143,40 @@ def get_project_chain_evaluation(
         or revision.revision_digest != identity.chain_revision_digest
     ):
         raise HTTPException(409, "固定されたChain Revisionを解決できません")
+    stage_source_digests: dict[str, set[str]] = {}
+    for stage in revision.stages:
+        if stage.dataset_view_revision_id is None:
+            continue
+        view = workspace_catalog.get_dataset_view_revision(
+            stage.dataset_view_revision_id, include_archived=True
+        )
+        if view is None:
+            raise HTTPException(
+                409, f"Stage {stage.stage_id}のDataset Viewを解決できません"
+            )
+        digests: set[str] = set()
+        for member in view.members:
+            dataset = workspace_catalog.get_dataset_revision(
+                member.dataset_revision_id, include_archived=True
+            )
+            asset = (
+                workspace_catalog.get_data_asset(
+                    dataset.data_asset_id, include_archived=True
+                )
+                if dataset is not None
+                else None
+            )
+            if asset is None:
+                raise HTTPException(
+                    409, f"Stage {stage.stage_id}のsource identityを解決できません"
+                )
+            digests.add(f"sha256:{asset.sha256}")
+        stage_source_digests[stage.stage_id] = digests
     try:
         return catalog.resolve(
             revision_id=identity.chain_revision_id,
             revision=revision,
+            stage_source_digests=stage_source_digests,
         )
     except ChainEvaluationError as exc:
         raise HTTPException(409, str(exc)) from exc

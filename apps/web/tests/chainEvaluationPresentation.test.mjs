@@ -32,4 +32,6 @@ test("project switch resolves Chain identity from the requested project before l
   assert.match(projectHubSource, /projects\.find\(\(item\) => item\.id === activeProjectId\)/);
   assert.match(projectHubSource, /if \(chainIdentity\) \{/);
   assert.match(projectHubSource, /projectChainEvaluation\(activeProjectId/);
+  assert.match(projectHubSource, /setChainEvaluation\(\{ projectId: activeProjectId, value: item \}\)/);
+  assert.match(projectHubSource, /chainEvaluation\?\.projectId === activeProjectId/);
 });

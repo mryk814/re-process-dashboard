@@ -42,8 +42,8 @@ Stage Aは固定科学masterによる決定論的変換です。
 
 - `models/evaluations/welding-consumable-a-b-c-v1.json`
 
-成果物はStage A/B/Cのcontract digest、Package manifest digest、B/CのDataset Profile digest、元データdigest、決定的fold assignmentを固定します。
-APIはProjectが固定したChain Revisionとこれらを照合し、一致しない成果物を表示しません。
+成果物はChain Definition・binding・単位変換digest、Stage A/B/Cの順序・contract digest・Package manifest digest、B/CのDataset Profile digest、元データdigest、決定的fold assignmentを固定します。
+APIはProjectが固定したChain RevisionとDataset Viewから元データidentityまでを照合し、一致しない成果物を表示しません。
 
 再生成:
 

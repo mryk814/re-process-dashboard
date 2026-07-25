@@ -16,6 +16,7 @@ from material_workbench.contracts.chain_evaluation_contracts import (
     ChainEvaluationStageIdentity,
     ChainEvaluationTarget,
 )
+from material_workbench.contracts.chain_contracts import task_contract_surface
 from material_workbench.data.stage_b_training import (
     STAGE_B_OUTPUT_AXES,
     build_stage_b_training_data,
@@ -35,6 +36,10 @@ from material_workbench.modeling.tabular_regression import (
 )
 from material_workbench.modeling.transform_catalog import (
     deterministic_transform_contract_digest,
+)
+from material_workbench.persistence.welding_chain_bootstrap import (
+    welding_chain_definition,
+    welding_stage_a_surface,
 )
 from material_workbench.tasks.task_registry import load_task_contracts
 
@@ -344,10 +349,33 @@ def build_chain_evaluation(
             dataset_profile_digest=c_data.profile_digest,
         ),
     )
+    contracts = load_task_contracts()
+    chain_definition = welding_chain_definition(
+        welding_stage_a_surface(ModelPackageLoader().load(Path(stage_a_package))),
+        task_contract_surface(
+            contracts[STAGE_B_ID].task_definition,
+            contract_digest=stages[1].contract_digest,
+        ),
+        task_contract_surface(
+            contracts[STAGE_C_ID].task_definition,
+            contract_digest=stages[2].contract_digest,
+        ),
+    )
     assignment_digest = _digest(assignments)
     return ChainEvaluationReport(
         evaluation_id="welding-consumable-a-b-c-nested-oof-v1",
         chain_id=CHAIN_ID,
+        chain_definition_digest=chain_definition.digest,
+        binding_digest=semantic_digest(
+            [item.model_dump(mode="json") for item in chain_definition.bindings]
+        ),
+        unit_conversion_digest=semantic_digest(
+            [
+                item.conversion.model_dump(mode="json")
+                for item in chain_definition.bindings
+                if item.conversion is not None
+            ]
+        ),
         source_data_digest=f"sha256:{c_data.source_sha256}",
         stages=stages,
         split=ChainEvaluationSplit(

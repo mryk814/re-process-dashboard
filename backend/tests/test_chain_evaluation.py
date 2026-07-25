@@ -139,8 +139,81 @@ def test_chain_evaluation_rejects_stage_identity_drift(client: TestClient) -> No
         catalog.resolve(
             revision_id="welding-consumable-a-b-c-v1:r1",
             revision=revision,
+            stage_source_digests={
+                "B": {report.source_data_digest},
+                "C": {report.source_data_digest},
+            },
         )
     except ChainEvaluationError as exc:
         assert "Stage B" in str(exc)
     else:
         raise AssertionError("drifted evaluation identity must be rejected")
+
+
+def test_chain_evaluation_rejects_chain_binding_identity_drift(
+    client: TestClient,
+) -> None:
+    revision = client.app.state.store.get_chain_revision(
+        "welding-consumable-a-b-c-v1:r1"
+    )
+    assert revision is not None
+    report = ChainEvaluationReport.model_validate_json(
+        ARTIFACT.read_text(encoding="utf-8")
+    )
+    catalog = ChainEvaluationCatalog(((report, "sha256:" + "1" * 64),))
+    drifted = revision.model_copy(
+        update={"binding_digest": "sha256:" + "0" * 64}
+    )
+
+    try:
+        catalog.resolve(
+            revision_id="welding-consumable-a-b-c-v1:r1",
+            revision=drifted,
+            stage_source_digests={
+                "B": {report.source_data_digest},
+                "C": {report.source_data_digest},
+            },
+        )
+    except ChainEvaluationError as exc:
+        assert "binding identity" in str(exc)
+    else:
+        raise AssertionError("drifted binding identity must be rejected")
+
+
+def test_chain_evaluation_rejects_source_identity_drift(client: TestClient) -> None:
+    revision = client.app.state.store.get_chain_revision(
+        "welding-consumable-a-b-c-v1:r1"
+    )
+    assert revision is not None
+    report = ChainEvaluationReport.model_validate_json(
+        ARTIFACT.read_text(encoding="utf-8")
+    )
+    catalog = ChainEvaluationCatalog(((report, "sha256:" + "1" * 64),))
+
+    try:
+        catalog.resolve(
+            revision_id="welding-consumable-a-b-c-v1:r1",
+            revision=revision,
+            stage_source_digests={
+                "B": {"sha256:" + "0" * 64},
+                "C": {report.source_data_digest},
+            },
+        )
+    except ChainEvaluationError as exc:
+        assert "source identity" in str(exc)
+    else:
+        raise AssertionError("drifted source identity must be rejected")
+
+
+def test_chain_evaluation_rejects_fold_assignment_digest_drift() -> None:
+    payload = ChainEvaluationReport.model_validate_json(
+        ARTIFACT.read_text(encoding="utf-8")
+    ).model_dump(mode="json")
+    payload["split"]["assignment_digest"] = "sha256:" + "0" * 64
+
+    try:
+        ChainEvaluationReport.model_validate(payload)
+    except ValueError as exc:
+        assert "fold assignment digest" in str(exc)
+    else:
+        raise AssertionError("drifted fold assignment digest must be rejected")
