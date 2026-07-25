@@ -1,4 +1,10 @@
-"""Allow-listed Stage C runtime backed by observation-family training views."""
+"""Allow-listed runtime for Observation-family Tasks.
+
+Feature order, per-target feature sets, and target-to-family mapping come from
+``ObservationTrainingSpec``, which derives them from the Observation Profile and
+the TaskDefinition. This module holds no task id and no profile path; both are
+declared once in ``task_modules.py``.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -19,6 +25,11 @@ from material_workbench.data.observation_profile import (
 )
 from material_workbench.domain.goal_targets import goal_fields
 from material_workbench.modeling.curve_grid import anchored_curve_grid
+from material_workbench.modeling.observation_training_spec import (
+    ObservationRuntimeDeclaration,
+    ObservationTrainingSpec,
+    observation_training_spec,
+)
 from material_workbench.modeling.model_packages import (
     ModelPackageLoader,
     VerifiedModelPackage,
@@ -29,72 +40,14 @@ from material_workbench.modeling.model_packages import (
 from material_workbench.tasks.task_registry import load_task_contracts
 
 
-TASK_ID = "welding-stage-c-properties-v1"
-PROFILE_PATH = (
-    Path(__file__).resolve().parents[1]
-    / "data"
-    / "observation-profile-welding-consumable-stage-c-v1.json"
-)
-COMPOSITION_PATHS = tuple(
-    f"composition.{name}"
-    for name in ("C", "Si", "Mn", "P", "S", "Ni", "Cr", "Mo", "Cu", "Ti", "B", "Nb", "V", "Al", "N", "O")
-)
-TENSILE_FEATURES = (
-    *COMPOSITION_PATHS,
-    "process.heat_input_kj_per_mm",
-    "process.preheat_temp_c",
-)
-CHARPY_FEATURES = (*TENSILE_FEATURES, "process.test_temperature_c")
-TEST_SOLUTIONS = ("3.5%NaCl", "5%H2SO4")
-CORROSION_FEATURES = (
-    *COMPOSITION_PATHS,
-    *(f"categorical.test_solution::{value}" for value in TEST_SOLUTIONS),
-)
-PIPELINE_FEATURES = (
-    *CHARPY_FEATURES,
-    *(f"categorical.test_solution::{value}" for value in TEST_SOLUTIONS),
-)
-TARGET_FAMILY = {
-    "TS": "tensile",
-    "YS": "tensile",
-    "EL": "tensile",
-    "RA": "tensile",
-    "CHARPY_ENERGY": "charpy",
-    "BRITTLE_FRACTURE": "charpy",
-    "CORROSION_RATE": "corrosion",
-}
-TARGET_FEATURES = {
-    **{target: TENSILE_FEATURES for target in ("TS", "YS", "EL", "RA")},
-    **{target: CHARPY_FEATURES for target in ("CHARPY_ENERGY", "BRITTLE_FRACTURE")},
-    "CORROSION_RATE": CORROSION_FEATURES,
-}
-OUTPUT_BOUNDS = {
-    "TS": (0.0, None),
-    "YS": (0.0, None),
-    "EL": (0.0, 100.0),
-    "RA": (0.0, 100.0),
-    "CHARPY_ENERGY": (0.0, None),
-    "BRITTLE_FRACTURE": (0.0, 100.0),
-    "CORROSION_RATE": (0.0, None),
-}
+def resolve_spec(declaration: ObservationRuntimeDeclaration) -> ObservationTrainingSpec:
+    """Build the training spec from the declared Profile and TaskDefinition."""
 
-
-def _definitions() -> tuple[FeatureDefinition, ...]:
-    definitions = []
-    for name in PIPELINE_FEATURES:
-        if name.startswith("composition."):
-            group, unit = "composition", "mass% deposited metal"
-        elif name.startswith("process."):
-            group = "process"
-            unit = "kJ/mm" if "heat_input" in name else "°C"
-        else:
-            group, unit = "categorical", "1"
-        definitions.append(FeatureDefinition(name, unit, name, group))
-    return tuple(definitions)
-
-
-FEATURE_DEFINITIONS = _definitions()
-FEATURE_DEFINITION_BY_NAME = {item.name: item for item in FEATURE_DEFINITIONS}
+    return observation_training_spec(
+        declaration,
+        load_observation_profile(declaration.profile_path),
+        load_task_contracts()[declaration.task_id].task_definition,
+    )
 
 
 def _flat_candidate_inputs(candidate: CandidateInput) -> dict[str, float | str]:
@@ -105,35 +58,23 @@ def _flat_candidate_inputs(candidate: CandidateInput) -> dict[str, float | str]:
     return values
 
 
-def feature_values(inputs: dict[str, Any]) -> dict[str, float]:
-    values = {
-        name: float(inputs[name])
-        for name in CHARPY_FEATURES
-        if inputs.get(name) is not None
-    }
-    solution = inputs.get("categorical.test_solution")
-    if solution is not None:
-        values.update({
-            f"categorical.test_solution::{choice}": float(solution == choice)
-            for choice in TEST_SOLUTIONS
-        })
-    return values
+def candidate_feature_values(
+    candidate: CandidateInput, spec: ObservationTrainingSpec
+) -> dict[str, float]:
+    return spec.feature_values(_flat_candidate_inputs(candidate))
 
 
-def candidate_feature_values(candidate: CandidateInput) -> dict[str, float]:
-    return feature_values(_flat_candidate_inputs(candidate))
-
-
-def build_stage_c_features_from_observation(
+def build_observation_features_from_observation(
     row: dict[str, Any],
     _medians: dict[str, float],
+    spec: ObservationTrainingSpec,
 ) -> FeatureBundle:
-    values = feature_values(row["canonical_inputs"])
-    names = tuple(name for name in PIPELINE_FEATURES if name in values)
+    values = spec.feature_values(row["canonical_inputs"])
+    names = tuple(name for name in spec.pipeline_features if name in values)
     return FeatureBundle(
-        "welding-stage-c-observation-transform",
-        "1.0.0",
-        tuple(FEATURE_DEFINITION_BY_NAME[name] for name in names),
+        spec.feature_transform_id,
+        spec.feature_transform_version,
+        tuple(spec.definition_for(name) for name in names),
         np.asarray([values[name] for name in names], dtype=float),
     )
 
@@ -155,6 +96,7 @@ class StageCData:
     detected_quality: list[dict[str, Any]]
     technical_columns: dict[tuple[str, str], str]
     training_dataset: ObservationTrainingDataset
+    spec: ObservationTrainingSpec
 
     def canonical_training_dataset(
         self,
@@ -166,6 +108,7 @@ class StageCData:
             task_input_contract_digest,
         )
 
+        spec = self.spec
         rows = []
         for observation in self.observations:
             outputs = {
@@ -179,24 +122,24 @@ class StageCData:
                 "observation_id": observation["id"],
                 "parent_key": observation["parent_key"],
                 "family": observation["family"],
-                "features": feature_values(observation["canonical_inputs"]),
+                "features": spec.feature_values(observation["canonical_inputs"]),
                 "outputs": outputs,
             })
         rows.sort(key=lambda item: (item["family"], item["parent_key"], item["observation_id"]))
         return {
             "schema_version": "canonical-training-dataset/v1",
-            "task_id": TASK_ID,
+            "task_id": spec.task_id,
             "input_contract_digest": task_input_contract_digest(
                 contract.task_definition
             ),
             "dataset_profile_digest": self.profile_digest,
             "source_data_digest": f"sha256:{self.source_sha256}",
             "feature_pipeline": {
-                "id": "welding-stage-c-observation-transform",
-                "version": pipeline_version or "1.0.0",
+                "id": spec.feature_transform_id,
+                "version": pipeline_version or spec.feature_transform_version,
                 "features": [
                     {"name": item.name, "unit": item.unit, "group": item.group}
-                    for item in FEATURE_DEFINITIONS
+                    for item in spec.feature_definitions
                 ],
             },
             "composition_defaults": {
@@ -208,12 +151,18 @@ class StageCData:
         }
 
 
-def load_stage_c_data(
+def load_observation_data(
     source: str | Path,
+    declaration: ObservationRuntimeDeclaration,
     profile: ObservationDatasetProfile | None = None,
 ) -> StageCData:
     source_path = Path(source)
-    selected_profile = profile or load_observation_profile(PROFILE_PATH)
+    selected_profile = profile or load_observation_profile(declaration.profile_path)
+    spec = observation_training_spec(
+        declaration,
+        selected_profile,
+        load_task_contracts()[declaration.task_id].task_definition,
+    )
     training = build_observation_training_dataset(source_path, selected_profile)
     observations: list[dict[str, Any]] = []
     numeric_values: dict[str, list[float]] = {}
@@ -267,7 +216,7 @@ def load_stage_c_data(
         source_path=str(source_path),
         source_mtime_ns=source_path.stat().st_mtime_ns,
         source_sha256=training.source_sha256,
-        profile_path=str(PROFILE_PATH),
+        profile_path=str(declaration.profile_path),
         profile=selected_profile,
         profile_id=selected_profile.id,
         profile_digest=training.profile_digest,
@@ -279,32 +228,35 @@ def load_stage_c_data(
         detected_quality=[],
         technical_columns={},
         training_dataset=training,
+        spec=spec,
     )
 
 
-class StageCRegressionRuntime:
-    support_policy_id = "stage-c-family-group-knn-v1"
-
+class ObservationRegressionRuntime:
     def __init__(self, data: StageCData, package: str | Path | VerifiedModelPackage) -> None:
         self.data = data
         self.profile = data.profile
-        self.task_id = TASK_ID
+        self.spec = data.spec
+        self.task_id = self.spec.task_id
+        self.support_policy_id = self.spec.support_policy_id
         self.model_package = package if isinstance(package, VerifiedModelPackage) else ModelPackageLoader().load(package)
         manifest = self.model_package.manifest
-        contract = load_task_contracts()[TASK_ID]
+        contract = load_task_contracts()[self.task_id]
         validate_task_definition_canonical_inputs(contract.task_definition, manifest)
-        if manifest.task_id != TASK_ID:
-            raise ValueError(f"Model package task {manifest.task_id} is incompatible with {TASK_ID}")
-        if manifest.feature_pipeline.output_features != PIPELINE_FEATURES:
-            raise ValueError("Stage C package feature pipeline is incompatible")
+        if manifest.task_id != self.task_id:
+            raise ValueError(
+                f"Model package task {manifest.task_id} is incompatible with {self.task_id}"
+            )
+        if manifest.feature_pipeline.output_features != self.spec.pipeline_features:
+            raise ValueError("Observation package feature pipeline is incompatible")
         specs = {item.target: item for item in manifest.predictors}
-        if set(specs) != set(TARGET_FAMILY):
-            raise ValueError("Stage C package predictors are incomplete")
-        for target, expected in TARGET_FEATURES.items():
+        if set(specs) != set(self.spec.target_family):
+            raise ValueError("Observation package predictors are incomplete")
+        for target, expected in self.spec.target_features.items():
             if specs[target].feature_names != expected:
-                raise ValueError(f"Stage C predictor features are incompatible: {target}")
-            if specs[target].config.get("observation_family") != TARGET_FAMILY[target]:
-                raise ValueError(f"Stage C predictor family is incompatible: {target}")
+                raise ValueError(f"Observation predictor features are incompatible: {target}")
+            if specs[target].config.get("observation_family") != self.spec.target_family[target]:
+                raise ValueError(f"Observation predictor family is incompatible: {target}")
         self.predictors = {
             target: self.model_package.load_predictor(spec.id)
             for target, spec in specs.items()
@@ -349,7 +301,7 @@ class StageCRegressionRuntime:
         method = self.chain_sampling_method
         if not method:
             raise ValueError("このruntime/packageはStage sampleを提供しません")
-        values = candidate_feature_values(candidate)
+        values = candidate_feature_values(candidate, self.spec)
         targets = sorted(self.predictors)
         seeds = np.random.SeedSequence(seed).spawn(len(targets))
         result: dict[str, list[float]] = {}
@@ -378,9 +330,9 @@ class StageCRegressionRuntime:
             self.model_package.artifact_path(smoke.input).read_text(encoding="utf-8")
         )
         expected = json.loads(self.model_package.artifact_path(smoke.expected).read_text(encoding="utf-8"))
-        values = candidate_feature_values(candidate)
+        values = candidate_feature_values(candidate, self.spec)
         specs = {item.target: item for item in self.model_package.manifest.predictors}
-        capabilities = {item.target: item for item in load_task_contracts()[TASK_ID].runtime_capability.targets}
+        capabilities = {item.target: item for item in load_task_contracts()[self.task_id].runtime_capability.targets}
         for target, predictor in self.predictors.items():
             summary = predictor.predict(values)
             validate_predictive_summary(summary, specs[target], capabilities[target])
@@ -395,10 +347,10 @@ class StageCRegressionRuntime:
 
     def _build_support_reference(self) -> None:
         self.support_references: dict[str, dict[str, Any]] = {}
-        for target, names in TARGET_FEATURES.items():
+        for target, names in self.spec.target_features.items():
             rows = self._target_rows(target)
             raw = np.asarray([
-                [feature_values(row["canonical_inputs"])[name] for name in names]
+                [self.spec.feature_values(row["canonical_inputs"])[name] for name in names]
                 for row in rows
             ])
             mean, scale = raw.mean(axis=0), raw.std(axis=0)
@@ -421,8 +373,8 @@ class StageCRegressionRuntime:
 
     def _support(self, candidate: CandidateInput, target: str, include_similarity: bool) -> tuple[Support, list[dict[str, Any]]]:
         reference = self.support_references[target]
-        values = candidate_feature_values(candidate)
-        vector = np.asarray([values[name] for name in TARGET_FEATURES[target]])
+        values = candidate_feature_values(candidate, self.spec)
+        vector = np.asarray([values[name] for name in self.spec.target_features[target]])
         normalized = (vector - reference["mean"]) / reference["scale"]
         distances = np.sqrt(((reference["vectors"] - normalized) ** 2).mean(axis=1))
         nearest = float(distances.min())
@@ -446,7 +398,7 @@ class StageCRegressionRuntime:
                     "observation_id": row["id"],
                     "observation_ids": [row["id"]],
                     "parent_key": group,
-                    "source": f"Stage C {TARGET_FAMILY[target]}",
+                    "source": f"Stage C {self.spec.target_family[target]}",
                     "distance": round(float(distances[index]), 4),
                     "outputs": {key: round(float(value), 4) for key, value in row["outputs"].items()},
                 })
@@ -457,7 +409,7 @@ class StageCRegressionRuntime:
             distance=round(nearest, 4),
             percentile=round(float((reference["loo_nearest"] <= nearest).mean() * 100), 1),
             message=message,
-            components={TARGET_FAMILY[target]: round(nearest, 4)},
+            components={self.spec.target_family[target]: round(nearest, 4)},
             reference_count=len(reference["rows"]),
             supported_threshold=round(supported, 4),
             caution_threshold=round(caution, 4),
@@ -485,14 +437,14 @@ class StageCRegressionRuntime:
         target_values: dict[str, TargetValue] | None = None,
         **_: Any,
     ) -> dict[str, Any]:
-        values = candidate_feature_values(candidate)
-        definitions = {item.key: item for item in load_task_contracts()[TASK_ID].task_definition.outputs}
+        values = candidate_feature_values(candidate, self.spec)
+        definitions = {item.key: item for item in load_task_contracts()[self.task_id].task_definition.outputs}
         predictions: dict[str, Prediction] = {}
         for target, predictor in self.predictors.items():
             summary = predictor.predict(values)
             lower, upper = predictive_interval(summary)
             point = summary.point_estimate
-            minimum, maximum = OUTPUT_BOUNDS[target]
+            minimum, maximum = self.spec.output_bounds_for(target)
             point, lower, upper = max(minimum, point), max(minimum, lower), max(minimum, upper)
             quantiles = {level: max(minimum, float(value)) for level, value in summary.quantiles.items()}
             if maximum is not None:
@@ -518,7 +470,7 @@ class StageCRegressionRuntime:
             )
         manifest = self.model_package.manifest
         return {
-            "task_id": TASK_ID,
+            "task_id": self.task_id,
             "candidate_id": candidate.id,
             "mode": "detailed" if detailed else "preview",
             "predictions": predictions,
@@ -531,7 +483,7 @@ class StageCRegressionRuntime:
                 "feature_vector": values,
             },
             "model_meta": {
-                "task_id": TASK_ID,
+                "task_id": self.task_id,
                 "model": {
                     "id": manifest.package_id,
                     "version": manifest.package_version,
@@ -608,11 +560,11 @@ class StageCRegressionRuntime:
         curve = []
         for x_value in anchored_curve_grid(low, high, points, current=current):
             adjusted = candidate.model_copy(deep=True)
-            if variable in TARGET_FEATURES[target]:
+            if variable in self.spec.target_features[target]:
                 adjusted.inputs.process["test_temperature_c"] = float(x_value)
-            summary = self.predictors[target].predict(candidate_feature_values(adjusted))
+            summary = self.predictors[target].predict(candidate_feature_values(adjusted, self.spec))
             lower, upper = predictive_interval(summary)
-            minimum, maximum = OUTPUT_BOUNDS[target]
+            minimum, maximum = self.spec.output_bounds_for(target)
             value = max(minimum, summary.point_estimate)
             lower, upper = max(minimum, lower), max(minimum, upper)
             if maximum is not None:
@@ -627,7 +579,7 @@ class StageCRegressionRuntime:
                 "predictive_family": summary.distribution["family"],
                 "quantiles": {"0.05": round(lower, 5), "0.95": round(upper, 5)},
             })
-        definition = load_task_contracts()[TASK_ID].task_definition
+        definition = load_task_contracts()[self.task_id].task_definition
         field = next(field for group in definition.input_groups for field in group.fields if field.path == variable)
         observed = [float(row["outputs"][target]) for row in rows]
         return {
@@ -647,7 +599,11 @@ class StageCRegressionRuntime:
         }
 
 
-def stage_c_starter_candidates(medians: dict[str, float]) -> list[CandidateInput]:
+def stage_c_starter_candidates(
+    medians: dict[str, float], spec: ObservationTrainingSpec
+) -> list[CandidateInput]:
+    """溶接Stage C固有のstarter fixture。Taskごとの縦スライスとして残す。"""
+
     composition = {
         path.removeprefix("composition."): round(value, 6)
         for path, value in medians.items()
@@ -655,6 +611,7 @@ def stage_c_starter_candidates(medians: dict[str, float]) -> list[CandidateInput
     }
     heat = medians["process.heat_input_kj_per_mm"]
     preheat = medians["process.preheat_temp_c"]
+    solutions = spec.categorical_choices["categorical.test_solution"]
     return [
         CandidateInput(
             name=label,
@@ -665,7 +622,7 @@ def stage_c_starter_candidates(medians: dict[str, float]) -> list[CandidateInput
                     "preheat_temp_c": round(preheat, 2),
                     "test_temperature_c": temperature,
                 },
-                "categorical": {"test_solution": TEST_SOLUTIONS[index % len(TEST_SOLUTIONS)]},
+                "categorical": {"test_solution": solutions[index % len(solutions)]},
                 "heat_pattern": None,
             },
         )

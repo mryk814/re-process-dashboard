@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Mapping
 
-from material_workbench.data.importer import WorkbookData
 from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.modeling.model_packages import FeaturePipelineSpec, VerifiedModelPackage
 from material_workbench.modeling.model_lifecycle import validate_lifecycle_metadata, validate_training_provenance
@@ -15,6 +14,7 @@ from material_workbench.task_modules import (
     CurveFamilyHandler,
     DataDescriptor,
     PredictionRuntime,
+    QualitySurface,
     ResponseCurveHandler,
     SupportProvider,
     TaskModule,
@@ -53,7 +53,11 @@ class TaskRuntimeEntry:
 
 @dataclass(frozen=True)
 class DataExplorerEntry:
-    data: WorkbookData
+    # Not WorkbookData: Tabular and Observation family descriptors reach here too.
+    # The declared boundary is DataDescriptor plus, for quality, QualitySurface.
+    # Lineage additionally needs the Workbook-family graph, which is why
+    # DataExplorerCapability declares quality and lineage separately.
+    data: DataDescriptor
     capability: DataExplorerCapability
 
 
@@ -118,6 +122,8 @@ class TaskRegistry:
                 explorer = explorers.get(task_id)
                 if explorer is not None and explorer.data is not runtime.data:
                     raise TaskRegistryError(f"data explorer source does not match runtime data: {task_id}")
+                if explorer is not None:
+                    self._validate_data_explorer(task_id, explorer)
             except (OSError, ValueError, KeyError) as exc:
                 if not degrade_invalid_runtimes:
                     raise
@@ -149,6 +155,20 @@ class TaskRegistry:
                 data_explorer=explorer,
                 response_curve=module.response_curve,
                 curve_family=module.curve_family,
+            )
+
+    @staticmethod
+    def _validate_data_explorer(task_id: str, explorer: "DataExplorerEntry") -> None:
+        """A declared Data Explorer capability must be backed by a real surface."""
+
+        if explorer.capability.quality and not isinstance(explorer.data, QualitySurface):
+            raise TaskRegistryError(
+                "data explorer declares quality but its descriptor has no quality surface: "
+                f"{task_id}"
+            )
+        if explorer.capability.lineage and not hasattr(explorer.data, "lineage"):
+            raise TaskRegistryError(
+                f"data explorer declares lineage but its descriptor has no lineage: {task_id}"
             )
 
     @staticmethod

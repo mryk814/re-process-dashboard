@@ -96,6 +96,28 @@ class ObservationFamily(ProfileModel):
         return values
 
 
+# This family reads source values as-is; it never rescales. A declared
+# source -> canonical pair may therefore only be a relabel, and every allowed
+# relabel is listed here. A pair that would need a numeric factor is rejected at
+# load time instead of silently passing raw values under the canonical label.
+ALLOWED_UNIT_RELABELS = frozenset({
+    ("%", "mass% deposited metal"),
+    ("%", "mass% whole wire"),
+    ("℃", "°C"),
+    ("degC", "°C"),
+    ("Mpa", "MPa"),
+    ("秒", "s"),
+})
+
+
+def _relabel_is_allowed(source: str | None, canonical: str | None) -> bool:
+    if source is None and canonical is None:
+        return True
+    if source is None or canonical is None:
+        return False
+    return source == canonical or (source, canonical) in ALLOWED_UNIT_RELABELS
+
+
 class ObservationDatasetProfile(ProfileModel):
     schema_version: Literal["observation-dataset-profile/v1"]
     id: str
@@ -107,6 +129,31 @@ class ObservationDatasetProfile(ProfileModel):
     @property
     def profile_id(self) -> str:
         return self.id
+
+    @model_validator(mode="after")
+    def declared_units_are_relabels_only(self) -> "ObservationDatasetProfile":
+        rescales = [
+            f"{family.id}.{path}: {source!r} -> {canonical!r}"
+            for family in self.families
+            for path, source, canonical in (
+                *(
+                    (item.path, item.source_unit, item.canonical_unit)
+                    for item in family.inputs
+                ),
+                *(
+                    (item.key, item.source_unit, item.canonical_unit)
+                    for item in family.outputs
+                ),
+            )
+            if not _relabel_is_allowed(source, canonical)
+        ]
+        if rescales:
+            raise ValueError(
+                "この family は元の値をそのまま読むため、単位の数値変換を宣言できません。"
+                "元データ側で換算するか、係数1の読み替えとしてallow-listへ追加してください: "
+                + "; ".join(rescales)
+            )
+        return self
 
     @model_validator(mode="after")
     def references_are_consistent(self) -> "ObservationDatasetProfile":

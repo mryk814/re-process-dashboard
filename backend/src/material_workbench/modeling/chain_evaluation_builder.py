@@ -24,12 +24,7 @@ from material_workbench.data.stage_b_training import (
 )
 from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.modeling.model_packages import ModelPackageLoader
-from material_workbench.modeling.stage_c_regression import (
-    TARGET_FAMILY,
-    TARGET_FEATURES,
-    feature_values,
-    load_stage_c_data,
-)
+from material_workbench.modeling.stage_c_regression import load_observation_data
 from material_workbench.modeling.tabular_model_builder import _fit, _predict
 from material_workbench.modeling.tabular_regression import (
     build_tabular_features_from_observation,
@@ -184,7 +179,12 @@ def build_chain_evaluation(
     source_path = Path(source)
     b_profile = load_stage_b_profile(stage_b_profile)
     b_training = build_stage_b_training_data(source_path, b_profile)
-    c_data = load_stage_c_data(source_path)
+    from material_workbench.task_modules import observation_declaration
+
+    c_data = load_observation_data(
+        source_path, observation_declaration(STAGE_C_ID)
+    )
+    c_spec = c_data.spec
     if b_training.data.source_sha256 != c_data.source_sha256:
         raise ValueError("Stage B/C evaluation data must share one source identity")
 
@@ -222,7 +222,7 @@ def build_chain_evaluation(
         ],
     ] = {}
 
-    for target, names in TARGET_FEATURES.items():
+    for target, names in c_spec.target_features.items():
         rows = [
             row
             for row in c_data.observations
@@ -264,7 +264,7 @@ def build_chain_evaluation(
             ) = upstream
 
             measured_x = np.asarray([
-                [feature_values(row["canonical_inputs"])[name] for name in names]
+                [c_spec.feature_values(row["canonical_inputs"])[name] for name in names]
                 for row in rows
             ])
             stage_only_model = _fit(
@@ -276,7 +276,7 @@ def build_chain_evaluation(
 
             end_train_x = np.asarray([
                 [
-                    feature_values(
+                    c_spec.feature_values(
                         _replace_upstream(
                             row["canonical_inputs"],
                             train_upstream[str(row["parent_key"])],
@@ -288,7 +288,7 @@ def build_chain_evaluation(
             ])
             end_test_x = np.asarray([
                 [
-                    feature_values(
+                    c_spec.feature_values(
                         _replace_upstream(
                             row["canonical_inputs"],
                             test_upstream[str(row["parent_key"])],
@@ -316,7 +316,7 @@ def build_chain_evaluation(
                 upstream_self_fit_violations=self_fit_violations,
                 outer_test_training_overlap=outer_test_training_overlap,
             ))
-        family = TARGET_FAMILY[target]
+        family = c_spec.target_family[target]
         targets.append(ChainEvaluationTarget(
             target=target,
             label=target_labels[target],

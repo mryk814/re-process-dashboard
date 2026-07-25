@@ -14,12 +14,18 @@
 
 4ケースすべて実行済みです。再現手順は [spikes/README.md](../../backend/scripts/spikes/README.md) を参照してください。
 
-| ケース | 結果 | 一行要約 |
-| --- | --- | --- |
-| A 標準表形式Task | **予測通り成立** | 新規Python関数0件で既存アプリ機能を全て利用できた。ただしPackage構築の順序制約が2件見つかった |
-| B 複数観測family | **半分成立** | Profile契約とTraining Viewは溶接語彙なしで再利用できた。runtimeとbuilderは1 Taskに固定されており再利用できない |
-| C 可変長系列 | **予測通り不成立** | 検査した7項目すべてが現行契約で表現できない |
-| D 二段Chain | **予測通り不成立 → P1-bで解消** | Chain Coreの契約層（Definition / binding / Revision）は再利用できた。候補層以降が6点で塞がっていたが、candidate adapterの分離後は全項目OK |
+| ケース | 初回実測 | P1実装後 | 一行要約 |
+| --- | --- | --- | --- |
+| A 標準表形式Task | 成立 | 成立 | 新規Python関数0件で既存アプリ機能を全て利用できた。Package構築の順序制約が2件見つかった |
+| B 複数観測family | 半分成立 | **全項目OK** | Profile契約とTraining Viewは最初から再利用できた。runtimeとbuilderはP1-dでパラメタ化 |
+| C 可変長系列 | 不成立（7/7） | 不成立（方針確定） | 現行契約では表現できない。必要な型と着手条件を[方針文書](candidate-shape-policy.md)へ固定 |
+| D 二段Chain | 不成立（6点） | **全項目OK** | 契約層は最初から再利用できた。候補層はP1-bでcandidate adapterへ分離 |
+
+再現:
+
+```bash
+uv run python backend/scripts/spikes/spike_case_d.py
+```
 
 ## 0. 共通ルール
 
@@ -464,31 +470,56 @@ A（標準表形式Task）          実行済み
   Chain Workbench画面のスカラー候補editor。前者は中間実測が組成であるChainにしか使えない制約として残り、
   後者はスカラーChainを製品機能として出すときに作る
 
-### P1-c｜Canonical Training View境界の明示
+### P1-c｜Canonical Training View境界の明示 — **完了**
 
 - 根拠: [ケースB実測](#2-ケースb複数sheet複数観測family)。Observation Profileと `ObservationTrainingDataset` は溶接語彙なしで再利用でき、family名も分岐条件になっていない
 - 実測により方針が確定: **新設ではなく、Observation familyの既存契約を共通到達点として昇格させる**
-- 範囲:
-  1. `quality` / `detected_quality` / `technical_columns` を共通境界へ明示（現在は未宣言の暗黙インターフェース）
-  2. `DataExplorerEntry.data` の型注釈を実態と一致させる（[tasks/task_registry.py:56](../../backend/src/material_workbench/tasks/task_registry.py#L56)）
-  3. Tabular / Workbook / FlankWear familyが `ObservationTrainingDataset` 相当へ到達する経路を作る
-- 完了条件: モデルbuilder・学習データInspector・品質集計がProfile形式を直接判定しない
-- 依存: なし。**着手可**
+- 実施内容:
+  1. `QualitySurface` Protocolを追加し、`quality` / `detected_quality` / `technical_columns` を宣言。
+     これまでは `DataExplorationService.quality()` が読むだけの**未宣言の構造依存**だった
+  2. `DataExplorerCapability(quality=True)` を宣言したTaskの記述子がその面を満たすことを
+     `TaskRegistry` が起動時に検証する（宣言だけ先に立つことを防ぐ）
+  3. `DataExplorerEntry.data` の型注釈を `WorkbookData` から `DataDescriptor` へ修正（実態と一致していなかった）
+- 完了条件の確認: `backend/tests/test_training_view_boundary.py` が、
+  全runtime記述子が共通境界を満たすこと、品質集計が宣言済み属性しか読まないこと、
+  面を満たさない記述子がregistryで弾かれることを固定
+- **残す範囲**: Tabular / Workbook / FlankWear familyを `ObservationTrainingDataset` 相当へ
+  到達させる経路は作っていない。`model_lifecycle.canonical_training_dataset` が
+  全familyの学習データを共通形へ変換しており、学習経路では既に共通化されている。
+  Inspector表示の共通化は2つ目のObservation Taskが出てから判断する
 
-### P1-d｜Observation family実装のパラメタ化
+### P1-d｜Observation family実装のパラメタ化 — **完了**
 
 - 根拠: [ケースB実測 B-1 / B-2](#2-ケースb複数sheet複数観測family)。契約は汎用だが実装が1 Taskに固定されている
-- 範囲: `stage_c_model_builder.build` へprofile引数を追加、`stage_c_regression` の `TASK_ID` / `PROFILE_PATH` module定数を除去し Tabular family と同じ `task_id` パラメタ化へ揃える
-- 完了条件: 2つ目のObservation Taskを、新しいruntime moduleを作らずに登録できる
-- 依存: なし。**着手可**。P1-cと同じファイルを触るため、P1-cの後に続けるのが安全
+- 実施内容:
+  1. `modeling/observation_training_spec.py` を追加。**特徴量の並び、per-target特徴量、
+     target→familyをObservation ProfileとTaskDefinitionから導出**する
+     （これらは既に宣言済みのデータと重複していた）
+  2. `stage_c_regression` から `TASK_ID` / `PROFILE_PATH` / `PIPELINE_FEATURES` /
+     `TARGET_FAMILY` / `TARGET_FEATURES` / `FEATURE_DEFINITIONS` / `TEST_SOLUTIONS` /
+     `OUTPUT_BOUNDS` を削除。`StageCRegressionRuntime` → `ObservationRegressionRuntime`
+  3. builderに `declaration` 引数を追加（B-1）
+  4. Taskごとのdata-only宣言を `task_modules.py` へ集約。残るのはprofile path、
+     feature transform id/version、support policy id、output bounds のみ
+- **output boundsは意図的に宣言のまま残す**。TaskDefinitionの `plausibility_range` は
+  表示・検証用であり、実測すると値が違う（TS: 0–2000 vs 0–上限なし）。
+  Chain samplingが使う実行時clampへ流用すると新たにclipが発生するため代用しない。
+  [chain-execution.md](../chain-execution.md) の「exact allow-listで固定した物理境界」と整合する
+- 完了条件の確認: `backend/tests/test_observation_training_spec.py` が、
+  導出結果が**保存済みModel Packageの特徴量パイプラインと一致**すること、
+  runtime moduleにtask idもprofile pathも残っていないことを固定
 
-### P1-e｜Candidate Shapeの整理方針の確定
+### P1-e｜Candidate Shapeの整理方針の確定 — **完了**
 
 - 根拠: [inventory §1.6](extensibility-inventory.md#16-candidate-shape) と[ケースC実測](#3-ケースc可変長温度系列task)
-- 範囲: `ScalarCandidateInputs` / `SparseBlendCandidateInputs` へのunion化方針を決める（実装はしない）。任意JSONにしないこと、shapeごとにpersistence / diff / copy / snapshotの意味を定義すること、UIがshape capabilityからsurfaceを選ぶことを明記
+- 成果物: [candidate-shape-policy.md](candidate-shape-policy.md)
+- 決めたこと: 任意JSONにしない / 既存形状を `ScalarCandidateInputs` として保存互換で切り出す /
+  shapeごとにpersistence・diff・copy・snapshotの4つの意味を定義しないと登録できない /
+  UIはshape capabilityからsurfaceを選ぶ / Task IDで分岐しない
+- **着手条件も明記**: pydanticの `Field(discriminator=)` は2メンバー以上でないと使えないため、
+  union化だけを先行させることはできない。2形状目が必要になったときに同時に切り出す。
+  最も近いのはChainのスカラー候補を製品機能として出すとき
 - ケースCで確定した要件: `CanonicalSeries` は点列だけでなく**元単位・変換ID・除外点**を持つ必要がある（C-5, C-6）
-- 完了条件: 方針文書があり、ケースCの7項目を後から**既存shapeを壊さず**追加できると説明できる
-- 依存: なし。**着手可**
 
 ### P2｜Task integration registryの分割 — 優先度を下げる
 
@@ -515,12 +546,34 @@ A（標準表形式Task）          実行済み
 | --- | --- | --- |
 | 1 | 同じ意味・同じ構造のデータ差し替えがProfile / Dataset Revision / Package更新だけで済む | 未計測（今回のスパイク対象外） |
 | 2 | 新しい標準表形式Taskが既存機能をTask固有実装なしで使える | **達成済み**（ケースA） |
-| 3 | 新しいCandidate Shapeを既存shapeを壊さず追加できる | 未達（ケースC。7/7が表現不可） |
+| 3 | 新しいCandidate Shapeを既存shapeを壊さず追加できる | **方針確定**（P1-e）。実装は2形状目が必要になったとき。現行契約では7/7が表現不可 |
 | 4 | 新しいDecision Activityを既存Activity serviceへ分岐追加せず登録できる | **達成済み**（P1-a完了。共通部分がactivity_idを名指ししないことをテストで固定） |
 | 5 | 疎配合を使わないChainがChain Coreの変更なしで実行できる | **達成済み**（P1-b完了。ケースDのスパイクが全項目OK） |
-| 6 | 異質な第二ユースケースで共通境界が実証される | **部分達成**（ケースBでObservation Profile / Training Viewが実証。runtime / builderは未達） |
-| 7 | 安全性・再現性の契約を緩めず、変更ファイル数と専用分岐数が減る | 契約は一切変更していない。分岐削減はP1で計測 |
-| 8 | 共通化しない方がよい特殊領域が明示されている | **達成済み**（inventory §3の分類、P2の優先度引き下げ） |
+| 6 | 異質な第二ユースケースで共通境界が実証される | **達成済み**（ケースBでProfile / Training Viewを実証し、P1-c / P1-dでruntime / builderもパラメタ化） |
+| 7 | 安全性・再現性の契約を緩めず、変更ファイル数と専用分岐数が減る | **達成済み**。digest / revision / snapshot契約は緩めていない（Chain snapshot identityはv1を不変のまま残しv2を追加、特徴量パイプラインは導出結果が保存済みPackageと一致することをテストで固定）。減った分岐は下表 |
+| 8 | 共通化しない方がよい特殊領域が明示されている | **達成済み**（inventory §3の分類、P2の優先度引き下げ、下記「共通化しない領域」） |
+
+### 減った分岐と固定した境界
+
+| 箇所 | before | after |
+| --- | --- | --- |
+| Decision Activity service | `if definition != ROBUSTNESS_ACTIVITY` で1件だけ実行 | handler registryで解決。共通部分はactivity_idを名指ししない（テストで固定） |
+| ロバストネス解析の入力操作 | `process.ls_mpm` を直接参照 | TaskDefinitionの `time_transform = "inverse_heat_time"` から解決 |
+| Chain Core | `welding_context` / `test_context` / `material_composition` / `auxiliary_features` / 疎配合必須 / 決定論的Stage 1段必須 | candidate adapterへ移動。Coreにdomain symbolが現れたら落ちる（テストで固定） |
+| Observation family runtime | `TASK_ID` / `PROFILE_PATH` / 特徴量7定数をmodule定数で固定 | ProfileとTaskDefinitionから導出。宣言はprofile path / transform id / support policy / output boundsのみ |
+| Data Explorerの品質面 | 未宣言の構造依存（3属性） | `QualitySurface` Protocolで宣言し、起動時に検証 |
+| `DataExplorerEntry.data` | 型注釈が `WorkbookData`（実態と不一致） | `DataDescriptor` |
+
+### 共通化しない領域（意図的に残す）
+
+| 領域 | 理由 |
+| --- | --- |
+| `task_modules.py` の分割（P2） | ケースAが新規Python関数0件で通ったため実需がない |
+| output boundsのallow-list | TaskDefinitionの `plausibility_range` は表示・検証用で値が異なる。実行時clampへ流用すると新たにclipが発生する |
+| starter candidate（Taskごとのfixture） | 科学的な代表条件は人が決める。`TaskModule.starter_project` が正本 |
+| `actual_conditioned_variant` の `composition.` prefix | 中間実測が組成であるChainにしか使えない制約として明示的に残す |
+| Chain Workbench画面のスカラー候補editor | スカラーChainを製品機能として出すときに作る。現在はadapter種別を表示して停止 |
+| `heat_pattern` をChain Stageへ入れること | Candidate Shape拡張が前提。今は明示的に失敗させるのが正しい |
 
 ## 8. この文書の更新規則
 

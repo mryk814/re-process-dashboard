@@ -34,6 +34,44 @@ PRIMARY_DEFAULT_SOURCE = Path("data/source/material_workbench_tutorial_v1.xlsx")
 PROCESS_SOURCE = Path("data/source/material_workbench_process_v1.xlsx")
 _DATA_ROOT = Path(__file__).parent / "data"
 _WELDING_STAGE_B_PROFILE = _DATA_ROOT / "welding-stage-b-profile-v1.json"
+
+
+# Observation-family Taskごとのdata-only宣言。runtime本体はこれで駆動する。
+# 特徴量の並び、target→family、per-target特徴量はProfileとTaskDefinitionから導出するので
+# ここには書かない。output_boundsはTaskDefinitionのplausibility_range（表示・検証用）とは別に、
+# Chain samplingが使う実行時のexact allow-listとして宣言する。
+_OBSERVATION_DECLARATIONS: dict[str, dict[str, Any]] = {
+    WELDING_STAGE_C_TASK_ID: {
+        "task_id": WELDING_STAGE_C_TASK_ID,
+        "profile_path": _DATA_ROOT / "observation-profile-welding-consumable-stage-c-v1.json",
+        "feature_transform_id": "welding-stage-c-observation-transform",
+        "feature_transform_version": "1.0.0",
+        "support_policy_id": "stage-c-family-group-knn-v1",
+        "output_bounds": {
+            "TS": (0.0, None),
+            "YS": (0.0, None),
+            "EL": (0.0, 100.0),
+            "RA": (0.0, 100.0),
+            "CHARPY_ENERGY": (0.0, None),
+            "BRITTLE_FRACTURE": (0.0, 100.0),
+            "CORROSION_RATE": (0.0, None),
+        },
+    },
+}
+
+
+def observation_declaration(task_id: str) -> Any:
+    from material_workbench.modeling.observation_training_spec import (
+        ObservationRuntimeDeclaration,
+    )
+
+    try:
+        fields = _OBSERVATION_DECLARATIONS[task_id]
+    except KeyError as exc:
+        raise ValueError(f"Observation family Taskではありません: {task_id}") from exc
+    return ObservationRuntimeDeclaration(**fields)
+
+
 _TABULAR_PROFILES = {
     HEAT_TREATMENT_TASK_ID: _DATA_ROOT / "tabular-profile-heat-treatment-v1.json",
     CONCRETE_TASK_ID: _DATA_ROOT / "tabular-profile-concrete-v1.json",
@@ -48,12 +86,34 @@ _TABULAR_PROFILES = {
 
 @runtime_checkable
 class DataDescriptor(Protocol):
+    """The common surface every Dataset Profile family's loader must return.
+
+    Profile documents stay family-specific on purpose. What must not be
+    family-specific is this boundary: model builders, the training-data
+    Inspector and quality aggregation read only what is declared here.
+    """
+
     source_path: str
     source_sha256: str
     profile_path: str
     profile_id: str
     observations: list[dict[str, Any]]
     medians: dict[str, float]
+
+
+@runtime_checkable
+class QualitySurface(Protocol):
+    """The quality面 the Data Explorer reads.
+
+    This used to be an undeclared structural dependency: ``DataExplorationService``
+    read these three attributes while ``DataDescriptor`` said nothing about them,
+    so a loader could silently fail to provide them. A Task may only declare
+    ``DataExplorerCapability(quality=True)`` if its descriptor satisfies this.
+    """
+
+    quality: list[dict[str, Any]]
+    detected_quality: list[dict[str, Any]]
+    technical_columns: dict[tuple[str, str], str]
 
 
 @runtime_checkable
@@ -216,12 +276,14 @@ def _tabular_loader(task_id: str) -> DataLoader:
     return load
 
 
-def _load_welding_stage_c(path: Path, profile: DatasetInputProfile | None = None) -> DataDescriptor:
-    from material_workbench.data.observation_profile import ObservationDatasetProfile
-    from material_workbench.modeling.stage_c_regression import load_stage_c_data
+def _observation_loader(task_id: str) -> DataLoader:
+    def load(path: Path, profile: DatasetInputProfile | None = None) -> DataDescriptor:
+        from material_workbench.data.observation_profile import ObservationDatasetProfile
+        from material_workbench.modeling.stage_c_regression import load_observation_data
 
-    selected = profile if isinstance(profile, ObservationDatasetProfile) else None
-    return load_stage_c_data(path, selected)
+        selected = profile if isinstance(profile, ObservationDatasetProfile) else None
+        return load_observation_data(path, observation_declaration(task_id), selected)
+    return load
 
 
 def _load_welding_stage_b(
@@ -273,13 +335,13 @@ def _tabular_runtime(data: DataDescriptor, package: VerifiedModelPackage) -> Pre
     return TabularRegressionRuntime(data, package)  # type: ignore[arg-type]
 
 
-def _welding_stage_c_runtime(
+def _observation_runtime(
     data: DataDescriptor,
     package: VerifiedModelPackage,
 ) -> PredictionRuntime:
-    from material_workbench.modeling.stage_c_regression import StageCRegressionRuntime
+    from material_workbench.modeling.stage_c_regression import ObservationRegressionRuntime
 
-    return StageCRegressionRuntime(data, package)  # type: ignore[arg-type]
+    return ObservationRegressionRuntime(data, package)  # type: ignore[arg-type]
 
 
 def _annealed_features(row: dict[str, Any], medians: dict[str, float]) -> Any:
@@ -313,10 +375,17 @@ def _tabular_features(task_id: str) -> FeatureRowBuilder:
     return build
 
 
-def _welding_stage_c_features(row: dict[str, Any], medians: dict[str, float]) -> Any:
-    from material_workbench.modeling.stage_c_regression import build_stage_c_features_from_observation
+def _observation_features(task_id: str) -> FeatureRowBuilder:
+    def build(row: dict[str, Any], medians: dict[str, float]) -> Any:
+        from material_workbench.modeling.stage_c_regression import (
+            build_observation_features_from_observation,
+            resolve_spec,
+        )
 
-    return build_stage_c_features_from_observation(row, medians)
+        return build_observation_features_from_observation(
+            row, medians, resolve_spec(observation_declaration(task_id))
+        )
+    return build
 
 
 def _welding_stage_b_features(
@@ -362,10 +431,17 @@ def _tabular_builder(task_id: str) -> ModelBuilder:
     return build
 
 
-def _build_welding_stage_c(source: Path, output: Path, *, replace: bool) -> None:
-    from material_workbench.modeling.stage_c_model_builder import build
+def _observation_builder(task_id: str) -> ModelBuilder:
+    def build(source: Path, output: Path, *, replace: bool) -> None:
+        from material_workbench.modeling.stage_c_model_builder import build as build_package
 
-    build(source, output, replace=replace)
+        build_package(
+            source,
+            output,
+            declaration=observation_declaration(task_id),
+            replace=replace,
+        )
+    return build
 
 
 def _build_welding_stage_b(
@@ -468,9 +544,14 @@ def _tabular_starter(task_id: str, name: str) -> StarterProject:
 
 
 def _welding_stage_c_starter(medians: dict[str, float]) -> list[CandidateInput]:
-    from material_workbench.modeling.stage_c_regression import stage_c_starter_candidates
+    from material_workbench.modeling.stage_c_regression import (
+        resolve_spec,
+        stage_c_starter_candidates,
+    )
 
-    return stage_c_starter_candidates(medians)
+    return stage_c_starter_candidates(
+        medians, resolve_spec(observation_declaration(WELDING_STAGE_C_TASK_ID))
+    )
 
 
 def _welding_stage_b_starter(_medians: dict[str, float]) -> list[CandidateInput]:
@@ -684,10 +765,10 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         source_env="WORKBENCH_WELDING_STAGE_C_SOURCE_PATH",
         source_kind="welding_stage_c",
         default_source=Path("data/source/welding_consumable_multistage_synthetic_dataset.xlsx"),
-        data_loader=_load_welding_stage_c,
-        runtime_factory=_welding_stage_c_runtime,
-        feature_row_builder=_welding_stage_c_features,
-        model_builder=_build_welding_stage_c,
+        data_loader=_observation_loader(WELDING_STAGE_C_TASK_ID),
+        runtime_factory=_observation_runtime,
+        feature_row_builder=_observation_features(WELDING_STAGE_C_TASK_ID),
+        model_builder=_observation_builder(WELDING_STAGE_C_TASK_ID),
         starter_project=StarterProject(
             "welding-stage-c-default",
             "溶着金属成分から特性を予測",

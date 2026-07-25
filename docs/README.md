@@ -28,7 +28,8 @@
 ## 構造の測定
 
 - [architecture/extensibility-inventory.md](architecture/extensibility-inventory.md) — 概念ごとの正本と登録点、Profile family差分、Chain Coreに残る溶接固有symbolの測定結果
-- [architecture/extensibility-spikes.md](architecture/extensibility-spikes.md) — 拡張性の反証ケース設計と変更点マトリクス
+- [architecture/extensibility-spikes.md](architecture/extensibility-spikes.md) — 拡張性の反証ケース設計、実測値、証拠にもとづくIssue分割
+- [architecture/candidate-shape-policy.md](architecture/candidate-shape-policy.md) — 候補入力形状を追加するときの方針と着手条件
 
 `architecture/` は契約ではなく測定記録です。実装の正本としては使わず、リファクタリング判断の根拠として参照します。
 

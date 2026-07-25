@@ -17,16 +17,12 @@ from material_workbench.modeling.model_lifecycle import (
     task_input_contract_digest,
 )
 from material_workbench.modeling.model_package_verify import verify_model_package
+from material_workbench.modeling.observation_training_spec import (
+    ObservationRuntimeDeclaration,
+)
 from material_workbench.modeling.stage_c_regression import (
-    FEATURE_DEFINITIONS,
-    PIPELINE_FEATURES,
-    PROFILE_PATH,
-    TARGET_FAMILY,
-    TARGET_FEATURES,
-    TASK_ID,
     candidate_feature_values,
-    feature_values,
-    load_stage_c_data,
+    load_observation_data,
     stage_c_starter_candidates,
 )
 from material_workbench.modeling.tabular_model_builder import (
@@ -53,8 +49,9 @@ def _artifact(root: Path, path: Path) -> dict[str, object]:
 
 
 def _build(source: Path, destination: Path) -> None:
-    data = load_stage_c_data(source)
-    contract = load_task_contracts()[TASK_ID]
+    data = load_observation_data(source, declaration)
+    spec = data.spec
+    contract = load_task_contracts()[spec.task_id]
     artifact_dir = destination / "model-artifacts"
     feature_dir = destination / "feature-pipeline"
     reference_dir = destination / "reference"
@@ -70,12 +67,12 @@ def _build(source: Path, destination: Path) -> None:
     )
     pipeline_path = feature_dir / "pipeline.json"
     pipeline_path.write_text(json.dumps({
-        "id": "welding-stage-c-observation-transform",
+        "id": spec.feature_transform_id,
         "version": "1.0.0",
         "canonical_input_paths": list(canonical_paths),
         "features": [
             {"name": item.name, "unit": item.unit, "meaning": item.meaning, "group": item.group}
-            for item in FEATURE_DEFINITIONS
+            for item in spec.feature_definitions
         ],
     }, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
     files = [pipeline_path]
@@ -85,13 +82,13 @@ def _build(source: Path, destination: Path) -> None:
     groups_by_target: dict[str, int] = {}
     fitted_by_target: dict[str, tuple[np.ndarray, float]] = {}
     output_units = {item.key: item.unit for item in contract.task_definition.outputs}
-    for target, names in TARGET_FEATURES.items():
+    for target, names in spec.target_features.items():
         rows = [
             row for row in data.observations
             if row["target_status"].get(target, {}).get("usable")
         ]
         x = np.asarray([
-            [feature_values(row["canonical_inputs"])[name] for name in names]
+            [spec.feature_values(row["canonical_inputs"])[name] for name in names]
             for row in rows
         ])
         y = np.asarray([float(row["outputs"][target]) for row in rows])
@@ -126,8 +123,8 @@ def _build(source: Path, destination: Path) -> None:
             "config": {
                 "training_unit": "individual_observation",
                 "validation": f"{folds}-fold grouped by weld-run key",
-                "observation_family": TARGET_FAMILY[target],
-                "training_cohort": f"{TARGET_FAMILY[target]}:target-usable",
+                "observation_family": spec.target_family[target],
+                "training_cohort": f"{spec.target_family[target]}:target-usable",
                 "training_rows": len(rows),
                 "evaluation_groups": len(set(groups)),
                 "profile_digest": data.profile_digest,
@@ -180,7 +177,7 @@ def _build(source: Path, destination: Path) -> None:
     smoke_expected = smoke_dir / "expected.json"
     smoke_expected.write_text(json.dumps({
         target: round(float(
-            np.asarray([sample_values[name] for name in TARGET_FEATURES[target]]) @ weights + bias
+            np.asarray([sample_values[name] for name in spec.target_features[target]]) @ weights + bias
         ), 8)
         for target, (weights, bias) in fitted_by_target.items()
     }, indent=2), encoding="utf-8", newline="\n")
@@ -191,16 +188,16 @@ def _build(source: Path, destination: Path) -> None:
         "schema_version": "model-package/v1",
         "package_id": PACKAGE_ID,
         "package_version": "1.0.0",
-        "task_id": TASK_ID,
+        "task_id": spec.task_id,
         "input_schema_version": "canonical-candidate/v1",
         "input_contract_digest": task_input_contract_digest(contract.task_definition),
         "runtime_capability_digest": runtime_capability_digest(contract.runtime_capability),
         "feature_pipeline": {
-            "id": "welding-stage-c-observation-transform",
+            "id": spec.feature_transform_id,
             "version": "1.0.0",
             "spec": pipeline_path.relative_to(destination).as_posix(),
             "canonical_input_paths": list(canonical_paths),
-            "output_features": list(PIPELINE_FEATURES),
+            "output_features": list(spec.pipeline_features),
             "artifacts": [stats_path.relative_to(destination).as_posix()],
         },
         "predictors": predictors,
@@ -208,7 +205,7 @@ def _build(source: Path, destination: Path) -> None:
             "training_data_id": f"sha256:{data.source_sha256}",
             "feature_dataset_id": canonical_training_dataset_digest(canonical),
             "training_code_revision": "stage-c-family-ridge-grouped-v1",
-            "dataset_profile_id": dataset_profile_digest(PROFILE_PATH),
+            "dataset_profile_id": dataset_profile_digest(declaration.profile_path),
         },
         "artifacts": [_artifact(destination, path) for path in files],
         "smoke_test": {
@@ -222,7 +219,13 @@ def _build(source: Path, destination: Path) -> None:
     )
 
 
-def build(source: Path, destination: Path, *, replace: bool = False) -> None:
+def build(
+    source: Path,
+    destination: Path,
+    *,
+    declaration: ObservationRuntimeDeclaration,
+    replace: bool = False,
+) -> None:
     with staged_package_destination(destination, replace=replace) as staging:
-        _build(source, staging)
-        verify_model_package(staging, task_id=TASK_ID, source=source)
+        _build(source, staging, declaration)
+        verify_model_package(staging, task_id=declaration.task_id, source=source)

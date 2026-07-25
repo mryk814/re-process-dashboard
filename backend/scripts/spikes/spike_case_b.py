@@ -153,12 +153,12 @@ def profile_document() -> dict:
                     *condition_inputs(),
                     {
                         # 試験行固有入力（試験Aのシートにしかない列）
-                        "path": "process.test_load_n",
+                        "path": "process.test_load_kgf",
                         "role": "alpha",
                         "column": "test_load_kgf",
                         "kind": "numeric",
                         "source_unit": "kgf",
-                        "canonical_unit": "N",
+                        "canonical_unit": "kgf",
                     },
                 ],
                 "outputs": [
@@ -180,12 +180,12 @@ def profile_document() -> dict:
                 "inputs": [
                     *condition_inputs(),
                     {
-                        "path": "process.indent_load_n",
+                        "path": "process.indent_load_kgf",
                         "role": "beta",
                         "column": "indent_load_kgf",
                         "kind": "numeric",
                         "source_unit": "kgf",
-                        "canonical_unit": "N",
+                        "canonical_unit": "kgf",
                     },
                 ],
                 "outputs": [
@@ -269,19 +269,23 @@ def main() -> int:
     _check(
         findings,
         "試験行固有入力を canonical input として宣言できる",
-        "process.test_load_n" in alpha_features,
+        "process.test_load_kgf" in alpha_features,
         sorted(alpha_features),
     )
 
-    # 宣言した単位変換が Training View で適用されるか（kgf -> N）
-    sample = next(row for row in dataset.views["alpha"].rows if row.eligible)
-    converted = sample.inputs["process.test_load_n"]
-    _check(
-        findings,
-        "宣言した単位変換（kgf→N）がTraining Viewで適用される",
-        converted is not None and converted > 100.0,
-        f"canonical_unit=N と宣言した値が {converted}（生値のまま。9.80665倍されていない）",
-    )
+    # 値を再スケールする単位宣言は、黙って生値を通さずload時に拒否されること
+    rescaled = json.loads(json.dumps(document))
+    rescaled["families"][0]["inputs"][-1]["canonical_unit"] = "N"
+    try:
+        ObservationDatasetProfile.model_validate(rescaled)
+        _check(findings, "数値変換を伴う単位宣言が拒否される", False, "受理された")
+    except Exception as exc:
+        _check(
+            findings,
+            "数値変換を伴う単位宣言が拒否される",
+            "単位の数値変換を宣言できません" in str(exc),
+            str(exc).splitlines()[1] if len(str(exc).splitlines()) > 1 else str(exc),
+        )
 
     # family名が分岐条件になっていないか（契約側のみで判定）
     _check(
@@ -312,24 +316,39 @@ def _probe_runtime_reuse(findings: list[str]) -> None:
     builder_parameters = set(inspect.signature(stage_c_model_builder.build).parameters)
     _check(
         findings,
-        "Observation family builderがprofileでパラメタ化されている",
-        "profile_path" in builder_parameters or "profile" in builder_parameters,
+        "Observation family builderがTaskごとの宣言でパラメタ化されている",
+        "declaration" in builder_parameters,
         f"stage_c_model_builder.build の引数={sorted(builder_parameters)}",
     )
     _check(
         findings,
-        "Observation family runtimeがtask_idでパラメタ化されている",
-        not hasattr(stage_c_regression, "TASK_ID"),
-        f"stage_c_regression.TASK_ID={getattr(stage_c_regression, 'TASK_ID', None)!r} "
-        f"PROFILE_PATH={Path(getattr(stage_c_regression, 'PROFILE_PATH', '')).name!r} "
-        "がmodule定数として固定されている",
+        "Observation family runtimeがtask_id / profile pathをmodule定数で持たない",
+        not hasattr(stage_c_regression, "TASK_ID")
+        and not hasattr(stage_c_regression, "PROFILE_PATH"),
+        f"TASK_ID={getattr(stage_c_regression, 'TASK_ID', None)!r} "
+        f"PROFILE_PATH={getattr(stage_c_regression, 'PROFILE_PATH', None)!r}",
     )
-    loader_parameters = set(inspect.signature(stage_c_regression.load_stage_c_data).parameters)
     _check(
         findings,
-        "Observation family loaderがprofileを受け取れる",
-        "profile" in loader_parameters,
-        f"load_stage_c_data の引数={sorted(loader_parameters)}",
+        "特徴量の並びとtarget→familyがmodule定数として重複していない",
+        not any(
+            hasattr(stage_c_regression, name)
+            for name in ("PIPELINE_FEATURES", "TARGET_FAMILY", "TARGET_FEATURES", "OUTPUT_BOUNDS")
+        ),
+        [
+            name
+            for name in ("PIPELINE_FEATURES", "TARGET_FAMILY", "TARGET_FEATURES", "OUTPUT_BOUNDS")
+            if hasattr(stage_c_regression, name)
+        ],
+    )
+    loader_parameters = set(
+        inspect.signature(stage_c_regression.load_observation_data).parameters
+    )
+    _check(
+        findings,
+        "Observation family loaderが宣言とprofileを受け取れる",
+        {"declaration", "profile"} <= loader_parameters,
+        f"load_observation_data の引数={sorted(loader_parameters)}",
     )
 
 

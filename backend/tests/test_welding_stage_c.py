@@ -7,19 +7,21 @@ from material_workbench.data.observation_profile import (
     load_observation_profile,
 )
 from material_workbench.modeling.model_packages import ModelPackageLoader
-from material_workbench.modeling.stage_c_regression import (
-    CHARPY_FEATURES,
-    CORROSION_FEATURES,
-    PROFILE_PATH,
-    TARGET_FAMILY,
-    TENSILE_FEATURES,
-)
+from material_workbench.modeling.stage_c_regression import resolve_spec
+from material_workbench.task_modules import observation_declaration
 
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "data" / "source" / "welding_consumable_multistage_synthetic_dataset.xlsx"
 PACKAGE = ROOT / "models" / "packages" / "welding-stage-c-ridge-v1"
 TASK_ID = "welding-stage-c-properties-v1"
+DECLARATION = observation_declaration(TASK_ID)
+PROFILE_PATH = DECLARATION.profile_path
+SPEC = resolve_spec(DECLARATION)
+TENSILE_FEATURES = SPEC.target_features["TS"]
+CHARPY_FEATURES = SPEC.target_features["CHARPY_ENERGY"]
+CORROSION_FEATURES = SPEC.target_features["CORROSION_RATE"]
+TARGET_FAMILY = SPEC.target_family
 
 
 def _create_stage_c_candidate(client: TestClient) -> tuple[str, dict]:
