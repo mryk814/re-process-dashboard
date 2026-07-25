@@ -260,6 +260,34 @@ def test_infeasible_lp_returns_slack_minimization_relaxation_candidates() -> Non
     assert "矛盾の証明ではありません" in result.message
 
 
+@pytest.mark.parametrize(
+    ("material_ids", "expected_constraint"),
+    [
+        (("manganese", "rich-manganese"), "balance_material"),
+        (("iron",), "selection_count"),
+        (("iron", "manganese", "rich-manganese"), "selection_count"),
+        (("iron", "manganese", "not-available"), "available_materials"),
+    ],
+)
+def test_lp_fixed_material_set_checks_availability_balance_and_selection_contracts(
+    material_ids: tuple[str, ...],
+    expected_constraint: str,
+) -> None:
+    service, candidates = _service()
+
+    result = service.run(
+        "project",
+        "baseline",
+        _request(material_ids=material_ids),
+    )
+
+    assert result.status == "infeasible"
+    assert candidates.created_payload is None
+    assert expected_constraint in {
+        item.constraint for item in result.relaxation_candidates
+    }
+
+
 def test_feasible_milp_enforces_selection_group_cardinality_and_balance() -> None:
     service, _ = _service()
 
