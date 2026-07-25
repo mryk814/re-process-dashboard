@@ -16,6 +16,7 @@ import {
 import { fromApiCandidate, toApiCandidate, type CandidateViewModel, type RuntimeOperations, type TaskDefinitionContract } from "../candidates";
 import {
   workbenchApi,
+  type ApiChainTemplate,
   type ApiModelPackage,
   type ApiPreview,
   type ApiProject,
@@ -76,6 +77,7 @@ export function ProjectHub({
   const [catalog, setCatalog] = useState<ApiTaskCatalogItem[]>([]);
   const [modelPackage, setModelPackage] = useState<ApiModelPackage | null>(null);
   const [creationOptions, setCreationOptions] = useState<ApiProjectCreationOptions | null>(null);
+  const [chainTemplates, setChainTemplates] = useState<ApiChainTemplate[]>([]);
   const [selectedSnapshot, setSelectedSnapshot] = useState<ApiSnapshot | null>(null);
   const [error, setError] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -87,6 +89,8 @@ export function ProjectHub({
   const [newTaskId, setNewTaskId] = useState("");
   const [newDatasetViewId, setNewDatasetViewId] = useState("");
   const [newModelPackageRefId, setNewModelPackageRefId] = useState("");
+  const [newChainId, setNewChainId] = useState("");
+  const [newChainRevisionId, setNewChainRevisionId] = useState("");
   const [newProjectSeriesId, setNewProjectSeriesId] = useState("");
   const [predecessorProjectId, setPredecessorProjectId] = useState("");
   const [continuationReason, setContinuationReason] = useState("");
@@ -109,6 +113,9 @@ export function ProjectHub({
     ? formatTaskNumber(value, taskDefinition, `output.${key}`, project?.display_decimals)
     : formatNumber(value);
   const taskUnavailable = taskAvailability?.status === "unavailable";
+  const chainIdentity = project?.scientific_identity?.identity_kind === "chain"
+    ? project.scientific_identity
+    : null;
 
   const reloadHistory = async (signal?: AbortSignal, expectedProjectId = activeProjectId) => {
     const loaded = await workbenchApi.projectHistory(expectedProjectId, signal);
@@ -141,19 +148,22 @@ export function ProjectHub({
         }
       }),
       workbenchApi.projectCreationOptions().then((item) => !controller.signal.aborted && setCreationOptions(item)),
+      workbenchApi.listChainTemplates().then((items) => !controller.signal.aborted && setChainTemplates(items)),
     ];
     if (!taskUnavailable) {
-      requests.push(
-        workbenchApi.modelPackage(activeProjectId).then((item) => {
-          if (!controller.signal.aborted && activeProjectRef.current === activeProjectId) setModelPackage(item);
-        }),
-      );
+      if (!chainIdentity) {
+        requests.push(
+          workbenchApi.modelPackage(activeProjectId).then((item) => {
+            if (!controller.signal.aborted && activeProjectRef.current === activeProjectId) setModelPackage(item);
+          }),
+        );
+      }
     }
     void Promise.all(requests).catch((cause) => {
       if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "プロジェクト概要を取得できませんでした。");
     });
     return () => controller.abort();
-  }, [activeProjectId, taskUnavailable]);
+  }, [activeProjectId, chainIdentity?.chain_revision_id, taskUnavailable]);
 
   useEffect(() => {
     if (!requestedSnapshotId || !operations?.snapshot || selectedSnapshot?.id === requestedSnapshotId) return;
@@ -193,6 +203,25 @@ export function ProjectHub({
   const availablePackages = creationOptions
     ? compatiblePackagesForDatasetTask(selectedDataset, newTaskId, creationOptions)
     : [];
+  const availableChains = chainTemplates.filter((item) => item.revisions.some(
+    (revision) => revision.stages.some(
+      (stage) => stage.dataset_view_revision_id === newDatasetViewId,
+    ),
+  ));
+  const selectedChain = chainTemplates.find(
+    (item) => item.definition.chain_id === newChainId,
+  );
+  const selectedChainRevision = selectedChain?.revisions.find(
+    (revision) => `${revision.chain_id}:r${revision.revision}` === newChainRevisionId,
+  );
+  const fixedChain = chainIdentity
+    ? chainTemplates.find((item) => item.revisions.some(
+      (revision) => `${revision.chain_id}:r${revision.revision}` === chainIdentity.chain_revision_id,
+    ))
+    : undefined;
+  const fixedChainRevision = fixedChain?.revisions.find(
+    (revision) => `${revision.chain_id}:r${revision.revision}` === chainIdentity?.chain_revision_id,
+  );
   const fixedDataset = project?.dataset_view_revision_id ? datasetByView.get(project.dataset_view_revision_id) : undefined;
   const fixedPackage = creationOptions?.model_packages.find((item) => item.id === project?.model_package_ref_id);
   const fixedSeries = creationOptions?.project_series.find((item) => item.id === project?.project_series_id);
@@ -268,6 +297,8 @@ export function ProjectHub({
     setNewDatasetViewId(requestedDatasetViewId);
     setNewTaskId("");
     setNewModelPackageRefId("");
+    setNewChainId("");
+    setNewChainRevisionId("");
     setNewProjectSeriesId("");
     setPredecessorProjectId("");
     setContinuationReason("");
@@ -351,7 +382,10 @@ export function ProjectHub({
 
   async function createProject() {
     const taskId = createMode === "copy" ? copyTaskId : newTaskId;
-    if (!taskId || !newProjectName.trim() || !newDatasetViewId || !newModelPackageRefId) return setError("Dataset・予測タスク・Model Packageを確認してください。");
+    const creatingChain = createMode === "empty" && Boolean(newChainId);
+    if (!newProjectName.trim() || !newDatasetViewId) return setError("Datasetとプロジェクト名を確認してください。");
+    if (creatingChain && !selectedChainRevision) return setError("Chain TemplateとRevisionを確認してください。");
+    if (!creatingChain && (!taskId || !newModelPackageRefId)) return setError("予測タスクとModel Packageを確認してください。");
     if (createMode === "copy" && !candidate) return setError("コピーする現在候補がありません。");
     try {
       const initialCandidate = createMode === "copy" && candidate ? {
@@ -359,17 +393,31 @@ export function ProjectHub({
         name: `${candidate.label} のコピー`,
         provenance: { source_kind: "copy" as const, source_ref: { project_id: candidate.raw.project_id, candidate_id: candidate.id, candidate_revision: candidate.raw.revision } },
       } : null;
-      const created = await workbenchApi.createProject({
-        name: newProjectName.trim(), description: "", purpose: "", task_id: taskId as ApiProject["task_id"],
+      const shared = {
+        name: newProjectName.trim(), description: "", purpose: "",
         target_values: {}, input_ranges: {}, response_curve_points: 17, notes: "", decision_candidate_id: "", decision_snapshot_id: "", decision_note: "",
         initial_candidate: initialCandidate,
-        dataset_view_revision_id: newDatasetViewId || undefined,
-        model_package_ref_id: newModelPackageRefId || undefined,
-        task_contract_digest: selectedPackage?.task_contract_digest ?? "",
-        model_package_manifest_digest: selectedPackage?.manifest_digest ?? "",
         project_series_id: newProjectSeriesId || undefined,
         predecessor_project_id: predecessorProjectId || undefined,
         continuation_reason: continuationReason,
+      };
+      const created = await workbenchApi.createProject(creatingChain ? {
+        ...shared,
+        task_id: "",
+        task_contract_digest: "",
+        model_package_manifest_digest: "",
+        scientific_identity: {
+          identity_kind: "chain",
+          chain_revision_id: newChainRevisionId,
+          chain_revision_digest: selectedChainRevision!.revision_digest,
+        },
+      } : {
+        ...shared,
+        task_id: taskId as ApiProject["task_id"],
+        dataset_view_revision_id: newDatasetViewId,
+        model_package_ref_id: newModelPackageRefId,
+        task_contract_digest: selectedPackage?.task_contract_digest ?? "",
+        model_package_manifest_digest: selectedPackage?.manifest_digest ?? "",
       });
       onProjectChanged(created);
       setCreateOpen(false);
@@ -464,6 +512,8 @@ export function ProjectHub({
     setNewTaskId("");
     setNewDatasetViewId("");
     setNewModelPackageRefId("");
+    setNewChainId("");
+    setNewChainRevisionId("");
     setNewProjectSeriesId("");
     setPredecessorProjectId("");
     setContinuationReason("");
@@ -491,6 +541,28 @@ export function ProjectHub({
 
   const continueCurrentProject = () => {
     if (!project) return;
+    if (chainIdentity && fixedChainRevision) {
+      const datasetViewId = fixedChainRevision.stages.find(
+        (stage) => stage.dataset_view_revision_id,
+      )?.dataset_view_revision_id;
+      if (!datasetViewId) {
+        setError("このChain Revisionには作成元Datasetの参照がありません。");
+        return;
+      }
+      focusCreationFormRef.current = true;
+      setCreateOpen(true);
+      setCreateMode("empty");
+      setNewProjectName(`${project.name} 続き`);
+      setNewDatasetViewId(datasetViewId);
+      setNewTaskId("");
+      setNewModelPackageRefId("");
+      setNewChainId(fixedChain?.definition.chain_id ?? "");
+      setNewChainRevisionId(chainIdentity.chain_revision_id);
+      setNewProjectSeriesId(project.project_series_id ?? "");
+      setPredecessorProjectId(project.id);
+      setContinuationReason("");
+      return;
+    }
     if (!project.dataset_view_revision_id || !project.model_package_ref_id) {
       setError("このプロジェクトは固定参照が不足しているため、続きとして作成できません。開発・管理で参照状態を確認してください。");
       return;
@@ -591,7 +663,9 @@ export function ProjectHub({
         <small>保存済みの候補・予測・実測・判断履歴は参照できます。推論と変更操作は停止しています。</small>
       </section>}
       {error && <p className="panel-error" role="alert">{error}</p>}
-      {project && <section className="project-reference-strip" aria-label="プロジェクトの参照と所属"><div><span>参照Dataset</span><strong>{fixedDataset?.data_asset.original_filename ?? "—"}</strong><small>{fixedDataset ? `${fixedDataset.profile_revision.name} · r${fixedDataset.profile_revision.revision}` : ""}</small></div><div><span>Prediction Task</span><strong>{taskLabels.get(project.task_id) ?? project.task_id}</strong><small>固定</small></div><div><span>Model Package</span><strong>{modelPackageDisplayName(fixedPackage)}</strong><small>学習元: {fixedTrainingDataset ? datasetDisplayName(fixedTrainingDataset) : "未登録または記録なし"} · Manifest {project.model_package_manifest_digest.slice(0, 10)}</small></div><div><span>所属グループ</span><strong>{fixedSeries?.name ?? "—"}</strong><small>設定から変更できます</small></div></section>}
+      {project && (chainIdentity
+        ? <section className="project-reference-strip" aria-label="プロジェクトのChain参照と所属"><div><span>Chain Template</span><strong>{fixedChain?.definition.label ?? "Chain未解決"}</strong><small>A → B → C</small></div><div><span>Chain Revision</span><strong>{fixedChainRevision ? `r${fixedChainRevision.revision}` : "—"}</strong><small title={chainIdentity.chain_revision_digest}>{chainIdentity.chain_revision_digest.slice(0, 18)}…</small></div><div><span>固定Stage</span><strong>{fixedChainRevision?.stages.map((stage) => stage.stage_id).join(" → ") ?? "—"}</strong><small>Package・Dataset・ProfileをRevision内に固定</small></div><div><span>所属グループ</span><strong>{fixedSeries?.name ?? "—"}</strong><small>設定から変更できます</small></div></section>
+        : <section className="project-reference-strip" aria-label="プロジェクトの参照と所属"><div><span>参照Dataset</span><strong>{fixedDataset?.data_asset.original_filename ?? "—"}</strong><small>{fixedDataset ? `${fixedDataset.profile_revision.name} · r${fixedDataset.profile_revision.revision}` : ""}</small></div><div><span>Prediction Task</span><strong>{taskLabels.get(project.task_id) ?? project.task_id}</strong><small>固定</small></div><div><span>Model Package</span><strong>{modelPackageDisplayName(fixedPackage)}</strong><small>学習元: {fixedTrainingDataset ? datasetDisplayName(fixedTrainingDataset) : "未登録または記録なし"} · Manifest {project.model_package_manifest_digest.slice(0, 10)}</small></div><div><span>所属グループ</span><strong>{fixedSeries?.name ?? "—"}</strong><small>設定から変更できます</small></div></section>)}
       {project && <section className={`project-goal-strip${configuredTargets.length ? "" : " unset"}`} aria-label="プロジェクトの目標値">
         <div className="project-goal-heading"><span>目標値</span><strong>{configuredTargets.length ? "候補を判断する基準" : "候補を探す前に設定"}</strong></div>
         <div className="project-goal-values">
@@ -610,25 +684,25 @@ export function ProjectHub({
         </div>
         <label>プロジェクト名<input ref={projectNameInputRef} value={newProjectName} onChange={(event) => setNewProjectName(event.target.value)} placeholder="例: 2026年7月 焼鈍条件の再検討" /></label>
         <div className="project-binding-flow">
-          <label><b aria-hidden="true">1</b><span>Dataset</span><select disabled={createMode === "copy"} value={newDatasetViewId} onChange={(event) => { setNewDatasetViewId(event.target.value); setNewTaskId(""); setNewModelPackageRefId(""); }}><option value="">選択してください</option>{(creationOptions?.dataset_views ?? []).filter((item) => item.kind === "single").map((view) => <option key={view.id} value={view.id}>{view.name} · {datasetByView.get(view.id)?.profile_revision.name}</option>)}</select></label>
-          <label><b aria-hidden="true">2</b><span>予測タスク（Prediction Task）</span><select disabled={createMode === "copy" || !newDatasetViewId} value={createMode === "copy" ? copyTaskId : newTaskId} onChange={(event) => { setNewTaskId(event.target.value); setNewModelPackageRefId(""); }}><option value="">{newDatasetViewId ? "選択してください" : "先にDatasetを選択"}</option>{catalog.filter((item) => availableTaskIds.includes(item.definition.task_definition.id)).map((item) => <option key={item.definition.task_definition.id} value={item.definition.task_definition.id}>{item.definition.task_definition.label}</option>)}</select></label>
-          <label><b aria-hidden="true">3</b><span>Model Package</span><select disabled={createMode === "copy" || !newTaskId} value={newModelPackageRefId} onChange={(event) => setNewModelPackageRefId(event.target.value)}><option value="">{newTaskId ? "手法を選択してください" : "先にPrediction Taskを選択"}</option>{availablePackages.map((item) => <option key={item.id} value={item.id}>{modelPackageDisplayName(item)}</option>)}</select></label>
+          <label><b aria-hidden="true">1</b><span>Dataset</span><select disabled={createMode === "copy"} value={newDatasetViewId} onChange={(event) => { setNewDatasetViewId(event.target.value); setNewTaskId(""); setNewModelPackageRefId(""); setNewChainId(""); setNewChainRevisionId(""); }}><option value="">選択してください</option>{(creationOptions?.dataset_views ?? []).filter((item) => item.kind === "single").map((view) => <option key={view.id} value={view.id}>{view.name} · {datasetByView.get(view.id)?.profile_revision.name}</option>)}</select></label>
+          <label><b aria-hidden="true">2</b><span>予測構成</span><select disabled={createMode === "copy" || !newDatasetViewId} value={createMode === "copy" ? `task:${copyTaskId ?? ""}` : newChainId ? `chain:${newChainId}` : newTaskId ? `task:${newTaskId}` : ""} onChange={(event) => { const [kind, id] = event.target.value.split(":", 2); setNewTaskId(kind === "task" ? id : ""); setNewModelPackageRefId(""); setNewChainId(kind === "chain" ? id : ""); setNewChainRevisionId(""); }}><option value="">{newDatasetViewId ? "選択してください" : "先にDatasetを選択"}</option>{catalog.filter((item) => availableTaskIds.includes(item.definition.task_definition.id)).map((item) => <option key={item.definition.task_definition.id} value={`task:${item.definition.task_definition.id}`}>{item.definition.task_definition.label}（単一Task）</option>)}{availableChains.map((item) => <option key={item.definition.chain_id} value={`chain:${item.definition.chain_id}`}>{item.definition.label}（Chain）</option>)}</select></label>
+          <label><b aria-hidden="true">3</b><span>{newChainId ? "Chain Revision" : "Model Package"}</span>{newChainId ? <select disabled={!newChainId} value={newChainRevisionId} onChange={(event) => setNewChainRevisionId(event.target.value)}><option value="">Revisionを選択</option>{selectedChain?.revisions.map((revision) => { const id = `${revision.chain_id}:r${revision.revision}`; return <option key={id} value={id}>r{revision.revision} · {revision.stages.map((stage) => stage.stage_id).join(" → ")}</option>; })}</select> : <select disabled={createMode === "copy" || !newTaskId} value={newModelPackageRefId} onChange={(event) => setNewModelPackageRefId(event.target.value)}><option value="">{newTaskId ? "手法を選択してください" : "先にPrediction Taskを選択"}</option>{availablePackages.map((item) => <option key={item.id} value={item.id}>{modelPackageDisplayName(item)}</option>)}</select>}</label>
           <label><b aria-hidden="true">4</b><span>所属グループ</span><select value={newProjectSeriesId} onChange={(event) => setNewProjectSeriesId(event.target.value)}><option value="">新しいグループを作成</option>{activeProjectSeries.map((series) => <option key={series.id} value={series.id}>{series.name}</option>)}</select></label>
         </div>
-        {selectedPackage && <ModelPackageDecisionCard modelPackage={selectedPackage} />}
+        {selectedPackage && !newChainId && <ModelPackageDecisionCard modelPackage={selectedPackage} />}
         <section className="project-binding-confirmation" aria-label="作成後に固定される内容">
-          <header><strong>作成後に固定される内容</strong><span>Dataset・Prediction Task・Model Packageは後から変更できません</span></header>
+          <header><strong>作成後に固定される内容</strong><span>{newChainId ? "Chain Revisionと各StageのPackage・Dataset・Profileは後から変わりません" : "Dataset・Prediction Task・Model Packageは後から変更できません"}</span></header>
           <div><span>参照Dataset</span><strong>{selectedDataset ? datasetDisplayName(selectedDataset) : "選択してください"}</strong><small>{selectedDataset ? `${selectedDataset.profile_revision.name} · r${selectedDataset.profile_revision.revision}` : "DatasetとProfileを選択"}</small></div>
-          <div><span>Prediction Task</span><strong>{taskLabels.get(selectedTaskId) ?? (selectedTaskId || "選択してください")}</strong><small>Projectの予測目的</small></div>
-          <div><span>Model Package</span><strong>{selectedPackage ? modelPackageDisplayName(selectedPackage) : "選択してください"}</strong><small>学習元: {selectedPackage ? selectedTrainingDataset ? datasetDisplayName(selectedTrainingDataset) : "未登録または記録なし" : "Model Packageを選択してください"}</small></div>
+          <div><span>{newChainId ? "Chain Template" : "Prediction Task"}</span><strong>{newChainId ? selectedChain?.definition.label ?? "選択してください" : taskLabels.get(selectedTaskId) ?? (selectedTaskId || "選択してください")}</strong><small>{newChainId ? "再利用可能なStageをbindingで接続" : "Projectの予測目的"}</small></div>
+          <div><span>{newChainId ? "Chain Revision" : "Model Package"}</span><strong>{newChainId ? selectedChainRevision ? `r${selectedChainRevision.revision}` : "選択してください" : selectedPackage ? modelPackageDisplayName(selectedPackage) : "選択してください"}</strong><small>{newChainId ? selectedChainRevision ? selectedChainRevision.stages.map((stage) => `${stage.stage_id}:${stage.package_manifest_digest.slice(7, 15)}`).join(" · ") : "Revisionを選択してください" : `学習元: ${selectedPackage ? selectedTrainingDataset ? datasetDisplayName(selectedTrainingDataset) : "未登録または記録なし" : "Model Packageを選択してください"}`}</small></div>
         </section>
         <div className="project-group-summary"><span>所属グループ</span><strong>{selectedSeries?.name ?? (newProjectName.trim() || "プロジェクト名から新規作成")}</strong><small>{selectedSeries ? "既存グループに追加" : "プロジェクト名で新しいグループを作成"}</small></div>
         {predecessorProjectId && <label>続ける理由（任意）<textarea value={continuationReason} onChange={(event) => setContinuationReason(event.target.value)} placeholder="予測タスク変更、データ追加、条件変更、判断の再検討など" /></label>}
         <div className="project-start-options">
           <label><input type="radio" checked={createMode === "empty"} onChange={() => setCreateMode("empty")} />空から開始<span>候補を持たない検討として作成</span></label>
-          <label><input type="radio" checked={createMode === "copy"} disabled={taskUnavailable || !candidate || Boolean(predecessorProjectId)} onChange={() => { setCreateMode("copy"); if (project) { setNewDatasetViewId(project.dataset_view_revision_id ?? ""); setNewTaskId(project.task_id); setNewModelPackageRefId(project.model_package_ref_id ?? ""); } }} />現在候補をコピー<span>{taskUnavailable ? "利用停止中のタスクからはコピーできません" : candidate ? `${candidate.label}（編集版 ${candidate.raw.revision}）` : "コピーできる候補がありません"}</span></label>
+          <label><input type="radio" checked={createMode === "copy"} disabled={Boolean(newChainId) || taskUnavailable || !candidate || Boolean(predecessorProjectId)} onChange={() => { setCreateMode("copy"); setNewChainId(""); setNewChainRevisionId(""); if (project) { setNewDatasetViewId(project.dataset_view_revision_id ?? ""); setNewTaskId(project.task_id); setNewModelPackageRefId(project.model_package_ref_id ?? ""); } }} />現在候補をコピー<span>{newChainId ? "Chain Projectは空から開始します" : taskUnavailable ? "利用停止中のタスクからはコピーできません" : candidate ? `${candidate.label}（編集版 ${candidate.raw.revision}）` : "コピーできる候補がありません"}</span></label>
         </div>
-        <button className="primary-button" disabled={!newProjectName.trim() || !newDatasetViewId || !(createMode === "copy" ? copyTaskId : newTaskId) || !newModelPackageRefId} onClick={() => void createProject()}>固定してプロジェクトを作成</button>
+        <button className="primary-button" disabled={!newProjectName.trim() || !newDatasetViewId || (newChainId ? !newChainRevisionId : !(createMode === "copy" ? copyTaskId : newTaskId) || !newModelPackageRefId)} onClick={() => void createProject()}>固定してプロジェクトを作成</button>
       </section>}
 
       {settingsOpen && project && <section className="project-settings-panel">

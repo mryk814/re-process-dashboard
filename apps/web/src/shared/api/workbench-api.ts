@@ -33,6 +33,7 @@ export type ApiProjectHistory = components["schemas"]["ProjectHistoryResponse"];
 export type ApiProjectDecisionInput = components["schemas"]["ProjectDecisionInput"];
 export type ApiProjectGroupMoveInput = components["schemas"]["ProjectGroupMoveInput"];
 export type ApiProjectCreationOptions = components["schemas"]["ProjectCreationOptions"];
+export type ApiChainTemplate = components["schemas"]["ChainTemplateItem"];
 export type ApiDataLibraryDataset = components["schemas"]["DataLibraryDataset"];
 export type ApiDatasetView = components["schemas"]["DatasetViewRevision"];
 export type ApiDatasetViewCreateInput = components["schemas"]["DatasetViewRevisionCreateInput"];
@@ -82,6 +83,9 @@ export const workbenchApi = {
   },
   async projectCreationOptions() {
     return requireData(await apiClient.GET("/api/project-creation-options"), "プロジェクト作成条件を取得できませんでした。");
+  },
+  async listChainTemplates() {
+    return requireData(await apiClient.GET("/api/chains"), "Chain Templateを取得できませんでした。");
   },
   async listDataLibraryDatasets(includeArchived = false) {
     return requireData(await apiClient.GET("/api/data-library/datasets", {
