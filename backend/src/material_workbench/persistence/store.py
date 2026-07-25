@@ -10,6 +10,7 @@ from typing import Any
 from material_workbench.persistence.candidate_migration import HOT_PROJECT_ID
 from material_workbench.contracts.chain_contracts import (
     ChainDefinition,
+    ChainProjectIdentity,
     ChainRevision,
     SingleTaskProjectIdentity,
 )
@@ -189,14 +190,29 @@ class Store:
     def register_chain_revision(self, revision: ChainRevision) -> str:
         record_id = f"{revision.chain_id}:r{revision.revision}"
         with self._connect() as conn:
-            definition = conn.execute(
-                "SELECT 1 FROM chain_definitions "
+            definition_row = conn.execute(
+                "SELECT definition_json FROM chain_definitions "
                 "WHERE chain_id=? AND definition_digest=?",
                 (revision.chain_id, revision.chain_definition_digest),
             ).fetchone()
-            if definition is None:
+            if definition_row is None:
                 raise ChainCatalogConflictError(
                     "Chain Revisionが参照するDefinitionを先に登録してください"
+                )
+            definition = ChainDefinition.model_validate_json(
+                definition_row["definition_json"]
+            )
+            expected_stages = [
+                (stage.stage_id, stage.stage_kind, stage.contract_id)
+                for stage in definition.stages
+            ]
+            actual_stages = [
+                (stage.stage_id, stage.stage_kind, stage.contract_id)
+                for stage in revision.stages
+            ]
+            if actual_stages != expected_stages:
+                raise ChainCatalogConflictError(
+                    "Chain Revisionの順序付きStageがDefinitionと一致しません"
                 )
             existing = conn.execute(
                 "SELECT id,revision_json FROM chain_revisions "
@@ -343,6 +359,105 @@ class Store:
                 conn.execute(
                     "INSERT INTO candidates(id,project_id,name,payload,created_at,updated_at) VALUES (?, ?, ?, ?, ?, ?)",
                     (candidate_id, project_id, initial_candidate.name, initial_candidate.model_dump_json(), now, now),
+                )
+        return self.get_project(project_id)  # type: ignore[return-value]
+
+    def create_chain_project(
+        self,
+        payload: ProjectCreateInput,
+        identity: ChainProjectIdentity,
+        initial_candidate: CandidateInput | None = None,
+    ) -> Project:
+        revision = self.get_chain_revision(identity.chain_revision_id)
+        if revision is None or revision.revision_digest != identity.chain_revision_digest:
+            raise ChainCatalogConflictError(
+                "選択したChain RevisionのIDまたはdigestが登録内容と一致しません"
+            )
+        project_id, now = str(uuid.uuid4()), _now()
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            if initial_candidate is not None and initial_candidate.provenance.source_kind == "copy":
+                reference = initial_candidate.provenance.source_ref
+                source = conn.execute(
+                    "SELECT projects.scientific_identity_json,candidates.revision "
+                    "FROM candidates JOIN projects ON projects.id=candidates.project_id "
+                    "WHERE candidates.id=? AND candidates.project_id=?",
+                    (reference.candidate_id, reference.project_id),
+                ).fetchone()
+                if (
+                    source is None
+                    or source["revision"] != reference.candidate_revision
+                    or ChainProjectIdentity.model_validate_json(
+                        source["scientific_identity_json"]
+                    )
+                    != identity
+                ):
+                    raise CandidateCopyConflictError(
+                        "コピー元候補のChain Revisionまたはcandidate revisionが一致しません"
+                    )
+            conn.execute(
+                "INSERT INTO projects("
+                "id,name,description,purpose,task_id,target_values,input_ranges,"
+                "response_curve_ranges,response_curve_points,heat_stage_positions_m,"
+                "display_decimals,notes,decision_candidate_id,decision_snapshot_id,"
+                "decision_note,dataset_view_revision_id,task_contract_digest,"
+                "model_package_ref_id,model_package_manifest_digest,project_series_id,"
+                "predecessor_project_id,continuation_reason,binding_provenance,"
+                "scientific_identity_json,created_at,updated_at"
+                ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    project_id,
+                    payload.name,
+                    payload.description,
+                    payload.purpose,
+                    "",
+                    _target_values_json(payload.target_values),
+                    json.dumps(
+                        {key: value.model_dump() for key, value in payload.input_ranges.items()},
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    ),
+                    json.dumps(
+                        {
+                            axis: {key: value.model_dump() for key, value in ranges.items()}
+                            for axis, ranges in payload.response_curve_ranges.items()
+                        },
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    ),
+                    payload.response_curve_points,
+                    json.dumps(payload.heat_stage_positions_m, ensure_ascii=False, sort_keys=True),
+                    json.dumps(payload.display_decimals, ensure_ascii=False, sort_keys=True),
+                    payload.notes,
+                    payload.decision_candidate_id,
+                    payload.decision_snapshot_id,
+                    payload.decision_note,
+                    None,
+                    "",
+                    None,
+                    "",
+                    payload.project_series_id,
+                    payload.predecessor_project_id,
+                    payload.continuation_reason,
+                    "explicit",
+                    identity.model_dump_json(),
+                    now,
+                    now,
+                ),
+            )
+            if initial_candidate is not None:
+                candidate_id = str(uuid.uuid4())
+                conn.execute(
+                    "INSERT INTO candidates(id,project_id,name,payload,created_at,updated_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    (
+                        candidate_id,
+                        project_id,
+                        initial_candidate.name,
+                        initial_candidate.model_dump_json(),
+                        now,
+                        now,
+                    ),
                 )
         return self.get_project(project_id)  # type: ignore[return-value]
 

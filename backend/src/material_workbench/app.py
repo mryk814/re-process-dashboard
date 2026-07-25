@@ -15,6 +15,7 @@ from material_workbench.contracts.blend_contracts import BlendContractRegistry
 from .api.errors import PROJECT_API_ERRORS, install_exception_handlers
 from .api.security import configure_local_access
 from .api.catalog import router as catalog_router
+from .api.chains import router as chains_router
 from .api.data_library import router as data_library_router
 from .api.decision_activities import router as decision_activities_router
 from .api.developer import router as developer_router
@@ -240,6 +241,7 @@ def create_app(
     configure_local_access(app)
     install_exception_handlers(app)
     app.include_router(catalog_router)
+    app.include_router(chains_router)
     app.include_router(data_library_router)
     app.include_router(developer_router)
     app.include_router(project_series_router)

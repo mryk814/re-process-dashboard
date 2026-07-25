@@ -11,7 +11,10 @@ from material_workbench.contracts.blend_contracts import (
     BlendValidationState,
     SparseBlend,
 )
-from material_workbench.contracts.chain_contracts import ProjectScientificIdentity
+from material_workbench.contracts.chain_contracts import (
+    ChainProjectIdentity,
+    ProjectScientificIdentity,
+)
 from material_workbench.contracts.task_contracts import CandidateProvenance, DirectSourceRef, ResolvedTaskDefinition
 
 
@@ -340,7 +343,9 @@ class ProjectInput(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=120)] = "焼鈍条件の候補検討"
     description: str = ""
     purpose: str = ""
-    task_id: Annotated[str, Field(min_length=1)] = "annealed-properties-v1"
+    # Empty only for Chain Projects. `scientific_identity` is the canonical
+    # discriminator; this column remains for legacy single-Task readers.
+    task_id: str = "annealed-properties-v1"
     target_values: dict[str, TargetValue] = Field(default_factory=dict)
     input_ranges: dict[str, InputRange] = Field(default_factory=dict)
     response_curve_ranges: dict[str, dict[str, InputRange]] = Field(default_factory=dict)
@@ -364,6 +369,7 @@ class ProjectInput(BaseModel):
 
 
 class ProjectCreateInput(ProjectInput):
+    scientific_identity: ChainProjectIdentity | None = None
     initial_candidate: CandidateInput | None = None
     dataset_view_revision_id: str | None = None
     task_contract_digest: str = ""
@@ -399,6 +405,7 @@ class ProjectUpdateInput(BaseModel):
     model_package_manifest_digest: str | None = None
     project_series_id: str | None = None
     predecessor_project_id: str | None = None
+    scientific_identity: ProjectScientificIdentity | None = None
 
     @model_validator(mode="after")
     def decision_note_requires_candidate(self) -> "ProjectUpdateInput":
@@ -443,6 +450,15 @@ class Project(ProjectInput):
     binding_migrated_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
+
+    @model_validator(mode="after")
+    def legacy_task_column_matches_scientific_identity(self) -> "Project":
+        if self.scientific_identity.identity_kind == "single_task":
+            if self.task_id != self.scientific_identity.task_id:
+                raise ValueError("Project task_id disagrees with single-Task identity")
+        elif self.task_id:
+            raise ValueError("Chain Project must not masquerade as a Prediction Task")
+        return self
 
 
 class ScreeningVariable(BaseModel):
