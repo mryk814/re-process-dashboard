@@ -8,85 +8,141 @@
       "parser": "finite_number",
       "condition_column": null,
       "inactive_value": null,
-      "allowed_units": []
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
     },
     "Ni": {
       "parser": "finite_number",
       "condition_column": null,
       "inactive_value": null,
-      "allowed_units": []
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
     },
     "Co": {
       "parser": "finite_number",
       "condition_column": null,
       "inactive_value": null,
-      "allowed_units": []
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
     },
     "Mn": {
       "parser": "finite_number",
       "condition_column": null,
       "inactive_value": null,
-      "allowed_units": []
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
     },
     "Cr": {
       "parser": "finite_number",
       "condition_column": null,
       "inactive_value": null,
-      "allowed_units": []
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
     },
     "Al": {
       "parser": "finite_number",
       "condition_column": null,
       "inactive_value": null,
-      "allowed_units": []
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
     },
     "Ti": {
       "parser": "finite_number",
       "condition_column": null,
       "inactive_value": null,
-      "allowed_units": []
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
     },
     "Cu": {
       "parser": "finite_number",
       "condition_column": null,
       "inactive_value": null,
-      "allowed_units": []
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
     },
     "Si": {
       "parser": "finite_number",
       "condition_column": null,
       "inactive_value": null,
-      "allowed_units": []
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
     },
     "V": {
       "parser": "finite_number",
       "condition_column": null,
       "inactive_value": null,
-      "allowed_units": []
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
     },
     "Nb": {
       "parser": "finite_number",
       "condition_column": null,
       "inactive_value": null,
-      "allowed_units": []
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
     },
     "B": {
       "parser": "finite_number",
       "condition_column": null,
       "inactive_value": null,
-      "allowed_units": []
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
     },
     "Mo": {
       "parser": "finite_number",
       "condition_column": null,
       "inactive_value": null,
-      "allowed_units": []
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
     },
     "Ta": {
       "parser": "finite_number",
       "condition_column": null,
       "inactive_value": null,
-      "allowed_units": []
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
     },
     "Tensile Yield Strength (Mpa)": {
       "parser": "reported_scalar",
@@ -95,7 +151,11 @@
       "allowed_units": [
         "",
         "MPa"
-      ]
+      ],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
     }
   },
   "sum_rules": [

@@ -6,30 +6,38 @@
     {
       "target": "EL",
       "parent_conditions": 142,
-      "mae": 3.1815338489797313,
-      "rmse": 15.619353224630611,
-      "interval_coverage_90": 0.9929577464788732
+      "mae": 3.352333018124602,
+      "rmse": 15.779258928103456,
+      "interval_coverage_90": 0.9859154929577465,
+      "interval_coverage_method": "cross-fitted-oof-normal-scale",
+      "interval_coverage_observations": 142
     },
     {
       "target": "TS",
       "parent_conditions": 142,
-      "mae": 76.36339073242216,
-      "rmse": 390.0116685644282,
-      "interval_coverage_90": 0.9929577464788732
+      "mae": 79.84373593211983,
+      "rmse": 393.65612528859486,
+      "interval_coverage_90": 0.9929577464788732,
+      "interval_coverage_method": "cross-fitted-oof-normal-scale",
+      "interval_coverage_observations": 142
     },
     {
       "target": "YS",
       "parent_conditions": 142,
-      "mae": 55.86936173029695,
-      "rmse": 289.1621728104338,
-      "interval_coverage_90": 0.9929577464788732
+      "mae": 58.742247679375815,
+      "rmse": 292.12264288818574,
+      "interval_coverage_90": 0.9929577464788732,
+      "interval_coverage_method": "cross-fitted-oof-normal-scale",
+      "interval_coverage_observations": 142
     },
     {
       "target": "lambda",
       "parent_conditions": 130,
-      "mae": 11.474658256662332,
-      "rmse": 19.003931458373202,
-      "interval_coverage_90": 0.9307692307692308
+      "mae": 16.156477709976222,
+      "rmse": 63.343979991222035,
+      "interval_coverage_90": 0.9846153846153847,
+      "interval_coverage_method": "cross-fitted-oof-normal-scale",
+      "interval_coverage_observations": 130
     }
   ]
 }

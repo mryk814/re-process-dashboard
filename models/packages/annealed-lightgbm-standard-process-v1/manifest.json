@@ -130,10 +130,10 @@
       ],
       "config": {
         "training_unit": "parent_condition_mean",
-        "residual_std": 15.619353224630611,
+        "residual_std": 15.779258928103456,
         "uncertainty_calibration": "grouped_parent_condition_oof",
         "parameter_policy": "regularized_small_data_v1",
-        "best_iteration": 44
+        "num_boost_round": 50
       }
     },
     {
@@ -190,10 +190,10 @@
       ],
       "config": {
         "training_unit": "parent_condition_mean",
-        "residual_std": 390.0116685644282,
+        "residual_std": 393.65612528859486,
         "uncertainty_calibration": "grouped_parent_condition_oof",
         "parameter_policy": "regularized_small_data_v1",
-        "best_iteration": 51
+        "num_boost_round": 50
       }
     },
     {
@@ -250,10 +250,10 @@
       ],
       "config": {
         "training_unit": "parent_condition_mean",
-        "residual_std": 289.1621728104338,
+        "residual_std": 292.12264288818574,
         "uncertainty_calibration": "grouped_parent_condition_oof",
         "parameter_policy": "regularized_small_data_v1",
-        "best_iteration": 51
+        "num_boost_round": 50
       }
     },
     {
@@ -310,17 +310,17 @@
       ],
       "config": {
         "training_unit": "parent_condition_mean",
-        "residual_std": 19.003931458373202,
+        "residual_std": 63.343979991222035,
         "uncertainty_calibration": "grouped_parent_condition_oof",
         "parameter_policy": "regularized_small_data_v1",
-        "best_iteration": 56
+        "num_boost_round": 50
       }
     }
   ],
   "provenance": {
     "training_data_id": "sha256:87e2321d5ce1071c9fe57bea95ed773609a88d63c7d5cc08bd0a15592634bef9",
     "feature_dataset_id": "sha256:d753458252eb4ac4e4fa97e91a8096daec566fff2b7fae8b70519dde1a29c816",
-    "training_code_revision": "lightgbm-grouped-cv-v1",
+    "training_code_revision": "lightgbm-grouped-fixed-round-crossfit-v2",
     "dataset_profile_id": "sha256:f622242f2fa9399d8af9cf5faded2469fb6777b073190350f7a2c9f095d7e976"
   },
   "artifacts": [
@@ -331,23 +331,23 @@
     },
     {
       "path": "model-artifacts/EL.txt",
-      "sha256": "eaec7878753020dc884afe41e9be517c3aa64aa77b0bb5169a61992d3a20b19b",
-      "bytes": 53752
+      "sha256": "09fc9f37bce01829ab4da4145af7380b3ad520b49bdbc79ce82441e7f08d05c5",
+      "bytes": 61308
     },
     {
       "path": "model-artifacts/TS.txt",
-      "sha256": "f7dfc141f2bb0119ba33c236d1a828b86db46330ebb208cb7ced5bf922cad1f8",
-      "bytes": 59869
+      "sha256": "9fd5b786eb4c6265032790baf63f1ee5d3eee3d53458408f658214987dc788ff",
+      "bytes": 58645
     },
     {
       "path": "model-artifacts/YS.txt",
-      "sha256": "84c7fc4667112ee380e50a0a91315f26ee1a63fc3392557e643ae19e3ce4c703",
-      "bytes": 58303
+      "sha256": "a6d55c1dc4529f44fd0fdc543ecc0f79f787a0d88cb26873175022cc245e212b",
+      "bytes": 57097
     },
     {
       "path": "model-artifacts/lambda.txt",
-      "sha256": "e51c2ec582ec82533af9dfbf4664f12311767e800269696aa13a07d298e951a1",
-      "bytes": 57131
+      "sha256": "4924218774b3fde730bd1a7860c1e46aec5e59deb8dae783d8ca2d519bc68966",
+      "bytes": 50175
     },
     {
       "path": "reference/training_stats.json",
@@ -356,13 +356,13 @@
     },
     {
       "path": "reports/quality-report.json",
-      "sha256": "66c40b8eba139c060004ce5c7c30bebf56c6e8da5d023ddd369b54173bd44d7d",
-      "bytes": 861
+      "sha256": "0a6b1b37fba3ad2f0d542f3398ad78be763aee2497cad4f7c5357ce938be98d2",
+      "bytes": 1311
     },
     {
       "path": "reports/training-diagnostics.json",
-      "sha256": "1377873878c9319a34705a4686b4d9756d9b2d96caba6895fca28a06346b0200",
-      "bytes": 4191
+      "sha256": "2f2041f6140fe2c4384ae5dae78870297958cccaa32c81b8a507f2cb6fb05f86",
+      "bytes": 3778
     },
     {
       "path": "smoke/input.json",
@@ -371,8 +371,8 @@
     },
     {
       "path": "smoke/expected.json",
-      "sha256": "e7e4bae7b16e9bfb5e23254317b3d7ad178aad01ce6286569092b4e459b13fd4",
-      "bytes": 92
+      "sha256": "a30009b7aca51388b4e30415f196e7dee354d3eaff6809b1ee38ec56cc947347",
+      "bytes": 91
     }
   ],
   "smoke_test": {

@@ -6,9 +6,11 @@
     {
       "target": "fail_probability",
       "parent_conditions": 1468,
-      "mae": 0.11361995486914983,
-      "rmse": 0.23911116545759767,
-      "interval_coverage_90": 0.0
+      "mae": 0.11489284312984041,
+      "rmse": 0.2409414215228184,
+      "interval_coverage_90": 0.0,
+      "interval_coverage_method": null,
+      "interval_coverage_observations": null
     }
   ]
 }

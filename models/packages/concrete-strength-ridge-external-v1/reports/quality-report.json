@@ -8,7 +8,9 @@
       "parent_conditions": 1600,
       "mae": 4.2175558356882155,
       "rmse": 5.3425537209092395,
-      "interval_coverage_90": 0.9
+      "interval_coverage_90": 0.900625,
+      "interval_coverage_method": "cross-fitted-oof-residual-quantiles",
+      "interval_coverage_observations": 1600
     }
   ]
 }

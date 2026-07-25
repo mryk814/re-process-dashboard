@@ -194,7 +194,7 @@
         "previous": null,
         "package_id": "heat-treatment-ridge-external-v1",
         "version": "1.0.0",
-        "manifest_sha256": "4d9ef9654f060b566c1a0e20786bf59b2542078d81fc4b2979845a4633e9c2e5",
+        "manifest_sha256": "b60bdf52b53efe752db92bc1b27637988a31f7051ce58da322aedaf4173639fe",
         "runtime_types": [
           "builtin.linear.v1"
         ]
@@ -242,7 +242,7 @@
         "previous": null,
         "package_id": "concrete-strength-ridge-external-v1",
         "version": "1.0.0",
-        "manifest_sha256": "b419994459254ba21fe4b33f5492ee378133fb4e23a8fd41078c26deef345412",
+        "manifest_sha256": "608cb0c0fd3577e2c194b310011cf41da02a50ae1e56adf8eb5a9a2dbcd49c7a",
         "runtime_types": [
           "builtin.linear.v1"
         ]
@@ -290,7 +290,7 @@
         "previous": null,
         "package_id": "wear-curve-ridge-external-v1",
         "version": "1.0.0",
-        "manifest_sha256": "9b545e8bc06bf23a8856fc5c3ee2435fd56d7c6dcf0fa0668139fa3758e6b0d4",
+        "manifest_sha256": "380c212f6cfae46599c789b63010439bf70bd3c88a5ca4b27d0cb1bee70c5cd5",
         "runtime_types": [
           "builtin.linear.v1"
         ]
@@ -338,7 +338,7 @@
         "previous": null,
         "package_id": "battery-degradation-lightgbm-calce-v1",
         "version": "1.0.0",
-        "manifest_sha256": "27258872d2a8cd9e408bdf56b3426670d33e5c3fd38806e1c6fe71fa65b9375f",
+        "manifest_sha256": "9968d3e22b3685c1853de28bd64919070e0b6f46871bd2ab32c78c209bdf6260",
         "runtime_types": [
           "lightgbm.booster.v1"
         ]
@@ -386,7 +386,7 @@
         "previous": null,
         "package_id": "secom-yield-lightgbm-calibrated-v1",
         "version": "1.0.0",
-        "manifest_sha256": "116946246837f698703dfb803fa8fb92273c421dda39f802685a04b1d99c7e92",
+        "manifest_sha256": "5c491cca6ca63cb0ad2c719ac60ee2584d7730b51f54b4ad72b130e43a30ecd1",
         "runtime_types": [
           "lightgbm.booster.v1"
         ]
@@ -434,7 +434,7 @@
         "previous": null,
         "package_id": "mpea-literature-tys-ridge-v1",
         "version": "1.0.0",
-        "manifest_sha256": "07ff3979b2448fc735bf39f9896af8a02caa149b89dd0120177b07e6b8e50662",
+        "manifest_sha256": "5f0a2531f8bb5c334b2e156d1464476d3d306ff8b2514c9a51d25ce77c9ac1e0",
         "runtime_types": [
           "builtin.linear.v1"
         ]
@@ -487,7 +487,7 @@
         "previous": null,
         "package_id": "mpea-room-tensile-ridge-v1",
         "version": "1.0.0",
-        "manifest_sha256": "2a1abd8f1227b178284f0730001944c23b81080f05a746577b586471d5e1d585",
+        "manifest_sha256": "ed86cfb49d1051d0dd1b9e9e7581bebaf86dcb424d04317e766c0cc1e5ca17e4",
         "runtime_types": [
           "builtin.linear.v1"
         ]
@@ -535,7 +535,7 @@
         "previous": null,
         "package_id": "mpea-hardness-ridge-v1",
         "version": "1.0.0",
-        "manifest_sha256": "a75769b594acc7a8540c3ffc6c3f605315963006be67f394220c9b458e02ede3",
+        "manifest_sha256": "a44ea314b7145209381ae14d9ff659c60f5101c7437e2c6eff27ba4d1f034607",
         "runtime_types": [
           "builtin.linear.v1"
         ]

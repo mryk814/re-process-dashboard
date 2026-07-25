@@ -70,19 +70,21 @@
         "training_unit": "independent source row",
         "validation": "5-fold stratified",
         "source_profile": "uci-secom-yield-v1",
+        "num_boost_round": 100,
         "calibration": {
           "method": "out-of-fold Platt scaling",
-          "intercept": 0.32837437383484563,
-          "slope": 1.075346690910974
+          "quality_evaluation": "cross-fitted out-of-fold Platt scaling",
+          "intercept": 0.2438860477569335,
+          "slope": 1.0433701162238838
         }
       }
     }
   ],
   "provenance": {
     "training_data_id": "sha256:c0f74512d055466c6e048430d21debeb413dd402d73a983d69286f1d2522df5b",
-    "feature_dataset_id": "sha256:dcea00dd66d55eaf4c3d5d91f2ec12116850ab996d8b4fb4eaab6fcb1d7bd74c",
-    "training_code_revision": "tabular-lightgbm-binary-calibrated-v1",
-    "dataset_profile_id": "sha256:38352f33417b18a47b7c2caf89361ada8cdd38289ccd369e97b70112069e9908"
+    "feature_dataset_id": "sha256:59d4d100dd443dc8347d17b760d88d607888c826e1356ed3903168b26ef70735",
+    "training_code_revision": "tabular-lightgbm-binary-crossfit-v2",
+    "dataset_profile_id": "sha256:9c5b319e9211fdc4ebdd9177da63710a071433b527daeeca0c9cddec5807d300"
   },
   "artifacts": [
     {
@@ -92,8 +94,8 @@
     },
     {
       "path": "model-artifacts/fail_probability.txt",
-      "sha256": "5f58deb08ae88e3f923bb9835171e45b117cc7efe8548ed6d9cac58f2c804ec6",
-      "bytes": 159612
+      "sha256": "6b0803da8ba1bd25b9c064e1aa05c5652dd47ccab11b5e805cf259d29260c16a",
+      "bytes": 163637
     },
     {
       "path": "reference/training_stats.json",
@@ -102,13 +104,13 @@
     },
     {
       "path": "reports/quality-report.json",
-      "sha256": "07f29f901a8d4a5b62f05526d1f91860027bc5b11410076cd3e973eedc358927",
-      "bytes": 312
+      "sha256": "c7504d5c7c782ae9e42b1b2336339270661b10a683976d62479745281432fb52",
+      "bytes": 397
     },
     {
       "path": "reports/classification-diagnostics.json",
-      "sha256": "534cb7743ba5913246f4a53d11ffd0f1585115868fe247744bc86f03f5e932f7",
-      "bytes": 741
+      "sha256": "aef6f4cce4a088c23f45b1261c4f68fa90c5a5243189ee228386f2df25fcf54f",
+      "bytes": 775
     },
     {
       "path": "smoke/input.json",
@@ -117,7 +119,7 @@
     },
     {
       "path": "smoke/expected.json",
-      "sha256": "74bbb08e40681f003897352685f68f09f152f10fa616c4523ab0f4e10507854b",
+      "sha256": "c46d5e2595d3eb997ce109dee9b66f0267af62a1138578e6d5afdea570e0fd28",
       "bytes": 36
     }
   ],
