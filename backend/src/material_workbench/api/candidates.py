@@ -6,7 +6,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 from fastapi.responses import StreamingResponse
 
-from .dependencies import get_project_runtime_resolver, get_store, get_task_registry
+from .dependencies import (
+    get_blend_contract_registry,
+    get_project_runtime_resolver,
+    get_store,
+    get_task_registry,
+)
 from .errors import DomainApiException, PROJECT_API_ERRORS
 from ..application.candidates import (
     CandidateNotFoundError,
@@ -15,6 +20,7 @@ from ..application.candidates import (
     CandidateValidationError,
 )
 from material_workbench.contracts.schemas import Candidate, CandidateImportResponse, CandidateInput, CandidateUpdate
+from material_workbench.contracts.blend_contracts import BlendContractRegistry
 from material_workbench.persistence.store import (
     CandidateArchivedError,
     CandidateLimitError,
@@ -35,12 +41,18 @@ router = APIRouter()
 StoreDependency = Annotated[Store, Depends(get_store)]
 RegistryDependency = Annotated[TaskRegistry, Depends(get_task_registry)]
 ResolverDependency = Annotated[ProjectRuntimeResolver, Depends(get_project_runtime_resolver)]
+BlendContractRegistryDependency = Annotated[
+    BlendContractRegistry, Depends(get_blend_contract_registry)
+]
 
 
 def get_candidate_service(
-    store: StoreDependency, registry: RegistryDependency, resolver: ResolverDependency
+    store: StoreDependency,
+    registry: RegistryDependency,
+    resolver: ResolverDependency,
+    blend_contracts: BlendContractRegistryDependency,
 ) -> CandidateService:
-    return CandidateService(store, registry, resolver)
+    return CandidateService(store, registry, resolver, blend_contracts)
 
 
 CandidateServiceDependency = Annotated[CandidateService, Depends(get_candidate_service)]

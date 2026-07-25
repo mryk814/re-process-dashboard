@@ -6,6 +6,11 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from material_workbench.contracts.blend_contracts import (
+    BlendEditorState,
+    BlendValidationState,
+    SparseBlend,
+)
 from material_workbench.contracts.task_contracts import CandidateProvenance, DirectSourceRef, ResolvedTaskDefinition
 
 
@@ -260,7 +265,23 @@ class CandidateInputs(BaseModel):
 class CandidateInput(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=80)] = "候補"
     inputs: CandidateInputs
+    blend: SparseBlend | None = None
+    editor_state: BlendEditorState = Field(default_factory=BlendEditorState)
+    blend_validation: BlendValidationState = Field(default_factory=BlendValidationState)
     provenance: CandidateProvenance = Field(default_factory=lambda: DirectSourceRef(source_kind="direct"))
+
+    @model_validator(mode="after")
+    def blend_metadata_matches_candidate_shape(self) -> "CandidateInput":
+        if self.blend is None:
+            if self.editor_state.locked_material_ids:
+                raise ValueError("配合のない候補へ配合行lockを保存できません")
+            if self.blend_validation.status != "not_applicable":
+                raise ValueError("配合のない候補へ配合検証状態を保存できません")
+        elif set(self.editor_state.locked_material_ids) - {
+            item.material_id for item in self.blend.items
+        }:
+            raise ValueError("配合にない原料をlockできません")
+        return self
 
 
 class CandidateUpdate(CandidateInput):

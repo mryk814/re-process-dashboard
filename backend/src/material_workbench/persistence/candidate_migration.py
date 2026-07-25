@@ -193,8 +193,20 @@ def _validate_references(conn: sqlite3.Connection, candidate_table: str) -> None
 def _assert_canonical_rows(conn: sqlite3.Connection) -> None:
     for row in conn.execute("SELECT id, project_id, payload FROM candidates"):
         payload = _json_object(row["payload"], table="candidates", row_id=row["id"])
-        if set(payload) != {"name", "inputs", "provenance"} or not isinstance(payload.get("inputs"), dict):
+        required_payload = {"name", "inputs", "provenance"}
+        optional_payload = {"blend", "editor_state", "blend_validation"}
+        if (
+            not required_payload <= set(payload)
+            or set(payload) - required_payload - optional_payload
+            or not isinstance(payload.get("inputs"), dict)
+        ):
             raise CandidateMigrationError(f"candidates {row['id']}: migration marker exists but payload is not nested candidate storage")
+        if "blend" in payload and payload["blend"] is not None and not isinstance(payload["blend"], dict):
+            raise CandidateMigrationError(f"candidates {row['id']}: sparse blend payload is not an object")
+        if "editor_state" in payload and not isinstance(payload["editor_state"], dict):
+            raise CandidateMigrationError(f"candidates {row['id']}: editor state is not an object")
+        if "blend_validation" in payload and not isinstance(payload["blend_validation"], dict):
+            raise CandidateMigrationError(f"candidates {row['id']}: blend validation is not an object")
         input_keys = set(payload["inputs"])
         required_inputs = {"composition", "process", "categorical", "heat_pattern"}
         if not required_inputs <= input_keys or input_keys - required_inputs != ({"heat_time_basis"} if "heat_time_basis" in input_keys else set()):
