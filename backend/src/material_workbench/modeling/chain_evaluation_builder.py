@@ -92,7 +92,12 @@ def _upstream_predictions(
     b_rows: list[dict[str, Any]],
     b_x: np.ndarray,
     outer_test_groups: set[str],
-) -> tuple[dict[str, dict[str, float]], dict[str, dict[str, float]], int]:
+) -> tuple[
+    dict[str, dict[str, float]],
+    dict[str, dict[str, float]],
+    int,
+    int,
+]:
     """Return inner-OOF train inputs and outer-held-out test inputs for Stage C."""
 
     all_groups = np.asarray([str(row["parent_key"]) for row in b_rows])
@@ -106,12 +111,16 @@ def _upstream_predictions(
         group: {} for group in sorted(set(all_groups[outer_test]))
     }
     self_fit_violations = 0
+    outer_test_training_overlap = 0
     for target in STAGE_B_OUTPUT_AXES:
         target_available = np.asarray([target in row["outputs"] for row in b_rows])
         y = np.asarray([
             float(row["outputs"].get(target, 0.0)) for row in b_rows
         ])
         outer_fit_mask = (~outer_test) & target_available
+        outer_test_training_overlap += len(
+            set(all_groups[outer_fit_mask]) & outer_test_groups
+        )
         outer_model = _fit(b_x[outer_fit_mask], y[outer_fit_mask], 2.0)
         for index in np.flatnonzero(outer_test):
             group = str(all_groups[index])
@@ -128,15 +137,25 @@ def _upstream_predictions(
                 group in inner_test_groups for group in all_groups
             ])
             inner_fit = (~outer_test) & (~inner_test) & target_available
-            if np.any(inner_fit & inner_test):
-                self_fit_violations += 1
+            self_fit_violations += len(
+                set(all_groups[inner_fit]) & inner_test_groups
+            )
             inner_model = _fit(b_x[inner_fit], y[inner_fit], 2.0)
             for index in np.flatnonzero(inner_test & ~outer_test):
                 group = str(all_groups[index])
                 train_predictions[group][target] = float(
                     _predict(b_x[index : index + 1], inner_model)[0]
                 )
-    return train_predictions, test_predictions, self_fit_violations
+    if any(set(values) != set(STAGE_B_OUTPUT_AXES) for values in train_predictions.values()):
+        raise ValueError("inner OOF Stage B predictions are incomplete")
+    if any(set(values) != set(STAGE_B_OUTPUT_AXES) for values in test_predictions.values()):
+        raise ValueError("outer test Stage B predictions are incomplete")
+    return (
+        train_predictions,
+        test_predictions,
+        self_fit_violations,
+        outer_test_training_overlap,
+    )
 
 
 def _replace_upstream(
@@ -190,7 +209,12 @@ def build_chain_evaluation(
     evidence: list[ChainEvaluationFoldEvidence] = []
     upstream_cache: dict[
         tuple[str, ...],
-        tuple[dict[str, dict[str, float]], dict[str, dict[str, float]], int],
+        tuple[
+            dict[str, dict[str, float]],
+            dict[str, dict[str, float]],
+            int,
+            int,
+        ],
     ] = {}
 
     for target, names in TARGET_FEATURES.items():
@@ -227,7 +251,12 @@ def build_chain_evaluation(
                     outer_test_groups=outer_test_groups,
                 )
                 upstream_cache[cache_key] = upstream
-            train_upstream, test_upstream, self_fit_violations = upstream
+            (
+                train_upstream,
+                test_upstream,
+                self_fit_violations,
+                outer_test_training_overlap,
+            ) = upstream
 
             measured_x = np.asarray([
                 [feature_values(row["canonical_inputs"])[name] for name in names]
@@ -280,9 +309,7 @@ def build_chain_evaluation(
                 upstream_training_predictions=len(train_groups),
                 upstream_test_predictions=len(outer_test_groups),
                 upstream_self_fit_violations=self_fit_violations,
-                outer_test_training_overlap=len(
-                    outer_test_groups & train_groups
-                ),
+                outer_test_training_overlap=outer_test_training_overlap,
             ))
         family = TARGET_FAMILY[target]
         targets.append(ChainEvaluationTarget(
