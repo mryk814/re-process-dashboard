@@ -116,8 +116,11 @@ export function ProjectHub({
     ? formatTaskNumber(value, taskDefinition, `output.${key}`, project?.display_decimals)
     : formatNumber(value);
   const taskUnavailable = taskAvailability?.status === "unavailable";
-  const chainIdentity = project?.scientific_identity?.identity_kind === "chain"
-    ? project.scientific_identity
+  const identityProject = project?.id === activeProjectId
+    ? project
+    : projects.find((item) => item.id === activeProjectId);
+  const chainIdentity = identityProject?.scientific_identity?.identity_kind === "chain"
+    ? identityProject.scientific_identity
     : null;
   const chainExecutionPending = Boolean(chainIdentity);
 

@@ -6,6 +6,10 @@ const source = readFileSync(
   new URL("../src/features/projects/ChainEvaluationPanel.tsx", import.meta.url),
   "utf8",
 );
+const projectHubSource = readFileSync(
+  new URL("../src/features/projects/ProjectHub.tsx", import.meta.url),
+  "utf8",
+);
 
 test("chain evaluation keeps stage-only and end-to-end metrics separate", () => {
   assert.match(source, /段単体と通しを分けて評価/);
@@ -21,4 +25,11 @@ test("chain evaluation exposes output-specific cohort and split evidence", () =>
   assert.match(source, /report\.split\.group_key/);
   assert.match(source, /inner OOF/);
   assert.match(source, /outer-train/);
+});
+
+test("project switch resolves Chain identity from the requested project before loading data", () => {
+  assert.match(projectHubSource, /project\?\.id === activeProjectId/);
+  assert.match(projectHubSource, /projects\.find\(\(item\) => item\.id === activeProjectId\)/);
+  assert.match(projectHubSource, /if \(chainIdentity\) \{/);
+  assert.match(projectHubSource, /projectChainEvaluation\(activeProjectId/);
 });
