@@ -1,0 +1,14 @@
+{
+  "records": {
+    "fail_probability": 1468
+  },
+  "groups": 1468,
+  "rows": 1468,
+  "source_sha256": "90f3a691ea718caf5681f4f99d43dc88ec8ec6338cf37503849b20f4b1be6d87",
+  "curation": {
+    "accepted": 1468,
+    "warning": 0,
+    "quarantined": 99,
+    "blocked": 0
+  }
+}

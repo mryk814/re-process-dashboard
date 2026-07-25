@@ -18,6 +18,7 @@ EXTERNAL_TASKS = (
     "concrete-strength-v1",
     "wear-curve-v1",
     "battery-degradation-v1",
+    "secom-yield-risk-v1",
 )
 
 
@@ -51,7 +52,10 @@ def test_external_tasks_are_registered_with_their_source_rows(resources) -> None
     assert len(resources.data_by_source["external_heat_treatment"].observations) == 2400
     assert len(resources.data_by_source["external_concrete"].observations) == 1600
     assert len(resources.data_by_source["external_wear_curve"].observations) == 14640
-    assert len(resources.data_by_source["external_battery_degradation"].observations) == 9090
+    assert len(resources.data_by_source["external_battery_degradation"].observations) == 3131
+    secom_rows = resources.data_by_source["external_secom"].observations
+    assert len(secom_rows) == 1567
+    assert sum(row["eligible"] for row in secom_rows) == 1468
     assert len(resources.data_by_source["external_mpea_literature"].observations) == 396
     assert "mpea-literature-tys-v1" in resources.task_registry.task_ids
     assert "mpea-room-tensile-v1" in resources.task_registry.task_ids
@@ -184,12 +188,12 @@ def test_concrete_age_curve_does_not_decrease(resources) -> None:
     assert values == sorted(values)
 
 
-def test_battery_curves_are_monotone_and_conditions_change_degradation(resources) -> None:
+def test_battery_curves_are_monotone_and_discharge_rate_changes_degradation(resources) -> None:
     runtime = resources.task_registry.runtime_for("battery-degradation-v1")
     candidate = _candidate("battery-degradation-v1")
     end_values: list[float] = []
-    for temperature in (15.0, 25.0, 45.0):
-        candidate.inputs.process["ambient_temp_c"] = temperature
+    for discharge_rate in (0.5, 1.0):
+        candidate.inputs.process["discharge_rate_c"] = discharge_rate
         curve = runtime.response_curve_result(
             candidate,
             "capacity_percent",
@@ -199,8 +203,8 @@ def test_battery_curves_are_monotone_and_conditions_change_degradation(resources
         values = [point["value"] for point in curve["points"]]
         assert values == sorted(values, reverse=True)
         end_values.append(values[-1])
-    assert len(set(end_values)) == 3
-    candidate.inputs.process["cycle_index"] = 0.0
+    assert len(set(end_values)) == 2
+    candidate.inputs.process["cycle_index"] = 1.0
     prediction = runtime.predict(candidate)
     capacity = prediction["predictions"]["capacity_percent"]
     assert capacity.value <= 110
@@ -213,8 +217,20 @@ def test_battery_curves_are_monotone_and_conditions_change_degradation(resources
 def test_battery_similarity_deduplicates_cells(resources) -> None:
     runtime = resources.task_registry.runtime_for("battery-degradation-v1")
     similar = runtime.similarity(_candidate("battery-degradation-v1"))
-    assert len(similar) == 6
-    assert len({item["parent_key"] for item in similar}) == 6
+    assert len(similar) == 4
+    assert len({item["parent_key"] for item in similar}) == 4
+
+
+def test_secom_prediction_is_a_calibrated_binary_probability(resources) -> None:
+    runtime = resources.task_registry.runtime_for("secom-yield-risk-v1")
+    prediction = runtime.predict(_candidate("secom-yield-risk-v1"))
+    risk = prediction["predictions"]["fail_probability"]
+    assert risk.target_kind == "binary"
+    assert risk.point_statistic == "probability"
+    assert risk.predictive_family == "bernoulli_logit"
+    assert 0 <= risk.value <= 1
+    assert risk.lower == risk.value == risk.upper
+    assert prediction["model_meta"]["model"]["method"].startswith("calibrated")
 
 
 def test_external_sources_are_bundled_with_readme_provenance() -> None:
@@ -225,6 +241,7 @@ def test_external_sources_are_bundled_with_readme_provenance() -> None:
         "wear_curve_README.md",
         "battery_README.md",
         "mpea_zenodo_18021833_README.md",
+        "secom_README.md",
     }
 
 
@@ -249,6 +266,7 @@ def test_new_external_starters_are_seeded_when_opening_an_existing_database(
         ("tabular-profile-concrete-v1.json", "concrete-strength-v1"),
         ("tabular-profile-wear-curve-v1.json", "wear-curve-v1"),
         ("tabular-profile-battery-degradation-v1.json", "battery-degradation-v1"),
+        ("tabular-profile-secom-yield-v1.json", "secom-yield-risk-v1"),
     ),
 )
 def test_tabular_profile_exposes_its_task_to_project_creation(
@@ -331,19 +349,12 @@ def test_external_dataset_and_package_can_create_a_project(client, task_id: str)
         assert family["output_range"]["min"] < family["output_range"]["max"]
 
 
-def test_battery_quality_flags_keep_dirty_rows_visible_and_trainable(client) -> None:
+def test_calce_battery_rows_are_real_measurements_without_synthetic_quality_flags(client) -> None:
     response = client.get("/api/projects/battery-degradation-v1-default/quality")
     assert response.status_code == 200, response.text
     payload = response.json()
-    assert payload["detected_total"] == 2
-    assert payload["detected_by_type"] == {
-        "out_of_range": 1,
-        "suspicious_distribution": 1,
-    }
-    details = " ".join(item["detail"] for item in payload["detected_issues"])
-    assert "4,577/9,090" in details
-    assert "5,864/9,090" in details
-    assert "自動除外していません" in details
+    assert payload["detected_total"] == 0
+    assert payload["detected_by_type"] == {}
     candidates = client.get(
         "/api/projects/battery-degradation-v1-default/candidates"
     ).json()

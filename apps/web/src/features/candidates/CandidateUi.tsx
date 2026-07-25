@@ -366,13 +366,6 @@ export function ComparisonTable({
   const selectedCandidate = candidates.find((candidate) => candidate.id === selectedId);
   const supportConcernCount = decisionSummary.supportCounts.caution + decisionSummary.supportCounts.extrapolated;
   const supportUnknownCount = decisionSummary.supportCounts.unknown + candidates.length - decisionSummary.loadedCandidateCount;
-  const uncertaintyMessage = candidates.length < 2
-    ? "予測区間を比較するには、候補が2件以上必要です。"
-    : decisionSummary.assessableOutputKeys.length === 0
-      ? "予測区間を比較できる候補を確認しています。"
-    : decisionSummary.overlappingOutputKeys.length > 0
-      ? `${decisionSummary.overlappingOutputKeys.length} / ${decisionSummary.assessableOutputKeys.length}特性で全候補の予測区間が重なっています。点予測の差だけでは優劣を決めにくい状態です。`
-      : "全候補に共通する予測区間はありません。候補間の差そのものを示す検定ではないため、近い実績と支持範囲も確認してください。";
   const predictionValue = (prediction: ApiPreview["predictions"][string], outputKey: string) => prediction.target_kind === "continuous" || prediction.target_kind === "continuous_positive" || prediction.target_kind === "count"
     ? formatDisplayNumber(prediction.value, taskDefinition, `output.${outputKey}`, displayDecimalOverrides)
     : formatPredictionPoint(prediction, formatNumber);
@@ -381,7 +374,11 @@ export function ComparisonTable({
     const model = components.latent_model_std ?? components.model_std;
     const observation = components.observation_noise_std ?? components.observation_std;
     const hasInterval = predictionHasInterval(prediction);
-    const interval = hasInterval ? `${formatDisplayNumber(prediction.lower, taskDefinition, `output.${outputKey}`, displayDecimalOverrides)}–${formatDisplayNumber(prediction.upper, taskDefinition, `output.${outputKey}`, displayDecimalOverrides)}` : "利用不可";
+    const interval = hasInterval
+      ? prediction.target_kind === "binary"
+        ? `${formatNumber(prediction.lower * 100)}–${formatNumber(prediction.upper * 100)}%`
+        : `${formatDisplayNumber(prediction.lower, taskDefinition, `output.${outputKey}`, displayDecimalOverrides)}–${formatDisplayNumber(prediction.upper, taskDefinition, `output.${outputKey}`, displayDecimalOverrides)}`
+      : "利用不可";
     const label = predictionIntervalLabel(prediction);
     const details = [
       hasInterval ? `${label} ${interval}` : label,
@@ -397,6 +394,32 @@ export function ComparisonTable({
     const value = drafts[key] ?? (typeof current === "number" ? formatInputNumber(current, taskDefinition, field.path, displayDecimalOverrides) : "");
     return <td className="composition-col numeric-cell" key={field.path}><input disabled={!field.editable} type="number" step="any" value={value} aria-label={`${candidate.label} ${field.label}`} onFocus={() => { onSelect(candidate.id); setDrafts((items) => ({ ...items, [key]: typeof current === "number" ? String(current) : "" })); }} onChange={(event) => setDrafts((items) => ({ ...items, [key]: event.target.value }))} onBlur={(event) => { const raw = event.target.value; const next = Number(raw); setDrafts((items) => { const { [key]: _, ...rest } = items; return rest; }); if (raw === "" && !field.required) onInput(candidate.id, field.path, undefined); else if (Number.isFinite(next) && next !== current) onInput(candidate.id, field.path, next); }} /></td>;
   };
+  const outputTargetKind = (key: string) => candidates
+    .map((candidate) => previewsByCandidate[candidate.id]?.predictions[key]?.target_kind)
+    .find(Boolean);
+  const allOutputsBinary = outputs.length > 0 && outputs.every((output) => outputTargetKind(output.key) === "binary");
+  const binaryProbabilities = allOutputsBinary
+    ? candidates.flatMap((candidate) => outputs.flatMap((output) => {
+        const prediction = previewsByCandidate[candidate.id]?.predictions[output.key];
+        return prediction ? [prediction.value] : [];
+      }))
+    : [];
+  const binaryProbabilitySpread = binaryProbabilities.length >= 2
+    ? (Math.max(...binaryProbabilities) - Math.min(...binaryProbabilities)) * 100
+    : null;
+  const showUncertaintyColumns = !allOutputsBinary || candidates.some((candidate) => outputs.some((output) => {
+    const prediction = previewsByCandidate[candidate.id]?.predictions[output.key];
+    return prediction ? predictionHasInterval(prediction) : false;
+  }));
+  const uncertaintyMessage = allOutputsBinary
+    ? "異常確率は校正済みの点確率です。確率区間は算出していないため、近い実績と適用範囲も合わせて判断してください。"
+    : candidates.length < 2
+      ? "予測区間を比較するには、候補が2件以上必要です。"
+      : decisionSummary.assessableOutputKeys.length === 0
+        ? "予測区間を比較できる候補を確認しています。"
+        : decisionSummary.overlappingOutputKeys.length > 0
+          ? `${decisionSummary.overlappingOutputKeys.length} / ${decisionSummary.assessableOutputKeys.length}特性で全候補の予測区間が重なっています。点予測の差だけでは優劣を決めにくい状態です。`
+          : "全候補に共通する予測区間はありません。候補間の差そのものを示す検定ではないため、近い実績と支持範囲も確認してください。";
   return (
     <div className="candidate-comparison">
       <aside className="candidate-decision-summary" aria-label="候補比較の判断サマリー">
@@ -424,17 +447,21 @@ export function ComparisonTable({
             </dd>
           </div>
           <div>
-            <dt>区間の共通部分</dt>
-            <dd className={decisionSummary.overlappingOutputKeys.length > 0 ? "needs-attention" : "is-ready"}>
-              {decisionSummary.assessableOutputKeys.length === 0
-                ? "確認中"
-                : `${decisionSummary.overlappingOutputKeys.length} / ${decisionSummary.assessableOutputKeys.length}特性`}
+            <dt>{allOutputsBinary ? "候補間の確率差" : "区間の共通部分"}</dt>
+            <dd className={!allOutputsBinary && decisionSummary.overlappingOutputKeys.length > 0 ? "needs-attention" : "is-ready"}>
+              {allOutputsBinary
+                ? binaryProbabilitySpread == null ? "確認中" : `${formatNumber(binaryProbabilitySpread)}ポイント`
+                : decisionSummary.assessableOutputKeys.length === 0
+                  ? "確認中"
+                  : `${decisionSummary.overlappingOutputKeys.length} / ${decisionSummary.assessableOutputKeys.length}特性`}
             </dd>
           </div>
         </dl>
         <p>
           {configuredTargetCount === 0
-            ? "目標値が未設定です。目標を設定すると、達成確率を比較できます。"
+            ? allOutputsBinary
+              ? "許容する異常確率を設定すると、候補ごとの基準内・基準外を比較できます。"
+              : "目標値が未設定です。目標を設定すると、達成確率を比較できます。"
             : uncertaintyMessage}
         </p>
       </aside>
@@ -448,7 +475,73 @@ export function ComparisonTable({
           <div ref={nameScrollRef} className={`comparison-pane-scroll comparison-name-scroll${comparisonExpanded ? " expanded" : ""}`} onScroll={syncVerticalScroll}><table className="candidate-name-table" aria-label="候補名"><colgroup><col className="candidate-select-column" /><col /></colgroup><thead><tr><th colSpan={2}>候補</th></tr><tr aria-hidden="true"><th /><th /></tr></thead><tbody>{candidates.map((candidate) => { const selected = candidate.id === selectedId; return <tr key={candidate.id} className={selected ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}><td className="candidate-select-cell"><button type="button" className="candidate-select-button" aria-label={`${candidate.label}を選択`} aria-pressed={selected} onClick={(event) => { event.stopPropagation(); onSelect(candidate.id); }}><span aria-hidden="true" /></button></td><th><input aria-label={`${candidate.label}の候補名`} maxLength={80} value={candidate.label} onFocus={() => onSelect(candidate.id)} onChange={(event) => onName(candidate.id, event.target.value)} /></th></tr>; })}</tbody></table></div>
           <div id="comparison-input-pane" ref={inputScrollRef} className={`comparison-pane-scroll comparison-input-scroll${comparisonExpanded ? " expanded" : ""}`} tabIndex={0} aria-label="入力条件" onScroll={syncVerticalScroll}><table className="comparison-detail-table comparison-input-table" aria-label="候補ごとの入力条件"><thead><tr>{inputGroups.map((group) => <th colSpan={group.fields.length} key={group.key}>{group.label}</th>)}</tr><tr>{inputFields.map((field) => <th className="composition-col" key={field.path}>{field.label}<small>{field.unit ?? ""}</small></th>)}</tr></thead><tbody>{candidates.map((candidate) => <tr key={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}>{inputFields.map((field) => renderField(candidate, field))}</tr>)}</tbody></table></div>
           <ComparisonSplitResizer value={effectiveInputShare} min={inputShareRange.min} max={inputShareRange.max} onChange={setInputShare} onDrag={(startValue, deltaX) => startValue + (deltaX / Math.max(comparisonGridRef.current?.clientWidth ?? 1, 1)) * 100} onReset={() => setInputShare(45)} />
-          <div id="comparison-prediction-pane" ref={predictionScrollRef} className={`comparison-pane-scroll comparison-prediction-scroll${comparisonExpanded ? " expanded" : ""}`} tabIndex={0} aria-label="予測値" onScroll={syncVerticalScroll}><table className="comparison-detail-table comparison-prediction-table" aria-label="候補ごとの予測値"><thead><tr><th colSpan={outputs.length}>予測値</th><th colSpan={outputs.length}>不確実性</th><th colSpan={outputs.length}>目標達成</th><th className="support-header">モデル支持範囲</th></tr><tr>{outputs.map((output) => <th className="prediction-col" key={`value-${output.key}`}>{output.label}<small>{output.unit}</small></th>)}{outputs.map((output) => <th className="uncertainty-col" key={`uncertainty-${output.key}`}>{output.label}<small>予測区間</small></th>)}{outputs.map((output) => <th className="goal-col" key={`goal-${output.key}`}>{output.label}<small>{hasValidTargetGoal(targetValues[output.key]) ? `目標 ${targetGoalText(targetValues[output.key], output.goal_direction, formatNumber)}` : "未設定"}</small></th>)}<th className="support-header">特性別</th></tr></thead><tbody>{candidates.map((candidate) => { const preview = previewsByCandidate[candidate.id]; return <tr key={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}>{outputs.map((output) => { const prediction = preview?.predictions[output.key]; const value = prediction ? predictionValue(prediction, output.key) : ""; const assessment = assessPrediction(output, prediction); return <td className={`prediction-cell prediction-col numeric-cell${assessment.implausible ? " implausible-output" : ""}`} key={`value-${output.key}`}>{prediction ? <span className="metric-value" title={assessment.warning ?? `${value} ${prediction.unit}`.trim()} aria-label={`${value} ${prediction.unit}`.trim()}>{value}{assessment.implausible && <small className="output-warning-badge">⚠ 物理範囲外</small>}</span> : <span className="empty-cell">—</span>}</td>; })}{outputs.map((output) => { const prediction = preview?.predictions[output.key]; if (!prediction) return <td className="uncertainty-cell uncertainty-col numeric-cell" key={`uncertainty-${output.key}`}><span className="empty-cell">—</span></td>; const uncertainty = uncertaintySummary(prediction, output.key); const assessment = assessPrediction(output, prediction); return <td className={`uncertainty-cell uncertainty-col numeric-cell${assessment.implausible ? " implausible-output" : ""}`} key={`uncertainty-${output.key}`}><span className="uncertainty-value" title={assessment.warning ?? uncertainty.details} aria-label={uncertainty.details}>{uncertainty.interval}</span></td>; })}{outputs.map((output) => { const prediction = preview?.predictions[output.key]; const configured = prediction?.goal_direction === "between" ? prediction.goal_lower != null && prediction.goal_upper != null : prediction?.goal_value != null || hasValidTargetGoal(targetValues[output.key]); return <td className="goal-cell goal-col numeric-cell" key={`goal-${output.key}`}>{prediction?.goal_probability == null ? <span className="empty-cell">{prediction && configured ? "利用不可" : "—"}</span> : <span className="goal-value"><b>{formatNumber(prediction.goal_probability * 100)}%</b><small>{prediction.goal_direction === "at_most" ? "以下" : prediction.goal_direction === "at_least" ? "以上" : prediction.goal_direction === "between" ? "範囲内" : "目標"}</small></span>}</td>; })}<td className="support-cell"><div className="target-support-list">{outputs.map((output) => { const targetSupport = preview?.model_support?.[output.key]; return <span key={output.key} title={targetSupport?.message}><b>{output.key === "lambda" ? "λ" : output.key}</b><i className={`status-dot ${targetSupport?.status === "supported" ? "success" : targetSupport ? "caution" : ""}`} />{support(targetSupport?.status)}</span>; })}</div></td></tr>; })}</tbody></table></div>
+          <div id="comparison-prediction-pane" ref={predictionScrollRef} className={`comparison-pane-scroll comparison-prediction-scroll${comparisonExpanded ? " expanded" : ""}`} tabIndex={0} aria-label="予測値" onScroll={syncVerticalScroll}>
+            <table className="comparison-detail-table comparison-prediction-table" aria-label="候補ごとの予測値">
+              <thead>
+                <tr>
+                  <th colSpan={outputs.length}>{allOutputsBinary ? "異常予測" : "予測値"}</th>
+                  {showUncertaintyColumns && <th colSpan={outputs.length}>{allOutputsBinary ? "確率の幅" : "不確実性"}</th>}
+                  <th colSpan={outputs.length}>{allOutputsBinary ? "基準判定" : "目標達成"}</th>
+                  <th className="support-header">適用範囲</th>
+                </tr>
+                <tr>
+                  {outputs.map((output) => <th className="prediction-col" key={`value-${output.key}`}>{output.label}<small>{outputTargetKind(output.key) === "binary" ? "" : output.unit}</small></th>)}
+                  {showUncertaintyColumns && outputs.map((output) => <th className="uncertainty-col" key={`uncertainty-${output.key}`}>{outputTargetKind(output.key) === "binary" ? "確率区間" : output.label}<small>{outputTargetKind(output.key) === "binary" ? "モデル算出" : "予測区間"}</small></th>)}
+                  {outputs.map((output) => <th className="goal-col" key={`goal-${output.key}`}>{outputTargetKind(output.key) === "binary" ? "許容基準" : output.label}<small>{hasValidTargetGoal(targetValues[output.key]) ? `目標 ${targetGoalText(targetValues[output.key], output.goal_direction, formatNumber)}` : "未設定"}</small></th>)}
+                  <th className="support-header">入力条件</th>
+                </tr>
+              </thead>
+              <tbody>
+                {candidates.map((candidate) => {
+                  const preview = previewsByCandidate[candidate.id];
+                  return <tr key={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}>
+                    {outputs.map((output) => {
+                      const prediction = preview?.predictions[output.key];
+                      const value = prediction ? predictionValue(prediction, output.key) : "";
+                      const assessment = assessPrediction(output, prediction);
+                      const accessibleValue = prediction?.target_kind === "binary" ? value : `${value} ${prediction?.unit ?? ""}`.trim();
+                      return <td className={`prediction-cell prediction-col numeric-cell${assessment.implausible ? " implausible-output" : ""}`} key={`value-${output.key}`}>
+                        {prediction ? <span className="metric-value" title={assessment.warning ?? accessibleValue} aria-label={accessibleValue}>{value}{assessment.implausible && <small className="output-warning-badge">⚠ 物理範囲外</small>}</span> : <span className="empty-cell">—</span>}
+                      </td>;
+                    })}
+                    {showUncertaintyColumns && outputs.map((output) => {
+                      const prediction = preview?.predictions[output.key];
+                      if (!prediction) return <td className="uncertainty-cell uncertainty-col numeric-cell" key={`uncertainty-${output.key}`}><span className="empty-cell">—</span></td>;
+                      if (prediction.target_kind === "binary" && !predictionHasInterval(prediction)) return <td className="uncertainty-cell uncertainty-col numeric-cell" key={`uncertainty-${output.key}`}><span className="empty-cell" title="このモデルは確率区間を算出しません">算出なし</span></td>;
+                      const uncertainty = uncertaintySummary(prediction, output.key);
+                      const assessment = assessPrediction(output, prediction);
+                      return <td className={`uncertainty-cell uncertainty-col numeric-cell${assessment.implausible ? " implausible-output" : ""}`} key={`uncertainty-${output.key}`}><span className="uncertainty-value" title={assessment.warning ?? uncertainty.details} aria-label={uncertainty.details}>{uncertainty.interval}</span></td>;
+                    })}
+                    {outputs.map((output) => {
+                      const prediction = preview?.predictions[output.key];
+                      const goal = targetValues[output.key];
+                      if (prediction?.target_kind === "binary") {
+                        const threshold = typeof goal === "number" ? goal : undefined;
+                        const meetsGoal = threshold == null
+                          ? null
+                          : output.goal_direction === "at_most"
+                            ? prediction.value <= threshold
+                            : prediction.value >= threshold;
+                        return <td className="goal-cell goal-col numeric-cell" key={`goal-${output.key}`}>
+                          {meetsGoal == null ? <span className="empty-cell">—</span> : <span className="goal-value"><b>{meetsGoal ? "基準内" : "基準外"}</b><small>{formatNumber(threshold! * 100)}%</small></span>}
+                        </td>;
+                      }
+                      const configured = prediction?.goal_direction === "between" ? prediction.goal_lower != null && prediction.goal_upper != null : prediction?.goal_value != null || hasValidTargetGoal(goal);
+                      return <td className="goal-cell goal-col numeric-cell" key={`goal-${output.key}`}>{prediction?.goal_probability == null ? <span className="empty-cell">{prediction && configured ? "利用不可" : "—"}</span> : <span className="goal-value"><b>{formatNumber(prediction.goal_probability * 100)}%</b><small>{prediction.goal_direction === "at_most" ? "以下" : prediction.goal_direction === "at_least" ? "以上" : prediction.goal_direction === "between" ? "範囲内" : "目標"}</small></span>}</td>;
+                    })}
+                    <td className="support-cell">
+                      <div className="target-support-list">
+                        {outputs.map((output) => {
+                          const targetSupport = preview?.model_support?.[output.key];
+                          return <span key={output.key} title={targetSupport?.message}><b>{outputs.length > 1 ? output.label : ""}</b><i className={`status-dot ${targetSupport?.status === "supported" ? "success" : targetSupport ? "caution" : ""}`} />{support(targetSupport?.status)}</span>;
+                        })}
+                      </div>
+                    </td>
+                  </tr>;
+                })}
+              </tbody>
+            </table>
+          </div>
           <div ref={actionScrollRef} className={`comparison-pane-scroll comparison-action-scroll${comparisonExpanded ? " expanded" : ""}`} aria-label="候補ごとの操作" onScroll={syncVerticalScroll}>
             <table className="comparison-action-table">
               <thead><tr><th>操作</th></tr><tr><th><small>候補ごと</small></th></tr></thead>

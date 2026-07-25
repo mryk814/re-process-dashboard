@@ -1,0 +1,93 @@
+{
+  "schema_version": "model-package/v1",
+  "package_id": "battery-degradation-lightgbm-calce-v1",
+  "package_version": "1.0.0",
+  "task_id": "battery-degradation-v1",
+  "input_schema_version": "canonical-candidate/v1",
+  "input_contract_digest": "sha256:2c22609ad1a1c6cdb02123aa9b0a1367a2623cd36e0efa8d4a81304c9a1eed9e",
+  "runtime_capability_digest": "sha256:8f77730dfb8582b9351a7608a722c83b6712957be5ca37dc0a2d410ea5c7a0a2",
+  "feature_pipeline": {
+    "id": "battery-degradation-v1-profile-transform",
+    "version": "1.0.0",
+    "spec": "feature-pipeline/pipeline.json",
+    "canonical_input_paths": [
+      "process.discharge_rate_c",
+      "process.cycle_index"
+    ],
+    "output_features": [
+      "process.discharge_rate_c",
+      "process.cycle_index"
+    ],
+    "artifacts": [
+      "reference/training_stats.json"
+    ]
+  },
+  "predictors": [
+    {
+      "id": "capacity_percent-lightgbm",
+      "target": "capacity_percent",
+      "unit": "%",
+      "target_kind": "continuous",
+      "runtime_type": "lightgbm.booster.v1",
+      "architecture_id": "lightgbm_monotone_regression_v1",
+      "artifact": "model-artifacts/capacity_percent.txt",
+      "predictive_family": "normal",
+      "feature_names": [
+        "process.discharge_rate_c",
+        "process.cycle_index"
+      ],
+      "config": {
+        "training_unit": "source_row_grouped_by_parent",
+        "validation": "4-fold grouped by cell_id",
+        "source_profile": "calce-cs2-battery-capacity-v1",
+        "residual_std": 3.3698435515370475,
+        "monotone_decreasing_paths": [
+          "process.cycle_index"
+        ]
+      }
+    }
+  ],
+  "provenance": {
+    "training_data_id": "sha256:0dfd86cd82524c0ae8676b72c3fb7015e5695a835aa582226247d3af846fe7bb",
+    "feature_dataset_id": "sha256:2f4e5092321829cb1335d9b1ffd55b14fed40d8ba2ca7fcef35e45dac529c613",
+    "training_code_revision": "tabular-lightgbm-monotone-v1",
+    "dataset_profile_id": "sha256:680730fdf2c8d73c8942ee9ad02962ea72e11256df5b48cf1ebe508f1b7ce934"
+  },
+  "artifacts": [
+    {
+      "path": "feature-pipeline/pipeline.json",
+      "sha256": "4c771913c6cbe2db89458243dd40ddf4c97cfa0cf1cac7427160127f2a2533cb",
+      "bytes": 490
+    },
+    {
+      "path": "model-artifacts/capacity_percent.txt",
+      "sha256": "dc9e3a9360672519bc4bc4ca0915c2630a7109abaadbbfbff5e30513896d4833",
+      "bytes": 261197
+    },
+    {
+      "path": "reference/training_stats.json",
+      "sha256": "ca000cad850484c101ddc18e3329ce4fed2ece428b5085b25055280052cc21a8",
+      "bytes": 269
+    },
+    {
+      "path": "reports/quality-report.json",
+      "sha256": "6b6f2128609f652aa243903229d000b9e222030871224b1ee8acaa28be4abfde",
+      "bytes": 323
+    },
+    {
+      "path": "smoke/input.json",
+      "sha256": "abdb96a2a448d1b9741ebc0bcd1c42559cbde12bd94eff68f2411df745f5c73c",
+      "bytes": 349
+    },
+    {
+      "path": "smoke/expected.json",
+      "sha256": "9797154d9bc010fd492b7657e861a8acbbcd8c868e8fe6ae91030edb9a23ee2d",
+      "bytes": 37
+    }
+  ],
+  "smoke_test": {
+    "input": "smoke/input.json",
+    "expected": "smoke/expected.json"
+  },
+  "quality_report": "reports/quality-report.json"
+}

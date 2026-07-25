@@ -1,0 +1,20 @@
+{
+  "schema_version": "classification-diagnostics/v1",
+  "split": "stratified-k-fold",
+  "calibration": "out-of-fold Platt scaling",
+  "targets": {
+    "fail_probability": {
+      "records": 1468,
+      "positive_records": 101,
+      "negative_records": 1367,
+      "roc_auc": 0.7984601678895029,
+      "brier_score": 0.057174149446490644,
+      "balanced_accuracy": 0.5335561720034476
+    }
+  },
+  "notes": [
+    "The model uses 12 sensors selected for stability across stratified training folds.",
+    "This fixed-field CV follows selection and is optimistic; use docs/reports/secom-sensor-selection.json for the nested selection estimate.",
+    "SECOM feature names are anonymous; sensor importance is not a causal interpretation."
+  ]
+}

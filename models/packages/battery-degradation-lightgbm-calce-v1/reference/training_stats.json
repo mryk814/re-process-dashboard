@@ -1,0 +1,14 @@
+{
+  "records": {
+    "capacity_percent": 3131
+  },
+  "groups": 4,
+  "rows": 3131,
+  "source_sha256": "0dfd86cd82524c0ae8676b72c3fb7015e5695a835aa582226247d3af846fe7bb",
+  "curation": {
+    "accepted": 3131,
+    "warning": 0,
+    "quarantined": 0,
+    "blocked": 0
+  }
+}

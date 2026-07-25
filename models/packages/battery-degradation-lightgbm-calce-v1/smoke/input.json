@@ -1,0 +1,17 @@
+{
+  "name": "CALCE CS2実測：電池容量劣化 package smoke",
+  "inputs": {
+    "composition": {},
+    "process": {
+      "discharge_rate_c": 1.0,
+      "cycle_index": 72.0
+    },
+    "categorical": {},
+    "heat_pattern": null,
+    "heat_time_basis": "line_speed"
+  },
+  "provenance": {
+    "source_kind": "direct",
+    "source_ref": null
+  }
+}

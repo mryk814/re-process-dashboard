@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import csv
 import os
 import sqlite3
 from datetime import datetime, timezone
+from pathlib import Path
 
 from material_workbench.developer_experience.schemas import (
     DeveloperCheck,
@@ -30,6 +32,7 @@ EXPECTED_MIGRATIONS = {
     WORKSPACE_CATALOG_MIGRATION_ID,
     LINEAGE_REVIEW_MIGRATION_ID,
 }
+SECOM_STRESS_SOURCE = Path("data/source/external/secom_stress.csv")
 
 
 def _database_check(store: Store) -> DeveloperCheck:
@@ -60,6 +63,61 @@ def _database_check(store: Store) -> DeveloperCheck:
         summary="DBとmigration markerは現在のアプリに対応しています。" if healthy else "DB migrationに不足があります。",
         impact=None if healthy else "一部の保存データを現在の契約で読めない可能性があります。",
         details={"quick_check": quick_check, "applied": sorted(applied), "missing": missing},
+    )
+
+
+def _secom_stress_fixture_check(source: Path = SECOM_STRESS_SOURCE) -> DeveloperCheck:
+    try:
+        with source.open("r", encoding="utf-8", newline="") as stream:
+            reader = csv.DictReader(stream)
+            sensor_columns = [
+                name for name in (reader.fieldnames or [])
+                if name.startswith("sensor_")
+            ]
+            rows = list(reader)
+        label_counts = {
+            label: sum(row.get("yield_label") == label for row in rows)
+            for label in ("pass", "fail")
+        }
+    except (OSError, csv.Error) as exc:
+        return DeveloperCheck(
+            id="secom-stress-fixture",
+            section="developer-fixtures",
+            title="SECOM stress fixture",
+            severity="error",
+            summary="SECOM検証データを読み込めません。",
+            cause=str(exc),
+            impact="欠損・高次元・クラス不均衡に対する開発者診断を再現できません。",
+            details={"source": str(source)},
+        )
+
+    valid = (
+        len(rows) == 1567
+        and len(sensor_columns) == 590
+        and label_counts == {"pass": 1463, "fail": 104}
+    )
+    return DeveloperCheck(
+        id="secom-stress-fixture",
+        section="developer-fixtures",
+        title="SECOM stress fixture",
+        severity="ok" if valid else "error",
+        summary=(
+            "実測分類Taskを再現できます（1,567行・590センサ・fail 6.6%）。"
+            if valid
+            else "SECOM検証データが期待する契約と一致しません。"
+        ),
+        impact=(
+            "候補編集は層化fold内で安定した代表12センサに限定し、匿名センサを因果解釈しません。"
+            if valid
+            else "開発者向けの前処理・品質診断が誤った条件で評価されます。"
+        ),
+        details={
+            "source": str(source),
+            "rows": len(rows),
+            "sensor_features": len(sensor_columns),
+            "label_counts": label_counts,
+            "product_boundary": "classification task enabled with 12 representative sensors",
+        },
     )
 
 
@@ -162,6 +220,7 @@ def run_runtime_diagnostics(
         summary="Desktop sidecarとして稼働中です。" if desktop_sidecar else "ローカルAPIとして稼働中です。",
         details={"mode": "desktop-sidecar" if desktop_sidecar else "local-api"},
     ))
+    checks.append(_secom_stress_fixture_check())
 
     status = (
         "error"

@@ -1,0 +1,27 @@
+{
+  "name": "UCI SECOM実測：工程異常リスク package smoke",
+  "inputs": {
+    "composition": {},
+    "process": {
+      "sensor_059": 0.0282,
+      "sensor_103": -0.0107,
+      "sensor_130": 0.7879,
+      "sensor_102": 0.0,
+      "sensor_019": 12.4867,
+      "sensor_021": -5469.5,
+      "sensor_348": 0.0227,
+      "sensor_033": 8.5889,
+      "sensor_477": 6.3771,
+      "sensor_064": 19.9718,
+      "sensor_090": 8912.9799,
+      "sensor_287": 0.1905
+    },
+    "categorical": {},
+    "heat_pattern": null,
+    "heat_time_basis": "line_speed"
+  },
+  "provenance": {
+    "source_kind": "direct",
+    "source_ref": null
+  }
+}

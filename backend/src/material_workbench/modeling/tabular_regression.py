@@ -184,7 +184,7 @@ class TabularDatasetProfile(BaseModel):
     group_column: str | None = None
     curve_axis_path: str | None = None
     interaction_axis_path: str | None = None
-    model_family: Literal["ridge", "lightgbm_monotone"] = "ridge"
+    model_family: Literal["ridge", "lightgbm_monotone", "lightgbm_binary"] = "ridge"
     ridge_alpha: float = Field(default=1.0, gt=0)
     monotone_decreasing_paths: tuple[str, ...] = ()
     inputs: tuple[TabularInput, ...] = Field(min_length=1)
@@ -218,7 +218,7 @@ class TabularDatasetProfile(BaseModel):
         if not set(self.monotone_decreasing_paths) <= numeric_paths:
             raise ValueError("monotone paths must identify numeric inputs")
         if (self.model_family == "lightgbm_monotone") != bool(self.monotone_decreasing_paths):
-            raise ValueError("lightgbm_monotone requires monotone_decreasing_paths")
+            raise ValueError("only lightgbm_monotone accepts monotone_decreasing_paths")
         if self.model_family != "ridge" and self.ridge_alpha != 1:
             raise ValueError("ridge_alpha is only valid for ridge")
         if self.curation_recipe is not None:
@@ -1002,6 +1002,10 @@ class TabularRegressionRuntime:
             item.runtime_type for item in self.model_package.manifest.predictors
         })
         uses_monotone_lightgbm = runtime_types == ["lightgbm.booster.v1"]
+        uses_binary_lightgbm = any(
+            item.target_kind == "binary"
+            for item in self.model_package.manifest.predictors
+        )
         return {
             "task_id": self.task_id,
             "candidate_id": candidate.id,
@@ -1021,7 +1025,9 @@ class TabularRegressionRuntime:
                     "id": self.model_package.manifest.package_id,
                     "version": self.model_package.manifest.package_version,
                     "method": (
-                        "monotonic gradient-boosted trees with grouped validation"
+                        "calibrated gradient-boosted binary classifier with stratified validation"
+                        if uses_binary_lightgbm
+                        else "monotonic gradient-boosted trees with grouped validation"
                         if uses_monotone_lightgbm
                         else (
                             "regularized regression with grouped validation"
@@ -1049,7 +1055,9 @@ class TabularRegressionRuntime:
                 },
                 "prediction_interval": {
                     "method": (
-                        "grouped out-of-fold calibrated normal interval"
+                        "point probability with out-of-fold Platt calibration; no probability interval"
+                        if uses_binary_lightgbm
+                        else "grouped out-of-fold calibrated normal interval"
                         if uses_monotone_lightgbm
                         else (
                             "grouped out-of-fold residual quantiles"
@@ -1057,8 +1065,16 @@ class TabularRegressionRuntime:
                             else "row-wise out-of-fold residual quantiles"
                         )
                     ),
-                    "coverage": "central 90% empirical interval",
-                    "grouping": self.profile.group_column or "independent source row",
+                    "coverage": (
+                        "not reported for point probabilities"
+                        if uses_binary_lightgbm
+                        else "central 90% empirical interval"
+                    ),
+                    "grouping": (
+                        "stratified independent source rows"
+                        if uses_binary_lightgbm
+                        else self.profile.group_column or "independent source row"
+                    ),
                 },
                 "similarity": {
                     "version": self.support_policy_id,
@@ -1127,10 +1143,14 @@ class TabularRegressionRuntime:
                 "target_kind": summary.target_kind,
                 "point_statistic": summary.point_statistic,
                 "predictive_family": summary.distribution.get("family", "empirical_quantiles"),
-                "quantiles": {
-                    "0.05": round(lower, 5),
-                    "0.95": round(upper, 5),
-                },
+                "quantiles": (
+                    {}
+                    if summary.target_kind == "binary"
+                    else {
+                        "0.05": round(lower, 5),
+                        "0.95": round(upper, 5),
+                    }
+                ),
             })
         definition = load_task_definitions()[self.task_id]
         field = next(field for group in definition.input_groups for field in group.fields if field.path == variable)

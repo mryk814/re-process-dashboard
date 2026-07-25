@@ -137,6 +137,116 @@ def _lightgbm_grouped_fit(
     return final, y - oof, folds
 
 
+def _binary_parameters(seed: int) -> dict[str, object]:
+    return {
+        "objective": "binary",
+        "metric": "binary_logloss",
+        "learning_rate": 0.03,
+        "num_leaves": 15,
+        "max_depth": 5,
+        "min_data_in_leaf": 25,
+        "feature_fraction": 0.85,
+        "bagging_fraction": 0.9,
+        "bagging_freq": 1,
+        "lambda_l1": 0.1,
+        "lambda_l2": 2.0,
+        "verbosity": -1,
+        "deterministic": True,
+        "force_col_wise": True,
+        "num_threads": 1,
+        "seed": seed,
+        "feature_fraction_seed": seed,
+        "bagging_seed": seed,
+        "data_random_seed": seed,
+    }
+
+
+def _stratified_folds(y: np.ndarray, folds: int) -> np.ndarray:
+    assignment = np.empty(len(y), dtype=int)
+    for label in (0.0, 1.0):
+        indexes = np.flatnonzero(y == label)
+        assignment[indexes] = np.arange(len(indexes)) % folds
+    return assignment
+
+
+def _fit_platt(probabilities: np.ndarray, y: np.ndarray) -> tuple[float, float]:
+    clipped = np.clip(probabilities, 1e-7, 1 - 1e-7)
+    logits = np.log(clipped / (1 - clipped))
+    design = np.column_stack((np.ones(len(y)), logits))
+    weights = np.asarray([0.0, 1.0])
+    penalty = np.diag([1e-6, 1e-3])
+    for _ in range(30):
+        fitted = 1 / (1 + np.exp(-np.clip(design @ weights, -30, 30)))
+        curvature = np.maximum(fitted * (1 - fitted), 1e-8)
+        hessian = design.T @ (curvature[:, None] * design) + penalty
+        gradient = design.T @ (fitted - y) + penalty @ weights
+        step = np.linalg.solve(hessian, gradient)
+        weights -= step
+        if float(np.max(np.abs(step))) < 1e-8:
+            break
+    return float(weights[0]), float(weights[1])
+
+
+def _calibrate_binary(
+    probabilities: np.ndarray,
+    calibration: tuple[float, float],
+) -> np.ndarray:
+    intercept, slope = calibration
+    clipped = np.clip(probabilities, 1e-7, 1 - 1e-7)
+    logits = np.log(clipped / (1 - clipped))
+    return 1 / (1 + np.exp(-np.clip(intercept + slope * logits, -30, 30)))
+
+
+def _lightgbm_binary_fit(
+    x: np.ndarray,
+    y: np.ndarray,
+) -> tuple[object, np.ndarray, int, tuple[float, float]]:
+    import lightgbm as lgb
+
+    if set(np.unique(y)) != {0.0, 1.0}:
+        raise ValueError("binary LightGBM target must contain both 0 and 1")
+    folds = 5
+    assignment = _stratified_folds(y, folds)
+    oof = np.empty(len(y))
+    rounds: list[int] = []
+    for fold in range(folds):
+        test = assignment == fold
+        train = ~test
+        booster = lgb.train(
+            _binary_parameters(20260725 + fold),
+            lgb.Dataset(x[train], label=y[train], free_raw_data=False),
+            num_boost_round=500,
+            valid_sets=[lgb.Dataset(x[test], label=y[test], free_raw_data=False)],
+            callbacks=[lgb.early_stopping(50, verbose=False), lgb.log_evaluation(0)],
+        )
+        iteration = max(int(booster.best_iteration), 1)
+        rounds.append(iteration)
+        oof[test] = booster.predict(x[test], num_iteration=iteration)
+    calibration = _fit_platt(oof, y)
+    calibrated_oof = _calibrate_binary(oof, calibration)
+    final = lgb.train(
+        _binary_parameters(20260725),
+        lgb.Dataset(x, label=y),
+        num_boost_round=max(int(np.median(rounds)), 40),
+        callbacks=[lgb.log_evaluation(0)],
+    )
+    return final, calibrated_oof, folds, calibration
+
+
+def _binary_auc(y: np.ndarray, probabilities: np.ndarray) -> float:
+    positives = y == 1
+    negatives = ~positives
+    order = np.argsort(probabilities, kind="stable")
+    ranks = np.empty(len(y), dtype=float)
+    ranks[order] = np.arange(1, len(y) + 1)
+    positive_ranks = float(ranks[positives].sum())
+    positive_count = int(positives.sum())
+    negative_count = int(negatives.sum())
+    return (
+        positive_ranks - positive_count * (positive_count + 1) / 2
+    ) / (positive_count * negative_count)
+
+
 def _build(source: Path, profile_path: Path, destination: Path) -> None:
     data = load_tabular_data(source, profile_path)
     profile = data.profile
@@ -181,6 +291,7 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
         files.append(curation_path)
     predictors: list[dict[str, object]] = []
     metrics: list[TargetQualityMetric] = []
+    classification_metrics: dict[str, dict[str, float | int]] = {}
     records: dict[str, int] = {}
     predict_by_target: dict[str, Callable[[np.ndarray], np.ndarray]] = {}
     for output in profile.outputs:
@@ -194,7 +305,57 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
         x = np.vstack([bundle.values for bundle in target_bundles])
         groups = [str(row["parent_key"]) for row in target_rows]
         y = np.asarray([float(row["outputs"][output.key]) for row in target_rows])
-        if profile.model_family == "lightgbm_monotone":
+        if profile.model_family == "lightgbm_binary":
+            fitted, oof_probability, folds, calibration = _lightgbm_binary_fit(x, y)
+            residuals = y - oof_probability
+            artifact_path = artifact_dir / f"{output.key}.txt"
+            fitted.save_model(str(artifact_path))
+            predict_by_target[output.key] = (
+                lambda values, model=fitted, calibrator=calibration:
+                _calibrate_binary(
+                    np.asarray(model.predict(values), dtype=float),
+                    calibrator,
+                )
+            )
+            predictor = {
+                "id": f"{output.key}-lightgbm",
+                "target": output.key,
+                "unit": output.unit,
+                "target_kind": "binary",
+                "runtime_type": "lightgbm.booster.v1",
+                "architecture_id": "lightgbm_binary_calibrated_v1",
+                "artifact": artifact_path.relative_to(destination).as_posix(),
+                "predictive_family": "bernoulli_logit",
+                "feature_names": list(feature_names),
+                "config": {
+                    "training_unit": "independent source row",
+                    "validation": f"{folds}-fold stratified",
+                    "source_profile": profile.profile_id,
+                    "calibration": {
+                        "method": "out-of-fold Platt scaling",
+                        "intercept": calibration[0],
+                        "slope": calibration[1],
+                    },
+                },
+            }
+            predicted_class = oof_probability >= 0.5
+            positives = y == 1
+            negatives = ~positives
+            classification_metrics[output.key] = {
+                "records": len(y),
+                "positive_records": int(positives.sum()),
+                "negative_records": int(negatives.sum()),
+                "roc_auc": _binary_auc(y, oof_probability),
+                "brier_score": float(np.mean((oof_probability - y) ** 2)),
+                "balanced_accuracy": float(
+                    (
+                        np.mean(predicted_class[positives])
+                        + np.mean(~predicted_class[negatives])
+                    ) / 2
+                ),
+            }
+            lower, upper = -1.0, 1.0
+        elif profile.model_family == "lightgbm_monotone":
             monotone_constraints = [
                 -1 if name in profile.monotone_decreasing_paths else 0
                 for name in feature_names
@@ -274,7 +435,11 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
             parent_conditions=len(set(groups)),
             mae=float(np.mean(np.abs(residuals))),
             rmse=float(np.sqrt(np.mean(residuals ** 2))),
-            interval_coverage_90=float(np.mean((residuals >= lower) & (residuals <= upper))),
+            interval_coverage_90=(
+                0.0
+                if profile.model_family == "lightgbm_binary"
+                else float(np.mean((residuals >= lower) & (residuals <= upper)))
+            ),
         ))
         predictors.append(predictor)
 
@@ -305,6 +470,20 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
         targets=tuple(metrics),
     ).model_dump_json(indent=2) + "\n", encoding="utf-8", newline="\n")
     files.append(quality_path)
+    if classification_metrics:
+        classification_path = report_dir / "classification-diagnostics.json"
+        classification_path.write_text(json.dumps({
+            "schema_version": "classification-diagnostics/v1",
+            "split": "stratified-k-fold",
+            "calibration": "out-of-fold Platt scaling",
+            "targets": classification_metrics,
+            "notes": [
+                "The model uses 12 sensors selected for stability across stratified training folds.",
+                "This fixed-field CV follows selection and is optimistic; use docs/reports/secom-sensor-selection.json for the nested selection estimate.",
+                "SECOM feature names are anonymous; sensor importance is not a causal interpretation.",
+            ],
+        }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
+        files.append(classification_path)
 
     complete_rows = [
         row for row in rows
@@ -346,7 +525,9 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
             "training_data_id": f"sha256:{data.source_sha256}",
             "feature_dataset_id": canonical_training_dataset_digest(canonical),
             "training_code_revision": (
-                "tabular-lightgbm-monotone-v1"
+                "tabular-lightgbm-binary-calibrated-v1"
+                if profile.model_family == "lightgbm_binary"
+                else "tabular-lightgbm-monotone-v1"
                 if profile.model_family == "lightgbm_monotone"
                 else "tabular-ridge-v1"
             ),

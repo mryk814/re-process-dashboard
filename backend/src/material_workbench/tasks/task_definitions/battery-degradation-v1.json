@@ -2,52 +2,91 @@
   "task_definition": {
     "schema_version": "task-definition/v1",
     "id": "battery-degradation-v1",
-    "label": "電池容量劣化",
+    "label": "CALCE実測：電池容量劣化",
     "canonical_candidate_schema_version": "canonical-candidate/v1",
     "input_groups": [
       {
         "key": "process",
         "order": 0,
-        "label": "使用・評価条件",
+        "label": "評価条件",
         "fields": [
-          {"path":"process.ambient_temp_c","kind":"number","order":0,"label":"周囲温度","unit":"℃","required":true,"editable":true,"default_range":{"min":12,"max":48},"allowed_range":{"min":-40,"max":100},"training_range":{"min":12.22,"max":47.83}},
-          {"path":"process.charge_rate_c","kind":"number","order":1,"label":"充電レート","unit":"C","required":true,"editable":true,"default_range":{"min":0.5,"max":2.5},"allowed_range":{"min":0.01,"max":10},"training_range":{"min":0.557,"max":2.493}},
-          {"path":"process.discharge_rate_c","kind":"number","order":2,"label":"放電レート","unit":"C","required":true,"editable":true,"default_range":{"min":0.5,"max":3},"allowed_range":{"min":0.01,"max":10},"training_range":{"min":0.525,"max":2.991}},
-          {"path":"process.depth_of_discharge","kind":"number","order":3,"label":"放電深度","unit":"比率","required":true,"editable":true,"default_range":{"min":0.5,"max":1},"allowed_range":{"min":0,"max":1},"training_range":{"min":0.506,"max":0.999}},
-          {"path":"process.cycle_index","kind":"number","order":4,"label":"サイクル数","unit":"cycle","required":true,"editable":true,"default_range":{"min":0,"max":1000},"allowed_range":{"min":0,"max":10000},"training_range":{"min":0,"max":1000}}
-        ]
-      },
-      {
-        "key": "categorical",
-        "order": 1,
-        "label": "セル構成",
-        "fields": [
-          {"path":"categorical.cell_type","kind":"categorical","order":0,"label":"セル種","required":true,"editable":true,"choices":["LFP_graphite","NMC_graphite","NCA_graphite"]}
+          {
+            "path": "process.discharge_rate_c",
+            "kind": "number",
+            "order": 0,
+            "label": "放電レート",
+            "unit": "C",
+            "required": true,
+            "editable": true,
+            "default_range": {"min": 0.5, "max": 1.0},
+            "allowed_range": {"min": 0.1, "max": 5.0},
+            "training_range": {"min": 0.5, "max": 1.0}
+          },
+          {
+            "path": "process.cycle_index",
+            "kind": "number",
+            "order": 1,
+            "label": "サイクル数",
+            "unit": "cycle",
+            "required": true,
+            "editable": true,
+            "default_range": {"min": 1, "max": 829},
+            "allowed_range": {"min": 1, "max": 2000},
+            "training_range": {"min": 1, "max": 829}
+          }
         ]
       }
     ],
     "outputs": [
-      {"key":"capacity_percent","label":"容量維持率","unit":"%","goal_direction":"at_least","measurement_keys":["capacity_percent"],"plausibility_range":{"min":0,"max":110},"preferred_display_range":{"min":40,"max":105}}
+      {
+        "key": "capacity_percent",
+        "label": "容量維持率",
+        "unit": "%",
+        "goal_direction": "at_least",
+        "measurement_keys": ["capacity_percent"],
+        "plausibility_range": {"min": 0, "max": 110},
+        "preferred_display_range": {"min": 40, "max": 105}
+      }
     ],
     "display_decimals": {
-      "process.ambient_temp_c": 1,
-      "process.charge_rate_c": 2,
-      "process.discharge_rate_c": 2,
-      "process.depth_of_discharge": 3,
+      "process.discharge_rate_c": 1,
       "process.cycle_index": 0,
       "output.capacity_percent": 1
     },
     "fixed_context": [
-      {"path":"context.source","order":0,"label":"データ","value":"Synthetic battery-degradation starter pack"},
-      {"path":"context.quality","order":1,"label":"注意","value":"容量の負値と容量維持率45%への張り付きを含む"}
+      {
+        "path": "context.source",
+        "order": 0,
+        "label": "データ",
+        "value": "CALCE CS2-33〜36 実測サイクル"
+      },
+      {
+        "path": "context.cell",
+        "order": 1,
+        "label": "セル",
+        "value": "LiCoO2系 1.1 Ah prismatic cell"
+      },
+      {
+        "path": "context.limit",
+        "order": 2,
+        "label": "注意",
+        "value": "4セルのみ。放電レート効果とセル差を完全には分離できません"
+      }
     ],
     "constraints": [],
     "response_curve_variables": [
-      {"kind":"numeric_input","order":0,"label":"サイクル数","path":"process.cycle_index"},
-      {"kind":"numeric_input","order":1,"label":"周囲温度","path":"process.ambient_temp_c"},
-      {"kind":"numeric_input","order":2,"label":"充電レート","path":"process.charge_rate_c"},
-      {"kind":"numeric_input","order":3,"label":"放電レート","path":"process.discharge_rate_c"},
-      {"kind":"numeric_input","order":4,"label":"放電深度","path":"process.depth_of_discharge"}
+      {
+        "kind": "numeric_input",
+        "order": 0,
+        "label": "サイクル数",
+        "path": "process.cycle_index"
+      },
+      {
+        "kind": "numeric_input",
+        "order": 1,
+        "label": "放電レート",
+        "path": "process.discharge_rate_c"
+      }
     ],
     "curve_axis_path": "process.cycle_index"
   },
@@ -56,24 +95,42 @@
     "task_id": "battery-degradation-v1",
     "composition": {},
     "process": {
-      "ambient_temp_c": 25,
-      "charge_rate_c": 1,
-      "discharge_rate_c": 1,
-      "depth_of_discharge": 0.8,
-      "cycle_index": 500
+      "discharge_rate_c": 0.5,
+      "cycle_index": 400
     },
     "heat_pattern": null,
-    "categorical": {"cell_type":"NMC_graphite"},
-    "provenance": {"source_kind":"direct","source_ref":null}
+    "categorical": {},
+    "provenance": {
+      "source_kind": "direct",
+      "source_ref": null
+    }
   },
   "runtime_capability": {
     "schema_version": "runtime-capability/v1",
     "task_id": "battery-degradation-v1",
     "model_package_schema_version": "model-package/v1",
     "targets": [
-      {"target":"capacity_percent","point_statistics":["mean"],"standard_deviation":true,"quantiles":true,"samples":false,"parametric_distribution":true,"uncertainty_components":true,"support":true,"warnings":true,"goal_probability":"unavailable"}
+      {
+        "target": "capacity_percent",
+        "point_statistics": ["mean"],
+        "standard_deviation": true,
+        "quantiles": true,
+        "samples": false,
+        "parametric_distribution": true,
+        "uncertainty_components": true,
+        "support": true,
+        "warnings": true,
+        "goal_probability": "unavailable"
+      }
     ],
     "joint_samples": false,
-    "operations": {"preview":true,"detailed_prediction":true,"response_curve":true,"similarity":true,"snapshot":true,"actual_measurement":false}
+    "operations": {
+      "preview": true,
+      "detailed_prediction": true,
+      "response_curve": true,
+      "similarity": true,
+      "snapshot": true,
+      "actual_measurement": true
+    }
   }
 }

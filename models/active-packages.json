@@ -26,7 +26,11 @@
       "previous": null
     },
     "battery-degradation-v1": {
-      "active": "packages/battery-degradation-lightgbm-external-v1",
+      "active": "packages/battery-degradation-lightgbm-calce-v1",
+      "previous": null
+    },
+    "secom-yield-risk-v1": {
+      "active": "packages/secom-yield-lightgbm-calibrated-v1",
       "previous": null
     },
     "mpea-literature-tys-v1": {

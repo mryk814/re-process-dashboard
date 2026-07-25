@@ -29,9 +29,14 @@ JOBS = {
         ROOT / "models/packages/wear-curve-ridge-external-v1",
     ),
     "battery-degradation-v1": (
-        ROOT / "data/source/external/battery_cycle_samples.csv",
+        ROOT / "data/source/external/battery_calce_cs2_cycles.csv",
         ROOT / "backend/src/material_workbench/data/tabular-profile-battery-degradation-v1.json",
-        ROOT / "models/packages/battery-degradation-lightgbm-external-v1",
+        ROOT / "models/packages/battery-degradation-lightgbm-calce-v1",
+    ),
+    "secom-yield-risk-v1": (
+        ROOT / "data/source/external/secom_stress.csv",
+        ROOT / "backend/src/material_workbench/data/tabular-profile-secom-yield-v1.json",
+        ROOT / "models/packages/secom-yield-lightgbm-calibrated-v1",
     ),
     "mpea-room-tensile-v1": (
         ROOT / "data/source/external/mpea_ground_truth_18021833.csv",

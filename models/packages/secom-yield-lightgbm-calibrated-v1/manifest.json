@@ -1,0 +1,129 @@
+{
+  "schema_version": "model-package/v1",
+  "package_id": "secom-yield-lightgbm-calibrated-v1",
+  "package_version": "1.0.0",
+  "task_id": "secom-yield-risk-v1",
+  "input_schema_version": "canonical-candidate/v1",
+  "input_contract_digest": "sha256:8a7575d0bf76e6be35b8eceb45e0bda9f14d8f3560de12d5ca4cc203d16a0127",
+  "runtime_capability_digest": "sha256:bfa304a26f700ca9ac5e3842fde6ff66b5218e87822a7a01777cafbf3d0a7443",
+  "feature_pipeline": {
+    "id": "secom-yield-risk-v1-profile-transform",
+    "version": "1.0.0",
+    "spec": "feature-pipeline/pipeline.json",
+    "canonical_input_paths": [
+      "process.sensor_059",
+      "process.sensor_103",
+      "process.sensor_130",
+      "process.sensor_102",
+      "process.sensor_019",
+      "process.sensor_021",
+      "process.sensor_348",
+      "process.sensor_033",
+      "process.sensor_477",
+      "process.sensor_064",
+      "process.sensor_090",
+      "process.sensor_287"
+    ],
+    "output_features": [
+      "process.sensor_059",
+      "process.sensor_103",
+      "process.sensor_130",
+      "process.sensor_102",
+      "process.sensor_019",
+      "process.sensor_021",
+      "process.sensor_348",
+      "process.sensor_033",
+      "process.sensor_477",
+      "process.sensor_064",
+      "process.sensor_090",
+      "process.sensor_287"
+    ],
+    "artifacts": [
+      "reference/training_stats.json"
+    ]
+  },
+  "predictors": [
+    {
+      "id": "fail_probability-lightgbm",
+      "target": "fail_probability",
+      "unit": "1",
+      "target_kind": "binary",
+      "runtime_type": "lightgbm.booster.v1",
+      "architecture_id": "lightgbm_binary_calibrated_v1",
+      "artifact": "model-artifacts/fail_probability.txt",
+      "predictive_family": "bernoulli_logit",
+      "feature_names": [
+        "process.sensor_059",
+        "process.sensor_103",
+        "process.sensor_130",
+        "process.sensor_102",
+        "process.sensor_019",
+        "process.sensor_021",
+        "process.sensor_348",
+        "process.sensor_033",
+        "process.sensor_477",
+        "process.sensor_064",
+        "process.sensor_090",
+        "process.sensor_287"
+      ],
+      "config": {
+        "training_unit": "independent source row",
+        "validation": "5-fold stratified",
+        "source_profile": "uci-secom-yield-v1",
+        "calibration": {
+          "method": "out-of-fold Platt scaling",
+          "intercept": 0.32837437383484563,
+          "slope": 1.075346690910974
+        }
+      }
+    }
+  ],
+  "provenance": {
+    "training_data_id": "sha256:90f3a691ea718caf5681f4f99d43dc88ec8ec6338cf37503849b20f4b1be6d87",
+    "feature_dataset_id": "sha256:960c2e54289852ae5e3872918c18305b6d3f03a5bae4715e2bb683ad1514cf1f",
+    "training_code_revision": "tabular-lightgbm-binary-calibrated-v1",
+    "dataset_profile_id": "sha256:38352f33417b18a47b7c2caf89361ada8cdd38289ccd369e97b70112069e9908"
+  },
+  "artifacts": [
+    {
+      "path": "feature-pipeline/pipeline.json",
+      "sha256": "2e324c07eb0a51281e232a591b7d0ce0e94a6ac4fbe171f1624d0616377952bf",
+      "bytes": 2130
+    },
+    {
+      "path": "model-artifacts/fail_probability.txt",
+      "sha256": "5f58deb08ae88e3f923bb9835171e45b117cc7efe8548ed6d9cac58f2c804ec6",
+      "bytes": 159612
+    },
+    {
+      "path": "reference/training_stats.json",
+      "sha256": "f155944d133519420634afb157bad66a727deeb6cef0a92fffdf26505afd10da",
+      "bytes": 273
+    },
+    {
+      "path": "reports/quality-report.json",
+      "sha256": "07f29f901a8d4a5b62f05526d1f91860027bc5b11410076cd3e973eedc358927",
+      "bytes": 312
+    },
+    {
+      "path": "reports/classification-diagnostics.json",
+      "sha256": "534cb7743ba5913246f4a53d11ffd0f1585115868fe247744bc86f03f5e932f7",
+      "bytes": 741
+    },
+    {
+      "path": "smoke/input.json",
+      "sha256": "96cf5eca53278871fcdd44fb9c27abc432f47bc2fb2420410b73a8fdb8aa9306",
+      "bytes": 634
+    },
+    {
+      "path": "smoke/expected.json",
+      "sha256": "74bbb08e40681f003897352685f68f09f152f10fa616c4523ab0f4e10507854b",
+      "bytes": 36
+    }
+  ],
+  "smoke_test": {
+    "input": "smoke/input.json",
+    "expected": "smoke/expected.json"
+  },
+  "quality_report": "reports/quality-report.json"
+}

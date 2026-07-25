@@ -1,0 +1,14 @@
+{
+  "schema_version": "model-quality-report/v1",
+  "split": "independent-source-row-k-fold",
+  "folds": 5,
+  "targets": [
+    {
+      "target": "fail_probability",
+      "parent_conditions": 1468,
+      "mae": 0.11361995486914983,
+      "rmse": 0.23911116545759767,
+      "interval_coverage_90": 0.0
+    }
+  ]
+}

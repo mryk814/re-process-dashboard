@@ -195,4 +195,7 @@ test("response curve source renders every declared quantile with explicit labeli
   assert.match(source, /data-quantile=\{level\}/);
   assert.match(source, /分位線/);
   assert.match(source, /point\.quantiles\[level\]/);
+  assert.match(source, /binary[\s\S]*fail確率/);
+  assert.match(source, /value \* 100/);
+  assert.match(source, /校正済み点確率/);
 });

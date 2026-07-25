@@ -36,6 +36,29 @@ class _LightGBMPredictor:
     def predict(self, values: dict[str, float], *, seed: int = 0) -> PredictiveSummary:
         del seed
         value = float(self.booster.predict(feature_vector(self.spec, values).reshape(1, -1))[0])  # type: ignore[attr-defined]
+        if self.spec.predictive_family == "bernoulli_logit":
+            calibration = self.spec.config.get("calibration", {})
+            if isinstance(calibration, dict):
+                slope = float(calibration.get("slope", 1.0))
+                intercept = float(calibration.get("intercept", 0.0))
+                clipped = min(max(value, 1e-7), 1 - 1e-7)
+                logit = math.log(clipped / (1 - clipped))
+                value = 1 / (1 + math.exp(-(intercept + slope * logit)))
+            value = min(max(value, 0.0), 1.0)
+            return PredictiveSummary(
+                target=self.spec.target,
+                target_kind="binary",
+                unit=self.spec.unit,
+                point_statistic="probability",
+                point_estimate=value,
+                event_probability=value,
+                distribution={
+                    "family": "bernoulli_logit",
+                    "support": "{0,1}",
+                    "event": "fail",
+                    "probability": value,
+                },
+            )
         if self.spec.predictive_family == "normal":
             assert self.residual_std is not None
             z90 = 1.6448536269514722
@@ -83,8 +106,8 @@ class LightGBMBoosterAdapter:
     def load(self, package: VerifiedModelPackage, predictor: PredictorSpec) -> _LightGBMPredictor:
         if lightgbm is None:
             raise MissingOptionalDependency("install runtime-lightgbm to load lightgbm.booster.v1")
-        if predictor.predictive_family not in {"normal", "empirical_quantiles"}:
+        if predictor.predictive_family not in {"normal", "empirical_quantiles", "bernoulli_logit"}:
             raise PackageContractError(
-                "lightgbm.booster.v1 requires normal or empirical_quantiles"
+                "lightgbm.booster.v1 requires normal, empirical_quantiles, or bernoulli_logit"
             )
         return _LightGBMPredictor(predictor, lightgbm.Booster(model_file=str(package.artifact_path(predictor.artifact))))

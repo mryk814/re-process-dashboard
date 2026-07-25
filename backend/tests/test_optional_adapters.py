@@ -93,6 +93,43 @@ def test_lightgbm_adapter_loads_and_predicts_a_native_text_booster(tmp_path: Pat
     assert result.uncertainty_components["observation_noise_variance"] == pytest.approx(0.25)
 
 
+def test_lightgbm_adapter_returns_a_calibrated_binary_probability(tmp_path: Path) -> None:
+    lightgbm = pytest.importorskip("lightgbm")
+    root = tmp_path / "lightgbm-binary"
+    artifacts = root / "model-artifacts"
+    artifacts.mkdir(parents=True)
+    features = np.array([[0.0, 0.0], [0.2, 0.1], [0.4, 0.2], [0.6, 0.8], [0.8, 0.9], [1.0, 1.0]])
+    target = np.array([0, 0, 0, 1, 1, 1])
+    booster = lightgbm.train(
+        {"objective": "binary", "verbosity": -1, "min_data_in_leaf": 1, "num_leaves": 3, "seed": 1},
+        lightgbm.Dataset(features, label=target),
+        num_boost_round=8,
+    )
+    model_path = artifacts / "booster.txt"
+    booster.save_model(str(model_path))
+    predictor = {
+        "id": "failure",
+        "target": "failure",
+        "unit": "1",
+        "target_kind": "binary",
+        "runtime_type": "lightgbm.booster.v1",
+        "architecture_id": "lightgbm_binary_calibrated_v1",
+        "artifact": "model-artifacts/booster.txt",
+        "predictive_family": "bernoulli_logit",
+        "feature_names": ["C", "Mn"],
+        "config": {"calibration": {"intercept": 0.2, "slope": 0.8}},
+    }
+    package = ModelPackageLoader().load(
+        _package_root(tmp_path, "lightgbm-binary", predictor, model_path)
+    )
+    result = package.load_predictor("failure").predict({"C": 0.9, "Mn": 0.9})
+
+    assert 0 <= result.point_estimate <= 1
+    assert result.point_statistic == "probability"
+    assert result.event_probability == result.point_estimate
+    assert result.distribution["family"] == "bernoulli_logit"
+
+
 def test_gpytorch_static_adapter_loads_and_predicts_safetensors(tmp_path: Path) -> None:
     torch = pytest.importorskip("torch")
     pytest.importorskip("gpytorch")

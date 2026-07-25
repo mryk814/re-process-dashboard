@@ -1,0 +1,32 @@
+{
+  "schema_version": "tabular-dataset-profile/v1",
+  "profile_id": "uci-secom-yield-v1",
+  "name": "UCI SECOM実測：工程異常リスク",
+  "task_id": "secom-yield-risk-v1",
+  "package_id": "secom-yield-lightgbm-calibrated-v1",
+  "id_column": "sample_id",
+  "model_family": "lightgbm_binary",
+  "inputs": [
+    {"path": "process.sensor_059", "column": "sensor_059", "kind": "number", "transform": "linear"},
+    {"path": "process.sensor_103", "column": "sensor_103", "kind": "number", "transform": "linear"},
+    {"path": "process.sensor_130", "column": "sensor_130", "kind": "number", "transform": "linear"},
+    {"path": "process.sensor_102", "column": "sensor_102", "kind": "number", "transform": "linear"},
+    {"path": "process.sensor_019", "column": "sensor_019", "kind": "number", "transform": "linear"},
+    {"path": "process.sensor_021", "column": "sensor_021", "kind": "number", "transform": "linear"},
+    {"path": "process.sensor_348", "column": "sensor_348", "kind": "number", "transform": "linear"},
+    {"path": "process.sensor_033", "column": "sensor_033", "kind": "number", "transform": "linear"},
+    {"path": "process.sensor_477", "column": "sensor_477", "kind": "number", "transform": "linear"},
+    {"path": "process.sensor_064", "column": "sensor_064", "kind": "number", "transform": "linear"},
+    {"path": "process.sensor_090", "column": "sensor_090", "kind": "number", "transform": "linear"},
+    {"path": "process.sensor_287", "column": "sensor_287", "kind": "number", "transform": "linear"}
+  ],
+  "outputs": [
+    {
+      "key": "fail_probability",
+      "column": "is_fail",
+      "unit": "1",
+      "lower_bound": 0,
+      "upper_bound": 1
+    }
+  ]
+}

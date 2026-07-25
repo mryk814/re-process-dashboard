@@ -1,0 +1,47 @@
+{
+  "schema_version": "secom-stress-diagnostic/v1",
+  "source": {
+    "provider": "UCI Machine Learning Repository",
+    "dataset": "SECOM",
+    "doi": "10.24432/C54305",
+    "license": "CC BY 4.0",
+    "landing_page": "https://archive.ics.uci.edu/dataset/179/secom",
+    "files": {
+      "secom.data": "20f0e7ee434f7dcbae0eea9ffff009a2b57f42d6b0dc9a5bd4f00782c0a3374c",
+      "secom_labels.data": "126884cf453705c9e61a903fe906f0665a3b45ce3639e621edc5c93c89627e03"
+    }
+  },
+  "shape": {
+    "rows": 1567,
+    "sensor_features": 590,
+    "published_sensor_features": 591,
+    "published_width_matches_file": false,
+    "missing_cells": 41951,
+    "missing_fraction": 0.04537548808583821,
+    "all_missing_features": 0,
+    "constant_after_missing_features": 116,
+    "features_over_90_percent_missing": 4
+  },
+  "derived_csv_sha256": "90f3a691ea718caf5681f4f99d43dc88ec8ec6338cf37503849b20f4b1be6d87",
+  "target": {
+    "pass": 1463,
+    "fail": 104,
+    "fail_fraction": 0.06636885768985322
+  },
+  "recommended_preprocessing_contract": {
+    "split_before_fit": true,
+    "split_strategy": "stratified; timestamp retained for temporal sensitivity analysis",
+    "drop_all_missing_and_constant": true,
+    "imputation": "training-fold median only",
+    "scaling": "training-fold standardization only",
+    "feature_selection": "target-informed selection inside each training fold; UI representative sensors selected only by completeness and variability",
+    "primary_metric": "balanced error rate"
+  },
+  "product_boundary": {
+    "dataset_import": "supported",
+    "quality_inspection": "supported through this diagnostic",
+    "candidate_editor": "12 representative sensors selected by nested stratified-fold stability; never a flat 590-field form",
+    "prediction_runtime": "binary classification with calibrated fail probability",
+    "project_creation": "enabled as a real-data demonstration task"
+  }
+}
