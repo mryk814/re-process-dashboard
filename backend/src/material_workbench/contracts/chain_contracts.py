@@ -7,6 +7,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from material_workbench.execution.inference_work_graph import semantic_digest
+from material_workbench.contracts.blend_contracts import RevisionRef
 from material_workbench.contracts.task_contracts import TaskDefinition
 class ChainContractModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -147,6 +148,41 @@ class ChainRevision(ChainContractModel):
     unit_conversion_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
     stages: Annotated[tuple[ChainStageRevision, ...], Field(min_length=1)]
     revision_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+
+
+class SingleTaskProjectIdentity(ChainContractModel):
+    identity_kind: Literal["single_task"]
+    task_id: Annotated[str, Field(min_length=1)]
+    dataset_view_revision_id: Annotated[str, Field(min_length=1)]
+    task_contract_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+    model_package_ref_id: Annotated[str, Field(min_length=1)]
+    model_package_manifest_digest: Annotated[
+        str, Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    ]
+
+
+class ChainProjectIdentity(ChainContractModel):
+    identity_kind: Literal["chain"]
+    chain_revision_id: Annotated[str, Field(min_length=1)]
+    chain_revision_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+
+
+ProjectScientificIdentity = Annotated[
+    SingleTaskProjectIdentity | ChainProjectIdentity,
+    Field(discriminator="identity_kind"),
+]
+
+
+class ChainSnapshotIdentity(ChainContractModel):
+    """All mutable references required to interpret a stored Chain result."""
+
+    schema_version: Literal["chain-snapshot-identity/v1"] = "chain-snapshot-identity/v1"
+    chain_revision_id: Annotated[str, Field(min_length=1)]
+    chain_revision_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+    design_space: RevisionRef
+    candidate_id: Annotated[str, Field(min_length=1)]
+    candidate_revision: Annotated[int, Field(ge=1)]
+    commercial_catalog: RevisionRef
 
 
 class ChainStageLock(ChainContractModel):

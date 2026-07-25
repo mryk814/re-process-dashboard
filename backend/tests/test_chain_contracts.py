@@ -7,11 +7,14 @@ from material_workbench.contracts.chain_contracts import (
     ChainBinding,
     ChainDefinition,
     ChainPort,
+    ChainProjectIdentity,
+    ChainSnapshotIdentity,
     ChainStage,
     ChainStageLock,
     ExternalBindingSource,
     StageContractSurface,
     StageOutputBindingSource,
+    SingleTaskProjectIdentity,
     UnitConversion,
     build_chain_revision,
     validate_chain_definition,
@@ -271,3 +274,43 @@ def test_task_and_transform_training_identity_cannot_be_confused() -> None:
                 ),
             },
         )
+
+
+def test_project_identity_is_an_explicit_disjoint_union() -> None:
+    single = SingleTaskProjectIdentity(
+        identity_kind="single_task",
+        task_id="stage-c",
+        dataset_view_revision_id="view-r1",
+        task_contract_digest=DIGEST_A,
+        model_package_ref_id="package-ref",
+        model_package_manifest_digest=DIGEST_B,
+    )
+    chain = ChainProjectIdentity(
+        identity_kind="chain",
+        chain_revision_id="welding-abc:r1",
+        chain_revision_digest=DIGEST_C,
+    )
+    assert single.identity_kind == "single_task"
+    assert chain.identity_kind == "chain"
+
+
+def test_chain_snapshot_identity_pins_candidate_design_space_and_commercial_revision() -> None:
+    snapshot = ChainSnapshotIdentity(
+        chain_revision_id="welding-abc:r1",
+        chain_revision_digest=DIGEST_A,
+        design_space={
+            "resource_id": "welding-design-space",
+            "revision": 2,
+            "digest": DIGEST_B,
+        },
+        candidate_id="candidate-1",
+        candidate_revision=4,
+        commercial_catalog={
+            "resource_id": "welding-commercial-materials",
+            "revision": 3,
+            "digest": DIGEST_C,
+        },
+    )
+    assert snapshot.candidate_revision == 4
+    assert snapshot.design_space.revision == 2
+    assert snapshot.commercial_catalog.revision == 3
