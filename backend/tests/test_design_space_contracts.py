@@ -12,8 +12,8 @@ from material_workbench.contracts.design_space_contracts import (
 from material_workbench.contracts.task_contracts import NumericRange
 from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.tasks.task_registry import load_task_contracts
-from material_workbench.contracts.schemas import Candidate
-from material_workbench.domain.services import generate_from_design_space
+from material_workbench.contracts.schemas import Candidate, CandidateInput
+from material_workbench.domain.services import _validate_screening_pool, generate_from_design_space
 
 
 def _battery_space(**updates: object) -> DesignSpaceDefinition:
@@ -125,3 +125,41 @@ def test_design_space_generator_applies_simplex_balance() -> None:
         and applied["composition.Si"] == candidate.inputs.composition["Si"]
         for candidate, applied in generated
     )
+
+
+def test_screening_pool_diagnostics_validate_every_generated_candidate() -> None:
+    task_id = "annealed-properties-v1"
+    fixture = load_task_contracts()[task_id]
+    canonical = fixture.canonical_candidate
+    now = datetime.now(UTC)
+    base = Candidate(
+        id="screening-pool-base", project_id="test", revision=1, created_at=now, updated_at=now,
+        name="base", inputs={
+            "composition": canonical.composition,
+            "process": canonical.process,
+            "categorical": canonical.categorical,
+            "heat_pattern": [point.model_dump() for point in canonical.heat_pattern or ()],
+        }, provenance=canonical.provenance,
+    )
+    space = DesignSpaceDefinition(
+        schema_version="design-space-definition/v1",
+        design_space_id="screening-pool", name="Pool", task_id=task_id,
+        task_contract_digest=semantic_digest(fixture.task_definition.model_dump(mode="json")),
+        numeric_domains=(NumericDomain(
+            path="composition.C", mode="range", range=NumericRange(min=0.01, max=0.2),
+        ),),
+    )
+    generated = generate_from_design_space(base, space, count=12)
+    calls = 0
+
+    def reject_after_first_three(_: CandidateInput) -> None:
+        nonlocal calls
+        calls += 1
+        if calls > 3:
+            raise ValueError("outside_demo_constraint")
+
+    valid, rejected = _validate_screening_pool(generated, reject_after_first_three)
+
+    assert calls == 12
+    assert len(valid) == 3
+    assert rejected == {"outside_demo_constraint": 9}

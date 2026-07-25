@@ -6537,6 +6537,92 @@
         "title": "ScreeningPoint",
         "type": "object"
       },
+      "ScreeningProposalDiagnostics": {
+        "properties": {
+          "evaluated_count": {
+            "minimum": 0.0,
+            "title": "Evaluated Count",
+            "type": "integer"
+          },
+          "generated_count": {
+            "minimum": 1.0,
+            "title": "Generated Count",
+            "type": "integer"
+          },
+          "rejected_by_reason": {
+            "additionalProperties": {
+              "minimum": 1.0,
+              "type": "integer"
+            },
+            "title": "Rejected By Reason",
+            "type": "object"
+          },
+          "rejected_count": {
+            "minimum": 0.0,
+            "title": "Rejected Count",
+            "type": "integer"
+          },
+          "rejection_rate": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Rejection Rate",
+            "type": "number"
+          },
+          "valid_count": {
+            "minimum": 0.0,
+            "title": "Valid Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "generated_count",
+          "valid_count",
+          "evaluated_count",
+          "rejected_count",
+          "rejection_rate"
+        ],
+        "title": "ScreeningProposalDiagnostics",
+        "type": "object"
+      },
+      "ScreeningProposalStrategy": {
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "pool_multiplier": {
+            "default": 4,
+            "minimum": 1.0,
+            "title": "Pool Multiplier",
+            "type": "integer"
+          },
+          "requested_count": {
+            "minimum": 1.0,
+            "title": "Requested Count",
+            "type": "integer"
+          },
+          "seed": {
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "version": {
+            "minLength": 1,
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "seed",
+          "requested_count"
+        ],
+        "title": "ScreeningProposalStrategy",
+        "type": "object"
+      },
       "ScreeningReference": {
         "additionalProperties": false,
         "properties": {
@@ -6593,6 +6679,13 @@
             },
             "title": "Secondary Targets",
             "type": "object"
+          },
+          "seed": {
+            "default": 20260719,
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
           },
           "target": {
             "default": "TS",
@@ -6695,24 +6788,40 @@
             "title": "Project Id",
             "type": "string"
           },
+          "proposal_diagnostics": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScreeningProposalDiagnostics"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "proposal_strategy": {
             "anyOf": [
               {
-                "additionalProperties": true,
+                "$ref": "#/components/schemas/ScreeningProposalStrategy"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rejection_summary": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
                 "type": "object"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Proposal Strategy"
-          },
-          "rejection_summary": {
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "title": "Rejection Summary",
-            "type": "object"
+            "deprecated": true,
+            "title": "Rejection Summary"
           },
           "representative_points": {
             "items": {
@@ -6729,7 +6838,8 @@
             "default": "screening-run/v1",
             "enum": [
               "screening-run/v1",
-              "screening-run/v2"
+              "screening-run/v2",
+              "screening-run/v3"
             ],
             "title": "Schema Version",
             "type": "string"
