@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+import os
 from pathlib import Path
 from typing import Annotated
 
@@ -36,32 +37,41 @@ from material_workbench.tasks.task_registry import TaskRegistry
 
 router = APIRouter(prefix="/api/developer", tags=["developer"])
 _ROOT = Path(__file__).resolve().parents[4]
-_WELDING_SOURCE = _ROOT / "data" / "source" / "welding_consumable_multistage_synthetic_dataset.xlsx"
 _WELDING_PROFILE = (
-    _ROOT
-    / "backend"
-    / "src"
-    / "material_workbench"
+    Path(__file__).resolve().parents[1]
     / "data"
     / "observation-profile-welding-consumable-stage-c-v1.json"
 )
+_WELDING_SOURCE_RELATIVE = Path("data/source/welding_consumable_multistage_synthetic_dataset.xlsx")
+
+
+def _resource_root() -> Path:
+    configured = os.getenv("WORKBENCH_RESOURCE_ROOT")
+    return Path(configured) if configured else _ROOT
+
+
+def _welding_source() -> Path:
+    return _resource_root() / _WELDING_SOURCE_RELATIVE
 
 
 @lru_cache(maxsize=2)
 def _load_observation_dataset(
+    source_path: str,
     source_mtime_ns: int,
     profile_mtime_ns: int,
 ) -> ObservationTrainingDataset:
     del source_mtime_ns, profile_mtime_ns
     return build_observation_training_dataset(
-        _WELDING_SOURCE,
+        Path(source_path),
         load_observation_profile(_WELDING_PROFILE),
     )
 
 
 def _observation_dataset() -> ObservationTrainingDataset:
+    source = _welding_source()
     return _load_observation_dataset(
-        _WELDING_SOURCE.stat().st_mtime_ns,
+        str(source.resolve()),
+        source.stat().st_mtime_ns,
         _WELDING_PROFILE.stat().st_mtime_ns,
     )
 
@@ -81,7 +91,7 @@ def get_observation_training_profiles() -> list[ObservationTrainingProfileSummar
         ObservationTrainingProfileSummary(
             profile_id=dataset.profile_id,
             profile_digest=dataset.profile_digest,
-            source_filename=_WELDING_SOURCE.name,
+            source_filename=_welding_source().name,
             source_sha256=dataset.source_sha256,
             families=tuple(view.summary for view in dataset.views.values()),
         )

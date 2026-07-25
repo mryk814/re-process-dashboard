@@ -132,7 +132,7 @@ class ObservationDatasetProfile(ProfileModel):
 
 class TargetCurationState(ProfileModel):
     usable: bool
-    reason: str | None = None
+    reasons: tuple[str, ...] = ()
 
 
 class ObservationRowProvenance(ProfileModel):
@@ -332,9 +332,9 @@ def _summarize(
     for output in family.outputs:
         target_rows = [row for row in rows if row.target_status[output.key].usable]
         target_reasons = Counter(
-            row.target_status[output.key].reason or "値なし"
+            reason
             for row in rows
-            if not row.target_status[output.key].usable
+            for reason in row.target_status[output.key].reasons
         )
         targets.append(TargetTrainingSummary(
             target=output.key,
@@ -481,15 +481,14 @@ def build_observation_training_dataset(
                 value = _numeric(observation.get(output.column))
                 if value is not None:
                     outputs[output.key] = value
-                if not eligible:
-                    target_status[output.key] = TargetCurationState(
-                        usable=False,
-                        reason=reasons[0],
-                    )
-                elif value is None:
-                    target_status[output.key] = TargetCurationState(usable=False, reason="値なし")
-                else:
-                    target_status[output.key] = TargetCurationState(usable=True)
+                output_reasons = tuple(dict.fromkeys([
+                    *reasons,
+                    *(("値なし",) if value is None else ()),
+                ]))
+                target_status[output.key] = TargetCurationState(
+                    usable=not output_reasons,
+                    reasons=output_reasons,
+                )
 
             rows.append(ObservationTrainingRow(
                 family=family.id,

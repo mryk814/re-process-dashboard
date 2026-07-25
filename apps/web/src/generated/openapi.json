@@ -7883,16 +7883,13 @@
       "TargetCurationState": {
         "additionalProperties": false,
         "properties": {
-          "reason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reason"
+          "reasons": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
           },
           "usable": {
             "title": "Usable",

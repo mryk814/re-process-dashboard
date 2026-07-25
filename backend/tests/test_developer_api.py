@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from pathlib import Path
+import shutil
 import subprocess
 
 from fastapi.testclient import TestClient
+from material_workbench.api import developer
 
 
 def test_change_guide_is_machine_readable_and_requires_human_review(client: TestClient) -> None:
@@ -74,6 +77,50 @@ def test_observation_training_profile_is_inspectable_before_model_packaging(
     assert all("process.test_temperature_c" in row["inputs"] for row in inspected["rows"])
     assert all(row["split_group_key"].startswith("WR-") for row in inspected["rows"])
     assert all(row["provenance"]["source_sheet"] == "シャルピー試験" for row in inspected["rows"])
+
+
+def test_observation_training_endpoint_reads_from_packaged_resource_root(
+    client: TestClient,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    source = (
+        Path(__file__).resolve().parents[2]
+        / "data"
+        / "source"
+        / "welding_consumable_multistage_synthetic_dataset.xlsx"
+    )
+    packaged_source = (
+        tmp_path
+        / "data"
+        / "source"
+        / "welding_consumable_multistage_synthetic_dataset.xlsx"
+    )
+    packaged_source.parent.mkdir(parents=True)
+    shutil.copyfile(source, packaged_source)
+    monkeypatch.setenv("WORKBENCH_RESOURCE_ROOT", str(tmp_path))
+    developer._load_observation_dataset.cache_clear()
+
+    profiles = client.get("/api/developer/observation-training-profiles")
+    assert profiles.status_code == 200, profiles.text
+    payload = profiles.json()[0]
+    assert {
+        item["family"]: item["source_rows"]
+        for item in payload["families"]
+    } == {"tensile": 600, "charpy": 2700, "corrosion": 103}
+    page = client.get(
+        "/api/developer/observation-training-data",
+        params={
+            "profile_id": payload["profile_id"],
+            "family": "tensile",
+            "target": "TS",
+            "limit": 1,
+        },
+    )
+    assert page.status_code == 200, page.text
+    assert page.json()["rows"][0]["observation_id"] == "TT-00001"
+
+    developer._load_observation_dataset.cache_clear()
 
 
 def test_runtime_diagnostics_does_not_run_repository_commands(

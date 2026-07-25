@@ -41,6 +41,7 @@ try {
         "sidecar/material-workbench-sidecar.exe"
         "models/active-packages.json"
         "models/available-packages.json"
+        "data/source/welding_consumable_multistage_synthetic_dataset.xlsx"
     )
     $sourceInventoryJson = uv run python backend/scripts/task_inventory.py --print-source-paths
     if ($LASTEXITCODE -ne 0) { throw "source inventory failed with exit code $LASTEXITCODE" }

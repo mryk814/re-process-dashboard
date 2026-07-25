@@ -4008,8 +4008,11 @@ export interface components {
         };
         /** TargetCurationState */
         TargetCurationState: {
-            /** Reason */
-            reason?: string | null;
+            /**
+             * Reasons
+             * @default []
+             */
+            reasons: string[];
             /** Usable */
             usable: boolean;
         };

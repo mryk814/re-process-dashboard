@@ -163,7 +163,7 @@ export function ObservationTrainingInspector() {
           <td>{row.provenance.entity_keys.weld_metal ?? "—"}</td>
           {inputPaths.map((path) => <td key={path}>{valueLabel(row.inputs[path])}</td>)}
           <td>{valueLabel(row.outputs[target])}</td>
-          <td>{row.target_status[target]?.usable ? "利用" : row.target_status[target]?.reason ?? "除外"}</td>
+          <td>{row.target_status[target]?.usable ? "利用" : row.target_status[target]?.reasons.join(" / ") || "除外"}</td>
         </tr>)}</tbody>
       </table>
     </div>}

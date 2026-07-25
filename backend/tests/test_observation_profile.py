@@ -101,25 +101,43 @@ def test_relation_rows_are_indexes_and_never_become_duplicate_training_rows(tmp_
     assert tensile.summary.targets[0].exclusion_reasons == {"relationが複数行に対応": 1}
 
 
-def test_missing_output_is_target_local_and_visible_to_inspector(tmp_path: Path) -> None:
+def test_target_status_preserves_common_input_and_target_local_missing_reasons(
+    tmp_path: Path,
+) -> None:
     changed = tmp_path / SOURCE.name
     shutil.copyfile(SOURCE, changed)
     workbook = load_workbook(changed)
     tensile = workbook["引張試験"]
     tensile.cell(row=2, column=3).value = None
+    weld_metal = workbook["溶着金属成分"]
+    weld_metal.cell(row=2, column=4).value = None
     workbook.save(changed)
     workbook.close()
 
     dataset = _dataset(changed)
     view = dataset.views["tensile"]
 
-    assert view.summary.usable_input_rows == 600
+    assert view.summary.usable_input_rows == 598
     assert view.summary.targets[0].target == "TS"
-    assert view.summary.targets[0].usable_rows == 599
-    assert view.summary.targets[0].exclusion_reasons == {"値なし": 1}
-    assert view.summary.targets[1].usable_rows == 600
+    assert view.summary.targets[0].usable_rows == 598
+    assert view.summary.targets[0].exclusion_reasons == {
+        "入力値なし: composition.C": 2,
+        "値なし": 1,
+    }
+    assert view.summary.targets[1].usable_rows == 598
+    assert view.summary.targets[1].exclusion_reasons == {
+        "入力値なし: composition.C": 2,
+    }
+    assert view.rows[0].target_status["TS"].reasons == (
+        "入力値なし: composition.C",
+        "値なし",
+    )
+    assert view.rows[0].target_status["YS"].reasons == ("入力値なし: composition.C",)
     page = inspect_observation_training_view(dataset, family="tensile", target="TS")
-    assert page.exclusion_reasons == {"値なし": 1}
+    assert page.exclusion_reasons == {
+        "入力値なし: composition.C": 2,
+        "値なし": 1,
+    }
 
 
 def test_materialized_views_are_reproducible_and_keep_inspector_summary(tmp_path: Path) -> None:
