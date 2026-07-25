@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 from dataclasses import replace
 from pathlib import Path
@@ -18,6 +19,7 @@ from material_workbench.tasks.task_registry import DataExplorerEntry, TaskRegist
 TASK_IDS = tuple(sorted(registered_task_modules()))
 SOURCE_ROOT = Path(__file__).parents[1] / "src" / "material_workbench" / "tasks" / "task_definitions"
 ACTIVE_PACKAGES = Path(__file__).parents[2] / "models" / "active-packages.json"
+REPOSITORY_ROOT = Path(__file__).parents[2]
 
 
 def test_allow_list_contracts_active_packages_and_runtimes_share_one_task_set(client) -> None:
@@ -41,6 +43,19 @@ def test_active_package_set_rejects_missing_or_unknown_task() -> None:
     incomplete = active.model_copy(update={"tasks": {TASK_IDS[0]: active.tasks[TASK_IDS[0]]}})
     with pytest.raises(PackageContractError, match="must exactly match"):
         validate_active_package_task_set(incomplete)
+
+
+def test_registered_default_source_bytes_match_active_package_provenance() -> None:
+    active = load_active_packages(ACTIVE_PACKAGES)
+
+    for task_id, module in registered_task_modules().items():
+        source_path = REPOSITORY_ROOT / module.default_source
+        package_path = ACTIVE_PACKAGES.parent / active.tasks[task_id].active
+        manifest = json.loads((package_path / "manifest.json").read_text(encoding="utf-8"))
+
+        assert source_path.is_file(), task_id
+        source_digest = hashlib.sha256(source_path.read_bytes()).hexdigest()
+        assert manifest["provenance"]["training_data_id"] == f"sha256:{source_digest}", task_id
 
 
 @pytest.mark.parametrize("task_id", TASK_IDS)
