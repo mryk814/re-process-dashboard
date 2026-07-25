@@ -40,6 +40,8 @@
 
 詳細は [Data LibraryとProject参照境界](decisions/data-library-project-references.md) を参照する。
 検討アクティビティの契約は [検討アクティビティ](decision-activities.md) を参照する。
+起動時の障害境界と、利用停止中Taskで保存履歴を守る方針は
+[Task単位のdegraded startup](decisions/degraded-task-startup.md) を参照する。
 
 ## 将来候補（導入条件つき）
 
