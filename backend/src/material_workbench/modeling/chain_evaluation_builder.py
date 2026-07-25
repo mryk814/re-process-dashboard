@@ -24,7 +24,7 @@ from material_workbench.data.stage_b_training import (
 )
 from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.modeling.model_packages import ModelPackageLoader
-from material_workbench.modeling.stage_c_regression import load_observation_data
+from material_workbench.modeling.observation_regression import load_observation_data
 from material_workbench.modeling.tabular_model_builder import _fit, _predict
 from material_workbench.modeling.tabular_regression import (
     build_tabular_features_from_observation,

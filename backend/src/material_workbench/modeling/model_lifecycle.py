@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import shutil
 from contextlib import contextmanager
 from pathlib import Path
@@ -413,6 +414,100 @@ def validate_training_provenance(
     )
     if package.manifest.provenance.feature_dataset_id != canonical_training_dataset_digest(canonical):
         raise PackageContractError("model package canonical training dataset digest does not match the active source")
+    validate_training_rows_within_allowed_range(data, contract)
+
+
+def training_range_drift(
+    data: DataDescriptor,
+    contract: TaskContractFixture,
+) -> dict[str, tuple[float, float]]:
+    """Numeric inputs whose real training values fall outside the declared range.
+
+    Reported rather than raised: ``training_range`` is a declared observation of
+    the data, so drift means the TaskDefinition needs regenerating, which is a
+    human decision about a scientific contract.
+    """
+
+    observed = _observed_numeric_ranges(data, contract)
+    drift: dict[str, tuple[float, float]] = {}
+    for path, field in _numeric_fields(contract).items():
+        seen = observed.get(path)
+        if seen is None or field.training_range is None:
+            continue
+        if seen[0] < field.training_range.min or seen[1] > field.training_range.max:
+            drift[path] = seen
+    return drift
+
+
+def validate_training_rows_within_allowed_range(
+    data: DataDescriptor,
+    contract: TaskContractFixture,
+) -> None:
+    """Eligible training rows must sit inside the TaskDefinition's allowed range.
+
+    Candidates are validated against ``allowed_range``, so a training value
+    outside it can never be reached by a candidate. Its presence means the source
+    data and the task contract disagree. Swapping in same-shaped data must not
+    widen the real training distribution past the declared contract silently.
+    """
+
+    observed = _observed_numeric_ranges(data, contract)
+    violations = {
+        path: seen
+        for path, field in _numeric_fields(contract).items()
+        if (seen := observed.get(path)) is not None
+        and field.allowed_range is not None
+        and (seen[0] < field.allowed_range.min or seen[1] > field.allowed_range.max)
+    }
+    if violations:
+        detail = ", ".join(
+            f"{path}: 実データ {low:g}–{high:g}"
+            for path, (low, high) in sorted(violations.items())
+        )
+        raise PackageContractError(
+            "学習データがTaskDefinitionのallowed_rangeを超えています。"
+            "元データを修正するか、TaskDefinitionの範囲を人が見直してください: "
+            + detail
+        )
+
+
+def _numeric_fields(contract: TaskContractFixture) -> dict[str, Any]:
+    return {
+        field.path: field
+        for group in contract.task_definition.input_groups
+        for field in group.fields
+        if field.kind == "number"
+    }
+
+
+def _observed_numeric_ranges(
+    data: DataDescriptor,
+    contract: TaskContractFixture,
+) -> dict[str, tuple[float, float]]:
+    """Min/max per declared numeric input across eligible training rows."""
+
+    declared = set(_numeric_fields(contract))
+    ranges: dict[str, tuple[float, float]] = {}
+    for observation in data.observations:
+        if not observation.get("eligible"):
+            continue
+        flat: dict[str, Any] = {}
+        for key, value in (observation.get("composition") or {}).items():
+            flat[f"composition.{key}"] = value
+        for key, value in (observation.get("features") or {}).items():
+            flat[f"process.{key}"] = value
+        for key, value in (observation.get("canonical_inputs") or {}).items():
+            flat[key] = value
+        for path in declared & set(flat):
+            value = flat[path]
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                continue
+            numeric = float(value)
+            if not math.isfinite(numeric):
+                continue
+            low, high = ranges.get(path, (numeric, numeric))
+            ranges[path] = (min(low, numeric), max(high, numeric))
+    return ranges
 
 
 def load_active_packages(path: Path = ACTIVE_PACKAGES_PATH) -> ActivePackagesConfig:

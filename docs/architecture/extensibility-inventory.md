@@ -10,6 +10,12 @@
 反証ケースA〜Dは実行済みです。実測で確認できた項目には**実測済**と付けています。
 結果と結論は [extensibility-spikes.md](extensibility-spikes.md) にあります。
 
+この文書は測定時点の状態を記録しています。**P1で解消した項目もそのまま残しています**
+（何をどう測ったかが、後の判断の根拠になるため）。解消済みかどうかは
+[extensibility-spikes.md §6](extensibility-spikes.md#6-証拠にもとづくissue分割) を参照してください。
+P1-dで `stage_c_regression.py` → `observation_regression.py`、
+`stage_c_model_builder.py` → `observation_model_builder.py` へ改名しています。
+
 `registration_point` のIDは `backend/tests/test_extensibility_registration_points.py` が参照します。
 新しい登録点を作った場合、テストがこの文書の更新を要求します。
 
@@ -82,7 +88,7 @@ DataDescriptor（宣言済みの共通面）
 | --- | --- | --- |
 | `WorkbookData`（[data/importer.py:75](../../backend/src/material_workbench/data/importer.py#L75)） | 30 | sheets, composition, lineage, entities, relation_routes, policy_columns, … |
 | `TabularData`（[modeling/tabular_regression.py:243](../../backend/src/material_workbench/modeling/tabular_regression.py#L243)） | 15 | profile, quality, detected_quality, technical_columns, lifecycle_profile |
-| `StageCData`（[modeling/stage_c_regression.py:142](../../backend/src/material_workbench/modeling/stage_c_regression.py#L142)） | 16 | profile_digest, `training_dataset: ObservationTrainingDataset` |
+| `StageCData`（[modeling/observation_regression.py:142](../../backend/src/material_workbench/modeling/observation_regression.py#L142)） | 16 | profile_digest, `training_dataset: ObservationTrainingDataset` |
 | `FlankWearData`（[modeling/flank_wear.py:67](../../backend/src/material_workbench/modeling/flank_wear.py#L67)） | 10 | measurement_labels, run_count（**quality系を持たない**） |
 | `StageBTrainingData`（[data/stage_b_training.py:142](../../backend/src/material_workbench/data/stage_b_training.py#L142)） | 9 | `TabularData` をラップ + fold/cohort digest |
 
@@ -129,7 +135,7 @@ DataDescriptor（宣言済みの共通面）
 | Protocol | [task_modules.py:59](../../backend/src/material_workbench/task_modules.py#L59) `PredictionRuntime` / `:74` `StageSampleRuntime` / `:90` `SupportProvider` |
 | capability宣言 | `RuntimeCapability`（task_definition JSON内） |
 | factory | `TaskModule.runtime_factory`（5系統） |
-| 実装 | `modeling/runtime.py`, `hot_rolling.py`, `flank_wear.py`, `tabular_regression.py`, `stage_c_regression.py` |
+| 実装 | `modeling/runtime.py`, `hot_rolling.py`, `flank_wear.py`, `tabular_regression.py`, `observation_regression.py` |
 | 契約整合検証 | [tasks/task_registry.py:168](../../backend/src/material_workbench/tasks/task_registry.py#L168) `_validate_runtime` |
 
 `response_curve` / `curve_family` は capability宣言とhandlerの有無が起動時に一致検証されます（[tasks/task_registry.py:209](../../backend/src/material_workbench/tasks/task_registry.py#L209), [:216](../../backend/src/material_workbench/tasks/task_registry.py#L216)）。これは良い形の登録点です。
@@ -139,7 +145,7 @@ DataDescriptor（宣言済みの共通面）
 | family | パラメタ化 | 2つ目のTaskを追加できるか |
 | --- | --- | --- |
 | Tabular | `_tabular_loader(task_id)` / `_tabular_features(task_id)` / `_tabular_builder(task_id)` / `_tabular_starter(task_id, name)` で完全にパラメタ化 | **できる**。新規Python関数0件（ケースA実測） |
-| Observation | `stage_c_regression.TASK_ID` / `PROFILE_PATH` がmodule定数（[stage_c_regression.py:32](../../backend/src/material_workbench/modeling/stage_c_regression.py#L32)）。`stage_c_model_builder.build(source, destination, *, replace)` にprofile引数がない（[:225](../../backend/src/material_workbench/modeling/stage_c_model_builder.py#L225)） | **できない**。runtimeとbuilderのパラメタ化が先に必要（ケースB実測） |
+| Observation | `observation_regression.TASK_ID` / `PROFILE_PATH` がmodule定数（[observation_regression.py:32](../../backend/src/material_workbench/modeling/observation_regression.py#L32)）。`observation_model_builder.build(source, destination, *, replace)` にprofile引数がない（[:225](../../backend/src/material_workbench/modeling/observation_model_builder.py#L225)） | **できない**。runtimeとbuilderのパラメタ化が先に必要（ケースB実測） |
 | Workbook / FlankWear | 1 Task専用のmodule（`runtime.py` / `hot_rolling.py` / `flank_wear.py`） | 縦スライスとして意図的 |
 
 ### 1.6 Candidate Shape

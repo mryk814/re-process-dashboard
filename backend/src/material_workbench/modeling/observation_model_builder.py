@@ -20,7 +20,7 @@ from material_workbench.modeling.model_package_verify import verify_model_packag
 from material_workbench.modeling.observation_training_spec import (
     ObservationRuntimeDeclaration,
 )
-from material_workbench.modeling.stage_c_regression import (
+from material_workbench.modeling.observation_regression import (
     candidate_feature_values,
     load_observation_data,
     stage_c_starter_candidates,

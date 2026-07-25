@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from material_workbench.data.observation_profile import load_observation_profile
-from material_workbench.modeling import stage_c_regression
+from material_workbench.modeling import observation_regression
 from material_workbench.modeling.model_packages import ModelPackageLoader
 from material_workbench.modeling.observation_training_spec import (
     ObservationSpecError,
@@ -53,7 +53,7 @@ GOLDEN_PIPELINE = (
 
 
 def _spec():
-    return stage_c_regression.resolve_spec(observation_declaration(TASK_ID))
+    return observation_regression.resolve_spec(observation_declaration(TASK_ID))
 
 
 def test_derived_feature_order_matches_the_stored_model_package() -> None:
@@ -131,7 +131,7 @@ def test_spec_requires_declared_output_bounds() -> None:
 def test_observation_runtime_module_declares_no_task_id_or_profile_path() -> None:
     """Observation family runtimeが1 Task / 1 Profileへ固定されていないこと。"""
 
-    source = inspect.getsource(stage_c_regression)
+    source = inspect.getsource(observation_regression)
 
     assert "TASK_ID" not in source
     assert "PROFILE_PATH" not in source

@@ -10,6 +10,9 @@
 | B | `spike_case_b.py` | 溶接語彙なしの3シート構成をObservation Profileで表現し、Training Viewまで通す |
 | C | `spike_case_c.py` | 可変長系列を現行契約で表現できないことを7項目で確認する（読み取りのみ） |
 | D | `spike_case_d.py` | 疎配合なしの二段Chainを組み、Chain Coreがどこで塞がるかを確認する |
+| E | `spike_case_e.py` | 同じ列構成で行だけ違うsourceへ差し替え、契約とコードの変更が不要かを確認する |
+
+現在 A / B / D / E は全項目OK、Cは「現行契約で表現できない」ことの確認なので7項目NGのままが正常です。
 
 ## 実行
 
@@ -23,7 +26,9 @@ uv run python backend/scripts/spikes/spike_case_a.py
   `%TEMP%/material-workbench-spikes/<case>/` へ書きます。`SPIKE_WORK_DIR` で変更できます。
 - ケースA / Dは**一時的に** `backend/src/material_workbench/tasks/task_definitions/` へ
   spike用のTaskDefinition JSONを置きます。`finally` で必ず削除します。
+- ケースEは既存Taskの `source_env` を一時的に上書きして起動します（`finally` で戻します）。
 - 元データ（`data/source/`）、`models/active-packages.json`、既存のTaskDefinitionは変更しません。
+  ケースEは差し替え後に、契約とコードのdigestが変わっていないことを自分で検証します。
 
 ## 中断した場合
 

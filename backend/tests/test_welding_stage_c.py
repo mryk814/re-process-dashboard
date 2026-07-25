@@ -7,7 +7,7 @@ from material_workbench.data.observation_profile import (
     load_observation_profile,
 )
 from material_workbench.modeling.model_packages import ModelPackageLoader
-from material_workbench.modeling.stage_c_regression import resolve_spec
+from material_workbench.modeling.observation_regression import resolve_spec
 from material_workbench.task_modules import observation_declaration
 
 

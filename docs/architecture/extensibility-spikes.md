@@ -12,7 +12,7 @@
 
 ## 実行状況
 
-4ケースすべて実行済みです。再現手順は [spikes/README.md](../../backend/scripts/spikes/README.md) を参照してください。
+5ケースすべて実行済みです。再現手順は [spikes/README.md](../../backend/scripts/spikes/README.md) を参照してください。
 
 | ケース | 初回実測 | P1実装後 | 一行要約 |
 | --- | --- | --- | --- |
@@ -20,6 +20,7 @@
 | B 複数観測family | 半分成立 | **全項目OK** | Profile契約とTraining Viewは最初から再利用できた。runtimeとbuilderはP1-dでパラメタ化 |
 | C 可変長系列 | 不成立（7/7） | 不成立（方針確定） | 現行契約では表現できない。必要な型と着手条件を[方針文書](candidate-shape-policy.md)へ固定 |
 | D 二段Chain | 不成立（6点） | **全項目OK** | 契約層は最初から再利用できた。候補層はP1-bでcandidate adapterへ分離 |
+| E 同構造データ差し替え | 成立（範囲検証の穴1件） | **全項目OK** | 契約もコードも変更せず差し替えられた。宣言範囲を超えたデータが黙って通る穴を塞いだ |
 
 再現:
 
@@ -164,7 +165,7 @@ Observation Profileが再利用できるなら、**Phase 2.1のCanonical Trainin
 
 | 指標 | 予測 | 実測 | 差分の理由 |
 | --- | --- | --- | --- |
-| 既存ファイル変更数 | 1（`task_modules.py`） | **3以上**（`task_modules.py`, `stage_c_regression.py`, `stage_c_model_builder.py`） | runtimeとbuilderが1 Taskに固定されており、パラメタ化しないと2つ目を登録できない |
+| 既存ファイル変更数 | 1（`task_modules.py`） | **3以上**（`task_modules.py`, `observation_regression.py`, `observation_model_builder.py`） | runtimeとbuilderが1 Taskに固定されており、パラメタ化しないと2つ目を登録できない |
 | 新規ファイル数 | 4（observation profile JSON, task definition JSON, source xlsx, package） | **4**（同じ） | 一致 |
 | 新規contract数 | 0 | **0** | Profile契約とTraining View契約はそのまま使えた |
 | 新規API分岐数 | 0 | **0** | 一致 |
@@ -204,8 +205,8 @@ fixture: 工程条件シート `conditions`（40条件）＋在庫シート `sto
 
 | # | 場所 | 内容 |
 | --- | --- | --- |
-| B-1 | [stage_c_model_builder.py:225](../../backend/src/material_workbench/modeling/stage_c_model_builder.py#L225) | `build(source, destination, *, replace)` に profile引数がない。Observation family builderは1 Profile専用 |
-| B-2 | [stage_c_regression.py:32](../../backend/src/material_workbench/modeling/stage_c_regression.py#L32)–`:36` | `TASK_ID` と `PROFILE_PATH` がmodule定数。runtime内12箇所以上が参照し、`self.task_id = TASK_ID` で固定される |
+| B-1 | [observation_model_builder.py:225](../../backend/src/material_workbench/modeling/observation_model_builder.py#L225) | `build(source, destination, *, replace)` に profile引数がない。Observation family builderは1 Profile専用 |
+| B-2 | [observation_regression.py:32](../../backend/src/material_workbench/modeling/observation_regression.py#L32)–`:36` | `TASK_ID` と `PROFILE_PATH` がmodule定数。runtime内12箇所以上が参照し、`self.task_id = TASK_ID` で固定される |
 | B-3 | [observation_profile.py:452](../../backend/src/material_workbench/data/observation_profile.py#L452)–`:464` | Profileが宣言した `source_unit` → `canonical_unit` の**数値変換が適用されない**。`kgf` を `N` と宣言しても値は生のまま（`51.588` が `N` として乗る） |
 
 B-1 / B-2 は Tabular family（`_tabular_loader(task_id)` 等で完全にパラメタ化済み）との明確な非対称です。
@@ -410,7 +411,75 @@ D-4は重要な追加知見です。**ChainDefinitionの契約層は任意の名
 | generated schema更新 | 両方 | **未実測** | |
 | 専用test fixture数 | 2以上 | **2**（Task X / Y） | 一致 |
 
-## 5. スパイク実行順
+## 5. ケースE：同じ意味・同じ構造のデータ差し替え
+
+計画§8の成功条件1を測るために追加したケースです。
+
+### 目的
+
+既存Taskの列構成をそのまま使い、行だけが異なる新しいsourceへ差し替える。
+**Profile・Dataset Revision・Model Packageの更新だけで扱えるか**を確認する。
+
+### 題材（fixture）
+
+`concrete-strength-v1` の元CSV（11列）から、列名・列順・単位・カテゴリ値を保ったまま
+行をブートストラップ再標本し、数値へ±3%の観測ノイズを加えた1600行の新sourceを作ります。
+
+### 実測結果
+
+```text
+[source] 1600行 / 11列 を差し替え
+[OK] Profileを変えずに新sourceからPackageを構築できる
+[OK] 差し替えたsourceでTaskが利用可能になる
+[OK] 学習データが差し替えたsourceを指す
+[OK] Profile IDは変わらない（同じ意味・同じ構造だから）
+[OK] starter project / starter候補 / preview / 類似観測 / 品質表示 / 学習データInspector
+[OK] Model Package状態が新しい学習データ由来のprovenanceを返す
+[OK] TaskDefinition / Profile / task_modules.py / active-packages.json を変更していない
+```
+
+**成功条件1は成立します。** source上書き（`source_env`）とPackage差し替えだけで、
+契約ファイルもコードも変更していません。
+
+### 見つかった穴（塞ぎました）
+
+「同じ構造」の境界を確認するため、TaskDefinitionの `allowed_range` を10倍超える値を
+含むデータへ差し替えたところ、**その行が適格な学習行として残りました**。
+Tabular loaderはProfileの `quality_rules` / `curation` で宣言しない限り
+TaskDefinitionの `allowed_range` を学習行へ適用しません。
+
+対応方針を2つに分けました。
+
+| 対象 | 扱い | 理由 |
+| --- | --- | --- |
+| `allowed_range` 超過 | **失敗させる**（`validate_training_rows_within_allowed_range`） | 候補は `allowed_range` で検証されるので、そこを超える学習行は候補から到達できない。データと契約の不一致を意味する |
+| `training_range` のずれ | **報告する**（`training_range_drift`） | 宣言はデータの観測結果。作り直すかどうかは科学的契約に対する人の判断 |
+
+loaderは行を落としません（暗黙の値判断をしない）。不一致は検証層で明示的に失敗させます。
+
+全13Taskの学習データが `allowed_range` を満たすことを確認したうえで追加したので、
+既存Taskは影響を受けません。一方 `training_range` は
+`annealed-properties-v1`（`composition.Cu`, `process.ls_mpm`）と
+`hot-rolled-properties-v1`（`composition.Cu`, `process.entry_thickness_mm`）で
+**すでに実データからずれていました**。これは予測の誤りではなく契約の記述漏れで、
+直すにはTaskDefinitionとPackageの作り直しが必要なため、
+`backend/tests/test_training_range_contract.py` の `KNOWN_TRAINING_RANGE_DRIFT` に
+現状として記録し、増えたら落ちるようにしています。
+
+### 変更点マトリクス
+
+| 指標 | 予測 | 実測 | 差分の理由 |
+| --- | --- | --- | --- |
+| 既存ファイル変更数 | 1（`models/active-packages.json`） | **0** | `source_env` とPackage上書きだけで差し替えられた。ファイル名を変える場合のみ `default_source` の更新が必要 |
+| 新規ファイル数 | 2（source, package） | **2** | 一致 |
+| 新規contract数 | 0 | **0** | 一致 |
+| 新規API分岐数 | 0 | **0** | 一致 |
+| 新規UI分岐数 | 0 | **0** | 一致 |
+| registry追加点 | 0 | **0** | 一致 |
+| generated schema更新 | なし | **なし** | 一致 |
+| 専用test fixture数 | 1 | **1** | 一致 |
+
+## 6. スパイク実行順
 
 ケースAを最初に行いました。Aの成果物（標準表形式Task）をケースDのStage X / Yへ流用しています。
 
@@ -418,12 +487,13 @@ D-4は重要な追加知見です。**ChainDefinitionの契約層は任意の名
 A（標準表形式Task）          実行済み
   ├→ B（Observation family再利用）   実行済み
   ├→ C（可変長系列。型の特定のみ）    実行済み
-  └→ D（二段Chain。Aの成果を使う）    実行済み
+  ├→ D（二段Chain。Aの成果を使う）    実行済み
+  └→ E（同構造データ差し替え）        実行済み
 ```
 
-## 6. 証拠にもとづくIssue分割
+## 7. 証拠にもとづくIssue分割
 
-4ケースの実測を根拠に、次のリファクタリングを分割します。依存関係は実測により解消済みです。
+5ケースの実測を根拠に、次のリファクタリングを分割します。依存関係は実測により解消済みです。
 
 ### P1-a｜Decision Activityのparameter/result union化 — **完了**
 
@@ -495,7 +565,7 @@ A（標準表形式Task）          実行済み
   1. `modeling/observation_training_spec.py` を追加。**特徴量の並び、per-target特徴量、
      target→familyをObservation ProfileとTaskDefinitionから導出**する
      （これらは既に宣言済みのデータと重複していた）
-  2. `stage_c_regression` から `TASK_ID` / `PROFILE_PATH` / `PIPELINE_FEATURES` /
+  2. `observation_regression` から `TASK_ID` / `PROFILE_PATH` / `PIPELINE_FEATURES` /
      `TARGET_FAMILY` / `TARGET_FEATURES` / `FEATURE_DEFINITIONS` / `TEST_SOLUTIONS` /
      `OUTPUT_BOUNDS` を削除。`StageCRegressionRuntime` → `ObservationRegressionRuntime`
   3. builderに `declaration` 引数を追加（B-1）
@@ -538,13 +608,13 @@ A（標準表形式Task）          実行済み
 | --- | --- | --- |
 | Observation Profileの単位宣言 | ケースB B-3 | 宣言した `source_unit` → `canonical_unit` の数値変換が適用されない。変換を実装するか、**relabelのみ許可して再スケール宣言を拒否する**かを決める。今は潜在リスクで実バグではない |
 
-## 7. 成功条件に対する現在地
+## 8. 成功条件に対する現在地
 
 計画§8の8項目に対する実測状況です。
 
 | # | 成功条件 | 現在地 |
 | --- | --- | --- |
-| 1 | 同じ意味・同じ構造のデータ差し替えがProfile / Dataset Revision / Package更新だけで済む | 未計測（今回のスパイク対象外） |
+| 1 | 同じ意味・同じ構造のデータ差し替えがProfile / Dataset Revision / Package更新だけで済む | **達成済み**（ケースE。契約もコードも変更せず差し替えられた。宣言範囲を超えたデータが黙って通る穴も塞いだ） |
 | 2 | 新しい標準表形式Taskが既存機能をTask固有実装なしで使える | **達成済み**（ケースA） |
 | 3 | 新しいCandidate Shapeを既存shapeを壊さず追加できる | **方針確定**（P1-e）。実装は2形状目が必要になったとき。現行契約では7/7が表現不可 |
 | 4 | 新しいDecision Activityを既存Activity serviceへ分岐追加せず登録できる | **達成済み**（P1-a完了。共通部分がactivity_idを名指ししないことをテストで固定） |
@@ -575,7 +645,7 @@ A（標準表形式Task）          実行済み
 | Chain Workbench画面のスカラー候補editor | スカラーChainを製品機能として出すときに作る。現在はadapter種別を表示して停止 |
 | `heat_pattern` をChain Stageへ入れること | Candidate Shape拡張が前提。今は明示的に失敗させるのが正しい |
 
-## 8. この文書の更新規則
+## 9. この文書の更新規則
 
 - 実測欄を埋めるときは、予測を書き換えず**差分の理由**を書く
 - 反証できなかったケース（＝既存基盤で足りたケース）も必ず記録する。共通化しない判断の根拠になる

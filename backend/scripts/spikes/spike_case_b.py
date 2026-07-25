@@ -311,38 +311,38 @@ def _families_are_data_driven() -> bool:
 def _probe_runtime_reuse(findings: list[str]) -> None:
     """Observation familyのruntime / builderが2つ目のTaskへ再利用できるかを確認する。"""
 
-    from material_workbench.modeling import stage_c_model_builder, stage_c_regression
+    from material_workbench.modeling import observation_model_builder, observation_regression
 
-    builder_parameters = set(inspect.signature(stage_c_model_builder.build).parameters)
+    builder_parameters = set(inspect.signature(observation_model_builder.build).parameters)
     _check(
         findings,
         "Observation family builderがTaskごとの宣言でパラメタ化されている",
         "declaration" in builder_parameters,
-        f"stage_c_model_builder.build の引数={sorted(builder_parameters)}",
+        f"observation_model_builder.build の引数={sorted(builder_parameters)}",
     )
     _check(
         findings,
         "Observation family runtimeがtask_id / profile pathをmodule定数で持たない",
-        not hasattr(stage_c_regression, "TASK_ID")
-        and not hasattr(stage_c_regression, "PROFILE_PATH"),
-        f"TASK_ID={getattr(stage_c_regression, 'TASK_ID', None)!r} "
-        f"PROFILE_PATH={getattr(stage_c_regression, 'PROFILE_PATH', None)!r}",
+        not hasattr(observation_regression, "TASK_ID")
+        and not hasattr(observation_regression, "PROFILE_PATH"),
+        f"TASK_ID={getattr(observation_regression, 'TASK_ID', None)!r} "
+        f"PROFILE_PATH={getattr(observation_regression, 'PROFILE_PATH', None)!r}",
     )
     _check(
         findings,
         "特徴量の並びとtarget→familyがmodule定数として重複していない",
         not any(
-            hasattr(stage_c_regression, name)
+            hasattr(observation_regression, name)
             for name in ("PIPELINE_FEATURES", "TARGET_FAMILY", "TARGET_FEATURES", "OUTPUT_BOUNDS")
         ),
         [
             name
             for name in ("PIPELINE_FEATURES", "TARGET_FAMILY", "TARGET_FEATURES", "OUTPUT_BOUNDS")
-            if hasattr(stage_c_regression, name)
+            if hasattr(observation_regression, name)
         ],
     )
     loader_parameters = set(
-        inspect.signature(stage_c_regression.load_observation_data).parameters
+        inspect.signature(observation_regression.load_observation_data).parameters
     )
     _check(
         findings,

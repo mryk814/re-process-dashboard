@@ -279,7 +279,7 @@ def _tabular_loader(task_id: str) -> DataLoader:
 def _observation_loader(task_id: str) -> DataLoader:
     def load(path: Path, profile: DatasetInputProfile | None = None) -> DataDescriptor:
         from material_workbench.data.observation_profile import ObservationDatasetProfile
-        from material_workbench.modeling.stage_c_regression import load_observation_data
+        from material_workbench.modeling.observation_regression import load_observation_data
 
         selected = profile if isinstance(profile, ObservationDatasetProfile) else None
         return load_observation_data(path, observation_declaration(task_id), selected)
@@ -339,7 +339,7 @@ def _observation_runtime(
     data: DataDescriptor,
     package: VerifiedModelPackage,
 ) -> PredictionRuntime:
-    from material_workbench.modeling.stage_c_regression import ObservationRegressionRuntime
+    from material_workbench.modeling.observation_regression import ObservationRegressionRuntime
 
     return ObservationRegressionRuntime(data, package)  # type: ignore[arg-type]
 
@@ -377,7 +377,7 @@ def _tabular_features(task_id: str) -> FeatureRowBuilder:
 
 def _observation_features(task_id: str) -> FeatureRowBuilder:
     def build(row: dict[str, Any], medians: dict[str, float]) -> Any:
-        from material_workbench.modeling.stage_c_regression import (
+        from material_workbench.modeling.observation_regression import (
             build_observation_features_from_observation,
             resolve_spec,
         )
@@ -433,7 +433,7 @@ def _tabular_builder(task_id: str) -> ModelBuilder:
 
 def _observation_builder(task_id: str) -> ModelBuilder:
     def build(source: Path, output: Path, *, replace: bool) -> None:
-        from material_workbench.modeling.stage_c_model_builder import build as build_package
+        from material_workbench.modeling.observation_model_builder import build as build_package
 
         build_package(
             source,
@@ -544,7 +544,7 @@ def _tabular_starter(task_id: str, name: str) -> StarterProject:
 
 
 def _welding_stage_c_starter(medians: dict[str, float]) -> list[CandidateInput]:
-    from material_workbench.modeling.stage_c_regression import (
+    from material_workbench.modeling.observation_regression import (
         resolve_spec,
         stage_c_starter_candidates,
     )
