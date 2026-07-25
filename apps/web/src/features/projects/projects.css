@@ -165,6 +165,47 @@
 .task-unavailable-panel h2 { margin: 5px 0 8px; color: #49350d; }
 .task-unavailable-panel p { margin: 5px 0; }
 .project-action-card:disabled { cursor: not-allowed; opacity: .58; }
+.chain-evaluation-panel {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #cbd8e8;
+  border-radius: 6px;
+  background: #fff;
+  padding: 14px;
+}
+.chain-evaluation-panel.loading { color: #66778a; font-size: 12px; }
+.chain-evaluation-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.chain-evaluation-header h3 { margin: 2px 0 0; color: #183b61; font-size: 17px; }
+.chain-evaluation-folds { color: #62758b; font-size: 11px; white-space: nowrap; }
+.chain-evaluation-kinds { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.chain-evaluation-kinds > div { display: grid; gap: 3px; border-left: 3px solid #4e7db3; background: #f5f8fc; padding: 8px 10px; }
+.chain-evaluation-kinds > div + div { border-left-color: #7957a6; background: #f8f6fb; }
+.chain-evaluation-kinds strong { color: #294967; font-size: 12px; }
+.chain-evaluation-kinds span { color: #66778a; font-size: 10px; }
+.chain-evaluation-table-wrap { overflow-x: auto; border: 1px solid #dbe3ec; border-radius: 5px; }
+.chain-evaluation-table { width: 100%; border-collapse: collapse; font-size: 11px; font-variant-numeric: tabular-nums; }
+.chain-evaluation-table th, .chain-evaluation-table td { border-right: 1px solid #e1e7ee; border-bottom: 1px solid #e1e7ee; padding: 7px 9px; text-align: right; white-space: nowrap; }
+.chain-evaluation-table tr > :last-child { border-right: 0; }
+.chain-evaluation-table tbody tr:last-child > * { border-bottom: 0; }
+.chain-evaluation-table thead th { background: #f2f6fa; color: #496078; font-size: 10px; }
+.chain-evaluation-table thead tr:first-child th:nth-last-child(-n+2) { background: #f4f1f8; }
+.chain-evaluation-table tbody th { min-width: 150px; text-align: left; }
+.chain-evaluation-table tbody th strong, .chain-evaluation-table tbody th span,
+.chain-evaluation-table tbody td:nth-child(2) strong,
+.chain-evaluation-table tbody td:nth-child(2) span,
+.chain-evaluation-table tbody td:nth-child(2) small { display: block; }
+.chain-evaluation-table tbody th span,
+.chain-evaluation-table tbody td:nth-child(2) span,
+.chain-evaluation-table tbody td:nth-child(2) small,
+.chain-evaluation-table td small { color: #718096; font-size: 9px; font-weight: 400; }
+.chain-evaluation-table tbody td:nth-child(2) { min-width: 130px; text-align: left; }
+.chain-evaluation-footer { display: grid; gap: 7px; color: #637489; font-size: 10px; }
+.chain-evaluation-footer p { margin: 0; }
+.chain-evaluation-footer summary { width: max-content; color: #315d91; cursor: pointer; font-weight: 700; }
+.chain-evaluation-footer dl { display: grid; gap: 5px; margin: 8px 0 0; }
+.chain-evaluation-footer dl > div { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 8px; }
+.chain-evaluation-footer dt { color: #40546b; font-weight: 700; }
+.chain-evaluation-footer dd { margin: 0; overflow-wrap: anywhere; }
 
 @media (max-width: 900px) {
   .project-hub { display: block; overflow: visible; }
@@ -185,6 +226,7 @@
   .project-delete-panel { align-items: stretch; flex-direction: column; }
   .project-delete-actions { flex-wrap: wrap; }
   .project-group-summary { grid-template-columns: 1fr; }
+  .chain-evaluation-kinds { grid-template-columns: 1fr; }
 }
 @media (max-width: 760px) {
   .target-grid { grid-template-columns: 1fr; }

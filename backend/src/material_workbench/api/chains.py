@@ -6,12 +6,16 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
-from material_workbench.api.dependencies import get_store
+from material_workbench.api.dependencies import get_store, get_workspace_catalog
 from material_workbench.application.chain_execution import (
     ChainExecutionError,
     ChainExecutionService,
 )
 from material_workbench.application.chain_uncertainty import ChainUncertaintyService
+from material_workbench.application.chain_evaluation import (
+    ChainEvaluationCatalog,
+    ChainEvaluationError,
+)
 from material_workbench.contracts.chain_contracts import (
     ChainDefinition,
     ChainRevision,
@@ -26,6 +30,9 @@ from material_workbench.contracts.chain_uncertainty_contracts import (
     ChainDistributionCapability,
     ChainDistributionRun,
 )
+from material_workbench.contracts.chain_evaluation_contracts import (
+    ResolvedChainEvaluation,
+)
 from material_workbench.contracts.blend_contracts import (
     RevisionRef,
     SparseBlendDesignSpace,
@@ -39,11 +46,13 @@ from material_workbench.persistence.store import (
     CandidateRevisionConflictError,
     Store,
 )
+from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 
 
 router = APIRouter(prefix="/api/chains", tags=["chains"])
 execution_router = APIRouter(prefix="/api/projects", tags=["chain-execution"])
 StoreDependency = Annotated[Store, Depends(get_store)]
+CatalogDependency = Annotated[WorkspaceCatalog, Depends(get_workspace_catalog)]
 
 
 class ChainApiModel(BaseModel):
@@ -130,6 +139,72 @@ def _execution_service(request: Request) -> ChainExecutionService:
 
 def _uncertainty_service(request: Request) -> ChainUncertaintyService:
     return request.app.state.chain_uncertainty_service
+
+
+def _evaluation_catalog(request: Request) -> ChainEvaluationCatalog:
+    return request.app.state.chain_evaluation_catalog
+
+
+@execution_router.get(
+    "/{project_id}/chain/evaluation",
+    response_model=ResolvedChainEvaluation,
+    operation_id="getProjectChainEvaluation",
+)
+def get_project_chain_evaluation(
+    project_id: str,
+    catalog: Annotated[ChainEvaluationCatalog, Depends(_evaluation_catalog)],
+    store: StoreDependency,
+    workspace_catalog: CatalogDependency,
+) -> ResolvedChainEvaluation:
+    project = store.get_project(project_id)
+    if project is None:
+        raise HTTPException(404, "Chain Projectが見つかりません")
+    identity = project.scientific_identity
+    if identity.identity_kind != "chain":
+        raise HTTPException(409, "このAPIはChain Project専用です")
+    revision = store.get_chain_revision(identity.chain_revision_id)
+    if (
+        revision is None
+        or revision.revision_digest != identity.chain_revision_digest
+    ):
+        raise HTTPException(409, "固定されたChain Revisionを解決できません")
+    stage_source_digests: dict[str, set[str]] = {}
+    for stage in revision.stages:
+        if stage.dataset_view_revision_id is None:
+            continue
+        view = workspace_catalog.get_dataset_view_revision(
+            stage.dataset_view_revision_id, include_archived=True
+        )
+        if view is None:
+            raise HTTPException(
+                409, f"Stage {stage.stage_id}のDataset Viewを解決できません"
+            )
+        digests: set[str] = set()
+        for member in view.members:
+            dataset = workspace_catalog.get_dataset_revision(
+                member.dataset_revision_id, include_archived=True
+            )
+            asset = (
+                workspace_catalog.get_data_asset(
+                    dataset.data_asset_id, include_archived=True
+                )
+                if dataset is not None
+                else None
+            )
+            if asset is None:
+                raise HTTPException(
+                    409, f"Stage {stage.stage_id}のsource identityを解決できません"
+                )
+            digests.add(f"sha256:{asset.sha256}")
+        stage_source_digests[stage.stage_id] = digests
+    try:
+        return catalog.resolve(
+            revision_id=identity.chain_revision_id,
+            revision=revision,
+            stage_source_digests=stage_source_digests,
+        )
+    except ChainEvaluationError as exc:
+        raise HTTPException(409, str(exc)) from exc
 
 
 @execution_router.get(

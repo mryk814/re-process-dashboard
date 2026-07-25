@@ -16,6 +16,7 @@ import {
 import { fromApiCandidate, toApiCandidate, type CandidateViewModel, type RuntimeOperations, type TaskDefinitionContract } from "../candidates";
 import {
   workbenchApi,
+  type ApiChainEvaluation,
   type ApiChainTemplate,
   type ApiModelPackage,
   type ApiPreview,
@@ -26,6 +27,7 @@ import {
   type ApiTaskCatalogItem,
 } from "../../shared/api/workbench-api";
 import type { ResolvedTaskDefinition } from "../candidates";
+import { ChainEvaluationPanel } from "./ChainEvaluationPanel";
 
 type Props = {
   projects: ApiProject[];
@@ -78,6 +80,10 @@ export function ProjectHub({
   const [modelPackage, setModelPackage] = useState<ApiModelPackage | null>(null);
   const [creationOptions, setCreationOptions] = useState<ApiProjectCreationOptions | null>(null);
   const [chainTemplates, setChainTemplates] = useState<ApiChainTemplate[]>([]);
+  const [chainEvaluation, setChainEvaluation] = useState<{
+    projectId: string;
+    value: ApiChainEvaluation;
+  } | null>(null);
   const [selectedSnapshot, setSelectedSnapshot] = useState<ApiSnapshot | null>(null);
   const [error, setError] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -113,8 +119,11 @@ export function ProjectHub({
     ? formatTaskNumber(value, taskDefinition, `output.${key}`, project?.display_decimals)
     : formatNumber(value);
   const taskUnavailable = taskAvailability?.status === "unavailable";
-  const chainIdentity = project?.scientific_identity?.identity_kind === "chain"
-    ? project.scientific_identity
+  const identityProject = project?.id === activeProjectId
+    ? project
+    : projects.find((item) => item.id === activeProjectId);
+  const chainIdentity = identityProject?.scientific_identity?.identity_kind === "chain"
+    ? identityProject.scientific_identity
     : null;
   const chainExecutionPending = false;
 
@@ -141,6 +150,7 @@ export function ProjectHub({
     setHistory(null);
     setSelectedSnapshot(null);
     setModelPackage(null);
+    setChainEvaluation(null);
     const requests = [
       reloadHistory(controller.signal),
       workbenchApi.listTaskDefinitions().then((items) => {
@@ -152,7 +162,15 @@ export function ProjectHub({
       workbenchApi.listChainTemplates().then((items) => !controller.signal.aborted && setChainTemplates(items)),
     ];
     if (!taskUnavailable) {
-      if (!chainIdentity) {
+      if (chainIdentity) {
+        requests.push(
+          workbenchApi.projectChainEvaluation(activeProjectId, controller.signal).then((item) => {
+            if (!controller.signal.aborted && activeProjectRef.current === activeProjectId) {
+              setChainEvaluation({ projectId: activeProjectId, value: item });
+            }
+          }),
+        );
+      } else {
         requests.push(
           workbenchApi.modelPackage(activeProjectId).then((item) => {
             if (!controller.signal.aborted && activeProjectRef.current === activeProjectId) setModelPackage(item);
@@ -685,6 +703,9 @@ export function ProjectHub({
       {project && (chainIdentity
         ? <section className="project-reference-strip" aria-label="プロジェクトのChain参照と所属"><div><span>Chain Template</span><strong>{fixedChain?.definition.label ?? "Chain未解決"}</strong><small>A → B → C</small></div><div><span>Chain Revision</span><strong>{fixedChainRevision ? `r${fixedChainRevision.revision}` : "—"}</strong><small title={chainIdentity.chain_revision_digest}>{chainIdentity.chain_revision_digest.slice(0, 18)}…</small></div><div><span>固定Stage</span><strong>{fixedChainRevision?.stages.map((stage) => stage.stage_id).join(" → ") ?? "—"}</strong><small>Package・Dataset・ProfileをRevision内に固定</small></div><div><span>所属グループ</span><strong>{fixedSeries?.name ?? "—"}</strong><small>設定から変更できます</small></div></section>
         : <section className="project-reference-strip" aria-label="プロジェクトの参照と所属"><div><span>参照Dataset</span><strong>{fixedDataset?.data_asset.original_filename ?? "—"}</strong><small>{fixedDataset ? `${fixedDataset.profile_revision.name} · r${fixedDataset.profile_revision.revision}` : ""}</small></div><div><span>Prediction Task</span><strong>{taskLabels.get(project.task_id) ?? project.task_id}</strong><small>固定</small></div><div><span>Model Package</span><strong>{modelPackageDisplayName(fixedPackage)}</strong><small>学習元: {fixedTrainingDataset ? datasetDisplayName(fixedTrainingDataset) : "未登録または記録なし"} · Manifest {project.model_package_manifest_digest.slice(0, 10)}</small></div><div><span>所属グループ</span><strong>{fixedSeries?.name ?? "—"}</strong><small>設定から変更できます</small></div></section>)}
+      {chainIdentity && (chainEvaluation?.projectId === activeProjectId
+        ? <ChainEvaluationPanel evaluation={chainEvaluation.value} />
+        : <section className="chain-evaluation-panel loading" aria-live="polite">Chain評価を読み込んでいます。</section>)}
       {project && <section className={`project-goal-strip${configuredTargets.length ? "" : " unset"}`} aria-label="プロジェクトの目標値">
         <div className="project-goal-heading"><span>目標値</span><strong>{configuredTargets.length ? "候補を判断する基準" : "候補を探す前に設定"}</strong></div>
         <div className="project-goal-values">

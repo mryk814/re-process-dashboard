@@ -36,6 +36,7 @@ export type ApiProjectCreationOptions = components["schemas"]["ProjectCreationOp
 export type ApiChainTemplate = components["schemas"]["ChainTemplateItem"];
 export type ApiChainDistributionCapability = components["schemas"]["ChainDistributionCapability"];
 export type ApiChainDistributionRun = components["schemas"]["ChainDistributionRun"];
+export type ApiChainEvaluation = components["schemas"]["ResolvedChainEvaluation"];
 export type ApiChainCandidateContract = components["schemas"]["ChainCandidateContractResponse"];
 export type ApiChainExecution = components["schemas"]["ChainExecution"];
 export type ApiChainSnapshot = components["schemas"]["ChainSnapshot"];
@@ -205,6 +206,12 @@ export const workbenchApi = {
       body: { candidate_revision: candidateRevision, seed, sample_count: sampleCount },
       signal,
     }), "Chainの分布を実行できませんでした。");
+  },
+  async projectChainEvaluation(projectId: string, signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/chain/evaluation", {
+      params: { path: { project_id: projectId } },
+      signal,
+    }), "Chain評価を取得できませんでした。");
   },
   async listDataLibraryDatasets(includeArchived = false) {
     return requireData(await apiClient.GET("/api/data-library/datasets", {

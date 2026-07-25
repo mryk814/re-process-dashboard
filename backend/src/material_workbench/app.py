@@ -48,6 +48,10 @@ from material_workbench.application.chain_execution import (
     ChainExecutionService,
 )
 from material_workbench.application.chain_uncertainty import ChainUncertaintyService
+from material_workbench.application.chain_evaluation import (
+    ChainEvaluationCatalog,
+    DEFAULT_CHAIN_EVALUATION_PATH,
+)
 from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
 from .task_modules import (
     PRIMARY_DEFAULT_SOURCE,
@@ -193,6 +197,7 @@ def create_app(
     active_packages_path: str | Path | None = None,
     data_library_path: str | Path | None = None,
     active_transforms_path: str | Path | None = None,
+    chain_evaluation_path: str | Path | None = None,
     blend_contracts: BlendContractRegistry | None = None,
     _resources: _AppResources | None = None,
 ) -> FastAPI:
@@ -266,6 +271,16 @@ def create_app(
             _raise_startup_error(
                 "chain_catalog",
                 "多段Chainカタログ",
+                exc,
+            )
+        try:
+            app.state.chain_evaluation_catalog = ChainEvaluationCatalog.load(
+                chain_evaluation_path or DEFAULT_CHAIN_EVALUATION_PATH
+            )
+        except Exception as exc:
+            _raise_startup_error(
+                "chain_evaluation",
+                "多段Chain評価成果物",
                 exc,
             )
         app.state.chain_execution_service = ChainExecutionService(

@@ -385,3 +385,6 @@ Issue #165のChain実行基盤がそのRevisionを順序どおりに実行する
 
 段別のcontent hash、部分再計算、鮮度、immutable snapshotの実装契約は
 [Chain実行と証跡](../chain-execution.md)を参照する。
+
+段単体と通しを分けるnested grouped評価、output別母数、漏洩防止の証跡は
+[Chainの段単体評価と通し評価](../chain-evaluation.md)を参照する。
