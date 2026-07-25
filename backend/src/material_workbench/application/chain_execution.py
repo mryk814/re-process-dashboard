@@ -10,13 +10,9 @@ import uuid
 from pydantic import BaseModel
 
 from material_workbench.contracts.blend_contracts import (
-    CommercialMaterialCatalog,
+    BlendStructuralError,
     ResolvedBlendContracts,
-    ScientificHoop,
-    ScientificMaterial,
-    ScientificMaterialMaster,
     SparseBlend,
-    SparseBlendDesignSpace,
     validate_sparse_blend,
 )
 from material_workbench.contracts.chain_contracts import (
@@ -130,77 +126,26 @@ class ChainExecutionService:
             raise ChainExecutionError(
                 "v1 Chain candidateは決定論的Stageを1段だけ必要とします"
             )
-        entry = self.transform_catalog.entry(deterministic[0].contract_id)
-        artifact = entry.transform.artifact.scientific_master
-        scientific = ScientificMaterialMaster(
-            schema_version="scientific-material-master/v1",
-            resource_id=artifact.resource_id,
-            revision=artifact.revision,
-            materials=tuple(
-                ScientificMaterial(
-                    material_id=item.material_id,
-                    name=item.material_id,
-                    material_type=item.group,
-                    group=item.group,
-                    d50_um=item.d50_um,
-                )
-                for item in artifact.materials
-            ),
-            hoops=tuple(
-                ScientificHoop(
-                    hoop_id=item.hoop_id,
-                    name=item.hoop_id,
-                )
-                for item in artifact.hoops
-            ),
-        )
-        commercial: CommercialMaterialCatalog = entry.commercial_catalog
-        design_space = SparseBlendDesignSpace(
-            schema_version="sparse-blend-design-space/v1",
-            resource_id="welding-stage-a-design-space",
-            revision=1,
-            scientific_master=artifact.ref,
-            commercial_catalog=commercial.ref,
-            allowed_material_ids=tuple(
-                material.material_id for material in scientific.materials
-            ),
-            fixed_hoop_id="HP-01",
-            fixed_fill_ratio=19.06,
-            balance_material_id="RM-0013",
-            total=100.0,
-            tolerance=1e-6,
-            material_bounds=(),
-            group_totals=(),
-            group_cardinalities=(),
-            selection_count={"minimum": 1, "maximum": 20},
-        )
-        return ResolvedBlendContracts(scientific, commercial, design_space)
+        transform_id = deterministic[0].contract_id
+        try:
+            return self.transform_catalog.resolve_blend(
+                self.transform_catalog.initial_blend(transform_id)
+            )
+        except (KeyError, BlendStructuralError) as exc:
+            raise ChainExecutionError(
+                "Chain candidateのactive Stage A契約を解決できません"
+            ) from exc
 
     def prepare_candidate(
         self, project_id: str, payload: CandidateInput
     ) -> CandidateInput:
         if payload.blend is None:
             raise ChainExecutionError("Chain候補には疎な配合明細が必要です")
-        contracts = self.candidate_contracts(project_id)
         blend = payload.blend
-        expected_scientific = contracts.design_space.scientific_master
-        expected_commercial = contracts.design_space.commercial_catalog
-        expected_design_space = contracts.design_space.ref
-        if blend.scientific_master != expected_scientific:
-            raise ChainExecutionError(
-                "候補の科学変換master revisionがChainと一致しません"
-            )
-        if blend.commercial_catalog != expected_commercial:
-            raise ChainExecutionError(
-                "候補の商用catalog revisionがChainと一致しません"
-            )
-        if blend.design_space != expected_design_space:
-            raise ChainExecutionError(
-                "候補のDesign Space revisionがChainと一致しません"
-            )
         try:
+            contracts = self.transform_catalog.resolve_blend(blend)
             validation = validate_sparse_blend(blend, contracts)
-        except ValueError as exc:
+        except (BlendStructuralError, ValueError) as exc:
             raise ChainExecutionError(str(exc)) from exc
         project = self.store.get_project(project_id)
         assert project is not None and project.scientific_identity.identity_kind == "chain"

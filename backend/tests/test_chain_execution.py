@@ -7,6 +7,10 @@ import time
 
 from fastapi.testclient import TestClient
 
+from material_workbench.contracts.blend_contracts import (
+    CommercialMaterialCatalog,
+    SparseBlendDesignSpace,
+)
 from material_workbench.persistence.store import Store
 
 
@@ -189,7 +193,40 @@ def test_chain_candidate_api_rejects_unregistered_revision_references(
         json=payload,
     )
     assert response.status_code == 422
-    assert "Design Space revision" in response.text
+    assert "完全一致revision" in response.text
+
+
+def test_chain_candidate_accepts_a_registered_historical_catalog_pair(
+    client: TestClient,
+) -> None:
+    project_response = client.post(
+        "/api/projects",
+        json={"name": "Historical refs", "scientific_identity": _chain_identity(client)},
+    )
+    assert project_response.status_code == 201
+    project = project_response.json()
+    payload = _candidate_payload(client, project["id"])
+    historical_catalog = CommercialMaterialCatalog.model_validate_json(
+        (ROOT / "models/catalogs/welding-stage-a-commercial-v1.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    historical_space = SparseBlendDesignSpace.model_validate_json(
+        (ROOT / "models/design-spaces/welding-stage-a-v1.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    payload["blend"]["commercial_catalog"] = historical_catalog.ref.model_dump(
+        mode="json"
+    )
+    payload["blend"]["design_space"] = historical_space.ref.model_dump(mode="json")
+    response = client.post(
+        f"/api/projects/{project['id']}/chain/candidates",
+        json=payload,
+    )
+    assert response.status_code == 201, response.text
+    assert response.json()["blend"]["commercial_catalog"]["revision"] == 1
+    assert response.json()["blend"]["design_space"]["revision"] == 1
 
 
 def test_failure_retains_previous_downstream_result_and_marks_freshness(
