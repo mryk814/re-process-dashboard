@@ -15,7 +15,8 @@ const session = readFileSync(
 test("unavailable tasks keep the overview while replacing mutation and inference surfaces", () => {
   assert.match(app, /TaskUnavailablePanel/);
   assert.match(app, /保存済みの候補・予測・実測・判断履歴/);
-  assert.match(app, /\(!taskUnavailable && !chainProject\) \|\| item\.id === "project"/);
+  assert.match(app, /item\.id === "project"/);
+  assert.match(app, /chainProject && item\.id === "candidates"/);
   assert.match(session, /resolved\.availability\.status === "unavailable"/);
   assert.match(session, /resolved\.availability\.message/);
 });
@@ -27,7 +28,8 @@ test("chain projects load their immutable revision without entering the single-t
   assert.match(session, /editor\.acceptServerCandidates\(\[\]\)/);
   assert.match(session, /setNotice\("Chain Revisionを固定しました/);
   assert.match(app, /const chainProject = activeProject\?\.scientific_identity\?\.identity_kind === "chain"/);
-  assert.match(app, /\(!taskUnavailable && !chainProject\) \|\| item\.id === "project"/);
+  assert.match(app, /chainProject && item\.id === "candidates"/);
+  assert.match(app, /tab === "candidates" && chainProject/);
 });
 
 test("chain projects are labelled by template, revision, and stages instead of unresolved single-task data", () => {

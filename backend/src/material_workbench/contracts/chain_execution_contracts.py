@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 from datetime import datetime
+import math
 from typing import Annotated, Any, Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from material_workbench.contracts.chain_contracts import (
     ChainContractModel,
@@ -79,3 +80,53 @@ class ChainSnapshot(ChainContractModel):
         if any(stage.status != "latest" for stage in self.stages):
             raise ValueError("immutable Chain snapshot requires latest results for every stage")
         return self
+
+
+class IntermediateActualRecord(ChainContractModel):
+    """One traceable source record contributing measured Stage B values."""
+
+    actual_id: Annotated[str, Field(min_length=1)]
+    values: Annotated[dict[str, float], Field(min_length=1)]
+
+    @field_validator("values")
+    @classmethod
+    def values_are_finite(cls, values: dict[str, float]) -> dict[str, float]:
+        invalid = sorted(key for key, value in values.items() if not math.isfinite(value))
+        if invalid:
+            raise ValueError(f"実測値は有限値にしてください: {', '.join(invalid)}")
+        return values
+
+
+class ActualConditionedVariantIdentity(ChainContractModel):
+    schema_version: Literal["actual-conditioned-variant-identity/v1"] = (
+        "actual-conditioned-variant-identity/v1"
+    )
+    base_chain_revision_id: Annotated[str, Field(min_length=1)]
+    base_chain_revision_digest: Annotated[
+        str, Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    ]
+    base_candidate_id: Annotated[str, Field(min_length=1)]
+    base_candidate_revision: Annotated[int, Field(ge=1)]
+    comparison_snapshot_id: Annotated[str, Field(min_length=1)]
+    actual_ids: Annotated[tuple[str, ...], Field(min_length=1)]
+    measurement_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+    coverage: Annotated[tuple[str, ...], Field(min_length=1)]
+    stage_c_package_manifest_digest: Annotated[
+        str, Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    ]
+
+
+class ActualConditionedVariant(ChainContractModel):
+    """Immutable C-only analysis. It never replaces normal A -> B -> C output."""
+
+    schema_version: Literal["actual-conditioned-variant/v1"] = (
+        "actual-conditioned-variant/v1"
+    )
+    variant_id: Annotated[str, Field(min_length=1)]
+    project_id: Annotated[str, Field(min_length=1)]
+    identity: ActualConditionedVariantIdentity
+    source: Literal["actual"] = "actual"
+    measured_stage_b: dict[str, float]
+    stage_c_input: dict[str, Any]
+    stage_c_result: dict[str, Any]
+    created_at: datetime
