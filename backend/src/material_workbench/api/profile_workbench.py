@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+import json
 from pathlib import Path
 import re
 from tempfile import TemporaryDirectory
@@ -41,7 +42,11 @@ _PROFILE_ROOT = Path(__file__).resolve().parent.parent / "data"
 
 def _profile_registry() -> dict[str, Path]:
     result: dict[str, Path] = {}
-    for path in sorted(_PROFILE_ROOT.glob("dataset-input-profile-*.json")):
+    paths = [
+        *_PROFILE_ROOT.glob("dataset-input-profile-*.json"),
+        _PROFILE_ROOT / "welding-stage-b-profile-v1.json",
+    ]
+    for path in sorted(paths):
         if path.is_file():
             result[dataset_profile_digest(path)] = path.resolve()
     return result
@@ -173,12 +178,22 @@ def _reject_archived_registration(catalog: WorkspaceCatalog, source_sha256: str,
 def list_profile_options() -> list[ProfileWorkbenchProfileOption]:
     result: list[ProfileWorkbenchProfileOption] = []
     for profile_digest, path in _profile_registry().items():
-        profile = load_dataset_profile(path)
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        if raw.get("schema_version") == "welding-stage-b-profile/v1":
+            from material_workbench.data.stage_b_training import load_stage_b_profile
+
+            profile = load_stage_b_profile(path)
+            profile_id = profile.id
+            task_ids = [profile.task_id]
+        else:
+            profile = load_dataset_profile(path)
+            profile_id = profile.profile_id
+            task_ids = sorted(profile.tasks)
         result.append(ProfileWorkbenchProfileOption(
-            profile_id=profile.profile_id,
+            profile_id=profile_id,
             source_name=path.stem,
             profile_digest=profile_digest,
-            task_ids=sorted(profile.tasks),
+            task_ids=task_ids,
         ))
     return result
 

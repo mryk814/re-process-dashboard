@@ -105,7 +105,7 @@
         "previous": null,
         "package_id": "welding-consumable-stage-b-ridge-v1",
         "version": "1.0.0",
-        "manifest_sha256": "bbad5ca091fd7c85a79d5b5b96e1b3c7a5076c9b9d5272aab1dc5382b6ac7243",
+        "manifest_sha256": "670f57fad186c409cb12bf50af47169c57f3b902d37518698b39b09aff1a3380",
         "runtime_types": [
           "builtin.linear.v1"
         ]

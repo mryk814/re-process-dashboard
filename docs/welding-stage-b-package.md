@@ -16,6 +16,9 @@
 `backend/src/material_workbench/data/welding-stage-b-profile-v1.json`
 です。Excelのシート名、キー列、成分列、単位、categorical choicesは
 コードへ埋め込まず、このProfileで固定します。
+Projectが固定したProfile Revisionはresolverからcompilerまでそのまま渡します。
+同梱Profileへ読み替えません。Data Libraryへの登録前検証も同じcompilerを使うため、
+画面で確認したmappingとruntimeのmappingが一致します。
 
 ## 入出力と分割
 
@@ -24,10 +27,15 @@
 - 入力：合金鉄・純金属粉・脱酸剤の配合比加重D50
 - 出力：C, Si, Mn, P, S, Ni, Cr, Mo, Cu, Ti, B, Nb, V, Al, N, O
 
+Profileは31入力軸と16出力軸の順序、入力basis
+`mass% whole wire`、出力basis `mass% deposited metal` を契約として持ちます。
+軸の削除・置換・並べ替え、basis変更はProfile読込時に拒否します。
+
 欠測targetは入力行全体を捨てず、targetごとに利用cohortを作ります。
 評価は `溶接施工_key**` をgroupにした5-foldです。同じ施工を
-train/testへ跨がせません。Packageはtargetごとにprofile、transform、
-cohort、foldのdigestを保持します。
+train/testへ跨がせません。Profileから一度だけ作ったfold割当を学習・評価・
+digestで共用し、空の施工keyは学習対象にしません。Packageはtargetごとに
+profile、transform、cohort、foldのdigestと実際のfold割当を保持します。
 
 ## Stage Aとの統合点
 

@@ -161,7 +161,9 @@ def build_task_definition(source: Path, profile_path: Path, destination: Path) -
                     "path": "context.split",
                     "order": 1,
                     "label": "評価分割",
-                    "value": "溶接施工_key** grouped 5-fold",
+                    "value": (
+                        f"溶接施工_key** grouped {source_profile.folds}-fold"
+                    ),
                 },
             ],
             "constraints": [],
@@ -230,6 +232,8 @@ def build_package(
         "transform_digest": training.transform_digest,
         "cohort_digests": training.cohort_digests,
         "fold_digests": training.fold_digests,
+        "fold_assignments": training.fold_assignments,
+        "folds": training.folds,
         "missing_by_target": training.missing_by_target,
     }
     with staged_package_destination(destination, replace=replace) as staging:

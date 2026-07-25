@@ -210,14 +210,25 @@ def _load_welding_stage_c(path: Path, profile: DatasetInputProfile | None = None
 def _load_welding_stage_b(
     path: Path, profile: DatasetInputProfile | None = None
 ) -> DataDescriptor:
-    del profile
     from material_workbench.data.stage_b_training import (
+        StageBWorkbookProfile,
         build_stage_b_training_data,
         load_stage_b_profile,
     )
 
+    selected = (
+        profile
+        if isinstance(profile, StageBWorkbookProfile)
+        else load_stage_b_profile(_WELDING_STAGE_B_PROFILE)
+    )
     return build_stage_b_training_data(
-        path, load_stage_b_profile(_WELDING_STAGE_B_PROFILE)
+        path,
+        selected,
+        profile_locator=(
+            f"catalog:{selected.id}"
+            if isinstance(profile, StageBWorkbookProfile)
+            else _WELDING_STAGE_B_PROFILE
+        ),
     ).data
 
 

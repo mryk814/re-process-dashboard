@@ -152,8 +152,8 @@
         "validation": "5-fold grouped by 溶接施工_key**",
         "source_profile": "welding-consumable-stage-b-v1",
         "ridge_alpha": 2.0,
-        "profile_digest": "sha256:03b04ff7b3145933634d4d92607516c5f8cf8613f90b12177bc7f7e6fa1f4901",
-        "transform_digest": "sha256:d7f28c732975c702aaa342f461faea6a03834c5346993ab4d88895460755056b",
+        "profile_digest": "sha256:a0d1e21b600a1b6172176c89e7fe9d77c09f6f16edba8a44ba41fb2a97fc7822",
+        "transform_digest": "sha256:bd641480a4afde7209a3c9b272cc2aa868a767f9adc6f3789ff3c1a8e84efdee",
         "cohort_digest": "sha256:89640f5383f7a331e0f9d7320f41d1634bf19d37724257c9311ebe43f4a03ec5",
         "fold_digest": "sha256:113a5bb03ec971f2fdfa5c5ccc49aec3a86b235ec47032eb76cf03b23a312cfd"
       }
@@ -214,8 +214,8 @@
         "validation": "5-fold grouped by 溶接施工_key**",
         "source_profile": "welding-consumable-stage-b-v1",
         "ridge_alpha": 2.0,
-        "profile_digest": "sha256:03b04ff7b3145933634d4d92607516c5f8cf8613f90b12177bc7f7e6fa1f4901",
-        "transform_digest": "sha256:d7f28c732975c702aaa342f461faea6a03834c5346993ab4d88895460755056b",
+        "profile_digest": "sha256:a0d1e21b600a1b6172176c89e7fe9d77c09f6f16edba8a44ba41fb2a97fc7822",
+        "transform_digest": "sha256:bd641480a4afde7209a3c9b272cc2aa868a767f9adc6f3789ff3c1a8e84efdee",
         "cohort_digest": "sha256:89640f5383f7a331e0f9d7320f41d1634bf19d37724257c9311ebe43f4a03ec5",
         "fold_digest": "sha256:113a5bb03ec971f2fdfa5c5ccc49aec3a86b235ec47032eb76cf03b23a312cfd"
       }
@@ -276,8 +276,8 @@
         "validation": "5-fold grouped by 溶接施工_key**",
         "source_profile": "welding-consumable-stage-b-v1",
         "ridge_alpha": 2.0,
-        "profile_digest": "sha256:03b04ff7b3145933634d4d92607516c5f8cf8613f90b12177bc7f7e6fa1f4901",
-        "transform_digest": "sha256:d7f28c732975c702aaa342f461faea6a03834c5346993ab4d88895460755056b",
+        "profile_digest": "sha256:a0d1e21b600a1b6172176c89e7fe9d77c09f6f16edba8a44ba41fb2a97fc7822",
+        "transform_digest": "sha256:bd641480a4afde7209a3c9b272cc2aa868a767f9adc6f3789ff3c1a8e84efdee",
         "cohort_digest": "sha256:89640f5383f7a331e0f9d7320f41d1634bf19d37724257c9311ebe43f4a03ec5",
         "fold_digest": "sha256:113a5bb03ec971f2fdfa5c5ccc49aec3a86b235ec47032eb76cf03b23a312cfd"
       }
@@ -338,8 +338,8 @@
         "validation": "5-fold grouped by 溶接施工_key**",
         "source_profile": "welding-consumable-stage-b-v1",
         "ridge_alpha": 2.0,
-        "profile_digest": "sha256:03b04ff7b3145933634d4d92607516c5f8cf8613f90b12177bc7f7e6fa1f4901",
-        "transform_digest": "sha256:d7f28c732975c702aaa342f461faea6a03834c5346993ab4d88895460755056b",
+        "profile_digest": "sha256:a0d1e21b600a1b6172176c89e7fe9d77c09f6f16edba8a44ba41fb2a97fc7822",
+        "transform_digest": "sha256:bd641480a4afde7209a3c9b272cc2aa868a767f9adc6f3789ff3c1a8e84efdee",
         "cohort_digest": "sha256:89640f5383f7a331e0f9d7320f41d1634bf19d37724257c9311ebe43f4a03ec5",
         "fold_digest": "sha256:113a5bb03ec971f2fdfa5c5ccc49aec3a86b235ec47032eb76cf03b23a312cfd"
       }
@@ -400,8 +400,8 @@
         "validation": "5-fold grouped by 溶接施工_key**",
         "source_profile": "welding-consumable-stage-b-v1",
         "ridge_alpha": 2.0,
-        "profile_digest": "sha256:03b04ff7b3145933634d4d92607516c5f8cf8613f90b12177bc7f7e6fa1f4901",
-        "transform_digest": "sha256:d7f28c732975c702aaa342f461faea6a03834c5346993ab4d88895460755056b",
+        "profile_digest": "sha256:a0d1e21b600a1b6172176c89e7fe9d77c09f6f16edba8a44ba41fb2a97fc7822",
+        "transform_digest": "sha256:bd641480a4afde7209a3c9b272cc2aa868a767f9adc6f3789ff3c1a8e84efdee",
         "cohort_digest": "sha256:89640f5383f7a331e0f9d7320f41d1634bf19d37724257c9311ebe43f4a03ec5",
         "fold_digest": "sha256:113a5bb03ec971f2fdfa5c5ccc49aec3a86b235ec47032eb76cf03b23a312cfd"
       }
@@ -462,8 +462,8 @@
         "validation": "5-fold grouped by 溶接施工_key**",
         "source_profile": "welding-consumable-stage-b-v1",
         "ridge_alpha": 2.0,
-        "profile_digest": "sha256:03b04ff7b3145933634d4d92607516c5f8cf8613f90b12177bc7f7e6fa1f4901",
-        "transform_digest": "sha256:d7f28c732975c702aaa342f461faea6a03834c5346993ab4d88895460755056b",
+        "profile_digest": "sha256:a0d1e21b600a1b6172176c89e7fe9d77c09f6f16edba8a44ba41fb2a97fc7822",
+        "transform_digest": "sha256:bd641480a4afde7209a3c9b272cc2aa868a767f9adc6f3789ff3c1a8e84efdee",
         "cohort_digest": "sha256:89640f5383f7a331e0f9d7320f41d1634bf19d37724257c9311ebe43f4a03ec5",
         "fold_digest": "sha256:113a5bb03ec971f2fdfa5c5ccc49aec3a86b235ec47032eb76cf03b23a312cfd"
       }
@@ -524,8 +524,8 @@
         "validation": "5-fold grouped by 溶接施工_key**",
         "source_profile": "welding-consumable-stage-b-v1",
         "ridge_alpha": 2.0,
-        "profile_digest": "sha256:03b04ff7b3145933634d4d92607516c5f8cf8613f90b12177bc7f7e6fa1f4901",
-        "transform_digest": "sha256:d7f28c732975c702aaa342f461faea6a03834c5346993ab4d88895460755056b",
+        "profile_digest": "sha256:a0d1e21b600a1b6172176c89e7fe9d77c09f6f16edba8a44ba41fb2a97fc7822",
+        "transform_digest": "sha256:bd641480a4afde7209a3c9b272cc2aa868a767f9adc6f3789ff3c1a8e84efdee",
         "cohort_digest": "sha256:89640f5383f7a331e0f9d7320f41d1634bf19d37724257c9311ebe43f4a03ec5",
         "fold_digest": "sha256:113a5bb03ec971f2fdfa5c5ccc49aec3a86b235ec47032eb76cf03b23a312cfd"
       }
@@ -586,8 +586,8 @@
         "validation": "5-fold grouped by 溶接施工_key**",
         "source_profile": "welding-consumable-stage-b-v1",
         "ridge_alpha": 2.0,
-        "profile_digest": "sha256:03b04ff7b3145933634d4d92607516c5f8cf8613f90b12177bc7f7e6fa1f4901",
-        "transform_digest": "sha256:d7f28c732975c702aaa342f461faea6a03834c5346993ab4d88895460755056b",
+        "profile_digest": "sha256:a0d1e21b600a1b6172176c89e7fe9d77c09f6f16edba8a44ba41fb2a97fc7822",
+        "transform_digest": "sha256:bd641480a4afde7209a3c9b272cc2aa868a767f9adc6f3789ff3c1a8e84efdee",
         "cohort_digest": "sha256:89640f5383f7a331e0f9d7320f41d1634bf19d37724257c9311ebe43f4a03ec5",
         "fold_digest": "sha256:113a5bb03ec971f2fdfa5c5ccc49aec3a86b235ec47032eb76cf03b23a312cfd"
       }
@@ -648,8 +648,8 @@
         "validation": "5-fold grouped by 溶接施工_key**",
         "source_profile": "welding-consumable-stage-b-v1",
         "ridge_alpha": 2.0,
-        "profile_digest": "sha256:03b04ff7b3145933634d4d92607516c5f8cf8613f90b12177bc7f7e6fa1f4901",
-        "transform_digest": "sha256:d7f28c732975c702aaa342f461faea6a03834c5346993ab4d88895460755056b",
+        "profile_digest": "sha256:a0d1e21b600a1b6172176c89e7fe9d77c09f6f16edba8a44ba41fb2a97fc7822",
+        "transform_digest": "sha256:bd641480a4afde7209a3c9b272cc2aa868a767f9adc6f3789ff3c1a8e84efdee",
         "cohort_digest": "sha256:89640f5383f7a331e0f9d7320f41d1634bf19d37724257c9311ebe43f4a03ec5",
         "fold_digest": "sha256:113a5bb03ec971f2fdfa5c5ccc49aec3a86b235ec47032eb76cf03b23a312cfd"
       }
@@ -710,8 +710,8 @@
         "validation": "5-fold grouped by 溶接施工_key**",
         "source_profile": "welding-consumable-stage-b-v1",
         "ridge_alpha": 2.0,
-        "profile_digest": "sha256:03b04ff7b3145933634d4d92607516c5f8cf8613f90b12177bc7f7e6fa1f4901",
-        "transform_digest": "sha256:d7f28c732975c702aaa342f461faea6a03834c5346993ab4d88895460755056b",
+        "profile_digest": "sha256:a0d1e21b600a1b6172176c89e7fe9d77c09f6f16edba8a44ba41fb2a97fc7822",
+        "transform_digest": "sha256:bd641480a4afde7209a3c9b272cc2aa868a767f9adc6f3789ff3c1a8e84efdee",
         "cohort_digest": "sha256:89640f5383f7a331e0f9d7320f41d1634bf19d37724257c9311ebe43f4a03ec5",
         "fold_digest": "sha256:113a5bb03ec971f2fdfa5c5ccc49aec3a86b235ec47032eb76cf03b23a312cfd"
       }
@@ -772,8 +772,8 @@
         "validation": "5-fold grouped by 溶接施工_key**",
         "source_profile": "welding-consumable-stage-b-v1",
         "ridge_alpha": 2.0,
-        "profile_digest": "sha256:03b04ff7b3145933634d4d92607516c5f8cf8613f90b12177bc7f7e6fa1f4901",
-        "transform_digest": "sha256:d7f28c732975c702aaa342f461faea6a03834c5346993ab4d88895460755056b",
+        "profile_digest": "sha256:a0d1e21b600a1b6172176c89e7fe9d77c09f6f16edba8a44ba41fb2a97fc7822",
+        "transform_digest": "sha256:bd641480a4afde7209a3c9b272cc2aa868a767f9adc6f3789ff3c1a8e84efdee",
         "cohort_digest": "sha256:89640f5383f7a331e0f9d7320f41d1634bf19d37724257c9311ebe43f4a03ec5",
         "fold_digest": "sha256:113a5bb03ec971f2fdfa5c5ccc49aec3a86b235ec47032eb76cf03b23a312cfd"
       }
@@ -834,8 +834,8 @@
         "validation": "5-fold grouped by 溶接施工_key**",
         "source_profile": "welding-consumable-stage-b-v1",
         "ridge_alpha": 2.0,
-        "profile_digest": "sha256:03b04ff7b3145933634d4d92607516c5f8cf8613f90b12177bc7f7e6fa1f4901",
-        "transform_digest": "sha256:d7f28c732975c702aaa342f461faea6a03834c5346993ab4d88895460755056b",
+        "profile_digest": "sha256:a0d1e21b600a1b6172176c89e7fe9d77c09f6f16edba8a44ba41fb2a97fc7822",
+        "transform_digest": "sha256:bd641480a4afde7209a3c9b272cc2aa868a767f9adc6f3789ff3c1a8e84efdee",
         "cohort_digest": "sha256:89640f5383f7a331e0f9d7320f41d1634bf19d37724257c9311ebe43f4a03ec5",
         "fold_digest": "sha256:113a5bb03ec971f2fdfa5c5ccc49aec3a86b235ec47032eb76cf03b23a312cfd"
       }
@@ -896,8 +896,8 @@
         "validation": "5-fold grouped by 溶接施工_key**",
         "source_profile": "welding-consumable-stage-b-v1",
         "ridge_alpha": 2.0,
-        "profile_digest": "sha256:03b04ff7b3145933634d4d92607516c5f8cf8613f90b12177bc7f7e6fa1f4901",
-        "transform_digest": "sha256:d7f28c732975c702aaa342f461faea6a03834c5346993ab4d88895460755056b",
+        "profile_digest": "sha256:a0d1e21b600a1b6172176c89e7fe9d77c09f6f16edba8a44ba41fb2a97fc7822",
+        "transform_digest": "sha256:bd641480a4afde7209a3c9b272cc2aa868a767f9adc6f3789ff3c1a8e84efdee",
         "cohort_digest": "sha256:89640f5383f7a331e0f9d7320f41d1634bf19d37724257c9311ebe43f4a03ec5",
         "fold_digest": "sha256:113a5bb03ec971f2fdfa5c5ccc49aec3a86b235ec47032eb76cf03b23a312cfd"
       }
@@ -958,8 +958,8 @@
         "validation": "5-fold grouped by 溶接施工_key**",
         "source_profile": "welding-consumable-stage-b-v1",
         "ridge_alpha": 2.0,
-        "profile_digest": "sha256:03b04ff7b3145933634d4d92607516c5f8cf8613f90b12177bc7f7e6fa1f4901",
-        "transform_digest": "sha256:d7f28c732975c702aaa342f461faea6a03834c5346993ab4d88895460755056b",
+        "profile_digest": "sha256:a0d1e21b600a1b6172176c89e7fe9d77c09f6f16edba8a44ba41fb2a97fc7822",
+        "transform_digest": "sha256:bd641480a4afde7209a3c9b272cc2aa868a767f9adc6f3789ff3c1a8e84efdee",
         "cohort_digest": "sha256:89640f5383f7a331e0f9d7320f41d1634bf19d37724257c9311ebe43f4a03ec5",
         "fold_digest": "sha256:113a5bb03ec971f2fdfa5c5ccc49aec3a86b235ec47032eb76cf03b23a312cfd"
       }
@@ -1020,8 +1020,8 @@
         "validation": "5-fold grouped by 溶接施工_key**",
         "source_profile": "welding-consumable-stage-b-v1",
         "ridge_alpha": 2.0,
-        "profile_digest": "sha256:03b04ff7b3145933634d4d92607516c5f8cf8613f90b12177bc7f7e6fa1f4901",
-        "transform_digest": "sha256:d7f28c732975c702aaa342f461faea6a03834c5346993ab4d88895460755056b",
+        "profile_digest": "sha256:a0d1e21b600a1b6172176c89e7fe9d77c09f6f16edba8a44ba41fb2a97fc7822",
+        "transform_digest": "sha256:bd641480a4afde7209a3c9b272cc2aa868a767f9adc6f3789ff3c1a8e84efdee",
         "cohort_digest": "sha256:89640f5383f7a331e0f9d7320f41d1634bf19d37724257c9311ebe43f4a03ec5",
         "fold_digest": "sha256:113a5bb03ec971f2fdfa5c5ccc49aec3a86b235ec47032eb76cf03b23a312cfd"
       }
@@ -1082,8 +1082,8 @@
         "validation": "5-fold grouped by 溶接施工_key**",
         "source_profile": "welding-consumable-stage-b-v1",
         "ridge_alpha": 2.0,
-        "profile_digest": "sha256:03b04ff7b3145933634d4d92607516c5f8cf8613f90b12177bc7f7e6fa1f4901",
-        "transform_digest": "sha256:d7f28c732975c702aaa342f461faea6a03834c5346993ab4d88895460755056b",
+        "profile_digest": "sha256:a0d1e21b600a1b6172176c89e7fe9d77c09f6f16edba8a44ba41fb2a97fc7822",
+        "transform_digest": "sha256:bd641480a4afde7209a3c9b272cc2aa868a767f9adc6f3789ff3c1a8e84efdee",
         "cohort_digest": "sha256:89640f5383f7a331e0f9d7320f41d1634bf19d37724257c9311ebe43f4a03ec5",
         "fold_digest": "sha256:113a5bb03ec971f2fdfa5c5ccc49aec3a86b235ec47032eb76cf03b23a312cfd"
       }
@@ -1093,7 +1093,7 @@
     "training_data_id": "sha256:dcaad240b934a4ada810fc9577d075ea58ad457b2a373938463f29f72301a7c8",
     "feature_dataset_id": "sha256:4f925c17af453c1c03526d3f8938eb308e869ce02db1c887d0aba20a7b378d0b",
     "training_code_revision": "tabular-ridge-crossfit-coverage-v2",
-    "dataset_profile_id": "sha256:03b04ff7b3145933634d4d92607516c5f8cf8613f90b12177bc7f7e6fa1f4901"
+    "dataset_profile_id": "sha256:a0d1e21b600a1b6172176c89e7fe9d77c09f6f16edba8a44ba41fb2a97fc7822"
   },
   "artifacts": [
     {
@@ -1183,8 +1183,8 @@
     },
     {
       "path": "reference/training_stats.json",
-      "sha256": "5e8ebc088cc6590c9d533f5e532a261e34677599408eda69773a479e9ba2dddb",
-      "bytes": 3791
+      "sha256": "56258405980578304fe032a0098ff4777fe1c168f4c52fbf871cdf1c565bdfae",
+      "bytes": 114584
     },
     {
       "path": "reports/quality-report.json",

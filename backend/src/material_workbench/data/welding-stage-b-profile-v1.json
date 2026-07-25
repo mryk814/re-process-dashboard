@@ -4,6 +4,18 @@
   "task_id": "welding-consumable-stage-b-v1",
   "transform_id": "welding-stage-a-compatible-material-input-v1",
   "transform_version": "1.0.0",
+  "input_basis": "mass% whole wire",
+  "output_basis": "mass% deposited metal",
+  "input_axes": [
+    "Fe", "C", "Si", "Mn", "Cr", "Ni", "Mo", "Ti", "B", "Al", "Mg",
+    "Nb", "V", "Cu", "Zr", "Ca", "N", "O", "S", "P", "CaF2", "TiO2",
+    "SiO2", "Al2O3", "MgO", "ZrO2", "K2O", "Na2O", "CaCO3", "Fe2O3",
+    "other"
+  ],
+  "output_axes": [
+    "C", "Si", "Mn", "P", "S", "Ni", "Cr", "Mo",
+    "Cu", "Ti", "B", "Nb", "V", "Al", "N", "O"
+  ],
   "folds": 5,
   "sheets": {
     "relation": "relationEx",

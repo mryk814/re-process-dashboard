@@ -1,14 +1,26 @@
 from __future__ import annotations
 
+from dataclasses import replace
+import json
 from pathlib import Path
 import shutil
 
 from openpyxl import load_workbook
+import pytest
+from pydantic import ValidationError
 from material_workbench.data.stage_b_training import (
+    StageBWorkbookProfile,
     build_stage_b_training_data,
     load_stage_b_profile,
 )
+from material_workbench.data.dataset_registration import register_managed_dataset
+from material_workbench.data.profile_workbench import validate_workbook_profile
+from material_workbench.modeling.tabular_model_builder import (
+    build_tabular_package_from_data,
+)
 from material_workbench.modeling.model_packages import ModelPackageLoader
+from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
+from material_workbench.task_modules import _load_welding_stage_b
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -40,6 +52,12 @@ def test_stage_b_cohorts_and_folds_are_target_specific_and_group_safe() -> None:
 
     assert set(result.cohort_digests) == set(profile.weld_output_columns)
     assert set(result.fold_digests) == set(profile.weld_output_columns)
+    assert set(result.fold_assignments) == set(profile.weld_output_columns)
+    assert result.folds == 5
+    assert all(
+        sorted(set(assignment.values())) == [0, 1, 2, 3, 4]
+        for assignment in result.fold_assignments.values()
+    )
     assert result.missing_by_target == {
         target: 0 for target in profile.weld_output_columns
     }
@@ -47,6 +65,88 @@ def test_stage_b_cohorts_and_folds_are_target_specific_and_group_safe() -> None:
     assert all(value.startswith("sha256:") for value in result.fold_digests.values())
     assert result.profile_digest == profile.profile_digest
     assert result.transform_digest == profile.transform_digest
+
+
+def test_stage_b_selected_profile_is_propagated_to_runtime_compilation() -> None:
+    profile = load_stage_b_profile(PROFILE)
+    fields = list(profile.welding_context)
+    original_column = fields[0].column
+    replacement_column = "電流[A]"
+    fields[0] = fields[0].model_copy(update={"column": replacement_column})
+    selected = profile.model_copy(update={
+        "id": "welding-consumable-stage-b-selected-profile",
+        "welding_context": tuple(fields),
+    })
+
+    baseline = _load_welding_stage_b(SOURCE)
+    changed = _load_welding_stage_b(SOURCE, selected)  # type: ignore[arg-type]
+
+    assert baseline.observations[0]["features"]["heat_input_kj_per_mm"] != (
+        changed.observations[0]["features"]["heat_input_kj_per_mm"]
+    )
+    assert changed.lifecycle_profile == selected
+    assert changed.profile_path == f"catalog:{selected.id}"
+    assert original_column != replacement_column
+
+
+def test_stage_b_resolver_uses_the_pinned_application_profile(
+    client,
+    monkeypatch,
+) -> None:
+    project = client.app.state.store.get_project("welding-stage-b-default")
+    assert project is not None
+    profile = load_stage_b_profile(PROFILE)
+    fields = list(profile.welding_context)
+    fields[0] = fields[0].model_copy(update={"column": "電流[A]"})
+    selected = profile.model_copy(update={
+        "id": "welding-consumable-stage-b-application-profile",
+        "welding_context": tuple(fields),
+    })
+    resolver = client.app.state.project_runtime_resolver
+    original = resolver._dataset_resources
+    calls = 0
+
+    def selected_application_profile(*args, **kwargs):
+        nonlocal calls
+        path, loaded_profile, source_sha, profile_digest = original(*args, **kwargs)
+        calls += 1
+        if calls == 1:
+            return path, selected, source_sha, selected.profile_digest
+        return path, loaded_profile, source_sha, profile_digest
+
+    monkeypatch.setattr(
+        resolver,
+        "_dataset_resources",
+        selected_application_profile,
+    )
+    resolver._cache.clear()
+    resolved = resolver.resolve(project)
+
+    assert resolved.runtime.data.lifecycle_profile == profile
+    assert resolved.context_runtime.data.lifecycle_profile == selected
+    assert resolved.runtime.data.observations[0]["features"][
+        "heat_input_kj_per_mm"
+    ] != resolved.context_runtime.data.observations[0]["features"][
+        "heat_input_kj_per_mm"
+    ]
+
+
+def test_stage_b_profile_rejects_axis_or_basis_drift() -> None:
+    raw = load_stage_b_profile(PROFILE).model_dump(mode="json")
+    invalid_profiles = []
+    missing_input = json.loads(json.dumps(raw))
+    missing_input["raw_component_columns"].pop("other")
+    invalid_profiles.append(missing_input)
+    reordered_output = json.loads(json.dumps(raw))
+    reordered_output["output_axes"] = list(reversed(reordered_output["output_axes"]))
+    invalid_profiles.append(reordered_output)
+    changed_basis = json.loads(json.dumps(raw))
+    changed_basis["input_basis"] = "mass% flux core"
+    invalid_profiles.append(changed_basis)
+
+    for invalid in invalid_profiles:
+        with pytest.raises(ValidationError):
+            StageBWorkbookProfile.model_validate(invalid)
 
 
 def test_stage_b_missing_targets_keep_inputs_and_create_target_cohorts(
@@ -74,6 +174,95 @@ def test_stage_b_missing_targets_keep_inputs_and_create_target_cohorts(
     assert result.missing_by_target["Mn"] == 0
     assert result.cohort_digests["C"] != result.cohort_digests["Mn"]
     assert result.fold_digests["C"] != result.fold_digests["Mn"]
+
+
+def test_stage_b_incomplete_upstream_group_is_not_eligible(tmp_path: Path) -> None:
+    changed = tmp_path / "stage-b-empty-weld-run.xlsx"
+    shutil.copyfile(SOURCE, changed)
+    workbook = load_workbook(changed)
+    sheet = workbook["relationEx"]
+    headers = {cell.value: cell.column for cell in sheet[1]}
+    weld_key = sheet.cell(2, headers["溶着金属成分_key**"]).value
+    for row in range(2, sheet.max_row + 1):
+        if sheet.cell(row, headers["溶着金属成分_key**"]).value == weld_key:
+            sheet.cell(row, headers["溶接施工_key**"]).value = None
+    workbook.save(changed)
+    workbook.close()
+
+    result = build_stage_b_training_data(changed, load_stage_b_profile(PROFILE))
+    observation = next(row for row in result.data.observations if row["id"] == weld_key)
+
+    assert not observation["eligible"]
+    assert not observation["parent_key"]
+    assert "incomplete upstream relation" in observation["exclusion_reasons"]
+
+
+def test_stage_b_three_fold_assignment_is_used_by_package(tmp_path: Path) -> None:
+    profile = load_stage_b_profile(PROFILE).model_copy(update={"folds": 3})
+    training = build_stage_b_training_data(SOURCE, profile)
+    destination = tmp_path / "stage-b-three-fold"
+    contract = {
+        "profile_digest": training.profile_digest,
+        "transform_digest": training.transform_digest,
+        "cohort_digests": training.cohort_digests,
+        "fold_digests": training.fold_digests,
+        "fold_assignments": training.fold_assignments,
+        "folds": training.folds,
+        "missing_by_target": training.missing_by_target,
+    }
+    build_tabular_package_from_data(
+        training.data,
+        PROFILE,
+        destination,
+        training_contract=contract,
+    )
+
+    report = json.loads(
+        (destination / "reports/quality-report.json").read_text(encoding="utf-8")
+    )
+    manifest = json.loads(
+        (destination / "manifest.json").read_text(encoding="utf-8")
+    )
+    assert report["folds"] == 3
+    assert all(
+        predictor["config"]["validation"].startswith("3-fold")
+        for predictor in manifest["predictors"]
+    )
+    assert all(
+        sorted(set(assignment.values())) == [0, 1, 2]
+        for assignment in training.fold_assignments.values()
+    )
+
+
+def test_stage_b_package_rejects_empty_group(tmp_path: Path) -> None:
+    training = build_stage_b_training_data(SOURCE, load_stage_b_profile(PROFILE))
+    observations = [dict(row) for row in training.data.observations]
+    observations[0] = {**observations[0], "parent_key": ""}
+    invalid = replace(training.data, observations=observations)
+
+    with pytest.raises(ValueError, match="non-empty parent group"):
+        build_tabular_package_from_data(invalid, PROFILE, tmp_path / "invalid")
+
+
+def test_stage_b_managed_registration_runs_compiler_preflight(tmp_path: Path) -> None:
+    report = validate_workbook_profile(SOURCE, PROFILE)
+    assert report["registration_ready"]
+    assert report["observations"] == 300
+    assert report["observations_by_task"] == {
+        "welding-consumable-stage-b-v1": 300
+    }
+
+    result = register_managed_dataset(
+        database=tmp_path / "catalog.db",
+        source=SOURCE,
+        library_root=tmp_path / "library",
+        profile_path=PROFILE,
+    )
+    catalog = WorkspaceCatalog(tmp_path / "catalog.db")
+    revision = catalog.get_dataset_revision(result.dataset_revision_id)
+    assert revision is not None
+    assert result.profile_id == "welding-consumable-stage-b-v1"
+    assert Path(result.locator).is_file()
 
 
 def test_stage_b_package_records_profile_cohort_fold_and_smoke_contracts() -> None:

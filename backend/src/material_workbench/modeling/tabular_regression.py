@@ -254,6 +254,7 @@ class TabularData:
     quality: list[dict[str, Any]]
     detected_quality: list[dict[str, Any]]
     technical_columns: dict[tuple[str, str], str]
+    lifecycle_profile: Any | None = None
 
 
 def _get_path(candidate: CandidateInput, path: str) -> float | str:

@@ -4,7 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 import numpy as np
 
@@ -35,6 +35,13 @@ def _digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _value_digest(value: Any) -> str:
+    encoded = json.dumps(
+        value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
 def _artifact(root: Path, path: Path) -> dict[str, object]:
     return {
         "path": path.relative_to(root).as_posix(),
@@ -60,13 +67,28 @@ def _predict(x: np.ndarray, fitted: tuple[np.ndarray, np.ndarray, np.ndarray]) -
 
 
 def _grouped_oof(
-    x: np.ndarray, y: np.ndarray, groups: list[str], ridge: float = 1.0
+    x: np.ndarray,
+    y: np.ndarray,
+    groups: list[str],
+    ridge: float = 1.0,
+    *,
+    folds: int = 5,
+    assignment: dict[str, int] | None = None,
 ) -> tuple[np.ndarray, np.ndarray, int]:
     unique = sorted(set(groups))
-    folds = min(5, len(unique))
+    if any(not group for group in groups):
+        raise ValueError("Grouped validation requires a non-empty group for every row")
+    if assignment is None:
+        folds = min(folds, len(unique))
+        assignment = {group: index % folds for index, group in enumerate(unique)}
+    elif set(assignment) != set(unique):
+        raise ValueError("Fold assignment groups do not match the target cohort")
+    fold_values = sorted(set(assignment.values()))
+    if fold_values != list(range(len(fold_values))):
+        raise ValueError("Fold assignment IDs must be contiguous from zero")
+    folds = len(fold_values)
     if folds < 2:
         raise ValueError("At least two independent groups are required")
-    assignment = {group: index % folds for index, group in enumerate(unique)}
     fold_ids = np.asarray([assignment[group] for group in groups])
     residuals = np.empty(len(y))
     for fold in range(folds):
@@ -294,6 +316,8 @@ def build_tabular_package_from_data(
     rows = [row for row in data.observations if row["eligible"]]
     if not rows:
         raise ValueError("Curation後に学習可能な行がありません")
+    if data.profile.group_column and any(not str(row["parent_key"]).strip() for row in rows):
+        raise ValueError("Grouped training rows require a non-empty parent group")
     definitions = feature_definitions(profile)
     feature_names = tuple(item.name for item in definitions)
 
@@ -334,6 +358,7 @@ def build_tabular_package_from_data(
     classification_metrics: dict[str, dict[str, float | int]] = {}
     records: dict[str, int] = {}
     predict_by_target: dict[str, Callable[[np.ndarray], np.ndarray]] = {}
+    used_fold_counts: list[int] = []
     for output in profile.outputs:
         target_rows = [row for row in rows if output.key in row["outputs"]]
         if not target_rows:
@@ -446,8 +471,30 @@ def build_tabular_package_from_data(
             coverage_method = "cross-fitted-oof-normal-scale"
             coverage_observations = len(residuals)
         else:
+            contract_assignment = None
+            requested_folds = 5
+            if training_contract is not None:
+                requested_folds = int(training_contract.get("folds", 5))
+                assignments = training_contract.get("fold_assignments")
+                if isinstance(assignments, dict):
+                    selected_assignment = assignments.get(output.key)
+                    if isinstance(selected_assignment, dict):
+                        contract_assignment = {
+                            str(group): int(fold)
+                            for group, fold in selected_assignment.items()
+                        }
+                        expected_digest = training_contract["fold_digests"][output.key]  # type: ignore[index]
+                        if _value_digest(contract_assignment) != expected_digest:
+                            raise ValueError(
+                                f"{output.key}: fold assignment digest does not match"
+                            )
             residuals, fold_ids, folds = _grouped_oof(
-                x, y, groups, profile.ridge_alpha
+                x,
+                y,
+                groups,
+                profile.ridge_alpha,
+                folds=requested_folds,
+                assignment=contract_assignment,
             )
             fitted = _fit(x, y, profile.ridge_alpha)
             predict_by_target[output.key] = (
@@ -499,6 +546,7 @@ def build_tabular_package_from_data(
             coverage = _cross_fitted_quantile_coverage(residuals, fold_ids)
             coverage_method = "cross-fitted-oof-residual-quantiles"
             coverage_observations = len(residuals)
+        used_fold_counts.append(folds)
         files.append(artifact_path)
         records[output.key] = len(y)
         metrics.append(TargetQualityMetric(
@@ -540,7 +588,7 @@ def build_tabular_package_from_data(
             if profile.group_column
             else "independent-source-row-k-fold"
         ),
-        folds=min(5, min(metric.parent_conditions for metric in metrics)),
+        folds=min(used_fold_counts),
         targets=tuple(metrics),
     ).model_dump_json(indent=2) + "\n", encoding="utf-8", newline="\n")
     files.append(quality_path)

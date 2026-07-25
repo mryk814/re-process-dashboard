@@ -34,6 +34,9 @@ ResolverDependency = Annotated[ProjectRuntimeResolver, Depends(get_project_runti
 
 
 def _lifecycle_profile(data: Any) -> Path | Any:
+    lifecycle_profile = getattr(data, "lifecycle_profile", None)
+    if lifecycle_profile is not None:
+        return lifecycle_profile
     profile_path = Path(data.profile_path)
     return profile_path if profile_path.exists() else data.profile
 

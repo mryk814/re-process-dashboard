@@ -131,6 +131,47 @@ def test_register_adds_managed_dataset_and_reuses_duplicate(client: TestClient) 
     assert len(client.get("/api/data-library/datasets").json()) == len(after_first)
 
 
+def test_stage_b_profile_inspection_and_managed_registration(client: TestClient) -> None:
+    source = (
+        ROOT
+        / "data/source/welding_consumable_multistage_synthetic_dataset.xlsx"
+    )
+    profile = next(
+        item
+        for item in client.get("/api/profile-workbench/profiles").json()
+        if item["source_name"] == "welding-stage-b-profile-v1"
+    )
+    contents = source.read_bytes()
+    inspection = client.post(
+        "/api/profile-workbench/inspect",
+        data={"profile_digest": profile["profile_digest"]},
+        files=_file_payload(contents, source.name),
+    )
+    assert inspection.status_code == 200, inspection.text
+    assert inspection.json()["validation"]["observations"] == 300
+    assert inspection.json()["validation"]["observations_by_task"] == {
+        "welding-consumable-stage-b-v1": 300
+    }
+
+    registration = client.post(
+        "/api/profile-workbench/register",
+        data={
+            "profile_digest": profile["profile_digest"],
+            "expected_source_sha256": sha256(contents).hexdigest(),
+        },
+        files=_file_payload(contents, source.name),
+    )
+    assert registration.status_code == 200, registration.text
+    assert registration.json()["profile_id"] == "welding-consumable-stage-b-v1"
+    dataset = next(
+        item
+        for item in client.get("/api/data-library/datasets").json()
+        if item["dataset_revision"]["id"]
+        == registration.json()["dataset_revision_id"]
+    )
+    assert dataset["data_asset"]["locator_kind"] == "managed"
+
+
 def test_register_rejects_file_changed_after_inspection(client: TestClient) -> None:
     contents = _workbook_copy_with_new_digest()
     profile = next(item for item in client.get("/api/profile-workbench/profiles").json() if item["source_name"] == PROFILE_SOURCE_NAME)

@@ -29,6 +29,17 @@ from material_workbench.data.observation_profile import (
     TargetTrainingSummary,
 )
 
+STAGE_B_INPUT_AXES = (
+    "Fe", "C", "Si", "Mn", "Cr", "Ni", "Mo", "Ti", "B", "Al", "Mg",
+    "Nb", "V", "Cu", "Zr", "Ca", "N", "O", "S", "P", "CaF2", "TiO2",
+    "SiO2", "Al2O3", "MgO", "ZrO2", "K2O", "Na2O", "CaCO3", "Fe2O3",
+    "other",
+)
+STAGE_B_OUTPUT_AXES = (
+    "C", "Si", "Mn", "P", "S", "Ni", "Cr", "Mo",
+    "Cu", "Ti", "B", "Nb", "V", "Al", "N", "O",
+)
+
 
 def _digest(value: Any) -> str:
     encoded = json.dumps(
@@ -63,6 +74,10 @@ class StageBWorkbookProfile(StageBProfileModel):
     task_id: str
     transform_id: str
     transform_version: str
+    input_basis: Literal["mass% whole wire"]
+    output_basis: Literal["mass% deposited metal"]
+    input_axes: tuple[str, ...]
+    output_axes: tuple[str, ...]
     folds: int = Field(ge=2, le=10)
     sheets: dict[
         Literal[
@@ -85,10 +100,16 @@ class StageBWorkbookProfile(StageBProfileModel):
 
     @model_validator(mode="after")
     def scientific_axes_are_complete(self) -> "StageBWorkbookProfile":
-        if tuple(self.raw_component_columns) != tuple(self.hoop_component_columns):
-            raise ValueError("raw-material and hoop component axes must match exactly")
-        if len(self.weld_output_columns) != 16:
-            raise ValueError("Stage B must declare the 16 weld-metal output axes")
+        if self.input_axes != STAGE_B_INPUT_AXES:
+            raise ValueError("input_axes must match the canonical 31-axis order")
+        if self.output_axes != STAGE_B_OUTPUT_AXES:
+            raise ValueError("output_axes must match the canonical 16-axis order")
+        if set(self.raw_component_columns) != set(self.input_axes):
+            raise ValueError("raw-material mappings must cover the canonical input axes")
+        if set(self.hoop_component_columns) != set(self.input_axes):
+            raise ValueError("hoop mappings must cover the canonical input axes")
+        if set(self.weld_output_columns) != set(self.output_axes):
+            raise ValueError("weld-metal mappings must cover the canonical output axes")
         return self
 
     @property
@@ -100,8 +121,16 @@ class StageBWorkbookProfile(StageBProfileModel):
         return _digest({
             "id": self.transform_id,
             "version": self.transform_version,
-            "raw_components": self.raw_component_columns,
-            "hoop_components": self.hoop_component_columns,
+            "input_basis": self.input_basis,
+            "output_basis": self.output_basis,
+            "input_axes": self.input_axes,
+            "output_axes": self.output_axes,
+            "raw_components": {
+                axis: self.raw_component_columns[axis] for axis in self.input_axes
+            },
+            "hoop_components": {
+                axis: self.hoop_component_columns[axis] for axis in self.input_axes
+            },
             "fill_ratio_column": self.fill_ratio_column,
             "blend_ratio_column": self.blend_ratio_column,
             "d50_groups": self.d50_groups,
@@ -116,6 +145,8 @@ class StageBTrainingData:
     transform_digest: str
     cohort_digests: dict[str, str]
     fold_digests: dict[str, str]
+    fold_assignments: dict[str, dict[str, int]]
+    folds: int
     missing_by_target: dict[str, int]
 
 
@@ -280,10 +311,11 @@ def stage_b_runtime_profile(profile: StageBWorkbookProfile) -> TabularDatasetPro
             "path": f"composition.{component}",
             "column": column,
             "kind": "number",
-            "unit": "mass% whole wire",
+            "unit": profile.input_basis,
             "transform": "linear",
         }
-        for component, column in profile.raw_component_columns.items()
+        for component in profile.input_axes
+        for column in (profile.raw_component_columns[component],)
     ]
     inputs.extend({
         "path": field.path,
@@ -315,10 +347,11 @@ def stage_b_runtime_profile(profile: StageBWorkbookProfile) -> TabularDatasetPro
             {
                 "key": key,
                 "column": column,
-                "unit": "mass% deposited metal",
+                "unit": profile.output_basis,
                 "lower_bound": 0,
             }
-            for key, column in profile.weld_output_columns.items()
+            for key in profile.output_axes
+            for column in (profile.weld_output_columns[key],)
         ],
     })
 
@@ -326,6 +359,8 @@ def stage_b_runtime_profile(profile: StageBWorkbookProfile) -> TabularDatasetPro
 def build_stage_b_training_data(
     source: str | Path,
     profile: StageBWorkbookProfile,
+    *,
+    profile_locator: str | Path | None = None,
 ) -> StageBTrainingData:
     source_path = Path(source)
     workbook = load_workbook(source_path, read_only=True, data_only=True)
@@ -361,20 +396,28 @@ def build_stage_b_training_data(
     # relationEx may repeat once per downstream specimen. Collapse only when the
     # scientific upstream identity is exactly the same.
     relation_by_weld: dict[str, set[tuple[str, str, str, str]]] = {}
+    incomplete_relation_welds: set[str] = set()
     for relation in rows("relation"):
         weld_key = _key(relation.get(profile.keys["weld_metal"]))
-        identity = tuple(
-            _key(relation.get(profile.keys[key])) or ""
+        identity_values = tuple(
+            _key(relation.get(profile.keys[key]))
             for key in ("blend", "hoop", "welding_condition", "weld_run")
         )
         if weld_key:
-            relation_by_weld.setdefault(weld_key, set()).add(identity)
+            if any(value is None for value in identity_values):
+                incomplete_relation_welds.add(weld_key)
+            else:
+                relation_by_weld.setdefault(weld_key, set()).add(
+                    tuple(str(value) for value in identity_values)
+                )
 
     runtime_profile = stage_b_runtime_profile(profile)
     observations: list[dict[str, Any]] = []
     for weld_key, weld_row in weld_metals.items():
         identities = relation_by_weld.get(weld_key, set())
         reasons: list[str] = []
+        if weld_key in incomplete_relation_welds:
+            reasons.append("incomplete upstream relation")
         if len(identities) != 1:
             reasons.append(
                 "upstream relation missing" if not identities else "conflicting upstream relations"
@@ -401,7 +444,7 @@ def build_stage_b_training_data(
         if not reasons:
             assert blend is not None and hoop is not None and condition is not None
             fill = _number(blend[profile.fill_ratio_column], label="fill ratio") / 100
-            core = {component: 0.0 for component in profile.raw_component_columns}
+            core = {component: 0.0 for component in profile.input_axes}
             ratio_total = 0.0
             d50_numerator = d50_denominator = 0.0
             for line in blend_lines:
@@ -410,7 +453,8 @@ def build_stage_b_training_data(
                     raise ValueError(f"unknown raw material in blend {blend_key}: {material_key}")
                 ratio = _number(line[profile.blend_ratio_column], label="blend ratio")
                 ratio_total += ratio
-                for component, column in profile.raw_component_columns.items():
+                for component in profile.input_axes:
+                    column = profile.raw_component_columns[component]
                     core[component] += ratio / 100 * _number(
                         raw_composition[material_key][column],
                         label=f"{material_key}.{column}",
@@ -423,7 +467,8 @@ def build_stage_b_training_data(
                     d50_denominator += ratio
             if not math.isclose(ratio_total, 100.0, abs_tol=1e-6):
                 reasons.append("blend ratio total is not 100%")
-            for component, column in profile.hoop_component_columns.items():
+            for component in profile.input_axes:
+                column = profile.hoop_component_columns[component]
                 composition[component] = (
                     fill * core[component]
                     + (1 - fill) * _number(hoop.get(column, 0), label=f"hoop.{column}")
@@ -446,7 +491,8 @@ def build_stage_b_training_data(
             )
 
         outputs: dict[str, float] = {}
-        for target, column in profile.weld_output_columns.items():
+        for target in profile.output_axes:
+            column = profile.weld_output_columns[target]
             value = weld_row.get(column)
             if value not in (None, ""):
                 outputs[target] = _number(value, label=f"{weld_key}.{column}")
@@ -491,8 +537,9 @@ def build_stage_b_training_data(
     }
     cohort_digests: dict[str, str] = {}
     fold_digests: dict[str, str] = {}
+    fold_assignments: dict[str, dict[str, int]] = {}
     missing_by_target: dict[str, int] = {}
-    for target in profile.weld_output_columns:
+    for target in profile.output_axes:
         cohort = [
             (row["id"], row["parent_key"])
             for row in eligible
@@ -502,8 +549,14 @@ def build_stage_b_training_data(
             group: index % profile.folds
             for index, group in enumerate(sorted({group for _, group in cohort}))
         }
+        if len(set(assignment.values())) != profile.folds:
+            raise ValueError(
+                f"{target}: {profile.folds} grouped folds require at least "
+                f"{profile.folds} non-empty weld-run groups"
+            )
         cohort_digests[target] = _digest(cohort)
         fold_digests[target] = _digest(assignment)
+        fold_assignments[target] = assignment
         missing_by_target[target] = len(eligible) - len(cohort)
 
     data = TabularData(
@@ -511,7 +564,8 @@ def build_stage_b_training_data(
         source_mtime_ns=source_path.stat().st_mtime_ns,
         source_sha256=_sha256(source_path),
         profile_path=str(
-            Path(__file__).with_name("welding-stage-b-profile-v1.json")
+            profile_locator
+            or Path(__file__).with_name("welding-stage-b-profile-v1.json")
         ),
         profile=runtime_profile,
         profile_id=profile.id,
@@ -524,6 +578,7 @@ def build_stage_b_training_data(
         quality=[],
         detected_quality=[],
         technical_columns={},
+        lifecycle_profile=profile,
     )
     return StageBTrainingData(
         data=data,
@@ -531,5 +586,7 @@ def build_stage_b_training_data(
         transform_digest=profile.transform_digest,
         cohort_digests=cohort_digests,
         fold_digests=fold_digests,
+        fold_assignments=fold_assignments,
+        folds=profile.folds,
         missing_by_target=missing_by_target,
     )
