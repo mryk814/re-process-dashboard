@@ -78,6 +78,17 @@ export function ModelTrainingDataInspector({
       setOffset(page.rows.length);
     }
   };
+  const summaryState = !open && page == null
+    ? "未読込"
+    : loading && page == null
+      ? "読み込み中"
+      : page?.total === 0
+        ? "0行 · データなし"
+        : page
+          ? `${page.total.toLocaleString("ja-JP")}行 · ${open ? "表示中" : "読込済み"}`
+          : open
+            ? "読み込み準備中"
+            : "未読込";
   return <details
     ref={detailsRef}
     className="model-training-data"
@@ -88,7 +99,7 @@ export function ModelTrainingDataInspector({
   >
     <summary>
       <span><b>学習データ</b><small>原値からモデル入力まで確認</small></span>
-      {page && <em>{page.total.toLocaleString("ja-JP")}行 · {page.parent_conditions.toLocaleString("ja-JP")}条件</em>}
+      <em className="training-data-state">{summaryState}{page && page.total > 0 ? ` · ${page.parent_conditions.toLocaleString("ja-JP")}条件` : ""}</em>
     </summary>
     <div className="training-data-controls">
       <label>目的変数
@@ -133,7 +144,10 @@ export function ModelTrainingDataInspector({
       </details>}
     </div>}
     {error && <p className="panel-error">{error}</p>}
-    {page && !error ? <>
+    {!error && !target && <p className="training-data-empty"><b>表示できる目的変数がありません</b><span>このModel Packageには学習データの対象が定義されていません。</span></p>}
+    {!error && target && loading && page == null && <p className="training-data-loading" role="status">学習データを読み込んでいます…</p>}
+    {!error && page?.total === 0 && <p className="training-data-empty"><b>この段階に該当する行はありません</b><span>目的変数または表示段階を切り替えると、別の学習データを確認できます。</span></p>}
+    {page && page.total > 0 && !error && <>
       <div className="training-data-table-wrap" ref={tableWrapRef} onScroll={loadMoreOnScroll}>
         <table className="training-data-table">
           <thead><tr>{page.columns.map((column) => <th key={column.key}>
@@ -148,16 +162,16 @@ export function ModelTrainingDataInspector({
         </table>
       </div>
       <div className="training-data-footer">
-        <span>{page.total ? `${page.rows.length} / ${page.total}行を表示` : "0行"}</span>
+        <span>{page.rows.length} / {page.total}行を表示</span>
         <span>{loading ? "続きを読み込み中…" : page.rows.length < page.total ? "下へスクロールして続きを表示" : "すべて表示しました"}</span>
       </div>
-      <details className="training-data-identity"><summary>再現情報</summary>
+    </>}
+    {page && !error && <details className="training-data-identity"><summary>再現情報</summary>
         <dl>
           <div><dt>Feature Pipeline</dt><dd>{page.feature_pipeline_id} · v{page.feature_pipeline_version}</dd></div>
           <div><dt>学習元データ</dt><dd>{page.source_data_digest}</dd></div>
           <div><dt>Feature Dataset</dt><dd>{page.feature_dataset_digest}</dd></div>
         </dl>
-      </details>
-    </> : !error && <p className="empty-evidence">学習データを組み立てています。</p>}
+      </details>}
   </details>;
 }

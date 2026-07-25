@@ -242,21 +242,27 @@ export function DataLibraryPage({
                   onClick={() => onStartProject(singleView.id)}
                 >プロジェクト作成</button>}
                 {startUnavailableReason && <small className="dataset-start-unavailable">{startUnavailableReason}</small>}
-                <button
-                  type="button"
-                  className={archived ? "outline-button resource-state-action" : "text-button resource-state-action"}
-                  disabled={changingResourceId === item.dataset_revision.id || (!archived && usingProjects.length > 0)}
-                  title={!archived && usingProjects.length > 0 ? `${usingProjects.length}件のプロジェクトが参照中です` : archived ? "Datasetを利用可能に戻します" : "元データを残したまま一覧と新規利用から外します"}
-                  onClick={() => void changeDatasetState(item)}
-                >{changingResourceId === item.dataset_revision.id ? "更新中…" : archived ? "復元" : "利用停止"}</button>
+                <details className="resource-manage-menu">
+                  <summary aria-label={`${datasetDisplayName(item)}の管理`}>管理</summary>
+                  <div>
+                    <strong>{datasetDisplayName(item)}</strong>
+                    <small>{archived ? "新規利用を再開します。" : usingProjects.length > 0 ? `${usingProjects.length}件のプロジェクトが参照中のため利用停止できません。` : "元データは残し、一覧と新規利用から外します。"}</small>
+                    <button
+                      type="button"
+                      className={archived ? "outline-button resource-state-action" : "text-button resource-state-action"}
+                      disabled={changingResourceId === item.dataset_revision.id || (!archived && usingProjects.length > 0)}
+                      onClick={() => void changeDatasetState(item)}
+                    >{changingResourceId === item.dataset_revision.id ? "更新中…" : archived ? "利用可能に戻す" : "利用停止にする"}</button>
+                  </div>
+                </details>
               </div>
             </article>;
           })}</div>
           {filteredDatasets.length === 0 && <p className="library-empty">この状態のDatasetはありません。</p>}
         </section>
 
-        <section className="data-library-grid">
-          <div className="data-library-section"><div className="panel-title"><h3>比較セット</h3><span>{comparisonSets.length}件</span></div>{comparisonSets.length ? <div className="comparison-set-list">{comparisonSets.map((view) => { const members = view.members.map((member) => member.cohort_label || datasetDisplayName(options.datasets.find((dataset) => dataset.dataset_revision.id === member.dataset_revision_id))).join(" / "); return <div key={view.id}><strong>{view.name}</strong><span title={members}>{members}</span><code title={view.view_digest}>{shortDigest(view.view_digest)}</code></div>; })}</div> : <p className="library-empty">設備・場所などの境界を保って比べたいときに作成します。</p>}</div>
+        <section className={`data-library-grid ${comparisonSets.length === 0 ? "comparison-empty" : ""}`}>
+          <div className="data-library-section comparison-set-section"><div className="panel-title"><h3>比較セット</h3><span>{comparisonSets.length}件</span></div>{comparisonSets.length ? <div className="comparison-set-list">{comparisonSets.map((view) => { const members = view.members.map((member) => member.cohort_label || datasetDisplayName(options.datasets.find((dataset) => dataset.dataset_revision.id === member.dataset_revision_id))).join(" / "); return <div key={view.id}><strong>{view.name}</strong><span title={members}>{members}</span><code title={view.view_digest}>{shortDigest(view.view_digest)}</code></div>; })}</div> : <p className="library-empty">比較セットはまだありません。必要なときに上の「＋ 比較セット」から作成できます。</p>}</div>
           <div className="data-library-section model-package-library">
             <div className="panel-title"><h3>モデルパッケージ</h3><span>{filteredModelPackages.length} / {modelPackages.length}件</span></div>
             <div className="model-package-toolbar" aria-label="モデルパッケージの絞り込み">
@@ -280,13 +286,19 @@ export function DataLibraryPage({
                     <div><dt>学習時プロファイル</dt><dd>{source ? `${source.profile_revision.name} · r${source.profile_revision.revision}` : "—"}</dd></div>
                   </dl>
                   <details className="model-package-technical"><summary>前提・技術情報</summary><p>{decision?.uncertainty}</p><p>{decision?.caution}</p><dl><div><dt>パッケージID</dt><dd>{item.package_id}</dd></div><div><dt>マニフェスト識別子</dt><dd title={item.manifest_digest}>{shortDigest(item.manifest_digest)}</dd></div></dl></details>
-                  <button
-                    type="button"
-                    className={item.archived_at ? "outline-button resource-state-action" : "text-button resource-state-action"}
-                    disabled={changingResourceId === item.id || (!item.archived_at && usingProjects.length > 0)}
-                    title={!item.archived_at && usingProjects.length > 0 ? `${usingProjects.length}件のプロジェクトが参照中です` : item.archived_at ? "Model Packageを利用可能に戻します" : "Packageを残したまま新規利用から外します"}
-                    onClick={() => void changeModelPackageState(item)}
-                  >{changingResourceId === item.id ? "更新中…" : item.archived_at ? "復元" : "利用停止"}</button>
+                  <details className="resource-manage-menu">
+                    <summary aria-label={`${modelPackageDisplayName(item)}の管理`}>管理</summary>
+                    <div>
+                      <strong>{modelPackageDisplayName(item)} · {item.task_id}</strong>
+                      <small>{item.archived_at ? "新規利用を再開します。" : usingProjects.length > 0 ? `${usingProjects.length}件のプロジェクトが参照中のため利用停止できません。` : "Packageは残し、新しいプロジェクトでの利用から外します。"}</small>
+                      <button
+                        type="button"
+                        className={item.archived_at ? "outline-button resource-state-action" : "text-button resource-state-action"}
+                        disabled={changingResourceId === item.id || (!item.archived_at && usingProjects.length > 0)}
+                        onClick={() => void changeModelPackageState(item)}
+                      >{changingResourceId === item.id ? "更新中…" : item.archived_at ? "利用可能に戻す" : "利用停止にする"}</button>
+                    </div>
+                  </details>
                 </article>;
               })}</div>
               : <p className="library-empty">条件に合うModel Packageはありません。</p>}

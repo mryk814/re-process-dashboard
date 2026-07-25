@@ -18,6 +18,29 @@ function number(value: number, digits = 0) {
   });
 }
 
+const HEAT_CHART_WIDTH = 420;
+const HEAT_PLOT_LEFT = 20;
+const HEAT_PLOT_RIGHT = 20;
+const HEAT_PLOT_WIDTH = HEAT_CHART_WIDTH - HEAT_PLOT_LEFT - HEAT_PLOT_RIGHT;
+
+function normalizedTimePosition(time: number, maxTime: number) {
+  return Math.min(1, Math.max(0, time / Math.max(maxTime, 1)));
+}
+
+function primaryConditionPresentation(sourceColumn: string) {
+  const unitMatch = sourceColumn.match(/^(.*?)\s*[\[(]([^)\]]+)[)\]]\s*$/);
+  const withoutUnit = unitMatch?.[1] ?? sourceColumn;
+  const label = withoutUnit
+    .replace(/[_./]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return {
+    label: label || "条件",
+    unit: unitMatch?.[2] ?? "",
+    sourceColumn,
+  };
+}
+
 type HeatStageSegment = {
   category: string;
   name: string;
@@ -298,7 +321,7 @@ export function LineagePage({
     1,
     ...heat.flatMap((point) => [point.temperature_c, point.set_temperature_c ?? point.temperature_c]),
   );
-  const heatX = (time: number) => 20 + (time / maxTime) * 380;
+  const heatX = (time: number) => HEAT_PLOT_LEFT + normalizedTimePosition(time, maxTime) * HEAT_PLOT_WIDTH;
   const heatY = (temperature: number) => 120 - (temperature / maxTemp) * 100;
   const heatTimeTicks = [0, maxTime / 2, maxTime];
   const heatTemperatureTicks = [0, maxTemp / 2, maxTemp];
@@ -351,7 +374,7 @@ export function LineagePage({
           </p>
         </div>
       </div>
-      <div className="lineage-workspace">
+      <div className={`lineage-workspace${data ? "" : " no-detail"}`}>
         <aside className="lineage-browser" aria-label="系譜ノード検索">
           {index && (
             <div className="lineage-source-facts">
@@ -611,7 +634,14 @@ export function LineagePage({
                 <table>
                   <tbody>
                     <tr>
-                      {Object.keys(data.node.primary_conditions).map((key) => <th scope="col" key={key}>{key}</th>)}
+                      {Object.keys(data.node.primary_conditions).map((key) => {
+                        const presentation = primaryConditionPresentation(key);
+                        return <th scope="col" key={key}>
+                          <span>{presentation.label}</span>
+                          {presentation.unit && <small>{presentation.unit}</small>}
+                          <code title="元データの列名">{presentation.sourceColumn}</code>
+                        </th>;
+                      })}
                     </tr>
                     <tr>
                       {Object.entries(data.node.primary_conditions).map(([key, value]) => <td key={key}>{value === null ? "—" : String(value)}</td>)}
@@ -682,14 +712,14 @@ export function LineagePage({
               {heat.length ? (
                 <>
                 <svg
-                  viewBox="0 0 420 135"
+                  viewBox={`0 0 ${HEAT_CHART_WIDTH} 135`}
                   className="lineage-heat"
                   role="img"
                   aria-label="実績ヒートパターン"
                 >
-                  {heatTemperatureTicks.map((tick) => <g key={`temp-${tick}`} className="lineage-heat-grid"><line x1="20" x2="400" y1={heatY(tick)} y2={heatY(tick)} /><text x="17" y={heatY(tick) + 3} textAnchor="end">{number(tick)}</text></g>)}
+                  {heatTemperatureTicks.map((tick) => <g key={`temp-${tick}`} className="lineage-heat-grid"><line x1={HEAT_PLOT_LEFT} x2={HEAT_CHART_WIDTH - HEAT_PLOT_RIGHT} y1={heatY(tick)} y2={heatY(tick)} /><text x={HEAT_PLOT_LEFT - 3} y={heatY(tick) + 3} textAnchor="end">{number(tick)}</text></g>)}
                   {heatTimeTicks.map((tick) => <g key={`time-${tick}`} className="lineage-heat-grid"><line x1={heatX(tick)} x2={heatX(tick)} y1="20" y2="120" /><text x={heatX(tick)} y="132" textAnchor="middle">{number(tick)}</text></g>)}
-                  <line x1="20" x2="400" y1="120" y2="120" />
+                  <line x1={HEAT_PLOT_LEFT} x2={HEAT_CHART_WIDTH - HEAT_PLOT_RIGHT} y1="120" y2="120" />
                   <polyline
                     points={heatPoints}
                     fill="none"
@@ -722,14 +752,21 @@ export function LineagePage({
                     >
                     </circle>
                   ))}
-                  {hoveredHeatPoint && <SvgChartTooltip {...hoveredHeatPoint} chartWidth={420} chartHeight={135} />}
+                  {hoveredHeatPoint && <SvgChartTooltip {...hoveredHeatPoint} chartWidth={HEAT_CHART_WIDTH} chartHeight={135} />}
                 </svg>
-                <div className="lineage-process-track" aria-label="工程区間">
+                <div
+                  className="lineage-process-track"
+                  aria-label="ヒートパターンと同じ時間軸の工程区間"
+                  style={{ marginInline: `${(HEAT_PLOT_LEFT / HEAT_CHART_WIDTH) * 100}%` }}
+                >
                   {heatStageTrack.map((stage, index) => (
                     <div
                       className={`lineage-process-segment stage-${stage.category.toLowerCase().replaceAll("_", "-")}`}
                       key={`${stage.category}-${stage.name}-${index}`}
-                      style={{ flexBasis: `${((stage.endTime - stage.startTime) / maxTime) * 100}%` }}
+                      style={{
+                        left: `${normalizedTimePosition(stage.startTime, maxTime) * 100}%`,
+                        width: `${(normalizedTimePosition(stage.endTime, maxTime) - normalizedTimePosition(stage.startTime, maxTime)) * 100}%`,
+                      }}
                       title={`${stage.category} / ${stage.name} · ${number(stage.startTime, 1)}–${number(stage.endTime, 1)} s${stage.status ? ` · ${stage.status}` : ""}`}
                       aria-label={`${stage.name}、${number(stage.startTime, 1)}秒から${number(stage.endTime, 1)}秒${stage.status ? `、${stage.status}` : ""}`}
                       tabIndex={0}
@@ -786,13 +823,22 @@ export function LineagePage({
                             <td><b>{group.stage}</b><br /><small>{group.test_type}</small></td>
                             <td>{outputLabel(group.property)}{assessment.implausible ? <span className="plausibility-warning" title={assessment.warning ?? undefined}>⚠ 物理範囲外</span> : null}</td>
                             <td>{group.count}</td>
-                            <td>{number(group.min, 1)}</td>
-                            <td>
-                              {number(group.mean, 1)} ±{" "}
-                              {number(group.std, 1)}
-                            </td>
-                            <td>{number(group.median, 1)}</td>
-                            <td>{number(group.max, 1)}</td>
+                            {group.count === 1 ? (
+                              <td colSpan={4} className="lineage-single-observation">
+                                <strong>{number(group.mean, 1)}</strong>
+                                <small>単一の実測値</small>
+                              </td>
+                            ) : (
+                              <>
+                                <td>{number(group.min, 1)}</td>
+                                <td>
+                                  {number(group.mean, 1)} ±{" "}
+                                  {number(group.std, 1)}
+                                </td>
+                                <td>{number(group.median, 1)}</td>
+                                <td>{number(group.max, 1)}</td>
+                              </>
+                            )}
                           </tr>;
                         },
                       )}

@@ -63,6 +63,7 @@ export function LiveDataQualityPage({
   filters,
   onFiltersChange,
   onOpenLineage,
+  onOpenIssueList,
   showReferenceScenarios = false,
   mode = "issues",
 }: {
@@ -70,6 +71,7 @@ export function LiveDataQualityPage({
   filters: QualityFilters;
   onFiltersChange: (filters: QualityFilters) => void;
   onOpenLineage: (issue: ApiQuality["detected_issues"][number], filters: QualityFilters) => void;
+  onOpenIssueList?: (filters: QualityFilters) => void;
   showReferenceScenarios?: boolean;
   mode?: "issues" | "summary";
 }) {
@@ -107,6 +109,7 @@ export function LiveDataQualityPage({
     && (!normalizedKey || `${issue.entity_key} ${issue.missing_reference_key ?? ""}`.toLocaleLowerCase("ja-JP").includes(normalizedKey))
   ) ?? [];
   const visibleGroups = groupQualityIssues(visibleIssues);
+  const clearFilters = () => onFiltersChange({});
   const exportCsv = async () => {
     setExportError("");
     try {
@@ -139,7 +142,10 @@ export function LiveDataQualityPage({
           <h2>{mode === "summary" ? "データ品質集計" : "問題から探す"}</h2>
           <p>元データを変更せず、関係・値域・分布から実際の問題を検出します。</p>
         </div>
-        {mode === "summary" && <button className="outline-button" onClick={() => void exportCsv()}>検出結果をCSV出力</button>}
+        {mode === "summary" && <div className="quality-summary-actions">
+          {data && data.detected_total > 0 && onOpenIssueList && <button className="primary-button" onClick={() => onOpenIssueList(filters)}>問題一覧で確認</button>}
+          <button className="outline-button" onClick={() => void exportCsv()}>検出結果をCSV出力</button>
+        </div>}
       </div>
       {exportError && <p className="empty-evidence" role="alert">{exportError}</p>}
       {copyError && <p className="empty-evidence" role="alert">{copyError}</p>}
@@ -164,6 +170,10 @@ export function LiveDataQualityPage({
                 <b>{count}</b>{labels[type as DetectedIssue["issue_type"]] ?? type}
               </button>
             ))}
+          </div>}
+          {mode === "summary" && data.detected_total === 0 && <div className="quality-empty-state">
+            <strong>現在の検出ルールでは問題は見つかりませんでした</strong>
+            <p>未実行ではありません。参照データやProfileを更新した場合は、もう一度この集計を確認してください。</p>
           </div>}
           {mode === "issues" && <>
             <div className="quality-filters" aria-label="検出結果フィルタ">
@@ -206,7 +216,9 @@ export function LiveDataQualityPage({
                   </div>
                 </details>;
               })}
-            </div> : <p className="empty-evidence">条件に一致する検出結果はありません。</p>}
+            </div> : data.detected_total === 0
+              ? <div className="quality-empty-state"><strong>問題は検出されませんでした</strong><p>検出は完了しています。元データやProfileが変わったときに再確認してください。</p></div>
+              : <div className="quality-empty-state filtered"><strong>絞り込みに一致する問題はありません</strong><p>{data.detected_total.toLocaleString("ja-JP")}件の検出結果は残っています。</p><button type="button" className="outline-button" onClick={clearFilters}>すべての問題を表示</button></div>}
           </>}
           {showReferenceScenarios && <details className="reference-scenarios">
             <summary>Excelに用意された確認用シナリオ（{data.reference_scenarios.length}件）</summary>

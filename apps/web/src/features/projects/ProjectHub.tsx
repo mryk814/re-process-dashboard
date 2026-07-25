@@ -35,6 +35,7 @@ type Props = {
   currentPreviews: Record<string, ApiPreview>;
   requestedSnapshotId?: string;
   requestedDatasetViewId?: string;
+  requestedSettingsSection?: "targets";
   onProjectChanged: (project: ApiProject) => void;
   onProjectDeleted: (projectId: string) => Promise<boolean>;
   onSwitch: (projectId: string) => void;
@@ -58,6 +59,7 @@ export function ProjectHub({
   currentPreviews,
   requestedSnapshotId,
   requestedDatasetViewId,
+  requestedSettingsSection,
   onProjectChanged,
   onProjectDeleted,
   onSwitch,
@@ -266,6 +268,17 @@ export function ProjectHub({
     focusCreationFormRef.current = false;
     projectNameInputRef.current?.focus();
   }, [createOpen]);
+
+  const focusTargetSettings = () => {
+    setSettingsOpen(true);
+    window.requestAnimationFrame(() => document.querySelector<HTMLElement>(
+      "#project-target-settings input, #project-target-settings select",
+    )?.focus());
+  };
+
+  useEffect(() => {
+    if (requestedSettingsSection === "targets") focusTargetSettings();
+  }, [activeProjectId, requestedSettingsSection]);
 
   async function saveProject() {
     if (!project) return;
@@ -493,6 +506,19 @@ export function ProjectHub({
     if (deleted) setDeleteOpen(false);
   }
 
+  const renderProjectListItem = (item: ApiProject) => (
+    <button
+      type="button"
+      key={item.id}
+      className={item.id === activeProjectId ? "project-list-item active" : "project-list-item"}
+      aria-current={item.id === activeProjectId ? "page" : undefined}
+      onClick={() => switchProject(item.id)}
+    >
+      <strong>{item.name}</strong>
+      <small>{datasetByView.get(item.dataset_view_revision_id ?? "")?.data_asset.original_filename.replace(/\.xlsx$/i, "") ?? "Dataset未解決"} · {taskLabels.get(item.task_id) ?? item.task_id}</small>
+    </button>
+  );
+
   return (
     <div className="page-panel project-hub">
       <aside className="project-list-panel" aria-label="プロジェクト一覧">
@@ -501,6 +527,9 @@ export function ProjectHub({
           <small>{projects.length}件</small>
         </div>
         <div className="project-list-items">{projectGroups.map((group) => {
+          if (group.projects.length === 1) {
+            return <section className="project-list-group singleton" key={group.id}>{renderProjectListItem(group.projects[0])}</section>;
+          }
           const collapsed = collapsedSeriesIds.has(group.id);
           const contentId = `project-series-${group.id}`;
           return (
@@ -524,23 +553,12 @@ export function ProjectHub({
                 </button>
               </header>
               <div className="project-list-group-projects" id={contentId} hidden={collapsed}>
-                {group.projects.length ? group.projects.map((item) => (
-                  <button
-                    type="button"
-                    key={item.id}
-                    className={item.id === activeProjectId ? "project-list-item active" : "project-list-item"}
-                    aria-current={item.id === activeProjectId ? "page" : undefined}
-                    onClick={() => switchProject(item.id)}
-                  >
-                    <strong>{item.name}</strong>
-                    <small>{datasetByView.get(item.dataset_view_revision_id ?? "")?.data_asset.original_filename.replace(/\.xlsx$/i, "") ?? "Dataset未解決"} · {taskLabels.get(item.task_id) ?? item.task_id}</small>
-                  </button>
-                )) : <small className="project-list-group-empty">プロジェクトなし</small>}
+                {group.projects.map(renderProjectListItem)}
               </div>
             </section>
           );
         })}</div>
-        <button type="button" className="outline-button project-list-create" onClick={toggleCreateProject}>{createOpen ? "作成をやめる" : "＋ 新規プロジェクト"}</button>
+        <button type="button" className="outline-button project-list-create" disabled={createOpen} onClick={toggleCreateProject}>＋ 新規プロジェクト</button>
       </aside>
       <div className="project-hub-content">
         <div className="page-intro project-hub-header">
@@ -563,12 +581,7 @@ export function ProjectHub({
             ? configuredTargets.map((output) => <span key={output.key}><b>{output.label}</b>{targetGoalText(savedTargetValues[output.key], output.goal_direction, formatNumber)} {output.unit}</span>)
             : <span>未設定です。設定すると候補の目標達成率を比較できます。</span>}
         </div>
-        <button className={configuredTargets.length ? "outline-button" : "primary-button"} onClick={() => {
-          setSettingsOpen(true);
-          window.requestAnimationFrame(() => document.querySelector<HTMLElement>(
-            ".project-settings-panel .target-grid input, .project-settings-panel .target-grid select",
-          )?.focus());
-        }}>{configuredTargets.length ? "目標値を変更" : "目標値を設定"}</button>
+        <button className={configuredTargets.length ? "outline-button" : "primary-button"} onClick={focusTargetSettings}>{configuredTargets.length ? "目標値を変更" : "目標値を設定"}</button>
       </section>}
       {predecessorProject && <section className="project-continuation-link" aria-label="このプロジェクトの続き元"><span>続き元</span><button type="button" onClick={() => onSwitch(predecessorProject.id)}>{predecessorProject.name}</button><small>{predecessorSeries?.name ?? "所属グループ不明"}{project?.continuation_reason ? ` · ${project.continuation_reason}` : ""}</small></section>}
 
@@ -601,14 +614,13 @@ export function ProjectHub({
       </section>}
 
       {settingsOpen && project && <section className="project-settings-panel">
-        <div className="project-fixed-bindings"><div><span>Dataset</span><strong>{fixedDataset?.data_asset.original_filename ?? project.dataset_view_revision_id}</strong><small>{fixedDataset ? `${fixedDataset.profile_revision.name} · r${fixedDataset.profile_revision.revision}` : ""}</small></div><div><span>Prediction Task</span><strong>{taskLabels.get(project.task_id) ?? project.task_id}</strong><small>{project.task_contract_digest.slice(0, 10)}</small></div><div><span>Model Package</span><strong>{fixedPackage ? modelPackageDisplayName(fixedPackage) : project.model_package_ref_id}</strong><small>{project.model_package_manifest_digest.slice(0, 10)}</small></div></div>
         <div className="project-form">
           <div className="group-membership-setting"><label>所属グループ<select value={groupMembershipId} onChange={(event) => setGroupMembershipId(event.target.value)}>{activeProjectSeries.map((series) => <option key={series.id} value={series.id}>{series.name}</option>)}</select></label><button className="outline-button" disabled={!groupMembershipId || groupMembershipId === project.project_series_id} onClick={() => void moveProjectToGroup()}>このプロジェクトを移動</button><small>現在のプロジェクトだけを移動します。候補・判断履歴・続き元は変わりません</small></div>
           <div className="series-name-setting"><label>グループ名<input value={seriesName} onChange={(event) => setSeriesName(event.target.value)} /></label><button className="outline-button" disabled={!seriesName.trim()} onClick={() => void saveSeriesName()}>名前を保存</button><small>このグループに含まれるすべてのプロジェクトへ反映されます</small></div>
           <label>プロジェクト名<input value={project.name} onChange={(event) => setProject({ ...project, name: event.target.value })} /></label>
           <label>説明<textarea value={project.description} onChange={(event) => setProject({ ...project, description: event.target.value })} /></label>
           <label>目的<textarea value={project.purpose} onChange={(event) => setProject({ ...project, purpose: event.target.value })} /></label>
-          <fieldset className="target-grid"><legend>目標値</legend>{(taskDefinition?.outputs ?? []).map((output) => {
+          <fieldset className="target-grid" id="project-target-settings"><legend>目標値</legend>{(taskDefinition?.outputs ?? []).map((output) => {
             const goal = targetValues[output.key];
             const range = isTargetRange(goal) ? goal : undefined;
             const rangeOnly = output.goal_direction === "target";
@@ -637,7 +649,7 @@ export function ProjectHub({
 
       <section className="project-history-section">
         <div className="panel-title"><h3>候補と判断履歴</h3><span>現在値と固定した予測を分けて表示</span></div>
-        {!history ? <p className="empty-evidence">履歴を読み込んでいます。</p> : !history.candidates.length ? <div className="project-empty-state"><p>{supportsLineageCandidate ? "候補はまだありません。過去データから条件を探すと、由来付き候補としてここに残ります。" : "候補はまだありません。基準候補を用意し、入力範囲から検討を始めます。"}</p><button className="primary-button" onClick={() => onNavigate(supportsLineageCandidate ? "lineage" : "explore")}>{supportsLineageCandidate ? "過去データから探す" : "条件範囲から始める"}</button></div> : <div className="project-history-list">
+        {!history ? <p className="empty-evidence">履歴を読み込んでいます。</p> : !history.candidates.length ? <div className="project-empty-state"><p>{supportsLineageCandidate ? "候補はまだありません。上の「次の作業」から過去データを探すと、由来付き候補としてここに残ります。" : "候補はまだありません。上の「次の作業」から基準候補を用意し、検討を始めます。"}</p></div> : <div className="project-history-list">
           {history.candidates.map((item) => {
             const preview = currentPreviews[item.candidate.id];
             return <article className="project-history-card" key={item.candidate.id}>
@@ -650,7 +662,7 @@ export function ProjectHub({
                 {item.actuals.filter((actual) => actual.snapshot_id === snapshot.id).map((actual) => { const definition = outputDefinition(actual.property); const assessment = assessOutputValues(definition, [actual.mean], "実測値"); const key = definition?.key ?? actual.property; return <span className={`history-actual${assessment.implausible ? " implausible-output" : ""}`} title={assessment.warning ?? undefined} key={actual.id}>実測 {definition?.label ?? outputLabels.get(actual.property) ?? actual.property} {formatOutputNumber(key, actual.mean)} ± {formatOutputNumber(key, actual.std)} {definition?.unit ?? actual.unit}{actual.experiment_no ? ` / ${actual.experiment_no}` : ""}{assessment.implausible && <small className="output-warning-badge">⚠ 物理範囲外</small>}</span>; })}
                 {item.decision?.snapshot_id === snapshot.id && <span className="decision-note-inline">判断理由: {item.decision.note}</span>}
                 <button className="outline-button" onClick={() => void openSnapshot(snapshot.id)}>詳細</button><CandidateAddButton compact onClick={() => void restoreSnapshot(snapshot.id)}>新しい候補として複製</CandidateAddButton>
-              </div>)}</div> : <div className="project-empty-inline"><span>固定した予測はありません。候補比較で詳細予測を保存すると判断時点が残ります。</span><button className="outline-button" onClick={() => onNavigate("candidates", item.candidate.id)}>候補比較へ</button></div>}
+              </div>)}</div> : <div className="project-empty-inline"><span>固定した予測はありません。上の「現在の候補を見る」から詳細予測を保存すると判断時点が残ります。</span></div>}
             </article>;
           })}
         </div>}

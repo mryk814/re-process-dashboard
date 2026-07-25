@@ -244,6 +244,7 @@ function App() {
             }}
             requestedSnapshotId={navigation.snapshotId}
             requestedDatasetViewId={requestedDatasetViewId}
+            requestedSettingsSection={navigation.projectSettings}
             onCreationIntentConsumed={() => setRequestedDatasetViewId(undefined)}
           />
         )}
@@ -291,6 +292,13 @@ function App() {
               void session.refreshAdminProject(project);
             }}
             onOpenProfileWorkbench={() => navigate({ view: "profile-workbench" })}
+            onOpenQualityIssues={(filters) => navigate({
+              view: "quality",
+              projectId: activeProjectId,
+              qualityType: filters.type,
+              qualitySheet: filters.sheet,
+              qualityKey: filters.key,
+            })}
           />
         )}
         {tab === "candidates" &&
@@ -344,6 +352,16 @@ function App() {
               onProjectChanged={(project) => {
                 void session.refreshAdminProject(project);
               }}
+              onConfigureGoals={() => navigate({
+                view: "project",
+                projectId: activeProjectId,
+                projectSettings: "targets",
+              })}
+              onConfigureSupport={() => navigate({
+                view: "settings",
+                projectId: activeProjectId,
+                adminSection: "ranges",
+              })}
             />
           ) : (
             <WorkbenchEmptyState

@@ -37,7 +37,7 @@
 
 .screening-target {
   display: grid;
-  grid-template-columns: repeat(4, minmax(140px, 220px));
+  grid-template-columns: minmax(0, 1.35fr) repeat(3, minmax(120px, .85fr));
   gap: 10px;
 }
 
@@ -45,12 +45,13 @@
   display: grid;
   align-content: start;
   gap: 6px;
-  min-width: 240px;
+  min-width: 0;
 }
 
 .screening-base-candidate label {
   display: grid;
   gap: 4px;
+  min-width: 0;
 }
 
 .screening-target label {
@@ -437,14 +438,66 @@
   color: #6c7888;
 }
 
-.screen-map circle {
-  cursor: pointer;
-  transition: r 120ms ease, opacity 120ms ease;
+.screening-selection-summary {
+  display: flex;
+  flex: 1 1 420px;
+  gap: 6px;
+  margin: 0;
 }
 
-.screen-map circle.selected {
-  filter: drop-shadow(0 0 3px rgb(24 89 174 / 55%));
+.screening-selection-summary > div {
+  display: grid;
+  min-width: 112px;
+  border-right: 1px solid #d8e2ee;
+  padding: 0 10px 0 0;
+}
+
+.screening-selection-summary dt {
+  color: #65758a;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.screening-selection-summary dd {
+  margin: 0;
+  color: #183f72;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.screening-selection-summary small {
+  color: #758398;
+  font-size: 9px;
+}
+
+.screening-action-bar .screening-capacity-warning {
+  flex-basis: 100%;
+  color: #9a5a00;
+}
+
+.screen-map-point > circle:not(.screen-map-selection-ring) {
+  cursor: pointer;
+  transition: opacity 120ms ease;
+}
+
+.screen-map-point > circle.selected {
   opacity: 1;
+}
+
+.screen-map-selection-ring {
+  fill: none;
+  stroke: #174f9d;
+  stroke-width: 2;
+  stroke-dasharray: 3 2;
+  pointer-events: none;
+}
+
+.selection-key {
+  width: 16px;
+  height: 16px;
+  border: 2px dashed #174f9d;
+  border-radius: 50%;
 }
 
 .screening-point-detail {
@@ -638,6 +691,28 @@
   }
   .screening-results-heading { align-items: flex-start; flex-direction: column; }
   .screening-result-context { justify-content: flex-start; }
+}
+
+@media (max-width: 1024px) {
+  .screening-target {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .screening-selection-summary {
+    flex-basis: 100%;
+  }
+}
+
+@media (max-width: 760px) {
+  .screening-target {
+    grid-template-columns: 1fr;
+  }
+  .screening-selection-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .screening-selection-summary > div {
+    min-width: 0;
+  }
 }
 
 .explore-page .project-empty-state { display: flex; justify-content: space-between; align-items: center; gap: 16px; color: #617087; }
