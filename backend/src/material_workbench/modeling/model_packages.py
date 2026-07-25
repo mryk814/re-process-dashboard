@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import tempfile
 import math
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,6 +20,9 @@ if TYPE_CHECKING:
 
 
 MAX_ARTIFACT_BYTES = 256 * 1024 * 1024
+MAX_PACKAGE_BYTES = 512 * 1024 * 1024
+MAX_PACKAGE_ARTIFACTS = 4096
+SNAPSHOT_CHUNK_BYTES = 1024 * 1024
 PACKAGE_SCHEMA_VERSION = "model-package/v1"
 RUNTIME_TYPES = {
     "builtin.linear.v1",
@@ -415,20 +419,14 @@ class Adapter(Protocol):
     def load(self, package: "VerifiedModelPackage", predictor: PredictorSpec) -> LoadedPredictor: ...
 
 
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
 @dataclass(frozen=True)
 class VerifiedModelPackage:
     root: Path
     manifest: ModelPackageManifest
     artifacts: dict[str, Path]
     registry: "AdapterRegistry"
+    _manifest_sha256: str
+    _snapshot: Any
 
     def artifact_path(self, relative_path: str) -> Path:
         try:
@@ -444,7 +442,7 @@ class VerifiedModelPackage:
 
     @property
     def manifest_sha256(self) -> str:
-        return _sha256(self.root / "manifest.json")
+        return self._manifest_sha256
 
 
 class AdapterRegistry:
@@ -476,9 +474,16 @@ class AdapterRegistry:
 
 
 class ModelPackageLoader:
-    def __init__(self, registry: AdapterRegistry | None = None, *, max_artifact_bytes: int = MAX_ARTIFACT_BYTES) -> None:
+    def __init__(
+        self,
+        registry: AdapterRegistry | None = None,
+        *,
+        max_artifact_bytes: int = MAX_ARTIFACT_BYTES,
+        max_package_bytes: int = MAX_PACKAGE_BYTES,
+    ) -> None:
         self.registry = registry or AdapterRegistry()
         self.max_artifact_bytes = max_artifact_bytes
+        self.max_package_bytes = max_package_bytes
 
     def load(self, package_root: str | Path) -> VerifiedModelPackage:
         try:
@@ -489,43 +494,97 @@ class ModelPackageLoader:
             raise PackageContractError("model package root must be a directory")
         manifest_path = root / "manifest.json"
         try:
-            raw_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest_bytes = manifest_path.read_bytes()
+            raw_manifest = json.loads(manifest_bytes.decode("utf-8"))
             manifest = ModelPackageManifest.model_validate(raw_manifest)
-        except (OSError, json.JSONDecodeError, ValueError) as exc:
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
             raise PackageContractError(f"invalid model package manifest: {exc}") from exc
+        manifest_sha256 = hashlib.sha256(manifest_bytes).hexdigest()
+        if len(manifest.artifacts) > MAX_PACKAGE_ARTIFACTS:
+            raise PackageContractError(
+                f"model package has too many artifacts: {len(manifest.artifacts)}"
+            )
+        declared_package_bytes = sum(spec.bytes for spec in manifest.artifacts)
+        if declared_package_bytes > self.max_package_bytes:
+            raise PackageContractError(
+                f"model package artifacts exceed aggregate byte limit: {declared_package_bytes}"
+            )
+        snapshot = tempfile.TemporaryDirectory(prefix="material-workbench-package-")
+        snapshot_root = Path(snapshot.name)
         artifacts: dict[str, Path] = {}
-        for spec in manifest.artifacts:
-            try:
-                candidate = (root / spec.path).resolve(strict=True)
-            except OSError as exc:
-                raise PackageContractError(f"artifact cannot be resolved: {spec.path}") from exc
-            if root not in candidate.parents:
-                raise PackageContractError(f"artifact escapes package root: {spec.path}")
-            if not candidate.is_file():
-                raise PackageContractError(f"artifact is not a regular file: {spec.path}")
-            actual_size = candidate.stat().st_size
-            if actual_size != spec.bytes or actual_size > self.max_artifact_bytes:
-                raise PackageContractError(f"artifact size mismatch: {spec.path}")
-            if _sha256(candidate) != spec.sha256:
-                raise PackageContractError(f"artifact hash mismatch: {spec.path}")
-            artifacts[spec.path] = candidate
+        snapshot_bytes = 0
         try:
-            raw_pipeline = json.loads(artifacts[manifest.feature_pipeline.spec].read_text(encoding="utf-8"))
+            for spec in manifest.artifacts:
+                try:
+                    candidate = (root / spec.path).resolve(strict=True)
+                except OSError as exc:
+                    raise PackageContractError(f"artifact cannot be resolved: {spec.path}") from exc
+                if root not in candidate.parents:
+                    raise PackageContractError(f"artifact escapes package root: {spec.path}")
+                if not candidate.is_file():
+                    raise PackageContractError(f"artifact is not a regular file: {spec.path}")
+                if spec.bytes > self.max_artifact_bytes:
+                    raise PackageContractError(f"artifact size mismatch: {spec.path}")
+                snapshot_path = snapshot_root / spec.path
+                snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+                digest = hashlib.sha256()
+                artifact_bytes = 0
+                try:
+                    with candidate.open("rb") as source, snapshot_path.open("xb") as target:
+                        for chunk in iter(lambda: source.read(SNAPSHOT_CHUNK_BYTES), b""):
+                            artifact_bytes += len(chunk)
+                            snapshot_bytes += len(chunk)
+                            if (
+                                artifact_bytes > self.max_artifact_bytes
+                                or snapshot_bytes > self.max_package_bytes
+                            ):
+                                raise PackageContractError(
+                                    f"model package artifact byte limit exceeded: {spec.path}"
+                                )
+                            digest.update(chunk)
+                            target.write(chunk)
+                except OSError as exc:
+                    raise PackageContractError(
+                        f"artifact snapshot I/O failed: {spec.path}: {exc}"
+                    ) from exc
+                if artifact_bytes != spec.bytes:
+                    raise PackageContractError(f"artifact size mismatch: {spec.path}")
+                if digest.hexdigest() != spec.sha256:
+                    raise PackageContractError(f"artifact hash mismatch: {spec.path}")
+                artifacts[spec.path] = snapshot_path
+        except PackageContractError:
+            snapshot.cleanup()
+            raise
+        try:
+            raw_pipeline = json.loads(
+                artifacts[manifest.feature_pipeline.spec].read_text(encoding="utf-8")
+            )
             pipeline = FeaturePipelineDocument.model_validate(raw_pipeline)
         except (OSError, json.JSONDecodeError, ValueError) as exc:
+            snapshot.cleanup()
             raise PackageContractError(f"invalid feature pipeline specification: {exc}") from exc
         if (pipeline.id, pipeline.version) != (
             manifest.feature_pipeline.id,
             manifest.feature_pipeline.version,
         ):
+            snapshot.cleanup()
             raise PackageContractError("feature pipeline id/version differs between manifest and specification")
         if pipeline.canonical_input_paths != manifest.feature_pipeline.canonical_input_paths:
+            snapshot.cleanup()
             raise PackageContractError(
                 "canonical input paths differ between model package manifest and pipeline specification"
             )
         pipeline_outputs = tuple(feature.name for feature in pipeline.features)
         if pipeline_outputs != manifest.feature_pipeline.output_features:
+            snapshot.cleanup()
             raise PackageContractError(
                 "pipeline output feature order differs from model package manifest output_features"
             )
-        return VerifiedModelPackage(root=root, manifest=manifest, artifacts=artifacts, registry=self.registry)
+        return VerifiedModelPackage(
+            root=root,
+            manifest=manifest,
+            artifacts=artifacts,
+            registry=self.registry,
+            _manifest_sha256=manifest_sha256,
+            _snapshot=snapshot,
+        )

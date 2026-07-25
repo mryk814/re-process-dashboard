@@ -1,6 +1,7 @@
 """Resolve a Project's immutable data/profile/package references into a runtime."""
 from __future__ import annotations
 
+from collections import OrderedDict
 from dataclasses import dataclass
 import hashlib
 from pathlib import Path
@@ -8,7 +9,12 @@ from threading import RLock
 from typing import Any
 
 from material_workbench.data.dataset_profile import DatasetInputProfile, load_task_definitions, validate_profile
-from material_workbench.modeling.model_packages import ModelPackageLoader, PackageContractError
+from material_workbench.execution.inference_work_graph import semantic_digest
+from material_workbench.modeling.model_packages import (
+    ModelPackageLoader,
+    PackageContractError,
+    VerifiedModelPackage,
+)
 from material_workbench.contracts.schemas import Project
 from material_workbench.task_modules import PredictionRuntime
 from material_workbench.tasks.task_registry import DataExplorerEntry, TaskRegistry, TaskRegistryError
@@ -25,19 +31,40 @@ class ProjectRuntimeResolutionError(RuntimeError):
 
 
 @dataclass(frozen=True)
+class ProjectRuntimeIdentity:
+    task_id: str
+    runtime_type: str
+    package_manifest_digest: str
+    package_digest: str
+    pipeline_digest: str
+    support_digest: str
+
+
+@dataclass(frozen=True)
 class ResolvedProjectRuntime:
     # The prediction runtime is built against the package's declared training
     # dataset so model support never drifts with the Project reference data.
     runtime: PredictionRuntime
     context_runtime: PredictionRuntime
     data_explorer: DataExplorerEntry | None
+    identity: ProjectRuntimeIdentity
 
 
 class ProjectRuntimeResolver:
-    def __init__(self, catalog: WorkspaceCatalog, registry: TaskRegistry) -> None:
+    def __init__(
+        self,
+        catalog: WorkspaceCatalog,
+        registry: TaskRegistry,
+        *,
+        max_cache_entries: int = 32,
+    ) -> None:
+        if max_cache_entries < 1:
+            raise ValueError("max_cache_entries must be positive")
         self.catalog = catalog
         self.registry = registry
-        self._cache: dict[tuple[str, str, str], ResolvedProjectRuntime] = {}
+        self.max_cache_entries = max_cache_entries
+        self._cache: OrderedDict[tuple[str, str, str, str, str], ResolvedProjectRuntime] = OrderedDict()
+        self._package_cache: OrderedDict[tuple[str, str], VerifiedModelPackage] = OrderedDict()
         self._lock = RLock()
 
     def resolve(self, project: Project) -> ResolvedProjectRuntime:
@@ -45,16 +72,22 @@ class ProjectRuntimeResolver:
         if not project.dataset_view_revision_id or not project.model_package_ref_id:
             raise ProjectRuntimeResolutionError("プロジェクトのData Library参照が固定されていません")
         key = (
+            project.task_id,
             project.dataset_view_revision_id,
             project.task_contract_digest,
+            project.model_package_ref_id,
             project.model_package_manifest_digest,
         )
         with self._lock:
             cached = self._cache.get(key)
             if cached is not None:
+                self._cache.move_to_end(key)
                 return cached
             resolved = self._build(project)
             self._cache[key] = resolved
+            self._cache.move_to_end(key)
+            while len(self._cache) > self.max_cache_entries:
+                self._cache.popitem(last=False)
             return resolved
 
     def runtime_for(self, project: Project) -> PredictionRuntime:
@@ -98,10 +131,17 @@ class ProjectRuntimeResolver:
             or package_ref.manifest_digest != project.model_package_manifest_digest
         ):
             raise ProjectRuntimeResolutionError("Model Package参照とプロジェクトの固定値が一致しません")
-        try:
-            package = ModelPackageLoader().load(package_ref.locator)
-        except PackageContractError as exc:
-            raise ProjectRuntimeResolutionError(f"Model Packageを検証できません: {exc}") from exc
+        package_key = (package_ref.id, package_ref.manifest_digest)
+        package = self._package_cache.get(package_key)
+        if package is None:
+            try:
+                package = ModelPackageLoader().load(package_ref.locator)
+            except PackageContractError as exc:
+                raise ProjectRuntimeResolutionError(f"Model Packageを検証できません: {exc}") from exc
+            self._package_cache[package_key] = package
+        self._package_cache.move_to_end(package_key)
+        while len(self._package_cache) > self.max_cache_entries:
+            self._package_cache.popitem(last=False)
         if package.manifest_sha256 != package_ref.manifest_digest:
             raise ProjectRuntimeResolutionError("Model Package manifestが登録時から変わっています")
 
@@ -140,12 +180,12 @@ class ProjectRuntimeResolver:
                 training_data = context_data
             else:
                 training_data = module.data_loader(training_path, training_profile)
-            runtime = module.runtime_factory(training_data, Path(package_ref.locator))
+            runtime = module.runtime_factory(training_data, package)
             self.registry.validate_application_runtime(project.task_id, runtime)
             context_runtime = (
                 runtime
                 if context_data is training_data
-                else module.runtime_factory(context_data, Path(package_ref.locator))
+                else module.runtime_factory(context_data, package)
             )
             self.registry.validate_application_runtime(project.task_id, context_runtime)
         except (TaskRegistryError, ValueError, OSError) as exc:
@@ -155,10 +195,25 @@ class ProjectRuntimeResolver:
             if module.data_explorer is not None
             else None
         )
+        pipeline_digest = self.registry._pipeline_digest(package)
+        identity = ProjectRuntimeIdentity(
+            task_id=project.task_id,
+            runtime_type="+".join(sorted({item.runtime_type for item in package.manifest.predictors})),
+            package_manifest_digest=project.model_package_manifest_digest.removeprefix("sha256:"),
+            package_digest=f"sha256:{project.model_package_manifest_digest.removeprefix('sha256:')}",
+            pipeline_digest=pipeline_digest,
+            support_digest=semantic_digest({
+                "dataset_view_revision_id": project.dataset_view_revision_id,
+                "source_sha256": runtime.data.source_sha256,
+                "pipeline_digest": pipeline_digest,
+                "policy_id": runtime.support_policy_id,
+            }),
+        )
         return ResolvedProjectRuntime(
             runtime=runtime,
             context_runtime=context_runtime,
             data_explorer=explorer,
+            identity=identity,
         )
 
     def _dataset_resources(

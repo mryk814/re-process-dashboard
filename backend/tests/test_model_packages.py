@@ -80,6 +80,28 @@ def _write_package(tmp_path: Path, *, family: str = "student_t", target_kind: st
     return root
 
 
+def test_verified_package_consumes_an_immutable_artifact_snapshot(tmp_path: Path) -> None:
+    root = _write_package(tmp_path)
+    package = ModelPackageLoader().load(root)
+    relative = "model-artifacts/posterior.npz"
+    verified_bytes = package.artifact_path(relative).read_bytes()
+    manifest_digest = package.manifest_sha256
+
+    (root / relative).write_bytes(b"replacement artifact")
+    (root / "manifest.json").write_text("{}", encoding="utf-8")
+
+    assert package.artifact_path(relative).read_bytes() == verified_bytes
+    assert package.manifest_sha256 == manifest_digest
+    assert package.load_predictor("target").predict({"C": 0.1, "Mn": 1.4}, seed=19)
+
+
+def test_model_package_rejects_an_excessive_aggregate_artifact_size(tmp_path: Path) -> None:
+    root = _write_package(tmp_path)
+
+    with pytest.raises(PackageContractError, match="aggregate byte limit"):
+        ModelPackageLoader(max_package_bytes=1).load(root)
+
+
 @pytest.mark.parametrize(
     ("family", "target_kind", "output_width"),
     [

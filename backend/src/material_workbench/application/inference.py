@@ -6,7 +6,7 @@ from typing import Any, Mapping
 from .candidates import CandidateService
 from .projects import ProjectService
 from material_workbench.domain.goal_targets import serialize_target_values
-from material_workbench.execution.inference_work_graph import InferenceKey, InferenceWorkGraph, semantic_digest
+from material_workbench.execution.inference_work_graph import InferenceKey, InferenceWorkGraph
 from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
 from material_workbench.contracts.schemas import Candidate, Project
 from material_workbench.persistence.store import Store
@@ -175,24 +175,16 @@ class InferenceService:
             raise InferenceValidationError(str(exc)) from exc
 
     def key(self, project: Project, candidate: Candidate, operation: str, *, parameters: Mapping[str, Any] | None = None, uses_package: bool = False, uses_support: bool = False) -> InferenceKey:
-        runtime = self.resolver.runtime_for(project)
-        package = runtime.model_package
-        if package is None:
-            raise InferenceValidationError("Model Packageが解決されていません")
-        pipeline_digest = self.registry._pipeline_digest(package)
+        resolved = self.resolver.resolve(project)
+        identity = resolved.identity
         canonical = self.registry.validate_candidate(project.task_id, candidate).model_dump(mode="json", exclude={"provenance"})
         return InferenceKey.build(
-            task_id=project.task_id,
-            runtime_type="+".join(sorted({item.runtime_type for item in package.manifest.predictors})),
+            task_id=identity.task_id,
+            runtime_type=identity.runtime_type,
             canonical_input=canonical,
-            package_digest=f"sha256:{package.manifest_sha256}" if uses_package else "",
-            pipeline_digest=pipeline_digest,
-            support_digest=semantic_digest({
-                "dataset_view_revision_id": project.dataset_view_revision_id,
-                "source_sha256": runtime.data.source_sha256,
-                "pipeline_digest": pipeline_digest,
-                "policy_id": runtime.support_policy_id,
-            }) if uses_support else None,
+            package_digest=identity.package_digest if uses_package else "",
+            pipeline_digest=identity.pipeline_digest,
+            support_digest=identity.support_digest if uses_support else None,
             operation=operation,
             operation_parameters=parameters,
         )

@@ -777,11 +777,19 @@ def load_tabular_data(
 class TabularRegressionRuntime:
     support_policy_id = "tabular-row-knn-v1"
 
-    def __init__(self, data: TabularData, package_root: str | Path) -> None:
+    def __init__(
+        self,
+        data: TabularData,
+        package_root: str | Path | VerifiedModelPackage,
+    ) -> None:
         self.data = data
         self.profile = data.profile
         self.task_id = data.profile.task_id
-        self.model_package: VerifiedModelPackage = ModelPackageLoader().load(package_root)
+        self.model_package = (
+            package_root
+            if isinstance(package_root, VerifiedModelPackage)
+            else ModelPackageLoader().load(package_root)
+        )
         manifest = self.model_package.manifest
         definition = load_task_definitions()[self.task_id]
         validate_task_definition_canonical_inputs(definition, manifest)
