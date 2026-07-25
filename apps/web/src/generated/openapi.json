@@ -2449,6 +2449,56 @@
         "title": "DurationDiagnostic",
         "type": "object"
       },
+      "FamilyTrainingSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "excluded_input_rows": {
+            "title": "Excluded Input Rows",
+            "type": "integer"
+          },
+          "exclusion_reasons": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Exclusion Reasons",
+            "type": "object"
+          },
+          "family": {
+            "title": "Family",
+            "type": "string"
+          },
+          "source_rows": {
+            "title": "Source Rows",
+            "type": "integer"
+          },
+          "split_groups": {
+            "title": "Split Groups",
+            "type": "integer"
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/TargetTrainingSummary"
+            },
+            "title": "Targets",
+            "type": "array"
+          },
+          "usable_input_rows": {
+            "title": "Usable Input Rows",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "family",
+          "source_rows",
+          "usable_input_rows",
+          "excluded_input_rows",
+          "split_groups",
+          "exclusion_reasons",
+          "targets"
+        ],
+        "title": "FamilyTrainingSummary",
+        "type": "object"
+      },
       "FeaturePipelineIdentity": {
         "additionalProperties": true,
         "properties": {
@@ -4184,6 +4234,294 @@
           "observations"
         ],
         "title": "ObservationGroup",
+        "type": "object"
+      },
+      "ObservationRowProvenance": {
+        "additionalProperties": false,
+        "properties": {
+          "entity_keys": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Entity Keys",
+            "type": "object"
+          },
+          "relation_rows": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Relation Rows",
+            "type": "array"
+          },
+          "relation_sheet": {
+            "title": "Relation Sheet",
+            "type": "string"
+          },
+          "source_row": {
+            "title": "Source Row",
+            "type": "integer"
+          },
+          "source_sheet": {
+            "title": "Source Sheet",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_sheet",
+          "source_row",
+          "relation_sheet",
+          "relation_rows",
+          "entity_keys"
+        ],
+        "title": "ObservationRowProvenance",
+        "type": "object"
+      },
+      "ObservationTrainingInspectionPage": {
+        "additionalProperties": false,
+        "properties": {
+          "exclusion_reasons": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Exclusion Reasons",
+            "type": "object"
+          },
+          "family": {
+            "title": "Family",
+            "type": "string"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "profile_digest": {
+            "title": "Profile Digest",
+            "type": "string"
+          },
+          "profile_id": {
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/ObservationTrainingRow"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "source_rows": {
+            "title": "Source Rows",
+            "type": "integer"
+          },
+          "source_sha256": {
+            "title": "Source Sha256",
+            "type": "string"
+          },
+          "split_groups": {
+            "title": "Split Groups",
+            "type": "integer"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "usable_rows": {
+            "title": "Usable Rows",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "profile_id",
+          "profile_digest",
+          "source_sha256",
+          "family",
+          "target",
+          "source_rows",
+          "usable_rows",
+          "split_groups",
+          "exclusion_reasons",
+          "offset",
+          "limit",
+          "rows"
+        ],
+        "title": "ObservationTrainingInspectionPage",
+        "type": "object"
+      },
+      "ObservationTrainingProfileSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "families": {
+            "items": {
+              "$ref": "#/components/schemas/FamilyTrainingSummary"
+            },
+            "title": "Families",
+            "type": "array"
+          },
+          "profile_digest": {
+            "title": "Profile Digest",
+            "type": "string"
+          },
+          "profile_id": {
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "source_filename": {
+            "title": "Source Filename",
+            "type": "string"
+          },
+          "source_sha256": {
+            "title": "Source Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profile_id",
+          "profile_digest",
+          "source_filename",
+          "source_sha256",
+          "families"
+        ],
+        "title": "ObservationTrainingProfileSummary",
+        "type": "object"
+      },
+      "ObservationTrainingRow": {
+        "additionalProperties": false,
+        "properties": {
+          "eligible": {
+            "title": "Eligible",
+            "type": "boolean"
+          },
+          "exclusion_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Exclusion Reasons",
+            "type": "array"
+          },
+          "family": {
+            "title": "Family",
+            "type": "string"
+          },
+          "fixed_context": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Fixed Context",
+            "type": "object"
+          },
+          "inputs": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Inputs",
+            "type": "object"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Metadata",
+            "type": "object"
+          },
+          "observation_id": {
+            "title": "Observation Id",
+            "type": "string"
+          },
+          "outputs": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Outputs",
+            "type": "object"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/ObservationRowProvenance"
+          },
+          "split_group_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Split Group Key"
+          },
+          "target_status": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/TargetCurationState"
+            },
+            "title": "Target Status",
+            "type": "object"
+          }
+        },
+        "required": [
+          "family",
+          "observation_id",
+          "split_group_key",
+          "inputs",
+          "outputs",
+          "metadata",
+          "fixed_context",
+          "eligible",
+          "exclusion_reasons",
+          "target_status",
+          "provenance"
+        ],
+        "title": "ObservationTrainingRow",
         "type": "object"
       },
       "OperationDiagnostic": {
@@ -7780,6 +8118,28 @@
         "title": "Support",
         "type": "object"
       },
+      "TargetCurationState": {
+        "additionalProperties": false,
+        "properties": {
+          "reasons": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "usable": {
+            "title": "Usable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "usable"
+        ],
+        "title": "TargetCurationState",
+        "type": "object"
+      },
       "TargetRange": {
         "properties": {
           "lower": {
@@ -7874,6 +8234,38 @@
           "goal_probability"
         ],
         "title": "TargetRuntimeCapability",
+        "type": "object"
+      },
+      "TargetTrainingSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "exclusion_reasons": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Exclusion Reasons",
+            "type": "object"
+          },
+          "split_groups": {
+            "title": "Split Groups",
+            "type": "integer"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "usable_rows": {
+            "title": "Usable Rows",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "target",
+          "usable_rows",
+          "split_groups",
+          "exclusion_reasons"
+        ],
+        "title": "TargetTrainingSummary",
         "type": "object"
       },
       "TaskAvailability": {
@@ -8538,6 +8930,144 @@
           }
         },
         "summary": "Get Diagnostics",
+        "tags": [
+          "developer"
+        ]
+      }
+    },
+    "/api/developer/observation-training-data": {
+      "get": {
+        "operationId": "get_observation_training_data_api_developer_observation_training_data_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "profile_id",
+            "required": true,
+            "schema": {
+              "title": "Profile Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "family",
+            "required": true,
+            "schema": {
+              "title": "Family",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target",
+            "required": true,
+            "schema": {
+              "title": "Target",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObservationTrainingInspectionPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Observation Profile Unavailable"
+          }
+        },
+        "summary": "Get Observation Training Data",
+        "tags": [
+          "developer"
+        ]
+      }
+    },
+    "/api/developer/observation-training-profiles": {
+      "get": {
+        "operationId": "get_observation_training_profiles_api_developer_observation_training_profiles_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ObservationTrainingProfileSummary"
+                  },
+                  "title": "Response Get Observation Training Profiles Api Developer Observation Training Profiles Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Observation Profile Unavailable"
+          }
+        },
+        "summary": "Get Observation Training Profiles",
         "tags": [
           "developer"
         ]

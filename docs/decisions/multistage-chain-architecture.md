@@ -379,4 +379,5 @@ design-system.md は「候補比較表では候補名を左側に固定し、入
 
 方針の検証に使える合成データを `data/source/welding_consumable_multistage_synthetic_dataset.xlsx` として同梱する。
 生成手順、シート構成、埋め込んだ物理的な関係は [合成データの説明](../welding-consumable-sample-dataset.md) を参照する。
-本番タスク、Dataset Input Profile、Model Packageはまだ接続していない。データだけが先に存在する状態である。
+観測family別のDataset Profile契約と再生成可能な正規化artifactはIssue #156で接続した。
+本番TaskとModel Packageはまだ接続しておらず、Issue #157でStage Cのsingle-task Projectへ結ぶ。

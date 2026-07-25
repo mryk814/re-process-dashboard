@@ -45,6 +45,8 @@ export type ApiDeveloperOverview = components["schemas"]["DeveloperOverview"];
 export type ApiRuntimeDiagnostics = components["schemas"]["RuntimeDiagnosticsReport"];
 export type ApiDeveloperCommand = components["schemas"]["DeveloperCommand"];
 export type ApiChangeGuideEntry = components["schemas"]["ChangeGuideEntry"];
+export type ApiObservationTrainingProfile = components["schemas"]["ObservationTrainingProfileSummary"];
+export type ApiObservationTrainingPage = components["schemas"]["ObservationTrainingInspectionPage"];
 export type ApiDecisionActivityAvailability = components["schemas"]["DecisionActivityAvailability"];
 export type ApiDecisionActivityRun = components["schemas"]["DecisionActivityRun"];
 export type ApiDecisionActivityRunRequest = components["schemas"]["DecisionActivityRunRequest"];
@@ -61,6 +63,15 @@ export const workbenchApi = {
   },
   async developerChangeGuide() {
     return requireData(await apiClient.GET("/api/developer/change-guide"), "変更判断ガイドを取得できませんでした。");
+  },
+  async developerObservationTrainingProfiles() {
+    return requireData(await apiClient.GET("/api/developer/observation-training-profiles"), "観測Profileを取得できませんでした。");
+  },
+  async developerObservationTrainingData(profileId: string, family: string, target: string, offset = 0, limit = 25, signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/developer/observation-training-data", {
+      params: { query: { profile_id: profileId, family, target, offset, limit } },
+      signal,
+    }), "観測学習データを取得できませんでした。");
   },
   async listProjects() {
     return requireData(await apiClient.GET("/api/projects"), "プロジェクトを取得できませんでした。");
