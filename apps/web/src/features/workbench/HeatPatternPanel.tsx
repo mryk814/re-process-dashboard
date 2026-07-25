@@ -34,8 +34,8 @@ export function HeatPattern({
   onDelete: (index: number) => void;
 }) {
   const width = 440;
-  const height = 210;
-  const pad = { x: 42, y: 18 };
+  const height = 228;
+  const pad = { left: 48, right: 28, top: 18, bottom: 42 };
   const times = candidates.flatMap((item) => item.heat.map((point) => point.time));
   const rawMinTime = Math.min(...times);
   const rawMaxTime = Math.max(...times);
@@ -49,13 +49,15 @@ export function HeatPattern({
     ),
   );
   const x = (time: number) =>
-    pad.x + ((time - minTime) / Math.max(0.001, maxTime - minTime)) * (width - pad.x - 18);
+    pad.left + ((time - minTime) / Math.max(0.001, maxTime - minTime)) * (width - pad.left - pad.right);
   const y = (temp: number) =>
-    height - 31 - (temp / maxTemp) * (height - pad.y - 31);
+    height - pad.bottom - (temp / maxTemp) * (height - pad.top - pad.bottom);
   const points = candidate.heat
     .map((point) => `${x(point.time)},${y(point.temperature)}`)
     .join(" ");
   const timeTicks = [minTime, (minTime + maxTime) / 2, maxTime];
+  const timeSpan = maxTime - minTime;
+  const timeTickDigits = timeSpan >= 100 ? 0 : timeSpan >= 10 ? 1 : 2;
   const [hoveredHeatPoint, setHoveredHeatPoint] = useState<{ x: number; y: number; lines: string[] } | null>(null);
   const dragPoint = (event: PointerEvent<SVGCircleElement>, index: number) => {
     const svg = event.currentTarget.ownerSVGElement;
@@ -67,9 +69,9 @@ export function HeatPattern({
         Math.min(
           maxTemp,
           ((height -
-            31 -
+            pad.bottom -
             ((event.clientY - bounds.top) / bounds.height) * height) /
-            (height - pad.y - 31)) *
+            (height - pad.top - pad.bottom)) *
             maxTemp,
         ),
       ),
@@ -118,19 +120,23 @@ export function HeatPattern({
         aria-label="候補を重ねたヒートパターン。選択候補の温度点をドラッグして編集できます。"
       >
         <g className="grid-lines">
-          {[0, 200, 400, 600, 800, 1000].map((value) => (
+          {[0, .25, .5, .75, 1].map((ratio) => Math.round(maxTemp * ratio / 50) * 50).map((value) => (
             <g key={value}>
-              <line x1={pad.x} x2={width - 18} y1={y(value)} y2={y(value)} />
-              <text x="3" y={y(value) + 4}>
+              <line x1={pad.left} x2={width - pad.right} y1={y(value)} y2={y(value)} />
+              <text x={pad.left - 6} y={y(value) + 4} textAnchor="end">
                 {value}
               </text>
             </g>
           ))}
-          {timeTicks.map((value) => (
+          {timeTicks.map((value, index) => (
             <g key={`time-${value}`}>
-              <line x1={x(value)} x2={x(value)} y1={pad.y} y2={height - 31} />
-              <text x={x(value)} y={height - 18} textAnchor="middle">
-                {number(value, 2)}
+              <line x1={x(value)} x2={x(value)} y1={pad.top} y2={height - pad.bottom} />
+              <text
+                x={x(value)}
+                y={height - 25}
+                textAnchor={index === 0 ? "start" : index === timeTicks.length - 1 ? "end" : "middle"}
+              >
+                {number(value, timeTickDigits)}
               </text>
             </g>
           ))}
@@ -189,16 +195,16 @@ export function HeatPattern({
           />
         ))}
         {hoveredHeatPoint && <SvgChartTooltip {...hoveredHeatPoint} chartWidth={width} chartHeight={height} />}
-        <text className="axis-title" x="3" y="13">
-          温度 (°C)
+        <text className="axis-title" x={pad.left} y="12">
+          温度（°C）
         </text>
         <text
           className="axis-title"
-          x={(pad.x + width - 18) / 2}
-          y={height - 1}
+          x={(pad.left + width - pad.right) / 2}
+          y={height - 5}
           textAnchor="middle"
         >
-          時間 (min)
+          時間（min）
         </text>
       </svg>
       <div className="heat-edit">

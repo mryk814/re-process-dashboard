@@ -156,6 +156,10 @@ function commonGroupUnit(fields: TaskInputGroup["fields"]): string {
   return units.size === 1 ? [...units][0] : "";
 }
 
+function inputGroupDisplayLabel(label: string): string {
+  return label.replace("（安全に単一値へ正規化できた行）", "");
+}
+
 function CandidateInputGroup({ candidate, group, numeric, inputRanges, fieldErrors, onInput }: {
   candidate: CandidateViewModel;
   group: TaskInputGroup;
@@ -166,7 +170,7 @@ function CandidateInputGroup({ candidate, group, numeric, inputRanges, fieldErro
 }) {
   return (
     <section className={`inspector-section task-input-group ${group.key}`} data-input-group={group.key}>
-      <div className="section-heading"><div className="section-heading-label"><h3>{group.label}</h3>{group.fields.some((field) => numeric.get(field.path)?.training_range) && <small className="training-range-legend"><i aria-hidden="true" />緑帯：学習範囲</small>}</div><span>{commonGroupUnit(group.fields)}</span></div>
+      <div className="section-heading"><div className="section-heading-label"><h3>{inputGroupDisplayLabel(group.label)}</h3></div><span>{commonGroupUnit(group.fields)}</span></div>
       <div className={group.key === "composition" ? "composition-fields" : "task-field-grid"}>
         {group.fields.map((field) => {
           const value = getCandidateInputValue(candidate.raw.inputs, field.path);
@@ -236,11 +240,13 @@ export function CandidateInspector({
     : [];
   const ordinaryPaths = groups.filter((group) => group.key !== "heat_pattern").flatMap((group) => group.fields.map((field) => field.path));
   const unplacedErrors = fieldErrors.filter((error) => !ordinaryPaths.some((path) => error.path.endsWith(path)));
+  const hasTrainingRanges = [...numeric.values()].some((field) => field.training_range);
   return (
     <aside className={className} aria-label="選択候補の入力">
       <div className="inspector-heading">
-        <span className="overline">選択候補</span>
-        <h2>選択候補の入力</h2>
+        <span className="overline">選択候補の入力</span>
+        <h2>{candidate.label}</h2>
+        {hasTrainingRanges && <small className="training-range-legend"><i aria-hidden="true" />緑帯：学習範囲</small>}
         <small className={`candidate-save-state ${saveState}`}>{saveLabels[saveState]}</small>
         {saveState === "conflict" && <span className="candidate-conflict-actions"><button type="button" onClick={onReload}>再読込</button><button type="button" onClick={onCopyDraft}>変更をコピー</button></span>}
       </div>

@@ -32,7 +32,6 @@ import { HeatPattern } from "./HeatPatternPanel";
 import {
   CurveFamilyPanel,
   LiveResponseCurves,
-  UnavailablePanel,
   type ResponseCurveRanges,
 } from "./ResponseCurvePanels";
 
@@ -233,9 +232,11 @@ export function WorkbenchPage(props: WorkbenchProps) {
           </div>
           {previewError && <span className="comparison-preview-error" role="alert">{previewError}{operations?.preview && <button type="button" onClick={onRetryPreview}>再試行</button>}</span>}
           <div className="comparison-actions" aria-label="候補操作">
-            <button type="button" className="outline-button" aria-expanded={activityOpen} onClick={() => setActivityOpen((value) => !value)}>検討アクティビティ</button>
-            <CandidateFileControls projectId={projectId} capability={application} onImported={onImported} />
-            <CandidateAddButton onClick={onAdd}>候補を追加</CandidateAddButton>
+            <button type="button" className="comparison-panel-toggle" aria-expanded={activityOpen} onClick={() => setActivityOpen((value) => !value)}>{activityOpen ? "アクティビティを閉じる" : "検討アクティビティ"}</button>
+            <div className="comparison-data-actions">
+              <CandidateFileControls projectId={projectId} capability={application} onImported={onImported} />
+              <CandidateAddButton onClick={onAdd}>候補を追加</CandidateAddButton>
+            </div>
           </div>
         </div>
         <CandidateOrigin
@@ -276,12 +277,19 @@ export function WorkbenchPage(props: WorkbenchProps) {
             ready={["idle", "saved"].includes(saveState)}
           />
         ) : null}
+        {activityOpen && taskDefinition && <DecisionActivityPanel
+          projectId={projectId}
+          candidate={selected}
+          taskDefinition={taskDefinition}
+          ready={["idle", "saved"].includes(saveState)}
+          onClose={() => setActivityOpen(false)}
+        />}
         <div
           ref={lowerPanelsRef}
-          className="workbench-lower-grid"
+          className={`workbench-lower-grid${operations?.response_curve ? "" : " no-response-curves"}`}
           style={{ "--response-curve-share": `${effectiveCurveShare}%` } as CSSProperties}
         >
-          {operations?.response_curve ? (
+          {operations?.response_curve && (
               <LiveResponseCurves
               projectId={projectId}
               project={project}
@@ -296,8 +304,8 @@ export function WorkbenchPage(props: WorkbenchProps) {
               available
               ready={["idle", "saved"].includes(saveState)}
             />
-          ) : <UnavailablePanel title="応答曲線" />}
-          <SplitResizer
+          )}
+          {operations?.response_curve && <SplitResizer
             className="lower-panel-resizer"
             label="応答曲線と近い過去実績の幅を調整"
             value={effectiveCurveShare}
@@ -307,18 +315,11 @@ export function WorkbenchPage(props: WorkbenchProps) {
             onChange={setCurveShare}
             onDrag={(startValue, deltaX) => startValue + (deltaX / Math.max(lowerPanelsRef.current?.clientWidth ?? 1, 1)) * 100}
             onReset={() => setCurveShare(50)}
-          />
-          <SimilarityEvidencePanel projectId={projectId} candidate={selected} outputs={taskDefinition?.outputs ?? []} available={operations?.similarity === true} targetSpecific={operations?.target_specific_similarity === true} ready={["idle", "saved"].includes(saveState)} onAddCandidate={onAddCandidateFromLineage} />
+          />}
+          <SimilarityEvidencePanel projectId={projectId} candidate={selected} outputs={taskDefinition?.outputs ?? []} taskDefinition={taskDefinition} displayDecimalOverrides={project?.display_decimals} available={operations?.similarity === true} targetSpecific={operations?.target_specific_similarity === true} ready={["idle", "saved"].includes(saveState)} onAddCandidate={onAddCandidateFromLineage} />
         </div>
         <FeatureEngineeringPanel preview={preview} />
       </section>
-      {activityOpen && taskDefinition && <DecisionActivityPanel
-        projectId={projectId}
-        candidate={selected}
-        taskDefinition={taskDefinition}
-        ready={["idle", "saved"].includes(saveState)}
-        onClose={() => setActivityOpen(false)}
-      />}
     </div>
   );
 }
