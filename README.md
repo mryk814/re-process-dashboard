@@ -13,9 +13,10 @@ npm run dev
 ```
 
 - Web UI: <http://127.0.0.1:5180>
-- API: <http://127.0.0.1:8765/docs>
+- API docs（dev proxy経由）: <http://127.0.0.1:5180/docs>
 
 停止は起動したターミナルで `Ctrl+C` です。
+既定portが使用中なら、`WORKBENCH_DEV_API_PORT`と`WORKBENCH_DEV_WEB_PORT`で変更できます。
 
 ## デスクトップアプリとして起動
 

@@ -7,7 +7,7 @@
     "apps/desktop"
   ],
   "scripts": {
-    "dev": "concurrently -k -n api,web -c blue,cyan \"uv run python -m uvicorn main:app --app-dir backend/src --host 127.0.0.1 --port 8765 --reload\" \"npm run dev -w apps/web\"",
+    "dev": "node scripts/dev-launcher.mjs",
     "dev:process": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-process-v1.ps1",
     "dev:desktop": "concurrently -k -n web,desktop -c cyan,magenta \"npm run dev -w apps/web\" \"wait-on http://127.0.0.1:5180 && npm run dev -w apps/desktop\"",
     "build": "npm run build -w apps/web && npm run build -w apps/desktop",

@@ -29,7 +29,7 @@ declare global {
 }
 
 const desktopConfig = window.workbenchDesktop;
-const baseUrl = desktopConfig?.apiBaseUrl ?? import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8765";
+const baseUrl = desktopConfig?.apiBaseUrl ?? import.meta.env.VITE_API_URL ?? "";
 export const apiBaseUrl = baseUrl;
 
 const normalizedFetch: typeof fetch = async (input, init) => {
