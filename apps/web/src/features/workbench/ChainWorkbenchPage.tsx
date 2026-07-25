@@ -85,7 +85,12 @@ export function ChainWorkbenchPage({
   const stageC = execution?.stages.find((stage) => stage.stage_id === "C");
   const stageBPredictions = predictions(stageB);
   const stageCPredictions = predictions(stageC);
-  const latestVariant = variants[0];
+  const comparisonSnapshot = snapshots.find(
+    (snapshot) => snapshot.identity.candidate_revision === selected?.revision,
+  );
+  const latestVariant = variants.find(
+    (variant) => variant.identity.base_candidate_revision === selected?.revision,
+  );
   const variantCPredictions = latestVariant?.stage_c_result?.predictions && typeof latestVariant.stage_c_result.predictions === "object"
     ? latestVariant.stage_c_result.predictions as Record<string, { value?: number; std?: number; unit?: string }>
     : {};
@@ -293,7 +298,7 @@ export function ChainWorkbenchPage({
       setCandidates([created]);
       setSelectedId(created.id);
       setProcessDraft(Object.fromEntries(
-        Object.entries(created.inputs.process).map(([key, value]) => [key, String(value)]),
+        Object.entries(created.inputs.process).map(([key, value]) => [key, inputNumber(value)]),
       ));
       onCandidateSelected(created.id);
       await execute(created);
@@ -319,7 +324,7 @@ export function ChainWorkbenchPage({
   }
 
   async function createVariant() {
-    if (!selected || !snapshots[0]) return;
+    if (!selected || !comparisonSnapshot) return;
     setBusy(true);
     try {
       const values = Object.fromEntries(
@@ -327,10 +332,12 @@ export function ChainWorkbenchPage({
       );
       const variant = await workbenchApi.createChainAnalysisVariant(projectId, selected.id, {
         candidate_revision: selected.revision,
-        comparison_snapshot_id: snapshots[0].snapshot_id,
+        comparison_snapshot_id: comparisonSnapshot.snapshot_id,
         actual_records: [{ actual_id: draftActualId.trim(), values }],
       });
       setVariants((items) => [variant, ...items]);
+      setDraftActualId("");
+      setActualDraft(Object.fromEntries(stageBKeys.map((key) => [key, ""])));
       setStatusMessage("実測Bを使うStage C分析を、通常Chainとは別に固定しました");
     } catch (cause) {
       setStatusMessage(cause instanceof Error ? cause.message : "実測を使った分析を保存できませんでした");
@@ -357,6 +364,8 @@ export function ChainWorkbenchPage({
         <select value={selected.id} onChange={(event) => {
           const candidateId = event.target.value;
           setSelectedId(candidateId);
+          setDraftActualId("");
+          setActualDraft({});
           onCandidateSelected(candidateId);
           setExecution(null);
           setStatusMessage("Chain候補を切り替えています");
@@ -375,8 +384,8 @@ export function ChainWorkbenchPage({
           <div className={`chain-stage-node ${status}`}>
             <b>{stageId}</b><span>{stageId === "A" ? "材料成分" : stageId === "B" ? "溶着成分" : "特性"}</span>
             <em>{statusLabel[status]}</em>
-            {stageId === "B" && variants.length > 0 && <small>実測照合あり</small>}
-            {stageId === "C" && variants.length > 0 && <small>別analysisあり</small>}
+            {stageId === "B" && latestVariant && <small>実測照合あり</small>}
+            {stageId === "C" && latestVariant && <small>別analysisあり</small>}
           </div>
           {index < 2 && <i aria-hidden="true">→</i>}
         </div>;
@@ -394,7 +403,7 @@ export function ChainWorkbenchPage({
       <button className="primary-button" disabled={busy || execution?.status !== "latest"} onClick={() => void saveSnapshot()}>
         {busy ? "保存中…" : "全Stageを固定"}
       </button>
-      <small>{snapshots.length ? `固定済み ${snapshots.length}件` : "実測分析には先にsnapshotが必要です"}</small>
+      <small>{comparisonSnapshot ? `現revisionを固定済み · 全${snapshots.length}件` : "実測分析には現revisionのsnapshotが必要です"}</small>
     </div>
 
     {selected.blend && contract && <details className="chain-blend-panel">
@@ -434,7 +443,7 @@ export function ChainWorkbenchPage({
       <p>16成分がすべて揃った実測だけを使用します。不足分を予測値で補いません。</p>
       <label className="actual-id-field">実測ID<input value={draftActualId} onChange={(event) => setDraftActualId(event.target.value)} placeholder="例: WM-001" /></label>
       <div className="actual-value-grid">{stageBKeys.map((key) => <label key={key}><span>{key}</span><input type="number" step="any" value={actualDraft[key] ?? ""} onChange={(event) => setActualDraft((current) => ({ ...current, [key]: event.target.value }))} /></label>)}</div>
-      <button className="primary-button" disabled={busy || !draftActualId.trim() || !snapshots[0] || stageBKeys.some((key) => !actualDraft[key]?.trim() || !Number.isFinite(Number(actualDraft[key])))} onClick={() => void createVariant()}>
+      <button className="primary-button" disabled={busy || !draftActualId.trim() || !comparisonSnapshot || stageBKeys.some((key) => !actualDraft[key]?.trim() || !Number.isFinite(Number(actualDraft[key])))} onClick={() => void createVariant()}>
         実測を使用した別分析を固定
       </button>
     </details>

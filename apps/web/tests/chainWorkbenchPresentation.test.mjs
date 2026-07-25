@@ -38,7 +38,9 @@ test("editing keeps reserved layout surfaces while recomputation changes state",
 });
 
 test("actual-conditioned analysis requires an immutable comparison snapshot", () => {
-  assert.match(source, /comparison_snapshot_id:\s*snapshots\[0\]\.snapshot_id/);
+  assert.match(source, /snapshot\.identity\.candidate_revision === selected\?\.revision/);
+  assert.match(source, /variant\.identity\.base_candidate_revision === selected\?\.revision/);
+  assert.match(source, /comparison_snapshot_id:\s*comparisonSnapshot\.snapshot_id/);
   assert.match(source, /実測Bを使ってStage Cを別分析/);
   assert.match(source, /不足分を予測値で補いません/);
   assert.match(source, /stageBKeys\.map\(\(key\) => \[key, ""\]\)/);
