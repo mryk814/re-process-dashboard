@@ -63,6 +63,10 @@ class ProjectHasSuccessorsError(ValueError):
     pass
 
 
+class ProjectHasDerivedCandidatesError(ValueError):
+    pass
+
+
 class ProjectGroupConflictError(ValueError):
     pass
 
@@ -254,6 +258,31 @@ class Store:
                 raise ProjectHasSuccessorsError(
                     "後続プロジェクトがあるため削除できません。続き元の関係を保持してください"
                 )
+            for derived_row in conn.execute(
+                "SELECT id,payload FROM candidates WHERE project_id<>?",
+                (project_id,),
+            ):
+                try:
+                    payload = json.loads(derived_row["payload"])
+                except (TypeError, json.JSONDecodeError) as exc:
+                    raise StoreDataIntegrityError(
+                        f"候補 {derived_row['id']} の派生元を確認できません"
+                    ) from exc
+                provenance = payload.get("provenance") if isinstance(payload, dict) else None
+                source_ref = (
+                    provenance.get("source_ref")
+                    if isinstance(provenance, dict)
+                    and provenance.get("source_kind") == "copy"
+                    else None
+                )
+                if (
+                    isinstance(source_ref, dict)
+                    and source_ref.get("project_id") == project_id
+                ):
+                    raise ProjectHasDerivedCandidatesError(
+                        "派生候補が別のプロジェクトにあるため削除できません。"
+                        "派生履歴を保持してください"
+                    )
             candidate_ids = [
                 row["id"]
                 for row in conn.execute("SELECT id FROM candidates WHERE project_id=?", (project_id,)).fetchall()

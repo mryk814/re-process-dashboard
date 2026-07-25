@@ -14,6 +14,12 @@ type ComparisonCandidate = {
   historical: boolean;
 };
 
+type DerivationHistoryState = {
+  ownerKey: string;
+  items: ApiCandidate[];
+  error: string;
+};
+
 export function BlendComparisonPanel({
   projectId,
   candidates,
@@ -23,29 +29,42 @@ export function BlendComparisonPanel({
   candidates: CandidateViewModel[];
   selected: CandidateViewModel;
 }) {
-  const [history, setHistory] = useState<ApiCandidate[]>([]);
+  const selectedKey = `${projectId}:${selected.id}:${selected.raw.revision}`;
+  const [historyState, setHistoryState] = useState<DerivationHistoryState>({
+    ownerKey: "",
+    items: [],
+    error: "",
+  });
   const [materialsByCandidate, setMaterialsByCandidate] = useState<
     Record<string, ApiBlendMaterial[]>
   >({});
   const [showAll, setShowAll] = useState(false);
-  const [error, setError] = useState("");
+  const [materialError, setMaterialError] = useState("");
   const hasBlend = candidates.some((item) => item.raw.blend);
+  const history = historyState.ownerKey === selectedKey ? historyState.items : [];
+  const historyError = historyState.ownerKey === selectedKey ? historyState.error : "";
 
   useEffect(() => {
     let live = true;
-    setHistory([]);
+    setHistoryState({ ownerKey: selectedKey, items: [], error: "" });
     if (!hasBlend || selected.raw.provenance?.source_kind !== "copy") return;
     void workbenchApi.candidateDerivationChain(projectId, selected.id)
       .then((items) => {
-        if (live) setHistory(items);
+        if (live) setHistoryState({ ownerKey: selectedKey, items, error: "" });
       })
       .catch(() => {
-        if (live) setError("派生履歴を確認できませんでした。");
+        if (live) {
+          setHistoryState({
+            ownerKey: selectedKey,
+            items: [],
+            error: "派生履歴を確認できませんでした。",
+          });
+        }
       });
     return () => {
       live = false;
     };
-  }, [hasBlend, projectId, selected.id, selected.raw.provenance]);
+  }, [hasBlend, projectId, selected.id, selected.raw.provenance, selectedKey]);
 
   const columns = useMemo<ComparisonCandidate[]>(() => [
     ...history
@@ -79,10 +98,10 @@ export function BlendComparisonPanel({
     })).then((entries) => {
       if (live) {
         setMaterialsByCandidate(Object.fromEntries(entries));
-        setError("");
+        setMaterialError("");
       }
     }).catch(() => {
-      if (live) setError("原料名とコストを確認できませんでした。");
+      if (live) setMaterialError("原料名とコストを確認できませんでした。");
     });
     return () => {
       live = false;
@@ -120,7 +139,8 @@ export function BlendComparisonPanel({
           {showAll ? "差のある原料だけ" : "全原料を表示"}
         </button>
       </header>
-      {error && <p className="comparison-preview-error" role="alert">{error}</p>}
+      {historyError && <p className="comparison-preview-error" role="alert">{historyError}</p>}
+      {materialError && <p className="comparison-preview-error" role="alert">{materialError}</p>}
       <div className="blend-comparison-scroll">
         <table>
           <thead>
@@ -146,7 +166,7 @@ export function BlendComparisonPanel({
                     <small>revision {column.candidate.revision}</small>
                     <small>
                       {cost == null
-                        ? (error ? "コスト未取得" : "コスト読込中")
+                        ? (materialError ? "コスト未取得" : "コスト読込中")
                         : `${cost.toLocaleString("ja-JP", { maximumFractionDigits: 0 })} 円/kg-core`}
                       {delta == null ? "" : ` (${delta >= 0 ? "+" : ""}${delta.toLocaleString("ja-JP", { maximumFractionDigits: 0 })})`}
                     </small>
