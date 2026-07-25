@@ -473,6 +473,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/candidates/{candidate_id}/blend-optimization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Blend Optimization Context */
+        get: operations["get_blend_optimization_context_api_projects__project_id__candidates__candidate_id__blend_optimization_get"];
+        put?: never;
+        /** Run Blend Optimization */
+        post: operations["run_blend_optimization_api_projects__project_id__candidates__candidate_id__blend_optimization_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/candidates/{candidate_id}/curve-family": {
         parameters: {
             query?: never;
@@ -1371,6 +1389,134 @@ export interface components {
             /** Unit Price Yen Per Kg Core */
             unit_price_yen_per_kg_core: number;
         };
+        /** BlendOptimizationContext */
+        BlendOptimizationContext: {
+            /** Balance Material Id */
+            balance_material_id: string;
+            /** Baseline Candidate Id */
+            baseline_candidate_id: string;
+            /** Baseline Candidate Revision */
+            baseline_candidate_revision: number;
+            commercial_catalog: components["schemas"]["RevisionRef"];
+            /** Components */
+            components: string[];
+            design_space: components["schemas"]["RevisionRef"];
+            /** Fixed Fill Ratio */
+            fixed_fill_ratio: number;
+            /** Fixed Hoop Id */
+            fixed_hoop_id: string;
+            /** Group Cardinalities */
+            group_cardinalities: components["schemas"]["GroupCardinalityConstraint"][];
+            /** Group Totals */
+            group_totals: components["schemas"]["GroupTotalConstraint"][];
+            /** Material Bounds */
+            material_bounds: components["schemas"]["MaterialRatioBound"][];
+            /** Materials */
+            materials: components["schemas"]["BlendMaterialDescriptor"][];
+            scientific_master: components["schemas"]["RevisionRef"];
+            selection_count: components["schemas"]["SelectionCountConstraint"];
+        };
+        /** BlendOptimizationReference */
+        BlendOptimizationReference: {
+            /** Baseline Candidate Id */
+            baseline_candidate_id: string;
+            /** Baseline Candidate Revision */
+            baseline_candidate_revision: number;
+            /** Commercial Catalog Digest */
+            commercial_catalog_digest: string;
+            /** Design Space Digest */
+            design_space_digest: string;
+            /**
+             * Method
+             * @enum {string}
+             */
+            method: "highs-lp" | "highs-milp";
+            /**
+             * Objective
+             * @enum {string}
+             */
+            objective: "cost" | "baseline_l1";
+            /** Project Id */
+            project_id: string;
+            /** Request Digest */
+            request_digest: string;
+            /** Scientific Master Digest */
+            scientific_master_digest: string;
+            /** Solver Name */
+            solver_name: string;
+            /** Solver Version */
+            solver_version: string;
+        };
+        /** BlendOptimizationRequest */
+        BlendOptimizationRequest: {
+            /** Composition Targets */
+            composition_targets: components["schemas"]["CompositionTarget"][];
+            /** Expected Revision */
+            expected_revision: number;
+            /**
+             * Inclusion Decisions
+             * @default false
+             */
+            inclusion_decisions: boolean;
+            /** Material Ids */
+            material_ids: string[];
+            /**
+             * Name
+             * @default 配合逆算候補
+             */
+            name: string;
+            /**
+             * Objective
+             * @enum {string}
+             */
+            objective: "cost" | "baseline_l1";
+        };
+        /** BlendOptimizationResult */
+        BlendOptimizationResult: {
+            candidate?: components["schemas"]["Candidate"] | null;
+            /** Message */
+            message: string;
+            /**
+             * Method
+             * @enum {string}
+             */
+            method: "highs-lp" | "highs-milp";
+            /**
+             * Objective
+             * @enum {string}
+             */
+            objective: "cost" | "baseline_l1";
+            /**
+             * Objective Unit
+             * @enum {string}
+             */
+            objective_unit: "yen/kg-core" | "core mass %";
+            /** Objective Value */
+            objective_value?: number | null;
+            /**
+             * Relaxation Candidates
+             * @default []
+             */
+            relaxation_candidates: components["schemas"]["RelaxationCandidate"][];
+            /** Solver Name */
+            solver_name: string;
+            /** Solver Version */
+            solver_version: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "feasible" | "infeasible";
+        };
+        /** BlendOptimizationSourceRef */
+        BlendOptimizationSourceRef: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            source_kind: "blend_optimization";
+            source_ref: components["schemas"]["BlendOptimizationReference"];
+        };
         /** BlendValidationIssue */
         BlendValidationIssue: {
             /**
@@ -1457,7 +1603,7 @@ export interface components {
             /** Project Id */
             project_id: string;
             /** Provenance */
-            provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"];
+            provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"] | components["schemas"]["BlendOptimizationSourceRef"];
             /** Revision */
             revision: number;
             /**
@@ -1514,7 +1660,7 @@ export interface components {
              */
             name: string;
             /** Provenance */
-            provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"];
+            provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"] | components["schemas"]["BlendOptimizationSourceRef"];
         };
         /** CandidateInputs */
         CandidateInputs: {
@@ -1553,7 +1699,7 @@ export interface components {
              */
             name: string;
             /** Provenance */
-            provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"];
+            provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"] | components["schemas"]["BlendOptimizationSourceRef"];
         };
         /** ChainBinding */
         ChainBinding: {
@@ -1710,6 +1856,15 @@ export interface components {
             hoop_mass_fraction: number;
             /** Materials */
             materials: components["schemas"]["WholeWireCoordinate"][];
+        };
+        /** CompositionTarget */
+        CompositionTarget: {
+            /** Component */
+            component: string;
+            /** Lower */
+            lower: number;
+            /** Upper */
+            upper: number;
         };
         /** CompositionTotalDefinition */
         CompositionTotalDefinition: {
@@ -3891,6 +4046,26 @@ export interface components {
              * @enum {string}
              */
             kind: "relative";
+        };
+        /** RelaxationCandidate */
+        RelaxationCandidate: {
+            /** Amount */
+            amount: number;
+            /** Constraint */
+            constraint: string;
+            /** Current */
+            current?: number | null;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "lower" | "upper" | "structural";
+            /** Message */
+            message: string;
+            /** Suggested */
+            suggested?: number | null;
+            /** Unit */
+            unit: string;
         };
         /** RepeatSummary */
         RepeatSummary: {
@@ -6354,6 +6529,76 @@ export interface operations {
             };
             /** @description Task Runtime Unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    get_blend_optimization_context_api_projects__project_id__candidates__candidate_id__blend_optimization_get: {
+        parameters: {
+            query?: {
+                expected_revision?: number | null;
+            };
+            header?: never;
+            path: {
+                candidate_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlendOptimizationContext"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    run_blend_optimization_api_projects__project_id__candidates__candidate_id__blend_optimization_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlendOptimizationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlendOptimizationResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
