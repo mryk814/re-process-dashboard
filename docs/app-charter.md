@@ -12,6 +12,16 @@
 
 材料研究者が自分のWindows PCで使うローカルアプリ。Electron、React、FastAPIの境界を維持し、将来のWeb化より現在の検討速度を優先する。
 
+## ローカルAPIの信頼境界
+
+FastAPIはloopbackだけで待ち受けるが、loopbackであることだけを認証の代わりにはしない。
+
+- Electronは起動ごとのlaunch tokenをsidecarとrenderer通信へ固定する。
+- `npm run dev`も起動ごとのtokenを発行し、Vite proxyがAPI requestへ付与する。tokenをbrowser bundleへ埋め込まない。
+- `file://`由来の`Origin: null`はDesktop launch tokenがある場合だけ許可する。
+- tokenなしでAPIを単独起動した場合、browser originはloopbackまたは明示設定したoriginだけを許可する。Originを持たないlocal CLIとtest clientは利用できる。
+- インターネット向け公開、別PCからの接続、共有サーバー運用は対象外であり、この境界をそのまま流用しない。
+
 ## 標準からの逸脱
 
 - 画面はデスクトップ中心。モバイルは内容確認できる縮退表示までとする。
