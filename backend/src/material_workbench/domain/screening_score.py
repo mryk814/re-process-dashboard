@@ -3,9 +3,9 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Literal
 
+from material_workbench.contracts.schemas import ScreeningGoal, TargetRange, TargetValue
 
-GoalDirection = Literal["at_least", "at_most", "target"]
-ScoreMethod = Literal["achievement_probability", "directional_shortfall", "absolute_distance", "support_distance"]
+ScoreMethod = Literal["achievement_probability", "directional_shortfall", "range_shortfall", "absolute_distance", "support_distance"]
 
 
 @dataclass(frozen=True)
@@ -24,48 +24,80 @@ class ScreeningScore:
 def evaluate_screening_goal(
     prediction: float,
     *,
-    target_value: float | None,
-    direction: GoalDirection | None,
+    goal: ScreeningGoal | None,
     achievement_probability: float | None = None,
     support_distance: float = 0.0,
 ) -> ScreeningScore:
-    if target_value is None or direction is None:
+    if goal is None:
         return ScreeningScore(max(0.0, support_distance), "support_distance", None, None)
 
-    if direction == "target":
-        return ScreeningScore(abs(prediction - target_value), "absolute_distance", None, None)
-
-    achieved = prediction >= target_value if direction == "at_least" else prediction <= target_value
+    if goal.direction == "between":
+        assert goal.lower is not None and goal.upper is not None
+        achieved = goal.lower <= prediction <= goal.upper
+    else:
+        threshold = goal.lower if goal.direction == "at_least" else goal.upper
+        assert threshold is not None
+        achieved = prediction >= threshold if goal.direction == "at_least" else prediction <= threshold
     if achievement_probability is not None:
         probability = min(1.0, max(0.0, achievement_probability))
         return ScreeningScore(1.0 - probability, "achievement_probability", achieved, probability)
 
-    shortfall = max(target_value - prediction, 0.0) if direction == "at_least" else max(prediction - target_value, 0.0)
+    if goal.direction == "between":
+        assert goal.lower is not None and goal.upper is not None
+        return ScreeningScore(
+            max(goal.lower - prediction, prediction - goal.upper, 0.0),
+            "range_shortfall",
+            achieved,
+            None,
+        )
+    threshold = goal.lower if goal.direction == "at_least" else goal.upper
+    assert threshold is not None
+    shortfall = max(threshold - prediction, 0.0) if goal.direction == "at_least" else max(prediction - threshold, 0.0)
     return ScreeningScore(shortfall, "directional_shortfall", achieved, None)
 
 
 def score_contract(
-    direction: GoalDirection | None,
-    target_value: float | None,
+    goal: ScreeningGoal | None,
     *,
     probability_available: bool = False,
 ) -> dict[str, object]:
-    if target_value is None or direction is None:
+    if goal is None:
         label = "目標未設定（学習範囲への近さで表示）"
-    elif direction == "at_least":
+    elif goal.direction == "between":
+        label = "下限から上限の範囲内ほど有望"
+    elif goal.direction == "at_least":
         label = "目標以上ほど有望"
-    elif direction == "at_most":
-        label = "目標以下ほど有望"
     else:
-        label = "目標値に近いほど有望"
+        label = "目標以下ほど有望"
     return {
-        "version": "screening-score/v2",
+        "version": "screening-score/v3",
         "preference": "lower_is_better",
-        "direction": direction,
-        "target_value": target_value,
+        "direction": goal.direction if goal else None,
+        "target_value": (
+            goal.lower if goal and goal.direction == "at_least"
+            else goal.upper if goal and goal.direction == "at_most"
+            else None
+        ),
+        "lower": goal.lower if goal else None,
+        "upper": goal.upper if goal else None,
         "probability_available": probability_available,
         "probability_semantics": "probability_of_achieving_goal",
         "ranking_policy": "support_tier_then_secondary_goals_then_score",
-        "fallback": "support_distance" if target_value is None else "directional_shortfall" if direction in {"at_least", "at_most"} else "absolute_distance",
+        "fallback": (
+            "range_shortfall"
+            if goal and goal.direction == "between"
+            else "support_distance"
+            if goal is None
+            else "directional_shortfall"
+        ),
         "display_label": label,
     }
+
+
+def screening_goal_runtime_value(goal: ScreeningGoal) -> TargetValue:
+    if goal.direction == "between":
+        assert goal.lower is not None and goal.upper is not None
+        return TargetRange(lower=goal.lower, upper=goal.upper)
+    threshold = goal.lower if goal.direction == "at_least" else goal.upper
+    assert threshold is not None
+    return threshold

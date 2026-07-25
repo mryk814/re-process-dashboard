@@ -5,6 +5,14 @@ import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
 import { SvgChartTooltip } from "../../shared/ui/SvgChartTooltip";
 import { assessPrediction, clampToRange, resolveOutputDefinition } from "../../shared/outputPresentation";
 import { ScreeningBaseEditor } from "./ScreeningBaseEditor";
+import {
+  emptyScreeningGoal,
+  screeningGoalFromDraft,
+  ScreeningGoalEditor,
+  type ScreeningGoalDirection,
+  type ScreeningGoalDraft,
+  type ScreeningGoalPayload,
+} from "./ScreeningGoalEditor";
 import { ScreeningProposalSummary } from "./ScreeningProposalSummary";
 import { ScreeningRepresentativeTable } from "./ScreeningRepresentativeTable";
 
@@ -63,6 +71,37 @@ function nextScreeningSeed(current: number) {
   return value === current ? (value + 1) % (MAX_SCREENING_SEED + 1) : value;
 }
 
+function outputGoalDirection(direction: string | undefined): ScreeningGoalDirection {
+  return direction === "at_most" ? "at_most" : "at_least";
+}
+
+function draftFromGoal(
+  goal: ScreeningGoalPayload | null | undefined,
+  fallbackDirection: ScreeningGoalDirection,
+  legacyValue?: number | null,
+): ScreeningGoalDraft {
+  if (goal) {
+    return {
+      direction: goal.direction,
+      lower: goal.lower == null ? "" : String(goal.lower),
+      upper: goal.upper == null ? "" : String(goal.upper),
+    };
+  }
+  if (legacyValue != null) {
+    return fallbackDirection === "at_most"
+      ? { direction: fallbackDirection, lower: "", upper: String(legacyValue) }
+      : { direction: fallbackDirection, lower: String(legacyValue), upper: "" };
+  }
+  return emptyScreeningGoal(fallbackDirection);
+}
+
+function goalSummary(goal: ScreeningGoalPayload | null | undefined, legacyValue?: number | null) {
+  if (!goal) return legacyValue == null ? "選別基準なし" : number(legacyValue, 1);
+  if (goal.direction === "between") return `${number(goal.lower ?? 0, 1)}–${number(goal.upper ?? 0, 1)}`;
+  if (goal.direction === "at_most") return `${number(goal.upper ?? 0, 1)} 以下`;
+  return `${number(goal.lower ?? 0, 1)} 以上`;
+}
+
 export function ScreeningPage({
   projectId,
   project,
@@ -100,8 +139,8 @@ export function ScreeningPage({
   const [samples, setSamples] = useState(64);
   const [seed, setSeed] = useState(20260719);
   const [target, setTarget] = useState("TS");
-  const [targetValue, setTargetValue] = useState("500");
-  const [secondaryTargets, setSecondaryTargets] = useState<Record<string, string>>({});
+  const [targetGoal, setTargetGoal] = useState<ScreeningGoalDraft>({ direction: "at_least", lower: "500", upper: "" });
+  const [secondaryGoals, setSecondaryGoals] = useState<Record<string, ScreeningGoalDraft>>({});
   const [baseCandidateId, setBaseCandidateId] = useState(selectedId);
   const baseCandidateSource = candidates.find((candidate) => candidate.id === baseCandidateId);
   const [baseCandidate, setBaseCandidate] = useState<Candidate>();
@@ -172,6 +211,19 @@ export function ScreeningPage({
   activeProjectRef.current = projectId;
   const outputs = taskDefinition?.outputs ?? [];
   const targetDefinition = outputs.find((output) => output.key === target);
+  const defaultGoalDraft = (output: TaskDefinitionContract["outputs"][number]): ScreeningGoalDraft => {
+    const configured = project?.target_values?.[output.key];
+    if (typeof configured === "number") {
+      return draftFromGoal(undefined, outputGoalDirection(output.goal_direction), configured);
+    }
+    if (configured && typeof configured === "object" && "lower" in configured && "upper" in configured) {
+      return draftFromGoal(
+        { direction: "between", lower: configured.lower, upper: configured.upper },
+        outputGoalDirection(output.goal_direction),
+      );
+    }
+    return emptyScreeningGoal(outputGoalDirection(output.goal_direction));
+  };
   useEffect(() => {
     const defaults = options.filter((option) => option.kind === "number").slice(0, 2).map((option) => ({
       field: option.value,
@@ -180,12 +232,16 @@ export function ScreeningPage({
       second: String(option.defaultRange?.max ?? ""),
     }));
     setVariables(defaults);
-    setSecondaryTargets({});
+    if (outputs[0]) {
+      setTarget(outputs[0].key);
+      setTargetGoal(defaultGoalDraft(outputs[0]));
+    }
+    setSecondaryGoals({});
     setResult(null);
     setSelectedPointIndices([]);
     setFocusedPointIndex(null);
     setDraftDirty(false);
-  }, [resolvedTaskDefinition?.task_definition.id]);
+  }, [resolvedTaskDefinition?.task_definition.id, project?.id]);
   useEffect(() => {
     if (outputs.length && !outputs.some((output) => output.key === target)) {
       setTarget(outputs[0].key);
@@ -293,8 +349,12 @@ export function ScreeningPage({
         samples,
         seed: requestedSeed,
         target,
-        target_value: targetValue.trim() === "" ? null : Number(targetValue),
-        secondary_targets: Object.fromEntries(Object.entries(secondaryTargets).filter(([, value]) => value.trim() !== "").map(([key, value]) => [key, Number(value)])),
+        target_goal: screeningGoalFromDraft(targetGoal),
+        secondary_goals: Object.fromEntries(
+          Object.entries(secondaryGoals)
+            .map(([key, draft]) => [key, screeningGoalFromDraft(draft)] as const)
+            .filter((entry): entry is readonly [string, ScreeningGoalPayload] => entry[1] != null),
+        ),
       });
       if (sequence !== runRequestSequence.current || activeProjectRef.current !== requestProjectId) return;
       applyResult(created);
@@ -336,8 +396,26 @@ export function ScreeningPage({
       }
     }
     setTarget(run.target);
-    setTargetValue(run.target_value == null ? "" : String(run.target_value));
-    setSecondaryTargets(Object.fromEntries(Object.entries(run.secondary_targets ?? {}).map(([key, value]) => [key, String(value)])));
+    const primaryDefinition = outputs.find((output) => output.key === run.target);
+    setTargetGoal(draftFromGoal(
+      run.target_goal,
+      outputGoalDirection(primaryDefinition?.goal_direction),
+      run.target_value,
+    ));
+    const legacySecondaryTargets = run.secondary_targets ?? {};
+    setSecondaryGoals(Object.fromEntries(
+      outputs
+        .filter((output) => output.key !== run.target)
+        .flatMap((output) => {
+          const goal = run.secondary_goals?.[output.key];
+          const legacy = legacySecondaryTargets[output.key];
+          if (!goal && legacy == null) return [];
+          return [[
+            output.key,
+            draftFromGoal(goal, outputGoalDirection(output.goal_direction), legacy),
+          ] as const];
+        }),
+    ));
     setSamples(run.samples);
     setSeed(run.seed);
     if (run.variables)
@@ -484,7 +562,7 @@ export function ScreeningPage({
                   void loadRun(run.id);
                 }}
               >
-                <b>{outputs.find((output) => output.key === run.target)?.label ?? run.target}</b> → {run.target_value == null ? "選別基準なし" : number(run.target_value, 1)} /{" "}
+                <b>{outputs.find((output) => output.key === run.target)?.label ?? run.target}</b> → {goalSummary(run.target_goal, run.target_value)} /{" "}
                  {run.samples}点{" "}
                 <small>
                   基準: {candidates.find((candidate) => candidate.id === run.base_candidate_id)?.label ?? run.base_candidate_id?.slice(0, 8) ?? "旧保存データ"} ·{" "}
@@ -535,21 +613,45 @@ export function ScreeningPage({
             選別する特性
             <select
               value={target}
-              onChange={(event) => { const next = event.target.value; setTarget(next); setSecondaryTargets((current) => { const updated = { ...current }; delete updated[next]; return updated; }); setDraftDirty(true); }}
+              onChange={(event) => {
+                const next = event.target.value;
+                const definition = outputs.find((output) => output.key === next);
+                setTarget(next);
+                setTargetGoal(definition ? defaultGoalDraft(definition) : emptyScreeningGoal("at_least"));
+                setSecondaryGoals((current) => {
+                  const updated = { ...current };
+                  delete updated[next];
+                  return updated;
+                });
+                setDraftDirty(true);
+              }}
             >
               {outputs.map((output) => <option key={output.key} value={output.key}>{output.label} ({output.unit})</option>)}
             </select>
           </label>
-          <label>
-            選別基準 {targetDefinition?.goal_direction === "at_most" ? "（以下）" : targetDefinition?.goal_direction === "at_least" ? "（以上）" : ""}
-            <input
-              type="number"
-              value={targetValue}
-              onChange={(event) => { setTargetValue(event.target.value); setDraftDirty(true); }}
-            />
-          </label>
-          {outputs.filter((output) => output.key !== target).map((output) => <label key={output.key}>追加の選別条件: {output.label}（{output.goal_direction === "at_most" ? "以下" : "以上"}）<input type="number" value={secondaryTargets[output.key] ?? ""} placeholder="指定なし" onChange={(event) => { setSecondaryTargets((current) => ({ ...current, [output.key]: event.target.value })); setDraftDirty(true); }} /></label>)}
         </div>
+        {targetDefinition && (
+          <section className="screening-goals" aria-label="選別基準">
+            <ScreeningGoalEditor
+              label={`主目標: ${targetDefinition.label}`}
+              unit={targetDefinition.unit}
+              value={targetGoal}
+              onChange={(next) => { setTargetGoal(next); setDraftDirty(true); }}
+            />
+            {outputs.filter((output) => output.key !== target).map((output) => (
+              <ScreeningGoalEditor
+                key={output.key}
+                label={`副条件: ${output.label}`}
+                unit={output.unit}
+                value={secondaryGoals[output.key] ?? emptyScreeningGoal(outputGoalDirection(output.goal_direction))}
+                onChange={(next) => {
+                  setSecondaryGoals((current) => ({ ...current, [output.key]: next }));
+                  setDraftDirty(true);
+                }}
+              />
+            ))}
+          </section>
+        )}
         {baseCandidate && taskDefinition && (
             <ScreeningBaseEditor key={`${baseCandidate.id}:${baseEditorVersion}`} candidate={baseCandidate} taskDefinition={taskDefinition} displayDecimalOverrides={project?.display_decimals} onInput={updateBaseInput} onHeat={updateBaseHeat} />
         )}

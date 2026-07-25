@@ -156,7 +156,7 @@ def test_hot_rolling_screening_keeps_project_scope_and_nested_candidate_contract
             "base_inputs": candidate["inputs"],
             "samples": 48,
             "target": "TS",
-            "target_value": 500,
+            "target_goal": {"direction": "at_least", "lower": 500},
             "variables": {"composition.C": {"mode": "range", "min": 0.04, "max": 0.12}},
         },
     )

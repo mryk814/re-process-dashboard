@@ -37,8 +37,43 @@
 
 .screening-target {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) repeat(4, minmax(110px, .75fr));
+  grid-template-columns: minmax(0, 1.35fr) repeat(3, minmax(110px, .75fr));
   gap: 10px;
+}
+
+.screening-goals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(270px, 100%), 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.screening-goal-editor {
+  display: grid;
+  grid-template-columns: minmax(86px, .8fr) repeat(2, minmax(70px, 1fr));
+  align-items: end;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  border: 1px solid #d6e0eb;
+  border-radius: 5px;
+  padding: 7px 8px 8px;
+}
+
+.screening-goal-editor legend {
+  padding: 0 4px;
+  color: #365875;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.screening-goal-editor label {
+  min-width: 0;
+}
+
+.screening-goal-editor input,
+.screening-goal-editor select {
+  width: 100%;
 }
 
 .screening-base-candidate {

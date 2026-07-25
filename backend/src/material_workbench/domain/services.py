@@ -22,10 +22,11 @@ from material_workbench.contracts.schemas import (
     HeatPoint,
     LineageCandidateOption,
     SCREENING_POOL_MULTIPLIER,
+    ScreeningGoal,
     ScreeningRequest,
 )
 from material_workbench.contracts.design_space_contracts import DesignSpaceDefinition
-from material_workbench.domain.screening_score import GoalDirection, evaluate_screening_goal, score_contract
+from material_workbench.domain.screening_score import evaluate_screening_goal, score_contract, screening_goal_runtime_value
 
 
 COMPOSITION_COLUMNS = composition_names(task_id="annealed-properties-v1")
@@ -142,12 +143,26 @@ def _validate_screening_pool(
     return valid_candidates, dict(sorted(rejected_by_reason.items()))
 
 
+def _apply_screening_goal_metadata(
+    prediction: dict[str, Any],
+    goal: ScreeningGoal | None,
+) -> dict[str, Any]:
+    prediction["goal_direction"] = goal.direction if goal else None
+    prediction["goal_value"] = (
+        goal.lower if goal and goal.direction == "at_least"
+        else goal.upper if goal and goal.direction == "at_most"
+        else None
+    )
+    prediction["goal_lower"] = goal.lower if goal and goal.direction == "between" else None
+    prediction["goal_upper"] = goal.upper if goal and goal.direction == "between" else None
+    return prediction
+
+
 def run_latin_hypercube(
     runtime: PredictionRuntime,
     base: Candidate,
     request: ScreeningRequest,
     *,
-    goal_directions: dict[str, GoalDirection | None],
     probability_available: dict[str, bool],
     candidate_validator: Callable[[CandidateInput], None],
     design_space: DesignSpaceDefinition | None = None,
@@ -171,12 +186,15 @@ def run_latin_hypercube(
             f"{request.samples}件を作れるよう範囲を見直してください"
         )
 
+    configured_goals: dict[str, ScreeningGoal] = dict(request.secondary_goals)
+    if request.target_goal is not None:
+        configured_goals[request.target] = request.target_goal
+    target_values = {
+        key: screening_goal_runtime_value(goal)
+        for key, goal in configured_goals.items()
+        if probability_available.get(key, False)
+    }
     for candidate, candidate_input, applied in valid_candidates[:request.samples]:
-        target_values = {
-            key: value
-            for key, value in {request.target: request.target_value, **request.secondary_targets}.items()
-            if value is not None and probability_available.get(key, False)
-        }
         prediction = runtime.predict(
             candidate,
             detailed=False,
@@ -186,27 +204,29 @@ def run_latin_hypercube(
         support = prediction["support"]
         evaluation = evaluate_screening_goal(
             selected.value,
-            target_value=request.target_value,
-            direction=goal_directions.get(request.target),
+            goal=request.target_goal,
             achievement_probability=selected.goal_probability if probability_available.get(request.target, False) else None,
             support_distance=support.distance,
         )
         secondary_evaluations = {
             key: evaluate_screening_goal(
                 prediction["predictions"][key].value,
-                target_value=value,
-                direction=goal_directions.get(key),
+                goal=goal,
                 achievement_probability=prediction["predictions"][key].goal_probability if probability_available.get(key, False) else None,
                 support_distance=support.distance,
             )
-            for key, value in request.secondary_targets.items()
+            for key, goal in request.secondary_goals.items()
         }
-        prediction_payload = selected.model_dump()
-        prediction_payload["goal_direction"] = goal_directions.get(request.target)
+        prediction_payload = _apply_screening_goal_metadata(
+            selected.model_dump(),
+            request.target_goal,
+        )
         predictions_payload = {}
         for key, item in prediction["predictions"].items():
-            predictions_payload[key] = item.model_dump()
-            predictions_payload[key]["goal_direction"] = goal_directions.get(key)
+            predictions_payload[key] = _apply_screening_goal_metadata(
+                item.model_dump(),
+                configured_goals.get(key),
+            )
         points.append({
             "index": len(points),
             "inputs": applied,
@@ -233,18 +253,20 @@ def run_latin_hypercube(
         ),
     )
     return {
-        "schema_version": "screening-run/v3",
+        "schema_version": "screening-run/v4",
         "seed": request.seed,
         "base_candidate_id": base.id,
         "base_inputs": base.inputs.model_dump(mode="json"),
         "base_canonical_input": base_prediction["canonical_input"],
         "model_provenance": base_prediction["model_meta"],
         "target": request.target,
-        "target_value": request.target_value,
-        "secondary_targets": request.secondary_targets,
+        "target_goal": request.target_goal.model_dump(mode="json") if request.target_goal else None,
+        "secondary_goals": {
+            key: goal.model_dump(mode="json")
+            for key, goal in request.secondary_goals.items()
+        },
         "score_contract": score_contract(
-            goal_directions.get(request.target),
-            request.target_value,
+            request.target_goal,
             probability_available=probability_available.get(request.target, False),
         ),
         "samples": request.samples,
