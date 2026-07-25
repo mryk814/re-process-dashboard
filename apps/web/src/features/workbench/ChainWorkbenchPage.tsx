@@ -14,6 +14,10 @@ import {
   rebaseChangedFields,
 } from "../candidates";
 import { BlendEditorPanel } from "./BlendEditorPanel";
+import {
+  CandidateRequestGeneration,
+  type CandidateRequestToken,
+} from "./candidateRequestGeneration";
 import { ApiClientError } from "../../shared/api/client";
 import "./chain-workbench.css";
 
@@ -79,6 +83,7 @@ export function ChainWorkbenchPage({
   const saveTimer = useRef<number | undefined>(undefined);
   const requestSequence = useRef(0);
   const saveQueue = useRef(new LatestSaveQueue<ApiCandidate>());
+  const candidateRequests = useRef(new CandidateRequestGeneration());
   const authoritative = useRef(new Map<string, ApiCandidate>());
   const selected = candidates.find((item) => item.id === selectedId) ?? candidates[0];
   const stageB = execution?.stages.find((stage) => stage.stage_id === "B");
@@ -99,25 +104,38 @@ export function ChainWorkbenchPage({
     [stageB?.result_input_digest],
   );
 
-  async function loadCandidateEvidence(candidateId: string) {
-    const [nextExecution, nextSnapshots, nextVariants] = await Promise.all([
-      workbenchApi.chainExecution(projectId, candidateId).catch(() => null),
-      workbenchApi.listChainSnapshots(projectId, candidateId),
-      workbenchApi.listChainAnalysisVariants(projectId, candidateId),
-    ]);
-    setExecution(nextExecution);
-    setSnapshots(nextSnapshots);
-    setVariants(nextVariants);
-    setStatusMessage(nextExecution ? "固定されたA → B → Cを表示しています" : "まだChainを実行していません");
+  async function loadCandidateEvidence(
+    candidateId: string,
+    token: CandidateRequestToken,
+  ) {
+    try {
+      const [nextExecution, nextSnapshots, nextVariants] = await Promise.all([
+        workbenchApi.chainExecution(projectId, candidateId).catch(() => null),
+        workbenchApi.listChainSnapshots(projectId, candidateId),
+        workbenchApi.listChainAnalysisVariants(projectId, candidateId),
+      ]);
+      if (!candidateRequests.current.isCurrent(token)) return;
+      setExecution(nextExecution);
+      setSnapshots(nextSnapshots);
+      setVariants(nextVariants);
+      setStatusMessage(nextExecution ? "固定されたA → B → Cを表示しています" : "まだChainを実行していません");
+    } catch (cause) {
+      if (candidateRequests.current.isCurrent(token)) {
+        setStatusMessage(cause instanceof Error ? cause.message : "Chain候補の計算状態を読み込めませんでした");
+      }
+    }
   }
 
   useEffect(() => {
     let active = true;
+    const projectToken = candidateRequests.current.activate(projectId, "");
+    requestSequence.current += 1;
+    setBusy(false);
     void Promise.all([
       workbenchApi.chainCandidateContract(projectId),
       workbenchApi.listChainCandidates(projectId),
     ]).then(async ([loadedContract, items]) => {
-      if (!active) return;
+      if (!active || !candidateRequests.current.isCurrent(projectToken)) return;
       setContract(loadedContract);
       setCandidates(items);
       authoritative.current = new Map(items.map((item) => [item.id, item]));
@@ -126,16 +144,21 @@ export function ChainWorkbenchPage({
         : items[0]?.id ?? "";
       setSelectedId(candidateId);
       if (candidateId) {
+        const candidateToken = candidateRequests.current.activate(projectId, candidateId);
         onCandidateSelected(candidateId);
-        await loadCandidateEvidence(candidateId);
+        await loadCandidateEvidence(candidateId, candidateToken);
       } else {
         setStatusMessage("Chain候補はまだありません");
       }
     }).catch((cause) => {
-      if (active) setStatusMessage(cause instanceof Error ? cause.message : "Chain候補を読み込めませんでした");
+      if (active && candidateRequests.current.isCurrent(projectToken)) {
+        setStatusMessage(cause instanceof Error ? cause.message : "Chain候補を読み込めませんでした");
+      }
     });
     return () => {
       active = false;
+      candidateRequests.current.invalidate();
+      requestSequence.current += 1;
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
     };
   }, [projectId]);
@@ -155,6 +178,11 @@ export function ChainWorkbenchPage({
   }, [selected?.id]);
 
   async function execute(candidate: ApiCandidate) {
+    const candidateToken = candidateRequests.current.current();
+    if (
+      candidateToken.projectId !== projectId
+      || candidateToken.candidateId !== candidate.id
+    ) return;
     const sequence = ++requestSequence.current;
     setExecution((current) => current ? {
       ...current,
@@ -172,13 +200,20 @@ export function ChainWorkbenchPage({
         candidate.revision,
         `web-${candidate.id}-r${candidate.revision}-${sequence}`,
       );
-      if (sequence !== requestSequence.current || result.status === "superseded") return;
+      if (
+        sequence !== requestSequence.current
+        || result.status === "superseded"
+        || !candidateRequests.current.isCurrent(candidateToken)
+      ) return;
       setExecution(result);
       setStatusMessage(result.status === "latest" ? "自動再計算が完了しました" : "一部のStageを更新できませんでした");
     } catch (cause) {
-      if (sequence === requestSequence.current) {
+      if (
+        sequence === requestSequence.current
+        && candidateRequests.current.isCurrent(candidateToken)
+      ) {
         setStatusMessage(cause instanceof Error ? cause.message : "Chainを実行できませんでした");
-        await loadCandidateEvidence(candidate.id);
+        await loadCandidateEvidence(candidate.id, candidateToken);
       }
     }
   }
@@ -196,6 +231,7 @@ export function ChainWorkbenchPage({
   }
 
   async function persistCandidate(optimistic: ApiCandidate) {
+    const candidateToken = candidateRequests.current.current();
     const initial = authoritative.current.get(optimistic.id) ?? optimistic;
     const basePayload = candidatePayload(initial);
     const draftPayload = candidatePayload(optimistic);
@@ -226,13 +262,17 @@ export function ChainWorkbenchPage({
       authoritative.current.set(saved.id, saved);
       if (!queued.isLatest()) return;
       setCandidates((items) => items.map((item) => item.id === saved.id ? saved : item));
+      if (!candidateRequests.current.isCurrent(candidateToken)) return;
       if (saved.blend_validation?.status === "invalid") {
         setStatusMessage("成立条件を確認してください。draftは保存しましたが、Chainは実行していません");
         return;
       }
       await execute(saved);
     } catch (cause) {
-      if (queued.isLatest()) {
+      if (
+        queued.isLatest()
+        && candidateRequests.current.isCurrent(candidateToken)
+      ) {
         setStatusMessage(cause instanceof Error ? cause.message : "Chain候補を保存できませんでした");
       }
     } finally {
@@ -255,6 +295,8 @@ export function ChainWorkbenchPage({
       setStatusMessage("有限の数値を入力してください");
       return;
     }
+    candidateRequests.current.activate(projectId, selected.id);
+    requestSequence.current += 1;
     const optimistic: ApiCandidate = {
       ...selected,
       inputs: {
@@ -277,6 +319,8 @@ export function ChainWorkbenchPage({
   ) {
     if (!selected) return;
     saveQueue.current.supersede(selected.id);
+    candidateRequests.current.activate(projectId, selected.id);
+    requestSequence.current += 1;
     const optimistic: ApiCandidate = {
       ...selected,
       blend,
@@ -290,10 +334,14 @@ export function ChainWorkbenchPage({
 
   async function createStarterCandidate() {
     if (!contract) return;
+    const projectToken = candidateRequests.current.current();
     setBusy(true);
     setStatusMessage("固定されたChain契約から基準配合を作成しています");
     try {
       const created = await workbenchApi.createChainCandidate(projectId, contract.starter_candidate);
+      if (!candidateRequests.current.isCurrent(projectToken)) return;
+      const candidateToken = candidateRequests.current.activate(projectId, created.id);
+      requestSequence.current += 1;
       authoritative.current.set(created.id, created);
       setCandidates([created]);
       setSelectedId(created.id);
@@ -301,30 +349,38 @@ export function ChainWorkbenchPage({
         Object.entries(created.inputs.process).map(([key, value]) => [key, inputNumber(value)]),
       ));
       onCandidateSelected(created.id);
-      await execute(created);
-    } catch (cause) {
-      setStatusMessage(cause instanceof Error ? cause.message : "基準配合を作成できませんでした");
-    } finally {
       setBusy(false);
+      if (candidateRequests.current.isCurrent(candidateToken)) await execute(created);
+    } catch (cause) {
+      if (candidateRequests.current.isCurrent(projectToken)) {
+        setStatusMessage(cause instanceof Error ? cause.message : "基準配合を作成できませんでした");
+      }
+    } finally {
+      if (candidateRequests.current.isCurrent(projectToken)) setBusy(false);
     }
   }
 
   async function saveSnapshot() {
     if (!selected) return;
+    const candidateToken = candidateRequests.current.current();
     setBusy(true);
     try {
       const snapshot = await workbenchApi.createChainSnapshot(projectId, selected.id, selected.revision);
+      if (!candidateRequests.current.isCurrent(candidateToken)) return;
       setSnapshots((items) => [snapshot, ...items.filter((item) => item.snapshot_id !== snapshot.snapshot_id)]);
       setStatusMessage("現在の全Stageをスナップショットに固定しました");
     } catch (cause) {
-      setStatusMessage(cause instanceof Error ? cause.message : "スナップショットを保存できませんでした");
+      if (candidateRequests.current.isCurrent(candidateToken)) {
+        setStatusMessage(cause instanceof Error ? cause.message : "スナップショットを保存できませんでした");
+      }
     } finally {
-      setBusy(false);
+      if (candidateRequests.current.isCurrent(candidateToken)) setBusy(false);
     }
   }
 
   async function createVariant() {
     if (!selected || !comparisonSnapshot) return;
+    const candidateToken = candidateRequests.current.current();
     setBusy(true);
     try {
       const values = Object.fromEntries(
@@ -335,14 +391,17 @@ export function ChainWorkbenchPage({
         comparison_snapshot_id: comparisonSnapshot.snapshot_id,
         actual_records: [{ actual_id: draftActualId.trim(), values }],
       });
+      if (!candidateRequests.current.isCurrent(candidateToken)) return;
       setVariants((items) => [variant, ...items]);
       setDraftActualId("");
       setActualDraft(Object.fromEntries(stageBKeys.map((key) => [key, ""])));
       setStatusMessage("実測Bを使うStage C分析を、通常Chainとは別に固定しました");
     } catch (cause) {
-      setStatusMessage(cause instanceof Error ? cause.message : "実測を使った分析を保存できませんでした");
+      if (candidateRequests.current.isCurrent(candidateToken)) {
+        setStatusMessage(cause instanceof Error ? cause.message : "実測を使った分析を保存できませんでした");
+      }
     } finally {
-      setBusy(false);
+      if (candidateRequests.current.isCurrent(candidateToken)) setBusy(false);
     }
   }
 
@@ -363,13 +422,16 @@ export function ChainWorkbenchPage({
       <label>候補
         <select value={selected.id} onChange={(event) => {
           const candidateId = event.target.value;
+          const candidateToken = candidateRequests.current.activate(projectId, candidateId);
+          requestSequence.current += 1;
           setSelectedId(candidateId);
+          setBusy(false);
           setDraftActualId("");
           setActualDraft({});
           onCandidateSelected(candidateId);
           setExecution(null);
           setStatusMessage("Chain候補を切り替えています");
-          void loadCandidateEvidence(candidateId);
+          void loadCandidateEvidence(candidateId, candidateToken);
         }}>
           {candidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name} · r{candidate.revision}</option>)}
         </select>

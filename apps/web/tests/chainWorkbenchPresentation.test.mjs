@@ -35,6 +35,8 @@ test("editing keeps reserved layout surfaces while recomputation changes state",
   assert.match(styles, /\.chain-status-line\s*\{[^}]*min-height:/s);
   assert.match(styles, /\.chain-result-card\s*\{[^}]*min-height:/s);
   assert.match(styles, /\.chain-stage-rail\s*\{[^}]*position:\s*sticky/s);
+  assert.match(source, /candidateRequests\.current\.isCurrent\(token\)/);
+  assert.match(source, /requestSequence\.current \+= 1/);
 });
 
 test("actual-conditioned analysis requires an immutable comparison snapshot", () => {
