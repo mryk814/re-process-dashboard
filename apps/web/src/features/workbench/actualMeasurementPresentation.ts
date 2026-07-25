@@ -22,3 +22,14 @@ export function measurementMetadata(actual: {
     actual.note,
   ].filter(Boolean);
 }
+
+export function actualMeasurementErrorMessage(cause: unknown, fallback: string): string {
+  if (typeof cause !== "object" || cause === null || Reflect.get(cause, "name") !== "ApiClientError") {
+    return fallback;
+  }
+  if (Reflect.get(cause, "kind") === "network") {
+    return "APIへ接続できませんでした。接続状態を確認して、もう一度お試しください。";
+  }
+  const message = Reflect.get(cause, "message");
+  return typeof message === "string" && message.trim() ? message : fallback;
+}

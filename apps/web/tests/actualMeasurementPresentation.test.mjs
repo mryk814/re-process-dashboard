@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import {
   actualDifference,
+  actualMeasurementErrorMessage,
   measurementMetadata,
   signedDifference,
 } from "../src/features/workbench/actualMeasurementPresentation.ts";
@@ -28,6 +29,23 @@ test("measurement metadata preserves experiment identity and repetition", () => 
     "標準偏差 2.5",
     "再試験",
   ]);
+});
+
+test("actual measurement errors preserve API meaning but never expose transport text", () => {
+  assert.equal(actualMeasurementErrorMessage({
+    name: "ApiClientError",
+    kind: "validation",
+    message: "単位は MPa です",
+  }, "登録できませんでした。"), "単位は MPa です");
+  assert.match(actualMeasurementErrorMessage({
+    name: "ApiClientError",
+    kind: "network",
+    message: "Failed to fetch",
+  }, "登録できませんでした。"), /APIへ接続できませんでした/);
+  assert.equal(
+    actualMeasurementErrorMessage(new TypeError("Failed to fetch"), "登録できませんでした。"),
+    "登録できませんでした。",
+  );
 });
 
 test("candidate workbench exposes the actual panel only through the declared operation", async () => {

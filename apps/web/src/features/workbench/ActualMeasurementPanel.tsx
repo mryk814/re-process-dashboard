@@ -12,6 +12,7 @@ import {
 } from "../../shared/api/workbench-api";
 import {
   actualDifference,
+  actualMeasurementErrorMessage,
   measurementMetadata,
   signedDifference,
 } from "./actualMeasurementPresentation";
@@ -80,7 +81,10 @@ export function ActualMeasurementPanel({
     void load(controller.signal)
       .catch((cause: unknown) => {
         if (!controller.signal.aborted && identityRef.current === identity) {
-          setError(cause instanceof Error ? cause.message : "予測と実測の照合履歴を取得できませんでした。");
+          setError(actualMeasurementErrorMessage(
+            cause,
+            "予測と実測の照合履歴を取得できませんでした。",
+          ));
         }
       })
       .finally(() => {
@@ -131,7 +135,7 @@ export function ActualMeasurementPanel({
       setFormOpen(false);
     } catch (cause) {
       if (identityRef.current === requestedIdentity) {
-        setError(cause instanceof Error ? cause.message : "実測を登録できませんでした。");
+        setError(actualMeasurementErrorMessage(cause, "実測を登録できませんでした。"));
       }
     } finally {
       if (identityRef.current === requestedIdentity) setSaving(false);
