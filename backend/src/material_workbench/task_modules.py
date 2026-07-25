@@ -27,6 +27,7 @@ SECOM_YIELD_TASK_ID = "secom-yield-risk-v1"
 MPEA_LEGACY_TYS_TASK_ID = "mpea-literature-tys-v1"
 MPEA_ROOM_TENSILE_TASK_ID = "mpea-room-tensile-v1"
 MPEA_HARDNESS_TASK_ID = "mpea-hardness-process-v1"
+WELDING_STAGE_C_TASK_ID = "welding-stage-c-properties-v1"
 PRIMARY_DEFAULT_SOURCE = Path("data/source/material_workbench_tutorial_v1.xlsx")
 PROCESS_SOURCE = Path("data/source/material_workbench_process_v1.xlsx")
 _DATA_ROOT = Path(__file__).parent / "data"
@@ -196,6 +197,14 @@ def _tabular_loader(task_id: str) -> DataLoader:
     return load
 
 
+def _load_welding_stage_c(path: Path, profile: DatasetInputProfile | None = None) -> DataDescriptor:
+    from material_workbench.data.observation_profile import ObservationDatasetProfile
+    from material_workbench.modeling.stage_c_regression import load_stage_c_data
+
+    selected = profile if isinstance(profile, ObservationDatasetProfile) else None
+    return load_stage_c_data(path, selected)
+
+
 def _annealed_runtime(data: DataDescriptor, package: VerifiedModelPackage) -> PredictionRuntime:
     from material_workbench.modeling.runtime import ModelRuntime
 
@@ -218,6 +227,15 @@ def _tabular_runtime(data: DataDescriptor, package: VerifiedModelPackage) -> Pre
     from material_workbench.modeling.tabular_regression import TabularRegressionRuntime
 
     return TabularRegressionRuntime(data, package)  # type: ignore[arg-type]
+
+
+def _welding_stage_c_runtime(
+    data: DataDescriptor,
+    package: VerifiedModelPackage,
+) -> PredictionRuntime:
+    from material_workbench.modeling.stage_c_regression import StageCRegressionRuntime
+
+    return StageCRegressionRuntime(data, package)  # type: ignore[arg-type]
 
 
 def _annealed_features(row: dict[str, Any], medians: dict[str, float]) -> Any:
@@ -251,6 +269,12 @@ def _tabular_features(task_id: str) -> FeatureRowBuilder:
     return build
 
 
+def _welding_stage_c_features(row: dict[str, Any], medians: dict[str, float]) -> Any:
+    from material_workbench.modeling.stage_c_regression import build_stage_c_features_from_observation
+
+    return build_stage_c_features_from_observation(row, medians)
+
+
 def _build_annealed(source: Path, output: Path, *, replace: bool) -> None:
     from build_default_model_package import build
 
@@ -275,6 +299,12 @@ def _tabular_builder(task_id: str) -> ModelBuilder:
 
         build_package(source, _TABULAR_PROFILES[task_id], output, replace=replace)
     return build
+
+
+def _build_welding_stage_c(source: Path, output: Path, *, replace: bool) -> None:
+    from material_workbench.modeling.stage_c_model_builder import build
+
+    build(source, output, replace=replace)
 
 
 def _standard_response_curve(
@@ -366,6 +396,12 @@ def _tabular_starter(task_id: str, name: str) -> StarterProject:
             for row, label in zip(selected, ("低位条件", "代表条件", "高位条件"), strict=True)
         ]
     return StarterProject(f"{task_id}-default", name, candidates, seed_on_upgrade=True)
+
+
+def _welding_stage_c_starter(medians: dict[str, float]) -> list[CandidateInput]:
+    from material_workbench.modeling.stage_c_regression import stage_c_starter_candidates
+
+    return stage_c_starter_candidates(medians)
 
 
 _EXPLORER = DataExplorerCapability(quality=True, lineage=True, candidate_creation=True)
@@ -523,6 +559,24 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         feature_row_builder=_tabular_features(MPEA_HARDNESS_TASK_ID),
         model_builder=_tabular_builder(MPEA_HARDNESS_TASK_ID),
         starter_project=_tabular_starter(MPEA_HARDNESS_TASK_ID, "MPEA文献の硬さ"),
+        data_explorer=_TABULAR_EXPLORER,
+    ),
+    WELDING_STAGE_C_TASK_ID: TaskModule(
+        task_id=WELDING_STAGE_C_TASK_ID,
+        package_override_env="MATERIAL_WORKBENCH_WELDING_STAGE_C_MODEL_PACKAGE",
+        source_env="WORKBENCH_WELDING_STAGE_C_SOURCE_PATH",
+        source_kind="welding_stage_c",
+        default_source=Path("data/source/welding_consumable_multistage_synthetic_dataset.xlsx"),
+        data_loader=_load_welding_stage_c,
+        runtime_factory=_welding_stage_c_runtime,
+        feature_row_builder=_welding_stage_c_features,
+        model_builder=_build_welding_stage_c,
+        starter_project=StarterProject(
+            "welding-stage-c-default",
+            "溶着金属成分から特性を予測",
+            _welding_stage_c_starter,
+        ),
+        response_curve=_standard_response_curve,
         data_explorer=_TABULAR_EXPLORER,
     ),
 })

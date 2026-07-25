@@ -1,0 +1,70 @@
+{
+  "schema_version": "model-quality-report/v1",
+  "split": "grouped-parent-condition-k-fold",
+  "folds": 5,
+  "targets": [
+    {
+      "target": "TS",
+      "parent_conditions": 300,
+      "mae": 11.154300133103579,
+      "rmse": 14.054417132785929,
+      "interval_coverage_90": 0.8933333333333333,
+      "interval_coverage_method": "cross-fitted-oof-residual-quantiles",
+      "interval_coverage_observations": 600
+    },
+    {
+      "target": "YS",
+      "parent_conditions": 300,
+      "mae": 11.39204887507601,
+      "rmse": 14.667636622757918,
+      "interval_coverage_90": 0.8933333333333333,
+      "interval_coverage_method": "cross-fitted-oof-residual-quantiles",
+      "interval_coverage_observations": 600
+    },
+    {
+      "target": "EL",
+      "parent_conditions": 300,
+      "mae": 1.3186357504430846,
+      "rmse": 1.6562189371744545,
+      "interval_coverage_90": 0.8866666666666667,
+      "interval_coverage_method": "cross-fitted-oof-residual-quantiles",
+      "interval_coverage_observations": 600
+    },
+    {
+      "target": "RA",
+      "parent_conditions": 300,
+      "mae": 2.0084980579541587,
+      "rmse": 2.533679039419764,
+      "interval_coverage_90": 0.8983333333333333,
+      "interval_coverage_method": "cross-fitted-oof-residual-quantiles",
+      "interval_coverage_observations": 600
+    },
+    {
+      "target": "CHARPY_ENERGY",
+      "parent_conditions": 300,
+      "mae": 16.70013561059544,
+      "rmse": 21.012848547106845,
+      "interval_coverage_90": 0.8988888888888888,
+      "interval_coverage_method": "cross-fitted-oof-residual-quantiles",
+      "interval_coverage_observations": 2700
+    },
+    {
+      "target": "BRITTLE_FRACTURE",
+      "parent_conditions": 300,
+      "mae": 8.03651228766526,
+      "rmse": 10.366077154574084,
+      "interval_coverage_90": 0.8981481481481481,
+      "interval_coverage_method": "cross-fitted-oof-residual-quantiles",
+      "interval_coverage_observations": 2700
+    },
+    {
+      "target": "CORROSION_RATE",
+      "parent_conditions": 103,
+      "mae": 0.047440086497721516,
+      "rmse": 0.06003669824952895,
+      "interval_coverage_90": 0.883495145631068,
+      "interval_coverage_method": "cross-fitted-oof-residual-quantiles",
+      "interval_coverage_observations": 103
+    }
+  ]
+}
