@@ -319,6 +319,29 @@ def test_loader_validates_predictor_feature_order_separately_from_pipeline_input
         ModelPackageLoader().load(root)
 
 
+def test_loader_allows_predictor_specific_ordered_feature_subsets(tmp_path: Path) -> None:
+    root = _write_package(tmp_path)
+    manifest_path = root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["predictors"][0]["feature_names"] = ["C"]
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    package = ModelPackageLoader().load(root)
+
+    assert package.manifest.predictors[0].feature_names == ("C",)
+
+
+def test_loader_rejects_predictor_features_missing_from_pipeline(tmp_path: Path) -> None:
+    root = _write_package(tmp_path)
+    manifest_path = root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["predictors"][0]["feature_names"] = ["C", "unknown"]
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(PackageContractError, match="declared by feature pipeline"):
+        ModelPackageLoader().load(root)
+
+
 def test_loader_rejects_unknown_pipeline_document_fields(tmp_path: Path) -> None:
     root = _write_package(tmp_path)
     pipeline_path = root / "feature-pipeline" / "pipeline.json"
