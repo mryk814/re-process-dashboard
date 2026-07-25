@@ -3,6 +3,12 @@
 多段Chainは既存の単段previewとは別の実行面を持つ。
 `POST /api/projects/{project_id}/chain/candidates/{candidate_id}/executions` が、Projectに固定されたChain Revisionの順序でA→B→Cを実行する。
 
+Chain候補も単段候補APIへ混ぜない。
+`/api/projects/{project_id}/chain/candidates`で疎な配合と外部contextをrevision付きで作成・一覧し、
+`PUT .../{candidate_id}`と`GET .../{candidate_id}/revisions/{revision}`で再編集と履歴参照を行う。
+作成・更新時に、Projectが固定した科学変換master、商用catalog、Design Spaceのrevisionをサーバー正本と照合する。
+配合制約に違反するdraftは理由付きで保存できるが、Chain実行はできない。
+
 ## 再計算単位
 
 各Stageのcanonical inputを正規化JSONとして組み立て、そのcontent hashを計算する。
@@ -31,6 +37,7 @@
 
 Stageが失敗しても、成功済みの上流結果と以前の下流結果は削除しない。
 `requested_input_digest`と`result_input_digest`の違いで、保持結果が古いことを機械的に判定できる。
+candidate revisionの保存直後にも再分類し、試験温度だけならA/Bは`latest`のままCだけを`stale`にする。
 
 ## immutable snapshot
 

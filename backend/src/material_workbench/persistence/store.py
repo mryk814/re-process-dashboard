@@ -414,12 +414,17 @@ class Store:
     ) -> ChainSnapshot:
         with self._connect() as conn:
             candidate = conn.execute(
-                "SELECT revision FROM candidates WHERE id=? AND project_id=?",
-                (snapshot.identity.candidate_id, project_id),
+                "SELECT 1 FROM candidate_revisions "
+                "WHERE candidate_id=? AND project_id=? AND revision=?",
+                (
+                    snapshot.identity.candidate_id,
+                    project_id,
+                    snapshot.identity.candidate_revision,
+                ),
             ).fetchone()
-            if candidate is None or int(candidate["revision"]) != snapshot.identity.candidate_revision:
+            if candidate is None:
                 raise StoreDataIntegrityError(
-                    "Chain snapshotのcandidate identityが現在の登録内容と一致しません"
+                    "Chain snapshotのcandidate revisionが登録履歴にありません"
                 )
             conn.execute(
                 "INSERT INTO chain_snapshot_records("

@@ -59,7 +59,7 @@ class ChainExecution(ChainContractModel):
     candidate_revision: Annotated[int, Field(ge=1)]
     chain_revision_id: Annotated[str, Field(min_length=1)]
     chain_revision_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
-    status: Literal["running", "latest", "failed", "superseded"]
+    status: Literal["running", "latest", "stale", "failed", "superseded"]
     stages: Annotated[tuple[ChainStageExecution, ...], Field(min_length=1)]
     created_at: datetime
     updated_at: datetime

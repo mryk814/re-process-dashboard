@@ -68,7 +68,7 @@ def _set_path(target: dict[str, Any], path: str, value: Any) -> None:
     current[parts[-1]] = value
 
 
-def _external_values(candidate: Candidate) -> dict[str, Any]:
+def _external_values(candidate: Candidate | CandidateInput) -> dict[str, Any]:
     values: dict[str, Any] = {}
     if candidate.blend is not None:
         values["candidate.blend"] = candidate.blend.model_input_payload()
@@ -202,6 +202,24 @@ class ChainExecutionService:
             validation = validate_sparse_blend(blend, contracts)
         except ValueError as exc:
             raise ChainExecutionError(str(exc)) from exc
+        project = self.store.get_project(project_id)
+        assert project is not None and project.scientific_identity.identity_kind == "chain"
+        revision = self.store.get_chain_revision(
+            project.scientific_identity.chain_revision_id
+        )
+        assert revision is not None
+        definition = self.store.get_chain_definition(
+            revision.chain_id, revision.chain_definition_digest
+        )
+        assert definition is not None
+        external = _external_values(payload)
+        missing = sorted(
+            port.path for port in definition.external_inputs if port.path not in external
+        )
+        if missing:
+            raise ChainExecutionError(
+                "Chain候補の外部contextが不足しています: " + ", ".join(missing)
+            )
         return payload.model_copy(update={"blend_validation": validation})
 
     def _resolve(
@@ -228,13 +246,6 @@ class ChainExecutionService:
             raise ChainExecutionError("指定したcandidate revisionが見つかりません")
         if candidate.blend is None:
             raise ChainExecutionError("Chain候補には疎な配合明細が必要です")
-        if candidate.blend_validation.status == "invalid":
-            reasons = " / ".join(
-                issue.message for issue in candidate.blend_validation.issues
-            )
-            raise ChainExecutionError(
-                f"配合がDesign Spaceを満たしていないためChainを実行できません: {reasons}"
-            )
         return candidate, definition, revision, identity
 
     @staticmethod
@@ -335,6 +346,29 @@ class ChainExecutionService:
         return payload, outputs
 
     @staticmethod
+    def _outputs_from_payload(
+        stage: ChainStageRevision, payload: Mapping[str, Any]
+    ) -> dict[str, Any]:
+        if stage.stage_kind == "deterministic_transform":
+            composition = payload.get("material_composition", {})
+            auxiliary = payload.get("auxiliary_features", {})
+            if not isinstance(composition, dict) or not isinstance(auxiliary, dict):
+                raise ChainExecutionError(
+                    f"Stage {stage.stage_id}の保存結果をbindingへ戻せません"
+                )
+            return {**composition, **auxiliary}
+        predictions = payload.get("predictions")
+        if not isinstance(predictions, dict):
+            raise ChainExecutionError(
+                f"Stage {stage.stage_id}の保存結果をbindingへ戻せません"
+            )
+        return {
+            key: value["value"]
+            for key, value in predictions.items()
+            if isinstance(value, dict) and "value" in value
+        }
+
+    @staticmethod
     def _memo_key(
         stage: ChainStageRevision, input_digest: str
     ) -> str:
@@ -387,6 +421,13 @@ class ChainExecutionService:
         candidate, definition, revision, identity = self._resolve(
             project_id, candidate_id, candidate_revision
         )
+        if candidate.blend_validation.status == "invalid":
+            reasons = " / ".join(
+                issue.message for issue in candidate.blend_validation.issues
+            )
+            raise ChainExecutionError(
+                f"配合がDesign Spaceを満たしていないためChainを実行できません: {reasons}"
+            )
         request_id = request_id or str(uuid.uuid4())
         scope_id = self.store.chain_execution_scope(project_id, candidate_id)
         self.coordinator.begin(scope_id, request_id)
@@ -602,6 +643,106 @@ class ChainExecutionService:
             stages=tuple(stages),
             created_at=created_at,
             updated_at=_now(),
+        )
+        self.store.save_chain_execution(execution)
+        return execution
+
+    def mark_candidate_changed(
+        self, *, project_id: str, candidate_id: str, candidate_revision: int
+    ) -> ChainExecution | None:
+        """Reclassify retained results immediately after a candidate revision changes."""
+
+        previous_execution = self.store.get_chain_execution(project_id, candidate_id)
+        if previous_execution is None:
+            return None
+        candidate, definition, revision, identity = self._resolve(
+            project_id, candidate_id, candidate_revision
+        )
+        external = _external_values(candidate)
+        previous_by_stage = {
+            item.stage_id: item for item in previous_execution.stages
+        }
+        upstream_outputs: dict[str, dict[str, Any]] = {}
+        stages: list[ChainStageExecution] = []
+        upstream_stale = False
+        for stage in revision.stages:
+            previous = previous_by_stage.get(stage.stage_id)
+            if upstream_stale:
+                if previous is None:
+                    canonical_input: dict[str, Any] = {}
+                    requested = semantic_digest(
+                        {
+                            "candidate_revision": candidate_revision,
+                            "blocked_stage": stage.stage_id,
+                        }
+                    )
+                else:
+                    canonical_input = previous.canonical_input
+                    requested = previous.requested_input_digest
+                stages.append(
+                    self._retained(
+                        previous,
+                        stage=stage,
+                        status="stale",
+                        requested_input_digest=requested,
+                        canonical_input=canonical_input,
+                    )
+                )
+                continue
+            canonical_input = self._canonical_input(
+                definition, stage.stage_id, external, upstream_outputs
+            )
+            input_digest = semantic_digest(canonical_input)
+            if (
+                previous is not None
+                and previous.result is not None
+                and previous.result_input_digest == input_digest
+            ):
+                stages.append(
+                    ChainStageExecution(
+                        stage_id=stage.stage_id,
+                        status="latest",
+                        requested_input_digest=input_digest,
+                        result_input_digest=input_digest,
+                        contract_digest=stage.contract_digest,
+                        package_manifest_digest=stage.package_manifest_digest,
+                        canonical_input=canonical_input,
+                        result=previous.result,
+                        cache_hit=False,
+                        started_at=previous.started_at,
+                        completed_at=previous.completed_at,
+                    )
+                )
+                upstream_outputs[stage.stage_id] = self._outputs_from_payload(
+                    stage, previous.result
+                )
+            else:
+                stages.append(
+                    self._retained(
+                        previous,
+                        stage=stage,
+                        status="stale",
+                        requested_input_digest=input_digest,
+                        canonical_input=canonical_input,
+                    )
+                )
+                upstream_stale = True
+        now = _now()
+        execution = ChainExecution(
+            request_id=previous_execution.request_id,
+            project_id=project_id,
+            candidate_id=candidate_id,
+            candidate_revision=candidate_revision,
+            chain_revision_id=identity.chain_revision_id,
+            chain_revision_digest=identity.chain_revision_digest,
+            status=(
+                "latest"
+                if all(stage.status == "latest" for stage in stages)
+                else "stale"
+            ),
+            stages=tuple(stages),
+            created_at=previous_execution.created_at,
+            updated_at=now,
         )
         self.store.save_chain_execution(execution)
         return execution

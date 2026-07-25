@@ -1688,7 +1688,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "running" | "latest" | "failed" | "superseded";
+            status: "running" | "latest" | "stale" | "failed" | "superseded";
             /**
              * Updated At
              * Format: date-time

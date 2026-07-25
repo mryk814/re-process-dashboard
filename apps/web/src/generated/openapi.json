@@ -1098,6 +1098,7 @@
             "enum": [
               "running",
               "latest",
+              "stale",
               "failed",
               "superseded"
             ],

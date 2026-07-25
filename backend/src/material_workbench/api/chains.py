@@ -204,6 +204,11 @@ def update_chain_candidate(
         ) from exc
     if updated is None:
         raise HTTPException(404, "Chain候補が見つかりません")
+    service.mark_candidate_changed(
+        project_id=project_id,
+        candidate_id=candidate_id,
+        candidate_revision=updated.revision,
+    )
     return updated
 
 

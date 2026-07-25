@@ -124,6 +124,16 @@ def test_explicit_a_b_c_execution_matches_bindings_and_partial_recomputation(
     temperature_payload = _candidate_payload(client, project["id"])
     temperature_payload["inputs"]["process"]["test_temperature_c"] = -45.0
     temperature = _update(client, project, candidate, temperature_payload)
+    stale_temperature = client.get(
+        f"/api/projects/{project['id']}/chain/candidates/"
+        f"{candidate['id']}/execution"
+    ).json()
+    assert stale_temperature["status"] == "stale"
+    assert [stage["status"] for stage in stale_temperature["stages"]] == [
+        "latest",
+        "latest",
+        "stale",
+    ]
     second = _execute(client, project, temperature)
     assert [stage["cache_hit"] for stage in second["stages"]] == [True, True, False]
     assert (
@@ -144,6 +154,16 @@ def test_explicit_a_b_c_execution_matches_bindings_and_partial_recomputation(
     material_payload["blend"]["items"][0]["ratio"] -= 1.0
     material_payload["blend"]["items"][1]["ratio"] += 1.0
     material = _update(client, project, temperature, material_payload)
+    stale_material = client.get(
+        f"/api/projects/{project['id']}/chain/candidates/"
+        f"{candidate['id']}/execution"
+    ).json()
+    assert stale_material["status"] == "stale"
+    assert [stage["status"] for stage in stale_material["stages"]] == [
+        "stale",
+        "stale",
+        "stale",
+    ]
     third = _execute(client, project, material)
     assert [stage["cache_hit"] for stage in third["stages"]] == [False, False, False]
     historical = client.get(
