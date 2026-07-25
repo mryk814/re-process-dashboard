@@ -416,11 +416,24 @@ class Store:
         return generation
 
     def claim_chain_execution(
-        self, project_id: str, candidate_id: str, request_id: str
-    ) -> int:
+        self,
+        project_id: str,
+        candidate_id: str,
+        candidate_revision: int,
+        request_id: str,
+    ) -> int | None:
+        """Claim execution only while the resolved candidate revision is current."""
+
         scope_id = self.chain_execution_scope(project_id, candidate_id)
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
+            candidate = conn.execute(
+                "SELECT 1 FROM candidates "
+                "WHERE id=? AND project_id=? AND revision=? AND archived_at IS NULL",
+                (candidate_id, project_id, candidate_revision),
+            ).fetchone()
+            if candidate is None:
+                return None
             return self._claim_chain_execution(conn, scope_id, request_id)
 
     def chain_execution_generation(
@@ -470,19 +483,24 @@ class Store:
         self, project_id: str, snapshot: ChainSnapshot
     ) -> ChainSnapshot:
         with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
             candidate = conn.execute(
-                "SELECT 1 FROM candidate_revisions "
-                "WHERE candidate_id=? AND project_id=? AND revision=?",
+                "SELECT * FROM candidates WHERE id=? AND project_id=?",
                 (
                     snapshot.identity.candidate_id,
                     project_id,
-                    snapshot.identity.candidate_revision,
                 ),
             ).fetchone()
             if candidate is None:
                 raise StoreDataIntegrityError(
-                    "Chain snapshotのcandidate revisionが登録履歴にありません"
+                    "Chain snapshotのcandidateが見つかりません"
                 )
+            current = self._candidate(candidate)
+            if (
+                current.archived_at is not None
+                or current.revision != snapshot.identity.candidate_revision
+            ):
+                raise CandidateRevisionConflictError(current)
             conn.execute(
                 "INSERT INTO chain_snapshot_records("
                 "id,project_id,candidate_id,candidate_revision,identity_json,payload_json,created_at"
