@@ -25,6 +25,13 @@
 - [welding-stage-b-package.md](welding-stage-b-package.md) — 材料成分＋溶接条件から溶着金属成分を学習するStage B Task / Package
 - [task-inventory.json](task-inventory.json) — 現行タスクとactive Packageの自動生成一覧。直接編集しない
 
+## 構造の測定
+
+- [architecture/extensibility-inventory.md](architecture/extensibility-inventory.md) — 概念ごとの正本と登録点、Profile family差分、Chain Coreに残る溶接固有symbolの測定結果
+- [architecture/extensibility-spikes.md](architecture/extensibility-spikes.md) — 拡張性の反証ケース設計と変更点マトリクス
+
+`architecture/` は契約ではなく測定記録です。実装の正本としては使わず、リファクタリング判断の根拠として参照します。
+
 ## 実行と配布
 
 - [inference-execution.md](inference-execution.md) — 推論処理の識別、共有、キャッシュ方針
