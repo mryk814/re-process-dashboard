@@ -329,7 +329,7 @@
       "source": {
         "kind": "external_battery_degradation",
         "path": "data/source/external/battery_calce_cs2_cycles.csv",
-        "sha256": "0dfd86cd82524c0ae8676b72c3fb7015e5695a835aa582226247d3af846fe7bb",
+        "sha256": "bd2ab1b43b826c2376d3c692b264b34f886ab7bfdfb23ce81421a1c07bd45cc3",
         "profile_id": "calce-cs2-battery-capacity-v1",
         "profile_path": "backend/src/material_workbench/data/tabular-profile-battery-degradation-v1.json"
       },
@@ -338,7 +338,7 @@
         "previous": null,
         "package_id": "battery-degradation-lightgbm-calce-v1",
         "version": "1.0.0",
-        "manifest_sha256": "743b919cc1c7b97007b7ddc3ce0224cc3a2b62a658df129541c07ae9a0cb239c",
+        "manifest_sha256": "27258872d2a8cd9e408bdf56b3426670d33e5c3fd38806e1c6fe71fa65b9375f",
         "runtime_types": [
           "lightgbm.booster.v1"
         ]
@@ -377,7 +377,7 @@
       "source": {
         "kind": "external_secom",
         "path": "data/source/external/secom_stress.csv",
-        "sha256": "90f3a691ea718caf5681f4f99d43dc88ec8ec6338cf37503849b20f4b1be6d87",
+        "sha256": "c0f74512d055466c6e048430d21debeb413dd402d73a983d69286f1d2522df5b",
         "profile_id": "uci-secom-yield-v1",
         "profile_path": "backend/src/material_workbench/data/tabular-profile-secom-yield-v1.json"
       },
@@ -386,7 +386,7 @@
         "previous": null,
         "package_id": "secom-yield-lightgbm-calibrated-v1",
         "version": "1.0.0",
-        "manifest_sha256": "05d3ba95ad434cfd3a1c9f6fb0750927540aed764ffa535bbcc9c03f9761353d",
+        "manifest_sha256": "116946246837f698703dfb803fa8fb92273c421dda39f802685a04b1d99c7e92",
         "runtime_types": [
           "lightgbm.booster.v1"
         ]
