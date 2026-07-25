@@ -15,6 +15,7 @@ from .dependencies import (
 from .errors import DomainApiException, PROJECT_API_ERRORS
 from ..application.candidates import (
     CandidateNotFoundError,
+    CandidateProjectKindError,
     CandidateProvenanceImmutableError,
     CandidateService,
     CandidateValidationError,
@@ -69,6 +70,7 @@ CandidateServiceDependency = Annotated[CandidateService, Depends(get_candidate_s
 CANDIDATE_APPLICATION_ERRORS = (
     ProjectNotFoundError,
     CandidateNotFoundError,
+    CandidateProjectKindError,
     CandidateValidationError,
     CandidateLimitError,
     CandidateRevisionConflictError,
@@ -83,6 +85,12 @@ def candidate_http_error(exc: Exception) -> Exception:
         return HTTPException(404, "プロジェクトが見つかりません")
     if isinstance(exc, CandidateNotFoundError):
         return HTTPException(404, "候補が見つかりません")
+    if isinstance(exc, CandidateProjectKindError):
+        return DomainApiException(
+            409,
+            "chain_project_requires_chain_candidate_api",
+            str(exc),
+        )
     if isinstance(exc, CandidateValidationError):
         return HTTPException(422, str(exc))
     if isinstance(exc, CandidateLimitError):

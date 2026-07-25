@@ -31,7 +31,7 @@ from material_workbench.contracts.chain_execution_contracts import (
 from material_workbench.contracts.schemas import Candidate, CandidateInput, CandidateInputs
 from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.modeling.transform_catalog import DeterministicTransformCatalog
-from material_workbench.persistence.store import Store
+from material_workbench.persistence.store import CandidateRevisionConflictError, Store
 from material_workbench.tasks.task_registry import TaskRegistry
 
 
@@ -441,8 +441,17 @@ class ChainExecutionService:
         request_id = request_id or str(uuid.uuid4())
         scope_id = self.store.chain_execution_scope(project_id, candidate_id)
         generation = self.store.claim_chain_execution(
-            project_id, candidate_id, request_id
+            project_id, candidate_id, candidate.revision, request_id
         )
+        if generation is None:
+            return self._superseded(
+                project_id,
+                candidate,
+                identity,
+                revision,
+                request_id,
+                self.store.get_chain_execution(project_id, candidate_id),
+            )
         self.coordinator.begin(scope_id, request_id)
         if debounce_ms:
             time.sleep(debounce_ms / 1000)
@@ -897,4 +906,9 @@ class ChainExecutionService:
             stages=execution.stages,
             created_at=_now(),
         )
-        return self.store.insert_chain_snapshot(project_id, snapshot)
+        try:
+            return self.store.insert_chain_snapshot(project_id, snapshot)
+        except CandidateRevisionConflictError as exc:
+            raise ChainExecutionError(
+                "候補は更新済みのため、過去revisionからChain snapshotを作成できません"
+            ) from exc
