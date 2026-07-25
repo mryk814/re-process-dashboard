@@ -23,6 +23,7 @@ from material_workbench.contracts.schemas import (
 )
 from material_workbench.persistence.lineage_review_migration import migrate_lineage_reviews
 from material_workbench.persistence.decision_activity_migration import migrate_decision_activity_runs
+from material_workbench.persistence.candidate_revision_migration import migrate_candidate_revisions
 
 
 def _target_values_json(values: dict[str, object]) -> str:
@@ -101,6 +102,7 @@ class Store:
 
     def _init(self) -> None:
         migrate_workspace_catalog(self.path)
+        migrate_candidate_revisions(self.path)
         migrate_lineage_reviews(self.path)
         migrate_decision_activity_runs(self.path)
 
@@ -125,12 +127,19 @@ class Store:
             if initial_candidate is not None and initial_candidate.provenance.source_kind == "copy":
                 reference = initial_candidate.provenance.source_ref
                 source = conn.execute(
-                    "SELECT candidates.revision, projects.task_id FROM candidates "
-                    "JOIN projects ON projects.id=candidates.project_id "
-                    "WHERE candidates.id=? AND candidates.project_id=?",
-                    (reference.candidate_id, reference.project_id),
+                    "SELECT candidate_revisions.revision, projects.task_id "
+                    "FROM candidate_revisions "
+                    "JOIN projects ON projects.id=candidate_revisions.project_id "
+                    "WHERE candidate_revisions.candidate_id=? "
+                    "AND candidate_revisions.project_id=? "
+                    "AND candidate_revisions.revision=?",
+                    (
+                        reference.candidate_id,
+                        reference.project_id,
+                        reference.candidate_revision,
+                    ),
                 ).fetchone()
-                if source is None or source["revision"] != reference.candidate_revision:
+                if source is None:
                     raise CandidateCopyConflictError("コピー元候補またはrevisionが一致しません")
                 if source["task_id"] != payload.task_id:
                     raise CandidateCopyConflictError("異なる予測タスクの候補はコピーできません")
@@ -161,6 +170,11 @@ class Store:
                     "INSERT INTO candidates(id,project_id,name,payload,created_at,updated_at) VALUES (?, ?, ?, ?, ?, ?)",
                     (candidate_id, project_id, initial_candidate.name, initial_candidate.model_dump_json(), now, now),
                 )
+                row = conn.execute(
+                    "SELECT * FROM candidates WHERE id=?",
+                    (candidate_id,),
+                ).fetchone()
+                self._record_candidate_revision(conn, row)
         return self.get_project(project_id)  # type: ignore[return-value]
 
     def ensure_project(self, project_id: str, payload: ProjectInput) -> Project:
@@ -371,6 +385,47 @@ class Store:
                 row = conn.execute(f"SELECT * FROM candidates WHERE id = ? AND project_id = ?{active}", (candidate_id, project_id)).fetchone()
         return self._candidate(row) if row else None
 
+    def get_candidate_revision(
+        self,
+        candidate_id: str,
+        revision: int,
+        project_id: str | None = None,
+    ) -> Candidate | None:
+        with self._connect() as conn:
+            if project_id is None:
+                row = conn.execute(
+                    "SELECT candidate_id AS id,project_id,revision,name,payload,"
+                    "archived_at,created_at,updated_at FROM candidate_revisions "
+                    "WHERE candidate_id=? AND revision=?",
+                    (candidate_id, revision),
+                ).fetchone()
+            else:
+                row = conn.execute(
+                    "SELECT candidate_id AS id,project_id,revision,name,payload,"
+                    "archived_at,created_at,updated_at FROM candidate_revisions "
+                    "WHERE candidate_id=? AND project_id=? AND revision=?",
+                    (candidate_id, project_id, revision),
+                ).fetchone()
+        return self._candidate(row) if row else None
+
+    @staticmethod
+    def _record_candidate_revision(conn: sqlite3.Connection, row: sqlite3.Row) -> None:
+        conn.execute(
+            "INSERT INTO candidate_revisions("
+            "candidate_id,project_id,revision,name,payload,archived_at,created_at,updated_at"
+            ") VALUES (?,?,?,?,?,?,?,?)",
+            (
+                row["id"],
+                row["project_id"],
+                row["revision"],
+                row["name"],
+                row["payload"],
+                row["archived_at"],
+                row["created_at"],
+                row["updated_at"],
+            ),
+        )
+
     def project_history(self, project_id: str) -> dict[str, Any] | None:
         with self._connect() as conn:
             conn.execute("BEGIN")
@@ -461,6 +516,12 @@ class Store:
                 candidate_id, now = str(uuid.uuid4()), _now()
                 records.append((candidate_id, project_id, payload.name, payload.model_dump_json(), now, now))
             conn.executemany("INSERT INTO candidates(id,project_id,name,payload,created_at,updated_at) VALUES (?, ?, ?, ?, ?, ?)", records)
+            for candidate_id, *_ in records:
+                row = conn.execute(
+                    "SELECT * FROM candidates WHERE id=?",
+                    (candidate_id,),
+                ).fetchone()
+                self._record_candidate_revision(conn, row)
         created = [self.get_candidate(candidate_id) for candidate_id, *_ in records]
         if any(candidate is None for candidate in created):
             raise RuntimeError("作成した候補を再取得できませんでした")
@@ -504,6 +565,12 @@ class Store:
                 records.append((candidate_id, project_id, payload.name, payload.model_dump_json(), now, now))
             if records:
                 conn.executemany("INSERT INTO candidates(id,project_id,name,payload,created_at,updated_at) VALUES (?, ?, ?, ?, ?, ?)", records)
+                for candidate_id, *_ in records:
+                    row = conn.execute(
+                        "SELECT * FROM candidates WHERE id=?",
+                        (candidate_id,),
+                    ).fetchone()
+                    self._record_candidate_revision(conn, row)
         created = [self.get_candidate(candidate_id, project_id) for candidate_id, *_ in records]
         if any(candidate is None for candidate in created):
             raise RuntimeError("作成した候補を再取得できませんでした")
@@ -525,6 +592,11 @@ class Store:
                 if current.archived_at is not None:
                     raise CandidateArchivedError("archive済み候補は編集できません")
                 raise CandidateRevisionConflictError(current)
+            row = conn.execute(
+                "SELECT * FROM candidates WHERE id=? AND project_id=?",
+                (candidate_id, project_id),
+            ).fetchone()
+            self._record_candidate_revision(conn, row)
         return self.get_candidate(candidate_id, project_id)
 
     def delete_candidate(self, candidate_id: str, project_id: str, expected_revision: int) -> bool:
@@ -566,6 +638,11 @@ class Store:
                     if latest is None:
                         return False
                     raise CandidateRevisionConflictError(self._candidate(latest))
+                archived = conn.execute(
+                    "SELECT * FROM candidates WHERE id=? AND project_id=?",
+                    (candidate_id, project_id),
+                ).fetchone()
+                self._record_candidate_revision(conn, archived)
                 return True
             return bool(conn.execute("DELETE FROM candidates WHERE id=? AND project_id=? AND revision=?", (candidate_id, project_id, expected_revision)).rowcount)
 

@@ -20,7 +20,10 @@ from ..application.candidates import (
     CandidateValidationError,
 )
 from material_workbench.contracts.schemas import Candidate, CandidateImportResponse, CandidateInput, CandidateUpdate
-from material_workbench.contracts.blend_contracts import BlendContractRegistry
+from material_workbench.contracts.blend_contracts import (
+    BlendContractRegistry,
+    BlendMaterialDescriptor,
+)
 from material_workbench.persistence.store import (
     CandidateArchivedError,
     CandidateLimitError,
@@ -143,6 +146,56 @@ def candidate_import_template(project_id: str, service: CandidateServiceDependen
 def get_candidate(project_id: str, candidate_id: str, service: CandidateServiceDependency, include_archived: bool = False) -> Candidate:
     try:
         return service.get(project_id, candidate_id, include_archived=include_archived)
+    except CANDIDATE_APPLICATION_ERRORS as exc:
+        raise_candidate_http_error(exc)
+
+
+@router.get(
+    "/api/projects/{project_id}/candidates/{candidate_id}/revisions/{revision}",
+    response_model=Candidate,
+    responses=PROJECT_API_ERRORS,
+)
+def get_candidate_revision(
+    project_id: str,
+    candidate_id: str,
+    revision: int,
+    service: CandidateServiceDependency,
+) -> Candidate:
+    try:
+        return service.historical_revision(project_id, candidate_id, revision)
+    except CANDIDATE_APPLICATION_ERRORS as exc:
+        raise_candidate_http_error(exc)
+
+
+@router.get(
+    "/api/projects/{project_id}/candidates/{candidate_id}/blend-materials",
+    response_model=list[BlendMaterialDescriptor],
+    responses=PROJECT_API_ERRORS,
+)
+def get_candidate_blend_materials(
+    project_id: str,
+    candidate_id: str,
+    service: CandidateServiceDependency,
+    revision: int | None = None,
+) -> tuple[BlendMaterialDescriptor, ...]:
+    try:
+        return service.blend_materials(project_id, candidate_id, revision)
+    except CANDIDATE_APPLICATION_ERRORS as exc:
+        raise_candidate_http_error(exc)
+
+
+@router.get(
+    "/api/projects/{project_id}/candidates/{candidate_id}/derivation-chain",
+    response_model=list[Candidate],
+    responses=PROJECT_API_ERRORS,
+)
+def get_candidate_derivation_chain(
+    project_id: str,
+    candidate_id: str,
+    service: CandidateServiceDependency,
+) -> list[Candidate]:
+    try:
+        return service.derivation_chain(project_id, candidate_id)
     except CANDIDATE_APPLICATION_ERRORS as exc:
         raise_candidate_http_error(exc)
 

@@ -301,6 +301,16 @@ class ResolvedBlendContracts:
     design_space: SparseBlendDesignSpace
 
 
+class BlendMaterialDescriptor(BlendContractModel):
+    material_id: str
+    name: str
+    material_type: str
+    group: str
+    d50_um: float
+    procurement: Literal["常用", "条件付", "試作限定", "廃止予定"]
+    unit_price_yen_per_kg_core: float
+
+
 class BlendContractRegistry:
     """Immutable in-memory registry keyed by exact revision references."""
 
@@ -390,6 +400,29 @@ class BlendContractRegistry:
         if blend.hoop_id not in {item.hoop_id for item in master.hoops}:
             raise BlendStructuralError(f"unknown hoop id: {blend.hoop_id}")
         return ResolvedBlendContracts(master, catalog, space)
+
+    def describe(self, blend: SparseBlend) -> tuple[BlendMaterialDescriptor, ...]:
+        contracts = self.resolve(blend)
+        commercial = {
+            item.material_id: item
+            for item in contracts.commercial_catalog.materials
+        }
+        selected = {item.material_id for item in blend.items}
+        return tuple(
+            BlendMaterialDescriptor(
+                material_id=item.material_id,
+                name=item.name,
+                material_type=item.material_type,
+                group=item.group,
+                d50_um=item.d50_um,
+                procurement=commercial[item.material_id].procurement,
+                unit_price_yen_per_kg_core=(
+                    commercial[item.material_id].unit_price_yen_per_kg_core
+                ),
+            )
+            for item in contracts.scientific_master.materials
+            if item.material_id in selected
+        )
 
 
 def validate_sparse_blend(

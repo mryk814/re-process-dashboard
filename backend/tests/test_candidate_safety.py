@@ -40,6 +40,71 @@ def test_candidate_update_is_atomic_compare_and_swap_with_current_candidate(clie
     assert client.put(url, json=missing_revision).status_code == 422
 
 
+def test_candidate_revisions_are_immutable_and_copy_can_pin_an_old_revision(client) -> None:
+    source = _create_candidate(client, "派生元 v1")
+    source_url = f"/api/projects/default/candidates/{source['id']}"
+    updated = client.put(source_url, json=_update_payload(source, "派生元 v2")).json()
+
+    revision_one = client.get(f"{source_url}/revisions/{source['revision']}")
+    assert revision_one.status_code == 200
+    assert revision_one.json()["name"] == "派生元 v1"
+    assert client.get(f"{source_url}/revisions/{updated['revision']}").json()["name"] == "派生元 v2"
+
+    derived_payload = {
+        key: revision_one.json()[key]
+        for key in ("inputs", "provenance")
+    }
+    derived_payload["name"] = "v1から派生"
+    derived_payload["provenance"] = {
+        "source_kind": "copy",
+        "source_ref": {
+            "project_id": "default",
+            "candidate_id": source["id"],
+            "candidate_revision": source["revision"],
+        },
+    }
+    derived = client.post("/api/projects/default/candidates", json=derived_payload)
+
+    assert derived.status_code == 201
+    assert derived.json()["provenance"]["source_ref"]["candidate_revision"] == source["revision"]
+    chain = client.get(
+        f"/api/projects/default/candidates/{derived.json()['id']}/derivation-chain"
+    )
+    assert chain.status_code == 200
+    assert [(item["id"], item["revision"], item["name"]) for item in chain.json()] == [
+        (source["id"], source["revision"], "派生元 v1")
+    ]
+
+    # Removing the active source does not erase the immutable revision used by
+    # the derived candidate.
+    assert client.delete(
+        f"{source_url}?expected_revision={updated['revision']}"
+    ).status_code == 204
+    assert client.get(source_url).status_code == 404
+    assert client.get(f"{source_url}/revisions/{source['revision']}").json()["name"] == "派生元 v1"
+    assert client.get(
+        f"/api/projects/default/candidates/{derived.json()['id']}/derivation-chain"
+    ).json()[0]["name"] == "派生元 v1"
+
+
+def test_candidate_revision_migration_backfills_the_current_candidate(client) -> None:
+    candidate = client.get("/api/projects/default/candidates").json()[0]
+    with sqlite3.connect(client.app.state.store.path) as conn:
+        row = conn.execute(
+            "SELECT name,payload FROM candidate_revisions "
+            "WHERE candidate_id=? AND revision=?",
+            (candidate["id"], candidate["revision"]),
+        ).fetchone()
+        marker = conn.execute(
+            "SELECT checksum FROM schema_migrations "
+            "WHERE id='candidate-revision-history-v1'",
+        ).fetchone()
+
+    assert row is not None
+    assert row[0] == candidate["name"]
+    assert marker == ("immutable-candidate-revisions-v1",)
+
+
 def test_detailed_prediction_uses_one_revision_consistently(client, monkeypatch) -> None:
     candidate = _create_candidate(client, "詳細予測revision")
     original = client.app.state.store.get_candidate
