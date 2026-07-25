@@ -70,7 +70,7 @@ flowchart LR
 
 ## 3. ProfileはExcelの方言を正規形へ写す
 
-教材専用Profileは [`dataset-input-profile-tutorial.json`](../backend/src/material_workbench/dataset-input-profile-tutorial.json) です。
+教材専用Profileは [`dataset-input-profile-tutorial.json`](../backend/src/material_workbench/data/dataset-input-profile-tutorial.json) です。
 
 このProfileは既存の薄板Task用Profileを継承し、`概要.項目` に `教材データID` があることだけを固有マーカーにします。これにより、同じシート名を持つ別Workbookと自動判定が衝突しません。
 
