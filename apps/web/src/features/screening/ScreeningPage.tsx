@@ -44,6 +44,17 @@ function chartDigits(min: number, max: number) {
   return 0;
 }
 
+type GoalEvaluation = ApiScreeningRun["points"][number]["goal_evaluation"];
+
+function goalEvaluationLabel(evaluation: GoalEvaluation, primary: boolean) {
+  // Older saved runs may contain achieved=false for absolute-distance ranking.
+  // The method is the durable semantic: a point target has no pass/fail tolerance.
+  if (evaluation.method === "absolute_distance") return "目標値への近さで順位付け（達成判定なし）";
+  if (evaluation.achieved === true) return primary ? "選別基準を満たす" : "副条件を満たす";
+  if (evaluation.achieved === false) return primary ? "選別基準を満たさない" : "副条件を満たさない";
+  return "達成判定なし";
+}
+
 export function ScreeningPage({
   projectId,
   project,
@@ -734,7 +745,22 @@ export function ScreeningPage({
           </svg>
           {focusedPoint && <section className="screening-point-detail" aria-label="選択した探索点の詳細">
             <div className="panel-title"><h3>点 {focusedPoint.index + 1}</h3><span className={`support-badge ${focusedPoint.support.status}`}>{focusedPoint.support.message}</span></div>
-            <div className="screening-point-predictions">{Object.entries({ [result.target]: focusedPoint.prediction, ...(focusedPoint.predictions ?? {}) }).map(([key, prediction]) => { const output = resolveOutputDefinition(outputs, key); const assessment = assessPrediction(output, prediction); return <div className={assessment.implausible ? "implausible-output" : undefined} title={assessment.warning ?? undefined} key={key}><b>{output?.label ?? key}</b><strong>{number(prediction.value, 1)} {prediction.unit}</strong><small>{number(prediction.lower, 1)}–{number(prediction.upper, 1)}{prediction.goal_probability != null ? ` / 達成確率 ${Math.round(prediction.goal_probability * 100)}%` : ""}</small>{assessment.implausible && <em className="output-warning-badge">⚠ 物理範囲外</em>}{focusedPoint.secondary_goal_evaluations?.[key]?.achieved != null && <em>{focusedPoint.secondary_goal_evaluations[key].achieved ? "副条件を満たす" : "副条件を満たさない"}</em>}</div>; })}</div>
+            <div className="screening-point-predictions">
+              {Object.entries({ [result.target]: focusedPoint.prediction, ...(focusedPoint.predictions ?? {}) }).map(([key, prediction]) => {
+                const output = resolveOutputDefinition(outputs, key);
+                const assessment = assessPrediction(output, prediction);
+                const evaluation = key === result.target
+                  ? focusedPoint.goal_evaluation
+                  : focusedPoint.secondary_goal_evaluations?.[key];
+                return <div className={assessment.implausible ? "implausible-output" : undefined} title={assessment.warning ?? undefined} key={key}>
+                  <b>{output?.label ?? key}</b>
+                  <strong>{number(prediction.value, 1)} {prediction.unit}</strong>
+                  <small>{number(prediction.lower, 1)}–{number(prediction.upper, 1)}{prediction.goal_probability != null ? ` / 達成確率 ${Math.round(prediction.goal_probability * 100)}%` : ""}</small>
+                  {assessment.implausible && <em className="output-warning-badge">⚠ 物理範囲外</em>}
+                  {evaluation && <em>{goalEvaluationLabel(evaluation, key === result.target)}</em>}
+                </div>;
+              })}
+            </div>
             <p><b>全変動条件:</b> {Object.entries(focusedPoint.inputs).map(([key, value]) => `${axisLabel(key)} ${typeof value === "number" ? number(value, 3) : value}`).join(" / ")}</p>
             <p><b>支持度:</b> {focusedPoint.support.status} / percentile {number(focusedPoint.support.percentile, 1)} / 参照{focusedPoint.support.reference_count}件</p>
             {focusedPoint.warnings?.map((warning) => <p className="warning" key={warning}>{warning}</p>)}
