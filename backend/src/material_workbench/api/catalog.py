@@ -36,20 +36,52 @@ ResolverDependency = Annotated[ProjectRuntimeResolver, Depends(get_project_runti
 @router.get("/api/health")
 @router.get("/health", include_in_schema=False)
 def health(store: StoreDependency, registry: RegistryDependency) -> dict[str, Any]:
-    default_project = project_or_404(store, "default")
-    default_runtime = registry.runtime_for(default_project.task_id)
+    available = set(registry.available_task_ids)
+    default_project = store.get_project("default")
+    default_runtime = (
+        registry.runtime_for(default_project.task_id)
+        if default_project is not None and default_project.task_id in available
+        else None
+    )
     return {
         "ok": True,
-        "models": sorted(default_runtime.models),  # type: ignore[attr-defined]
-        "source": default_runtime.data.source_path,
+        "ready": True,
+        "degraded": len(available) != len(registry.task_ids),
+        "models": sorted(default_runtime.models) if default_runtime is not None else [],  # type: ignore[attr-defined]
+        "source": default_runtime.data.source_path if default_runtime is not None else None,
         "tasks": {
-            task_id: {
-                "package_id": registry.entry_for(task_id).model_package.manifest.package_id,
-                "outputs": sorted(registry.runtime_for(task_id).output_keys),
-                "source": registry.runtime_for(task_id).data.source_path,
-            }
+            task_id: (
+                {
+                    "availability": registry.availability_for(task_id).model_dump(mode="json"),
+                    "package_id": registry.entry_for(task_id).model_package.manifest.package_id,
+                    "outputs": sorted(registry.runtime_for(task_id).output_keys),
+                    "source": registry.runtime_for(task_id).data.source_path,
+                }
+                if task_id in available
+                else {
+                    "availability": registry.availability_for(task_id).model_dump(mode="json"),
+                    "package_id": None,
+                    "outputs": [],
+                    "source": None,
+                }
+            )
             for task_id in registry.task_ids
         },
+    }
+
+
+@router.get("/api/readiness", operation_id="getReadiness")
+def readiness(registry: RegistryDependency) -> dict[str, Any]:
+    unavailable = {
+        task_id: registry.availability_for(task_id).model_dump(mode="json")
+        for task_id in registry.task_ids
+        if registry.availability_for(task_id).status == "unavailable"
+    }
+    return {
+        "ready": True,
+        "degraded": bool(unavailable),
+        "available_tasks": list(registry.available_task_ids),
+        "unavailable_tasks": unavailable,
     }
 
 

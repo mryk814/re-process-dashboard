@@ -43,6 +43,7 @@ class CandidateService:
 
     def create(self, project_id: str, payload: CandidateInput) -> Candidate:
         project = self.projects.require(project_id)
+        self.registry.require_available(project.task_id)
         if payload.provenance.source_kind == "copy":
             reference = payload.provenance.source_ref
             source_candidate = self.store.get_candidate(
@@ -105,6 +106,7 @@ class CandidateService:
 
     def update(self, project_id: str, candidate_id: str, payload: CandidateUpdate) -> Candidate:
         project = self.projects.require(project_id)
+        self.registry.require_available(project.task_id)
         existing = self.store.get_candidate(candidate_id, project_id, include_archived=True)
         if existing is None:
             raise CandidateNotFoundError(candidate_id)
@@ -121,7 +123,8 @@ class CandidateService:
         return candidate
 
     def delete(self, project_id: str, candidate_id: str, expected_revision: int) -> None:
-        self.projects.require(project_id)
+        project = self.projects.require(project_id)
+        self.registry.require_available(project.task_id)
         if self.store.get_candidate(candidate_id, project_id, include_archived=True) is None:
             raise CandidateNotFoundError(candidate_id)
         if not self.store.delete_candidate(candidate_id, project_id, expected_revision):

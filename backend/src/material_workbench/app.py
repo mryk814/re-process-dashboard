@@ -38,6 +38,7 @@ from .task_modules import (
     TaskModule,
     registered_task_modules,
 )
+from material_workbench.contracts.task_contracts import TaskAvailability
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +55,28 @@ def _raise_startup_error(stage: str, label: str, exc: Exception) -> None:
         json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
     )
     raise exc
+
+
+def _task_unavailable(
+    task_id: str,
+    *,
+    stage: str,
+    label: str,
+    exc: Exception,
+) -> TaskAvailability:
+    logger.warning(
+        "TASK_UNAVAILABLE task_id=%s stage=%s error_type=%s detail=%s",
+        task_id,
+        stage,
+        type(exc).__name__,
+        exc,
+    )
+    message = (
+        f"{label}のファイルが見つかりません。設定を確認して再起動してください。"
+        if isinstance(exc, FileNotFoundError)
+        else f"{label}を準備できません: {exc}"
+    )
+    return TaskAvailability(status="unavailable", stage=stage, message=message)
 
 
 @dataclass(frozen=True)
@@ -86,8 +109,9 @@ def _prepare_app_resources(
     data_by_source: dict[str, Any] = {}
     runtimes: dict[str, PredictionRuntime] = {}
     explorers: dict[str, DataExplorerEntry] = {}
+    unavailable: dict[str, TaskAvailability] = {}
     for task_id, module in modules.items():
-        if task_id not in data_by_source:
+        try:
             explicit_source = (
                 source
                 if module.source_kind == "primary"
@@ -101,16 +125,38 @@ def _prepare_app_resources(
             loaded = module.data_loader(configured_source, None)
             data_by_source[task_id] = loaded
             data_by_source.setdefault(module.source_kind, loaded)
-        data = data_by_source[task_id]
-        package = resolve_configured_package(
-            task_id,
-            config_path=configured,
-            override=injected.get(task_id) or os.getenv(module.package_override_env),
-        )
-        runtimes[task_id] = module.runtime_factory(data, package)
+        except (OSError, ValueError, KeyError) as exc:
+            unavailable[task_id] = _task_unavailable(
+                task_id, stage="source", label="データソース", exc=exc
+            )
+            continue
+        try:
+            package = resolve_configured_package(
+                task_id,
+                config_path=configured,
+                override=injected.get(task_id) or os.getenv(module.package_override_env),
+            )
+        except (OSError, ValueError, KeyError) as exc:
+            unavailable[task_id] = _task_unavailable(
+                task_id, stage="package", label="Model Package", exc=exc
+            )
+            continue
+        try:
+            runtimes[task_id] = module.runtime_factory(loaded, package)
+        except (OSError, ValueError, KeyError) as exc:
+            unavailable[task_id] = _task_unavailable(
+                task_id, stage="runtime", label="予測runtime", exc=exc
+            )
+            continue
         if module.data_explorer is not None:
-            explorers[task_id] = DataExplorerEntry(data=data, capability=module.data_explorer)
-    task_registry = TaskRegistry(runtimes, data_explorers=explorers, modules=modules)
+            explorers[task_id] = DataExplorerEntry(data=loaded, capability=module.data_explorer)
+    task_registry = TaskRegistry(
+        runtimes,
+        data_explorers=explorers,
+        modules=modules,
+        unavailable=unavailable,
+        degrade_invalid_runtimes=True,
+    )
     return _AppResources(
         modules=MappingProxyType(modules),
         data_by_source=MappingProxyType(data_by_source),
@@ -153,7 +199,9 @@ def create_app(
             )
         except Exception as exc:
             _raise_startup_error("resources", "データ・Model Package", exc)
-        app.state.data = prepared.data_by_source["primary"]
+        app.state.data = prepared.data_by_source.get("primary") or next(
+            iter(prepared.data_by_source.values()), None
+        )
         app.state.task_registry = prepared.task_registry
         app.state.inference_work_graph = InferenceWorkGraph(max_entries=256)
         try:
