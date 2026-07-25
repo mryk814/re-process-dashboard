@@ -444,22 +444,45 @@ DEFAULT_SCREENING_SEED = 20260719
 SCREENING_POOL_MULTIPLIER = 4
 
 
+class ScreeningGoal(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    direction: Literal["at_least", "at_most", "between"]
+    lower: float | None = None
+    upper: float | None = None
+
+    @model_validator(mode="after")
+    def complete_goal(self) -> "ScreeningGoal":
+        values = [value for value in (self.lower, self.upper) if value is not None]
+        if any(not math.isfinite(value) for value in values):
+            raise ValueError("選別基準は有限の数値にしてください")
+        if self.direction == "at_least" and (self.lower is None or self.upper is not None):
+            raise ValueError("at_leastにはlowerだけを指定してください")
+        if self.direction == "at_most" and (self.upper is None or self.lower is not None):
+            raise ValueError("at_mostにはupperだけを指定してください")
+        if self.direction == "between" and (
+            self.lower is None or self.upper is None or self.lower >= self.upper
+        ):
+            raise ValueError("betweenにはlower < upperを指定してください")
+        return self
+
+
 class ScreeningRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     base_candidate_id: Annotated[str, Field(min_length=1)]
     base_inputs: CandidateInputs
     variables: Annotated[dict[str, ScreeningVariable], Field(min_length=1)]
     samples: Annotated[int, Field(ge=48, le=128)] = 64
     seed: Annotated[int, Field(ge=0, le=2_147_483_647)] = DEFAULT_SCREENING_SEED
     target: Annotated[str, Field(min_length=1)] = "TS"
-    target_value: float | None = None
-    secondary_targets: dict[str, float] = Field(default_factory=dict)
+    target_goal: ScreeningGoal | None = None
+    secondary_goals: dict[str, ScreeningGoal] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def variables_match_their_fields(self) -> "ScreeningRequest":
-        if self.target_value is not None and not math.isfinite(self.target_value):
-            raise ValueError("target_valueは有限の数値にしてください")
-        if any(not math.isfinite(value) for value in self.secondary_targets.values()):
-            raise ValueError("secondary_targetsは有限の数値にしてください")
+    def target_is_not_a_secondary_goal(self) -> "ScreeningRequest":
+        if self.target in self.secondary_goals:
+            raise ValueError("主目標を副条件にも指定することはできません")
         return self
 
 
@@ -907,20 +930,22 @@ class ScreeningPoint(BaseModel):
 
 class ScreeningGoalEvaluation(BaseModel):
     score: float | None
-    method: Literal["achievement_probability", "directional_shortfall", "absolute_distance", "support_distance"]
+    method: Literal["achievement_probability", "directional_shortfall", "range_shortfall", "absolute_distance", "support_distance"]
     achieved: bool | None
     achievement_probability: float | None
 
 
 class ScreeningScoreContract(BaseModel):
-    version: Literal["screening-score/v1", "screening-score/v2"]
+    version: Literal["screening-score/v1", "screening-score/v2", "screening-score/v3"]
     preference: Literal["lower_is_better"]
-    direction: Literal["at_least", "at_most", "target"] | None
+    direction: Literal["at_least", "at_most", "between", "target"] | None
     target_value: float | None
+    lower: float | None = None
+    upper: float | None = None
     probability_available: bool
     probability_semantics: Literal["probability_of_achieving_goal"] | None = None
     ranking_policy: Literal["support_tier_then_secondary_goals_then_score"] | None = None
-    fallback: Literal["directional_shortfall", "absolute_distance", "support_distance"]
+    fallback: Literal["directional_shortfall", "range_shortfall", "absolute_distance", "support_distance"]
     display_label: str
 
 
@@ -955,7 +980,7 @@ class ScreeningProposalDiagnostics(BaseModel):
 
 
 class ScreeningRunResponse(BaseModel):
-    schema_version: Literal["screening-run/v1", "screening-run/v2", "screening-run/v3"] = "screening-run/v1"
+    schema_version: Literal["screening-run/v1", "screening-run/v2", "screening-run/v3", "screening-run/v4"] = "screening-run/v1"
     id: str
     project_id: str
     created_at: datetime
@@ -965,8 +990,16 @@ class ScreeningRunResponse(BaseModel):
     base_canonical_input: dict[str, object]
     model_provenance: ModelMetadata
     target: str
-    target_value: float | None
-    secondary_targets: dict[str, float] = Field(default_factory=dict)
+    target_goal: ScreeningGoal | None = None
+    secondary_goals: dict[str, ScreeningGoal] = Field(default_factory=dict)
+    target_value: float | None = Field(
+        default=None,
+        deprecated="screening-run/v1-v3 compatibility; use target_goal",
+    )
+    secondary_targets: dict[str, float] = Field(
+        default_factory=dict,
+        deprecated="screening-run/v1-v3 compatibility; use secondary_goals",
+    )
     score_contract: ScreeningScoreContract
     samples: int
     variables: dict[str, ScreeningVariable]
@@ -983,7 +1016,7 @@ class ScreeningRunResponse(BaseModel):
 
     @model_validator(mode="after")
     def proposal_identity_is_internally_consistent(self) -> "ScreeningRunResponse":
-        if self.schema_version != "screening-run/v3":
+        if self.schema_version not in {"screening-run/v3", "screening-run/v4"}:
             return self
         if (
             self.design_space is None
@@ -1001,6 +1034,29 @@ class ScreeningRunResponse(BaseModel):
             raise ValueError("proposal diagnostics must cover the complete generated pool")
         if self.proposal_diagnostics.evaluated_count != self.samples:
             raise ValueError("proposal diagnostics evaluated_count must match samples")
+        if self.schema_version == "screening-run/v4":
+            if self.__dict__["target_value"] is not None or self.__dict__["secondary_targets"]:
+                raise ValueError("screening-run/v4 must use target_goal and secondary_goals")
+            if self.target in self.secondary_goals:
+                raise ValueError("target must not also appear in secondary_goals")
+            expected_direction = self.target_goal.direction if self.target_goal else None
+            if self.score_contract.direction != expected_direction:
+                raise ValueError("score contract direction must match target_goal")
+            expected_target = (
+                self.target_goal.lower
+                if self.target_goal and self.target_goal.direction == "at_least"
+                else self.target_goal.upper
+                if self.target_goal and self.target_goal.direction == "at_most"
+                else None
+            )
+            expected_lower = self.target_goal.lower if self.target_goal else None
+            expected_upper = self.target_goal.upper if self.target_goal else None
+            if (
+                self.score_contract.target_value != expected_target
+                or self.score_contract.lower != expected_lower
+                or self.score_contract.upper != expected_upper
+            ):
+                raise ValueError("score contract bounds must match target_goal")
         return self
 
 

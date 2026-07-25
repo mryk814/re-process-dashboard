@@ -85,8 +85,8 @@ def test_project_crud_preserves_default_and_isolates_candidates_and_screening(cl
         "base_inputs": candidate.json()["inputs"],
         "samples": 48,
         "target": "TS",
-        "target_value": 500,
-        "secondary_targets": {"YS": 350},
+        "target_goal": {"direction": "at_least", "lower": 500},
+        "secondary_goals": {"YS": {"direction": "at_least", "lower": 350}},
         "variables": {"composition.C": {"mode": "range", "min": 0.06, "max": 0.1}},
     }
     run = client.post(f"/api/screening?project_id={project['id']}", json=screening_body)
@@ -241,7 +241,7 @@ def test_screening_accepts_hot_rolling_process_fields_from_task_definition(clien
             "base_inputs": base["inputs"],
             "samples": 48,
             "target": "TS",
-            "target_value": 520,
+            "target_goal": {"direction": "at_least", "lower": 520},
             "variables": {
                 "process.soaking_temperature_c": {"mode": "range", "min": 1170, "max": 1190},
             },
@@ -336,7 +336,7 @@ def test_candidate_limit_is_enforced_for_every_creation_route(client) -> None:
             "base_inputs": base["inputs"],
             "samples": 48,
             "target": "TS",
-            "target_value": 500,
+            "target_goal": {"direction": "at_least", "lower": 500},
             "variables": {"composition.C": {"mode": "range", "min": 0.06, "max": 0.1}},
         },
     ).json()

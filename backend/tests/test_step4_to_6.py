@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 from material_workbench.modeling.feature_pipeline import build_feature_bundle
-from material_workbench.contracts.schemas import CandidateInput
+from material_workbench.contracts.schemas import CandidateInput, ScreeningRunResponse
 from material_workbench.domain.services import _candidate_xlsx_names, candidate_from_lineage, import_candidates_xlsx
 
 
@@ -21,7 +21,7 @@ def _screening_body(candidate: dict) -> dict:
         "samples": 48,
         "seed": 20260719,
         "target": "TS",
-        "target_value": 500,
+        "target_goal": {"direction": "at_least", "lower": 500},
         "variables": {
             "composition.C": {"mode": "range", "min": 0.04, "max": 0.12},
             "process.ls_mpm": {"mode": "range", "min": 80, "max": 130},
@@ -67,10 +67,12 @@ def test_latin_hypercube_is_deterministic_bounded_and_convertible(client) -> Non
     assert sum(diagnostics["rejected_by_reason"].values()) == diagnostics["rejected_count"]
     assert diagnostics["rejection_rate"] == pytest.approx(diagnostics["rejected_count"] / 192)
     assert first["score_contract"] == {
-        "version": "screening-score/v2",
+        "version": "screening-score/v3",
         "preference": "lower_is_better",
         "direction": "at_least",
         "target_value": 500.0,
+        "lower": 500.0,
+        "upper": None,
         "probability_available": True,
         "probability_semantics": "probability_of_achieving_goal",
         "ranking_policy": "support_tier_then_secondary_goals_then_score",
@@ -86,6 +88,31 @@ def test_latin_hypercube_is_deterministic_bounded_and_convertible(client) -> Non
     assert representative_rank == sorted(representative_rank)
     assert client.get(f"/api/screening/{first['id']}").json()["base_canonical_input"] == first["base_canonical_input"]
     assert any(run["id"] == first["id"] for run in client.get("/api/screening").json())
+
+    legacy = deepcopy(first)
+    legacy["schema_version"] = "screening-run/v3"
+    legacy["target_value"] = 500
+    legacy["secondary_targets"] = {}
+    legacy.pop("target_goal")
+    legacy.pop("secondary_goals")
+    legacy["score_contract"] = {
+        **legacy["score_contract"],
+        "version": "screening-score/v2",
+    }
+    restored_legacy = ScreeningRunResponse.model_validate(legacy)
+    assert restored_legacy.schema_version == "screening-run/v3"
+    assert restored_legacy.__dict__["target_value"] == 500
+
+
+def test_screening_request_rejects_removed_scalar_goal_fields(client) -> None:
+    candidate = client.get("/api/projects/default/candidates").json()[0]
+    payload = _screening_body(candidate)
+    payload.pop("target_goal")
+    payload["target_value"] = 500
+
+    response = client.post("/api/screening", json=payload)
+
+    assert response.status_code == 422
 
 
 def test_screening_seed_is_reproducible_and_can_draw_another_sample(client) -> None:
@@ -142,7 +169,7 @@ def test_screening_rejects_invalid_field_values_and_empty_candidate_set(client) 
 def test_screening_without_target_uses_support_distance_contract(client) -> None:
     candidate = client.get("/api/projects/default/candidates").json()[0]
     payload = _screening_body(candidate)
-    payload["target_value"] = None
+    payload["target_goal"] = None
 
     response = client.post("/api/screening", json=payload)
 
@@ -150,6 +177,49 @@ def test_screening_without_target_uses_support_distance_contract(client) -> None
     result = response.json()
     assert result["score_contract"]["fallback"] == "support_distance"
     assert all(point["score"] == point["support"]["distance"] for point in result["points"])
+
+
+def test_screening_between_goal_persists_rule_and_uses_inclusive_boundaries(client) -> None:
+    candidate = client.get("/api/projects/default/candidates").json()[0]
+    payload = _screening_body(candidate)
+    payload["target_goal"] = {"direction": "between", "lower": 450, "upper": 550}
+    payload["secondary_goals"] = {
+        "YS": {"direction": "at_least", "lower": 300},
+    }
+
+    response = client.post("/api/screening", json=payload)
+
+    assert response.status_code == 201, response.text
+    run = response.json()
+    assert run["schema_version"] == "screening-run/v4"
+    assert run["target_goal"] == {"direction": "between", "lower": 450.0, "upper": 550.0}
+    assert run["secondary_goals"] == {
+        "YS": {"direction": "at_least", "lower": 300.0, "upper": None},
+    }
+    assert run["target_value"] is None
+    assert run["secondary_targets"] == {}
+    assert run["score_contract"]["direction"] == "between"
+    assert run["score_contract"]["fallback"] == "range_shortfall"
+    restored = client.get(f"/api/screening/{run['id']}").json()
+    assert restored["target_goal"] == run["target_goal"]
+    assert restored["secondary_goals"] == run["secondary_goals"]
+
+
+def test_screening_opposite_direction_keeps_rule_but_does_not_invert_probability(client) -> None:
+    candidate = client.get("/api/projects/default/candidates").json()[0]
+    payload = _screening_body(candidate)
+    payload["target_goal"] = {"direction": "at_most", "upper": 650}
+
+    response = client.post("/api/screening", json=payload)
+
+    assert response.status_code == 201, response.text
+    run = response.json()
+    assert run["score_contract"]["direction"] == "at_most"
+    assert run["score_contract"]["probability_available"] is False
+    assert all(point["prediction"]["goal_direction"] == "at_most" for point in run["points"])
+    assert all(point["prediction"]["goal_value"] == 650 for point in run["points"])
+    assert all(point["prediction"]["goal_probability"] is None for point in run["points"])
+    assert all(point["goal_evaluation"]["method"] == "directional_shortfall" for point in run["points"])
 
 
 def test_lineage_candidate_actuals_and_snapshot_restore(client) -> None:

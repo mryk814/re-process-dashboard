@@ -130,7 +130,7 @@ def test_screening_reference_archives_but_unreferenced_candidate_is_hard_deleted
             "base_inputs": referenced["inputs"],
             "samples": 48,
             "target": "TS",
-            "target_value": 500,
+            "target_goal": {"direction": "at_least", "lower": 500},
             "variables": {"composition.C": {"mode": "range", "min": 0.06, "max": 0.1}},
         },
     )

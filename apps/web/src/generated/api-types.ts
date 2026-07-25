@@ -3465,6 +3465,18 @@ export interface components {
             /** Skipped Point Indices */
             skipped_point_indices?: number[];
         };
+        /** ScreeningGoal */
+        ScreeningGoal: {
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "at_least" | "at_most" | "between";
+            /** Lower */
+            lower?: number | null;
+            /** Upper */
+            upper?: number | null;
+        };
         /** ScreeningGoalEvaluation */
         ScreeningGoalEvaluation: {
             /** Achieved */
@@ -3475,7 +3487,7 @@ export interface components {
              * Method
              * @enum {string}
              */
-            method: "achievement_probability" | "directional_shortfall" | "absolute_distance" | "support_distance";
+            method: "achievement_probability" | "directional_shortfall" | "range_shortfall" | "absolute_distance" | "support_distance";
             /** Score */
             score: number | null;
         };
@@ -3560,9 +3572,9 @@ export interface components {
              * @default 64
              */
             samples: number;
-            /** Secondary Targets */
-            secondary_targets?: {
-                [key: string]: number;
+            /** Secondary Goals */
+            secondary_goals?: {
+                [key: string]: components["schemas"]["ScreeningGoal"];
             };
             /**
              * Seed
@@ -3574,8 +3586,7 @@ export interface components {
              * @default TS
              */
             target: string;
-            /** Target Value */
-            target_value?: number | null;
+            target_goal?: components["schemas"]["ScreeningGoal"] | null;
             /** Variables */
             variables: {
                 [key: string]: components["schemas"]["ScreeningVariable"];
@@ -3626,9 +3637,16 @@ export interface components {
              * @default screening-run/v1
              * @enum {string}
              */
-            schema_version: "screening-run/v1" | "screening-run/v2" | "screening-run/v3";
+            schema_version: "screening-run/v1" | "screening-run/v2" | "screening-run/v3" | "screening-run/v4";
             score_contract: components["schemas"]["ScreeningScoreContract"];
-            /** Secondary Targets */
+            /** Secondary Goals */
+            secondary_goals?: {
+                [key: string]: components["schemas"]["ScreeningGoal"];
+            };
+            /**
+             * Secondary Targets
+             * @deprecated
+             */
             secondary_targets?: {
                 [key: string]: number;
             };
@@ -3636,8 +3654,12 @@ export interface components {
             seed: number;
             /** Target */
             target: string;
-            /** Target Value */
-            target_value: number | null;
+            target_goal?: components["schemas"]["ScreeningGoal"] | null;
+            /**
+             * Target Value
+             * @deprecated
+             */
+            target_value?: number | null;
             /** Variables */
             variables: {
                 [key: string]: components["schemas"]["ScreeningVariable"];
@@ -3646,14 +3668,16 @@ export interface components {
         /** ScreeningScoreContract */
         ScreeningScoreContract: {
             /** Direction */
-            direction: ("at_least" | "at_most" | "target") | null;
+            direction: ("at_least" | "at_most" | "between" | "target") | null;
             /** Display Label */
             display_label: string;
             /**
              * Fallback
              * @enum {string}
              */
-            fallback: "directional_shortfall" | "absolute_distance" | "support_distance";
+            fallback: "directional_shortfall" | "range_shortfall" | "absolute_distance" | "support_distance";
+            /** Lower */
+            lower?: number | null;
             /**
              * Preference
              * @constant
@@ -3667,11 +3691,13 @@ export interface components {
             ranking_policy?: "support_tier_then_secondary_goals_then_score" | null;
             /** Target Value */
             target_value: number | null;
+            /** Upper */
+            upper?: number | null;
             /**
              * Version
              * @enum {string}
              */
-            version: "screening-score/v1" | "screening-score/v2";
+            version: "screening-score/v1" | "screening-score/v2" | "screening-score/v3";
         };
         /** ScreeningSourceRef */
         ScreeningSourceRef: {

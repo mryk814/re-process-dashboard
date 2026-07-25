@@ -9,8 +9,8 @@ const lineageStyles = await readFile(new URL("../src/features/lineage/lineage.cs
 
 test("screening separates selection criteria from project goals and maps counts to the candidate action", () => {
   assert.match(screeningSource, />\s*選別する特性\s*</);
-  assert.match(screeningSource, /選別基準 \{targetDefinition/);
-  assert.match(screeningSource, /追加の選別条件:/);
+  assert.match(screeningSource, /label=\{`主目標: \$\{targetDefinition\.label\}`\}/);
+  assert.match(screeningSource, /label=\{`副条件: \$\{output\.label\}`\}/);
   assert.match(screeningSource, /<dt>選択<\/dt>/);
   assert.match(screeningSource, /<dt>新規<\/dt>/);
   assert.match(screeningSource, /<dt>今回追加可能<\/dt>/);

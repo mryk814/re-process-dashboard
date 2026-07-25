@@ -6424,6 +6424,47 @@
         "title": "ScreeningCandidateBatchResponse",
         "type": "object"
       },
+      "ScreeningGoal": {
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "enum": [
+              "at_least",
+              "at_most",
+              "between"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "lower": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lower"
+          },
+          "upper": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upper"
+          }
+        },
+        "required": [
+          "direction"
+        ],
+        "title": "ScreeningGoal",
+        "type": "object"
+      },
       "ScreeningGoalEvaluation": {
         "properties": {
           "achieved": {
@@ -6452,6 +6493,7 @@
             "enum": [
               "achievement_probability",
               "directional_shortfall",
+              "range_shortfall",
               "absolute_distance",
               "support_distance"
             ],
@@ -6688,6 +6730,7 @@
         "type": "object"
       },
       "ScreeningRequest": {
+        "additionalProperties": false,
         "properties": {
           "base_candidate_id": {
             "minLength": 1,
@@ -6704,11 +6747,11 @@
             "title": "Samples",
             "type": "integer"
           },
-          "secondary_targets": {
+          "secondary_goals": {
             "additionalProperties": {
-              "type": "number"
+              "$ref": "#/components/schemas/ScreeningGoal"
             },
-            "title": "Secondary Targets",
+            "title": "Secondary Goals",
             "type": "object"
           },
           "seed": {
@@ -6724,16 +6767,15 @@
             "title": "Target",
             "type": "string"
           },
-          "target_value": {
+          "target_goal": {
             "anyOf": [
               {
-                "type": "number"
+                "$ref": "#/components/schemas/ScreeningGoal"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Target Value"
+            ]
           },
           "variables": {
             "additionalProperties": {
@@ -6870,7 +6912,8 @@
             "enum": [
               "screening-run/v1",
               "screening-run/v2",
-              "screening-run/v3"
+              "screening-run/v3",
+              "screening-run/v4"
             ],
             "title": "Schema Version",
             "type": "string"
@@ -6878,10 +6921,18 @@
           "score_contract": {
             "$ref": "#/components/schemas/ScreeningScoreContract"
           },
+          "secondary_goals": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ScreeningGoal"
+            },
+            "title": "Secondary Goals",
+            "type": "object"
+          },
           "secondary_targets": {
             "additionalProperties": {
               "type": "number"
             },
+            "deprecated": true,
             "title": "Secondary Targets",
             "type": "object"
           },
@@ -6893,6 +6944,16 @@
             "title": "Target",
             "type": "string"
           },
+          "target_goal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScreeningGoal"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "target_value": {
             "anyOf": [
               {
@@ -6902,6 +6963,7 @@
                 "type": "null"
               }
             ],
+            "deprecated": true,
             "title": "Target Value"
           },
           "variables": {
@@ -6921,7 +6983,6 @@
           "base_canonical_input",
           "model_provenance",
           "target",
-          "target_value",
           "score_contract",
           "samples",
           "variables",
@@ -6939,6 +7000,7 @@
                 "enum": [
                   "at_least",
                   "at_most",
+                  "between",
                   "target"
                 ],
                 "type": "string"
@@ -6956,11 +7018,23 @@
           "fallback": {
             "enum": [
               "directional_shortfall",
+              "range_shortfall",
               "absolute_distance",
               "support_distance"
             ],
             "title": "Fallback",
             "type": "string"
+          },
+          "lower": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lower"
           },
           "preference": {
             "const": "lower_is_better",
@@ -7006,10 +7080,22 @@
             ],
             "title": "Target Value"
           },
+          "upper": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upper"
+          },
           "version": {
             "enum": [
               "screening-score/v1",
-              "screening-score/v2"
+              "screening-score/v2",
+              "screening-score/v3"
             ],
             "title": "Version",
             "type": "string"

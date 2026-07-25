@@ -168,17 +168,31 @@ class ScreeningService:
         if output is None:
             raise ScreeningValidationError("この予測タスクにない目標特性です")
         outputs = {item.key: item for item in definition.outputs}
-        unknown_secondary = sorted((set(payload.secondary_targets) - set(outputs)) | ({payload.target} & set(payload.secondary_targets)))
+        unknown_secondary = sorted((set(payload.secondary_goals) - set(outputs)) | ({payload.target} & set(payload.secondary_goals)))
         if unknown_secondary:
             raise ScreeningValidationError(f"副条件の特性を確認してください: {', '.join(unknown_secondary)}")
+        configured_goals = dict(payload.secondary_goals)
+        if payload.target_goal is not None:
+            configured_goals[payload.target] = payload.target_goal
         capabilities = {item.target: item for item in contract.runtime_capability.targets}
+        probability_available = {
+            key: (
+                configured_goals.get(key) is not None
+                and capabilities.get(key) is not None
+                and capabilities[key].goal_probability != "unavailable"
+                and (
+                    configured_goals[key].direction == "between"
+                    or configured_goals[key].direction == outputs[key].goal_direction
+                )
+            )
+            for key in outputs
+        }
         try:
             result = run_latin_hypercube(
                 self.resolver.runtime_for(project),
                 base,
                 payload,
-                goal_directions={key: item.goal_direction for key, item in outputs.items()},
-                probability_available={key: item.goal_probability != "unavailable" for key, item in capabilities.items()},
+                probability_available=probability_available,
                 candidate_validator=lambda candidate: self.registry.validate_candidate(project.task_id, candidate),
                 design_space=design_space,
             )
