@@ -217,6 +217,7 @@ def test_store_registers_immutable_definition_and_revision_idempotently(
             ChainPort(
                 path="candidate.blend",
                 value_kind="sparse_blend",
+                quantity="blend",
                 unit="sparse-blend/v1",
             ),
         ),
@@ -239,11 +240,18 @@ def test_store_registers_immutable_definition_and_revision_idempotently(
             ChainPort(
                 path="blend",
                 value_kind="sparse_blend",
+                quantity="blend",
                 unit="sparse-blend/v1",
             ),
         ),
         output_ports=(
-            ChainPort(path="C", value_kind="number", unit="mass% whole wire"),
+            ChainPort(
+                path="C",
+                value_kind="number",
+                quantity="C",
+                basis="whole_wire",
+                unit="mass% whole wire",
+            ),
         ),
     )
     revision = build_chain_revision(
@@ -259,9 +267,10 @@ def test_store_registers_immutable_definition_and_revision_idempotently(
     )
 
     definition_id = store.register_chain_definition(definition)
-    revision_id = store.register_chain_revision(revision)
+    contracts = {(contract.stage_kind, contract.contract_id): contract}
+    revision_id = store.register_chain_revision(revision, contracts=contracts)
     assert store.register_chain_definition(definition) == definition_id
-    assert store.register_chain_revision(revision) == revision_id
+    assert store.register_chain_revision(revision, contracts=contracts) == revision_id
     assert store.list_chain_definitions() == [definition]
     assert store.list_chain_revisions() == [revision]
     assert store.get_chain_revision(revision_id) == revision
@@ -269,5 +278,5 @@ def test_store_registers_immutable_definition_and_revision_idempotently(
     conflicting = revision.model_copy(
         update={"revision_digest": "sha256:" + "c" * 64}
     )
-    with pytest.raises(ChainCatalogConflictError, match="異なる内容"):
-        store.register_chain_revision(conflicting)
+    with pytest.raises(ChainCatalogConflictError, match="digest is invalid"):
+        store.register_chain_revision(conflicting, contracts=contracts)

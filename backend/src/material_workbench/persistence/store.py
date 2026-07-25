@@ -5,7 +5,7 @@ import sqlite3
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from material_workbench.persistence.candidate_migration import HOT_PROJECT_ID
 from material_workbench.contracts.chain_contracts import (
@@ -13,6 +13,8 @@ from material_workbench.contracts.chain_contracts import (
     ChainProjectIdentity,
     ChainRevision,
     SingleTaskProjectIdentity,
+    StageContractSurface,
+    validate_chain_revision,
 )
 from material_workbench.contracts.schemas import (
     ActualMeasurement,
@@ -187,7 +189,12 @@ class Store:
             for row in rows
         ]
 
-    def register_chain_revision(self, revision: ChainRevision) -> str:
+    def register_chain_revision(
+        self,
+        revision: ChainRevision,
+        *,
+        contracts: Mapping[tuple[str, str], StageContractSurface],
+    ) -> str:
         record_id = f"{revision.chain_id}:r{revision.revision}"
         with self._connect() as conn:
             definition_row = conn.execute(
@@ -214,6 +221,14 @@ class Store:
                 raise ChainCatalogConflictError(
                     "Chain Revisionの順序付きStageがDefinitionと一致しません"
                 )
+            try:
+                validate_chain_revision(
+                    definition,
+                    revision,
+                    contracts=contracts,
+                )
+            except ValueError as exc:
+                raise ChainCatalogConflictError(str(exc)) from exc
             existing = conn.execute(
                 "SELECT id,revision_json FROM chain_revisions "
                 "WHERE id=? OR revision_digest=?",
@@ -374,6 +389,13 @@ class Store:
                 "選択したChain RevisionのIDまたはdigestが登録内容と一致しません"
             )
         project_id, now = str(uuid.uuid4()), _now()
+        if (
+            initial_candidate is not None
+            and initial_candidate.provenance.source_kind != "copy"
+        ):
+            raise CandidateCopyConflictError(
+                "Chain Projectの初期候補はコピー由来にしてください"
+            )
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
             if initial_candidate is not None and initial_candidate.provenance.source_kind == "copy":
@@ -384,13 +406,16 @@ class Store:
                     "WHERE candidates.id=? AND candidates.project_id=?",
                     (reference.candidate_id, reference.project_id),
                 ).fetchone()
+                source_identity = (
+                    json.loads(source["scientific_identity_json"])
+                    if source is not None
+                    else {}
+                )
                 if (
                     source is None
                     or source["revision"] != reference.candidate_revision
-                    or ChainProjectIdentity.model_validate_json(
-                        source["scientific_identity_json"]
-                    )
-                    != identity
+                    or source_identity.get("identity_kind") != "chain"
+                    or ChainProjectIdentity.model_validate(source_identity) != identity
                 ):
                     raise CandidateCopyConflictError(
                         "コピー元候補のChain Revisionまたはcandidate revisionが一致しません"

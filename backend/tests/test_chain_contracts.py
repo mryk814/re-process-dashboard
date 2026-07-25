@@ -18,6 +18,7 @@ from material_workbench.contracts.chain_contracts import (
     UnitConversion,
     build_chain_revision,
     validate_chain_definition,
+    validate_chain_revision,
 )
 
 
@@ -34,22 +35,27 @@ def _surface(
     outputs: tuple[tuple[str, str], ...],
     digest: str,
 ) -> StageContractSurface:
+    def port(path: str, unit: str) -> ChainPort:
+        return ChainPort(
+            path=path,
+            value_kind="sparse_blend" if unit == "sparse-blend/v1" else "number",
+            quantity=path.rsplit(".", 1)[-1],
+            basis=(
+                "whole_wire"
+                if "whole wire" in unit
+                else "deposited_metal"
+                if "deposited metal" in unit
+                else None
+            ),
+            unit=unit,
+        )
+
     return StageContractSurface(
         stage_kind=kind,
         contract_id=contract_id,
         contract_digest=digest,
-        input_ports=tuple(
-            ChainPort(
-                path=path,
-                value_kind="sparse_blend" if unit == "sparse-blend/v1" else "number",
-                unit=unit,
-            )
-            for path, unit in inputs
-        ),
-        output_ports=tuple(
-            ChainPort(path=path, value_kind="number", unit=unit)
-            for path, unit in outputs
-        ),
+        input_ports=tuple(port(path, unit) for path, unit in inputs),
+        output_ports=tuple(port(path, unit) for path, unit in outputs),
     )
 
 
@@ -97,9 +103,15 @@ def _definition() -> ChainDefinition:
             ChainPort(
                 path="candidate.blend",
                 value_kind="sparse_blend",
+                quantity="blend",
                 unit="sparse-blend/v1",
             ),
-            ChainPort(path="candidate.heat", value_kind="number", unit="kJ/mm"),
+            ChainPort(
+                path="candidate.heat",
+                value_kind="number",
+                quantity="heat",
+                unit="kJ/mm",
+            ),
         ),
         bindings=(
             ChainBinding(
@@ -217,7 +229,7 @@ def test_chain_rejects_unknown_output_and_unbound_required_input() -> None:
         validate_chain_definition(missing, contracts=_contracts())
 
 
-def test_basis_mismatch_requires_explicit_matching_conversion() -> None:
+def test_basis_mismatch_cannot_be_disguised_as_a_unit_conversion() -> None:
     payload = _definition().model_copy(deep=True)
     contracts = _contracts()
     bad_b = contracts[("task", "stage-b")].model_copy(
@@ -226,14 +238,21 @@ def test_basis_mismatch_requires_explicit_matching_conversion() -> None:
                 ChainPort(
                     path="composition.C",
                     value_kind="number",
+                    quantity="C",
+                    basis="deposited_metal",
                     unit="mass% deposited metal",
                 ),
-                ChainPort(path="process.heat", value_kind="number", unit="kJ/mm"),
+                ChainPort(
+                    path="process.heat",
+                    value_kind="number",
+                    quantity="heat",
+                    unit="kJ/mm",
+                ),
             )
         }
     )
     mismatched = {**contracts, ("task", "stage-b"): bad_b}
-    with pytest.raises(ValueError, match="unit mismatch"):
+    with pytest.raises(ValueError, match="basis mismatch"):
         validate_chain_definition(payload, contracts=mismatched)
 
     bindings = list(payload.bindings)
@@ -248,7 +267,46 @@ def test_basis_mismatch_requires_explicit_matching_conversion() -> None:
         }
     )
     explicit = payload.model_copy(update={"bindings": tuple(bindings)})
-    validate_chain_definition(explicit, contracts=mismatched)
+    with pytest.raises(ValueError, match="basis mismatch"):
+        validate_chain_definition(explicit, contracts=mismatched)
+
+
+def test_affine_conversion_is_allowed_only_within_same_quantity_and_basis() -> None:
+    payload = _definition().model_copy(deep=True)
+    contracts = _contracts()
+    fraction_b = contracts[("task", "stage-b")].model_copy(
+        update={
+            "input_ports": (
+                ChainPort(
+                    path="composition.C",
+                    value_kind="number",
+                    quantity="C",
+                    basis="whole_wire",
+                    unit="mass fraction whole wire",
+                ),
+                ChainPort(
+                    path="process.heat",
+                    value_kind="number",
+                    quantity="heat",
+                    unit="kJ/mm",
+                ),
+            )
+        }
+    )
+    converted_contracts = {**contracts, ("task", "stage-b"): fraction_b}
+    bindings = list(payload.bindings)
+    bindings[1] = bindings[1].model_copy(
+        update={
+            "conversion": UnitConversion(
+                conversion_id="percent-to-fraction-v1",
+                source_unit="mass% whole wire",
+                target_unit="mass fraction whole wire",
+                factor=0.01,
+            )
+        }
+    )
+    converted = payload.model_copy(update={"bindings": tuple(bindings)})
+    validate_chain_definition(converted, contracts=converted_contracts)
 
 
 def test_task_and_transform_training_identity_cannot_be_confused() -> None:
@@ -274,6 +332,50 @@ def test_task_and_transform_training_identity_cannot_be_confused() -> None:
                 ),
             },
         )
+
+
+def test_revision_rejects_forged_stage_lock_and_semantic_digests() -> None:
+    definition = _definition()
+    contracts = _contracts()
+    locks = {
+        "A": ChainStageLock(
+            contract_digest=DIGEST_B,
+            package_manifest_digest=DIGEST_D,
+        ),
+        "B": ChainStageLock(
+            contract_digest=DIGEST_B,
+            package_manifest_digest=DIGEST_C,
+            dataset_view_revision_id="stage-b-view-r1",
+            dataset_profile_digest=DIGEST_D,
+        ),
+        "C": ChainStageLock(
+            contract_digest=DIGEST_C,
+            package_manifest_digest=DIGEST_B,
+            dataset_view_revision_id="stage-c-view-r1",
+            dataset_profile_digest=DIGEST_A,
+        ),
+    }
+    with pytest.raises(ValueError, match="does not match surface"):
+        build_chain_revision(
+            definition,
+            revision=1,
+            contracts=contracts,
+            stage_locks=locks,
+        )
+
+    locks["A"] = locks["A"].model_copy(update={"contract_digest": DIGEST_A})
+    revision = build_chain_revision(
+        definition,
+        revision=1,
+        contracts=contracts,
+        stage_locks=locks,
+    )
+    forged = revision.model_copy(update={"binding_digest": DIGEST_D})
+    with pytest.raises(ValueError, match="binding digest"):
+        validate_chain_revision(definition, forged, contracts=contracts)
+    forged = revision.model_copy(update={"revision_digest": DIGEST_D})
+    with pytest.raises(ValueError, match="Revision digest"):
+        validate_chain_revision(definition, forged, contracts=contracts)
 
 
 def test_project_identity_is_an_explicit_disjoint_union() -> None:

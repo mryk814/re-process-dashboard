@@ -59,8 +59,29 @@ class ProjectService:
         return self.store.list_projects()
 
     def create(self, payload: ProjectCreateInput) -> Project:
-        if payload.scientific_identity is not None:
+        if (
+            payload.scientific_identity is not None
+            and payload.scientific_identity.identity_kind == "chain"
+        ):
             return self._create_chain_project(payload)
+        if payload.scientific_identity is not None:
+            identity = payload.scientific_identity
+            if identity.binding_provenance != "explicit":
+                raise ProjectValidationError(
+                    "新しいsingle-Task Projectには明示的な固定参照が必要です"
+                )
+            payload = payload.model_copy(
+                update={
+                    "task_id": identity.task_id,
+                    "dataset_view_revision_id": identity.dataset_view_revision_id,
+                    "task_contract_digest": identity.task_contract_digest or "",
+                    "model_package_ref_id": identity.model_package_ref_id,
+                    "model_package_manifest_digest": (
+                        identity.model_package_manifest_digest or ""
+                    ),
+                    "scientific_identity": None,
+                }
+            )
         self.registry.require_available(payload.task_id)
         contract = self._contract(payload.task_id)
         self._validate_targets(payload, contract.task_definition.outputs)
@@ -204,6 +225,13 @@ class ProjectService:
         self._validate_display_decimals(payload, terminal_task_id)
         if payload.decision_candidate_id:
             raise ProjectValidationError("新しいプロジェクトでは採用候補を空にしてください")
+        if (
+            payload.initial_candidate is not None
+            and payload.initial_candidate.provenance.source_kind != "copy"
+        ):
+            raise ProjectValidationError(
+                "Chain Projectの初期候補は同じChain Revisionのコピー由来にしてください"
+            )
         resolved = self._resolve_project_series(payload).model_copy(
             update={
                 "task_id": "",

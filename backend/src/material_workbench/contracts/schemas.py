@@ -369,7 +369,7 @@ class ProjectInput(BaseModel):
 
 
 class ProjectCreateInput(ProjectInput):
-    scientific_identity: ChainProjectIdentity | None = None
+    scientific_identity: ProjectScientificIdentity | None = None
     initial_candidate: CandidateInput | None = None
     dataset_view_revision_id: str | None = None
     task_contract_digest: str = ""
@@ -378,6 +378,30 @@ class ProjectCreateInput(ProjectInput):
     project_series_id: str | None = None
     predecessor_project_id: str | None = None
     continuation_reason: str = ""
+
+    @model_validator(mode="after")
+    def explicit_identity_does_not_conflict_with_legacy_fields(
+        self,
+    ) -> "ProjectCreateInput":
+        identity = self.scientific_identity
+        if identity is None:
+            return self
+        if identity.identity_kind == "chain":
+            if "task_id" in self.model_fields_set and self.task_id:
+                raise ValueError("Chain Projectへtask_idを同時指定できません")
+            legacy_bindings = (
+                self.dataset_view_revision_id,
+                self.task_contract_digest,
+                self.model_package_ref_id,
+                self.model_package_manifest_digest,
+            )
+            if any(legacy_bindings):
+                raise ValueError(
+                    "Chain Projectへ単一TaskのDataset/Package参照を同時指定できません"
+                )
+        elif "task_id" in self.model_fields_set and self.task_id != identity.task_id:
+            raise ValueError("single-Task identityとtask_idが一致しません")
+        return self
 
 
 class ProjectUpdateInput(BaseModel):

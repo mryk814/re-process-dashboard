@@ -10,8 +10,14 @@ from material_workbench.contracts.chain_contracts import (
     ChainPort,
     ChainRevision,
     ChainStage,
-    ChainStageRevision,
+    ChainStageLock,
     ExternalBindingSource,
+    StageContractSurface,
+    build_chain_revision,
+)
+from material_workbench.persistence.store import Store
+from material_workbench.persistence.workspace_catalog_bootstrap import (
+    bootstrap_workspace_catalog,
 )
 
 
@@ -33,7 +39,12 @@ def _register_chain(client: TestClient) -> tuple[ChainDefinition, ChainRevision]
             ),
         ),
         external_inputs=(
-            ChainPort(path="candidate.C", value_kind="number", unit="mass%"),
+            ChainPort(
+                path="candidate.C",
+                value_kind="number",
+                quantity="C",
+                unit="mass%",
+            ),
         ),
         bindings=(
             ChainBinding(
@@ -46,31 +57,45 @@ def _register_chain(client: TestClient) -> tuple[ChainDefinition, ChainRevision]
             ),
         ),
     )
-    revision_payload = {
-        "schema_version": "chain-revision/v1",
-        "chain_id": definition.chain_id,
-        "revision": 1,
-        "chain_definition_digest": definition.digest,
-        "binding_digest": SHA_A,
-        "unit_conversion_digest": SHA_B,
-        "stages": (
-            ChainStageRevision(
-                stage_id="C",
-                stage_kind="task",
-                contract_id="annealed-properties-v1",
+    surface = StageContractSurface(
+        stage_kind="task",
+        contract_id="annealed-properties-v1",
+        contract_digest=SHA_C,
+        input_ports=(
+            ChainPort(
+                path="composition.C",
+                value_kind="number",
+                quantity="C",
+                unit="mass%",
+            ),
+        ),
+        output_ports=(
+            ChainPort(
+                path="TS",
+                value_kind="number",
+                quantity="TS",
+                unit="MPa",
+            ),
+        ),
+    )
+    revision = build_chain_revision(
+        definition,
+        revision=1,
+        contracts={(surface.stage_kind, surface.contract_id): surface},
+        stage_locks={
+            "C": ChainStageLock(
                 contract_digest=SHA_C,
                 package_manifest_digest=SHA_D,
                 dataset_view_revision_id="view-r1",
                 dataset_profile_digest=SHA_A,
-            ),
-        ),
-    }
-    revision = ChainRevision(
-        **revision_payload,
-        revision_digest=SHA_C,
+            )
+        },
     )
     client.app.state.store.register_chain_definition(definition)
-    client.app.state.store.register_chain_revision(revision)
+    client.app.state.store.register_chain_revision(
+        revision,
+        contracts={(surface.stage_kind, surface.contract_id): surface},
+    )
     return definition, revision
 
 
@@ -82,7 +107,10 @@ def test_chain_catalog_and_project_creation_pin_exact_revision(
     catalog = client.get("/api/chains")
     assert catalog.status_code == 200
     assert catalog.json()[0]["definition"]["chain_id"] == definition.chain_id
-    assert catalog.json()[0]["revisions"][0]["revision_digest"] == SHA_C
+    assert (
+        catalog.json()[0]["revisions"][0]["revision_digest"]
+        == revision.revision_digest
+    )
 
     created = client.post(
         "/api/projects",
@@ -107,6 +135,14 @@ def test_chain_catalog_and_project_creation_pin_exact_revision(
     assert reopened.status_code == 200
     assert reopened.json()["scientific_identity"] == project["scientific_identity"]
 
+    database = client.app.state.store.path
+    bootstrap_workspace_catalog(database, client.app.state.task_registry)
+    reopened_store = Store(database)
+    assert (
+        reopened_store.get_project(project["id"]).scientific_identity
+        == client.app.state.store.get_project(project["id"]).scientific_identity
+    )
+
 
 def test_chain_project_rejects_revision_digest_drift(client: TestClient) -> None:
     definition, _revision = _register_chain(client)
@@ -123,3 +159,43 @@ def test_chain_project_rejects_revision_digest_drift(client: TestClient) -> None
     )
     assert response.status_code == 422
     assert "digest" in json.dumps(response.json(), ensure_ascii=False)
+
+
+def test_chain_project_rejects_conflicting_legacy_fields_and_manual_seed(
+    client: TestClient,
+) -> None:
+    definition, revision = _register_chain(client)
+    identity = {
+        "identity_kind": "chain",
+        "chain_revision_id": f"{definition.chain_id}:r1",
+        "chain_revision_digest": revision.revision_digest,
+    }
+    conflicting = client.post(
+        "/api/projects",
+        json={
+            "name": "conflict",
+            "task_id": "annealed-properties-v1",
+            "scientific_identity": identity,
+        },
+    )
+    assert conflicting.status_code == 422
+
+    manual = client.post(
+        "/api/projects",
+        json={
+            "name": "manual",
+            "scientific_identity": identity,
+            "initial_candidate": {
+                "name": "不正な手入力",
+                "inputs": {
+                    "composition": {},
+                    "process": {},
+                    "categorical": {},
+                    "heat_pattern": None,
+                },
+                "provenance": {"source_kind": "manual", "source_ref": None},
+            },
+        },
+    )
+    assert manual.status_code == 422
+    assert "コピー由来" in json.dumps(manual.json(), ensure_ascii=False)

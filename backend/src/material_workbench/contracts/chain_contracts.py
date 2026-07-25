@@ -16,6 +16,8 @@ class ChainContractModel(BaseModel):
 class ChainPort(ChainContractModel):
     path: Annotated[str, Field(min_length=1)]
     value_kind: Literal["number", "categorical", "sparse_blend"]
+    quantity: Annotated[str, Field(min_length=1)]
+    basis: str | None = None
     unit: Annotated[str, Field(min_length=1)] | None = None
 
     @model_validator(mode="after")
@@ -24,6 +26,8 @@ class ChainPort(ChainContractModel):
             raise ValueError(f"{self.value_kind} chain ports require a unit")
         if self.value_kind == "categorical" and self.unit is not None:
             raise ValueError("categorical chain ports do not have a numeric unit")
+        if self.value_kind == "categorical" and self.basis is not None:
+            raise ValueError("categorical chain ports do not have a physical basis")
         return self
 
 
@@ -237,6 +241,16 @@ def task_contract_surface(
 ) -> StageContractSurface:
     """Project a TaskDefinition to its exact reusable Chain surface."""
 
+    def basis(unit: str | None) -> str | None:
+        if unit is None:
+            return None
+        normalized = unit.lower().replace("_", " ")
+        if "whole wire" in normalized:
+            return "whole_wire"
+        if "deposited metal" in normalized:
+            return "deposited_metal"
+        return None
+
     inputs: list[ChainPort] = []
     for group in task.input_groups:
         for field in group.fields:
@@ -252,6 +266,8 @@ def task_contract_surface(
                 ChainPort(
                     path=field.path,
                     value_kind=field.kind,
+                    quantity=field.path.rsplit(".", 1)[-1],
+                    basis=basis(field.unit),
                     unit=field.unit,
                 )
             )
@@ -261,7 +277,13 @@ def task_contract_surface(
         contract_digest=contract_digest,
         input_ports=tuple(inputs),
         output_ports=tuple(
-            ChainPort(path=output.key, value_kind="number", unit=output.unit)
+            ChainPort(
+                path=output.key,
+                value_kind="number",
+                quantity=output.key,
+                basis=basis(output.unit),
+                unit=output.unit,
+            )
             for output in task.outputs
         ),
     )
@@ -314,6 +336,15 @@ def validate_chain_definition(
                 f"binding type mismatch: {source_port.value_kind!r} -> "
                 f"{target_port.value_kind!r}"
             )
+        if (
+            source_port.quantity != target_port.quantity
+            or source_port.basis != target_port.basis
+        ):
+            raise ValueError(
+                "binding physical quantity or basis mismatch: "
+                f"{source_port.quantity!r}/{source_port.basis!r} -> "
+                f"{target_port.quantity!r}/{target_port.basis!r}"
+            )
         source_unit = source_port.unit
         target_unit = target_port.unit
         if binding.conversion is None:
@@ -348,6 +379,12 @@ def build_chain_revision(
     expected_stage_ids = {stage.stage_id for stage in definition.stages}
     if set(stage_locks) != expected_stage_ids:
         raise ValueError("stage locks must match chain stages exactly")
+    for stage in definition.stages:
+        surface = contracts[(stage.stage_kind, stage.contract_id)]
+        if stage_locks[stage.stage_id].contract_digest != surface.contract_digest:
+            raise ValueError(
+                f"stage lock contract digest does not match surface: {stage.stage_id}"
+            )
     stage_revisions = tuple(
         ChainStageRevision(
             stage_id=stage.stage_id,
@@ -376,3 +413,52 @@ def build_chain_revision(
         **partial,
         revision_digest=semantic_digest(partial),
     )
+
+
+def validate_chain_revision(
+    definition: ChainDefinition,
+    revision: ChainRevision,
+    *,
+    contracts: Mapping[tuple[str, str], StageContractSurface],
+) -> None:
+    """Recompute every semantic digest before an immutable revision is stored."""
+
+    validate_chain_definition(definition, contracts=contracts)
+    if (
+        revision.chain_id != definition.chain_id
+        or revision.chain_definition_digest != definition.digest
+    ):
+        raise ValueError("Chain Revision does not reference the exact Definition")
+    expected_stages = [
+        (stage.stage_id, stage.stage_kind, stage.contract_id)
+        for stage in definition.stages
+    ]
+    actual_stages = [
+        (stage.stage_id, stage.stage_kind, stage.contract_id)
+        for stage in revision.stages
+    ]
+    if actual_stages != expected_stages:
+        raise ValueError("Chain Revision ordered stages do not match Definition")
+    for stage, locked in zip(definition.stages, revision.stages, strict=True):
+        surface = contracts[(stage.stage_kind, stage.contract_id)]
+        if locked.contract_digest != surface.contract_digest:
+            raise ValueError(
+                f"Chain Revision contract digest does not match surface: {stage.stage_id}"
+            )
+    expected_binding_digest = semantic_digest(
+        [item.model_dump(mode="json") for item in definition.bindings]
+    )
+    expected_conversion_digest = semantic_digest(
+        [
+            item.conversion.model_dump(mode="json")
+            for item in definition.bindings
+            if item.conversion is not None
+        ]
+    )
+    if revision.binding_digest != expected_binding_digest:
+        raise ValueError("Chain Revision binding digest is invalid")
+    if revision.unit_conversion_digest != expected_conversion_digest:
+        raise ValueError("Chain Revision unit-conversion digest is invalid")
+    payload = revision.model_dump(mode="json", exclude={"revision_digest"})
+    if revision.revision_digest != semantic_digest(payload):
+        raise ValueError("Chain Revision digest is invalid")
