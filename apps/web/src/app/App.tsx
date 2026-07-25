@@ -388,6 +388,9 @@ function App() {
               onImported={(imported) => {
                 if (imported.length) void session.loadProject(activeProjectId, selectedId || undefined);
               }}
+              onOptimizedCandidate={(candidate) => {
+                void session.loadProject(activeProjectId, candidate.id);
+              }}
               onProjectChanged={(project) => {
                 void session.refreshAdminProject(project);
               }}

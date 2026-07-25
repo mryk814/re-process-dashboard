@@ -26,6 +26,7 @@ from .api.project_series import router as project_series_router
 from .api.profile_workbench import router as profile_workbench_router
 from .api.projects import router as projects_router
 from .api.candidates import router as candidates_router
+from .api.blend_optimization import router as blend_optimization_router
 from .api.data_exploration import router as data_exploration_router
 from .api.screening import router as screening_router
 from .api.inference import router as inference_router
@@ -291,6 +292,7 @@ def create_app(
     app.include_router(profile_workbench_router)
     app.include_router(projects_router)
     app.include_router(candidates_router)
+    app.include_router(blend_optimization_router)
     app.include_router(data_exploration_router)
     app.include_router(screening_router)
     app.include_router(decision_activities_router)

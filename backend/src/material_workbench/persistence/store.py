@@ -77,6 +77,9 @@ from material_workbench.persistence.chain_catalog_migration import migrate_chain
 from material_workbench.persistence.chain_analysis_variant_migration import (
     migrate_chain_analysis_variant,
 )
+from material_workbench.persistence.chain_execution_cas_migration import (
+    migrate_chain_execution_cas,
+)
 
 
 MAX_CANDIDATES_PER_PROJECT = 100
@@ -156,6 +159,7 @@ class Store:
         migrate_workspace_catalog(self.path)
         migrate_chain_catalog(self.path)
         migrate_chain_analysis_variant(self.path)
+        migrate_chain_execution_cas(self.path)
         migrate_candidate_revisions(self.path)
         migrate_lineage_reviews(self.path)
         migrate_decision_activity_runs(self.path)
@@ -392,11 +396,63 @@ class Store:
             else None
         )
 
-    def save_chain_execution(self, execution: ChainExecution) -> None:
+    @staticmethod
+    def _claim_chain_execution(
+        conn: sqlite3.Connection,
+        scope_id: str,
+        request_id: str,
+    ) -> int:
+        row = conn.execute(
+            "SELECT generation FROM chain_execution_claims WHERE scope_id=?",
+            (scope_id,),
+        ).fetchone()
+        generation = int(row["generation"]) + 1 if row is not None else 1
+        conn.execute(
+            "INSERT INTO chain_execution_claims("
+            "scope_id,request_id,generation,updated_at"
+            ") VALUES (?,?,?,?) "
+            "ON CONFLICT(scope_id) DO UPDATE SET "
+            "request_id=excluded.request_id,generation=excluded.generation,"
+            "updated_at=excluded.updated_at",
+            (scope_id, request_id, generation, _now()),
+        )
+        return generation
+
+    def claim_chain_execution(
+        self, project_id: str, candidate_id: str, request_id: str
+    ) -> int:
+        scope_id = self.chain_execution_scope(project_id, candidate_id)
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            return self._claim_chain_execution(conn, scope_id, request_id)
+
+    def chain_execution_generation(
+        self, project_id: str, candidate_id: str, request_id: str
+    ) -> int | None:
+        scope_id = self.chain_execution_scope(project_id, candidate_id)
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT generation FROM chain_execution_claims "
+                "WHERE scope_id=? AND request_id=?",
+                (scope_id, request_id),
+            ).fetchone()
+        return int(row["generation"]) if row is not None else None
+
+    def save_chain_execution_if_current(
+        self, execution: ChainExecution, generation: int
+    ) -> bool:
         scope_id = self.chain_execution_scope(
             execution.project_id, execution.candidate_id
         )
         with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            claim = conn.execute(
+                "SELECT 1 FROM chain_execution_claims "
+                "WHERE scope_id=? AND request_id=? AND generation=?",
+                (scope_id, execution.request_id, generation),
+            ).fetchone()
+            if claim is None:
+                return False
             conn.execute(
                 "INSERT INTO chain_execution_state("
                 "scope_id,request_id,execution_json,updated_at"
@@ -411,6 +467,7 @@ class Store:
                     execution.updated_at.isoformat(),
                 ),
             )
+        return True
 
     def insert_chain_snapshot(
         self, project_id: str, snapshot: ChainSnapshot
@@ -1232,6 +1289,54 @@ class Store:
             ).fetchone()
             self._record_candidate_revision(conn, row)
         return self.get_candidate(candidate_id, project_id)
+
+    def update_chain_candidate(
+        self,
+        candidate_id: str,
+        project_id: str,
+        payload: CandidateInput,
+        expected_revision: int,
+        invalidation_request_id: str,
+    ) -> tuple[Candidate | None, int]:
+        """Update a Chain candidate and invalidate older execution writes atomically."""
+
+        now = _now()
+        scope_id = self.chain_execution_scope(project_id, candidate_id)
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            result = conn.execute(
+                "UPDATE candidates SET name=?,payload=?,revision=revision+1,updated_at=? "
+                "WHERE id=? AND project_id=? AND revision=? AND archived_at IS NULL",
+                (
+                    payload.name,
+                    payload.model_dump_json(),
+                    now,
+                    candidate_id,
+                    project_id,
+                    expected_revision,
+                ),
+            )
+            if not result.rowcount:
+                row = conn.execute(
+                    "SELECT * FROM candidates WHERE id=? AND project_id=?",
+                    (candidate_id, project_id),
+                ).fetchone()
+                if row is None:
+                    return None, 0
+                current = self._candidate(row)
+                if current.archived_at is not None:
+                    raise CandidateArchivedError("archive済み候補は編集できません")
+                raise CandidateRevisionConflictError(current)
+            row = conn.execute(
+                "SELECT * FROM candidates WHERE id=? AND project_id=?",
+                (candidate_id, project_id),
+            ).fetchone()
+            self._record_candidate_revision(conn, row)
+            generation = self._claim_chain_execution(
+                conn, scope_id, invalidation_request_id
+            )
+            updated = self._candidate(row)
+        return updated, generation
 
     def delete_candidate(self, candidate_id: str, project_id: str, expected_revision: int) -> bool:
         with self._connect() as conn:

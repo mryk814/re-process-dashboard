@@ -1,5 +1,6 @@
 models/packages/**/*.json text eol=lf
 models/catalogs/**/*.json text eol=lf
+models/design-spaces/**/*.json text eol=lf
 models/packages/**/model-artifacts/*.txt binary
 examples/model-packages/**/*.json text eol=lf
 models/active-packages.json text eol=lf
