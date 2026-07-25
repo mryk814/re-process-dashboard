@@ -218,6 +218,8 @@ def model_training_data(
                 .get("target_status", {})
                 .get(target_key, {})
             )
+            if not state:
+                continue
             if state.get("usable"):
                 continue
             reason = str(state.get("reason") or "値なし")
@@ -352,6 +354,12 @@ def model_training_data(
             })
     else:
         model_rows = selected_rows
+        predictor_feature_names = set(predictor.feature_names)
+        target_feature_specs = [
+            feature
+            for feature in canonical["feature_pipeline"]["features"]
+            if feature["name"] in predictor_feature_names
+        ]
         feature_identifier_columns = identifier_columns
         if training_unit == "parent_condition_mean":
             grouped: dict[str, list[dict[str, Any]]] = {}
@@ -388,7 +396,7 @@ def model_training_data(
                     "unit": feature["unit"],
                     "group": "特徴量",
                 }
-                for feature in canonical["feature_pipeline"]["features"]
+                for feature in target_feature_specs
             ],
             {"key": f"output.{selected_target}", "label": f"{output.label}（実測）", "unit": output.unit, "group": "実測"},
         ]

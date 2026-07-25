@@ -14,6 +14,7 @@
     "packages/battery-degradation-lightgbm-calce-v1",
     "packages/secom-yield-lightgbm-calibrated-v1",
     "packages/mpea-room-tensile-ridge-v1",
-    "packages/mpea-hardness-ridge-v1"
+    "packages/mpea-hardness-ridge-v1",
+    "packages/welding-stage-c-ridge-v1"
   ]
 }

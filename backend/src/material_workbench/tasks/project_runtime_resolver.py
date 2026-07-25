@@ -254,6 +254,16 @@ class ProjectRuntimeResolver:
             if profile.task_id != task_id:
                 raise ProjectRuntimeResolutionError("Profile RevisionはこのPrediction Taskに対応していません")
             return source_path, profile, asset.sha256, profile_revision.profile_digest
+        if raw_profile.get("schema_version") == "observation-dataset-profile/v1":
+            from material_workbench.data.observation_profile import ObservationDatasetProfile
+
+            try:
+                profile = ObservationDatasetProfile.model_validate(raw_profile)
+            except ValueError as exc:
+                raise ProjectRuntimeResolutionError("Profile Revisionを再構成できません") from exc
+            if profile.task_id != task_id:
+                raise ProjectRuntimeResolutionError("Profile RevisionはこのPrediction Taskに対応していません")
+            return source_path, profile, asset.sha256, profile_revision.profile_digest
         raw_tasks = raw_profile.get("tasks")
         if not isinstance(raw_tasks, dict) or task_id not in raw_tasks:
             raise ProjectRuntimeResolutionError("Profile RevisionはこのPrediction Taskに対応していません")
