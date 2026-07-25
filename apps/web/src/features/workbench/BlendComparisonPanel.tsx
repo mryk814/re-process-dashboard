@@ -47,8 +47,19 @@ export function BlendComparisonPanel({
   useEffect(() => {
     let live = true;
     setHistoryState({ ownerKey: selectedKey, items: [], error: "" });
-    if (!hasBlend || selected.raw.provenance?.source_kind !== "copy") return;
-    void workbenchApi.candidateDerivationChain(projectId, selected.id)
+    if (!hasBlend) return;
+    const provenance = selected.raw.provenance;
+    const loadHistory = provenance?.source_kind === "copy"
+      ? workbenchApi.candidateDerivationChain(projectId, selected.id)
+      : provenance?.source_kind === "blend_optimization"
+        ? workbenchApi.candidateRevision(
+          provenance.source_ref.project_id,
+          provenance.source_ref.baseline_candidate_id,
+          provenance.source_ref.baseline_candidate_revision,
+        ).then((item) => [item])
+        : null;
+    if (!loadHistory) return;
+    void loadHistory
       .then((items) => {
         if (live) setHistoryState({ ownerKey: selectedKey, items, error: "" });
       })

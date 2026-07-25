@@ -318,8 +318,33 @@ class CopySourceRef(ContractModel):
     source_ref: CopyReference
 
 
+class BlendOptimizationReference(ContractModel):
+    project_id: Annotated[str, Field(min_length=1)]
+    baseline_candidate_id: Annotated[str, Field(min_length=1)]
+    baseline_candidate_revision: Annotated[int, Field(ge=1)]
+    solver_name: Annotated[str, Field(min_length=1)]
+    solver_version: Annotated[str, Field(min_length=1)]
+    method: Literal["highs-lp", "highs-milp"]
+    objective: Literal["cost", "baseline_l1"]
+    design_space_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+    scientific_master_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+    commercial_catalog_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+    request_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+
+
+class BlendOptimizationSourceRef(ContractModel):
+    source_kind: Literal["blend_optimization"]
+    source_ref: BlendOptimizationReference
+
+
 CandidateProvenance = Annotated[
-    ManualSourceRef | DirectSourceRef | LineageSourceRef | ScreeningSourceRef | SnapshotSourceRef | CopySourceRef,
+    ManualSourceRef
+    | DirectSourceRef
+    | LineageSourceRef
+    | ScreeningSourceRef
+    | SnapshotSourceRef
+    | CopySourceRef
+    | BlendOptimizationSourceRef,
     Field(discriminator="source_kind"),
 ]
 

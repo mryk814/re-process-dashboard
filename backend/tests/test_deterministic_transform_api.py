@@ -177,6 +177,94 @@ def test_historical_catalog_and_design_refs_remain_executable(client) -> None:
     assert editor.json()["design_space_ref"] == blend["design_space"]
 
 
+def test_blend_optimization_uses_resolved_transform_contracts_and_creates_ordinary_candidates(
+    client,
+) -> None:
+    tasks = client.get("/api/task-definitions").json()
+    stage_b = next(
+        item
+        for item in tasks
+        if item["definition"]["task_definition"]["id"]
+        == "welding-consumable-stage-b-v1"
+    )
+    starter = stage_b["starter_candidate"]
+    starter["name"] = "逆算基準"
+    created = client.post(
+        "/api/projects/welding-stage-b-default/candidates",
+        json=starter,
+    )
+    assert created.status_code == 201
+    baseline = created.json()
+    endpoint = (
+        "/api/projects/welding-stage-b-default/candidates/"
+        f"{baseline['id']}/blend-optimization"
+    )
+
+    context_response = client.get(
+        endpoint,
+        params={"expected_revision": baseline["revision"]},
+    )
+    assert context_response.status_code == 200
+    context = context_response.json()
+    assert len(context["materials"]) == 252
+    assert context["scientific_master"] == baseline["blend"]["scientific_master"]
+    assert context["commercial_catalog"] == baseline["blend"]["commercial_catalog"]
+    assert context["design_space"] == baseline["blend"]["design_space"]
+
+    base_request = {
+        "expected_revision": baseline["revision"],
+        "objective": "baseline_l1",
+        "material_ids": [
+            item["material_id"] for item in baseline["blend"]["items"]
+        ],
+        "composition_targets": [
+            {
+                "component": context["components"][0],
+                "lower": 0,
+                "upper": 100,
+            }
+        ],
+    }
+    lp_response = client.post(
+        endpoint,
+        json={
+            **base_request,
+            "name": "実catalog LP",
+            "inclusion_decisions": False,
+        },
+    )
+    assert lp_response.status_code == 200
+    lp_result = lp_response.json()
+    assert lp_result["status"] == "feasible"
+    assert lp_result["method"] == "highs-lp"
+    optimized = lp_result["candidate"]
+    assert optimized["provenance"]["source_kind"] == "blend_optimization"
+    assert optimized["blend"]["scientific_master"] == baseline["blend"]["scientific_master"]
+
+    candidates = client.get(
+        "/api/projects/welding-stage-b-default/candidates"
+    ).json()
+    assert optimized["id"] in {item["id"] for item in candidates}
+    snapshot = client.post(
+        "/api/projects/welding-stage-b-default/candidates/"
+        f"{optimized['id']}/snapshots"
+    )
+    assert snapshot.status_code == 201
+
+    milp_response = client.post(
+        endpoint,
+        json={
+            **base_request,
+            "name": "実catalog MILP",
+            "inclusion_decisions": True,
+        },
+    )
+    assert milp_response.status_code == 200
+    milp_result = milp_response.json()
+    assert milp_result["status"] == "feasible"
+    assert milp_result["method"] == "highs-milp"
+
+
 @pytest.mark.parametrize(
     "selection",
     [

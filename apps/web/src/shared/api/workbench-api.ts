@@ -49,6 +49,9 @@ export type ApiChangeGuideEntry = components["schemas"]["ChangeGuideEntry"];
 export type ApiObservationTrainingProfile = components["schemas"]["ObservationTrainingProfileSummary"];
 export type ApiObservationTrainingPage = components["schemas"]["ObservationTrainingInspectionPage"];
 export type ApiBlendMaterial = components["schemas"]["BlendMaterialDescriptor"];
+export type ApiBlendOptimizationContext = components["schemas"]["BlendOptimizationContext"];
+export type ApiBlendOptimizationRequest = components["schemas"]["BlendOptimizationRequest"];
+export type ApiBlendOptimizationResult = components["schemas"]["BlendOptimizationResult"];
 export type ApiBlendEditorContext = components["schemas"]["BlendEditorContext"];
 export type ApiDeterministicTransform = components["schemas"]["DeterministicTransformCatalogItem"];
 export type ApiDeterministicTransformResult = components["schemas"]["DeterministicLinearResult"];
@@ -315,6 +318,20 @@ export const workbenchApi = {
         query: { revision },
       },
     }), "原料情報を取得できませんでした。");
+  },
+  async blendOptimizationContext(projectId: string, candidateId: string, expectedRevision: number) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/blend-optimization", {
+      params: {
+        path: { project_id: projectId, candidate_id: candidateId },
+        query: { expected_revision: expectedRevision },
+      },
+    }), "配合逆算の条件を取得できませんでした。");
+  },
+  async runBlendOptimization(projectId: string, candidateId: string, body: ApiBlendOptimizationRequest) {
+    return requireData(await apiClient.POST("/api/projects/{project_id}/candidates/{candidate_id}/blend-optimization", {
+      params: { path: { project_id: projectId, candidate_id: candidateId } },
+      body,
+    }), "配合逆算を実行できませんでした。");
   },
   async candidateDerivationChain(projectId: string, candidateId: string) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/derivation-chain", {

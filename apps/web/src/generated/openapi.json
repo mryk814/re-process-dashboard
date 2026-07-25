@@ -441,6 +441,339 @@
         "title": "BlendMaterialDescriptor",
         "type": "object"
       },
+      "BlendOptimizationContext": {
+        "additionalProperties": false,
+        "properties": {
+          "balance_material_id": {
+            "title": "Balance Material Id",
+            "type": "string"
+          },
+          "baseline_candidate_id": {
+            "title": "Baseline Candidate Id",
+            "type": "string"
+          },
+          "baseline_candidate_revision": {
+            "title": "Baseline Candidate Revision",
+            "type": "integer"
+          },
+          "commercial_catalog": {
+            "$ref": "#/components/schemas/RevisionRef"
+          },
+          "components": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Components",
+            "type": "array"
+          },
+          "design_space": {
+            "$ref": "#/components/schemas/RevisionRef"
+          },
+          "fixed_fill_ratio": {
+            "title": "Fixed Fill Ratio",
+            "type": "number"
+          },
+          "fixed_hoop_id": {
+            "title": "Fixed Hoop Id",
+            "type": "string"
+          },
+          "group_cardinalities": {
+            "items": {
+              "$ref": "#/components/schemas/GroupCardinalityConstraint"
+            },
+            "title": "Group Cardinalities",
+            "type": "array"
+          },
+          "group_totals": {
+            "items": {
+              "$ref": "#/components/schemas/GroupTotalConstraint"
+            },
+            "title": "Group Totals",
+            "type": "array"
+          },
+          "material_bounds": {
+            "items": {
+              "$ref": "#/components/schemas/MaterialRatioBound"
+            },
+            "title": "Material Bounds",
+            "type": "array"
+          },
+          "materials": {
+            "items": {
+              "$ref": "#/components/schemas/BlendMaterialDescriptor"
+            },
+            "title": "Materials",
+            "type": "array"
+          },
+          "scientific_master": {
+            "$ref": "#/components/schemas/RevisionRef"
+          },
+          "selection_count": {
+            "$ref": "#/components/schemas/SelectionCountConstraint"
+          }
+        },
+        "required": [
+          "baseline_candidate_id",
+          "baseline_candidate_revision",
+          "fixed_hoop_id",
+          "fixed_fill_ratio",
+          "balance_material_id",
+          "scientific_master",
+          "commercial_catalog",
+          "design_space",
+          "materials",
+          "components",
+          "material_bounds",
+          "group_totals",
+          "group_cardinalities",
+          "selection_count"
+        ],
+        "title": "BlendOptimizationContext",
+        "type": "object"
+      },
+      "BlendOptimizationReference": {
+        "additionalProperties": false,
+        "properties": {
+          "baseline_candidate_id": {
+            "minLength": 1,
+            "title": "Baseline Candidate Id",
+            "type": "string"
+          },
+          "baseline_candidate_revision": {
+            "minimum": 1.0,
+            "title": "Baseline Candidate Revision",
+            "type": "integer"
+          },
+          "commercial_catalog_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Commercial Catalog Digest",
+            "type": "string"
+          },
+          "design_space_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Design Space Digest",
+            "type": "string"
+          },
+          "method": {
+            "enum": [
+              "highs-lp",
+              "highs-milp"
+            ],
+            "title": "Method",
+            "type": "string"
+          },
+          "objective": {
+            "enum": [
+              "cost",
+              "baseline_l1"
+            ],
+            "title": "Objective",
+            "type": "string"
+          },
+          "project_id": {
+            "minLength": 1,
+            "title": "Project Id",
+            "type": "string"
+          },
+          "request_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Request Digest",
+            "type": "string"
+          },
+          "scientific_master_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Scientific Master Digest",
+            "type": "string"
+          },
+          "solver_name": {
+            "minLength": 1,
+            "title": "Solver Name",
+            "type": "string"
+          },
+          "solver_version": {
+            "minLength": 1,
+            "title": "Solver Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "baseline_candidate_id",
+          "baseline_candidate_revision",
+          "solver_name",
+          "solver_version",
+          "method",
+          "objective",
+          "design_space_digest",
+          "scientific_master_digest",
+          "commercial_catalog_digest",
+          "request_digest"
+        ],
+        "title": "BlendOptimizationReference",
+        "type": "object"
+      },
+      "BlendOptimizationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "composition_targets": {
+            "items": {
+              "$ref": "#/components/schemas/CompositionTarget"
+            },
+            "minItems": 1,
+            "title": "Composition Targets",
+            "type": "array"
+          },
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "inclusion_decisions": {
+            "default": false,
+            "title": "Inclusion Decisions",
+            "type": "boolean"
+          },
+          "material_ids": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Material Ids",
+            "type": "array"
+          },
+          "name": {
+            "default": "配合逆算候補",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "objective": {
+            "enum": [
+              "cost",
+              "baseline_l1"
+            ],
+            "title": "Objective",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "objective",
+          "material_ids",
+          "composition_targets"
+        ],
+        "title": "BlendOptimizationRequest",
+        "type": "object"
+      },
+      "BlendOptimizationResult": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Candidate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "method": {
+            "enum": [
+              "highs-lp",
+              "highs-milp"
+            ],
+            "title": "Method",
+            "type": "string"
+          },
+          "objective": {
+            "enum": [
+              "cost",
+              "baseline_l1"
+            ],
+            "title": "Objective",
+            "type": "string"
+          },
+          "objective_unit": {
+            "enum": [
+              "yen/kg-core",
+              "core mass %"
+            ],
+            "title": "Objective Unit",
+            "type": "string"
+          },
+          "objective_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Objective Value"
+          },
+          "relaxation_candidates": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RelaxationCandidate"
+            },
+            "title": "Relaxation Candidates",
+            "type": "array"
+          },
+          "solver_name": {
+            "title": "Solver Name",
+            "type": "string"
+          },
+          "solver_version": {
+            "title": "Solver Version",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "feasible",
+              "infeasible"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "solver_name",
+          "solver_version",
+          "method",
+          "objective",
+          "objective_unit",
+          "message"
+        ],
+        "title": "BlendOptimizationResult",
+        "type": "object"
+      },
+      "BlendOptimizationSourceRef": {
+        "additionalProperties": false,
+        "properties": {
+          "source_kind": {
+            "const": "blend_optimization",
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "source_ref": {
+            "$ref": "#/components/schemas/BlendOptimizationReference"
+          }
+        },
+        "required": [
+          "source_kind",
+          "source_ref"
+        ],
+        "title": "BlendOptimizationSourceRef",
+        "type": "object"
+      },
       "BlendValidationIssue": {
         "additionalProperties": false,
         "properties": {
@@ -669,6 +1002,7 @@
           "provenance": {
             "discriminator": {
               "mapping": {
+                "blend_optimization": "#/components/schemas/BlendOptimizationSourceRef",
                 "copy": "#/components/schemas/CopySourceRef",
                 "direct": "#/components/schemas/DirectSourceRef",
                 "lineage": "#/components/schemas/LineageSourceRef",
@@ -696,6 +1030,9 @@
               },
               {
                 "$ref": "#/components/schemas/CopySourceRef"
+              },
+              {
+                "$ref": "#/components/schemas/BlendOptimizationSourceRef"
               }
             ],
             "title": "Provenance"
@@ -861,6 +1198,7 @@
           "provenance": {
             "discriminator": {
               "mapping": {
+                "blend_optimization": "#/components/schemas/BlendOptimizationSourceRef",
                 "copy": "#/components/schemas/CopySourceRef",
                 "direct": "#/components/schemas/DirectSourceRef",
                 "lineage": "#/components/schemas/LineageSourceRef",
@@ -888,6 +1226,9 @@
               },
               {
                 "$ref": "#/components/schemas/CopySourceRef"
+              },
+              {
+                "$ref": "#/components/schemas/BlendOptimizationSourceRef"
               }
             ],
             "title": "Provenance"
@@ -990,6 +1331,7 @@
           "provenance": {
             "discriminator": {
               "mapping": {
+                "blend_optimization": "#/components/schemas/BlendOptimizationSourceRef",
                 "copy": "#/components/schemas/CopySourceRef",
                 "direct": "#/components/schemas/DirectSourceRef",
                 "lineage": "#/components/schemas/LineageSourceRef",
@@ -1017,6 +1359,9 @@
               },
               {
                 "$ref": "#/components/schemas/CopySourceRef"
+              },
+              {
+                "$ref": "#/components/schemas/BlendOptimizationSourceRef"
               }
             ],
             "title": "Provenance"
@@ -1857,6 +2202,35 @@
           "hoop_mass_fraction"
         ],
         "title": "CompiledWholeWireBlend",
+        "type": "object"
+      },
+      "CompositionTarget": {
+        "additionalProperties": false,
+        "properties": {
+          "component": {
+            "minLength": 1,
+            "title": "Component",
+            "type": "string"
+          },
+          "lower": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Lower",
+            "type": "number"
+          },
+          "upper": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Upper",
+            "type": "number"
+          }
+        },
+        "required": [
+          "component",
+          "lower",
+          "upper"
+        ],
+        "title": "CompositionTarget",
         "type": "object"
       },
       "CompositionTotalDefinition": {
@@ -7624,6 +7998,68 @@
         "title": "RelativeTolerance",
         "type": "object"
       },
+      "RelaxationCandidate": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "minimum": 0.0,
+            "title": "Amount",
+            "type": "number"
+          },
+          "constraint": {
+            "title": "Constraint",
+            "type": "string"
+          },
+          "current": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current"
+          },
+          "direction": {
+            "enum": [
+              "lower",
+              "upper",
+              "structural"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "suggested": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "constraint",
+          "direction",
+          "amount",
+          "unit",
+          "message"
+        ],
+        "title": "RelaxationCandidate",
+        "type": "object"
+      },
       "RepeatSummary": {
         "properties": {
           "mean": {
@@ -12293,6 +12729,126 @@
           }
         },
         "summary": "Get Candidate Blend Materials"
+      }
+    },
+    "/api/projects/{project_id}/candidates/{candidate_id}/blend-optimization": {
+      "get": {
+        "operationId": "get_blend_optimization_context_api_projects__project_id__candidates__candidate_id__blend_optimization_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expected_revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Expected Revision"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlendOptimizationContext"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Blend Optimization Context"
+      },
+      "post": {
+        "operationId": "run_blend_optimization_api_projects__project_id__candidates__candidate_id__blend_optimization_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BlendOptimizationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlendOptimizationResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Blend Optimization"
       }
     },
     "/api/projects/{project_id}/candidates/{candidate_id}/curve-family": {
