@@ -1,4 +1,5 @@
 import type { TaskDefinitionContract } from "./taskDefinition";
+import { formatTaskNumber, taskDisplayDecimals } from "../../shared/taskPresentation";
 
 export type DisplayDecimalOverrides = Record<string, number> | undefined;
 
@@ -7,7 +8,7 @@ export function displayDecimals(
   key: string,
   overrides?: DisplayDecimalOverrides,
 ) {
-  return overrides?.[key] ?? definition.display_decimals[key];
+  return taskDisplayDecimals(definition, key, overrides);
 }
 
 export function formatDisplayNumber(
@@ -16,11 +17,7 @@ export function formatDisplayNumber(
   key: string,
   overrides?: DisplayDecimalOverrides,
 ) {
-  const digits = displayDecimals(definition, key, overrides);
-  return value.toLocaleString("ja-JP", {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  });
+  return formatTaskNumber(value, definition, key, overrides);
 }
 
 export function formatInputNumber(

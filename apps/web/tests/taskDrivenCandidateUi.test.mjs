@@ -97,6 +97,26 @@ test("hot rolling definition omits heat pattern and renders process, categorical
   assert.doesNotMatch(comparison, />YS</);
 });
 
+test("mixed-unit input groups do not borrow the first field unit for the group heading", () => {
+  const definition = {
+    input_groups: [{
+      key: "process",
+      order: 0,
+      label: "工程条件",
+      fields: [
+        numberField("process.temperature", "温度"),
+        { ...numberField("process.time", "時間", 1), unit: "s" },
+      ],
+    }],
+    outputs: [],
+    display_decimals: { "process.temperature": 1, "process.time": 1 },
+    fixed_context: [],
+  };
+  const inspector = renderInspector({ candidate, taskDefinition: definition, saveState: "idle", fieldErrors: [], onInput() {} });
+  assert.match(inspector, /<h3>工程条件<\/h3>.*?<\/div><span><\/span>/);
+  assert.doesNotMatch(inspector, /<h3>工程条件<\/h3>.*?<\/div><span>°C<\/span>/);
+});
+
 test("comparison puts the input group that differs between candidates first", () => {
   const definition = {
     input_groups: [

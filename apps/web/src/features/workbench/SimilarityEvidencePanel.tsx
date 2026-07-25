@@ -136,7 +136,7 @@ export function SimilarityEvidencePanel({
         <p className="empty-evidence">入力を保存後に近さを更新します。</p>
       ) : similar.length ? (
         <div className="similar-table-scroll"><table className={`similar-table similar-summary-table${hasMeltKey ? "" : " no-melt-key"}`}>
-          <thead><tr><th>距離</th>{hasMeltKey && <th>溶製成績書 key</th>}<th>{processLabel} key</th><th>実績値</th><th /></tr></thead>
+          <thead><tr><th>距離</th>{hasMeltKey && <th>溶製成績書</th>}<th>{processLabel}</th><th>実績値</th><th /></tr></thead>
           <tbody>{similar.map((item) => (
             <tr key={similarObservationRowKey(item)}>
               <td className="similar-distance"><b>{item.distance.toFixed(2)}</b><span className="layer-chip historical">参照データ</span></td>

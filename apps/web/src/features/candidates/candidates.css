@@ -40,7 +40,7 @@
 .slider-field input[type="range"] { width: 100%; height: 5px; margin: 3px 0; appearance: none; border-radius: 999px; outline: 0; }
 .slider-field input[type="range"]::-webkit-slider-thumb { width: 13px; height: 13px; appearance: none; border: 2px solid #fff; border-radius: 50%; background: #1f5fc4; box-shadow: 0 0 0 1px #1f5fc4; }
 
-.candidate-comparison { display: grid; gap: 10px; }
+.candidate-comparison { display: grid; min-width: 0; gap: 10px; container-type: inline-size; }
 .candidate-decision-summary {
   display: grid;
   grid-template-columns: minmax(120px, auto) minmax(330px, 0.8fr) minmax(300px, 1.2fr);
@@ -231,9 +231,13 @@
 .candidate-row-icon-button svg,
 .candidate-row-save-button svg { width: 14px; height: 14px; flex: 0 0 auto; }
 
-@media (max-width: 820px) {
+@container (max-width: 780px) {
   .candidate-decision-summary { grid-template-columns: 1fr; }
   .candidate-decision-summary dl { max-width: 480px; }
+  .candidate-decision-summary dd { overflow: hidden; text-overflow: ellipsis; }
+}
+
+@media (max-width: 820px) {
   .comparison-grid { grid-template-columns: 132px minmax(220px, var(--comparison-input-share, 45%)) 9px minmax(240px, 1fr) 120px; }
   .comparison-grid-viewport { overflow-x: auto; }
 }

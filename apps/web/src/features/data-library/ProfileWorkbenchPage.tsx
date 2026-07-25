@@ -70,7 +70,7 @@ export function ProfileWorkbenchPage({
     && !error,
   );
   const currentStep = registration ? 6 : inspection?.validation?.registration_ready && !inspection.profile_error ? 5 : inspection ? 3 : file ? 2 : 1;
-  const steps = ["Excel", "Profile候補", "構造差分", "Validate", "Dataset登録", "Project作成"];
+  const steps = ["Excel", "Profile候補", "構造差分", "検証", "Dataset登録", "Project作成"];
 
   function cancelInspection() {
     inspectController.current?.abort();
