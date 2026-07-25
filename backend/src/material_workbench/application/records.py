@@ -63,7 +63,16 @@ class RecordService:
         self.inference.require_operation(project.task_id, "snapshot")
         if result is None:
             result = self.inference.detailed_for(project, candidate)
-        payload = {
+        return SnapshotResponse.model_validate(
+            self.store.create_snapshot(
+                candidate.id,
+                to_jsonable_python(self._snapshot_payload(candidate, result)),
+            )
+        )
+
+    @staticmethod
+    def _snapshot_payload(candidate: Candidate, result: dict[str, Any]) -> dict[str, Any]:
+        return {
             "snapshot_schema_version": "prediction-snapshot-v2",
             "candidate_id": candidate.id,
             "raw_candidate": candidate.model_dump(mode="json"),
@@ -71,7 +80,6 @@ class RecordService:
             "prediction": result,
             "provenance": result["model_meta"],
         }
-        return SnapshotResponse.model_validate(self.store.create_snapshot(candidate.id, to_jsonable_python(payload)))
 
     def restore(self, project_id: str, snapshot_id: str) -> Candidate:
         project = self.projects.require(project_id)
@@ -106,8 +114,14 @@ class RecordService:
         outputs = {output.key: output.unit for output in self.registry.contract_for(project.task_id).task_definition.outputs}
         if outputs.get(payload.property) != payload.unit:
             raise RecordValidationError("実測の特性または単位が予測タスクと一致しません")
-        snapshot = self.create_snapshot_for(candidate)
-        return self.store.create_actual(candidate_id, snapshot.id, payload)
+        result = self.inference.detailed_for(project, candidate)
+        return self.store.create_snapshot_and_actual(
+            project_id,
+            candidate_id,
+            revision,
+            to_jsonable_python(self._snapshot_payload(candidate, result)),
+            payload,
+        )
 
     def delete_actual(self, project_id: str, candidate_id: str, actual_id: str) -> None:
         project = self.projects.require(project_id)

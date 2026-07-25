@@ -699,11 +699,64 @@ class Store:
         with self._connect() as conn:
             return [self._actual(row) for row in conn.execute("SELECT * FROM actual_measurements WHERE candidate_id=? ORDER BY created_at", (candidate_id,))]
 
-    def create_actual(self, candidate_id: str, snapshot_id: str, payload: ActualMeasurementInput) -> ActualMeasurement:
-        actual_id, now = str(uuid.uuid4()), _now()
+    def create_snapshot_and_actual(
+        self,
+        project_id: str,
+        candidate_id: str,
+        expected_revision: int,
+        snapshot_payload: dict[str, Any],
+        payload: ActualMeasurementInput,
+    ) -> ActualMeasurement:
+        snapshot_id, actual_id, now = str(uuid.uuid4()), str(uuid.uuid4()), _now()
         with self._connect() as conn:
-            conn.execute("INSERT INTO actual_measurements(id, candidate_id, snapshot_id, property, mean, std, replicates, unit, experiment_no, measured_at, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (actual_id, candidate_id, snapshot_id, payload.property, payload.mean, payload.std, payload.replicates, payload.unit, payload.experiment_no, payload.measured_at.isoformat() if payload.measured_at else None, payload.note, now))
-        return self.list_actuals(candidate_id)[-1]
+            conn.execute("BEGIN IMMEDIATE")
+            candidate_row = conn.execute(
+                "SELECT * FROM candidates WHERE id=? AND project_id=?",
+                (candidate_id, project_id),
+            ).fetchone()
+            if candidate_row is None:
+                if conn.execute("SELECT 1 FROM projects WHERE id=?", (project_id,)).fetchone() is None:
+                    raise ProjectNotFoundError(project_id)
+                raise StoreDataIntegrityError("候補が実測の保存前に削除されました")
+            current = self._candidate(candidate_row)
+            if current.archived_at is not None:
+                raise CandidateArchivedError("archive済み候補には実測を追加できません")
+            if current.revision != expected_revision:
+                raise CandidateRevisionConflictError(current)
+            conn.execute(
+                "INSERT INTO snapshots VALUES (?, ?, ?, ?)",
+                (
+                    snapshot_id,
+                    candidate_id,
+                    json.dumps(snapshot_payload, ensure_ascii=False, sort_keys=True),
+                    now,
+                ),
+            )
+            conn.execute(
+                "INSERT INTO actual_measurements(id, candidate_id, snapshot_id, property, mean, std, replicates, unit, experiment_no, measured_at, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    actual_id,
+                    candidate_id,
+                    snapshot_id,
+                    payload.property,
+                    payload.mean,
+                    payload.std,
+                    payload.replicates,
+                    payload.unit,
+                    payload.experiment_no,
+                    payload.measured_at.isoformat() if payload.measured_at else None,
+                    payload.note,
+                    now,
+                ),
+            )
+            row = conn.execute(
+                "SELECT * FROM actual_measurements WHERE id=?",
+                (actual_id,),
+            ).fetchone()
+            if row is None:
+                raise StoreDataIntegrityError("作成した実測を再取得できませんでした")
+            actual = self._actual(row)
+        return actual
 
     def delete_actual(self, actual_id: str) -> bool:
         with self._connect() as conn:

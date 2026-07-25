@@ -92,11 +92,26 @@ def build_inventory() -> dict[str, Any]:
     }
 
 
+def packaged_source_paths() -> list[str]:
+    return sorted({
+        _repository_path(REPOSITORY_ROOT / module.default_source)
+        for module in registered_task_modules().values()
+    })
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Generate or verify the production task inventory.")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--check", action="store_true")
+    parser.add_argument(
+        "--print-source-paths",
+        action="store_true",
+        help="Print the unique registered default sources as JSON for packaging checks.",
+    )
     args = parser.parse_args()
+    if args.print_source_paths:
+        print(json.dumps(packaged_source_paths(), ensure_ascii=False))
+        return 0
     expected = json.dumps(build_inventory(), ensure_ascii=False, indent=2) + "\n"
     if args.check:
         try:

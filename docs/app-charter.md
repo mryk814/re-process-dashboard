@@ -20,7 +20,7 @@
 
 ## 予測タスクの構成
 
-現行のproduction taskは、焼鈍後特性（`annealed-properties-v1`）、熱延後特性（`hot-rolled-properties-v1`）、切削工具の逃げ面摩耗（`flank-wear-v1`）の3つである。それぞれを独立した縦スライスとして持ち、入力スキーマ、特徴量パイプライン、モデルPackage、支持度参照、候補比較を混在させない。熱延v1は設備・試験片方向を推定条件として区別せず、切削摩耗v1は切削距離を摩耗曲線の横軸として扱う。現行の登録内容とactive Packageは [生成済みTask inventory](task-inventory.json) を参照する。
+production taskはそれぞれを独立した縦スライスとして持ち、入力スキーマ、特徴量パイプライン、モデルPackage、支持度参照、候補比較を混在させない。現行の登録内容、ソース、能力、active Packageは [生成済みTask inventory](task-inventory.json) を唯一の件数・構成一覧とする。
 
 ## 対象外とするもの
 
