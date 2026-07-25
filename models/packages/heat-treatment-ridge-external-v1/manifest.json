@@ -77,7 +77,8 @@
       "config": {
         "training_unit": "source_row",
         "validation": "5-fold by independent source row",
-        "source_profile": "external-heat-treatment-v1"
+        "source_profile": "external-heat-treatment-v1",
+        "ridge_alpha": 1.0
       }
     },
     {
@@ -112,15 +113,16 @@
       "config": {
         "training_unit": "source_row",
         "validation": "5-fold by independent source row",
-        "source_profile": "external-heat-treatment-v1"
+        "source_profile": "external-heat-treatment-v1",
+        "ridge_alpha": 1.0
       }
     }
   ],
   "provenance": {
     "training_data_id": "sha256:226a9b8e77820459f51382e40d8df12ac6fe3c0a4648dc15ad068f9372d7c34b",
-    "feature_dataset_id": "sha256:a1b216bad683291eafe78fff2acb8e78f6bd85ea156ddf622704c294e0c4062d",
-    "training_code_revision": "tabular-ridge-v1",
-    "dataset_profile_id": "sha256:ea50e9d335c76f3de9dede60b25351fc87bb87055ad0dffae896249f5a989edb"
+    "feature_dataset_id": "sha256:cfe313e454659521185cf5851ab3dbb9fe7f946c87470bcf6c9cd682759b3bf8",
+    "training_code_revision": "tabular-ridge-crossfit-coverage-v2",
+    "dataset_profile_id": "sha256:0d0a123ce03bc7a7e339b3e3e13b7d241d89dfa71fe518dcd9c65bb62d7a6424"
   },
   "artifacts": [
     {
@@ -140,13 +142,13 @@
     },
     {
       "path": "reference/training_stats.json",
-      "sha256": "775ecfcea833f941d9519bc7c2748da0f66a93e14946224f697133878069616a",
-      "bytes": 189
+      "sha256": "a49693d379a5e13b782da58663dcaa0b6d624d8962fa11e5362d5c98426c4353",
+      "bytes": 289
     },
     {
       "path": "reports/quality-report.json",
-      "sha256": "bbcab1ebbc409be01a95f741d410c92fd863423cfdbac25c8f17b2382a74253d",
-      "bytes": 477
+      "sha256": "385009d4af5b4d19b7814f1b59f18ecb423f42565a1c7a2315bf618ca421ce4d",
+      "bytes": 745
     },
     {
       "path": "smoke/input.json",

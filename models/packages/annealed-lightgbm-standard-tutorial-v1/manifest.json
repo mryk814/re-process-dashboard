@@ -133,7 +133,7 @@
         "residual_std": 3.9279927423719845,
         "uncertainty_calibration": "grouped_parent_condition_oof",
         "parameter_policy": "regularized_small_data_v1",
-        "best_iteration": 20
+        "num_boost_round": 50
       }
     },
     {
@@ -193,7 +193,7 @@
         "residual_std": 51.918099422253974,
         "uncertainty_calibration": "grouped_parent_condition_oof",
         "parameter_policy": "regularized_small_data_v1",
-        "best_iteration": 20
+        "num_boost_round": 50
       }
     },
     {
@@ -253,7 +253,7 @@
         "residual_std": 52.433648547473794,
         "uncertainty_calibration": "grouped_parent_condition_oof",
         "parameter_policy": "regularized_small_data_v1",
-        "best_iteration": 20
+        "num_boost_round": 50
       }
     },
     {
@@ -313,14 +313,14 @@
         "residual_std": 13.375052291842593,
         "uncertainty_calibration": "grouped_parent_condition_oof",
         "parameter_policy": "regularized_small_data_v1",
-        "best_iteration": 20
+        "num_boost_round": 50
       }
     }
   ],
   "provenance": {
     "training_data_id": "sha256:a011476eb6514de278635e52f58a86bcce8f1078ee3933c121e5a463fa7af382",
     "feature_dataset_id": "sha256:2763664e508c3bc5ce503a18ab5f58c1a6dc2b109c84ee34236b47cd6df94021",
-    "training_code_revision": "lightgbm-grouped-cv-v1",
+    "training_code_revision": "lightgbm-grouped-fixed-round-crossfit-v2",
     "dataset_profile_id": "sha256:5b9ad0dd95a3e5f6d792959d0009e31afc250f983688372691fba4f68e3a3bde"
   },
   "artifacts": [
@@ -331,22 +331,22 @@
     },
     {
       "path": "model-artifacts/EL.txt",
-      "sha256": "6a8a9b22f54006a71f91030041ceaebff82ce8198e951747bbebe60e081486d7",
+      "sha256": "aa34e3f5358a4c94615f3bb72d8bf57de85f3bd00dbdd4d5c4bc804e5e73472a",
       "bytes": 3665
     },
     {
       "path": "model-artifacts/TS.txt",
-      "sha256": "8b449cce9dfc042b9cc65832cab374d91ed42e0fbfefca0fd0d2449a3782dc6d",
+      "sha256": "68ea190776b8ffa17066b64e3afb502d75a895df7b15cb9512dd82adccbad8bc",
       "bytes": 3679
     },
     {
       "path": "model-artifacts/YS.txt",
-      "sha256": "11eef15563a0b36dfbdec0c3315dd74f3a9fa72d4169ec04842936526a050179",
+      "sha256": "d13114f216f772cf6d4fcb51df3ff95237440c6d2793e6c8bd9f137f7621e182",
       "bytes": 3679
     },
     {
       "path": "model-artifacts/lambda.txt",
-      "sha256": "2eea6e289840a5265cd9b8ce90714ea38409e2aa6d619760ab0704cb37e5eb3f",
+      "sha256": "b9a78904699c2e01a10c32f1d0d7421c4026cf698b355bb4814296c13d8b3243",
       "bytes": 3665
     },
     {
@@ -356,13 +356,13 @@
     },
     {
       "path": "reports/quality-report.json",
-      "sha256": "98372a06bb88e48822f23b9a2d885b2b865cff223087ab1f2ec626c5cef39548",
-      "bytes": 842
+      "sha256": "530bd9118ab7784463d1577b077585727af13aa608a08829926dc615b52a9d0b",
+      "bytes": 1297
     },
     {
       "path": "reports/training-diagnostics.json",
-      "sha256": "44ceb458217d11cbff05838cf5f3d0fb15175257fd486ba953740c6dfc2d5ea2",
-      "bytes": 4166
+      "sha256": "c02004b293a113203bc69502e7feec0cf9f18b72da138115b318c0f5d09cf7b4",
+      "bytes": 3778
     },
     {
       "path": "smoke/input.json",

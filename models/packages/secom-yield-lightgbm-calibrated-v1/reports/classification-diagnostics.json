@@ -1,15 +1,15 @@
 {
   "schema_version": "classification-diagnostics/v1",
   "split": "stratified-k-fold",
-  "calibration": "out-of-fold Platt scaling",
+  "calibration": "cross-fitted out-of-fold Platt scaling for quality evaluation",
   "targets": {
     "fail_probability": {
       "records": 1468,
       "positive_records": 101,
       "negative_records": 1367,
-      "roc_auc": 0.7984601678895029,
-      "brier_score": 0.057174149446490644,
-      "balanced_accuracy": 0.5335561720034476
+      "roc_auc": 0.7928397082575851,
+      "brier_score": 0.05805276860543645,
+      "balanced_accuracy": 0.518338922407237
     }
   },
   "notes": [

@@ -8,28 +8,36 @@
       "parent_conditions": 7,
       "mae": 3.2142857142857144,
       "rmse": 3.9279927423719845,
-      "interval_coverage_90": 0.8571428571428571
+      "interval_coverage_90": 0.7142857142857143,
+      "interval_coverage_method": "cross-fitted-oof-normal-scale",
+      "interval_coverage_observations": 7
     },
     {
       "target": "TS",
       "parent_conditions": 7,
       "mae": 42.166666666666664,
       "rmse": 51.918099422253974,
-      "interval_coverage_90": 0.8571428571428571
+      "interval_coverage_90": 0.7142857142857143,
+      "interval_coverage_method": "cross-fitted-oof-normal-scale",
+      "interval_coverage_observations": 7
     },
     {
       "target": "YS",
       "parent_conditions": 6,
       "mae": 46.400000000000006,
       "rmse": 52.433648547473794,
-      "interval_coverage_90": 1.0
+      "interval_coverage_90": 0.6666666666666666,
+      "interval_coverage_method": "cross-fitted-oof-normal-scale",
+      "interval_coverage_observations": 6
     },
     {
       "target": "lambda",
       "parent_conditions": 7,
       "mae": 11.178571428571427,
       "rmse": 13.375052291842593,
-      "interval_coverage_90": 0.8571428571428571
+      "interval_coverage_90": 0.8571428571428571,
+      "interval_coverage_method": "cross-fitted-oof-normal-scale",
+      "interval_coverage_observations": 7
     }
   ]
 }

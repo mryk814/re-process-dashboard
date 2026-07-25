@@ -2328,6 +2328,10 @@ export interface components {
         ModelQualityTarget: {
             /** Interval Coverage 90 */
             interval_coverage_90: number;
+            /** Interval Coverage Method */
+            interval_coverage_method?: string | null;
+            /** Interval Coverage Observations */
+            interval_coverage_observations?: number | null;
             /** Mae */
             mae: number;
             /** Parent Conditions */

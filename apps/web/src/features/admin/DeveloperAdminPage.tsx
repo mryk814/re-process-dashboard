@@ -17,6 +17,40 @@ function rangeNumber(value: number) {
   return value.toLocaleString("ja-JP", { maximumFractionDigits: 4 });
 }
 
+function coverageMethodLabel(method: string | null | undefined) {
+  if (method === "cross-fitted-oof-residual-quantiles") return "fold外残差分位で評価";
+  if (method === "cross-fitted-oof-normal-scale") return "fold外残差尺度で評価";
+  if (method === "loo-predictive-interval") return "LOO予測区間で評価";
+  if (method === "posterior-predictive-interval") return "事後予測区間で評価";
+  return "算出方法未記録";
+}
+
+function CoverageCell({
+  quality,
+  predictiveFamily,
+}: {
+  quality: ApiModelPackage["quality_report"]["targets"][number] | undefined;
+  predictiveFamily: string;
+}) {
+  if (predictiveFamily.startsWith("bernoulli")) {
+    return <td className="quality-coverage-cell">
+      <strong>—</strong>
+      <small>分類では非該当</small>
+      {quality && <small>独立条件 n={quality.parent_conditions.toLocaleString("ja-JP")}</small>}
+    </td>;
+  }
+  if (!quality) return <td>—</td>;
+  const smallSample = quality.parent_conditions < 20;
+  return <td className="quality-coverage-cell">
+    <span><strong>{number(quality.interval_coverage_90 * 100, 0)}%</strong>{smallSample && <b>参考値</b>}</span>
+    <small>
+      独立条件 n={quality.parent_conditions.toLocaleString("ja-JP")}
+      {quality.interval_coverage_observations ? ` · 評価点 n=${quality.interval_coverage_observations.toLocaleString("ja-JP")}` : ""}
+    </small>
+    <small>{coverageMethodLabel(quality.interval_coverage_method)}</small>
+  </td>;
+}
+
 export function DeveloperAdminPage({
   project,
   taskDefinition,
@@ -92,7 +126,7 @@ export function DeveloperAdminPage({
         {modelError && <p className="panel-error">{modelError}</p>}
         {modelPackage ? <>
           <div className="admin-model-identity"><span>有効</span><strong>{modelPackage.id}</strong><b>v{modelPackage.version}</b></div>
-          <table className="quality-table"><thead><tr><th>特性</th><th>実行方式</th><th>RMSE</th><th>90%予測区間の包含率</th></tr></thead><tbody>{(taskDefinition ? orderedTaskItems(taskDefinition, modelPackage.predictors.map((predictor) => ({ ...predictor, key: predictor.target }))) : modelPackage.predictors.map((predictor) => ({ ...predictor, key: predictor.target }))).map((predictor) => { const quality = modelPackage.quality_report.targets.find((item) => item.target === predictor.target); const unit = taskDefinition ? taskOutputUnit(taskDefinition, predictor.target) : ""; return <tr key={predictor.target}><th>{taskDefinition?.outputs.find((item) => item.key === predictor.target)?.label ?? predictor.target}</th><td>{predictor.runtime_type}</td><td>{quality ? `${taskDefinition ? formatTaskNumber(quality.rmse, taskDefinition, `output.${predictor.target}`, project?.display_decimals) : number(quality.rmse, 2)}${unit ? ` ${unit}` : ""}` : "—"}</td><td>{quality ? `${number(quality.interval_coverage_90 * 100, 0)}%` : "—"}</td></tr>; })}</tbody></table>
+          <table className="quality-table"><thead><tr><th>特性</th><th>実行方式</th><th>RMSE</th><th>90%予測区間の包含率</th></tr></thead><tbody>{(taskDefinition ? orderedTaskItems(taskDefinition, modelPackage.predictors.map((predictor) => ({ ...predictor, key: predictor.target }))) : modelPackage.predictors.map((predictor) => ({ ...predictor, key: predictor.target }))).map((predictor) => { const quality = modelPackage.quality_report.targets.find((item) => item.target === predictor.target); const unit = taskDefinition ? taskOutputUnit(taskDefinition, predictor.target) : ""; return <tr key={predictor.target}><th>{taskDefinition?.outputs.find((item) => item.key === predictor.target)?.label ?? predictor.target}</th><td>{predictor.runtime_type}</td><td>{quality ? `${taskDefinition ? formatTaskNumber(quality.rmse, taskDefinition, `output.${predictor.target}`, project?.display_decimals) : number(quality.rmse, 2)}${unit ? ` ${unit}` : ""}` : "—"}</td><CoverageCell quality={quality} predictiveFamily={predictor.predictive_family} /></tr>; })}</tbody></table>
           <div className="runtime-list">{modelPackage.supported_runtimes.map((item) => <span className={item.available ? "available" : "optional"} key={item.runtime_type}>{item.runtime_type}{item.available ? " ✓" : " (追加導入)"}</span>)}</div>
           {project?.id && <ModelTrainingDataInspector projectId={project.id} modelPackage={modelPackage} taskDefinition={taskDefinition} />}
           <details className="technical-contract"><summary>識別情報を表示</summary><code>{modelPackage.manifest_sha256}</code></details>

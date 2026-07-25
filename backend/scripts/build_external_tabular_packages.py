@@ -38,6 +38,11 @@ JOBS = {
         ROOT / "backend/src/material_workbench/data/tabular-profile-secom-yield-v1.json",
         ROOT / "models/packages/secom-yield-lightgbm-calibrated-v1",
     ),
+    "mpea-literature-tys-v1": (
+        ROOT / "data/source/external/mpea_ground_truth_18021833.csv",
+        ROOT / "backend/src/material_workbench/data/tabular-profile-mpea-literature-tys-v1.json",
+        ROOT / "models/packages/mpea-literature-tys-ridge-v1",
+    ),
     "mpea-room-tensile-v1": (
         ROOT / "data/source/external/mpea_ground_truth_18021833.csv",
         ROOT / "backend/src/material_workbench/data/tabular-profile-mpea-room-tensile-v1.json",

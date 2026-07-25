@@ -6,6 +6,7 @@
   "package_id": "secom-yield-lightgbm-calibrated-v1",
   "id_column": "sample_id",
   "model_family": "lightgbm_binary",
+  "num_boost_round": 100,
   "inputs": [
     {"path": "process.sensor_059", "column": "sensor_059", "kind": "number", "transform": "linear"},
     {"path": "process.sensor_103", "column": "sensor_103", "kind": "number", "transform": "linear"},

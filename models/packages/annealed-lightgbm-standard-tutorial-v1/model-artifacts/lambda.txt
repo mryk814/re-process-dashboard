@@ -41,7 +41,7 @@ parameters:
 [data_sample_strategy: bagging]
 [data: ]
 [valid: ]
-[num_iterations: 20]
+[num_iterations: 50]
 [learning_rate: 0.03]
 [num_leaves: 15]
 [num_threads: 1]

@@ -5,5 +5,11 @@
   },
   "groups": 2400,
   "rows": 2400,
-  "source_sha256": "226a9b8e77820459f51382e40d8df12ac6fe3c0a4648dc15ad068f9372d7c34b"
+  "source_sha256": "226a9b8e77820459f51382e40d8df12ac6fe3c0a4648dc15ad068f9372d7c34b",
+  "curation": {
+    "accepted": 2400,
+    "warning": 0,
+    "quarantined": 0,
+    "blocked": 0
+  }
 }
