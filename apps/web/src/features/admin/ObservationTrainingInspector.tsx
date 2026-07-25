@@ -61,11 +61,11 @@ export function ObservationTrainingInspector() {
   }, []);
 
   useEffect(() => {
-    if (!family || !target) return;
+    if (!profile || !family || !target) return;
     const controller = new AbortController();
     setLoading(true);
     setError("");
-    workbenchApi.developerObservationTrainingData(family, target, offset, limit, controller.signal)
+    workbenchApi.developerObservationTrainingData(profile.profile_id, family, target, offset, limit, controller.signal)
       .then((next) => {
         if (controller.signal.aborted) return;
         setPage((current) => offset === 0 || !current || current.family !== next.family || current.target !== next.target
@@ -77,7 +77,7 @@ export function ObservationTrainingInspector() {
       })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [family, offset, target]);
+  }, [family, offset, profile?.profile_id, target]);
 
   const inputPaths = useMemo(
     () => Object.keys(page?.rows[0]?.inputs ?? {}),

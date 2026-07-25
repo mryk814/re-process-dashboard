@@ -65,9 +65,9 @@ export const workbenchApi = {
   async developerObservationTrainingProfiles() {
     return requireData(await apiClient.GET("/api/developer/observation-training-profiles"), "観測Profileを取得できませんでした。");
   },
-  async developerObservationTrainingData(family: string, target: string, offset = 0, limit = 25, signal?: AbortSignal) {
+  async developerObservationTrainingData(profileId: string, family: string, target: string, offset = 0, limit = 25, signal?: AbortSignal) {
     return requireData(await apiClient.GET("/api/developer/observation-training-data", {
-      params: { query: { family, target, offset, limit } },
+      params: { query: { profile_id: profileId, family, target, offset, limit } },
       signal,
     }), "観測学習データを取得できませんでした。");
   },

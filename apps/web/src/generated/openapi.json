@@ -8706,6 +8706,15 @@
         "parameters": [
           {
             "in": "query",
+            "name": "profile_id",
+            "required": true,
+            "schema": {
+              "title": "Profile Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
             "name": "family",
             "required": true,
             "schema": {

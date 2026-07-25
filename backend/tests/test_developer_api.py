@@ -58,6 +58,7 @@ def test_observation_training_profile_is_inspectable_before_model_packaging(
     page = client.get(
         "/api/developer/observation-training-data",
         params={
+            "profile_id": profile["profile_id"],
             "family": "charpy",
             "target": "CHARPY_ENERGY",
             "offset": 0,

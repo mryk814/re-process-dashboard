@@ -93,14 +93,18 @@ def get_observation_training_profiles() -> list[ObservationTrainingProfileSummar
     response_model=ObservationTrainingInspectionPage,
 )
 def get_observation_training_data(
+    profile_id: Annotated[str, Query()],
     family: Annotated[str, Query()],
     target: Annotated[str, Query()],
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 25,
 ) -> ObservationTrainingInspectionPage:
+    dataset = _observation_dataset()
+    if dataset.profile_id != profile_id:
+        raise HTTPException(status_code=422, detail=f"unknown observation profile: {profile_id}")
     try:
         return inspect_observation_training_view(
-            _observation_dataset(),
+            dataset,
             family=family,
             target=target,
             offset=offset,
