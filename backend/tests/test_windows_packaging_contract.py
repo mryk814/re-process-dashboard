@@ -17,13 +17,18 @@ ROOT = Path(__file__).parents[2]
 def test_windows_bundle_declares_active_model_configuration_and_packages() -> None:
     active_packages = json.loads((ROOT / "models" / "active-packages.json").read_text(encoding="utf-8"))
     available_packages = json.loads((ROOT / "models" / "available-packages.json").read_text(encoding="utf-8"))
+    active_transforms = json.loads((ROOT / "models" / "active-transforms.json").read_text(encoding="utf-8"))
     builder_config = (ROOT / "packaging" / "electron-builder.yml").read_text(encoding="utf-8")
     packaged_resources = set(re.findall(
         r"(?m)^  - from: ([^\r\n]+)\r?\n    to: ([^\r\n]+)$",
         builder_config,
     ))
 
-    required_resources = {"models/active-packages.json", "models/available-packages.json"}
+    required_resources = {
+        "models/active-packages.json",
+        "models/available-packages.json",
+        "models/active-transforms.json",
+    }
     required_resources.update(
         f"models/{selection['active']}"
         for selection in active_packages["tasks"].values()
@@ -32,6 +37,13 @@ def test_windows_bundle_declares_active_model_configuration_and_packages() -> No
         f"models/{package}"
         for package in available_packages["packages"]
     )
+    for selection in active_transforms["transforms"].values():
+        required_resources.add(f"models/{selection['active']}")
+        required_resources.update(
+            f"models/{package}"
+            for package in selection["available"]
+        )
+        required_resources.add(f"models/{selection['commercial_catalog']}")
 
     for resource in required_resources:
         assert (resource, resource) in packaged_resources
@@ -66,6 +78,8 @@ def test_windows_packaging_checks_every_registered_default_source(tmp_path: Path
     assert source_paths
     assert set(json.loads(completed.stdout)) == source_paths
     assert "task_inventory.py --print-source-paths" in packaging_script
+    assert 'models/active-transforms.json' in packaging_script
+    assert '$activeTransforms.transforms.PSObject.Properties.Value' in packaging_script
     assert "ConvertFrom-Json" in packaging_script
     for source in source_paths:
         source_path = ROOT / source
@@ -128,6 +142,18 @@ def test_packaged_launcher_uses_active_model_configuration_as_single_source() ->
     ):
         assert override not in desktop_launcher
     assert "WORKBENCH_RESOURCE_ROOT: resources" in desktop_launcher
+
+
+def test_packaged_smoke_executes_the_stage_a_transform_api() -> None:
+    packaged_smoke = (ROOT / "scripts" / "smoke-packaged.mjs").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'authenticatedFetch("/api/transforms")' in packaged_smoke
+    assert '"/api/transforms/welding-stage-a-v1/execute"' in packaged_smoke
+    assert 'method: "POST"' in packaged_smoke
+    assert "stageA.outputs.length, 31" in packaged_smoke
+    assert "powder_blend_cost_yen_per_kg_core > 0" in packaged_smoke
 
 
 def test_application_icon_is_configured_for_windows_and_web() -> None:

@@ -1054,6 +1054,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/transforms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Deterministic Transforms */
+        get: operations["listDeterministicTransforms"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/transforms/{transform_id}/execute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Execute Deterministic Transform */
+        post: operations["executeDeterministicTransform"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1519,6 +1553,15 @@ export interface components {
             /** Unchanged */
             unchanged: string[];
         };
+        /** CompiledWholeWireBlend */
+        CompiledWholeWireBlend: {
+            /** Hoop Id */
+            hoop_id: string;
+            /** Hoop Mass Fraction */
+            hoop_mass_fraction: number;
+            /** Materials */
+            materials: components["schemas"]["WholeWireCoordinate"][];
+        };
         /** CompositionTotalDefinition */
         CompositionTotalDefinition: {
             /** Balance Path */
@@ -1947,6 +1990,53 @@ export interface components {
         DetailedPredictionResponse: {
             prediction: components["schemas"]["PredictionResponse"];
             snapshot: components["schemas"]["SnapshotResponse"];
+        };
+        /** DeterministicLinearResult */
+        DeterministicLinearResult: {
+            /** Auxiliary Features */
+            auxiliary_features: {
+                [key: string]: number;
+            };
+            commercial_catalog: components["schemas"]["RevisionRef"];
+            /** Material Composition */
+            material_composition: {
+                [key: string]: number;
+            };
+            /** Material Cost Contributions */
+            material_cost_contributions: components["schemas"]["MaterialCostContribution"][];
+            /** Powder Blend Cost Yen Per Kg Core */
+            powder_blend_cost_yen_per_kg_core: number;
+            scientific_master: components["schemas"]["RevisionRef"];
+            whole_wire_coordinates: components["schemas"]["CompiledWholeWireBlend"];
+        };
+        /** DeterministicTransformCatalogItem */
+        DeterministicTransformCatalogItem: {
+            /** Active Locator */
+            active_locator: string;
+            /** Auxiliary Features */
+            auxiliary_features: string[];
+            /** Available Locators */
+            available_locators: string[];
+            commercial_catalog: components["schemas"]["RevisionRef"];
+            /** Commercial Catalog Locator */
+            commercial_catalog_locator: string;
+            /** Outputs */
+            outputs: string[];
+            /** Package Id */
+            package_id: string;
+            /** Package Manifest Digest */
+            package_manifest_digest: string;
+            /** Package Version */
+            package_version: string;
+            /** Runtime Type */
+            runtime_type: string;
+            scientific_master: components["schemas"]["RevisionRef"];
+            /** Transform Id */
+            transform_id: string;
+        };
+        /** DeterministicTransformExecutionRequest */
+        DeterministicTransformExecutionRequest: {
+            blend: components["schemas"]["SparseBlend"];
         };
         /** DeveloperCheck */
         DeveloperCheck: {
@@ -2503,6 +2593,19 @@ export interface components {
             source_kind: "manual";
             /** Source Ref */
             source_ref?: null;
+        };
+        /** MaterialCostContribution */
+        MaterialCostContribution: {
+            /** Contribution Yen Per Kg Core */
+            contribution_yen_per_kg_core: number;
+            /** Core Ratio Percent */
+            core_ratio_percent: number;
+            /** Material Id */
+            material_id: string;
+            /** Share Of Blend Cost */
+            share_of_blend_cost: number;
+            /** Unit Price Yen Per Kg Core */
+            unit_price_yen_per_kg_core: number;
         };
         /** ModelIdentity */
         ModelIdentity: {
@@ -4512,6 +4615,13 @@ export interface components {
             source_unit: string;
             /** Target Unit */
             target_unit: string;
+        };
+        /** WholeWireCoordinate */
+        WholeWireCoordinate: {
+            /** Mass Fraction */
+            mass_fraction: number;
+            /** Material Id */
+            material_id: string;
         };
     };
     responses: never;
@@ -7808,6 +7918,124 @@ export interface operations {
             };
             /** @description Validation Error */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    listDeterministicTransforms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeterministicTransformCatalogItem"][];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    executeDeterministicTransform: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transform_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeterministicTransformExecutionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeterministicLinearResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

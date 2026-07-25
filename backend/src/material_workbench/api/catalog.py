@@ -18,7 +18,7 @@ from material_workbench.modeling.model_lifecycle import (
     canonical_training_dataset_digest,
     validate_lifecycle_metadata,
 )
-from material_workbench.modeling.model_packages import RUNTIME_TYPES
+from material_workbench.modeling.model_packages import PREDICTOR_RUNTIME_TYPES
 from material_workbench.data.importer import training_context_key
 from material_workbench.contracts.schemas import ModelPackageStatus, ModelTrainingDataPage, TaskCatalogItem
 from material_workbench.persistence.store import Store
@@ -117,7 +117,7 @@ def model_package(
     }
     dependencies = {
         runtime_type: optional_dependencies.get(runtime_type, True)
-        for runtime_type in RUNTIME_TYPES
+        for runtime_type in PREDICTOR_RUNTIME_TYPES
     }
     return {
         "id": manifest.package_id,

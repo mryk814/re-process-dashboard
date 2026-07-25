@@ -24,7 +24,7 @@ MAX_PACKAGE_BYTES = 512 * 1024 * 1024
 MAX_PACKAGE_ARTIFACTS = 4096
 SNAPSHOT_CHUNK_BYTES = 1024 * 1024
 PACKAGE_SCHEMA_VERSION = "model-package/v1"
-RUNTIME_TYPES = {
+PREDICTOR_RUNTIME_TYPES = {
     "builtin.linear.v1",
     "builtin.exact_gp.v1",
     "builtin.heteroscedastic_exact_gp.v1",
@@ -36,6 +36,10 @@ RUNTIME_TYPES = {
     "gpytorch.static_exact_rbf.v1",
     "numpyro.dense_posterior.v1",
 }
+TRANSFORM_RUNTIME_TYPES = {
+    "builtin.deterministic_linear.v1",
+}
+RUNTIME_TYPES = PREDICTOR_RUNTIME_TYPES | TRANSFORM_RUNTIME_TYPES
 LIKELIHOOD_IDS = {
     "normal", "student_t", "lognormal", "bernoulli_logit", "poisson_log",
     "negative_binomial_log", "zero_inflated_poisson_log", "ordinal_logit",
@@ -153,7 +157,7 @@ class PredictorSpec(PackageModel):
     @field_validator("runtime_type")
     @classmethod
     def known_runtime(cls, value: str) -> str:
-        if value not in RUNTIME_TYPES:
+        if value not in PREDICTOR_RUNTIME_TYPES:
             raise ValueError(f"unsupported runtime_type: {value}")
         return value
 
@@ -211,6 +215,31 @@ class ProvenanceSpec(PackageModel):
     dataset_profile_id: str | None = None
 
 
+class DeterministicTransformSpec(PackageModel):
+    id: Annotated[str, Field(min_length=1)]
+    runtime_type: str
+    artifact: str
+    compiler_id: Literal["sparse_blend_whole_wire.v1"]
+    scientific_master_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+    output_names: Annotated[tuple[str, ...], Field(min_length=1)]
+    output_unit: Literal["mass_percent_whole_wire"]
+    auxiliary_feature_names: tuple[str, ...] = ()
+
+    @field_validator("runtime_type")
+    @classmethod
+    def known_runtime(cls, value: str) -> str:
+        if value not in TRANSFORM_RUNTIME_TYPES:
+            raise ValueError(f"unsupported deterministic runtime_type: {value}")
+        return value
+
+    @field_validator("output_names", "auxiliary_feature_names")
+    @classmethod
+    def unique_names(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if any(not name for name in value) or len(value) != len(set(value)):
+            raise ValueError("deterministic transform names must be unique and non-empty")
+        return value
+
+
 class SmokeTestSpec(PackageModel):
     input: str
     expected: str
@@ -224,19 +253,36 @@ class SmokeTestSpec(PackageModel):
         return value.replace("\\", "/")
 
 
+class DeterministicGoldenSpec(PackageModel):
+    path: str
+    schema_version: Literal["stage-a-golden/v1"]
+    expected_rows: Literal[120]
+
+    @field_validator("path")
+    @classmethod
+    def package_relative_file(cls, value: str) -> str:
+        path = Path(value)
+        if not value or path.is_absolute() or ".." in path.parts:
+            raise ValueError("golden path must be package-relative")
+        return value.replace("\\", "/")
+
+
 class ModelPackageManifest(PackageModel):
     schema_version: Literal[PACKAGE_SCHEMA_VERSION]
     package_id: str
     package_version: str
     task_id: str
     input_schema_version: str
+    package_kind: Literal["predictive", "deterministic_transform"] = "predictive"
     input_contract_digest: str | None = None
     runtime_capability_digest: str | None = None
-    feature_pipeline: FeaturePipelineSpec
-    predictors: tuple[PredictorSpec, ...]
+    feature_pipeline: FeaturePipelineSpec | None = None
+    predictors: tuple[PredictorSpec, ...] = ()
+    deterministic_transforms: tuple[DeterministicTransformSpec, ...] = ()
     provenance: ProvenanceSpec
     artifacts: tuple[ArtifactSpec, ...]
     smoke_test: SmokeTestSpec | None = None
+    deterministic_golden: DeterministicGoldenSpec | None = None
     quality_report: str | None = None
 
     @model_validator(mode="after")
@@ -244,24 +290,53 @@ class ModelPackageManifest(PackageModel):
         listed = {artifact.path for artifact in self.artifacts}
         if len(listed) != len(self.artifacts):
             raise ValueError("artifact paths must be unique")
-        needed = {self.feature_pipeline.spec, *self.feature_pipeline.artifacts, *(predictor.artifact for predictor in self.predictors)}
+        if self.package_kind == "predictive":
+            if self.feature_pipeline is None or not self.predictors or self.deterministic_transforms:
+                raise ValueError("predictive package requires a feature pipeline and predictors only")
+        elif self.feature_pipeline is not None or self.predictors or not self.deterministic_transforms:
+            raise ValueError(
+                "deterministic-transform package requires deterministic transforms and no predictors"
+            )
+        if self.package_kind == "predictive" and self.deterministic_golden is not None:
+            raise ValueError("predictive package cannot declare a deterministic golden test")
+        if self.package_kind == "deterministic_transform" and self.deterministic_golden is None:
+            raise ValueError("deterministic-transform package requires a deterministic golden test")
+        needed = {
+            *(predictor.artifact for predictor in self.predictors),
+            *(transform.artifact for transform in self.deterministic_transforms),
+        }
+        if self.feature_pipeline is not None:
+            needed.update((self.feature_pipeline.spec, *self.feature_pipeline.artifacts))
         if self.quality_report:
             needed.add(self.quality_report)
         if self.smoke_test:
             needed.update((self.smoke_test.input, self.smoke_test.expected))
+        if self.deterministic_golden:
+            needed.add(self.deterministic_golden.path)
         missing = sorted(needed - listed)
         if missing:
             raise ValueError(f"manifest references unlisted artifacts: {', '.join(missing)}")
         ids = [predictor.id for predictor in self.predictors]
         if len(ids) != len(set(ids)):
             raise ValueError("predictor ids must be unique")
-        expected = self.feature_pipeline.output_features
-        positions = {name: index for index, name in enumerate(expected)}
-        for predictor in self.predictors:
-            if any(name not in positions for name in predictor.feature_names):
-                raise ValueError("predictor features must be declared by feature pipeline output_features")
-            if tuple(sorted(predictor.feature_names, key=positions.__getitem__)) != predictor.feature_names:
-                raise ValueError("predictor feature order must follow feature pipeline output_features")
+        transform_ids = [transform.id for transform in self.deterministic_transforms]
+        if len(transform_ids) != len(set(transform_ids)):
+            raise ValueError("deterministic transform ids must be unique")
+        if self.feature_pipeline is not None:
+            expected = self.feature_pipeline.output_features
+            positions = {name: index for index, name in enumerate(expected)}
+            for predictor in self.predictors:
+                if any(name not in positions for name in predictor.feature_names):
+                    raise ValueError(
+                        "predictor features must be declared by feature pipeline output_features"
+                    )
+                if (
+                    tuple(sorted(predictor.feature_names, key=positions.__getitem__))
+                    != predictor.feature_names
+                ):
+                    raise ValueError(
+                        "predictor feature order must follow feature pipeline output_features"
+                    )
         return self
 
 
@@ -286,6 +361,8 @@ def validate_task_definition_canonical_inputs(
             f"model package task {manifest.task_id} does not match TaskDefinition {task_definition.id}"
         )
     expected = ordered_canonical_input_paths(task_definition)
+    if manifest.feature_pipeline is None:
+        raise PackageContractError("predictive TaskDefinition requires a feature pipeline")
     actual = manifest.feature_pipeline.canonical_input_paths
     if actual != expected:
         raise PackageContractError(
@@ -423,6 +500,20 @@ class Adapter(Protocol):
     def load(self, package: "VerifiedModelPackage", predictor: PredictorSpec) -> LoadedPredictor: ...
 
 
+class LoadedDeterministicTransform(Protocol):
+    def execute(self, *args: Any, **kwargs: Any) -> Any: ...
+
+
+class DeterministicTransformAdapter(Protocol):
+    runtime_type: str
+
+    def load_transform(
+        self,
+        package: "VerifiedModelPackage",
+        transform: DeterministicTransformSpec,
+    ) -> LoadedDeterministicTransform: ...
+
+
 @dataclass(frozen=True)
 class VerifiedModelPackage:
     root: Path
@@ -444,6 +535,21 @@ class VerifiedModelPackage:
             raise PackageContractError(f"unknown predictor id: {predictor_id}")
         return self.registry.adapter_for(spec.runtime_type).load(self, spec)
 
+    def load_transform(self, transform_id: str) -> LoadedDeterministicTransform:
+        spec = next(
+            (item for item in self.manifest.deterministic_transforms if item.id == transform_id),
+            None,
+        )
+        if spec is None:
+            raise PackageContractError(f"unknown deterministic transform id: {transform_id}")
+        adapter = self.registry.adapter_for(spec.runtime_type)
+        load_transform = getattr(adapter, "load_transform", None)
+        if load_transform is None:
+            raise PackageContractError(
+                f"runtime does not implement deterministic transforms: {spec.runtime_type}"
+            )
+        return load_transform(self, spec)
+
     @property
     def manifest_sha256(self) -> str:
         return self._manifest_sha256
@@ -455,6 +561,9 @@ class AdapterRegistry:
     def __init__(self, adapters: tuple[Adapter, ...] | None = None) -> None:
         if adapters is None:
             from material_workbench.adapters.builtin_linear import BuiltinLinearAdapter
+            from material_workbench.adapters.builtin_deterministic_linear import (
+                BuiltinDeterministicLinearAdapter,
+            )
             from material_workbench.adapters.builtin_additive_terms import BuiltinAdditiveTermsAdapter
             from material_workbench.adapters.builtin_quantile_linear import BuiltinQuantileLinearAdapter
             from material_workbench.adapters.builtin_posterior_linear import BuiltinPosteriorLinearAdapter
@@ -465,7 +574,7 @@ class AdapterRegistry:
             from material_workbench.adapters.numpyro_posterior import NumpyroDensePosteriorAdapter
             from material_workbench.adapters.sklearn_skops import SklearnSkopsAdapter
 
-            adapters = (BuiltinLinearAdapter(), BuiltinExactGPAdapter(), BuiltinHeteroscedasticExactGPAdapter(), BuiltinAdditiveTermsAdapter(), BuiltinQuantileLinearAdapter(), BuiltinPosteriorLinearAdapter(), SklearnSkopsAdapter(), LightGBMBoosterAdapter(), GPyTorchStaticAdapter(), NumpyroDensePosteriorAdapter())
+            adapters = (BuiltinLinearAdapter(), BuiltinDeterministicLinearAdapter(), BuiltinExactGPAdapter(), BuiltinHeteroscedasticExactGPAdapter(), BuiltinAdditiveTermsAdapter(), BuiltinQuantileLinearAdapter(), BuiltinPosteriorLinearAdapter(), SklearnSkopsAdapter(), LightGBMBoosterAdapter(), GPyTorchStaticAdapter(), NumpyroDensePosteriorAdapter())
         self._adapters = {adapter.runtime_type: adapter for adapter in adapters}
         if set(self._adapters) != RUNTIME_TYPES:
             raise PackageContractError("adapter registry must implement exactly the approved runtime types")
@@ -559,31 +668,32 @@ class ModelPackageLoader:
         except PackageContractError:
             snapshot.cleanup()
             raise
-        try:
-            raw_pipeline = json.loads(
-                artifacts[manifest.feature_pipeline.spec].read_text(encoding="utf-8")
-            )
-            pipeline = FeaturePipelineDocument.model_validate(raw_pipeline)
-        except (OSError, json.JSONDecodeError, ValueError) as exc:
-            snapshot.cleanup()
-            raise PackageContractError(f"invalid feature pipeline specification: {exc}") from exc
-        if (pipeline.id, pipeline.version) != (
-            manifest.feature_pipeline.id,
-            manifest.feature_pipeline.version,
-        ):
-            snapshot.cleanup()
-            raise PackageContractError("feature pipeline id/version differs between manifest and specification")
-        if pipeline.canonical_input_paths != manifest.feature_pipeline.canonical_input_paths:
-            snapshot.cleanup()
-            raise PackageContractError(
-                "canonical input paths differ between model package manifest and pipeline specification"
-            )
-        pipeline_outputs = tuple(feature.name for feature in pipeline.features)
-        if pipeline_outputs != manifest.feature_pipeline.output_features:
-            snapshot.cleanup()
-            raise PackageContractError(
-                "pipeline output feature order differs from model package manifest output_features"
-            )
+        if manifest.feature_pipeline is not None:
+            try:
+                raw_pipeline = json.loads(
+                    artifacts[manifest.feature_pipeline.spec].read_text(encoding="utf-8")
+                )
+                pipeline = FeaturePipelineDocument.model_validate(raw_pipeline)
+            except (OSError, json.JSONDecodeError, ValueError) as exc:
+                snapshot.cleanup()
+                raise PackageContractError(f"invalid feature pipeline specification: {exc}") from exc
+            if (pipeline.id, pipeline.version) != (
+                manifest.feature_pipeline.id,
+                manifest.feature_pipeline.version,
+            ):
+                snapshot.cleanup()
+                raise PackageContractError("feature pipeline id/version differs between manifest and specification")
+            if pipeline.canonical_input_paths != manifest.feature_pipeline.canonical_input_paths:
+                snapshot.cleanup()
+                raise PackageContractError(
+                    "canonical input paths differ between model package manifest and pipeline specification"
+                )
+            pipeline_outputs = tuple(feature.name for feature in pipeline.features)
+            if pipeline_outputs != manifest.feature_pipeline.output_features:
+                snapshot.cleanup()
+                raise PackageContractError(
+                    "pipeline output feature order differs from model package manifest output_features"
+                )
         return VerifiedModelPackage(
             root=root,
             manifest=manifest,
