@@ -158,6 +158,10 @@ def dataset_profile_digest(path: Path | Any = DATASET_PROFILE_PATH) -> str:
             from material_workbench.data.observation_profile import load_observation_profile
 
             profile = load_observation_profile(profile_path)
+        elif raw.get("schema_version") == "welding-stage-b-profile/v1":
+            from material_workbench.data.stage_b_training import load_stage_b_profile
+
+            profile = load_stage_b_profile(profile_path)
         else:
             profile = load_dataset_profile(profile_path)
     payload = profile.model_dump(mode="json", exclude={"task_definitions"})

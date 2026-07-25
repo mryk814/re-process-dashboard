@@ -1,0 +1,79 @@
+{
+  "schema_version": "welding-stage-b-profile/v1",
+  "id": "welding-consumable-stage-b-v1",
+  "task_id": "welding-consumable-stage-b-v1",
+  "transform_id": "welding-stage-a-compatible-material-input-v1",
+  "transform_version": "1.0.0",
+  "input_basis": "mass% whole wire",
+  "output_basis": "mass% deposited metal",
+  "input_axes": [
+    "Fe", "C", "Si", "Mn", "Cr", "Ni", "Mo", "Ti", "B", "Al", "Mg",
+    "Nb", "V", "Cu", "Zr", "Ca", "N", "O", "S", "P", "CaF2", "TiO2",
+    "SiO2", "Al2O3", "MgO", "ZrO2", "K2O", "Na2O", "CaCO3", "Fe2O3",
+    "other"
+  ],
+  "output_axes": [
+    "C", "Si", "Mn", "P", "S", "Ni", "Cr", "Mo",
+    "Cu", "Ti", "B", "Nb", "V", "Al", "N", "O"
+  ],
+  "folds": 5,
+  "sheets": {
+    "relation": "relationEx",
+    "raw_material": "原料マスタ",
+    "raw_composition": "原料成分",
+    "hoop": "フープマスタ",
+    "blend": "配合",
+    "blend_line": "配合明細",
+    "welding_condition": "溶接条件",
+    "weld_metal": "溶着金属成分"
+  },
+  "keys": {
+    "raw_material": "原料_key**",
+    "hoop": "フープ_key**",
+    "blend": "配合_key**",
+    "welding_condition": "溶接条件_key**",
+    "weld_run": "溶接施工_key**",
+    "weld_metal": "溶着金属成分_key**"
+  },
+  "raw_component_columns": {
+    "Fe": "Fe[%]", "C": "C[%]", "Si": "Si[%]", "Mn": "Mn[%]",
+    "Cr": "Cr[%]", "Ni": "Ni[%]", "Mo": "Mo[%]", "Ti": "Ti[%]",
+    "B": "B[%]", "Al": "Al[%]", "Mg": "Mg[%]", "Nb": "Nb[%]",
+    "V": "V[%]", "Cu": "Cu[%]", "Zr": "Zr[%]", "Ca": "Ca[%]",
+    "N": "N[%]", "O": "O[%]", "S": "S[%]", "P": "P[%]",
+    "CaF2": "CaF2[%]", "TiO2": "TiO2[%]", "SiO2": "SiO2[%]",
+    "Al2O3": "Al2O3[%]", "MgO": "MgO[%]", "ZrO2": "ZrO2[%]",
+    "K2O": "K2O[%]", "Na2O": "Na2O[%]", "CaCO3": "CaCO3[%]",
+    "Fe2O3": "Fe2O3[%]", "other": "その他[%]"
+  },
+  "hoop_component_columns": {
+    "Fe": "Fe[%]", "C": "C[%]", "Si": "Si[%]", "Mn": "Mn[%]",
+    "Cr": "Cr[%]", "Ni": "Ni[%]", "Mo": "Mo[%]", "Ti": "Ti[%]",
+    "B": "B[%]", "Al": "Al[%]", "Mg": "Mg[%]", "Nb": "Nb[%]",
+    "V": "V[%]", "Cu": "Cu[%]", "Zr": "Zr[%]", "Ca": "Ca[%]",
+    "N": "N[%]", "O": "O[%]", "S": "S[%]", "P": "P[%]",
+    "CaF2": "CaF2[%]", "TiO2": "TiO2[%]", "SiO2": "SiO2[%]",
+    "Al2O3": "Al2O3[%]", "MgO": "MgO[%]", "ZrO2": "ZrO2[%]",
+    "K2O": "K2O[%]", "Na2O": "Na2O[%]", "CaCO3": "CaCO3[%]",
+    "Fe2O3": "Fe2O3[%]", "other": "その他[%]"
+  },
+  "weld_output_columns": {
+    "C": "C[%]", "Si": "Si[%]", "Mn": "Mn[%]", "P": "P[%]",
+    "S": "S[%]", "Ni": "Ni[%]", "Cr": "Cr[%]", "Mo": "Mo[%]",
+    "Cu": "Cu[%]", "Ti": "Ti[%]", "B": "B[%]", "Nb": "Nb[%]",
+    "V": "V[%]", "Al": "Al[%]", "N": "N[%]", "O": "O[%]"
+  },
+  "welding_context": [
+    {"path": "process.heat_input_kj_per_mm", "role": "welding_condition", "column": "入熱[kJ/mm]", "kind": "number", "source_unit": "kJ/mm", "canonical_unit": "kJ/mm"},
+    {"path": "process.voltage_v", "role": "welding_condition", "column": "電圧[V]", "kind": "number", "source_unit": "V", "canonical_unit": "V"},
+    {"path": "categorical.shielding_gas", "role": "welding_condition", "column": "シールドガス", "kind": "categorical", "choices": ["80%Ar-20%CO2", "100%CO2"]},
+    {"path": "process.gas_flow_l_per_min", "role": "welding_condition", "column": "ガス流量[L/min]", "kind": "number", "source_unit": "L/min", "canonical_unit": "L/min"},
+    {"path": "categorical.welding_position", "role": "welding_condition", "column": "溶接姿勢", "kind": "categorical", "choices": ["下向", "横向", "立向上進"]}
+  ],
+  "fill_ratio_column": "充填率[%]",
+  "blend_ratio_column": "配合比[%]",
+  "raw_group_column": "原料グループ",
+  "raw_d50_column": "粒度D50[um]",
+  "d50_groups": ["合金鉄", "純金属粉", "脱酸剤"],
+  "d50_default_um": 120.0
+}

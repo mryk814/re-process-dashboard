@@ -1,0 +1,63 @@
+{
+  "name": "溶接材料 Stage B：溶着金属成分 package smoke",
+  "inputs": {
+    "composition": {
+      "Fe": 92.74925136640964,
+      "C": 0.07440538453031999,
+      "Si": 0.55400065489956,
+      "Mn": 1.7734746399156398,
+      "Cr": 0.13658127466071998,
+      "Ni": 0.0,
+      "Mo": 0.0,
+      "Ti": 0.07071213764304,
+      "B": 0.00392218679864,
+      "Al": 0.11173216237784,
+      "Mg": 0.09254188942791998,
+      "Nb": 0.0,
+      "V": 0.0,
+      "Cu": 0.0,
+      "Zr": 0.0,
+      "Ca": 0.0038136220876800004,
+      "N": 0.00007826402479999999,
+      "O": 0.03420818768635999,
+      "S": 0.0082745536326,
+      "P": 0.015015423894440001,
+      "CaF2": 0.42551307170892,
+      "TiO2": 3.0217892021904,
+      "SiO2": 0.55049262473308,
+      "Al2O3": 0.03421591651152,
+      "MgO": 0.18000991478400002,
+      "ZrO2": 0.0087707683596,
+      "K2O": 0.06841334127207999,
+      "Na2O": 0.00483635276688,
+      "CaCO3": 0.00598275037968,
+      "Fe2O3": 0.03752864985528,
+      "other": 0.03443563560844
+    },
+    "process": {
+      "heat_input_kj_per_mm": 1.43,
+      "voltage_v": 28.36,
+      "gas_flow_l_per_min": 25.4,
+      "alloy_powder_d50_um": 115.88391611694506
+    },
+    "categorical": {
+      "shielding_gas": "100%CO2",
+      "welding_position": "下向"
+    },
+    "heat_pattern": null,
+    "heat_time_basis": "line_speed"
+  },
+  "blend": null,
+  "editor_state": {
+    "locked_material_ids": []
+  },
+  "blend_validation": {
+    "status": "not_applicable",
+    "issues": [],
+    "design_space_digest": null
+  },
+  "provenance": {
+    "source_kind": "direct",
+    "source_ref": null
+  }
+}

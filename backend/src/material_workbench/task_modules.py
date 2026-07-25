@@ -28,9 +28,11 @@ MPEA_LEGACY_TYS_TASK_ID = "mpea-literature-tys-v1"
 MPEA_ROOM_TENSILE_TASK_ID = "mpea-room-tensile-v1"
 MPEA_HARDNESS_TASK_ID = "mpea-hardness-process-v1"
 WELDING_STAGE_C_TASK_ID = "welding-stage-c-properties-v1"
+WELDING_STAGE_B_TASK_ID = "welding-consumable-stage-b-v1"
 PRIMARY_DEFAULT_SOURCE = Path("data/source/material_workbench_tutorial_v1.xlsx")
 PROCESS_SOURCE = Path("data/source/material_workbench_process_v1.xlsx")
 _DATA_ROOT = Path(__file__).parent / "data"
+_WELDING_STAGE_B_PROFILE = _DATA_ROOT / "welding-stage-b-profile-v1.json"
 _TABULAR_PROFILES = {
     HEAT_TREATMENT_TASK_ID: _DATA_ROOT / "tabular-profile-heat-treatment-v1.json",
     CONCRETE_TASK_ID: _DATA_ROOT / "tabular-profile-concrete-v1.json",
@@ -205,6 +207,31 @@ def _load_welding_stage_c(path: Path, profile: DatasetInputProfile | None = None
     return load_stage_c_data(path, selected)
 
 
+def _load_welding_stage_b(
+    path: Path, profile: DatasetInputProfile | None = None
+) -> DataDescriptor:
+    from material_workbench.data.stage_b_training import (
+        StageBWorkbookProfile,
+        build_stage_b_training_data,
+        load_stage_b_profile,
+    )
+
+    selected = (
+        profile
+        if isinstance(profile, StageBWorkbookProfile)
+        else load_stage_b_profile(_WELDING_STAGE_B_PROFILE)
+    )
+    return build_stage_b_training_data(
+        path,
+        selected,
+        profile_locator=(
+            f"catalog:{selected.id}"
+            if isinstance(profile, StageBWorkbookProfile)
+            else _WELDING_STAGE_B_PROFILE
+        ),
+    ).data
+
+
 def _annealed_runtime(data: DataDescriptor, package: VerifiedModelPackage) -> PredictionRuntime:
     from material_workbench.modeling.runtime import ModelRuntime
 
@@ -275,6 +302,23 @@ def _welding_stage_c_features(row: dict[str, Any], medians: dict[str, float]) ->
     return build_stage_c_features_from_observation(row, medians)
 
 
+def _welding_stage_b_features(
+    row: dict[str, Any], medians: dict[str, float]
+) -> Any:
+    from material_workbench.data.stage_b_training import (
+        load_stage_b_profile,
+        stage_b_runtime_profile,
+    )
+    from material_workbench.modeling.tabular_regression import (
+        build_tabular_features_from_observation,
+    )
+
+    profile = stage_b_runtime_profile(
+        load_stage_b_profile(_WELDING_STAGE_B_PROFILE)
+    )
+    return build_tabular_features_from_observation(row, medians, profile)
+
+
 def _build_annealed(source: Path, output: Path, *, replace: bool) -> None:
     from build_default_model_package import build
 
@@ -305,6 +349,14 @@ def _build_welding_stage_c(source: Path, output: Path, *, replace: bool) -> None
     from material_workbench.modeling.stage_c_model_builder import build
 
     build(source, output, replace=replace)
+
+
+def _build_welding_stage_b(
+    source: Path, output: Path, *, replace: bool
+) -> None:
+    from build_welding_stage_b_assets import build_package
+
+    build_package(source, _WELDING_STAGE_B_PROFILE, output, replace=replace)
 
 
 def _standard_response_curve(
@@ -404,10 +456,54 @@ def _welding_stage_c_starter(medians: dict[str, float]) -> list[CandidateInput]:
     return stage_c_starter_candidates(medians)
 
 
+def _welding_stage_b_starter(_medians: dict[str, float]) -> list[CandidateInput]:
+    from material_workbench.data.stage_b_training import (
+        build_stage_b_training_data,
+        load_stage_b_profile,
+    )
+    from material_workbench.modeling.tabular_regression import (
+        candidate_from_observation,
+    )
+
+    data = build_stage_b_training_data(
+        resolve_task_source(WELDING_STAGE_B_TASK_ID),
+        load_stage_b_profile(_WELDING_STAGE_B_PROFILE),
+    ).data
+    rows = [row for row in data.observations if row["eligible"]]
+    selected = [rows[len(rows) // 4], rows[len(rows) // 2], rows[len(rows) * 3 // 4]]
+    return [
+        candidate_from_observation(row, data.profile).model_copy(
+            update={"name": label}
+        )
+        for row, label in zip(
+            selected, ("低位施工", "代表施工", "高位施工"), strict=True
+        )
+    ]
+
+
 _EXPLORER = DataExplorerCapability(quality=True, lineage=True, candidate_creation=True)
 _TABULAR_EXPLORER = DataExplorerCapability(quality=True, lineage=False, candidate_creation=False)
 
 TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
+    WELDING_STAGE_B_TASK_ID: TaskModule(
+        task_id=WELDING_STAGE_B_TASK_ID,
+        package_override_env="MATERIAL_WORKBENCH_WELDING_STAGE_B_MODEL_PACKAGE",
+        source_env="WORKBENCH_WELDING_STAGE_B_SOURCE_PATH",
+        source_kind="welding_multistage",
+        default_source=Path(
+            "data/source/welding_consumable_multistage_synthetic_dataset.xlsx"
+        ),
+        data_loader=_load_welding_stage_b,
+        runtime_factory=_tabular_runtime,
+        feature_row_builder=_welding_stage_b_features,
+        model_builder=_build_welding_stage_b,
+        starter_project=StarterProject(
+            "welding-stage-b-default",
+            "溶接材料 Stage B",
+            _welding_stage_b_starter,
+            seed_on_upgrade=True,
+        ),
+    ),
     ANNEALED_TASK_ID: TaskModule(
         task_id=ANNEALED_TASK_ID,
         package_override_env="MATERIAL_WORKBENCH_MODEL_PACKAGE",
