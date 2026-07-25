@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |---|---|
-| 状態 | 検討中。未実装。方針として記録する |
+| 状態 | 決定済み。未実装。Epic [#154](https://github.com/mryk814/re-process-dashboard/issues/154) で追跡する |
 | 記録日 | 2026-07-25 |
 | 対象 | 予測タスク契約、候補入力表現、Design Space、Model Package、予測スナップショット、逆算 |
 | 検証用データ | `data/source/welding_consumable_multistage_synthetic_dataset.xlsx`（合成データ） |
@@ -19,7 +19,7 @@
                                              v
                                     --B: 学習モデル-->  [溶着金属成分 十数]
                                              |
-                                 [試験条件（試験温度など）]
+                         [溶接context（入熱・予熱）+ 試験context（試験温度など）]
                                              v
                                     --C: 学習モデル-->  [特性（TS/YS/伸び/吸収エネルギー/脆性破面率/腐食速度）]
 ```
@@ -57,16 +57,41 @@
 ### 5. Aも Model Package として扱う
 
 原料→成分の行列変換は、学習モデルではないが `deterministic-linear` runtimeのModel Packageとして allow-list へ載せる。
-これによりAの版管理・検証・digest記録・UI表示が学習モデルと同じ経路に乗り、Chain実行基盤に例外分岐が生まれない。フープ（外皮）と充填率の合成も同じ線形変換に含められる。
+これによりAの版管理・検証・digest記録・UI表示が学習モデルと同じ経路に乗り、Chain実行基盤に例外分岐が生まれない。
+
+合成データの実際の式は次である。
+
+```text
+材料成分 = 充填率 × Σ(コア内配合比_i × 原料成分_i)
+         + (1 - 充填率) × フープ成分
+```
+
+コア内配合比と充填率を同時に動かすと積が生じ、配合比に対して線形ではない。
+v1では **フープと充填率をDesign Spaceで固定**し、利用者が動かすのはコア内配合比だけとする。
+このとき変換は配合比に対してアフィンであり、定数項を持つ決定論的線形runtimeとして扱える。
+候補の正本はコア内配合比のまま保持し、Package実行直前のcompilerが科学変換master snapshotを参照して、各原料の絶対ワイヤ質量分率 `z_i = fill × core_ratio_i` とフープ質量分率 `1 - fill` へ変換する。
+`deterministic-linear` runtimeが受け取るのはこの絶対質量分率であり、成分行列との積は厳密に線形になる。
+compiler契約、科学変換master、成分行列、フープ成分のbasisはPackage digestへ含める。
+候補のフープIDと充填率はcandidate revisionと入力content hashへ含め、snapshotはPackage digestとcandidate revisionの両方を記録する。
+
+将来、充填率も逆算対象にする場合は、絶対ワイヤ質量分率をsolver変数として線形性を保ち、コア内配合比を派生表示にする。
+フープ銘柄も同時に選ぶ場合は離散変数が必要になるため、v1の対象外とする。
 
 ### 6. Chainは binding で表す。入口は増やさない
 
-各段は現行 `TaskDefinition` とほぼ同じ形のまま残し、新しく足すのは **binding**（ある段の入力フィールドが上流段のどの出力であるかの宣言）だけとする。
+各段は現行 `TaskDefinition` とほぼ同じ形のまま残す。
+**binding**（ある段の入力フィールドが上流段のどの出力であるかの宣言）はTaskではなく `ChainDefinition` に置く。
+同じTaskを単段でも別のChainでも再利用できるようにするためである。
+
+bindingには上流出力だけでなく、候補が持つ外部contextを段へ渡すpass-throughも含める。
+この合成データでは、入熱と予熱をBだけに閉じ込めずCへも渡し、試験温度はCの観測行固有入力として渡す。
 
 当初は「原料から」「材料成分から」「実測溶着成分で固定」を切り替える entry point を持たせる案だったが、モックアップで確認した結果、**入力モードとしては採らない**。
 
 - 「材料成分から」は、実現する配合が決まらないため判断が閉じない。成分だけを動かしたい要求は、目標成分からの逆算（方針9）で満たすほうが素直である。
 - 「実測溶着成分で固定」は、入力モードではなく**実測照合**である。分析結果が出た後に予測と実測を突き合わせる作業であり、既存の実測照合の側で扱う。
+  実測値をCへ通した結果も必要な場合は、通常の通し予測を上書きせず、base Chain Revision・base candidate revision・比較元snapshot ID・実測ID・測定digest・入力coverage・C Package digestを固定した別のanalysis variantとして保存する。
+  Cが必要とする中間成分の一部しか実測されていない場合は、予測値で黙って穴埋めしない。v1は必要入力が揃った実測だけをvariantに使用できるものとする。
 
 v1のChainは「原料から」の一本とする。
 
@@ -76,9 +101,10 @@ v1のChainは「原料から」の一本とする。
 表示する精度は次の二つを分ける。
 
 - **段単体精度**：実測の上流値を入れたときの各段の精度。
-- **通し精度**：上流の予測値を通したときの精度。必ず悪化する。
+- **通し精度**：上流のout-of-fold予測値を通したときの精度。上流誤差を含むため、段単体精度より悪化しうる。
 
-この差が「どの段が効いているか」の判断材料になる。予測値と実測値を混同させないという既存原則の多段版として扱う。
+この差が「どの段が効いているか」の判断材料になる。合成データの偶然で通し指標が良く見える場合もあるため、大小関係を検証条件にせず、同じsplitと母集団で別々に表示する。
+予測値と実測値を混同させないという既存原則の多段版として扱う。
 
 ### 8. 不確かさの伝播は段階的に導入する
 
@@ -88,20 +114,120 @@ v1のChainは「原料から」の一本とする。
 ### 9. 目標成分から配合への逆算は学習モデルを使わない
 
 特性からの逆問題は解かない。前向き探索と制約（既存の範囲探索・Design Space・LHS）で答える。
-一方、**目標成分から原料配合への逆算は、Aが線形であるため線形計画として厳密に解ける**。
+一方、**目標成分から原料配合への逆算は、v1の固定フープ・固定充填率という境界では数理計画として厳密に解ける**。
 
 ```text
 minimize  コスト（または基準配合からの距離）
-s.t.      M · x = 目標成分（許容幅つき）
+s.t.      目標下限 ≤ A(x) ≤ 目標上限
           Σx = 100,  x ≥ 0
           群制約・使用可能原料制約・上下限
 ```
 
-数百原料でも高速に解け、「その成分を実現する配合が存在しない」ことも判定できる。学習モデルは不要である。
+使用する原料集合が決まっており、変数が連続な配合比だけなら線形計画（LP）である。
+「群から最大2点」「A/B/Cのいずれか1点」のように原料の採否も同時に決める場合は0/1変数が必要であり、混合整数線形計画（MILP）になる。
+学習モデルはどちらにも不要である。
+
+## canonical I/O とbinding
+
+段間で名前や単位を暗黙変換しない。
+Taskは段単体の入出力を宣言し、ChainDefinitionが上流出力または外部contextから入力へのbindingを宣言する。
+
+| 段 | canonical input | 単位・型 | canonical output | 単位・型 |
+|---|---|---|---|---|
+| A | 疎な配合明細 `(material_id, core_ratio)` | ID、mass % of core（合計100） | 材料成分31項目 | mass % of whole wire |
+| A | フープID、充填率、科学変換master digest | ID、%（v1では固定）、digest | 原料由来補助特徴 | 例：D50 μm |
+| A derived | 商用catalog revision | revision | 粉体配合コスト | 円/kg-core |
+| B | 材料成分31項目 | mass % of whole wire | 溶着金属成分16項目 | mass % of deposited metal |
+| B | 原料由来補助特徴 | 例：D50 μm |  |  |
+| B | 溶接context | 入熱 kJ/mm、電圧 V、ガス、ガス流量 L/min、姿勢など |  |  |
+| C tensile | 溶着金属成分16項目、入熱、予熱 | mass % of deposited metal、kJ/mm、℃ | 引張強さ、0.2%耐力、破断伸び、絞り | MPa、MPa、%、% |
+| C Charpy | 溶着金属成分16項目、入熱、予熱、試験温度 | mass % of deposited metal、kJ/mm、℃、℃ | 吸収エネルギー、脆性破面率 | J、% |
+| C corrosion | 溶着金属成分16項目、試験液 | mass % of deposited metal、category | 腐食速度 | mm/year |
+
+合成データでStage Bが実際に使う溶接contextは、入熱、電圧、シールドガス、ガス流量、溶接姿勢である。
+Stage Cは入熱と予熱を強度・遷移温度へ直接使い、シャルピー試験温度を観測行固有入力として使う。
+腐食速度は試験液ごとに意味が変わるため、試験液をcategorical inputとして保持する。
+合成データの生成式における試験液の係数はゼロだが、異なる試験液の値を同じ無条件targetとして混ぜない。
+試験方法（浸漬試験）と浸漬時間（336 h）はfixed semantic context、試験片位置などは測定metadataとし、数値特徴へ自動昇格しない。
+
+Stage Cは論理的には一段だが、学習行は引張・シャルピー・腐食の観測family別に作る。
+一つのrelation行集合へ全出力を混ぜず、family別training viewとoutput別predictorを一つのTask/Packageから参照する。
+試験温度はシャルピー出力だけが使う条件付き入力であり、引張・腐食の学習行へ疑似値を補わない。
+Packageはpredictorごとに `feature_names`、対象family、学習cohortを固定する。
+
+成分軸は次で固定する。
+
+- A出力／B入力：Fe, C, Si, Mn, Cr, Ni, Mo, Ti, B, Al, Mg, Nb, V, Cu, Zr, Ca, N, O, S, P, CaF2, TiO2, SiO2, Al2O3, MgO, ZrO2, K2O, Na2O, CaCO3, Fe2O3, other
+- B出力／C入力：C, Si, Mn, P, S, Ni, Cr, Mo, Cu, Ti, B, Nb, V, Al, N, O
+
+`_basicity` は合成データ生成時の内部latentであり、canonical outputや実測項目にはしない。
+粉体配合コストは予測targetではなく、原料単価をコア内配合比で加重したderived decision metric（円/kg-core）である。
+合成データにはフープ単価がないため、総ワイヤコストとは呼ばない。
+原料・フープ成分、D50などの科学変換masterと、価格・調達区分などの商用catalogはrevisionを分ける。
+価格だけが変わってもAの科学Package digestは変えず、snapshotにはPackage digestとcatalog revisionの両方を残す。
+
+### v1 binding
+
+```text
+candidate.blend + fixed hoop/fill + transform master digest
+  → A.inputs
+A.material_composition
+  → B.material_composition
+candidate.welding_context
+  → B.welding_context
+B.weld_metal_composition
+  → C.weld_metal_composition
+candidate.welding_context.heat_input/preheat
+  → C.welding_context
+candidate.test_context
+  → C.test_context
+```
+
+bindingは同じcanonical unit同士を原則とする。
+単位変換が必要なら暗黙変換せず、ChainDefinition上で変換規則とdigest対象を宣言する。
+学習時の試験温度と試験液はDataset Profileの観測fieldからfamily別training viewへ写す。
+推論時の試験contextを観測行から取得しない。
+
+## LP / MILP の境界
+
+v1の逆算ではフープ、充填率、使用可能原料集合を固定する。
+solverの連続変数は各原料のwhole-wire絶対質量分率 `z_i` とし、コア内配合比は `x_i = z_i / fill` としてUIへ戻す。
+
+```text
+minimize  (1 / fixed_fill) × Σ(cost_i × z_i)
+          または Σ|z_i - baseline_i|
+s.t.      lower_j ≤ A_j(z, fixed_hoop, fixed_fill) ≤ upper_j
+          Σz_i = fixed_fill
+          material_lower_i × fill ≤ z_i ≤ material_upper_i × fill
+          group_lower_g × fill ≤ Σ(i∈g)z_i ≤ group_upper_g × fill
+          availability_i = true
+```
+
+基準配合からのL1距離は補助変数で線形化する。
+コスト目的はwhole-wire質量分率からfixed fillを除き、画面と同じ円/kg-coreで評価する。
+L2距離を目的にすると二次計画（QP）になるためv1では扱わない。
+目標成分は完全一致を強制せず、利用者が指定した許容幅を上下限制約にする。
+
+次のいずれかをsolverに決めさせる場合はMILPとする。
+
+- 原料を使う／使わない
+- 群から選ぶ原料数
+- 相互排他またはいずれか1点
+- フープ銘柄
+
+この場合は採否変数 `y_i ∈ {0, 1}` と `lower_i × fill × y_i ≤ z_i ≤ upper_i × fill × y_i` を使う。
+固定集合のLPと選択込みのMILPを同じ名前で隠さず、実行前にどちらを解くか表示する。
+
+解が存在しない場合は「解なし」だけを返さず、slack最小化で**緩和すると成立しうる**目標成分・群制約・上下限を候補として示す。
+これは矛盾制約集合の数学的証明（IIS）ではないことをUIでも明示する。
+Stage B/Cを反転する特性からの逆問題、充填率とコア内比率の双線形同時最適化、段をまたぐ非線形最適化はv1に含めない。
 
 ### 10. 版の固定と再計算
 
-- **Chain Revision** は各段のModel Package digestの組である。予測スナップショットにはChain Revision全体を残す。
+- **Package digest** はruntime/compiler仕様と科学変換masterを固定する。
+- **Design Space revision** は固定フープ・固定充填率を含む設計制約を固定する。
+- **Chain Revision** はChainDefinition/binding digest、順序付きTask contract digest、Package digest、単位変換digestの組である。
+- 予測スナップショットにはChain Revision、Design Space revision、candidate revision、商用catalog revisionを残す。
 - 再計算は content hash によるメモ化とし、入力が変わった段より下流だけを再実行する。
 
 ## 画面と操作の方針
@@ -153,7 +279,8 @@ s.t.      M · x = 目標成分（許容幅つき）
   - ある段の推論が体感できるほど遅い。→ その段だけ明示実行にする。
   - 不確かさのMonte Carlo伝播を行う。→ 点推定は自動、分布は明示実行と粒度を分ける。
   - 編集の連打で計算が積み上がる。→ 編集停止後のデバウンスと、古い実行の打ち切りで処理する。
-- 自動にしても**段ごとの鮮度（最新／再計算中／古い／失敗／実測で固定）は内部構造として残す**。失敗した段や実測で固定した段を区別するのに必要であり、明示実行へ落とす切り替えもこの構造の上で行う。
+- 自動にしても**段ごとの鮮度（最新／再計算中／古い／失敗）は内部構造として残す**。失敗した段を区別し、明示実行へ落とす切り替えもこの構造の上で行う。
+- 中間実測は鮮度状態へ混ぜず、通常結果には「実測照合あり」、analysis variantには「実測を使用」という別のsource表示を付ける。
 - 段Aは線形なので常に即時更新とする。
 
 ### コストを判断面に出す
@@ -219,26 +346,27 @@ design-system.md は「候補比較表では候補名を左側に固定し、入
 
 | 対象 | 追加が必要なもの |
 |---|---|
-| `TaskDefinition` | 入力フィールドの binding 宣言 |
+| `TaskDefinition` | 段単体で再利用できるcanonical input/output。bindingは持たない |
+| `ChainDefinition` | 上流出力・外部contextから各Task入力へのbinding |
 | 候補契約 | 疎な `(原料ID, 比率)` リスト型の入力群、派生元候補の記録 |
 | 原料マスタ | 銘柄の置換候補を定める「原料種類」列 |
 | Design Space | 選択制約（群からの選択数、使用可能集合） |
 | Model Package | `deterministic-linear` runtime |
 | Dataset Input Profile | 多対多の明細シート（配合明細）を候補入力へ写す規則 |
-| スナップショット | Chain Revision（段ごとのpackage digestの組） |
+| スナップショット | Chain Revision、Design Space revision、candidate revision、商用catalog revisionを固定する多段snapshot |
 | Project | 1 Project = 1 Task の前提の見直し。崩すのはProject側であり、Task契約側ではない |
 | 候補入力UI | 行を増減できる明細エディタ、残部原料、行ロック、貼り付け取り込み、コスト表示 |
 | 候補比較UI | 配合明細だけ転置した、行の和集合と差分のみ表示 |
-| 画面共通 | ステージレールと、段ごとの鮮度（最新／再計算中／古い／失敗／実測で固定） |
+| 画面共通 | ステージレール、段ごとの鮮度（最新／再計算中／古い／失敗）、実測照合・variant source |
 
 ## 段階的な導入順
 
 | Phase | 内容 | 狙い |
 |---|---|---|
-| 0 | Cだけを単独タスクとして追加（溶着成分＋試験条件→特性） | 現行のTask契約のまま。既存の縦スライス方式にそのまま乗る |
-| 1 | `deterministic-linear` runtimeを追加し、Aを Package化 | 線形で検証が容易。Chain実行基盤の試運転になる |
+| 0 | Cだけを単独タスクとして追加（溶着成分＋溶接context＋試験context→特性） | family別training viewを持ち、既存の縦スライス方式で出口を先に通す |
+| 1 | `deterministic-linear` runtimeを追加し、固定フープ・固定充填率のAを Package化 | アフィン変換で検証が容易。Chain実行基盤の試運転になる |
 | 2 | Bを追加し、三段をChainとして結線 | ここで初めて binding 宣言を導入する |
-| 3 | 不確かさ伝播、目標成分からのLP逆算 | |
+| 3 | 不確かさ伝播、目標成分からのLP/MILP逆算 | |
 
 ## この段階で扱わないもの
 
