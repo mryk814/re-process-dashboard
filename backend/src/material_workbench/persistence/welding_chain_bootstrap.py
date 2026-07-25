@@ -85,31 +85,12 @@ def _stage_a_surface(
 def _task_surface(
     registry: TaskRegistry,
     task_id: str,
-    *,
-    deposited_metal_inputs: bool = False,
 ) -> StageContractSurface:
-    surface = task_contract_surface(
+    return task_contract_surface(
         registry.contract_for(task_id).task_definition,
         contract_digest=semantic_digest(
             registry.contract_for(task_id).task_definition.model_dump(mode="json")
         ),
-    )
-    if not deposited_metal_inputs:
-        return surface
-    return surface.model_copy(
-        update={
-            "input_ports": tuple(
-                port.model_copy(
-                    update={
-                        "basis": "deposited_metal",
-                        "unit": "mass% deposited metal",
-                    }
-                )
-                if port.path.startswith("composition.")
-                else port
-                for port in surface.input_ports
-            )
-        }
     )
 
 
@@ -304,17 +285,25 @@ def _matching_dataset_view(
             and asset.sha256 == source_sha256
         ):
             dataset_ids.add(dataset.id)
+    if len(dataset_ids) != 1:
+        raise WeldingChainBootstrapError(
+            "Chain Taskの学習Dataset Revisionを一意に固定できません: "
+            f"profile={profile_digest}, matches={len(dataset_ids)}"
+        )
+    dataset_id = next(iter(dataset_ids))
+    canonical_view_id = f"single-{dataset_id}"
     views = [
         view.id
         for view in catalog.list_dataset_view_revisions()
         if view.kind == "single"
         and len(view.members) == 1
-        and view.members[0].dataset_revision_id in dataset_ids
+        and view.view_id == canonical_view_id
+        and view.members[0].dataset_revision_id == dataset_id
     ]
     if len(views) != 1:
         raise WeldingChainBootstrapError(
             "Chain Taskの学習Dataset Viewを一意に固定できません: "
-            f"profile={profile_digest}, matches={len(views)}"
+            f"profile={profile_digest}, canonical_matches={len(views)}"
         )
     return views[0]
 
@@ -368,11 +357,7 @@ def bootstrap_welding_chain(
         task_registry.require_available(task_id)
     stage_a = _stage_a_surface(transform_catalog)
     stage_b = _task_surface(task_registry, STAGE_B_ID)
-    stage_c = _task_surface(
-        task_registry,
-        STAGE_C_ID,
-        deposited_metal_inputs=True,
-    )
+    stage_c = _task_surface(task_registry, STAGE_C_ID)
     contracts = {
         (surface.stage_kind, surface.contract_id): surface
         for surface in (stage_a, stage_b, stage_c)

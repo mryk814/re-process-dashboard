@@ -14,8 +14,12 @@ from material_workbench.contracts.chain_contracts import (
     ExternalBindingSource,
     StageContractSurface,
     build_chain_revision,
+    task_contract_surface,
 )
 from material_workbench.persistence.store import Store
+from material_workbench.persistence.welding_chain_bootstrap import (
+    bootstrap_welding_chain,
+)
 from material_workbench.persistence.workspace_catalog_bootstrap import (
     bootstrap_workspace_catalog,
 )
@@ -172,6 +176,35 @@ def test_bundled_welding_chain_pins_real_a_b_c_resources(
     assert all(stage["package_manifest_digest"].startswith("sha256:") for stage in revision["stages"])
     assert revision["stages"][0]["dataset_view_revision_id"] is None
     assert all(stage["dataset_view_revision_id"] for stage in revision["stages"][1:])
+    stage_c_definition = client.app.state.task_registry.contract_for(
+        "welding-stage-c-properties-v1"
+    ).task_definition
+    stage_c_surface = task_contract_surface(
+        stage_c_definition,
+        contract_digest=revision["stages"][2]["contract_digest"],
+    )
+    composition_ports = [
+        port for port in stage_c_surface.input_ports
+        if port.path.startswith("composition.")
+    ]
+    assert len(composition_ports) == 16
+    assert {port.basis for port in composition_ports} == {"deposited_metal"}
+
+    stage_b_view = client.app.state.workspace_catalog.get_dataset_view_revision(
+        revision["stages"][1]["dataset_view_revision_id"]
+    )
+    assert stage_b_view is not None
+    client.app.state.workspace_catalog.ensure_single_dataset_view(
+        stage_b_view.members[0].dataset_revision_id,
+        name="ユーザー追加View",
+        view_id="user-added-stage-b-view",
+    )
+    assert bootstrap_welding_chain(
+        store=client.app.state.store,
+        workspace_catalog=client.app.state.workspace_catalog,
+        task_registry=client.app.state.task_registry,
+        transform_catalog=client.app.state.deterministic_transform_catalog,
+    ) == "welding-consumable-a-b-c-v1:r1"
 
 
 def test_chain_project_rejects_revision_digest_drift(client: TestClient) -> None:

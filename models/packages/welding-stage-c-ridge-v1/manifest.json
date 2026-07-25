@@ -4,7 +4,7 @@
   "package_version": "1.0.0",
   "task_id": "welding-stage-c-properties-v1",
   "input_schema_version": "canonical-candidate/v1",
-  "input_contract_digest": "sha256:bf30d88e2b773899a07e94a4df015afe86153fed562e08472e5a1527566c2772",
+  "input_contract_digest": "sha256:309ad06f6fb3b5c15719f988503736aed9f174b36bcaf0fdaf3627e4e386c19c",
   "runtime_capability_digest": "sha256:f3e6c70e29538df66fc70cbead7c2e02336f267fab8dd79019516c9ae60eb0a2",
   "feature_pipeline": {
     "id": "welding-stage-c-observation-transform",
@@ -345,7 +345,7 @@
   ],
   "provenance": {
     "training_data_id": "sha256:dcaad240b934a4ada810fc9577d075ea58ad457b2a373938463f29f72301a7c8",
-    "feature_dataset_id": "sha256:3a477b897537c47f5827282412fe1d1b096f576f804f02e1029898a9268a0485",
+    "feature_dataset_id": "sha256:4b06f32599e6255c281e60834871ca6b9bf80493f63cbd82e3235daf0ad6dc7c",
     "training_code_revision": "stage-c-family-ridge-grouped-v1",
     "dataset_profile_id": "sha256:e58004fc974f4e2a1fe0f64be055f09eaa9fedf7e9efc26a809533b3a93e0145"
   },
