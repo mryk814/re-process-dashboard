@@ -136,6 +136,43 @@ def _create_tables(conn: sqlite3.Connection) -> None:
     )
 
 
+def _single_task_identity_from_row(row: sqlite3.Row | tuple[object, ...]) -> SingleTaskProjectIdentity:
+    provenance = str(row[6])
+    if provenance == "unbound_legacy":
+        if any(row[index] for index in range(2, 6)):
+            raise ChainCatalogMigrationError(
+                f"Project {row[0]} is marked unbound but has immutable references"
+            )
+        return SingleTaskProjectIdentity(
+            identity_kind="single_task",
+            task_id=str(row[1]),
+            binding_provenance="unbound_legacy",
+        )
+    values = tuple(row[index] for index in range(2, 6))
+    if not all(values):
+        raise ChainCatalogMigrationError(
+            f"Project {row[0]} has a partial immutable single-Task binding"
+        )
+    return SingleTaskProjectIdentity(
+        identity_kind="single_task",
+        task_id=str(row[1]),
+        dataset_view_revision_id=str(row[2]),
+        task_contract_digest=str(row[3]),
+        model_package_ref_id=str(row[4]),
+        model_package_manifest_digest=str(row[5]),
+        binding_provenance=provenance,  # type: ignore[arg-type]
+    )
+
+
+def _identity_json(identity: SingleTaskProjectIdentity) -> str:
+    return json.dumps(
+        identity.model_dump(mode="json"),
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+
 def _backfill_single_task_identity(conn: sqlite3.Connection) -> int:
     rows = conn.execute(
         "SELECT id,task_id,dataset_view_revision_id,task_contract_digest,"
@@ -143,41 +180,53 @@ def _backfill_single_task_identity(conn: sqlite3.Connection) -> int:
         "FROM projects ORDER BY id"
     ).fetchall()
     for row in rows:
-        provenance = str(row[6])
-        if provenance == "unbound_legacy":
-            identity = SingleTaskProjectIdentity(
-                identity_kind="single_task",
-                task_id=str(row[1]),
-                binding_provenance="unbound_legacy",
-            )
-        else:
-            values = tuple(row[index] for index in range(2, 6))
-            if not all(values):
-                raise ChainCatalogMigrationError(
-                    f"Project {row[0]} has a partial immutable single-Task binding"
-                )
-            identity = SingleTaskProjectIdentity(
-                identity_kind="single_task",
-                task_id=str(row[1]),
-                dataset_view_revision_id=str(row[2]),
-                task_contract_digest=str(row[3]),
-                model_package_ref_id=str(row[4]),
-                model_package_manifest_digest=str(row[5]),
-                binding_provenance=provenance,  # type: ignore[arg-type]
-            )
+        identity = _single_task_identity_from_row(row)
         conn.execute(
             f"UPDATE projects SET {PROJECT_IDENTITY_COLUMN}=? WHERE id=?",
-            (
-                json.dumps(
-                    identity.model_dump(mode="json"),
-                    ensure_ascii=False,
-                    sort_keys=True,
-                    separators=(",", ":"),
-                ),
-                row[0],
-            ),
+            (_identity_json(identity), row[0]),
         )
     return len(rows)
+
+
+def refresh_single_task_project_identities(database: str | Path) -> int:
+    """Mirror completed catalog binding into the explicit union identity.
+
+    Workspace bootstrap may bind a formerly-unbound legacy Project after the
+    schema migration. This mirrors that already-recorded provenance; it never
+    derives a package or rewrites a Chain identity.
+    """
+
+    conn = sqlite3.connect(database)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        if not _migration_is_current(conn):
+            raise ChainCatalogMigrationError("chain catalog must be migrated first")
+        rows = conn.execute(
+            "SELECT id,task_id,dataset_view_revision_id,task_contract_digest,"
+            "model_package_ref_id,model_package_manifest_digest,binding_provenance,"
+            "scientific_identity_json FROM projects ORDER BY id"
+        ).fetchall()
+        changed = 0
+        for row in rows:
+            current = json.loads(str(row[7]))
+            if current.get("identity_kind") == "chain":
+                continue
+            identity = _single_task_identity_from_row(row)
+            encoded = _identity_json(identity)
+            if encoded != row[7]:
+                conn.execute(
+                    "UPDATE projects SET scientific_identity_json=? WHERE id=?",
+                    (encoded, row[0]),
+                )
+                changed += 1
+        _assert_current(conn)
+        conn.commit()
+        return changed
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def migrate_chain_catalog(database: str | Path) -> int:

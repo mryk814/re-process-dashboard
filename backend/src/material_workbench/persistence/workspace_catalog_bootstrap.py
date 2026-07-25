@@ -26,6 +26,9 @@ from material_workbench.modeling.model_lifecycle import (
     runtime_capability_digest,
     task_input_contract_digest,
 )
+from material_workbench.persistence.chain_catalog_migration import (
+    refresh_single_task_project_identities,
+)
 from material_workbench.task_modules import PRIMARY_DEFAULT_SOURCE, PROCESS_SOURCE
 
 
@@ -441,4 +444,5 @@ def bootstrap_workspace_catalog(database: str | Path, registry: TaskRegistry) ->
     migrate_replaced_mpea_room_projects(database, bindings)
     archive_unreachable_stale_package_refs(database)
     audit_project_bindings(database)
+    refresh_single_task_project_identities(database)
     return catalog

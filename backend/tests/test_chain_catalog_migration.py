@@ -20,6 +20,7 @@ from material_workbench.persistence.chain_catalog_migration import (
     MIGRATION_ID,
     ChainCatalogMigrationError,
     migrate_chain_catalog,
+    refresh_single_task_project_identities,
 )
 from material_workbench.persistence.store import (
     ChainCatalogConflictError,
@@ -138,6 +139,33 @@ def test_chain_catalog_migration_preserves_unbound_legacy_identity(
         "task_contract_digest": None,
         "task_id": "annealed-properties-v1",
     }
+
+
+def test_catalog_bootstrap_binding_is_mirrored_without_inventing_identity(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "late-binding.db"
+    _workspace(path)
+    migrate_chain_catalog(path)
+    with sqlite3.connect(path) as conn:
+        conn.execute(
+            "UPDATE projects SET dataset_view_revision_id='view-r2',"
+            "task_contract_digest='task-r2',model_package_ref_id='package-r2',"
+            "model_package_manifest_digest='manifest-r2',"
+            "binding_provenance='assumed_current_at_upgrade' WHERE id='default'"
+        )
+
+    assert refresh_single_task_project_identities(path) == 1
+    assert refresh_single_task_project_identities(path) == 0
+    with sqlite3.connect(path) as conn:
+        identity = json.loads(
+            conn.execute(
+                "SELECT scientific_identity_json FROM projects WHERE id='default'"
+            ).fetchone()[0]
+        )
+    assert identity["binding_provenance"] == "assumed_current_at_upgrade"
+    assert identity["dataset_view_revision_id"] == "view-r2"
+    assert identity["model_package_manifest_digest"] == "manifest-r2"
 
 
 def test_chain_catalog_migration_rejects_partial_binding_and_rolls_back(
