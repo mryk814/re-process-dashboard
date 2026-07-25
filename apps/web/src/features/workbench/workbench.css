@@ -1020,7 +1020,7 @@
   color: var(--muted, #66788b);
   font-weight: 500;
 }
-.blend-comparison-scroll tbody th em {
+.blend-comparison-scroll tbody em {
   display: inline-block;
   margin-top: 3px;
   padding: 1px 5px;

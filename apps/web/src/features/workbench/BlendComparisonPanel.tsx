@@ -93,10 +93,11 @@ export function BlendComparisonPanel({
     () => blendComparisonRows(columns.map((item) => item.candidate), showAll),
     [columns, showAll],
   );
-  const descriptor = (materialId: string) =>
-    Object.values(materialsByCandidate)
-      .flat()
-      .find((item) => item.material_id === materialId);
+  const descriptors = (materialId: string) =>
+    columns.flatMap((column) =>
+      (materialsByCandidate[column.key] ?? [])
+        .filter((item) => item.material_id === materialId)
+    );
   const origin = [...columns].reverse().find((item) => item.historical);
   const originMaterialList = origin ? materialsByCandidate[origin.key] : undefined;
   const originMaterials = originMaterialList
@@ -134,6 +135,8 @@ export function BlendComparisonPanel({
                   ? null
                   : blendCost(column.candidate, materials);
                 const delta = originCost == null || cost == null || column.historical
+                  || column.candidate.id !== selected.id
+                  || column.candidate.revision !== selected.raw.revision
                   ? null
                   : cost - originCost;
                 return (
@@ -154,18 +157,22 @@ export function BlendComparisonPanel({
           </thead>
           <tbody>
             {rows.map((materialId) => {
-              const material = descriptor(materialId);
+              const materialDescriptors = descriptors(materialId);
+              const names = Array.from(new Set(materialDescriptors.map((item) => item.name)));
+              const groups = Array.from(new Set(materialDescriptors.map((item) => item.group)));
+              const hasRevisionDifference = names.length > 1 || groups.length > 1;
               return (
                 <tr key={materialId}>
                   <th>
-                    <b>{material?.name ?? materialId}</b>
-                    <small>{materialId}{material?.group ? ` · ${material.group}` : ""}</small>
-                    {material?.procurement === "試作限定" && <em>試作限定</em>}
-                    {material?.procurement === "廃止予定" && <em>廃止予定</em>}
+                    <b>{names.join(" / ") || materialId}</b>
+                    <small>{materialId}{groups.length ? ` · ${groups.join(" / ")}` : ""}</small>
+                    {hasRevisionDifference && <em>revision差</em>}
                   </th>
                   {columns.map((column) => {
                     const ratio = column.candidate.blend?.items
                       .find((item) => item.material_id === materialId)?.ratio;
+                    const material = materialsByCandidate[column.key]
+                      ?.find((item) => item.material_id === materialId);
                     const originRatio = origin?.candidate.blend?.items
                       .find((item) => item.material_id === materialId)?.ratio ?? 0;
                     const delta = (
@@ -186,6 +193,8 @@ export function BlendComparisonPanel({
                             {delta.toLocaleString("ja-JP", { maximumFractionDigits: 4 })}
                           </small>
                         )}
+                        {material?.procurement === "試作限定" && <em>試作限定</em>}
+                        {material?.procurement === "廃止予定" && <em>廃止予定</em>}
                       </td>
                     );
                   })}
