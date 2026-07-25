@@ -8,12 +8,21 @@ import time
 from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
+import numpy as np
 from pydantic import BaseModel
 import pytest
 
+from material_workbench.application.chain_execution import ChainExecutionError
+from material_workbench.application.chain_uncertainty import (
+    apply_output_bounds,
+    combine_additive_stage_samples,
+)
 from material_workbench.contracts.blend_contracts import (
     CommercialMaterialCatalog,
     SparseBlendDesignSpace,
+)
+from material_workbench.contracts.chain_uncertainty_contracts import (
+    StageSampleResult,
 )
 from material_workbench.contracts.schemas import CandidateInputs
 from material_workbench.persistence.store import CandidateRevisionConflictError, Store
@@ -119,6 +128,323 @@ def _execute(client: TestClient, project: dict, candidate: dict) -> dict:
     )
     assert response.status_code == 200, response.text
     return response.json()
+
+
+def _distribution(
+    client: TestClient,
+    project: dict,
+    candidate: dict,
+    *,
+    seed: int = 193,
+    sample_count: int = 128,
+):
+    return client.post(
+        f"/api/projects/{project['id']}/chain/candidates/"
+        f"{candidate['id']}/distribution-runs",
+        json={
+            "candidate_revision": candidate["revision"],
+            "seed": seed,
+            "sample_count": sample_count,
+        },
+    )
+
+
+def test_chain_distribution_is_explicit_reproducible_and_keeps_uncertainties_distinct(
+    client: TestClient,
+) -> None:
+    project, candidate = _project_and_candidate(client)
+    capability = client.get(
+        f"/api/projects/{project['id']}/chain/distribution-capability"
+    )
+    assert capability.status_code == 200
+    assert capability.json()["explicit_run_available"] is True
+    assert capability.json()["full_propagation_supported"] is True
+    assert [
+        stage["package_manifest_digest"]
+        for stage in capability.json()["stages"][1:]
+    ] == [
+        "sha256:670f57fad186c409cb12bf50af47169c57f3b902d37518698b39b09aff1a3380",
+        "sha256:c6bcbefd7de06afa40d4463196c210dc79d45bcf94a32d22c8a3180660d353b1",
+    ]
+    assert [
+        stage["capability"]["output_dependence"]
+        for stage in capability.json()["stages"]
+    ] == ["deterministic", "independent", "independent"]
+    point = _execute(client, project, candidate)
+    assert client.get(
+        f"/api/projects/{project['id']}/chain/candidates/"
+        f"{candidate['id']}/distribution-runs/latest"
+    ).status_code == 404
+    first = _distribution(client, project, candidate)
+    second = _distribution(client, project, candidate)
+    assert first.status_code == second.status_code == 201
+    left, right = first.json(), second.json()
+    assert left["status"] == "completed"
+    assert left["provenance"]["seed"] == 193
+    assert left["provenance"]["point_execution_request_id"] == point["request_id"]
+    assert left["stages"] == right["stages"]
+    stage_a, stage_b, stage_c = left["stages"]
+    assert stage_a["capability"]["output_dependence"] == "deterministic"
+    assert stage_b["capability"] == {
+        "schema_version": "stage-sampling-capability/v1",
+        "supported": True,
+        "method": "independent-residual-normal-bounded-from-q05-q95/v1",
+        "method_label": "独立残差正規近似（q05–q95由来・出力境界適用）",
+        "output_dependence": "independent",
+        "reason": None,
+    }
+    assert stage_b["stage_uncertainty"] == stage_b["propagated_uncertainty"]
+    assert all(
+        summary["quantiles"]["0.05"] >= 0
+        for summary in stage_b["stage_uncertainty"].values()
+    )
+    assert stage_c["stage_uncertainty"]
+    assert stage_c["propagated_uncertainty"]
+    for field in ("stage_uncertainty", "propagated_uncertainty"):
+        assert all(
+            summary["quantiles"]["0.05"] >= 0
+            for summary in stage_c[field].values()
+        )
+        for target in ("EL", "RA", "BRITTLE_FRACTURE"):
+            assert stage_c[field][target]["quantiles"]["0.95"] <= 100
+    assert any(
+        stage_c["stage_uncertainty"][key]["standard_deviation"]
+        != stage_c["propagated_uncertainty"][key]["standard_deviation"]
+        for key in stage_c["stage_uncertainty"]
+    )
+    latest = client.get(
+        f"/api/projects/{project['id']}/chain/candidates/"
+        f"{candidate['id']}/distribution-runs/latest"
+    )
+    assert latest.status_code == 200
+    assert latest.json()["run_id"] == right["run_id"]
+    reopened = Store(client.app.state.store.path)
+    assert (
+        reopened.get_chain_distribution_run(right["run_id"]).model_dump(mode="json")
+        == right
+    )
+    # Distribution runs are separate evidence and never replace automatic points.
+    assert client.get(
+        f"/api/projects/{project['id']}/chain/candidates/{candidate['id']}/execution"
+    ).json() == point
+
+
+def test_linear_toy_chain_monte_carlo_matches_analytic_variance() -> None:
+    count = 200_000
+    rng = np.random.default_rng(451)
+    upstream = rng.normal(2.0, 0.7, count)
+    intrinsic = 6.0 + rng.normal(0.0, 1.1, count)
+    propagated = combine_additive_stage_samples(3.0 * upstream, intrinsic, 6.0)
+    analytic_mean = 6.0
+    analytic_std = np.sqrt((3.0 * 0.7) ** 2 + 1.1**2)
+    assert np.mean(propagated) == pytest.approx(analytic_mean, abs=0.02)
+    assert np.std(propagated) == pytest.approx(analytic_std, rel=0.01)
+
+
+def test_propagated_samples_apply_bounds_after_raw_residual_shift() -> None:
+    raw_intrinsic = np.asarray([-2.0, 3.0])
+    conditional = np.asarray([-1.0, 99.0])
+    propagated = apply_output_bounds(
+        combine_additive_stage_samples(
+            conditional, raw_intrinsic, reference_point=0.0
+        ),
+        (0.0, 100.0),
+    )
+    assert propagated.tolist() == [0.0, 100.0]
+
+
+def test_stage_sample_result_rejects_misaligned_or_nonfinite_outputs() -> None:
+    with pytest.raises(ValueError, match="length"):
+        StageSampleResult(
+            method="toy",
+            sample_count=2,
+            outputs={"x": (1.0,)},
+            reference_points={"x": 1.0},
+        )
+    with pytest.raises(ValueError, match="reference points"):
+        StageSampleResult(
+            method="toy",
+            sample_count=2,
+            outputs={"x": (1.0, 2.0)},
+            reference_points={"y": 1.0},
+        )
+    with pytest.raises(ValueError, match="non-finite"):
+        StageSampleResult(
+            method="toy",
+            sample_count=2,
+            outputs={"x": (1.0, float("nan"))},
+            reference_points={"x": 1.0},
+        )
+
+
+def test_unsupported_sampling_stage_is_explicit_and_point_result_survives(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project, candidate = _project_and_candidate(client)
+    point = _execute(client, project, candidate)
+    runtime = client.app.state.task_registry.entry_for(
+        "welding-consumable-stage-b-v1"
+    ).predictor_runtime
+    monkeypatch.setattr(
+        type(runtime),
+        "chain_sampling_method",
+        property(lambda _self: ""),
+    )
+    response = _distribution(client, project, candidate, sample_count=64)
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["status"] == "unsupported"
+    stage_b = payload["stages"][1]
+    stage_c = payload["stages"][2]
+    assert stage_b["capability"]["supported"] is False
+    assert stage_b["stage_uncertainty"] == {}
+    assert stage_c["stage_uncertainty"]
+    assert stage_c["propagated_uncertainty"] == {}
+    assert client.get(
+        f"/api/projects/{project['id']}/chain/candidates/{candidate['id']}/execution"
+    ).json() == point
+
+
+def test_distribution_run_rejects_runtime_output_contract_drift(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project, candidate = _project_and_candidate(client)
+    _execute(client, project, candidate)
+    runtime = client.app.state.task_registry.entry_for(
+        "welding-consumable-stage-b-v1"
+    ).predictor_runtime
+    original = runtime.sample_core
+
+    def missing_output(*args, **kwargs):
+        result = original(*args, **kwargs)
+        outputs = dict(result.outputs)
+        outputs.pop(next(iter(outputs)))
+        return result.model_copy(update={"outputs": outputs})
+
+    monkeypatch.setattr(runtime, "sample_core", missing_output)
+    response = _distribution(client, project, candidate, sample_count=64)
+    assert response.status_code == 409
+    assert "canonical output" in json.dumps(response.json(), ensure_ascii=False)
+
+
+def test_candidate_update_during_distribution_discards_result_as_conflict(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project, candidate = _project_and_candidate(client)
+    point = _execute(client, project, candidate)
+    runtime = client.app.state.task_registry.entry_for(
+        "welding-stage-c-properties-v1"
+    ).predictor_runtime
+    original = runtime.sample_core
+    entered = threading.Event()
+    release = threading.Event()
+
+    def paused(*args, **kwargs):
+        entered.set()
+        assert release.wait(10)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(runtime, "sample_core", paused)
+    errors: list[Exception] = []
+
+    def run() -> None:
+        try:
+            client.app.state.chain_uncertainty_service.run(
+                project_id=project["id"],
+                candidate_id=candidate["id"],
+                candidate_revision=candidate["revision"],
+                seed=92,
+                sample_count=64,
+            )
+        except Exception as exc:  # captured for the deterministic race assertion
+            errors.append(exc)
+
+    thread = threading.Thread(target=run)
+    thread.start()
+    assert entered.wait(10)
+    updated = _update(
+        client,
+        project,
+        candidate,
+        _candidate_payload(client, project["id"]),
+    )
+    release.set()
+    thread.join(15)
+    assert not thread.is_alive()
+    assert len(errors) == 1
+    assert isinstance(errors[0], ChainExecutionError)
+    assert "更新された" in str(errors[0])
+    assert client.app.state.store.latest_chain_distribution_run(
+        project["id"], candidate["id"]
+    ) is None
+    stale = client.get(
+        f"/api/projects/{project['id']}/chain/candidates/{candidate['id']}/execution"
+    ).json()
+    assert stale["candidate_revision"] == updated["revision"]
+    assert stale["status"] == "latest"
+    assert stale["stages"][0]["result"] == point["stages"][0]["result"]
+
+
+def test_point_rerun_during_distribution_discards_old_point_result(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project, candidate = _project_and_candidate(client)
+    point = _execute(client, project, candidate)
+    runtime = client.app.state.task_registry.entry_for(
+        "welding-stage-c-properties-v1"
+    ).predictor_runtime
+    original = runtime.sample_core
+    entered = threading.Event()
+    release = threading.Event()
+
+    def paused(*args, **kwargs):
+        entered.set()
+        assert release.wait(10)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(runtime, "sample_core", paused)
+    errors: list[Exception] = []
+
+    def run() -> None:
+        try:
+            client.app.state.chain_uncertainty_service.run(
+                project_id=project["id"],
+                candidate_id=candidate["id"],
+                candidate_revision=candidate["revision"],
+                seed=93,
+                sample_count=64,
+            )
+        except Exception as exc:  # captured for the deterministic race assertion
+            errors.append(exc)
+
+    thread = threading.Thread(target=run)
+    thread.start()
+    assert entered.wait(10)
+    rerun = client.post(
+        f"/api/projects/{project['id']}/chain/candidates/"
+        f"{candidate['id']}/executions",
+        json={
+            "candidate_revision": candidate["revision"],
+            # Reusing the client-supplied request id must not bypass the CAS.
+            "request_id": point["request_id"],
+            "debounce_ms": 0,
+        },
+    )
+    assert rerun.status_code == 200, rerun.text
+    assert rerun.json() != point
+    release.set()
+    thread.join(15)
+    assert not thread.is_alive()
+    assert len(errors) == 1
+    assert isinstance(errors[0], ChainExecutionError)
+    assert "更新された" in str(errors[0])
+    assert client.app.state.store.latest_chain_distribution_run(
+        project["id"], candidate["id"]
+    ) is None
 
 
 def test_chain_candidate_contract_provides_a_pinned_executable_starter(

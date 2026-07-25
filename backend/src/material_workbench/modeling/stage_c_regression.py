@@ -318,6 +318,58 @@ class StageCRegressionRuntime:
     def output_keys(self) -> frozenset[str]:
         return frozenset(self.predictors)
 
+    @property
+    def chain_sampling_method(self) -> str:
+        from material_workbench.modeling.stage_sampling import (
+            sampling_capability_for_package,
+        )
+
+        capability = sampling_capability_for_package(self.model_package)
+        return capability.method if capability is not None else ""
+
+    @property
+    def chain_sample_bounds(self) -> dict[str, tuple[float | None, float | None]]:
+        from material_workbench.modeling.stage_sampling import (
+            sampling_capability_for_package,
+        )
+
+        capability = sampling_capability_for_package(self.model_package)
+        return dict(capability.output_bounds) if capability is not None else {}
+
+    def sample_core(
+        self,
+        candidate: Candidate,
+        *,
+        sample_count: int,
+        seed: int,
+    ) -> "StageSampleResult":
+        from material_workbench.contracts.chain_uncertainty_contracts import (
+            StageSampleResult,
+        )
+        method = self.chain_sampling_method
+        if not method:
+            raise ValueError("このruntime/packageはStage sampleを提供しません")
+        values = candidate_feature_values(candidate)
+        targets = sorted(self.predictors)
+        seeds = np.random.SeedSequence(seed).spawn(len(targets))
+        result: dict[str, list[float]] = {}
+        for target, target_seed in zip(targets, seeds, strict=True):
+            samples = self.predictors[target].sample(
+                values,
+                sample_count=sample_count,
+                seed=int(target_seed.generate_state(1)[0]),
+            )
+            result[target] = [float(value) for value in samples]
+        return StageSampleResult(
+            method=method,
+            sample_count=sample_count,
+            outputs=result,
+            reference_points={
+                target: float(self.predictors[target].predict(values).point_estimate)
+                for target in targets
+            },
+        )
+
     def _verify_smoke(self) -> None:
         smoke = self.model_package.manifest.smoke_test
         if smoke is None:

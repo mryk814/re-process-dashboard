@@ -34,6 +34,8 @@ export type ApiProjectDecisionInput = components["schemas"]["ProjectDecisionInpu
 export type ApiProjectGroupMoveInput = components["schemas"]["ProjectGroupMoveInput"];
 export type ApiProjectCreationOptions = components["schemas"]["ProjectCreationOptions"];
 export type ApiChainTemplate = components["schemas"]["ChainTemplateItem"];
+export type ApiChainDistributionCapability = components["schemas"]["ChainDistributionCapability"];
+export type ApiChainDistributionRun = components["schemas"]["ChainDistributionRun"];
 export type ApiChainEvaluation = components["schemas"]["ResolvedChainEvaluation"];
 export type ApiChainCandidateContract = components["schemas"]["ChainCandidateContractResponse"];
 export type ApiChainExecution = components["schemas"]["ChainExecution"];
@@ -179,6 +181,31 @@ export const workbenchApi = {
   },
   async listChainTemplates() {
     return requireData(await apiClient.GET("/api/chains"), "Chain Templateを取得できませんでした。");
+  },
+  async chainDistributionCapability(projectId: string) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/chain/distribution-capability", {
+      params: { path: { project_id: projectId } },
+    }), "Chainの分布実行可否を取得できませんでした。");
+  },
+  async latestChainDistribution(projectId: string, candidateId: string, signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/chain/candidates/{candidate_id}/distribution-runs/latest", {
+      params: { path: { project_id: projectId, candidate_id: candidateId } },
+      signal,
+    }), "保存済みのChain分布を取得できませんでした。");
+  },
+  async runChainDistribution(
+    projectId: string,
+    candidateId: string,
+    candidateRevision: number,
+    seed = 20260725,
+    sampleCount = 512,
+    signal?: AbortSignal,
+  ) {
+    return requireData(await apiClient.POST("/api/projects/{project_id}/chain/candidates/{candidate_id}/distribution-runs", {
+      params: { path: { project_id: projectId, candidate_id: candidateId } },
+      body: { candidate_revision: candidateRevision, seed, sample_count: sampleCount },
+      signal,
+    }), "Chainの分布を実行できませんでした。");
   },
   async projectChainEvaluation(projectId: string, signal?: AbortSignal) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/chain/evaluation", {

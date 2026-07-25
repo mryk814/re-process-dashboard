@@ -21,6 +21,9 @@ from material_workbench.contracts.chain_execution_contracts import (
     ChainExecution,
     ChainSnapshot,
 )
+from material_workbench.contracts.chain_uncertainty_contracts import (
+    ChainDistributionRun,
+)
 from material_workbench.contracts.schemas import (
     ActualMeasurement,
     ActualMeasurementInput,
@@ -79,6 +82,9 @@ from material_workbench.persistence.chain_analysis_variant_migration import (
 )
 from material_workbench.persistence.chain_execution_cas_migration import (
     migrate_chain_execution_cas,
+)
+from material_workbench.persistence.chain_uncertainty_migration import (
+    migrate_chain_uncertainty,
 )
 
 
@@ -160,6 +166,7 @@ class Store:
         migrate_chain_catalog(self.path)
         migrate_chain_analysis_variant(self.path)
         migrate_chain_execution_cas(self.path)
+        migrate_chain_uncertainty(self.path)
         migrate_candidate_revisions(self.path)
         migrate_lineage_reviews(self.path)
         migrate_decision_activity_runs(self.path)
@@ -528,6 +535,99 @@ class Store:
             ).fetchone()
         return (
             ChainSnapshot.model_validate_json(row["payload_json"])
+            if row is not None
+            else None
+        )
+
+    def insert_chain_distribution_run(
+        self,
+        run: ChainDistributionRun,
+        *,
+        expected_point: ChainExecution,
+    ) -> ChainDistributionRun:
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            candidate = conn.execute(
+                "SELECT revision,archived_at FROM candidates "
+                "WHERE id=? AND project_id=?",
+                (run.provenance.candidate_id, run.project_id),
+            ).fetchone()
+            if (
+                candidate is None
+                or candidate["archived_at"] is not None
+                or int(candidate["revision"]) != run.provenance.candidate_revision
+            ):
+                raise StoreDataIntegrityError(
+                    "分布実行のcandidate revisionは現在値ではありません"
+                )
+            scope_id = self.chain_execution_scope(
+                run.project_id, run.provenance.candidate_id
+            )
+            point_row = conn.execute(
+                "SELECT execution_json FROM chain_execution_state WHERE scope_id=?",
+                (scope_id,),
+            ).fetchone()
+            point = (
+                ChainExecution.model_validate_json(point_row["execution_json"])
+                if point_row is not None
+                else None
+            )
+            if (
+                point is None
+                or point != expected_point
+                or point.status != "latest"
+                or point.request_id != run.provenance.point_execution_request_id
+                or point.candidate_revision != run.provenance.candidate_revision
+                or point.chain_revision_digest
+                != run.provenance.chain_revision_digest
+                or any(stage.status != "latest" for stage in point.stages)
+            ):
+                raise StoreDataIntegrityError(
+                    "分布実行が参照した点推定は現在値ではありません"
+                )
+            conn.execute(
+                "INSERT INTO chain_distribution_runs("
+                "id,project_id,candidate_id,candidate_revision,"
+                "chain_revision_digest,payload_json,created_at"
+                ") VALUES (?,?,?,?,?,?,?)",
+                (
+                    run.run_id,
+                    run.project_id,
+                    run.provenance.candidate_id,
+                    run.provenance.candidate_revision,
+                    run.provenance.chain_revision_digest,
+                    run.model_dump_json(),
+                    run.created_at.isoformat(),
+                ),
+            )
+        return run
+
+    def get_chain_distribution_run(
+        self, run_id: str
+    ) -> ChainDistributionRun | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT payload_json FROM chain_distribution_runs WHERE id=?",
+                (run_id,),
+            ).fetchone()
+        return (
+            ChainDistributionRun.model_validate_json(row["payload_json"])
+            if row is not None
+            else None
+        )
+
+    def latest_chain_distribution_run(
+        self, project_id: str, candidate_id: str
+    ) -> ChainDistributionRun | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT payload_json FROM chain_distribution_runs "
+                "WHERE project_id=? AND candidate_id=? "
+                "ORDER BY created_at DESC,id DESC LIMIT 1",
+                (project_id, candidate_id),
+            ).fetchone()
+        return (
+            ChainDistributionRun.model_validate_json(row["payload_json"])
             if row is not None
             else None
         )

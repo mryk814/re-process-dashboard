@@ -1681,6 +1681,195 @@
         "title": "ChainDefinition",
         "type": "object"
       },
+      "ChainDistributionCapability": {
+        "additionalProperties": false,
+        "properties": {
+          "chain_revision_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Chain Revision Digest",
+            "type": "string"
+          },
+          "chain_revision_id": {
+            "minLength": 1,
+            "title": "Chain Revision Id",
+            "type": "string"
+          },
+          "explicit_run_available": {
+            "title": "Explicit Run Available",
+            "type": "boolean"
+          },
+          "full_propagation_supported": {
+            "title": "Full Propagation Supported",
+            "type": "boolean"
+          },
+          "schema_version": {
+            "const": "chain-distribution-capability/v1",
+            "default": "chain-distribution-capability/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/ChainStageSamplingCapability"
+            },
+            "minItems": 1,
+            "title": "Stages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "chain_revision_id",
+          "chain_revision_digest",
+          "explicit_run_available",
+          "full_propagation_supported",
+          "stages"
+        ],
+        "title": "ChainDistributionCapability",
+        "type": "object"
+      },
+      "ChainDistributionProvenance": {
+        "additionalProperties": false,
+        "properties": {
+          "algorithm": {
+            "const": "forward-monte-carlo/v1",
+            "default": "forward-monte-carlo/v1",
+            "title": "Algorithm",
+            "type": "string"
+          },
+          "candidate_id": {
+            "minLength": 1,
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "candidate_revision": {
+            "minimum": 1.0,
+            "title": "Candidate Revision",
+            "type": "integer"
+          },
+          "chain_revision_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Chain Revision Digest",
+            "type": "string"
+          },
+          "chain_revision_id": {
+            "minLength": 1,
+            "title": "Chain Revision Id",
+            "type": "string"
+          },
+          "point_execution_request_id": {
+            "minLength": 1,
+            "title": "Point Execution Request Id",
+            "type": "string"
+          },
+          "sample_count": {
+            "maximum": 4096.0,
+            "minimum": 32.0,
+            "title": "Sample Count",
+            "type": "integer"
+          },
+          "seed": {
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seed",
+          "sample_count",
+          "chain_revision_id",
+          "chain_revision_digest",
+          "candidate_id",
+          "candidate_revision",
+          "point_execution_request_id"
+        ],
+        "title": "ChainDistributionProvenance",
+        "type": "object"
+      },
+      "ChainDistributionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_revision": {
+            "minimum": 1.0,
+            "title": "Candidate Revision",
+            "type": "integer"
+          },
+          "sample_count": {
+            "default": 512,
+            "maximum": 4096.0,
+            "minimum": 32.0,
+            "title": "Sample Count",
+            "type": "integer"
+          },
+          "seed": {
+            "default": 20260725,
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "candidate_revision"
+        ],
+        "title": "ChainDistributionRequest",
+        "type": "object"
+      },
+      "ChainDistributionRun": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "project_id": {
+            "minLength": 1,
+            "title": "Project Id",
+            "type": "string"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/ChainDistributionProvenance"
+          },
+          "run_id": {
+            "minLength": 1,
+            "title": "Run Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "chain-distribution-run/v1",
+            "default": "chain-distribution-run/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/ChainStageUncertainty"
+            },
+            "minItems": 1,
+            "title": "Stages",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "completed",
+              "unsupported"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "project_id",
+          "status",
+          "provenance",
+          "stages",
+          "created_at"
+        ],
+        "title": "ChainDistributionRun",
+        "type": "object"
+      },
       "ChainEvaluationFoldEvidence": {
         "additionalProperties": false,
         "properties": {
@@ -2613,6 +2802,89 @@
           "package_manifest_digest"
         ],
         "title": "ChainStageRevision",
+        "type": "object"
+      },
+      "ChainStageSamplingCapability": {
+        "additionalProperties": false,
+        "properties": {
+          "capability": {
+            "$ref": "#/components/schemas/StageSamplingCapability"
+          },
+          "package_manifest_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Package Manifest Digest",
+            "type": "string"
+          },
+          "stage_id": {
+            "minLength": 1,
+            "title": "Stage Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage_id",
+          "package_manifest_digest",
+          "capability"
+        ],
+        "title": "ChainStageSamplingCapability",
+        "type": "object"
+      },
+      "ChainStageUncertainty": {
+        "additionalProperties": false,
+        "properties": {
+          "capability": {
+            "$ref": "#/components/schemas/StageSamplingCapability"
+          },
+          "package_manifest_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Package Manifest Digest",
+            "type": "string"
+          },
+          "point_estimates": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Point Estimates",
+            "type": "object"
+          },
+          "propagated_uncertainty": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/DistributionSummary"
+            },
+            "title": "Propagated Uncertainty",
+            "type": "object"
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed"
+          },
+          "stage_id": {
+            "minLength": 1,
+            "title": "Stage Id",
+            "type": "string"
+          },
+          "stage_uncertainty": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/DistributionSummary"
+            },
+            "title": "Stage Uncertainty",
+            "type": "object"
+          }
+        },
+        "required": [
+          "stage_id",
+          "capability",
+          "package_manifest_digest",
+          "point_estimates"
+        ],
+        "title": "ChainStageUncertainty",
         "type": "object"
       },
       "ChainTemplateItem": {
@@ -4397,6 +4669,47 @@
           "source_kind"
         ],
         "title": "DirectSourceRef",
+        "type": "object"
+      },
+      "DistributionSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "mean": {
+            "title": "Mean",
+            "type": "number"
+          },
+          "quantiles": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "propertyNames": {
+              "enum": [
+                "0.05",
+                "0.50",
+                "0.95"
+              ]
+            },
+            "title": "Quantiles",
+            "type": "object"
+          },
+          "sample_count": {
+            "minimum": 2.0,
+            "title": "Sample Count",
+            "type": "integer"
+          },
+          "standard_deviation": {
+            "minimum": 0.0,
+            "title": "Standard Deviation",
+            "type": "number"
+          }
+        },
+        "required": [
+          "mean",
+          "standard_deviation",
+          "quantiles",
+          "sample_count"
+        ],
+        "title": "DistributionSummary",
         "type": "object"
       },
       "DurationDiagnostic": {
@@ -10604,6 +10917,75 @@
         "title": "StageOutputBindingSource",
         "type": "object"
       },
+      "StageSamplingCapability": {
+        "additionalProperties": false,
+        "properties": {
+          "method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Method"
+          },
+          "method_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Method Label"
+          },
+          "output_dependence": {
+            "anyOf": [
+              {
+                "enum": [
+                  "deterministic",
+                  "independent",
+                  "joint"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Dependence"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "schema_version": {
+            "const": "stage-sampling-capability/v1",
+            "default": "stage-sampling-capability/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "supported": {
+            "title": "Supported",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "supported"
+        ],
+        "title": "StageSamplingCapability",
+        "type": "object"
+      },
       "Support": {
         "properties": {
           "caution_threshold": {
@@ -12263,6 +12645,48 @@
           }
         },
         "summary": "Create Project"
+      }
+    },
+    "/api/projects/chain-distribution-runs/{run_id}": {
+      "get": {
+        "operationId": "getChainDistributionRun",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainDistributionRun"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Chain Distribution Run",
+        "tags": [
+          "chain-execution"
+        ]
       }
     },
     "/api/projects/chain-snapshots/{snapshot_id}": {
@@ -14790,6 +15214,118 @@
         ]
       }
     },
+    "/api/projects/{project_id}/chain/candidates/{candidate_id}/distribution-runs": {
+      "post": {
+        "operationId": "runProjectChainDistribution",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChainDistributionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainDistributionRun"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Project Chain Distribution",
+        "tags": [
+          "chain-execution"
+        ]
+      }
+    },
+    "/api/projects/{project_id}/chain/candidates/{candidate_id}/distribution-runs/latest": {
+      "get": {
+        "operationId": "getLatestProjectChainDistribution",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainDistributionRun"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Latest Project Chain Distribution",
+        "tags": [
+          "chain-execution"
+        ]
+      }
+    },
     "/api/projects/{project_id}/chain/candidates/{candidate_id}/execution": {
       "get": {
         "operationId": "getProjectChainExecution",
@@ -15071,6 +15607,48 @@
           }
         },
         "summary": "Create Project Chain Snapshot",
+        "tags": [
+          "chain-execution"
+        ]
+      }
+    },
+    "/api/projects/{project_id}/chain/distribution-capability": {
+      "get": {
+        "operationId": "getProjectChainDistributionCapability",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainDistributionCapability"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Project Chain Distribution Capability",
         "tags": [
           "chain-execution"
         ]

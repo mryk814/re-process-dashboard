@@ -1,0 +1,111 @@
+.chain-uncertainty-panel {
+  margin-top: 12px;
+  border: 1px solid #cbd8e8;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.chain-uncertainty-panel > summary {
+  min-height: 48px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  cursor: pointer;
+}
+
+.chain-uncertainty-panel > summary span {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.chain-uncertainty-panel > summary small,
+.chain-uncertainty-panel > summary em {
+  color: #60728a;
+  font-size: 12px;
+  font-style: normal;
+}
+
+.chain-uncertainty-body {
+  padding: 0 12px 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.chain-uncertainty-body > p {
+  margin: 10px 0;
+  color: #52657d;
+  font-size: 12px;
+}
+
+.chain-uncertainty-controls {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chain-uncertainty-controls label {
+  display: grid;
+  gap: 3px;
+  color: #53657c;
+  font-size: 11px;
+}
+
+.chain-uncertainty-controls select,
+.chain-uncertainty-controls input {
+  width: 118px;
+  height: 32px;
+}
+
+.chain-uncertainty-controls > small,
+.chain-uncertainty-status {
+  min-height: 18px;
+  color: #6b7d92;
+  font-size: 12px;
+}
+
+.chain-uncertainty-warning {
+  margin-top: 8px;
+  display: grid;
+  color: #9a5b0b;
+  font-size: 12px;
+}
+
+.chain-uncertainty-provenance {
+  margin: 8px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chain-uncertainty-provenance span {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #eef3f8;
+  color: #53657c;
+  font-size: 10px;
+}
+
+.chain-uncertainty-panel table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.chain-uncertainty-panel th,
+.chain-uncertainty-panel td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #e6ebf2;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.chain-uncertainty-panel th:first-child {
+  text-align: left;
+}
+
+.chain-stage-b-uncertainty {
+  margin-top: 8px;
+}

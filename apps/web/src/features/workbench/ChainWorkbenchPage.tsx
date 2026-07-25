@@ -14,6 +14,7 @@ import {
   rebaseChangedFields,
 } from "../candidates";
 import { BlendEditorPanel } from "./BlendEditorPanel";
+import { ChainUncertaintyPanel } from "./ChainUncertaintyPanel";
 import {
   CandidateRequestGeneration,
   type CandidateRequestToken,
@@ -516,6 +517,18 @@ export function ChainWorkbenchPage({
         {latestVariant && <small className="variant-note">実測B経由は別analysis variantです。通常Chainを上書きしません。</small>}
       </section>
     </div>
+
+    {execution && <ChainUncertaintyPanel
+      projectId={projectId}
+      candidateId={selected.id}
+      candidateRevision={selected.revision}
+      pointExecutionReady={
+        execution.status === "latest"
+        && execution.candidate_revision === selected.revision
+      }
+      chainRevisionDigest={execution.chain_revision_digest}
+      pointExecutionRequestId={execution.request_id}
+    />}
 
     <details className="chain-actual-panel">
       <summary>実測Bを使ってStage Cを別分析</summary>

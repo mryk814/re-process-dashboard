@@ -11,6 +11,7 @@ from material_workbench.application.chain_execution import (
     ChainExecutionError,
     ChainExecutionService,
 )
+from material_workbench.application.chain_uncertainty import ChainUncertaintyService
 from material_workbench.application.chain_evaluation import (
     ChainEvaluationCatalog,
     ChainEvaluationError,
@@ -24,6 +25,10 @@ from material_workbench.contracts.chain_execution_contracts import (
     ChainExecution,
     ChainSnapshot,
     IntermediateActualRecord,
+)
+from material_workbench.contracts.chain_uncertainty_contracts import (
+    ChainDistributionCapability,
+    ChainDistributionRun,
 )
 from material_workbench.contracts.chain_evaluation_contracts import (
     ResolvedChainEvaluation,
@@ -64,6 +69,12 @@ class ChainExecutionRequest(ChainApiModel):
     candidate_revision: int = Field(ge=1)
     request_id: str | None = None
     debounce_ms: int = Field(default=250, ge=0, le=1000)
+
+
+class ChainDistributionRequest(ChainApiModel):
+    candidate_revision: int = Field(ge=1)
+    seed: int = Field(default=20260725, ge=0, le=2_147_483_647)
+    sample_count: int = Field(default=512, ge=32, le=4096)
 
 
 class ActualConditionedVariantRequest(ChainApiModel):
@@ -124,6 +135,10 @@ def get_chain_revision(
 
 def _execution_service(request: Request) -> ChainExecutionService:
     return request.app.state.chain_execution_service
+
+
+def _uncertainty_service(request: Request) -> ChainUncertaintyService:
+    return request.app.state.chain_uncertainty_service
 
 
 def _evaluation_catalog(request: Request) -> ChainEvaluationCatalog:
@@ -379,6 +394,76 @@ def get_project_chain_execution(
     if execution is None:
         raise HTTPException(404, "Chain実行結果がありません")
     return execution
+
+
+@execution_router.get(
+    "/{project_id}/chain/distribution-capability",
+    response_model=ChainDistributionCapability,
+    operation_id="getProjectChainDistributionCapability",
+)
+def get_project_chain_distribution_capability(
+    project_id: str,
+    service: Annotated[ChainUncertaintyService, Depends(_uncertainty_service)],
+) -> ChainDistributionCapability:
+    try:
+        return service.capability(project_id)
+    except ChainExecutionError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@execution_router.post(
+    "/{project_id}/chain/candidates/{candidate_id}/distribution-runs",
+    response_model=ChainDistributionRun,
+    status_code=201,
+    operation_id="runProjectChainDistribution",
+)
+def run_project_chain_distribution(
+    project_id: str,
+    candidate_id: str,
+    payload: ChainDistributionRequest,
+    service: Annotated[ChainUncertaintyService, Depends(_uncertainty_service)],
+) -> ChainDistributionRun:
+    try:
+        return service.run(
+            project_id=project_id,
+            candidate_id=candidate_id,
+            candidate_revision=payload.candidate_revision,
+            seed=payload.seed,
+            sample_count=payload.sample_count,
+        )
+    except ChainExecutionError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@execution_router.get(
+    "/{project_id}/chain/candidates/{candidate_id}/distribution-runs/latest",
+    response_model=ChainDistributionRun,
+    operation_id="getLatestProjectChainDistribution",
+)
+def get_latest_project_chain_distribution(
+    project_id: str,
+    candidate_id: str,
+    store: StoreDependency,
+) -> ChainDistributionRun:
+    run = store.latest_chain_distribution_run(project_id, candidate_id)
+    if run is None:
+        raise HTTPException(404, "Chain分布実行結果がありません")
+    return run
+
+
+@execution_router.get(
+    "/chain-distribution-runs/{run_id}",
+    response_model=ChainDistributionRun,
+    operation_id="getChainDistributionRun",
+)
+def get_chain_distribution_run(
+    run_id: str,
+    store: StoreDependency,
+) -> ChainDistributionRun:
+    run = store.get_chain_distribution_run(run_id)
+    if run is None:
+        raise HTTPException(404, "Chain分布実行結果が見つかりません")
+    return run
 
 
 @execution_router.post(

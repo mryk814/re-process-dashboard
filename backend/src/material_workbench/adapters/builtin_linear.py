@@ -15,6 +15,21 @@ class _BuiltinLinearPredictor:
         value = float(feature_vector(self.spec, values) @ self.weights + self.bias)
         return PredictiveSummary(target=self.spec.target, target_kind=self.spec.target_kind, unit=self.spec.unit, point_statistic="mean", point_estimate=value, quantiles={"0.05": value + self.lower, "0.50": value, "0.95": value + self.upper}, distribution={"family": "empirical_quantiles", "support": "real"})
 
+    def sample(
+        self,
+        values: dict[str, float],
+        *,
+        sample_count: int,
+        seed: int,
+    ) -> np.ndarray:
+        """Approximate residual draws from the declared empirical 5–95% span."""
+
+        if sample_count < 2:
+            raise PackageContractError("sample_count must be at least 2")
+        mean = float(feature_vector(self.spec, values) @ self.weights + self.bias)
+        sigma = float((self.upper - self.lower) / (2 * 1.6448536269514722))
+        return mean + sigma * np.random.default_rng(seed).standard_normal(sample_count)
+
 
 class BuiltinLinearAdapter:
     runtime_type = "builtin.linear.v1"

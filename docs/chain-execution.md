@@ -55,3 +55,29 @@ snapshotは次を一つの不変recordとして保存する。
 
 snapshotと最新実行状態、Stage memoはSQLiteへ保存されるため、API再起動後も同じRevisionと結果を読み直せる。
 元Excelや既存の単段prediction snapshotへChain結果を書き込まない。
+
+## 分布伝播は点推定とは別の明示実行
+
+通常の編集では従来どおり点推定だけを自動更新する。
+上流Stageの不確かさを下流へ流す処理は
+`POST .../distribution-runs` を利用者が明示して実行し、別の不変証跡として保存する。
+点推定の `ChainExecution` や判断時点の `ChainSnapshot` を分布結果で上書きしない。
+
+既存Model Packageは不変とし、サンプリング対応の追記でmanifest digestを変えない。
+アプリ本体のallow-listが固定PackageのIDとmanifest digestを完全一致で承認し、
+runtimeが `StageSampleRuntime` を実装した場合だけ有効になる。
+現在のB/C Packageに対して承認する方式は
+`independent-residual-normal-bounded-from-q05-q95/v1` である。
+これは各出力の経験的な5–95%区間から標準偏差を近似し、出力ごとに独立な正規残差を発生させ、
+exact allow-listで固定した物理境界をStage固有・伝播後の双方へ適用する方式である。
+事後分布でも出力間相関を持つjoint distributionでもない。
+
+各Stageの表示とAPIは次を分ける。
+
+- `stage_uncertainty`: 上流入力を点推定へ固定した、そのStage自身の残差不確かさ
+- `propagated_uncertainty`: sample可能な上流Stageを通し、当該Stageの残差も加えた不確かさ
+
+固定seed、sample数、Chain Revision、candidate revision、点推定request ID、
+StageごとのPackage digestとseedをprovenanceへ残す。
+sample非対応Stageは理由を明示し、そこより下流の
+`propagated_uncertainty` を空にするが、既存の点推定結果は変更しない。
