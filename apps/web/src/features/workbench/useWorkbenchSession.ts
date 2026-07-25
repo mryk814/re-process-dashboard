@@ -52,6 +52,8 @@ export function useWorkbenchSession({
   const [brokenOriginCandidateId, setBrokenOriginCandidateId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [projects, setProjects] = useState<ApiProject[]>([]);
+  const projectsRef = useRef(projects);
+  projectsRef.current = projects;
   const [taskDefinition, setTaskDefinition] = useState<TaskDefinitionContract | null>(null);
   const [resolvedTaskDefinition, setResolvedTaskDefinition] = useState<ResolvedTaskDefinition | null>(null);
   const [activeProjectId, setActiveProjectId] = useState("default");
@@ -108,6 +110,24 @@ export function useWorkbenchSession({
     inferenceRequestCache.invalidatePrefix(candidateInferencePrefix(projectId));
     setApiState("loading");
     setLoadError(null);
+    const project = projectsRef.current.find((item) => item.id === projectId);
+    if (project?.scientific_identity?.identity_kind === "chain") {
+      activeProjectIdRef.current = projectId;
+      setActiveProjectId(projectId);
+      setTaskDefinition(null);
+      setResolvedTaskDefinition(null);
+      editor.acceptServerCandidates([]);
+      candidatesRef.current = [];
+      setCandidates([]);
+      selectedIdRef.current = "";
+      setSelectedId("");
+      window.localStorage.setItem("material-workbench-project", projectId);
+      onLocationReplace(projectId);
+      prediction.reset();
+      setApiState("ready");
+      setNotice("Chain Revisionを固定しました");
+      return;
+    }
     const [listedCandidates, resolved] = await Promise.all([
       workbenchApi.listCandidates(projectId),
       workbenchApi.taskDefinition(projectId),
@@ -229,6 +249,7 @@ export function useWorkbenchSession({
             ? remembered!
             : (available[0]?.id ?? "default");
         if (cancelled) return;
+        projectsRef.current = available;
         setProjects(available);
         await loadProject(
           projectId,
@@ -488,6 +509,7 @@ export function useWorkbenchSession({
     try {
       await workbenchApi.deleteProject(projectId);
       const remaining = projects.filter((project) => project.id !== projectId);
+      projectsRef.current = remaining;
       setProjects(remaining);
       if (projectId === activeProjectIdRef.current) {
         const nextProject = remaining[0];
@@ -553,15 +575,22 @@ export function useWorkbenchSession({
   }
 
   async function refreshProjectDefinition(project: ApiProject) {
-    setProjects((items) => items.some((item) => item.id === project.id)
-      ? items.map((item) => item.id === project.id ? project : item)
-      : [...items, project]);
-    if (project.id !== activeProjectId || activeProject?.task_id === project.task_id) return;
+    const nextProjects = projectsRef.current.some((item) => item.id === project.id)
+      ? projectsRef.current.map((item) => item.id === project.id ? project : item)
+      : [...projectsRef.current, project];
+    projectsRef.current = nextProjects;
+    setProjects(nextProjects);
+    if (project.id !== activeProjectId || (
+      activeProject?.task_id === project.task_id
+      && activeProject?.scientific_identity?.identity_kind === project.scientific_identity?.identity_kind
+    )) return;
     await loadProject(project.id, selectedId || undefined);
   }
 
   async function refreshAdminProject(project: ApiProject) {
-    setProjects((items) => items.map((item) => item.id === project.id ? project : item));
+    const nextProjects = projectsRef.current.map((item) => item.id === project.id ? project : item);
+    projectsRef.current = nextProjects;
+    setProjects(nextProjects);
     if (project.id !== activeProjectId) return;
     try {
       const resolved = await workbenchApi.taskDefinition(project.id);

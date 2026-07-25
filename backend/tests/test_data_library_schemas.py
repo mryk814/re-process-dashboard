@@ -46,9 +46,48 @@ def test_existing_project_create_payload_remains_valid_without_binding() -> None
     assert payload.task_contract_digest == ""
 
 
+def test_project_create_accepts_explicit_single_task_identity_union() -> None:
+    payload = ProjectCreateInput(
+        name="明示single",
+        task_id="annealed-properties-v1",
+        scientific_identity={
+            "identity_kind": "single_task",
+            "task_id": "annealed-properties-v1",
+            "dataset_view_revision_id": "view-r1",
+            "task_contract_digest": "task-digest",
+            "model_package_ref_id": "package-ref",
+            "model_package_manifest_digest": "manifest-digest",
+            "binding_provenance": "explicit",
+        },
+    )
+    assert payload.scientific_identity.identity_kind == "single_task"
+
+
+def test_chain_identity_rejects_explicit_single_task_fields() -> None:
+    with pytest.raises(ValidationError, match="task_id"):
+        ProjectCreateInput(
+            name="混在",
+            task_id="annealed-properties-v1",
+            scientific_identity={
+                "identity_kind": "chain",
+                "chain_revision_id": "chain:r1",
+                "chain_revision_digest": "sha256:" + "a" * 64,
+            },
+        )
+
+
 def test_project_response_accepts_unmigrated_nullable_binding() -> None:
     now = datetime.now(UTC)
-    project = Project(id="project-1", created_at=now, updated_at=now)
+    project = Project(
+        id="project-1",
+        created_at=now,
+        updated_at=now,
+        scientific_identity={
+            "identity_kind": "single_task",
+            "task_id": "annealed-properties-v1",
+            "binding_provenance": "unbound_legacy",
+        },
+    )
     assert project.dataset_view_revision_id is None
     assert project.binding_provenance == "unbound_legacy"
 

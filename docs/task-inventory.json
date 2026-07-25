@@ -755,7 +755,7 @@
         "previous": null,
         "package_id": "welding-stage-c-ridge-v1",
         "version": "1.0.0",
-        "manifest_sha256": "04af8944e0fa3eac1039407d5f8e3f9b4d5461bd967039741e0831babcaa9b76",
+        "manifest_sha256": "c6bcbefd7de06afa40d4463196c210dc79d45bcf94a32d22c8a3180660d353b1",
         "runtime_types": [
           "builtin.linear.v1"
         ]

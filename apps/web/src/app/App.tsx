@@ -107,6 +107,7 @@ function App() {
     taskAvailability,
   } = session;
   const { error: previewError, preview, previewsByCandidate } = prediction;
+  const chainProject = activeProject?.scientific_identity?.identity_kind === "chain";
   const taskUnavailable = taskAvailability?.status === "unavailable";
   const unavailableScopedTab = taskUnavailable
     && tab !== "project"
@@ -116,7 +117,7 @@ function App() {
   const qualityAvailable = dataExplorer?.quality === true;
   const lineageAvailable = dataExplorer?.lineage === true;
   const visibleProjectNavItems = projectNavItems.filter((item) => (
-    !taskUnavailable || item.id === "project"
+    (!taskUnavailable && !chainProject) || item.id === "project"
   ) && (!item.requiresDataExplorer || qualityAvailable || lineageAvailable));
   const dataLibraryMode = tab === "data-library" || tab === "profile-workbench";
 
@@ -197,7 +198,7 @@ function App() {
           <div className="context-primary-row">
             <h1 title={activeProject?.name ?? undefined}>{activeProject?.name ?? "プロジェクトを読み込んでいます"}</h1>
             <div className="run-actions">
-              {tab !== "candidates" && !taskUnavailable && (
+              {tab !== "candidates" && !taskUnavailable && !chainProject && (
                 <button
                   type="button"
                   className="stock-button"

@@ -5,29 +5,59 @@ import sqlite3
 from material_workbench.persistence.workspace_catalog_bootstrap import bootstrap_workspace_catalog
 
 
+EXPECTED_DATASET_IDENTITIES = {
+    (
+        "thin-sheet-tutorial-v1",
+        "material_workbench_tutorial_v1.xlsx",
+        ("annealed-properties-v1", "hot-rolled-properties-v1"),
+    ),
+    (
+        "material-workbench-process-v1",
+        "material_workbench_process_v1.xlsx",
+        ("annealed-properties-v1", "hot-rolled-properties-v1"),
+    ),
+    (
+        "cutting-flank-wear-v1",
+        "cutting_tool_flank_wear_synthetic_dataset.xlsx",
+        ("flank-wear-v1",),
+    ),
+    ("external-heat-treatment-v1", "heat_treatment_tradeoff_samples.csv", ("heat-treatment-tradeoff-v1",)),
+    ("external-concrete-v1", "concrete_mix_samples.csv", ("concrete-strength-v1",)),
+    ("external-wear-curve-v1", "wear_curve_samples.csv", ("wear-curve-v1",)),
+    ("calce-cs2-battery-capacity-v1", "battery_calce_cs2_cycles.csv", ("battery-degradation-v1",)),
+    ("uci-secom-yield-v1", "secom_stress.csv", ("secom-yield-risk-v1",)),
+    ("mpea-zenodo-18021833-v1", "mpea_ground_truth_18021833.csv", ("mpea-literature-tys-v1",)),
+    ("mpea-zenodo-18021833-room-tensile-v1", "mpea_ground_truth_18021833.csv", ("mpea-room-tensile-v1",)),
+    ("mpea-zenodo-18021833-hardness-v1", "mpea_ground_truth_18021833.csv", ("mpea-hardness-process-v1",)),
+    (
+        "welding-consumable-stage-b-v1",
+        "welding_consumable_multistage_synthetic_dataset.xlsx",
+        ("welding-consumable-stage-b-v1",),
+    ),
+    (
+        "welding-consumable-stage-c-observations-v1",
+        "welding_consumable_multistage_synthetic_dataset.xlsx",
+        ("welding-stage-c-properties-v1",),
+    ),
+}
+
+
 def test_data_library_exposes_semantic_dataset_records_and_creation_options(client) -> None:
     datasets = client.get("/api/data-library/datasets")
     assert datasets.status_code == 200
     items = datasets.json()
-    assert len(items) == 13
+    assert len(items) == len(EXPECTED_DATASET_IDENTITIES)
+    assert {
+        (
+            item["profile_revision"]["profile_id"],
+            item["data_asset"]["original_filename"],
+            tuple(item["supported_task_ids"]),
+        )
+        for item in items
+    } == EXPECTED_DATASET_IDENTITIES
     assert all(item["data_asset"]["sha256"] for item in items)
     assert all(item["profile_revision"]["profile_digest"] for item in items)
     assert all(item["dataset_revision"]["dataset_digest"] for item in items)
-    assert {task for item in items for task in item["supported_task_ids"]} >= {
-        "annealed-properties-v1",
-        "hot-rolled-properties-v1",
-        "flank-wear-v1",
-        "heat-treatment-tradeoff-v1",
-        "concrete-strength-v1",
-        "wear-curve-v1",
-        "battery-degradation-v1",
-        "secom-yield-risk-v1",
-        "mpea-literature-tys-v1",
-        "mpea-room-tensile-v1",
-        "mpea-hardness-process-v1",
-        "welding-stage-c-properties-v1",
-        "welding-consumable-stage-b-v1",
-    }
     mpea = [
         item for item in items
         if item["data_asset"]["original_filename"] == "mpea_ground_truth_18021833.csv"
@@ -42,7 +72,19 @@ def test_data_library_exposes_semantic_dataset_records_and_creation_options(clie
     options = client.get("/api/project-creation-options")
     assert options.status_code == 200
     payload = options.json()
-    assert len(payload["dataset_views"]) == 13
+    assert len(payload["dataset_views"]) == len(items)
+    assert all(
+        view["kind"] == "single" and len(view["members"]) == 1
+        for view in payload["dataset_views"]
+    )
+    assert {
+        member["dataset_revision_id"]
+        for view in payload["dataset_views"]
+        for member in view["members"]
+    } == {
+        item["dataset_revision"]["id"]
+        for item in items
+    }
     assert len(payload["model_packages"]) >= 15
     assert payload["project_series"]
     assert set(payload["task_contract_digests"]) >= {
