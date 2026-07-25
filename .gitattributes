@@ -7,3 +7,6 @@ apps/web/src/generated/*.ts text eol=lf
 # Dataset bytes are part of Package provenance. Never rewrite line endings,
 # including newlines embedded in quoted CSV fields.
 data/source/external/*.csv -text
+# Excel workbooks are also byte-addressed Package inputs.
+data/source/*.xlsx binary
+data/source/**/*.xlsx binary
