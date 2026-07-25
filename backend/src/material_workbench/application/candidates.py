@@ -66,9 +66,14 @@ class CandidateService:
                 reference.project_id,
             )
             if source_candidate is None:
-                raise CandidateValidationError(
-                    "コピー元候補が見つかりません（指定revisionを含む）"
+                current_source = self.store.get_candidate(
+                    reference.candidate_id,
+                    reference.project_id,
+                    include_archived=True,
                 )
+                if current_source is None:
+                    raise CandidateValidationError("コピー元候補が見つかりません")
+                raise CandidateValidationError("コピー元候補のrevisionが一致しません")
             source_project = self.projects.require(reference.project_id)
             if source_project.task_id != project.task_id:
                 raise CandidateValidationError("異なる予測タスクの候補はコピーできません")
