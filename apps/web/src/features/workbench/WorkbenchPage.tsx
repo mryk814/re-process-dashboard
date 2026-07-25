@@ -29,6 +29,7 @@ import { SimilarityEvidencePanel } from "./SimilarityEvidencePanel";
 import { FeatureEngineeringPanel } from "./FeatureEngineeringPanel";
 import { DecisionActivityPanel } from "./DecisionActivityPanel";
 import { ActualMeasurementPanel } from "./ActualMeasurementPanel";
+import { BlendComparisonPanel } from "./BlendComparisonPanel";
 import { HeatPattern } from "./HeatPatternPanel";
 import {
   CurveFamilyPanel,
@@ -275,6 +276,11 @@ export function WorkbenchPage(props: WorkbenchProps) {
           onConfigureGoals={onConfigureGoals}
           onConfigureSupport={onConfigureSupport}
         />}
+        <BlendComparisonPanel
+          projectId={projectId}
+          candidates={candidates}
+          selected={selected}
+        />
         {taskDefinition && operations?.actual_measurement && <ActualMeasurementPanel
           projectId={projectId}
           candidate={selected}

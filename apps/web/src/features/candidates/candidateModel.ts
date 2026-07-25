@@ -69,6 +69,9 @@ export function toApiCandidate(candidate: CandidateViewModel): ApiCandidateInput
             })),
           }),
     },
+    blend: candidate.raw.blend,
+    editor_state: candidate.raw.editor_state,
+    blend_validation: candidate.raw.blend_validation,
     provenance: candidate.raw.provenance,
   };
 }
