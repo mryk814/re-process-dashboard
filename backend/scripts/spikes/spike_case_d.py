@@ -594,12 +594,40 @@ def _probe_chain(app_module, resources, findings: list[str]) -> None:
             return
         project_id = created.json()["id"]
 
+        capability_response = client.get(
+            f"/api/projects/{project_id}/chain/candidate-capability"
+        )
+        _check(
+            findings,
+            "候補入力capability API（GET chain/candidate-capability）",
+            capability_response.status_code == 200,
+            capability_response.text[:300],
+        )
+        if capability_response.status_code == 200:
+            capability_body = capability_response.json()
+            _check(
+                findings,
+                "capabilityが疎配合不要のadapterを宣言する",
+                capability_body["adapter_id"] == "scalar/v1"
+                and capability_body["sparse_blend"] is False,
+                capability_body,
+            )
+
         contract_response = client.get(f"/api/projects/{project_id}/chain/candidate-contract")
         _check(
             findings,
-            "候補契約API（GET chain/candidate-contract）",
-            contract_response.status_code == 200,
+            "疎配合契約APIは疎配合を使わないChainで明示的に拒否される",
+            contract_response.status_code == 409
+            and "疎な配合明細を使いません" in contract_response.text,
             contract_response.text[:300],
+        )
+
+        listed = client.get(f"/api/projects/{project_id}/chain/candidates")
+        _check(
+            findings,
+            "Chain候補一覧（GET chain/candidates）",
+            listed.status_code == 200,
+            listed.text[:300],
         )
 
         payload = {
@@ -625,13 +653,54 @@ def _probe_chain(app_module, resources, findings: list[str]) -> None:
             candidate.text[:300],
         )
 
-        # 候補が保存できない場合も、Chain Coreの実行経路がどこで落ちるかを直接確認する
         service = client.app.state.chain_execution_service
         try:
-            service.starter_candidate(project_id)
-            _check(findings, "初期候補生成（starter_candidate）", True)
+            starter = service.starter_candidate(project_id)
+            _check(
+                findings,
+                "初期候補生成（starter_candidate）",
+                starter.blend is None and bool(starter.inputs.process),
+                f"blend={starter.blend} process={sorted(starter.inputs.process)}",
+            )
         except Exception as exc:
             _check(findings, "初期候補生成（starter_candidate）", False, exc)
+
+        if candidate.status_code == 201:
+            saved = candidate.json()
+            executed = client.post(
+                f"/api/projects/{project_id}/chain/candidates/{saved['id']}/executions",
+                json={"candidate_revision": saved["revision"], "debounce_ms": 0},
+            )
+            _check(
+                findings,
+                "Chain実行（POST chain/candidates/{id}/executions）",
+                executed.status_code == 200
+                and executed.json()["status"] == "latest",
+                _stage_errors(executed) or executed.text[:400],
+            )
+            if executed.status_code == 200 and executed.json()["status"] == "latest":
+                stage_ids = [stage["stage_id"] for stage in executed.json()["stages"]]
+                _check(findings, "2 Stageが順に実行される", stage_ids == ["X", "Y"], stage_ids)
+                snapshot = client.post(
+                    f"/api/projects/{project_id}/chain/candidates/{saved['id']}/snapshots",
+                    json={"candidate_revision": saved["revision"], "debounce_ms": 0},
+                )
+                _check(
+                    findings,
+                    "Chain snapshotの保存（疎配合参照なし）",
+                    snapshot.status_code == 201,
+                    snapshot.text[:400],
+                )
+                if snapshot.status_code == 201:
+                    identity = snapshot.json()["identity"]
+                    _check(
+                        findings,
+                        "snapshot identityがadapterを記録し、domain参照を持たない",
+                        identity["schema_version"] == "chain-snapshot-identity/v2"
+                        and identity["candidate_adapter_id"] == "scalar/v1"
+                        and identity["domain_references"] == [],
+                        identity,
+                    )
 
         from material_workbench.contracts.schemas import CandidateInput, CandidateInputs
 
@@ -666,9 +735,8 @@ def _probe_chain(app_module, resources, findings: list[str]) -> None:
             capability.text[:300],
         )
 
-        # 候補が保存できないため execute() へ到達できない。binding解決に使われる
-        # 外部入力の名前空間だけを直接確認する。
-        from material_workbench.application.chain_execution import _external_values
+        # binding解決に使われる外部入力の名前空間をadapter経由で確認する。
+        adapter = service.candidate_adapter(project_id)
 
         scalar_candidate = CandidateInput(
             name="スカラー候補",
@@ -685,25 +753,26 @@ def _probe_chain(app_module, resources, findings: list[str]) -> None:
                 heat_pattern=None,
             ),
         )
-        produced = set(_external_values(scalar_candidate))
+        produced = set(adapter.external_values(scalar_candidate))
         required = {port.path for port in definition.external_inputs}
         missing = sorted(required - produced)
         _check(
             findings,
             "外部入力を welding_context 以外の名前空間で渡せる",
             not missing,
-            f"_external_values が生成しないpath={missing} / 生成したpath例={sorted(produced)[:3]}",
+            f"adapterが生成しないpath={missing} / 生成したpath例={sorted(produced)[:3]}",
         )
 
-        # snapshot identityが疎配合参照を必須にしているかを契約レベルで確認する
-        from material_workbench.contracts.chain_contracts import ChainSnapshotIdentity
+        # snapshot identityが疎配合参照を必須にしていないことを契約レベルで確認する
+        from material_workbench.contracts.chain_contracts import ChainSnapshotIdentityV2
 
         try:
-            ChainSnapshotIdentity(
+            ChainSnapshotIdentityV2(
                 chain_revision_id=revision_id,
                 chain_revision_digest=revision.revision_digest,
                 candidate_id="spike-candidate",
                 candidate_revision=1,
+                candidate_adapter_id=adapter.adapter_id,
             )
             _check(findings, "疎配合参照なしでChain snapshot identityを作れる", True)
         except Exception as exc:
@@ -713,6 +782,18 @@ def _probe_chain(app_module, resources, findings: list[str]) -> None:
                 False,
                 str(exc).splitlines()[0],
             )
+
+
+def _stage_errors(response) -> str:
+    try:
+        stages = response.json().get("stages", [])
+    except ValueError:
+        return ""
+    return "; ".join(
+        f"{stage['stage_id']}: {stage['error']}"
+        for stage in stages
+        if stage.get("error")
+    )
 
 
 def _check(findings: list[str], label: str, ok: bool, detail: object = "") -> None:

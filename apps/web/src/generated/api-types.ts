@@ -713,6 +713,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/chain/candidate-capability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Chain Candidate Capability
+         * @description Which candidate surface this Chain needs, before any editor is rendered.
+         */
+        get: operations["getChainCandidateCapability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/chain/candidate-contract": {
         parameters: {
             query?: never;
@@ -2064,6 +2084,24 @@ export interface components {
             /** Target Stage Id */
             target_stage_id: string;
         };
+        /**
+         * ChainCandidateCapability
+         * @description What candidate surface a Chain Revision needs, declared by its adapter.
+         */
+        ChainCandidateCapability: {
+            /** Adapter Id */
+            adapter_id: string;
+            /** External Input Paths */
+            external_input_paths: string[];
+            /**
+             * Schema Version
+             * @default chain-candidate-capability/v1
+             * @constant
+             */
+            schema_version: "chain-candidate-capability/v1";
+            /** Sparse Blend */
+            sparse_blend: boolean;
+        };
         /** ChainCandidateContractResponse */
         ChainCandidateContractResponse: {
             commercial_catalog: components["schemas"]["RevisionRef"];
@@ -2178,6 +2216,15 @@ export interface components {
              * @enum {string}
              */
             status: "completed" | "unsupported";
+        };
+        /**
+         * ChainDomainReference
+         * @description One adapter-owned revision reference required to interpret a snapshot.
+         */
+        ChainDomainReference: {
+            /** Kind */
+            kind: string;
+            ref: components["schemas"]["RevisionRef"];
         };
         /** ChainEvaluationFoldEvidence */
         ChainEvaluationFoldEvidence: {
@@ -2433,7 +2480,8 @@ export interface components {
             external_input: {
                 [key: string]: unknown;
             };
-            identity: components["schemas"]["ChainSnapshotIdentity"];
+            /** Identity */
+            identity: components["schemas"]["ChainSnapshotIdentity"] | components["schemas"]["ChainSnapshotIdentityV2"];
             /** Request Id */
             request_id: string;
             /**
@@ -2449,7 +2497,10 @@ export interface components {
         };
         /**
          * ChainSnapshotIdentity
-         * @description All mutable references required to interpret a stored Chain result.
+         * @description Stored v1 identity. Kept readable because saved snapshots are immutable.
+         *
+         *     v1 hard-codes the sparse-blend references. New snapshots use v2, where the
+         *     candidate adapter supplies its own references through ``domain_references``.
          */
         ChainSnapshotIdentity: {
             /** Candidate Id */
@@ -2463,11 +2514,36 @@ export interface components {
             commercial_catalog: components["schemas"]["RevisionRef"];
             design_space: components["schemas"]["RevisionRef"];
             /**
-             * Schema Version
-             * @default chain-snapshot-identity/v1
-             * @constant
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
              */
             schema_version: "chain-snapshot-identity/v1";
+        };
+        /**
+         * ChainSnapshotIdentityV2
+         * @description Chain-Core identity plus whatever references the adapter declares.
+         */
+        ChainSnapshotIdentityV2: {
+            /** Candidate Adapter Id */
+            candidate_adapter_id: string;
+            /** Candidate Id */
+            candidate_id: string;
+            /** Candidate Revision */
+            candidate_revision: number;
+            /** Chain Revision Digest */
+            chain_revision_digest: string;
+            /** Chain Revision Id */
+            chain_revision_id: string;
+            /**
+             * Domain References
+             * @default []
+             */
+            domain_references: components["schemas"]["ChainDomainReference"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            schema_version: "chain-snapshot-identity/v2";
         };
         /** ChainStage */
         ChainStage: {
@@ -8177,6 +8253,37 @@ export interface operations {
                 };
                 content: {
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getChainCandidateCapability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChainCandidateCapability"];
                 };
             };
             /** @description Validation Error */

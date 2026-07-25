@@ -1692,6 +1692,42 @@
         "title": "ChainBinding",
         "type": "object"
       },
+      "ChainCandidateCapability": {
+        "additionalProperties": false,
+        "description": "What candidate surface a Chain Revision needs, declared by its adapter.",
+        "properties": {
+          "adapter_id": {
+            "minLength": 1,
+            "title": "Adapter Id",
+            "type": "string"
+          },
+          "external_input_paths": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "title": "External Input Paths",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "chain-candidate-capability/v1",
+            "default": "chain-candidate-capability/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sparse_blend": {
+            "title": "Sparse Blend",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "adapter_id",
+          "sparse_blend",
+          "external_input_paths"
+        ],
+        "title": "ChainCandidateCapability",
+        "type": "object"
+      },
       "ChainCandidateContractResponse": {
         "additionalProperties": false,
         "properties": {
@@ -1966,6 +2002,27 @@
           "created_at"
         ],
         "title": "ChainDistributionRun",
+        "type": "object"
+      },
+      "ChainDomainReference": {
+        "additionalProperties": false,
+        "description": "One adapter-owned revision reference required to interpret a snapshot.",
+        "properties": {
+          "kind": {
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "title": "Kind",
+            "type": "string"
+          },
+          "ref": {
+            "$ref": "#/components/schemas/RevisionRef"
+          }
+        },
+        "required": [
+          "kind",
+          "ref"
+        ],
+        "title": "ChainDomainReference",
         "type": "object"
       },
       "ChainEvaluationFoldEvidence": {
@@ -2605,7 +2662,22 @@
             "type": "object"
           },
           "identity": {
-            "$ref": "#/components/schemas/ChainSnapshotIdentity"
+            "discriminator": {
+              "mapping": {
+                "chain-snapshot-identity/v1": "#/components/schemas/ChainSnapshotIdentity",
+                "chain-snapshot-identity/v2": "#/components/schemas/ChainSnapshotIdentityV2"
+              },
+              "propertyName": "schema_version"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ChainSnapshotIdentity"
+              },
+              {
+                "$ref": "#/components/schemas/ChainSnapshotIdentityV2"
+              }
+            ],
+            "title": "Identity"
           },
           "request_id": {
             "minLength": 1,
@@ -2645,7 +2717,7 @@
       },
       "ChainSnapshotIdentity": {
         "additionalProperties": false,
-        "description": "All mutable references required to interpret a stored Chain result.",
+        "description": "Stored v1 identity. Kept readable because saved snapshots are immutable.\n\nv1 hard-codes the sparse-blend references. New snapshots use v2, where the\ncandidate adapter supplies its own references through ``domain_references``.",
         "properties": {
           "candidate_id": {
             "minLength": 1,
@@ -2689,6 +2761,60 @@
           "commercial_catalog"
         ],
         "title": "ChainSnapshotIdentity",
+        "type": "object"
+      },
+      "ChainSnapshotIdentityV2": {
+        "additionalProperties": false,
+        "description": "Chain-Core identity plus whatever references the adapter declares.",
+        "properties": {
+          "candidate_adapter_id": {
+            "minLength": 1,
+            "title": "Candidate Adapter Id",
+            "type": "string"
+          },
+          "candidate_id": {
+            "minLength": 1,
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "candidate_revision": {
+            "minimum": 1.0,
+            "title": "Candidate Revision",
+            "type": "integer"
+          },
+          "chain_revision_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Chain Revision Digest",
+            "type": "string"
+          },
+          "chain_revision_id": {
+            "minLength": 1,
+            "title": "Chain Revision Id",
+            "type": "string"
+          },
+          "domain_references": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ChainDomainReference"
+            },
+            "title": "Domain References",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "chain-snapshot-identity/v2",
+            "default": "chain-snapshot-identity/v2",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "chain_revision_id",
+          "chain_revision_digest",
+          "candidate_id",
+          "candidate_revision",
+          "candidate_adapter_id"
+        ],
+        "title": "ChainSnapshotIdentityV2",
         "type": "object"
       },
       "ChainStage": {
@@ -15194,6 +15320,49 @@
           }
         },
         "summary": "Create Snapshot"
+      }
+    },
+    "/api/projects/{project_id}/chain/candidate-capability": {
+      "get": {
+        "description": "Which candidate surface this Chain needs, before any editor is rendered.",
+        "operationId": "getChainCandidateCapability",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainCandidateCapability"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Chain Candidate Capability",
+        "tags": [
+          "chain-execution"
+        ]
       }
     },
     "/api/projects/{project_id}/chain/candidate-contract": {

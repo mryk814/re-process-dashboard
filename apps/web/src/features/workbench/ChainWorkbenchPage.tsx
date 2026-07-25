@@ -132,10 +132,24 @@ export function ChainWorkbenchPage({
     const projectToken = candidateRequests.current.activate(projectId, "");
     requestSequence.current += 1;
     setBusy(false);
-    void Promise.all([
-      workbenchApi.chainCandidateContract(projectId),
-      workbenchApi.listChainCandidates(projectId),
-    ]).then(async ([loadedContract, items]) => {
+    // この画面は疎配合Chain専用の入力面。Chainが別のcandidate adapterを宣言している
+    // 場合は、契約APIを叩く前にcapabilityで判断して明示的に伝える。
+    void workbenchApi.chainCandidateCapability(projectId).then((capability) => {
+      if (!active || !candidateRequests.current.isCurrent(projectToken)) return null;
+      if (!capability.sparse_blend) {
+        setStatusMessage(
+          `このChainは疎な配合明細を使いません（candidate adapter: ${capability.adapter_id}）。`
+          + "この画面は疎配合Chain専用です。",
+        );
+        return null;
+      }
+      return Promise.all([
+        workbenchApi.chainCandidateContract(projectId),
+        workbenchApi.listChainCandidates(projectId),
+      ]);
+    }).then(async (loaded) => {
+      if (loaded === null) return;
+      const [loadedContract, items] = loaded;
       if (!active || !candidateRequests.current.isCurrent(projectToken)) return;
       setContract(loadedContract);
       setCandidates(items);

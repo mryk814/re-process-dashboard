@@ -194,7 +194,11 @@ ProjectScientificIdentity = Annotated[
 
 
 class ChainSnapshotIdentity(ChainContractModel):
-    """All mutable references required to interpret a stored Chain result."""
+    """Stored v1 identity. Kept readable because saved snapshots are immutable.
+
+    v1 hard-codes the sparse-blend references. New snapshots use v2, where the
+    candidate adapter supplies its own references through ``domain_references``.
+    """
 
     schema_version: Literal["chain-snapshot-identity/v1"] = "chain-snapshot-identity/v1"
     chain_revision_id: Annotated[str, Field(min_length=1)]
@@ -203,6 +207,38 @@ class ChainSnapshotIdentity(ChainContractModel):
     candidate_id: Annotated[str, Field(min_length=1)]
     candidate_revision: Annotated[int, Field(ge=1)]
     commercial_catalog: RevisionRef
+
+
+class ChainDomainReference(ChainContractModel):
+    """One adapter-owned revision reference required to interpret a snapshot."""
+
+    kind: Annotated[str, Field(min_length=1, pattern=r"^[a-z][a-z0-9_]*$")]
+    ref: RevisionRef
+
+
+class ChainSnapshotIdentityV2(ChainContractModel):
+    """Chain-Core identity plus whatever references the adapter declares."""
+
+    schema_version: Literal["chain-snapshot-identity/v2"] = "chain-snapshot-identity/v2"
+    chain_revision_id: Annotated[str, Field(min_length=1)]
+    chain_revision_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+    candidate_id: Annotated[str, Field(min_length=1)]
+    candidate_revision: Annotated[int, Field(ge=1)]
+    candidate_adapter_id: Annotated[str, Field(min_length=1)]
+    domain_references: tuple[ChainDomainReference, ...] = ()
+
+    @model_validator(mode="after")
+    def domain_reference_kinds_are_unique(self) -> "ChainSnapshotIdentityV2":
+        kinds = [item.kind for item in self.domain_references]
+        if len(kinds) != len(set(kinds)):
+            raise ValueError("snapshot domain reference kinds must be unique")
+        return self
+
+
+ChainSnapshotIdentityRef = Annotated[
+    ChainSnapshotIdentity | ChainSnapshotIdentityV2,
+    Field(discriminator="schema_version"),
+]
 
 
 class ChainStageLock(ChainContractModel):

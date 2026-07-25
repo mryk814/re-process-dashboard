@@ -71,6 +71,11 @@ const path = (projectId: string, suffix = "") =>
   `/api/projects/${encodeURIComponent(projectId)}${suffix}`;
 
 export const workbenchApi = {
+  async chainCandidateCapability(projectId: string) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/chain/candidate-capability", {
+      params: { path: { project_id: projectId } },
+    }), "Chainの候補入力capabilityを取得できませんでした。");
+  },
   async chainCandidateContract(projectId: string) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/chain/candidate-contract", {
       params: { path: { project_id: projectId } },

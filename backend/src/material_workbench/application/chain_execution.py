@@ -9,23 +9,24 @@ import uuid
 
 from pydantic import BaseModel
 
-from material_workbench.contracts.blend_contracts import (
-    BlendStructuralError,
-    ResolvedBlendContracts,
-    SparseBlend,
-    validate_sparse_blend,
+from material_workbench.application.chain_candidate_adapters import (
+    ChainCandidateAdapter,
+    ChainCandidateAdapterError,
+    SparseBlendChainAdapter,
+    candidate_adapter_for,
 )
 from material_workbench.contracts.chain_contracts import (
     ChainBinding,
     ChainDefinition,
     ChainProjectIdentity,
     ChainRevision,
-    ChainSnapshotIdentity,
+    ChainSnapshotIdentityV2,
     ChainStageRevision,
 )
 from material_workbench.contracts.chain_execution_contracts import (
     ActualConditionedVariant,
     ActualConditionedVariantIdentity,
+    ChainCandidateCapability,
     ChainExecution,
     ChainSnapshot,
     ChainStageExecution,
@@ -67,17 +68,8 @@ def _set_path(target: dict[str, Any], path: str, value: Any) -> None:
     current[parts[-1]] = value
 
 
-def _external_values(candidate: Candidate | CandidateInput) -> dict[str, Any]:
-    values: dict[str, Any] = {}
-    if candidate.blend is not None:
-        values["candidate.blend"] = candidate.blend.model_input_payload()
-    for key, value in candidate.inputs.process.items():
-        values[f"candidate.welding_context.{key}"] = value
-        values[f"candidate.test_context.{key}"] = value
-    for key, value in candidate.inputs.categorical.items():
-        values[f"candidate.welding_context.{key}"] = value
-        values[f"candidate.test_context.{key}"] = value
-    return values
+def _first_line(exc: Exception) -> str:
+    return str(exc).splitlines()[0] if str(exc) else type(exc).__name__
 
 
 class ChainExecutionCoordinator:
@@ -109,55 +101,77 @@ class ChainExecutionService:
         self.transform_catalog = transform_catalog
         self.coordinator = coordinator
 
-    def candidate_contracts(
+    def _chain(
         self, project_id: str
-    ) -> ResolvedBlendContracts:
-        stage = self._deterministic_stage(project_id)
-        transform_id = stage.contract_id
-        try:
-            blend = self.transform_catalog.initial_blend_for_package(
-                transform_id,
-                stage.package_manifest_digest,
-                stage.contract_digest,
-            )
-            return self.transform_catalog.resolve_execution(
-                transform_id,
-                blend,
-                stage.package_manifest_digest,
-                stage.contract_digest,
-            ).contracts
-        except (KeyError, BlendStructuralError) as exc:
-            raise ChainExecutionError(
-                "Chain Revisionに固定されたStage A契約を解決できません"
-            ) from exc
+    ) -> tuple[ChainDefinition, ChainRevision, ChainProjectIdentity]:
+        project = self.store.get_project(project_id)
+        if project is None:
+            raise ChainExecutionError("Chain Projectが見つかりません")
+        identity = project.scientific_identity
+        if identity.identity_kind != "chain":
+            raise ChainExecutionError("このAPIはChain Project専用です")
+        revision = self.store.get_chain_revision(identity.chain_revision_id)
+        if revision is None or revision.revision_digest != identity.chain_revision_digest:
+            raise ChainExecutionError("固定されたChain Revisionを解決できません")
+        definition = self.store.get_chain_definition(
+            revision.chain_id, revision.chain_definition_digest
+        )
+        if definition is None:
+            raise ChainExecutionError("固定されたChain Definitionを解決できません")
+        return definition, revision, identity
 
-    def candidate_transform_id(self, project_id: str) -> str:
-        return self._deterministic_stage(project_id).contract_id
+    def candidate_adapter(self, project_id: str) -> ChainCandidateAdapter:
+        _definition, revision, _identity = self._chain(project_id)
+        return self._adapter_for(revision)
+
+    def _adapter_for(self, revision: ChainRevision) -> ChainCandidateAdapter:
+        try:
+            return candidate_adapter_for(revision, self.transform_catalog)
+        except ChainCandidateAdapterError as exc:
+            raise ChainExecutionError(str(exc)) from exc
+
+    def candidate_capability(self, project_id: str) -> ChainCandidateCapability:
+        """Declare which candidate surface this Chain needs, before any editing."""
+
+        definition, revision, _identity = self._chain(project_id)
+        adapter = self._adapter_for(revision)
+        return ChainCandidateCapability(
+            adapter_id=adapter.adapter_id,
+            sparse_blend=adapter.sparse_blend,
+            external_input_paths=tuple(
+                port.path for port in definition.external_inputs
+            ),
+        )
+
+    def sparse_blend_adapter(self, project_id: str) -> SparseBlendChainAdapter:
+        """Resolve the adapter for a Chain that declares a sparse-blend candidate."""
+
+        adapter = self.candidate_adapter(project_id)
+        if not isinstance(adapter, SparseBlendChainAdapter):
+            raise ChainExecutionError(
+                "このChainは疎な配合明細を使いません。"
+                "候補の入力面は chain/candidate-capability で判断してください"
+            )
+        return adapter
 
     def starter_candidate(self, project_id: str) -> CandidateInput:
         """Build a usable first candidate from the exact pinned Chain contracts."""
 
-        stage_a = self._deterministic_stage(project_id)
+        definition, revision, _identity = self._chain(project_id)
+        adapter = self._adapter_for(revision)
         try:
-            blend = self.transform_catalog.initial_blend_for_package(
-                stage_a.contract_id,
-                stage_a.package_manifest_digest,
-                stage_a.contract_digest,
+            domain_payload = adapter.initial_domain_payload()
+        except ChainCandidateAdapterError as exc:
+            raise ChainExecutionError(str(exc)) from exc
+        adapter_paths = set(adapter.external_values(
+            CandidateInput(
+                name="probe",
+                inputs=CandidateInputs(
+                    composition={}, process={}, categorical={}, heat_pattern=None
+                ),
+                **domain_payload,
             )
-        except BlendStructuralError as exc:
-            raise ChainExecutionError(
-                "Chain Revisionに固定された初期配合を解決できません"
-            ) from exc
-        project = self.store.get_project(project_id)
-        assert project is not None and project.scientific_identity.identity_kind == "chain"
-        revision = self.store.get_chain_revision(
-            project.scientific_identity.chain_revision_id
-        )
-        assert revision is not None
-        definition = self.store.get_chain_definition(
-            revision.chain_id, revision.chain_definition_digest
-        )
-        assert definition is not None
+        ))
         stage_contracts = {
             stage.stage_id: self.registry.contract_for(stage.contract_id).task_definition
             for stage in revision.stages
@@ -166,7 +180,9 @@ class ChainExecutionService:
         process: dict[str, float] = {}
         categorical: dict[str, str] = {}
         for port in definition.external_inputs:
-            if port.path == "candidate.blend":
+            # Ports the adapter already supplies (a sparse blend, for example)
+            # are not scalar candidate fields.
+            if port.path in adapter_paths:
                 continue
             fields = []
             for binding in definition.bindings:
@@ -225,7 +241,7 @@ class ChainExecutionService:
         return self.prepare_candidate(
             project_id,
             CandidateInput(
-                name="基準配合",
+                name="基準候補",
                 inputs=CandidateInputs(
                     composition={},
                     process=process,
@@ -233,67 +249,32 @@ class ChainExecutionService:
                     heat_pattern=None,
                     heat_time_basis="line_speed",
                 ),
-                blend=blend,
+                **domain_payload,
             ),
         )
 
     def _deterministic_stage(self, project_id: str) -> ChainStageRevision:
-        project = self.store.get_project(project_id)
-        if project is None:
-            raise ChainExecutionError("Chain Projectが見つかりません")
-        identity = project.scientific_identity
-        if identity.identity_kind != "chain":
-            raise ChainExecutionError("このAPIはChain Project専用です")
-        revision = self.store.get_chain_revision(identity.chain_revision_id)
-        if revision is None or revision.revision_digest != identity.chain_revision_digest:
-            raise ChainExecutionError("固定されたChain Revisionを解決できません")
+        _definition, revision, _identity = self._chain(project_id)
         deterministic = [
             stage for stage in revision.stages
             if stage.stage_kind == "deterministic_transform"
         ]
         if len(deterministic) != 1:
             raise ChainExecutionError(
-                "v1 Chain candidateは決定論的Stageを1段だけ必要とします"
+                "このChainは決定論的Stageを1段だけ持つ構成ではありません"
             )
         return deterministic[0]
 
     def prepare_candidate(
         self, project_id: str, payload: CandidateInput
     ) -> CandidateInput:
-        if payload.blend is None:
-            raise ChainExecutionError("Chain候補には疎な配合明細が必要です")
-        blend = payload.blend
-        stage = self._deterministic_stage(project_id)
+        definition, revision, _identity = self._chain(project_id)
+        adapter = self._adapter_for(revision)
         try:
-            resolution = self.transform_catalog.resolve_execution(
-                stage.contract_id,
-                blend,
-                stage.package_manifest_digest,
-                stage.contract_digest,
-            )
-            if (
-                f"sha256:{resolution.package.manifest_sha256}"
-                != stage.package_manifest_digest
-                or resolution.contract_digest != stage.contract_digest
-            ):
-                raise ChainExecutionError(
-                    "候補のStage A Package/contract revisionがChain Revisionと一致しません"
-                )
-            contracts = resolution.contracts
-            validation = validate_sparse_blend(blend, contracts)
-        except (BlendStructuralError, ValueError) as exc:
+            prepared = adapter.prepare_candidate(payload)
+        except ChainCandidateAdapterError as exc:
             raise ChainExecutionError(str(exc)) from exc
-        project = self.store.get_project(project_id)
-        assert project is not None and project.scientific_identity.identity_kind == "chain"
-        revision = self.store.get_chain_revision(
-            project.scientific_identity.chain_revision_id
-        )
-        assert revision is not None
-        definition = self.store.get_chain_definition(
-            revision.chain_id, revision.chain_definition_digest
-        )
-        assert definition is not None
-        external = _external_values(payload)
+        external = adapter.external_values(prepared)
         missing = sorted(
             port.path for port in definition.external_inputs if port.path not in external
         )
@@ -301,32 +282,18 @@ class ChainExecutionService:
             raise ChainExecutionError(
                 "Chain候補の外部contextが不足しています: " + ", ".join(missing)
             )
-        return payload.model_copy(update={"blend_validation": validation})
+        return prepared
 
     def _resolve(
         self, project_id: str, candidate_id: str, candidate_revision: int
     ) -> tuple[Candidate, ChainDefinition, ChainRevision, ChainProjectIdentity]:
-        project = self.store.get_project(project_id)
-        if project is None:
-            raise ChainExecutionError("Chain Projectが見つかりません")
-        identity = project.scientific_identity
-        if identity.identity_kind != "chain":
-            raise ChainExecutionError("このAPIはChain Project専用です")
-        revision = self.store.get_chain_revision(identity.chain_revision_id)
-        if revision is None or revision.revision_digest != identity.chain_revision_digest:
-            raise ChainExecutionError("固定されたChain Revisionを解決できません")
-        definition = self.store.get_chain_definition(
-            revision.chain_id, revision.chain_definition_digest
-        )
-        if definition is None:
-            raise ChainExecutionError("固定されたChain Definitionを解決できません")
+        definition, revision, identity = self._chain(project_id)
         candidate = self.store.get_candidate_revision(
             candidate_id, candidate_revision, project_id
         )
         if candidate is None:
             raise ChainExecutionError("指定したcandidate revisionが見つかりません")
-        if candidate.blend is None:
-            raise ChainExecutionError("Chain候補には疎な配合明細が必要です")
+        # 候補の形状はadapterが保存前に検証済み。Coreはここで形状を仮定しない。
         return candidate, definition, revision, identity
 
     @staticmethod
@@ -371,23 +338,17 @@ class ChainExecutionService:
             ) from exc
 
     def _assert_runtime_identity(
-        self, stage: ChainStageRevision, candidate: Candidate
-    ) -> Any | None:
+        self,
+        stage: ChainStageRevision,
+        candidate: Candidate,
+        adapter: ChainCandidateAdapter,
+    ) -> None:
         if stage.stage_kind == "deterministic_transform":
-            assert candidate.blend is not None
-            resolution = self.transform_catalog.resolve_execution(
-                stage.contract_id,
-                candidate.blend,
-                stage.package_manifest_digest,
-                stage.contract_digest,
-            )
-            actual = f"sha256:{resolution.package.manifest_sha256}"
-            if resolution.contract_digest != stage.contract_digest:
-                raise ChainExecutionError(
-                    f"Stage {stage.stage_id}のcontract digestがChain Revisionと一致しません"
-                )
+            try:
+                actual = adapter.assert_deterministic_identity(stage, candidate)
+            except ChainCandidateAdapterError as exc:
+                raise ChainExecutionError(str(exc)) from exc
         else:
-            resolution = None
             actual_contract = semantic_digest(
                 self.registry.contract_for(
                     stage.contract_id
@@ -402,31 +363,30 @@ class ChainExecutionService:
             raise ChainExecutionError(
                 f"Stage {stage.stage_id}のPackage digestがChain Revisionと一致しません"
             )
-        return resolution
 
     def _run_stage(
         self,
         stage: ChainStageRevision,
         canonical_input: dict[str, Any],
         candidate: Candidate,
+        adapter: ChainCandidateAdapter,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
-        resolution = self._assert_runtime_identity(stage, candidate)
+        self._assert_runtime_identity(stage, candidate, adapter)
         if stage.stage_kind == "deterministic_transform":
-            if candidate.blend is None:
-                raise ChainExecutionError("Stage Aに配合明細がありません")
-            assert resolution is not None
-            scientific = resolution.transform.transform(candidate.blend)
-            payload = _plain(scientific)
-            outputs = {
-                **payload["material_composition"],
-                **payload["auxiliary_features"],
-            }
-            return payload, outputs
+            try:
+                return adapter.run_deterministic_stage(stage, candidate)
+            except ChainCandidateAdapterError as exc:
+                raise ChainExecutionError(str(exc)) from exc
         stage_candidate = candidate.model_copy(
             deep=True,
             update={
                 "inputs": CandidateInputs.model_validate(
                     {
+                        # A stage may bind only some input groups; Core must not
+                        # assume a composition group exists.
+                        "composition": {},
+                        "process": {},
+                        "categorical": {},
                         **canonical_input,
                         "heat_pattern": None,
                         "heat_time_basis": "line_speed",
@@ -451,16 +411,17 @@ class ChainExecutionService:
 
     @staticmethod
     def _outputs_from_payload(
-        stage: ChainStageRevision, payload: Mapping[str, Any]
+        stage: ChainStageRevision,
+        payload: Mapping[str, Any],
+        adapter: ChainCandidateAdapter,
     ) -> dict[str, Any]:
         if stage.stage_kind == "deterministic_transform":
-            composition = payload.get("material_composition", {})
-            auxiliary = payload.get("auxiliary_features", {})
-            if not isinstance(composition, dict) or not isinstance(auxiliary, dict):
+            try:
+                return adapter.deterministic_outputs(payload)
+            except ChainCandidateAdapterError as exc:
                 raise ChainExecutionError(
-                    f"Stage {stage.stage_id}の保存結果をbindingへ戻せません"
-                )
-            return {**composition, **auxiliary}
+                    f"Stage {stage.stage_id}の保存結果をbindingへ戻せません: {exc}"
+                ) from exc
         predictions = payload.get("predictions")
         if not isinstance(predictions, dict):
             raise ChainExecutionError(
@@ -579,7 +540,8 @@ class ChainExecutionService:
                 project_id, candidate, identity, revision, request_id, previous_execution
             )
 
-        external = _external_values(candidate)
+        adapter = self._adapter_for(revision)
+        external = adapter.external_values(candidate)
         upstream_outputs: dict[str, dict[str, Any]] = {}
         stages: list[ChainStageExecution] = []
         for stage in revision.stages:
@@ -707,10 +669,10 @@ class ChainExecutionService:
             memo_key = self._memo_key(stage, input_digest)
             memo = self.store.get_chain_stage_memo(memo_key)
             try:
-                self._assert_runtime_identity(stage, candidate)
+                self._assert_runtime_identity(stage, candidate, adapter)
                 if memo is None:
                     payload, outputs = self._run_stage(
-                        stage, canonical_input, candidate
+                        stage, canonical_input, candidate, adapter
                     )
                     memo_result = {"payload": payload, "outputs": outputs}
                     self.store.put_chain_stage_memo(
@@ -846,7 +808,8 @@ class ChainExecutionService:
         candidate, definition, revision, identity = self._resolve(
             project_id, candidate_id, candidate_revision
         )
-        external = _external_values(candidate)
+        adapter = self._adapter_for(revision)
+        external = adapter.external_values(candidate)
         previous_by_stage = {
             item.stage_id: item for item in previous_execution.stages
         }
@@ -905,7 +868,7 @@ class ChainExecutionService:
                     )
                 )
                 upstream_outputs[stage.stage_id] = self._outputs_from_payload(
-                    stage, previous.result
+                    stage, previous.result, adapter
                 )
             else:
                 stages.append(
@@ -987,7 +950,7 @@ class ChainExecutionService:
         candidate_id: str,
         candidate_revision: int,
     ) -> ChainSnapshot:
-        candidate, _definition, _revision, identity = self._resolve(
+        candidate, _definition, revision, identity = self._resolve(
             project_id, candidate_id, candidate_revision
         )
         execution = self.store.get_chain_execution(project_id, candidate_id)
@@ -999,19 +962,23 @@ class ChainExecutionService:
             raise ChainExecutionError(
                 "全Stageが最新のChain結果を先に実行してください"
             )
-        blend: SparseBlend = candidate.blend  # type: ignore[assignment]
+        adapter = self._adapter_for(revision)
+        try:
+            domain_references = adapter.snapshot_domain_references(candidate)
+        except ChainCandidateAdapterError as exc:
+            raise ChainExecutionError(str(exc)) from exc
         snapshot = ChainSnapshot(
             snapshot_id=str(uuid.uuid4()),
-            identity=ChainSnapshotIdentity(
+            identity=ChainSnapshotIdentityV2(
                 chain_revision_id=identity.chain_revision_id,
                 chain_revision_digest=identity.chain_revision_digest,
-                design_space=blend.design_space,
                 candidate_id=candidate.id,
                 candidate_revision=candidate.revision,
-                commercial_catalog=blend.commercial_catalog,
+                candidate_adapter_id=adapter.adapter_id,
+                domain_references=domain_references,
             ),
             request_id=execution.request_id,
-            external_input=_external_values(candidate),
+            external_input=adapter.external_values(candidate),
             stages=execution.stages,
             created_at=_now(),
         )
@@ -1097,7 +1064,9 @@ class ChainExecutionService:
                 component: measured[component] for component in required_components
             },
         }
-        payload, _outputs = self._run_stage(stage_c, canonical_input, candidate)
+        payload, _outputs = self._run_stage(
+            stage_c, canonical_input, candidate, self._adapter_for(revision)
+        )
         measurement_payload = [
             {
                 "actual_id": record.actual_id,

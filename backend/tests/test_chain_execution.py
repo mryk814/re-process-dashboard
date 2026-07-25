@@ -854,8 +854,13 @@ def test_chain_snapshot_pins_every_identity_and_survives_store_restart(
         project["scientific_identity"]["chain_revision_digest"]
     )
     assert snapshot["identity"]["candidate_revision"] == candidate["revision"]
-    assert snapshot["identity"]["design_space"] == candidate["blend"]["design_space"]
-    assert snapshot["identity"]["commercial_catalog"] == candidate["blend"][
+    assert snapshot["identity"]["schema_version"] == "chain-snapshot-identity/v2"
+    assert snapshot["identity"]["candidate_adapter_id"] == "sparse_blend/v1"
+    domain_references = {
+        item["kind"]: item["ref"] for item in snapshot["identity"]["domain_references"]
+    }
+    assert domain_references["design_space"] == candidate["blend"]["design_space"]
+    assert domain_references["commercial_catalog"] == candidate["blend"][
         "commercial_catalog"
     ]
     assert [stage["package_manifest_digest"] for stage in snapshot["stages"]] == [

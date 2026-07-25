@@ -9,11 +9,22 @@ from pydantic import Field, field_validator, model_validator
 
 from material_workbench.contracts.chain_contracts import (
     ChainContractModel,
-    ChainSnapshotIdentity,
+    ChainSnapshotIdentityRef,
 )
 
 
 ChainStageFreshness = Literal["latest", "running", "stale", "failed"]
+
+
+class ChainCandidateCapability(ChainContractModel):
+    """What candidate surface a Chain Revision needs, declared by its adapter."""
+
+    schema_version: Literal["chain-candidate-capability/v1"] = (
+        "chain-candidate-capability/v1"
+    )
+    adapter_id: Annotated[str, Field(min_length=1)]
+    sparse_blend: bool
+    external_input_paths: tuple[Annotated[str, Field(min_length=1)], ...]
 
 
 class ChainStageExecution(ChainContractModel):
@@ -69,7 +80,7 @@ class ChainExecution(ChainContractModel):
 class ChainSnapshot(ChainContractModel):
     schema_version: Literal["chain-snapshot/v1"] = "chain-snapshot/v1"
     snapshot_id: Annotated[str, Field(min_length=1)]
-    identity: ChainSnapshotIdentity
+    identity: ChainSnapshotIdentityRef
     request_id: Annotated[str, Field(min_length=1)]
     external_input: dict[str, Any]
     stages: Annotated[tuple[ChainStageExecution, ...], Field(min_length=1)]

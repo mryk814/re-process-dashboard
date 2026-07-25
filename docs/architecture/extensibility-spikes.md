@@ -19,7 +19,7 @@
 | A 標準表形式Task | **予測通り成立** | 新規Python関数0件で既存アプリ機能を全て利用できた。ただしPackage構築の順序制約が2件見つかった |
 | B 複数観測family | **半分成立** | Profile契約とTraining Viewは溶接語彙なしで再利用できた。runtimeとbuilderは1 Taskに固定されており再利用できない |
 | C 可変長系列 | **予測通り不成立** | 検査した7項目すべてが現行契約で表現できない |
-| D 二段Chain | **予測通り不成立** | Chain Coreの契約層（Definition / binding / Revision）は再利用できた。候補層以降が6点で塞がる |
+| D 二段Chain | **予測通り不成立 → P1-bで解消** | Chain Coreの契約層（Definition / binding / Revision）は再利用できた。候補層以降が6点で塞がっていたが、candidate adapterの分離後は全項目OK |
 
 ## 0. 共通ルール
 
@@ -439,17 +439,30 @@ A（標準表形式Task）          実行済み
 - Activity追加時に触る箇所は4か所（contracts / handler module / registry / UI view+registry）。
   [decision-activities.md](../decision-activities.md) に記載
 
-### P1-b｜Chain Coreと溶接adapterの分離
+### P1-b｜Chain Coreと溶接adapterの分離 — **完了**
 
 - 根拠: [ケースD実測](#4-ケースd疎配合を使わない二段chain)。塞がったのは6点で、うち5点が `chain_execution.py` の候補層、1点が `ChainSnapshotIdentity` 契約
-- 範囲（実測で確定した最小集合）:
-  1. `_external_values` の名前空間をadapter提供へ（D-4。契約層は既に任意名前空間を受理する）
-  2. `prepare_candidate` / `_resolve` の疎配合必須を解除し、候補検証をadapterへ（D-2, D-3）
-  3. 決定論的Stage 1段必須の解除。候補契約API / 初期候補生成をadapterへ（D-1）
-  4. `ChainSnapshotIdentity` の `design_space` / `commercial_catalog` をdomain参照として分離（D-5, D-6）
-- 手を付けなくてよいと実測できた範囲: `ChainDefinition` / binding検証 / `build_chain_revision` / store登録 / Chain Project作成 / `api/chains.py` / `welding_chain_bootstrap.py`
-- 完了条件: ケースDのスパイクがChain Coreの変更なしで実行できる（`backend/scripts/spikes/spike_case_d.py` が全OKになる）
-- 依存: なし。**着手可**
+- 実施内容:
+  1. `application/chain_candidate_adapters.py` を追加。`ScalarChainAdapter` と `SparseBlendChainAdapter` をallow-listし、
+     Chain Revisionが宣言したStage構成から選ぶ（Task IDでは選ばない）
+  2. 外部入力の名前空間、候補検証、初期候補のdomain payload、決定論的Stageの実行と出力形状、
+     snapshotのdomain参照をadapterへ移動（D-1〜D-4）
+  3. `ChainSnapshotIdentityV2` を追加し、`design_space` / `commercial_catalog` をadapter提供の
+     `domain_references` へ。保存済みv1は不変のまま読める（D-5, D-6）
+  4. `GET /chain/candidate-capability` を追加。UIは契約APIを叩く前に必要な入力面を判断する
+- **実施中に見つかったCoreの欠陥**: `_run_stage` が `CandidateInputs` を組むとき
+  `composition` グループの存在を仮定していた（`composition` は必須フィールド）。
+  溶接Chainは常に `composition.*` をbindingするため露見していなかった。空dictを既定にして修正
+- 手を付けずに済んだ範囲（予測通り）: `ChainDefinition` / binding検証 / `build_chain_revision` /
+  store登録 / Chain Project作成 / `welding_chain_bootstrap.py`。`api/chains.py` は
+  分岐追加ではなく guard の置き換えのみ
+- 完了条件の確認: **`backend/scripts/spikes/spike_case_d.py` が全19項目OK**
+  （capability宣言、候補保存、2 Stage実行、snapshot保存、名前空間、不確かさ伝播）。
+  境界は `backend/tests/test_chain_candidate_adapters.py` で固定し、
+  Chain Coreに `welding_context` / `material_composition` 等のdomain symbolが現れたら落ちる
+- **未着手として残す範囲**: `actual_conditioned_variant` の `composition.` prefix前提（inventory §3 #12）と
+  Chain Workbench画面のスカラー候補editor。前者は中間実測が組成であるChainにしか使えない制約として残り、
+  後者はスカラーChainを製品機能として出すときに作る
 
 ### P1-c｜Canonical Training View境界の明示
 
@@ -504,7 +517,7 @@ A（標準表形式Task）          実行済み
 | 2 | 新しい標準表形式Taskが既存機能をTask固有実装なしで使える | **達成済み**（ケースA） |
 | 3 | 新しいCandidate Shapeを既存shapeを壊さず追加できる | 未達（ケースC。7/7が表現不可） |
 | 4 | 新しいDecision Activityを既存Activity serviceへ分岐追加せず登録できる | **達成済み**（P1-a完了。共通部分がactivity_idを名指ししないことをテストで固定） |
-| 5 | 疎配合を使わないChainがChain Coreの変更なしで実行できる | 未達（ケースD。6点で塞がる） |
+| 5 | 疎配合を使わないChainがChain Coreの変更なしで実行できる | **達成済み**（P1-b完了。ケースDのスパイクが全項目OK） |
 | 6 | 異質な第二ユースケースで共通境界が実証される | **部分達成**（ケースBでObservation Profile / Training Viewが実証。runtime / builderは未達） |
 | 7 | 安全性・再現性の契約を緩めず、変更ファイル数と専用分岐数が減る | 契約は一切変更していない。分岐削減はP1で計測 |
 | 8 | 共通化しない方がよい特殊領域が明示されている | **達成済み**（inventory §3の分類、P2の優先度引き下げ） |

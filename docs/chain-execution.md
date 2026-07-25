@@ -9,6 +9,45 @@ Chain候補も単段候補APIへ混ぜない。
 作成・更新時に、Projectが固定した科学変換master、商用catalog、Design Spaceのrevisionをサーバー正本と照合する。
 配合制約に違反するdraftは理由付きで保存できるが、Chain実行はできない。
 
+## Chain Coreとcandidate adapter
+
+Chain実行は2層に分かれる。
+
+**Chain Core**（`application/chain_execution.py`, `chain_uncertainty.py`）が持つのは、
+Stage順序、binding解決、単位変換、部分再計算、鮮度判定、古い応答の破棄、memo、
+generation競合制御、provenance、snapshotである。
+**Coreは候補の形状を仮定しない。**
+
+**Candidate adapter**（`application/chain_candidate_adapters.py`）が持つのは、
+候補が何で出来ているかに依存する部分である。
+
+- 候補が外部入力として公開する名前空間
+- 候補の妥当性検証と初期候補のdomain payload
+- 決定論的Stageの実行と、その出力形状
+- snapshotの解釈に必要な追加revision参照
+
+adapterはallow-listされており、Chain Revisionが宣言したStage構成から選ばれる。
+Task IDやProject名からは選ばない。
+
+| adapter | 選択条件 | 候補 |
+| --- | --- | --- |
+| `sparse_blend/v1` | 決定論的Stageが1段 | 疎な配合明細＋施工・試験contextのスカラー |
+| `scalar/v1` | 決定論的Stageなし | 工程条件のスカラーとカテゴリのみ |
+
+画面を出す前に `GET /api/projects/{project_id}/chain/candidate-capability` で
+必要な入力面を判断する。疎配合を使わないChainに対して疎配合契約APIは409で明示的に断る。
+現行のChain Workbench画面は `sparse_blend/v1` 専用であり、他のadapterでは理由を表示して停止する。
+
+## snapshot identityとdomain参照
+
+保存済みsnapshotのidentityは、Chain Coreの参照（Chain Revision、候補ID、候補revision、adapter ID）と、
+adapterが宣言した `domain_references` を分けて持つ。
+疎配合Chainは `design_space` と `commercial_catalog` をdomain参照として記録する。
+疎配合を使わないChainのsnapshotはdomain参照を持たない。
+
+保存済みの `chain-snapshot-identity/v1` は不変なので、そのまま読める形で残している。
+新しいsnapshotは `chain-snapshot-identity/v2` で保存する。
+
 ## 再計算単位
 
 各Stageのcanonical inputを正規化JSONとして組み立て、そのcontent hashを計算する。

@@ -7,10 +7,13 @@ import uuid
 
 import numpy as np
 
+from material_workbench.application.chain_candidate_adapters import (
+    ChainCandidateAdapter,
+    ChainCandidateAdapterError,
+)
 from material_workbench.application.chain_execution import (
     ChainExecutionError,
     ChainExecutionService,
-    _external_values,
     _set_path,
 )
 from material_workbench.contracts.chain_contracts import ChainBinding, ChainStageRevision
@@ -84,13 +87,15 @@ def apply_output_bounds(
 
 
 def _point_estimates(
-    stage: ChainStageRevision, result: Mapping[str, Any]
+    stage: ChainStageRevision,
+    result: Mapping[str, Any],
+    adapter: ChainCandidateAdapter,
 ) -> dict[str, float]:
     if stage.stage_kind == "deterministic_transform":
-        values = {
-            **result.get("material_composition", {}),
-            **result.get("auxiliary_features", {}),
-        }
+        try:
+            values: Mapping[str, Any] = adapter.deterministic_outputs(result)
+        except ChainCandidateAdapterError as exc:
+            raise ChainExecutionError(str(exc)) from exc
     else:
         values = {
             key: item.get("value")
@@ -236,7 +241,8 @@ class ChainUncertaintyService:
                 "分布を実行する前に、同じ候補revisionの点推定を最新にしてください"
             )
         point_by_stage = {stage.stage_id: stage for stage in point.stages}
-        external = _external_values(candidate)
+        adapter = self.execution._adapter_for(revision)
+        external = adapter.external_values(candidate)
         point_outputs: dict[str, dict[str, Any]] = {}
         sampled_outputs: dict[str, dict[str, np.ndarray]] = {}
         stage_results: list[ChainStageUncertainty] = []
@@ -247,9 +253,9 @@ class ChainUncertaintyService:
         for stage, seed_sequence in zip(revision.stages, stage_seeds, strict=True):
             evidence = point_by_stage[stage.stage_id]
             assert evidence.result is not None
-            point_values = _point_estimates(stage, evidence.result)
+            point_values = _point_estimates(stage, evidence.result, adapter)
             point_outputs[stage.stage_id] = self.execution._outputs_from_payload(
-                stage, evidence.result
+                stage, evidence.result, adapter
             )
             if stage.stage_kind == "deterministic_transform":
                 stage_results.append(
@@ -267,7 +273,7 @@ class ChainUncertaintyService:
                 )
                 continue
 
-            self.execution._assert_runtime_identity(stage, candidate)
+            self.execution._assert_runtime_identity(stage, candidate, adapter)
             runtime = self.execution.registry.entry_for(
                 stage.contract_id
             ).predictor_runtime
@@ -348,7 +354,7 @@ class ChainUncertaintyService:
                         sampled_outputs=sampled_outputs,
                     )
                     _, outputs = self.execution._run_stage(
-                        stage, canonical_input, candidate
+                        stage, canonical_input, candidate, adapter
                     )
                     for key in conditional:
                         conditional[key][index] = float(outputs[key])

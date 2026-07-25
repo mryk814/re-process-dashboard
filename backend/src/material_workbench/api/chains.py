@@ -7,6 +7,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
 from material_workbench.api.dependencies import get_store, get_workspace_catalog
+from material_workbench.application.chain_candidate_adapters import (
+    ChainCandidateAdapterError,
+)
 from material_workbench.application.chain_execution import (
     ChainExecutionError,
     ChainExecutionService,
@@ -22,6 +25,7 @@ from material_workbench.contracts.chain_contracts import (
 )
 from material_workbench.contracts.chain_execution_contracts import (
     ActualConditionedVariant,
+    ChainCandidateCapability,
     ChainExecution,
     ChainSnapshot,
     IntermediateActualRecord,
@@ -141,6 +145,15 @@ def _uncertainty_service(request: Request) -> ChainUncertaintyService:
     return request.app.state.chain_uncertainty_service
 
 
+def _require_chain_project(service: ChainExecutionService, project_id: str) -> None:
+    """Reject non-Chain projects without assuming a candidate shape."""
+
+    try:
+        service.candidate_capability(project_id)
+    except ChainExecutionError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
 def _evaluation_catalog(request: Request) -> ChainEvaluationCatalog:
     return request.app.state.chain_evaluation_catalog
 
@@ -208,6 +221,23 @@ def get_project_chain_evaluation(
 
 
 @execution_router.get(
+    "/{project_id}/chain/candidate-capability",
+    response_model=ChainCandidateCapability,
+    operation_id="getChainCandidateCapability",
+)
+def get_chain_candidate_capability(
+    project_id: str,
+    service: Annotated[ChainExecutionService, Depends(_execution_service)],
+) -> ChainCandidateCapability:
+    """Which candidate surface this Chain needs, before any editor is rendered."""
+
+    try:
+        return service.candidate_capability(project_id)
+    except ChainExecutionError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@execution_router.get(
     "/{project_id}/chain/candidate-contract",
     response_model=ChainCandidateContractResponse,
     operation_id="getChainCandidateContract",
@@ -217,13 +247,13 @@ def get_chain_candidate_contract(
     service: Annotated[ChainExecutionService, Depends(_execution_service)],
 ) -> ChainCandidateContractResponse:
     try:
-        contracts = service.candidate_contracts(project_id)
-        transform_id = service.candidate_transform_id(project_id)
+        adapter = service.sparse_blend_adapter(project_id)
+        contracts = adapter.resolved_contracts()
         starter = service.starter_candidate(project_id)
-    except ChainExecutionError as exc:
+    except (ChainExecutionError, ChainCandidateAdapterError) as exc:
         raise HTTPException(409, str(exc)) from exc
     return ChainCandidateContractResponse(
-        transform_id=transform_id,
+        transform_id=adapter.transform_id,
         scientific_master=contracts.design_space.scientific_master,
         commercial_catalog=contracts.commercial_catalog.ref,
         design_space=contracts.design_space,
@@ -242,7 +272,10 @@ def list_chain_candidates(
     service: Annotated[ChainExecutionService, Depends(_execution_service)],
     store: StoreDependency,
 ) -> list[Candidate]:
-    service.candidate_contracts(project_id)
+    try:
+        service.candidate_capability(project_id)
+    except ChainExecutionError as exc:
+        raise HTTPException(409, str(exc)) from exc
     return store.list_candidates(project_id)
 
 
@@ -335,7 +368,7 @@ def get_chain_candidate_revision(
     service: Annotated[ChainExecutionService, Depends(_execution_service)],
     store: StoreDependency,
 ) -> Candidate:
-    service.candidate_contracts(project_id)
+    _require_chain_project(service, project_id)
     candidate = store.get_candidate_revision(candidate_id, revision, project_id)
     if candidate is None:
         raise HTTPException(404, "Chain candidate revisionが見つかりません")
@@ -376,7 +409,7 @@ def list_project_chain_snapshots(
     service: Annotated[ChainExecutionService, Depends(_execution_service)],
     store: StoreDependency,
 ) -> list[ChainSnapshot]:
-    service.candidate_contracts(project_id)
+    _require_chain_project(service, project_id)
     return store.list_chain_snapshots(project_id, candidate_id)
 
 
@@ -514,7 +547,7 @@ def list_project_chain_analysis_variants(
     service: Annotated[ChainExecutionService, Depends(_execution_service)],
     store: StoreDependency,
 ) -> list[ActualConditionedVariant]:
-    service.candidate_contracts(project_id)
+    _require_chain_project(service, project_id)
     return store.list_chain_analysis_variants(project_id, candidate_id)
 
 
