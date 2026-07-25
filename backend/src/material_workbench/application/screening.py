@@ -8,6 +8,7 @@ from .projects import ProjectService
 from material_workbench.contracts.schemas import (
     Candidate,
     CandidateInput,
+    SCREENING_POOL_MULTIPLIER,
     ScreeningCandidateBatchRequest,
     ScreeningCandidateBatchResponse,
     ScreeningRequest,
@@ -190,8 +191,9 @@ class ScreeningService:
             "version": "1.0.0",
             "seed": result["seed"],
             "requested_count": payload.samples,
+            "pool_multiplier": SCREENING_POOL_MULTIPLIER,
         }
-        result["rejection_summary"] = result.pop("_rejection_summary", {})
+        result["proposal_diagnostics"] = result.pop("_proposal_diagnostics")
         stored = self.store.create_screening_run(to_jsonable_python(result), project_id)
         return ScreeningRunResponse.model_validate(stored)
 

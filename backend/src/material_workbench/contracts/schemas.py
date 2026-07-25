@@ -440,11 +440,16 @@ class ScreeningVariable(BaseModel):
         return self
 
 
+DEFAULT_SCREENING_SEED = 20260719
+SCREENING_POOL_MULTIPLIER = 4
+
+
 class ScreeningRequest(BaseModel):
     base_candidate_id: Annotated[str, Field(min_length=1)]
     base_inputs: CandidateInputs
     variables: Annotated[dict[str, ScreeningVariable], Field(min_length=1)]
     samples: Annotated[int, Field(ge=48, le=128)] = 64
+    seed: Annotated[int, Field(ge=0, le=2_147_483_647)] = DEFAULT_SCREENING_SEED
     target: Annotated[str, Field(min_length=1)] = "TS"
     target_value: float | None = None
     secondary_targets: dict[str, float] = Field(default_factory=dict)
@@ -917,8 +922,38 @@ class ScreeningScoreContract(BaseModel):
     display_label: str
 
 
+class ScreeningProposalStrategy(BaseModel):
+    id: Annotated[str, Field(min_length=1)]
+    version: Annotated[str, Field(min_length=1)]
+    seed: Annotated[int, Field(ge=0, le=2_147_483_647)]
+    requested_count: Annotated[int, Field(ge=1)]
+    pool_multiplier: Annotated[int, Field(ge=1)] = SCREENING_POOL_MULTIPLIER
+
+
+class ScreeningProposalDiagnostics(BaseModel):
+    generated_count: Annotated[int, Field(ge=1)]
+    valid_count: Annotated[int, Field(ge=0)]
+    evaluated_count: Annotated[int, Field(ge=0)]
+    rejected_count: Annotated[int, Field(ge=0)]
+    rejection_rate: Annotated[float, Field(ge=0, le=1)]
+    rejected_by_reason: dict[str, Annotated[int, Field(ge=1)]] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def counts_share_one_denominator(self) -> "ScreeningProposalDiagnostics":
+        if self.valid_count + self.rejected_count != self.generated_count:
+            raise ValueError("valid_count + rejected_count must equal generated_count")
+        if self.evaluated_count > self.valid_count:
+            raise ValueError("evaluated_count must not exceed valid_count")
+        if sum(self.rejected_by_reason.values()) != self.rejected_count:
+            raise ValueError("rejected_by_reason must sum to rejected_count")
+        expected_rate = self.rejected_count / self.generated_count
+        if not math.isclose(self.rejection_rate, expected_rate, rel_tol=0, abs_tol=1e-12):
+            raise ValueError("rejection_rate must use generated_count as its denominator")
+        return self
+
+
 class ScreeningRunResponse(BaseModel):
-    schema_version: Literal["screening-run/v1", "screening-run/v2"] = "screening-run/v1"
+    schema_version: Literal["screening-run/v1", "screening-run/v2", "screening-run/v3"] = "screening-run/v1"
     id: str
     project_id: str
     created_at: datetime
@@ -935,10 +970,36 @@ class ScreeningRunResponse(BaseModel):
     variables: dict[str, ScreeningVariable]
     design_space: dict[str, Any] | None = None
     design_space_digest: str | None = None
-    proposal_strategy: dict[str, Any] | None = None
-    rejection_summary: dict[str, int] = Field(default_factory=dict)
+    proposal_strategy: ScreeningProposalStrategy | None = None
+    proposal_diagnostics: ScreeningProposalDiagnostics | None = None
+    rejection_summary: dict[str, int] | None = Field(
+        default=None,
+        deprecated="screening-run/v1-v2 compatibility; use proposal_diagnostics",
+    )
     points: list[ScreeningPoint]
     representative_points: list[ScreeningPoint]
+
+    @model_validator(mode="after")
+    def proposal_identity_is_internally_consistent(self) -> "ScreeningRunResponse":
+        if self.schema_version != "screening-run/v3":
+            return self
+        if (
+            self.design_space is None
+            or self.design_space_digest is None
+            or self.proposal_strategy is None
+            or self.proposal_diagnostics is None
+        ):
+            raise ValueError("screening-run/v3 requires design-space, strategy, and diagnostics")
+        if self.proposal_strategy.seed != self.seed:
+            raise ValueError("proposal strategy seed must match screening run seed")
+        if self.proposal_strategy.requested_count != self.samples:
+            raise ValueError("proposal strategy requested_count must match samples")
+        expected_generated = self.samples * self.proposal_strategy.pool_multiplier
+        if self.proposal_diagnostics.generated_count != expected_generated:
+            raise ValueError("proposal diagnostics must cover the complete generated pool")
+        if self.proposal_diagnostics.evaluated_count != self.samples:
+            raise ValueError("proposal diagnostics evaluated_count must match samples")
+        return self
 
 
 class ScreeningCandidateBatchRequest(BaseModel):
