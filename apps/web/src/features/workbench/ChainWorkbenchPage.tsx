@@ -171,6 +171,23 @@ export function ChainWorkbenchPage({
   }, [stageBKeys.join("\u001f")]);
 
   useEffect(() => {
+    if (
+      !initialCandidateId
+      || initialCandidateId === selectedId
+      || !candidates.some((candidate) => candidate.id === initialCandidateId)
+    ) return;
+    const candidateToken = candidateRequests.current.activate(projectId, initialCandidateId);
+    requestSequence.current += 1;
+    setSelectedId(initialCandidateId);
+    setBusy(false);
+    setDraftActualId("");
+    setActualDraft({});
+    setExecution(null);
+    setStatusMessage("Chain候補を切り替えています");
+    void loadCandidateEvidence(initialCandidateId, candidateToken);
+  }, [initialCandidateId, projectId, selectedId, candidates]);
+
+  useEffect(() => {
     if (!selected) return;
     setProcessDraft(Object.fromEntries(
       Object.entries(selected.inputs.process).map(([key, value]) => [key, inputNumber(value)]),

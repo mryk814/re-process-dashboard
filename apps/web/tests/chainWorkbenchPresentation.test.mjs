@@ -11,6 +11,10 @@ const styles = readFileSync(
   "utf8",
 );
 const app = readFileSync(new URL("../src/app/App.tsx", import.meta.url), "utf8");
+const session = readFileSync(
+  new URL("../src/features/workbench/useWorkbenchSession.ts", import.meta.url),
+  "utf8",
+);
 
 test("Chain project has a dedicated candidate work surface", () => {
   assert.match(app, /tab === "candidates" && chainProject/);
@@ -62,4 +66,18 @@ test("blank numeric drafts never become zero and Stage A reuses the sparse blend
   assert.match(source, /chainMode/);
   assert.match(source, /contract\.starter_candidate/);
   assert.match(source, /固定契約から基準配合を作成/);
+});
+
+test("Chain candidate identity survives reload and same-project history navigation", () => {
+  assert.match(session, /onLocationReplace\(projectId, candidateId\)/);
+  assert.match(
+    session,
+    /projectId === activeProjectIdRef\.current[\s\S]*identity_kind === "chain"[\s\S]*return;/,
+  );
+  assert.match(source, /initialCandidateId === selectedId/);
+  assert.match(
+    source,
+    /candidateRequests\.current\.activate\(projectId, initialCandidateId\)/,
+  );
+  assert.match(source, /loadCandidateEvidence\(initialCandidateId, candidateToken\)/);
 });

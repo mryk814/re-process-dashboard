@@ -122,7 +122,7 @@ export function useWorkbenchSession({
       selectedIdRef.current = "";
       setSelectedId("");
       window.localStorage.setItem("material-workbench-project", projectId);
-      onLocationReplace(projectId);
+      onLocationReplace(projectId, candidateId);
       prediction.reset();
       setApiState("ready");
       setNotice("Chain Revisionを固定しました");
@@ -225,6 +225,13 @@ export function useWorkbenchSession({
   }
 
   async function openLocation(projectId: string, candidateId?: string) {
+    const currentProject = projectsRef.current.find((item) => item.id === projectId);
+    if (
+      projectId === activeProjectIdRef.current
+      && currentProject?.scientific_identity?.identity_kind === "chain"
+    ) {
+      return;
+    }
     if (
       projectId !== activeProjectIdRef.current
       || (candidateId && !candidatesRef.current.some((candidate) => candidate.id === candidateId))
