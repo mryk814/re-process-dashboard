@@ -156,6 +156,21 @@ def test_unknown_material_is_a_structural_error_not_a_draft_violation() -> None:
         registry.resolve(blend)
 
 
+def test_blend_material_descriptors_pin_scientific_names_and_catalog_prices() -> None:
+    _, _, _, registry = _contracts()
+
+    descriptors = registry.describe(_blend())
+
+    assert [item.material_id for item in descriptors] == [
+        "RM-0001",
+        "RM-0002",
+        "RM-0003",
+    ]
+    assert descriptors[0].name == "鉄粉"
+    assert descriptors[0].unit_price_yen_per_kg_core == 100
+    assert descriptors[2].group == "純金属粉"
+
+
 def test_design_space_violations_are_returned_together_with_reasons() -> None:
     _, _, _, registry = _contracts()
     blend = _blend(

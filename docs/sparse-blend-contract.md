@@ -73,3 +73,15 @@ Packageの全ファイルとmanifest digestは不変でなければならない�
 商用catalogはPackage外で解決し、原料ごとの
 `配合比 × 単価` と粉体配合コスト（円/kg-core）を派生する。
 フープ単価を持たないため、これは総ワイヤコストではない。
+
+## 派生revisionと比較
+
+候補をコピーするときは、派生元の `candidate_id` だけでなく
+`candidate_revision` を固定する。候補の各revisionは不変に保存し、
+派生元が後で編集・archive・一覧から削除されても、その時点のcanonical inputを
+再表示できる。
+
+配合比較では候補ごとに異なる原料集合の和集合を作り、原料を行、候補と
+派生元revisionを列に転置する。既定は比率差のある原料だけを表示し、
+0%または存在しない原料は `— 未使用` と明示する。価格は候補が固定した
+Commercial Catalog revisionから円/kg-coreで計算し、派生元との差を併記する。

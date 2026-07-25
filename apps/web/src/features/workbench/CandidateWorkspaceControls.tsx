@@ -65,6 +65,17 @@ export function CandidateOrigin({
         <em>コピー元は削除済みか参照できません</em>
       ) : candidate.raw.archived_at ? (
         <em>archive済み候補を参照中</em>
+      ) : provenance.source_kind === "copy" && candidate.raw.blend ? (
+        <button
+          type="button"
+          className="outline-button"
+          onClick={() => document.querySelector(".blend-comparison-panel")?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          })}
+        >
+          派生元 revision {provenance.source_ref.candidate_revision} を見る
+        </button>
       ) : hasOriginNavigation ? (
         <button type="button" className="outline-button" onClick={onOpen}>作成元へ戻る</button>
       ) : (
