@@ -765,6 +765,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/chain/candidates/{candidate_id}/distribution-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run Project Chain Distribution */
+        post: operations["runProjectChainDistribution"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/chain/candidates/{candidate_id}/distribution-runs/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Latest Project Chain Distribution */
+        get: operations["getLatestProjectChainDistribution"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/chain/candidates/{candidate_id}/execution": {
         parameters: {
             query?: never;
@@ -827,6 +861,23 @@ export interface paths {
         put?: never;
         /** Create Project Chain Snapshot */
         post: operations["createProjectChainSnapshot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/chain/distribution-capability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Project Chain Distribution Capability */
+        get: operations["getProjectChainDistributionCapability"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1149,6 +1200,23 @@ export interface paths {
         };
         /** Task Definition */
         get: operations["getProjectTaskDefinition"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/chain-distribution-runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Chain Distribution Run */
+        get: operations["getChainDistributionRun"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1877,6 +1945,89 @@ export interface components {
             /** Stages */
             stages: components["schemas"]["ChainStage"][];
         };
+        /** ChainDistributionCapability */
+        ChainDistributionCapability: {
+            /** Chain Revision Digest */
+            chain_revision_digest: string;
+            /** Chain Revision Id */
+            chain_revision_id: string;
+            /** Explicit Run Available */
+            explicit_run_available: boolean;
+            /** Full Propagation Supported */
+            full_propagation_supported: boolean;
+            /**
+             * Schema Version
+             * @default chain-distribution-capability/v1
+             * @constant
+             */
+            schema_version: "chain-distribution-capability/v1";
+            /** Stages */
+            stages: components["schemas"]["ChainStageSamplingCapability"][];
+        };
+        /** ChainDistributionProvenance */
+        ChainDistributionProvenance: {
+            /**
+             * Algorithm
+             * @default forward-monte-carlo/v1
+             * @constant
+             */
+            algorithm: "forward-monte-carlo/v1";
+            /** Candidate Id */
+            candidate_id: string;
+            /** Candidate Revision */
+            candidate_revision: number;
+            /** Chain Revision Digest */
+            chain_revision_digest: string;
+            /** Chain Revision Id */
+            chain_revision_id: string;
+            /** Point Execution Request Id */
+            point_execution_request_id: string;
+            /** Sample Count */
+            sample_count: number;
+            /** Seed */
+            seed: number;
+        };
+        /** ChainDistributionRequest */
+        ChainDistributionRequest: {
+            /** Candidate Revision */
+            candidate_revision: number;
+            /**
+             * Sample Count
+             * @default 512
+             */
+            sample_count: number;
+            /**
+             * Seed
+             * @default 20260725
+             */
+            seed: number;
+        };
+        /** ChainDistributionRun */
+        ChainDistributionRun: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Project Id */
+            project_id: string;
+            provenance: components["schemas"]["ChainDistributionProvenance"];
+            /** Run Id */
+            run_id: string;
+            /**
+             * Schema Version
+             * @default chain-distribution-run/v1
+             * @constant
+             */
+            schema_version: "chain-distribution-run/v1";
+            /** Stages */
+            stages: components["schemas"]["ChainStageUncertainty"][];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "completed" | "unsupported";
+        };
         /** ChainExecution */
         ChainExecution: {
             /** Candidate Id */
@@ -2093,6 +2244,36 @@ export interface components {
              * @enum {string}
              */
             stage_kind: "task" | "deterministic_transform";
+        };
+        /** ChainStageSamplingCapability */
+        ChainStageSamplingCapability: {
+            capability: components["schemas"]["StageSamplingCapability"];
+            /** Package Manifest Digest */
+            package_manifest_digest: string;
+            /** Stage Id */
+            stage_id: string;
+        };
+        /** ChainStageUncertainty */
+        ChainStageUncertainty: {
+            capability: components["schemas"]["StageSamplingCapability"];
+            /** Package Manifest Digest */
+            package_manifest_digest: string;
+            /** Point Estimates */
+            point_estimates: {
+                [key: string]: number;
+            };
+            /** Propagated Uncertainty */
+            propagated_uncertainty?: {
+                [key: string]: components["schemas"]["DistributionSummary"];
+            };
+            /** Seed */
+            seed?: number | null;
+            /** Stage Id */
+            stage_id: string;
+            /** Stage Uncertainty */
+            stage_uncertainty?: {
+                [key: string]: components["schemas"]["DistributionSummary"];
+            };
         };
         /** ChainTemplateItem */
         ChainTemplateItem: {
@@ -2737,6 +2918,19 @@ export interface components {
             source_kind: "direct";
             /** Source Ref */
             source_ref?: null;
+        };
+        /** DistributionSummary */
+        DistributionSummary: {
+            /** Mean */
+            mean: number;
+            /** Quantiles */
+            quantiles: {
+                [key: string]: number;
+            };
+            /** Sample Count */
+            sample_count: number;
+            /** Standard Deviation */
+            standard_deviation: number;
         };
         /** DurationDiagnostic */
         DurationDiagnostic: {
@@ -5063,6 +5257,25 @@ export interface components {
             source_kind: "stage_output";
             /** Stage Id */
             stage_id: string;
+        };
+        /** StageSamplingCapability */
+        StageSamplingCapability: {
+            /** Method */
+            method?: string | null;
+            /** Method Label */
+            method_label?: string | null;
+            /** Output Dependence */
+            output_dependence?: ("deterministic" | "independent" | "joint") | null;
+            /** Reason */
+            reason?: string | null;
+            /**
+             * Schema Version
+             * @default stage-sampling-capability/v1
+             * @constant
+             */
+            schema_version: "stage-sampling-capability/v1";
+            /** Supported */
+            supported: boolean;
         };
         /** Support */
         Support: {
@@ -7740,6 +7953,74 @@ export interface operations {
             };
         };
     };
+    runProjectChainDistribution: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChainDistributionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChainDistributionRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getLatestProjectChainDistribution: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChainDistributionRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     getProjectChainExecution: {
         parameters: {
             query?: never;
@@ -7864,6 +8145,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChainSnapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getProjectChainDistributionCapability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChainDistributionCapability"];
                 };
             };
             /** @description Validation Error */
@@ -8905,6 +9217,37 @@ export interface operations {
             };
             /** @description Task Runtime Unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getChainDistributionRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChainDistributionRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

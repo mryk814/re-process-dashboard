@@ -814,6 +814,48 @@ class TabularRegressionRuntime:
     def output_keys(self) -> frozenset[str]:
         return frozenset(self.predictors)
 
+    @property
+    def chain_sampling_method(self) -> str:
+        from material_workbench.modeling.stage_sampling import (
+            sampling_capability_for_package,
+        )
+
+        capability = sampling_capability_for_package(self.model_package)
+        return capability.method if capability is not None else ""
+
+    def sample_core(
+        self,
+        candidate: Candidate,
+        *,
+        sample_count: int,
+        seed: int,
+    ) -> "StageSampleResult":
+        from material_workbench.contracts.chain_uncertainty_contracts import (
+            StageSampleResult,
+        )
+        method = self.chain_sampling_method
+        if not method:
+            raise ValueError("このruntime/packageはStage sampleを提供しません")
+        values = build_tabular_features(candidate, self.profile).as_dict()
+        targets = sorted(self.predictors)
+        seeds = np.random.SeedSequence(seed).spawn(len(targets))
+        outputs = {
+            target: [
+                float(value)
+                for value in self.predictors[target].sample(
+                    values,
+                    sample_count=sample_count,
+                    seed=int(stage_seed.generate_state(1)[0]),
+                )
+            ]
+            for target, stage_seed in zip(targets, seeds, strict=True)
+        }
+        return StageSampleResult(
+            method=method,
+            sample_count=sample_count,
+            outputs=outputs,
+        )
+
     def _verify_smoke(self) -> None:
         smoke = self.model_package.manifest.smoke_test
         if smoke is None:

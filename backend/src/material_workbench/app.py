@@ -47,6 +47,7 @@ from material_workbench.application.chain_execution import (
     ChainExecutionCoordinator,
     ChainExecutionService,
 )
+from material_workbench.application.chain_uncertainty import ChainUncertaintyService
 from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
 from .task_modules import (
     PRIMARY_DEFAULT_SOURCE,
@@ -272,6 +273,10 @@ def create_app(
             prepared.task_registry,
             app.state.deterministic_transform_catalog,
             ChainExecutionCoordinator(),
+        )
+        app.state.chain_uncertainty_service = ChainUncertaintyService(
+            app.state.store,
+            app.state.chain_execution_service,
         )
         yield
 

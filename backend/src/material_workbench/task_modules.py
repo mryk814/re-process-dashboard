@@ -15,6 +15,7 @@ from material_workbench.modeling.model_packages import VerifiedModelPackage
 from material_workbench.data.dataset_profile import DatasetInputProfile
 from material_workbench.contracts.schemas import Candidate, CandidateInput
 from material_workbench.contracts.task_contracts import ApplicationCapability, DataExplorerCapability
+from material_workbench.contracts.chain_uncertainty_contracts import StageSampleResult
 
 ANNEALED_TASK_ID = "annealed-properties-v1"
 HOT_ROLLING_TASK_ID = "hot-rolled-properties-v1"
@@ -68,6 +69,21 @@ class PredictionRuntime(Protocol):
     def predict(self, candidate: Any, **kwargs: Any) -> dict[str, Any]: ...
 
     def predict_core(self, candidate: Any, **kwargs: Any) -> dict[str, Any]: ...
+
+
+@runtime_checkable
+class StageSampleRuntime(Protocol):
+    """Optional Chain-only sampling surface; point prediction stays separate."""
+
+    chain_sampling_method: str
+
+    def sample_core(
+        self,
+        candidate: Any,
+        *,
+        sample_count: int,
+        seed: int,
+    ) -> StageSampleResult: ...
 
 
 @runtime_checkable
