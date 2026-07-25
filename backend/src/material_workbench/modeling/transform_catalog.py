@@ -13,8 +13,13 @@ from material_workbench.adapters.builtin_deterministic_linear import (
     DeterministicLinearResult,
 )
 from material_workbench.contracts.blend_contracts import (
+    BlendMaterialDescriptor,
+    BlendStructuralError,
     CommercialMaterialCatalog,
+    ResolvedBlendContracts,
     SparseBlend,
+    SparseBlendDesignSpace,
+    describe_blend_materials,
 )
 from material_workbench.contracts.stage_a_contracts import STAGE_A_COMPONENTS
 from material_workbench.modeling.model_lifecycle import REPOSITORY_ROOT
@@ -43,8 +48,9 @@ class ActiveTransformSelection(_CatalogModel):
     active: Annotated[str, Field(min_length=1)]
     available: Annotated[tuple[str, ...], Field(min_length=1)]
     commercial_catalog: Annotated[str, Field(min_length=1)]
+    design_space: Annotated[str, Field(min_length=1)]
 
-    @field_validator("active", "commercial_catalog")
+    @field_validator("active", "commercial_catalog", "design_space")
     @classmethod
     def safe_relative_path(cls, value: str) -> str:
         return _safe_relative_locator(value)
@@ -84,9 +90,11 @@ class LoadedTransform:
     package: VerifiedModelPackage
     transform: Any
     commercial_catalog: CommercialMaterialCatalog
+    design_space: SparseBlendDesignSpace
     package_locator: str
     available_package_locators: tuple[str, ...]
     commercial_catalog_locator: str
+    design_space_locator: str
 
 
 class DeterministicTransformCatalog:
@@ -110,6 +118,28 @@ class DeterministicTransformCatalog:
     ) -> DeterministicLinearResult:
         entry = self.entry(transform_id)
         return entry.transform.execute(blend, entry.commercial_catalog)
+
+    def resolve_blend(self, blend: SparseBlend) -> ResolvedBlendContracts:
+        for entry in self._entries.values():
+            if (
+                entry.transform.artifact.scientific_master.ref == blend.scientific_master
+                and entry.commercial_catalog.ref == blend.commercial_catalog
+                and entry.design_space.ref == blend.design_space
+            ):
+                return ResolvedBlendContracts(
+                    entry.transform.artifact.scientific_master,
+                    entry.commercial_catalog,
+                    entry.design_space,
+                )
+        raise BlendStructuralError(
+            "配合が参照するStage A・商用catalog・Design Spaceの組み合わせが見つかりません"
+        )
+
+    def describe_blend(
+        self,
+        blend: SparseBlend,
+    ) -> tuple[BlendMaterialDescriptor, ...]:
+        return describe_blend_materials(blend, self.resolve_blend(blend))
 
 
 def active_transforms_path() -> Path:
@@ -201,13 +231,62 @@ def load_deterministic_transform_catalog(
             raise PackageContractError(
                 f"invalid commercial catalog for transform {transform_id}: {exc}"
             ) from exc
+        scientific_by_id = {
+            material.material_id: material
+            for material in transform.artifact.scientific_master.materials
+        }
+        commercial_by_id = {
+            material.material_id: material for material in commercial_catalog.materials
+        }
+        if set(scientific_by_id) != set(commercial_by_id):
+            raise PackageContractError(
+                f"commercial catalog for transform {transform_id} must cover the exact scientific material set"
+            )
+        if any(
+            commercial_by_id[material_id].group != scientific.group
+            for material_id, scientific in scientific_by_id.items()
+        ):
+            raise PackageContractError(
+                f"commercial catalog for transform {transform_id} changes a scientific material group"
+            )
+        if any(
+            not set(material.main_components) <= set(STAGE_A_COMPONENTS)
+            for material in commercial_catalog.materials
+        ):
+            raise PackageContractError(
+                f"commercial catalog for transform {transform_id} has unknown main components"
+            )
+        design_space_path = _resolved_locator(models_root, selection.design_space)
+        try:
+            design_space = SparseBlendDesignSpace.model_validate_json(
+                design_space_path.read_text(encoding="utf-8")
+            )
+        except (OSError, ValueError) as exc:
+            raise PackageContractError(
+                f"invalid Design Space for transform {transform_id}: {exc}"
+            ) from exc
+        if design_space.scientific_master != transform.artifact.scientific_master.ref:
+            raise PackageContractError(
+                f"Design Space for transform {transform_id} references another scientific master"
+            )
+        if design_space.commercial_catalog != commercial_catalog.ref:
+            raise PackageContractError(
+                f"Design Space for transform {transform_id} references another commercial catalog"
+            )
+        material_ids = set(scientific_by_id)
+        if not set(design_space.allowed_material_ids) <= material_ids:
+            raise PackageContractError(
+                f"Design Space for transform {transform_id} contains unknown materials"
+            )
         entries[transform_id] = LoadedTransform(
             transform_id=transform_id,
             package=package,
             transform=transform,
             commercial_catalog=commercial_catalog,
+            design_space=design_space,
             package_locator=selection.active,
             available_package_locators=selection.available,
             commercial_catalog_locator=selection.commercial_catalog,
+            design_space_locator=selection.design_space,
         )
     return DeterministicTransformCatalog(entries)

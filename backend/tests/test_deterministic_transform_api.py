@@ -18,6 +18,7 @@ from material_workbench.modeling.transform_catalog import (
 ROOT = Path(__file__).parents[2]
 PACKAGE_ROOT = ROOT / "models" / "packages" / "welding-stage-a-deterministic-v1"
 CATALOG_PATH = ROOT / "models" / "catalogs" / "welding-stage-a-commercial-v1.json"
+DESIGN_SPACE_PATH = ROOT / "models" / "design-spaces" / "welding-stage-a-v1.json"
 
 
 def _execution_blend() -> dict[str, object]:
@@ -58,12 +59,23 @@ def test_transform_catalog_exposes_active_package_and_fixed_axes(client) -> None
     assert item["active_locator"] == "packages/welding-stage-a-deterministic-v1"
     assert item["available_locators"] == ["packages/welding-stage-a-deterministic-v1"]
     assert item["commercial_catalog_locator"] == "catalogs/welding-stage-a-commercial-v1.json"
+    assert item["design_space_locator"] == "design-spaces/welding-stage-a-v1.json"
     assert item["scientific_master"]["resource_id"] == "welding-stage-a-science"
     assert item["commercial_catalog"] == CommercialMaterialCatalog.model_validate_json(
         CATALOG_PATH.read_text(encoding="utf-8")
     ).ref.model_dump(mode="json")
     assert item["outputs"] == list(STAGE_A_COMPONENTS)
     assert item["auxiliary_features"] == ["alloy_powder_d50_um"]
+
+    editor = client.get("/api/transforms/welding-stage-a-v1/blend-editor")
+    assert editor.status_code == 200
+    context = editor.json()
+    assert len(context["materials"]) == 252
+    assert context["materials"][0]["name"] == "還元鉄粉-01"
+    assert context["materials"][0]["material_type"] == "還元鉄粉"
+    assert context["materials"][0]["main_components"]
+    assert context["design_space"]["selection_count"] == {"minimum": 1, "maximum": 20}
+    assert context["design_space"]["commercial_catalog"] == item["commercial_catalog"]
 
 
 def test_transform_execution_returns_science_and_commercial_outputs(client) -> None:
@@ -156,6 +168,9 @@ def test_transform_catalog_rejects_semantically_broken_nonactive_package(
     catalog = models / "catalogs" / "commercial.json"
     catalog.parent.mkdir(parents=True)
     shutil.copyfile(CATALOG_PATH, catalog)
+    design_space = models / "design-spaces" / "space.json"
+    design_space.parent.mkdir(parents=True)
+    shutil.copyfile(DESIGN_SPACE_PATH, design_space)
 
     manifest_path = broken / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -195,6 +210,7 @@ def test_transform_catalog_rejects_semantically_broken_nonactive_package(
                         "active": "packages/active",
                         "available": ["packages/active", "packages/broken"],
                         "commercial_catalog": "catalogs/commercial.json",
+                        "design_space": "design-spaces/space.json",
                     }
                 },
             }

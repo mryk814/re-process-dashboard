@@ -34,6 +34,7 @@ import build_welding_stage_a_package as package_builder  # noqa: E402
 
 PACKAGE = ROOT / "models/packages/welding-stage-a-deterministic-v1"
 CATALOG = ROOT / "models/catalogs/welding-stage-a-commercial-v1.json"
+DESIGN_SPACE = ROOT / "models/design-spaces/welding-stage-a-v1.json"
 SOURCE = ROOT / "data/source/welding_consumable_multistage_synthetic_dataset.xlsx"
 ORACLE_COMPONENTS = (
     "Fe", "C", "Si", "Mn", "Cr", "Ni", "Mo", "Ti", "B", "Al",
@@ -122,6 +123,7 @@ def test_stage_a_builder_is_reproducible_and_keeps_source_read_only(
         relative = expected.relative_to(PACKAGE)
         assert (package / relative).read_bytes() == expected.read_bytes()
     assert catalog.read_bytes() == CATALOG.read_bytes()
+    assert catalog.with_name("catalog-design-space.json").read_bytes() == DESIGN_SPACE.read_bytes()
 
 
 def test_price_only_rebuild_changes_catalog_but_not_scientific_package(
@@ -160,6 +162,10 @@ def test_price_only_rebuild_changes_catalog_but_not_scientific_package(
     }
     assert repriced_files == original_files
     assert repriced_catalog.read_bytes() != original_catalog.read_bytes()
+    assert (
+        repriced_catalog.with_name("repriced-catalog-design-space.json").read_bytes()
+        != original_catalog.with_name("original-catalog-design-space.json").read_bytes()
+    )
     assert (
         ModelPackageLoader().load(original_package).manifest_sha256
         == ModelPackageLoader().load(repriced_package).manifest_sha256

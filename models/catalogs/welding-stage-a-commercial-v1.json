@@ -1,1267 +1,3283 @@
 {
   "materials": [
     {
+      "group": "鉄粉",
+      "main_components": [
+        "Fe",
+        "O",
+        "Mn"
+      ],
       "material_id": "RM-0001",
+      "material_type": "還元鉄粉",
+      "name": "還元鉄粉-01",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1984.1
     },
     {
+      "group": "鉄粉",
+      "main_components": [
+        "Fe",
+        "O",
+        "Mn"
+      ],
       "material_id": "RM-0002",
+      "material_type": "還元鉄粉",
+      "name": "還元鉄粉-02",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 1704.4
     },
     {
+      "group": "鉄粉",
+      "main_components": [
+        "Fe",
+        "O",
+        "Mn"
+      ],
       "material_id": "RM-0003",
+      "material_type": "還元鉄粉",
+      "name": "還元鉄粉-03",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1442.1
     },
     {
+      "group": "鉄粉",
+      "main_components": [
+        "Fe",
+        "O",
+        "Mn"
+      ],
       "material_id": "RM-0004",
+      "material_type": "還元鉄粉",
+      "name": "還元鉄粉-04",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 247.7
     },
     {
+      "group": "鉄粉",
+      "main_components": [
+        "Fe",
+        "O",
+        "Mn"
+      ],
       "material_id": "RM-0005",
+      "material_type": "還元鉄粉",
+      "name": "還元鉄粉-05",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1026.3
     },
     {
+      "group": "鉄粉",
+      "main_components": [
+        "Fe",
+        "O",
+        "Mn"
+      ],
       "material_id": "RM-0006",
+      "material_type": "還元鉄粉",
+      "name": "還元鉄粉-06",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 291.2
     },
     {
+      "group": "鉄粉",
+      "main_components": [
+        "Fe",
+        "O",
+        "Mn"
+      ],
       "material_id": "RM-0007",
+      "material_type": "還元鉄粉",
+      "name": "還元鉄粉-07",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 163.7
     },
     {
+      "group": "鉄粉",
+      "main_components": [
+        "Fe",
+        "O",
+        "Mn"
+      ],
       "material_id": "RM-0008",
+      "material_type": "還元鉄粉",
+      "name": "還元鉄粉-08",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 1128.5
     },
     {
+      "group": "鉄粉",
+      "main_components": [
+        "Fe",
+        "O",
+        "Mn"
+      ],
       "material_id": "RM-0009",
+      "material_type": "還元鉄粉",
+      "name": "還元鉄粉-09",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 276.5
     },
     {
+      "group": "鉄粉",
+      "main_components": [
+        "Fe",
+        "O",
+        "Mn"
+      ],
       "material_id": "RM-0010",
+      "material_type": "還元鉄粉",
+      "name": "還元鉄粉-10",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 490.1
     },
     {
+      "group": "鉄粉",
+      "main_components": [
+        "Fe",
+        "O",
+        "Mn"
+      ],
       "material_id": "RM-0011",
+      "material_type": "アトマイズ鉄粉",
+      "name": "アトマイズ鉄粉-01",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 884.0
     },
     {
+      "group": "鉄粉",
+      "main_components": [
+        "Fe",
+        "O",
+        "Mn"
+      ],
       "material_id": "RM-0012",
+      "material_type": "アトマイズ鉄粉",
+      "name": "アトマイズ鉄粉-02",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 222.2
     },
     {
+      "group": "鉄粉",
+      "main_components": [
+        "Fe",
+        "O",
+        "Mn"
+      ],
       "material_id": "RM-0013",
+      "material_type": "アトマイズ鉄粉",
+      "name": "アトマイズ鉄粉-03",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 411.7
     },
     {
+      "group": "鉄粉",
+      "main_components": [
+        "Fe",
+        "Mn",
+        "O"
+      ],
       "material_id": "RM-0014",
+      "material_type": "アトマイズ鉄粉",
+      "name": "アトマイズ鉄粉-04",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1943.0
     },
     {
+      "group": "鉄粉",
+      "main_components": [
+        "Fe",
+        "Mn",
+        "O"
+      ],
       "material_id": "RM-0015",
+      "material_type": "アトマイズ鉄粉",
+      "name": "アトマイズ鉄粉-05",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 967.7
     },
     {
+      "group": "鉄粉",
+      "main_components": [
+        "Fe",
+        "Mn",
+        "O"
+      ],
       "material_id": "RM-0016",
+      "material_type": "アトマイズ鉄粉",
+      "name": "アトマイズ鉄粉-06",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 606.8
     },
     {
+      "group": "鉄粉",
+      "main_components": [
+        "Fe",
+        "Mn",
+        "O"
+      ],
       "material_id": "RM-0017",
+      "material_type": "アトマイズ鉄粉",
+      "name": "アトマイズ鉄粉-07",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 467.2
     },
     {
+      "group": "鉄粉",
+      "main_components": [
+        "Fe",
+        "Mn",
+        "O"
+      ],
       "material_id": "RM-0018",
+      "material_type": "アトマイズ鉄粉",
+      "name": "アトマイズ鉄粉-08",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1922.8
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mn",
+        "Fe",
+        "C"
+      ],
       "material_id": "RM-0019",
+      "material_type": "高炭素フェロマンガン",
+      "name": "高炭素フェロマンガン-01",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1344.1
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mn",
+        "C",
+        "Si"
+      ],
       "material_id": "RM-0020",
+      "material_type": "高炭素フェロマンガン",
+      "name": "高炭素フェロマンガン-02",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1124.2
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mn",
+        "Fe",
+        "C"
+      ],
       "material_id": "RM-0021",
+      "material_type": "高炭素フェロマンガン",
+      "name": "高炭素フェロマンガン-03",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 1710.3
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mn",
+        "Fe",
+        "C"
+      ],
       "material_id": "RM-0022",
+      "material_type": "高炭素フェロマンガン",
+      "name": "高炭素フェロマンガン-04",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1266.4
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mn",
+        "Fe",
+        "C"
+      ],
       "material_id": "RM-0023",
+      "material_type": "高炭素フェロマンガン",
+      "name": "高炭素フェロマンガン-05",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 1906.6
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mn",
+        "Fe",
+        "C"
+      ],
       "material_id": "RM-0024",
+      "material_type": "高炭素フェロマンガン",
+      "name": "高炭素フェロマンガン-06",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 667.3
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mn",
+        "Fe",
+        "C"
+      ],
       "material_id": "RM-0025",
+      "material_type": "高炭素フェロマンガン",
+      "name": "高炭素フェロマンガン-07",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 374.0
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mn",
+        "Fe",
+        "C"
+      ],
       "material_id": "RM-0026",
+      "material_type": "高炭素フェロマンガン",
+      "name": "高炭素フェロマンガン-08",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 429.8
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mn",
+        "Fe",
+        "C"
+      ],
       "material_id": "RM-0027",
+      "material_type": "高炭素フェロマンガン",
+      "name": "高炭素フェロマンガン-09",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 184.7
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mn",
+        "Fe",
+        "C"
+      ],
       "material_id": "RM-0028",
+      "material_type": "高炭素フェロマンガン",
+      "name": "高炭素フェロマンガン-10",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 1618.5
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mn",
+        "Fe",
+        "Si"
+      ],
       "material_id": "RM-0029",
+      "material_type": "低炭素フェロマンガン",
+      "name": "低炭素フェロマンガン-01",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 802.3
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mn",
+        "Fe",
+        "Si"
+      ],
       "material_id": "RM-0030",
+      "material_type": "低炭素フェロマンガン",
+      "name": "低炭素フェロマンガン-02",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 299.4
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mn",
+        "Fe",
+        "Si"
+      ],
       "material_id": "RM-0031",
+      "material_type": "低炭素フェロマンガン",
+      "name": "低炭素フェロマンガン-03",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 869.8
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mn",
+        "Fe",
+        "Si"
+      ],
       "material_id": "RM-0032",
+      "material_type": "低炭素フェロマンガン",
+      "name": "低炭素フェロマンガン-04",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1536.8
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mn",
+        "Fe",
+        "Si"
+      ],
       "material_id": "RM-0033",
+      "material_type": "低炭素フェロマンガン",
+      "name": "低炭素フェロマンガン-05",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 1684.6
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mn",
+        "Fe",
+        "Si"
+      ],
       "material_id": "RM-0034",
+      "material_type": "低炭素フェロマンガン",
+      "name": "低炭素フェロマンガン-06",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1529.1
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mn",
+        "Fe",
+        "Si"
+      ],
       "material_id": "RM-0035",
+      "material_type": "低炭素フェロマンガン",
+      "name": "低炭素フェロマンガン-07",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 698.9
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mn",
+        "Fe",
+        "Si"
+      ],
       "material_id": "RM-0036",
+      "material_type": "低炭素フェロマンガン",
+      "name": "低炭素フェロマンガン-08",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1443.0
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mn",
+        "Fe",
+        "Si"
+      ],
       "material_id": "RM-0037",
+      "material_type": "低炭素フェロマンガン",
+      "name": "低炭素フェロマンガン-09",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 1651.8
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mn",
+        "Fe",
+        "Si"
+      ],
       "material_id": "RM-0038",
+      "material_type": "低炭素フェロマンガン",
+      "name": "低炭素フェロマンガン-10",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 118.0
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Si",
+        "Fe",
+        "Al"
+      ],
       "material_id": "RM-0039",
+      "material_type": "フェロシリコン",
+      "name": "フェロシリコン-01",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 790.2
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Si",
+        "Fe",
+        "Al"
+      ],
       "material_id": "RM-0040",
+      "material_type": "フェロシリコン",
+      "name": "フェロシリコン-02",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 646.8
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Si",
+        "Fe",
+        "Al"
+      ],
       "material_id": "RM-0041",
+      "material_type": "フェロシリコン",
+      "name": "フェロシリコン-03",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 103.8
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Si",
+        "Fe",
+        "Al"
+      ],
       "material_id": "RM-0042",
+      "material_type": "フェロシリコン",
+      "name": "フェロシリコン-04",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 687.6
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Si",
+        "Fe",
+        "Al"
+      ],
       "material_id": "RM-0043",
+      "material_type": "フェロシリコン",
+      "name": "フェロシリコン-05",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 1116.0
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Si",
+        "Fe",
+        "Al"
+      ],
       "material_id": "RM-0044",
+      "material_type": "フェロシリコン",
+      "name": "フェロシリコン-06",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 439.5
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Si",
+        "Fe",
+        "Al"
+      ],
       "material_id": "RM-0045",
+      "material_type": "フェロシリコン",
+      "name": "フェロシリコン-07",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 1882.3
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Si",
+        "Fe",
+        "Al"
+      ],
       "material_id": "RM-0046",
+      "material_type": "フェロシリコン",
+      "name": "フェロシリコン-08",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 1729.8
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Si",
+        "Fe",
+        "Al"
+      ],
       "material_id": "RM-0047",
+      "material_type": "フェロシリコン",
+      "name": "フェロシリコン-09",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 2037.3
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mn",
+        "Fe",
+        "Si"
+      ],
       "material_id": "RM-0048",
+      "material_type": "シリコマンガン",
+      "name": "シリコマンガン-01",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1416.6
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mn",
+        "Si",
+        "Fe"
+      ],
       "material_id": "RM-0049",
+      "material_type": "シリコマンガン",
+      "name": "シリコマンガン-02",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 232.2
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mn",
+        "Fe",
+        "Si"
+      ],
       "material_id": "RM-0050",
+      "material_type": "シリコマンガン",
+      "name": "シリコマンガン-03",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1604.7
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mn",
+        "Si",
+        "Fe"
+      ],
       "material_id": "RM-0051",
+      "material_type": "シリコマンガン",
+      "name": "シリコマンガン-04",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 2349.2
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mn",
+        "Si",
+        "Fe"
+      ],
       "material_id": "RM-0052",
+      "material_type": "シリコマンガン",
+      "name": "シリコマンガン-05",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 657.2
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mn",
+        "Si",
+        "Fe"
+      ],
       "material_id": "RM-0053",
+      "material_type": "シリコマンガン",
+      "name": "シリコマンガン-06",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 395.4
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mn",
+        "Si",
+        "Fe"
+      ],
       "material_id": "RM-0054",
+      "material_type": "シリコマンガン",
+      "name": "シリコマンガン-07",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 1479.6
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mn",
+        "Fe",
+        "Si"
+      ],
       "material_id": "RM-0055",
+      "material_type": "シリコマンガン",
+      "name": "シリコマンガン-08",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1248.6
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Cr",
+        "Fe",
+        "C"
+      ],
       "material_id": "RM-0056",
+      "material_type": "フェロクロム",
+      "name": "フェロクロム-01",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1812.4
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Cr",
+        "Fe",
+        "C"
+      ],
       "material_id": "RM-0057",
+      "material_type": "フェロクロム",
+      "name": "フェロクロム-02",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1515.0
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Cr",
+        "Fe",
+        "C"
+      ],
       "material_id": "RM-0058",
+      "material_type": "フェロクロム",
+      "name": "フェロクロム-03",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 661.7
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Cr",
+        "Fe",
+        "C"
+      ],
       "material_id": "RM-0059",
+      "material_type": "フェロクロム",
+      "name": "フェロクロム-04",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 371.2
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Cr",
+        "Fe",
+        "C"
+      ],
       "material_id": "RM-0060",
+      "material_type": "フェロクロム",
+      "name": "フェロクロム-05",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 440.1
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Cr",
+        "Fe",
+        "C"
+      ],
       "material_id": "RM-0061",
+      "material_type": "フェロクロム",
+      "name": "フェロクロム-06",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 922.0
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Cr",
+        "Fe",
+        "C"
+      ],
       "material_id": "RM-0062",
+      "material_type": "フェロクロム",
+      "name": "フェロクロム-07",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1389.1
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Cr",
+        "Fe",
+        "C"
+      ],
       "material_id": "RM-0063",
+      "material_type": "フェロクロム",
+      "name": "フェロクロム-08",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 574.7
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Cr",
+        "Fe",
+        "C"
+      ],
       "material_id": "RM-0064",
+      "material_type": "フェロクロム",
+      "name": "フェロクロム-09",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 2145.9
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mo",
+        "Fe",
+        "Si"
+      ],
       "material_id": "RM-0065",
+      "material_type": "フェロモリブデン",
+      "name": "フェロモリブデン-01",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 124.2
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mo",
+        "Fe",
+        "Si"
+      ],
       "material_id": "RM-0066",
+      "material_type": "フェロモリブデン",
+      "name": "フェロモリブデン-02",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 1913.0
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mo",
+        "Fe",
+        "Si"
+      ],
       "material_id": "RM-0067",
+      "material_type": "フェロモリブデン",
+      "name": "フェロモリブデン-03",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 1625.2
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mo",
+        "Fe",
+        "Si"
+      ],
       "material_id": "RM-0068",
+      "material_type": "フェロモリブデン",
+      "name": "フェロモリブデン-04",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 466.3
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mo",
+        "Fe",
+        "Si"
+      ],
       "material_id": "RM-0069",
+      "material_type": "フェロモリブデン",
+      "name": "フェロモリブデン-05",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 2088.9
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mo",
+        "Fe",
+        "Si"
+      ],
       "material_id": "RM-0070",
+      "material_type": "フェロモリブデン",
+      "name": "フェロモリブデン-06",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 138.2
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mo",
+        "Fe",
+        "Si"
+      ],
       "material_id": "RM-0071",
+      "material_type": "フェロモリブデン",
+      "name": "フェロモリブデン-07",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 566.3
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Mo",
+        "Fe",
+        "Si"
+      ],
       "material_id": "RM-0072",
+      "material_type": "フェロモリブデン",
+      "name": "フェロモリブデン-08",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1630.9
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Nb",
+        "Fe",
+        "Si"
+      ],
       "material_id": "RM-0073",
+      "material_type": "フェロニオブ",
+      "name": "フェロニオブ-01",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 275.7
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Nb",
+        "Fe",
+        "Si"
+      ],
       "material_id": "RM-0074",
+      "material_type": "フェロニオブ",
+      "name": "フェロニオブ-02",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 1075.7
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Nb",
+        "Fe",
+        "Si"
+      ],
       "material_id": "RM-0075",
+      "material_type": "フェロニオブ",
+      "name": "フェロニオブ-03",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 573.4
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Nb",
+        "Fe",
+        "Si"
+      ],
       "material_id": "RM-0076",
+      "material_type": "フェロニオブ",
+      "name": "フェロニオブ-04",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 351.7
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Nb",
+        "Fe",
+        "Si"
+      ],
       "material_id": "RM-0077",
+      "material_type": "フェロニオブ",
+      "name": "フェロニオブ-05",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 700.0
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Nb",
+        "Fe",
+        "Si"
+      ],
       "material_id": "RM-0078",
+      "material_type": "フェロニオブ",
+      "name": "フェロニオブ-06",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 644.9
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Fe",
+        "Ti",
+        "Al"
+      ],
       "material_id": "RM-0079",
+      "material_type": "フェロチタン",
+      "name": "フェロチタン-01",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 665.4
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Fe",
+        "Ti",
+        "Al"
+      ],
       "material_id": "RM-0080",
+      "material_type": "フェロチタン",
+      "name": "フェロチタン-02",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 2213.6
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Fe",
+        "Ti",
+        "Al"
+      ],
       "material_id": "RM-0081",
+      "material_type": "フェロチタン",
+      "name": "フェロチタン-03",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 1477.9
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Fe",
+        "Ti",
+        "Al"
+      ],
       "material_id": "RM-0082",
+      "material_type": "フェロチタン",
+      "name": "フェロチタン-04",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 516.4
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Fe",
+        "Ti",
+        "Al"
+      ],
       "material_id": "RM-0083",
+      "material_type": "フェロチタン",
+      "name": "フェロチタン-05",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1644.8
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Fe",
+        "Ti",
+        "Al"
+      ],
       "material_id": "RM-0084",
+      "material_type": "フェロチタン",
+      "name": "フェロチタン-06",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 229.1
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Fe",
+        "Ti",
+        "Al"
+      ],
       "material_id": "RM-0085",
+      "material_type": "フェロチタン",
+      "name": "フェロチタン-07",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 301.6
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Fe",
+        "Ti",
+        "Al"
+      ],
       "material_id": "RM-0086",
+      "material_type": "フェロチタン",
+      "name": "フェロチタン-08",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 2372.8
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Fe",
+        "V",
+        "Al"
+      ],
       "material_id": "RM-0087",
+      "material_type": "フェロバナジウム",
+      "name": "フェロバナジウム-01",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 2011.7
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "V",
+        "Fe",
+        "Al"
+      ],
       "material_id": "RM-0088",
+      "material_type": "フェロバナジウム",
+      "name": "フェロバナジウム-02",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 907.9
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "V",
+        "Fe",
+        "Si"
+      ],
       "material_id": "RM-0089",
+      "material_type": "フェロバナジウム",
+      "name": "フェロバナジウム-03",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 1511.8
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "V",
+        "Fe",
+        "Si"
+      ],
       "material_id": "RM-0090",
+      "material_type": "フェロバナジウム",
+      "name": "フェロバナジウム-04",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1487.6
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "V",
+        "Fe",
+        "Al"
+      ],
       "material_id": "RM-0091",
+      "material_type": "フェロバナジウム",
+      "name": "フェロバナジウム-05",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 526.4
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "V",
+        "Fe",
+        "Al"
+      ],
       "material_id": "RM-0092",
+      "material_type": "フェロバナジウム",
+      "name": "フェロバナジウム-06",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 582.2
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Fe",
+        "B",
+        "Si"
+      ],
       "material_id": "RM-0093",
+      "material_type": "フェロボロン",
+      "name": "フェロボロン-01",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 276.9
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Fe",
+        "B",
+        "Si"
+      ],
       "material_id": "RM-0094",
+      "material_type": "フェロボロン",
+      "name": "フェロボロン-02",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1990.8
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Fe",
+        "B",
+        "Si"
+      ],
       "material_id": "RM-0095",
+      "material_type": "フェロボロン",
+      "name": "フェロボロン-03",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 849.0
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Fe",
+        "B",
+        "Si"
+      ],
       "material_id": "RM-0096",
+      "material_type": "フェロボロン",
+      "name": "フェロボロン-04",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 166.3
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Fe",
+        "B",
+        "Si"
+      ],
       "material_id": "RM-0097",
+      "material_type": "フェロボロン",
+      "name": "フェロボロン-05",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 172.9
     },
     {
+      "group": "合金鉄",
+      "main_components": [
+        "Fe",
+        "B",
+        "Si"
+      ],
       "material_id": "RM-0098",
+      "material_type": "フェロボロン",
+      "name": "フェロボロン-06",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 2302.4
     },
     {
+      "group": "純金属粉",
+      "main_components": [
+        "Ni",
+        "Fe",
+        "O"
+      ],
       "material_id": "RM-0099",
+      "material_type": "ニッケル粉",
+      "name": "ニッケル粉-01",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1185.6
     },
     {
+      "group": "純金属粉",
+      "main_components": [
+        "Ni",
+        "Fe",
+        "O"
+      ],
       "material_id": "RM-0100",
+      "material_type": "ニッケル粉",
+      "name": "ニッケル粉-02",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 2034.0
     },
     {
+      "group": "純金属粉",
+      "main_components": [
+        "Ni",
+        "O",
+        "C"
+      ],
       "material_id": "RM-0101",
+      "material_type": "ニッケル粉",
+      "name": "ニッケル粉-03",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 2163.1
     },
     {
+      "group": "純金属粉",
+      "main_components": [
+        "Ni",
+        "O",
+        "C"
+      ],
       "material_id": "RM-0102",
+      "material_type": "ニッケル粉",
+      "name": "ニッケル粉-04",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1956.7
     },
     {
+      "group": "純金属粉",
+      "main_components": [
+        "Ni",
+        "O",
+        "C"
+      ],
       "material_id": "RM-0103",
+      "material_type": "ニッケル粉",
+      "name": "ニッケル粉-05",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 2249.5
     },
     {
+      "group": "純金属粉",
+      "main_components": [
+        "Ni",
+        "Fe",
+        "O"
+      ],
       "material_id": "RM-0104",
+      "material_type": "ニッケル粉",
+      "name": "ニッケル粉-06",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 633.0
     },
     {
+      "group": "純金属粉",
+      "main_components": [
+        "Ni",
+        "Fe",
+        "O"
+      ],
       "material_id": "RM-0105",
+      "material_type": "ニッケル粉",
+      "name": "ニッケル粉-07",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1024.6
     },
     {
+      "group": "純金属粉",
+      "main_components": [
+        "Ni",
+        "Fe",
+        "O"
+      ],
       "material_id": "RM-0106",
+      "material_type": "ニッケル粉",
+      "name": "ニッケル粉-08",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 471.7
     },
     {
+      "group": "純金属粉",
+      "main_components": [
+        "Ni",
+        "O",
+        "C"
+      ],
       "material_id": "RM-0107",
+      "material_type": "ニッケル粉",
+      "name": "ニッケル粉-09",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 418.9
     },
     {
+      "group": "純金属粉",
+      "main_components": [
+        "Cu",
+        "O",
+        "P"
+      ],
       "material_id": "RM-0108",
+      "material_type": "銅粉",
+      "name": "銅粉-01",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 2100.9
     },
     {
+      "group": "純金属粉",
+      "main_components": [
+        "Cu",
+        "O",
+        "P"
+      ],
       "material_id": "RM-0109",
+      "material_type": "銅粉",
+      "name": "銅粉-02",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1754.4
     },
     {
+      "group": "純金属粉",
+      "main_components": [
+        "Cu",
+        "Fe",
+        "O"
+      ],
       "material_id": "RM-0110",
+      "material_type": "銅粉",
+      "name": "銅粉-03",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1018.3
     },
     {
+      "group": "純金属粉",
+      "main_components": [
+        "Cu",
+        "Fe",
+        "O"
+      ],
       "material_id": "RM-0111",
+      "material_type": "銅粉",
+      "name": "銅粉-04",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 173.9
     },
     {
+      "group": "純金属粉",
+      "main_components": [
+        "Cu",
+        "Fe",
+        "O"
+      ],
       "material_id": "RM-0112",
+      "material_type": "銅粉",
+      "name": "銅粉-05",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 1745.5
     },
     {
+      "group": "純金属粉",
+      "main_components": [
+        "Cu",
+        "Fe",
+        "O"
+      ],
       "material_id": "RM-0113",
+      "material_type": "銅粉",
+      "name": "銅粉-06",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 1363.9
     },
     {
+      "group": "純金属粉",
+      "main_components": [
+        "Mo",
+        "O",
+        "C"
+      ],
       "material_id": "RM-0114",
+      "material_type": "モリブデン粉",
+      "name": "モリブデン粉-01",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1572.8
     },
     {
+      "group": "純金属粉",
+      "main_components": [
+        "Mo",
+        "O",
+        "C"
+      ],
       "material_id": "RM-0115",
+      "material_type": "モリブデン粉",
+      "name": "モリブデン粉-02",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 1874.7
     },
     {
+      "group": "純金属粉",
+      "main_components": [
+        "Mo",
+        "O",
+        "C"
+      ],
       "material_id": "RM-0116",
+      "material_type": "モリブデン粉",
+      "name": "モリブデン粉-03",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 1213.3
     },
     {
+      "group": "純金属粉",
+      "main_components": [
+        "Mo",
+        "O",
+        "C"
+      ],
       "material_id": "RM-0117",
+      "material_type": "モリブデン粉",
+      "name": "モリブデン粉-04",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 2310.3
     },
     {
+      "group": "純金属粉",
+      "main_components": [
+        "Mo",
+        "O",
+        "C"
+      ],
       "material_id": "RM-0118",
+      "material_type": "モリブデン粉",
+      "name": "モリブデン粉-05",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 2374.8
     },
     {
+      "group": "純金属粉",
+      "main_components": [
+        "Mo",
+        "Fe",
+        "O"
+      ],
       "material_id": "RM-0119",
+      "material_type": "モリブデン粉",
+      "name": "モリブデン粉-06",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1708.7
     },
     {
+      "group": "純金属粉",
+      "main_components": [
+        "Cr",
+        "Fe",
+        "O"
+      ],
       "material_id": "RM-0120",
+      "material_type": "金属クロム粉",
+      "name": "金属クロム粉-01",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1536.8
     },
     {
+      "group": "純金属粉",
+      "main_components": [
+        "Cr",
+        "O",
+        "N"
+      ],
       "material_id": "RM-0121",
+      "material_type": "金属クロム粉",
+      "name": "金属クロム粉-02",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 1792.3
     },
     {
+      "group": "純金属粉",
+      "main_components": [
+        "Cr",
+        "Fe",
+        "O"
+      ],
       "material_id": "RM-0122",
+      "material_type": "金属クロム粉",
+      "name": "金属クロム粉-03",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 608.6
     },
     {
+      "group": "純金属粉",
+      "main_components": [
+        "Cr",
+        "O",
+        "N"
+      ],
       "material_id": "RM-0123",
+      "material_type": "金属クロム粉",
+      "name": "金属クロム粉-04",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 1136.1
     },
     {
+      "group": "純金属粉",
+      "main_components": [
+        "Cr",
+        "Fe",
+        "O"
+      ],
       "material_id": "RM-0124",
+      "material_type": "金属クロム粉",
+      "name": "金属クロム粉-05",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 547.4
     },
     {
+      "group": "純金属粉",
+      "main_components": [
+        "Cr",
+        "O",
+        "N"
+      ],
       "material_id": "RM-0125",
+      "material_type": "金属クロム粉",
+      "name": "金属クロム粉-06",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1067.3
     },
     {
+      "group": "脱酸剤",
+      "main_components": [
+        "Al",
+        "Fe",
+        "O"
+      ],
       "material_id": "RM-0126",
+      "material_type": "アルミニウム粉",
+      "name": "アルミニウム粉-01",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1277.3
     },
     {
+      "group": "脱酸剤",
+      "main_components": [
+        "Al",
+        "Fe",
+        "O"
+      ],
       "material_id": "RM-0127",
+      "material_type": "アルミニウム粉",
+      "name": "アルミニウム粉-02",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 1019.1
     },
     {
+      "group": "脱酸剤",
+      "main_components": [
+        "Al",
+        "O",
+        "Si"
+      ],
       "material_id": "RM-0128",
+      "material_type": "アルミニウム粉",
+      "name": "アルミニウム粉-03",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1687.9
     },
     {
+      "group": "脱酸剤",
+      "main_components": [
+        "Al",
+        "Fe",
+        "O"
+      ],
       "material_id": "RM-0129",
+      "material_type": "アルミニウム粉",
+      "name": "アルミニウム粉-04",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1782.4
     },
     {
+      "group": "脱酸剤",
+      "main_components": [
+        "Al",
+        "Fe",
+        "O"
+      ],
       "material_id": "RM-0130",
+      "material_type": "アルミニウム粉",
+      "name": "アルミニウム粉-05",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 1720.5
     },
     {
+      "group": "脱酸剤",
+      "main_components": [
+        "Al",
+        "O",
+        "Si"
+      ],
       "material_id": "RM-0131",
+      "material_type": "アルミニウム粉",
+      "name": "アルミニウム粉-06",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1880.8
     },
     {
+      "group": "脱酸剤",
+      "main_components": [
+        "Al",
+        "O",
+        "Si"
+      ],
       "material_id": "RM-0132",
+      "material_type": "アルミニウム粉",
+      "name": "アルミニウム粉-07",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 1472.9
     },
     {
+      "group": "脱酸剤",
+      "main_components": [
+        "Al",
+        "O",
+        "Si"
+      ],
       "material_id": "RM-0133",
+      "material_type": "アルミニウム粉",
+      "name": "アルミニウム粉-08",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1765.5
     },
     {
+      "group": "脱酸剤",
+      "main_components": [
+        "Mg",
+        "Fe",
+        "Al"
+      ],
       "material_id": "RM-0134",
+      "material_type": "マグネシウム粉",
+      "name": "マグネシウム粉-01",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 416.3
     },
     {
+      "group": "脱酸剤",
+      "main_components": [
+        "Mg",
+        "Fe",
+        "O"
+      ],
       "material_id": "RM-0135",
+      "material_type": "マグネシウム粉",
+      "name": "マグネシウム粉-02",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 998.9
     },
     {
+      "group": "脱酸剤",
+      "main_components": [
+        "Mg",
+        "Al",
+        "O"
+      ],
       "material_id": "RM-0136",
+      "material_type": "マグネシウム粉",
+      "name": "マグネシウム粉-03",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 726.4
     },
     {
+      "group": "脱酸剤",
+      "main_components": [
+        "Mg",
+        "O",
+        "Al"
+      ],
       "material_id": "RM-0137",
+      "material_type": "マグネシウム粉",
+      "name": "マグネシウム粉-04",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 1461.2
     },
     {
+      "group": "脱酸剤",
+      "main_components": [
+        "Mg",
+        "Fe",
+        "Al"
+      ],
       "material_id": "RM-0138",
+      "material_type": "マグネシウム粉",
+      "name": "マグネシウム粉-05",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 530.0
     },
     {
+      "group": "脱酸剤",
+      "main_components": [
+        "Mg",
+        "O",
+        "Al"
+      ],
       "material_id": "RM-0139",
+      "material_type": "マグネシウム粉",
+      "name": "マグネシウム粉-06",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1128.3
     },
     {
+      "group": "脱酸剤",
+      "main_components": [
+        "Mg",
+        "O",
+        "Al"
+      ],
       "material_id": "RM-0140",
+      "material_type": "マグネシウム粉",
+      "name": "マグネシウム粉-07",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 195.8
     },
     {
+      "group": "脱酸剤",
+      "main_components": [
+        "Mg",
+        "Al",
+        "Fe"
+      ],
       "material_id": "RM-0141",
+      "material_type": "アルミマグネシウム合金粉",
+      "name": "アルミマグネシウム合金粉-01",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 2223.6
     },
     {
+      "group": "脱酸剤",
+      "main_components": [
+        "Mg",
+        "Al",
+        "O"
+      ],
       "material_id": "RM-0142",
+      "material_type": "アルミマグネシウム合金粉",
+      "name": "アルミマグネシウム合金粉-02",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 922.2
     },
     {
+      "group": "脱酸剤",
+      "main_components": [
+        "Al",
+        "Mg",
+        "Fe"
+      ],
       "material_id": "RM-0143",
+      "material_type": "アルミマグネシウム合金粉",
+      "name": "アルミマグネシウム合金粉-03",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 588.9
     },
     {
+      "group": "脱酸剤",
+      "main_components": [
+        "Al",
+        "Mg",
+        "O"
+      ],
       "material_id": "RM-0144",
+      "material_type": "アルミマグネシウム合金粉",
+      "name": "アルミマグネシウム合金粉-04",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 494.1
     },
     {
+      "group": "脱酸剤",
+      "main_components": [
+        "Al",
+        "Mg",
+        "O"
+      ],
       "material_id": "RM-0145",
+      "material_type": "アルミマグネシウム合金粉",
+      "name": "アルミマグネシウム合金粉-05",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 865.5
     },
     {
+      "group": "脱酸剤",
+      "main_components": [
+        "Al",
+        "Mg",
+        "O"
+      ],
       "material_id": "RM-0146",
+      "material_type": "アルミマグネシウム合金粉",
+      "name": "アルミマグネシウム合金粉-06",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 2219.9
     },
     {
+      "group": "脱酸剤",
+      "main_components": [
+        "Si",
+        "Ca",
+        "Fe"
+      ],
       "material_id": "RM-0147",
+      "material_type": "カルシウムシリコン",
+      "name": "カルシウムシリコン-01",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1996.9
     },
     {
+      "group": "脱酸剤",
+      "main_components": [
+        "Si",
+        "Ca",
+        "Fe"
+      ],
       "material_id": "RM-0148",
+      "material_type": "カルシウムシリコン",
+      "name": "カルシウムシリコン-02",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 1262.2
     },
     {
+      "group": "脱酸剤",
+      "main_components": [
+        "Si",
+        "Ca",
+        "Fe"
+      ],
       "material_id": "RM-0149",
+      "material_type": "カルシウムシリコン",
+      "name": "カルシウムシリコン-03",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 594.6
     },
     {
+      "group": "脱酸剤",
+      "main_components": [
+        "Si",
+        "Ca",
+        "Fe"
+      ],
       "material_id": "RM-0150",
+      "material_type": "カルシウムシリコン",
+      "name": "カルシウムシリコン-04",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1260.2
     },
     {
+      "group": "脱酸剤",
+      "main_components": [
+        "Si",
+        "Ca",
+        "Fe"
+      ],
       "material_id": "RM-0151",
+      "material_type": "カルシウムシリコン",
+      "name": "カルシウムシリコン-05",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 531.6
     },
     {
+      "group": "脱酸剤",
+      "main_components": [
+        "Si",
+        "Ca",
+        "Fe"
+      ],
       "material_id": "RM-0152",
+      "material_type": "カルシウムシリコン",
+      "name": "カルシウムシリコン-06",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1724.0
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "TiO2",
+        "other",
+        "SiO2"
+      ],
       "material_id": "RM-0153",
+      "material_type": "ルチール",
+      "name": "ルチール-01",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 1887.0
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "TiO2",
+        "SiO2",
+        "Al2O3"
+      ],
       "material_id": "RM-0154",
+      "material_type": "ルチール",
+      "name": "ルチール-02",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 535.9
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "TiO2",
+        "other",
+        "SiO2"
+      ],
       "material_id": "RM-0155",
+      "material_type": "ルチール",
+      "name": "ルチール-03",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 681.9
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "TiO2",
+        "SiO2",
+        "Fe2O3"
+      ],
       "material_id": "RM-0156",
+      "material_type": "ルチール",
+      "name": "ルチール-04",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 1343.8
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "TiO2",
+        "other",
+        "SiO2"
+      ],
       "material_id": "RM-0157",
+      "material_type": "ルチール",
+      "name": "ルチール-05",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1571.2
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "TiO2",
+        "SiO2",
+        "other"
+      ],
       "material_id": "RM-0158",
+      "material_type": "ルチール",
+      "name": "ルチール-06",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 302.8
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "TiO2",
+        "SiO2",
+        "other"
+      ],
       "material_id": "RM-0159",
+      "material_type": "ルチール",
+      "name": "ルチール-07",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 1916.4
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "TiO2",
+        "SiO2",
+        "Fe2O3"
+      ],
       "material_id": "RM-0160",
+      "material_type": "ルチール",
+      "name": "ルチール-08",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 387.0
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "TiO2",
+        "other",
+        "SiO2"
+      ],
       "material_id": "RM-0161",
+      "material_type": "ルチール",
+      "name": "ルチール-09",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 555.6
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "TiO2",
+        "SiO2",
+        "Al2O3"
+      ],
       "material_id": "RM-0162",
+      "material_type": "ルチール",
+      "name": "ルチール-10",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 681.7
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "TiO2",
+        "other",
+        "SiO2"
+      ],
       "material_id": "RM-0163",
+      "material_type": "ルチール",
+      "name": "ルチール-11",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1206.8
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "TiO2",
+        "SiO2",
+        "Fe2O3"
+      ],
       "material_id": "RM-0164",
+      "material_type": "ルチール",
+      "name": "ルチール-12",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 766.2
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "SiO2",
+        "Al2O3",
+        "Fe2O3"
+      ],
       "material_id": "RM-0165",
+      "material_type": "珪砂",
+      "name": "珪砂-01",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 2158.0
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "SiO2",
+        "Al2O3",
+        "Fe2O3"
+      ],
       "material_id": "RM-0166",
+      "material_type": "珪砂",
+      "name": "珪砂-02",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1635.6
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "SiO2",
+        "Al2O3",
+        "Fe2O3"
+      ],
       "material_id": "RM-0167",
+      "material_type": "珪砂",
+      "name": "珪砂-03",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 116.2
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "SiO2",
+        "other",
+        "Al2O3"
+      ],
       "material_id": "RM-0168",
+      "material_type": "珪砂",
+      "name": "珪砂-04",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 2036.3
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "SiO2",
+        "other",
+        "Al2O3"
+      ],
       "material_id": "RM-0169",
+      "material_type": "珪砂",
+      "name": "珪砂-05",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1001.5
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "SiO2",
+        "Al2O3",
+        "Fe2O3"
+      ],
       "material_id": "RM-0170",
+      "material_type": "珪砂",
+      "name": "珪砂-06",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1780.5
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "SiO2",
+        "Al2O3",
+        "Fe2O3"
+      ],
       "material_id": "RM-0171",
+      "material_type": "珪砂",
+      "name": "珪砂-07",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 931.3
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "SiO2",
+        "Al2O3",
+        "other"
+      ],
       "material_id": "RM-0172",
+      "material_type": "珪砂",
+      "name": "珪砂-08",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 1985.6
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "Al2O3",
+        "other",
+        "SiO2"
+      ],
       "material_id": "RM-0173",
+      "material_type": "アルミナ",
+      "name": "アルミナ-01",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1455.0
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "Al2O3",
+        "SiO2",
+        "Fe2O3"
+      ],
       "material_id": "RM-0174",
+      "material_type": "アルミナ",
+      "name": "アルミナ-02",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 1484.7
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "Al2O3",
+        "other",
+        "SiO2"
+      ],
       "material_id": "RM-0175",
+      "material_type": "アルミナ",
+      "name": "アルミナ-03",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 874.0
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "Al2O3",
+        "other",
+        "SiO2"
+      ],
       "material_id": "RM-0176",
+      "material_type": "アルミナ",
+      "name": "アルミナ-04",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1316.2
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "Al2O3",
+        "other",
+        "SiO2"
+      ],
       "material_id": "RM-0177",
+      "material_type": "アルミナ",
+      "name": "アルミナ-05",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 411.3
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "Al2O3",
+        "other",
+        "SiO2"
+      ],
       "material_id": "RM-0178",
+      "material_type": "アルミナ",
+      "name": "アルミナ-06",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1891.7
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "Al2O3",
+        "SiO2",
+        "Fe2O3"
+      ],
       "material_id": "RM-0179",
+      "material_type": "アルミナ",
+      "name": "アルミナ-07",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 2215.4
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "ZrO2",
+        "SiO2",
+        "other"
+      ],
       "material_id": "RM-0180",
+      "material_type": "ジルコンサンド",
+      "name": "ジルコンサンド-01",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1583.1
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "ZrO2",
+        "SiO2",
+        "other"
+      ],
       "material_id": "RM-0181",
+      "material_type": "ジルコンサンド",
+      "name": "ジルコンサンド-02",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 735.7
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "ZrO2",
+        "SiO2",
+        "Al2O3"
+      ],
       "material_id": "RM-0182",
+      "material_type": "ジルコンサンド",
+      "name": "ジルコンサンド-03",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 1925.8
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "ZrO2",
+        "SiO2",
+        "other"
+      ],
       "material_id": "RM-0183",
+      "material_type": "ジルコンサンド",
+      "name": "ジルコンサンド-04",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 2337.4
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "ZrO2",
+        "SiO2",
+        "Al2O3"
+      ],
       "material_id": "RM-0184",
+      "material_type": "ジルコンサンド",
+      "name": "ジルコンサンド-05",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 951.5
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "ZrO2",
+        "SiO2",
+        "other"
+      ],
       "material_id": "RM-0185",
+      "material_type": "ジルコンサンド",
+      "name": "ジルコンサンド-06",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 842.5
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "MgO",
+        "other",
+        "SiO2"
+      ],
       "material_id": "RM-0186",
+      "material_type": "マグネシアクリンカー",
+      "name": "マグネシアクリンカー-01",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 838.3
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "MgO",
+        "SiO2",
+        "CaCO3"
+      ],
       "material_id": "RM-0187",
+      "material_type": "マグネシアクリンカー",
+      "name": "マグネシアクリンカー-02",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1924.1
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "MgO",
+        "SiO2",
+        "Al2O3"
+      ],
       "material_id": "RM-0188",
+      "material_type": "マグネシアクリンカー",
+      "name": "マグネシアクリンカー-03",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 2099.4
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "MgO",
+        "SiO2",
+        "CaCO3"
+      ],
       "material_id": "RM-0189",
+      "material_type": "マグネシアクリンカー",
+      "name": "マグネシアクリンカー-04",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 422.8
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "MgO",
+        "other",
+        "SiO2"
+      ],
       "material_id": "RM-0190",
+      "material_type": "マグネシアクリンカー",
+      "name": "マグネシアクリンカー-05",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1256.2
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "MgO",
+        "SiO2",
+        "CaCO3"
+      ],
       "material_id": "RM-0191",
+      "material_type": "マグネシアクリンカー",
+      "name": "マグネシアクリンカー-06",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 181.7
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "MgO",
+        "other",
+        "SiO2"
+      ],
       "material_id": "RM-0192",
+      "material_type": "マグネシアクリンカー",
+      "name": "マグネシアクリンカー-07",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1785.5
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "Fe2O3",
+        "other",
+        "SiO2"
+      ],
       "material_id": "RM-0193",
+      "material_type": "酸化鉄",
+      "name": "酸化鉄-01",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 2374.9
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "Fe2O3",
+        "other",
+        "SiO2"
+      ],
       "material_id": "RM-0194",
+      "material_type": "酸化鉄",
+      "name": "酸化鉄-02",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1311.3
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "Fe2O3",
+        "SiO2",
+        "Al2O3"
+      ],
       "material_id": "RM-0195",
+      "material_type": "酸化鉄",
+      "name": "酸化鉄-03",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 651.6
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "Fe2O3",
+        "other",
+        "SiO2"
+      ],
       "material_id": "RM-0196",
+      "material_type": "酸化鉄",
+      "name": "酸化鉄-04",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 1936.3
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "Fe2O3",
+        "other",
+        "SiO2"
+      ],
       "material_id": "RM-0197",
+      "material_type": "酸化鉄",
+      "name": "酸化鉄-05",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1644.9
     },
     {
+      "group": "スラグ形成剤",
+      "main_components": [
+        "Fe2O3",
+        "SiO2",
+        "Al2O3"
+      ],
       "material_id": "RM-0198",
+      "material_type": "酸化鉄",
+      "name": "酸化鉄-06",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 354.2
     },
     {
+      "group": "アーク安定剤",
+      "main_components": [
+        "CaF2",
+        "SiO2",
+        "CaCO3"
+      ],
       "material_id": "RM-0199",
+      "material_type": "蛍石",
+      "name": "蛍石-01",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 2227.9
     },
     {
+      "group": "アーク安定剤",
+      "main_components": [
+        "CaF2",
+        "other",
+        "SiO2"
+      ],
       "material_id": "RM-0200",
+      "material_type": "蛍石",
+      "name": "蛍石-02",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 2253.9
     },
     {
+      "group": "アーク安定剤",
+      "main_components": [
+        "CaF2",
+        "SiO2",
+        "other"
+      ],
       "material_id": "RM-0201",
+      "material_type": "蛍石",
+      "name": "蛍石-03",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 1966.4
     },
     {
+      "group": "アーク安定剤",
+      "main_components": [
+        "CaF2",
+        "other",
+        "SiO2"
+      ],
       "material_id": "RM-0202",
+      "material_type": "蛍石",
+      "name": "蛍石-04",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1805.6
     },
     {
+      "group": "アーク安定剤",
+      "main_components": [
+        "CaF2",
+        "other",
+        "SiO2"
+      ],
       "material_id": "RM-0203",
+      "material_type": "蛍石",
+      "name": "蛍石-05",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 1494.8
     },
     {
+      "group": "アーク安定剤",
+      "main_components": [
+        "CaF2",
+        "other",
+        "SiO2"
+      ],
       "material_id": "RM-0204",
+      "material_type": "蛍石",
+      "name": "蛍石-06",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1507.9
     },
     {
+      "group": "アーク安定剤",
+      "main_components": [
+        "CaF2",
+        "SiO2",
+        "CaCO3"
+      ],
       "material_id": "RM-0205",
+      "material_type": "蛍石",
+      "name": "蛍石-07",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1187.7
     },
     {
+      "group": "アーク安定剤",
+      "main_components": [
+        "CaF2",
+        "other",
+        "SiO2"
+      ],
       "material_id": "RM-0206",
+      "material_type": "蛍石",
+      "name": "蛍石-08",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 104.8
     },
     {
+      "group": "アーク安定剤",
+      "main_components": [
+        "CaF2",
+        "SiO2",
+        "other"
+      ],
       "material_id": "RM-0207",
+      "material_type": "蛍石",
+      "name": "蛍石-09",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1613.1
     },
     {
+      "group": "アーク安定剤",
+      "main_components": [
+        "SiO2",
+        "Al2O3",
+        "K2O"
+      ],
       "material_id": "RM-0208",
+      "material_type": "カリ長石",
+      "name": "カリ長石-01",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 1149.7
     },
     {
+      "group": "アーク安定剤",
+      "main_components": [
+        "SiO2",
+        "Al2O3",
+        "K2O"
+      ],
       "material_id": "RM-0209",
+      "material_type": "カリ長石",
+      "name": "カリ長石-02",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 2222.2
     },
     {
+      "group": "アーク安定剤",
+      "main_components": [
+        "SiO2",
+        "Al2O3",
+        "K2O"
+      ],
       "material_id": "RM-0210",
+      "material_type": "カリ長石",
+      "name": "カリ長石-03",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1594.2
     },
     {
+      "group": "アーク安定剤",
+      "main_components": [
+        "SiO2",
+        "Al2O3",
+        "K2O"
+      ],
       "material_id": "RM-0211",
+      "material_type": "カリ長石",
+      "name": "カリ長石-04",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1546.7
     },
     {
+      "group": "アーク安定剤",
+      "main_components": [
+        "SiO2",
+        "Al2O3",
+        "K2O"
+      ],
       "material_id": "RM-0212",
+      "material_type": "カリ長石",
+      "name": "カリ長石-05",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 981.2
     },
     {
+      "group": "アーク安定剤",
+      "main_components": [
+        "SiO2",
+        "Al2O3",
+        "K2O"
+      ],
       "material_id": "RM-0213",
+      "material_type": "カリ長石",
+      "name": "カリ長石-06",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 304.7
     },
     {
+      "group": "アーク安定剤",
+      "main_components": [
+        "SiO2",
+        "Al2O3",
+        "K2O"
+      ],
       "material_id": "RM-0214",
+      "material_type": "カリ長石",
+      "name": "カリ長石-07",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 226.7
     },
     {
+      "group": "アーク安定剤",
+      "main_components": [
+        "SiO2",
+        "Al2O3",
+        "Na2O"
+      ],
       "material_id": "RM-0215",
+      "material_type": "ソーダ長石",
+      "name": "ソーダ長石-01",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 624.4
     },
     {
+      "group": "アーク安定剤",
+      "main_components": [
+        "SiO2",
+        "Al2O3",
+        "Na2O"
+      ],
       "material_id": "RM-0216",
+      "material_type": "ソーダ長石",
+      "name": "ソーダ長石-02",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 308.9
     },
     {
+      "group": "アーク安定剤",
+      "main_components": [
+        "SiO2",
+        "Al2O3",
+        "Na2O"
+      ],
       "material_id": "RM-0217",
+      "material_type": "ソーダ長石",
+      "name": "ソーダ長石-03",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 2037.4
     },
     {
+      "group": "アーク安定剤",
+      "main_components": [
+        "SiO2",
+        "Al2O3",
+        "Na2O"
+      ],
       "material_id": "RM-0218",
+      "material_type": "ソーダ長石",
+      "name": "ソーダ長石-04",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 349.8
     },
     {
+      "group": "アーク安定剤",
+      "main_components": [
+        "SiO2",
+        "Al2O3",
+        "Na2O"
+      ],
       "material_id": "RM-0219",
+      "material_type": "ソーダ長石",
+      "name": "ソーダ長石-05",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1347.7
     },
     {
+      "group": "アーク安定剤",
+      "main_components": [
+        "SiO2",
+        "Al2O3",
+        "Na2O"
+      ],
       "material_id": "RM-0220",
+      "material_type": "ソーダ長石",
+      "name": "ソーダ長石-06",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 953.7
     },
     {
+      "group": "アーク安定剤",
+      "main_components": [
+        "SiO2",
+        "K2O",
+        "other"
+      ],
       "material_id": "RM-0221",
+      "material_type": "珪酸カリウム",
+      "name": "珪酸カリウム-01",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 319.9
     },
     {
+      "group": "アーク安定剤",
+      "main_components": [
+        "SiO2",
+        "K2O",
+        "other"
+      ],
       "material_id": "RM-0222",
+      "material_type": "珪酸カリウム",
+      "name": "珪酸カリウム-02",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 820.5
     },
     {
+      "group": "アーク安定剤",
+      "main_components": [
+        "SiO2",
+        "K2O",
+        "other"
+      ],
       "material_id": "RM-0223",
+      "material_type": "珪酸カリウム",
+      "name": "珪酸カリウム-03",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 783.1
     },
     {
+      "group": "アーク安定剤",
+      "main_components": [
+        "SiO2",
+        "K2O",
+        "other"
+      ],
       "material_id": "RM-0224",
+      "material_type": "珪酸カリウム",
+      "name": "珪酸カリウム-04",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 1562.9
     },
     {
+      "group": "アーク安定剤",
+      "main_components": [
+        "SiO2",
+        "K2O",
+        "Na2O"
+      ],
       "material_id": "RM-0225",
+      "material_type": "珪酸カリウム",
+      "name": "珪酸カリウム-05",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 2198.7
     },
     {
+      "group": "アーク安定剤",
+      "main_components": [
+        "SiO2",
+        "K2O",
+        "Na2O"
+      ],
       "material_id": "RM-0226",
+      "material_type": "珪酸カリウム",
+      "name": "珪酸カリウム-06",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 1787.1
     },
     {
+      "group": "炭素源",
+      "main_components": [
+        "C",
+        "other",
+        "SiO2"
+      ],
       "material_id": "RM-0227",
+      "material_type": "黒鉛",
+      "name": "黒鉛-01",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 1317.1
     },
     {
+      "group": "炭素源",
+      "main_components": [
+        "C",
+        "other",
+        "SiO2"
+      ],
       "material_id": "RM-0228",
+      "material_type": "黒鉛",
+      "name": "黒鉛-02",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 1151.6
     },
     {
+      "group": "炭素源",
+      "main_components": [
+        "C",
+        "other",
+        "SiO2"
+      ],
       "material_id": "RM-0229",
+      "material_type": "黒鉛",
+      "name": "黒鉛-03",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 1237.7
     },
     {
+      "group": "炭素源",
+      "main_components": [
+        "C",
+        "SiO2",
+        "S"
+      ],
       "material_id": "RM-0230",
+      "material_type": "黒鉛",
+      "name": "黒鉛-04",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1907.8
     },
     {
+      "group": "炭素源",
+      "main_components": [
+        "C",
+        "SiO2",
+        "S"
+      ],
       "material_id": "RM-0231",
+      "material_type": "黒鉛",
+      "name": "黒鉛-05",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 1828.2
     },
     {
+      "group": "炭素源",
+      "main_components": [
+        "C",
+        "SiO2",
+        "S"
+      ],
       "material_id": "RM-0232",
+      "material_type": "黒鉛",
+      "name": "黒鉛-06",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 2080.3
     },
     {
+      "group": "ガス発生剤",
+      "main_components": [
+        "CaCO3",
+        "other",
+        "SiO2"
+      ],
       "material_id": "RM-0233",
+      "material_type": "石灰石",
+      "name": "石灰石-01",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 1483.4
     },
     {
+      "group": "ガス発生剤",
+      "main_components": [
+        "CaCO3",
+        "other",
+        "SiO2"
+      ],
       "material_id": "RM-0234",
+      "material_type": "石灰石",
+      "name": "石灰石-02",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 945.2
     },
     {
+      "group": "ガス発生剤",
+      "main_components": [
+        "CaCO3",
+        "other",
+        "SiO2"
+      ],
       "material_id": "RM-0235",
+      "material_type": "石灰石",
+      "name": "石灰石-03",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 349.5
     },
     {
+      "group": "ガス発生剤",
+      "main_components": [
+        "CaCO3",
+        "other",
+        "SiO2"
+      ],
       "material_id": "RM-0236",
+      "material_type": "石灰石",
+      "name": "石灰石-04",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 1499.5
     },
     {
+      "group": "ガス発生剤",
+      "main_components": [
+        "CaCO3",
+        "SiO2",
+        "MgO"
+      ],
       "material_id": "RM-0237",
+      "material_type": "石灰石",
+      "name": "石灰石-05",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 235.0
     },
     {
+      "group": "ガス発生剤",
+      "main_components": [
+        "CaCO3",
+        "other",
+        "SiO2"
+      ],
       "material_id": "RM-0238",
+      "material_type": "石灰石",
+      "name": "石灰石-06",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 1725.9
     },
     {
+      "group": "ガス発生剤",
+      "main_components": [
+        "CaCO3",
+        "other",
+        "MgO"
+      ],
       "material_id": "RM-0239",
+      "material_type": "ドロマイト",
+      "name": "ドロマイト-01",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 187.2
     },
     {
+      "group": "ガス発生剤",
+      "main_components": [
+        "CaCO3",
+        "MgO",
+        "other"
+      ],
       "material_id": "RM-0240",
+      "material_type": "ドロマイト",
+      "name": "ドロマイト-02",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 2088.1
     },
     {
+      "group": "ガス発生剤",
+      "main_components": [
+        "CaCO3",
+        "other",
+        "MgO"
+      ],
       "material_id": "RM-0241",
+      "material_type": "ドロマイト",
+      "name": "ドロマイト-03",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 183.5
     },
     {
+      "group": "ガス発生剤",
+      "main_components": [
+        "CaCO3",
+        "MgO",
+        "other"
+      ],
       "material_id": "RM-0242",
+      "material_type": "ドロマイト",
+      "name": "ドロマイト-04",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 959.1
     },
     {
+      "group": "ガス発生剤",
+      "main_components": [
+        "CaCO3",
+        "other",
+        "MgO"
+      ],
       "material_id": "RM-0243",
+      "material_type": "ドロマイト",
+      "name": "ドロマイト-05",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 2088.8
     },
     {
+      "group": "バインダ",
+      "main_components": [
+        "SiO2",
+        "Na2O",
+        "other"
+      ],
       "material_id": "RM-0244",
+      "material_type": "珪酸ソーダ",
+      "name": "珪酸ソーダ-01",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 662.1
     },
     {
+      "group": "バインダ",
+      "main_components": [
+        "SiO2",
+        "Na2O",
+        "other"
+      ],
       "material_id": "RM-0245",
+      "material_type": "珪酸ソーダ",
+      "name": "珪酸ソーダ-02",
       "procurement": "試作限定",
       "unit_price_yen_per_kg_core": 1848.4
     },
     {
+      "group": "バインダ",
+      "main_components": [
+        "SiO2",
+        "Na2O",
+        "other"
+      ],
       "material_id": "RM-0246",
+      "material_type": "珪酸ソーダ",
+      "name": "珪酸ソーダ-03",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 1786.3
     },
     {
+      "group": "バインダ",
+      "main_components": [
+        "SiO2",
+        "Na2O",
+        "other"
+      ],
       "material_id": "RM-0247",
+      "material_type": "珪酸ソーダ",
+      "name": "珪酸ソーダ-04",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 2279.0
     },
     {
+      "group": "バインダ",
+      "main_components": [
+        "SiO2",
+        "Na2O",
+        "other"
+      ],
       "material_id": "RM-0248",
+      "material_type": "珪酸ソーダ",
+      "name": "珪酸ソーダ-05",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 2042.1
     },
     {
+      "group": "バインダ",
+      "main_components": [
+        "O",
+        "C",
+        "other"
+      ],
       "material_id": "RM-0249",
+      "material_type": "セルロース",
+      "name": "セルロース-01",
       "procurement": "条件付",
       "unit_price_yen_per_kg_core": 2392.3
     },
     {
+      "group": "バインダ",
+      "main_components": [
+        "O",
+        "C",
+        "other"
+      ],
       "material_id": "RM-0250",
+      "material_type": "セルロース",
+      "name": "セルロース-02",
       "procurement": "廃止予定",
       "unit_price_yen_per_kg_core": 438.3
     },
     {
+      "group": "バインダ",
+      "main_components": [
+        "O",
+        "C",
+        "other"
+      ],
       "material_id": "RM-0251",
+      "material_type": "セルロース",
+      "name": "セルロース-03",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 2326.1
     },
     {
+      "group": "バインダ",
+      "main_components": [
+        "O",
+        "C",
+        "other"
+      ],
       "material_id": "RM-0252",
+      "material_type": "セルロース",
+      "name": "セルロース-04",
       "procurement": "常用",
       "unit_price_yen_per_kg_core": 1485.9
     }
   ],
   "resource_id": "welding-stage-a-commercial",
   "revision": 1,
-  "schema_version": "commercial-material-catalog/v1"
+  "schema_version": "commercial-material-catalog/v2"
 }

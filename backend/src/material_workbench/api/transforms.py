@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict
@@ -9,7 +9,11 @@ from material_workbench.adapters.builtin_deterministic_linear import (
     DeterministicLinearResult,
 )
 from material_workbench.api.errors import PROJECT_API_ERRORS
-from material_workbench.contracts.blend_contracts import RevisionRef, SparseBlend
+from material_workbench.contracts.blend_contracts import (
+    RevisionRef,
+    SparseBlend,
+    SparseBlendDesignSpace,
+)
 from material_workbench.modeling.model_packages import PackageContractError
 from material_workbench.modeling.transform_catalog import DeterministicTransformCatalog
 
@@ -30,10 +34,30 @@ class DeterministicTransformCatalogItem(TransformApiModel):
     active_locator: str
     available_locators: tuple[str, ...]
     commercial_catalog_locator: str
+    design_space_locator: str
     scientific_master: RevisionRef
     commercial_catalog: RevisionRef
     outputs: tuple[str, ...]
     auxiliary_features: tuple[str, ...]
+
+
+class BlendEditorMaterial(TransformApiModel):
+    material_id: str
+    name: str
+    group: str
+    material_type: str
+    d50_um: float
+    main_components: tuple[str, ...]
+    procurement: Literal["常用", "条件付", "試作限定", "廃止予定"]
+    unit_price_yen_per_kg_core: float
+
+
+class BlendEditorContext(TransformApiModel):
+    transform_id: str
+    scientific_master: RevisionRef
+    commercial_catalog: RevisionRef
+    design_space: SparseBlendDesignSpace
+    materials: tuple[BlendEditorMaterial, ...]
 
 
 class DeterministicTransformExecutionRequest(TransformApiModel):
@@ -74,6 +98,7 @@ def list_deterministic_transforms(
                 active_locator=entry.package_locator,
                 available_locators=entry.available_package_locators,
                 commercial_catalog_locator=entry.commercial_catalog_locator,
+                design_space_locator=entry.design_space_locator,
                 scientific_master=scientific_master,
                 commercial_catalog=entry.commercial_catalog.ref,
                 outputs=spec.output_names,
@@ -81,6 +106,49 @@ def list_deterministic_transforms(
             )
         )
     return result
+
+
+@router.get(
+    "/{transform_id}/blend-editor",
+    response_model=BlendEditorContext,
+    responses=PROJECT_API_ERRORS,
+    operation_id="getBlendEditorContext",
+)
+def get_blend_editor_context(
+    transform_id: str,
+    catalog: CatalogDependency,
+) -> BlendEditorContext:
+    try:
+        entry = catalog.entry(transform_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=exc.args[0]) from exc
+    commercial = {
+        material.material_id: material for material in entry.commercial_catalog.materials
+    }
+    allowed = set(entry.design_space.allowed_material_ids)
+    materials = tuple(
+        BlendEditorMaterial(
+            material_id=material.material_id,
+            name=commercial[material.material_id].name,
+            group=commercial[material.material_id].group,
+            material_type=commercial[material.material_id].material_type,
+            d50_um=material.d50_um,
+            main_components=commercial[material.material_id].main_components,
+            procurement=commercial[material.material_id].procurement,
+            unit_price_yen_per_kg_core=(
+                commercial[material.material_id].unit_price_yen_per_kg_core
+            ),
+        )
+        for material in entry.transform.artifact.scientific_master.materials
+        if material.material_id in allowed
+    )
+    return BlendEditorContext(
+        transform_id=transform_id,
+        scientific_master=entry.transform.artifact.scientific_master.ref,
+        commercial_catalog=entry.commercial_catalog.ref,
+        design_space=entry.design_space,
+        materials=materials,
+    )
 
 
 @router.post(
