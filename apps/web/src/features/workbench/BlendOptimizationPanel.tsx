@@ -190,7 +190,10 @@ export function BlendOptimizationPanel({
 
               <details className="blend-constraint-summary">
                 <summary>固定される制約を確認</summary>
-                <p>合計100% · material bounds {context.material_bounds.length}件 · group totals {context.group_totals.length}件 · group cardinality {context.group_cardinalities.length}件 · 選択数 {context.selection_count.minimum}〜{context.selection_count.maximum}</p>
+                <p>配合合計 100% · 選択数 {context.selection_count.minimum}〜{context.selection_count.maximum}</p>
+                <p>原料上下限: {context.material_bounds.map((item) => `${item.material_id} ${item.lower}〜${item.upper}%`).join(" / ") || "個別指定なし"}</p>
+                <p>群合計: {context.group_totals.map((item) => `${item.group} ${item.lower}〜${item.upper}%`).join(" / ") || "指定なし"}</p>
+                <p>群内選択数: {context.group_cardinalities.map((item) => `${item.group} ${item.minimum}〜${item.maximum}`).join(" / ") || "指定なし"}</p>
                 <p>対象原料: {selectedMaterials.map((item) => item.material_id).join(", ")}</p>
               </details>
 

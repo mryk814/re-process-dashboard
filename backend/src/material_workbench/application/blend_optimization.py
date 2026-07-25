@@ -43,6 +43,7 @@ class _Row:
     lower: float = -np.inf
     upper: float = np.inf
     unit: str = ""
+    display_scale: float = 1.0
     relaxable: bool = True
 
 
@@ -379,7 +380,8 @@ class BlendOptimizationService:
                         f"material:{material_id}",
                         vector({index: 1.0, y: -max(lower, activation)}),
                         lower=0.0,
-                        unit="whole-wire fraction",
+                        unit="core mass %",
+                        display_scale=100.0 / fill,
                     )
                 )
                 rows.append(
@@ -387,7 +389,8 @@ class BlendOptimizationService:
                         f"material:{material_id}",
                         vector({index: 1.0, y: -upper}),
                         upper=0.0,
-                        unit="whole-wire fraction",
+                        unit="core mass %",
+                        display_scale=100.0 / fill,
                     )
                 )
             else:
@@ -397,7 +400,8 @@ class BlendOptimizationService:
                         vector({index: 1.0}),
                         lower=max(lower, activation),
                         upper=upper,
-                        unit="whole-wire fraction",
+                        unit="core mass %",
+                        display_scale=100.0 / fill,
                     )
                 )
 
@@ -445,7 +449,8 @@ class BlendOptimizationService:
                     vector(coefficients),
                     lower=fill * constraint.lower / 100.0,
                     upper=fill * constraint.upper / 100.0,
-                    unit="whole-wire fraction",
+                    unit="core mass %",
+                    display_scale=100.0 / fill,
                 )
             )
 
@@ -611,6 +616,7 @@ class BlendOptimizationService:
                     lower=lower,
                     upper=upper,
                     unit=row.unit,
+                    display_scale=row.display_scale,
                     relaxable=False,
                 )
             )
@@ -634,24 +640,31 @@ class BlendOptimizationService:
             return ()
         result: list[RelaxationCandidate] = []
         for side, slack_index in slack_index_by_side.items():
-            amount = float(solution[slack_index])
-            if amount <= 1e-8:
+            solver_amount = float(solution[slack_index])
+            if solver_amount <= 1e-8:
                 continue
             row_index, direction = side
             row = problem.rows[row_index]
             current = row.lower if direction == "lower" else row.upper
-            suggested = current - amount if direction == "lower" else current + amount
+            suggested = (
+                current - solver_amount
+                if direction == "lower"
+                else current + solver_amount
+            )
+            display_amount = solver_amount * row.display_scale
+            display_current = current * row.display_scale
+            display_suggested = suggested * row.display_scale
             result.append(
                 RelaxationCandidate(
                     constraint=row.name,
                     direction=direction,
-                    current=float(current),
-                    suggested=float(suggested),
-                    amount=amount,
+                    current=float(display_current),
+                    suggested=float(display_suggested),
+                    amount=display_amount,
                     unit=row.unit,
                     message=(
                         f"{row.name} の{('下限' if direction == 'lower' else '上限')}を"
-                        f" {amount:.6g} {row.unit} 緩和すると可解性が回復する可能性があります"
+                        f" {display_amount:.6g} {row.unit} 緩和すると可解性が回復する可能性があります"
                     ),
                 )
             )
