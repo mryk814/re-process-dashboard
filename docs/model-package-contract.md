@@ -54,10 +54,16 @@ PackageはPythonコード、import path、callback、pickle、joblibを含めま
 
 全ての`feature_pipeline.spec`、pipeline artifact、predictor artifactは`artifacts`配列にpath/hash/bytesとして列挙する。
 
+`package_kind=predictive` は従来どおりFeature Pipelineと一つ以上のpredictorを持つ。
+`package_kind=deterministic_transform` は学習済みscalar predictorではなく、独立した
+`deterministic_transforms` を持ち、Feature Pipelineとpredictorを持たない。
+この二つを同じPackage内へ混在させない。
+
 ## 許可する実行環境と資産形式
 
 | 実行環境の種類 | 安全な資産 | 制約 |
 |---|---|---|
+| `builtin.deterministic_linear.v1` | `.json` | 疎なコア配合をwhole-wire絶対質量分率へcompileし、固定された原料・フープ成分行列を適用する。科学master digest、単位、行列軸を一致検証し、予測分布を返さない |
 | `builtin.linear.v1` | `.npz` | `weights/bias/lower_offset/upper_offset`のみ |
 | `builtin.additive_terms.v1` | `.npz`、`allow_pickle=False` | identity linkのlinear / B-spline / categorical lookup項。寄与は型付き説明契約で返す |
 | `builtin.exact_gp.v1` | `.npz`、`allow_pickle=False` | `exact_rbf_grouped_v1`または`exact_rbf_ard_v1`の既知array schemaだけ。`predictive_family`は`normal`または`lognormal`（後者は`config.latent_transform=log1p`必須で、GPは`log(1+target)`空間、予測は単調変換で元単位へ戻す） |
@@ -97,6 +103,15 @@ npzはentry数、展開後総量、圧縮率、posterior draw数、layer数、te
 モデルメタデータには、Package ID、Packageバージョン、manifestのSHA-256、実行環境の種類、Feature PipelineのIDとバージョン、入力schema、特徴量名、学習ソースのpathとSHA-256、レコード件数を記録します。
 焼鈍と熱延の実行環境は、Package manifestの学習データIDも学習データの識別情報へ追加します。
 過去のスナップショットは、新しいPackageで自動再評価しません。
+
+Stage Aの科学Packageは原料・フープ成分、D50、compiler単位契約をartifactへsnapshotし、
+その科学master digestをmanifestにも固定する。単価と調達区分はPackage外の商用catalog
+revisionであり、価格変更だけでは科学Packageを作り直さない。検証は次で実行できる。
+
+```powershell
+uv run python -m material_workbench.modeling.model_package_verify `
+  models/packages/welding-stage-a-deterministic-v1 --deterministic-transform
+```
 
 ## TaskDefinitionとの境界
 

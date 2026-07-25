@@ -7,6 +7,8 @@ from pathlib import Path
 import sys
 from typing import Any, Sequence
 
+from material_workbench.adapters.builtin_deterministic_linear import ScientificTransformResult
+from material_workbench.contracts.blend_contracts import SparseBlend
 from material_workbench.modeling.model_lifecycle import validate_lifecycle_metadata, validate_training_provenance
 from material_workbench.contracts.model_example_contracts import ExampleQualityReport, ExampleSmokeExpected, ExampleSmokeInput, SparseSelectionReport
 from material_workbench.modeling.model_packages import MissingOptionalDependency, ModelPackageLoader, PackageContractError, validate_predictive_summary
@@ -46,6 +48,67 @@ class ExamplePackageVerificationReport:
 
     def model_dump(self) -> dict[str, Any]:
         return asdict(self)
+
+
+@dataclass(frozen=True)
+class DeterministicTransformVerificationReport:
+    package_root: str
+    package_id: str
+    package_version: str
+    transform_id: str
+    runtime_type: str
+    manifest_sha256: str
+
+    def model_dump(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+def verify_deterministic_transform_package(
+    package_root: str | Path,
+) -> DeterministicTransformVerificationReport:
+    """Verify an inactive deterministic package without treating it as a predictor."""
+
+    package = ModelPackageLoader().load(package_root)
+    if package.manifest.package_kind != "deterministic_transform":
+        raise ModelPackageVerificationError("package is not a deterministic transform")
+    if len(package.manifest.deterministic_transforms) != 1:
+        raise ModelPackageVerificationError(
+            "deterministic package smoke requires exactly one transform"
+        )
+    smoke = package.manifest.smoke_test
+    if smoke is None:
+        raise ModelPackageVerificationError("deterministic package requires a smoke_test")
+    spec = package.manifest.deterministic_transforms[0]
+    try:
+        smoke_input = SparseBlend.model_validate_json(
+            package.artifact_path(smoke.input).read_text(encoding="utf-8")
+        )
+        expected = ScientificTransformResult.model_validate_json(
+            package.artifact_path(smoke.expected).read_text(encoding="utf-8")
+        )
+    except (OSError, ValueError) as exc:
+        raise ModelPackageVerificationError(
+            f"invalid deterministic smoke artifact: {exc}"
+        ) from exc
+    transform = package.load_transform(spec.id)
+    transform_scientific = getattr(transform, "transform", None)
+    if transform_scientific is None:
+        raise ModelPackageVerificationError(
+            "deterministic transform does not expose scientific execution"
+        )
+    actual = transform_scientific(smoke_input)
+    if actual != expected:
+        raise ModelPackageVerificationError(
+            "deterministic transform smoke output differs from expected result"
+        )
+    return DeterministicTransformVerificationReport(
+        package_root=str(package.root),
+        package_id=package.manifest.package_id,
+        package_version=package.manifest.package_version,
+        transform_id=spec.id,
+        runtime_type=spec.runtime_type,
+        manifest_sha256=package.manifest_sha256,
+    )
 
 
 def verify_model_package_example(package_root: str | Path) -> ExamplePackageVerificationReport:
@@ -130,6 +193,7 @@ def _parser() -> argparse.ArgumentParser:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--task", dest="task_id")
     mode.add_argument("--example", action="store_true")
+    mode.add_argument("--deterministic-transform", action="store_true")
     parser.add_argument("--source", type=Path, default=Path("data/source/material_workbench_tutorial_v1.xlsx"))
     parser.add_argument("--json", action="store_true", dest="json_output")
     return parser
@@ -138,11 +202,16 @@ def _parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
-        report = (
-            verify_model_package_example(args.package_root)
-            if args.example
-            else verify_model_package(args.package_root, task_id=args.task_id, source=args.source)
-        )
+        if args.example:
+            report = verify_model_package_example(args.package_root)
+        elif args.deterministic_transform:
+            report = verify_deterministic_transform_package(args.package_root)
+        else:
+            report = verify_model_package(
+                args.package_root,
+                task_id=args.task_id,
+                source=args.source,
+            )
     except (MissingOptionalDependency, PackageContractError, OSError, ValueError) as exc:
         if args.json_output:
             print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False, indent=2))
@@ -156,6 +225,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             "Model Package example verification: PASS",
             f"Package: {report.package_id} {report.package_version}",
             f"Predictor: {report.predictor_id} ({report.runtime_type})",
+            f"Manifest SHA-256: {report.manifest_sha256}",
+            "Smoke: reproduced",
+        ]))
+    elif isinstance(report, DeterministicTransformVerificationReport):
+        print("\n".join([
+            "Deterministic Model Package verification: PASS",
+            f"Package: {report.package_id} {report.package_version}",
+            f"Transform: {report.transform_id} ({report.runtime_type})",
             f"Manifest SHA-256: {report.manifest_sha256}",
             "Smoke: reproduced",
         ]))
