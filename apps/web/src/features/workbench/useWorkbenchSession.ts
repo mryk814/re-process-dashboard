@@ -334,6 +334,41 @@ export function useWorkbenchSession({
     editor.schedule(next, current);
   }
 
+  function updateCandidateBlend(
+    id: string,
+    blend: NonNullable<CandidateViewModel["raw"]["blend"]>,
+    lockedMaterialIds?: string[],
+  ) {
+    const current = candidates.find((candidate) => candidate.id === id);
+    if (!current) return;
+    const next: CandidateViewModel = {
+      ...current,
+      raw: {
+        ...current.raw,
+        blend,
+        editor_state: lockedMaterialIds === undefined
+          ? current.raw.editor_state
+          : { locked_material_ids: lockedMaterialIds },
+      },
+    };
+    setCandidates((items) => items.map((candidate) => candidate.id === id ? next : candidate));
+    editor.schedule(next, current);
+  }
+
+  function updateCandidateBlendLocks(id: string, lockedMaterialIds: string[]) {
+    const current = candidates.find((candidate) => candidate.id === id);
+    if (!current?.raw.blend) return;
+    const next: CandidateViewModel = {
+      ...current,
+      raw: {
+        ...current.raw,
+        editor_state: { locked_material_ids: lockedMaterialIds },
+      },
+    };
+    setCandidates((items) => items.map((candidate) => candidate.id === id ? next : candidate));
+    editor.schedule(next, current);
+  }
+
   function updateHeat(index: number, field: "time" | "temperature" | "stageName", raw: number | string) {
     if (!selected) return;
     updateCandidateHeat(selected.id, index, field, raw);
@@ -604,6 +639,8 @@ export function useWorkbenchSession({
     updateCandidateHeatTimeBasis,
     updateCandidateHeat,
     updateCandidateText,
+    updateCandidateBlend,
+    updateCandidateBlendLocks,
     updateHeat,
     acceptCandidate,
   };

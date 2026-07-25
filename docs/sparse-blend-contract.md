@@ -31,7 +31,7 @@
 ## revisionの分離
 
 - 科学master：原料種類、群、粒度、フープを固定する。Stage Aの科学変換が参照する。
-- 商用catalog：調達区分と単価を固定する。価格変更だけでは科学入力hashを変えない。
+- 商用catalog：名称、原料種類、群、主成分表示、調達区分、単価を固定する。価格や表示情報の変更だけでは科学入力hashを変えない。
 - Design Space：使用可能集合、原料上下限、群合計、群ごとの選択数、全体の選択数、合計、残部を固定する。
 
 各参照はresource ID、revision、内容digestの三つ組で解決する。
@@ -73,6 +73,11 @@ Packageの全ファイルとmanifest digestは不変でなければならない�
 商用catalogはPackage外で解決し、原料ごとの
 `配合比 × 単価` と粉体配合コスト（円/kg-core）を派生する。
 フープ単価を持たないため、これは総ワイヤコストではない。
+`GET /api/transforms/{transform_id}/blend-editor` は、同じ版の科学master、
+商用catalog、Design Spaceを一組として解決し、群→原料種類→銘柄の選択、
+コード・名称・主成分検索、同一種類の銘柄置換に必要な表示情報を返す。
+Design Spaceは `models/design-spaces/` にPackage外の版付きresourceとして置く。
+表示・置換契約を必須化した商用catalogは `commercial-material-catalog/v2` とする。
 
 ## 派生revisionと比較
 

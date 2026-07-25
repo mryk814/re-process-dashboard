@@ -122,7 +122,7 @@ Stage Aの出力軸は
 利用可能な決定論的Transform Packageは `models/active-transforms.json` でactive/available
 を管理する。APIの `GET /api/transforms` で解決済みPackageと軸を確認し、
 `POST /api/transforms/{transform_id}/execute` で疎な配合候補を実行できる。
-Windows配布物にはこの設定、全available Package、商用catalogを同梱する。
+Windows配布物にはこの設定、全available Package、商用catalog、Design Spaceを同梱する。
 検証は次で実行できる。
 
 ```powershell

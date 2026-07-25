@@ -1122,6 +1122,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/transforms/{transform_id}/blend-editor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Blend Editor Context */
+        get: operations["getBlendEditorContext"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/transforms/{transform_id}/blend-editor/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve Blend Editor Context */
+        post: operations["resolveBlendEditorContext"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/transforms/{transform_id}/execute": {
         parameters: {
             query?: never;
@@ -1261,6 +1295,41 @@ export interface components {
              * @default false
              */
             sparse_blend: boolean;
+            /** Sparse Blend Transform Id */
+            sparse_blend_transform_id?: string | null;
+        };
+        /** BlendEditorContext */
+        BlendEditorContext: {
+            commercial_catalog: components["schemas"]["RevisionRef"];
+            design_space: components["schemas"]["SparseBlendDesignSpace"];
+            design_space_ref: components["schemas"]["RevisionRef"];
+            /** Materials */
+            materials: components["schemas"]["BlendEditorMaterial"][];
+            scientific_master: components["schemas"]["RevisionRef"];
+            /** Transform Id */
+            transform_id: string;
+        };
+        /** BlendEditorMaterial */
+        BlendEditorMaterial: {
+            /** D50 Um */
+            d50_um: number;
+            /** Group */
+            group: string;
+            /** Main Components */
+            main_components: string[];
+            /** Material Id */
+            material_id: string;
+            /** Material Type */
+            material_type: string;
+            /** Name */
+            name: string;
+            /**
+             * Procurement
+             * @enum {string}
+             */
+            procurement: "常用" | "条件付" | "試作限定" | "廃止予定";
+            /** Unit Price Yen Per Kg Core */
+            unit_price_yen_per_kg_core: number;
         };
         /**
          * BlendEditorState
@@ -1283,6 +1352,11 @@ export interface components {
             d50_um: number;
             /** Group */
             group: string;
+            /**
+             * Main Components
+             * @default []
+             */
+            main_components: string[];
             /** Material Id */
             material_id: string;
             /** Material Type */
@@ -2095,6 +2169,8 @@ export interface components {
             commercial_catalog: components["schemas"]["RevisionRef"];
             /** Commercial Catalog Locator */
             commercial_catalog_locator: string;
+            /** Design Space Locator */
+            design_space_locator: string;
             /** Outputs */
             outputs: string[];
             /** Package Id */
@@ -2308,6 +2384,27 @@ export interface components {
             path: string;
             /** Value */
             value: string | number | boolean;
+        };
+        /** GroupCardinalityConstraint */
+        GroupCardinalityConstraint: {
+            /** Group */
+            group: string;
+            /** Maximum */
+            maximum: number;
+            /**
+             * Minimum
+             * @default 0
+             */
+            minimum: number;
+        };
+        /** GroupTotalConstraint */
+        GroupTotalConstraint: {
+            /** Group */
+            group: string;
+            /** Lower */
+            lower: number;
+            /** Upper */
+            upper: number;
         };
         /** HeatPoint */
         HeatPoint: {
@@ -2681,6 +2778,15 @@ export interface components {
             share_of_blend_cost: number;
             /** Unit Price Yen Per Kg Core */
             unit_price_yen_per_kg_core: number;
+        };
+        /** MaterialRatioBound */
+        MaterialRatioBound: {
+            /** Lower */
+            lower: number;
+            /** Material Id */
+            material_id: string;
+            /** Upper */
+            upper: number;
         };
         /** ModelIdentity */
         ModelIdentity: {
@@ -4277,6 +4383,13 @@ export interface components {
             /** Values */
             values?: (number | string)[] | null;
         };
+        /** SelectionCountConstraint */
+        SelectionCountConstraint: {
+            /** Maximum */
+            maximum: number;
+            /** Minimum */
+            minimum: number;
+        };
         /** SimilarityIdentity */
         SimilarityIdentity: {
             /**
@@ -4437,6 +4550,54 @@ export interface components {
              */
             schema_version: "sparse-blend/v1";
             scientific_master: components["schemas"]["RevisionRef"];
+        };
+        /** SparseBlendDesignSpace */
+        SparseBlendDesignSpace: {
+            /** Allowed Material Ids */
+            allowed_material_ids: string[];
+            /** Balance Material Id */
+            balance_material_id: string;
+            commercial_catalog: components["schemas"]["RevisionRef"];
+            /** Fixed Fill Ratio */
+            fixed_fill_ratio: number;
+            /** Fixed Hoop Id */
+            fixed_hoop_id: string;
+            /**
+             * Group Cardinalities
+             * @default []
+             */
+            group_cardinalities: components["schemas"]["GroupCardinalityConstraint"][];
+            /**
+             * Group Totals
+             * @default []
+             */
+            group_totals: components["schemas"]["GroupTotalConstraint"][];
+            /**
+             * Material Bounds
+             * @default []
+             */
+            material_bounds: components["schemas"]["MaterialRatioBound"][];
+            /** Resource Id */
+            resource_id: string;
+            /** Revision */
+            revision: number;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "sparse-blend-design-space/v1";
+            scientific_master: components["schemas"]["RevisionRef"];
+            selection_count: components["schemas"]["SelectionCountConstraint"];
+            /**
+             * Tolerance
+             * @default 0.000001
+             */
+            tolerance: number;
+            /**
+             * Total
+             * @default 100
+             */
+            total: number;
         };
         /** StageOutputBindingSource */
         StageOutputBindingSource: {
@@ -8199,6 +8360,126 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeterministicTransformCatalogItem"][];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getBlendEditorContext: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transform_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlendEditorContext"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    resolveBlendEditorContext: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transform_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeterministicTransformExecutionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlendEditorContext"];
                 };
             };
             /** @description Not Found */

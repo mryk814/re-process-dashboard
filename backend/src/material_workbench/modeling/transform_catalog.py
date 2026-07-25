@@ -13,8 +13,14 @@ from material_workbench.adapters.builtin_deterministic_linear import (
     DeterministicLinearResult,
 )
 from material_workbench.contracts.blend_contracts import (
+    BlendMaterialDescriptor,
+    BlendStructuralError,
     CommercialMaterialCatalog,
+    RevisionRef,
+    ResolvedBlendContracts,
     SparseBlend,
+    SparseBlendDesignSpace,
+    describe_blend_materials,
 )
 from material_workbench.contracts.stage_a_contracts import STAGE_A_COMPONENTS
 from material_workbench.modeling.model_lifecycle import REPOSITORY_ROOT
@@ -43,8 +49,11 @@ class ActiveTransformSelection(_CatalogModel):
     active: Annotated[str, Field(min_length=1)]
     available: Annotated[tuple[str, ...], Field(min_length=1)]
     commercial_catalog: Annotated[str, Field(min_length=1)]
+    available_commercial_catalogs: Annotated[tuple[str, ...], Field(min_length=1)]
+    design_space: Annotated[str, Field(min_length=1)]
+    available_design_spaces: Annotated[tuple[str, ...], Field(min_length=1)]
 
-    @field_validator("active", "commercial_catalog")
+    @field_validator("active", "commercial_catalog", "design_space")
     @classmethod
     def safe_relative_path(cls, value: str) -> str:
         return _safe_relative_locator(value)
@@ -56,10 +65,23 @@ class ActiveTransformSelection(_CatalogModel):
             raise ValueError("available transform locators must be unique")
         return tuple(_safe_relative_locator(item) for item in value)
 
+    @field_validator("available_commercial_catalogs", "available_design_spaces")
+    @classmethod
+    def safe_available_resource_paths(
+        cls, value: tuple[str, ...]
+    ) -> tuple[str, ...]:
+        if len(value) != len(set(value)):
+            raise ValueError("available resource locators must be unique")
+        return tuple(_safe_relative_locator(item) for item in value)
+
     @model_validator(mode="after")
     def active_is_available(self) -> "ActiveTransformSelection":
         if self.active not in self.available:
             raise ValueError("active transform locator must be listed as available")
+        if self.commercial_catalog not in self.available_commercial_catalogs:
+            raise ValueError("active commercial catalog must be listed as available")
+        if self.design_space not in self.available_design_spaces:
+            raise ValueError("active Design Space must be listed as available")
         return self
 
 
@@ -84,14 +106,30 @@ class LoadedTransform:
     package: VerifiedModelPackage
     transform: Any
     commercial_catalog: CommercialMaterialCatalog
+    design_space: SparseBlendDesignSpace
     package_locator: str
     available_package_locators: tuple[str, ...]
     commercial_catalog_locator: str
+    design_space_locator: str
+
+
+@dataclass(frozen=True)
+class HistoricalTransformResolution:
+    transform: Any
+    contracts: ResolvedBlendContracts
 
 
 class DeterministicTransformCatalog:
-    def __init__(self, entries: dict[str, LoadedTransform]) -> None:
+    def __init__(
+        self,
+        entries: dict[str, LoadedTransform],
+        historical: dict[
+            tuple[RevisionRef, RevisionRef, RevisionRef],
+            HistoricalTransformResolution,
+        ],
+    ) -> None:
         self._entries = entries
+        self._historical = historical
 
     @property
     def transform_ids(self) -> tuple[str, ...]:
@@ -108,8 +146,55 @@ class DeterministicTransformCatalog:
         transform_id: str,
         blend: SparseBlend,
     ) -> DeterministicLinearResult:
+        self.entry(transform_id)
+        resolution = self._resolution_for(blend)
+        return resolution.transform.execute(
+            blend,
+            resolution.contracts.commercial_catalog,
+        )
+
+    def initial_blend(self, transform_id: str) -> SparseBlend:
+        """Create a valid, editable starting point pinned to the active resources."""
         entry = self.entry(transform_id)
-        return entry.transform.execute(blend, entry.commercial_catalog)
+        space = entry.design_space
+        return SparseBlend(
+            items=(
+                {
+                    "material_id": space.balance_material_id,
+                    "ratio": space.total,
+                },
+            ),
+            hoop_id=space.fixed_hoop_id,
+            fill_ratio=space.fixed_fill_ratio,
+            balance_material_id=space.balance_material_id,
+            scientific_master=entry.transform.artifact.scientific_master.ref,
+            commercial_catalog=entry.commercial_catalog.ref,
+            design_space=space.ref,
+        )
+
+    def resolve_blend(self, blend: SparseBlend) -> ResolvedBlendContracts:
+        return self._resolution_for(blend).contracts
+
+    def _resolution_for(self, blend: SparseBlend) -> HistoricalTransformResolution:
+        try:
+            return self._historical[
+                (
+                    blend.scientific_master,
+                    blend.commercial_catalog,
+                    blend.design_space,
+                )
+            ]
+        except KeyError as exc:
+            raise BlendStructuralError(
+                "配合が参照するStage A・商用catalog・Design Spaceの"
+                "完全一致revisionが見つかりません"
+            ) from exc
+
+    def describe_blend(
+        self,
+        blend: SparseBlend,
+    ) -> tuple[BlendMaterialDescriptor, ...]:
+        return describe_blend_materials(blend, self.resolve_blend(blend))
 
 
 def active_transforms_path() -> Path:
@@ -137,6 +222,10 @@ def load_deterministic_transform_catalog(
         raise PackageContractError(f"invalid active deterministic transform catalog: {exc}") from exc
     models_root = path.resolve().parent
     entries: dict[str, LoadedTransform] = {}
+    historical: dict[
+        tuple[RevisionRef, RevisionRef, RevisionRef],
+        HistoricalTransformResolution,
+    ] = {}
     for transform_id, selection in config.transforms.items():
         loader = ModelPackageLoader()
         available_packages: dict[str, tuple[VerifiedModelPackage, Any]] = {}
@@ -192,22 +281,131 @@ def load_deterministic_transform_catalog(
                     f"available transform {locator} is incompatible with active transform "
                     f"{selection.active}"
                 )
-        catalog_path = _resolved_locator(models_root, selection.commercial_catalog)
-        try:
-            commercial_catalog = CommercialMaterialCatalog.model_validate_json(
-                catalog_path.read_text(encoding="utf-8")
-            )
-        except (OSError, ValueError) as exc:
+        available_catalogs: dict[str, CommercialMaterialCatalog] = {}
+        for locator in selection.available_commercial_catalogs:
+            catalog_path = _resolved_locator(models_root, locator)
+            try:
+                available_catalogs[locator] = (
+                    CommercialMaterialCatalog.model_validate_json(
+                        catalog_path.read_text(encoding="utf-8")
+                    )
+                )
+            except (OSError, ValueError) as exc:
+                raise PackageContractError(
+                    f"invalid commercial catalog for transform {transform_id}: {exc}"
+                ) from exc
+        commercial_catalog = available_catalogs[selection.commercial_catalog]
+        if commercial_catalog.schema_version != "commercial-material-catalog/v2":
             raise PackageContractError(
-                f"invalid commercial catalog for transform {transform_id}: {exc}"
-            ) from exc
+                f"active commercial catalog for transform {transform_id} must be v2"
+            )
+
+        available_design_spaces: dict[str, SparseBlendDesignSpace] = {}
+        for locator in selection.available_design_spaces:
+            design_space_path = _resolved_locator(models_root, locator)
+            try:
+                available_design_spaces[locator] = (
+                    SparseBlendDesignSpace.model_validate_json(
+                        design_space_path.read_text(encoding="utf-8")
+                    )
+                )
+            except (OSError, ValueError) as exc:
+                raise PackageContractError(
+                    f"invalid Design Space for transform {transform_id}: {exc}"
+                ) from exc
+        design_space = available_design_spaces[selection.design_space]
+
+        transforms_by_science = {
+            loaded_transform.artifact.scientific_master.ref: loaded_transform
+            for _, loaded_transform in available_packages.values()
+        }
+        catalogs_by_ref = {
+            available_catalog.ref: available_catalog
+            for available_catalog in available_catalogs.values()
+        }
+        for historical_space in available_design_spaces.values():
+            historical_transform = transforms_by_science.get(
+                historical_space.scientific_master
+            )
+            historical_catalog = catalogs_by_ref.get(
+                historical_space.commercial_catalog
+            )
+            if historical_transform is None or historical_catalog is None:
+                raise PackageContractError(
+                    f"Design Space for transform {transform_id} does not reference "
+                    "an available scientific/commercial revision"
+                )
+            scientific_by_id = {
+                material.material_id: material
+                for material in historical_transform.artifact.scientific_master.materials
+            }
+            commercial_by_id = {
+                material.material_id: material
+                for material in historical_catalog.materials
+            }
+            if set(scientific_by_id) != set(commercial_by_id):
+                raise PackageContractError(
+                    f"commercial catalog for transform {transform_id} must cover "
+                    "the exact scientific material set"
+                )
+            if historical_catalog.schema_version == "commercial-material-catalog/v2":
+                if any(
+                    commercial_by_id[material_id].group != scientific.group
+                    for material_id, scientific in scientific_by_id.items()
+                ):
+                    raise PackageContractError(
+                        f"commercial catalog for transform {transform_id} changes "
+                        "a scientific material group"
+                    )
+                if any(
+                    not set(material.main_components or ()) <= set(STAGE_A_COMPONENTS)
+                    for material in historical_catalog.materials
+                ):
+                    raise PackageContractError(
+                        f"commercial catalog for transform {transform_id} has "
+                        "unknown main components"
+                    )
+            if not set(historical_space.allowed_material_ids) <= set(scientific_by_id):
+                raise PackageContractError(
+                    f"Design Space for transform {transform_id} contains unknown materials"
+                )
+            contracts = ResolvedBlendContracts(
+                historical_transform.artifact.scientific_master,
+                historical_catalog,
+                historical_space,
+            )
+            key = (
+                historical_space.scientific_master,
+                historical_space.commercial_catalog,
+                historical_space.ref,
+            )
+            if key in historical:
+                raise PackageContractError(
+                    "duplicate immutable deterministic transform resource combination"
+                )
+            historical[key] = HistoricalTransformResolution(
+                transform=historical_transform,
+                contracts=contracts,
+            )
+
+        active_key = (
+            transform.artifact.scientific_master.ref,
+            commercial_catalog.ref,
+            design_space.ref,
+        )
+        if active_key not in historical:
+            raise PackageContractError(
+                f"active resources for transform {transform_id} are not an available combination"
+            )
         entries[transform_id] = LoadedTransform(
             transform_id=transform_id,
             package=package,
             transform=transform,
             commercial_catalog=commercial_catalog,
+            design_space=design_space,
             package_locator=selection.active,
             available_package_locators=selection.available,
             commercial_catalog_locator=selection.commercial_catalog,
+            design_space_locator=selection.design_space,
         )
-    return DeterministicTransformCatalog(entries)
+    return DeterministicTransformCatalog(entries, historical)

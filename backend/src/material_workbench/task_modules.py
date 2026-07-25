@@ -497,6 +497,10 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         runtime_factory=_tabular_runtime,
         feature_row_builder=_welding_stage_b_features,
         model_builder=_build_welding_stage_b,
+        application=ApplicationCapability(
+            sparse_blend=True,
+            sparse_blend_transform_id="welding-stage-a-v1",
+        ),
         starter_project=StarterProject(
             "welding-stage-b-default",
             "溶接材料 Stage B",

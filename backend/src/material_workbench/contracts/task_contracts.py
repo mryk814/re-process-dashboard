@@ -443,6 +443,15 @@ class ApplicationCapability(ContractModel):
     candidate_excel_import: bool = False
     candidate_excel_export: bool = False
     sparse_blend: bool = False
+    sparse_blend_transform_id: str | None = None
+
+    @model_validator(mode="after")
+    def sparse_blend_declares_transform(self) -> "ApplicationCapability":
+        if self.sparse_blend != (self.sparse_blend_transform_id is not None):
+            raise ValueError(
+                "sparse_blend and sparse_blend_transform_id must be declared together"
+            )
+        return self
 
 
 class TaskAvailability(ContractModel):

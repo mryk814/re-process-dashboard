@@ -4,7 +4,7 @@ import importlib.util
 from pathlib import Path
 from typing import Any, Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from .dependencies import (
     get_project_runtime_resolver,
@@ -457,23 +457,35 @@ def model_training_data(
     response_model=list[TaskCatalogItem],
     operation_id="listTaskDefinitions",
 )
-def task_definitions(registry: RegistryDependency) -> list[dict[str, Any]]:
+def task_definitions(
+    request: Request,
+    registry: RegistryDependency,
+) -> list[dict[str, Any]]:
     catalog = []
     for task_id in registry.task_ids:
         contract = registry.contract_for(task_id)
         canonical = contract.canonical_candidate
-        catalog.append({
-            "definition": registry.resolved_definition_for(task_id),
-            "starter_candidate": {
-                "name": "基準候補",
-                "inputs": {
-                    "composition": canonical.composition,
-                    "process": canonical.process,
-                    "categorical": canonical.categorical,
-                    "heat_pattern": canonical.heat_pattern,
-                },
-                "provenance": {"source_kind": "direct", "source_ref": None},
+        definition = registry.resolved_definition_for(task_id)
+        starter_candidate: dict[str, Any] = {
+            "name": "基準候補",
+            "inputs": {
+                "composition": canonical.composition,
+                "process": canonical.process,
+                "categorical": canonical.categorical,
+                "heat_pattern": canonical.heat_pattern,
             },
+            "provenance": {"source_kind": "direct", "source_ref": None},
+        }
+        transform_id = definition.application.sparse_blend_transform_id
+        if transform_id is not None:
+            starter_candidate["blend"] = (
+                request.app.state.deterministic_transform_catalog.initial_blend(
+                    transform_id
+                )
+            )
+        catalog.append({
+            "definition": definition,
+            "starter_candidate": starter_candidate,
         })
     return catalog
 

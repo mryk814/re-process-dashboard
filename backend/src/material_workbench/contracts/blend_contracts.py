@@ -77,12 +77,28 @@ class ScientificMaterialMaster(BlendContractModel):
 
 class CommercialMaterial(BlendContractModel):
     material_id: Annotated[str, Field(min_length=1)]
+    name: Annotated[str, Field(min_length=1)] | None = None
+    material_type: Annotated[str, Field(min_length=1)] | None = None
+    group: Annotated[str, Field(min_length=1)] | None = None
+    main_components: Annotated[tuple[str, ...], Field(min_length=1)] | None = None
     procurement: Literal["常用", "条件付", "試作限定", "廃止予定"]
     unit_price_yen_per_kg_core: Annotated[float, Field(ge=0, allow_inf_nan=False)]
 
+    @field_validator("main_components")
+    @classmethod
+    def main_components_are_unique(
+        cls, value: tuple[str, ...] | None
+    ) -> tuple[str, ...] | None:
+        if value is not None and len(value) != len(set(value)):
+            raise ValueError("commercial material main components must be unique")
+        return value
+
 
 class CommercialMaterialCatalog(BlendContractModel):
-    schema_version: Literal["commercial-material-catalog/v1"]
+    schema_version: Literal[
+        "commercial-material-catalog/v1",
+        "commercial-material-catalog/v2",
+    ]
     resource_id: Annotated[str, Field(min_length=1)]
     revision: Annotated[int, Field(ge=1)]
     materials: Annotated[tuple[CommercialMaterial, ...], Field(min_length=1)]
@@ -92,6 +108,14 @@ class CommercialMaterialCatalog(BlendContractModel):
         material_ids = [item.material_id for item in self.materials]
         if len(material_ids) != len(set(material_ids)):
             raise ValueError("commercial material ids must be unique")
+        if self.schema_version == "commercial-material-catalog/v2" and any(
+            item.name is None
+            or item.material_type is None
+            or item.group is None
+            or item.main_components is None
+            for item in self.materials
+        ):
+            raise ValueError("commercial catalog v2 requires editor metadata")
         return self
 
     @property
@@ -99,7 +123,7 @@ class CommercialMaterialCatalog(BlendContractModel):
         return RevisionRef(
             resource_id=self.resource_id,
             revision=self.revision,
-            digest=_semantic_digest(self.model_dump(mode="json")),
+            digest=_semantic_digest(self.model_dump(mode="json", exclude_none=True)),
         )
 
 
@@ -309,6 +333,7 @@ class BlendMaterialDescriptor(BlendContractModel):
     d50_um: float
     procurement: Literal["常用", "条件付", "試作限定", "廃止予定"]
     unit_price_yen_per_kg_core: float
+    main_components: tuple[str, ...] = ()
 
 
 class BlendContractRegistry:
@@ -402,27 +427,51 @@ class BlendContractRegistry:
         return ResolvedBlendContracts(master, catalog, space)
 
     def describe(self, blend: SparseBlend) -> tuple[BlendMaterialDescriptor, ...]:
-        contracts = self.resolve(blend)
-        commercial = {
-            item.material_id: item
-            for item in contracts.commercial_catalog.materials
-        }
-        selected = {item.material_id for item in blend.items}
-        return tuple(
-            BlendMaterialDescriptor(
-                material_id=item.material_id,
-                name=item.name,
-                material_type=item.material_type,
-                group=item.group,
-                d50_um=item.d50_um,
-                procurement=commercial[item.material_id].procurement,
-                unit_price_yen_per_kg_core=(
-                    commercial[item.material_id].unit_price_yen_per_kg_core
-                ),
-            )
-            for item in contracts.scientific_master.materials
-            if item.material_id in selected
+        return describe_blend_materials(blend, self.resolve(blend))
+
+
+def describe_blend_materials(
+    blend: SparseBlend,
+    contracts: ResolvedBlendContracts,
+) -> tuple[BlendMaterialDescriptor, ...]:
+    commercial = {
+        item.material_id: item
+        for item in contracts.commercial_catalog.materials
+    }
+    selected = {item.material_id for item in blend.items}
+    return tuple(
+        BlendMaterialDescriptor(
+            material_id=item.material_id,
+            name=(
+                commercial[item.material_id].name
+                or getattr(item, "name", item.material_id)
+            ),
+            material_type=(
+                commercial[item.material_id].material_type
+                or getattr(item, "material_type", item.group)
+            ),
+            group=commercial[item.material_id].group or item.group,
+            d50_um=item.d50_um,
+            procurement=commercial[item.material_id].procurement,
+            unit_price_yen_per_kg_core=(
+                commercial[item.material_id].unit_price_yen_per_kg_core
+            ),
+            main_components=(
+                commercial[item.material_id].main_components
+                or tuple(
+                    name
+                    for name, value in sorted(
+                        getattr(item, "composition", {}).items(),
+                        key=lambda component: component[1],
+                        reverse=True,
+                    )
+                    if value > 0
+                )[:3]
+            ),
         )
+        for item in contracts.scientific_master.materials
+        if item.material_id in selected
+    )
 
 
 def validate_sparse_blend(
