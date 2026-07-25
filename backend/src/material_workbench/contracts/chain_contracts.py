@@ -153,12 +153,28 @@ class ChainRevision(ChainContractModel):
 class SingleTaskProjectIdentity(ChainContractModel):
     identity_kind: Literal["single_task"]
     task_id: Annotated[str, Field(min_length=1)]
-    dataset_view_revision_id: Annotated[str, Field(min_length=1)]
-    task_contract_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
-    model_package_ref_id: Annotated[str, Field(min_length=1)]
-    model_package_manifest_digest: Annotated[
-        str, Field(pattern=r"^sha256:[0-9a-f]{64}$")
-    ]
+    dataset_view_revision_id: Annotated[str, Field(min_length=1)] | None = None
+    task_contract_digest: Annotated[str, Field(min_length=1)] | None = None
+    model_package_ref_id: Annotated[str, Field(min_length=1)] | None = None
+    model_package_manifest_digest: Annotated[str, Field(min_length=1)] | None = None
+    binding_provenance: Literal[
+        "explicit", "assumed_current_at_upgrade", "unbound_legacy"
+    ] = "explicit"
+
+    @model_validator(mode="after")
+    def binding_is_complete_or_explicitly_legacy(self) -> "SingleTaskProjectIdentity":
+        bindings = (
+            self.dataset_view_revision_id,
+            self.task_contract_digest,
+            self.model_package_ref_id,
+            self.model_package_manifest_digest,
+        )
+        if self.binding_provenance == "unbound_legacy":
+            if any(bindings):
+                raise ValueError("unbound legacy identity cannot invent partial bindings")
+        elif not all(bindings):
+            raise ValueError("bound single-Task identity requires every immutable reference")
+        return self
 
 
 class ChainProjectIdentity(ChainContractModel):

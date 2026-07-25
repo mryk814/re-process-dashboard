@@ -11,6 +11,7 @@ from material_workbench.contracts.blend_contracts import (
     BlendValidationState,
     SparseBlend,
 )
+from material_workbench.contracts.chain_contracts import ProjectScientificIdentity
 from material_workbench.contracts.task_contracts import CandidateProvenance, DirectSourceRef, ResolvedTaskDefinition
 
 
@@ -430,6 +431,7 @@ class ProjectGroupMoveInput(BaseModel):
 
 class Project(ProjectInput):
     id: str
+    scientific_identity: ProjectScientificIdentity
     dataset_view_revision_id: str | None = None
     task_contract_digest: str = ""
     model_package_ref_id: str | None = None

@@ -8,6 +8,11 @@ from pathlib import Path
 from typing import Any
 
 from material_workbench.persistence.candidate_migration import HOT_PROJECT_ID
+from material_workbench.contracts.chain_contracts import (
+    ChainDefinition,
+    ChainRevision,
+    SingleTaskProjectIdentity,
+)
 from material_workbench.contracts.schemas import (
     ActualMeasurement,
     ActualMeasurementInput,
@@ -31,7 +36,35 @@ def _target_values_json(values: dict[str, object]) -> str:
         for key, value in values.items()
     }
     return json.dumps(serializable, ensure_ascii=False, sort_keys=True)
+
+
+def _single_task_identity_json(payload: ProjectCreateInput) -> str:
+    bindings = (
+        payload.dataset_view_revision_id,
+        payload.task_contract_digest,
+        payload.model_package_ref_id,
+        payload.model_package_manifest_digest,
+    )
+    if not any(bindings):
+        return SingleTaskProjectIdentity(
+            identity_kind="single_task",
+            task_id=payload.task_id,
+            binding_provenance="unbound_legacy",
+        ).model_dump_json()
+    if not all(bindings):
+        raise ValueError("Project single-Task identity has partial immutable bindings")
+    identity = SingleTaskProjectIdentity(
+        identity_kind="single_task",
+        task_id=payload.task_id,
+        dataset_view_revision_id=payload.dataset_view_revision_id,
+        task_contract_digest=payload.task_contract_digest or None,
+        model_package_ref_id=payload.model_package_ref_id,
+        model_package_manifest_digest=payload.model_package_manifest_digest or None,
+        binding_provenance="explicit",
+    )
+    return identity.model_dump_json()
 from material_workbench.persistence.workspace_catalog_migration import migrate_workspace_catalog
+from material_workbench.persistence.chain_catalog_migration import migrate_chain_catalog
 
 
 MAX_CANDIDATES_PER_PROJECT = 100
@@ -84,6 +117,10 @@ class StoreDataIntegrityError(RuntimeError):
     pass
 
 
+class ChainCatalogConflictError(ValueError):
+    pass
+
+
 def _now() -> str:
     return datetime.now(UTC).isoformat()
 
@@ -101,12 +138,152 @@ class Store:
 
     def _init(self) -> None:
         migrate_workspace_catalog(self.path)
+        migrate_chain_catalog(self.path)
         migrate_lineage_reviews(self.path)
         migrate_decision_activity_runs(self.path)
 
+    def register_chain_definition(self, definition: ChainDefinition) -> str:
+        record_id = (
+            f"{definition.chain_id}@{definition.digest.removeprefix('sha256:')[:12]}"
+        )
+        with self._connect() as conn:
+            existing = conn.execute(
+                "SELECT id,definition_json FROM chain_definitions "
+                "WHERE definition_digest=?",
+                (definition.digest,),
+            ).fetchone()
+            if existing is not None:
+                if (
+                    ChainDefinition.model_validate_json(existing["definition_json"])
+                    != definition
+                ):
+                    raise ChainCatalogConflictError(
+                        "同じdigestのChain Definitionに異なる内容があります"
+                    )
+                return str(existing["id"])
+            conn.execute(
+                "INSERT INTO chain_definitions("
+                "id,chain_id,definition_digest,definition_json,created_at"
+                ") VALUES (?,?,?,?,?)",
+                (
+                    record_id,
+                    definition.chain_id,
+                    definition.digest,
+                    definition.model_dump_json(),
+                    _now(),
+                ),
+            )
+        return record_id
+
+    def list_chain_definitions(self) -> list[ChainDefinition]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT definition_json FROM chain_definitions "
+                "ORDER BY chain_id,created_at"
+            ).fetchall()
+        return [
+            ChainDefinition.model_validate_json(row["definition_json"])
+            for row in rows
+        ]
+
+    def register_chain_revision(self, revision: ChainRevision) -> str:
+        record_id = f"{revision.chain_id}:r{revision.revision}"
+        with self._connect() as conn:
+            definition = conn.execute(
+                "SELECT 1 FROM chain_definitions "
+                "WHERE chain_id=? AND definition_digest=?",
+                (revision.chain_id, revision.chain_definition_digest),
+            ).fetchone()
+            if definition is None:
+                raise ChainCatalogConflictError(
+                    "Chain Revisionが参照するDefinitionを先に登録してください"
+                )
+            existing = conn.execute(
+                "SELECT id,revision_json FROM chain_revisions "
+                "WHERE id=? OR revision_digest=?",
+                (record_id, revision.revision_digest),
+            ).fetchone()
+            if existing is not None:
+                if (
+                    ChainRevision.model_validate_json(existing["revision_json"])
+                    != revision
+                ):
+                    raise ChainCatalogConflictError(
+                        "同じChain revision番号またはdigestに異なる内容があります"
+                    )
+                return str(existing["id"])
+            conn.execute(
+                "INSERT INTO chain_revisions("
+                "id,chain_id,revision,revision_digest,revision_json,created_at"
+                ") VALUES (?,?,?,?,?,?)",
+                (
+                    record_id,
+                    revision.chain_id,
+                    revision.revision,
+                    revision.revision_digest,
+                    revision.model_dump_json(),
+                    _now(),
+                ),
+            )
+        return record_id
+
+    def list_chain_revisions(self) -> list[ChainRevision]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT revision_json FROM chain_revisions ORDER BY chain_id,revision"
+            ).fetchall()
+        return [
+            ChainRevision.model_validate_json(row["revision_json"])
+            for row in rows
+        ]
+
+    def get_chain_revision(self, revision_id: str) -> ChainRevision | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT revision_json FROM chain_revisions WHERE id=?",
+                (revision_id,),
+            ).fetchone()
+        return (
+            ChainRevision.model_validate_json(row["revision_json"])
+            if row is not None
+            else None
+        )
+
     @staticmethod
     def _project(row: sqlite3.Row) -> Project:
-        return Project(id=row["id"], name=row["name"], description=row["description"], purpose=row["purpose"], task_id=row["task_id"], target_values=json.loads(row["target_values"]), input_ranges=json.loads(row["input_ranges"]), response_curve_ranges=json.loads(row["response_curve_ranges"]), response_curve_points=row["response_curve_points"], heat_stage_positions_m=json.loads(row["heat_stage_positions_m"]), display_decimals=json.loads(row["display_decimals"]), notes=row["notes"], decision_candidate_id=row["decision_candidate_id"], decision_snapshot_id=row["decision_snapshot_id"], decision_note=row["decision_note"], dataset_view_revision_id=row["dataset_view_revision_id"], task_contract_digest=row["task_contract_digest"], model_package_ref_id=row["model_package_ref_id"], model_package_manifest_digest=row["model_package_manifest_digest"], project_series_id=row["project_series_id"], predecessor_project_id=row["predecessor_project_id"], continuation_reason=row["continuation_reason"], binding_provenance=row["binding_provenance"], binding_migrated_at=datetime.fromisoformat(row["binding_migrated_at"]) if row["binding_migrated_at"] else None, created_at=datetime.fromisoformat(row["created_at"]), updated_at=datetime.fromisoformat(row["updated_at"]))
+        return Project(
+            id=row["id"],
+            name=row["name"],
+            description=row["description"],
+            purpose=row["purpose"],
+            task_id=row["task_id"],
+            scientific_identity=json.loads(row["scientific_identity_json"]),
+            target_values=json.loads(row["target_values"]),
+            input_ranges=json.loads(row["input_ranges"]),
+            response_curve_ranges=json.loads(row["response_curve_ranges"]),
+            response_curve_points=row["response_curve_points"],
+            heat_stage_positions_m=json.loads(row["heat_stage_positions_m"]),
+            display_decimals=json.loads(row["display_decimals"]),
+            notes=row["notes"],
+            decision_candidate_id=row["decision_candidate_id"],
+            decision_snapshot_id=row["decision_snapshot_id"],
+            decision_note=row["decision_note"],
+            dataset_view_revision_id=row["dataset_view_revision_id"],
+            task_contract_digest=row["task_contract_digest"],
+            model_package_ref_id=row["model_package_ref_id"],
+            model_package_manifest_digest=row["model_package_manifest_digest"],
+            project_series_id=row["project_series_id"],
+            predecessor_project_id=row["predecessor_project_id"],
+            continuation_reason=row["continuation_reason"],
+            binding_provenance=row["binding_provenance"],
+            binding_migrated_at=(
+                datetime.fromisoformat(row["binding_migrated_at"])
+                if row["binding_migrated_at"]
+                else None
+            ),
+            created_at=datetime.fromisoformat(row["created_at"]),
+            updated_at=datetime.fromisoformat(row["updated_at"]),
+        )
 
     def list_projects(self) -> list[Project]:
         with self._connect() as conn:
@@ -120,6 +297,8 @@ class Store:
 
     def create_project(self, payload: ProjectCreateInput, initial_candidate: CandidateInput | None = None) -> Project:
         project_id, now = str(uuid.uuid4()), _now()
+        scientific_identity_json = _single_task_identity_json(payload)
+        identity_provenance = json.loads(scientific_identity_json)["binding_provenance"]
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
             if initial_candidate is not None and initial_candidate.provenance.source_kind == "copy":
@@ -139,8 +318,8 @@ class Store:
                 "response_curve_ranges,response_curve_points,heat_stage_positions_m,display_decimals,notes,decision_candidate_id,"
                 "decision_snapshot_id,decision_note,dataset_view_revision_id,task_contract_digest,"
                 "model_package_ref_id,model_package_manifest_digest,project_series_id,predecessor_project_id,"
-                "continuation_reason,binding_provenance,created_at,updated_at) "
-                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'explicit',?,?)",
+                "continuation_reason,binding_provenance,scientific_identity_json,created_at,updated_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     project_id, payload.name, payload.description, payload.purpose, payload.task_id,
                     _target_values_json(payload.target_values),
@@ -152,7 +331,11 @@ class Store:
                     payload.decision_candidate_id, payload.decision_snapshot_id, payload.decision_note,
                     payload.dataset_view_revision_id, payload.task_contract_digest, payload.model_package_ref_id,
                     payload.model_package_manifest_digest, payload.project_series_id, payload.predecessor_project_id,
-                    payload.continuation_reason, now, now,
+                    payload.continuation_reason,
+                    identity_provenance,
+                    scientific_identity_json,
+                    now,
+                    now,
                 ),
             )
             if initial_candidate is not None:
@@ -172,8 +355,42 @@ class Store:
         now = _now()
         with self._connect() as conn:
             conn.execute(
-                "INSERT INTO projects(id, name, description, purpose, task_id, target_values, input_ranges, response_curve_ranges, response_curve_points, heat_stage_positions_m, display_decimals, notes, decision_candidate_id, decision_snapshot_id, decision_note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (project_id, payload.name, payload.description, payload.purpose, payload.task_id, _target_values_json(payload.target_values), json.dumps({key: value.model_dump() for key, value in payload.input_ranges.items()}, ensure_ascii=False, sort_keys=True), json.dumps({axis: {key: value.model_dump() for key, value in ranges.items()} for axis, ranges in payload.response_curve_ranges.items()}, ensure_ascii=False, sort_keys=True), payload.response_curve_points, json.dumps(payload.heat_stage_positions_m, ensure_ascii=False, sort_keys=True), json.dumps(payload.display_decimals, ensure_ascii=False, sort_keys=True), payload.notes, "", "", "", now, now),
+                "INSERT INTO projects(id, name, description, purpose, task_id, target_values, input_ranges, response_curve_ranges, response_curve_points, heat_stage_positions_m, display_decimals, notes, decision_candidate_id, decision_snapshot_id, decision_note, scientific_identity_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    project_id,
+                    payload.name,
+                    payload.description,
+                    payload.purpose,
+                    payload.task_id,
+                    _target_values_json(payload.target_values),
+                    json.dumps(
+                        {key: value.model_dump() for key, value in payload.input_ranges.items()},
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    ),
+                    json.dumps(
+                        {
+                            axis: {key: value.model_dump() for key, value in ranges.items()}
+                            for axis, ranges in payload.response_curve_ranges.items()
+                        },
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    ),
+                    payload.response_curve_points,
+                    json.dumps(payload.heat_stage_positions_m, ensure_ascii=False, sort_keys=True),
+                    json.dumps(payload.display_decimals, ensure_ascii=False, sort_keys=True),
+                    payload.notes,
+                    "",
+                    "",
+                    "",
+                    SingleTaskProjectIdentity(
+                        identity_kind="single_task",
+                        task_id=payload.task_id,
+                        binding_provenance="unbound_legacy",
+                    ).model_dump_json(),
+                    now,
+                    now,
+                ),
             )
         return self.get_project(project_id)  # type: ignore[return-value]
 

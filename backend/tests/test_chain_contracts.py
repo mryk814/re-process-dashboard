@@ -292,6 +292,12 @@ def test_project_identity_is_an_explicit_disjoint_union() -> None:
     )
     assert single.identity_kind == "single_task"
     assert chain.identity_kind == "chain"
+    legacy = SingleTaskProjectIdentity(
+        identity_kind="single_task",
+        task_id="legacy-task",
+        binding_provenance="unbound_legacy",
+    )
+    assert legacy.model_package_ref_id is None
 
 
 def test_chain_snapshot_identity_pins_candidate_design_space_and_commercial_revision() -> None:

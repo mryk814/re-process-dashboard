@@ -48,7 +48,16 @@ def test_existing_project_create_payload_remains_valid_without_binding() -> None
 
 def test_project_response_accepts_unmigrated_nullable_binding() -> None:
     now = datetime.now(UTC)
-    project = Project(id="project-1", created_at=now, updated_at=now)
+    project = Project(
+        id="project-1",
+        created_at=now,
+        updated_at=now,
+        scientific_identity={
+            "identity_kind": "single_task",
+            "task_id": "annealed-properties-v1",
+            "binding_provenance": "unbound_legacy",
+        },
+    )
     assert project.dataset_view_revision_id is None
     assert project.binding_provenance == "unbound_legacy"
 
