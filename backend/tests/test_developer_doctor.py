@@ -36,6 +36,7 @@ def test_doctor_report_has_stable_json_contract() -> None:
         "mpea-room-tensile-v1",
         "mpea-hardness-process-v1",
         "welding-stage-c-properties-v1",
+        "welding-consumable-stage-b-v1",
     }
     assert any(check["id"] == "task-sets" for check in payload["checks"])
 

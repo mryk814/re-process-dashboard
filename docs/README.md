@@ -21,7 +21,8 @@
 - [model-package-contract.md](model-package-contract.md) — Model Packageの安全境界と読込契約
 - [model-package-lifecycle.md](model-package-lifecycle.md) — Packageの検証、作成、有効化、ロールバック
 - [model-runtime-examples/index.md](model-runtime-examples/index.md) — Runtimeの実装例と採用状態
-- [welding-consumable-sample-dataset.md](welding-consumable-sample-dataset.md) — 多段構造の検証用合成データ。未接続
+- [welding-consumable-sample-dataset.md](welding-consumable-sample-dataset.md) — 多段構造の検証用合成データと接続済み観測Profile
+- [welding-stage-b-package.md](welding-stage-b-package.md) — 材料成分＋溶接条件から溶着金属成分を学習するStage B Task / Package
 - [task-inventory.json](task-inventory.json) — 現行タスクとactive Packageの自動生成一覧。直接編集しない
 
 ## 実行と配布

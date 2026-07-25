@@ -1,0 +1,1430 @@
+{
+  "task_definition": {
+    "schema_version": "task-definition/v1",
+    "id": "welding-consumable-stage-b-v1",
+    "label": "溶接材料 Stage B：溶着金属成分",
+    "canonical_candidate_schema_version": "canonical-candidate/v1",
+    "input_groups": [
+      {
+        "key": "composition",
+        "order": 0,
+        "label": "材料成分（whole wire）",
+        "fields": [
+          {
+            "path": "composition.Fe",
+            "kind": "number",
+            "order": 0,
+            "label": "Fe",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 68.69751759202559,
+              "max": 95.980865329997
+            },
+            "allowed_range": {
+              "min": 64.51871972632723,
+              "max": 99.55758380189681
+            },
+            "training_range": {
+              "min": 67.43862506595804,
+              "max": 96.63767846226601
+            }
+          },
+          {
+            "path": "composition.C",
+            "kind": "number",
+            "order": 1,
+            "label": "C",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.037121656824226204,
+              "max": 0.12612929508344112
+            },
+            "allowed_range": {
+              "min": 0.005465261830241401,
+              "max": 0.16352828970852057
+            },
+            "training_range": {
+              "min": 0.018637180820098,
+              "max": 0.15035637071866398
+            }
+          },
+          {
+            "path": "composition.Si",
+            "kind": "number",
+            "order": 2,
+            "label": "Si",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.08396144728467199,
+              "max": 0.725054615702097
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 0.9578796044342626
+            },
+            "training_range": {
+              "min": 0.028218994444717004,
+              "max": 0.873365003526122
+            }
+          },
+          {
+            "path": "composition.Mn",
+            "kind": "number",
+            "order": 3,
+            "label": "Mn",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.31725523367133,
+              "max": 2.208954359362536
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 2.686354982765544
+            },
+            "training_range": {
+              "min": 0.20955927848550399,
+              "max": 2.4611917369219043
+            }
+          },
+          {
+            "path": "composition.Cr",
+            "kind": "number",
+            "order": 4,
+            "label": "Cr",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.0,
+              "max": 15.291893999941834
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 17.692702851028926
+            },
+            "training_range": {
+              "min": 0,
+              "max": 16.084275319117207
+            }
+          },
+          {
+            "path": "composition.Ni",
+            "kind": "number",
+            "order": 5,
+            "label": "Ni",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.0,
+              "max": 7.043493477269556
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 8.68458102725455
+            },
+            "training_range": {
+              "min": 0,
+              "max": 7.895073661140501
+            }
+          },
+          {
+            "path": "composition.Mo",
+            "kind": "number",
+            "order": 6,
+            "label": "Mo",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.0,
+              "max": 0.25775776436310605
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 0.3864106119466307
+            },
+            "training_range": {
+              "min": 0,
+              "max": 0.351282374496937
+            }
+          },
+          {
+            "path": "composition.Ti",
+            "kind": "number",
+            "order": 7,
+            "label": "Ti",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.0,
+              "max": 0.08045066775873692
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 0.10464016960605119
+            },
+            "training_range": {
+              "min": 0,
+              "max": 0.09512742691459199
+            }
+          },
+          {
+            "path": "composition.B",
+            "kind": "number",
+            "order": 8,
+            "label": "B",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.0,
+              "max": 0.004490778313468502
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 0.006406745954663999
+            },
+            "training_range": {
+              "min": 0,
+              "max": 0.005824314504239999
+            }
+          },
+          {
+            "path": "composition.Al",
+            "kind": "number",
+            "order": 9,
+            "label": "Al",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.004801204815918002,
+              "max": 0.233374810198816
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 0.318458622267489
+            },
+            "training_range": {
+              "min": 0,
+              "max": 0.28950783842499
+            }
+          },
+          {
+            "path": "composition.Mg",
+            "kind": "number",
+            "order": 10,
+            "label": "Mg",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.0,
+              "max": 0.163508685402938
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 0.24004896296469444
+            },
+            "training_range": {
+              "min": 0,
+              "max": 0.21822632996790403
+            }
+          },
+          {
+            "path": "composition.Nb",
+            "kind": "number",
+            "order": 11,
+            "label": "Nb",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.0,
+              "max": 0.04922450888064781
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 0.0592861974223365
+            },
+            "training_range": {
+              "min": 0,
+              "max": 0.053896543111215
+            }
+          },
+          {
+            "path": "composition.V",
+            "kind": "number",
+            "order": 12,
+            "label": "V",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.0,
+              "max": 0.02159702669553
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 0.04193592817512671
+            },
+            "training_range": {
+              "min": 0,
+              "max": 0.03812357106829701
+            }
+          },
+          {
+            "path": "composition.Cu",
+            "kind": "number",
+            "order": 13,
+            "label": "Cu",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.0,
+              "max": 0.14908888959974403
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 0.2309400224515296
+            },
+            "training_range": {
+              "min": 0,
+              "max": 0.209945474955936
+            }
+          },
+          {
+            "path": "composition.Zr",
+            "kind": "number",
+            "order": 14,
+            "label": "Zr",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0,
+              "max": 1e-06
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 1e-06
+            },
+            "training_range": {
+              "min": 0,
+              "max": 1e-06
+            }
+          },
+          {
+            "path": "composition.Ca",
+            "kind": "number",
+            "order": 15,
+            "label": "Ca",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.0,
+              "max": 0.036977893333524
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 0.0524844658495102
+            },
+            "training_range": {
+              "min": 0,
+              "max": 0.047713150772282
+            }
+          },
+          {
+            "path": "composition.N",
+            "kind": "number",
+            "order": 16,
+            "label": "N",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.0,
+              "max": 0.00024799602854
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 0.00042506855354039995
+            },
+            "training_range": {
+              "min": 0,
+              "max": 0.000386425957764
+            }
+          },
+          {
+            "path": "composition.O",
+            "kind": "number",
+            "order": 17,
+            "label": "O",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.0192825947457,
+              "max": 0.075158952129678
+            },
+            "allowed_range": {
+              "min": 0.005180129309891403,
+              "max": 0.12041424003353458
+            },
+            "training_range": {
+              "min": 0.014782971870195002,
+              "max": 0.11081139747323099
+            }
+          },
+          {
+            "path": "composition.S",
+            "kind": "number",
+            "order": 18,
+            "label": "S",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.001365682576578,
+              "max": 0.010239069537597999
+            },
+            "allowed_range": {
+              "min": 7.74001154157999e-05,
+              "max": 0.0117358111232662
+            },
+            "training_range": {
+              "min": 0.00104893436607,
+              "max": 0.010764276872612
+            }
+          },
+          {
+            "path": "composition.P",
+            "kind": "number",
+            "order": 19,
+            "label": "P",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.0025924283756000002,
+              "max": 0.0169225129066
+            },
+            "allowed_range": {
+              "min": 0.00023149020680679976,
+              "max": 0.0193925301630532
+            },
+            "training_range": {
+              "min": 0.001828243536494,
+              "max": 0.017795776833366
+            }
+          },
+          {
+            "path": "composition.CaF2",
+            "kind": "number",
+            "order": 20,
+            "label": "CaF2",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.0,
+              "max": 1.4755211749262789
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 1.841477822526742
+            },
+            "training_range": {
+              "min": 0,
+              "max": 1.6740707477515837
+            }
+          },
+          {
+            "path": "composition.TiO2",
+            "kind": "number",
+            "order": 21,
+            "label": "TiO2",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.0,
+              "max": 4.9760164837097305
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 6.095244389647494
+            },
+            "training_range": {
+              "min": 0,
+              "max": 5.541131263315903
+            }
+          },
+          {
+            "path": "composition.SiO2",
+            "kind": "number",
+            "order": 22,
+            "label": "SiO2",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.18638242931000004,
+              "max": 1.515365182663137
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 2.0834551019151584
+            },
+            "training_range": {
+              "min": 0.09593644519477199,
+              "max": 1.9027715876678506
+            }
+          },
+          {
+            "path": "composition.Al2O3",
+            "kind": "number",
+            "order": 23,
+            "label": "Al2O3",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.023698064625436506,
+              "max": 0.6699436132749725
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 0.9422732316134536
+            },
+            "training_range": {
+              "min": 0.00525174383439,
+              "max": 0.857089459997175
+            }
+          },
+          {
+            "path": "composition.MgO",
+            "kind": "number",
+            "order": 24,
+            "label": "MgO",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.0,
+              "max": 0.7280887358341398
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 1.0081176058704961
+            },
+            "training_range": {
+              "min": 0,
+              "max": 0.9164705507913601
+            }
+          },
+          {
+            "path": "composition.ZrO2",
+            "kind": "number",
+            "order": 25,
+            "label": "ZrO2",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.0,
+              "max": 0.41100005428734004
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 0.5452734556119609
+            },
+            "training_range": {
+              "min": 0,
+              "max": 0.49570314146541905
+            }
+          },
+          {
+            "path": "composition.K2O",
+            "kind": "number",
+            "order": 26,
+            "label": "K2O",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.0,
+              "max": 0.15698790472338
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 0.225691318770467
+            },
+            "training_range": {
+              "min": 0,
+              "max": 0.20517392615497
+            }
+          },
+          {
+            "path": "composition.Na2O",
+            "kind": "number",
+            "order": 27,
+            "label": "Na2O",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.0,
+              "max": 0.10973200007650499
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 0.14303873937842282
+            },
+            "training_range": {
+              "min": 0,
+              "max": 0.13003521761674802
+            }
+          },
+          {
+            "path": "composition.CaCO3",
+            "kind": "number",
+            "order": 28,
+            "label": "CaCO3",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.0,
+              "max": 0.48183329954818205
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 0.9525139144982998
+            },
+            "training_range": {
+              "min": 0,
+              "max": 0.8659217404529999
+            }
+          },
+          {
+            "path": "composition.Fe2O3",
+            "kind": "number",
+            "order": 29,
+            "label": "Fe2O3",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.001312811000504,
+              "max": 0.498060130184415
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 0.6151160513109674
+            },
+            "training_range": {
+              "min": 0.000667727611566,
+              "max": 0.55925711279284
+            }
+          },
+          {
+            "path": "composition.other",
+            "kind": "number",
+            "order": 30,
+            "label": "other",
+            "unit": "mass% whole wire",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.027633429670374,
+              "max": 0.3621044902984199
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 0.44501250333479797
+            },
+            "training_range": {
+              "min": 0.0072242465208900005,
+              "max": 0.40521357089717
+            }
+          }
+        ]
+      },
+      {
+        "key": "process",
+        "order": 1,
+        "label": "溶接条件・原料補助特徴",
+        "fields": [
+          {
+            "path": "process.heat_input_kj_per_mm",
+            "kind": "number",
+            "order": 0,
+            "label": "heat_input_kj_per_mm",
+            "unit": "kJ/mm",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.793,
+              "max": 1.8151000000000008
+            },
+            "allowed_range": {
+              "min": 0.6316999999999999,
+              "max": 2.1593
+            },
+            "training_range": {
+              "min": 0.759,
+              "max": 2.032
+            }
+          },
+          {
+            "path": "process.voltage_v",
+            "kind": "number",
+            "order": 1,
+            "label": "voltage_v",
+            "unit": "V",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 25.24,
+              "max": 33.77
+            },
+            "allowed_range": {
+              "min": 23.295,
+              "max": 34.87499999999999
+            },
+            "training_range": {
+              "min": 24.26,
+              "max": 33.91
+            }
+          },
+          {
+            "path": "process.gas_flow_l_per_min",
+            "kind": "number",
+            "order": 2,
+            "label": "gas_flow_l_per_min",
+            "unit": "L/min",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 20.585,
+              "max": 29.2
+            },
+            "allowed_range": {
+              "min": 19.14,
+              "max": 30.66
+            },
+            "training_range": {
+              "min": 20.1,
+              "max": 29.7
+            }
+          },
+          {
+            "path": "process.alloy_powder_d50_um",
+            "kind": "number",
+            "order": 3,
+            "label": "alloy_powder_d50_um",
+            "unit": "µm",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 72.6254603693329,
+              "max": 172.43227202420698
+            },
+            "allowed_range": {
+              "min": 38.92880931511988,
+              "max": 199.7674327097071
+            },
+            "training_range": {
+              "min": 52.332027931335475,
+              "max": 186.36421409349148
+            }
+          }
+        ]
+      },
+      {
+        "key": "categorical",
+        "order": 2,
+        "label": "溶接context",
+        "fields": [
+          {
+            "path": "categorical.shielding_gas",
+            "kind": "categorical",
+            "order": 0,
+            "label": "shielding_gas",
+            "unit": null,
+            "required": true,
+            "editable": true,
+            "choices": [
+              "80%Ar-20%CO2",
+              "100%CO2"
+            ]
+          },
+          {
+            "path": "categorical.welding_position",
+            "kind": "categorical",
+            "order": 1,
+            "label": "welding_position",
+            "unit": null,
+            "required": true,
+            "editable": true,
+            "choices": [
+              "下向",
+              "横向",
+              "立向上進"
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "key": "C",
+        "label": "溶着金属 C",
+        "unit": "mass% deposited metal",
+        "goal_direction": "target",
+        "measurement_keys": [
+          "C"
+        ],
+        "plausibility_range": {
+          "min": 0.008088000000000001,
+          "max": 0.15787199999999998
+        },
+        "preferred_display_range": {
+          "min": 0.02057,
+          "max": 0.14539
+        }
+      },
+      {
+        "key": "Si",
+        "label": "溶着金属 Si",
+        "unit": "mass% deposited metal",
+        "goal_direction": "target",
+        "measurement_keys": [
+          "Si"
+        ],
+        "plausibility_range": {
+          "min": 0,
+          "max": 0.805667
+        },
+        "preferred_display_range": {
+          "min": 0.02943,
+          "max": 0.7351
+        }
+      },
+      {
+        "key": "Mn",
+        "label": "溶着金属 Mn",
+        "unit": "mass% deposited metal",
+        "goal_direction": "target",
+        "measurement_keys": [
+          "Mn"
+        ],
+        "plausibility_range": {
+          "min": 0,
+          "max": 2.171131
+        },
+        "preferred_display_range": {
+          "min": 0.15955,
+          "max": 1.98826
+        }
+      },
+      {
+        "key": "P",
+        "label": "溶着金属 P",
+        "unit": "mass% deposited metal",
+        "goal_direction": "target",
+        "measurement_keys": [
+          "P"
+        ],
+        "plausibility_range": {
+          "min": 0.00018399999999999992,
+          "max": 0.018256
+        },
+        "preferred_display_range": {
+          "min": 0.00169,
+          "max": 0.01675
+        }
+      },
+      {
+        "key": "S",
+        "label": "溶着金属 S",
+        "unit": "mass% deposited metal",
+        "goal_direction": "target",
+        "measurement_keys": [
+          "S"
+        ],
+        "plausibility_range": {
+          "min": 0,
+          "max": 0.008924999999999999
+        },
+        "preferred_display_range": {
+          "min": 0.00073,
+          "max": 0.00818
+        }
+      },
+      {
+        "key": "Ni",
+        "label": "溶着金属 Ni",
+        "unit": "mass% deposited metal",
+        "goal_direction": "target",
+        "measurement_keys": [
+          "Ni"
+        ],
+        "plausibility_range": {
+          "min": 0,
+          "max": 9.659177
+        },
+        "preferred_display_range": {
+          "min": 0,
+          "max": 8.78107
+        }
+      },
+      {
+        "key": "Cr",
+        "label": "溶着金属 Cr",
+        "unit": "mass% deposited metal",
+        "goal_direction": "target",
+        "measurement_keys": [
+          "Cr"
+        ],
+        "plausibility_range": {
+          "min": 0,
+          "max": 17.546276
+        },
+        "preferred_display_range": {
+          "min": 0,
+          "max": 15.95116
+        }
+      },
+      {
+        "key": "Mo",
+        "label": "溶着金属 Mo",
+        "unit": "mass% deposited metal",
+        "goal_direction": "target",
+        "measurement_keys": [
+          "Mo"
+        ],
+        "plausibility_range": {
+          "min": 0,
+          "max": 0.395923
+        },
+        "preferred_display_range": {
+          "min": 0,
+          "max": 0.35993
+        }
+      },
+      {
+        "key": "Cu",
+        "label": "溶着金属 Cu",
+        "unit": "mass% deposited metal",
+        "goal_direction": "target",
+        "measurement_keys": [
+          "Cu"
+        ],
+        "plausibility_range": {
+          "min": 0,
+          "max": 0.22354200000000002
+        },
+        "preferred_display_range": {
+          "min": 0,
+          "max": 0.20322
+        }
+      },
+      {
+        "key": "Ti",
+        "label": "溶着金属 Ti",
+        "unit": "mass% deposited metal",
+        "goal_direction": "target",
+        "measurement_keys": [
+          "Ti"
+        ],
+        "plausibility_range": {
+          "min": 0,
+          "max": 0.071258
+        },
+        "preferred_display_range": {
+          "min": 0,
+          "max": 0.06478
+        }
+      },
+      {
+        "key": "B",
+        "label": "溶着金属 B",
+        "unit": "mass% deposited metal",
+        "goal_direction": "target",
+        "measurement_keys": [
+          "B"
+        ],
+        "plausibility_range": {
+          "min": 0,
+          "max": 0.0031790000000000004
+        },
+        "preferred_display_range": {
+          "min": 0,
+          "max": 0.00289
+        }
+      },
+      {
+        "key": "Nb",
+        "label": "溶着金属 Nb",
+        "unit": "mass% deposited metal",
+        "goal_direction": "target",
+        "measurement_keys": [
+          "Nb"
+        ],
+        "plausibility_range": {
+          "min": 0,
+          "max": 0.058497999999999994
+        },
+        "preferred_display_range": {
+          "min": 0,
+          "max": 0.05318
+        }
+      },
+      {
+        "key": "V",
+        "label": "溶着金属 V",
+        "unit": "mass% deposited metal",
+        "goal_direction": "target",
+        "measurement_keys": [
+          "V"
+        ],
+        "plausibility_range": {
+          "min": 0,
+          "max": 0.039446
+        },
+        "preferred_display_range": {
+          "min": 0,
+          "max": 0.03586
+        }
+      },
+      {
+        "key": "Al",
+        "label": "溶着金属 Al",
+        "unit": "mass% deposited metal",
+        "goal_direction": "target",
+        "measurement_keys": [
+          "Al"
+        ],
+        "plausibility_range": {
+          "min": 0,
+          "max": 0.078705
+        },
+        "preferred_display_range": {
+          "min": 0,
+          "max": 0.07155
+        }
+      },
+      {
+        "key": "N",
+        "label": "溶着金属 N",
+        "unit": "mass% deposited metal",
+        "goal_direction": "target",
+        "measurement_keys": [
+          "N"
+        ],
+        "plausibility_range": {
+          "min": 0.0024449999999999997,
+          "max": 0.010065
+        },
+        "preferred_display_range": {
+          "min": 0.00308,
+          "max": 0.00943
+        }
+      },
+      {
+        "key": "O",
+        "label": "溶着金属 O",
+        "unit": "mass% deposited metal",
+        "goal_direction": "target",
+        "measurement_keys": [
+          "O"
+        ],
+        "plausibility_range": {
+          "min": 0.023696000000000002,
+          "max": 0.06694399999999999
+        },
+        "preferred_display_range": {
+          "min": 0.0273,
+          "max": 0.06334
+        }
+      }
+    ],
+    "display_decimals": {
+      "composition.Fe": 5,
+      "composition.C": 5,
+      "composition.Si": 5,
+      "composition.Mn": 5,
+      "composition.Cr": 5,
+      "composition.Ni": 5,
+      "composition.Mo": 5,
+      "composition.Ti": 5,
+      "composition.B": 5,
+      "composition.Al": 5,
+      "composition.Mg": 5,
+      "composition.Nb": 5,
+      "composition.V": 5,
+      "composition.Cu": 5,
+      "composition.Zr": 5,
+      "composition.Ca": 5,
+      "composition.N": 5,
+      "composition.O": 5,
+      "composition.S": 5,
+      "composition.P": 5,
+      "composition.CaF2": 5,
+      "composition.TiO2": 5,
+      "composition.SiO2": 5,
+      "composition.Al2O3": 5,
+      "composition.MgO": 5,
+      "composition.ZrO2": 5,
+      "composition.K2O": 5,
+      "composition.Na2O": 5,
+      "composition.CaCO3": 5,
+      "composition.Fe2O3": 5,
+      "composition.other": 5,
+      "process.heat_input_kj_per_mm": 3,
+      "process.voltage_v": 3,
+      "process.gas_flow_l_per_min": 3,
+      "process.alloy_powder_d50_um": 3,
+      "output.C": 5,
+      "output.Si": 5,
+      "output.Mn": 5,
+      "output.P": 5,
+      "output.S": 5,
+      "output.Ni": 5,
+      "output.Cr": 5,
+      "output.Mo": 5,
+      "output.Cu": 5,
+      "output.Ti": 5,
+      "output.B": 5,
+      "output.Nb": 5,
+      "output.V": 5,
+      "output.Al": 5,
+      "output.N": 5,
+      "output.O": 5
+    },
+    "fixed_context": [
+      {
+        "path": "context.training_grain",
+        "order": 0,
+        "label": "学習単位",
+        "value": "溶着金属成分300観測。relation行は学習行にしません"
+      },
+      {
+        "path": "context.split",
+        "order": 1,
+        "label": "評価分割",
+        "value": "溶接施工_key** grouped 5-fold"
+      }
+    ],
+    "constraints": [],
+    "composition_totals": [],
+    "response_curve_variables": [],
+    "curve_axis_path": null
+  },
+  "canonical_candidate": {
+    "schema_version": "canonical-candidate/v1",
+    "task_id": "welding-consumable-stage-b-v1",
+    "composition": {
+      "Fe": 91.33331067279794,
+      "C": 0.069027475222641,
+      "Si": 0.33956946277144706,
+      "Mn": 1.2870394752149394,
+      "Cr": 0.112642888202496,
+      "Ni": 0.4288404490579635,
+      "Mo": 0.020453837965902,
+      "Ti": 0.029153784969935995,
+      "B": 0.00093514247034,
+      "Al": 0.10417038435117602,
+      "Mg": 0.06359920415816,
+      "Nb": 0.0,
+      "V": 0.0,
+      "Cu": 0.0,
+      "Zr": 0.0,
+      "Ca": 0.0022762406033119994,
+      "N": 0.0,
+      "O": 0.03728068696096801,
+      "S": 0.009586875895309,
+      "P": 0.0146501220758525,
+      "CaF2": 0.5772077426873881,
+      "TiO2": 2.8654439429790677,
+      "SiO2": 0.8142751355956902,
+      "Al2O3": 0.17059929294203502,
+      "MgO": 0.08548868544923999,
+      "ZrO2": 0.012241567806404001,
+      "K2O": 0.046290531448622996,
+      "Na2O": 0.05224640605704001,
+      "CaCO3": 0.12203637896736,
+      "Fe2O3": 0.0486880781612535,
+      "other": 0.14044967789359497
+    },
+    "process": {
+      "heat_input_kj_per_mm": 1.262,
+      "voltage_v": 28.86,
+      "gas_flow_l_per_min": 24.2,
+      "alloy_powder_d50_um": 108.42523075721347
+    },
+    "categorical": {
+      "shielding_gas": "80%Ar-20%CO2",
+      "welding_position": "下向"
+    },
+    "heat_pattern": null,
+    "provenance": {
+      "source_kind": "direct",
+      "source_ref": null
+    }
+  },
+  "runtime_capability": {
+    "schema_version": "runtime-capability/v1",
+    "task_id": "welding-consumable-stage-b-v1",
+    "model_package_schema_version": "model-package/v1",
+    "targets": [
+      {
+        "target": "C",
+        "point_statistics": [
+          "mean"
+        ],
+        "standard_deviation": false,
+        "quantiles": true,
+        "samples": false,
+        "parametric_distribution": false,
+        "uncertainty_components": false,
+        "support": true,
+        "warnings": true,
+        "goal_probability": "unavailable"
+      },
+      {
+        "target": "Si",
+        "point_statistics": [
+          "mean"
+        ],
+        "standard_deviation": false,
+        "quantiles": true,
+        "samples": false,
+        "parametric_distribution": false,
+        "uncertainty_components": false,
+        "support": true,
+        "warnings": true,
+        "goal_probability": "unavailable"
+      },
+      {
+        "target": "Mn",
+        "point_statistics": [
+          "mean"
+        ],
+        "standard_deviation": false,
+        "quantiles": true,
+        "samples": false,
+        "parametric_distribution": false,
+        "uncertainty_components": false,
+        "support": true,
+        "warnings": true,
+        "goal_probability": "unavailable"
+      },
+      {
+        "target": "P",
+        "point_statistics": [
+          "mean"
+        ],
+        "standard_deviation": false,
+        "quantiles": true,
+        "samples": false,
+        "parametric_distribution": false,
+        "uncertainty_components": false,
+        "support": true,
+        "warnings": true,
+        "goal_probability": "unavailable"
+      },
+      {
+        "target": "S",
+        "point_statistics": [
+          "mean"
+        ],
+        "standard_deviation": false,
+        "quantiles": true,
+        "samples": false,
+        "parametric_distribution": false,
+        "uncertainty_components": false,
+        "support": true,
+        "warnings": true,
+        "goal_probability": "unavailable"
+      },
+      {
+        "target": "Ni",
+        "point_statistics": [
+          "mean"
+        ],
+        "standard_deviation": false,
+        "quantiles": true,
+        "samples": false,
+        "parametric_distribution": false,
+        "uncertainty_components": false,
+        "support": true,
+        "warnings": true,
+        "goal_probability": "unavailable"
+      },
+      {
+        "target": "Cr",
+        "point_statistics": [
+          "mean"
+        ],
+        "standard_deviation": false,
+        "quantiles": true,
+        "samples": false,
+        "parametric_distribution": false,
+        "uncertainty_components": false,
+        "support": true,
+        "warnings": true,
+        "goal_probability": "unavailable"
+      },
+      {
+        "target": "Mo",
+        "point_statistics": [
+          "mean"
+        ],
+        "standard_deviation": false,
+        "quantiles": true,
+        "samples": false,
+        "parametric_distribution": false,
+        "uncertainty_components": false,
+        "support": true,
+        "warnings": true,
+        "goal_probability": "unavailable"
+      },
+      {
+        "target": "Cu",
+        "point_statistics": [
+          "mean"
+        ],
+        "standard_deviation": false,
+        "quantiles": true,
+        "samples": false,
+        "parametric_distribution": false,
+        "uncertainty_components": false,
+        "support": true,
+        "warnings": true,
+        "goal_probability": "unavailable"
+      },
+      {
+        "target": "Ti",
+        "point_statistics": [
+          "mean"
+        ],
+        "standard_deviation": false,
+        "quantiles": true,
+        "samples": false,
+        "parametric_distribution": false,
+        "uncertainty_components": false,
+        "support": true,
+        "warnings": true,
+        "goal_probability": "unavailable"
+      },
+      {
+        "target": "B",
+        "point_statistics": [
+          "mean"
+        ],
+        "standard_deviation": false,
+        "quantiles": true,
+        "samples": false,
+        "parametric_distribution": false,
+        "uncertainty_components": false,
+        "support": true,
+        "warnings": true,
+        "goal_probability": "unavailable"
+      },
+      {
+        "target": "Nb",
+        "point_statistics": [
+          "mean"
+        ],
+        "standard_deviation": false,
+        "quantiles": true,
+        "samples": false,
+        "parametric_distribution": false,
+        "uncertainty_components": false,
+        "support": true,
+        "warnings": true,
+        "goal_probability": "unavailable"
+      },
+      {
+        "target": "V",
+        "point_statistics": [
+          "mean"
+        ],
+        "standard_deviation": false,
+        "quantiles": true,
+        "samples": false,
+        "parametric_distribution": false,
+        "uncertainty_components": false,
+        "support": true,
+        "warnings": true,
+        "goal_probability": "unavailable"
+      },
+      {
+        "target": "Al",
+        "point_statistics": [
+          "mean"
+        ],
+        "standard_deviation": false,
+        "quantiles": true,
+        "samples": false,
+        "parametric_distribution": false,
+        "uncertainty_components": false,
+        "support": true,
+        "warnings": true,
+        "goal_probability": "unavailable"
+      },
+      {
+        "target": "N",
+        "point_statistics": [
+          "mean"
+        ],
+        "standard_deviation": false,
+        "quantiles": true,
+        "samples": false,
+        "parametric_distribution": false,
+        "uncertainty_components": false,
+        "support": true,
+        "warnings": true,
+        "goal_probability": "unavailable"
+      },
+      {
+        "target": "O",
+        "point_statistics": [
+          "mean"
+        ],
+        "standard_deviation": false,
+        "quantiles": true,
+        "samples": false,
+        "parametric_distribution": false,
+        "uncertainty_components": false,
+        "support": true,
+        "warnings": true,
+        "goal_probability": "unavailable"
+      }
+    ],
+    "joint_samples": false,
+    "operations": {
+      "preview": true,
+      "detailed_prediction": true,
+      "response_curve": false,
+      "similarity": true,
+      "snapshot": true,
+      "actual_measurement": true
+    }
+  }
+}

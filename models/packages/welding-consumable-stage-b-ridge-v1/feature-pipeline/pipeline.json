@@ -1,0 +1,285 @@
+{
+  "id": "welding-consumable-stage-b-v1-profile-transform",
+  "version": "1.0.0",
+  "canonical_input_paths": [
+    "composition.Fe",
+    "composition.C",
+    "composition.Si",
+    "composition.Mn",
+    "composition.Cr",
+    "composition.Ni",
+    "composition.Mo",
+    "composition.Ti",
+    "composition.B",
+    "composition.Al",
+    "composition.Mg",
+    "composition.Nb",
+    "composition.V",
+    "composition.Cu",
+    "composition.Zr",
+    "composition.Ca",
+    "composition.N",
+    "composition.O",
+    "composition.S",
+    "composition.P",
+    "composition.CaF2",
+    "composition.TiO2",
+    "composition.SiO2",
+    "composition.Al2O3",
+    "composition.MgO",
+    "composition.ZrO2",
+    "composition.K2O",
+    "composition.Na2O",
+    "composition.CaCO3",
+    "composition.Fe2O3",
+    "composition.other",
+    "process.heat_input_kj_per_mm",
+    "process.voltage_v",
+    "process.gas_flow_l_per_min",
+    "process.alloy_powder_d50_um",
+    "categorical.shielding_gas",
+    "categorical.welding_position"
+  ],
+  "features": [
+    {
+      "name": "composition.Fe",
+      "unit": "mass% whole wire",
+      "meaning": "composition.Fe raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.C",
+      "unit": "mass% whole wire",
+      "meaning": "composition.C raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Si",
+      "unit": "mass% whole wire",
+      "meaning": "composition.Si raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Mn",
+      "unit": "mass% whole wire",
+      "meaning": "composition.Mn raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Cr",
+      "unit": "mass% whole wire",
+      "meaning": "composition.Cr raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Ni",
+      "unit": "mass% whole wire",
+      "meaning": "composition.Ni raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Mo",
+      "unit": "mass% whole wire",
+      "meaning": "composition.Mo raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Ti",
+      "unit": "mass% whole wire",
+      "meaning": "composition.Ti raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.B",
+      "unit": "mass% whole wire",
+      "meaning": "composition.B raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Al",
+      "unit": "mass% whole wire",
+      "meaning": "composition.Al raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Mg",
+      "unit": "mass% whole wire",
+      "meaning": "composition.Mg raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Nb",
+      "unit": "mass% whole wire",
+      "meaning": "composition.Nb raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.V",
+      "unit": "mass% whole wire",
+      "meaning": "composition.V raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Cu",
+      "unit": "mass% whole wire",
+      "meaning": "composition.Cu raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Zr",
+      "unit": "mass% whole wire",
+      "meaning": "composition.Zr raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Ca",
+      "unit": "mass% whole wire",
+      "meaning": "composition.Ca raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.N",
+      "unit": "mass% whole wire",
+      "meaning": "composition.N raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.O",
+      "unit": "mass% whole wire",
+      "meaning": "composition.O raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.S",
+      "unit": "mass% whole wire",
+      "meaning": "composition.S raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.P",
+      "unit": "mass% whole wire",
+      "meaning": "composition.P raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.CaF2",
+      "unit": "mass% whole wire",
+      "meaning": "composition.CaF2 raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.TiO2",
+      "unit": "mass% whole wire",
+      "meaning": "composition.TiO2 raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.SiO2",
+      "unit": "mass% whole wire",
+      "meaning": "composition.SiO2 raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Al2O3",
+      "unit": "mass% whole wire",
+      "meaning": "composition.Al2O3 raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.MgO",
+      "unit": "mass% whole wire",
+      "meaning": "composition.MgO raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.ZrO2",
+      "unit": "mass% whole wire",
+      "meaning": "composition.ZrO2 raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.K2O",
+      "unit": "mass% whole wire",
+      "meaning": "composition.K2O raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Na2O",
+      "unit": "mass% whole wire",
+      "meaning": "composition.Na2O raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.CaCO3",
+      "unit": "mass% whole wire",
+      "meaning": "composition.CaCO3 raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Fe2O3",
+      "unit": "mass% whole wire",
+      "meaning": "composition.Fe2O3 raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.other",
+      "unit": "mass% whole wire",
+      "meaning": "composition.other raw value",
+      "group": "composition"
+    },
+    {
+      "name": "process.heat_input_kj_per_mm",
+      "unit": "kJ/mm",
+      "meaning": "process.heat_input_kj_per_mm raw value",
+      "group": "process"
+    },
+    {
+      "name": "process.voltage_v",
+      "unit": "V",
+      "meaning": "process.voltage_v raw value",
+      "group": "process"
+    },
+    {
+      "name": "categorical.shielding_gas__80%Ar-20%CO2",
+      "unit": "1",
+      "meaning": "categorical.shielding_gas is 80%Ar-20%CO2",
+      "group": "categorical"
+    },
+    {
+      "name": "categorical.shielding_gas__100%CO2",
+      "unit": "1",
+      "meaning": "categorical.shielding_gas is 100%CO2",
+      "group": "categorical"
+    },
+    {
+      "name": "process.gas_flow_l_per_min",
+      "unit": "L/min",
+      "meaning": "process.gas_flow_l_per_min raw value",
+      "group": "process"
+    },
+    {
+      "name": "categorical.welding_position__下向",
+      "unit": "1",
+      "meaning": "categorical.welding_position is 下向",
+      "group": "categorical"
+    },
+    {
+      "name": "categorical.welding_position__横向",
+      "unit": "1",
+      "meaning": "categorical.welding_position is 横向",
+      "group": "categorical"
+    },
+    {
+      "name": "categorical.welding_position__立向上進",
+      "unit": "1",
+      "meaning": "categorical.welding_position is 立向上進",
+      "group": "categorical"
+    },
+    {
+      "name": "process.alloy_powder_d50_um",
+      "unit": "µm",
+      "meaning": "process.alloy_powder_d50_um raw value",
+      "group": "process"
+    }
+  ]
+}

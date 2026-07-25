@@ -43,9 +43,11 @@ def test_observation_training_profile_is_inspectable_before_model_packaging(
     profiles = client.get("/api/developer/observation-training-profiles")
     assert profiles.status_code == 200, profiles.text
     payload = profiles.json()
-    assert len(payload) == 1
-    profile = payload[0]
-    assert profile["profile_id"] == "welding-consumable-stage-c-observations-v1"
+    profile = next(
+        item
+        for item in payload
+        if item["profile_id"] == "welding-consumable-stage-c-observations-v1"
+    )
     assert {
         item["family"]: (
             item["source_rows"],

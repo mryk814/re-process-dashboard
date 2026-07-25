@@ -4,7 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 import numpy as np
 
@@ -21,6 +21,7 @@ from material_workbench.modeling.model_lifecycle import (
 from material_workbench.modeling.model_package_verify import verify_model_package
 from material_workbench.modeling.model_packages import validate_task_definition_canonical_inputs
 from material_workbench.modeling.tabular_regression import (
+    TabularData,
     build_tabular_features,
     build_tabular_features_from_observation,
     candidate_from_observation,
@@ -32,6 +33,13 @@ from material_workbench.tasks.task_registry import load_task_contracts
 
 def _digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _value_digest(value: Any) -> str:
+    encoded = json.dumps(
+        value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    return "sha256:" + hashlib.sha256(encoded).hexdigest()
 
 
 def _artifact(root: Path, path: Path) -> dict[str, object]:
@@ -59,13 +67,28 @@ def _predict(x: np.ndarray, fitted: tuple[np.ndarray, np.ndarray, np.ndarray]) -
 
 
 def _grouped_oof(
-    x: np.ndarray, y: np.ndarray, groups: list[str], ridge: float = 1.0
+    x: np.ndarray,
+    y: np.ndarray,
+    groups: list[str],
+    ridge: float = 1.0,
+    *,
+    folds: int = 5,
+    assignment: dict[str, int] | None = None,
 ) -> tuple[np.ndarray, np.ndarray, int]:
     unique = sorted(set(groups))
-    folds = min(5, len(unique))
+    if any(not group for group in groups):
+        raise ValueError("Grouped validation requires a non-empty group for every row")
+    if assignment is None:
+        folds = min(folds, len(unique))
+        assignment = {group: index % folds for index, group in enumerate(unique)}
+    elif set(assignment) != set(unique):
+        raise ValueError("Fold assignment groups do not match the target cohort")
+    fold_values = sorted(set(assignment.values()))
+    if fold_values != list(range(len(fold_values))):
+        raise ValueError("Fold assignment IDs must be contiguous from zero")
+    folds = len(fold_values)
     if folds < 2:
         raise ValueError("At least two independent groups are required")
-    assignment = {group: index % folds for index, group in enumerate(unique)}
     fold_ids = np.asarray([assignment[group] for group in groups])
     residuals = np.empty(len(y))
     for fold in range(folds):
@@ -281,13 +304,20 @@ def _binary_auc(y: np.ndarray, probabilities: np.ndarray) -> float:
     ) / (positive_count * negative_count)
 
 
-def _build(source: Path, profile_path: Path, destination: Path) -> None:
-    data = load_tabular_data(source, profile_path)
+def build_tabular_package_from_data(
+    data: TabularData,
+    profile_path: Path,
+    destination: Path,
+    *,
+    training_contract: dict[str, object] | None = None,
+) -> None:
     profile = data.profile
     contract = load_task_contracts()[profile.task_id]
     rows = [row for row in data.observations if row["eligible"]]
     if not rows:
         raise ValueError("Curation後に学習可能な行がありません")
+    if data.profile.group_column and any(not str(row["parent_key"]).strip() for row in rows):
+        raise ValueError("Grouped training rows require a non-empty parent group")
     definitions = feature_definitions(profile)
     feature_names = tuple(item.name for item in definitions)
 
@@ -328,6 +358,7 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
     classification_metrics: dict[str, dict[str, float | int]] = {}
     records: dict[str, int] = {}
     predict_by_target: dict[str, Callable[[np.ndarray], np.ndarray]] = {}
+    used_fold_counts: list[int] = []
     for output in profile.outputs:
         target_rows = [row for row in rows if output.key in row["outputs"]]
         if not target_rows:
@@ -440,8 +471,30 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
             coverage_method = "cross-fitted-oof-normal-scale"
             coverage_observations = len(residuals)
         else:
+            contract_assignment = None
+            requested_folds = 5
+            if training_contract is not None:
+                requested_folds = int(training_contract.get("folds", 5))
+                assignments = training_contract.get("fold_assignments")
+                if isinstance(assignments, dict):
+                    selected_assignment = assignments.get(output.key)
+                    if isinstance(selected_assignment, dict):
+                        contract_assignment = {
+                            str(group): int(fold)
+                            for group, fold in selected_assignment.items()
+                        }
+                        expected_digest = training_contract["fold_digests"][output.key]  # type: ignore[index]
+                        if _value_digest(contract_assignment) != expected_digest:
+                            raise ValueError(
+                                f"{output.key}: fold assignment digest does not match"
+                            )
             residuals, fold_ids, folds = _grouped_oof(
-                x, y, groups, profile.ridge_alpha
+                x,
+                y,
+                groups,
+                profile.ridge_alpha,
+                folds=requested_folds,
+                assignment=contract_assignment,
             )
             fitted = _fit(x, y, profile.ridge_alpha)
             predict_by_target[output.key] = (
@@ -478,11 +531,22 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
                     ),
                     "source_profile": profile.profile_id,
                     "ridge_alpha": profile.ridge_alpha,
+                    **(
+                        {
+                            "profile_digest": training_contract["profile_digest"],
+                            "transform_digest": training_contract["transform_digest"],
+                            "cohort_digest": training_contract["cohort_digests"][output.key],
+                            "fold_digest": training_contract["fold_digests"][output.key],
+                        }
+                        if training_contract is not None
+                        else {}
+                    ),
                 },
             }
             coverage = _cross_fitted_quantile_coverage(residuals, fold_ids)
             coverage_method = "cross-fitted-oof-residual-quantiles"
             coverage_observations = len(residuals)
+        used_fold_counts.append(folds)
         files.append(artifact_path)
         records[output.key] = len(y)
         metrics.append(TargetQualityMetric(
@@ -513,6 +577,7 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
             )
             for status in ("accepted", "warning", "quarantined", "blocked")
         },
+        **({"training_contract": training_contract} if training_contract is not None else {}),
     }, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
     files.append(stats_path)
     quality_path = report_dir / "quality-report.json"
@@ -523,7 +588,7 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
             if profile.group_column
             else "independent-source-row-k-fold"
         ),
-        folds=min(5, min(metric.parent_conditions for metric in metrics)),
+        folds=min(used_fold_counts),
         targets=tuple(metrics),
     ).model_dump_json(indent=2) + "\n", encoding="utf-8", newline="\n")
     files.append(quality_path)
@@ -588,7 +653,11 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
                 if profile.model_family == "lightgbm_monotone"
                 else "tabular-ridge-crossfit-coverage-v2"
             ),
-            "dataset_profile_id": dataset_profile_digest(profile),
+            "dataset_profile_id": (
+                str(training_contract["profile_digest"])
+                if training_contract is not None
+                else dataset_profile_digest(profile)
+            ),
         },
         "artifacts": [_artifact(destination, path) for path in files],
         "smoke_test": {
@@ -604,6 +673,14 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
     )())
     (destination / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n"
+    )
+
+
+def _build(source: Path, profile_path: Path, destination: Path) -> None:
+    build_tabular_package_from_data(
+        load_tabular_data(source, profile_path),
+        profile_path,
+        destination,
     )
 
 

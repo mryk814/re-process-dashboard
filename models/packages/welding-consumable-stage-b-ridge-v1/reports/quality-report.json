@@ -1,0 +1,151 @@
+{
+  "schema_version": "model-quality-report/v1",
+  "split": "grouped-parent-condition-k-fold",
+  "folds": 5,
+  "targets": [
+    {
+      "target": "C",
+      "parent_conditions": 300,
+      "mae": 0.002831845650265381,
+      "rmse": 0.0036814861269458643,
+      "interval_coverage_90": 0.9,
+      "interval_coverage_method": "cross-fitted-oof-residual-quantiles",
+      "interval_coverage_observations": 300
+    },
+    {
+      "target": "Si",
+      "parent_conditions": 300,
+      "mae": 0.013659003000137447,
+      "rmse": 0.01841573057900498,
+      "interval_coverage_90": 0.8833333333333333,
+      "interval_coverage_method": "cross-fitted-oof-residual-quantiles",
+      "interval_coverage_observations": 300
+    },
+    {
+      "target": "Mn",
+      "parent_conditions": 300,
+      "mae": 0.049391060163486745,
+      "rmse": 0.06372693396872409,
+      "interval_coverage_90": 0.88,
+      "interval_coverage_method": "cross-fitted-oof-residual-quantiles",
+      "interval_coverage_observations": 300
+    },
+    {
+      "target": "P",
+      "parent_conditions": 300,
+      "mae": 0.0005360779681285421,
+      "rmse": 0.0006975801148676675,
+      "interval_coverage_90": 0.8966666666666666,
+      "interval_coverage_method": "cross-fitted-oof-residual-quantiles",
+      "interval_coverage_observations": 300
+    },
+    {
+      "target": "S",
+      "parent_conditions": 300,
+      "mae": 0.00034471810082899347,
+      "rmse": 0.00045048794340095047,
+      "interval_coverage_90": 0.88,
+      "interval_coverage_method": "cross-fitted-oof-residual-quantiles",
+      "interval_coverage_observations": 300
+    },
+    {
+      "target": "Ni",
+      "parent_conditions": 300,
+      "mae": 0.10089925889067092,
+      "rmse": 0.17363452924079223,
+      "interval_coverage_90": 0.8866666666666667,
+      "interval_coverage_method": "cross-fitted-oof-residual-quantiles",
+      "interval_coverage_observations": 300
+    },
+    {
+      "target": "Cr",
+      "parent_conditions": 300,
+      "mae": 0.26460515854977945,
+      "rmse": 0.38229033997249257,
+      "interval_coverage_90": 0.89,
+      "interval_coverage_method": "cross-fitted-oof-residual-quantiles",
+      "interval_coverage_observations": 300
+    },
+    {
+      "target": "Mo",
+      "parent_conditions": 300,
+      "mae": 0.0030689260792923865,
+      "rmse": 0.0048643285622311655,
+      "interval_coverage_90": 0.8966666666666666,
+      "interval_coverage_method": "cross-fitted-oof-residual-quantiles",
+      "interval_coverage_observations": 300
+    },
+    {
+      "target": "Cu",
+      "parent_conditions": 300,
+      "mae": 0.0013836113193115803,
+      "rmse": 0.002664172930682696,
+      "interval_coverage_90": 0.8933333333333333,
+      "interval_coverage_method": "cross-fitted-oof-residual-quantiles",
+      "interval_coverage_observations": 300
+    },
+    {
+      "target": "Ti",
+      "parent_conditions": 300,
+      "mae": 0.0015627242293123267,
+      "rmse": 0.0021029569249296385,
+      "interval_coverage_90": 0.89,
+      "interval_coverage_method": "cross-fitted-oof-residual-quantiles",
+      "interval_coverage_observations": 300
+    },
+    {
+      "target": "B",
+      "parent_conditions": 300,
+      "mae": 0.00006493043694132889,
+      "rmse": 0.00009132921192241392,
+      "interval_coverage_90": 0.9,
+      "interval_coverage_method": "cross-fitted-oof-residual-quantiles",
+      "interval_coverage_observations": 300
+    },
+    {
+      "target": "Nb",
+      "parent_conditions": 300,
+      "mae": 0.00046694625931875916,
+      "rmse": 0.0008546567130335872,
+      "interval_coverage_90": 0.8933333333333333,
+      "interval_coverage_method": "cross-fitted-oof-residual-quantiles",
+      "interval_coverage_observations": 300
+    },
+    {
+      "target": "V",
+      "parent_conditions": 300,
+      "mae": 0.00017662599531726835,
+      "rmse": 0.00032450085875415305,
+      "interval_coverage_90": 0.8866666666666667,
+      "interval_coverage_method": "cross-fitted-oof-residual-quantiles",
+      "interval_coverage_observations": 300
+    },
+    {
+      "target": "Al",
+      "parent_conditions": 300,
+      "mae": 0.0013108787193585314,
+      "rmse": 0.0018458150185408796,
+      "interval_coverage_90": 0.8866666666666667,
+      "interval_coverage_method": "cross-fitted-oof-residual-quantiles",
+      "interval_coverage_observations": 300
+    },
+    {
+      "target": "N",
+      "parent_conditions": 300,
+      "mae": 0.0004227034201287963,
+      "rmse": 0.0005501295555650866,
+      "interval_coverage_90": 0.8866666666666667,
+      "interval_coverage_method": "cross-fitted-oof-residual-quantiles",
+      "interval_coverage_observations": 300
+    },
+    {
+      "target": "O",
+      "parent_conditions": 300,
+      "mae": 0.0030157028499676816,
+      "rmse": 0.0036216161414527517,
+      "interval_coverage_90": 0.8866666666666667,
+      "interval_coverage_method": "cross-fitted-oof-residual-quantiles",
+      "interval_coverage_observations": 300
+    }
+  ]
+}

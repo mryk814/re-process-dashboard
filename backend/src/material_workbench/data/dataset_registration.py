@@ -67,14 +67,23 @@ def register_dataset_records(
 
         profile = load_tabular_profile(profile_path)
         task_ids = (profile.task_id,)
+        profile_id = profile.profile_id
     elif raw_profile.get("schema_version") == "observation-dataset-profile/v1":
         from material_workbench.data.observation_profile import load_observation_profile
 
         profile = load_observation_profile(profile_path)
         task_ids = (profile.task_id,)
+        profile_id = profile.profile_id
+    elif raw_profile.get("schema_version") == "welding-stage-b-profile/v1":
+        from material_workbench.data.stage_b_training import load_stage_b_profile
+
+        profile = load_stage_b_profile(profile_path)
+        task_ids = (profile.task_id,)
+        profile_id = profile.id
     else:
         profile = load_dataset_profile(profile_path)
         task_ids = tuple(sorted(profile.tasks))
+        profile_id = profile.profile_id
     effective_profile = profile.model_dump(mode="json", exclude={"task_definitions"})
     effective_digest = dataset_profile_digest(profile_path)
     asset = catalog.upsert_data_asset(DataAssetCreateInput(
@@ -87,13 +96,13 @@ def register_dataset_records(
     profile_revision = next((
         item
         for item in catalog.list_profile_revisions()
-        if item.profile_id == profile.profile_id and item.profile_digest == effective_digest
+        if item.profile_id == profile_id and item.profile_digest == effective_digest
     ), None)
     if profile_revision is None:
         profile_revision = catalog.upsert_profile_revision(ProfileRevisionCreateInput(
-            profile_id=profile.profile_id,
-            revision=profile_revision_number(catalog, profile.profile_id, effective_digest),
-            name=profile.profile_id,
+            profile_id=profile_id,
+            revision=profile_revision_number(catalog, profile_id, effective_digest),
+            name=profile_id,
             profile_digest=effective_digest,
             canonical_contract_digest=CANONICAL_DATASET_CONTRACT_DIGEST,
             effective_profile_json=effective_profile,
@@ -124,7 +133,7 @@ def register_dataset_records(
         dataset_view_revision_id=view.id,
         source_sha256=source_sha256,
         locator=str(locator.resolve()),
-        profile_id=profile.profile_id,
+        profile_id=profile_id,
         task_ids=task_ids,
     )
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections import Counter
+import json
 from pathlib import Path
 from typing import Any
 
@@ -57,6 +58,58 @@ def validate_workbook_profile(source: Path, profile_path: Path) -> dict[str, Any
 
     source = source.resolve()
     profile_path = profile_path.resolve()
+    raw_profile = json.loads(profile_path.read_text(encoding="utf-8"))
+    if raw_profile.get("schema_version") == "welding-stage-b-profile/v1":
+        from material_workbench.data.stage_b_training import (
+            build_stage_b_training_data,
+            load_stage_b_profile,
+        )
+
+        profile = load_stage_b_profile(profile_path)
+        training = build_stage_b_training_data(
+            source,
+            profile,
+            profile_locator=profile_path,
+        )
+        observations = training.data.observations
+        usable = [row for row in observations if row["eligible"]]
+        return {
+            "ok": True,
+            "registration_ready": bool(usable),
+            "source": str(source),
+            "source_sha256": file_sha256(source),
+            "profile": str(profile_path),
+            "profile_id": profile.id,
+            "profile_digest": training.profile_digest,
+            "task_ids": [profile.task_id],
+            "entities": len(observations),
+            "relations": 0,
+            "observations": len(observations),
+            "observations_by_task": {profile.task_id: len(usable)},
+            "heat_series_parents": 0,
+            "unresolved_heat_series_by_task": {},
+            "rejected_by_policy": {
+                reason: sum(
+                    reason in row["exclusion_reasons"] for row in observations
+                )
+                for reason in sorted({
+                    reason
+                    for row in observations
+                    for reason in row["exclusion_reasons"]
+                })
+            },
+            "entity_preview": [
+                {
+                    "entity_type": "weld_metal",
+                    "entity_key": row["id"],
+                    "values": {
+                        "weld_run": row["parent_key"],
+                        "eligible": row["eligible"],
+                    },
+                }
+                for row in observations[:5]
+            ],
+        }
     profile = load_dataset_profile(profile_path)
     workbook = load_workbook(source, read_only=True, data_only=True)
     try:

@@ -4,7 +4,8 @@
 実測値ではありません。[多段Chainアーキテクチャ](decisions/multistage-chain-architecture.md) の方針を、契約や画面を作る前に具体的な行と列で確認するために使います。
 
 Stage Cの観測familyを組み立てるDataset Profile契約には接続済みです。
-本番TaskとModel Packageへの接続はPhase 0の次工程で行います。
+Stage Bは実測溶着金属成分300観測を正本とする単独Task・Packageへ接続済みです。
+詳細は [Stage B Task / Package](welding-stage-b-package.md) を参照してください。
 
 ## 再生成
 
