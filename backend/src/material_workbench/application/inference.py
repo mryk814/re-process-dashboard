@@ -175,9 +175,16 @@ class InferenceService:
             raise InferenceValidationError(str(exc)) from exc
 
     def key(self, project: Project, candidate: Candidate, operation: str, *, parameters: Mapping[str, Any] | None = None, uses_package: bool = False, uses_support: bool = False) -> InferenceKey:
+        if candidate.blend_validation.status == "invalid":
+            reasons = " / ".join(issue.message for issue in candidate.blend_validation.issues)
+            raise InferenceValidationError(
+                f"配合がDesign Spaceを満たしていないため推論できません: {reasons}"
+            )
         resolved = self.resolver.resolve(project)
         identity = resolved.identity
         canonical = self.registry.validate_candidate(project.task_id, candidate).model_dump(mode="json", exclude={"provenance"})
+        if candidate.blend is not None:
+            canonical["blend"] = candidate.blend.model_input_payload()
         return InferenceKey.build(
             task_id=identity.task_id,
             runtime_type=identity.runtime_type,
