@@ -5,8 +5,13 @@ import {
   type ApiBlendOptimizationResult,
   workbenchApi,
 } from "../../shared/api/workbench-api";
-
-type TargetDraft = { component: string; lower: string; upper: string };
+import {
+  availableBlendTargetComponents,
+  blendTargetValidationError,
+  nextBlendTarget,
+  serializeBlendTargets,
+  type BlendTargetDraft,
+} from "./blendOptimization";
 
 export function BlendOptimizationPanel({
   projectId,
@@ -26,7 +31,7 @@ export function BlendOptimizationPanel({
   const [objective, setObjective] = useState<"cost" | "baseline_l1">("cost");
   const [inclusionDecisions, setInclusionDecisions] = useState(false);
   const [materialIds, setMaterialIds] = useState<string[]>([]);
-  const [target, setTarget] = useState<TargetDraft>({ component: "", lower: "0", upper: "100" });
+  const [targets, setTargets] = useState<BlendTargetDraft[]>([]);
   const [confirmed, setConfirmed] = useState(false);
 
   useEffect(() => {
@@ -43,7 +48,7 @@ export function BlendOptimizationPanel({
         setContext(loaded);
         setMaterialIds(candidate.blend?.items.map((item) => item.material_id) ?? []);
         const firstComponent = loaded.components.find((item) => item !== "Fe") ?? loaded.components[0] ?? "";
-        setTarget({ component: firstComponent, lower: "0", upper: "100" });
+        setTargets([{ id: 0, component: firstComponent, lower: "0", upper: "100" }]);
       })
       .catch((cause) => {
         if (!cancelled) setError(cause instanceof Error ? cause.message : "配合逆算条件を取得できませんでした");
@@ -56,14 +61,7 @@ export function BlendOptimizationPanel({
     };
   }, [projectId, candidate.id, candidate.revision, candidate.blend]);
 
-  const lower = Number(target.lower);
-  const upper = Number(target.upper);
-  const validTarget = target.component
-    && Number.isFinite(lower)
-    && Number.isFinite(upper)
-    && lower >= 0
-    && upper <= 100
-    && lower <= upper;
+  const targetError = blendTargetValidationError(targets);
   const selectedMaterials = useMemo(
     () => context?.materials.filter((item) => materialIds.includes(item.material_id)) ?? [],
     [context, materialIds],
@@ -71,7 +69,7 @@ export function BlendOptimizationPanel({
   const canRun = Boolean(
     context
     && confirmed
-    && validTarget
+    && !targetError
     && materialIds.length
     && materialIds.includes(context.balance_material_id)
     && !running,
@@ -91,11 +89,7 @@ export function BlendOptimizationPanel({
         objective,
         inclusion_decisions: inclusionDecisions,
         material_ids: materialIds,
-        composition_targets: [{
-          component: target.component,
-          lower,
-          upper,
-        }],
+        composition_targets: serializeBlendTargets(targets),
       });
       setResult(response);
       if (response.candidate) onCandidateCreated(response.candidate);
@@ -132,6 +126,10 @@ export function BlendOptimizationPanel({
 
               <fieldset>
                 <legend>1. 使用可能な原料</legend>
+                <p className="blend-availability-note">
+                  Design Space r{context.design_space.revision} の allowed_material_ids
+                  （{context.materials.length}件）。調達区分は参考表示で、採否制約ではありません。
+                </p>
                 <div className="blend-material-checks">
                   {context.materials.map((material) => {
                     const checked = materialIds.includes(material.material_id);
@@ -176,15 +174,95 @@ export function BlendOptimizationPanel({
 
                 <fieldset>
                   <legend>3. 材料成分の許容範囲</legend>
-                  <div className="blend-target-row">
-                    <select value={target.component} onChange={(event) => { setTarget((current) => ({ ...current, component: event.target.value })); setConfirmed(false); }}>
-                      {context.components.map((component) => <option key={component}>{component}</option>)}
-                    </select>
-                    <input aria-label="下限" type="number" min="0" max="100" step="0.01" value={target.lower} onChange={(event) => { setTarget((current) => ({ ...current, lower: event.target.value })); setConfirmed(false); }} />
-                    <span>〜</span>
-                    <input aria-label="上限" type="number" min="0" max="100" step="0.01" value={target.upper} onChange={(event) => { setTarget((current) => ({ ...current, upper: event.target.value })); setConfirmed(false); }} />
-                    <span>mass %</span>
+                  <div className="blend-target-list">
+                    {targets.map((target, index) => (
+                      <div className="blend-target-row" key={target.id}>
+                        <select
+                          aria-label={`成分 ${index + 1}`}
+                          value={target.component}
+                          onChange={(event) => {
+                            setTargets((current) => current.map((item) => (
+                              item.id === target.id
+                                ? { ...item, component: event.target.value }
+                                : item
+                            )));
+                            setConfirmed(false);
+                          }}
+                        >
+                          {availableBlendTargetComponents(
+                            context.components,
+                            targets,
+                            target.id,
+                          ).map((component) => (
+                            <option key={component}>{component}</option>
+                          ))}
+                        </select>
+                        <input
+                          aria-label={`${target.component} 下限`}
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          value={target.lower}
+                          onChange={(event) => {
+                            setTargets((current) => current.map((item) => (
+                              item.id === target.id
+                                ? { ...item, lower: event.target.value }
+                                : item
+                            )));
+                            setConfirmed(false);
+                          }}
+                        />
+                        <span>〜</span>
+                        <input
+                          aria-label={`${target.component} 上限`}
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          value={target.upper}
+                          onChange={(event) => {
+                            setTargets((current) => current.map((item) => (
+                              item.id === target.id
+                                ? { ...item, upper: event.target.value }
+                                : item
+                            )));
+                            setConfirmed(false);
+                          }}
+                        />
+                        <span>mass %</span>
+                        <button
+                          type="button"
+                          className="blend-target-remove"
+                          aria-label={`${target.component} の許容範囲を削除`}
+                          disabled={targets.length === 1}
+                          onClick={() => {
+                            setTargets((current) => current.filter((item) => item.id !== target.id));
+                            setConfirmed(false);
+                          }}
+                        >
+                          削除
+                        </button>
+                      </div>
+                    ))}
                   </div>
+                  <button
+                    type="button"
+                    className="blend-target-add"
+                    disabled={targets.length >= context.components.length}
+                    onClick={() => {
+                      const nextId = Math.max(-1, ...targets.map((target) => target.id)) + 1;
+                      const next = nextBlendTarget(context.components, targets, nextId);
+                      if (!next) return;
+                      setTargets((current) => [...current, next]);
+                      setConfirmed(false);
+                    }}
+                  >
+                    成分を追加
+                  </button>
+                  {targetError && (
+                    <small className="blend-target-error" role="alert">{targetError}</small>
+                  )}
                 </fieldset>
               </div>
 

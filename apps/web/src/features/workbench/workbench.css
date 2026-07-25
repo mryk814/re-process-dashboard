@@ -1186,6 +1186,7 @@
 .blend-optimization-panel fieldset { min-width: 0; margin: 0; border: 1px solid #d8e1eb; border-radius: 6px; padding: 9px; }
 .blend-optimization-panel legend { padding: 0 5px; color: #344b64; font-size: 12px; font-weight: 700; }
 .blend-material-checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 5px; }
+.blend-availability-note { margin: 0 0 7px; color: #65768b; font-size: 10px; }
 .blend-material-checks label,
 .blend-optimization-grid fieldset > label { display: flex; align-items: start; gap: 6px; color: #2d4158; font-size: 12px; }
 .blend-material-checks label { border: 1px solid #e1e7ee; border-radius: 5px; padding: 6px; }
@@ -1196,11 +1197,18 @@
 .blend-optimization-grid fieldset { display: grid; gap: 7px; }
 .blend-optimization-grid fieldset > small { color: #6c7c8e; font-size: 10px; }
 .blend-inclusion-toggle { margin-top: 4px; border-top: 1px solid #e2e8ef; padding-top: 7px; }
-.blend-target-row { display: grid; grid-template-columns: minmax(80px, 1fr) 90px auto 90px auto; align-items: center; gap: 5px; }
+.blend-target-list { display: grid; gap: 5px; }
+.blend-target-row { display: grid; grid-template-columns: minmax(70px, 1fr) 76px auto 76px auto auto; align-items: center; gap: 5px; }
 .blend-target-row select,
 .blend-target-row input { min-width: 0; border: 1px solid #b9c8d9; border-radius: 4px; background: #fff; padding: 6px; }
 .blend-target-row input { text-align: right; font-variant-numeric: tabular-nums; }
 .blend-target-row span { color: #65768b; font-size: 11px; }
+.blend-target-row .blend-target-remove,
+.blend-target-add { border: 1px solid #b9c8d9; border-radius: 4px; background: #fff; padding: 6px 8px; color: #425b76; font-size: 11px; }
+.blend-target-add { justify-self: start; }
+.blend-target-row .blend-target-remove:disabled,
+.blend-target-add:disabled { opacity: 0.45; }
+.blend-target-error { color: #9a3039 !important; }
 .blend-constraint-summary { border: 1px solid #d8e1eb; border-radius: 5px; padding: 7px 9px; color: #50627a; font-size: 11px; }
 .blend-constraint-summary summary { cursor: pointer; font-weight: 700; }
 .blend-constraint-summary p { margin: 6px 0 0; }
