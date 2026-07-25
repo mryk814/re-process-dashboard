@@ -3,9 +3,18 @@ import {
   workbenchApi,
   type ApiActualConditionedVariant,
   type ApiCandidate,
+  type ApiCandidateInput,
+  type ApiChainCandidateContract,
   type ApiChainExecution,
   type ApiChainSnapshot,
 } from "../../shared/api/workbench-api";
+import {
+  fromApiCandidate,
+  LatestSaveQueue,
+  rebaseChangedFields,
+} from "../candidates";
+import { BlendEditorPanel } from "./BlendEditorPanel";
+import { ApiClientError } from "../../shared/api/client";
 import "./chain-workbench.css";
 
 type StageStatus = "latest" | "running" | "stale" | "failed";
@@ -30,7 +39,13 @@ function number(value: unknown, digits = 3) {
     : "—";
 }
 
-function candidateUpdate(candidate: ApiCandidate) {
+function inputNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value)
+    ? String(Number(value.toFixed(6)))
+    : "";
+}
+
+function candidatePayload(candidate: ApiCandidate): ApiCandidateInput {
   return {
     name: candidate.name,
     inputs: candidate.inputs,
@@ -38,7 +53,6 @@ function candidateUpdate(candidate: ApiCandidate) {
     editor_state: candidate.editor_state,
     blend_validation: candidate.blend_validation,
     provenance: candidate.provenance,
-    expected_revision: candidate.revision,
   };
 }
 
@@ -52,16 +66,20 @@ export function ChainWorkbenchPage({
   onCandidateSelected: (candidateId: string) => void;
 }) {
   const [candidates, setCandidates] = useState<ApiCandidate[]>([]);
+  const [contract, setContract] = useState<ApiChainCandidateContract | null>(null);
   const [selectedId, setSelectedId] = useState(initialCandidateId ?? "");
   const [execution, setExecution] = useState<ApiChainExecution | null>(null);
   const [snapshots, setSnapshots] = useState<ApiChainSnapshot[]>([]);
   const [variants, setVariants] = useState<ApiActualConditionedVariant[]>([]);
   const [draftActualId, setDraftActualId] = useState("");
   const [actualDraft, setActualDraft] = useState<Record<string, string>>({});
+  const [processDraft, setProcessDraft] = useState<Record<string, string>>({});
   const [statusMessage, setStatusMessage] = useState("Chain候補を読み込んでいます");
   const [busy, setBusy] = useState(false);
   const saveTimer = useRef<number | undefined>(undefined);
   const requestSequence = useRef(0);
+  const saveQueue = useRef(new LatestSaveQueue<ApiCandidate>());
+  const authoritative = useRef(new Map<string, ApiCandidate>());
   const selected = candidates.find((item) => item.id === selectedId) ?? candidates[0];
   const stageB = execution?.stages.find((stage) => stage.stage_id === "B");
   const stageC = execution?.stages.find((stage) => stage.stage_id === "C");
@@ -90,9 +108,14 @@ export function ChainWorkbenchPage({
 
   useEffect(() => {
     let active = true;
-    void workbenchApi.listChainCandidates(projectId).then(async (items) => {
+    void Promise.all([
+      workbenchApi.chainCandidateContract(projectId),
+      workbenchApi.listChainCandidates(projectId),
+    ]).then(async ([loadedContract, items]) => {
       if (!active) return;
+      setContract(loadedContract);
       setCandidates(items);
+      authoritative.current = new Map(items.map((item) => [item.id, item]));
       const candidateId = items.some((item) => item.id === initialCandidateId)
         ? initialCandidateId!
         : items[0]?.id ?? "";
@@ -114,10 +137,17 @@ export function ChainWorkbenchPage({
 
   useEffect(() => {
     if (!stageBKeys.length) return;
-    setActualDraft((current) => Object.keys(current).length
+    setActualDraft((current) => stageBKeys.every((key) => key in current)
       ? current
-      : Object.fromEntries(stageBKeys.map((key) => [key, String(stageBPredictions[key]?.value ?? "")])));
-  }, [stageB?.result_input_digest]);
+      : Object.fromEntries(stageBKeys.map((key) => [key, ""])));
+  }, [stageBKeys.join("\u001f")]);
+
+  useEffect(() => {
+    if (!selected) return;
+    setProcessDraft(Object.fromEntries(
+      Object.entries(selected.inputs.process).map(([key, value]) => [key, inputNumber(value)]),
+    ));
+  }, [selected?.id]);
 
   async function execute(candidate: ApiCandidate) {
     const sequence = ++requestSequence.current;
@@ -148,10 +178,78 @@ export function ChainWorkbenchPage({
     }
   }
 
+  function markStagesStale(from: "A" | "B" | "C") {
+    const start = { A: 0, B: 1, C: 2 }[from];
+    setExecution((current) => current ? {
+      ...current,
+      status: "stale",
+      stages: current.stages.map((stage, index) => ({
+        ...stage,
+        status: index >= start ? "stale" : stage.status,
+      })),
+    } : current);
+  }
+
+  async function persistCandidate(optimistic: ApiCandidate) {
+    const initial = authoritative.current.get(optimistic.id) ?? optimistic;
+    const basePayload = candidatePayload(initial);
+    const draftPayload = candidatePayload(optimistic);
+    const queued = saveQueue.current.enqueue(
+      optimistic.id,
+      initial,
+      async (serverCandidate) => {
+        const rebased = rebaseChangedFields(
+          basePayload,
+          draftPayload,
+          candidatePayload(serverCandidate),
+        );
+        return workbenchApi.updateChainCandidate(
+          projectId,
+          optimistic.id,
+          { ...rebased, expected_revision: serverCandidate.revision },
+        );
+      },
+      (error) => {
+        const current = error instanceof ApiClientError ? error.currentCandidate : undefined;
+        if (!current) throw error;
+        authoritative.current.set(optimistic.id, current);
+        return current;
+      },
+    );
+    try {
+      const saved = await queued.promise;
+      authoritative.current.set(saved.id, saved);
+      if (!queued.isLatest()) return;
+      setCandidates((items) => items.map((item) => item.id === saved.id ? saved : item));
+      if (saved.blend_validation?.status === "invalid") {
+        setStatusMessage("成立条件を確認してください。draftは保存しましたが、Chainは実行していません");
+        return;
+      }
+      await execute(saved);
+    } catch (cause) {
+      if (queued.isLatest()) {
+        setStatusMessage(cause instanceof Error ? cause.message : "Chain候補を保存できませんでした");
+      }
+    } finally {
+      queued.release();
+    }
+  }
+
   function editProcess(path: string, rawValue: string) {
     if (!selected) return;
+    saveQueue.current.supersede(selected.id);
+    setProcessDraft((current) => ({ ...current, [path]: rawValue }));
+    if (!rawValue.trim()) {
+      if (saveTimer.current) window.clearTimeout(saveTimer.current);
+      setStatusMessage("空欄は0として保存しません。数値を入力してください");
+      return;
+    }
     const value = Number(rawValue);
-    if (!Number.isFinite(value)) return;
+    if (!Number.isFinite(value)) {
+      if (saveTimer.current) window.clearTimeout(saveTimer.current);
+      setStatusMessage("有限の数値を入力してください");
+      return;
+    }
     const optimistic: ApiCandidate = {
       ...selected,
       inputs: {
@@ -160,32 +258,50 @@ export function ChainWorkbenchPage({
       },
     };
     setCandidates((items) => items.map((item) => item.id === selected.id ? optimistic : item));
-    setExecution((current) => current ? {
-      ...current,
-      status: "stale",
-      stages: current.stages.map((stage) => ({
-        ...stage,
-        status: (
-          path === "heat_input_kj_per_mm"
-            ? stage.stage_id === "B" || stage.stage_id === "C"
-            : stage.stage_id === "C"
-        ) ? "stale" : stage.status,
-      })),
-    } : current);
+    markStagesStale(path === "heat_input_kj_per_mm" ? "B" : "C");
     setStatusMessage("編集停止後に自動保存・再計算します");
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(() => {
-      void workbenchApi.updateChainCandidate(
-        projectId,
-        optimistic.id,
-        candidateUpdate(optimistic),
-      ).then((saved) => {
-        setCandidates((items) => items.map((item) => item.id === saved.id ? saved : item));
-        return execute(saved);
-      }).catch((cause) => {
-        setStatusMessage(cause instanceof Error ? cause.message : "Chain候補を保存できませんでした");
-      });
+      void persistCandidate(optimistic);
     }, 450);
+  }
+
+  function editBlend(
+    blend: NonNullable<ApiCandidate["blend"]>,
+    lockedMaterialIds = selected?.editor_state?.locked_material_ids ?? [],
+  ) {
+    if (!selected) return;
+    saveQueue.current.supersede(selected.id);
+    const optimistic: ApiCandidate = {
+      ...selected,
+      blend,
+      editor_state: { locked_material_ids: lockedMaterialIds },
+    };
+    setCandidates((items) => items.map((item) => item.id === selected.id ? optimistic : item));
+    markStagesStale("A");
+    setStatusMessage("配合を保存し、A → B → Cを自動再計算します");
+    void persistCandidate(optimistic);
+  }
+
+  async function createStarterCandidate() {
+    if (!contract) return;
+    setBusy(true);
+    setStatusMessage("固定されたChain契約から基準配合を作成しています");
+    try {
+      const created = await workbenchApi.createChainCandidate(projectId, contract.starter_candidate);
+      authoritative.current.set(created.id, created);
+      setCandidates([created]);
+      setSelectedId(created.id);
+      setProcessDraft(Object.fromEntries(
+        Object.entries(created.inputs.process).map(([key, value]) => [key, String(value)]),
+      ));
+      onCandidateSelected(created.id);
+      await execute(created);
+    } catch (cause) {
+      setStatusMessage(cause instanceof Error ? cause.message : "基準配合を作成できませんでした");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function saveSnapshot() {
@@ -228,6 +344,9 @@ export function ChainWorkbenchPage({
       <h2>Chain候補</h2>
       <p>{statusMessage}</p>
       <small>候補が登録されると、A → B → Cの計算状態と中間実測をここで確認できます。</small>
+      <button className="primary-button" disabled={!contract || busy} onClick={() => void createStarterCandidate()}>
+        固定契約から基準配合を作成
+      </button>
     </section>;
   }
 
@@ -257,7 +376,7 @@ export function ChainWorkbenchPage({
             <b>{stageId}</b><span>{stageId === "A" ? "材料成分" : stageId === "B" ? "溶着成分" : "特性"}</span>
             <em>{statusLabel[status]}</em>
             {stageId === "B" && variants.length > 0 && <small>実測照合あり</small>}
-            {stageId === "C" && variants.length > 0 && <small>実測を使用</small>}
+            {stageId === "C" && variants.length > 0 && <small>別analysisあり</small>}
           </div>
           {index < 2 && <i aria-hidden="true">→</i>}
         </div>;
@@ -269,7 +388,7 @@ export function ChainWorkbenchPage({
       {(["heat_input_kj_per_mm", "preheat_temp_c", "test_temperature_c"] as const).map((path) => (
         <label key={path}>
           <span>{path === "heat_input_kj_per_mm" ? "入熱 (kJ/mm)" : path === "preheat_temp_c" ? "予熱 (℃)" : "試験温度 (℃)"}</span>
-          <input type="number" step="any" value={selected.inputs.process[path] ?? ""} onChange={(event) => editProcess(path, event.target.value)} />
+          <input type="number" step="any" value={processDraft[path] ?? inputNumber(selected.inputs.process[path])} onChange={(event) => editProcess(path, event.target.value)} />
         </label>
       ))}
       <button className="primary-button" disabled={busy || execution?.status !== "latest"} onClick={() => void saveSnapshot()}>
@@ -277,6 +396,18 @@ export function ChainWorkbenchPage({
       </button>
       <small>{snapshots.length ? `固定済み ${snapshots.length}件` : "実測分析には先にsnapshotが必要です"}</small>
     </div>
+
+    {selected.blend && contract && <details className="chain-blend-panel">
+      <summary>Stage A 配合を編集</summary>
+      <BlendEditorPanel
+        projectId={projectId}
+        candidate={fromApiCandidate(selected)}
+        transformId={contract.transform_id}
+        chainMode
+        onBlend={(_candidateId, blend, lockedMaterialIds) => editBlend(blend, lockedMaterialIds)}
+        onLocks={(_candidateId, lockedMaterialIds) => editBlend(selected.blend!, lockedMaterialIds)}
+      />
+    </details>}
 
     <div className="chain-result-grid">
       <section className="chain-result-card">
@@ -303,7 +434,7 @@ export function ChainWorkbenchPage({
       <p>16成分がすべて揃った実測だけを使用します。不足分を予測値で補いません。</p>
       <label className="actual-id-field">実測ID<input value={draftActualId} onChange={(event) => setDraftActualId(event.target.value)} placeholder="例: WM-001" /></label>
       <div className="actual-value-grid">{stageBKeys.map((key) => <label key={key}><span>{key}</span><input type="number" step="any" value={actualDraft[key] ?? ""} onChange={(event) => setActualDraft((current) => ({ ...current, [key]: event.target.value }))} /></label>)}</div>
-      <button className="primary-button" disabled={busy || !draftActualId.trim() || !snapshots[0] || stageBKeys.some((key) => !Number.isFinite(Number(actualDraft[key])))} onClick={() => void createVariant()}>
+      <button className="primary-button" disabled={busy || !draftActualId.trim() || !snapshots[0] || stageBKeys.some((key) => !actualDraft[key]?.trim() || !Number.isFinite(Number(actualDraft[key])))} onClick={() => void createVariant()}>
         実測を使用した別分析を固定
       </button>
     </details>

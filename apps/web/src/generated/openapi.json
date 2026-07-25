@@ -1607,13 +1607,22 @@
           },
           "scientific_master": {
             "$ref": "#/components/schemas/RevisionRef"
+          },
+          "starter_candidate": {
+            "$ref": "#/components/schemas/CandidateInput"
+          },
+          "transform_id": {
+            "title": "Transform Id",
+            "type": "string"
           }
         },
         "required": [
+          "transform_id",
           "scientific_master",
           "commercial_catalog",
           "design_space",
-          "design_space_ref"
+          "design_space_ref",
+          "starter_candidate"
         ],
         "title": "ChainCandidateContractResponse",
         "type": "object"

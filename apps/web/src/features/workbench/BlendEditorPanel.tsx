@@ -30,6 +30,7 @@ type Props = {
     lockedMaterialIds?: string[],
   ) => void;
   onLocks: (candidateId: string, lockedMaterialIds: string[]) => void;
+  chainMode?: boolean;
 };
 
 const format = (value: number, digits = 2) => value.toLocaleString("ja-JP", {
@@ -44,7 +45,7 @@ function statusLabel(status: string) {
   return null;
 }
 
-export function BlendEditorPanel({ projectId, candidate, transformId, onBlend, onLocks }: Props) {
+export function BlendEditorPanel({ projectId, candidate, transformId, onBlend, onLocks, chainMode = false }: Props) {
   const blend = candidate.raw.blend;
   const [context, setContext] = useState<ApiBlendEditorContext | null>(null);
   const [contextError, setContextError] = useState("");
@@ -209,7 +210,9 @@ export function BlendEditorPanel({ projectId, candidate, transformId, onBlend, o
         </div>
       </header>
       <p className="blend-editor-boundary-note">
-        配合変更はStage A派生成分だけを更新します。Stage B予測の入力成分は変わりません。
+        {chainMode
+          ? "配合変更はStage Aから下流へ自動反映します。"
+          : "配合変更はStage A派生成分だけを更新します。Stage B予測の入力成分は変わりません。"}
       </p>
       {(contextError || message) && <p className="blend-editor-message" role="status">{contextError || message}</p>}
       {!valid && validation.issues.length > 0 && (

@@ -64,10 +64,12 @@ class ActualConditionedVariantRequest(ChainApiModel):
 
 
 class ChainCandidateContractResponse(ChainApiModel):
+    transform_id: str
     scientific_master: RevisionRef
     commercial_catalog: RevisionRef
     design_space: SparseBlendDesignSpace
     design_space_ref: RevisionRef
+    starter_candidate: CandidateInput
 
 
 def _definition_id(definition: ChainDefinition) -> str:
@@ -126,13 +128,17 @@ def get_chain_candidate_contract(
 ) -> ChainCandidateContractResponse:
     try:
         contracts = service.candidate_contracts(project_id)
+        transform_id = service.candidate_transform_id(project_id)
+        starter = service.starter_candidate(project_id)
     except ChainExecutionError as exc:
         raise HTTPException(409, str(exc)) from exc
     return ChainCandidateContractResponse(
+        transform_id=transform_id,
         scientific_master=contracts.design_space.scientific_master,
         commercial_catalog=contracts.commercial_catalog.ref,
         design_space=contracts.design_space,
         design_space_ref=contracts.design_space.ref,
+        starter_candidate=starter,
     )
 
 

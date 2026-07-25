@@ -1,14 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { provenanceNavigation } from "./candidateProvenance";
 import { navigationUrl, readNavigationIntent, withView, type NavigationIntent, type WorkbenchView } from "./navigation";
-import { WorkbenchEmptyState, WorkbenchPage, useWorkbenchSession } from "../features/workbench";
+import { ChainWorkbenchPage, WorkbenchEmptyState, WorkbenchPage, useWorkbenchSession } from "../features/workbench";
 import { ProjectHub } from "../features/projects";
 import { ScreeningPage } from "../features/screening";
 import { LineagePage } from "../features/lineage";
 import { DataExploreNavigation, LiveDataQualityPage } from "../features/quality";
 import { DeveloperAdminPage } from "../features/admin";
 import { DataLibraryPage, ProfileWorkbenchPage } from "../features/data-library";
-import { ChainWorkbenchPage } from "../features/chain";
 
 type Tab = WorkbenchView;
 const lastNavigationStorageKey = "material-workbench-last-navigation";

@@ -78,6 +78,12 @@ export const workbenchApi = {
       params: { path: { project_id: projectId } },
     }), "Chain候補を取得できませんでした。");
   },
+  async createChainCandidate(projectId: string, body: ApiCandidateInput) {
+    return requireData(await apiClient.POST("/api/projects/{project_id}/chain/candidates", {
+      params: { path: { project_id: projectId } },
+      body,
+    }), "Chain候補を作成できませんでした。");
+  },
   async updateChainCandidate(projectId: string, candidateId: string, body: ApiCandidateUpdate) {
     return requireData(await apiClient.PUT("/api/projects/{project_id}/chain/candidates/{candidate_id}", {
       params: { path: { project_id: projectId, candidate_id: candidateId } },

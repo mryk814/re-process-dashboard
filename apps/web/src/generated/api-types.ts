@@ -1949,6 +1949,9 @@ export interface components {
             design_space: components["schemas"]["SparseBlendDesignSpace"];
             design_space_ref: components["schemas"]["RevisionRef"];
             scientific_master: components["schemas"]["RevisionRef"];
+            starter_candidate: components["schemas"]["CandidateInput"];
+            /** Transform Id */
+            transform_id: string;
         };
         /** ChainDefinition */
         ChainDefinition: {

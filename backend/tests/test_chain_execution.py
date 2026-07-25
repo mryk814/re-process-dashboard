@@ -120,6 +120,42 @@ def _execute(client: TestClient, project: dict, candidate: dict) -> dict:
     return response.json()
 
 
+def test_chain_candidate_contract_provides_a_pinned_executable_starter(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/api/projects",
+        json={"name": "Empty Chain", "scientific_identity": _chain_identity(client)},
+    )
+    assert response.status_code == 201, response.text
+    project = response.json()
+    contract_response = client.get(
+        f"/api/projects/{project['id']}/chain/candidate-contract"
+    )
+    assert contract_response.status_code == 200, contract_response.text
+    contract = contract_response.json()
+    assert contract["transform_id"] == "welding-stage-a-v1"
+    starter = contract["starter_candidate"]
+    assert starter["blend"]["scientific_master"] == contract["scientific_master"]
+    assert starter["blend"]["commercial_catalog"] == contract["commercial_catalog"]
+    assert starter["blend"]["design_space"] == contract["design_space_ref"]
+    assert starter["inputs"]["process"]["heat_input_kj_per_mm"] > 0
+    assert starter["inputs"]["categorical"]["shielding_gas"]
+
+    created_response = client.post(
+        f"/api/projects/{project['id']}/chain/candidates",
+        json=starter,
+    )
+    assert created_response.status_code == 201, created_response.text
+    execution = _execute(client, project, created_response.json())
+    assert execution["status"] == "latest"
+    assert [stage["status"] for stage in execution["stages"]] == [
+        "latest",
+        "latest",
+        "latest",
+    ]
+
+
 def _update(client: TestClient, project: dict, candidate: dict, payload: dict) -> dict:
     response = client.put(
         f"/api/projects/{project['id']}/chain/candidates/{candidate['id']}",

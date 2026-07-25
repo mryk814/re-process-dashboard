@@ -131,6 +131,112 @@ class ChainExecutionService:
                 "Chain Revisionに固定されたStage A契約を解決できません"
             ) from exc
 
+    def candidate_transform_id(self, project_id: str) -> str:
+        return self._deterministic_stage(project_id).contract_id
+
+    def starter_candidate(self, project_id: str) -> CandidateInput:
+        """Build a usable first candidate from the exact pinned Chain contracts."""
+
+        stage_a = self._deterministic_stage(project_id)
+        try:
+            blend = self.transform_catalog.initial_blend_for_package(
+                stage_a.contract_id,
+                stage_a.package_manifest_digest,
+                stage_a.contract_digest,
+            )
+        except BlendStructuralError as exc:
+            raise ChainExecutionError(
+                "Chain Revisionに固定された初期配合を解決できません"
+            ) from exc
+        project = self.store.get_project(project_id)
+        assert project is not None and project.scientific_identity.identity_kind == "chain"
+        revision = self.store.get_chain_revision(
+            project.scientific_identity.chain_revision_id
+        )
+        assert revision is not None
+        definition = self.store.get_chain_definition(
+            revision.chain_id, revision.chain_definition_digest
+        )
+        assert definition is not None
+        stage_contracts = {
+            stage.stage_id: self.registry.contract_for(stage.contract_id).task_definition
+            for stage in revision.stages
+            if stage.stage_kind == "task"
+        }
+        process: dict[str, float] = {}
+        categorical: dict[str, str] = {}
+        for port in definition.external_inputs:
+            if port.path == "candidate.blend":
+                continue
+            fields = []
+            for binding in definition.bindings:
+                if (
+                    binding.source.source_kind != "external"
+                    or binding.source.path != port.path
+                ):
+                    continue
+                task = stage_contracts.get(binding.target_stage_id)
+                if task is None:
+                    continue
+                field = next(
+                    (
+                        field
+                        for group in task.input_groups
+                        for field in group.fields
+                        if field.path == binding.target_input_path
+                    ),
+                    None,
+                )
+                if field is not None:
+                    fields.append(field)
+            if not fields:
+                raise ChainExecutionError(
+                    f"初期候補の入力契約を解決できません: {port.path}"
+                )
+            key = port.path.rsplit(".", 1)[-1]
+            if all(field.kind == "number" for field in fields):
+                ranges = [field.default_range for field in fields]
+                if any(item is None for item in ranges):
+                    raise ChainExecutionError(
+                        f"初期候補の数値範囲がありません: {port.path}"
+                    )
+                lower = max(item.min for item in ranges if item is not None)
+                upper = min(item.max for item in ranges if item is not None)
+                if lower > upper:
+                    raise ChainExecutionError(
+                        f"初期候補の数値範囲がStage間で重なりません: {port.path}"
+                    )
+                process[key] = (lower + upper) / 2
+            elif all(field.kind == "categorical" for field in fields):
+                allowed = set(fields[0].choices)
+                for field in fields[1:]:
+                    allowed &= set(field.choices)
+                if not allowed:
+                    raise ChainExecutionError(
+                        f"初期候補の選択肢がStage間で重なりません: {port.path}"
+                    )
+                categorical[key] = next(
+                    choice for choice in fields[0].choices if choice in allowed
+                )
+            else:
+                raise ChainExecutionError(
+                    f"初期候補の入力型がStage間で一致しません: {port.path}"
+                )
+        return self.prepare_candidate(
+            project_id,
+            CandidateInput(
+                name="基準配合",
+                inputs=CandidateInputs(
+                    composition={},
+                    process=process,
+                    categorical=categorical,
+                    heat_pattern=None,
+                    heat_time_basis="line_speed",
+                ),
+                blend=blend,
+            ),
+        )
+
     def _deterministic_stage(self, project_id: str) -> ChainStageRevision:
         project = self.store.get_project(project_id)
         if project is None:
