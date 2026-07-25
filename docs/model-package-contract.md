@@ -54,10 +54,18 @@ PackageはPythonコード、import path、callback、pickle、joblibを含めま
 
 全ての`feature_pipeline.spec`、pipeline artifact、predictor artifactは`artifacts`配列にpath/hash/bytesとして列挙する。
 
+`package_kind=predictive` は従来どおりFeature Pipelineと一つ以上のpredictorを持つ。
+`package_kind=deterministic_transform` は学習済みscalar predictorではなく、独立した
+`deterministic_transforms` を持ち、Feature Pipelineとpredictorを持たない。
+この二つを同じPackage内へ混在させない。Stage A Packageはmanifestの
+`deterministic_golden` に、Package内path、`stage-a-golden/v1`、期待行数120を
+型付きで宣言する。
+
 ## 許可する実行環境と資産形式
 
 | 実行環境の種類 | 安全な資産 | 制約 |
 |---|---|---|
+| `builtin.deterministic_linear.v1` | `.json` | 疎なコア配合をwhole-wire絶対質量分率へcompileし、固定された原料・フープ成分行列を適用する。科学master digest、単位、行列軸を一致検証し、予測分布を返さない |
 | `builtin.linear.v1` | `.npz` | `weights/bias/lower_offset/upper_offset`のみ |
 | `builtin.additive_terms.v1` | `.npz`、`allow_pickle=False` | identity linkのlinear / B-spline / categorical lookup項。寄与は型付き説明契約で返す |
 | `builtin.exact_gp.v1` | `.npz`、`allow_pickle=False` | `exact_rbf_grouped_v1`または`exact_rbf_ard_v1`の既知array schemaだけ。`predictive_family`は`normal`または`lognormal`（後者は`config.latent_transform=log1p`必須で、GPは`log(1+target)`空間、予測は単調変換で元単位へ戻す） |
@@ -98,6 +106,31 @@ npzはentry数、展開後総量、圧縮率、posterior draw数、layer数、te
 焼鈍と熱延の実行環境は、Package manifestの学習データIDも学習データの識別情報へ追加します。
 過去のスナップショットは、新しいPackageで自動再評価しません。
 
+Stage Aの科学Packageは原料・フープ成分、D50、compiler単位契約をartifactへsnapshotし、
+その科学master digestをmanifestにも固定する。単価と調達区分はPackage外の商用catalog
+revisionであり、価格変更だけでは科学Packageを作り直さない。Packageのmanifest、
+smoke input、golden reference、`training_data_id` は商用catalogを参照せず、科学master
+digestだけで再現性を固定する。Verifierは科学master digestと
+`training_data_id` / `feature_dataset_id` の一致、goldenのschema、120件、配合ID一意性、
+31軸、全行の科学master digest、全変換結果の再現を確認する。
+
+Stage Aの出力軸は
+`Fe,C,Si,Mn,Cr,Ni,Mo,Ti,B,Al,Mg,Nb,V,Cu,Zr,Ca,N,O,S,P,CaF2,TiO2,SiO2,Al2O3,MgO,ZrO2,K2O,Na2O,CaCO3,Fe2O3,other`
+の31項目で固定する。builderは元Excelの対応列をこの順序・名称で厳密検証し、欠落、
+追加、並び替え、`other`の別名化をPackage生成エラーとして扱う。
+
+利用可能な決定論的Transform Packageは `models/active-transforms.json` でactive/available
+を管理する。APIの `GET /api/transforms` で解決済みPackageと軸を確認し、
+`POST /api/transforms/{transform_id}/execute` で疎な配合候補を実行できる。
+Windows配布物にはこの設定、全available Package、商用catalogを同梱する。
+検証は次で実行できる。
+
+```powershell
+$env:PYTHONPATH = "backend/src"
+uv run python -m material_workbench.modeling.model_package_verify `
+  models/packages/welding-stage-a-deterministic-v1 --deterministic-transform
+```
+
 ## TaskDefinitionとの境界
 
 TaskDefinitionは利用者が扱う入力group、field、output、単位、目標方向を定義する。モデルPackageは一つの `task_id` と `input_schema_version` を参照し、そのtaskのCanonicalCandidateを特徴量へ変換して予測する。Package manifestやruntime capabilityに画面配置、カード、テーブル列などのUIレイアウト情報を含めない。変数ごとの表示桁数は利用者向け契約である `TaskDefinition.display_decimals` を既定値とし、モデルPackageの再学習やdigest変更を伴わせない。
@@ -111,6 +144,8 @@ TaskDefinitionは利用者が扱う入力group、field、output、単位、目�
 - `flank-wear-v1`: VB_mean / VB_max（µm。切削距離は候補入力の1フィールドだが、意味的には摩耗曲線の横軸であり、応答曲線APIで曲線として提示する）
 
 Packageのpredictor targetは対応するTaskDefinitionのoutputに含まれなければならない。TaskDefinitionを変更して既存Packageの意味を暗黙に変えず、互換性のない変更はschema versionまたはtask idを更新する。
+
+`feature_pipeline.output_features` はPackage全体で生成可能な特徴量の和集合とする。各predictorの`feature_names`はその部分列でよく、pipelineで宣言された順序を保つ。これにより、同じTaskの出力ごとに観測ファミリーや試験条件が異なる場合も、不要な特徴量を別の予測器へ渡さない。
 
 TaskDefinitionは予測意味を固定するcontextとfield間制約も保持する。熱延v1では設備・試験片方向を固定contextにせず、仕上げ温度は均熱温度以下、出側板厚は入側板厚未満とする。これらをruntime固有コードだけに埋め込まない。
 

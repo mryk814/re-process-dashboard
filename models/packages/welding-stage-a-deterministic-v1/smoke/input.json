@@ -1,0 +1,92 @@
+{
+  "fill_ratio": 19.06,
+  "hoop_id": "HP-01",
+  "items": [
+    {
+      "material_id": "RM-0013",
+      "ratio": 25.7665
+    },
+    {
+      "material_id": "RM-0010",
+      "ratio": 24.1301
+    },
+    {
+      "material_id": "RM-0157",
+      "ratio": 16.1447
+    },
+    {
+      "material_id": "RM-0033",
+      "ratio": 7.1407
+    },
+    {
+      "material_id": "RM-0205",
+      "ratio": 5.2403
+    },
+    {
+      "material_id": "RM-0052",
+      "ratio": 3.3017
+    },
+    {
+      "material_id": "RM-0212",
+      "ratio": 2.837
+    },
+    {
+      "material_id": "RM-0039",
+      "ratio": 2.3636
+    },
+    {
+      "material_id": "RM-0174",
+      "ratio": 2.1033
+    },
+    {
+      "material_id": "RM-0106",
+      "ratio": 2.0886
+    },
+    {
+      "material_id": "RM-0184",
+      "ratio": 1.9698
+    },
+    {
+      "material_id": "RM-0222",
+      "ratio": 1.4119
+    },
+    {
+      "material_id": "RM-0240",
+      "ratio": 1.1368
+    },
+    {
+      "material_id": "RM-0248",
+      "ratio": 1.1131
+    },
+    {
+      "material_id": "RM-0172",
+      "ratio": 0.8676
+    },
+    {
+      "material_id": "RM-0023",
+      "ratio": 0.7059
+    },
+    {
+      "material_id": "RM-0079",
+      "ratio": 0.558
+    },
+    {
+      "material_id": "RM-0066",
+      "ratio": 0.5209
+    },
+    {
+      "material_id": "RM-0123",
+      "ratio": 0.4864
+    },
+    {
+      "material_id": "RM-0097",
+      "ratio": 0.1131
+    }
+  ],
+  "schema_version": "stage-a-scientific-input/v1",
+  "scientific_master": {
+    "digest": "sha256:1cf2222e2de4aeea74ecc4a1d92df82f0bc2522b9eb50e65e75a846499e77fff",
+    "resource_id": "welding-stage-a-science",
+    "revision": 1
+  }
+}

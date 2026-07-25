@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdir, readdir, stat } from "node:fs/promises";
+import { mkdir, readFile, readdir, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { _electron as electron } from "playwright";
 
@@ -36,9 +36,58 @@ try {
   const runtime = await window.evaluate(() => window.workbenchDesktop);
   assert(runtime?.apiBaseUrl);
   assert(runtime.launchToken);
-  const authenticatedFetch = (path) => fetch(`${runtime.apiBaseUrl}${path}`, {
-    headers: { "X-Workbench-Launch-Token": runtime.launchToken },
+  const authenticatedFetch = (path, init = {}) => fetch(`${runtime.apiBaseUrl}${path}`, {
+    ...init,
+    headers: {
+      ...init.headers,
+      "X-Workbench-Launch-Token": runtime.launchToken,
+    },
   });
+  const transformsResponse = await authenticatedFetch("/api/transforms");
+  assert.equal(transformsResponse.status, 200);
+  const transforms = await transformsResponse.json();
+  assert.equal(transforms.length, 1);
+  const stageA = transforms[0];
+  assert.equal(stageA.transform_id, "welding-stage-a-v1");
+  assert.equal(stageA.outputs.length, 31);
+  assert.equal(stageA.outputs.at(-1), "other");
+  const scientificBlend = JSON.parse(await readFile(
+    join(
+      repositoryRoot,
+      "models",
+      "packages",
+      "welding-stage-a-deterministic-v1",
+      "smoke",
+      "input.json",
+    ),
+    "utf8",
+  ));
+  const blend = {
+    ...scientificBlend,
+    schema_version: "sparse-blend/v1",
+    balance_material_id: scientificBlend.items[0].material_id,
+    commercial_catalog: stageA.commercial_catalog,
+    design_space: {
+      resource_id: "packaged-stage-a-smoke",
+      revision: 1,
+      digest: `sha256:${"0".repeat(64)}`,
+    },
+  };
+  const transformResponse = await authenticatedFetch(
+    "/api/transforms/welding-stage-a-v1/execute",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ blend }),
+    },
+  );
+  assert.equal(transformResponse.status, 200);
+  const transformResult = await transformResponse.json();
+  assert.equal(Object.keys(transformResult.material_composition).length, 31);
+  const compositionTotal = Object.values(transformResult.material_composition)
+    .reduce((total, value) => total + value, 0);
+  assert(Math.abs(compositionTotal - 100) < 1e-8);
+  assert(transformResult.powder_blend_cost_yen_per_kg_core > 0);
   const externalTasks = [
     {
       projectId: "heat-treatment-tradeoff-v1-default",

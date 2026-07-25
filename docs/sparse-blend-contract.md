@@ -55,6 +55,25 @@ preview、詳細予測、範囲探索、検討アクティビティは成立す�
 疎な配合候補を復元するときは `blend` と `editor_state` を引き継ぐが、
 `blend_validation` は信用せず、固定されたmasterとDesign Spaceからサーバーが再計算する。
 
+## Stage A実行
+
+`builtin.deterministic_linear.v1` はPackage実行直前に、コア内配合比 `x_i` と充填率
+`fill` から `z_i = (fill / 100) × (x_i / 100)` を作る。
+`z_i` はwhole-wire絶対質量分率であり、フープ質量分率は `1 - fill / 100` である。
+決定論的runtimeはこの座標へ成分行列を適用し、材料成分を
+`mass_percent_whole_wire` で返す。
+
+Packageは科学master snapshotとdigest、成分軸、フープ、D50補助特徴、単位契約を保持する。
+候補の科学master参照がPackageと異なる場合、未知原料・未知フープ・単位不一致・artifact
+hash不一致がある場合は実行しない。入力明細の順序と、既知原料の比率0の行は結果へ影響しない。
+科学計算用のsmoke/golden入力は `stage-a-scientific-input/v1` とし、商用catalogと
+Design Spaceのrevisionを含めない。価格改定後に再生成しても、科学masterが同じなら
+Packageの全ファイルとmanifest digestは不変でなければならない。
+
+商用catalogはPackage外で解決し、原料ごとの
+`配合比 × 単価` と粉体配合コスト（円/kg-core）を派生する。
+フープ単価を持たないため、これは総ワイヤコストではない。
+
 ## 派生revisionと比較
 
 候補をコピーするときは、派生元の `candidate_id` だけでなく

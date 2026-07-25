@@ -1,0 +1,94 @@
+{
+  "artifacts": [
+    {
+      "bytes": 213499,
+      "media_type": "application/json",
+      "path": "transform/stage-a.json",
+      "sha256": "aa15a2beda2c81b01fca975f2e68318acbabf1e086f89bff2a46c5f464838915"
+    },
+    {
+      "bytes": 1640,
+      "media_type": "application/json",
+      "path": "smoke/input.json",
+      "sha256": "2db7476e441b5db010951095a84f93d1a8f12800f90b76d8485cc2baabaaa3bf"
+    },
+    {
+      "bytes": 3084,
+      "media_type": "application/json",
+      "path": "smoke/expected.json",
+      "sha256": "604dd063323c3614646173b3855b88a77b2fa5f98ea96d071508972ae3d42f28"
+    },
+    {
+      "bytes": 676180,
+      "media_type": "application/json",
+      "path": "reference/stage-a-golden-120.json",
+      "sha256": "48807ea22e057efafeffd756123b1f449ec83f93d8fbbfede6f403fce686e1e4"
+    }
+  ],
+  "deterministic_golden": {
+    "expected_rows": 120,
+    "path": "reference/stage-a-golden-120.json",
+    "schema_version": "stage-a-golden/v1"
+  },
+  "deterministic_transforms": [
+    {
+      "artifact": "transform/stage-a.json",
+      "auxiliary_feature_names": [
+        "alloy_powder_d50_um"
+      ],
+      "compiler_id": "sparse_blend_whole_wire.v1",
+      "id": "material-composition",
+      "output_names": [
+        "Fe",
+        "C",
+        "Si",
+        "Mn",
+        "Cr",
+        "Ni",
+        "Mo",
+        "Ti",
+        "B",
+        "Al",
+        "Mg",
+        "Nb",
+        "V",
+        "Cu",
+        "Zr",
+        "Ca",
+        "N",
+        "O",
+        "S",
+        "P",
+        "CaF2",
+        "TiO2",
+        "SiO2",
+        "Al2O3",
+        "MgO",
+        "ZrO2",
+        "K2O",
+        "Na2O",
+        "CaCO3",
+        "Fe2O3",
+        "other"
+      ],
+      "output_unit": "mass_percent_whole_wire",
+      "runtime_type": "builtin.deterministic_linear.v1",
+      "scientific_master_digest": "sha256:1cf2222e2de4aeea74ecc4a1d92df82f0bc2522b9eb50e65e75a846499e77fff"
+    }
+  ],
+  "input_schema_version": "sparse-blend/v1",
+  "package_id": "welding-stage-a-deterministic-v1",
+  "package_kind": "deterministic_transform",
+  "package_version": "1.0.0",
+  "provenance": {
+    "feature_dataset_id": "sha256:1cf2222e2de4aeea74ecc4a1d92df82f0bc2522b9eb50e65e75a846499e77fff",
+    "training_code_revision": "build_welding_stage_a_package.py/v1",
+    "training_data_id": "sha256:1cf2222e2de4aeea74ecc4a1d92df82f0bc2522b9eb50e65e75a846499e77fff"
+  },
+  "schema_version": "model-package/v1",
+  "smoke_test": {
+    "expected": "smoke/expected.json",
+    "input": "smoke/input.json"
+  },
+  "task_id": "welding-stage-a-v1"
+}

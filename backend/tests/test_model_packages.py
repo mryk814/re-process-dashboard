@@ -3,6 +3,8 @@ from __future__ import annotations
 import ast
 import hashlib
 import json
+import subprocess
+import sys
 from io import BytesIO
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
@@ -24,6 +26,24 @@ from material_workbench.modeling.model_packages import (
 from material_workbench.contracts.task_contracts import TaskContractFixture
 from material_workbench.adapters.numpyro_posterior import MAX_NPZ_COMPRESSION_RATIO
 from material_workbench.adapters.sklearn_skops import _TRUSTED_TYPES_BY_FAMILY
+
+
+def test_stage_c_builder_bootstraps_backend_src_outside_repository(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[2]
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(root / "backend" / "scripts" / "build_welding_stage_c_model_package.py"),
+            "--help",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+
+    assert "Build the allow-listed Stage C Model Package" in completed.stdout
 
 
 def _artifact(path: Path, relative: str) -> dict[str, object]:
@@ -210,6 +230,7 @@ def test_builtin_linear_package_and_registry_are_dependency_free(tmp_path: Path)
     assert result.point_estimate == pytest.approx(5.7)
     assert set(AdapterRegistry()._adapters) == {
         "builtin.linear.v1", "builtin.exact_gp.v1", "builtin.heteroscedastic_exact_gp.v1",
+        "builtin.deterministic_linear.v1",
         "builtin.additive_terms.v1", "builtin.quantile_linear.v1", "builtin.posterior_linear.v1",
         "sklearn.skops.v1", "lightgbm.booster.v1", "gpytorch.static_exact_rbf.v1",
         "numpyro.dense_posterior.v1",
@@ -316,6 +337,29 @@ def test_loader_validates_predictor_feature_order_separately_from_pipeline_input
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
     with pytest.raises(PackageContractError, match="predictor feature order"):
+        ModelPackageLoader().load(root)
+
+
+def test_loader_allows_predictor_specific_ordered_feature_subsets(tmp_path: Path) -> None:
+    root = _write_package(tmp_path)
+    manifest_path = root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["predictors"][0]["feature_names"] = ["C"]
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    package = ModelPackageLoader().load(root)
+
+    assert package.manifest.predictors[0].feature_names == ("C",)
+
+
+def test_loader_rejects_predictor_features_missing_from_pipeline(tmp_path: Path) -> None:
+    root = _write_package(tmp_path)
+    manifest_path = root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["predictors"][0]["feature_names"] = ["C", "unknown"]
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(PackageContractError, match="declared by feature pipeline"):
         ModelPackageLoader().load(root)
 
 

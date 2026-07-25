@@ -99,9 +99,14 @@ class ObservationFamily(ProfileModel):
 class ObservationDatasetProfile(ProfileModel):
     schema_version: Literal["observation-dataset-profile/v1"]
     id: str
+    task_id: str
     relation_sheet: str
     entities: tuple[EntitySource, ...]
     families: tuple[ObservationFamily, ...]
+
+    @property
+    def profile_id(self) -> str:
+        return self.id
 
     @model_validator(mode="after")
     def references_are_consistent(self) -> "ObservationDatasetProfile":

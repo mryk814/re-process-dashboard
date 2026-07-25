@@ -1,0 +1,129 @@
+{
+  "auxiliary_features": {
+    "alloy_powder_d50_um": 112.79327850731238
+  },
+  "material_composition": {
+    "Al": 0.011804200782664,
+    "Al2O3": 0.5150689411459999,
+    "B": 0.0037459463406300003,
+    "C": 0.07135609284642,
+    "Ca": 0.002776760163592,
+    "CaCO3": 0.134807269038182,
+    "CaF2": 0.9675178281213379,
+    "Cr": 0.092310753779712,
+    "Cu": 0.0,
+    "Fe": 90.77994964439849,
+    "Fe2O3": 0.040053448692918,
+    "K2O": 0.152249293368576,
+    "Mg": 0.0,
+    "MgO": 0.046735559020416,
+    "Mn": 1.7870994493981398,
+    "Mo": 0.061178140070548,
+    "N": 5.112837376e-05,
+    "Na2O": 0.06442645164250199,
+    "Nb": 0.0,
+    "Ni": 0.375516055923876,
+    "O": 0.025773376574499997,
+    "P": 0.016698308467876,
+    "S": 0.009783376202186,
+    "Si": 0.46801352693260406,
+    "SiO2": 1.015031463034942,
+    "Ti": 0.037593199249560005,
+    "TiO2": 2.8413595290583356,
+    "V": 0.0,
+    "Zr": 0.0,
+    "ZrO2": 0.265059810910638,
+    "other": 0.214039776588386
+  },
+  "scientific_master": {
+    "digest": "sha256:1cf2222e2de4aeea74ecc4a1d92df82f0bc2522b9eb50e65e75a846499e77fff",
+    "resource_id": "welding-stage-a-science",
+    "revision": 1
+  },
+  "whole_wire_coordinates": {
+    "hoop_id": "HP-01",
+    "hoop_mass_fraction": 0.8094,
+    "materials": [
+      {
+        "mass_fraction": 0.0459919706,
+        "material_id": "RM-0010"
+      },
+      {
+        "mass_fraction": 0.049110949,
+        "material_id": "RM-0013"
+      },
+      {
+        "mass_fraction": 0.0013454454,
+        "material_id": "RM-0023"
+      },
+      {
+        "mass_fraction": 0.013610174199999998,
+        "material_id": "RM-0033"
+      },
+      {
+        "mass_fraction": 0.0045050216,
+        "material_id": "RM-0039"
+      },
+      {
+        "mass_fraction": 0.0062930402,
+        "material_id": "RM-0052"
+      },
+      {
+        "mass_fraction": 0.0009928354,
+        "material_id": "RM-0066"
+      },
+      {
+        "mass_fraction": 0.001063548,
+        "material_id": "RM-0079"
+      },
+      {
+        "mass_fraction": 0.0002155686,
+        "material_id": "RM-0097"
+      },
+      {
+        "mass_fraction": 0.0039808716,
+        "material_id": "RM-0106"
+      },
+      {
+        "mass_fraction": 0.0009270784,
+        "material_id": "RM-0123"
+      },
+      {
+        "mass_fraction": 0.0307717982,
+        "material_id": "RM-0157"
+      },
+      {
+        "mass_fraction": 0.0016536456,
+        "material_id": "RM-0172"
+      },
+      {
+        "mass_fraction": 0.004008889799999999,
+        "material_id": "RM-0174"
+      },
+      {
+        "mass_fraction": 0.0037544388,
+        "material_id": "RM-0184"
+      },
+      {
+        "mass_fraction": 0.0099880118,
+        "material_id": "RM-0205"
+      },
+      {
+        "mass_fraction": 0.005407322,
+        "material_id": "RM-0212"
+      },
+      {
+        "mass_fraction": 0.0026910814,
+        "material_id": "RM-0222"
+      },
+      {
+        "mass_fraction": 0.0021667407999999997,
+        "material_id": "RM-0240"
+      },
+      {
+        "mass_fraction": 0.0021215685999999997,
+        "material_id": "RM-0248"
+      }
+    ]
+  }
+}

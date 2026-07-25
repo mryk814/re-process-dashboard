@@ -27,6 +27,12 @@ extraResources:
     to: models/active-packages.json
   - from: models/available-packages.json
     to: models/available-packages.json
+  - from: models/active-transforms.json
+    to: models/active-transforms.json
+  - from: models/catalogs/welding-stage-a-commercial-v1.json
+    to: models/catalogs/welding-stage-a-commercial-v1.json
+  - from: models/packages/welding-stage-a-deterministic-v1
+    to: models/packages/welding-stage-a-deterministic-v1
   - from: models/packages/annealed-gp-stable-ard-tutorial-v1
     to: models/packages/annealed-gp-stable-ard-tutorial-v1
   - from: models/packages/annealed-lightgbm-standard-tutorial-v1
@@ -61,6 +67,8 @@ extraResources:
     to: models/packages/mpea-room-tensile-ridge-v1
   - from: models/packages/mpea-hardness-ridge-v1
     to: models/packages/mpea-hardness-ridge-v1
+  - from: models/packages/welding-stage-c-ridge-v1
+    to: models/packages/welding-stage-c-ridge-v1
 win:
   icon: packaging/icons/icon.ico
   target:
