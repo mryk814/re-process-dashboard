@@ -123,7 +123,8 @@
         "project_creation": true,
         "candidate_excel_import": false,
         "candidate_excel_export": false,
-        "sparse_blend": false
+        "sparse_blend": true,
+        "sparse_blend_transform_id": "welding-stage-a-v1"
       },
       "data_explorer": null
     },
@@ -182,7 +183,8 @@
         "project_creation": true,
         "candidate_excel_import": true,
         "candidate_excel_export": true,
-        "sparse_blend": false
+        "sparse_blend": false,
+        "sparse_blend_transform_id": null
       },
       "data_explorer": {
         "schema_version": "data-explorer-capability/v1",
@@ -231,7 +233,8 @@
         "project_creation": true,
         "candidate_excel_import": false,
         "candidate_excel_export": false,
-        "sparse_blend": false
+        "sparse_blend": false,
+        "sparse_blend_transform_id": null
       },
       "data_explorer": {
         "schema_version": "data-explorer-capability/v1",
@@ -285,7 +288,8 @@
         "project_creation": true,
         "candidate_excel_import": false,
         "candidate_excel_export": false,
-        "sparse_blend": false
+        "sparse_blend": false,
+        "sparse_blend_transform_id": null
       },
       "data_explorer": null
     },
@@ -334,7 +338,8 @@
         "project_creation": true,
         "candidate_excel_import": false,
         "candidate_excel_export": false,
-        "sparse_blend": false
+        "sparse_blend": false,
+        "sparse_blend_transform_id": null
       },
       "data_explorer": {
         "schema_version": "data-explorer-capability/v1",
@@ -383,7 +388,8 @@
         "project_creation": true,
         "candidate_excel_import": false,
         "candidate_excel_export": false,
-        "sparse_blend": false
+        "sparse_blend": false,
+        "sparse_blend_transform_id": null
       },
       "data_explorer": {
         "schema_version": "data-explorer-capability/v1",
@@ -432,7 +438,8 @@
         "project_creation": true,
         "candidate_excel_import": false,
         "candidate_excel_export": false,
-        "sparse_blend": false
+        "sparse_blend": false,
+        "sparse_blend_transform_id": null
       },
       "data_explorer": {
         "schema_version": "data-explorer-capability/v1",
@@ -481,7 +488,8 @@
         "project_creation": true,
         "candidate_excel_import": false,
         "candidate_excel_export": false,
-        "sparse_blend": false
+        "sparse_blend": false,
+        "sparse_blend_transform_id": null
       },
       "data_explorer": {
         "schema_version": "data-explorer-capability/v1",
@@ -530,7 +538,8 @@
         "project_creation": true,
         "candidate_excel_import": false,
         "candidate_excel_export": false,
-        "sparse_blend": false
+        "sparse_blend": false,
+        "sparse_blend_transform_id": null
       },
       "data_explorer": {
         "schema_version": "data-explorer-capability/v1",
@@ -579,7 +588,8 @@
         "project_creation": false,
         "candidate_excel_import": false,
         "candidate_excel_export": false,
-        "sparse_blend": false
+        "sparse_blend": false,
+        "sparse_blend_transform_id": null
       },
       "data_explorer": null
     },
@@ -633,7 +643,8 @@
         "project_creation": true,
         "candidate_excel_import": false,
         "candidate_excel_export": false,
-        "sparse_blend": false
+        "sparse_blend": false,
+        "sparse_blend_transform_id": null
       },
       "data_explorer": {
         "schema_version": "data-explorer-capability/v1",
@@ -682,7 +693,8 @@
         "project_creation": true,
         "candidate_excel_import": false,
         "candidate_excel_export": false,
-        "sparse_blend": false
+        "sparse_blend": false,
+        "sparse_blend_transform_id": null
       },
       "data_explorer": {
         "schema_version": "data-explorer-capability/v1",
@@ -761,7 +773,8 @@
         "project_creation": true,
         "candidate_excel_import": false,
         "candidate_excel_export": false,
-        "sparse_blend": false
+        "sparse_blend": false,
+        "sparse_blend_transform_id": null
       },
       "data_explorer": {
         "schema_version": "data-explorer-capability/v1",

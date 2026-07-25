@@ -10,6 +10,7 @@ import {
   addBlendMaterial,
   blendScientificIdentity,
   compatibleBlendContext,
+  createInitialBlend,
   editBlendRatio,
   filterBlendMaterials,
   parseBlendPaste,
@@ -22,7 +23,12 @@ import {
 type Props = {
   projectId: string;
   candidate: Candidate;
-  onBlend: (candidateId: string, blend: NonNullable<Candidate["raw"]["blend"]>) => void;
+  transformId?: string;
+  onBlend: (
+    candidateId: string,
+    blend: NonNullable<Candidate["raw"]["blend"]>,
+    lockedMaterialIds?: string[],
+  ) => void;
   onLocks: (candidateId: string, lockedMaterialIds: string[]) => void;
 };
 
@@ -38,7 +44,7 @@ function statusLabel(status: string) {
   return null;
 }
 
-export function BlendEditorPanel({ projectId, candidate, onBlend, onLocks }: Props) {
+export function BlendEditorPanel({ projectId, candidate, transformId, onBlend, onLocks }: Props) {
   const blend = candidate.raw.blend;
   const [context, setContext] = useState<ApiBlendEditorContext | null>(null);
   const [contextError, setContextError] = useState("");
@@ -58,13 +64,19 @@ export function BlendEditorPanel({ projectId, candidate, onBlend, onLocks }: Pro
   const [showAllComponents, setShowAllComponents] = useState(false);
 
   useEffect(() => {
-    if (!blend) return;
     let cancelled = false;
-    void workbenchApi.deterministicTransforms()
-      .then((transforms) => Promise.all(transforms.map((item) => workbenchApi.blendEditorContext(item.transform_id))))
+    const contexts = transformId && blend
+      ? workbenchApi.resolveBlendEditorContext(transformId, blend).then((item) => [item])
+      : transformId
+        ? workbenchApi.blendEditorContext(transformId).then((item) => [item])
+      : workbenchApi.deterministicTransforms()
+        .then((transforms) => Promise.all(transforms.map((item) => workbenchApi.blendEditorContext(item.transform_id))));
+    void contexts
       .then((contexts) => {
         if (cancelled) return;
-        const matched = contexts.find((item) => compatibleBlendContext(blend, item));
+        const matched = blend
+          ? contexts.find((item) => compatibleBlendContext(blend, item))
+          : contexts[0];
         if (!matched) throw new Error("候補の版に対応する原料catalogがありません");
         setContext(matched);
         setContextError("");
@@ -75,7 +87,7 @@ export function BlendEditorPanel({ projectId, candidate, onBlend, onLocks }: Pro
     return () => {
       cancelled = true;
     };
-  }, [blend?.scientific_master.digest, blend?.commercial_catalog.digest, blend?.design_space.digest]);
+  }, [transformId, blend?.scientific_master.digest, blend?.commercial_catalog.digest, blend?.design_space.digest]);
 
   const scientificIdentity = blend ? blendScientificIdentity(blend) : "";
   useEffect(() => {
@@ -150,9 +162,23 @@ export function BlendEditorPanel({ projectId, candidate, onBlend, onLocks }: Pro
       .sort((left, right) => Math.abs(right.delta) - Math.abs(left.delta));
   }, [baseline, result]);
 
-  if (!blend) return null;
-  const updateBlend = (next: typeof blend, nextMessage = "") => {
-    onBlend(candidate.id, next);
+  if (!blend) {
+    return (
+      <section className="blend-editor-panel blend-editor-launcher" aria-label="配合明細エディタ">
+        <header><div><h3>配合明細</h3><span>Stage Aから材料成分を派生</span></div></header>
+        {contextError && <p className="blend-editor-message" role="alert">{contextError}</p>}
+        <button
+          type="button"
+          disabled={!context}
+          onClick={() => context && onBlend(candidate.id, createInitialBlend(context), [])}
+        >
+          初期配合を作成
+        </button>
+      </section>
+    );
+  }
+  const updateBlend = (next: typeof blend, nextMessage = "", nextLocks?: string[]) => {
+    onBlend(candidate.id, next, nextLocks);
     setMessage(nextMessage);
   };
   const applyPaste = () => {
@@ -182,6 +208,9 @@ export function BlendEditorPanel({ projectId, candidate, onBlend, onLocks }: Pro
           {computing && <small>Stage A 更新中</small>}
         </div>
       </header>
+      <p className="blend-editor-boundary-note">
+        配合変更はStage A派生成分だけを更新します。Stage B予測の入力成分は変わりません。
+      </p>
       {(contextError || message) && <p className="blend-editor-message" role="status">{contextError || message}</p>}
       {!valid && validation.issues.length > 0 && (
         <details className="blend-editor-issues">
@@ -208,7 +237,7 @@ export function BlendEditorPanel({ projectId, candidate, onBlend, onLocks }: Pro
                 <tr key={item.material_id} className={isBalance ? "balance" : ""}>
                   <td><b>{material?.name ?? item.material_id}</b><small>{item.material_id} · {material?.group ?? "—"} / {material?.material_type ?? "—"}</small><small>{material?.main_components.join("・") || "主成分—"} · D50 {material ? format(material.d50_um, 1) : "—"} μm</small></td>
                   <td>{material && statusLabel(material.procurement)}<small>{material?.procurement ?? "—"}</small></td>
-                  <td><input type="number" step="any" defaultValue={item.ratio} key={`${candidate.id}:${item.material_id}:${item.ratio}`} aria-label={`${material?.name ?? item.material_id} 配合比`} onBlur={(event) => {
+                  <td><input type="number" step="any" disabled={isLocked} defaultValue={item.ratio} key={`${candidate.id}:${item.material_id}:${item.ratio}`} aria-label={`${material?.name ?? item.material_id} 配合比`} onBlur={(event) => {
                     if (!context) return;
                     const edited = editBlendRatio(blend, locked, context, item.material_id, Number(event.target.value));
                     updateBlend(edited.blend, edited.message);
@@ -217,15 +246,15 @@ export function BlendEditorPanel({ projectId, candidate, onBlend, onLocks }: Pro
                   <td>{contribution ? <><b>{format(contribution.contribution_yen_per_kg_core, 0)} 円</b><small>{format(contribution.share_of_blend_cost * 100, 1)}%</small></> : "—"}</td>
                   <td>
                     <button type="button" className={isLocked ? "active" : ""} aria-pressed={isLocked} onClick={() => onLocks(candidate.id, isLocked ? locked.filter((id) => id !== item.material_id) : [...locked, item.material_id])}>{isLocked ? "lock中" : "lock"}</button>
-                    {!isBalance && <button type="button" onClick={() => setReplacementFor(replacementFor === item.material_id ? "" : item.material_id)}>置換</button>}
-                    {!isBalance && <button type="button" onClick={() => {
+                    {!isBalance && <button type="button" disabled={isLocked} onClick={() => setReplacementFor(replacementFor === item.material_id ? "" : item.material_id)}>置換</button>}
+                    {!isBalance && <button type="button" disabled={isLocked} onClick={() => {
                       const removed = removeBlendMaterial(blend, item.material_id, locked);
-                      updateBlend(removed.blend, removed.message);
+                      updateBlend(removed.blend, removed.message, removed.lockedMaterialIds);
                     }}>削除</button>}
                     {replacementFor === item.material_id && (
                       <select aria-label={`${material?.name ?? item.material_id}の置換先`} defaultValue="" onChange={(event) => {
                         if (!event.target.value) return;
-                        const replaced = replaceBlendMaterial(blend, item.material_id, event.target.value);
+                        const replaced = replaceBlendMaterial(blend, locked, item.material_id, event.target.value);
                         updateBlend(replaced.blend, replaced.message);
                         setReplacementFor("");
                       }}>
@@ -266,7 +295,7 @@ export function BlendEditorPanel({ projectId, candidate, onBlend, onLocks }: Pro
             setPasteText(value);
             setPasteRows(parseBlendPaste(value, context.materials, blend.items.map((item) => item.material_id)));
           }} /></label>
-          {pasteRows.length > 0 && <table><thead><tr><th>行</th><th>原料コード</th><th>比率</th><th>確認</th></tr></thead><tbody>{pasteRows.map((row, index) => <tr key={row.row} className={row.error ? "invalid" : ""}><td>{row.row}</td><td><input list="blend-material-codes" value={row.materialId} onChange={(event) => setPasteRows((current) => validatePasteRows(current.map((item, currentIndex) => ({ ...item, ...(currentIndex === index ? { materialId: event.target.value } : {}) })), context.materials, blend.items.map((item) => item.material_id)))} /></td><td><input value={row.ratioText} onChange={(event) => setPasteRows((current) => validatePasteRows(current.map((item, currentIndex) => ({ ...item, ...(currentIndex === index ? { ratioText: event.target.value } : {}) })), context.materials, blend.items.map((item) => item.material_id)))} /></td><td>{row.error || "追加できます"}</td></tr>)}</tbody></table>}
+          {pasteRows.length > 0 && <table><thead><tr><th>行</th><th>原料コード</th><th>比率</th><th>確認</th></tr></thead><tbody>{pasteRows.map((row, index) => <tr key={row.row} className={row.error ? "invalid" : ""}><td>{row.row}</td><td><input list="blend-material-codes" value={row.materialId} onChange={(event) => setPasteRows((current) => validatePasteRows(current.map((item, currentIndex) => ({ ...item, ...(currentIndex === index ? { materialId: event.target.value } : {}) })), context.materials, blend.items.map((item) => item.material_id)))} /></td><td><input value={row.ratioText} onChange={(event) => setPasteRows((current) => validatePasteRows(current.map((item, currentIndex) => ({ ...item, ...(currentIndex === index ? { ratioText: event.target.value } : {}) })), context.materials, blend.items.map((item) => item.material_id)))} /></td><td>{row.columnCount > 2 ? <button type="button" onClick={() => setPasteRows((current) => validatePasteRows(current.map((item, currentIndex) => ({ ...item, ...(currentIndex === index ? { columnCount: 2 } : {}) })), context.materials, blend.items.map((item) => item.material_id)))}>余分な列を除外</button> : row.error || "追加できます"}</td></tr>)}</tbody></table>}
           <datalist id="blend-material-codes">{context.materials.map((item) => <option key={item.material_id} value={item.material_id}>{item.name}</option>)}</datalist>
           <button type="button" disabled={!pasteRows.length || pasteRows.some((row) => row.error)} onClick={applyPaste}>確認済みの行を追加</button>
         </div>

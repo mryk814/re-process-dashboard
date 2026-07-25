@@ -236,6 +236,17 @@
             "default": false,
             "title": "Sparse Blend",
             "type": "boolean"
+          },
+          "sparse_blend_transform_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sparse Blend Transform Id"
           }
         },
         "title": "ApplicationCapability",
@@ -249,6 +260,9 @@
           },
           "design_space": {
             "$ref": "#/components/schemas/SparseBlendDesignSpace"
+          },
+          "design_space_ref": {
+            "$ref": "#/components/schemas/RevisionRef"
           },
           "materials": {
             "items": {
@@ -269,6 +283,7 @@
           "transform_id",
           "scientific_master",
           "commercial_catalog",
+          "design_space_ref",
           "design_space",
           "materials"
         ],
@@ -14154,6 +14169,88 @@
           }
         },
         "summary": "Get Blend Editor Context",
+        "tags": [
+          "deterministic-transforms"
+        ]
+      }
+    },
+    "/api/transforms/{transform_id}/blend-editor/resolve": {
+      "post": {
+        "operationId": "resolveBlendEditorContext",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "transform_id",
+            "required": true,
+            "schema": {
+              "title": "Transform Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeterministicTransformExecutionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlendEditorContext"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Task Runtime Unavailable"
+          }
+        },
+        "summary": "Resolve Blend Editor Context",
         "tags": [
           "deterministic-transforms"
         ]

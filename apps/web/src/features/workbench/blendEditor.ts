@@ -7,12 +7,14 @@ export type BlendEditorMaterial = components["schemas"]["BlendEditorMaterial"];
 export type BlendEditResult = {
   blend: SparseBlend;
   message: string;
+  lockedMaterialIds?: string[];
 };
 
 export type PasteRow = {
   row: number;
   materialId: string;
   ratioText: string;
+  columnCount: number;
   error: string;
 };
 
@@ -30,8 +32,7 @@ export function sameRevisionRef(
 export function compatibleBlendContext(blend: SparseBlend, context: BlendEditorContext) {
   return sameRevisionRef(blend.scientific_master, context.scientific_master)
     && sameRevisionRef(blend.commercial_catalog, context.commercial_catalog)
-    && blend.design_space.resource_id === context.design_space.resource_id
-    && blend.design_space.revision === context.design_space.revision;
+    && sameRevisionRef(blend.design_space, context.design_space_ref);
 }
 
 export function blendScientificIdentity(blend: SparseBlend) {
@@ -44,6 +45,20 @@ export function blendScientificIdentity(blend: SparseBlend) {
     fill: blend.fill_ratio,
     scientific: blend.scientific_master,
   });
+}
+
+export function createInitialBlend(context: BlendEditorContext): SparseBlend {
+  const space = context.design_space;
+  return {
+    schema_version: "sparse-blend/v1",
+    items: [{ material_id: space.balance_material_id, ratio: space.total }],
+    hoop_id: space.fixed_hoop_id,
+    fill_ratio: space.fixed_fill_ratio,
+    balance_material_id: space.balance_material_id,
+    scientific_master: context.scientific_master,
+    commercial_catalog: context.commercial_catalog,
+    design_space: context.design_space_ref,
+  };
 }
 
 function lowerBound(context: BlendEditorContext, materialId: string) {
@@ -60,6 +75,9 @@ export function editBlendRatio(
 ): BlendEditResult {
   const previous = blend.items.find((item) => item.material_id === materialId);
   if (!previous || !Number.isFinite(ratio)) return { blend, message: "有限の配合比を入力してください" };
+  if (lockedMaterialIds.includes(materialId)) {
+    return { blend, message: `${materialId} はlock中のため配合比を変更できません` };
+  }
   const items = blend.items.map((item) => item.material_id === materialId
     ? { ...item, ratio: roundRatio(ratio) }
     : item);
@@ -100,9 +118,13 @@ export function addBlendMaterial(blend: SparseBlend, materialId: string): BlendE
 
 export function replaceBlendMaterial(
   blend: SparseBlend,
+  lockedMaterialIds: string[],
   fromMaterialId: string,
   toMaterialId: string,
 ): BlendEditResult {
+  if (lockedMaterialIds.includes(fromMaterialId)) {
+    return { blend, message: `${fromMaterialId} はlock中のため置換できません` };
+  }
   if (fromMaterialId === blend.balance_material_id) {
     return { blend, message: "残部原料は置換できません" };
   }
@@ -125,19 +147,33 @@ export function removeBlendMaterial(
   materialId: string,
   lockedMaterialIds: string[] = [],
 ): BlendEditResult {
+  const currentMaterialIds = new Set(blend.items.map((item) => item.material_id));
+  const currentLocks = lockedMaterialIds.filter((id) => currentMaterialIds.has(id));
+  if (currentLocks.includes(materialId)) {
+    return {
+      blend,
+      message: `${materialId} はlock中のため削除できません`,
+      lockedMaterialIds: currentLocks,
+    };
+  }
   if (materialId === blend.balance_material_id) {
-    return { blend, message: "残部原料は削除できません" };
+    return { blend, message: "残部原料は削除できません", lockedMaterialIds: currentLocks };
   }
   const removed = blend.items.find((item) => item.material_id === materialId);
   const balance = blend.items.find((item) => item.material_id === blend.balance_material_id);
-  if (!removed || !balance) return { blend, message: "" };
-  if (lockedMaterialIds.includes(blend.balance_material_id)) {
+  if (!removed || !balance) return { blend, message: "", lockedMaterialIds: currentLocks };
+  const remainingMaterialIds = new Set(
+    blend.items.filter((item) => item.material_id !== materialId).map((item) => item.material_id),
+  );
+  const remainingLocks = currentLocks.filter((id) => remainingMaterialIds.has(id));
+  if (currentLocks.includes(blend.balance_material_id)) {
     return {
       blend: {
         ...blend,
         items: blend.items.filter((item) => item.material_id !== materialId),
       },
       message: "残部原料がlock中のため削除分は自動調整していません",
+      lockedMaterialIds: remainingLocks,
     };
   }
   return {
@@ -150,6 +186,7 @@ export function removeBlendMaterial(
           : item),
     },
     message: "",
+    lockedMaterialIds: remainingLocks,
   };
 }
 
@@ -169,7 +206,9 @@ export function validatePasteRows(
     const materialId = row.materialId.trim();
     const ratioText = row.ratioText.trim();
     const ratio = Number(ratioText);
-    const error = !materialId || !ratioText
+    const error = row.columnCount > 2
+      ? "原料コードと比率の2列だけにしてください"
+      : !materialId || !ratioText
       ? "原料コードと比率の2列が必要です"
       : !known.has(materialId)
         ? "未知の原料コードです"
@@ -179,6 +218,8 @@ export function validatePasteRows(
             ? "貼り付け内で重複しています"
             : !Number.isFinite(ratio)
               ? "比率を数値で入力してください"
+              : ratio < 0
+                ? "比率は0以上にしてください"
               : "";
     return { ...row, materialId, ratioText, error };
   });
@@ -198,6 +239,7 @@ export function parseBlendPaste(
         row: index + 1,
         materialId: cells[0] ?? "",
         ratioText: cells[1] ?? "",
+        columnCount: cells.length,
       };
     });
   return validatePasteRows(rows, materials, existingMaterialIds);

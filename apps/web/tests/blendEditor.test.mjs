@@ -28,6 +28,7 @@ const {
   filterBlendMaterials,
   parseBlendPaste,
   removeBlendMaterial,
+  replaceBlendMaterial,
   validatePasteRows,
 } = module.exports;
 
@@ -98,10 +99,31 @@ test("locking the remainder changes no scientific row except the edited one", ()
   assert.match(result.message, /lock中/);
 });
 
+test("a locked row cannot be edited, replaced, or deleted", () => {
+  assert.deepEqual(
+    editBlendRatio(blend, ["RM-A"], context, "RM-A", 25).blend,
+    blend,
+  );
+  assert.deepEqual(
+    replaceBlendMaterial(blend, ["RM-A"], "RM-A", "RM-X").blend,
+    blend,
+  );
+  assert.deepEqual(
+    removeBlendMaterial(blend, "RM-A", ["RM-A"]).blend,
+    blend,
+  );
+});
+
 test("deleting a row does not bypass a locked remainder", () => {
   const result = removeBlendMaterial(blend, "RM-A", ["RM-BAL"]);
   assert.equal(result.blend.items.find((item) => item.material_id === "RM-BAL").ratio, 70);
   assert.match(result.message, /lock中/);
+});
+
+test("deleting a row removes stale lock ids from the persisted editor state", () => {
+  const result = removeBlendMaterial(blend, "RM-A", ["RM-B", "RM-STALE"]);
+  assert.deepEqual(result.lockedMaterialIds, ["RM-B"]);
+  assert.equal(result.blend.items.some((item) => item.material_id === "RM-A"), false);
 });
 
 test("commercial revisions and editor locks are excluded from Stage A identity", () => {
@@ -127,10 +149,18 @@ test("paste import reports unknown, duplicate, and malformed rows independently"
     "原料コードと比率の2列が必要です",
   ]);
   const corrected = validatePasteRows([
-    { row: 1, materialId: "RM-B", ratioText: "2" },
-    { row: 2, materialId: "RM-C", ratioText: "3" },
+    { row: 1, materialId: "RM-B", ratioText: "2", columnCount: 2 },
+    { row: 2, materialId: "RM-C", ratioText: "3", columnCount: 2 },
   ], materials, ["RM-A"]);
   assert.deepEqual(corrected.map((row) => row.error), ["", ""]);
+});
+
+test("negative ratios and three-column paste remain row-level errors", () => {
+  const rows = parseBlendPaste("RM-B\t-0.1\nRM-C\t2\textra", materials, []);
+  assert.deepEqual(rows.map((row) => row.error), [
+    "比率は0以上にしてください",
+    "原料コードと比率の2列だけにしてください",
+  ]);
 });
 
 test("catalog search includes main components and hides retired materials by default", () => {

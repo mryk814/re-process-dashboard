@@ -255,9 +255,9 @@
   ],
   "balance_material_id": "RM-0013",
   "commercial_catalog": {
-    "digest": "sha256:9c23a8b465b9810f822babc0f7f1448caff99e37657c6e0f41ef3af7c22e4994",
+    "digest": "sha256:1d8cdc587abe257a2d55e31859ba6aa94a3e6e1de236ae943cff0f3f67d53b34",
     "resource_id": "welding-stage-a-commercial",
-    "revision": 1
+    "revision": 2
   },
   "fixed_fill_ratio": 19.06,
   "fixed_hoop_id": "HP-01",
@@ -265,7 +265,7 @@
   "group_totals": [],
   "material_bounds": [],
   "resource_id": "welding-stage-a-design-space",
-  "revision": 1,
+  "revision": 2,
   "schema_version": "sparse-blend-design-space/v1",
   "scientific_master": {
     "digest": "sha256:1cf2222e2de4aeea74ecc4a1d92df82f0bc2522b9eb50e65e75a846499e77fff",

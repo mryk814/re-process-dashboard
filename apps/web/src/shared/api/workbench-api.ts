@@ -67,6 +67,15 @@ export const workbenchApi = {
       params: { path: { transform_id: transformId } },
     }), "配合用の原料catalogを取得できませんでした。");
   },
+  async resolveBlendEditorContext(
+    transformId: string,
+    blend: components["schemas"]["SparseBlend"],
+  ) {
+    return requireData(await apiClient.POST("/api/transforms/{transform_id}/blend-editor/resolve", {
+      params: { path: { transform_id: transformId } },
+      body: { blend },
+    }), "保存候補の原料catalogを解決できませんでした。");
+  },
   async executeDeterministicTransform(transformId: string, blend: components["schemas"]["SparseBlend"], signal?: AbortSignal) {
     return requireData(await apiClient.POST("/api/transforms/{transform_id}/execute", {
       params: { path: { transform_id: transformId } },

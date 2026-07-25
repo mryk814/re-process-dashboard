@@ -990,6 +990,14 @@
 .blend-editor-summary .valid { color: #12613d; background: #dff5e8; }
 .blend-editor-summary .invalid { color: #9b351f; background: #fee9df; }
 .blend-editor-summary small { color: #52677d; }
+.blend-editor-boundary-note {
+  margin: 0;
+  padding: 6px 12px;
+  border-top: 1px solid #e2eaf3;
+  color: #526b86;
+  font-size: 12px;
+}
+.blend-editor-launcher > button { margin: 10px 12px 12px; }
 .blend-editor-message {
   margin: 0;
   padding: 7px 12px;

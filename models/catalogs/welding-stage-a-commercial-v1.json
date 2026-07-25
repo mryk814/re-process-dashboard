@@ -1,0 +1,1267 @@
+{
+  "materials": [
+    {
+      "material_id": "RM-0001",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1984.1
+    },
+    {
+      "material_id": "RM-0002",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 1704.4
+    },
+    {
+      "material_id": "RM-0003",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1442.1
+    },
+    {
+      "material_id": "RM-0004",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 247.7
+    },
+    {
+      "material_id": "RM-0005",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1026.3
+    },
+    {
+      "material_id": "RM-0006",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 291.2
+    },
+    {
+      "material_id": "RM-0007",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 163.7
+    },
+    {
+      "material_id": "RM-0008",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 1128.5
+    },
+    {
+      "material_id": "RM-0009",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 276.5
+    },
+    {
+      "material_id": "RM-0010",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 490.1
+    },
+    {
+      "material_id": "RM-0011",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 884.0
+    },
+    {
+      "material_id": "RM-0012",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 222.2
+    },
+    {
+      "material_id": "RM-0013",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 411.7
+    },
+    {
+      "material_id": "RM-0014",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1943.0
+    },
+    {
+      "material_id": "RM-0015",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 967.7
+    },
+    {
+      "material_id": "RM-0016",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 606.8
+    },
+    {
+      "material_id": "RM-0017",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 467.2
+    },
+    {
+      "material_id": "RM-0018",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1922.8
+    },
+    {
+      "material_id": "RM-0019",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1344.1
+    },
+    {
+      "material_id": "RM-0020",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1124.2
+    },
+    {
+      "material_id": "RM-0021",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 1710.3
+    },
+    {
+      "material_id": "RM-0022",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1266.4
+    },
+    {
+      "material_id": "RM-0023",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 1906.6
+    },
+    {
+      "material_id": "RM-0024",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 667.3
+    },
+    {
+      "material_id": "RM-0025",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 374.0
+    },
+    {
+      "material_id": "RM-0026",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 429.8
+    },
+    {
+      "material_id": "RM-0027",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 184.7
+    },
+    {
+      "material_id": "RM-0028",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 1618.5
+    },
+    {
+      "material_id": "RM-0029",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 802.3
+    },
+    {
+      "material_id": "RM-0030",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 299.4
+    },
+    {
+      "material_id": "RM-0031",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 869.8
+    },
+    {
+      "material_id": "RM-0032",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1536.8
+    },
+    {
+      "material_id": "RM-0033",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 1684.6
+    },
+    {
+      "material_id": "RM-0034",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1529.1
+    },
+    {
+      "material_id": "RM-0035",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 698.9
+    },
+    {
+      "material_id": "RM-0036",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1443.0
+    },
+    {
+      "material_id": "RM-0037",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 1651.8
+    },
+    {
+      "material_id": "RM-0038",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 118.0
+    },
+    {
+      "material_id": "RM-0039",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 790.2
+    },
+    {
+      "material_id": "RM-0040",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 646.8
+    },
+    {
+      "material_id": "RM-0041",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 103.8
+    },
+    {
+      "material_id": "RM-0042",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 687.6
+    },
+    {
+      "material_id": "RM-0043",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 1116.0
+    },
+    {
+      "material_id": "RM-0044",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 439.5
+    },
+    {
+      "material_id": "RM-0045",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 1882.3
+    },
+    {
+      "material_id": "RM-0046",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 1729.8
+    },
+    {
+      "material_id": "RM-0047",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 2037.3
+    },
+    {
+      "material_id": "RM-0048",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1416.6
+    },
+    {
+      "material_id": "RM-0049",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 232.2
+    },
+    {
+      "material_id": "RM-0050",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1604.7
+    },
+    {
+      "material_id": "RM-0051",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 2349.2
+    },
+    {
+      "material_id": "RM-0052",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 657.2
+    },
+    {
+      "material_id": "RM-0053",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 395.4
+    },
+    {
+      "material_id": "RM-0054",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 1479.6
+    },
+    {
+      "material_id": "RM-0055",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1248.6
+    },
+    {
+      "material_id": "RM-0056",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1812.4
+    },
+    {
+      "material_id": "RM-0057",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1515.0
+    },
+    {
+      "material_id": "RM-0058",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 661.7
+    },
+    {
+      "material_id": "RM-0059",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 371.2
+    },
+    {
+      "material_id": "RM-0060",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 440.1
+    },
+    {
+      "material_id": "RM-0061",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 922.0
+    },
+    {
+      "material_id": "RM-0062",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1389.1
+    },
+    {
+      "material_id": "RM-0063",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 574.7
+    },
+    {
+      "material_id": "RM-0064",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 2145.9
+    },
+    {
+      "material_id": "RM-0065",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 124.2
+    },
+    {
+      "material_id": "RM-0066",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 1913.0
+    },
+    {
+      "material_id": "RM-0067",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 1625.2
+    },
+    {
+      "material_id": "RM-0068",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 466.3
+    },
+    {
+      "material_id": "RM-0069",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 2088.9
+    },
+    {
+      "material_id": "RM-0070",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 138.2
+    },
+    {
+      "material_id": "RM-0071",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 566.3
+    },
+    {
+      "material_id": "RM-0072",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1630.9
+    },
+    {
+      "material_id": "RM-0073",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 275.7
+    },
+    {
+      "material_id": "RM-0074",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 1075.7
+    },
+    {
+      "material_id": "RM-0075",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 573.4
+    },
+    {
+      "material_id": "RM-0076",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 351.7
+    },
+    {
+      "material_id": "RM-0077",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 700.0
+    },
+    {
+      "material_id": "RM-0078",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 644.9
+    },
+    {
+      "material_id": "RM-0079",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 665.4
+    },
+    {
+      "material_id": "RM-0080",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 2213.6
+    },
+    {
+      "material_id": "RM-0081",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 1477.9
+    },
+    {
+      "material_id": "RM-0082",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 516.4
+    },
+    {
+      "material_id": "RM-0083",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1644.8
+    },
+    {
+      "material_id": "RM-0084",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 229.1
+    },
+    {
+      "material_id": "RM-0085",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 301.6
+    },
+    {
+      "material_id": "RM-0086",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 2372.8
+    },
+    {
+      "material_id": "RM-0087",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 2011.7
+    },
+    {
+      "material_id": "RM-0088",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 907.9
+    },
+    {
+      "material_id": "RM-0089",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 1511.8
+    },
+    {
+      "material_id": "RM-0090",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1487.6
+    },
+    {
+      "material_id": "RM-0091",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 526.4
+    },
+    {
+      "material_id": "RM-0092",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 582.2
+    },
+    {
+      "material_id": "RM-0093",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 276.9
+    },
+    {
+      "material_id": "RM-0094",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1990.8
+    },
+    {
+      "material_id": "RM-0095",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 849.0
+    },
+    {
+      "material_id": "RM-0096",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 166.3
+    },
+    {
+      "material_id": "RM-0097",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 172.9
+    },
+    {
+      "material_id": "RM-0098",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 2302.4
+    },
+    {
+      "material_id": "RM-0099",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1185.6
+    },
+    {
+      "material_id": "RM-0100",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 2034.0
+    },
+    {
+      "material_id": "RM-0101",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 2163.1
+    },
+    {
+      "material_id": "RM-0102",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1956.7
+    },
+    {
+      "material_id": "RM-0103",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 2249.5
+    },
+    {
+      "material_id": "RM-0104",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 633.0
+    },
+    {
+      "material_id": "RM-0105",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1024.6
+    },
+    {
+      "material_id": "RM-0106",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 471.7
+    },
+    {
+      "material_id": "RM-0107",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 418.9
+    },
+    {
+      "material_id": "RM-0108",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 2100.9
+    },
+    {
+      "material_id": "RM-0109",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1754.4
+    },
+    {
+      "material_id": "RM-0110",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1018.3
+    },
+    {
+      "material_id": "RM-0111",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 173.9
+    },
+    {
+      "material_id": "RM-0112",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 1745.5
+    },
+    {
+      "material_id": "RM-0113",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 1363.9
+    },
+    {
+      "material_id": "RM-0114",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1572.8
+    },
+    {
+      "material_id": "RM-0115",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 1874.7
+    },
+    {
+      "material_id": "RM-0116",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 1213.3
+    },
+    {
+      "material_id": "RM-0117",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 2310.3
+    },
+    {
+      "material_id": "RM-0118",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 2374.8
+    },
+    {
+      "material_id": "RM-0119",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1708.7
+    },
+    {
+      "material_id": "RM-0120",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1536.8
+    },
+    {
+      "material_id": "RM-0121",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 1792.3
+    },
+    {
+      "material_id": "RM-0122",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 608.6
+    },
+    {
+      "material_id": "RM-0123",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 1136.1
+    },
+    {
+      "material_id": "RM-0124",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 547.4
+    },
+    {
+      "material_id": "RM-0125",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1067.3
+    },
+    {
+      "material_id": "RM-0126",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1277.3
+    },
+    {
+      "material_id": "RM-0127",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 1019.1
+    },
+    {
+      "material_id": "RM-0128",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1687.9
+    },
+    {
+      "material_id": "RM-0129",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1782.4
+    },
+    {
+      "material_id": "RM-0130",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 1720.5
+    },
+    {
+      "material_id": "RM-0131",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1880.8
+    },
+    {
+      "material_id": "RM-0132",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 1472.9
+    },
+    {
+      "material_id": "RM-0133",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1765.5
+    },
+    {
+      "material_id": "RM-0134",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 416.3
+    },
+    {
+      "material_id": "RM-0135",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 998.9
+    },
+    {
+      "material_id": "RM-0136",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 726.4
+    },
+    {
+      "material_id": "RM-0137",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 1461.2
+    },
+    {
+      "material_id": "RM-0138",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 530.0
+    },
+    {
+      "material_id": "RM-0139",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1128.3
+    },
+    {
+      "material_id": "RM-0140",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 195.8
+    },
+    {
+      "material_id": "RM-0141",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 2223.6
+    },
+    {
+      "material_id": "RM-0142",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 922.2
+    },
+    {
+      "material_id": "RM-0143",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 588.9
+    },
+    {
+      "material_id": "RM-0144",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 494.1
+    },
+    {
+      "material_id": "RM-0145",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 865.5
+    },
+    {
+      "material_id": "RM-0146",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 2219.9
+    },
+    {
+      "material_id": "RM-0147",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1996.9
+    },
+    {
+      "material_id": "RM-0148",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 1262.2
+    },
+    {
+      "material_id": "RM-0149",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 594.6
+    },
+    {
+      "material_id": "RM-0150",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1260.2
+    },
+    {
+      "material_id": "RM-0151",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 531.6
+    },
+    {
+      "material_id": "RM-0152",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1724.0
+    },
+    {
+      "material_id": "RM-0153",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 1887.0
+    },
+    {
+      "material_id": "RM-0154",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 535.9
+    },
+    {
+      "material_id": "RM-0155",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 681.9
+    },
+    {
+      "material_id": "RM-0156",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 1343.8
+    },
+    {
+      "material_id": "RM-0157",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1571.2
+    },
+    {
+      "material_id": "RM-0158",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 302.8
+    },
+    {
+      "material_id": "RM-0159",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 1916.4
+    },
+    {
+      "material_id": "RM-0160",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 387.0
+    },
+    {
+      "material_id": "RM-0161",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 555.6
+    },
+    {
+      "material_id": "RM-0162",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 681.7
+    },
+    {
+      "material_id": "RM-0163",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1206.8
+    },
+    {
+      "material_id": "RM-0164",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 766.2
+    },
+    {
+      "material_id": "RM-0165",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 2158.0
+    },
+    {
+      "material_id": "RM-0166",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1635.6
+    },
+    {
+      "material_id": "RM-0167",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 116.2
+    },
+    {
+      "material_id": "RM-0168",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 2036.3
+    },
+    {
+      "material_id": "RM-0169",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1001.5
+    },
+    {
+      "material_id": "RM-0170",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1780.5
+    },
+    {
+      "material_id": "RM-0171",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 931.3
+    },
+    {
+      "material_id": "RM-0172",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 1985.6
+    },
+    {
+      "material_id": "RM-0173",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1455.0
+    },
+    {
+      "material_id": "RM-0174",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 1484.7
+    },
+    {
+      "material_id": "RM-0175",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 874.0
+    },
+    {
+      "material_id": "RM-0176",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1316.2
+    },
+    {
+      "material_id": "RM-0177",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 411.3
+    },
+    {
+      "material_id": "RM-0178",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1891.7
+    },
+    {
+      "material_id": "RM-0179",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 2215.4
+    },
+    {
+      "material_id": "RM-0180",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1583.1
+    },
+    {
+      "material_id": "RM-0181",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 735.7
+    },
+    {
+      "material_id": "RM-0182",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 1925.8
+    },
+    {
+      "material_id": "RM-0183",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 2337.4
+    },
+    {
+      "material_id": "RM-0184",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 951.5
+    },
+    {
+      "material_id": "RM-0185",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 842.5
+    },
+    {
+      "material_id": "RM-0186",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 838.3
+    },
+    {
+      "material_id": "RM-0187",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1924.1
+    },
+    {
+      "material_id": "RM-0188",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 2099.4
+    },
+    {
+      "material_id": "RM-0189",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 422.8
+    },
+    {
+      "material_id": "RM-0190",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1256.2
+    },
+    {
+      "material_id": "RM-0191",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 181.7
+    },
+    {
+      "material_id": "RM-0192",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1785.5
+    },
+    {
+      "material_id": "RM-0193",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 2374.9
+    },
+    {
+      "material_id": "RM-0194",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1311.3
+    },
+    {
+      "material_id": "RM-0195",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 651.6
+    },
+    {
+      "material_id": "RM-0196",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 1936.3
+    },
+    {
+      "material_id": "RM-0197",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1644.9
+    },
+    {
+      "material_id": "RM-0198",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 354.2
+    },
+    {
+      "material_id": "RM-0199",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 2227.9
+    },
+    {
+      "material_id": "RM-0200",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 2253.9
+    },
+    {
+      "material_id": "RM-0201",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 1966.4
+    },
+    {
+      "material_id": "RM-0202",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1805.6
+    },
+    {
+      "material_id": "RM-0203",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 1494.8
+    },
+    {
+      "material_id": "RM-0204",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1507.9
+    },
+    {
+      "material_id": "RM-0205",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1187.7
+    },
+    {
+      "material_id": "RM-0206",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 104.8
+    },
+    {
+      "material_id": "RM-0207",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1613.1
+    },
+    {
+      "material_id": "RM-0208",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 1149.7
+    },
+    {
+      "material_id": "RM-0209",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 2222.2
+    },
+    {
+      "material_id": "RM-0210",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1594.2
+    },
+    {
+      "material_id": "RM-0211",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1546.7
+    },
+    {
+      "material_id": "RM-0212",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 981.2
+    },
+    {
+      "material_id": "RM-0213",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 304.7
+    },
+    {
+      "material_id": "RM-0214",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 226.7
+    },
+    {
+      "material_id": "RM-0215",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 624.4
+    },
+    {
+      "material_id": "RM-0216",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 308.9
+    },
+    {
+      "material_id": "RM-0217",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 2037.4
+    },
+    {
+      "material_id": "RM-0218",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 349.8
+    },
+    {
+      "material_id": "RM-0219",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1347.7
+    },
+    {
+      "material_id": "RM-0220",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 953.7
+    },
+    {
+      "material_id": "RM-0221",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 319.9
+    },
+    {
+      "material_id": "RM-0222",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 820.5
+    },
+    {
+      "material_id": "RM-0223",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 783.1
+    },
+    {
+      "material_id": "RM-0224",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 1562.9
+    },
+    {
+      "material_id": "RM-0225",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 2198.7
+    },
+    {
+      "material_id": "RM-0226",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 1787.1
+    },
+    {
+      "material_id": "RM-0227",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 1317.1
+    },
+    {
+      "material_id": "RM-0228",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 1151.6
+    },
+    {
+      "material_id": "RM-0229",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 1237.7
+    },
+    {
+      "material_id": "RM-0230",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1907.8
+    },
+    {
+      "material_id": "RM-0231",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 1828.2
+    },
+    {
+      "material_id": "RM-0232",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 2080.3
+    },
+    {
+      "material_id": "RM-0233",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 1483.4
+    },
+    {
+      "material_id": "RM-0234",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 945.2
+    },
+    {
+      "material_id": "RM-0235",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 349.5
+    },
+    {
+      "material_id": "RM-0236",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 1499.5
+    },
+    {
+      "material_id": "RM-0237",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 235.0
+    },
+    {
+      "material_id": "RM-0238",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 1725.9
+    },
+    {
+      "material_id": "RM-0239",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 187.2
+    },
+    {
+      "material_id": "RM-0240",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 2088.1
+    },
+    {
+      "material_id": "RM-0241",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 183.5
+    },
+    {
+      "material_id": "RM-0242",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 959.1
+    },
+    {
+      "material_id": "RM-0243",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 2088.8
+    },
+    {
+      "material_id": "RM-0244",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 662.1
+    },
+    {
+      "material_id": "RM-0245",
+      "procurement": "試作限定",
+      "unit_price_yen_per_kg_core": 1848.4
+    },
+    {
+      "material_id": "RM-0246",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 1786.3
+    },
+    {
+      "material_id": "RM-0247",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 2279.0
+    },
+    {
+      "material_id": "RM-0248",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 2042.1
+    },
+    {
+      "material_id": "RM-0249",
+      "procurement": "条件付",
+      "unit_price_yen_per_kg_core": 2392.3
+    },
+    {
+      "material_id": "RM-0250",
+      "procurement": "廃止予定",
+      "unit_price_yen_per_kg_core": 438.3
+    },
+    {
+      "material_id": "RM-0251",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 2326.1
+    },
+    {
+      "material_id": "RM-0252",
+      "procurement": "常用",
+      "unit_price_yen_per_kg_core": 1485.9
+    }
+  ],
+  "resource_id": "welding-stage-a-commercial",
+  "revision": 1,
+  "schema_version": "commercial-material-catalog/v1"
+}

@@ -1105,6 +1105,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/transforms/{transform_id}/blend-editor/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve Blend Editor Context */
+        post: operations["resolveBlendEditorContext"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/transforms/{transform_id}/execute": {
         parameters: {
             query?: never;
@@ -1244,11 +1261,14 @@ export interface components {
              * @default false
              */
             sparse_blend: boolean;
+            /** Sparse Blend Transform Id */
+            sparse_blend_transform_id?: string | null;
         };
         /** BlendEditorContext */
         BlendEditorContext: {
             commercial_catalog: components["schemas"]["RevisionRef"];
             design_space: components["schemas"]["SparseBlendDesignSpace"];
+            design_space_ref: components["schemas"]["RevisionRef"];
             /** Materials */
             materials: components["schemas"]["BlendEditorMaterial"][];
             scientific_master: components["schemas"]["RevisionRef"];
@@ -8102,6 +8122,68 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlendEditorContext"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    resolveBlendEditorContext: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transform_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeterministicTransformExecutionRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

@@ -34,7 +34,7 @@ import build_welding_stage_a_package as package_builder  # noqa: E402
 
 PACKAGE = ROOT / "models/packages/welding-stage-a-deterministic-v1"
 CATALOG = ROOT / "models/catalogs/welding-stage-a-commercial-v2.json"
-DESIGN_SPACE = ROOT / "models/design-spaces/welding-stage-a-v1.json"
+DESIGN_SPACE = ROOT / "models/design-spaces/welding-stage-a-v2.json"
 SOURCE = ROOT / "data/source/welding_consumable_multistage_synthetic_dataset.xlsx"
 ORACLE_COMPONENTS = (
     "Fe", "C", "Si", "Mn", "Cr", "Ni", "Mo", "Ti", "B", "Al",

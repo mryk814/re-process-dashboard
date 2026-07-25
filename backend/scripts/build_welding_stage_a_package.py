@@ -42,7 +42,7 @@ from material_workbench.modeling.model_packages import DeterministicTransformSpe
 DEFAULT_SOURCE = Path("data/source/welding_consumable_multistage_synthetic_dataset.xlsx")
 DEFAULT_DESTINATION = Path("models/packages/welding-stage-a-deterministic-v1")
 DEFAULT_CATALOG_DESTINATION = Path("models/catalogs/welding-stage-a-commercial-v2.json")
-DEFAULT_DESIGN_SPACE_DESTINATION = Path("models/design-spaces/welding-stage-a-v1.json")
+DEFAULT_DESIGN_SPACE_DESTINATION = Path("models/design-spaces/welding-stage-a-v2.json")
 SHEETS = {
     "materials": "原料マスタ",
     "material_composition": "原料成分",
@@ -197,7 +197,7 @@ def build_package(
     catalog = CommercialMaterialCatalog(
         schema_version="commercial-material-catalog/v2",
         resource_id="welding-stage-a-commercial",
-        revision=1,
+        revision=2,
         materials=tuple(
             CommercialMaterial(
                 material_id=str(row[COLUMNS["material_id"]]),
@@ -225,7 +225,7 @@ def build_package(
     design_space = SparseBlendDesignSpace(
         schema_version="sparse-blend-design-space/v1",
         resource_id="welding-stage-a-design-space",
-        revision=1,
+        revision=2,
         scientific_master=master.ref,
         commercial_catalog=catalog.ref,
         allowed_material_ids=tuple(item.material_id for item in materials),

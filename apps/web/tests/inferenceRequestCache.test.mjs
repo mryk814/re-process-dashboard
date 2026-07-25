@@ -158,6 +158,19 @@ test("display-only edits preserve pending inference while input edits supersede 
   assert.equal(candidateInferenceChanged(previous.raw.inputs, changedInput.raw.inputs), true);
 });
 
+test("sparse blend sidecar edits do not invalidate standalone Stage B inference", () => {
+  const inputs = { composition: { Fe: 90 }, process: { heat_input: 1.2 } };
+  const previous = { raw: { inputs, blend: { items: [{ material_id: "RM-A", ratio: 100 }] } } };
+  const changedBlend = { raw: { inputs, blend: { items: [{ material_id: "RM-A", ratio: 90 }] } } };
+  const identity = candidateInputIdentity(inputs);
+
+  assert.equal(
+    candidateInferenceChanged(previous.raw.inputs, changedBlend.raw.inputs),
+    false,
+  );
+  assert.equal(shouldRefreshPreviewAfterSave(identity, identity, identity), false);
+});
+
 test("a display-only save refreshes preview when conflict recovery adopts external inputs", () => {
   const baseIdentity = candidateInputIdentity({ process: { speed: 100 } });
   const externalIdentity = candidateInputIdentity({ process: { speed: 140 } });

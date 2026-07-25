@@ -92,7 +92,11 @@ type WorkbenchProps = {
   onHeatTimeBasis: (candidateId: string, basis: HeatTimeBasis) => void;
   onInput: (id: string, path: string, value: number | string | undefined) => void;
   onText: (id: string, field: "label", value: string) => void;
-  onBlend: (id: string, blend: NonNullable<Candidate["raw"]["blend"]>) => void;
+  onBlend: (
+    id: string,
+    blend: NonNullable<Candidate["raw"]["blend"]>,
+    lockedMaterialIds?: string[],
+  ) => void;
   onBlendLocks: (id: string, lockedMaterialIds: string[]) => void;
   onAddHeat: () => void;
   onDeleteHeat: (index: number) => void;
@@ -257,9 +261,10 @@ export function WorkbenchPage(props: WorkbenchProps) {
           broken={originBroken}
           onOpen={onOpenOrigin}
         />
-        {selected.raw.blend && <BlendEditorPanel
+        {(selected.raw.blend || application?.sparse_blend) && <BlendEditorPanel
           projectId={projectId}
           candidate={selected}
+          transformId={application?.sparse_blend_transform_id ?? undefined}
           onBlend={onBlend}
           onLocks={onBlendLocks}
         />}

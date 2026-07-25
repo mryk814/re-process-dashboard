@@ -316,12 +316,19 @@ export function useWorkbenchSession({
   function updateCandidateBlend(
     id: string,
     blend: NonNullable<CandidateViewModel["raw"]["blend"]>,
+    lockedMaterialIds?: string[],
   ) {
     const current = candidates.find((candidate) => candidate.id === id);
     if (!current) return;
     const next: CandidateViewModel = {
       ...current,
-      raw: { ...current.raw, blend },
+      raw: {
+        ...current.raw,
+        blend,
+        editor_state: lockedMaterialIds === undefined
+          ? current.raw.editor_state
+          : { locked_material_ids: lockedMaterialIds },
+      },
     };
     setCandidates((items) => items.map((candidate) => candidate.id === id ? next : candidate));
     editor.schedule(next, current);
