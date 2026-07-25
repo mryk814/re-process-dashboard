@@ -35,6 +35,11 @@ export type ApiProjectGroupMoveInput = components["schemas"]["ProjectGroupMoveIn
 export type ApiProjectCreationOptions = components["schemas"]["ProjectCreationOptions"];
 export type ApiChainTemplate = components["schemas"]["ChainTemplateItem"];
 export type ApiChainEvaluation = components["schemas"]["ResolvedChainEvaluation"];
+export type ApiChainCandidateContract = components["schemas"]["ChainCandidateContractResponse"];
+export type ApiChainExecution = components["schemas"]["ChainExecution"];
+export type ApiChainSnapshot = components["schemas"]["ChainSnapshot"];
+export type ApiActualConditionedVariant = components["schemas"]["ActualConditionedVariant"];
+export type ApiActualConditionedVariantInput = components["schemas"]["ActualConditionedVariantRequest"];
 export type ApiDataLibraryDataset = components["schemas"]["DataLibraryDataset"];
 export type ApiDatasetView = components["schemas"]["DatasetViewRevision"];
 export type ApiDatasetViewCreateInput = components["schemas"]["DatasetViewRevisionCreateInput"];
@@ -64,6 +69,63 @@ const path = (projectId: string, suffix = "") =>
   `/api/projects/${encodeURIComponent(projectId)}${suffix}`;
 
 export const workbenchApi = {
+  async chainCandidateContract(projectId: string) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/chain/candidate-contract", {
+      params: { path: { project_id: projectId } },
+    }), "Chain候補契約を取得できませんでした。");
+  },
+  async listChainCandidates(projectId: string) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/chain/candidates", {
+      params: { path: { project_id: projectId } },
+    }), "Chain候補を取得できませんでした。");
+  },
+  async createChainCandidate(projectId: string, body: ApiCandidateInput) {
+    return requireData(await apiClient.POST("/api/projects/{project_id}/chain/candidates", {
+      params: { path: { project_id: projectId } },
+      body,
+    }), "Chain候補を作成できませんでした。");
+  },
+  async updateChainCandidate(projectId: string, candidateId: string, body: ApiCandidateUpdate) {
+    return requireData(await apiClient.PUT("/api/projects/{project_id}/chain/candidates/{candidate_id}", {
+      params: { path: { project_id: projectId, candidate_id: candidateId } },
+      body,
+    }), "Chain候補を保存できませんでした。");
+  },
+  async chainExecution(projectId: string, candidateId: string, signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/chain/candidates/{candidate_id}/execution", {
+      params: { path: { project_id: projectId, candidate_id: candidateId } },
+      signal,
+    }), "Chain実行結果を取得できませんでした。");
+  },
+  async executeChain(projectId: string, candidateId: string, candidateRevision: number, requestId: string, signal?: AbortSignal) {
+    return requireData(await apiClient.POST("/api/projects/{project_id}/chain/candidates/{candidate_id}/executions", {
+      params: { path: { project_id: projectId, candidate_id: candidateId } },
+      body: { candidate_revision: candidateRevision, request_id: requestId, debounce_ms: 250 },
+      signal,
+    }), "Chainを実行できませんでした。");
+  },
+  async listChainSnapshots(projectId: string, candidateId: string) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/chain/candidates/{candidate_id}/snapshots", {
+      params: { path: { project_id: projectId, candidate_id: candidateId } },
+    }), "Chainスナップショットを取得できませんでした。");
+  },
+  async createChainSnapshot(projectId: string, candidateId: string, candidateRevision: number) {
+    return requireData(await apiClient.POST("/api/projects/{project_id}/chain/candidates/{candidate_id}/snapshots", {
+      params: { path: { project_id: projectId, candidate_id: candidateId } },
+      body: { candidate_revision: candidateRevision, debounce_ms: 0 },
+    }), "Chainスナップショットを保存できませんでした。");
+  },
+  async listChainAnalysisVariants(projectId: string, candidateId: string) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/chain/candidates/{candidate_id}/analysis-variants", {
+      params: { path: { project_id: projectId, candidate_id: candidateId } },
+    }), "実測を使った分析を取得できませんでした。");
+  },
+  async createChainAnalysisVariant(projectId: string, candidateId: string, body: ApiActualConditionedVariantInput) {
+    return requireData(await apiClient.POST("/api/projects/{project_id}/chain/candidates/{candidate_id}/analysis-variants", {
+      params: { path: { project_id: projectId, candidate_id: candidateId } },
+      body,
+    }), "実測を使った分析を保存できませんでした。");
+  },
   async deterministicTransforms() {
     return requireData(await apiClient.GET("/api/transforms"), "Stage A Transformを取得できませんでした。");
   },

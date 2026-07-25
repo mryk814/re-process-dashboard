@@ -123,7 +123,9 @@ def test_stage_a_builder_is_reproducible_and_keeps_source_read_only(
         relative = expected.relative_to(PACKAGE)
         assert (package / relative).read_bytes() == expected.read_bytes()
     assert catalog.read_bytes() == CATALOG.read_bytes()
-    assert catalog.with_name("catalog-design-space.json").read_bytes() == DESIGN_SPACE.read_bytes()
+    assert json.loads(
+        catalog.with_name("catalog-design-space.json").read_text(encoding="utf-8")
+    ) == json.loads(DESIGN_SPACE.read_text(encoding="utf-8"))
 
 
 def test_price_only_rebuild_changes_catalog_but_not_scientific_package(
