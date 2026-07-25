@@ -1,10 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   workbenchApi,
   type ApiChainDistributionCapability,
   type ApiChainDistributionRun,
 } from "../../shared/api/workbench-api";
 import { ApiClientError } from "../../shared/api/client";
+import {
+  DistributionRequestGeneration,
+  distributionMatchesIdentity,
+  type DistributionRequestIdentity,
+} from "./distributionRequestGeneration";
 import "./chain-uncertainty.css";
 
 type DistributionMetric = {
@@ -23,11 +28,15 @@ export function ChainUncertaintyPanel({
   candidateId,
   candidateRevision,
   pointExecutionReady,
+  chainRevisionDigest,
+  pointExecutionRequestId,
 }: {
   projectId: string;
   candidateId: string;
   candidateRevision: number;
   pointExecutionReady: boolean;
+  chainRevisionDigest: string;
+  pointExecutionRequestId: string;
 }) {
   const [capability, setCapability] = useState<ApiChainDistributionCapability | null>(null);
   const [run, setRun] = useState<ApiChainDistributionRun | null>(null);
@@ -35,9 +44,23 @@ export function ChainUncertaintyPanel({
   const [seed, setSeed] = useState(20260725);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const requests = useRef(new DistributionRequestGeneration());
+  const executionController = useRef<AbortController | null>(null);
+  const identity: DistributionRequestIdentity = {
+    projectId,
+    candidateId,
+    candidateRevision,
+    chainRevisionDigest,
+    pointExecutionRequestId,
+  };
 
   useEffect(() => {
     const controller = new AbortController();
+    executionController.current?.abort();
+    executionController.current = null;
+    const token = requests.current.activate(identity);
+    setBusy(false);
+    setCapability(null);
     setRun(null);
     setMessage("");
     void Promise.all([
@@ -48,18 +71,32 @@ export function ChainUncertaintyPanel({
           throw cause;
         }),
     ]).then(([nextCapability, latest]) => {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted || !requests.current.isCurrent(token)) return;
+      if (nextCapability.chain_revision_digest !== chainRevisionDigest) {
+        throw new Error("点推定と分布実行条件のChain Revisionが一致しません");
+      }
       setCapability(nextCapability);
       setRun(
-        latest?.provenance.candidate_revision === candidateRevision ? latest : null,
+        latest && distributionMatchesIdentity(latest, identity) ? latest : null,
       );
     }).catch((cause) => {
-      if (!controller.signal.aborted) {
+      if (!controller.signal.aborted && requests.current.isCurrent(token)) {
         setMessage(cause instanceof Error ? cause.message : "分布実行条件を取得できませんでした");
       }
     });
-    return () => controller.abort();
-  }, [projectId, candidateId, candidateRevision]);
+    return () => {
+      controller.abort();
+      executionController.current?.abort();
+      executionController.current = null;
+      requests.current.invalidate();
+    };
+  }, [
+    projectId,
+    candidateId,
+    candidateRevision,
+    chainRevisionDigest,
+    pointExecutionRequestId,
+  ]);
 
   const stageB = run?.stages.find((stage) => stage.stage_id === "B");
   const stageC = run?.stages.find((stage) => stage.stage_id === "C");
@@ -69,6 +106,10 @@ export function ChainUncertaintyPanel({
   const stageCKeys = Object.keys(stageCUncertainty).sort((a, b) => a.localeCompare(b, "en"));
 
   async function executeDistribution() {
+    executionController.current?.abort();
+    const controller = new AbortController();
+    executionController.current = controller;
+    const token = requests.current.activate(identity);
     setBusy(true);
     setMessage("分布を計算しています");
     try {
@@ -78,7 +119,13 @@ export function ChainUncertaintyPanel({
         candidateRevision,
         seed,
         sampleCount,
+        controller.signal,
       );
+      if (
+        controller.signal.aborted
+        || !requests.current.isCurrent(token)
+        || !distributionMatchesIdentity(result, identity)
+      ) return;
       setRun(result);
       setMessage(
         result.status === "completed"
@@ -86,9 +133,14 @@ export function ChainUncertaintyPanel({
           : "対応Stageだけを計算しました",
       );
     } catch (cause) {
-      setMessage(cause instanceof Error ? cause.message : "分布を実行できませんでした");
+      if (!controller.signal.aborted && requests.current.isCurrent(token)) {
+        setMessage(cause instanceof Error ? cause.message : "分布を実行できませんでした");
+      }
     } finally {
-      setBusy(false);
+      if (requests.current.isCurrent(token)) {
+        executionController.current = null;
+        setBusy(false);
+      }
     }
   }
 
