@@ -25,6 +25,15 @@ function DataExploreUnavailable() {
   </div>;
 }
 
+function TaskUnavailablePanel({ message }: { message: string }) {
+  return <div className="page-panel task-unavailable-panel" role="status">
+    <span className="overline">TASK UNAVAILABLE</span>
+    <h2>この予測タスクは一時的に利用できません</h2>
+    <p>{message}</p>
+    <p>プロジェクト概要では、保存済みの候補・予測・実測・判断履歴を引き続き確認できます。</p>
+  </div>;
+}
+
 function readStartupNavigation(): NavigationIntent {
   if (new URLSearchParams(window.location.search).has("view")) return readNavigationIntent();
   try {
@@ -95,12 +104,20 @@ function App() {
     selected,
     selectedId,
     taskDefinition,
+    taskAvailability,
   } = session;
   const { error: previewError, preview, previewsByCandidate } = prediction;
-  const dataExplorer = resolvedTaskDefinition?.data_explorer;
+  const taskUnavailable = taskAvailability?.status === "unavailable";
+  const unavailableScopedTab = taskUnavailable
+    && tab !== "project"
+    && tab !== "data-library"
+    && tab !== "profile-workbench";
+  const dataExplorer = taskUnavailable ? null : resolvedTaskDefinition?.data_explorer;
   const qualityAvailable = dataExplorer?.quality === true;
   const lineageAvailable = dataExplorer?.lineage === true;
-  const visibleProjectNavItems = projectNavItems.filter((item) => !item.requiresDataExplorer || qualityAvailable || lineageAvailable);
+  const visibleProjectNavItems = projectNavItems.filter((item) => (
+    !taskUnavailable || item.id === "project"
+  ) && (!item.requiresDataExplorer || qualityAvailable || lineageAvailable));
   const dataLibraryMode = tab === "data-library" || tab === "profile-workbench";
 
   function selectCandidate(candidateId: string, replace = true) {
@@ -180,7 +197,7 @@ function App() {
           <div className="context-primary-row">
             <h1 title={activeProject?.name ?? undefined}>{activeProject?.name ?? "プロジェクトを読み込んでいます"}</h1>
             <div className="run-actions">
-              {tab !== "candidates" && (
+              {tab !== "candidates" && !taskUnavailable && (
                 <button
                   type="button"
                   className="stock-button"
@@ -224,8 +241,9 @@ function App() {
             candidate={selected}
             taskDefinition={taskDefinition}
             supportsLineageCandidate={dataExplorer?.candidate_creation === true}
-            operations={operations}
+            operations={resolvedTaskDefinition?.runtime_capability.operations}
             currentPreviews={prediction.previewsByCandidate}
+            taskAvailability={taskAvailability}
             onProjectChanged={(project) => {
               void session.refreshProjectDefinition(project);
             }}
@@ -257,7 +275,10 @@ function App() {
           onOpenDataLibrary={() => navigate({ view: "data-library" })}
           onStartProject={startProjectForDataset}
         />}
-        {tab === "settings" && (
+        {unavailableScopedTab && (
+          <TaskUnavailablePanel message={taskAvailability?.message ?? "このタスクは現在利用できません。"} />
+        )}
+        {tab === "settings" && !taskUnavailable && (
           <DeveloperAdminPage
             project={activeProject}
             taskDefinition={taskDefinition}
@@ -301,7 +322,7 @@ function App() {
             })}
           />
         )}
-        {tab === "candidates" &&
+        {tab === "candidates" && !taskUnavailable &&
           (selected ? (
             <WorkbenchPage
               candidates={candidates}
@@ -370,7 +391,7 @@ function App() {
               onCreate={() => void session.createStarterCandidate()}
             />
           ))}
-        {tab === "quality" && (qualityAvailable ? (
+        {tab === "quality" && !taskUnavailable && (qualityAvailable ? (
           <div className="data-explore-page">
             <DataExploreNavigation active="quality" qualityAvailable={qualityAvailable} lineageAvailable={lineageAvailable} onNavigate={(view) => navigate(withView(navigationRef.current, view))} />
             <LiveDataQualityPage
@@ -404,7 +425,7 @@ function App() {
             />
           </div>
         ) : <DataExploreUnavailable />)}
-        {tab === "lineage" && (lineageAvailable ? (
+        {tab === "lineage" && !taskUnavailable && (lineageAvailable ? (
           <div className="data-explore-page">
             <DataExploreNavigation active="lineage" qualityAvailable={qualityAvailable} lineageAvailable={lineageAvailable} onNavigate={(view) => navigate(withView(navigationRef.current, view))} />
             <LineagePage
@@ -428,7 +449,7 @@ function App() {
             />
           </div>
         ) : <DataExploreUnavailable />)}
-        {tab === "explore" && (
+        {tab === "explore" && !taskUnavailable && (
           <ScreeningPage
             projectId={activeProjectId}
             project={activeProject}

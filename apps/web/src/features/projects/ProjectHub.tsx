@@ -24,6 +24,7 @@ import {
   type ApiSnapshot,
   type ApiTaskCatalogItem,
 } from "../../shared/api/workbench-api";
+import type { ResolvedTaskDefinition } from "../candidates";
 
 type Props = {
   projects: ApiProject[];
@@ -33,6 +34,7 @@ type Props = {
   supportsLineageCandidate: boolean;
   operations?: RuntimeOperations;
   currentPreviews: Record<string, ApiPreview>;
+  taskAvailability?: ResolvedTaskDefinition["availability"];
   requestedSnapshotId?: string;
   requestedDatasetViewId?: string;
   requestedSettingsSection?: "targets";
@@ -57,6 +59,7 @@ export function ProjectHub({
   supportsLineageCandidate,
   operations,
   currentPreviews,
+  taskAvailability,
   requestedSnapshotId,
   requestedDatasetViewId,
   requestedSettingsSection,
@@ -105,6 +108,7 @@ export function ProjectHub({
   const formatOutputNumber = (key: string, value: number) => taskDefinition
     ? formatTaskNumber(value, taskDefinition, `output.${key}`, project?.display_decimals)
     : formatNumber(value);
+  const taskUnavailable = taskAvailability?.status === "unavailable";
 
   const reloadHistory = async (signal?: AbortSignal, expectedProjectId = activeProjectId) => {
     const loaded = await workbenchApi.projectHistory(expectedProjectId, signal);
@@ -129,20 +133,27 @@ export function ProjectHub({
     setHistory(null);
     setSelectedSnapshot(null);
     setModelPackage(null);
-    void Promise.all([
+    const requests = [
       reloadHistory(controller.signal),
       workbenchApi.listTaskDefinitions().then((items) => {
         if (!controller.signal.aborted) {
           setCatalog(items);
         }
       }),
-      workbenchApi.modelPackage(activeProjectId).then((item) => !controller.signal.aborted && activeProjectRef.current === activeProjectId && setModelPackage(item)),
       workbenchApi.projectCreationOptions().then((item) => !controller.signal.aborted && setCreationOptions(item)),
-    ]).catch((cause) => {
+    ];
+    if (!taskUnavailable) {
+      requests.push(
+        workbenchApi.modelPackage(activeProjectId).then((item) => {
+          if (!controller.signal.aborted && activeProjectRef.current === activeProjectId) setModelPackage(item);
+        }),
+      );
+    }
+    void Promise.all(requests).catch((cause) => {
       if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "プロジェクト概要を取得できませんでした。");
     });
     return () => controller.abort();
-  }, [activeProjectId]);
+  }, [activeProjectId, taskUnavailable]);
 
   useEffect(() => {
     if (!requestedSnapshotId || !operations?.snapshot || selectedSnapshot?.id === requestedSnapshotId) return;
@@ -496,7 +507,9 @@ export function ProjectHub({
     setContinuationReason("");
   };
 
-  const canDeleteProject = project != null && !["default", "hot-rolling-default"].includes(project.id);
+  const canDeleteProject = project != null
+    && !taskUnavailable
+    && !["default", "hot-rolling-default"].includes(project.id);
 
   async function deleteCurrentProject() {
     if (!project || !canDeleteProject || deleting) return;
@@ -568,10 +581,15 @@ export function ProjectHub({
             <p>{project?.purpose || project?.description || "検討の入口、候補比較、判断時点の記録をここからたどれます。"}</p>
           </div>
           <div className="project-actions">
-            <button className="outline-button" onClick={continueCurrentProject}>このプロジェクトの続き</button>
-            <button className="outline-button" onClick={() => setSettingsOpen((value) => !value)}>設定を編集</button>
+            <button className="outline-button" disabled={taskUnavailable} onClick={continueCurrentProject}>このプロジェクトの続き</button>
+            <button className="outline-button" disabled={taskUnavailable} onClick={() => setSettingsOpen((value) => !value)}>設定を編集</button>
           </div>
         </div>
+      {taskUnavailable && <section className="task-unavailable-banner" role="status">
+        <strong>この予測タスクは一時的に利用できません</strong>
+        <span>{taskAvailability.message}</span>
+        <small>保存済みの候補・予測・実測・判断履歴は参照できます。推論と変更操作は停止しています。</small>
+      </section>}
       {error && <p className="panel-error" role="alert">{error}</p>}
       {project && <section className="project-reference-strip" aria-label="プロジェクトの参照と所属"><div><span>参照Dataset</span><strong>{fixedDataset?.data_asset.original_filename ?? "—"}</strong><small>{fixedDataset ? `${fixedDataset.profile_revision.name} · r${fixedDataset.profile_revision.revision}` : ""}</small></div><div><span>Prediction Task</span><strong>{taskLabels.get(project.task_id) ?? project.task_id}</strong><small>固定</small></div><div><span>Model Package</span><strong>{modelPackageDisplayName(fixedPackage)}</strong><small>学習元: {fixedTrainingDataset ? datasetDisplayName(fixedTrainingDataset) : "未登録または記録なし"} · Manifest {project.model_package_manifest_digest.slice(0, 10)}</small></div><div><span>所属グループ</span><strong>{fixedSeries?.name ?? "—"}</strong><small>設定から変更できます</small></div></section>}
       {project && <section className={`project-goal-strip${configuredTargets.length ? "" : " unset"}`} aria-label="プロジェクトの目標値">
@@ -581,7 +599,7 @@ export function ProjectHub({
             ? configuredTargets.map((output) => <span key={output.key}><b>{output.label}</b>{targetGoalText(savedTargetValues[output.key], output.goal_direction, formatNumber)} {output.unit}</span>)
             : <span>未設定です。設定すると候補の目標達成率を比較できます。</span>}
         </div>
-        <button className={configuredTargets.length ? "outline-button" : "primary-button"} onClick={focusTargetSettings}>{configuredTargets.length ? "目標値を変更" : "目標値を設定"}</button>
+        <button className={configuredTargets.length ? "outline-button" : "primary-button"} disabled={taskUnavailable} onClick={focusTargetSettings}>{configuredTargets.length ? "目標値を変更" : "目標値を設定"}</button>
       </section>}
       {predecessorProject && <section className="project-continuation-link" aria-label="このプロジェクトの続き元"><span>続き元</span><button type="button" onClick={() => onSwitch(predecessorProject.id)}>{predecessorProject.name}</button><small>{predecessorSeries?.name ?? "所属グループ不明"}{project?.continuation_reason ? ` · ${project.continuation_reason}` : ""}</small></section>}
 
@@ -608,7 +626,7 @@ export function ProjectHub({
         {predecessorProjectId && <label>続ける理由（任意）<textarea value={continuationReason} onChange={(event) => setContinuationReason(event.target.value)} placeholder="予測タスク変更、データ追加、条件変更、判断の再検討など" /></label>}
         <div className="project-start-options">
           <label><input type="radio" checked={createMode === "empty"} onChange={() => setCreateMode("empty")} />空から開始<span>候補を持たない検討として作成</span></label>
-          <label><input type="radio" checked={createMode === "copy"} disabled={!candidate || Boolean(predecessorProjectId)} onChange={() => { setCreateMode("copy"); if (project) { setNewDatasetViewId(project.dataset_view_revision_id ?? ""); setNewTaskId(project.task_id); setNewModelPackageRefId(project.model_package_ref_id ?? ""); } }} />現在候補をコピー<span>{candidate ? `${candidate.label}（編集版 ${candidate.raw.revision}）` : "コピーできる候補がありません"}</span></label>
+          <label><input type="radio" checked={createMode === "copy"} disabled={taskUnavailable || !candidate || Boolean(predecessorProjectId)} onChange={() => { setCreateMode("copy"); if (project) { setNewDatasetViewId(project.dataset_view_revision_id ?? ""); setNewTaskId(project.task_id); setNewModelPackageRefId(project.model_package_ref_id ?? ""); } }} />現在候補をコピー<span>{taskUnavailable ? "利用停止中のタスクからはコピーできません" : candidate ? `${candidate.label}（編集版 ${candidate.raw.revision}）` : "コピーできる候補がありません"}</span></label>
         </div>
         <button className="primary-button" disabled={!newProjectName.trim() || !newDatasetViewId || !(createMode === "copy" ? copyTaskId : newTaskId) || !newModelPackageRefId} onClick={() => void createProject()}>固定してプロジェクトを作成</button>
       </section>}
@@ -641,9 +659,9 @@ export function ProjectHub({
       <section className="project-next-actions">
         <div className="panel-title"><h3>次の作業</h3><span>{activeCandidates.length ? `${activeCandidates.length}候補を検討中` : "まだ候補がありません"}</span></div>
         <div className="project-action-grid">
-          <button className="project-action-card primary" onClick={() => onNavigate(activeCandidates.length ? "candidates" : supportsLineageCandidate ? "lineage" : "explore")}><strong>{activeCandidates.length ? "候補を比較" : supportsLineageCandidate ? "過去データから探す" : "条件範囲から始める"}</strong><span>{activeCandidates.length ? "入力・予測・根拠を横並びで確認" : supportsLineageCandidate ? "既存の条件と問題から出発" : "基準候補を作り、入力範囲から探索"}</span></button>
-          <button className="project-action-card" onClick={() => onNavigate("explore")}><strong>範囲探索</strong><span>目標と入力範囲から候補を生成</span></button>
-          <button className="project-action-card" onClick={() => onNavigate("candidates")}><strong>直接候補を作る</strong><span>具体的な成分・工程条件を入力</span></button>
+          <button className="project-action-card primary" disabled={taskUnavailable} onClick={() => onNavigate(activeCandidates.length ? "candidates" : supportsLineageCandidate ? "lineage" : "explore")}><strong>{activeCandidates.length ? "候補を比較" : supportsLineageCandidate ? "過去データから探す" : "条件範囲から始める"}</strong><span>{activeCandidates.length ? "入力・予測・根拠を横並びで確認" : supportsLineageCandidate ? "既存の条件と問題から出発" : "基準候補を作り、入力範囲から探索"}</span></button>
+          <button className="project-action-card" disabled={taskUnavailable} onClick={() => onNavigate("explore")}><strong>範囲探索</strong><span>目標と入力範囲から候補を生成</span></button>
+          <button className="project-action-card" disabled={taskUnavailable} onClick={() => onNavigate("candidates")}><strong>直接候補を作る</strong><span>具体的な成分・工程条件を入力</span></button>
         </div>
       </section>
 
@@ -653,7 +671,7 @@ export function ProjectHub({
           {history.candidates.map((item) => {
             const preview = currentPreviews[item.candidate.id];
             return <article className="project-history-card" key={item.candidate.id}>
-              <header><div><strong>{item.candidate.name}</strong>{item.candidate.archived_at && <span className="muted-badge">archive</span>}</div><button className="outline-button" disabled={Boolean(item.candidate.archived_at)} onClick={() => onNavigate("candidates", item.candidate.id)}>現在の候補を見る</button></header>
+              <header><div><strong>{item.candidate.name}</strong>{item.candidate.archived_at && <span className="muted-badge">archive</span>}</div><button className="outline-button" disabled={taskUnavailable || Boolean(item.candidate.archived_at)} onClick={() => onNavigate("candidates", item.candidate.id)}>現在の候補を見る</button></header>
               <div className="history-current-row"><span className="history-kind current">現在</span><span>編集版 {item.current.revision}</span><span>{formatDate(item.current.updated_at)}</span><span className={item.candidate.provenance?.source_kind === "lineage" ? "history-origin reference-data" : "history-origin"}>{item.candidate.provenance?.source_kind === "lineage" && <b>参照データ由来</b>}{item.candidate.provenance ? provenanceLabel(item.candidate.provenance) : "由来不明"}</span></div>
               {preview ? <div className="history-preview"><span>現在のpreview</span>{orderedPredictions(preview.predictions).map(([key, value]) => { const assessment = assessPrediction(outputDefinition(key), value); return <strong className={assessment.implausible ? "implausible-output" : undefined} title={assessment.warning ?? undefined} key={key}>{outputLabels.get(key) ?? key} {formatPredictionPoint(value, (numberValue) => formatOutputNumber(key, numberValue))}{assessment.implausible && <small className="output-warning-badge">⚠ 物理範囲外</small>}</strong>; })}</div> : <p className="history-muted">現在のpreviewは未計算です。候補比較を開くと必要な候補だけ計算します。</p>}
               {item.snapshots.length ? <div className="history-snapshots">{item.snapshots.map((snapshot) => <div className="history-snapshot-row" key={snapshot.id}>
@@ -661,7 +679,7 @@ export function ProjectHub({
                 <span className="history-predictions">{orderedPredictions(snapshot.prediction_summary).map(([key, value], index) => { const assessment = assessPrediction(outputDefinition(key), value); return <span className={assessment.implausible ? "implausible-output" : undefined} title={assessment.warning ?? undefined} key={key}>{index > 0 && " / "}{outputLabels.get(key) ?? key} {formatPredictionPoint(value, (numberValue) => formatOutputNumber(key, numberValue))}{assessment.implausible && <small className="output-warning-badge">⚠ 物理範囲外</small>}</span>; })}</span>
                 {item.actuals.filter((actual) => actual.snapshot_id === snapshot.id).map((actual) => { const definition = outputDefinition(actual.property); const assessment = assessOutputValues(definition, [actual.mean], "実測値"); const key = definition?.key ?? actual.property; return <span className={`history-actual${assessment.implausible ? " implausible-output" : ""}`} title={assessment.warning ?? undefined} key={actual.id}>実測 {definition?.label ?? outputLabels.get(actual.property) ?? actual.property} {formatOutputNumber(key, actual.mean)} ± {formatOutputNumber(key, actual.std)} {definition?.unit ?? actual.unit}{actual.experiment_no ? ` / ${actual.experiment_no}` : ""}{assessment.implausible && <small className="output-warning-badge">⚠ 物理範囲外</small>}</span>; })}
                 {item.decision?.snapshot_id === snapshot.id && <span className="decision-note-inline">判断理由: {item.decision.note}</span>}
-                <button className="outline-button" onClick={() => void openSnapshot(snapshot.id)}>詳細</button><CandidateAddButton compact onClick={() => void restoreSnapshot(snapshot.id)}>新しい候補として複製</CandidateAddButton>
+                <button className="outline-button" onClick={() => void openSnapshot(snapshot.id)}>詳細</button><CandidateAddButton compact disabled={taskUnavailable} onClick={() => void restoreSnapshot(snapshot.id)}>新しい候補として複製</CandidateAddButton>
               </div>)}</div> : <div className="project-empty-inline"><span>固定した予測はありません。上の「現在の候補を見る」から詳細予測を保存すると判断時点が残ります。</span></div>}
             </article>;
           })}
@@ -673,8 +691,8 @@ export function ProjectHub({
         <p>{formatDate(selectedSnapshot.created_at)} / {history?.candidates.find((item) => item.candidate.id === selectedSnapshot.candidate_id)?.candidate.name ?? "保存時の候補"}</p>
         <span className="decision-snapshot-badge">{!selectedSnapshot.payload.provenance?.package?.manifest_sha256 || !modelPackage ? "予測モデル情報を確認できません" : selectedSnapshot.payload.provenance.package.manifest_sha256 === modelPackage.manifest_sha256 ? "現在と同じ予測モデル" : "現在とは別の予測モデル"}</span>
         <table className="quality-table"><thead><tr><th>特性</th><th>固定予測</th><th>区間・分位</th><th>目標達成</th></tr></thead><tbody>{orderedPredictions(selectedSnapshot.payload.prediction.predictions).map(([key, value]) => { const assessment = assessPrediction(outputDefinition(key), value); return <tr className={assessment.implausible ? "implausible-output" : undefined} key={key}><th>{outputLabels.get(key) ?? key}{assessment.implausible && <small className="output-warning-badge">⚠ 物理範囲外</small>}</th><td title={assessment.warning ?? undefined}>{formatPredictionPoint(value, (numberValue) => formatOutputNumber(key, numberValue))}</td><td>{predictionHasInterval(value) ? <>{formatOutputNumber(key, value.lower)}–{formatOutputNumber(key, value.upper)} <small>{predictionIntervalLabel(value)}</small></> : "利用不可"}</td><td>{value.goal_probability == null ? value.goal_value == null ? "目標未設定" : "利用不可" : `${formatNumber(value.goal_probability * 100, 0)}%`}</td></tr>; })}</tbody></table>
-        <div className="snapshot-decision-form"><label>判断理由<textarea value={decisionNote} onChange={(event) => { decisionDraftRef.current.dirty = true; setDecisionNote(event.target.value); }} placeholder="この時点の予測を採用判断に使う理由" /></label><button className="outline-button" onClick={() => void saveDecision(false)}>採用判断として固定</button>{project?.decision_snapshot_id === selectedSnapshot.id && <button className="outline-button" onClick={() => void saveDecision(true)}>採用判断を解除</button>}</div>
-        <CandidateAddButton onClick={() => void restoreSnapshot(selectedSnapshot.id)}>この時点から新しい候補を作る</CandidateAddButton>
+        <div className="snapshot-decision-form"><label>判断理由<textarea disabled={taskUnavailable} value={decisionNote} onChange={(event) => { decisionDraftRef.current.dirty = true; setDecisionNote(event.target.value); }} placeholder="この時点の予測を採用判断に使う理由" /></label><button className="outline-button" disabled={taskUnavailable} onClick={() => void saveDecision(false)}>採用判断として固定</button>{project?.decision_snapshot_id === selectedSnapshot.id && <button className="outline-button" disabled={taskUnavailable} onClick={() => void saveDecision(true)}>採用判断を解除</button>}</div>
+        <CandidateAddButton disabled={taskUnavailable} onClick={() => void restoreSnapshot(selectedSnapshot.id)}>この時点から新しい候補を作る</CandidateAddButton>
       </section>}
 
       {canDeleteProject && project && <section className="project-danger-zone" aria-label="プロジェクト削除">
