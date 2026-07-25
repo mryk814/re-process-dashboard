@@ -32,7 +32,7 @@ from material_workbench.modeling.flank_wear_feature_pipeline import (
     build_flank_wear_features,
     build_flank_wear_features_from_observation,
 )
-from material_workbench.modeling.model_packages import ModelPackageLoader, predictive_interval, validate_predictive_summary, validate_task_definition_canonical_inputs
+from material_workbench.modeling.model_packages import ModelPackageLoader, VerifiedModelPackage, predictive_interval, validate_predictive_summary, validate_task_definition_canonical_inputs
 from material_workbench.data.dataset_profile import load_task_definitions
 from material_workbench.domain.goal_targets import goal_fields, probability_from_cdf
 from material_workbench.contracts.schemas import Candidate, CandidateInput, Prediction, Support, TargetValue
@@ -232,10 +232,19 @@ class FlankWearRuntime:
     task_id = TASK_ID
     support_policy_id = SUPPORT_POLICY_ID
 
-    def __init__(self, data: FlankWearData, package_root: str | Path | None = None) -> None:
+    def __init__(
+        self,
+        data: FlankWearData,
+        package_root: str | Path | VerifiedModelPackage | None = None,
+    ) -> None:
         self.data = data
         default = Path(__file__).resolve().parents[4] / "models" / "packages" / "flank-wear-gp-2026-07"
-        self.model_package = ModelPackageLoader().load(package_root or default)
+        selected_package = package_root or default
+        self.model_package = (
+            selected_package
+            if isinstance(selected_package, VerifiedModelPackage)
+            else ModelPackageLoader().load(selected_package)
+        )
         manifest = self.model_package.manifest
         task_definition = load_task_definitions()[TASK_ID]
         validate_task_definition_canonical_inputs(task_definition, manifest)

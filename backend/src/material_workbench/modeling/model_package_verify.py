@@ -106,7 +106,7 @@ def verify_model_package(
     quality = validate_lifecycle_metadata(package, contracts[task_id], profile_path=Path(data.profile_path))
     validate_training_provenance(package, data, contracts[task_id])
 
-    runtime = module.runtime_factory(data, package.root)
+    runtime = module.runtime_factory(data, package)
     if runtime.output_keys != frozenset(output.key for output in contracts[task_id].task_definition.outputs):
         raise ModelPackageVerificationError("runtime outputs do not match TaskDefinition")
 

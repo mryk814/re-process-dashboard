@@ -28,6 +28,7 @@ from .api.records import router as records_router
 from material_workbench.persistence.demo_seed import initialize_demo_projects
 from material_workbench.execution.inference_work_graph import InferenceWorkGraph
 from material_workbench.modeling.model_lifecycle import ACTIVE_PACKAGES_PATH, load_active_packages, resolve_configured_package, validate_active_package_task_set
+from material_workbench.modeling.model_packages import ModelPackageLoader
 from material_workbench.persistence.store import Store
 from material_workbench.tasks.task_registry import DataExplorerEntry, TaskRegistry
 from material_workbench.persistence.workspace_catalog_bootstrap import bootstrap_workspace_catalog
@@ -102,10 +103,12 @@ def _prepare_app_resources(
             data_by_source[task_id] = loaded
             data_by_source.setdefault(module.source_kind, loaded)
         data = data_by_source[task_id]
-        package = resolve_configured_package(
-            task_id,
-            config_path=configured,
-            override=injected.get(task_id) or os.getenv(module.package_override_env),
+        package = ModelPackageLoader().load(
+            resolve_configured_package(
+                task_id,
+                config_path=configured,
+                override=injected.get(task_id) or os.getenv(module.package_override_env),
+            )
         )
         runtimes[task_id] = module.runtime_factory(data, package)
         if module.data_explorer is not None:
