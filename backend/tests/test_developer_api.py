@@ -51,7 +51,12 @@ def test_runtime_diagnostics_does_not_run_repository_commands(
         "archived-resources",
         "runtime-capabilities",
         "sidecar",
+        "secom-stress-fixture",
     }
+    secom = next(check for check in payload["checks"] if check["id"] == "secom-stress-fixture")
+    assert secom["severity"] == "ok"
+    assert secom["details"]["sensor_features"] == 590
+    assert secom["details"]["label_counts"] == {"pass": 1463, "fail": 104}
     assert all(
         "toolchain" not in check["id"] and "generated" not in check["id"]
         for check in payload["checks"]

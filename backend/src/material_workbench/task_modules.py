@@ -23,6 +23,7 @@ HEAT_TREATMENT_TASK_ID = "heat-treatment-tradeoff-v1"
 CONCRETE_TASK_ID = "concrete-strength-v1"
 WEAR_CURVE_TASK_ID = "wear-curve-v1"
 BATTERY_DEGRADATION_TASK_ID = "battery-degradation-v1"
+SECOM_YIELD_TASK_ID = "secom-yield-risk-v1"
 MPEA_LEGACY_TYS_TASK_ID = "mpea-literature-tys-v1"
 MPEA_ROOM_TENSILE_TASK_ID = "mpea-room-tensile-v1"
 MPEA_HARDNESS_TASK_ID = "mpea-hardness-process-v1"
@@ -34,6 +35,7 @@ _TABULAR_PROFILES = {
     CONCRETE_TASK_ID: _DATA_ROOT / "tabular-profile-concrete-v1.json",
     WEAR_CURVE_TASK_ID: _DATA_ROOT / "tabular-profile-wear-curve-v1.json",
     BATTERY_DEGRADATION_TASK_ID: _DATA_ROOT / "tabular-profile-battery-degradation-v1.json",
+    SECOM_YIELD_TASK_ID: _DATA_ROOT / "tabular-profile-secom-yield-v1.json",
     MPEA_LEGACY_TYS_TASK_ID: _DATA_ROOT / "tabular-profile-mpea-literature-tys-v1.json",
     MPEA_ROOM_TENSILE_TASK_ID: _DATA_ROOT / "tabular-profile-mpea-room-tensile-v1.json",
     MPEA_HARDNESS_TASK_ID: _DATA_ROOT / "tabular-profile-mpea-hardness-v1.json",
@@ -351,7 +353,11 @@ def _tabular_starter(task_id: str, name: str) -> StarterProject:
                 (row for row in eligible if target in row["outputs"]),
                 key=lambda row: float(row["outputs"][target]),
             )
-            indexes = (len(comparable) // 4, len(comparable) // 2, len(comparable) * 3 // 4)
+            indexes = (
+                (len(comparable) // 4, len(comparable) // 2, len(comparable) - 1)
+                if data.profile.model_family == "lightgbm_binary"
+                else (len(comparable) // 4, len(comparable) // 2, len(comparable) * 3 // 4)
+            )
             selected = [comparable[index] for index in indexes]
         return [
             candidate_from_observation(row, data.profile).model_copy(
@@ -457,7 +463,7 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         package_override_env="MATERIAL_WORKBENCH_BATTERY_DEGRADATION_MODEL_PACKAGE",
         source_env="WORKBENCH_BATTERY_DEGRADATION_SOURCE_PATH",
         source_kind="external_battery_degradation",
-        default_source=Path("data/source/external/battery_cycle_samples.csv"),
+        default_source=Path("data/source/external/battery_calce_cs2_cycles.csv"),
         data_loader=_tabular_loader(BATTERY_DEGRADATION_TASK_ID),
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(BATTERY_DEGRADATION_TASK_ID),
@@ -465,6 +471,20 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         starter_project=_tabular_starter(BATTERY_DEGRADATION_TASK_ID, "電池容量劣化"),
         response_curve=_standard_response_curve,
         curve_family=_curve_family,
+        data_explorer=_TABULAR_EXPLORER,
+    ),
+    SECOM_YIELD_TASK_ID: TaskModule(
+        task_id=SECOM_YIELD_TASK_ID,
+        package_override_env="MATERIAL_WORKBENCH_SECOM_YIELD_MODEL_PACKAGE",
+        source_env="WORKBENCH_SECOM_YIELD_SOURCE_PATH",
+        source_kind="external_secom",
+        default_source=Path("data/source/external/secom_stress.csv"),
+        data_loader=_tabular_loader(SECOM_YIELD_TASK_ID),
+        runtime_factory=_tabular_runtime,
+        feature_row_builder=_tabular_features(SECOM_YIELD_TASK_ID),
+        model_builder=_tabular_builder(SECOM_YIELD_TASK_ID),
+        starter_project=_tabular_starter(SECOM_YIELD_TASK_ID, "SECOM工程異常リスク"),
+        response_curve=_standard_response_curve,
         data_explorer=_TABULAR_EXPLORER,
     ),
     MPEA_LEGACY_TYS_TASK_ID: TaskModule(

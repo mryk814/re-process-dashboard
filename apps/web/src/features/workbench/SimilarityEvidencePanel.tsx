@@ -11,6 +11,7 @@ import {
   requestInferenceSurface,
   resolveInferenceSurface,
 } from "./inferenceSurfaceState";
+import { similarObservationRowKey } from "./similarObservationIdentity";
 
 function formatNumber(value: number, digits = 0) {
   return value.toLocaleString("ja-JP", {
@@ -98,6 +99,11 @@ export function SimilarityEvidencePanel({
         ? [{ output, summary: { mean: raw, std: 0, n: 1 } }]
         : [];
   });
+  const isBinaryMeasurement = (output: TaskOutputDefinition) => (
+    output.unit === "1"
+    && output.plausibility_range?.min === 0
+    && output.plausibility_range?.max === 1
+  );
   const add = async (entityKey: string) => {
     setAddingKey(entityKey);
     try {
@@ -132,11 +138,11 @@ export function SimilarityEvidencePanel({
         <div className="similar-table-scroll"><table className={`similar-table similar-summary-table${hasMeltKey ? "" : " no-melt-key"}`}>
           <thead><tr><th>距離</th>{hasMeltKey && <th>溶製成績書 key</th>}<th>{processLabel} key</th><th>実績値</th><th /></tr></thead>
           <tbody>{similar.map((item) => (
-            <tr key={`${item.layer ?? "training"}-${item.parent_key}`}>
+            <tr key={similarObservationRowKey(item)}>
               <td className="similar-distance"><b>{item.distance.toFixed(2)}</b><span className="layer-chip historical">参照データ</span></td>
               {hasMeltKey && <td><span className="similar-key" title={item.melt_key ?? undefined}>{item.melt_key ?? "—"}</span></td>}
               <td><span className="similar-key" title={item.process_key ?? item.parent_key}>{item.process_key ?? item.parent_key}</span></td>
-              <td><div className="similar-value-list">{measuredOutputs(item).map(({ output, summary }) => { const assessment = assessOutputValues(output, [summary.mean], "実測値"); return <span className={assessment.implausible ? "implausible-output" : undefined} key={output.key} title={assessment.warning ?? `${output.label}: ${formatNumber(summary.mean, 1)} ± ${formatNumber(summary.std, 1)} ${output.unit} / n=${summary.n}`}><b>{output.key === "lambda" ? "λ" : output.key}</b><strong>{formatNumber(summary.mean, 1)}</strong>{assessment.implausible && <small className="output-warning-badge">⚠</small>}</span>; })}</div></td>
+              <td><div className="similar-value-list">{measuredOutputs(item).map(({ output, summary }) => { const assessment = assessOutputValues(output, [summary.mean], "実測値"); const binary = isBinaryMeasurement(output); const value = binary ? (summary.mean >= 0.5 ? "fail" : "pass") : formatNumber(summary.mean, 1); return <span className={assessment.implausible ? "implausible-output" : undefined} key={output.key} title={assessment.warning ?? (binary ? `${output.label}: ${value} / n=${summary.n}` : `${output.label}: ${formatNumber(summary.mean, 1)} ± ${formatNumber(summary.std, 1)} ${output.unit} / n=${summary.n}`)}><b>{output.key === "lambda" ? "λ" : output.label}</b><strong>{value}</strong>{assessment.implausible && <small className="output-warning-badge">⚠</small>}</span>; })}</div></td>
               <td className="similar-action-cell">
                 <CandidateAddButton compact disabled={!item.process_key || addingKey === item.process_key || addedKeys.includes(item.process_key ?? "")} onClick={() => { if (item.process_key) void add(item.process_key); }}>
                   {addedKeys.includes(item.process_key ?? "") ? "追加済み" : addingKey === item.process_key ? "追加中…" : "実測から候補化"}

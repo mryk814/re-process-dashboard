@@ -1,0 +1,22 @@
+{
+  "id": "battery-degradation-v1-profile-transform",
+  "version": "1.0.0",
+  "canonical_input_paths": [
+    "process.discharge_rate_c",
+    "process.cycle_index"
+  ],
+  "features": [
+    {
+      "name": "process.discharge_rate_c",
+      "unit": "C",
+      "meaning": "process.discharge_rate_c raw value",
+      "group": "process"
+    },
+    {
+      "name": "process.cycle_index",
+      "unit": "cycle",
+      "meaning": "process.cycle_index raw value",
+      "group": "process"
+    }
+  ]
+}

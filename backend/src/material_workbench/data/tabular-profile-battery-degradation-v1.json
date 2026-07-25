@@ -1,40 +1,38 @@
 {
   "schema_version": "tabular-dataset-profile/v1",
-  "profile_id": "external-battery-degradation-v1",
-  "name": "外部例題：電池容量劣化",
+  "profile_id": "calce-cs2-battery-capacity-v1",
+  "name": "CALCE CS2実測：電池容量劣化",
   "task_id": "battery-degradation-v1",
-  "package_id": "battery-degradation-lightgbm-external-v1",
+  "package_id": "battery-degradation-lightgbm-calce-v1",
   "id_column": "cell_id",
   "group_column": "cell_id",
   "curve_axis_path": "process.cycle_index",
   "model_family": "lightgbm_monotone",
   "monotone_decreasing_paths": ["process.cycle_index"],
   "inputs": [
-    {"path":"process.ambient_temp_c","column":"ambient_temp_c","kind":"number","unit":"℃","transform":"linear"},
-    {"path":"process.charge_rate_c","column":"charge_rate_c","kind":"number","unit":"C","transform":"linear"},
-    {"path":"process.discharge_rate_c","column":"discharge_rate_c","kind":"number","unit":"C","transform":"linear"},
-    {"path":"process.depth_of_discharge","column":"depth_of_discharge","kind":"number","unit":"比率","transform":"linear"},
-    {"path":"process.cycle_index","column":"cycle_index","kind":"number","unit":"cycle","transform":"linear"},
-    {"path":"categorical.cell_type","column":"cell_type","kind":"categorical","choices":["LFP_graphite","NMC_graphite","NCA_graphite"]}
-  ],
-  "outputs": [
-    {"key":"capacity_percent","column":"capacity_percent","unit":"%","lower_bound":0,"upper_bound":110}
-  ],
-  "quality_rules": [
     {
-      "id": "negative-capacity-ah",
-      "column": "capacity_ah",
-      "label": "容量",
-      "kind": "below_minimum",
-      "minimum": 0
+      "path": "process.discharge_rate_c",
+      "column": "discharge_rate_c",
+      "kind": "number",
+      "unit": "C",
+      "transform": "linear"
     },
     {
-      "id": "capacity-percent-floor",
-      "column": "capacity_percent",
-      "label": "容量維持率",
-      "kind": "repeated_value_fraction",
-      "value": 45,
-      "fraction": 0.1
+      "path": "process.cycle_index",
+      "column": "cycle_index",
+      "kind": "number",
+      "unit": "cycle",
+      "transform": "linear"
     }
-  ]
+  ],
+  "outputs": [
+    {
+      "key": "capacity_percent",
+      "column": "capacity_percent",
+      "unit": "%",
+      "lower_bound": 0,
+      "upper_bound": 110
+    }
+  ],
+  "quality_rules": []
 }

@@ -1,0 +1,92 @@
+{
+  "id": "secom-yield-risk-v1-profile-transform",
+  "version": "1.0.0",
+  "canonical_input_paths": [
+    "process.sensor_059",
+    "process.sensor_103",
+    "process.sensor_130",
+    "process.sensor_102",
+    "process.sensor_019",
+    "process.sensor_021",
+    "process.sensor_348",
+    "process.sensor_033",
+    "process.sensor_477",
+    "process.sensor_064",
+    "process.sensor_090",
+    "process.sensor_287"
+  ],
+  "features": [
+    {
+      "name": "process.sensor_059",
+      "unit": "",
+      "meaning": "process.sensor_059 raw value",
+      "group": "process"
+    },
+    {
+      "name": "process.sensor_103",
+      "unit": "",
+      "meaning": "process.sensor_103 raw value",
+      "group": "process"
+    },
+    {
+      "name": "process.sensor_130",
+      "unit": "",
+      "meaning": "process.sensor_130 raw value",
+      "group": "process"
+    },
+    {
+      "name": "process.sensor_102",
+      "unit": "",
+      "meaning": "process.sensor_102 raw value",
+      "group": "process"
+    },
+    {
+      "name": "process.sensor_019",
+      "unit": "",
+      "meaning": "process.sensor_019 raw value",
+      "group": "process"
+    },
+    {
+      "name": "process.sensor_021",
+      "unit": "",
+      "meaning": "process.sensor_021 raw value",
+      "group": "process"
+    },
+    {
+      "name": "process.sensor_348",
+      "unit": "",
+      "meaning": "process.sensor_348 raw value",
+      "group": "process"
+    },
+    {
+      "name": "process.sensor_033",
+      "unit": "",
+      "meaning": "process.sensor_033 raw value",
+      "group": "process"
+    },
+    {
+      "name": "process.sensor_477",
+      "unit": "",
+      "meaning": "process.sensor_477 raw value",
+      "group": "process"
+    },
+    {
+      "name": "process.sensor_064",
+      "unit": "",
+      "meaning": "process.sensor_064 raw value",
+      "group": "process"
+    },
+    {
+      "name": "process.sensor_090",
+      "unit": "",
+      "meaning": "process.sensor_090 raw value",
+      "group": "process"
+    },
+    {
+      "name": "process.sensor_287",
+      "unit": "",
+      "meaning": "process.sensor_287 raw value",
+      "group": "process"
+    }
+  ]
+}

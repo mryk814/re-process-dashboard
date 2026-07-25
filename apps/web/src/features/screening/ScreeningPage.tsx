@@ -5,6 +5,7 @@ import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
 import { SvgChartTooltip } from "../../shared/ui/SvgChartTooltip";
 import { assessPrediction, clampToRange, resolveOutputDefinition } from "../../shared/outputPresentation";
 import { ScreeningBaseEditor } from "./ScreeningBaseEditor";
+import { ScreeningRepresentativeTable } from "./ScreeningRepresentativeTable";
 
 function cloneScreeningCandidate(candidate: Candidate): Candidate {
   return {
@@ -726,35 +727,15 @@ export function ScreeningPage({
             {focusedPoint.warnings?.map((warning) => <p className="warning" key={warning}>{warning}</p>)}
             {(focusedPoint.similar ?? []).length > 0 && <p><b>近い実績:</b> {(focusedPoint.similar ?? []).slice(0, 3).map((item) => `${item.observation_id || item.parent_key} (距離 ${number(item.distance, 2)})`).join(" / ")}</p>}
           </section>}
-          <table className="quality-table">
-            <thead>
-              <tr>
-                <th>選択</th>
-                <th>代表点</th>
-                <th>条件</th>
-                <th>全予測 / 支持度</th>
-              </tr>
-            </thead>
-            <tbody>
-              {result.representative_points.map((point) => (
-                <tr key={point.index}>
-                  <td><input type="checkbox" aria-label={`点 ${point.index + 1}を選択`} checked={selectedPointIndices.includes(point.index)} disabled={stockedPointIndices.has(point.index)} onChange={() => togglePoint(point.index)} /></td>
-                  <td>{point.index + 1}</td>
-                  <td>
-                    {Object.entries(point.inputs)
-                      .map(
-                        ([key, value]) =>
-                          `${key}: ${typeof value === "number" ? number(value, 3) : value}`,
-                      )
-                      .join(" / ")}
-                  </td>
-                  <td>
-                    {Object.entries({ [result.target]: point.prediction, ...(point.predictions ?? {}) }).map(([key, prediction]) => { const output = resolveOutputDefinition(outputs, key); const assessment = assessPrediction(output, prediction); return <span className={assessment.implausible ? "implausible-output" : undefined} title={assessment.warning ?? undefined} key={key}>{output?.label ?? key} {number(prediction.value, 1)} {prediction.unit}{assessment.implausible && <small className="output-warning-badge">⚠ 物理範囲外</small>}</span>; })}<br /><small>{point.support.message}{stockedPointIndices.has(point.index) ? " / stock済み" : ""}</small>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <ScreeningRepresentativeTable
+            result={result}
+            outputs={outputs}
+            options={options}
+            baseCandidateLabel={candidates.find((candidate) => candidate.id === result.base_candidate_id)?.label ?? "基準候補"}
+            selectedPointIndices={selectedPointIndices}
+            stockedPointIndices={stockedPointIndices}
+            onToggle={togglePoint}
+          />
         </>
       )}
     </div>

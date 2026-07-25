@@ -110,13 +110,13 @@ export function CurveFamilyPanel({
   const requestIdentity = JSON.stringify({ projectId, candidateId: candidate.id, revision: candidate.raw.revision, inputIdentity, varyId, levels, outputKeys, axisPath });
   const payloads = loadedPayloads.scopeIdentity === scopeIdentity ? loadedPayloads.values : {};
   useEffect(() => {
-    if (!ready || !axisPath || !outputs.length) return;
+    if (!ready || !axisPath || !varyId || !outputs.length) return;
     const controller = new AbortController();
     setError(null);
     const timer = window.setTimeout(async () => {
       try {
         const loaded = await Promise.all(outputs.map((output) =>
-          workbenchApi.curveFamily(projectId, candidate.id, candidate.raw.revision, inputIdentity, output.key, varyId, varyId ? levels : 2, 15, controller.signal)));
+          workbenchApi.curveFamily(projectId, candidate.id, candidate.raw.revision, inputIdentity, output.key, varyId, levels, 15, controller.signal)));
         if (controller.signal.aborted) return;
         setLoadedPayloads({ scopeIdentity, values: Object.fromEntries(outputs.map((output, index) => [output.key, loaded[index]])) });
         setError(null);
@@ -131,20 +131,20 @@ export function CurveFamilyPanel({
   const firstPayload = outputs.map((output) => payloads[output.key]).find(Boolean);
   const legendSeries = firstPayload?.series ?? [];
   return (
-    <section className="response-curves-panel curve-family-panel" aria-label={`${axisLabel}に沿った特性曲線`}>
+    <section className="response-curves-panel curve-family-panel" aria-label={`${axisLabel}に沿った二変数感度`}>
       <div className="panel-title">
         <div className="response-curves-title-group">
-          <h2>特性曲線 <span>（横軸: {axisLabel}。選んだ変数を数水準ふって重ね描き）</span></h2>
-          {varyId && legendSeries.length > 1 ? (
+          <h2>二変数感度 <span>（横軸: {axisLabel}。もう1変数の水準ごとに比較）</span></h2>
+          {legendSeries.length > 1 ? (
             <div className="candidate-color-legend" aria-label="水準の凡例">
               {legendSeries.map((series, index) => (
                 <span key={series.label}><i style={{ background: levelColor(index, legendSeries.length) }} />{series.label}</span>
               ))}
             </div>
-          ) : <span className="curve-scope">現在の候補の曲線</span>}
+          ) : null}
         </div>
-        <label>ふる変数 <select aria-label="水準をふる変数" value={varyId} onChange={(event) => setVaryId(event.target.value)}>
-          <option value="">なし（現在の候補のみ）</option>
+        <label>比較する変数 <select aria-label="水準を比較する変数" value={varyId} onChange={(event) => setVaryId(event.target.value)}>
+          <option value="">選択してください</option>
           {varyOptions.length ? <optgroup label="数値">
             {varyOptions.map((input) => <option key={input.path} value={input.path}>{input.label}{input.unit ? ` (${input.unit})` : ""}</option>)}
           </optgroup> : null}
@@ -156,12 +156,12 @@ export function CurveFamilyPanel({
           {[3, 5, 7].map((count) => <option key={count} value={count}>{count}</option>)}
         </select></label> : null}
       </div>
-      {!ready && !firstPayload ? <p className="empty-evidence">入力を保存後に更新します。</p> : error && !firstPayload ? <p className="empty-evidence">曲線を取得できません。 ({error.message})</p> : !firstPayload ? <p className="empty-evidence">曲線を読み込んでいます。</p> : (
+      {!varyId ? <p className="curve-family-prompt">比較する変数を選ぶと、{axisLabel}との組み合わせによる変化を確認できます。</p> : !ready && !firstPayload ? <p className="empty-evidence">入力を保存後に更新します。</p> : error && !firstPayload ? <p className="empty-evidence">曲線を取得できません。 ({error.message})</p> : !firstPayload ? <p className="empty-evidence">曲線を読み込んでいます。</p> : (
         <div className={`response-curves-grid output-count-${Math.min(outputs.length, 4)}`}>
           {outputs.map((output) => {
             const payload = payloads[output.key];
             if (!payload) return <article key={output.key} className="response-curve-card"><header><b>{output.label}</b><span>読み込み中</span></header></article>;
-            return <CurveFamilyChart key={output.key} output={output} payload={payload} goalValue={targetValues[output.key]} showVaryLevels={Boolean(varyId)} />;
+            return <CurveFamilyChart key={output.key} output={output} payload={payload} goalValue={targetValues[output.key]} />;
           })}
         </div>
       )}
@@ -173,16 +173,14 @@ function CurveFamilyChart({
   output,
   payload,
   goalValue,
-  showVaryLevels,
 }: {
   output: TaskOutputDefinition;
   payload: ApiCurveFamily;
   goalValue?: TargetGoal;
-  showVaryLevels: boolean;
 }) {
   const width = 300;
   const height = 156;
-  const series = showVaryLevels ? payload.series : payload.series.slice(0, 1);
+  const series = payload.series;
   const points = series.flatMap((item) => item.points);
   const minX = payload.axis.min;
   const maxX = payload.axis.max;
@@ -468,7 +466,7 @@ export function LiveResponseCurves({
           </div>
         </div>
         <div className="response-curve-controls">
-          <label>変数 <select aria-label="応答曲線の設計変数" value={activeVariableId} disabled={axisSaving || axisDraftDirty} onChange={(event) => { setAxisSettingsOpen(false); setAxisDraftDirty(false); setVariableId(event.target.value); }}>{[...new Set(variables.map((variable) => variable.group))].map((group) => <optgroup key={group} label={group}>{variables.filter((variable) => variable.group === group).map((variable) => <option key={variable.id} value={variable.id}>{variable.label} ({variable.unit})</option>)}</optgroup>)}</select></label>
+          <label>変数 <select aria-label="応答曲線の設計変数" value={activeVariableId} disabled={axisSaving || axisDraftDirty} onChange={(event) => { setAxisSettingsOpen(false); setAxisDraftDirty(false); setVariableId(event.target.value); }}>{[...new Set(variables.map((variable) => variable.group))].map((group) => <optgroup key={group} label={group}>{variables.filter((variable) => variable.group === group).map((variable) => <option key={variable.id} value={variable.id}>{variable.label}{variable.unit ? ` (${variable.unit})` : ""}</option>)}</optgroup>)}</select></label>
           <label>Y軸 <select aria-label="Y軸の表示範囲" value={outputRangeMode} onChange={(event) => setOutputRangeMode(event.target.value as "preferred" | "full" | "configured")}><option value="preferred">推奨範囲</option><option value="full">全範囲</option>{Object.keys(responseCurveRanges.y ?? {}).length > 0 && <option value="configured">保存設定</option>}</select></label>
           <button ref={axisSettingsButtonRef} type="button" className={`outline-button curve-range-button${axisSettingsOpen ? " active" : ""}`} aria-label={axisSettingsOpen ? "軸範囲設定を閉じる" : "軸範囲を設定"} title={axisSettingsOpen ? "軸範囲設定を閉じる" : "軸範囲を設定"} aria-expanded={axisSettingsOpen} aria-controls="response-curve-axis-settings" onClick={axisSettingsOpen ? () => setAxisSettingsOpen(false) : openAxisSettings}>
             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 8.3a3.7 3.7 0 1 0 0 7.4 3.7 3.7 0 0 0 0-7.4Zm8.1 4.9v-2.4l-2.3-.7a7.4 7.4 0 0 0-.7-1.6l1.1-2.1-1.7-1.7-2.1 1.1a7.4 7.4 0 0 0-1.6-.7L12.1 3H9.7L9 5.3a7.4 7.4 0 0 0-1.6.7L5.3 4.9 3.6 6.6l1.1 2.1a7.4 7.4 0 0 0-.7 1.6l-2.3.7v2.4l2.3.7a7.4 7.4 0 0 0 .7 1.6l-1.1 2.1 1.7 1.7 2.1-1.1a7.4 7.4 0 0 0 1.6.7l.7 2.3h2.4l.7-2.3a7.4 7.4 0 0 0 1.6-.7l2.1 1.1 1.7-1.7-1.1-2.1a7.4 7.4 0 0 0 .7-1.6l2.3-.7Z" /></svg>
@@ -584,6 +582,8 @@ function ResponseCurveMiniChart({
   const width = 300;
   const height = 156;
   const points = series.flatMap((item) => item.points);
+  const binary = prediction?.target_kind === "binary"
+    || points.some((point) => point.target_kind === "binary");
   const minX = xRange?.min ?? Math.min(...points.map((point) => point.x), 0);
   const maxX = xRange?.max ?? Math.max(...points.map((point) => point.x), 1);
   const outputAxisValues = yRange
@@ -606,16 +606,24 @@ function ResponseCurveMiniChart({
   const y = (value: number) => 124 - ((clampToRange(value, visibleRange) - minValue) / Math.max(1, maxValue - minValue)) * 92;
   const xTicks = [minX, (minX + maxX) / 2, maxX];
   const declaredQuantiles = [...new Set(points.flatMap((point) => Object.keys(point.quantiles ?? {})))].sort((left, right) => Number(left) - Number(right));
-  const quantileLabel = declaredQuantiles.length ? `分位線 ${declaredQuantiles.map((level) => `q${Math.round(Number(level) * 100)}`).join("・")}` : "予測線";
+  const quantileLabel = binary
+    ? "校正済み点確率"
+    : declaredQuantiles.length
+      ? `分位線 ${declaredQuantiles.map((level) => `q${Math.round(Number(level) * 100)}`).join("・")}`
+      : "予測線";
   const yTicks = [minValue, (minValue + maxValue) / 2, maxValue];
   const xDigits = chartDigits(minX, maxX);
   const yDigits = output.key === "EL" || output.key === "lambda" ? 1 : chartDigits(minValue, maxValue);
+  const yText = (value: number) => binary
+    ? `${number(value * 100, 1)}%`
+    : `${number(value, yDigits)} ${output.unit}`.trim();
+  const xAxisLabel = xUnit ? `${xLabel} (${xUnit})` : xLabel;
   const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; lines: string[] } | null>(null);
   return (
     <article className="response-curve-card">
-      <header><b>{output.label}</b><span>{prediction ? `${number(prediction.value, output.key === "EL" || output.key === "lambda" ? 1 : 0)} ${prediction.unit} / ${quantileLabel}` : "読み込み中"}</span>{clippedPoints.length > 0 && <span className="curve-clipped-summary" title="表示範囲外の実値は各点の詳細で確認できます">表示外 {clippedPoints.length}点</span>}</header>
+      <header><b>{output.label}</b><span>{prediction ? `${yText(prediction.value)} / ${quantileLabel}` : "読み込み中"}</span>{clippedPoints.length > 0 && <span className="curve-clipped-summary" title="表示範囲外の実値は各点の詳細で確認できます">表示外 {clippedPoints.length}点</span>}</header>
       {series.length ? <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${output.label}の応答曲線、${quantileLabel}`}>
-        {yTicks.map((tick) => <g key={tick}><line x1="28" y1={y(tick)} x2="284" y2={y(tick)} stroke="#e3e9f0" /><text x="25" y={y(tick) + 3} textAnchor="end" fontSize="9" fill="#617087">{number(tick, yDigits)}</text></g>)}
+        {yTicks.map((tick) => <g key={tick}><line x1="28" y1={y(tick)} x2="284" y2={y(tick)} stroke="#e3e9f0" /><text x="25" y={y(tick) + 3} textAnchor="end" fontSize="9" fill="#617087">{binary ? number(tick * 100, 0) : number(tick, yDigits)}</text></g>)}
         {xTicks.map((tick) => <line key={`grid-${tick}`} x1={x(tick)} y1="32" x2={x(tick)} y2="124" stroke="#edf1f6" />)}
         {series.map((item) => {
           const color = candidateColor(item.candidate.id, selectedId);
@@ -626,15 +634,15 @@ function ResponseCurveMiniChart({
             : null);
           return <g key={item.candidate.id}><path d={band} fill={color} opacity={item.candidate.id === selectedId ? ".18" : ".08"} />{quantileLines}<path d={line} fill="none" stroke={color} strokeWidth={item.candidate.id === selectedId ? "2.5" : "1.5"} opacity={item.candidate.id === selectedId ? "1" : ".78"} />{item.points.map((point) => <circle
             className="svg-chart-hit-target" tabIndex={-1} key={`${item.candidate.id}-${point.x}`} cx={x(point.x)} cy={y(point.value)} r="5" fill="transparent"
-            aria-label={`${item.candidate.label}, ${xLabel} ${number(point.x, xDigits)}, ${output.label} ${number(point.value, yDigits)} ${output.unit}`}
-            onMouseEnter={() => setHoveredPoint({ x: x(point.x), y: y(point.value), lines: [item.candidate.label, `${xLabel} ${number(point.x, xDigits)} ${xUnit}`, `${output.label} ${number(point.value, yDigits)} ${output.unit}`, `予測区間 ${number(point.lower, yDigits)}–${number(point.upper, yDigits)}`] })}
+            aria-label={`${item.candidate.label}, ${xLabel} ${number(point.x, xDigits)}, ${output.label} ${yText(point.value)}`}
+            onMouseEnter={() => setHoveredPoint({ x: x(point.x), y: y(point.value), lines: [item.candidate.label, `${xLabel} ${number(point.x, xDigits)} ${xUnit}`.trim(), `${output.label} ${yText(point.value)}`, binary ? "校正済み点確率" : `予測区間 ${number(point.lower, yDigits)}–${number(point.upper, yDigits)}`] })}
             onMouseLeave={() => setHoveredPoint(null)}
           />)}{item.prediction && Number.isFinite(item.currentX) && <circle
             className="svg-chart-hit-target" tabIndex={0} cx={x(item.currentX)} cy={y(item.prediction.value)} r={item.candidate.id === selectedId ? "4" : "2.5"} fill="#fff" stroke={color} strokeWidth={item.candidate.id === selectedId ? "2.5" : "1.5"}
-            aria-label={`${item.candidate.label}の現在値、${xLabel} ${number(item.currentX, xDigits)}、${output.label} ${number(item.prediction.value, yDigits)} ${output.unit}`}
-            onMouseEnter={() => setHoveredPoint({ x: x(item.currentX), y: y(item.prediction!.value), lines: [item.candidate.label, `現在の${xLabel} ${number(item.currentX, xDigits)} ${xUnit}`, `${output.label} ${number(item.prediction!.value, yDigits)} ${output.unit}`, `予測区間 ${number(item.prediction!.lower, yDigits)}–${number(item.prediction!.upper, yDigits)}`] })}
+            aria-label={`${item.candidate.label}の現在値、${xLabel} ${number(item.currentX, xDigits)}、${output.label} ${yText(item.prediction.value)}`}
+            onMouseEnter={() => setHoveredPoint({ x: x(item.currentX), y: y(item.prediction!.value), lines: [item.candidate.label, `現在の${xLabel} ${number(item.currentX, xDigits)} ${xUnit}`.trim(), `${output.label} ${yText(item.prediction!.value)}`, binary ? "校正済み点確率" : `予測区間 ${number(item.prediction!.lower, yDigits)}–${number(item.prediction!.upper, yDigits)}`] })}
             onMouseLeave={() => setHoveredPoint(null)}
-            onFocus={() => setHoveredPoint({ x: x(item.currentX), y: y(item.prediction!.value), lines: [item.candidate.label, `現在の${xLabel} ${number(item.currentX, xDigits)} ${xUnit}`, `${output.label} ${number(item.prediction!.value, yDigits)} ${output.unit}`, `予測区間 ${number(item.prediction!.lower, yDigits)}–${number(item.prediction!.upper, yDigits)}`] })}
+            onFocus={() => setHoveredPoint({ x: x(item.currentX), y: y(item.prediction!.value), lines: [item.candidate.label, `現在の${xLabel} ${number(item.currentX, xDigits)} ${xUnit}`.trim(), `${output.label} ${yText(item.prediction!.value)}`, binary ? "校正済み点確率" : `予測区間 ${number(item.prediction!.lower, yDigits)}–${number(item.prediction!.upper, yDigits)}`] })}
             onBlur={() => setHoveredPoint(null)}
           />}</g>;
         })}
@@ -643,7 +651,7 @@ function ResponseCurveMiniChart({
         {clippedBelow > 0 && <text className="curve-clip-indicator" x="280" y="121" textAnchor="end">▼ {clippedBelow}</text>}
         {xTicks.map((tick) => <text key={tick} x={x(tick)} y="137" textAnchor="middle" fontSize="8" fill="#617087">{number(tick, xDigits)}</text>)}
         {hoveredPoint && <SvgChartTooltip {...hoveredPoint} chartWidth={width} chartHeight={height} />}
-        <text x="156" y="153" textAnchor="middle" fontSize="8" fill="#617087">{xLabel} ({xUnit})</text>
+        <text x="156" y="153" textAnchor="middle" fontSize="8" fill="#617087">{xAxisLabel}</text>
       </svg> : <p className="empty-evidence">読み込み中…</p>}
     </article>
   );

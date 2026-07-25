@@ -24,10 +24,10 @@ def test_startup_registers_runtime_resources_and_binds_projects(
         assert projects["default"]["dataset_view_revision_id"] == projects["hot-rolling-default"]["dataset_view_revision_id"]
         assert projects["default"]["model_package_ref_id"] != projects["hot-rolling-default"]["model_package_ref_id"]
         assert projects["default"]["project_series_id"] != projects["hot-rolling-default"]["project_series_id"]
-        assert len(catalog.list_data_assets()) == 8
-        assert len(catalog.list_dataset_revisions()) == 10
-        assert len(catalog.list_dataset_view_revisions()) == 10
-        assert len(catalog.list_model_package_refs()) == 16
+        assert len(catalog.list_data_assets()) == 9
+        assert len(catalog.list_dataset_revisions()) == 11
+        assert len(catalog.list_dataset_view_revisions()) == 11
+        assert len(catalog.list_model_package_refs()) == 17
 
 
 def test_bootstrap_is_idempotent_and_preserves_first_binding(

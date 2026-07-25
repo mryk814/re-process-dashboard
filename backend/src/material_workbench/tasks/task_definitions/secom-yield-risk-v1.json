@@ -1,0 +1,127 @@
+{
+  "task_definition": {
+    "schema_version": "task-definition/v1",
+    "id": "secom-yield-risk-v1",
+    "label": "SECOM実測：工程異常リスク",
+    "canonical_candidate_schema_version": "canonical-candidate/v1",
+    "input_groups": [
+      {
+        "key": "process",
+        "order": 0,
+        "label": "代表センサ値",
+        "fields": [
+          {"path":"process.sensor_059","kind":"number","order":0,"label":"センサ 059","unit":"","required":true,"editable":true,"default_range":{"min":-11.883417,"max":28.348862},"allowed_range":{"min":-28.9882,"max":168.1455},"training_range":{"min":-28.9882,"max":168.1455}},
+          {"path":"process.sensor_103","kind":"number","order":1,"label":"センサ 103","unit":"","required":true,"editable":true,"default_range":{"min":-0.015344,"max":-0.0019},"allowed_range":{"min":-0.0329,"max":0.0203},"training_range":{"min":-0.0329,"max":0.0203}},
+          {"path":"process.sensor_130","kind":"number","order":2,"label":"センサ 130","unit":"","required":true,"editable":true,"default_range":{"min":0.5438,"max":0.8764},"allowed_range":{"min":0.4199,"max":0.8884},"training_range":{"min":0.4199,"max":0.8884}},
+          {"path":"process.sensor_102","kind":"number","order":3,"label":"センサ 102","unit":"","required":true,"editable":true,"default_range":{"min":-0.13398,"max":0.1718},"allowed_range":{"min":-0.5353,"max":0.2979},"training_range":{"min":-0.5353,"max":0.2979}},
+          {"path":"process.sensor_019","kind":"number","order":4,"label":"センサ 019","unit":"","required":true,"editable":true,"default_range":{"min":12.126676,"max":12.649},"allowed_range":{"min":9.8773,"max":12.9898},"training_range":{"min":9.8773,"max":12.9898}},
+          {"path":"process.sensor_021","kind":"number","order":5,"label":"センサ 021","unit":"","required":true,"editable":true,"default_range":{"min":-6624.18,"max":-2667.42},"allowed_range":{"min":-7150.25,"max":0},"training_range":{"min":-7150.25,"max":0}},
+          {"path":"process.sensor_348","kind":"number","order":6,"label":"センサ 348","unit":"","required":true,"editable":true,"default_range":{"min":0.011542,"max":0.064728},"allowed_range":{"min":0.0103,"max":0.22},"training_range":{"min":0.0103,"max":0.22}},
+          {"path":"process.sensor_033","kind":"number","order":7,"label":"センサ 033","unit":"","required":true,"editable":true,"default_range":{"min":8.1166,"max":13.5481},"allowed_range":{"min":7.6032,"max":23.3453},"training_range":{"min":7.6032,"max":23.3453}},
+          {"path":"process.sensor_477","kind":"number","order":8,"label":"センサ 477","unit":"","required":true,"editable":true,"default_range":{"min":2.2436,"max":15.07592},"allowed_range":{"min":1.6872,"max":289.8264},"training_range":{"min":1.6872,"max":289.8264}},
+          {"path":"process.sensor_064","kind":"number","order":9,"label":"センサ 064","unit":"","required":true,"editable":true,"default_range":{"min":11.0095,"max":37.442638},"allowed_range":{"min":6.4482,"max":48.9882},"training_range":{"min":6.4482,"max":48.9882}},
+          {"path":"process.sensor_090","kind":"number","order":10,"label":"センサ 090","unit":"","required":true,"editable":true,"default_range":{"min":7931.0755,"max":9853.2196},"allowed_range":{"min":7397.31,"max":10746.6},"training_range":{"min":7397.31,"max":10746.6}},
+          {"path":"process.sensor_287","kind":"number","order":11,"label":"センサ 287","unit":"","required":true,"editable":true,"default_range":{"min":0.066463,"max":1.052974},"allowed_range":{"min":0.0513,"max":292.2274},"training_range":{"min":0.0513,"max":292.2274}}
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "key": "fail_probability",
+        "label": "異常確率",
+        "unit": "1",
+        "goal_direction": "at_most",
+        "measurement_keys": ["fail_probability"],
+        "plausibility_range": {"min": 0, "max": 1},
+        "preferred_display_range": {"min": 0, "max": 1}
+      }
+    ],
+    "display_decimals": {
+      "process.sensor_059": 3,
+      "process.sensor_103": 5,
+      "process.sensor_130": 4,
+      "process.sensor_102": 4,
+      "process.sensor_019": 4,
+      "process.sensor_021": 2,
+      "process.sensor_348": 5,
+      "process.sensor_033": 4,
+      "process.sensor_477": 4,
+      "process.sensor_064": 4,
+      "process.sensor_090": 2,
+      "process.sensor_287": 5,
+      "output.fail_probability": 3
+    },
+    "fixed_context": [
+      {"path":"context.source","order":0,"label":"データ","value":"UCI SECOM / CC BY 4.0 / 実測1,567件"},
+      {"path":"context.target","order":1,"label":"目的","value":"製造工程のpass / fail（二値分類）"},
+      {"path":"context.selection","order":2,"label":"入力","value":"層化fold内の選択頻度から採用した代表12センサ。590列を一括編集しません"},
+      {"path":"context.caution","order":3,"label":"注意","value":"匿名センサのため、変数効果を因果関係として解釈しません"}
+    ],
+    "constraints": [],
+    "response_curve_variables": [
+      {"kind":"numeric_input","order":0,"label":"センサ 059","path":"process.sensor_059"},
+      {"kind":"numeric_input","order":1,"label":"センサ 103","path":"process.sensor_103"},
+      {"kind":"numeric_input","order":2,"label":"センサ 130","path":"process.sensor_130"},
+      {"kind":"numeric_input","order":3,"label":"センサ 102","path":"process.sensor_102"},
+      {"kind":"numeric_input","order":4,"label":"センサ 019","path":"process.sensor_019"},
+      {"kind":"numeric_input","order":5,"label":"センサ 021","path":"process.sensor_021"},
+      {"kind":"numeric_input","order":6,"label":"センサ 348","path":"process.sensor_348"},
+      {"kind":"numeric_input","order":7,"label":"センサ 033","path":"process.sensor_033"},
+      {"kind":"numeric_input","order":8,"label":"センサ 477","path":"process.sensor_477"},
+      {"kind":"numeric_input","order":9,"label":"センサ 064","path":"process.sensor_064"},
+      {"kind":"numeric_input","order":10,"label":"センサ 090","path":"process.sensor_090"},
+      {"kind":"numeric_input","order":11,"label":"センサ 287","path":"process.sensor_287"}
+    ],
+    "curve_axis_path": null
+  },
+  "canonical_candidate": {
+    "schema_version": "canonical-candidate/v1",
+    "task_id": "secom-yield-risk-v1",
+    "composition": {},
+    "process": {
+      "sensor_059": 0.94725,
+      "sensor_103": -0.0101,
+      "sensor_130": 0.75875,
+      "sensor_102": 0,
+      "sensor_019": 12.4996,
+      "sensor_021": -5523.25,
+      "sensor_348": 0.0226,
+      "sensor_033": 8.7698,
+      "sensor_477": 5.2422,
+      "sensor_064": 20.02135,
+      "sensor_090": 8825.4351,
+      "sensor_287": 0.13895
+    },
+    "heat_pattern": null,
+    "categorical": {},
+    "provenance": {"source_kind":"direct","source_ref":null}
+  },
+  "runtime_capability": {
+    "schema_version": "runtime-capability/v1",
+    "task_id": "secom-yield-risk-v1",
+    "model_package_schema_version": "model-package/v1",
+    "targets": [
+      {
+        "target": "fail_probability",
+        "point_statistics": ["probability"],
+        "standard_deviation": false,
+        "quantiles": false,
+        "samples": false,
+        "parametric_distribution": true,
+        "uncertainty_components": false,
+        "support": true,
+        "warnings": true,
+        "goal_probability": "unavailable"
+      }
+    ],
+    "joint_samples": false,
+    "operations": {
+      "preview": true,
+      "detailed_prediction": true,
+      "response_curve": true,
+      "similarity": true,
+      "snapshot": true,
+      "actual_measurement": true
+    }
+  }
+}

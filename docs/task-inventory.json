@@ -318,7 +318,7 @@
     },
     {
       "task_id": "battery-degradation-v1",
-      "label": "電池容量劣化",
+      "label": "CALCE実測：電池容量劣化",
       "outputs": [
         {
           "key": "capacity_percent",
@@ -328,17 +328,17 @@
       ],
       "source": {
         "kind": "external_battery_degradation",
-        "path": "data/source/external/battery_cycle_samples.csv",
-        "sha256": "49831491555f62ffc51527fc1f2e5e4c24a0409acf9abd9d30cf4f04faf0061e",
-        "profile_id": "external-battery-degradation-v1",
+        "path": "data/source/external/battery_calce_cs2_cycles.csv",
+        "sha256": "bd2ab1b43b826c2376d3c692b264b34f886ab7bfdfb23ce81421a1c07bd45cc3",
+        "profile_id": "calce-cs2-battery-capacity-v1",
         "profile_path": "backend/src/material_workbench/data/tabular-profile-battery-degradation-v1.json"
       },
       "active_package": {
-        "path": "packages/battery-degradation-lightgbm-external-v1",
+        "path": "packages/battery-degradation-lightgbm-calce-v1",
         "previous": null,
-        "package_id": "battery-degradation-lightgbm-external-v1",
+        "package_id": "battery-degradation-lightgbm-calce-v1",
         "version": "1.0.0",
-        "manifest_sha256": "0e9efdaa3527e975f4767623c9d1344dd048930ce39ef641361ffe2e553e678d",
+        "manifest_sha256": "27258872d2a8cd9e408bdf56b3426670d33e5c3fd38806e1c6fe71fa65b9375f",
         "runtime_types": [
           "lightgbm.booster.v1"
         ]
@@ -350,7 +350,55 @@
         "similarity": true,
         "target_specific_similarity": false,
         "snapshot": true,
-        "actual_measurement": false
+        "actual_measurement": true
+      },
+      "application_capability": {
+        "project_creation": true,
+        "candidate_excel_import": false,
+        "candidate_excel_export": false
+      },
+      "data_explorer": {
+        "schema_version": "data-explorer-capability/v1",
+        "quality": true,
+        "lineage": false,
+        "candidate_creation": false
+      }
+    },
+    {
+      "task_id": "secom-yield-risk-v1",
+      "label": "SECOM実測：工程異常リスク",
+      "outputs": [
+        {
+          "key": "fail_probability",
+          "label": "異常確率",
+          "unit": "1"
+        }
+      ],
+      "source": {
+        "kind": "external_secom",
+        "path": "data/source/external/secom_stress.csv",
+        "sha256": "c0f74512d055466c6e048430d21debeb413dd402d73a983d69286f1d2522df5b",
+        "profile_id": "uci-secom-yield-v1",
+        "profile_path": "backend/src/material_workbench/data/tabular-profile-secom-yield-v1.json"
+      },
+      "active_package": {
+        "path": "packages/secom-yield-lightgbm-calibrated-v1",
+        "previous": null,
+        "package_id": "secom-yield-lightgbm-calibrated-v1",
+        "version": "1.0.0",
+        "manifest_sha256": "116946246837f698703dfb803fa8fb92273c421dda39f802685a04b1d99c7e92",
+        "runtime_types": [
+          "lightgbm.booster.v1"
+        ]
+      },
+      "runtime_operations": {
+        "preview": true,
+        "detailed_prediction": true,
+        "response_curve": true,
+        "similarity": true,
+        "target_specific_similarity": false,
+        "snapshot": true,
+        "actual_measurement": true
       },
       "application_capability": {
         "project_creation": true,

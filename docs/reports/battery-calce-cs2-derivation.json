@@ -1,0 +1,77 @@
+{
+  "schema_version": "calce-cs2-derivation-report/v1",
+  "source": {
+    "provider": "CALCE Battery Research Group, University of Maryland",
+    "landing_page": "https://calce.umd.edu/data",
+    "cells": [
+      "CS2_33",
+      "CS2_34",
+      "CS2_35",
+      "CS2_36"
+    ],
+    "archives": [
+      {
+        "name": "CS2_33.zip",
+        "sha256": "ce375e3826e840ff0986ceade0d324ba6515f0446697c947353aca097f232505",
+        "bytes": 45345047
+      },
+      {
+        "name": "CS2_34.zip",
+        "sha256": "229dcdc836f140f746c26316569c357b346994fddd3be1223b1e457805c484b4",
+        "bytes": 43836986
+      },
+      {
+        "name": "CS2_35.zip",
+        "sha256": "84d88cb98a43c02049f16c78806a78ec19084776ea5df8a4b7c2f8f7ba4589e5",
+        "bytes": 37056519
+      },
+      {
+        "name": "CS2_36.zip",
+        "sha256": "2e674f58bb6dc005c73bef10e87edbbd97afd041dde77a1d461a3c4ecac1b027",
+        "bytes": 37881685
+      }
+    ]
+  },
+  "derivation": {
+    "training_row": "one complete discharge cycle",
+    "capacity": "increment of cumulative Discharge_Capacity(Ah) within each workbook",
+    "complete_cycle_range_ah": [
+      0.5,
+      1.35
+    ],
+    "capacity_percent_reference": "median of the first five retained cycles per cell",
+    "duplicate_workbooks": "deduplicated by SHA-256 within each cell archive"
+  },
+  "rows": 3131,
+  "derived_csv_sha256": "bd2ab1b43b826c2376d3c692b264b34f886ab7bfdfb23ce81421a1c07bd45cc3",
+  "cells": [
+    {
+      "cell_id": "CS2_33",
+      "discharge_rate_c": 0.5,
+      "cycles": 724,
+      "reference_capacity_ah": 1.15932578,
+      "minimum_capacity_percent": 43.4893
+    },
+    {
+      "cell_id": "CS2_34",
+      "discharge_rate_c": 0.5,
+      "cycles": 770,
+      "reference_capacity_ah": 1.15158432,
+      "minimum_capacity_percent": 44.8084
+    },
+    {
+      "cell_id": "CS2_35",
+      "discharge_rate_c": 1.0,
+      "cycles": 829,
+      "reference_capacity_ah": 1.13748104,
+      "minimum_capacity_percent": 43.9924
+    },
+    {
+      "cell_id": "CS2_36",
+      "discharge_rate_c": 1.0,
+      "cycles": 808,
+      "reference_capacity_ah": 1.14313255,
+      "minimum_capacity_percent": 43.9163
+    }
+  ]
+}

@@ -31,6 +31,7 @@ export function ModelTrainingDataInspector({
   const [page, setPage] = useState<ApiModelTrainingDataPage | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const detailsRef = useRef<HTMLDetailsElement>(null);
   const tableWrapRef = useRef<HTMLDivElement>(null);
   const limit = 25;
 
@@ -77,7 +78,14 @@ export function ModelTrainingDataInspector({
       setOffset(page.rows.length);
     }
   };
-  return <details className="model-training-data" open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
+  return <details
+    ref={detailsRef}
+    className="model-training-data"
+    open={open}
+    onToggle={(event) => {
+      if (event.target === detailsRef.current) setOpen((event.target as HTMLDetailsElement).open);
+    }}
+  >
     <summary>
       <span><b>学習データ</b><small>原値からモデル入力まで確認</small></span>
       {page && <em>{page.total.toLocaleString("ja-JP")}行 · {page.parent_conditions.toLocaleString("ja-JP")}条件</em>}

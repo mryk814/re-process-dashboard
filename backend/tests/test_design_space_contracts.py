@@ -26,17 +26,12 @@ def _battery_space(**updates: object) -> DesignSpaceDefinition:
         "task_contract_digest": semantic_digest(task.model_dump(mode="json")),
         "numeric_domains": (
             NumericDomain(
-                path="process.ambient_temp_c",
+                path="process.discharge_rate_c",
                 mode="range",
-                range=NumericRange(min=20, max=40),
+                range=NumericRange(min=0.5, max=1.0),
             ),
         ),
-        "categorical_domains": (
-            CategoricalDomain(
-                path="categorical.cell_type",
-                choices=("LFP_graphite", "NMC_graphite"),
-            ),
-        ),
+        "categorical_domains": (),
     }
     payload.update(updates)
     return DesignSpaceDefinition.model_validate(payload)
@@ -48,9 +43,9 @@ def test_design_space_can_only_narrow_task_definition() -> None:
 
     wider = _battery_space(numeric_domains=(
         NumericDomain(
-            path="process.ambient_temp_c",
+            path="process.discharge_rate_c",
             mode="range",
-            range=NumericRange(min=-100, max=120),
+            range=NumericRange(min=0.01, max=8),
         ),
     ))
     with pytest.raises(ValueError, match="許容範囲"):
@@ -58,13 +53,18 @@ def test_design_space_can_only_narrow_task_definition() -> None:
 
 
 def test_design_space_categories_are_task_subset() -> None:
-    task = load_task_contracts()["battery-degradation-v1"].task_definition
-    invalid = _battery_space(categorical_domains=(
-        CategoricalDomain(
-            path="categorical.cell_type",
-            choices=("unknown-cell",),
-        ),
-    ))
+    task = load_task_contracts()["heat-treatment-tradeoff-v1"].task_definition
+    invalid = DesignSpaceDefinition(
+        schema_version="design-space-definition/v1",
+        design_space_id="invalid-alloy-family",
+        name="不正な合金区分",
+        task_id=task.id,
+        task_contract_digest=semantic_digest(task.model_dump(mode="json")),
+        categorical_domains=(CategoricalDomain(
+            path="categorical.alloy_family",
+            choices=("unknown-alloy",),
+        ),),
+    )
     with pytest.raises(ValueError, match="選択肢"):
         invalid.validate_against(task)
 

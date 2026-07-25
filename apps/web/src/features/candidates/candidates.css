@@ -172,12 +172,26 @@
 .comparison-detail-table .prediction-col { width: 88px; }
 .comparison-detail-table .uncertainty-col { width: 118px; }
 .comparison-detail-table .goal-col { width: 92px; }
+.comparison-detail-table .decision-output-col,
+.comparison-detail-table .decision-output-cell { width: 116px; }
 .comparison-detail-table .support-header { width: 72px; }
 .comparison-detail-table .prediction-cell { background: #f7faff; }
 .comparison-detail-table .metric-value { display: flex; align-items: baseline; justify-content: flex-end; gap: 3px; font-weight: 700; }
 .comparison-detail-table .prediction-cell .metric-value { width: 100%; overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .comparison-detail-table .metric-value em { grid-column: 1 / -1; color: #5d6d83; font-size: 10px; font-style: normal; font-weight: 500; }
 .comparison-detail-table .support-cell { width: 72px; background: #fff; }
+.decision-output-cell { padding-block: 4px !important; background: #f8fbff; line-height: 1.25; }
+.decision-output-cell > span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.decision-prediction { color: #1f5fc4; font-size: 11px; font-weight: 700; }
+.decision-prediction small,
+.decision-interval small { display: inline; margin-left: 3px; color: #a04900; font-size: 9px; font-weight: 700; }
+.decision-interval { margin-top: 2px; color: #5f7085; font-size: 9px; cursor: help; }
+.decision-goal { margin-top: 2px; font-size: 9px; font-weight: 700; }
+.decision-goal.is-ready { color: #147255; }
+.decision-goal.needs-attention { color: #a04900; }
+.comparison-prediction-table .target-support-list { min-width: 0; }
+.comparison-prediction-table .target-support-list > span { grid-template-columns: minmax(0, 1fr) 8px auto; }
+.comparison-prediction-table .target-support-list b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .comparison-prediction-table .uncertainty-cell { background: #fbfcfe; }
 .comparison-prediction-table .goal-cell { background: #f6fbf8; }
 .uncertainty-value,

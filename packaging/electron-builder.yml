@@ -49,8 +49,10 @@ extraResources:
     to: models/packages/concrete-strength-ridge-external-v1
   - from: models/packages/wear-curve-ridge-external-v1
     to: models/packages/wear-curve-ridge-external-v1
-  - from: models/packages/battery-degradation-lightgbm-external-v1
-    to: models/packages/battery-degradation-lightgbm-external-v1
+  - from: models/packages/battery-degradation-lightgbm-calce-v1
+    to: models/packages/battery-degradation-lightgbm-calce-v1
+  - from: models/packages/secom-yield-lightgbm-calibrated-v1
+    to: models/packages/secom-yield-lightgbm-calibrated-v1
   - from: models/packages/mpea-literature-tys-ridge-v1
     to: models/packages/mpea-literature-tys-ridge-v1
   - from: models/packages/mpea-room-tensile-ridge-v1

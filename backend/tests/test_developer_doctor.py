@@ -31,6 +31,7 @@ def test_doctor_report_has_stable_json_contract() -> None:
         "concrete-strength-v1",
         "wear-curve-v1",
         "battery-degradation-v1",
+        "secom-yield-risk-v1",
         "mpea-literature-tys-v1",
         "mpea-room-tensile-v1",
         "mpea-hardness-process-v1",
