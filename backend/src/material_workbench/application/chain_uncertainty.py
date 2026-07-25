@@ -57,7 +57,11 @@ def combine_additive_stage_samples(
     intrinsic = np.asarray(intrinsic_samples, dtype=float)
     if conditional.shape != intrinsic.shape or conditional.ndim != 1:
         raise ValueError("conditional and intrinsic samples must be aligned vectors")
-    if not np.isfinite(conditional).all() or not np.isfinite(intrinsic).all():
+    if (
+        not np.isfinite(conditional).all()
+        or not np.isfinite(intrinsic).all()
+        or not np.isfinite(fixed_point)
+    ):
         raise ValueError("Monte Carlo samples must be finite")
     return conditional + intrinsic - float(fixed_point)
 
