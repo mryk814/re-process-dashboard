@@ -33,7 +33,7 @@ def evaluate_screening_goal(
         return ScreeningScore(max(0.0, support_distance), "support_distance", None, None)
 
     if direction == "target":
-        return ScreeningScore(abs(prediction - target_value), "absolute_distance", prediction == target_value, None)
+        return ScreeningScore(abs(prediction - target_value), "absolute_distance", None, None)
 
     achieved = prediction >= target_value if direction == "at_least" else prediction <= target_value
     if achievement_probability is not None:

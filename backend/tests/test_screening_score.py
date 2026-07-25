@@ -49,3 +49,12 @@ def test_unset_target_has_explicit_support_distance_contract() -> None:
     assert evaluation.score == 0.42
     assert evaluation.method == "support_distance"
     assert score_contract("at_least", None)["fallback"] == "support_distance"
+
+
+def test_directionless_target_ranks_by_distance_without_claiming_failure() -> None:
+    evaluation = evaluate_screening_goal(499.9, target_value=500, direction="target")
+
+    assert evaluation.score == pytest.approx(0.1)
+    assert evaluation.method == "absolute_distance"
+    assert evaluation.achieved is None
+    assert score_contract("target", 500)["display_label"] == "目標値に近いほど有望"
