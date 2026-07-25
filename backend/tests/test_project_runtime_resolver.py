@@ -145,10 +145,15 @@ def test_resolver_cache_never_crosses_task_identity(client, monkeypatch) -> None
         return resolved
 
     monkeypatch.setattr(resolver, "_build", build)
+    other_task_id = next(
+        task_id
+        for task_id in client.app.state.task_registry.task_ids
+        if task_id != project.task_id
+    )
     resolver.resolve(project)
-    resolver.resolve(project.model_copy(update={"task_id": "different-task"}))
+    resolver.resolve(project.model_copy(update={"task_id": other_task_id}))
 
-    assert builds == [project.task_id, "different-task"]
+    assert builds == [project.task_id, other_task_id]
 
 
 def test_project_pinned_package_identity_drives_runtime_and_inference_key(client, monkeypatch) -> None:
