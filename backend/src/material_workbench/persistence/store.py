@@ -617,6 +617,35 @@ class Store:
                 or conn.execute("SELECT 1 FROM decision_activity_runs WHERE candidate_id=?", (candidate_id,)).fetchone()
             )
             if not referenced:
+                for derived_row in conn.execute(
+                    "SELECT id,payload FROM candidates WHERE id<>?",
+                    (candidate_id,),
+                ):
+                    try:
+                        derived_payload = json.loads(derived_row["payload"])
+                    except (TypeError, json.JSONDecodeError) as exc:
+                        raise StoreDataIntegrityError(
+                            f"候補 {derived_row['id']} の派生元を確認できません"
+                        ) from exc
+                    provenance = (
+                        derived_payload.get("provenance")
+                        if isinstance(derived_payload, dict)
+                        else None
+                    )
+                    source_ref = (
+                        provenance.get("source_ref")
+                        if isinstance(provenance, dict)
+                        and provenance.get("source_kind") == "copy"
+                        else None
+                    )
+                    if (
+                        isinstance(source_ref, dict)
+                        and source_ref.get("candidate_id") == candidate_id
+                        and source_ref.get("project_id") == project_id
+                    ):
+                        referenced = True
+                        break
+            if not referenced:
                 for screening_row in conn.execute("SELECT payload FROM screening_runs WHERE project_id=?", (project_id,)):
                     try:
                         screening_payload = json.loads(screening_row["payload"])

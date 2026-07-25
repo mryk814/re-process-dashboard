@@ -81,6 +81,9 @@ def test_candidate_revisions_are_immutable_and_copy_can_pin_an_old_revision(clie
         f"{source_url}?expected_revision={updated['revision']}"
     ).status_code == 204
     assert client.get(source_url).status_code == 404
+    archived_source = client.get(f"{source_url}?include_archived=true")
+    assert archived_source.status_code == 200
+    assert archived_source.json()["archived_at"] is not None
     assert client.get(f"{source_url}/revisions/{source['revision']}").json()["name"] == "派生元 v1"
     assert client.get(
         f"/api/projects/default/candidates/{derived.json()['id']}/derivation-chain"
