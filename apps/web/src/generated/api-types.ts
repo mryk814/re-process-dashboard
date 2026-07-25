@@ -124,6 +124,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/developer/observation-training-data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Observation Training Data */
+        get: operations["get_observation_training_data_api_developer_observation_training_data_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/developer/observation-training-profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Observation Training Profiles */
+        get: operations["get_observation_training_profiles_api_developer_observation_training_profiles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/developer/overview": {
         parameters: {
             query?: never;
@@ -1888,6 +1922,25 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** FamilyTrainingSummary */
+        FamilyTrainingSummary: {
+            /** Excluded Input Rows */
+            excluded_input_rows: number;
+            /** Exclusion Reasons */
+            exclusion_reasons: {
+                [key: string]: number;
+            };
+            /** Family */
+            family: string;
+            /** Source Rows */
+            source_rows: number;
+            /** Split Groups */
+            split_groups: number;
+            /** Targets */
+            targets: components["schemas"]["TargetTrainingSummary"][];
+            /** Usable Input Rows */
+            usable_input_rows: number;
+        };
         /** FeaturePipelineIdentity */
         FeaturePipelineIdentity: {
             /** Features */
@@ -2519,6 +2572,97 @@ export interface components {
             std: number;
             /** Test Type */
             test_type: string;
+        };
+        /** ObservationRowProvenance */
+        ObservationRowProvenance: {
+            /** Entity Keys */
+            entity_keys: {
+                [key: string]: string;
+            };
+            /** Relation Rows */
+            relation_rows: number[];
+            /** Relation Sheet */
+            relation_sheet: string;
+            /** Source Row */
+            source_row: number;
+            /** Source Sheet */
+            source_sheet: string;
+        };
+        /** ObservationTrainingInspectionPage */
+        ObservationTrainingInspectionPage: {
+            /** Exclusion Reasons */
+            exclusion_reasons: {
+                [key: string]: number;
+            };
+            /** Family */
+            family: string;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Profile Digest */
+            profile_digest: string;
+            /** Profile Id */
+            profile_id: string;
+            /** Rows */
+            rows: components["schemas"]["ObservationTrainingRow"][];
+            /** Source Rows */
+            source_rows: number;
+            /** Source Sha256 */
+            source_sha256: string;
+            /** Split Groups */
+            split_groups: number;
+            /** Target */
+            target: string;
+            /** Usable Rows */
+            usable_rows: number;
+        };
+        /** ObservationTrainingProfileSummary */
+        ObservationTrainingProfileSummary: {
+            /** Families */
+            families: components["schemas"]["FamilyTrainingSummary"][];
+            /** Profile Digest */
+            profile_digest: string;
+            /** Profile Id */
+            profile_id: string;
+            /** Source Filename */
+            source_filename: string;
+            /** Source Sha256 */
+            source_sha256: string;
+        };
+        /** ObservationTrainingRow */
+        ObservationTrainingRow: {
+            /** Eligible */
+            eligible: boolean;
+            /** Exclusion Reasons */
+            exclusion_reasons: string[];
+            /** Family */
+            family: string;
+            /** Fixed Context */
+            fixed_context: {
+                [key: string]: string | number | boolean | null;
+            };
+            /** Inputs */
+            inputs: {
+                [key: string]: string | number | boolean | null;
+            };
+            /** Metadata */
+            metadata: {
+                [key: string]: string | number | boolean | null;
+            };
+            /** Observation Id */
+            observation_id: string;
+            /** Outputs */
+            outputs: {
+                [key: string]: number;
+            };
+            provenance: components["schemas"]["ObservationRowProvenance"];
+            /** Split Group Key */
+            split_group_key: string | null;
+            /** Target Status */
+            target_status: {
+                [key: string]: components["schemas"]["TargetCurationState"];
+            };
         };
         /** OperationDiagnostic */
         OperationDiagnostic: {
@@ -3947,6 +4091,16 @@ export interface components {
             /** Supported Threshold */
             supported_threshold: number;
         };
+        /** TargetCurationState */
+        TargetCurationState: {
+            /**
+             * Reasons
+             * @default []
+             */
+            reasons: string[];
+            /** Usable */
+            usable: boolean;
+        };
         /** TargetRange */
         TargetRange: {
             /** Lower */
@@ -3979,6 +4133,19 @@ export interface components {
             uncertainty_components: boolean;
             /** Warnings */
             warnings: boolean;
+        };
+        /** TargetTrainingSummary */
+        TargetTrainingSummary: {
+            /** Exclusion Reasons */
+            exclusion_reasons: {
+                [key: string]: number;
+            };
+            /** Split Groups */
+            split_groups: number;
+            /** Target */
+            target: string;
+            /** Usable Rows */
+            usable_rows: number;
         };
         /** TaskAvailability */
         TaskAvailability: {
@@ -4375,6 +4542,88 @@ export interface operations {
             };
             /** @description Validation Error */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    get_observation_training_data_api_developer_observation_training_data_get: {
+        parameters: {
+            query: {
+                family: string;
+                limit?: number;
+                offset?: number;
+                profile_id: string;
+                target: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ObservationTrainingInspectionPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Observation Profile Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    get_observation_training_profiles_api_developer_observation_training_profiles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ObservationTrainingProfileSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Observation Profile Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

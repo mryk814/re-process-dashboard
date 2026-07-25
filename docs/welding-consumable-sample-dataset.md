@@ -3,7 +3,8 @@
 `data/source/welding_consumable_multistage_synthetic_dataset.xlsx` は、原料配合から特性までが多段になる問題を模した合成データです。
 実測値ではありません。[多段Chainアーキテクチャ](decisions/multistage-chain-architecture.md) の方針を、契約や画面を作る前に具体的な行と列で確認するために使います。
 
-本番タスク、Dataset Input Profile、Model Packageには接続していません。データだけが先に存在する状態です。
+Stage Cの観測familyを組み立てるDataset Profile契約には接続済みです。
+本番TaskとModel Packageへの接続はPhase 0の次工程で行います。
 
 ## 再生成
 
@@ -12,6 +13,29 @@ npm run data:build:welding-sample
 ```
 
 `--blends`、`--runs`、`--seed`、`--output` を指定できます。既定は乱数seed `20260725`、配合120件、施工300件で、同じseedなら同じ内容を再生成します。
+
+## Stage Cの正規化artifact
+
+```powershell
+npm run data:build:welding-stage-c-views
+```
+
+元Excelは変更せず、`data/derived/welding-consumable-stage-c/` に次を生成します。
+`data/derived/` は再生成物なのでGit管理しません。
+
+- `tensile.jsonl`：引張試験の600観測
+- `charpy.jsonl`：シャルピー試験の2,700観測
+- `corrosion.jsonl`：腐食試験の103観測
+- `summary.json`：family・目的変数ごとの利用行数、施工group数、除外理由
+
+読取規則の正本は
+`backend/src/material_workbench/data/observation-profile-welding-consumable-stage-c-v1.json`
+です。
+各行は試験キー、溶接施工キー、溶接条件キー、溶着金属成分キーをprovenanceとして保持します。
+分割groupは試験片ではなく溶接施工キーです。
+`relationEx` は結合索引にだけ使い、relationの行を複製しても学習候補行は増えません。
+
+画面では「開発・管理 → Developer Center → 学習View」で、family・目的変数ごとの利用行数、施工group数、除外理由と観測行を確認できます。
 
 ## 段の構造
 

@@ -35,6 +35,8 @@ def test_windows_bundle_declares_active_model_configuration_and_packages() -> No
 
     for resource in required_resources:
         assert (resource, resource) in packaged_resources
+    welding_source = "data/source/welding_consumable_multistage_synthetic_dataset.xlsx"
+    assert (welding_source, welding_source) in packaged_resources
 
 
 def test_windows_packaging_checks_every_registered_default_source(tmp_path: Path) -> None:
@@ -125,6 +127,7 @@ def test_packaged_launcher_uses_active_model_configuration_as_single_source() ->
         "MATERIAL_WORKBENCH_FLANK_WEAR_MODEL_PACKAGE:",
     ):
         assert override not in desktop_launcher
+    assert "WORKBENCH_RESOURCE_ROOT: resources" in desktop_launcher
 
 
 def test_application_icon_is_configured_for_windows_and_web() -> None:
