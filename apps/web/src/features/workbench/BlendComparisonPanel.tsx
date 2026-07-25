@@ -98,8 +98,9 @@ export function BlendComparisonPanel({
       .flat()
       .find((item) => item.material_id === materialId);
   const origin = [...columns].reverse().find((item) => item.historical);
-  const originMaterials = origin
-    ? new Map((materialsByCandidate[origin.key] ?? []).map((item) => [item.material_id, item]))
+  const originMaterialList = origin ? materialsByCandidate[origin.key] : undefined;
+  const originMaterials = originMaterialList
+    ? new Map(originMaterialList.map((item) => [item.material_id, item]))
     : null;
   const originCost = origin && originMaterials
     ? blendCost(origin.candidate, originMaterials)
@@ -125,12 +126,14 @@ export function BlendComparisonPanel({
             <tr>
               <th>原料</th>
               {columns.map((column) => {
+                const materialList = materialsByCandidate[column.key];
                 const materials = new Map(
-                  (materialsByCandidate[column.key] ?? [])
-                    .map((item) => [item.material_id, item]),
+                  (materialList ?? []).map((item) => [item.material_id, item]),
                 );
-                const cost = blendCost(column.candidate, materials);
-                const delta = originCost == null || column.historical
+                const cost = materialList == null
+                  ? null
+                  : blendCost(column.candidate, materials);
+                const delta = originCost == null || cost == null || column.historical
                   ? null
                   : cost - originCost;
                 return (
@@ -139,7 +142,9 @@ export function BlendComparisonPanel({
                     {column.candidate.name}
                     <small>revision {column.candidate.revision}</small>
                     <small>
-                      {cost.toLocaleString("ja-JP", { maximumFractionDigits: 0 })} 円/kg-core
+                      {cost == null
+                        ? (error ? "コスト未取得" : "コスト読込中")
+                        : `${cost.toLocaleString("ja-JP", { maximumFractionDigits: 0 })} 円/kg-core`}
                       {delta == null ? "" : ` (${delta >= 0 ? "+" : ""}${delta.toLocaleString("ja-JP", { maximumFractionDigits: 0 })})`}
                     </small>
                   </th>
