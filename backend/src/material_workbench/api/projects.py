@@ -13,7 +13,14 @@ from ..application.projects import (
     ProjectValidationError,
 )
 from material_workbench.contracts.schemas import Project, ProjectCreateInput, ProjectDecisionInput, ProjectGroupMoveInput, ProjectHistoryResponse, ProjectUpdateInput
-from material_workbench.persistence.store import ProjectGroupConflictError, ProjectHasSuccessorsError, ProjectNotFoundError, ProtectedProjectError, Store
+from material_workbench.persistence.store import (
+    ProjectGroupConflictError,
+    ProjectHasDerivedCandidatesError,
+    ProjectHasSuccessorsError,
+    ProjectNotFoundError,
+    ProtectedProjectError,
+    Store,
+)
 from material_workbench.tasks.task_registry import TaskRegistry
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 
@@ -82,6 +89,8 @@ def delete_project(project_id: str, service: ProjectServiceDependency) -> Respon
         raise DomainApiException(409, "protected_project", str(exc)) from exc
     except ProjectHasSuccessorsError as exc:
         raise DomainApiException(409, "project_has_successors", str(exc)) from exc
+    except ProjectHasDerivedCandidatesError as exc:
+        raise DomainApiException(409, "project_has_derived_candidates", str(exc)) from exc
     return Response(status_code=204)
 
 

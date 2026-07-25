@@ -118,6 +118,50 @@ def test_project_crud_preserves_default_and_isolates_candidates_and_screening(cl
     assert client.delete("/api/projects/missing").status_code == 404
 
 
+def test_project_with_cross_project_derived_candidate_cannot_be_deleted(client) -> None:
+    source_project = client.post(
+        "/api/projects",
+        json=_project(client, "派生元プロジェクト"),
+    ).json()
+    derived_project = client.post(
+        "/api/projects",
+        json=_project(client, "派生先プロジェクト"),
+    ).json()
+    source = client.post(
+        f"/api/projects/{source_project['id']}/candidates",
+        json=_candidate("派生元候補"),
+    ).json()
+    derived_payload = {
+        **_candidate("派生候補"),
+        "provenance": {
+            "source_kind": "copy",
+            "source_ref": {
+                "project_id": source_project["id"],
+                "candidate_id": source["id"],
+                "candidate_revision": source["revision"],
+            },
+        },
+    }
+    derived = client.post(
+        f"/api/projects/{derived_project['id']}/candidates",
+        json=derived_payload,
+    )
+    assert derived.status_code == 201
+
+    rejected = client.delete(f"/api/projects/{source_project['id']}")
+
+    assert rejected.status_code == 409
+    assert rejected.json()["code"] == "project_has_derived_candidates"
+    assert "派生候補が別のプロジェクトにある" in rejected.json()["message"]
+    assert client.get(f"/api/projects/{source_project['id']}").status_code == 200
+    chain = client.get(
+        f"/api/projects/{derived_project['id']}/candidates/"
+        f"{derived.json()['id']}/derivation-chain"
+    )
+    assert chain.status_code == 200
+    assert chain.json()[0]["id"] == source["id"]
+
+
 def test_project_group_move_is_atomic_and_preserves_scientific_state(client) -> None:
     source_group = client.post(
         "/api/project-series",

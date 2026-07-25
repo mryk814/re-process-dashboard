@@ -1162,6 +1162,7 @@ class ApiError(BaseModel):
         "project_group_conflict",
         "protected_project",
         "project_has_successors",
+        "project_has_derived_candidates",
         "data_integrity_error",
         "validation_error",
         "runtime_unavailable",

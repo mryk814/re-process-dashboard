@@ -4,6 +4,7 @@ import math
 
 from .projects import ProjectService
 from material_workbench.contracts.blend_contracts import (
+    BlendMaterialDescriptor,
     BlendContractRegistry,
     BlendStructuralError,
     BlendValidationState,
@@ -59,14 +60,19 @@ class CandidateService:
         self.registry.require_available(project.task_id)
         if payload.provenance.source_kind == "copy":
             reference = payload.provenance.source_ref
-            source_candidate = self.store.get_candidate(
+            source_candidate = self.store.get_candidate_revision(
                 reference.candidate_id,
+                reference.candidate_revision,
                 reference.project_id,
-                include_archived=True,
             )
             if source_candidate is None:
-                raise CandidateValidationError("コピー元候補が見つかりません")
-            if source_candidate.revision != reference.candidate_revision:
+                current_source = self.store.get_candidate(
+                    reference.candidate_id,
+                    reference.project_id,
+                    include_archived=True,
+                )
+                if current_source is None:
+                    raise CandidateValidationError("コピー元候補が見つかりません")
                 raise CandidateValidationError("コピー元候補のrevisionが一致しません")
             source_project = self.projects.require(reference.project_id)
             if source_project.task_id != project.task_id:
@@ -144,10 +150,78 @@ class CandidateService:
             raise CandidateNotFoundError(candidate_id)
 
     def at_revision(self, project_id: str, candidate_id: str, expected_revision: int) -> Candidate:
-        candidate = self.get(project_id, candidate_id)
-        if candidate.revision != expected_revision:
-            raise CandidateRevisionConflictError(candidate)
+        current = self.get(project_id, candidate_id)
+        if current.revision != expected_revision:
+            raise CandidateRevisionConflictError(current)
+        return current
+
+    def historical_revision(
+        self,
+        project_id: str,
+        candidate_id: str,
+        revision: int,
+    ) -> Candidate:
+        self.projects.require(project_id)
+        candidate = self.store.get_candidate_revision(
+            candidate_id,
+            revision,
+            project_id,
+        )
+        if candidate is None:
+            raise CandidateNotFoundError(candidate_id)
         return candidate
+
+    def blend_materials(
+        self,
+        project_id: str,
+        candidate_id: str,
+        revision: int | None = None,
+    ) -> tuple[BlendMaterialDescriptor, ...]:
+        candidate = (
+            self.get(project_id, candidate_id)
+            if revision is None
+            else self.historical_revision(project_id, candidate_id, revision)
+        )
+        if candidate.blend is None:
+            return ()
+        try:
+            return self.blend_contracts.describe(candidate.blend)
+        except BlendStructuralError as exc:
+            raise CandidateValidationError(str(exc)) from exc
+
+    def derivation_chain(
+        self,
+        project_id: str,
+        candidate_id: str,
+    ) -> list[Candidate]:
+        current = self.get(project_id, candidate_id, include_archived=True)
+        chain: list[Candidate] = []
+        visited = {(current.project_id, current.id, current.revision)}
+        provenance = current.provenance
+        while provenance.source_kind == "copy":
+            reference = provenance.source_ref
+            identity = (
+                reference.project_id,
+                reference.candidate_id,
+                reference.candidate_revision,
+            )
+            if identity in visited:
+                raise CandidateValidationError("候補の派生履歴が循環しています")
+            visited.add(identity)
+            source = self.store.get_candidate_revision(
+                reference.candidate_id,
+                reference.candidate_revision,
+                reference.project_id,
+            )
+            if source is None:
+                raise CandidateValidationError(
+                    "派生元候補の指定revisionが見つかりません"
+                )
+            chain.append(source)
+            provenance = source.provenance
+            if len(chain) >= 100:
+                raise CandidateValidationError("候補の派生履歴が長すぎます")
+        return chain
 
     def _validate(self, task_id: str, payload: CandidateInput) -> None:
         try:

@@ -177,6 +177,7 @@
               "project_group_conflict",
               "protected_project",
               "project_has_successors",
+              "project_has_derived_candidates",
               "data_integrity_error",
               "validation_error",
               "runtime_unavailable"
@@ -273,6 +274,56 @@
           "ratio"
         ],
         "title": "BlendItem",
+        "type": "object"
+      },
+      "BlendMaterialDescriptor": {
+        "additionalProperties": false,
+        "properties": {
+          "d50_um": {
+            "title": "D50 Um",
+            "type": "number"
+          },
+          "group": {
+            "title": "Group",
+            "type": "string"
+          },
+          "material_id": {
+            "title": "Material Id",
+            "type": "string"
+          },
+          "material_type": {
+            "title": "Material Type",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "procurement": {
+            "enum": [
+              "常用",
+              "条件付",
+              "試作限定",
+              "廃止予定"
+            ],
+            "title": "Procurement",
+            "type": "string"
+          },
+          "unit_price_yen_per_kg_core": {
+            "title": "Unit Price Yen Per Kg Core",
+            "type": "number"
+          }
+        },
+        "required": [
+          "material_id",
+          "name",
+          "material_type",
+          "group",
+          "d50_um",
+          "procurement",
+          "unit_price_yen_per_kg_core"
+        ],
+        "title": "BlendMaterialDescriptor",
         "type": "object"
       },
       "BlendValidationIssue": {
@@ -11418,6 +11469,104 @@
         "summary": "Delete Actual"
       }
     },
+    "/api/projects/{project_id}/candidates/{candidate_id}/blend-materials": {
+      "get": {
+        "operationId": "get_candidate_blend_materials_api_projects__project_id__candidates__candidate_id__blend_materials_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Revision"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BlendMaterialDescriptor"
+                  },
+                  "title": "Response Get Candidate Blend Materials Api Projects  Project Id  Candidates  Candidate Id  Blend Materials Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Task Runtime Unavailable"
+          }
+        },
+        "summary": "Get Candidate Blend Materials"
+      }
+    },
     "/api/projects/{project_id}/candidates/{candidate_id}/curve-family": {
       "get": {
         "operationId": "getCandidateCurveFamily",
@@ -11613,6 +11762,88 @@
           }
         },
         "summary": "Run Decision Activity"
+      }
+    },
+    "/api/projects/{project_id}/candidates/{candidate_id}/derivation-chain": {
+      "get": {
+        "operationId": "get_candidate_derivation_chain_api_projects__project_id__candidates__candidate_id__derivation_chain_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Candidate"
+                  },
+                  "title": "Response Get Candidate Derivation Chain Api Projects  Project Id  Candidates  Candidate Id  Derivation Chain Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Task Runtime Unavailable"
+          }
+        },
+        "summary": "Get Candidate Derivation Chain"
       }
     },
     "/api/projects/{project_id}/candidates/{candidate_id}/predict": {
@@ -12048,6 +12279,93 @@
           }
         },
         "summary": "Response Curve"
+      }
+    },
+    "/api/projects/{project_id}/candidates/{candidate_id}/revisions/{revision}": {
+      "get": {
+        "operationId": "get_candidate_revision_api_projects__project_id__candidates__candidate_id__revisions__revision__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision",
+            "required": true,
+            "schema": {
+              "title": "Revision",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Candidate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Task Runtime Unavailable"
+          }
+        },
+        "summary": "Get Candidate Revision"
       }
     },
     "/api/projects/{project_id}/candidates/{candidate_id}/similar": {
