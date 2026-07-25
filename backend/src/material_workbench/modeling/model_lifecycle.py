@@ -375,13 +375,36 @@ def validate_lifecycle_metadata(
     return report
 
 
+def _line_ending_rewrite_hint(source_path: str, expected_digest: str) -> str:
+    """Name line-ending rewriting when it alone explains a source digest mismatch."""
+    try:
+        raw = Path(source_path).read_bytes()
+    except OSError:
+        return ""
+    if b"\r\n" not in raw:
+        return ""
+    normalized = hashlib.sha256(raw.replace(b"\r\n", b"\n")).hexdigest()
+    if f"sha256:{normalized}" != expected_digest:
+        return ""
+    return (
+        f"; {source_path} holds CRLF bytes whose LF form matches the package."
+        " The checkout rewrote line endings, so restore the committed bytes"
+        " (git checkout with the .gitattributes rules in place) instead of rebuilding the package"
+    )
+
+
 def validate_training_provenance(
     package: VerifiedModelPackage,
     data: DataDescriptor,
     contract: TaskContractFixture,
 ) -> None:
-    if package.manifest.provenance.training_data_id != f"sha256:{data.source_sha256}":
-        raise PackageContractError("model package training data digest does not match the active source")
+    expected_training_data = package.manifest.provenance.training_data_id
+    if expected_training_data != f"sha256:{data.source_sha256}":
+        raise PackageContractError(
+            "model package training data digest does not match the active source"
+            f" (package={expected_training_data}, source=sha256:{data.source_sha256})"
+            + _line_ending_rewrite_hint(data.source_path, expected_training_data)
+        )
     canonical = canonical_training_dataset(
         package.manifest.task_id,
         data,

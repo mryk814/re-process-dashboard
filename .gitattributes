@@ -1,14 +1,18 @@
-models/packages/**/*.json text eol=lf
-models/catalogs/**/*.json text eol=lf
-models/design-spaces/**/*.json text eol=lf
-models/packages/**/model-artifacts/*.txt binary
+# Every JSON under models/ is byte-addressed provenance, so one rule covers
+# active設定・Package・catalog・design space・evaluation without per-directory gaps.
+models/*.json text eol=lf
+models/**/*.json text eol=lf
+# Model artifacts are read as raw bytes, so pin them instead of relying on
+# git's text auto-detection.
+models/packages/**/model-artifacts/** binary
+examples/model-packages/**/model-artifacts/** binary
 examples/model-packages/**/*.json text eol=lf
-models/active-packages.json text eol=lf
 apps/web/src/generated/*.json text eol=lf
 apps/web/src/generated/*.ts text eol=lf
 # Dataset bytes are part of Package provenance. Never rewrite line endings,
 # including newlines embedded in quoted CSV fields.
-data/source/external/*.csv -text
+data/source/*.csv -text
+data/source/**/*.csv -text
 # Excel workbooks are also byte-addressed Package inputs.
 data/source/*.xlsx binary
 data/source/**/*.xlsx binary

@@ -54,6 +54,15 @@ PackageはPythonコード、import path、callback、pickle、joblibを含めま
 
 全ての`feature_pipeline.spec`、pipeline artifact、predictor artifactは`artifacts`配列にpath/hash/bytesとして列挙する。
 
+`training_data_id`と`feature_dataset_id`は元ファイルの生byteに対するdigestであり、
+改行の書き換えはPackageを丸ごと無効化する。`data/source`、`models`、
+`examples/model-packages`配下は`.gitattributes`で変換対象外に固定し、
+`backend/tests/test_source_byte_contracts.py`が新しい成果物の取りこぼしと
+作業ツリーの静かな書き換えを検出する。Windowsで`core.autocrlf=true`のまま
+規則追加より前にcheckoutした場合、git statusはcleanのままbyteだけがずれるため、
+`training data digest does not match the active source`が出たら
+Package再生成ではなくcommit済みbyteの復元を先に確認する。
+
 `package_kind=predictive` は従来どおりFeature Pipelineと一つ以上のpredictorを持つ。
 `package_kind=deterministic_transform` は学習済みscalar predictorではなく、独立した
 `deterministic_transforms` を持ち、Feature Pipelineとpredictorを持たない。
