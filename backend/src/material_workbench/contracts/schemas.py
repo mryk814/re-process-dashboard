@@ -642,6 +642,8 @@ class ModelQualityTarget(BaseModel):
     mae: float
     rmse: float
     interval_coverage_90: float
+    interval_coverage_method: str | None = None
+    interval_coverage_observations: int | None = None
 
 
 class ModelQualityReport(BaseModel):

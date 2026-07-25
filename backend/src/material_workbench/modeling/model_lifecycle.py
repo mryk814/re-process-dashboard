@@ -79,6 +79,13 @@ class TargetQualityMetric(LifecycleModel):
     mae: Annotated[float, Field(ge=0, allow_inf_nan=False)]
     rmse: Annotated[float, Field(ge=0, allow_inf_nan=False)]
     interval_coverage_90: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)]
+    interval_coverage_method: Literal[
+        "cross-fitted-oof-residual-quantiles",
+        "cross-fitted-oof-normal-scale",
+        "loo-predictive-interval",
+        "posterior-predictive-interval",
+    ] | None = None
+    interval_coverage_observations: Annotated[int, Field(ge=1)] | None = None
 
 
 class QualityReport(LifecycleModel):

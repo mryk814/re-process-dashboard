@@ -3713,6 +3713,28 @@
             "title": "Interval Coverage 90",
             "type": "number"
           },
+          "interval_coverage_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interval Coverage Method"
+          },
+          "interval_coverage_observations": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interval Coverage Observations"
+          },
           "mae": {
             "title": "Mae",
             "type": "number"

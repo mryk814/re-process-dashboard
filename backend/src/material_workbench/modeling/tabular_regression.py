@@ -186,6 +186,7 @@ class TabularDatasetProfile(BaseModel):
     interaction_axis_path: str | None = None
     model_family: Literal["ridge", "lightgbm_monotone", "lightgbm_binary"] = "ridge"
     ridge_alpha: float = Field(default=1.0, gt=0)
+    num_boost_round: int | None = Field(default=None, ge=1)
     monotone_decreasing_paths: tuple[str, ...] = ()
     inputs: tuple[TabularInput, ...] = Field(min_length=1)
     outputs: tuple[TabularOutput, ...] = Field(min_length=1)
@@ -221,6 +222,8 @@ class TabularDatasetProfile(BaseModel):
             raise ValueError("only lightgbm_monotone accepts monotone_decreasing_paths")
         if self.model_family != "ridge" and self.ridge_alpha != 1:
             raise ValueError("ridge_alpha is only valid for ridge")
+        if (self.model_family.startswith("lightgbm")) != (self.num_boost_round is not None):
+            raise ValueError("LightGBM profiles require a fixed num_boost_round")
         if self.curation_recipe is not None:
             declared = set(self.curation_recipe.columns)
             required = {

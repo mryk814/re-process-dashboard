@@ -50,7 +50,8 @@ from material_workbench.tasks.task_registry import load_task_contracts
 
 PACKAGE_ID = "annealed-lightgbm-standard-tutorial-v1"
 PACKAGE_VERSION = "1.0.0-standard"
-TRAINING_CODE_REVISION = "lightgbm-grouped-cv-v1"
+TRAINING_CODE_REVISION = "lightgbm-grouped-fixed-round-crossfit-v2"
+NUM_BOOST_ROUND = 50
 
 
 def _digest(path: Path) -> str:
@@ -129,25 +130,20 @@ def _fit(
         raise ValueError("LightGBM training requires at least two parent conditions")
     fold_ids = np.arange(len(y)) % folds
     oof = np.empty_like(y)
-    best_iterations: list[int] = []
     for fold in range(folds):
         test = fold_ids == fold
         train = ~test
         booster = lgb.train(
             _parameters(seed + fold),
             lgb.Dataset(x[train], label=y[train], free_raw_data=False),
-            num_boost_round=1200,
-            valid_sets=[lgb.Dataset(x[test], label=y[test], reference=None)],
-            callbacks=[lgb.early_stopping(60, verbose=False), lgb.log_evaluation(0)],
+            num_boost_round=NUM_BOOST_ROUND,
+            callbacks=[lgb.log_evaluation(0)],
         )
-        best_iteration = max(int(booster.best_iteration), 1)
-        best_iterations.append(best_iteration)
-        oof[test] = booster.predict(x[test], num_iteration=best_iteration)
-    final_iterations = max(int(np.median(best_iterations)), 20)
+        oof[test] = booster.predict(x[test], num_iteration=NUM_BOOST_ROUND)
     final = lgb.train(
         _parameters(seed),
         lgb.Dataset(x, label=y),
-        num_boost_round=final_iterations,
+        num_boost_round=NUM_BOOST_ROUND,
         callbacks=[lgb.log_evaluation(0)],
     )
     residuals = y - oof
@@ -157,21 +153,32 @@ def _fit(
         1e-6,
     )
     z90 = 1.6448536269514722
+    covered = np.zeros(len(y), dtype=bool)
+    for fold in range(folds):
+        evaluate = fold_ids == fold
+        calibrate = ~evaluate
+        calibration_std = max(
+            float(np.sqrt(np.mean(residuals[calibrate] ** 2))),
+            float(np.std(y[calibrate])) * 0.05,
+            1e-6,
+        )
+        covered[evaluate] = (
+            np.abs(residuals[evaluate]) <= z90 * calibration_std
+        )
     metric = TargetQualityMetric(
         target="placeholder",
         parent_conditions=len(y),
         mae=float(np.mean(np.abs(residuals))),
         rmse=float(np.sqrt(np.mean(residuals * residuals))),
-        interval_coverage_90=float(
-            np.mean(np.abs(residuals) <= z90 * residual_std)
-        ),
+        interval_coverage_90=float(np.mean(covered)),
+        interval_coverage_method="cross-fitted-oof-normal-scale",
+        interval_coverage_observations=len(y),
     )
     diagnostics = {
         "folds": folds,
-        "fold_best_iterations": best_iterations,
-        "final_iterations": final_iterations,
+        "num_boost_round": NUM_BOOST_ROUND,
         "residual_std": residual_std,
-        "calibration": "deterministic_grouped_parent_condition_oof",
+        "calibration": "cross-fitted_grouped_parent_condition_oof",
         "parameters": _parameters(seed),
     }
     return final, residual_std, metric, diagnostics
@@ -247,7 +254,7 @@ def _build(source: Path, destination: Path, package_id: str) -> None:
                     "residual_std": residual_std,
                     "uncertainty_calibration": "grouped_parent_condition_oof",
                     "parameter_policy": "regularized_small_data_v1",
-                    "best_iteration": diagnostics["final_iterations"],
+                    "num_boost_round": diagnostics["num_boost_round"],
                 },
             }
         )
