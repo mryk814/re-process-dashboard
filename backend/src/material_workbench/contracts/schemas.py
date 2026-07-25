@@ -487,21 +487,14 @@ class ScreeningRequest(BaseModel):
 
 
 class ActualMeasurementInput(BaseModel):
-    property: Literal["TS", "YS", "EL", "lambda", "VB_mean", "VB_max"]
+    property: Annotated[str, Field(min_length=1)]
     mean: Annotated[float, Field(allow_inf_nan=False)]
     std: Annotated[float, Field(ge=0, allow_inf_nan=False)] = 0
     replicates: Annotated[int, Field(ge=1, le=999)] = 1
-    unit: Literal["MPa", "%", "µm"]
+    unit: Annotated[str, Field(min_length=1)]
     experiment_no: str = ""
     measured_at: date | None = None
     note: str = ""
-
-    @model_validator(mode="after")
-    def unit_matches_property(self) -> "ActualMeasurementInput":
-        expected = {"TS": "MPa", "YS": "MPa", "EL": "%", "lambda": "%", "VB_mean": "µm", "VB_max": "µm"}[self.property]
-        if self.unit != expected:
-            raise ValueError(f"{self.property}の単位は{expected}です")
-        return self
 
 
 class ActualMeasurement(ActualMeasurementInput):
@@ -1072,6 +1065,8 @@ class ScreeningCandidateBatchResponse(BaseModel):
 class PredictionComparison(BaseModel):
     actual: ActualMeasurement
     snapshot_id: str
+    snapshot_created_at: datetime
+    candidate_revision: int | None = None
     prediction: PredictionResponse
     provenance: ModelMetadata
 

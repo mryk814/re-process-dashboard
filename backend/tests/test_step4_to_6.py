@@ -239,6 +239,8 @@ def test_lineage_candidate_actuals_and_snapshot_restore(client) -> None:
     comparison = client.get(f"/api/projects/default/candidates/{candidate['id']}/prediction-vs-actual").json()
     assert comparison["actuals"][0]["mean"] == 505.2
     assert comparison["comparisons"][0]["snapshot_id"] == actual.json()["snapshot_id"]
+    assert comparison["comparisons"][0]["candidate_revision"] == candidate["revision"]
+    assert comparison["comparisons"][0]["snapshot_created_at"]
     assert comparison["comparisons"][0]["prediction"]["canonical_input"]["process"]["ls_mpm"] != changed["inputs"]["process"]["ls_mpm"]
     assert comparison["comparisons"][0]["provenance"]["training_data"]["source_sha256"]
     assert client.post(f"/api/projects/default/candidates/{candidate['id']}/actuals", params={"expected_revision": candidate["revision"] + 1}, json={"property": "TS", "mean": 500, "unit": "%"}).status_code == 422

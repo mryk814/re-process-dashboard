@@ -118,6 +118,63 @@ def test_store_returns_the_actual_inserted_by_id(client) -> None:
     assert store.get_snapshot(second.snapshot_id)["payload"]["marker"] == "second"
 
 
+def test_actual_input_is_not_limited_to_legacy_output_literals() -> None:
+    payload = ActualMeasurementInput(
+        property="absorbed_energy_j",
+        mean=82.5,
+        std=3.1,
+        replicates=3,
+        unit="J",
+    )
+
+    assert payload.property == "absorbed_energy_j"
+    assert payload.unit == "J"
+
+
+def test_store_reads_actuals_with_outputs_unknown_to_the_legacy_schema(client) -> None:
+    store = client.app.state.store
+    candidate = client.get("/api/projects/default/candidates").json()[0]
+    actual = store.create_snapshot_and_actual(
+        "default",
+        candidate["id"],
+        candidate["revision"],
+        {"snapshot_schema_version": "prediction-snapshot-v2"},
+        ActualMeasurementInput(
+            property="absorbed_energy_j",
+            mean=82.5,
+            unit="J",
+            experiment_no="LEGACY-C",
+        ),
+    )
+
+    reloaded = next(item for item in store.list_actuals(candidate["id"]) if item.id == actual.id)
+    assert reloaded.property == "absorbed_energy_j"
+    assert reloaded.unit == "J"
+    assert reloaded.experiment_no == "LEGACY-C"
+
+
+def test_actual_api_validates_property_and_unit_from_task_definition(client) -> None:
+    candidate = client.get("/api/projects/default/candidates").json()[0]
+    endpoint = f"/api/projects/default/candidates/{candidate['id']}/actuals"
+
+    unknown = client.post(
+        endpoint,
+        params={"expected_revision": candidate["revision"]},
+        json={"property": "absorbed_energy_j", "mean": 82.5, "unit": "J"},
+    )
+    wrong_unit = client.post(
+        endpoint,
+        params={"expected_revision": candidate["revision"]},
+        json={"property": "TS", "mean": 510, "unit": "J"},
+    )
+
+    assert unknown.status_code == 422
+    assert "予測タスク" in unknown.json()["message"]
+    assert wrong_unit.status_code == 422
+    assert "MPa" in wrong_unit.json()["message"]
+    assert client.app.state.store.list_actuals(candidate["id"]) == []
+
+
 def test_snapshot_rolls_back_when_actual_insert_fails(client) -> None:
     store = client.app.state.store
     candidate = client.get("/api/projects/default/candidates").json()[0]

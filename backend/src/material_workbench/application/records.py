@@ -111,10 +111,24 @@ class RecordService:
         project = self.projects.require(project_id)
         self.inference.require_operation(project.task_id, "actual_measurement")
         candidate = self.candidates.at_revision(project_id, candidate_id, revision)
-        outputs = {output.key: output.unit for output in self.registry.contract_for(project.task_id).task_definition.outputs}
-        if outputs.get(payload.property) != payload.unit:
-            raise RecordValidationError("実測の特性または単位が予測タスクと一致しません")
+        outputs = {
+            output.key: output
+            for output in self.registry.contract_for(project.task_id).task_definition.outputs
+        }
+        output = outputs.get(payload.property)
+        if output is None:
+            raise RecordValidationError(
+                f"実測の特性 {payload.property} は予測タスク {project.task_id} に定義されていません"
+            )
+        if payload.unit != output.unit:
+            raise RecordValidationError(
+                f"{output.label}（{payload.property}）の単位は {output.unit} です"
+            )
         result = self.inference.detailed_for(project, candidate)
+        if payload.property not in result.get("predictions", {}):
+            raise RecordIntegrityError(
+                f"固定する予測snapshotに {payload.property} の予測がありません"
+            )
         return self.store.create_snapshot_and_actual(
             project_id,
             candidate_id,
@@ -138,5 +152,19 @@ class RecordService:
             if snapshot is None:
                 raise RecordIntegrityError("実測に対応する予測スナップショットが見つかりません")
             payload = snapshot["payload"]
-            comparisons.append({"actual": actual, "snapshot_id": snapshot["id"], "prediction": payload["prediction"], "provenance": payload["provenance"]})
+            raw_candidate = payload.get("raw_candidate")
+            candidate_revision = (
+                raw_candidate.get("revision")
+                if isinstance(raw_candidate, dict)
+                and isinstance(raw_candidate.get("revision"), int)
+                else None
+            )
+            comparisons.append({
+                "actual": actual,
+                "snapshot_id": snapshot["id"],
+                "snapshot_created_at": snapshot["created_at"],
+                "candidate_revision": candidate_revision,
+                "prediction": payload["prediction"],
+                "provenance": payload["provenance"],
+            })
         return PredictionVsActualResponse(candidate_id=candidate_id, actuals=actuals, comparisons=comparisons)

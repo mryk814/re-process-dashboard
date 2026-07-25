@@ -64,14 +64,7 @@
             "type": "string"
           },
           "property": {
-            "enum": [
-              "TS",
-              "YS",
-              "EL",
-              "lambda",
-              "VB_mean",
-              "VB_max"
-            ],
+            "minLength": 1,
             "title": "Property",
             "type": "string"
           },
@@ -93,11 +86,7 @@
             "type": "number"
           },
           "unit": {
-            "enum": [
-              "MPa",
-              "%",
-              "µm"
-            ],
+            "minLength": 1,
             "title": "Unit",
             "type": "string"
           }
@@ -143,14 +132,7 @@
             "type": "string"
           },
           "property": {
-            "enum": [
-              "TS",
-              "YS",
-              "EL",
-              "lambda",
-              "VB_mean",
-              "VB_max"
-            ],
+            "minLength": 1,
             "title": "Property",
             "type": "string"
           },
@@ -168,11 +150,7 @@
             "type": "number"
           },
           "unit": {
-            "enum": [
-              "MPa",
-              "%",
-              "µm"
-            ],
+            "minLength": 1,
             "title": "Unit",
             "type": "string"
           }
@@ -4342,11 +4320,27 @@
           "actual": {
             "$ref": "#/components/schemas/ActualMeasurement"
           },
+          "candidate_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Revision"
+          },
           "prediction": {
             "$ref": "#/components/schemas/PredictionResponse"
           },
           "provenance": {
             "$ref": "#/components/schemas/ModelMetadata"
+          },
+          "snapshot_created_at": {
+            "format": "date-time",
+            "title": "Snapshot Created At",
+            "type": "string"
           },
           "snapshot_id": {
             "title": "Snapshot Id",
@@ -4356,6 +4350,7 @@
         "required": [
           "actual",
           "snapshot_id",
+          "snapshot_created_at",
           "prediction",
           "provenance"
         ],
