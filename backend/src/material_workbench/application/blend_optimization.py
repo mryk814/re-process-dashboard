@@ -16,7 +16,6 @@ from material_workbench.application.candidates import (
     CandidateValidationError,
 )
 from material_workbench.contracts.blend_contracts import (
-    BlendContractRegistry,
     BlendItem,
     BlendMaterialDescriptor,
     ResolvedBlendContracts,
@@ -32,7 +31,6 @@ from material_workbench.contracts.schemas import CandidateInput
 from material_workbench.modeling.transform_catalog import DeterministicTransformCatalog
 
 
-STAGE_A_TRANSFORM_ID = "welding-stage-a-v1"
 _ACTIVATION_RATIO_PERCENT = 1e-4
 
 
@@ -73,11 +71,9 @@ class BlendOptimizationService:
     def __init__(
         self,
         candidates: CandidateService,
-        blend_contracts: BlendContractRegistry,
         transforms: DeterministicTransformCatalog,
     ) -> None:
         self.candidates = candidates
-        self.blend_contracts = blend_contracts
         self.transforms = transforms
 
     def context(
@@ -91,22 +87,39 @@ class BlendOptimizationService:
             raise CandidateValidationError("基準候補のrevisionが一致しません")
         if baseline.blend is None:
             raise CandidateValidationError("配合を持つ候補だけを逆算できます")
-        contracts = self.blend_contracts.resolve(baseline.blend)
-        artifact = self._artifact(contracts)
+        contracts = self.transforms.resolve_blend(baseline.blend)
         commercial = {
             item.material_id: item for item in contracts.commercial_catalog.materials
         }
         descriptors = tuple(
             BlendMaterialDescriptor(
                 material_id=item.material_id,
-                name=item.name,
-                material_type=item.material_type,
-                group=item.group,
+                name=(
+                    commercial[item.material_id].name
+                    or getattr(item, "name", item.material_id)
+                ),
+                material_type=(
+                    commercial[item.material_id].material_type
+                    or getattr(item, "material_type", item.group)
+                ),
+                group=commercial[item.material_id].group or item.group,
                 d50_um=item.d50_um,
                 procurement=commercial[item.material_id].procurement,
                 unit_price_yen_per_kg_core=commercial[
                     item.material_id
                 ].unit_price_yen_per_kg_core,
+                main_components=(
+                    commercial[item.material_id].main_components
+                    or tuple(
+                        component
+                        for component, value in sorted(
+                            getattr(item, "composition", {}).items(),
+                            key=lambda entry: entry[1],
+                            reverse=True,
+                        )
+                        if value > 0
+                    )[:3]
+                ),
             )
             for item in contracts.scientific_master.materials
             if item.material_id in contracts.design_space.allowed_material_ids
@@ -122,7 +135,7 @@ class BlendOptimizationService:
             commercial_catalog=baseline.blend.commercial_catalog,
             design_space=baseline.blend.design_space,
             materials=descriptors,
-            components=artifact.scientific_master.components,
+            components=contracts.scientific_master.components,
             material_bounds=space.material_bounds,
             group_totals=space.group_totals,
             group_cardinalities=space.group_cardinalities,
@@ -140,8 +153,7 @@ class BlendOptimizationService:
         )
         if baseline.blend is None:
             raise CandidateValidationError("配合を持つ候補だけを逆算できます")
-        contracts = self.blend_contracts.resolve(baseline.blend)
-        artifact = self._artifact(contracts)
+        contracts = self.transforms.resolve_blend(baseline.blend)
         structural = self._structural_relaxations(contracts, request)
         method: Literal["highs-lp", "highs-milp"] = (
             "highs-milp" if request.inclusion_decisions else "highs-lp"
@@ -158,7 +170,7 @@ class BlendOptimizationService:
                 message="指定条件の組合せは成立しません。緩和候補を確認してください",
             )
 
-        problem = self._build_problem(contracts, artifact, baseline.blend, request)
+        problem = self._build_problem(contracts, baseline.blend, request)
         solution = self._solve(problem, request.inclusion_decisions)
         if solution is None:
             relaxations = self._relax(problem, request.inclusion_decisions)
@@ -256,14 +268,6 @@ class BlendOptimizationService:
     ) -> Literal["yen/kg-core", "core mass %"]:
         return "yen/kg-core" if request.objective == "cost" else "core mass %"
 
-    def _artifact(self, contracts: ResolvedBlendContracts):
-        artifact = self.transforms.entry(STAGE_A_TRANSFORM_ID).transform.artifact
-        if artifact.scientific_master.ref != contracts.scientific_master.ref:
-            raise CandidateValidationError(
-                "基準候補の科学マスターとStage A Transform Packageが一致しません"
-            )
-        return artifact
-
     @staticmethod
     def _structural_relaxations(
         contracts: ResolvedBlendContracts,
@@ -325,7 +329,6 @@ class BlendOptimizationService:
     def _build_problem(
         self,
         contracts: ResolvedBlendContracts,
-        artifact,
         baseline: SparseBlend,
         request: BlendOptimizationRequest,
     ) -> _Problem:
@@ -406,14 +409,14 @@ class BlendOptimizationService:
                 )
 
         scientific = {
-            item.material_id: item for item in artifact.scientific_master.materials
+            item.material_id: item for item in contracts.scientific_master.materials
         }
         hoop = next(
-            item for item in artifact.scientific_master.hoops
+            item for item in contracts.scientific_master.hoops
             if item.hoop_id == space.fixed_hoop_id
         )
         for target in request.composition_targets:
-            if target.component not in artifact.scientific_master.components:
+            if target.component not in contracts.scientific_master.components:
                 raise CandidateValidationError(
                     f"Stage Aにない材料成分です: {target.component}"
                 )

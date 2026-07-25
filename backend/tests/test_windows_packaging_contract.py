@@ -44,6 +44,7 @@ def test_windows_bundle_declares_active_model_configuration_and_packages() -> No
             for package in selection["available"]
         )
         required_resources.add(f"models/{selection['commercial_catalog']}")
+        required_resources.add(f"models/{selection['design_space']}")
 
     for resource in required_resources:
         assert (resource, resource) in packaged_resources

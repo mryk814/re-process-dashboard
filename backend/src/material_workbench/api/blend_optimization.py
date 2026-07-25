@@ -10,12 +10,10 @@ from material_workbench.api.candidates import (
     raise_candidate_http_error,
 )
 from material_workbench.api.dependencies import (
-    get_blend_contract_registry,
     get_deterministic_transform_catalog,
 )
 from material_workbench.application.blend_optimization import BlendOptimizationService
 from material_workbench.contracts.blend_contracts import (
-    BlendContractRegistry,
     BlendStructuralError,
 )
 from material_workbench.contracts.blend_optimization import (
@@ -28,9 +26,6 @@ from material_workbench.persistence.store import CandidateRevisionConflictError
 
 
 router = APIRouter()
-BlendContractsDependency = Annotated[
-    BlendContractRegistry, Depends(get_blend_contract_registry)
-]
 TransformCatalogDependency = Annotated[
     DeterministicTransformCatalog, Depends(get_deterministic_transform_catalog)
 ]
@@ -38,10 +33,9 @@ TransformCatalogDependency = Annotated[
 
 def get_blend_optimization_service(
     candidates: CandidateServiceDependency,
-    blend_contracts: BlendContractsDependency,
     transforms: TransformCatalogDependency,
 ) -> BlendOptimizationService:
-    return BlendOptimizationService(candidates, blend_contracts, transforms)
+    return BlendOptimizationService(candidates, transforms)
 
 
 OptimizationServiceDependency = Annotated[

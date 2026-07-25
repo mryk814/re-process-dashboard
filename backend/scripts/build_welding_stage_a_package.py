@@ -27,6 +27,8 @@ from material_workbench.contracts.blend_contracts import (
     BlendItem,
     CommercialMaterial,
     CommercialMaterialCatalog,
+    SelectionCountConstraint,
+    SparseBlendDesignSpace,
 )
 from material_workbench.contracts.stage_a_contracts import (
     STAGE_A_COMPONENTS,
@@ -39,7 +41,8 @@ from material_workbench.modeling.model_packages import DeterministicTransformSpe
 
 DEFAULT_SOURCE = Path("data/source/welding_consumable_multistage_synthetic_dataset.xlsx")
 DEFAULT_DESTINATION = Path("models/packages/welding-stage-a-deterministic-v1")
-DEFAULT_CATALOG_DESTINATION = Path("models/catalogs/welding-stage-a-commercial-v1.json")
+DEFAULT_CATALOG_DESTINATION = Path("models/catalogs/welding-stage-a-commercial-v2.json")
+DEFAULT_DESIGN_SPACE_DESTINATION = Path("models/design-spaces/welding-stage-a-v2.json")
 SHEETS = {
     "materials": "原料マスタ",
     "material_composition": "原料成分",
@@ -49,6 +52,7 @@ SHEETS = {
 }
 COLUMNS = {
     "material_id": "原料_key**",
+    "material_name": "原料名",
     "material_group": "原料グループ",
     "procurement": "調達区分",
     "unit_price": "単価[円/kg]",
@@ -87,7 +91,13 @@ def build_package(
     source: Path,
     destination: Path,
     catalog_destination: Path = DEFAULT_CATALOG_DESTINATION,
+    design_space_destination: Path | None = None,
 ) -> None:
+    design_space_destination = design_space_destination or (
+        DEFAULT_DESIGN_SPACE_DESTINATION
+        if catalog_destination == DEFAULT_CATALOG_DESTINATION
+        else catalog_destination.with_name(f"{catalog_destination.stem}-design-space.json")
+    )
     workbook = load_workbook(source, read_only=True, data_only=True)
     try:
         records = {
@@ -185,17 +195,44 @@ def build_package(
         ),
     )
     catalog = CommercialMaterialCatalog(
-        schema_version="commercial-material-catalog/v1",
+        schema_version="commercial-material-catalog/v2",
         resource_id="welding-stage-a-commercial",
-        revision=1,
+        revision=2,
         materials=tuple(
             CommercialMaterial(
                 material_id=str(row[COLUMNS["material_id"]]),
+                name=str(row[COLUMNS["material_name"]]),
+                material_type=str(row[COLUMNS["material_name"]]).rsplit("-", 1)[0],
+                group=str(row[COLUMNS["material_group"]]),
+                main_components=tuple(
+                    component
+                    for component, value in sorted(
+                        next(
+                            item.composition
+                            for item in materials
+                            if item.material_id == str(row[COLUMNS["material_id"]])
+                        ).items(),
+                        key=lambda item: (-item[1], item[0]),
+                    )[:3]
+                    if value > 0
+                ),
                 procurement=str(row[COLUMNS["procurement"]]),
                 unit_price_yen_per_kg_core=float(row[COLUMNS["unit_price"]]),
             )
             for row in records["materials"]
         ),
+    )
+    design_space = SparseBlendDesignSpace(
+        schema_version="sparse-blend-design-space/v1",
+        resource_id="welding-stage-a-design-space",
+        revision=2,
+        scientific_master=master.ref,
+        commercial_catalog=catalog.ref,
+        allowed_material_ids=tuple(item.material_id for item in materials),
+        selection_count=SelectionCountConstraint(minimum=1, maximum=20),
+        fixed_hoop_id="HP-01",
+        fixed_fill_ratio=19.06,
+        balance_material_id="RM-0013",
     )
     transform_spec = DeterministicTransformSpec(
         id="material-composition",
@@ -262,6 +299,10 @@ def build_package(
     )
     catalog_destination.parent.mkdir(parents=True, exist_ok=True)
     catalog_destination.write_bytes(_json_bytes(catalog.model_dump(mode="json")))
+    design_space_destination.parent.mkdir(parents=True, exist_ok=True)
+    design_space_destination.write_bytes(
+        _json_bytes(design_space.model_dump(mode="json"))
+    )
 
     files = (artifact_path, smoke_input_path, smoke_expected_path, golden_path)
     manifest = {
@@ -300,8 +341,18 @@ def main() -> None:
         type=Path,
         default=DEFAULT_CATALOG_DESTINATION,
     )
+    parser.add_argument(
+        "--design-space-destination",
+        type=Path,
+        default=DEFAULT_DESIGN_SPACE_DESTINATION,
+    )
     args = parser.parse_args()
-    build_package(args.source, args.destination, args.catalog_destination)
+    build_package(
+        args.source,
+        args.destination,
+        args.catalog_destination,
+        args.design_space_destination,
+    )
 
 
 if __name__ == "__main__":

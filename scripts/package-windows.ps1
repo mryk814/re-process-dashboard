@@ -59,6 +59,7 @@ try {
     $requiredPackagedFiles += $activeTransforms.transforms.PSObject.Properties.Value | ForEach-Object {
         "models/$($_.active)/manifest.json"
         "models/$($_.commercial_catalog)"
+        "models/$($_.design_space)"
         $_.available | ForEach-Object { "models/$($_)/manifest.json" }
     }
     foreach ($relativePath in $requiredPackagedFiles) {

@@ -52,6 +52,9 @@ export type ApiBlendMaterial = components["schemas"]["BlendMaterialDescriptor"];
 export type ApiBlendOptimizationContext = components["schemas"]["BlendOptimizationContext"];
 export type ApiBlendOptimizationRequest = components["schemas"]["BlendOptimizationRequest"];
 export type ApiBlendOptimizationResult = components["schemas"]["BlendOptimizationResult"];
+export type ApiBlendEditorContext = components["schemas"]["BlendEditorContext"];
+export type ApiDeterministicTransform = components["schemas"]["DeterministicTransformCatalogItem"];
+export type ApiDeterministicTransformResult = components["schemas"]["DeterministicLinearResult"];
 export type ApiDecisionActivityAvailability = components["schemas"]["DecisionActivityAvailability"];
 export type ApiDecisionActivityRun = components["schemas"]["DecisionActivityRun"];
 export type ApiDecisionActivityRunRequest = components["schemas"]["DecisionActivityRunRequest"];
@@ -60,6 +63,30 @@ const path = (projectId: string, suffix = "") =>
   `/api/projects/${encodeURIComponent(projectId)}${suffix}`;
 
 export const workbenchApi = {
+  async deterministicTransforms() {
+    return requireData(await apiClient.GET("/api/transforms"), "Stage A Transformを取得できませんでした。");
+  },
+  async blendEditorContext(transformId: string) {
+    return requireData(await apiClient.GET("/api/transforms/{transform_id}/blend-editor", {
+      params: { path: { transform_id: transformId } },
+    }), "配合用の原料catalogを取得できませんでした。");
+  },
+  async resolveBlendEditorContext(
+    transformId: string,
+    blend: components["schemas"]["SparseBlend"],
+  ) {
+    return requireData(await apiClient.POST("/api/transforms/{transform_id}/blend-editor/resolve", {
+      params: { path: { transform_id: transformId } },
+      body: { blend },
+    }), "保存候補の原料catalogを解決できませんでした。");
+  },
+  async executeDeterministicTransform(transformId: string, blend: components["schemas"]["SparseBlend"], signal?: AbortSignal) {
+    return requireData(await apiClient.POST("/api/transforms/{transform_id}/execute", {
+      params: { path: { transform_id: transformId } },
+      body: { blend },
+      signal,
+    }), "Stage Aの派生成分を計算できませんでした。");
+  },
   async developerOverview() {
     return requireData(await apiClient.GET("/api/developer/overview"), "Developer構成を取得できませんでした。");
   },

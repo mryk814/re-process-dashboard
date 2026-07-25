@@ -23,6 +23,7 @@ from material_workbench.persistence.store import (
 )
 from material_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
 from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
+from material_workbench.modeling.transform_catalog import DeterministicTransformCatalog
 
 
 class CandidateNotFoundError(LookupError):
@@ -44,11 +45,13 @@ class CandidateService:
         registry: TaskRegistry,
         resolver: ProjectRuntimeResolver,
         blend_contracts: BlendContractRegistry | None = None,
+        transform_catalog: DeterministicTransformCatalog | None = None,
     ) -> None:
         self.store = store
         self.registry = registry
         self.resolver = resolver
         self.blend_contracts = blend_contracts or BlendContractRegistry()
+        self.transform_catalog = transform_catalog
         self.projects = ProjectService(store, registry)
 
     def list(self, project_id: str, *, include_archived: bool = False) -> list[Candidate]:
@@ -185,7 +188,12 @@ class CandidateService:
         if candidate.blend is None:
             return ()
         try:
-            return self.blend_contracts.describe(candidate.blend)
+            try:
+                return self.blend_contracts.describe(candidate.blend)
+            except BlendStructuralError:
+                if self.transform_catalog is None:
+                    raise
+                return self.transform_catalog.describe_blend(candidate.blend)
         except BlendStructuralError as exc:
             raise CandidateValidationError(str(exc)) from exc
 
@@ -241,7 +249,12 @@ class CandidateService:
                     "この予測タスクは疎な配合候補（sparse blend）に対応していません"
                 )
             try:
-                contracts = self.blend_contracts.resolve(payload.blend)
+                try:
+                    contracts = self.blend_contracts.resolve(payload.blend)
+                except BlendStructuralError:
+                    if self.transform_catalog is None:
+                        raise
+                    contracts = self.transform_catalog.resolve_blend(payload.blend)
             except BlendStructuralError as exc:
                 raise CandidateValidationError(str(exc)) from exc
             prepared = payload.model_copy(

@@ -105,14 +105,20 @@ def _resources():
         materials=(
             SimpleNamespace(
                 material_id="iron",
+                group="base",
+                d50_um=70,
                 composition={"Fe": 100.0, "Mn": 0.0},
             ),
             SimpleNamespace(
                 material_id="manganese",
+                group="alloy",
+                d50_um=60,
                 composition={"Fe": 50.0, "Mn": 50.0},
             ),
             SimpleNamespace(
                 material_id="rich-manganese",
+                group="alloy",
+                d50_um=50,
                 composition={"Fe": 0.0, "Mn": 100.0},
             ),
         ),
@@ -124,10 +130,10 @@ def _resources():
         ),
     )
     transforms = SimpleNamespace(
-        entry=lambda _transform_id: SimpleNamespace(
-            transform=SimpleNamespace(
-                artifact=SimpleNamespace(scientific_master=scientific)
-            )
+        resolve_blend=lambda _blend: SimpleNamespace(
+            scientific_master=scientific,
+            commercial_catalog=catalog,
+            design_space=space,
         )
     )
     return master, catalog, space, registry, transforms
@@ -199,7 +205,7 @@ class _CandidateService:
 def _service():
     master, catalog, space, registry, transforms = _resources()
     candidates = _CandidateService(_candidate(master, catalog, space), registry)
-    return BlendOptimizationService(candidates, registry, transforms), candidates
+    return BlendOptimizationService(candidates, transforms), candidates
 
 
 def _request(**updates) -> BlendOptimizationRequest:

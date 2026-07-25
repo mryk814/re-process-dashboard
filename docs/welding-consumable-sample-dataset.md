@@ -169,7 +169,9 @@ wire_c = 充填率 × core_c + (1 - 充填率) × フープ成分_c
 Stage Aは `models/packages/welding-stage-a-deterministic-v1` に科学masterを固定した
 決定論的Packageとして実装済みである。120配合の期待値はPackage内の
 `reference/stage-a-golden-120.json` で再現検証する。商用catalogは
-`models/catalogs/welding-stage-a-commercial-v1.json` として科学Packageから分離する。
+`models/catalogs/welding-stage-a-commercial-v2.json` として科学Packageから分離する。
+新規候補はactiveなv2を参照し、保存済み候補の再現にはv1/v2双方のimmutable
+catalogとDesign Spaceを完全一致refで解決する。
 31成分軸は固定契約であり、元Excelの列名・順序が契約と異なる場合は暗黙に読み替えず
 Package生成を停止する。active/availableの選択は `models/active-transforms.json`、
 実行導線は `GET /api/transforms` と `POST /api/transforms/{transform_id}/execute`
