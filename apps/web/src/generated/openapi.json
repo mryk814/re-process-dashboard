@@ -22,6 +22,175 @@
         "title": "AbsoluteTolerance",
         "type": "object"
       },
+      "ActualConditionedVariant": {
+        "additionalProperties": false,
+        "description": "Immutable C-only analysis. It never replaces normal A -> B -> C output.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "identity": {
+            "$ref": "#/components/schemas/ActualConditionedVariantIdentity"
+          },
+          "measured_stage_b": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Measured Stage B",
+            "type": "object"
+          },
+          "project_id": {
+            "minLength": 1,
+            "title": "Project Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "actual-conditioned-variant/v1",
+            "default": "actual-conditioned-variant/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source": {
+            "const": "actual",
+            "default": "actual",
+            "title": "Source",
+            "type": "string"
+          },
+          "stage_c_input": {
+            "additionalProperties": true,
+            "title": "Stage C Input",
+            "type": "object"
+          },
+          "stage_c_result": {
+            "additionalProperties": true,
+            "title": "Stage C Result",
+            "type": "object"
+          },
+          "variant_id": {
+            "minLength": 1,
+            "title": "Variant Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "variant_id",
+          "project_id",
+          "identity",
+          "measured_stage_b",
+          "stage_c_input",
+          "stage_c_result",
+          "created_at"
+        ],
+        "title": "ActualConditionedVariant",
+        "type": "object"
+      },
+      "ActualConditionedVariantIdentity": {
+        "additionalProperties": false,
+        "properties": {
+          "actual_ids": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Actual Ids",
+            "type": "array"
+          },
+          "base_candidate_id": {
+            "minLength": 1,
+            "title": "Base Candidate Id",
+            "type": "string"
+          },
+          "base_candidate_revision": {
+            "minimum": 1.0,
+            "title": "Base Candidate Revision",
+            "type": "integer"
+          },
+          "base_chain_revision_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Base Chain Revision Digest",
+            "type": "string"
+          },
+          "base_chain_revision_id": {
+            "minLength": 1,
+            "title": "Base Chain Revision Id",
+            "type": "string"
+          },
+          "comparison_snapshot_id": {
+            "minLength": 1,
+            "title": "Comparison Snapshot Id",
+            "type": "string"
+          },
+          "coverage": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Coverage",
+            "type": "array"
+          },
+          "measurement_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Measurement Digest",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "actual-conditioned-variant-identity/v1",
+            "default": "actual-conditioned-variant-identity/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "stage_c_package_manifest_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Stage C Package Manifest Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "base_chain_revision_id",
+          "base_chain_revision_digest",
+          "base_candidate_id",
+          "base_candidate_revision",
+          "comparison_snapshot_id",
+          "actual_ids",
+          "measurement_digest",
+          "coverage",
+          "stage_c_package_manifest_digest"
+        ],
+        "title": "ActualConditionedVariantIdentity",
+        "type": "object"
+      },
+      "ActualConditionedVariantRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actual_records": {
+            "items": {
+              "$ref": "#/components/schemas/IntermediateActualRecord"
+            },
+            "minItems": 1,
+            "title": "Actual Records",
+            "type": "array"
+          },
+          "candidate_revision": {
+            "minimum": 1.0,
+            "title": "Candidate Revision",
+            "type": "integer"
+          },
+          "comparison_snapshot_id": {
+            "minLength": 1,
+            "title": "Comparison Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_revision",
+          "comparison_snapshot_id",
+          "actual_records"
+        ],
+        "title": "ActualConditionedVariantRequest",
+        "type": "object"
+      },
       "ActualMeasurement": {
         "properties": {
           "candidate_id": {
@@ -4011,6 +4180,31 @@
           "upper"
         ],
         "title": "InputVariationInterval",
+        "type": "object"
+      },
+      "IntermediateActualRecord": {
+        "additionalProperties": false,
+        "description": "One traceable source record contributing measured Stage B values.",
+        "properties": {
+          "actual_id": {
+            "minLength": 1,
+            "title": "Actual Id",
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "minProperties": 1,
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "actual_id",
+          "values"
+        ],
+        "title": "IntermediateActualRecord",
         "type": "object"
       },
       "LineageCandidateOption": {
@@ -13512,6 +13706,120 @@
         ]
       }
     },
+    "/api/projects/{project_id}/chain/candidates/{candidate_id}/analysis-variants": {
+      "get": {
+        "operationId": "listProjectChainAnalysisVariants",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ActualConditionedVariant"
+                  },
+                  "title": "Response Listprojectchainanalysisvariants",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Project Chain Analysis Variants",
+        "tags": [
+          "chain-execution"
+        ]
+      },
+      "post": {
+        "operationId": "createProjectChainAnalysisVariant",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActualConditionedVariantRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActualConditionedVariant"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Project Chain Analysis Variant",
+        "tags": [
+          "chain-execution"
+        ]
+      }
+    },
     "/api/projects/{project_id}/chain/candidates/{candidate_id}/execution": {
       "get": {
         "operationId": "getProjectChainExecution",
@@ -13685,6 +13993,59 @@
       }
     },
     "/api/projects/{project_id}/chain/candidates/{candidate_id}/snapshots": {
+      "get": {
+        "operationId": "listProjectChainSnapshots",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ChainSnapshot"
+                  },
+                  "title": "Response Listprojectchainsnapshots",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Project Chain Snapshots",
+        "tags": [
+          "chain-execution"
+        ]
+      },
       "post": {
         "operationId": "createProjectChainSnapshot",
         "parameters": [

@@ -8,6 +8,7 @@ import { LineagePage } from "../features/lineage";
 import { DataExploreNavigation, LiveDataQualityPage } from "../features/quality";
 import { DeveloperAdminPage } from "../features/admin";
 import { DataLibraryPage, ProfileWorkbenchPage } from "../features/data-library";
+import { ChainWorkbenchPage } from "../features/chain";
 
 type Tab = WorkbenchView;
 const lastNavigationStorageKey = "material-workbench-last-navigation";
@@ -110,6 +111,7 @@ function App() {
   const chainProject = activeProject?.scientific_identity?.identity_kind === "chain";
   const taskUnavailable = taskAvailability?.status === "unavailable";
   const unavailableScopedTab = taskUnavailable
+    && !chainProject
     && tab !== "project"
     && tab !== "data-library"
     && tab !== "profile-workbench";
@@ -117,7 +119,9 @@ function App() {
   const qualityAvailable = dataExplorer?.quality === true;
   const lineageAvailable = dataExplorer?.lineage === true;
   const visibleProjectNavItems = projectNavItems.filter((item) => (
-    (!taskUnavailable && !chainProject) || item.id === "project"
+    (!taskUnavailable && !chainProject)
+      || item.id === "project"
+      || (chainProject && item.id === "candidates")
   ) && (!item.requiresDataExplorer || qualityAvailable || lineageAvailable));
   const dataLibraryMode = tab === "data-library" || tab === "profile-workbench";
 
@@ -323,7 +327,18 @@ function App() {
             })}
           />
         )}
-        {tab === "candidates" && !taskUnavailable &&
+        {tab === "candidates" && chainProject && (
+          <ChainWorkbenchPage
+            projectId={activeProjectId}
+            initialCandidateId={navigation.candidateId}
+            onCandidateSelected={(candidateId) => navigate({
+              view: "candidates",
+              projectId: activeProjectId,
+              candidateId,
+            }, true)}
+          />
+        )}
+        {tab === "candidates" && !chainProject && !taskUnavailable &&
           (selected ? (
             <WorkbenchPage
               candidates={candidates}

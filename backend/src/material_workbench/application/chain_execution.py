@@ -24,9 +24,12 @@ from material_workbench.contracts.chain_contracts import (
     ChainStageRevision,
 )
 from material_workbench.contracts.chain_execution_contracts import (
+    ActualConditionedVariant,
+    ActualConditionedVariantIdentity,
     ChainExecution,
     ChainSnapshot,
     ChainStageExecution,
+    IntermediateActualRecord,
 )
 from material_workbench.contracts.schemas import Candidate, CandidateInput, CandidateInputs
 from material_workbench.execution.inference_work_graph import semantic_digest
@@ -767,3 +770,111 @@ class ChainExecutionService:
             created_at=_now(),
         )
         return self.store.insert_chain_snapshot(project_id, snapshot)
+
+    def actual_conditioned_variant(
+        self,
+        *,
+        project_id: str,
+        candidate_id: str,
+        candidate_revision: int,
+        comparison_snapshot_id: str,
+        actual_records: tuple[IntermediateActualRecord, ...],
+    ) -> ActualConditionedVariant:
+        """Run Stage C with complete measured B outputs without mutating normal Chain state."""
+
+        candidate, definition, revision, identity = self._resolve(
+            project_id, candidate_id, candidate_revision
+        )
+        snapshot = self.store.get_chain_snapshot(comparison_snapshot_id)
+        if snapshot is None:
+            raise ChainExecutionError("比較元Chain snapshotが見つかりません")
+        if (
+            snapshot.identity.chain_revision_id != identity.chain_revision_id
+            or snapshot.identity.chain_revision_digest != identity.chain_revision_digest
+            or snapshot.identity.candidate_id != candidate_id
+            or snapshot.identity.candidate_revision != candidate_revision
+        ):
+            raise ChainExecutionError(
+                "比較元snapshotはこのChain candidate revisionの結果ではありません"
+            )
+        if not actual_records:
+            raise ChainExecutionError("Stage B実測を1件以上指定してください")
+        actual_ids = [record.actual_id for record in actual_records]
+        if len(actual_ids) != len(set(actual_ids)):
+            raise ChainExecutionError("実測IDは重複できません")
+
+        stage_c = revision.stages[-1]
+        if stage_c.stage_kind != "task":
+            raise ChainExecutionError("actual-conditioned variantの終端はTask Stageが必要です")
+        stage_c_snapshot = next(
+            (stage for stage in snapshot.stages if stage.stage_id == stage_c.stage_id),
+            None,
+        )
+        if (
+            stage_c_snapshot is None
+            or stage_c_snapshot.package_manifest_digest
+            != stage_c.package_manifest_digest
+        ):
+            raise ChainExecutionError("比較元snapshotのStage C Packageが一致しません")
+
+        required_components = tuple(
+            sorted(
+                binding.target_input_path.removeprefix("composition.")
+                for binding in definition.bindings
+                if binding.target_stage_id == stage_c.stage_id
+                and binding.target_input_path.startswith("composition.")
+                and binding.source.source_kind == "stage_output"
+            )
+        )
+        measured: dict[str, float] = {}
+        for record in actual_records:
+            for component, value in record.values.items():
+                if component in measured:
+                    raise ChainExecutionError(
+                        f"成分 {component} が複数の実測IDに重複しています"
+                    )
+                measured[component] = value
+        missing = sorted(set(required_components) - set(measured))
+        if missing:
+            raise ChainExecutionError(
+                "Stage Cに必要な実測成分が不足しています（予測値では補完しません）: "
+                + ", ".join(missing)
+            )
+        canonical_input = {
+            **stage_c_snapshot.canonical_input,
+            "composition": {
+                component: measured[component] for component in required_components
+            },
+        }
+        payload, _outputs = self._run_stage(stage_c, canonical_input, candidate)
+        measurement_payload = [
+            {
+                "actual_id": record.actual_id,
+                "values": {
+                    key: record.values[key] for key in sorted(record.values)
+                },
+            }
+            for record in sorted(actual_records, key=lambda item: item.actual_id)
+        ]
+        variant = ActualConditionedVariant(
+            variant_id=str(uuid.uuid4()),
+            project_id=project_id,
+            identity=ActualConditionedVariantIdentity(
+                base_chain_revision_id=identity.chain_revision_id,
+                base_chain_revision_digest=identity.chain_revision_digest,
+                base_candidate_id=candidate_id,
+                base_candidate_revision=candidate_revision,
+                comparison_snapshot_id=comparison_snapshot_id,
+                actual_ids=tuple(sorted(actual_ids)),
+                measurement_digest=semantic_digest(measurement_payload),
+                coverage=required_components,
+                stage_c_package_manifest_digest=stage_c.package_manifest_digest,
+            ),
+            measured_stage_b={
+                component: measured[component] for component in required_components
+            },
+            stage_c_input=canonical_input,
+            stage_c_result=payload,
+            created_at=_now(),
+        )
+        return self.store.insert_chain_analysis_variant(variant)

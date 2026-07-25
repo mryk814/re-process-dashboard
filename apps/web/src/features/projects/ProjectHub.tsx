@@ -116,7 +116,7 @@ export function ProjectHub({
   const chainIdentity = project?.scientific_identity?.identity_kind === "chain"
     ? project.scientific_identity
     : null;
-  const chainExecutionPending = Boolean(chainIdentity);
+  const chainExecutionPending = false;
 
   const reloadHistory = async (signal?: AbortSignal, expectedProjectId = activeProjectId) => {
     const loaded = await workbenchApi.projectHistory(expectedProjectId, signal);
@@ -676,9 +676,10 @@ export function ProjectHub({
         <span>{taskAvailability.message}</span>
         <small>保存済みの候補・予測・実測・判断履歴は参照できます。推論と変更操作は停止しています。</small>
       </section>}
-      {chainExecutionPending && <section className="task-unavailable-banner" role="status">
+      {chainIdentity && <section className="task-unavailable-banner chain-ready-banner" role="status">
         <strong>Chain Revisionを固定したプロジェクトです</strong>
-        <span>固定したRevisionとStage参照を確認できます。Stage実行は現在利用できません。</span>
+        <span>A → B → Cの段別鮮度と中間実測を、候補作業面で確認できます。</span>
+        <button type="button" className="primary-button" onClick={() => onNavigate("candidates")}>Chain候補を開く</button>
       </section>}
       {error && <p className="panel-error" role="alert">{error}</p>}
       {project && (chainIdentity

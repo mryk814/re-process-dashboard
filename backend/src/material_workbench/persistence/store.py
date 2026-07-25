@@ -17,6 +17,7 @@ from material_workbench.contracts.chain_contracts import (
     validate_chain_revision,
 )
 from material_workbench.contracts.chain_execution_contracts import (
+    ActualConditionedVariant,
     ChainExecution,
     ChainSnapshot,
 )
@@ -73,7 +74,9 @@ def _single_task_identity_json(payload: ProjectCreateInput) -> str:
     return identity.model_dump_json()
 from material_workbench.persistence.workspace_catalog_migration import migrate_workspace_catalog
 from material_workbench.persistence.chain_catalog_migration import migrate_chain_catalog
-from material_workbench.persistence.chain_execution_migration import migrate_chain_execution
+from material_workbench.persistence.chain_analysis_variant_migration import (
+    migrate_chain_analysis_variant,
+)
 
 
 MAX_CANDIDATES_PER_PROJECT = 100
@@ -152,7 +155,7 @@ class Store:
     def _init(self) -> None:
         migrate_workspace_catalog(self.path)
         migrate_chain_catalog(self.path)
-        migrate_chain_execution(self.path)
+        migrate_chain_analysis_variant(self.path)
         migrate_candidate_revisions(self.path)
         migrate_lineage_reviews(self.path)
         migrate_decision_activity_runs(self.path)
@@ -450,6 +453,83 @@ class Store:
             ).fetchone()
         return (
             ChainSnapshot.model_validate_json(row["payload_json"])
+            if row is not None
+            else None
+        )
+
+    def list_chain_snapshots(
+        self, project_id: str, candidate_id: str
+    ) -> list[ChainSnapshot]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT payload_json FROM chain_snapshot_records "
+                "WHERE project_id=? AND candidate_id=? ORDER BY created_at DESC",
+                (project_id, candidate_id),
+            ).fetchall()
+        return [
+            ChainSnapshot.model_validate_json(row["payload_json"])
+            for row in rows
+        ]
+
+    def insert_chain_analysis_variant(
+        self, variant: ActualConditionedVariant
+    ) -> ActualConditionedVariant:
+        with self._connect() as conn:
+            snapshot = conn.execute(
+                "SELECT 1 FROM chain_snapshot_records WHERE id=? AND project_id=? "
+                "AND candidate_id=? AND candidate_revision=?",
+                (
+                    variant.identity.comparison_snapshot_id,
+                    variant.project_id,
+                    variant.identity.base_candidate_id,
+                    variant.identity.base_candidate_revision,
+                ),
+            ).fetchone()
+            if snapshot is None:
+                raise StoreDataIntegrityError(
+                    "実測variantの比較元Chain snapshotを固定できません"
+                )
+            conn.execute(
+                "INSERT INTO chain_analysis_variant_records("
+                "id,project_id,candidate_id,candidate_revision,"
+                "comparison_snapshot_id,payload_json,created_at"
+                ") VALUES (?,?,?,?,?,?,?)",
+                (
+                    variant.variant_id,
+                    variant.project_id,
+                    variant.identity.base_candidate_id,
+                    variant.identity.base_candidate_revision,
+                    variant.identity.comparison_snapshot_id,
+                    variant.model_dump_json(),
+                    variant.created_at.isoformat(),
+                ),
+            )
+        return variant
+
+    def list_chain_analysis_variants(
+        self, project_id: str, candidate_id: str
+    ) -> list[ActualConditionedVariant]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT payload_json FROM chain_analysis_variant_records "
+                "WHERE project_id=? AND candidate_id=? ORDER BY created_at DESC",
+                (project_id, candidate_id),
+            ).fetchall()
+        return [
+            ActualConditionedVariant.model_validate_json(row["payload_json"])
+            for row in rows
+        ]
+
+    def get_chain_analysis_variant(
+        self, variant_id: str
+    ) -> ActualConditionedVariant | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT payload_json FROM chain_analysis_variant_records WHERE id=?",
+                (variant_id,),
+            ).fetchone()
+        return (
+            ActualConditionedVariant.model_validate_json(row["payload_json"])
             if row is not None
             else None
         )

@@ -300,6 +300,74 @@ def test_chain_snapshot_pins_every_identity_and_survives_store_restart(
     assert persisted.request_id == execution["request_id"]
 
 
+def test_actual_conditioned_variant_requires_complete_measured_b_and_never_overwrites_chain(
+    client: TestClient,
+) -> None:
+    project, candidate = _project_and_candidate(client)
+    execution = _execute(client, project, candidate)
+    snapshot_response = client.post(
+        f"/api/projects/{project['id']}/chain/candidates/{candidate['id']}/snapshots",
+        json={"candidate_revision": candidate["revision"], "debounce_ms": 0},
+    )
+    assert snapshot_response.status_code == 201, snapshot_response.text
+    snapshot = snapshot_response.json()
+    stage_b_values = {
+        key: prediction["value"]
+        for key, prediction in execution["stages"][1]["result"]["predictions"].items()
+    }
+    partial = dict(stage_b_values)
+    partial.pop("C")
+    variant_url = (
+        f"/api/projects/{project['id']}/chain/candidates/"
+        f"{candidate['id']}/analysis-variants"
+    )
+    rejected = client.post(
+        variant_url,
+        json={
+            "candidate_revision": candidate["revision"],
+            "comparison_snapshot_id": snapshot["snapshot_id"],
+            "actual_records": [{"actual_id": "WM-001", "values": partial}],
+        },
+    )
+    assert rejected.status_code == 409
+    assert "予測値では補完しません" in rejected.text
+    assert "C" in rejected.text
+
+    measured = {key: value + 0.001 for key, value in stage_b_values.items()}
+    created = client.post(
+        variant_url,
+        json={
+            "candidate_revision": candidate["revision"],
+            "comparison_snapshot_id": snapshot["snapshot_id"],
+            "actual_records": [{"actual_id": "WM-001", "values": measured}],
+        },
+    )
+    assert created.status_code == 201, created.text
+    variant = created.json()
+    assert variant["source"] == "actual"
+    assert variant["identity"]["comparison_snapshot_id"] == snapshot["snapshot_id"]
+    assert variant["identity"]["base_candidate_revision"] == candidate["revision"]
+    assert variant["identity"]["actual_ids"] == ["WM-001"]
+    assert set(variant["identity"]["coverage"]) == set(stage_b_values)
+    assert variant["stage_c_input"]["composition"] == measured
+    assert (
+        variant["identity"]["stage_c_package_manifest_digest"]
+        == execution["stages"][2]["package_manifest_digest"]
+    )
+
+    normal_after = client.get(
+        f"/api/projects/{project['id']}/chain/candidates/{candidate['id']}/execution"
+    ).json()
+    assert normal_after == execution
+    listed = client.get(variant_url)
+    assert listed.status_code == 200
+    assert listed.json() == [variant]
+    restarted = Store(client.app.state.store.path)
+    restored = restarted.get_chain_analysis_variant(variant["variant_id"])
+    assert restored is not None
+    assert restored.model_dump(mode="json") == variant
+
+
 def test_debounce_discards_an_older_request_without_overwriting_latest(
     client: TestClient,
 ) -> None:
