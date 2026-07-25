@@ -17,7 +17,7 @@ from material_workbench.modeling.transform_catalog import (
 
 ROOT = Path(__file__).parents[2]
 PACKAGE_ROOT = ROOT / "models" / "packages" / "welding-stage-a-deterministic-v1"
-CATALOG_PATH = ROOT / "models" / "catalogs" / "welding-stage-a-commercial-v1.json"
+CATALOG_PATH = ROOT / "models" / "catalogs" / "welding-stage-a-commercial-v2.json"
 DESIGN_SPACE_PATH = ROOT / "models" / "design-spaces" / "welding-stage-a-v1.json"
 
 
@@ -58,7 +58,7 @@ def test_transform_catalog_exposes_active_package_and_fixed_axes(client) -> None
     assert item["runtime_type"] == "builtin.deterministic_linear.v1"
     assert item["active_locator"] == "packages/welding-stage-a-deterministic-v1"
     assert item["available_locators"] == ["packages/welding-stage-a-deterministic-v1"]
-    assert item["commercial_catalog_locator"] == "catalogs/welding-stage-a-commercial-v1.json"
+    assert item["commercial_catalog_locator"] == "catalogs/welding-stage-a-commercial-v2.json"
     assert item["design_space_locator"] == "design-spaces/welding-stage-a-v1.json"
     assert item["scientific_master"]["resource_id"] == "welding-stage-a-science"
     assert item["commercial_catalog"] == CommercialMaterialCatalog.model_validate_json(

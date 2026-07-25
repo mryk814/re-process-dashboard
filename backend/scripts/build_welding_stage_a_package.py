@@ -41,7 +41,7 @@ from material_workbench.modeling.model_packages import DeterministicTransformSpe
 
 DEFAULT_SOURCE = Path("data/source/welding_consumable_multistage_synthetic_dataset.xlsx")
 DEFAULT_DESTINATION = Path("models/packages/welding-stage-a-deterministic-v1")
-DEFAULT_CATALOG_DESTINATION = Path("models/catalogs/welding-stage-a-commercial-v1.json")
+DEFAULT_CATALOG_DESTINATION = Path("models/catalogs/welding-stage-a-commercial-v2.json")
 DEFAULT_DESIGN_SPACE_DESTINATION = Path("models/design-spaces/welding-stage-a-v1.json")
 SHEETS = {
     "materials": "原料マスタ",
