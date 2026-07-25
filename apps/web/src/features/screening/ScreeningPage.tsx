@@ -5,6 +5,7 @@ import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
 import { SvgChartTooltip } from "../../shared/ui/SvgChartTooltip";
 import { assessPrediction, clampToRange, resolveOutputDefinition } from "../../shared/outputPresentation";
 import { ScreeningBaseEditor } from "./ScreeningBaseEditor";
+import { ScreeningProposalSummary } from "./ScreeningProposalSummary";
 import { ScreeningRepresentativeTable } from "./ScreeningRepresentativeTable";
 
 function cloneScreeningCandidate(candidate: Candidate): Candidate {
@@ -55,6 +56,13 @@ function goalEvaluationLabel(evaluation: GoalEvaluation, primary: boolean) {
   return "達成判定なし";
 }
 
+const MAX_SCREENING_SEED = 2_147_483_647;
+
+function nextScreeningSeed(current: number) {
+  const value = crypto.getRandomValues(new Uint32Array(1))[0] % (MAX_SCREENING_SEED + 1);
+  return value === current ? (value + 1) % (MAX_SCREENING_SEED + 1) : value;
+}
+
 export function ScreeningPage({
   projectId,
   project,
@@ -90,6 +98,7 @@ export function ScreeningPage({
   type ScreenResult = ApiScreeningRun;
   const [variables, setVariables] = useState<VariableRow[]>([]);
   const [samples, setSamples] = useState(64);
+  const [seed, setSeed] = useState(20260719);
   const [target, setTarget] = useState("TS");
   const [targetValue, setTargetValue] = useState("500");
   const [secondaryTargets, setSecondaryTargets] = useState<Record<string, string>>({});
@@ -238,7 +247,7 @@ export function ScreeningPage({
     setFocusedPointIndex(run.representative_points[0]?.index ?? null);
     setDraftDirty(false);
   };
-  const run = async () => {
+  const run = async (requestedSeed = seed) => {
     if (!baseCandidate) return setError("基準条件を読み込めませんでした。");
     const sequence = ++runRequestSequence.current;
     const requestProjectId = projectId;
@@ -282,6 +291,7 @@ export function ScreeningPage({
         base_inputs: toApiCandidate(baseCandidate).inputs,
         variables: specs,
         samples,
+        seed: requestedSeed,
         target,
         target_value: targetValue.trim() === "" ? null : Number(targetValue),
         secondary_targets: Object.fromEntries(Object.entries(secondaryTargets).filter(([, value]) => value.trim() !== "").map(([key, value]) => [key, Number(value)])),
@@ -329,6 +339,7 @@ export function ScreeningPage({
     setTargetValue(run.target_value == null ? "" : String(run.target_value));
     setSecondaryTargets(Object.fromEntries(Object.entries(run.secondary_targets ?? {}).map(([key, value]) => [key, String(value)])));
     setSamples(run.samples);
+    setSeed(run.seed);
     if (run.variables)
       setVariables(
         Object.entries(run.variables).map(([field, spec]) => ({
@@ -445,7 +456,7 @@ export function ScreeningPage({
         <div>
           <h2>範囲探索</h2>
           <p>
-            指定範囲を偏りなく確認し、有望領域から複数候補を集めます。
+            指定範囲に点を分散して生成し、制約を満たす点から候補を集めます。
           </p>
         </div>
         <button
@@ -477,6 +488,7 @@ export function ScreeningPage({
                  {run.samples}点{" "}
                 <small>
                   基準: {candidates.find((candidate) => candidate.id === run.base_candidate_id)?.label ?? run.base_candidate_id?.slice(0, 8) ?? "旧保存データ"} ·{" "}
+                  seed {run.seed} ·{" "}
                   {Object.entries(run.variables).map(([field, spec]) => `${axisLabel(field)}=${spec.mode === "range" ? `${number(spec.min ?? 0, 3)}–${number(spec.max ?? 0, 3)}` : spec.mode === "list" ? (spec.values ?? []).join("/") : String(spec.value ?? "")}`).join(" / ")} ·{" "}
                   {run.created_at
                     ? new Date(run.created_at).toLocaleString("ja-JP")
@@ -507,6 +519,16 @@ export function ScreeningPage({
               max="128"
               value={samples}
               onChange={(event) => { setSamples(Number(event.target.value)); setDraftDirty(true); }}
+            />
+          </label>
+          <label>
+            乱数seed
+            <input
+              type="number"
+              min="0"
+              max={MAX_SCREENING_SEED}
+              value={seed}
+              onChange={(event) => { setSeed(Number(event.target.value)); setDraftDirty(true); }}
             />
           </label>
           <label>
@@ -646,6 +668,14 @@ export function ScreeningPage({
       {error && <p className="warning">{error}</p>}
       {result && (
         <>
+          <ScreeningProposalSummary
+            result={result}
+            onAnotherSample={() => {
+              const nextSeed = nextScreeningSeed(seed);
+              setSeed(nextSeed);
+              void run(nextSeed);
+            }}
+          />
           <div className="screening-display-controls">
             <label>X軸<select value={xAxis} onChange={(event) => setXAxis(event.target.value)}>{confirmedVaryingFields.map((field) => <option key={field} value={field}>{axisLabel(field)}</option>)}</select></label>
             <label>Y軸<select value={yAxis} onChange={(event) => setYAxis(event.target.value)}><option value="">点番号</option>{confirmedVaryingFields.filter((field) => field !== xAxis).map((field) => <option key={field} value={field}>{axisLabel(field)}</option>)}</select></label>

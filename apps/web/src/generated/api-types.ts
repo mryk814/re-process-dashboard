@@ -3480,6 +3480,39 @@ export interface components {
             /** Warnings */
             warnings?: string[];
         };
+        /** ScreeningProposalDiagnostics */
+        ScreeningProposalDiagnostics: {
+            /** Evaluated Count */
+            evaluated_count: number;
+            /** Generated Count */
+            generated_count: number;
+            /** Rejected By Reason */
+            rejected_by_reason?: {
+                [key: string]: number;
+            };
+            /** Rejected Count */
+            rejected_count: number;
+            /** Rejection Rate */
+            rejection_rate: number;
+            /** Valid Count */
+            valid_count: number;
+        };
+        /** ScreeningProposalStrategy */
+        ScreeningProposalStrategy: {
+            /** Id */
+            id: string;
+            /**
+             * Pool Multiplier
+             * @default 4
+             */
+            pool_multiplier: number;
+            /** Requested Count */
+            requested_count: number;
+            /** Seed */
+            seed: number;
+            /** Version */
+            version: string;
+        };
         /** ScreeningReference */
         ScreeningReference: {
             /** Point Id */
@@ -3503,6 +3536,11 @@ export interface components {
             secondary_targets?: {
                 [key: string]: number;
             };
+            /**
+             * Seed
+             * @default 20260719
+             */
+            seed: number;
             /**
              * Target
              * @default TS
@@ -3542,14 +3580,15 @@ export interface components {
             points: components["schemas"]["ScreeningPoint"][];
             /** Project Id */
             project_id: string;
-            /** Proposal Strategy */
-            proposal_strategy?: {
-                [key: string]: unknown;
-            } | null;
-            /** Rejection Summary */
+            proposal_diagnostics?: components["schemas"]["ScreeningProposalDiagnostics"] | null;
+            proposal_strategy?: components["schemas"]["ScreeningProposalStrategy"] | null;
+            /**
+             * Rejection Summary
+             * @deprecated
+             */
             rejection_summary?: {
                 [key: string]: number;
-            };
+            } | null;
             /** Representative Points */
             representative_points: components["schemas"]["ScreeningPoint"][];
             /** Samples */
@@ -3559,7 +3598,7 @@ export interface components {
              * @default screening-run/v1
              * @enum {string}
              */
-            schema_version: "screening-run/v1" | "screening-run/v2";
+            schema_version: "screening-run/v1" | "screening-run/v2" | "screening-run/v3";
             score_contract: components["schemas"]["ScreeningScoreContract"];
             /** Secondary Targets */
             secondary_targets?: {

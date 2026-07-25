@@ -18,8 +18,10 @@ from material_workbench.tasks.task_registry import load_task_contracts
 from material_workbench.contracts.schemas import (
     Candidate,
     CandidateInput,
+    DEFAULT_SCREENING_SEED,
     HeatPoint,
     LineageCandidateOption,
+    SCREENING_POOL_MULTIPLIER,
     ScreeningRequest,
 )
 from material_workbench.contracts.design_space_contracts import DesignSpaceDefinition
@@ -27,7 +29,7 @@ from material_workbench.domain.screening_score import GoalDirection, evaluate_sc
 
 
 COMPOSITION_COLUMNS = composition_names(task_id="annealed-properties-v1")
-SCREENING_SEED = 20260719
+SCREENING_SEED = DEFAULT_SCREENING_SEED
 
 
 def _set_screen_value(candidate: Candidate, name: str, value: float | str) -> Candidate:
@@ -118,6 +120,28 @@ def generate_from_design_space(
     return generated
 
 
+def _validate_screening_pool(
+    generated: list[tuple[Candidate, dict[str, float | str]]],
+    candidate_validator: Callable[[CandidateInput], None],
+) -> tuple[
+    list[tuple[Candidate, CandidateInput, dict[str, float | str]]],
+    dict[str, int],
+]:
+    """Validate the complete proposal pool so rejection counts have a fixed denominator."""
+    valid_candidates: list[tuple[Candidate, CandidateInput, dict[str, float | str]]] = []
+    rejected_by_reason: defaultdict[str, int] = defaultdict(int)
+    for candidate, applied in generated:
+        try:
+            candidate_input = CandidateInput.model_validate(candidate.model_dump())
+            candidate_validator(candidate_input)
+        except ValueError as exc:
+            rejected_by_reason[str(exc) or "candidate_constraint"] += 1
+            continue
+        candidate = Candidate.model_validate({**candidate.model_dump(), **candidate_input.model_dump()})
+        valid_candidates.append((candidate, candidate_input, applied))
+    return valid_candidates, dict(sorted(rejected_by_reason.items()))
+
+
 def run_latin_hypercube(
     runtime: PredictionRuntime,
     base: Candidate,
@@ -128,23 +152,26 @@ def run_latin_hypercube(
     candidate_validator: Callable[[CandidateInput], None],
     design_space: DesignSpaceDefinition | None = None,
 ) -> dict[str, Any]:
-    pool_size = request.samples * 4
+    pool_size = request.samples * SCREENING_POOL_MULTIPLIER
     if design_space is None:
         raise ValueError("Design Spaceなしでは候補を生成できません")
-    generated = generate_from_design_space(base, design_space, count=pool_size)
+    generated = generate_from_design_space(
+        base,
+        design_space,
+        count=pool_size,
+        seed=request.seed,
+    )
     points: list[dict[str, Any]] = []
-    rejected_by_reason: defaultdict[str, int] = defaultdict(int)
     base_prediction = runtime.predict(base, detailed=False)
-    for candidate, applied in generated:
-        if len(points) >= request.samples:
-            break
-        try:
-            candidate_input = CandidateInput.model_validate(candidate.model_dump())
-            candidate_validator(candidate_input)
-        except ValueError as exc:
-            rejected_by_reason[str(exc) or "candidate_constraint"] += 1
-            continue
-        candidate = Candidate.model_validate({**candidate.model_dump(), **candidate_input.model_dump()})
+    valid_candidates, rejected_by_reason = _validate_screening_pool(generated, candidate_validator)
+
+    if len(valid_candidates) < request.samples:
+        raise ValueError(
+            f"生成{pool_size}件中、制約を満たす点は{len(valid_candidates)}件でした。"
+            f"{request.samples}件を作れるよう範囲を見直してください"
+        )
+
+    for candidate, candidate_input, applied in valid_candidates[:request.samples]:
         target_values = {
             key: value
             for key, value in {request.target: request.target_value, **request.secondary_targets}.items()
@@ -183,7 +210,7 @@ def run_latin_hypercube(
         points.append({
             "index": len(points),
             "inputs": applied,
-            "candidate": CandidateInput.model_validate(candidate.model_dump()).model_dump(mode="json"),
+            "candidate": candidate_input.model_dump(mode="json"),
             "prediction": prediction_payload,
             "predictions": predictions_payload,
             "color_value": selected.value,
@@ -194,8 +221,6 @@ def run_latin_hypercube(
             "goal_evaluation": evaluation.model_dump(),
             "secondary_goal_evaluations": {key: item.model_dump() for key, item in secondary_evaluations.items()},
         })
-    if len(points) < request.samples:
-        raise ValueError(f"指定範囲では制約を満たす点を{request.samples}件作れませんでした。範囲を見直してください")
     support_rank = {"supported": 0, "caution": 1, "extrapolated": 2}
     ranked = sorted(
         points,
@@ -208,8 +233,8 @@ def run_latin_hypercube(
         ),
     )
     return {
-        "schema_version": "screening-run/v2",
-        "seed": SCREENING_SEED,
+        "schema_version": "screening-run/v3",
+        "seed": request.seed,
         "base_candidate_id": base.id,
         "base_inputs": base.inputs.model_dump(mode="json"),
         "base_canonical_input": base_prediction["canonical_input"],
@@ -226,7 +251,14 @@ def run_latin_hypercube(
         "variables": {name: spec.model_dump() for name, spec in request.variables.items()},
         "points": points,
         "representative_points": ranked[:10],
-        "_rejection_summary": dict(sorted(rejected_by_reason.items())),
+        "_proposal_diagnostics": {
+            "generated_count": pool_size,
+            "valid_count": len(valid_candidates),
+            "evaluated_count": len(points),
+            "rejected_count": sum(rejected_by_reason.values()),
+            "rejection_rate": sum(rejected_by_reason.values()) / pool_size,
+            "rejected_by_reason": dict(sorted(rejected_by_reason.items())),
+        },
     }
 
 

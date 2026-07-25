@@ -4,6 +4,7 @@ from pathlib import Path
 
 from openpyxl import Workbook, load_workbook
 import numpy as np
+import pytest
 
 from material_workbench.modeling.feature_pipeline import build_feature_bundle
 from material_workbench.contracts.schemas import CandidateInput
@@ -18,6 +19,7 @@ def _screening_body(candidate: dict) -> dict:
         "base_candidate_id": candidate["id"],
         "base_inputs": candidate["inputs"],
         "samples": 48,
+        "seed": 20260719,
         "target": "TS",
         "target_value": 500,
         "variables": {
@@ -56,8 +58,14 @@ def test_latin_hypercube_is_deterministic_bounded_and_convertible(client) -> Non
         "version": "1.0.0",
         "seed": 20260719,
         "requested_count": 48,
+        "pool_multiplier": 4,
     }
-    assert isinstance(first["rejection_summary"], dict)
+    diagnostics = first["proposal_diagnostics"]
+    assert diagnostics["generated_count"] == 192
+    assert diagnostics["valid_count"] + diagnostics["rejected_count"] == 192
+    assert diagnostics["evaluated_count"] == 48
+    assert sum(diagnostics["rejected_by_reason"].values()) == diagnostics["rejected_count"]
+    assert diagnostics["rejection_rate"] == pytest.approx(diagnostics["rejected_count"] / 192)
     assert first["score_contract"] == {
         "version": "screening-score/v2",
         "preference": "lower_is_better",
@@ -78,6 +86,27 @@ def test_latin_hypercube_is_deterministic_bounded_and_convertible(client) -> Non
     assert representative_rank == sorted(representative_rank)
     assert client.get(f"/api/screening/{first['id']}").json()["base_canonical_input"] == first["base_canonical_input"]
     assert any(run["id"] == first["id"] for run in client.get("/api/screening").json())
+
+
+def test_screening_seed_is_reproducible_and_can_draw_another_sample(client) -> None:
+    candidate = client.get("/api/projects/default/candidates").json()[0]
+    first_payload = _screening_body(candidate)
+    repeated_payload = deepcopy(first_payload)
+    another_payload = deepcopy(first_payload)
+    another_payload["seed"] = first_payload["seed"] + 1
+
+    first = client.post("/api/screening", json=first_payload).json()
+    repeated = client.post("/api/screening", json=repeated_payload).json()
+    another = client.post("/api/screening", json=another_payload).json()
+
+    assert [point["inputs"] for point in first["points"]] == [
+        point["inputs"] for point in repeated["points"]
+    ]
+    assert [point["inputs"] for point in first["points"]] != [
+        point["inputs"] for point in another["points"]
+    ]
+    assert first["proposal_strategy"]["seed"] == first_payload["seed"]
+    assert another["proposal_strategy"]["seed"] == another_payload["seed"]
 
 
 def test_screening_uses_unsaved_base_inputs_without_updating_the_candidate(client) -> None:
