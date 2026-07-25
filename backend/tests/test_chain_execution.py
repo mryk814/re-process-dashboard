@@ -7,7 +7,6 @@ import time
 
 from fastapi.testclient import TestClient
 
-from material_workbench.contracts.schemas import CandidateInput
 from material_workbench.persistence.store import Store
 
 
@@ -15,9 +14,6 @@ ROOT = Path(__file__).resolve().parents[2]
 STAGE_A_SMOKE = ROOT / "models/packages/welding-stage-a-deterministic-v1/smoke/input.json"
 STAGE_B_SMOKE = ROOT / "models/packages/welding-consumable-stage-b-ridge-v1/smoke/input.json"
 STAGE_C_SMOKE = ROOT / "models/packages/welding-stage-c-ridge-v1/smoke/input.json"
-SHA_D = "sha256:" + "d" * 64
-
-
 def _chain_identity(client: TestClient) -> dict:
     item = next(
         item
@@ -32,13 +28,15 @@ def _chain_identity(client: TestClient) -> dict:
     }
 
 
-def _candidate_payload(client: TestClient) -> dict:
+def _candidate_payload(client: TestClient, project_id: str) -> dict:
     scientific = json.loads(STAGE_A_SMOKE.read_text(encoding="utf-8"))
     stage_b = json.loads(STAGE_B_SMOKE.read_text(encoding="utf-8"))
     stage_c = json.loads(STAGE_C_SMOKE.read_text(encoding="utf-8"))
-    entry = client.app.state.deterministic_transform_catalog.entry(
-        "welding-stage-a-v1"
+    contract_response = client.get(
+        f"/api/projects/{project_id}/chain/candidate-contract"
     )
+    assert contract_response.status_code == 200, contract_response.text
+    contract = contract_response.json()
     return {
         "name": "Chain execution candidate",
         "inputs": {
@@ -64,14 +62,8 @@ def _candidate_payload(client: TestClient) -> dict:
             "fill_ratio": scientific["fill_ratio"],
             "balance_material_id": scientific["items"][0]["material_id"],
             "scientific_master": scientific["scientific_master"],
-            "commercial_catalog": entry.commercial_catalog.ref.model_dump(
-                mode="json"
-            ),
-            "design_space": {
-                "resource_id": "welding-stage-a-design-space",
-                "revision": 1,
-                "digest": SHA_D,
-            },
+            "commercial_catalog": contract["commercial_catalog"],
+            "design_space": contract["design_space_ref"],
         },
     }
 
@@ -85,7 +77,7 @@ def _project_and_candidate(client: TestClient) -> tuple[dict, dict]:
     project = project_response.json()
     candidate_response = client.post(
         f"/api/projects/{project['id']}/chain/candidates",
-        json=_candidate_payload(client),
+        json=_candidate_payload(client, project["id"]),
     )
     assert candidate_response.status_code == 201, candidate_response.text
     return project, candidate_response.json()
@@ -105,14 +97,12 @@ def _execute(client: TestClient, project: dict, candidate: dict) -> dict:
 
 
 def _update(client: TestClient, project: dict, candidate: dict, payload: dict) -> dict:
-    updated = client.app.state.store.update_candidate(
-        candidate["id"],
-        project["id"],
-        CandidateInput.model_validate(payload),
-        candidate["revision"],
+    response = client.put(
+        f"/api/projects/{project['id']}/chain/candidates/{candidate['id']}",
+        json={**payload, "expected_revision": candidate["revision"]},
     )
-    assert updated is not None
-    return updated.model_dump(mode="json")
+    assert response.status_code == 200, response.text
+    return response.json()
 
 
 def test_explicit_a_b_c_execution_matches_bindings_and_partial_recomputation(
@@ -131,7 +121,7 @@ def test_explicit_a_b_c_execution_matches_bindings_and_partial_recomputation(
         "predictions"
     ]["C"]["value"]
 
-    temperature_payload = _candidate_payload(client)
+    temperature_payload = _candidate_payload(client, project["id"])
     temperature_payload["inputs"]["process"]["test_temperature_c"] = -45.0
     temperature = _update(client, project, candidate, temperature_payload)
     second = _execute(client, project, temperature)
@@ -149,13 +139,37 @@ def test_explicit_a_b_c_execution_matches_bindings_and_partial_recomputation(
         != first["stages"][2]["requested_input_digest"]
     )
 
-    material_payload = _candidate_payload(client)
+    material_payload = _candidate_payload(client, project["id"])
     material_payload["inputs"]["process"]["test_temperature_c"] = -45.0
     material_payload["blend"]["items"][0]["ratio"] -= 1.0
     material_payload["blend"]["items"][1]["ratio"] += 1.0
     material = _update(client, project, temperature, material_payload)
     third = _execute(client, project, material)
     assert [stage["cache_hit"] for stage in third["stages"]] == [False, False, False]
+    historical = client.get(
+        f"/api/projects/{project['id']}/chain/candidates/{candidate['id']}/revisions/1"
+    )
+    assert historical.status_code == 200
+    assert historical.json()["inputs"] == candidate["inputs"]
+
+
+def test_chain_candidate_api_rejects_unregistered_revision_references(
+    client: TestClient,
+) -> None:
+    project_response = client.post(
+        "/api/projects",
+        json={"name": "Chain refs", "scientific_identity": _chain_identity(client)},
+    )
+    assert project_response.status_code == 201
+    project = project_response.json()
+    payload = _candidate_payload(client, project["id"])
+    payload["blend"]["design_space"]["digest"] = "sha256:" + "0" * 64
+    response = client.post(
+        f"/api/projects/{project['id']}/chain/candidates",
+        json=payload,
+    )
+    assert response.status_code == 422
+    assert "Design Space revision" in response.text
 
 
 def test_failure_retains_previous_downstream_result_and_marks_freshness(
@@ -167,7 +181,7 @@ def test_failure_retains_previous_downstream_result_and_marks_freshness(
     previous_b = first["stages"][1]
     previous_c = first["stages"][2]
 
-    changed_payload = _candidate_payload(client)
+    changed_payload = _candidate_payload(client, project["id"])
     changed_payload["blend"]["items"][0]["ratio"] -= 1.0
     changed_payload["blend"]["items"][1]["ratio"] += 1.0
     changed = _update(client, project, candidate, changed_payload)

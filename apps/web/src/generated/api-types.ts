@@ -695,6 +695,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/chain/candidate-contract": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Chain Candidate Contract */
+        get: operations["getChainCandidateContract"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/chain/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Chain Candidates */
+        get: operations["listChainCandidates"];
+        put?: never;
+        /** Create Chain Candidate */
+        post: operations["createChainCandidate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/chain/candidates/{candidate_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Chain Candidate */
+        put: operations["updateChainCandidate"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/chain/candidates/{candidate_id}/execution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Project Chain Execution */
+        get: operations["getProjectChainExecution"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/chain/candidates/{candidate_id}/executions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Execute Project Chain */
+        post: operations["executeProjectChain"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/chain/candidates/{candidate_id}/revisions/{revision}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Chain Candidate Revision */
+        get: operations["getChainCandidateRevision"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/chain/candidates/{candidate_id}/snapshots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Project Chain Snapshot */
+        post: operations["createProjectChainSnapshot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/decision": {
         parameters: {
             query?: never;
@@ -1011,6 +1131,23 @@ export interface paths {
         };
         /** Task Definition */
         get: operations["getProjectTaskDefinition"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/chain-snapshots/{snapshot_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Chain Snapshot */
+        get: operations["getChainSnapshot"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1491,6 +1628,13 @@ export interface components {
             /** Target Stage Id */
             target_stage_id: string;
         };
+        /** ChainCandidateContractResponse */
+        ChainCandidateContractResponse: {
+            commercial_catalog: components["schemas"]["RevisionRef"];
+            design_space: components["schemas"]["SparseBlendDesignSpace"];
+            design_space_ref: components["schemas"]["RevisionRef"];
+            scientific_master: components["schemas"]["RevisionRef"];
+        };
         /** ChainDefinition */
         ChainDefinition: {
             /** Bindings */
@@ -1512,6 +1656,56 @@ export interface components {
             schema_version: "chain-definition/v1";
             /** Stages */
             stages: components["schemas"]["ChainStage"][];
+        };
+        /** ChainExecution */
+        ChainExecution: {
+            /** Candidate Id */
+            candidate_id: string;
+            /** Candidate Revision */
+            candidate_revision: number;
+            /** Chain Revision Digest */
+            chain_revision_digest: string;
+            /** Chain Revision Id */
+            chain_revision_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Project Id */
+            project_id: string;
+            /** Request Id */
+            request_id: string;
+            /**
+             * Schema Version
+             * @default chain-execution/v1
+             * @constant
+             */
+            schema_version: "chain-execution/v1";
+            /** Stages */
+            stages: components["schemas"]["ChainStageExecution"][];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "running" | "latest" | "failed" | "superseded";
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ChainExecutionRequest */
+        ChainExecutionRequest: {
+            /** Candidate Revision */
+            candidate_revision: number;
+            /**
+             * Debounce Ms
+             * @default 250
+             */
+            debounce_ms: number;
+            /** Request Id */
+            request_id?: string | null;
         };
         /** ChainPort */
         ChainPort: {
@@ -1564,6 +1758,53 @@ export interface components {
             /** Unit Conversion Digest */
             unit_conversion_digest: string;
         };
+        /** ChainSnapshot */
+        ChainSnapshot: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** External Input */
+            external_input: {
+                [key: string]: unknown;
+            };
+            identity: components["schemas"]["ChainSnapshotIdentity"];
+            /** Request Id */
+            request_id: string;
+            /**
+             * Schema Version
+             * @default chain-snapshot/v1
+             * @constant
+             */
+            schema_version: "chain-snapshot/v1";
+            /** Snapshot Id */
+            snapshot_id: string;
+            /** Stages */
+            stages: components["schemas"]["ChainStageExecution"][];
+        };
+        /**
+         * ChainSnapshotIdentity
+         * @description All mutable references required to interpret a stored Chain result.
+         */
+        ChainSnapshotIdentity: {
+            /** Candidate Id */
+            candidate_id: string;
+            /** Candidate Revision */
+            candidate_revision: number;
+            /** Chain Revision Digest */
+            chain_revision_digest: string;
+            /** Chain Revision Id */
+            chain_revision_id: string;
+            commercial_catalog: components["schemas"]["RevisionRef"];
+            design_space: components["schemas"]["RevisionRef"];
+            /**
+             * Schema Version
+             * @default chain-snapshot-identity/v1
+             * @constant
+             */
+            schema_version: "chain-snapshot-identity/v1";
+        };
         /** ChainStage */
         ChainStage: {
             /** Contract Id */
@@ -1575,6 +1816,43 @@ export interface components {
              * @enum {string}
              */
             stage_kind: "task" | "deterministic_transform";
+        };
+        /** ChainStageExecution */
+        ChainStageExecution: {
+            /**
+             * Cache Hit
+             * @default false
+             */
+            cache_hit: boolean;
+            /** Canonical Input */
+            canonical_input: {
+                [key: string]: unknown;
+            };
+            /** Completed At */
+            completed_at?: string | null;
+            /** Contract Digest */
+            contract_digest: string;
+            /** Error */
+            error?: string | null;
+            /** Package Manifest Digest */
+            package_manifest_digest: string;
+            /** Requested Input Digest */
+            requested_input_digest: string;
+            /** Result */
+            result?: {
+                [key: string]: unknown;
+            } | null;
+            /** Result Input Digest */
+            result_input_digest?: string | null;
+            /** Stage Id */
+            stage_id: string;
+            /** Started At */
+            started_at?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "latest" | "running" | "stale" | "failed";
         };
         /** ChainStageRevision */
         ChainStageRevision: {
@@ -2309,6 +2587,27 @@ export interface components {
             /** Value */
             value: string | number | boolean;
         };
+        /** GroupCardinalityConstraint */
+        GroupCardinalityConstraint: {
+            /** Group */
+            group: string;
+            /** Maximum */
+            maximum: number;
+            /**
+             * Minimum
+             * @default 0
+             */
+            minimum: number;
+        };
+        /** GroupTotalConstraint */
+        GroupTotalConstraint: {
+            /** Group */
+            group: string;
+            /** Lower */
+            lower: number;
+            /** Upper */
+            upper: number;
+        };
         /** HeatPoint */
         HeatPoint: {
             /** Mapping Status */
@@ -2681,6 +2980,15 @@ export interface components {
             share_of_blend_cost: number;
             /** Unit Price Yen Per Kg Core */
             unit_price_yen_per_kg_core: number;
+        };
+        /** MaterialRatioBound */
+        MaterialRatioBound: {
+            /** Lower */
+            lower: number;
+            /** Material Id */
+            material_id: string;
+            /** Upper */
+            upper: number;
         };
         /** ModelIdentity */
         ModelIdentity: {
@@ -4277,6 +4585,13 @@ export interface components {
             /** Values */
             values?: (number | string)[] | null;
         };
+        /** SelectionCountConstraint */
+        SelectionCountConstraint: {
+            /** Maximum */
+            maximum: number;
+            /** Minimum */
+            minimum: number;
+        };
         /** SimilarityIdentity */
         SimilarityIdentity: {
             /**
@@ -4437,6 +4752,54 @@ export interface components {
              */
             schema_version: "sparse-blend/v1";
             scientific_master: components["schemas"]["RevisionRef"];
+        };
+        /** SparseBlendDesignSpace */
+        SparseBlendDesignSpace: {
+            /** Allowed Material Ids */
+            allowed_material_ids: string[];
+            /** Balance Material Id */
+            balance_material_id: string;
+            commercial_catalog: components["schemas"]["RevisionRef"];
+            /** Fixed Fill Ratio */
+            fixed_fill_ratio: number;
+            /** Fixed Hoop Id */
+            fixed_hoop_id: string;
+            /**
+             * Group Cardinalities
+             * @default []
+             */
+            group_cardinalities: components["schemas"]["GroupCardinalityConstraint"][];
+            /**
+             * Group Totals
+             * @default []
+             */
+            group_totals: components["schemas"]["GroupTotalConstraint"][];
+            /**
+             * Material Bounds
+             * @default []
+             */
+            material_bounds: components["schemas"]["MaterialRatioBound"][];
+            /** Resource Id */
+            resource_id: string;
+            /** Revision */
+            revision: number;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "sparse-blend-design-space/v1";
+            scientific_master: components["schemas"]["RevisionRef"];
+            selection_count: components["schemas"]["SelectionCountConstraint"];
+            /**
+             * Tolerance
+             * @default 0.000001
+             */
+            tolerance: number;
+            /**
+             * Total
+             * @default 100
+             */
+            total: number;
         };
         /** StageOutputBindingSource */
         StageOutputBindingSource: {
@@ -6923,6 +7286,276 @@ export interface operations {
             };
         };
     };
+    getChainCandidateContract: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChainCandidateContractResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    listChainCandidates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Candidate"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    createChainCandidate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CandidateInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Candidate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    updateChainCandidate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CandidateUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Candidate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getProjectChainExecution: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChainExecution"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    executeProjectChain: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChainExecutionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChainExecution"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getChainCandidateRevision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+                project_id: string;
+                revision: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Candidate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    createProjectChainSnapshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChainExecutionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChainSnapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     update_project_decision_api_projects__project_id__decision_put: {
         parameters: {
             query?: never;
@@ -7951,6 +8584,37 @@ export interface operations {
             };
             /** @description Task Runtime Unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getChainSnapshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                snapshot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChainSnapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

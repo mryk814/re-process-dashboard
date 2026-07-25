@@ -964,6 +964,31 @@
         "title": "ChainBinding",
         "type": "object"
       },
+      "ChainCandidateContractResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "commercial_catalog": {
+            "$ref": "#/components/schemas/RevisionRef"
+          },
+          "design_space": {
+            "$ref": "#/components/schemas/SparseBlendDesignSpace"
+          },
+          "design_space_ref": {
+            "$ref": "#/components/schemas/RevisionRef"
+          },
+          "scientific_master": {
+            "$ref": "#/components/schemas/RevisionRef"
+          }
+        },
+        "required": [
+          "scientific_master",
+          "commercial_catalog",
+          "design_space",
+          "design_space_ref"
+        ],
+        "title": "ChainCandidateContractResponse",
+        "type": "object"
+      },
       "ChainDefinition": {
         "additionalProperties": false,
         "properties": {
@@ -1015,6 +1040,122 @@
           "bindings"
         ],
         "title": "ChainDefinition",
+        "type": "object"
+      },
+      "ChainExecution": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_id": {
+            "minLength": 1,
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "candidate_revision": {
+            "minimum": 1.0,
+            "title": "Candidate Revision",
+            "type": "integer"
+          },
+          "chain_revision_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Chain Revision Digest",
+            "type": "string"
+          },
+          "chain_revision_id": {
+            "minLength": 1,
+            "title": "Chain Revision Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "project_id": {
+            "minLength": 1,
+            "title": "Project Id",
+            "type": "string"
+          },
+          "request_id": {
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "chain-execution/v1",
+            "default": "chain-execution/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/ChainStageExecution"
+            },
+            "minItems": 1,
+            "title": "Stages",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "running",
+              "latest",
+              "failed",
+              "superseded"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "project_id",
+          "candidate_id",
+          "candidate_revision",
+          "chain_revision_id",
+          "chain_revision_digest",
+          "status",
+          "stages",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ChainExecution",
+        "type": "object"
+      },
+      "ChainExecutionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_revision": {
+            "minimum": 1.0,
+            "title": "Candidate Revision",
+            "type": "integer"
+          },
+          "debounce_ms": {
+            "default": 250,
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Debounce Ms",
+            "type": "integer"
+          },
+          "request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Id"
+          }
+        },
+        "required": [
+          "candidate_revision"
+        ],
+        "title": "ChainExecutionRequest",
         "type": "object"
       },
       "ChainPort": {
@@ -1158,6 +1299,106 @@
         "title": "ChainRevision",
         "type": "object"
       },
+      "ChainSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "external_input": {
+            "additionalProperties": true,
+            "title": "External Input",
+            "type": "object"
+          },
+          "identity": {
+            "$ref": "#/components/schemas/ChainSnapshotIdentity"
+          },
+          "request_id": {
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "chain-snapshot/v1",
+            "default": "chain-snapshot/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "snapshot_id": {
+            "minLength": 1,
+            "title": "Snapshot Id",
+            "type": "string"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/ChainStageExecution"
+            },
+            "minItems": 1,
+            "title": "Stages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "identity",
+          "request_id",
+          "external_input",
+          "stages",
+          "created_at"
+        ],
+        "title": "ChainSnapshot",
+        "type": "object"
+      },
+      "ChainSnapshotIdentity": {
+        "additionalProperties": false,
+        "description": "All mutable references required to interpret a stored Chain result.",
+        "properties": {
+          "candidate_id": {
+            "minLength": 1,
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "candidate_revision": {
+            "minimum": 1.0,
+            "title": "Candidate Revision",
+            "type": "integer"
+          },
+          "chain_revision_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Chain Revision Digest",
+            "type": "string"
+          },
+          "chain_revision_id": {
+            "minLength": 1,
+            "title": "Chain Revision Id",
+            "type": "string"
+          },
+          "commercial_catalog": {
+            "$ref": "#/components/schemas/RevisionRef"
+          },
+          "design_space": {
+            "$ref": "#/components/schemas/RevisionRef"
+          },
+          "schema_version": {
+            "const": "chain-snapshot-identity/v1",
+            "default": "chain-snapshot-identity/v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "chain_revision_id",
+          "chain_revision_digest",
+          "design_space",
+          "candidate_id",
+          "candidate_revision",
+          "commercial_catalog"
+        ],
+        "title": "ChainSnapshotIdentity",
+        "type": "object"
+      },
       "ChainStage": {
         "additionalProperties": false,
         "properties": {
@@ -1187,6 +1428,120 @@
           "contract_id"
         ],
         "title": "ChainStage",
+        "type": "object"
+      },
+      "ChainStageExecution": {
+        "additionalProperties": false,
+        "properties": {
+          "cache_hit": {
+            "default": false,
+            "title": "Cache Hit",
+            "type": "boolean"
+          },
+          "canonical_input": {
+            "additionalProperties": true,
+            "title": "Canonical Input",
+            "type": "object"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "contract_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Contract Digest",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "package_manifest_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Package Manifest Digest",
+            "type": "string"
+          },
+          "requested_input_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Requested Input Digest",
+            "type": "string"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result"
+          },
+          "result_input_digest": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Input Digest"
+          },
+          "stage_id": {
+            "minLength": 1,
+            "title": "Stage Id",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "enum": [
+              "latest",
+              "running",
+              "stale",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage_id",
+          "status",
+          "requested_input_digest",
+          "contract_digest",
+          "package_manifest_digest",
+          "canonical_input"
+        ],
+        "title": "ChainStageExecution",
         "type": "object"
       },
       "ChainStageRevision": {
@@ -3197,6 +3552,62 @@
         "title": "FixedContextDefinition",
         "type": "object"
       },
+      "GroupCardinalityConstraint": {
+        "additionalProperties": false,
+        "properties": {
+          "group": {
+            "minLength": 1,
+            "title": "Group",
+            "type": "string"
+          },
+          "maximum": {
+            "minimum": 0.0,
+            "title": "Maximum",
+            "type": "integer"
+          },
+          "minimum": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Minimum",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "group",
+          "maximum"
+        ],
+        "title": "GroupCardinalityConstraint",
+        "type": "object"
+      },
+      "GroupTotalConstraint": {
+        "additionalProperties": false,
+        "properties": {
+          "group": {
+            "minLength": 1,
+            "title": "Group",
+            "type": "string"
+          },
+          "lower": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Lower",
+            "type": "number"
+          },
+          "upper": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Upper",
+            "type": "number"
+          }
+        },
+        "required": [
+          "group",
+          "lower",
+          "upper"
+        ],
+        "title": "GroupTotalConstraint",
+        "type": "object"
+      },
       "HeatPoint": {
         "properties": {
           "mapping_status": {
@@ -4262,6 +4673,35 @@
           "share_of_blend_cost"
         ],
         "title": "MaterialCostContribution",
+        "type": "object"
+      },
+      "MaterialRatioBound": {
+        "additionalProperties": false,
+        "properties": {
+          "lower": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Lower",
+            "type": "number"
+          },
+          "material_id": {
+            "minLength": 1,
+            "title": "Material Id",
+            "type": "string"
+          },
+          "upper": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Upper",
+            "type": "number"
+          }
+        },
+        "required": [
+          "material_id",
+          "lower",
+          "upper"
+        ],
+        "title": "MaterialRatioBound",
         "type": "object"
       },
       "ModelIdentity": {
@@ -8435,6 +8875,27 @@
         "title": "ScreeningVariable",
         "type": "object"
       },
+      "SelectionCountConstraint": {
+        "additionalProperties": false,
+        "properties": {
+          "maximum": {
+            "minimum": 1.0,
+            "title": "Maximum",
+            "type": "integer"
+          },
+          "minimum": {
+            "minimum": 1.0,
+            "title": "Minimum",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "minimum",
+          "maximum"
+        ],
+        "title": "SelectionCountConstraint",
+        "type": "object"
+      },
       "SimilarObservation": {
         "properties": {
           "components": {
@@ -8845,6 +9306,110 @@
           "design_space"
         ],
         "title": "SparseBlend",
+        "type": "object"
+      },
+      "SparseBlendDesignSpace": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_material_ids": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Allowed Material Ids",
+            "type": "array"
+          },
+          "balance_material_id": {
+            "minLength": 1,
+            "title": "Balance Material Id",
+            "type": "string"
+          },
+          "commercial_catalog": {
+            "$ref": "#/components/schemas/RevisionRef"
+          },
+          "fixed_fill_ratio": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 100.0,
+            "title": "Fixed Fill Ratio",
+            "type": "number"
+          },
+          "fixed_hoop_id": {
+            "minLength": 1,
+            "title": "Fixed Hoop Id",
+            "type": "string"
+          },
+          "group_cardinalities": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/GroupCardinalityConstraint"
+            },
+            "title": "Group Cardinalities",
+            "type": "array"
+          },
+          "group_totals": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/GroupTotalConstraint"
+            },
+            "title": "Group Totals",
+            "type": "array"
+          },
+          "material_bounds": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/MaterialRatioBound"
+            },
+            "title": "Material Bounds",
+            "type": "array"
+          },
+          "resource_id": {
+            "minLength": 1,
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "sparse-blend-design-space/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "scientific_master": {
+            "$ref": "#/components/schemas/RevisionRef"
+          },
+          "selection_count": {
+            "$ref": "#/components/schemas/SelectionCountConstraint"
+          },
+          "tolerance": {
+            "default": 1e-06,
+            "minimum": 0.0,
+            "title": "Tolerance",
+            "type": "number"
+          },
+          "total": {
+            "default": 100.0,
+            "exclusiveMinimum": 0.0,
+            "maximum": 100.0,
+            "title": "Total",
+            "type": "number"
+          }
+        },
+        "required": [
+          "schema_version",
+          "resource_id",
+          "revision",
+          "scientific_master",
+          "commercial_catalog",
+          "allowed_material_ids",
+          "selection_count",
+          "fixed_hoop_id",
+          "fixed_fill_ratio",
+          "balance_material_id"
+        ],
+        "title": "SparseBlendDesignSpace",
         "type": "object"
       },
       "StageOutputBindingSource": {
@@ -10533,6 +11098,48 @@
           }
         },
         "summary": "Create Project"
+      }
+    },
+    "/api/projects/chain-snapshots/{snapshot_id}": {
+      "get": {
+        "operationId": "getChainSnapshot",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainSnapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Chain Snapshot",
+        "tags": [
+          "chain-execution"
+        ]
       }
     },
     "/api/projects/{project_id}": {
@@ -12583,6 +13190,438 @@
           }
         },
         "summary": "Create Snapshot"
+      }
+    },
+    "/api/projects/{project_id}/chain/candidate-contract": {
+      "get": {
+        "operationId": "getChainCandidateContract",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainCandidateContractResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Chain Candidate Contract",
+        "tags": [
+          "chain-execution"
+        ]
+      }
+    },
+    "/api/projects/{project_id}/chain/candidates": {
+      "get": {
+        "operationId": "listChainCandidates",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Candidate"
+                  },
+                  "title": "Response Listchaincandidates",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Chain Candidates",
+        "tags": [
+          "chain-execution"
+        ]
+      },
+      "post": {
+        "operationId": "createChainCandidate",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CandidateInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Candidate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Chain Candidate",
+        "tags": [
+          "chain-execution"
+        ]
+      }
+    },
+    "/api/projects/{project_id}/chain/candidates/{candidate_id}": {
+      "put": {
+        "operationId": "updateChainCandidate",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CandidateUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Candidate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Chain Candidate",
+        "tags": [
+          "chain-execution"
+        ]
+      }
+    },
+    "/api/projects/{project_id}/chain/candidates/{candidate_id}/execution": {
+      "get": {
+        "operationId": "getProjectChainExecution",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainExecution"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Project Chain Execution",
+        "tags": [
+          "chain-execution"
+        ]
+      }
+    },
+    "/api/projects/{project_id}/chain/candidates/{candidate_id}/executions": {
+      "post": {
+        "operationId": "executeProjectChain",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChainExecutionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainExecution"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Execute Project Chain",
+        "tags": [
+          "chain-execution"
+        ]
+      }
+    },
+    "/api/projects/{project_id}/chain/candidates/{candidate_id}/revisions/{revision}": {
+      "get": {
+        "operationId": "getChainCandidateRevision",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision",
+            "required": true,
+            "schema": {
+              "title": "Revision",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Candidate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Chain Candidate Revision",
+        "tags": [
+          "chain-execution"
+        ]
+      }
+    },
+    "/api/projects/{project_id}/chain/candidates/{candidate_id}/snapshots": {
+      "post": {
+        "operationId": "createProjectChainSnapshot",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChainExecutionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainSnapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Project Chain Snapshot",
+        "tags": [
+          "chain-execution"
+        ]
       }
     },
     "/api/projects/{project_id}/decision": {

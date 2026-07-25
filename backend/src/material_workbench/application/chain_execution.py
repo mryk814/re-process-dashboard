@@ -9,7 +9,16 @@ import uuid
 
 from pydantic import BaseModel
 
-from material_workbench.contracts.blend_contracts import SparseBlend
+from material_workbench.contracts.blend_contracts import (
+    CommercialMaterialCatalog,
+    ResolvedBlendContracts,
+    ScientificHoop,
+    ScientificMaterial,
+    ScientificMaterialMaster,
+    SparseBlend,
+    SparseBlendDesignSpace,
+    validate_sparse_blend,
+)
 from material_workbench.contracts.chain_contracts import (
     ChainBinding,
     ChainDefinition,
@@ -23,7 +32,7 @@ from material_workbench.contracts.chain_execution_contracts import (
     ChainSnapshot,
     ChainStageExecution,
 )
-from material_workbench.contracts.schemas import Candidate, CandidateInputs
+from material_workbench.contracts.schemas import Candidate, CandidateInput, CandidateInputs
 from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.modeling.transform_catalog import DeterministicTransformCatalog
 from material_workbench.persistence.store import Store
@@ -101,6 +110,100 @@ class ChainExecutionService:
         self.transform_catalog = transform_catalog
         self.coordinator = coordinator
 
+    def candidate_contracts(
+        self, project_id: str
+    ) -> ResolvedBlendContracts:
+        project = self.store.get_project(project_id)
+        if project is None:
+            raise ChainExecutionError("Chain Projectが見つかりません")
+        identity = project.scientific_identity
+        if identity.identity_kind != "chain":
+            raise ChainExecutionError("このAPIはChain Project専用です")
+        revision = self.store.get_chain_revision(identity.chain_revision_id)
+        if revision is None or revision.revision_digest != identity.chain_revision_digest:
+            raise ChainExecutionError("固定されたChain Revisionを解決できません")
+        deterministic = [
+            stage for stage in revision.stages
+            if stage.stage_kind == "deterministic_transform"
+        ]
+        if len(deterministic) != 1:
+            raise ChainExecutionError(
+                "v1 Chain candidateは決定論的Stageを1段だけ必要とします"
+            )
+        entry = self.transform_catalog.entry(deterministic[0].contract_id)
+        artifact = entry.transform.artifact.scientific_master
+        scientific = ScientificMaterialMaster(
+            schema_version="scientific-material-master/v1",
+            resource_id=artifact.resource_id,
+            revision=artifact.revision,
+            materials=tuple(
+                ScientificMaterial(
+                    material_id=item.material_id,
+                    name=item.material_id,
+                    material_type=item.group,
+                    group=item.group,
+                    d50_um=item.d50_um,
+                )
+                for item in artifact.materials
+            ),
+            hoops=tuple(
+                ScientificHoop(
+                    hoop_id=item.hoop_id,
+                    name=item.hoop_id,
+                )
+                for item in artifact.hoops
+            ),
+        )
+        commercial: CommercialMaterialCatalog = entry.commercial_catalog
+        design_space = SparseBlendDesignSpace(
+            schema_version="sparse-blend-design-space/v1",
+            resource_id="welding-stage-a-design-space",
+            revision=1,
+            scientific_master=artifact.ref,
+            commercial_catalog=commercial.ref,
+            allowed_material_ids=tuple(
+                material.material_id for material in scientific.materials
+            ),
+            fixed_hoop_id="HP-01",
+            fixed_fill_ratio=19.06,
+            balance_material_id="RM-0013",
+            total=100.0,
+            tolerance=1e-6,
+            material_bounds=(),
+            group_totals=(),
+            group_cardinalities=(),
+            selection_count={"minimum": 1, "maximum": 20},
+        )
+        return ResolvedBlendContracts(scientific, commercial, design_space)
+
+    def prepare_candidate(
+        self, project_id: str, payload: CandidateInput
+    ) -> CandidateInput:
+        if payload.blend is None:
+            raise ChainExecutionError("Chain候補には疎な配合明細が必要です")
+        contracts = self.candidate_contracts(project_id)
+        blend = payload.blend
+        expected_scientific = contracts.design_space.scientific_master
+        expected_commercial = contracts.design_space.commercial_catalog
+        expected_design_space = contracts.design_space.ref
+        if blend.scientific_master != expected_scientific:
+            raise ChainExecutionError(
+                "候補の科学変換master revisionがChainと一致しません"
+            )
+        if blend.commercial_catalog != expected_commercial:
+            raise ChainExecutionError(
+                "候補の商用catalog revisionがChainと一致しません"
+            )
+        if blend.design_space != expected_design_space:
+            raise ChainExecutionError(
+                "候補のDesign Space revisionがChainと一致しません"
+            )
+        try:
+            validation = validate_sparse_blend(blend, contracts)
+        except ValueError as exc:
+            raise ChainExecutionError(str(exc)) from exc
+        return payload.model_copy(update={"blend_validation": validation})
+
     def _resolve(
         self, project_id: str, candidate_id: str, candidate_revision: int
     ) -> tuple[Candidate, ChainDefinition, ChainRevision, ChainProjectIdentity]:
@@ -125,6 +228,13 @@ class ChainExecutionService:
             raise ChainExecutionError("指定したcandidate revisionが見つかりません")
         if candidate.blend is None:
             raise ChainExecutionError("Chain候補には疎な配合明細が必要です")
+        if candidate.blend_validation.status == "invalid":
+            reasons = " / ".join(
+                issue.message for issue in candidate.blend_validation.issues
+            )
+            raise ChainExecutionError(
+                f"配合がDesign Spaceを満たしていないためChainを実行できません: {reasons}"
+            )
         return candidate, definition, revision, identity
 
     @staticmethod
