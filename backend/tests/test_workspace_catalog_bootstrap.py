@@ -74,22 +74,27 @@ def test_startup_registers_runtime_resources_and_binds_projects(
         assert projects["default"]["dataset_view_revision_id"] == projects["hot-rolling-default"]["dataset_view_revision_id"]
         assert projects["default"]["model_package_ref_id"] != projects["hot-rolling-default"]["model_package_ref_id"]
         assert projects["default"]["project_series_id"] != projects["hot-rolling-default"]["project_series_id"]
+        assert len(catalog.list_data_assets()) == len(EXPECTED_ASSET_FILENAMES)
         assert {
             asset.original_filename
             for asset in catalog.list_data_assets()
         } == EXPECTED_ASSET_FILENAMES
+        assert len(catalog.list_profile_revisions()) == len(EXPECTED_PROFILE_IDS)
         assert {
             profile.profile_id
             for profile in catalog.list_profile_revisions()
         } == EXPECTED_PROFILE_IDS
         datasets = catalog.list_dataset_revisions()
         views = catalog.list_dataset_view_revisions()
+        assert len(datasets) == len(EXPECTED_PROFILE_IDS)
+        assert len(views) == len(datasets)
         assert {
             member.dataset_revision_id
             for view in views
             for member in view.members
         } == {dataset.id for dataset in datasets}
         assert all(view.kind == "single" and len(view.members) == 1 for view in views)
+        assert len(catalog.list_model_package_refs()) == len(EXPECTED_MODEL_PACKAGES)
         assert {
             (package.task_id, package.package_id)
             for package in catalog.list_model_package_refs()

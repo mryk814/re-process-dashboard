@@ -46,6 +46,7 @@ def test_data_library_exposes_semantic_dataset_records_and_creation_options(clie
     datasets = client.get("/api/data-library/datasets")
     assert datasets.status_code == 200
     items = datasets.json()
+    assert len(items) == len(EXPECTED_DATASET_IDENTITIES)
     assert {
         (
             item["profile_revision"]["profile_id"],
@@ -71,6 +72,11 @@ def test_data_library_exposes_semantic_dataset_records_and_creation_options(clie
     options = client.get("/api/project-creation-options")
     assert options.status_code == 200
     payload = options.json()
+    assert len(payload["dataset_views"]) == len(items)
+    assert all(
+        view["kind"] == "single" and len(view["members"]) == 1
+        for view in payload["dataset_views"]
+    )
     assert {
         member["dataset_revision_id"]
         for view in payload["dataset_views"]
