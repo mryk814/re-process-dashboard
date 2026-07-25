@@ -8,14 +8,14 @@ export function blendCost(
   candidate: ApiCandidate,
   materials: ReadonlyMap<string, ApiBlendMaterial>,
 ) {
-  return (candidate.blend?.items ?? []).reduce(
-    (total, item) =>
-      total
-      + item.ratio
-      * (materials.get(item.material_id)?.unit_price_yen_per_kg_core ?? 0)
-      / 100,
-    0,
-  );
+  let total = 0;
+  for (const item of candidate.blend?.items ?? []) {
+    if (item.ratio === 0) continue;
+    const price = materials.get(item.material_id)?.unit_price_yen_per_kg_core;
+    if (price == null) return null;
+    total += item.ratio * price / 100;
+  }
+  return total;
 }
 
 export function blendComparisonRows(

@@ -54,6 +54,20 @@ test("core blend cost uses the candidate catalog pinned material prices", () => 
   ]), materials), 150);
 });
 
+test("core blend cost stays unavailable when any used material price is missing", () => {
+  const materials = new Map([
+    ["RM-1", { unit_price_yen_per_kg_core: 100 }],
+  ]);
+  assert.equal(blendCost(candidate([
+    { material_id: "RM-1", ratio: 75 },
+    { material_id: "RM-2", ratio: 25 },
+  ]), materials), null);
+  assert.equal(blendCost(candidate([
+    { material_id: "RM-1", ratio: 100 },
+    { material_id: "RM-2", ratio: 0 },
+  ]), materials), 100);
+});
+
 test("editing another field does not drop sparse blend revision state", () => {
   const raw = {
     name: "配合候補",
