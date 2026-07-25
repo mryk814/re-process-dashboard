@@ -4584,6 +4584,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description Observation Profile Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
         };
     };
     get_observation_training_profiles_api_developer_observation_training_profiles_get: {
@@ -4606,6 +4615,15 @@ export interface operations {
             };
             /** @description Validation Error */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Observation Profile Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

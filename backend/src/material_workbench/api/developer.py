@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from functools import lru_cache
 import os
 from pathlib import Path
 from typing import Annotated
+from zipfile import BadZipFile
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from openpyxl.utils.exceptions import InvalidFileException
 
 from material_workbench.api.dependencies import (
     get_project_runtime_resolver,
@@ -25,10 +28,12 @@ from material_workbench.data.observation_profile import (
     ObservationTrainingDataset,
     ObservationTrainingInspectionPage,
     ObservationTrainingProfileSummary,
+    ObservationProfileError,
     build_observation_training_dataset,
     inspect_observation_training_view,
     load_observation_profile,
 )
+from material_workbench.contracts.schemas import ApiError
 from material_workbench.persistence.store import Store
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
@@ -45,35 +50,101 @@ _WELDING_PROFILE = (
 _WELDING_SOURCE_RELATIVE = Path("data/source/welding_consumable_multistage_synthetic_dataset.xlsx")
 
 
+@dataclass(frozen=True)
+class _ObservationProfileRegistration:
+    profile_id: str
+    source_relative: Path
+    profile_path: Path
+
+
+_OBSERVATION_PROFILE_REGISTRY = (
+    _ObservationProfileRegistration(
+        profile_id="welding-consumable-stage-c-observations-v1",
+        source_relative=_WELDING_SOURCE_RELATIVE,
+        profile_path=_WELDING_PROFILE,
+    ),
+)
+_OBSERVATION_API_ERRORS = {
+    503: {"model": ApiError, "description": "Observation Profile Unavailable"},
+}
+
+
 def _resource_root() -> Path:
     configured = os.getenv("WORKBENCH_RESOURCE_ROOT")
     return Path(configured) if configured else _ROOT
 
 
-def _welding_source() -> Path:
-    return _resource_root() / _WELDING_SOURCE_RELATIVE
+def _source_path(registration: _ObservationProfileRegistration) -> Path:
+    return _resource_root() / registration.source_relative
 
 
-@lru_cache(maxsize=2)
+@lru_cache(maxsize=8)
 def _load_observation_dataset(
     source_path: str,
     source_mtime_ns: int,
+    profile_path: str,
     profile_mtime_ns: int,
 ) -> ObservationTrainingDataset:
     del source_mtime_ns, profile_mtime_ns
     return build_observation_training_dataset(
         Path(source_path),
-        load_observation_profile(_WELDING_PROFILE),
+        load_observation_profile(Path(profile_path)),
     )
 
 
-def _observation_dataset() -> ObservationTrainingDataset:
-    source = _welding_source()
-    return _load_observation_dataset(
-        str(source.resolve()),
-        source.stat().st_mtime_ns,
-        _WELDING_PROFILE.stat().st_mtime_ns,
+def _observation_dataset(
+    registration: _ObservationProfileRegistration,
+) -> ObservationTrainingDataset:
+    source = _source_path(registration)
+    try:
+        dataset = _load_observation_dataset(
+            str(source.resolve()),
+            source.stat().st_mtime_ns,
+            str(registration.profile_path.resolve()),
+            registration.profile_path.stat().st_mtime_ns,
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"観測Profile「{registration.profile_id}」の配布データが見つかりません。"
+                "アプリを再インストールするか、配布データを確認してください。"
+            ),
+        ) from exc
+    except (
+        BadZipFile,
+        InvalidFileException,
+        ObservationProfileError,
+        OSError,
+        KeyError,
+        ValueError,
+    ) as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"観測Profile「{registration.profile_id}」の元データを読み取れません。"
+                "ExcelとProfileの内容を確認し、正しい配布データへ差し替えてください。"
+            ),
+        ) from exc
+    if dataset.profile_id != registration.profile_id:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"観測Profile「{registration.profile_id}」の登録内容が一致しません。"
+                "Profile registryと配布Profileを確認してください。"
+            ),
+        )
+    return dataset
+
+
+def _observation_registration(profile_id: str) -> _ObservationProfileRegistration:
+    registration = next(
+        (item for item in _OBSERVATION_PROFILE_REGISTRY if item.profile_id == profile_id),
+        None,
     )
+    if registration is None:
+        raise HTTPException(status_code=422, detail=f"unknown observation profile: {profile_id}")
+    return registration
 
 
 @router.get("/change-guide", response_model=list[ChangeGuideEntry])
@@ -84,23 +155,26 @@ def get_change_guide() -> list[ChangeGuideEntry]:
 @router.get(
     "/observation-training-profiles",
     response_model=list[ObservationTrainingProfileSummary],
+    responses=_OBSERVATION_API_ERRORS,
 )
 def get_observation_training_profiles() -> list[ObservationTrainingProfileSummary]:
-    dataset = _observation_dataset()
     return [
         ObservationTrainingProfileSummary(
             profile_id=dataset.profile_id,
             profile_digest=dataset.profile_digest,
-            source_filename=_welding_source().name,
+            source_filename=_source_path(registration).name,
             source_sha256=dataset.source_sha256,
             families=tuple(view.summary for view in dataset.views.values()),
         )
+        for registration in _OBSERVATION_PROFILE_REGISTRY
+        for dataset in (_observation_dataset(registration),)
     ]
 
 
 @router.get(
     "/observation-training-data",
     response_model=ObservationTrainingInspectionPage,
+    responses=_OBSERVATION_API_ERRORS,
 )
 def get_observation_training_data(
     profile_id: Annotated[str, Query()],
@@ -109,9 +183,7 @@ def get_observation_training_data(
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 25,
 ) -> ObservationTrainingInspectionPage:
-    dataset = _observation_dataset()
-    if dataset.profile_id != profile_id:
-        raise HTTPException(status_code=422, detail=f"unknown observation profile: {profile_id}")
+    dataset = _observation_dataset(_observation_registration(profile_id))
     try:
         return inspect_observation_training_view(
             dataset,

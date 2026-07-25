@@ -9010,6 +9010,16 @@
               }
             },
             "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Observation Profile Unavailable"
           }
         },
         "summary": "Get Observation Training Data",
@@ -9045,6 +9055,16 @@
               }
             },
             "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Observation Profile Unavailable"
           }
         },
         "summary": "Get Observation Training Profiles",

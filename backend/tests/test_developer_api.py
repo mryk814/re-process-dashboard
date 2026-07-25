@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import shutil
 import subprocess
@@ -120,6 +121,109 @@ def test_observation_training_endpoint_reads_from_packaged_resource_root(
     assert page.status_code == 200, page.text
     assert page.json()["rows"][0]["observation_id"] == "TT-00001"
 
+    developer._load_observation_dataset.cache_clear()
+
+
+def test_observation_training_profiles_return_structured_error_when_source_is_missing(
+    client: TestClient,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    registration = developer._ObservationProfileRegistration(
+        profile_id="missing-observations-v1",
+        source_relative=Path("data/source/missing.xlsx"),
+        profile_path=developer._WELDING_PROFILE,
+    )
+    monkeypatch.setattr(developer, "_OBSERVATION_PROFILE_REGISTRY", (registration,))
+    monkeypatch.setenv("WORKBENCH_RESOURCE_ROOT", str(tmp_path))
+    developer._load_observation_dataset.cache_clear()
+
+    response = client.get("/api/developer/observation-training-profiles")
+
+    assert response.status_code == 503
+    assert response.json()["code"] == "runtime_unavailable"
+    assert "配布データが見つかりません" in response.json()["message"]
+    assert "再インストール" in response.json()["message"]
+    declared = client.app.openapi()["paths"]["/api/developer/observation-training-profiles"]["get"]["responses"]
+    assert declared["503"]["content"]["application/json"]["schema"]["$ref"].endswith("/ApiError")
+    developer._load_observation_dataset.cache_clear()
+
+
+def test_observation_training_profiles_return_structured_error_when_source_is_corrupt(
+    client: TestClient,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    relative = Path("data/source/corrupt.xlsx")
+    corrupt = tmp_path / relative
+    corrupt.parent.mkdir(parents=True)
+    corrupt.write_bytes(b"not an xlsx workbook")
+    registration = developer._ObservationProfileRegistration(
+        profile_id="corrupt-observations-v1",
+        source_relative=relative,
+        profile_path=developer._WELDING_PROFILE,
+    )
+    monkeypatch.setattr(developer, "_OBSERVATION_PROFILE_REGISTRY", (registration,))
+    monkeypatch.setenv("WORKBENCH_RESOURCE_ROOT", str(tmp_path))
+    developer._load_observation_dataset.cache_clear()
+
+    response = client.get("/api/developer/observation-training-profiles")
+
+    assert response.status_code == 503
+    assert response.json()["code"] == "runtime_unavailable"
+    assert "元データを読み取れません" in response.json()["message"]
+    assert "差し替えてください" in response.json()["message"]
+    developer._load_observation_dataset.cache_clear()
+
+
+def test_observation_training_registry_lists_and_inspects_multiple_profiles(
+    client: TestClient,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    source_relative = Path("data/source/welding.xlsx")
+    source = Path(__file__).resolve().parents[2] / "data" / "source" / developer._WELDING_SOURCE_RELATIVE.name
+    packaged_source = tmp_path / source_relative
+    packaged_source.parent.mkdir(parents=True)
+    shutil.copyfile(source, packaged_source)
+
+    second_profile_path = tmp_path / "second-profile.json"
+    second_profile = json.loads(developer._WELDING_PROFILE.read_text(encoding="utf-8"))
+    second_profile["id"] = "welding-consumable-stage-c-observations-v2"
+    second_profile_path.write_text(json.dumps(second_profile, ensure_ascii=False), encoding="utf-8")
+    registry = (
+        developer._ObservationProfileRegistration(
+            profile_id="welding-consumable-stage-c-observations-v1",
+            source_relative=source_relative,
+            profile_path=developer._WELDING_PROFILE,
+        ),
+        developer._ObservationProfileRegistration(
+            profile_id="welding-consumable-stage-c-observations-v2",
+            source_relative=source_relative,
+            profile_path=second_profile_path,
+        ),
+    )
+    monkeypatch.setattr(developer, "_OBSERVATION_PROFILE_REGISTRY", registry)
+    monkeypatch.setenv("WORKBENCH_RESOURCE_ROOT", str(tmp_path))
+    developer._load_observation_dataset.cache_clear()
+
+    profiles = client.get("/api/developer/observation-training-profiles")
+    assert profiles.status_code == 200, profiles.text
+    assert [item["profile_id"] for item in profiles.json()] == [
+        "welding-consumable-stage-c-observations-v1",
+        "welding-consumable-stage-c-observations-v2",
+    ]
+    page = client.get(
+        "/api/developer/observation-training-data",
+        params={
+            "profile_id": "welding-consumable-stage-c-observations-v2",
+            "family": "corrosion",
+            "target": "CORROSION_RATE",
+            "limit": 1,
+        },
+    )
+    assert page.status_code == 200, page.text
+    assert page.json()["rows"][0]["observation_id"] == "CR-00001"
     developer._load_observation_dataset.cache_clear()
 
 

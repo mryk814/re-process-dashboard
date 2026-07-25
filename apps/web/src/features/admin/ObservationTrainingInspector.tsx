@@ -30,6 +30,7 @@ function valueLabel(value: unknown) {
 
 export function ObservationTrainingInspector() {
   const [profiles, setProfiles] = useState<ApiObservationTrainingProfile[]>([]);
+  const [profileId, setProfileId] = useState("");
   const [family, setFamily] = useState("");
   const [target, setTarget] = useState("");
   const [page, setPage] = useState<ApiObservationTrainingPage | null>(null);
@@ -38,7 +39,7 @@ export function ObservationTrainingInspector() {
   const [error, setError] = useState("");
   const tableRef = useRef<HTMLDivElement>(null);
   const limit = 25;
-  const profile = profiles[0];
+  const profile = profiles.find((item) => item.profile_id === profileId);
   const familySummary = profile?.families.find((item) => item.family === family);
   const availableTargets = familySummary?.targets ?? [];
 
@@ -49,7 +50,9 @@ export function ObservationTrainingInspector() {
       .then((items) => {
         if (!live) return;
         setProfiles(items);
-        const initialFamily = items[0]?.families[0];
+        const initialProfile = items[0];
+        const initialFamily = initialProfile?.families[0];
+        setProfileId(initialProfile?.profile_id ?? "");
         setFamily(initialFamily?.family ?? "");
         setTarget(initialFamily?.targets[0]?.target ?? "");
       })
@@ -68,7 +71,11 @@ export function ObservationTrainingInspector() {
     workbenchApi.developerObservationTrainingData(profile.profile_id, family, target, offset, limit, controller.signal)
       .then((next) => {
         if (controller.signal.aborted) return;
-        setPage((current) => offset === 0 || !current || current.family !== next.family || current.target !== next.target
+        setPage((current) => offset === 0
+          || !current
+          || current.profile_id !== next.profile_id
+          || current.family !== next.family
+          || current.target !== next.target
           ? next
           : { ...next, offset: 0, rows: [...current.rows, ...next.rows] });
       })
@@ -81,7 +88,7 @@ export function ObservationTrainingInspector() {
 
   const inputPaths = useMemo(
     () => Object.keys(page?.rows[0]?.inputs ?? {}),
-    [page?.family, page?.target],
+    [page?.family, page?.profile_id, page?.target],
   );
   const resetPage = () => {
     setOffset(0);
@@ -105,6 +112,21 @@ export function ObservationTrainingInspector() {
       {profile && <code>{profile.source_filename}</code>}
     </div>
     <div className="observation-training-controls">
+      <label>学習Profile
+        <select value={profileId} disabled={profiles.length <= 1} onChange={(event) => {
+          const nextProfileId = event.target.value;
+          const nextProfile = profiles.find((item) => item.profile_id === nextProfileId);
+          const nextFamily = nextProfile?.families[0];
+          setProfileId(nextProfileId);
+          setFamily(nextFamily?.family ?? "");
+          setTarget(nextFamily?.targets[0]?.target ?? "");
+          resetPage();
+        }}>
+          {profiles.map((item) => <option value={item.profile_id} key={item.profile_id}>
+            {item.source_filename} · {item.profile_id}
+          </option>)}
+        </select>
+      </label>
       <label>観測family
         <select value={family} onChange={(event) => {
           const nextFamily = event.target.value;

@@ -34,6 +34,15 @@ test("observation training inspector exposes family cohorts, split groups, and e
   assert.match(inspector, /page\.exclusion_reasons/);
   assert.match(inspector, /Object\.keys\(page\?\.rows\[0\]\?\.inputs/);
   assert.match(inspector, /row\.provenance\.entity_keys\.weld_metal/);
+  assert.match(inspector, /学習Profile/);
+  assert.match(inspector, /profiles\.find\(\(item\) => item\.profile_id === profileId\)/);
+  assert.match(inspector, /disabled=\{profiles\.length <= 1\}/);
+  assert.match(inspector, /setProfileId\(nextProfileId\)/);
+  assert.match(inspector, /setFamily\(nextFamily\?\.family \?\? ""\)/);
+  assert.match(inspector, /setTarget\(nextFamily\?\.targets\[0\]\?\.target \?\? ""\)/);
+  assert.match(inspector, /resetPage\(\)/);
+  assert.match(inspector, /current\.profile_id !== next\.profile_id/);
+  assert.match(inspector, /\[page\?\.family, page\?\.profile_id, page\?\.target\]/);
 });
 
 test("data library collapses an empty comparison area and moves state changes into management menus", async () => {
