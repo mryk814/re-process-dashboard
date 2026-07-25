@@ -16,8 +16,10 @@ from material_workbench.contracts.chain_contracts import (
     ChainRevision,
 )
 from material_workbench.contracts.chain_execution_contracts import (
+    ActualConditionedVariant,
     ChainExecution,
     ChainSnapshot,
+    IntermediateActualRecord,
 )
 from material_workbench.contracts.blend_contracts import (
     RevisionRef,
@@ -55,11 +57,19 @@ class ChainExecutionRequest(ChainApiModel):
     debounce_ms: int = Field(default=250, ge=0, le=1000)
 
 
+class ActualConditionedVariantRequest(ChainApiModel):
+    candidate_revision: int = Field(ge=1)
+    comparison_snapshot_id: str = Field(min_length=1)
+    actual_records: tuple[IntermediateActualRecord, ...] = Field(min_length=1)
+
+
 class ChainCandidateContractResponse(ChainApiModel):
+    transform_id: str
     scientific_master: RevisionRef
     commercial_catalog: RevisionRef
     design_space: SparseBlendDesignSpace
     design_space_ref: RevisionRef
+    starter_candidate: CandidateInput
 
 
 def _definition_id(definition: ChainDefinition) -> str:
@@ -118,13 +128,17 @@ def get_chain_candidate_contract(
 ) -> ChainCandidateContractResponse:
     try:
         contracts = service.candidate_contracts(project_id)
+        transform_id = service.candidate_transform_id(project_id)
+        starter = service.starter_candidate(project_id)
     except ChainExecutionError as exc:
         raise HTTPException(409, str(exc)) from exc
     return ChainCandidateContractResponse(
+        transform_id=transform_id,
         scientific_master=contracts.design_space.scientific_master,
         commercial_catalog=contracts.commercial_catalog.ref,
         design_space=contracts.design_space,
         design_space_ref=contracts.design_space.ref,
+        starter_candidate=starter,
     )
 
 
@@ -262,6 +276,21 @@ def execute_project_chain(
 
 
 @execution_router.get(
+    "/{project_id}/chain/candidates/{candidate_id}/snapshots",
+    response_model=list[ChainSnapshot],
+    operation_id="listProjectChainSnapshots",
+)
+def list_project_chain_snapshots(
+    project_id: str,
+    candidate_id: str,
+    service: Annotated[ChainExecutionService, Depends(_execution_service)],
+    store: StoreDependency,
+) -> list[ChainSnapshot]:
+    service.candidate_contracts(project_id)
+    return store.list_chain_snapshots(project_id, candidate_id)
+
+
+@execution_router.get(
     "/{project_id}/chain/candidates/{candidate_id}/execution",
     response_model=ChainExecution,
     operation_id="getProjectChainExecution",
@@ -312,3 +341,42 @@ def get_chain_snapshot(
     if snapshot is None:
         raise HTTPException(404, "Chain snapshotが見つかりません")
     return snapshot
+
+
+@execution_router.get(
+    "/{project_id}/chain/candidates/{candidate_id}/analysis-variants",
+    response_model=list[ActualConditionedVariant],
+    operation_id="listProjectChainAnalysisVariants",
+)
+def list_project_chain_analysis_variants(
+    project_id: str,
+    candidate_id: str,
+    service: Annotated[ChainExecutionService, Depends(_execution_service)],
+    store: StoreDependency,
+) -> list[ActualConditionedVariant]:
+    service.candidate_contracts(project_id)
+    return store.list_chain_analysis_variants(project_id, candidate_id)
+
+
+@execution_router.post(
+    "/{project_id}/chain/candidates/{candidate_id}/analysis-variants",
+    response_model=ActualConditionedVariant,
+    status_code=201,
+    operation_id="createProjectChainAnalysisVariant",
+)
+def create_project_chain_analysis_variant(
+    project_id: str,
+    candidate_id: str,
+    payload: ActualConditionedVariantRequest,
+    service: Annotated[ChainExecutionService, Depends(_execution_service)],
+) -> ActualConditionedVariant:
+    try:
+        return service.actual_conditioned_variant(
+            project_id=project_id,
+            candidate_id=candidate_id,
+            candidate_revision=payload.candidate_revision,
+            comparison_snapshot_id=payload.comparison_snapshot_id,
+            actual_records=payload.actual_records,
+        )
+    except ChainExecutionError as exc:
+        raise HTTPException(409, str(exc)) from exc

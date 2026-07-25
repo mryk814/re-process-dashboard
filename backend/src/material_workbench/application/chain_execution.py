@@ -24,9 +24,12 @@ from material_workbench.contracts.chain_contracts import (
     ChainStageRevision,
 )
 from material_workbench.contracts.chain_execution_contracts import (
+    ActualConditionedVariant,
+    ActualConditionedVariantIdentity,
     ChainExecution,
     ChainSnapshot,
     ChainStageExecution,
+    IntermediateActualRecord,
 )
 from material_workbench.contracts.schemas import Candidate, CandidateInput, CandidateInputs
 from material_workbench.execution.inference_work_graph import semantic_digest
@@ -127,6 +130,112 @@ class ChainExecutionService:
             raise ChainExecutionError(
                 "Chain Revisionに固定されたStage A契約を解決できません"
             ) from exc
+
+    def candidate_transform_id(self, project_id: str) -> str:
+        return self._deterministic_stage(project_id).contract_id
+
+    def starter_candidate(self, project_id: str) -> CandidateInput:
+        """Build a usable first candidate from the exact pinned Chain contracts."""
+
+        stage_a = self._deterministic_stage(project_id)
+        try:
+            blend = self.transform_catalog.initial_blend_for_package(
+                stage_a.contract_id,
+                stage_a.package_manifest_digest,
+                stage_a.contract_digest,
+            )
+        except BlendStructuralError as exc:
+            raise ChainExecutionError(
+                "Chain Revisionに固定された初期配合を解決できません"
+            ) from exc
+        project = self.store.get_project(project_id)
+        assert project is not None and project.scientific_identity.identity_kind == "chain"
+        revision = self.store.get_chain_revision(
+            project.scientific_identity.chain_revision_id
+        )
+        assert revision is not None
+        definition = self.store.get_chain_definition(
+            revision.chain_id, revision.chain_definition_digest
+        )
+        assert definition is not None
+        stage_contracts = {
+            stage.stage_id: self.registry.contract_for(stage.contract_id).task_definition
+            for stage in revision.stages
+            if stage.stage_kind == "task"
+        }
+        process: dict[str, float] = {}
+        categorical: dict[str, str] = {}
+        for port in definition.external_inputs:
+            if port.path == "candidate.blend":
+                continue
+            fields = []
+            for binding in definition.bindings:
+                if (
+                    binding.source.source_kind != "external"
+                    or binding.source.path != port.path
+                ):
+                    continue
+                task = stage_contracts.get(binding.target_stage_id)
+                if task is None:
+                    continue
+                field = next(
+                    (
+                        field
+                        for group in task.input_groups
+                        for field in group.fields
+                        if field.path == binding.target_input_path
+                    ),
+                    None,
+                )
+                if field is not None:
+                    fields.append(field)
+            if not fields:
+                raise ChainExecutionError(
+                    f"初期候補の入力契約を解決できません: {port.path}"
+                )
+            key = port.path.rsplit(".", 1)[-1]
+            if all(field.kind == "number" for field in fields):
+                ranges = [field.default_range for field in fields]
+                if any(item is None for item in ranges):
+                    raise ChainExecutionError(
+                        f"初期候補の数値範囲がありません: {port.path}"
+                    )
+                lower = max(item.min for item in ranges if item is not None)
+                upper = min(item.max for item in ranges if item is not None)
+                if lower > upper:
+                    raise ChainExecutionError(
+                        f"初期候補の数値範囲がStage間で重なりません: {port.path}"
+                    )
+                process[key] = (lower + upper) / 2
+            elif all(field.kind == "categorical" for field in fields):
+                allowed = set(fields[0].choices)
+                for field in fields[1:]:
+                    allowed &= set(field.choices)
+                if not allowed:
+                    raise ChainExecutionError(
+                        f"初期候補の選択肢がStage間で重なりません: {port.path}"
+                    )
+                categorical[key] = next(
+                    choice for choice in fields[0].choices if choice in allowed
+                )
+            else:
+                raise ChainExecutionError(
+                    f"初期候補の入力型がStage間で一致しません: {port.path}"
+                )
+        return self.prepare_candidate(
+            project_id,
+            CandidateInput(
+                name="基準配合",
+                inputs=CandidateInputs(
+                    composition={},
+                    process=process,
+                    categorical=categorical,
+                    heat_pattern=None,
+                    heat_time_basis="line_speed",
+                ),
+                blend=blend,
+            ),
+        )
 
     def _deterministic_stage(self, project_id: str) -> ChainStageRevision:
         project = self.store.get_project(project_id)
@@ -912,3 +1021,111 @@ class ChainExecutionService:
             raise ChainExecutionError(
                 "候補は更新済みのため、過去revisionからChain snapshotを作成できません"
             ) from exc
+
+    def actual_conditioned_variant(
+        self,
+        *,
+        project_id: str,
+        candidate_id: str,
+        candidate_revision: int,
+        comparison_snapshot_id: str,
+        actual_records: tuple[IntermediateActualRecord, ...],
+    ) -> ActualConditionedVariant:
+        """Run Stage C with complete measured B outputs without mutating normal Chain state."""
+
+        candidate, definition, revision, identity = self._resolve(
+            project_id, candidate_id, candidate_revision
+        )
+        snapshot = self.store.get_chain_snapshot(comparison_snapshot_id)
+        if snapshot is None:
+            raise ChainExecutionError("比較元Chain snapshotが見つかりません")
+        if (
+            snapshot.identity.chain_revision_id != identity.chain_revision_id
+            or snapshot.identity.chain_revision_digest != identity.chain_revision_digest
+            or snapshot.identity.candidate_id != candidate_id
+            or snapshot.identity.candidate_revision != candidate_revision
+        ):
+            raise ChainExecutionError(
+                "比較元snapshotはこのChain candidate revisionの結果ではありません"
+            )
+        if not actual_records:
+            raise ChainExecutionError("Stage B実測を1件以上指定してください")
+        actual_ids = [record.actual_id for record in actual_records]
+        if len(actual_ids) != len(set(actual_ids)):
+            raise ChainExecutionError("実測IDは重複できません")
+
+        stage_c = revision.stages[-1]
+        if stage_c.stage_kind != "task":
+            raise ChainExecutionError("actual-conditioned variantの終端はTask Stageが必要です")
+        stage_c_snapshot = next(
+            (stage for stage in snapshot.stages if stage.stage_id == stage_c.stage_id),
+            None,
+        )
+        if (
+            stage_c_snapshot is None
+            or stage_c_snapshot.package_manifest_digest
+            != stage_c.package_manifest_digest
+        ):
+            raise ChainExecutionError("比較元snapshotのStage C Packageが一致しません")
+
+        required_components = tuple(
+            sorted(
+                binding.target_input_path.removeprefix("composition.")
+                for binding in definition.bindings
+                if binding.target_stage_id == stage_c.stage_id
+                and binding.target_input_path.startswith("composition.")
+                and binding.source.source_kind == "stage_output"
+            )
+        )
+        measured: dict[str, float] = {}
+        for record in actual_records:
+            for component, value in record.values.items():
+                if component in measured:
+                    raise ChainExecutionError(
+                        f"成分 {component} が複数の実測IDに重複しています"
+                    )
+                measured[component] = value
+        missing = sorted(set(required_components) - set(measured))
+        if missing:
+            raise ChainExecutionError(
+                "Stage Cに必要な実測成分が不足しています（予測値では補完しません）: "
+                + ", ".join(missing)
+            )
+        canonical_input = {
+            **stage_c_snapshot.canonical_input,
+            "composition": {
+                component: measured[component] for component in required_components
+            },
+        }
+        payload, _outputs = self._run_stage(stage_c, canonical_input, candidate)
+        measurement_payload = [
+            {
+                "actual_id": record.actual_id,
+                "values": {
+                    key: record.values[key] for key in sorted(record.values)
+                },
+            }
+            for record in sorted(actual_records, key=lambda item: item.actual_id)
+        ]
+        variant = ActualConditionedVariant(
+            variant_id=str(uuid.uuid4()),
+            project_id=project_id,
+            identity=ActualConditionedVariantIdentity(
+                base_chain_revision_id=identity.chain_revision_id,
+                base_chain_revision_digest=identity.chain_revision_digest,
+                base_candidate_id=candidate_id,
+                base_candidate_revision=candidate_revision,
+                comparison_snapshot_id=comparison_snapshot_id,
+                actual_ids=tuple(sorted(actual_ids)),
+                measurement_digest=semantic_digest(measurement_payload),
+                coverage=required_components,
+                stage_c_package_manifest_digest=stage_c.package_manifest_digest,
+            ),
+            measured_stage_b={
+                component: measured[component] for component in required_components
+            },
+            stage_c_input=canonical_input,
+            stage_c_result=payload,
+            created_at=_now(),
+        )
+        return self.store.insert_chain_analysis_variant(variant)

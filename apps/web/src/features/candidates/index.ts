@@ -29,4 +29,5 @@ export {
   type TaskOutputDefinition,
 } from "./taskDefinition";
 export { useCandidateEditor, type CandidateSaveState } from "./useCandidateEditor";
+export { LatestSaveQueue, rebaseChangedFields } from "./latestSaveQueue";
 export { displayDecimals, formatDisplayNumber, formatInputNumber, type DisplayDecimalOverrides } from "./numberFormat";

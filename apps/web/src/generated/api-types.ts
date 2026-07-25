@@ -765,6 +765,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/chain/candidates/{candidate_id}/analysis-variants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Project Chain Analysis Variants */
+        get: operations["listProjectChainAnalysisVariants"];
+        put?: never;
+        /** Create Project Chain Analysis Variant */
+        post: operations["createProjectChainAnalysisVariant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/chain/candidates/{candidate_id}/execution": {
         parameters: {
             query?: never;
@@ -823,7 +841,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List Project Chain Snapshots */
+        get: operations["listProjectChainSnapshots"];
         put?: never;
         /** Create Project Chain Snapshot */
         post: operations["createProjectChainSnapshot"];
@@ -1342,6 +1361,82 @@ export interface components {
              */
             kind: "absolute";
         };
+        /**
+         * ActualConditionedVariant
+         * @description Immutable C-only analysis. It never replaces normal A -> B -> C output.
+         */
+        ActualConditionedVariant: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            identity: components["schemas"]["ActualConditionedVariantIdentity"];
+            /** Measured Stage B */
+            measured_stage_b: {
+                [key: string]: number;
+            };
+            /** Project Id */
+            project_id: string;
+            /**
+             * Schema Version
+             * @default actual-conditioned-variant/v1
+             * @constant
+             */
+            schema_version: "actual-conditioned-variant/v1";
+            /**
+             * Source
+             * @default actual
+             * @constant
+             */
+            source: "actual";
+            /** Stage C Input */
+            stage_c_input: {
+                [key: string]: unknown;
+            };
+            /** Stage C Result */
+            stage_c_result: {
+                [key: string]: unknown;
+            };
+            /** Variant Id */
+            variant_id: string;
+        };
+        /** ActualConditionedVariantIdentity */
+        ActualConditionedVariantIdentity: {
+            /** Actual Ids */
+            actual_ids: string[];
+            /** Base Candidate Id */
+            base_candidate_id: string;
+            /** Base Candidate Revision */
+            base_candidate_revision: number;
+            /** Base Chain Revision Digest */
+            base_chain_revision_digest: string;
+            /** Base Chain Revision Id */
+            base_chain_revision_id: string;
+            /** Comparison Snapshot Id */
+            comparison_snapshot_id: string;
+            /** Coverage */
+            coverage: string[];
+            /** Measurement Digest */
+            measurement_digest: string;
+            /**
+             * Schema Version
+             * @default actual-conditioned-variant-identity/v1
+             * @constant
+             */
+            schema_version: "actual-conditioned-variant-identity/v1";
+            /** Stage C Package Manifest Digest */
+            stage_c_package_manifest_digest: string;
+        };
+        /** ActualConditionedVariantRequest */
+        ActualConditionedVariantRequest: {
+            /** Actual Records */
+            actual_records: components["schemas"]["IntermediateActualRecord"][];
+            /** Candidate Revision */
+            candidate_revision: number;
+            /** Comparison Snapshot Id */
+            comparison_snapshot_id: string;
+        };
         /** ActualMeasurement */
         ActualMeasurement: {
             /** Candidate Id */
@@ -1854,6 +1949,9 @@ export interface components {
             design_space: components["schemas"]["SparseBlendDesignSpace"];
             design_space_ref: components["schemas"]["RevisionRef"];
             scientific_master: components["schemas"]["RevisionRef"];
+            starter_candidate: components["schemas"]["CandidateInput"];
+            /** Transform Id */
+            transform_id: string;
         };
         /** ChainDefinition */
         ChainDefinition: {
@@ -2939,6 +3037,18 @@ export interface components {
             median: number;
             /** Upper */
             upper: number;
+        };
+        /**
+         * IntermediateActualRecord
+         * @description One traceable source record contributing measured Stage B values.
+         */
+        IntermediateActualRecord: {
+            /** Actual Id */
+            actual_id: string;
+            /** Values */
+            values: {
+                [key: string]: number;
+            };
         };
         /** LineageCandidateOption */
         LineageCandidateOption: {
@@ -7740,6 +7850,74 @@ export interface operations {
             };
         };
     };
+    listProjectChainAnalysisVariants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActualConditionedVariant"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    createProjectChainAnalysisVariant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActualConditionedVariantRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActualConditionedVariant"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     getProjectChainExecution: {
         parameters: {
             query?: never;
@@ -7828,6 +8006,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Candidate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    listProjectChainSnapshots: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChainSnapshot"][];
                 };
             };
             /** @description Validation Error */
