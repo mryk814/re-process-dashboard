@@ -10,6 +10,56 @@ from fastapi.testclient import TestClient
 from material_workbench.app import _AppResources, create_app
 
 
+EXPECTED_ASSET_FILENAMES = {
+    "material_workbench_tutorial_v1.xlsx",
+    "material_workbench_process_v1.xlsx",
+    "cutting_tool_flank_wear_synthetic_dataset.xlsx",
+    "heat_treatment_tradeoff_samples.csv",
+    "concrete_mix_samples.csv",
+    "wear_curve_samples.csv",
+    "battery_calce_cs2_cycles.csv",
+    "secom_stress.csv",
+    "mpea_ground_truth_18021833.csv",
+    "welding_consumable_multistage_synthetic_dataset.xlsx",
+}
+EXPECTED_PROFILE_IDS = {
+    "thin-sheet-tutorial-v1",
+    "material-workbench-process-v1",
+    "cutting-flank-wear-v1",
+    "external-heat-treatment-v1",
+    "external-concrete-v1",
+    "external-wear-curve-v1",
+    "calce-cs2-battery-capacity-v1",
+    "uci-secom-yield-v1",
+    "mpea-zenodo-18021833-v1",
+    "mpea-zenodo-18021833-room-tensile-v1",
+    "mpea-zenodo-18021833-hardness-v1",
+    "welding-consumable-stage-b-v1",
+    "welding-consumable-stage-c-observations-v1",
+}
+EXPECTED_MODEL_PACKAGES = {
+    ("annealed-properties-v1", "annealed-gp-stable-ard-process-v1"),
+    ("annealed-properties-v1", "annealed-gp-stable-ard-tutorial-v1"),
+    ("annealed-properties-v1", "annealed-heteroscedastic-gp-process-v1"),
+    ("annealed-properties-v1", "annealed-hierarchical-bayes-process-v1"),
+    ("annealed-properties-v1", "annealed-lightgbm-standard-process-v1"),
+    ("annealed-properties-v1", "annealed-lightgbm-standard-tutorial-v1"),
+    ("battery-degradation-v1", "battery-degradation-lightgbm-calce-v1"),
+    ("concrete-strength-v1", "concrete-strength-ridge-external-v1"),
+    ("flank-wear-v1", "flank-wear-gp-2026-07"),
+    ("heat-treatment-tradeoff-v1", "heat-treatment-ridge-external-v1"),
+    ("hot-rolled-properties-v1", "hot-rolled-horseshoe-process-v1"),
+    ("hot-rolled-properties-v1", "hot-rolled-tutorial-v1"),
+    ("mpea-hardness-process-v1", "mpea-hardness-ridge-v1"),
+    ("mpea-literature-tys-v1", "mpea-literature-tys-ridge-v1"),
+    ("mpea-room-tensile-v1", "mpea-room-tensile-ridge-v1"),
+    ("secom-yield-risk-v1", "secom-yield-lightgbm-calibrated-v1"),
+    ("wear-curve-v1", "wear-curve-ridge-external-v1"),
+    ("welding-consumable-stage-b-v1", "welding-consumable-stage-b-ridge-v1"),
+    ("welding-stage-c-properties-v1", "welding-stage-c-ridge-v1"),
+}
+
+
 def test_startup_registers_runtime_resources_and_binds_projects(
     tmp_path: Path,
     app_resources: _AppResources,
@@ -24,10 +74,31 @@ def test_startup_registers_runtime_resources_and_binds_projects(
         assert projects["default"]["dataset_view_revision_id"] == projects["hot-rolling-default"]["dataset_view_revision_id"]
         assert projects["default"]["model_package_ref_id"] != projects["hot-rolling-default"]["model_package_ref_id"]
         assert projects["default"]["project_series_id"] != projects["hot-rolling-default"]["project_series_id"]
-        assert len(catalog.list_data_assets()) == 10
-        assert len(catalog.list_dataset_revisions()) == 13
-        assert len(catalog.list_dataset_view_revisions()) == 13
-        assert len(catalog.list_model_package_refs()) == 19
+        assert len(catalog.list_data_assets()) == len(EXPECTED_ASSET_FILENAMES)
+        assert {
+            asset.original_filename
+            for asset in catalog.list_data_assets()
+        } == EXPECTED_ASSET_FILENAMES
+        assert len(catalog.list_profile_revisions()) == len(EXPECTED_PROFILE_IDS)
+        assert {
+            profile.profile_id
+            for profile in catalog.list_profile_revisions()
+        } == EXPECTED_PROFILE_IDS
+        datasets = catalog.list_dataset_revisions()
+        views = catalog.list_dataset_view_revisions()
+        assert len(datasets) == len(EXPECTED_PROFILE_IDS)
+        assert len(views) == len(datasets)
+        assert {
+            member.dataset_revision_id
+            for view in views
+            for member in view.members
+        } == {dataset.id for dataset in datasets}
+        assert all(view.kind == "single" and len(view.members) == 1 for view in views)
+        assert len(catalog.list_model_package_refs()) == len(EXPECTED_MODEL_PACKAGES)
+        assert {
+            (package.task_id, package.package_id)
+            for package in catalog.list_model_package_refs()
+        } == EXPECTED_MODEL_PACKAGES
 
 
 def test_bootstrap_is_idempotent_and_preserves_first_binding(

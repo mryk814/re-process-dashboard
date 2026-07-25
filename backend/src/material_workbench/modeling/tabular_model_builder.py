@@ -50,6 +50,67 @@ def _artifact(root: Path, path: Path) -> dict[str, object]:
     }
 
 
+def _validated_training_contract(
+    data: TabularData,
+    rows: list[dict[str, Any]],
+    training_contract: dict[str, object],
+) -> dict[str, object]:
+    """Recompute every externally supplied training identity before persisting it."""
+
+    lifecycle_profile = data.lifecycle_profile
+    if lifecycle_profile is None:
+        raise ValueError("Training contract requires the effective lifecycle Profile")
+    actual_profile_digest = dataset_profile_digest(lifecycle_profile)
+    actual_transform_digest = getattr(lifecycle_profile, "transform_digest", None)
+    actual_folds = getattr(lifecycle_profile, "folds", None)
+    if not isinstance(actual_transform_digest, str):
+        raise ValueError("Training contract requires a Profile transform digest")
+    if not isinstance(actual_folds, int) or actual_folds < 2:
+        raise ValueError("Training contract requires a valid Profile fold count")
+
+    output_keys = tuple(output.key for output in data.profile.outputs)
+    actual_cohorts: dict[str, str] = {}
+    actual_assignments: dict[str, dict[str, int]] = {}
+    actual_fold_digests: dict[str, str] = {}
+    actual_missing: dict[str, int] = {}
+    for output_key in output_keys:
+        target_rows = [row for row in rows if output_key in row["outputs"]]
+        cohort = [
+            (str(row["id"]), str(row["parent_key"]))
+            for row in target_rows
+        ]
+        groups = sorted({parent_key for _, parent_key in cohort})
+        if len(groups) < actual_folds:
+            raise ValueError(
+                f"{output_key}: {actual_folds} grouped folds require at least "
+                f"{actual_folds} non-empty groups"
+            )
+        assignment = {
+            group: index % actual_folds
+            for index, group in enumerate(groups)
+        }
+        actual_cohorts[output_key] = _value_digest(cohort)
+        actual_assignments[output_key] = assignment
+        actual_fold_digests[output_key] = _value_digest(assignment)
+        actual_missing[output_key] = len(rows) - len(target_rows)
+
+    expected = {
+        "profile_digest": actual_profile_digest,
+        "transform_digest": actual_transform_digest,
+        "cohort_digests": actual_cohorts,
+        "fold_digests": actual_fold_digests,
+        "fold_assignments": actual_assignments,
+        "folds": actual_folds,
+        "missing_by_target": actual_missing,
+    }
+    for key, actual in expected.items():
+        if training_contract.get(key) != actual:
+            raise ValueError(f"Training contract {key} does not match compiled data")
+    if set(training_contract) != set(expected):
+        raise ValueError("Training contract contains unsupported or missing fields")
+    return expected
+
+
 def _fit(x: np.ndarray, y: np.ndarray, ridge: float = 1.0) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     mean, scale = x.mean(axis=0), x.std(axis=0)
     scale[scale < 1e-9] = 1.0
@@ -318,6 +379,12 @@ def build_tabular_package_from_data(
         raise ValueError("Curation後に学習可能な行がありません")
     if data.profile.group_column and any(not str(row["parent_key"]).strip() for row in rows):
         raise ValueError("Grouped training rows require a non-empty parent group")
+    if training_contract is not None:
+        training_contract = _validated_training_contract(
+            data,
+            rows,
+            training_contract,
+        )
     definitions = feature_definitions(profile)
     feature_names = tuple(item.name for item in definitions)
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import hashlib
 import json
 from pathlib import Path
 import shutil
@@ -232,6 +233,69 @@ def test_stage_b_three_fold_assignment_is_used_by_package(tmp_path: Path) -> Non
         sorted(set(assignment.values())) == [0, 1, 2]
         for assignment in training.fold_assignments.values()
     )
+
+
+def _training_contract(training) -> dict[str, object]:
+    return {
+        "profile_digest": training.profile_digest,
+        "transform_digest": training.transform_digest,
+        "cohort_digests": training.cohort_digests,
+        "fold_digests": training.fold_digests,
+        "fold_assignments": training.fold_assignments,
+        "folds": training.folds,
+        "missing_by_target": training.missing_by_target,
+    }
+
+
+def _semantic_digest(value: object) -> str:
+    encoded = json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
+@pytest.mark.parametrize(
+    ("field", "expected_message"),
+    (
+        ("profile_digest", "profile_digest"),
+        ("transform_digest", "transform_digest"),
+        ("cohort_digests", "cohort_digests"),
+        ("folds", "folds"),
+        ("fold_assignments", "fold_digests"),
+    ),
+)
+def test_stage_b_package_rejects_forged_training_contract(
+    tmp_path: Path,
+    field: str,
+    expected_message: str,
+) -> None:
+    training = build_stage_b_training_data(
+        SOURCE,
+        load_stage_b_profile(PROFILE),
+    )
+    contract = json.loads(json.dumps(_training_contract(training)))
+    if field in {"profile_digest", "transform_digest"}:
+        contract[field] = "sha256:" + "0" * 64
+    elif field == "cohort_digests":
+        contract[field]["C"] = "sha256:" + "0" * 64
+    elif field == "folds":
+        contract[field] = 3
+    else:
+        assignments = contract["fold_assignments"]["C"]
+        first, second = sorted(assignments)[:2]
+        assignments[first], assignments[second] = assignments[second], assignments[first]
+        contract["fold_digests"]["C"] = _semantic_digest(assignments)
+
+    with pytest.raises(ValueError, match=expected_message):
+        build_tabular_package_from_data(
+            training.data,
+            PROFILE,
+            tmp_path / f"forged-{field}",
+            training_contract=contract,
+        )
 
 
 def test_stage_b_package_rejects_empty_group(tmp_path: Path) -> None:
