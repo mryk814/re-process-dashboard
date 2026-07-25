@@ -6,6 +6,7 @@
 
 | 入出力契約 | 代表的な経路 | 状態とカード |
 |---|---|---|
+| 疎な配合明細 → whole-wire材料成分 | `builtin.deterministic_linear.v1` | 学習済みscalar predictorではない決定論的transform。科学masterとcompiler単位をPackageへ固定し、Stage Aで使用。[Package契約](../model-package-contract.md#許可する実行環境と資産形式) |
 | 固定ベクトル → 決定論的スカラー | `builtin.linear.v1` | 利用可能だが、現行のactive Packageでは未使用。[既存ランタイムカード](existing-runtimes.md#固定ベクトルから決定論的スカラーへ) |
 | 固定ベクトル → 許可リスト登録済みsklearn推定器 | `sklearn.skops.v1` | 任意の信頼済み型ランタイム。[既存ランタイムカード](existing-runtimes.md#固定ベクトルから許可リスト登録済みsklearn推定器へ) |
 | 固定ベクトル → ネイティブ木予測 | `lightgbm.booster.v1` | 任意のネイティブランタイム。[既存ランタイムカード](existing-runtimes.md#固定ベクトルからネイティブ木予測へ) |

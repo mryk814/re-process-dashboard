@@ -1,0 +1,12 @@
+{
+  "schema_version": "active-deterministic-transforms/v1",
+  "transforms": {
+    "welding-stage-a-v1": {
+      "active": "packages/welding-stage-a-deterministic-v1",
+      "available": [
+        "packages/welding-stage-a-deterministic-v1"
+      ],
+      "commercial_catalog": "catalogs/welding-stage-a-commercial-v1.json"
+    }
+  }
+}

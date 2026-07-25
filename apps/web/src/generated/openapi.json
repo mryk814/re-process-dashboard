@@ -943,6 +943,33 @@
         "title": "ChangeGuideEntry",
         "type": "object"
       },
+      "CompiledWholeWireBlend": {
+        "additionalProperties": false,
+        "properties": {
+          "hoop_id": {
+            "title": "Hoop Id",
+            "type": "string"
+          },
+          "hoop_mass_fraction": {
+            "title": "Hoop Mass Fraction",
+            "type": "number"
+          },
+          "materials": {
+            "items": {
+              "$ref": "#/components/schemas/WholeWireCoordinate"
+            },
+            "title": "Materials",
+            "type": "array"
+          }
+        },
+        "required": [
+          "materials",
+          "hoop_id",
+          "hoop_mass_fraction"
+        ],
+        "title": "CompiledWholeWireBlend",
+        "type": "object"
+      },
       "CompositionTotalDefinition": {
         "additionalProperties": false,
         "properties": {
@@ -2095,6 +2122,145 @@
           "snapshot"
         ],
         "title": "DetailedPredictionResponse",
+        "type": "object"
+      },
+      "DeterministicLinearResult": {
+        "additionalProperties": false,
+        "properties": {
+          "auxiliary_features": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Auxiliary Features",
+            "type": "object"
+          },
+          "commercial_catalog": {
+            "$ref": "#/components/schemas/RevisionRef"
+          },
+          "material_composition": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Material Composition",
+            "type": "object"
+          },
+          "material_cost_contributions": {
+            "items": {
+              "$ref": "#/components/schemas/MaterialCostContribution"
+            },
+            "title": "Material Cost Contributions",
+            "type": "array"
+          },
+          "powder_blend_cost_yen_per_kg_core": {
+            "title": "Powder Blend Cost Yen Per Kg Core",
+            "type": "number"
+          },
+          "scientific_master": {
+            "$ref": "#/components/schemas/RevisionRef"
+          },
+          "whole_wire_coordinates": {
+            "$ref": "#/components/schemas/CompiledWholeWireBlend"
+          }
+        },
+        "required": [
+          "material_composition",
+          "auxiliary_features",
+          "whole_wire_coordinates",
+          "scientific_master",
+          "material_cost_contributions",
+          "powder_blend_cost_yen_per_kg_core",
+          "commercial_catalog"
+        ],
+        "title": "DeterministicLinearResult",
+        "type": "object"
+      },
+      "DeterministicTransformCatalogItem": {
+        "additionalProperties": false,
+        "properties": {
+          "active_locator": {
+            "title": "Active Locator",
+            "type": "string"
+          },
+          "auxiliary_features": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Auxiliary Features",
+            "type": "array"
+          },
+          "available_locators": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Available Locators",
+            "type": "array"
+          },
+          "commercial_catalog": {
+            "$ref": "#/components/schemas/RevisionRef"
+          },
+          "commercial_catalog_locator": {
+            "title": "Commercial Catalog Locator",
+            "type": "string"
+          },
+          "outputs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Outputs",
+            "type": "array"
+          },
+          "package_id": {
+            "title": "Package Id",
+            "type": "string"
+          },
+          "package_manifest_digest": {
+            "title": "Package Manifest Digest",
+            "type": "string"
+          },
+          "package_version": {
+            "title": "Package Version",
+            "type": "string"
+          },
+          "runtime_type": {
+            "title": "Runtime Type",
+            "type": "string"
+          },
+          "scientific_master": {
+            "$ref": "#/components/schemas/RevisionRef"
+          },
+          "transform_id": {
+            "title": "Transform Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "transform_id",
+          "package_id",
+          "package_version",
+          "package_manifest_digest",
+          "runtime_type",
+          "active_locator",
+          "available_locators",
+          "commercial_catalog_locator",
+          "scientific_master",
+          "commercial_catalog",
+          "outputs",
+          "auxiliary_features"
+        ],
+        "title": "DeterministicTransformCatalogItem",
+        "type": "object"
+      },
+      "DeterministicTransformExecutionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "blend": {
+            "$ref": "#/components/schemas/SparseBlend"
+          }
+        },
+        "required": [
+          "blend"
+        ],
+        "title": "DeterministicTransformExecutionRequest",
         "type": "object"
       },
       "DeveloperCheck": {
@@ -3623,6 +3789,40 @@
           "source_kind"
         ],
         "title": "ManualSourceRef",
+        "type": "object"
+      },
+      "MaterialCostContribution": {
+        "additionalProperties": false,
+        "properties": {
+          "contribution_yen_per_kg_core": {
+            "title": "Contribution Yen Per Kg Core",
+            "type": "number"
+          },
+          "core_ratio_percent": {
+            "title": "Core Ratio Percent",
+            "type": "number"
+          },
+          "material_id": {
+            "title": "Material Id",
+            "type": "string"
+          },
+          "share_of_blend_cost": {
+            "title": "Share Of Blend Cost",
+            "type": "number"
+          },
+          "unit_price_yen_per_kg_core": {
+            "title": "Unit Price Yen Per Kg Core",
+            "type": "number"
+          }
+        },
+        "required": [
+          "material_id",
+          "core_ratio_percent",
+          "unit_price_yen_per_kg_core",
+          "contribution_yen_per_kg_core",
+          "share_of_blend_cost"
+        ],
+        "title": "MaterialCostContribution",
         "type": "object"
       },
       "ModelIdentity": {
@@ -8606,6 +8806,25 @@
         ],
         "title": "TruncatedNormalTolerance",
         "type": "object"
+      },
+      "WholeWireCoordinate": {
+        "additionalProperties": false,
+        "properties": {
+          "mass_fraction": {
+            "title": "Mass Fraction",
+            "type": "number"
+          },
+          "material_id": {
+            "title": "Material Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "material_id",
+          "mass_fraction"
+        ],
+        "title": "WholeWireCoordinate",
+        "type": "object"
       }
     }
   },
@@ -13168,6 +13387,153 @@
           }
         },
         "summary": "Task Definitions"
+      }
+    },
+    "/api/transforms": {
+      "get": {
+        "operationId": "listDeterministicTransforms",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DeterministicTransformCatalogItem"
+                  },
+                  "title": "Response Listdeterministictransforms",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Task Runtime Unavailable"
+          }
+        },
+        "summary": "List Deterministic Transforms",
+        "tags": [
+          "deterministic-transforms"
+        ]
+      }
+    },
+    "/api/transforms/{transform_id}/execute": {
+      "post": {
+        "operationId": "executeDeterministicTransform",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "transform_id",
+            "required": true,
+            "schema": {
+              "title": "Transform Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeterministicTransformExecutionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeterministicLinearResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Task Runtime Unavailable"
+          }
+        },
+        "summary": "Execute Deterministic Transform",
+        "tags": [
+          "deterministic-transforms"
+        ]
       }
     }
   }

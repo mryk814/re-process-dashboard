@@ -165,6 +165,15 @@ wire_c = 充填率 × core_c + (1 - 充填率) × フープ成分_c
 - 段単体精度（実測溶着成分入力）と通し精度（予測溶着成分入力）の差の出し方。
 - 目標成分から配合を求める線形計画が、群制約と調達区分の下で解けるか、解が存在しないことを示せるか。
 
+Stage Aは `models/packages/welding-stage-a-deterministic-v1` に科学masterを固定した
+決定論的Packageとして実装済みである。120配合の期待値はPackage内の
+`reference/stage-a-golden-120.json` で再現検証する。商用catalogは
+`models/catalogs/welding-stage-a-commercial-v1.json` として科学Packageから分離する。
+31成分軸は固定契約であり、元Excelの列名・順序が契約と異なる場合は暗黙に読み替えず
+Package生成を停止する。active/availableの選択は `models/active-transforms.json`、
+実行導線は `GET /api/transforms` と `POST /api/transforms/{transform_id}/execute`
+で確認できる。
+
 ## この合成データで確認できないこと
 
 - 実際の冶金的な妥当性。歩留まりや遷移温度の係数は説明のために置いた値です。

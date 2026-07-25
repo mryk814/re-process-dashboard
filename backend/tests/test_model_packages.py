@@ -230,6 +230,7 @@ def test_builtin_linear_package_and_registry_are_dependency_free(tmp_path: Path)
     assert result.point_estimate == pytest.approx(5.7)
     assert set(AdapterRegistry()._adapters) == {
         "builtin.linear.v1", "builtin.exact_gp.v1", "builtin.heteroscedastic_exact_gp.v1",
+        "builtin.deterministic_linear.v1",
         "builtin.additive_terms.v1", "builtin.quantile_linear.v1", "builtin.posterior_linear.v1",
         "sklearn.skops.v1", "lightgbm.booster.v1", "gpytorch.static_exact_rbf.v1",
         "numpyro.dense_posterior.v1",
