@@ -50,6 +50,11 @@ class ScreeningService:
         base = self.store.get_candidate(payload.base_candidate_id, project_id)
         if base is None:
             raise ScreeningNotFoundError("基準候補が見つかりません")
+        if base.blend_validation.status == "invalid":
+            reasons = " / ".join(issue.message for issue in base.blend_validation.issues)
+            raise ScreeningValidationError(
+                f"配合がDesign Spaceを満たしていないため探索できません: {reasons}"
+            )
         try:
             base = Candidate.model_validate({**base.model_dump(), "inputs": payload.base_inputs.model_dump()})
             self.registry.validate_candidate(project.task_id, CandidateInput.model_validate(base.model_dump()))

@@ -3,6 +3,12 @@ from __future__ import annotations
 import math
 
 from .projects import ProjectService
+from material_workbench.contracts.blend_contracts import (
+    BlendContractRegistry,
+    BlendStructuralError,
+    BlendValidationState,
+    validate_sparse_blend,
+)
 from material_workbench.domain.heat_time import line_speed_scaled_times
 from material_workbench.contracts.schemas import Candidate, CandidateImportResponse, CandidateInput, CandidateUpdate
 from material_workbench.domain.services import candidate_template_xlsx, candidates_xlsx, import_candidates_xlsx
@@ -31,10 +37,17 @@ class CandidateProvenanceImmutableError(ValueError):
 
 
 class CandidateService:
-    def __init__(self, store: Store, registry: TaskRegistry, resolver: ProjectRuntimeResolver) -> None:
+    def __init__(
+        self,
+        store: Store,
+        registry: TaskRegistry,
+        resolver: ProjectRuntimeResolver,
+        blend_contracts: BlendContractRegistry | None = None,
+    ) -> None:
         self.store = store
         self.registry = registry
         self.resolver = resolver
+        self.blend_contracts = blend_contracts or BlendContractRegistry()
         self.projects = ProjectService(store, registry)
 
     def list(self, project_id: str, *, include_archived: bool = False) -> list[Candidate]:
@@ -58,8 +71,8 @@ class CandidateService:
             source_project = self.projects.require(reference.project_id)
             if source_project.task_id != project.task_id:
                 raise CandidateValidationError("異なる予測タスクの候補はコピーできません")
-        self._validate(project.task_id, payload)
-        return self.store.create_candidate(payload, project_id)
+        prepared = self._prepare(project.task_id, payload)
+        return self.store.create_candidate(prepared, project_id)
 
     def import_xlsx(self, project_id: str, contents: bytes) -> CandidateImportResponse:
         project = self.projects.require(project_id)
@@ -116,7 +129,7 @@ class CandidateService:
         self._canonicalize_heat_time_update(existing, candidate_input)
         if existing.provenance != candidate_input.provenance:
             raise CandidateProvenanceImmutableError("候補の作成元は変更できません")
-        self._validate(project.task_id, candidate_input)
+        candidate_input = self._prepare(project.task_id, candidate_input)
         candidate = self.store.update_candidate(candidate_id, project_id, candidate_input, payload.expected_revision)
         if candidate is None:
             raise CandidateNotFoundError(candidate_id)
@@ -141,6 +154,23 @@ class CandidateService:
             self.registry.validate_candidate(task_id, payload)
         except (TaskRegistryError, ValueError) as exc:
             raise CandidateValidationError(str(exc)) from exc
+
+    def _prepare(self, task_id: str, payload: CandidateInput) -> CandidateInput:
+        """Server-authoritatively resolve structural refs and compute draft state."""
+        if payload.blend is None:
+            prepared = payload.model_copy(
+                update={"blend_validation": BlendValidationState(status="not_applicable")}
+            )
+        else:
+            try:
+                contracts = self.blend_contracts.resolve(payload.blend)
+            except BlendStructuralError as exc:
+                raise CandidateValidationError(str(exc)) from exc
+            prepared = payload.model_copy(
+                update={"blend_validation": validate_sparse_blend(payload.blend, contracts)}
+            )
+        self._validate(task_id, prepared)
+        return prepared
 
     @staticmethod
     def _canonicalize_heat_time_update(existing: Candidate, updated: CandidateInput) -> None:

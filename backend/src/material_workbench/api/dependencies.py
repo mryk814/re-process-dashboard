@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi import HTTPException, Request
 
 from material_workbench.execution.inference_work_graph import InferenceWorkGraph
+from material_workbench.contracts.blend_contracts import BlendContractRegistry
 from material_workbench.contracts.schemas import Project
 from material_workbench.persistence.store import Store
 from material_workbench.tasks.task_registry import TaskRegistry
@@ -18,6 +19,10 @@ def get_store(request: Request) -> Store:
 
 def get_task_registry(request: Request) -> TaskRegistry:
     return request.app.state.task_registry
+
+
+def get_blend_contract_registry(request: Request) -> BlendContractRegistry:
+    return request.app.state.blend_contract_registry
 
 
 def get_workspace_catalog(request: Request) -> WorkspaceCatalog:
