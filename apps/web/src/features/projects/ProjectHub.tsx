@@ -116,6 +116,7 @@ export function ProjectHub({
   const chainIdentity = project?.scientific_identity?.identity_kind === "chain"
     ? project.scientific_identity
     : null;
+  const chainExecutionPending = Boolean(chainIdentity);
 
   const reloadHistory = async (signal?: AbortSignal, expectedProjectId = activeProjectId) => {
     const loaded = await workbenchApi.projectHistory(expectedProjectId, signal);
@@ -600,7 +601,20 @@ export function ProjectHub({
       onClick={() => switchProject(item.id)}
     >
       <strong>{item.name}</strong>
-      <small>{datasetByView.get(item.dataset_view_revision_id ?? "")?.data_asset.original_filename.replace(/\.xlsx$/i, "") ?? "Dataset未解決"} · {taskLabels.get(item.task_id) ?? item.task_id}</small>
+      <small>{(() => {
+        const itemIdentity = item.scientific_identity;
+        if (itemIdentity?.identity_kind === "chain") {
+          const revision = chainTemplates
+            .flatMap((template) => template.revisions.map((value) => ({ template, revision: value })))
+            .find(({ revision }) => `${revision.chain_id}:r${revision.revision}` === itemIdentity.chain_revision_id);
+          return revision
+            ? `${revision.template.definition.label} · r${revision.revision.revision} · ${revision.revision.stages.map((stage) => stage.stage_id).join(" → ")}`
+            : `Chain Revision · ${itemIdentity.chain_revision_id}`;
+        }
+        const datasetLabel = datasetByView.get(item.dataset_view_revision_id ?? "")
+          ?.data_asset.original_filename.replace(/\.xlsx$/i, "") ?? "Dataset未解決";
+        return `${datasetLabel} · ${taskLabels.get(item.task_id) ?? item.task_id}`;
+      })()}</small>
     </button>
   );
 
@@ -662,6 +676,10 @@ export function ProjectHub({
         <span>{taskAvailability.message}</span>
         <small>保存済みの候補・予測・実測・判断履歴は参照できます。推論と変更操作は停止しています。</small>
       </section>}
+      {chainExecutionPending && <section className="task-unavailable-banner" role="status">
+        <strong>Chain Revisionを固定したプロジェクトです</strong>
+        <span>固定したRevisionとStage参照を確認できます。Stage実行は現在利用できません。</span>
+      </section>}
       {error && <p className="panel-error" role="alert">{error}</p>}
       {project && (chainIdentity
         ? <section className="project-reference-strip" aria-label="プロジェクトのChain参照と所属"><div><span>Chain Template</span><strong>{fixedChain?.definition.label ?? "Chain未解決"}</strong><small>A → B → C</small></div><div><span>Chain Revision</span><strong>{fixedChainRevision ? `r${fixedChainRevision.revision}` : "—"}</strong><small title={chainIdentity.chain_revision_digest}>{chainIdentity.chain_revision_digest.slice(0, 18)}…</small></div><div><span>固定Stage</span><strong>{fixedChainRevision?.stages.map((stage) => stage.stage_id).join(" → ") ?? "—"}</strong><small>Package・Dataset・ProfileをRevision内に固定</small></div><div><span>所属グループ</span><strong>{fixedSeries?.name ?? "—"}</strong><small>設定から変更できます</small></div></section>
@@ -673,7 +691,7 @@ export function ProjectHub({
             ? configuredTargets.map((output) => <span key={output.key}><b>{output.label}</b>{targetGoalText(savedTargetValues[output.key], output.goal_direction, formatNumber)} {output.unit}</span>)
             : <span>未設定です。設定すると候補の目標達成率を比較できます。</span>}
         </div>
-        <button className={configuredTargets.length ? "outline-button" : "primary-button"} disabled={taskUnavailable} onClick={focusTargetSettings}>{configuredTargets.length ? "目標値を変更" : "目標値を設定"}</button>
+        <button className={configuredTargets.length ? "outline-button" : "primary-button"} disabled={taskUnavailable || chainExecutionPending} onClick={focusTargetSettings}>{configuredTargets.length ? "目標値を変更" : "目標値を設定"}</button>
       </section>}
       {predecessorProject && <section className="project-continuation-link" aria-label="このプロジェクトの続き元"><span>続き元</span><button type="button" onClick={() => onSwitch(predecessorProject.id)}>{predecessorProject.name}</button><small>{predecessorSeries?.name ?? "所属グループ不明"}{project?.continuation_reason ? ` · ${project.continuation_reason}` : ""}</small></section>}
 
@@ -733,9 +751,9 @@ export function ProjectHub({
       <section className="project-next-actions">
         <div className="panel-title"><h3>次の作業</h3><span>{activeCandidates.length ? `${activeCandidates.length}候補を検討中` : "まだ候補がありません"}</span></div>
         <div className="project-action-grid">
-          <button className="project-action-card primary" disabled={taskUnavailable} onClick={() => onNavigate(activeCandidates.length ? "candidates" : supportsLineageCandidate ? "lineage" : "explore")}><strong>{activeCandidates.length ? "候補を比較" : supportsLineageCandidate ? "過去データから探す" : "条件範囲から始める"}</strong><span>{activeCandidates.length ? "入力・予測・根拠を横並びで確認" : supportsLineageCandidate ? "既存の条件と問題から出発" : "基準候補を作り、入力範囲から探索"}</span></button>
-          <button className="project-action-card" disabled={taskUnavailable} onClick={() => onNavigate("explore")}><strong>範囲探索</strong><span>目標と入力範囲から候補を生成</span></button>
-          <button className="project-action-card" disabled={taskUnavailable} onClick={() => onNavigate("candidates")}><strong>直接候補を作る</strong><span>具体的な成分・工程条件を入力</span></button>
+          <button className="project-action-card primary" disabled={taskUnavailable || chainExecutionPending} onClick={() => onNavigate(activeCandidates.length ? "candidates" : supportsLineageCandidate ? "lineage" : "explore")}><strong>{activeCandidates.length ? "候補を比較" : supportsLineageCandidate ? "過去データから探す" : "条件範囲から始める"}</strong><span>{activeCandidates.length ? "入力・予測・根拠を横並びで確認" : supportsLineageCandidate ? "既存の条件と問題から出発" : "基準候補を作り、入力範囲から探索"}</span></button>
+          <button className="project-action-card" disabled={taskUnavailable || chainExecutionPending} onClick={() => onNavigate("explore")}><strong>範囲探索</strong><span>目標と入力範囲から候補を生成</span></button>
+          <button className="project-action-card" disabled={taskUnavailable || chainExecutionPending} onClick={() => onNavigate("candidates")}><strong>直接候補を作る</strong><span>具体的な成分・工程条件を入力</span></button>
         </div>
       </section>
 
