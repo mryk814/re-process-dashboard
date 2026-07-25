@@ -28,6 +28,7 @@ import {
 import { SimilarityEvidencePanel } from "./SimilarityEvidencePanel";
 import { FeatureEngineeringPanel } from "./FeatureEngineeringPanel";
 import { DecisionActivityPanel } from "./DecisionActivityPanel";
+import { ActualMeasurementPanel } from "./ActualMeasurementPanel";
 import { HeatPattern } from "./HeatPatternPanel";
 import {
   CurveFamilyPanel,
@@ -273,6 +274,13 @@ export function WorkbenchPage(props: WorkbenchProps) {
           onSave={onSave}
           onConfigureGoals={onConfigureGoals}
           onConfigureSupport={onConfigureSupport}
+        />}
+        {taskDefinition && operations?.actual_measurement && <ActualMeasurementPanel
+          projectId={projectId}
+          candidate={selected}
+          taskDefinition={taskDefinition}
+          displayDecimalOverrides={project?.display_decimals}
+          ready={["idle", "saved"].includes(saveState)}
         />}
         {taskDefinition?.curve_axis_path && operations?.response_curve ? (
           <CurveFamilyPanel

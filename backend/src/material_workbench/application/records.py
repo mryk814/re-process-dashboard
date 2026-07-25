@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from pydantic import ValidationError
 from pydantic_core import to_jsonable_python
 
 from .candidates import CandidateService
@@ -111,10 +112,24 @@ class RecordService:
         project = self.projects.require(project_id)
         self.inference.require_operation(project.task_id, "actual_measurement")
         candidate = self.candidates.at_revision(project_id, candidate_id, revision)
-        outputs = {output.key: output.unit for output in self.registry.contract_for(project.task_id).task_definition.outputs}
-        if outputs.get(payload.property) != payload.unit:
-            raise RecordValidationError("実測の特性または単位が予測タスクと一致しません")
+        outputs = {
+            output.key: output
+            for output in self.registry.contract_for(project.task_id).task_definition.outputs
+        }
+        output = outputs.get(payload.property)
+        if output is None:
+            raise RecordValidationError(
+                f"実測の特性 {payload.property} は予測タスク {project.task_id} に定義されていません"
+            )
+        if payload.unit != output.unit:
+            raise RecordValidationError(
+                f"{output.label}（{payload.property}）の単位は {output.unit} です"
+            )
         result = self.inference.detailed_for(project, candidate)
+        if payload.property not in result.get("predictions", {}):
+            raise RecordIntegrityError(
+                f"固定する予測snapshotに {payload.property} の予測がありません"
+            )
         return self.store.create_snapshot_and_actual(
             project_id,
             candidate_id,
@@ -137,6 +152,43 @@ class RecordService:
             snapshot = self.store.get_snapshot(actual.snapshot_id)
             if snapshot is None:
                 raise RecordIntegrityError("実測に対応する予測スナップショットが見つかりません")
-            payload = snapshot["payload"]
-            comparisons.append({"actual": actual, "snapshot_id": snapshot["id"], "prediction": payload["prediction"], "provenance": payload["provenance"]})
+            if snapshot.get("candidate_id") != candidate_id:
+                raise RecordIntegrityError("実測に対応する予測スナップショットの候補が一致しません")
+            try:
+                validated_snapshot = SnapshotResponse.model_validate(snapshot)
+            except ValidationError as exc:
+                raise RecordIntegrityError(
+                    "実測に対応する予測スナップショットが破損しているため照合できません"
+                ) from exc
+            payload = snapshot.get("payload")
+            if (
+                not isinstance(payload, dict)
+                or payload.get("snapshot_schema_version") != "prediction-snapshot-v2"
+            ):
+                raise RecordIntegrityError(
+                    "実測に対応する予測スナップショットが旧形式のため照合できません"
+                )
+            if (
+                validated_snapshot.payload.prediction is None
+                or validated_snapshot.payload.provenance is None
+            ):
+                raise RecordIntegrityError(
+                    "実測に対応する予測スナップショットが旧形式または不完全なため照合できません"
+                )
+            try:
+                snapshot_candidate = Candidate.model_validate(payload.get("raw_candidate"))
+            except ValidationError as exc:
+                raise RecordIntegrityError(
+                    "実測に対応する予測スナップショットの候補情報が破損しているため照合できません"
+                ) from exc
+            if payload.get("candidate_id") != candidate_id or snapshot_candidate.id != candidate_id:
+                raise RecordIntegrityError("実測に対応する予測スナップショットの候補が一致しません")
+            comparisons.append({
+                "actual": actual,
+                "snapshot_id": validated_snapshot.id,
+                "snapshot_created_at": validated_snapshot.created_at,
+                "candidate_revision": snapshot_candidate.revision,
+                "prediction": validated_snapshot.payload.prediction,
+                "provenance": validated_snapshot.payload.provenance,
+            })
         return PredictionVsActualResponse(candidate_id=candidate_id, actuals=actuals, comparisons=comparisons)

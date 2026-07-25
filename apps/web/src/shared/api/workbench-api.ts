@@ -12,6 +12,8 @@ export type ApiModelPackage = components["schemas"]["ModelPackageStatus"];
 export type ApiModelTrainingDataPage = components["schemas"]["ModelTrainingDataPage"];
 export type ApiPreview = components["schemas"]["PredictionResponse"];
 export type ApiSnapshot = components["schemas"]["SnapshotResponse"];
+export type ApiActualMeasurementInput = components["schemas"]["ActualMeasurementInput"];
+export type ApiPredictionVsActual = components["schemas"]["PredictionVsActualResponse"];
 export type ApiResponseCurve = components["schemas"]["ResponseCurveResponse"];
 export type ApiCurveFamily = components["schemas"]["CurveFamilyResponse"];
 export type ApiInferenceDiagnostics = components["schemas"]["InferenceDiagnosticsResponse"];
@@ -236,6 +238,21 @@ export const workbenchApi = {
   },
   async snapshots(projectId: string, candidateId: string, signal?: AbortSignal) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/snapshots", { params: { path: { project_id: projectId, candidate_id: candidateId } }, signal }), "スナップショットを取得できませんでした。");
+  },
+  async predictionVsActual(projectId: string, candidateId: string, signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/prediction-vs-actual", {
+      params: { path: { project_id: projectId, candidate_id: candidateId } },
+      signal,
+    }), "予測と実測の照合履歴を取得できませんでした。");
+  },
+  async createActual(projectId: string, candidateId: string, expectedRevision: number, body: ApiActualMeasurementInput) {
+    return requireData(await apiClient.POST("/api/projects/{project_id}/candidates/{candidate_id}/actuals", {
+      params: {
+        path: { project_id: projectId, candidate_id: candidateId },
+        query: { expected_revision: expectedRevision },
+      },
+      body,
+    }), "実測を登録できませんでした。");
   },
   async restoreSnapshot(projectId: string, snapshotId: string) {
     return requireData(await apiClient.POST("/api/projects/{project_id}/snapshots/{snapshot_id}/restore", { params: { path: { project_id: projectId, snapshot_id: snapshotId } } }), "スナップショットを復元できませんでした。");

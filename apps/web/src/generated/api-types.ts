@@ -1025,11 +1025,8 @@ export interface components {
              * @default
              */
             note: string;
-            /**
-             * Property
-             * @enum {string}
-             */
-            property: "TS" | "YS" | "EL" | "lambda" | "VB_mean" | "VB_max";
+            /** Property */
+            property: string;
             /**
              * Replicates
              * @default 1
@@ -1042,11 +1039,8 @@ export interface components {
              * @default 0
              */
             std: number;
-            /**
-             * Unit
-             * @enum {string}
-             */
-            unit: "MPa" | "%" | "µm";
+            /** Unit */
+            unit: string;
         };
         /** ActualMeasurementInput */
         ActualMeasurementInput: {
@@ -1064,11 +1058,8 @@ export interface components {
              * @default
              */
             note: string;
-            /**
-             * Property
-             * @enum {string}
-             */
-            property: "TS" | "YS" | "EL" | "lambda" | "VB_mean" | "VB_max";
+            /** Property */
+            property: string;
             /**
              * Replicates
              * @default 1
@@ -1079,11 +1070,8 @@ export interface components {
              * @default 0
              */
             std: number;
-            /**
-             * Unit
-             * @enum {string}
-             */
-            unit: "MPa" | "%" | "µm";
+            /** Unit */
+            unit: string;
         };
         /** ApiError */
         ApiError: {
@@ -2636,8 +2624,15 @@ export interface components {
         /** PredictionComparison */
         PredictionComparison: {
             actual: components["schemas"]["ActualMeasurement"];
+            /** Candidate Revision */
+            candidate_revision?: number | null;
             prediction: components["schemas"]["PredictionResponse"];
             provenance: components["schemas"]["ModelMetadata"];
+            /**
+             * Snapshot Created At
+             * Format: date-time
+             */
+            snapshot_created_at: string;
             /** Snapshot Id */
             snapshot_id: string;
         };
