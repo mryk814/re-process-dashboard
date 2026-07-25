@@ -11,7 +11,13 @@ from material_workbench.contracts.blend_contracts import (
     validate_sparse_blend,
 )
 from material_workbench.domain.heat_time import line_speed_scaled_times
-from material_workbench.contracts.schemas import Candidate, CandidateImportResponse, CandidateInput, CandidateUpdate
+from material_workbench.contracts.schemas import (
+    Candidate,
+    CandidateImportResponse,
+    CandidateInput,
+    CandidateUpdate,
+    Project,
+)
 from material_workbench.domain.services import candidate_template_xlsx, candidates_xlsx, import_candidates_xlsx
 from material_workbench.persistence.store import (
     CandidateArchivedError,
@@ -38,6 +44,10 @@ class CandidateProvenanceImmutableError(ValueError):
     pass
 
 
+class CandidateProjectKindError(ValueError):
+    pass
+
+
 class CandidateService:
     def __init__(
         self,
@@ -54,12 +64,20 @@ class CandidateService:
         self.transform_catalog = transform_catalog
         self.projects = ProjectService(store, registry)
 
+    def _require_single_project(self, project_id: str) -> Project:
+        project = self.projects.require(project_id)
+        if project.scientific_identity.identity_kind == "chain":
+            raise CandidateProjectKindError(
+                "Chain Projectの候補はChain候補APIを使用してください"
+            )
+        return project
+
     def list(self, project_id: str, *, include_archived: bool = False) -> list[Candidate]:
-        self.projects.require(project_id)
+        self._require_single_project(project_id)
         return self.store.list_candidates(project_id, include_archived=include_archived)
 
     def create(self, project_id: str, payload: CandidateInput) -> Candidate:
-        project = self.projects.require(project_id)
+        project = self._require_single_project(project_id)
         self.registry.require_available(project.task_id)
         if payload.provenance.source_kind == "copy":
             reference = payload.provenance.source_ref
@@ -77,14 +95,14 @@ class CandidateService:
                 if current_source is None:
                     raise CandidateValidationError("コピー元候補が見つかりません")
                 raise CandidateValidationError("コピー元候補のrevisionが一致しません")
-            source_project = self.projects.require(reference.project_id)
+            source_project = self._require_single_project(reference.project_id)
             if source_project.task_id != project.task_id:
                 raise CandidateValidationError("異なる予測タスクの候補はコピーできません")
         prepared = self._prepare(project.task_id, payload)
         return self.store.create_candidate(prepared, project_id)
 
     def import_xlsx(self, project_id: str, contents: bytes) -> CandidateImportResponse:
-        project = self.projects.require(project_id)
+        project = self._require_single_project(project_id)
         entry = self.registry.entry_for(project.task_id)
         if not entry.application_capability.candidate_excel_import:
             raise CandidateValidationError("Excel候補importはこの予測タスクでは利用できません")
@@ -99,7 +117,7 @@ class CandidateService:
         return CandidateImportResponse(created=len(created), errors=errors, candidates=created)
 
     def export_xlsx(self, project_id: str) -> bytes:
-        project = self.projects.require(project_id)
+        project = self._require_single_project(project_id)
         entry = self.registry.entry_for(project.task_id)
         if not entry.application_capability.candidate_excel_export:
             raise CandidateValidationError("Excel候補exportはこの予測タスクでは利用できません")
@@ -110,7 +128,7 @@ class CandidateService:
         )
 
     def template_xlsx(self, project_id: str) -> bytes:
-        project = self.projects.require(project_id)
+        project = self._require_single_project(project_id)
         entry = self.registry.entry_for(project.task_id)
         if not entry.application_capability.candidate_excel_import:
             raise CandidateValidationError("Excel候補importはこの予測タスクでは利用できません")
@@ -120,14 +138,14 @@ class CandidateService:
         )
 
     def get(self, project_id: str, candidate_id: str, *, include_archived: bool = False) -> Candidate:
-        self.projects.require(project_id)
+        self._require_single_project(project_id)
         candidate = self.store.get_candidate(candidate_id, project_id, include_archived=include_archived)
         if candidate is None:
             raise CandidateNotFoundError(candidate_id)
         return candidate
 
     def update(self, project_id: str, candidate_id: str, payload: CandidateUpdate) -> Candidate:
-        project = self.projects.require(project_id)
+        project = self._require_single_project(project_id)
         self.registry.require_available(project.task_id)
         existing = self.store.get_candidate(candidate_id, project_id, include_archived=True)
         if existing is None:
@@ -145,7 +163,7 @@ class CandidateService:
         return candidate
 
     def delete(self, project_id: str, candidate_id: str, expected_revision: int) -> None:
-        project = self.projects.require(project_id)
+        project = self._require_single_project(project_id)
         self.registry.require_available(project.task_id)
         if self.store.get_candidate(candidate_id, project_id, include_archived=True) is None:
             raise CandidateNotFoundError(candidate_id)
@@ -164,7 +182,7 @@ class CandidateService:
         candidate_id: str,
         revision: int,
     ) -> Candidate:
-        self.projects.require(project_id)
+        self._require_single_project(project_id)
         candidate = self.store.get_candidate_revision(
             candidate_id,
             revision,

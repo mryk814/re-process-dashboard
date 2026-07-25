@@ -33,8 +33,8 @@ class InferenceService:
 
     def preview(self, project_id: str, candidate_id: str, revision: int) -> dict[str, Any]:
         project = self.projects.require(project_id)
-        self.require_operation(project.task_id, "preview")
         candidate = self.candidates.at_revision(project_id, candidate_id, revision)
+        self.require_operation(project.task_id, "preview")
         runtime = self.resolver.runtime_for(project)
         prediction = self.graph.execute(
             self.key(project, candidate, "preview", parameters={"target_values": serialize_target_values(project.target_values)}, uses_package=True),

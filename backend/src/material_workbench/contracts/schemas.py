@@ -1158,6 +1158,7 @@ class ApiError(BaseModel):
         "adopted_candidate",
         "candidate_archived",
         "candidate_provenance_immutable",
+        "chain_project_requires_chain_candidate_api",
         "project_task_locked",
         "project_group_conflict",
         "protected_project",

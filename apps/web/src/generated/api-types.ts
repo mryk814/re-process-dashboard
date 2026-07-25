@@ -1516,7 +1516,7 @@ export interface components {
              * Code
              * @enum {string}
              */
-            code: "not_found" | "revision_conflict" | "candidate_limit" | "adopted_candidate" | "candidate_archived" | "candidate_provenance_immutable" | "project_task_locked" | "project_group_conflict" | "protected_project" | "project_has_successors" | "project_has_derived_candidates" | "data_integrity_error" | "validation_error" | "runtime_unavailable";
+            code: "not_found" | "revision_conflict" | "candidate_limit" | "adopted_candidate" | "candidate_archived" | "candidate_provenance_immutable" | "chain_project_requires_chain_candidate_api" | "project_task_locked" | "project_group_conflict" | "protected_project" | "project_has_successors" | "project_has_derived_candidates" | "data_integrity_error" | "validation_error" | "runtime_unavailable";
             current_candidate?: components["schemas"]["Candidate"] | null;
             /** Field Errors */
             field_errors?: components["schemas"]["FieldError"][];

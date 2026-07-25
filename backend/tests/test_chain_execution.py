@@ -9,13 +9,14 @@ from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
+import pytest
 
 from material_workbench.contracts.blend_contracts import (
     CommercialMaterialCatalog,
     SparseBlendDesignSpace,
 )
 from material_workbench.contracts.schemas import CandidateInputs
-from material_workbench.persistence.store import Store
+from material_workbench.persistence.store import CandidateRevisionConflictError, Store
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -154,6 +155,51 @@ def test_chain_candidate_contract_provides_a_pinned_executable_starter(
         "latest",
         "latest",
     ]
+
+
+def test_chain_candidates_are_isolated_from_single_task_candidate_apis(
+    client: TestClient,
+) -> None:
+    single_candidates = client.get("/api/projects/default/candidates")
+    assert single_candidates.status_code == 200
+    assert single_candidates.json()
+    single_id = single_candidates.json()[0]["id"]
+    assert client.get(
+        f"/api/projects/default/candidates/{single_id}"
+    ).status_code == 200
+
+    project, candidate = _project_and_candidate(client)
+    generic_base = f"/api/projects/{project['id']}/candidates"
+    rejected = [
+        client.get(generic_base),
+        client.get(f"{generic_base}/{candidate['id']}"),
+        client.post(generic_base, json=_candidate_payload(client, project["id"])),
+        client.put(
+            f"{generic_base}/{candidate['id']}",
+            json={
+                **_candidate_payload(client, project["id"]),
+                "expected_revision": candidate["revision"],
+            },
+        ),
+        client.delete(
+            f"{generic_base}/{candidate['id']}",
+            params={"expected_revision": candidate["revision"]},
+        ),
+        client.post(
+            f"{generic_base}/{candidate['id']}/preview",
+            params={"expected_revision": candidate["revision"]},
+        ),
+    ]
+    assert [response.status_code for response in rejected] == [409] * len(rejected)
+    assert all(
+        response.json()["code"] == "chain_project_requires_chain_candidate_api"
+        for response in rejected
+    )
+    chain_list = client.get(
+        f"/api/projects/{project['id']}/chain/candidates"
+    )
+    assert chain_list.status_code == 200
+    assert [item["id"] for item in chain_list.json()] == [candidate["id"]]
 
 
 def _update(client: TestClient, project: dict, candidate: dict, payload: dict) -> dict:
@@ -675,6 +721,128 @@ def test_candidate_update_invalidates_an_inflight_older_revision(
     ).json()
     assert persisted["candidate_revision"] == 2
     assert persisted["request_id"].startswith("candidate-revision:")
+
+
+def test_candidate_update_rejects_an_older_revision_paused_before_claim(
+    client: TestClient,
+    monkeypatch,
+) -> None:
+    project, candidate = _project_and_candidate(client)
+    _execute(client, project, candidate)
+    store = client.app.state.store
+    original_claim = store.claim_chain_execution
+    entered_claim = threading.Event()
+    release_claim = threading.Event()
+    responses: dict[str, dict] = {}
+
+    def pause_old_claim(
+        project_id: str,
+        candidate_id: str,
+        candidate_revision: int,
+        request_id: str,
+    ):
+        if request_id == "revision-1-before-claim":
+            entered_claim.set()
+            assert release_claim.wait(timeout=3)
+        return original_claim(
+            project_id,
+            candidate_id,
+            candidate_revision,
+            request_id,
+        )
+
+    monkeypatch.setattr(store, "claim_chain_execution", pause_old_claim)
+    url = (
+        f"/api/projects/{project['id']}/chain/candidates/"
+        f"{candidate['id']}/executions"
+    )
+
+    def older_revision() -> None:
+        response = client.post(
+            url,
+            json={
+                "candidate_revision": candidate["revision"],
+                "request_id": "revision-1-before-claim",
+                "debounce_ms": 0,
+            },
+        )
+        assert response.status_code == 200, response.text
+        responses["old"] = response.json()
+
+    thread = threading.Thread(target=older_revision)
+    thread.start()
+    assert entered_claim.wait(timeout=3)
+
+    changed_payload = _candidate_payload(client, project["id"])
+    changed_payload["inputs"]["process"]["test_temperature_c"] = -45.0
+    changed = _update(client, project, candidate, changed_payload)
+    assert changed["revision"] == 2
+
+    release_claim.set()
+    thread.join(timeout=3)
+    assert not thread.is_alive()
+    assert responses["old"]["status"] == "superseded"
+    persisted = client.get(
+        f"/api/projects/{project['id']}/chain/candidates/"
+        f"{candidate['id']}/execution"
+    ).json()
+    assert persisted["candidate_revision"] == 2
+    assert persisted["request_id"].startswith("candidate-revision:")
+
+
+def test_execution_claim_is_revision_guarded_and_survives_store_restart(
+    client: TestClient,
+) -> None:
+    project, candidate = _project_and_candidate(client)
+    store = client.app.state.store
+
+    first = store.claim_chain_execution(
+        project["id"], candidate["id"], candidate["revision"], "claim-before-restart"
+    )
+    assert first is not None
+
+    restarted = Store(store.path)
+    second = restarted.claim_chain_execution(
+        project["id"], candidate["id"], candidate["revision"], "claim-after-restart"
+    )
+    assert second == first + 1
+    assert restarted.claim_chain_execution(
+        project["id"], candidate["id"], candidate["revision"] + 1, "wrong-revision"
+    ) is None
+    assert restarted.chain_execution_generation(
+        project["id"], candidate["id"], "claim-after-restart"
+    ) == second
+
+
+def test_snapshot_rejects_a_historical_candidate_revision_after_update(
+    client: TestClient,
+) -> None:
+    project, candidate = _project_and_candidate(client)
+    _execute(client, project, candidate)
+    created = client.post(
+        f"/api/projects/{project['id']}/chain/candidates/{candidate['id']}/snapshots",
+        json={"candidate_revision": candidate["revision"], "debounce_ms": 0},
+    )
+    assert created.status_code == 201, created.text
+
+    changed_payload = _candidate_payload(client, project["id"])
+    changed_payload["inputs"]["process"]["test_temperature_c"] = -45.0
+    changed = _update(client, project, candidate, changed_payload)
+    assert changed["revision"] == 2
+
+    historical = client.post(
+        f"/api/projects/{project['id']}/chain/candidates/{candidate['id']}/snapshots",
+        json={"candidate_revision": candidate["revision"], "debounce_ms": 0},
+    )
+    assert historical.status_code == 409
+
+    stored = client.app.state.store.get_chain_snapshot(
+        created.json()["snapshot_id"]
+    )
+    assert stored is not None
+    replay = stored.model_copy(update={"snapshot_id": "replayed-historical-snapshot"})
+    with pytest.raises(CandidateRevisionConflictError):
+        client.app.state.store.insert_chain_snapshot(project["id"], replay)
 
 
 def test_final_save_uses_store_compare_and_swap(
