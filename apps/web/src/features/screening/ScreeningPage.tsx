@@ -347,6 +347,9 @@ export function ScreeningPage({
   }));
   const selectedNewPointIndices = selectedPointIndices.filter((index) => !stockedPointIndices.has(index));
   const remainingCandidateCapacity = Math.max(0, 10 - candidates.length);
+  const addableSelectedCount = selectedNewPointIndices.length <= remainingCandidateCapacity
+    ? selectedNewPointIndices.length
+    : 0;
   const persistSelected = async () => {
     if (!result || !selectedNewPointIndices.length) return;
     const requestProjectId = projectId;
@@ -459,7 +462,7 @@ export function ScreeningPage({
                   void loadRun(run.id);
                 }}
               >
-                <b>{outputs.find((output) => output.key === run.target)?.label ?? run.target}</b> → {run.target_value == null ? "目標なし" : number(run.target_value, 1)} /{" "}
+                <b>{outputs.find((output) => output.key === run.target)?.label ?? run.target}</b> → {run.target_value == null ? "選別基準なし" : number(run.target_value, 1)} /{" "}
                  {run.samples}点{" "}
                 <small>
                   基準: {candidates.find((candidate) => candidate.id === run.base_candidate_id)?.label ?? run.base_candidate_id?.slice(0, 8) ?? "旧保存データ"} ·{" "}
@@ -496,7 +499,7 @@ export function ScreeningPage({
             />
           </label>
           <label>
-            目標特性
+            選別する特性
             <select
               value={target}
               onChange={(event) => { const next = event.target.value; setTarget(next); setSecondaryTargets((current) => { const updated = { ...current }; delete updated[next]; return updated; }); setDraftDirty(true); }}
@@ -505,14 +508,14 @@ export function ScreeningPage({
             </select>
           </label>
           <label>
-            目標値 {targetDefinition?.goal_direction === "at_most" ? "（以下）" : targetDefinition?.goal_direction === "at_least" ? "（以上）" : ""}
+            選別基準 {targetDefinition?.goal_direction === "at_most" ? "（以下）" : targetDefinition?.goal_direction === "at_least" ? "（以上）" : ""}
             <input
               type="number"
               value={targetValue}
               onChange={(event) => { setTargetValue(event.target.value); setDraftDirty(true); }}
             />
           </label>
-          {outputs.filter((output) => output.key !== target).map((output) => <label key={output.key}>副条件: {output.label}（{output.goal_direction === "at_most" ? "以下" : "以上"}）<input type="number" value={secondaryTargets[output.key] ?? ""} placeholder="指定なし" onChange={(event) => { setSecondaryTargets((current) => ({ ...current, [output.key]: event.target.value })); setDraftDirty(true); }} /></label>)}
+          {outputs.filter((output) => output.key !== target).map((output) => <label key={output.key}>追加の選別条件: {output.label}（{output.goal_direction === "at_most" ? "以下" : "以上"}）<input type="number" value={secondaryTargets[output.key] ?? ""} placeholder="指定なし" onChange={(event) => { setSecondaryTargets((current) => ({ ...current, [output.key]: event.target.value })); setDraftDirty(true); }} /></label>)}
         </div>
         {baseCandidate && taskDefinition && (
             <ScreeningBaseEditor key={`${baseCandidate.id}:${baseEditorVersion}`} candidate={baseCandidate} taskDefinition={taskDefinition} displayDecimalOverrides={project?.display_decimals} onInput={updateBaseInput} onHeat={updateBaseHeat} />
@@ -639,9 +642,14 @@ export function ScreeningPage({
           </div>
           {hiddenVaryingFields.length > 0 && <p className="screening-hidden-variables"><b>図に出ていない変動条件:</b> {hiddenVaryingFields.map(axisLabel).join(" / ")}。各点の詳細で実値を確認できます。</p>}
           <div className="screening-action-bar" role="status">
-            <span><b>{selectedPointIndices.length}</b>件選択 / 新規{selectedNewPointIndices.length}件 / 追加可能{remainingCandidateCapacity}件</span>
+            <dl className="screening-selection-summary">
+              <div><dt>選択</dt><dd>{selectedPointIndices.length}件</dd><small>図・表で選んだ点</small></div>
+              <div><dt>新規</dt><dd>{selectedNewPointIndices.length}件</dd><small>まだ候補にない選択点</small></div>
+              <div><dt>今回追加可能</dt><dd>{addableSelectedCount}件</dd><small>候補枠の空き {remainingCandidateCapacity}件</small></div>
+            </dl>
             {selectedPointIndices.some((index) => stockedPointIndices.has(index)) && <small>stock済みの点は再追加しません。</small>}
-            <CandidateAddButton disabled={!selectedNewPointIndices.length || selectedNewPointIndices.length > remainingCandidateCapacity} onClick={() => void persistSelected()}>{selectedNewPointIndices.length}件を候補へ追加</CandidateAddButton>
+            {selectedNewPointIndices.length > remainingCandidateCapacity && <small className="screening-capacity-warning">新規選択が候補枠を超えています。選択を{remainingCandidateCapacity}件以下に減らしてください。</small>}
+            <CandidateAddButton disabled={!addableSelectedCount} onClick={() => void persistSelected()}>{addableSelectedCount}件を候補へ追加</CandidateAddButton>
             <button className="outline-button" disabled={!candidates.length} onClick={onCompare}>候補比較へ</button>
           </div>
           <div className="screen-legend">
@@ -649,7 +657,8 @@ export function ScreeningPage({
             {colorMetric === "score" ? result.score_contract?.display_label ?? "目標に対して有望" : outputs.find((output) => output.key === colorMetric)?.label ?? colorMetric} <span className="support-key supported" />
             範囲内 <span className="support-key caution" />
             要確認 <span className="support-key extrapolated" />
-            外挿
+            外挿 <span className="selection-key" />
+            選択中
           </div>
           <svg
             className="screen-map"
@@ -677,13 +686,15 @@ export function ScreeningPage({
                 ...(targetAssessment.warning ? [`⚠ ${targetAssessment.warning}`] : []),
                 point.support.message,
               ];
+              const selected = selectedPointIndices.includes(point.index);
               return (
-                <circle
-                  key={point.index}
+                <g key={point.index} className="screen-map-point">
+                  {selected && <circle className="screen-map-selection-ring" cx={cx} cy={cy} r="12" aria-hidden="true" />}
+                  <circle
                   className={selectedPointIndices.includes(point.index) ? "selected" : ""}
                   cx={cx}
                   cy={cy}
-                  r={selectedPointIndices.includes(point.index) ? "9" : "7"}
+                  r="7"
                   fill={opportunity(point)}
                   stroke={supportStroke(point.support.status)}
                   strokeWidth="3"
@@ -691,6 +702,7 @@ export function ScreeningPage({
                     point.support.status === "extrapolated" ? ".55" : ".9"
                   }
                   role="button"
+                  aria-pressed={selected}
                   tabIndex={focusedPointIndex === point.index || (focusedPointIndex === null && index === 0) ? 0 : -1}
                   aria-label={tooltipLines.join("、")}
                   onMouseEnter={() => setHoveredScreenPoint({ x: cx, y: cy, lines: tooltipLines })}
@@ -708,7 +720,8 @@ export function ScreeningPage({
                   onClick={() => {
                     togglePoint(point.index);
                   }}
-                />
+                  />
+                </g>
               );
             })}
             {hoveredScreenPoint && <SvgChartTooltip {...hoveredScreenPoint} chartWidth={600} chartHeight={300} />}

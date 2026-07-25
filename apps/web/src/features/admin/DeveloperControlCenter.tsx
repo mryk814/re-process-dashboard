@@ -8,6 +8,7 @@ import {
 } from "../../shared/api/workbench-api";
 
 type ControlTab = "overview" | "guide" | "diagnostics";
+type OverviewStatus = "" | "ok" | "warning" | "error";
 
 const riskLabel = {
   safe: "比較的安全",
@@ -31,6 +32,28 @@ function CopyCommand({ command }: { command: ApiDeveloperCommand }) {
   return <div className="developer-command"><code>{command.display_text}</code><small>{command.platform}</small><button type="button" onClick={() => void copy()}>{copied ? "コピー済み" : "コピー"}</button></div>;
 }
 
+export function filterDeveloperOverviewItems(
+  items: ApiDeveloperOverview["items"],
+  query: string,
+  status: OverviewStatus,
+  taskId: string,
+) {
+  const normalizedQuery = query.trim().toLocaleLowerCase("ja-JP");
+  return items.filter((item) => {
+    if (status && item.validation_status !== status) return false;
+    if (taskId && item.task_id !== taskId) return false;
+    if (!normalizedQuery) return true;
+    return [
+      item.project_name,
+      item.project_id,
+      item.task_id,
+      item.source_filename,
+      item.profile_id,
+      item.package_id,
+    ].some((value) => value?.toLocaleLowerCase("ja-JP").includes(normalizedQuery));
+  });
+}
+
 export function DeveloperControlCenter({ onOpenProfileWorkbench }: { onOpenProfileWorkbench: () => void }) {
   const [tab, setTab] = useState<ControlTab>("overview");
   const [overview, setOverview] = useState<ApiDeveloperOverview | null>(null);
@@ -39,6 +62,9 @@ export function DeveloperControlCenter({ onOpenProfileWorkbench }: { onOpenProfi
   const [selectedGuide, setSelectedGuide] = useState("");
   const [error, setError] = useState("");
   const [diagnosing, setDiagnosing] = useState(false);
+  const [overviewQuery, setOverviewQuery] = useState("");
+  const [overviewStatus, setOverviewStatus] = useState<OverviewStatus>("");
+  const [overviewTask, setOverviewTask] = useState("");
 
   useEffect(() => {
     let live = true;
@@ -67,6 +93,10 @@ export function DeveloperControlCenter({ onOpenProfileWorkbench }: { onOpenProfi
   useEffect(() => { if (tab === "diagnostics" && doctor === null && !diagnosing) void runDiagnostics(); }, [tab]);
 
   const selected = guide.find((item) => item.id === selectedGuide);
+  const overviewTasks = [...new Set(overview?.items.map((item) => item.task_id) ?? [])].sort();
+  const filteredOverviewItems = overview
+    ? filterDeveloperOverviewItems(overview.items, overviewQuery, overviewStatus, overviewTask)
+    : [];
   return <div className="page-panel developer-control-center">
     <div className="page-intro">
       <div><span className="overline">DEVELOPER TOOLS</span><h2>構成・変更判断・診断</h2><p>編集や自動生成ではなく、影響範囲と次の操作を確認する場所です。</p></div>
@@ -81,17 +111,21 @@ export function DeveloperControlCenter({ onOpenProfileWorkbench }: { onOpenProfi
     {error && <p className="panel-error">{error}</p>}
 
     {tab === "overview" && <section className="developer-section">
-      <div className="developer-flow" aria-label="接続関係">
-        <div className="flow-data"><b>Data Asset</b><i>＋</i><b>Profile</b></div>
-        <i className="flow-down">↓</i>
-        <b className="flow-view">Dataset Revision / View</b>
-        <div className="flow-project-row"><span><i>↘</i></span><b>Project</b><span><b>Task</b><i>＋</i><b>Package</b><i>↙</i></span></div>
-        <i className="flow-down">↓</i>
-        <b className="flow-runtime">Runtime</b>
-      </div>
+      <ol className="developer-flow" aria-label="データから実行までの接続段階">
+        <li><b>1</b><div><small>入力を解釈</small><strong>Data Asset と Profile</strong><span>元ファイルと読取規則を組み合わせる</span></div></li>
+        <li><b>2</b><div><small>参照を固定</small><strong>Dataset Revision / View</strong><span>登録時点のデータと比較境界を残す</span></div></li>
+        <li><b>3</b><div><small>判断条件を固定</small><strong>Project・Task・Package</strong><span>目的と学習済みモデルを一つの検討へ結ぶ</span></div></li>
+        <li><b>4</b><div><small>予測を実行</small><strong>Runtime</strong><span>固定した参照から予測Snapshotを作る</span></div></li>
+      </ol>
       <p className="developer-note">Projectごとに固定された参照です。Dataset Revision・Package・Snapshotは上書きしません。</p>
-      {overview ? <div className="developer-overview-list">{overview.items.map((item) => <article key={item.project_id}>
-        <header><div><span>{item.validation_status === "ok" ? "✓ 検証済み" : item.validation_status === "warning" ? "△ Archive参照" : "✕ 参照不足"}</span><h3>{item.project_name}</h3>{item.active_package && <em>active</em>}</div><code>{item.project_id}</code></header>
+      {overview && <div className="developer-overview-toolbar">
+        <label className="developer-overview-search">検索<input type="search" value={overviewQuery} placeholder="Project / Dataset / Package" onChange={(event) => setOverviewQuery(event.target.value)} /></label>
+        <label>状態<select value={overviewStatus} onChange={(event) => setOverviewStatus(event.target.value as OverviewStatus)}><option value="">すべて</option><option value="ok">検証済み</option><option value="warning">Archive参照</option><option value="error">参照不足</option></select></label>
+        <label>予測タスク<select value={overviewTask} onChange={(event) => setOverviewTask(event.target.value)}><option value="">すべて</option>{overviewTasks.map((task) => <option key={task} value={task}>{task}</option>)}</select></label>
+        <span>{filteredOverviewItems.length} / {overview.items.length}件</span>
+      </div>}
+      {overview ? <div className="developer-overview-list">{filteredOverviewItems.map((item) => <details key={item.project_id}>
+        <summary><span className={`developer-project-status ${item.validation_status}`}>{item.validation_status === "ok" ? "検証済み" : item.validation_status === "warning" ? "Archive参照" : "参照不足"}</span><strong>{item.project_name}</strong><small>{item.task_id}</small>{item.active_package && <em>active</em>}<code>{item.project_id}</code></summary>
         {item.archived_references.length > 0 && <p className="developer-archived">Archive参照: {item.archived_references.join(" / ")}</p>}
         <dl>
           <div><dt>Dataset</dt><dd>{item.source_filename ?? "—"}<small>{item.dataset_revision_ids.join(", ") || "revisionなし"}</small></dd></div>
@@ -102,7 +136,9 @@ export function DeveloperControlCenter({ onOpenProfileWorkbench }: { onOpenProfi
           <div><dt>Feature Pipeline</dt><dd>{item.feature_pipeline_id ?? "—"} <small>v{item.feature_pipeline_version ?? "—"}</small></dd></div>
           <div><dt>Runtime</dt><dd>{item.runtime_type ?? "—"}</dd></div>
         </dl>
-      </article>)}</div> : <p className="empty-evidence">構成を読み込んでいます。</p>}
+      </details>)}
+      {filteredOverviewItems.length === 0 && <p className="empty-evidence">条件に合うProjectはありません。</p>}
+      </div> : <p className="empty-evidence">構成を読み込んでいます。</p>}
     </section>}
 
     {tab === "guide" && <section className="developer-section change-guide">

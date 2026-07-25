@@ -25,6 +25,8 @@ const bundle = await build({
         onCopy() {},
         onDelete() {},
         onSave() {},
+        onConfigureGoals() {},
+        onConfigureSupport() {},
         ...props,
       }));
     `,
@@ -75,6 +77,9 @@ test("annealed definition renders canonical groups, heat pattern, and four outpu
   assert.ok(inspector.indexOf("heat proof") < inspector.indexOf("その他の入力"));
   for (const output of ["TS", "YS", "EL", "lambda"]) assert.match(comparison, new RegExp(`>${output}<`));
   assert.ok(comparison.indexOf("予測結果") < comparison.indexOf("焼鈍条件"));
+  assert.match(comparison, /目標を設定/);
+  assert.match(comparison, /入力範囲を確認/);
+  assert.equal((comparison.match(/↑ 大きい側が目標/g) ?? []).length, 4);
 });
 
 test("hot rolling definition omits heat pattern and renders process, categorical, fixed context, and TS only", () => {

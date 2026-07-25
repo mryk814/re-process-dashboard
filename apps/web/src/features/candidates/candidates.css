@@ -63,6 +63,7 @@
 .candidate-decision-summary dd { margin: 2px 0 0; color: #263448; font-size: 12px; font-weight: 700; white-space: nowrap; }
 .candidate-decision-summary dd.is-ready { color: #137456; }
 .candidate-decision-summary dd.needs-attention { color: #a65b00; }
+.decision-summary-link { margin-top: 3px; border: 0; border-bottom: 1px solid #8ea9c8; padding: 1px 0; background: transparent; color: #245d9d; font-size: 9px; font-weight: 700; cursor: pointer; }
 .candidate-decision-summary p { margin: 0; color: #4a5f78; font-size: 11px; line-height: 1.45; }
 .comparison-grid-viewport { min-width: 0; overflow-x: auto; }
 .comparison-grid { display: grid; grid-template-columns: 160px minmax(220px, var(--comparison-input-share, 45%)) 9px minmax(240px, 1fr) 120px; width: 100%; min-width: 749px; align-items: start; border: 1px solid #cfd9e5; border-radius: 4px; }
@@ -174,6 +175,7 @@
 .comparison-detail-table .goal-col { width: 92px; }
 .comparison-detail-table .decision-output-col,
 .comparison-detail-table .decision-output-cell { width: 116px; }
+.decision-output-col .goal-direction { display: block; margin-top: 2px; color: #65758a; font-size: 9px; font-style: normal; font-weight: 500; }
 .comparison-detail-table .support-header { width: 72px; }
 .comparison-detail-table .prediction-cell { background: #f7faff; }
 .comparison-detail-table .metric-value { display: flex; align-items: baseline; justify-content: flex-end; gap: 3px; font-weight: 700; }

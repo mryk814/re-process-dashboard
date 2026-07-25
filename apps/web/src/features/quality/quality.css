@@ -47,6 +47,11 @@
 .reference-scenarios { margin-top: 20px; border: 1px solid #d8e0ea; border-radius: 4px; padding: 12px; color: #536277; }
 .reference-scenarios summary { cursor: pointer; font-weight: 700; color: #263448; }
 .reference-scenarios p { font-size: 13px; }
+.quality-summary-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 7px; }
+.quality-empty-state { display: grid; justify-items: start; gap: 4px; margin-top: 10px; border: 1px solid #cbd8e6; border-radius: 5px; background: #f7fafc; padding: 12px 14px; color: #526278; }
+.quality-empty-state strong { color: #29445f; font-size: 13px; }
+.quality-empty-state p { margin: 0; font-size: 11px; }
+.quality-empty-state.filtered { border-color: #dfc995; background: #fffaf0; }
 
 @media (max-width: 980px) {
   .quality-summary { display: block; }

@@ -24,6 +24,7 @@ export type NavigationIntent = Readonly<{
   screeningRunId?: string;
   snapshotId?: string;
   adminSection?: AdminSection;
+  projectSettings?: "targets";
 }>;
 
 const VIEW_SET = new Set<string>(WORKBENCH_VIEWS);
@@ -49,6 +50,7 @@ export function readNavigationIntent(
     screeningRunId: params.get("screening") || undefined,
     snapshotId: params.get("snapshot") || undefined,
     adminSection: adminSection && ADMIN_SECTIONS.has(adminSection as AdminSection) ? adminSection as AdminSection : undefined,
+    projectSettings: params.get("project_settings") === "targets" ? "targets" : undefined,
   });
 }
 
@@ -65,6 +67,7 @@ export function navigationUrl(intent: NavigationIntent): string {
   if (intent.screeningRunId) params.set("screening", intent.screeningRunId);
   if (intent.snapshotId) params.set("snapshot", intent.snapshotId);
   if (intent.adminSection) params.set("admin", intent.adminSection);
+  if (intent.projectSettings) params.set("project_settings", intent.projectSettings);
   return `${window.location.pathname}?${params.toString()}${window.location.hash}`;
 }
 
@@ -84,5 +87,6 @@ export function withView(
     screeningRunId: view === "explore" ? current.screeningRunId : undefined,
     snapshotId: view === "project" ? current.snapshotId : undefined,
     adminSection: view === "settings" ? current.adminSection : undefined,
+    projectSettings: view === "project" ? current.projectSettings : undefined,
   });
 }

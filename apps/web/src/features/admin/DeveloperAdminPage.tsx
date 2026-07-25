@@ -26,6 +26,7 @@ export function DeveloperAdminPage({
   qualityFilters,
   onQualityFiltersChange,
   onOpenLineage,
+  onOpenQualityIssues,
   onProjectChanged,
   onOpenProfileWorkbench,
 }: {
@@ -37,6 +38,7 @@ export function DeveloperAdminPage({
   qualityFilters: QualityFilters;
   onQualityFiltersChange: (filters: QualityFilters) => void;
   onOpenLineage: (issue: ApiQuality["detected_issues"][number], filters: QualityFilters) => void;
+  onOpenQualityIssues: (filters: QualityFilters) => void;
   onProjectChanged: (project: ApiProject) => void;
   onOpenProfileWorkbench: () => void;
 }) {
@@ -73,7 +75,7 @@ export function DeveloperAdminPage({
     <div className="admin-content">
       {visibleSection === "developer" && <DeveloperControlCenter onOpenProfileWorkbench={onOpenProfileWorkbench} />}
       {visibleSection === "quality" && (project?.id
-        ? <LiveDataQualityPage projectId={project.id} filters={qualityFilters} onFiltersChange={onQualityFiltersChange} onOpenLineage={onOpenLineage} showReferenceScenarios mode="summary" />
+        ? <LiveDataQualityPage projectId={project.id} filters={qualityFilters} onFiltersChange={onQualityFiltersChange} onOpenLineage={onOpenLineage} onOpenIssueList={onOpenQualityIssues} showReferenceScenarios mode="summary" />
         : <p className="empty-evidence">プロジェクトを読み込んでいます。</p>)}
       {visibleSection === "ranges" && <InputRangeSettingsPage project={project} taskDefinition={taskDefinition} onProjectChanged={onProjectChanged} />}
       {visibleSection === "display" && <DisplayDecimalSettingsPage project={project} taskDefinition={taskDefinition} onProjectChanged={onProjectChanged} />}

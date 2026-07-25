@@ -71,6 +71,23 @@ export function ProfileWorkbenchPage({
   );
   const currentStep = registration ? 6 : inspection?.validation?.registration_ready && !inspection.profile_error ? 5 : inspection ? 3 : file ? 2 : 1;
   const steps = ["Excel", "Profile候補", "構造差分", "検証", "Dataset登録", "Project作成"];
+  const nextAction = registration
+    ? "登録したデータセットでプロジェクトを作成するか、データライブラリで確認します。"
+    : registering
+      ? "データセットを登録しています。"
+      : loading
+        ? "Excelの構造と選択したデータセットプロファイルを確認しています。"
+        : error
+          ? "エラー内容を確認し、Excelまたはデータセットプロファイルを選び直します。"
+          : inspection?.profile_error
+            ? "データセットプロファイルを選び直して、内容を再確認します。"
+            : inspection?.validation?.registration_ready
+              ? "データセット名を確認して、データライブラリへ登録します。"
+              : inspection
+                ? "構造差分と検証結果を確認し、必要ならデータセットプロファイルを選び直します。"
+                : file
+                  ? "データセットプロファイルを選び、Excelの内容を確認します。"
+                  : "最初にExcelファイルを選択します。";
 
   function cancelInspection() {
     inspectController.current?.abort();
@@ -146,8 +163,9 @@ export function ProfileWorkbenchPage({
       <button className="outline-button" onClick={onOpenDataLibrary}>データライブラリに戻る</button>
     </div>
     <ol className="profile-workbench-steps" aria-label="Dataset登録からProject作成まで">
-      {steps.map((step, index) => <li key={step} className={currentStep >= index + 1 ? currentStep === index + 1 ? "current" : "complete" : ""}><b>{index + 1}</b><span>{step}</span></li>)}
+      {steps.map((step, index) => <li key={step} aria-current={currentStep === index + 1 ? "step" : undefined} className={currentStep >= index + 1 ? currentStep === index + 1 ? "current" : "complete" : ""}><b>{index + 1}</b><span>{step}</span></li>)}
     </ol>
+    <p className="profile-next-action" aria-live="polite"><b>次の操作</b><span>{nextAction}</span></p>
     <aside className="profile-data-purpose">
       <strong>ここで登録するのは参照・探索用Datasetです</strong>
       <span>登録だけならModel Packageの再構築は不要です。学習データとして採用するときは、別途Packageを作成・検証します。</span>
@@ -155,14 +173,14 @@ export function ProfileWorkbenchPage({
 
     <section className="profile-workbench-inputs" aria-label="ExcelとDataset Profileの選択">
       <label className={file ? "profile-file-picker selected" : "profile-file-picker"}>
-        <b>1</b><span><strong>{file?.name ?? "Excelを選択"}</strong><small>{file ? `${(file.size / 1024 / 1024).toLocaleString("ja-JP", { maximumFractionDigits: 1 })} MB` : ".xlsx · 100 MB以下"}</small></span>
+        <span><strong>{file?.name ?? "Excelを選択"}</strong><small>{file ? `${(file.size / 1024 / 1024).toLocaleString("ja-JP", { maximumFractionDigits: 1 })} MB` : ".xlsx · 100 MB以下"}</small></span>
         <input type="file" disabled={registering || Boolean(registration)} accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onClick={(event) => { event.currentTarget.value = ""; }} onChange={(event) => selectFile(event.target.files?.[0] ?? null)} />
       </label>
-      <label className="profile-select-field"><b>2</b><span>Dataset Profile</span><select value={profileSelection} disabled={registering || Boolean(registration)} onChange={(event) => selectProfile(event.target.value)}>
+      <label className="profile-select-field"><span>データセットプロファイル</span><select value={profileSelection} disabled={registering || Boolean(registration)} onChange={(event) => selectProfile(event.target.value)}>
         <option value="auto">自動検出</option>
         {profiles.map((item) => <option value={item.profile_digest} key={item.profile_digest}>{item.profile_id} · {item.source_name.replace("dataset-input-profile-", "")}</option>)}
       </select></label>
-      <button className="primary-button profile-inspect-button" disabled={!file || loading || registering || Boolean(registration)} onClick={() => void inspect()}>{loading ? "確認中…" : "3  内容を確認"}</button>
+      <button className="primary-button profile-inspect-button" disabled={!file || loading || registering || Boolean(registration)} onClick={() => void inspect()}>{loading ? "確認中…" : "内容を確認"}</button>
     </section>
 
     {error && <p className="panel-error" role="alert">{error}</p>}
@@ -196,7 +214,7 @@ export function ProfileWorkbenchPage({
       {inspection.validation?.registration_ready && !inspection.profile_error && !registration && <section className="profile-registration-panel">
         <div><span className="overline">REGISTER DATASET</span><h3>Data Libraryへ登録</h3><p>Excelの内容とProfileの組み合わせを不変のDatasetとして登録します。同じ組み合わせは重複しません。</p></div>
         <label>Dataset名<input value={datasetName} maxLength={160} onChange={(event) => setDatasetName(event.target.value)} /></label>
-        <button className="primary-button" disabled={!canRegister} onClick={() => void register()}>{registering ? "登録中…" : "4  この内容で登録"}</button>
+        <button className="primary-button" disabled={!canRegister} onClick={() => void register()}>{registering ? "登録中…" : "この内容で登録"}</button>
       </section>}
     </>}
 

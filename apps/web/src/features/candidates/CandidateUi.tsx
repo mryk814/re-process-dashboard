@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type UIEvent } from "react";
 import type { CandidateViewModel } from "./candidateModel";
-import { getCandidateInputValue, numericTaskInputs, orderedInputGroups, type NumericRange, type NumericTaskInput, type TaskDefinitionContract, type TaskInputGroup } from "./taskDefinition";
+import { getCandidateInputValue, numericTaskInputs, orderedInputGroups, type NumericRange, type NumericTaskInput, type TaskDefinitionContract, type TaskInputGroup, type TaskOutputDefinition } from "./taskDefinition";
 import type { ApiPreview } from "../../shared/api/workbench-api";
 import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
 import type { CandidateSaveState } from "./useCandidateEditor";
@@ -280,6 +280,8 @@ export function ComparisonTable({
   onCopy,
   onDelete,
   onSave,
+  onConfigureGoals,
+  onConfigureSupport,
 }: {
   candidates: CandidateViewModel[];
   selectedId: string;
@@ -301,6 +303,8 @@ export function ComparisonTable({
   onCopy: (id: string) => void;
   onDelete: (id: string) => void;
   onSave: (candidate: CandidateViewModel) => void;
+  onConfigureGoals: () => void;
+  onConfigureSupport: () => void;
 }) {
   const fieldVaries = (path: string) => new Set(candidates.map((candidate) => JSON.stringify(getCandidateInputValue(candidate.raw.inputs, path) ?? null))).size > 1;
   const inputGroups = orderedInputGroups(taskDefinition)
@@ -390,6 +394,11 @@ export function ComparisonTable({
   const selectedCandidate = candidates.find((candidate) => candidate.id === selectedId);
   const supportConcernCount = decisionSummary.supportCounts.caution + decisionSummary.supportCounts.extrapolated;
   const supportUnknownCount = decisionSummary.supportCounts.unknown + candidates.length - decisionSummary.loadedCandidateCount;
+  const goalDirectionLabel = (direction: TaskOutputDefinition["goal_direction"]) => direction === "at_most"
+    ? "↓ 小さい側が目標"
+    : direction === "at_least"
+      ? "↑ 大きい側が目標"
+      : "↔ 範囲内が目標";
   const predictionValue = (prediction: ApiPreview["predictions"][string], outputKey: string) => prediction.target_kind === "continuous" || prediction.target_kind === "continuous_positive" || prediction.target_kind === "count"
     ? formatDisplayNumber(prediction.value, taskDefinition, `output.${outputKey}`, displayDecimalOverrides)
     : formatPredictionPoint(prediction, formatNumber);
@@ -453,6 +462,7 @@ export function ComparisonTable({
             <dd className={configuredTargetCount === outputs.length ? "is-ready" : "needs-attention"}>
               {configuredTargetCount} / {outputs.length}特性
             </dd>
+            <button type="button" className="decision-summary-link" onClick={onConfigureGoals}>{configuredTargetCount === outputs.length ? "目標を変更" : "目標を設定"}</button>
           </div>
           <div>
             <dt>支持範囲</dt>
@@ -465,6 +475,7 @@ export function ComparisonTable({
                     ? `${supportConcernCount}候補を要確認`
                     : "全候補が範囲内"}
             </dd>
+            <button type="button" className="decision-summary-link" onClick={onConfigureSupport}>入力範囲を確認</button>
           </div>
           <div>
             <dt>{allOutputsBinary ? "候補間の確率差" : "区間の共通部分"}</dt>
@@ -503,7 +514,7 @@ export function ComparisonTable({
                   <th className="support-header">適用範囲</th>
                 </tr>
                 <tr>
-                  {outputs.map((output) => <th className="decision-output-col" key={output.key}>{output.label}<small>{outputTargetKind(output.key) === "binary" ? "異常確率" : output.unit}</small></th>)}
+                  {outputs.map((output) => <th className="decision-output-col" key={output.key}>{output.label}<small>{outputTargetKind(output.key) === "binary" ? "異常確率" : output.unit}</small><em className="goal-direction">{goalDirectionLabel(output.goal_direction)}</em></th>)}
                   <th className="support-header">入力条件</th>
                 </tr>
               </thead>

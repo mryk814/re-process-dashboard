@@ -2,23 +2,61 @@ import { expect, test } from "@playwright/test";
 
 const apiBaseUrl = `http://127.0.0.1:${Number(process.env.PLAYWRIGHT_API_PORT ?? 8875)}`;
 
+async function createProjectFromDefault(page: import("@playwright/test").Page, name: string) {
+  const referenceResponse = await page.request.get(`${apiBaseUrl}/api/projects/default`);
+  expect(referenceResponse.status()).toBe(200);
+  const reference = await referenceResponse.json() as {
+    task_id: string;
+    dataset_view_revision_id: string;
+    model_package_ref_id: string;
+  };
+  return page.request.post(`${apiBaseUrl}/api/projects`, {
+    data: {
+      name,
+      task_id: reference.task_id,
+      dataset_view_revision_id: reference.dataset_view_revision_id,
+      model_package_ref_id: reference.model_package_ref_id,
+    },
+  });
+}
+
 test("project series keep the active series open and let other series expand", async ({ page }) => {
   await page.goto("/?view=project&project=default");
 
   const toggles = page.locator(".project-list-group-toggle");
-  await expect(toggles).toHaveCount(2);
   const activeGroup = page.locator('.project-list-item[aria-current="page"]').locator("xpath=ancestor::section");
-  await expect(activeGroup.locator(".project-list-group-toggle")).toHaveAttribute("aria-expanded", "true");
+  if (await activeGroup.evaluate((element) => element.classList.contains("singleton"))) {
+    await expect(activeGroup.locator(".project-list-group-toggle")).toHaveCount(0);
+  } else {
+    await expect(activeGroup.locator(".project-list-group-toggle")).toHaveAttribute("aria-expanded", "true");
+  }
 
   const collapsedToggle = page.locator('.project-list-group-toggle[aria-expanded="false"]').first();
-  const contentId = await collapsedToggle.getAttribute("aria-controls");
-  expect(contentId).toBeTruthy();
-  const stableToggle = page.locator(`[aria-controls="${contentId}"]`);
-  const projects = page.locator(`#${contentId}`);
-  await expect(projects).toBeHidden();
-  await stableToggle.click();
-  await expect(stableToggle).toHaveAttribute("aria-expanded", "true");
-  await expect(projects).toBeVisible();
+  if (await collapsedToggle.count()) {
+    const contentId = await collapsedToggle.getAttribute("aria-controls");
+    expect(contentId).toBeTruthy();
+    const stableToggle = page.locator(`[aria-controls="${contentId}"]`);
+    const projects = page.locator(`#${contentId}`);
+    await expect(projects).toBeHidden();
+    await stableToggle.click();
+    await expect(stableToggle).toHaveAttribute("aria-expanded", "true");
+    await expect(projects).toBeVisible();
+  }
+  await expect(toggles).toHaveCount(await page.locator(".project-list-group:not(.singleton)").count());
+});
+
+test("a single-project series is shown as a direct project without collapse hierarchy", async ({ page }) => {
+  const createdResponse = await createProjectFromDefault(page, `単独プロジェクト ${Date.now()}`);
+  expect(createdResponse.status()).toBe(201);
+  const created = await createdResponse.json() as { id: string };
+  await page.goto(`/?view=project&project=${created.id}`);
+
+  const activeGroup = page.locator('.project-list-item[aria-current="page"]').locator("xpath=ancestor::section");
+  await expect(activeGroup).toHaveClass(/singleton/);
+  await expect(activeGroup.locator(".project-list-group-toggle")).toHaveCount(0);
+  await expect(activeGroup.locator(".project-list-item")).toHaveCount(1);
+
+  expect((await page.request.delete(`${apiBaseUrl}/api/projects/${created.id}`)).status()).toBe(204);
 });
 
 test("new project creation can be cancelled or left by selecting an existing project", async ({ page }) => {
@@ -27,8 +65,11 @@ test("new project creation can be cancelled or left by selecting an existing pro
 
   await page.getByRole("button", { name: "新規プロジェクト" }).click();
   await expect(createPanel).toBeVisible();
+  await expect(page.getByRole("button", { name: "新規プロジェクト" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "作成をやめる" })).toHaveCount(1);
   await createPanel.getByRole("button", { name: "作成をやめる" }).click();
   await expect(createPanel).toBeHidden();
+  await expect(page.getByRole("button", { name: "新規プロジェクト" })).toBeEnabled();
   await expect(page.locator(".project-hub-header")).toContainText("焼鈍条件の候補検討");
 
   await page.getByRole("button", { name: "新規プロジェクト" }).click();
@@ -45,16 +86,17 @@ test("new project creation can be cancelled or left by selecting an existing pro
 test("a continuation can switch prediction task without leaving its series", async ({ page }) => {
   await page.goto("/?view=project&project=default");
   await expect(page.locator(".project-hub-header").getByRole("heading", { name: "焼鈍条件の候補検討" })).toBeVisible();
-  await page.getByRole("button", { name: "この検討の続き" }).click();
+  await page.getByRole("button", { name: "このプロジェクトの続き" }).click();
 
   const panel = page.getByRole("region", { name: "新規プロジェクトの開始方法" });
   await expect(panel.getByRole("combobox", { name: "Dataset" })).toBeEnabled();
   const task = panel.getByRole("combobox", { name: "予測タスク（Prediction Task）" });
   await expect(task).toBeEnabled();
   await task.selectOption("hot-rolled-properties-v1");
+  await panel.getByRole("combobox", { name: "Model Package" }).selectOption({ index: 1 });
   await expect(panel.getByLabel("続ける理由（任意）")).toBeVisible();
-  const series = panel.getByRole("combobox", { name: "検討のつながり" });
-  await expect(series).toBeDisabled();
+  const series = panel.getByRole("combobox", { name: "所属グループ" });
+  await expect(series).toBeEnabled();
   const seriesId = await series.inputValue();
 
   const createdResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/projects");
@@ -65,10 +107,8 @@ test("a continuation can switch prediction task without leaving its series", asy
   expect(created.predecessor_project_id).toBe("default");
 });
 
-test("project settings rename the series and keep deletion at the bottom", async ({ page }) => {
-  const createdResponse = await page.request.post(`${apiBaseUrl}/api/projects`, {
-    data: { name: `削除位置確認 ${Date.now()}`, task_id: "annealed-properties-v1" },
-  });
+test("project settings keep one fixed reference display and deletion at the bottom", async ({ page }) => {
+  const createdResponse = await createProjectFromDefault(page, `削除位置確認 ${Date.now()}`);
   expect(createdResponse.status()).toBe(201);
   const created = await createdResponse.json() as { id: string };
   await page.goto(`/?view=project&project=${created.id}`);
@@ -78,21 +118,15 @@ test("project settings rename the series and keep deletion at the bottom", async
   await expect(content.locator(":scope > :last-child")).toHaveClass(/project-danger-zone/);
 
   await page.getByRole("button", { name: "設定を編集" }).click();
-  const seriesName = page.getByLabel("一連の検討名");
-  const renamed = `焼鈍条件シリーズ ${Date.now()}`;
-  await seriesName.fill(renamed);
-  await expect(seriesName).toHaveValue(renamed);
-  const response = page.waitForResponse((item) => item.request().method() === "PUT" && new URL(item.url()).pathname.startsWith("/api/project-series/"));
-  await page.getByRole("button", { name: "名前を保存" }).click();
-  expect((await response).status()).toBe(200);
-  await expect(page.locator(".project-list-group-toggle").filter({ hasText: renamed })).toBeVisible();
+  await expect(page.locator(".project-reference-strip")).toHaveCount(1);
+  await expect(page.locator(".project-fixed-bindings")).toHaveCount(0);
   expect((await page.request.delete(`${apiBaseUrl}/api/projects/${created.id}`)).status()).toBe(204);
 });
 
 test("project hub separates current revision from fixed snapshot and restores a new candidate", async ({ page }) => {
   await page.goto("/?view=project&project=default");
   await expect(page.getByRole("heading", { name: "次の作業" })).toBeVisible();
-  await page.getByRole("button", { name: /条件範囲から探す/ }).click();
+  await page.getByRole("button", { name: "範囲探索 目標と入力範囲から候補を生成" }).click();
   await expect(page).toHaveURL(/view=explore/);
   await expect(page.getByRole("heading", { name: /範囲探索/ })).toBeVisible();
 
@@ -153,12 +187,14 @@ test("new project creation requires an explicit empty or copy choice", async ({ 
   await panel.getByLabel("プロジェクト名").fill(`空の検討 ${Date.now()}`);
   await panel.getByRole("combobox", { name: "Dataset", exact: true }).selectOption({ label: "material_workbench_tutorial_v1 · thin-sheet-tutorial-v1" });
   await panel.getByRole("combobox", { name: "予測タスク" }).selectOption("annealed-properties-v1");
+  await panel.getByRole("combobox", { name: "Model Package" }).selectOption({ index: 1 });
   await panel.getByRole("radio", { name: /空から開始/ }).check();
   await panel.getByRole("button", { name: "固定してプロジェクトを作成" }).click();
   await expect(page.getByText("まだ候補がありません", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: /条件範囲から探す/ }).first().click();
+  await expect(page.locator(".project-history-section").getByRole("button")).toHaveCount(0);
+  await page.locator(".project-next-actions").getByRole("button", { name: /範囲探索/ }).click();
   await page.getByRole("button", { name: "基準候補を作って探索を始める" }).click();
   await page.getByRole("button", { name: "候補比較", exact: true }).click();
-  await expect(page.locator(".comparison-detail-table thead .prediction-col").filter({ hasText: "引張強さ" })).toBeVisible();
-  await expect(page.locator(".comparison-detail-table thead .prediction-col").filter({ hasText: "降伏強さ" })).toBeVisible();
+  await expect(page.locator(".comparison-prediction-table thead .decision-output-col").filter({ hasText: "引張強さ" })).toBeVisible();
+  await expect(page.locator(".comparison-prediction-table thead .decision-output-col").filter({ hasText: "降伏強さ" })).toBeVisible();
 });

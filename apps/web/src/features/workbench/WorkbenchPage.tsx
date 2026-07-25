@@ -103,6 +103,8 @@ type WorkbenchProps = {
   onAddCandidateFromLineage: (entityKey: string) => Promise<boolean>;
   onImported: (items: Candidate[]) => void;
   onProjectChanged: (project: ApiProject) => void | Promise<void>;
+  onConfigureGoals: () => void;
+  onConfigureSupport: () => void;
 };
 
 export function WorkbenchPage(props: WorkbenchProps) {
@@ -147,6 +149,8 @@ export function WorkbenchPage(props: WorkbenchProps) {
     onAddCandidateFromLineage,
     onImported,
     onProjectChanged,
+    onConfigureGoals,
+    onConfigureSupport,
   } = props;
   const [comparisonExpanded, setComparisonExpanded] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
@@ -267,6 +271,8 @@ export function WorkbenchPage(props: WorkbenchProps) {
           onCopy={onCopy}
           onDelete={onDelete}
           onSave={onSave}
+          onConfigureGoals={onConfigureGoals}
+          onConfigureSupport={onConfigureSupport}
         />}
         {taskDefinition?.curve_axis_path && operations?.response_curve ? (
           <CurveFamilyPanel
