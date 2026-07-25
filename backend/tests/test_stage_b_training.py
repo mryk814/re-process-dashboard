@@ -107,6 +107,9 @@ def test_stage_b_task_predicts_and_compares_actual_measurement(client) -> None:
     project = next(
         item for item in projects if item["id"] == "welding-stage-b-default"
     )
+    package = client.get(f"/api/projects/{project['id']}/model-package")
+    assert package.status_code == 200, package.text
+    assert package.json()["id"] == "welding-consumable-stage-b-ridge-v1"
     candidates = client.get(
         f"/api/projects/{project['id']}/candidates"
     ).json()

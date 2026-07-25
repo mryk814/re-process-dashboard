@@ -8,6 +8,7 @@ def supported_task_ids(document: dict[str, Any]) -> tuple[str, ...]:
     if document.get("schema_version") in {
         "tabular-dataset-profile/v1",
         "observation-dataset-profile/v1",
+        "welding-stage-b-profile/v1",
     }:
         task_id = document.get("task_id")
         return (task_id,) if isinstance(task_id, str) and task_id else ()

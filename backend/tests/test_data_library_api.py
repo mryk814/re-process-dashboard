@@ -9,7 +9,7 @@ def test_data_library_exposes_semantic_dataset_records_and_creation_options(clie
     datasets = client.get("/api/data-library/datasets")
     assert datasets.status_code == 200
     items = datasets.json()
-    assert len(items) == 12
+    assert len(items) == 13
     assert all(item["data_asset"]["sha256"] for item in items)
     assert all(item["profile_revision"]["profile_digest"] for item in items)
     assert all(item["dataset_revision"]["dataset_digest"] for item in items)
@@ -26,6 +26,7 @@ def test_data_library_exposes_semantic_dataset_records_and_creation_options(clie
         "mpea-room-tensile-v1",
         "mpea-hardness-process-v1",
         "welding-stage-c-properties-v1",
+        "welding-consumable-stage-b-v1",
     }
     mpea = [
         item for item in items
@@ -41,7 +42,7 @@ def test_data_library_exposes_semantic_dataset_records_and_creation_options(clie
     options = client.get("/api/project-creation-options")
     assert options.status_code == 200
     payload = options.json()
-    assert len(payload["dataset_views"]) == 12
+    assert len(payload["dataset_views"]) == 13
     assert len(payload["model_packages"]) >= 15
     assert payload["project_series"]
     assert set(payload["task_contract_digests"]) >= {

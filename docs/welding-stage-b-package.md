@@ -43,7 +43,7 @@ Stage BのTask、feature pipeline、Packageはその31軸だけを読み、
 ```powershell
 $env:PYTHONPATH = "backend/src"
 uv run python backend/scripts/build_welding_stage_b_assets.py --replace
-uv run python backend/scripts/model_workflow.py verify --task welding-consumable-stage-b-v1
+uv run python backend/scripts/model_workflow.py verify --task welding-consumable-stage-b-v1 --package models/packages/welding-consumable-stage-b-ridge-v1
 ```
 
 Developer Centerの「学習View」では、Stage Bを選ぶとtargetごとの

@@ -33,6 +33,11 @@ RegistryDependency = Annotated[TaskRegistry, Depends(get_task_registry)]
 ResolverDependency = Annotated[ProjectRuntimeResolver, Depends(get_project_runtime_resolver)]
 
 
+def _lifecycle_profile(data: Any) -> Path | Any:
+    profile_path = Path(data.profile_path)
+    return profile_path if profile_path.exists() else data.profile
+
+
 @router.get("/api/health")
 @router.get("/health", include_in_schema=False)
 def health(store: StoreDependency, registry: RegistryDependency) -> dict[str, Any]:
@@ -105,7 +110,7 @@ def model_package(
     quality = validate_lifecycle_metadata(
         package,
         registry.contract_for(project.task_id),
-        profile_path=getattr(resolved.runtime.data, "profile", Path(resolved.runtime.data.profile_path)),
+        profile_path=_lifecycle_profile(resolved.runtime.data),
     )
     optional_dependencies = {
         "sklearn.skops.v1": importlib.util.find_spec("skops") is not None,
@@ -177,7 +182,7 @@ def model_training_data(
     validate_lifecycle_metadata(
         package,
         contract,
-        profile_path=getattr(data, "profile", Path(data.profile_path)),
+        profile_path=_lifecycle_profile(data),
     )
     available_targets = [item.target for item in package.manifest.predictors]
     selected_target = target or available_targets[0]
