@@ -7,6 +7,9 @@
 - 目的: `docs/architecture/extensibility-spikes.md` の反証ケースが「どこを触るはずか」を予測できる状態にすること
 - 非目的: 抽象化案の提示。共通化の是非は反証テスト後に判断します
 
+反証ケースA〜Dは実行済みです。実測で確認できた項目には**実測済**と付けています。
+結果と結論は [extensibility-spikes.md](extensibility-spikes.md) にあります。
+
 `registration_point` のIDは `backend/tests/test_extensibility_registration_points.py` が参照します。
 新しい登録点を作った場合、テストがこの文書の更新を要求します。
 
@@ -109,6 +112,16 @@ DataDescriptor（宣言済みの共通面）
 
 **登録点**: `package.adapter_allowlist`、`package.builder`、`package.active_entry`、`package.lifecycle_task_branch`（既存の2件の分岐）
 
+**Package構築は登録の後でしかできません（実測済）**
+
+| 場所 | 内容 |
+| --- | --- |
+| [modeling/tabular_model_builder.py:376](../../backend/src/material_workbench/modeling/tabular_model_builder.py#L376) | `load_task_contracts()` をcontract root注入なしで呼ぶ。TaskDefinition JSONが本番 `task_definitions/` にないとPackageを作れない |
+| [modeling/model_lifecycle.py:234](../../backend/src/material_workbench/modeling/model_lifecycle.py#L234) | `task_module()` 経由でmodule-levelの `TASK_MODULES` を直接読む。`task_modules.py` へ登録する前はPackageを作れない |
+
+未登録Taskのartifactを作れないという安全側の性質でもあるため、負債とは断定しません。
+ただし「Packageを先に作って検証してから登録する」順序は取れません。
+
 ### 1.5 Runtime
 
 | 側面 | 正本 |
@@ -120,6 +133,14 @@ DataDescriptor（宣言済みの共通面）
 | 契約整合検証 | [tasks/task_registry.py:168](../../backend/src/material_workbench/tasks/task_registry.py#L168) `_validate_runtime` |
 
 `response_curve` / `curve_family` は capability宣言とhandlerの有無が起動時に一致検証されます（[tasks/task_registry.py:209](../../backend/src/material_workbench/tasks/task_registry.py#L209), [:216](../../backend/src/material_workbench/tasks/task_registry.py#L216)）。これは良い形の登録点です。
+
+**runtime factoryのパラメタ化はfamilyごとに非対称です（実測済）**
+
+| family | パラメタ化 | 2つ目のTaskを追加できるか |
+| --- | --- | --- |
+| Tabular | `_tabular_loader(task_id)` / `_tabular_features(task_id)` / `_tabular_builder(task_id)` / `_tabular_starter(task_id, name)` で完全にパラメタ化 | **できる**。新規Python関数0件（ケースA実測） |
+| Observation | `stage_c_regression.TASK_ID` / `PROFILE_PATH` がmodule定数（[stage_c_regression.py:32](../../backend/src/material_workbench/modeling/stage_c_regression.py#L32)）。`stage_c_model_builder.build(source, destination, *, replace)` にprofile引数がない（[:225](../../backend/src/material_workbench/modeling/stage_c_model_builder.py#L225)） | **できない**。runtimeとbuilderのパラメタ化が先に必要（ケースB実測） |
+| Workbook / FlankWear | 1 Task専用のmodule（`runtime.py` / `hot_rolling.py` / `flank_wear.py`） | 縦スライスとして意図的 |
 
 ### 1.6 Candidate Shape
 
@@ -230,6 +251,8 @@ Chain snapshotのidentityは `design_space` と `commercial_catalog` を必須�
 2. 品質表示は3フィールドの暗黙インターフェースに依存し、`FlankWearData` がそれを満たさないため `data_explorer=None` という**データではなくコードの判断**で回避されています。
 3. Training Viewを型で持つのはObservation familyだけで、Stage Bはそこへ**変換**しています（[data/stage_b_training.py:153](../../backend/src/material_workbench/data/stage_b_training.py#L153)）。つまり共通境界の候補は既に存在しますが、全familyが通っていません。
 4. Profile形式を統合する必要はありませんが、**「loaderの戻り値の共通契約」は現在ほぼ空**です。Phase 2.1で狭めるべきはProfileではなくこの境界です。
+5. **Observation familyのProfile契約とTraining View契約は溶接語彙なしで再利用できます（実測済）**。`build_observation_training_dataset` はfamily idで分岐せず、target別cohortが入力行の適格性と別に数えられます。よって共通境界は**新設ではなくこの契約の昇格**で足ります。
+6. 単位変換を実際に適用しているのは Dataset Input Profile family（`dataset_profile.py` の `unit_conversion`）だけです。Observation familyは `source_unit` / `canonical_unit` を宣言できますが、[observation_profile.py:452](../../backend/src/material_workbench/data/observation_profile.py#L452)–`:464` は生値をそのまま入れます（実測済）。現行の溶接Profileが宣言しているのは相対的なラベル付け替えのみなので**実バグではなく潜在リスク**です。
 
 ## 3. Chain Coreに残る溶接固有symbol（全列挙）
 
@@ -267,6 +290,19 @@ Chain snapshotのidentityは `design_space` と `commercial_catalog` を必須�
 - **意図的に残す明示制約**: #16（系列StageはCandidate Shape拡張が前提。今は失敗させるのが正しい）
 - **縦スライスとして残してよい**: #20, #21（溶接Chainのbootstrapと評価）
 
+**実測で確認できた範囲（ケースD）**
+
+疎配合なしの二段Chainを実際に組んだ結果、**塞がったのは6点だけ**でした。
+
+| 実測で塞がった | #3, #4, #5（候補層）、#1（`_external_values`）、#11, #14（snapshot identity） |
+| --- | --- |
+| **実測で変更不要と確認できた** | `ChainDefinition` / binding検証 / `build_chain_revision` / store登録 / Chain Project作成 / `api/chains.py` / `welding_chain_bootstrap.py` |
+| 実測に到達しなかった | #2, #6〜#8, #10, #12, #13, #15, #17〜#19（候補を保存できず実行層へ到達しないため） |
+
+重要な追加知見: **#1の名前空間固定は契約ではなく実装1関数に閉じています。**
+`candidate.process.barrel_temperature_c` という外部入力pathで `validate_chain_definition` は通り、
+`_external_values` だけがそのpathを生成しませんでした。切り離しやすい箇所です。
+
 ## 4. Decision Activity追加時の変更点
 
 「候補差分説明」を2つ目のActivityとして追加する場合に必要な変更を列挙します。
@@ -294,12 +330,13 @@ Chain snapshotのidentityは `design_space` と `commercial_catalog` を必須�
 
 | 領域 | 状態 |
 | --- | --- |
-| 標準表形式Taskの追加 | registry機構としては**ほぼdata-only**。`_TABULAR_PROFILES` と `TASK_MODULES` の各1 entryだけがコード変更で、loader / feature builder / model builder / starterはいずれも `task_id` でパラメタ化済みのfactory（[task_modules.py:207](../../backend/src/material_workbench/task_modules.py#L207), [:303](../../backend/src/material_workbench/task_modules.py#L303), [:357](../../backend/src/material_workbench/task_modules.py#L357), [:420](../../backend/src/material_workbench/task_modules.py#L420)）を再利用できる。ただし新しいcuration規則やmodel familyが必要な場合はその分だけ既存共通moduleが伸びる（ケースAで実測する） |
-| Profile family | 4系統。**統合不要だが、loader戻り値の共通契約がほぼ空** |
-| Candidate Shape | 単一形状。unionではない。共有schemaに焼鈍・溶接固有フィールドが混在 |
+| 標準表形式Taskの追加 | **実測済：data-onlyに近い**。既存ファイル変更2件（`task_modules.py` の `TASK_MODULES` と `_TABULAR_PROFILES`、`models/active-packages.json`）、新規Python関数0件、API/UI分岐0件で、preview・response curve・類似観測・品質表示・学習データInspector・ロバストネス・範囲探索がすべて動作。loader / feature builder / model builder / starterは `task_id` でパラメタ化済みのfactory（[task_modules.py:207](../../backend/src/material_workbench/task_modules.py#L207), [:303](../../backend/src/material_workbench/task_modules.py#L303), [:357](../../backend/src/material_workbench/task_modules.py#L357), [:420](../../backend/src/material_workbench/task_modules.py#L420)）を再利用できる |
+| Profile family | 4系統。**統合不要だが、loader戻り値の共通契約がほぼ空**。Observation familyのProfile契約とTraining View契約は実測で再利用可能（昇格候補） |
+| Observation family実装 | **実測済：契約は汎用、実装は単一インスタンス**。runtimeとbuilderが1 Task / 1 Profileに固定されており、2つ目を追加できない |
+| Candidate Shape | 単一形状。unionではない。共有schemaに焼鈍・溶接固有フィールドが混在。**実測済：可変長系列は7項目すべて表現できない** |
 | Decision Activity | 共通名でロバストネス専用型。2件目の追加前にunion化が必要 |
-| Chain | 汎用Coreと溶接adapterが未分離。溶接固有symbol14件が分離対象 |
+| Chain | **実測済：契約層は汎用、候補層が溶接固有**。疎配合なしの二段Chainは6点で塞がる。Definition / binding / Revision / store登録 / Project作成は変更不要 |
 | Source Connector | 未実装（計画通りP3） |
 | Design Space | Project単位ではなくStage Aに紐づく |
 
-次のステップは [extensibility-spikes.md](extensibility-spikes.md) の反証ケース4件です。
+実測結果の詳細と、証拠にもとづくIssue分割は [extensibility-spikes.md](extensibility-spikes.md) にあります。

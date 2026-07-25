@@ -9,7 +9,17 @@
 2. 各ケースの**変更点マトリクス（予測）**を残し、スパイク実行後に実測値と差分を突き合わせる
 
 予測を先に書く理由は、スパイク後に「やっぱり必要だった」と後付けで正当化しないためです。
-実測欄が空のケースは、まだ反証されていません。
+
+## 実行状況
+
+4ケースすべて実行済みです。再現手順は [spikes/README.md](../../backend/scripts/spikes/README.md) を参照してください。
+
+| ケース | 結果 | 一行要約 |
+| --- | --- | --- |
+| A 標準表形式Task | **予測通り成立** | 新規Python関数0件で既存アプリ機能を全て利用できた。ただしPackage構築の順序制約が2件見つかった |
+| B 複数観測family | **半分成立** | Profile契約とTraining Viewは溶接語彙なしで再利用できた。runtimeとbuilderは1 Taskに固定されており再利用できない |
+| C 可変長系列 | **予測通り不成立** | 検査した7項目すべてが現行契約で表現できない |
+| D 二段Chain | **予測通り不成立** | Chain Coreの契約層（Definition / binding / Revision）は再利用できた。候補層以降が6点で塞がる |
 
 ## 0. 共通ルール
 
@@ -66,18 +76,51 @@
 
 | 指標 | 予測 | 実測 | 差分の理由 |
 | --- | --- | --- | --- |
-| 既存ファイル変更数 | 2（`task_modules.py`, `models/active-packages.json`） | | |
-| 新規ファイル数 | 4（task definition JSON, tabular profile JSON, source CSV, package） | | |
-| 新規contract数 | 0 | | |
-| 新規API分岐数 | 0 | | |
-| 新規UI分岐数 | 0 | | |
-| registry追加点 | 2（`TASK_MODULES`, `_TABULAR_PROFILES`） | | |
-| generated schema更新 | `task-inventory.json` のみ | | |
-| 専用test fixture数 | 1 | | |
+| 既存ファイル変更数 | 2（`task_modules.py`, `models/active-packages.json`） | **2** | 一致 |
+| 新規ファイル数 | 4（task definition JSON, tabular profile JSON, source CSV, package） | **4** | 一致 |
+| 新規contract数 | 0 | **0** | 一致 |
+| 新規API分岐数 | 0 | **0** | 一致 |
+| 新規UI分岐数 | 0 | **0** | 一致 |
+| registry追加点 | 2（`TASK_MODULES`, `_TABULAR_PROFILES`） | **2** | 一致 |
+| generated schema更新 | `task-inventory.json` のみ | **`task-inventory.json` のみ** | 新しいendpointもschemaもないため `api-types.ts` は不変 |
+| 専用test fixture数 | 1 | **1** | 一致 |
+| 新規Python関数 | 0 | **0** | `_tabular_loader` / `_tabular_features` / `_tabular_builder` / `_tabular_starter` / `_standard_response_curve` / `_TABULAR_EXPLORER` をそのまま再利用 |
 
 **予測の根拠**: [inventory §1.1](extensibility-inventory.md#11-task) の登録点表と、`_tabular_loader` / `_tabular_features` / `_tabular_builder` / `_tabular_starter` が `task_id` でパラメタ化済みであること。
 
-**予測が外れる可能性が高い箇所**: 欠損targetの扱い（`observations[*]["eligible"]` の判定がProfile側で表現できるか）と、`_tabular_starter` が `model_family == "lightgbm_binary"` を直接見ている点（[task_modules.py:457](../../backend/src/material_workbench/task_modules.py#L457)）。
+### 実測結果
+
+fixture: 数値5列（`process.*`）＋カテゴリ2列（`categorical.*`）＋出力2列、300行、`warpage_mm` を44行欠損。
+`_prepare_app_resources()` で起動し、TestClientで本番APIを叩いた結果:
+
+```text
+[registry] availability=available stage=ready
+[data] rows=300 eligible=300 warpage欠損=44
+[OK] GET /api/task-definitions        [OK] task-definitionsにspike Taskが載る
+[OK] starter projectが自動生成される   [OK] starter候補が3件
+[OK] preview（予測）                   [OK] 2出力が返る
+[OK] response curve                   [OK] 類似観測
+[OK] 品質表示                          [OK] 学習データInspector
+[OK] Activity一覧                      [OK] ロバストネスが利用可能
+[OK] ロバストネス実行                   [OK] 範囲探索（screening）
+```
+
+欠損targetは `eligible_targets` から外れ、入力行としては有効（`eligible=300`）のまま扱われました。
+学習除外はtarget単位で行われ、UI上で予測値と実測値が混ざる経路はありませんでした。
+
+**新しく見つかったこと（予測になかった2件）**
+
+Package構築が**登録の後**でしか動きません。順序が逆にできません。
+
+| # | 場所 | 内容 |
+| --- | --- | --- |
+| A-1 | [tabular_model_builder.py:376](../../backend/src/material_workbench/modeling/tabular_model_builder.py#L376) | `build_tabular_package_from_data` が `load_task_contracts()` をroot注入なしで呼ぶ。TaskDefinition JSONを本番 `task_definitions/` に置く前はPackageを作れない |
+| A-2 | [model_lifecycle.py:234](../../backend/src/material_workbench/modeling/model_lifecycle.py#L234) | `canonical_training_dataset` が `task_module()` 経由でmodule-levelの `TASK_MODULES` を直接読む。`task_modules.py` への登録前はPackageを作れない |
+
+これは安全側の設計（未登録Taskのartifactを作れない）でもあるため、**負債とは断定しません**。
+ただし「Packageを先に作って検証してから登録する」手順は取れないので、`add-prediction-task` Skillの手順順序と一致していることを確認しておく必要があります。
+
+**予測が外れる可能性として挙げていた箇所の結果**: `_tabular_starter` の `model_family == "lightgbm_binary"` 分岐（[task_modules.py:457](../../backend/src/material_workbench/task_modules.py#L457)）は、`ridge` を選んだため通りました。Profileの `model_family` で分岐しており `task_id` では分岐していないため、標準Taskの追加では問題になりません。
 
 ## 2. ケースB：複数sheet・複数観測family
 
@@ -115,16 +158,54 @@ Observation Profileが再利用できるなら、**Phase 2.1のCanonical Trainin
 
 | 指標 | 予測 | 実測 | 差分の理由 |
 | --- | --- | --- | --- |
-| 既存ファイル変更数 | 1（`task_modules.py`） | | |
-| 新規ファイル数 | 4（observation profile JSON, task definition JSON, source xlsx, package） | | |
-| 新規contract数 | 0 | | |
-| 新規API分岐数 | 0 | | |
-| 新規UI分岐数 | 0 | | |
-| registry追加点 | 1 | | |
-| generated schema更新 | `task-inventory.json` のみ | | |
-| 専用test fixture数 | 1 | | |
+| 既存ファイル変更数 | 1（`task_modules.py`） | **3以上**（`task_modules.py`, `stage_c_regression.py`, `stage_c_model_builder.py`） | runtimeとbuilderが1 Taskに固定されており、パラメタ化しないと2つ目を登録できない |
+| 新規ファイル数 | 4（observation profile JSON, task definition JSON, source xlsx, package） | **4**（同じ） | 一致 |
+| 新規contract数 | 0 | **0** | Profile契約とTraining View契約はそのまま使えた |
+| 新規API分岐数 | 0 | **0** | 一致 |
+| 新規UI分岐数 | 0 | **0** | 一致 |
+| registry追加点 | 1 | **1** | 一致 |
+| generated schema更新 | `task-inventory.json` のみ | **同じ** | 一致 |
+| 専用test fixture数 | 1 | **1** | 一致 |
 
-**予測が外れる可能性が高い箇所**: `_load_welding_stage_c` が `ObservationDatasetProfile` を受けるloaderを溶接向けにしか持たない点（[task_modules.py:219](../../backend/src/material_workbench/task_modules.py#L219)）。新しいObservation Taskには**新しいloader関数が必要**になる見込みで、これはケースAとの明確な差です。
+**測定の範囲**: Profile宣言とTraining View構築までを実データで通し、runtime / builderは**再利用可能性をsignatureとmodule定数で判定**しました（builderがprofileを受け取れないためPackageまでは到達できません）。既存ファイル変更数「3以上」はこの判定に基づく下限です。
+
+### 実測結果
+
+fixture: 工程条件シート `conditions`（40条件）＋在庫シート `stock` ＋ relationシート ＋ 試験Aシート `test_alpha`（120行）＋ 試験Bシート `test_beta`（80行）。
+溶接語彙は一切使わず、試験行固有入力（`test_load_kgf` / `indent_load_kgf`）と target別cohort を含みます。
+
+```text
+[OK] Observation Profileを溶接語彙なしで宣言できる
+[OK] Training Viewの構築（build_observation_training_dataset）
+[view] alpha: rows=120 eligible=120 split_groups=40 features=5
+[view] beta:  rows=80  eligible=80  split_groups=40 features=5
+[OK] target別cohortがfamilyごとに分離される
+[cohort] beta.hardness_hv usable=64 入力行=80 target欠損=16 exclusion={'値なし': 16}
+[OK] 欠損targetが入力行と別に不適格として数えられる
+[OK] 試験行固有入力を canonical input として宣言できる
+[OK] family名が契約の分岐条件になっていない
+```
+
+**再利用できたもの（Phase 2.1にとって重要）**
+
+- `ObservationDatasetProfile` は溶接語彙なしで宣言でき、`entities` / `families` / `split_group_role` / 試験行固有入力がそのまま表現できました
+- `build_observation_training_dataset` はfamily idで分岐していません（`tensile` / `charpy` / `corrosion` のリテラル分岐なし）。family名は表示・集計にのみ使われます
+- target別cohortが `TargetTrainingSummary` で分離され、**入力行の適格性とtargetの適格性が別に数えられます**（入力80行有効、うちtarget欠損16行）
+
+→ **Canonical Training View境界は新設ではなく、Observation familyの既存契約を昇格させれば足ります。**
+
+**再利用できなかったもの**
+
+| # | 場所 | 内容 |
+| --- | --- | --- |
+| B-1 | [stage_c_model_builder.py:225](../../backend/src/material_workbench/modeling/stage_c_model_builder.py#L225) | `build(source, destination, *, replace)` に profile引数がない。Observation family builderは1 Profile専用 |
+| B-2 | [stage_c_regression.py:32](../../backend/src/material_workbench/modeling/stage_c_regression.py#L32)–`:36` | `TASK_ID` と `PROFILE_PATH` がmodule定数。runtime内12箇所以上が参照し、`self.task_id = TASK_ID` で固定される |
+| B-3 | [observation_profile.py:452](../../backend/src/material_workbench/data/observation_profile.py#L452)–`:464` | Profileが宣言した `source_unit` → `canonical_unit` の**数値変換が適用されない**。`kgf` を `N` と宣言しても値は生のまま（`51.588` が `N` として乗る） |
+
+B-1 / B-2 は Tabular family（`_tabular_loader(task_id)` 等で完全にパラメタ化済み）との明確な非対称です。
+**Observation familyは現時点で「契約は汎用、実装は単一インスタンスの縦スライス」** という状態です。
+
+B-3 について: 現行の溶接Profileが宣言している変換はすべて相対的なラベル付け替え（`℃`→`°C`、`%`→`mass% deposited metal`）で、数値の再スケールを宣言しているものはありません。したがって**今動いているバグではなく、契約が許してしまう潜在リスク**です。「暗黙の単位変換を行わない」という原則の裏返しとして、**宣言した変換が黙って行われない**という形の誤判断が起こり得ます。
 
 ## 3. ケースC：可変長温度系列Task
 
@@ -173,18 +254,40 @@ Raw series / Canonical series / Feature representation の三層を分離でき�
 **受入条件**: 上表が「4件で足りる」か「もっと必要」かを、fixtureに対して具体的に確認できていること。
 本PRの段階では実装しません（計画P3）。
 
+### 実測結果
+
+現行契約に対して7項目を検査し、**7項目すべてが表現できない**ことを確認しました。
+
+| # | 検査項目 | 拒否した契約 | エラー |
+| --- | --- | --- | --- |
+| C-1 | `heat_pattern` 以外の系列groupを宣言する | [task_contracts.py:40](../../backend/src/material_workbench/contracts/task_contracts.py#L40) | path正規表現不一致 |
+| C-2 | 系列fieldのpathを自由に付ける | 同上 | path正規表現不一致 |
+| C-3 | 系列fieldに単位（`°F`）を宣言する | [task_contracts.py:77](../../backend/src/material_workbench/contracts/task_contracts.py#L77) | `heat_pattern fields cannot declare scalar ranges, choices, or a unit` |
+| C-4 | 31点以上の可変長系列を候補入力に保存する | [schemas.py:247](../../backend/src/material_workbench/contracts/schemas.py#L247) | `List should have at most 30 items`（64点で拒否） |
+| C-5 | timestamp重複を値を残したまま不適格として保持する | [schemas.py:258](../../backend/src/material_workbench/contracts/schemas.py#L258) | `ヒートパターンの時刻は厳密な昇順にしてください`（**保存自体が拒否されるため品質findingとして残せない**） |
+| C-6 | `CanonicalCandidate` に系列の正規化provenanceを置く | [task_contracts.py:357](../../backend/src/material_workbench/contracts/task_contracts.py#L357) | `Extra inputs are not permitted`（`extra="forbid"`） |
+| C-7 | 系列入力TaskをChain Stageにする | [chain_contracts.py:259](../../backend/src/material_workbench/contracts/chain_contracts.py#L259) | `has a required heat-pattern input unsupported by Chain v1` |
+
+C-5が最も重要です。現行契約は不正な系列を**保存できない**ため、「値は残しつつ品質findingとして不適格にする」という
+このリポジトリの他の場所（Tabular/Observation familyの `eligible` + `exclusion_reasons`）で採っている方針を、
+系列に対しては取れません。単位変換（C-3）も同様に、Observation familyの単位宣言（[ケースB B-3](#2-ケースb複数sheet複数観測family)）と合わせて
+**系列の正規化履歴をどこにも置けない**ことが確認できました。
+
+→ §3冒頭の新型候補4件（`SeriesCandidateInputs` / `CanonicalSeries` / `SeriesQualityFinding` / `SeriesFeatureSpec`）は
+妥当ですが、C-5とC-6から **`CanonicalSeries` は「点列」ではなく「点列＋元単位＋変換ID＋除外点」を持つ必要がある**ことが確定しました。
+
 ### 変更点マトリクス
 
 | 指標 | 予測 | 実測 | 差分の理由 |
 | --- | --- | --- | --- |
-| 既存ファイル変更数 | 6以上（task_contracts, schemas, tabular or 新loader, runtime, UI 2件） | | |
-| 新規ファイル数 | 5以上 | | |
-| 新規contract数 | 4（上表） | | |
-| 新規API分岐数 | 1以上（候補入力surface） | | |
-| 新規UI分岐数 | 2以上（入力editor, diff表示） | | |
-| registry追加点 | 2以上（Task, Candidate Shape） | | |
-| generated schema更新 | 両方 | | |
-| 専用test fixture数 | 2以上 | | |
+| 既存ファイル変更数 | 6以上（task_contracts, schemas, tabular or 新loader, runtime, UI 2件） | **未実測**（実装しないため） | 検査した契約は3ファイル（task_contracts, schemas, chain_contracts） |
+| 新規ファイル数 | 5以上 | 未実測 | |
+| 新規contract数 | 4（上表） | **4で足りる見込み**（C-5/C-6の要件を `CanonicalSeries` に含める前提） | 検査7項目が4型で覆えることを確認 |
+| 新規API分岐数 | 1以上（候補入力surface） | 未実測 | |
+| 新規UI分岐数 | 2以上（入力editor, diff表示） | 未実測 | |
+| registry追加点 | 2以上（Task, Candidate Shape） | 未実測 | |
+| generated schema更新 | 両方 | 未実測 | |
+| 専用test fixture数 | 2以上 | 未実測 | |
 
 ## 4. ケースD：疎配合を使わない二段Chain
 
@@ -245,34 +348,76 @@ SparseBlendChainAdapter  ← 現在の溶接Chainはこれになる
 ScalarChainAdapter       ← ケースDが必要とする最小adapter
 ```
 
+### 実測結果
+
+fixture: ケースAと同じ方式で標準表形式Task 2件（`spike-stage-x-v1`: 成形条件→収縮率、
+`spike-stage-y-v1`: 収縮率＋焼鈍温度→平面度）を登録し、X→Yの2段Chainを組みました。
+決定論的Stageなし、疎配合なし、外部入力は `candidate.process.*` / `candidate.categorical.*` のみです。
+
+```text
+[OK]   ChainDefinition検証（2段task・決定論的Stageなし）
+[OK]   ChainRevision構築
+[OK]   Chain Definition / Revisionの登録
+[OK]   Chain Project作成
+[FAIL] 候補契約API      -> v1 Chain candidateは決定論的Stageを1段だけ必要とします
+[FAIL] Chain候補の保存   -> Chain候補には疎な配合明細が必要です
+[FAIL] 初期候補生成      -> v1 Chain candidateは決定論的Stageを1段だけ必要とします
+[FAIL] 候補の妥当性検証   -> Chain候補には疎な配合明細が必要です
+[OK]   不確かさ伝播capability
+[FAIL] 外部入力を welding_context 以外の名前空間で渡せる
+[FAIL] 疎配合参照なしでChain snapshot identityを作れる
+```
+
+**Chain Coreとして再利用できた範囲（予測通り）**
+
+- `ChainDefinition` を2段task構成・決定論的Stageなしで宣言でき、`validate_chain_definition` が通る
+- binding検証（value_kind / quantity / basis / unit の一致）が溶接非依存で機能する
+- `build_chain_revision` のdigest計算、`store.register_chain_definition` / `register_chain_revision` が通る
+- `POST /api/projects` によるChain Project作成が通る（`_create_chain_project` は終端Task Stageだけを見ており疎配合を要求しない）
+- `GET /chain/distribution-capability` が通る
+
+**塞がった6点（[inventory §3](extensibility-inventory.md#3-chain-coreに残る溶接固有symbol全列挙) の番号と対応）**
+
+| # | inventory | 場所 | 実測エラー |
+| --- | --- | --- | --- |
+| D-1 | #3 | [chain_execution.py:250](../../backend/src/material_workbench/application/chain_execution.py#L250) | 候補契約APIと初期候補生成が「決定論的Stage 1段」を要求 |
+| D-2 | #4 | [chain_execution.py:263](../../backend/src/material_workbench/application/chain_execution.py#L263) | `prepare_candidate` が疎配合を要求（候補を保存できない） |
+| D-3 | #5 | [chain_execution.py:328](../../backend/src/material_workbench/application/chain_execution.py#L328) | `_resolve` が疎配合を要求（実行・snapshot・variantの全経路） |
+| D-4 | #1 | [chain_execution.py:70](../../backend/src/material_workbench/application/chain_execution.py#L70) | `_external_values` が `candidate.process.*` / `candidate.categorical.*` を**一切生成しない**。実際に生成されたのは `candidate.welding_context.*` と `candidate.test_context.*` のみ |
+| D-5 | #14 | [chain_contracts.py:196](../../backend/src/material_workbench/contracts/chain_contracts.py#L196) | `ChainSnapshotIdentity` が `design_space` / `commercial_catalog` 欠落で2件のvalidation error |
+| D-6 | #11 | [chain_execution.py:1002](../../backend/src/material_workbench/application/chain_execution.py#L1002) | D-5の帰結。`snapshot()` は `blend` からidentityを組む |
+
+D-4は重要な追加知見です。**ChainDefinitionの契約層は任意の名前空間を受理する**（`candidate.process.barrel_temperature_c` で
+`validate_chain_definition` が通った）のに、実行層の `_external_values` はそれを生成しません。
+つまり名前空間の固定は**契約ではなく実装1関数**に閉じており、adapterへ出す対象として最も切り離しやすい箇所です。
+
 ### 変更点マトリクス
 
 | 指標 | 予測 | 実測 | 差分の理由 |
 | --- | --- | --- | --- |
-| 既存ファイル変更数 | 5以上（chain_execution, chain_uncertainty, chain_contracts, api/chains, bootstrap） | | |
-| 新規ファイル数 | 2以上（adapter, chain定義） | | |
-| 新規contract数 | 2以上（adapter境界, snapshot identity分離） | | |
-| 新規API分岐数 | 0（目標。分岐ではなくadapter解決にしたい） | | |
-| 新規UI分岐数 | 1以上（BlendEditorPanelの出し分け） | | |
-| registry追加点 | 1（Chain adapter） | | |
-| generated schema更新 | 両方 | | |
-| 専用test fixture数 | 2以上 | | |
+| 既存ファイル変更数 | 5以上（chain_execution, chain_uncertainty, chain_contracts, api/chains, bootstrap） | **3で足りる見込み**（chain_execution, chain_contracts, +不確かさ伝播） | 塞がったのは候補層と snapshot identity のみ。`api/chains.py` と bootstrap は分岐追加不要（Project作成もcapability APIも通った） |
+| 新規ファイル数 | 2以上（adapter, chain定義） | **2**（adapter, chain定義） | 一致 |
+| 新規contract数 | 2以上（adapter境界, snapshot identity分離） | **2**（adapter境界, snapshot identityのdomain参照分離） | 一致 |
+| 新規API分岐数 | 0（目標） | **0で到達可能**（実測でAPI層に分岐が要らないと確認） | Chain APIは全てserviceへ委譲しており、分岐はservice内のadapter解決で済む |
+| 新規UI分岐数 | 1以上（BlendEditorPanelの出し分け） | **未実測**（候補が保存できずUI経路へ到達しない） | |
+| registry追加点 | 1（Chain adapter） | **1** | 一致 |
+| generated schema更新 | 両方 | **未実測** | |
+| 専用test fixture数 | 2以上 | **2**（Task X / Y） | 一致 |
 
 ## 5. スパイク実行順
 
-ケースAを最初に行います。Aの成果物（標準表形式Task 2件）がケースDのStage X / Yになるため、無駄がありません。
+ケースAを最初に行いました。Aの成果物（標準表形式Task）をケースDのStage X / Yへ流用しています。
 
 ```text
-A（標準表形式Task）
-  ├→ B（Observation family再利用）   独立
-  ├→ C（可変長系列。型の特定のみ）    独立
-  └→ D（二段Chain。Aの成果を使う）
+A（標準表形式Task）          実行済み
+  ├→ B（Observation family再利用）   実行済み
+  ├→ C（可変長系列。型の特定のみ）    実行済み
+  └→ D（二段Chain。Aの成果を使う）    実行済み
 ```
 
-## 6. 証拠にもとづくIssue分割（この文書の時点での案）
+## 6. 証拠にもとづくIssue分割
 
-インベントリだけで既に確定している事実を根拠に、次のリファクタリングを分割します。
-**ケースA〜Dの実測が入る前に着手してよいのはP1-aだけです**（理由: 2件目のActivityを作る前でないと保存済みschemaが混ざる）。
+4ケースの実測を根拠に、次のリファクタリングを分割します。依存関係は実測により解消済みです。
 
 ### P1-a｜Decision Activityのparameter/result union化
 
@@ -280,40 +425,79 @@ A（標準表形式Task）
 - 範囲: `DecisionActivityRunRequest` / `DecisionActivityRun` のdiscriminated union化、registryのcapability宣言化（必要runtime operation / candidate shape / project resource / parameter schema / result schema）、`DecisionActivityPanel.tsx` のactivity_idハードコード解消
 - 併せて片付ける: `_with_values` の焼鈍固有処理（`ls_mpm` / `heat_time_basis`）の所在を決める
 - 完了条件: 2件目のActivityを、既存Activityのservice / API / UIへTask固有分岐を追加せず登録できる
-- 依存: なし（ケースA〜Dの結果に依存しない）
+- 依存: なし。**着手可**
 
 ### P1-b｜Chain Coreと溶接adapterの分離
 
-- 根拠: [inventory §3](extensibility-inventory.md#3-chain-coreに残る溶接固有symbol全列挙) の分離対象14件
-- 範囲: 上記§4の分離設計。`ChainSnapshotIdentity` から `design_space` / `commercial_catalog` を必須で持たない形へ、`_external_values` の名前空間をadapter提供へ、決定論的Stage 1段必須の解除
-- 完了条件: ケースDがChain Coreの変更なしで実行できる
-- 依存: **ケースDの実測が前提**
+- 根拠: [ケースD実測](#4-ケースd疎配合を使わない二段chain)。塞がったのは6点で、うち5点が `chain_execution.py` の候補層、1点が `ChainSnapshotIdentity` 契約
+- 範囲（実測で確定した最小集合）:
+  1. `_external_values` の名前空間をadapter提供へ（D-4。契約層は既に任意名前空間を受理する）
+  2. `prepare_candidate` / `_resolve` の疎配合必須を解除し、候補検証をadapterへ（D-2, D-3）
+  3. 決定論的Stage 1段必須の解除。候補契約API / 初期候補生成をadapterへ（D-1）
+  4. `ChainSnapshotIdentity` の `design_space` / `commercial_catalog` をdomain参照として分離（D-5, D-6）
+- 手を付けなくてよいと実測できた範囲: `ChainDefinition` / binding検証 / `build_chain_revision` / store登録 / Chain Project作成 / `api/chains.py` / `welding_chain_bootstrap.py`
+- 完了条件: ケースDのスパイクがChain Coreの変更なしで実行できる（`backend/scripts/spikes/spike_case_d.py` が全OKになる）
+- 依存: なし。**着手可**
 
 ### P1-c｜Canonical Training View境界の明示
 
-- 根拠: [inventory §2](extensibility-inventory.md#2-profile-familyごとの共通出力差分)。loader戻り値の共通契約が `DataDescriptor` の6フィールドしかなく、品質表示が未宣言の3フィールドに依存している
-- 範囲: `quality` / `detected_quality` / `technical_columns` を含む境界の明示、`DataExplorerEntry.data` の型注釈の実態一致、Observation familyの `ObservationTrainingDataset` を全familyの共通到達点として昇格できるかの判断
+- 根拠: [ケースB実測](#2-ケースb複数sheet複数観測family)。Observation Profileと `ObservationTrainingDataset` は溶接語彙なしで再利用でき、family名も分岐条件になっていない
+- 実測により方針が確定: **新設ではなく、Observation familyの既存契約を共通到達点として昇格させる**
+- 範囲:
+  1. `quality` / `detected_quality` / `technical_columns` を共通境界へ明示（現在は未宣言の暗黙インターフェース）
+  2. `DataExplorerEntry.data` の型注釈を実態と一致させる（[tasks/task_registry.py:56](../../backend/src/material_workbench/tasks/task_registry.py#L56)）
+  3. Tabular / Workbook / FlankWear familyが `ObservationTrainingDataset` 相当へ到達する経路を作る
 - 完了条件: モデルbuilder・学習データInspector・品質集計がProfile形式を直接判定しない
-- 依存: **ケースBの実測が前提**（Observation契約を昇格させるか新設するかが変わる）
+- 依存: なし。**着手可**
 
-### P1-d｜Candidate Shapeの整理方針の確定
+### P1-d｜Observation family実装のパラメタ化
 
-- 根拠: [inventory §1.6](extensibility-inventory.md#16-candidate-shape)。共有schemaに `heat_time_basis`（焼鈍固有）と `blend` / `editor_state`（溶接固有）が混在
+- 根拠: [ケースB実測 B-1 / B-2](#2-ケースb複数sheet複数観測family)。契約は汎用だが実装が1 Taskに固定されている
+- 範囲: `stage_c_model_builder.build` へprofile引数を追加、`stage_c_regression` の `TASK_ID` / `PROFILE_PATH` module定数を除去し Tabular family と同じ `task_id` パラメタ化へ揃える
+- 完了条件: 2つ目のObservation Taskを、新しいruntime moduleを作らずに登録できる
+- 依存: なし。**着手可**。P1-cと同じファイルを触るため、P1-cの後に続けるのが安全
+
+### P1-e｜Candidate Shapeの整理方針の確定
+
+- 根拠: [inventory §1.6](extensibility-inventory.md#16-candidate-shape) と[ケースC実測](#3-ケースc可変長温度系列task)
 - 範囲: `ScalarCandidateInputs` / `SparseBlendCandidateInputs` へのunion化方針を決める（実装はしない）。任意JSONにしないこと、shapeごとにpersistence / diff / copy / snapshotの意味を定義すること、UIがshape capabilityからsurfaceを選ぶことを明記
-- 完了条件: 方針文書があり、ケースCで必要と判明した型を後から**既存shapeを壊さず**追加できると説明できる
-- 依存: ケースC・Dの結果を反映（着手は可能）
+- ケースCで確定した要件: `CanonicalSeries` は点列だけでなく**元単位・変換ID・除外点**を持つ必要がある（C-5, C-6）
+- 完了条件: 方針文書があり、ケースCの7項目を後から**既存shapeを壊さず**追加できると説明できる
+- 依存: なし。**着手可**
 
-### P2｜Task integration registryの分割
+### P2｜Task integration registryの分割 — 優先度を下げる
 
-- 根拠: ケースAの実測待ち。予測では `task_modules.py` 以外の変更がゼロなので、**実測が予測通りなら優先度は下がる**
-- 依存: ケースAの実測が前提
+- 根拠: [ケースA実測](#1-ケースa通常の表形式task)。標準表形式Taskの追加は**新規Python関数0件・既存ファイル変更2件・API/UI分岐0件**で完了した
+- 結論: 現時点で `task_modules.py` の分割を行う実需はない。**Task数がさらに増え、`_TABULAR_PROFILES` 以外の系統が複数になってから再評価する**
+- 代わりに検討する小さな改善: ケースAで見つかったA-1 / A-2（Package構築が登録順序に依存する）を、`add-prediction-task` Skillの手順に明記する
 
 ### P3｜系列・Source Connector・Project-level Design Space
 
-- 根拠: ケースCで特定した新型の最小集合、[inventory §1.11](extensibility-inventory.md#111-source-connector)、[§1.8](extensibility-inventory.md#18-design-space--commercial-catalog)
+- 根拠: ケースCで特定した新型4件、[inventory §1.11](extensibility-inventory.md#111-source-connector)、[§1.8](extensibility-inventory.md#18-design-space--commercial-catalog)
 - 実needが出るまで着手しない
 
-## 7. この文書の更新規則
+### 単発で片付けるもの
+
+| 項目 | 根拠 | 内容 |
+| --- | --- | --- |
+| Observation Profileの単位宣言 | ケースB B-3 | 宣言した `source_unit` → `canonical_unit` の数値変換が適用されない。変換を実装するか、**relabelのみ許可して再スケール宣言を拒否する**かを決める。今は潜在リスクで実バグではない |
+
+## 7. 成功条件に対する現在地
+
+計画§8の8項目に対する実測状況です。
+
+| # | 成功条件 | 現在地 |
+| --- | --- | --- |
+| 1 | 同じ意味・同じ構造のデータ差し替えがProfile / Dataset Revision / Package更新だけで済む | 未計測（今回のスパイク対象外） |
+| 2 | 新しい標準表形式Taskが既存機能をTask固有実装なしで使える | **達成済み**（ケースA） |
+| 3 | 新しいCandidate Shapeを既存shapeを壊さず追加できる | 未達（ケースC。7/7が表現不可） |
+| 4 | 新しいDecision Activityを既存Activity serviceへ分岐追加せず登録できる | 未達（inventory §4。破壊的変更2件が必要） |
+| 5 | 疎配合を使わないChainがChain Coreの変更なしで実行できる | 未達（ケースD。6点で塞がる） |
+| 6 | 異質な第二ユースケースで共通境界が実証される | **部分達成**（ケースBでObservation Profile / Training Viewが実証。runtime / builderは未達） |
+| 7 | 安全性・再現性の契約を緩めず、変更ファイル数と専用分岐数が減る | 契約は一切変更していない。分岐削減はP1で計測 |
+| 8 | 共通化しない方がよい特殊領域が明示されている | **達成済み**（inventory §3の分類、P2の優先度引き下げ） |
+
+## 8. この文書の更新規則
 
 - 実測欄を埋めるときは、予測を書き換えず**差分の理由**を書く
 - 反証できなかったケース（＝既存基盤で足りたケース）も必ず記録する。共通化しない判断の根拠になる
