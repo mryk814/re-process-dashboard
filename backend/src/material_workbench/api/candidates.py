@@ -3,7 +3,7 @@ from __future__ import annotations
 from io import BytesIO
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse
 
 from .dependencies import (
@@ -50,12 +50,19 @@ BlendContractRegistryDependency = Annotated[
 
 
 def get_candidate_service(
+    request: Request,
     store: StoreDependency,
     registry: RegistryDependency,
     resolver: ResolverDependency,
     blend_contracts: BlendContractRegistryDependency,
 ) -> CandidateService:
-    return CandidateService(store, registry, resolver, blend_contracts)
+    return CandidateService(
+        store,
+        registry,
+        resolver,
+        blend_contracts,
+        request.app.state.deterministic_transform_catalog,
+    )
 
 
 CandidateServiceDependency = Annotated[CandidateService, Depends(get_candidate_service)]

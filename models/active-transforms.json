@@ -6,7 +6,16 @@
       "available": [
         "packages/welding-stage-a-deterministic-v1"
       ],
-      "commercial_catalog": "catalogs/welding-stage-a-commercial-v1.json"
+      "commercial_catalog": "catalogs/welding-stage-a-commercial-v2.json",
+      "available_commercial_catalogs": [
+        "catalogs/welding-stage-a-commercial-v1.json",
+        "catalogs/welding-stage-a-commercial-v2.json"
+      ],
+      "design_space": "design-spaces/welding-stage-a-v2.json",
+      "available_design_spaces": [
+        "design-spaces/welding-stage-a-v1.json",
+        "design-spaces/welding-stage-a-v2.json"
+      ]
     }
   }
 }

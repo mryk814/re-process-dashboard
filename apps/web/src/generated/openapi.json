@@ -236,9 +236,116 @@
             "default": false,
             "title": "Sparse Blend",
             "type": "boolean"
+          },
+          "sparse_blend_transform_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sparse Blend Transform Id"
           }
         },
         "title": "ApplicationCapability",
+        "type": "object"
+      },
+      "BlendEditorContext": {
+        "additionalProperties": false,
+        "properties": {
+          "commercial_catalog": {
+            "$ref": "#/components/schemas/RevisionRef"
+          },
+          "design_space": {
+            "$ref": "#/components/schemas/SparseBlendDesignSpace"
+          },
+          "design_space_ref": {
+            "$ref": "#/components/schemas/RevisionRef"
+          },
+          "materials": {
+            "items": {
+              "$ref": "#/components/schemas/BlendEditorMaterial"
+            },
+            "title": "Materials",
+            "type": "array"
+          },
+          "scientific_master": {
+            "$ref": "#/components/schemas/RevisionRef"
+          },
+          "transform_id": {
+            "title": "Transform Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "transform_id",
+          "scientific_master",
+          "commercial_catalog",
+          "design_space_ref",
+          "design_space",
+          "materials"
+        ],
+        "title": "BlendEditorContext",
+        "type": "object"
+      },
+      "BlendEditorMaterial": {
+        "additionalProperties": false,
+        "properties": {
+          "d50_um": {
+            "title": "D50 Um",
+            "type": "number"
+          },
+          "group": {
+            "title": "Group",
+            "type": "string"
+          },
+          "main_components": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Main Components",
+            "type": "array"
+          },
+          "material_id": {
+            "title": "Material Id",
+            "type": "string"
+          },
+          "material_type": {
+            "title": "Material Type",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "procurement": {
+            "enum": [
+              "常用",
+              "条件付",
+              "試作限定",
+              "廃止予定"
+            ],
+            "title": "Procurement",
+            "type": "string"
+          },
+          "unit_price_yen_per_kg_core": {
+            "title": "Unit Price Yen Per Kg Core",
+            "type": "number"
+          }
+        },
+        "required": [
+          "material_id",
+          "name",
+          "group",
+          "material_type",
+          "d50_um",
+          "main_components",
+          "procurement",
+          "unit_price_yen_per_kg_core"
+        ],
+        "title": "BlendEditorMaterial",
         "type": "object"
       },
       "BlendEditorState": {
@@ -286,6 +393,14 @@
           "group": {
             "title": "Group",
             "type": "string"
+          },
+          "main_components": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Main Components",
+            "type": "array"
           },
           "material_id": {
             "title": "Material Id",
@@ -2976,6 +3091,10 @@
             "title": "Commercial Catalog Locator",
             "type": "string"
           },
+          "design_space_locator": {
+            "title": "Design Space Locator",
+            "type": "string"
+          },
           "outputs": {
             "items": {
               "type": "string"
@@ -3016,6 +3135,7 @@
           "active_locator",
           "available_locators",
           "commercial_catalog_locator",
+          "design_space_locator",
           "scientific_master",
           "commercial_catalog",
           "outputs",
@@ -15483,6 +15603,160 @@
           }
         },
         "summary": "List Deterministic Transforms",
+        "tags": [
+          "deterministic-transforms"
+        ]
+      }
+    },
+    "/api/transforms/{transform_id}/blend-editor": {
+      "get": {
+        "operationId": "getBlendEditorContext",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "transform_id",
+            "required": true,
+            "schema": {
+              "title": "Transform Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlendEditorContext"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Task Runtime Unavailable"
+          }
+        },
+        "summary": "Get Blend Editor Context",
+        "tags": [
+          "deterministic-transforms"
+        ]
+      }
+    },
+    "/api/transforms/{transform_id}/blend-editor/resolve": {
+      "post": {
+        "operationId": "resolveBlendEditorContext",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "transform_id",
+            "required": true,
+            "schema": {
+              "title": "Transform Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeterministicTransformExecutionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlendEditorContext"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Task Runtime Unavailable"
+          }
+        },
+        "summary": "Resolve Blend Editor Context",
         "tags": [
           "deterministic-transforms"
         ]

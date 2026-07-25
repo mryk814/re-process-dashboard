@@ -9,7 +9,7 @@ const bundle = await build({
   stdin: {
     contents: `
       export { blendComparisonRows, blendCost } from "./features/workbench/blendComparison.ts";
-      export { toApiCandidate } from "./features/candidates/candidateModel.ts";
+      export { candidateSaveContractError, toApiCandidate } from "./features/candidates/candidateModel.ts";
     `,
     resolveDir: sourceRoot,
     loader: "ts",
@@ -25,7 +25,7 @@ new Function("module", "exports", "require", bundle.outputFiles[0].text)(
   module.exports,
   createRequire(import.meta.url),
 );
-const { blendComparisonRows, blendCost, toApiCandidate } = module.exports;
+const { blendComparisonRows, blendCost, candidateSaveContractError, toApiCandidate } = module.exports;
 
 const candidate = (items) => ({ blend: { items } });
 
@@ -99,4 +99,23 @@ test("editing another field does not drop sparse blend revision state", () => {
   assert.equal(request.blend, raw.blend);
   assert.equal(request.editor_state, raw.editor_state);
   assert.equal(request.blend_validation, raw.blend_validation);
+});
+
+test("save contract rejects an API that drops blend rows or row locks", () => {
+  const raw = {
+    inputs: { composition: {}, process: {}, categorical: {}, heat_pattern: null, heat_time_basis: "line_speed" },
+    blend: {
+      schema_version: "sparse-blend/v1",
+      items: [{ material_id: "RM-1", ratio: 100 }],
+      hoop_id: "HP-1",
+      fill_ratio: 20,
+      balance_material_id: "RM-1",
+      scientific_master: { resource_id: "s", revision: 1, digest: `sha256:${"1".repeat(64)}` },
+      commercial_catalog: { resource_id: "c", revision: 1, digest: `sha256:${"2".repeat(64)}` },
+      design_space: { resource_id: "d", revision: 1, digest: `sha256:${"3".repeat(64)}` },
+    },
+    editor_state: { locked_material_ids: ["RM-1"] },
+  };
+  assert.match(candidateSaveContractError({ ...raw, blend: null }, raw), /配合明細/);
+  assert.match(candidateSaveContractError({ ...raw, editor_state: { locked_material_ids: [] } }, raw), /lock状態/);
 });

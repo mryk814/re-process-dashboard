@@ -75,12 +75,16 @@ def _contracts() -> tuple[
         hoops=(ScientificHoop(hoop_id="HP-01", name="軟鋼フープ"),),
     )
     catalog = CommercialMaterialCatalog(
-        schema_version="commercial-material-catalog/v1",
+        schema_version="commercial-material-catalog/v2",
         resource_id="welding-commercial",
         revision=3,
         materials=tuple(
             CommercialMaterial(
                 material_id=material.material_id,
+                name=material.name,
+                material_type=material.material_type,
+                group=material.group,
+                main_components=("Fe",),
                 procurement="常用" if material.material_id != "RM-9999" else "試作限定",
                 unit_price_yen_per_kg_core=100 + index * 50,
             )
