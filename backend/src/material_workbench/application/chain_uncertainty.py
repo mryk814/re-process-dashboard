@@ -31,8 +31,8 @@ from material_workbench.task_modules import StageSampleRuntime
 def _method_label(method: str) -> str:
     if method == "deterministic-exact/v1":
         return "決定論的（不確かさなし）"
-    if method == "independent-residual-normal-from-q05-q95/v1":
-        return "独立残差正規近似（q05–q95由来）"
+    if method == "independent-residual-normal-bounded-from-q05-q95/v1":
+        return "独立残差正規近似（q05–q95由来・出力境界適用）"
     return method
 
 
@@ -49,7 +49,7 @@ def _summary(values: np.ndarray) -> DistributionSummary:
 def combine_additive_stage_samples(
     conditional_point: np.ndarray,
     intrinsic_samples: np.ndarray,
-    fixed_point: float,
+    reference_point: float,
 ) -> np.ndarray:
     """Compose upstream-conditioned means with this stage's residual draws."""
 
@@ -60,10 +60,27 @@ def combine_additive_stage_samples(
     if (
         not np.isfinite(conditional).all()
         or not np.isfinite(intrinsic).all()
-        or not np.isfinite(fixed_point)
+        or not np.isfinite(reference_point)
     ):
         raise ValueError("Monte Carlo samples must be finite")
-    return conditional + intrinsic - float(fixed_point)
+    return conditional + intrinsic - float(reference_point)
+
+
+def apply_output_bounds(
+    values: np.ndarray,
+    bounds: tuple[float | None, float | None],
+) -> np.ndarray:
+    """Apply an allow-listed output support after Monte Carlo composition."""
+
+    result = np.asarray(values, dtype=float)
+    if result.ndim != 1 or not np.isfinite(result).all():
+        raise ValueError("Monte Carlo samples must be a finite vector")
+    lower, upper = bounds
+    if lower is not None:
+        result = np.maximum(result, lower)
+    if upper is not None:
+        result = np.minimum(result, upper)
+    return result
 
 
 def _point_estimates(
@@ -306,9 +323,18 @@ class ChainUncertaintyService:
                 raise ChainExecutionError(
                     f"Stage {stage.stage_id}のsample出力がcanonical outputと一致しません"
                 )
-            intrinsic = {
+            bounds = runtime.chain_sample_bounds
+            if set(bounds) != set(point_values):
+                raise ChainExecutionError(
+                    f"Stage {stage.stage_id}のsample境界がcanonical outputと一致しません"
+                )
+            raw_intrinsic = {
                 key: np.asarray(values, dtype=float)
                 for key, values in sample_result.outputs.items()
+            }
+            intrinsic = {
+                key: apply_output_bounds(values, bounds[key])
+                for key, values in raw_intrinsic.items()
             }
             if sampled_outputs and not propagation_blocked:
                 conditional = {key: np.empty(sample_count) for key in intrinsic}
@@ -327,10 +353,15 @@ class ChainUncertaintyService:
                     for key in conditional:
                         conditional[key][index] = float(outputs[key])
                 propagated = {
-                    key: combine_additive_stage_samples(
-                        conditional[key], intrinsic[key], point_values[key]
+                    key: apply_output_bounds(
+                        combine_additive_stage_samples(
+                            conditional[key],
+                            raw_intrinsic[key],
+                            sample_result.reference_points[key],
+                        ),
+                        bounds[key],
                     )
-                    for key in intrinsic
+                    for key in raw_intrinsic
                 }
             elif not propagation_blocked:
                 propagated = intrinsic
@@ -376,8 +407,11 @@ class ChainUncertaintyService:
             created_at=datetime.now(UTC),
         )
         try:
-            return self.store.insert_chain_distribution_run(run)
+            return self.store.insert_chain_distribution_run(
+                run, expected_point=point
+            )
         except StoreDataIntegrityError as exc:
             raise ChainExecutionError(
-                "分布実行中に候補が更新されたため、この結果は保存されませんでした"
+                "分布実行中に候補または点推定が更新されたため、"
+                "この結果は保存されませんでした"
             ) from exc

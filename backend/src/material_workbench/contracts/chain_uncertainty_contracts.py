@@ -46,11 +46,14 @@ class StageSampleResult(ChainContractModel):
     method: Annotated[str, Field(min_length=1)]
     sample_count: Annotated[int, Field(ge=2, le=4096)]
     outputs: dict[Annotated[str, Field(min_length=1)], tuple[float, ...]]
+    reference_points: dict[Annotated[str, Field(min_length=1)], float]
 
     @model_validator(mode="after")
     def outputs_are_finite_and_aligned(self) -> "StageSampleResult":
         if not self.outputs:
             raise ValueError("stage sample result requires outputs")
+        if set(self.reference_points) != set(self.outputs):
+            raise ValueError("stage sample reference points must match output keys")
         for key, values in self.outputs.items():
             if len(values) != self.sample_count:
                 raise ValueError(
@@ -58,6 +61,10 @@ class StageSampleResult(ChainContractModel):
                 )
             if any(not math.isfinite(value) for value in values):
                 raise ValueError(f"stage sample output {key!r} contains non-finite values")
+            if not math.isfinite(self.reference_points[key]):
+                raise ValueError(
+                    f"stage sample reference point {key!r} is non-finite"
+                )
         return self
 
 

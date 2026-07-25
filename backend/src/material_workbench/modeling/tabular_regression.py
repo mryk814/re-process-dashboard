@@ -823,6 +823,15 @@ class TabularRegressionRuntime:
         capability = sampling_capability_for_package(self.model_package)
         return capability.method if capability is not None else ""
 
+    @property
+    def chain_sample_bounds(self) -> dict[str, tuple[float | None, float | None]]:
+        from material_workbench.modeling.stage_sampling import (
+            sampling_capability_for_package,
+        )
+
+        capability = sampling_capability_for_package(self.model_package)
+        return dict(capability.output_bounds) if capability is not None else {}
+
     def sample_core(
         self,
         candidate: Candidate,
@@ -854,6 +863,10 @@ class TabularRegressionRuntime:
             method=method,
             sample_count=sample_count,
             outputs=outputs,
+            reference_points={
+                target: float(self.predictors[target].predict(values).point_estimate)
+                for target in targets
+            },
         )
 
     def _verify_smoke(self) -> None:

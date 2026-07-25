@@ -540,7 +540,10 @@ class Store:
         )
 
     def insert_chain_distribution_run(
-        self, run: ChainDistributionRun
+        self,
+        run: ChainDistributionRun,
+        *,
+        expected_point: ChainExecution,
     ) -> ChainDistributionRun:
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
@@ -556,6 +559,31 @@ class Store:
             ):
                 raise StoreDataIntegrityError(
                     "分布実行のcandidate revisionは現在値ではありません"
+                )
+            scope_id = self.chain_execution_scope(
+                run.project_id, run.provenance.candidate_id
+            )
+            point_row = conn.execute(
+                "SELECT execution_json FROM chain_execution_state WHERE scope_id=?",
+                (scope_id,),
+            ).fetchone()
+            point = (
+                ChainExecution.model_validate_json(point_row["execution_json"])
+                if point_row is not None
+                else None
+            )
+            if (
+                point is None
+                or point != expected_point
+                or point.status != "latest"
+                or point.request_id != run.provenance.point_execution_request_id
+                or point.candidate_revision != run.provenance.candidate_revision
+                or point.chain_revision_digest
+                != run.provenance.chain_revision_digest
+                or any(stage.status != "latest" for stage in point.stages)
+            ):
+                raise StoreDataIntegrityError(
+                    "分布実行が参照した点推定は現在値ではありません"
                 )
             conn.execute(
                 "INSERT INTO chain_distribution_runs("

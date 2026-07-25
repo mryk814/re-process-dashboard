@@ -327,6 +327,15 @@ class StageCRegressionRuntime:
         capability = sampling_capability_for_package(self.model_package)
         return capability.method if capability is not None else ""
 
+    @property
+    def chain_sample_bounds(self) -> dict[str, tuple[float | None, float | None]]:
+        from material_workbench.modeling.stage_sampling import (
+            sampling_capability_for_package,
+        )
+
+        capability = sampling_capability_for_package(self.model_package)
+        return dict(capability.output_bounds) if capability is not None else {}
+
     def sample_core(
         self,
         candidate: Candidate,
@@ -350,15 +359,15 @@ class StageCRegressionRuntime:
                 sample_count=sample_count,
                 seed=int(target_seed.generate_state(1)[0]),
             )
-            minimum, maximum = OUTPUT_BOUNDS[target]
-            samples = np.maximum(samples, minimum)
-            if maximum is not None:
-                samples = np.minimum(samples, maximum)
             result[target] = [float(value) for value in samples]
         return StageSampleResult(
             method=method,
             sample_count=sample_count,
             outputs=result,
+            reference_points={
+                target: float(self.predictors[target].predict(values).point_estimate)
+                for target in targets
+            },
         )
 
     def _verify_smoke(self) -> None:

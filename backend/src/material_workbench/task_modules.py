@@ -76,6 +76,7 @@ class StageSampleRuntime(Protocol):
     """Optional Chain-only sampling surface; point prediction stays separate."""
 
     chain_sampling_method: str
+    chain_sample_bounds: Mapping[str, tuple[float | None, float | None]]
 
     def sample_core(
         self,

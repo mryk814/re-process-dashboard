@@ -151,7 +151,7 @@ export function ChainUncertaintyPanel({
     </summary>
     <div className="chain-uncertainty-body">
       <p>
-        独立残差正規近似（q05–q95由来）です。
+        独立残差正規近似（q05–q95由来）に、各出力の物理境界を適用しています。
         posteriorや出力間相関を持つ分布ではありません。
       </p>
       <div className="chain-uncertainty-controls">
