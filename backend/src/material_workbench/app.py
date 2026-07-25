@@ -11,6 +11,7 @@ from typing import Any, Mapping
 
 from fastapi import FastAPI
 
+from material_workbench.contracts.blend_contracts import BlendContractRegistry
 from .api.errors import PROJECT_API_ERRORS, install_exception_handlers
 from .api.security import configure_local_access
 from .api.catalog import router as catalog_router
@@ -176,6 +177,7 @@ def create_app(
     package_roots: Mapping[str, str | Path] | None = None,
     active_packages_path: str | Path | None = None,
     data_library_path: str | Path | None = None,
+    blend_contracts: BlendContractRegistry | None = None,
     _resources: _AppResources | None = None,
 ) -> FastAPI:
     database = Path(db_path or os.getenv("WORKBENCH_DB_PATH", "data/workbench.db"))
@@ -206,6 +208,7 @@ def create_app(
             iter(prepared.data_by_source.values()), None
         )
         app.state.task_registry = prepared.task_registry
+        app.state.blend_contract_registry = blend_contracts or BlendContractRegistry()
         app.state.inference_work_graph = InferenceWorkGraph(max_entries=256)
         try:
             app.state.store = Store(database)

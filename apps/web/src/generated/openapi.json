@@ -64,14 +64,7 @@
             "type": "string"
           },
           "property": {
-            "enum": [
-              "TS",
-              "YS",
-              "EL",
-              "lambda",
-              "VB_mean",
-              "VB_max"
-            ],
+            "minLength": 1,
             "title": "Property",
             "type": "string"
           },
@@ -93,11 +86,7 @@
             "type": "number"
           },
           "unit": {
-            "enum": [
-              "MPa",
-              "%",
-              "µm"
-            ],
+            "minLength": 1,
             "title": "Unit",
             "type": "string"
           }
@@ -143,14 +132,7 @@
             "type": "string"
           },
           "property": {
-            "enum": [
-              "TS",
-              "YS",
-              "EL",
-              "lambda",
-              "VB_mean",
-              "VB_max"
-            ],
+            "minLength": 1,
             "title": "Property",
             "type": "string"
           },
@@ -168,11 +150,7 @@
             "type": "number"
           },
           "unit": {
-            "enum": [
-              "MPa",
-              "%",
-              "µm"
-            ],
+            "minLength": 1,
             "title": "Unit",
             "type": "string"
           }
@@ -252,9 +230,122 @@
             "default": true,
             "title": "Project Creation",
             "type": "boolean"
+          },
+          "sparse_blend": {
+            "default": false,
+            "title": "Sparse Blend",
+            "type": "boolean"
           }
         },
         "title": "ApplicationCapability",
+        "type": "object"
+      },
+      "BlendEditorState": {
+        "additionalProperties": false,
+        "description": "Mutable UI state; never part of canonical scientific input.",
+        "properties": {
+          "locked_material_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Locked Material Ids",
+            "type": "array"
+          }
+        },
+        "title": "BlendEditorState",
+        "type": "object"
+      },
+      "BlendItem": {
+        "additionalProperties": false,
+        "properties": {
+          "material_id": {
+            "minLength": 1,
+            "title": "Material Id",
+            "type": "string"
+          },
+          "ratio": {
+            "title": "Ratio",
+            "type": "number"
+          }
+        },
+        "required": [
+          "material_id",
+          "ratio"
+        ],
+        "title": "BlendItem",
+        "type": "object"
+      },
+      "BlendValidationIssue": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "enum": [
+              "total",
+              "material_not_allowed",
+              "material_bounds",
+              "group_total",
+              "group_cardinality",
+              "selection_count",
+              "fixed_hoop",
+              "fixed_fill",
+              "balance_material"
+            ],
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "path": {
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "path",
+          "message"
+        ],
+        "title": "BlendValidationIssue",
+        "type": "object"
+      },
+      "BlendValidationState": {
+        "additionalProperties": false,
+        "properties": {
+          "design_space_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Design Space Digest"
+          },
+          "issues": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/BlendValidationIssue"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "status": {
+            "default": "not_applicable",
+            "enum": [
+              "not_applicable",
+              "valid",
+              "invalid"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "title": "BlendValidationState",
         "type": "object"
       },
       "Body_import_candidates_api_projects__project_id__candidates_import_post": {
@@ -370,10 +461,26 @@
             ],
             "title": "Archived At"
           },
+          "blend": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SparseBlend"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "blend_validation": {
+            "$ref": "#/components/schemas/BlendValidationState"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
             "type": "string"
+          },
+          "editor_state": {
+            "$ref": "#/components/schemas/BlendEditorState"
           },
           "id": {
             "title": "Id",
@@ -559,6 +666,22 @@
       },
       "CandidateInput": {
         "properties": {
+          "blend": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SparseBlend"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "blend_validation": {
+            "$ref": "#/components/schemas/BlendValidationState"
+          },
+          "editor_state": {
+            "$ref": "#/components/schemas/BlendEditorState"
+          },
           "inputs": {
             "$ref": "#/components/schemas/CandidateInputs"
           },
@@ -667,6 +790,22 @@
       },
       "CandidateUpdate": {
         "properties": {
+          "blend": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SparseBlend"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "blend_validation": {
+            "$ref": "#/components/schemas/BlendValidationState"
+          },
+          "editor_state": {
+            "$ref": "#/components/schemas/BlendEditorState"
+          },
           "expected_revision": {
             "minimum": 1.0,
             "title": "Expected Revision",
@@ -4680,11 +4819,27 @@
           "actual": {
             "$ref": "#/components/schemas/ActualMeasurement"
           },
+          "candidate_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Revision"
+          },
           "prediction": {
             "$ref": "#/components/schemas/PredictionResponse"
           },
           "provenance": {
             "$ref": "#/components/schemas/ModelMetadata"
+          },
+          "snapshot_created_at": {
+            "format": "date-time",
+            "title": "Snapshot Created At",
+            "type": "string"
           },
           "snapshot_id": {
             "title": "Snapshot Id",
@@ -4694,6 +4849,7 @@
         "required": [
           "actual",
           "snapshot_id",
+          "snapshot_created_at",
           "prediction",
           "provenance"
         ],
@@ -6232,7 +6388,8 @@
             "default": {
               "candidate_excel_export": false,
               "candidate_excel_import": false,
-              "project_creation": true
+              "project_creation": true,
+              "sparse_blend": false
             }
           },
           "availability": {
@@ -6361,6 +6518,33 @@
           "label"
         ],
         "title": "ResponseCurveVariableDefinition",
+        "type": "object"
+      },
+      "RevisionRef": {
+        "additionalProperties": false,
+        "properties": {
+          "digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Digest",
+            "type": "string"
+          },
+          "resource_id": {
+            "minLength": 1,
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "resource_id",
+          "revision",
+          "digest"
+        ],
+        "title": "RevisionRef",
         "type": "object"
       },
       "RobustnessFailureExample": {
@@ -7822,6 +8006,60 @@
           "source_ref"
         ],
         "title": "SnapshotSourceRef",
+        "type": "object"
+      },
+      "SparseBlend": {
+        "additionalProperties": false,
+        "description": "Canonical core blend. Ratios and fill are percentages, not fractions.",
+        "properties": {
+          "balance_material_id": {
+            "minLength": 1,
+            "title": "Balance Material Id",
+            "type": "string"
+          },
+          "commercial_catalog": {
+            "$ref": "#/components/schemas/RevisionRef"
+          },
+          "design_space": {
+            "$ref": "#/components/schemas/RevisionRef"
+          },
+          "fill_ratio": {
+            "title": "Fill Ratio",
+            "type": "number"
+          },
+          "hoop_id": {
+            "minLength": 1,
+            "title": "Hoop Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BlendItem"
+            },
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "sparse-blend/v1",
+            "default": "sparse-blend/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "scientific_master": {
+            "$ref": "#/components/schemas/RevisionRef"
+          }
+        },
+        "required": [
+          "items",
+          "hoop_id",
+          "fill_ratio",
+          "balance_material_id",
+          "scientific_master",
+          "commercial_catalog",
+          "design_space"
+        ],
+        "title": "SparseBlend",
         "type": "object"
       },
       "Support": {

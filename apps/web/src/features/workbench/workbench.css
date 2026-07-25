@@ -159,6 +159,65 @@
 .comparison-actions .file-controls small {
   flex-basis: 100%;
 }
+.actual-measurement-panel {
+  margin: 10px 0;
+  border: 1px solid #a9bad0;
+  border-radius: 6px;
+  background: #fff;
+}
+.actual-measurement-panel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 11px;
+  border-bottom: 1px solid #d8e0ea;
+  background: #f8fafc;
+}
+.actual-measurement-panel h2 { margin: 1px 0 0; font-size: 14px; }
+.actual-measurement-panel h2 small { margin-left: 5px; color: #66758a; font-size: 11px; font-weight: 400; }
+.actual-measurement-panel > header .outline-button { min-height: 29px; padding: 4px 9px; font-size: 11px; }
+.actual-measurement-form {
+  display: grid;
+  grid-template-columns: minmax(130px, 1.2fr) minmax(110px, .8fr) 100px 80px minmax(110px, 1fr) 130px minmax(150px, 1.4fr) auto;
+  align-items: end;
+  gap: 7px;
+  padding: 9px 11px;
+  border-bottom: 1px solid #d8e0ea;
+  background: #fbfcfe;
+}
+.actual-measurement-form label { display: grid; gap: 3px; min-width: 0; color: #65758a; font-size: 10px; }
+.actual-measurement-form input,
+.actual-measurement-form select { width: 100%; min-width: 0; height: 29px; border: 1px solid #bcc9d8; border-radius: 4px; padding: 4px 6px; background: #fff; color: #20344b; font-size: 11px; }
+.actual-value-field { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.actual-value-field input { border-radius: 4px 0 0 4px; text-align: right; }
+.actual-value-field small { height: 29px; border: 1px solid #bcc9d8; border-left: 0; border-radius: 0 4px 4px 0; padding: 7px 6px; background: #f1f4f8; color: #536277; white-space: nowrap; }
+.actual-measurement-form .primary-button { min-height: 29px; padding: 4px 9px; font-size: 11px; white-space: nowrap; }
+.actual-form-hint { grid-column: 1 / -1; color: #8a5a00; font-size: 10px; }
+.actual-measurement-panel > .panel-error,
+.actual-measurement-panel > .empty-evidence { margin: 0; padding: 10px 11px; }
+.actual-comparison-scroll { overflow-x: auto; }
+.actual-comparison-table { width: 100%; min-width: 860px; border-collapse: collapse; font-size: 11px; }
+.actual-comparison-table th,
+.actual-comparison-table td { padding: 7px 8px; border-bottom: 1px solid #e1e7ef; text-align: left; vertical-align: top; }
+.actual-comparison-table thead th { background: #f5f7fa; color: #536277; font-size: 10px; white-space: nowrap; }
+.actual-comparison-table tbody th { color: #243b55; white-space: nowrap; }
+.actual-comparison-table b { display: block; color: #174f98; font-variant-numeric: tabular-nums; }
+.actual-comparison-table small { display: block; color: #65758a; font-size: 9px; font-weight: 400; }
+.actual-comparison-table .actual-difference { color: #334a65; font-weight: 700; font-variant-numeric: tabular-nums; }
+.actual-comparison-table .actual-difference.positive { color: #9a5210; }
+.actual-comparison-table .actual-difference.negative { color: #166c57; }
+.actual-metadata { display: grid; gap: 1px; min-width: 120px; }
+.actual-measurement-panel > footer { padding: 6px 11px; background: #f8fafc; color: #65758a; font-size: 9px; }
+@media (max-width: 1280px) {
+  .actual-measurement-form { grid-template-columns: repeat(4, minmax(110px, 1fr)); }
+  .actual-measurement-form .primary-button { align-self: end; }
+}
+@media (max-width: 660px) {
+  .actual-measurement-form { grid-template-columns: 1fr 1fr; }
+  .actual-note-field,
+  .actual-measurement-form .primary-button { grid-column: 1 / -1; }
+}
 .table-heading {
   display: flex;
   justify-content: space-between;

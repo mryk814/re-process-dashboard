@@ -1059,11 +1059,8 @@ export interface components {
              * @default
              */
             note: string;
-            /**
-             * Property
-             * @enum {string}
-             */
-            property: "TS" | "YS" | "EL" | "lambda" | "VB_mean" | "VB_max";
+            /** Property */
+            property: string;
             /**
              * Replicates
              * @default 1
@@ -1076,11 +1073,8 @@ export interface components {
              * @default 0
              */
             std: number;
-            /**
-             * Unit
-             * @enum {string}
-             */
-            unit: "MPa" | "%" | "µm";
+            /** Unit */
+            unit: string;
         };
         /** ActualMeasurementInput */
         ActualMeasurementInput: {
@@ -1098,11 +1092,8 @@ export interface components {
              * @default
              */
             note: string;
-            /**
-             * Property
-             * @enum {string}
-             */
-            property: "TS" | "YS" | "EL" | "lambda" | "VB_mean" | "VB_max";
+            /** Property */
+            property: string;
             /**
              * Replicates
              * @default 1
@@ -1113,11 +1104,8 @@ export interface components {
              * @default 0
              */
             std: number;
-            /**
-             * Unit
-             * @enum {string}
-             */
-            unit: "MPa" | "%" | "µm";
+            /** Unit */
+            unit: string;
         };
         /** ApiError */
         ApiError: {
@@ -1149,6 +1137,54 @@ export interface components {
              * @default true
              */
             project_creation: boolean;
+            /**
+             * Sparse Blend
+             * @default false
+             */
+            sparse_blend: boolean;
+        };
+        /**
+         * BlendEditorState
+         * @description Mutable UI state; never part of canonical scientific input.
+         */
+        BlendEditorState: {
+            /** Locked Material Ids */
+            locked_material_ids?: string[];
+        };
+        /** BlendItem */
+        BlendItem: {
+            /** Material Id */
+            material_id: string;
+            /** Ratio */
+            ratio: number;
+        };
+        /** BlendValidationIssue */
+        BlendValidationIssue: {
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "total" | "material_not_allowed" | "material_bounds" | "group_total" | "group_cardinality" | "selection_count" | "fixed_hoop" | "fixed_fill" | "balance_material";
+            /** Message */
+            message: string;
+            /** Path */
+            path: string;
+        };
+        /** BlendValidationState */
+        BlendValidationState: {
+            /** Design Space Digest */
+            design_space_digest?: string | null;
+            /**
+             * Issues
+             * @default []
+             */
+            issues: components["schemas"]["BlendValidationIssue"][];
+            /**
+             * Status
+             * @default not_applicable
+             * @enum {string}
+             */
+            status: "not_applicable" | "valid" | "invalid";
         };
         /** Body_import_candidates_api_projects__project_id__candidates_import_post */
         Body_import_candidates_api_projects__project_id__candidates_import_post: {
@@ -1189,11 +1225,14 @@ export interface components {
         Candidate: {
             /** Archived At */
             archived_at?: string | null;
+            blend?: components["schemas"]["SparseBlend"] | null;
+            blend_validation?: components["schemas"]["BlendValidationState"];
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
+            editor_state?: components["schemas"]["BlendEditorState"];
             /** Id */
             id: string;
             inputs: components["schemas"]["CandidateInputs"];
@@ -1252,6 +1291,9 @@ export interface components {
         };
         /** CandidateInput */
         CandidateInput: {
+            blend?: components["schemas"]["SparseBlend"] | null;
+            blend_validation?: components["schemas"]["BlendValidationState"];
+            editor_state?: components["schemas"]["BlendEditorState"];
             inputs: components["schemas"]["CandidateInputs"];
             /**
              * Name
@@ -1286,6 +1328,9 @@ export interface components {
         };
         /** CandidateUpdate */
         CandidateUpdate: {
+            blend?: components["schemas"]["SparseBlend"] | null;
+            blend_validation?: components["schemas"]["BlendValidationState"];
+            editor_state?: components["schemas"]["BlendEditorState"];
             /** Expected Revision */
             expected_revision: number;
             inputs: components["schemas"]["CandidateInputs"];
@@ -2723,8 +2768,15 @@ export interface components {
         /** PredictionComparison */
         PredictionComparison: {
             actual: components["schemas"]["ActualMeasurement"];
+            /** Candidate Revision */
+            candidate_revision?: number | null;
             prediction: components["schemas"]["PredictionResponse"];
             provenance: components["schemas"]["ModelMetadata"];
+            /**
+             * Snapshot Created At
+             * Format: date-time
+             */
+            snapshot_created_at: string;
             /** Snapshot Id */
             snapshot_id: string;
         };
@@ -3401,7 +3453,8 @@ export interface components {
             /** @default {
              *       "candidate_excel_export": false,
              *       "candidate_excel_import": false,
-             *       "project_creation": true
+             *       "project_creation": true,
+             *       "sparse_blend": false
              *     } */
             application: components["schemas"]["ApplicationCapability"];
             /** @default {
@@ -3447,6 +3500,15 @@ export interface components {
              * @enum {string}
              */
             time_transform: "direct" | "inverse_heat_time";
+        };
+        /** RevisionRef */
+        RevisionRef: {
+            /** Digest */
+            digest: string;
+            /** Resource Id */
+            resource_id: string;
+            /** Revision */
+            revision: number;
         };
         /** RobustnessFailureExample */
         RobustnessFailureExample: {
@@ -3981,6 +4043,29 @@ export interface components {
              */
             source_kind: "snapshot";
             source_ref: components["schemas"]["SnapshotReference"];
+        };
+        /**
+         * SparseBlend
+         * @description Canonical core blend. Ratios and fill are percentages, not fractions.
+         */
+        SparseBlend: {
+            /** Balance Material Id */
+            balance_material_id: string;
+            commercial_catalog: components["schemas"]["RevisionRef"];
+            design_space: components["schemas"]["RevisionRef"];
+            /** Fill Ratio */
+            fill_ratio: number;
+            /** Hoop Id */
+            hoop_id: string;
+            /** Items */
+            items: components["schemas"]["BlendItem"][];
+            /**
+             * Schema Version
+             * @default sparse-blend/v1
+             * @constant
+             */
+            schema_version: "sparse-blend/v1";
+            scientific_master: components["schemas"]["RevisionRef"];
         };
         /** Support */
         Support: {

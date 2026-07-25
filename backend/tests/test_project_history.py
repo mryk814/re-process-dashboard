@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 
 import pytest
@@ -118,6 +119,63 @@ def test_store_returns_the_actual_inserted_by_id(client) -> None:
     assert store.get_snapshot(second.snapshot_id)["payload"]["marker"] == "second"
 
 
+def test_actual_input_is_not_limited_to_legacy_output_literals() -> None:
+    payload = ActualMeasurementInput(
+        property="absorbed_energy_j",
+        mean=82.5,
+        std=3.1,
+        replicates=3,
+        unit="J",
+    )
+
+    assert payload.property == "absorbed_energy_j"
+    assert payload.unit == "J"
+
+
+def test_store_reads_actuals_with_outputs_unknown_to_the_legacy_schema(client) -> None:
+    store = client.app.state.store
+    candidate = client.get("/api/projects/default/candidates").json()[0]
+    actual = store.create_snapshot_and_actual(
+        "default",
+        candidate["id"],
+        candidate["revision"],
+        {"snapshot_schema_version": "prediction-snapshot-v2"},
+        ActualMeasurementInput(
+            property="absorbed_energy_j",
+            mean=82.5,
+            unit="J",
+            experiment_no="LEGACY-C",
+        ),
+    )
+
+    reloaded = next(item for item in store.list_actuals(candidate["id"]) if item.id == actual.id)
+    assert reloaded.property == "absorbed_energy_j"
+    assert reloaded.unit == "J"
+    assert reloaded.experiment_no == "LEGACY-C"
+
+
+def test_actual_api_validates_property_and_unit_from_task_definition(client) -> None:
+    candidate = client.get("/api/projects/default/candidates").json()[0]
+    endpoint = f"/api/projects/default/candidates/{candidate['id']}/actuals"
+
+    unknown = client.post(
+        endpoint,
+        params={"expected_revision": candidate["revision"]},
+        json={"property": "absorbed_energy_j", "mean": 82.5, "unit": "J"},
+    )
+    wrong_unit = client.post(
+        endpoint,
+        params={"expected_revision": candidate["revision"]},
+        json={"property": "TS", "mean": 510, "unit": "J"},
+    )
+
+    assert unknown.status_code == 422
+    assert "予測タスク" in unknown.json()["message"]
+    assert wrong_unit.status_code == 422
+    assert "MPa" in wrong_unit.json()["message"]
+    assert client.app.state.store.list_actuals(candidate["id"]) == []
+
+
 def test_snapshot_rolls_back_when_actual_insert_fails(client) -> None:
     store = client.app.state.store
     candidate = client.get("/api/projects/default/candidates").json()[0]
@@ -167,6 +225,77 @@ def test_actual_api_rechecks_revision_after_inference(client, monkeypatch) -> No
     assert response.json()["code"] == "revision_conflict"
     assert store.list_snapshots(candidate["id"]) == []
     assert store.list_actuals(candidate["id"]) == []
+
+
+def test_prediction_vs_actual_rejects_snapshot_owned_by_another_candidate(client) -> None:
+    source = client.get("/api/projects/default/candidates").json()[0]
+    candidate = client.post(
+        "/api/projects/default/candidates",
+        json=_candidate_payload(source, "照合対象"),
+    ).json()
+    other = client.post(
+        "/api/projects/default/candidates",
+        json=_candidate_payload(source, "別候補"),
+    ).json()
+    actual = client.post(
+        f"/api/projects/default/candidates/{candidate['id']}/actuals",
+        params={"expected_revision": candidate["revision"]},
+        json={"property": "TS", "mean": 510, "unit": "MPa"},
+    ).json()
+    with sqlite3.connect(client.app.state.store.path) as conn:
+        conn.execute(
+            "UPDATE snapshots SET candidate_id=? WHERE id=?",
+            (other["id"], actual["snapshot_id"]),
+        )
+
+    response = client.get(
+        f"/api/projects/default/candidates/{candidate['id']}/prediction-vs-actual"
+    )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "data_integrity_error"
+    assert "候補が一致しません" in response.json()["message"]
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "legacy-version",
+        "corrupt-prediction",
+        "missing-candidate",
+    ],
+)
+def test_prediction_vs_actual_rejects_legacy_or_corrupt_snapshot_shape(
+    client,
+    mutation: str,
+) -> None:
+    candidate = client.get("/api/projects/default/candidates").json()[0]
+    actual = client.post(
+        f"/api/projects/default/candidates/{candidate['id']}/actuals",
+        params={"expected_revision": candidate["revision"]},
+        json={"property": "TS", "mean": 510, "unit": "MPa"},
+    ).json()
+    snapshot = client.app.state.store.get_snapshot(actual["snapshot_id"])
+    payload = snapshot["payload"]
+    if mutation == "legacy-version":
+        payload["snapshot_schema_version"] = "prediction-snapshot-v1"
+    elif mutation == "corrupt-prediction":
+        payload["prediction"]["predictions"] = "not-an-object"
+    else:
+        payload.pop("raw_candidate")
+    with sqlite3.connect(client.app.state.store.path) as conn:
+        conn.execute(
+            "UPDATE snapshots SET payload=? WHERE id=?",
+            (json.dumps(payload), actual["snapshot_id"]),
+        )
+
+    response = client.get(
+        f"/api/projects/default/candidates/{candidate['id']}/prediction-vs-actual"
+    )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "data_integrity_error"
+    assert "スナップショット" in response.json()["message"]
 
 
 def test_project_history_rejects_unreadable_snapshot_payload(client) -> None:

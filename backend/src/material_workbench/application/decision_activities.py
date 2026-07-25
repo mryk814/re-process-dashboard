@@ -194,11 +194,11 @@ class DecisionActivityService:
         candidate_available = False
         if candidate_id is not None and expected_revision is not None:
             try:
-                self.candidates.at_revision(project_id, candidate_id, expected_revision)
+                candidate = self.candidates.at_revision(project_id, candidate_id, expected_revision)
             except (LookupError, ValueError):
                 candidate_available = False
             else:
-                candidate_available = True
+                candidate_available = candidate.blend_validation.status != "invalid"
         results = []
         for definition in DECISION_ACTIVITY_REGISTRY:
             reasons: list[str] = []
@@ -231,6 +231,11 @@ class DecisionActivityService:
             raise DecisionActivityNotFoundError("この検討アクティビティはまだ実行できません")
         project = self.projects.require(project_id)
         candidate = self.candidates.at_revision(project_id, candidate_id, payload.expected_revision)
+        if candidate.blend_validation.status == "invalid":
+            reasons = " / ".join(issue.message for issue in candidate.blend_validation.issues)
+            raise DecisionActivityValidationError(
+                f"配合がDesign Spaceを満たしていないため実行できません: {reasons}"
+            )
         availability = next(
             item
             for item in self.availability(project_id, candidate_id, payload.expected_revision)
@@ -249,6 +254,8 @@ class DecisionActivityService:
         canonical = self.registry.validate_candidate(project.task_id, candidate).model_dump(
             mode="json", exclude={"provenance"}
         )
+        if candidate.blend is not None:
+            canonical["blend"] = candidate.blend.model_input_payload()
         pipeline_digest = identity.pipeline_digest
         parameter_payload = parameters.model_dump(mode="json")
         provenance_identity = {
