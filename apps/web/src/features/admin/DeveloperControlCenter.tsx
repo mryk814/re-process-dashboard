@@ -6,8 +6,9 @@ import {
   type ApiDeveloperOverview,
   type ApiRuntimeDiagnostics,
 } from "../../shared/api/workbench-api";
+import { ObservationTrainingInspector } from "./ObservationTrainingInspector";
 
-type ControlTab = "overview" | "guide" | "diagnostics";
+type ControlTab = "overview" | "training" | "guide" | "diagnostics";
 type OverviewStatus = "" | "ok" | "warning" | "error";
 
 const riskLabel = {
@@ -104,6 +105,7 @@ export function DeveloperControlCenter({ onOpenProfileWorkbench }: { onOpenProfi
     <nav className="developer-tabs" aria-label="Developer Control Center">
       {([
         ["overview", "概要"],
+        ["training", "学習View"],
         ["guide", "変更ガイド"],
         ["diagnostics", "診断"],
       ] as const).map(([id, label]) => <button type="button" key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>{label}</button>)}
@@ -140,6 +142,8 @@ export function DeveloperControlCenter({ onOpenProfileWorkbench }: { onOpenProfi
       {filteredOverviewItems.length === 0 && <p className="empty-evidence">条件に合うProjectはありません。</p>}
       </div> : <p className="empty-evidence">構成を読み込んでいます。</p>}
     </section>}
+
+    {tab === "training" && <ObservationTrainingInspector />}
 
     {tab === "guide" && <section className="developer-section change-guide">
       <label>何を変更したいですか？

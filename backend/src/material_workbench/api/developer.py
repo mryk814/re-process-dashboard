@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from functools import lru_cache
+from pathlib import Path
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from material_workbench.api.dependencies import (
     get_project_runtime_resolver,
@@ -16,6 +20,14 @@ from material_workbench.developer_experience.schemas import (
     DeveloperOverviewItem,
     RuntimeDiagnosticsReport,
 )
+from material_workbench.data.observation_profile import (
+    ObservationTrainingDataset,
+    ObservationTrainingInspectionPage,
+    ObservationTrainingProfileSummary,
+    build_observation_training_dataset,
+    inspect_observation_training_view,
+    load_observation_profile,
+)
 from material_workbench.persistence.store import Store
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
@@ -23,11 +35,79 @@ from material_workbench.tasks.task_registry import TaskRegistry
 
 
 router = APIRouter(prefix="/api/developer", tags=["developer"])
+_ROOT = Path(__file__).resolve().parents[4]
+_WELDING_SOURCE = _ROOT / "data" / "source" / "welding_consumable_multistage_synthetic_dataset.xlsx"
+_WELDING_PROFILE = (
+    _ROOT
+    / "backend"
+    / "src"
+    / "material_workbench"
+    / "data"
+    / "observation-profile-welding-consumable-stage-c-v1.json"
+)
+
+
+@lru_cache(maxsize=2)
+def _load_observation_dataset(
+    source_mtime_ns: int,
+    profile_mtime_ns: int,
+) -> ObservationTrainingDataset:
+    del source_mtime_ns, profile_mtime_ns
+    return build_observation_training_dataset(
+        _WELDING_SOURCE,
+        load_observation_profile(_WELDING_PROFILE),
+    )
+
+
+def _observation_dataset() -> ObservationTrainingDataset:
+    return _load_observation_dataset(
+        _WELDING_SOURCE.stat().st_mtime_ns,
+        _WELDING_PROFILE.stat().st_mtime_ns,
+    )
 
 
 @router.get("/change-guide", response_model=list[ChangeGuideEntry])
 def get_change_guide() -> list[ChangeGuideEntry]:
     return change_guide_entries()
+
+
+@router.get(
+    "/observation-training-profiles",
+    response_model=list[ObservationTrainingProfileSummary],
+)
+def get_observation_training_profiles() -> list[ObservationTrainingProfileSummary]:
+    dataset = _observation_dataset()
+    return [
+        ObservationTrainingProfileSummary(
+            profile_id=dataset.profile_id,
+            profile_digest=dataset.profile_digest,
+            source_filename=_WELDING_SOURCE.name,
+            source_sha256=dataset.source_sha256,
+            families=tuple(view.summary for view in dataset.views.values()),
+        )
+    ]
+
+
+@router.get(
+    "/observation-training-data",
+    response_model=ObservationTrainingInspectionPage,
+)
+def get_observation_training_data(
+    family: Annotated[str, Query()],
+    target: Annotated[str, Query()],
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 25,
+) -> ObservationTrainingInspectionPage:
+    try:
+        return inspect_observation_training_view(
+            _observation_dataset(),
+            family=family,
+            target=target,
+            offset=offset,
+            limit=limit,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/diagnostics", response_model=RuntimeDiagnosticsReport)

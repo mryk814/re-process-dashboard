@@ -23,6 +23,19 @@ test("training data distinguishes unopened, loading, empty, and loaded states", 
   assert.match(content, /この段階に該当する行はありません/);
 });
 
+test("observation training inspector exposes family cohorts, split groups, and exclusions", async () => {
+  const center = await source("../src/features/admin/DeveloperControlCenter.tsx");
+  const inspector = await source("../src/features/admin/ObservationTrainingInspector.tsx");
+  assert.match(center, /\["training", "学習View"\]/);
+  assert.match(inspector, /観測family別 学習View/);
+  assert.match(inspector, /relationは結合索引としてだけ使い/);
+  assert.match(inspector, /施工group/);
+  assert.match(inspector, /目的変数で除外/);
+  assert.match(inspector, /page\.exclusion_reasons/);
+  assert.match(inspector, /Object\.keys\(page\?\.rows\[0\]\?\.inputs/);
+  assert.match(inspector, /row\.provenance\.entity_keys\.weld_metal/);
+});
+
 test("data library collapses an empty comparison area and moves state changes into management menus", async () => {
   const content = await source("../src/features/data-library/DataLibraryPage.tsx");
   assert.match(content, /comparisonSets\.length === 0 \? "comparison-empty"/);

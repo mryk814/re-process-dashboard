@@ -33,6 +33,48 @@ def test_overview_connects_project_to_runtime_contracts(client: TestClient) -> N
     assert all(isinstance(item["active_package"], bool) for item in items)
 
 
+def test_observation_training_profile_is_inspectable_before_model_packaging(
+    client: TestClient,
+) -> None:
+    profiles = client.get("/api/developer/observation-training-profiles")
+    assert profiles.status_code == 200, profiles.text
+    payload = profiles.json()
+    assert len(payload) == 1
+    profile = payload[0]
+    assert profile["profile_id"] == "welding-consumable-stage-c-observations-v1"
+    assert {
+        item["family"]: (
+            item["source_rows"],
+            item["usable_input_rows"],
+            item["split_groups"],
+        )
+        for item in profile["families"]
+    } == {
+        "tensile": (600, 600, 300),
+        "charpy": (2700, 2700, 300),
+        "corrosion": (103, 103, 103),
+    }
+
+    page = client.get(
+        "/api/developer/observation-training-data",
+        params={
+            "family": "charpy",
+            "target": "CHARPY_ENERGY",
+            "offset": 0,
+            "limit": 5,
+        },
+    )
+    assert page.status_code == 200, page.text
+    inspected = page.json()
+    assert inspected["source_rows"] == 2700
+    assert inspected["usable_rows"] == 2700
+    assert inspected["split_groups"] == 300
+    assert len(inspected["rows"]) == 5
+    assert all("process.test_temperature_c" in row["inputs"] for row in inspected["rows"])
+    assert all(row["split_group_key"].startswith("WR-") for row in inspected["rows"])
+    assert all(row["provenance"]["source_sheet"] == "シャルピー試験" for row in inspected["rows"])
+
+
 def test_runtime_diagnostics_does_not_run_repository_commands(
     client: TestClient,
     monkeypatch,
