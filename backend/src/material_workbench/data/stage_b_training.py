@@ -19,6 +19,15 @@ from material_workbench.modeling.tabular_regression import (
     TabularData,
     TabularDatasetProfile,
 )
+from material_workbench.data.observation_profile import (
+    FamilyTrainingSummary,
+    ObservationRowProvenance,
+    ObservationTrainingDataset,
+    ObservationTrainingRow,
+    ObservationTrainingView,
+    TargetCurationState,
+    TargetTrainingSummary,
+)
 
 
 def _digest(value: Any) -> str:
@@ -110,6 +119,106 @@ class StageBTrainingData:
     missing_by_target: dict[str, int]
 
 
+def stage_b_inspection_dataset(
+    training: StageBTrainingData,
+) -> ObservationTrainingDataset:
+    rows = tuple(
+        ObservationTrainingRow(
+            family="stage_b",
+            observation_id=str(row["id"]),
+            split_group_key=str(row["parent_key"]) or None,
+            inputs={
+                **{
+                    f"composition.{key}": value
+                    for key, value in row["composition"].items()
+                },
+                **{
+                    f"process.{key}": value
+                    for key, value in row["features"].items()
+                },
+                **{
+                    f"categorical.{key}": value
+                    for key, value in row["categorical"].items()
+                },
+            },
+            outputs=row["outputs"],
+            metadata={},
+            fixed_context={},
+            eligible=bool(row["eligible"]),
+            exclusion_reasons=tuple(row["exclusion_reasons"]),
+            target_status={
+                target: TargetCurationState(
+                    usable=bool(row["eligible"]) and target in row["outputs"],
+                    reasons=(
+                        tuple(row["exclusion_reasons"])
+                        if not row["eligible"]
+                        else (() if target in row["outputs"] else ("値なし",))
+                    ),
+                )
+                for target in (
+                    output.key for output in training.data.profile.outputs
+                )
+            },
+            provenance=ObservationRowProvenance(
+                source_sheet="profile:weld_metal",
+                source_row=index,
+                relation_sheet="profile:relation",
+                relation_rows=(),
+                entity_keys=row["run_context"]["entity_keys"],
+            ),
+        )
+        for index, row in enumerate(training.data.observations, start=2)
+    )
+    usable_rows = tuple(row for row in rows if row.eligible)
+    targets = tuple(
+        TargetTrainingSummary(
+            target=target,
+            usable_rows=sum(row.target_status[target].usable for row in rows),
+            split_groups=len({
+                row.split_group_key
+                for row in rows
+                if row.target_status[target].usable and row.split_group_key
+            }),
+            exclusion_reasons=(
+                {"値なし": training.missing_by_target[target]}
+                if training.missing_by_target[target]
+                else {}
+            ),
+        )
+        for target in training.cohort_digests
+    )
+    summary = FamilyTrainingSummary(
+        family="stage_b",
+        source_rows=len(rows),
+        usable_input_rows=len(usable_rows),
+        excluded_input_rows=len(rows) - len(usable_rows),
+        split_groups=len({
+            row.split_group_key for row in usable_rows if row.split_group_key
+        }),
+        exclusion_reasons={},
+        targets=targets,
+    )
+    feature_names = tuple(
+        item.path for item in training.data.profile.inputs
+    )
+    return ObservationTrainingDataset(
+        profile_id=training.data.profile_id,
+        profile_digest=training.profile_digest,
+        source_sha256=training.data.source_sha256,
+        views={
+            "stage_b": ObservationTrainingView(
+                profile_id=training.data.profile_id,
+                profile_digest=training.profile_digest,
+                source_sha256=training.data.source_sha256,
+                family="stage_b",
+                feature_names=feature_names,
+                rows=rows,
+                summary=summary,
+            )
+        },
+    )
+
+
 def load_stage_b_profile(path: str | Path) -> StageBWorkbookProfile:
     return StageBWorkbookProfile.model_validate_json(
         Path(path).read_text(encoding="utf-8")
@@ -165,7 +274,7 @@ def _index(rows: list[dict[str, Any]], column: str, *, label: str) -> dict[str, 
     return result
 
 
-def _runtime_profile(profile: StageBWorkbookProfile) -> TabularDatasetProfile:
+def stage_b_runtime_profile(profile: StageBWorkbookProfile) -> TabularDatasetProfile:
     inputs = [
         {
             "path": f"composition.{component}",
@@ -261,7 +370,7 @@ def build_stage_b_training_data(
         if weld_key:
             relation_by_weld.setdefault(weld_key, set()).add(identity)
 
-    runtime_profile = _runtime_profile(profile)
+    runtime_profile = stage_b_runtime_profile(profile)
     observations: list[dict[str, Any]] = []
     for weld_key, weld_row in weld_metals.items():
         identities = relation_by_weld.get(weld_key, set())
@@ -401,7 +510,9 @@ def build_stage_b_training_data(
         source_path=str(source_path),
         source_mtime_ns=source_path.stat().st_mtime_ns,
         source_sha256=_sha256(source_path),
-        profile_path=f"catalog:{profile.id}",
+        profile_path=str(
+            Path(__file__).with_name("welding-stage-b-profile-v1.json")
+        ),
         profile=runtime_profile,
         profile_id=profile.id,
         observations=observations,

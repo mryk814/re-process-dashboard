@@ -21,6 +21,7 @@ from material_workbench.modeling.model_lifecycle import (
 from material_workbench.modeling.model_package_verify import verify_model_package
 from material_workbench.modeling.model_packages import validate_task_definition_canonical_inputs
 from material_workbench.modeling.tabular_regression import (
+    TabularData,
     build_tabular_features,
     build_tabular_features_from_observation,
     candidate_from_observation,
@@ -281,8 +282,13 @@ def _binary_auc(y: np.ndarray, probabilities: np.ndarray) -> float:
     ) / (positive_count * negative_count)
 
 
-def _build(source: Path, profile_path: Path, destination: Path) -> None:
-    data = load_tabular_data(source, profile_path)
+def build_tabular_package_from_data(
+    data: TabularData,
+    profile_path: Path,
+    destination: Path,
+    *,
+    training_contract: dict[str, object] | None = None,
+) -> None:
     profile = data.profile
     contract = load_task_contracts()[profile.task_id]
     rows = [row for row in data.observations if row["eligible"]]
@@ -478,6 +484,16 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
                     ),
                     "source_profile": profile.profile_id,
                     "ridge_alpha": profile.ridge_alpha,
+                    **(
+                        {
+                            "profile_digest": training_contract["profile_digest"],
+                            "transform_digest": training_contract["transform_digest"],
+                            "cohort_digest": training_contract["cohort_digests"][output.key],
+                            "fold_digest": training_contract["fold_digests"][output.key],
+                        }
+                        if training_contract is not None
+                        else {}
+                    ),
                 },
             }
             coverage = _cross_fitted_quantile_coverage(residuals, fold_ids)
@@ -513,6 +529,7 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
             )
             for status in ("accepted", "warning", "quarantined", "blocked")
         },
+        **({"training_contract": training_contract} if training_contract is not None else {}),
     }, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
     files.append(stats_path)
     quality_path = report_dir / "quality-report.json"
@@ -588,7 +605,11 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
                 if profile.model_family == "lightgbm_monotone"
                 else "tabular-ridge-crossfit-coverage-v2"
             ),
-            "dataset_profile_id": dataset_profile_digest(profile),
+            "dataset_profile_id": (
+                str(training_contract["profile_digest"])
+                if training_contract is not None
+                else dataset_profile_digest(profile)
+            ),
         },
         "artifacts": [_artifact(destination, path) for path in files],
         "smoke_test": {
@@ -604,6 +625,14 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
     )())
     (destination / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n"
+    )
+
+
+def _build(source: Path, profile_path: Path, destination: Path) -> None:
+    build_tabular_package_from_data(
+        load_tabular_data(source, profile_path),
+        profile_path,
+        destination,
     )
 
 

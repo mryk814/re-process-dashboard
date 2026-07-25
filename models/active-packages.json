@@ -1,6 +1,10 @@
 {
   "schema_version": "active-model-packages/v1",
   "tasks": {
+    "welding-consumable-stage-b-v1": {
+      "active": "packages/welding-consumable-stage-b-ridge-v1",
+      "previous": null
+    },
     "annealed-properties-v1": {
       "active": "packages/annealed-gp-stable-ard-tutorial-v1",
       "previous": null

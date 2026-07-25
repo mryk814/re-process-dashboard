@@ -1063,6 +1063,14 @@ class TabularRegressionRuntime:
                     "source_path": self.data.source_path,
                     "source_sha256": self.data.source_sha256,
                     "records": self.training_stats["records"],
+                    **(
+                        {
+                            "dataset_profile_id": self.data.profile_id,
+                            **self.training_stats["training_contract"],
+                        }
+                        if "training_contract" in self.training_stats
+                        else {}
+                    ),
                 },
                 "prediction_interval": {
                     "method": (

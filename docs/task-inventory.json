@@ -9,6 +9,125 @@
   ],
   "tasks": [
     {
+      "task_id": "welding-consumable-stage-b-v1",
+      "label": "溶接材料 Stage B：溶着金属成分",
+      "outputs": [
+        {
+          "key": "C",
+          "label": "溶着金属 C",
+          "unit": "mass% deposited metal"
+        },
+        {
+          "key": "Si",
+          "label": "溶着金属 Si",
+          "unit": "mass% deposited metal"
+        },
+        {
+          "key": "Mn",
+          "label": "溶着金属 Mn",
+          "unit": "mass% deposited metal"
+        },
+        {
+          "key": "P",
+          "label": "溶着金属 P",
+          "unit": "mass% deposited metal"
+        },
+        {
+          "key": "S",
+          "label": "溶着金属 S",
+          "unit": "mass% deposited metal"
+        },
+        {
+          "key": "Ni",
+          "label": "溶着金属 Ni",
+          "unit": "mass% deposited metal"
+        },
+        {
+          "key": "Cr",
+          "label": "溶着金属 Cr",
+          "unit": "mass% deposited metal"
+        },
+        {
+          "key": "Mo",
+          "label": "溶着金属 Mo",
+          "unit": "mass% deposited metal"
+        },
+        {
+          "key": "Cu",
+          "label": "溶着金属 Cu",
+          "unit": "mass% deposited metal"
+        },
+        {
+          "key": "Ti",
+          "label": "溶着金属 Ti",
+          "unit": "mass% deposited metal"
+        },
+        {
+          "key": "B",
+          "label": "溶着金属 B",
+          "unit": "mass% deposited metal"
+        },
+        {
+          "key": "Nb",
+          "label": "溶着金属 Nb",
+          "unit": "mass% deposited metal"
+        },
+        {
+          "key": "V",
+          "label": "溶着金属 V",
+          "unit": "mass% deposited metal"
+        },
+        {
+          "key": "Al",
+          "label": "溶着金属 Al",
+          "unit": "mass% deposited metal"
+        },
+        {
+          "key": "N",
+          "label": "溶着金属 N",
+          "unit": "mass% deposited metal"
+        },
+        {
+          "key": "O",
+          "label": "溶着金属 O",
+          "unit": "mass% deposited metal"
+        }
+      ],
+      "source": {
+        "kind": "welding_multistage",
+        "path": "data/source/welding_consumable_multistage_synthetic_dataset.xlsx",
+        "sha256": "dcaad240b934a4ada810fc9577d075ea58ad457b2a373938463f29f72301a7c8",
+        "profile_id": "welding-consumable-stage-b-v1",
+        "profile_path": "backend/src/material_workbench/data/welding-stage-b-profile-v1.json"
+      },
+      "active_package": {
+        "path": "packages/welding-consumable-stage-b-ridge-v1",
+        "previous": null,
+        "package_id": "welding-consumable-stage-b-ridge-v1",
+        "version": "1.0.0",
+        "manifest_sha256": "bbad5ca091fd7c85a79d5b5b96e1b3c7a5076c9b9d5272aab1dc5382b6ac7243",
+        "runtime_types": [
+          "builtin.linear.v1"
+        ]
+      },
+      "runtime_operations": {
+        "preview": true,
+        "detailed_prediction": true,
+        "response_curve": false,
+        "similarity": true,
+        "target_specific_similarity": false,
+        "snapshot": true,
+        "actual_measurement": true
+      },
+      "application_capability": {
+        "project_creation": true,
+        "candidate_excel_import": false,
+        "candidate_excel_export": false,
+        "sparse_blend": false
+      },
+      "data_explorer": null
+    },
+    {
       "task_id": "annealed-properties-v1",
       "label": "焼鈍後特性",
       "outputs": [
