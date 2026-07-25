@@ -83,5 +83,11 @@ export function candidateSaveContractError(
   if (saved.inputs.heat_time_basis !== requested.inputs.heat_time_basis) {
     return "起動中のAPIが時間基準の保存に対応していません。開発サーバーまたはアプリを再起動してください";
   }
+  if (JSON.stringify(saved.blend ?? null) !== JSON.stringify(requested.blend ?? null)) {
+    return "起動中のAPIが配合明細の保存に対応していません。開発サーバーまたはアプリを再起動してください";
+  }
+  if (JSON.stringify(saved.editor_state?.locked_material_ids ?? []) !== JSON.stringify(requested.editor_state?.locked_material_ids ?? [])) {
+    return "配合行のlock状態を保存できませんでした";
+  }
   return null;
 }

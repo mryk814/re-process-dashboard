@@ -353,6 +353,8 @@ function App() {
               }}
               onInput={session.updateCandidateInput}
               onText={session.updateCandidateText}
+              onBlend={session.updateCandidateBlend}
+              onBlendLocks={session.updateCandidateBlendLocks}
               onHeat={session.updateHeat}
               onHeatTimeBasis={session.updateCandidateHeatTimeBasis}
               onAddHeat={session.addHeatPoint}

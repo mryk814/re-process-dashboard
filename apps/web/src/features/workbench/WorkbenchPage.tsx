@@ -30,6 +30,7 @@ import { FeatureEngineeringPanel } from "./FeatureEngineeringPanel";
 import { DecisionActivityPanel } from "./DecisionActivityPanel";
 import { ActualMeasurementPanel } from "./ActualMeasurementPanel";
 import { BlendComparisonPanel } from "./BlendComparisonPanel";
+import { BlendEditorPanel } from "./BlendEditorPanel";
 import { HeatPattern } from "./HeatPatternPanel";
 import {
   CurveFamilyPanel,
@@ -91,6 +92,8 @@ type WorkbenchProps = {
   onHeatTimeBasis: (candidateId: string, basis: HeatTimeBasis) => void;
   onInput: (id: string, path: string, value: number | string | undefined) => void;
   onText: (id: string, field: "label", value: string) => void;
+  onBlend: (id: string, blend: NonNullable<Candidate["raw"]["blend"]>) => void;
+  onBlendLocks: (id: string, lockedMaterialIds: string[]) => void;
   onAddHeat: () => void;
   onDeleteHeat: (index: number) => void;
   onCopy: (candidateId: string) => void;
@@ -135,6 +138,8 @@ export function WorkbenchPage(props: WorkbenchProps) {
     onSelect,
     onInput,
     onText,
+    onBlend,
+    onBlendLocks,
     onHeat,
     onHeatTimeBasis,
     onAddHeat,
@@ -252,6 +257,12 @@ export function WorkbenchPage(props: WorkbenchProps) {
           broken={originBroken}
           onOpen={onOpenOrigin}
         />
+        {selected.raw.blend && <BlendEditorPanel
+          projectId={projectId}
+          candidate={selected}
+          onBlend={onBlend}
+          onLocks={onBlendLocks}
+        />}
         {taskDefinition && <ComparisonTable
           candidates={candidates}
           selectedId={selectedId}
