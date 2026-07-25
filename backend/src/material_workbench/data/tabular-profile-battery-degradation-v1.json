@@ -8,6 +8,7 @@
   "group_column": "cell_id",
   "curve_axis_path": "process.cycle_index",
   "model_family": "lightgbm_monotone",
+  "num_boost_round": 200,
   "monotone_decreasing_paths": ["process.cycle_index"],
   "inputs": [
     {

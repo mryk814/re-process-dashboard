@@ -66,7 +66,7 @@ def register_runtime_resources(catalog: WorkspaceCatalog, registry: TaskRegistry
 
     bindings: dict[str, ProjectBinding] = {}
     views_by_dataset: dict[str, str] = {}
-    for task_id in registry.task_ids:
+    for task_id in registry.available_task_ids:
         entry = registry.entry_for(task_id)
         data = entry.predictor_runtime.data
         source_path = Path(data.source_path)
@@ -107,6 +107,8 @@ def register_primary_datasets(catalog: WorkspaceCatalog) -> None:
     """Keep bundled datasets visible even when they intentionally lack an active model."""
 
     for source_path, profile_path in PRIMARY_DATASET_PROFILES:
+        if not source_path.is_file():
+            continue
         register_dataset_records(
             catalog=catalog,
             source_path=source_path,
@@ -202,9 +204,7 @@ def bind_legacy_projects(database: str | Path, catalog: WorkspaceCatalog, bindin
     for row in rows:
         binding = bindings.get(row["task_id"])
         if binding is None:
-            raise WorkspaceCatalogBootstrapError(
-                f"Project {row['id']} のPrediction Taskを解決できません: {row['task_id']}"
-            )
+            continue
         series_id = f"project-series-upgrade-{row['id']}"
         catalog.ensure_project_series(
             series_id,
@@ -409,17 +409,18 @@ def audit_project_bindings(database: str | Path) -> None:
     checks = (
         (
             "SELECT p.id FROM projects p LEFT JOIN dataset_view_revisions v ON v.id=p.dataset_view_revision_id "
-            "WHERE v.id IS NULL LIMIT 1",
+            "WHERE p.binding_provenance<>'unbound_legacy' AND v.id IS NULL LIMIT 1",
             "Dataset View",
         ),
         (
             "SELECT p.id FROM projects p LEFT JOIN model_package_refs m ON m.id=p.model_package_ref_id "
-            "WHERE m.id IS NULL OR m.task_id<>p.task_id OR m.manifest_digest<>p.model_package_manifest_digest LIMIT 1",
+            "WHERE p.binding_provenance<>'unbound_legacy' "
+            "AND (m.id IS NULL OR m.task_id<>p.task_id OR m.manifest_digest<>p.model_package_manifest_digest) LIMIT 1",
             "Model Package",
         ),
         (
             "SELECT p.id FROM projects p LEFT JOIN project_series s ON s.id=p.project_series_id "
-            "WHERE s.id IS NULL LIMIT 1",
+            "WHERE p.binding_provenance<>'unbound_legacy' AND s.id IS NULL LIMIT 1",
             "Project Series",
         ),
     )

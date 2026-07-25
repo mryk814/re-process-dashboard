@@ -13,9 +13,10 @@ npm run dev
 ```
 
 - Web UI: <http://127.0.0.1:5180>
-- API: <http://127.0.0.1:8765/docs>
+- API docs（dev proxy経由）: <http://127.0.0.1:5180/docs>
 
 停止は起動したターミナルで `Ctrl+C` です。
+既定portが使用中なら、`WORKBENCH_DEV_API_PORT`と`WORKBENCH_DEV_WEB_PORT`で変更できます。
 
 ## デスクトップアプリとして起動
 
@@ -61,7 +62,7 @@ CIはNode `22.20.0`、npm `11.4.2`、uv `0.9.15`を固定し、`package-lock.jso
 
 モデルPackageを更新した場合は、`npm run models:build:annealed`、`npm run models:build:hot-rolling`、`npm run models:build:flank-wear` の対応するコマンドで、artifact、品質レポート、manifestを必ず同時に再生成します。
 新しいPackageの作成、検証、使用対象への切替、ロールバックは [モデルPackageのライフサイクル](docs/model-package-lifecycle.md) の手順を使います。
-現行3タスクのソース、プロファイル、推論環境、能力は [生成済みタスク一覧](docs/task-inventory.json) で確認できます。
+現行タスクのソース、プロファイル、推論環境、能力は [生成済みタスク一覧](docs/task-inventory.json) で確認できます。
 `npm run task:inventory:check` は実装とのずれを検出します。
 
 ### フロントエンドAPI契約
@@ -77,16 +78,9 @@ npm run api:check     # schema・生成型のdrift検出
 
 ## データ
 
-`data/source/` のExcelは読取専用の正本として扱います。
-同梱する正本は次の3つだけです。
-
-- 最小教材（既定）：`material_workbench_tutorial_v1.xlsx`
-- 工程データ：`material_workbench_process_v1.xlsx`
-- 切削逃げ面摩耗：`cutting_tool_flank_wear_synthetic_dataset.xlsx`
-
-最小教材と工程データは、焼鈍特性と熱延特性に使う同じタスク契約へ正規化します。
-切削逃げ面摩耗は、独立したタスク契約、Dataset Input Profile、特徴量パイプラインを使います。
-現行3タスクが実際に参照するソースとProfileは [生成済みタスク一覧](docs/task-inventory.json) で確認できます。
+`data/source/` のExcelとCSVは読取専用の正本として扱います。
+同梱する正本と、それを使うTask、Profile、active Packageの現行対応は [生成済みタスク一覧](docs/task-inventory.json) で確認できます。
+最小教材と工程データは焼鈍特性と熱延特性に使う共通契約へ正規化し、切削摩耗や外部表形式データはそれぞれ独立したTask契約と特徴量パイプラインを使います。
 最小教材を使ってExcelからModel Packageまで追う場合は [開発者向け教材ガイド](docs/tutorial-data-pipeline.md) を参照してください。
 
 Excelの外部シートや列と、アプリ内部の意味との対応はDataset Input Profileで一元管理します。

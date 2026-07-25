@@ -240,14 +240,16 @@ class DecisionActivityService:
             raise DecisionActivityValidationError(" / ".join(availability.reasons))
         parameters = payload.parameters
         samplers = self._validate_tolerances(project, candidate, parameters)
-        runtime = self.resolver.runtime_for(project)
+        resolved = self.resolver.resolve(project)
+        runtime = resolved.runtime
+        identity = resolved.identity
         package = runtime.model_package
         if package is None:
             raise DecisionActivityValidationError("Model Packageが解決されていません")
         canonical = self.registry.validate_candidate(project.task_id, candidate).model_dump(
             mode="json", exclude={"provenance"}
         )
-        pipeline_digest = self.registry._pipeline_digest(package)
+        pipeline_digest = identity.pipeline_digest
         parameter_payload = parameters.model_dump(mode="json")
         provenance_identity = {
             "project_id": project.id,
@@ -256,7 +258,7 @@ class DecisionActivityService:
             "candidate_id": candidate.id,
             "candidate_revision": candidate.revision,
             "canonical_input_digest": semantic_digest(canonical),
-            "model_package_digest": project.model_package_manifest_digest,
+            "model_package_digest": identity.package_manifest_digest,
             "feature_pipeline_digest": pipeline_digest,
             "activity_id": definition.activity_id,
             "activity_version": definition.version,
@@ -267,17 +269,12 @@ class DecisionActivityService:
         if existing is not None:
             return DecisionActivityRun.model_validate(existing)
         key = InferenceKey.build(
-            task_id=project.task_id,
-            runtime_type="+".join(sorted({item.runtime_type for item in package.manifest.predictors})),
+            task_id=identity.task_id,
+            runtime_type=identity.runtime_type,
             canonical_input=canonical,
-            package_digest=f"sha256:{package.manifest_sha256}",
+            package_digest=identity.package_digest,
             pipeline_digest=pipeline_digest,
-            support_digest=semantic_digest({
-                "dataset_view_revision_id": project.dataset_view_revision_id,
-                "source_sha256": runtime.data.source_sha256,
-                "pipeline_digest": pipeline_digest,
-                "policy_id": runtime.support_policy_id,
-            }),
+            support_digest=identity.support_digest,
             operation=definition.activity_id,
             operation_parameters=parameter_payload,
         )
@@ -291,7 +288,7 @@ class DecisionActivityService:
             candidate_id=candidate.id,
             candidate_revision=candidate.revision,
             canonical_input_digest=semantic_digest(canonical),
-            model_package_digest=project.model_package_manifest_digest,
+            model_package_digest=identity.package_manifest_digest,
             feature_pipeline_digest=pipeline_digest,
             activity_id=definition.activity_id,
             activity_version=definition.version,

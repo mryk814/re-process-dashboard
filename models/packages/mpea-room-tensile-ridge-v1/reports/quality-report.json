@@ -8,21 +8,27 @@
       "parent_conditions": 39,
       "mae": 294.4113109610089,
       "rmse": 377.88764735255614,
-      "interval_coverage_90": 0.898989898989899
+      "interval_coverage_90": 0.8686868686868687,
+      "interval_coverage_method": "cross-fitted-oof-residual-quantiles",
+      "interval_coverage_observations": 99
     },
     {
       "target": "UTS",
       "parent_conditions": 38,
       "mae": 261.2067044467873,
       "rmse": 336.6586071343203,
-      "interval_coverage_90": 0.8888888888888888
+      "interval_coverage_90": 0.8777777777777778,
+      "interval_coverage_method": "cross-fitted-oof-residual-quantiles",
+      "interval_coverage_observations": 90
     },
     {
       "target": "EL",
       "parent_conditions": 33,
       "mae": 15.177129086173492,
       "rmse": 17.819369665047354,
-      "interval_coverage_90": 0.8873239436619719
+      "interval_coverage_90": 0.8873239436619719,
+      "interval_coverage_method": "cross-fitted-oof-residual-quantiles",
+      "interval_coverage_observations": 71
     }
   ]
 }

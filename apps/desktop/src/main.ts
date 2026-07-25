@@ -63,6 +63,8 @@ function sidecarCommand(port: number): { command: string; args: string[]; cwd: s
         WORKBENCH_DB_PATH: join(app.getPath("userData"), "workbench.db"),
         WORKBENCH_SOURCE_PATH: join(resources, "data", "source", "material_workbench_tutorial_v1.xlsx"),
         WORKBENCH_FLANK_WEAR_SOURCE_PATH: join(resources, "data", "source", "cutting_tool_flank_wear_synthetic_dataset.xlsx"),
+        PYTHONUTF8: "1",
+        PYTHONIOENCODING: "utf-8",
       },
     };
   }
@@ -82,7 +84,12 @@ function sidecarCommand(port: number): { command: string; args: string[]; cwd: s
       String(port),
     ],
     cwd: workspaceRoot(),
-    env: { ...process.env, WORKBENCH_LAUNCH_TOKEN: LAUNCH_TOKEN },
+    env: {
+      ...process.env,
+      WORKBENCH_LAUNCH_TOKEN: LAUNCH_TOKEN,
+      PYTHONUTF8: "1",
+      PYTHONIOENCODING: "utf-8",
+    },
   };
 }
 
@@ -185,7 +192,7 @@ async function startSidecarOnPort(port: number): Promise<void> {
     env,
   });
   const captureOutput = (chunk: Buffer) => {
-    const next = `${sidecarOutputs.get(childProcess) ?? ""}${chunk.toString()}`;
+    const next = `${sidecarOutputs.get(childProcess) ?? ""}${chunk.toString("utf8")}`;
     sidecarOutputs.set(childProcess, next.slice(-16_384));
   };
   childProcess.stdout?.on("data", captureOutput);

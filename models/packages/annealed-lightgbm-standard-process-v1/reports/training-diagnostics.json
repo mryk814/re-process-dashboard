@@ -5,16 +5,9 @@
   "targets": {
     "EL": {
       "folds": 5,
-      "fold_best_iterations": [
-        44,
-        44,
-        19,
-        303,
-        43
-      ],
-      "final_iterations": 44,
-      "residual_std": 15.619353224630611,
-      "calibration": "deterministic_grouped_parent_condition_oof",
+      "num_boost_round": 50,
+      "residual_std": 15.779258928103456,
+      "calibration": "cross-fitted_grouped_parent_condition_oof",
       "parameters": {
         "objective": "regression_l2",
         "metric": "l2",
@@ -42,16 +35,9 @@
     },
     "TS": {
       "folds": 5,
-      "fold_best_iterations": [
-        51,
-        44,
-        20,
-        147,
-        52
-      ],
-      "final_iterations": 51,
-      "residual_std": 390.0116685644282,
-      "calibration": "deterministic_grouped_parent_condition_oof",
+      "num_boost_round": 50,
+      "residual_std": 393.65612528859486,
+      "calibration": "cross-fitted_grouped_parent_condition_oof",
       "parameters": {
         "objective": "regression_l2",
         "metric": "l2",
@@ -79,16 +65,9 @@
     },
     "YS": {
       "folds": 5,
-      "fold_best_iterations": [
-        45,
-        51,
-        19,
-        400,
-        52
-      ],
-      "final_iterations": 51,
-      "residual_std": 289.1621728104338,
-      "calibration": "deterministic_grouped_parent_condition_oof",
+      "num_boost_round": 50,
+      "residual_std": 292.12264288818574,
+      "calibration": "cross-fitted_grouped_parent_condition_oof",
       "parameters": {
         "objective": "regression_l2",
         "metric": "l2",
@@ -116,16 +95,9 @@
     },
     "lambda": {
       "folds": 5,
-      "fold_best_iterations": [
-        13,
-        22,
-        1193,
-        1199,
-        56
-      ],
-      "final_iterations": 56,
-      "residual_std": 19.003931458373202,
-      "calibration": "deterministic_grouped_parent_condition_oof",
+      "num_boost_round": 50,
+      "residual_std": 63.343979991222035,
+      "calibration": "cross-fitted_grouped_parent_condition_oof",
       "parameters": {
         "objective": "regression_l2",
         "metric": "l2",

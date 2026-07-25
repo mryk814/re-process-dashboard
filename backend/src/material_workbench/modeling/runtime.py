@@ -138,7 +138,13 @@ class ModelRuntime:
     task_id = TASK_ID
     support_policy_id = SIMILARITY_VERSION
 
-    def __init__(self, data: WorkbookData, package_root: str | Path | None = None, *, load_package: bool = True) -> None:
+    def __init__(
+        self,
+        data: WorkbookData,
+        package_root: str | Path | VerifiedModelPackage | None = None,
+        *,
+        load_package: bool = True,
+    ) -> None:
         self.data = data
         self.feature_names = FEATURE_NAMES
         self.feature_definitions = FEATURE_DEFINITIONS
@@ -146,8 +152,11 @@ class ModelRuntime:
         self._feature_builder = build_feature_bundle
         self.feature_group_indices = FEATURE_GROUP_INDICES
         default_package = Path(__file__).resolve().parents[4] / "models" / "packages" / "annealed-gp-stable-ard-tutorial-v1"
+        selected_package = package_root or default_package
         self.model_package: VerifiedModelPackage | None = (
-            ModelPackageLoader().load(package_root or default_package)
+            selected_package
+            if load_package and isinstance(selected_package, VerifiedModelPackage)
+            else ModelPackageLoader().load(selected_package)
             if load_package and (package_root or default_package.exists())
             else None
         )

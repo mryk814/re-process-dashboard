@@ -82,9 +82,9 @@
   ],
   "provenance": {
     "training_data_id": "sha256:a3b4230ff150e32ed51050a4813fc3fbad01b2bc2fc61b5d4fb8a5be3cc5e476",
-    "feature_dataset_id": "sha256:2d942321fbfb8a8ec6f7ddda553b627b972a8a7b8fc03e2d88d332753dc65c6c",
-    "training_code_revision": "tabular-ridge-v1",
-    "dataset_profile_id": "sha256:7c5f0fa3471344e3960c6140124be38d5bf6c9006249a3aa988686542030e596"
+    "feature_dataset_id": "sha256:5ef48d0b87a5556644697bbc8029a7d91e9b92ff3ee7b9d5d54ed45a670cb328",
+    "training_code_revision": "tabular-ridge-crossfit-coverage-v2",
+    "dataset_profile_id": "sha256:561d8ddd3f9f4d34a5ac35a8c1619f937d831bc4f934843d5ae4e0f1f1934803"
   },
   "artifacts": [
     {
@@ -94,8 +94,8 @@
     },
     {
       "path": "reference/curation-recipe.json",
-      "sha256": "f5b2eb4cda9f4d8fc20b179ca4a2d6bdefe35154b166e6c31b87b677bf1064dd",
-      "bytes": 2689
+      "sha256": "04e01ec1181f3bf7b3e7c8d6f0082be5b32ffbcf80517ef1ce0279d13b046baf",
+      "bytes": 4309
     },
     {
       "path": "model-artifacts/TYS.npz",
@@ -104,13 +104,13 @@
     },
     {
       "path": "reference/training_stats.json",
-      "sha256": "275e0b2dd9c60f1a2f177131101bb257fe1b3fe89efe9f5642f7574d29ac77b3",
-      "bytes": 257
+      "sha256": "83f63288e7d8c20a65050befbf70dac6be63a4f5a31b14f5139b913db7d428d7",
+      "bytes": 256
     },
     {
       "path": "reports/quality-report.json",
-      "sha256": "efe0efcf94ae98014ccd056de548ef335270fe4bf8f73948d902ea0f4b132b71",
-      "bytes": 310
+      "sha256": "1f12d7a36fe3f27f0f259773ad2801993cf1719828467971b2dcfaaba57fe9a8",
+      "bytes": 429
     },
     {
       "path": "smoke/input.json",

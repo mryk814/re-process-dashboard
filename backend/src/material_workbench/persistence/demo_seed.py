@@ -17,7 +17,8 @@ def initialize_demo_projects(
 ) -> None:
     for task_id, module in modules.items():
         starter = module.starter_project
-        if starter is None:
+        runtime = runtimes.get(task_id)
+        if starter is None or runtime is None:
             continue
         project_existed = store.get_project(starter.project_id) is not None
         store.ensure_project(
@@ -27,5 +28,5 @@ def initialize_demo_projects(
         should_seed = seed_candidates or (not project_existed and starter.seed_on_upgrade)
         if not should_seed or store.list_candidates(starter.project_id):
             continue
-        for candidate in starter.candidate_factory(runtimes[task_id].data.medians):
+        for candidate in starter.candidate_factory(runtime.data.medians):
             store.create_candidate(candidate, starter.project_id)

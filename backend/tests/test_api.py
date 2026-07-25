@@ -415,13 +415,13 @@ def test_archived_copy_source_remains_resolvable(client) -> None:
     assert copied.status_code == 201
 
 
-def test_electron_file_origin_is_allowed_without_credentials(client) -> None:
+def test_file_origin_is_rejected_without_desktop_launch_token(client) -> None:
     response = client.options(
         "/api/health",
         headers={"Origin": "null", "Access-Control-Request-Method": "GET"},
     )
-    assert response.status_code == 200
-    assert response.headers["access-control-allow-origin"] == "null"
+    assert response.status_code == 403
+    assert "access-control-allow-origin" not in response.headers
 
 
 def test_local_web_origin_allows_parallel_development_ports(client) -> None:

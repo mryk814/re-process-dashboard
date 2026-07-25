@@ -6,12 +6,14 @@ from fastapi.responses import JSONResponse
 
 from material_workbench.contracts.schemas import ApiError, Candidate
 from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolutionError
+from material_workbench.tasks.task_registry import TaskUnavailableError
 
 
 PROJECT_API_ERRORS = {
     404: {"model": ApiError, "description": "Not Found"},
     409: {"model": ApiError, "description": "Conflict"},
     422: {"model": ApiError, "description": "Validation Error"},
+    503: {"model": ApiError, "description": "Task Runtime Unavailable"},
 }
 
 
@@ -32,6 +34,14 @@ class DomainApiException(Exception):
 
 
 def install_exception_handlers(app: FastAPI) -> None:
+    @app.exception_handler(TaskUnavailableError)
+    async def task_unavailable_error(_: Request, exc: TaskUnavailableError) -> JSONResponse:
+        payload = ApiError(code="runtime_unavailable", message=str(exc))
+        return JSONResponse(
+            status_code=503,
+            content=payload.model_dump(mode="json", exclude={"current_candidate"}),
+        )
+
     @app.exception_handler(ProjectRuntimeResolutionError)
     async def project_runtime_error(_: Request, exc: ProjectRuntimeResolutionError) -> JSONResponse:
         payload = ApiError(code="runtime_unavailable", message=str(exc))

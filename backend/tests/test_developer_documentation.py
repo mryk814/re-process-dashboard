@@ -22,6 +22,14 @@ def test_developer_start_here_links_to_contracts_and_recipes() -> None:
     assert "npm run api:generate" in source
 
 
+def test_tutorial_pipeline_links_to_the_packaged_profile() -> None:
+    source = (ROOT / "docs" / "tutorial-data-pipeline.md").read_text(encoding="utf-8")
+    profile = ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-tutorial.json"
+
+    assert profile.is_file()
+    assert "../backend/src/material_workbench/data/dataset-input-profile-tutorial.json" in source
+
+
 def test_prediction_task_skill_uses_task_module_as_the_single_registration_point() -> None:
     source = (ROOT / ".claude" / "skills" / "add-prediction-task" / "SKILL.md").read_text(encoding="utf-8")
     assert "`TaskModule` entry" in source

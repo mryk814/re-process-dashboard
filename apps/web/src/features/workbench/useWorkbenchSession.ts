@@ -63,7 +63,9 @@ export function useWorkbenchSession({
   const selected = candidates.find((candidate) => candidate.id === selectedId);
   const activeProject = projects.find((project) => project.id === activeProjectId);
   const taskId = taskDefinition?.id ?? activeProject?.task_id ?? "";
-  const operations = resolvedTaskDefinition?.runtime_capability.operations;
+  const taskAvailability = resolvedTaskDefinition?.availability;
+  const taskAvailable = taskAvailability?.status !== "unavailable";
+  const operations = taskAvailable ? resolvedTaskDefinition?.runtime_capability.operations : undefined;
   const prediction = useWorkbenchPrediction({
     projectId: activeProjectId,
     taskId,
@@ -142,13 +144,19 @@ export function useWorkbenchSession({
     prediction.reset();
     setApiState("ready");
     setNotice(
-      requestedCandidateMissing
+      resolved.availability.status === "unavailable"
+        ? resolved.availability.message
+        : requestedCandidateMissing
         ? "参照元の候補は削除済みか、このプロジェクトから参照できません"
         : imported.length
           ? ""
           : "候補がありません。過去条件または新規入力から追加できます",
     );
-    if (!imported.length || !resolved.runtime_capability.operations.preview) return;
+    if (
+      resolved.availability.status === "unavailable"
+      || !imported.length
+      || !resolved.runtime_capability.operations.preview
+    ) return;
     const activeCandidates = imported.filter((candidate) => !candidate.raw.archived_at);
     const selectedCandidate = activeCandidates.find((candidate) => candidate.id === nextSelectedId);
     const initialPreviewCandidates = [
@@ -562,6 +570,7 @@ export function useWorkbenchSession({
     selectCandidate,
     setNotice,
     taskDefinition,
+    taskAvailability,
     updateCandidateInput,
     updateCandidateHeatTimeBasis,
     updateCandidateHeat,

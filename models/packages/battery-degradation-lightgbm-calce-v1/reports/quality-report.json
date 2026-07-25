@@ -6,9 +6,11 @@
     {
       "target": "capacity_percent",
       "parent_conditions": 4,
-      "mae": 2.314910702840298,
-      "rmse": 3.3698435515370475,
-      "interval_coverage_90": 0.9211114659853082
+      "mae": 2.4065540610668448,
+      "rmse": 3.5738805638975113,
+      "interval_coverage_90": 0.912488022995848,
+      "interval_coverage_method": "cross-fitted-oof-normal-scale",
+      "interval_coverage_observations": 3131
     }
   ]
 }

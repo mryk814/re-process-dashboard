@@ -60,17 +60,54 @@ def _predict(x: np.ndarray, fitted: tuple[np.ndarray, np.ndarray, np.ndarray]) -
 
 def _grouped_oof(
     x: np.ndarray, y: np.ndarray, groups: list[str], ridge: float = 1.0
-) -> tuple[np.ndarray, int]:
+) -> tuple[np.ndarray, np.ndarray, int]:
     unique = sorted(set(groups))
     folds = min(5, len(unique))
     if folds < 2:
         raise ValueError("At least two independent groups are required")
     assignment = {group: index % folds for index, group in enumerate(unique)}
+    fold_ids = np.asarray([assignment[group] for group in groups])
     residuals = np.empty(len(y))
     for fold in range(folds):
-        test = np.asarray([assignment[group] == fold for group in groups])
+        test = fold_ids == fold
         residuals[test] = y[test] - _predict(x[test], _fit(x[~test], y[~test], ridge))
-    return residuals, folds
+    return residuals, fold_ids, folds
+
+
+def _cross_fitted_quantile_coverage(
+    residuals: np.ndarray,
+    fold_ids: np.ndarray,
+) -> float:
+    covered = np.zeros(len(residuals), dtype=bool)
+    for calibrate, evaluate in _cross_fit_masks(fold_ids):
+        lower, upper = np.quantile(residuals[calibrate], (0.05, 0.95))
+        covered[evaluate] = (
+            (residuals[evaluate] >= lower) & (residuals[evaluate] <= upper)
+        )
+    return float(np.mean(covered))
+
+
+def _cross_fitted_normal_coverage(
+    residuals: np.ndarray,
+    fold_ids: np.ndarray,
+) -> float:
+    z90 = 1.6448536269514722
+    covered = np.zeros(len(residuals), dtype=bool)
+    for calibrate, evaluate in _cross_fit_masks(fold_ids):
+        residual_std = max(
+            float(np.sqrt(np.mean(residuals[calibrate] ** 2))),
+            1e-6,
+        )
+        covered[evaluate] = np.abs(residuals[evaluate]) <= z90 * residual_std
+    return float(np.mean(covered))
+
+
+def _cross_fit_masks(fold_ids: np.ndarray) -> list[tuple[np.ndarray, np.ndarray]]:
+    masks = []
+    for fold in np.unique(fold_ids):
+        evaluate = fold_ids == fold
+        masks.append((~evaluate, evaluate))
+    return masks
 
 
 def _lightgbm_parameters(monotone_constraints: list[int], seed: int) -> dict[str, object]:
@@ -104,7 +141,8 @@ def _lightgbm_grouped_fit(
     y: np.ndarray,
     groups: list[str],
     monotone_constraints: list[int],
-) -> tuple[object, np.ndarray, int]:
+    num_boost_round: int,
+) -> tuple[object, np.ndarray, np.ndarray, int]:
     import lightgbm as lgb
 
     unique = sorted(set(groups))
@@ -112,29 +150,25 @@ def _lightgbm_grouped_fit(
     if folds < 2:
         raise ValueError("At least two independent groups are required")
     assignment = {group: index % folds for index, group in enumerate(unique)}
+    fold_ids = np.asarray([assignment[group] for group in groups])
     oof = np.empty(len(y))
-    rounds: list[int] = []
     for fold in range(folds):
-        test = np.asarray([assignment[group] == fold for group in groups])
+        test = fold_ids == fold
         train = ~test
         booster = lgb.train(
             _lightgbm_parameters(monotone_constraints, 20260724 + fold),
             lgb.Dataset(x[train], label=y[train], free_raw_data=False),
-            num_boost_round=600,
-            valid_sets=[lgb.Dataset(x[test], label=y[test], free_raw_data=False)],
-            callbacks=[lgb.early_stopping(50, verbose=False), lgb.log_evaluation(0)],
+            num_boost_round=num_boost_round,
+            callbacks=[lgb.log_evaluation(0)],
         )
-        iteration = max(int(booster.best_iteration), 1)
-        rounds.append(iteration)
-        oof[test] = booster.predict(x[test], num_iteration=iteration)
-    final_rounds = max(int(np.median(rounds)), 40)
+        oof[test] = booster.predict(x[test], num_iteration=num_boost_round)
     final = lgb.train(
         _lightgbm_parameters(monotone_constraints, 20260724),
         lgb.Dataset(x, label=y),
-        num_boost_round=final_rounds,
+        num_boost_round=num_boost_round,
         callbacks=[lgb.log_evaluation(0)],
     )
-    return final, y - oof, folds
+    return final, y - oof, fold_ids, folds
 
 
 def _binary_parameters(seed: int) -> dict[str, object]:
@@ -200,6 +234,7 @@ def _calibrate_binary(
 def _lightgbm_binary_fit(
     x: np.ndarray,
     y: np.ndarray,
+    num_boost_round: int,
 ) -> tuple[object, np.ndarray, int, tuple[float, float]]:
     import lightgbm as lgb
 
@@ -208,26 +243,25 @@ def _lightgbm_binary_fit(
     folds = 5
     assignment = _stratified_folds(y, folds)
     oof = np.empty(len(y))
-    rounds: list[int] = []
     for fold in range(folds):
         test = assignment == fold
         train = ~test
         booster = lgb.train(
             _binary_parameters(20260725 + fold),
             lgb.Dataset(x[train], label=y[train], free_raw_data=False),
-            num_boost_round=500,
-            valid_sets=[lgb.Dataset(x[test], label=y[test], free_raw_data=False)],
-            callbacks=[lgb.early_stopping(50, verbose=False), lgb.log_evaluation(0)],
+            num_boost_round=num_boost_round,
+            callbacks=[lgb.log_evaluation(0)],
         )
-        iteration = max(int(booster.best_iteration), 1)
-        rounds.append(iteration)
-        oof[test] = booster.predict(x[test], num_iteration=iteration)
+        oof[test] = booster.predict(x[test], num_iteration=num_boost_round)
     calibration = _fit_platt(oof, y)
-    calibrated_oof = _calibrate_binary(oof, calibration)
+    calibrated_oof = np.empty(len(y))
+    for calibrate, evaluate in _cross_fit_masks(assignment):
+        calibrator = _fit_platt(oof[calibrate], y[calibrate])
+        calibrated_oof[evaluate] = _calibrate_binary(oof[evaluate], calibrator)
     final = lgb.train(
         _binary_parameters(20260725),
         lgb.Dataset(x, label=y),
-        num_boost_round=max(int(np.median(rounds)), 40),
+        num_boost_round=num_boost_round,
         callbacks=[lgb.log_evaluation(0)],
     )
     return final, calibrated_oof, folds, calibration
@@ -305,8 +339,13 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
         x = np.vstack([bundle.values for bundle in target_bundles])
         groups = [str(row["parent_key"]) for row in target_rows]
         y = np.asarray([float(row["outputs"][output.key]) for row in target_rows])
+        coverage_method = None
+        coverage_observations = None
         if profile.model_family == "lightgbm_binary":
-            fitted, oof_probability, folds, calibration = _lightgbm_binary_fit(x, y)
+            assert profile.num_boost_round is not None
+            fitted, oof_probability, folds, calibration = _lightgbm_binary_fit(
+                x, y, profile.num_boost_round
+            )
             residuals = y - oof_probability
             artifact_path = artifact_dir / f"{output.key}.txt"
             fitted.save_model(str(artifact_path))
@@ -331,8 +370,10 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
                     "training_unit": "independent source row",
                     "validation": f"{folds}-fold stratified",
                     "source_profile": profile.profile_id,
+                    "num_boost_round": profile.num_boost_round,
                     "calibration": {
                         "method": "out-of-fold Platt scaling",
+                        "quality_evaluation": "cross-fitted out-of-fold Platt scaling",
                         "intercept": calibration[0],
                         "slope": calibration[1],
                     },
@@ -356,12 +397,17 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
             }
             lower, upper = -1.0, 1.0
         elif profile.model_family == "lightgbm_monotone":
+            assert profile.num_boost_round is not None
             monotone_constraints = [
                 -1 if name in profile.monotone_decreasing_paths else 0
                 for name in feature_names
             ]
-            fitted, residuals, folds = _lightgbm_grouped_fit(
-                x, y, groups, monotone_constraints
+            fitted, residuals, fold_ids, folds = _lightgbm_grouped_fit(
+                x,
+                y,
+                groups,
+                monotone_constraints,
+                profile.num_boost_round,
             )
             residual_std = max(float(np.sqrt(np.mean(residuals ** 2))), 1e-6)
             artifact_path = artifact_dir / f"{output.key}.txt"
@@ -383,14 +429,20 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
                     "training_unit": "source_row_grouped_by_parent",
                     "validation": f"{folds}-fold grouped by {profile.group_column}",
                     "source_profile": profile.profile_id,
+                    "num_boost_round": profile.num_boost_round,
                     "residual_std": residual_std,
                     "monotone_decreasing_paths": list(profile.monotone_decreasing_paths),
                 },
             }
             z90 = 1.6448536269514722
             lower, upper = -z90 * residual_std, z90 * residual_std
+            coverage = _cross_fitted_normal_coverage(residuals, fold_ids)
+            coverage_method = "cross-fitted-oof-normal-scale"
+            coverage_observations = len(residuals)
         else:
-            residuals, folds = _grouped_oof(x, y, groups, profile.ridge_alpha)
+            residuals, fold_ids, folds = _grouped_oof(
+                x, y, groups, profile.ridge_alpha
+            )
             fitted = _fit(x, y, profile.ridge_alpha)
             predict_by_target[output.key] = (
                 lambda values, model=fitted: _predict(values, model)
@@ -428,6 +480,9 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
                     "ridge_alpha": profile.ridge_alpha,
                 },
             }
+            coverage = _cross_fitted_quantile_coverage(residuals, fold_ids)
+            coverage_method = "cross-fitted-oof-residual-quantiles"
+            coverage_observations = len(residuals)
         files.append(artifact_path)
         records[output.key] = len(y)
         metrics.append(TargetQualityMetric(
@@ -438,8 +493,10 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
             interval_coverage_90=(
                 0.0
                 if profile.model_family == "lightgbm_binary"
-                else float(np.mean((residuals >= lower) & (residuals <= upper)))
+                else coverage
             ),
+            interval_coverage_method=coverage_method,
+            interval_coverage_observations=coverage_observations,
         ))
         predictors.append(predictor)
 
@@ -475,7 +532,7 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
         classification_path.write_text(json.dumps({
             "schema_version": "classification-diagnostics/v1",
             "split": "stratified-k-fold",
-            "calibration": "out-of-fold Platt scaling",
+            "calibration": "cross-fitted out-of-fold Platt scaling for quality evaluation",
             "targets": classification_metrics,
             "notes": [
                 "The model uses 12 sensors selected for stability across stratified training folds.",
@@ -525,11 +582,11 @@ def _build(source: Path, profile_path: Path, destination: Path) -> None:
             "training_data_id": f"sha256:{data.source_sha256}",
             "feature_dataset_id": canonical_training_dataset_digest(canonical),
             "training_code_revision": (
-                "tabular-lightgbm-binary-calibrated-v1"
+                "tabular-lightgbm-binary-crossfit-v2"
                 if profile.model_family == "lightgbm_binary"
-                else "tabular-lightgbm-monotone-v1"
+                else "tabular-lightgbm-monotone-fixed-round-v2"
                 if profile.model_family == "lightgbm_monotone"
-                else "tabular-ridge-v1"
+                else "tabular-ridge-crossfit-coverage-v2"
             ),
             "dataset_profile_id": dataset_profile_digest(profile),
         },

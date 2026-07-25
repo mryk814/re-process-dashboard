@@ -8,7 +8,7 @@
 切削逃げ面摩耗は専用ローダーが `dataset-input-profile-flank-wear-v1.json` を選択します。
 プロファイルを明示する場合は、`load_workbook_data(..., profile_path=...)` または検証コマンドの `--profile` を使います。
 
-本番タスクの契約は `backend/src/material_workbench/task_definitions/` に置きます。
+本番タスクの契約は `backend/src/material_workbench/tasks/task_definitions/` に置きます。
 起動時にバックエンドがプロファイルと各本番用 `TaskDefinition` の整合性を検証し、モデルとデータベースを初期化する前にワークブックを事前検証します。
 
 ```text
@@ -80,13 +80,13 @@ LSは `焼鈍条件-3CGL` から取得しますが、キャッシュ済みの数
 新しい物理量や科学的な量を既存の本番タスクへ無理に組み込みません。
 次の縦一式を新しく追加します。
 
-1. `backend/src/material_workbench/task_definitions/<task-id>.json` を追加します。入力グループ、単位、編集範囲、許容範囲、学習範囲、出力対象、制約、実行能力を定義し、ファイル名をタスクIDと一致させます。
-2. `backend/src/material_workbench/dataset-input-profile-<flow>.json` に新しいプロファイルを追加します。`task_definition_ids` には、そのフローが実際に対応するタスクだけを指定します。共有するエンティティ契約とリレーション契約が本当に同じ場合だけ `extends` を使い、それ以外は独立したプロファイルを作ります。
+1. `backend/src/material_workbench/tasks/task_definitions/<task-id>.json` を追加します。入力グループ、単位、編集範囲、許容範囲、学習範囲、出力対象、制約、実行能力を定義し、ファイル名をタスクIDと一致させます。
+2. `backend/src/material_workbench/data/dataset-input-profile-<flow>.json` に新しいプロファイルを追加します。`task_definition_ids` には、そのフローが実際に対応するタスクだけを指定します。共有するエンティティ契約とリレーション契約が本当に同じ場合だけ `extends` を使い、それ以外は独立したプロファイルを作ります。
 3. 新しいパイプラインIDとバージョンを持つ特徴量パイプラインモジュールを追加するか、既存モジュールを拡張します。元のソース列、アプリ共通入力（canonical input）、派生特徴量は個別に確認できる状態を保ちます。列数が偶然同じという理由だけで、古い特徴量ベクトルを再利用しません。
 4. 許可リストへ登録した実行環境とモデルアダプター、またはタスク専用の実行環境を追加します。新しいタスクID、入力契約ダイジェスト、プロファイルダイジェスト、特徴量パイプラインのバージョン、ソースダイジェスト、出力対象をmanifestへ記録したModel Packageを構築します。
 5. 対象を絞った契約テスト、特徴量ゴールデン、ソース事前検証、Packageスモーク、APIまたはE2Eテストを1本追加します。すべて通過した後で、そのタスクのPackageを `models/active-packages.json` に追加します。
 
-現在のアプリには、本番用TaskModuleが3つあります。
+現在の本番用TaskModule一覧は [生成済みTask inventory](task-inventory.json) を参照します。
 新しいタスクでは、`task_modules.py` の許可リストへ明示的なエントリーを一つ追加します。
 起動、Package検証、モデル処理、ソースとプロファイルの選択、能力宣言、生成済みインベントリは、すべてこのエントリーから解決します。
 プロファイルとTaskDefinitionだけを追加して、未対応タスクを実行可能に見せてはいけません。
@@ -98,7 +98,7 @@ LSは `焼鈍条件-3CGL` から取得しますが、キャッシュ済みの数
 
 ```powershell
 uv run python backend/scripts/verify_dataset_source.py data/source/material_workbench_process_v1.xlsx
-uv run python backend/scripts/verify_dataset_source.py path/to/new-source.xlsx --profile backend/src/material_workbench/dataset-input-profile-new.json --json
+uv run python backend/scripts/verify_dataset_source.py path/to/new-source.xlsx --profile backend/src/material_workbench/data/dataset-input-profile-new.json --json
 ```
 
 ### Profile Workbench
@@ -107,15 +107,15 @@ uv run python backend/scripts/verify_dataset_source.py path/to/new-source.xlsx -
 
 ```powershell
 uv run python backend/scripts/profile_workbench.py inspect path/to/new-source.xlsx
-uv run python backend/scripts/profile_workbench.py inspect path/to/new-source.xlsx --profile backend/src/material_workbench/dataset-input-profile-new.json
-uv run python backend/scripts/profile_workbench.py validate path/to/new-source.xlsx --profile backend/src/material_workbench/dataset-input-profile-new.json
+uv run python backend/scripts/profile_workbench.py inspect path/to/new-source.xlsx --profile backend/src/material_workbench/data/dataset-input-profile-new.json
+uv run python backend/scripts/profile_workbench.py validate path/to/new-source.xlsx --profile backend/src/material_workbench/data/dataset-input-profile-new.json
 ```
 
 Profileが確定したら、元Excelを変更せずmanaged libraryへ内容ハッシュ単位でコピーし、Data Asset、Profile Revision、Dataset Revision、単一Dataset Viewをまとめて登録します。
 
 ```powershell
 uv run python backend/scripts/profile_workbench.py register path/to/new-source.xlsx `
-  --profile backend/src/material_workbench/dataset-input-profile-new.json `
+  --profile backend/src/material_workbench/data/dataset-input-profile-new.json `
   --database path/to/workspace.db `
   --library path/to/data-library
 ```

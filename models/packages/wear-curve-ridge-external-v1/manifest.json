@@ -83,15 +83,16 @@
       "config": {
         "training_unit": "source_row",
         "validation": "5-fold grouped by run_id",
-        "source_profile": "external-wear-curve-v1"
+        "source_profile": "external-wear-curve-v1",
+        "ridge_alpha": 1.0
       }
     }
   ],
   "provenance": {
     "training_data_id": "sha256:d5f5ed40f99af0c9d632c8d86c2d5bd01e90afa86e19487953b0b697245d303a",
-    "feature_dataset_id": "sha256:48ae62d99e8ac2bf14f82414f21748c093eb237376bbf8b3885d935e8f3b4a99",
-    "training_code_revision": "tabular-ridge-v1",
-    "dataset_profile_id": "sha256:2f39e18b5627563bee2c7c9ea5bb72b39f83068abe7cdcbff4fc855cded0c65e"
+    "feature_dataset_id": "sha256:561fa82201d1f9b06453f6b6dd0eccec7d0622aa2c326864fd5e3397f63df451",
+    "training_code_revision": "tabular-ridge-crossfit-coverage-v2",
+    "dataset_profile_id": "sha256:7b589043296910aa3087058a27bb0969d57e50aa0cb23c6b29e8362e25dd0570"
   },
   "artifacts": [
     {
@@ -106,13 +107,13 @@
     },
     {
       "path": "reference/training_stats.json",
-      "sha256": "21ef8543d03418551a80034674bd39e88494a72d8b0c0cab86a1a6b40921bea7",
-      "bytes": 167
+      "sha256": "ce57ae23fb4678efccf986da7c04a3bf66ce4fb5cdcbae0e26497bb699f52669",
+      "bytes": 268
     },
     {
       "path": "reports/quality-report.json",
-      "sha256": "70598bf2e3f2deb4dad4bacce36e5f81aeb104a9d2d06e4d06827feb8ea66b0d",
-      "bytes": 302
+      "sha256": "f4c1dce34863375e814da1cff52f0e7f11559c3b1160bc07d3de2d716b1a5986",
+      "bytes": 437
     },
     {
       "path": "smoke/input.json",

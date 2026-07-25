@@ -202,7 +202,7 @@ def test_alternate_verified_package_needs_no_api_change_and_snapshot_keeps_old_i
         assert old_hash == current["manifest_sha256"]
 
 
-def test_app_startup_rejects_package_trained_from_a_different_source(
+def test_app_startup_disables_only_package_trained_from_a_different_source(
     tmp_path: Path,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -217,18 +217,16 @@ def test_app_startup_rejects_package_trained_from_a_different_source(
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
     app = create_app(DEFAULT_SOURCE, tmp_path / "workbench.db", package_roots={"hot-rolled-properties-v1": package})
-    with pytest.raises(PackageContractError, match="training data digest"):
-        with TestClient(app):
-            pass
-    marker = next(
-        record.message
-        for record in caplog.records
-        if "WORKBENCH_STARTUP_ERROR" in record.message
-    )
-    diagnosis = json.loads(marker.split("WORKBENCH_STARTUP_ERROR ", 1)[1])
-    assert diagnosis["stage"] == "resources"
-    assert diagnosis["error_type"] == "PackageContractError"
-    assert "training data digest" in diagnosis["detail"]
+    with TestClient(app) as client:
+        health = client.get("/api/health").json()
+        availability = health["tasks"]["hot-rolled-properties-v1"]["availability"]
+        assert health["degraded"] is True
+        assert availability["status"] == "unavailable"
+        assert "training data digest" in availability["message"]
+        assert health["tasks"]["annealed-properties-v1"]["availability"]["status"] == "available"
+    assert not [
+        record for record in caplog.records if "WORKBENCH_STARTUP_ERROR" in record.message
+    ]
 
 
 def test_process_source_and_packages_start_and_predict_through_the_api(tmp_path: Path) -> None:

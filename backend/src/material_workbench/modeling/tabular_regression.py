@@ -186,6 +186,7 @@ class TabularDatasetProfile(BaseModel):
     interaction_axis_path: str | None = None
     model_family: Literal["ridge", "lightgbm_monotone", "lightgbm_binary"] = "ridge"
     ridge_alpha: float = Field(default=1.0, gt=0)
+    num_boost_round: int | None = Field(default=None, ge=1)
     monotone_decreasing_paths: tuple[str, ...] = ()
     inputs: tuple[TabularInput, ...] = Field(min_length=1)
     outputs: tuple[TabularOutput, ...] = Field(min_length=1)
@@ -221,6 +222,8 @@ class TabularDatasetProfile(BaseModel):
             raise ValueError("only lightgbm_monotone accepts monotone_decreasing_paths")
         if self.model_family != "ridge" and self.ridge_alpha != 1:
             raise ValueError("ridge_alpha is only valid for ridge")
+        if (self.model_family.startswith("lightgbm")) != (self.num_boost_round is not None):
+            raise ValueError("LightGBM profiles require a fixed num_boost_round")
         if self.curation_recipe is not None:
             declared = set(self.curation_recipe.columns)
             required = {
@@ -774,11 +777,19 @@ def load_tabular_data(
 class TabularRegressionRuntime:
     support_policy_id = "tabular-row-knn-v1"
 
-    def __init__(self, data: TabularData, package_root: str | Path) -> None:
+    def __init__(
+        self,
+        data: TabularData,
+        package_root: str | Path | VerifiedModelPackage,
+    ) -> None:
         self.data = data
         self.profile = data.profile
         self.task_id = data.profile.task_id
-        self.model_package: VerifiedModelPackage = ModelPackageLoader().load(package_root)
+        self.model_package = (
+            package_root
+            if isinstance(package_root, VerifiedModelPackage)
+            else ModelPackageLoader().load(package_root)
+        )
         manifest = self.model_package.manifest
         definition = load_task_definitions()[self.task_id]
         validate_task_definition_canonical_inputs(definition, manifest)

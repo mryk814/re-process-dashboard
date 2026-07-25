@@ -53,6 +53,13 @@ function chartDigits(min: number, max: number) {
   return 0;
 }
 
+const MAX_SCREENING_SEED = 2_147_483_647;
+
+function nextScreeningSeed(current: number) {
+  const value = crypto.getRandomValues(new Uint32Array(1))[0] % (MAX_SCREENING_SEED + 1);
+  return value === current ? (value + 1) % (MAX_SCREENING_SEED + 1) : value;
+}
+
 type GoalEvaluation = ApiScreeningRun["points"][number]["goal_evaluation"];
 
 function goalEvaluationLabel(evaluation: GoalEvaluation, primary: boolean) {
@@ -62,13 +69,6 @@ function goalEvaluationLabel(evaluation: GoalEvaluation, primary: boolean) {
   if (evaluation.achieved === true) return primary ? "選別基準を満たす" : "副条件を満たす";
   if (evaluation.achieved === false) return primary ? "選別基準を満たさない" : "副条件を満たさない";
   return "達成判定なし";
-}
-
-const MAX_SCREENING_SEED = 2_147_483_647;
-
-function nextScreeningSeed(current: number) {
-  const value = crypto.getRandomValues(new Uint32Array(1))[0] % (MAX_SCREENING_SEED + 1);
-  return value === current ? (value + 1) % (MAX_SCREENING_SEED + 1) : value;
 }
 
 function outputGoalDirection(direction: string | undefined): ScreeningGoalDirection {

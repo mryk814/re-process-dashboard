@@ -40,7 +40,8 @@
         "training_unit": "source_row_grouped_by_parent",
         "validation": "4-fold grouped by cell_id",
         "source_profile": "calce-cs2-battery-capacity-v1",
-        "residual_std": 3.3698435515370475,
+        "num_boost_round": 200,
+        "residual_std": 3.5738805638975113,
         "monotone_decreasing_paths": [
           "process.cycle_index"
         ]
@@ -49,9 +50,9 @@
   ],
   "provenance": {
     "training_data_id": "sha256:bd2ab1b43b826c2376d3c692b264b34f886ab7bfdfb23ce81421a1c07bd45cc3",
-    "feature_dataset_id": "sha256:222e9c9243f2ed4d952717fddebc5d78e57b57e4269a9e839309dd3aa4399d44",
-    "training_code_revision": "tabular-lightgbm-monotone-v1",
-    "dataset_profile_id": "sha256:680730fdf2c8d73c8942ee9ad02962ea72e11256df5b48cf1ebe508f1b7ce934"
+    "feature_dataset_id": "sha256:7e952664c273c3a4d7c7e25e9b5bf35cafab0cf817cd80f5c22ec7edd9acbb92",
+    "training_code_revision": "tabular-lightgbm-monotone-fixed-round-v2",
+    "dataset_profile_id": "sha256:fa27ccdf66c4885d86b3ca7e4504f268862fcb3ce9c4e637b8e13d17564e36de"
   },
   "artifacts": [
     {
@@ -61,8 +62,8 @@
     },
     {
       "path": "model-artifacts/capacity_percent.txt",
-      "sha256": "dc9e3a9360672519bc4bc4ca0915c2630a7109abaadbbfbff5e30513896d4833",
-      "bytes": 261197
+      "sha256": "9e8820ed86d7210f1e04ac0d7362fc8acd83a3f940573e2fd0b774de7d469d6c",
+      "bytes": 258234
     },
     {
       "path": "reference/training_stats.json",
@@ -71,8 +72,8 @@
     },
     {
       "path": "reports/quality-report.json",
-      "sha256": "6b6f2128609f652aa243903229d000b9e222030871224b1ee8acaa28be4abfde",
-      "bytes": 323
+      "sha256": "974bf21c84f3a25afc953730d232c86432152de5f2ca920c41b1bed9383cac85",
+      "bytes": 436
     },
     {
       "path": "smoke/input.json",
@@ -81,7 +82,7 @@
     },
     {
       "path": "smoke/expected.json",
-      "sha256": "9797154d9bc010fd492b7657e861a8acbbcd8c868e8fe6ae91030edb9a23ee2d",
+      "sha256": "c3c1158be38274a538c4595c194d0e2fc10ece124c91e51c7714679478d8dbe8",
       "bytes": 37
     }
   ],

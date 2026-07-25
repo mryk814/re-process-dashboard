@@ -5,16 +5,9 @@
   "targets": {
     "EL": {
       "folds": 5,
-      "fold_best_iterations": [
-        1,
-        1,
-        1,
-        1,
-        1
-      ],
-      "final_iterations": 20,
+      "num_boost_round": 50,
       "residual_std": 3.9279927423719845,
-      "calibration": "deterministic_grouped_parent_condition_oof",
+      "calibration": "cross-fitted_grouped_parent_condition_oof",
       "parameters": {
         "objective": "regression_l2",
         "metric": "l2",
@@ -42,16 +35,9 @@
     },
     "TS": {
       "folds": 5,
-      "fold_best_iterations": [
-        1,
-        1,
-        1,
-        1,
-        1
-      ],
-      "final_iterations": 20,
+      "num_boost_round": 50,
       "residual_std": 51.918099422253974,
-      "calibration": "deterministic_grouped_parent_condition_oof",
+      "calibration": "cross-fitted_grouped_parent_condition_oof",
       "parameters": {
         "objective": "regression_l2",
         "metric": "l2",
@@ -79,16 +65,9 @@
     },
     "YS": {
       "folds": 5,
-      "fold_best_iterations": [
-        1,
-        1,
-        1,
-        1,
-        1
-      ],
-      "final_iterations": 20,
+      "num_boost_round": 50,
       "residual_std": 52.433648547473794,
-      "calibration": "deterministic_grouped_parent_condition_oof",
+      "calibration": "cross-fitted_grouped_parent_condition_oof",
       "parameters": {
         "objective": "regression_l2",
         "metric": "l2",
@@ -116,16 +95,9 @@
     },
     "lambda": {
       "folds": 5,
-      "fold_best_iterations": [
-        1,
-        1,
-        1,
-        1,
-        1
-      ],
-      "final_iterations": 20,
+      "num_boost_round": 50,
       "residual_std": 13.375052291842593,
-      "calibration": "deterministic_grouped_parent_condition_oof",
+      "calibration": "cross-fitted_grouped_parent_condition_oof",
       "parameters": {
         "objective": "regression_l2",
         "metric": "l2",

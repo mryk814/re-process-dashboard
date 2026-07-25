@@ -661,7 +661,9 @@ def test_process_accepts_parent_without_history_or_derivable_measurement_series(
     assert ("annealing", "AN-00001") not in canonical.heat_series
 
 
-def test_invalid_workbook_stops_before_runtime_and_database_initialization(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_invalid_workbook_disables_affected_tasks_before_their_runtime_initialization(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     workbook = Workbook()
     source = tmp_path / "invalid.xlsx"
     workbook.save(source)
@@ -675,13 +677,18 @@ def test_invalid_workbook_stops_before_runtime_and_database_initialization(tmp_p
 
     guarded_modules = {
         task_id: replace(module, runtime_factory=forbidden_runtime)
+        if module.source_kind == "primary"
+        else module
         for task_id, module in registered_task_modules().items()
     }
     monkeypatch.setattr("material_workbench.app.registered_task_modules", lambda: guarded_modules)
     app = create_app(source, database)
-    with pytest.raises(DatasetProfileError):
-        with TestClient(app):
-            pass
+    with TestClient(app) as client:
+        health = client.get("/api/health").json()
+        assert health["degraded"] is True
+        assert health["tasks"]["annealed-properties-v1"]["availability"]["stage"] == "source"
+        assert health["tasks"]["hot-rolled-properties-v1"]["availability"]["stage"] == "source"
+        assert health["tasks"]["flank-wear-v1"]["availability"]["status"] == "available"
 
     assert runtime_called is False
-    assert not database.exists()
+    assert database.exists()

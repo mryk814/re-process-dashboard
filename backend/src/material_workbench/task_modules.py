@@ -86,7 +86,7 @@ ResponseCurveHandler = Callable[
 ]
 CurveFamilyHandler = Callable[[PredictionRuntime, Candidate, str, str | None, int, int], dict[str, Any]]
 DataLoader = Callable[[Path, DatasetInputProfile | None], DataDescriptor]
-RuntimeFactory = Callable[[DataDescriptor, Path], PredictionRuntime]
+RuntimeFactory = Callable[[DataDescriptor, VerifiedModelPackage], PredictionRuntime]
 FeatureRowBuilder = Callable[[dict[str, Any], dict[str, float]], Any]
 ModelBuilder = Callable[..., None]
 
@@ -196,25 +196,25 @@ def _tabular_loader(task_id: str) -> DataLoader:
     return load
 
 
-def _annealed_runtime(data: DataDescriptor, package: Path) -> PredictionRuntime:
+def _annealed_runtime(data: DataDescriptor, package: VerifiedModelPackage) -> PredictionRuntime:
     from material_workbench.modeling.runtime import ModelRuntime
 
     return ModelRuntime(data, package_root=package)  # type: ignore[arg-type]
 
 
-def _hot_rolling_runtime(data: DataDescriptor, package: Path) -> PredictionRuntime:
+def _hot_rolling_runtime(data: DataDescriptor, package: VerifiedModelPackage) -> PredictionRuntime:
     from material_workbench.modeling.hot_rolling import HotRollingRuntime
 
     return HotRollingRuntime(data, package_root=package)  # type: ignore[arg-type]
 
 
-def _flank_wear_runtime(data: DataDescriptor, package: Path) -> PredictionRuntime:
+def _flank_wear_runtime(data: DataDescriptor, package: VerifiedModelPackage) -> PredictionRuntime:
     from material_workbench.modeling.flank_wear import FlankWearRuntime
 
     return FlankWearRuntime(data, package_root=package)  # type: ignore[arg-type]
 
 
-def _tabular_runtime(data: DataDescriptor, package: Path) -> PredictionRuntime:
+def _tabular_runtime(data: DataDescriptor, package: VerifiedModelPackage) -> PredictionRuntime:
     from material_workbench.modeling.tabular_regression import TabularRegressionRuntime
 
     return TabularRegressionRuntime(data, package)  # type: ignore[arg-type]

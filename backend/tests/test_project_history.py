@@ -1,5 +1,13 @@
 from __future__ import annotations
 
+import sqlite3
+
+import pytest
+
+from material_workbench.application.inference import InferenceService
+from material_workbench.contracts.schemas import ActualMeasurementInput
+from material_workbench.persistence.store import CandidateRevisionConflictError
+
 
 def _candidate_payload(source: dict, name: str) -> dict:
     return {
@@ -81,6 +89,84 @@ def test_project_history_includes_archived_candidates_actuals_and_decision(clien
         "snapshot_id": actual["snapshot_id"],
         "note": "採用理由",
     }
+
+
+def test_store_returns_the_actual_inserted_by_id(client) -> None:
+    store = client.app.state.store
+    candidate = client.get("/api/projects/default/candidates").json()[0]
+
+    first = store.create_snapshot_and_actual(
+        "default",
+        candidate["id"],
+        candidate["revision"],
+        {"snapshot_schema_version": "prediction-snapshot-v2", "marker": "first"},
+        ActualMeasurementInput(property="TS", mean=501, unit="MPa", experiment_no="EXP-1"),
+    )
+    second = store.create_snapshot_and_actual(
+        "default",
+        candidate["id"],
+        candidate["revision"],
+        {"snapshot_schema_version": "prediction-snapshot-v2", "marker": "second"},
+        ActualMeasurementInput(property="TS", mean=502, unit="MPa", experiment_no="EXP-2"),
+    )
+
+    assert first.id != second.id
+    assert first.experiment_no == "EXP-1"
+    assert second.experiment_no == "EXP-2"
+    assert {item.id for item in store.list_actuals(candidate["id"])} == {first.id, second.id}
+    assert store.get_snapshot(first.snapshot_id)["payload"]["marker"] == "first"
+    assert store.get_snapshot(second.snapshot_id)["payload"]["marker"] == "second"
+
+
+def test_snapshot_rolls_back_when_actual_insert_fails(client) -> None:
+    store = client.app.state.store
+    candidate = client.get("/api/projects/default/candidates").json()[0]
+    snapshots_before = len(store.list_snapshots(candidate["id"]))
+    with sqlite3.connect(store.path) as conn:
+        conn.execute(
+            "CREATE TRIGGER reject_atomic_actual BEFORE INSERT ON actual_measurements "
+            "BEGIN SELECT RAISE(ABORT, 'forced actual failure'); END"
+        )
+
+    with pytest.raises(sqlite3.IntegrityError, match="forced actual failure"):
+        store.create_snapshot_and_actual(
+            "default",
+            candidate["id"],
+            candidate["revision"],
+            {"snapshot_schema_version": "prediction-snapshot-v2"},
+            ActualMeasurementInput(property="TS", mean=500, unit="MPa"),
+        )
+
+    assert len(store.list_snapshots(candidate["id"])) == snapshots_before
+    assert store.list_actuals(candidate["id"]) == []
+
+
+def test_actual_api_rechecks_revision_after_inference(client, monkeypatch) -> None:
+    store = client.app.state.store
+    candidate = client.get("/api/projects/default/candidates").json()[0]
+    original = InferenceService.detailed_for
+
+    def update_during_inference(self, project, current):
+        result = original(self, project, current)
+        with sqlite3.connect(store.path) as conn:
+            conn.execute(
+                "UPDATE candidates SET revision=revision+1 WHERE id=?",
+                (candidate["id"],),
+            )
+        return result
+
+    monkeypatch.setattr(InferenceService, "detailed_for", update_during_inference)
+
+    response = client.post(
+        f"/api/projects/default/candidates/{candidate['id']}/actuals",
+        params={"expected_revision": candidate["revision"]},
+        json={"property": "TS", "mean": 500, "unit": "MPa"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "revision_conflict"
+    assert store.list_snapshots(candidate["id"]) == []
+    assert store.list_actuals(candidate["id"]) == []
 
 
 def test_project_history_rejects_unreadable_snapshot_payload(client) -> None:

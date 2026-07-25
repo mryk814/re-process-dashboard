@@ -222,9 +222,9 @@
   ],
   "provenance": {
     "training_data_id": "sha256:a3b4230ff150e32ed51050a4813fc3fbad01b2bc2fc61b5d4fb8a5be3cc5e476",
-    "feature_dataset_id": "sha256:5c447d97462c1d433697b2427ce93995f36ade81a66ab56aa72b831bf070599f",
-    "training_code_revision": "tabular-ridge-v1",
-    "dataset_profile_id": "sha256:51de725021caaf4be761531c5ccbddad2b90625bbfe9ad3890d13f79fb2821a7"
+    "feature_dataset_id": "sha256:3db77690dac842f72ca371c1506d5b7a1a451f5054f9056b7f34e677e6f9e9b8",
+    "training_code_revision": "tabular-ridge-crossfit-coverage-v2",
+    "dataset_profile_id": "sha256:6971647cfd3040a8162482edbc10a5a35e21eb6415da9769bf22ea463102e21e"
   },
   "artifacts": [
     {
@@ -259,8 +259,8 @@
     },
     {
       "path": "reports/quality-report.json",
-      "sha256": "ccc19dd4890bad59b961893ce997ff2404cc1ee5c42fb2d4281238ede2b9a9f9",
-      "bytes": 673
+      "sha256": "0e66917431dfdf5b424db6263074547d82feb0cbfce0b8eeaab107f26cb82f2a",
+      "bytes": 1025
     },
     {
       "path": "smoke/input.json",

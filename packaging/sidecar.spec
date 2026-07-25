@@ -35,7 +35,9 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=False,
+    # Electron starts the process with windowsHide=True. A console-capable
+    # executable keeps stdout/stderr pipeable without showing a window.
+    console=True,
 )
 coll = COLLECT(
     exe,

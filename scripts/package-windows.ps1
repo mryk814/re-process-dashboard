@@ -41,12 +41,10 @@ try {
         "sidecar/material-workbench-sidecar.exe"
         "models/active-packages.json"
         "models/available-packages.json"
-        "data/source/external/heat_treatment_tradeoff_samples.csv"
-        "data/source/external/concrete_mix_samples.csv"
-        "data/source/external/wear_curve_samples.csv"
-        "data/source/external/battery_calce_cs2_cycles.csv"
-        "data/source/external/secom_stress.csv"
     )
+    $sourceInventoryJson = uv run python backend/scripts/task_inventory.py --print-source-paths
+    if ($LASTEXITCODE -ne 0) { throw "source inventory failed with exit code $LASTEXITCODE" }
+    $requiredPackagedFiles += $sourceInventoryJson | ConvertFrom-Json
     $activePackages = Get-Content -LiteralPath (Join-Path $repositoryRoot "models/active-packages.json") -Raw | ConvertFrom-Json
     $requiredPackagedFiles += $activePackages.tasks.PSObject.Properties.Value | ForEach-Object {
         "models/$($_.active)/manifest.json"

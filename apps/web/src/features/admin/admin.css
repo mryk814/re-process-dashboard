@@ -104,6 +104,10 @@
 .technical-contract span { display: block; margin-top: 6px; overflow-wrap: anywhere; }
 .admin-model-identity { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
 .admin-model-identity span { border-radius: 999px; background: #e5f5ee; color: #137454; padding: 3px 8px; font-size: 11px; font-weight: 700; }
+.quality-coverage-cell { min-width: 190px; }
+.quality-coverage-cell > span { display: flex; align-items: center; gap: 6px; }
+.quality-coverage-cell > span b { border-radius: 999px; background: #fff1d6; color: #8a5a00; padding: 2px 6px; font-size: 10px; }
+.quality-coverage-cell small { display: block; margin-top: 3px; color: #68778b; font-size: 10px; font-weight: 400; }
 .input-range-settings { max-width: 980px; }
 .display-decimal-settings { max-width: 980px; }
 .display-decimal-settings .project-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
