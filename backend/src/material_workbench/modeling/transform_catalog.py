@@ -16,7 +16,11 @@ from material_workbench.contracts.blend_contracts import (
     CommercialMaterialCatalog,
     SparseBlend,
 )
+from material_workbench.contracts.stage_a_contracts import STAGE_A_COMPONENTS
 from material_workbench.modeling.model_lifecycle import REPOSITORY_ROOT
+from material_workbench.modeling.model_package_verify import (
+    verify_deterministic_transform_package,
+)
 from material_workbench.modeling.model_packages import (
     ModelPackageLoader,
     PackageContractError,
@@ -135,25 +139,59 @@ def load_deterministic_transform_catalog(
     entries: dict[str, LoadedTransform] = {}
     for transform_id, selection in config.transforms.items():
         loader = ModelPackageLoader()
-        available_packages = {
-            locator: loader.load(_resolved_locator(models_root, locator))
-            for locator in selection.available
-        }
-        package = available_packages[selection.active]
-        for locator, available_package in available_packages.items():
+        available_packages: dict[str, tuple[VerifiedModelPackage, Any]] = {}
+        for locator in selection.available:
+            package_root = _resolved_locator(models_root, locator)
+            verify_deterministic_transform_package(package_root)
+            available_package = loader.load(package_root)
             if available_package.manifest.package_kind != "deterministic_transform":
                 raise PackageContractError(
                     f"available transform {locator} does not reference a deterministic Package"
                 )
-        if package.manifest.package_kind != "deterministic_transform":
-            raise PackageContractError(
-                f"active transform {transform_id} does not reference a deterministic Package"
+            if len(available_package.manifest.deterministic_transforms) != 1:
+                raise PackageContractError(
+                    f"available transform {locator} must expose exactly one transform"
+                )
+            if available_package.manifest.task_id != transform_id:
+                raise PackageContractError(
+                    f"available transform {locator} task does not match catalog id {transform_id}"
+                )
+            available_spec = available_package.manifest.deterministic_transforms[0]
+            if available_spec.output_names != STAGE_A_COMPONENTS:
+                raise PackageContractError(
+                    f"available transform {locator} does not use the canonical Stage A axis"
+                )
+            available_packages[locator] = (
+                available_package,
+                available_package.load_transform(available_spec.id),
             )
-        if len(package.manifest.deterministic_transforms) != 1:
-            raise PackageContractError(
-                f"active transform {transform_id} must expose exactly one transform"
-            )
+        package, transform = available_packages[selection.active]
         spec = package.manifest.deterministic_transforms[0]
+        active_signature = (
+            spec.id,
+            package.manifest.task_id,
+            spec.runtime_type,
+            spec.compiler_id,
+            spec.output_names,
+            spec.output_unit,
+            spec.auxiliary_feature_names,
+        )
+        for locator, (available_package, _) in available_packages.items():
+            available_spec = available_package.manifest.deterministic_transforms[0]
+            available_signature = (
+                available_spec.id,
+                available_package.manifest.task_id,
+                available_spec.runtime_type,
+                available_spec.compiler_id,
+                available_spec.output_names,
+                available_spec.output_unit,
+                available_spec.auxiliary_feature_names,
+            )
+            if available_signature != active_signature:
+                raise PackageContractError(
+                    f"available transform {locator} is incompatible with active transform "
+                    f"{selection.active}"
+                )
         catalog_path = _resolved_locator(models_root, selection.commercial_catalog)
         try:
             commercial_catalog = CommercialMaterialCatalog.model_validate_json(
@@ -166,7 +204,7 @@ def load_deterministic_transform_catalog(
         entries[transform_id] = LoadedTransform(
             transform_id=transform_id,
             package=package,
-            transform=package.load_transform(spec.id),
+            transform=transform,
             commercial_catalog=commercial_catalog,
             package_locator=selection.active,
             available_package_locators=selection.available,

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
+import shutil
 
 import pytest
 
@@ -129,6 +131,72 @@ def test_transform_catalog_rejects_invalid_active_locators(
             {
                 "schema_version": "active-deterministic-transforms/v1",
                 "transforms": {"stage-a": selection},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(PackageContractError):
+        load_deterministic_transform_catalog(config)
+
+
+@pytest.mark.parametrize(
+    "broken_contract",
+    ["artifact_axis", "transform_id", "task_id", "declared_axis"],
+)
+def test_transform_catalog_rejects_semantically_broken_nonactive_package(
+    tmp_path: Path,
+    broken_contract: str,
+) -> None:
+    models = tmp_path / "models"
+    active = models / "packages" / "active"
+    broken = models / "packages" / "broken"
+    shutil.copytree(PACKAGE_ROOT, active)
+    shutil.copytree(PACKAGE_ROOT, broken)
+    catalog = models / "catalogs" / "commercial.json"
+    catalog.parent.mkdir(parents=True)
+    shutil.copyfile(CATALOG_PATH, catalog)
+
+    manifest_path = broken / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if broken_contract == "artifact_axis":
+        artifact_path = broken / "transform" / "stage-a.json"
+        artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+        artifact["scientific_master"]["components"][-1] = "その他"
+        artifact_path.write_text(
+            json.dumps(artifact, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        artifact_entry = next(
+            item
+            for item in manifest["artifacts"]
+            if item["path"] == "transform/stage-a.json"
+        )
+        artifact_entry["bytes"] = artifact_path.stat().st_size
+        artifact_entry["sha256"] = hashlib.sha256(artifact_path.read_bytes()).hexdigest()
+    elif broken_contract == "transform_id":
+        manifest["deterministic_transforms"][0]["id"] = "other-transform"
+    elif broken_contract == "task_id":
+        manifest["task_id"] = "other-task"
+    else:
+        manifest["deterministic_transforms"][0]["output_names"][-1] = "その他"
+    manifest_path.write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    config = models / "active-transforms.json"
+    config.write_text(
+        json.dumps(
+            {
+                "schema_version": "active-deterministic-transforms/v1",
+                "transforms": {
+                    "welding-stage-a-v1": {
+                        "active": "packages/active",
+                        "available": ["packages/active", "packages/broken"],
+                        "commercial_catalog": "catalogs/commercial.json",
+                    }
+                },
             }
         ),
         encoding="utf-8",

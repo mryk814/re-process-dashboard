@@ -25,6 +25,11 @@
       "sha256": "48807ea22e057efafeffd756123b1f449ec83f93d8fbbfede6f403fce686e1e4"
     }
   ],
+  "deterministic_golden": {
+    "expected_rows": 120,
+    "path": "reference/stage-a-golden-120.json",
+    "schema_version": "stage-a-golden/v1"
+  },
   "deterministic_transforms": [
     {
       "artifact": "transform/stage-a.json",

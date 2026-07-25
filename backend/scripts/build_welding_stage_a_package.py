@@ -282,6 +282,11 @@ def build_package(
             "input": smoke_input_path.relative_to(destination).as_posix(),
             "expected": smoke_expected_path.relative_to(destination).as_posix(),
         },
+        "deterministic_golden": {
+            "path": golden_path.relative_to(destination).as_posix(),
+            "schema_version": "stage-a-golden/v1",
+            "expected_rows": 120,
+        },
     }
     (destination / "manifest.json").write_bytes(_json_bytes(manifest))
 

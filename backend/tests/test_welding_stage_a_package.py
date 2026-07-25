@@ -81,8 +81,8 @@ def _loaded() -> tuple[object, object, CommercialMaterialCatalog]:
     return package, transform, catalog
 
 
-def _rewrite_artifact(root: Path, mutate: object) -> None:
-    artifact_path = root / "transform/stage-a.json"
+def _rewrite_json_artifact(root: Path, relative_path: str, mutate: object) -> None:
+    artifact_path = root / relative_path
     payload = json.loads(artifact_path.read_text(encoding="utf-8"))
     mutate(payload)  # type: ignore[operator]
     artifact_path.write_text(
@@ -92,7 +92,7 @@ def _rewrite_artifact(root: Path, mutate: object) -> None:
     manifest_path = root / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     artifact_entry = next(
-        item for item in manifest["artifacts"] if item["path"] == "transform/stage-a.json"
+        item for item in manifest["artifacts"] if item["path"] == relative_path
     )
     artifact_entry["sha256"] = hashlib.sha256(artifact_path.read_bytes()).hexdigest()
     artifact_entry["bytes"] = artifact_path.stat().st_size
@@ -100,6 +100,10 @@ def _rewrite_artifact(root: Path, mutate: object) -> None:
         json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+
+
+def _rewrite_artifact(root: Path, mutate: object) -> None:
+    _rewrite_json_artifact(root, "transform/stage-a.json", mutate)
 
 
 def test_stage_a_builder_is_reproducible_and_keeps_source_read_only(
@@ -205,6 +209,75 @@ def test_stage_a_package_smoke_and_all_120_blends_match_golden() -> None:
         assert sum(expected.material_composition.values()) == pytest.approx(
             100.0, abs=2e-5
         )
+
+
+@pytest.mark.parametrize("field", ["training_data_id", "feature_dataset_id"])
+def test_verifier_rejects_scientific_provenance_tampering(
+    tmp_path: Path,
+    field: str,
+) -> None:
+    tampered = tmp_path / field
+    shutil.copytree(PACKAGE, tampered)
+    manifest_path = tampered / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["provenance"][field] = "sha256:" + "f" * 64
+    manifest_path.write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(PackageContractError, match="provenance.*scientific master"):
+        verify_deterministic_transform_package(tampered)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        (
+            lambda payload: payload.update(
+                {"scientific_source_digest": "sha256:" + "f" * 64}
+            ),
+            "golden scientific digest",
+        ),
+        (
+            lambda payload: payload["rows"][1].update(
+                {"blend_id": payload["rows"][0]["blend_id"]}
+            ),
+            "golden blend ids",
+        ),
+        (
+            lambda payload: payload["rows"][0]["expected"][
+                "material_composition"
+            ].pop("other"),
+            "fixed output axis",
+        ),
+        (
+            lambda payload: payload.update(
+                {"schema_version": "stage-a-golden/v0"}
+            ),
+            "invalid deterministic verification artifact",
+        ),
+        (
+            lambda payload: payload["rows"].pop(),
+            "golden row count",
+        ),
+    ],
+)
+def test_verifier_rejects_golden_contract_tampering(
+    tmp_path: Path,
+    mutation: object,
+    message: str,
+) -> None:
+    tampered = tmp_path / message.replace(" ", "-")
+    shutil.copytree(PACKAGE, tampered)
+    _rewrite_json_artifact(
+        tampered,
+        "reference/stage-a-golden-120.json",
+        mutation,
+    )
+
+    with pytest.raises(PackageContractError, match=message):
+        verify_deterministic_transform_package(tampered)
 
 
 def test_all_120_golden_rows_match_the_workbook_generation_formula() -> None:

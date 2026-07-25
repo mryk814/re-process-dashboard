@@ -5,10 +5,12 @@ from dataclasses import asdict, dataclass
 import json
 from pathlib import Path
 import sys
-from typing import Any, Sequence
+from typing import Annotated, Any, Literal, Sequence
+
+from pydantic import BaseModel, ConfigDict, Field
 
 from material_workbench.adapters.builtin_deterministic_linear import ScientificTransformResult
-from material_workbench.contracts.stage_a_contracts import ScientificBlendInput
+from material_workbench.contracts.stage_a_contracts import STAGE_A_COMPONENTS, ScientificBlendInput
 from material_workbench.modeling.model_lifecycle import validate_lifecycle_metadata, validate_training_provenance
 from material_workbench.contracts.model_example_contracts import ExampleQualityReport, ExampleSmokeExpected, ExampleSmokeInput, SparseSelectionReport
 from material_workbench.modeling.model_packages import MissingOptionalDependency, ModelPackageLoader, PackageContractError, validate_predictive_summary
@@ -58,9 +60,29 @@ class DeterministicTransformVerificationReport:
     transform_id: str
     runtime_type: str
     manifest_sha256: str
+    golden_rows: int
 
     def model_dump(self) -> dict[str, Any]:
         return asdict(self)
+
+
+class _GoldenModel(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class StageAGoldenRow(_GoldenModel):
+    blend_id: Annotated[str, Field(min_length=1)]
+    blend: ScientificBlendInput
+    expected: ScientificTransformResult
+
+
+class StageAGoldenReference(_GoldenModel):
+    schema_version: Literal["stage-a-golden/v1"]
+    scientific_source_digest: Annotated[
+        str,
+        Field(pattern=r"^sha256:[0-9a-f]{64}$"),
+    ]
+    rows: tuple[StageAGoldenRow, ...]
 
 
 def verify_deterministic_transform_package(
@@ -75,10 +97,28 @@ def verify_deterministic_transform_package(
         raise ModelPackageVerificationError(
             "deterministic package smoke requires exactly one transform"
         )
+    spec = package.manifest.deterministic_transforms[0]
+    provenance = package.manifest.provenance
+    if not (
+        provenance.training_data_id
+        == provenance.feature_dataset_id
+        == spec.scientific_master_digest
+    ):
+        raise ModelPackageVerificationError(
+            "deterministic Package provenance must match the scientific master digest"
+        )
+    if spec.output_names != STAGE_A_COMPONENTS:
+        raise ModelPackageVerificationError(
+            "deterministic Package outputs must match the canonical 31-axis Stage A contract"
+        )
     smoke = package.manifest.smoke_test
     if smoke is None:
         raise ModelPackageVerificationError("deterministic package requires a smoke_test")
-    spec = package.manifest.deterministic_transforms[0]
+    golden_spec = package.manifest.deterministic_golden
+    if golden_spec is None:
+        raise ModelPackageVerificationError(
+            "deterministic package requires a typed golden reference"
+        )
     try:
         smoke_input = ScientificBlendInput.model_validate_json(
             package.artifact_path(smoke.input).read_text(encoding="utf-8")
@@ -86,9 +126,12 @@ def verify_deterministic_transform_package(
         expected = ScientificTransformResult.model_validate_json(
             package.artifact_path(smoke.expected).read_text(encoding="utf-8")
         )
+        golden = StageAGoldenReference.model_validate_json(
+            package.artifact_path(golden_spec.path).read_text(encoding="utf-8")
+        )
     except (OSError, ValueError) as exc:
         raise ModelPackageVerificationError(
-            f"invalid deterministic smoke artifact: {exc}"
+            f"invalid deterministic verification artifact: {exc}"
         ) from exc
     transform = package.load_transform(spec.id)
     transform_scientific = getattr(transform, "transform", None)
@@ -101,6 +144,42 @@ def verify_deterministic_transform_package(
         raise ModelPackageVerificationError(
             "deterministic transform smoke output differs from expected result"
         )
+    if golden.schema_version != golden_spec.schema_version:
+        raise ModelPackageVerificationError(
+            "deterministic golden schema does not match the manifest contract"
+        )
+    if len(golden.rows) != golden_spec.expected_rows:
+        raise ModelPackageVerificationError(
+            "deterministic golden row count does not match the manifest contract"
+        )
+    blend_ids = [row.blend_id for row in golden.rows]
+    if len(blend_ids) != len(set(blend_ids)):
+        raise ModelPackageVerificationError(
+            "deterministic golden blend ids must be unique"
+        )
+    if golden.scientific_source_digest != spec.scientific_master_digest:
+        raise ModelPackageVerificationError(
+            "deterministic golden scientific digest does not match the transform"
+        )
+    for row in golden.rows:
+        if (
+            row.blend.scientific_master.digest != spec.scientific_master_digest
+            or row.expected.scientific_master.digest != spec.scientific_master_digest
+        ):
+            raise ModelPackageVerificationError(
+                f"deterministic golden row {row.blend_id} uses a different scientific master"
+            )
+        if (
+            len(row.expected.material_composition) != len(spec.output_names)
+            or set(row.expected.material_composition) != set(spec.output_names)
+        ):
+            raise ModelPackageVerificationError(
+                f"deterministic golden row {row.blend_id} does not match the fixed output axis"
+            )
+        if transform_scientific(row.blend) != row.expected:
+            raise ModelPackageVerificationError(
+                f"deterministic golden row {row.blend_id} was not reproduced"
+            )
     return DeterministicTransformVerificationReport(
         package_root=str(package.root),
         package_id=package.manifest.package_id,
@@ -108,6 +187,7 @@ def verify_deterministic_transform_package(
         transform_id=spec.id,
         runtime_type=spec.runtime_type,
         manifest_sha256=package.manifest_sha256,
+        golden_rows=len(golden.rows),
     )
 
 
@@ -235,6 +315,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             f"Transform: {report.transform_id} ({report.runtime_type})",
             f"Manifest SHA-256: {report.manifest_sha256}",
             "Smoke: reproduced",
+            f"Golden: {report.golden_rows} rows reproduced",
         ]))
     else:
         print("\n".join([

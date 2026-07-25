@@ -253,6 +253,20 @@ class SmokeTestSpec(PackageModel):
         return value.replace("\\", "/")
 
 
+class DeterministicGoldenSpec(PackageModel):
+    path: str
+    schema_version: Literal["stage-a-golden/v1"]
+    expected_rows: Literal[120]
+
+    @field_validator("path")
+    @classmethod
+    def package_relative_file(cls, value: str) -> str:
+        path = Path(value)
+        if not value or path.is_absolute() or ".." in path.parts:
+            raise ValueError("golden path must be package-relative")
+        return value.replace("\\", "/")
+
+
 class ModelPackageManifest(PackageModel):
     schema_version: Literal[PACKAGE_SCHEMA_VERSION]
     package_id: str
@@ -268,6 +282,7 @@ class ModelPackageManifest(PackageModel):
     provenance: ProvenanceSpec
     artifacts: tuple[ArtifactSpec, ...]
     smoke_test: SmokeTestSpec | None = None
+    deterministic_golden: DeterministicGoldenSpec | None = None
     quality_report: str | None = None
 
     @model_validator(mode="after")
@@ -282,6 +297,10 @@ class ModelPackageManifest(PackageModel):
             raise ValueError(
                 "deterministic-transform package requires deterministic transforms and no predictors"
             )
+        if self.package_kind == "predictive" and self.deterministic_golden is not None:
+            raise ValueError("predictive package cannot declare a deterministic golden test")
+        if self.package_kind == "deterministic_transform" and self.deterministic_golden is None:
+            raise ValueError("deterministic-transform package requires a deterministic golden test")
         needed = {
             *(predictor.artifact for predictor in self.predictors),
             *(transform.artifact for transform in self.deterministic_transforms),
@@ -292,6 +311,8 @@ class ModelPackageManifest(PackageModel):
             needed.add(self.quality_report)
         if self.smoke_test:
             needed.update((self.smoke_test.input, self.smoke_test.expected))
+        if self.deterministic_golden:
+            needed.add(self.deterministic_golden.path)
         missing = sorted(needed - listed)
         if missing:
             raise ValueError(f"manifest references unlisted artifacts: {', '.join(missing)}")

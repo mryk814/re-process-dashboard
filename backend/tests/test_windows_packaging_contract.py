@@ -144,6 +144,18 @@ def test_packaged_launcher_uses_active_model_configuration_as_single_source() ->
     assert "WORKBENCH_RESOURCE_ROOT: resources" in desktop_launcher
 
 
+def test_packaged_smoke_executes_the_stage_a_transform_api() -> None:
+    packaged_smoke = (ROOT / "scripts" / "smoke-packaged.mjs").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'authenticatedFetch("/api/transforms")' in packaged_smoke
+    assert '"/api/transforms/welding-stage-a-v1/execute"' in packaged_smoke
+    assert 'method: "POST"' in packaged_smoke
+    assert "stageA.outputs.length, 31" in packaged_smoke
+    assert "powder_blend_cost_yen_per_kg_core > 0" in packaged_smoke
+
+
 def test_application_icon_is_configured_for_windows_and_web() -> None:
     builder_config = (ROOT / "packaging" / "electron-builder.yml").read_text(encoding="utf-8")
     web_document = (ROOT / "apps" / "web" / "index.html").read_text(encoding="utf-8")

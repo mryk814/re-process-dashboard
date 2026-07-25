@@ -57,7 +57,9 @@ PackageはPythonコード、import path、callback、pickle、joblibを含めま
 `package_kind=predictive` は従来どおりFeature Pipelineと一つ以上のpredictorを持つ。
 `package_kind=deterministic_transform` は学習済みscalar predictorではなく、独立した
 `deterministic_transforms` を持ち、Feature Pipelineとpredictorを持たない。
-この二つを同じPackage内へ混在させない。
+この二つを同じPackage内へ混在させない。Stage A Packageはmanifestの
+`deterministic_golden` に、Package内path、`stage-a-golden/v1`、期待行数120を
+型付きで宣言する。
 
 ## 許可する実行環境と資産形式
 
@@ -108,7 +110,9 @@ Stage Aの科学Packageは原料・フープ成分、D50、compiler単位契約�
 その科学master digestをmanifestにも固定する。単価と調達区分はPackage外の商用catalog
 revisionであり、価格変更だけでは科学Packageを作り直さない。Packageのmanifest、
 smoke input、golden reference、`training_data_id` は商用catalogを参照せず、科学master
-digestだけで再現性を固定する。
+digestだけで再現性を固定する。Verifierは科学master digestと
+`training_data_id` / `feature_dataset_id` の一致、goldenのschema、120件、配合ID一意性、
+31軸、全行の科学master digest、全変換結果の再現を確認する。
 
 Stage Aの出力軸は
 `Fe,C,Si,Mn,Cr,Ni,Mo,Ti,B,Al,Mg,Nb,V,Cu,Zr,Ca,N,O,S,P,CaF2,TiO2,SiO2,Al2O3,MgO,ZrO2,K2O,Na2O,CaCO3,Fe2O3,other`
@@ -122,6 +126,7 @@ Windows配布物にはこの設定、全available Package、商用catalogを同�
 検証は次で実行できる。
 
 ```powershell
+$env:PYTHONPATH = "backend/src"
 uv run python -m material_workbench.modeling.model_package_verify `
   models/packages/welding-stage-a-deterministic-v1 --deterministic-transform
 ```
