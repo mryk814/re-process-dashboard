@@ -169,6 +169,10 @@ Stage Aは `models/packages/welding-stage-a-deterministic-v1` に科学masterを
 決定論的Packageとして実装済みである。120配合の期待値はPackage内の
 `reference/stage-a-golden-120.json` で再現検証する。商用catalogは
 `models/catalogs/welding-stage-a-commercial-v1.json` として科学Packageから分離する。
+31成分軸は固定契約であり、元Excelの列名・順序が契約と異なる場合は暗黙に読み替えず
+Package生成を停止する。active/availableの選択は `models/active-transforms.json`、
+実行導線は `GET /api/transforms` と `POST /api/transforms/{transform_id}/execute`
+で確認できる。
 
 ## この合成データで確認できないこと
 

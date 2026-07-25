@@ -20,6 +20,10 @@ from material_workbench.contracts.blend_contracts import (
     RevisionRef,
     SparseBlend,
 )
+from material_workbench.contracts.stage_a_contracts import (
+    STAGE_A_COMPONENTS,
+    ScientificBlendInput,
+)
 from material_workbench.modeling.model_packages import (
     DeterministicTransformSpec,
     PackageContractError,
@@ -72,8 +76,8 @@ class ScientificTransformMaster(_ArtifactModel):
 
     @model_validator(mode="after")
     def matrix_is_rectangular(self) -> "ScientificTransformMaster":
-        if len(self.components) != len(set(self.components)):
-            raise ValueError("scientific component names must be unique")
+        if self.components != STAGE_A_COMPONENTS:
+            raise ValueError("scientific component axis must match the canonical Stage A axis")
         material_ids = [item.material_id for item in self.materials]
         hoop_ids = [item.hoop_id for item in self.hoops]
         if len(material_ids) != len(set(material_ids)):
@@ -170,38 +174,49 @@ class _BuiltinDeterministicLinearTransform:
         }
         self._hoops = {hoop.hoop_id: hoop for hoop in artifact.scientific_master.hoops}
 
-    def compile(self, blend: SparseBlend) -> CompiledWholeWireBlend:
-        if blend.scientific_master != self.artifact.scientific_master.ref:
+    def compile(
+        self,
+        blend: ScientificBlendInput | SparseBlend,
+    ) -> CompiledWholeWireBlend:
+        scientific = (
+            ScientificBlendInput.from_sparse_blend(blend)
+            if isinstance(blend, SparseBlend)
+            else blend
+        )
+        if scientific.scientific_master != self.artifact.scientific_master.ref:
             raise PackageContractError("candidate scientific master does not match Stage A package")
-        unknown = sorted({item.material_id for item in blend.items} - set(self._materials))
+        unknown = sorted({item.material_id for item in scientific.items} - set(self._materials))
         if unknown:
             raise PackageContractError(f"unknown Stage A material ids: {', '.join(unknown)}")
-        if blend.hoop_id not in self._hoops:
-            raise PackageContractError(f"unknown Stage A hoop id: {blend.hoop_id}")
-        if not 0 < blend.fill_ratio <= 100:
+        if scientific.hoop_id not in self._hoops:
+            raise PackageContractError(f"unknown Stage A hoop id: {scientific.hoop_id}")
+        if not 0 < scientific.fill_ratio <= 100:
             raise PackageContractError("Stage A fill ratio must be in (0, 100]")
-        total = sum(item.ratio for item in blend.items)
+        total = sum(item.ratio for item in scientific.items)
         if not math.isclose(total, 100.0, rel_tol=0.0, abs_tol=1e-6):
             raise PackageContractError("Stage A core ratios must total 100 mass percent")
-        if any(item.ratio < 0 for item in blend.items):
+        if any(item.ratio < 0 for item in scientific.items):
             raise PackageContractError("Stage A core ratios must be nonnegative")
 
-        fill = blend.fill_ratio / 100.0
+        fill = scientific.fill_ratio / 100.0
         coordinates = tuple(
             WholeWireCoordinate(
                 material_id=item.material_id,
                 mass_fraction=fill * item.ratio / 100.0,
             )
-            for item in sorted(blend.items, key=lambda current: current.material_id)
+            for item in sorted(scientific.items, key=lambda current: current.material_id)
             if item.ratio != 0
         )
         return CompiledWholeWireBlend(
             materials=coordinates,
-            hoop_id=blend.hoop_id,
+            hoop_id=scientific.hoop_id,
             hoop_mass_fraction=1.0 - fill,
         )
 
-    def transform(self, blend: SparseBlend) -> ScientificTransformResult:
+    def transform(
+        self,
+        blend: ScientificBlendInput | SparseBlend,
+    ) -> ScientificTransformResult:
         coordinates = self.compile(blend)
         composition = {name: 0.0 for name in self.artifact.scientific_master.components}
         for coordinate in coordinates.materials:
@@ -215,10 +230,11 @@ class _BuiltinDeterministicLinearTransform:
             )
 
         auxiliary: dict[str, float] = {}
+        items = blend.items
         for contract in self.artifact.auxiliary_features:
             eligible = [
                 item
-                for item in blend.items
+                for item in items
                 if self._materials[item.material_id].group in contract.included_groups
                 and item.ratio != 0
             ]

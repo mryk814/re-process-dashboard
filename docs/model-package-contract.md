@@ -106,7 +106,20 @@ npzはentry数、展開後総量、圧縮率、posterior draw数、layer数、te
 
 Stage Aの科学Packageは原料・フープ成分、D50、compiler単位契約をartifactへsnapshotし、
 その科学master digestをmanifestにも固定する。単価と調達区分はPackage外の商用catalog
-revisionであり、価格変更だけでは科学Packageを作り直さない。検証は次で実行できる。
+revisionであり、価格変更だけでは科学Packageを作り直さない。Packageのmanifest、
+smoke input、golden reference、`training_data_id` は商用catalogを参照せず、科学master
+digestだけで再現性を固定する。
+
+Stage Aの出力軸は
+`Fe,C,Si,Mn,Cr,Ni,Mo,Ti,B,Al,Mg,Nb,V,Cu,Zr,Ca,N,O,S,P,CaF2,TiO2,SiO2,Al2O3,MgO,ZrO2,K2O,Na2O,CaCO3,Fe2O3,other`
+の31項目で固定する。builderは元Excelの対応列をこの順序・名称で厳密検証し、欠落、
+追加、並び替え、`other`の別名化をPackage生成エラーとして扱う。
+
+利用可能な決定論的Transform Packageは `models/active-transforms.json` でactive/available
+を管理する。APIの `GET /api/transforms` で解決済みPackageと軸を確認し、
+`POST /api/transforms/{transform_id}/execute` で疎な配合候補を実行できる。
+Windows配布物にはこの設定、全available Package、商用catalogを同梱する。
+検証は次で実行できる。
 
 ```powershell
 uv run python -m material_workbench.modeling.model_package_verify `

@@ -7,10 +7,10 @@
       "sha256": "aa15a2beda2c81b01fca975f2e68318acbabf1e086f89bff2a46c5f464838915"
     },
     {
-      "bytes": 2034,
+      "bytes": 1640,
       "media_type": "application/json",
       "path": "smoke/input.json",
-      "sha256": "3f8c5a2fff42919a70074a5b2f28e99c3bebde289b2c7e14866ef1ae3f8c564a"
+      "sha256": "2db7476e441b5db010951095a84f93d1a8f12800f90b76d8485cc2baabaaa3bf"
     },
     {
       "bytes": 3084,
@@ -19,10 +19,10 @@
       "sha256": "604dd063323c3614646173b3855b88a77b2fa5f98ea96d071508972ae3d42f28"
     },
     {
-      "bytes": 731362,
+      "bytes": 676180,
       "media_type": "application/json",
       "path": "reference/stage-a-golden-120.json",
-      "sha256": "185b19641e8d6d7ac12e19c51601b8bcdf36c4babeb9fb096d331596ac72ee10"
+      "sha256": "48807ea22e057efafeffd756123b1f449ec83f93d8fbbfede6f403fce686e1e4"
     }
   ],
   "deterministic_transforms": [
@@ -78,7 +78,7 @@
   "provenance": {
     "feature_dataset_id": "sha256:1cf2222e2de4aeea74ecc4a1d92df82f0bc2522b9eb50e65e75a846499e77fff",
     "training_code_revision": "build_welding_stage_a_package.py/v1",
-    "training_data_id": "sha256:dcaad240b934a4ada810fc9577d075ea58ad457b2a373938463f29f72301a7c8"
+    "training_data_id": "sha256:1cf2222e2de4aeea74ecc4a1d92df82f0bc2522b9eb50e65e75a846499e77fff"
   },
   "schema_version": "model-package/v1",
   "smoke_test": {

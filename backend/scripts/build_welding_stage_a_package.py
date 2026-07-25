@@ -27,8 +27,12 @@ from material_workbench.contracts.blend_contracts import (
     BlendItem,
     CommercialMaterial,
     CommercialMaterialCatalog,
-    RevisionRef,
-    SparseBlend,
+)
+from material_workbench.contracts.stage_a_contracts import (
+    STAGE_A_COMPONENTS,
+    STAGE_A_HOOP_SOURCE_COMPONENT_COLUMNS,
+    STAGE_A_SOURCE_COMPONENT_COLUMNS,
+    ScientificBlendInput,
 )
 from material_workbench.modeling.model_packages import DeterministicTransformSpec
 
@@ -36,7 +40,6 @@ from material_workbench.modeling.model_packages import DeterministicTransformSpe
 DEFAULT_SOURCE = Path("data/source/welding_consumable_multistage_synthetic_dataset.xlsx")
 DEFAULT_DESTINATION = Path("models/packages/welding-stage-a-deterministic-v1")
 DEFAULT_CATALOG_DESTINATION = Path("models/catalogs/welding-stage-a-commercial-v1.json")
-CANONICAL_OTHER = {"その他": "other"}
 SHEETS = {
     "materials": "原料マスタ",
     "material_composition": "原料成分",
@@ -70,20 +73,6 @@ def _records(workbook: Any, sheet_name: str) -> list[dict[str, Any]]:
     return [dict(zip(headers, row, strict=True)) for row in rows]
 
 
-def _component_columns(row: dict[str, Any]) -> tuple[str, ...]:
-    return tuple(
-        name
-        for name in row
-        if name.endswith("[%]")
-        and name not in {COLUMNS["fill_ratio"], COLUMNS["ratio"]}
-    )
-
-
-def _component_name(column: str) -> str:
-    source = column.removesuffix("[%]")
-    return CANONICAL_OTHER.get(source, source)
-
-
 def _artifact(root: Path, path: Path) -> dict[str, Any]:
     payload = path.read_bytes()
     return {
@@ -99,7 +88,6 @@ def build_package(
     destination: Path,
     catalog_destination: Path = DEFAULT_CATALOG_DESTINATION,
 ) -> None:
-    source_sha256 = hashlib.sha256(source.read_bytes()).hexdigest()
     workbook = load_workbook(source, read_only=True, data_only=True)
     try:
         records = {
@@ -109,8 +97,30 @@ def build_package(
         workbook.close()
 
     material_rows = records["material_composition"]
-    component_columns = _component_columns(material_rows[0])
-    components = tuple(_component_name(column) for column in component_columns)
+    expected_material_headers = (
+        COLUMNS["material_id"],
+        "原料名",
+        *STAGE_A_SOURCE_COMPONENT_COLUMNS,
+    )
+    actual_material_headers = tuple(material_rows[0])
+    if actual_material_headers != expected_material_headers:
+        raise ValueError(
+            "原料成分 sheet does not match the fixed Stage A source-column contract: "
+            f"expected {expected_material_headers}, got {actual_material_headers}"
+        )
+    expected_hoop_headers = (
+        COLUMNS["hoop_id"],
+        "フープ名",
+        "材質記号",
+        "板厚[mm]",
+        "幅[mm]",
+        *STAGE_A_HOOP_SOURCE_COMPONENT_COLUMNS,
+    )
+    actual_hoop_headers = tuple(records["hoops"][0])
+    if actual_hoop_headers != expected_hoop_headers:
+        raise ValueError(
+            "フープマスタ sheet does not match the fixed Stage A source-column contract"
+        )
     material_meta = {
         row[COLUMNS["material_id"]]: row for row in records["materials"]
     }
@@ -120,8 +130,12 @@ def build_package(
             group=str(material_meta[row[COLUMNS["material_id"]]][COLUMNS["material_group"]]),
             d50_um=float(material_meta[row[COLUMNS["material_id"]]][COLUMNS["d50"]]),
             composition={
-                _component_name(column): float(row[column] or 0.0)
-                for column in component_columns
+                component: float(row[column] or 0.0)
+                for component, column in zip(
+                    STAGE_A_COMPONENTS,
+                    STAGE_A_SOURCE_COMPONENT_COLUMNS,
+                    strict=True,
+                )
             },
         )
         for row in material_rows
@@ -131,10 +145,12 @@ def build_package(
         ScientificHoopRow(
             hoop_id=str(row[COLUMNS["hoop_id"]]),
             composition={
-                component: float(
-                    row.get(f"{'その他' if component == 'other' else component}[%]") or 0.0
+                component: float(row.get(column) or 0.0)
+                for component, column in zip(
+                    STAGE_A_COMPONENTS,
+                    STAGE_A_SOURCE_COMPONENT_COLUMNS,
+                    strict=True,
                 )
-                for component in components
             },
         )
         for row in records["hoops"]
@@ -143,7 +159,7 @@ def build_package(
         schema_version="stage-a-scientific-master/v1",
         resource_id="welding-stage-a-science",
         revision=1,
-        components=components,
+        components=STAGE_A_COMPONENTS,
         materials=materials,
         hoops=hoops,
     )
@@ -187,7 +203,7 @@ def build_package(
         artifact="transform/stage-a.json",
         compiler_id="sparse_blend_whole_wire.v1",
         scientific_master_digest=master.ref.digest,
-        output_names=components,
+        output_names=STAGE_A_COMPONENTS,
         output_unit="mass_percent_whole_wire",
         auxiliary_feature_names=("alloy_powder_d50_um",),
     )
@@ -201,23 +217,15 @@ def build_package(
                 ratio=float(row[COLUMNS["ratio"]]),
             )
         )
-    design_space_ref = RevisionRef(
-        resource_id="welding-stage-a-golden-space",
-        revision=1,
-        digest="sha256:" + hashlib.sha256(b"welding-stage-a-golden-space-v1").hexdigest(),
-    )
-    blends: list[SparseBlend] = []
+    blends: list[ScientificBlendInput] = []
     for row in records["blends"]:
         items = tuple(lines_by_blend[str(row[COLUMNS["blend_id"]])])
         blends.append(
-            SparseBlend(
+            ScientificBlendInput(
                 items=items,
                 hoop_id=str(row[COLUMNS["hoop_id"]]),
                 fill_ratio=float(row[COLUMNS["fill_ratio"]]),
-                balance_material_id=max(items, key=lambda item: item.ratio).material_id,
                 scientific_master=master.ref,
-                commercial_catalog=catalog.ref,
-                design_space=design_space_ref,
             )
         )
 
@@ -240,7 +248,7 @@ def build_package(
         _json_bytes(
             {
                 "schema_version": "stage-a-golden/v1",
-                "source_sha256": source_sha256,
+                "scientific_source_digest": master.ref.digest,
                 "rows": [
                     {
                         "blend_id": str(source_row[COLUMNS["blend_id"]]),
@@ -265,7 +273,7 @@ def build_package(
         "package_kind": "deterministic_transform",
         "deterministic_transforms": [transform_spec.model_dump(mode="json")],
         "provenance": {
-            "training_data_id": f"sha256:{source_sha256}",
+            "training_data_id": master.ref.digest,
             "feature_dataset_id": master.ref.digest,
             "training_code_revision": "build_welding_stage_a_package.py/v1",
         },

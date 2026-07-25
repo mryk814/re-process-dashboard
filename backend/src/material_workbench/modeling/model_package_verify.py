@@ -8,7 +8,7 @@ import sys
 from typing import Any, Sequence
 
 from material_workbench.adapters.builtin_deterministic_linear import ScientificTransformResult
-from material_workbench.contracts.blend_contracts import SparseBlend
+from material_workbench.contracts.stage_a_contracts import ScientificBlendInput
 from material_workbench.modeling.model_lifecycle import validate_lifecycle_metadata, validate_training_provenance
 from material_workbench.contracts.model_example_contracts import ExampleQualityReport, ExampleSmokeExpected, ExampleSmokeInput, SparseSelectionReport
 from material_workbench.modeling.model_packages import MissingOptionalDependency, ModelPackageLoader, PackageContractError, validate_predictive_summary
@@ -80,7 +80,7 @@ def verify_deterministic_transform_package(
         raise ModelPackageVerificationError("deterministic package requires a smoke_test")
     spec = package.manifest.deterministic_transforms[0]
     try:
-        smoke_input = SparseBlend.model_validate_json(
+        smoke_input = ScientificBlendInput.model_validate_json(
             package.artifact_path(smoke.input).read_text(encoding="utf-8")
         )
         expected = ScientificTransformResult.model_validate_json(
