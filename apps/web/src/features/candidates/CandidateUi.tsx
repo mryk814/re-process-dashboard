@@ -151,6 +151,11 @@ function unplacedErrorLabel(path: string): string {
   return path;
 }
 
+function commonGroupUnit(fields: TaskInputGroup["fields"]): string {
+  const units = new Set(fields.map((field) => field.unit?.trim()).filter((unit): unit is string => Boolean(unit)));
+  return units.size === 1 ? [...units][0] : "";
+}
+
 function CandidateInputGroup({ candidate, group, numeric, inputRanges, fieldErrors, onInput }: {
   candidate: CandidateViewModel;
   group: TaskInputGroup;
@@ -161,7 +166,7 @@ function CandidateInputGroup({ candidate, group, numeric, inputRanges, fieldErro
 }) {
   return (
     <section className={`inspector-section task-input-group ${group.key}`} data-input-group={group.key}>
-      <div className="section-heading"><div className="section-heading-label"><h3>{group.label}</h3>{group.fields.some((field) => numeric.get(field.path)?.training_range) && <small className="training-range-legend"><i aria-hidden="true" />緑帯：学習範囲</small>}</div><span>{group.fields[0]?.unit ?? ""}</span></div>
+      <div className="section-heading"><div className="section-heading-label"><h3>{group.label}</h3>{group.fields.some((field) => numeric.get(field.path)?.training_range) && <small className="training-range-legend"><i aria-hidden="true" />緑帯：学習範囲</small>}</div><span>{commonGroupUnit(group.fields)}</span></div>
       <div className={group.key === "composition" ? "composition-fields" : "task-field-grid"}>
         {group.fields.map((field) => {
           const value = getCandidateInputValue(candidate.raw.inputs, field.path);

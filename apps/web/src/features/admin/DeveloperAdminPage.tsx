@@ -5,6 +5,7 @@ import { workbenchApi, type ApiModelPackage, type ApiProject, type ApiQuality } 
 import { ModelTrainingDataInspector } from "./ModelTrainingDataInspector";
 import { DeveloperControlCenter } from "./DeveloperControlCenter";
 import { suggestedInputRange } from "./inputRangeDefaults";
+import { formatTaskNumber, orderedTaskItems, taskOutputUnit } from "../../shared/taskPresentation";
 
 export type AdminSection = "developer" | "quality" | "ranges" | "display" | "task" | "model";
 
@@ -89,7 +90,7 @@ export function DeveloperAdminPage({
         {modelError && <p className="panel-error">{modelError}</p>}
         {modelPackage ? <>
           <div className="admin-model-identity"><span>有効</span><strong>{modelPackage.id}</strong><b>v{modelPackage.version}</b></div>
-          <table className="quality-table"><thead><tr><th>特性</th><th>Runtime</th><th>RMSE</th><th>90%区間coverage</th></tr></thead><tbody>{modelPackage.predictors.map((predictor) => { const quality = modelPackage.quality_report.targets.find((item) => item.target === predictor.target); return <tr key={predictor.target}><th>{taskDefinition?.outputs.find((item) => item.key === predictor.target)?.label ?? predictor.target}</th><td>{predictor.runtime_type}</td><td>{quality ? number(quality.rmse, 2) : "—"}</td><td>{quality ? `${number(quality.interval_coverage_90 * 100, 0)}%` : "—"}</td></tr>; })}</tbody></table>
+          <table className="quality-table"><thead><tr><th>特性</th><th>実行方式</th><th>RMSE</th><th>90%予測区間の包含率</th></tr></thead><tbody>{(taskDefinition ? orderedTaskItems(taskDefinition, modelPackage.predictors.map((predictor) => ({ ...predictor, key: predictor.target }))) : modelPackage.predictors.map((predictor) => ({ ...predictor, key: predictor.target }))).map((predictor) => { const quality = modelPackage.quality_report.targets.find((item) => item.target === predictor.target); const unit = taskDefinition ? taskOutputUnit(taskDefinition, predictor.target) : ""; return <tr key={predictor.target}><th>{taskDefinition?.outputs.find((item) => item.key === predictor.target)?.label ?? predictor.target}</th><td>{predictor.runtime_type}</td><td>{quality ? `${taskDefinition ? formatTaskNumber(quality.rmse, taskDefinition, `output.${predictor.target}`, project?.display_decimals) : number(quality.rmse, 2)}${unit ? ` ${unit}` : ""}` : "—"}</td><td>{quality ? `${number(quality.interval_coverage_90 * 100, 0)}%` : "—"}</td></tr>; })}</tbody></table>
           <div className="runtime-list">{modelPackage.supported_runtimes.map((item) => <span className={item.available ? "available" : "optional"} key={item.runtime_type}>{item.runtime_type}{item.available ? " ✓" : " (追加導入)"}</span>)}</div>
           {project?.id && <ModelTrainingDataInspector projectId={project.id} modelPackage={modelPackage} taskDefinition={taskDefinition} />}
           <details className="technical-contract"><summary>識別情報を表示</summary><code>{modelPackage.manifest_sha256}</code></details>

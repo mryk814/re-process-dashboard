@@ -183,9 +183,9 @@ export function DataLibraryPage({
   return (
     <div className="page-panel data-library-page">
       <div className="page-intro data-library-header">
-        <div><span className="overline">DATA LIBRARY</span><h2>データライブラリ</h2><p>ExcelとProfileを組み合わせたDatasetと、モデルの学習元を確認します。</p></div>
+        <div><span className="overline">DATA LIBRARY</span><h2>データライブラリ</h2><p>Excelとデータセットプロファイルを組み合わせたデータセットと、モデルの学習元を確認します。</p></div>
         <div className="data-library-header-actions">
-          <button className="primary-button" onClick={onAddDataset}>ExcelからDatasetを追加</button>
+          <button className="primary-button" onClick={onAddDataset}>Excelからデータセットを追加</button>
           <button
             className="outline-button"
             aria-expanded={compareOpen}
@@ -215,7 +215,7 @@ export function DataLibraryPage({
       {options && <>
         <section className="data-library-section">
           <div className="panel-title library-title-with-filter">
-            <div><h3>Datasets</h3><span>{filteredDatasets.length} / {datasets.length}件</span></div>
+            <div><h3>データセット（Dataset）</h3><span>{filteredDatasets.length} / {datasets.length}件</span></div>
             <label>状態<select value={datasetStateFilter} onChange={(event) => setDatasetStateFilter(event.target.value)}><option value="available">利用可能</option><option value="archived">利用停止中</option><option value="">すべて</option></select></label>
           </div>
           <div className="dataset-list">{filteredDatasets.map((item) => {
@@ -231,7 +231,7 @@ export function DataLibraryPage({
                 : "";
             return <article className="dataset-card" key={item.dataset_revision.id}>
               <div className="dataset-card-main"><strong title={item.data_asset.original_filename}>{item.data_asset.original_filename}</strong><span>{item.data_asset.locator_kind === "managed" ? "取り込みデータ" : "同梱データ"} · {formatDate(item.dataset_revision.created_at)}</span>{archived && <small className="resource-state archived">利用停止中</small>}</div>
-              <dl><div><dt>Profile</dt><dd>{item.profile_revision.name} · r{item.profile_revision.revision}</dd></div><div><dt>Prediction Tasks</dt><dd>{item.supported_task_ids.length ? item.supported_task_ids.join(" / ") : "未定義"}</dd></div><div><dt>Dataset Identity</dt><dd title={item.dataset_revision.dataset_digest}>{shortDigest(item.dataset_revision.dataset_digest)}</dd></div></dl>
+              <dl><div><dt>データセットプロファイル</dt><dd>{item.profile_revision.name} · r{item.profile_revision.revision}</dd></div><div><dt>予測タスク</dt><dd>{item.supported_task_ids.length ? item.supported_task_ids.join(" / ") : "未定義"}</dd></div><div><dt>データセット識別子</dt><dd title={item.dataset_revision.dataset_digest}>{shortDigest(item.dataset_revision.dataset_digest)}</dd></div></dl>
               <div className="dataset-project-links">
                 <div>{usingProjects.length ? usingProjects.map((project) => <span key={project.id}>{project.name}</span>) : <small>参照中のプロジェクトなし</small>}</div>
                 {!archived && singleView && <button
@@ -258,10 +258,10 @@ export function DataLibraryPage({
         <section className="data-library-grid">
           <div className="data-library-section"><div className="panel-title"><h3>比較セット</h3><span>{comparisonSets.length}件</span></div>{comparisonSets.length ? <div className="comparison-set-list">{comparisonSets.map((view) => { const members = view.members.map((member) => member.cohort_label || datasetDisplayName(options.datasets.find((dataset) => dataset.dataset_revision.id === member.dataset_revision_id))).join(" / "); return <div key={view.id}><strong>{view.name}</strong><span title={members}>{members}</span><code title={view.view_digest}>{shortDigest(view.view_digest)}</code></div>; })}</div> : <p className="library-empty">設備・場所などの境界を保って比べたいときに作成します。</p>}</div>
           <div className="data-library-section model-package-library">
-            <div className="panel-title"><h3>Model Packages</h3><span>{filteredModelPackages.length} / {modelPackages.length}件</span></div>
-            <div className="model-package-toolbar" aria-label="Model Packageの絞り込み">
-              <label>Prediction Task<select value={packageTaskFilter} onChange={(event) => setPackageTaskFilter(event.target.value)}><option value="">すべて</option>{packageTaskIds.map((taskId) => <option key={taskId} value={taskId}>{taskId}</option>)}</select></label>
-              <label>学習元Dataset<select value={packageDatasetFilter} onChange={(event) => setPackageDatasetFilter(event.target.value)}><option value="">すべて</option>{packageDatasets.map((dataset) => <option key={dataset.dataset_revision.id} value={dataset.dataset_revision.id}>{datasetDisplayName(dataset)}</option>)}</select></label>
+            <div className="panel-title"><h3>モデルパッケージ</h3><span>{filteredModelPackages.length} / {modelPackages.length}件</span></div>
+            <div className="model-package-toolbar" aria-label="モデルパッケージの絞り込み">
+              <label>予測タスク<select value={packageTaskFilter} onChange={(event) => setPackageTaskFilter(event.target.value)}><option value="">すべて</option>{packageTaskIds.map((taskId) => <option key={taskId} value={taskId}>{taskId}</option>)}</select></label>
+              <label>学習元データセット<select value={packageDatasetFilter} onChange={(event) => setPackageDatasetFilter(event.target.value)}><option value="">すべて</option>{packageDatasets.map((dataset) => <option key={dataset.dataset_revision.id} value={dataset.dataset_revision.id}>{datasetDisplayName(dataset)}</option>)}</select></label>
               <label>状態<select value={packageStateFilter} onChange={(event) => setPackageStateFilter(event.target.value)}><option value="">すべて</option><option value="available">利用可能</option><option value="archived">アーカイブ</option></select></label>
               {(packageTaskFilter || packageDatasetFilter || packageStateFilter) && <button type="button" className="text-button" onClick={() => { setPackageTaskFilter(""); setPackageDatasetFilter(""); setPackageStateFilter(""); }}>絞り込みを解除</button>}
             </div>
@@ -276,10 +276,10 @@ export function DataLibraryPage({
                   <dl>
                     <div><dt>使いどころ</dt><dd>{decision?.useCase ?? "—"}</dd></div>
                     <div><dt>学習単位</dt><dd>{decision?.trainingUnit ?? "—"}</dd></div>
-                    <div><dt>学習元Dataset</dt><dd title={source?.data_asset.original_filename ?? sourceSha ?? undefined}>{source ? datasetDisplayName(source) : sourceSha ? `未登録 ${sourceSha.slice(0, 10)}` : "manifestに記録なし"}</dd></div>
-                    <div><dt>学習時Profile</dt><dd>{source ? `${source.profile_revision.name} · r${source.profile_revision.revision}` : "—"}</dd></div>
+                    <div><dt>学習元データセット</dt><dd title={source?.data_asset.original_filename ?? sourceSha ?? undefined}>{source ? datasetDisplayName(source) : sourceSha ? `未登録 ${sourceSha.slice(0, 10)}` : "マニフェストに記録なし"}</dd></div>
+                    <div><dt>学習時プロファイル</dt><dd>{source ? `${source.profile_revision.name} · r${source.profile_revision.revision}` : "—"}</dd></div>
                   </dl>
-                  <details className="model-package-technical"><summary>前提・技術情報</summary><p>{decision?.uncertainty}</p><p>{decision?.caution}</p><dl><div><dt>Package ID</dt><dd>{item.package_id}</dd></div><div><dt>Manifest</dt><dd title={item.manifest_digest}>{shortDigest(item.manifest_digest)}</dd></div></dl></details>
+                  <details className="model-package-technical"><summary>前提・技術情報</summary><p>{decision?.uncertainty}</p><p>{decision?.caution}</p><dl><div><dt>パッケージID</dt><dd>{item.package_id}</dd></div><div><dt>マニフェスト識別子</dt><dd title={item.manifest_digest}>{shortDigest(item.manifest_digest)}</dd></div></dl></details>
                   <button
                     type="button"
                     className={item.archived_at ? "outline-button resource-state-action" : "text-button resource-state-action"}

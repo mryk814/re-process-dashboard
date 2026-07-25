@@ -354,11 +354,11 @@ table input[type="number"] { text-align: right; font-variant-numeric: tabular-nu
     font-size: 16px;
   }
   .context-bar {
-    min-width: 820px;
+    min-width: 0;
   }
   .page-panel {
     margin: 14px;
-    min-width: 720px;
+    min-width: 0;
   }
 }
 @media (max-width: 660px) {

@@ -69,13 +69,13 @@ export function DeveloperControlCenter({ onOpenProfileWorkbench }: { onOpenProfi
   const selected = guide.find((item) => item.id === selectedGuide);
   return <div className="page-panel developer-control-center">
     <div className="page-intro">
-      <div><span className="overline">Developer Control Center</span><h2>構成・変更判断・診断</h2><p>編集や自動生成ではなく、影響範囲と次の操作を確認する場所です。</p></div>
+      <div><span className="overline">DEVELOPER TOOLS</span><h2>構成・変更判断・診断</h2><p>編集や自動生成ではなく、影響範囲と次の操作を確認する場所です。</p></div>
     </div>
     <nav className="developer-tabs" aria-label="Developer Control Center">
       {([
-        ["overview", "Overview"],
-        ["guide", "Change Guide"],
-        ["diagnostics", "Diagnostics"],
+        ["overview", "概要"],
+        ["guide", "変更ガイド"],
+        ["diagnostics", "診断"],
       ] as const).map(([id, label]) => <button type="button" key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>{label}</button>)}
     </nav>
     {error && <p className="panel-error">{error}</p>}
@@ -127,7 +127,7 @@ export function DeveloperControlCenter({ onOpenProfileWorkbench }: { onOpenProfi
     </section>}
 
     {tab === "diagnostics" && <section className="developer-section diagnostics-section">
-      <div className="developer-diagnostics-header"><div><h3>Runtime Diagnostics</h3><p>配布版でも実行できる、Project・Dataset・Package・DB・sidecarの診断です。開発ツールは起動しません。</p></div><button type="button" className="outline-button" disabled={diagnosing} onClick={() => void runDiagnostics()}>{diagnosing ? "診断中…" : "再診断"}</button></div>
+      <div className="developer-diagnostics-header"><div><h3>実行環境の診断</h3><p>配布版でも実行できる、Project・Dataset・Package・DB・sidecarの診断です。開発ツールは起動しません。</p></div><button type="button" className="outline-button" disabled={diagnosing} onClick={() => void runDiagnostics()}>{diagnosing ? "診断中…" : "再診断"}</button></div>
       {doctor ? <>
         <div className={`doctor-summary ${doctor.status}`}><b>{doctor.status.toUpperCase()}</b><span>{doctor.project_count} Project</span></div>
         <div className="doctor-checks">{doctor.checks.map((check) => <details key={check.id} className={`doctor-check ${check.severity}`} open={check.severity !== "ok"}>

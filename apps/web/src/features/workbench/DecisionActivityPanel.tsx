@@ -219,7 +219,7 @@ export function DecisionActivityPanel({
       </div>}
       <div className="activity-run-settings">
         <label>サンプル数<input type="number" min={8} max={500} value={sampleCount} onChange={(event) => setSampleCount(Number(event.target.value))} /></label>
-        <label>seed<input type="number" min={0} value={seed} onChange={(event) => setSeed(Number(event.target.value))} /></label>
+        <label>乱数シード（seed）<input type="number" min={0} value={seed} onChange={(event) => setSeed(Number(event.target.value))} /></label>
         <button type="button" className="primary-button" disabled={!canRun} onClick={() => void runActivity()}>{running ? "解析中…" : "公差内を解析"}</button>
       </div>
       {!ready && <small>候補の入力を保存すると実行できます。</small>}
@@ -231,7 +231,7 @@ export function DecisionActivityPanel({
     </nav>}
 
     {activeRun && <section className="activity-result">
-      <div className="activity-result-meta"><span>候補 revision {activeRun.provenance.candidate_revision}</span><span>{activeRun.result.accepted_samples}/{activeRun.result.requested_samples}件を評価</span></div>
+      <div className="activity-result-meta"><span>候補版 {activeRun.provenance.candidate_revision}</span><span>{activeRun.result.accepted_samples}/{activeRun.result.requested_samples}件を評価</span></div>
       <div className="activity-targets">{activeRun.result.target_summaries.map((summary) => <article key={summary.target}>
         <header><strong>{outputLabels.get(summary.target) ?? summary.target}</strong>{summary.goal_achievement_rate != null && <b>目標達成 {percentFormat.format(summary.goal_achievement_rate * 100)}%</b>}</header>
         <dl>
@@ -247,7 +247,7 @@ export function DecisionActivityPanel({
       </div>
       {activeRun.result.critical_inputs.length > 0 && <details className="activity-evidence">
         <summary>ばらつきと結び付きが強い入力</summary>
-        {activeRun.result.critical_inputs.map((item) => <div key={`${item.target}-${item.path}`}><span>{fieldByPath.get(item.path)?.label ?? item.path} → {outputLabels.get(item.target) ?? item.target}</span><b>|r| {numberFormat.format(item.absolute_correlation)}</b></div>)}
+        {activeRun.result.critical_inputs.map((item) => <div key={`${item.target}-${item.path}`}><span>{fieldByPath.get(item.path)?.label ?? item.path} → {outputLabels.get(item.target) ?? item.target}</span><b>相関の強さ |r| {numberFormat.format(item.absolute_correlation)}</b></div>)}
         <small>局所サンプル内の相関であり、因果効果ではありません。</small>
       </details>}
       {activeRun.result.failure_examples.length > 0 && <details className="activity-evidence">
