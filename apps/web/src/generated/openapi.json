@@ -969,9 +969,25 @@
       "ChainPort": {
         "additionalProperties": false,
         "properties": {
+          "basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Basis"
+          },
           "path": {
             "minLength": 1,
             "title": "Path",
+            "type": "string"
+          },
+          "quantity": {
+            "minLength": 1,
+            "title": "Quantity",
             "type": "string"
           },
           "unit": {
@@ -998,7 +1014,8 @@
         },
         "required": [
           "path",
-          "value_kind"
+          "value_kind",
+          "quantity"
         ],
         "title": "ChainPort",
         "type": "object"
@@ -6312,12 +6329,27 @@
           "scientific_identity": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/ChainProjectIdentity"
+                "discriminator": {
+                  "mapping": {
+                    "chain": "#/components/schemas/ChainProjectIdentity",
+                    "single_task": "#/components/schemas/SingleTaskProjectIdentity"
+                  },
+                  "propertyName": "identity_kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/SingleTaskProjectIdentity"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ChainProjectIdentity"
+                  }
+                ]
               },
               {
                 "type": "null"
               }
-            ]
+            ],
+            "title": "Scientific Identity"
           },
           "target_values": {
             "additionalProperties": {

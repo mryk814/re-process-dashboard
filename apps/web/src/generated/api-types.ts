@@ -1444,8 +1444,12 @@ export interface components {
         };
         /** ChainPort */
         ChainPort: {
+            /** Basis */
+            basis?: string | null;
             /** Path */
             path: string;
+            /** Quantity */
+            quantity: string;
             /** Unit */
             unit?: string | null;
             /**
@@ -3430,7 +3434,8 @@ export interface components {
                     [key: string]: components["schemas"]["InputRange"];
                 };
             };
-            scientific_identity?: components["schemas"]["ChainProjectIdentity"] | null;
+            /** Scientific Identity */
+            scientific_identity?: (components["schemas"]["SingleTaskProjectIdentity"] | components["schemas"]["ChainProjectIdentity"]) | null;
             /** Target Values */
             target_values?: {
                 [key: string]: number | components["schemas"]["TargetRange"];

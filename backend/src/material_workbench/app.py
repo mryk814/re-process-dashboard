@@ -38,6 +38,7 @@ from material_workbench.modeling.transform_catalog import (
 from material_workbench.persistence.store import Store
 from material_workbench.tasks.task_registry import DataExplorerEntry, TaskRegistry
 from material_workbench.persistence.workspace_catalog_bootstrap import bootstrap_workspace_catalog
+from material_workbench.persistence.welding_chain_bootstrap import bootstrap_welding_chain
 from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
 from .task_modules import (
     PRIMARY_DEFAULT_SOURCE,
@@ -243,6 +244,19 @@ def create_app(
             _raise_startup_error(
                 "deterministic_transforms",
                 "決定論的Transform Package",
+                exc,
+            )
+        try:
+            app.state.welding_chain_revision_id = bootstrap_welding_chain(
+                store=app.state.store,
+                workspace_catalog=app.state.workspace_catalog,
+                task_registry=prepared.task_registry,
+                transform_catalog=app.state.deterministic_transform_catalog,
+            )
+        except Exception as exc:
+            _raise_startup_error(
+                "chain_catalog",
+                "多段Chainカタログ",
                 exc,
             )
         yield

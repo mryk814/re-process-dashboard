@@ -106,9 +106,14 @@ def test_chain_catalog_and_project_creation_pin_exact_revision(
 
     catalog = client.get("/api/chains")
     assert catalog.status_code == 200
-    assert catalog.json()[0]["definition"]["chain_id"] == definition.chain_id
+    item = next(
+        item
+        for item in catalog.json()
+        if item["definition"]["chain_id"] == definition.chain_id
+    )
+    assert item["definition"]["chain_id"] == definition.chain_id
     assert (
-        catalog.json()[0]["revisions"][0]["revision_digest"]
+        item["revisions"][0]["revision_digest"]
         == revision.revision_digest
     )
 
@@ -142,6 +147,31 @@ def test_chain_catalog_and_project_creation_pin_exact_revision(
         reopened_store.get_project(project["id"]).scientific_identity
         == client.app.state.store.get_project(project["id"]).scientific_identity
     )
+
+
+def test_bundled_welding_chain_pins_real_a_b_c_resources(
+    client: TestClient,
+) -> None:
+    catalog = client.get("/api/chains")
+    assert catalog.status_code == 200
+    item = next(
+        item
+        for item in catalog.json()
+        if item["definition"]["chain_id"] == "welding-consumable-a-b-c-v1"
+    )
+    definition = item["definition"]
+    revision = item["revisions"][0]
+    assert [stage["stage_id"] for stage in definition["stages"]] == ["A", "B", "C"]
+    assert [stage["stage_kind"] for stage in definition["stages"]] == [
+        "deterministic_transform",
+        "task",
+        "task",
+    ]
+    assert len(definition["bindings"]) == 58
+    assert revision["revision"] == 1
+    assert all(stage["package_manifest_digest"].startswith("sha256:") for stage in revision["stages"])
+    assert revision["stages"][0]["dataset_view_revision_id"] is None
+    assert all(stage["dataset_view_revision_id"] for stage in revision["stages"][1:])
 
 
 def test_chain_project_rejects_revision_digest_drift(client: TestClient) -> None:
