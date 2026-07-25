@@ -17,7 +17,15 @@ def candidate_input_from_snapshot(snapshot_id: str, payload: Mapping[str, Any]) 
     name = f"{raw.get('name') or '候補'} (復元)"
     provenance = {"source_kind": "snapshot", "source_ref": {"snapshot_id": snapshot_id}}
     if version == "prediction-snapshot-v2":
-        return CandidateInput.model_validate({"name": name, "inputs": raw.get("inputs"), "provenance": provenance})
+        return CandidateInput.model_validate({
+            "name": name,
+            "inputs": raw.get("inputs"),
+            "blend": raw.get("blend"),
+            "editor_state": raw.get("editor_state") or {},
+            # blend_validation is deliberately omitted. CandidateService resolves
+            # the pinned resources and recomputes it before saving the restore.
+            "provenance": provenance,
+        })
     if version == "prediction-snapshot-v1":
         raise SnapshotPayloadError("旧スナップショットは入力項目の改定後に復元できません。候補を新しい項目で作り直してください")
     raise SnapshotPayloadError(f"未対応のスナップショット形式です: {version!r}")

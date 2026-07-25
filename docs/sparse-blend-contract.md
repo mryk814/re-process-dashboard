@@ -26,6 +26,7 @@
 `ratio` と `fill_ratio` はいずれも百分率である。
 候補のフープ、充填率、残部原料はDesign Spaceで固定する。
 原料明細の順序はモデル入力の意味に含めない。
+`ratio=0` の明細もcanonical scientific inputから除外し、未選択行の有無で入力hashを変えない。
 
 ## revisionの分離
 
@@ -41,9 +42,15 @@
 合計、固定フープ・充填率、使用可能集合、上下限、群合計、選択数に違反する候補は拒否しない。
 サーバーが `blend_validation.status=invalid` と理由一覧を保存し、編集可能なdraftとして返す。
 preview、詳細予測、範囲探索、検討アクティビティは成立するまで実行しない。
+候補XLSXへinvalid draftを含める場合も予測は実行せず、予測・支持範囲のセルを空欄にする。
+
+疎な配合候補を受け取れるTaskだけが `ApplicationCapability.sparse_blend=true` を宣言する。
+宣言のないTaskへ `blend` を保存することはできない。
 
 `editor_state.locked_material_ids` は保存するが、canonical scientific inputと推論cache hashには含めない。
 残部原料、Design Space revision、商用catalog revisionもcandidate revisionの再現情報として保持し、Stage Aの数値入力hashとは分離する。
 
 既存の固定フォーム候補には `blend=null`、`blend_validation=not_applicable` が補われる。
 既存snapshotのraw candidateも同じ既定値で読み取るため、保存済み結果を再計算しない。
+疎な配合候補を復元するときは `blend` と `editor_state` を引き継ぐが、
+`blend_validation` は信用せず、固定されたmasterとDesign Spaceからサーバーが再計算する。

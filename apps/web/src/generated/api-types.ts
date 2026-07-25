@@ -1115,6 +1115,11 @@ export interface components {
              * @default true
              */
             project_creation: boolean;
+            /**
+             * Sparse Blend
+             * @default false
+             */
+            sparse_blend: boolean;
         };
         /**
          * BlendEditorState
@@ -3309,7 +3314,8 @@ export interface components {
             /** @default {
              *       "candidate_excel_export": false,
              *       "candidate_excel_import": false,
-             *       "project_creation": true
+             *       "project_creation": true,
+             *       "sparse_blend": false
              *     } */
             application: components["schemas"]["ApplicationCapability"];
             /** @default {

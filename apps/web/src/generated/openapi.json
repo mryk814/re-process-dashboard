@@ -252,6 +252,11 @@
             "default": true,
             "title": "Project Creation",
             "type": "boolean"
+          },
+          "sparse_blend": {
+            "default": false,
+            "title": "Sparse Blend",
+            "type": "boolean"
           }
         },
         "title": "ApplicationCapability",
@@ -6050,7 +6055,8 @@
             "default": {
               "candidate_excel_export": false,
               "candidate_excel_import": false,
-              "project_creation": true
+              "project_creation": true,
+              "sparse_blend": false
             }
           },
           "availability": {

@@ -136,6 +136,7 @@ class SparseBlend(BlendContractModel):
             "items": [
                 {"material_id": item.material_id, "ratio": item.ratio}
                 for item in sorted(self.items, key=lambda item: item.material_id)
+                if item.ratio != 0
             ],
             "hoop_id": self.hoop_id,
             "fill_ratio": self.fill_ratio,

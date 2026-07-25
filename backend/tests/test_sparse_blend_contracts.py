@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from io import BytesIO
+from types import SimpleNamespace
 
 import pytest
+from openpyxl import load_workbook
 from pydantic import ValidationError
 
+from material_workbench.application.candidates import CandidateService
 from material_workbench.contracts.blend_contracts import (
     BlendContractRegistry,
     BlendItem,
@@ -21,8 +25,10 @@ from material_workbench.contracts.blend_contracts import (
     SparseBlendDesignSpace,
     validate_sparse_blend,
 )
-from material_workbench.contracts.schemas import CandidateInput
+from material_workbench.contracts.schemas import Candidate, CandidateInput
+from material_workbench.domain.services import candidates_xlsx
 from material_workbench.execution.inference_work_graph import semantic_digest
+from material_workbench.persistence.snapshot_reader import candidate_input_from_snapshot
 from material_workbench.tasks.task_registry import load_task_contracts
 
 
@@ -202,6 +208,19 @@ def test_editor_state_and_commercial_revision_do_not_change_model_input_hash() -
     assert master.ref == repriced.scientific_master
 
 
+def test_zero_ratio_line_does_not_change_model_input_payload_or_hash() -> None:
+    source = _blend()
+    with_zero = source.model_copy(
+        update={
+            "items": source.items
+            + (BlendItem(material_id="RM-9999", ratio=0),)
+        }
+    )
+
+    assert with_zero.model_input_payload() == source.model_input_payload()
+    assert with_zero.model_input_digest == source.model_input_digest
+
+
 def test_legacy_fixed_form_candidate_defaults_to_no_blend() -> None:
     candidate = CandidateInput.model_validate(
         {
@@ -249,7 +268,67 @@ def test_adding_a_material_does_not_change_fixed_task_contract_dimensions() -> N
     assert semantic_digest(task.model_dump(mode="json")) == task_digest
 
 
-def test_invalid_blend_is_saved_as_draft_and_preview_is_blocked(client) -> None:
+def _blend_capable_service(registry: BlendContractRegistry) -> CandidateService:
+    task_registry = SimpleNamespace(
+        entry_for=lambda _task_id: SimpleNamespace(
+            application_capability=SimpleNamespace(sparse_blend=True)
+        ),
+        validate_candidate=lambda _task_id, _payload: None,
+    )
+    return CandidateService(
+        store=SimpleNamespace(),
+        registry=task_registry,
+        resolver=SimpleNamespace(),
+        blend_contracts=registry,
+    )
+
+
+def test_blend_validation_is_server_recomputed_and_snapshot_restore_keeps_blend() -> None:
+    _, _, _, registry = _contracts()
+    blend = _blend(
+        items=(
+            BlendItem(material_id="RM-0001", ratio=10),
+            BlendItem(material_id="RM-0002", ratio=10),
+        )
+    )
+    payload = {
+        "name": "Design Space違反draft",
+        "inputs": {"composition": {"C": 0.1}, "process": {}},
+        "blend": blend.model_dump(mode="json"),
+        "editor_state": {"locked_material_ids": ["RM-0002"]},
+        # A forged client value must never override server-side validation.
+        "blend_validation": {"status": "not_applicable", "issues": []},
+    }
+    service = _blend_capable_service(registry)
+    prepared = service._prepare("blend-task", CandidateInput.model_validate(payload))
+    assert prepared.blend_validation.status == "invalid"
+    assert {item.code for item in prepared.blend_validation.issues} >= {
+        "total",
+        "material_bounds",
+    }
+
+    restored = candidate_input_from_snapshot(
+        "snapshot-1",
+        {
+            "snapshot_schema_version": "prediction-snapshot-v2",
+            "raw_candidate": {
+                **payload,
+                "blend_validation": {
+                    "status": "valid",
+                    "issues": [],
+                    "design_space_digest": blend.design_space.digest,
+                },
+            },
+        },
+    )
+    assert restored.blend == blend
+    assert restored.editor_state.locked_material_ids == ["RM-0002"]
+    assert restored.blend_validation.status == "not_applicable"
+    recomputed = service._prepare("blend-task", restored)
+    assert recomputed.blend_validation == prepared.blend_validation
+
+
+def test_task_without_sparse_blend_capability_rejects_blend(client) -> None:
     _, _, _, registry = _contracts()
     client.app.state.blend_contract_registry = registry
     source = client.get("/api/projects/default/candidates").json()[0]
@@ -257,33 +336,46 @@ def test_invalid_blend_is_saved_as_draft_and_preview_is_blocked(client) -> None:
         key: deepcopy(source[key])
         for key in ("name", "inputs", "provenance")
     }
-    payload["name"] = "Design Space違反draft"
-    payload["blend"] = _blend(
+    payload["blend"] = _blend().model_dump(mode="json")
+
+    created = client.post("/api/projects/default/candidates", json=payload)
+
+    assert created.status_code == 422
+    assert "sparse blend" in created.json()["message"]
+
+
+def test_invalid_blend_xlsx_export_leaves_prediction_blank_without_predicting(client) -> None:
+    _, _, _, registry = _contracts()
+    source = client.get("/api/projects/default/candidates").json()[0]
+    blend = _blend(
         items=(
             BlendItem(material_id="RM-0001", ratio=10),
             BlendItem(material_id="RM-0002", ratio=10),
         )
-    ).model_dump(mode="json")
-    payload["editor_state"] = {"locked_material_ids": ["RM-0002"]}
-    # A forged client value must never override server-side validation.
-    payload["blend_validation"] = {"status": "not_applicable", "issues": []}
-
-    created = client.post("/api/projects/default/candidates", json=payload)
-
-    assert created.status_code == 201
-    candidate = created.json()
-    assert candidate["blend_validation"]["status"] == "invalid"
-    assert {item["code"] for item in candidate["blend_validation"]["issues"]} >= {
-        "total",
-        "material_bounds",
-    }
-    fetched = client.get(
-        f"/api/projects/default/candidates/{candidate['id']}"
-    ).json()
-    assert fetched["blend_validation"] == candidate["blend_validation"]
-    preview = client.post(
-        f"/api/projects/default/candidates/{candidate['id']}/preview",
-        params={"expected_revision": candidate["revision"]},
     )
-    assert preview.status_code == 422
-    assert "Design Space" in preview.json()["message"]
+    validation = validate_sparse_blend(blend, registry.resolve(blend))
+    candidate = Candidate.model_validate({
+        **source,
+        "blend": blend.model_dump(mode="json"),
+        "blend_validation": validation.model_dump(mode="json"),
+    })
+    actual_runtime = client.app.state.task_registry.entry_for(
+        "annealed-properties-v1"
+    ).predictor_runtime
+
+    class RuntimeThatMustNotPredict:
+        data = actual_runtime.data
+
+        def predict(self, *_args: object, **_kwargs: object) -> object:
+            raise AssertionError("invalid draft must not be predicted")
+
+    workbook = load_workbook(BytesIO(candidates_xlsx(
+        [candidate],
+        RuntimeThatMustNotPredict(),  # type: ignore[arg-type]
+        task_id="annealed-properties-v1",
+    )))
+    values = [cell.value for cell in workbook["候補"][2]]
+    output_count = len(
+        load_task_contracts()["annealed-properties-v1"].task_definition.outputs
+    )
+    assert all(value is None for value in values[-(output_count + 2):])

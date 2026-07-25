@@ -442,6 +442,7 @@ class ApplicationCapability(ContractModel):
     project_creation: bool = True
     candidate_excel_import: bool = False
     candidate_excel_export: bool = False
+    sparse_blend: bool = False
 
 
 class TaskAvailability(ContractModel):

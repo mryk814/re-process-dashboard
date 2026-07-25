@@ -62,7 +62,8 @@
       "application_capability": {
         "project_creation": true,
         "candidate_excel_import": true,
-        "candidate_excel_export": true
+        "candidate_excel_export": true,
+        "sparse_blend": false
       },
       "data_explorer": {
         "schema_version": "data-explorer-capability/v1",
@@ -110,7 +111,8 @@
       "application_capability": {
         "project_creation": true,
         "candidate_excel_import": false,
-        "candidate_excel_export": false
+        "candidate_excel_export": false,
+        "sparse_blend": false
       },
       "data_explorer": {
         "schema_version": "data-explorer-capability/v1",
@@ -163,7 +165,8 @@
       "application_capability": {
         "project_creation": true,
         "candidate_excel_import": false,
-        "candidate_excel_export": false
+        "candidate_excel_export": false,
+        "sparse_blend": false
       },
       "data_explorer": null
     },
@@ -211,7 +214,8 @@
       "application_capability": {
         "project_creation": true,
         "candidate_excel_import": false,
-        "candidate_excel_export": false
+        "candidate_excel_export": false,
+        "sparse_blend": false
       },
       "data_explorer": {
         "schema_version": "data-explorer-capability/v1",
@@ -259,7 +263,8 @@
       "application_capability": {
         "project_creation": true,
         "candidate_excel_import": false,
-        "candidate_excel_export": false
+        "candidate_excel_export": false,
+        "sparse_blend": false
       },
       "data_explorer": {
         "schema_version": "data-explorer-capability/v1",
@@ -307,7 +312,8 @@
       "application_capability": {
         "project_creation": true,
         "candidate_excel_import": false,
-        "candidate_excel_export": false
+        "candidate_excel_export": false,
+        "sparse_blend": false
       },
       "data_explorer": {
         "schema_version": "data-explorer-capability/v1",
@@ -355,7 +361,8 @@
       "application_capability": {
         "project_creation": true,
         "candidate_excel_import": false,
-        "candidate_excel_export": false
+        "candidate_excel_export": false,
+        "sparse_blend": false
       },
       "data_explorer": {
         "schema_version": "data-explorer-capability/v1",
@@ -403,7 +410,8 @@
       "application_capability": {
         "project_creation": true,
         "candidate_excel_import": false,
-        "candidate_excel_export": false
+        "candidate_excel_export": false,
+        "sparse_blend": false
       },
       "data_explorer": {
         "schema_version": "data-explorer-capability/v1",
@@ -451,7 +459,8 @@
       "application_capability": {
         "project_creation": false,
         "candidate_excel_import": false,
-        "candidate_excel_export": false
+        "candidate_excel_export": false,
+        "sparse_blend": false
       },
       "data_explorer": null
     },
@@ -504,7 +513,8 @@
       "application_capability": {
         "project_creation": true,
         "candidate_excel_import": false,
-        "candidate_excel_export": false
+        "candidate_excel_export": false,
+        "sparse_blend": false
       },
       "data_explorer": {
         "schema_version": "data-explorer-capability/v1",
@@ -552,7 +562,8 @@
       "application_capability": {
         "project_creation": true,
         "candidate_excel_import": false,
-        "candidate_excel_export": false
+        "candidate_excel_export": false,
+        "sparse_blend": false
       },
       "data_explorer": {
         "schema_version": "data-explorer-capability/v1",

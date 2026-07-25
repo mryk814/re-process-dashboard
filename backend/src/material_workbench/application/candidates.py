@@ -162,6 +162,10 @@ class CandidateService:
                 update={"blend_validation": BlendValidationState(status="not_applicable")}
             )
         else:
+            if not self.registry.entry_for(task_id).application_capability.sparse_blend:
+                raise CandidateValidationError(
+                    "この予測タスクは疎な配合候補（sparse blend）に対応していません"
+                )
             try:
                 contracts = self.blend_contracts.resolve(payload.blend)
             except BlendStructuralError as exc:

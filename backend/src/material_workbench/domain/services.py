@@ -809,7 +809,11 @@ def candidates_xlsx(candidates: list[Candidate], runtime: PredictionRuntime, tas
         raise ValueError(f"候補XLSXの見出しが重複しています: {', '.join(duplicates)}")
     sheet.append(headers)
     for candidate in candidates:
-        result = runtime.predict(candidate, detailed=False)
+        result = (
+            None
+            if candidate.blend_validation.status == "invalid"
+            else runtime.predict(candidate, detailed=False)
+        )
         heat_values = [
             item
             for point in (candidate.inputs.heat_pattern or [])
@@ -834,8 +838,12 @@ def candidates_xlsx(candidates: list[Candidate], runtime: PredictionRuntime, tas
             )
         sheet.append([
             "material-workbench-candidate-v2", candidate.id, candidate.name, *input_values, *heat_values,
-            *(result["predictions"][output.key].value for output in definition.outputs),
-            result["support"].status, result["support"].distance,
+            *(
+                result["predictions"][output.key].value if result is not None else None
+                for output in definition.outputs
+            ),
+            result["support"].status if result is not None else None,
+            result["support"].distance if result is not None else None,
         ])
     for column in sheet.columns:
         letter = column[0].column_letter
