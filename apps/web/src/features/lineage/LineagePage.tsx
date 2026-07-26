@@ -734,7 +734,7 @@ export function LineagePage({
                 <svg
                   viewBox={`0 0 ${HEAT_CHART_WIDTH} 135`}
                   className="lineage-heat"
-                  role="img"
+                  role="group"
                   aria-label="実績ヒートパターン"
                 >
                   {heatTemperatureTicks.map((tick) => <g key={`temp-${tick}`} className="lineage-heat-grid"><line x1={HEAT_PLOT_LEFT} x2={HEAT_CHART_WIDTH - HEAT_PLOT_RIGHT} y1={heatY(tick)} y2={heatY(tick)} /><text x={HEAT_PLOT_LEFT - 3} y={heatY(tick) + 3} textAnchor="end">{number(tick)}</text></g>)}
@@ -759,6 +759,7 @@ export function LineagePage({
                     <circle
                       key={point.time_s}
                       className="svg-chart-hit-target"
+                      role="img"
                       tabIndex={0}
                       aria-label={[point.stage_category, point.stage_name, `${point.time_s}s / ${point.temperature_c}°C`].filter(Boolean).join(" · ")}
                       cx={heatX(point.time_s)}

@@ -235,7 +235,8 @@
 
 @container (max-width: 780px) {
   .candidate-decision-summary { grid-template-columns: 1fr; }
-  .candidate-decision-summary dl { max-width: 480px; }
+  /* 三つの指標は幅が足りなければ折り返す。ページ全体を横スクロールさせない。 */
+  .candidate-decision-summary dl { max-width: 480px; grid-template-columns: repeat(auto-fit, minmax(88px, 1fr)); }
   .candidate-decision-summary dd { overflow: hidden; text-overflow: ellipsis; }
 }
 

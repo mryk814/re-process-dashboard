@@ -116,7 +116,7 @@ export function HeatPattern({
       <svg
         viewBox={`0 0 ${width} ${height}`}
         className="heat-chart"
-        role="img"
+        role="group"
         aria-label="候補を重ねたヒートパターン。選択候補の温度点をドラッグして編集できます。"
       >
         <g className="grid-lines">
@@ -154,6 +154,7 @@ export function HeatPattern({
               />
               {item.heat.map((point, index) => <circle
                 className="svg-chart-hit-target"
+                role="img"
                 tabIndex={-1}
                 aria-label={`${item.label}: ${number(point.time, 2)}分, ${point.temperature}度`}
                 key={`${item.id}-${point.time}-${index}`}
