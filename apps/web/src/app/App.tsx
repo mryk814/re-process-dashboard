@@ -550,6 +550,11 @@ function App() {
               rememberCandidate(candidate.id);
               session.notifySuccess(`${candidate.label} を候補ストックへ追加しました（${count}件）`);
             }}
+            onConfigureGoals={() => navigate({
+              view: "project",
+              projectId: activeProjectId,
+              projectSettings: "targets",
+            })}
             onCompare={() => navigate({ view: "candidates", projectId: activeProjectId }, true)}
             onCreateStarter={() => void session.createStarterCandidate()}
           />
