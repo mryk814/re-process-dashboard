@@ -7,6 +7,7 @@ import {
 } from "./candidateModel";
 import { LatestSaveQueue, rebaseChangedFields } from "./latestSaveQueue";
 import { ApiClientError } from "../../shared/api/client";
+import type { WorkspaceNoticeKind } from "../../shared/workspaceNotice";
 import { workbenchApi, type ApiCandidate, type ApiCandidateInput, type ApiCandidateUpdate, type ApiPreview } from "../../shared/api/workbench-api";
 import { candidateInferenceChanged, candidateInferencePrefix, candidateInputIdentity, inferenceRequestCache, shouldRefreshPreviewAfterSave } from "../../shared/api/inferenceRequestCache";
 
@@ -18,10 +19,10 @@ type CandidateEditorOptions = {
   previewAvailable: boolean;
   onPreview: (candidateId: string, preview: ApiPreview | null, inputIdentity?: string, candidateRevision?: number, requestError?: unknown) => void;
   getPreviewInputIdentity?: (candidateId: string) => string | undefined;
-  onNotice: (message: string) => void;
+  onNotify: (kind: WorkspaceNoticeKind, message: string) => void;
 };
 
-export function useCandidateEditor({ projectId, setCandidates, previewAvailable, onPreview, getPreviewInputIdentity, onNotice }: CandidateEditorOptions) {
+export function useCandidateEditor({ projectId, setCandidates, previewAvailable, onPreview, getPreviewInputIdentity, onNotify }: CandidateEditorOptions) {
   const queue = useRef(new LatestSaveQueue<ApiCandidate>());
   const authoritative = useRef(new Map<string, ApiCandidate>());
   const scheduled = useRef(new Map<string, ReturnType<typeof setTimeout>>());
@@ -77,7 +78,7 @@ export function useCandidateEditor({ projectId, setCandidates, previewAvailable,
       const contractError = candidateSaveContractError(saved, draftPayload);
       if (contractError) {
         setSaveState(candidateId, "error");
-        onNotice(contractError);
+        onNotify("error", contractError);
         return;
       }
       setCandidates((items) => items.map((item) => item.id === candidateId ? fromApiCandidate(saved) : item));
@@ -108,7 +109,7 @@ export function useCandidateEditor({ projectId, setCandidates, previewAvailable,
         ) return;
         if (previewController.signal.aborted) return;
         onPreview(candidateId, null, inputIdentity, saved.revision, cause);
-        onNotice("入力は保存しましたが、予測結果を更新できませんでした");
+        onNotify("error", "入力は保存しましたが、予測結果を更新できませんでした");
       } finally {
         if (previewControllers.current.get(candidateId) === previewController) {
           previewControllers.current.delete(candidateId);
@@ -120,7 +121,7 @@ export function useCandidateEditor({ projectId, setCandidates, previewAvailable,
       if (apiError?.currentCandidate) authoritative.current.set(candidateId, apiError.currentCandidate);
       setFieldErrors((current) => ({ ...current, [candidateId]: apiError?.fieldErrors ?? [] }));
       setSaveState(candidateId, apiError?.kind === "conflict" ? "conflict" : "error");
-      onNotice(apiError?.kind === "conflict"
+      onNotify("error", apiError?.kind === "conflict"
         ? "別の更新と競合しました。入力値は保持しています。再読込するか変更内容をコピーしてください"
         : "入力を保存できません。値とエラー表示を確認してください");
     } finally {
@@ -158,16 +159,16 @@ export function useCandidateEditor({ projectId, setCandidates, previewAvailable,
     setFieldErrors((current) => ({ ...current, [candidateId]: [] }));
     setSaveState(candidateId, "idle");
     onPreview(candidateId, null);
-    onNotice("サーバー上の候補を再読込しました");
+    onNotify("success", "サーバー上の候補を再読込しました");
   }
 
   async function copyDraft(candidate: CandidateViewModel) {
     try {
       if (!navigator.clipboard) throw new Error("clipboard unavailable");
       await navigator.clipboard.writeText(JSON.stringify(toApiCandidate(candidate), null, 2));
-      onNotice("編集中の候補をクリップボードへコピーしました");
+      onNotify("success", "編集中の候補をクリップボードへコピーしました");
     } catch {
-      onNotice("クリップボードへコピーできません。ブラウザの権限を確認してください");
+      onNotify("error", "クリップボードへコピーできません。ブラウザの権限を確認してください");
     }
   }
 

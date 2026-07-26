@@ -8,6 +8,7 @@ import { LineagePage } from "../features/lineage";
 import { DataExploreNavigation, LiveDataQualityPage } from "../features/quality";
 import { DeveloperAdminPage } from "../features/admin";
 import { DataLibraryPage, ProfileWorkbenchPage } from "../features/data-library";
+import { WorkspaceNoticeBanner } from "../shared/ui/WorkspaceNoticeBanner";
 
 type Tab = WorkbenchView;
 const lastNavigationStorageKey = "material-workbench-last-navigation";
@@ -252,7 +253,7 @@ function App() {
             ))}
           </nav>
         </div>}
-        {!dataLibraryMode && notice && notice !== preview?.support.message && <div className="workspace-notice" role="status">{notice}</div>}
+        {!dataLibraryMode && notice && <WorkspaceNoticeBanner notice={notice} onDismiss={session.dismissNotice} />}
         {tab === "project" && (
           <ProjectHub
             projects={projects}
@@ -486,7 +487,7 @@ function App() {
             onCandidate={(candidate) => {
               const count = session.acceptCandidate(candidate);
               rememberCandidate(candidate.id);
-              session.setNotice(`${candidate.label} を候補ストックへ追加しました（${count}件）`);
+              session.notifySuccess(`${candidate.label} を候補ストックへ追加しました（${count}件）`);
             }}
             />
           </div>
@@ -504,7 +505,7 @@ function App() {
             onCandidate={(candidate) => {
               const count = session.acceptCandidate(candidate);
               rememberCandidate(candidate.id);
-              session.setNotice(`${candidate.label} を候補ストックへ追加しました（${count}件）`);
+              session.notifySuccess(`${candidate.label} を候補ストックへ追加しました（${count}件）`);
             }}
             onCompare={() => navigate({ view: "candidates", projectId: activeProjectId }, true)}
             onCreateStarter={() => void session.createStarterCandidate()}
