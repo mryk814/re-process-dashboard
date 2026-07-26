@@ -362,10 +362,28 @@ def build_training_snapshot(
     created_at: datetime | None = None,
 ) -> ApprovedTrainingSnapshot:
     approved = set(dataset.approved_row_keys)
+    policy = request.selection_policy
+
+    def selected(row: CuratedRow) -> bool:
+        if policy is None:
+            return True
+        for exclusion in policy.exclusions:
+            if (
+                exclusion.kind == "field_equals_any_v1"
+                and row.canonical_record.get(exclusion.field)
+                in exclusion.values
+            ):
+                return False
+        return True
+
     included = tuple(
         row.row_key
         for row in run.rows
-        if row.row_key in approved and row.target_eligible
+        if (
+            row.row_key in approved
+            and row.target_eligible
+            and selected(row)
+        )
     )
     if not included:
         raise LifecycleConflictError("学習対象にできる承認済みrowがありません")
@@ -375,6 +393,9 @@ def build_training_snapshot(
         "actor": request.actor,
         "purpose": request.purpose,
     }
+    if policy is not None:
+        payload["selection_policy"] = policy.model_dump(mode="json")
+        payload["selection_policy_digest"] = policy.digest
     digest = semantic_digest(payload)
     return ApprovedTrainingSnapshot(
         id=f"training-snapshot-{digest.removeprefix('sha256:')[:24]}",
@@ -384,6 +405,8 @@ def build_training_snapshot(
         row_count=len(included),
         actor=request.actor,
         purpose=request.purpose,
+        selection_policy=policy,
+        selection_policy_digest=policy.digest if policy else None,
         snapshot_digest=digest,
         created_at=created_at or datetime.now(UTC),
     )

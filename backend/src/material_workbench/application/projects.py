@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from material_workbench.contracts.schemas import (
     ModelPackageRef,
+    DatasetViewMember,
     Project,
     ProjectCreateInput,
     ProjectDecisionInput,
@@ -372,7 +373,7 @@ class ProjectService:
         compatible_packages = [
             item for item in self.catalog.list_model_package_refs()
             if item.task_id == payload.task_id and item.task_contract_digest == task_digest
-            and self._package_trained_on_dataset(item, view.members[0].dataset_revision_id)
+            and self._package_trained_on_dataset(item, view.members[0])
         ]
         if payload.model_package_ref_id:
             package = self.catalog.get_model_package_ref(payload.model_package_ref_id)
@@ -486,11 +487,11 @@ class ProjectService:
         return task_id in supported_task_ids(profile.effective_profile_json)
 
     def _package_trained_on_dataset(
-        self, package: ModelPackageRef, dataset_revision_id: str
+        self, package: ModelPackageRef, member: DatasetViewMember
     ) -> bool:
         if self.catalog is None:
             return False
-        dataset = self.catalog.get_dataset_revision(dataset_revision_id)
+        dataset = self.catalog.get_dataset_revision(member.dataset_revision_id)
         if dataset is None:
             return False
         asset = self.catalog.get_data_asset(dataset.data_asset_id)
@@ -498,7 +499,15 @@ class ProjectService:
         provenance = package.manifest_json.get("provenance")
         if asset is None or profile is None or not isinstance(provenance, dict):
             return False
-        return (
+        if not (
             provenance.get("training_data_id") == f"sha256:{asset.sha256}"
             and provenance.get("dataset_profile_id") == profile.profile_digest
+        ):
+            return False
+        source_lifecycle = provenance.get("source_lifecycle")
+        if source_lifecycle is None:
+            return True
+        return (
+            member.provenance_json.get("source_lifecycle")
+            == source_lifecycle
         )

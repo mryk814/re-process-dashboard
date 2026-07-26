@@ -708,6 +708,7 @@ class FeaturePipelineIdentity(BaseModel):
     model_config = ConfigDict(extra="allow")
     id: str = ""
     version: str = ""
+    digest: str = ""
     input_schema_version: str = ""
     features: list[str] = Field(default_factory=list)
 
@@ -716,7 +717,35 @@ class TrainingDataIdentity(BaseModel):
     model_config = ConfigDict(extra="allow")
     source_path: str = ""
     source_sha256: str = ""
+    training_data_id: str = ""
+    feature_dataset_id: str = ""
+    training_code_revision: str = ""
     records: dict[str, int] = Field(default_factory=dict)
+
+
+class SourceLifecycleIdentity(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    connector_id: str
+    connector_configuration_digest: str
+    source_adapter_id: str
+    source_adapter_version: str
+    raw_snapshot_id: str
+    raw_snapshot_digest: str
+    recipe_id: str
+    recipe_digest: str
+    curation_run_id: str
+    curation_digest: str
+    profile_revision_id: str
+    profile_digest: str
+    canonical_dataset_revision_id: str
+    canonical_dataset_digest: str
+    training_snapshot_id: str
+    training_snapshot_digest: str
+    training_selection_policy_digest: str
+    materialization_adapter_id: str
+    materialization_adapter_version: str
+    materialized_training_sha256: str
+    row_count: int
 
 
 class PredictionIntervalIdentity(BaseModel):
@@ -740,6 +769,7 @@ class ModelMetadata(BaseModel):
     model: ModelIdentity | None = None
     feature_pipeline: FeaturePipelineIdentity | None = None
     training_data: TrainingDataIdentity | None = None
+    source_lifecycle: SourceLifecycleIdentity | None = None
     prediction_interval: PredictionIntervalIdentity | None = None
     similarity: SimilarityIdentity | None = None
 

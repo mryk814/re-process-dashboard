@@ -215,11 +215,65 @@ class PredictorSpec(PackageModel):
         return self
 
 
+SourceLifecycleDigest = Annotated[
+    str, Field(pattern=r"^sha256:[0-9a-f]{64}$")
+]
+
+
+class SourceLifecycleProvenance(PackageModel):
+    connector_id: Annotated[str, Field(min_length=1)]
+    connector_configuration_digest: SourceLifecycleDigest
+    source_adapter_id: Annotated[str, Field(min_length=1)]
+    source_adapter_version: Annotated[str, Field(min_length=1)]
+    raw_snapshot_id: Annotated[str, Field(min_length=1)]
+    raw_snapshot_digest: SourceLifecycleDigest
+    recipe_id: Annotated[str, Field(min_length=1)]
+    recipe_digest: SourceLifecycleDigest
+    curation_run_id: Annotated[str, Field(min_length=1)]
+    curation_digest: SourceLifecycleDigest
+    profile_revision_id: Annotated[str, Field(min_length=1)]
+    profile_digest: SourceLifecycleDigest
+    canonical_dataset_revision_id: Annotated[str, Field(min_length=1)]
+    canonical_dataset_digest: SourceLifecycleDigest
+    training_snapshot_id: Annotated[str, Field(min_length=1)]
+    training_snapshot_digest: SourceLifecycleDigest
+    training_selection_policy_digest: SourceLifecycleDigest
+    materialization_adapter_id: Annotated[str, Field(min_length=1)]
+    materialization_adapter_version: Annotated[str, Field(min_length=1)]
+    materialized_training_sha256: Annotated[
+        str, Field(pattern=r"^[0-9a-f]{64}$")
+    ]
+    row_count: Annotated[int, Field(ge=1)]
+
+
 class ProvenanceSpec(PackageModel):
     training_data_id: str
     feature_dataset_id: str
     training_code_revision: str
     dataset_profile_id: str | None = None
+    source_lifecycle: SourceLifecycleProvenance | None = None
+
+    @model_validator(mode="after")
+    def lifecycle_matches_training_asset(self) -> "ProvenanceSpec":
+        lifecycle = self.source_lifecycle
+        if lifecycle is None:
+            return self
+        if (
+            self.training_data_id
+            != f"sha256:{lifecycle.materialized_training_sha256}"
+        ):
+            raise ValueError(
+                "source lifecycle materialization does not match training_data_id"
+            )
+        if self.dataset_profile_id is None:
+            raise ValueError(
+                "source lifecycle provenance requires dataset_profile_id"
+            )
+        if self.dataset_profile_id != lifecycle.profile_digest:
+            raise ValueError(
+                "source lifecycle profile does not match dataset_profile_id"
+            )
+        return self
 
 
 class DeterministicTransformSpec(PackageModel):

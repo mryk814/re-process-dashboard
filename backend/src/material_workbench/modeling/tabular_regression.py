@@ -23,6 +23,7 @@ from material_workbench.contracts.feature_contracts import FeatureBundle, Featur
 from material_workbench.contracts.schemas import Candidate, CandidateInput, Prediction, Support, TargetValue
 from material_workbench.data.dataset_profile import load_task_definitions
 from material_workbench.domain.goal_targets import goal_fields
+from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.modeling.curve_grid import anchored_curve_grid
 from material_workbench.modeling.model_packages import (
     LoadedBatchPredictor,
@@ -1169,6 +1170,19 @@ class TabularRegressionRuntime:
             item.target_kind == "binary"
             for item in self.model_package.manifest.predictors
         )
+        pipeline = self.model_package.manifest.feature_pipeline
+        pipeline_paths = {pipeline.spec, *pipeline.artifacts}
+        pipeline_digest = semantic_digest(
+            {
+                "specification": pipeline.model_dump(mode="json"),
+                "artifacts": {
+                    item.path: item.sha256
+                    for item in self.model_package.manifest.artifacts
+                    if item.path in pipeline_paths
+                },
+            }
+        )
+        package_provenance = self.model_package.manifest.provenance
         return {
             "task_id": self.task_id,
             "candidate_id": candidate.id,
@@ -1206,14 +1220,20 @@ class TabularRegressionRuntime:
                     "runtime_types": runtime_types,
                 },
                 "feature_pipeline": {
-                    "id": self.model_package.manifest.feature_pipeline.id,
-                    "version": self.model_package.manifest.feature_pipeline.version,
+                    "id": pipeline.id,
+                    "version": pipeline.version,
+                    "digest": pipeline_digest,
                     "input_schema_version": "canonical-candidate/v1",
                     "features": list(values),
                 },
                 "training_data": {
                     "source_path": self.data.source_path,
                     "source_sha256": self.data.source_sha256,
+                    "training_data_id": package_provenance.training_data_id,
+                    "feature_dataset_id": package_provenance.feature_dataset_id,
+                    "training_code_revision": (
+                        package_provenance.training_code_revision
+                    ),
                     "records": self.training_stats["records"],
                     **(
                         {
@@ -1224,6 +1244,18 @@ class TabularRegressionRuntime:
                         else {}
                     ),
                 },
+                **(
+                    {
+                        "source_lifecycle": (
+                            self.model_package.manifest.provenance.source_lifecycle.model_dump(
+                                mode="json"
+                            )
+                        )
+                    }
+                    if self.model_package.manifest.provenance.source_lifecycle
+                    is not None
+                    else {}
+                ),
                 "prediction_interval": {
                     "method": (
                         "point probability with out-of-fold Platt calibration; no probability interval"

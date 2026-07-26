@@ -2032,6 +2032,9 @@ export interface components {
              * @constant
              */
             schema_version: "approved-training-snapshot/v1";
+            selection_policy?: components["schemas"]["TrainingSnapshotSelectionPolicy"] | null;
+            /** Selection Policy Digest */
+            selection_policy_digest?: string | null;
             /** Snapshot Digest */
             snapshot_digest: string;
         };
@@ -4691,6 +4694,11 @@ export interface components {
         };
         /** FeaturePipelineIdentity */
         FeaturePipelineIdentity: {
+            /**
+             * Digest
+             * @default
+             */
+            digest: string;
             /** Features */
             features?: string[];
             /**
@@ -5243,6 +5251,7 @@ export interface components {
             package?: components["schemas"]["PackageIdentity"] | null;
             prediction_interval?: components["schemas"]["PredictionIntervalIdentity"] | null;
             similarity?: components["schemas"]["SimilarityIdentity"] | null;
+            source_lifecycle?: components["schemas"]["SourceLifecycleIdentity"] | null;
             training_data?: components["schemas"]["TrainingDataIdentity"] | null;
         } & {
             [key: string]: unknown;
@@ -5552,6 +5561,10 @@ export interface components {
              * @constant
              */
             schema_version: "object-selection/v1";
+            /** Source Adapter Id */
+            source_adapter_id?: string | null;
+            /** Source Adapter Version */
+            source_adapter_version?: string | null;
         };
         /** ObservationGroup */
         ObservationGroup: {
@@ -7950,6 +7963,51 @@ export interface components {
             attempt: components["schemas"]["FetchAttempt"];
             snapshot: components["schemas"]["RawSourceSnapshot"];
         };
+        /** SourceLifecycleIdentity */
+        SourceLifecycleIdentity: {
+            /** Canonical Dataset Digest */
+            canonical_dataset_digest: string;
+            /** Canonical Dataset Revision Id */
+            canonical_dataset_revision_id: string;
+            /** Connector Configuration Digest */
+            connector_configuration_digest: string;
+            /** Connector Id */
+            connector_id: string;
+            /** Curation Digest */
+            curation_digest: string;
+            /** Curation Run Id */
+            curation_run_id: string;
+            /** Materialization Adapter Id */
+            materialization_adapter_id: string;
+            /** Materialization Adapter Version */
+            materialization_adapter_version: string;
+            /** Materialized Training Sha256 */
+            materialized_training_sha256: string;
+            /** Profile Digest */
+            profile_digest: string;
+            /** Profile Revision Id */
+            profile_revision_id: string;
+            /** Raw Snapshot Digest */
+            raw_snapshot_digest: string;
+            /** Raw Snapshot Id */
+            raw_snapshot_id: string;
+            /** Recipe Digest */
+            recipe_digest: string;
+            /** Recipe Id */
+            recipe_id: string;
+            /** Row Count */
+            row_count: number;
+            /** Source Adapter Id */
+            source_adapter_id: string;
+            /** Source Adapter Version */
+            source_adapter_version: string;
+            /** Training Selection Policy Digest */
+            training_selection_policy_digest: string;
+            /** Training Snapshot Digest */
+            training_snapshot_digest: string;
+            /** Training Snapshot Id */
+            training_snapshot_id: string;
+        };
         /**
          * SparseBlend
          * @description Canonical core blend. Ratios and fill are percentages, not fractions.
@@ -8311,6 +8369,11 @@ export interface components {
         };
         /** TrainingDataIdentity */
         TrainingDataIdentity: {
+            /**
+             * Feature Dataset Id
+             * @default
+             */
+            feature_dataset_id: string;
             /** Records */
             records?: {
                 [key: string]: number;
@@ -8325,6 +8388,16 @@ export interface components {
              * @default
              */
             source_sha256: string;
+            /**
+             * Training Code Revision
+             * @default
+             */
+            training_code_revision: string;
+            /**
+             * Training Data Id
+             * @default
+             */
+            training_data_id: string;
         } & {
             [key: string]: unknown;
         };
@@ -8339,12 +8412,43 @@ export interface components {
                 [key: string]: string | number | boolean | null;
             };
         };
+        /** TrainingRowExclusion */
+        TrainingRowExclusion: {
+            /** Field */
+            field: string;
+            /**
+             * Kind
+             * @constant
+             */
+            kind: "field_equals_any_v1";
+            /** Values */
+            values: (string | number | boolean)[];
+        };
         /** TrainingSnapshotCreateInput */
         TrainingSnapshotCreateInput: {
             /** Actor */
             actor: string;
             /** Purpose */
             purpose: string;
+            selection_policy?: components["schemas"]["TrainingSnapshotSelectionPolicy"] | null;
+        };
+        /** TrainingSnapshotSelectionPolicy */
+        TrainingSnapshotSelectionPolicy: {
+            /** Exclusions */
+            exclusions: components["schemas"]["TrainingRowExclusion"][];
+            /** Policy Id */
+            policy_id: string;
+            /**
+             * Revision
+             * @default 1
+             */
+            revision: number;
+            /**
+             * Schema Version
+             * @default training-snapshot-selection/v1
+             * @constant
+             */
+            schema_version: "training-snapshot-selection/v1";
         };
         /** TrimStringsStep */
         TrimStringsStep: {

@@ -331,6 +331,16 @@ class DataLifecycleRepository:
             "created_at,id",
         )
 
+    def get_training_snapshot(
+        self, snapshot_id: str
+    ) -> ApprovedTrainingSnapshot:
+        return self._get(
+            "approved_training_snapshots",
+            snapshot_id,
+            ApprovedTrainingSnapshot,
+            "Training Snapshot",
+        )
+
     def detail(self, connector_id: str) -> ConnectorLifecycleDetail:
         connector = self.get_connector(connector_id)
         raw = self.list_raw_snapshots(connector_id)
