@@ -1,0 +1,46 @@
+project:
+  type: book
+  output-dir: _build
+
+book:
+  title: "Material Decision Workbench 実装を読む"
+  subtitle: "型付き契約をPythonからReactまで通す"
+  author: "Material Decision Workbench contributors"
+  output-file: "material-decision-workbench-learning"
+  date: last-modified
+  chapters:
+    - index.qmd
+    - foundations.qmd
+    - code-map.qmd
+    - learning-paths/backend.qmd
+    - learning-paths/frontend-desktop.qmd
+    - learning-paths/ml-data.qmd
+    - chapters/contract-through-stack.qmd
+    - labs/extend-contract.qmd
+    - tooling.qmd
+    - evaluation.qmd
+    - glossary.qmd
+    - references.qmd
+
+bibliography: references.bib
+lang: ja
+number-depth: 2
+toc-depth: 3
+
+format:
+  html:
+    theme:
+      - cosmo
+      - styles/book.scss
+    code-copy: true
+    code-overflow: wrap
+    link-external-newwindow: true
+    search: true
+  typst:
+    papersize: a4
+    fontsize: 10.5pt
+    margin:
+      x: 22mm
+      y: 20mm
+    toc: true
+    section-numbering: "1.1"

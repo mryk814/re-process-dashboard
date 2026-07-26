@@ -1,0 +1,89 @@
+# 試作の評価と継続判断 {#sec-maintenance-decision}
+
+## 評価する対象
+
+評価対象は教材のページ数ではありません。
+新規開発者が実装経路を追えるか、現mainとの整合を確認できるか、production開発を圧迫せず更新できるかを確認します。
+
+## 検証記録
+
+| 項目 | 結果 |
+|---|---|
+| 検証commit | `c3b9c14e6246c77854de7b8294e56584cb039534` |
+| Python focused test | 24 passed、9 known warnings、26.85秒 |
+| API生成型 | `npm run api:check` 成功、openapi-typescript 7.9.1 |
+| repository full gate | pytest 809 passed、3 skipped、52 known warnings。typecheckとbuild成功 |
+| Decision Activity E2E | 1 passed、2 failed。比較候補label追従漏れを [Issue #279](https://github.com/mryk814/re-process-dashboard/issues/279)、未宣言`Ca`を持つデモ候補を [Issue #280](https://github.com/mryk814/re-process-dashboard/issues/280) へ分離 |
+| repository path | `docs/learning/check-references.ps1` 成功 |
+| HTML | Quarto 1.10.18で生成、検索indexあり |
+| PDF | Quarto 1.10.18とTypst 0.15.1で51ページを生成 |
+| 試作章 | PDF 21〜36ページの16ページ |
+| clean build | HTMLとPDFを連続生成し、cold側41.1秒、最終再実行18.7秒 |
+| visual review | 全51ページをPNG化し、日本語、脚注、表、code、図、page transitionを確認 |
+
+## 更新トリガ
+
+次の変更が入った場合、試作章を確認します。
+
+- `decision_activity_contracts.py` のparameter、result、provenance
+- backend Activity registryまたは共通service
+- Decision Activity API pathまたはresponse model
+- OpenAPI exportまたはTypeScript生成command
+- `DecisionActivityPanel`、frontend view registry、候補差分view
+- Activityと保存済みRunを保持するnavigation state
+- `test_decision_activities.py` または`decision-activity.spec.ts`
+
+すべてのPRへ教材更新を必須にしません。
+上の参照先へ変更があるPRで、教材影響をreviewerが判断します。
+
+## 一章を更新する手順
+
+1. `code_references`のpathが存在するか確認する。
+2. `verified_commit`以降の参照file差分を読む。
+3. contract、OpenAPI、生成型、画面、testの説明を更新する。
+4. focused testと`npm run api:check`を実行する。
+5. HTMLとPDFを再生成する。
+6. PDF全pageを画像で確認する。
+7. 実測時間と問題をこの文書へ記録する。
+
+手作業が多いのは、本文の意味と現行実装の一致、PDFのvisual reviewです。
+path存在確認とschema driftだけを自動化しても、説明の正しさは保証できません。
+
+## アーキテクチャ監査で見つかったこと
+
+教材化によって、実装の長所と限界を同時に確認できました。
+
+長所は次です。
+
+- parameterとresultがdiscriminated unionになっている
+- 共通serviceと共通panelが固有Activity IDを名指ししない
+- Runがprovenanceとresultを一緒に保存する
+- OpenAPI driftとTypeScript生成型driftを別のcheckで検出する
+- stale responseを型とは別のrequest identityで防ぐ
+
+限界は次です。
+
+- backend registryとfrontend view registryの二つのallow-listを更新する必要がある
+- OpenAPIは統計的な意味や表示上の注意を生成しない
+- source inspection testは文字列による構造確認に依存する
+- 長期の保存schema migrationはversion変更ごとに設計判断が必要
+
+これらはproductionを直ちに変更する理由ではありません。
+次のActivity追加またはschema version更新で確認すべきreview項目です。
+
+## 継続判断
+
+判断は**縮小継続**です。
+
+この一章と三つの学習ルートは維持します。
+新しい章は、新規参加者が複数回つまずいた経路、または設計監査として価値がある経路に限って追加します。
+
+次の運用は採りません。
+
+- 全技術を順番に章へする
+- すべてのPRで教材更新をrequired checkにする
+- AIが生成した章を実装確認なしで追加する
+- EPUBと完全自動陳腐化検出を先に作る
+
+継続の見直し条件は、関連実装の小変更に対して教材更新とvisual reviewが繰り返し大きな負担になる場合です。
+その場合は章を増やさず、コードマップと短いhow-toへ縮小します。

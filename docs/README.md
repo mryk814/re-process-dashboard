@@ -2,6 +2,8 @@
 
 開発者は最初に [Developer Start Here](developer-start-here.md) で変更の種類と影響範囲を判断してください。その後、[現行システム基準](current-system-baseline.md)、該当する個別契約文書、実装Skillの順で読みます。
 
+実装を題材に学ぶ場合は、[開発教材](learning/README.md)からコードマップ、三つの学習ルート、試作章へ進みます。
+
 `docs/` 直下には、現在の実装や運用を規定する文書だけを置きます。
 過去の判断は `decisions/`、特定時点の計測結果は `benchmarks/` に分離します。
 完了済みIssueの受入記録はIssue、Pull Request、Git履歴を正本とし、常設文書として複製しません。
