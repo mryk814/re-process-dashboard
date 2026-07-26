@@ -14,6 +14,8 @@ export function CounterfactualActivityView({
   ready,
   availability,
   runs,
+  activeRunId,
+  onSelectRun,
   running,
   onRun,
   onCandidateCreated,
@@ -23,7 +25,6 @@ export function CounterfactualActivityView({
   const [resultCount, setResultCount] = useState(5);
   const [maxChangedFields, setMaxChangedFields] = useState(4);
   const [seed, setSeed] = useState(20260726);
-  const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState("");
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [saveError, setSaveError] = useState("");
@@ -99,7 +100,7 @@ export function CounterfactualActivityView({
 
     {runs.length > 0 && <nav className="activity-run-history" aria-label="保存済み目標到達案">
       <span>保存済み</span>
-      {runs.slice(0, 5).map((run) => <button type="button" className={activeRun?.id === run.id ? "active" : ""} onClick={() => setActiveRunId(run.id)} key={run.id}>{new Date(run.created_at).toLocaleString("ja-JP")}</button>)}
+      {runs.slice(0, 5).map((run) => <button type="button" className={activeRun?.id === run.id ? "active" : ""} onClick={() => onSelectRun(run.id)} key={run.id}>{new Date(run.created_at).toLocaleString("ja-JP")}</button>)}
     </nav>}
 
     {saveError && <p className="panel-error" role="alert">{saveError}</p>}

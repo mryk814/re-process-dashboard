@@ -455,6 +455,16 @@ function App() {
               onProjectChanged={(project) => {
                 void session.refreshAdminProject(project);
               }}
+              activityId={navigation.activityId}
+              activityRunId={navigation.activityRunId}
+              onActivityStateChange={(activityId, activityRunId) => navigate({
+                ...navigationRef.current,
+                view: "candidates",
+                projectId: activeProjectId,
+                candidateId: selectedId || undefined,
+                activityId,
+                activityRunId,
+              }, true)}
               onConfigureGoals={() => navigate({
                 view: "project",
                 projectId: activeProjectId,

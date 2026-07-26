@@ -17,6 +17,8 @@ export type DecisionActivityViewProps = {
   ready: boolean;
   availability: ApiDecisionActivityAvailability;
   runs: ApiDecisionActivityRun[];
+  activeRunId: string | null;
+  onSelectRun: (runId: string | null) => void;
   running: boolean;
   onRun: (parameters: DecisionActivityParameters) => Promise<void>;
   onCandidateCreated: (candidate: ApiCandidate) => void;

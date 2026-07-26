@@ -23,6 +23,9 @@ export function DecisionActivityPanel({
   candidates,
   taskDefinition,
   ready,
+  requestedActivityId,
+  requestedRunId,
+  onStateChange,
   onClose,
   onCandidateCreated,
 }: {
@@ -31,6 +34,9 @@ export function DecisionActivityPanel({
   candidates: CandidateViewModel[];
   taskDefinition: TaskDefinitionContract;
   ready: boolean;
+  requestedActivityId?: string;
+  requestedRunId?: string;
+  onStateChange: (activityId?: string, activityRunId?: string) => void;
   onClose: () => void;
   onCandidateCreated: (candidate: ApiCandidate) => void;
 }) {
@@ -40,7 +46,8 @@ export function DecisionActivityPanel({
   const requestControllerRef = useRef<AbortController | null>(null);
   const [activities, setActivities] = useState<ApiDecisionActivityAvailability[]>([]);
   const [runs, setRuns] = useState<ApiDecisionActivityRun[]>([]);
-  const [selectedId, setSelectedId] = useState("");
+  const [selectedId, setSelectedId] = useState(requestedActivityId ?? "");
+  const [activeRunId, setActiveRunId] = useState<string | null>(requestedRunId ?? null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
@@ -62,11 +69,20 @@ export function DecisionActivityPanel({
       if (!acceptsDecisionActivityResponse(identityRef.current, requestedIdentity)) return;
       setActivities(items);
       setRuns(savedRuns);
-      setSelectedId((current) => (
-        items.some((item) => item.definition.activity_id === current)
-          ? current
-          : items[0]?.definition.activity_id ?? ""
-      ));
+      // A shared run identifies its own activity; the id in the link is a hint.
+      const requestedRun = requestedRunId
+        ? savedRuns.find((run) => run.id === requestedRunId)
+        : undefined;
+      const preferred = requestedRun?.definition.activity_id ?? requestedActivityId;
+      setSelectedId((current) => {
+        const wanted = preferred && items.some((item) => item.definition.activity_id === preferred)
+          ? preferred
+          : items.some((item) => item.definition.activity_id === current)
+            ? current
+            : items[0]?.definition.activity_id ?? "";
+        return wanted;
+      });
+      if (requestedRunId && !requestedRun) setActiveRunId(null);
     }).catch((cause: unknown) => {
       if (controller.signal.aborted || !acceptsDecisionActivityResponse(identityRef.current, requestedIdentity)) return;
       setError(cause instanceof Error ? cause.message : "検討アクティビティを取得できませんでした。");
@@ -77,6 +93,11 @@ export function DecisionActivityPanel({
   }, [identity, projectId, candidate.id, candidate.raw.revision]);
 
   useEffect(() => () => requestControllerRef.current?.abort(), [identity]);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    onStateChange(selectedId, activeRunId ?? undefined);
+  }, [selectedId, activeRunId]);
 
   const selected = activities.find((item) => item.definition.activity_id === selectedId) ?? null;
   const View = selected ? decisionActivityView(selected.definition.activity_id) : null;
@@ -126,7 +147,10 @@ export function DecisionActivityPanel({
         type="button"
         key={item.definition.activity_id}
         className={item.definition.activity_id === selectedId ? "active" : ""}
-        onClick={() => setSelectedId(item.definition.activity_id)}
+        onClick={() => {
+          setSelectedId(item.definition.activity_id);
+          setActiveRunId(null);
+        }}
       >{item.definition.label}</button>)}
     </nav>}
     {selected && <p className="activity-question">{selected.definition.question}</p>}
@@ -145,6 +169,8 @@ export function DecisionActivityPanel({
       ready={ready}
       availability={selected}
       runs={activityRuns}
+      activeRunId={activeRunId}
+      onSelectRun={setActiveRunId}
       running={running}
       onRun={runActivity}
       onCandidateCreated={onCandidateCreated}

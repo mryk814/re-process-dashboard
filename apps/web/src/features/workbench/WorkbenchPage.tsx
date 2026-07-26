@@ -117,6 +117,9 @@ type WorkbenchProps = {
   onProjectChanged: (project: ApiProject) => void | Promise<void>;
   onConfigureGoals: () => void;
   onConfigureSupport: () => void;
+  activityId?: string;
+  activityRunId?: string;
+  onActivityStateChange: (activityId?: string, activityRunId?: string) => void;
   previewAvailable: boolean;
   pendingPreviewCount: number;
   loadingRemainingPreviews: boolean;
@@ -170,6 +173,9 @@ export function WorkbenchPage(props: WorkbenchProps) {
     onProjectChanged,
     onConfigureGoals,
     onConfigureSupport,
+    activityId,
+    activityRunId,
+    onActivityStateChange,
     previewAvailable,
     pendingPreviewCount,
     loadingRemainingPreviews,
@@ -177,6 +183,8 @@ export function WorkbenchPage(props: WorkbenchProps) {
   } = props;
   const [comparisonExpanded, setComparisonExpanded] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
+  // A shared link to a saved run opens the panel without a second click.
+  const activityPanelOpen = activityOpen || Boolean(activityId || activityRunId);
   const [inspectorWidth, setInspectorWidth] = useState(() => clampLayoutValue(storedLayoutNumber(workbenchLayoutStorage.inspectorWidth, 330), 260, 520));
   const [inspectorMax, setInspectorMax] = useState(520);
   const [curveShare, setCurveShare] = useState(() => clampLayoutValue(storedLayoutNumber(workbenchLayoutStorage.curveShare, 50), 30, 70));
@@ -259,7 +267,14 @@ export function WorkbenchPage(props: WorkbenchProps) {
           </div>
           {previewError && <span className="comparison-preview-error" role="alert">{previewError}{operations?.preview && <button type="button" onClick={onRetryPreview}>再試行</button>}</span>}
           <div className="comparison-actions" aria-label="候補操作">
-            <button type="button" className="comparison-panel-toggle" aria-expanded={activityOpen} onClick={() => setActivityOpen((value) => !value)}>{activityOpen ? "アクティビティを閉じる" : "検討アクティビティ"}</button>
+            <button type="button" className="comparison-panel-toggle" aria-expanded={activityPanelOpen} onClick={() => {
+              if (activityPanelOpen) {
+                setActivityOpen(false);
+                onActivityStateChange(undefined, undefined);
+                return;
+              }
+              setActivityOpen(true);
+            }}>{activityPanelOpen ? "アクティビティを閉じる" : "検討アクティビティ"}</button>
             <div className="comparison-data-actions">
               <CandidateFileControls projectId={projectId} capability={application} onImported={onImported} />
               <CandidateAddButton onClick={onAdd}>候補を追加</CandidateAddButton>
@@ -333,14 +348,20 @@ export function WorkbenchPage(props: WorkbenchProps) {
             ready={["idle", "saved"].includes(saveState)}
           />
         ) : null}
-        {activityOpen && taskDefinition && <DecisionActivityPanel
+        {activityPanelOpen && taskDefinition && <DecisionActivityPanel
           projectId={projectId}
           candidate={selected}
           candidates={candidates}
           taskDefinition={taskDefinition}
           ready={["idle", "saved"].includes(saveState)}
+          requestedActivityId={activityId}
+          requestedRunId={activityRunId}
+          onStateChange={onActivityStateChange}
           onCandidateCreated={onOptimizedCandidate}
-          onClose={() => setActivityOpen(false)}
+          onClose={() => {
+            setActivityOpen(false);
+            onActivityStateChange(undefined, undefined);
+          }}
         />}
         <div
           ref={lowerPanelsRef}
