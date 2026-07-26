@@ -267,6 +267,7 @@ def test_registry_rejects_positive_continuous_normal_approximation() -> None:
 def test_api_persists_complete_acquisition_pool_and_is_reproducible(client) -> None:
     candidate = client.get("/api/projects/default/candidates").json()[0]
     body = {
+        "purpose": "goal_search",
         "base_candidate_id": candidate["id"],
         "base_inputs": candidate["inputs"],
         "samples": 48,
@@ -330,6 +331,7 @@ def test_api_reports_strategy_unavailability_and_records_real_fallback(client) -
 
     candidate = client.get("/api/projects/default/candidates").json()[0]
     body = {
+        "purpose": "goal_search",
         "base_candidate_id": candidate["id"],
         "base_inputs": candidate["inputs"],
         "samples": 48,

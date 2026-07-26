@@ -135,7 +135,7 @@ Objective Definitionは、どのoutputをどの方向・目標・許容範囲で
 
 ### Proposal StrategyとBatch Selector
 
-範囲探索は、allow-listされたCandidate Generator、Acquisition Evaluator、SelectorをProposal Strategyとして解決する。保存済みRunは、Design Space／Objective／Package／Feature Pipeline／Datasetのdigest、実際に使ったstrategy、seed、評価pool、棄却理由、獲得値の内訳を固定する。
+範囲探索は、利用目的を`design_space_map`／`goal_search`／`experiment_batch`として固定し、allow-listされたCandidate Generator、Acquisition Evaluator、SelectorをProposal Strategyとして解決する。領域表示はProject Objectiveを適用せず、実験batchは保存済みgoal-search Runのpoolを再生成せずに参照する。保存済みRunは、Design Space／Objective／Package／Feature Pipeline／Datasetのdigest、実際に使ったstrategy、seed、評価pool、棄却理由、獲得値の内訳を固定する。
 
 任意の実験batchを作る場合は、点ごとのProposal Strategyとは別のBatch Selectorが、取得価値、多様性、pending候補、対照・反復、カテゴリquota、実験費用、setup制約を扱う。現行実装はmarginal acquisition後の決定論的batch選択であり、joint q-acquisitionやbatch Thompson Samplingを実装済みとはみなさない。詳細は[Curation and Proposal architecture](curation-and-proposal-architecture.md)を参照する。
 

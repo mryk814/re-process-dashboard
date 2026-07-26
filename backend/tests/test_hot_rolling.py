@@ -152,6 +152,7 @@ def test_hot_rolling_screening_keeps_project_scope_and_nested_candidate_contract
     response = client.post(
         f"/api/screening?project_id={project_id}",
         json={
+            "purpose": "goal_search",
             "base_candidate_id": candidate["id"],
             "base_inputs": candidate["inputs"],
             "samples": 48,

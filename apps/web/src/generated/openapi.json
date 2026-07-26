@@ -15090,6 +15090,15 @@
               "support_policy": "supported_first"
             }
           },
+          "purpose": {
+            "enum": [
+              "design_space_map",
+              "goal_search",
+              "experiment_batch"
+            ],
+            "title": "Purpose",
+            "type": "string"
+          },
           "samples": {
             "default": 64,
             "maximum": 128.0,
@@ -15110,6 +15119,18 @@
             "minimum": 0.0,
             "title": "Seed",
             "type": "integer"
+          },
+          "source_run_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Run Id"
           },
           "target": {
             "default": "TS",
@@ -15137,6 +15158,7 @@
           }
         },
         "required": [
+          "purpose",
           "base_candidate_id",
           "base_inputs",
           "variables"
@@ -15318,6 +15340,22 @@
               }
             ]
           },
+          "purpose": {
+            "anyOf": [
+              {
+                "enum": [
+                  "design_space_map",
+                  "goal_search",
+                  "experiment_batch"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purpose"
+          },
           "rejection_summary": {
             "anyOf": [
               {
@@ -15352,7 +15390,8 @@
               "screening-run/v3",
               "screening-run/v4",
               "screening-run/v5",
-              "screening-run/v6"
+              "screening-run/v6",
+              "screening-run/v7"
             ],
             "title": "Schema Version",
             "type": "string"
@@ -15378,6 +15417,17 @@
           "seed": {
             "title": "Seed",
             "type": "integer"
+          },
+          "source_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Run Id"
           },
           "target": {
             "title": "Target",

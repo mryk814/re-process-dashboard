@@ -104,10 +104,12 @@ def test_mpea_screening_uses_fe_as_an_exact_balance_component(client) -> None:
     )
     candidate = client.get(f"/api/projects/{project['id']}/candidates").json()[0]
     response = client.post("/api/screening", params={"project_id": project["id"]}, json={
+        "purpose": "design_space_map",
         "base_candidate_id": candidate["id"],
         "base_inputs": candidate["inputs"],
         "samples": 48,
         "target": "TYS",
+        "proposal": {"support_policy": "allow_with_warning"},
         "variables": {
             "composition.Ni": {"mode": "range", "min": 20, "max": 30},
             "composition.Co": {"mode": "range", "min": 20, "max": 30},
@@ -129,10 +131,12 @@ def test_mpea_hardness_screening_uses_the_same_composition_balance(client) -> No
     )
     candidate = client.get(f"/api/projects/{project['id']}/candidates").json()[0]
     response = client.post("/api/screening", params={"project_id": project["id"]}, json={
+        "purpose": "design_space_map",
         "base_candidate_id": candidate["id"],
         "base_inputs": candidate["inputs"],
         "samples": 48,
         "target": "HV",
+        "proposal": {"support_policy": "allow_with_warning"},
         "variables": {"composition.Ni": {"mode": "range", "min": 20, "max": 30}},
     })
     assert response.status_code == 201, response.text

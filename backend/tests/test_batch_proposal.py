@@ -340,7 +340,8 @@ def test_screening_api_persists_batch_and_promotes_only_selected_conditions(clie
     )
     assert control_response.status_code == 201, control_response.text
     control_candidate = control_response.json()
-    body = {
+    goal_body = {
+        "purpose": "goal_search",
         "base_candidate_id": candidate["id"],
         "base_inputs": candidate["inputs"],
         "samples": 48,
@@ -351,6 +352,13 @@ def test_screening_api_persists_batch_and_promotes_only_selected_conditions(clie
             "composition.C": {"mode": "range", "min": 0.04, "max": 0.12},
             "process.ls_mpm": {"mode": "range", "min": 80, "max": 130},
         },
+    }
+    goal_response = client.post("/api/screening", json=goal_body)
+    assert goal_response.status_code == 201, goal_response.text
+    body = {
+        **goal_body,
+        "purpose": "experiment_batch",
+        "source_run_id": goal_response.json()["id"],
         "batch_definition": {
             "batch_size": 4,
             "candidate_pool_size": 24,
@@ -367,7 +375,7 @@ def test_screening_api_persists_batch_and_promotes_only_selected_conditions(clie
                     "replicates": 2,
                 }
             ],
-        },
+        }
     }
     response = client.post("/api/screening", json=body)
     assert response.status_code == 201, response.text
@@ -408,12 +416,20 @@ def test_screening_api_persists_batch_and_promotes_only_selected_conditions(clie
     assert restored.status_code == 200
     assert restored.json()["batch_proposal"] == batch
 
-    outside = {
-        **body,
+    outside_goal_body = {
+        **goal_body,
         "variables": {
-            **body["variables"],
+            **goal_body["variables"],
             "composition.C": {"mode": "range", "min": 0.075, "max": 0.09},
         },
+    }
+    outside_goal = client.post("/api/screening", json=outside_goal_body)
+    assert outside_goal.status_code == 201, outside_goal.text
+    outside = {
+        **outside_goal_body,
+        "purpose": "experiment_batch",
+        "source_run_id": outside_goal.json()["id"],
+        "batch_definition": body["batch_definition"],
     }
     rejected = client.post("/api/screening", json=outside)
     assert rejected.status_code == 422

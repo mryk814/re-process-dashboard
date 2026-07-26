@@ -2,11 +2,13 @@ import type { ApiScreeningRun } from "../../shared/api/workbench-api";
 
 export function ScreeningProposalSummary({
   result,
+  showAnotherSample,
   onAnotherSample,
   onSaveBatch,
   batchSaveCount,
 }: {
   result: ApiScreeningRun;
+  showAnotherSample: boolean;
   onAnotherSample: () => void;
   onSaveBatch: () => void;
   batchSaveCount: number;
@@ -17,6 +19,7 @@ export function ScreeningProposalSummary({
     ? Object.values(result.rejection_summary).reduce((sum, count) => sum + count, 0)
     : 0;
   const strategy = result.proposal_strategy;
+  const isDesignSpaceMap = result.purpose === "design_space_map";
   const strategyLabel = {
     latin_hypercube_v1: "Latin hypercube・目標基準",
     bounded_simplex_goal_v1: "Bounded simplex・目標基準（組成向け）",
@@ -63,7 +66,7 @@ export function ScreeningProposalSummary({
   return (
     <section className="screening-proposal-summary" aria-label="探索条件と提案診断">
       <div>
-        <b>{strategyLabel}</b>
+        <b>{isDesignSpaceMap ? "領域の分布" : strategyLabel}</b>
         <span>seed {result.seed}</span>
         {diagnostics
           ? <span>生成 {diagnostics.generated_count} · 制約内 {diagnostics.valid_count} · 評価 {diagnostics.evaluated_count}{diagnostics.selected_count == null ? null : ` · 選抜 ${diagnostics.selected_count}`} · 除外 {diagnostics.rejected_count}（{(diagnostics.rejection_rate * 100).toLocaleString("ja-JP", { maximumFractionDigits: 1 })}%）</span>
@@ -201,7 +204,11 @@ export function ScreeningProposalSummary({
           <small>反復は同じ候補条件に複数観測を計画するため、候補保存時は1条件にまとめます。</small>
         </details>
       )}
-      <button className="outline-button" onClick={onAnotherSample}>別サンプル</button>
+      {showAnotherSample && !result.batch_proposal && (
+        <button className="outline-button" onClick={onAnotherSample}>
+          {isDesignSpaceMap ? "別の点配置" : "別サンプル"}
+        </button>
+      )}
     </section>
   );
 }

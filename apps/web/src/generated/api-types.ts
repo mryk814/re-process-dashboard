@@ -7589,6 +7589,11 @@ export interface components {
              *     } */
             proposal: components["schemas"]["ProposalStrategyRequest"];
             /**
+             * Purpose
+             * @enum {string}
+             */
+            purpose: "design_space_map" | "goal_search" | "experiment_batch";
+            /**
              * Samples
              * @default 64
              */
@@ -7602,6 +7607,8 @@ export interface components {
              * @default 20260719
              */
             seed: number;
+            /** Source Run Id */
+            source_run_id?: string | null;
             /**
              * Target
              * @default TS
@@ -7665,6 +7672,8 @@ export interface components {
             /** Proposal Rejections */
             proposal_rejections?: components["schemas"]["ProposalRejectedCandidate"][];
             proposal_strategy?: components["schemas"]["ScreeningProposalStrategy"] | null;
+            /** Purpose */
+            purpose?: ("design_space_map" | "goal_search" | "experiment_batch") | null;
             /**
              * Rejection Summary
              * @deprecated
@@ -7681,7 +7690,7 @@ export interface components {
              * @default screening-run/v1
              * @enum {string}
              */
-            schema_version: "screening-run/v1" | "screening-run/v2" | "screening-run/v3" | "screening-run/v4" | "screening-run/v5" | "screening-run/v6";
+            schema_version: "screening-run/v1" | "screening-run/v2" | "screening-run/v3" | "screening-run/v4" | "screening-run/v5" | "screening-run/v6" | "screening-run/v7";
             score_contract: components["schemas"]["ScreeningScoreContract"];
             /** Secondary Goals */
             secondary_goals?: {
@@ -7696,6 +7705,8 @@ export interface components {
             };
             /** Seed */
             seed: number;
+            /** Source Run Id */
+            source_run_id?: string | null;
             /** Target */
             target: string;
             target_goal?: components["schemas"]["ScreeningGoal"] | null;

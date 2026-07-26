@@ -169,6 +169,7 @@ def test_project_crud_preserves_default_and_isolates_candidates_and_screening(cl
     assert candidate_id not in {item["id"] for item in client.get("/api/projects/default/candidates").json()}
 
     screening_body = {
+        "purpose": "goal_search",
         "base_candidate_id": candidate_id,
         "base_inputs": candidate.json()["inputs"],
         "samples": 48,
@@ -181,7 +182,7 @@ def test_project_crud_preserves_default_and_isolates_candidates_and_screening(cl
     assert run.status_code == 201
     assert run.json()["project_design_space_digest"] == project["design_space_digest"]
     assert run.json()["project_design_space_binding_provenance"] == "generated_default"
-    assert run.json()["schema_version"] == "screening-run/v6"
+    assert run.json()["schema_version"] == "screening-run/v7"
     assert run.json()["objective_definition_digest"].startswith("sha256:")
     assert run.json()["objective_binding_provenance"] == "project_revision"
     assert run.json()["target"] == "YS"
@@ -193,6 +194,120 @@ def test_project_crud_preserves_default_and_isolates_candidates_and_screening(cl
         run.json()["objective_definition"]["optimization_kind"]
         == "single_objective"
     )
+    map_run = client.post(
+        f"/api/screening?project_id={project['id']}",
+        json={
+            **screening_body,
+            "purpose": "design_space_map",
+            "target_goal": None,
+            "secondary_goals": {},
+            "proposal": {
+                "strategy_id": "sobol_ucb_v1",
+                "support_policy": "allow_with_warning",
+            },
+        },
+    )
+    assert map_run.status_code == 201, map_run.text
+    map_payload = map_run.json()
+    assert map_payload["purpose"] == "design_space_map"
+    assert map_payload["objective_binding_provenance"] == "legacy_screening"
+    assert len(map_payload["objective_definition"]["terms"]) == 1
+    map_term = map_payload["objective_definition"]["terms"][0]
+    assert map_term["output_key"] == "TS"
+    assert map_term["unit"] == "MPa"
+    assert map_term["role"] == "reporting_only"
+    assert map_term["direction"] is None
+    assert map_payload["objective_execution"] is None
+    assert map_payload["score_contract"]["fallback"] == "support_distance"
+    assert map_payload["batch_proposal"] is None
+    assert map_payload["proposal_strategy"]["id"] == "latin_hypercube_v1"
+
+    batch_run = client.post(
+        f"/api/screening?project_id={project['id']}",
+        json={
+            **screening_body,
+            "purpose": "experiment_batch",
+            "source_run_id": run.json()["id"],
+            "batch_definition": {
+                "selector_id": "ranked_top_k_v1",
+                "batch_size": 4,
+                "candidate_pool_size": 16,
+                "near_duplicate_threshold": 0,
+            },
+        },
+    )
+    assert batch_run.status_code == 201, batch_run.text
+    batch_payload = batch_run.json()
+    assert batch_payload["purpose"] == "experiment_batch"
+    assert batch_payload["source_run_id"] == run.json()["id"]
+    assert batch_payload["points"] == run.json()["points"]
+    assert batch_payload["proposal_pool"] == run.json()["proposal_pool"]
+    assert batch_payload["seed"] == run.json()["seed"]
+    assert batch_payload["proposal_strategy"] == run.json()["proposal_strategy"]
+    assert len(batch_payload["batch_proposal"]["selected"]) == 4
+
+    ei_run = client.post(
+        f"/api/screening?project_id={project['id']}",
+        json={
+            **screening_body,
+            "proposal": {
+                "strategy_id": "sobol_ei_v1",
+                "incumbent_value": 300,
+            },
+        },
+    )
+    assert ei_run.status_code == 201, ei_run.text
+    assert ei_run.json()["proposal_strategy"]["id"] == "sobol_ei_v1"
+    assert (
+        ei_run.json()["proposal_strategy"]["incumbent_resolution"]["source"]
+        == "request_override"
+    )
+    restored_ei_batch = client.post(
+        f"/api/screening?project_id={project['id']}",
+        json={
+            **screening_body,
+            "purpose": "experiment_batch",
+            "source_run_id": ei_run.json()["id"],
+            # A reloaded UI does not need to reconstruct acquisition inputs.
+            "proposal": {
+                "strategy_id": "sobol_ei_v1",
+                "incumbent_value": None,
+            },
+            "batch_definition": {
+                "selector_id": "ranked_top_k_v1",
+                "batch_size": 4,
+                "candidate_pool_size": 16,
+                "near_duplicate_threshold": 0,
+            },
+        },
+    )
+    assert restored_ei_batch.status_code == 201, restored_ei_batch.text
+    assert restored_ei_batch.json()["points"] == ei_run.json()["points"]
+    assert (
+        restored_ei_batch.json()["proposal_strategy"]
+        == ei_run.json()["proposal_strategy"]
+    )
+
+    incompatible_batch = client.post(
+        f"/api/screening?project_id={project['id']}",
+        json={
+            **screening_body,
+            "purpose": "experiment_batch",
+            "source_run_id": run.json()["id"],
+            "variables": {
+                "composition.C": {"mode": "range", "min": 0.07, "max": 0.1}
+            },
+            "batch_definition": {
+                "selector_id": "ranked_top_k_v1",
+                "batch_size": 4,
+                "candidate_pool_size": 16,
+                "near_duplicate_threshold": 0,
+            },
+        },
+    )
+    assert incompatible_batch.status_code == 422
+    assert "一致しません" in incompatible_batch.json()["message"]
+
     explicit_objective = run.json()["objective_definition"]
     explicit_objective["objective_id"] = "screening-objective-explicit"
     explicit_objective["incumbent"] = {
@@ -251,7 +366,14 @@ def test_project_crud_preserves_default_and_isolates_candidates_and_screening(cl
     assert {
         item["id"]
         for item in client.get(f"/api/screening?project_id={project['id']}").json()
-    } == {run_id, explicit_run.json()["id"]}
+    } == {
+            run_id,
+            map_run.json()["id"],
+            batch_run.json()["id"],
+            ei_run.json()["id"],
+            restored_ei_batch.json()["id"],
+            explicit_run.json()["id"],
+        }
     assert client.get("/api/screening").json() == []
     assert client.get(f"/api/screening/{run_id}").status_code == 404
     assert client.post("/api/screening", json=screening_body).status_code == 404
@@ -424,10 +546,12 @@ def test_project_design_space_narrows_screening_and_is_immutable(client) -> None
         "/api/screening",
         params={"project_id": project["id"]},
         json={
+            "purpose": "design_space_map",
             "base_candidate_id": candidate["id"],
             "base_inputs": candidate["inputs"],
             "samples": 48,
             "target": "TS",
+            "proposal": {"support_policy": "allow_with_warning"},
             "variables": {
                 "composition.C": {"mode": "range", "min": 0.06, "max": 0.10}
             },
@@ -616,6 +740,7 @@ def test_screening_accepts_hot_rolling_process_fields_from_task_definition(clien
     response = client.post(
         "/api/screening?project_id=hot-rolling-default",
         json={
+            "purpose": "goal_search",
             "base_candidate_id": base["id"],
             "base_inputs": base["inputs"],
             "samples": 48,
@@ -637,10 +762,12 @@ def test_screening_samples_only_hot_rolling_points_that_satisfy_relational_const
     response = client.post(
         "/api/screening?project_id=hot-rolling-default",
         json={
+            "purpose": "design_space_map",
             "base_candidate_id": base["id"],
             "base_inputs": base["inputs"],
             "samples": 48,
             "target": "TS",
+            "proposal": {"support_policy": "allow_with_warning"},
             "variables": {
                 "process.soaking_temperature_c": {"mode": "range", "min": 880, "max": 920},
                 "process.finish_temperature_c": {"mode": "range", "min": 880, "max": 920},
@@ -661,10 +788,12 @@ def test_screening_accepts_heat_pattern_point_fields_from_base_candidate(client)
     response = client.post(
         "/api/screening",
         json={
+            "purpose": "design_space_map",
             "base_candidate_id": base["id"],
             "base_inputs": base["inputs"],
             "samples": 48,
             "target": "TS",
+            "proposal": {"support_policy": "allow_with_warning"},
             "variables": {
                 "heat_pattern.1.temperature_c": {"mode": "range", "min": 780, "max": 820},
                 "heat_pattern.1.time_s": {"mode": "range", "min": 40, "max": 50},
@@ -721,6 +850,7 @@ def test_candidate_limit_is_enforced_for_every_creation_route(client) -> None:
     screening = client.post(
         f"/api/screening?project_id={project_id}",
         json={
+            "purpose": "goal_search",
             "base_candidate_id": base["id"],
             "base_inputs": base["inputs"],
             "samples": 48,

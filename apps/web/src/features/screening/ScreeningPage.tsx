@@ -64,6 +64,47 @@ function chartDigits(min: number, max: number) {
 
 const MAX_SCREENING_SEED = 2_147_483_647;
 
+type ScreeningMode = "landscape" | "opportunity" | "batch";
+
+const screeningModes: Array<{
+  id: ScreeningMode;
+  label: string;
+  description: string;
+}> = [
+  {
+    id: "landscape",
+    label: "領域を見る",
+    description: "入力を動かし、予測の分布と学習範囲からの外れ方を確認",
+  },
+  {
+    id: "opportunity",
+    label: "有望候補を探す",
+    description: "目標に近い条件を順位付けして候補を見つける",
+  },
+  {
+    id: "batch",
+    label: "実験バッチを組む",
+    description: "有望な結果から、重複を避けた複数の実験条件を選ぶ",
+  },
+];
+
+function runHasObjective(run: ApiScreeningRun) {
+  if (run.target_goal) return true;
+  if (run.target_value != null) return true;
+  if (Object.keys(run.secondary_targets ?? {}).length > 0) return true;
+  return run.objective_definition?.terms.some(
+    (term) => term.role === "primary_objective" && term.direction != null,
+  ) ?? false;
+}
+
+function modeFromRun(run: ApiScreeningRun): ScreeningMode {
+  if (run.purpose === "design_space_map") return "landscape";
+  if (run.purpose === "goal_search") return "opportunity";
+  if (run.purpose === "experiment_batch") return "batch";
+  if (run.batch_proposal) return "batch";
+  return runHasObjective(run) ? "opportunity" : "landscape";
+}
+
 function nextScreeningSeed(current: number) {
   const value = crypto.getRandomValues(new Uint32Array(1))[0] % (MAX_SCREENING_SEED + 1);
   return value === current ? (value + 1) % (MAX_SCREENING_SEED + 1) : value;
@@ -154,7 +195,7 @@ export function ScreeningPage({
   const [explorationParameter, setExplorationParameter] = useState(2);
   const [incumbentValue, setIncumbentValue] = useState("");
   const [supportPolicy, setSupportPolicy] = useState<"supported_first" | "exclude_extrapolated" | "allow_with_warning">("supported_first");
-  const [batchEnabled, setBatchEnabled] = useState(true);
+  const [screeningMode, setScreeningMode] = useState<ScreeningMode>("opportunity");
   const [batchSize, setBatchSize] = useState(8);
   const [batchCandidatePoolSize, setBatchCandidatePoolSize] = useState(32);
   const [batchSelectorId, setBatchSelectorId] = useState<"ranked_top_k_v1" | "greedy_value_diversity_v1">("greedy_value_diversity_v1");
@@ -225,12 +266,10 @@ export function ScreeningPage({
   const [result, setResult] = useState<ScreenResult | null>(null);
   const [savedRuns, setSavedRuns] = useState<ScreenResult[]>([]);
   const [error, setError] = useState("");
+  const [running, setRunning] = useState(false);
   const [candidateCapacity, setCandidateCapacity] = useState<ApiCandidateCapacity | null>(null);
   const [candidateCapacityError, setCandidateCapacityError] = useState("");
   const [draftDirty, setDraftDirty] = useState(false);
-  const [goalConfirmationOpen, setGoalConfirmationOpen] = useState(false);
-  // Choosing a distribution view is a decision about this target, not about one run.
-  const [distributionViewAccepted, setDistributionViewAccepted] = useState(false);
   const [xAxis, setXAxis] = useState("");
   const [yAxis, setYAxis] = useState("");
   const [colorMetric, setColorMetric] = useState("score");
@@ -301,7 +340,7 @@ export function ScreeningPage({
       setTargetGoal(defaultGoalDraft(outputs[0]));
       setSecondaryGoals({});
     }
-    setBatchEnabled(true);
+    setScreeningMode("opportunity");
     setBatchSize(8);
     setBatchCandidatePoolSize(32);
     setBatchSelectorId("greedy_value_diversity_v1");
@@ -343,6 +382,7 @@ export function ScreeningPage({
     runRequestSequence.current += 1;
     setResult(null);
     setSavedRuns([]);
+    setRunning(false);
     setSelectedPointIndices([]);
     setFocusedPointIndex(null);
     workbenchApi.listScreeningRuns(requestProjectId)
@@ -408,14 +448,31 @@ export function ScreeningPage({
     setFocusedPointIndex(run.representative_points[0]?.index ?? null);
     setDraftDirty(false);
   };
-  const run = async (requestedSeed = seed, { allowWithoutGoal = false } = {}) => {
+  const displayedOpportunityRun = result && modeFromRun(result) === "opportunity"
+    ? result
+    : result?.source_run_id
+      ? savedRuns.find((run) => run.id === result.source_run_id)
+      : undefined;
+  const opportunitySourceRun = displayedOpportunityRun
+    && !draftDirty
+    && displayedOpportunityRun.proposal_strategy != null
+    && displayedOpportunityRun.project_id === projectId
+    && displayedOpportunityRun.project_design_space_digest === project?.design_space_digest
+    && (
+      !project?.objective_definition_digest
+      || displayedOpportunityRun.objective_definition_digest === project.objective_definition_digest
+    )
+    ? displayedOpportunityRun
+    : undefined;
+  const run = async (requestedSeed = seed) => {
+    if (running) return;
     if (!baseCandidate) return setError("基準条件を読み込めませんでした。");
-    // Ranking without a goal is a distribution view, not a search for candidates.
-    if (!fixedObjective && !screeningGoalFromDraft(targetGoal) && !allowWithoutGoal && !distributionViewAccepted) {
-      setGoalConfirmationOpen(true);
-      return;
+    if (screeningMode !== "landscape" && !fixedObjective && !screeningGoalFromDraft(targetGoal)) {
+      return setError("有望候補を探すには主目標を入力してください。");
     }
-    setGoalConfirmationOpen(false);
+    if (screeningMode === "batch" && !opportunitySourceRun) {
+      return setError("先に「有望候補を探す」を実行してください。");
+    }
     const controlCandidate = controlCandidateId
       ? candidates.find((candidate) => candidate.id === controlCandidateId)
       : null;
@@ -425,6 +482,7 @@ export function ScreeningPage({
     const sequence = ++runRequestSequence.current;
     const requestProjectId = projectId;
     try {
+      setRunning(true);
       setError("");
       const specs = Object.fromEntries(
         variables.map((row) => {
@@ -460,27 +518,39 @@ export function ScreeningPage({
         }),
       );
       const created = await workbenchApi.createScreeningRun(requestProjectId, {
+        purpose: screeningMode === "landscape"
+          ? "design_space_map"
+          : screeningMode === "opportunity"
+            ? "goal_search"
+            : "experiment_batch",
+        source_run_id: screeningMode === "batch" ? opportunitySourceRun?.id ?? null : null,
         base_candidate_id: baseCandidateId,
         base_inputs: toApiCandidate(baseCandidate).inputs,
         variables: specs,
         samples,
         seed: requestedSeed,
         target,
-        target_goal: screeningGoalFromDraft(targetGoal),
-        secondary_goals: Object.fromEntries(
-          Object.entries(secondaryGoals)
-            .map(([key, draft]) => [key, screeningGoalFromDraft(draft)] as const)
-            .filter((entry): entry is readonly [string, ScreeningGoalPayload] => entry[1] != null),
-        ),
+        target_goal: screeningMode === "landscape" ? null : screeningGoalFromDraft(targetGoal),
+        secondary_goals: screeningMode === "landscape"
+          ? {}
+          : Object.fromEntries(
+              Object.entries(secondaryGoals)
+                .map(([key, draft]) => [key, screeningGoalFromDraft(draft)] as const)
+                .filter((entry): entry is readonly [string, ScreeningGoalPayload] => entry[1] != null),
+            ),
         proposal: {
-          strategy_id: proposalStrategyId,
+          strategy_id: screeningMode === "landscape"
+            ? "latin_hypercube_v1"
+            : proposalStrategyId,
           exploration_parameter: explorationParameter,
           pool_multiplier: 4,
-          support_policy: supportPolicy,
+          support_policy: screeningMode === "landscape" ? "allow_with_warning" : supportPolicy,
           fallback_policy: "reject",
-          incumbent_value: incumbentValue === "" ? null : Number(incumbentValue),
+          incumbent_value: screeningMode === "landscape" || screeningMode === "batch" || incumbentValue === ""
+            ? null
+            : Number(incumbentValue),
         },
-        batch_definition: batchEnabled ? {
+        batch_definition: screeningMode === "batch" ? {
           schema_version: "batch-proposal-definition/v1",
           selector_id: batchSelectorId,
           batch_size: batchSize,
@@ -517,6 +587,10 @@ export function ScreeningPage({
       setError(
         `範囲探索を実行できませんでした。${cause instanceof Error && cause.message ? ` ${cause.message}` : ""}`,
       );
+    } finally {
+      if (sequence === runRequestSequence.current && activeProjectRef.current === requestProjectId) {
+        setRunning(false);
+      }
     }
   };
   const loadRun = async (runId: string) => {
@@ -570,6 +644,7 @@ export function ScreeningPage({
     ));
     setSamples(run.samples);
     setSeed(run.seed);
+    setScreeningMode(modeFromRun(run));
     if (run.proposal_strategy) {
       setProposalStrategyId(run.proposal_strategy.id);
       setExplorationParameter(run.proposal_strategy.exploration_parameter ?? 2);
@@ -577,7 +652,6 @@ export function ScreeningPage({
     }
     if (run.batch_proposal) {
       const definition = run.batch_proposal.definition;
-      setBatchEnabled(true);
       setBatchSize(definition.batch_size);
       setBatchCandidatePoolSize(definition.candidate_pool_size);
       setBatchSelectorId(
@@ -591,8 +665,6 @@ export function ScreeningPage({
       setControlCandidateId(definition.controls[0]?.candidate_id ?? "");
       setControlReplicates(definition.controls[0]?.replicates ?? 1);
       setMaxBatchCost(definition.resources.max_total_cost == null ? "" : String(definition.resources.max_total_cost));
-    } else {
-      setBatchEnabled(false);
     }
     if (run.variables)
       setVariables(
@@ -734,6 +806,7 @@ export function ScreeningPage({
   const hiddenVaryingFields = result ? Object.entries(result.variables).filter(([field, spec]) => spec.mode !== "fixed" && field !== xAxis && field !== yAxis).map(([field]) => field) : [];
   const togglePoint = (index: number) => {
     setFocusedPointIndex(index);
+    if (result && modeFromRun(result) === "landscape") return;
     setSelectedPointIndices((current) => {
       if (current.includes(index)) return current.filter((item) => item !== index);
       const selectedNewCount = current.filter(
@@ -748,6 +821,40 @@ export function ScreeningPage({
       }
       return [...current, index];
     });
+  };
+  const actionLabel = screeningMode === "landscape"
+    ? "領域を計算"
+    : screeningMode === "opportunity"
+      ? "有望候補を探す"
+      : "実験バッチを作成";
+  const primaryGoalReady = Boolean(
+    fixedObjective?.terms.some(
+      (term) => term.role === "primary_objective" && term.direction != null,
+    )
+    || screeningGoalFromDraft(targetGoal),
+  );
+  const activeObjectiveUnsupportedReason = screeningMode === "landscape"
+    ? ""
+    : unsupportedObjectiveReason;
+  const actionDisabled = running
+    || !baseCandidateId
+    || !baseCandidate
+    || Boolean(activeObjectiveUnsupportedReason)
+    || (screeningMode !== "landscape" && !primaryGoalReady)
+    || (screeningMode === "batch" && !opportunitySourceRun);
+  const actionTitle = activeObjectiveUnsupportedReason
+    || (screeningMode !== "landscape" && !primaryGoalReady
+      ? "主目標を入力してください"
+      : screeningMode === "batch" && !opportunitySourceRun
+        ? "先に有望候補を探してください"
+        : `${actionLabel}を実行します`);
+  const selectScreeningMode = async (mode: ScreeningMode) => {
+    if (mode === "batch") {
+      if (!opportunitySourceRun) return;
+      if (result?.id !== opportunitySourceRun.id) await loadRun(opportunitySourceRun.id);
+    }
+    setScreeningMode(mode);
+    setError("");
   };
   if (!candidates.length) return (
     <div className="page-panel explore-page">
@@ -770,36 +877,52 @@ export function ScreeningPage({
         <div>
           <h2>範囲探索</h2>
           <p>
-            指定範囲に点を分散して生成し、制約を満たす点から候補を集めます。
+            まず、いま知りたいことを選びます。
           </p>
         </div>
         <div className="screening-page-actions">
           <span className="screening-capacity" role="status">{candidateCapacityLabel}</span>
           <button
             className="primary-button"
-            disabled={!baseCandidateId || !baseCandidate || Boolean(unsupportedObjectiveReason)}
-            title={unsupportedObjectiveReason || (baseCandidateId ? "選択した候補を基準に探索します" : "基準候補が必要です")}
+            disabled={actionDisabled}
+            title={actionTitle}
+            aria-busy={running}
             onClick={() => {
               void run();
             }}
           >
-            探索を実行
+            {running ? "計算中…" : actionLabel}
           </button>
         </div>
       </div>
       {compositionBalanceNotice && <p className="screening-balance-notice">組成制約: {compositionBalanceNotice}</p>}
-      {unsupportedObjectiveReason && <p className="error-banner">{unsupportedObjectiveReason}</p>}
-      {goalConfirmationOpen && <section className="screening-goal-confirmation" role="status">
+      {activeObjectiveUnsupportedReason && <p className="error-banner">{activeObjectiveUnsupportedReason}</p>}
+      <section className="screening-mode-picker" aria-labelledby="screening-mode-heading">
         <div>
-          <strong>主目標が未設定です</strong>
-          <span>目標がないと、達成確率や目標への近さでは順位付けできません。学習範囲への近さで点を並べた分布として実行するか、先に目標値を決めてください。</span>
+          <h3 id="screening-mode-heading">何をしたいですか？</h3>
+          <small>計算方法は目的に合わせて設定します。</small>
         </div>
-        <div className="screening-goal-confirmation-actions">
-          <button type="button" className="primary-button" onClick={onConfigureGoals}>目標値を設定</button>
-          <button type="button" className="outline-button" onClick={() => { setDistributionViewAccepted(true); void run(seed, { allowWithoutGoal: true }); }}>目標なしで分布を見る</button>
-          <button type="button" className="text-button" onClick={() => setGoalConfirmationOpen(false)}>閉じる</button>
+        <div className="screening-mode-options">
+          {screeningModes.map((mode) => {
+            const unavailable = mode.id === "batch" && !opportunitySourceRun;
+            return (
+              <button
+                type="button"
+                key={mode.id}
+                className={screeningMode === mode.id ? "active" : ""}
+                aria-pressed={screeningMode === mode.id}
+                disabled={unavailable}
+                title={unavailable ? "先に「有望候補を探す」を実行すると選べます" : mode.description}
+                onClick={() => { void selectScreeningMode(mode.id); }}
+              >
+                <b>{mode.label}</b>
+                <span>{mode.description}</span>
+                {unavailable && <small>有望候補の結果が必要</small>}
+              </button>
+            );
+          })}
         </div>
-      </section>}
+      </section>
       {draftDirty && result && <p className="screening-draft-notice">未実行の条件変更があります。図と点詳細は最後に実行した条件のままです。</p>}
       {savedRuns.length > 0 && (
         <section className="saved-runs">
@@ -818,6 +941,16 @@ export function ScreeningPage({
                 <small>
                   基準: {candidates.find((candidate) => candidate.id === run.base_candidate_id)?.label ?? run.base_candidate_id?.slice(0, 8) ?? "旧保存データ"} ·{" "}
                   seed {run.seed} ·{" "}
+                  strategy {run.proposal_strategy?.id ?? "legacy"} ·{" "}
+                  {run.model_provenance.package?.manifest_sha256
+                    ? `model ${run.model_provenance.package.manifest_sha256.replace("sha256:", "").slice(0, 10)} · `
+                    : ""}
+                  {run.design_space_digest
+                    ? `space ${run.design_space_digest.replace("sha256:", "").slice(0, 10)} · `
+                    : ""}
+                  {run.objective_definition_digest
+                    ? `objective ${run.objective_definition_digest.replace("sha256:", "").slice(0, 10)} · `
+                    : ""}
                   {Object.entries(run.variables).map(([field, spec]) => `${axisLabel(field)}=${spec.mode === "range" ? `${number(spec.min ?? 0, 3)}–${number(spec.max ?? 0, 3)}` : spec.mode === "list" ? (spec.values ?? []).join("/") : String(spec.value ?? "")}`).join(" / ")} ·{" "}
                   {run.created_at
                     ? new Date(run.created_at).toLocaleString("ja-JP")
@@ -829,17 +962,88 @@ export function ScreeningPage({
         </section>
       )}
       <div className="screening-settings">
-        <div className="screening-target">
+        <div className="screening-primary-settings">
           <div className="screening-base-candidate">
             <label>
               基準候補
-              <select value={baseCandidateId} onChange={(event) => { setBaseCandidateId(event.target.value); setDraftDirty(true); }}>
+              <select
+                value={baseCandidateId}
+                disabled={screeningMode === "batch"}
+                onChange={(event) => { setBaseCandidateId(event.target.value); setDraftDirty(true); }}
+              >
                 {candidates.map((candidate) => (
                   <option key={candidate.id} value={candidate.id}>{candidate.label}</option>
                 ))}
               </select>
             </label>
           </div>
+          {screeningMode !== "landscape" && (
+            <label>
+              選別する特性
+              <select
+                value={target}
+                disabled={Boolean(fixedObjective)}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  const definition = outputs.find((output) => output.key === next);
+                  setTarget(next);
+                  setTargetGoal(definition ? defaultGoalDraft(definition) : emptyScreeningGoal("at_least"));
+                  setSecondaryGoals((current) => {
+                    const updated = { ...current };
+                    delete updated[next];
+                    return updated;
+                  });
+                  setDraftDirty(true);
+                }}
+              >
+                {outputs.map((output) => <option key={output.key} value={output.key}>{output.label} ({output.unit})</option>)}
+              </select>
+            </label>
+          )}
+          {screeningMode === "batch" && (
+            <label>
+              バッチ件数
+              <input
+                type="number"
+                min="1"
+                max={Math.min(32, samples)}
+                value={batchSize}
+                onChange={(event) => {
+                  const nextBatchSize = Number(event.target.value);
+                  setBatchSize(nextBatchSize);
+                  setBatchCandidatePoolSize((current) => Math.max(current, nextBatchSize));
+                }}
+              />
+            </label>
+          )}
+        </div>
+        {screeningMode === "batch" && opportunitySourceRun && (
+          <section className="screening-batch-source" aria-label="バッチ元の有望候補Run">
+            <div>
+              <span>バッチ元</span>
+              <b>{opportunitySourceRun.id.slice(0, 8)}</b>
+            </div>
+            <div>
+              <span>目標</span>
+              <b>{outputs.find((output) => output.key === opportunitySourceRun.target)?.label ?? opportunitySourceRun.target} {goalSummary(opportunitySourceRun.target_goal, opportunitySourceRun.target_value)}</b>
+            </div>
+            <div>
+              <span>探索条件</span>
+              <b>{Object.entries(opportunitySourceRun.variables).filter(([, spec]) => spec.mode !== "fixed").length}変数 · {opportunitySourceRun.samples}点 · seed {opportunitySourceRun.seed}</b>
+            </div>
+          </section>
+        )}
+        <details className="screening-advanced-settings">
+          <summary>
+            <span>詳細設定</span>
+            <small>
+              {screeningMode === "batch"
+                ? `候補pool ${batchCandidatePoolSize}点 · ${batchSelectorId === "ranked_top_k_v1" ? "順位を優先" : "順位と多様性"}`
+                : `${samples}点 · ${screeningMode === "landscape" ? "学習範囲外も表示" : supportPolicy === "supported_first" ? "範囲内を優先" : supportPolicy === "exclude_extrapolated" ? "外挿を除外" : "外挿を警告表示"} · 再現用seed固定`}
+            </small>
+          </summary>
+          {screeningMode !== "batch" && (
+          <div className="screening-target">
           <label>
             評価点数
             <input
@@ -930,58 +1134,12 @@ export function ScreeningPage({
               <option value="allow_with_warning">警告付きで含める</option>
             </select>
           </label>
-          <label>
-            選別する特性
-            <select
-              value={target}
-              disabled={Boolean(fixedObjective)}
-              onChange={(event) => {
-                const next = event.target.value;
-                const definition = outputs.find((output) => output.key === next);
-                setTarget(next);
-                setDistributionViewAccepted(false);
-                setTargetGoal(definition ? defaultGoalDraft(definition) : emptyScreeningGoal("at_least"));
-                setSecondaryGoals((current) => {
-                  const updated = { ...current };
-                  delete updated[next];
-                  return updated;
-                });
-                setDraftDirty(true);
-              }}
-            >
-              {outputs.map((output) => <option key={output.key} value={output.key}>{output.label} ({output.unit})</option>)}
-            </select>
-          </label>
-        </div>
-        <details className="screening-batch-settings">
-          <summary>
-            <label onClick={(event) => event.stopPropagation()}>
-              <input
-                type="checkbox"
-                checked={batchEnabled}
-                onChange={(event) => { setBatchEnabled(event.target.checked); setDraftDirty(true); }}
-              />
-              実験バッチを提案
-            </label>
-            <small>獲得順位価値に多様性・pending・exact Control・コストを加えて選抜</small>
-          </summary>
-          {batchEnabled && (
+          </div>
+          )}
+        {screeningMode === "batch" && (
+          <section className="screening-batch-settings" aria-label="バッチの詳細設定">
+            <h4>バッチの詳細</h4>
             <div className="screening-batch-grid">
-              <label>
-                バッチ件数
-                <input
-                  type="number"
-                  min="1"
-                  max={Math.min(32, samples)}
-                  value={batchSize}
-                  onChange={(event) => {
-                    const nextBatchSize = Number(event.target.value);
-                    setBatchSize(nextBatchSize);
-                    setBatchCandidatePoolSize((current) => Math.max(current, nextBatchSize));
-                    setDraftDirty(true);
-                  }}
-                />
-              </label>
               <label>
                 バッチ候補pool
                 <input
@@ -989,7 +1147,7 @@ export function ScreeningPage({
                   min={batchSize}
                   max={Math.min(samples, 128)}
                   value={batchCandidatePoolSize}
-                  onChange={(event) => { setBatchCandidatePoolSize(Number(event.target.value)); setDraftDirty(true); }}
+                  onChange={(event) => { setBatchCandidatePoolSize(Number(event.target.value)); }}
                 />
                 <small>獲得順位の上位から選抜に渡す件数</small>
               </label>
@@ -997,7 +1155,7 @@ export function ScreeningPage({
                 バッチ選抜
                 <select
                   value={batchSelectorId}
-                  onChange={(event) => { setBatchSelectorId(event.target.value as typeof batchSelectorId); setDraftDirty(true); }}
+                  onChange={(event) => { setBatchSelectorId(event.target.value as typeof batchSelectorId); }}
                 >
                   <option value="greedy_value_diversity_v1">獲得順位価値 + 多様性</option>
                   <option value="ranked_top_k_v1">獲得順位価値の上位</option>
@@ -1012,7 +1170,7 @@ export function ScreeningPage({
                     max="10"
                     step="0.05"
                     value={diversityWeight}
-                    onChange={(event) => { setDiversityWeight(Number(event.target.value)); setDraftDirty(true); }}
+                    onChange={(event) => { setDiversityWeight(Number(event.target.value)); }}
                   />
                 </label>
               )}
@@ -1024,7 +1182,7 @@ export function ScreeningPage({
                   max="1"
                   step="0.01"
                   value={nearDuplicateThreshold}
-                  onChange={(event) => { setNearDuplicateThreshold(Number(event.target.value)); setDraftDirty(true); }}
+                  onChange={(event) => { setNearDuplicateThreshold(Number(event.target.value)); }}
                 />
                 <small>Design Spaceの各範囲で正規化</small>
               </label>
@@ -1032,7 +1190,7 @@ export function ScreeningPage({
                 Control条件
                 <select
                   value={controlCandidateId}
-                  onChange={(event) => { setControlCandidateId(event.target.value); setDraftDirty(true); }}
+                  onChange={(event) => { setControlCandidateId(event.target.value); }}
                 >
                   <option value="">指定なし</option>
                   {candidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.label}</option>)}
@@ -1046,7 +1204,7 @@ export function ScreeningPage({
                     min="1"
                     max="8"
                     value={controlReplicates}
-                    onChange={(event) => { setControlReplicates(Number(event.target.value)); setDraftDirty(true); }}
+                    onChange={(event) => { setControlReplicates(Number(event.target.value)); }}
                   />
                 </label>
               )}
@@ -1058,7 +1216,7 @@ export function ScreeningPage({
                   min="0.01"
                   value={maxBatchCost}
                   placeholder="制約なし"
-                  onChange={(event) => { setMaxBatchCost(event.target.value); setDraftDirty(true); }}
+                  onChange={(event) => { setMaxBatchCost(event.target.value); }}
                 />
                 <small>既定は1条件=1</small>
               </label>
@@ -1073,7 +1231,6 @@ export function ScreeningPage({
                         setPendingCandidateIds((current) => event.target.checked
                           ? [...current, candidate.id]
                           : current.filter((id) => id !== candidate.id));
-                        setDraftDirty(true);
                       }}
                     />
                     {candidate.label}
@@ -1081,9 +1238,10 @@ export function ScreeningPage({
                 ))}
               </fieldset>
             </div>
-          )}
+          </section>
+        )}
         </details>
-        {fixedObjective
+        {screeningMode === "opportunity" && (fixedObjective
           ? <section className="screening-goals" aria-label="Project固定Objective">
               <h3>{fixedObjective.name} · r{fixedObjective.revision}</h3>
               <p>Projectに固定した判断基準をそのまま提案計算へ使います。</p>
@@ -1120,10 +1278,17 @@ export function ScreeningPage({
               />
             ))}
           </section>
+        ))}
+        {screeningMode === "opportunity" && !primaryGoalReady && (
+          <div className="screening-missing-goal" role="status">
+            <span>主目標を入力するか、Projectの目標値を設定してください。</span>
+            <button type="button" className="text-button" onClick={onConfigureGoals}>Projectの目標値を設定</button>
+          </div>
         )}
-        {baseCandidate && taskDefinition && (
+        {screeningMode !== "batch" && baseCandidate && taskDefinition && (
             <ScreeningBaseEditor key={`${baseCandidate.id}:${baseEditorVersion}`} candidate={baseCandidate} taskDefinition={taskDefinition} displayDecimalOverrides={project?.display_decimals} onInput={updateBaseInput} onHeat={updateBaseHeat} />
         )}
+        {screeningMode !== "batch" && (
         <section className="screening-variable-editor" aria-label="探索で動かす項目">
           <div className="screening-variable-heading">
             <h3>探索で動かす項目</h3>
@@ -1235,15 +1400,36 @@ export function ScreeningPage({
           変数を追加
           </button>
         </section>
+        )}
+        <div className="screening-run-footer">
+          <span>
+            <b>{screeningModes.find((mode) => mode.id === screeningMode)?.label}</b>
+            {screeningMode === "batch" && opportunitySourceRun
+              ? ` · 元の有望候補Run ${opportunitySourceRun.id.slice(0, 8)}`
+              : ` · ${variables.filter((row) => row.mode !== "fixed").length}変数`}
+          </span>
+          <button
+            type="button"
+            className="primary-button"
+            disabled={actionDisabled}
+            title={actionTitle}
+            aria-busy={running}
+            onClick={() => { void run(); }}
+          >
+            {running ? "計算中…" : actionLabel}
+          </button>
+        </div>
       </div>
       {error && <p className="warning">{error}</p>}
       {result && (
         <>
           <ScreeningProposalSummary
             result={result}
+            showAnotherSample={screeningMode !== "batch"}
             batchSaveCount={newBatchPointIndices.length}
             onSaveBatch={() => { void persistBatch(); }}
             onAnotherSample={() => {
+              if (screeningMode === "batch") return;
               const nextSeed = nextScreeningSeed(seed);
               setSeed(nextSeed);
               void run(nextSeed);
@@ -1255,7 +1441,7 @@ export function ScreeningPage({
             <label>色<select value={colorMetric} onChange={(event) => setColorMetric(event.target.value)}><option value="score">{scoreLabel}</option>{outputs.map((output) => <option key={output.key} value={output.key}>{output.label}</option>)}</select></label>
           </div>
           {hiddenVaryingFields.length > 0 && <p className="screening-hidden-variables"><b>図に出ていない変動条件:</b> {hiddenVaryingFields.map(axisLabel).join(" / ")}。各点の詳細で実値を確認できます。</p>}
-          <div className="screening-action-bar" role="status">
+          {modeFromRun(result) !== "landscape" && <div className="screening-action-bar" role="status">
             <dl className="screening-selection-summary">
               <div><dt>選択</dt><dd>{selectedPointIndices.length}件</dd><small>図・表で選んだ点</small></div>
               <div><dt>新規</dt><dd>{selectedNewPointIndices.length}件</dd><small>まだ候補にない選択点</small></div>
@@ -1265,7 +1451,7 @@ export function ScreeningPage({
             {selectedNewPointIndices.length > remainingCandidateCapacity && <small className="screening-capacity-warning">新規選択が候補枠を超えています。選択を{remainingCandidateCapacity}件以下に減らしてください。</small>}
             <CandidateAddButton disabled={!addableSelectedCount} onClick={() => void persistSelected()}>{addableSelectedCount}件を候補へ追加</CandidateAddButton>
             <button className="outline-button" disabled={!candidates.length} onClick={onCompare}>候補比較へ</button>
-          </div>
+          </div>}
           <div className="screen-legend">
             <span className="opportunity-scale" />
             {colorMetric === "score" ? scoreLabel : outputs.find((output) => output.key === colorMetric)?.label ?? colorMetric} <span className="support-key supported" />
@@ -1382,6 +1568,7 @@ export function ScreeningPage({
               !candidateCapacity
               || selectedNewPointIndices.length >= remainingCandidateCapacity
             }
+            selectionEnabled={modeFromRun(result) !== "landscape"}
             onToggle={togglePoint}
           />
         </>

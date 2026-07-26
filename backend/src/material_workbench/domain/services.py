@@ -325,16 +325,20 @@ def run_proposal(
             f"support方針を満たす点は{len(eligible)}件でした。"
             f"{request.samples}件を選べるよう範囲または方針を見直してください"
         )
-    ranked = sorted(
-        eligible,
-        key=lambda point: (
-            support_rank[point["support"]["status"]]
-            if request.proposal.support_policy == "supported_first"
-            else 0,
-            sum(item["achieved"] is False for item in point["secondary_goal_evaluations"].values()),
-            point["score"],
-            point["pool_index"],
-        ),
+    ranked = (
+        sorted(eligible, key=lambda point: point["pool_index"])
+        if request.purpose == "design_space_map"
+        else sorted(
+            eligible,
+            key=lambda point: (
+                support_rank[point["support"]["status"]]
+                if request.proposal.support_policy == "supported_first"
+                else 0,
+                sum(item["achieved"] is False for item in point["secondary_goal_evaluations"].values()),
+                point["score"],
+                point["pool_index"],
+            ),
+        )
     )
     selected = ranked[:request.samples]
     batch_definition = request.batch_definition
@@ -455,6 +459,8 @@ def run_proposal(
     ]
     return {
         "schema_version": "screening-run/v4",
+        "purpose": request.purpose,
+        "source_run_id": request.source_run_id,
         "seed": request.seed,
         "base_candidate_id": base.id,
         "base_inputs": base.inputs.model_dump(mode="json"),

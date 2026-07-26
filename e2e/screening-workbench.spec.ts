@@ -1,15 +1,19 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { apiBaseUrl as api, createProjectWithCandidate } from "./helpers";
 
-/**
- * A project without configured targets has no primary goal, so the page asks
- * whether the run is a ranked search or a distribution view. These specs are
- * about the distribution and the batch, so they take that choice explicitly.
- */
 async function runScreening(page: Page) {
-  await page.getByRole("button", { name: "探索を実行" }).click();
-  const distributionView = page.getByRole("button", { name: "目標なしで分布を見る" });
-  if (await distributionView.isVisible().catch(() => false)) await distributionView.click();
+  await page.locator(".screening-run-footer .primary-button").click();
+}
+
+async function openAdvancedSettings(page: Page) {
+  const details = page.locator(".screening-advanced-settings");
+  if (!(await details.getAttribute("open"))) {
+    await details.locator("> summary").click();
+  }
+}
+
+async function chooseLandscape(page: Page) {
+  await page.locator(".screening-mode-options").getByRole("button", { name: /領域を見る/ }).click();
 }
 
 async function createProject(request: APIRequestContext, taskId: string) {
@@ -25,6 +29,12 @@ test("annealed screening keeps draft separate and batches multiple points into s
   const project = await createProject(request, "annealed-properties-v1");
   await page.goto(`/?view=explore&project=${project.id}`);
   await expect(page.getByRole("heading", { name: "範囲探索" })).toBeVisible();
+  const modes = page.locator(".screening-mode-options");
+  await expect(modes.getByRole("button", { name: /領域を見る/ })).toBeVisible();
+  await expect(modes.getByRole("button", { name: /有望候補を探す/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(modes.getByRole("button", { name: /実験バッチを組む/ })).toBeDisabled();
+  await expect(page.locator(".screening-advanced-settings")).not.toHaveAttribute("open", "");
+  await expect(page.getByLabel("乱数seed")).not.toBeVisible();
   await expect(page.locator("optgroup[label='成分']")).toHaveCount(2);
   await expect(page.locator("optgroup[label='焼鈍条件']")).toHaveCount(2);
   await expect(page.locator("optgroup[label='焼鈍履歴'] option[value='heat_pattern.1.temperature_c']")).toHaveCount(2);
@@ -34,6 +44,7 @@ test("annealed screening keeps draft separate and batches multiple points into s
   await rows.nth(2).getByRole("combobox").nth(1).selectOption("range");
   await rows.nth(2).locator("input").nth(0).fill("0.8");
   await rows.nth(2).locator("input").nth(1).fill("2.0");
+  await page.getByLabel(/主目標: .*の下限/).fill("500");
   await page.getByLabel("副条件: 降伏強さの下限").fill("350");
 
   const runResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/screening");
@@ -49,6 +60,7 @@ test("annealed screening keeps draft separate and batches multiple points into s
   await expect(page.getByText(/未実行の条件変更/)).toBeVisible();
 
   await page.getByLabel("選別する特性").selectOption("YS");
+  await page.getByLabel(/主目標: .*の下限/).fill("400");
   const rerunRequest = page.waitForRequest((request) => request.method() === "POST" && new URL(request.url()).pathname === "/api/screening");
   const rerunResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/screening");
   await runScreening(page);
@@ -76,6 +88,7 @@ test("annealed screening keeps draft separate and batches multiple points into s
 test("hot rolling screening accepts task-defined process fields", async ({ page, request }) => {
   const project = await createProject(request, "hot-rolled-properties-v1");
   await page.goto(`/?view=explore&project=${project.id}`);
+  await chooseLandscape(page);
   const rows = page.locator(".variable-table tbody tr");
   await rows.nth(0).getByRole("combobox").first().selectOption("process.soaking_temperature_c");
   await rows.nth(0).getByRole("combobox").nth(1).selectOption("range");
@@ -97,11 +110,54 @@ test("hot rolling screening accepts task-defined process fields", async ({ page,
   await expect(page.getByLabel("X軸")).toHaveValue("process.soaking_temperature_c");
 });
 
+test("a purpose-less legacy goal run reopens as opportunity search", async ({ page, request }) => {
+  const project = await createProject(request, "annealed-properties-v1");
+  await page.goto(`/?view=explore&project=${project.id}`);
+  await page.getByLabel(/主目標: .*の下限/).fill("500");
+  const runResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && new URL(response.url()).pathname === "/api/screening"
+  ));
+  await runScreening(page);
+  const response = await runResponse;
+  expect(response.status(), await response.text()).toBe(201);
+  const current = await response.json() as Record<string, unknown> & {
+    id: string;
+    target_goal?: { lower?: number };
+  };
+  const legacy = {
+    ...current,
+    schema_version: "screening-run/v3",
+    purpose: null,
+    source_run_id: null,
+    target_value: current.target_goal?.lower ?? 500,
+    target_goal: null,
+    secondary_goals: {},
+    objective_definition: null,
+    objective_definition_digest: null,
+    objective_execution: null,
+  };
+  await page.route(`**/api/screening/${current.id}*`, async (route) => {
+    await route.fulfill({ json: legacy });
+  });
+  await page.goto(`/?view=explore&project=${project.id}`);
+  await page.locator(".saved-runs").getByRole("button").first().click();
+
+  await expect(
+    page.locator(".screening-mode-options")
+      .getByRole("button", { name: /有望候補を探す/ }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toBeVisible();
+  await expect(page.locator('input[aria-label^="点 "]').first()).toBeVisible();
+});
+
 test("bounded simplex display agrees with the persisted proposal evidence", async ({ page, request }) => {
   const project = await createProject(request, "mpea-hardness-process-v1");
   await page.goto(`/?view=explore&project=${project.id}`);
 
+  await openAdvancedSettings(page);
   await page.getByLabel("候補の提案方法").selectOption("bounded_simplex_goal_v1");
+  await page.getByLabel(/主目標: .*の下限/).fill("300");
   const rows = page.locator(".variable-table tbody tr");
   await rows.nth(0).getByRole("combobox").first().selectOption("composition.Ni");
   await rows.nth(0).getByRole("combobox").nth(1).selectOption("range");
@@ -111,15 +167,37 @@ test("bounded simplex display agrees with the persisted proposal evidence", asyn
   await rows.nth(1).getByRole("combobox").nth(1).selectOption("range");
   await rows.nth(1).locator("input").nth(0).fill("20");
   await rows.nth(1).locator("input").nth(1).fill("50");
-  await page.getByLabel("実験バッチを提案").check();
-  await page.locator(".screening-batch-settings > summary > small").click();
+  const goalRunResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && new URL(response.url()).pathname === "/api/screening"
+  ));
+  await runScreening(page);
+  const goalResponse = await goalRunResponse;
+  expect(goalResponse.status(), await goalResponse.text()).toBe(201);
+  const goalRun = await goalResponse.json() as { id: string };
+  const batchMode = page.locator(".screening-mode-options").getByRole("button", { name: /実験バッチを組む/ });
+  await expect(batchMode).toBeEnabled();
+  await batchMode.click();
+  await expect(
+    page.getByRole("region", { name: "探索条件と提案診断" })
+      .getByRole("button", { name: "別サンプル" }),
+  ).toHaveCount(0);
   await page.getByLabel("バッチ選抜").selectOption("ranked_top_k_v1");
 
+  const batchRequest = page.waitForRequest((request) => (
+    request.method() === "POST"
+    && new URL(request.url()).pathname === "/api/screening"
+  ));
   const runResponse = page.waitForResponse((response) => (
     response.request().method() === "POST"
     && new URL(response.url()).pathname === "/api/screening"
   ));
   await runScreening(page);
+  const requestBody = (await batchRequest).postDataJSON() as { purpose: string; source_run_id: string };
+  expect(requestBody).toMatchObject({
+    purpose: "experiment_batch",
+    source_run_id: goalRun.id,
+  });
   const response = await runResponse;
   expect(response.status(), await response.text()).toBe(201);
   const run = await response.json() as {
@@ -134,7 +212,11 @@ test("bounded simplex display agrees with the persisted proposal evidence", asyn
     };
     proposal_diagnostics: { coverage_by_path: Record<string, unknown> };
     batch_proposal: { distance_id: string };
+    purpose: string;
+    source_run_id: string;
   };
+  expect(run.purpose).toBe("experiment_batch");
+  expect(run.source_run_id).toBe(goalRun.id);
 
   await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toContainText(
     "Bounded simplex・目標基準（組成向け）",
@@ -143,9 +225,8 @@ test("bounded simplex display agrees with the persisted proposal evidence", asyn
   await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toContainText(
     "組成bounded CLR-RMS + 入力群均等",
   );
-  await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toContainText(
-    "生成coverage: composition.Ni",
-  );
+  await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toContainText("生成coverage:");
+  await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toContainText("composition.Ni");
 
   const persistedResponse = await request.get(
     `${api}/api/screening/${run.id}?project_id=${project.id}`,
@@ -185,6 +266,8 @@ test("a late proposal response cannot replace a newer run", async ({ page, reque
     await route.fulfill({ response });
   });
   await page.goto(`/?view=explore&project=${project.id}`);
+  await chooseLandscape(page);
+  await openAdvancedSettings(page);
   const rows = page.locator(".variable-table tbody tr");
   await rows.nth(0).getByRole("combobox").first().selectOption("process.soaking_temperature_c");
   await rows.nth(0).getByRole("combobox").nth(1).selectOption("range");
