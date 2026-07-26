@@ -62,7 +62,7 @@ function sidecarCommand(port: number): { command: string; args: string[]; cwd: s
         WORKBENCH_LAUNCH_TOKEN: LAUNCH_TOKEN,
         WORKBENCH_DB_PATH: join(app.getPath("userData"), "workbench.db"),
         WORKBENCH_RESOURCE_ROOT: resources,
-        WORKBENCH_SOURCE_PATH: join(resources, "data", "source", "material_workbench_tutorial_v1.xlsx"),
+        WORKBENCH_SOURCE_PATH: join(resources, "data", "source", "material_workbench_tutorial_v2.xlsx"),
         WORKBENCH_FLANK_WEAR_SOURCE_PATH: join(resources, "data", "source", "cutting_tool_flank_wear_synthetic_dataset.xlsx"),
         PYTHONUTF8: "1",
         PYTHONIOENCODING: "utf-8",

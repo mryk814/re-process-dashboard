@@ -8,6 +8,10 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from material_workbench.modeling.observation_model_builder import build
+from material_workbench.task_modules import observation_declaration
+
+
+TASK_ID = "welding-stage-c-properties-v1"
 
 
 def main() -> int:
@@ -24,7 +28,12 @@ def main() -> int:
     )
     parser.add_argument("--replace", action="store_true")
     args = parser.parse_args()
-    build(args.source, args.output, replace=args.replace)
+    build(
+        args.source,
+        args.output,
+        declaration=observation_declaration(TASK_ID),
+        replace=args.replace,
+    )
     print(args.output)
     return 0
 

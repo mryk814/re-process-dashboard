@@ -145,6 +145,25 @@ def test_packaged_launcher_uses_active_model_configuration_as_single_source() ->
     assert "WORKBENCH_RESOURCE_ROOT: resources" in desktop_launcher
 
 
+def test_packaged_launcher_source_is_in_extra_resources() -> None:
+    desktop_launcher = (ROOT / "apps" / "desktop" / "src" / "main.ts").read_text(
+        encoding="utf-8"
+    )
+    builder_config = (ROOT / "packaging" / "electron-builder.yml").read_text(
+        encoding="utf-8"
+    )
+    source_match = re.search(
+        r'WORKBENCH_SOURCE_PATH: join\(resources, "data", "source", "([^"]+)"\)',
+        desktop_launcher,
+    )
+
+    assert source_match is not None
+    source = f"data/source/{source_match.group(1)}"
+    assert f"  - from: {source}\n    to: {source}" in builder_config.replace(
+        "\r\n", "\n"
+    )
+
+
 def test_packaged_resources_include_chain_evaluation_artifact() -> None:
     builder_config = (ROOT / "packaging" / "electron-builder.yml").read_text(
         encoding="utf-8"

@@ -1,12 +1,15 @@
 from pathlib import Path
+import sys
 
 from fastapi.testclient import TestClient
 
+from backend.scripts import build_welding_stage_c_model_package as stage_c_builder_cli
 from material_workbench.data.observation_profile import (
     build_observation_training_dataset,
     load_observation_profile,
 )
 from material_workbench.modeling.model_packages import ModelPackageLoader
+from material_workbench.modeling.observation_model_builder import build
 from material_workbench.modeling.observation_regression import resolve_spec
 from material_workbench.task_modules import observation_declaration
 
@@ -22,6 +25,62 @@ TENSILE_FEATURES = SPEC.target_features["TS"]
 CHARPY_FEATURES = SPEC.target_features["CHARPY_ENERGY"]
 CORROSION_FEATURES = SPEC.target_features["CORROSION_RATE"]
 TARGET_FAMILY = SPEC.target_family
+
+
+def test_stage_c_builder_rebuilds_a_verified_package(tmp_path: Path) -> None:
+    destination = tmp_path / "welding-stage-c-ridge-v1"
+
+    build(SOURCE, destination, declaration=DECLARATION)
+
+    package = ModelPackageLoader().load(destination)
+    assert package.manifest.task_id == TASK_ID
+    assert {item.target for item in package.manifest.predictors} == set(
+        SPEC.target_features
+    )
+
+
+def test_stage_c_builder_cli_passes_the_runtime_declaration(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_build(
+        source: Path,
+        destination: Path,
+        *,
+        declaration,
+        replace: bool,
+    ) -> None:
+        captured.update(
+            source=source,
+            destination=destination,
+            declaration=declaration,
+            replace=replace,
+        )
+
+    destination = tmp_path / "package"
+    monkeypatch.setattr(stage_c_builder_cli, "build", fake_build)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "build_welding_stage_c_model_package.py",
+            "--source",
+            str(SOURCE),
+            "--output",
+            str(destination),
+            "--replace",
+        ],
+    )
+
+    assert stage_c_builder_cli.main() == 0
+    assert captured == {
+        "source": SOURCE,
+        "destination": destination,
+        "declaration": DECLARATION,
+        "replace": True,
+    }
 
 
 def _create_stage_c_candidate(client: TestClient) -> tuple[str, dict]:

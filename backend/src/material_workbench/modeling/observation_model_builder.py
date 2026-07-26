@@ -48,7 +48,11 @@ def _artifact(root: Path, path: Path) -> dict[str, object]:
     }
 
 
-def _build(source: Path, destination: Path) -> None:
+def _build(
+    source: Path,
+    destination: Path,
+    declaration: ObservationRuntimeDeclaration,
+) -> None:
     data = load_observation_data(source, declaration)
     spec = data.spec
     contract = load_task_contracts()[spec.task_id]
@@ -168,12 +172,12 @@ def _build(source: Path, destination: Path) -> None:
     ).model_dump_json(indent=2) + "\n", encoding="utf-8", newline="\n")
     files.append(quality_path)
 
-    sample = stage_c_starter_candidates(data.medians)[1].model_copy(
+    sample = stage_c_starter_candidates(data.medians, spec)[1].model_copy(
         update={"name": "Stage C package smoke"}
     )
     smoke_input = smoke_dir / "input.json"
     smoke_input.write_text(sample.model_dump_json(indent=2), encoding="utf-8", newline="\n")
-    sample_values = candidate_feature_values(sample)
+    sample_values = candidate_feature_values(sample, spec)
     smoke_expected = smoke_dir / "expected.json"
     smoke_expected.write_text(json.dumps({
         target: round(float(
