@@ -97,6 +97,8 @@ export function ActualMeasurementPanel({
   const mean = Number(draft.mean);
   const std = Number(draft.std);
   const replicates = Number(draft.replicates);
+  // A single observation carries no measurable spread; ±0 would read as "no scatter".
+  const singleMeasurement = replicates === 1;
   const valid = Boolean(selectedOutput)
     && draft.mean.trim() !== ""
     && Number.isFinite(mean)
@@ -114,7 +116,7 @@ export function ActualMeasurementPanel({
     const body: ApiActualMeasurementInput = {
       property: selectedOutput.key,
       mean,
-      std,
+      std: singleMeasurement ? 0 : std,
       replicates,
       unit: selectedOutput.unit,
       experiment_no: draft.experimentNo.trim(),
@@ -166,7 +168,7 @@ export function ActualMeasurementPanel({
         <div className="actual-measurement-form">
           <label>特性<select value={draft.property} onChange={(event) => setDraft((current) => ({ ...current, property: event.target.value }))}>{taskDefinition.outputs.map((output) => <option value={output.key} key={output.key}>{output.label}</option>)}</select></label>
           <label>実測値<span className="actual-value-field"><input aria-label="実測値" type="number" step="any" value={draft.mean} onChange={(event) => setDraft((current) => ({ ...current, mean: event.target.value }))} /><small>{selectedOutput?.unit}</small></span></label>
-          <label>標準偏差<input aria-label="実測の標準偏差" type="number" min="0" step="any" value={draft.std} onChange={(event) => setDraft((current) => ({ ...current, std: event.target.value }))} /></label>
+          <label>標準偏差<input aria-label="実測の標準偏差" type="number" min="0" step="any" disabled={singleMeasurement} value={singleMeasurement ? "" : draft.std} placeholder={singleMeasurement ? "1点測定" : undefined} onChange={(event) => setDraft((current) => ({ ...current, std: event.target.value }))} />{singleMeasurement && <small>1点測定ではばらつきを記録しません</small>}</label>
           <label>反復数<input aria-label="実測の反復数" type="number" min="1" max="999" step="1" value={draft.replicates} onChange={(event) => setDraft((current) => ({ ...current, replicates: event.target.value }))} /></label>
           <label>実験番号<input value={draft.experimentNo} onChange={(event) => setDraft((current) => ({ ...current, experimentNo: event.target.value }))} /></label>
           <label>測定日<input type="date" value={draft.measuredAt} onChange={(event) => setDraft((current) => ({ ...current, measuredAt: event.target.value }))} /></label>

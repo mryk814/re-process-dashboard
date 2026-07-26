@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { candidateInputIdentity } from "../../shared/api/inferenceRequestCache";
 import { workbenchApi, type ApiSimilarObservation } from "../../shared/api/workbench-api";
-import { assessOutputValues } from "../../shared/outputPresentation";
+import { assessOutputValues, measurementSpreadText } from "../../shared/outputPresentation";
 import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
 import { formatTaskNumber } from "../../shared/taskPresentation";
 import { type CandidateViewModel as Candidate, type TaskDefinitionContract, type TaskOutputDefinition } from "../candidates";
@@ -160,7 +160,8 @@ export function SimilarityEvidencePanel({
                 const assessment = assessOutputValues(output, [summary.mean], "実測値");
                 const binary = isBinaryMeasurement(output);
                 const value = binary ? (summary.mean >= 0.5 ? "fail" : "pass") : outputNumber(summary.mean, output);
-                return <td className={`similar-output-cell${assessment.implausible ? " implausible-output" : ""}`} key={output.key} title={assessment.warning ?? (binary ? `${output.label}: ${value} / n=${summary.n}` : `${output.label}: ${value} ± ${outputNumber(summary.std, output)} ${output.unit} / n=${summary.n}`)}><strong>{value}</strong>{!binary && <small>±{outputNumber(summary.std, output)} · n={summary.n}</small>}{assessment.implausible && <small className="output-warning-badge">⚠</small>}</td>;
+                const spread = measurementSpreadText(summary.std, summary.n, (amount) => outputNumber(amount, output));
+                return <td className={`similar-output-cell${assessment.implausible ? " implausible-output" : ""}`} key={output.key} title={assessment.warning ?? (binary ? `${output.label}: ${value} / n=${summary.n}` : `${output.label}: ${value} ${output.unit} / ${spread.title}`)}><strong>{value}</strong>{!binary && <small>{spread.text}</small>}{assessment.implausible && <small className="output-warning-badge">⚠</small>}</td>;
               })}
               {canAddCandidates && <td className="similar-action-cell">
                 <CandidateAddButton compact disabled={!item.process_key || addingKey === item.process_key || addedKeys.includes(item.process_key ?? "")} onClick={() => { if (item.process_key) void add(item.process_key); }}>
