@@ -1,12 +1,14 @@
 ---
 level: intermediate
-estimated_minutes: 75
-verified_commit: "894ecdc47af5d40a764219cfd8b831afda8050f0"
+estimated_minutes: 90
+verified_commit: "bb3b4ff8b2f4b30d13b587162fef546421eea283"
 code_references:
   - "backend/src/material_workbench/contracts/data_lifecycle_contracts.py"
   - "backend/src/material_workbench/domain/data_lifecycle.py"
   - "backend/src/material_workbench/persistence/data_lifecycle_repository.py"
+  - "backend/src/material_workbench/application/training_snapshot_adapter.py"
   - "backend/tests/test_data_lifecycle.py"
+  - "backend/tests/test_reference_data_loop_acceptance.py"
   - "e2e/source-lifecycle.spec.ts"
 ---
 
@@ -135,7 +137,23 @@ Cは`target_eligible=true`、Dはfalseだからです。
 ただし、この結果だけでCをモデル入力として安全に使えるとは断定できません。
 欠損した必須入力をTask固有のbuilderがどう扱うかは、このdata lifecycle contractの外側です。
 
-## 演習6：testの置き場所を選ぶ
+## 演習6：正常なholdoutを品質不良と分ける
+
+Canonical Datasetには`cell_id`が`CS2_33`、`CS2_34`、`CS2_35`の行が含まれ、すべて品質条件を満たすとします。
+評価用holdoutとして`CS2_35`だけを学習から外す場合、次の二案を比較してください。
+
+1. Curationで`CS2_35`をquarantinedにする。
+2. `TrainingSnapshotSelectionPolicy`で`cell_id=CS2_35`を除外する。
+
+### 解答例
+
+2を使います。
+`CS2_35`は品質不良ではなく用途上のholdoutであり、Raw SnapshotとCanonical Datasetには残すべき観測だからです。
+
+selection policyはID、revision、除外fieldと値を持ち、digestがTraining SnapshotとPackage provenanceへ残ります。
+同じDatasetから別のholdoutを選ぶ場合も、品質判定を書き換えず別Snapshotとして固定できます。
+
+## 演習7：testの置き場所を選ぶ
 
 次の退行を、最初に検出したいtestへ対応付けてください。
 
@@ -148,16 +166,19 @@ Cは`target_eligible=true`、Dはfalseだからです。
 - **画面のstage railが承認前後を区別しない**：`e2e/source-lifecycle.spec.ts`
 - **Pydantic変更後にOpenAPIが古い**：`backend/tests/test_openapi_contract.py`
 - **OpenAPI変更後にTypeScript型が古い**：`npm run api:check`
+- **materialized CSVの行数とprovenanceが違う**：`test_reference_data_loop_acceptance.py -k row_count_mismatch`
+- **同じ受入commandの二回目で不変資産が増えた**：`test_reference_data_loop_acceptance.py -k traceable_and_resume_safe`
 
 複数のtestが反応する場合でも、原因に最も近いtestを先に置くと調査範囲が狭くなります。
 
-## 演習7：現mainを検証する
+## 演習8：現mainを検証する
 
 リポジトリ直下で実行します。
 
 ```powershell
 uv run python -m pytest `
   backend/tests/test_data_lifecycle.py `
+  backend/tests/test_reference_data_loop_acceptance.py `
   backend/tests/test_openapi_contract.py
 
 npm run api:check
@@ -191,4 +212,6 @@ unexpected_warnings:
 7. 過去のCuration Runが参照するRecipeの意味を後から変えないため。
 8. `test_api_tracks_digests_without_exposing_unapproved_data_to_projects`と`e2e/source-lifecycle.spec.ts`。
 9. 子payloadの自己申告だけでなく、保存済みの親資産と参照が一致することを確認するため。
-10. 外部storage接続、実モデル学習、Package生成、verify、active化。
+10. holdoutは品質不良ではなく学習用途の選択であり、品質状態の来歴を偽らず別Snapshotとして再現するため。
+11. Source lifecycle E2Eは外部storage SDK、Package生成、active化を証明しない。
+    Task固有acceptance testはCALCE固定例のPackage生成、Project、予測、Actualまでを証明するが、任意Taskの汎用adapterやactive Packageの自動切替を証明しない。

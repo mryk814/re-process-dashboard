@@ -72,7 +72,7 @@ class名や本文の意味まで自動判定する仕組みは、誤検出と保
 
 ## spikeの実測
 
-Windows上のclean buildは、cold側の計測で41.1秒、第四単元追加後の最終再実行で23.49秒でした。
+Windows上のclean buildは、cold側の計測で41.1秒、main追従後の最終再実行で29.41秒でした。
 同じQuarto原稿から検索indexを持つHTMLと101ページのPDFを生成しました。
 実内容で数えると、型付き契約の学習単位は本編15ページと演習3ページ、Source data lifecycleの学習単位は本編9ページと演習4ページ、revisionとdigestの学習単位は本編8ページと演習5ページ、Workspace restoreの学習単位は本編9ページと演習6ページです。
 各章を奇数ページから始めるrecto調整ページは、この実内容の件数へ含めません。

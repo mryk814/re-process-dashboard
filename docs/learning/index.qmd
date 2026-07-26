@@ -63,6 +63,6 @@ Desktopの保存先、起動、backupを変更する場合は[Workspace restore�
 | 変更箇所だけ知りたい | [教材用コードマップ](code-map.qmd) |
 
 ::: {.callout-note title="確認済みの基準"}
-型付き契約の章はcommit `ae175ed425e6de190161dea280136f7e0dd1d1d9`、Source data lifecycleの章はcommit `894ecdc47af5d40a764219cfd8b831afda8050f0`、revisionとdigestの章およびWorkspace restoreの章はcommit `b8ef18ab68d01703bf137860dce43880be711147` で実装参照を確認しました。
+型付き契約、Source data lifecycle、revisionとdigestの章はcommit `bb3b4ff8b2f4b30d13b587162fef546421eea283`、Workspace restoreの章はcommit `b8ef18ab68d01703bf137860dce43880be711147` で実装参照を確認しました。
 章のfront matterと[教材の評価と継続判断](evaluation.qmd)に、更新時の確認方法を残しています。
 :::

@@ -1,15 +1,18 @@
 ---
 level: intermediate
 estimated_minutes: 120
-verified_commit: "894ecdc47af5d40a764219cfd8b831afda8050f0"
+verified_commit: "bb3b4ff8b2f4b30d13b587162fef546421eea283"
 code_references:
   - "docs/source-data-lifecycle.md"
+  - "docs/reference-data-loop.md"
   - "backend/src/material_workbench/contracts/data_lifecycle_contracts.py"
   - "backend/src/material_workbench/domain/data_lifecycle.py"
   - "backend/src/material_workbench/application/data_lifecycle.py"
   - "backend/src/material_workbench/persistence/data_lifecycle_repository.py"
   - "backend/src/material_workbench/api/data_lifecycle.py"
+  - "backend/src/material_workbench/application/training_snapshot_adapter.py"
   - "backend/tests/test_data_lifecycle.py"
+  - "backend/tests/test_reference_data_loop_acceptance.py"
   - "apps/web/src/shared/api/workbench-api.ts"
   - "apps/web/src/features/data-library/SourceLifecycleSection.tsx"
   - "e2e/source-lifecycle.spec.ts"
@@ -28,6 +31,8 @@ Pythonでデータ構造を読めればよく、モデル学習やReactの経験
 - Raw Snapshot、Curation Run、Canonical Dataset Revision、Training Snapshotは何を固定するか
 - 行の品質状態と目的変数への利用可否を、なぜ別々に持つか
 - 同じ内容の再取得と、内容が異なるrevisionをどう区別するか
+- 品質不良ではないholdoutを、なぜversion付きselection policyへ置くか
+- Training SnapshotからPackageへ進むTask固有adapterが、どのdigestを再検証するか
 - どの操作もModel Packageの再学習やactive化を起こさないことを、どのtestが守るか
 
 ## 扱わない範囲
@@ -36,7 +41,10 @@ Pythonでデータ構造を読めればよく、モデル学習やReactの経験
 現行の`object_storage_json_v1`は、別の取得処理が渡したJSONを解釈する境界です。
 
 Dataset Input Profileの作り方、Feature Pipeline、Model Package生成は別の変更経路です。
-この章では、承認済みの行集合をTraining Snapshotとして固定するところで止まります。
+四行の固定例は、承認済みの行集合をTraining Snapshotとして固定するところで止まります。
+
+現行mainには、CALCE電池データをPackageとProjectへ接続するTask固有の受入経路が一つあります。
+汎用的な自動学習経路として扱わず、章の後半で境界だけを確認します。
 
 ## 取得しただけでは判断に使えない
 
@@ -66,7 +74,7 @@ Dataset Input Profileの作り方、Feature Pipeline、Model Package生成は別
 | Raw Snapshot | 取得時のJSON行、内容hash、設定digest、前回との差分 | 取得 | JSONとして解釈可能 |
 | Curation Run | Recipe適用後の全行、Profile参照、状態、理由、利用可否 | 品質判定 | 登録済みRecipeとProfileが一致 |
 | Canonical Dataset Revision | 承認行、除外行、override、actor、理由 | 承認 | blocked rowがなく、overrideが妥当 |
-| Training Snapshot | 承認済みかつ目的変数を利用できるrow key | 明示作成 | 対象行が1件以上 |
+| Training Snapshot | 承認済みかつ目的変数を利用でき、version付きselection policyで除外されないrow key | 明示作成 | 対象行が1件以上 |
 
 この表で異なるのは保存時刻だけではありません。
 各資産は、事実の取得、意味の変換、人間の承認、学習用途の選択という別の役割を持ちます。
@@ -114,7 +122,10 @@ Dが途中で消える理由は、行全体が壊れているからではあり�
 同じ名前を付けても、locatorや選択fieldが違えば別の設定です。
 
 一方、credentialはConnectorへ保存しません。
-FastAPI routeは`X-Source-Credential`を一回のrequest headerとして受け取り、永続化するapplication contractへ渡す前に破棄します。^[現行adapterはobject contentをrequest bodyで受けるため、credentialを実際のSDKへ渡しません。この境界は「credentialを保存してよい」という意味ではなく、将来の取得adapterでも一回限りに保つためのものです。]
+FastAPI routeは`X-Source-Credential`を一回のrequest headerとして受け取り、永続化するapplication contractへ渡す前に破棄します。[^credential-boundary]
+
+[^credential-boundary]: 現行adapterはobject contentをrequest bodyで受けるため、credentialを実際のSDKへ渡しません。
+    この境界は「credentialを保存してよい」という意味ではなく、将来の取得adapterでも一回限りに保つためのものです。
 
 `source_locator`にもcredentialを埋め込めません。
 username、password、tokenや署名を示すquery keyをvalidatorが拒否します。
@@ -256,11 +267,15 @@ Canonical Dataset Revisionは「きれいな表の保存名」ではありませ
 
 承認したDatasetを即座に学習へ使わない理由は、承認と用途選択が別の判断だからです。
 
-`build_training_snapshot()`は、Canonical Datasetで承認された行のうち、Curation Runで`target_eligible=true`だった行だけを選びます。
+`build_training_snapshot()`は、Canonical Datasetで承認された行のうち、Curation Runで`target_eligible=true`だった行を選びます。
+requestに`TrainingSnapshotSelectionPolicy`があれば、version付きの除外条件も適用します。
 対象が0件なら作成を拒否します。
 
-Training Snapshotは、行keyに加えてactorとpurposeを保存します。
-同じDatasetから、異なる学習目的のSnapshotを明示的に作れます。^[現行contractは目的変数名やsplit定義まで保持しません。特定のPackage builderへ渡すadapterは未実装であり、目的別cohortの完全な再現契約までこのSnapshotだけで満たすとは主張できません。]
+Training Snapshotは、行key、actor、purpose、任意のselection policyとそのdigestを保存します。
+同じDatasetから、異なる学習目的のSnapshotを明示的に作れます。[^selection-policy-scope]
+
+[^selection-policy-scope]: 現行selection policyは、field値による除外条件を固定します。
+    目的変数名、trainとvalidationのsplit全体、特徴量定義まで保持する契約ではありません。
 
 Training Snapshotを作っても、次の処理は起きません。
 
@@ -272,6 +287,23 @@ Training Snapshotを作っても、次の処理は起きません。
 
 `backend/tests/test_data_lifecycle.py`は、Training Snapshot作成後も`/api/project-creation-options`のModel Package一覧が変わらないことを確認します。
 E2Eも、画面で「再学習・Package検証・active化は別操作です」と表示されるところまでを守ります。
+
+### Task固有adapterは境界を残したまま接続する
+
+`backend/src/material_workbench/application/training_snapshot_adapter.py`は、`battery-degradation-v1`のTraining Snapshotを決定的なCSVへmaterializeします。
+adapterはSnapshot IDから親のCanonical Dataset、Curation Run、Raw Snapshotまでを再読込し、保存済みdigestと行集合を再検証します。
+
+固定例では、CALCE由来の3,131行をCanonical Datasetへ残し、正常なholdoutである`CS2_35`の829行をselection policyで除外します。
+Training Snapshotは残る2,302行を固定します。
+品質に問題がない行をquarantineへ偽装せず、学習用途の選択として別の証拠へ残すためです。
+
+`backend/scripts/reference_data_loop_acceptance.py`は、このSnapshotからdata-only Package、固定参照を持つProject、予測Snapshot、Actualまでを一つの受入経路として実行します。
+同じcommandを再実行した場合は、digestが一致する不変資産を再利用し、別内容を同じmaterialized CSVまたはPackage directoryへ上書きしません。
+
+::: {.callout-note title="CONFIRMED"}
+この受入経路は、Data Library画面でTraining Snapshotを作るたびに自動実行される処理ではありません。
+Task固有scriptが各境界を明示的に呼び、`data/source/`、checked-in Package、active Package設定を変更せずに証拠の接続を検証します。
+:::
 
 ### Data LibraryのDataset Revisionとは別である
 
@@ -451,7 +483,7 @@ Raw取得後に自動Curation、自動承認、自動学習まで進めれば、
 - schedulerは実装せず、scheduled requestの契約だけを持つ
 - Recipeはallow-listされた単純操作だけで、任意joinや任意Pythonを実行しない
 - Profileの意味変換は参照digestを固定するが、このdomain関数自体はProfile内容を解釈しない
-- Training SnapshotからTask固有のPackage builderへ渡すadapterは未実装
+- Training SnapshotからPackage builderへ渡すadapterは`battery-degradation-v1`に限定され、汎用adapterはない
 - Canonical Dataset RevisionからData LibraryのDataset Revisionへ登録するadapterは未実装
 - Training Snapshot単体では目的変数別cohort、split、特徴量を完全には固定しない
 
@@ -465,6 +497,7 @@ Raw取得後に自動Curation、自動承認、自動学習まで進めれば、
 ```powershell
 uv run python -m pytest `
   backend/tests/test_data_lifecycle.py `
+  backend/tests/test_reference_data_loop_acceptance.py `
   backend/tests/test_openapi_contract.py
 
 npm run api:check
@@ -477,7 +510,8 @@ npx playwright test e2e/source-lifecycle.spec.ts
 ```
 
 成功した場合、contract、domain、persistence、API、生成型、代表的な画面操作が現mainで接続していると確認できます。
-外部object storage、実モデルの学習、Package生成、active化まで成功したとは解釈しません。
+`test_reference_data_loop_acceptance.py`は、固定したCALCE派生データについてPackage生成、Project、予測、Actualまでの証拠接続と再実行時の再利用を確認します。
+外部object storage SDK、active Packageの自動切替、任意Taskの汎用学習まで成功したとは解釈しません。
 
 ## 章末チェック
 
@@ -492,6 +526,7 @@ npx playwright test e2e/source-lifecycle.spec.ts
 7. 同じRecipe IDとversionへ異なる定義を登録できない理由は何か。
 8. Training Snapshot作成がModel Packageを変えないことを、どのtestが確認するか。
 9. repositoryが親資産のdigestを引き直す理由は何か。
-10. 現行E2Eが証明しない範囲は何か。
+10. 正常なholdoutをquarantineではなくselection policyへ置く理由は何か。
+11. 現行E2EとTask固有acceptance testが、それぞれ証明しない範囲は何か。
 
 解答と変更演習は[行が学習対象になるまでを追跡する](../labs/trace-source-evidence.qmd)にあります。

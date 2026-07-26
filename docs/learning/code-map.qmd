@@ -145,8 +145,9 @@
 
 - **Contract**：data lifecycle contracts
 - **Application**：`backend/src/material_workbench/application/data_lifecycle.py`
+- **Task固有adapter**：`backend/src/material_workbench/application/training_snapshot_adapter.py`
 - **UI**：Data Library
-- **Testと文書**：`backend/tests/test_data_lifecycle.py`、`e2e/source-lifecycle.spec.ts`、`docs/source-data-lifecycle.md`
+- **Testと文書**：`backend/tests/test_data_lifecycle.py`、`backend/tests/test_reference_data_loop_acceptance.py`、`e2e/source-lifecycle.spec.ts`、`docs/source-data-lifecycle.md`、`docs/reference-data-loop.md`
 
 ## Chainと複数段を追う
 

@@ -77,7 +77,7 @@ HTMLとPDFは確認用の生成物であり、正本ではありません。
 
 ```powershell
 uv run python -m pytest backend/tests/test_decision_activities.py backend/tests/test_openapi_contract.py
-uv run python -m pytest backend/tests/test_data_lifecycle.py backend/tests/test_openapi_contract.py
+uv run python -m pytest backend/tests/test_data_lifecycle.py backend/tests/test_reference_data_loop_acceptance.py backend/tests/test_openapi_contract.py
 uv run python -m pytest backend/tests/test_candidate_safety.py backend/tests/test_inference_work_graph.py
 uv run python -m pytest backend/tests/test_workspace_bundle.py backend/tests/test_windows_packaging_contract.py -k "workspace or desktop_startup_recovery"
 node --test apps/web/tests/latestSaveQueue.test.mjs apps/web/tests/inferenceSurfaceState.test.mjs apps/web/tests/workbenchIdentity.test.mjs
