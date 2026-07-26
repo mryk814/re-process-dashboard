@@ -177,6 +177,27 @@
 
 .chain-result-card th:first-child { text-align: left; }
 .chain-result-card td.actual-conditioned { color: #7a4a00; font-weight: 700; }
+.chain-prediction-value {
+  align-items: flex-end;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.chain-prediction-value strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.chain-prediction-value small,
+.chain-output-unavailable {
+  color: #66758d;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.chain-output-unavailable {
+  margin: 12px 4px;
+}
 .variant-note { display: block; margin-top: 8px; color: #7a4a00; }
 
 .chain-actual-panel,
@@ -293,4 +314,30 @@
   gap: 0.5rem;
   grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
   margin-top: 0.75rem;
+}
+
+.chain-snapshot-output-table {
+  border-collapse: collapse;
+  margin-top: 0.5rem;
+  width: 100%;
+}
+
+.chain-snapshot-output-table th,
+.chain-snapshot-output-table td {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 0.4rem;
+  text-align: left;
+}
+
+.actual-value-grid label {
+  grid-template-columns: minmax(110px, 1fr) minmax(80px, .8fr);
+}
+
+.actual-value-grid label span {
+  display: grid;
+}
+
+.actual-value-grid label span small {
+  color: #66758d;
+  font-size: 9px;
 }
