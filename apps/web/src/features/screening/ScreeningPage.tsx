@@ -4,6 +4,8 @@ import { workbenchApi, type ApiProject, type ApiProposalStrategyAvailability, ty
 import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
 import { SvgChartTooltip } from "../../shared/ui/SvgChartTooltip";
 import { assessPrediction, clampToRange, resolveOutputDefinition } from "../../shared/outputPresentation";
+import { formatTaskNumber } from "../../shared/taskPresentation";
+import { supportStatusLabel } from "../../shared/supportPresentation";
 import { ScreeningBaseEditor } from "./ScreeningBaseEditor";
 import {
   emptyScreeningGoal,
@@ -229,6 +231,10 @@ export function ScreeningPage({
   const activeProjectRef = useRef(projectId);
   activeProjectRef.current = projectId;
   const outputs = taskDefinition?.outputs ?? [];
+  // Predicted values follow the task contract, not a per-panel digit count.
+  const outputNumber = (key: string, value: number) => taskDefinition
+    ? formatTaskNumber(value, taskDefinition, `output.${key}`, project?.display_decimals)
+    : number(value, 1);
   const targetDefinition = outputs.find((output) => output.key === target);
   const fixedObjective = project?.objective_definition;
   const fixedObjectivePrimary = fixedObjective?.terms.find((term) => term.role === "primary_objective")
@@ -1225,8 +1231,8 @@ export function ScreeningPage({
               const tooltipLines = [
                 `点 ${point.index + 1}`,
                 ...axes.map((axis, axisIndex) => `${axisLabel(axis)} ${number(Number(point.inputs[axis]), axisIndex === 0 ? xDigits : yDigits)}`),
-                `${outputs.find((output) => output.key === result.target)?.label ?? result.target} ${number(point.prediction.value, 1)} ${point.prediction.unit}`,
-                `90%区間 ${number(point.prediction.lower, 1)}–${number(point.prediction.upper, 1)}`,
+                `${outputs.find((output) => output.key === result.target)?.label ?? result.target} ${outputNumber(result.target, point.prediction.value)} ${point.prediction.unit}`,
+                `90%区間 ${outputNumber(result.target, point.prediction.lower)}–${outputNumber(result.target, point.prediction.upper)}`,
                 ...(targetAssessment.warning ? [`⚠ ${targetAssessment.warning}`] : []),
                 point.support.message,
               ];
@@ -1287,21 +1293,23 @@ export function ScreeningPage({
                   : focusedPoint.secondary_goal_evaluations?.[key];
                 return <div className={assessment.implausible ? "implausible-output" : undefined} title={assessment.warning ?? undefined} key={key}>
                   <b>{output?.label ?? key}</b>
-                  <strong>{number(prediction.value, 1)} {prediction.unit}</strong>
-                  <small>{number(prediction.lower, 1)}–{number(prediction.upper, 1)}{prediction.goal_probability != null ? ` / 達成確率 ${Math.round(prediction.goal_probability * 100)}%` : ""}</small>
+                  <strong>{outputNumber(key, prediction.value)} {prediction.unit}</strong>
+                  <small>{outputNumber(key, prediction.lower)}–{outputNumber(key, prediction.upper)}{prediction.goal_probability != null ? ` / 達成確率 ${Math.round(prediction.goal_probability * 100)}%` : ""}</small>
                   {assessment.implausible && <em className="output-warning-badge">⚠ 物理範囲外</em>}
                   {evaluation && <em>{goalEvaluationLabel(evaluation, key === result.target)}</em>}
                 </div>;
               })}
             </div>
             <p><b>全変動条件:</b> {Object.entries(focusedPoint.inputs).map(([key, value]) => `${axisLabel(key)} ${typeof value === "number" ? number(value, 3) : value}`).join(" / ")}</p>
-            <p><b>支持度:</b> {focusedPoint.support.status} / percentile {number(focusedPoint.support.percentile, 1)} / 参照{focusedPoint.support.reference_count}件</p>
+            <p><b>適用範囲:</b> {supportStatusLabel(focusedPoint.support.status)} / percentile {number(focusedPoint.support.percentile, 1)} / 参照{focusedPoint.support.reference_count}件</p>
             {focusedPoint.warnings?.map((warning) => <p className="warning" key={warning}>{warning}</p>)}
             {(focusedPoint.similar ?? []).length > 0 && <p><b>近い実績:</b> {(focusedPoint.similar ?? []).slice(0, 3).map((item) => `${item.observation_id || item.parent_key} (距離 ${number(item.distance, 2)})`).join(" / ")}</p>}
           </section>}
           <ScreeningRepresentativeTable
             result={result}
             outputs={outputs}
+            taskDefinition={taskDefinition}
+            displayDecimalOverrides={project?.display_decimals}
             options={options}
             baseCandidateLabel={candidates.find((candidate) => candidate.id === result.base_candidate_id)?.label ?? "基準候補"}
             selectedPointIndices={selectedPointIndices}

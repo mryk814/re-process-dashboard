@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { getCandidateInputValue, numericTaskInputs } from "../../candidates";
+import { formatTaskNumber } from "../../../shared/taskPresentation";
 import type { ApiDecisionActivityRun } from "../../../shared/api/workbench-api";
 import type { DecisionActivityViewProps } from "./types";
 
-const numberFormat = new Intl.NumberFormat("ja-JP", { maximumFractionDigits: 3 });
 const percentFormat = new Intl.NumberFormat("ja-JP", { maximumFractionDigits: 0 });
 const EXTRAPOLATION_NOTICE_RATE = 0.2;
 
@@ -47,6 +47,7 @@ function robustnessResult(run: ApiDecisionActivityRun) {
 export function RobustnessActivityView({
   candidate,
   taskDefinition,
+  displayDecimalOverrides,
   ready,
   availability,
   runs,
@@ -117,6 +118,10 @@ export function RobustnessActivityView({
   }
 
   const outputLabels = new Map(taskDefinition.outputs.map((output) => [output.key, output.label]));
+  // Output values follow the task contract and the project override, like the
+  // comparison table does, so the same prediction reads the same everywhere.
+  const outputNumber = (target: string, value: number) => formatTaskNumber(value, taskDefinition, `output.${target}`, displayDecimalOverrides);
+  const inputNumber = (path: string, value: number) => formatTaskNumber(value, taskDefinition, path, displayDecimalOverrides);
   const goalDirections = new Map(taskDefinition.outputs.map((output) => [output.key, output.goal_direction]));
   return <>
     <section className="activity-settings">
@@ -173,12 +178,12 @@ export function RobustnessActivityView({
       <div className="activity-targets">{result.target_summaries.map((summary) => <article key={summary.target}>
         <header><strong>{outputLabels.get(summary.target) ?? summary.target}</strong>{summary.goal_achievement_rate != null && <b>目標達成 {percentFormat.format(summary.goal_achievement_rate * 100)}%</b>}</header>
         <dl>
-          <div><dt>基準予測</dt><dd>{numberFormat.format(summary.base_prediction.value)} {summary.unit}</dd></div>
-          <div><dt>入力ばらつき</dt><dd>{numberFormat.format(summary.input_variation.lower)}–{numberFormat.format(summary.input_variation.upper)} {summary.unit}</dd></div>
-          <div><dt>モデル不確実性</dt><dd>{numberFormat.format(summary.model_uncertainty.lower)}–{numberFormat.format(summary.model_uncertainty.upper)} {summary.unit}</dd></div>
+          <div><dt>基準予測</dt><dd>{outputNumber(summary.target, summary.base_prediction.value)} {summary.unit}</dd></div>
+          <div><dt>入力ばらつき</dt><dd>{outputNumber(summary.target, summary.input_variation.lower)}–{outputNumber(summary.target, summary.input_variation.upper)} {summary.unit}</dd></div>
+          <div><dt>モデル不確実性</dt><dd>{outputNumber(summary.target, summary.model_uncertainty.lower)}–{outputNumber(summary.target, summary.model_uncertainty.upper)} {summary.unit}</dd></div>
           <div>
             <dt>{worstObservedLabel(summary.goal_achievement_rate)}</dt>
-            <dd>{numberFormat.format(summary.worst_observed)} {summary.unit}</dd>
+            <dd>{outputNumber(summary.target, summary.worst_observed)} {summary.unit}</dd>
             <small>{worstObservedBasis(summary.goal_achievement_rate, goalDirections.get(summary.target))}</small>
           </div>
         </dl>
@@ -189,12 +194,12 @@ export function RobustnessActivityView({
       </div>
       {result.critical_inputs.length > 0 && <details className="activity-evidence">
         <summary>ばらつきと結び付きが強い入力</summary>
-        {result.critical_inputs.map((item) => <div key={`${item.target}-${item.path}`}><span>{fieldByPath.get(item.path)?.label ?? item.path} → {outputLabels.get(item.target) ?? item.target}</span><b>相関の強さ |r| {numberFormat.format(item.absolute_correlation)}</b></div>)}
+        {result.critical_inputs.map((item) => <div key={`${item.target}-${item.path}`}><span>{fieldByPath.get(item.path)?.label ?? item.path} → {outputLabels.get(item.target) ?? item.target}</span><b>相関の強さ |r| {item.absolute_correlation.toLocaleString("ja-JP", { maximumFractionDigits: 2 })}</b></div>)}
         <small>局所サンプル内の相関であり、因果効果ではありません。</small>
       </details>}
       {result.failure_examples.length > 0 && <details className="activity-evidence">
         <summary>代表的な未達・支持範囲外条件（{result.failure_examples.length}件）</summary>
-        {result.failure_examples.map((example) => <div key={example.sample_index}><span>{Object.entries(example.varied_inputs).map(([path, value]) => `${fieldByPath.get(path)?.label ?? path} ${numberFormat.format(value)}`).join(" / ")}</span><b>{example.failed_targets.length ? `${example.failed_targets.join(", ")} 未達` : "支持範囲外"}</b></div>)}
+        {result.failure_examples.map((example) => <div key={example.sample_index}><span>{Object.entries(example.varied_inputs).map(([path, value]) => `${fieldByPath.get(path)?.label ?? path} ${inputNumber(path, value)}`).join(" / ")}</span><b>{example.failed_targets.length ? `${example.failed_targets.join(", ")} 未達` : "支持範囲外"}</b></div>)}
       </details>}
       <ul className="activity-warnings">{result.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
     </section>}

@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { workbenchApi, type ApiDecisionActivityRun } from "../../../shared/api/workbench-api";
 import { SupportBadge } from "../../../shared/ui/SupportBadge";
+import { formatTaskNumber } from "../../../shared/taskPresentation";
 import type { DecisionActivityViewProps } from "./types";
 
-const numberFormat = new Intl.NumberFormat("ja-JP", { maximumFractionDigits: 4 });
+/** Change distance is a normalised L1 value, not a task output. */
+const distanceFormat = new Intl.NumberFormat("ja-JP", { maximumFractionDigits: 3 });
 
 function counterfactualResult(run: ApiDecisionActivityRun) {
   return run.result.schema_version === "counterfactual-summary/v1" ? run.result : null;
@@ -20,6 +22,7 @@ export function CounterfactualActivityView({
   onRun,
   onCandidateCreated,
   taskDefinition,
+  displayDecimalOverrides,
 }: DecisionActivityViewProps) {
   const [sampleCount, setSampleCount] = useState(128);
   const [resultCount, setResultCount] = useState(5);
@@ -54,6 +57,8 @@ export function CounterfactualActivityView({
     () => new Map(taskDefinition.outputs.map((item) => [item.key, item.label])),
     [taskDefinition.outputs],
   );
+  const outputNumber = (target: string, value: number) => formatTaskNumber(value, taskDefinition, `output.${target}`, displayDecimalOverrides);
+  const inputNumber = (path: string, value: number) => formatTaskNumber(value, taskDefinition, path, displayDecimalOverrides);
 
   async function promote(proposalId: string) {
     if (!activeRun || savingId || savedIds.has(proposalId)) return;
@@ -113,23 +118,23 @@ export function CounterfactualActivityView({
       {result.status === "infeasible" && <div className="activity-unavailable">
         <strong>現在の範囲では目標へ届く案を確認できませんでした</strong>
         {result.infeasibility.map((item) => <span key={item.target}>
-          {item.target}: 最良 {numberFormat.format(item.best_value)} {item.unit} — {item.explanation}
+          {outputLabels.get(item.target) ?? item.target}: 最良 {outputNumber(item.target, item.best_value)} {item.unit} — {item.explanation}
         </span>)}
       </div>}
       {result.proposals.map((proposal) => <article className="counterfactual-proposal" key={proposal.proposal_id}>
         <header>
-          <span><b>案 {proposal.rank}</b><small>変更量 {numberFormat.format(proposal.change_distance)} / {proposal.changed_field_count}項目</small></span>
+          <span><b>案 {proposal.rank}</b><small>変更量 {distanceFormat.format(proposal.change_distance)} / {proposal.changed_field_count}項目</small></span>
           <SupportBadge status={proposal.support.status} message={proposal.support.message} />
         </header>
         <div className="counterfactual-changes">
           {proposal.changes.map((change) => <div key={change.path}>
             <span>{change.label}</span>
-            <b>{typeof change.base_value === "number" ? numberFormat.format(change.base_value) : change.base_value} → {typeof change.proposed_value === "number" ? numberFormat.format(change.proposed_value) : change.proposed_value}{change.unit ? ` ${change.unit}` : ""}</b>
+            <b>{typeof change.base_value === "number" ? inputNumber(change.path, change.base_value) : change.base_value} → {typeof change.proposed_value === "number" ? inputNumber(change.path, change.proposed_value) : change.proposed_value}{change.unit ? ` ${change.unit}` : ""}</b>
           </div>)}
         </div>
         <div className="counterfactual-targets">
           {proposal.target_evaluations.map((target) => <span key={target.target} className={target.achieved ? "achieved" : ""}>
-            {outputLabels.get(target.target) ?? target.target} <b>{numberFormat.format(target.predicted_value)} {target.unit}</b>
+            {outputLabels.get(target.target) ?? target.target} <b>{outputNumber(target.target, target.predicted_value)} {target.unit}</b>
           </span>)}
         </div>
         {proposal.warnings.map((warning) => <small className="proposal-warning" key={warning}>{warning}</small>)}
