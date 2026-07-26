@@ -27,7 +27,7 @@ from material_workbench.tasks.task_registry import load_task_contracts
 
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_SOURCE = ROOT / "data" / "source" / "material_workbench_tutorial_v1.xlsx"
+DEFAULT_SOURCE = ROOT / "data" / "source" / "material_workbench_tutorial_v2.xlsx"
 SOURCE = DEFAULT_SOURCE
 PROCESS_SOURCE = ROOT / "data" / "source" / "material_workbench_process_v1.xlsx"
 PROCESS_ANNEALED_PACKAGE = ROOT / "models" / "packages" / "annealed-gp-stable-ard-process-v1"

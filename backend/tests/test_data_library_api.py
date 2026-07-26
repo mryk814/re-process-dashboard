@@ -8,7 +8,7 @@ from material_workbench.persistence.workspace_catalog_bootstrap import bootstrap
 EXPECTED_DATASET_IDENTITIES = {
     (
         "thin-sheet-tutorial-v1",
-        "material_workbench_tutorial_v1.xlsx",
+        "material_workbench_tutorial_v2.xlsx",
         ("annealed-properties-v1", "hot-rolled-properties-v1"),
     ),
     (

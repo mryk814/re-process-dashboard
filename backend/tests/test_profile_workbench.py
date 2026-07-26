@@ -8,7 +8,7 @@ from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = ROOT / "data" / "source" / "material_workbench_tutorial_v1.xlsx"
+SOURCE = ROOT / "data" / "source" / "material_workbench_tutorial_v2.xlsx"
 PROFILE = ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-tutorial.json"
 
 

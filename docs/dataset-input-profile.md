@@ -6,6 +6,33 @@
 このフローは材料、工具、切削条件、摩耗履歴を対応付け、`flank-wear-v1` だけを対象とします。
 最小教材と工程データは、起動時にワークブックのシート構成とソースマーカーからプロファイルを自動選択します。
 切削逃げ面摩耗は専用ローダーが `dataset-input-profile-flank-wear-v1.json` を選択します。
+
+## 観測が参照する画像
+
+組織観察のように、行が画像ファイルを指す観測があります。
+**画像パスを持つ列名はProfileが宣言します。** アプリ側に列名を書きません。
+
+`shared.technical` へ役割ごとに `name: "evidence_image"` を宣言します。
+
+```json
+{"role": "anneal_microstructure", "name": "evidence_image", "column": "画像path"}
+```
+
+宣言のないroleでは画像を探しに行きません。
+
+画像パスは元データ由来で信頼できないため、解決は次のとおり狭く固定しています
+（[data/evidence_images.py](../backend/src/material_workbench/data/evidence_images.py)）。
+
+- パスは**Datasetファイルと同じディレクトリからの相対**として解決する
+- 絶対パス、ドライブレター、`..` を含む参照、そのディレクトリの外へ出る参照は拒否する
+- allow-listした拡張子（`.png` / `.jpg` / `.jpeg`）だけを配信する
+- 宣言はあるがファイルが無い場合は「見つからない」として扱う。別の画像で代替しない
+
+配信は `GET /api/projects/{project_id}/lineage/{entity_key}/evidence-image` で、
+`X-Content-Type-Options: nosniff` を付けます。画像ライブラリは通しません。
+
+系譜のノード詳細は `evidence_image` として参照先と取得可否を返します。
+取り込み漏れは画像なしとして表示し、**観測が無かったことにはしません**。
 プロファイルを明示する場合は、`load_workbook_data(..., profile_path=...)` または検証コマンドの `--profile` を使います。
 
 本番タスクの契約は `backend/src/material_workbench/tasks/task_definitions/` に置きます。

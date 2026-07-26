@@ -279,6 +279,38 @@ def _attach_quality_navigation(
     return enriched
 
 
+def lineage_evidence_image(
+    data: WorkbookData,
+    entity_type: str,
+    source_row: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    """Resolve the micrograph a row points at, if its Profile declares one."""
+
+    from material_workbench.data.evidence_images import (
+        EvidenceImageError,
+        declared_evidence_image,
+        resolve_evidence_image,
+    )
+
+    role = next(
+        (name for name, key in data.role_to_key.items() if key == entity_type), None
+    )
+    if role is None:
+        return None
+    declared = declared_evidence_image(data.technical_columns, role, source_row)
+    if declared is None:
+        return None
+    try:
+        resolved = resolve_evidence_image(declared, data.source_path)
+    except EvidenceImageError as exc:
+        return {"declared_path": declared, "available": False, "reason": str(exc)}
+    return {
+        "declared_path": resolved.declared_path,
+        "available": resolved.available,
+        "reason": resolved.reason,
+    }
+
+
 def lineage_node_detail(data: WorkbookData, entity_key: str) -> dict[str, Any]:
     """Return inspectable source facts for a lineage node, not only its edges."""
     entity_type = next((key_column for key_column, records in data.entities.items() if entity_key in records), None)
@@ -358,6 +390,7 @@ def lineage_node_detail(data: WorkbookData, entity_key: str) -> dict[str, Any]:
         "key": entity_key,
         "entity_type": canonical_entity_type,
         "source_sheet": source_sheet,
+        "evidence_image": lineage_evidence_image(data, entity_type, source_row),
         "source_row": {column: _scalar(value) for column, value in source_row.items()},
         "primary_conditions": primary_conditions,
         "composition": composition,

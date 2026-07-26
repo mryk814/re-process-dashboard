@@ -1,7 +1,10 @@
 {
   "schema_version": "dataset-input-profile/v2",
   "id": "thin-sheet-workbook-v2",
-  "task_definition_ids": ["annealed-properties-v1", "hot-rolled-properties-v1"],
+  "task_definition_ids": [
+    "annealed-properties-v1",
+    "hot-rolled-properties-v1"
+  ],
   "shared": {
     "sheets": {
       "melt": "溶製",
@@ -322,6 +325,16 @@
         "role": "anneal_features",
         "name": "unmapped_stage_count",
         "column": "未確定工程名数"
+      },
+      {
+        "role": "hot_microstructure",
+        "name": "evidence_image",
+        "column": "画像path"
+      },
+      {
+        "role": "anneal_microstructure",
+        "name": "evidence_image",
+        "column": "画像path"
       }
     ],
     "metadata_columns": [

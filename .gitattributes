@@ -16,3 +16,5 @@ data/source/**/*.csv -text
 # Excel workbooks are also byte-addressed Package inputs.
 data/source/*.xlsx binary
 data/source/**/*.xlsx binary
+# Observation evidence images are read as raw bytes and digested with the dataset.
+data/source/**/*.png binary

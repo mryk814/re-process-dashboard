@@ -11,7 +11,7 @@ from material_workbench.modeling.model_packages import ModelPackageLoader
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = ROOT / "data" / "source" / "material_workbench_tutorial_v1.xlsx"
+SOURCE = ROOT / "data" / "source" / "material_workbench_tutorial_v2.xlsx"
 sys.path.insert(0, str(ROOT / "backend" / "scripts"))
 
 import build_hot_rolling_model_package as builder  # noqa: E402

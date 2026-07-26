@@ -1279,10 +1279,23 @@ class LineageGraph(BaseModel):
     omitted_node_count: int
 
 
+class EvidenceImageRef(BaseModel):
+    """A micrograph the source row points at, and whether the file is there.
+
+    `available=False` keeps a declared-but-missing image visible as missing
+    instead of silently dropping the observation's evidence.
+    """
+
+    declared_path: str
+    available: bool
+    reason: str | None = None
+
+
 class LineageNodeDetail(BaseModel):
     key: str
     entity_type: str
     source_sheet: str
+    evidence_image: EvidenceImageRef | None = None
     source_row: dict[str, str | float | int | bool | None]
     primary_conditions: dict[str, str | float | int | bool | None]
     composition: dict[str, float]

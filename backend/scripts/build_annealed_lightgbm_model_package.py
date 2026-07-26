@@ -403,7 +403,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--source",
         type=Path,
-        default=Path("data/source/material_workbench_tutorial_v1.xlsx"),
+        default=Path("data/source/material_workbench_tutorial_v2.xlsx"),
     )
     parser.add_argument(
         "--output",

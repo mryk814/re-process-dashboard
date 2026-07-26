@@ -34,7 +34,7 @@ from material_workbench.task_modules import registered_task_modules
 
 
 ROOT = Path(__file__).resolve().parents[2]
-TUTORIAL_SOURCE = ROOT / "data" / "source" / "material_workbench_tutorial_v1.xlsx"
+TUTORIAL_SOURCE = ROOT / "data" / "source" / "material_workbench_tutorial_v2.xlsx"
 PROCESS_SOURCE = ROOT / "data" / "source" / "material_workbench_process_v1.xlsx"
 SOURCE = TUTORIAL_SOURCE
 PROFILE = ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-tutorial-base.json"

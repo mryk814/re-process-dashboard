@@ -11,7 +11,7 @@ from material_workbench.app import _AppResources, create_app
 
 
 EXPECTED_ASSET_FILENAMES = {
-    "material_workbench_tutorial_v1.xlsx",
+    "material_workbench_tutorial_v2.xlsx",
     "material_workbench_process_v1.xlsx",
     "cutting_tool_flank_wear_synthetic_dataset.xlsx",
     "heat_treatment_tradeoff_samples.csv",

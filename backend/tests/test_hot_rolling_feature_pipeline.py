@@ -87,7 +87,7 @@ def test_hot_rolling_task_contract_rejects_invalid_thickness_order() -> None:
 
 
 def test_hot_rolling_training_row_uses_the_candidate_pipeline() -> None:
-    source = Path(__file__).parents[2] / "data" / "source" / "material_workbench_tutorial_v1.xlsx"
+    source = Path(__file__).parents[2] / "data" / "source" / "material_workbench_tutorial_v2.xlsx"
     data = load_workbook_data(source)
     row = next(item for item in data.observations if item["task_id"] == "hot-rolled-properties-v1" and item["eligible"])
     candidate = candidate_from_observation(row)

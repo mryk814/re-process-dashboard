@@ -5161,6 +5161,36 @@
         "title": "DurationDiagnostic",
         "type": "object"
       },
+      "EvidenceImageRef": {
+        "description": "A micrograph the source row points at, and whether the file is there.\n\n`available=False` keeps a declared-but-missing image visible as missing\ninstead of silently dropping the observation's evidence.",
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "declared_path": {
+            "title": "Declared Path",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "declared_path",
+          "available"
+        ],
+        "title": "EvidenceImageRef",
+        "type": "object"
+      },
       "ExternalBindingSource": {
         "additionalProperties": false,
         "properties": {
@@ -6059,6 +6089,16 @@
           "entity_type": {
             "title": "Entity Type",
             "type": "string"
+          },
+          "evidence_image": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvidenceImageRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "heat_pattern": {
             "items": {
@@ -17139,6 +17179,81 @@
           }
         },
         "summary": "Create Candidate From Lineage"
+      }
+    },
+    "/api/projects/{project_id}/lineage/{entity_key}/evidence-image": {
+      "get": {
+        "description": "観測が参照している顕微鏡写真。データセット配下の画像だけを返す。",
+        "operationId": "getLineageEvidenceImage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entity_key",
+            "required": true,
+            "schema": {
+              "title": "Entity Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/png": {}
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Task Runtime Unavailable"
+          }
+        },
+        "summary": "Lineage Evidence Image"
       }
     },
     "/api/projects/{project_id}/model-package": {

@@ -493,7 +493,7 @@ def test_lineage_candidate_options_do_not_invent_routes_from_flat_adjacency(clie
 
 def test_lineage_index_is_inspectable(client) -> None:
     index = client.get("/api/projects/default/lineage", params={"query": "AN-01"}).json()
-    assert index["relation_rows"] == 27
+    assert index["relation_rows"] == 51
     assert index["total_entities"] > index["relation_rows"]
     assert index["items"][0]["key"] == "AN-01"
     assert index["items"][0]["family"]

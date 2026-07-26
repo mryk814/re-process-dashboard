@@ -353,7 +353,7 @@ def build(source: Path, destination: Path, *, replace: bool = False, package_id:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--source", type=Path, default=Path("data/source/material_workbench_tutorial_v1.xlsx"))
+    parser.add_argument("--source", type=Path, default=Path("data/source/material_workbench_tutorial_v2.xlsx"))
     parser.add_argument("--output", type=Path, default=Path("models/packages/annealed-gp-stable-ard-tutorial-v1"))
     parser.add_argument("--replace", action="store_true")
     parser.add_argument("--package-id", default=PACKAGE_ID)

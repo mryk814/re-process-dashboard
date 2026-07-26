@@ -31,7 +31,7 @@ KNOWN_TRAINING_RANGE_DRIFT: set[str] = set()
 # 1つのTaskDefinitionが複数のデータセットでPackageを持つ。training_range は
 # そのすべてを含む必要があるので、同梱している両方のWorkbookに対して検証する。
 SHIPPED_WORKBOOKS = (
-    "data/source/material_workbench_tutorial_v1.xlsx",
+    "data/source/material_workbench_tutorial_v2.xlsx",
     "data/source/material_workbench_process_v1.xlsx",
 )
 PRIMARY_SOURCE_TASKS = ("annealed-properties-v1", "hot-rolled-properties-v1")

@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_comparison_uses_identical_parent_folds_and_reports_ls_redundancy() -> None:
-    report = compare(ROOT / "data/source/material_workbench_tutorial_v1.xlsx")
+    report = compare(ROOT / "data/source/material_workbench_tutorial_v2.xlsx")
 
     assert report["comparison_policy"]["same_parent_folds_for_both_pipelines"] is True
     assert report["parents"]["comparison"] >= 5

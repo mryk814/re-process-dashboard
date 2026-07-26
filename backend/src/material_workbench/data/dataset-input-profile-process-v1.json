@@ -195,6 +195,16 @@
         "role": "anneal_history",
         "name": "stage_name",
         "column": "工程"
+      },
+      {
+        "role": "hot_microstructure",
+        "name": "evidence_image",
+        "column": "画像リンク先"
+      },
+      {
+        "role": "anneal_microstructure",
+        "name": "evidence_image",
+        "column": "画像リンク名"
       }
     ],
     "metadata_columns": [

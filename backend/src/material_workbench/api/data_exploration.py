@@ -203,6 +203,30 @@ def lineage(
         _raise_data_error(exc)
 
 
+@router.get(
+    "/api/projects/{project_id}/lineage/{entity_key}/evidence-image",
+    response_class=Response,
+    operation_id="getLineageEvidenceImage",
+    responses={200: {"content": {"image/png": {}}}, **PROJECT_API_ERRORS},
+)
+def lineage_evidence_image(
+    project_id: str,
+    entity_key: str,
+    service: DataExplorationServiceDependency,
+) -> Response:
+    """観測が参照している顕微鏡写真。データセット配下の画像だけを返す。"""
+
+    try:
+        payload, media_type = service.lineage_evidence_image(project_id, entity_key)
+    except DATA_EXPLORATION_ERRORS as exc:
+        _raise_data_error(exc)
+    return Response(
+        content=payload,
+        media_type=media_type,
+        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+    )
+
+
 @router.post("/api/projects/{project_id}/lineage/{entity_key}/candidate", status_code=201, response_model=Candidate, responses=PROJECT_API_ERRORS)
 def create_candidate_from_lineage(
     project_id: str,

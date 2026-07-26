@@ -17,7 +17,7 @@ from material_workbench.contracts.task_contracts import (
 
 
 FIXTURE_ROOT = Path(__file__).parents[1] / "src" / "material_workbench" / "tasks" / "task_definitions"
-SOURCE_WORKBOOK = Path(__file__).parents[2] / "data" / "source" / "material_workbench_tutorial_v1.xlsx"
+SOURCE_WORKBOOK = Path(__file__).parents[2] / "data" / "source" / "material_workbench_tutorial_v2.xlsx"
 
 
 def load_fixture(name: str) -> dict[str, object]:

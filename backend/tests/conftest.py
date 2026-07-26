@@ -9,7 +9,7 @@ from material_workbench.execution.inference_work_graph import InferenceWorkGraph
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = ROOT / "data" / "source" / "material_workbench_tutorial_v1.xlsx"
+SOURCE = ROOT / "data" / "source" / "material_workbench_tutorial_v2.xlsx"
 
 
 @pytest.fixture(scope="session")

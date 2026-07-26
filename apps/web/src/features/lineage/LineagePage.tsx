@@ -650,6 +650,26 @@ export function LineagePage({
                 </table>
               </div>
             </section>
+            {data.node.evidence_image && (
+              <section className="lineage-node-evidence-image" aria-label="観察画像">
+                <h3>観察画像</h3>
+                {data.node.evidence_image.available ? (
+                  <img
+                    src={workbenchApi.lineageEvidenceImageUrl(projectId, data.key)}
+                    alt={`${data.key} の観察画像`}
+                    loading="lazy"
+                  />
+                ) : (
+                  // 参照はあるが実体が無い。観測が存在しなかったことにはしない。
+                  <p className="empty-evidence">
+                    画像ファイルを読み込めません。{data.node.evidence_image.reason ?? ""}
+                  </p>
+                )}
+                <small>
+                  <code title="元データの参照先">{data.node.evidence_image.declared_path}</code>
+                </small>
+              </section>
+            )}
           </section>
           {selectedGroup && (
             <section className="lineage-group-facts">

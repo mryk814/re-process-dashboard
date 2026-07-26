@@ -3,13 +3,13 @@ from pathlib import Path
 from material_workbench.data.importer import _attach_quality_navigation, _detect_data_quality, load_workbook_data
 
 
-SOURCE = Path(__file__).resolve().parents[2] / "data" / "source" / "material_workbench_tutorial_v1.xlsx"
+SOURCE = Path(__file__).resolve().parents[2] / "data" / "source" / "material_workbench_tutorial_v2.xlsx"
 
 
 def test_importer_preserves_relation_as_lineage_and_direct_observations() -> None:
     data = load_workbook_data(SOURCE)
     assert data.sheets["relation"]
-    assert len(data.sheets["relation"]) == 27
+    assert len(data.sheets["relation"]) == 51
     assert len(data.observations) == 26
     anneal = [row for row in data.observations if row["source"] == "焼鈍引張"]
     assert {row["parent_key"] for row in anneal} <= set(data.anneal_features)

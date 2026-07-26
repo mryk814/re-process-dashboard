@@ -9,7 +9,7 @@ from openpyxl import load_workbook
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = ROOT / "data" / "source" / "material_workbench_tutorial_v1.xlsx"
+SOURCE = ROOT / "data" / "source" / "material_workbench_tutorial_v2.xlsx"
 PROFILE_SOURCE_NAME = "dataset-input-profile-tutorial"
 MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 

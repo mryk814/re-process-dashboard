@@ -167,6 +167,52 @@ class DataExplorationService:
             "review_count": len(reviews),
         })
 
+    def lineage_evidence_image(self, project_id: str, entity_key: str) -> tuple[bytes, str]:
+        """Serve the micrograph a lineage row declares, or explain why it cannot.
+
+        The pointer comes from untrusted source data, so it is resolved inside the
+        dataset's own directory only; see `data/evidence_images.py`.
+        """
+
+        from material_workbench.data.evidence_images import (
+            EvidenceImageError,
+            declared_evidence_image,
+            resolve_evidence_image,
+        )
+
+        self.projects.require(project_id)
+        data = self.explorer(project_id, "lineage").data
+        try:
+            node = lineage_node_detail(data, entity_key)
+        except KeyError as exc:
+            raise LineageNotFoundError("来歴ノードの元データが見つかりません") from exc
+        entity_type = next(
+            (
+                key_column
+                for key_column, records in data.entities.items()
+                if entity_key in records
+            ),
+            None,
+        )
+        role = next(
+            (name for name, key in data.role_to_key.items() if key == entity_type), None
+        )
+        declared = (
+            declared_evidence_image(data.technical_columns, role, node["source_row"])
+            if role is not None
+            else None
+        )
+        if declared is None:
+            raise LineageNotFoundError("このノードは画像を参照していません")
+        try:
+            resolved = resolve_evidence_image(declared, data.source_path)
+        except EvidenceImageError as exc:
+            raise DataExplorationValidationError(str(exc)) from exc
+        if not resolved.available or resolved.resolved is None:
+            raise LineageNotFoundError(resolved.reason or "画像ファイルが見つかりません")
+        assert resolved.media_type is not None
+        return resolved.resolved.read_bytes(), resolved.media_type
+
     def lineage(
         self,
         project_id: str,

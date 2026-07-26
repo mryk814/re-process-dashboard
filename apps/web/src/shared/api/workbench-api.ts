@@ -497,4 +497,9 @@ export const workbenchApi = {
   candidateTemplateUrl(projectId: string) {
     return apiDownloadUrl(`${path(projectId, "/candidates/template.xlsx")}`);
   },
+  lineageEvidenceImageUrl(projectId: string, entityKey: string) {
+    return apiDownloadUrl(
+      `${path(projectId, `/lineage/${encodeURIComponent(entityKey)}/evidence-image`)}`,
+    );
+  },
 };

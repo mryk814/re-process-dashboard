@@ -13,8 +13,8 @@ files:
 extraResources:
   - from: dist/sidecar/material-workbench-sidecar
     to: sidecar
-  - from: data/source/material_workbench_tutorial_v1.xlsx
-    to: data/source/material_workbench_tutorial_v1.xlsx
+  - from: data/source/material_workbench_tutorial_v2.xlsx
+    to: data/source/material_workbench_tutorial_v2.xlsx
   - from: data/source/material_workbench_process_v1.xlsx
     to: data/source/material_workbench_process_v1.xlsx
   - from: data/source/cutting_tool_flank_wear_synthetic_dataset.xlsx
@@ -23,6 +23,9 @@ extraResources:
     to: data/source/welding_consumable_multistage_synthetic_dataset.xlsx
   - from: data/source/external
     to: data/source/external
+  # 組織の顕微鏡写真は観測の証拠。Datasetと同じくbyte単位で配布する。
+  - from: data/source/images
+    to: data/source/images
   - from: models/active-packages.json
     to: models/active-packages.json
   - from: models/available-packages.json

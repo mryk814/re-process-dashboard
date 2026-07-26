@@ -1145,6 +1145,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/lineage/{entity_key}/evidence-image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lineage Evidence Image
+         * @description 観測が参照している顕微鏡写真。データセット配下の画像だけを返す。
+         */
+        get: operations["getLineageEvidenceImage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/model-package": {
         parameters: {
             query?: never;
@@ -3365,6 +3385,21 @@ export interface components {
             /** Total */
             total: number;
         };
+        /**
+         * EvidenceImageRef
+         * @description A micrograph the source row points at, and whether the file is there.
+         *
+         *     `available=False` keeps a declared-but-missing image visible as missing
+         *     instead of silently dropping the observation's evidence.
+         */
+        EvidenceImageRef: {
+            /** Available */
+            available: boolean;
+            /** Declared Path */
+            declared_path: string;
+            /** Reason */
+            reason?: string | null;
+        };
         /** ExternalBindingSource */
         ExternalBindingSource: {
             /** Path */
@@ -3689,6 +3724,7 @@ export interface components {
             connected_observations: components["schemas"]["ConnectedObservation"][];
             /** Entity Type */
             entity_type: string;
+            evidence_image?: components["schemas"]["EvidenceImageRef"] | null;
             /** Heat Pattern */
             heat_pattern: components["schemas"]["HeatPoint"][];
             /** Key */
@@ -9408,6 +9444,65 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Candidate"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getLineageEvidenceImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_key: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
                 };
             };
             /** @description Not Found */
