@@ -1216,6 +1216,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/proposal-strategies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Proposal Strategies */
+        get: operations["list_proposal_strategies_api_projects__project_id__proposal_strategies_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/quality": {
         parameters: {
             query?: never;
@@ -5182,6 +5199,139 @@ export interface components {
             /** Std */
             std: number;
         };
+        /** ProposalCandidateEvaluation */
+        ProposalCandidateEvaluation: {
+            /** Acquisition Components */
+            acquisition_components: {
+                [key: string]: number | string | boolean | null;
+            };
+            /** Acquisition Score */
+            acquisition_score: number;
+            /** Exclusion Reason */
+            exclusion_reason?: string | null;
+            /** Inputs */
+            inputs: {
+                [key: string]: number | string;
+            };
+            /** Pool Index */
+            pool_index: number;
+            /** Selected Rank */
+            selected_rank?: number | null;
+            /**
+             * Support Status
+             * @enum {string}
+             */
+            support_status: "supported" | "caution" | "extrapolated";
+        };
+        /** ProposalRejectedCandidate */
+        ProposalRejectedCandidate: {
+            /** Inputs */
+            inputs: {
+                [key: string]: number | string;
+            };
+            /** Pool Index */
+            pool_index: number;
+            /** Reason */
+            reason: string;
+        };
+        /** ProposalStrategyAvailability */
+        ProposalStrategyAvailability: {
+            /** Available */
+            available: boolean;
+            definition: components["schemas"]["ProposalStrategyDefinition"];
+            /**
+             * Reasons
+             * @default []
+             */
+            reasons: string[];
+        };
+        /** ProposalStrategyDefinition */
+        ProposalStrategyDefinition: {
+            /**
+             * Acquisition Id
+             * @enum {string}
+             */
+            acquisition_id: "goal_achievement" | "upper_confidence_bound" | "expected_improvement" | "thompson_sampling" | "uncertainty_sampling" | "support_boundary_sampling";
+            /** Acquisition Version */
+            acquisition_version: string;
+            /**
+             * Generator Id
+             * @enum {string}
+             */
+            generator_id: "latin_hypercube" | "sobol";
+            /** Generator Version */
+            generator_version: string;
+            /** Label */
+            label: string;
+            /**
+             * Production Enabled
+             * @default true
+             */
+            production_enabled: boolean;
+            /**
+             * Requires Incumbent
+             * @default false
+             */
+            requires_incumbent: boolean;
+            /**
+             * Requires Joint Samples
+             * @default false
+             */
+            requires_joint_samples: boolean;
+            /**
+             * Requires Samples
+             * @default false
+             */
+            requires_samples: boolean;
+            /**
+             * Requires Standard Deviation
+             * @default false
+             */
+            requires_standard_deviation: boolean;
+            /**
+             * Selector Id
+             * @constant
+             */
+            selector_id: "ranked_top_k";
+            /** Selector Version */
+            selector_version: string;
+            /** Strategy Id */
+            strategy_id: string;
+            /** Version */
+            version: string;
+        };
+        /** ProposalStrategyRequest */
+        ProposalStrategyRequest: {
+            /**
+             * Exploration Parameter
+             * @default 2
+             */
+            exploration_parameter: number;
+            /**
+             * Fallback Policy
+             * @default reject
+             * @enum {string}
+             */
+            fallback_policy: "reject" | "deterministic_goal";
+            /** Incumbent Value */
+            incumbent_value?: number | null;
+            /**
+             * Pool Multiplier
+             * @default 4
+             */
+            pool_multiplier: number;
+            /**
+             * Strategy Id
+             * @default latin_hypercube_v1
+             */
+            strategy_id: string;
+            /**
+             * Support Policy
+             * @default supported_first
+             * @enum {string}
+             */
+            support_policy: "supported_first" | "exclude_extrapolated" | "allow_with_warning";
+        };
         /** QualityResponse */
         QualityResponse: {
             /** By Category */
@@ -5576,13 +5726,56 @@ export interface components {
             rejected_count: number;
             /** Rejection Rate */
             rejection_rate: number;
+            /**
+             * Selected Count
+             * @default 0
+             */
+            selected_count: number;
             /** Valid Count */
             valid_count: number;
         };
         /** ScreeningProposalStrategy */
         ScreeningProposalStrategy: {
+            /**
+             * Acquisition Id
+             * @default goal_achievement
+             */
+            acquisition_id: string;
+            /**
+             * Acquisition Version
+             * @default 1.0.0
+             */
+            acquisition_version: string;
+            /**
+             * Constraint Treatment
+             * @default feasibility_first_then_rank
+             * @constant
+             */
+            constraint_treatment: "feasibility_first_then_rank";
+            /** Exploration Parameter */
+            exploration_parameter?: number | null;
+            /** Fallback From */
+            fallback_from?: string | null;
+            /**
+             * Fallback Policy
+             * @default reject
+             * @enum {string}
+             */
+            fallback_policy: "reject" | "deterministic_goal";
+            /**
+             * Generator Id
+             * @default latin_hypercube
+             */
+            generator_id: string;
+            /**
+             * Generator Version
+             * @default 1.0.0
+             */
+            generator_version: string;
             /** Id */
             id: string;
+            /** Incumbent Value */
+            incumbent_value?: number | null;
             /**
              * Pool Multiplier
              * @default 4
@@ -5592,6 +5785,24 @@ export interface components {
             requested_count: number;
             /** Seed */
             seed: number;
+            /**
+             * Selector Id
+             * @default ranked_top_k
+             */
+            selector_id: string;
+            /**
+             * Selector Version
+             * @default 1.0.0
+             */
+            selector_version: string;
+            /**
+             * Support Policy
+             * @default supported_first
+             * @enum {string}
+             */
+            support_policy: "supported_first" | "exclude_extrapolated" | "allow_with_warning";
+            /** Uncertainty Treatment */
+            uncertainty_treatment?: "predictive_standard_deviation" | null;
             /** Version */
             version: string;
         };
@@ -5610,6 +5821,14 @@ export interface components {
             base_candidate_id: string;
             base_inputs: components["schemas"]["CandidateInputs"];
             objective_definition?: components["schemas"]["ObjectiveDefinition"] | null;
+            /** @default {
+             *       "exploration_parameter": 2,
+             *       "fallback_policy": "reject",
+             *       "pool_multiplier": 4,
+             *       "strategy_id": "latin_hypercube_v1",
+             *       "support_policy": "supported_first"
+             *     } */
+            proposal: components["schemas"]["ProposalStrategyRequest"];
             /**
              * Samples
              * @default 64
@@ -5680,6 +5899,10 @@ export interface components {
             /** Project Id */
             project_id: string;
             proposal_diagnostics?: components["schemas"]["ScreeningProposalDiagnostics"] | null;
+            /** Proposal Pool */
+            proposal_pool?: components["schemas"]["ProposalCandidateEvaluation"][];
+            /** Proposal Rejections */
+            proposal_rejections?: components["schemas"]["ProposalRejectedCandidate"][];
             proposal_strategy?: components["schemas"]["ScreeningProposalStrategy"] | null;
             /**
              * Rejection Summary
@@ -5697,7 +5920,7 @@ export interface components {
              * @default screening-run/v1
              * @enum {string}
              */
-            schema_version: "screening-run/v1" | "screening-run/v2" | "screening-run/v3" | "screening-run/v4" | "screening-run/v5";
+            schema_version: "screening-run/v1" | "screening-run/v2" | "screening-run/v3" | "screening-run/v4" | "screening-run/v5" | "screening-run/v6";
             score_contract: components["schemas"]["ScreeningScoreContract"];
             /** Secondary Goals */
             secondary_goals?: {
@@ -9993,6 +10216,39 @@ export interface operations {
             };
             /** @description Task Runtime Unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    list_proposal_strategies_api_projects__project_id__proposal_strategies_get: {
+        parameters: {
+            query: {
+                target: string;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalStrategyAvailability"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

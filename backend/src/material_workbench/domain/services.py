@@ -21,34 +21,18 @@ from material_workbench.contracts.schemas import (
     DEFAULT_SCREENING_SEED,
     HeatPoint,
     LineageCandidateOption,
-    SCREENING_POOL_MULTIPLIER,
     ScreeningGoal,
     ScreeningRequest,
 )
 from material_workbench.contracts.design_space_contracts import DesignSpaceDefinition
+from material_workbench.contracts.proposal_contracts import ProposalStrategyDefinition
 from material_workbench.domain.screening_score import evaluate_screening_goal, score_contract, screening_goal_runtime_value
+from material_workbench.domain.proposal_acquisition import acquisition_value
+from material_workbench.domain.proposal_generation import generate_candidates
 
 
 COMPOSITION_COLUMNS = composition_names(task_id="annealed-properties-v1")
 SCREENING_SEED = DEFAULT_SCREENING_SEED
-
-
-def _set_screen_value(candidate: Candidate, name: str, value: float | str) -> Candidate:
-    updated = candidate.model_copy(deep=True)
-    heat_parts = name.split(".")
-    if len(heat_parts) == 3 and heat_parts[0] == "heat_pattern" and heat_parts[1].isdigit() and heat_parts[2] in {"time_s", "temperature_c"}:
-        points = updated.inputs.heat_pattern
-        index = int(heat_parts[1])
-        if points is None or index >= len(points):
-            raise ValueError(f"ヒートパターンに存在しない点です: {name}")
-        setattr(points[index], heat_parts[2], float(value))
-        return updated
-    group, separator, field = name.partition(".")
-    if not separator or group not in {"composition", "process", "categorical"}:
-        raise ValueError(f"スクリーニング対象外の変数です: {name}")
-    values = getattr(updated.inputs, group)
-    values[field] = str(value) if group == "categorical" else float(value)
-    return updated
 
 
 def generate_from_design_space(
@@ -65,82 +49,47 @@ def generate_from_design_space(
     request, so later simplex, Bayesian, or program decoders share the same
     fixed values, domains and conditional rules.
     """
-    rng = np.random.default_rng(seed)
-    sample_values: dict[str, list[float | str]] = {}
-    numeric = (*design_space.numeric_domains, *design_space.heat_pattern_domains)
-    for domain in numeric:
-        if domain.mode == "range":
-            assert domain.range is not None
-            permutation = rng.permutation(count)
-            sample_values[domain.path] = [
-                float(domain.range.min + (permutation[index] + rng.random()) / count * (domain.range.max - domain.range.min))
-                for index in range(count)
-            ]
-        else:
-            permutation = rng.permutation(count)
-            sample_values[domain.path] = [
-                domain.values[int(np.floor((permutation[index] + rng.random()) / count * len(domain.values))) % len(domain.values)]
-                for index in range(count)
-            ]
-    for domain in design_space.categorical_domains:
-        permutation = rng.permutation(count)
-        sample_values[domain.path] = [
-            domain.choices[int(np.floor((permutation[index] + rng.random()) / count * len(domain.choices))) % len(domain.choices)]
-            for index in range(count)
-        ]
-
-    generated: list[tuple[Candidate, dict[str, float | str]]] = []
-    for index in range(count):
-        candidate = base.model_copy(deep=True)
-        applied = dict(design_space.fixed_values)
-        for path, value in design_space.fixed_values.items():
-            candidate = _set_screen_value(candidate, path, value)
-        for path, values in sample_values.items():
-            value = values[index]
-            applied[path] = value
-            candidate = _set_screen_value(candidate, path, value)
-        for conditional in design_space.conditional_constraints:
-            group, key = conditional.controller_path.split(".", 1)
-            controller = getattr(candidate.inputs, group).get(key)
-            if controller not in conditional.active_choices:
-                for path, value in conditional.inactive_values.items():
-                    applied[path] = value
-                    candidate = _set_screen_value(candidate, path, value)
-        for constraint in design_space.composition_constraints:
-            if constraint.balance_path is None:
-                continue
-            balance_group, balance_key = constraint.balance_path.split(".", 1)
-            remainder = constraint.total - sum(
-                float(getattr(candidate.inputs, path.split(".", 1)[0])[path.split(".", 1)[1]])
-                for path in constraint.component_paths
-                if path != constraint.balance_path
-            )
-            applied[constraint.balance_path] = remainder
-            candidate = _set_screen_value(candidate, constraint.balance_path, remainder)
-        generated.append((candidate, applied))
-    return generated
+    return generate_candidates(
+        "latin_hypercube",
+        base,
+        design_space,
+        count=count,
+        seed=seed,
+    )
 
 
 def _validate_screening_pool(
     generated: list[tuple[Candidate, dict[str, float | str]]],
     candidate_validator: Callable[[CandidateInput], None],
 ) -> tuple[
-    list[tuple[Candidate, CandidateInput, dict[str, float | str]]],
+    list[tuple[int, Candidate, CandidateInput, dict[str, float | str]]],
     dict[str, int],
+    list[dict[str, Any]],
 ]:
     """Validate the complete proposal pool so rejection counts have a fixed denominator."""
-    valid_candidates: list[tuple[Candidate, CandidateInput, dict[str, float | str]]] = []
+    valid_candidates: list[
+        tuple[int, Candidate, CandidateInput, dict[str, float | str]]
+    ] = []
     rejected_by_reason: defaultdict[str, int] = defaultdict(int)
-    for candidate, applied in generated:
+    rejections: list[dict[str, Any]] = []
+    for pool_index, (candidate, applied) in enumerate(generated):
         try:
             candidate_input = CandidateInput.model_validate(candidate.model_dump())
             candidate_validator(candidate_input)
         except ValueError as exc:
-            rejected_by_reason[str(exc) or "candidate_constraint"] += 1
+            reason = str(exc) or "candidate_constraint"
+            rejected_by_reason[reason] += 1
+            rejections.append(
+                {
+                    "pool_index": pool_index,
+                    "inputs": applied,
+                    "reason": reason,
+                }
+            )
             continue
         candidate = Candidate.model_validate({**candidate.model_dump(), **candidate_input.model_dump()})
-        valid_candidates.append((candidate, candidate_input, applied))
-    return valid_candidates, dict(sorted(rejected_by_reason.items()))
+        valid_candidates.append((pool_index, candidate, candidate_input, applied))
+    return valid_candidates, dict(sorted(rejected_by_reason.items())), rejections
 
 
 def _apply_screening_goal_metadata(
@@ -158,7 +107,7 @@ def _apply_screening_goal_metadata(
     return prediction
 
 
-def run_latin_hypercube(
+def run_proposal(
     runtime: PredictionRuntime,
     base: Candidate,
     request: ScreeningRequest,
@@ -166,11 +115,13 @@ def run_latin_hypercube(
     probability_available: dict[str, bool],
     candidate_validator: Callable[[CandidateInput], None],
     design_space: DesignSpaceDefinition | None = None,
+    strategy: ProposalStrategyDefinition,
 ) -> dict[str, Any]:
-    pool_size = request.samples * SCREENING_POOL_MULTIPLIER
+    pool_size = request.samples * request.proposal.pool_multiplier
     if design_space is None:
         raise ValueError("Design Spaceなしでは候補を生成できません")
-    generated = generate_from_design_space(
+    generated = generate_candidates(
+        strategy.generator_id,
         base,
         design_space,
         count=pool_size,
@@ -178,7 +129,9 @@ def run_latin_hypercube(
     )
     points: list[dict[str, Any]] = []
     base_prediction = runtime.predict(base, detailed=False)
-    valid_candidates, rejected_by_reason = _validate_screening_pool(generated, candidate_validator)
+    valid_candidates, rejected_by_reason, proposal_rejections = (
+        _validate_screening_pool(generated, candidate_validator)
+    )
 
     if len(valid_candidates) < request.samples:
         raise ValueError(
@@ -194,7 +147,7 @@ def run_latin_hypercube(
         for key, goal in configured_goals.items()
         if probability_available.get(key, False)
     }
-    for candidate, candidate_input, applied in valid_candidates[:request.samples]:
+    for pool_index, candidate, candidate_input, applied in valid_candidates:
         prediction = runtime.predict(
             candidate,
             detailed=False,
@@ -217,6 +170,14 @@ def run_latin_hypercube(
             )
             for key, goal in request.secondary_goals.items()
         }
+        acquisition_score, acquisition_components = acquisition_value(
+            strategy.acquisition_id,
+            prediction=selected,
+            goal=request.target_goal,
+            support_distance=support.distance,
+            exploration_parameter=request.proposal.exploration_parameter,
+            incumbent_value=request.proposal.incumbent_value,
+        )
         prediction_payload = _apply_screening_goal_metadata(
             selected.model_dump(),
             request.target_goal,
@@ -228,7 +189,8 @@ def run_latin_hypercube(
                 configured_goals.get(key),
             )
         points.append({
-            "index": len(points),
+            "index": pool_index,
+            "pool_index": pool_index,
             "inputs": applied,
             "candidate": candidate_input.model_dump(mode="json"),
             "prediction": prediction_payload,
@@ -237,21 +199,63 @@ def run_latin_hypercube(
             "support": support.model_dump(),
             "warnings": prediction.get("warnings", []),
             "similar": [item.model_dump() if hasattr(item, "model_dump") else item for item in prediction.get("similar", [])],
-            "score": None if evaluation.score is None else round(float(evaluation.score), 6),
+            "score": round(float(acquisition_score), 6),
+            "acquisition_components": acquisition_components,
             "goal_evaluation": evaluation.model_dump(),
             "secondary_goal_evaluations": {key: item.model_dump() for key, item in secondary_evaluations.items()},
         })
     support_rank = {"supported": 0, "caution": 1, "extrapolated": 2}
+    eligible = [
+        point
+        for point in points
+        if not (
+            request.proposal.support_policy == "exclude_extrapolated"
+            and point["support"]["status"] == "extrapolated"
+        )
+    ]
+    if len(eligible) < request.samples:
+        raise ValueError(
+            f"support方針を満たす点は{len(eligible)}件でした。"
+            f"{request.samples}件を選べるよう範囲または方針を見直してください"
+        )
     ranked = sorted(
-        points,
+        eligible,
         key=lambda point: (
-            support_rank[point["support"]["status"]],
+            support_rank[point["support"]["status"]]
+            if request.proposal.support_policy == "supported_first"
+            else 0,
             sum(item["achieved"] is False for item in point["secondary_goal_evaluations"].values()),
-            point["score"] is None,
-            point["score"] if point["score"] is not None else point["support"]["distance"],
-            point["index"],
+            point["score"],
+            point["pool_index"],
         ),
     )
+    selected = ranked[:request.samples]
+    selected_pool_indices = {point["pool_index"] for point in selected}
+    selected_points = []
+    selected_rank = {
+        point["pool_index"]: rank for rank, point in enumerate(selected, start=1)
+    }
+    for index, point in enumerate(selected):
+        selected_points.append({**point, "index": index})
+    proposal_pool = [
+        {
+            "pool_index": point["pool_index"],
+            "inputs": point["inputs"],
+            "acquisition_score": point["score"],
+            "acquisition_components": point["acquisition_components"],
+            "support_status": point["support"]["status"],
+            "selected_rank": selected_rank.get(point["pool_index"]),
+            "exclusion_reason": (
+                None
+                if point["pool_index"] in selected_pool_indices
+                else "support_policy_extrapolated"
+                if request.proposal.support_policy == "exclude_extrapolated"
+                and point["support"]["status"] == "extrapolated"
+                else "ranked_below_selection_cutoff"
+            ),
+        }
+        for point in points
+    ]
     return {
         "schema_version": "screening-run/v4",
         "seed": request.seed,
@@ -271,12 +275,15 @@ def run_latin_hypercube(
         ),
         "samples": request.samples,
         "variables": {name: spec.model_dump() for name, spec in request.variables.items()},
-        "points": points,
-        "representative_points": ranked[:10],
+        "points": selected_points,
+        "representative_points": selected_points[:10],
+        "proposal_pool": proposal_pool,
+        "proposal_rejections": proposal_rejections,
         "_proposal_diagnostics": {
             "generated_count": pool_size,
             "valid_count": len(valid_candidates),
             "evaluated_count": len(points),
+            "selected_count": len(selected_points),
             "rejected_count": sum(rejected_by_reason.values()),
             "rejection_rate": sum(rejected_by_reason.values()) / pool_size,
             "rejected_by_reason": dict(sorted(rejected_by_reason.items())),

@@ -8,6 +8,7 @@ from .dependencies import get_project_runtime_resolver, get_store, get_task_regi
 from .errors import DomainApiException, PROJECT_API_ERRORS
 from ..application.screening import ScreeningNotFoundError, ScreeningService, ScreeningValidationError
 from material_workbench.contracts.schemas import ScreeningCandidateBatchRequest, ScreeningCandidateBatchResponse, ScreeningRequest, ScreeningRunResponse
+from material_workbench.contracts.proposal_contracts import ProposalStrategyAvailability
 from material_workbench.persistence.store import CandidateLimitError, ProjectNotFoundError, Store
 from material_workbench.tasks.task_registry import TaskRegistry
 from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
@@ -53,6 +54,21 @@ def screening(payload: ScreeningRequest, service: ScreeningServiceDependency, pr
 def list_screening_runs(service: ScreeningServiceDependency, project_id: str = "default") -> list[ScreeningRunResponse]:
     try:
         return service.list(project_id)
+    except SCREENING_ERRORS as exc:
+        _raise_screening_error(exc)
+
+
+@router.get(
+    "/api/projects/{project_id}/proposal-strategies",
+    response_model=list[ProposalStrategyAvailability],
+)
+def list_proposal_strategies(
+    project_id: str,
+    target: str,
+    service: ScreeningServiceDependency,
+) -> list[ProposalStrategyAvailability]:
+    try:
+        return service.available_strategies(project_id, target)
     except SCREENING_ERRORS as exc:
         _raise_screening_error(exc)
 

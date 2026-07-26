@@ -17,6 +17,11 @@ from material_workbench.contracts.chain_contracts import (
 )
 from material_workbench.contracts.design_space_contracts import DesignSpaceDefinition
 from material_workbench.contracts.objective_contracts import ObjectiveDefinition
+from material_workbench.contracts.proposal_contracts import (
+    ProposalCandidateEvaluation,
+    ProposalRejectedCandidate,
+    ProposalStrategyRequest,
+)
 from material_workbench.contracts.task_contracts import CandidateProvenance, DirectSourceRef, ResolvedTaskDefinition
 
 
@@ -569,6 +574,7 @@ class ScreeningRequest(BaseModel):
     target_goal: ScreeningGoal | None = None
     secondary_goals: dict[str, ScreeningGoal] = Field(default_factory=dict)
     objective_definition: ObjectiveDefinition | None = None
+    proposal: ProposalStrategyRequest = ProposalStrategyRequest()
 
     @model_validator(mode="after")
     def target_is_not_a_secondary_goal(self) -> "ScreeningRequest":
@@ -1043,6 +1049,23 @@ class ScreeningProposalStrategy(BaseModel):
     seed: Annotated[int, Field(ge=0, le=2_147_483_647)]
     requested_count: Annotated[int, Field(ge=1)]
     pool_multiplier: Annotated[int, Field(ge=1)] = SCREENING_POOL_MULTIPLIER
+    generator_id: str = "latin_hypercube"
+    generator_version: str = "1.0.0"
+    acquisition_id: str = "goal_achievement"
+    acquisition_version: str = "1.0.0"
+    selector_id: str = "ranked_top_k"
+    selector_version: str = "1.0.0"
+    exploration_parameter: float | None = None
+    support_policy: Literal[
+        "supported_first", "exclude_extrapolated", "allow_with_warning"
+    ] = "supported_first"
+    fallback_from: str | None = None
+    fallback_policy: Literal["reject", "deterministic_goal"] = "reject"
+    incumbent_value: float | None = None
+    constraint_treatment: Literal[
+        "feasibility_first_then_rank"
+    ] = "feasibility_first_then_rank"
+    uncertainty_treatment: Literal["predictive_standard_deviation"] | None = None
 
 
 class ScreeningProposalDiagnostics(BaseModel):
@@ -1052,6 +1075,7 @@ class ScreeningProposalDiagnostics(BaseModel):
     rejected_count: Annotated[int, Field(ge=0)]
     rejection_rate: Annotated[float, Field(ge=0, le=1)]
     rejected_by_reason: dict[str, Annotated[int, Field(ge=1)]] = Field(default_factory=dict)
+    selected_count: Annotated[int, Field(ge=0)] = 0
 
     @model_validator(mode="after")
     def counts_share_one_denominator(self) -> "ScreeningProposalDiagnostics":
@@ -1059,6 +1083,8 @@ class ScreeningProposalDiagnostics(BaseModel):
             raise ValueError("valid_count + rejected_count must equal generated_count")
         if self.evaluated_count > self.valid_count:
             raise ValueError("evaluated_count must not exceed valid_count")
+        if self.selected_count > self.evaluated_count:
+            raise ValueError("selected_count must not exceed evaluated_count")
         if sum(self.rejected_by_reason.values()) != self.rejected_count:
             raise ValueError("rejected_by_reason must sum to rejected_count")
         expected_rate = self.rejected_count / self.generated_count
@@ -1068,7 +1094,7 @@ class ScreeningProposalDiagnostics(BaseModel):
 
 
 class ScreeningRunResponse(BaseModel):
-    schema_version: Literal["screening-run/v1", "screening-run/v2", "screening-run/v3", "screening-run/v4", "screening-run/v5"] = "screening-run/v1"
+    schema_version: Literal["screening-run/v1", "screening-run/v2", "screening-run/v3", "screening-run/v4", "screening-run/v5", "screening-run/v6"] = "screening-run/v1"
     id: str
     project_id: str
     created_at: datetime
@@ -1104,6 +1130,8 @@ class ScreeningRunResponse(BaseModel):
     ] = "legacy_screening"
     proposal_strategy: ScreeningProposalStrategy | None = None
     proposal_diagnostics: ScreeningProposalDiagnostics | None = None
+    proposal_pool: list[ProposalCandidateEvaluation] = Field(default_factory=list)
+    proposal_rejections: list[ProposalRejectedCandidate] = Field(default_factory=list)
     rejection_summary: dict[str, int] | None = Field(
         default=None,
         deprecated="screening-run/v1-v2 compatibility; use proposal_diagnostics",
@@ -1113,7 +1141,7 @@ class ScreeningRunResponse(BaseModel):
 
     @model_validator(mode="after")
     def proposal_identity_is_internally_consistent(self) -> "ScreeningRunResponse":
-        if self.schema_version not in {"screening-run/v3", "screening-run/v4", "screening-run/v5"}:
+        if self.schema_version not in {"screening-run/v3", "screening-run/v4", "screening-run/v5", "screening-run/v6"}:
             return self
         if (
             self.design_space is None
@@ -1129,9 +1157,26 @@ class ScreeningRunResponse(BaseModel):
         expected_generated = self.samples * self.proposal_strategy.pool_multiplier
         if self.proposal_diagnostics.generated_count != expected_generated:
             raise ValueError("proposal diagnostics must cover the complete generated pool")
-        if self.proposal_diagnostics.evaluated_count != self.samples:
+        if self.schema_version == "screening-run/v6":
+            if self.proposal_diagnostics.evaluated_count != self.proposal_diagnostics.valid_count:
+                raise ValueError("screening-run/v6 must evaluate the complete valid pool")
+            if self.proposal_diagnostics.selected_count != self.samples:
+                raise ValueError("screening-run/v6 selected_count must match samples")
+            if len(self.proposal_pool) != self.proposal_diagnostics.valid_count:
+                raise ValueError("screening-run/v6 proposal_pool must preserve every evaluated point")
+            if len(self.proposal_rejections) != self.proposal_diagnostics.rejected_count:
+                raise ValueError("screening-run/v6 must preserve every rejected generated point")
+            pool_indices = {
+                item.pool_index
+                for item in (*self.proposal_pool, *self.proposal_rejections)
+            }
+            if len(pool_indices) != self.proposal_diagnostics.generated_count:
+                raise ValueError("screening-run/v6 generated pool indices must be complete")
+            if sum(item.selected_rank is not None for item in self.proposal_pool) != self.samples:
+                raise ValueError("screening-run/v6 proposal_pool must identify every selected point")
+        elif self.proposal_diagnostics.evaluated_count != self.samples:
             raise ValueError("proposal diagnostics evaluated_count must match samples")
-        if self.schema_version in {"screening-run/v4", "screening-run/v5"}:
+        if self.schema_version in {"screening-run/v4", "screening-run/v5", "screening-run/v6"}:
             if self.__dict__["target_value"] is not None or self.__dict__["secondary_targets"]:
                 raise ValueError("screening-run/v4 must use target_goal and secondary_goals")
             if self.target in self.secondary_goals:
@@ -1139,7 +1184,7 @@ class ScreeningRunResponse(BaseModel):
             expected_direction = self.target_goal.direction if self.target_goal else None
             if self.score_contract.direction != expected_direction:
                 raise ValueError("score contract direction must match target_goal")
-        if self.schema_version == "screening-run/v5":
+        if self.schema_version in {"screening-run/v5", "screening-run/v6"}:
             if self.objective_definition is None or self.objective_definition_digest is None:
                 raise ValueError("screening-run/v5 requires an Objective Definition")
             if self.objective_definition.digest != self.objective_definition_digest:

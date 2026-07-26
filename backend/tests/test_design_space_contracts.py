@@ -158,8 +158,12 @@ def test_screening_pool_diagnostics_validate_every_generated_candidate() -> None
         if calls > 3:
             raise ValueError("outside_demo_constraint")
 
-    valid, rejected = _validate_screening_pool(generated, reject_after_first_three)
+    valid, rejected, rejection_rows = _validate_screening_pool(
+        generated, reject_after_first_three
+    )
 
     assert calls == 12
     assert len(valid) == 3
     assert rejected == {"outside_demo_constraint": 9}
+    assert len(rejection_rows) == 9
+    assert {item["pool_index"] for item in rejection_rows} == set(range(3, 12))
