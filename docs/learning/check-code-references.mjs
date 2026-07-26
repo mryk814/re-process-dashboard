@@ -422,6 +422,12 @@ code_references:
     extractSymbols: () => new Map([["Example", 1]]),
   };
   assert.equal(validateDocument(metadata, validDeps)[0].line, 1);
+  assert.equal(
+    pythonSymbols("class Example:\n    def method(self):\n        pass\n").get(
+      "Example.method",
+    ),
+    2,
+  );
   assert.throws(
     () => validateDocument({ ...metadata, commit: null }, validDeps),
     /verified_commit must be a full SHA/,
@@ -467,7 +473,7 @@ code_references:
     () => validateDocument(duplicateSymbol, validDeps),
     /duplicate symbol/,
   );
-  console.log("Code reference self-test passed: 9 assertions.");
+  console.log("Code reference self-test passed: 10 assertions.");
 }
 
 function main() {

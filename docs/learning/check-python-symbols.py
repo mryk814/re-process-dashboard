@@ -12,6 +12,10 @@ def top_level_symbols(source: str) -> dict[str, int]:
     for node in tree.body:
         if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
             symbols[node.name] = node.lineno
+            if isinstance(node, ast.ClassDef):
+                for member in node.body:
+                    if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        symbols[f"{node.name}.{member.name}"] = member.lineno
         elif isinstance(node, (ast.Assign, ast.AnnAssign)):
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]
             for target in targets:

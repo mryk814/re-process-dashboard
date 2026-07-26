@@ -1,7 +1,7 @@
 ---
 level: intermediate
 estimated_minutes: 105
-verified_commit: "f93af87d71c415250677638fbfe6788e89790e2e"
+verified_commit: "b3040f701d2db6c339aabbd6fbe368f0fdeac4f9"
 code_references:
   - path: "docs/decisions/sqlite-project-lifecycle-policy.md"
     role: "docs"
@@ -10,11 +10,22 @@ code_references:
   - path: "backend/src/material_workbench/application/projects.py"
     role: "application"
   - path: "backend/src/material_workbench/persistence/store.py"
+    id: "project-history-store"
     role: "persistence"
+    symbols:
+      - "Store.project_history"
   - path: "backend/src/material_workbench/persistence/project_lifecycle_migration.py"
     role: "persistence"
   - path: "apps/web/src/features/projects/ProjectHub.tsx"
+    id: "project-history-ui"
     role: "frontend"
+    symbols:
+      - "ProjectHub"
+  - path: "backend/tests/test_chain_execution.py"
+    id: "project-chain-history-test"
+    role: "test"
+    symbols:
+      - "test_actual_conditioned_variant_requires_complete_measured_b_and_never_overwrites_chain"
   - path: "backend/tests/test_project_lifecycle.py"
     role: "test"
   - path: "backend/tests/test_projects.py"
@@ -47,6 +58,7 @@ SQL transaction、foreign key、JSON payloadの基本を読めることを前提
 - 別Projectからのprovenance参照を、foreign keyだけでは守れない理由は何か
 - APIの確認用ID、applicationの参照検査、SQLite triggerは何を分担するか
 - 新しいProject-scoped tableを追加するとき、どのinventoryを更新するか
+- 保持したChain evidenceをProject historyへ戻すとき、どのidentityを照合するか
 
 ## 扱わない範囲
 
@@ -345,6 +357,7 @@ uv run python -m pytest `
 | `test_archive_preserves_chain_evidence_and_purge_removes_all` | archiveで証拠を保持し、purgeでProject-owned rowを削除する |
 | `test_archive_invalidates_an_in_flight_chain_writer` | archive後に古いgenerationで書けない |
 | `test_purge_rejects_non_copy_cross_project_provenance` | Snapshot由来の別Project Candidateがpurgeを止める |
+| {{< code-ref project-chain-history-test symbol=test_actual_conditioned_variant_requires_complete_measured_b_and_never_overwrites_chain >}} | 三種類のChain evidenceと採用判断がProject historyへ戻り、再open後も固定参照が一致する |
 | Project copy provenanceのpurge test | Candidate copyの来歴を保護する |
 | successor Projectのpurge test | Project Seriesの継続関係を保護する |
 
@@ -400,9 +413,12 @@ purgeは、active状態の確認、外部参照、所有境界を検査する管
 ### retentionとdiscoverabilityを分ける
 
 rowがDBに残ることと、通常UIから見つけられることは別です。
-archive済みProjectは専用欄からrestoreできますが、すべての保持済みartifactに同じ発見経路があるわけではありません。
+現行実装では、{{< code-ref project-history-store symbol="Store.project_history" >}}はChain Snapshot、実測conditioned variant、分布runをCandidateごとに読み、Project、Candidate revision、Chain revision、比較元Snapshotのidentityを照合します。^[この発見経路はPR #322で加わりました。変更履歴は教材drift reviewに残し、本文では現在の判断境界を先に説明します。]
+{{< code-ref project-history-ui symbol=ProjectHub >}}は、照合を通った三種類の証拠を「候補と判断履歴」へ種類別に新しい順で表示します。
 
-保持したから利用者が到達できると推測せず、必要なevidenceには検索またはhistory経路も設計します。
+この経路により、activeまたはrestore済みのChain Projectでは、保持したrowへ通常UIから戻れます。
+archive済みProjectは先にrestoreする必要があり、Workspace backupやexportにある別copyまで検索する経路ではありません。
+保持したから利用者が到達できると推測せず、必要なevidenceには検索またはhistory経路を別に設計します。
 
 ## 現行実装の限界
 

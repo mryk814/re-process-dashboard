@@ -1,0 +1,341 @@
+{
+  "schema_version": 1,
+  "template": false,
+  "review_id": "drift-2026-07-27-pr-322",
+  "status": "resolved",
+  "recorded_after_the_fact": false,
+  "trigger": {
+    "kind": "pull_request",
+    "number": 322,
+    "url": "https://github.com/mryk814/re-process-dashboard/pull/322",
+    "merge_commit": "b3040f701d2db6c339aabbd6fbe368f0fdeac4f9"
+  },
+  "reviewed_against": "b3040f701d2db6c339aabbd6fbe368f0fdeac4f9",
+  "previous_verified_commit": "28c9e0f41f2cdcba797d8e826e549fa26ad575d4",
+  "new_verified_commit": "b3040f701d2db6c339aabbd6fbe368f0fdeac4f9",
+  "implementation_commit": null,
+  "changes": [
+    {
+      "path": "apps/web/src/features/projects/ProjectHub.tsx",
+      "semantic_impact": "behavioral",
+      "material_impact": [
+        "learner-text",
+        "code-link"
+      ],
+      "affected_claims": [
+        "chain-history-discoverability",
+        "project-lifecycle-ownership"
+      ],
+      "action": "updated",
+      "reason": "Project Hub now places fixed Chain results, actual-conditioned variants, and distribution runs in the candidate history and opens Chain snapshots."
+    },
+    {
+      "path": "apps/web/src/features/projects/projects.css",
+      "semantic_impact": "wording-only",
+      "material_impact": [],
+      "affected_claims": [
+        "chain-history-discoverability"
+      ],
+      "action": "no-change",
+      "reason": "The style additions support the new history rows but do not create a separate textbook claim or figure."
+    },
+    {
+      "path": "apps/web/src/generated/api-types.ts",
+      "semantic_impact": "interface-compatible",
+      "material_impact": [],
+      "affected_claims": [
+        "chain-history-discoverability",
+        "shared-contract-routes"
+      ],
+      "action": "no-change",
+      "reason": "Generated history fields changed, while the Decision Activity and Source contract paths taught elsewhere remained unchanged."
+    },
+    {
+      "path": "apps/web/src/generated/openapi.json",
+      "semantic_impact": "interface-compatible",
+      "material_impact": [],
+      "affected_claims": [
+        "chain-history-discoverability",
+        "shared-contract-routes"
+      ],
+      "action": "no-change",
+      "reason": "OpenAPI gained the Chain history shape without changing the contract, Source, revision, or migration claims in other chapters."
+    },
+    {
+      "path": "apps/web/src/shared/api/workbench-api.ts",
+      "semantic_impact": "interface-compatible",
+      "material_impact": [],
+      "affected_claims": [
+        "chain-history-discoverability",
+        "shared-contract-routes"
+      ],
+      "action": "no-change",
+      "reason": "The shared client gained Chain snapshot access, but its pre-existing Decision Activity and Source methods did not change meaning."
+    },
+    {
+      "path": "apps/web/tests/chainEvaluationPresentation.test.mjs",
+      "semantic_impact": "behavioral",
+      "material_impact": [
+        "test-command"
+      ],
+      "affected_claims": [
+        "chain-history-discoverability"
+      ],
+      "action": "updated",
+      "reason": "The presentation test now checks that all three Chain evidence collections and fixed result labels appear in Project Hub."
+    },
+    {
+      "path": "backend/src/material_workbench/api/catalog.py",
+      "semantic_impact": "interface-compatible",
+      "material_impact": [],
+      "affected_claims": [
+        "chain-project-binding-out-of-scope"
+      ],
+      "action": "no-change",
+      "reason": "The terminal Task binding for a Chain Project changed outside the lifecycle chapter's retention and purge questions."
+    },
+    {
+      "path": "backend/src/material_workbench/api/chains.py",
+      "semantic_impact": "interface-compatible",
+      "material_impact": [
+        "learner-text"
+      ],
+      "affected_claims": [
+        "chain-history-discoverability"
+      ],
+      "action": "updated",
+      "reason": "The project-scoped Chain snapshot read path is part of returning from a history row to its fixed evidence."
+    },
+    {
+      "path": "backend/src/material_workbench/application/projects.py",
+      "semantic_impact": "behavioral",
+      "material_impact": [],
+      "affected_claims": [
+        "chain-project-binding-out-of-scope",
+        "project-lifecycle-ownership"
+      ],
+      "action": "no-change",
+      "reason": "Chain objective and contract binding changed, while archive, restore, purge ownership, and external provenance gates did not."
+    },
+    {
+      "path": "backend/src/material_workbench/contracts/schemas.py",
+      "semantic_impact": "interface-compatible",
+      "material_impact": [
+        "learner-text"
+      ],
+      "affected_claims": [
+        "chain-history-discoverability",
+        "shared-contract-routes"
+      ],
+      "action": "updated",
+      "reason": "Candidate history now carries three explicit Chain evidence collections without changing unrelated contract variants."
+    },
+    {
+      "path": "backend/src/material_workbench/persistence/candidate_migration.py",
+      "semantic_impact": "behavioral",
+      "material_impact": [
+        "learner-text"
+      ],
+      "affected_claims": [
+        "chain-history-discoverability",
+        "shared-contract-routes"
+      ],
+      "action": "updated",
+      "reason": "Migration validation now accepts a Chain snapshot as a Project decision only after checking Project and Candidate ownership."
+    },
+    {
+      "path": "backend/src/material_workbench/persistence/store.py",
+      "semantic_impact": "behavioral",
+      "material_impact": [
+        "learner-text",
+        "code-link"
+      ],
+      "affected_claims": [
+        "chain-history-discoverability",
+        "project-lifecycle-ownership",
+        "lifecycle-lab"
+      ],
+      "action": "updated",
+      "reason": "Project history now loads and validates all Chain evidence, while the archive and purge inventory remains unchanged."
+    },
+    {
+      "path": "backend/tests/test_chain_execution.py",
+      "semantic_impact": "behavioral",
+      "material_impact": [
+        "learner-text",
+        "code-link",
+        "test-command"
+      ],
+      "affected_claims": [
+        "chain-history-discoverability"
+      ],
+      "action": "updated",
+      "reason": "The focused Chain test now fixes the expected history collections, decision snapshot, persistence restart, and corrupt-reference rejection."
+    },
+    {
+      "path": "e2e/chain-output-presentation.spec.ts",
+      "semantic_impact": "behavioral",
+      "material_impact": [
+        "test-command"
+      ],
+      "affected_claims": [
+        "chain-history-discoverability"
+      ],
+      "action": "updated",
+      "reason": "The E2E route now covers returning to a fixed Chain result from Project history and preserving its decision context."
+    }
+  ],
+  "claim_assessments": [
+    {
+      "claim_id": "chain-history-discoverability",
+      "statement": "A Chain Project returns fixed snapshots, actual-conditioned variants, and distribution runs through Candidate history after validating their pinned identities.",
+      "classification": "conceptual_update",
+      "material_impact": [
+        "learner-text",
+        "code-link",
+        "test-command"
+      ],
+      "action": "updated",
+      "reason": "The lifecycle chapter previously separated retention from discoverability without naming a normal UI path for these three evidence classes.",
+      "evidence": [
+        {
+          "path": "backend/src/material_workbench/contracts/schemas.py",
+          "symbol": "CandidateHistoryItem"
+        },
+        {
+          "path": "backend/src/material_workbench/persistence/store.py",
+          "symbol": "project_history"
+        },
+        {
+          "path": "apps/web/src/features/projects/ProjectHub.tsx",
+          "symbol": "ProjectHub"
+        },
+        {
+          "path": "backend/tests/test_chain_execution.py",
+          "symbol": "test_actual_conditioned_variant_requires_complete_measured_b_and_never_overwrites_chain"
+        }
+      ],
+      "verification": [
+        "uv run python -m pytest backend/tests/test_chain_execution.py",
+        "node --test apps/web/tests/chainEvaluationPresentation.test.mjs",
+        "npm run api:check"
+      ]
+    },
+    {
+      "claim_id": "project-lifecycle-ownership",
+      "statement": "Archive retains Project-owned Chain evidence, purge removes it, and shared Chain definitions and revisions outlive one Project.",
+      "classification": "no_content_impact",
+      "material_impact": [],
+      "action": "no-change",
+      "reason": "PR #322 added a read and decision path but did not alter lifecycle ownership, write guards, purge inventory, or external provenance gates.",
+      "evidence": [
+        {
+          "path": "docs/learning/chapters/separate-archive-from-purge.qmd",
+          "symbol": null
+        },
+        {
+          "path": "backend/src/material_workbench/persistence/store.py",
+          "symbol": "purge_project"
+        }
+      ],
+      "verification": [
+        "uv run python -m pytest backend/tests/test_project_lifecycle.py"
+      ]
+    },
+    {
+      "claim_id": "shared-contract-routes",
+      "statement": "The Decision Activity, Source lifecycle, Candidate identity, and migration lessons keep their existing contract and failure boundaries.",
+      "classification": "no_content_impact",
+      "material_impact": [],
+      "action": "no-change",
+      "reason": "Shared generated files and persistence modules changed for Chain history, but the claims and exercises in those four routes remain valid.",
+      "evidence": [
+        {
+          "path": "docs/learning/chapters/contract-through-stack.qmd",
+          "symbol": null
+        },
+        {
+          "path": "docs/learning/chapters/source-to-training-evidence.qmd",
+          "symbol": null
+        },
+        {
+          "path": "docs/learning/chapters/revision-and-digest.qmd",
+          "symbol": null
+        },
+        {
+          "path": "docs/learning/chapters/trust-a-migrated-database.qmd",
+          "symbol": null
+        }
+      ],
+      "verification": [
+        "npm run api:check",
+        "powershell -File docs/learning/check-exercise-solutions.ps1"
+      ]
+    },
+    {
+      "claim_id": "chain-project-binding-out-of-scope",
+      "statement": "Chain terminal Task and objective binding are outside the lifecycle chapter's archive, purge, and evidence-discoverability scope.",
+      "classification": "no_content_impact",
+      "material_impact": [],
+      "action": "no-change",
+      "reason": "The Project service and catalog changes define which Task contract a Chain Project uses, not how lifecycle operations retain or remove its evidence.",
+      "evidence": [
+        {
+          "path": "backend/src/material_workbench/application/projects.py",
+          "symbol": "_terminal_task_binding"
+        },
+        {
+          "path": "docs/learning/chapters/separate-archive-from-purge.qmd",
+          "symbol": null
+        }
+      ],
+      "verification": [
+        "Reviewed the PR #322 service and catalog hunks against the chapter scope."
+      ]
+    },
+    {
+      "claim_id": "lifecycle-lab",
+      "statement": "The lifecycle lab still distinguishes retained Chain evidence from an invalidated execution claim and a purged Project.",
+      "classification": "no_content_impact",
+      "material_impact": [],
+      "action": "no-change",
+      "reason": "Project history reads the same evidence rows that the lab already counts; it does not change the archive or purge outcomes.",
+      "evidence": [
+        {
+          "path": "docs/learning/labs/trace-project-lifecycle.qmd",
+          "symbol": null
+        }
+      ],
+      "verification": [
+        "powershell -File docs/learning/check-exercise-solutions.ps1"
+      ]
+    },
+    {
+      "claim_id": "project-lifecycle-figure",
+      "statement": "The lifecycle figure models active, archived, purge-blocked, and purged states without encoding evidence discovery inside Project history.",
+      "classification": "no_content_impact",
+      "material_impact": [],
+      "action": "no-change",
+      "reason": "PR #322 adds a history read path but does not change any state or transition represented in the archive and purge figure.",
+      "evidence": [
+        {
+          "path": "docs/learning/figures/project-archive-purge-states.svg",
+          "symbol": null
+        }
+      ],
+      "verification": [
+        "Reviewed the existing SVG labels against the PR #322 lifecycle changes."
+      ]
+    }
+  ],
+  "verification": {
+    "drift_detection": "The detector reported ten affected textbook documents after merge and no referenced drift after claim review and verified commit updates.",
+    "focused_tests": "Chain execution, Project lifecycle, and Candidate migration tests passed: 49 passed with 9 known warnings in 32.03 seconds. Chain presentation tests passed: 4 passed. The fresh-server Chain output E2E passed: 1 passed in 28.1 seconds.",
+    "api_check": "npm run api:check passed with openapi-typescript 7.9.1.",
+    "code_reference_check": "Code reference validation passed for 13 documents and 149 records; its self-test passed 10 assertions, including a qualified Python method reference.",
+    "html_build": "The clean site profile built 24 documents in 27.06 seconds.",
+    "pdf_build": "The clean reader profile built 15 documents and 142 pages in 7.97 seconds.",
+    "visual_review": "The updated retention and discoverability section passed a browser review. All 142 reader pages passed visual review across 8 contact sheets."
+  },
+  "reviewer_note": "This review was recorded while absorbing PR #322 into the learning lane. The detector baseline was 28c9e0f41f2cdcba797d8e826e549fa26ad575d4. Five affected documents had already advanced through the learning-lane commit f93af87d71c415250677638fbfe6788e89790e2e: revision-and-digest.qmd, separate-archive-from-purge.qmd, trust-a-migrated-database.qmd, trace-project-lifecycle.qmd, and trace-revision-conflict.qmd. The other five affected documents advanced directly from the detector baseline. The record separates shared-file drift from the conceptual update to Chain evidence discoverability. The repository full gate exposed two reproducible Chain Project contract digest failures, recorded separately as Issue #323; the focused tests listed here passed."
+}
