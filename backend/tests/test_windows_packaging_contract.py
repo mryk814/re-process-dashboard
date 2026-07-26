@@ -107,8 +107,10 @@ def test_sidecar_diagnostics_are_utf8_across_python_and_electron() -> None:
     )
 
     assert completed.stderr.decode("utf-8") == "データ診断"
-    assert desktop_launcher.count('PYTHONUTF8: "1"') == 2
-    assert desktop_launcher.count('PYTHONIOENCODING: "utf-8"') == 2
+    assert desktop_launcher.count('PYTHONUTF8: "1"') == 1
+    assert desktop_launcher.count('PYTHONIOENCODING: "utf-8"') == 1
+    assert desktop_launcher.count("sidecarEnvironment(port)") == 2
+    assert desktop_launcher.count("sidecarEnvironment()") == 2
     assert 'chunk.toString("utf8")' in desktop_launcher
     assert "console=True" in sidecar_spec
     assert "windowsHide: true" in desktop_launcher
@@ -187,6 +189,20 @@ def test_packaged_smoke_executes_the_stage_a_transform_api() -> None:
     assert 'method: "POST"' in packaged_smoke
     assert "stageA.outputs.length, 31" in packaged_smoke
     assert "powder_blend_cost_yen_per_kg_core > 0" in packaged_smoke
+
+
+def test_packaged_smoke_covers_workspace_backup_restore_and_tamper_rejection() -> None:
+    packaged_smoke = (ROOT / "scripts" / "smoke-packaged.mjs").read_text(
+        encoding="utf-8"
+    )
+
+    assert "dialog.showSaveDialog" in packaged_smoke
+    assert "dialog.showOpenDialog" in packaged_smoke
+    assert "workspace-tampered.mdwb" in packaged_smoke
+    assert 'getByRole("alert")' in packaged_smoke
+    assert "packaged-portable-workspace.mdwb" in packaged_smoke
+    assert "この内容へ復元" in packaged_smoke
+    assert "PACKAGED_STARTUP_TIMEOUT_MS" in packaged_smoke
 
 
 def test_application_icon_is_configured_for_windows_and_web() -> None:

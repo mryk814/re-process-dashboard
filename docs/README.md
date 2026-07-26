@@ -40,6 +40,7 @@
 - [inference-execution.md](inference-execution.md) — 単段推論の識別、共有、キャッシュ方針
 - [chain-execution.md](chain-execution.md) — Chainの段別実行、部分再計算、鮮度、Snapshot、明示的な分布伝播
 - [chain-evaluation.md](chain-evaluation.md) — 段単体精度と通し精度の評価契約
+- [workspace-backup.md](workspace-backup.md) — 判断履歴とData Library資源の整合性付きbackup／restore契約
 - [windows-distribution.md](windows-distribution.md) — Windows向け成果物の作成とsmoke確認
 
 ## 履歴資料

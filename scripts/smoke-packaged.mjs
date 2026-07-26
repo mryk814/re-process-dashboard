@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdir, readFile, readdir, rename, stat } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { mkdir, readFile, readdir, rename, stat, writeFile } from "node:fs/promises";
+import { basename, join, resolve } from "node:path";
 import { _electron as electron } from "playwright";
 
 
@@ -153,6 +153,49 @@ try {
   assert.equal((await fetch(`${runtime.apiBaseUrl}/health`, {
     headers: { "X-Workbench-Launch-Token": runtime.launchToken },
   })).status, 200);
+
+  const backupPath = join(artifacts, `packaged-${mode}-workspace.mdwb`);
+  await electronApp.evaluate(async ({ dialog }, filePath) => {
+    dialog.showSaveDialog = async () => ({ canceled: false, filePath });
+  }, backupPath);
+  await window.getByRole("button", { name: "ワークスペース" }).click();
+  await window.getByRole("heading", { name: "ワークスペースの保管と復元" }).waitFor();
+  await window.getByRole("button", { name: "保存先を選ぶ" }).click();
+  await window.getByText(`${basename(backupPath)} を作成しました`).waitFor({
+    timeout: PACKAGED_STARTUP_TIMEOUT_MS,
+  });
+  assert((await stat(backupPath)).size > 0);
+  await window.getByRole("button", { name: "閉じる" }).click();
+
+  const tamperedPath = join(artifacts, `packaged-${mode}-workspace-tampered.mdwb`);
+  const tamperedBytes = await readFile(backupPath);
+  tamperedBytes[Math.min(128, tamperedBytes.length - 1)] ^= 0xff;
+  await writeFile(tamperedPath, tamperedBytes);
+  await electronApp.evaluate(async ({ dialog }, filePath) => {
+    dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [filePath] });
+  }, tamperedPath);
+  await window.getByRole("button", { name: "ワークスペース" }).click();
+  await window.getByRole("button", { name: "ファイルを選ぶ" }).click();
+  await window.getByRole("alert").waitFor({ timeout: PACKAGED_STARTUP_TIMEOUT_MS });
+  assert(await window.getByRole("heading", { name: "焼鈍条件の候補検討", level: 1 }).isVisible());
+  await window.getByRole("button", { name: "閉じる" }).click();
+
+  const portableBackupPath = join(artifacts, "packaged-portable-workspace.mdwb");
+  const restorePath = mode === "installed" ? portableBackupPath : backupPath;
+  assert((await stat(restorePath)).size > 0);
+  await electronApp.evaluate(async ({ dialog }, filePath) => {
+    dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [filePath] });
+  }, restorePath);
+  await window.getByRole("button", { name: "ワークスペース" }).click();
+  await window.getByRole("button", { name: "ファイルを選ぶ" }).click();
+  await window.getByRole("button", { name: "この内容へ復元" }).waitFor({
+    timeout: PACKAGED_STARTUP_TIMEOUT_MS,
+  });
+  await window.getByRole("button", { name: "この内容へ復元" }).click();
+  await window.getByRole(
+    "heading",
+    { name: "焼鈍条件の候補検討", level: 1 },
+  ).waitFor({ timeout: PACKAGED_STARTUP_TIMEOUT_MS });
 
   const layout = await window.evaluate(() => ({
     innerWidth: window.innerWidth,

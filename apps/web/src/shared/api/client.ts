@@ -20,11 +20,36 @@ export class ApiClientError extends Error {
   }
 }
 
+export type DesktopWorkspaceSummary = {
+  bundleId: string;
+  createdAt: string;
+  appVersion: string;
+  projectCount: number;
+  candidateCount: number;
+  snapshotCount: number;
+  activityCount: number;
+  chainCount: number;
+  sourceLifecycleCount: number;
+  resourceCount: number;
+  warnings: string[];
+};
+
+export type DesktopWorkspaceOperationResult =
+  | { status: "cancelled" }
+  | { status: "created"; fileName: string; sizeBytes: number; summary: DesktopWorkspaceSummary }
+  | { status: "prepared"; fileName: string; summary: DesktopWorkspaceSummary }
+  | { status: "restored"; summary: DesktopWorkspaceSummary };
+
 declare global {
   interface Window {
     workbenchDesktop?: Readonly<{
       apiBaseUrl: string;
       launchToken: string;
+      exportWorkspace: () => Promise<DesktopWorkspaceOperationResult>;
+      prepareWorkspaceRestore: () => Promise<DesktopWorkspaceOperationResult>;
+      confirmWorkspaceRestore: () => Promise<DesktopWorkspaceOperationResult>;
+      cancelWorkspaceRestore: () => Promise<DesktopWorkspaceOperationResult>;
+      takeWorkspaceNotice: () => Promise<{ tone: "success" | "error"; message: string } | null>;
     }>;
   }
 }
