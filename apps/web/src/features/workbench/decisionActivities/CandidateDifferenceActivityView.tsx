@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ApiDecisionActivityRun } from "../../../shared/api/workbench-api";
+import { formatTaskNumber } from "../../../shared/taskPresentation";
+import { supportStatusLabel } from "../../../shared/supportPresentation";
+import { signedDifference } from "../actualMeasurementPresentation";
 import { candidateDifferenceOptions } from "./candidateDifferenceOptions";
 import type { DecisionActivityViewProps } from "./types";
 
-const numberFormat = new Intl.NumberFormat("ja-JP", { maximumFractionDigits: 4 });
 const signedFormat = new Intl.NumberFormat("ja-JP", {
   maximumFractionDigits: 4,
   signDisplay: "exceptZero",
@@ -13,15 +15,18 @@ function differenceResult(run: ApiDecisionActivityRun) {
   return run.result.schema_version === "candidate-difference-summary/v1" ? run.result : null;
 }
 
+const inputValueFormat = new Intl.NumberFormat("ja-JP", { maximumFractionDigits: 4 });
+
 function formatValue(value: number | string | null | undefined): string {
   if (value === null || value === undefined) return "—";
-  return typeof value === "number" ? numberFormat.format(value) : value;
+  return typeof value === "number" ? inputValueFormat.format(value) : value;
 }
 
 export function CandidateDifferenceActivityView({
   candidate,
   candidates,
   taskDefinition,
+  displayDecimalOverrides,
   ready,
   availability,
   runs,
@@ -44,6 +49,7 @@ export function CandidateDifferenceActivityView({
     ));
   }, [candidate.id, options]);
 
+  const outputNumber = (target: string, value: number) => formatTaskNumber(value, taskDefinition, `output.${target}`, displayDecimalOverrides);
   const comparison = options.find((item) => item.key === comparisonKey) ?? null;
   const activeRun = runs.find((run) => run.id === activeRunId) ?? runs[0] ?? null;
   const result = activeRun ? differenceResult(activeRun) : null;
@@ -105,18 +111,18 @@ export function CandidateDifferenceActivityView({
         <span>相違した入力 {result.changed_input_count}件</span>
       </div>
       <div className="activity-targets">{result.target_summaries.map((summary) => <article key={summary.target}>
-        <header><strong>{outputLabels.get(summary.target) ?? summary.target}</strong><b>差 {signedFormat.format(summary.difference)} {summary.unit}</b></header>
+        <header><strong>{outputLabels.get(summary.target) ?? summary.target}</strong><b>差 {signedDifference(summary.difference, (value) => outputNumber(summary.target, value))} {summary.unit}</b></header>
         <dl>
-          <div><dt>この候補</dt><dd>{numberFormat.format(summary.base_prediction.value)} {summary.unit}</dd></div>
-          <div><dt>比較候補</dt><dd>{numberFormat.format(summary.comparison_prediction.value)} {summary.unit}</dd></div>
-          <div><dt>置換で説明できた分</dt><dd>{signedFormat.format(summary.attributed_difference)} {summary.unit}</dd></div>
-          <div><dt>残差（交互作用）</dt><dd>{signedFormat.format(summary.unexplained_difference)} {summary.unit}</dd></div>
+          <div><dt>この候補</dt><dd>{outputNumber(summary.target, summary.base_prediction.value)} {summary.unit}</dd></div>
+          <div><dt>比較候補</dt><dd>{outputNumber(summary.target, summary.comparison_prediction.value)} {summary.unit}</dd></div>
+          <div><dt>置換で説明できた分</dt><dd>{signedDifference(summary.attributed_difference, (value) => outputNumber(summary.target, value))} {summary.unit}</dd></div>
+          <div><dt>残差（交互作用）</dt><dd>{signedDifference(summary.unexplained_difference, (value) => outputNumber(summary.target, value))} {summary.unit}</dd></div>
         </dl>
-        <small>モデル不確実性：この候補 {numberFormat.format(summary.base_prediction.lower)}–{numberFormat.format(summary.base_prediction.upper)} ／ 比較候補 {numberFormat.format(summary.comparison_prediction.lower)}–{numberFormat.format(summary.comparison_prediction.upper)} {summary.unit}</small>
+        <small>モデル不確実性：この候補 {outputNumber(summary.target, summary.base_prediction.lower)}–{outputNumber(summary.target, summary.base_prediction.upper)} ／ 比較候補 {outputNumber(summary.target, summary.comparison_prediction.lower)}–{outputNumber(summary.target, summary.comparison_prediction.upper)} {summary.unit}</small>
       </article>)}</div>
       <div className="activity-support-summary">
-        <span>この候補の支持 <b>{result.base_support.status}</b></span>
-        <span>比較候補の支持 <b>{result.comparison_support.status}</b></span>
+        <span>この候補の適用範囲 <b title={result.base_support.message}>{supportStatusLabel(result.base_support.status)}</b></span>
+        <span>比較候補の適用範囲 <b title={result.comparison_support.message}>{supportStatusLabel(result.comparison_support.status)}</b></span>
       </div>
       <details className="activity-evidence" open>
         <summary>入力の相違（{result.input_changes.length}件）</summary>
@@ -129,7 +135,7 @@ export function CandidateDifferenceActivityView({
         <summary>{outputLabels.get(target) ?? target}への寄与（置換1入力あたり）</summary>
         {items.map((item) => <div key={`${item.target}-${item.path}`}>
           <span>{changeLabels.get(item.path) ?? item.path}</span>
-          <b>{signedFormat.format(item.contribution)}</b>
+          <b>{signedDifference(item.contribution, (value) => outputNumber(item.target, value))}</b>
         </div>)}
         <small>比較候補にその入力だけを戻した局所的な差です。因果効果ではありません。</small>
       </details>)}

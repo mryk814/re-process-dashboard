@@ -1,5 +1,6 @@
 import type { ApiScreeningRun } from "../../shared/api/workbench-api";
 import { assessOutputValues } from "../../shared/outputPresentation";
+import { formatTaskNumber } from "../../shared/taskPresentation";
 import { supportStatusLabel } from "../../shared/supportPresentation";
 import type { TaskDefinitionContract } from "../candidates";
 
@@ -29,17 +30,17 @@ function pointPredictions(point: ScreeningPoint, target: string) {
   };
 }
 
-function predictionPointText(prediction: ScreeningPoint["prediction"], digits: number) {
+function predictionPointText(prediction: ScreeningPoint["prediction"], format: (value: number) => string) {
   if (prediction.target_kind === "binary") return `${number(prediction.value * 100, 1)}%`;
   const unit = prediction.unit === "1" ? "" : ` ${prediction.unit}`;
-  return `${number(prediction.value, digits)}${unit}`;
+  return `${format(prediction.value)}${unit}`;
 }
 
-function predictionIntervalText(prediction: ScreeningPoint["prediction"], digits: number) {
+function predictionIntervalText(prediction: ScreeningPoint["prediction"], format: (value: number) => string) {
   if (prediction.target_kind === "binary") return null;
   if (!Number.isFinite(prediction.lower) || !Number.isFinite(prediction.upper) || prediction.lower === prediction.upper) return null;
   const unit = prediction.unit === "1" ? "" : ` ${prediction.unit}`;
-  return `${number(prediction.lower, digits)}–${number(prediction.upper, digits)}${unit}`;
+  return `${format(prediction.lower)}–${format(prediction.upper)}${unit}`;
 }
 
 export function ScreeningRepresentativeTable({
@@ -50,9 +51,13 @@ export function ScreeningRepresentativeTable({
   selectedPointIndices,
   stockedPointIndices,
   onToggle,
+  taskDefinition,
+  displayDecimalOverrides,
 }: {
   result: ApiScreeningRun;
   outputs: ScreeningOutput[];
+  taskDefinition: TaskDefinitionContract | null;
+  displayDecimalOverrides?: Record<string, number>;
   options: ScreeningDisplayOption[];
   baseCandidateLabel: string;
   selectedPointIndices: number[];
@@ -60,6 +65,9 @@ export function ScreeningRepresentativeTable({
   onToggle: (index: number) => void;
 }) {
   const optionByPath = new Map(options.map((option) => [option.value, option]));
+  const outputNumber = (key: string) => (value: number) => taskDefinition
+    ? formatTaskNumber(value, taskDefinition, `output.${key}`, displayDecimalOverrides)
+    : number(value, 1);
   const varyingFields = Object.entries(result.variables)
     .filter(([, spec]) => spec.mode !== "fixed")
     .map(([field]) => field);
@@ -139,10 +147,10 @@ export function ScreeningRepresentativeTable({
                       [prediction.lower, prediction.upper, ...Object.values(prediction.quantiles ?? {})],
                       "予測区間",
                     );
-                    const interval = predictionIntervalText(prediction, 1);
+                    const interval = predictionIntervalText(prediction, outputNumber(output.key));
                     return (
                       <td className={pointAssessment.implausible ? "implausible-output screening-prediction-cell" : "screening-prediction-cell"} title={pointAssessment.warning ?? intervalAssessment.warning ?? undefined} key={output.key}>
-                        <strong>{predictionPointText(prediction, 1)}</strong>
+                        <strong>{predictionPointText(prediction, outputNumber(output.key))}</strong>
                         {pointAssessment.implausible && <small className="output-warning-badge">⚠ 物理範囲外</small>}
                         {interval && <small className={intervalAssessment.implausible ? "implausible-output" : undefined}>{interval}{intervalAssessment.implausible && " · ⚠ 範囲外含む"}</small>}
                       </td>
