@@ -451,6 +451,11 @@ def test_point_rerun_during_distribution_discards_old_point_result(
 def test_chain_candidate_contract_provides_a_pinned_executable_starter(
     client: TestClient,
 ) -> None:
+    chain_before = next(
+        item
+        for item in client.get("/api/chains").json()
+        if item["definition"]["chain_id"] == "welding-consumable-a-b-c-v1"
+    )
     response = client.post(
         "/api/projects",
         json={"name": "Empty Chain", "scientific_identity": _chain_identity(client)},
@@ -463,12 +468,80 @@ def test_chain_candidate_contract_provides_a_pinned_executable_starter(
     assert contract_response.status_code == 200, contract_response.text
     contract = contract_response.json()
     assert contract["transform_id"] == "welding-stage-a-v1"
+    external_inputs = contract["external_inputs"]
+    assert [item["external_path"] for item in external_inputs] == [
+        item["path"] for item in chain_before["definition"]["external_inputs"]
+    ]
+    assert len(external_inputs) == 9
+    assert len({item["candidate_path"] for item in external_inputs}) == 9
+    assert [item["order"] for item in external_inputs] == list(range(9))
+    by_path = {item["external_path"]: item for item in external_inputs}
+    assert by_path["candidate.blend"] == {
+        "external_path": "candidate.blend",
+        "order": 0,
+        "candidate_path": "blend",
+        "kind": "sparse_blend",
+        "label": "配合",
+        "unit": "sparse-blend/v1",
+        "required": True,
+        "editable": True,
+        "read_only_reason": None,
+        "default_range": None,
+        "allowed_range": None,
+        "training_range": None,
+        "choices": [],
+        "display_decimals": None,
+        "affected_stage_ids": ["A"],
+        "first_affected_stage_id": "A",
+    }
+    heat = by_path["candidate.welding_context.heat_input_kj_per_mm"]
+    assert heat["candidate_path"] == "process.heat_input_kj_per_mm"
+    assert heat["label"] == "入熱"
+    assert heat["unit"] == "kJ/mm"
+    assert heat["display_decimals"] == 3
+    assert heat["allowed_range"]["min"] == pytest.approx(0.6317)
+    assert heat["allowed_range"]["max"] == pytest.approx(2.1593)
+    assert heat["affected_stage_ids"] == ["B", "C"]
+    assert heat["first_affected_stage_id"] == "B"
+    assert (
+        by_path["candidate.welding_context.voltage_v"]["candidate_path"]
+        == "process.voltage_v"
+    )
+    voltage_range = by_path[
+        "candidate.welding_context.voltage_v"
+    ]["allowed_range"]
+    assert voltage_range["min"] == pytest.approx(23.295)
+    assert voltage_range["max"] == pytest.approx(34.875)
+    assert by_path["candidate.welding_context.shielding_gas"]["choices"] == [
+        "80%Ar-20%CO2",
+        "100%CO2",
+    ]
+    assert by_path["candidate.welding_context.welding_position"]["choices"] == [
+        "下向",
+        "横向",
+        "立向上進",
+    ]
+    assert by_path["candidate.test_context.test_solution"]["choices"] == [
+        "3.5%NaCl",
+        "5%H2SO4",
+    ]
+    assert (
+        by_path["candidate.test_context.test_solution"]["first_affected_stage_id"]
+        == "C"
+    )
     starter = contract["starter_candidate"]
     assert starter["blend"]["scientific_master"] == contract["scientific_master"]
     assert starter["blend"]["commercial_catalog"] == contract["commercial_catalog"]
     assert starter["blend"]["design_space"] == contract["design_space_ref"]
     assert starter["inputs"]["process"]["heat_input_kj_per_mm"] > 0
     assert starter["inputs"]["categorical"]["shielding_gas"]
+    for item in external_inputs:
+        candidate_path = item["candidate_path"]
+        if candidate_path == "blend":
+            assert starter["blend"] is not None
+            continue
+        group, key = candidate_path.split(".", 1)
+        assert key in starter["inputs"][group]
 
     created_response = client.post(
         f"/api/projects/{project['id']}/chain/candidates",
@@ -482,6 +555,69 @@ def test_chain_candidate_contract_provides_a_pinned_executable_starter(
         "latest",
         "latest",
     ]
+    chain_after = next(
+        item
+        for item in client.get("/api/chains").json()
+        if item["definition"]["chain_id"] == "welding-consumable-a-b-c-v1"
+    )
+    assert chain_after["definition"] == chain_before["definition"]
+    assert (
+        chain_after["revisions"][0]["revision_digest"]
+        == chain_before["revisions"][0]["revision_digest"]
+    )
+
+
+def test_chain_candidate_contract_fails_closed_on_task_contract_drift(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    response = client.post(
+        "/api/projects",
+        json={"name": "Drifted Chain", "scientific_identity": _chain_identity(client)},
+    )
+    assert response.status_code == 201, response.text
+    registry = client.app.state.chain_execution_service.registry
+    fixture = registry._contracts["welding-consumable-stage-b-v1"]
+    drifted_definition = fixture.task_definition.model_copy(
+        update={"label": fixture.task_definition.label + " drift"}
+    )
+    monkeypatch.setitem(
+        registry._contracts,
+        "welding-consumable-stage-b-v1",
+        fixture.model_copy(update={"task_definition": drifted_definition}),
+    )
+
+    contract_response = client.get(
+        f"/api/projects/{response.json()['id']}/chain/candidate-contract"
+    )
+
+    assert contract_response.status_code == 409
+    assert "contract digest" in contract_response.json()["message"]
+
+
+def test_chain_candidate_contract_fails_closed_on_package_drift(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    response = client.post(
+        "/api/projects",
+        json={"name": "Drifted Package Chain", "scientific_identity": _chain_identity(client)},
+    )
+    assert response.status_code == 201, response.text
+    registry = client.app.state.chain_execution_service.registry
+    entry = registry._entries["welding-consumable-stage-b-v1"]
+    monkeypatch.setitem(
+        registry._entries,
+        "welding-consumable-stage-b-v1",
+        replace(entry, package_digest="sha256:" + "0" * 64),
+    )
+
+    contract_response = client.get(
+        f"/api/projects/{response.json()['id']}/chain/candidate-contract"
+    )
+
+    assert contract_response.status_code == 409
+    assert "Package digest" in contract_response.json()["message"]
 
 
 def test_chain_candidates_are_isolated_from_single_task_candidate_apis(

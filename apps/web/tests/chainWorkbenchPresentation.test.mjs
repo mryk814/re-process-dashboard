@@ -90,6 +90,28 @@ test("blank numeric drafts never become zero and Stage A reuses the sparse blend
   assert.match(source, /固定契約から基準配合を作成/);
 });
 
+test("every Chain external input is rendered and edited from the resolved contract", () => {
+  assert.match(source, /contract\?\.external_inputs/);
+  assert.match(source, /scalarInputDefinitions\.map\(\(definition\)/);
+  assert.match(source, /data-chain-external-path=\{definition\.external_path\}/);
+  assert.match(source, /data-chain-external-path=\{blendInputDefinition\.external_path\}/);
+  assert.match(source, /definition\.candidate_path/);
+  assert.match(source, /definition\.label/);
+  assert.match(source, /definition\.unit/);
+  assert.match(source, /definition\.allowed_range/);
+  assert.match(source, /definition\.choices/);
+  assert.match(source, /definition\.editable/);
+  assert.match(source, /definition\.first_affected_stage_id/);
+  assert.match(source, /getCandidateInputValue/);
+  assert.match(source, /setCandidateInputValue/);
+  assert.doesNotMatch(source, /editProcess/);
+  assert.doesNotMatch(
+    source,
+    /heat_input_kj_per_mm|voltage_v|gas_flow_l_per_min|shielding_gas|welding_position|preheat_temp_c|test_temperature_c|test_solution/,
+  );
+  assert.doesNotMatch(source, /path ===/);
+});
+
 test("Chain candidate identity survives reload and same-project history navigation", () => {
   assert.match(session, /onLocationReplace\(projectId, candidateId\)/);
   assert.match(

@@ -2937,10 +2937,56 @@ export interface components {
             commercial_catalog: components["schemas"]["RevisionRef"];
             design_space: components["schemas"]["SparseBlendDesignSpace"];
             design_space_ref: components["schemas"]["RevisionRef"];
+            /** External Inputs */
+            external_inputs: components["schemas"]["ChainCandidateInputDefinition"][];
             scientific_master: components["schemas"]["RevisionRef"];
             starter_candidate: components["schemas"]["CandidateInput"];
             /** Transform Id */
             transform_id: string;
+        };
+        /**
+         * ChainCandidateInputDefinition
+         * @description Editable candidate surface resolved from one pinned external Chain port.
+         */
+        ChainCandidateInputDefinition: {
+            /** Affected Stage Ids */
+            affected_stage_ids: string[];
+            allowed_range?: components["schemas"]["NumericRange"] | null;
+            /** Candidate Path */
+            candidate_path: string;
+            /**
+             * Choices
+             * @default []
+             */
+            choices: string[];
+            default_range?: components["schemas"]["NumericRange"] | null;
+            /** Display Decimals */
+            display_decimals?: number | null;
+            /** Editable */
+            editable: boolean;
+            /** External Path */
+            external_path: string;
+            /** First Affected Stage Id */
+            first_affected_stage_id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "number" | "categorical" | "sparse_blend";
+            /** Label */
+            label: string;
+            /** Order */
+            order: number;
+            /** Read Only Reason */
+            read_only_reason?: string | null;
+            /**
+             * Required
+             * @default true
+             */
+            required: boolean;
+            training_range?: components["schemas"]["NumericRange"] | null;
+            /** Unit */
+            unit?: string | null;
         };
         /** ChainDefinition */
         ChainDefinition: {

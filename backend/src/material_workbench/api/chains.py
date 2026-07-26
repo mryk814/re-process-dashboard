@@ -26,6 +26,7 @@ from material_workbench.contracts.chain_contracts import (
 from material_workbench.contracts.chain_execution_contracts import (
     ActualConditionedVariant,
     ChainCandidateCapability,
+    ChainCandidateInputDefinition,
     ChainExecution,
     ChainSnapshot,
     IntermediateActualRecord,
@@ -97,6 +98,7 @@ class ChainCandidateContractResponse(ChainApiModel):
     commercial_catalog: RevisionRef
     design_space: SparseBlendDesignSpace
     design_space_ref: RevisionRef
+    external_inputs: tuple[ChainCandidateInputDefinition, ...]
     starter_candidate: CandidateInput
 
 
@@ -263,6 +265,7 @@ def get_chain_candidate_contract(
     try:
         adapter = service.sparse_blend_adapter(project_id)
         contracts = adapter.resolved_contracts()
+        external_inputs = service.candidate_input_definitions(project_id)
         starter = service.starter_candidate(project_id)
     except (ChainExecutionError, ChainCandidateAdapterError) as exc:
         raise HTTPException(409, str(exc)) from exc
@@ -272,6 +275,7 @@ def get_chain_candidate_contract(
         commercial_catalog=contracts.commercial_catalog.ref,
         design_space=contracts.design_space,
         design_space_ref=contracts.design_space.ref,
+        external_inputs=external_inputs,
         starter_candidate=starter,
     )
 

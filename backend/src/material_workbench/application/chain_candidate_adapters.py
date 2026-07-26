@@ -40,6 +40,14 @@ class ChainCandidateAdapter(Protocol):
     adapter_id: str
     sparse_blend: bool
 
+    def candidate_path(
+        self,
+        external_path: str,
+        value_kind: str,
+        quantity: str,
+    ) -> str:
+        """Address the canonical Candidate field backing one external port."""
+
     def external_values(self, candidate: Candidate | CandidateInput) -> dict[str, Any]:
         """Candidate values addressed by the Chain's external input paths."""
 
@@ -73,6 +81,33 @@ class ScalarChainAdapter:
 
     adapter_id = "scalar/v1"
     sparse_blend = False
+
+    def candidate_path(
+        self,
+        external_path: str,
+        value_kind: str,
+        quantity: str,
+    ) -> str:
+        if value_kind == "sparse_blend":
+            raise ChainCandidateAdapterError(
+                "scalar Chainは疎な配合入力を公開できません"
+            )
+        candidate_path = external_path.removeprefix("candidate.")
+        group = candidate_path.split(".", 1)[0]
+        valid_groups = (
+            {"composition", "process"}
+            if value_kind == "number"
+            else {"categorical"}
+        )
+        if (
+            candidate_path == external_path
+            or group not in valid_groups
+            or candidate_path.rsplit(".", 1)[-1] != quantity
+        ):
+            raise ChainCandidateAdapterError(
+                f"scalar Chainの外部入力pathを候補へ対応付けられません: {external_path}"
+            )
+        return candidate_path
 
     def external_values(self, candidate: Candidate | CandidateInput) -> dict[str, Any]:
         values: dict[str, Any] = {}
@@ -128,6 +163,25 @@ class SparseBlendChainAdapter:
 
     adapter_id = "sparse_blend/v1"
     sparse_blend = True
+
+    def candidate_path(
+        self,
+        external_path: str,
+        value_kind: str,
+        quantity: str,
+    ) -> str:
+        if value_kind == "sparse_blend":
+            if external_path != "candidate.blend":
+                raise ChainCandidateAdapterError(
+                    f"疎な配合入力pathを候補へ対応付けられません: {external_path}"
+                )
+            return "blend"
+        if value_kind not in {"number", "categorical"}:
+            raise ChainCandidateAdapterError(
+                f"未対応のChain候補入力型です: {value_kind}"
+            )
+        group = "process" if value_kind == "number" else "categorical"
+        return f"{group}.{quantity}"
 
     def external_values(self, candidate: Candidate | CandidateInput) -> dict[str, Any]:
         values: dict[str, Any] = {}
