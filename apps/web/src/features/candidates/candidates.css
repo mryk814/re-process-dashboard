@@ -244,3 +244,17 @@
   .comparison-grid { grid-template-columns: 132px minmax(220px, var(--comparison-input-share, 45%)) 9px minmax(240px, 1fr) 120px; }
   .comparison-grid-viewport { overflow-x: auto; }
 }
+
+/* Row identity for assistive technology. The panes align visually by height, so
+   the header is removed from layout without being removed from the accessibility tree. */
+th.comparison-row-header {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  border: 0;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

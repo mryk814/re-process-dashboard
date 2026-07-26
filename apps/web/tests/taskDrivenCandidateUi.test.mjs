@@ -398,3 +398,34 @@ test("a complete comparison keeps its interval verdict and offers no recomputati
   assert.doesNotMatch(comparison, /未計算 0候補/);
   assert.match(comparison, /1 \/ 1特性/);
 });
+
+test("every comparison pane states which candidate each row belongs to", () => {
+  const definition = {
+    input_groups: [{ key: "composition", order: 0, label: "組成", fields: [numberField("composition.C", "C")] }],
+    outputs: [{ key: "TS", label: "引張強さ", unit: "MPa", goal_direction: "at_least" }],
+    display_decimals: { "composition.C": 5, "output.TS": 1 },
+    fixed_context: [],
+  };
+  const preview = {
+    predictions: { TS: { value: 500, lower: 480, upper: 520, unit: "MPa", target_kind: "continuous", point_statistic: "mean", predictive_family: "normal", quantiles: {}, goal_probability: null } },
+    support: { status: "supported" },
+    model_support: { TS: { status: "supported" } },
+  };
+  const comparison = renderComparison({
+    candidates: [candidate],
+    selectedId: candidate.id,
+    taskDefinition: definition,
+    previewsByCandidate: { [candidate.id]: preview },
+    targetValues: {},
+    onSelect() {},
+    onName() {},
+    onInput() {},
+  });
+  // One hidden row header per pane that has no visible candidate column.
+  const rowHeaders = comparison.match(/<th scope="row" class="comparison-row-header">候補A<\/th>/g) ?? [];
+  assert.equal(rowHeaders.length, 3, "input, prediction and action rows carry a row header");
+  assert.match(comparison, /<th scope="row"><input aria-label="候補Aの候補名"/);
+  assert.equal((comparison.match(/data-candidate-id="candidate-1"/g) ?? []).length, 4);
+  assert.match(comparison, /<th scope="colgroup"/);
+  assert.match(comparison, /<th scope="col" class="composition-col">/);
+});
