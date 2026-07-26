@@ -211,6 +211,11 @@ def test_broken_chain_bootstrap_preserves_saved_chain_evidence_read_only(
         )
         assert candidates.status_code == 200
         assert candidates.json()[0]["id"] == candidate_id
+        candidate_contract = client.get(
+            f"/api/projects/{project['id']}/chain/candidate-contract"
+        )
+        assert candidate_contract.status_code == 200, candidate_contract.text
+        assert len(candidate_contract.json()["external_inputs"]) == 9
         saved_execution = client.get(
             f"/api/projects/{project['id']}/chain/candidates/"
             f"{candidate_id}/execution"

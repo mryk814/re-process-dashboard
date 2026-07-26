@@ -197,9 +197,10 @@ export function ChainWorkbenchPage({
     requestSequence.current += 1;
     setBusy(false);
     const loadCandidates = readOnly
-      ? workbenchApi.listChainCandidates(projectId).then(
-        (items) => [null, items] as const,
-      )
+      ? Promise.all([
+        workbenchApi.chainCandidateContract(projectId).catch(() => null),
+        workbenchApi.listChainCandidates(projectId),
+      ])
       // この画面は疎配合Chain専用の入力面。Chainが別のcandidate adapterを宣言している
       // 場合は、契約APIを叩く前にcapabilityで判断して明示的に伝える。
       : workbenchApi.chainCandidateCapability(projectId).then((capability) => {

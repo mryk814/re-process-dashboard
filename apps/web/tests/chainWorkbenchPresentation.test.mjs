@@ -104,6 +104,10 @@ test("every Chain external input is rendered and edited from the resolved contra
   assert.match(source, /definition\.first_affected_stage_id/);
   assert.match(source, /getCandidateInputValue/);
   assert.match(source, /setCandidateInputValue/);
+  assert.match(
+    source,
+    /readOnly[\s\S]*workbenchApi\.chainCandidateContract\(projectId\)[\s\S]*workbenchApi\.listChainCandidates\(projectId\)/,
+  );
   assert.doesNotMatch(source, /editProcess/);
   assert.doesNotMatch(
     source,

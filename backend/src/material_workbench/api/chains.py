@@ -150,6 +150,16 @@ def _execution_service(request: Request) -> ChainExecutionService:
     return service
 
 
+def _candidate_contract_service(request: Request) -> ChainExecutionService:
+    """Resolve the pinned editor contract even when Chain execution is disabled."""
+
+    service = request.app.state.chain_execution_service
+    if service is None:
+        request.app.state.subsystem_availability.require(WELDING_CHAIN_SUBSYSTEM_ID)
+        raise HTTPException(503, "Chain候補契約を解決できません")
+    return service
+
+
 def _uncertainty_service(request: Request) -> ChainUncertaintyService:
     request.app.state.subsystem_availability.require(WELDING_CHAIN_SUBSYSTEM_ID)
     service = request.app.state.chain_uncertainty_service
@@ -260,7 +270,10 @@ def get_chain_candidate_capability(
 )
 def get_chain_candidate_contract(
     project_id: str,
-    service: Annotated[ChainExecutionService, Depends(_execution_service)],
+    service: Annotated[
+        ChainExecutionService,
+        Depends(_candidate_contract_service),
+    ],
 ) -> ChainCandidateContractResponse:
     try:
         adapter = service.sparse_blend_adapter(project_id)
