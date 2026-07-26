@@ -231,6 +231,10 @@ class DecisionActivityProvenance(ContractModel):
     activity_id: str
     activity_version: str
     parameters_digest: str
+    project_design_space_digest: str | None = None
+    project_design_space_binding_provenance: Literal[
+        "explicit", "generated_default", "inherited_predecessor", "unbound_legacy"
+    ] = "unbound_legacy"
     model: ModelMetadata
 
 

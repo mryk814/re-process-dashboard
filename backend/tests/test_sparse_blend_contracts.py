@@ -319,7 +319,7 @@ def test_blend_validation_is_server_recomputed_and_snapshot_restore_keeps_blend(
         "blend_validation": {"status": "not_applicable", "issues": []},
     }
     service = _blend_capable_service(registry)
-    prepared = service._prepare("blend-task", CandidateInput.model_validate(payload))
+    prepared = service._prepare("blend-task", CandidateInput.model_validate(payload), None)
     assert prepared.blend_validation.status == "invalid"
     assert {item.code for item in prepared.blend_validation.issues} >= {
         "total",
@@ -343,7 +343,7 @@ def test_blend_validation_is_server_recomputed_and_snapshot_restore_keeps_blend(
     assert restored.blend == blend
     assert restored.editor_state.locked_material_ids == ["RM-0002"]
     assert restored.blend_validation.status == "not_applicable"
-    recomputed = service._prepare("blend-task", restored)
+    recomputed = service._prepare("blend-task", restored, None)
     assert recomputed.blend_validation == prepared.blend_validation
 
 

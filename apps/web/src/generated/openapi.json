@@ -1642,6 +1642,30 @@
         "title": "CandidateUpdate",
         "type": "object"
       },
+      "CategoricalDomain": {
+        "additionalProperties": false,
+        "properties": {
+          "choices": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Choices",
+            "type": "array"
+          },
+          "path": {
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "choices"
+        ],
+        "title": "CategoricalDomain",
+        "type": "object"
+      },
       "ChainBinding": {
         "additionalProperties": false,
         "properties": {
@@ -3273,6 +3297,51 @@
         "title": "CompositionTarget",
         "type": "object"
       },
+      "CompositionTotalConstraint": {
+        "additionalProperties": false,
+        "properties": {
+          "balance_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Balance Path"
+          },
+          "component_paths": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 2,
+            "title": "Component Paths",
+            "type": "array"
+          },
+          "tolerance": {
+            "default": 1e-06,
+            "minimum": 0.0,
+            "title": "Tolerance",
+            "type": "number"
+          },
+          "total": {
+            "title": "Total",
+            "type": "number"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component_paths",
+          "total",
+          "unit"
+        ],
+        "title": "CompositionTotalConstraint",
+        "type": "object"
+      },
       "CompositionTotalDefinition": {
         "additionalProperties": false,
         "properties": {
@@ -3317,6 +3386,45 @@
           "unit"
         ],
         "title": "CompositionTotalDefinition",
+        "type": "object"
+      },
+      "ConditionalActivation": {
+        "additionalProperties": false,
+        "properties": {
+          "active_choices": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Active Choices",
+            "type": "array"
+          },
+          "controller_path": {
+            "title": "Controller Path",
+            "type": "string"
+          },
+          "inactive_values": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "minProperties": 1,
+            "title": "Inactive Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "controller_path",
+          "active_choices",
+          "inactive_values"
+        ],
+        "title": "ConditionalActivation",
         "type": "object"
       },
       "ConnectedObservation": {
@@ -4324,6 +4432,28 @@
             "title": "Parameters Digest",
             "type": "string"
           },
+          "project_design_space_binding_provenance": {
+            "default": "unbound_legacy",
+            "enum": [
+              "explicit",
+              "generated_default",
+              "inherited_predecessor",
+              "unbound_legacy"
+            ],
+            "title": "Project Design Space Binding Provenance",
+            "type": "string"
+          },
+          "project_design_space_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Design Space Digest"
+          },
           "task_contract_digest": {
             "title": "Task Contract Digest",
             "type": "string"
@@ -4457,6 +4587,129 @@
           "parameters"
         ],
         "title": "DecisionActivityRunRequest",
+        "type": "object"
+      },
+      "DesignSpaceDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "categorical_domains": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CategoricalDomain"
+            },
+            "title": "Categorical Domains",
+            "type": "array"
+          },
+          "composition_constraints": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CompositionTotalConstraint"
+            },
+            "title": "Composition Constraints",
+            "type": "array"
+          },
+          "conditional_constraints": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ConditionalActivation"
+            },
+            "title": "Conditional Constraints",
+            "type": "array"
+          },
+          "design_space_id": {
+            "minLength": 1,
+            "title": "Design Space Id",
+            "type": "string"
+          },
+          "fixed_heat_pattern": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fixed Heat Pattern"
+          },
+          "fixed_values": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "default": {},
+            "title": "Fixed Values",
+            "type": "object"
+          },
+          "heat_pattern_domains": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/NumericDomain"
+            },
+            "title": "Heat Pattern Domains",
+            "type": "array"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "numeric_domains": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/NumericDomain"
+            },
+            "title": "Numeric Domains",
+            "type": "array"
+          },
+          "relational_constraints": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RelationalConstraint"
+            },
+            "title": "Relational Constraints",
+            "type": "array"
+          },
+          "revision": {
+            "default": 1,
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "design-space-definition/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "task_contract_digest": {
+            "minLength": 1,
+            "title": "Task Contract Digest",
+            "type": "string"
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "design_space_id",
+          "name",
+          "task_id",
+          "task_contract_digest"
+        ],
+        "title": "DesignSpaceDefinition",
         "type": "object"
       },
       "DetailedPredictionResponse": {
@@ -7073,6 +7326,48 @@
         "title": "ModelUncertaintyInterval",
         "type": "object"
       },
+      "NumericDomain": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "enum": [
+              "range",
+              "values"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "path": {
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          },
+          "range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NumericRange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "values": {
+            "default": [],
+            "items": {
+              "type": "number"
+            },
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "path",
+          "mode"
+        ],
+        "title": "NumericDomain",
+        "type": "object"
+      },
       "NumericRange": {
         "additionalProperties": false,
         "properties": {
@@ -8351,6 +8646,38 @@
             "title": "Description",
             "type": "string"
           },
+          "design_space": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DesignSpaceDefinition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "design_space_binding_provenance": {
+            "default": "unbound_legacy",
+            "enum": [
+              "explicit",
+              "generated_default",
+              "inherited_predecessor",
+              "unbound_legacy"
+            ],
+            "title": "Design Space Binding Provenance",
+            "type": "string"
+          },
+          "design_space_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Design Space Digest"
+          },
           "display_decimals": {
             "additionalProperties": {
               "maximum": 8.0,
@@ -8548,6 +8875,32 @@
             "default": "",
             "title": "Description",
             "type": "string"
+          },
+          "design_space": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DesignSpaceDefinition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "design_space_binding_provenance": {
+            "anyOf": [
+              {
+                "enum": [
+                  "explicit",
+                  "generated_default",
+                  "inherited_predecessor"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Design Space Binding Provenance"
           },
           "display_decimals": {
             "additionalProperties": {
@@ -8979,6 +9332,17 @@
             "default": "",
             "title": "Description",
             "type": "string"
+          },
+          "design_space_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Design Space Digest"
           },
           "display_decimals": {
             "additionalProperties": {
@@ -10464,6 +10828,28 @@
             "title": "Points",
             "type": "array"
           },
+          "project_design_space_binding_provenance": {
+            "default": "unbound_legacy",
+            "enum": [
+              "explicit",
+              "generated_default",
+              "inherited_predecessor",
+              "unbound_legacy"
+            ],
+            "title": "Project Design Space Binding Provenance",
+            "type": "string"
+          },
+          "project_design_space_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Design Space Digest"
+          },
           "project_id": {
             "title": "Project Id",
             "type": "string"
@@ -11116,6 +11502,28 @@
                 "type": "null"
               }
             ]
+          },
+          "project_design_space_binding_provenance": {
+            "default": "unbound_legacy",
+            "enum": [
+              "explicit",
+              "generated_default",
+              "inherited_predecessor",
+              "unbound_legacy"
+            ],
+            "title": "Project Design Space Binding Provenance",
+            "type": "string"
+          },
+          "project_design_space_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Design Space Digest"
           },
           "provenance": {
             "anyOf": [

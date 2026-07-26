@@ -166,6 +166,61 @@ def test_robustness_activity_is_available_deterministic_and_persistent(client) -
     assert restored.json() == run
 
 
+def test_robustness_uses_the_project_design_space_and_pins_it(client) -> None:
+    reference = client.get("/api/projects/default").json()
+    seed_project = client.post(
+        "/api/projects",
+        json={
+            "name": "Design Space seed",
+            "task_id": reference["task_id"],
+            "dataset_view_revision_id": reference["dataset_view_revision_id"],
+            "model_package_ref_id": reference["model_package_ref_id"],
+        },
+    ).json()
+    space = seed_project["design_space"]
+    space["design_space_id"] = "robustness-carbon-window"
+    space["revision"] = 2
+    for domain in space["numeric_domains"]:
+        if domain["path"] == "composition.C":
+            domain["range"] = {"min": 0.075, "max": 0.085}
+            break
+    project_response = client.post(
+        "/api/projects",
+        json={
+            "name": "公差用Design Space",
+            "task_id": reference["task_id"],
+            "dataset_view_revision_id": reference["dataset_view_revision_id"],
+            "model_package_ref_id": reference["model_package_ref_id"],
+            "design_space": space,
+        },
+    )
+    assert project_response.status_code == 201, project_response.text
+    project = project_response.json()
+    candidate = client.post(
+        f"/api/projects/{project['id']}/candidates", json=_candidate_payload()
+    ).json()
+    url = (
+        f"/api/projects/{project['id']}/candidates/{candidate['id']}"
+        "/decision-activities/robustness-analysis-v1/runs"
+    )
+
+    outside = client.post(
+        url, json=_run_payload(candidate["revision"], amount=0.02)
+    )
+    assert outside.status_code == 422
+    assert "Project Design Space" in (
+        outside.json().get("detail") or outside.json().get("message", "")
+    )
+
+    accepted = client.post(
+        url, json=_run_payload(candidate["revision"], amount=0.002)
+    )
+    assert accepted.status_code == 201, accepted.text
+    provenance = accepted.json()["provenance"]
+    assert provenance["project_design_space_digest"] == project["design_space_digest"]
+    assert provenance["project_design_space_binding_provenance"] == "explicit"
+
+
 def test_robustness_activity_rejects_out_of_task_range_without_clipping(client) -> None:
     candidate = client.post(
         "/api/projects/default/candidates", json=_candidate_payload()

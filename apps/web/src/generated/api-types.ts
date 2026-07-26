@@ -2094,6 +2094,13 @@ export interface components {
             /** Provenance */
             provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"] | components["schemas"]["BlendOptimizationSourceRef"];
         };
+        /** CategoricalDomain */
+        CategoricalDomain: {
+            /** Choices */
+            choices: string[];
+            /** Path */
+            path: string;
+        };
         /** ChainBinding */
         ChainBinding: {
             conversion?: components["schemas"]["UnitConversion"] | null;
@@ -2714,6 +2721,22 @@ export interface components {
             /** Upper */
             upper: number;
         };
+        /** CompositionTotalConstraint */
+        CompositionTotalConstraint: {
+            /** Balance Path */
+            balance_path?: string | null;
+            /** Component Paths */
+            component_paths: string[];
+            /**
+             * Tolerance
+             * @default 0.000001
+             */
+            tolerance: number;
+            /** Total */
+            total: number;
+            /** Unit */
+            unit: string;
+        };
         /** CompositionTotalDefinition */
         CompositionTotalDefinition: {
             /** Balance Path */
@@ -2729,6 +2752,17 @@ export interface components {
             total: number;
             /** Unit */
             unit: string;
+        };
+        /** ConditionalActivation */
+        ConditionalActivation: {
+            /** Active Choices */
+            active_choices: string[];
+            /** Controller Path */
+            controller_path: string;
+            /** Inactive Values */
+            inactive_values: {
+                [key: string]: number | string;
+            };
         };
         /** ConnectedObservation */
         ConnectedObservation: {
@@ -3109,6 +3143,14 @@ export interface components {
             model_package_digest: string;
             /** Parameters Digest */
             parameters_digest: string;
+            /**
+             * Project Design Space Binding Provenance
+             * @default unbound_legacy
+             * @enum {string}
+             */
+            project_design_space_binding_provenance: "explicit" | "generated_default" | "inherited_predecessor" | "unbound_legacy";
+            /** Project Design Space Digest */
+            project_design_space_digest?: string | null;
             /** Task Contract Digest */
             task_contract_digest: string;
             /** Task Id */
@@ -3140,6 +3182,68 @@ export interface components {
             expected_revision: number;
             /** Parameters */
             parameters: components["schemas"]["RobustnessParameters"] | components["schemas"]["CandidateDifferenceParameters"];
+        };
+        /** DesignSpaceDefinition */
+        DesignSpaceDefinition: {
+            /**
+             * Categorical Domains
+             * @default []
+             */
+            categorical_domains: components["schemas"]["CategoricalDomain"][];
+            /**
+             * Composition Constraints
+             * @default []
+             */
+            composition_constraints: components["schemas"]["CompositionTotalConstraint"][];
+            /**
+             * Conditional Constraints
+             * @default []
+             */
+            conditional_constraints: components["schemas"]["ConditionalActivation"][];
+            /** Design Space Id */
+            design_space_id: string;
+            /** Fixed Heat Pattern */
+            fixed_heat_pattern?: {
+                [key: string]: unknown;
+            }[] | null;
+            /**
+             * Fixed Values
+             * @default {}
+             */
+            fixed_values: {
+                [key: string]: number | string;
+            };
+            /**
+             * Heat Pattern Domains
+             * @default []
+             */
+            heat_pattern_domains: components["schemas"]["NumericDomain"][];
+            /** Name */
+            name: string;
+            /**
+             * Numeric Domains
+             * @default []
+             */
+            numeric_domains: components["schemas"]["NumericDomain"][];
+            /**
+             * Relational Constraints
+             * @default []
+             */
+            relational_constraints: components["schemas"]["RelationalConstraint"][];
+            /**
+             * Revision
+             * @default 1
+             */
+            revision: number;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "design-space-definition/v1";
+            /** Task Contract Digest */
+            task_contract_digest: string;
+            /** Task Id */
+            task_id: string;
         };
         /** DetailedPredictionResponse */
         DetailedPredictionResponse: {
@@ -4087,6 +4191,22 @@ export interface components {
             /** Upper */
             upper: number;
         };
+        /** NumericDomain */
+        NumericDomain: {
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "range" | "values";
+            /** Path */
+            path: string;
+            range?: components["schemas"]["NumericRange"] | null;
+            /**
+             * Values
+             * @default []
+             */
+            values: number[];
+        };
         /** NumericRange */
         NumericRange: {
             /** Max */
@@ -4556,6 +4676,15 @@ export interface components {
              * @default
              */
             description: string;
+            design_space?: components["schemas"]["DesignSpaceDefinition"] | null;
+            /**
+             * Design Space Binding Provenance
+             * @default unbound_legacy
+             * @enum {string}
+             */
+            design_space_binding_provenance: "explicit" | "generated_default" | "inherited_predecessor" | "unbound_legacy";
+            /** Design Space Digest */
+            design_space_digest?: string | null;
             /** Display Decimals */
             display_decimals?: {
                 [key: string]: number;
@@ -4658,6 +4787,9 @@ export interface components {
              * @default
              */
             description: string;
+            design_space?: components["schemas"]["DesignSpaceDefinition"] | null;
+            /** Design Space Binding Provenance */
+            design_space_binding_provenance?: ("explicit" | "generated_default" | "inherited_predecessor") | null;
             /** Display Decimals */
             display_decimals?: {
                 [key: string]: number;
@@ -4856,6 +4988,8 @@ export interface components {
              * @default
              */
             description: string;
+            /** Design Space Digest */
+            design_space_digest?: string | null;
             /** Display Decimals */
             display_decimals?: {
                 [key: string]: number;
@@ -5405,6 +5539,14 @@ export interface components {
             model_provenance: components["schemas"]["ModelMetadata"];
             /** Points */
             points: components["schemas"]["ScreeningPoint"][];
+            /**
+             * Project Design Space Binding Provenance
+             * @default unbound_legacy
+             * @enum {string}
+             */
+            project_design_space_binding_provenance: "explicit" | "generated_default" | "inherited_predecessor" | "unbound_legacy";
+            /** Project Design Space Digest */
+            project_design_space_digest?: string | null;
             /** Project Id */
             project_id: string;
             proposal_diagnostics?: components["schemas"]["ScreeningProposalDiagnostics"] | null;
@@ -5626,6 +5768,14 @@ export interface components {
         /** SnapshotPayload */
         SnapshotPayload: {
             prediction?: components["schemas"]["PredictionResponse"] | null;
+            /**
+             * Project Design Space Binding Provenance
+             * @default unbound_legacy
+             * @enum {string}
+             */
+            project_design_space_binding_provenance: "explicit" | "generated_default" | "inherited_predecessor" | "unbound_legacy";
+            /** Project Design Space Digest */
+            project_design_space_digest?: string | null;
             provenance?: components["schemas"]["ModelMetadata"] | null;
         } & {
             [key: string]: unknown;

@@ -437,6 +437,9 @@ export function ProjectHub({
         model_package_ref_id: newModelPackageRefId,
         task_contract_digest: selectedPackage?.task_contract_digest ?? "",
         model_package_manifest_digest: selectedPackage?.manifest_digest ?? "",
+        design_space: (createMode === "copy" || predecessorProjectId)
+          ? project?.design_space ?? undefined
+          : undefined,
       });
       onProjectChanged(created);
       setCreateOpen(false);
@@ -702,7 +705,7 @@ export function ProjectHub({
       {error && <p className="panel-error" role="alert">{error}</p>}
       {project && (chainIdentity
         ? <section className="project-reference-strip" aria-label="プロジェクトのChain参照と所属"><div><span>Chain Template</span><strong>{fixedChain?.definition.label ?? "Chain未解決"}</strong><small>A → B → C</small></div><div><span>Chain Revision</span><strong>{fixedChainRevision ? `r${fixedChainRevision.revision}` : "—"}</strong><small title={chainIdentity.chain_revision_digest}>{chainIdentity.chain_revision_digest.slice(0, 18)}…</small></div><div><span>固定Stage</span><strong>{fixedChainRevision?.stages.map((stage) => stage.stage_id).join(" → ") ?? "—"}</strong><small>Package・Dataset・ProfileをRevision内に固定</small></div><div><span>所属グループ</span><strong>{fixedSeries?.name ?? "—"}</strong><small>設定から変更できます</small></div></section>
-        : <section className="project-reference-strip" aria-label="プロジェクトの参照と所属"><div><span>参照Dataset</span><strong>{fixedDataset?.data_asset.original_filename ?? "—"}</strong><small>{fixedDataset ? `${fixedDataset.profile_revision.name} · r${fixedDataset.profile_revision.revision}` : ""}</small></div><div><span>Prediction Task</span><strong>{taskLabels.get(project.task_id) ?? project.task_id}</strong><small>固定</small></div><div><span>Model Package</span><strong>{modelPackageDisplayName(fixedPackage)}</strong><small>学習元: {fixedTrainingDataset ? datasetDisplayName(fixedTrainingDataset) : "未登録または記録なし"} · Manifest {project.model_package_manifest_digest.slice(0, 10)}</small></div><div><span>所属グループ</span><strong>{fixedSeries?.name ?? "—"}</strong><small>設定から変更できます</small></div></section>)}
+        : <section className="project-reference-strip" aria-label="プロジェクトの参照と所属"><div><span>参照Dataset</span><strong>{fixedDataset?.data_asset.original_filename ?? "—"}</strong><small>{fixedDataset ? `${fixedDataset.profile_revision.name} · r${fixedDataset.profile_revision.revision}` : ""}</small></div><div><span>Prediction Task</span><strong>{taskLabels.get(project.task_id) ?? project.task_id}</strong><small>固定</small></div><div><span>Model Package</span><strong>{modelPackageDisplayName(fixedPackage)}</strong><small>学習元: {fixedTrainingDataset ? datasetDisplayName(fixedTrainingDataset) : "未登録または記録なし"} · Manifest {project.model_package_manifest_digest.slice(0, 10)}</small></div><div><span>Design Space</span><strong>{project.design_space ? `${project.design_space.name} · r${project.design_space.revision}` : "未固定（legacy）"}</strong><small title={project.design_space_digest ?? undefined}>{project.design_space_digest ? `${project.design_space_binding_provenance === "generated_default" ? "Task許容範囲から生成" : project.design_space_binding_provenance === "inherited_predecessor" ? "前の検討から継承" : "明示固定"} · ${project.design_space_digest.slice(0, 16)}…` : "保存済みRunは従来どおり参照できます"}</small></div><div><span>所属グループ</span><strong>{fixedSeries?.name ?? "—"}</strong><small>設定から変更できます</small></div></section>)}
       {chainIdentity && (chainEvaluation?.projectId === activeProjectId
         ? <ChainEvaluationPanel evaluation={chainEvaluation.value} />
         : <section className="chain-evaluation-panel loading" aria-live="polite">Chain評価を読み込んでいます。</section>)}

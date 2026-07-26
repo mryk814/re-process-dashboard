@@ -6,7 +6,12 @@ from typing import Annotated, Literal
 
 from pydantic import Field, model_validator
 
-from material_workbench.contracts.task_contracts import ContractModel, NumericRange, TaskDefinition
+from material_workbench.contracts.task_contracts import (
+    ContractModel,
+    NumericRange,
+    RelationalConstraint,
+    TaskDefinition,
+)
 from material_workbench.execution.inference_work_graph import semantic_digest
 
 
@@ -47,6 +52,7 @@ class CompositionTotalConstraint(ContractModel):
 class DesignSpaceDefinition(ContractModel):
     schema_version: Literal["design-space-definition/v1"]
     design_space_id: Annotated[str, Field(min_length=1)]
+    revision: Annotated[int, Field(ge=1)] = 1
     name: Annotated[str, Field(min_length=1)]
     task_id: Annotated[str, Field(min_length=1)]
     task_contract_digest: Annotated[str, Field(min_length=1)]
@@ -56,7 +62,12 @@ class DesignSpaceDefinition(ContractModel):
     heat_pattern_domains: tuple[NumericDomain, ...] = ()
     categorical_domains: tuple[CategoricalDomain, ...] = ()
     conditional_constraints: tuple[ConditionalActivation, ...] = ()
+    relational_constraints: tuple[RelationalConstraint, ...] = ()
     composition_constraints: tuple[CompositionTotalConstraint, ...] = ()
+
+    @property
+    def digest(self) -> str:
+        return semantic_digest(self.model_dump(mode="json"))
 
     @model_validator(mode="after")
     def unique_paths(self) -> "DesignSpaceDefinition":
@@ -150,3 +161,97 @@ class DesignSpaceDefinition(ContractModel):
                 raise ValueError("active choiceがTaskDefinitionにありません")
             if any(path not in fields for path in conditional.inactive_values):
                 raise ValueError("条件付き項目がTaskDefinitionにありません")
+        for constraint in self.relational_constraints:
+            referenced = (constraint.left_path, constraint.right_path)
+            if any(
+                path not in fields or fields[path].kind != "number"
+                for path in referenced
+            ):
+                raise ValueError("関係制約は宣言済み数値項目だけを参照します")
+
+    def validate_narrows(self, parent: "DesignSpaceDefinition") -> None:
+        """Reject a run-local space that widens its Project Design Space."""
+
+        if self.task_id != parent.task_id:
+            raise ValueError("Design SpaceのTaskがProjectと一致しません")
+        if self.task_contract_digest != parent.task_contract_digest:
+            raise ValueError("Design SpaceのTask契約がProjectと一致しません")
+        parent_numeric = {
+            item.path: item for item in (*parent.numeric_domains, *parent.heat_pattern_domains)
+        }
+        for child in (*self.numeric_domains, *self.heat_pattern_domains):
+            outer = parent_numeric.get(child.path)
+            # Heat-point paths depend on the selected candidate length. An empty
+            # Project heat domain therefore means "Task bounds apply".
+            if outer is None and child.path.startswith("heat_pattern."):
+                continue
+            if outer is None:
+                raise ValueError(f"Project Design Spaceで変更できない項目です: {child.path}")
+            values = child.values or (
+                (child.range.min, child.range.max) if child.range is not None else ()
+            )
+            if outer.range is not None and any(
+                not outer.range.min <= value <= outer.range.max for value in values
+            ):
+                raise ValueError(f"Project Design Spaceの範囲を超えています: {child.path}")
+            if outer.values and any(value not in outer.values for value in values):
+                raise ValueError(f"Project Design Spaceの候補値にありません: {child.path}")
+        parent_categories = {item.path: set(item.choices) for item in parent.categorical_domains}
+        for child in self.categorical_domains:
+            if not set(child.choices) <= parent_categories.get(child.path, set()):
+                raise ValueError(f"Project Design Spaceの選択肢を超えています: {child.path}")
+        parent_fixed = dict(parent.fixed_values)
+        for path, value in self.fixed_values.items():
+            numeric = parent_numeric.get(path)
+            categories = parent_categories.get(path)
+            if path in parent_fixed and value != parent_fixed[path]:
+                raise ValueError(f"Project Design Spaceの固定値と一致しません: {path}")
+            if numeric is not None:
+                if numeric.range is not None and not numeric.range.min <= float(value) <= numeric.range.max:
+                    raise ValueError(f"Project Design Spaceの範囲を超えています: {path}")
+                if numeric.values and value not in numeric.values:
+                    raise ValueError(f"Project Design Spaceの候補値にありません: {path}")
+            elif categories is not None and value not in categories:
+                raise ValueError(f"Project Design Spaceの選択肢にありません: {path}")
+            elif path not in parent_fixed:
+                raise ValueError(f"Project Design Spaceにない固定項目です: {path}")
+
+
+def default_design_space(task: TaskDefinition, *, task_contract_digest: str) -> DesignSpaceDefinition:
+    """Create the immutable full Task-bounded space used by new Projects."""
+
+    numeric = []
+    categorical = []
+    for group in task.input_groups:
+        for field in group.fields:
+            if not field.editable:
+                continue
+            if field.kind == "number" and field.allowed_range is not None:
+                numeric.append(
+                    NumericDomain(path=field.path, mode="range", range=field.allowed_range)
+                )
+            elif field.kind == "categorical":
+                categorical.append(
+                    CategoricalDomain(path=field.path, choices=field.choices)
+                )
+    return DesignSpaceDefinition(
+        schema_version="design-space-definition/v1",
+        design_space_id=f"{task.id}-project-default",
+        revision=1,
+        name="Task許容範囲",
+        task_id=task.id,
+        task_contract_digest=task_contract_digest,
+        numeric_domains=tuple(numeric),
+        categorical_domains=tuple(categorical),
+        relational_constraints=task.constraints,
+        composition_constraints=tuple(
+            CompositionTotalConstraint(
+                component_paths=item.component_paths,
+                total=item.total,
+                tolerance=item.tolerance,
+                unit=item.unit,
+                balance_path=item.balance_path,
+            )
+            for item in task.composition_totals
+        ),
+    )
