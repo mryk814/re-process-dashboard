@@ -141,6 +141,142 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/data-lifecycle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lifecycle Catalog */
+        get: operations["lifecycle_catalog_api_data_lifecycle_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data-lifecycle/canonical-dataset-revisions/{revision_id}/training-snapshots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Training Snapshot */
+        post: operations["create_training_snapshot_api_data_lifecycle_canonical_dataset_revisions__revision_id__training_snapshots_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data-lifecycle/connectors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Connector */
+        post: operations["create_connector_api_data_lifecycle_connectors_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data-lifecycle/connectors/{connector_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Connector Detail */
+        get: operations["connector_detail_api_data_lifecycle_connectors__connector_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data-lifecycle/connectors/{connector_id}/fetch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Fetch Source */
+        post: operations["fetch_source_api_data_lifecycle_connectors__connector_id__fetch_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data-lifecycle/curation-runs/{run_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve Curation Run */
+        post: operations["approve_curation_run_api_data_lifecycle_curation_runs__run_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data-lifecycle/raw-snapshots/{snapshot_id}/curation-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Curation Run */
+        post: operations["create_curation_run_api_data_lifecycle_raw_snapshots__snapshot_id__curation_runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data-lifecycle/recipes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Recipe */
+        post: operations["create_recipe_api_data_lifecycle_recipes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/developer/change-guide": {
         parameters: {
             query?: never;
@@ -1810,6 +1946,43 @@ export interface components {
             /** Sparse Blend Transform Id */
             sparse_blend_transform_id?: string | null;
         };
+        /** ApprovalOverride */
+        ApprovalOverride: {
+            /** Reason */
+            reason: string;
+            /** Row Key */
+            row_key: string;
+        };
+        /** ApprovedTrainingSnapshot */
+        ApprovedTrainingSnapshot: {
+            /** Actor */
+            actor: string;
+            /** Canonical Dataset Revision Id */
+            canonical_dataset_revision_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Dataset Digest */
+            dataset_digest: string;
+            /** Id */
+            id: string;
+            /** Included Row Keys */
+            included_row_keys: string[];
+            /** Purpose */
+            purpose: string;
+            /** Row Count */
+            row_count: number;
+            /**
+             * Schema Version
+             * @default approved-training-snapshot/v1
+             * @constant
+             */
+            schema_version: "approved-training-snapshot/v1";
+            /** Snapshot Digest */
+            snapshot_digest: string;
+        };
         /** BatchCategoryQuota */
         BatchCategoryQuota: {
             /** Max Count */
@@ -2475,6 +2648,46 @@ export interface components {
             /** Provenance */
             provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"] | components["schemas"]["BlendOptimizationSourceRef"] | components["schemas"]["DecisionActivitySourceRef"];
         };
+        /** CanonicalDatasetRevision */
+        CanonicalDatasetRevision: {
+            /** Actor */
+            actor: string;
+            /**
+             * Approved At
+             * Format: date-time
+             */
+            approved_at: string;
+            /** Approved Row Keys */
+            approved_row_keys: string[];
+            /** Curation Digest */
+            curation_digest: string;
+            /** Curation Run Id */
+            curation_run_id: string;
+            /** Dataset Digest */
+            dataset_digest: string;
+            /** Excluded Row Keys */
+            excluded_row_keys: string[];
+            /** Id */
+            id: string;
+            /** Overrides */
+            overrides: components["schemas"]["ApprovalOverride"][];
+            /** Profile Digest */
+            profile_digest: string;
+            /** Profile Revision Id */
+            profile_revision_id: string;
+            /** Raw Snapshot Digest */
+            raw_snapshot_digest: string;
+            /** Reason */
+            reason: string;
+            /** Recipe Digest */
+            recipe_digest: string;
+            /**
+             * Schema Version
+             * @default approved-canonical-dataset/v1
+             * @constant
+             */
+            schema_version: "approved-canonical-dataset/v1";
+        };
         /** CanonicalSeriesPoint */
         CanonicalSeriesPoint: {
             /** Channel */
@@ -3139,6 +3352,16 @@ export interface components {
             /** Unchanged */
             unchanged: string[];
         };
+        /** CoerceNumberStep */
+        CoerceNumberStep: {
+            /** Fields */
+            fields: string[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "coerce_number_v1";
+        };
         /** CompiledWholeWireBlend */
         CompiledWholeWireBlend: {
             /** Hoop Id */
@@ -3212,6 +3435,53 @@ export interface components {
             parent_key: string;
             /** Source */
             source: string;
+        };
+        /** ConnectorLifecycleDetail */
+        ConnectorLifecycleDetail: {
+            /**
+             * Attempts
+             * @default []
+             */
+            attempts: components["schemas"]["FetchAttempt"][];
+            /**
+             * Canonical Revisions
+             * @default []
+             */
+            canonical_revisions: components["schemas"]["CanonicalDatasetRevision"][];
+            connector: components["schemas"]["SourceConnector"];
+            /**
+             * Curation Runs
+             * @default []
+             */
+            curation_runs: components["schemas"]["CurationRun"][];
+            /**
+             * Raw Snapshots
+             * @default []
+             */
+            raw_snapshots: components["schemas"]["RawSourceSnapshot"][];
+            /**
+             * Training Snapshots
+             * @default []
+             */
+            training_snapshots: components["schemas"]["ApprovedTrainingSnapshot"][];
+        };
+        /** ConnectorSchedule */
+        ConnectorSchedule: {
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /** Interval Minutes */
+            interval_minutes: number;
+            /** Schedule Id */
+            schedule_id: string;
+            /**
+             * Schema Version
+             * @default connector-schedule/v1
+             * @constant
+             */
+            schema_version: "connector-schedule/v1";
         };
         /** CoordinateUnitConversion */
         CoordinateUnitConversion: {
@@ -3409,6 +3679,115 @@ export interface components {
             /** Target */
             target: string;
         };
+        /** CuratedRow */
+        CuratedRow: {
+            /** Canonical Record */
+            canonical_record: {
+                [key: string]: unknown;
+            };
+            /** Raw Row Index */
+            raw_row_index: number;
+            /**
+             * Reason Codes
+             * @default []
+             */
+            reason_codes: ("missing_required" | "invalid_number" | "filter_mismatch" | "sum_limit_exceeded" | "missing_target" | "duplicate_row_key")[];
+            /** Row Key */
+            row_key: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "accepted" | "warning" | "quarantined" | "blocked";
+            /** Target Eligible */
+            target_eligible: boolean;
+        };
+        /** CurationRecipe */
+        CurationRecipe: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Recipe Digest */
+            recipe_digest: string;
+            /** Recipe Id */
+            recipe_id: string;
+            /**
+             * Schema Version
+             * @default curation-recipe/v1
+             * @constant
+             */
+            schema_version: "curation-recipe/v1";
+            /** Steps */
+            steps: (components["schemas"]["TrimStringsStep"] | components["schemas"]["CoerceNumberStep"] | components["schemas"]["RequiredFieldsStep"] | components["schemas"]["TargetEligibilityStep"] | components["schemas"]["FilterEqualStep"] | components["schemas"]["SumLimitStep"])[];
+            /** Version */
+            version: number;
+        };
+        /** CurationRecipeCreateInput */
+        CurationRecipeCreateInput: {
+            /** Name */
+            name: string;
+            /** Recipe Id */
+            recipe_id: string;
+            /**
+             * Schema Version
+             * @default curation-recipe/v1
+             * @constant
+             */
+            schema_version: "curation-recipe/v1";
+            /** Steps */
+            steps: (components["schemas"]["TrimStringsStep"] | components["schemas"]["CoerceNumberStep"] | components["schemas"]["RequiredFieldsStep"] | components["schemas"]["TargetEligibilityStep"] | components["schemas"]["FilterEqualStep"] | components["schemas"]["SumLimitStep"])[];
+            /** Version */
+            version: number;
+        };
+        /** CurationRun */
+        CurationRun: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Curation Digest */
+            curation_digest: string;
+            /** Id */
+            id: string;
+            /** Profile Digest */
+            profile_digest: string;
+            /** Profile Revision Id */
+            profile_revision_id: string;
+            quality: components["schemas"]["QualitySummary"];
+            quality_delta: components["schemas"]["QualityDelta"];
+            /** Raw Snapshot Digest */
+            raw_snapshot_digest: string;
+            /** Raw Snapshot Id */
+            raw_snapshot_id: string;
+            /** Recipe Digest */
+            recipe_digest: string;
+            /** Recipe Id */
+            recipe_id: string;
+            /** Rows */
+            rows: components["schemas"]["CuratedRow"][];
+            /**
+             * Schema Version
+             * @default curation-run/v1
+             * @constant
+             */
+            schema_version: "curation-run/v1";
+        };
+        /** CurationRunCreateInput */
+        CurationRunCreateInput: {
+            /** Profile Digest */
+            profile_digest: string;
+            /** Profile Revision Id */
+            profile_revision_id: string;
+            /** Recipe Resource Id */
+            recipe_resource_id: string;
+        };
         /** CurveFamilyResponse */
         CurveFamilyResponse: {
             axis: components["schemas"]["CurveVariable"];
@@ -3539,6 +3918,19 @@ export interface components {
             /** Supported Task Ids */
             supported_task_ids: string[];
         };
+        /** DataLifecycleCatalog */
+        DataLifecycleCatalog: {
+            /**
+             * Connectors
+             * @default []
+             */
+            connectors: components["schemas"]["SourceConnector"][];
+            /**
+             * Recipes
+             * @default []
+             */
+            recipes: components["schemas"]["CurationRecipe"][];
+        };
         /** DataQualityIssue */
         DataQualityIssue: {
             /** Detail */
@@ -3565,6 +3957,21 @@ export interface components {
              * @enum {string}
              */
             suggested_view: "lineage" | "source_sheet";
+        };
+        /** DatasetApprovalInput */
+        DatasetApprovalInput: {
+            /** Actor */
+            actor: string;
+            /**
+             * Overrides
+             * @default []
+             */
+            overrides: components["schemas"]["ApprovalOverride"][];
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
         };
         /** DatasetIdentity */
         DatasetIdentity: {
@@ -4185,12 +4592,75 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** FetchAttempt */
+        FetchAttempt: {
+            /** Connector Id */
+            connector_id: string;
+            /** Error Code */
+            error_code?: ("invalid_object" | "scheduled_trigger_not_allowed" | "connector_not_found") | null;
+            /**
+             * Error Message
+             * @default
+             */
+            error_message: string;
+            /**
+             * Finished At
+             * Format: date-time
+             */
+            finished_at: string;
+            /** Id */
+            id: string;
+            /** Object Version */
+            object_version: string;
+            /** Retry Of */
+            retry_of?: string | null;
+            /**
+             * Reused Existing Snapshot
+             * @default false
+             */
+            reused_existing_snapshot: boolean;
+            /**
+             * Schema Version
+             * @default fetch-attempt/v1
+             * @constant
+             */
+            schema_version: "fetch-attempt/v1";
+            /** Snapshot Id */
+            snapshot_id?: string | null;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "succeeded" | "failed";
+            /**
+             * Trigger Kind
+             * @enum {string}
+             */
+            trigger_kind: "manual" | "scheduled";
+        };
         /** FieldError */
         FieldError: {
             /** Message */
             message: string;
             /** Path */
             path: string;
+        };
+        /** FilterEqualStep */
+        FilterEqualStep: {
+            /** Field */
+            field: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "filter_equal_v1";
+            /** Value */
+            value: string | number | boolean;
         };
         /** FixedContextDefinition */
         FixedContextDefinition: {
@@ -4940,6 +5410,27 @@ export interface components {
             upper?: number | null;
             /** Weight */
             weight?: number | null;
+        };
+        /** ObjectSelection */
+        ObjectSelection: {
+            /**
+             * Format
+             * @enum {string}
+             */
+            format: "json_array" | "jsonl";
+            /**
+             * Included Fields
+             * @default []
+             */
+            included_fields: string[];
+            /** Primary Key */
+            primary_key?: string | null;
+            /**
+             * Schema Version
+             * @default object-selection/v1
+             * @constant
+             */
+            schema_version: "object-selection/v1";
         };
         /** ObservationGroup */
         ObservationGroup: {
@@ -5936,6 +6427,36 @@ export interface components {
              */
             support_policy: "supported_first" | "exclude_extrapolated" | "allow_with_warning";
         };
+        /** QualityDelta */
+        QualityDelta: {
+            /**
+             * Accepted Delta
+             * @default 0
+             */
+            accepted_delta: number;
+            /**
+             * Blocked Delta
+             * @default 0
+             */
+            blocked_delta: number;
+            /** Comparable */
+            comparable: boolean;
+            /**
+             * Quarantined Delta
+             * @default 0
+             */
+            quarantined_delta: number;
+            /**
+             * Target Ineligible Delta
+             * @default 0
+             */
+            target_ineligible_delta: number;
+            /**
+             * Warning Delta
+             * @default 0
+             */
+            warning_delta: number;
+        };
         /** QualityResponse */
         QualityResponse: {
             /** By Category */
@@ -5972,6 +6493,34 @@ export interface components {
             "\u671F\u5F85\u3059\u308B\u6C17\u3065\u304D": string;
         } & {
             [key: string]: unknown;
+        };
+        /** QualitySummary */
+        QualitySummary: {
+            /**
+             * Accepted
+             * @default 0
+             */
+            accepted: number;
+            /**
+             * Blocked
+             * @default 0
+             */
+            blocked: number;
+            /**
+             * Quarantined
+             * @default 0
+             */
+            quarantined: number;
+            /**
+             * Target Ineligible
+             * @default 0
+             */
+            target_ineligible: number;
+            /**
+             * Warning
+             * @default 0
+             */
+            warning: number;
         };
         /** RawSeriesAsset */
         RawSeriesAsset: {
@@ -6073,6 +6622,80 @@ export interface components {
             /** Source Locator */
             source_locator: string;
         };
+        /** RawSnapshotDiff */
+        RawSnapshotDiff: {
+            /**
+             * Added Rows
+             * @default 0
+             */
+            added_rows: number;
+            /**
+             * Changed Rows
+             * @default 0
+             */
+            changed_rows: number;
+            /** Comparable */
+            comparable: boolean;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /**
+             * Removed Rows
+             * @default 0
+             */
+            removed_rows: number;
+            /**
+             * Unchanged Rows
+             * @default 0
+             */
+            unchanged_rows: number;
+        };
+        /** RawSourceSnapshot */
+        RawSourceSnapshot: {
+            /**
+             * Captured At
+             * Format: date-time
+             */
+            captured_at: string;
+            /** Connector Configuration Digest */
+            connector_configuration_digest: string;
+            /** Connector Id */
+            connector_id: string;
+            /** Content Sha256 */
+            content_sha256: string;
+            diff: components["schemas"]["RawSnapshotDiff"];
+            /** Id */
+            id: string;
+            /** Object Version */
+            object_version: string;
+            /** Previous Snapshot Id */
+            previous_snapshot_id?: string | null;
+            /** Row Count */
+            row_count: number;
+            /** Rows */
+            rows: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Schema Version
+             * @default raw-source-snapshot/v1
+             * @constant
+             */
+            schema_version: "raw-source-snapshot/v1";
+            /** Selection Digest */
+            selection_digest: string;
+            /** Snapshot Digest */
+            snapshot_digest: string;
+            /** Source Locator */
+            source_locator: string;
+            /**
+             * Trigger Kind
+             * @enum {string}
+             */
+            trigger_kind: "manual" | "scheduled";
+        };
         /** RelationalConstraint */
         RelationalConstraint: {
             /** Left Path */
@@ -6125,6 +6748,16 @@ export interface components {
             n: number;
             /** Std */
             std: number;
+        };
+        /** RequiredFieldsStep */
+        RequiredFieldsStep: {
+            /** Fields */
+            fields: string[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "required_fields_v1";
         };
         /** ResolvedChainEvaluation */
         ResolvedChainEvaluation: {
@@ -6956,6 +7589,93 @@ export interface components {
             source_kind: "snapshot";
             source_ref: components["schemas"]["SnapshotReference"];
         };
+        /** SourceConnector */
+        SourceConnector: {
+            /** Configuration Digest */
+            configuration_digest: string;
+            /**
+             * Connector Type
+             * @constant
+             */
+            connector_type: "object_storage_json_v1";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            schedule?: components["schemas"]["ConnectorSchedule"] | null;
+            /**
+             * Schema Version
+             * @default source-connector/v1
+             * @constant
+             */
+            schema_version: "source-connector/v1";
+            selection: components["schemas"]["ObjectSelection"];
+            /** Source Locator */
+            source_locator: string;
+            /**
+             * Trigger Policy
+             * @default manual_only
+             * @enum {string}
+             */
+            trigger_policy: "manual_only" | "schedulable";
+        };
+        /** SourceConnectorCreateInput */
+        SourceConnectorCreateInput: {
+            /**
+             * Connector Type
+             * @constant
+             */
+            connector_type: "object_storage_json_v1";
+            /** Name */
+            name: string;
+            schedule?: components["schemas"]["ConnectorSchedule"] | null;
+            /**
+             * Schema Version
+             * @default source-connector/v1
+             * @constant
+             */
+            schema_version: "source-connector/v1";
+            selection: components["schemas"]["ObjectSelection"];
+            /** Source Locator */
+            source_locator: string;
+            /**
+             * Trigger Policy
+             * @default manual_only
+             * @enum {string}
+             */
+            trigger_policy: "manual_only" | "schedulable";
+        };
+        /** SourceFetchRequest */
+        SourceFetchRequest: {
+            /** Object Content */
+            object_content: string;
+            /** Object Version */
+            object_version: string;
+            /** Retry Of */
+            retry_of?: string | null;
+            /**
+             * Schema Version
+             * @default source-fetch-request/v1
+             * @constant
+             */
+            schema_version: "source-fetch-request/v1";
+            /**
+             * Trigger Kind
+             * @default manual
+             * @enum {string}
+             */
+            trigger_kind: "manual" | "scheduled";
+        };
+        /** SourceFetchResult */
+        SourceFetchResult: {
+            attempt: components["schemas"]["FetchAttempt"];
+            snapshot: components["schemas"]["RawSourceSnapshot"];
+        };
         /**
          * SparseBlend
          * @description Canonical core blend. Ratios and fill are percentages, not fractions.
@@ -7066,6 +7786,29 @@ export interface components {
             /** Supported */
             supported: boolean;
         };
+        /** SumLimitStep */
+        SumLimitStep: {
+            /** Fields */
+            fields: string[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "sum_limit_v1";
+            /** Maximum */
+            maximum: number;
+            /**
+             * On Violation
+             * @default warning
+             * @enum {string}
+             */
+            on_violation: "warning" | "quarantined";
+            /**
+             * Tolerance
+             * @default 0
+             */
+            tolerance: number;
+        };
         /** Support */
         Support: {
             /** Caution Threshold */
@@ -7099,6 +7842,16 @@ export interface components {
             reasons: string[];
             /** Usable */
             usable: boolean;
+        };
+        /** TargetEligibilityStep */
+        TargetEligibilityStep: {
+            /** Fields */
+            fields: string[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "target_eligibility_v1";
         };
         /** TargetRange */
         TargetRange: {
@@ -7274,6 +8027,23 @@ export interface components {
             values: {
                 [key: string]: string | number | boolean | null;
             };
+        };
+        /** TrainingSnapshotCreateInput */
+        TrainingSnapshotCreateInput: {
+            /** Actor */
+            actor: string;
+            /** Purpose */
+            purpose: string;
+        };
+        /** TrimStringsStep */
+        TrimStringsStep: {
+            /** Fields */
+            fields: string[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "trim_strings_v1";
         };
         /** TruncatedNormalTolerance */
         TruncatedNormalTolerance: {
@@ -7610,6 +8380,272 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DatasetViewRevision"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    lifecycle_catalog_api_data_lifecycle_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataLifecycleCatalog"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    create_training_snapshot_api_data_lifecycle_canonical_dataset_revisions__revision_id__training_snapshots_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                revision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TrainingSnapshotCreateInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovedTrainingSnapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    create_connector_api_data_lifecycle_connectors_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceConnectorCreateInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceConnector"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    connector_detail_api_data_lifecycle_connectors__connector_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                connector_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectorLifecycleDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    fetch_source_api_data_lifecycle_connectors__connector_id__fetch_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                connector_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceFetchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceFetchResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    approve_curation_run_api_data_lifecycle_curation_runs__run_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DatasetApprovalInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CanonicalDatasetRevision"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    create_curation_run_api_data_lifecycle_raw_snapshots__snapshot_id__curation_runs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                snapshot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CurationRunCreateInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurationRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    create_recipe_api_data_lifecycle_recipes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CurationRecipeCreateInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurationRecipe"];
                 };
             };
             /** @description Validation Error */

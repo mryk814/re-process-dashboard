@@ -72,11 +72,58 @@ export type ApiSeriesAssetDetail = components["schemas"]["SeriesAssetDetail"];
 export type ApiCanonicalSeriesRevision = components["schemas"]["CanonicalSeriesRevision"];
 export type ApiSeriesFeaturePreview = components["schemas"]["SeriesFeaturePreview"];
 export type ApiSeriesFeatureContract = components["schemas"]["SeriesFeatureContract"];
+export type ApiDataLifecycleCatalog = components["schemas"]["DataLifecycleCatalog"];
+export type ApiConnectorLifecycleDetail = components["schemas"]["ConnectorLifecycleDetail"];
+export type ApiSourceConnectorInput = components["schemas"]["SourceConnectorCreateInput"];
+export type ApiSourceFetchRequest = components["schemas"]["SourceFetchRequest"];
+export type ApiCurationRecipeInput = components["schemas"]["CurationRecipeCreateInput"];
+export type ApiCurationRunInput = components["schemas"]["CurationRunCreateInput"];
+export type ApiDatasetApprovalInput = components["schemas"]["DatasetApprovalInput"];
+export type ApiTrainingSnapshotInput = components["schemas"]["TrainingSnapshotCreateInput"];
 
 const path = (projectId: string, suffix = "") =>
   `/api/projects/${encodeURIComponent(projectId)}${suffix}`;
 
 export const workbenchApi = {
+  async dataLifecycleCatalog() {
+    return requireData(await apiClient.GET("/api/data-lifecycle"), "データ更新履歴を取得できませんでした。");
+  },
+  async createSourceConnector(body: ApiSourceConnectorInput) {
+    return requireData(await apiClient.POST("/api/data-lifecycle/connectors", { body }), "Source Connectorを登録できませんでした。");
+  },
+  async sourceConnectorDetail(connectorId: string) {
+    return requireData(await apiClient.GET("/api/data-lifecycle/connectors/{connector_id}", {
+      params: { path: { connector_id: connectorId } },
+    }), "Source Connectorの履歴を取得できませんでした。");
+  },
+  async fetchSourceConnector(connectorId: string, body: ApiSourceFetchRequest, credential = "") {
+    return requireData(await apiClient.POST("/api/data-lifecycle/connectors/{connector_id}/fetch", {
+      params: { path: { connector_id: connectorId } },
+      body,
+      headers: credential ? { "X-Source-Credential": credential } : undefined,
+    }), "SourceからRaw Snapshotを取得できませんでした。");
+  },
+  async createCurationRecipe(body: ApiCurationRecipeInput) {
+    return requireData(await apiClient.POST("/api/data-lifecycle/recipes", { body }), "Curation Recipeを登録できませんでした。");
+  },
+  async curateRawSnapshot(snapshotId: string, body: ApiCurationRunInput) {
+    return requireData(await apiClient.POST("/api/data-lifecycle/raw-snapshots/{snapshot_id}/curation-runs", {
+      params: { path: { snapshot_id: snapshotId } },
+      body,
+    }), "Raw Snapshotをcurationできませんでした。");
+  },
+  async approveCurationRun(runId: string, body: ApiDatasetApprovalInput) {
+    return requireData(await apiClient.POST("/api/data-lifecycle/curation-runs/{run_id}/approve", {
+      params: { path: { run_id: runId } },
+      body,
+    }), "Canonical Dataset Revisionを承認できませんでした。");
+  },
+  async createApprovedTrainingSnapshot(revisionId: string, body: ApiTrainingSnapshotInput) {
+    return requireData(await apiClient.POST("/api/data-lifecycle/canonical-dataset-revisions/{revision_id}/training-snapshots", {
+      params: { path: { revision_id: revisionId } },
+      body,
+    }), "Training Snapshotを作成できませんでした。");
+  },
   async listSeriesAssets() {
     return requireData(await apiClient.GET("/api/series-assets"), "系列データを取得できませんでした。");
   },
