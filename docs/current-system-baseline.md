@@ -158,6 +158,7 @@ Stage Aの固定科学変換境界に限り、目標材料成分から配合へ�
 | Chain execution／snapshot／actual variant | `backend/src/material_workbench/contracts/chain_execution_contracts.py` |
 | Decision Activity | `backend/src/material_workbench/contracts/decision_activity_contracts.py` |
 | Project Design Space | `backend/src/material_workbench/contracts/design_space_contracts.py` と `docs/project-design-space.md` |
+| Objective Definition | `backend/src/material_workbench/contracts/objective_contracts.py` と `docs/objective-definition.md` |
 | Model Package | `docs/model-package-contract.md` と対応するcontract code |
 | Dataset解釈 | Profile familyごとのschemaと契約文書 |
 | OpenAPI／frontend API型 | FastAPI OpenAPIと`apps/web/src/generated/` |

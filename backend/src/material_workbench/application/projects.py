@@ -25,6 +25,10 @@ from material_workbench.persistence.store import (
 )
 from material_workbench.contracts.task_contracts import OutputDefinition, TaskContractFixture
 from material_workbench.contracts.design_space_contracts import default_design_space
+from material_workbench.contracts.objective_contracts import (
+    ObjectiveDefinitionRevision,
+    objective_from_project_targets,
+)
 from material_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from material_workbench.persistence.workspace_catalog_bootstrap import task_definition_digest
@@ -58,6 +62,13 @@ class ProjectService:
 
     def list(self) -> list[Project]:
         return self.store.list_projects()
+
+    def objective_revisions(
+        self,
+        project_id: str,
+    ) -> list[ObjectiveDefinitionRevision]:
+        self.require(project_id)
+        return self.store.list_project_objective_revisions(project_id)
 
     def create(self, payload: ProjectCreateInput) -> Project:
         if (
@@ -141,6 +152,7 @@ class ProjectService:
             "predecessor_project_id": current.predecessor_project_id,
             "scientific_identity": current.scientific_identity,
             "design_space_digest": current.design_space_digest,
+            "objective_definition_digest": current.objective_definition_digest,
         }
         changed = [
             key for key, expected in frozen.items()
@@ -153,8 +165,45 @@ class ProjectService:
         contract = self._contract(task_id)
         self._validate_targets(payload, contract.task_definition.outputs)
         self._validate_display_decimals(payload, task_id)
+        objective = current.objective_definition
+        objective_provenance = current.objective_binding_provenance
+        if (
+            current.scientific_identity.identity_kind == "single_task"
+            and payload.target_values != current.target_values
+        ):
+            try:
+                objective = objective_from_project_targets(
+                    task=contract.task_definition,
+                    task_contract_digest=current.task_contract_digest,
+                    target_values=payload.target_values,
+                )
+            except ValueError as exc:
+                raise ProjectValidationError(str(exc)) from exc
+            if objective is not None:
+                if current.objective_definition is not None:
+                    objective = objective.model_copy(
+                        update={
+                            "objective_id": current.objective_definition.objective_id,
+                            "revision": current.objective_definition.revision + 1,
+                        }
+                    )
+                try:
+                    objective.validate_against(
+                        contract.task_definition,
+                        contract.runtime_capability,
+                    )
+                except ValueError as exc:
+                    raise ProjectValidationError(str(exc)) from exc
+                objective_provenance = "updated_revision"
+            else:
+                objective_provenance = "none_configured"
         try:
-            project = self.store.update_project(project_id, payload)
+            project = self.store.update_project(
+                project_id,
+                payload,
+                objective_definition=objective,
+                objective_binding_provenance=objective_provenance,
+            )
         except InvalidProjectDecisionError as exc:
             raise ProjectValidationError(str(exc)) from exc
         if project is None:
@@ -345,6 +394,38 @@ class ProjectService:
         except ValueError as exc:
             raise ProjectValidationError(str(exc)) from exc
 
+        objective = payload.objective_definition
+        objective_provenance = "explicit"
+        if objective is None and payload.predecessor_project_id:
+            predecessor = self.require(payload.predecessor_project_id)
+            if (
+                predecessor.scientific_identity.identity_kind == "single_task"
+                and predecessor.task_id == payload.task_id
+                and predecessor.objective_definition is not None
+            ):
+                objective = predecessor.objective_definition
+                objective_provenance = "inherited_predecessor"
+        if objective is None:
+            try:
+                objective = objective_from_project_targets(
+                    task=contract.task_definition,
+                    task_contract_digest=task_digest,
+                    target_values=payload.target_values,
+                )
+            except ValueError as exc:
+                raise ProjectValidationError(str(exc)) from exc
+            objective_provenance = (
+                "generated_default" if objective is not None else "none_configured"
+            )
+        if objective is not None:
+            try:
+                objective.validate_against(
+                    contract.task_definition,
+                    contract.runtime_capability,
+                )
+            except ValueError as exc:
+                raise ProjectValidationError(str(exc)) from exc
+
         payload = self._resolve_project_series(payload)
         assert payload.project_series_id is not None
         return payload.model_copy(update={
@@ -354,6 +435,8 @@ class ProjectService:
             "model_package_manifest_digest": package.manifest_digest,
             "design_space": space,
             "design_space_binding_provenance": provenance,
+            "objective_definition": objective,
+            "objective_binding_provenance": objective_provenance,
         })
 
     def _resolve_project_series(

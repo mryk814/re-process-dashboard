@@ -1199,6 +1199,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/objectives": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Project Objective Revisions */
+        get: operations["listProjectObjectiveRevisions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/quality": {
         parameters: {
             query?: never;
@@ -4214,6 +4231,95 @@ export interface components {
             /** Min */
             min: number;
         };
+        /** ObjectiveDefinition */
+        ObjectiveDefinition: {
+            /** @default {
+             *       "source": "none"
+             *     } */
+            incumbent: components["schemas"]["ObjectiveIncumbent"];
+            /** Name */
+            name: string;
+            /** Objective Id */
+            objective_id: string;
+            /**
+             * Optimization Kind
+             * @enum {string}
+             */
+            optimization_kind: "single_objective" | "constrained_single_objective" | "pareto_multi_objective" | "legacy_screening";
+            /**
+             * Revision
+             * @default 1
+             */
+            revision: number;
+            /**
+             * Schema Version
+             * @default objective-definition/v1
+             * @constant
+             */
+            schema_version: "objective-definition/v1";
+            /** Task Contract Digest */
+            task_contract_digest: string;
+            /** Task Id */
+            task_id: string;
+            /** Terms */
+            terms: components["schemas"]["ObjectiveTerm"][];
+        };
+        /** ObjectiveDefinitionRevision */
+        ObjectiveDefinitionRevision: {
+            /**
+             * Binding Provenance
+             * @enum {string}
+             */
+            binding_provenance: "explicit" | "generated_default" | "inherited_predecessor" | "updated_revision";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            objective_definition: components["schemas"]["ObjectiveDefinition"];
+            /** Objective Definition Digest */
+            objective_definition_digest: string;
+            /** Project Id */
+            project_id: string;
+        };
+        /** ObjectiveIncumbent */
+        ObjectiveIncumbent: {
+            /** Candidate Id */
+            candidate_id?: string | null;
+            /** Candidate Revision */
+            candidate_revision?: number | null;
+            /** Snapshot Id */
+            snapshot_id?: string | null;
+            /**
+             * Source
+             * @default none
+             * @enum {string}
+             */
+            source: "none" | "observed_best" | "candidate_revision" | "prediction_snapshot" | "project_decision";
+        };
+        /** ObjectiveTerm */
+        ObjectiveTerm: {
+            /** Direction */
+            direction?: ("maximize" | "minimize" | "at_least" | "at_most" | "between" | "target") | null;
+            /** Lower */
+            lower?: number | null;
+            normalization_range?: components["schemas"]["NumericRange"] | null;
+            /** Output Key */
+            output_key: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "primary_objective" | "hard_outcome_constraint" | "soft_preference" | "reporting_only";
+            /** Target */
+            target?: number | null;
+            /** Unit */
+            unit: string;
+            /** Upper */
+            upper?: number | null;
+            /** Weight */
+            weight?: number | null;
+        };
         /** ObservationGroup */
         ObservationGroup: {
             /** Count */
@@ -4716,6 +4822,15 @@ export interface components {
              * @default
              */
             notes: string;
+            /**
+             * Objective Binding Provenance
+             * @default unbound_legacy
+             * @enum {string}
+             */
+            objective_binding_provenance: "explicit" | "generated_default" | "inherited_predecessor" | "updated_revision" | "none_configured" | "unbound_legacy";
+            objective_definition?: components["schemas"]["ObjectiveDefinition"] | null;
+            /** Objective Definition Digest */
+            objective_definition_digest?: string | null;
             /** Predecessor Project Id */
             predecessor_project_id?: string | null;
             /** Project Series Id */
@@ -4820,6 +4935,9 @@ export interface components {
              * @default
              */
             notes: string;
+            /** Objective Binding Provenance */
+            objective_binding_provenance?: ("explicit" | "generated_default" | "inherited_predecessor" | "updated_revision" | "none_configured") | null;
+            objective_definition?: components["schemas"]["ObjectiveDefinition"] | null;
             /** Predecessor Project Id */
             predecessor_project_id?: string | null;
             /** Project Series Id */
@@ -5016,6 +5134,8 @@ export interface components {
              * @default
              */
             notes: string;
+            /** Objective Definition Digest */
+            objective_definition_digest?: string | null;
             /** Predecessor Project Id */
             predecessor_project_id?: string | null;
             /** Project Series Id */
@@ -5489,6 +5609,7 @@ export interface components {
             /** Base Candidate Id */
             base_candidate_id: string;
             base_inputs: components["schemas"]["CandidateInputs"];
+            objective_definition?: components["schemas"]["ObjectiveDefinition"] | null;
             /**
              * Samples
              * @default 64
@@ -5537,6 +5658,15 @@ export interface components {
             /** Id */
             id: string;
             model_provenance: components["schemas"]["ModelMetadata"];
+            /**
+             * Objective Binding Provenance
+             * @default legacy_screening
+             * @enum {string}
+             */
+            objective_binding_provenance: "explicit" | "legacy_screening";
+            objective_definition?: components["schemas"]["ObjectiveDefinition"] | null;
+            /** Objective Definition Digest */
+            objective_definition_digest?: string | null;
             /** Points */
             points: components["schemas"]["ScreeningPoint"][];
             /**
@@ -5567,7 +5697,7 @@ export interface components {
              * @default screening-run/v1
              * @enum {string}
              */
-            schema_version: "screening-run/v1" | "screening-run/v2" | "screening-run/v3" | "screening-run/v4";
+            schema_version: "screening-run/v1" | "screening-run/v2" | "screening-run/v3" | "screening-run/v4" | "screening-run/v5";
             score_contract: components["schemas"]["ScreeningScoreContract"];
             /** Secondary Goals */
             secondary_goals?: {
@@ -9774,6 +9904,64 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModelTrainingDataPage"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    listProjectObjectiveRevisions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ObjectiveDefinitionRevision"][];
                 };
             };
             /** @description Not Found */

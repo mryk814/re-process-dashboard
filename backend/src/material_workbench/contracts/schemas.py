@@ -16,6 +16,7 @@ from material_workbench.contracts.chain_contracts import (
     ProjectScientificIdentity,
 )
 from material_workbench.contracts.design_space_contracts import DesignSpaceDefinition
+from material_workbench.contracts.objective_contracts import ObjectiveDefinition
 from material_workbench.contracts.task_contracts import CandidateProvenance, DirectSourceRef, ResolvedTaskDefinition
 
 
@@ -383,6 +384,10 @@ class ProjectCreateInput(ProjectInput):
     design_space_binding_provenance: Literal[
         "explicit", "generated_default", "inherited_predecessor"
     ] | None = None
+    objective_definition: ObjectiveDefinition | None = None
+    objective_binding_provenance: Literal[
+        "explicit", "generated_default", "inherited_predecessor", "updated_revision", "none_configured"
+    ] | None = None
 
     @model_validator(mode="after")
     def explicit_identity_does_not_conflict_with_legacy_fields(
@@ -436,6 +441,7 @@ class ProjectUpdateInput(BaseModel):
     predecessor_project_id: str | None = None
     scientific_identity: ProjectScientificIdentity | None = None
     design_space_digest: str | None = None
+    objective_definition_digest: str | None = None
 
     @model_validator(mode="after")
     def decision_note_requires_candidate(self) -> "ProjectUpdateInput":
@@ -480,6 +486,16 @@ class Project(ProjectInput):
     design_space_digest: str | None = None
     design_space_binding_provenance: Literal[
         "explicit", "generated_default", "inherited_predecessor", "unbound_legacy"
+    ] = "unbound_legacy"
+    objective_definition: ObjectiveDefinition | None = None
+    objective_definition_digest: str | None = None
+    objective_binding_provenance: Literal[
+        "explicit",
+        "generated_default",
+        "inherited_predecessor",
+        "updated_revision",
+        "none_configured",
+        "unbound_legacy",
     ] = "unbound_legacy"
     binding_provenance: Literal["explicit", "assumed_current_at_upgrade", "unbound_legacy"] = "unbound_legacy"
     binding_migrated_at: datetime | None = None
@@ -552,6 +568,7 @@ class ScreeningRequest(BaseModel):
     target: Annotated[str, Field(min_length=1)] = "TS"
     target_goal: ScreeningGoal | None = None
     secondary_goals: dict[str, ScreeningGoal] = Field(default_factory=dict)
+    objective_definition: ObjectiveDefinition | None = None
 
     @model_validator(mode="after")
     def target_is_not_a_secondary_goal(self) -> "ScreeningRequest":
@@ -1051,7 +1068,7 @@ class ScreeningProposalDiagnostics(BaseModel):
 
 
 class ScreeningRunResponse(BaseModel):
-    schema_version: Literal["screening-run/v1", "screening-run/v2", "screening-run/v3", "screening-run/v4"] = "screening-run/v1"
+    schema_version: Literal["screening-run/v1", "screening-run/v2", "screening-run/v3", "screening-run/v4", "screening-run/v5"] = "screening-run/v1"
     id: str
     project_id: str
     created_at: datetime
@@ -1080,6 +1097,11 @@ class ScreeningRunResponse(BaseModel):
     project_design_space_binding_provenance: Literal[
         "explicit", "generated_default", "inherited_predecessor", "unbound_legacy"
     ] = "unbound_legacy"
+    objective_definition: ObjectiveDefinition | None = None
+    objective_definition_digest: str | None = None
+    objective_binding_provenance: Literal[
+        "explicit", "legacy_screening"
+    ] = "legacy_screening"
     proposal_strategy: ScreeningProposalStrategy | None = None
     proposal_diagnostics: ScreeningProposalDiagnostics | None = None
     rejection_summary: dict[str, int] | None = Field(
@@ -1091,7 +1113,7 @@ class ScreeningRunResponse(BaseModel):
 
     @model_validator(mode="after")
     def proposal_identity_is_internally_consistent(self) -> "ScreeningRunResponse":
-        if self.schema_version not in {"screening-run/v3", "screening-run/v4"}:
+        if self.schema_version not in {"screening-run/v3", "screening-run/v4", "screening-run/v5"}:
             return self
         if (
             self.design_space is None
@@ -1109,7 +1131,7 @@ class ScreeningRunResponse(BaseModel):
             raise ValueError("proposal diagnostics must cover the complete generated pool")
         if self.proposal_diagnostics.evaluated_count != self.samples:
             raise ValueError("proposal diagnostics evaluated_count must match samples")
-        if self.schema_version == "screening-run/v4":
+        if self.schema_version in {"screening-run/v4", "screening-run/v5"}:
             if self.__dict__["target_value"] is not None or self.__dict__["secondary_targets"]:
                 raise ValueError("screening-run/v4 must use target_goal and secondary_goals")
             if self.target in self.secondary_goals:
@@ -1117,6 +1139,11 @@ class ScreeningRunResponse(BaseModel):
             expected_direction = self.target_goal.direction if self.target_goal else None
             if self.score_contract.direction != expected_direction:
                 raise ValueError("score contract direction must match target_goal")
+        if self.schema_version == "screening-run/v5":
+            if self.objective_definition is None or self.objective_definition_digest is None:
+                raise ValueError("screening-run/v5 requires an Objective Definition")
+            if self.objective_definition.digest != self.objective_definition_digest:
+                raise ValueError("Objective Definition digest does not match its payload")
             expected_target = (
                 self.target_goal.lower
                 if self.target_goal and self.target_goal.direction == "at_least"

@@ -42,6 +42,13 @@ from material_workbench.persistence.decision_activity_migration import migrate_d
 from material_workbench.persistence.project_design_space_migration import (
     migrate_project_design_spaces,
 )
+from material_workbench.contracts.objective_contracts import (
+    ObjectiveDefinition,
+    ObjectiveDefinitionRevision,
+)
+from material_workbench.persistence.project_objective_migration import (
+    migrate_project_objectives,
+)
 from material_workbench.persistence.candidate_revision_migration import migrate_candidate_revisions
 
 
@@ -174,6 +181,7 @@ class Store:
         migrate_lineage_reviews(self.path)
         migrate_decision_activity_runs(self.path)
         migrate_project_design_spaces(self.path)
+        migrate_project_objectives(self.path)
 
     def register_chain_definition(self, definition: ChainDefinition) -> str:
         record_id = (
@@ -748,6 +756,13 @@ class Store:
             design_space_binding_provenance=row[
                 "design_space_binding_provenance"
             ],
+            objective_definition=(
+                json.loads(row["objective_definition_json"])
+                if row["objective_definition_json"]
+                else None
+            ),
+            objective_definition_digest=row["objective_definition_digest"],
+            objective_binding_provenance=row["objective_binding_provenance"],
             binding_provenance=row["binding_provenance"],
             binding_migrated_at=(
                 datetime.fromisoformat(row["binding_migrated_at"])
@@ -800,8 +815,9 @@ class Store:
                 "model_package_ref_id,model_package_manifest_digest,project_series_id,predecessor_project_id,"
                 "continuation_reason,binding_provenance,scientific_identity_json,"
                 "design_space_json,design_space_digest,design_space_binding_provenance,"
+                "objective_definition_json,objective_definition_digest,objective_binding_provenance,"
                 "created_at,updated_at) "
-                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     project_id, payload.name, payload.description, payload.purpose, payload.task_id,
                     _target_values_json(payload.target_values),
@@ -827,10 +843,35 @@ class Store:
                         else None
                     ),
                     payload.design_space_binding_provenance or "generated_default",
+                    (
+                        payload.objective_definition.model_dump_json()
+                        if payload.objective_definition is not None
+                        else None
+                    ),
+                    (
+                        payload.objective_definition.digest
+                        if payload.objective_definition is not None
+                        else None
+                    ),
+                    payload.objective_binding_provenance or "none_configured",
                     now,
                     now,
                 ),
             )
+            if payload.objective_definition is not None:
+                conn.execute(
+                    "INSERT INTO project_objective_revisions("
+                    "project_id,objective_digest,revision,payload,binding_provenance,created_at"
+                    ") VALUES (?,?,?,?,?,?)",
+                    (
+                        project_id,
+                        payload.objective_definition.digest,
+                        payload.objective_definition.revision,
+                        payload.objective_definition.model_dump_json(),
+                        payload.objective_binding_provenance or "generated_default",
+                        now,
+                    ),
+                )
             if initial_candidate is not None:
                 candidate_id = str(uuid.uuid4())
                 conn.execute(
@@ -1001,13 +1042,97 @@ class Store:
             )
         return self.get_project(project_id)  # type: ignore[return-value]
 
-    def update_project(self, project_id: str, payload: ProjectUpdateInput) -> Project | None:
+    def update_project(
+        self,
+        project_id: str,
+        payload: ProjectUpdateInput,
+        *,
+        objective_definition: ObjectiveDefinition | None,
+        objective_binding_provenance: str,
+    ) -> Project | None:
         now = _now()
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
             self._validate_decision(conn, project_id, payload.decision_candidate_id, payload.decision_snapshot_id)
-            result = conn.execute("UPDATE projects SET name=?, description=?, purpose=?, target_values=?, input_ranges=?, response_curve_ranges=?, response_curve_points=?, heat_stage_positions_m=?, display_decimals=?, notes=?, decision_candidate_id=?, decision_snapshot_id=?, decision_note=?, updated_at=? WHERE id=?", (payload.name, payload.description, payload.purpose, _target_values_json(payload.target_values), json.dumps({key: value.model_dump() for key, value in payload.input_ranges.items()}, ensure_ascii=False, sort_keys=True), json.dumps({axis: {key: value.model_dump() for key, value in ranges.items()} for axis, ranges in payload.response_curve_ranges.items()}, ensure_ascii=False, sort_keys=True), payload.response_curve_points, json.dumps(payload.heat_stage_positions_m, ensure_ascii=False, sort_keys=True), json.dumps(payload.display_decimals, ensure_ascii=False, sort_keys=True), payload.notes, payload.decision_candidate_id, payload.decision_snapshot_id, payload.decision_note, now, project_id))
+            result = conn.execute(
+                "UPDATE projects SET name=?, description=?, purpose=?, target_values=?, "
+                "input_ranges=?, response_curve_ranges=?, response_curve_points=?, "
+                "heat_stage_positions_m=?, display_decimals=?, notes=?, decision_candidate_id=?, "
+                "decision_snapshot_id=?, decision_note=?, objective_definition_json=?, "
+                "objective_definition_digest=?, objective_binding_provenance=?, updated_at=? "
+                "WHERE id=?",
+                (
+                    payload.name, payload.description, payload.purpose,
+                    _target_values_json(payload.target_values),
+                    json.dumps({key: value.model_dump() for key, value in payload.input_ranges.items()}, ensure_ascii=False, sort_keys=True),
+                    json.dumps({axis: {key: value.model_dump() for key, value in ranges.items()} for axis, ranges in payload.response_curve_ranges.items()}, ensure_ascii=False, sort_keys=True),
+                    payload.response_curve_points,
+                    json.dumps(payload.heat_stage_positions_m, ensure_ascii=False, sort_keys=True),
+                    json.dumps(payload.display_decimals, ensure_ascii=False, sort_keys=True),
+                    payload.notes, payload.decision_candidate_id, payload.decision_snapshot_id,
+                    payload.decision_note,
+                    objective_definition.model_dump_json() if objective_definition else None,
+                    objective_definition.digest if objective_definition else None,
+                    objective_binding_provenance,
+                    now,
+                    project_id,
+                ),
+            )
+            if objective_definition is not None:
+                existing_objective = conn.execute(
+                    "SELECT payload FROM project_objective_revisions "
+                    "WHERE project_id=? AND objective_digest=?",
+                    (project_id, objective_definition.digest),
+                ).fetchone()
+                if existing_objective is None:
+                    conn.execute(
+                        "INSERT INTO project_objective_revisions("
+                        "project_id,objective_digest,revision,payload,binding_provenance,created_at"
+                        ") VALUES (?,?,?,?,?,?)",
+                        (
+                            project_id,
+                            objective_definition.digest,
+                            objective_definition.revision,
+                            objective_definition.model_dump_json(),
+                            objective_binding_provenance,
+                            now,
+                        ),
+                    )
+                elif (
+                    ObjectiveDefinition.model_validate_json(
+                        existing_objective["payload"]
+                    )
+                    != objective_definition
+                ):
+                    raise StoreDataIntegrityError(
+                        "同じObjective digestに異なる定義があります"
+                    )
         return self.get_project(project_id) if result.rowcount else None
+
+    def list_project_objective_revisions(
+        self,
+        project_id: str,
+    ) -> list[ObjectiveDefinitionRevision]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT project_id,objective_digest,revision,payload,"
+                "binding_provenance,created_at "
+                "FROM project_objective_revisions WHERE project_id=? "
+                "ORDER BY revision",
+                (project_id,),
+            ).fetchall()
+        return [
+            ObjectiveDefinitionRevision(
+                project_id=row["project_id"],
+                objective_definition=ObjectiveDefinition.model_validate_json(
+                    row["payload"]
+                ),
+                objective_definition_digest=row["objective_digest"],
+                binding_provenance=row["binding_provenance"],
+                created_at=datetime.fromisoformat(row["created_at"]),
+            )
+            for row in rows
+        ]
 
     def move_project_to_group(self, project_id: str, payload: ProjectGroupMoveInput) -> Project:
         now = _now()
@@ -1101,6 +1226,10 @@ class Store:
             conn.execute("DELETE FROM candidates WHERE project_id=?", (project_id,))
             conn.execute("DELETE FROM screening_runs WHERE project_id=?", (project_id,))
             conn.execute("DELETE FROM lineage_node_reviews WHERE project_id=?", (project_id,))
+            conn.execute(
+                "DELETE FROM project_objective_revisions WHERE project_id=?",
+                (project_id,),
+            )
             conn.execute("DELETE FROM projects WHERE id=?", (project_id,))
             series_id = project_row["project_series_id"]
             if series_id:
