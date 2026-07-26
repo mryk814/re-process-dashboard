@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTaskLabels } from "../../shared/useTaskLabels";
 import {
   workbenchApi,
   type ApiProfileWorkbenchInspection,
@@ -39,6 +40,7 @@ export function ProfileWorkbenchPage({
   const [registering, setRegistering] = useState(false);
   const [error, setError] = useState("");
   const inspectController = useRef<AbortController | null>(null);
+  const taskLabel = useTaskLabels();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -194,7 +196,7 @@ export function ProfileWorkbenchPage({
         <div className="profile-candidate-summary">
           <span>Profile候補</span>
           {profiles.map((item) => <button type="button" key={item.profile_digest} className={item.profile_digest === selectedProfileDigest ? "selected" : ""} disabled={registering || Boolean(registration)} onClick={() => selectProfile(item.profile_digest)}>
-            <b>{item.profile_id}</b><small>{item.task_ids.join(" / ")}</small>
+            <b>{item.profile_id}</b><small title={item.task_ids.join(" / ")}>{item.task_ids.map(taskLabel).join(" / ")}</small>
           </button>)}
         </div>
         <div className={inspection.profile_error ? "profile-structure-diff mismatch" : "profile-structure-diff match"}>
@@ -207,7 +209,7 @@ export function ProfileWorkbenchPage({
       {inspection.validation && <section className="profile-validation-result">
         <div className="panel-title"><h3>Canonical preview</h3><span className="profile-ready-badge">登録可能</span></div>
         <div className="profile-validation-metrics"><div><span>Entities</span><strong>{inspection.validation.entities.toLocaleString("ja-JP")}</strong></div><div><span>Relations</span><strong>{inspection.validation.relations.toLocaleString("ja-JP")}</strong></div><div><span>Observations</span><strong>{inspection.validation.observations.toLocaleString("ja-JP")}</strong></div><div><span>Heat series</span><strong>{inspection.validation.heat_series_parents.toLocaleString("ja-JP")}</strong></div></div>
-        <div className="profile-task-row"><span>対応Prediction Task</span>{inspection.validation.task_ids.map((task) => <b key={task}>{task}</b>)}</div>
+        <div className="profile-task-row"><span>対応する予測タスク</span>{inspection.validation.task_ids.map((task) => <b key={task} title={task}>{taskLabel(task)}</b>)}</div>
         {unresolvedHeatSeriesTotal > 0 && <details className="profile-rejection-details"><summary>ヒートパターンを作れない工程条件: {unresolvedHeatSeriesTotal.toLocaleString("ja-JP")}件</summary>{Object.entries(unresolvedHeatSeries).map(([task, count]) => <span key={task}><code>{task}</code><b>{count.toLocaleString("ja-JP")}件</b></span>)}<p>Datasetには登録できますが、この工程条件はヒートパターンを必要とする学習・候補参照には使われません。</p></details>}
         {rejectedTotal > 0 && <details className="profile-rejection-details"><summary>Eligibilityで除外される観測: {rejectedTotal.toLocaleString("ja-JP")}件</summary>{Object.entries(inspection.validation.rejected_by_policy).map(([policy, count]) => <span key={policy}><code>{policy}</code><b>{count.toLocaleString("ja-JP")}件</b></span>)}</details>}
         {inspection.validation.entity_preview.length > 0 && <details className="profile-preview-details"><summary>正規化後の先頭{inspection.validation.entity_preview.length}件</summary><table><thead><tr><th>Entity</th><th>Key</th><th>Canonical fields</th></tr></thead><tbody>{inspection.validation.entity_preview.map((item, index) => <tr key={`${previewValue(item, "entity_type")}-${previewValue(item, "entity_key")}-${index}`}><td>{previewValue(item, "entity_type")}</td><td>{previewValue(item, "entity_key")}</td><td>{previewFields(item)}</td></tr>)}</tbody></table></details>}
@@ -220,6 +222,6 @@ export function ProfileWorkbenchPage({
       </section>}
     </>}
 
-    {registration && <section className="profile-registration-success" role="status"><div><strong>{registration.reused_existing ? "既存Datasetを確認しました" : "Data Libraryへ登録しました"}</strong><span>{registration.profile_id} · {registration.task_ids.join(" / ")}</span><code>{shortDigest(registration.dataset_revision_id)}</code></div><div className="profile-registration-success-actions"><button className="primary-button" onClick={() => onStartProject(registration.dataset_view_revision_id)}>このDatasetでプロジェクト作成</button><button className="outline-button" onClick={onOpenDataLibrary}>データライブラリで確認</button><button className="text-button" onClick={() => selectFile(null)}>別のExcelを確認</button></div></section>}
+    {registration && <section className="profile-registration-success" role="status"><div><strong>{registration.reused_existing ? "既存Datasetを確認しました" : "Data Libraryへ登録しました"}</strong><span>{registration.profile_id} · {registration.task_ids.map(taskLabel).join(" / ")}</span><code>{shortDigest(registration.dataset_revision_id)}</code></div><div className="profile-registration-success-actions"><button className="primary-button" onClick={() => onStartProject(registration.dataset_view_revision_id)}>このDatasetでプロジェクト作成</button><button className="outline-button" onClick={onOpenDataLibrary}>データライブラリで確認</button><button className="text-button" onClick={() => selectFile(null)}>別のExcelを確認</button></div></section>}
   </div>;
 }
