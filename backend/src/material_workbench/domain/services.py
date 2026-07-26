@@ -26,10 +26,14 @@ from material_workbench.contracts.schemas import (
 )
 from material_workbench.contracts.design_space_contracts import DesignSpaceDefinition
 from material_workbench.contracts.proposal_contracts import ProposalStrategyDefinition
+from material_workbench.contracts.batch_proposal_contracts import BatchProposalDefinition
 from material_workbench.domain.screening_score import evaluate_screening_goal, score_contract, screening_goal_runtime_value
 from material_workbench.domain.proposal_acquisition import acquisition_value
 from material_workbench.domain.proposal_generation import generate_candidates
-from material_workbench.domain.batch_selector import select_experiment_batch
+from material_workbench.domain.batch_selector import (
+    candidate_design_values,
+    select_experiment_batch,
+)
 
 
 COMPOSITION_COLUMNS = composition_names(task_id="annealed-properties-v1")
@@ -232,15 +236,51 @@ def run_proposal(
         ),
     )
     selected = ranked[:request.samples]
+    batch_definition = request.batch_definition
+    if (
+        batch_definition is not None
+        and "candidate_pool_size" not in batch_definition.model_fields_set
+        and batch_definition.candidate_pool_size > request.samples
+    ):
+        batch_definition = BatchProposalDefinition.model_validate(
+            {
+                **batch_definition.model_dump(mode="json"),
+                "candidate_pool_size": request.samples,
+            }
+        )
+    exact_control_points: list[dict[str, Any]] = []
+    if batch_definition is not None:
+        references = batch_reference_candidates or {}
+        for control_index, requirement in enumerate(
+            batch_definition.controls
+        ):
+            candidate = references[requirement.candidate_id]
+            exact_control_points.append(
+                {
+                    "pool_index": pool_size + control_index,
+                    "inputs": candidate_design_values(candidate, design_space),
+                    "candidate": CandidateInput.model_validate(
+                        candidate.model_dump()
+                    ).model_dump(mode="json"),
+                    "score": 0.0,
+                    "secondary_goal_evaluations": {},
+                    "_batch_source": "exact_control",
+                    "_candidate_id": candidate.id,
+                    "_candidate_revision": candidate.revision,
+                }
+            )
     batch_proposal = (
         select_experiment_batch(
-            selected,
-            request.batch_definition,
+            [
+                *ranked[: batch_definition.candidate_pool_size],
+                *exact_control_points,
+            ],
+            batch_definition,
             design_space,
             seed=request.seed,
             reference_candidates=batch_reference_candidates or {},
         )
-        if request.batch_definition is not None
+        if batch_definition is not None
         else None
     )
     selected_pool_indices = {point["pool_index"] for point in selected}
@@ -256,7 +296,9 @@ def run_proposal(
         }
         batch_proposal["selected"] = [
             {
-                "point_index": point_index_by_pool[item["point"]["pool_index"]],
+                "point_index": point_index_by_pool.get(
+                    item["point"]["pool_index"]
+                ),
                 "pool_index": item["point"]["pool_index"],
                 "order": order,
                 "role": item["role"],
@@ -268,6 +310,12 @@ def run_proposal(
                 "combined_score": item["combined_score"],
                 "estimated_cost": item["estimated_cost"],
                 "setup_group": item["setup_group"],
+                "source": item["source"],
+                "candidate_id": item["candidate_id"],
+                "candidate_revision": item["candidate_revision"],
+                "canonical_identity_digest": item[
+                    "canonical_identity_digest"
+                ],
             }
             for order, item in enumerate(batch_proposal["selected"], start=1)
         ]

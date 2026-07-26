@@ -6,7 +6,12 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from .dependencies import get_project_runtime_resolver, get_store, get_task_registry
 from .errors import DomainApiException, PROJECT_API_ERRORS
-from ..application.screening import ScreeningNotFoundError, ScreeningService, ScreeningValidationError
+from ..application.screening import (
+    ScreeningBatchSelectionError,
+    ScreeningNotFoundError,
+    ScreeningService,
+    ScreeningValidationError,
+)
 from material_workbench.contracts.schemas import ScreeningCandidateBatchRequest, ScreeningCandidateBatchResponse, ScreeningRequest, ScreeningRunResponse
 from material_workbench.contracts.proposal_contracts import ProposalStrategyAvailability
 from material_workbench.contracts.batch_proposal_contracts import BatchSelectorAvailability
@@ -36,6 +41,12 @@ def _raise_screening_error(exc: Exception) -> None:
         raise HTTPException(404, "プロジェクトが見つかりません") from exc
     if isinstance(exc, ScreeningNotFoundError):
         raise HTTPException(404, str(exc)) from exc
+    if isinstance(exc, ScreeningBatchSelectionError):
+        raise DomainApiException(
+            422,
+            f"batch_{exc.failure_kind}",
+            str(exc),
+        ) from exc
     if isinstance(exc, ScreeningValidationError):
         raise HTTPException(422, str(exc)) from exc
     if isinstance(exc, CandidateLimitError):

@@ -11,14 +11,14 @@ from material_workbench.contracts.task_contracts import RuntimeCapability
 BATCH_SELECTORS = (
     BatchSelectorDefinition(
         selector_id="ranked_top_k_v1",
-        version="1.0.0",
-        label="個別価値の上位",
+        version="1.1.0",
+        label="獲得順位価値の上位",
         production_enabled=True,
     ),
     BatchSelectorDefinition(
         selector_id="greedy_value_diversity_v1",
-        version="1.0.0",
-        label="個別価値 + 多様性 + 資源",
+        version="1.1.0",
+        label="獲得順位価値 + 多様性 + 資源",
         production_enabled=True,
     ),
     BatchSelectorDefinition(

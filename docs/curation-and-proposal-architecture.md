@@ -72,19 +72,24 @@ rank. Older screening runs remain readable without being rewritten.
 
 ### Experiment batch selection
 
-An optional `batch-proposal-definition/v1` selects an experiment batch from the
-saved acquisition-ranked shortlist. This is a separate selector, not a joint
-acquisition function.
+An optional `batch-proposal-definition/v1` selects an experiment batch from an
+explicitly sized acquisition-ranked prefix plus revision-pinned exact controls.
+This is a separate selector, not a joint acquisition function.
 
 - `ranked_top_k_v1` is the explicit baseline.
-- `greedy_value_diversity_v1` combines normalized rank utility with maximin
+- `greedy_value_diversity_v1` combines acquisition-rank utility with maximin
   distance. Every numeric distance is divided by its Design Space range;
   categorical differences are 0/1. Raw input scales are never mixed.
 - Pending candidates can be avoided, penalized, or allowed. Their identities,
   policy and resulting exclusions remain in the run.
-- A control reference selects the nearest feasible generated condition.
-  Replicates repeat that planned condition; when promoted to the Candidate
-  table, one Candidate condition represents the repeated observations.
+- A control request carries the Candidate revision visible when it was selected.
+  The server rejects a stale revision, validates that exact condition against the
+  run Design Space, and injects the pinned revision into the batch pool.
+  It is never replaced by a nearest generated proxy. Replicates repeat the same
+  pinned condition and are not promoted as duplicate Candidates.
+- Conditions are deduplicated by a semantic digest of canonical Candidate
+  inputs. The requested acquisition prefix size, exact-control count, duplicate
+  count, unique count and pool digest are saved.
 - Category minimum/maximum quotas, per-candidate cost, total budget, setup-group
   limits and setup-change penalties are allow-listed contracts rather than
   Task-specific branches.
@@ -93,9 +98,14 @@ acquisition function.
   unavailable. The registry requires predictive samples for batch Thompson and
   joint samples for q-acquisition, so marginal scores cannot be mislabeled.
 
-`batch-proposal-run/v1` stores selection order, role, reason, acquisition,
+`batch-proposal-run/v2` stores selection order, role, reason, acquisition-rank
+utility,
 diversity, pending and resource components, excluded shortlist points, coverage,
-pairwise diversity, estimated cost, selector version, seed and tie-break rule.
+pairwise diversity, estimated cost, selector version, seed, tie-break rule and
+candidate-pool evidence.
+An impossible hard constraint is reported as `feasibility_infeasible`; exhaustion
+of the deterministic greedy path is `greedy_search_exhausted` and is not described
+as proof that no mathematical solution exists.
 Only an explicit UI action promotes the selected unique conditions to ordinary
 Candidates, whose screening provenance links back to the immutable parent run.
 

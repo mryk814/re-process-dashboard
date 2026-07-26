@@ -10,6 +10,17 @@ from material_workbench.contracts.batch_proposal_contracts import (
 )
 from material_workbench.contracts.design_space_contracts import DesignSpaceDefinition
 from material_workbench.contracts.schemas import Candidate, CandidateInput
+from material_workbench.execution.inference_work_graph import semantic_digest
+
+
+class BatchSelectionError(ValueError):
+    def __init__(
+        self,
+        failure_kind: str,
+        message: str,
+    ) -> None:
+        self.failure_kind = failure_kind
+        super().__init__(f"[{failure_kind}] {message}")
 
 
 def _candidate_value(
@@ -37,6 +48,32 @@ def _point_value(point: dict[str, Any], path: str) -> float | str | None:
         return point["inputs"][path]
     candidate = CandidateInput.model_validate(point["candidate"])
     return _candidate_value(candidate, path)
+
+
+def candidate_design_values(
+    candidate: Candidate | CandidateInput,
+    design_space: DesignSpaceDefinition,
+) -> dict[str, float | str]:
+    paths = (
+        *(item.path for item in design_space.numeric_domains),
+        *(item.path for item in design_space.categorical_domains),
+        *(item.path for item in design_space.heat_pattern_domains),
+    )
+    return {
+        path: value
+        for path in paths
+        if (value := _candidate_value(candidate, path)) is not None
+    }
+
+
+def canonical_condition_digest(point: dict[str, Any]) -> str:
+    try:
+        inputs = CandidateInput.model_validate(point["candidate"]).inputs.model_dump(
+            mode="json"
+        )
+    except ValueError:
+        inputs = point["inputs"]
+    return semantic_digest(inputs)
 
 
 def normalized_design_distance(
@@ -159,8 +196,47 @@ def select_experiment_batch(
             "batch constraintがDesign Space外のpathを参照しています: "
             + ", ".join(unknown_paths)
         )
-    if definition.batch_size > len(points):
-        raise ValueError("batch sizeが評価済みshortlist数を超えています")
+    exact_controls = [
+        point for point in points if point.get("_batch_source") == "exact_control"
+    ]
+    acquisition_ranked = [
+        point for point in points if point.get("_batch_source") != "exact_control"
+    ][: definition.candidate_pool_size]
+    unique_points: list[dict[str, Any]] = []
+    duplicate_exclusions: list[dict[str, Any]] = []
+    seen: dict[str, dict[str, Any]] = {}
+    for point in (*exact_controls, *acquisition_ranked):
+        digest = canonical_condition_digest(point)
+        point["_canonical_identity_digest"] = digest
+        previous = seen.get(digest)
+        if previous is not None:
+            if (
+                previous.get("_batch_source") == "exact_control"
+                and point.get("_batch_source") == "exact_control"
+            ):
+                raise BatchSelectionError(
+                    "feasibility_infeasible",
+                    "異なるControl候補が同一のcanonical条件です。replicateへまとめてください",
+                )
+            duplicate_exclusions.append(
+                {
+                    "pool_index": point["pool_index"],
+                    "reason": "canonical identityが候補pool内で重複",
+                    "canonical_identity_digest": digest,
+                }
+            )
+            continue
+        seen[digest] = point
+        unique_points.append(point)
+    points = unique_points
+    explicit_replicate_slots = sum(
+        requirement.replicates - 1 for requirement in definition.controls
+    )
+    if definition.batch_size > len(points) + explicit_replicate_slots:
+        raise BatchSelectionError(
+            "feasibility_infeasible",
+            "canonical重複除去後のbatch候補数がbatch size未満です",
+        )
     hard_feasible = [
         point
         for point in points
@@ -169,10 +245,11 @@ def select_experiment_batch(
             for item in point["secondary_goal_evaluations"].values()
         )
     ]
-    if len(hard_feasible) < definition.batch_size:
-        raise ValueError(
+    if len(hard_feasible) + explicit_replicate_slots < definition.batch_size:
+        raise BatchSelectionError(
+            "feasibility_infeasible",
             "副条件を満たす点だけではbatch sizeを満たせません。"
-            "範囲または副条件を見直してください"
+            "範囲または副条件を見直してください",
         )
     pending = [
         reference_candidates[candidate_id]
@@ -182,8 +259,14 @@ def select_experiment_batch(
     selected_counts: Counter[tuple[str, str]] = Counter()
     total_cost = 0.0
     setup_groups: set[str] = set()
+    acquisition_feasible = [
+        point
+        for point in hard_feasible
+        if point.get("_batch_source") != "exact_control"
+    ]
     rank = {
-        point["pool_index"]: index for index, point in enumerate(hard_feasible)
+        point["pool_index"]: index
+        for index, point in enumerate(acquisition_feasible)
     }
 
     def quota_max_allows(point: dict[str, Any]) -> bool:
@@ -270,41 +353,59 @@ def select_experiment_batch(
                 "point": point,
                 "role": role,
                 "reason": reason,
-                "acquisition_component": 1.0
-                - rank[point["pool_index"]] / max(1, len(hard_feasible) - 1),
+                "acquisition_component": (
+                    0.0
+                    if point.get("_batch_source") == "exact_control"
+                    else 1.0
+                    - rank[point["pool_index"]]
+                    / max(1, len(acquisition_feasible) - 1)
+                ),
                 "diversity_component": diversity_component,
                 "pending_penalty": pending_component,
                 "resource_penalty": resource_component,
                 "combined_score": combined_score,
                 "estimated_cost": cost,
                 "setup_group": group,
+                "source": point.get("_batch_source", "acquisition_ranked"),
+                "candidate_id": point.get("_candidate_id"),
+                "candidate_revision": point.get("_candidate_revision"),
+                "canonical_identity_digest": point["_canonical_identity_digest"],
             }
         )
 
-    # A control is represented by the nearest feasible generated condition.
-    # Replicates deliberately repeat that line item; one Candidate condition can
-    # therefore represent multiple planned observations.
+    # Controls are exact, revision-pinned candidates injected by the application.
     for requirement in definition.controls:
-        reference = reference_candidates[requirement.candidate_id]
-        ordered = sorted(
-            hard_feasible,
-            key=lambda point: (
-                normalized_design_distance(point, reference, design_space),
-                point["pool_index"],
-            ),
-        )
         control = next(
-            (point for point in ordered if can_select(point)),
+            (
+                point
+                for point in hard_feasible
+                if point.get("_batch_source") == "exact_control"
+                and point.get("_candidate_id") == requirement.candidate_id
+                and (
+                    requirement.candidate_revision is None
+                    or point.get("_candidate_revision")
+                    == requirement.candidate_revision
+                )
+            ),
             None,
         )
         if control is None:
-            raise ValueError(
-                f"control候補 {requirement.candidate_id} に対応する点を選べません"
+            raise BatchSelectionError(
+                "feasibility_infeasible",
+                f"exact Control候補 {requirement.candidate_id} が候補poolにありません",
+            )
+        if not quota_max_allows(control) or not resource_allows(control):
+            raise BatchSelectionError(
+                "feasibility_infeasible",
+                f"exact Control候補 {requirement.candidate_id} がresource/quota制約を満たしません",
             )
         append(
             control,
             role="control",
-            reason=f"control候補 {requirement.candidate_id} に最も近い条件",
+            reason=(
+                f"指定候補 {requirement.candidate_id} revision "
+                f"{control['_candidate_revision']} をexact Controlとして固定"
+            ),
             combined_score=1.0,
             diversity_component=0.0,
             pending_component=0.0,
@@ -312,7 +413,10 @@ def select_experiment_batch(
         )
         for replicate_index in range(1, requirement.replicates):
             if not resource_allows(control) or not quota_max_allows(control):
-                raise ValueError("controlの反復がresource constraintを超えます")
+                raise BatchSelectionError(
+                    "feasibility_infeasible",
+                    "Control反復がresource constraintを超えます",
+                )
             append(
                 control,
                 role="replicate",
@@ -327,9 +431,17 @@ def select_experiment_batch(
     for quota in definition.category_quotas:
         while selected_counts[(quota.path, quota.value)] < quota.min_count:
             if len(selected) >= definition.batch_size:
-                raise ValueError(
+                selected_non_controls = any(
+                    item["source"] == "acquisition_ranked" for item in selected
+                )
+                raise BatchSelectionError(
+                    (
+                        "greedy_search_exhausted"
+                        if selected_non_controls
+                        else "feasibility_infeasible"
+                    ),
                     f"category quotaを満たすbatch枠がありません: "
-                    f"{quota.path}={quota.value}"
+                    f"{quota.path}={quota.value}",
                 )
             candidate = next(
                 (
@@ -341,8 +453,24 @@ def select_experiment_batch(
                 None,
             )
             if candidate is None:
-                raise ValueError(
-                    f"category quotaを満たせません: {quota.path}={quota.value}"
+                matching_candidates_exist = any(
+                    _matches(point, quota.path, quota.value)
+                    for point in hard_feasible
+                )
+                raise BatchSelectionError(
+                    (
+                        "greedy_search_exhausted"
+                        if matching_candidates_exist
+                        else "feasibility_infeasible"
+                    ),
+                    (
+                        f"greedy選抜ではcategory quotaを満たせません: "
+                        f"{quota.path}={quota.value}。"
+                        "これは数学的な実行可能解なしを意味しません"
+                        if matching_candidates_exist
+                        else f"category quotaを満たす候補がありません: "
+                        f"{quota.path}={quota.value}"
+                    ),
                 )
             append(
                 candidate,
@@ -360,7 +488,7 @@ def select_experiment_batch(
             if not can_select(point):
                 continue
             acquisition = 1.0 - rank[point["pool_index"]] / max(
-                1, len(hard_feasible) - 1
+                1, len(acquisition_feasible) - 1
             )
             diversity = duplicate_distance(point)
             pending_gap = pending_distance(point)
@@ -399,9 +527,10 @@ def select_experiment_batch(
                 )
             )
         if not scored:
-            raise ValueError(
-                "near-duplicate、pending、quota、resource制約のため"
-                "batch sizeを満たせません"
+            raise BatchSelectionError(
+                "greedy_search_exhausted",
+                "greedy選抜が候補を追加できなくなりました。"
+                "これは数学的な実行可能解なしを意味しません",
             )
         (
             negative_score,
@@ -421,7 +550,7 @@ def select_experiment_batch(
             point,
             role=role,
             reason=(
-                f"個別価値 {acquisition:.3f}、多様性 {diversity:.3f}、"
+                f"獲得順位価値 {acquisition:.3f}、多様性 {diversity:.3f}、"
                 f"pending減点 {pending_component:.3f}、資源減点 {resource_component:.3f}"
             ),
             combined_score=-negative_score,
@@ -433,7 +562,7 @@ def select_experiment_batch(
     selected_pool_indices = {
         item["point"]["pool_index"] for item in selected
     }
-    excluded = []
+    excluded = list(duplicate_exclusions)
     for point in hard_feasible:
         if point["pool_index"] in selected_pool_indices:
             continue
@@ -452,7 +581,13 @@ def select_experiment_batch(
             reason = "選抜済み条件とのnear-duplicate"
         elif not resource_allows(point):
             reason = "resource constraint"
-        excluded.append({"pool_index": point["pool_index"], "reason": reason})
+        excluded.append(
+            {
+                "pool_index": point["pool_index"],
+                "reason": reason,
+                "canonical_identity_digest": point["_canonical_identity_digest"],
+            }
+        )
 
     minimum, mean = _pairwise_summary(selected, design_space)
     category_counts = {
@@ -460,9 +595,9 @@ def select_experiment_batch(
         for quota in definition.category_quotas
     }
     return {
-        "schema_version": "batch-proposal-run/v1",
+        "schema_version": "batch-proposal-run/v2",
         "selector_id": definition.selector_id,
-        "selector_version": "1.0.0",
+        "selector_version": "1.1.0",
         "seed": seed,
         "tie_break_rule": "combined_score_desc_then_pool_index_asc",
         "definition": definition.model_dump(mode="json"),
@@ -476,5 +611,28 @@ def select_experiment_batch(
             "setup_group_count": len(setup_groups),
             "category_counts": category_counts,
             "pending_reference_count": len(pending),
+        },
+        "candidate_pool": {
+            "source": "acquisition_ranked_prefix_plus_exact_controls",
+            "requested_acquisition_size": definition.candidate_pool_size,
+            "acquisition_ranked_count": len(acquisition_ranked),
+            "exact_control_count": len(exact_controls),
+            "unique_condition_count": len(points),
+            "duplicate_condition_count": len(duplicate_exclusions),
+            "canonicalization": "candidate-inputs-semantic-digest",
+            "pool_digest": semantic_digest(
+                [
+                    {
+                        "pool_index": point["pool_index"],
+                        "source": point.get("_batch_source", "acquisition_ranked"),
+                        "candidate_id": point.get("_candidate_id"),
+                        "candidate_revision": point.get("_candidate_revision"),
+                        "canonical_identity_digest": point[
+                            "_canonical_identity_digest"
+                        ],
+                    }
+                    for point in points
+                ]
+            ),
         },
     }
