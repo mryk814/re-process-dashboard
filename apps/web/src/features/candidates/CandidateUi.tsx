@@ -283,6 +283,9 @@ export function ComparisonTable({
   onSave,
   onConfigureGoals,
   onConfigureSupport,
+  pendingPreviewCount,
+  loadingRemainingPreviews,
+  onLoadRemainingPreviews,
 }: {
   candidates: CandidateViewModel[];
   selectedId: string;
@@ -306,6 +309,9 @@ export function ComparisonTable({
   onSave: (candidate: CandidateViewModel) => void;
   onConfigureGoals: () => void;
   onConfigureSupport: () => void;
+  pendingPreviewCount: number;
+  loadingRemainingPreviews: boolean;
+  onLoadRemainingPreviews: () => void;
 }) {
   const fieldVaries = (path: string) => new Set(candidates.map((candidate) => JSON.stringify(getCandidateInputValue(candidate.raw.inputs, path) ?? null))).size > 1;
   const inputGroups = orderedInputGroups(taskDefinition)
@@ -480,21 +486,26 @@ export function ComparisonTable({
           </div>
           <div>
             <dt>{allOutputsBinary ? "候補間の確率差" : "区間の共通部分"}</dt>
-            <dd className={!allOutputsBinary && decisionSummary.overlappingOutputKeys.length > 0 ? "needs-attention" : "is-ready"}>
-              {allOutputsBinary
-                ? binaryProbabilitySpread == null ? "確認中" : `${formatNumber(binaryProbabilitySpread)}ポイント`
-                : decisionSummary.assessableOutputKeys.length === 0
-                  ? "確認中"
-                  : `${decisionSummary.overlappingOutputKeys.length} / ${decisionSummary.assessableOutputKeys.length}特性`}
+            <dd className={pendingPreviewCount > 0 || (!allOutputsBinary && decisionSummary.overlappingOutputKeys.length > 0) ? "needs-attention" : "is-ready"}>
+              {pendingPreviewCount > 0
+                ? `未計算 ${pendingPreviewCount}候補`
+                : allOutputsBinary
+                  ? binaryProbabilitySpread == null ? "確認中" : `${formatNumber(binaryProbabilitySpread)}ポイント`
+                  : decisionSummary.assessableOutputKeys.length === 0
+                    ? "確認中"
+                    : `${decisionSummary.overlappingOutputKeys.length} / ${decisionSummary.assessableOutputKeys.length}特性`}
             </dd>
+            {pendingPreviewCount > 0 && <button type="button" className="decision-summary-link" disabled={loadingRemainingPreviews} onClick={onLoadRemainingPreviews}>{loadingRemainingPreviews ? "計算中…" : "残りを計算"}</button>}
           </div>
         </dl>
         <p>
-          {configuredTargetCount === 0
-            ? allOutputsBinary
-              ? "許容する異常確率を設定すると、候補ごとの基準内・基準外を比較できます。"
-              : "目標値が未設定です。目標を設定すると、達成確率を比較できます。"
-            : uncertaintyMessage}
+          {pendingPreviewCount > 0
+            ? `${pendingPreviewCount}候補はまだ予測を計算していません。すべて計算すると、目標達成率と予測区間の重なりを全候補で比較できます。`
+            : configuredTargetCount === 0
+              ? allOutputsBinary
+                ? "許容する異常確率を設定すると、候補ごとの基準内・基準外を比較できます。"
+                : "目標値が未設定です。目標を設定すると、達成確率を比較できます。"
+              : uncertaintyMessage}
         </p>
       </aside>
       <div className="comparison-grid-viewport">
@@ -526,7 +537,7 @@ export function ComparisonTable({
                     {outputs.map((output) => {
                       const prediction = preview?.predictions[output.key];
                       const goal = targetValues[output.key];
-                      if (!prediction) return <td className="decision-output-cell numeric-cell" key={output.key}><span className="empty-cell">—</span></td>;
+                      if (!prediction) return <td className="decision-output-cell numeric-cell" key={output.key}><span className="empty-cell" title={`${candidate.label}の${output.label}はまだ計算していません`}>未計算</span></td>;
                       const value = predictionValue(prediction, output.key);
                       const accessibleValue = prediction.target_kind === "binary" ? value : `${value} ${prediction.unit}`.trim();
                       const pointAssessment = assessOutputValues(output, [prediction.value], "予測値");

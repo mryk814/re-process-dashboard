@@ -117,6 +117,10 @@ type WorkbenchProps = {
   onProjectChanged: (project: ApiProject) => void | Promise<void>;
   onConfigureGoals: () => void;
   onConfigureSupport: () => void;
+  previewAvailable: boolean;
+  pendingPreviewCount: number;
+  loadingRemainingPreviews: boolean;
+  onLoadRemainingPreviews: () => void;
 };
 
 export function WorkbenchPage(props: WorkbenchProps) {
@@ -166,6 +170,10 @@ export function WorkbenchPage(props: WorkbenchProps) {
     onProjectChanged,
     onConfigureGoals,
     onConfigureSupport,
+    previewAvailable,
+    pendingPreviewCount,
+    loadingRemainingPreviews,
+    onLoadRemainingPreviews,
   } = props;
   const [comparisonExpanded, setComparisonExpanded] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
@@ -295,6 +303,9 @@ export function WorkbenchPage(props: WorkbenchProps) {
           onSave={onSave}
           onConfigureGoals={onConfigureGoals}
           onConfigureSupport={onConfigureSupport}
+          pendingPreviewCount={previewAvailable ? pendingPreviewCount : 0}
+          loadingRemainingPreviews={loadingRemainingPreviews}
+          onLoadRemainingPreviews={onLoadRemainingPreviews}
         />}
         <BlendComparisonPanel
           projectId={projectId}
