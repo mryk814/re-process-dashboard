@@ -8,28 +8,36 @@
       "parent_conditions": 142,
       "mae": 32.895451418104486,
       "rmse": 370.5278604706454,
-      "interval_coverage_90": 0.8085106382978723
+      "interval_coverage_90": 0.8085106382978723,
+      "interval_coverage_method": null,
+      "interval_coverage_observations": null
     },
     {
       "target": "TS",
       "parent_conditions": 142,
       "mae": 470.86808050291245,
       "rmse": 5237.520814910121,
-      "interval_coverage_90": 0.900709219858156
+      "interval_coverage_90": 0.900709219858156,
+      "interval_coverage_method": null,
+      "interval_coverage_observations": null
     },
     {
       "target": "YS",
       "parent_conditions": 142,
       "mae": 445.2922389798813,
       "rmse": 5048.472961713434,
-      "interval_coverage_90": 0.8368794326241135
+      "interval_coverage_90": 0.8368794326241135,
+      "interval_coverage_method": null,
+      "interval_coverage_observations": null
     },
     {
       "target": "lambda",
       "parent_conditions": 130,
       "mae": 4.888133797737453,
       "rmse": 11.057023522834573,
-      "interval_coverage_90": 0.9742574257425742
+      "interval_coverage_90": 0.9742574257425742,
+      "interval_coverage_method": null,
+      "interval_coverage_observations": null
     }
   ]
 }

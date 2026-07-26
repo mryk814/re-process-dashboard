@@ -8,28 +8,36 @@
       "parent_conditions": 142,
       "mae": 2.467716233565523,
       "rmse": 15.735387596745975,
-      "interval_coverage_90": 0.8802816901408451
+      "interval_coverage_90": 0.8802816901408451,
+      "interval_coverage_method": null,
+      "interval_coverage_observations": null
     },
     {
       "target": "TS",
       "parent_conditions": 142,
       "mae": 55.86956446749465,
       "rmse": 380.32351422614676,
-      "interval_coverage_90": 0.9366197183098591
+      "interval_coverage_90": 0.9366197183098591,
+      "interval_coverage_method": null,
+      "interval_coverage_observations": null
     },
     {
       "target": "YS",
       "parent_conditions": 142,
       "mae": 40.30257001712612,
       "rmse": 286.6169123371021,
-      "interval_coverage_90": 0.9084507042253521
+      "interval_coverage_90": 0.9084507042253521,
+      "interval_coverage_method": null,
+      "interval_coverage_observations": null
     },
     {
       "target": "lambda",
       "parent_conditions": 130,
       "mae": 2.7088124507169367,
       "rmse": 3.935663979776941,
-      "interval_coverage_90": 0.8461538461538461
+      "interval_coverage_90": 0.8461538461538461,
+      "interval_coverage_method": null,
+      "interval_coverage_observations": null
     }
   ]
 }

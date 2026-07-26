@@ -8,7 +8,9 @@
       "parent_conditions": 7,
       "mae": 4.358955959714698,
       "rmse": 5.3653933683722785,
-      "interval_coverage_90": 1.0
+      "interval_coverage_90": 1.0,
+      "interval_coverage_method": null,
+      "interval_coverage_observations": null
     }
   ]
 }

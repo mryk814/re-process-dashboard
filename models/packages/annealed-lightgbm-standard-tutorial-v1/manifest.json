@@ -4,7 +4,7 @@
   "package_version": "1.0.0-standard",
   "task_id": "annealed-properties-v1",
   "input_schema_version": "candidate-v2",
-  "input_contract_digest": "sha256:e96ea9275b22ae5fb63afd9ac68694e5ac0a7777defd753f56a78088c61fe6b3",
+  "input_contract_digest": "sha256:74414f3873e658d6d6dd1ec9d7677d5873a2fffa75275a99c33c2b321fd7936a",
   "runtime_capability_digest": "sha256:0dd83e49dccb9c12b87b0ea6ce0555ccfeba13208f0e9a4116c76371506c463f",
   "feature_pipeline": {
     "id": "metallurgy-thermal",
@@ -319,7 +319,7 @@
   ],
   "provenance": {
     "training_data_id": "sha256:a011476eb6514de278635e52f58a86bcce8f1078ee3933c121e5a463fa7af382",
-    "feature_dataset_id": "sha256:2763664e508c3bc5ce503a18ab5f58c1a6dc2b109c84ee34236b47cd6df94021",
+    "feature_dataset_id": "sha256:1ee84e4375aee1b5059dc027e85dd98d4fab2fbfb4691188e3884c4336771e7e",
     "training_code_revision": "lightgbm-grouped-fixed-round-crossfit-v2",
     "dataset_profile_id": "sha256:5b9ad0dd95a3e5f6d792959d0009e31afc250f983688372691fba4f68e3a3bde"
   },

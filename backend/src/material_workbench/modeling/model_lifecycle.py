@@ -487,9 +487,14 @@ def _observed_numeric_ranges(
     """Min/max per declared numeric input across eligible training rows."""
 
     declared = set(_numeric_fields(contract))
+    task_id = contract.task_definition.id
     ranges: dict[str, tuple[float, float]] = {}
     for observation in data.observations:
         if not observation.get("eligible"):
+            continue
+        # 1つのWorkbookが複数Taskの観測を持つ。他Taskの行を混ぜない。
+        row_task = observation.get("task_id")
+        if row_task is not None and row_task != task_id:
             continue
         flat: dict[str, Any] = {}
         for key, value in (observation.get("composition") or {}).items():

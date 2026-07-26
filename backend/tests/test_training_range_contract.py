@@ -22,17 +22,19 @@ from material_workbench.tasks.task_registry import load_task_contracts
 
 # 宣言済み training_range が実データからずれているTask。
 #
-# 直すには TaskDefinition の training_range を実データへ合わせるだけでは済まない。
-# task_input_contract_digest が input_groups 全体を対象にしているため、
-# training_range を1つ変えるだけでそのTaskの**全Model Package**が無効になる
+# training_range を1つ変えると、task_input_contract_digest が input_groups 全体を
+# 対象にしているため、そのTaskの**全Model Package**を作り直すことになる
 # （active だけでなく models/available-packages.json のものも）。
-# 現状 annealed 系は6件、hot-rolled 系は2件あり、うち複数は numpyro でサンプリングした
-# Bayesian モデルなので、再構築はモデルの作り直しであり人の承認が必要になる。
 # 詳細は docs/architecture/extensibility-inventory.md §1.4 を参照。
-KNOWN_TRAINING_RANGE_DRIFT = {
-    "annealed-properties-v1",
-    "hot-rolled-properties-v1",
-}
+KNOWN_TRAINING_RANGE_DRIFT: set[str] = set()
+
+# 1つのTaskDefinitionが複数のデータセットでPackageを持つ。training_range は
+# そのすべてを含む必要があるので、同梱している両方のWorkbookに対して検証する。
+SHIPPED_WORKBOOKS = (
+    "data/source/material_workbench_tutorial_v1.xlsx",
+    "data/source/material_workbench_process_v1.xlsx",
+)
+PRIMARY_SOURCE_TASKS = ("annealed-properties-v1", "hot-rolled-properties-v1")
 
 
 class _Descriptor:
@@ -97,6 +99,72 @@ def test_every_registered_task_keeps_its_training_data_inside_the_allowed_range(
         validate_training_rows_within_allowed_range(
             registry.runtime_for(task_id).data, registry.contract_for(task_id)
         )
+
+
+def test_allowed_range_holds_for_every_shipped_dataset_of_the_task() -> None:
+    """同じTaskの別データセットで学習したPackageも allowed_range に収まること。
+
+    allowed_range は候補が取り得る範囲なので、どのデータセットでも守られる必要がある。
+    """
+    from pathlib import Path
+
+    from material_workbench.data.importer import load_workbook_data
+
+    root = Path(__file__).resolve().parents[2]
+    for relative in SHIPPED_WORKBOOKS:
+        data = load_workbook_data(root / relative)
+        for task_id in PRIMARY_SOURCE_TASKS:
+            validate_training_rows_within_allowed_range(
+                data, load_task_contracts()[task_id]
+            )
+
+
+def test_training_range_describes_the_active_dataset_not_every_dataset() -> None:
+    """training_range が「どのデータセットの範囲か」を記録する。
+
+    training_range は応答曲線の掃引軸を決める（hot_rolling.py の
+    response_curve_result）。activeなPackageの学習範囲より広く宣言すると、
+    曲線が支持の外まで伸びる。そのため**activeなPackageのデータセット**に
+    合わせてあり、別データセットで学習したPackageの範囲とは一致しない。
+
+    Task単位の宣言でPackage単位の事実を表しているのが本来の問題で、
+    正しい解決はPackage側のsupport範囲を使うこと。
+    """
+    from pathlib import Path
+
+    from material_workbench.data.importer import load_workbook_data
+
+    root = Path(__file__).resolve().parents[2]
+    active = load_workbook_data(root / SHIPPED_WORKBOOKS[0])
+    other = load_workbook_data(root / SHIPPED_WORKBOOKS[1])
+
+    for task_id in PRIMARY_SOURCE_TASKS:
+        contract = load_task_contracts()[task_id]
+        assert training_range_drift(active, contract) == {}, task_id
+    # 別データセットは宣言範囲を超える。これは既知の設計上の制約。
+    assert training_range_drift(other, load_task_contracts()["hot-rolled-properties-v1"])
+
+
+def test_range_check_ignores_rows_belonging_to_another_task() -> None:
+    """1つのWorkbookが複数Taskの観測を持つので、他Taskの行を混ぜないこと。"""
+
+    task_id = "concrete-strength-v1"
+    contract = load_task_contracts()[task_id]
+    field = _numeric_field(task_id)
+    assert field.allowed_range is not None
+    group, key = field.path.split(".", 1)
+    bucket = "composition" if group == "composition" else "features"
+
+    foreign = _Descriptor([
+        {
+            "eligible": True,
+            "task_id": "annealed-properties-v1",
+            bucket: {key: field.allowed_range.max * 10.0},
+        },
+    ])
+
+    validate_training_rows_within_allowed_range(foreign, contract)
+    assert training_range_drift(foreign, contract) == {}
 
 
 def test_declared_training_range_drift_is_reported_not_hidden(client) -> None:

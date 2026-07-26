@@ -4,7 +4,7 @@
   "package_version": "1.1.0-feature-design-v3",
   "task_id": "hot-rolled-properties-v1",
   "input_schema_version": "hot-rolling-candidate-v2",
-  "input_contract_digest": "sha256:87b4ef21f8236fe036a3e1aa7dbeb7b0861e9eee594bd83c34bb27193c1be2ae",
+  "input_contract_digest": "sha256:c8e61589fc8ddd773c520d4bc1a09f6d5c2114cd3b49722cc1f844d4726bf11e",
   "runtime_capability_digest": "sha256:98fb62b42f98b61ddb9ca562ba05ed9d84ba9217e8f5a900d0838e724bfc96c5",
   "feature_pipeline": {
     "id": "metallurgy-hot-rolling",
@@ -133,7 +133,7 @@
   ],
   "provenance": {
     "training_data_id": "sha256:87e2321d5ce1071c9fe57bea95ed773609a88d63c7d5cc08bd0a15592634bef9",
-    "feature_dataset_id": "sha256:5b9353abd637e04cd3ec442d2502eba929d73c898d8344c73c99588e85ecee23",
+    "feature_dataset_id": "sha256:82543759d7dc06e992921ada5020ea45e70df85d52938c6f9a1260adb75899ca",
     "training_code_revision": "1.1.0-feature-design-v3",
     "dataset_profile_id": "sha256:f622242f2fa9399d8af9cf5faded2469fb6777b073190350f7a2c9f095d7e976"
   },
@@ -155,13 +155,13 @@
     },
     {
       "path": "reports/quality-report.json",
-      "sha256": "d129aecfce76bf9dd431ddecc240d97e4a0f2b76a5c56e8ef93330a41a528c49",
-      "bytes": 310
+      "sha256": "468c8b4d539d0c597ad4e99af3f1abc23e6f19d1a5b5bbfff39ab8cf40d958cf",
+      "bytes": 396
     },
     {
       "path": "smoke/input.json",
-      "sha256": "0b22cb571d227169d07a0f91cbb6bd4d854370a1b4b21a326498b14d41e9a057",
-      "bytes": 771
+      "sha256": "edc6eddbc6fe0bd2b1858ed42432a0c8f1578e22b20b3db2e35eecd698d5471d",
+      "bytes": 954
     },
     {
       "path": "smoke/expected.json",

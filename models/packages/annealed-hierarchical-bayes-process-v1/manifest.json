@@ -4,7 +4,7 @@
   "package_version": "1.0.0-experimental",
   "task_id": "annealed-properties-v1",
   "input_schema_version": "candidate-v2",
-  "input_contract_digest": "sha256:e96ea9275b22ae5fb63afd9ac68694e5ac0a7777defd753f56a78088c61fe6b3",
+  "input_contract_digest": "sha256:74414f3873e658d6d6dd1ec9d7677d5873a2fffa75275a99c33c2b321fd7936a",
   "runtime_capability_digest": "sha256:0dd83e49dccb9c12b87b0ea6ce0555ccfeba13208f0e9a4116c76371506c463f",
   "feature_pipeline": {
     "id": "metallurgy-thermal",
@@ -320,7 +320,7 @@
   ],
   "provenance": {
     "training_data_id": "sha256:87e2321d5ce1071c9fe57bea95ed773609a88d63c7d5cc08bd0a15592634bef9",
-    "feature_dataset_id": "sha256:d753458252eb4ac4e4fa97e91a8096daec566fff2b7fae8b70519dde1a29c816",
+    "feature_dataset_id": "sha256:07e66aacad026a10b5f2243ffeb1d81181824f8891b572c0ce2209a1c25d8c5c",
     "training_code_revision": "build_annealed_individual_model_packages.py:v1",
     "dataset_profile_id": "sha256:f622242f2fa9399d8af9cf5faded2469fb6777b073190350f7a2c9f095d7e976"
   },
@@ -362,8 +362,8 @@
     },
     {
       "path": "reports/quality-report.json",
-      "sha256": "5fb830e12a7edcf4ec0f352f3585d580693c804a9736140a64755117f02551f7",
-      "bytes": 859
+      "sha256": "bb1f85540b9630f3069d911c4bca9e5ebcb585ae44eb5e5ac8b1a800ff1068e3",
+      "bytes": 1203
     },
     {
       "path": "reports/training-diagnostics.json",

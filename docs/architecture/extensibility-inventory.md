@@ -118,35 +118,49 @@ DataDescriptor（宣言済みの共通面）
 
 **登録点**: `package.adapter_allowlist`、`package.builder`、`package.active_entry`、`package.lifecycle_task_branch`（既存の2件の分岐）
 
-**TaskDefinitionの1フィールド変更が、そのTaskの全Packageを無効にします（実測済）**
+**TaskDefinitionの1フィールド変更が、そのTaskの全Packageの作り直しになります（実測済）**
 
 [modeling/model_lifecycle.py:131](../../backend/src/material_workbench/modeling/model_lifecycle.py#L131)
 `task_input_contract_digest` は `input_groups` 全体をdumpして digest にします。
 そこには `training_range` も含まれます。
 
 `training_range` は**入力契約ではなく学習データの観測結果**です。
-実データに合わせて更新しただけで digest が変わり、
-`validate_lifecycle_metadata` がそのTaskの全Package（active に限らず
-`models/available-packages.json` のものも）を拒否します。
+実データに合わせて更新しただけで digest が変わり、`validate_lifecycle_metadata` が
+そのTaskの全Package（active に限らず `models/available-packages.json` のものも）を拒否します。
+放置すると起動時に
+`WorkspaceCatalogBootstrapError: Model Packageが現在のPrediction Task契約と一致しません` になります。
 
-実測（`annealed-properties-v1` の `composition.Cu` を実データへ合わせた場合）:
+実測（annealed / hot-rolled の `training_range` を4フィールド更新した場合）:
 
-| 影響 | 件数 |
+| 項目 | 実測 |
 | --- | --- |
-| 無効になるPackage | annealed系 6件 ＋ hot-rolled系 2件 |
-| うち再学習が必要なBayesianモデル | numpyro / jax を使う `*-process-v1` 系 |
-| 起動時の失敗 | `WorkspaceCatalogBootstrapError: Model Packageが現在のPrediction Task契約と一致しません` |
+| 作り直しになるPackage | annealed系 6件 ＋ hot-rolled系 2件 |
+| うちサンプリングを伴うモデル | heteroscedastic-gp / hierarchical-bayes / horseshoe（numpyro） |
+| 再構築で変わったもの | **8件すべてcontract re-stampのみ**。`model-artifacts/`、`reference/training_stats.json`、`smoke/expected.json` は byte一致 |
+| 変わったもの | `input_contract_digest`、`provenance.feature_dataset_id`、後から追加されたschemaフィールド |
 
-active Packageの再構築自体は**モデルを変えません**（実測: 学習artifact `.npz`、
-`training_stats.json`、`smoke/expected.json` が byte一致。変わるのは
-`input_contract_digest` と、後から追加されたschemaフィールドだけ）。
-しかしavailable Package群まで含めると再学習が必要なものがあり、
-サンプリングを伴うモデルの作り直しは人が承認する範囲です。
+サンプリング系も固定seedのため bit一致で再現しました。
+**モデルは変わらないので、実質は契約の押し直しです。**
 
-**帰結**: `training_range` の更新は「data-onlyな差し替え」では済みません。
-digest の対象を実際の入力契約（path / kind / unit / allowed_range）へ狭めれば
-この結合は切れますが、digest定義の変更自体が一度だけ全Packageを無効にするため、
-実施時期は人が決める移行作業です。
+**`training_range` はTask単位の宣言だがPackage単位の事実です（未解決）**
+
+1つのTaskDefinitionが複数データセットのPackageを持ちます
+（annealed / hot-rolled はどちらも tutorial と process の両workbookでPackageがあります）。
+`training_range` はその両方を同時に正しく記述できません。
+
+さらに `training_range` は**応答曲線の掃引軸**を決めます
+（[modeling/hot_rolling.py:424](../../backend/src/material_workbench/modeling/hot_rolling.py#L424)）。
+両データセットのunionへ広げると、activeなPackageの学習範囲を超えて曲線が伸び、
+支持の外まで外挿します。実測では hot-rolled の仕上げ温度が 931 → 1276 ℃ まで広がりました。
+
+そのため現在は**activeなPackageのデータセットに合わせて**宣言しています。
+別データセットのPackageを有効化すると宣言が実データより狭くなりますが、
+広すぎるより狭すぎるほうが安全側です。
+
+**本来の解決**は、UIが参照する支持範囲をTask契約ではなくPackage側
+（`reference/training_stats.json`）から取ることです。
+そうすれば `training_range` を入力契約から外せて、digestの結合も同時に切れます。
+この状態は `backend/tests/test_training_range_contract.py` が固定しています。
 
 **Package構築は登録の後でしかできません（実測済）**
 
