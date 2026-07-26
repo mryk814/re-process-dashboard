@@ -1,5 +1,6 @@
 import type { ApiScreeningRun } from "../../shared/api/workbench-api";
 import { assessOutputValues } from "../../shared/outputPresentation";
+import { supportStatusLabel } from "../../shared/supportPresentation";
 import type { TaskDefinitionContract } from "../candidates";
 
 type ScreeningDisplayOption = {
@@ -18,7 +19,7 @@ function number(value: number, digits = 0) {
 }
 
 function supportLabel(status: string) {
-  return status === "supported" ? "範囲内" : status === "caution" ? "要確認" : status === "extrapolated" ? "外挿" : "未確認";
+  return supportStatusLabel(status, "未確認");
 }
 
 function pointPredictions(point: ScreeningPoint, target: string) {

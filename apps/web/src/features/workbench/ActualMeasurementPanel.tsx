@@ -197,7 +197,7 @@ export function ActualMeasurementPanel({
                 <td><b>{formatValue(outputKey, actual.mean)}</b><small>{actual.unit}{actual.std > 0 ? ` / ±${formatValue(outputKey, actual.std)}` : ""}</small></td>
                 <td className={difference == null ? "" : difference > 0 ? "actual-difference positive" : difference < 0 ? "actual-difference negative" : "actual-difference"}>{difference == null ? prediction ? "単位不一致" : "—" : <>{signedDifference(difference, (value) => formatValue(outputKey, value))}<small>{actual.unit}</small></>}</td>
                 <td><span className="actual-metadata">{metadata.map((item, index) => <small key={`${index}:${item}`}>{item}</small>)}</span></td>
-                <td><span className="actual-metadata"><small>候補版 {comparison.candidate_revision ?? "不明（旧形式）"}</small><small>{new Date(comparison.snapshot_created_at).toLocaleString("ja-JP")}</small><small title={comparison.provenance.package?.manifest_sha256}>{comparison.provenance.package?.id || "Package情報なし"}</small></span></td>
+                <td><span className="actual-metadata"><small>編集版 {comparison.candidate_revision ?? "不明（旧形式）"}</small><small>{new Date(comparison.snapshot_created_at).toLocaleString("ja-JP")}</small><small title={comparison.provenance.package?.manifest_sha256}>{comparison.provenance.package?.id || "Package情報なし"}</small></span></td>
               </tr>;
             })}</tbody>
           </table>

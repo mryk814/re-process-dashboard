@@ -7,6 +7,7 @@ import type { CandidateSaveState } from "./useCandidateEditor";
 import { formatDisplayNumber, formatInputNumber, type DisplayDecimalOverrides } from "./numberFormat";
 import { formatPredictionPoint, predictionHasInterval, predictionIntervalLabel } from "../../shared/predictionPresentation";
 import { assessOutputValues } from "../../shared/outputPresentation";
+import { supportStatusLabel } from "../../shared/supportPresentation";
 import { hasValidTargetGoal, targetGoalText, type TargetGoal } from "../../shared/targetGoals";
 import { buildCandidateDecisionSummary } from "./decisionSummary";
 
@@ -383,7 +384,7 @@ export function ComparisonTable({
       if (pane && pane !== event.currentTarget && Math.abs(pane.scrollTop - scrollTop) > 0.5) pane.scrollTop = scrollTop;
     }
   };
-  const support = (value?: string) => value === "supported" ? "範囲内" : value === "caution" ? "要確認" : value === "extrapolated" ? "外挿" : "未計算";
+  const support = (value?: string) => supportStatusLabel(value);
   const formatNumber = (value: number) => value.toLocaleString("ja-JP", { maximumFractionDigits: 1 });
   const decisionSummary = buildCandidateDecisionSummary({
     candidateIds: candidates.map((candidate) => candidate.id),

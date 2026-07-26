@@ -138,7 +138,7 @@ export function RobustnessActivityView({
     </nav>}
 
     {activeRun && result && <section className="activity-result">
-      <div className="activity-result-meta"><span>候補版 {activeRun.provenance.candidate_revision}</span><span>{result.accepted_samples}/{result.requested_samples}件を評価</span></div>
+      <div className="activity-result-meta"><span>編集版 {activeRun.provenance.candidate_revision}</span><span>{result.accepted_samples}/{result.requested_samples}件を評価</span></div>
       <div className="activity-targets">{result.target_summaries.map((summary) => <article key={summary.target}>
         <header><strong>{outputLabels.get(summary.target) ?? summary.target}</strong>{summary.goal_achievement_rate != null && <b>目標達成 {percentFormat.format(summary.goal_achievement_rate * 100)}%</b>}</header>
         <dl>
