@@ -77,6 +77,8 @@ TaskDefinitionはcanonical input、output、単位、許容範囲、制約を定
 
 Model Packageはdata-onlyであり、allow-list済みruntime adapterだけが読み込む。Task、Feature Pipeline、training provenance、artifact hash、quality report、smoke inputを固定する。
 
+複数出力が同じartifactを参照するI/O契約は将来拡張できる形を維持するが、現行データで再評価したshared multi-output GPは、target別modelより精度、calibration、artifact size、推論時間が悪化したため採用していない。runtime、Package、active設定は追加していない。採否根拠は[複数出力で共有するモデル成果物](decisions/shared-multi-output.md)を参照する。
+
 ### Dataset Profile family
 
 データ形状に応じて複数のProfile familyを許可する。Profile schemaを無理に一つへ統合しない。
@@ -127,6 +129,16 @@ Task追加は内部allow-listである `TaskModule` への明示登録を必要�
 範囲探索とロバストネス解析は同じdigestを来歴へ残す。既存Projectは履歴を推測せず、
 `unbound_legacy`として読み出す。詳細は[Project Design Space](project-design-space.md)を参照する。
 
+### Objective Definition
+
+Objective Definitionは、どのoutputをどの方向・目標・許容範囲で評価するか、制約を満たさない候補をどう扱うか、改善基準となるincumbentを何に固定するかをversionとdigest付きで定義する。Project Design Space、Proposal Strategy、Prediction Taskとは別の不変な判断基準である。詳細は[Objective Definition](objective-definition.md)を参照する。
+
+### Proposal StrategyとBatch Selector
+
+範囲探索は、allow-listされたCandidate Generator、Acquisition Evaluator、SelectorをProposal Strategyとして解決する。保存済みRunは、Design Space／Objective／Package／Feature Pipeline／Datasetのdigest、実際に使ったstrategy、seed、評価pool、棄却理由、獲得値の内訳を固定する。
+
+任意の実験batchを作る場合は、点ごとのProposal Strategyとは別のBatch Selectorが、取得価値、多様性、pending候補、対照・反復、カテゴリquota、実験費用、setup制約を扱う。現行実装はmarginal acquisition後の決定論的batch選択であり、joint q-acquisitionやbatch Thompson Samplingを実装済みとはみなさない。詳細は[Curation and Proposal architecture](curation-and-proposal-architecture.md)を参照する。
+
 ### Decision Activity
 
 request／resultは`schema_version`判別unionであり、現在はロバストネス解析、候補差分説明、
@@ -135,16 +147,13 @@ Project Design SpaceとObjectiveに固定した目標到達案を登録してい
 
 ### Chain execution
 
-Chain contract自体はStageとbindingを一般化しているが、現在のcandidate preparationとexecution UXは溶接材料A→B→Cを最初の縦切りとしている。
+Chain Coreは候補shapeを解釈せず、Stage順序、binding、単位変換、部分再計算、鮮度、provenance、snapshotを扱う。候補shape、初期値、妥当性検証、決定論的Stage、追加revision参照はallow-listされたcandidate adapterへ分離している。
 
-現在のv1前提には次が含まれる。
+最初の縦切りである溶接材料A→B→Cは`sparse_blend/v1` adapterと専用Workbenchを持つ。これとは別に、疎配合も決定論的Stageも持たないscalar候補の二段Chainを通し、Chain Coreを変更せずDefinition、binding、execution、snapshotを再利用できることを確認した。
 
-- 疎なblendを持つcandidate
-- 一つの決定論的Stage A
-- welding context／test contextのexternal input展開
-- Stage A科学master、商用catalog、Design Spaceの固定
+一方、現在の画面は疎配合Chain専用であり、scalar候補の編集画面はない。また、決定論的Stageを二段以上持つ候補shape、画像・系列などの非scalar外部入力、domain固有の実験資源はadapter追加なしには扱わない。
 
-疎配合を使わない二段Chainなどを追加するときは、Chain Coreを変更する前に、溶接固有candidate adapterとの分離可否を検証する。
+詳細は[Chain実行と証跡](chain-execution.md)と[拡張性反証結果](architecture/extensibility-spikes.md)を参照する。
 
 ### Chain uncertainty
 
@@ -167,6 +176,8 @@ Stage Aの固定科学変換境界に限り、目標材料成分から配合へ�
 | Decision Activity | `backend/src/material_workbench/contracts/decision_activity_contracts.py` |
 | Project Design Space | `backend/src/material_workbench/contracts/design_space_contracts.py` と `docs/project-design-space.md` |
 | Objective Definition | `backend/src/material_workbench/contracts/objective_contracts.py` と `docs/objective-definition.md` |
+| Proposal Strategy／Acquisition | `backend/src/material_workbench/contracts/proposal_contracts.py` と `docs/curation-and-proposal-architecture.md` |
+| Batch Selector | `backend/src/material_workbench/contracts/batch_proposal_contracts.py` と `docs/curation-and-proposal-architecture.md` |
 | Model Package | `docs/model-package-contract.md` と対応するcontract code |
 | Dataset解釈 | Profile familyごとのschemaと契約文書 |
 | OpenAPI／frontend API型 | FastAPI OpenAPIと`apps/web/src/generated/` |
@@ -194,14 +205,24 @@ Stage Aの固定科学変換境界に限り、目標材料成分から配合へ�
 - `app-charter.md`、この文書、`developer-start-here.md`の前提が変わるか
 - 歴史的ADRの状態欄が現在の追跡先を誤って示していないか
 
-## 8. 次の汎用性検証
+## 8. 汎用性検証の現在地
 
-大規模な共通化を先に行わず、次の反証ケースで変更範囲を測る。
+大規模な共通化を先に行わず、異質な実例で変更範囲を測る。完了した反証は次の通りである。
 
-1. 新しい通常CSV回帰Task
-2. 溶接以外の複数観測family Dataset
-3. 可変長系列assetをCandidateとModel PackageへbindingするTask
-4. 疎配合と決定論的Stageを持たない二段Chain
-5. ロバストネス以外のDecision Activity
+| 反証ケース | 結果 |
+|---|---|
+| 新しい通常CSV回帰Task | 共通Tabular Profile／runtime／Package builderを再利用できた |
+| 溶接以外の複数観測family Dataset | family固有の学習行構成を保ちつつ、共通Task／Package境界へ接続できた |
+| 疎配合と決定論的Stageを持たない二段Chain | candidate adapter分離後、Chain Coreの変更なしで実行できた |
+| ロバストネス以外のDecision Activity | 候補差分説明と目標到達案を型付きregistryへ追加できた |
+| 可変長系列の保存・変換・閲覧 | Raw／Canonical／Featureを独立assetとして固定できた |
 
-各ケースで、既存ファイル変更数、新しいcontract、API／UI分岐、registry追加点を記録する。二つ目の実例を通す前に「汎用基盤完成」と判断しない。
+まだ将来候補であり、現在の実装と混同しない反証ケースは次である。
+
+1. 可変長系列assetをCandidate、Task、Model Packageへ実際にbindingする縦スライス
+2. 画像、スペクトル、グラフ、複数明細集合を入力にするTask
+3. 決定論的Stageを二段以上持つChainと、その候補編集画面
+4. joint posterior sampleを必要とするq-acquisitionまたはbatch Thompson Sampling
+5. 承認済みTraining Snapshotからの明示的な再学習・Package昇格workflow
+
+新しいケースでは、既存ファイル変更数、新しいcontract、API／UI分岐、registry追加点を記録する。二つ目の実例を通す前に「汎用基盤完成」と判断しない。
