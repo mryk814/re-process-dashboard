@@ -1,0 +1,236 @@
+---
+level: intermediate
+estimated_minutes: 75
+verified_commit: "bb3b4ff8b2f4b30d13b587162fef546421eea283"
+code_references:
+  - "backend/src/material_workbench/persistence/candidate_revision_migration.py"
+  - "backend/src/material_workbench/persistence/workspace_catalog_migration.py"
+  - "backend/src/material_workbench/persistence/sqlite_connection.py"
+  - "backend/tests/test_candidate_safety.py"
+  - "backend/tests/test_candidate_migration.py"
+  - "backend/tests/test_workspace_catalog_migration.py"
+  - "backend/tests/test_sqlite_connection.py"
+---
+
+# migrationの矛盾を再現して診断する {#sec-lab-migration}
+
+この演習はproduction databaseと`data/source/`を変更しません。
+pytestの一時directoryに作るSQLite fixtureだけを使います。
+
+## 演習1：四つの状態を分類する
+
+`candidate-revision-history-v1`について、次の状態を分類してください。
+
+1. markerなし、`candidate_revisions`なし。
+2. markerあり、checksum一致、期待columnとcurrent revision rowあり。
+3. markerあり、checksum一致、tableなし。
+4. markerなし、`candidate_revisions`あり。
+5. markerあり、checksumが`different`。
+
+分類は「適用する」「適用済み」「停止する」の三つです。
+
+### 解答例
+
+| 状態 | 判定 | 理由 |
+|---|---|---|
+| 1 | 適用する | 未適用の前提が揃う |
+| 2 | 適用済み | ledger、schema、data invariantが一致する |
+| 3 | 停止する | markerと実体が矛盾する |
+| 4 | 停止する | 同名tableの来歴を確定できない |
+| 5 | 停止する | 同じIDに異なる定義が対応している |
+
+## 演習2：markerだけのDBを作る
+
+次のtestを`backend/tests/test_candidate_safety.py`へ一時的に追加する場合を考えます。
+実際に追加しなくても、期待する例外とDB状態を先に書いてください。
+
+```python
+def test_candidate_revision_marker_without_table_is_rejected(tmp_path):
+    database = tmp_path / "partial.db"
+    migrate_candidate_storage(database)
+    with sqlite3.connect(database) as conn:
+        conn.execute(
+            "INSERT INTO schema_migrations(id, checksum, applied_at) "
+            "VALUES (?, ?, ?)",
+            (
+                "candidate-revision-history-v1",
+                "immutable-candidate-revisions-v1",
+                "2026-07-27T00:00:00+00:00",
+            ),
+        )
+
+    migrate_candidate_revisions(database)
+```
+
+### 解答例
+
+`CandidateRevisionMigrationError`で、messageはtableが不完全であることを示します。
+markerは残り、migrationは不足tableを自動作成しません。
+
+例外後にrollbackされるのは、その呼出しがtransaction内で行った変更です。
+呼出し前から存在した矛盾markerまでは削除しません。
+
+## 演習3：tableだけのDBを作る
+
+markerを追加せず、`candidate_revisions`という名前のtableだけを作ったとします。
+columnが現行schemaと完全に同じでも、migrationはどう判定すべきか説明してください。
+
+### 解答例
+
+`candidate revision history exists without its migration marker`として停止します。
+同じshapeでも、誰がどの変換規則で既存rowを作ったかは分かりません。
+
+shapeの一致とmigration来歴の一致は別の証拠です。
+
+## 演習4：故障注入の観察点を選ぶ
+
+Workspace catalog migrationは、commit直前へ故障を注入するtestを持ちます。
+失敗後に確認すべきものを次から選んでください。
+
+- 新catalog tableが残っていない
+- `projects`へ追加予定のcolumnが残っていない
+- migration markerが残っていない
+- backup archiveが必ず一つ作られている
+
+### 解答例
+
+最初の三つを確認します。
+schema変更とmarkerが同じtransactionからrollbackされることが観察点です。
+
+Workspace catalog migrationはこの経路で個別backupを作らないため、最後は成功条件ではありません。
+transaction rollbackとbackupを混同しないことが狙いです。
+
+現行fixtureは空の新規DBから始まるため、既存Project rowの保存まではこのtestだけで実証しません。
+既存rowの保存を回帰条件にするなら、migration前のProjectをfixtureへ置き、失敗後の値を明示的に比較します。
+
+## 演習5：checksum mismatchを診断する
+
+適用済みmarkerのchecksumだけを`different`へ変更し、migrationを再実行します。
+次の二案のうち採用する方を選び、理由を書いてください。
+
+1. 現在のchecksumへ上書きして続行する。
+2. DBを変更せず停止し、applicationとDBの来歴を確認する。
+
+### 解答例
+
+2を選びます。
+checksum mismatchは、同じmigration IDへ異なる定義が対応している可能性を示します。
+
+自動上書きすると、どの定義でschemaとdataが作られたかという証拠を消します。
+
+## 演習6：backfill方針を決める
+
+旧Projectへ新しい`design_space_digest`と`binding_provenance`を追加します。
+旧rowには、当時使ったDesign Spaceを一意に復元できる情報がありません。
+
+次の方針を批判してください。
+
+1. 現在activeなDesign Spaceのdigestを全旧Projectへ入れる。
+2. digestは未boundのままにし、provenanceを`unbound_legacy`にする。
+3. Projectをすべて削除する。
+
+### 解答例
+
+2が保存済み事実を最も少なく書き換えます。
+1は現在値を過去の事実として発明し、3は判断履歴を失います。
+
+未bound状態をcontractが許容できないなら、黙って仮値を入れずmigrationを停止し、明示的なrepair手順を設計します。
+
+## 演習7：foreign keyとapplication検証を分ける
+
+次の不変条件を、foreign key、migration SQL、application検証へ対応付けてください。
+
+1. Dataset Revisionが参照するData Asset rowが存在する。
+2. current Candidateと同じrevisionの履歴rowが存在する。
+3. JSON payload内の`source_candidate_id`と`source_candidate_revision`が読める。
+4. legacy Projectのbindingが実測根拠に基づくか、upgrade時の仮定かを区別できる。
+
+### 解答例
+
+| 条件 | 主な境界 |
+|---|---|
+| 1 | foreign key |
+| 2 | migration SQLの整合性query |
+| 3 | applicationまたはrepository |
+| 4 | provenance contractとapplication |
+
+DB columnとして正規化されていない参照や、意味上の確からしさはforeign keyだけでは表現できません。
+
+## 演習8：migration列の途中停止を説明する
+
+起動時にA、B、Cの順で個別transactionのmigrationを実行します。
+AとBがcommitし、Cがrollbackして起動が止まりました。
+
+database全体は「partial migration」でしょうか。
+一件のmigration内部のpartial stateと分けて答えてください。
+
+### 解答例
+
+releaseが期待するmigration列としては途中まで進んでいます。
+しかし、Cの内部変更が半端に残ったとは限りません。
+
+次回起動はAとBのmarker、checksum、実体を検証してskipし、Cを再試行できます。
+これにはAとBのidempotencyと、Cの失敗原因が解消していることが必要です。
+
+## 演習9：現mainのfailure fixtureを読む
+
+リポジトリ直下で次を実行します。
+
+```powershell
+uv run python -m pytest `
+  backend/tests/test_candidate_safety.py `
+  backend/tests/test_candidate_migration.py `
+  backend/tests/test_workspace_catalog_migration.py `
+  backend/tests/test_sqlite_connection.py
+```
+
+結果を次の形で記録します。
+
+```yaml
+verified_commit:
+date:
+migration_tests:
+unexpected_warnings:
+```
+
+件数だけで完了にしません。
+次のtestが収集され、成功したことを確認します。
+
+- `test_candidate_revision_migration_backfills_the_current_candidate`
+- `test_failure_rolls_back_every_database_change_and_retry_succeeds`
+- `test_catalog_migration_rolls_back_catalog_changes`
+- `test_catalog_migration_rejects_checksum_mismatch_without_mutation`
+- `test_foreign_keys_are_enforced_and_legacy_orphans_are_reported`
+
+## 演習10：新しいmigrationのreview票を作る
+
+新しいtableまたはcolumnを追加する前に、次を一文ずつ埋めます。
+
+```yaml
+migration_id:
+precondition:
+postcondition:
+existing_data_meaning:
+transaction_boundary:
+marker_written_after:
+already_applied_validation:
+ambiguous_legacy_policy:
+failure_injection_point:
+focused_test:
+repair_after_commit:
+```
+
+`existing_data_meaning`と`ambiguous_legacy_policy`を書けない場合、DDLを書く前にdomain側の判断が残っています。
+
+## 章末チェックの解答
+
+1. どのmigration IDと定義を適用したと記録したか。
+2. markerとchecksumは実schemaとdata invariantを単独では証明しないため。
+3. 最初からwrite transactionを取得しようとする。
+4. backfill規則や仮定値がdomain上正しいこと。
+5. 同名実体の作成手順とdata来歴を確定できないため。
+6. 未適用の前提、またはmarker、checksum、実体が一致した適用済み状態。
+7. 一意に再構成できればbackfillし、不明を表現できればlegacy provenanceを残し、意味を発明する必要があれば停止する。
+8. table間の親子rowの存在関係。
+9. foreign keyはJSON内部の参照とdomain上の意味を解釈できないため。
+10. 前者は同じtransaction内の半端な変更であり、後者は完了したmigrationの後で次の一件が失敗した状態である。

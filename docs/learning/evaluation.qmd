@@ -21,19 +21,21 @@
 | Workspace presentation test | Node test 12 passed、0.17秒 |
 | revisionとdigestのbackend focused test | Candidate safetyとInference Work Graphで18 passed、9 known warnings、24.34秒 |
 | revisionとdigestのfrontend focused test | 保存queue、Inference Surface、Workbench identityでNode test 14 passed、0.12秒 |
+| SQLite migration focused test | Candidate revision、table再構築、Workspace catalog、connection policyで32 passed、7 known warnings、23.24秒 |
 | API生成型 | `npm run api:check` 成功、openapi-typescript 7.9.1 |
-| repository full gate | pytest 833 passed、3 skipped、54 known warnings、173.70秒。typecheckとbuild成功 |
+| repository full gate | pytest 833 passed、3 skipped、54 known warnings、174.59秒。typecheckとbuild成功 |
 | Decision Activity E2E | main commit `b8ef18a` で2 passed、1 failed。比較候補label追従漏れ [Issue #279](https://github.com/mryk814/re-process-dashboard/issues/279) を再現。[Issue #280](https://github.com/mryk814/re-process-dashboard/issues/280) はopenだが、記録されていた失敗は再現せず |
 | Source lifecycle E2E | 隔離portで1 passed、24.7秒 |
 | repository path | `docs/learning/check-references.ps1` 成功 |
 | HTML | Quarto 1.10.18で生成、検索indexあり |
-| PDF | Quarto 1.10.18とTypst 0.15.1で101ページを生成 |
+| PDF | Quarto 1.10.18とTypst 0.15.1で115ページを生成 |
 | 型付き契約の学習単位 | 本編の実内容はPDF 27〜41ページの15ページ。演習を含む物理範囲は27〜46ページで、実内容18ページとrecto調整2ページ |
 | Source lifecycleの学習単位 | 本編の実内容はPDF 47〜55ページの9ページ。演習を含む物理範囲は47〜60ページで、実内容13ページとrecto調整1ページ |
 | revisionとdigestの学習単位 | 本編の実内容はPDF 61〜68ページの8ページ。演習を含む物理範囲は61〜74ページで、実内容13ページとrecto調整1ページ |
-| Workspace restoreの学習単位 | 本編の実内容はPDF 75〜83ページの9ページ。演習を含む物理範囲は75〜90ページで、実内容15ページとrecto調整1ページ |
-| clean build | HTMLとPDFを連続生成し、29.41秒 |
-| visual review | 最終PDFの全101ページをJPEG化し、日本語、脚注、数式、表、code、SVG図、header、footer、page transition、recto調整ページを確認 |
+| SQLite migrationの学習単位 | 本編の実内容はPDF 77〜84ページの8ページ。演習を含む物理範囲は77〜88ページで、実内容12ページ。recto調整ページなし |
+| Workspace restoreの学習単位 | 本編の実内容はPDF 89〜97ページの9ページ。演習を含む物理範囲は89〜104ページで、実内容15ページとrecto調整1ページ |
+| clean build | HTMLとPDFを連続生成し、26.3秒 |
+| visual review | 最終PDFの全115ページをJPEG化し、日本語、脚注、数式、表、code、SVG図、header、footer、page transition、recto調整ページを確認。SQLite migration単元は150dpiで再確認 |
 
 ## 更新トリガ
 
@@ -54,6 +56,9 @@
 - Inference Key、Chain Revision、semantic digest対象
 - `LatestSaveQueue`、`InferenceSurfaceState`、Workbench identity
 - `test_candidate_safety.py`、`test_inference_work_graph.py`または対応するNode test
+- migration ledger、SQLite connection policy、起動時migration順
+- Candidate revisionまたはWorkspace catalog migration
+- `test_candidate_migration.py`、`test_workspace_catalog_migration.py`、`test_sqlite_connection.py`
 - workspace bundle contract、application service、sidecar maintenance command
 - ElectronのWorkspace IPC、sidecar停止、health確認、rollback、startup recovery
 - `WorkspaceManagerDialog`、presentation test、packaged smoke
@@ -104,7 +109,7 @@ path存在確認とschema driftだけを自動化しても、説明の正しさ�
 
 判断は**選択的継続**です。
 
-四つの本編、対応する演習、三つの学習ルートを維持します。
+五つの本編、対応する演習、三つの学習ルートを維持します。
 新しい章は、新規参加者が複数回つまずいた経路、または設計監査として価値がある経路に限って追加します。
 
 次の運用は採りません。

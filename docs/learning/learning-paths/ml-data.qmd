@@ -32,6 +32,7 @@
 | 8 | [型付き契約のprovenance節](../chapters/contract-through-stack.qmd#sec-contract-provenance) | Decision Activity Runへ何を固定するか | 30分 |
 | 9 | [Source data lifecycleの章](../chapters/source-to-training-evidence.qmd) | 外部Sourceを承認済みの学習行集合へどう変えるか | 120分 |
 | 10 | [revisionとdigestの章](../chapters/revision-and-digest.qmd) | 受理順と、callerが選んだ内容identityをどう分けるか | 150分 |
+| 11 | [SQLite migrationの章](../chapters/trust-a-migrated-database.qmd) | 旧dataの意味を発明せず、新しい参照境界を加える方法 | 120分 |
 
 既存の `docs/tutorial-data-pipeline.md` は移動しません。
 既存リンクを壊さず、最小データでData、Profile、Feature、Modelを追える教材として参照します。
@@ -63,3 +64,5 @@ uv run python -m pytest `
 この二つは、取得、品質判定、承認、Training Snapshot、Package active化を別の操作として確認します。
 
 digest対象へ何を含めるか、同じ科学入力と同じ判断証拠をどう分けるかを変更する場合は、[revisionとdigestの章](../chapters/revision-and-digest.qmd)へ進みます。
+
+保存schemaへ新しいDatasetまたはPackage参照を加える場合は、[SQLite migrationの章](../chapters/trust-a-migrated-database.qmd)でbackfill、legacy provenance、起動時検証を確認します。

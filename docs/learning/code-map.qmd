@@ -30,6 +30,16 @@
 - **非同期表示**：`apps/web/src/features/workbench/inferenceSurfaceState.ts`
 - **Test**：`backend/tests/test_candidate_safety.py`、`backend/tests/test_inference_work_graph.py`、`apps/web/tests/latestSaveQueue.test.mjs`、`apps/web/tests/inferenceSurfaceState.test.mjs`
 
+### SQLite migrationと起動時検証
+
+- **起動順**：`backend/src/material_workbench/persistence/store.py`
+- **接続policy**：`backend/src/material_workbench/persistence/sqlite_connection.py`
+- **Migration ledgerとtable再構築**：`backend/src/material_workbench/persistence/candidate_migration.py`
+- **履歴backfill**：`backend/src/material_workbench/persistence/candidate_revision_migration.py`
+- **Catalog schemaとlegacy provenance**：`backend/src/material_workbench/persistence/workspace_catalog_migration.py`、`backend/src/material_workbench/persistence/workspace_catalog_bootstrap.py`
+- **診断**：`backend/src/material_workbench/developer_experience/runtime_diagnostics.py`
+- **Test**：`backend/tests/test_candidate_migration.py`、`backend/tests/test_candidate_safety.py`、`backend/tests/test_workspace_catalog_migration.py`、`backend/tests/test_sqlite_connection.py`
+
 ### Project scientific identity
 
 - **Contract**：`backend/src/material_workbench/contracts/chain_contracts.py`、`backend/src/material_workbench/contracts/schemas.py`
@@ -226,7 +236,8 @@ Workspace restoreの章は、Issue #252とPR #282を入口に、SQLite snapshot�
 この経路は、検証済みbundleをactive Workspaceへ切り替え、API起動後に復元を確定するまでを扱います。
 
 revisionとdigestの章は、[Issue #292](https://github.com/mryk814/re-process-dashboard/issues/292)のうち、logical identity、optimistic concurrency、immutable revision、semantic digest、request identityを扱います。
-Issue #292全体の完了を意味せず、契約境界とSQLite設計の残りは後続の教材候補です。
+SQLite migrationの章は、同Issueのtransaction、marker、checksum、legacy provenance、foreign keyとapplication invariantを扱います。
+二章を合わせてもIssue #292全体の完了を意味せず、archiveとpurgeなどは後続の教材候補です。
 
 - [Issue #120：検討アクティビティを導入する](https://github.com/mryk814/re-process-dashboard/issues/120)
 - [PR #122：ロバストネス検討アクティビティを追加する](https://github.com/mryk814/re-process-dashboard/pull/122)

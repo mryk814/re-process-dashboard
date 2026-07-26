@@ -11,6 +11,7 @@
 - 不変なRunへversionとdigestを残す理由
 - OpenAPI driftをテストで検出する経路
 - logical ID、revision、digestを別の不変条件として扱う理由
+- migration marker、実schema、data invariantを別々に検証する理由
 - SQLite snapshot、staging migration、table evidenceを分ける理由
 
 ## 前提
@@ -32,7 +33,8 @@
 | 7 | `backend/tests/test_decision_activities.py` | どの不変条件をtestへ固定したか | 35分 |
 | 8 | [型付き契約の章](../chapters/contract-through-stack.qmd)と[演習](../labs/extend-contract.qmd) | 一経路を説明し、小変更を設計する | 90分 |
 | 9 | [revisionとdigestの章](../chapters/revision-and-digest.qmd)と[演習](../labs/trace-revision-conflict.qmd) | compare-and-swap、immutable history、内容identityを分ける | 240分 |
-| 10 | [Workspace restoreの章](../chapters/restore-workspace-safely.qmd)と[演習](../labs/trace-workspace-restore.qmd) | 現DBへ触れる前後の検証とrollbackを分ける | 150分 |
+| 10 | [SQLite migrationの章](../chapters/trust-a-migrated-database.qmd)と[演習](../labs/break-and-repair-migration.qmd) | marker、checksum、schema、dataの一致を確認する | 195分 |
+| 11 | [Workspace restoreの章](../chapters/restore-workspace-safely.qmd)と[演習](../labs/trace-workspace-restore.qmd) | 現DBへ触れる前後の検証とrollbackを分ける | 150分 |
 
 ## 確認コマンド
 
@@ -52,4 +54,5 @@ npm run api:check
 - Reactでunionをnarrowingする箇所へ進む場合は [frontend／desktopルート](frontend-desktop.qmd) を読む
 - 新しいActivityを実装する場合は `docs/decision-activities.md` を正本として使う
 - Candidate保存またはcatalog identityを変更する場合は [revisionとdigestの章](../chapters/revision-and-digest.qmd) を読む
+- SQLite schemaまたは起動migrationを変更する場合は [SQLite migrationの章](../chapters/trust-a-migrated-database.qmd) を読む
 - Workspaceのmigration、backup、復旧を変更する場合は [Workspace restoreの章](../chapters/restore-workspace-safely.qmd) を読む

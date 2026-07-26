@@ -2,6 +2,9 @@
 
 **Activity handler**：一つの検討アクティビティについて、definition、parameter kind、準備、計算をまとめた内部allow-listの要素。
 
+**additive migration**：既存recordを保持しながらtable、column、indexなどを加え、現在のcontractへ進めるschema変更。
+旧dataの意味を一意に復元できない場合は、仮の過去を発明せずprovenance付きの未確定状態または停止を選ぶ。
+
 **canonical input**：source固有の列名や表現を、Taskが解釈できる意味と単位へ正規化した入力。
 
 **contract**：request、response、保存payload、Taskなどが満たすshape、意味、versionの約束。この教材では主にPydantic modelと関連文書を指す。
@@ -18,6 +21,12 @@ path、表示名、revisionを含めるかは用途ごとの契約が決める�
 
 **logical identity**：変更版をまたいで同じ継続対象を指す識別子。
 Candidateでは`id`が担う。
+
+**migration ledger**：適用したmigration ID、期待するchecksum、適用時刻を記録するtable。
+記録だけで実schemaとdata invariantの完全性を証明しない。
+
+**migration marker**：migration ledgerにある一件の適用記録。
+現行実装では、migration IDと手動定数のchecksumを実schemaと照合して使う。
 
 **OpenAPI**：HTTP endpoint、parameter、request、response schemaを機械可読に表す契約。FastAPIがPydantic modelから生成する。
 
@@ -45,6 +54,9 @@ Candidateではcompare-and-swapと過去版参照に使う。
 **staged restore**：active Workspaceへ触れる前に、別directoryで展開、migration、digest、参照を検証した復元候補。
 
 **stale response**：request開始後に画面のProject、Candidate、revisionが変わり、現在の画面文脈には属さなくなったresponse。
+
+**transaction invariant**：transactionの受理可能な開始状態と、commit後に必ず満たす状態についての条件。
+transactionのatomicityは、その条件自体のdomain上の正しさを保証しない。
 
 **Task Definition**：予測Taskのcanonical input、output、単位、範囲、能力を定義する契約。
 
