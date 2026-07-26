@@ -223,6 +223,6 @@ test("inference runs only for changed candidates and visible selected curves", a
   await expect.poll(() => failedPreviewResponse).toBe(true);
   await expect(page.getByText("入力は保存しましたが、予測結果を更新できませんでした")).toBeVisible();
   await expect(selectedPredictionCells.first()).not.toHaveText("—");
-  await expect(page.getByRole("alert")).toContainText("プレビューを取得できませんでした");
+  await expect(page.getByRole("alert").filter({ hasText: "プレビューを取得できませんでした" })).toHaveCount(1);
   await expect.poll(() => inferenceResponses.some((item) => item.kind === "preview" && item.status === 500)).toBe(true);
 });
