@@ -1,7 +1,7 @@
 ---
 level: intermediate
 estimated_minutes: 90
-verified_commit: "6d7be3cea9aad5e0cad6ee8146191545575b6c14"
+verified_commit: "28c9e0f41f2cdcba797d8e826e549fa26ad575d4"
 code_references:
   - path: "backend/src/material_workbench/contracts/decision_activity_contracts.py"
     id: "contract-stack-contract"
