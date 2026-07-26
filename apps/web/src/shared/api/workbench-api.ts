@@ -5,6 +5,7 @@ import { candidateInferencePrefix, inferenceRequestCache, inferenceRequestKey } 
 export type ApiCandidate = components["schemas"]["Candidate"];
 export type ApiCandidateInput = components["schemas"]["CandidateInput"];
 export type ApiCandidateUpdate = components["schemas"]["CandidateUpdate"];
+export type ApiCandidateCapacity = components["schemas"]["CandidateCapacity"];
 export type ApiProject = components["schemas"]["Project"];
 export type ApiProjectInput = components["schemas"]["ProjectUpdateInput"];
 export type ApiProjectCreateInput = components["schemas"]["ProjectCreateInput"];
@@ -86,6 +87,11 @@ const path = (projectId: string, suffix = "") =>
   `/api/projects/${encodeURIComponent(projectId)}${suffix}`;
 
 export const workbenchApi = {
+  async candidateCapacity(projectId: string) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/candidate-capacity", {
+      params: { path: { project_id: projectId } },
+    }), "候補枠を取得できませんでした。");
+  },
   async dataLifecycleCatalog() {
     return requireData(await apiClient.GET("/api/data-lifecycle"), "データ更新履歴を取得できませんでした。");
   },

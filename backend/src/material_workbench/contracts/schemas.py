@@ -329,6 +329,19 @@ class CandidateImportResponse(BaseModel):
     candidates: list[Candidate]
 
 
+class CandidateCapacity(BaseModel):
+    schema_version: Literal["candidate-capacity/v1"] = "candidate-capacity/v1"
+    limit: Annotated[int, Field(ge=1)]
+    used: Annotated[int, Field(ge=0)]
+    remaining: Annotated[int, Field(ge=0)]
+
+    @model_validator(mode="after")
+    def counts_are_consistent(self) -> "CandidateCapacity":
+        if self.used > self.limit or self.remaining != self.limit - self.used:
+            raise ValueError("candidate capacity counts are inconsistent")
+        return self
+
+
 class InputRange(BaseModel):
     min: float
     max: float

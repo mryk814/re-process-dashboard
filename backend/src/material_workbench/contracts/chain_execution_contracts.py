@@ -16,6 +16,16 @@ from material_workbench.contracts.chain_contracts import (
 ChainStageFreshness = Literal["latest", "running", "stale", "failed"]
 
 
+class ChainStageOutputDefinition(ChainContractModel):
+    """Presentation metadata for one output of a pinned Chain Stage."""
+
+    key: Annotated[str, Field(min_length=1)]
+    label: Annotated[str, Field(min_length=1)]
+    unit: str
+    display_decimals: Annotated[int, Field(ge=0, le=8)]
+    goal_direction: Literal["at_least", "at_most", "target"] | None = None
+
+
 class ChainCandidateCapability(ChainContractModel):
     """What candidate surface a Chain Revision needs, declared by its adapter."""
 
@@ -29,6 +39,7 @@ class ChainCandidateCapability(ChainContractModel):
 
 class ChainStageExecution(ChainContractModel):
     stage_id: Annotated[str, Field(min_length=1)]
+    output_definitions: tuple[ChainStageOutputDefinition, ...] = ()
     status: ChainStageFreshness
     requested_input_digest: Annotated[
         str, Field(pattern=r"^sha256:[0-9a-f]{64}$")

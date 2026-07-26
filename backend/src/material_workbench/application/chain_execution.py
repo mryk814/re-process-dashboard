@@ -30,6 +30,7 @@ from material_workbench.contracts.chain_execution_contracts import (
     ChainExecution,
     ChainSnapshot,
     ChainStageExecution,
+    ChainStageOutputDefinition,
     IntermediateActualRecord,
 )
 from material_workbench.contracts.schemas import Candidate, CandidateInput, CandidateInputs
@@ -364,6 +365,36 @@ class ChainExecutionService:
                 f"Stage {stage.stage_id}のPackage digestがChain Revisionと一致しません"
             )
 
+    def _output_definitions(
+        self,
+        stage: ChainStageRevision,
+    ) -> tuple[ChainStageOutputDefinition, ...]:
+        if stage.stage_kind == "task":
+            task = self.registry.contract_for(stage.contract_id).task_definition
+            return tuple(
+                ChainStageOutputDefinition(
+                    key=output.key,
+                    label=output.label,
+                    unit=output.unit,
+                    display_decimals=task.display_decimals[f"output.{output.key}"],
+                    goal_direction=output.goal_direction,
+                )
+                for output in task.outputs
+            )
+        return tuple(
+            ChainStageOutputDefinition(
+                key=presentation.key,
+                label=presentation.label,
+                unit=presentation.unit,
+                display_decimals=presentation.display_decimals,
+            )
+            for presentation in self.transform_catalog.output_presentations_for_revision(
+                stage.contract_id,
+                stage.package_manifest_digest,
+                stage.contract_digest,
+            )
+        )
+
     def _run_stage(
         self,
         stage: ChainStageRevision,
@@ -446,8 +477,8 @@ class ChainExecutionService:
             }
         )
 
-    @staticmethod
     def _retained(
+        self,
         previous: ChainStageExecution | None,
         *,
         stage: ChainStageRevision,
@@ -459,6 +490,7 @@ class ChainExecutionService:
     ) -> ChainStageExecution:
         return ChainStageExecution(
             stage_id=stage.stage_id,
+            output_definitions=self._output_definitions(stage),
             status=status,  # type: ignore[arg-type]
             requested_input_digest=requested_input_digest,
             result_input_digest=(
@@ -755,6 +787,7 @@ class ChainExecutionService:
                 )
             stages[-1] = ChainStageExecution(
                 stage_id=stage.stage_id,
+                output_definitions=self._output_definitions(stage),
                 status="latest",
                 requested_input_digest=input_digest,
                 result_input_digest=input_digest,
@@ -855,6 +888,7 @@ class ChainExecutionService:
                 stages.append(
                     ChainStageExecution(
                         stage_id=stage.stage_id,
+                        output_definitions=self._output_definitions(stage),
                         status="latest",
                         requested_input_digest=input_digest,
                         result_input_digest=input_digest,
@@ -904,8 +938,8 @@ class ChainExecutionService:
             else self.store.get_chain_execution(project_id, candidate_id)
         )
 
-    @staticmethod
     def _superseded(
+        self,
         project_id: str,
         candidate: Candidate,
         identity: ChainProjectIdentity,
@@ -917,6 +951,7 @@ class ChainExecutionService:
             stages = tuple(
                 ChainStageExecution(
                     stage_id=stage.stage_id,
+                    output_definitions=self._output_definitions(stage),
                     status="stale",
                     requested_input_digest=semantic_digest(
                         {"superseded_stage": stage.stage_id}
@@ -967,6 +1002,19 @@ class ChainExecutionService:
             domain_references = adapter.snapshot_domain_references(candidate)
         except ChainCandidateAdapterError as exc:
             raise ChainExecutionError(str(exc)) from exc
+        stage_revisions = {stage.stage_id: stage for stage in revision.stages}
+        snapshot_stages = tuple(
+            stage
+            if stage.output_definitions
+            else stage.model_copy(
+                update={
+                    "output_definitions": self._output_definitions(
+                        stage_revisions[stage.stage_id]
+                    )
+                }
+            )
+            for stage in execution.stages
+        )
         snapshot = ChainSnapshot(
             snapshot_id=str(uuid.uuid4()),
             identity=ChainSnapshotIdentityV2(
@@ -979,7 +1027,7 @@ class ChainExecutionService:
             ),
             request_id=execution.request_id,
             external_input=adapter.external_values(candidate),
-            stages=execution.stages,
+            stages=snapshot_stages,
             created_at=_now(),
         )
         try:

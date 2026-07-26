@@ -554,6 +554,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/candidate-capacity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Candidate Capacity */
+        get: operations["get_candidate_capacity_api_projects__project_id__candidate_capacity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/candidates": {
         parameters: {
             query?: never;
@@ -2645,6 +2662,21 @@ export interface components {
              */
             updated_at: string;
         };
+        /** CandidateCapacity */
+        CandidateCapacity: {
+            /** Limit */
+            limit: number;
+            /** Remaining */
+            remaining: number;
+            /**
+             * Schema Version
+             * @default candidate-capacity/v1
+             * @constant
+             */
+            schema_version: "candidate-capacity/v1";
+            /** Used */
+            used: number;
+        };
         /** CandidateCurrentHistory */
         CandidateCurrentHistory: {
             /** Revision */
@@ -3372,6 +3404,11 @@ export interface components {
             contract_digest: string;
             /** Error */
             error?: string | null;
+            /**
+             * Output Definitions
+             * @default []
+             */
+            output_definitions: components["schemas"]["ChainStageOutputDefinition"][];
             /** Package Manifest Digest */
             package_manifest_digest: string;
             /** Requested Input Digest */
@@ -3391,6 +3428,22 @@ export interface components {
              * @enum {string}
              */
             status: "latest" | "running" | "stale" | "failed";
+        };
+        /**
+         * ChainStageOutputDefinition
+         * @description Presentation metadata for one output of a pinned Chain Stage.
+         */
+        ChainStageOutputDefinition: {
+            /** Display Decimals */
+            display_decimals: number;
+            /** Goal Direction */
+            goal_direction?: ("at_least" | "at_most" | "target") | null;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Unit */
+            unit: string;
         };
         /** ChainStageRevision */
         ChainStageRevision: {
@@ -9848,6 +9901,64 @@ export interface operations {
             };
             /** @description Validation Error */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    get_candidate_capacity_api_projects__project_id__candidate_capacity_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateCapacity"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
