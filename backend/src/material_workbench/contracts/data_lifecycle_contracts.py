@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Annotated, Any, Literal
 from urllib.parse import parse_qsl, urlsplit
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from material_workbench.contracts.task_contracts import ContractModel
 from material_workbench.execution.inference_work_graph import semantic_digest
@@ -355,6 +355,14 @@ class ApprovalOverride(ContractModel):
     row_key: Annotated[str, Field(min_length=1)]
     reason: Annotated[str, Field(min_length=1, max_length=500)]
 
+    @field_validator("reason")
+    @classmethod
+    def reason_is_meaningful(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("override理由を入力してください")
+        return normalized
+
 
 class DatasetApprovalInput(ContractModel):
     actor: Annotated[str, Field(min_length=1, max_length=120)]
@@ -365,6 +373,23 @@ class DatasetApprovalInput(ContractModel):
     def override_requires_reason(self) -> "DatasetApprovalInput":
         if self.overrides and not self.reason.strip():
             raise ValueError("override時は全体の承認理由も必要です")
+        row_keys = [item.row_key for item in self.overrides]
+        if len(row_keys) != len(set(row_keys)):
+            raise ValueError("同じrowを複数回overrideできません")
+        return self
+
+
+class DatasetApprovalRequest(ContractModel):
+    reason: Annotated[str, Field(max_length=500)] = ""
+    overrides: tuple[ApprovalOverride, ...] = ()
+
+    @model_validator(mode="after")
+    def override_requires_reason(self) -> "DatasetApprovalRequest":
+        if self.overrides and not self.reason.strip():
+            raise ValueError("override時は全体の承認理由も必要です")
+        row_keys = [item.row_key for item in self.overrides]
+        if len(row_keys) != len(set(row_keys)):
+            raise ValueError("同じrowを複数回overrideできません")
         return self
 
 
@@ -439,6 +464,11 @@ class TrainingSnapshotCreateInput(ContractModel):
     selection_policy: TrainingSnapshotSelectionPolicy | None = None
 
 
+class TrainingSnapshotCreateRequest(ContractModel):
+    purpose: Annotated[str, Field(min_length=1, max_length=300)]
+    selection_policy: TrainingSnapshotSelectionPolicy | None = None
+
+
 class ApprovedTrainingSnapshot(ContractModel):
     schema_version: Literal["approved-training-snapshot/v1"] = (
         "approved-training-snapshot/v1"
@@ -500,6 +530,12 @@ class ConnectorLifecycleDetail(ContractModel):
     training_snapshots: tuple[ApprovedTrainingSnapshot, ...] = ()
 
 
+class DataLifecycleActor(ContractModel):
+    id: Annotated[str, Field(min_length=1, max_length=120)]
+    label: Annotated[str, Field(min_length=1, max_length=120)]
+
+
 class DataLifecycleCatalog(ContractModel):
+    current_actor: DataLifecycleActor
     connectors: tuple[SourceConnector, ...] = ()
     recipes: tuple[CurationRecipe, ...] = ()

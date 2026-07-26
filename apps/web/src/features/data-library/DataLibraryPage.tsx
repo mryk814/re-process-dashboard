@@ -45,6 +45,7 @@ export function DataLibraryPage({
   const [datasetStateFilter, setDatasetStateFilter] = useState("available");
   const [changingResourceId, setChangingResourceId] = useState("");
   const [undoAction, setUndoAction] = useState<UndoAction | null>(null);
+  const [activeTab, setActiveTab] = useState<"browse" | "update">("browse");
   const taskLabel = useTaskLabels();
 
   const load = () => {
@@ -188,7 +189,7 @@ export function DataLibraryPage({
     <div className="page-panel data-library-page">
       <div className="page-intro data-library-header">
         <div><span className="overline">DATA LIBRARY</span><h2>データライブラリ</h2><p>Excelとデータセットプロファイルを組み合わせたデータセットと、モデルの学習元を確認します。</p></div>
-        <div className="data-library-header-actions">
+        {activeTab === "browse" && <div className="data-library-header-actions">
           <button className="primary-button" onClick={onAddDataset}>Excelからデータセットを追加</button>
           <button
             className="outline-button"
@@ -196,15 +197,19 @@ export function DataLibraryPage({
             aria-controls="dataset-comparison-builder"
             onClick={() => setCompareOpen((value) => !value)}
           >＋ 比較セット</button>
-        </div>
+        </div>}
       </div>
+      <nav className="data-library-tabs" aria-label="データライブラリの表示">
+        <button type="button" role="tab" aria-selected={activeTab === "browse"} className={activeTab === "browse" ? "active" : ""} onClick={() => setActiveTab("browse")}>閲覧</button>
+        <button type="button" role="tab" aria-selected={activeTab === "update"} className={activeTab === "update" ? "active" : ""} onClick={() => setActiveTab("update")}>データ更新</button>
+      </nav>
       {error && options && <p className="panel-error" role="alert">{error}</p>}
       {undoAction && <div className="library-undo" role="status">
         <span>{undoAction.label}を{undoAction.archived ? "復元" : "利用停止"}しました。</span>
         <button type="button" className="text-button" disabled={changingResourceId === undoAction.id} onClick={() => void undoLastChange()}>元に戻す</button>
         <button type="button" className="text-button library-undo-dismiss" aria-label="通知を閉じる" onClick={() => setUndoAction(null)}>×</button>
       </div>}
-      {compareOpen && options && <section id="dataset-comparison-builder" className="dataset-compare-builder" aria-labelledby="dataset-comparison-heading">
+      {activeTab === "browse" && compareOpen && options && <section id="dataset-comparison-builder" className="dataset-compare-builder" aria-labelledby="dataset-comparison-heading">
         <div><h3 id="dataset-comparison-heading">境界を保った比較セット</h3><p>設備・場所などの違いを残したまま並べます。学習用に自動結合はしません。</p></div>
         <label>比較名<input value={compareName} onChange={(event) => setCompareName(event.target.value)} placeholder="設備A / 設備B 比較" /></label>
         <div className="dataset-compare-options">{options.datasets.map((item) => <label key={item.dataset_revision.id}><input type="checkbox" checked={selectedIds.includes(item.dataset_revision.id)} onChange={() => toggleDataset(item)} />{datasetDisplayName(item)}</label>)}</div>
@@ -216,7 +221,7 @@ export function DataLibraryPage({
         <p className="panel-error" role="alert">{error}</p>
         <button className="outline-button" onClick={() => void load()}>再読み込み</button>
       </section>}
-      {options && <>
+      {options && activeTab === "browse" && <>
         <section className="data-library-section">
           <div className="panel-title library-title-with-filter">
             <div><h3>データセット（Dataset）</h3><span>{filteredDatasets.length} / {datasets.length}件</span></div>
@@ -266,8 +271,6 @@ export function DataLibraryPage({
         </section>
 
         <SeriesLibrarySection />
-        <SourceLifecycleSection datasets={datasets} />
-
         <section className={`data-library-grid ${comparisonSets.length === 0 ? "comparison-empty" : ""}`}>
           <div className="data-library-section comparison-set-section"><div className="panel-title"><h3>比較セット</h3><span>{comparisonSets.length}件</span></div>{comparisonSets.length ? <div className="comparison-set-list">{comparisonSets.map((view) => { const members = view.members.map((member) => member.cohort_label || datasetDisplayName(options.datasets.find((dataset) => dataset.dataset_revision.id === member.dataset_revision_id))).join(" / "); return <div key={view.id}><strong>{view.name}</strong><span title={members}>{members}</span><code title={view.view_digest}>{shortDigest(view.view_digest)}</code></div>; })}</div> : <p className="library-empty">比較セットはまだありません。必要なときに上の「＋ 比較セット」から作成できます。</p>}</div>
           <div className="data-library-section model-package-library">
@@ -312,6 +315,7 @@ export function DataLibraryPage({
           </div>
         </section>
       </>}
+      {activeTab === "update" && <SourceLifecycleSection datasets={datasets} />}
     </div>
   );
 }

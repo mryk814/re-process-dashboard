@@ -4093,6 +4093,13 @@ export interface components {
             /** Supported Task Ids */
             supported_task_ids: string[];
         };
+        /** DataLifecycleActor */
+        DataLifecycleActor: {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+        };
         /** DataLifecycleCatalog */
         DataLifecycleCatalog: {
             /**
@@ -4100,6 +4107,7 @@ export interface components {
              * @default []
              */
             connectors: components["schemas"]["SourceConnector"][];
+            current_actor: components["schemas"]["DataLifecycleActor"];
             /**
              * Recipes
              * @default []
@@ -4133,10 +4141,8 @@ export interface components {
              */
             suggested_view: "lineage" | "source_sheet";
         };
-        /** DatasetApprovalInput */
-        DatasetApprovalInput: {
-            /** Actor */
-            actor: string;
+        /** DatasetApprovalRequest */
+        DatasetApprovalRequest: {
             /**
              * Overrides
              * @default []
@@ -8495,10 +8501,8 @@ export interface components {
             /** Values */
             values: (string | number | boolean)[];
         };
-        /** TrainingSnapshotCreateInput */
-        TrainingSnapshotCreateInput: {
-            /** Actor */
-            actor: string;
+        /** TrainingSnapshotCreateRequest */
+        TrainingSnapshotCreateRequest: {
             /** Purpose */
             purpose: string;
             selection_policy?: components["schemas"]["TrainingSnapshotSelectionPolicy"] | null;
@@ -8919,7 +8923,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TrainingSnapshotCreateInput"];
+                "application/json": components["schemas"]["TrainingSnapshotCreateRequest"];
             };
         };
         responses: {
@@ -9053,7 +9057,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["DatasetApprovalInput"];
+                "application/json": components["schemas"]["DatasetApprovalRequest"];
             };
         };
         responses: {

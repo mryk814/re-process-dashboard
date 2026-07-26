@@ -80,8 +80,8 @@ export type ApiSourceConnectorInput = components["schemas"]["SourceConnectorCrea
 export type ApiSourceFetchRequest = components["schemas"]["SourceFetchRequest"];
 export type ApiCurationRecipeInput = components["schemas"]["CurationRecipeCreateInput"];
 export type ApiCurationRunInput = components["schemas"]["CurationRunCreateInput"];
-export type ApiDatasetApprovalInput = components["schemas"]["DatasetApprovalInput"];
-export type ApiTrainingSnapshotInput = components["schemas"]["TrainingSnapshotCreateInput"];
+export type ApiDatasetApprovalInput = components["schemas"]["DatasetApprovalRequest"];
+export type ApiTrainingSnapshotInput = components["schemas"]["TrainingSnapshotCreateRequest"];
 
 const path = (projectId: string, suffix = "") =>
   `/api/projects/${encodeURIComponent(projectId)}${suffix}`;

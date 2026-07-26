@@ -17,13 +17,16 @@ from material_workbench.contracts.data_lifecycle_contracts import (
     CurationRecipeCreateInput,
     CurationRun,
     CurationRunCreateInput,
+    DataLifecycleActor,
     DataLifecycleCatalog,
     DatasetApprovalInput,
+    DatasetApprovalRequest,
     SourceConnector,
     SourceConnectorCreateInput,
     SourceFetchRequest,
     SourceFetchResult,
     TrainingSnapshotCreateInput,
+    TrainingSnapshotCreateRequest,
 )
 from material_workbench.domain.data_lifecycle import LifecycleConflictError
 from material_workbench.persistence.data_lifecycle_repository import (
@@ -35,6 +38,10 @@ from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 
 
 router = APIRouter(prefix="/api/data-lifecycle")
+LOCAL_WORKSPACE_ACTOR = DataLifecycleActor(
+    id="local-workspace-user",
+    label="このローカルワークスペースの利用者",
+)
 
 
 def get_data_lifecycle_service(
@@ -59,6 +66,7 @@ def _raise_lifecycle_error(exc: Exception) -> None:
 @router.get("", response_model=DataLifecycleCatalog)
 def lifecycle_catalog(service: ServiceDependency) -> DataLifecycleCatalog:
     return DataLifecycleCatalog(
+        current_actor=LOCAL_WORKSPACE_ACTOR,
         connectors=service.list_connectors(),
         recipes=service.list_recipes(),
     )
@@ -163,11 +171,18 @@ def create_curation_run(
 )
 def approve_curation_run(
     run_id: str,
-    payload: DatasetApprovalInput,
+    payload: DatasetApprovalRequest,
     service: ServiceDependency,
 ) -> CanonicalDatasetRevision:
     try:
-        return service.approve(run_id, payload)
+        return service.approve(
+            run_id,
+            DatasetApprovalInput(
+                actor=LOCAL_WORKSPACE_ACTOR.id,
+                reason=payload.reason,
+                overrides=payload.overrides,
+            ),
+        )
     except (LifecycleResourceNotFoundError, LifecycleConflictError) as exc:
         _raise_lifecycle_error(exc)
 
@@ -179,10 +194,17 @@ def approve_curation_run(
 )
 def create_training_snapshot(
     revision_id: str,
-    payload: TrainingSnapshotCreateInput,
+    payload: TrainingSnapshotCreateRequest,
     service: ServiceDependency,
 ) -> ApprovedTrainingSnapshot:
     try:
-        return service.create_training_snapshot(revision_id, payload)
+        return service.create_training_snapshot(
+            revision_id,
+            TrainingSnapshotCreateInput(
+                actor=LOCAL_WORKSPACE_ACTOR.id,
+                purpose=payload.purpose,
+                selection_policy=payload.selection_policy,
+            ),
+        )
     except (LifecycleResourceNotFoundError, LifecycleConflictError) as exc:
         _raise_lifecycle_error(exc)

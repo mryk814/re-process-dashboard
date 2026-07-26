@@ -448,10 +448,11 @@ def test_api_tracks_digests_without_exposing_unapproved_data_to_projects(
     assert unapproved["datasets"] == before["datasets"]
     approved_response = client.post(
         f"/api/data-lifecycle/curation-runs/{run['id']}/approve",
-        json={"actor": "reviewer", "reason": "API確認", "overrides": []},
+        json={"reason": "API確認", "overrides": []},
     )
     assert approved_response.status_code == 201, approved_response.text
     approved = approved_response.json()
+    assert approved["actor"] == "local-workspace-user"
     detail = client.get(
         f"/api/data-lifecycle/connectors/{connector['id']}"
     ).json()
@@ -460,9 +461,61 @@ def test_api_tracks_digests_without_exposing_unapproved_data_to_projects(
     training_response = client.post(
         "/api/data-lifecycle/canonical-dataset-revisions/"
         f"{approved['id']}/training-snapshots",
-        json={"actor": "modeler", "purpose": "明示的な学習Snapshot"},
+        json={"purpose": "明示的な学習Snapshot"},
     )
     assert training_response.status_code == 201, training_response.text
+    assert training_response.json()["actor"] == "local-workspace-user"
     assert training_response.json()["row_count"] == 2
     after = client.get("/api/project-creation-options").json()
     assert after["model_packages"] == before["model_packages"]
+
+
+def test_api_owns_lifecycle_actor_and_requires_override_reason(client) -> None:
+    catalog = client.get("/api/data-lifecycle")
+    assert catalog.status_code == 200
+    assert catalog.json()["current_actor"] == {
+        "id": "local-workspace-user",
+        "label": "このローカルワークスペースの利用者",
+    }
+
+    actor_in_approval = client.post(
+        "/api/data-lifecycle/curation-runs/not-used/approve",
+        json={"actor": "spoofed-user", "reason": "", "overrides": []},
+    )
+    assert actor_in_approval.status_code == 422
+
+    override_without_reason = client.post(
+        "/api/data-lifecycle/curation-runs/not-used/approve",
+        json={
+            "reason": "",
+            "overrides": [{"row_key": "A-01", "reason": "個別確認済み"}],
+        },
+    )
+    assert override_without_reason.status_code == 422
+
+    blank_row_reason = client.post(
+        "/api/data-lifecycle/curation-runs/not-used/approve",
+        json={
+            "reason": "全体理由",
+            "overrides": [{"row_key": "A-01", "reason": "   "}],
+        },
+    )
+    assert blank_row_reason.status_code == 422
+
+    duplicate_override = client.post(
+        "/api/data-lifecycle/curation-runs/not-used/approve",
+        json={
+            "reason": "全体理由",
+            "overrides": [
+                {"row_key": "A-01", "reason": "理由1"},
+                {"row_key": "A-01", "reason": "理由2"},
+            ],
+        },
+    )
+    assert duplicate_override.status_code == 422
+
+    actor_in_training = client.post(
+        "/api/data-lifecycle/canonical-dataset-revisions/not-used/training-snapshots",
+        json={"actor": "spoofed-user", "purpose": "test"},
+    )
+    assert actor_in_training.status_code == 422
