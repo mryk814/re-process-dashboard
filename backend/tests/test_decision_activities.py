@@ -579,4 +579,6 @@ def test_registered_activities_declare_distinct_parameter_and_result_kinds() -> 
         assert set(handler.definition.required_resources) <= {
             "candidate",
             "comparison_candidate",
+            "objective_definition",
+            "project_design_space",
         }

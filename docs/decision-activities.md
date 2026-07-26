@@ -30,13 +30,15 @@
 activity_idを名指ししてはならず、テストで固定している。
 
 必要条件はresource種別ごとに1か所で判定する。
-`candidate` は保存済み候補revision、`comparison_candidate` は別候補または同じ候補の過去revisionを要求する。
+`candidate` は保存済み候補revision、`comparison_candidate` は別候補または同じ候補の過去revision、
+`objective_definition` はProjectへ固定したObjective Definitionを要求する。
 アクティビティごとに利用可否のコードを増やさない。
 
 ## 利用可否の判定
 
 APIは、Projectに固定されたTask DefinitionとModel Packageから、アクティビティごとの利用可否を返す。
-現行のロバストネス解析は、保存済み候補のrevisionとpreview予測runtimeを必要とする。
+現行のロバストネス解析は保存済み候補のrevisionとpreview予測runtimeを必要とし、
+目標到達案はさらにProject-level Design SpaceとObjective Definitionを必要とする。
 必要条件を満たさない場合、UIは実行ボタンを無効にするだけでなく、不足している条件を表示する。
 
 この判定はTask名やモデル名の列挙ではない。
@@ -76,6 +78,27 @@ APIは、Projectに固定されたTask DefinitionとModel Packageから、アク
 予測値の差とモデルの予測不確実性は別々に表示する。両者を合算した帯は作らない。
 基準候補と比較候補それぞれのモデル支持状態も併記する。
 
+## 目標へ届く最小変更
+
+保存済み候補revisionを基準に、Project-level Design Space内の条件を評価する。
+目標達成とhard outcome constraintを満たす案を、Design Space幅で正規化したL1距離、
+カテゴリ変更ペナルティ、soft preference、モデル支持状態で順位付けする。
+
+baseline strategyはseed付きSobol候補と一変数の座標線を評価する
+`normalized-l1-sobol-v1` である。一変数で到達可能な境界は二分探索で詰める。
+一般逆問題の厳密解やBayesian optimizationとは呼ばない。
+
+- Task、組成合計、条件付き制約、Project Design Spaceを満たさない条件は除外し、clipしない
+- 変更不可fieldと変更項目数上限を守る
+- 支持範囲外の案は無警告で先頭にせず、supported、caution、extrapolatedの順に扱う
+- 到達案がない場合は、特性ごとの最良値と不足量を返す
+- 予測上の達成を実測の達成保証と呼ばない
+
+Activity Runは基準候補revision、Design Space／Objective／Package／Feature Pipeline、
+strategy version、seedを固定する。実行だけでは候補を作らない。
+利用者が結果内の一案を明示選択したときだけ通常Candidateを作り、
+候補provenanceから元Runとproposalへ戻れるようにする。
+
 ## 二種類の区間
 
 解析結果は、**入力ばらつき区間**と**モデル不確実性区間**を別々に保持する。
@@ -92,11 +115,9 @@ APIは、Projectに固定されたTask DefinitionとModel Packageから、アク
 
 ## Design Spaceとの境界
 
-現行のProjectは、再利用できるProject-level Design Spaceを正本として保持していない。
-ロバストネス解析はTask Definitionの許容範囲と候補制約を使い、範囲探索runに閉じたDesign Spaceを暗黙に流用しない。
-
-Project-level Design Spaceを導入する場合は、そのrevisionとdigestをアクティビティの入力および来歴へ追加する。
-この接続がない状態で「Projectの探索範囲を使った」と表示してはならない。
+現行の新規ProjectはProject-level Design Spaceを正本として保持する。
+ロバストネス解析と目標到達案は、そのrevisionとdigestを実行時に固定する。
+旧ProjectでDesign Spaceが未固定の場合は、Activityを利用可能に見せない。
 
 ## 保存と再現
 
@@ -108,3 +129,4 @@ Project-level Design Spaceを導入する場合は、そのrevisionとdigestを�
 旧revisionで開始した応答は新revisionの画面へ反映せず、保存済みrunの来歴は旧revisionを指し続ける。
 runが参照する候補を削除した場合、候補は物理削除せずアーカイブする。
 アクティビティの実行から候補や予測スナップショットを自動作成することはない。
+目標到達案だけは、保存済みRunから選択したproposalを明示操作で通常Candidateへ昇格できる。

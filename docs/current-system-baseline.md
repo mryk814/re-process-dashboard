@@ -92,7 +92,8 @@ Model Packageはdata-onlyであり、allow-list済みruntime adapterだけが読
 
 ### Decision Activity
 
-Activityは画面名ではなく、問い、必要能力、入力parameter、結果契約を表す。現在のproduction registryにはロバストネス／公差解析が登録されている。
+Activityは画面名ではなく、問い、必要能力、入力parameter、結果契約を表す。現在のproduction registryには
+ロバストネス／公差解析、候補差分の要因分解、目標へ届く最小変更が登録されている。
 
 ### Chain Definition
 
@@ -122,7 +123,8 @@ Task追加は内部allow-listである `TaskModule` への明示登録を必要�
 
 ### Decision Activity
 
-request／resultは`schema_version`判別unionであり、現在はロバストネス解析と候補差分説明を登録している。
+request／resultは`schema_version`判別unionであり、現在はロバストネス解析、候補差分説明、
+Project Design SpaceとObjectiveに固定した目標到達案を登録している。
 共通serviceとUI shellはActivity IDやTask IDで分岐せず、allow-listされたhandler／view registryから解決する。
 
 ### Chain execution

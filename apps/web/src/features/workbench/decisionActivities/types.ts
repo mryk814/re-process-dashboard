@@ -3,6 +3,7 @@ import type {
   ApiDecisionActivityAvailability,
   ApiDecisionActivityRun,
   ApiDecisionActivityRunRequest,
+  ApiCandidate,
 } from "../../../shared/api/workbench-api";
 
 export type DecisionActivityParameters = ApiDecisionActivityRunRequest["parameters"];
@@ -18,4 +19,5 @@ export type DecisionActivityViewProps = {
   runs: ApiDecisionActivityRun[];
   running: boolean;
   onRun: (parameters: DecisionActivityParameters) => Promise<void>;
+  onCandidateCreated: (candidate: ApiCandidate) => void;
 };

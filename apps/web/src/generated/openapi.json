@@ -1727,6 +1727,7 @@
               "mapping": {
                 "blend_optimization": "#/components/schemas/BlendOptimizationSourceRef",
                 "copy": "#/components/schemas/CopySourceRef",
+                "decision_activity": "#/components/schemas/DecisionActivitySourceRef",
                 "direct": "#/components/schemas/DirectSourceRef",
                 "lineage": "#/components/schemas/LineageSourceRef",
                 "manual": "#/components/schemas/ManualSourceRef",
@@ -1756,6 +1757,9 @@
               },
               {
                 "$ref": "#/components/schemas/BlendOptimizationSourceRef"
+              },
+              {
+                "$ref": "#/components/schemas/DecisionActivitySourceRef"
               }
             ],
             "title": "Provenance"
@@ -2021,6 +2025,7 @@
               "mapping": {
                 "blend_optimization": "#/components/schemas/BlendOptimizationSourceRef",
                 "copy": "#/components/schemas/CopySourceRef",
+                "decision_activity": "#/components/schemas/DecisionActivitySourceRef",
                 "direct": "#/components/schemas/DirectSourceRef",
                 "lineage": "#/components/schemas/LineageSourceRef",
                 "manual": "#/components/schemas/ManualSourceRef",
@@ -2050,6 +2055,9 @@
               },
               {
                 "$ref": "#/components/schemas/BlendOptimizationSourceRef"
+              },
+              {
+                "$ref": "#/components/schemas/DecisionActivitySourceRef"
               }
             ],
             "title": "Provenance"
@@ -2154,6 +2162,7 @@
               "mapping": {
                 "blend_optimization": "#/components/schemas/BlendOptimizationSourceRef",
                 "copy": "#/components/schemas/CopySourceRef",
+                "decision_activity": "#/components/schemas/DecisionActivitySourceRef",
                 "direct": "#/components/schemas/DirectSourceRef",
                 "lineage": "#/components/schemas/LineageSourceRef",
                 "manual": "#/components/schemas/ManualSourceRef",
@@ -2183,6 +2192,9 @@
               },
               {
                 "$ref": "#/components/schemas/BlendOptimizationSourceRef"
+              },
+              {
+                "$ref": "#/components/schemas/DecisionActivitySourceRef"
               }
             ],
             "title": "Provenance"
@@ -4057,6 +4069,376 @@
         "title": "CopySourceRef",
         "type": "object"
       },
+      "CounterfactualInfeasibility": {
+        "additionalProperties": false,
+        "properties": {
+          "best_value": {
+            "title": "Best Value",
+            "type": "number"
+          },
+          "explanation": {
+            "title": "Explanation",
+            "type": "string"
+          },
+          "normalized_shortfall": {
+            "minimum": 0.0,
+            "title": "Normalized Shortfall",
+            "type": "number"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "unit",
+          "best_value",
+          "normalized_shortfall",
+          "explanation"
+        ],
+        "title": "CounterfactualInfeasibility",
+        "type": "object"
+      },
+      "CounterfactualInputChange": {
+        "additionalProperties": false,
+        "properties": {
+          "base_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Base Value"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "normalized_distance": {
+            "minimum": 0.0,
+            "title": "Normalized Distance",
+            "type": "number"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "proposed_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Proposed Value"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "path",
+          "label",
+          "base_value",
+          "proposed_value",
+          "normalized_distance"
+        ],
+        "title": "CounterfactualInputChange",
+        "type": "object"
+      },
+      "CounterfactualParameters": {
+        "additionalProperties": false,
+        "properties": {
+          "categorical_change_penalty": {
+            "default": 1.0,
+            "exclusiveMinimum": 0.0,
+            "maximum": 10.0,
+            "title": "Categorical Change Penalty",
+            "type": "number"
+          },
+          "immutable_paths": {
+            "default": [],
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "title": "Immutable Paths",
+            "type": "array"
+          },
+          "max_changed_fields": {
+            "default": 4,
+            "maximum": 12.0,
+            "minimum": 1.0,
+            "title": "Max Changed Fields",
+            "type": "integer"
+          },
+          "result_count": {
+            "default": 5,
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Result Count",
+            "type": "integer"
+          },
+          "sample_count": {
+            "default": 128,
+            "maximum": 512.0,
+            "minimum": 48.0,
+            "title": "Sample Count",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "counterfactual-parameters/v1",
+            "default": "counterfactual-parameters/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "seed": {
+            "default": 20260726,
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          }
+        },
+        "title": "CounterfactualParameters",
+        "type": "object"
+      },
+      "CounterfactualProposal": {
+        "additionalProperties": false,
+        "properties": {
+          "change_distance": {
+            "exclusiveMinimum": 0.0,
+            "title": "Change Distance",
+            "type": "number"
+          },
+          "changed_field_count": {
+            "minimum": 1.0,
+            "title": "Changed Field Count",
+            "type": "integer"
+          },
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/CounterfactualInputChange"
+            },
+            "minItems": 1,
+            "title": "Changes",
+            "type": "array"
+          },
+          "inputs": {
+            "$ref": "#/components/schemas/CandidateInputs"
+          },
+          "meets_objective": {
+            "title": "Meets Objective",
+            "type": "boolean"
+          },
+          "proposal_id": {
+            "minLength": 1,
+            "title": "Proposal Id",
+            "type": "string"
+          },
+          "rank": {
+            "minimum": 1.0,
+            "title": "Rank",
+            "type": "integer"
+          },
+          "support": {
+            "$ref": "#/components/schemas/Support"
+          },
+          "target_evaluations": {
+            "items": {
+              "$ref": "#/components/schemas/CounterfactualTargetEvaluation"
+            },
+            "minItems": 1,
+            "title": "Target Evaluations",
+            "type": "array"
+          },
+          "warnings": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "proposal_id",
+          "rank",
+          "inputs",
+          "change_distance",
+          "changed_field_count",
+          "changes",
+          "target_evaluations",
+          "meets_objective",
+          "support"
+        ],
+        "title": "CounterfactualProposal",
+        "type": "object"
+      },
+      "CounterfactualSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "base_candidate_id": {
+            "title": "Base Candidate Id",
+            "type": "string"
+          },
+          "base_candidate_revision": {
+            "minimum": 1.0,
+            "title": "Base Candidate Revision",
+            "type": "integer"
+          },
+          "design_space_digest": {
+            "minLength": 1,
+            "title": "Design Space Digest",
+            "type": "string"
+          },
+          "evaluated_count": {
+            "minimum": 1.0,
+            "title": "Evaluated Count",
+            "type": "integer"
+          },
+          "infeasibility": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CounterfactualInfeasibility"
+            },
+            "title": "Infeasibility",
+            "type": "array"
+          },
+          "objective_definition_digest": {
+            "minLength": 1,
+            "title": "Objective Definition Digest",
+            "type": "string"
+          },
+          "proposals": {
+            "items": {
+              "$ref": "#/components/schemas/CounterfactualProposal"
+            },
+            "title": "Proposals",
+            "type": "array"
+          },
+          "rejected_count": {
+            "minimum": 0.0,
+            "title": "Rejected Count",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "counterfactual-summary/v1",
+            "default": "counterfactual-summary/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "feasible",
+              "infeasible"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "strategy_id": {
+            "const": "normalized-l1-sobol-v1",
+            "title": "Strategy Id",
+            "type": "string"
+          },
+          "strategy_version": {
+            "const": "1.0.0",
+            "title": "Strategy Version",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "status",
+          "base_candidate_id",
+          "base_candidate_revision",
+          "design_space_digest",
+          "objective_definition_digest",
+          "strategy_id",
+          "strategy_version",
+          "seed",
+          "evaluated_count",
+          "rejected_count",
+          "proposals",
+          "warnings"
+        ],
+        "title": "CounterfactualSummary",
+        "type": "object"
+      },
+      "CounterfactualTargetEvaluation": {
+        "additionalProperties": false,
+        "properties": {
+          "achieved": {
+            "title": "Achieved",
+            "type": "boolean"
+          },
+          "normalized_shortfall": {
+            "minimum": 0.0,
+            "title": "Normalized Shortfall",
+            "type": "number"
+          },
+          "predicted_value": {
+            "title": "Predicted Value",
+            "type": "number"
+          },
+          "role": {
+            "enum": [
+              "primary_objective",
+              "hard_outcome_constraint",
+              "soft_preference",
+              "reporting_only"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "unit",
+          "predicted_value",
+          "achieved",
+          "normalized_shortfall",
+          "role"
+        ],
+        "title": "CounterfactualTargetEvaluation",
+        "type": "object"
+      },
       "CriticalInput": {
         "additionalProperties": false,
         "properties": {
@@ -4916,7 +5298,9 @@
             "items": {
               "enum": [
                 "candidate",
-                "comparison_candidate"
+                "comparison_candidate",
+                "objective_definition",
+                "project_design_space"
               ],
               "type": "string"
             },
@@ -4981,6 +5365,17 @@
             "title": "Model Package Digest",
             "type": "string"
           },
+          "objective_definition_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Objective Definition Digest"
+          },
           "parameters_digest": {
             "title": "Parameters Digest",
             "type": "string"
@@ -5032,6 +5427,39 @@
         "title": "DecisionActivityProvenance",
         "type": "object"
       },
+      "DecisionActivityReference": {
+        "additionalProperties": false,
+        "properties": {
+          "base_candidate_id": {
+            "minLength": 1,
+            "title": "Base Candidate Id",
+            "type": "string"
+          },
+          "base_candidate_revision": {
+            "minimum": 1.0,
+            "title": "Base Candidate Revision",
+            "type": "integer"
+          },
+          "proposal_id": {
+            "minLength": 1,
+            "title": "Proposal Id",
+            "type": "string"
+          },
+          "run_id": {
+            "minLength": 1,
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "proposal_id",
+          "base_candidate_id",
+          "base_candidate_revision"
+        ],
+        "title": "DecisionActivityReference",
+        "type": "object"
+      },
       "DecisionActivityRun": {
         "additionalProperties": false,
         "properties": {
@@ -5051,6 +5479,7 @@
             "discriminator": {
               "mapping": {
                 "candidate-difference-parameters/v1": "#/components/schemas/CandidateDifferenceParameters",
+                "counterfactual-parameters/v1": "#/components/schemas/CounterfactualParameters",
                 "robustness-parameters/v1": "#/components/schemas/RobustnessParameters"
               },
               "propertyName": "schema_version"
@@ -5061,6 +5490,9 @@
               },
               {
                 "$ref": "#/components/schemas/CandidateDifferenceParameters"
+              },
+              {
+                "$ref": "#/components/schemas/CounterfactualParameters"
               }
             ],
             "title": "Parameters"
@@ -5076,6 +5508,7 @@
             "discriminator": {
               "mapping": {
                 "candidate-difference-summary/v1": "#/components/schemas/CandidateDifferenceSummary",
+                "counterfactual-summary/v1": "#/components/schemas/CounterfactualSummary",
                 "robustness-summary/v1": "#/components/schemas/RobustnessSummary"
               },
               "propertyName": "schema_version"
@@ -5086,6 +5519,9 @@
               },
               {
                 "$ref": "#/components/schemas/CandidateDifferenceSummary"
+              },
+              {
+                "$ref": "#/components/schemas/CounterfactualSummary"
               }
             ],
             "title": "Result"
@@ -5120,6 +5556,7 @@
             "discriminator": {
               "mapping": {
                 "candidate-difference-parameters/v1": "#/components/schemas/CandidateDifferenceParameters",
+                "counterfactual-parameters/v1": "#/components/schemas/CounterfactualParameters",
                 "robustness-parameters/v1": "#/components/schemas/RobustnessParameters"
               },
               "propertyName": "schema_version"
@@ -5130,6 +5567,9 @@
               },
               {
                 "$ref": "#/components/schemas/CandidateDifferenceParameters"
+              },
+              {
+                "$ref": "#/components/schemas/CounterfactualParameters"
               }
             ],
             "title": "Parameters"
@@ -5140,6 +5580,25 @@
           "parameters"
         ],
         "title": "DecisionActivityRunRequest",
+        "type": "object"
+      },
+      "DecisionActivitySourceRef": {
+        "additionalProperties": false,
+        "properties": {
+          "source_kind": {
+            "const": "decision_activity",
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "source_ref": {
+            "$ref": "#/components/schemas/DecisionActivityReference"
+          }
+        },
+        "required": [
+          "source_kind",
+          "source_ref"
+        ],
+        "title": "DecisionActivitySourceRef",
         "type": "object"
       },
       "DesignSpaceDefinition": {
@@ -18274,6 +18733,63 @@
           }
         },
         "summary": "Get Decision Activity Run"
+      }
+    },
+    "/api/projects/{project_id}/decision-activity-runs/{run_id}/proposals/{proposal_id}/candidate": {
+      "post": {
+        "operationId": "promote_decision_activity_proposal_api_projects__project_id__decision_activity_runs__run_id__proposals__proposal_id__candidate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "title": "Proposal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Candidate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Promote Decision Activity Proposal"
       }
     },
     "/api/projects/{project_id}/group": {

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { apiBaseUrl, resolveProjectBinding, starterCandidate } from "./helpers";
 
 type RobustnessReading = {
   prediction: number;
@@ -68,4 +69,64 @@ test("candidate difference activity attributes the gap and keeps an explicit res
   await expect(target.getByText("残差（交互作用）", { exact: true })).toBeVisible();
   await expect(page.getByText("入力の相違", { exact: false })).toBeVisible();
   await expect(page.locator(".activity-warnings")).toContainText("因果効果ではありません");
+});
+
+test("counterfactual activity runs, compares, promotes one proposal and reloads it", async ({ page, request }) => {
+  const binding = await resolveProjectBinding(request, "annealed-properties-v1");
+  const projectResponse = await request.post(`${apiBaseUrl}/api/projects`, {
+    data: { name: "反実仮想E2E", ...binding },
+  });
+  expect(projectResponse.status(), await projectResponse.text()).toBe(201);
+  const project = await projectResponse.json() as { id: string };
+  const starter = await starterCandidate(request, "annealed-properties-v1");
+  const candidateResponse = await request.post(`${apiBaseUrl}/api/projects/${project.id}/candidates`, {
+    data: { ...starter, name: "基準候補" },
+  });
+  expect(candidateResponse.status(), await candidateResponse.text()).toBe(201);
+  const candidate = await candidateResponse.json() as { id: string; revision: number };
+  const previewResponse = await request.post(
+    `${apiBaseUrl}/api/projects/${project.id}/candidates/${candidate.id}/preview?expected_revision=${candidate.revision}`,
+  );
+  expect(previewResponse.status(), await previewResponse.text()).toBe(200);
+  const preview = await previewResponse.json() as { predictions: { TS: { value: number } } };
+  const projectUpdate = await request.put(`${apiBaseUrl}/api/projects/${project.id}`, {
+    data: {
+      name: "反実仮想E2E",
+      target_values: { TS: preview.predictions.TS.value + 2 },
+    },
+  });
+  expect(projectUpdate.status(), await projectUpdate.text()).toBe(200);
+
+  await page.goto(`/?view=candidates&project=${project.id}`);
+  await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
+  await page.getByRole("button", { name: "検討アクティビティ" }).click();
+  const tabs = page.getByRole("navigation", { name: "検討アクティビティの選択" });
+  await tabs.getByRole("button", { name: "目標へ届く最小変更" }).click();
+  await expect(page.getByRole("heading", { name: "目標へ届く最小変更" })).toBeVisible();
+
+  const runResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && new URL(response.url()).pathname.endsWith("/decision-activities/counterfactual-target-reach-v1/runs")
+  ));
+  await page.getByRole("button", { name: "最小変更案を探す" }).click();
+  expect((await runResponse).status()).toBe(201);
+  await expect(page.locator(".counterfactual-proposal").first()).toBeVisible();
+  await expect(page.locator(".counterfactual-proposal").first()).toContainText("変更量");
+
+  const promoteResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && new URL(response.url()).pathname.includes("/decision-activity-runs/")
+    && new URL(response.url()).pathname.endsWith("/candidate")
+  ));
+  await page.getByRole("button", { name: "この案を候補に追加" }).first().click();
+  expect((await promoteResponse).status()).toBe(201);
+  await expect(page.getByText("選択中: 目標到達案 1")).toBeVisible();
+
+  await page.reload();
+  await page.getByRole("button", { name: "基準候補を選択" }).click();
+  await page.getByRole("button", { name: "検討アクティビティ" }).click();
+  await page.getByRole("navigation", { name: "検討アクティビティの選択" })
+    .getByRole("button", { name: "目標へ届く最小変更" }).click();
+  await expect(page.getByRole("navigation", { name: "保存済み目標到達案" })).toBeVisible();
+  await expect(page.locator(".counterfactual-proposal").first()).toBeVisible();
 });

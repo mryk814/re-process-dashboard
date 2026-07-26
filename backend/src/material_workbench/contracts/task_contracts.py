@@ -337,6 +337,18 @@ class BlendOptimizationSourceRef(ContractModel):
     source_ref: BlendOptimizationReference
 
 
+class DecisionActivityReference(ContractModel):
+    run_id: Annotated[str, Field(min_length=1)]
+    proposal_id: Annotated[str, Field(min_length=1)]
+    base_candidate_id: Annotated[str, Field(min_length=1)]
+    base_candidate_revision: Annotated[int, Field(ge=1)]
+
+
+class DecisionActivitySourceRef(ContractModel):
+    source_kind: Literal["decision_activity"]
+    source_ref: DecisionActivityReference
+
+
 CandidateProvenance = Annotated[
     ManualSourceRef
     | DirectSourceRef
@@ -344,7 +356,8 @@ CandidateProvenance = Annotated[
     | ScreeningSourceRef
     | SnapshotSourceRef
     | CopySourceRef
-    | BlendOptimizationSourceRef,
+    | BlendOptimizationSourceRef
+    | DecisionActivitySourceRef,
     Field(discriminator="source_kind"),
 ]
 
