@@ -182,10 +182,15 @@ def test_project_crud_preserves_default_and_isolates_candidates_and_screening(cl
     assert run.json()["project_design_space_binding_provenance"] == "generated_default"
     assert run.json()["schema_version"] == "screening-run/v6"
     assert run.json()["objective_definition_digest"].startswith("sha256:")
-    assert run.json()["objective_binding_provenance"] == "legacy_screening"
+    assert run.json()["objective_binding_provenance"] == "project_revision"
+    assert run.json()["target"] == "YS"
+    assert run.json()["target_goal"] == {"direction": "at_least", "lower": 400, "upper": None}
+    assert run.json()["secondary_goals"] == {}
+    assert run.json()["objective_execution"]["objective_digest"] == run.json()["objective_definition_digest"]
+    assert run.json()["objective_execution"]["target"] == "YS"
     assert (
         run.json()["objective_definition"]["optimization_kind"]
-        == "constrained_single_objective"
+        == "single_objective"
     )
     explicit_objective = run.json()["objective_definition"]
     explicit_objective["objective_id"] = "screening-objective-explicit"
@@ -200,10 +205,16 @@ def test_project_crud_preserves_default_and_isolates_candidates_and_screening(cl
     )
     assert explicit_run.status_code == 201, explicit_run.text
     assert explicit_run.json()["objective_binding_provenance"] == "explicit"
+    assert explicit_run.json()["target"] == "YS"
     assert (
         explicit_run.json()["objective_definition"]["incumbent"]["candidate_revision"]
         == candidate.json()["revision"]
     )
+    incumbent_resolution = explicit_run.json()["proposal_strategy"]["incumbent_resolution"]
+    assert incumbent_resolution["source"] == "objective_candidate_revision"
+    assert incumbent_resolution["candidate_id"] == candidate_id
+    assert incumbent_resolution["candidate_revision"] == candidate.json()["revision"]
+    assert incumbent_resolution["value"] == explicit_run.json()["proposal_strategy"]["incumbent_value"]
 
     wrong_unit = {
         **explicit_objective,
@@ -211,7 +222,7 @@ def test_project_crud_preserves_default_and_isolates_candidates_and_screening(cl
         "terms": [
             {
                 **term,
-                "unit": "not-MPa" if term["output_key"] == "TS" else term["unit"],
+                "unit": "not-MPa",
             }
             for term in explicit_objective["terms"]
         ],
@@ -223,7 +234,11 @@ def test_project_crud_preserves_default_and_isolates_candidates_and_screening(cl
     assert rejected_objective.status_code == 422
     assert "単位" in rejected_objective.json()["message"]
     assert set(run.json()["points"][0]["predictions"]) == {"TS", "YS", "EL", "lambda"}
-    assert "YS" in run.json()["points"][0]["secondary_goal_evaluations"]
+    assert run.json()["points"][0]["secondary_goal_evaluations"] == {}
+    assert run.json()["points"][0]["goal_evaluation"]["method"] in {
+        "achievement_probability",
+        "directional_shortfall",
+    }
     run_id = run.json()["id"]
     batch = client.post(f"/api/screening/{run_id}/candidates?project_id={project['id']}", json={"point_indices": [0, 1]})
     assert batch.status_code == 201

@@ -1823,6 +1823,19 @@ class Store:
         with self._connect() as conn:
             return [self._actual(row) for row in conn.execute("SELECT * FROM actual_measurements WHERE candidate_id=? ORDER BY created_at", (candidate_id,))]
 
+    def list_project_actuals(self, project_id: str) -> list[ActualMeasurement]:
+        """Return the complete, stable incumbent population for one Project."""
+
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT actual_measurements.* FROM actual_measurements "
+                "JOIN candidates ON candidates.id=actual_measurements.candidate_id "
+                "WHERE candidates.project_id=? "
+                "ORDER BY actual_measurements.id",
+                (project_id,),
+            ).fetchall()
+        return [self._actual(row) for row in rows]
+
     def create_snapshot_and_actual(
         self,
         project_id: str,

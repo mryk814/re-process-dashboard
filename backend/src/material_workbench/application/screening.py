@@ -5,6 +5,7 @@ import math
 from pydantic_core import to_jsonable_python
 
 from .projects import ProjectService
+from .objective_execution import build_objective_execution_plan
 from material_workbench.application.proposal_strategy_registry import (
     resolve_strategy,
     strategy_availability,
@@ -22,7 +23,10 @@ from material_workbench.contracts.schemas import (
     ScreeningRequest,
     ScreeningRunResponse,
 )
-from material_workbench.contracts.proposal_contracts import ProposalStrategyAvailability
+from material_workbench.contracts.proposal_contracts import (
+    ProposalIncumbentResolution,
+    ProposalStrategyAvailability,
+)
 from material_workbench.contracts.batch_proposal_contracts import (
     BatchSelectorAvailability,
 )
@@ -193,35 +197,45 @@ class ScreeningService:
                 design_space.validate_narrows(project.design_space)
         except ValueError as exc:
             raise ScreeningValidationError(str(exc)) from exc
-        output = next((item for item in definition.outputs if item.key == payload.target), None)
-        if output is None:
-            raise ScreeningValidationError("この予測タスクにない目標特性です")
         outputs = {item.key: item for item in definition.outputs}
-        unknown_secondary = sorted((set(payload.secondary_goals) - set(outputs)) | ({payload.target} & set(payload.secondary_goals)))
-        if unknown_secondary:
-            raise ScreeningValidationError(f"副条件の特性を確認してください: {', '.join(unknown_secondary)}")
-        derived_objective = objective_from_screening(
-            task=definition,
-            task_contract_digest=project.task_contract_digest,
-            target=payload.target,
-            target_goal=payload.target_goal,
-            secondary_goals=payload.secondary_goals,
-        )
-        objective = payload.objective_definition or derived_objective
-        objective_provenance = (
-            "explicit" if payload.objective_definition is not None else "legacy_screening"
-        )
+        if payload.objective_definition is not None:
+            objective = payload.objective_definition
+            objective_provenance = "explicit"
+        elif project.objective_definition is not None:
+            objective = project.objective_definition
+            objective_provenance = "project_revision"
+        else:
+            unknown_secondary = sorted(
+                (set(payload.secondary_goals) - set(outputs))
+                | ({payload.target} & set(payload.secondary_goals))
+            )
+            if payload.target not in outputs:
+                raise ScreeningValidationError("この予測タスクにない目標特性です")
+            if unknown_secondary:
+                raise ScreeningValidationError(
+                    f"副条件の特性を確認してください: {', '.join(unknown_secondary)}"
+                )
+            objective = objective_from_screening(
+                task=definition,
+                task_contract_digest=project.task_contract_digest,
+                target=payload.target,
+                target_goal=payload.target_goal,
+                secondary_goals=payload.secondary_goals,
+            )
+            objective_provenance = "legacy_screening"
         try:
             objective.validate_against(definition, contract.runtime_capability)
+            execution = build_objective_execution_plan(objective)
         except ValueError as exc:
             raise ScreeningValidationError(str(exc)) from exc
-        if payload.objective_definition is not None and (
-            objective.optimization_kind != derived_objective.optimization_kind
-            or objective.terms != derived_objective.terms
-        ):
-            raise ScreeningValidationError(
-                "Objective Definitionと範囲探索の主目標・副条件が一致しません"
-            )
+        payload = payload.model_copy(
+            update={
+                "target": execution.target,
+                "target_goal": execution.target_goal,
+                "secondary_goals": execution.secondary_goals,
+            }
+        )
+        output = outputs[execution.target]
         incumbent = objective.incumbent
         if incumbent.source == "candidate_revision":
             if self.store.get_candidate_revision(
@@ -243,13 +257,16 @@ class ScreeningService:
         ):
             raise ScreeningValidationError("Projectに採用済みincumbentがありません")
         try:
-            incumbent_value = (
-                payload.proposal.incumbent_value
-                if payload.proposal.incumbent_value is not None
-                else self._resolve_incumbent_value(project, objective, payload.target)
+            incumbent_resolution = self._resolve_incumbent(
+                project,
+                objective,
+                execution.target,
+                output.unit,
+                objective_provenance,
+                request_override=payload.proposal.incumbent_value,
             )
             proposal_request = payload.proposal.model_copy(
-                update={"incumbent_value": incumbent_value}
+                update={"incumbent_value": incumbent_resolution.value}
             )
             payload = payload.model_copy(update={"proposal": proposal_request})
             strategy, fallback_from = resolve_strategy(
@@ -331,6 +348,7 @@ class ScreeningService:
         result["objective_definition"] = objective.model_dump(mode="json")
         result["objective_definition_digest"] = objective.digest
         result["objective_binding_provenance"] = objective_provenance
+        result["objective_execution"] = execution.evidence.model_dump(mode="json")
         result["schema_version"] = "screening-run/v6"
         result["proposal_strategy"] = {
             "id": strategy.strategy_id,
@@ -375,6 +393,7 @@ class ScreeningService:
             "fallback_from": fallback_from,
             "fallback_policy": proposal_request.fallback_policy,
             "incumbent_value": proposal_request.incumbent_value,
+            "incumbent_resolution": incumbent_resolution.model_dump(mode="json"),
             "constraint_treatment": "feasibility_first_then_rank",
             "uncertainty_treatment": (
                 "predictive_standard_deviation"
@@ -403,11 +422,19 @@ class ScreeningService:
         incumbent_value = None
         if project.objective_definition is not None:
             try:
-                incumbent_value = self._resolve_incumbent_value(
-                    project,
-                    project.objective_definition,
-                    target,
-                )
+                execution = build_objective_execution_plan(project.objective_definition)
+                if execution.target == target:
+                    incumbent_value = self._resolve_incumbent(
+                        project,
+                        project.objective_definition,
+                        target,
+                        next(
+                            output.unit
+                            for output in contract.task_definition.outputs
+                            if output.key == target
+                        ),
+                        "project_revision",
+                    ).value
             except ValueError:
                 incumbent_value = None
         return strategy_availability(
@@ -438,48 +465,141 @@ class ScreeningService:
             target=target,
         )
 
-    def _resolve_incumbent_value(
+    @staticmethod
+    def _snapshot_prediction_value(snapshot: dict[str, object] | None, target: str) -> float:
+        prediction = (
+            snapshot.get("payload", {})  # type: ignore[union-attr]
+            .get("prediction", {})
+            .get("predictions", {})
+            .get(target)
+            if snapshot is not None
+            else None
+        )
+        if isinstance(prediction, dict) and isinstance(
+            prediction.get("value"), (int, float)
+        ):
+            return float(prediction["value"])
+        raise ValueError("incumbent snapshotに対象outputの予測値がありません")
+
+    def _resolve_incumbent(
         self,
         project: Project,
         objective: ObjectiveDefinition,
         target: str,
-    ) -> float | None:
-        incumbent = objective.incumbent
-        if incumbent.source in {"none", "observed_best"}:
-            return None
-        if incumbent.source == "prediction_snapshot":
-            snapshot = self.store.get_snapshot(incumbent.snapshot_id or "")
-            prediction = (
-                snapshot.get("payload", {})
-                .get("prediction", {})
-                .get("predictions", {})
-                .get(target)
-                if snapshot is not None
-                else None
-            )
-            if isinstance(prediction, dict) and isinstance(
-                prediction.get("value"), (int, float)
-            ):
-                return float(prediction["value"])
-            raise ValueError("incumbent snapshotに対象outputの予測値がありません")
-        candidate_id = (
-            project.decision_candidate_id
-            if incumbent.source == "project_decision"
-            else incumbent.candidate_id
+        unit: str,
+        objective_source: str,
+        *,
+        request_override: float | None = None,
+    ) -> ProposalIncumbentResolution:
+        target_term = next(
+            (term for term in objective.terms if term.output_key == target),
+            None,
         )
-        revision = (
-            incumbent.candidate_revision
-            if incumbent.source == "candidate_revision"
+        direction = (
+            target_term.direction
+            if target_term is not None
+            and target_term.direction in {"at_least", "at_most", "between"}
             else None
         )
-        candidate = (
-            self.store.get_candidate_revision(
-                candidate_id or "",
-                revision or 0,
-                project.id,
+        common = {
+            "objective_source": objective_source,
+            "target": target,
+            "unit": unit,
+            "direction": direction,
+        }
+        if request_override is not None:
+            return ProposalIncumbentResolution(
+                source="request_override",
+                value=request_override,
+                **common,
             )
-            if revision is not None
-            else self.store.get_candidate(candidate_id or "", project.id)
+        incumbent = objective.incumbent
+        if incumbent.source == "none":
+            return ProposalIncumbentResolution(source="none", value=None, **common)
+        if incumbent.source == "observed_best":
+            if direction is None:
+                raise ValueError("observed bestには方向を持つ主目的が必要です")
+            population = [
+                actual
+                for actual in self.store.list_project_actuals(project.id)
+                if actual.property == target and actual.unit == unit
+            ]
+            if not population:
+                raise ValueError(
+                    f"Project実測にincumbent候補がありません: {target} [{unit}]"
+                )
+            if direction == "at_least":
+                selected = max(population, key=lambda item: (item.mean, item.id))
+            elif direction == "at_most":
+                selected = min(population, key=lambda item: (item.mean, item.id))
+            else:
+                assert target_term is not None
+                midpoint = (float(target_term.lower) + float(target_term.upper)) / 2
+                selected = min(
+                    population,
+                    key=lambda item: (abs(item.mean - midpoint), item.id),
+                )
+            filter_payload = {
+                "source": "project_actuals",
+                "project_id": project.id,
+                "target": target,
+                "unit": unit,
+                "direction": direction,
+            }
+            population_payload = [
+                {
+                    "id": actual.id,
+                    "candidate_id": actual.candidate_id,
+                    "snapshot_id": actual.snapshot_id,
+                    "mean": actual.mean,
+                    "std": actual.std,
+                    "replicates": actual.replicates,
+                    "measured_at": (
+                        actual.measured_at.isoformat()
+                        if actual.measured_at is not None
+                        else None
+                    ),
+                    "created_at": actual.created_at.isoformat(),
+                }
+                for actual in population
+            ]
+            return ProposalIncumbentResolution(
+                source="observed_project_actuals",
+                value=selected.mean,
+                candidate_id=selected.candidate_id,
+                snapshot_id=selected.snapshot_id,
+                actual_id=selected.id,
+                filter_digest=semantic_digest(filter_payload),
+                population_digest=semantic_digest(population_payload),
+                record_count=len(population),
+                **common,
+            )
+        if incumbent.source == "prediction_snapshot":
+            snapshot = self.store.get_snapshot(incumbent.snapshot_id or "")
+            return ProposalIncumbentResolution(
+                source="objective_prediction_snapshot",
+                value=self._snapshot_prediction_value(snapshot, target),
+                candidate_id=incumbent.candidate_id,
+                snapshot_id=incumbent.snapshot_id,
+                **common,
+            )
+        if incumbent.source == "project_decision":
+            snapshot = self.store.get_snapshot(project.decision_snapshot_id)
+            return ProposalIncumbentResolution(
+                source="objective_project_decision",
+                value=self._snapshot_prediction_value(snapshot, target),
+                candidate_id=project.decision_candidate_id,
+                snapshot_id=project.decision_snapshot_id,
+                **common,
+            )
+        candidate_id = (
+            incumbent.candidate_id
+        )
+        revision = incumbent.candidate_revision
+        candidate = self.store.get_candidate_revision(
+            candidate_id or "",
+            revision or 0,
+            project.id,
         )
         if candidate is None:
             raise ValueError("incumbent候補が見つかりません")
@@ -490,7 +610,13 @@ class ScreeningService:
         target_prediction = prediction["predictions"].get(target)
         if target_prediction is None:
             raise ValueError("incumbent候補に対象outputの予測値がありません")
-        return float(target_prediction.value)
+        return ProposalIncumbentResolution(
+            source="objective_candidate_revision",
+            value=float(target_prediction.value),
+            candidate_id=candidate_id,
+            candidate_revision=revision,
+            **common,
+        )
 
     def list(self, project_id: str = "default") -> list[ScreeningRunResponse]:
         self.projects.require(project_id)

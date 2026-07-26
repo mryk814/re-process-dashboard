@@ -9620,6 +9620,18 @@
             ],
             "title": "Candidate Revision"
           },
+          "observed_scope": {
+            "anyOf": [
+              {
+                "const": "project_actuals",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed Scope"
+          },
           "snapshot_id": {
             "anyOf": [
               {
@@ -12076,6 +12088,218 @@
         "title": "ProposalCandidateEvaluation",
         "type": "object"
       },
+      "ProposalIncumbentResolution": {
+        "additionalProperties": false,
+        "description": "Immutable evidence for the incumbent value used by an acquisition.",
+        "properties": {
+          "actual_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Id"
+          },
+          "candidate_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Id"
+          },
+          "candidate_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Revision"
+          },
+          "direction": {
+            "anyOf": [
+              {
+                "enum": [
+                  "at_least",
+                  "at_most",
+                  "between"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direction"
+          },
+          "filter_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filter Digest"
+          },
+          "objective_source": {
+            "enum": [
+              "explicit",
+              "project_revision",
+              "legacy_screening"
+            ],
+            "title": "Objective Source",
+            "type": "string"
+          },
+          "population_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Population Digest"
+          },
+          "record_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record Count"
+          },
+          "schema_version": {
+            "const": "proposal-incumbent-resolution/v1",
+            "default": "proposal-incumbent-resolution/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "snapshot_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot Id"
+          },
+          "source": {
+            "enum": [
+              "none",
+              "request_override",
+              "objective_candidate_revision",
+              "objective_prediction_snapshot",
+              "objective_project_decision",
+              "observed_project_actuals"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "source",
+          "objective_source",
+          "target",
+          "unit"
+        ],
+        "title": "ProposalIncumbentResolution",
+        "type": "object"
+      },
+      "ProposalObjectiveExecution": {
+        "additionalProperties": false,
+        "description": "The production Objective subset actually translated into engine fields.",
+        "properties": {
+          "direction": {
+            "anyOf": [
+              {
+                "enum": [
+                  "at_least",
+                  "at_most",
+                  "between"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direction"
+          },
+          "hard_constraint_outputs": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Hard Constraint Outputs",
+            "type": "array"
+          },
+          "objective_digest": {
+            "title": "Objective Digest",
+            "type": "string"
+          },
+          "reporting_outputs": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Reporting Outputs",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "proposal-objective-execution/v1",
+            "default": "proposal-objective-execution/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "objective_digest",
+          "target"
+        ],
+        "title": "ProposalObjectiveExecution",
+        "type": "object"
+      },
       "ProposalRejectedCandidate": {
         "additionalProperties": false,
         "properties": {
@@ -13984,6 +14208,16 @@
             "title": "Id",
             "type": "string"
           },
+          "incumbent_resolution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProposalIncumbentResolution"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "incumbent_value": {
             "anyOf": [
               {
@@ -14280,6 +14514,7 @@
             "default": "legacy_screening",
             "enum": [
               "explicit",
+              "project_revision",
               "legacy_screening"
             ],
             "title": "Objective Binding Provenance",
@@ -14305,6 +14540,16 @@
               }
             ],
             "title": "Objective Definition Digest"
+          },
+          "objective_execution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProposalObjectiveExecution"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "points": {
             "items": {

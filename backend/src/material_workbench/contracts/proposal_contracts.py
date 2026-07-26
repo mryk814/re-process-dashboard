@@ -16,6 +16,80 @@ AcquisitionRepresentation = Literal[
 ]
 
 
+class ProposalIncumbentResolution(ContractModel):
+    """Immutable evidence for the incumbent value used by an acquisition."""
+
+    schema_version: Literal["proposal-incumbent-resolution/v1"] = (
+        "proposal-incumbent-resolution/v1"
+    )
+    source: Literal[
+        "none",
+        "request_override",
+        "objective_candidate_revision",
+        "objective_prediction_snapshot",
+        "objective_project_decision",
+        "observed_project_actuals",
+    ]
+    objective_source: Literal[
+        "explicit", "project_revision", "legacy_screening"
+    ]
+    target: str
+    unit: str
+    direction: Literal["at_least", "at_most", "between"] | None = None
+    value: float | None = Field(default=None, allow_inf_nan=False)
+    candidate_id: str | None = None
+    candidate_revision: int | None = None
+    snapshot_id: str | None = None
+    actual_id: str | None = None
+    filter_digest: str | None = None
+    population_digest: str | None = None
+    record_count: Annotated[int | None, Field(ge=0)] = None
+
+    @model_validator(mode="after")
+    def evidence_matches_source(self) -> "ProposalIncumbentResolution":
+        if self.source == "none":
+            if self.value is not None:
+                raise ValueError("incumbentなしには値を保存できません")
+            return self
+        if self.value is None:
+            raise ValueError("解決済みincumbentには値が必要です")
+        if self.source == "objective_candidate_revision" and (
+            not self.candidate_id or self.candidate_revision is None
+        ):
+            raise ValueError("candidate revision由来のincumbent参照が不足しています")
+        if self.source in {
+            "objective_prediction_snapshot",
+            "objective_project_decision",
+        } and (not self.candidate_id or not self.snapshot_id):
+            raise ValueError("snapshot由来のincumbent参照が不足しています")
+        if self.source == "observed_project_actuals" and (
+            self.direction is None
+            or
+            not self.actual_id
+            or not self.candidate_id
+            or not self.snapshot_id
+            or not self.filter_digest
+            or not self.population_digest
+            or self.record_count is None
+            or self.record_count < 1
+        ):
+            raise ValueError("Project実測由来のincumbent証跡が不足しています")
+        return self
+
+
+class ProposalObjectiveExecution(ContractModel):
+    """The production Objective subset actually translated into engine fields."""
+
+    schema_version: Literal["proposal-objective-execution/v1"] = (
+        "proposal-objective-execution/v1"
+    )
+    objective_digest: str
+    target: str
+    direction: Literal["at_least", "at_most", "between"] | None = None
+    hard_constraint_outputs: tuple[str, ...] = ()
+    reporting_outputs: tuple[str, ...] = ()
+
+
 class ProposalStrategyRequest(ContractModel):
     strategy_id: str = "latin_hypercube_v1"
     exploration_parameter: Annotated[float, Field(gt=0, allow_inf_nan=False)] = 2.0

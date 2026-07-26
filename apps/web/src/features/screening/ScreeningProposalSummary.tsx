@@ -28,7 +28,18 @@ export function ScreeningProposalSummary({
   const objective = result.objective_definition;
   const objectiveProvenance = result.objective_binding_provenance === "explicit"
     ? "明示Objective"
-    : "旧範囲探索の条件から固定";
+    : result.objective_binding_provenance === "project_revision"
+      ? "Project固定Objective"
+      : "旧範囲探索の条件から固定";
+  const incumbentSourceLabel = {
+    none: "なし",
+    request_override: "手入力",
+    objective_candidate_revision: "候補revision",
+    objective_prediction_snapshot: "予測snapshot",
+    objective_project_decision: "Project採用判断",
+    observed_project_actuals: "Project実測の最良値",
+  } as const;
+  const incumbentResolution = strategy?.incumbent_resolution;
   const roleLabel = {
     primary_objective: "主目的",
     hard_outcome_constraint: "必須条件",
@@ -67,7 +78,9 @@ export function ScreeningProposalSummary({
               : ` / 探索σ倍率 ${strategy.exploration_parameter}`
           )}
           {strategy?.support_policy && ` / support ${strategy.support_policy}`}
-          {strategy?.incumbent_value != null && ` / incumbent ${strategy.incumbent_value}`}
+          {incumbentResolution && incumbentResolution.value != null && (
+            ` / incumbent ${incumbentResolution.value}（${incumbentSourceLabel[incumbentResolution.source]}）`
+          )}
         </p>
         {strategy?.uncertainty_treatment && (
           <p>
@@ -94,6 +107,14 @@ export function ScreeningProposalSummary({
               </ul>
             </>
           : <p>旧記録のためObjective Definitionは固定されていません。</p>}
+        {incumbentResolution?.source === "observed_project_actuals" && (
+          <p>
+            incumbent母集団: Project実測 {incumbentResolution.record_count}件
+            {" / "}actual {incumbentResolution.actual_id}
+            {" / "}filter {incumbentResolution.filter_digest?.replace("sha256:", "").slice(0, 10)}
+            {" / "}population {incumbentResolution.population_digest?.replace("sha256:", "").slice(0, 10)}
+          </p>
+        )}
         {diagnostics && <p>生成した全{diagnostics.generated_count}件を制約判定し、制約内の点から{diagnostics.evaluated_count}件を評価しました。</p>}
         {diagnostics && Object.keys(rejectionReasons).length > 0
           ? <ul>{Object.entries(rejectionReasons).map(([reason, count]) => <li key={reason}><span>{reason}</span><b>{count}件</b></li>)}</ul>

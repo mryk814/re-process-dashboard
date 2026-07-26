@@ -5379,6 +5379,8 @@ export interface components {
             candidate_id?: string | null;
             /** Candidate Revision */
             candidate_revision?: number | null;
+            /** Observed Scope */
+            observed_scope?: "project_actuals" | null;
             /** Snapshot Id */
             snapshot_id?: string | null;
             /**
@@ -6318,6 +6320,78 @@ export interface components {
              */
             support_status: "supported" | "caution" | "extrapolated";
         };
+        /**
+         * ProposalIncumbentResolution
+         * @description Immutable evidence for the incumbent value used by an acquisition.
+         */
+        ProposalIncumbentResolution: {
+            /** Actual Id */
+            actual_id?: string | null;
+            /** Candidate Id */
+            candidate_id?: string | null;
+            /** Candidate Revision */
+            candidate_revision?: number | null;
+            /** Direction */
+            direction?: ("at_least" | "at_most" | "between") | null;
+            /** Filter Digest */
+            filter_digest?: string | null;
+            /**
+             * Objective Source
+             * @enum {string}
+             */
+            objective_source: "explicit" | "project_revision" | "legacy_screening";
+            /** Population Digest */
+            population_digest?: string | null;
+            /** Record Count */
+            record_count?: number | null;
+            /**
+             * Schema Version
+             * @default proposal-incumbent-resolution/v1
+             * @constant
+             */
+            schema_version: "proposal-incumbent-resolution/v1";
+            /** Snapshot Id */
+            snapshot_id?: string | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "none" | "request_override" | "objective_candidate_revision" | "objective_prediction_snapshot" | "objective_project_decision" | "observed_project_actuals";
+            /** Target */
+            target: string;
+            /** Unit */
+            unit: string;
+            /** Value */
+            value?: number | null;
+        };
+        /**
+         * ProposalObjectiveExecution
+         * @description The production Objective subset actually translated into engine fields.
+         */
+        ProposalObjectiveExecution: {
+            /** Direction */
+            direction?: ("at_least" | "at_most" | "between") | null;
+            /**
+             * Hard Constraint Outputs
+             * @default []
+             */
+            hard_constraint_outputs: string[];
+            /** Objective Digest */
+            objective_digest: string;
+            /**
+             * Reporting Outputs
+             * @default []
+             */
+            reporting_outputs: string[];
+            /**
+             * Schema Version
+             * @default proposal-objective-execution/v1
+             * @constant
+             */
+            schema_version: "proposal-objective-execution/v1";
+            /** Target */
+            target: string;
+        };
         /** ProposalRejectedCandidate */
         ProposalRejectedCandidate: {
             /** Inputs */
@@ -7117,6 +7191,7 @@ export interface components {
             generator_version: string;
             /** Id */
             id: string;
+            incumbent_resolution?: components["schemas"]["ProposalIncumbentResolution"] | null;
             /** Incumbent Value */
             incumbent_value?: number | null;
             /** Parameter Role */
@@ -7234,10 +7309,11 @@ export interface components {
              * @default legacy_screening
              * @enum {string}
              */
-            objective_binding_provenance: "explicit" | "legacy_screening";
+            objective_binding_provenance: "explicit" | "project_revision" | "legacy_screening";
             objective_definition?: components["schemas"]["ObjectiveDefinition"] | null;
             /** Objective Definition Digest */
             objective_definition_digest?: string | null;
+            objective_execution?: components["schemas"]["ProposalObjectiveExecution"] | null;
             /** Points */
             points: components["schemas"]["ScreeningPoint"][];
             /**
