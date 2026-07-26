@@ -25,6 +25,21 @@ function coverageMethodLabel(method: string | null | undefined) {
   return "算出方法未記録";
 }
 
+function availabilityStageLabel(
+  stage: ResolvedTaskDefinition["availability"]["stage"] | undefined,
+) {
+  if (stage === "source") return "データソース";
+  if (stage === "package") return "モデルPackage";
+  if (stage === "runtime") return "実行環境";
+  return "利用可否の確認";
+}
+
+function FixedReferenceValue({ value }: { value?: string | null }) {
+  return value
+    ? <code title={value}>{value}</code>
+    : <span>記録なし</span>;
+}
+
 function CoverageCell({
   quality,
   predictiveFamily,
@@ -55,6 +70,8 @@ export function DeveloperAdminPage({
   project,
   taskDefinition,
   resolvedTaskDefinition,
+  readOnly = false,
+  availability,
   initialSection,
   onSectionChange,
   qualityFilters,
@@ -67,6 +84,8 @@ export function DeveloperAdminPage({
   project: ApiProject | undefined;
   taskDefinition: TaskDefinitionContract | null;
   resolvedTaskDefinition: ResolvedTaskDefinition | null;
+  readOnly?: boolean;
+  availability?: ResolvedTaskDefinition["availability"];
   initialSection?: AdminSection;
   onSectionChange: (section: AdminSection) => void;
   qualityFilters: QualityFilters;
@@ -80,7 +99,7 @@ export function DeveloperAdminPage({
   const [modelPackage, setModelPackage] = useState<ApiModelPackage | null>(null);
   const [modelError, setModelError] = useState("");
   useEffect(() => {
-    if (!project?.id || section !== "model") return;
+    if (!project?.id || section !== "model" || readOnly) return;
     const controller = new AbortController();
     setModelPackage(null);
     setModelError("");
@@ -88,7 +107,7 @@ export function DeveloperAdminPage({
       .then((item) => { if (!controller.signal.aborted) setModelPackage(item); })
       .catch((cause) => { if (!controller.signal.aborted) setModelError(cause instanceof Error ? cause.message : "モデル情報を取得できませんでした。"); });
     return () => controller.abort();
-  }, [project?.id, section]);
+  }, [project?.id, readOnly, section]);
   useEffect(() => setSection(initialSection ?? "developer"), [initialSection]);
   const qualityAvailable = resolvedTaskDefinition?.data_explorer?.quality === true;
   const allSections: Array<{ id: AdminSection; label: string }> = [
@@ -103,16 +122,34 @@ export function DeveloperAdminPage({
   const visibleSection: AdminSection = section === "quality" && resolvedTaskDefinition && !qualityAvailable ? "task" : section;
   return <div className="admin-workspace">
     <aside className="admin-navigation">
-      <span className="overline">開発・管理</span><h2>検証と構成</h2><p>通常の候補検討では使わない管理情報です。</p>
+      <span className="overline">開発・管理</span><h2>検証と構成</h2><p>{readOnly ? "利用停止中の構成を読み取り専用で確認します。" : "通常の候補検討では使わない管理情報です。"}</p>
       <nav aria-label="開発・管理メニュー">{sections.map((item) => <button key={item.id} className={visibleSection === item.id ? "active" : ""} onClick={() => { setSection(item.id); onSectionChange(item.id); }}>{item.label}</button>)}</nav>
     </aside>
     <div className="admin-content">
+      {readOnly && <section className="admin-availability-diagnostic" role="status" aria-label="予測タスクの利用停止診断">
+        <div>
+          <span className="overline">読み取り専用</span>
+          <h2>固定参照と停止段階を確認してください</h2>
+          <p>{availability?.message || "予測タスクを利用できないため、変更操作を停止しています。"}</p>
+        </div>
+        <dl>
+          <div><dt>対象Task</dt><dd><FixedReferenceValue value={taskDefinition?.id ?? project?.task_id} /></dd></div>
+          <div><dt>停止段階</dt><dd>{availabilityStageLabel(availability?.stage)}</dd></div>
+          <div><dt>Dataset View</dt><dd><FixedReferenceValue value={project?.dataset_view_revision_id} /></dd></div>
+          <div><dt>Model Package参照</dt><dd><FixedReferenceValue value={project?.model_package_ref_id} /></dd></div>
+          <div><dt>Manifest digest</dt><dd><FixedReferenceValue value={project?.model_package_manifest_digest} /></dd></div>
+          <div><dt>診断対象</dt><dd><FixedReferenceValue value={availability?.resource_id} /></dd></div>
+          <div><dt>期待する場所</dt><dd><FixedReferenceValue value={availability?.expected_locator} /></dd></div>
+        </dl>
+        {availability?.recovery_hint && <p><b>復旧の手掛かり:</b> {availability.recovery_hint}</p>}
+        <small>保存済み情報と診断は参照できます。入力範囲・表示桁数など、このプロジェクトを変更する操作は無効です。</small>
+      </section>}
       {visibleSection === "developer" && <DeveloperControlCenter onOpenProfileWorkbench={onOpenProfileWorkbench} />}
       {visibleSection === "quality" && (project?.id
         ? <LiveDataQualityPage projectId={project.id} filters={qualityFilters} onFiltersChange={onQualityFiltersChange} onOpenLineage={onOpenLineage} onOpenIssueList={onOpenQualityIssues} showReferenceScenarios mode="summary" />
         : <p className="empty-evidence">プロジェクトを読み込んでいます。</p>)}
-      {visibleSection === "ranges" && <InputRangeSettingsPage project={project} taskDefinition={taskDefinition} onProjectChanged={onProjectChanged} />}
-      {visibleSection === "display" && <DisplayDecimalSettingsPage project={project} taskDefinition={taskDefinition} onProjectChanged={onProjectChanged} />}
+      {visibleSection === "ranges" && <InputRangeSettingsPage project={project} taskDefinition={taskDefinition} readOnly={readOnly} onProjectChanged={onProjectChanged} />}
+      {visibleSection === "display" && <DisplayDecimalSettingsPage project={project} taskDefinition={taskDefinition} readOnly={readOnly} onProjectChanged={onProjectChanged} />}
       {visibleSection === "task" && <div className="page-panel admin-contract-page">
         <div className="page-intro"><div><h2>予測タスク定義</h2><p>{taskDefinition?.label ?? "読み込み中"}で利用者が入力・確認する項目です。</p></div></div>
         {taskDefinition ? <>
@@ -130,15 +167,18 @@ export function DeveloperAdminPage({
           <div className="runtime-list">{modelPackage.supported_runtimes.map((item) => <span className={item.available ? "available" : "optional"} key={item.runtime_type}>{item.runtime_type}{item.available ? " ✓" : " (追加導入)"}</span>)}</div>
           {project?.id && <ModelTrainingDataInspector projectId={project.id} modelPackage={modelPackage} taskDefinition={taskDefinition} />}
           <details className="technical-contract"><summary>識別情報を表示</summary><code>{modelPackage.manifest_sha256}</code></details>
-        </> : !modelError && <p className="empty-evidence">モデル情報を読み込んでいます。</p>}
+        </> : readOnly
+          ? <p className="empty-evidence">利用停止中のruntimeには接続せず、上の固定参照を表示しています。</p>
+          : !modelError && <p className="empty-evidence">モデル情報を読み込んでいます。</p>}
       </div>}
     </div>
   </div>;
 }
 
-export function DisplayDecimalSettingsPage({ project, taskDefinition, onProjectChanged }: {
+export function DisplayDecimalSettingsPage({ project, taskDefinition, readOnly = false, onProjectChanged }: {
   project: ApiProject | undefined;
   taskDefinition: TaskDefinitionContract | null;
+  readOnly?: boolean;
   onProjectChanged: (project: ApiProject) => void;
 }) {
   const [draft, setDraft] = useState<Record<string, string>>({});
@@ -154,8 +194,16 @@ export function DisplayDecimalSettingsPage({ project, taskDefinition, onProjectC
     setError("");
   }, [project, taskDefinition]);
   if (!project || !taskDefinition) return <div className="page-panel"><p className="empty-evidence">設定を読み込んでいます。</p></div>;
-  const resetDefaults = () => setDraft(Object.fromEntries(items.map((item) => [item.key, String(taskDefinition.display_decimals[item.key])])));
+  const resetDefaults = () => {
+    if (readOnly) return;
+    setDraft(Object.fromEntries(items.map((item) => [item.key, String(taskDefinition.display_decimals[item.key])])));
+  };
+  const update = (key: string, value: string) => {
+    if (readOnly) return;
+    setDraft((current) => ({ ...current, [key]: value }));
+  };
   const save = async () => {
+    if (readOnly) return;
     const overrides: Record<string, number> = {};
     for (const item of items) {
       const value = Number(draft[item.key]);
@@ -176,18 +224,19 @@ export function DisplayDecimalSettingsPage({ project, taskDefinition, onProjectC
     }
   };
   return <div className="page-panel display-decimal-settings">
-    <div className="page-intro"><div><h2>表示桁数</h2><p>表で表示する小数点以下の桁数です。保存値と計算精度は変わりません。</p></div><div className="project-actions"><button className="outline-button" onClick={resetDefaults}>デフォルトに戻す</button><button className="primary-button" disabled={saving} onClick={() => void save()}>{saving ? "保存中…" : "保存"}</button></div></div>
+    <div className="page-intro"><div><h2>表示桁数</h2><p>表で表示する小数点以下の桁数です。保存値と計算精度は変わりません。</p></div><div className="project-actions"><button className="outline-button" disabled={readOnly} onClick={resetDefaults}>デフォルトに戻す</button><button className="primary-button" disabled={readOnly || saving} onClick={() => void save()}>{saving ? "保存中…" : "保存"}</button></div></div>
     {error && <p className="empty-evidence">{error}</p>}
     <table className="display-decimal-table"><thead><tr><th>区分</th><th>変数</th><th>単位</th><th>既定</th><th>このプロジェクト</th><th>表示例</th></tr></thead><tbody>{items.map((item) => {
       const value = Number(draft[item.key]);
-      return <tr key={item.key}><td>{item.group}</td><th>{item.label}</th><td>{item.unit}</td><td className="numeric-cell">{taskDefinition.display_decimals[item.key]}</td><td className="numeric-cell"><input type="number" min="0" max="8" step="1" aria-label={`${item.label}の表示桁数`} value={draft[item.key] ?? ""} onChange={(event) => setDraft((current) => ({ ...current, [item.key]: event.target.value }))} /></td><td className="numeric-cell">{Number.isInteger(value) && value >= 0 && value <= 8 ? (0.001245).toFixed(value) : "—"}</td></tr>;
+      return <tr key={item.key}><td>{item.group}</td><th>{item.label}</th><td>{item.unit}</td><td className="numeric-cell">{taskDefinition.display_decimals[item.key]}</td><td className="numeric-cell"><input type="number" min="0" max="8" step="1" disabled={readOnly} aria-label={`${item.label}の表示桁数`} value={draft[item.key] ?? ""} onChange={(event) => update(item.key, event.target.value)} /></td><td className="numeric-cell">{Number.isInteger(value) && value >= 0 && value <= 8 ? (0.001245).toFixed(value) : "—"}</td></tr>;
     })}</tbody></table>
   </div>;
 }
 
-export function InputRangeSettingsPage({ project, taskDefinition, onProjectChanged }: {
+export function InputRangeSettingsPage({ project, taskDefinition, readOnly = false, onProjectChanged }: {
   project: ApiProject | undefined;
   taskDefinition: TaskDefinitionContract | null;
+  readOnly?: boolean;
   onProjectChanged: (project: ApiProject) => void;
 }) {
   const [draft, setDraft] = useState<Record<string, { min: string; max: string }>>({});
@@ -203,12 +252,19 @@ export function InputRangeSettingsPage({ project, taskDefinition, onProjectChang
   }, [project, taskDefinition]);
   if (!project || !taskDefinition) return <div className="page-panel"><p className="empty-evidence">設定を読み込んでいます。</p></div>;
   const inputs = numericTaskInputs(taskDefinition).filter((input) => input.editable);
-  const update = (id: string, side: "min" | "max", value: string) => setDraft((current) => ({ ...current, [id]: { ...current[id], [side]: value } }));
-  const resetDefaults = () => setDraft(Object.fromEntries(inputs.map((input) => {
-    const range = suggestedInputRange(input);
-    return [input.id, { min: String(range.min), max: String(range.max) }];
-  })));
+  const update = (id: string, side: "min" | "max", value: string) => {
+    if (readOnly) return;
+    setDraft((current) => ({ ...current, [id]: { ...current[id], [side]: value } }));
+  };
+  const resetDefaults = () => {
+    if (readOnly) return;
+    setDraft(Object.fromEntries(inputs.map((input) => {
+      const range = suggestedInputRange(input);
+      return [input.id, { min: String(range.min), max: String(range.max) }];
+    })));
+  };
   const save = async () => {
+    if (readOnly) return;
     const inputRanges: Record<string, { min: number; max: number }> = {};
     for (const input of inputs) {
       const range = draft[input.id];
@@ -231,13 +287,13 @@ export function InputRangeSettingsPage({ project, taskDefinition, onProjectChang
     }
   };
   return <div className="page-panel input-range-settings">
-    <div className="page-intro"><div><h2>入力範囲設定</h2><p>スライダーと数値入力で使う実用的な範囲を、プロジェクトごとに設定します。</p></div><div className="project-actions"><button className="outline-button" onClick={resetDefaults}>初期値に戻す</button><button className="primary-button" disabled={saving} onClick={() => void save()}>{saving ? "保存中…" : "保存"}</button></div></div>
+    <div className="page-intro"><div><h2>入力範囲設定</h2><p>スライダーと数値入力で使う実用的な範囲を、プロジェクトごとに設定します。</p></div><div className="project-actions"><button className="outline-button" disabled={readOnly} onClick={resetDefaults}>初期値に戻す</button><button className="primary-button" disabled={readOnly || saving} onClick={() => void save()}>{saving ? "保存中…" : "保存"}</button></div></div>
     <p className="settings-explanation"><b>許容範囲</b>は現実的な初期値、<b>学習範囲</b>はモデルが見た範囲です。初期値が未定義の項目は、学習範囲を両側へ10%広げます。</p>
     {error && <p className="empty-evidence">{error}</p>}
     <table className="input-range-table"><thead><tr><th>入力項目</th><th>許容最小</th><th>許容最大</th><th>初期値</th><th>学習範囲</th></tr></thead><tbody>{inputs.map((input) => {
       const range = suggestedInputRange(input);
       const training = input.training_range;
-      return <tr key={input.id}><th>{input.label}<small>{input.unit}</small></th><td><input type="number" step="any" aria-label={`${input.label}の許容最小`} value={draft[input.id]?.min ?? ""} onChange={(event) => update(input.id, "min", event.target.value)} /></td><td><input type="number" step="any" aria-label={`${input.label}の許容最大`} value={draft[input.id]?.max ?? ""} onChange={(event) => update(input.id, "max", event.target.value)} /></td><td>{rangeNumber(range.min)}–{rangeNumber(range.max)}</td><td>{training ? `${rangeNumber(training.min)}–${rangeNumber(training.max)}` : "—"}</td></tr>;
+      return <tr key={input.id}><th>{input.label}<small>{input.unit}</small></th><td><input type="number" step="any" disabled={readOnly} aria-label={`${input.label}の許容最小`} value={draft[input.id]?.min ?? ""} onChange={(event) => update(input.id, "min", event.target.value)} /></td><td><input type="number" step="any" disabled={readOnly} aria-label={`${input.label}の許容最大`} value={draft[input.id]?.max ?? ""} onChange={(event) => update(input.id, "max", event.target.value)} /></td><td>{rangeNumber(range.min)}–{rangeNumber(range.max)}</td><td>{training ? `${rangeNumber(training.min)}–${rangeNumber(training.max)}` : "—"}</td></tr>;
     })}</tbody></table>
   </div>;
 }

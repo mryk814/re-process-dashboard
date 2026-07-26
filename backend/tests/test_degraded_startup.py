@@ -2,15 +2,52 @@ from __future__ import annotations
 
 import json
 import shutil
+from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 from fastapi.testclient import TestClient
 
+import material_workbench.app as app_module
 from material_workbench.app import _prepare_app_resources, create_app
+from material_workbench.tasks.task_registry import TaskRegistry
 
 
 ROOT = Path(__file__).parents[2]
 BROKEN_TASK_ID = "heat-treatment-tradeoff-v1"
+
+
+class _ContractBrokenRuntime:
+    def __init__(self, runtime: Any) -> None:
+        self._runtime = runtime
+        self.task_id = "wrong-task"
+        self.data = runtime.data
+        self.model_package = runtime.model_package
+        self.support_policy_id = runtime.support_policy_id
+
+    @property
+    def output_keys(self):
+        return self._runtime.output_keys
+
+    def predict(self, candidate: Any, **kwargs: Any):
+        return self._runtime.predict(candidate, **kwargs)
+
+    def predict_core(self, candidate: Any, **kwargs: Any):
+        return self._runtime.predict_core(candidate, **kwargs)
+
+    def evidence(self, candidate: Any):
+        return self._runtime.evidence(candidate)
+
+    def support_summary(self, candidate: Any):
+        return self._runtime.support_summary(candidate)
+
+    def support_by_target(self, candidate: Any):
+        return self._runtime.support_by_target(candidate)
+
+    def similarity(
+        self, candidate: Any, limit: int = 6, target: str | None = None
+    ):
+        return self._runtime.similarity(candidate, limit, target)
 
 
 def _candidate_update(candidate: dict[str, object]) -> dict[str, object]:
@@ -61,8 +98,11 @@ def test_one_broken_task_keeps_other_tasks_and_saved_history_available(
 
     availability = degraded_resources.task_registry.availability_for(BROKEN_TASK_ID)
     assert availability.status == "unavailable"
-    assert availability.stage in {"package", "runtime"}
-    assert "Model Package" in availability.message or "runtime" in availability.message
+    assert availability.stage == "package"
+    assert "Model Package" in availability.message
+    assert availability.resource_id == BROKEN_TASK_ID
+    assert availability.expected_locator == str(broken_package.resolve())
+    assert "active-packages.json" in availability.recovery_hint
 
     with TestClient(
         create_app(
@@ -151,3 +191,70 @@ def test_one_broken_task_keeps_other_tasks_and_saved_history_available(
             params={"expected_revision": healthy_candidate["revision"]},
         )
         assert healthy_preview.status_code == 200
+
+
+def test_source_failure_keeps_typed_diagnostics(tmp_path: Path) -> None:
+    missing_source = tmp_path / "missing-source.xlsx"
+
+    resources = _prepare_app_resources(source_path=missing_source)
+
+    availability = resources.task_registry.availability_for(
+        "annealed-properties-v1"
+    )
+    assert availability.status == "unavailable"
+    assert availability.stage == "source"
+    assert availability.resource_id == "primary"
+    assert availability.expected_locator == str(missing_source.resolve())
+    assert "WORKBENCH_SOURCE_PATH" in availability.recovery_hint
+
+
+def test_runtime_factory_failure_keeps_package_diagnostics(
+    monkeypatch,
+) -> None:
+    modules = dict(app_module.registered_task_modules())
+
+    def fail_runtime(_data, _package):
+        raise ValueError("runtime bootstrap failed")
+
+    modules[BROKEN_TASK_ID] = replace(
+        modules[BROKEN_TASK_ID],
+        runtime_factory=fail_runtime,
+    )
+    monkeypatch.setattr(app_module, "registered_task_modules", lambda: modules)
+
+    resources = _prepare_app_resources()
+    availability = resources.task_registry.availability_for(BROKEN_TASK_ID)
+    active_package = json.loads(
+        (ROOT / "models" / "active-packages.json").read_text(encoding="utf-8")
+    )["tasks"][BROKEN_TASK_ID]["active"]
+
+    assert availability.status == "unavailable"
+    assert availability.stage == "runtime"
+    assert availability.resource_id
+    assert availability.expected_locator == str(
+        (ROOT / "models" / active_package).resolve()
+    )
+    assert "runtime種別" in availability.recovery_hint
+
+
+def test_runtime_contract_failure_keeps_package_diagnostics(
+    app_resources,
+) -> None:
+    runtimes = dict(app_resources.runtimes)
+    runtime = runtimes[BROKEN_TASK_ID]
+    runtimes[BROKEN_TASK_ID] = _ContractBrokenRuntime(runtime)
+
+    registry = TaskRegistry(
+        runtimes,
+        modules=app_resources.modules,
+        degrade_invalid_runtimes=True,
+    )
+    availability = registry.availability_for(BROKEN_TASK_ID)
+    package = runtime.model_package
+    assert package is not None
+
+    assert availability.status == "unavailable"
+    assert availability.stage == "runtime"
+    assert availability.resource_id == package.manifest.package_id
+    assert availability.expected_locator == str(package.root)
+    assert "TaskDefinition" in availability.recovery_hint

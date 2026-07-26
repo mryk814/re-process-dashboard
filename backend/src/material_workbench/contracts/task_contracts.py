@@ -497,13 +497,29 @@ class TaskAvailability(ContractModel):
     status: Literal["available", "unavailable"] = "available"
     stage: Literal["ready", "source", "package", "runtime"] = "ready"
     message: str = ""
+    resource_id: str = ""
+    expected_locator: str = ""
+    recovery_hint: str = ""
 
     @model_validator(mode="after")
     def status_matches_reason(self) -> "TaskAvailability":
-        if self.status == "available" and (self.stage != "ready" or self.message):
-            raise ValueError("available task must not carry an unavailable reason")
-        if self.status == "unavailable" and (self.stage == "ready" or not self.message.strip()):
-            raise ValueError("unavailable task requires a stage and message")
+        diagnostics = (
+            self.resource_id,
+            self.expected_locator,
+            self.recovery_hint,
+        )
+        if self.status == "available" and (
+            self.stage != "ready" or self.message or any(diagnostics)
+        ):
+            raise ValueError("available task must not carry unavailable diagnostics")
+        if self.status == "unavailable" and (
+            self.stage == "ready"
+            or not self.message.strip()
+            or not all(value.strip() for value in diagnostics)
+        ):
+            raise ValueError(
+                "unavailable task requires a stage, message, resource, locator, and recovery hint"
+            )
         return self
 
 

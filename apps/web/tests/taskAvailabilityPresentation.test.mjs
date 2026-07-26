@@ -11,16 +11,33 @@ const session = readFileSync(
   new URL("../src/features/workbench/useWorkbenchSession.ts", import.meta.url),
   "utf8",
 );
+const developerAdmin = readFileSync(
+  new URL("../src/features/admin/DeveloperAdminPage.tsx", import.meta.url),
+  "utf8",
+);
 
-test("unavailable tasks keep the overview while replacing mutation and inference surfaces", () => {
+test("unavailable tasks keep overview and read-only diagnostics while replacing inference surfaces", () => {
   assert.match(app, /TaskUnavailablePanel/);
   assert.match(app, /保存済みの候補・予測・実測・判断履歴/);
   assert.match(app, /item\.id === "project"/);
+  assert.match(app, /item\.id === "settings"/);
   assert.match(app, /chainProject && item\.id === "candidates"/);
   assert.match(session, /resolved\.availability\.status === "unavailable"/);
+  assert.match(app, /tab !== "settings"/);
+  assert.match(app, /tab === "settings" && !chainProject/);
+  assert.match(app, /readOnly=\{taskUnavailable\}/);
+  assert.match(app, /availability=\{taskAvailability\}/);
   // The reason is rendered by the panels that stay available, not pushed through a notice.
   assert.match(app, /taskAvailability\?\.message/);
   assert.match(projectHub, /taskAvailability\.message/);
+});
+
+test("the unavailable panel uses Japanese and opens reference diagnostics", () => {
+  assert.match(app, /予測タスクの利用状況/);
+  assert.doesNotMatch(app, /TASK UNAVAILABLE/);
+  assert.match(app, /参照状態を確認する/);
+  assert.match(app, /onOpenSettings/);
+  assert.match(app, /adminSection: "developer"/);
 });
 
 test("chain projects load their immutable revision without entering the single-task candidate runtime", () => {
@@ -46,7 +63,7 @@ test("chain projects explain single-task-only views instead of failing inside th
   assert.match(app, /tab === "explore" && !taskUnavailable && !chainProject/);
   assert.match(app, /tab === "lineage" && !taskUnavailable && !chainProject/);
   assert.match(app, /tab === "quality" && !taskUnavailable && !chainProject/);
-  assert.match(app, /tab === "settings" && !taskUnavailable && !chainProject/);
+  assert.match(app, /tab === "settings" && !chainProject/);
 });
 
 test("chain overview offers the chain work surface instead of single-task next actions", () => {
@@ -68,6 +85,35 @@ test("project history shows a Japanese reason and disables changes for unavailab
   assert.match(projectHub, /disabled=\{taskUnavailable \|\| offline\}/);
   // The guard may carry more conditions; it must still gate on availability.
   assert.match(projectHub, /if \(!taskUnavailable\b/);
+});
+
+test("developer settings lead with diagnostics and guard every project mutation in read-only mode", () => {
+  assert.match(developerAdmin, /admin-availability-diagnostic/);
+  assert.match(developerAdmin, /availabilityStageLabel\(availability\?\.stage\)/);
+  for (const reference of [
+    "project?.task_id",
+    "project?.dataset_view_revision_id",
+    "project?.model_package_ref_id",
+    "project?.model_package_manifest_digest",
+    "availability?.resource_id",
+    "availability?.expected_locator",
+    "availability?.recovery_hint",
+  ]) {
+    assert.ok(developerAdmin.includes(reference), `${reference} is visible in the diagnostic`);
+  }
+  assert.match(developerAdmin, /section !== "model" \|\| readOnly/);
+  assert.match(developerAdmin, /if \(readOnly\) return;/);
+  assert.match(developerAdmin, /disabled=\{readOnly \|\| saving\}/);
+  assert.match(developerAdmin, /disabled=\{readOnly\}/);
+  assert.match(developerAdmin, /readOnly=\{readOnly\}/);
+});
+
+test("unresolved fixed references retain the raw project identifiers", () => {
+  assert.match(projectHub, /unresolvedReferenceLabel\("Dataset View", project\.dataset_view_revision_id\)/);
+  assert.match(projectHub, /unresolvedReferenceLabel\("Model Package", project\.model_package_ref_id\)/);
+  assert.match(projectHub, /\["Dataset View Revision", project\.dataset_view_revision_id\]/);
+  assert.match(projectHub, /\["Model Package Ref", project\.model_package_ref_id\]/);
+  assert.match(projectHub, /manifest: \$\{project\.model_package_manifest_digest\}/);
 });
 
 test("the fixed reference strip reads in Japanese and keeps digests in one collapsed block", () => {
