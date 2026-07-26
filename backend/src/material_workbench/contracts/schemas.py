@@ -11,6 +11,10 @@ from material_workbench.contracts.blend_contracts import (
     BlendValidationState,
     SparseBlend,
 )
+from material_workbench.contracts.batch_proposal_contracts import (
+    BatchProposalDefinition,
+    BatchProposalRun,
+)
 from material_workbench.contracts.chain_contracts import (
     ChainProjectIdentity,
     ProjectScientificIdentity,
@@ -575,11 +579,17 @@ class ScreeningRequest(BaseModel):
     secondary_goals: dict[str, ScreeningGoal] = Field(default_factory=dict)
     objective_definition: ObjectiveDefinition | None = None
     proposal: ProposalStrategyRequest = ProposalStrategyRequest()
+    batch_definition: BatchProposalDefinition | None = None
 
     @model_validator(mode="after")
     def target_is_not_a_secondary_goal(self) -> "ScreeningRequest":
         if self.target in self.secondary_goals:
             raise ValueError("主目標を副条件にも指定することはできません")
+        if (
+            self.batch_definition is not None
+            and self.batch_definition.batch_size > self.samples
+        ):
+            raise ValueError("batch sizeは評価点数以下にしてください")
         return self
 
 
@@ -1132,6 +1142,7 @@ class ScreeningRunResponse(BaseModel):
     proposal_diagnostics: ScreeningProposalDiagnostics | None = None
     proposal_pool: list[ProposalCandidateEvaluation] = Field(default_factory=list)
     proposal_rejections: list[ProposalRejectedCandidate] = Field(default_factory=list)
+    batch_proposal: BatchProposalRun | None = None
     rejection_summary: dict[str, int] | None = Field(
         default=None,
         deprecated="screening-run/v1-v2 compatibility; use proposal_diagnostics",
@@ -1174,6 +1185,19 @@ class ScreeningRunResponse(BaseModel):
                 raise ValueError("screening-run/v6 generated pool indices must be complete")
             if sum(item.selected_rank is not None for item in self.proposal_pool) != self.samples:
                 raise ValueError("screening-run/v6 proposal_pool must identify every selected point")
+            if self.batch_proposal is not None:
+                point_by_index = {item.index: item for item in self.points}
+                pool_by_index = {
+                    item.pool_index: item for item in self.proposal_pool
+                }
+                if any(
+                    item.point_index not in point_by_index
+                    or item.pool_index not in pool_by_index
+                    for item in self.batch_proposal.selected
+                ):
+                    raise ValueError(
+                        "batch proposal must reference the saved screening shortlist"
+                    )
         elif self.proposal_diagnostics.evaluated_count != self.samples:
             raise ValueError("proposal diagnostics evaluated_count must match samples")
         if self.schema_version in {"screening-run/v4", "screening-run/v5", "screening-run/v6"}:

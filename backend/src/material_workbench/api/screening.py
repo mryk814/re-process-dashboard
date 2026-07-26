@@ -9,6 +9,7 @@ from .errors import DomainApiException, PROJECT_API_ERRORS
 from ..application.screening import ScreeningNotFoundError, ScreeningService, ScreeningValidationError
 from material_workbench.contracts.schemas import ScreeningCandidateBatchRequest, ScreeningCandidateBatchResponse, ScreeningRequest, ScreeningRunResponse
 from material_workbench.contracts.proposal_contracts import ProposalStrategyAvailability
+from material_workbench.contracts.batch_proposal_contracts import BatchSelectorAvailability
 from material_workbench.persistence.store import CandidateLimitError, ProjectNotFoundError, Store
 from material_workbench.tasks.task_registry import TaskRegistry
 from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
@@ -69,6 +70,21 @@ def list_proposal_strategies(
 ) -> list[ProposalStrategyAvailability]:
     try:
         return service.available_strategies(project_id, target)
+    except SCREENING_ERRORS as exc:
+        _raise_screening_error(exc)
+
+
+@router.get(
+    "/api/projects/{project_id}/batch-selectors",
+    response_model=list[BatchSelectorAvailability],
+)
+def list_batch_selectors(
+    project_id: str,
+    target: str,
+    service: ScreeningServiceDependency,
+) -> list[BatchSelectorAvailability]:
+    try:
+        return service.available_batch_selectors(project_id, target)
     except SCREENING_ERRORS as exc:
         _raise_screening_error(exc)
 

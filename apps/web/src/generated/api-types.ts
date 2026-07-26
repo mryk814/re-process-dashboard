@@ -384,6 +384,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/batch-selectors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Batch Selectors */
+        get: operations["list_batch_selectors_api_projects__project_id__batch_selectors_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/candidates": {
         parameters: {
             query?: never;
@@ -1706,6 +1723,250 @@ export interface components {
             sparse_blend: boolean;
             /** Sparse Blend Transform Id */
             sparse_blend_transform_id?: string | null;
+        };
+        /** BatchCategoryQuota */
+        BatchCategoryQuota: {
+            /** Max Count */
+            max_count?: number | null;
+            /**
+             * Min Count
+             * @default 0
+             */
+            min_count: number;
+            /** Path */
+            path: string;
+            /** Value */
+            value: string;
+        };
+        /** BatchControlRequirement */
+        BatchControlRequirement: {
+            /** Candidate Id */
+            candidate_id: string;
+            /**
+             * Replicates
+             * @default 1
+             */
+            replicates: number;
+        };
+        /** BatchExcludedPoint */
+        BatchExcludedPoint: {
+            /** Pool Index */
+            pool_index: number;
+            /** Reason */
+            reason: string;
+        };
+        /** BatchProposalDefinition */
+        BatchProposalDefinition: {
+            /**
+             * Batch Size
+             * @default 8
+             */
+            batch_size: number;
+            /**
+             * Category Quotas
+             * @default []
+             */
+            category_quotas: components["schemas"]["BatchCategoryQuota"][];
+            /**
+             * Controls
+             * @default []
+             */
+            controls: components["schemas"]["BatchControlRequirement"][];
+            /**
+             * Diversity Weight
+             * @default 0.75
+             */
+            diversity_weight: number;
+            /**
+             * Near Duplicate Threshold
+             * @default 0.05
+             */
+            near_duplicate_threshold: number;
+            /**
+             * Pending Candidate Ids
+             * @default []
+             */
+            pending_candidate_ids: string[];
+            /**
+             * Pending Penalty
+             * @default 1
+             */
+            pending_penalty: number;
+            /**
+             * Pending Policy
+             * @default avoid
+             * @enum {string}
+             */
+            pending_policy: "avoid" | "penalize" | "allow";
+            /** @default {
+             *       "cost_rules": [],
+             *       "default_candidate_cost": 1,
+             *       "setup_change_penalty": 0
+             *     } */
+            resources: components["schemas"]["BatchResourceConstraint"];
+            /**
+             * Schema Version
+             * @default batch-proposal-definition/v1
+             * @constant
+             */
+            schema_version: "batch-proposal-definition/v1";
+            /**
+             * Selector Id
+             * @default greedy_value_diversity_v1
+             * @enum {string}
+             */
+            selector_id: "ranked_top_k_v1" | "greedy_value_diversity_v1" | "cluster_representative_v1" | "local_penalization_v1" | "batch_thompson_v1" | "joint_q_acquisition_v1";
+        };
+        /** BatchProposalRun */
+        BatchProposalRun: {
+            definition: components["schemas"]["BatchProposalDefinition"];
+            /** Excluded */
+            excluded: components["schemas"]["BatchExcludedPoint"][];
+            /**
+             * Schema Version
+             * @default batch-proposal-run/v1
+             * @constant
+             */
+            schema_version: "batch-proposal-run/v1";
+            /** Seed */
+            seed: number;
+            /** Selected */
+            selected: components["schemas"]["BatchSelectedPoint"][];
+            /**
+             * Selector Id
+             * @enum {string}
+             */
+            selector_id: "ranked_top_k_v1" | "greedy_value_diversity_v1" | "cluster_representative_v1" | "local_penalization_v1" | "batch_thompson_v1" | "joint_q_acquisition_v1";
+            /**
+             * Selector Version
+             * @default 1.0.0
+             * @constant
+             */
+            selector_version: "1.0.0";
+            summary: components["schemas"]["BatchProposalSummary"];
+            /**
+             * Tie Break Rule
+             * @default combined_score_desc_then_pool_index_asc
+             * @constant
+             */
+            tie_break_rule: "combined_score_desc_then_pool_index_asc";
+        };
+        /** BatchProposalSummary */
+        BatchProposalSummary: {
+            /** Batch Size */
+            batch_size: number;
+            /** Category Counts */
+            category_counts: {
+                [key: string]: number;
+            };
+            /** Estimated Total Cost */
+            estimated_total_cost: number;
+            /** Mean Pairwise Distance */
+            mean_pairwise_distance: number;
+            /** Min Pairwise Distance */
+            min_pairwise_distance: number;
+            /** Pending Reference Count */
+            pending_reference_count: number;
+            /** Setup Group Count */
+            setup_group_count: number;
+        };
+        /** BatchResourceConstraint */
+        BatchResourceConstraint: {
+            /**
+             * Cost Rules
+             * @default []
+             */
+            cost_rules: components["schemas"]["BatchResourceCostRule"][];
+            /**
+             * Default Candidate Cost
+             * @default 1
+             */
+            default_candidate_cost: number;
+            /** Max Setup Groups */
+            max_setup_groups?: number | null;
+            /** Max Total Cost */
+            max_total_cost?: number | null;
+            /**
+             * Setup Change Penalty
+             * @default 0
+             */
+            setup_change_penalty: number;
+            /** Setup Group Path */
+            setup_group_path?: string | null;
+        };
+        /** BatchResourceCostRule */
+        BatchResourceCostRule: {
+            /** Candidate Cost */
+            candidate_cost: number;
+            /** Path */
+            path: string;
+            /** Value */
+            value: string;
+        };
+        /** BatchSelectedPoint */
+        BatchSelectedPoint: {
+            /** Acquisition Component */
+            acquisition_component: number;
+            /** Combined Score */
+            combined_score: number;
+            /** Diversity Component */
+            diversity_component: number;
+            /** Estimated Cost */
+            estimated_cost: number;
+            /** Order */
+            order: number;
+            /** Pending Penalty */
+            pending_penalty: number;
+            /** Point Index */
+            point_index: number;
+            /** Pool Index */
+            pool_index: number;
+            /** Reason */
+            reason: string;
+            /** Resource Penalty */
+            resource_penalty: number;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "performance" | "exploration" | "boundary_check" | "diversity" | "coverage" | "control" | "replicate";
+            /** Setup Group */
+            setup_group?: string | null;
+        };
+        /** BatchSelectorAvailability */
+        BatchSelectorAvailability: {
+            /** Available */
+            available: boolean;
+            definition: components["schemas"]["BatchSelectorDefinition"];
+            /**
+             * Reasons
+             * @default []
+             */
+            reasons: string[];
+        };
+        /** BatchSelectorDefinition */
+        BatchSelectorDefinition: {
+            /** Label */
+            label: string;
+            /** Production Enabled */
+            production_enabled: boolean;
+            /**
+             * Requires Joint Samples
+             * @default false
+             */
+            requires_joint_samples: boolean;
+            /**
+             * Requires Samples
+             * @default false
+             */
+            requires_samples: boolean;
+            /**
+             * Selector Id
+             * @enum {string}
+             */
+            selector_id: "ranked_top_k_v1" | "greedy_value_diversity_v1" | "cluster_representative_v1" | "local_penalization_v1" | "batch_thompson_v1" | "joint_q_acquisition_v1";
+            /** Version */
+            version: string;
         };
         /** BlendEditorContext */
         BlendEditorContext: {
@@ -5820,6 +6081,7 @@ export interface components {
             /** Base Candidate Id */
             base_candidate_id: string;
             base_inputs: components["schemas"]["CandidateInputs"];
+            batch_definition?: components["schemas"]["BatchProposalDefinition"] | null;
             objective_definition?: components["schemas"]["ObjectiveDefinition"] | null;
             /** @default {
              *       "exploration_parameter": 2,
@@ -5863,6 +6125,7 @@ export interface components {
                 [key: string]: unknown;
             };
             base_inputs?: components["schemas"]["CandidateInputs"] | null;
+            batch_proposal?: components["schemas"]["BatchProposalRun"] | null;
             /**
              * Created At
              * Format: date-time
@@ -7511,6 +7774,39 @@ export interface operations {
             };
             /** @description Task Runtime Unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    list_batch_selectors_api_projects__project_id__batch_selectors_get: {
+        parameters: {
+            query: {
+                target: string;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchSelectorAvailability"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

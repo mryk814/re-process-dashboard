@@ -29,6 +29,7 @@ from material_workbench.contracts.proposal_contracts import ProposalStrategyDefi
 from material_workbench.domain.screening_score import evaluate_screening_goal, score_contract, screening_goal_runtime_value
 from material_workbench.domain.proposal_acquisition import acquisition_value
 from material_workbench.domain.proposal_generation import generate_candidates
+from material_workbench.domain.batch_selector import select_experiment_batch
 
 
 COMPOSITION_COLUMNS = composition_names(task_id="annealed-properties-v1")
@@ -116,6 +117,7 @@ def run_proposal(
     candidate_validator: Callable[[CandidateInput], None],
     design_space: DesignSpaceDefinition | None = None,
     strategy: ProposalStrategyDefinition,
+    batch_reference_candidates: dict[str, Candidate] | None = None,
 ) -> dict[str, Any]:
     pool_size = request.samples * request.proposal.pool_multiplier
     if design_space is None:
@@ -230,6 +232,17 @@ def run_proposal(
         ),
     )
     selected = ranked[:request.samples]
+    batch_proposal = (
+        select_experiment_batch(
+            selected,
+            request.batch_definition,
+            design_space,
+            seed=request.seed,
+            reference_candidates=batch_reference_candidates or {},
+        )
+        if request.batch_definition is not None
+        else None
+    )
     selected_pool_indices = {point["pool_index"] for point in selected}
     selected_points = []
     selected_rank = {
@@ -237,6 +250,27 @@ def run_proposal(
     }
     for index, point in enumerate(selected):
         selected_points.append({**point, "index": index})
+    if batch_proposal is not None:
+        point_index_by_pool = {
+            point["pool_index"]: point["index"] for point in selected_points
+        }
+        batch_proposal["selected"] = [
+            {
+                "point_index": point_index_by_pool[item["point"]["pool_index"]],
+                "pool_index": item["point"]["pool_index"],
+                "order": order,
+                "role": item["role"],
+                "reason": item["reason"],
+                "acquisition_component": item["acquisition_component"],
+                "diversity_component": item["diversity_component"],
+                "pending_penalty": item["pending_penalty"],
+                "resource_penalty": item["resource_penalty"],
+                "combined_score": item["combined_score"],
+                "estimated_cost": item["estimated_cost"],
+                "setup_group": item["setup_group"],
+            }
+            for order, item in enumerate(batch_proposal["selected"], start=1)
+        ]
     proposal_pool = [
         {
             "pool_index": point["pool_index"],
@@ -279,6 +313,7 @@ def run_proposal(
         "representative_points": selected_points[:10],
         "proposal_pool": proposal_pool,
         "proposal_rejections": proposal_rejections,
+        "batch_proposal": batch_proposal,
         "_proposal_diagnostics": {
             "generated_count": pool_size,
             "valid_count": len(valid_candidates),
