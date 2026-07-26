@@ -29,7 +29,11 @@ from material_workbench.contracts.blend_contracts import (
     SparseBlendDesignSpace,
     describe_blend_materials,
 )
-from material_workbench.contracts.stage_a_contracts import STAGE_A_COMPONENTS
+from material_workbench.contracts.stage_a_contracts import (
+    STAGE_A_AUXILIARY_SOURCE_PRESENTATION,
+    STAGE_A_COMPONENT_OUTPUT_UNIT,
+    STAGE_A_COMPONENTS,
+)
 from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.modeling.model_lifecycle import REPOSITORY_ROOT
 from material_workbench.modeling.model_package_verify import (
@@ -138,6 +142,14 @@ class HistoricalTransformResolution:
     contract_digest: str
     transform: Any
     contracts: ResolvedBlendContracts
+
+
+@dataclass(frozen=True)
+class DeterministicOutputPresentation:
+    key: str
+    label: str
+    unit: str
+    display_decimals: int
 
 
 def deterministic_transform_contract_digest(
@@ -298,6 +310,78 @@ class DeterministicTransformCatalog:
             commercial_catalog=space.commercial_catalog,
             design_space=space.ref,
         )
+
+    def resolution_for_revision(
+        self,
+        transform_id: str,
+        package_manifest_digest: str,
+        contract_digest: str,
+    ) -> HistoricalTransformResolution:
+        """Resolve immutable Package and adapter state pinned by a Chain Stage."""
+
+        candidates = [
+            resolution
+            for resolution in self._historical_by_package
+            if resolution.transform_id == transform_id
+            and f"sha256:{resolution.package.manifest_sha256}"
+            == package_manifest_digest
+            and resolution.contract_digest == contract_digest
+        ]
+        if not candidates:
+            raise BlendStructuralError(
+                "Chain Revisionに固定されたStage A Package/contractが"
+                "historical registryに見つかりません"
+            )
+        return candidates[0]
+
+    def output_presentations_for_revision(
+        self,
+        transform_id: str,
+        package_manifest_digest: str,
+        contract_digest: str,
+    ) -> tuple[DeterministicOutputPresentation, ...]:
+        """Resolve display metadata from the exact pinned deterministic adapter."""
+
+        resolution = self.resolution_for_revision(
+            transform_id,
+            package_manifest_digest,
+            contract_digest,
+        )
+        spec = resolution.package.manifest.deterministic_transforms[0]
+        presentations = [
+            DeterministicOutputPresentation(
+                key=key,
+                label=key,
+                unit=STAGE_A_COMPONENT_OUTPUT_UNIT,
+                display_decimals=3,
+            )
+            for key in spec.output_names
+        ]
+        features = {
+            feature.name: feature
+            for feature in resolution.transform.artifact.auxiliary_features
+        }
+        for key in spec.auxiliary_feature_names:
+            feature = features.get(key)
+            presentation = (
+                STAGE_A_AUXILIARY_SOURCE_PRESENTATION.get(feature.source)
+                if feature is not None
+                else None
+            )
+            if presentation is None:
+                raise BlendStructuralError(
+                    f"deterministic transform output presentation is missing: {key}"
+                )
+            label, unit, display_decimals = presentation
+            presentations.append(
+                DeterministicOutputPresentation(
+                    key=key,
+                    label=label,
+                    unit=unit,
+                    display_decimals=display_decimals,
+                )
+            )
+        return tuple(presentations)
 
     def _resolution_for(self, blend: SparseBlend) -> HistoricalTransformResolution:
         try:

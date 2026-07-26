@@ -636,6 +636,16 @@ def test_candidate_limit_is_enforced_for_every_creation_route(client) -> None:
     assert MAX_CANDIDATES_PER_PROJECT == 100
     project = client.post("/api/projects", json=_project(client, "上限確認")).json()
     project_id = project["id"]
+    initial_capacity = client.get(
+        f"/api/projects/{project_id}/candidate-capacity"
+    )
+    assert initial_capacity.status_code == 200
+    assert initial_capacity.json() == {
+        "schema_version": "candidate-capacity/v1",
+        "limit": MAX_CANDIDATES_PER_PROJECT,
+        "used": 0,
+        "remaining": MAX_CANDIDATES_PER_PROJECT,
+    }
     base = client.post(f"/api/projects/{project_id}/candidates", json=_candidate("基準")).json()
     snapshot = client.post(f"/api/projects/{project_id}/candidates/{base['id']}/snapshots").json()
     screening = client.post(
@@ -652,6 +662,12 @@ def test_candidate_limit_is_enforced_for_every_creation_route(client) -> None:
     for index in range(2, MAX_CANDIDATES_PER_PROJECT + 1):
         assert client.post(f"/api/projects/{project_id}/candidates", json=_candidate(f"候補{index}")).status_code == 201
     assert len(client.get(f"/api/projects/{project_id}/candidates").json()) == MAX_CANDIDATES_PER_PROJECT
+    assert client.get(f"/api/projects/{project_id}/candidate-capacity").json() == {
+        "schema_version": "candidate-capacity/v1",
+        "limit": MAX_CANDIDATES_PER_PROJECT,
+        "used": MAX_CANDIDATES_PER_PROJECT,
+        "remaining": 0,
+    }
 
     direct = client.post(f"/api/projects/{project_id}/candidates", json=_candidate(f"{MAX_CANDIDATES_PER_PROJECT + 1}件目"))
     assert direct.status_code == 409 and f"最大{MAX_CANDIDATES_PER_PROJECT}件" in direct.json()["message"]

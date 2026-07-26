@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { build } from "esbuild";
 import path from "node:path";
 import { createRequire } from "node:module";
+import { readFile } from "node:fs/promises";
 
 const sourceRoot = path.resolve(import.meta.dirname, "../src");
 const bundle = await build({
@@ -73,6 +74,7 @@ test("representative points use labeled varying columns and one shared support m
     baseCandidateLabel: "基準案A",
     selectedPointIndices: [],
     stockedPointIndices: new Set(),
+    selectionLimitReached: false,
     onToggle() {},
   });
 
@@ -86,4 +88,46 @@ test("representative points use labeled varying columns and one shared support m
   assert.equal(html.split(commonMessage).length - 1, 1);
   assert.match(html, /-5\.0–505\.0 MPa · ⚠ 範囲外含む/);
   assert.doesNotMatch(html, /class="implausible-output screening-prediction-cell"/);
+});
+
+test("candidate capacity comes from the API and is visible before selection", async () => {
+  const source = await readFile(
+    new URL("../src/features/screening/ScreeningPage.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /workbenchApi\.candidateCapacity\(projectId\)/);
+  assert.match(source, /候補枠 \$\{candidates\.length\} \/ \$\{candidateCapacity\.limit\}/);
+  assert.doesNotMatch(source, /100 - candidates\.length/);
+});
+
+test("representative points cannot be newly selected after the candidate limit", () => {
+  const html = renderTable({
+    result: {
+      target: "TS",
+      variables: {
+        "composition.C": { mode: "range", min: 0.1, max: 0.2 },
+      },
+      representative_points: [{
+        index: 0,
+        inputs: { "composition.C": 0.1 },
+        prediction: prediction(500),
+        predictions: {},
+        support: {
+          status: "supported",
+          message: "範囲内",
+          percentile: 20,
+          reference_count: 12,
+        },
+      }],
+    },
+    outputs: [{ key: "TS", label: "引張強さ", unit: "MPa" }],
+    options: [{ value: "composition.C", label: "C (mass%)" }],
+    baseCandidateLabel: "基準案A",
+    selectedPointIndices: [],
+    stockedPointIndices: new Set(),
+    selectionLimitReached: true,
+    onToggle() {},
+  });
+  assert.match(html, /type="checkbox"[^>]*disabled=""/);
+  assert.match(html, /候補枠上限/);
 });

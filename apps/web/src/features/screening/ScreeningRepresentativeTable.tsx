@@ -50,6 +50,7 @@ export function ScreeningRepresentativeTable({
   baseCandidateLabel,
   selectedPointIndices,
   stockedPointIndices,
+  selectionLimitReached,
   onToggle,
   taskDefinition,
   displayDecimalOverrides,
@@ -62,6 +63,7 @@ export function ScreeningRepresentativeTable({
   baseCandidateLabel: string;
   selectedPointIndices: number[];
   stockedPointIndices: Set<number>;
+  selectionLimitReached: boolean;
   onToggle: (index: number) => void;
 }) {
   const optionByPath = new Map(options.map((option) => [option.value, option]));
@@ -127,11 +129,15 @@ export function ScreeningRepresentativeTable({
           <tbody>
             {result.representative_points.map((point) => {
               const predictions = pointPredictions(point, result.target);
+              const selected = selectedPointIndices.includes(point.index);
+              const stocked = stockedPointIndices.has(point.index);
+              const selectionDisabled = stocked || (!selected && selectionLimitReached);
               return (
                 <tr key={point.index}>
                   <td className="screening-select-column">
-                    <input type="checkbox" aria-label={`点 ${point.index + 1}を選択`} checked={selectedPointIndices.includes(point.index)} disabled={stockedPointIndices.has(point.index)} onChange={() => onToggle(point.index)} />
-                    {stockedPointIndices.has(point.index) && <small>追加済み</small>}
+                    <input type="checkbox" aria-label={`点 ${point.index + 1}を選択`} checked={selected} disabled={selectionDisabled} onChange={() => onToggle(point.index)} />
+                    {stocked && <small>追加済み</small>}
+                    {!stocked && !selected && selectionLimitReached && <small>候補枠上限</small>}
                   </td>
                   <th className="screening-point-column" scope="row">{point.index + 1}</th>
                   {varyingFields.map((field) => {

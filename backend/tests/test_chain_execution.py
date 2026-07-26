@@ -26,6 +26,7 @@ from material_workbench.contracts.chain_uncertainty_contracts import (
 )
 from material_workbench.contracts.schemas import CandidateInputs
 from material_workbench.persistence.store import CandidateRevisionConflictError, Store
+from material_workbench.persistence.sqlite_connection import connect_sqlite
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -546,6 +547,43 @@ def test_explicit_a_b_c_execution_matches_bindings_and_partial_recomputation(
     assert [stage["stage_id"] for stage in first["stages"]] == ["A", "B", "C"]
     assert [stage["cache_hit"] for stage in first["stages"]] == [False, False, False]
     stage_a, stage_b, stage_c = first["stages"]
+    stage_a_outputs = {
+        item["key"]: item for item in stage_a["output_definitions"]
+    }
+    stage_b_outputs = {
+        item["key"]: item for item in stage_b["output_definitions"]
+    }
+    stage_c_outputs = {
+        item["key"]: item for item in stage_c["output_definitions"]
+    }
+    assert stage_a_outputs["C"] == {
+        "key": "C",
+        "label": "C",
+        "unit": "mass% whole wire",
+        "display_decimals": 3,
+        "goal_direction": None,
+    }
+    assert stage_a_outputs["alloy_powder_d50_um"] == {
+        "key": "alloy_powder_d50_um",
+        "label": "合金粉末 D50",
+        "unit": "µm",
+        "display_decimals": 1,
+        "goal_direction": None,
+    }
+    assert stage_b_outputs["C"] == {
+        "key": "C",
+        "label": "溶着金属 C",
+        "unit": "mass% deposited metal",
+        "display_decimals": 5,
+        "goal_direction": "target",
+    }
+    assert stage_c_outputs["TS"] == {
+        "key": "TS",
+        "label": "引張強さ",
+        "unit": "MPa",
+        "display_decimals": 1,
+        "goal_direction": "at_least",
+    }
     assert stage_b["canonical_input"]["composition"]["C"] == stage_a["result"][
         "material_composition"
     ]["C"]
@@ -872,9 +910,51 @@ def test_chain_snapshot_pins_every_identity_and_survives_store_restart(
     restored = restarted.get_chain_snapshot(snapshot["snapshot_id"])
     assert restored is not None
     assert restored.model_dump(mode="json") == snapshot
+    assert all(stage.output_definitions for stage in restored.stages)
     persisted = restarted.get_chain_execution(project["id"], candidate["id"])
     assert persisted is not None
     assert persisted.request_id == execution["request_id"]
+
+    legacy_execution = json.loads(json.dumps(execution))
+    for stage in legacy_execution["stages"]:
+        stage.pop("output_definitions")
+    with connect_sqlite(client.app.state.store.path) as conn:
+        conn.execute(
+            "UPDATE chain_execution_state SET execution_json=? "
+            "WHERE scope_id=?",
+            (
+                json.dumps(legacy_execution, ensure_ascii=False),
+                client.app.state.store.chain_execution_scope(
+                    project["id"], candidate["id"]
+                ),
+            ),
+        )
+    upgraded_response = client.post(
+        f"/api/projects/{project['id']}/chain/candidates/{candidate['id']}/snapshots",
+        json={"candidate_revision": candidate["revision"], "debounce_ms": 0},
+    )
+    assert upgraded_response.status_code == 201, upgraded_response.text
+    assert all(
+        stage["output_definitions"]
+        for stage in upgraded_response.json()["stages"]
+    )
+
+    legacy_payload = json.loads(json.dumps(snapshot))
+    for stage in legacy_payload["stages"]:
+        stage.pop("output_definitions")
+    with connect_sqlite(client.app.state.store.path) as conn:
+        conn.execute(
+            "UPDATE chain_snapshot_records SET payload_json=? WHERE id=?",
+            (
+                json.dumps(legacy_payload, ensure_ascii=False),
+                snapshot["snapshot_id"],
+            ),
+        )
+    legacy = Store(client.app.state.store.path).get_chain_snapshot(
+        snapshot["snapshot_id"]
+    )
+    assert legacy is not None
+    assert all(stage.output_definitions == () for stage in legacy.stages)
 
 
 def test_actual_conditioned_variant_requires_complete_measured_b_and_never_overwrites_chain(

@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { fromApiCandidate, setCandidateInputValue, toApiCandidate, type CandidateViewModel as Candidate, type ResolvedTaskDefinition, type TaskDefinitionContract } from "../candidates";
-import { workbenchApi, type ApiProject, type ApiProposalStrategyAvailability, type ApiScreeningRun } from "../../shared/api/workbench-api";
+import {
+  workbenchApi,
+  type ApiCandidateCapacity,
+  type ApiProject,
+  type ApiProposalStrategyAvailability,
+  type ApiScreeningRun,
+} from "../../shared/api/workbench-api";
 import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
 import { SvgChartTooltip } from "../../shared/ui/SvgChartTooltip";
 import { assessPrediction, clampToRange, resolveOutputDefinition } from "../../shared/outputPresentation";
@@ -219,6 +225,8 @@ export function ScreeningPage({
   const [result, setResult] = useState<ScreenResult | null>(null);
   const [savedRuns, setSavedRuns] = useState<ScreenResult[]>([]);
   const [error, setError] = useState("");
+  const [candidateCapacity, setCandidateCapacity] = useState<ApiCandidateCapacity | null>(null);
+  const [candidateCapacityError, setCandidateCapacityError] = useState("");
   const [draftDirty, setDraftDirty] = useState(false);
   const [goalConfirmationOpen, setGoalConfirmationOpen] = useState(false);
   // Choosing a distribution view is a decision about this target, not about one run.
@@ -340,6 +348,24 @@ export function ScreeningPage({
     workbenchApi.listScreeningRuns(requestProjectId)
       .then((runs) => { if (activeProjectRef.current === requestProjectId) setSavedRuns(runs); })
       .catch(() => undefined);
+  }, [projectId]);
+  useEffect(() => {
+    let active = true;
+    setCandidateCapacity(null);
+    setCandidateCapacityError("");
+    workbenchApi.candidateCapacity(projectId)
+      .then((capacity) => {
+        if (active) setCandidateCapacity(capacity);
+      })
+      .catch((cause) => {
+        if (!active) return;
+        setCandidateCapacityError(
+          cause instanceof Error ? cause.message : "候補枠を取得できませんでした。",
+        );
+      });
+    return () => {
+      active = false;
+    };
   }, [projectId]);
   useEffect(() => {
     let active = true;
@@ -596,7 +622,12 @@ export function ScreeningPage({
     return typeof provenance.source_ref.point_index === "number" ? [provenance.source_ref.point_index] : [];
   }));
   const selectedNewPointIndices = selectedPointIndices.filter((index) => !stockedPointIndices.has(index));
-  const remainingCandidateCapacity = Math.max(0, 100 - candidates.length);
+  const remainingCandidateCapacity = candidateCapacity
+    ? Math.max(0, candidateCapacity.limit - candidates.length)
+    : 0;
+  const candidateCapacityLabel = candidateCapacity
+    ? `候補枠 ${candidates.length} / ${candidateCapacity.limit}`
+    : candidateCapacityError || "候補枠を確認中";
   const addableSelectedCount = selectedNewPointIndices.length <= remainingCandidateCapacity
     ? selectedNewPointIndices.length
     : 0;
@@ -703,9 +734,36 @@ export function ScreeningPage({
   const hiddenVaryingFields = result ? Object.entries(result.variables).filter(([field, spec]) => spec.mode !== "fixed" && field !== xAxis && field !== yAxis).map(([field]) => field) : [];
   const togglePoint = (index: number) => {
     setFocusedPointIndex(index);
-    setSelectedPointIndices((current) => current.includes(index) ? current.filter((item) => item !== index) : [...current, index]);
+    setSelectedPointIndices((current) => {
+      if (current.includes(index)) return current.filter((item) => item !== index);
+      const selectedNewCount = current.filter(
+        (selectedIndex) => !stockedPointIndices.has(selectedIndex),
+      ).length;
+      if (
+        stockedPointIndices.has(index)
+        || !candidateCapacity
+        || selectedNewCount >= remainingCandidateCapacity
+      ) {
+        return current;
+      }
+      return [...current, index];
+    });
   };
-  if (!candidates.length) return <div className="page-panel explore-page"><div className="page-intro"><div><h2>範囲探索</h2><p>探索の基準になる候補を1件作ると、予測タスクが定める入力範囲から条件を検討できます。</p></div></div><div className="project-empty-state"><p>まだ基準候補がありません。</p><CandidateAddButton onClick={onCreateStarter}>基準候補を作って探索を始める</CandidateAddButton></div></div>;
+  if (!candidates.length) return (
+    <div className="page-panel explore-page">
+      <div className="page-intro">
+        <div>
+          <h2>範囲探索</h2>
+          <p>探索の基準になる候補を1件作ると、予測タスクが定める入力範囲から条件を検討できます。</p>
+        </div>
+        <span className="screening-capacity" role="status">{candidateCapacityLabel}</span>
+      </div>
+      <div className="project-empty-state">
+        <p>まだ基準候補がありません。</p>
+        <CandidateAddButton disabled={!candidateCapacity || remainingCandidateCapacity === 0} onClick={onCreateStarter}>基準候補を作って探索を始める</CandidateAddButton>
+      </div>
+    </div>
+  );
   return (
     <div className="page-panel explore-page">
       <div className="page-intro">
@@ -715,16 +773,19 @@ export function ScreeningPage({
             指定範囲に点を分散して生成し、制約を満たす点から候補を集めます。
           </p>
         </div>
-        <button
-          className="primary-button"
-          disabled={!baseCandidateId || !baseCandidate || Boolean(unsupportedObjectiveReason)}
-          title={unsupportedObjectiveReason || (baseCandidateId ? "選択した候補を基準に探索します" : "基準候補が必要です")}
-          onClick={() => {
-            void run();
-          }}
-        >
-          探索を実行
-        </button>
+        <div className="screening-page-actions">
+          <span className="screening-capacity" role="status">{candidateCapacityLabel}</span>
+          <button
+            className="primary-button"
+            disabled={!baseCandidateId || !baseCandidate || Boolean(unsupportedObjectiveReason)}
+            title={unsupportedObjectiveReason || (baseCandidateId ? "選択した候補を基準に探索します" : "基準候補が必要です")}
+            onClick={() => {
+              void run();
+            }}
+          >
+            探索を実行
+          </button>
+        </div>
       </div>
       {compositionBalanceNotice && <p className="screening-balance-notice">組成制約: {compositionBalanceNotice}</p>}
       {unsupportedObjectiveReason && <p className="error-banner">{unsupportedObjectiveReason}</p>}
@@ -1317,6 +1378,10 @@ export function ScreeningPage({
             baseCandidateLabel={candidates.find((candidate) => candidate.id === result.base_candidate_id)?.label ?? "基準候補"}
             selectedPointIndices={selectedPointIndices}
             stockedPointIndices={stockedPointIndices}
+            selectionLimitReached={
+              !candidateCapacity
+              || selectedNewPointIndices.length >= remainingCandidateCapacity
+            }
             onToggle={togglePoint}
           />
         </>

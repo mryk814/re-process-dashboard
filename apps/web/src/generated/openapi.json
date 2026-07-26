@@ -2091,6 +2091,38 @@
         "title": "Candidate",
         "type": "object"
       },
+      "CandidateCapacity": {
+        "properties": {
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "remaining": {
+            "minimum": 0.0,
+            "title": "Remaining",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "candidate-capacity/v1",
+            "default": "candidate-capacity/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "used": {
+            "minimum": 0.0,
+            "title": "Used",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "limit",
+          "used",
+          "remaining"
+        ],
+        "title": "CandidateCapacity",
+        "type": "object"
+      },
       "CandidateCurrentHistory": {
         "properties": {
           "revision": {
@@ -4031,6 +4063,14 @@
             ],
             "title": "Error"
           },
+          "output_definitions": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ChainStageOutputDefinition"
+            },
+            "title": "Output Definitions",
+            "type": "array"
+          },
           "package_manifest_digest": {
             "pattern": "^sha256:[0-9a-f]{64}$",
             "title": "Package Manifest Digest",
@@ -4102,6 +4142,56 @@
           "canonical_input"
         ],
         "title": "ChainStageExecution",
+        "type": "object"
+      },
+      "ChainStageOutputDefinition": {
+        "additionalProperties": false,
+        "description": "Presentation metadata for one output of a pinned Chain Stage.",
+        "properties": {
+          "display_decimals": {
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Display Decimals",
+            "type": "integer"
+          },
+          "goal_direction": {
+            "anyOf": [
+              {
+                "enum": [
+                  "at_least",
+                  "at_most",
+                  "target"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Goal Direction"
+          },
+          "key": {
+            "minLength": 1,
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "unit",
+          "display_decimals"
+        ],
+        "title": "ChainStageOutputDefinition",
         "type": "object"
       },
       "ChainStageRevision": {
@@ -19258,6 +19348,75 @@
           }
         },
         "summary": "List Batch Selectors"
+      }
+    },
+    "/api/projects/{project_id}/candidate-capacity": {
+      "get": {
+        "operationId": "get_candidate_capacity_api_projects__project_id__candidate_capacity_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateCapacity"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Task Runtime Unavailable"
+          }
+        },
+        "summary": "Get Candidate Capacity"
       }
     },
     "/api/projects/{project_id}/candidates": {
