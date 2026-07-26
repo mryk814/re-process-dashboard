@@ -50,6 +50,32 @@ type Props = {
   onCreationIntentConsumed: () => void;
 };
 
+/**
+ * Digests stay available as identification, but they are not the label a material
+ * engineer reads first. The overview keeps them in one collapsed block.
+ */
+function ReferenceIdentityDetails({ items }: { items: Array<[string, string | null | undefined]> }) {
+  const present = items.filter((item): item is [string, string] => Boolean(item[1]));
+  if (!present.length) return null;
+  return <details className="project-reference-identity">
+    <summary>識別情報</summary>
+    <dl>{present.map(([label, digest]) => <div key={label}>
+      <dt>{label}</dt>
+      <dd title={digest}>{digest.replace(/^sha256:/, "")}</dd>
+    </div>)}</dl>
+  </details>;
+}
+
+function bindingProvenanceLabel(provenance: string | null | undefined, generatedLabel: string): string {
+  return provenance === "generated_default"
+    ? generatedLabel
+    : provenance === "inherited_predecessor"
+      ? "前の検討から継承"
+      : provenance === "updated_revision"
+        ? "目標の変更で版を更新"
+        : "明示的に固定";
+}
+
 const formatNumber = (value: number, digits = 1) => value.toLocaleString("ja-JP", { maximumFractionDigits: digits });
 const formatDate = (value: string) => new Date(value).toLocaleString("ja-JP");
 const defaultGoalLabel = (direction: "at_least" | "at_most" | "target") => direction === "at_most" ? "以下" : direction === "target" ? "目標値付近" : "以上";
@@ -704,8 +730,27 @@ export function ProjectHub({
       </section>}
       {error && <p className="panel-error" role="alert">{error}</p>}
       {project && (chainIdentity
-        ? <section className="project-reference-strip" aria-label="プロジェクトのChain参照と所属"><div><span>Chain Template</span><strong>{fixedChain?.definition.label ?? "Chain未解決"}</strong><small>A → B → C</small></div><div><span>Chain Revision</span><strong>{fixedChainRevision ? `r${fixedChainRevision.revision}` : "—"}</strong><small title={chainIdentity.chain_revision_digest}>{chainIdentity.chain_revision_digest.slice(0, 18)}…</small></div><div><span>固定Stage</span><strong>{fixedChainRevision?.stages.map((stage) => stage.stage_id).join(" → ") ?? "—"}</strong><small>Package・Dataset・ProfileをRevision内に固定</small></div><div><span>所属グループ</span><strong>{fixedSeries?.name ?? "—"}</strong><small>設定から変更できます</small></div></section>
-        : <section className="project-reference-strip" aria-label="プロジェクトの参照と所属"><div><span>参照Dataset</span><strong>{fixedDataset?.data_asset.original_filename ?? "—"}</strong><small>{fixedDataset ? `${fixedDataset.profile_revision.name} · r${fixedDataset.profile_revision.revision}` : ""}</small></div><div><span>Prediction Task</span><strong>{taskLabels.get(project.task_id) ?? project.task_id}</strong><small>固定</small></div><div><span>Model Package</span><strong>{modelPackageDisplayName(fixedPackage)}</strong><small>学習元: {fixedTrainingDataset ? datasetDisplayName(fixedTrainingDataset) : "未登録または記録なし"} · Manifest {project.model_package_manifest_digest.slice(0, 10)}</small></div><div><span>Design Space</span><strong>{project.design_space ? `${project.design_space.name} · r${project.design_space.revision}` : "未固定（legacy）"}</strong><small title={project.design_space_digest ?? undefined}>{project.design_space_digest ? `${project.design_space_binding_provenance === "generated_default" ? "Task許容範囲から生成" : project.design_space_binding_provenance === "inherited_predecessor" ? "前の検討から継承" : "明示固定"} · ${project.design_space_digest.slice(0, 16)}…` : "保存済みRunは従来どおり参照できます"}</small></div><div><span>Objective</span><strong>{project.objective_definition ? `${project.objective_definition.name} · r${project.objective_definition.revision}` : project.objective_binding_provenance === "none_configured" ? "未設定" : "未固定（legacy）"}</strong><small title={project.objective_definition_digest ?? undefined}>{project.objective_definition_digest ? `${project.objective_binding_provenance === "generated_default" ? "Project目標から生成" : project.objective_binding_provenance === "inherited_predecessor" ? "前の検討から継承" : project.objective_binding_provenance === "updated_revision" ? "目標変更でrevision更新" : "明示固定"} · ${project.objective_definition_digest.slice(0, 16)}…` : "探索時の判断基準はRunへ固定します"}</small></div><div><span>所属グループ</span><strong>{fixedSeries?.name ?? "—"}</strong><small>設定から変更できます</small></div></section>)}
+        ? <section className="project-reference-strip" aria-label="プロジェクトのChain参照と所属">
+          <div><span>参照Chain</span><strong>{fixedChain?.definition.label ?? "Chain未解決"}</strong><small>A → B → C</small></div>
+          <div><span>固定した版</span><strong>{fixedChainRevision ? `r${fixedChainRevision.revision}` : "—"}</strong><small>全Stageの参照をこの版に固定</small></div>
+          <div><span>固定Stage</span><strong>{fixedChainRevision?.stages.map((stage) => stage.stage_id).join(" → ") ?? "—"}</strong><small>Package・データセット・プロファイルを版の中に固定</small></div>
+          <div><span>検討グループ</span><strong>{fixedSeries?.name ?? "—"}</strong><small>設定から変更できます</small></div>
+          <ReferenceIdentityDetails items={[["Chain Revision", chainIdentity.chain_revision_digest]]} />
+        </section>
+        : <section className="project-reference-strip" aria-label="プロジェクトの参照と所属">
+          <div><span>参照データセット</span><strong title={fixedDataset?.data_asset.original_filename}>{fixedDataset?.data_asset.original_filename ?? "—"}</strong><small>{fixedDataset ? `${fixedDataset.profile_revision.name} · r${fixedDataset.profile_revision.revision}` : ""}</small></div>
+          <div><span>予測タスク</span><strong>{taskLabels.get(project.task_id) ?? project.task_id}</strong><small>固定</small></div>
+          <div><span>予測モデル</span><strong>{modelPackageDisplayName(fixedPackage)}</strong><small title={fixedTrainingDataset ? datasetDisplayName(fixedTrainingDataset) : undefined}>学習元: {fixedTrainingDataset ? datasetDisplayName(fixedTrainingDataset) : "未登録または記録なし"}</small></div>
+          <div><span>探索範囲（Design Space）</span><strong>{project.design_space ? `${project.design_space.name} · r${project.design_space.revision}` : "この検討では未設定"}</strong><small>{project.design_space ? bindingProvenanceLabel(project.design_space_binding_provenance, "Taskの許容範囲から生成") : "保存済みの探索結果はそのまま参照できます"}</small></div>
+          <div><span>判断基準（Objective）</span><strong>{project.objective_definition ? `${project.objective_definition.name} · r${project.objective_definition.revision}` : "この検討では未設定"}</strong><small>{project.objective_definition ? bindingProvenanceLabel(project.objective_binding_provenance, "プロジェクト目標から生成") : "探索を実行すると、その時点の判断基準を固定します"}</small></div>
+          <div><span>検討グループ</span><strong>{fixedSeries?.name ?? "—"}</strong><small>設定から変更できます</small></div>
+          <ReferenceIdentityDetails items={[
+            ["Model Package manifest", project.model_package_manifest_digest],
+            ["Task contract", project.task_contract_digest],
+            ["Design Space", project.design_space_digest],
+            ["Objective", project.objective_definition_digest],
+          ]} />
+        </section>)}
       {chainIdentity && (chainEvaluation?.projectId === activeProjectId
         ? <ChainEvaluationPanel evaluation={chainEvaluation.value} />
         : <section className="chain-evaluation-panel loading" aria-live="polite">Chain評価を読み込んでいます。</section>)}
