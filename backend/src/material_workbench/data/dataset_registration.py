@@ -58,6 +58,7 @@ def register_dataset_records(
     locator_kind: Literal["managed", "bundled"],
     locator: Path,
     name: str,
+    member_provenance: dict[str, Any] | None = None,
 ) -> DatasetRegistrationResult:
     """Create the same content-addressed identities for startup and developer imports."""
 
@@ -113,7 +114,11 @@ def register_dataset_records(
         canonicalization_contract_digest=CANONICALIZATION_CONTRACT_DIGEST,
     ))
     if dataset.archived_at is None:
-        view = catalog.ensure_single_dataset_view(dataset.id, name=name)
+        view = catalog.ensure_single_dataset_view(
+            dataset.id,
+            name=name,
+            member_provenance=member_provenance,
+        )
     else:
         view = next((
             item

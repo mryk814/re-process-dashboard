@@ -21,6 +21,8 @@ from pathlib import Path
 from openpyxl import load_workbook
 
 
+ROOT = Path(__file__).resolve().parents[2]
+SOURCE_ROOT = (ROOT / "data/source").resolve()
 CELLS = {
     "CS2_33": 0.5,
     "CS2_34": 0.5,
@@ -79,7 +81,21 @@ def _archive_path(raw_root: Path, cell_id: str) -> Path:
     return path
 
 
+def require_writable_destination(path: Path) -> Path:
+    """Reject every script-managed write beneath the immutable source tree."""
+
+    resolved = path.resolve()
+    if resolved == SOURCE_ROOT or resolved.is_relative_to(SOURCE_ROOT):
+        raise ValueError(
+            "data/source is the read-only source of truth; write the derived "
+            "artifact outside it and promote it through an explicit review"
+        )
+    return resolved
+
+
 def build(raw_root: Path, output: Path, report: Path) -> None:
+    output = require_writable_destination(output)
+    report = require_writable_destination(report)
     rows: list[dict[str, object]] = []
     source_archives: list[dict[str, object]] = []
     cell_summaries: list[dict[str, object]] = []
@@ -175,12 +191,16 @@ def main() -> None:
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("data/source/external/battery_calce_cs2_cycles.csv"),
+        default=Path(
+            "artifacts/derived-data/battery_calce_cs2_cycles.csv"
+        ),
     )
     parser.add_argument(
         "--report",
         type=Path,
-        default=Path("docs/reports/battery-calce-cs2-derivation.json"),
+        default=Path(
+            "artifacts/derived-data/battery-calce-cs2-derivation.json"
+        ),
     )
     args = parser.parse_args()
     build(args.raw_root, args.output, args.report)

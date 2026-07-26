@@ -19,7 +19,10 @@ from material_workbench.modeling.model_lifecycle import (
     task_input_contract_digest,
 )
 from material_workbench.modeling.model_package_verify import verify_model_package
-from material_workbench.modeling.model_packages import validate_task_definition_canonical_inputs
+from material_workbench.modeling.model_packages import (
+    SourceLifecycleProvenance,
+    validate_task_definition_canonical_inputs,
+)
 from material_workbench.modeling.tabular_regression import (
     TabularData,
     build_tabular_features,
@@ -33,6 +36,16 @@ from material_workbench.tasks.task_registry import load_task_contracts
 
 def _digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def tabular_training_code_revision(model_family: str) -> str:
+    """Return the versioned trainer identity persisted in Package provenance."""
+
+    if model_family == "lightgbm_binary":
+        return "tabular-lightgbm-binary-crossfit-v2"
+    if model_family == "lightgbm_monotone":
+        return "tabular-lightgbm-monotone-fixed-round-v2"
+    return "tabular-ridge-crossfit-coverage-v2"
 
 
 def _value_digest(value: Any) -> str:
@@ -371,12 +384,22 @@ def build_tabular_package_from_data(
     destination: Path,
     *,
     training_contract: dict[str, object] | None = None,
+    package_id: str | None = None,
+    package_version: str = "1.0.0",
+    source_lifecycle: SourceLifecycleProvenance | None = None,
 ) -> None:
     profile = data.profile
     contract = load_task_contracts()[profile.task_id]
     rows = [row for row in data.observations if row["eligible"]]
     if not rows:
         raise ValueError("Curation後に学習可能な行がありません")
+    if source_lifecycle is not None and (
+        source_lifecycle.materialized_training_sha256 != data.source_sha256
+        or source_lifecycle.row_count != data.row_count
+    ):
+        raise ValueError(
+            "Source Lifecycle materialization does not match loaded tabular data"
+        )
     if data.profile.group_column and any(not str(row["parent_key"]).strip() for row in rows):
         raise ValueError("Grouped training rows require a non-empty parent group")
     if training_contract is not None:
@@ -695,8 +718,8 @@ def build_tabular_package_from_data(
     canonical = canonical_training_dataset(profile.task_id, data, contract)
     manifest = {
         "schema_version": "model-package/v1",
-        "package_id": profile.package_id,
-        "package_version": "1.0.0",
+        "package_id": package_id or profile.package_id,
+        "package_version": package_version,
         "task_id": profile.task_id,
         "input_schema_version": "canonical-candidate/v1",
         "input_contract_digest": task_input_contract_digest(contract.task_definition),
@@ -713,17 +736,22 @@ def build_tabular_package_from_data(
         "provenance": {
             "training_data_id": f"sha256:{data.source_sha256}",
             "feature_dataset_id": canonical_training_dataset_digest(canonical),
-            "training_code_revision": (
-                "tabular-lightgbm-binary-crossfit-v2"
-                if profile.model_family == "lightgbm_binary"
-                else "tabular-lightgbm-monotone-fixed-round-v2"
-                if profile.model_family == "lightgbm_monotone"
-                else "tabular-ridge-crossfit-coverage-v2"
+            "training_code_revision": tabular_training_code_revision(
+                profile.model_family
             ),
             "dataset_profile_id": (
                 str(training_contract["profile_digest"])
                 if training_contract is not None
                 else dataset_profile_digest(profile)
+            ),
+            **(
+                {
+                    "source_lifecycle": source_lifecycle.model_dump(
+                        mode="json"
+                    )
+                }
+                if source_lifecycle is not None
+                else {}
             ),
         },
         "artifacts": [_artifact(destination, path) for path in files],
@@ -743,23 +771,25 @@ def build_tabular_package_from_data(
     )
 
 
-def _build(source: Path, profile_path: Path, destination: Path) -> None:
-    build_tabular_package_from_data(
-        load_tabular_data(source, profile_path),
-        profile_path,
-        destination,
-    )
-
-
 def build(
     source: Path,
     profile_path: Path,
     destination: Path,
     *,
     replace: bool = False,
+    package_id: str | None = None,
+    package_version: str = "1.0.0",
+    source_lifecycle: SourceLifecycleProvenance | None = None,
 ) -> None:
     with staged_package_destination(destination, replace=replace) as staging:
-        _build(source, profile_path, staging)
+        build_tabular_package_from_data(
+            load_tabular_data(source, profile_path),
+            profile_path,
+            staging,
+            package_id=package_id,
+            package_version=package_version,
+            source_lifecycle=source_lifecycle,
+        )
         verify_model_package(staging, task_id=load_tabular_profile(profile_path).task_id, source=source)
 
 

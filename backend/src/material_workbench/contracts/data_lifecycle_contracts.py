@@ -19,10 +19,24 @@ class ObjectSelection(ContractModel):
     format: Literal["json_array", "jsonl"]
     primary_key: Annotated[str | None, Field(min_length=1)] = None
     included_fields: tuple[Annotated[str, Field(min_length=1)], ...] = ()
+    source_adapter_id: str | None = None
+    source_adapter_version: str | None = None
+
+    @model_validator(mode="after")
+    def adapter_identity_is_complete(self) -> "ObjectSelection":
+        if bool(self.source_adapter_id) != bool(self.source_adapter_version):
+            raise ValueError(
+                "source adapter id and version must be declared together"
+            )
+        return self
 
     @property
     def digest(self) -> str:
-        return semantic_digest(self.model_dump(mode="json"))
+        payload = self.model_dump(mode="json")
+        if self.source_adapter_id is None:
+            payload.pop("source_adapter_id")
+            payload.pop("source_adapter_version")
+        return semantic_digest(payload)
 
 
 class ConnectorSchedule(ContractModel):
@@ -67,7 +81,15 @@ class SourceConnectorCreateInput(ContractModel):
 
     @property
     def calculated_configuration_digest(self) -> str:
-        return semantic_digest(self.model_dump(mode="json"))
+        payload = self.model_dump(
+            mode="json",
+            exclude={"id", "configuration_digest", "created_at"},
+        )
+        selection = payload["selection"]
+        if self.selection.source_adapter_id is None:
+            selection.pop("source_adapter_id")
+            selection.pop("source_adapter_version")
+        return semantic_digest(payload)
 
 
 class SourceConnector(SourceConnectorCreateInput):
@@ -386,9 +408,35 @@ class CanonicalDatasetRevision(ContractModel):
         return self
 
 
+class TrainingRowExclusion(ContractModel):
+    kind: Literal["field_equals_any_v1"]
+    field: Annotated[str, Field(min_length=1)]
+    values: Annotated[
+        tuple[str | float | int | bool, ...],
+        Field(min_length=1),
+    ]
+
+
+class TrainingSnapshotSelectionPolicy(ContractModel):
+    schema_version: Literal["training-snapshot-selection/v1"] = (
+        "training-snapshot-selection/v1"
+    )
+    policy_id: Annotated[str, Field(min_length=1, max_length=120)]
+    revision: Annotated[int, Field(ge=1)] = 1
+    exclusions: Annotated[
+        tuple[TrainingRowExclusion, ...],
+        Field(min_length=1),
+    ]
+
+    @property
+    def digest(self) -> str:
+        return semantic_digest(self.model_dump(mode="json"))
+
+
 class TrainingSnapshotCreateInput(ContractModel):
     actor: Annotated[str, Field(min_length=1, max_length=120)]
     purpose: Annotated[str, Field(min_length=1, max_length=300)]
+    selection_policy: TrainingSnapshotSelectionPolicy | None = None
 
 
 class ApprovedTrainingSnapshot(ContractModel):
@@ -402,6 +450,8 @@ class ApprovedTrainingSnapshot(ContractModel):
     row_count: Annotated[int, Field(ge=1)]
     actor: str
     purpose: str
+    selection_policy: TrainingSnapshotSelectionPolicy | None = None
+    selection_policy_digest: str | None = None
     snapshot_digest: Annotated[str, Field(min_length=1)]
     created_at: datetime
 
@@ -411,14 +461,31 @@ class ApprovedTrainingSnapshot(ContractModel):
     ) -> "ApprovedTrainingSnapshot":
         if self.row_count != len(self.included_row_keys):
             raise ValueError("Training Snapshotのrow countが一致しません")
-        expected = semantic_digest(
-            {
-                "dataset_digest": self.dataset_digest,
-                "included_row_keys": self.included_row_keys,
-                "actor": self.actor,
-                "purpose": self.purpose,
-            }
-        )
+        if bool(self.selection_policy) != bool(self.selection_policy_digest):
+            raise ValueError(
+                "Training Snapshot selection policy identity is incomplete"
+            )
+        if (
+            self.selection_policy is not None
+            and self.selection_policy.digest != self.selection_policy_digest
+        ):
+            raise ValueError(
+                "Training Snapshot selection policy digest does not match"
+            )
+        payload = {
+            "dataset_digest": self.dataset_digest,
+            "included_row_keys": self.included_row_keys,
+            "actor": self.actor,
+            "purpose": self.purpose,
+        }
+        if self.selection_policy is not None:
+            payload["selection_policy"] = self.selection_policy.model_dump(
+                mode="json"
+            )
+            payload["selection_policy_digest"] = (
+                self.selection_policy_digest
+            )
+        expected = semantic_digest(payload)
         if expected != self.snapshot_digest:
             raise ValueError("Training Snapshot digestが内容と一致しません")
         return self

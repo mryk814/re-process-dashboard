@@ -115,3 +115,10 @@ Training Snapshotは承認後の別操作であり、承認済みかつtarget-el
 Object storage transportは、sidecarや外部取得処理が渡したobject contentをallow-list parserで解釈する境界である。
 S3／Azure／Snowflake SDK、credential vault、scheduler、汎用query editorは含まない。
 承認済みTraining Snapshotを特定のPackage builderへ渡すadapterは、Taskごとの縦スライスで追加する。
+
+最初の縦スライスは
+[CALCE電池データのSourceから実測評価までの参照ループ](reference-data-loop.md)
+である。複合row identityを明示し、承認済みTraining Snapshotから作った
+materialized asset、Package、Project、予測Snapshot、Actualまで同じdigest chainを保持する。
+品質とは無関係な評価用holdoutはCurationのquarantineにせず、
+Training Snapshotのversioned selection policyへ記録する。

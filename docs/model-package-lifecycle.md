@@ -7,6 +7,12 @@ TaskDefinitionとDataset Input Profileを起点に、アプリ共通形式の学
 アプリ内学習、任意コードのプラグイン、自動モデル選択、リモートRegistryは扱いません。
 学習済みartifactは、許可リストへ登録したアダプターだけが読み込みます。
 
+承認済みSource LifecycleからPackage、Project、Actualまでを接続する代表例は
+[CALCE電池データのSourceから実測評価までの参照ループ](reference-data-loop.md)
+を参照してください。この経路でも自動学習・自動active化は行わず、
+Training Snapshot digest、materialization adapter version、materialized training
+assetのSHA-256、training builder revisionごとに新しい不変Packageを作ります。
+
 ## 標準ルート
 
 PowerShellから次の順に実行します。
