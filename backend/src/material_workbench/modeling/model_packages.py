@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from material_workbench.contracts.series_contracts import SeriesFeatureContract
 
 if TYPE_CHECKING:
     from material_workbench.contracts.task_contracts import TargetRuntimeCapability, TaskDefinition
@@ -124,6 +125,7 @@ class FeaturePipelineDocument(PackageModel):
     features: Annotated[tuple[PipelineFeatureSpec, ...], Field(min_length=1)]
     missing_composition: str | None = None
     heat_interpolation: str | None = None
+    series_representations: tuple[SeriesFeatureContract, ...] = ()
 
     @field_validator("canonical_input_paths")
     @classmethod
@@ -139,6 +141,11 @@ class FeaturePipelineDocument(PackageModel):
         names = [feature.name for feature in self.features]
         if len(names) != len(set(names)):
             raise ValueError("pipeline output feature names must be unique")
+        representation_ids = [
+            item.representation_id for item in self.series_representations
+        ]
+        if len(representation_ids) != len(set(representation_ids)):
+            raise ValueError("series representation ids must be unique")
         return self
 
 

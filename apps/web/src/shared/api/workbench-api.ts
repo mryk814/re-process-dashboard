@@ -67,11 +67,30 @@ export type ApiDeterministicTransformResult = components["schemas"]["Determinist
 export type ApiDecisionActivityAvailability = components["schemas"]["DecisionActivityAvailability"];
 export type ApiDecisionActivityRun = components["schemas"]["DecisionActivityRun"];
 export type ApiDecisionActivityRunRequest = components["schemas"]["DecisionActivityRunRequest"];
+export type ApiRawSeriesAsset = components["schemas"]["RawSeriesAsset"];
+export type ApiSeriesAssetDetail = components["schemas"]["SeriesAssetDetail"];
+export type ApiCanonicalSeriesRevision = components["schemas"]["CanonicalSeriesRevision"];
+export type ApiSeriesFeaturePreview = components["schemas"]["SeriesFeaturePreview"];
+export type ApiSeriesFeatureContract = components["schemas"]["SeriesFeatureContract"];
 
 const path = (projectId: string, suffix = "") =>
   `/api/projects/${encodeURIComponent(projectId)}${suffix}`;
 
 export const workbenchApi = {
+  async listSeriesAssets() {
+    return requireData(await apiClient.GET("/api/series-assets"), "系列データを取得できませんでした。");
+  },
+  async seriesAsset(seriesId: string) {
+    return requireData(await apiClient.GET("/api/series-assets/{series_id}", {
+      params: { path: { series_id: seriesId } },
+    }), "系列データの詳細を取得できませんでした。");
+  },
+  async seriesFeaturePreview(revisionId: string, body: ApiSeriesFeatureContract) {
+    return requireData(await apiClient.POST("/api/canonical-series/{revision_id}/feature-preview", {
+      params: { path: { revision_id: revisionId } },
+      body,
+    }), "系列特徴量を確認できませんでした。");
+  },
   async chainCandidateCapability(projectId: string) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/chain/candidate-capability", {
       params: { path: { project_id: projectId } },

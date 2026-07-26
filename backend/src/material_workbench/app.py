@@ -20,6 +20,7 @@ from .api.chains import (
     router as chains_router,
 )
 from .api.data_library import router as data_library_router
+from .api.series_assets import router as series_assets_router
 from .api.decision_activities import router as decision_activities_router
 from .api.developer import router as developer_router
 from .api.project_series import router as project_series_router
@@ -307,6 +308,7 @@ def create_app(
     app.include_router(chains_router)
     app.include_router(chain_execution_router)
     app.include_router(data_library_router)
+    app.include_router(series_assets_router)
     app.include_router(developer_router)
     app.include_router(project_series_router)
     app.include_router(profile_workbench_router)

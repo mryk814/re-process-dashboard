@@ -50,6 +50,7 @@ from material_workbench.persistence.project_objective_migration import (
     migrate_project_objectives,
 )
 from material_workbench.persistence.candidate_revision_migration import migrate_candidate_revisions
+from material_workbench.persistence.series_asset_migration import migrate_series_assets
 
 
 def _target_values_json(values: dict[str, object]) -> str:
@@ -182,6 +183,7 @@ class Store:
         migrate_decision_activity_runs(self.path)
         migrate_project_design_spaces(self.path)
         migrate_project_objectives(self.path)
+        migrate_series_assets(self.path)
 
     def register_chain_definition(self, definition: ChainDefinition) -> str:
         record_id = (

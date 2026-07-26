@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/api/canonical-series/{revision_id}/feature-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview Series Features */
+        post: operations["preview_series_features_api_canonical_series__revision_id__feature_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/chains": {
         parameters: {
             query?: never;
@@ -1455,6 +1472,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/series-assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Series Assets */
+        get: operations["list_series_assets_api_series_assets_get"];
+        put?: never;
+        /** Create Series Asset */
+        post: operations["create_series_asset_api_series_assets_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/series-assets/{series_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Series Asset */
+        get: operations["get_series_asset_api_series_assets__series_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/series-assets/{series_id}/canonical-revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Canonicalize Series Asset */
+        post: operations["canonicalize_series_asset_api_series_assets__series_id__canonical_revisions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/task-definitions": {
         parameters: {
             query?: never;
@@ -2406,6 +2475,61 @@ export interface components {
             /** Provenance */
             provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"] | components["schemas"]["BlendOptimizationSourceRef"] | components["schemas"]["DecisionActivitySourceRef"];
         };
+        /** CanonicalSeriesPoint */
+        CanonicalSeriesPoint: {
+            /** Channel */
+            channel: string;
+            /** Coordinate */
+            coordinate: number;
+            /** Source Positions */
+            source_positions: number[];
+            /** Value */
+            value: number;
+        };
+        /** CanonicalSeriesRevision */
+        CanonicalSeriesRevision: {
+            /** Canonical Digest */
+            canonical_digest: string;
+            /** Coordinate Name */
+            coordinate_name: string;
+            /** Coordinate Unit */
+            coordinate_unit: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Findings */
+            findings: components["schemas"]["SeriesQualityFinding"][];
+            /** Id */
+            id: string;
+            /** Points */
+            points: components["schemas"]["CanonicalSeriesPoint"][];
+            /** Raw Content Digest */
+            raw_content_digest: string;
+            /** Raw Series Id */
+            raw_series_id: string;
+            recipe: components["schemas"]["SeriesNormalizationRecipe"];
+            /** Recipe Digest */
+            recipe_digest: string;
+            /**
+             * Schema Version
+             * @default canonical-series/v1
+             * @constant
+             */
+            schema_version: "canonical-series/v1";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "accepted" | "normalized" | "warning" | "quarantined" | "blocked";
+            /** Transformation Log */
+            transformation_log: string[];
+            /** Value Name */
+            value_name: string;
+            /** Value Unit */
+            value_unit: string;
+        };
         /** CategoricalDomain */
         CategoricalDomain: {
             /** Choices */
@@ -3088,6 +3212,16 @@ export interface components {
             parent_key: string;
             /** Source */
             source: string;
+        };
+        /** CoordinateUnitConversion */
+        CoordinateUnitConversion: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "convert_coordinate_unit";
+            /** To Unit */
+            to_unit: string;
         };
         /** CopyReference */
         CopyReference: {
@@ -3977,6 +4111,14 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** ElapsedOriginNormalization */
+        ElapsedOriginNormalization: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "elapsed_origin";
+        };
         /**
          * EvidenceImageRef
          * @description A micrograph the source row points at, and whether the file is there.
@@ -4101,6 +4243,14 @@ export interface components {
             temperature_c: number;
             /** Time S */
             time_s: number;
+        };
+        /** IdenticalDuplicateMerge */
+        IdenticalDuplicateMerge: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "merge_identical_duplicates";
         };
         /** InferenceDiagnosticsResponse */
         InferenceDiagnosticsResponse: {
@@ -5823,6 +5973,106 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** RawSeriesAsset */
+        RawSeriesAsset: {
+            /** Content Digest */
+            content_digest: string;
+            /** Coordinate Name */
+            coordinate_name: string;
+            /** Coordinate Unit */
+            coordinate_unit: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Points */
+            points: components["schemas"]["RawSeriesPoint"][];
+            provenance: components["schemas"]["RawSeriesProvenance"];
+            /** Revision */
+            revision: number;
+            /**
+             * Schema Version
+             * @default raw-series/v1
+             * @constant
+             */
+            schema_version: "raw-series/v1";
+            /**
+             * Series Kind
+             * @enum {string}
+             */
+            series_kind: "heat_history" | "degradation_curve" | "sensor_trace";
+            /** Value Name */
+            value_name: string;
+            /** Value Unit */
+            value_unit: string;
+        };
+        /** RawSeriesAssetInput */
+        RawSeriesAssetInput: {
+            /** Coordinate Name */
+            coordinate_name: string;
+            /** Coordinate Unit */
+            coordinate_unit: string;
+            /** Name */
+            name: string;
+            /** Points */
+            points: components["schemas"]["RawSeriesPoint"][];
+            provenance: components["schemas"]["RawSeriesProvenance"];
+            /**
+             * Schema Version
+             * @default raw-series/v1
+             * @constant
+             */
+            schema_version: "raw-series/v1";
+            /**
+             * Series Kind
+             * @enum {string}
+             */
+            series_kind: "heat_history" | "degradation_curve" | "sensor_trace";
+            /** Value Name */
+            value_name: string;
+            /** Value Unit */
+            value_unit: string;
+        };
+        /** RawSeriesPoint */
+        RawSeriesPoint: {
+            /**
+             * Channel
+             * @default value
+             */
+            channel: string;
+            /** Coordinate */
+            coordinate: number;
+            /** Source Position */
+            source_position: number;
+            /** Source Row */
+            source_row?: number | null;
+            /** Value */
+            value: number;
+        };
+        /** RawSeriesProvenance */
+        RawSeriesProvenance: {
+            /**
+             * Captured At
+             * Format: date-time
+             */
+            captured_at: string;
+            /** Sheet Name */
+            sheet_name?: string | null;
+            /** Source Digest */
+            source_digest: string;
+            /**
+             * Source Kind
+             * @enum {string}
+             */
+            source_kind: "workbook" | "database" | "object_storage" | "manual" | "demo";
+            /** Source Locator */
+            source_locator: string;
+        };
         /** RelationalConstraint */
         RelationalConstraint: {
             /** Left Path */
@@ -6470,6 +6720,96 @@ export interface components {
             /** Minimum */
             minimum: number;
         };
+        /** SeriesAssetDetail */
+        SeriesAssetDetail: {
+            /**
+             * Canonical Revisions
+             * @default []
+             */
+            canonical_revisions: components["schemas"]["CanonicalSeriesRevision"][];
+            raw: components["schemas"]["RawSeriesAsset"];
+        };
+        /** SeriesFeatureContract */
+        SeriesFeatureContract: {
+            /**
+             * Include Coordinate
+             * @default true
+             */
+            include_coordinate: boolean;
+            /**
+             * Input Schema Version
+             * @default canonical-series/v1
+             * @constant
+             */
+            input_schema_version: "canonical-series/v1";
+            /**
+             * Representation Id
+             * @enum {string}
+             */
+            representation_id: "linear_resample_v1" | "segment_statistics_v1" | "sequence_tensor_v1";
+            /** Sample Count */
+            sample_count?: number | null;
+            /**
+             * Schema Version
+             * @default series-feature-contract/v1
+             * @constant
+             */
+            schema_version: "series-feature-contract/v1";
+        };
+        /** SeriesFeaturePreview */
+        SeriesFeaturePreview: {
+            /** Canonical Digest */
+            canonical_digest: string;
+            /** Canonical Series Id */
+            canonical_series_id: string;
+            feature_contract: components["schemas"]["SeriesFeatureContract"];
+            /** Feature Contract Digest */
+            feature_contract_digest: string;
+            /** Feature Names */
+            feature_names: string[];
+            /** Shape */
+            shape: number[];
+            /** Values */
+            values: number[];
+        };
+        /** SeriesNormalizationRecipe */
+        SeriesNormalizationRecipe: {
+            /** Recipe Id */
+            recipe_id: string;
+            /**
+             * Schema Version
+             * @default series-normalization-recipe/v1
+             * @constant
+             */
+            schema_version: "series-normalization-recipe/v1";
+            /**
+             * Steps
+             * @default []
+             */
+            steps: (components["schemas"]["CoordinateUnitConversion"] | components["schemas"]["ValueUnitConversion"] | components["schemas"]["ElapsedOriginNormalization"] | components["schemas"]["StableSortNormalization"] | components["schemas"]["IdenticalDuplicateMerge"])[];
+            /** Version */
+            version: string;
+        };
+        /** SeriesQualityFinding */
+        SeriesQualityFinding: {
+            /** Message */
+            message: string;
+            /**
+             * Reason Code
+             * @enum {string}
+             */
+            reason_code: "too_few_points" | "coordinate_out_of_order" | "identical_duplicate" | "conflicting_duplicate" | "unsupported_coordinate_unit" | "unsupported_value_unit";
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "info" | "warning" | "quarantined" | "blocked";
+            /**
+             * Source Positions
+             * @default []
+             */
+            source_positions: number[];
+        };
         /** SimilarityIdentity */
         SimilarityIdentity: {
             /**
@@ -6686,6 +7026,14 @@ export interface components {
              * @default 100
              */
             total: number;
+        };
+        /** StableSortNormalization */
+        StableSortNormalization: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "stable_sort";
         };
         /** StageOutputBindingSource */
         StageOutputBindingSource: {
@@ -6960,6 +7308,16 @@ export interface components {
             /** Target Unit */
             target_unit: string;
         };
+        /** ValueUnitConversion */
+        ValueUnitConversion: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "convert_value_unit";
+            /** To Unit */
+            to_unit: string;
+        };
         /** WholeWireCoordinate */
         WholeWireCoordinate: {
             /** Mass Fraction */
@@ -6976,6 +7334,41 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    preview_series_features_api_canonical_series__revision_id__feature_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                revision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeriesFeatureContract"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeriesFeaturePreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     listChainTemplates: {
         parameters: {
             query?: never;
@@ -11292,6 +11685,134 @@ export interface operations {
             };
             /** @description Task Runtime Unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    list_series_assets_api_series_assets_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RawSeriesAsset"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    create_series_asset_api_series_assets_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RawSeriesAssetInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeriesAssetDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    get_series_asset_api_series_assets__series_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                series_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeriesAssetDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    canonicalize_series_asset_api_series_assets__series_id__canonical_revisions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                series_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeriesNormalizationRecipe"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CanonicalSeriesRevision"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
