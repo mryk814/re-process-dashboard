@@ -1,7 +1,6 @@
 """Deterministic, explainable selection of an experiment batch."""
 from __future__ import annotations
 
-import math
 from collections import Counter
 from typing import Any
 
@@ -11,6 +10,10 @@ from material_workbench.contracts.batch_proposal_contracts import (
 from material_workbench.contracts.design_space_contracts import DesignSpaceDefinition
 from material_workbench.contracts.schemas import Candidate, CandidateInput
 from material_workbench.execution.inference_work_graph import semantic_digest
+from material_workbench.domain.proposal_geometry import (
+    proposal_distance,
+    scalar_axis_rms_distance,
+)
 
 
 class BatchSelectionError(ValueError):
@@ -81,36 +84,7 @@ def normalized_design_distance(
     right: dict[str, Any] | Candidate | CandidateInput,
     design_space: DesignSpaceDefinition,
 ) -> float:
-    components: list[float] = []
-    for domain in (*design_space.numeric_domains, *design_space.heat_pattern_domains):
-        left_value = _point_value(left, domain.path)
-        right_value = (
-            _candidate_value(right, domain.path)
-            if isinstance(right, (Candidate, CandidateInput))
-            else _point_value(right, domain.path)
-        )
-        if left_value is None or right_value is None:
-            continue
-        if domain.range is not None:
-            span = domain.range.max - domain.range.min
-        else:
-            span = max(domain.values) - min(domain.values)
-        components.append(
-            abs(float(left_value) - float(right_value)) / max(float(span), 1e-12)
-        )
-    for domain in design_space.categorical_domains:
-        left_value = _point_value(left, domain.path)
-        right_value = (
-            _candidate_value(right, domain.path)
-            if isinstance(right, (Candidate, CandidateInput))
-            else _point_value(right, domain.path)
-        )
-        if left_value is None or right_value is None:
-            continue
-        components.append(0.0 if left_value == right_value else 1.0)
-    if not components:
-        return 0.0
-    return math.sqrt(sum(value * value for value in components) / len(components))
+    return scalar_axis_rms_distance(left, right, design_space)
 
 
 def _matches(point: dict[str, Any], path: str, expected: str) -> bool:
@@ -144,6 +118,10 @@ def _setup_group(
 def _pairwise_summary(
     selected: list[dict[str, Any]],
     design_space: DesignSpaceDefinition,
+    *,
+    distance_id: str,
+    distance_version: str,
+    distance_parameters: dict[str, float | str | bool],
 ) -> tuple[float, float]:
     unique = {
         item["point"]["pool_index"]: item["point"]
@@ -151,7 +129,14 @@ def _pairwise_summary(
     }
     points = list(unique.values())
     distances = [
-        normalized_design_distance(left, right, design_space)
+        proposal_distance(
+            distance_id,
+            left,
+            right,
+            design_space,
+            distance_version=distance_version,
+            parameters=distance_parameters,
+        )
         for index, left in enumerate(points)
         for right in points[index + 1 :]
     ]
@@ -167,6 +152,9 @@ def select_experiment_batch(
     *,
     seed: int,
     reference_candidates: dict[str, Candidate],
+    distance_id: str = "scalar_axis_rms",
+    distance_version: str = "1.0.0",
+    distance_parameters: dict[str, float | str | bool] | None = None,
 ) -> dict[str, Any]:
     """Select a batch from an already acquisition-ranked shortlist.
 
@@ -175,6 +163,7 @@ def select_experiment_batch(
     pending/resource penalties.
     """
 
+    distance_parameters = distance_parameters or {}
     declared_paths = {
         *design_space.fixed_values,
         *(item.path for item in design_space.numeric_domains),
@@ -291,7 +280,14 @@ def select_experiment_batch(
         if not pending:
             return 1.0
         return min(
-            normalized_design_distance(point, candidate, design_space)
+            proposal_distance(
+                distance_id,
+                point,
+                candidate,
+                design_space,
+                distance_version=distance_version,
+                parameters=distance_parameters,
+            )
             for candidate in pending
         )
 
@@ -304,7 +300,14 @@ def select_experiment_batch(
         if not unique_selected:
             return 1.0
         return min(
-            normalized_design_distance(point, other, design_space)
+            proposal_distance(
+                distance_id,
+                point,
+                other,
+                design_space,
+                distance_version=distance_version,
+                parameters=distance_parameters,
+            )
             for other in unique_selected
         )
 
@@ -589,7 +592,13 @@ def select_experiment_batch(
             }
         )
 
-    minimum, mean = _pairwise_summary(selected, design_space)
+    minimum, mean = _pairwise_summary(
+        selected,
+        design_space,
+        distance_id=distance_id,
+        distance_version=distance_version,
+        distance_parameters=distance_parameters,
+    )
     category_counts = {
         f"{quota.path}={quota.value}": selected_counts[(quota.path, quota.value)]
         for quota in definition.category_quotas
@@ -598,6 +607,9 @@ def select_experiment_batch(
         "schema_version": "batch-proposal-run/v2",
         "selector_id": definition.selector_id,
         "selector_version": "1.1.0",
+        "distance_id": distance_id,
+        "distance_version": distance_version,
+        "distance_parameters": distance_parameters,
         "seed": seed,
         "tie_break_rule": "combined_score_desc_then_pool_index_asc",
         "definition": definition.model_dump(mode="json"),

@@ -189,6 +189,11 @@ class BatchProposalRun(ContractModel):
     )
     selector_id: BatchSelectorId
     selector_version: Literal["1.0.0", "1.1.0"] = "1.0.0"
+    distance_id: Literal[
+        "scalar_axis_rms", "group_weighted_bounded_clr_rms"
+    ] = "scalar_axis_rms"
+    distance_version: str = "1.0.0"
+    distance_parameters: dict[str, float | str | bool] = Field(default_factory=dict)
     seed: Annotated[int, Field(ge=0)]
     tie_break_rule: Literal["combined_score_desc_then_pool_index_asc"] = (
         "combined_score_desc_then_pool_index_asc"

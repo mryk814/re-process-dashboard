@@ -211,8 +211,9 @@ class DesignSpaceDefinition(ContractModel):
                     raise ValueError(f"Project Design Spaceの範囲を超えています: {path}")
                 if numeric.values and value not in numeric.values:
                     raise ValueError(f"Project Design Spaceの候補値にありません: {path}")
-            elif categories is not None and value not in categories:
-                raise ValueError(f"Project Design Spaceの選択肢にありません: {path}")
+            elif categories is not None:
+                if value not in categories:
+                    raise ValueError(f"Project Design Spaceの選択肢にありません: {path}")
             elif path not in parent_fixed:
                 raise ValueError(f"Project Design Spaceにない固定項目です: {path}")
 

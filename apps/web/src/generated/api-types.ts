@@ -2116,6 +2116,21 @@ export interface components {
         BatchProposalRun: {
             candidate_pool?: components["schemas"]["BatchCandidatePoolEvidence"] | null;
             definition: components["schemas"]["BatchProposalDefinition"];
+            /**
+             * Distance Id
+             * @default scalar_axis_rms
+             * @enum {string}
+             */
+            distance_id: "scalar_axis_rms" | "group_weighted_bounded_clr_rms";
+            /** Distance Parameters */
+            distance_parameters?: {
+                [key: string]: number | string | boolean;
+            };
+            /**
+             * Distance Version
+             * @default 1.0.0
+             */
+            distance_version: string;
             /** Excluded */
             excluded: components["schemas"]["BatchExcludedPoint"][];
             /**
@@ -6372,6 +6387,17 @@ export interface components {
              */
             support_status: "supported" | "caution" | "extrapolated";
         };
+        /** ProposalCoverageEvidence */
+        ProposalCoverageEvidence: {
+            /** Normalized Span */
+            normalized_span: number;
+            /** Observed Max */
+            observed_max: number;
+            /** Observed Mean */
+            observed_mean: number;
+            /** Observed Min */
+            observed_min: number;
+        };
         /**
          * ProposalIncumbentResolution
          * @description Immutable evidence for the incumbent value used by an acquisition.
@@ -6478,10 +6504,35 @@ export interface components {
             /** Acquisition Version */
             acquisition_version: string;
             /**
+             * Distance Id
+             * @default scalar_axis_rms
+             * @enum {string}
+             */
+            distance_id: "scalar_axis_rms" | "group_weighted_bounded_clr_rms";
+            /** Distance Parameters */
+            distance_parameters?: {
+                [key: string]: number | string | boolean;
+            };
+            /**
+             * Distance Usage
+             * @default batch_selector_only
+             * @constant
+             */
+            distance_usage: "batch_selector_only";
+            /**
+             * Distance Version
+             * @default 1.0.0
+             */
+            distance_version: string;
+            /**
              * Generator Id
              * @enum {string}
              */
-            generator_id: "latin_hypercube" | "sobol";
+            generator_id: "latin_hypercube" | "sobol" | "bounded_simplex_hit_and_run";
+            /** Generator Parameters */
+            generator_parameters?: {
+                [key: string]: number | string | boolean;
+            };
             /** Generator Version */
             generator_version: string;
             /** Label */
@@ -7181,6 +7232,10 @@ export interface components {
         };
         /** ScreeningProposalDiagnostics */
         ScreeningProposalDiagnostics: {
+            /** Coverage By Path */
+            coverage_by_path?: {
+                [key: string]: components["schemas"]["ProposalCoverageEvidence"];
+            };
             /** Evaluated Count */
             evaluated_count: number;
             /** Generated Count */
@@ -7221,6 +7276,26 @@ export interface components {
              * @constant
              */
             constraint_treatment: "feasibility_first_then_rank";
+            /**
+             * Distance Id
+             * @default scalar_axis_rms
+             */
+            distance_id: string;
+            /** Distance Parameters */
+            distance_parameters?: {
+                [key: string]: number | string | boolean;
+            };
+            /**
+             * Distance Usage
+             * @default batch_selector_only
+             * @constant
+             */
+            distance_usage: "batch_selector_only";
+            /**
+             * Distance Version
+             * @default 1.0.0
+             */
+            distance_version: string;
             /** Exploration Parameter */
             exploration_parameter?: number | null;
             /** Fallback From */
@@ -7236,6 +7311,10 @@ export interface components {
              * @default latin_hypercube
              */
             generator_id: string;
+            /** Generator Parameters */
+            generator_parameters?: {
+                [key: string]: number | string | boolean;
+            };
             /**
              * Generator Version
              * @default 1.0.0

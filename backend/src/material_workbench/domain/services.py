@@ -112,6 +112,38 @@ def _apply_screening_goal_metadata(
     return prediction
 
 
+def _proposal_coverage(
+    generated: list[tuple[Candidate, dict[str, float | str]]],
+    design_space: DesignSpaceDefinition,
+) -> dict[str, dict[str, float]]:
+    evidence: dict[str, dict[str, float]] = {}
+    domains = (*design_space.numeric_domains, *design_space.heat_pattern_domains)
+    for domain in domains:
+        values = [
+            float(applied[domain.path])
+            for _, applied in generated
+            if domain.path in applied
+        ]
+        if not values:
+            continue
+        if domain.range is not None:
+            span = domain.range.max - domain.range.min
+        else:
+            span = max(domain.values) - min(domain.values)
+        observed_min = min(values)
+        observed_max = max(values)
+        evidence[domain.path] = {
+            "observed_min": observed_min,
+            "observed_max": observed_max,
+            "observed_mean": sum(values) / len(values),
+            "normalized_span": min(
+                1.0,
+                max(0.0, (observed_max - observed_min) / max(span, 1e-12)),
+            ),
+        }
+    return evidence
+
+
 def run_proposal(
     runtime: PredictionRuntime,
     base: Candidate,
@@ -132,6 +164,8 @@ def run_proposal(
         design_space,
         count=pool_size,
         seed=request.seed,
+        generator_version=strategy.generator_version,
+        parameters=strategy.generator_parameters,
     )
     points: list[dict[str, Any]] = []
     base_prediction = runtime.predict(base, detailed=False)
@@ -279,6 +313,9 @@ def run_proposal(
             design_space,
             seed=request.seed,
             reference_candidates=batch_reference_candidates or {},
+            distance_id=strategy.distance_id,
+            distance_version=strategy.distance_version,
+            distance_parameters=strategy.distance_parameters,
         )
         if batch_definition is not None
         else None
@@ -370,6 +407,7 @@ def run_proposal(
             "rejected_count": sum(rejected_by_reason.values()),
             "rejection_rate": sum(rejected_by_reason.values()) / pool_size,
             "rejected_by_reason": dict(sorted(rejected_by_reason.items())),
+            "coverage_by_path": _proposal_coverage(generated, design_space),
         },
     }
 

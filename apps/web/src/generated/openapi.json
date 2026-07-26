@@ -797,6 +797,37 @@
           "definition": {
             "$ref": "#/components/schemas/BatchProposalDefinition"
           },
+          "distance_id": {
+            "default": "scalar_axis_rms",
+            "enum": [
+              "scalar_axis_rms",
+              "group_weighted_bounded_clr_rms"
+            ],
+            "title": "Distance Id",
+            "type": "string"
+          },
+          "distance_parameters": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "title": "Distance Parameters",
+            "type": "object"
+          },
+          "distance_version": {
+            "default": "1.0.0",
+            "title": "Distance Version",
+            "type": "string"
+          },
           "excluded": {
             "items": {
               "$ref": "#/components/schemas/BatchExcludedPoint"
@@ -12236,6 +12267,36 @@
         "title": "ProposalCandidateEvaluation",
         "type": "object"
       },
+      "ProposalCoverageEvidence": {
+        "properties": {
+          "normalized_span": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Normalized Span",
+            "type": "number"
+          },
+          "observed_max": {
+            "title": "Observed Max",
+            "type": "number"
+          },
+          "observed_mean": {
+            "title": "Observed Mean",
+            "type": "number"
+          },
+          "observed_min": {
+            "title": "Observed Min",
+            "type": "number"
+          }
+        },
+        "required": [
+          "observed_min",
+          "observed_max",
+          "observed_mean",
+          "normalized_span"
+        ],
+        "title": "ProposalCoverageEvidence",
+        "type": "object"
+      },
       "ProposalIncumbentResolution": {
         "additionalProperties": false,
         "description": "Immutable evidence for the incumbent value used by an acquisition.",
@@ -12543,13 +12604,68 @@
             "title": "Acquisition Version",
             "type": "string"
           },
+          "distance_id": {
+            "default": "scalar_axis_rms",
+            "enum": [
+              "scalar_axis_rms",
+              "group_weighted_bounded_clr_rms"
+            ],
+            "title": "Distance Id",
+            "type": "string"
+          },
+          "distance_parameters": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "title": "Distance Parameters",
+            "type": "object"
+          },
+          "distance_usage": {
+            "const": "batch_selector_only",
+            "default": "batch_selector_only",
+            "title": "Distance Usage",
+            "type": "string"
+          },
+          "distance_version": {
+            "default": "1.0.0",
+            "title": "Distance Version",
+            "type": "string"
+          },
           "generator_id": {
             "enum": [
               "latin_hypercube",
-              "sobol"
+              "sobol",
+              "bounded_simplex_hit_and_run"
             ],
             "title": "Generator Id",
             "type": "string"
+          },
+          "generator_parameters": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "title": "Generator Parameters",
+            "type": "object"
           },
           "generator_version": {
             "title": "Generator Version",
@@ -14229,6 +14345,13 @@
       },
       "ScreeningProposalDiagnostics": {
         "properties": {
+          "coverage_by_path": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ProposalCoverageEvidence"
+            },
+            "title": "Coverage By Path",
+            "type": "object"
+          },
           "evaluated_count": {
             "minimum": 0.0,
             "title": "Evaluated Count",
@@ -14310,6 +14433,39 @@
             "title": "Constraint Treatment",
             "type": "string"
           },
+          "distance_id": {
+            "default": "scalar_axis_rms",
+            "title": "Distance Id",
+            "type": "string"
+          },
+          "distance_parameters": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "title": "Distance Parameters",
+            "type": "object"
+          },
+          "distance_usage": {
+            "const": "batch_selector_only",
+            "default": "batch_selector_only",
+            "title": "Distance Usage",
+            "type": "string"
+          },
+          "distance_version": {
+            "default": "1.0.0",
+            "title": "Distance Version",
+            "type": "string"
+          },
           "exploration_parameter": {
             "anyOf": [
               {
@@ -14345,6 +14501,23 @@
             "default": "latin_hypercube",
             "title": "Generator Id",
             "type": "string"
+          },
+          "generator_parameters": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "title": "Generator Parameters",
+            "type": "object"
           },
           "generator_version": {
             "default": "1.0.0",

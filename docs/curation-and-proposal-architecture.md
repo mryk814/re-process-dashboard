@@ -59,11 +59,51 @@ mean. Each evaluated point records whether sigma
 came from a named uncertainty component or from the central 90% interval normal
 approximation, and the Run summarizes the methods actually used.
 
-Both LHS and Sobol take only the immutable Design Space as generation input:
+LHS, Sobol and the allow-listed bounded-simplex sampler take only the immutable
+Design Space as generation input:
 fixed values, numeric and categorical domains, conditional inactive values, and
 a balance component are applied before candidate validation. A
 composition-total constraint with `balance_path` therefore produces an exact
 remainder rather than relying on later rejection.
+
+`bounded_simplex_goal_v1` is available only when one feasible balance constraint,
+at least two continuous non-balance composition ranges, and no conditional
+composition override are present. It uses seeded hit-and-run in the sum-zero
+subspace, which remains practical for thin bounded polytopes without depending
+on accept/reject volume. This targets uniform bounded-simplex coverage rather
+than component-order-dependent stick breaking. The Run
+stores generator ID/version/parameters,
+per-variable generated coverage, validation rejection counts, and the independent
+distance identity.
+
+Distance is an allow-listed, versioned strategy rather than an unnamed
+"materials distance":
+
+- `scalar_axis_rms` is the generic baseline. Every declared scalar has equal
+  weight after Design Space width normalization and categories use 0/1.
+- `group_weighted_bounded_clr_rms` closes each constrained composition, applies
+  zero-replaced centered log-ratio RMS and the pinned `d/(1+d)` bounding
+  transform, then combines composition, process, category and heat groups with
+  explicit weights. It deliberately does not claim to be the untransformed
+  standard Aitchison distance. It is used by the bounded simplex strategy and
+  saved in both Screening and Batch Run evidence.
+
+The comparison spike deliberately keeps both. In the seeded two-component MPEA
+case, independent LHS produced 113 negative-balance candidates out of 128;
+bounded simplex produced 0 and preserved deterministic coverage evidence. A
+symmetric four-component test also checks that no component receives the
+first-allocation bias of sequential stick breaking.
+The generic metric is still correct for scalar tasks, but the UI calls it
+"各scalar軸の正規化RMS" rather than implying materials-science semantics.
+
+The heat-program spike implements a strict `template_ramp_hold_cool` encoder and
+decoder with exact round-trip evidence for ramp duration, peak temperature, hold
+duration and cooling duration. Reheating, non-contiguous peaks and segment
+boundaries are rejected as `heat_program_not_representable`; they are never
+silently fitted. It remains a validated non-production decoder until a
+candidate-level capability gate and semantic Design Space are wired through the
+UI. Raw heat-point exploration therefore remains explicit rather than being
+mislabelled as an engineering-program generator.
 
 `screening-run/v6` pins Design Space and Objective digests, model/package,
 Feature Pipeline and Dataset provenance, the actual generator/acquisition/
@@ -78,8 +118,9 @@ This is a separate selector, not a joint acquisition function.
 
 - `ranked_top_k_v1` is the explicit baseline.
 - `greedy_value_diversity_v1` combines acquisition-rank utility with maximin
-  distance. Every numeric distance is divided by its Design Space range;
-  categorical differences are 0/1. Raw input scales are never mixed.
+  distance using the proposal strategy's pinned distance ID/version/parameters.
+  Distance is batch-selector evidence only; it does not affect proposal
+  generation or acquisition ranking, and the UI says when a Run did not use it.
 - Pending candidates can be avoided, penalized, or allowed. Their identities,
   policy and resulting exclusions remain in the run.
 - A control request carries the Candidate revision visible when it was selected.

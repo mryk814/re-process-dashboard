@@ -19,12 +19,16 @@ export function ScreeningProposalSummary({
   const strategy = result.proposal_strategy;
   const strategyLabel = {
     latin_hypercube_v1: "Latin hypercube・目標基準",
+    bounded_simplex_goal_v1: "Bounded simplex・目標基準（組成向け）",
     sobol_ucb_v1: "Sobol・UCB/LCB",
     sobol_ei_v1: "Sobol・Expected Improvement",
     sobol_thompson_v1: "Sobol・Thompson Sampling",
     sobol_uncertainty_v1: "Sobol・不確かさ探索",
     sobol_support_boundary_v1: "Sobol・学習支持境界",
   }[strategy?.id ?? ""] ?? strategy?.id ?? "旧方式";
+  const distanceLabel = strategy?.distance_id === "group_weighted_bounded_clr_rms"
+    ? "組成bounded CLR-RMS + 入力群均等"
+    : "各scalar軸のDesign Space幅正規化RMS（汎用）";
   const objective = result.objective_definition;
   const objectiveProvenance = result.objective_binding_provenance === "explicit"
     ? "明示Objective"
@@ -72,6 +76,7 @@ export function ScreeningProposalSummary({
         <p>
           strategy {strategy?.id ?? "legacy"} {strategy?.version ?? ""} / seed {result.seed}
           {strategy && ` / ${strategy.generator_id} → ${strategy.acquisition_id} → ${strategy.selector_id}`}
+          {strategy && ` / バッチ選抜距離 ${distanceLabel}${result.batch_proposal ? "" : "（このRunでは未使用）"}`}
           {strategy?.exploration_parameter != null && (
             strategy.parameter_role === "improvement_margin"
               ? ` / 改善余裕 ξ ${strategy.exploration_parameter}`
@@ -116,6 +121,13 @@ export function ScreeningProposalSummary({
           </p>
         )}
         {diagnostics && <p>生成した全{diagnostics.generated_count}件を制約判定し、制約内の点から{diagnostics.evaluated_count}件を評価しました。</p>}
+        {diagnostics && Object.keys(diagnostics.coverage_by_path ?? {}).length > 0 && (
+          <p>
+            生成coverage: {Object.entries(diagnostics.coverage_by_path ?? {})
+              .map(([path, item]) => `${path} ${(item.normalized_span * 100).toLocaleString("ja-JP", { maximumFractionDigits: 0 })}%`)
+              .join(" / ")}
+          </p>
+        )}
         {diagnostics && Object.keys(rejectionReasons).length > 0
           ? <ul>{Object.entries(rejectionReasons).map(([reason, count]) => <li key={reason}><span>{reason}</span><b>{count}件</b></li>)}</ul>
           : <p>{diagnostics ? "制約による除外はありません。" : "旧記録のため、全生成数に対する除外率は算出できません。"}</p>}
@@ -140,7 +152,10 @@ export function ScreeningProposalSummary({
             </span>
           </summary>
           <p>
-            {result.batch_proposal.selector_id} / 獲得順位価値 / Design Space正規化距離 /
+            {result.batch_proposal.selector_id} / 獲得順位価値 /
+            距離 {result.batch_proposal.distance_id === "group_weighted_bounded_clr_rms"
+              ? "組成bounded CLR-RMS + 入力群均等"
+              : "各scalar軸のDesign Space幅正規化RMS（汎用）"} /
             tie-break: pool index
           </p>
           {result.batch_proposal.candidate_pool && (
