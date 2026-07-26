@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { CandidateViewModel, RuntimeOperations } from "../candidates";
 import { candidateInputIdentity } from "../../shared/api/inferenceRequestCache";
+import type { WorkspaceNoticeKind } from "../../shared/workspaceNotice";
 import { workbenchApi, type ApiPreview } from "../../shared/api/workbench-api";
 import { workbenchInferenceKey, workbenchRequestKey, type WorkbenchIdentity } from "./workbenchIdentity";
 
@@ -9,7 +10,7 @@ type Options = {
   taskId: string;
   candidate?: CandidateViewModel;
   operations?: RuntimeOperations;
-  onNotice: (message: string) => void;
+  onNotify: (kind: WorkspaceNoticeKind, message: string) => void;
   setApiState: Dispatch<SetStateAction<"ready" | "loading" | "offline">>;
 };
 
@@ -19,7 +20,7 @@ type PreviewIdentity = Readonly<{
 }>;
 
 const activeKey = (requestKey: string, inputIdentity: string) => `${requestKey}\u001f${inputIdentity}`;
-export function useWorkbenchPrediction({ projectId, taskId, candidate, operations, onNotice, setApiState }: Options) {
+export function useWorkbenchPrediction({ projectId, taskId, candidate, operations, onNotify, setApiState }: Options) {
   const [previewsByCandidate, setPreviewsByCandidate] = useState<Record<string, ApiPreview>>({});
   const [savedRevisionsByCandidate, setSavedRevisionsByCandidate] = useState<Record<string, number[]>>({});
   const [snapshotHistoryState, setSnapshotHistoryState] = useState<"loading" | "ready" | "error">("loading");
@@ -201,12 +202,12 @@ export function useWorkbenchPrediction({ projectId, taskId, candidate, operation
       }));
       setSnapshotHistoryState("ready");
       if (selectedCandidateIdRef.current === targetCandidate.id) setError("");
-      onNotice(`${targetCandidate.label}の詳細予測を保存しました。`);
+      onNotify("success", `${targetCandidate.label}の詳細予測を保存しました。`);
       return true;
     } catch {
       if (detailedScopeRef.current === requestScope && detailedRequestKeys.current.get(targetCandidate.id) === requestActiveKey) {
         if (selectedCandidateIdRef.current === targetCandidate.id) setError("詳細予測または保存に失敗しました");
-        onNotice(`${targetCandidate.label}の詳細予測を保存できませんでした。`);
+        onNotify("error", `${targetCandidate.label}の詳細予測を保存できませんでした。`);
       }
       return false;
     } finally {

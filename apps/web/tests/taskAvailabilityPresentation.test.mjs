@@ -18,7 +18,9 @@ test("unavailable tasks keep the overview while replacing mutation and inference
   assert.match(app, /item\.id === "project"/);
   assert.match(app, /chainProject && item\.id === "candidates"/);
   assert.match(session, /resolved\.availability\.status === "unavailable"/);
-  assert.match(session, /resolved\.availability\.message/);
+  // The reason is rendered by the panels that stay available, not pushed through a notice.
+  assert.match(app, /taskAvailability\?\.message/);
+  assert.match(projectHub, /taskAvailability\.message/);
 });
 
 test("chain projects load their immutable revision without entering the single-task candidate runtime", () => {
@@ -26,7 +28,7 @@ test("chain projects load their immutable revision without entering the single-t
   assert.match(session, /setTaskDefinition\(null\)/);
   assert.match(session, /setResolvedTaskDefinition\(null\)/);
   assert.match(session, /editor\.acceptServerCandidates\(\[\]\)/);
-  assert.match(session, /setNotice\("Chain Revisionを固定しました/);
+  assert.doesNotMatch(session, /Chain Revisionを固定しました/);
   assert.match(app, /const chainProject = activeProject\?\.scientific_identity\?\.identity_kind === "chain"/);
   assert.match(app, /chainProject && item\.id === "candidates"/);
   assert.match(app, /tab === "candidates" && chainProject/);

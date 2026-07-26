@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { CandidateProvenance } from "../../shared/candidateProvenance";
+import type { WorkspaceNotice, WorkspaceNoticeKind } from "../../shared/workspaceNotice";
 import { ApiClientError } from "../../shared/api/client";
 import { candidateInferencePrefix, candidateInputIdentity, inferenceRequestCache } from "../../shared/api/inferenceRequestCache";
 import {
@@ -48,7 +49,15 @@ export function useWorkbenchSession({
   selectedIdRef.current = selectedId;
   const deletingCandidateIds = useRef(new Set<string>());
   const [apiState, setApiState] = useState<"ready" | "loading" | "offline">("loading");
-  const [notice, setNotice] = useState("候補を読み込んでいます");
+  const [notice, setNotice] = useState<WorkspaceNotice | null>(null);
+  const noticeSequence = useRef(0);
+  function notify(kind: WorkspaceNoticeKind, message: string) {
+    noticeSequence.current += 1;
+    setNotice({ id: noticeSequence.current, kind, message });
+  }
+  const notifySuccess = (message: string) => notify("success", message);
+  const notifyError = (message: string) => notify("error", message);
+  const dismissNotice = () => setNotice(null);
   const [brokenOriginCandidateId, setBrokenOriginCandidateId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [projects, setProjects] = useState<ApiProject[]>([]);
@@ -73,7 +82,7 @@ export function useWorkbenchSession({
     taskId,
     candidate: selected,
     operations,
-    onNotice: setNotice,
+    onNotify: notify,
     setApiState,
   });
   const editor = useCandidateEditor({
@@ -82,7 +91,7 @@ export function useWorkbenchSession({
     previewAvailable: operations?.preview === true,
     getPreviewInputIdentity: prediction.getPreviewInputIdentity,
     onPreview: prediction.acceptPreview,
-    onNotice: setNotice,
+    onNotify: notify,
   });
 
   function selectCandidate(candidateId: string, notifyLocation = true) {
@@ -125,7 +134,7 @@ export function useWorkbenchSession({
       onLocationReplace(projectId, candidateId);
       prediction.reset();
       setApiState("ready");
-      setNotice("Chain Revisionを固定しました");
+      setNotice(null);
       return;
     }
     const [listedCandidates, resolved] = await Promise.all([
@@ -163,21 +172,17 @@ export function useWorkbenchSession({
     onLocationReplace(projectId, nextSelectedId || undefined);
     prediction.reset();
     setApiState("ready");
-    setNotice(
-      resolved.availability.status === "unavailable"
-        ? resolved.availability.message
-        : requestedCandidateMissing
-        ? "参照元の候補は削除済みか、このプロジェクトから参照できません"
-        : imported.length
-          ? ""
-          : "候補がありません。過去条件または新規入力から追加できます",
-    );
+    setNotice(null);
+    if (requestedCandidateMissing) notifyError("参照元の候補は削除済みか、このプロジェクトから参照できません");
     if (
       resolved.availability.status === "unavailable"
       || !imported.length
       || !resolved.runtime_capability.operations.preview
     ) return;
-    const activeCandidates = imported.filter((candidate) => !candidate.raw.archived_at);
+    // Preview loading is best effort. A failure here belongs to the preview surface,
+    // never to the connection state: project, contract and candidates are already loaded.
+    try {
+      const activeCandidates = imported.filter((candidate) => !candidate.raw.archived_at);
     const selectedCandidate = activeCandidates.find((candidate) => candidate.id === nextSelectedId);
     const initialPreviewCandidates = [
       ...(selectedCandidate ? [selectedCandidate] : []),
@@ -216,12 +221,15 @@ export function useWorkbenchSession({
     });
     if (sequence !== loadSequence.current || previewController.signal.aborted) return;
     const backgroundEntries = previewEntries.filter(([candidateId]) => candidateId !== nextSelectedId);
-    prediction.acceptProjectPreviews(
-      initialPreviewCandidates.filter((candidate) => candidate.id !== nextSelectedId),
-      candidatesRef.current,
-      Object.fromEntries(backgroundEntries),
-      definition.id,
-    );
+      prediction.acceptProjectPreviews(
+        initialPreviewCandidates.filter((candidate) => candidate.id !== nextSelectedId),
+        candidatesRef.current,
+        Object.fromEntries(backgroundEntries),
+        definition.id,
+      );
+    } catch {
+      // Keep the loaded project usable; the comparison surface reports the preview error.
+    }
   }
 
   async function openLocation(projectId: string, candidateId?: string) {
@@ -268,7 +276,6 @@ export function useWorkbenchSession({
         if (cancelled) return;
         setApiState("offline");
         setLoadError(`APIから候補を読み込めませんでした（${error instanceof Error ? error.message : "不明なエラー"}）。`);
-        setNotice("API未接続: 予測結果は表示できません");
       }
     }
     void bootstrap();
@@ -295,7 +302,7 @@ export function useWorkbenchSession({
           setBrokenOriginCandidateId(selected.id);
         } else {
           setBrokenOriginCandidateId(null);
-          setNotice("作成元候補を一時的に確認できません。API接続を確認してください。");
+          notifyError("作成元候補を一時的に確認できません。API接続を確認してください。");
         }
       });
     return () => {
@@ -426,13 +433,12 @@ export function useWorkbenchSession({
       const created = fromApiCandidate(await workbenchApi.createCandidate(activeProjectId, request));
       appendCandidate(created);
       selectCandidate(created.id);
-      setNotice("候補を追加しました");
+      notifySuccess("候補を追加しました");
     } catch (cause) {
       if (cause instanceof ApiClientError && cause.kind !== "network") {
-        setNotice(cause.message);
+        notifyError(cause.message);
       } else {
-        setApiState("offline");
-        setNotice("候補を追加できませんでした。API接続を確認してください。");
+        notifyError("候補を追加できませんでした。API接続を確認してください。");
       }
     }
   }
@@ -442,10 +448,10 @@ export function useWorkbenchSession({
       const created = fromApiCandidate(await workbenchApi.createCandidateFromLineage(entityKey, activeProjectId));
       appendCandidate(created);
       selectCandidate(created.id);
-      setNotice("近い過去実績を候補に追加しました");
+      notifySuccess("近い過去実績を候補に追加しました");
       return true;
     } catch (cause) {
-      setNotice(cause instanceof Error ? cause.message : "過去実績を候補に追加できませんでした。");
+      notifyError(cause instanceof Error ? cause.message : "過去実績を候補に追加できませんでした。");
       return false;
     }
   }
@@ -454,23 +460,23 @@ export function useWorkbenchSession({
     // Failing here has three different causes for the user: this project has no
     // single Task at all, the Task declares no starter, or the API is unreachable.
     if (!taskId) {
-      setNotice("このプロジェクトは単一の予測タスクを固定していないため、基準候補を作成できません");
+      notifyError("このプロジェクトは単一の予測タスクを固定していないため、基準候補を作成できません");
       return;
     }
     try {
       const catalog = await workbenchApi.listTaskDefinitions();
       const starter = catalog.find((item) => item.definition.task_definition.id === taskId)?.starter_candidate;
       if (!starter) {
-        setNotice("この予測タスクには基準候補の定義がありません。開発・管理で予測タスク定義を確認してください。");
+        notifyError("この予測タスクには基準候補の定義がありません。開発・管理で予測タスク定義を確認してください。");
         return;
       }
       const created = fromApiCandidate(await workbenchApi.createCandidate(activeProjectId, starter));
       setCandidates([created]);
       selectCandidate(created.id);
-      setNotice("基準候補を作成しました");
+      notifySuccess("基準候補を作成しました");
       setApiState("ready");
     } catch (cause) {
-      setNotice(cause instanceof ApiClientError && cause.kind !== "network"
+      notifyError(cause instanceof ApiClientError && cause.kind !== "network"
         ? cause.message
         : "基準候補を作成できませんでした。API接続を確認してください。");
     }
@@ -497,9 +503,9 @@ export function useWorkbenchSession({
       if (activeProjectIdRef.current !== requestProjectId) return;
       appendCandidate(created);
       selectCandidate(created.id);
-      setNotice("由来を保持して候補をコピーしました");
+      notifySuccess("由来を保持して候補をコピーしました");
     } catch (cause) {
-      if (activeProjectIdRef.current === requestProjectId) setNotice(cause instanceof Error ? cause.message : "候補をコピーできませんでした。");
+      if (activeProjectIdRef.current === requestProjectId) notifyError(cause instanceof Error ? cause.message : "候補をコピーできませんでした。");
     }
   }
 
@@ -515,9 +521,9 @@ export function useWorkbenchSession({
       candidatesRef.current = remaining;
       setCandidates(remaining);
       if (selectedIdRef.current === target.id && remaining[0]) selectCandidate(remaining[0].id);
-      setNotice("候補を一覧から外しました");
+      notifySuccess("候補を一覧から外しました");
     } catch {
-      if (activeProjectIdRef.current === requestProjectId) setNotice("候補を削除できませんでした。API接続を確認してください。");
+      if (activeProjectIdRef.current === requestProjectId) notifyError("候補を削除できませんでした。API接続を確認してください。");
     } finally {
       deletingCandidateIds.current.delete(candidateId);
     }
@@ -533,10 +539,10 @@ export function useWorkbenchSession({
         const nextProject = remaining[0];
         if (nextProject) await loadProject(nextProject.id);
       }
-      setNotice("プロジェクトを削除しました");
+      notifySuccess("プロジェクトを削除しました");
       return true;
     } catch (cause) {
-      setNotice(cause instanceof Error ? cause.message : "プロジェクトを削除できませんでした");
+      notifyError(cause instanceof Error ? cause.message : "プロジェクトを削除できませんでした");
       return false;
     }
   }
@@ -552,7 +558,7 @@ export function useWorkbenchSession({
 
   function restoreCandidate(candidate: CandidateViewModel) {
     if (candidate.raw.project_id !== activeProjectId) {
-      setNotice("別プロジェクトの保存結果は現在の候補へ混在できません");
+      notifyError("別プロジェクトの保存結果は現在の候補へ混在できません");
       return false;
     }
     acceptCandidate(candidate);
@@ -584,10 +590,10 @@ export function useWorkbenchSession({
     } catch (cause) {
       if (cause instanceof ApiClientError && cause.status === 404) {
         setBrokenOriginCandidateId(selected.id);
-        setNotice("コピー元候補は削除済みか、このプロジェクトから参照できません");
+        notifyError("コピー元候補は削除済みか、このプロジェクトから参照できません");
       } else {
         setBrokenOriginCandidateId(null);
-        setNotice("作成元候補を一時的に確認できません。API接続を確認してください。");
+        notifyError("作成元候補を一時的に確認できません。API接続を確認してください。");
       }
     }
   }
@@ -637,6 +643,7 @@ export function useWorkbenchSession({
     editor,
     loadError,
     loadProject,
+    dismissNotice,
     notice,
     openLocation,
     openOrigin,
@@ -650,7 +657,8 @@ export function useWorkbenchSession({
     selected,
     selectedId,
     selectCandidate,
-    setNotice,
+    notifyError,
+    notifySuccess,
     taskDefinition,
     taskAvailability,
     updateCandidateInput,
