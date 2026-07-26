@@ -945,6 +945,9 @@
 .activity-targets dl div { padding: 7px 10px; border-top: 1px solid #e1e7ef; }
 .activity-targets dt { color: #6a788b; font-size: 10px; }
 .activity-targets dd { margin: 2px 0 0; color: #20344b; font-size: 12px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.activity-targets dl div small { display: block; margin-top: 3px; color: #6a788b; font-size: 10px; line-height: 1.4; }
+.activity-extrapolation-notice { display: grid; gap: 3px; border-left: 3px solid #d59625; border-radius: 5px; background: #fff9ed; padding: 9px 11px; color: #6c571f; font-size: 11px; }
+.activity-extrapolation-notice strong { color: #91550d; font-size: 12px; }
 .activity-support-summary { display: flex; gap: 8px; }
 .activity-support-summary span { flex: 1; border-left: 3px solid #d59625; background: #fff9ed; padding: 8px; color: #6c571f; font-size: 11px; }
 .activity-evidence { border: 1px solid #d8e0ea; border-radius: 5px; padding: 9px; }
