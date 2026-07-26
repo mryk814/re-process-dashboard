@@ -22,6 +22,8 @@ export type NavigationIntent = Readonly<{
   qualitySheet?: string;
   qualityKey?: string;
   screeningRunId?: string;
+  activityId?: string;
+  activityRunId?: string;
   snapshotId?: string;
   adminSection?: AdminSection;
   projectSettings?: "targets";
@@ -48,6 +50,8 @@ export function readNavigationIntent(
     qualitySheet: params.get("quality_sheet") || undefined,
     qualityKey: params.get("quality_key") || undefined,
     screeningRunId: params.get("screening") || undefined,
+    activityId: params.get("activity") || undefined,
+    activityRunId: params.get("activity_run") || undefined,
     snapshotId: params.get("snapshot") || undefined,
     adminSection: adminSection && ADMIN_SECTIONS.has(adminSection as AdminSection) ? adminSection as AdminSection : undefined,
     projectSettings: params.get("project_settings") === "targets" ? "targets" : undefined,
@@ -65,6 +69,8 @@ export function navigationUrl(intent: NavigationIntent): string {
   if (intent.qualitySheet) params.set("quality_sheet", intent.qualitySheet);
   if (intent.qualityKey) params.set("quality_key", intent.qualityKey);
   if (intent.screeningRunId) params.set("screening", intent.screeningRunId);
+  if (intent.activityId) params.set("activity", intent.activityId);
+  if (intent.activityRunId) params.set("activity_run", intent.activityRunId);
   if (intent.snapshotId) params.set("snapshot", intent.snapshotId);
   if (intent.adminSection) params.set("admin", intent.adminSection);
   if (intent.projectSettings) params.set("project_settings", intent.projectSettings);
@@ -85,6 +91,8 @@ export function withView(
     qualitySheet: view === "quality" || view === "lineage" ? current.qualitySheet : undefined,
     qualityKey: view === "quality" || view === "lineage" ? current.qualityKey : undefined,
     screeningRunId: view === "explore" ? current.screeningRunId : undefined,
+    activityId: view === "candidates" ? current.activityId : undefined,
+    activityRunId: view === "candidates" ? current.activityRunId : undefined,
     snapshotId: view === "project" ? current.snapshotId : undefined,
     adminSection: view === "settings" ? current.adminSection : undefined,
     projectSettings: view === "project" ? current.projectSettings : undefined,

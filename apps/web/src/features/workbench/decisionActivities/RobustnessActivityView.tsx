@@ -50,6 +50,8 @@ export function RobustnessActivityView({
   ready,
   availability,
   runs,
+  activeRunId,
+  onSelectRun,
   running,
   onRun,
 }: DecisionActivityViewProps) {
@@ -73,7 +75,6 @@ export function RobustnessActivityView({
   const [nextField, setNextField] = useState("");
   const [sampleCount, setSampleCount] = useState(64);
   const [seed, setSeed] = useState(0);
-  const [activeRunId, setActiveRunId] = useState<string | null>(null);
 
   useEffect(() => {
     const first = fields[0];
@@ -158,7 +159,7 @@ export function RobustnessActivityView({
 
     {runs.length > 0 && <nav className="activity-run-history" aria-label="保存済みロバストネス解析">
       <span>保存済み</span>
-      {runs.slice(0, 5).map((run) => <button type="button" className={activeRun?.id === run.id ? "active" : ""} onClick={() => setActiveRunId(run.id)} key={run.id}>{new Date(run.created_at).toLocaleString("ja-JP")}</button>)}
+      {runs.slice(0, 5).map((run) => <button type="button" className={activeRun?.id === run.id ? "active" : ""} onClick={() => onSelectRun(run.id)} key={run.id}>{new Date(run.created_at).toLocaleString("ja-JP")}</button>)}
     </nav>}
 
     {activeRun && result && <section className="activity-result">
