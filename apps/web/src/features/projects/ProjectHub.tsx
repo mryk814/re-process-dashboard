@@ -38,6 +38,7 @@ type Props = {
   operations?: RuntimeOperations;
   currentPreviews: Record<string, ApiPreview>;
   taskAvailability?: ResolvedTaskDefinition["availability"];
+  offline: boolean;
   requestedSnapshotId?: string;
   requestedDatasetViewId?: string;
   requestedSettingsSection?: "targets";
@@ -89,6 +90,7 @@ export function ProjectHub({
   operations,
   currentPreviews,
   taskAvailability,
+  offline,
   requestedSnapshotId,
   requestedDatasetViewId,
   requestedSettingsSection,
@@ -112,6 +114,7 @@ export function ProjectHub({
   } | null>(null);
   const [selectedSnapshot, setSelectedSnapshot] = useState<ApiSnapshot | null>(null);
   const [error, setError] = useState("");
+  const [historyState, setHistoryState] = useState<"loading" | "ready" | "error">("loading");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -155,7 +158,16 @@ export function ProjectHub({
 
   const reloadHistory = async (signal?: AbortSignal, expectedProjectId = activeProjectId) => {
     const loaded = await workbenchApi.projectHistory(expectedProjectId, signal);
-    if (!signal?.aborted && activeProjectRef.current === expectedProjectId) setHistory(loaded);
+    if (!signal?.aborted && activeProjectRef.current === expectedProjectId) {
+      setHistory(loaded);
+      setHistoryState("ready");
+    }
+  };
+
+  // A history that cannot be fetched is not a history that is still loading.
+  const retryHistory = () => {
+    setHistoryState("loading");
+    reloadHistory().catch(() => setHistoryState("error"));
   };
 
   useEffect(() => {
@@ -174,6 +186,7 @@ export function ProjectHub({
   useEffect(() => {
     const controller = new AbortController();
     setHistory(null);
+    setHistoryState("loading");
     setSelectedSnapshot(null);
     setModelPackage(null);
     setChainEvaluation(null);
@@ -205,10 +218,13 @@ export function ProjectHub({
       }
     }
     void Promise.all(requests).catch((cause) => {
-      if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "プロジェクト概要を取得できませんでした。");
+      if (controller.signal.aborted) return;
+      setHistoryState("error");
+      setError(cause instanceof Error ? cause.message : "プロジェクト概要を取得できませんでした。");
     });
     return () => controller.abort();
-  }, [activeProjectId, chainIdentity?.chain_revision_id, taskUnavailable]);
+    // Recovering the workspace also recovers this overview: one retry is enough.
+  }, [activeProjectId, chainIdentity?.chain_revision_id, taskUnavailable, offline]);
 
   useEffect(() => {
     if (!requestedSnapshotId || !operations?.snapshot || selectedSnapshot?.id === requestedSnapshotId) return;
@@ -704,7 +720,7 @@ export function ProjectHub({
             </section>
           );
         })}</div>
-        <button type="button" className="outline-button project-list-create" disabled={createOpen} onClick={toggleCreateProject}>＋ 新規プロジェクト</button>
+        <button type="button" className="outline-button project-list-create" disabled={createOpen || offline} onClick={toggleCreateProject}>＋ 新規プロジェクト</button>
       </aside>
       <div className="project-hub-content">
         <div className="page-intro project-hub-header">
@@ -714,8 +730,8 @@ export function ProjectHub({
             <p>{project?.purpose || project?.description || "検討の入口、候補比較、判断時点の記録をここからたどれます。"}</p>
           </div>
           <div className="project-actions">
-            <button className="outline-button" disabled={taskUnavailable} onClick={continueCurrentProject}>このプロジェクトの続き</button>
-            <button className="outline-button" disabled={taskUnavailable} onClick={() => setSettingsOpen((value) => !value)}>設定を編集</button>
+            <button className="outline-button" disabled={taskUnavailable || offline} onClick={continueCurrentProject}>このプロジェクトの続き</button>
+            <button className="outline-button" disabled={taskUnavailable || offline} onClick={() => setSettingsOpen((value) => !value)}>設定を編集</button>
           </div>
         </div>
       {taskUnavailable && <section className="task-unavailable-banner" role="status">
@@ -761,7 +777,7 @@ export function ProjectHub({
             ? configuredTargets.map((output) => <span key={output.key}><b>{output.label}</b>{targetGoalText(savedTargetValues[output.key], output.goal_direction, formatNumber)} {output.unit}</span>)
             : <span>未設定です。設定すると候補の目標達成率を比較できます。</span>}
         </div>
-        <button className={configuredTargets.length ? "outline-button" : "primary-button"} disabled={taskUnavailable || chainExecutionPending} onClick={focusTargetSettings}>{configuredTargets.length ? "目標値を変更" : "目標値を設定"}</button>
+        <button className={configuredTargets.length ? "outline-button" : "primary-button"} disabled={taskUnavailable || chainExecutionPending || offline} onClick={focusTargetSettings}>{configuredTargets.length ? "目標値を変更" : "目標値を設定"}</button>
       </section>}
       {predecessorProject && <section className="project-continuation-link" aria-label="このプロジェクトの続き元"><span>続き元</span><button type="button" onClick={() => onSwitch(predecessorProject.id)}>{predecessorProject.name}</button><small>{predecessorSeries?.name ?? "所属グループ不明"}{project?.continuation_reason ? ` · ${project.continuation_reason}` : ""}</small></section>}
 
@@ -822,18 +838,21 @@ export function ProjectHub({
         <div className="panel-title"><h3>次の作業</h3><span>{activeCandidates.length ? `${activeCandidates.length}候補を検討中` : "まだ候補がありません"}</span></div>
         {chainIdentity
           ? <div className="project-action-grid">
-            <button className="project-action-card primary" disabled={chainExecutionPending} onClick={() => onNavigate("candidates")}><strong>Chain候補を開く</strong><span>配合と工程条件を編集し、A → B → Cを実行して固定します</span></button>
+            <button className="project-action-card primary" disabled={chainExecutionPending || offline} onClick={() => onNavigate("candidates")}><strong>Chain候補を開く</strong><span>配合と工程条件を編集し、A → B → Cを実行して固定します</span></button>
           </div>
           : <div className="project-action-grid">
-            <button className="project-action-card primary" disabled={taskUnavailable || chainExecutionPending} onClick={() => onNavigate(activeCandidates.length ? "candidates" : supportsLineageCandidate ? "lineage" : "explore")}><strong>{activeCandidates.length ? "候補を比較" : supportsLineageCandidate ? "過去データから探す" : "条件範囲から始める"}</strong><span>{activeCandidates.length ? "入力・予測・根拠を横並びで確認" : supportsLineageCandidate ? "既存の条件と問題から出発" : "基準候補を作り、入力範囲から探索"}</span></button>
-            <button className="project-action-card" disabled={taskUnavailable || chainExecutionPending} onClick={() => onNavigate("explore")}><strong>範囲探索</strong><span>目標と入力範囲から候補を生成</span></button>
-            <button className="project-action-card" disabled={taskUnavailable || chainExecutionPending} onClick={() => onNavigate("candidates")}><strong>直接候補を作る</strong><span>具体的な成分・工程条件を入力</span></button>
+            <button className="project-action-card primary" disabled={taskUnavailable || chainExecutionPending || offline} onClick={() => onNavigate(activeCandidates.length ? "candidates" : supportsLineageCandidate ? "lineage" : "explore")}><strong>{activeCandidates.length ? "候補を比較" : supportsLineageCandidate ? "過去データから探す" : "条件範囲から始める"}</strong><span>{activeCandidates.length ? "入力・予測・根拠を横並びで確認" : supportsLineageCandidate ? "既存の条件と問題から出発" : "基準候補を作り、入力範囲から探索"}</span></button>
+            <button className="project-action-card" disabled={taskUnavailable || chainExecutionPending || offline} onClick={() => onNavigate("explore")}><strong>範囲探索</strong><span>目標と入力範囲から候補を生成</span></button>
+            <button className="project-action-card" disabled={taskUnavailable || chainExecutionPending || offline} onClick={() => onNavigate("candidates")}><strong>直接候補を作る</strong><span>具体的な成分・工程条件を入力</span></button>
           </div>}
       </section>
 
       <section className="project-history-section">
         <div className="panel-title"><h3>候補と判断履歴</h3><span>現在値と固定した予測を分けて表示</span></div>
-        {!history ? <p className="empty-evidence">履歴を読み込んでいます。</p> : !history.candidates.length ? <div className="project-empty-state"><p>{supportsLineageCandidate ? "候補はまだありません。上の「次の作業」から過去データを探すと、由来付き候補としてここに残ります。" : "候補はまだありません。上の「次の作業」から基準候補を用意し、検討を始めます。"}</p></div> : <div className="project-history-list">
+        {historyState === "error" ? <div className="project-history-error" role="alert">
+          <p>候補と判断履歴を取得できませんでした。保存済みのデータは失われていません。</p>
+          <button type="button" className="outline-button" onClick={retryHistory}>履歴を再取得</button>
+        </div> : !history ? <p className="empty-evidence">履歴を読み込んでいます。</p> : !history.candidates.length ? <div className="project-empty-state"><p>{supportsLineageCandidate ? "候補はまだありません。上の「次の作業」から過去データを探すと、由来付き候補としてここに残ります。" : "候補はまだありません。上の「次の作業」から基準候補を用意し、検討を始めます。"}</p></div> : <div className="project-history-list">
           {history.candidates.map((item) => {
             const preview = currentPreviews[item.candidate.id];
             return <article className="project-history-card" key={item.candidate.id}>
@@ -845,7 +864,7 @@ export function ProjectHub({
                 <span className="history-predictions">{orderedPredictions(snapshot.prediction_summary).map(([key, value], index) => { const assessment = assessPrediction(outputDefinition(key), value); return <span className={assessment.implausible ? "implausible-output" : undefined} title={assessment.warning ?? undefined} key={key}>{index > 0 && " / "}{outputLabels.get(key) ?? key} {formatPredictionPoint(value, (numberValue) => formatOutputNumber(key, numberValue))}{assessment.implausible && <small className="output-warning-badge">⚠ 物理範囲外</small>}</span>; })}</span>
                 {item.actuals.filter((actual) => actual.snapshot_id === snapshot.id).map((actual) => { const definition = outputDefinition(actual.property); const assessment = assessOutputValues(definition, [actual.mean], "実測値"); const key = definition?.key ?? actual.property; return <span className={`history-actual${assessment.implausible ? " implausible-output" : ""}`} title={assessment.warning ?? undefined} key={actual.id}>実測 {definition?.label ?? outputLabels.get(actual.property) ?? actual.property} {formatOutputNumber(key, actual.mean)} ± {formatOutputNumber(key, actual.std)} {definition?.unit ?? actual.unit}{actual.experiment_no ? ` / ${actual.experiment_no}` : ""}{assessment.implausible && <small className="output-warning-badge">⚠ 物理範囲外</small>}</span>; })}
                 {item.decision?.snapshot_id === snapshot.id && <span className="decision-note-inline">判断理由: {item.decision.note}</span>}
-                <button className="outline-button" onClick={() => void openSnapshot(snapshot.id)}>詳細</button><CandidateAddButton compact disabled={taskUnavailable} onClick={() => void restoreSnapshot(snapshot.id)}>新しい候補として複製</CandidateAddButton>
+                <button className="outline-button" onClick={() => void openSnapshot(snapshot.id)}>詳細</button><CandidateAddButton compact disabled={taskUnavailable || offline} onClick={() => void restoreSnapshot(snapshot.id)}>新しい候補として複製</CandidateAddButton>
               </div>)}</div> : <div className="project-empty-inline"><span>固定した予測はありません。上の「現在の候補を見る」から詳細予測を保存すると判断時点が残ります。</span></div>}
             </article>;
           })}
@@ -857,12 +876,12 @@ export function ProjectHub({
         <p>{formatDate(selectedSnapshot.created_at)} / {history?.candidates.find((item) => item.candidate.id === selectedSnapshot.candidate_id)?.candidate.name ?? "保存時の候補"}</p>
         <span className="decision-snapshot-badge">{!selectedSnapshot.payload.provenance?.package?.manifest_sha256 || !modelPackage ? "予測モデル情報を確認できません" : selectedSnapshot.payload.provenance.package.manifest_sha256 === modelPackage.manifest_sha256 ? "現在と同じ予測モデル" : "現在とは別の予測モデル"}</span>
         <table className="quality-table"><thead><tr><th>特性</th><th>固定予測</th><th>区間・分位</th><th>目標達成</th></tr></thead><tbody>{orderedPredictions(selectedSnapshot.payload.prediction.predictions).map(([key, value]) => { const assessment = assessPrediction(outputDefinition(key), value); return <tr className={assessment.implausible ? "implausible-output" : undefined} key={key}><th>{outputLabels.get(key) ?? key}{assessment.implausible && <small className="output-warning-badge">⚠ 物理範囲外</small>}</th><td title={assessment.warning ?? undefined}>{formatPredictionPoint(value, (numberValue) => formatOutputNumber(key, numberValue))}</td><td>{predictionHasInterval(value) ? <>{formatOutputNumber(key, value.lower)}–{formatOutputNumber(key, value.upper)} <small>{predictionIntervalLabel(value)}</small></> : "利用不可"}</td><td>{value.goal_probability == null ? value.goal_value == null ? "目標未設定" : "利用不可" : `${formatNumber(value.goal_probability * 100, 0)}%`}</td></tr>; })}</tbody></table>
-        <div className="snapshot-decision-form"><label>判断理由<textarea disabled={taskUnavailable} value={decisionNote} onChange={(event) => { decisionDraftRef.current.dirty = true; setDecisionNote(event.target.value); }} placeholder="この時点の予測を採用判断に使う理由" /></label><button className="outline-button" disabled={taskUnavailable} onClick={() => void saveDecision(false)}>採用判断として固定</button>{project?.decision_snapshot_id === selectedSnapshot.id && <button className="outline-button" disabled={taskUnavailable} onClick={() => void saveDecision(true)}>採用判断を解除</button>}</div>
-        <CandidateAddButton disabled={taskUnavailable} onClick={() => void restoreSnapshot(selectedSnapshot.id)}>この時点から新しい候補を作る</CandidateAddButton>
+        <div className="snapshot-decision-form"><label>判断理由<textarea disabled={taskUnavailable || offline} value={decisionNote} onChange={(event) => { decisionDraftRef.current.dirty = true; setDecisionNote(event.target.value); }} placeholder="この時点の予測を採用判断に使う理由" /></label><button className="outline-button" disabled={taskUnavailable || offline} onClick={() => void saveDecision(false)}>採用判断として固定</button>{project?.decision_snapshot_id === selectedSnapshot.id && <button className="outline-button" disabled={taskUnavailable || offline} onClick={() => void saveDecision(true)}>採用判断を解除</button>}</div>
+        <CandidateAddButton disabled={taskUnavailable || offline} onClick={() => void restoreSnapshot(selectedSnapshot.id)}>この時点から新しい候補を作る</CandidateAddButton>
       </section>}
 
       {canDeleteProject && project && <section className="project-danger-zone" aria-label="プロジェクト削除">
-        {!deleteOpen ? <button className="danger-outline-button" onClick={() => setDeleteOpen(true)}>プロジェクトを削除</button> : <div className="project-delete-panel" aria-label="プロジェクト削除の確認">
+        {!deleteOpen ? <button className="danger-outline-button" disabled={offline} onClick={() => setDeleteOpen(true)}>プロジェクトを削除</button> : <div className="project-delete-panel" aria-label="プロジェクト削除の確認">
           <div><strong>「{project.name}」を削除しますか？</strong><p>候補・予測履歴・実測データもまとめて削除され、元に戻せません。</p></div>
           <div className="project-delete-actions"><button className="danger-button" disabled={deleting} onClick={() => void deleteCurrentProject()}>{deleting ? "削除中…" : "削除する"}</button><button className="outline-button" disabled={deleting} onClick={() => setDeleteOpen(false)}>キャンセル</button></div>
         </div>}

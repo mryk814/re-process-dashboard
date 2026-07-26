@@ -251,10 +251,9 @@ export function useWorkbenchSession({
     }
   }
 
-  useEffect(() => {
-    let cancelled = false;
-    async function bootstrap() {
+  async function openWorkspace(cancelled = () => false) {
       try {
+        setLoadError(null);
         const available = await workbenchApi.listProjects();
         const requested = initialLocation.current.requestedProjectId;
         const remembered = window.localStorage.getItem("material-workbench-project");
@@ -263,7 +262,7 @@ export function useWorkbenchSession({
           : available.some((project) => project.id === remembered)
             ? remembered!
             : (available[0]?.id ?? "default");
-        if (cancelled) return;
+        if (cancelled()) return;
         projectsRef.current = available;
         setProjects(available);
         await loadProject(
@@ -273,12 +272,21 @@ export function useWorkbenchSession({
             : undefined,
         );
       } catch (error) {
-        if (cancelled) return;
+        if (cancelled()) return;
         setApiState("offline");
         setLoadError(`APIから候補を読み込めませんでした（${error instanceof Error ? error.message : "不明なエラー"}）。`);
       }
-    }
-    void bootstrap();
+  }
+
+  // The shell offers one retry for a workspace that could not be opened.
+  async function retryOpenWorkspace() {
+    setApiState("loading");
+    await openWorkspace();
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    void openWorkspace(() => cancelled);
     return () => {
       cancelled = true;
       loadPreviewController.current?.abort();
@@ -652,6 +660,7 @@ export function useWorkbenchSession({
     projects,
     refreshAdminProject,
     refreshProjectDefinition,
+    retryOpenWorkspace,
     resolvedTaskDefinition,
     restoreCandidate,
     selected,
