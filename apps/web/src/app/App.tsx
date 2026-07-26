@@ -442,6 +442,7 @@ function App() {
             projectId={activeProjectId}
             initialCandidateId={navigation.candidateId}
             unavailable={chainSubsystem?.status === "unavailable" ? chainSubsystem : undefined}
+            displayDecimalOverrides={activeProject?.display_decimals}
             onCandidateSelected={(candidateId) => navigate({
               view: "candidates",
               projectId: activeProjectId,

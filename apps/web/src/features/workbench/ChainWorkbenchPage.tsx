@@ -21,6 +21,7 @@ import {
   type CandidateRequestToken,
 } from "./candidateRequestGeneration";
 import { ApiClientError } from "../../shared/api/client";
+import { formatNumberAtDecimals } from "../../shared/taskPresentation";
 import "./chain-workbench.css";
 
 type StageStatus = "latest" | "running" | "stale" | "failed";
@@ -37,12 +38,6 @@ function predictions(stage: ApiChainExecution["stages"][number] | undefined) {
   return raw && typeof raw === "object"
     ? raw as Record<string, { value?: number; std?: number; unit?: string }>
     : {};
-}
-
-function number(value: unknown, digits = 3) {
-  return typeof value === "number" && Number.isFinite(value)
-    ? value.toLocaleString("ja-JP", { maximumFractionDigits: digits })
-    : "—";
 }
 
 function inputNumber(value: unknown) {
@@ -66,11 +61,13 @@ export function ChainWorkbenchPage({
   projectId,
   initialCandidateId,
   unavailable,
+  displayDecimalOverrides,
   onCandidateSelected,
 }: {
   projectId: string;
   initialCandidateId?: string;
   unavailable?: ApiSubsystemAvailability;
+  displayDecimalOverrides?: Record<string, number>;
   onCandidateSelected: (candidateId: string) => void;
 }) {
   const readOnly = Boolean(unavailable);
@@ -108,10 +105,50 @@ export function ChainWorkbenchPage({
   const variantCPredictions = latestVariant?.stage_c_result?.predictions && typeof latestVariant.stage_c_result.predictions === "object"
     ? latestVariant.stage_c_result.predictions as Record<string, { value?: number; std?: number; unit?: string }>
     : {};
-  const stageBKeys = useMemo(
-    () => Object.keys(stageBPredictions).sort((a, b) => a.localeCompare(b, "en")),
-    [stageB?.result_input_digest],
+  const stageBDefinitions = useMemo(
+    () => stageB?.output_definitions.length
+      ? stageB.output_definitions
+      : comparisonSnapshot?.stages.find((stage) => stage.stage_id === "B")?.output_definitions ?? [],
+    [comparisonSnapshot?.snapshot_id, stageB?.result_input_digest],
   );
+  const stageCDefinitions = useMemo(
+    () => stageC?.output_definitions.length
+      ? stageC.output_definitions
+      : comparisonSnapshot?.stages.find((stage) => stage.stage_id === "C")?.output_definitions ?? [],
+    [comparisonSnapshot?.snapshot_id, stageC?.result_input_digest],
+  );
+  const stageBKeys = useMemo(
+    () => stageBDefinitions.map((definition) => definition.key),
+    [stageBDefinitions],
+  );
+  const formatStageNumber = (
+    value: unknown,
+    definition: ApiChainExecution["stages"][number]["output_definitions"][number],
+    useProjectOverride = false,
+  ) => typeof value === "number" && Number.isFinite(value)
+    ? formatNumberAtDecimals(
+      value,
+      useProjectOverride
+        ? displayDecimalOverrides?.[`output.${definition.key}`] ?? definition.display_decimals
+        : definition.display_decimals,
+    )
+    : "—";
+  const predictionCell = (
+    prediction: { value?: number; std?: number } | undefined,
+    definition: ApiChainExecution["stages"][number]["output_definitions"][number],
+    useProjectOverride = false,
+  ) => {
+    if (typeof prediction?.value !== "number" || !Number.isFinite(prediction.value)) return "—";
+    const unit = definition.unit.trim();
+    const formattedValue = formatStageNumber(prediction.value, definition, useProjectOverride);
+    const uncertainty = typeof prediction.std === "number" && Number.isFinite(prediction.std)
+      ? `モデル由来 ±${formatStageNumber(prediction.std, definition, useProjectOverride)}${unit ? ` ${unit}` : ""}`
+      : "区間なし";
+    return <span className="chain-prediction-value">
+      <strong>{formattedValue}{unit ? ` ${unit}` : ""}</strong>
+      <small>{uncertainty}</small>
+    </span>;
+  };
 
   async function loadCandidateEvidence(
     candidateId: string,
@@ -551,12 +588,29 @@ export function ChainWorkbenchPage({
         <pre>{JSON.stringify(viewedSnapshot.external_input, null, 2)}</pre>
       </details>
       <div className="chain-snapshot-stages">
-        {viewedSnapshot.stages.map((stage) => (
-          <details key={stage.stage_id}>
+        {viewedSnapshot.stages.map((stage) => {
+          const liveStage = execution?.chain_revision_digest === viewedSnapshot.identity.chain_revision_digest
+            ? execution.stages.find((item) => item.stage_id === stage.stage_id)
+            : undefined;
+          const definitions = stage.output_definitions.length
+            ? stage.output_definitions
+            : liveStage?.output_definitions ?? [];
+          const stagePredictions = predictions(stage);
+          return <details key={stage.stage_id}>
             <summary>Stage {stage.stage_id} · {statusLabel[stage.status as StageStatus]}</summary>
-            <pre>{JSON.stringify(stage.result, null, 2)}</pre>
-          </details>
-        ))}
+            {definitions.length
+              ? <table className="chain-snapshot-output-table">
+                <thead><tr><th>出力</th><th>固定した予測</th></tr></thead>
+                <tbody>{definitions.map((definition) => <tr key={definition.key}>
+                  <th>{definition.label}</th>
+                  <td>{predictionCell(stagePredictions[definition.key], definition, stage.stage_id === "C")}</td>
+                </tr>)}</tbody>
+              </table>
+              : stage.stage_id === "A"
+                ? <pre>{JSON.stringify(stage.result, null, 2)}</pre>
+                : <p className="chain-output-unavailable">このSnapshotの出力定義を確認できません。</p>}
+          </details>;
+        })}
       </div>
     </details>}
 
@@ -577,16 +631,18 @@ export function ChainWorkbenchPage({
         <header><div><span>STAGE B</span><h3>溶着金属成分</h3></div>{latestVariant && <b className="source-badge actual-match">実測照合あり</b>}</header>
         <div className="chain-table-scroll">
           <table><thead><tr><th>成分</th><th>予測</th><th>実測</th></tr></thead>
-            <tbody>{stageBKeys.map((key) => <tr key={key}><th>{key}</th><td>{number(stageBPredictions[key]?.value)}</td><td>{latestVariant ? number(latestVariant.measured_stage_b[key]) : "—"}</td></tr>)}</tbody>
+            <tbody>{stageBDefinitions.map((definition) => <tr key={definition.key}><th>{definition.label}</th><td>{predictionCell(stageBPredictions[definition.key], definition)}</td><td>{latestVariant ? <>{formatStageNumber(latestVariant.measured_stage_b[definition.key], definition)}{definition.unit.trim() ? ` ${definition.unit.trim()}` : ""}</> : "—"}</td></tr>)}</tbody>
           </table>
+          {!stageBDefinitions.length && <p className="chain-output-unavailable">Stage Bの出力定義を取得できません。</p>}
         </div>
       </section>
       <section className="chain-result-card">
         <header><div><span>STAGE C</span><h3>特性</h3></div><b className="source-badge predicted">通常Chain</b></header>
         <div className="chain-table-scroll">
           <table><thead><tr><th>特性</th><th>予測B経由</th><th>実測B経由</th></tr></thead>
-            <tbody>{Object.keys(stageCPredictions).map((key) => <tr key={key}><th>{key}</th><td>{number(stageCPredictions[key]?.value)}</td><td className={latestVariant ? "actual-conditioned" : ""}>{latestVariant ? number(variantCPredictions[key]?.value) : "—"}</td></tr>)}</tbody>
+            <tbody>{stageCDefinitions.map((definition) => <tr key={definition.key}><th>{definition.label}</th><td>{predictionCell(stageCPredictions[definition.key], definition, true)}</td><td className={latestVariant ? "actual-conditioned" : ""}>{latestVariant ? predictionCell(variantCPredictions[definition.key], definition, true) : "—"}</td></tr>)}</tbody>
           </table>
+          {!stageCDefinitions.length && <p className="chain-output-unavailable">Stage Cの出力定義を取得できません。</p>}
         </div>
         {latestVariant && <small className="variant-note">実測B経由は別analysis variantです。通常Chainを上書きしません。</small>}
       </section>
@@ -609,7 +665,7 @@ export function ChainWorkbenchPage({
       <summary>実測Bを使ってStage Cを別分析</summary>
       <p>16成分がすべて揃った実測だけを使用します。不足分を予測値で補いません。</p>
       <label className="actual-id-field">実測ID<input value={draftActualId} onChange={(event) => setDraftActualId(event.target.value)} placeholder="例: WM-001" /></label>
-      <div className="actual-value-grid">{stageBKeys.map((key) => <label key={key}><span>{key}</span><input type="number" step="any" value={actualDraft[key] ?? ""} onChange={(event) => setActualDraft((current) => ({ ...current, [key]: event.target.value }))} /></label>)}</div>
+      <div className="actual-value-grid">{stageBDefinitions.map((definition) => <label key={definition.key}><span>{definition.label}<small>{definition.unit}</small></span><input type="number" step={10 ** -definition.display_decimals} value={actualDraft[definition.key] ?? ""} onChange={(event) => setActualDraft((current) => ({ ...current, [definition.key]: event.target.value }))} /></label>)}</div>
       <button className="primary-button" disabled={busy || !draftActualId.trim() || !comparisonSnapshot || stageBKeys.some((key) => !actualDraft[key]?.trim() || !Number.isFinite(Number(actualDraft[key])))} onClick={() => void createVariant()}>
         実測を使用した別分析を固定
       </button>
