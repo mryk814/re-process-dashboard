@@ -4,6 +4,8 @@
 
 最初に [現行システム基準](current-system-baseline.md) で、現在のProject mode、再利用できる境界、v1固有前提を確認してください。実装一覧は [task-inventory.json](task-inventory.json)、個別契約は [Dataset Input Profile](dataset-input-profile.md)、各Profile、[特徴量](feature-engineering.md)、[Model Package](model-package-contract.md)、[Chain実行](chain-execution.md)、[検討アクティビティ](decision-activities.md) を正本とします。
 
+実装を読みながら学ぶ場合は、[開発教材](learning/README.md)のコードマップと三つの学習ルートを使います。最初の試作章は、検討アクティビティの契約をPydanticからOpenAPI、TypeScript、React、テストまで追います。
+
 ## 最初の判断表
 
 | やりたいこと | 主に変える場所 | 原則変えない場所 | 必要な成果物 |

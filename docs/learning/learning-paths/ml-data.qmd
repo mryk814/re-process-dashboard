@@ -1,0 +1,58 @@
+# ML／dataルート
+
+## 到達点
+
+このルートは、データとモデルを扱う開発者が、source、Profile、Dataset、Feature Pipeline、Model Package、Projectの版を混同せずに変更するためのものです。
+
+読了後は、次を説明できる状態を目指します。
+
+- ExcelまたはCSVの内容と、その列へ与える意味を分ける理由
+- relation、工程条件、反復観測を別の粒度で扱う理由
+- source digest、Profile digest、feature pipeline digest、Package manifest digestの役割
+- 予測値、実測値、入力ばらつき、モデル不確実性を分ける理由
+- 保存済みSnapshotやRunを最新Packageで自動再計算しない理由
+
+## 前提
+
+- 表形式データと教師あり学習の基本を知っている
+- PythonでDataFrameまたは配列を扱える
+- FastAPIとReactの経験は不要
+
+## 順番
+
+| 段階 | 読むもの | 確認する問い | 目安 |
+|---|---|---|---:|
+| 1 | `docs/tutorial-data-pipeline.md` | 最小教材データがどの成果物へ変わるか | 45分 |
+| 2 | `docs/dataset-input-profile.md` | source列をcanonicalな意味へどう対応付けるか | 35分 |
+| 3 | `docs/feature-engineering.md` | canonical inputからモデル入力をどう作るか | 30分 |
+| 4 | `docs/model-package-contract.md` | data-only Packageが何を固定するか | 40分 |
+| 5 | `docs/decisions/data-library-project-references.md` | Dataset RevisionとProject参照をどう分けるか | 35分 |
+| 6 | `docs/current-system-baseline.md` | 現在再利用できる境界とv1固有前提は何か | 30分 |
+| 7 | `backend/tests/test_training_view_boundary.py` | 学習cohortの境界を何で守るか | 25分 |
+| 8 | @sec-contract-stack のprovenance節 | Decision Activity Runへ何を固定するか | 30分 |
+
+既存の `docs/tutorial-data-pipeline.md` は移動しません。
+既存リンクを壊さず、最小データでData、Profile、Feature、Modelを追える教材として参照します。
+
+## 確認コマンド
+
+チュートリアルデータの読み込みとPackage確認は、`docs/tutorial-data-pipeline.md` のversionに従って実行します。
+一般的な回帰を防ぐfocused testは次です。
+
+```powershell
+uv run python -m pytest `
+  backend/tests/test_importer.py `
+  backend/tests/test_feature_pipeline.py `
+  backend/tests/test_model_packages.py `
+  backend/tests/test_training_view_boundary.py
+```
+
+モデル精度の一つの数値だけを合格条件にしません。
+行の意味、target eligibility、split、digest、Package verifyが再現可能であることを先に確認します。
+
+## 次の発展
+
+- 複数観測familyは `docs/dataset-input-profile.md` と対応するProfile実装
+- 外部source更新は `docs/source-data-lifecycle.md`
+- 複数段の学習と実行は `docs/decisions/multistage-chain-architecture.md`
+- 可変長系列は `docs/variable-length-series.md`

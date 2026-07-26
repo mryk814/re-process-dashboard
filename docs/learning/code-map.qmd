@@ -1,0 +1,211 @@
+# 教材用コードマップ {#sec-code-map}
+
+このマップは、技術名から実コードへ移るためのreferenceです。
+一覧の件数をproduction能力の正本として使わず、現在値は `docs/task-inventory.json` と `docs/current-system-baseline.md` で確認してください。
+
+## 契約を画面まで通す
+
+### Decision Activity union
+
+- **Contract**：`backend/src/material_workbench/contracts/decision_activity_contracts.py`
+- **Application**：`backend/src/material_workbench/application/decision_activity_registry.py`、`backend/src/material_workbench/application/decision_activities.py`
+- **APIと生成型**：`backend/src/material_workbench/api/decision_activities.py`、`apps/web/src/generated/api-types.ts`
+- **Frontend**：`apps/web/src/features/workbench/DecisionActivityPanel.tsx`、`apps/web/src/features/workbench/decisionActivities/registry.ts`
+- **Testと文書**：`backend/tests/test_decision_activities.py`、`e2e/decision-activity.spec.ts`、`docs/decision-activities.md`
+
+### Candidate revision
+
+- **Contract**：`backend/src/material_workbench/contracts/schemas.py`
+- **Applicationと保存**：`backend/src/material_workbench/application/candidates.py`、`backend/src/material_workbench/persistence/store.py`
+- **API**：`backend/src/material_workbench/api/candidates.py`
+- **Frontend**：`apps/web/src/features/candidates/`、`apps/web/src/shared/api/workbench-api.ts`
+- **Test**：`backend/tests/test_candidate_safety.py`、`e2e/shared-workbench.spec.ts`
+
+### Project scientific identity
+
+- **Contract**：`backend/src/material_workbench/contracts/chain_contracts.py`、`backend/src/material_workbench/contracts/schemas.py`
+- **Application**：`backend/src/material_workbench/application/projects.py`、`backend/src/material_workbench/tasks/project_runtime_resolver.py`
+- **API**：`backend/src/material_workbench/api/projects.py`
+- **Frontend**：`apps/web/src/features/projects/`
+- **Testと文書**：`backend/tests/test_projects.py`、`docs/current-system-baseline.md`
+
+### Typed API error
+
+- **Contract**：`backend/src/material_workbench/contracts/schemas.py`
+- **Runtime境界**：`backend/src/material_workbench/app.py` のexception handler
+- **Frontend**：`apps/web/src/shared/api/client.ts`
+- **Test**：`backend/tests/test_openapi_contract.py`、`backend/tests/test_candidate_safety.py`
+
+### OpenAPI同期
+
+- **正本**：Pydantic response model
+- **Export**：`backend/scripts/export_openapi.py`
+- **生成物**：`apps/web/src/generated/openapi.json`、`apps/web/src/generated/api-types.ts`
+- **Client**：`apps/web/src/shared/api/client.ts`
+- **Test**：`backend/tests/test_openapi_contract.py`、`npm run api:check`
+
+### Stale response防止
+
+- **Contract**：Candidate revisionとrequest identity
+- **Backend**：`backend/src/material_workbench/execution/inference_work_graph.py`
+- **Frontend**：`apps/web/src/features/workbench/decisionActivityState.ts`、`apps/web/src/features/workbench/DecisionActivityPanel.tsx`
+- **Test**：`backend/tests/test_inference_work_graph.py` と関連E2E
+
+## データから特徴量とモデルへ進む
+
+### Dataset Input Profile
+
+- **Profile**：`backend/src/material_workbench/data/dataset-input-profile-tutorial.json`
+- **Implementation**：`backend/src/material_workbench/data/importer.py`
+- **成果物**：canonical Dataset Revision
+- **Testと文書**：`backend/tests/test_importer.py`、`docs/dataset-input-profile.md`
+
+### Tabular Profile
+
+- **Profile例**：`backend/src/material_workbench/data/tabular-profile-heat-treatment-v1.json`
+- **Implementation**：tabular data loaderとTask module
+- **成果物**：tabular training view
+- **Test**：`backend/tests/test_external_tabular_tasks.py`
+
+### Observation Profile
+
+- **Profile例**：`backend/src/material_workbench/data/observation-profile-welding-consumable-stage-c-v1.json`
+- **Implementation**：observation loaderとtraining specification
+- **成果物**：目的変数別training cohort
+- **Testと文書**：`backend/tests/test_observation_profile.py`、`docs/dataset-input-profile.md`
+
+### Feature Pipeline
+
+- **Contract**：Task contractとpipeline version
+- **Implementation**：`backend/src/material_workbench/modeling/feature_pipeline.py`
+- **成果物**：feature matrixとdigest
+- **Testと文書**：`backend/tests/test_feature_pipeline.py`、`docs/feature-engineering.md`
+
+### Model Package
+
+- **Contract**：`docs/model-package-contract.md`
+- **Workflow**：`backend/scripts/model_workflow.py`
+- **成果物**：`models/packages/` 配下のdata-only Package
+- **Test**：`backend/tests/test_model_packages.py` とPackage verify
+
+### Runtime adapter
+
+- **Contract**：Package manifestのadapter kind
+- **Implementation**：`backend/src/material_workbench/modeling/runtime.py` とallow-list済み実装
+- **成果物**：共通Predictive Summary
+- **Test**：runtime testとPackage smoke
+
+### Training provenance
+
+- **入力**：Dataset、Profile、Feature Pipelineのdigest
+- **Implementation**：Package builder
+- **成果物**：immutable manifest
+- **Testと文書**：builder test、`docs/model-package-contract.md`
+
+## Projectと判断記録を保存する
+
+### Prediction Snapshot
+
+- **Contract**：`backend/src/material_workbench/contracts/schemas.py`
+- **ServiceとStore**：`backend/src/material_workbench/application/records.py`、`backend/src/material_workbench/persistence/store.py`
+- **UI**：Workbenchの履歴面
+- **Testと文書**：`backend/tests/test_project_history.py`、`docs/app-charter.md`
+
+### Actual Measurement
+
+- **Contract**：`backend/src/material_workbench/contracts/schemas.py`
+- **Service**：`backend/src/material_workbench/application/records.py`
+- **UI**：予測と実測の照合
+- **Testと文書**：records関連test、`docs/current-system-baseline.md`
+
+### Objective Definition
+
+- **Contract**：`backend/src/material_workbench/contracts/objective_contracts.py`
+- **Application**：objective serviceとmigration
+- **UI**：Project settingsとDecision Activity
+- **Testと文書**：`backend/tests/test_objective_contracts.py`、`docs/objective-definition.md`
+
+### Project Design Space
+
+- **Contract**：`backend/src/material_workbench/contracts/design_space_contracts.py`
+- **Application**：design space validationとmigration
+- **UI**：range設定、探索、counterfactual
+- **Testと文書**：`backend/tests/test_design_space_contracts.py`、`docs/project-design-space.md`
+
+### Source lifecycle
+
+- **Contract**：data lifecycle contracts
+- **Application**：`backend/src/material_workbench/application/data_lifecycle.py`
+- **UI**：Data Library
+- **Testと文書**：`backend/tests/test_data_lifecycle.py`、`e2e/source-lifecycle.spec.ts`、`docs/source-data-lifecycle.md`
+
+## Chainと複数段を追う
+
+### Chain DefinitionとRevision
+
+- **Contract**：`backend/src/material_workbench/contracts/chain_contracts.py`
+- **Application**：Chain catalogとexecution service
+- **API**：`backend/src/material_workbench/api/chains.py`
+- **Testと文書**：Chain contract test、`docs/chain-execution.md`
+
+### Stage binding
+
+- **Contract**：Chain contractのportとbinding
+- **Application**：Chain validation
+- **UI**：Stage rail
+- **Testと文書**：Chain validation test、`docs/decisions/multistage-chain-architecture.md`
+
+### Partial recomputation
+
+- **入力**：Candidate revisionとStage dependency
+- **Application**：Chain execution service
+- **UI**：previewとStage rail
+- **Test**：Chain execution testとE2E
+
+### Uncertainty propagation
+
+- **Contract**：Chain uncertainty contracts
+- **Application**：uncertainty service
+- **UI**：Chain uncertainty surface
+- **Test**：uncertainty testと関連文書
+
+## Desktop境界を追う
+
+### Electron shell
+
+- **Entry**：`apps/desktop/src/main.ts`
+- **Boundary**：renderer、Python sidecar、filesystem
+- **Testと文書**：desktop typecheck、`docs/windows-distribution.md`
+
+### Python sidecar
+
+- **Entry**：desktop launcherとpackaging script
+- **Boundary**：loopback FastAPIとlaunch token
+- **Test**：`backend/tests/test_windows_packaging_contract.py` とdelivery smoke
+
+### Local API trust
+
+- **Entry**：launch token contract
+- **Boundary**：Vite proxyまたはElectron IPC
+- **Testと文書**：`backend/tests/test_launch_token.py`、`docs/app-charter.md`
+
+### Portable user data
+
+- **Entry**：packaging config
+- **Boundary**：`user-data/` とDB lifecycle
+- **Testと文書**：packaging contract、`docs/windows-distribution.md`
+
+## 関連Issueと設計記録
+
+試作章の直接の題材は、検討アクティビティの現行実装です。
+設計意図は `docs/decision-activities.md` と、その文書が参照するIssue、PRで確認します。
+
+- [Issue #120：検討アクティビティを導入する](https://github.com/mryk814/re-process-dashboard/issues/120)
+- [PR #122：ロバストネス検討アクティビティを追加する](https://github.com/mryk814/re-process-dashboard/pull/122)
+- [Issue #190：型付きActivity拡張と候補差分説明](https://github.com/mryk814/re-process-dashboard/issues/190)
+- [PR #199：型付きunion、registry、候補差分viewへ境界を分ける](https://github.com/mryk814/re-process-dashboard/pull/199)
+- [Issue #191：実行可能な目標到達案](https://github.com/mryk814/re-process-dashboard/issues/191)／[PR #205：feasible counterfactual proposal](https://github.com/mryk814/re-process-dashboard/pull/205)
+- [Issue #237：保存済みRunをURL状態へ載せる](https://github.com/mryk814/re-process-dashboard/issues/237)／[PR #278：Runへ到達・共有するlink](https://github.com/mryk814/re-process-dashboard/pull/278)
+
+IssueやPRは経緯の証拠であり、現在のAPI一覧ではありません。
+現mainの型とテストが食い違う場合は、コードとテストを現在の実装事実として優先し、文書の陳腐化を報告します。

@@ -1,0 +1,49 @@
+# Python／backendルート
+
+## 到達点
+
+このルートは、Python開発者がPydantic contract、application service、SQLite、FastAPI、OpenAPIの責務を分けて変更するためのものです。
+
+読了後は、次を説明できる状態を目指します。
+
+- contract validationと業務上のpreconditionの違い
+- API routerが計算や保存を直接担当しない理由
+- 不変なRunへversionとdigestを残す理由
+- OpenAPI driftをテストで検出する経路
+
+## 前提
+
+- Pythonのclass、type annotation、pytestを読める
+- HTTP requestとresponseの基本を知っている
+- PydanticとFastAPIは未経験でもよい
+
+## 順番
+
+| 段階 | 読むもの | 確認する問い | 目安 |
+|---|---|---|---:|
+| 1 | `docs/app-charter.md` | 何を自動更新してはいけないか | 15分 |
+| 2 | `docs/developer-start-here.md` | 変更の正本はどこか | 20分 |
+| 3 | `docs/current-system-baseline.md` | Project、Dataset、Packageをどう固定するか | 25分 |
+| 4 | `backend/src/material_workbench/contracts/decision_activity_contracts.py` | parameterとresultを何で識別するか | 30分 |
+| 5 | `application/decision_activity_registry.py` と `application/decision_activities.py` | 共通serviceがActivity固有分岐を避ける方法 | 40分 |
+| 6 | `api/decision_activities.py` | HTTP境界で型と業務エラーをどう変換するか | 25分 |
+| 7 | `backend/tests/test_decision_activities.py` | どの不変条件をtestへ固定したか | 35分 |
+| 8 | @sec-contract-stack と @sec-lab-contract | 一経路を説明し、小変更を設計する | 90分 |
+
+## 確認コマンド
+
+リポジトリ直下で実行します。
+
+```powershell
+uv run python -m pytest backend/tests/test_decision_activities.py backend/tests/test_openapi_contract.py
+npm run api:check
+```
+
+最初のコマンドはActivityの契約、実行、保存、共通shellの分岐防止を確認します。
+二つ目は、追跡済みOpenAPIと生成TypeScript型が現行Pydantic contractに一致するかを確認します。
+
+## 次の発展
+
+- Dataset解釈へ進む場合は [ML／dataルート](ml-data.qmd) を読む
+- Reactでunionをnarrowingする箇所へ進む場合は [frontend／desktopルート](frontend-desktop.qmd) を読む
+- 新しいActivityを実装する場合は `docs/decision-activities.md` を正本として使う

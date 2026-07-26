@@ -1,0 +1,146 @@
+---
+title: "演習：契約変更の影響範囲を予測する"
+level: intermediate
+estimated_minutes: 60
+verified_commit: "c3b9c14e6246c77854de7b8294e56584cb039534"
+code_references:
+  - "backend/src/material_workbench/contracts/decision_activity_contracts.py"
+  - "backend/tests/test_decision_activities.py"
+  - "backend/tests/test_openapi_contract.py"
+  - "apps/web/src/generated/api-types.ts"
+  - "apps/web/src/features/workbench/decisionActivities/CandidateDifferenceActivityView.tsx"
+---
+
+# 契約変更の影響範囲を予測する {#sec-lab-contract}
+
+この演習はproduction codeを変更しません。
+変更案、期待する生成差分、必要なtestを先に書き、現mainのcontractと照合します。
+
+## 演習1：requestへ目的を追加する
+
+候補差分を実行するとき、利用者が短い「比較の目的」を入力し、保存済みRunにも残したいとします。
+field名を`comparison_purpose`、空白除去後の長さを1文字以上80文字以下とします。
+
+次の問いへ答えてください。
+
+1. Python contractのどのmodelへfieldを追加するか。
+2. `DecisionActivityRun`へ別fieldを追加する必要があるか。
+3. OpenAPIとTypeScript型を更新するcommandは何か。
+4. Reactのどのcomponentが入力を作るか。
+5. 保存後の復元を確認する既存testはどれか。
+6. schema versionを`v2`へ上げるべきか。
+
+### 成功条件
+
+回答には、変更するpath、変更しないpath、最低限のtestを含めます。
+「frontendとbackendを直す」のような層の名前だけでは完了としません。
+
+### 解答例
+
+1. `CandidateDifferenceParameters`へfieldを追加する。
+2. `DecisionActivityRun.parameters`がparameter model全体を保存するため、Runへ重複fieldを追加しない。
+3. `npm run api:generate`でOpenAPI JSONとTypeScript型を更新し、差分をreviewする。
+4. `CandidateDifferenceActivityView.tsx`が入力stateを持ち、`onRun`へparameterを渡す。
+5. `test_candidate_difference_is_deterministic_and_persistent`を拡張し、保存後にpurposeが復元されることを確認する。request validationの境界testも追加する。
+6. 既存payloadを引き続き読めるoptional fieldなら`v1`のcompatible extensionと判断できる。required fieldにして既存保存payloadを読めなくするなら`v2`を作り、旧Runの読み方を決める。
+
+この解答では、version判断をfield追加という見た目だけで決めません。
+保存済みpayloadの互換性と意味の変更で判断します。
+
+## 演習2：生成型のdriftを観察する
+
+現mainではcodeを変更せず、同期確認だけを実行します。
+
+```powershell
+npm run api:check
+```
+
+成功したら、次の三つを開きます。
+
+1. `backend/src/material_workbench/contracts/decision_activity_contracts.py`
+2. `apps/web/src/generated/openapi.json`
+3. `apps/web/src/generated/api-types.ts`
+
+`candidate-difference-parameters/v1`を検索し、各fileで何を表しているかを書いてください。
+
+### 解答例
+
+- Pythonでは、Pydantic modelのliteralとunion discriminatorを表す。
+- OpenAPIでは、schemaの`const`とdiscriminator mappingを表す。
+- TypeScriptでは、文字列literalとrequest unionの一員を表す。
+
+三つは別々の正本ではありません。
+Python contractからOpenAPIを生成し、OpenAPIからTypeScript型を生成します。
+
+## 演習3：型だけでは防げない誤表示を探す
+
+次の操作順を考えます。
+
+1. 候補Aの差分解析を開始する。
+2. responseが返る前に候補Bを選ぶ。
+3. 候補Aのresponseが返る。
+
+requestとresponseのshapeはすべて正しいものとします。
+それでも起きる誤りと、現行実装の対策を説明してください。
+
+### 解答例
+
+候補Aのresultを候補Bのpanelへ表示すると、payloadの型は正しくても画面文脈が誤ります。
+`DecisionActivityPanel.tsx`はProject ID、Candidate ID、Candidate revisionからidentityを作り、request開始時と現在のidentityが一致する場合だけstateへ反映します。
+候補が変わった時点でAbortControllerも使います。
+
+この演習は、type safetyとtemporal consistencyを分けて考えるものです。
+
+## 演習4：testの置き場所を選ぶ
+
+次の退行を、最も近いtestへ対応付けてください。
+
+| 退行 | 候補 |
+|---|---|
+| `comparison_revision=0`を受け付けた | contract test |
+| serviceへ`if activity_id == ...`が増えた | source inspection test |
+| Pydantic変更後に`openapi.json`を更新し忘れた | OpenAPI contract test |
+| `openapi.json`更新後に`api-types.ts`を更新し忘れた | `npm run api:check` |
+| 画面から「残差」が消えた | Playwright E2E |
+| 候補を切り替えた後に古いresultが表示された | frontend state testまたはE2E |
+
+一つの退行へ複数のtestが反応する場合はあります。
+最初に原因へ近いtestを置くと、失敗時の調査範囲を狭められます。
+
+## 演習5：現mainを検証する
+
+リポジトリ直下で実行します。
+
+```powershell
+uv run python -m pytest `
+  backend/tests/test_decision_activities.py `
+  backend/tests/test_openapi_contract.py
+
+npm run api:check
+```
+
+結果を次のtemplateで記録します。
+
+```text
+verified_commit:
+date:
+pytest:
+api_check:
+unexpected_warnings:
+```
+
+warningが出た場合、成功件数だけを残して無視しません。
+既知のwarningか、今回のcontract経路に関係する退行かを分けます。
+
+## 章末チェックの解答
+
+1. `backend/src/material_workbench/contracts/decision_activity_contracts.py` の`CandidateDifferenceParameters`。
+2. unionが個別modelを選ぶ前にdiscriminatorを必要とするため。
+3. storeとProject文脈を必要とする業務preconditionであり、payload単体の構造条件ではないため。
+4. `test_shared_activity_shells_do_not_name_a_specific_activity`。
+5. `backend/tests/test_openapi_contract.py` のtracked schema比較。
+6. `npm run api:check`。
+7. resultの`schema_version`。
+8. 候補Aのrequest中に候補Bへ移り、候補Aのresponseが後から返る場合。
+9. 作成時のモデルと特徴量表現を固定し、後から同じresultの出所を説明するため。
+10. E2Eは統計値の細部より、利用者が差、残差、warningを区別できる接続を守るため。

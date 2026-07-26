@@ -1,0 +1,31 @@
+# 用語集 {.unnumbered}
+
+**Activity handler**：一つの検討アクティビティについて、definition、parameter kind、準備、計算をまとめた内部allow-listの要素。
+
+**canonical input**：source固有の列名や表現を、Taskが解釈できる意味と単位へ正規化した入力。
+
+**contract**：request、response、保存payload、Taskなどが満たすshape、意味、versionの約束。この教材では主にPydantic modelと関連文書を指す。
+
+**digest**：内容から計算する識別値。pathや表示名ではなく、実際に固定した内容を照合するために使う。
+
+**discriminated union**：固定fieldの値によって、複数のmodelから一つを選べるunion。検討アクティビティでは`schema_version`を使う。
+
+**Model Package**：学習済みartifact、manifest、前処理と学習のprovenance、smoke inputを持つdata-only成果物。任意Pythonコードを含めない。
+
+**OpenAPI**：HTTP endpoint、parameter、request、response schemaを機械可読に表す契約。FastAPIがPydantic modelから生成する。
+
+**Profile**：ExcelまたはCSVのsource構造を、canonicalなentity、relation、observation、単位へ対応付ける版付きの解釈。
+
+**Project scientific identity**：Projectが固定するDataset View、Task contract、Model Package、またはChain Revisionの組合せ。
+
+**provenance**：結果がどのTask、Candidate revision、Model Package、Feature Pipeline、parameterから作られたかを示す来歴。
+
+**revision**：同じ論理対象の変更版。Candidateではcompare-and-swapと過去版参照に使う。
+
+**schema version**：保存または通信するpayloadのshapeと意味の版。表示labelの版とは分ける。
+
+**stale response**：request開始後に画面のProject、Candidate、revisionが変わり、現在の画面文脈には属さなくなったresponse。
+
+**Task Definition**：予測Taskのcanonical input、output、単位、範囲、能力を定義する契約。
+
+**training cohort**：ある目的変数の学習へ使う観測集合。探索可能なDataset全体やProject参照データと同一とは限らない。

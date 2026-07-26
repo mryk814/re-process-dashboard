@@ -1,0 +1,60 @@
+# frontend／desktopルート
+
+## 到達点
+
+このルートは、ReactまたはElectron開発者が、生成型を使ってAPI応答を安全に表示し、古い応答を現在の候補へ反映しないためのものです。
+
+読了後は、次を説明できる状態を目指します。
+
+- `openapi-fetch`がendpointごとのrequestとresponseを型付けする経路
+- `schema_version`によるTypeScript unionのnarrowing
+- Activity共通shellとActivity固有view registryの境界
+- candidate revisionとrequest identityがstale responseを防ぐ方法
+- Electron rendererとPython sidecarの信頼境界
+
+## 前提
+
+- TypeScriptのunion、React state、effectを読める
+- browserのrequestとresponseを開発者ツールで確認できる
+- Electron固有APIの経験は不要
+
+## 順番
+
+| 段階 | 読むもの | 確認する問い | 目安 |
+|---|---|---|---:|
+| 1 | `apps/web/src/shared/api/client.ts` | 生成`paths`をclientへどう渡すか | 15分 |
+| 2 | `apps/web/src/shared/api/workbench-api.ts` | 画面向けAPI wrapperが何を隠すか | 25分 |
+| 3 | `DecisionActivityPanel.tsx` | 共通shellが何を所有するか | 30分 |
+| 4 | `decisionActivities/registry.ts` | Activity固有viewをどこでallow-listするか | 15分 |
+| 5 | `CandidateDifferenceActivityView.tsx` | result unionをどうnarrowingするか | 30分 |
+| 6 | `decisionActivityState.ts` | 選択候補が変わった後の応答をどう捨てるか | 20分 |
+| 7 | `e2e/decision-activity.spec.ts` | 利用者の操作と保存結果をどう検証するか | 30分 |
+| 8 | `docs/app-charter.md` のローカルAPI境界 | loopbackだけを認証にしない理由 | 20分 |
+| 9 | @sec-contract-stack と @sec-lab-contract | Python契約まで戻って変更を設計する | 90分 |
+
+## 確認コマンド
+
+検証commitでは、Playwright 3件のうち1件が成功し、既知の2件が失敗します。
+比較候補labelの追従漏れは [Issue #279](https://github.com/mryk814/re-process-dashboard/issues/279)、デモ候補の未宣言`Ca`は [Issue #280](https://github.com/mryk814/re-process-dashboard/issues/280) で追跡します。
+両Issueが閉じるまでは、1 passed、2 known failuresが現行の期待結果です。
+
+```powershell
+npm run api:check
+npm run typecheck
+npx playwright test e2e/decision-activity.spec.ts
+```
+
+PlaywrightはAPIとWebを起動するため、focusedな反復では時間がかかります。
+完了判定では共有serverを再利用せず、既定の隔離DBで実行します。
+
+## desktopへ進む
+
+Electronはbookの主題ではありません。
+次の順に境界だけを確認します。
+
+1. `apps/desktop/src/main.ts` でrendererとsidecarの起動責務を確認する
+2. `docs/app-charter.md` でlaunch tokenとloopback境界を確認する
+3. `docs/windows-distribution.md` でportable user dataと配布物を確認する
+4. `backend/tests/test_windows_packaging_contract.py` で配布契約を確認する
+
+React componentからfilesystemやPython processを直接操作する設計へ寄せないことが、この経路の確認点です。
