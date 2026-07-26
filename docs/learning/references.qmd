@@ -290,6 +290,20 @@ licenseを確認できない画像は使用しません。
 - 読む理由：HTMLとPDFで同じ参照先へ到達できるようにします。
 - 注意：参照が解決しても、改ページや長い表の視覚的破綻は目視検査が必要です。
 
+**Quarto, *Creating Filters* [@quarto-filters]**
+
+- 役割：implementation reference
+- 推奨箇所：*Activating Filters*、*Filter Extensions*
+- 読む理由：一つの解答blockをHTMLとPDFで別の配置へ変換します。
+- 注意：filterは問題、成功条件、解答の意味上の欠落を補いません。
+
+**WHATWG, *The details element* [@whatwg-details]**
+
+- 役割：standard
+- 推奨箇所：*The details element*、*The summary element*
+- 読む理由：JavaScriptなしで開閉できるdisclosureの構造と初期状態を確認します。
+- 注意：native要素を使っても、focus表示と印刷結果は実ブラウザで確認します。
+
 **Quarto, *Project Profiles* [@quarto-profiles]**
 
 - 役割：implementation reference

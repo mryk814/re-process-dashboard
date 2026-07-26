@@ -1,7 +1,7 @@
 ---
 level: intermediate
 estimated_minutes: 120
-verified_commit: "eaaf37bee998e8640df83fd5146baac97a46bb71"
+verified_commit: "f93af87d71c415250677638fbfe6788e89790e2e"
 code_references:
   - "backend/src/material_workbench/persistence/store.py"
   - "backend/src/material_workbench/persistence/sqlite_connection.py"
@@ -219,6 +219,9 @@ $$
 
 Workspace catalogでは、schema migration直後の既存Projectも`unbound_legacy`です。
 別のbootstrap処理がupgrade時点で確認できた参照を固定した場合だけ、`assumed_current_at_upgrade`へ進みます。
+このbootstrapが固定するのは、Dataset View、Task contract、Model Packageの参照です。
+Project Seriesへの所属は判断のまとまりを表す任意情報なので、legacy Projectの名前からSeriesを発明せず、`project_series_id`を未所属のままにします。
+起動時auditも、`project_series_id`が保存されているProjectだけ、その参照先のSeriesが存在するかを検査します。
 新規Projectが作成時に明示したbindingの`explicit`とは区別されます。
 
 ::: {.callout-note title="DECISION"}
@@ -417,6 +420,8 @@ WALへ変える場合は、並行性だけでなくbackup、sidecar停止、file
 8. foreign keyで表現しやすい条件は何か。
 9. JSON内部のprovenanceをapplicationで検証する理由は何か。
 10. 一件のmigration失敗と、migration列の途中停止はどう違うか。
+
+[章末チェックの解答](../labs/break-and-repair-migration.qmd#answer-migration-chapter-check)を確認してから、同じページの変更演習へ進みます。
 
 ## Further Reading
 

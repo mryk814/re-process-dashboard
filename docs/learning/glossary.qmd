@@ -1,4 +1,4 @@
-# 用語集 {.unnumbered}
+# 用語集 {#sec-glossary .unnumbered}
 
 **Activity handler**：一つの検討アクティビティについて、definition、parameter kind、準備、計算をまとめた内部allow-listの要素。
 

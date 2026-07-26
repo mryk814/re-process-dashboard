@@ -88,11 +88,45 @@ code_references:
 - 統合HTMLは学習者向け教材と編集と保守のガイドを別partにし、一つの検索索引へ収録する。
 - 学習者向けPDFへ `foundations.qmd`、`writer-persona.md`、`code-map.qmd`、`learning-paths/`、`tooling.qmd`、`evaluation.qmd` を含めない。
 - profileごとに共通本文をコピーしない。同じQMDを双方のchapter listから参照する。
+- `site` profileの`solution-placement`は`inline-disclosure`、`reader` profileは`answer-chapter`とする。
+- 解答本文は`.exercise-solution` blockへ一度だけ書き、HTML用とPDF用に複製しない。
 - 参考文献の書誌情報は `references.bib`、教材上の役割と読書案内は `reference-annotations.json` を正本にする。
 - `docs/learning/_build/`は生成物であり、commitしない。
 - generated HTMLとPDFを手編集しない。
 - 既存の `docs/tutorial-data-pipeline.md` は移動せず、必要な学習ルートから参照する。
 - production codeを教材都合で不自然に変えない。
+
+## 演習と解答
+
+各演習には一意な`exercise-<unit>-<NN>` IDを付ける。
+問題本文の直後に`### 成功条件`を置き、必要な場合だけ`### ヒント`を加える。
+成功条件は、提出物、判定境界、観察するtestのいずれかを具体的に示す。
+
+解答は次の形で書く。
+
+```markdown
+[演習1の解答](#answer-contract-01)は、回答を固定してから開きます。
+
+::: {#answer-contract-01 .exercise-solution data-label="演習1の解答"}
+#### 解答例
+
+完成した回答を書く。
+
+#### 解答の理由
+
+前提、境界、trade-off、testとの対応を書く。
+
+#### よくある不十分な回答
+
+不足する条件と、その回答が成立する限定条件を書く。
+:::
+```
+
+answer IDは対応するexercise IDの`exercise-`を`answer-`へ置き換える。
+HTMLのsummaryへ答えの内容を書かず、「解答例を見る」に固定する。
+検証command、記録template、失敗時の確認先は問題側へ残し、実測件数を唯一の解答にしない。
+章末チェックの解答は`answer-<unit>-chapter-check`として別のsolution blockへ入れる。
+問題側へ完成表、test mapping、期待HTTP codeを残さない。
 
 ## 検証
 
@@ -101,6 +135,7 @@ code_references:
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-references.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-main-drift.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-exercise-solutions.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/build.ps1 -Clean
 ```
 

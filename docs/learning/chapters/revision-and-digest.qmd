@@ -1,7 +1,7 @@
 ---
 level: intermediate
 estimated_minutes: 150
-verified_commit: "eaaf37bee998e8640df83fd5146baac97a46bb71"
+verified_commit: "f93af87d71c415250677638fbfe6788e89790e2e"
 code_references:
   - "backend/src/material_workbench/contracts/schemas.py"
   - "backend/src/material_workbench/application/candidates.py"
@@ -426,6 +426,8 @@ display-only fieldを入れれば不要な再計算が増え、計算入力を�
 8. 同じrequest identityを二回要求するとき、sequenceが必要な理由は何か。
 9. stale dataを保持する場合、画面が示すべき状態は何か。
 10. backend compare-and-swap、immutable history、renderer guardは、それぞれ何を守るか。
+
+[章末チェックの解答](../labs/trace-revision-conflict.qmd#answer-revision-chapter-check)を確認してから、同じページの変更演習へ進みます。
 
 ## Further Reading
 

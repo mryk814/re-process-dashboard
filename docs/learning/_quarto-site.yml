@@ -1,3 +1,5 @@
+solution-placement: inline-disclosure
+
 book:
   title: "Material Decision Workbench 教材"
   output-file: "material-decision-workbench-site"

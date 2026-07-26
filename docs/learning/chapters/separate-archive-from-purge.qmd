@@ -1,7 +1,7 @@
 ---
 level: intermediate
 estimated_minutes: 105
-verified_commit: "eaaf37bee998e8640df83fd5146baac97a46bb71"
+verified_commit: "f93af87d71c415250677638fbfe6788e89790e2e"
 code_references:
   - "docs/decisions/sqlite-project-lifecycle-policy.md"
   - "backend/src/material_workbench/api/projects.py"
@@ -107,13 +107,16 @@ repositoryは`BEGIN IMMEDIATE`を開始し、次を同じtransactionで行いま
 
 1. `projects.archived_at`と`updated_at`を更新する。
 2. Project IDで始まる`chain_execution_claims.scope_id`を削除する。
-3. 同じProject Seriesにactive Projectが残らなければ、そのSeriesもarchiveする。
+3. ProjectがProject Seriesに属し、同じSeriesにactive Projectが残らなければ、そのSeriesもarchiveする。
 
 Candidate、Candidate revision、Snapshot、実測、保存済みRunは削除しません。
 archive後のtable countがほとんど変わらないことは、操作が失敗した証拠ではなく保持policyの結果です。
 
+Project Seriesへの所属は任意です。
+ProjectがSeriesに属していなければ、archiveでProject Series rowは変わりません。
+
 ただし、archiveを「何も変えない」とも説明できません。
-Project row、Project Series、実行中claimは変わります。
+Project row、所属している場合のProject Series、実行中claimは変わります。
 
 `Store.archive_project()`は、すでにarchive済みなら新しい副作用を重ねません。
 同じProjectへ操作を繰り返しても、`archived_at`を毎回更新し直さないidempotentな状態遷移です。
@@ -166,7 +169,7 @@ archive後にrestoreしても、消したclaimは自動再開しません。
 ## restoreは同じDB内の状態遷移である
 
 `POST /api/projects/{project_id}/restore`は、同じProject rowの`archived_at`を`NULL`へ戻します。
-所属するProject Seriesも必要ならactiveへ戻します。
+ProjectがProject Seriesに属していれば、そのSeriesも必要に応じてactiveへ戻します。
 
 Candidate、Snapshot、実測をbackupからcopyし直しません。
 archive中も同じDBに残っていた証拠を、通常経路から再び利用できるようにします。
@@ -266,7 +269,7 @@ gateを通ったpurgeは、Project Aに属するCandidate IDを集め、次を�
 - Candidate revisionとcurrent Candidate
 - Project row
 
-Project Seriesは削除しません。
+Project Seriesへの所属がある場合も、そのSeries rowは削除しません。
 active Projectが残らなければarchiveします。
 
 Data Library、Dataset revision、Model Package、Chain Definition、Chain Revisionも削除しません。
@@ -420,6 +423,8 @@ purgeはProject-scoped evidenceを削除しますが、Workspace backupやexport
 8. `ON DELETE CASCADE`をshared evidenceへ一律に付けない理由は何か。
 9. transaction成功と削除対象の正しさは、どう違うか。
 10. 新しいProject-scoped tableを追加するとき、同時に更新する四つのinventoryは何か。
+
+[章末チェックの解答](../labs/trace-project-lifecycle.qmd#answer-project-lifecycle-chapter-check)を確認してから、同じページの変更演習へ進みます。
 
 ## Further Reading
 

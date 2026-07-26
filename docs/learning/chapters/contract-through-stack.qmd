@@ -1,7 +1,7 @@
 ---
 level: intermediate
 estimated_minutes: 90
-verified_commit: "eaaf37bee998e8640df83fd5146baac97a46bb71"
+verified_commit: "6d7be3cea9aad5e0cad6ee8146191545575b6c14"
 code_references:
   - "backend/src/material_workbench/contracts/decision_activity_contracts.py"
   - "backend/src/material_workbench/application/decision_activity_registry.py"
@@ -625,7 +625,7 @@ npm run api:check
 UIまで変更した場合は、隔離DBを使う既定設定で次も実行します。
 
 ::: {.callout-warning title="現mainの既知E2E failure"}
-2026年7月27日にmain commit `b8ef18a` で再実行し、3件中2件が成功しました。
+2026年7月27日にmerge済みHEAD `f93af87` で再実行し、3件中2件が成功しました。
 失敗はrevision付きoption labelへのtest追従漏れ [Issue #279](https://github.com/mryk814/re-process-dashboard/issues/279) だけで、open中の [Issue #280](https://github.com/mryk814/re-process-dashboard/issues/280) に記録された失敗は再現しませんでした。
 Issue #279が閉じるまでは、2 passed、1 known failureを現行の期待結果とし、失敗を教材変更の退行と誤認しません。
 :::
@@ -854,7 +854,7 @@ field名、required、literal、union、endpoint bodyの機械的な同期を担
 9. RunへPackage digestとFeature Pipeline digestを残す理由は何か。
 10. E2Eが数値をすべて固定せず、表示上の区別を確認する理由は何か。
 
-解答と変更演習は[契約変更の影響範囲を予測する](../labs/extend-contract.qmd)にあります。
+[章末チェックの解答](../labs/extend-contract.qmd#answer-contract-chapter-check)を確認してから、同じページの変更演習へ進みます。
 
 ## Further Reading
 

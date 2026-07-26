@@ -928,6 +928,64 @@
       "official_url_checked_on": "2026-07-27"
     },
     {
+      "citekey": "quarto-filters",
+      "roles": [
+        "implementation-reference"
+      ],
+      "level": "intermediate",
+      "source_tier": "official-documentation",
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "pandoc-ast",
+        "format-specific-rendering",
+        "shared-manuscript"
+      ],
+      "repo_routes": [
+        "docs/learning/filters/exercise-solutions.lua",
+        "docs/learning/_quarto.yml"
+      ],
+      "recommended_sections": [
+        "Activating Filters",
+        "Filter Extensions"
+      ],
+      "why_read": "一つの解答blockを、HTMLの開閉要素とPDFの巻末解答へ変換する位置を確認する。",
+      "reading_question": "解答本文を複製せず、出力媒体ごとに配置だけを変える責務はどこへ置くべきか。",
+      "caution": "Lua filterは原稿の意味を補わず、明示IDや成功条件が欠けた演習を自動で良問にはしない。",
+      "open_access": "full",
+      "edition_verified": true,
+      "official_url_checked_on": "2026-07-27"
+    },
+    {
+      "citekey": "whatwg-details",
+      "roles": [
+        "standard"
+      ],
+      "level": "intermediate",
+      "source_tier": "standard",
+      "language": "en",
+      "license": "WHATWG document terms; no reuse assumed",
+      "related_concepts": [
+        "disclosure-widget",
+        "keyboard-access",
+        "progressive-disclosure"
+      ],
+      "repo_routes": [
+        "docs/learning/filters/exercise-solutions.lua",
+        "docs/learning/styles/book.scss"
+      ],
+      "recommended_sections": [
+        "The details element",
+        "The summary element"
+      ],
+      "why_read": "JavaScriptへ依存せず、初期状態で閉じた解答を利用者が開閉できるHTML構造を確認する。",
+      "reading_question": "解答の開閉に独自buttonや静的ARIA属性を追加せず、browser標準の意味を使えるか。",
+      "caution": "native disclosureであってもfocus表示、印刷時の解答掲載、生成HTMLの構造は別に検証する。",
+      "open_access": "full",
+      "edition_verified": true,
+      "official_url_checked_on": "2026-07-27"
+    },
+    {
       "citekey": "quarto-search",
       "roles": [
         "implementation-reference"

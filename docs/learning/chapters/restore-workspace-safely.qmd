@@ -444,7 +444,7 @@ content digestで分離されるため現Workspaceの意味内容は変えませ
 7. rendererへrestore元pathを渡させない境界はどこか。
 8. unit testとpackaged smokeが互いに代替できない理由は何か。
 
-解答と故障予測の演習は[復元の途中で止まったWorkspaceを診断する](../labs/trace-workspace-restore.qmd)にあります。
+[章末チェックの解答](../labs/trace-workspace-restore.qmd#answer-workspace-chapter-check)を確認してから、同じページの故障予測演習へ進みます。
 
 ## Further Reading
 

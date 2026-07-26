@@ -1,7 +1,7 @@
 ---
 level: intermediate
 estimated_minutes: 90
-verified_commit: "eaaf37bee998e8640df83fd5146baac97a46bb71"
+verified_commit: "f93af87d71c415250677638fbfe6788e89790e2e"
 code_references:
   - "backend/src/material_workbench/persistence/store.py"
   - "backend/src/material_workbench/persistence/project_lifecycle_migration.py"
@@ -50,22 +50,13 @@ Project Aはarchiveできます。
 Project Bの来歴を壊すため、Project Aはpurgeできません。
 Project Cはarchive後、確認用IDが一致すればpurgeできます。
 
-## checkpoint 1：archive前後のrowを予測する
+## checkpoint 1：archive前後のrowを予測する {#exercise-project-lifecycle-01}
 
-`test_archive_preserves_chain_evidence_and_purge_removes_all()`を読み、archive直前に存在するrowを表へ書き出します。
+`test_archive_preserves_chain_evidence_and_purge_removes_all()`を読み、archive直前と直後のrow数を予測してください。
 
-| table | archive前 | archive後の予測 | 理由 |
-|---|---:|---:|---|
-| `projects` | 1 | 1 | rowを保持し`archived_at`を更新する |
-| `candidates` | 1 | 1 | Project-owned evidenceを保持する |
-| `candidate_revisions` | 1 | 1 | 過去revisionを保持する |
-| `chain_snapshot_records` | 1 | 1 | 保存済みevidenceを保持する |
-| `chain_distribution_runs` | 1 | 1 | 保存済みevidenceを保持する |
-| `chain_analysis_variant_records` | 1 | 1 | 保存済みevidenceを保持する |
-| `chain_execution_state` | 1 | 1 | 保存済み実行状態を保持する |
-| `chain_execution_claims` | 1 | 0 | 遅いwriterの権利を失効させる |
+対象は`projects`、`candidates`、`candidate_revisions`、三種類のChain evidence、`chain_execution_state`、`chain_execution_claims`です。
 
-予測後、中心testだけを実行します。
+予測後、中心testを実行します。
 
 ```powershell
 uv run python -m pytest `
@@ -74,18 +65,42 @@ uv run python -m pytest `
   -vv
 ```
 
-成功条件は、testがpassし、archive後のassertが予測表と一致することです。
+対応する[checkpoint 1の解答](#answer-project-lifecycle-01)は、予測を書き終えてから確認します。
 
-失敗した場合は、最初に`Store.archive_project()`のtransaction内で削除するtableを確認します。
-test名から保持policyを推測せず、SQLとassertを照合します。
+### 成功条件
 
-## checkpoint 2：archive済みProjectへのwriteを止める
+archiveで保持するrowと削除するrowを表にし、各判断をSQLまたはassertへ対応付けられれば成功です。
 
-同じtestは、archive後に`store.create_candidate()`と`store.delete_candidate()`を直接呼びます。
-どちらも`sqlite3.IntegrityError`の`project_archived`で失敗します。
+### ヒント
 
-ここでAPI routeを経由していない点を確認します。
-repositoryを直接呼んでもdatabase triggerがwriteを拒否するためです。
+test名から保持policyを推測せず、`Store.archive_project()`のtransaction内にあるDELETEを探します。
+
+::: {#answer-project-lifecycle-01 .exercise-solution data-label="checkpoint 1の解答"}
+#### 解答例
+
+| table | archive前 | archive後 | 理由 |
+|---|---:|---:|---|
+| `projects` | 1 | 1 | rowを保持して`archived_at`を更新する |
+| `candidates` | 1 | 1 | Project-owned evidenceを保持する |
+| `candidate_revisions` | 1 | 1 | 過去revisionを保持する |
+| `chain_snapshot_records` | 1 | 1 | 保存済みevidenceを保持する |
+| `chain_distribution_runs` | 1 | 1 | 保存済みevidenceを保持する |
+| `chain_analysis_variant_records` | 1 | 1 | 保存済みevidenceを保持する |
+| `chain_execution_state` | 1 | 1 | 保存済み実行状態を保持する |
+| `chain_execution_claims` | 1 | 0 | 遅いwriterの実行権を失効させる |
+
+#### 解答の理由
+
+archiveは判断証拠を削除せず、Projectの表示状態とwrite可能性を変えます。
+実行中claimだけは、archive後の遅い保存を防ぐために削除します。
+
+#### よくある不十分な回答
+
+「すべて残る」では、claimの失効を説明できません。
+「通常一覧から消えるのでrowも消える」では、表示上の非表示とDB上の削除を混同しています。
+:::
+
+## checkpoint 2：archive済みProjectへのwriteを止める {#exercise-project-lifecycle-02}
 
 `install_project_archive_write_guards()`で、`candidates`に対する三つのtriggerを探します。
 
@@ -95,16 +110,42 @@ guard_archived_candidates_update
 guard_archived_candidates_delete
 ```
 
-次の問いへ答えます。
+次の四問へ答えてください。
 
 1. INSERTとUPDATEが`NEW.project_id`を見る理由は何か。
 2. DELETEが`OLD.project_id`を見る理由は何か。
 3. DELETEだけが`project_purge_authorizations`を確認する理由は何か。
 4. restoreのProject UPDATEがguardを通れる条件は何か。
 
-期待する答えは、通常writeを止めながら、明示purgeと`archived_at=NULL`へのrestoreだけを許すことです。
+対応する[checkpoint 2の解答](#answer-project-lifecycle-02)は、四問すべてへ根拠を書いてから確認します。
 
-## checkpoint 3：遅いChain writerを止める
+### 成功条件
+
+`NEW`と`OLD`をoperationごとのrow像へ対応付け、通常DELETEとpurgeを区別できれば成功です。
+
+### ヒント
+
+同じtestはAPIを通さず、`store.create_candidate()`と`store.delete_candidate()`を直接呼びます。
+
+::: {#answer-project-lifecycle-02 .exercise-solution data-label="checkpoint 2の解答"}
+#### 解答例
+
+1. INSERTとUPDATEでは、書込み後のrowが属するProjectを`NEW.project_id`から判定します。
+2. DELETE後には`NEW`がないため、削除対象rowの所属を`OLD.project_id`から判定します。
+3. 通常DELETEは拒否しつつ、purge transactionが明示的に承認したDELETEだけを通すためです。
+4. ProjectのUPDATE guardは、archive済みrowを`archived_at=NULL`へ戻すrestoreだけを許します。
+
+#### 解答の理由
+
+database triggerはrepositoryを迂回するwriteにも働きます。
+一方、purgeはProject-owned rowを削除する必要があるため、transaction内だけで有効な承認rowが通常DELETEとの境界になります。
+
+#### よくある不十分な回答
+
+「triggerがarchive中のwriteを止める」だけでは、operationごとの`NEW`と`OLD`、purge例外、restore条件を説明していません。
+:::
+
+## checkpoint 3：遅いChain writerを止める {#exercise-project-lifecycle-03}
 
 次を実行します。
 
@@ -115,10 +156,16 @@ uv run python -m pytest `
   -vv
 ```
 
-testはarchive前にgeneration 1のclaimを取得します。
-archive後は同じrequestのgenerationを取得できず、新しいclaimも取得できません。
+claim取得前、generation 1取得後、archive commit後、restore後について、Project状態、claimの有無、writerの保存可否を記録してください。
 
-次のtimelineを埋めます。
+対応する[checkpoint 3の解答](#answer-project-lifecycle-03)は、timelineを埋めてから確認します。
+
+### 成功条件
+
+restore後に古いrequestが自動再開しないことを、claimの有無から説明できれば成功です。
+
+::: {#answer-project-lifecycle-03 .exercise-solution data-label="checkpoint 3の解答"}
+#### 解答例
 
 | 時点 | Project | claim | writerの保存可否 |
 |---|---|---|---|
@@ -127,20 +174,36 @@ archive後は同じrequestのgenerationを取得できず、新しいclaimも取
 | archive commit後 | archived | なし | 不可 |
 | restore後 | active | なし | 自動では不可 |
 
-最後の行が重要です。
-restoreはProjectをactiveへ戻しますが、以前のrequestへ実行権を再発行しません。
+#### 解答の理由
 
-## checkpoint 4：APIの三つの拒否を分ける
+archiveはclaimを削除し、遅いwriterが保存時に行うgeneration照合を失敗させます。
+restoreはProject rowの状態を戻しますが、以前のrequestへclaimを再発行しません。
 
-`api/projects.py`の`purge_project()`と中心testを読み、次のrequestを比較します。
+#### よくある不十分な回答
 
-```text
-1. active Project C + 正しいconfirm_project_id
-2. archived Project C + 誤ったconfirm_project_id
-3. archived Project C + 正しいconfirm_project_id
-```
+「restore後はactiveなので保存できる」では、Project状態とrequest単位の実行権を混同しています。
+:::
 
-予測を先に記録します。
+## checkpoint 4：APIの三つの拒否を分ける {#exercise-project-lifecycle-04}
+
+`api/projects.py`の`purge_project()`と中心testを読み、次のrequestのHTTP statusとmachine-readable codeまたは結果を予測してください。
+
+1. active Project Cと正しい`confirm_project_id`
+2. archived Project Cと誤った`confirm_project_id`
+3. archived Project Cと正しい`confirm_project_id`
+
+対応する[checkpoint 4の解答](#answer-project-lifecycle-04)は、三つの予測を書いてから確認します。
+
+### 成功条件
+
+同じ409となる二つのrequestを、失敗した不変条件と検査層で区別できれば成功です。
+
+### ヒント
+
+確認用IDはrouterで比較し、archive状態と外部参照はrepositoryで検査します。
+
+::: {#answer-project-lifecycle-04 .exercise-solution data-label="checkpoint 4の解答"}
+#### 解答例
 
 | request | HTTP | codeまたは結果 |
 |---|---:|---|
@@ -148,16 +211,22 @@ restoreはProjectをactiveへ戻しますが、以前のrequestへ実行権を�
 | 2 | 409 | `project_purge_confirmation_mismatch` |
 | 3 | 204 | Project-owned evidenceを削除 |
 
-確認用IDの比較はrouterで行います。
-archive状態と外部参照の検査はrepositoryで行います。
+#### 解答の理由
 
-同じ409でも、失敗した不変条件は異なります。
-clientはmessage文字列だけでなく、machine-readableなerror codeで分岐できます。
+active Projectのpurge拒否はlifecycle policyです。
+確認用IDの不一致は誤操作防止です。
+両者はHTTP statusが同じでも、clientが分岐すべきerror codeが異なります。
 
-## checkpoint 5：Project Bのprovenanceがpurgeを止める
+#### よくある不十分な回答
 
-`test_purge_rejects_non_copy_cross_project_provenance()`を読みます。
-testはProject AのSnapshot S1を作り、Project BのCandidate revisionへ次を保存します。
+「1と2は削除できない」だけでは、どの検査がどの層で失敗したかを説明できません。
+:::
+
+## checkpoint 5：Project Bのprovenanceがpurgeを止める {#exercise-project-lifecycle-05}
+
+`test_purge_rejects_non_copy_cross_project_provenance()`と`_candidate_provenance_references_project()`を読みます。
+
+Project BのCandidate revisionには、Project AのSnapshotを指す次のpayloadがあります。
 
 ```json
 {
@@ -168,10 +237,12 @@ testはProject AのSnapshot S1を作り、Project BのCandidate revisionへ次�
 }
 ```
 
-Project Aのarchiveは204です。
-続くpurgeは409 `project_has_derived_candidates`です。
+次の四問へ答えた後、focused testを実行してください。
 
-次を実行します。
+1. `source_kind`が`copy`なら、どのfieldを直接比較するか。
+2. `source_kind`が`snapshot`なら、どの二tableを経由するか。
+3. JSONが壊れていた場合、参照なしとしてpurgeしてよいか。
+4. 新しい`source_kind="proposal_run"`を追加した場合、どの関数とtestを更新するか。
 
 ```powershell
 uv run python -m pytest `
@@ -180,24 +251,46 @@ uv run python -m pytest `
   -vv
 ```
 
-`PRAGMA foreign_key_check`だけを実行しても、この拒否条件は導けません。
-Candidate revisionのJSONをparseし、SnapshotからCandidate、Projectへたどるapplication scanが必要です。
+対応する[checkpoint 5の解答](#answer-project-lifecycle-05)は、四問とtest結果を記録してから確認します。
 
-次の問いへ答えます。
+### 成功条件
 
-1. `source_kind`が`copy`なら、どのfieldを直接比較するか。
-2. `source_kind`が`snapshot`なら、どの二tableを経由するか。
-3. JSONが壊れていた場合、参照なしとしてpurgeしてよいか。
-4. 新しい`source_kind="proposal_run"`を追加した場合、どの関数とtestを更新するか。
+foreign keyでは検出できないJSON参照の解決手順と、解釈不能時に停止する理由を説明できれば成功です。
 
-不正JSONではdata integrity errorとして停止します。
-来歴を解釈できない状態を、参照がない状態へ読み替えないためです。
+::: {#answer-project-lifecycle-05 .exercise-solution data-label="checkpoint 5の解答"}
+#### 解答例
 
-## checkpoint 6：削除集合と保持集合を照合する
+1. `copy`では`source_ref.project_id`を削除対象Project IDと直接比較します。
+2. `snapshot`では`source_ref.snapshot_id`から`snapshots`を引き、そこにある`candidate_id`から`candidates`の`project_id`へ進みます。
+3. 参照なしとしてpurgeせず、data integrity errorで停止します。
+4. `_candidate_provenance_references_project()`へ`proposal_run`の解決を追加し、別Projectからの参照でpurgeが拒否されるtestと壊れた参照で停止するtestを追加します。
 
-`Store.purge_project()`のDELETEを上から読み、ADRの保持表と照合します。
+#### 解答の理由
 
-次のinventoryを埋めます。
+Candidate revisionの来歴はJSON内にあり、schemaのforeign keyだけではProject Aへの参照を表現していません。
+解釈不能を参照なしへ読み替えると、Project Bの来歴を壊したままpurgeが成功します。
+
+#### よくある不十分な回答
+
+「foreign keyを追加する」だけでは、既存JSONの`source_kind`ごとに異なる参照先を解決できません。
+関数名だけを挙げ、拒否testを追加しない回答も不十分です。
+:::
+
+## checkpoint 6：削除集合と保持集合を照合する {#exercise-project-lifecycle-06}
+
+`Store.purge_project()`のDELETEを上から読み、ADRの保持表と照合してください。
+
+Project row、Candidate current row、Candidate revision、Snapshotと実測、Chain execution state、Chain DefinitionとRevision、Dataset revision、Model Packageについて、purge後の状態と根拠を書きます。
+Project Aに`project_series_id`がある場合はProject Seriesも追い、未所属の場合はその事実を記録します。
+
+対応する[checkpoint 6の解答](#answer-project-lifecycle-06)は、inventoryを完成させてから確認します。
+
+### 成功条件
+
+Project-owned evidence、shared artifact、lifecycle groupingの三種類へ分類し、testで固定した事実と実装読解だけで確認した事実を区別できれば成功です。
+
+::: {#answer-project-lifecycle-06 .exercise-solution data-label="checkpoint 6の解答"}
+#### 解答例
 
 | artifact | purge後 | 根拠 |
 |---|---|---|
@@ -209,15 +302,23 @@ Candidate revisionのJSONをparseし、SnapshotからCandidate、Projectへた�
 | Chain DefinitionとRevision | 保持 | shared catalog artifact |
 | Dataset revision | 保持 | Data Library artifact |
 | Model Package | 保持 | shared model artifact |
-| Project Series | 保持し、空ならarchive | lifecycle grouping |
+| Project Series | Project Aが所属していれば保持し、active Projectがなければarchiveする。未所属なら対象rowなし | optional lifecycle grouping |
 
-中心testは、Project-ownedな主要tableのcountと`PRAGMA foreign_key_check`を確認します。
-shared artifactが残ることは、ADRと削除SQLの双方から確認します。
+#### 解答の理由
 
-testにassertがない保持対象を、test済みと書かないようにします。
-実装読解で確認した事実と、自動testで固定した事実を分けます。
+purgeはProjectが所有する判断証拠を明示順で削除します。
+複数Projectが参照し得るcatalogとData Libraryのartifactは削除対象にしません。
+Project Seriesへの所属は任意です。
+Project Aが所属している場合はgrouping自体を残し、active Projectがなくなった場合だけarchiveします。
+Project Aが未所属なら、purgeによって変わるProject Series rowはありません。
 
-## checkpoint 7：新しいtableのlifecycleを設計する
+#### よくある不十分な回答
+
+「foreign key cascadeで消えるものを削除する」では、foreign keyを持たないtableとshared artifactの寿命を説明できません。
+testにassertがない保持対象を「test済み」とする回答も不十分です。
+:::
+
+## checkpoint 7：新しいtableのlifecycleを設計する {#exercise-project-lifecycle-07}
 
 次のschemaを追加する変更依頼を想定します。
 
@@ -232,7 +333,16 @@ CREATE TABLE proposal_runs (
 
 このtableはProject内の提案計算を保存し、判断理由から再読込されます。
 
-実装前に、次の変更表を作ります。
+ADR、write guard、purge plan、cross-Project reference、Workspace、testの六つについて必要な変更を書いてください。
+
+対応する[checkpoint 7の解答](#answer-project-lifecycle-07)は、変更表を完成させてから確認します。
+
+### 成功条件
+
+foreign keyだけでもapplication checkだけでも不足する理由を述べ、六つの境界へ具体的な変更を配置できれば成功です。
+
+::: {#answer-project-lifecycle-07 .exercise-solution data-label="checkpoint 7の解答"}
+#### 解答例
 
 | 境界 | 必要な変更 |
 |---|---|
@@ -240,34 +350,60 @@ CREATE TABLE proposal_runs (
 | write guard | INSERT、UPDATE、通常DELETEをarchive中に拒否 |
 | purge plan | Project rowより先に`proposal_runs`をDELETE |
 | cross-Project reference | 別ProjectがRunを参照できるならpurge gateへ追加 |
-| Workspace | backupとrestoreのtable evidenceへ含まれるか確認 |
+| Workspace | backupとrestoreのtable evidenceへ含めるか確認 |
 | test | archive後に1件残り、purge後に0件となるassertを追加 |
 
-`project_id`へforeign keyを追加するだけでは、archive中のwrite拒否と外部JSON参照を実装できません。
-反対にapplication checkだけでは、別のSQL経路から孤児を作る余地が残ります。
+#### 解答の理由
 
-## checkpoint 8：SQL DELETEと媒体消去を分ける
+`project_id`のforeign keyは孤児を防ぎますが、archive中のwrite拒否と外部JSON参照を扱いません。
+application checkだけでは、別のSQL経路から制約を迂回できます。
+
+#### よくある不十分な回答
+
+「tableとAPIを追加する」だけでは、archive後のwrite、purge、backup、参照保護が未定義です。
+:::
+
+## checkpoint 8：SQL DELETEと媒体消去を分ける {#exercise-project-lifecycle-08}
 
 Project Cのpurgeが204を返したとします。
-この結果から言えることを選びます。
+
+次の六つから、204だけで言えること、別のpostcondition検査が必要なこと、この操作では言えないことを分類してください。
 
 - Project Cのlogical rowがcurrent SQLite schemaから削除された。
 - purge transactionがcommitされた。
-- 同じtestが`PRAGMA foreign_key_check`を実行して空なら、宣言済みforeign keyに孤児がない。
+- 宣言済みforeign keyに孤児がない。
 - 過去の`.mdwb` backupからもProject Cが消えた。
 - SQLite fileの未使用pageからbyteを復元できない。
 - filesystem snapshotとexportからも消えた。
 
-204だけから言えるのは、最初の二つです。
-三つ目は、testがpurge後に行う別のpostcondition検査から言えます。
-後ろの三つには、backup retention、SQLite file maintenance、媒体sanitizationの別policyが必要です。
+対応する[checkpoint 8の解答](#answer-project-lifecycle-08)は、三分類を終えてから確認します。
 
-`VACUUM`はdatabase fileを再構築できますが、open transaction中には実行できず、最大で元DBの約二倍の空き容量を必要とし得ます [@sqlite-vacuum]。[^vacuum-rowid]
+### 成功条件
+
+HTTP 204、`PRAGMA foreign_key_check`、media sanitizationが与える証拠を混同せず説明できれば成功です。
+
+::: {#answer-project-lifecycle-08 .exercise-solution data-label="checkpoint 8の解答"}
+#### 解答例
+
+204だけから言えるのは、logical rowの削除とpurge transactionのcommitです。
+宣言済みforeign keyの孤児がないことは、purge後に`PRAGMA foreign_key_check`を実行し、結果が空であることから確認します。
+backup、未使用page、filesystem snapshot、exportからの消去は、このpurgeでは確認できません。
+
+#### 解答の理由
+
+SQL DELETEはcurrent databaseのlogical recordを削除します。
+`VACUUM`はdatabase fileを再構築できますが、別のcopyを削除する処理ではありません [@sqlite-vacuum]。[^vacuum-rowid]
+media sanitizationには、対象mediaとcopyを定めた別policyが必要です。
 
 [^vacuum-rowid]: SQLite公式は、明示的な`INTEGER PRIMARY KEY`を持たないtableでは`VACUUM`によりROWIDが変わり得ると説明しています [@sqlite-vacuum]。
     application identityへ暗黙ROWIDを使わない理由の一つです。
 
-## focused suiteを通す
+#### よくある不十分な回答
+
+「204なら完全削除された」では、current schema、database file、backup、別mediaを区別していません。
+:::
+
+## checkpoint 9：focused suiteで保護境界を確かめる {#exercise-project-lifecycle-09}
 
 Project lifecycleと関連する保護条件をまとめて実行します。
 
@@ -278,28 +414,67 @@ uv run python -m pytest `
   backend/tests/test_data_library_api.py::test_project_with_successor_cannot_be_deleted
 ```
 
-成功条件は、選択されたtestがすべてpassすることです。
-件数はtest追加で変わるため、恒久仕様として覚えません。
+実行後、archiveでの保持、claim失効、active purge拒否、確認用ID、外部provenance、successor保護、purge後の削除集合、foreign key postconditionの各観察結果を記録してください。
 
-0件selectedなら、`-k`式が現在のtest名に合っているか確認します。
-失敗した場合は、最初のfailureだけを見て次の分類へ置きます。
+対応する[focused suiteの解答](#answer-project-lifecycle-09)は、最初のfailureを分類してから確認します。
 
-| failure | 最初の確認先 |
-|---|---|
-| 期待204が409 | error codeとProjectのarchive状態 |
-| 期待409が204 | provenance payloadと参照解決 |
-| archive後にrowが0 | `archive_project()`内のDELETE |
-| purge後にrowが残る | ownership inventoryと削除順 |
-| `foreign_key_check`違反 | 親子tableとtransaction rollback |
-| `project_archived`が出ない | trigger installと対象table |
+### 成功条件
 
-## 完了条件
+選択対象が実際に収集され、各保護境界のassertがpassし、unexpected warningがないことを確認できれば成功です。
+test件数は評価条件にしません。
 
-次を自分の言葉で説明できれば演習完了です。
+### ヒント
 
-1. archiveはProjectを一覧から外すだけでなく、writeを止め、claimを失効させる。
-2. archive中もProject-owned evidenceは残り、restoreは同じrowをactiveへ戻す。
-3. purgeはarchive済みProjectだけを対象にし、外部provenance参照があれば拒否する。
-4. foreign key、JSON scan、trigger、確認用IDは別の不変条件を守る。
-5. Project-owned evidenceとshared artifactを同じDELETE範囲へ入れない。
-6. SQL purgeとbackupを含む媒体sanitizationを同じ完了条件にしない。
+0件selectedならtest名を確認します。
+failureがある場合は、最初の一件をerror code、provenance、削除順、trigger、foreign keyのいずれかへ分類します。
+
+::: {#answer-project-lifecycle-09 .exercise-solution data-label="focused suiteの解答"}
+#### 解答例
+
+成功記録には、収集されたtest名と、各testが確認した保護境界を残します。
+全testのpassに加え、archive後のevidence保持、claim削除、purge拒否条件、purge後のrow消失、`foreign_key_check`の空結果をassertから確認します。
+
+#### 解答の理由
+
+件数はtest追加や分割で変わります。
+この演習が評価するのは、Project lifecycleの異なる不変条件が対応するtestで観察されることです。
+
+#### よくある不十分な回答
+
+「すべてpassした」だけでは、0件selectedや保護境界の欠落を見逃します。
+warningを確認せず、終了codeだけを記録する回答も不十分です。
+:::
+
+## 章末チェックに答える {#exercise-project-lifecycle-10}
+
+[本編の章末チェック](../chapters/separate-archive-from-purge.qmd)にある十問へ、実装上の識別子またはtable名を含めて答えてください。
+
+対応する[章末チェックの解答](#answer-project-lifecycle-chapter-check)は、十問すべてへ一文以上書いてから確認します。
+
+### 成功条件
+
+十問すべてについて、archive、restore、purge、参照保護、transactionの責務を別々に説明できれば演習完了です。
+
+::: {#answer-project-lifecycle-chapter-check .exercise-solution data-label="章末チェックの解答"}
+#### 解答例
+
+1. archiveは`projects.archived_at`を更新し、対象Projectの`chain_execution_claims`を削除します。
+2. evidenceは後から判断を再読するための保存物であり、claimは特定requestが結果を保存するための期限付き実行権です。
+3. archiveで古いclaimを削除するため、restoreは同じProjectをactiveへ戻しても中断したrequestへ実行権を再発行しません。
+4. active Projectのpurgeを拒否すると、日常の片付けと不可逆な証拠削除を分けられます。
+5. `confirm_project_id`は入力取り違えを減らしますが、archive状態、successor、外部provenance、削除集合の正しさを保証しません。
+6. Snapshot provenanceはCandidate revisionのJSONから`snapshots`と`candidates`をたどるため、宣言済みforeign keyだけでは保護できません。
+7. `project_purge_authorizations`は、purge transaction内のDELETEだけをarchive write guardへ通す一時的な承認です。
+8. shared evidenceへ一律に`ON DELETE CASCADE`を付けると、別Projectが使うcatalogやData Library artifactまでProjectの寿命へ巻き込みます。
+9. transaction成功は選ばれたDELETEのatomicityを保証しますが、その削除集合がdomain上正しいことは保証しません。
+10. ADRのownership表、write guardのtrigger一覧、repositoryのpurge SQL、focused testのinventoryを同時に更新します。
+
+#### 解答の理由
+
+十問は、表示状態、保存証拠、実行権、参照整合性、削除atomicityを同じ「削除」へまとめないための確認です。
+各回答を具体的なrow、識別子、検査へ結び付けると、実装変更の影響範囲を追えます。
+
+#### よくある不十分な回答
+
+「archiveはsoft delete、purgeはhard delete」とだけ答えると、claim、外部provenance、shared artifact、transactionの限界が抜けます。
+:::

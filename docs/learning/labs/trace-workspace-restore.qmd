@@ -20,7 +20,7 @@ code_references:
 この演習はproduction code、active database、Data Libraryを変更しません。
 既存testのfixtureと故障注入を読み、各段階で正本がどこにあるかを予測します。
 
-## 演習1：bundleへ入るものを分ける
+## 演習1：bundleへ入るものを分ける {#exercise-workspace-01}
 
 次の資源を、`.mdwb`へ入るもの、参照情報だけが入るもの、入らないものへ分類してください。
 
@@ -33,7 +33,14 @@ code_references:
 - DBへ登録していない`data/source/`の元Excel
 - migration IDとchecksum
 
-### 解答例
+対応する[演習1の解答](#answer-workspace-01)は、八つを分類してから確認します。
+
+### 成功条件
+
+同梱するbytes、manifestへ置く参照情報、アプリ本体が持つ実行資源を区別し、各分類へ理由を付けられれば成功です。
+
+::: {#answer-workspace-01 .exercise-solution data-label="演習1の解答"}
+#### 解答例
 
 | 資源 | 分類 | 理由 |
 |---|---|---|
@@ -46,13 +53,18 @@ code_references:
 | 未登録の`data/source/` | 入らない | directory全体の退避機能ではない |
 | migration IDとchecksum | manifestへ入る | bundle DBと現アプリの互換性を判定する |
 
+#### 解答の理由
+
 Profileの宣言先が欠損または解決不能なら、画像は同梱せずwarningを残します。
+`data/source/`にあるfileでもData AssetとしてDBへ登録済みなら、そのbytesはmanaged resourceとして同梱します。
+Transformは固定digestを診断しますが、bundleから任意codeを実行しません。
 
-「参照情報だけ」と「同梱しない」は同じではありません。
-Transformは固定digestを診断しますが、任意codeをbundleから実行しません。
-`data/source/`にあるfileでもData AssetとしてDBへ登録済みなら、そのbytesはbundleへ入り、復元先Data Libraryのmanaged resourceになります。
+#### よくある不十分な回答
 
-## 演習2：未commit行の行方を予測する
+「DBと関連fileを入れる」では、登録済みresource、参照情報、allow-list済みcodeの境界を判定できません。
+:::
+
+## 演習2：未commit行の行方を予測する {#exercise-workspace-02}
 
 source DBに別connectionが次を実行したまま、backupを作ります。
 
@@ -70,14 +82,27 @@ INSERT INTO project_series(
 ```
 
 まだ`COMMIT`していません。
-bundle manifestの`project_series.row_count`へ、この行は入るでしょうか。
+bundle manifestの`project_series.row_count`へ、この行が入るかを予測してください。
 
-### 解答例
+対応する[演習2の解答](#answer-workspace-02)は、根拠となるSQLite APIまで特定してから確認します。
 
-入りません。
-`Connection.backup()`がsource databaseのcommit済み状態からsnapshotを作るため、別connectionの未commit transactionを含みません。
+### 成功条件
 
-対応するtestは次です。
+別connectionの未commit transactionと、Backup APIが作るsnapshotの可視範囲を説明できれば成功です。
+
+### ヒント
+
+`test_workspace_bundle.py`の`consistent_sqlite_snapshot`を読みます。
+
+::: {#answer-workspace-02 .exercise-solution data-label="演習2の解答"}
+#### 解答例
+
+未commit行は`project_series.row_count`へ入りません。
+
+#### 解答の理由
+
+`Connection.backup()`はsource databaseのcommit済み状態からsnapshotを作るため、別connectionの未commit transactionを含みません。
+対応testは次です。
 
 ```powershell
 uv run python -m pytest `
@@ -85,11 +110,16 @@ uv run python -m pytest `
   -k consistent_sqlite_snapshot
 ```
 
-もしこのtestがfile copyへ置き換えた実装で不安定になるなら、WALとtransactionをSQLiteの外側から扱っている可能性があります。
+#### よくある不十分な回答
 
-## 演習3：prepare前後の正本を指す
+「transaction中だから入らない」だけでは、どのconnectionから何が見えるかを説明していません。
+file copyとBackup APIを同じものとして扱う回答も不十分です。
+:::
+
+## 演習3：prepare前後の正本を指す {#exercise-workspace-03}
 
 青の現Workspaceがあり、緑のbundleを選びました。
+
 次の時点で、APIが読む正本とrollback可能性を書いてください。
 
 1. native dialogで緑を選んだ直後
@@ -98,7 +128,14 @@ uv run python -m pytest `
 4. staged DBをactive pathへ移した直後
 5. 緑でAPI health確認が成功し、`finalize`した後
 
-### 解答例
+対応する[演習3の解答](#answer-workspace-03)は、五つの時点を埋めてから確認します。
+
+### 成功条件
+
+prepare、commit途中、health確認後について、activeな正本とrollbackに使うfileを指せれば成功です。
+
+::: {#answer-workspace-03 .exercise-solution data-label="演習3の解答"}
+#### 解答例
 
 | 時点 | APIが読む正本 | rollback |
 |---|---|---|
@@ -108,32 +145,51 @@ uv run python -m pytest `
 | 緑DBを設置後 | 緑を次回起動で読む | 青DBへ戻せる |
 | finalize後 | 緑 | 青DBは破棄済み |
 
-prepare成功は、緑がactiveになったことを意味しません。
-確認画面が表示されている間も、利用中の正本は青です。
+#### 解答の理由
 
-## 演習4：改ざんの検出位置を選ぶ
+prepareは緑のbundleをstagingで検証しますが、active pathを切り替えません。
+finalizeだけが、緑のhealth確認後に青のrollback DBを破棄します。
+
+#### よくある不十分な回答
+
+「prepare成功後は緑」では、stagingでの検証とactive Workspaceの切替を混同しています。
+:::
+
+## 演習4：改ざんの検出位置を選ぶ {#exercise-workspace-04}
 
 正しいbundleを作った後、ZIP内の`workspace/workbench.db`末尾へbyte列を追加しました。
 manifestは変更していません。
 
-次から、最初に失敗する段階を選んでください。
+最初に失敗する段階を選んでください。
 
 - migration
 - Project固定参照診断
 - stream展開中のsizeまたはdigest照合
 - commit後のAPI health確認
 
-### 解答例
+対応する[演習4の解答](#answer-workspace-04)は、選択した段階より後の処理が始まらない理由まで書いてから確認します。
 
-stream展開中のsizeまたはdigest照合です。
-manifestの`size_bytes`と`sha256`が元fileを固定しているため、staging DBをmigrationする前に拒否します。
+### 成功条件
 
-`test_tampered_bundle_is_rejected_without_changing_current_workspace`は、prepare失敗後も現DBのdigestが変わらないことまで確認します。
+改ざんを検出する値と、prepare失敗後も変化させないcurrent Workspaceの証拠を説明できれば成功です。
 
-この検出は、改ざん者を特定しません。
-manifestも作り直されたbundleを真正な配布物と見分けるには、別の署名と鍵管理が必要です。
+::: {#answer-workspace-04 .exercise-solution data-label="演習4の解答"}
+#### 解答例
 
-## 演習5：DB切替失敗の補償を追う
+最初に失敗するのは、stream展開中のsizeまたはdigest照合です。
+
+#### 解答の理由
+
+manifestの`size_bytes`と`sha256`が元fileを固定するため、staging DBをmigrationする前に拒否します。
+`test_tampered_bundle_is_rejected_without_changing_current_workspace`は、prepare失敗後も現DBのdigestが変わらないことを確認します。
+
+#### よくある不十分な回答
+
+「SHA-256で改ざん者を特定できる」は不十分です。
+manifestも作り直されたbundleを真正な配布物と見分けるには、署名と鍵管理が別に必要です。
+:::
+
+## 演習5：DB切替失敗の補償を追う {#exercise-workspace-05}
 
 次の順で処理が進んだとします。
 
@@ -141,9 +197,16 @@ manifestも作り直されたbundleを真正な配布物と見分けるには、
 2. 青のactive DBをrollback pathへ移した。
 3. 緑のstaged DBをactive pathへ移す`os.replace()`が失敗した。
 
-最終的に残すものと削除するものを書いてください。
+最終的に残すもの、元へ戻すもの、削除するもの、journalへ記録する状態を書いてください。
 
-### 解答例
+対応する[演習5の解答](#answer-workspace-05)は、既存resourceと新規resourceを分けてから確認します。
+
+### 成功条件
+
+現DBとData Libraryの一覧を実行前と同じ状態へ戻し、失敗の証拠をjournalへ残す手順を説明できれば成功です。
+
+::: {#answer-workspace-05 .exercise-solution data-label="演習5の解答"}
+#### 解答例
 
 - 青DBをrollback pathからactive pathへ戻す。
 - このcommitで新規配置した緑のresourceを削除する。
@@ -151,19 +214,20 @@ manifestも作り直されたbundleを真正な配布物と見分けるには、
 - restore journalを`commit_failed`にして、失敗理由を残す。
 - 緑のDBをactiveとして公開しない。
 
-対応するtestは次です。
+#### 解答の理由
 
-```powershell
-uv run python -m pytest `
-  backend/tests/test_workspace_bundle.py `
-  -k commit_switch_failure
-```
+commitはDBと複数resourceを一つのfilesystem transactionで切り替えられません。
+そこで、新規配置したresourceを記録し、DB切替失敗時に補償します。
 
-testは現DB digestだけでなく、Data Libraryの相対path一覧も実行前と同じことを確認します。
+#### よくある不十分な回答
 
-## 演習6：commit成功後の起動失敗を追う
+「緑を削除して青へ戻す」だけでは、既存resourceまで消す危険とjournalの診断証拠が抜けます。
+:::
+
+## 演習6：commit成功後の起動失敗を追う {#exercise-workspace-06}
 
 backendの`commit`は成功しましたが、緑DBを使うsidecarがhealth timeoutになりました。
+
 Desktop main processが行う順序を並べ替えてください。
 
 - 青DBでsidecarを再起動する
@@ -172,7 +236,14 @@ Desktop main processが行う順序を並べ替えてください。
 - 利用者へ元の内容へ戻したと通知する
 - rollback DBを削除する`finalize`を呼ぶ
 
-### 解答例
+対応する[演習6の解答](#answer-workspace-06)は、`finalize`を呼ぶ条件を書いてから確認します。
+
+### 成功条件
+
+失敗したsidecarを止め、青DBへ戻し、青で再起動する順序を説明できれば成功です。
+
+::: {#answer-workspace-06 .exercise-solution data-label="演習6の解答"}
+#### 解答例
 
 1. 緑のsidecarを停止する。
 2. backendの`rollback`を呼ぶ。
@@ -180,27 +251,43 @@ Desktop main processが行う順序を並べ替えてください。
 4. 利用者へ元の内容へ戻したと通知する。
 
 `finalize`は呼びません。
-finalizeは緑でAPI health確認が成功した場合だけ、青のrollback DBを破棄する操作です。
 
-## 演習7：旧schemaをどこで上げるか
+#### 解答の理由
+
+finalizeは緑でAPI health確認が成功した場合だけ、青のrollback DBを破棄する操作です。
+health timeout時にfinalizeすると、戻す正本を失います。
+
+#### よくある不十分な回答
+
+青DBへ戻す前に青sidecarを起動する順序では、processが読むactive pathを確定できません。
+:::
+
+## 演習7：旧schemaをどこで上げるか {#exercise-workspace-07}
 
 bundle DBには`source-data-lifecycle-v1` migrationがまだありません。
 現行アプリはこのmigrationをallow-listに持っています。
 
-次の二案を比べてください。
+次の二案を比較してください。
 
 1. active DBへbundleを置き換えた後でmigrationする
 2. prepared restoreのstaging DBへmigrationし、evidenceを再確認してから切り替える
 
-### 解答例
+対応する[演習7の解答](#answer-workspace-07)は、known migrationとunknown migrationを分けてから確認します。
 
-現行実装は2です。
-失敗するmigrationやchecksum不一致が現Workspaceへ触れずに判定され、migration後のtable evidenceもbundle作成時と比較できるためです。
+### 成功条件
 
-unknown migration IDは「新しいschemaらしいから試す」と扱いません。
-現アプリのmigration inventoryにない操作は実行せず、unsupported applicationとして理由を示して拒否します。
+現Workspaceへ触れる前にmigration failureとchecksum不一致を検出する手順を説明できれば成功です。
 
-対応するtestは次です。
+::: {#answer-workspace-07 .exercise-solution data-label="演習7の解答"}
+#### 解答例
+
+現行実装は案2です。
+known migrationをstaging DBへ適用し、migration後のtable evidenceを再確認してから切り替えます。
+unknown migration IDは実行せず、unsupported applicationとして拒否します。
+
+#### 解答の理由
+
+stagingでmigrationすれば、失敗するmigrationとchecksum不一致をactive Workspaceへ触れずに判定できます。
 
 ```powershell
 uv run python -m pytest `
@@ -208,30 +295,48 @@ uv run python -m pytest `
   -k "known_older_schema or unknown_bundle_schema"
 ```
 
-## 演習8：二つのdigest差を読む
+#### よくある不十分な回答
+
+「最新schemaへ自動更新する」では、allow-listにないmigrationを実行しない境界が抜けます。
+:::
+
+## 演習8：二つのdigest差を読む {#exercise-workspace-08}
 
 同じbundleを別user data directoryへ復元したところ、Data Assetのlocatorは変わりました。
 一方、Project ID、Candidate Revision、Prediction Snapshotは同じです。
 
-次の結果のうち、期待するものを選んでください。
+期待する結果を選んでください。
 
 - SQLite fileのbyte単位SHA-256は必ず同じ
 - normalized table evidenceは同じ
 - Data Assetの絶対locator文字列は同じ
 - Model Packageのmanifest digestは同じ
 
-### 解答例
+対応する[演習8の解答](#answer-workspace-08)は、byte identityと判断内容のidentityを分けてから確認します。
+
+### 成功条件
+
+復元先pathの変化を許しながら、固定すべき判断内容を比較する方法を説明できれば成功です。
+
+::: {#answer-workspace-08 .exercise-solution data-label="演習8の解答"}
+#### 解答例
 
 期待するのはnormalized table evidenceとModel Package manifest digestの一致です。
 
+#### 解答の理由
+
 migrationやlocator書換えがあれば、SQLite file全体のbyte列は変わり得ます。
-絶対locatorは復元先を指すため変わります。
+絶対locatorも復元先を指すため変わります。
+`_normalized_row()`は管理対象locatorを`workspace-managed`へ置き換え、判断内容と運用pathを分けます。
 
-`_normalized_row()`が管理対象locatorを`workspace-managed`へ置き換え、判断内容と運用pathを分けて比較します。
+#### よくある不十分な回答
 
-## 演習9：rendererの権限を狭める
+「同じbundleなので全digestが同じ」では、復元時のmigrationとlocator書換えを考慮していません。
+:::
 
-次のpreload APIを比べます。
+## 演習9：rendererの権限を狭める {#exercise-workspace-09}
+
+次のpreload APIを比較します。
 
 ```ts
 // 案A
@@ -243,30 +348,73 @@ prepareWorkspaceRestore()
 
 現行実装が案Bを選ぶ理由を、native dialogとIPC senderの二点から説明してください。
 
-### 解答例
+対応する[演習9の解答](#answer-workspace-09)は、rendererが渡せない情報を特定してから確認します。
+
+### 成功条件
+
+復元元pathを選ぶprocessと、操作元frameを検査するprocessを指せれば成功です。
+
+::: {#answer-workspace-09 .exercise-solution data-label="演習9の解答"}
+#### 解答例
 
 案BではElectron main processがnative dialogを開くため、rendererは任意pathをcommandへ注入できません。
-さらにmain processがsender frameとpackaged document pathまたはdev originを確認し、信頼した画面からの操作だけを受け付けます。
+main processはsender frameとpackaged document pathまたはdev originを確認し、信頼した画面からの操作だけを受け付けます。
+
+#### 解答の理由
 
 presentation testはpreload sourceに`destination`、`sourcePath`、`filePath`がないことを確認します。
-これはTypeScript型だけの検査ではなく、権限を持つmain processへ渡す情報量の検査です。
+これはTypeScript型だけでなく、権限を持つmain processへ渡す情報量の検査です。
 
-## 演習10：最初に反応させるtestを選ぶ
+#### よくある不十分な回答
 
-次の退行を、最初に検出したいtestへ対応付けてください。
+「native dialogの方が使いやすい」では、path注入とtrusted senderの境界を説明していません。
+:::
 
-- **未commit行がbundleへ入った**：`test_workspace_bundle.py -k consistent_sqlite_snapshot`
-- **DB改ざん後もprepareが通った**：`test_workspace_bundle.py -k tampered_bundle`
-- **DB切替失敗後に新規resourceが残った**：`test_workspace_bundle.py -k commit_switch_failure`
-- **既知の旧schemaをactive DBで直接migrationした**：`test_workspace_bundle.py -k known_older_schema`
-- **`../outside`をstaging外へ展開した**：`test_workspace_bundle.py -k unsafe_archive_paths`
-- **rendererがrestore元pathを渡せる**：`workspaceBackupPresentation.test.mjs`
-- **startup failureで復元導線が出ない**：`test_windows_packaging_contract.py -k desktop_startup_recovery`
-- **packaged版のnative dialogから復元できない**：`npm run smoke:packaged`
+## 演習10：最初に反応させるtestを選ぶ {#exercise-workspace-10}
 
-backendのtestが複数反応しても、原因に最も近いtestを先に置くと調査範囲を狭くできます。
+次の退行を、原因に最も近いtestへ対応付けてください。
 
-## 演習11：現mainを検証する
+- 未commit行がbundleへ入った
+- DB改ざん後もprepareが通った
+- DB切替失敗後に新規resourceが残った
+- 既知の旧schemaをactive DBで直接migrationした
+- `../outside`をstaging外へ展開した
+- rendererがrestore元pathを渡せる
+- startup failureで復元導線が出ない
+- packaged版のnative dialogから復元できない
+
+対応する[演習10の解答](#answer-workspace-10)は、backend testとpackaged smokeの観察範囲を分けてから確認します。
+
+### 成功条件
+
+八つの退行すべてへ最初に反応させたいtestを一つずつ対応付け、そのtestが近い理由を説明できれば成功です。
+
+::: {#answer-workspace-10 .exercise-solution data-label="演習10の解答"}
+#### 解答例
+
+| 退行 | 最初に反応させたいtest |
+|---|---|
+| 未commit行がbundleへ入った | `test_workspace_bundle.py -k consistent_sqlite_snapshot` |
+| DB改ざん後もprepareが通った | `test_workspace_bundle.py -k tampered_bundle` |
+| DB切替失敗後に新規resourceが残った | `test_workspace_bundle.py -k commit_switch_failure` |
+| 既知の旧schemaをactive DBで直接migrationした | `test_workspace_bundle.py -k known_older_schema` |
+| `../outside`をstaging外へ展開した | `test_workspace_bundle.py -k unsafe_archive_paths` |
+| rendererがrestore元pathを渡せる | `workspaceBackupPresentation.test.mjs` |
+| startup failureで復元導線が出ない | `test_windows_packaging_contract.py -k desktop_startup_recovery` |
+| packaged版のnative dialogから復元できない | `npm run smoke:packaged` |
+
+#### 解答の理由
+
+backend testは故障注入と不変条件を細かく確認します。
+packaged smokeは実配布物のdialog、process、再起動を確認します。
+原因に近いtestを先に置くと、複数testが反応しても調査範囲を狭くできます。
+
+#### よくある不十分な回答
+
+「full suiteで検出する」だけでは、最初のfailureから原因へ戻る観察点を選べません。
+:::
+
+## 演習11：現mainを検証する {#exercise-workspace-11}
 
 リポジトリ直下で次を実行します。
 
@@ -293,16 +441,63 @@ typecheck:
 unexpected_warnings:
 ```
 
-件数だけで成功を判断しません。
-`-k`式が対象testを実際に収集したことと、warningが既知かを確認します。
+対応する[演習11の解答](#answer-workspace-11)は、収集対象とwarningを確認してから読みます。
 
-## 章末チェックの解答
+### 成功条件
 
-1. DBの外にData AssetとModel Packageがあり、DBと同じ時点の管理資源を一組で移す必要があるため。
-2. active DBとactive Data Libraryには変更を加えず、DBと同じuser data directoryへtoken配下のstagingとjournalを追加する。
-3. `rollback-workbench.db`へ退避した旧DBをactive pathへ戻し、commitで新規配置したresourceを片付ける。
-4. locatorが管理対象resourceの設置場所だけを表し、判断内容と固定参照IDを変えない場合。
-5. SHA-256は内容差を検出するが、manifestとfileを作った主体を認証しないため。
-6. `.workspace-restore/<token>/state.json`と`rollback-workbench.db`。
-7. 引数を持たないpreload IPC、native dialog、main processのtrusted sender検査。
-8. unit testは故障注入と不変条件を細かく確認し、packaged smokeは実配布物のdialog、process、再起動を確認するため。
+対象testが実際に収集され、Workspaceのprepare、commit、rollback、Desktop境界のassertがpassし、presentation testとtypecheckが成功することです。
+件数は評価条件にしません。
+
+### ヒント
+
+0件selectedなら`-k`式と現在のtest名を照合します。
+warningは件数だけでなく、既知かunexpectedかを分類します。
+
+::: {#answer-workspace-11 .exercise-solution data-label="演習11の解答"}
+#### 解答例
+
+記録にはcommitと日付に加え、収集されたtest名、各commandの終了結果、unexpected warningの有無を残します。
+focused pytestでは、少なくともbundle検証、staging migration、DB切替補償、startup recoveryに対応するassertを確認します。
+
+#### 解答の理由
+
+test数は追加や分割で変わります。
+評価対象は、Workspaceの正本を切り替える各境界がtestで観察されることです。
+
+#### よくある不十分な回答
+
+「すべてpassした」だけでは、0件selectedや対象testの欠落を見逃します。
+warningを未確認のまま件数だけ記録する回答も不十分です。
+:::
+
+## 章末チェックに答える {#exercise-workspace-12}
+
+[本編の章末チェック](../chapters/restore-workspace-safely.qmd)にある八問へ、file名、process名、または検査名を含めて答えてください。
+
+対応する[章末チェックの解答](#answer-workspace-chapter-check)は、八問すべてへ一文以上書いてから確認します。
+
+### 成功条件
+
+八問すべてについて、bundleの範囲、prepare、commit、rollback、identity、trust boundary、testの役割を別々に説明できれば演習完了です。
+
+::: {#answer-workspace-chapter-check .exercise-solution data-label="章末チェックの解答"}
+#### 解答例
+
+1. DBの外にData AssetとModel Packageがあり、DBと同じ時点の管理資源を一組で移す必要があるためです。
+2. prepareはactive DBとactive Data Libraryを変更せず、user data directoryのtoken配下へstagingとjournalを作ります。
+3. rollbackは`rollback-workbench.db`の旧DBをactive pathへ戻し、commitで新規配置したresourceを片付けます。
+4. locatorがmanaged resourceの設置場所だけを表し、判断内容と固定参照IDを変えない場合にnormalized evidenceは一致します。
+5. SHA-256は内容差を検出しますが、manifestとfileを作った主体を認証しません。
+6. process終了後の復旧判断には`.workspace-restore/<token>/state.json`と`rollback-workbench.db`を使います。
+7. rendererの権限は、引数を持たないpreload IPC、native dialog、main processのtrusted sender検査で狭めます。
+8. unit testは故障注入と不変条件を細かく確認し、packaged smokeは実配布物のdialog、process、再起動を確認します。
+
+#### 解答の理由
+
+八問は、database fileだけを戻す操作と、管理resource、process、health確認を含むWorkspace restoreを区別するための確認です。
+具体的なfileとprocessへ結び付けると、失敗時に戻る境界を選べます。
+
+#### よくある不十分な回答
+
+「backupを検証して安全に切り替える」とだけ答えると、staging、rollback DB、resource cleanup、rendererのtrust boundaryが抜けます。
+:::

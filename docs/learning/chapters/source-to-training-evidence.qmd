@@ -1,7 +1,7 @@
 ---
 level: intermediate
 estimated_minutes: 120
-verified_commit: "eaaf37bee998e8640df83fd5146baac97a46bb71"
+verified_commit: "f93af87d71c415250677638fbfe6788e89790e2e"
 code_references:
   - "docs/source-data-lifecycle.md"
   - "docs/reference-data-loop.md"
@@ -14,6 +14,7 @@ code_references:
   - "backend/tests/test_data_lifecycle.py"
   - "backend/tests/test_reference_data_loop_acceptance.py"
   - "apps/web/src/shared/api/workbench-api.ts"
+  - "apps/web/src/features/data-library/DataLibraryPage.tsx"
   - "apps/web/src/features/data-library/SourceLifecycleSection.tsx"
   - "e2e/source-lifecycle.spec.ts"
 ---
@@ -240,11 +241,16 @@ Raw Snapshotの差分とCurationの品質差分は別の問いへ答えます。
 ## 承認は行集合と判断者を固定する
 
 `approve_curation_run()`は、acceptedとwarningの行を標準で承認し、quarantinedとblockedを除外します。
-quarantined rowは、対象row key、行ごとの理由、全体の承認理由、actorを伴う場合だけoverrideできます。
+quarantined rowは、対象row key、空白ではない行ごとの理由、全体の承認理由をrequestが伴う場合だけoverrideできます。
 blocked rowはoverrideできません。
 
 重複row keyを含むRunは、個々のrowを区別できません。
 そのため一部を選んで承認するのではなく、Run全体の承認を拒否します。
+同じrow keyを一つの承認requestで複数回overrideする操作も、理由の対応が曖昧になるため拒否します。
+
+APIが公開する`DatasetApprovalRequest`には`actor`がありません。
+`GET /api/data-lifecycle`は`current_actor`として`local-workspace-user`を返し、承認routeがそのIDをservice用の`DatasetApprovalInput`へ加えます。
+clientが別の`actor`をrequestへ加えると、余分なfieldとして422になります。
 
 Canonical Dataset Revisionの`dataset_digest`には、次が入ります。
 
@@ -255,12 +261,12 @@ Canonical Dataset Revisionの`dataset_digest`には、次が入ります。
 - actor
 - 承認理由
 
-同じ行集合でも、誰がどの理由で承認したかが違えば別の承認記録です。
+同じ行集合でも、APIが記録した主体または理由が違えば別の承認記録です。
 ここでのdigestはデータ値だけのhashではなく、判断を含む記録のidentityです。
 
 ::: {.callout-note title="INTERPRETATION"}
 Canonical Dataset Revisionは「きれいな表の保存名」ではありません。
-どのCuration結果から、誰が、どの例外を認め、どの行集合を採ったかという承認済みの主張です。
+どのCuration結果から、どの主体が、どの例外を認め、どの行集合を採ったかという承認済みの主張です。
 :::
 
 ## Training Snapshotは学習用途を明示する
@@ -272,6 +278,7 @@ requestに`TrainingSnapshotSelectionPolicy`があれば、version付きの除外
 対象が0件なら作成を拒否します。
 
 Training Snapshotは、行key、actor、purpose、任意のselection policyとそのdigestを保存します。
+公開requestの`TrainingSnapshotCreateRequest`はpurposeとselection policyだけを受け取り、承認と同じlocal workspace actorをAPIが加えます。
 同じDatasetから、異なる学習目的のSnapshotを明示的に作れます。[^selection-policy-scope]
 
 [^selection-policy-scope]: 現行selection policyは、field値による除外条件を固定します。
@@ -286,7 +293,7 @@ Training Snapshotを作っても、次の処理は起きません。
 - 既存Projectの参照更新
 
 `backend/tests/test_data_lifecycle.py`は、Training Snapshot作成後も`/api/project-creation-options`のModel Package一覧が変わらないことを確認します。
-E2Eも、画面で「再学習・Package検証・active化は別操作です」と表示されるところまでを守ります。
+E2Eも、再学習、モデル検証、有効化が別の操作だと画面へ表示されるところまでを守ります。
 
 ### Task固有adapterは境界を残したまま接続する
 
@@ -358,16 +365,26 @@ Pydantic modelのself-validatorは、payload内部の件数やdigestを検証し
 FastAPIは五つの資産を一括作成するendpointを持ちません。
 Connector登録、取得、Recipe登録、Curation、承認、Training Snapshot作成が別々のPOSTです。
 
-`SourceLifecycleSection.tsx`も、同じ順序を四段のstage railとして表示します。
+`DataLibraryPage.tsx`は初期状態を「閲覧」tabとし、更新操作を「データ更新」tabへ分けます。
+接続先の名前、データの場所、行識別キーには見本値を入れず、利用者が入力するまで登録buttonを無効にします。
+
+`SourceLifecycleSection.tsx`は、取得スナップショット、品質判定、承認、学習用スナップショットの順序を四段のstage railとして表示します。
+JSONを直接入力する経路は閉じた「検証モード」に置き、元データの版、JSON、一時認証情報を空の状態から入力します。
+品質理由はcodeのまま見せず、「必須項目がありません」などの表示へ変換します。
+
+override対象はquarantined rowから選びます。
+画面は選んだ各rowの根拠と全体の承認理由が揃うまで、承認buttonを無効にします。
+actorは入力欄にせず、APIが返した「このローカルワークスペースの利用者」を記録される主体として表示します。
+
 各操作後のnoticeは、まだ起きていない処理を明示します。
 
 | 操作 | 画面が示す停止点 |
 |---|---|
 | Connector登録 | 取得はまだ実行していない |
-| Raw取得 | 承認や学習はまだ行っていない |
-| Curation | 承認前なので学習には使われない |
-| 承認 | 再学習とactive化は行っていない |
-| Training Snapshot | Model Packageは変更していない |
+| 取得スナップショット | 承認や学習はまだ行っていない |
+| 品質判定 | 承認前なので学習には使われない |
+| 承認 | 再学習と有効化は行っていない |
+| 学習用スナップショット | Model Packageは変更していない |
 
 これは説明文の重複ではありません。
 利用者が押したbuttonより先の副作用を想像しやすいため、現在の停止点を操作結果の近くで確認できるようにしています。
@@ -401,6 +418,8 @@ Rawの4件、承認の3件、Trainingの2件は、処理の途中で行を黙っ
 - quarantine理由と品質差分を失う
 - 承認とTraining Snapshotを一操作にまとめる
 - blocked rowをoverrideする
+- clientが承認actorを指定する
+- overrideの全体理由、行ごとの理由、row keyの一意性を検証しない
 - 未承認データをProject作成候補へ露出する
 - Training Snapshot作成でModel Package一覧を変える
 
@@ -413,13 +432,15 @@ Pydantic modelやendpointを変更した場合、`backend/tests/test_openapi_con
 
 `e2e/source-lifecycle.spec.ts`は、利用者の操作として次を確認します。
 
-1. Source更新画面にRaw Snapshotが見える
-2. 品質判定後に隔離理由が見える
-3. 未承認の間はProject Datasetが変わらない
-4. 隔離行を除いて承認できる
-5. 承認だけではTraining Snapshotが作られない
-6. Training Snapshotを明示作成できる
-7. Model Packageとactive状態が変わらない
+1. 初期状態では「閲覧」tabが選ばれ、「データ更新」tabを選ぶまで更新UIが見えない
+2. Connectorと検証用JSONの入力欄に見本値が入っていない
+3. 品質判定後に日本語の隔離理由が見える
+4. 未承認の間はProject Datasetが変わらない
+5. overrideするrowごとの根拠と全体の承認理由が揃うまで承認できない
+6. 承認actorが`local-workspace-user`として保存される
+7. 承認だけではTraining Snapshotが作られない
+8. 学習用スナップショットを明示作成できる
+9. Model Packageとactive状態が変わらない
 
 E2Eは外部object storageへ接続しません。
 UI、loopback API、SQLiteを通る操作分離を確認するtestです。
@@ -481,6 +502,7 @@ Raw取得後に自動Curation、自動承認、自動学習まで進めれば、
 
 - object storageのSDK接続とcredential管理は実装していない
 - schedulerは実装せず、scheduled requestの契約だけを持つ
+- 承認actorはlocal workspace userに固定され、複数利用者の認証と識別は実装していない
 - Recipeはallow-listされた単純操作だけで、任意joinや任意Pythonを実行しない
 - Profileの意味変換は参照digestを固定するが、このdomain関数自体はProfile内容を解釈しない
 - Training SnapshotからPackage builderへ渡すadapterは`battery-degradation-v1`に限定され、汎用adapterはない
@@ -522,14 +544,14 @@ npx playwright test e2e/source-lifecycle.spec.ts
 3. primary keyが重複する場合、Raw差分と承認はそれぞれどうなるか。
 4. Cの`target_eligible`がtrueでも標準承認で除外される理由は何か。
 5. DがCanonical Datasetへ入り、Training Snapshotから外れる理由は何か。
-6. quarantined rowをoverrideするために必要な記録は何か。
+6. quarantined rowをoverrideするrequestに必要な記録と、APIが加えるactorは何か。
 7. 同じRecipe IDとversionへ異なる定義を登録できない理由は何か。
 8. Training Snapshot作成がModel Packageを変えないことを、どのtestが確認するか。
 9. repositoryが親資産のdigestを引き直す理由は何か。
 10. 正常なholdoutをquarantineではなくselection policyへ置く理由は何か。
 11. 現行E2EとTask固有acceptance testが、それぞれ証明しない範囲は何か。
 
-解答と変更演習は[行が学習対象になるまでを追跡する](../labs/trace-source-evidence.qmd)にあります。
+[章末チェックの解答](../labs/trace-source-evidence.qmd#answer-source-chapter-check)を確認してから、同じページの変更演習へ進みます。
 
 ## Further Reading
 

@@ -1,4 +1,4 @@
-param(
+﻿param(
     [switch]$Clean
 )
 
@@ -7,10 +7,11 @@ $learningRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $buildRoot = Join-Path $learningRoot "_build"
 $siteProfile = Join-Path $learningRoot "_quarto-site.yml"
 $readerProfile = Join-Path $learningRoot "_quarto-reader.yml"
+$exerciseCheck = Join-Path $learningRoot "check-exercise-solutions.ps1"
 
-foreach ($profilePath in @($siteProfile, $readerProfile)) {
+foreach ($profilePath in @($siteProfile, $readerProfile, $exerciseCheck)) {
     if (-not (Test-Path -LiteralPath $profilePath -PathType Leaf)) {
-        throw "Required Quarto profile is missing: $profilePath"
+        throw "Required learning build input is missing: $profilePath"
     }
 }
 
@@ -30,7 +31,7 @@ if ($typstVersion -notmatch '^typst 0\.15\.1(?:\s|$)') {
     throw "Expected Typst 0.15.1, found $typstVersion."
 }
 
-$readerConfig = Get-Content -LiteralPath $readerProfile -Raw
+$readerConfig = Get-Content -LiteralPath $readerProfile -Raw -Encoding UTF8
 $requiredReaderChapters = @(
     "chapters/contract-through-stack.qmd",
     "chapters/source-to-training-evidence.qmd",
@@ -59,6 +60,8 @@ foreach ($chapter in $maintenanceOnlyChapters) {
         throw "Reader profile contains maintenance-only chapter: $chapter"
     }
 }
+
+& $exerciseCheck
 
 Push-Location $learningRoot
 try {
@@ -100,7 +103,7 @@ foreach ($artifact in @($siteIndex, $siteSearch, $readerPdf)) {
     }
 }
 
-$searchIndex = Get-Content -LiteralPath $siteSearch -Raw
+$searchIndex = Get-Content -LiteralPath $siteSearch -Raw -Encoding UTF8
 foreach ($expectedHref in @(
     "chapters/contract-through-stack.html",
     "writer-persona.html",
@@ -111,8 +114,47 @@ foreach ($expectedHref in @(
     }
 }
 
+$labRoot = Join-Path $learningRoot "labs"
+$expectedSolutionCount = (
+    Get-ChildItem -LiteralPath $labRoot -Filter "*.qmd" -File |
+        Select-String -Pattern '^:::\s+\{#answer-[a-z0-9-]+\s+\.exercise-solution(?:\s|})'
+).Count
+$siteHtml = (
+    Get-ChildItem -LiteralPath (Join-Path $buildRoot "site") -Filter "*.html" -File -Recurse |
+        Get-Content -Raw -Encoding UTF8
+) -join "`n"
+$renderedSolutions = [regex]::Matches(
+    $siteHtml,
+    '<details\s+id="answer-[^"]+"\s+class="exercise-solution"\s+data-answer-content(?:="")?>'
+).Count
+$renderedSummaries = [regex]::Matches(
+    $siteHtml,
+    '<summary>解答例を見る</summary>'
+).Count
+$initiallyOpenSolutions = [regex]::Matches(
+    $siteHtml,
+    '<details\b[^>]*\bopen(?:\s|=|>)'
+).Count
+
+if ($renderedSolutions -ne $expectedSolutionCount) {
+    throw (
+        "Expected {0} HTML solution disclosures, found {1}." -f `
+            $expectedSolutionCount, $renderedSolutions
+    )
+}
+if ($renderedSummaries -ne $expectedSolutionCount) {
+    throw (
+        "Expected {0} fixed solution summaries, found {1}." -f `
+            $expectedSolutionCount, $renderedSummaries
+    )
+}
+if ($initiallyOpenSolutions -ne 0) {
+    throw "HTML contains $initiallyOpenSolutions solution disclosure(s) that are initially open."
+}
+
 Write-Host "Generated an integrated HTML site and a reader-only PDF from shared manuscripts."
 Write-Host ("HTML: {0}" -f $siteIndex)
 Write-Host ("PDF:  {0}" -f $readerPdf)
+Write-Host ("Exercise disclosures: {0}, all initially closed." -f $renderedSolutions)
 Write-Host ("Integrated HTML build: {0:N2} seconds" -f $siteWatch.Elapsed.TotalSeconds)
 Write-Host ("Reader PDF build:     {0:N2} seconds" -f $readerWatch.Elapsed.TotalSeconds)

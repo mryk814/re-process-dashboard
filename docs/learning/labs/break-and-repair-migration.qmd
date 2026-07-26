@@ -17,7 +17,7 @@ code_references:
 この演習はproduction databaseと`data/source/`を変更しません。
 pytestの一時directoryに作るSQLite fixtureだけを使います。
 
-## 演習1：四つの状態を分類する
+## 演習1：四つの状態を分類する {#exercise-migration-01}
 
 `candidate-revision-history-v1`について、次の状態を分類してください。
 
@@ -29,7 +29,15 @@ pytestの一時directoryに作るSQLite fixtureだけを使います。
 
 分類は「適用する」「適用済み」「停止する」の三つです。
 
-### 解答例
+### 成功条件
+
+五つの状態を三分類し、marker、checksum、実体のどの組合せを根拠にしたか説明できれば成功です。
+
+[演習1の解答](#answer-migration-01)
+
+::: {#answer-migration-01 .exercise-solution data-label="演習1の解答"}
+
+#### 解答例
 
 | 状態 | 判定 | 理由 |
 |---|---|---|
@@ -39,7 +47,16 @@ pytestの一時directoryに作るSQLite fixtureだけを使います。
 | 4 | 停止する | 同名tableの来歴を確定できない |
 | 5 | 停止する | 同じIDに異なる定義が対応している |
 
-## 演習2：markerだけのDBを作る
+#### 解答の理由
+
+migrationの状態はledgerだけでなく、schemaとdata invariantを合わせて判定します。
+
+#### よくある不十分な回答
+
+markerがあればすべて適用済みとする回答では、markerと実体の矛盾を見逃します。
+:::
+
+## 演習2：markerだけのDBを作る {#exercise-migration-02}
 
 次のtestを`backend/tests/test_candidate_safety.py`へ一時的に追加する場合を考えます。
 実際に追加しなくても、期待する例外とDB状態を先に書いてください。
@@ -62,7 +79,15 @@ def test_candidate_revision_marker_without_table_is_rejected(tmp_path):
     migrate_candidate_revisions(database)
 ```
 
-### 解答例
+### 成功条件
+
+期待する例外、例外後に残るmarker、不足tableを自動修復しないことを説明できれば成功です。
+
+[演習2の解答](#answer-migration-02)
+
+::: {#answer-migration-02 .exercise-solution data-label="演習2の解答"}
+
+#### 解答例
 
 `CandidateRevisionMigrationError`で、messageはtableが不完全であることを示します。
 markerは残り、migrationは不足tableを自動作成しません。
@@ -70,19 +95,45 @@ markerは残り、migrationは不足tableを自動作成しません。
 例外後にrollbackされるのは、その呼出しがtransaction内で行った変更です。
 呼出し前から存在した矛盾markerまでは削除しません。
 
-## 演習3：tableだけのDBを作る
+#### 解答の理由
+
+rollbackが戻せるのは現在のtransaction内の変更であり、呼出し前の矛盾は診断対象として残ります。
+
+#### よくある不十分な回答
+
+例外名だけを答え、DBが自動修復されるか、markerが残るかを示さない回答です。
+:::
+
+## 演習3：tableだけのDBを作る {#exercise-migration-03}
 
 markerを追加せず、`candidate_revisions`という名前のtableだけを作ったとします。
 columnが現行schemaと完全に同じでも、migrationはどう判定すべきか説明してください。
 
-### 解答例
+### 成功条件
+
+停止すべきことを示し、schema shapeとmigration来歴が別の証拠であると説明できれば成功です。
+
+[演習3の解答](#answer-migration-03)
+
+::: {#answer-migration-03 .exercise-solution data-label="演習3の解答"}
+
+#### 解答例
 
 `candidate revision history exists without its migration marker`として停止します。
 同じshapeでも、誰がどの変換規則で既存rowを作ったかは分かりません。
 
 shapeの一致とmigration来歴の一致は別の証拠です。
 
-## 演習4：故障注入の観察点を選ぶ
+#### 解答の理由
+
+同名tableが存在するだけでは、期待した変換規則でrowが作られたことを証明できません。
+
+#### よくある不十分な回答
+
+columnが一致するためmarkerを後付けすればよいとする回答は、data来歴を発明します。
+:::
+
+## 演習4：故障注入の観察点を選ぶ {#exercise-migration-04}
 
 Workspace catalog migrationは、commit直前へ故障を注入するtestを持ちます。
 失敗後に確認すべきものを次から選んでください。
@@ -92,7 +143,15 @@ Workspace catalog migrationは、commit直前へ故障を注入するtestを持�
 - migration markerが残っていない
 - backup archiveが必ず一つ作られている
 
-### 解答例
+### 成功条件
+
+rollback後に確認する三項目を選び、backupが成功条件ではない理由を説明できれば成功です。
+
+[演習4の解答](#answer-migration-04)
+
+::: {#answer-migration-04 .exercise-solution data-label="演習4の解答"}
+
+#### 解答例
 
 最初の三つを確認します。
 schema変更とmarkerが同じtransactionからrollbackされることが観察点です。
@@ -103,7 +162,16 @@ transaction rollbackとbackupを混同しないことが狙いです。
 現行fixtureは空の新規DBから始まるため、既存Project rowの保存まではこのtestだけで実証しません。
 既存rowの保存を回帰条件にするなら、migration前のProjectをfixtureへ置き、失敗後の値を明示的に比較します。
 
-## 演習5：checksum mismatchを診断する
+#### 解答の理由
+
+故障注入では、schema変更とmarkerが同じtransaction境界で取り消されることを観察します。
+
+#### よくある不十分な回答
+
+backupの存在だけを確認する回答では、rollback後にschemaやmarkerが残っていないことを証明できません。
+:::
+
+## 演習5：checksum mismatchを診断する {#exercise-migration-05}
 
 適用済みmarkerのchecksumだけを`different`へ変更し、migrationを再実行します。
 次の二案のうち採用する方を選び、理由を書いてください。
@@ -111,14 +179,31 @@ transaction rollbackとbackupを混同しないことが狙いです。
 1. 現在のchecksumへ上書きして続行する。
 2. DBを変更せず停止し、applicationとDBの来歴を確認する。
 
-### 解答例
+### 成功条件
+
+二案から一つを選び、checksumを自動上書きすると失われる証拠を説明できれば成功です。
+
+[演習5の解答](#answer-migration-05)
+
+::: {#answer-migration-05 .exercise-solution data-label="演習5の解答"}
+
+#### 解答例
 
 2を選びます。
 checksum mismatchは、同じmigration IDへ異なる定義が対応している可能性を示します。
 
 自動上書きすると、どの定義でschemaとdataが作られたかという証拠を消します。
 
-## 演習6：backfill方針を決める
+#### 解答の理由
+
+同じmigration IDに異なるchecksumがある状態は、applicationとDBが別の定義を参照している可能性を示します。
+
+#### よくある不十分な回答
+
+起動を継続するためにchecksumだけを書き換える回答は、矛盾の原因を診断できなくします。
+:::
+
+## 演習6：backfill方針を決める {#exercise-migration-06}
 
 旧Projectへ新しい`design_space_digest`と`binding_provenance`を追加します。
 旧rowには、当時使ったDesign Spaceを一意に復元できる情報がありません。
@@ -129,14 +214,31 @@ checksum mismatchは、同じmigration IDへ異なる定義が対応している
 2. digestは未boundのままにし、provenanceを`unbound_legacy`にする。
 3. Projectをすべて削除する。
 
-### 解答例
+### 成功条件
+
+三案を保存済み事実への影響で比較し、意味を発明せずに扱う方針を説明できれば成功です。
+
+[演習6の解答](#answer-migration-06)
+
+::: {#answer-migration-06 .exercise-solution data-label="演習6の解答"}
+
+#### 解答例
 
 2が保存済み事実を最も少なく書き換えます。
 1は現在値を過去の事実として発明し、3は判断履歴を失います。
 
 未bound状態をcontractが許容できないなら、黙って仮値を入れずmigrationを停止し、明示的なrepair手順を設計します。
 
-## 演習7：foreign keyとapplication検証を分ける
+#### 解答の理由
+
+復元できない過去の意味は、現在値で埋めず、不明であることをprovenanceとして残します。
+
+#### よくある不十分な回答
+
+現在activeな値なら妥当だろうと推測し、過去の事実として全rowへ書き込む回答です。
+:::
+
+## 演習7：foreign keyとapplication検証を分ける {#exercise-migration-07}
 
 次の不変条件を、foreign key、migration SQL、application検証へ対応付けてください。
 
@@ -145,7 +247,15 @@ checksum mismatchは、同じmigration IDへ異なる定義が対応している
 3. JSON payload内の`source_candidate_id`と`source_candidate_revision`が読める。
 4. legacy Projectのbindingが実測根拠に基づくか、upgrade時の仮定かを区別できる。
 
-### 解答例
+### 成功条件
+
+四つの不変条件を主な検証境界へ対応付け、foreign keyで表現できない条件を説明できれば成功です。
+
+[演習7の解答](#answer-migration-07)
+
+::: {#answer-migration-07 .exercise-solution data-label="演習7の解答"}
+
+#### 解答例
 
 | 条件 | 主な境界 |
 |---|---|
@@ -156,7 +266,16 @@ checksum mismatchは、同じmigration IDへ異なる定義が対応している
 
 DB columnとして正規化されていない参照や、意味上の確からしさはforeign keyだけでは表現できません。
 
-## 演習8：migration列の途中停止を説明する
+#### 解答の理由
+
+row間の存在関係はDBが検証できますが、JSON内部の参照やdomain上の意味はapplication側の解釈を必要とします。
+
+#### よくある不十分な回答
+
+すべてforeign keyで守れるとする回答は、正規化されていない参照とprovenanceの意味を扱えません。
+:::
+
+## 演習8：migration列の途中停止を説明する {#exercise-migration-08}
 
 起動時にA、B、Cの順で個別transactionのmigrationを実行します。
 AとBがcommitし、Cがrollbackして起動が止まりました。
@@ -164,7 +283,15 @@ AとBがcommitし、Cがrollbackして起動が止まりました。
 database全体は「partial migration」でしょうか。
 一件のmigration内部のpartial stateと分けて答えてください。
 
-### 解答例
+### 成功条件
+
+migration列が途中であることと、Cのtransaction内部が半端に残ることを区別して説明できれば成功です。
+
+[演習8の解答](#answer-migration-08)
+
+::: {#answer-migration-08 .exercise-solution data-label="演習8の解答"}
+
+#### 解答例
 
 releaseが期待するmigration列としては途中まで進んでいます。
 しかし、Cの内部変更が半端に残ったとは限りません。
@@ -172,7 +299,16 @@ releaseが期待するmigration列としては途中まで進んでいます。
 次回起動はAとBのmarker、checksum、実体を検証してskipし、Cを再試行できます。
 これにはAとBのidempotencyと、Cの失敗原因が解消していることが必要です。
 
-## 演習9：現mainのfailure fixtureを読む
+#### 解答の理由
+
+個別transactionなら、完了済みmigrationと失敗したmigrationの境界をmarkerで再検証できます。
+
+#### よくある不十分な回答
+
+database全体がpartialだからAとBもrollbackされるとする回答は、migrationごとのtransaction境界を無視しています。
+:::
+
+## 演習9：現mainのfailure fixtureを読む {#exercise-migration-09}
 
 リポジトリ直下で次を実行します。
 
@@ -193,8 +329,29 @@ migration_tests:
 unexpected_warnings:
 ```
 
-件数だけで完了にしません。
-次のtestが収集され、成功したことを確認します。
+### 成功条件
+
+実行commitと日時を記録し、commandが終了code 0となり、指定した五つのtestが収集されたことを確認できれば成功です。
+
+[演習9の解答](#answer-migration-09)
+
+::: {#answer-migration-09 .exercise-solution data-label="演習9の解答"}
+
+#### 解答例
+
+次のrubricをすべて満たした記録を解答とします。
+
+| 観点 | 合格条件 |
+|---|---|
+| 再現性 | `verified_commit`と`date`が記録されている |
+| 実行結果 | pytest commandが終了code 0である |
+| backfill | `test_candidate_revision_migration_backfills_the_current_candidate`が収集され成功している |
+| rollback | 二つのrollback testが収集され成功している |
+| mismatch | checksum mismatch testがDBを変更せず成功している |
+| foreign key | orphan検出testが収集され成功している |
+| 警告 | `unexpected_warnings`が空、または判断への影響が説明されている |
+
+確認するtestは次の五つです。
 
 - `test_candidate_revision_migration_backfills_the_current_candidate`
 - `test_failure_rolls_back_every_database_change_and_retry_succeeds`
@@ -202,7 +359,16 @@ unexpected_warnings:
 - `test_catalog_migration_rejects_checksum_mismatch_without_mutation`
 - `test_foreign_keys_are_enforced_and_legacy_orphans_are_reported`
 
-## 演習10：新しいmigrationのreview票を作る
+#### 解答の理由
+
+test件数は変動するため、migrationが守るbackfill、rollback、checksum、参照整合性を評価します。
+
+#### よくある不十分な回答
+
+成功件数だけを記録し、指定testの収集結果と警告を確認しない回答です。
+:::
+
+## 演習10：新しいmigrationのreview票を作る {#exercise-migration-10}
 
 新しいtableまたはcolumnを追加する前に、次を一文ずつ埋めます。
 
@@ -222,7 +388,44 @@ repair_after_commit:
 
 `existing_data_meaning`と`ambiguous_legacy_policy`を書けない場合、DDLを書く前にdomain側の判断が残っています。
 
-## 章末チェックの解答
+### 成功条件
+
+すべての欄を一文で埋め、未確定のdomain判断をDDL着手前の停止条件として示せれば成功です。
+
+[演習10の解答](#answer-migration-10)
+
+::: {#answer-migration-10 .exercise-solution data-label="演習10の解答"}
+
+#### 解答例
+
+review票は、次のrubricを満たせば合格です。
+
+| 観点 | 合格条件 |
+|---|---|
+| 識別 | migration IDが一意で、定義のchecksumと対応する |
+| 状態 | preconditionとpostconditionがschemaとdata invariantを含む |
+| 既存data | 旧rowの意味を保存するbackfill規則、または停止条件がある |
+| transaction | markerがpostcondition確認後に同じtransactionで書かれる |
+| 再実行 | 適用済み状態でmarker、checksum、実体を再検証する |
+| 故障 | commit前の故障注入点とrollback後の観察項目がある |
+| repair | commit後の不整合を自動推測せず診断する手順がある |
+
+#### 解答の理由
+
+具体値はmigrationごとに変わるため、review票が矛盾を検出できるかを評価します。
+
+#### よくある不十分な回答
+
+column名とDDLだけを記し、既存dataの意味、失敗時の観察、適用済み検証を空欄にする回答です。
+:::
+
+## 章末チェック
+
+[章末チェックの解答](#answer-migration-chapter-check)
+
+::: {#answer-migration-chapter-check .exercise-solution data-label="章末チェックの解答"}
+
+#### 解答例
 
 1. どのmigration IDと定義を適用したと記録したか。
 2. markerとchecksumは実schemaとdata invariantを単独では証明しないため。
@@ -234,3 +437,12 @@ repair_after_commit:
 8. table間の親子rowの存在関係。
 9. foreign keyはJSON内部の参照とdomain上の意味を解釈できないため。
 10. 前者は同じtransaction内の半端な変更であり、後者は完了したmigrationの後で次の一件が失敗した状態である。
+
+#### 解答の理由
+
+各回答は、ledger、schema、data invariant、transaction、domain上の意味を別々の証拠として扱っています。
+
+#### よくある不十分な回答
+
+markerまたはDDLだけで適用済みと判断し、既存dataの意味と失敗後の実体を確認しない回答です。
+:::

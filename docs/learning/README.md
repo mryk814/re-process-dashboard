@@ -71,6 +71,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/build.ps1
 学習者向けPDFは、教材設計、書き手のペルソナ、コードマップ、組版手順、評価記録を目次へ含めません。
 どちらも同じQMDを参照し、本文を出力ごとに複製しません。
 
+演習の解答も同じ原稿を共有します。
+統合HTMLでは各問題の直後にある「解答例を見る」から開き、学習者向けPDFでは用語集の前にある「演習解答」章から確認します。
+問題文、成功条件、任意のヒントは、解答を開かなくても読めます。
+
 HTMLとPDFは確認用の生成物であり、正本ではありません。
 手作業で修正せず、`*.qmd`、`*.bib`、`styles/`を変更して再生成します。
 
@@ -87,6 +91,7 @@ node --test apps/web/tests/latestSaveQueue.test.mjs apps/web/tests/inferenceSurf
 node --test apps/web/tests/workspaceBackupPresentation.test.mjs apps/web/tests/workspaceNotice.test.mjs
 npm run api:check
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-references.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-exercise-solutions.ps1
 ```
 
 リポジトリ全体の完了判定では、ルートの `AGENTS.md` に従ってfull test、typecheck、buildも実行します。
@@ -102,6 +107,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-referenc
 
 Quartoの構成は `_quarto.yml` が共通設定、`_quarto-site.yml` が統合HTMLの章順、`_quarto-reader.yml` が学習者向けPDFの章順を管理します。
 profileのchapter listへ同じ本文を登録し、出力ごとのコピーは作りません。
+`filters/exercise-solutions.lua`は、同じ解答blockをHTMLのdisclosureとPDFの巻末解答へ変換します。
 
 ## 教材レーン
 

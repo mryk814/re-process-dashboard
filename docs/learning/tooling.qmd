@@ -97,10 +97,26 @@ class名や本文の意味まで自動判定する仕組みは、誤検出と保
 
 ## spikeの実測
 
-Windows上のclean buildでは、統合HTMLの23文書を39.67秒、学習者向けPDFの15文書を10.67秒で生成しました。
-`build.ps1`全体の実測は51.9秒でした。
-PDFは110ページであり、全ページを画像化して本文、脚注、数式、表、code、SVG図、header、footer、page transitionを確認しました。
+Windows上のclean buildでは、統合HTMLの23文書を22.83秒、学習者向けPDFの15文書を7.38秒で生成しました。
+`build.ps1`全体の実測は31.1秒でした。
+PDFは140ページであり、全ページを画像化して本文、脚注、数式、表、code、SVG図、header、footer、page transitionを確認しました。
 HTMLでは、表紙から本編へ一回の操作で移動できることと、書き手のペルソナを検索できることを実ブラウザで確認しました。
+
+## 演習解答の媒体変換
+
+原稿では、解答を`.exercise-solution` classと一意なanswer IDを持つfenced divへ一度だけ書きます。
+QuartoはLua filterをPandoc ASTへ適用できるため、`filters/exercise-solutions.lua`がこのblockの配置を変えます [@quarto-filters]。
+
+`site` profileは`solution-placement: inline-disclosure`を指定します。
+HTMLでは、filterがanswer IDを持つnativeの`details`要素を作り、`summary`を「解答例を見る」に固定します。
+WHATWGの標準では、`open`属性がない`details`は追加情報を隠し、利用者の要求で開閉します [@whatwg-details]。
+
+`reader` profileは`solution-placement: answer-chapter`を指定します。
+Typstでは、filterが各labの解答blockを集め、用語集の前へ「演習解答」章として挿入します。
+profileと出力形式の組合せが契約と違う場合、filterは解答を黙って欠落させずbuildを失敗させます。
+
+HTMLのCSSはkeyboard focusを色とoutlineで示します。
+印刷時は閉じた解答本文も表示する規則を持ちますが、browserのprint結果と学習者向けPDFは別々に確認します。
 
 比較候補の確認結果は次です。
 

@@ -19,6 +19,8 @@ bibliography: references.bib
 lang: ja
 number-depth: 2
 toc-depth: 3
+filters:
+  - filters/exercise-solutions.lua
 
 format:
   html:
