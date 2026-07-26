@@ -110,9 +110,9 @@ from material_workbench.persistence.chain_uncertainty_migration import (
 from material_workbench.persistence.data_lifecycle_migration import (
     migrate_data_lifecycle,
 )
+from material_workbench.domain.candidate_policy import MAX_CANDIDATES_PER_PROJECT
 
 
-MAX_CANDIDATES_PER_PROJECT = 100
 PROTECTED_PROJECT_IDS = frozenset({"default", HOT_PROJECT_ID})
 
 

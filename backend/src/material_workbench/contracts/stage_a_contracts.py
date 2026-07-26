@@ -26,6 +26,10 @@ STAGE_A_SOURCE_COMPONENT_COLUMNS = tuple(
 STAGE_A_HOOP_SOURCE_COMPONENT_COLUMNS = tuple(
     f"{component}[%]" for component in STAGE_A_COMPONENTS[:20]
 )
+STAGE_A_COMPONENT_OUTPUT_UNIT = "mass% whole wire"
+STAGE_A_AUXILIARY_SOURCE_PRESENTATION = {
+    "d50_um": ("合金粉末 D50", "µm", 1),
+}
 
 
 class ScientificBlendInput(BlendContractModel):

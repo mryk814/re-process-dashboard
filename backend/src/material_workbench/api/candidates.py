@@ -20,11 +20,18 @@ from ..application.candidates import (
     CandidateService,
     CandidateValidationError,
 )
-from material_workbench.contracts.schemas import Candidate, CandidateImportResponse, CandidateInput, CandidateUpdate
+from material_workbench.contracts.schemas import (
+    Candidate,
+    CandidateCapacity,
+    CandidateImportResponse,
+    CandidateInput,
+    CandidateUpdate,
+)
 from material_workbench.contracts.blend_contracts import (
     BlendContractRegistry,
     BlendMaterialDescriptor,
 )
+from material_workbench.domain.candidate_policy import MAX_CANDIDATES_PER_PROJECT
 from material_workbench.persistence.store import (
     CandidateArchivedError,
     CandidateLimitError,
@@ -119,6 +126,26 @@ def list_candidates(project_id: str, service: CandidateServiceDependency, includ
         return service.list(project_id, include_archived=include_archived)
     except CANDIDATE_APPLICATION_ERRORS as exc:
         raise_candidate_http_error(exc)
+
+
+@router.get(
+    "/api/projects/{project_id}/candidate-capacity",
+    response_model=CandidateCapacity,
+    responses=PROJECT_API_ERRORS,
+)
+def get_candidate_capacity(
+    project_id: str,
+    service: CandidateServiceDependency,
+) -> CandidateCapacity:
+    try:
+        used = len(service.list(project_id))
+    except CANDIDATE_APPLICATION_ERRORS as exc:
+        raise_candidate_http_error(exc)
+    return CandidateCapacity(
+        limit=MAX_CANDIDATES_PER_PROJECT,
+        used=used,
+        remaining=MAX_CANDIDATES_PER_PROJECT - used,
+    )
 
 
 @router.post("/api/projects/{project_id}/candidates", status_code=201, response_model=Candidate, responses=PROJECT_API_ERRORS)

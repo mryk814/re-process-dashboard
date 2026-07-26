@@ -709,6 +709,39 @@
   color: #9a5a00;
 }
 
+.screening-page-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.screening-capacity {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  border: 1px solid #c8d6e8;
+  border-radius: 999px;
+  padding: 0 10px;
+  color: #315271;
+  background: #f5f8fc;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (max-width: 660px) {
+  .screening-page-actions {
+    align-items: stretch;
+    flex-direction: column;
+    margin-top: 12px;
+  }
+
+  .screening-capacity {
+    justify-content: center;
+  }
+}
+
 .screen-map-point > circle:not(.screen-map-selection-ring) {
   cursor: pointer;
   transition: opacity 120ms ease;
