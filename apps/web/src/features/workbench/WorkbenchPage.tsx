@@ -354,10 +354,12 @@ export function WorkbenchPage(props: WorkbenchProps) {
           candidates={candidates}
           taskDefinition={taskDefinition}
           displayDecimalOverrides={project?.display_decimals}
+          targetValues={targetValues}
           ready={["idle", "saved"].includes(saveState)}
           requestedActivityId={activityId}
           requestedRunId={activityRunId}
           onStateChange={onActivityStateChange}
+          onConfigureGoals={onConfigureGoals}
           onCandidateCreated={onOptimizedCandidate}
           onClose={() => {
             setActivityOpen(false);

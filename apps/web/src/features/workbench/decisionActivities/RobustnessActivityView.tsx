@@ -48,6 +48,7 @@ export function RobustnessActivityView({
   candidate,
   taskDefinition,
   displayDecimalOverrides,
+  targetValues,
   ready,
   availability,
   runs,
@@ -55,6 +56,7 @@ export function RobustnessActivityView({
   onSelectRun,
   running,
   onRun,
+  onConfigureGoals,
 }: DecisionActivityViewProps) {
   const fields = useMemo(
     () => {
@@ -76,6 +78,8 @@ export function RobustnessActivityView({
   const [nextField, setNextField] = useState("");
   const [sampleCount, setSampleCount] = useState(64);
   const [seed, setSeed] = useState(0);
+  const [sensitivityOnlyConfirmed, setSensitivityOnlyConfirmed] = useState(false);
+  const hasConfiguredGoals = Object.keys(targetValues).length > 0;
 
   useEffect(() => {
     const first = fields[0];
@@ -90,6 +94,10 @@ export function RobustnessActivityView({
     });
     setNextField(fields[1]?.path ?? "");
   }, [candidate.id, candidate.raw.revision]);
+
+  useEffect(() => {
+    setSensitivityOnlyConfirmed(false);
+  }, [candidate.id, candidate.raw.revision, hasConfiguredGoals]);
 
   const activeRun = runs.find((run) => run.id === activeRunId) ?? runs[0] ?? null;
   const result = activeRun ? robustnessResult(activeRun) : null;
@@ -124,7 +132,19 @@ export function RobustnessActivityView({
   const inputNumber = (path: string, value: number) => formatTaskNumber(value, taskDefinition, path, displayDecimalOverrides);
   const goalDirections = new Map(taskDefinition.outputs.map((output) => [output.key, output.goal_direction]));
   return <>
-    <section className="activity-settings">
+    {!hasConfiguredGoals && !sensitivityOnlyConfirmed && <section className="activity-prerequisite" role="status">
+      <strong>目標達成率を確認するには、Projectの目標値が必要です</strong>
+      <span>目標なしでも、入力ばらつきによる予測の振れ幅とモデル支持範囲は確認できます。</span>
+      <div>
+        <button type="button" className="primary-button" onClick={onConfigureGoals}>目標を設定する</button>
+        <button type="button" className="outline-button" onClick={() => setSensitivityOnlyConfirmed(true)}>目標なしでばらつきだけ見る</button>
+      </div>
+    </section>}
+    {!hasConfiguredGoals && sensitivityOnlyConfirmed && <div className="activity-goal-less-mode">
+      <p className="activity-question">入力のばらつきで予測がどの程度動くか</p>
+      <button type="button" className="text-button" onClick={onConfigureGoals}>目標を設定する</button>
+    </div>}
+    {(hasConfiguredGoals || sensitivityOnlyConfirmed) && <section className="activity-settings">
       <div className="panel-title"><h3>入力の公差</h3><span>現在値を中心とした±幅</span></div>
       <div className="activity-tolerance-list">
         {Object.entries(tolerances).map(([path, amount]) => {
@@ -157,10 +177,10 @@ export function RobustnessActivityView({
               Object.entries(tolerances).map(([path, amount]) => [path, { kind: "absolute" as const, amount }]),
             ),
           },
-        })}>{running ? "解析中…" : "公差内を解析"}</button>
+        })}>{running ? "解析中…" : hasConfiguredGoals ? "公差内を解析" : "ばらつきを解析"}</button>
       </div>
       {!ready && <small>候補の入力を保存すると実行できます。</small>}
-    </section>
+    </section>}
 
     {runs.length > 0 && <nav className="activity-run-history" aria-label="保存済みロバストネス解析">
       <span>保存済み</span>
@@ -177,6 +197,7 @@ export function RobustnessActivityView({
       </div>}
       <div className="activity-targets">{result.target_summaries.map((summary) => <article key={summary.target}>
         <header><strong>{outputLabels.get(summary.target) ?? summary.target}</strong>{summary.goal_achievement_rate != null && <b>目標達成 {percentFormat.format(summary.goal_achievement_rate * 100)}%</b>}</header>
+        {summary.goal_achievement_rate == null && <small>この解析の実行時に、この特性の目標が未設定だったため達成率は算出していません。</small>}
         <dl>
           <div><dt>基準予測</dt><dd>{outputNumber(summary.target, summary.base_prediction.value)} {summary.unit}</dd></div>
           <div><dt>入力ばらつき</dt><dd>{outputNumber(summary.target, summary.input_variation.lower)}–{outputNumber(summary.target, summary.input_variation.upper)} {summary.unit}</dd></div>
