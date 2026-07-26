@@ -4,7 +4,7 @@
   "package_version": "2.0.0-stable-ard",
   "task_id": "annealed-properties-v1",
   "input_schema_version": "candidate-v2",
-  "input_contract_digest": "sha256:74414f3873e658d6d6dd1ec9d7677d5873a2fffa75275a99c33c2b321fd7936a",
+  "input_contract_digest": "sha256:e96ea9275b22ae5fb63afd9ac68694e5ac0a7777defd753f56a78088c61fe6b3",
   "runtime_capability_digest": "sha256:0dd83e49dccb9c12b87b0ea6ce0555ccfeba13208f0e9a4116c76371506c463f",
   "feature_pipeline": {
     "id": "metallurgy-thermal",
@@ -331,9 +331,9 @@
   ],
   "provenance": {
     "training_data_id": "sha256:87e2321d5ce1071c9fe57bea95ed773609a88d63c7d5cc08bd0a15592634bef9",
-    "feature_dataset_id": "sha256:22e6f9c9f0c7fed76ede7a5751dc1d8b1f6746e0fbc3c628a8e30daeffa6626e",
+    "feature_dataset_id": "sha256:d753458252eb4ac4e4fa97e91a8096daec566fff2b7fae8b70519dde1a29c816",
     "training_code_revision": "stable-ard-multistart-v1",
-    "dataset_profile_id": "sha256:befd4ff1eade0eb752e0d7e39f133d12235f0327b4e0ee2eb24c02d536dd0f2a"
+    "dataset_profile_id": "sha256:f622242f2fa9399d8af9cf5faded2469fb6777b073190350f7a2c9f095d7e976"
   },
   "artifacts": [
     {
@@ -368,8 +368,8 @@
     },
     {
       "path": "reports/quality-report.json",
-      "sha256": "af907ee4d86f4166a6885478dc3d5b6b83739b5889dda607377437cb347e9fe6",
-      "bytes": 1206
+      "sha256": "5c0cc7dc2fd73d6f89afb565ad24c4e4a6ea6779bbae3b95fc487226ff233c0c",
+      "bytes": 862
     },
     {
       "path": "reports/training-diagnostics.json",

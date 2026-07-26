@@ -1,0 +1,23 @@
+{
+  "schema_version": "experimental-training-diagnostics/v1",
+  "family": "hierarchical-bayes",
+  "note": "Synthetic demo data; use this package to inspect uncertainty handling, not model superiority.",
+  "targets": {
+    "EL": {
+      "individual_observations": 282,
+      "parent_conditions": 142
+    },
+    "TS": {
+      "individual_observations": 282,
+      "parent_conditions": 142
+    },
+    "YS": {
+      "individual_observations": 282,
+      "parent_conditions": 142
+    },
+    "lambda": {
+      "individual_observations": 505,
+      "parent_conditions": 130
+    }
+  }
+}

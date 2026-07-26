@@ -164,7 +164,7 @@ def test_project_pinned_package_identity_drives_runtime_and_inference_key(client
         for item in options["model_packages"]
         if item["task_id"] == default["task_id"]
         and item["id"] != default["model_package_ref_id"]
-        and item["package_id"] == "annealed-lightgbm-standard-tutorial-v1"
+        and item["package_id"] == "annealed-lightgbm-standard-tutorial-v2"
     )
     created = client.post(
         "/api/projects",

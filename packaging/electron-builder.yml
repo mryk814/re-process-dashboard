@@ -44,22 +44,22 @@ extraResources:
     to: models/design-spaces/welding-stage-a-v2.json
   - from: models/packages/welding-stage-a-deterministic-v1
     to: models/packages/welding-stage-a-deterministic-v1
-  - from: models/packages/annealed-gp-stable-ard-tutorial-v1
-    to: models/packages/annealed-gp-stable-ard-tutorial-v1
-  - from: models/packages/annealed-lightgbm-standard-tutorial-v1
-    to: models/packages/annealed-lightgbm-standard-tutorial-v1
-  - from: models/packages/annealed-gp-stable-ard-process-v1
-    to: models/packages/annealed-gp-stable-ard-process-v1
-  - from: models/packages/annealed-lightgbm-standard-process-v1
-    to: models/packages/annealed-lightgbm-standard-process-v1
-  - from: models/packages/annealed-heteroscedastic-gp-process-v1
-    to: models/packages/annealed-heteroscedastic-gp-process-v1
-  - from: models/packages/annealed-hierarchical-bayes-process-v1
-    to: models/packages/annealed-hierarchical-bayes-process-v1
-  - from: models/packages/hot-rolled-tutorial-v1
-    to: models/packages/hot-rolled-tutorial-v1
-  - from: models/packages/hot-rolled-horseshoe-process-v1
-    to: models/packages/hot-rolled-horseshoe-process-v1
+  - from: models/packages/annealed-gp-stable-ard-tutorial-v2
+    to: models/packages/annealed-gp-stable-ard-tutorial-v2
+  - from: models/packages/annealed-lightgbm-standard-tutorial-v2
+    to: models/packages/annealed-lightgbm-standard-tutorial-v2
+  - from: models/packages/annealed-gp-stable-ard-process-v2
+    to: models/packages/annealed-gp-stable-ard-process-v2
+  - from: models/packages/annealed-lightgbm-standard-process-v2
+    to: models/packages/annealed-lightgbm-standard-process-v2
+  - from: models/packages/annealed-heteroscedastic-gp-process-v2
+    to: models/packages/annealed-heteroscedastic-gp-process-v2
+  - from: models/packages/annealed-hierarchical-bayes-process-v2
+    to: models/packages/annealed-hierarchical-bayes-process-v2
+  - from: models/packages/hot-rolled-tutorial-v2
+    to: models/packages/hot-rolled-tutorial-v2
+  - from: models/packages/hot-rolled-horseshoe-process-v2
+    to: models/packages/hot-rolled-horseshoe-process-v2
   - from: models/packages/flank-wear-gp-2026-07
     to: models/packages/flank-wear-gp-2026-07
   - from: models/packages/heat-treatment-ridge-external-v1

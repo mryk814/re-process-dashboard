@@ -149,8 +149,8 @@ def test_existing_quality_reports_remain_readable_without_method_metadata() -> N
         "mpea-literature-tys-ridge-v1",
         "mpea-room-tensile-ridge-v1",
         "mpea-hardness-ridge-v1",
-        "annealed-lightgbm-standard-tutorial-v1",
-        "annealed-lightgbm-standard-process-v1",
+        "annealed-lightgbm-standard-tutorial-v2",
+        "annealed-lightgbm-standard-process-v2",
     ),
 )
 def test_regenerated_continuous_packages_record_coverage_evidence(

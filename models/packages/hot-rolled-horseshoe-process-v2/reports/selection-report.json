@@ -1,0 +1,378 @@
+{
+  "schema_version": "sparse-selection-report/v1",
+  "method": "horseshoe",
+  "features": [
+    {
+      "feature": "C",
+      "coefficient_mean": 0.22178751758196857,
+      "coefficient_sd": 0.21665549542126716,
+      "q05": -0.007273337268270552,
+      "q95": 0.5614073157310485,
+      "sign_probability": 0.83984375,
+      "rope_outside_probability": 0.60107421875,
+      "local_scale_mean": 88.67039394959897
+    },
+    {
+      "feature": "Si",
+      "coefficient_mean": 0.0013379222093975254,
+      "coefficient_sd": 0.0216411731036307,
+      "q05": -0.025830955151468514,
+      "q95": 0.031049196235835536,
+      "sign_probability": 0.51318359375,
+      "rope_outside_probability": 0.03369140625,
+      "local_scale_mean": 1.6885065994097204
+    },
+    {
+      "feature": "Mn",
+      "coefficient_mean": -0.005989678442246071,
+      "coefficient_sd": 0.06784194850838818,
+      "q05": -0.10023994036018849,
+      "q95": 0.06962715536355964,
+      "sign_probability": 0.52294921875,
+      "rope_outside_probability": 0.14208984375,
+      "local_scale_mean": 4.308384850423948
+    },
+    {
+      "feature": "P",
+      "coefficient_mean": -0.008959186141193804,
+      "coefficient_sd": 0.01184746169748515,
+      "q05": -0.03240159209817648,
+      "q95": 0.004638345399871461,
+      "sign_probability": 0.77587890625,
+      "rope_outside_probability": 0.0029296875,
+      "local_scale_mean": 1.6467125845643409
+    },
+    {
+      "feature": "S",
+      "coefficient_mean": -0.0006136517029934341,
+      "coefficient_sd": 0.006308313144997563,
+      "q05": -0.011549077276140452,
+      "q95": 0.009951683180406687,
+      "sign_probability": 0.5322265625,
+      "rope_outside_probability": 0.0,
+      "local_scale_mean": 1.0634530406522202
+    },
+    {
+      "feature": "Al",
+      "coefficient_mean": 0.0010634743775029681,
+      "coefficient_sd": 0.006344148575876456,
+      "q05": -0.008703939989209175,
+      "q95": 0.012302543409168702,
+      "sign_probability": 0.56689453125,
+      "rope_outside_probability": 0.0,
+      "local_scale_mean": 0.9988689395418007
+    },
+    {
+      "feature": "Cu",
+      "coefficient_mean": 0.002170187300817474,
+      "coefficient_sd": 0.16201799698491595,
+      "q05": -0.057738693244755265,
+      "q95": 0.057380016334354654,
+      "sign_probability": 0.509765625,
+      "rope_outside_probability": 0.1123046875,
+      "local_scale_mean": 8.0285972346418
+    },
+    {
+      "feature": "Ni",
+      "coefficient_mean": 0.0010877013901788024,
+      "coefficient_sd": 0.00813644691109026,
+      "q05": -0.012517483439296484,
+      "q95": 0.015524126868695018,
+      "sign_probability": 0.5634765625,
+      "rope_outside_probability": 0.0,
+      "local_scale_mean": 1.1442543138958996
+    },
+    {
+      "feature": "Cr",
+      "coefficient_mean": 0.0013341686229153549,
+      "coefficient_sd": 0.02272703771813842,
+      "q05": -0.030852496623992916,
+      "q95": 0.039243072457611515,
+      "sign_probability": 0.50146484375,
+      "rope_outside_probability": 0.0546875,
+      "local_scale_mean": 1.9259981130471715
+    },
+    {
+      "feature": "Mo",
+      "coefficient_mean": 0.005867627951808951,
+      "coefficient_sd": 0.018483814202718617,
+      "q05": -0.014704152196645736,
+      "q95": 0.0425022417679429,
+      "sign_probability": 0.6005859375,
+      "rope_outside_probability": 0.0361328125,
+      "local_scale_mean": 1.72844936222765
+    },
+    {
+      "feature": "Ti",
+      "coefficient_mean": -0.0013603724413657203,
+      "coefficient_sd": 0.010606848521102913,
+      "q05": -0.019491910934448242,
+      "q95": 0.012740801973268373,
+      "sign_probability": 0.515625,
+      "rope_outside_probability": 0.00634765625,
+      "local_scale_mean": 1.2275883087628472
+    },
+    {
+      "feature": "B",
+      "coefficient_mean": -0.010021056393251591,
+      "coefficient_sd": 0.018858130984043393,
+      "q05": -0.04834897425025701,
+      "q95": 0.009474300965666763,
+      "sign_probability": 0.68017578125,
+      "rope_outside_probability": 0.0458984375,
+      "local_scale_mean": 1.9898246950040601
+    },
+    {
+      "feature": "O",
+      "coefficient_mean": 0.00026173953905399283,
+      "coefficient_sd": 0.005568834970389531,
+      "q05": -0.009050374245271086,
+      "q95": 0.009760136716067786,
+      "sign_probability": 0.5146484375,
+      "rope_outside_probability": 0.0,
+      "local_scale_mean": 0.9983949207691012
+    },
+    {
+      "feature": "N",
+      "coefficient_mean": -0.0026556672953910922,
+      "coefficient_sd": 0.008875154670407547,
+      "q05": -0.019517223723232745,
+      "q95": 0.009384329384192822,
+      "sign_probability": 0.59619140625,
+      "rope_outside_probability": 0.00048828125,
+      "local_scale_mean": 1.2485354636060997
+    },
+    {
+      "feature": "ce_iiw",
+      "coefficient_mean": 0.06218374978212742,
+      "coefficient_sd": 0.15075221953752896,
+      "q05": -0.03652831818908453,
+      "q95": 0.43469175845384594,
+      "sign_probability": 0.595703125,
+      "rope_outside_probability": 0.2392578125,
+      "local_scale_mean": 15.710526646264782
+    },
+    {
+      "feature": "pcm",
+      "coefficient_mean": 0.39640268847202265,
+      "coefficient_sd": 0.402222203521424,
+      "q05": -0.017664327938109636,
+      "q95": 0.9484101861715315,
+      "sign_probability": 0.7880859375,
+      "rope_outside_probability": 0.57373046875,
+      "local_scale_mean": 265.18199150326177
+    },
+    {
+      "feature": "c_times_mn",
+      "coefficient_mean": 0.005665617853766847,
+      "coefficient_sd": 0.032275039058973706,
+      "q05": -0.02267640111967921,
+      "q95": 0.052314408123493174,
+      "sign_probability": 0.5244140625,
+      "rope_outside_probability": 0.07177734375,
+      "local_scale_mean": 2.063246599309366
+    },
+    {
+      "feature": "si_plus_al",
+      "coefficient_mean": 0.002215931758296377,
+      "coefficient_sd": 0.019649609448177285,
+      "q05": -0.02302347049117088,
+      "q95": 0.03398748803883778,
+      "sign_probability": 0.5419921875,
+      "rope_outside_probability": 0.0341796875,
+      "local_scale_mean": 1.7369127244397937
+    },
+    {
+      "feature": "cr_plus_mo",
+      "coefficient_mean": 0.004362630595893008,
+      "coefficient_sd": 0.02669611150398106,
+      "q05": -0.025228949263691902,
+      "q95": 0.050820147804915894,
+      "sign_probability": 0.54443359375,
+      "rope_outside_probability": 0.06640625,
+      "local_scale_mean": 6.180936606280852
+    },
+    {
+      "feature": "ac1_proxy_c",
+      "coefficient_mean": 0.003274134418363994,
+      "coefficient_sd": 0.014505714029308756,
+      "q05": -0.015835743490606548,
+      "q95": 0.031631367094814775,
+      "sign_probability": 0.57275390625,
+      "rope_outside_probability": 0.015625,
+      "local_scale_mean": 1.4367576981612729
+    },
+    {
+      "feature": "ac3_proxy_c",
+      "coefficient_mean": -0.0067178811459489285,
+      "coefficient_sd": 0.022191322677755882,
+      "q05": -0.05198739450424909,
+      "q95": 0.01856663217768071,
+      "sign_probability": 0.6162109375,
+      "rope_outside_probability": 0.06005859375,
+      "local_scale_mean": 2.4733145400280137
+    },
+    {
+      "feature": "ms_proxy_c",
+      "coefficient_mean": -0.12240152406566712,
+      "coefficient_sd": 0.2874877349836851,
+      "q05": -0.8585226118564605,
+      "q95": 0.025168575812131125,
+      "sign_probability": 0.62255859375,
+      "rope_outside_probability": 0.25341796875,
+      "local_scale_mean": 112.57359666997587
+    },
+    {
+      "feature": "ti_after_tin_proxy",
+      "coefficient_mean": 0.00824692211400574,
+      "coefficient_sd": 0.012473103563057489,
+      "q05": -0.004514146852307021,
+      "q95": 0.03254188746213911,
+      "sign_probability": 0.77099609375,
+      "rope_outside_probability": 0.01318359375,
+      "local_scale_mean": 1.6039664153127262
+    },
+    {
+      "feature": "soaking_temperature_c",
+      "coefficient_mean": 0.044875829736656506,
+      "coefficient_sd": 0.06669378220746423,
+      "q05": -0.01999559523537755,
+      "q95": 0.15670040771365165,
+      "sign_probability": 0.70458984375,
+      "rope_outside_probability": 0.37060546875,
+      "local_scale_mean": 7.808187385126068
+    },
+    {
+      "feature": "finish_temperature_c",
+      "coefficient_mean": -0.010828556859196994,
+      "coefficient_sd": 0.024473600754731113,
+      "q05": -0.042960727028548716,
+      "q95": 0.011916542472317809,
+      "sign_probability": 0.7392578125,
+      "rope_outside_probability": 0.0390625,
+      "local_scale_mean": 6.937918735830408
+    },
+    {
+      "feature": "entry_thickness_mm",
+      "coefficient_mean": 0.018130794570929032,
+      "coefficient_sd": 0.022180281001687733,
+      "q05": -0.004140426055528223,
+      "q95": 0.06372399218380449,
+      "sign_probability": 0.81591796875,
+      "rope_outside_probability": 0.10986328125,
+      "local_scale_mean": 2.788103808921221
+    },
+    {
+      "feature": "exit_thickness_mm",
+      "coefficient_mean": 0.03644347391143171,
+      "coefficient_sd": 0.02343594450313591,
+      "q05": -0.0014942336885724213,
+      "q95": 0.07091465666890143,
+      "sign_probability": 0.9169921875,
+      "rope_outside_probability": 0.3095703125,
+      "local_scale_mean": 8.888502686522884
+    },
+    {
+      "feature": "hold_temperature_c",
+      "coefficient_mean": -0.0014940139878566877,
+      "coefficient_sd": 0.009441645309430697,
+      "q05": -0.014987550489604472,
+      "q95": 0.010049731424078343,
+      "sign_probability": 0.59130859375,
+      "rope_outside_probability": 0.00341796875,
+      "local_scale_mean": 1.086040918001494
+    },
+    {
+      "feature": "hold_time_min",
+      "coefficient_mean": -0.00055244569682672,
+      "coefficient_sd": 0.005073353259519831,
+      "q05": -0.009341936558485031,
+      "q95": 0.007818292919546365,
+      "sign_probability": 0.548828125,
+      "rope_outside_probability": 0.0,
+      "local_scale_mean": 1.0695146085399045
+    },
+    {
+      "feature": "total_reduction_percent",
+      "coefficient_mean": -0.005671338551524241,
+      "coefficient_sd": 0.02282455323212168,
+      "q05": -0.04682648535817861,
+      "q95": 0.017799662891775352,
+      "sign_probability": 0.55908203125,
+      "rope_outside_probability": 0.041015625,
+      "local_scale_mean": 2.0472920490773276
+    },
+    {
+      "feature": "log_thickness_strain",
+      "coefficient_mean": -0.0003022560112746764,
+      "coefficient_sd": 0.019332986808835224,
+      "q05": -0.028192463703453536,
+      "q95": 0.020630505494773365,
+      "sign_probability": 0.505859375,
+      "rope_outside_probability": 0.021484375,
+      "local_scale_mean": 1.541543827342025
+    },
+    {
+      "feature": "ar3_proxy_c",
+      "coefficient_mean": -0.03568933956752973,
+      "coefficient_sd": 0.11323712406752184,
+      "q05": -0.3291071057319641,
+      "q95": 0.037882901728153194,
+      "sign_probability": 0.56884765625,
+      "rope_outside_probability": 0.193359375,
+      "local_scale_mean": 7.849277789804688
+    },
+    {
+      "feature": "soak_minus_ac3_c",
+      "coefficient_mean": 0.1044825846456543,
+      "coefficient_sd": 0.08001872836731323,
+      "q05": -0.007375370454974471,
+      "q95": 0.19829983413219449,
+      "sign_probability": 0.85888671875,
+      "rope_outside_probability": 0.67578125,
+      "local_scale_mean": 14.920136126560124
+    },
+    {
+      "feature": "finish_minus_ar3_c",
+      "coefficient_mean": -0.0014711396862336912,
+      "coefficient_sd": 0.050805203626696695,
+      "q05": -0.05188957881182432,
+      "q95": 0.04033159483224132,
+      "sign_probability": 0.63671875,
+      "rope_outside_probability": 0.0966796875,
+      "local_scale_mean": 3.1012314302716604
+    },
+    {
+      "feature": "hold_minus_ac1_c",
+      "coefficient_mean": -0.0022379367565679154,
+      "coefficient_sd": 0.009726073046170469,
+      "q05": -0.01640225639566779,
+      "q95": 0.008480231743305916,
+      "sign_probability": 0.61083984375,
+      "rope_outside_probability": 0.00390625,
+      "local_scale_mean": 1.1363663882891188
+    },
+    {
+      "feature": "hold_exposure_above_ac1_c_min",
+      "coefficient_mean": 0.0009404568045133233,
+      "coefficient_sd": 0.12435203818391895,
+      "q05": -0.05293323192745447,
+      "q95": 0.051905484497547075,
+      "sign_probability": 0.5126953125,
+      "rope_outside_probability": 0.1044921875,
+      "local_scale_mean": 5.033544177790603
+    },
+    {
+      "feature": "soak_to_finish_drop_c",
+      "coefficient_mean": 0.02474938381258207,
+      "coefficient_sd": 0.055391618373401126,
+      "q05": -0.00959131084382534,
+      "q95": 0.08324425183236599,
+      "sign_probability": 0.7490234375,
+      "rope_outside_probability": 0.1396484375,
+      "local_scale_mean": 3.805564818387438
+    }
+  ],
+  "selected_subset_rule": "Standardized |coefficient| > 0.05 posterior probability; report only, no feature deletion.",
+  "interpretation_warning": "Shrinkage and sign probabilities are not causal importance; correlated features may share evidence."
+}

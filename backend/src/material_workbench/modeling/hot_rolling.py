@@ -65,7 +65,7 @@ class HotRollingRuntime:
     ) -> None:
         self.data = data
         self.task_definition = load_task_definitions()[TASK_ID]
-        default = Path(__file__).resolve().parents[4] / "models" / "packages" / "hot-rolled-tutorial-v1"
+        default = Path(__file__).resolve().parents[4] / "models" / "packages" / "hot-rolled-tutorial-v2"
         selected_package = package_root or default
         self.model_package = (
             selected_package

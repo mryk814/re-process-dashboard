@@ -311,6 +311,37 @@ def test_candidate_difference_attributes_the_gap_and_keeps_a_residual(client) ->
     assert "残差" in " ".join(result["warnings"])
 
 
+def test_candidate_difference_compares_the_current_candidate_with_its_history(
+    client,
+) -> None:
+    created = client.post(
+        "/api/projects/default/candidates", json=_candidate_payload()
+    ).json()
+    edited = _candidate_payload()
+    edited["inputs"] = {
+        **edited["inputs"],
+        "composition": {**edited["inputs"]["composition"], "C": 0.11},
+    }
+    current = client.put(
+        f"/api/projects/default/candidates/{created['id']}",
+        json={**edited, "expected_revision": created["revision"]},
+    ).json()
+
+    response = client.post(
+        _difference_url("default", current["id"]),
+        json=_difference_payload(
+            current["revision"],
+            {"id": current["id"], "revision": created["revision"]},
+        ),
+    )
+
+    assert response.status_code == 201, response.text
+    result = response.json()["result"]
+    assert result["comparison_candidate_id"] == current["id"]
+    assert result["comparison_candidate_revision"] == created["revision"]
+    assert {item["path"] for item in result["input_changes"]} == {"composition.C"}
+
+
 def test_candidate_difference_is_deterministic_and_persistent(client) -> None:
     base = client.post(
         "/api/projects/default/candidates", json=_candidate_payload()

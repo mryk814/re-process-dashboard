@@ -1,0 +1,43 @@
+{
+  "schema_version": "model-quality-report/v1",
+  "split": "leave-one-parent-condition-out",
+  "folds": null,
+  "targets": [
+    {
+      "target": "EL",
+      "parent_conditions": 142,
+      "mae": 2.7342399876516383,
+      "rmse": 15.894022769227435,
+      "interval_coverage_90": 0.9366197183098591,
+      "interval_coverage_method": null,
+      "interval_coverage_observations": null
+    },
+    {
+      "target": "TS",
+      "parent_conditions": 142,
+      "mae": 62.10008547362135,
+      "rmse": 396.74881521834175,
+      "interval_coverage_90": 0.971830985915493,
+      "interval_coverage_method": null,
+      "interval_coverage_observations": null
+    },
+    {
+      "target": "YS",
+      "parent_conditions": 142,
+      "mae": 43.82258575363692,
+      "rmse": 294.0683907613339,
+      "interval_coverage_90": 0.9647887323943662,
+      "interval_coverage_method": null,
+      "interval_coverage_observations": null
+    },
+    {
+      "target": "lambda",
+      "parent_conditions": 130,
+      "mae": 4.8654750323261275,
+      "rmse": 16.599321541989173,
+      "interval_coverage_90": 0.9846153846153847,
+      "interval_coverage_method": null,
+      "interval_coverage_observations": null
+    }
+  ]
+}

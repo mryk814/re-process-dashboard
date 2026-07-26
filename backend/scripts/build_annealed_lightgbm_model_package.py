@@ -48,8 +48,8 @@ from material_workbench.modeling.runtime import (
 from material_workbench.tasks.task_registry import load_task_contracts
 
 
-PACKAGE_ID = "annealed-lightgbm-standard-tutorial-v1"
-PACKAGE_VERSION = "1.0.0-standard"
+PACKAGE_ID = "annealed-lightgbm-standard-tutorial-v2"
+PACKAGE_VERSION = "1.1.0-standard"
 TRAINING_CODE_REVISION = "lightgbm-grouped-fixed-round-crossfit-v2"
 NUM_BOOST_ROUND = 50
 
@@ -408,7 +408,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("models/packages/annealed-lightgbm-standard-tutorial-v1"),
+        default=Path(
+            "artifacts/model-package-candidates/annealed-lightgbm-standard-tutorial-v2"
+        ),
     )
     parser.add_argument("--replace", action="store_true")
     parser.add_argument("--package-id", default=PACKAGE_ID)

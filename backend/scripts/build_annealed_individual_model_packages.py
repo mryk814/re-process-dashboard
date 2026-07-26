@@ -39,8 +39,8 @@ from material_workbench.tasks.task_registry import load_task_contracts
 
 
 SEED = 20260723
-HETERO_PACKAGE_ID = "annealed-heteroscedastic-gp-2026-07-v8-v1"
-HIERARCHICAL_PACKAGE_ID = "annealed-hierarchical-bayes-2026-07-v8-v1"
+HETERO_PACKAGE_ID = "annealed-heteroscedastic-gp-process-v2"
+HIERARCHICAL_PACKAGE_ID = "annealed-hierarchical-bayes-process-v2"
 FEATURE_GROUP_INDICES = feature_index_families(
     FEATURE_DEFINITIONS,
     {
@@ -495,7 +495,7 @@ def _build(source: Path, destination: Path, family: str, package_id: str) -> Non
     manifest = {
         "schema_version": "model-package/v1",
         "package_id": package_id,
-        "package_version": "1.0.0-experimental",
+        "package_version": "1.1.0-experimental",
         "task_id": TASK_ID,
         "input_schema_version": INPUT_SCHEMA_VERSION,
         "input_contract_digest": task_input_contract_digest(contract.task_definition),

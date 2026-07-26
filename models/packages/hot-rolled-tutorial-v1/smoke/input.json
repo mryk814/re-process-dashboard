@@ -29,15 +29,6 @@
     "heat_pattern": null,
     "heat_time_basis": "line_speed"
   },
-  "blend": null,
-  "editor_state": {
-    "locked_material_ids": []
-  },
-  "blend_validation": {
-    "status": "not_applicable",
-    "issues": [],
-    "design_space_digest": null
-  },
   "provenance": {
     "source_kind": "direct",
     "source_ref": null

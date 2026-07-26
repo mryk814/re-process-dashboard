@@ -8,8 +8,19 @@ import sqlite3
 from fastapi.testclient import TestClient
 
 from material_workbench.app import _AppResources, create_app
+from material_workbench.contracts.schemas import ModelPackageRefCreateInput
+from material_workbench.data.dataset_registration import (
+    file_sha256,
+    register_dataset_records,
+)
+from material_workbench.modeling.model_packages import ModelPackageLoader
+from material_workbench.persistence.workspace_catalog_bootstrap import (
+    REPLACED_MODEL_PACKAGE_IDS,
+    migrate_replaced_model_package_projects,
+)
 
 
+ROOT = Path(__file__).resolve().parents[2]
 EXPECTED_ASSET_FILENAMES = {
     "material_workbench_tutorial_v2.xlsx",
     "material_workbench_process_v1.xlsx",
@@ -38,18 +49,18 @@ EXPECTED_PROFILE_IDS = {
     "welding-consumable-stage-c-observations-v1",
 }
 EXPECTED_MODEL_PACKAGES = {
-    ("annealed-properties-v1", "annealed-gp-stable-ard-process-v1"),
-    ("annealed-properties-v1", "annealed-gp-stable-ard-tutorial-v1"),
-    ("annealed-properties-v1", "annealed-heteroscedastic-gp-process-v1"),
-    ("annealed-properties-v1", "annealed-hierarchical-bayes-process-v1"),
-    ("annealed-properties-v1", "annealed-lightgbm-standard-process-v1"),
-    ("annealed-properties-v1", "annealed-lightgbm-standard-tutorial-v1"),
+    ("annealed-properties-v1", "annealed-gp-stable-ard-process-v2"),
+    ("annealed-properties-v1", "annealed-gp-stable-ard-tutorial-v2"),
+    ("annealed-properties-v1", "annealed-heteroscedastic-gp-process-v2"),
+    ("annealed-properties-v1", "annealed-hierarchical-bayes-process-v2"),
+    ("annealed-properties-v1", "annealed-lightgbm-standard-process-v2"),
+    ("annealed-properties-v1", "annealed-lightgbm-standard-tutorial-v2"),
     ("battery-degradation-v1", "battery-degradation-lightgbm-calce-v1"),
     ("concrete-strength-v1", "concrete-strength-ridge-external-v1"),
     ("flank-wear-v1", "flank-wear-gp-2026-07"),
     ("heat-treatment-tradeoff-v1", "heat-treatment-ridge-external-v1"),
-    ("hot-rolled-properties-v1", "hot-rolled-horseshoe-process-v1"),
-    ("hot-rolled-properties-v1", "hot-rolled-tutorial-v1"),
+    ("hot-rolled-properties-v1", "hot-rolled-horseshoe-process-v2"),
+    ("hot-rolled-properties-v1", "hot-rolled-tutorial-v2"),
     ("mpea-hardness-process-v1", "mpea-hardness-ridge-v1"),
     ("mpea-literature-tys-v1", "mpea-literature-tys-ridge-v1"),
     ("mpea-room-tensile-v1", "mpea-room-tensile-ridge-v1"),
@@ -130,25 +141,120 @@ def test_bootstrap_is_idempotent_and_preserves_first_binding(
     assert second["binding_migrated_at"] == first["binding_migrated_at"]
 
 
-def test_bootstrap_refreshes_stale_explicit_bundled_tutorial_binding(
+def test_bootstrap_upgrades_a_project_pinned_to_the_previous_tutorial_package(
     tmp_path: Path,
     app_resources: _AppResources,
 ) -> None:
     database = tmp_path / "workbench.db"
     with TestClient(create_app(db_path=database, _resources=app_resources)) as client:
         current = client.get("/api/projects/default").json()
+        catalog = client.app.state.workspace_catalog
+        old_source = ROOT / "data/source/material_workbench_tutorial_v1.xlsx"
+        old_dataset = register_dataset_records(
+            catalog=catalog,
+            source_path=old_source,
+            source_sha256=file_sha256(old_source),
+            profile_path=(
+                ROOT
+                / "backend/src/material_workbench/data/dataset-input-profile-tutorial.json"
+            ),
+            locator_kind="bundled",
+            locator=old_source,
+            name=old_source.stem,
+        )
+        old_package = ModelPackageLoader().load(
+            ROOT / "models/packages/annealed-gp-stable-ard-tutorial-v1"
+        )
+        old_package_ref = catalog.upsert_model_package_ref(
+            ModelPackageRefCreateInput(
+                package_id=old_package.manifest.package_id,
+                task_id=old_package.manifest.task_id,
+                task_contract_digest="previous-task-contract",
+                manifest_digest=old_package.manifest_sha256,
+                locator=str(old_package.root),
+                manifest_json=old_package.manifest.model_dump(mode="json"),
+            )
+        )
 
     with sqlite3.connect(database) as conn:
         conn.execute(
-            "UPDATE projects SET task_contract_digest='stale',binding_provenance='explicit' "
-            "WHERE id='default'"
+            "UPDATE projects SET dataset_view_revision_id=?,task_contract_digest=?,"
+            "model_package_ref_id=?,model_package_manifest_digest=?,"
+            "binding_provenance='explicit' WHERE id='default'",
+            (
+                old_dataset.dataset_view_revision_id,
+                "previous-task-contract",
+                old_package_ref.id,
+                old_package.manifest_sha256,
+            ),
         )
 
     with TestClient(create_app(db_path=database, _resources=app_resources)) as client:
         refreshed = client.get("/api/projects/default").json()
         assert refreshed["dataset_view_revision_id"] == current["dataset_view_revision_id"]
         assert refreshed["task_contract_digest"] == current["task_contract_digest"]
+        assert refreshed["model_package_ref_id"] == current["model_package_ref_id"]
+        assert (
+            refreshed["model_package_manifest_digest"]
+            == current["model_package_manifest_digest"]
+        )
+        assert client.get("/api/projects/default/model-package").json()["id"] == (
+            "annealed-gp-stable-ard-tutorial-v2"
+        )
         assert client.get("/api/projects/default/lineage/AN-01").status_code == 200
+
+
+def test_every_replaced_package_id_has_an_explicit_project_upgrade(
+    tmp_path: Path,
+    app_resources: _AppResources,
+) -> None:
+    database = tmp_path / "workbench.db"
+    with TestClient(create_app(db_path=database, _resources=app_resources)) as client:
+        catalog = client.app.state.workspace_catalog
+        for previous_id in REPLACED_MODEL_PACKAGE_IDS:
+            package = ModelPackageLoader().load(ROOT / "models/packages" / previous_id)
+            catalog.upsert_model_package_ref(
+                ModelPackageRefCreateInput(
+                    package_id=previous_id,
+                    task_id=package.manifest.task_id,
+                    task_contract_digest="previous-task-contract",
+                    manifest_digest=package.manifest_sha256,
+                    locator=str(package.root),
+                    manifest_json=package.manifest.model_dump(mode="json"),
+                )
+            )
+
+    for previous_id, current_id in REPLACED_MODEL_PACKAGE_IDS.items():
+        project_id = (
+            "hot-rolling-default"
+            if previous_id.startswith("hot-rolled-")
+            else "default"
+        )
+        with sqlite3.connect(database) as conn:
+            old_ref = conn.execute(
+                "SELECT id,manifest_digest FROM model_package_refs WHERE package_id=?",
+                (previous_id,),
+            ).fetchone()
+            assert old_ref is not None
+            conn.execute(
+                "UPDATE projects SET task_contract_digest='previous-task-contract',"
+                "model_package_ref_id=?,model_package_manifest_digest=? WHERE id=?",
+                (old_ref[0], old_ref[1], project_id),
+            )
+
+        assert migrate_replaced_model_package_projects(database) == 1
+        with sqlite3.connect(database) as conn:
+            upgraded = conn.execute(
+                "SELECT m.package_id,p.task_contract_digest,m.task_contract_digest,"
+                "p.model_package_manifest_digest,m.manifest_digest "
+                "FROM projects p JOIN model_package_refs m ON m.id=p.model_package_ref_id "
+                "WHERE p.id=?",
+                (project_id,),
+            ).fetchone()
+        assert upgraded is not None
+        assert upgraded[0] == current_id
+        assert upgraded[1] == upgraded[2]
+        assert upgraded[3] == upgraded[4]
 
 
 def test_bootstrap_archives_unreferenced_package_ref_after_locator_rebuild(

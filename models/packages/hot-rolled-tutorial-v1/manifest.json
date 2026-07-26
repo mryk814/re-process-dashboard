@@ -4,7 +4,7 @@
   "package_version": "1.1.0-feature-design-v3",
   "task_id": "hot-rolled-properties-v1",
   "input_schema_version": "hot-rolling-candidate-v2",
-  "input_contract_digest": "sha256:c8e61589fc8ddd773c520d4bc1a09f6d5c2114cd3b49722cc1f844d4726bf11e",
+  "input_contract_digest": "sha256:87b4ef21f8236fe036a3e1aa7dbeb7b0861e9eee594bd83c34bb27193c1be2ae",
   "runtime_capability_digest": "sha256:98fb62b42f98b61ddb9ca562ba05ed9d84ba9217e8f5a900d0838e724bfc96c5",
   "feature_pipeline": {
     "id": "metallurgy-hot-rolling",
@@ -132,10 +132,10 @@
     }
   ],
   "provenance": {
-    "training_data_id": "sha256:b9b89cd545517a3abbc21715a0cd14acc8bab66541da558de3e305f28ee908d9",
-    "feature_dataset_id": "sha256:7c1a21a888c2da8d7ecbcc19c96e6eed8371998ff32f9853b271ea3fd9b4b48f",
+    "training_data_id": "sha256:a011476eb6514de278635e52f58a86bcce8f1078ee3933c121e5a463fa7af382",
+    "feature_dataset_id": "sha256:a1a6c628f0a35f2d9fb19379c092fcf96b3c45f25bcbd319de312e2e5bfb7628",
     "training_code_revision": "1.1.0-feature-design-v3",
-    "dataset_profile_id": "sha256:5e52335ef97ace6e2bf2fc5342c7f470352fb2e41a82ee6a1b7da822d13ec5fb"
+    "dataset_profile_id": "sha256:5b9ad0dd95a3e5f6d792959d0009e31afc250f983688372691fba4f68e3a3bde"
   },
   "artifacts": [
     {
@@ -150,18 +150,18 @@
     },
     {
       "path": "reference/training_stats.json",
-      "sha256": "0f288b05102dd654d7f772bb79b8cd7218c4e8a9a17ff1a02a51df5aa6cf6575",
+      "sha256": "e4efe8f638e7b7166575a1e5bf7dc476860be8b9f49cbaf48963a3c278ba6c86",
       "bytes": 373
     },
     {
       "path": "reports/quality-report.json",
-      "sha256": "00d68bf5f9642da58b64b3fd75f4cf5472ba49a068b0c43008b8822cf1d99d42",
-      "bytes": 381
+      "sha256": "9b5cdc5a7d67ccc66417b90f26996ac91fd44ffda5d4bc351fbc4984cf129c97",
+      "bytes": 295
     },
     {
       "path": "smoke/input.json",
-      "sha256": "36ef9d41db2844adca777cc130dc8a766a3ec516ec113ed590dd3ca634ff082d",
-      "bytes": 918
+      "sha256": "9f416ec9ef557b7a3b618e6e72b1a14bc5af08382e6409cdd58208935b492a3e",
+      "bytes": 735
     },
     {
       "path": "smoke/expected.json",

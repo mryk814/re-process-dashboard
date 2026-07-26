@@ -37,6 +37,27 @@ POSITION = "板厚中央"
 # instead of pretending a micrograph exists.
 MISSING_IMAGE_STATE = "未取込"
 AVAILABLE_IMAGE_STATE = "利用可"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+SOURCE_ROOT = (REPO_ROOT / "data" / "source").resolve()
+DEFAULT_GENERATED_ROOT = REPO_ROOT / "artifacts" / "tutorial-v2"
+
+
+def _inside_source_root(path: Path) -> bool:
+    resolved = path.resolve()
+    return resolved == SOURCE_ROOT or SOURCE_ROOT in resolved.parents
+
+
+def _validate_destinations(destination: Path, images_root: Path) -> None:
+    protected = [
+        str(path)
+        for path in (destination, images_root)
+        if _inside_source_root(path)
+    ]
+    if protected:
+        raise ValueError(
+            "data/source is a read-only source of truth; generate under artifacts/ "
+            f"and promote the reviewed revision separately: {', '.join(protected)}"
+        )
 
 
 def _png_grayscale(width: int, height: int, pixels: bytes) -> bytes:
@@ -126,6 +147,7 @@ def _upstream_context(
 
 
 def build(source: Path, destination: Path, images_root: Path) -> None:
+    _validate_destinations(destination, images_root)
     book = load_workbook(source)
     plan = (
         ("熱延", "熱延組織", "熱延組織_key", "HM", "hot", ("溶製_key", "熱延_key")),
@@ -207,10 +229,11 @@ if __name__ == "__main__":
         "--source", type=Path, default=Path("data/source/material_workbench_tutorial_v1.xlsx")
     )
     parser.add_argument(
-        "--output", type=Path, default=Path("data/source/material_workbench_tutorial_v2.xlsx")
+        "--output", type=Path, default=DEFAULT_GENERATED_ROOT / "material_workbench_tutorial_v2.xlsx"
     )
-    parser.add_argument("--images-root", type=Path, default=Path("data/source/images"))
+    parser.add_argument("--images-root", type=Path, default=DEFAULT_GENERATED_ROOT / "images")
     arguments = parser.parse_args()
-    if arguments.output.resolve() == arguments.source.resolve():
-        raise SystemExit("source workbooks are immutable; choose a new output revision")
-    build(arguments.source, arguments.output, arguments.images_root)
+    try:
+        build(arguments.source, arguments.output, arguments.images_root)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
