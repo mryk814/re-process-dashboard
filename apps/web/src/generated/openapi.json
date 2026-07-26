@@ -334,6 +334,16 @@
       },
       "ApiError": {
         "properties": {
+          "availability": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SubsystemAvailability"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "code": {
             "enum": [
               "not_found",
@@ -355,7 +365,8 @@
               "validation_error",
               "batch_feasibility_infeasible",
               "batch_greedy_search_exhausted",
-              "runtime_unavailable"
+              "runtime_unavailable",
+              "subsystem_unavailable"
             ],
             "title": "Code",
             "type": "string"
@@ -16381,6 +16392,78 @@
         "title": "StageSamplingCapability",
         "type": "object"
       },
+      "SubsystemAvailability": {
+        "additionalProperties": false,
+        "properties": {
+          "cause": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cause"
+          },
+          "impact": {
+            "default": "",
+            "title": "Impact",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "deterministic_transform",
+              "chain",
+              "chain_evaluation"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "message": {
+            "default": "",
+            "title": "Message",
+            "type": "string"
+          },
+          "recovery_hint": {
+            "default": "",
+            "title": "Recovery Hint",
+            "type": "string"
+          },
+          "resource_id": {
+            "minLength": 1,
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "stage": {
+            "minLength": 1,
+            "title": "Stage",
+            "type": "string"
+          },
+          "status": {
+            "default": "available",
+            "enum": [
+              "available",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "subsystem_id": {
+            "minLength": 1,
+            "title": "Subsystem Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subsystem_id",
+          "kind",
+          "resource_id",
+          "stage"
+        ],
+        "title": "SubsystemAvailability",
+        "type": "object"
+      },
       "SumLimitStep": {
         "additionalProperties": false,
         "properties": {
@@ -24049,6 +24132,38 @@
           }
         },
         "summary": "Canonicalize Series Asset"
+      }
+    },
+    "/api/subsystem-availability": {
+      "get": {
+        "operationId": "listSubsystemAvailability",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SubsystemAvailability"
+                  },
+                  "title": "Response Listsubsystemavailability",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Subsystem Availability"
       }
     },
     "/api/task-definitions": {

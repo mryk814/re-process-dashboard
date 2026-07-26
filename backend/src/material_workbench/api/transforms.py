@@ -18,6 +18,9 @@ from material_workbench.contracts.blend_contracts import (
 )
 from material_workbench.modeling.model_packages import PackageContractError
 from material_workbench.modeling.transform_catalog import DeterministicTransformCatalog
+from material_workbench.contracts.subsystem_availability import (
+    WELDING_TRANSFORM_SUBSYSTEM_ID,
+)
 
 
 router = APIRouter(prefix="/api/transforms", tags=["deterministic-transforms"])
@@ -68,7 +71,12 @@ class DeterministicTransformExecutionRequest(TransformApiModel):
 
 
 def get_transform_catalog(request: Request) -> DeterministicTransformCatalog:
-    return request.app.state.deterministic_transform_catalog
+    request.app.state.subsystem_availability.require(
+        WELDING_TRANSFORM_SUBSYSTEM_ID
+    )
+    catalog = request.app.state.deterministic_transform_catalog
+    assert catalog is not None
+    return catalog
 
 
 CatalogDependency = Annotated[

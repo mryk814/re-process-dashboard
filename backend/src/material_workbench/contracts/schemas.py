@@ -6,6 +6,10 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from material_workbench.contracts.subsystem_availability import (
+    SubsystemAvailability,
+)
+
 from material_workbench.contracts.blend_contracts import (
     BlendEditorState,
     BlendValidationState,
@@ -1343,10 +1347,12 @@ class ApiError(BaseModel):
         "batch_feasibility_infeasible",
         "batch_greedy_search_exhausted",
         "runtime_unavailable",
+        "subsystem_unavailable",
     ]
     message: str
     field_errors: list[FieldError] = Field(default_factory=list)
     current_candidate: Candidate | None = None
+    availability: SubsystemAvailability | None = None
 
 
 class DataQualityIssue(BaseModel):

@@ -1694,6 +1694,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/subsystem-availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Subsystem Availability */
+        get: operations["listSubsystemAvailability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/task-definitions": {
         parameters: {
             query?: never;
@@ -1944,11 +1961,12 @@ export interface components {
         };
         /** ApiError */
         ApiError: {
+            availability?: components["schemas"]["SubsystemAvailability"] | null;
             /**
              * Code
              * @enum {string}
              */
-            code: "not_found" | "revision_conflict" | "candidate_limit" | "adopted_candidate" | "candidate_archived" | "candidate_provenance_immutable" | "chain_project_requires_chain_candidate_api" | "project_task_locked" | "project_group_conflict" | "protected_project" | "project_has_successors" | "project_has_derived_candidates" | "project_archived" | "active_project_purge" | "project_purge_confirmation_mismatch" | "data_integrity_error" | "validation_error" | "batch_feasibility_infeasible" | "batch_greedy_search_exhausted" | "runtime_unavailable";
+            code: "not_found" | "revision_conflict" | "candidate_limit" | "adopted_candidate" | "candidate_archived" | "candidate_provenance_immutable" | "chain_project_requires_chain_candidate_api" | "project_task_locked" | "project_group_conflict" | "protected_project" | "project_has_successors" | "project_has_derived_candidates" | "project_archived" | "active_project_purge" | "project_purge_confirmation_mismatch" | "data_integrity_error" | "validation_error" | "batch_feasibility_infeasible" | "batch_greedy_search_exhausted" | "runtime_unavailable" | "subsystem_unavailable";
             current_candidate?: components["schemas"]["Candidate"] | null;
             /** Field Errors */
             field_errors?: components["schemas"]["FieldError"][];
@@ -8042,6 +8060,43 @@ export interface components {
             /** Supported */
             supported: boolean;
         };
+        /** SubsystemAvailability */
+        SubsystemAvailability: {
+            /** Cause */
+            cause?: string | null;
+            /**
+             * Impact
+             * @default
+             */
+            impact: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "deterministic_transform" | "chain" | "chain_evaluation";
+            /**
+             * Message
+             * @default
+             */
+            message: string;
+            /**
+             * Recovery Hint
+             * @default
+             */
+            recovery_hint: string;
+            /** Resource Id */
+            resource_id: string;
+            /** Stage */
+            stage: string;
+            /**
+             * Status
+             * @default available
+             * @enum {string}
+             */
+            status: "available" | "unavailable";
+            /** Subsystem Id */
+            subsystem_id: string;
+        };
         /** SumLimitStep */
         SumLimitStep: {
             /** Fields */
@@ -13221,6 +13276,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CanonicalSeriesRevision"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    listSubsystemAvailability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubsystemAvailability"][];
                 };
             };
             /** @description Validation Error */

@@ -38,6 +38,7 @@ export type ApiChainTemplate = components["schemas"]["ChainTemplateItem"];
 export type ApiChainDistributionCapability = components["schemas"]["ChainDistributionCapability"];
 export type ApiChainDistributionRun = components["schemas"]["ChainDistributionRun"];
 export type ApiChainEvaluation = components["schemas"]["ResolvedChainEvaluation"];
+export type ApiSubsystemAvailability = components["schemas"]["SubsystemAvailability"];
 export type ApiChainCandidateContract = components["schemas"]["ChainCandidateContractResponse"];
 export type ApiChainExecution = components["schemas"]["ChainExecution"];
 export type ApiChainSnapshot = components["schemas"]["ChainSnapshot"];
@@ -249,6 +250,12 @@ export const workbenchApi = {
   },
   async listTaskDefinitions() {
     return requireData(await apiClient.GET("/api/task-definitions"), "予測タスクを取得できませんでした。");
+  },
+  async listSubsystemAvailability() {
+    return requireData(
+      await apiClient.GET("/api/subsystem-availability"),
+      "機能の利用可否を取得できませんでした。",
+    );
   },
   async projectCreationOptions() {
     return requireData(await apiClient.GET("/api/project-creation-options"), "プロジェクト作成条件を取得できませんでした。");

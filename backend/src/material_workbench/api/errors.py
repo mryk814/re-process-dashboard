@@ -9,6 +9,9 @@ from fastapi.responses import JSONResponse
 from material_workbench.contracts.schemas import ApiError, Candidate
 from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolutionError
 from material_workbench.tasks.task_registry import TaskUnavailableError
+from material_workbench.contracts.subsystem_availability import (
+    SubsystemUnavailableError,
+)
 
 
 PROJECT_API_ERRORS = {
@@ -49,7 +52,7 @@ def install_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=409,
             content=payload.model_dump(
-                mode="json", exclude={"current_candidate"}
+                mode="json", exclude={"current_candidate", "availability"}
             ),
         )
 
@@ -58,7 +61,9 @@ def install_exception_handlers(app: FastAPI) -> None:
         payload = ApiError(code="runtime_unavailable", message=str(exc))
         return JSONResponse(
             status_code=503,
-            content=payload.model_dump(mode="json", exclude={"current_candidate"}),
+            content=payload.model_dump(
+                mode="json", exclude={"current_candidate", "availability"}
+            ),
         )
 
     @app.exception_handler(ProjectRuntimeResolutionError)
@@ -66,7 +71,25 @@ def install_exception_handlers(app: FastAPI) -> None:
         payload = ApiError(code="runtime_unavailable", message=str(exc))
         return JSONResponse(
             status_code=503,
-            content=payload.model_dump(mode="json", exclude={"current_candidate"}),
+            content=payload.model_dump(
+                mode="json", exclude={"current_candidate", "availability"}
+            ),
+        )
+
+    @app.exception_handler(SubsystemUnavailableError)
+    async def subsystem_unavailable_error(
+        _: Request, exc: SubsystemUnavailableError
+    ) -> JSONResponse:
+        payload = ApiError(
+            code="subsystem_unavailable",
+            message=exc.availability.message,
+            availability=exc.availability,
+        )
+        return JSONResponse(
+            status_code=503,
+            content=payload.model_dump(
+                mode="json", exclude={"current_candidate"}
+            ),
         )
 
     @app.exception_handler(HTTPException)
@@ -80,7 +103,9 @@ def install_exception_handlers(app: FastAPI) -> None:
         payload = ApiError(code=code, message=message)
         return JSONResponse(
             status_code=exc.status_code,
-            content=payload.model_dump(mode="json", exclude={"current_candidate"}),
+            content=payload.model_dump(
+                mode="json", exclude={"current_candidate", "availability"}
+            ),
         )
 
     @app.exception_handler(DomainApiException)
@@ -90,7 +115,11 @@ def install_exception_handlers(app: FastAPI) -> None:
             message=exc.message,
             current_candidate=exc.current_candidate,
         )
-        excluded = {"current_candidate"} if exc.current_candidate is None else None
+        excluded = (
+            {"current_candidate", "availability"}
+            if exc.current_candidate is None
+            else {"availability"}
+        )
         return JSONResponse(
             status_code=exc.status_code,
             content=payload.model_dump(mode="json", exclude=excluded),
@@ -108,5 +137,7 @@ def install_exception_handlers(app: FastAPI) -> None:
         )
         return JSONResponse(
             status_code=422,
-            content=payload.model_dump(mode="json", exclude={"current_candidate"}),
+            content=payload.model_dump(
+                mode="json", exclude={"current_candidate", "availability"}
+            ),
         )

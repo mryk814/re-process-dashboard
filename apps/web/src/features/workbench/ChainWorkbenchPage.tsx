@@ -7,6 +7,7 @@ import {
   type ApiChainCandidateContract,
   type ApiChainExecution,
   type ApiChainSnapshot,
+  type ApiSubsystemAvailability,
 } from "../../shared/api/workbench-api";
 import {
   fromApiCandidate,
@@ -64,17 +65,21 @@ function candidatePayload(candidate: ApiCandidate): ApiCandidateInput {
 export function ChainWorkbenchPage({
   projectId,
   initialCandidateId,
+  unavailable,
   onCandidateSelected,
 }: {
   projectId: string;
   initialCandidateId?: string;
+  unavailable?: ApiSubsystemAvailability;
   onCandidateSelected: (candidateId: string) => void;
 }) {
+  const readOnly = Boolean(unavailable);
   const [candidates, setCandidates] = useState<ApiCandidate[]>([]);
   const [contract, setContract] = useState<ApiChainCandidateContract | null>(null);
   const [selectedId, setSelectedId] = useState(initialCandidateId ?? "");
   const [execution, setExecution] = useState<ApiChainExecution | null>(null);
   const [snapshots, setSnapshots] = useState<ApiChainSnapshot[]>([]);
+  const [viewedSnapshotId, setViewedSnapshotId] = useState("");
   const [variants, setVariants] = useState<ApiActualConditionedVariant[]>([]);
   const [draftActualId, setDraftActualId] = useState("");
   const [actualDraft, setActualDraft] = useState<Record<string, string>>({});
@@ -94,6 +99,9 @@ export function ChainWorkbenchPage({
   const comparisonSnapshot = snapshots.find(
     (snapshot) => snapshot.identity.candidate_revision === selected?.revision,
   );
+  const viewedSnapshot = snapshots.find(
+    (snapshot) => snapshot.snapshot_id === viewedSnapshotId,
+  ) ?? comparisonSnapshot ?? snapshots[0];
   const latestVariant = variants.find(
     (variant) => variant.identity.base_candidate_revision === selected?.revision,
   );
@@ -118,6 +126,11 @@ export function ChainWorkbenchPage({
       if (!candidateRequests.current.isCurrent(token)) return;
       setExecution(nextExecution);
       setSnapshots(nextSnapshots);
+      setViewedSnapshotId((current) => (
+        nextSnapshots.some((snapshot) => snapshot.snapshot_id === current)
+          ? current
+          : nextSnapshots[0]?.snapshot_id ?? ""
+      ));
       setVariants(nextVariants);
       setStatusMessage(nextExecution ? "固定されたA → B → Cを表示しています" : "まだChainを実行していません");
     } catch (cause) {
@@ -132,9 +145,13 @@ export function ChainWorkbenchPage({
     const projectToken = candidateRequests.current.activate(projectId, "");
     requestSequence.current += 1;
     setBusy(false);
-    // この画面は疎配合Chain専用の入力面。Chainが別のcandidate adapterを宣言している
-    // 場合は、契約APIを叩く前にcapabilityで判断して明示的に伝える。
-    void workbenchApi.chainCandidateCapability(projectId).then((capability) => {
+    const loadCandidates = readOnly
+      ? workbenchApi.listChainCandidates(projectId).then(
+        (items) => [null, items] as const,
+      )
+      // この画面は疎配合Chain専用の入力面。Chainが別のcandidate adapterを宣言している
+      // 場合は、契約APIを叩く前にcapabilityで判断して明示的に伝える。
+      : workbenchApi.chainCandidateCapability(projectId).then((capability) => {
       if (!active || !candidateRequests.current.isCurrent(projectToken)) return null;
       if (!capability.sparse_blend) {
         setStatusMessage(
@@ -147,7 +164,8 @@ export function ChainWorkbenchPage({
         workbenchApi.chainCandidateContract(projectId),
         workbenchApi.listChainCandidates(projectId),
       ]);
-    }).then(async (loaded) => {
+    });
+    void loadCandidates.then(async (loaded) => {
       if (loaded === null) return;
       const [loadedContract, items] = loaded;
       if (!active || !candidateRequests.current.isCurrent(projectToken)) return;
@@ -176,7 +194,7 @@ export function ChainWorkbenchPage({
       requestSequence.current += 1;
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
     };
-  }, [projectId]);
+  }, [projectId, readOnly]);
 
   useEffect(() => {
     if (!stageBKeys.length) return;
@@ -400,6 +418,7 @@ export function ChainWorkbenchPage({
       const snapshot = await workbenchApi.createChainSnapshot(projectId, selected.id, selected.revision);
       if (!candidateRequests.current.isCurrent(candidateToken)) return;
       setSnapshots((items) => [snapshot, ...items.filter((item) => item.snapshot_id !== snapshot.snapshot_id)]);
+      setViewedSnapshotId(snapshot.snapshot_id);
       setStatusMessage("現在の全Stageをスナップショットに固定しました");
     } catch (cause) {
       if (candidateRequests.current.isCurrent(candidateToken)) {
@@ -440,15 +459,28 @@ export function ChainWorkbenchPage({
   if (!selected) {
     return <section className="chain-workbench chain-empty">
       <h2>Chain候補</h2>
+      {unavailable && <div className="task-unavailable-banner" role="status">
+        <strong>{unavailable.message}</strong>
+        <span>{unavailable.impact}</span>
+        <small>原因: {unavailable.cause}</small>
+        <small>復旧: {unavailable.recovery_hint}</small>
+      </div>}
       <p>{statusMessage}</p>
       <small>候補が登録されると、A → B → Cの計算状態と中間実測をここで確認できます。</small>
-      <button className="primary-button" disabled={!contract || busy} onClick={() => void createStarterCandidate()}>
+      <button className="primary-button" disabled={readOnly || !contract || busy} onClick={() => void createStarterCandidate()}>
         固定契約から基準配合を作成
       </button>
     </section>;
   }
 
   return <section className="chain-workbench" aria-label="Chain候補作業面">
+    {unavailable && <div className="task-unavailable-banner" role="status">
+      <strong>{unavailable.message}</strong>
+      <span>{unavailable.impact}</span>
+      <small>保存済みの候補・実行結果・Snapshot・実測analysisは参照できます。</small>
+      <small>原因: {unavailable.cause}</small>
+      <small>復旧: {unavailable.recovery_hint}</small>
+    </div>}
     <header className="chain-workbench-header">
       <div><span className="overline">CHAIN WORKBENCH</span><h2>{selected.name}</h2></div>
       <label>候補
@@ -491,16 +523,44 @@ export function ChainWorkbenchPage({
       {(["heat_input_kj_per_mm", "preheat_temp_c", "test_temperature_c"] as const).map((path) => (
         <label key={path}>
           <span>{path === "heat_input_kj_per_mm" ? "入熱 (kJ/mm)" : path === "preheat_temp_c" ? "予熱 (℃)" : "試験温度 (℃)"}</span>
-          <input type="number" step="any" value={processDraft[path] ?? inputNumber(selected.inputs.process[path])} onChange={(event) => editProcess(path, event.target.value)} />
+          <input type="number" step="any" disabled={readOnly} value={processDraft[path] ?? inputNumber(selected.inputs.process[path])} onChange={(event) => editProcess(path, event.target.value)} />
         </label>
       ))}
-      <button className="primary-button" disabled={busy || execution?.status !== "latest"} onClick={() => void saveSnapshot()}>
+      <button className="primary-button" disabled={readOnly || busy || execution?.status !== "latest"} onClick={() => void saveSnapshot()}>
         {busy ? "保存中…" : "全Stageを固定"}
       </button>
       <small>{comparisonSnapshot ? `現revisionを固定済み · 全${snapshots.length}件` : "実測分析には現revisionのsnapshotが必要です"}</small>
     </div>
 
-    {selected.blend && contract && <details className="chain-blend-panel">
+    {viewedSnapshot && <details className="chain-snapshot-evidence" open={readOnly ? true : undefined}>
+      <summary>固定Snapshotの証跡 <b>{snapshots.length}</b></summary>
+      <div className="chain-snapshot-heading">
+        <label>固定時点
+          <select value={viewedSnapshot.snapshot_id} onChange={(event) => setViewedSnapshotId(event.target.value)}>
+            {snapshots.map((snapshot) => (
+              <option key={snapshot.snapshot_id} value={snapshot.snapshot_id}>
+                編集版 {snapshot.identity.candidate_revision} · {new Date(snapshot.created_at).toLocaleString("ja-JP")}
+              </option>
+            ))}
+          </select>
+        </label>
+        <span>request {viewedSnapshot.request_id}</span>
+      </div>
+      <details>
+        <summary>固定入力</summary>
+        <pre>{JSON.stringify(viewedSnapshot.external_input, null, 2)}</pre>
+      </details>
+      <div className="chain-snapshot-stages">
+        {viewedSnapshot.stages.map((stage) => (
+          <details key={stage.stage_id}>
+            <summary>Stage {stage.stage_id} · {statusLabel[stage.status as StageStatus]}</summary>
+            <pre>{JSON.stringify(stage.result, null, 2)}</pre>
+          </details>
+        ))}
+      </div>
+    </details>}
+
+    {!readOnly && selected.blend && contract && <details className="chain-blend-panel">
       <summary>Stage A 配合を編集</summary>
       <BlendEditorPanel
         projectId={projectId}
@@ -542,9 +602,10 @@ export function ChainWorkbenchPage({
       }
       chainRevisionDigest={execution.chain_revision_digest}
       pointExecutionRequestId={execution.request_id}
+      readOnly={readOnly}
     />}
 
-    <details className="chain-actual-panel">
+    {!readOnly && <details className="chain-actual-panel">
       <summary>実測Bを使ってStage Cを別分析</summary>
       <p>16成分がすべて揃った実測だけを使用します。不足分を予測値で補いません。</p>
       <label className="actual-id-field">実測ID<input value={draftActualId} onChange={(event) => setDraftActualId(event.target.value)} placeholder="例: WM-001" /></label>
@@ -552,7 +613,7 @@ export function ChainWorkbenchPage({
       <button className="primary-button" disabled={busy || !draftActualId.trim() || !comparisonSnapshot || stageBKeys.some((key) => !actualDraft[key]?.trim() || !Number.isFinite(Number(actualDraft[key])))} onClick={() => void createVariant()}>
         実測を使用した別分析を固定
       </button>
-    </details>
+    </details>}
 
     {variants.length > 0 && <details className="chain-variant-history">
       <summary>実測analysis履歴 <b>{variants.length}</b></summary>

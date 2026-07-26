@@ -24,6 +24,7 @@ import {
   type ApiProjectHistory,
   type ApiProjectCreationOptions,
   type ApiSnapshot,
+  type ApiSubsystemAvailability,
   type ApiTaskCatalogItem,
 } from "../../shared/api/workbench-api";
 import type { ResolvedTaskDefinition } from "../candidates";
@@ -38,6 +39,7 @@ type Props = {
   operations?: RuntimeOperations;
   currentPreviews: Record<string, ApiPreview>;
   taskAvailability?: ResolvedTaskDefinition["availability"];
+  subsystemAvailability: ApiSubsystemAvailability[];
   offline: boolean;
   requestedSnapshotId?: string;
   requestedDatasetViewId?: string;
@@ -91,6 +93,7 @@ export function ProjectHub({
   operations,
   currentPreviews,
   taskAvailability,
+  subsystemAvailability,
   offline,
   requestedSnapshotId,
   requestedDatasetViewId,
@@ -152,6 +155,14 @@ export function ProjectHub({
     ? formatTaskNumber(value, taskDefinition, `output.${key}`, project?.display_decimals)
     : formatNumber(value);
   const taskUnavailable = taskAvailability?.status === "unavailable";
+  const chainSubsystem = subsystemAvailability.find(
+    (item) => item.kind === "chain"
+      && item.resource_id === "welding-consumable-a-b-c-v1",
+  );
+  const chainEvaluationSubsystem = subsystemAvailability.find(
+    (item) => item.kind === "chain_evaluation"
+      && item.subsystem_id === "chain_evaluation:welding-consumable-a-b-c-v1",
+  );
   const identityProject = project?.id === activeProjectId
     ? project
     : projects.find((item) => item.id === activeProjectId);
@@ -204,8 +215,10 @@ export function ProjectHub({
     setSelectedSnapshot(null);
     setModelPackage(null);
     setChainEvaluation(null);
+    void reloadHistory(controller.signal).catch(() => {
+      if (!controller.signal.aborted) setHistoryState("error");
+    });
     const requests = [
-      reloadHistory(controller.signal),
       workbenchApi.listTaskDefinitions().then((items) => {
         if (!controller.signal.aborted) {
           setCatalog(items);
@@ -214,15 +227,17 @@ export function ProjectHub({
       workbenchApi.projectCreationOptions().then((item) => !controller.signal.aborted && setCreationOptions(item)),
       workbenchApi.listChainTemplates().then((items) => !controller.signal.aborted && setChainTemplates(items)),
     ];
-    if (!taskUnavailable) {
+    if (!taskUnavailable && identityProject) {
       if (chainIdentity) {
-        requests.push(
-          workbenchApi.projectChainEvaluation(activeProjectId, controller.signal).then((item) => {
-            if (!controller.signal.aborted && activeProjectRef.current === activeProjectId) {
-              setChainEvaluation({ projectId: activeProjectId, value: item });
-            }
-          }),
-        );
+        if (chainEvaluationSubsystem?.status !== "unavailable") {
+          requests.push(
+            workbenchApi.projectChainEvaluation(activeProjectId, controller.signal).then((item) => {
+              if (!controller.signal.aborted && activeProjectRef.current === activeProjectId) {
+                setChainEvaluation({ projectId: activeProjectId, value: item });
+              }
+            }),
+          );
+        }
       } else {
         requests.push(
           workbenchApi.modelPackage(activeProjectId).then((item) => {
@@ -233,12 +248,18 @@ export function ProjectHub({
     }
     void Promise.all(requests).catch((cause) => {
       if (controller.signal.aborted) return;
-      setHistoryState("error");
       setError(cause instanceof Error ? cause.message : "プロジェクト概要を取得できませんでした。");
     });
     return () => controller.abort();
     // Recovering the workspace also recovers this overview: one retry is enough.
-  }, [activeProjectId, chainIdentity?.chain_revision_id, taskUnavailable, offline]);
+  }, [
+    activeProjectId,
+    chainIdentity?.chain_revision_id,
+    chainEvaluationSubsystem?.status,
+    identityProject?.id,
+    taskUnavailable,
+    offline,
+  ]);
 
   useEffect(() => {
     if (!requestedSnapshotId || !operations?.snapshot || selectedSnapshot?.id === requestedSnapshotId) return;
@@ -776,6 +797,14 @@ export function ProjectHub({
         <span>A → B → Cの段別鮮度と中間実測を、候補作業面で確認できます。</span>
         <small>このモードでは範囲探索とデータ探索を利用できません。下の「次の作業」から候補作業面へ進みます。</small>
       </section>}
+      {chainIdentity && chainSubsystem?.status === "unavailable" && (
+        <section className="task-unavailable-banner" role="status">
+          <strong>{chainSubsystem.message}</strong>
+          <span>{chainSubsystem.impact}</span>
+          <small>原因: {chainSubsystem.cause}</small>
+          <small>復旧: {chainSubsystem.recovery_hint}</small>
+        </section>
+      )}
       {error && <p className="panel-error" role="alert">{error}</p>}
       {project && (chainIdentity
         ? <section className="project-reference-strip" aria-label="プロジェクトのChain参照と所属">
@@ -799,9 +828,18 @@ export function ProjectHub({
             ["Objective", project.objective_definition_digest],
           ]} />
         </section>)}
-      {chainIdentity && (chainEvaluation?.projectId === activeProjectId
-        ? <ChainEvaluationPanel evaluation={chainEvaluation.value} />
-        : <section className="chain-evaluation-panel loading" aria-live="polite">Chain評価を読み込んでいます。</section>)}
+      {chainIdentity && (
+        chainEvaluationSubsystem?.status === "unavailable"
+          ? <section className="chain-evaluation-panel unavailable" role="status">
+            <strong>{chainEvaluationSubsystem.message}</strong>
+            <p>{chainEvaluationSubsystem.impact}</p>
+            <small>原因: {chainEvaluationSubsystem.cause}</small>
+            <small>復旧: {chainEvaluationSubsystem.recovery_hint}</small>
+          </section>
+          : chainEvaluation?.projectId === activeProjectId
+            ? <ChainEvaluationPanel evaluation={chainEvaluation.value} />
+            : <section className="chain-evaluation-panel loading" aria-live="polite">Chain評価を読み込んでいます。</section>
+      )}
       {project && <section className={`project-goal-strip${configuredTargets.length ? "" : " unset"}`} aria-label="プロジェクトの目標値">
         <div className="project-goal-heading"><span>目標値</span><strong>{configuredTargets.length ? "候補を判断する基準" : "候補を探す前に設定"}</strong></div>
         <div className="project-goal-values">
