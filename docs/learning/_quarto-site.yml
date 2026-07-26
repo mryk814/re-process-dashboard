@@ -28,6 +28,7 @@ book:
         - learning-paths/frontend-desktop.qmd
         - learning-paths/ml-data.qmd
         - tooling.qmd
+        - drift-reviews/index.qmd
         - evaluation.qmd
     - glossary.qmd
     - references.qmd

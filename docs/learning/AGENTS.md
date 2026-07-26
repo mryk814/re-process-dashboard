@@ -152,8 +152,10 @@ HTMLのsummaryへ答えの内容を書かず、「解答例を見る」に固定
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-references.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-main-drift.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/test-main-drift.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-exercise-solutions.ps1
 node docs/learning/check-code-references.mjs
+node docs/learning/check-drift-reviews.mjs
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/scripts/test-bootstrap-book-tools.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/build.ps1 -Clean
 ```
@@ -213,3 +215,8 @@ checksumは転送中の破損や意図しない差替えを検出するが、署
 
 pathが残っているだけでは「教材は最新」と判定しない。
 識別子、期待出力、command、画面文言、設計上の限界も確認する。
+
+判定はfile単位で終えず、教材内の検証可能な主張を単位にする。
+分類、更新対象、no-changeの理由、検証結果は [`drift-reviews/index.qmd`](drift-reviews/index.qmd) に従ってrecordへ残す。
+新しいreviewでは [`drift-reviews/template.json`](drift-reviews/template.json) をコピーし、`node docs/learning/check-drift-reviews.mjs`でPR差分との対応を検査する。
+証拠が不足したclaimを`evidence_unavailable`として残している間は、対応する章の`verified_commit`を進めない。

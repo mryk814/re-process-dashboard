@@ -78,6 +78,6 @@ Projectを通常一覧から外して判断証拠を凍結する操作と、外�
 ::: {.content-visible when-profile="site"}
 ## 教材を編集する場合
 
-統合HTMLの「編集と保守のガイド」には、[教材の設計基準](foundations.qmd)、[書き手のペルソナ](writer-persona.md)、[教材用コードマップ](code-map.qmd)、担当別の学習ルート、組版手順、評価記録があります。
+統合HTMLの「編集と保守のガイド」には、[教材の設計基準](foundations.qmd)、[書き手のペルソナ](writer-persona.md)、[教材用コードマップ](code-map.qmd)、担当別の学習ルート、組版手順、[教材drift review](drift-reviews/index.qmd)、評価記録があります。
 検索は学習者向け教材と編集と保守のガイドの両方を対象にします。
 :::

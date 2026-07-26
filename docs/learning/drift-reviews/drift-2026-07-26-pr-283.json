@@ -1,0 +1,291 @@
+{
+  "schema_version": 1,
+  "template": false,
+  "review_id": "drift-2026-07-26-pr-283",
+  "status": "resolved",
+  "recorded_after_the_fact": true,
+  "trigger": {
+    "kind": "pull_request",
+    "number": 283,
+    "url": "https://github.com/mryk814/re-process-dashboard/pull/283",
+    "merge_commit": "ae175ed425e6de190161dea280136f7e0dd1d1d9"
+  },
+  "reviewed_against": "ae175ed425e6de190161dea280136f7e0dd1d1d9",
+  "previous_verified_commit": "c3b9c14e6246c77854de7b8294e56584cb039534",
+  "new_verified_commit": "ae175ed425e6de190161dea280136f7e0dd1d1d9",
+  "implementation_commit": "93672b31c97cb2f62d764543211070d2c261670f",
+  "changes": [
+    {
+      "path": "apps/web/src/features/screening/ScreeningPage.tsx",
+      "semantic_impact": "behavioral",
+      "material_impact": [],
+      "affected_claims": [
+        "screening-presentation-out-of-scope"
+      ],
+      "action": "no-change",
+      "reason": "The screening surface adopted the Task formatter and support label, but the chapter does not explain this screen."
+    },
+    {
+      "path": "apps/web/src/features/screening/ScreeningRepresentativeTable.tsx",
+      "semantic_impact": "behavioral",
+      "material_impact": [],
+      "affected_claims": [
+        "screening-presentation-out-of-scope"
+      ],
+      "action": "no-change",
+      "reason": "The representative table changed number formatting and support language outside the chapter's Decision Activity route."
+    },
+    {
+      "path": "apps/web/src/features/workbench/DecisionActivityPanel.tsx",
+      "semantic_impact": "interface-compatible",
+      "material_impact": [
+        "learner-text",
+        "code-link"
+      ],
+      "affected_claims": [
+        "activity-output-formatting"
+      ],
+      "action": "updated",
+      "reason": "The panel gained responsibility for passing Project display decimal overrides to the selected view."
+    },
+    {
+      "path": "apps/web/src/features/workbench/WorkbenchPage.tsx",
+      "semantic_impact": "interface-compatible",
+      "material_impact": [],
+      "affected_claims": [
+        "activity-output-formatting"
+      ],
+      "action": "no-change",
+      "reason": "This file only passes the override into the panel; the learner-facing responsibility is explained at the panel boundary."
+    },
+    {
+      "path": "apps/web/src/features/workbench/decisionActivities/CandidateDifferenceActivityView.tsx",
+      "semantic_impact": "behavioral",
+      "material_impact": [
+        "learner-text",
+        "code-link"
+      ],
+      "affected_claims": [
+        "activity-output-formatting",
+        "activity-support-language",
+        "contract-flow-figure"
+      ],
+      "action": "updated",
+      "reason": "Output digits and support language changed on the chapter's concrete result view."
+    },
+    {
+      "path": "apps/web/src/features/workbench/decisionActivities/CounterfactualActivityView.tsx",
+      "semantic_impact": "behavioral",
+      "material_impact": [],
+      "affected_claims": [
+        "activity-output-formatting"
+      ],
+      "action": "no-change",
+      "reason": "The view changed, but the chapter names its parameter variant without teaching its rendering details."
+    },
+    {
+      "path": "apps/web/src/features/workbench/decisionActivities/RobustnessActivityView.tsx",
+      "semantic_impact": "behavioral",
+      "material_impact": [],
+      "affected_claims": [
+        "activity-output-formatting"
+      ],
+      "action": "no-change",
+      "reason": "The view changed, but the chapter uses Candidate Difference as the worked rendering example."
+    },
+    {
+      "path": "apps/web/src/features/workbench/decisionActivities/types.ts",
+      "semantic_impact": "interface-compatible",
+      "material_impact": [],
+      "affected_claims": [
+        "activity-output-formatting"
+      ],
+      "action": "no-change",
+      "reason": "The shared props type carries the override without changing a claim taught in the chapter."
+    },
+    {
+      "path": "apps/web/tests/supportPresentation.test.mjs",
+      "semantic_impact": "behavioral",
+      "material_impact": [
+        "learner-text",
+        "test-command"
+      ],
+      "affected_claims": [
+        "activity-support-language"
+      ],
+      "action": "updated",
+      "reason": "The new test makes the no-raw-support-label claim executable evidence."
+    }
+  ],
+  "claim_assessments": [
+    {
+      "claim_id": "screening-presentation-out-of-scope",
+      "statement": "The chapter does not use Screening number formatting or support labels as a worked presentation surface.",
+      "classification": "no_content_impact",
+      "material_impact": [],
+      "action": "no-change",
+      "reason": "PR #283 changed both concerns on Screening surfaces, but the learner text follows the Decision Activity route and makes no Screening claim.",
+      "evidence": [
+        {
+          "path": "apps/web/src/features/screening/ScreeningPage.tsx",
+          "symbol": "ScreeningPage"
+        },
+        {
+          "path": "apps/web/src/features/screening/ScreeningRepresentativeTable.tsx",
+          "symbol": "ScreeningRepresentativeTable"
+        },
+        {
+          "path": "docs/learning/chapters/contract-through-stack.qmd",
+          "symbol": null
+        }
+      ],
+      "verification": [
+        "Reviewed the PR #283 hunks and searched the chapter for Screening references."
+      ]
+    },
+    {
+      "claim_id": "activity-output-formatting",
+      "statement": "Decision Activity output values use Task Definition display decimals instead of view-local fixed precision.",
+      "classification": "editorial_update",
+      "material_impact": [
+        "learner-text",
+        "code-link"
+      ],
+      "action": "updated",
+      "reason": "PR #283 changed presentation behavior without changing the result contract, so the rendering explanation and references needed an update.",
+      "evidence": [
+        {
+          "path": "apps/web/src/features/workbench/DecisionActivityPanel.tsx",
+          "symbol": "DecisionActivityPanel"
+        },
+        {
+          "path": "apps/web/src/features/workbench/decisionActivities/CandidateDifferenceActivityView.tsx",
+          "symbol": "CandidateDifferenceActivityView"
+        },
+        {
+          "path": "apps/web/src/shared/taskPresentation.ts",
+          "symbol": "formatTaskNumber"
+        }
+      ],
+      "verification": [
+        "node --test apps/web/tests/supportPresentation.test.mjs",
+        "npm run api:check"
+      ]
+    },
+    {
+      "claim_id": "activity-support-language",
+      "statement": "The UI presents support status as decision-facing Japanese labels rather than raw enum values.",
+      "classification": "editorial_update",
+      "material_impact": [
+        "learner-text",
+        "code-link",
+        "test-command"
+      ],
+      "action": "updated",
+      "reason": "The raw status was visible before PR #283, so the learner text now names the presentation helper and its labels.",
+      "evidence": [
+        {
+          "path": "apps/web/src/shared/supportPresentation.ts",
+          "symbol": "supportStatusLabel"
+        },
+        {
+          "path": "apps/web/tests/supportPresentation.test.mjs",
+          "symbol": null
+        }
+      ],
+      "verification": [
+        "node --test apps/web/tests/supportPresentation.test.mjs"
+      ]
+    },
+    {
+      "claim_id": "contract-flow-figure",
+      "statement": "The contract-flow figure depicts boundary transitions and does not encode output precision or support wording.",
+      "classification": "no_content_impact",
+      "material_impact": [],
+      "action": "no-change",
+      "reason": "PR #283 changed presentation props and labels without changing any node or edge represented by the existing figure.",
+      "evidence": [
+        {
+          "path": "docs/learning/figures/decision-activity-contract-flow.svg",
+          "symbol": null
+        },
+        {
+          "path": "docs/learning/chapters/contract-through-stack.qmd",
+          "symbol": "decision-activity-contract-flow.svg"
+        }
+      ],
+      "verification": [
+        "Reviewed the existing SVG labels against the PR #283 changed paths and presentation behavior."
+      ]
+    },
+    {
+      "claim_id": "activity-contract-union",
+      "statement": "Python result contracts become a discriminated TypeScript union through OpenAPI generation.",
+      "classification": "no_content_impact",
+      "material_impact": [],
+      "action": "no-change",
+      "reason": "PR #283 changed React presentation only and did not change Python contracts, OpenAPI, or generated types.",
+      "evidence": [
+        {
+          "path": "backend/src/material_workbench/contracts/decision_activity_contracts.py",
+          "symbol": "DecisionActivityResult"
+        },
+        {
+          "path": "apps/web/src/generated/api-types.ts",
+          "symbol": null
+        }
+      ],
+      "verification": [
+        "npm run api:check"
+      ]
+    },
+    {
+      "claim_id": "activity-stale-response",
+      "statement": "The panel rejects a response whose Project, Candidate, or revision identity no longer matches the current surface.",
+      "classification": "no_content_impact",
+      "material_impact": [],
+      "action": "no-change",
+      "reason": "The PR passed formatting props but did not change request identity, abort handling, or saved Run selection.",
+      "evidence": [
+        {
+          "path": "apps/web/src/features/workbench/DecisionActivityPanel.tsx",
+          "symbol": "DecisionActivityPanel"
+        },
+        {
+          "path": "apps/web/tests/activityRunNavigation.test.mjs",
+          "symbol": null
+        }
+      ],
+      "verification": [
+        "node --test apps/web/tests/activityRunNavigation.test.mjs"
+      ]
+    },
+    {
+      "claim_id": "contract-lab-impact-mapping",
+      "statement": "The lab asks readers to separate contract shape, generated types, rendering, and stale state failures.",
+      "classification": "no_content_impact",
+      "material_impact": [],
+      "action": "no-change",
+      "reason": "The lab does not assert fixed output digits or raw support labels, so its problem, solution, and success criteria remain valid.",
+      "evidence": [
+        {
+          "path": "docs/learning/labs/extend-contract.qmd",
+          "symbol": null
+        }
+      ],
+      "verification": [
+        "powershell -File docs/learning/check-exercise-solutions.ps1"
+      ]
+    }
+  ],
+  "verification": {
+    "drift_detection": "Detector regression reports CandidateDifferenceActivityView.tsx with exit code 2 for 894ecdc..ae175ed, ignores an unchanged reference, reports no drift at ae175ed, and rejects traversal and pathspec-magic references.",
+    "focused_tests": "Node presentation and navigation tests passed: 13 passed in 0.15 seconds. Backend Decision Activity and OpenAPI tests passed: 24 passed with 9 known warnings in 20.15 seconds.",
+    "api_check": "npm run api:check passed with openapi-typescript 7.9.1.",
+    "code_reference_check": "Code reference validation passed for 13 documents and 145 records; its self-test passed 9 assertions.",
+    "html_build": "Clean integrated HTML build generated 24 documents in 26.69 seconds and indexed the drift review guide.",
+    "pdf_build": "Clean reader PDF build generated 15 learner documents and 140 pages in 7.41 seconds; maintenance-only headings were absent.",
+    "visual_review": "Playwright inspection found no layout defect in the persona or drift review pages, and all 140 PDF pages were inspected across seven contact sheets without a new defect."
+  },
+  "reviewer_note": "The content update and verified commit advance happened in 93672b3 before this structured record was added. This record reconstructs that first review from the PR diff, textbook diff, tests, and git history."
+}

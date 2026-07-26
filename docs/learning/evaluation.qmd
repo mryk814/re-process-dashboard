@@ -24,11 +24,13 @@
 | SQLite migration focused test | Candidate revision、table再構築、Workspace catalog、connection policyで32 passed、7 known warnings、23.24秒 |
 | Project lifecycle focused test | Project archive、claim失効、purge、cross-Project provenance、successor保護で5 passed、11 known warnings、20.67秒 |
 | API生成型 | `npm run api:check` 成功、openapi-typescript 7.9.1 |
-| repository full gate | pytest 844 passed、3 skipped、56 known warnings、179.23秒。typecheck、API生成型、frontend import境界、production build成功 |
+| repository full gate | pytest 849 passed、3 skipped、58 known warnings、172.92秒。typecheck、API生成型、frontend import境界、production build成功 |
 | Decision Activity E2E | main commit `b8ef18a` で2 passed、1 failed。比較候補label追従漏れ [Issue #279](https://github.com/mryk814/re-process-dashboard/issues/279) を再現。[Issue #280](https://github.com/mryk814/re-process-dashboard/issues/280) はopenだが、記録されていた失敗は再現せず |
 | Source lifecycle E2E | 隔離portで1 passed、31.8秒 |
 | repository path | `docs/learning/check-references.ps1` 成功 |
-| 統合HTML | `site` profileで23文書を生成。学習者向け教材と編集と保守のガイドを別partにし、一つの検索索引へ収録 |
+| PR #283教材drift review | changed file 9件を5分類でclaim単位に判定。Screeningの数値とsupport labelは章のscope外、表示桁数とsupport languageは本文更新、contract union、stale response、演習、既存図はno-changeと記録 |
+| drift detector回帰test | PR #283のfirst parentで参照変更を検出して終了code 2、非参照変更とreview済みcommitで0、不正な相対pathとpathspec magicを1として拒否 |
+| 統合HTML | `site` profileで24文書を生成。学習者向け教材と編集と保守のガイドを別partにし、一つの検索索引へ収録 |
 | HTMLの読者導線 | 表紙から第1章へ一回の操作で移動できることを実ブラウザで確認 |
 | HTMLの保守導線 | `共同研究者`の検索で書き手のペルソナを含む3文書が見つかることを実ブラウザで確認 |
 | 演習と解答の構造 | 6演習章で55演習、61解答block、6章末チェックを検査。全演習にstable ID、成功条件、対応する解答linkがあり、全解答blockに解答例、理由、不十分な回答がある |
@@ -39,8 +41,8 @@
 | PDFの解答group | 6演習章の見出しをpage 105、108、113、118、123、128へ配置し、同名の「演習1の解答」と章末チェックを所属章から識別できることを確認 |
 | PDFの解答配置 | 演習解答はpage 105からpage 132、用語集はpage 133、読書案内はpage 135からpage 138、書誌一覧はpage 139からpage 140に分離 |
 | PDFの内容境界 | 設計基準、書き手のペルソナ、コードマップ、学習ルート、組版手順、評価記録、参考文献の編集方針と保守用Route 5、Route 6がPDF本文と目次にないことを確認 |
-| clean build | 統合HTMLを22.83秒、学習者向けPDFを7.38秒、全体を31.1秒で生成 |
-| visual review | 最終PDFの全140ページを96dpiで画像化し、日本語、脚注、数式、表、code、SVG図、header、footer、演習章別の解答見出し、page transition、recto調整ページを確認。HTMLは閉じた状態、keyboard focus、開いた状態、8ページの印刷結果を確認 |
+| clean build | 統合HTMLを26.69秒、学習者向けPDFを7.41秒で生成。教材固有checkとtool解決を含むcommand全体は49.2秒 |
+| visual review | 最終PDFの全140ページを7枚のcontact sheetへ画像化し、日本語、脚注、数式、表、code、SVG図、header、footer、演習章別の解答見出し、page transition、recto調整ページを確認。実ブラウザでペルソナ章とdrift review章の表、脚注、code、前後導線、検索結果を確認 |
 
 ## 更新トリガ
 

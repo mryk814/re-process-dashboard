@@ -1,0 +1,80 @@
+# 教材drift reviewを記録する {#sec-drift-review}
+
+## 差分検出と教材更新を分ける
+
+`check-main-drift.ps1`は、章が参照するfileに`verified_commit`以後の差分があることを検出します。
+この検出だけでは、本文を直すべきか、演習が無効になったか、説明へ影響しない変更かを決められません。
+
+drift reviewは、変更fileから教材内の主張へ影響をたどり、更新判断と検証証拠を一件のrecordへ残します。
+recordは設計判断そのものではありませんが、ADRで使われるcontext、outcome、consequenceという読み順を借ります。[^adr-shape]
+
+[^adr-shape]: ADRの代表的なtemplateは、status、context、decision、consequenceを分け、後から理由を再評価できる形で残します。drift reviewではdecisionを「どの教材materialを更新するか」というactionへ置き換えます。([ADR Templates](https://adr.github.io/adr-templates/))
+
+## reviewの単位
+
+file単位の差分を見つけた後は、教材内の**claim**を単位に判定します。
+claimは「Activity resultの数値はTask Definitionの表示桁数を使う」のように、正誤を実装とtestで確かめられる主張です。
+
+一つのfile変更が複数のclaimへ影響する場合があります。
+反対に、複数fileが同じclaimの実装とtestを分担する場合もあります。
+そのため、recordは`changes`と`claim_assessments`を別々に持ちます。
+
+### 教材への影響分類
+
+| Classification | 判定 |
+|---|---|
+| `no_content_impact` | 参照実装は変わったが、教材の主張と成立条件は変わらない |
+| `editorial_update` | 用語、表示例、path、code linkなどの更新が必要 |
+| `conceptual_update` | 責務、contract、処理経路、保証範囲の説明が変わる |
+| `exercise_invalidated` | 問題、成功条件、解答のいずれかが現実装で成立しない |
+| `evidence_unavailable` | test失敗、symbol不明、画面未確認などにより判定できない |
+
+実装側の意味変化は`semantic_impact`へ記録します。
+教材側で触る場所は`material_impact`へ記録します。
+たとえばbehavioralなUI変更でも、章の対象外なら`no_content_impact`になり得ます。
+
+## 一件を閉じる手順
+
+1. triggerとなるPR、merge commit、そのfirst parentを固定する。
+2. `check-main-drift.ps1`が参照fileの変更を報告することを確認する。
+3. PRの全changed fileをrecordの`changes`へ並べる。
+4. 変更が触れるclaimを`claim_assessments`で分類する。
+5. learner text、exercise、solution、figure、code link、test command、maintainer guideの更新要否を決める。
+6. 必要な教材変更を行う。
+7. focused test、生成型check、HTML、PDF、visual reviewを記録する。
+8. 証拠が揃った場合だけ`verified_commit`を進め、recordを`resolved`にする。
+
+`evidence_unavailable`が一件でも残る場合、該当章の`verified_commit`を進めません。
+関連testの失敗、生成contractの未同期、参照symbolの消失、画面の未確認、実装意図の不明は、いずれも保留理由になります。
+
+## 自動化する範囲
+
+自動checkは、changed path、commitの存在、recordに列挙したfileの過不足、分類値、参照するclaim IDを検査します。
+説明の意味が変わったか、例が誤解を招くか、学習順を変えるべきかはrecordを書いたreviewerが判断します。
+
+次のcommandは、recordとPR差分の対応を検査します。
+
+```powershell
+node docs/learning/check-drift-reviews.mjs
+```
+
+detector自体の回帰testは、PR #283のfirst parent、merge commit、変更対象fileを固定fixtureとして使います。
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File docs/learning/test-main-drift.ps1
+```
+
+## PR #283の初回record
+
+PR #283は、検討アクティビティの出力値をTask contractの表示桁数へ揃え、生のsupport statusを利用者向けlabelへ変えました。
+この変更はPython contract、生成union、stale response identityを変えていません。
+
+候補差分viewと共通panelについては、表示契約の説明を追加する`editorial_update`が必要でした。
+その更新はcommit `93672b31c97cb2f62d764543211070d2c261670f`で行われ、参照先へTask number formatterとsupport presentation helperが加わりました。
+演習はcontract fieldの変更経路とstale responseを問うため、問題と解答を変える必要がありませんでした。
+
+この初回recordは、更新後にgit historyから当時の差分と判断を再構成したものです。
+リアルタイムにreviewしたようには扱いません。
+完全な分類と証拠は [`drift-2026-07-26-pr-283.json`](drift-2026-07-26-pr-283.json) にあります。
+次回は [`template.json`](template.json) をコピーし、教材変更と同じ作業中にrecordを埋めます。

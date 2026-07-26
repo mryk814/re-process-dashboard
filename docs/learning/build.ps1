@@ -10,6 +10,7 @@ $siteProfile = Join-Path $learningRoot "_quarto-site.yml"
 $readerProfile = Join-Path $learningRoot "_quarto-reader.yml"
 $exerciseCheck = Join-Path $learningRoot "check-exercise-solutions.ps1"
 $codeReferenceCheck = Join-Path $learningRoot "check-code-references.mjs"
+$driftReviewCheck = Join-Path $learningRoot "check-drift-reviews.mjs"
 $toolLibrary = Join-Path $learningRoot "scripts\book-tools.ps1"
 $toolLock = Join-Path $learningRoot "tools.lock.json"
 
@@ -18,6 +19,7 @@ foreach ($profilePath in @(
     $readerProfile,
     $exerciseCheck,
     $codeReferenceCheck,
+    $driftReviewCheck,
     $toolLibrary,
     $toolLock
 )) {
@@ -99,6 +101,7 @@ $maintenanceOnlyChapters = @(
     "learning-paths/frontend-desktop.qmd",
     "learning-paths/ml-data.qmd",
     "tooling.qmd",
+    "drift-reviews/index.qmd",
     "evaluation.qmd"
 )
 foreach ($chapter in $requiredReaderChapters) {
@@ -116,6 +119,10 @@ foreach ($chapter in $maintenanceOnlyChapters) {
 node $codeReferenceCheck --write-manifest
 if ($LASTEXITCODE -ne 0) {
     throw "Code reference validation failed with exit code $LASTEXITCODE."
+}
+node $driftReviewCheck
+if ($LASTEXITCODE -ne 0) {
+    throw "Drift review validation failed with exit code $LASTEXITCODE."
 }
 
 Push-Location $learningRoot
@@ -169,6 +176,7 @@ $searchIndex = Get-Content -LiteralPath $siteSearch -Raw -Encoding UTF8
 foreach ($expectedHref in @(
     "chapters/contract-through-stack.html",
     "writer-persona.html",
+    "drift-reviews/index.html",
     "evaluation.html"
 )) {
     if ($searchIndex -notmatch [regex]::Escape($expectedHref)) {

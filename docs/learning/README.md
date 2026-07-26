@@ -14,6 +14,7 @@ Workspace restoreの章では、SQLite snapshot、bundle検証、staging migrati
 - 実装箇所を探す場合は、統合HTMLの「編集と保守のガイド」にある [`code-map.qmd`](code-map.qmd) を使います。
 - 担当別に読む順番を選ぶ場合は、同じガイドにある `learning-paths/` の三つのルートを使います。
 - 編集する場合は [`AGENTS.md`](AGENTS.md) と [`writer-persona.md`](writer-persona.md) を先に読みます。
+- mainの変更が教材へ与える影響を判定する場合は [`drift-reviews/index.qmd`](drift-reviews/index.qmd) を使います。
 
 ## Windowsで生成する
 
@@ -67,7 +68,9 @@ node --test apps/web/tests/latestSaveQueue.test.mjs apps/web/tests/inferenceSurf
 node --test apps/web/tests/workspaceBackupPresentation.test.mjs apps/web/tests/workspaceNotice.test.mjs
 npm run api:check
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-references.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/test-main-drift.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-exercise-solutions.ps1
+node docs/learning/check-drift-reviews.mjs
 ```
 
 リポジトリ全体の完了判定では、ルートの `AGENTS.md` に従ってfull test、typecheck、buildも実行します。
@@ -95,3 +98,4 @@ powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-main-dri
 ```
 
 編集者向けの詳細規約、main吸収、検証手順は [`AGENTS.md`](AGENTS.md) を正本とします。
+差分を検出した後のclaim分類と記録方法は [`drift-reviews/index.qmd`](drift-reviews/index.qmd) にあります。

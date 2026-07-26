@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "template": true,
+  "review_id": "drift-YYYY-MM-DD-pr-NNN",
+  "status": "detected",
+  "recorded_after_the_fact": false,
+  "trigger": {
+    "kind": "pull_request",
+    "number": 0,
+    "url": "https://github.com/OWNER/REPOSITORY/pull/NNN",
+    "merge_commit": "FULL_COMMIT_SHA"
+  },
+  "reviewed_against": "FULL_COMMIT_SHA",
+  "previous_verified_commit": "FULL_COMMIT_SHA",
+  "new_verified_commit": null,
+  "implementation_commit": null,
+  "changes": [
+    {
+      "path": "path/to/changed-file",
+      "semantic_impact": "none",
+      "material_impact": [],
+      "affected_claims": [
+        "claim-id"
+      ],
+      "action": "no-change",
+      "reason": "Evidence-based reason for the action."
+    }
+  ],
+  "claim_assessments": [
+    {
+      "claim_id": "claim-id",
+      "statement": "A claim that can be checked against implementation and tests.",
+      "classification": "no_content_impact",
+      "material_impact": [],
+      "action": "no-change",
+      "reason": "Evidence-based reason for the classification.",
+      "evidence": [
+        {
+          "path": "path/to/evidence",
+          "symbol": "OptionalSymbol"
+        }
+      ],
+      "verification": [
+        "command or test"
+      ]
+    }
+  ],
+  "verification": {
+    "drift_detection": "pending",
+    "focused_tests": "pending",
+    "api_check": "pending",
+    "code_reference_check": "pending",
+    "html_build": "pending",
+    "pdf_build": "pending",
+    "visual_review": "pending"
+  },
+  "reviewer_note": "State uncertainty, deferred evidence, and reconstruction limits."
+}
