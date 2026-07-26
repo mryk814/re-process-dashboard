@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Callable, Mapping, Protocol, runtime_checkable
+from typing import Any, Callable, Mapping, Protocol, Sequence, runtime_checkable
 
 from material_workbench.modeling.model_packages import VerifiedModelPackage
 from material_workbench.data.dataset_profile import DatasetInputProfile
@@ -129,6 +129,20 @@ class PredictionRuntime(Protocol):
     def predict(self, candidate: Any, **kwargs: Any) -> dict[str, Any]: ...
 
     def predict_core(self, candidate: Any, **kwargs: Any) -> dict[str, Any]: ...
+
+
+@runtime_checkable
+class BatchPredictionRuntime(Protocol):
+    """Optional ordered preview surface for proposal-pool evaluation."""
+
+    @property
+    def supports_batch_prediction(self) -> bool: ...
+
+    def predict_batch(
+        self,
+        candidates: Sequence[Any],
+        **kwargs: Any,
+    ) -> list[dict[str, Any]]: ...
 
 
 @runtime_checkable

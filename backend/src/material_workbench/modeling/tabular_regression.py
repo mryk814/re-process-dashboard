@@ -14,7 +14,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 from statistics import median
-from typing import Any, Literal
+from typing import Any, Literal, Sequence
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -25,7 +25,9 @@ from material_workbench.data.dataset_profile import load_task_definitions
 from material_workbench.domain.goal_targets import goal_fields
 from material_workbench.modeling.curve_grid import anchored_curve_grid
 from material_workbench.modeling.model_packages import (
+    LoadedBatchPredictor,
     ModelPackageLoader,
+    PredictiveSummary,
     VerifiedModelPackage,
     predictive_interval,
     validate_predictive_summary,
@@ -792,8 +794,17 @@ class TabularRegressionRuntime:
             else ModelPackageLoader().load(package_root)
         )
         manifest = self.model_package.manifest
-        definition = load_task_definitions()[self.task_id]
-        validate_task_definition_canonical_inputs(definition, manifest)
+        self.task_definition = load_task_definitions()[self.task_id]
+        self.output_definitions = {
+            item.key: item for item in self.task_definition.outputs
+        }
+        self.runtime_capabilities = {
+            item.target: item
+            for item in load_task_contracts()[
+                self.task_id
+            ].runtime_capability.targets
+        }
+        validate_task_definition_canonical_inputs(self.task_definition, manifest)
         if manifest.task_id != self.task_id:
             raise ValueError(f"Model package task {manifest.task_id} is incompatible with {self.task_id}")
         expected_features = tuple(item.name for item in feature_definitions(self.profile))
@@ -813,6 +824,13 @@ class TabularRegressionRuntime:
     @property
     def output_keys(self) -> frozenset[str]:
         return frozenset(self.predictors)
+
+    @property
+    def supports_batch_prediction(self) -> bool:
+        return all(
+            isinstance(predictor, LoadedBatchPredictor)
+            for predictor in self.predictors.values()
+        )
 
     @property
     def chain_sampling_method(self) -> str:
@@ -881,12 +899,13 @@ class TabularRegressionRuntime:
         )
         values = build_tabular_features(candidate, self.profile).as_dict()
         specs = {item.target: item for item in self.model_package.manifest.predictors}
-        capabilities = {
-            item.target: item for item in load_task_contracts()[self.task_id].runtime_capability.targets
-        }
         for target, predictor in self.predictors.items():
             summary = predictor.predict(values)
-            validate_predictive_summary(summary, specs[target], capabilities[target])
+            validate_predictive_summary(
+                summary,
+                specs[target],
+                self.runtime_capabilities[target],
+            )
             if not np.isclose(summary.point_estimate, expected[target], rtol=1e-7, atol=1e-7):
                 raise ValueError("Tabular model package smoke prediction is not reproducible")
 
@@ -983,6 +1002,76 @@ class TabularRegressionRuntime:
             caution_threshold=round(caution, 4),
         ), similar
 
+    def _support_batch(
+        self,
+        feature_rows: Sequence[FeatureBundle],
+        target: str,
+    ) -> list[Support]:
+        if not feature_rows:
+            return []
+        reference = self.support_references[target]
+        raw = np.vstack([item.values for item in feature_rows])
+        normalized = (raw - reference["mean"]) / reference["scale"]
+        reference_vectors = reference["vectors"]
+        dimension = max(reference_vectors.shape[1], 1)
+        reference_squared = np.einsum(
+            "ij,ij->i", reference_vectors, reference_vectors
+        )
+        loo_nearest = reference["loo_nearest"]
+        supported, caution = (
+            float(value) for value in np.quantile(loo_nearest, (0.80, 0.95))
+        )
+        results: list[Support] = []
+        for start in range(0, len(normalized), 128):
+            query = normalized[start : start + 128]
+            query_squared = np.einsum("ij,ij->i", query, query)
+            squared = (
+                query_squared[:, None]
+                + reference_squared[None, :]
+                - 2.0 * query @ reference_vectors.T
+            ) / dimension
+            nearest_indices = np.argmin(squared, axis=1)
+            nearest_values = np.sqrt(
+                np.mean(
+                    (
+                        reference_vectors[nearest_indices]
+                        - query
+                    )
+                    ** 2,
+                    axis=1,
+                )
+            )
+            for nearest_value in nearest_values:
+                nearest = float(nearest_value)
+                if nearest <= supported:
+                    status, message = "supported", "近い学習条件に実測があります"
+                elif nearest <= caution:
+                    status, message = (
+                        "caution",
+                        "近傍はありますが、学習条件の密度が低い領域です",
+                    )
+                else:
+                    status, message = (
+                        "extrapolated",
+                        "学習条件から外れています。予測は探索的な参考です",
+                    )
+                results.append(
+                    Support(
+                        status=status,
+                        distance=round(nearest, 4),
+                        percentile=round(
+                            float((loo_nearest <= nearest).mean() * 100),
+                            1,
+                        ),
+                        message=message,
+                        components={"all_inputs": round(nearest, 4)},
+                        reference_count=len(reference["rows"]),
+                        supported_threshold=round(supported, 4),
+                        caution_threshold=round(caution, 4),
+                    )
+                )
+        return results
+
     def evidence(self, candidate: Candidate) -> tuple[Support, list[dict[str, Any]]]:
         target = self.profile.outputs[0].key
         return self._support(candidate, target, True)
@@ -1013,14 +1102,21 @@ class TabularRegressionRuntime:
         candidate: Candidate,
         detailed: bool = False,
         target_values: dict[str, TargetValue] | None = None,
+        _prepared_values: dict[str, float] | None = None,
+        _summaries: dict[str, PredictiveSummary] | None = None,
         **_: Any,
     ) -> dict[str, Any]:
-        values = build_tabular_features(candidate, self.profile).as_dict()
-        definitions = {item.key: item for item in load_task_definitions()[self.task_id].outputs}
+        values = _prepared_values or build_tabular_features(
+            candidate, self.profile
+        ).as_dict()
         predictions: dict[str, Prediction] = {}
         warnings: list[str] = []
         for target, predictor in self.predictors.items():
-            summary = predictor.predict(values)
+            summary = (
+                _summaries[target]
+                if _summaries is not None
+                else predictor.predict(values)
+            )
             lower, upper = predictive_interval(summary)
             output_profile = next(item for item in self.profile.outputs if item.key == target)
             point_estimate = summary.point_estimate
@@ -1047,7 +1143,7 @@ class TabularRegressionRuntime:
             goal = (target_values or {}).get(target)
             goal_probability = None
             goal_value, goal_lower, goal_upper, goal_direction = goal_fields(
-                goal, definitions[target].goal_direction
+                goal, self.output_definitions[target].goal_direction
             )
             predictions[target] = Prediction(
                 value=round(point_estimate, 4),
@@ -1170,6 +1266,61 @@ class TabularRegressionRuntime:
             result["warnings"].append(support.message)
         return result
 
+    def predict_batch(
+        self,
+        candidates: Sequence[Candidate],
+        detailed: bool = False,
+        target_values: dict[str, TargetValue] | None = None,
+        **kwargs: Any,
+    ) -> list[dict[str, Any]]:
+        kwargs.pop("include_curve", None)
+        if not candidates:
+            return []
+        if not self.supports_batch_prediction:
+            raise ValueError(
+                "このruntimeのpredictorはnative batch predictionを提供しません"
+            )
+        feature_rows = [
+            build_tabular_features(candidate, self.profile)
+            for candidate in candidates
+        ]
+        value_rows = [item.as_dict() for item in feature_rows]
+        summaries_by_target: dict[str, list[PredictiveSummary]] = {}
+        for target, predictor in self.predictors.items():
+            summaries = (
+                predictor.predict_batch(value_rows)
+                if isinstance(predictor, LoadedBatchPredictor)
+                else [predictor.predict(values) for values in value_rows]
+            )
+            if len(summaries) != len(candidates):
+                raise ValueError(
+                    f"predictor {target} did not preserve batch cardinality"
+                )
+            summaries_by_target[target] = summaries
+        support_rows = self._support_batch(
+            feature_rows,
+            self.profile.outputs[0].key,
+        )
+        results: list[dict[str, Any]] = []
+        for index, candidate in enumerate(candidates):
+            result = self.predict_core(
+                candidate,
+                detailed=detailed,
+                target_values=target_values,
+                _prepared_values=value_rows[index],
+                _summaries={
+                    target: summaries[index]
+                    for target, summaries in summaries_by_target.items()
+                },
+            )
+            support = support_rows[index]
+            result["support"] = support
+            result["similar"] = []
+            if support.status != "supported":
+                result["warnings"].append(support.message)
+            results.append(result)
+        return results
+
     def response_curve_result(
         self,
         candidate: Candidate,
@@ -1227,8 +1378,12 @@ class TabularRegressionRuntime:
                     }
                 ),
             })
-        definition = load_task_definitions()[self.task_id]
-        field = next(field for group in definition.input_groups for field in group.fields if field.path == variable)
+        field = next(
+            field
+            for group in self.task_definition.input_groups
+            for field in group.fields
+            if field.path == variable
+        )
         observed = [float(row["outputs"][target]) for row in reference_rows]
         return {
             "target": target,

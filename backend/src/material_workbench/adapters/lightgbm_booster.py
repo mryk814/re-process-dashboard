@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
+
+import numpy as np
 
 from material_workbench.modeling.model_packages import (
     MissingOptionalDependency,
@@ -33,9 +36,7 @@ class _LightGBMPredictor:
                 "normal LightGBM predictors require a positive finite residual_std"
             )
 
-    def predict(self, values: dict[str, float], *, seed: int = 0) -> PredictiveSummary:
-        del seed
-        value = float(self.booster.predict(feature_vector(self.spec, values).reshape(1, -1))[0])  # type: ignore[attr-defined]
+    def _summary(self, value: float) -> PredictiveSummary:
         if self.spec.predictive_family == "bernoulli_logit":
             calibration = self.spec.config.get("calibration", {})
             if isinstance(calibration, dict):
@@ -98,6 +99,24 @@ class _LightGBMPredictor:
             quantiles={"0.50": value},
             distribution={"family": "empirical_quantiles", "support": "runtime_defined"},
         )
+
+    def predict(self, values: dict[str, float], *, seed: int = 0) -> PredictiveSummary:
+        del seed
+        value = float(self.booster.predict(feature_vector(self.spec, values).reshape(1, -1))[0])  # type: ignore[attr-defined]
+        return self._summary(value)
+
+    def predict_batch(
+        self,
+        values: Sequence[dict[str, float]],
+        *,
+        seed: int = 0,
+    ) -> list[PredictiveSummary]:
+        del seed
+        if not values:
+            return []
+        matrix = np.vstack([feature_vector(self.spec, item) for item in values])
+        estimates = self.booster.predict(matrix)  # type: ignore[attr-defined]
+        return [self._summary(float(value)) for value in estimates]
 
 
 class LightGBMBoosterAdapter:

@@ -13,7 +13,7 @@ from openpyxl.worksheet.datavalidation import DataValidation
 from material_workbench.data.dataset_profile import DatasetInputProfile, load_dataset_profile
 from material_workbench.modeling.hot_rolling_feature_pipeline import PROCESS_NAMES
 from material_workbench.data.importer import WorkbookData, composition_names
-from material_workbench.task_modules import PredictionRuntime
+from material_workbench.task_modules import BatchPredictionRuntime, PredictionRuntime
 from material_workbench.tasks.task_registry import load_task_contracts
 from material_workbench.contracts.schemas import (
     Candidate,
@@ -144,6 +144,65 @@ def _proposal_coverage(
     return evidence
 
 
+def _evaluate_proposal_pool(
+    runtime: PredictionRuntime,
+    candidates: list[Candidate],
+    *,
+    target_values: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Evaluate a generated pool without building discarded similarity rows."""
+
+    evaluation_candidates = [
+        candidate.model_copy(
+            update={
+                "id": f"{candidate.id}:proposal-pool:{index}",
+            }
+        )
+        for index, candidate in enumerate(candidates)
+    ]
+    predictions = (
+        runtime.predict_batch(
+            evaluation_candidates,
+            detailed=False,
+            target_values=target_values,
+        )
+        if (
+            isinstance(runtime, BatchPredictionRuntime)
+            and runtime.supports_batch_prediction
+        )
+        else [
+            runtime.predict_core(
+                candidate,
+                detailed=False,
+                target_values=target_values,
+            )
+            for candidate in evaluation_candidates
+        ]
+    )
+    if len(predictions) != len(candidates):
+        raise ValueError("batch prediction did not preserve candidate cardinality")
+    for candidate, evaluation_candidate, prediction in zip(
+        candidates,
+        evaluation_candidates,
+        predictions,
+        strict=True,
+    ):
+        if prediction.get("candidate_id") != evaluation_candidate.id:
+            raise ValueError("batch prediction did not preserve candidate order")
+        prediction["candidate_id"] = candidate.id
+        if "support" in prediction:
+            continue
+        support = runtime.support_summary(evaluation_candidate)
+        prediction["support"] = support
+        prediction["similar"] = []
+        if (
+            support.status != "supported"
+            and support.message not in prediction["warnings"]
+        ):
+            prediction["warnings"].append(support.message)
+    return predictions
+
+
 def run_proposal(
     runtime: PredictionRuntime,
     base: Candidate,
@@ -187,12 +246,20 @@ def run_proposal(
         for key, goal in configured_goals.items()
         if probability_available.get(key, False)
     }
-    for pool_index, candidate, candidate_input, applied in valid_candidates:
-        prediction = runtime.predict(
-            candidate,
-            detailed=False,
-            target_values=target_values,
-        )
+    proposal_candidates = [
+        candidate for _, candidate, _, _ in valid_candidates
+    ]
+    prediction_rows = _evaluate_proposal_pool(
+        runtime,
+        proposal_candidates,
+        target_values=target_values,
+    )
+    for (
+        pool_index,
+        candidate,
+        candidate_input,
+        applied,
+    ), prediction in zip(valid_candidates, prediction_rows, strict=True):
         selected = prediction["predictions"][request.target]
         support = prediction["support"]
         evaluation = evaluate_screening_goal(
@@ -320,6 +387,17 @@ def run_proposal(
         if batch_definition is not None
         else None
     )
+    candidate_by_pool_index = {
+        pool_index: candidate
+        for pool_index, candidate, _, _ in valid_candidates
+    }
+    for point in selected:
+        point["similar"] = [
+            item.model_dump() if hasattr(item, "model_dump") else item
+            for item in runtime.similarity(
+                candidate_by_pool_index[point["pool_index"]]
+            )
+        ]
     selected_pool_indices = {point["pool_index"] for point in selected}
     selected_points = []
     selected_rank = {

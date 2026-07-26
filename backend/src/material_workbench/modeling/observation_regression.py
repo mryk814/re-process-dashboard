@@ -242,7 +242,14 @@ class ObservationRegressionRuntime:
         self.model_package = package if isinstance(package, VerifiedModelPackage) else ModelPackageLoader().load(package)
         manifest = self.model_package.manifest
         contract = load_task_contracts()[self.task_id]
-        validate_task_definition_canonical_inputs(contract.task_definition, manifest)
+        self.task_definition = contract.task_definition
+        self.output_definitions = {
+            item.key: item for item in self.task_definition.outputs
+        }
+        self.runtime_capabilities = {
+            item.target: item for item in contract.runtime_capability.targets
+        }
+        validate_task_definition_canonical_inputs(self.task_definition, manifest)
         if manifest.task_id != self.task_id:
             raise ValueError(
                 f"Model package task {manifest.task_id} is incompatible with {self.task_id}"
@@ -332,10 +339,13 @@ class ObservationRegressionRuntime:
         expected = json.loads(self.model_package.artifact_path(smoke.expected).read_text(encoding="utf-8"))
         values = candidate_feature_values(candidate, self.spec)
         specs = {item.target: item for item in self.model_package.manifest.predictors}
-        capabilities = {item.target: item for item in load_task_contracts()[self.task_id].runtime_capability.targets}
         for target, predictor in self.predictors.items():
             summary = predictor.predict(values)
-            validate_predictive_summary(summary, specs[target], capabilities[target])
+            validate_predictive_summary(
+                summary,
+                specs[target],
+                self.runtime_capabilities[target],
+            )
             if not np.isclose(summary.point_estimate, expected[target], rtol=1e-7, atol=1e-7):
                 raise ValueError("Stage C package smoke prediction is not reproducible")
 
@@ -438,7 +448,6 @@ class ObservationRegressionRuntime:
         **_: Any,
     ) -> dict[str, Any]:
         values = candidate_feature_values(candidate, self.spec)
-        definitions = {item.key: item for item in load_task_contracts()[self.task_id].task_definition.outputs}
         predictions: dict[str, Prediction] = {}
         for target, predictor in self.predictors.items():
             summary = predictor.predict(values)
@@ -451,7 +460,8 @@ class ObservationRegressionRuntime:
                 point, lower, upper = min(maximum, point), min(maximum, lower), min(maximum, upper)
                 quantiles = {level: min(maximum, value) for level, value in quantiles.items()}
             goal_value, goal_lower, goal_upper, direction = goal_fields(
-                (target_values or {}).get(target), definitions[target].goal_direction
+                (target_values or {}).get(target),
+                self.output_definitions[target].goal_direction,
             )
             predictions[target] = Prediction(
                 value=round(point, 4),
@@ -579,8 +589,12 @@ class ObservationRegressionRuntime:
                 "predictive_family": summary.distribution["family"],
                 "quantiles": {"0.05": round(lower, 5), "0.95": round(upper, 5)},
             })
-        definition = load_task_contracts()[self.task_id].task_definition
-        field = next(field for group in definition.input_groups for field in group.fields if field.path == variable)
+        field = next(
+            field
+            for group in self.task_definition.input_groups
+            for field in group.fields
+            if field.path == variable
+        )
         observed = [float(row["outputs"][target]) for row in rows]
         return {
             "target": target,
