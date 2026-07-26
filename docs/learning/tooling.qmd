@@ -37,27 +37,64 @@ Typstのbook formatは各章を奇数ページから始めます。
 
 ## 固定version
 
-試作の検証versionは次です。
+組版toolは、`tools.lock.json`に記録した次の版を使います。
 
 | Tool | Version |
 |---|---:|
 | Quarto | 1.10.18 |
 | Typst | 0.15.1 |
 
-`docs/learning/build.ps1`は、commandが見つからない場合やversionが違う場合に、黙って別toolへfallbackしません。
-必要なtool、version、取得先を示して停止します。
+lock fileは、versionだけではなく、公式release assetのURL、file size、SHA-256、archive内の実行file pathを一つの取得identityとして記録します。
+bootstrapはarchiveのsizeとSHA-256が一致するまで展開しません。[^checksum-boundary]
+展開後も実行fileの存在とversionを確認し、検証がすべて終わったstaging directoryだけをcacheの最終pathへ切り替えます。
+
+[^checksum-boundary]: SHA-256の固定は、転送中の破損やlock後の意図しない差替えを検出します。Quartoでは公式checksum fileとGitHub release asset digest、TypstではGitHub release asset digestを一次情報として照合しました。GitHubもrelease assetのdigestによる整合性確認を案内していますが、今回のdigestは供給者から独立した署名ではありません。([GitHub Docs](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/verify-release-integrity))
+
+`build.ps1`はPATH上の同名commandを探さず、検証済みcacheの絶対pathを解決します。
+QuartoがPDF生成に使うTypstも`QUARTO_TYPST`で同じ固定版へ向け、実際のrenderer versionをbuild前に確認します。[^quarto-typst]
+versionが違う場合やcacheが未完成の場合は、別toolへfallbackせずに停止します。
 HTMLまたはPDFのrenderが非zeroで終わった場合も、その時点でbuildを失敗させます。
 
+[^quarto-typst]: Quartoの`quarto typst` commandは、Quartoに埋め込まれたTypstを実行します。Quarto 1.10.18の内蔵版も0.15.1ですが、PATH上のTypstを確認するだけでは実際のPDF rendererを証明できません。([Quarto Typst CLI](https://quarto.org/docs/cli/typst.html))
+
 versionを固定した理由は、PDFのpage count、font fallback、code wrappingがtool更新で変わりうるためです。
-将来versionを上げる場合は、HTML検索とPDFのvisual checkをやり直します。
+将来versionを上げる場合は、checksumの一次情報を再確認し、空のcacheからHTML検索とPDFのvisual checkまでやり直します。
+
+## portable bootstrap
+
+リポジトリ直下から次を実行します。
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File docs/learning/scripts/bootstrap-book-tools.ps1
+```
+
+既定のtool rootは`$env:LOCALAPPDATA\material-workbench-book-tools`です。
+`MATERIAL_WORKBENCH_BOOK_TOOLS`環境変数で変更でき、`-ToolRoot`を明示した場合はその値を優先します。
+どの経路でもsystemへinstallせず、永続的なPATHを変更しません。
+空白を含むrootは検証対象ですが、Quarto 1.10.18ではWindows上の非ASCII pathに既知の実行上の制約があります。[^quarto-nonascii-path]
+
+[^quarto-nonascii-path]: 非ASCII文字を含む隔離rootでは、Quarto同梱Luaがmodule pathを誤ってdecodeし、`modules/astshortcode`を見つけられない事象を再現しました。このerrorが出る環境では、たとえば`Join-Path $env:PUBLIC "material-workbench-book-tools"`のようなASCIIだけのrootをbootstrapとbuildの双方へ明示します。bootstrap自体の取得、hash検証、展開は非ASCII pathでも成功しますが、Quarto 1.10.18のrenderまでは保証しません。
+
+検証済みの展開cacheがあれば、networkへ接続せずに再利用します。
+展開cacheがなくても検証済みarchiveが残っていれば、`-Offline`で再展開できます。
+どちらもない場合、`-Offline`は必要なtool、version、SHA-256、期待するarchive pathを示して停止します。
+
+onlineの`-Force`は、同じrelease assetをもう一度取得し、archiveと新しいstagingを検証します。
+既存の正常cacheは同じSHA-256 identityなので置き換えず、再検証に成功したstagingを破棄して利用中のdirectoryを保ちます。
+展開やversion確認が失敗しても前のcacheは残り、buildとの間に実行fileを入れ替える競合を作りません。
+同時に二つのbootstrapが同じrootを使った場合は、後から来たprocessを明示的に停止し、partial downloadや共有stagingを正常cacheとして扱いません。
 
 ## build command
 
-リポジトリ直下から実行します。
+bootstrap後に、リポジトリ直下から実行します。
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/build.ps1
 ```
+
+custom rootを使う場合は、bootstrapとbuildの双方へ同じ`-ToolRoot`を渡します。
+buildは現在のprocessでだけ`QUARTO_TYPST`を設定し、終了時に元の値へ戻します。
 
 `check-references.ps1`は、repo path、BibTeX citekey、注釈台帳、本文citation、章末Further Readingをnetworkなしで検査します。
 実行成功は、URLが現在到達可能であることや、publisherの公式性をnetwork越しに証明しません。

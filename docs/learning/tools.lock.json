@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "platform": "windows-x86_64",
+  "tools": [
+    {
+      "name": "quarto",
+      "version": "1.10.18",
+      "url": "https://github.com/quarto-dev/quarto-cli/releases/download/v1.10.18/quarto-1.10.18-win.zip",
+      "sha256": "4e824652ff0da3f646868277582ed59c0872d1456e35350b7d7cdc4243ee18c2",
+      "size": 148278833,
+      "executable": "bin/quarto.exe",
+      "versionPattern": "^1\\.10\\.18$"
+    },
+    {
+      "name": "typst",
+      "version": "0.15.1",
+      "url": "https://github.com/typst/typst/releases/download/v0.15.1/typst-x86_64-pc-windows-msvc.zip",
+      "sha256": "19ce3551153c2fe7ee9fa2f95208310c8f4d3209fedb699e0333faf8913f6736",
+      "size": 22463684,
+      "executable": "typst-x86_64-pc-windows-msvc/typst.exe",
+      "versionPattern": "^typst 0\\.15\\.1(?:\\s|$)"
+    }
+  ]
+}

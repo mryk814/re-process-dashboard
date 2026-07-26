@@ -17,50 +17,26 @@ Workspace restoreの章では、SQLite snapshot、bundle検証、staging migrati
 
 ## Windowsで生成する
 
-前提は次の二つです。
-
-- [Quarto 1.10.18](https://github.com/quarto-dev/quarto-cli/releases/tag/v1.10.18)
-- [Typst 0.15.1](https://github.com/typst/typst/releases/tag/v0.15.1)
-
-systemへinstallせず、今回と同じ固定版binaryを利用する場合は、PowerShellで次を一度実行します。
+PowerShellでリポジトリ直下から、固定版の組版toolを準備して生成します。
 
 ```powershell
-$bookToolRoot = Join-Path $env:LOCALAPPDATA "material-workbench-book-tools"
-New-Item -ItemType Directory -Force -Path $bookToolRoot | Out-Null
-
-Invoke-WebRequest `
-  "https://github.com/quarto-dev/quarto-cli/releases/download/v1.10.18/quarto-1.10.18-win.zip" `
-  -OutFile (Join-Path $bookToolRoot "quarto.zip")
-Expand-Archive -Force `
-  (Join-Path $bookToolRoot "quarto.zip") `
-  (Join-Path $bookToolRoot "quarto")
-
-Invoke-WebRequest `
-  "https://github.com/typst/typst/releases/download/v0.15.1/typst-x86_64-pc-windows-msvc.zip" `
-  -OutFile (Join-Path $bookToolRoot "typst.zip")
-Expand-Archive -Force `
-  (Join-Path $bookToolRoot "typst.zip") `
-  (Join-Path $bookToolRoot "typst")
-
-$env:Path = @(
-  (Join-Path $bookToolRoot "quarto\bin")
-  (Join-Path $bookToolRoot "typst\typst-x86_64-pc-windows-msvc")
-  $env:Path
-) -join ";"
-
-quarto --version
-typst --version
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File docs/learning/scripts/bootstrap-book-tools.ps1
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File docs/learning/build.ps1 -Clean
 ```
 
-version表示が`1.10.18`と`typst 0.15.1`になれば準備完了です。
-このPATH変更は現在のPowerShell processだけへ適用されます。
-別terminalでbuildする場合は、`$env:Path`の設定をもう一度実行します。
+bootstrapは`tools.lock.json`のversion、取得先、file size、SHA-256と一致するarchiveだけを展開します。
+systemへのinstallと永続的なPATH変更は行いません。
+二回目以降は検証済みcacheを再利用します。
 
-PowerShellでリポジトリ直下から実行します。
+既定の保存先は`$env:LOCALAPPDATA\material-workbench-book-tools`です。
+別の場所を使う場合は、両方のcommandへ同じ`-ToolRoot`を渡します。
+`MATERIAL_WORKBENCH_BOOK_TOOLS`環境変数でも既定値を変更できますが、明示した`-ToolRoot`が優先されます。
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/build.ps1
-```
+検証済みcacheまたはarchiveだけで準備できるかを確認する場合は、bootstrapへ`-Offline`を付けます。
+同じassetを再取得して検証し直す場合は`-Force`を付けます。
+詳しい供給経路と更新手順は [`tooling.qmd`](tooling.qmd) と [`AGENTS.md`](AGENTS.md) にあります。
 
 生成先は `docs/learning/_build/` です。
 

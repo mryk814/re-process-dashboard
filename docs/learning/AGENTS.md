@@ -6,7 +6,7 @@
 ## 作業レーン
 
 - 長期branchは `learning/textbook` とする。
-- 専用worktreeはcanonical checkoutと分け、既定pathを `C:\Users\ootan\projects\re-process-dashboard-learning` とする。
+- 専用worktreeはcanonical checkoutと分け、利用者のhome directory配下に置く。
 - Issue単位の変更は `learning/textbook` から短命branchを切ってもよい。
 - productionのmainへ反映する成果物はPull Requestでreviewし、mergeする。
 - 教材レーンへmainを取り込むときは、履歴を見える形にするため `git merge origin/main` を使う。
@@ -17,14 +17,16 @@
 
 ```powershell
 git fetch origin
-git worktree add C:\Users\ootan\projects\re-process-dashboard-learning learning/textbook
+$learningWorktree = Join-Path $env:USERPROFILE "projects\re-process-dashboard-learning"
+git worktree add $learningWorktree learning/textbook
 ```
 
 `learning/textbook`がまだ存在しない場合は、現在の`origin/main`から作る。
 
 ```powershell
+$learningWorktree = Join-Path $env:USERPROFILE "projects\re-process-dashboard-learning"
 git worktree add -b learning/textbook `
-  C:\Users\ootan\projects\re-process-dashboard-learning `
+  $learningWorktree `
   origin/main
 ```
 
@@ -152,6 +154,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-referenc
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-main-drift.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-exercise-solutions.ps1
 node docs/learning/check-code-references.mjs
+powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/scripts/test-bootstrap-book-tools.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/build.ps1 -Clean
 ```
 
@@ -183,6 +186,18 @@ PDFはpage countだけで完了にしない。
 全pageを画像化し、日本語font、code wrapping、表、図、header、footer、page transitionを目視する。
 学習者向けPDFの目次に保守専用章がないことと、統合HTMLの検索索引に両partがあることも確認する。
 15〜30ページを条件とする試作章は、生成PDF上の開始pageと次章の開始pageから実数を記録する。
+
+## 組版toolのversion更新
+
+組版toolは`tools.lock.json`を正本とし、systemのPATHから選ばない。
+versionを更新するときは、version、公式HTTPS URL、file size、SHA-256、archive内の実行file path、version patternを同じ変更で更新する。
+Quartoは公式checksum fileとGitHub release asset digestを照合する。
+独立したchecksum fileがないtoolは、GitHub release APIのasset digestと取得したarchiveのhashを照合する。
+取得archiveから計算したhashだけを根拠にlockを更新しない。
+
+更新後は、空の`-ToolRoot`でonline bootstrapを行い、誤ったhashで失敗するtest、`-Offline`でのcache再利用、空白を含むcustom root、cleanなHTMLとPDFの生成を確認する。
+checksumは転送中の破損や意図しない差替えを検出するが、署名ではない。
+展開後の実行fileはversionとready markerで検査しており、全fileの改ざん検知までは保証しない。
 
 ## main追従後の判断
 

@@ -1,5 +1,6 @@
 ﻿param(
-    [switch]$Clean
+    [switch]$Clean,
+    [string]$ToolRoot
 )
 
 $ErrorActionPreference = "Stop"
@@ -9,32 +10,76 @@ $siteProfile = Join-Path $learningRoot "_quarto-site.yml"
 $readerProfile = Join-Path $learningRoot "_quarto-reader.yml"
 $exerciseCheck = Join-Path $learningRoot "check-exercise-solutions.ps1"
 $codeReferenceCheck = Join-Path $learningRoot "check-code-references.mjs"
+$toolLibrary = Join-Path $learningRoot "scripts\book-tools.ps1"
+$toolLock = Join-Path $learningRoot "tools.lock.json"
 
 foreach ($profilePath in @(
     $siteProfile,
     $readerProfile,
     $exerciseCheck,
-    $codeReferenceCheck
+    $codeReferenceCheck,
+    $toolLibrary,
+    $toolLock
 )) {
     if (-not (Test-Path -LiteralPath $profilePath -PathType Leaf)) {
         throw "Required learning build input is missing: $profilePath"
     }
 }
 
-if (-not (Get-Command quarto -ErrorAction SilentlyContinue)) {
-    throw "Quarto 1.10.18 is required. Install it from https://quarto.org/docs/get-started/."
+. $toolLibrary
+$bookTools = Resolve-BookTools -ToolRoot $ToolRoot -LockFile $toolLock
+$quartoPath = [string]$bookTools.Executables["quarto"]
+$typstPath = [string]$bookTools.Executables["typst"]
+$quartoTool = @($bookTools.Lock.tools | Where-Object { $_.name -eq "quarto" })
+$typstTool = @($bookTools.Lock.tools | Where-Object { $_.name -eq "typst" })
+if ($quartoTool.Count -ne 1 -or $typstTool.Count -ne 1) {
+    throw "Book tool lock must contain exactly one quarto and one typst entry."
 }
-if (-not (Get-Command typst -ErrorAction SilentlyContinue)) {
-    throw "Typst 0.15.1 is required. Install it from https://github.com/typst/typst/releases/tag/v0.15.1."
+$quartoTool = $quartoTool[0]
+$typstTool = $typstTool[0]
+
+$quartoVersion = ((& $quartoPath --version) | Out-String).Trim()
+$quartoVersionExit = $LASTEXITCODE
+$typstVersion = ((& $typstPath --version) | Out-String).Trim()
+$typstVersionExit = $LASTEXITCODE
+if ($quartoVersionExit -ne 0 -or $quartoVersion -notmatch $quartoTool.versionPattern) {
+    throw "Expected locked Quarto $($quartoTool.version), found '$quartoVersion'."
+}
+if ($typstVersionExit -ne 0 -or $typstVersion -notmatch $typstTool.versionPattern) {
+    throw "Expected locked Typst $($typstTool.version), found '$typstVersion'."
 }
 
-$quartoVersion = (quarto --version).Trim()
-$typstVersion = (typst --version).Trim()
-if ($quartoVersion -ne "1.10.18") {
-    throw "Expected Quarto 1.10.18, found $quartoVersion."
-}
-if ($typstVersion -notmatch '^typst 0\.15\.1(?:\s|$)') {
-    throw "Expected Typst 0.15.1, found $typstVersion."
+$previousQuartoTypst = $env:QUARTO_TYPST
+$env:QUARTO_TYPST = $typstPath
+try {
+    $rendererProcessInfo = New-Object Diagnostics.ProcessStartInfo
+    $rendererProcessInfo.FileName = $quartoPath
+    $rendererProcessInfo.Arguments = "typst --version"
+    $rendererProcessInfo.UseShellExecute = $false
+    $rendererProcessInfo.CreateNoWindow = $true
+    $rendererProcessInfo.RedirectStandardOutput = $true
+    $rendererProcessInfo.RedirectStandardError = $true
+    $rendererProcess = [Diagnostics.Process]::Start($rendererProcessInfo)
+    $rendererStdout = $rendererProcess.StandardOutput.ReadToEnd()
+    $rendererStderr = $rendererProcess.StandardError.ReadToEnd()
+    $rendererProcess.WaitForExit()
+    $rendererVersionExit = $rendererProcess.ExitCode
+    $rendererVersion = ($rendererStdout + $rendererStderr).Trim()
+    if (
+        $rendererVersionExit -ne 0 -or
+        $rendererVersion -notmatch $typstTool.versionPattern
+    ) {
+        throw (
+            "Quarto did not resolve the locked Typst {0} renderer: '{1}'." -f
+            $typstTool.version, $rendererVersion
+        )
+    }
+} finally {
+    if ($null -eq $previousQuartoTypst) {
+        Remove-Item Env:QUARTO_TYPST -ErrorAction SilentlyContinue
+    } else {
+        $env:QUARTO_TYPST = $previousQuartoTypst
+    }
 }
 
 $readerConfig = Get-Content -LiteralPath $readerProfile -Raw -Encoding UTF8
@@ -74,6 +119,8 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Push-Location $learningRoot
+$previousQuartoTypst = $env:QUARTO_TYPST
+$env:QUARTO_TYPST = $typstPath
 try {
     if ($Clean -and (Test-Path -LiteralPath $buildRoot)) {
         $resolvedBuildRoot = (Resolve-Path -LiteralPath $buildRoot).Path
@@ -88,19 +135,24 @@ try {
     }
 
     $siteWatch = [Diagnostics.Stopwatch]::StartNew()
-    quarto render --profile site --to html --output-dir _build/site
+    & $quartoPath render --profile site --to html --output-dir _build/site
     if ($LASTEXITCODE -ne 0) {
         throw "Quarto integrated HTML render failed with exit code $LASTEXITCODE."
     }
     $siteWatch.Stop()
 
     $readerWatch = [Diagnostics.Stopwatch]::StartNew()
-    quarto render --profile reader --to typst --output-dir _build/reader
+    & $quartoPath render --profile reader --to typst --output-dir _build/reader
     if ($LASTEXITCODE -ne 0) {
         throw "Quarto reader PDF render failed with exit code $LASTEXITCODE."
     }
     $readerWatch.Stop()
 } finally {
+    if ($null -eq $previousQuartoTypst) {
+        Remove-Item Env:QUARTO_TYPST -ErrorAction SilentlyContinue
+    } else {
+        $env:QUARTO_TYPST = $previousQuartoTypst
+    }
     Pop-Location
 }
 
@@ -207,3 +259,4 @@ Write-Host (
 )
 Write-Host ("Integrated HTML build: {0:N2} seconds" -f $siteWatch.Elapsed.TotalSeconds)
 Write-Host ("Reader PDF build:     {0:N2} seconds" -f $readerWatch.Elapsed.TotalSeconds)
+Write-Host ("Tool root:            {0}" -f $bookTools.Root)
