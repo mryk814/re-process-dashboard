@@ -145,6 +145,7 @@ export function ScreeningPage({
   const [supportPolicy, setSupportPolicy] = useState<"supported_first" | "exclude_extrapolated" | "allow_with_warning">("supported_first");
   const [batchEnabled, setBatchEnabled] = useState(true);
   const [batchSize, setBatchSize] = useState(8);
+  const [batchCandidatePoolSize, setBatchCandidatePoolSize] = useState(32);
   const [batchSelectorId, setBatchSelectorId] = useState<"ranked_top_k_v1" | "greedy_value_diversity_v1">("greedy_value_diversity_v1");
   const [diversityWeight, setDiversityWeight] = useState(0.75);
   const [nearDuplicateThreshold, setNearDuplicateThreshold] = useState(0.05);
@@ -282,6 +283,7 @@ export function ScreeningPage({
     }
     setBatchEnabled(true);
     setBatchSize(8);
+    setBatchCandidatePoolSize(32);
     setBatchSelectorId("greedy_value_diversity_v1");
     setDiversityWeight(0.75);
     setNearDuplicateThreshold(0.05);
@@ -370,6 +372,12 @@ export function ScreeningPage({
   };
   const run = async (requestedSeed = seed) => {
     if (!baseCandidate) return setError("基準条件を読み込めませんでした。");
+    const controlCandidate = controlCandidateId
+      ? candidates.find((candidate) => candidate.id === controlCandidateId)
+      : null;
+    if (controlCandidateId && !controlCandidate) {
+      return setError("Control候補を読み直してから実行してください。");
+    }
     const sequence = ++runRequestSequence.current;
     const requestProjectId = projectId;
     try {
@@ -432,13 +440,18 @@ export function ScreeningPage({
           schema_version: "batch-proposal-definition/v1",
           selector_id: batchSelectorId,
           batch_size: batchSize,
+          candidate_pool_size: batchCandidatePoolSize,
           diversity_weight: diversityWeight,
           near_duplicate_threshold: nearDuplicateThreshold,
           pending_candidate_ids: pendingCandidateIds,
           pending_policy: "avoid",
           pending_penalty: 1,
           controls: controlCandidateId
-            ? [{ candidate_id: controlCandidateId, replicates: controlReplicates }]
+            ? [{
+                candidate_id: controlCandidateId,
+                candidate_revision: controlCandidate!.raw.revision,
+                replicates: controlReplicates,
+              }]
             : [],
           category_quotas: [],
           resources: {
@@ -522,6 +535,7 @@ export function ScreeningPage({
       const definition = run.batch_proposal.definition;
       setBatchEnabled(true);
       setBatchSize(definition.batch_size);
+      setBatchCandidatePoolSize(definition.candidate_pool_size);
       setBatchSelectorId(
         definition.selector_id === "greedy_value_diversity_v1"
           ? definition.selector_id
@@ -588,7 +602,11 @@ export function ScreeningPage({
     }
   };
   const batchPointIndices = Array.from(new Set(
-    result?.batch_proposal?.selected.map((item) => item.point_index) ?? [],
+    result?.batch_proposal?.selected.flatMap((item) => (
+      item.source === "acquisition_ranked" && item.point_index != null
+        ? [item.point_index]
+        : []
+    )) ?? [],
   ));
   const newBatchPointIndices = batchPointIndices.filter((index) => !stockedPointIndices.has(index));
   const persistBatch = async () => {
@@ -737,7 +755,12 @@ export function ScreeningPage({
               min="48"
               max="128"
               value={samples}
-              onChange={(event) => { setSamples(Number(event.target.value)); setDraftDirty(true); }}
+              onChange={(event) => {
+                const nextSamples = Number(event.target.value);
+                setSamples(nextSamples);
+                setBatchCandidatePoolSize((current) => Math.min(current, nextSamples, 128));
+                setDraftDirty(true);
+              }}
             />
           </label>
           <label>
@@ -847,7 +870,7 @@ export function ScreeningPage({
               />
               実験バッチを提案
             </label>
-            <small>個別価値に多様性・pending・control・コストを加えて選抜</small>
+            <small>獲得順位価値に多様性・pending・exact Control・コストを加えて選抜</small>
           </summary>
           {batchEnabled && (
             <div className="screening-batch-grid">
@@ -858,8 +881,24 @@ export function ScreeningPage({
                   min="1"
                   max={Math.min(32, samples)}
                   value={batchSize}
-                  onChange={(event) => { setBatchSize(Number(event.target.value)); setDraftDirty(true); }}
+                  onChange={(event) => {
+                    const nextBatchSize = Number(event.target.value);
+                    setBatchSize(nextBatchSize);
+                    setBatchCandidatePoolSize((current) => Math.max(current, nextBatchSize));
+                    setDraftDirty(true);
+                  }}
                 />
+              </label>
+              <label>
+                バッチ候補pool
+                <input
+                  type="number"
+                  min={batchSize}
+                  max={Math.min(samples, 128)}
+                  value={batchCandidatePoolSize}
+                  onChange={(event) => { setBatchCandidatePoolSize(Number(event.target.value)); setDraftDirty(true); }}
+                />
+                <small>獲得順位の上位から選抜に渡す件数</small>
               </label>
               <label>
                 バッチ選抜
@@ -867,8 +906,8 @@ export function ScreeningPage({
                   value={batchSelectorId}
                   onChange={(event) => { setBatchSelectorId(event.target.value as typeof batchSelectorId); setDraftDirty(true); }}
                 >
-                  <option value="greedy_value_diversity_v1">個別価値 + 多様性</option>
-                  <option value="ranked_top_k_v1">個別価値の上位</option>
+                  <option value="greedy_value_diversity_v1">獲得順位価値 + 多様性</option>
+                  <option value="ranked_top_k_v1">獲得順位価値の上位</option>
                 </select>
               </label>
               {batchSelectorId === "greedy_value_diversity_v1" && (
@@ -918,6 +957,7 @@ export function ScreeningPage({
                   />
                 </label>
               )}
+              {controlCandidateId && <small>指定候補の現在revisionをDesign Spaceで再検証し、その条件自体をControlとして固定します。</small>}
               <label>
                 最大実験コスト
                 <input

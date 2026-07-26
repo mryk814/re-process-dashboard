@@ -350,6 +350,8 @@
               "project_has_derived_candidates",
               "data_integrity_error",
               "validation_error",
+              "batch_feasibility_infeasible",
+              "batch_greedy_search_exhausted",
               "runtime_unavailable"
             ],
             "title": "Code",
@@ -513,6 +515,63 @@
         "title": "ApprovedTrainingSnapshot",
         "type": "object"
       },
+      "BatchCandidatePoolEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "acquisition_ranked_count": {
+            "minimum": 0.0,
+            "title": "Acquisition Ranked Count",
+            "type": "integer"
+          },
+          "canonicalization": {
+            "const": "candidate-inputs-semantic-digest",
+            "default": "candidate-inputs-semantic-digest",
+            "title": "Canonicalization",
+            "type": "string"
+          },
+          "duplicate_condition_count": {
+            "minimum": 0.0,
+            "title": "Duplicate Condition Count",
+            "type": "integer"
+          },
+          "exact_control_count": {
+            "minimum": 0.0,
+            "title": "Exact Control Count",
+            "type": "integer"
+          },
+          "pool_digest": {
+            "minLength": 1,
+            "title": "Pool Digest",
+            "type": "string"
+          },
+          "requested_acquisition_size": {
+            "minimum": 1.0,
+            "title": "Requested Acquisition Size",
+            "type": "integer"
+          },
+          "source": {
+            "const": "acquisition_ranked_prefix_plus_exact_controls",
+            "default": "acquisition_ranked_prefix_plus_exact_controls",
+            "title": "Source",
+            "type": "string"
+          },
+          "unique_condition_count": {
+            "minimum": 0.0,
+            "title": "Unique Condition Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "requested_acquisition_size",
+          "acquisition_ranked_count",
+          "exact_control_count",
+          "unique_condition_count",
+          "duplicate_condition_count",
+          "pool_digest"
+        ],
+        "title": "BatchCandidatePoolEvidence",
+        "type": "object"
+      },
       "BatchCategoryQuota": {
         "additionalProperties": false,
         "properties": {
@@ -561,6 +620,18 @@
             "title": "Candidate Id",
             "type": "string"
           },
+          "candidate_revision": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Revision"
+          },
           "replicates": {
             "default": 1,
             "maximum": 8.0,
@@ -578,6 +649,17 @@
       "BatchExcludedPoint": {
         "additionalProperties": false,
         "properties": {
+          "canonical_identity_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Identity Digest"
+          },
           "pool_index": {
             "minimum": 0.0,
             "title": "Pool Index",
@@ -604,6 +686,13 @@
             "maximum": 32.0,
             "minimum": 1.0,
             "title": "Batch Size",
+            "type": "integer"
+          },
+          "candidate_pool_size": {
+            "default": 32,
+            "maximum": 128.0,
+            "minimum": 1.0,
+            "title": "Candidate Pool Size",
             "type": "integer"
           },
           "category_quotas": {
@@ -695,6 +784,16 @@
       "BatchProposalRun": {
         "additionalProperties": false,
         "properties": {
+          "candidate_pool": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BatchCandidatePoolEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "definition": {
             "$ref": "#/components/schemas/BatchProposalDefinition"
           },
@@ -706,8 +805,11 @@
             "type": "array"
           },
           "schema_version": {
-            "const": "batch-proposal-run/v1",
             "default": "batch-proposal-run/v1",
+            "enum": [
+              "batch-proposal-run/v1",
+              "batch-proposal-run/v2"
+            ],
             "title": "Schema Version",
             "type": "string"
           },
@@ -736,8 +838,11 @@
             "type": "string"
           },
           "selector_version": {
-            "const": "1.0.0",
             "default": "1.0.0",
+            "enum": [
+              "1.0.0",
+              "1.1.0"
+            ],
             "title": "Selector Version",
             "type": "string"
           },
@@ -911,6 +1016,34 @@
             "title": "Acquisition Component",
             "type": "number"
           },
+          "candidate_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Id"
+          },
+          "candidate_revision": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Revision"
+          },
+          "canonical_identity_digest": {
+            "default": "unbound-legacy",
+            "title": "Canonical Identity Digest",
+            "type": "string"
+          },
           "combined_score": {
             "title": "Combined Score",
             "type": "number"
@@ -934,9 +1067,16 @@
             "type": "number"
           },
           "point_index": {
-            "minimum": 0.0,
-            "title": "Point Index",
-            "type": "integer"
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Point Index"
           },
           "pool_index": {
             "minimum": 0.0,
@@ -975,10 +1115,18 @@
               }
             ],
             "title": "Setup Group"
+          },
+          "source": {
+            "default": "acquisition_ranked",
+            "enum": [
+              "acquisition_ranked",
+              "exact_control"
+            ],
+            "title": "Source",
+            "type": "string"
           }
         },
         "required": [
-          "point_index",
           "pool_index",
           "order",
           "role",

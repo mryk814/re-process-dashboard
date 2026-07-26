@@ -592,6 +592,17 @@ class ScreeningRequest(BaseModel):
             and self.batch_definition.batch_size > self.samples
         ):
             raise ValueError("batch sizeは評価点数以下にしてください")
+        if (
+            self.batch_definition is not None
+            and "candidate_pool_size" in self.batch_definition.model_fields_set
+            and self.batch_definition.candidate_pool_size > self.samples
+        ):
+            raise ValueError("batch candidate poolは評価点数以下にしてください")
+        if self.batch_definition is not None and any(
+            item.candidate_revision is None
+            for item in self.batch_definition.controls
+        ):
+            raise ValueError("exact Controlには選択時点のcandidate revisionが必要です")
         return self
 
 
@@ -1198,8 +1209,21 @@ class ScreeningRunResponse(BaseModel):
                     item.pool_index: item for item in self.proposal_pool
                 }
                 if any(
-                    item.point_index not in point_by_index
-                    or item.pool_index not in pool_by_index
+                    (
+                        item.source == "acquisition_ranked"
+                        and (
+                            item.point_index not in point_by_index
+                            or item.pool_index not in pool_by_index
+                        )
+                    )
+                    or (
+                        item.source == "exact_control"
+                        and (
+                            item.point_index is not None
+                            or item.candidate_id is None
+                            or item.candidate_revision is None
+                        )
+                    )
                     for item in self.batch_proposal.selected
                 ):
                     raise ValueError(
@@ -1288,6 +1312,8 @@ class ApiError(BaseModel):
         "project_has_derived_candidates",
         "data_integrity_error",
         "validation_error",
+        "batch_feasibility_infeasible",
+        "batch_greedy_search_exhausted",
         "runtime_unavailable",
     ]
     message: str

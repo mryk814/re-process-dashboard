@@ -134,23 +134,34 @@ export function ScreeningProposalSummary({
           <summary>
             実験バッチ {result.batch_proposal.selected.length}枠
             <span>
-              条件 {new Set(result.batch_proposal.selected.map((item) => item.point_index)).size}件 ·
+              条件 {new Set(result.batch_proposal.selected.map((item) => item.canonical_identity_digest)).size}件 ·
               最小距離 {result.batch_proposal.summary.min_pairwise_distance.toLocaleString("ja-JP", { maximumFractionDigits: 3 })} ·
               見積コスト {result.batch_proposal.summary.estimated_total_cost.toLocaleString("ja-JP", { maximumFractionDigits: 2 })}
             </span>
           </summary>
           <p>
-            {result.batch_proposal.selector_id} / Design Space正規化距離 /
+            {result.batch_proposal.selector_id} / 獲得順位価値 / Design Space正規化距離 /
             tie-break: pool index
           </p>
+          {result.batch_proposal.candidate_pool && (
+            <p>
+              batch候補pool: 獲得順位上位 {result.batch_proposal.candidate_pool.acquisition_ranked_count}件
+              {" + "}exact Control {result.batch_proposal.candidate_pool.exact_control_count}件
+              {" / "}canonical重複除外 {result.batch_proposal.candidate_pool.duplicate_condition_count}件
+              {" / "}digest {result.batch_proposal.candidate_pool.pool_digest.replace("sha256:", "").slice(0, 10)}
+            </p>
+          )}
           <ol>
             {result.batch_proposal.selected.map((item) => (
               <li key={`${item.order}-${item.pool_index}`}>
                 <span>
-                  #{item.point_index + 1} · {batchRoleLabel[item.role]} · {item.reason}
+                  {item.point_index == null ? "Control" : `#${item.point_index + 1}`}
+                  {" · "}{batchRoleLabel[item.role]} · {item.reason}
                 </span>
                 <b>
-                  value {item.acquisition_component.toLocaleString("ja-JP", { maximumFractionDigits: 3 })}
+                  {item.source === "exact_control"
+                    ? `exact ${item.candidate_id} r${item.candidate_revision}`
+                    : `獲得順位価値 ${item.acquisition_component.toLocaleString("ja-JP", { maximumFractionDigits: 3 })}`}
                   {" · "}div {item.diversity_component.toLocaleString("ja-JP", { maximumFractionDigits: 3 })}
                   {" · "}cost {item.estimated_cost.toLocaleString("ja-JP", { maximumFractionDigits: 2 })}
                 </b>

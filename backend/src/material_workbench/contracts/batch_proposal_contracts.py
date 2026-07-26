@@ -42,6 +42,7 @@ class BatchCategoryQuota(ContractModel):
 
 class BatchControlRequirement(ContractModel):
     candidate_id: Annotated[str, Field(min_length=1)]
+    candidate_revision: Annotated[int | None, Field(ge=1)] = None
     replicates: Annotated[int, Field(ge=1, le=8)] = 1
 
 
@@ -78,6 +79,7 @@ class BatchProposalDefinition(ContractModel):
     )
     selector_id: BatchSelectorId = "greedy_value_diversity_v1"
     batch_size: Annotated[int, Field(ge=1, le=32)] = 8
+    candidate_pool_size: Annotated[int, Field(ge=1, le=128)] = 32
     diversity_weight: Annotated[
         float, Field(ge=0, le=10, allow_inf_nan=False)
     ] = 0.75
@@ -102,6 +104,8 @@ class BatchProposalDefinition(ContractModel):
             raise ValueError("control candidateは重複できません")
         if sum(item.replicates for item in self.controls) > self.batch_size:
             raise ValueError("control/replicate数がbatch sizeを超えています")
+        if self.candidate_pool_size < self.batch_size:
+            raise ValueError("batch candidate poolはbatch size以上にしてください")
         quota_keys = [(item.path, item.value) for item in self.category_quotas]
         if len(quota_keys) != len(set(quota_keys)):
             raise ValueError("同じcategory quotaは重複できません")
@@ -117,7 +121,7 @@ class BatchProposalDefinition(ContractModel):
 
 
 class BatchSelectedPoint(ContractModel):
-    point_index: Annotated[int, Field(ge=0)]
+    point_index: Annotated[int | None, Field(ge=0)] = None
     pool_index: Annotated[int, Field(ge=0)]
     order: Annotated[int, Field(ge=1)]
     role: BatchCandidateRole
@@ -129,11 +133,44 @@ class BatchSelectedPoint(ContractModel):
     combined_score: float
     estimated_cost: Annotated[float, Field(ge=0)]
     setup_group: str | None = None
+    source: Literal["acquisition_ranked", "exact_control"] = "acquisition_ranked"
+    candidate_id: str | None = None
+    candidate_revision: Annotated[int | None, Field(ge=1)] = None
+    canonical_identity_digest: str = "unbound-legacy"
+
+    @model_validator(mode="after")
+    def source_reference_is_complete(self) -> "BatchSelectedPoint":
+        if self.source == "exact_control":
+            if (
+                self.point_index is not None
+                or not self.candidate_id
+                or self.candidate_revision is None
+            ):
+                raise ValueError("exact Controlには候補revision参照が必要です")
+        elif self.point_index is None:
+            raise ValueError("acquisition候補にはscreening point参照が必要です")
+        return self
 
 
 class BatchExcludedPoint(ContractModel):
     pool_index: Annotated[int, Field(ge=0)]
     reason: Annotated[str, Field(min_length=1)]
+    canonical_identity_digest: str | None = None
+
+
+class BatchCandidatePoolEvidence(ContractModel):
+    source: Literal["acquisition_ranked_prefix_plus_exact_controls"] = (
+        "acquisition_ranked_prefix_plus_exact_controls"
+    )
+    requested_acquisition_size: Annotated[int, Field(ge=1)]
+    acquisition_ranked_count: Annotated[int, Field(ge=0)]
+    exact_control_count: Annotated[int, Field(ge=0)]
+    unique_condition_count: Annotated[int, Field(ge=0)]
+    duplicate_condition_count: Annotated[int, Field(ge=0)]
+    canonicalization: Literal["candidate-inputs-semantic-digest"] = (
+        "candidate-inputs-semantic-digest"
+    )
+    pool_digest: Annotated[str, Field(min_length=1)]
 
 
 class BatchProposalSummary(ContractModel):
@@ -147,9 +184,11 @@ class BatchProposalSummary(ContractModel):
 
 
 class BatchProposalRun(ContractModel):
-    schema_version: Literal["batch-proposal-run/v1"] = "batch-proposal-run/v1"
+    schema_version: Literal["batch-proposal-run/v1", "batch-proposal-run/v2"] = (
+        "batch-proposal-run/v1"
+    )
     selector_id: BatchSelectorId
-    selector_version: Literal["1.0.0"] = "1.0.0"
+    selector_version: Literal["1.0.0", "1.1.0"] = "1.0.0"
     seed: Annotated[int, Field(ge=0)]
     tie_break_rule: Literal["combined_score_desc_then_pool_index_asc"] = (
         "combined_score_desc_then_pool_index_asc"
@@ -158,6 +197,7 @@ class BatchProposalRun(ContractModel):
     selected: tuple[BatchSelectedPoint, ...]
     excluded: tuple[BatchExcludedPoint, ...]
     summary: BatchProposalSummary
+    candidate_pool: BatchCandidatePoolEvidence | None = None
 
     @model_validator(mode="after")
     def selected_count_matches_definition(self) -> "BatchProposalRun":
@@ -167,6 +207,13 @@ class BatchProposalRun(ContractModel):
             range(1, len(self.selected) + 1)
         ):
             raise ValueError("batch selection orderが連続していません")
+        if self.schema_version == "batch-proposal-run/v2" and self.candidate_pool is None:
+            raise ValueError("batch proposal v2には候補pool証跡が必要です")
+        if self.schema_version == "batch-proposal-run/v2" and any(
+            not item.canonical_identity_digest.startswith("sha256:")
+            for item in self.selected
+        ):
+            raise ValueError("batch proposal v2にはcanonical identity digestが必要です")
         return self
 
 

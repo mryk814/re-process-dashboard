@@ -1914,7 +1914,7 @@ export interface components {
              * Code
              * @enum {string}
              */
-            code: "not_found" | "revision_conflict" | "candidate_limit" | "adopted_candidate" | "candidate_archived" | "candidate_provenance_immutable" | "chain_project_requires_chain_candidate_api" | "project_task_locked" | "project_group_conflict" | "protected_project" | "project_has_successors" | "project_has_derived_candidates" | "data_integrity_error" | "validation_error" | "runtime_unavailable";
+            code: "not_found" | "revision_conflict" | "candidate_limit" | "adopted_candidate" | "candidate_archived" | "candidate_provenance_immutable" | "chain_project_requires_chain_candidate_api" | "project_task_locked" | "project_group_conflict" | "protected_project" | "project_has_successors" | "project_has_derived_candidates" | "data_integrity_error" | "validation_error" | "batch_feasibility_infeasible" | "batch_greedy_search_exhausted" | "runtime_unavailable";
             current_candidate?: components["schemas"]["Candidate"] | null;
             /** Field Errors */
             field_errors?: components["schemas"]["FieldError"][];
@@ -1983,6 +1983,33 @@ export interface components {
             /** Snapshot Digest */
             snapshot_digest: string;
         };
+        /** BatchCandidatePoolEvidence */
+        BatchCandidatePoolEvidence: {
+            /** Acquisition Ranked Count */
+            acquisition_ranked_count: number;
+            /**
+             * Canonicalization
+             * @default candidate-inputs-semantic-digest
+             * @constant
+             */
+            canonicalization: "candidate-inputs-semantic-digest";
+            /** Duplicate Condition Count */
+            duplicate_condition_count: number;
+            /** Exact Control Count */
+            exact_control_count: number;
+            /** Pool Digest */
+            pool_digest: string;
+            /** Requested Acquisition Size */
+            requested_acquisition_size: number;
+            /**
+             * Source
+             * @default acquisition_ranked_prefix_plus_exact_controls
+             * @constant
+             */
+            source: "acquisition_ranked_prefix_plus_exact_controls";
+            /** Unique Condition Count */
+            unique_condition_count: number;
+        };
         /** BatchCategoryQuota */
         BatchCategoryQuota: {
             /** Max Count */
@@ -2001,6 +2028,8 @@ export interface components {
         BatchControlRequirement: {
             /** Candidate Id */
             candidate_id: string;
+            /** Candidate Revision */
+            candidate_revision?: number | null;
             /**
              * Replicates
              * @default 1
@@ -2009,6 +2038,8 @@ export interface components {
         };
         /** BatchExcludedPoint */
         BatchExcludedPoint: {
+            /** Canonical Identity Digest */
+            canonical_identity_digest?: string | null;
             /** Pool Index */
             pool_index: number;
             /** Reason */
@@ -2021,6 +2052,11 @@ export interface components {
              * @default 8
              */
             batch_size: number;
+            /**
+             * Candidate Pool Size
+             * @default 32
+             */
+            candidate_pool_size: number;
             /**
              * Category Quotas
              * @default []
@@ -2078,15 +2114,16 @@ export interface components {
         };
         /** BatchProposalRun */
         BatchProposalRun: {
+            candidate_pool?: components["schemas"]["BatchCandidatePoolEvidence"] | null;
             definition: components["schemas"]["BatchProposalDefinition"];
             /** Excluded */
             excluded: components["schemas"]["BatchExcludedPoint"][];
             /**
              * Schema Version
              * @default batch-proposal-run/v1
-             * @constant
+             * @enum {string}
              */
-            schema_version: "batch-proposal-run/v1";
+            schema_version: "batch-proposal-run/v1" | "batch-proposal-run/v2";
             /** Seed */
             seed: number;
             /** Selected */
@@ -2099,9 +2136,9 @@ export interface components {
             /**
              * Selector Version
              * @default 1.0.0
-             * @constant
+             * @enum {string}
              */
-            selector_version: "1.0.0";
+            selector_version: "1.0.0" | "1.1.0";
             summary: components["schemas"]["BatchProposalSummary"];
             /**
              * Tie Break Rule
@@ -2166,6 +2203,15 @@ export interface components {
         BatchSelectedPoint: {
             /** Acquisition Component */
             acquisition_component: number;
+            /** Candidate Id */
+            candidate_id?: string | null;
+            /** Candidate Revision */
+            candidate_revision?: number | null;
+            /**
+             * Canonical Identity Digest
+             * @default unbound-legacy
+             */
+            canonical_identity_digest: string;
             /** Combined Score */
             combined_score: number;
             /** Diversity Component */
@@ -2177,7 +2223,7 @@ export interface components {
             /** Pending Penalty */
             pending_penalty: number;
             /** Point Index */
-            point_index: number;
+            point_index?: number | null;
             /** Pool Index */
             pool_index: number;
             /** Reason */
@@ -2191,6 +2237,12 @@ export interface components {
             role: "performance" | "exploration" | "boundary_check" | "diversity" | "coverage" | "control" | "replicate";
             /** Setup Group */
             setup_group?: string | null;
+            /**
+             * Source
+             * @default acquisition_ranked
+             * @enum {string}
+             */
+            source: "acquisition_ranked" | "exact_control";
         };
         /** BatchSelectorAvailability */
         BatchSelectorAvailability: {

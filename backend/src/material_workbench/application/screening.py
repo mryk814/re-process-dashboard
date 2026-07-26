@@ -31,6 +31,7 @@ from material_workbench.contracts.batch_proposal_contracts import (
     BatchSelectorAvailability,
 )
 from material_workbench.domain.services import run_proposal
+from material_workbench.domain.batch_selector import BatchSelectionError
 from material_workbench.domain.design_space_validation import (
     validate_candidate_in_design_space,
 )
@@ -55,6 +56,12 @@ class ScreeningNotFoundError(LookupError):
 
 class ScreeningValidationError(ValueError):
     pass
+
+
+class ScreeningBatchSelectionError(ScreeningValidationError):
+    def __init__(self, failure_kind: str, message: str) -> None:
+        self.failure_kind = failure_kind
+        super().__init__(message)
 
 
 class ScreeningService:
@@ -323,6 +330,37 @@ class ScreeningService:
                     raise ScreeningValidationError(
                         f"batch参照候補が見つかりません: {candidate_id}"
                     )
+                if (
+                    payload.batch_definition is not None
+                    and any(
+                        item.candidate_id == candidate_id
+                        for item in payload.batch_definition.controls
+                    )
+                ):
+                    requirement = next(
+                        item
+                        for item in payload.batch_definition.controls
+                        if item.candidate_id == candidate_id
+                    )
+                    if requirement.candidate_revision != candidate.revision:
+                        raise ScreeningValidationError(
+                            "exact Control候補のrevisionが選択後に変わりました: "
+                            f"{candidate_id} / requested {requirement.candidate_revision}, "
+                            f"current {candidate.revision}"
+                        )
+                    try:
+                        self.registry.validate_candidate(
+                            project.task_id,
+                            CandidateInput.model_validate(candidate.model_dump()),
+                        )
+                        validate_candidate_in_design_space(
+                            candidate,
+                            design_space,
+                        )
+                    except (TaskRegistryError, ValueError) as exc:
+                        raise ScreeningValidationError(
+                            f"exact Control候補がDesign Spaceを満たしません: {candidate_id} / {exc}"
+                        ) from exc
                 batch_reference_candidates[candidate_id] = candidate
             result = run_proposal(
                 runtime,
@@ -337,6 +375,11 @@ class ScreeningService:
                 strategy=strategy,
                 batch_reference_candidates=batch_reference_candidates,
             )
+        except BatchSelectionError as exc:
+            raise ScreeningBatchSelectionError(
+                exc.failure_kind,
+                str(exc),
+            ) from exc
         except ValueError as exc:
             raise ScreeningValidationError(str(exc)) from exc
         result["design_space"] = design_space.model_dump(mode="json")
