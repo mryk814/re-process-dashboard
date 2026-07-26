@@ -16,13 +16,41 @@ npm install
 npm run dev   # Web UI: 127.0.0.1:5180 / API: 127.0.0.1:8765
 ```
 
-変更後は次の3つを通してから完了とする。
+変更後は次の3つを通してから完了とする。**いずれもリポジトリ直下で実行する。**
 
 ```powershell
 uv run python -m pytest
 npm run typecheck
 npm run build
 ```
+
+`pythonpath` と `testpaths` は `pyproject.toml` でリポジトリ直下基準に固定してある。
+`backend/` から `pytest` を実行すると `ModuleNotFoundError: No module named 'backend'`
+と複数の失敗が出るが、これは cwd 違いであって実際の失敗ではない。
+
+E2Eは Playwright。ポートは環境変数で移せる。
+
+```powershell
+npx playwright test
+$env:PLAYWRIGHT_API_PORT=9001; $env:PLAYWRIGHT_WEB_PORT=5321; npx playwright test e2e/navigation-intent.spec.ts
+```
+
+既定では毎回 API と Web を起動する。1回あたり25〜30秒かかり、specを1件ずつ
+直すループではこれが支配的になる（3件のspecで計46秒のうち約40秒が起動）。
+`PLAYWRIGHT_REUSE_SERVER=1` を付けると常駐サーバに接続する（同じspecが8秒）。
+
+```powershell
+npm run dev   # 別ターミナルで常駐させたまま
+$env:PLAYWRIGHT_REUSE_SERVER=1; $env:PLAYWRIGHT_API_PORT=8765; $env:PLAYWRIGHT_WEB_PORT=5180; npx playwright test e2e/navigation-intent.spec.ts
+```
+
+**再利用は反復ループ専用。完了判定には使わない。** 理由は2つある。
+
+- specは `default` などの共有Projectを書き換えるため、同じDBに対する2回目の
+  実行では落ちる（実測：既定パス0件失敗 → 同一サーバへの2回目で8件失敗）。
+  既定パスは実行ごとに `material-workbench-e2e-<pid>.db` を作るのでこれが起きない
+- 常駐サーバは起動時にbindしたDataset revisionを持ち続ける。データセットや
+  Packageを変更したときは、常駐サーバを再起動しないと古い版を見たままになる
 
 ## 進め方
 
