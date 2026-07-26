@@ -11,6 +11,7 @@
 - Activity共通shellとActivity固有view registryの境界
 - candidate revisionとrequest identityがstale responseを防ぐ方法
 - Electron rendererとPython sidecarの信頼境界
+- native dialog、maintenance process、sidecar再起動がWorkspace復元を分担する方法
 
 ## 前提
 
@@ -31,6 +32,7 @@
 | 7 | `e2e/decision-activity.spec.ts` | 利用者の操作と保存結果をどう検証するか | 30分 |
 | 8 | `docs/app-charter.md` のローカルAPI境界 | loopbackだけを認証にしない理由 | 20分 |
 | 9 | [型付き契約の章](../chapters/contract-through-stack.qmd)と[演習](../labs/extend-contract.qmd) | Python契約まで戻って変更を設計する | 90分 |
+| 10 | [Workspace restoreの章](../chapters/restore-workspace-safely.qmd)と[演習](../labs/trace-workspace-restore.qmd) | rendererへpathと復元tokenを渡さず、API起動後に確定する方法 | 150分 |
 
 ## 確認コマンド
 
@@ -50,7 +52,7 @@ PlaywrightはAPIとWebを起動するため、focusedな反復では時間がか
 ## desktopへ進む
 
 Electronはbookの主題ではありません。
-次の順に境界だけを確認します。
+Workspace restoreを除く一般的な起動経路は、次の順に境界を確認します。
 
 1. `apps/desktop/src/main.ts` でrendererとsidecarの起動責務を確認する
 2. `docs/app-charter.md` でlaunch tokenとloopback境界を確認する
@@ -58,3 +60,6 @@ Electronはbookの主題ではありません。
 4. `backend/tests/test_windows_packaging_contract.py` で配布契約を確認する
 
 React componentからfilesystemやPython processを直接操作する設計へ寄せないことが、この経路の確認点です。
+
+backup、restore、起動失敗時の復旧を変更する場合は、[Workspace restoreの章](../chapters/restore-workspace-safely.qmd)へ進みます。
+そこではrenderer、Electron main process、短命maintenance process、長時間稼働sidecarの四者を分けます。

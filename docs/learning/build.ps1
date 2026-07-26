@@ -28,7 +28,13 @@ try {
         Remove-Item -LiteralPath (Resolve-Path "_build") -Recurse -Force
     }
     quarto render --to html --output-dir _build/html
+    if ($LASTEXITCODE -ne 0) {
+        throw "Quarto HTML render failed with exit code $LASTEXITCODE."
+    }
     quarto render --to typst --output-dir _build/typst
+    if ($LASTEXITCODE -ne 0) {
+        throw "Quarto Typst render failed with exit code $LASTEXITCODE."
+    }
 } finally {
     Pop-Location
 }

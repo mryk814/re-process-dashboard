@@ -26,7 +26,13 @@ Quarto Bookは、chapter listを`_quarto.yml`へ置き、HTMLとPDFまたはTyps
 
 PDF engineにはTypstを採用しました。
 LaTeXより優れていると一般化したためではありません。
-この試作の日本語本文、表、短いcode block、Mermaid図をA4へ出す範囲で、導入するruntimeをQuartoとTypstの二つに限定できたためです。
+この試作の日本語本文、表、短いcode block、version管理したSVG図をA4へ出す範囲で、導入するruntimeをQuartoとTypstの二つに限定できたためです。
+
+Quarto HTMLはMermaidを図へ変換できますが、現行のTypst PDF経路ではMermaid sourceがcode blockとして残りました。
+処理経路の三図はSVGを正本にし、HTMLとPDFへ同じ図と代替textを渡します。
+
+Typstのbook formatは各章を奇数ページから始めます。
+`typst/typst-show.typ`は、そのために生じるrecto調整ページだけrunning headerとpage numberを隠し、本文ページの案内は残します。
 
 ## 固定version
 
@@ -39,6 +45,7 @@ LaTeXより優れていると一般化したためではありません。
 
 `docs/learning/build.ps1`は、commandが見つからない場合やversionが違う場合に、黙って別toolへfallbackしません。
 必要なtool、version、取得先を示して停止します。
+HTMLまたはPDFのrenderが非zeroで終わった場合も、その時点でbuildを失敗させます。
 
 versionを固定した理由は、PDFのpage count、font fallback、code wrappingがtool更新で変わりうるためです。
 将来versionを上げる場合は、HTML検索とPDFのvisual checkをやり直します。
@@ -65,13 +72,14 @@ class名や本文の意味まで自動判定する仕組みは、誤検出と保
 
 ## spikeの実測
 
-Windows上のclean buildは、cold側の計測で41.1秒、最終再実行で18.7秒でした。
-同じQuarto原稿から検索indexを持つHTMLと67ページのPDFを生成しました。
-型付き契約の学習単位は本編14ページと演習4ページ、Source data lifecycleの学習単位は本編10ページと演習4ページです。
+Windows上のclean buildは、cold側の計測で41.1秒、第三章追加後の最終再実行で24.57秒でした。
+同じQuarto原稿から検索indexを持つHTMLと85ページのPDFを生成しました。
+実内容で数えると、型付き契約の学習単位は本編15ページと演習3ページ、Source data lifecycleの学習単位は本編9ページと演習4ページ、Workspace restoreの学習単位は本編9ページと演習6ページです。
+各章を奇数ページから始めるrecto調整ページは、この実内容の件数へ含めません。
 
 比較候補の確認結果は次です。
 
-- **Quarto + Typst**：固定版binaryを一時領域から実行し、HTMLとPDFの両方を生成できた
+- **Quarto + Typst**：固定版binaryを一時領域から実行し、version管理したSVGを含むHTMLとPDFの両方を生成できた
 - **Quarto + LaTeX**：TeX engineを環境へ追加する必要があり、今回の原稿で得る追加価値より依存増加が大きいためbuild対象から外した
 - **Typst単独**：固定版binaryの起動は確認したが、同じ原稿から検索可能なHTMLを作る条件を満たさない
 - **mdBook**：環境に未導入であり、標準の主対象がWeb bookであるため、PDF用の第二pipelineを持つ案として不採用にした

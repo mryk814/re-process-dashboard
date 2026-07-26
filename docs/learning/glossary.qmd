@@ -14,6 +14,8 @@
 
 **OpenAPI**：HTTP endpoint、parameter、request、response schemaを機械可読に表す契約。FastAPIがPydantic modelから生成する。
 
+**Online Backup API**：動作中のSQLite databaseから、SQLiteのtransaction境界を保ったsnapshotを別databaseへ作るinterface。
+
 **Profile**：ExcelまたはCSVのsource構造を、canonicalなentity、relation、observation、単位へ対応付ける版付きの解釈。
 
 **Project scientific identity**：Projectが固定するDataset View、Task contract、Model Package、またはChain Revisionの組合せ。
@@ -24,8 +26,14 @@
 
 **schema version**：保存または通信するpayloadのshapeと意味の版。表示labelの版とは分ける。
 
+**staged restore**：active Workspaceへ触れる前に、別directoryで展開、migration、digest、参照を検証した復元候補。
+
 **stale response**：request開始後に画面のProject、Candidate、revisionが変わり、現在の画面文脈には属さなくなったresponse。
 
 **Task Definition**：予測Taskのcanonical input、output、単位、範囲、能力を定義する契約。
 
 **training cohort**：ある目的変数の学習へ使う観測集合。探索可能なDataset全体やProject参照データと同一とは限らない。
+
+**Workspace bundle**：整合したSQLite snapshot、管理対象Data Asset、Model Package、migration、table evidenceを一つにしたversion付き`.mdwb` archive。
+
+**recovery journal**：Workspace復元のprepare、commit、rollbackに必要な途中状態をprocess終了後も識別する短命な記録。

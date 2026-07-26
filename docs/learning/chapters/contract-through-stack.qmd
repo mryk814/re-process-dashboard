@@ -532,19 +532,7 @@ request identityはpayloadが現在の画面文脈に属することを守りま
 
 候補差分を一度実行するときの流れを、値と責務で追います。
 
-```mermaid
-flowchart TD
-    A["React view<br/>schema_versionと比較候補revision"] --> B["openapi-fetch<br/>生成されたrequest型"]
-    B --> C["FastAPI route<br/>HTTP境界"]
-    C --> D["Pydantic union<br/>discriminatorでmodel選択"]
-    D --> E["Application service<br/>ProjectとCandidateを解決"]
-    E --> F["Activity handler<br/>差分と寄与を計算"]
-    F --> G["DecisionActivityRun<br/>provenanceとresultを固定"]
-    G --> H["SQLite<br/>immutable Run"]
-    G --> I["FastAPI response"]
-    I --> J["TypeScript union<br/>schema_versionでnarrowing"]
-    J --> K["React result view<br/>差、残差、warning"]
-```
+![Decision ActivityのrequestとresponseがPythonからReactまで進む流れ](../figures/decision-activity-contract-flow.svg){fig-alt="React requestからAPI client、FastAPI、Pydantic、application service、Activity handler、保存済みRunを経て、TypeScript unionとReact result viewへ戻る。" width="100%"}
 
 1. 利用者が「差分を分解」を押す。
 2. React viewは比較候補IDとrevisionをparameterへ入れる。

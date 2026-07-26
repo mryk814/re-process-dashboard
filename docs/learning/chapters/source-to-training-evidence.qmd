@@ -50,14 +50,7 @@ Dataset Input Profileの作り方、Feature Pipeline、Model Package生成は別
 
 現行実装は、同じ更新を五つの資産へ分けます。
 
-```mermaid
-flowchart LR
-    A["Source Connector<br/>取得条件"] --> B["Raw Snapshot<br/>取得した事実"]
-    B --> C["Curation Run<br/>意味変換と品質判定"]
-    C --> D["Canonical Dataset Revision<br/>承認した行集合"]
-    D --> E["Training Snapshot<br/>学習へ渡す行集合"]
-    E -. "別の操作" .-> F["Model Package候補<br/>学習済み成果物"]
-```
+![Source更新からModel Package候補までの資産分割](../figures/source-lifecycle-flow.svg){fig-alt="Source Connector、Raw Snapshot、Curation Run、Canonical Dataset Revision、Training Snapshotを順に作り、別操作でModel Package候補へ進む。" width="100%"}
 
 画面にある`Source refresh ≠ retraining ≠ activation`は、この資産分割を短く表したものです。
 更新を取得しても、既存Projectが参照するDatasetとModel Packageは変わりません。

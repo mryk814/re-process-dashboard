@@ -5,6 +5,7 @@
 教材は、一般概念を説明するだけではなく、現行実装の契約、API、生成型、React、テストを一つの処理として読みます。
 型付き契約の章では、「検討アクティビティ」がPythonから画面まで届く経路を扱います。
 Source data lifecycleの章では、外部Sourceの取得、品質判定、承認、Training Snapshot、Model Package active化を分けます。
+Workspace restoreの章では、SQLite snapshot、bundle検証、staging migration、DB切替、API health確認、rollbackを分けます。
 
 ## 読み始める
 
@@ -76,6 +77,8 @@ HTMLとPDFは確認用の生成物であり、正本ではありません。
 ```powershell
 uv run python -m pytest backend/tests/test_decision_activities.py backend/tests/test_openapi_contract.py
 uv run python -m pytest backend/tests/test_data_lifecycle.py backend/tests/test_openapi_contract.py
+uv run python -m pytest backend/tests/test_workspace_bundle.py backend/tests/test_windows_packaging_contract.py -k "workspace or desktop_startup_recovery"
+node --test apps/web/tests/workspaceBackupPresentation.test.mjs apps/web/tests/workspaceNotice.test.mjs
 npm run api:check
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-references.ps1
 ```

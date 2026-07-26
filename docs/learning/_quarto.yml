@@ -4,7 +4,7 @@ project:
 
 book:
   title: "Material Decision Workbench 実装を読む"
-  subtitle: "型付き契約とデータの証拠経路を追う"
+  subtitle: "型付き契約、データの証拠、復元境界を追う"
   author: "Material Decision Workbench contributors"
   output-file: "material-decision-workbench-learning"
   date: last-modified
@@ -19,6 +19,8 @@ book:
     - labs/extend-contract.qmd
     - chapters/source-to-training-evidence.qmd
     - labs/trace-source-evidence.qmd
+    - chapters/restore-workspace-safely.qmd
+    - labs/trace-workspace-restore.qmd
     - tooling.qmd
     - evaluation.qmd
     - glossary.qmd
@@ -39,6 +41,9 @@ format:
     link-external-newwindow: true
     search: true
   typst:
+    template-partials:
+      - typst/typst-show.typ
+    page-numbering: false
     papersize: a4
     fontsize: 10.5pt
     margin:
