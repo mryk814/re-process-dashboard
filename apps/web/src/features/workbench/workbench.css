@@ -915,6 +915,11 @@
 .activity-question { margin: 12px 0; color: #40526a; font-size: 13px; }
 .activity-targets article > small { display: block; border-top: 1px solid #e1e7ef; padding: 6px 10px; color: #6a788b; font-size: 10px; }
 .activity-unavailable { display: grid; gap: 4px; border: 1px solid #e2c98d; border-radius: 5px; background: #fffaf0; padding: 10px; color: #72581d; font-size: 12px; }
+.activity-prerequisite { display: grid; gap: 6px; border: 1px solid #d5b96f; border-radius: 6px; background: #fffaf0; padding: 11px; color: #66501d; font-size: 12px; }
+.activity-prerequisite strong { color: #684b0b; font-size: 13px; }
+.activity-prerequisite > div { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 2px; }
+.activity-goal-less-mode { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0; }
+.activity-goal-less-mode .activity-question { margin: 0; }
 .activity-settings { border: 1px solid #d8e0ea; border-radius: 6px; padding: 10px; background: #f8fafc; }
 .activity-settings .panel-title { padding: 0 0 8px; }
 .activity-settings .panel-title h3 { margin: 0; font-size: 14px; }

@@ -12,6 +12,7 @@ import {
 } from "./decisionActivityState";
 import { decisionActivityView } from "./decisionActivities/registry";
 import type { DecisionActivityParameters } from "./decisionActivities/types";
+import type { TargetGoal } from "../../shared/targetGoals";
 
 /**
  * Activity-agnostic shell. It owns availability, saved runs, request identity and
@@ -23,10 +24,12 @@ export function DecisionActivityPanel({
   candidates,
   taskDefinition,
   displayDecimalOverrides,
+  targetValues,
   ready,
   requestedActivityId,
   requestedRunId,
   onStateChange,
+  onConfigureGoals,
   onClose,
   onCandidateCreated,
 }: {
@@ -35,10 +38,12 @@ export function DecisionActivityPanel({
   candidates: CandidateViewModel[];
   taskDefinition: TaskDefinitionContract;
   displayDecimalOverrides?: Record<string, number>;
+  targetValues: Record<string, TargetGoal>;
   ready: boolean;
   requestedActivityId?: string;
   requestedRunId?: string;
   onStateChange: (activityId?: string, activityRunId?: string) => void;
+  onConfigureGoals: () => void;
   onClose: () => void;
   onCandidateCreated: (candidate: ApiCandidate) => void;
 }) {
@@ -155,7 +160,10 @@ export function DecisionActivityPanel({
         }}
       >{item.definition.label}</button>)}
     </nav>}
-    {selected && <p className="activity-question">{selected.definition.question}</p>}
+    {selected && !(
+      selected.definition.activity_id === "robustness-analysis-v1"
+      && Object.keys(targetValues).length === 0
+    ) && <p className="activity-question">{selected.definition.question}</p>}
     {loading ? <p className="empty-evidence">利用条件を確認しています。</p> : selected && !selected.available ? (
       <div className="activity-unavailable"><strong>現在は利用できません</strong>{selected.reasons.map((reason) => <span key={reason}>{reason}</span>)}</div>
     ) : null}
@@ -169,6 +177,7 @@ export function DecisionActivityPanel({
       candidates={candidates}
       taskDefinition={taskDefinition}
       displayDecimalOverrides={displayDecimalOverrides}
+      targetValues={targetValues}
       ready={ready}
       availability={selected}
       runs={activityRuns}
@@ -177,6 +186,7 @@ export function DecisionActivityPanel({
       running={running}
       onRun={runActivity}
       onCandidateCreated={onCandidateCreated}
+      onConfigureGoals={onConfigureGoals}
     />}
   </aside>;
 }
