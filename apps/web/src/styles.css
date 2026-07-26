@@ -223,6 +223,30 @@ main:has(.project-create-panel) > .context-bar { display: none; }
 .primary-button:hover {
   background: #174da3;
 }
+/* Support state is never carried by colour alone: the word stays, and the marker
+   shape differs between supported and every state that needs attention. */
+.support-badge-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  padding: 2px 8px;
+  color: #48576a;
+  font-size: 10px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.support-badge-inline i {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #9aa7b8;
+}
+.support-badge-inline.success { border-color: #a8d5c2; background: #eaf7f1; color: #147255; }
+.support-badge-inline.success i { background: #147255; }
+.support-badge-inline.caution { border-color: #e2c98d; background: #fff9ed; color: #91550d; }
+.support-badge-inline.caution i { border-radius: 1px; background: #91550d; }
 .candidate-add-button svg {
   width: 18px;
   height: 18px;

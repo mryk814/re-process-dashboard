@@ -482,7 +482,7 @@ export const workbenchApi = {
   async candidateRevision(projectId: string, candidateId: string, revision: number) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/revisions/{revision}", {
       params: { path: { project_id: projectId, candidate_id: candidateId, revision } },
-    }), "指定した候補版を参照できませんでした。");
+    }), "指定した編集版を参照できませんでした。");
   },
   async candidateBlendMaterials(projectId: string, candidateId: string, revision?: number) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/blend-materials", {

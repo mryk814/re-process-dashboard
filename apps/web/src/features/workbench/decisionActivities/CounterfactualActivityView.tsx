@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { workbenchApi, type ApiDecisionActivityRun } from "../../../shared/api/workbench-api";
+import { SupportBadge } from "../../../shared/ui/SupportBadge";
 import type { DecisionActivityViewProps } from "./types";
 
 const numberFormat = new Intl.NumberFormat("ja-JP", { maximumFractionDigits: 4 });
@@ -104,7 +105,7 @@ export function CounterfactualActivityView({
     {saveError && <p className="panel-error" role="alert">{saveError}</p>}
     {activeRun && result && <section className="activity-result">
       <div className="activity-result-meta">
-        <span>基準候補版 {result.base_candidate_revision}</span>
+        <span>基準候補の編集版 {result.base_candidate_revision}</span>
         <span>{result.evaluated_count}条件を評価</span>
         <span>変更量＝正規化L1</span>
       </div>
@@ -117,7 +118,7 @@ export function CounterfactualActivityView({
       {result.proposals.map((proposal) => <article className="counterfactual-proposal" key={proposal.proposal_id}>
         <header>
           <span><b>案 {proposal.rank}</b><small>変更量 {numberFormat.format(proposal.change_distance)} / {proposal.changed_field_count}項目</small></span>
-          <span className={`support-pill ${proposal.support.status}`}>{proposal.support.status}</span>
+          <SupportBadge status={proposal.support.status} message={proposal.support.message} />
         </header>
         <div className="counterfactual-changes">
           {proposal.changes.map((change) => <div key={change.path}>

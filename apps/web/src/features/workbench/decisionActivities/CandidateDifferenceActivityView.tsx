@@ -99,8 +99,8 @@ export function CandidateDifferenceActivityView({
 
     {activeRun && result && <section className="activity-result">
       <div className="activity-result-meta">
-        <span>候補版 {activeRun.provenance.candidate_revision}</span>
-        <span>比較 {candidateLabels.get(result.comparison_candidate_id) ?? result.comparison_candidate_id} 版{result.comparison_candidate_revision}</span>
+        <span>編集版 {activeRun.provenance.candidate_revision}</span>
+        <span>比較 {candidateLabels.get(result.comparison_candidate_id) ?? result.comparison_candidate_id} 編集版 {result.comparison_candidate_revision}</span>
         <span>相違した入力 {result.changed_input_count}件</span>
       </div>
       <div className="activity-targets">{result.target_summaries.map((summary) => <article key={summary.target}>
