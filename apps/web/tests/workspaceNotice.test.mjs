@@ -71,3 +71,25 @@ test("the notice surface is interactive and separates failure from success", asy
   assert.match(styles, /\.workspace-notice\.error \{/);
   assert.match(styles, /\.workspace-notice > button \{/);
 });
+
+test("an unopened workspace states one recovery action instead of loading forever", async () => {
+  const app = await source("../src/app/App.tsx");
+  const hub = await source("../src/features/projects/ProjectHub.tsx");
+  const session = await source("../src/features/workbench/useWorkbenchSession.ts");
+  assert.match(app, /apiState === "offline" && <ConnectionBanner/);
+  assert.match(app, /session\.retryOpenWorkspace\(\)/);
+  assert.match(session, /async function retryOpenWorkspace\(\)/);
+  // The history reports failure, and recovers with the workspace.
+  assert.match(hub, /historyState === "error" \? <div className="project-history-error"/);
+  assert.match(hub, /履歴を再取得/);
+  assert.match(hub, /taskUnavailable, offline\]\);/);
+});
+
+test("changes are inert while the workspace is offline", async () => {
+  const hub = await source("../src/features/projects/ProjectHub.tsx");
+  assert.doesNotMatch(hub, /disabled=\{taskUnavailable\}/);
+  assert.doesNotMatch(hub, /disabled=\{chainExecutionPending\}/);
+  assert.match(hub, /disabled=\{taskUnavailable \|\| chainExecutionPending \|\| offline\}/);
+  assert.match(hub, /disabled=\{createOpen \|\| offline\}/);
+  assert.match(hub, /className="danger-outline-button" disabled=\{offline\}/);
+});

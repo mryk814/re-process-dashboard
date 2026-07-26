@@ -36,6 +36,16 @@ function ChainModeUnavailablePanel({ onOpenCandidates }: { onOpenCandidates: () 
   </div>;
 }
 
+function ConnectionBanner({ retrying, onRetry }: { retrying: boolean; onRetry: () => void }) {
+  return <div className="connection-banner" role="alert">
+    <div>
+      <strong>APIへ接続できません</strong>
+      <span>ローカルAPIが起動していない、または保存データと構成が不整合の可能性があります。保存済みのデータは変更されていません。</span>
+    </div>
+    <button type="button" className="outline-button" disabled={retrying} onClick={onRetry}>{retrying ? "再試行中…" : "再試行"}</button>
+  </div>;
+}
+
 function TaskUnavailablePanel({ message }: { message: string }) {
   return <div className="page-panel task-unavailable-panel" role="status">
     <span className="overline">TASK UNAVAILABLE</span>
@@ -66,6 +76,7 @@ function rememberNavigation(intent: NavigationIntent) {
 function App() {
   const [navigation, setNavigation] = useState<NavigationIntent>(() => readStartupNavigation());
   const [requestedDatasetViewId, setRequestedDatasetViewId] = useState<string>();
+  const [retrying, setRetrying] = useState(false);
   const navigationRef = useRef(navigation);
   const tab = navigation.view;
 
@@ -213,6 +224,10 @@ function App() {
         </nav>
       </header>
       <main>
+        {apiState === "offline" && <ConnectionBanner retrying={retrying} onRetry={() => {
+          setRetrying(true);
+          void session.retryOpenWorkspace().finally(() => setRetrying(false));
+        }} />}
         {!dataLibraryMode && <div className="context-bar">
           <div className="context-primary-row">
             <h1 title={activeProject?.name ?? undefined}>{activeProject?.name ?? "プロジェクトを読み込んでいます"}</h1>
@@ -264,6 +279,7 @@ function App() {
             operations={resolvedTaskDefinition?.runtime_capability.operations}
             currentPreviews={prediction.previewsByCandidate}
             taskAvailability={taskAvailability}
+            offline={apiState === "offline"}
             onProjectChanged={(project) => {
               void session.refreshProjectDefinition(project);
             }}

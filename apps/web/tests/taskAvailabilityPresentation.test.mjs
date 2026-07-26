@@ -64,7 +64,8 @@ test("a project without a single fixed task explains why no starter candidate is
 test("project history shows a Japanese reason and disables changes for unavailable tasks", () => {
   assert.match(projectHub, /この予測タスクは一時的に利用できません/);
   assert.match(projectHub, /推論と変更操作は停止しています/);
-  assert.match(projectHub, /disabled=\{taskUnavailable\}/);
+  // Unavailable tasks and an unreachable API both make changes inert.
+  assert.match(projectHub, /disabled=\{taskUnavailable \|\| offline\}/);
   assert.match(projectHub, /if \(!taskUnavailable\)/);
 });
 

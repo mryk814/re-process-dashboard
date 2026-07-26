@@ -311,6 +311,26 @@ table input[type="number"] { text-align: right; font-variant-numeric: tabular-nu
   line-height: 1.2;
 }
 .workspace-notice > button:hover { background: rgba(15, 27, 45, 0.08); }
+/* One actionable statement for a workspace that could not be opened. */
+.connection-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 12px 18px 0;
+  border: 1px solid #e2b3ac;
+  border-left: 4px solid #b42318;
+  border-radius: 5px;
+  background: #fff6f5;
+  padding: 11px 14px;
+}
+.connection-banner > div { display: grid; gap: 2px; min-width: 0; }
+.connection-banner strong { color: #7c2d22; font-size: 13px; }
+.connection-banner span { color: #7a5f5a; font-size: 11px; }
+.connection-banner .outline-button { flex: 0 0 auto; min-height: 32px; font-size: 12px; }
+@media (max-width: 660px) {
+  .connection-banner { flex-direction: column; align-items: stretch; margin: 10px; }
+}
 .table-scroll {
   overflow: auto;
   border: 1px solid #cfd9e5;

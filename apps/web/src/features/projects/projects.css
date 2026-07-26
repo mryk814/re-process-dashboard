@@ -130,6 +130,8 @@
 .project-action-card.primary { grid-column: 1 / -1; border-color: #1f5fc4; background: #eff6ff; color: #164f9f; }
 .project-action-card span { color: #65758a; font-size: 11px; }
 .project-history-list { display: grid; gap: 10px; }
+.project-history-error { display: grid; gap: 8px; justify-items: start; border: 1px solid #e2b3ac; border-radius: 5px; background: #fff6f5; padding: 12px 14px; color: #7c2d22; }
+.project-history-error p { margin: 0; font-size: 12px; }
 .project-history-card { border: 1px solid #dce4ed; border-radius: 5px; overflow: hidden; }
 .project-history-card > header { display: flex; justify-content: space-between; gap: 12px; align-items: center; background: #f7f9fc; padding: 9px 11px; }
 .project-history-card > header > div { display: flex; align-items: center; gap: 7px; }
