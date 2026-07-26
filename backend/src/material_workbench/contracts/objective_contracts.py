@@ -27,6 +27,14 @@ class ObjectiveIncumbent(ContractModel):
     candidate_id: str | None = None
     candidate_revision: int | None = None
     snapshot_id: str | None = None
+    observed_scope: Literal["project_actuals"] | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def give_observed_best_an_explicit_scope(cls, value: object) -> object:
+        if isinstance(value, dict) and value.get("source") == "observed_best":
+            return {**value, "observed_scope": value.get("observed_scope") or "project_actuals"}
+        return value
 
     @model_validator(mode="after")
     def complete_reference(self) -> "ObjectiveIncumbent":
@@ -42,6 +50,10 @@ class ObjectiveIncumbent(ContractModel):
             not self.candidate_id or not self.snapshot_id
         ):
             raise ValueError("snapshot incumbentにはcandidate IDとsnapshot IDが必要です")
+        if self.source == "observed_best" and self.observed_scope != "project_actuals":
+            raise ValueError("observed bestにはProject実測の母集団指定が必要です")
+        if self.source != "observed_best" and self.observed_scope is not None:
+            raise ValueError("observed scopeはobserved bestだけに指定できます")
         return self
 
 

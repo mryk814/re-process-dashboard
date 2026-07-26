@@ -23,6 +23,8 @@ from material_workbench.contracts.design_space_contracts import DesignSpaceDefin
 from material_workbench.contracts.objective_contracts import ObjectiveDefinition
 from material_workbench.contracts.proposal_contracts import (
     ProposalCandidateEvaluation,
+    ProposalIncumbentResolution,
+    ProposalObjectiveExecution,
     ProposalRejectedCandidate,
     ProposalStrategyRequest,
 )
@@ -1075,6 +1077,7 @@ class ScreeningProposalStrategy(BaseModel):
     fallback_from: str | None = None
     fallback_policy: Literal["reject", "deterministic_goal"] = "reject"
     incumbent_value: float | None = None
+    incumbent_resolution: ProposalIncumbentResolution | None = None
     constraint_treatment: Literal[
         "feasibility_first_then_rank"
     ] = "feasibility_first_then_rank"
@@ -1139,8 +1142,9 @@ class ScreeningRunResponse(BaseModel):
     objective_definition: ObjectiveDefinition | None = None
     objective_definition_digest: str | None = None
     objective_binding_provenance: Literal[
-        "explicit", "legacy_screening"
+        "explicit", "project_revision", "legacy_screening"
     ] = "legacy_screening"
+    objective_execution: ProposalObjectiveExecution | None = None
     proposal_strategy: ScreeningProposalStrategy | None = None
     proposal_diagnostics: ScreeningProposalDiagnostics | None = None
     proposal_pool: list[ProposalCandidateEvaluation] = Field(default_factory=list)

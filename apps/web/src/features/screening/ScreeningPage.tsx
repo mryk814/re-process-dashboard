@@ -225,6 +225,16 @@ export function ScreeningPage({
   activeProjectRef.current = projectId;
   const outputs = taskDefinition?.outputs ?? [];
   const targetDefinition = outputs.find((output) => output.key === target);
+  const fixedObjective = project?.objective_definition;
+  const fixedObjectivePrimary = fixedObjective?.terms.find((term) => term.role === "primary_objective")
+    ?? fixedObjective?.terms.find((term) => term.role === "reporting_only");
+  const unsupportedObjectiveReason = fixedObjective?.optimization_kind === "pareto_multi_objective"
+    ? "Pareto Objectiveは現在の提案方法ではまだ実行できません。"
+    : fixedObjective?.terms.some((term) => term.role === "soft_preference")
+      ? "soft preferenceは現在の提案方法ではまだ実行できません。"
+      : fixedObjective?.terms.some((term) => term.role !== "reporting_only" && !["at_least", "at_most", "between"].includes(term.direction ?? ""))
+        ? "このObjective方向は現在の提案方法ではまだ実行できません。"
+        : "";
   const defaultGoalDraft = (output: TaskDefinitionContract["outputs"][number]): ScreeningGoalDraft => {
     const configured = project?.target_values?.[output.key];
     if (typeof configured === "number") {
@@ -246,11 +256,30 @@ export function ScreeningPage({
       second: String(option.defaultRange?.max ?? ""),
     }));
     setVariables(defaults);
-    if (outputs[0]) {
+    const fixedPrimaryOutput = outputs.find((output) => output.key === fixedObjectivePrimary?.output_key);
+    if (fixedObjectivePrimary && fixedPrimaryOutput) {
+      setTarget(fixedObjectivePrimary.output_key);
+      setTargetGoal(fixedObjectivePrimary.direction && ["at_least", "at_most", "between"].includes(fixedObjectivePrimary.direction)
+        ? {
+            direction: fixedObjectivePrimary.direction as ScreeningGoalDraft["direction"],
+            lower: fixedObjectivePrimary.lower == null ? "" : String(fixedObjectivePrimary.lower),
+            upper: fixedObjectivePrimary.upper == null ? "" : String(fixedObjectivePrimary.upper),
+          }
+        : emptyScreeningGoal(outputGoalDirection(fixedPrimaryOutput.goal_direction)));
+      setSecondaryGoals(Object.fromEntries(
+        (fixedObjective?.terms ?? [])
+          .filter((term) => term.role === "hard_outcome_constraint" && term.direction && ["at_least", "at_most", "between"].includes(term.direction))
+          .map((term) => [term.output_key, {
+            direction: term.direction as ScreeningGoalDraft["direction"],
+            lower: term.lower == null ? "" : String(term.lower),
+            upper: term.upper == null ? "" : String(term.upper),
+          }]),
+      ));
+    } else if (outputs[0]) {
       setTarget(outputs[0].key);
       setTargetGoal(defaultGoalDraft(outputs[0]));
+      setSecondaryGoals({});
     }
-    setSecondaryGoals({});
     setBatchEnabled(true);
     setBatchSize(8);
     setBatchSelectorId("greedy_value_diversity_v1");
@@ -264,7 +293,7 @@ export function ScreeningPage({
     setSelectedPointIndices([]);
     setFocusedPointIndex(null);
     setDraftDirty(false);
-  }, [resolvedTaskDefinition?.task_definition.id, project?.id]);
+  }, [resolvedTaskDefinition?.task_definition.id, project?.id, project?.objective_definition_digest]);
   useEffect(() => {
     if (outputs.length && !outputs.some((output) => output.key === target)) {
       setTarget(outputs[0].key);
@@ -650,8 +679,8 @@ export function ScreeningPage({
         </div>
         <button
           className="primary-button"
-          disabled={!baseCandidateId || !baseCandidate}
-          title={baseCandidateId ? "選択した候補を基準に探索します" : "基準候補が必要です"}
+          disabled={!baseCandidateId || !baseCandidate || Boolean(unsupportedObjectiveReason)}
+          title={unsupportedObjectiveReason || (baseCandidateId ? "選択した候補を基準に探索します" : "基準候補が必要です")}
           onClick={() => {
             void run();
           }}
@@ -660,6 +689,7 @@ export function ScreeningPage({
         </button>
       </div>
       {compositionBalanceNotice && <p className="screening-balance-notice">組成制約: {compositionBalanceNotice}</p>}
+      {unsupportedObjectiveReason && <p className="error-banner">{unsupportedObjectiveReason}</p>}
       {draftDirty && result && <p className="screening-draft-notice">未実行の条件変更があります。図と点詳細は最後に実行した条件のままです。</p>}
       {savedRuns.length > 0 && (
         <section className="saved-runs">
@@ -789,6 +819,7 @@ export function ScreeningPage({
             選別する特性
             <select
               value={target}
+              disabled={Boolean(fixedObjective)}
               onChange={(event) => {
                 const next = event.target.value;
                 const definition = outputs.find((output) => output.key === next);
@@ -919,7 +950,23 @@ export function ScreeningPage({
             </div>
           )}
         </details>
-        {targetDefinition && (
+        {fixedObjective
+          ? <section className="screening-goals" aria-label="Project固定Objective">
+              <h3>{fixedObjective.name} · r{fixedObjective.revision}</h3>
+              <p>Projectに固定した判断基準をそのまま提案計算へ使います。</p>
+              <ul>
+                {fixedObjective.terms.map((term) => (
+                  <li key={term.output_key}>
+                    {outputs.find((output) => output.key === term.output_key)?.label ?? term.output_key}
+                    {" · "}{term.role}
+                    {" · "}{term.direction ?? "表示のみ"}
+                    {term.lower != null ? ` ${term.lower}以上` : ""}
+                    {term.upper != null ? ` ${term.upper}以下` : ""}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          : targetDefinition && (
           <section className="screening-goals" aria-label="選別基準">
             <ScreeningGoalEditor
               label={`主目標: ${targetDefinition.label}`}
