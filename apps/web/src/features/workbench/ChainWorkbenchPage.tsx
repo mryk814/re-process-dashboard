@@ -142,7 +142,7 @@ export function ChainWorkbenchPage({
     const unit = definition.unit.trim();
     const formattedValue = formatStageNumber(prediction.value, definition, useProjectOverride);
     const uncertainty = typeof prediction.std === "number" && Number.isFinite(prediction.std)
-      ? `モデル由来 ±${formatStageNumber(prediction.std, definition, useProjectOverride)}${unit ? ` ${unit}` : ""}`
+      ? `標準偏差 ±${formatStageNumber(prediction.std, definition, useProjectOverride)}${unit ? ` ${unit}` : ""}`
       : "区間なし";
     return <span className="chain-prediction-value">
       <strong>{formattedValue}{unit ? ` ${unit}` : ""}</strong>
@@ -598,16 +598,16 @@ export function ChainWorkbenchPage({
           const stagePredictions = predictions(stage);
           return <details key={stage.stage_id}>
             <summary>Stage {stage.stage_id} · {statusLabel[stage.status as StageStatus]}</summary>
-            {definitions.length
-              ? <table className="chain-snapshot-output-table">
+            {stage.stage_id === "A"
+              ? <pre>{JSON.stringify(stage.result, null, 2)}</pre>
+              : definitions.length
+                ? <table className="chain-snapshot-output-table">
                 <thead><tr><th>出力</th><th>固定した予測</th></tr></thead>
                 <tbody>{definitions.map((definition) => <tr key={definition.key}>
                   <th>{definition.label}</th>
                   <td>{predictionCell(stagePredictions[definition.key], definition, stage.stage_id === "C")}</td>
                 </tr>)}</tbody>
-              </table>
-              : stage.stage_id === "A"
-                ? <pre>{JSON.stringify(stage.result, null, 2)}</pre>
+                </table>
                 : <p className="chain-output-unavailable">このSnapshotの出力定義を確認できません。</p>}
           </details>;
         })}

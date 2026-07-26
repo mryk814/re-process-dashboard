@@ -42,11 +42,13 @@ test("Chain output tables use pinned presentation metadata and state uncertainty
   assert.match(source, /displayDecimalOverrides\?\.\[`output\.\$\{definition\.key\}`\]/);
   assert.match(source, /useProjectOverride\s*\?\s*displayDecimalOverrides/);
   assert.match(source, /predictionCell\(stageCPredictions\[definition\.key\], definition, true\)/);
-  assert.match(source, /モデル由来 ±/);
+  assert.match(source, /標準偏差 ±/);
+  assert.doesNotMatch(source, /モデル由来 ±/);
   assert.match(source, /区間なし/);
   assert.doesNotMatch(source, /<th>\{key\}<\/th>/);
   assert.doesNotMatch(source, /Object\.keys\(stageCPredictions\)/);
   assert.match(source, /chain-snapshot-output-table/);
+  assert.match(source, /stage\.stage_id === "A"[\s\S]*JSON\.stringify\(stage\.result/);
   assert.match(source, /execution\?\.chain_revision_digest === viewedSnapshot\.identity\.chain_revision_digest/);
   assert.match(source, /stageBDefinitions\.map\(\(definition\)/);
   assert.doesNotMatch(source, /actual-value-grid[^]*<span>\{key\}<\/span>/);
