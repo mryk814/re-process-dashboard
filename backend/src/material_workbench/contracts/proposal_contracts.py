@@ -14,6 +14,15 @@ AcquisitionRepresentation = Literal[
     "parametric_distribution",
     "unsupported",
 ]
+ProposalGeneratorId = Literal[
+    "latin_hypercube",
+    "sobol",
+    "bounded_simplex_hit_and_run",
+]
+ProposalDistanceId = Literal[
+    "scalar_axis_rms",
+    "group_weighted_bounded_clr_rms",
+]
 
 
 class ProposalIncumbentResolution(ContractModel):
@@ -107,8 +116,13 @@ class ProposalStrategyDefinition(ContractModel):
     strategy_id: str
     version: str
     label: str
-    generator_id: Literal["latin_hypercube", "sobol"]
+    generator_id: ProposalGeneratorId
     generator_version: str
+    generator_parameters: dict[str, float | str | bool] = Field(default_factory=dict)
+    distance_id: ProposalDistanceId = "scalar_axis_rms"
+    distance_version: str = "1.0.0"
+    distance_parameters: dict[str, float | str | bool] = Field(default_factory=dict)
+    distance_usage: Literal["batch_selector_only"] = "batch_selector_only"
     acquisition_id: Literal[
         "goal_achievement",
         "upper_confidence_bound",

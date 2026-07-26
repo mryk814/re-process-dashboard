@@ -286,6 +286,7 @@ class ScreeningService:
                     if item.target == payload.target
                 ),
                 objective=objective,
+                design_space=design_space,
             )
             if payload.batch_definition is not None:
                 require_batch_selector(
@@ -401,6 +402,11 @@ class ScreeningService:
             "pool_multiplier": proposal_request.pool_multiplier,
             "generator_id": strategy.generator_id,
             "generator_version": strategy.generator_version,
+            "generator_parameters": strategy.generator_parameters,
+            "distance_id": strategy.distance_id,
+            "distance_version": strategy.distance_version,
+            "distance_parameters": strategy.distance_parameters,
+            "distance_usage": strategy.distance_usage,
             "acquisition_id": strategy.acquisition_id,
             "acquisition_version": strategy.acquisition_version,
             "selector_id": strategy.selector_id,
@@ -490,6 +496,7 @@ class ScreeningService:
             ),
             objective=project.objective_definition,
             incumbent_value=incumbent_value,
+            design_space=project.design_space,
         )
 
     def available_batch_selectors(

@@ -14,6 +14,10 @@ from material_workbench.contracts.task_contracts import (
     RuntimeCapability,
     TargetRuntimeCapability,
 )
+from material_workbench.contracts.design_space_contracts import DesignSpaceDefinition
+from material_workbench.domain.proposal_generation import (
+    bounded_simplex_compatibility,
+)
 
 
 STRATEGIES = (
@@ -23,6 +27,34 @@ STRATEGIES = (
         label="Latin hypercube・目標基準",
         generator_id="latin_hypercube",
         generator_version="1.0.0",
+        acquisition_id="goal_achievement",
+        acquisition_version="1.0.0",
+        selector_id="ranked_top_k",
+        selector_version="1.0.0",
+    ),
+    ProposalStrategyDefinition(
+        strategy_id="bounded_simplex_goal_v1",
+        version="1.0.0",
+        label="Bounded simplex・目標基準（組成向け）",
+        generator_id="bounded_simplex_hit_and_run",
+        generator_version="1.0.0",
+        generator_parameters={
+            "simplex_sampler": "hit_and_run",
+            "other_axes_sampler": "latin_hypercube",
+            "minimum_balance": 0.0,
+            "burn_in_steps": 256,
+            "thinning_steps": 16,
+        },
+        distance_id="group_weighted_bounded_clr_rms",
+        distance_version="1.0.0",
+        distance_parameters={
+            "zero_replacement": 1e-6,
+            "composition_transform": "clr_rms_over_one_plus_clr_rms",
+            "composition_weight": 1.0,
+            "process_weight": 1.0,
+            "categorical_weight": 1.0,
+            "heat_weight": 1.0,
+        },
         acquisition_id="goal_achievement",
         acquisition_version="1.0.0",
         selector_id="ranked_top_k",
@@ -130,6 +162,7 @@ def strategy_availability(
     ],
     objective: ObjectiveDefinition | None,
     incumbent_value: float | None = None,
+    design_space: DesignSpaceDefinition | None = None,
 ) -> list[ProposalStrategyAvailability]:
     target_capability = next(
         (item for item in capability.targets if item.target == target),
@@ -142,6 +175,18 @@ def strategy_availability(
     results = []
     for definition in STRATEGIES:
         reasons = []
+        if definition.generator_id == "bounded_simplex_hit_and_run":
+            if design_space is None:
+                reasons.append("Project Design Spaceを読み込めません")
+            else:
+                compatible, geometry_reasons = bounded_simplex_compatibility(
+                    design_space,
+                    minimum_balance=float(
+                        definition.generator_parameters.get("minimum_balance", 0.0)
+                    ),
+                )
+                if not compatible:
+                    reasons.extend(geometry_reasons)
         if not definition.production_enabled:
             reasons.append("この戦略はRuntime契約を確認中のため、まだ利用できません")
         if target_capability is None:
@@ -203,6 +248,7 @@ def resolve_strategy(
         "continuous", "continuous_positive", "binary", "count", "ordinal"
     ],
     objective: ObjectiveDefinition,
+    design_space: DesignSpaceDefinition | None = None,
 ) -> tuple[ProposalStrategyDefinition, str | None]:
     availability = {
         item.definition.strategy_id: item
@@ -212,6 +258,7 @@ def resolve_strategy(
             target_kind=target_kind,
             objective=objective,
             incumbent_value=request.incumbent_value,
+            design_space=design_space,
         )
     }
     selected = availability.get(request.strategy_id)
