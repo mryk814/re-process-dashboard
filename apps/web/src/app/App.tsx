@@ -8,7 +8,9 @@ import { LineagePage } from "../features/lineage";
 import { DataExploreNavigation, LiveDataQualityPage } from "../features/quality";
 import { DeveloperAdminPage } from "../features/admin";
 import { DataLibraryPage, ProfileWorkbenchPage } from "../features/data-library";
+import { WorkspaceManagerDialog } from "../features/workspace";
 import { WorkspaceNoticeBanner } from "../shared/ui/WorkspaceNoticeBanner";
+import type { WorkspaceNotice } from "../shared/workspaceNotice";
 import {
   workbenchApi,
   type ApiSubsystemAvailability,
@@ -82,7 +84,10 @@ function App() {
   const [requestedDatasetViewId, setRequestedDatasetViewId] = useState<string>();
   const [retrying, setRetrying] = useState(false);
   const [subsystemAvailability, setSubsystemAvailability] = useState<ApiSubsystemAvailability[]>([]);
+  const [workspaceDialogOpen, setWorkspaceDialogOpen] = useState(false);
+  const [desktopWorkspaceNotice, setDesktopWorkspaceNotice] = useState<WorkspaceNotice | null>(null);
   const navigationRef = useRef(navigation);
+  const workspaceButtonRef = useRef<HTMLButtonElement>(null);
   const tab = navigation.view;
 
   function navigate(intent: NavigationIntent, replace = false) {
@@ -211,6 +216,18 @@ function App() {
   }, []);
 
   useEffect(() => {
+    void window.workbenchDesktop?.takeWorkspaceNotice().then((receipt) => {
+      if (receipt) {
+        setDesktopWorkspaceNotice({
+          id: Date.now(),
+          kind: receipt.tone,
+          message: receipt.message,
+        });
+      }
+    });
+  }, []);
+
+  useEffect(() => {
     if (apiState === "offline") return;
     let active = true;
     void workbenchApi.listSubsystemAvailability().then((items) => {
@@ -240,6 +257,16 @@ function App() {
             onClick={() => navigate({ view: "data-library" })}
           >
             データライブラリ
+          </button>
+          <button
+            ref={workspaceButtonRef}
+            type="button"
+            className={workspaceDialogOpen ? "nav-button active" : "nav-button"}
+            aria-haspopup="dialog"
+            aria-expanded={workspaceDialogOpen}
+            onClick={() => setWorkspaceDialogOpen(true)}
+          >
+            ワークスペース
           </button>
         </nav>
       </header>
@@ -288,7 +315,14 @@ function App() {
             ))}
           </nav>
         </div>}
-        {!dataLibraryMode && notice && <WorkspaceNoticeBanner notice={notice} onDismiss={session.dismissNotice} />}
+        {desktopWorkspaceNotice
+          ? <WorkspaceNoticeBanner
+            notice={desktopWorkspaceNotice}
+            onDismiss={() => setDesktopWorkspaceNotice(null)}
+          />
+          : !dataLibraryMode && notice
+            ? <WorkspaceNoticeBanner notice={notice} onDismiss={session.dismissNotice} />
+            : null}
         {tab === "project" && (
           <ProjectHub
             projects={projects}
@@ -569,6 +603,13 @@ function App() {
             onCreateStarter={() => void session.createStarterCandidate()}
           />
         )}
+        <WorkspaceManagerDialog
+          open={workspaceDialogOpen}
+          onClose={() => {
+            setWorkspaceDialogOpen(false);
+            window.requestAnimationFrame(() => workspaceButtonRef.current?.focus());
+          }}
+        />
       </main>
     </div>
   );

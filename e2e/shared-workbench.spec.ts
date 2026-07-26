@@ -72,7 +72,7 @@ for (const task of tasks) {
       await expect(page.locator(".response-curve-card")).toHaveCount(1);
       await expect.poll(() => curveRequests).toBeGreaterThan(0);
       await expect(page.locator(".response-curves-panel .inference-surface-status")).toHaveText("最新");
-      await expect(page.getByRole("img", { name: "引張強さの応答曲線" })).toBeVisible();
+      await expect(page.getByRole("group", { name: /引張強さの応答曲線/ })).toBeVisible();
       const yAxisLabels = page.locator(".response-curve-card svg text").filter({ hasNotText: "C (%)" }).first();
       await page.getByRole("combobox", { name: "Y軸の表示範囲" }).selectOption("preferred");
       const preferredTopTick = await yAxisLabels.textContent();

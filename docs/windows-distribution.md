@@ -25,6 +25,8 @@ npm run package:windows
 - repository外の同梱Excel・Model Packageで起動できる
 - フォルダ内にDBとsidecar logが作られる
 - installer版のDBとlogがLocalAppDataへ作られ、uninstall後も利用データが保持される
+- native file dialogからWorkspace backupを作成し、改ざんbundleを拒否した後、
+  正常bundleを復元してAPIと実画面を再起動できる
 
 ## 保存先と削除
 
@@ -33,6 +35,8 @@ installer版は `%LOCALAPPDATA%\Material Decision Workbench` にDBとログを�
 フォルダ版は展開先の `user-data/` にDBとログを保存する。削除するときはアプリを終了し、展開したフォルダを丸ごと削除できる。`portable.marker` が保存先切替の印であり、削除・移動しない。
 
 元ExcelとModel Packageはどちらの形式でも読取専用の配布resourceとして扱う。DBやログをインストール先の `resources/` へ書かない。
+利用者データの移行にはDBの手動コピーではなく
+[Workspaceバックアップ／復元](workspace-backup.md)を使う。
 
 ## 配布時の注意
 
