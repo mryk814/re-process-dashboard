@@ -353,6 +353,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
           candidate={selected}
           candidates={candidates}
           taskDefinition={taskDefinition}
+          displayDecimalOverrides={project?.display_decimals}
           ready={["idle", "saved"].includes(saveState)}
           requestedActivityId={activityId}
           requestedRunId={activityRunId}

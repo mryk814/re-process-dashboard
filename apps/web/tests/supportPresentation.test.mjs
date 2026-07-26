@@ -56,3 +56,23 @@ test("candidate revision is called 編集版 everywhere in the product UI", asyn
   await walk(root);
   assert.deepEqual(offenders, [], "Candidate revision is labelled 編集版, never 候補版");
 });
+
+test("no surface renders a raw support status", async () => {
+  const root = new URL("../src/", import.meta.url);
+  const offenders = [];
+  // Text content only: className templates use ${…} and props use status={…}.
+  const rawStatus = /(?<![$=])\{[\w.?]*support\??\.status\}/;
+  const walk = async (directory) => {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      const child = new URL(`${entry.name}${entry.isDirectory() ? "/" : ""}`, directory);
+      if (entry.isDirectory()) {
+        if (entry.name !== "generated") await walk(child);
+        continue;
+      }
+      if (!entry.name.endsWith(".tsx")) continue;
+      if (rawStatus.test(await readFile(child, "utf8"))) offenders.push(entry.name);
+    }
+  };
+  await walk(root);
+  assert.deepEqual(offenders, [], "support status is shown through supportStatusLabel");
+});

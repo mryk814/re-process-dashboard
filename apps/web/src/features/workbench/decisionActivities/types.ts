@@ -14,6 +14,7 @@ export type DecisionActivityViewProps = {
   candidate: CandidateViewModel;
   candidates: CandidateViewModel[];
   taskDefinition: TaskDefinitionContract;
+  displayDecimalOverrides?: Record<string, number>;
   ready: boolean;
   availability: ApiDecisionActivityAvailability;
   runs: ApiDecisionActivityRun[];

@@ -22,6 +22,7 @@ export function DecisionActivityPanel({
   candidate,
   candidates,
   taskDefinition,
+  displayDecimalOverrides,
   ready,
   requestedActivityId,
   requestedRunId,
@@ -33,6 +34,7 @@ export function DecisionActivityPanel({
   candidate: CandidateViewModel;
   candidates: CandidateViewModel[];
   taskDefinition: TaskDefinitionContract;
+  displayDecimalOverrides?: Record<string, number>;
   ready: boolean;
   requestedActivityId?: string;
   requestedRunId?: string;
@@ -166,6 +168,7 @@ export function DecisionActivityPanel({
       candidate={candidate}
       candidates={candidates}
       taskDefinition={taskDefinition}
+      displayDecimalOverrides={displayDecimalOverrides}
       ready={ready}
       availability={selected}
       runs={activityRuns}
