@@ -24,7 +24,12 @@ from material_workbench.contracts.blend_contracts import (
 from material_workbench.contracts.chain_uncertainty_contracts import (
     StageSampleResult,
 )
+from material_workbench.contracts.chain_contracts import (
+    ChainDefinition,
+    ExternalBindingSource,
+)
 from material_workbench.contracts.schemas import CandidateInputs
+from material_workbench.contracts.task_contracts import NumericRange
 from material_workbench.persistence.store import CandidateRevisionConflictError, Store
 from material_workbench.persistence.sqlite_connection import connect_sqlite
 
@@ -491,7 +496,7 @@ def test_chain_candidate_contract_provides_a_pinned_executable_starter(
         "training_range": None,
         "choices": [],
         "display_decimals": None,
-        "affected_stage_ids": ["A"],
+        "affected_stage_ids": ["A", "B", "C"],
         "first_affected_stage_id": "A",
     }
     heat = by_path["candidate.welding_context.heat_input_kj_per_mm"]
@@ -529,6 +534,9 @@ def test_chain_candidate_contract_provides_a_pinned_executable_starter(
         by_path["candidate.test_context.test_solution"]["first_affected_stage_id"]
         == "C"
     )
+    assert by_path["candidate.test_context.test_solution"]["affected_stage_ids"] == [
+        "C"
+    ]
     starter = contract["starter_candidate"]
     assert starter["blend"]["scientific_master"] == contract["scientific_master"]
     assert starter["blend"]["commercial_catalog"] == contract["commercial_catalog"]
@@ -565,6 +573,125 @@ def test_chain_candidate_contract_provides_a_pinned_executable_starter(
         chain_after["revisions"][0]["revision_digest"]
         == chain_before["revisions"][0]["revision_digest"]
     )
+
+
+def test_chain_candidate_contract_allows_disjoint_training_ranges_only(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = client.post(
+        "/api/projects",
+        json={"name": "Range Chain", "scientific_identity": _chain_identity(client)},
+    ).json()
+    service = client.app.state.chain_execution_service
+    original_range = service._external_numeric_range
+    training_by_stage = {}
+    for task_id, stage_id in (
+        ("welding-consumable-stage-b-v1", "B"),
+        ("welding-stage-c-properties-v1", "C"),
+    ):
+        task = service.registry.contract_for(task_id).task_definition
+        field = next(
+            field
+            for group in task.input_groups
+            for field in group.fields
+            if field.path == "process.heat_input_kj_per_mm"
+        )
+        training_by_stage[stage_id] = field.training_range
+
+    def disjoint_training_range(
+        value: NumericRange,
+        binding,
+    ) -> NumericRange:
+        if (
+            binding.source.source_kind == "external"
+            and binding.source.path
+            == "candidate.welding_context.heat_input_kj_per_mm"
+            and value is training_by_stage[binding.target_stage_id]
+        ):
+            return (
+                NumericRange(min=0.8, max=1.0)
+                if binding.target_stage_id == "B"
+                else NumericRange(min=1.2, max=1.4)
+            )
+        return original_range(value, binding)
+
+    monkeypatch.setattr(service, "_external_numeric_range", disjoint_training_range)
+    contract_response = client.get(
+        f"/api/projects/{project['id']}/chain/candidate-contract"
+    )
+    assert contract_response.status_code == 200, contract_response.text
+    contract = contract_response.json()
+    heat = next(
+        item
+        for item in contract["external_inputs"]
+        if item["external_path"]
+        == "candidate.welding_context.heat_input_kj_per_mm"
+    )
+    assert heat["training_range"] is None
+
+    candidate_response = client.post(
+        f"/api/projects/{project['id']}/chain/candidates",
+        json=contract["starter_candidate"],
+    )
+    assert candidate_response.status_code == 201, candidate_response.text
+    assert _execute(client, project, candidate_response.json())["status"] == "latest"
+
+
+def test_chain_candidate_inputs_reject_aliasing_external_paths(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = client.post(
+        "/api/projects",
+        json={"name": "Aliased Chain", "scientific_identity": _chain_identity(client)},
+    ).json()
+    service = client.app.state.chain_execution_service
+    definition, revision, identity = service._chain(project["id"])
+    heat_path = "candidate.welding_context.heat_input_kj_per_mm"
+    alias_path = "candidate.test_context.heat_input_kj_per_mm"
+    heat_port = next(
+        port for port in definition.external_inputs if port.path == heat_path
+    )
+    aliased_bindings = tuple(
+        binding.model_copy(
+            update={
+                "source": ExternalBindingSource(
+                    source_kind="external",
+                    path=alias_path,
+                )
+            }
+        )
+        if (
+            binding.target_stage_id == "C"
+            and binding.source.source_kind == "external"
+            and binding.source.path == heat_path
+        )
+        else binding
+        for binding in definition.bindings
+    )
+    aliased_definition = ChainDefinition.model_validate(
+        definition.model_copy(
+            update={
+                "external_inputs": (
+                    *definition.external_inputs,
+                    heat_port.model_copy(update={"path": alias_path}),
+                ),
+                "bindings": aliased_bindings,
+            }
+        ).model_dump(mode="json")
+    )
+    monkeypatch.setattr(
+        service,
+        "_chain",
+        lambda _project_id: (aliased_definition, revision, identity),
+    )
+
+    response = client.get(
+        f"/api/projects/{project['id']}/chain/candidate-inputs"
+    )
+    assert response.status_code == 409
+    assert "同じ候補保存path" in response.json()["message"]
 
 
 def test_chain_candidate_contract_fails_closed_on_task_contract_drift(
@@ -618,6 +745,11 @@ def test_chain_candidate_contract_fails_closed_on_package_drift(
 
     assert contract_response.status_code == 409
     assert "Package digest" in contract_response.json()["message"]
+    read_only_inputs = client.get(
+        f"/api/projects/{response.json()['id']}/chain/candidate-inputs"
+    )
+    assert read_only_inputs.status_code == 200, read_only_inputs.text
+    assert len(read_only_inputs.json()) == 9
 
 
 def test_chain_candidates_are_isolated_from_single_task_candidate_apis(

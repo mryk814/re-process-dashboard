@@ -21690,6 +21690,53 @@
         ]
       }
     },
+    "/api/projects/{project_id}/chain/candidate-inputs": {
+      "get": {
+        "description": "Read-only input surface derived from the exact pinned Chain revision.",
+        "operationId": "getChainCandidateInputs",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ChainCandidateInputDefinition"
+                  },
+                  "title": "Response Getchaincandidateinputs",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Chain Candidate Inputs",
+        "tags": [
+          "chain-execution"
+        ]
+      }
+    },
     "/api/projects/{project_id}/chain/candidates": {
       "get": {
         "operationId": "listChainCandidates",

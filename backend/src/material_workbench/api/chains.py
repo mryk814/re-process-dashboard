@@ -150,13 +150,11 @@ def _execution_service(request: Request) -> ChainExecutionService:
     return service
 
 
-def _candidate_contract_service(request: Request) -> ChainExecutionService:
-    """Resolve the pinned editor contract even when Chain execution is disabled."""
+def _candidate_input_service(request: Request) -> ChainExecutionService:
+    """Resolve pinned presentation metadata without enabling Chain execution."""
 
     service = request.app.state.chain_execution_service
-    if service is None:
-        request.app.state.subsystem_availability.require(WELDING_CHAIN_SUBSYSTEM_ID)
-        raise HTTPException(503, "Chain候補契約を解決できません")
+    assert service is not None
     return service
 
 
@@ -247,6 +245,29 @@ def get_project_chain_evaluation(
 
 
 @execution_router.get(
+    "/{project_id}/chain/candidate-inputs",
+    response_model=tuple[ChainCandidateInputDefinition, ...],
+    operation_id="getChainCandidateInputs",
+)
+def get_chain_candidate_inputs(
+    project_id: str,
+    service: Annotated[
+        ChainExecutionService,
+        Depends(_candidate_input_service),
+    ],
+) -> tuple[ChainCandidateInputDefinition, ...]:
+    """Read-only input surface derived from the exact pinned Chain revision."""
+
+    try:
+        return service.candidate_input_definitions(
+            project_id,
+            require_runtime_identity=False,
+        )
+    except ChainExecutionError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@execution_router.get(
     "/{project_id}/chain/candidate-capability",
     response_model=ChainCandidateCapability,
     operation_id="getChainCandidateCapability",
@@ -270,10 +291,7 @@ def get_chain_candidate_capability(
 )
 def get_chain_candidate_contract(
     project_id: str,
-    service: Annotated[
-        ChainExecutionService,
-        Depends(_candidate_contract_service),
-    ],
+    service: Annotated[ChainExecutionService, Depends(_execution_service)],
 ) -> ChainCandidateContractResponse:
     try:
         adapter = service.sparse_blend_adapter(project_id)

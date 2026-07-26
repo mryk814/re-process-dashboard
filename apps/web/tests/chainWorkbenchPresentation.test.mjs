@@ -91,7 +91,7 @@ test("blank numeric drafts never become zero and Stage A reuses the sparse blend
 });
 
 test("every Chain external input is rendered and edited from the resolved contract", () => {
-  assert.match(source, /contract\?\.external_inputs/);
+  assert.match(source, /candidateInputDefinitions/);
   assert.match(source, /scalarInputDefinitions\.map\(\(definition\)/);
   assert.match(source, /data-chain-external-path=\{definition\.external_path\}/);
   assert.match(source, /data-chain-external-path=\{blendInputDefinition\.external_path\}/);
@@ -101,13 +101,16 @@ test("every Chain external input is rendered and edited from the resolved contra
   assert.match(source, /definition\.allowed_range/);
   assert.match(source, /definition\.choices/);
   assert.match(source, /definition\.editable/);
-  assert.match(source, /definition\.first_affected_stage_id/);
+  assert.match(source, /definition\.affected_stage_ids/);
+  assert.match(source, /affected\.has\(stage\.stage_id\)/);
   assert.match(source, /getCandidateInputValue/);
   assert.match(source, /setCandidateInputValue/);
   assert.match(
     source,
-    /readOnly[\s\S]*workbenchApi\.chainCandidateContract\(projectId\)[\s\S]*workbenchApi\.listChainCandidates\(projectId\)/,
+    /readOnly[\s\S]*workbenchApi\.chainCandidateInputs\(projectId\)[\s\S]*workbenchApi\.listChainCandidates\(projectId\)/,
   );
+  assert.match(source, /candidateInputError/);
+  assert.match(source, /入力条件は表示できません/);
   assert.doesNotMatch(source, /editProcess/);
   assert.doesNotMatch(
     source,

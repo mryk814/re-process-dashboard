@@ -83,8 +83,14 @@ class ChainCandidateInputDefinition(ChainContractModel):
         if self.kind == "number":
             if not self.candidate_path.startswith(("composition.", "process.")):
                 raise ValueError("numeric Chain inputs require a numeric candidate path")
-            if any(item is None for item in ranges) or self.choices:
-                raise ValueError("numeric Chain inputs require ranges and no choices")
+            if (
+                self.default_range is None
+                or self.allowed_range is None
+                or self.choices
+            ):
+                raise ValueError(
+                    "numeric Chain inputs require default/allowed ranges and no choices"
+                )
             if self.unit is None or self.display_decimals is None:
                 raise ValueError("numeric Chain inputs require unit and display decimals")
         elif self.kind == "categorical":

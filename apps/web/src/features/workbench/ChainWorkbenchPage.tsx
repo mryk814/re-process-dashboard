@@ -76,6 +76,10 @@ export function ChainWorkbenchPage({
   const readOnly = Boolean(unavailable);
   const [candidates, setCandidates] = useState<ApiCandidate[]>([]);
   const [contract, setContract] = useState<ApiChainCandidateContract | null>(null);
+  const [candidateInputDefinitions, setCandidateInputDefinitions] = useState<
+    ApiChainCandidateContract["external_inputs"]
+  >([]);
+  const [candidateInputError, setCandidateInputError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState(initialCandidateId ?? "");
   const [execution, setExecution] = useState<ApiChainExecution | null>(null);
   const [snapshots, setSnapshots] = useState<ApiChainSnapshot[]>([]);
@@ -125,8 +129,8 @@ export function ChainWorkbenchPage({
     [stageBDefinitions],
   );
   const inputDefinitions = useMemo(
-    () => [...(contract?.external_inputs ?? [])].sort((left, right) => left.order - right.order),
-    [contract],
+    () => [...candidateInputDefinitions].sort((left, right) => left.order - right.order),
+    [candidateInputDefinitions],
   );
   const scalarInputDefinitions = useMemo(
     () => inputDefinitions.filter((definition) => definition.kind !== "sparse_blend"),
@@ -196,11 +200,31 @@ export function ChainWorkbenchPage({
     const projectToken = candidateRequests.current.activate(projectId, "");
     requestSequence.current += 1;
     setBusy(false);
-    const loadCandidates = readOnly
+    setContract(null);
+    setCandidateInputDefinitions([]);
+    setCandidateInputError(null);
+    const loadCandidates: Promise<{
+      loadedContract: ApiChainCandidateContract | null;
+      externalInputs: ApiChainCandidateContract["external_inputs"];
+      inputError: string | null;
+      items: ApiCandidate[];
+    } | null> = readOnly
       ? Promise.all([
-        workbenchApi.chainCandidateContract(projectId).catch(() => null),
+        workbenchApi.chainCandidateInputs(projectId).then(
+          (externalInputs) => ({ externalInputs, inputError: null }),
+          (cause) => ({
+            externalInputs: [],
+            inputError: cause instanceof Error
+              ? cause.message
+              : "Chain候補の入力契約を読み込めませんでした",
+          }),
+        ),
         workbenchApi.listChainCandidates(projectId),
-      ])
+      ]).then(([inputResult, items]) => ({
+        loadedContract: null,
+        ...inputResult,
+        items,
+      }))
       // この画面は疎配合Chain専用の入力面。Chainが別のcandidate adapterを宣言している
       // 場合は、契約APIを叩く前にcapabilityで判断して明示的に伝える。
       : workbenchApi.chainCandidateCapability(projectId).then((capability) => {
@@ -215,13 +239,20 @@ export function ChainWorkbenchPage({
       return Promise.all([
         workbenchApi.chainCandidateContract(projectId),
         workbenchApi.listChainCandidates(projectId),
-      ]);
+      ]).then(([loadedContract, items]) => ({
+        loadedContract,
+        externalInputs: loadedContract.external_inputs,
+        inputError: null,
+        items,
+      }));
     });
     void loadCandidates.then(async (loaded) => {
       if (loaded === null) return;
-      const [loadedContract, items] = loaded;
+      const { loadedContract, externalInputs, inputError, items } = loaded;
       if (!active || !candidateRequests.current.isCurrent(projectToken)) return;
       setContract(loadedContract);
+      setCandidateInputDefinitions(externalInputs);
+      setCandidateInputError(inputError);
       setCandidates(items);
       authoritative.current = new Map(items.map((item) => [item.id, item]));
       const candidateId = items.some((item) => item.id === initialCandidateId)
@@ -325,19 +356,15 @@ export function ChainWorkbenchPage({
     }
   }
 
-  function markStagesStale(firstAffectedStageId: string) {
+  function markStagesStale(affectedStageIds: readonly string[]) {
+    const affected = new Set(affectedStageIds);
     setExecution((current) => current ? {
       ...current,
       status: "stale",
-      stages: current.stages.map((stage, index, stages) => {
-        const start = stages.findIndex(
-          (candidateStage) => candidateStage.stage_id === firstAffectedStageId,
-        );
-        return {
-          ...stage,
-          status: start < 0 || index >= start ? "stale" : stage.status,
-        };
-      }),
+      stages: current.stages.map((stage) => ({
+        ...stage,
+        status: affected.has(stage.stage_id) ? "stale" : stage.status,
+      })),
     } : current);
   }
 
@@ -435,7 +462,7 @@ export function ChainWorkbenchPage({
       ),
     };
     setCandidates((items) => items.map((item) => item.id === selected.id ? optimistic : item));
-    markStagesStale(definition.first_affected_stage_id);
+    markStagesStale(definition.affected_stage_ids);
     setStatusMessage("編集停止後に自動保存・再計算します");
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(() => {
@@ -468,7 +495,7 @@ export function ChainWorkbenchPage({
     setCandidates((items) => items.map((item) => (
       item.id === selected.id ? optimistic : item
     )));
-    markStagesStale(definition.first_affected_stage_id);
+    markStagesStale(definition.affected_stage_ids);
     setStatusMessage("選択を保存し、下流を自動再計算しています");
     void persistCandidate(optimistic);
   }
@@ -487,7 +514,7 @@ export function ChainWorkbenchPage({
       editor_state: { locked_material_ids: lockedMaterialIds },
     };
     setCandidates((items) => items.map((item) => item.id === selected.id ? optimistic : item));
-    markStagesStale(blendInputDefinition.first_affected_stage_id);
+    markStagesStale(blendInputDefinition.affected_stage_ids);
     setStatusMessage("配合を保存し、A → B → Cを自動再計算します");
     void persistCandidate(optimistic);
   }
@@ -633,6 +660,9 @@ export function ChainWorkbenchPage({
       })}
     </div>
     <div className="chain-status-line" role="status">{statusMessage}</div>
+    {candidateInputError && <p className="chain-input-reason" role="alert">
+      入力条件は表示できません。{candidateInputError}
+    </p>}
 
     <div className="chain-edit-strip">
       <div className="chain-input-fields">
@@ -749,7 +779,7 @@ export function ChainWorkbenchPage({
       </div>
     </details>}
 
-    {selected.blend && contract && blendInputDefinition && <details
+    {selected.blend && blendInputDefinition && <details
       className="chain-blend-panel"
       data-chain-external-path={blendInputDefinition.external_path}
     >
@@ -757,7 +787,7 @@ export function ChainWorkbenchPage({
       {(!blendInputDefinition.editable || readOnly) && <p className="chain-input-reason">
         {blendInputDefinition.read_only_reason ?? unavailable?.impact}
       </p>}
-      {!readOnly && blendInputDefinition.editable && <BlendEditorPanel
+      {!readOnly && contract && blendInputDefinition.editable && <BlendEditorPanel
         projectId={projectId}
         candidate={fromApiCandidate(selected)}
         transformId={contract.transform_id}

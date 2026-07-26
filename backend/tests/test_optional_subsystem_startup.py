@@ -137,6 +137,64 @@ def test_broken_transform_disables_only_dependent_chain(
         )
 
 
+def test_broken_transform_preserves_saved_chain_inputs_read_only(
+    tmp_path: Path,
+    app_resources: _AppResources,
+) -> None:
+    database = tmp_path / "workbench.db"
+    data_library = tmp_path / "data-library"
+    healthy_app = create_app(
+        db_path=database,
+        data_library_path=data_library,
+        _resources=app_resources,
+    )
+    with TestClient(healthy_app) as client:
+        project = _chain_project(client)
+        contract = client.get(
+            f"/api/projects/{project['id']}/chain/candidate-contract"
+        ).json()
+        candidate = client.post(
+            f"/api/projects/{project['id']}/chain/candidates",
+            json=contract["starter_candidate"],
+        )
+        assert candidate.status_code == 201, candidate.text
+        candidate_id = candidate.json()["id"]
+
+    broken = tmp_path / "broken-active-transforms.json"
+    broken.write_text("not-json", encoding="utf-8")
+    degraded_app = create_app(
+        db_path=database,
+        data_library_path=data_library,
+        active_transforms_path=broken,
+        _resources=app_resources,
+    )
+    with TestClient(degraded_app) as client:
+        availability = {
+            item["subsystem_id"]: item
+            for item in client.get("/api/subsystem-availability").json()
+        }
+        assert availability[WELDING_CHAIN_SUBSYSTEM_ID]["status"] == "unavailable"
+        inputs = client.get(
+            f"/api/projects/{project['id']}/chain/candidate-inputs"
+        )
+        assert inputs.status_code == 200, inputs.text
+        assert len(inputs.json()) == 9
+        assert {
+            item["external_path"] for item in inputs.json()
+        } == {
+            item["external_path"] for item in contract["external_inputs"]
+        }
+        candidates = client.get(
+            f"/api/projects/{project['id']}/chain/candidates"
+        )
+        assert candidates.status_code == 200
+        assert candidates.json()[0]["id"] == candidate_id
+        editable_contract = client.get(
+            f"/api/projects/{project['id']}/chain/candidate-contract"
+        )
+        assert editable_contract.status_code == 503
+
+
 def test_broken_chain_bootstrap_preserves_saved_chain_evidence_read_only(
     tmp_path: Path,
     app_resources: _AppResources,
@@ -212,10 +270,10 @@ def test_broken_chain_bootstrap_preserves_saved_chain_evidence_read_only(
         assert candidates.status_code == 200
         assert candidates.json()[0]["id"] == candidate_id
         candidate_contract = client.get(
-            f"/api/projects/{project['id']}/chain/candidate-contract"
+            f"/api/projects/{project['id']}/chain/candidate-inputs"
         )
         assert candidate_contract.status_code == 200, candidate_contract.text
-        assert len(candidate_contract.json()["external_inputs"]) == 9
+        assert len(candidate_contract.json()) == 9
         saved_execution = client.get(
             f"/api/projects/{project['id']}/chain/candidates/"
             f"{candidate_id}/execution"

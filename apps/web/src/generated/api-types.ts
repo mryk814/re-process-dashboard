@@ -937,6 +937,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/chain/candidate-inputs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Chain Candidate Inputs
+         * @description Read-only input surface derived from the exact pinned Chain revision.
+         */
+        get: operations["getChainCandidateInputs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/chain/candidates": {
         parameters: {
             query?: never;
@@ -11371,6 +11391,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChainCandidateContractResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getChainCandidateInputs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChainCandidateInputDefinition"][];
                 };
             };
             /** @description Validation Error */

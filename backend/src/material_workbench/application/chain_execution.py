@@ -14,6 +14,7 @@ from material_workbench.application.chain_candidate_adapters import (
     ChainCandidateAdapterError,
     SparseBlendChainAdapter,
     candidate_adapter_for,
+    candidate_path_for_revision,
 )
 from material_workbench.contracts.chain_contracts import (
     ChainBinding,
@@ -96,7 +97,7 @@ class ChainExecutionService:
         self,
         store: Store,
         registry: TaskRegistry,
-        transform_catalog: DeterministicTransformCatalog,
+        transform_catalog: DeterministicTransformCatalog | None,
         coordinator: ChainExecutionCoordinator,
     ) -> None:
         self.store = store
@@ -128,6 +129,10 @@ class ChainExecutionService:
         return self._adapter_for(revision)
 
     def _adapter_for(self, revision: ChainRevision) -> ChainCandidateAdapter:
+        if self.transform_catalog is None:
+            raise ChainExecutionError(
+                "決定論的Transformを利用できないためChain候補を編集・実行できません"
+            )
         try:
             return candidate_adapter_for(revision, self.transform_catalog)
         except ChainCandidateAdapterError as exc:
@@ -181,10 +186,13 @@ class ChainExecutionService:
         *,
         external_path: str,
         range_name: str,
-    ) -> NumericRange:
+        required: bool = True,
+    ) -> NumericRange | None:
         lower = max(item.min for item in ranges)
         upper = min(item.max for item in ranges)
         if lower >= upper:
+            if not required:
+                return None
             raise ChainExecutionError(
                 f"{range_name}がStage間で重なりません: {external_path}"
             )
@@ -214,6 +222,8 @@ class ChainExecutionService:
     def candidate_input_definitions(
         self,
         project_id: str,
+        *,
+        require_runtime_identity: bool = True,
     ) -> tuple[ChainCandidateInputDefinition, ...]:
         """Resolve every external port into one canonical candidate editor field.
 
@@ -223,10 +233,15 @@ class ChainExecutionService:
         """
 
         definition, revision, _identity = self._chain(project_id)
-        adapter = self._adapter_for(revision)
         stage_order = {
             stage.stage_id: index for index, stage in enumerate(revision.stages)
         }
+        stage_ids = tuple(stage_order)
+        downstream_edges = tuple(
+            (binding.source.stage_id, binding.target_stage_id)
+            for binding in definition.bindings
+            if binding.source.source_kind == "stage_output"
+        )
         stage_contracts = {
             stage.stage_id: self.registry.contract_for(
                 stage.contract_id
@@ -247,7 +262,8 @@ class ChainExecutionService:
                     "Chain Revisionと一致しません"
                 )
             if (
-                self.registry.entry_for(stage.contract_id).package_digest
+                require_runtime_identity
+                and self.registry.entry_for(stage.contract_id).package_digest
                 != stage.package_manifest_digest
             ):
                 raise ChainExecutionError(
@@ -271,11 +287,25 @@ class ChainExecutionService:
                 raise ChainExecutionError(
                     f"外部入力を使うStageがありません: {port.path}"
                 )
+            affected = {
+                binding.target_stage_id for binding in bindings
+            }
+            changed = True
+            while changed:
+                changed = False
+                for source_stage_id, target_stage_id in downstream_edges:
+                    if (
+                        source_stage_id in affected
+                        and target_stage_id not in affected
+                    ):
+                        affected.add(target_stage_id)
+                        changed = True
             affected_stage_ids = tuple(
-                dict.fromkeys(binding.target_stage_id for binding in bindings)
+                stage_id for stage_id in stage_ids if stage_id in affected
             )
             try:
-                candidate_path = adapter.candidate_path(
+                candidate_path = candidate_path_for_revision(
+                    revision,
                     port.path,
                     port.value_kind,
                     port.quantity,
@@ -367,11 +397,11 @@ class ChainExecutionService:
                 "first_affected_stage_id": affected_stage_ids[0],
             }
             if port.value_kind == "number":
-                numeric_ranges: dict[str, NumericRange] = {}
-                for attribute, label in (
-                    ("default_range", "既定範囲"),
-                    ("allowed_range", "許容範囲"),
-                    ("training_range", "学習範囲"),
+                numeric_ranges: dict[str, NumericRange | None] = {}
+                for attribute, label, required in (
+                    ("default_range", "既定範囲", True),
+                    ("allowed_range", "許容範囲", True),
+                    ("training_range", "学習範囲", False),
                 ):
                     values = [
                         self._external_numeric_range(
@@ -384,6 +414,7 @@ class ChainExecutionService:
                         values,
                         external_path=port.path,
                         range_name=label,
+                        required=required,
                     )
                 resolved.append(
                     ChainCandidateInputDefinition(

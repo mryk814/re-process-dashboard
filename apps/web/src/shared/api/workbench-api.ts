@@ -150,6 +150,11 @@ export const workbenchApi = {
       params: { path: { project_id: projectId } },
     }), "Chainの候補入力capabilityを取得できませんでした。");
   },
+  async chainCandidateInputs(projectId: string) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/chain/candidate-inputs", {
+      params: { path: { project_id: projectId } },
+    }), "Chain候補の入力契約を取得できませんでした。");
+  },
   async chainCandidateContract(projectId: string) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/chain/candidate-contract", {
       params: { path: { project_id: projectId } },
