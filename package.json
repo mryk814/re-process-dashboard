@@ -16,6 +16,7 @@
     "verify:focused": "node scripts/verify.mjs focused",
     "verify:full": "node scripts/verify.mjs full",
     "test:e2e": "playwright test",
+    "test:e2e:degraded-task": "node scripts/run-degraded-task-e2e.mjs",
     "package:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-windows.ps1",
     "smoke:packaged": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-windows-delivery.ps1",
     "models:build:annealed": "uv run python backend/scripts/build_default_model_package.py --replace",

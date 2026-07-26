@@ -7,6 +7,16 @@
 .admin-navigation button:hover,
 .admin-navigation button.active { border-color: #b9cbe0; background: #edf4fc; color: #174f98; }
 .admin-content > .page-panel { margin: 0; }
+.admin-availability-diagnostic { display: grid; gap: 10px; margin-bottom: 10px; border: 1px solid #d6a83f; border-radius: 6px; background: #fff8e7; padding: 13px 15px; color: #5f4714; }
+.admin-availability-diagnostic h2 { margin: 3px 0 4px; color: #49350d; font-size: 16px; }
+.admin-availability-diagnostic p,
+.admin-availability-diagnostic small { margin: 0; overflow-wrap: anywhere; }
+.admin-availability-diagnostic dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin: 0; border: 1px solid #ead9af; border-radius: 4px; background: rgba(255, 255, 255, .55); }
+.admin-availability-diagnostic dl > div { min-width: 0; padding: 8px 9px; border-right: 1px solid #ead9af; }
+.admin-availability-diagnostic dl > div:last-child { border-right: 0; }
+.admin-availability-diagnostic dt { color: #80652c; font-size: 9px; font-weight: 700; }
+.admin-availability-diagnostic dd { margin: 3px 0 0; overflow-wrap: anywhere; color: #49350d; font-size: 11px; font-weight: 650; }
+.admin-availability-diagnostic code { font: inherit; }
 .developer-control-center { min-width: 0; }
 .developer-tabs { display: flex; gap: 4px; margin: 0 0 14px; border-bottom: 1px solid #d8e0ea; }
 .developer-tabs button { border: 0; border-bottom: 2px solid transparent; background: transparent; padding: 8px 12px; color: #607086; font: inherit; font-weight: 700; }
@@ -107,6 +117,9 @@
   .developer-overview-list summary > small,
   .developer-overview-list summary > code { grid-column: 2 / -1; }
   .developer-overview-list dl, .developer-guide-grid { grid-template-columns: 1fr; }
+  .admin-availability-diagnostic dl { grid-template-columns: 1fr; }
+  .admin-availability-diagnostic dl > div { border-right: 0; border-bottom: 1px solid #ead9af; }
+  .admin-availability-diagnostic dl > div:last-child { border-bottom: 0; }
   .doctor-check > summary { grid-template-columns: 18px 1fr; }
   .doctor-check summary small { grid-column: 2; }
 }

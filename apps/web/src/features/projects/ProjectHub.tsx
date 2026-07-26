@@ -80,6 +80,12 @@ function bindingProvenanceLabel(provenance: string | null | undefined, generated
         : "明示的に固定";
 }
 
+function unresolvedReferenceLabel(kind: string, identifier: string | null | undefined) {
+  return identifier
+    ? `解決できません（識別子: ${identifier}）`
+    : `${kind}の固定参照が記録されていません`;
+}
+
 const formatNumber = (value: number, digits = 1) => value.toLocaleString("ja-JP", { maximumFractionDigits: digits });
 const formatDate = (value: string) => new Date(value).toLocaleString("ja-JP");
 const defaultGoalLabel = (direction: "at_least" | "at_most" | "target") => direction === "at_most" ? "以下" : direction === "target" ? "目標値付近" : "以上";
@@ -815,13 +821,15 @@ export function ProjectHub({
           <ReferenceIdentityDetails items={[["Chain Revision", chainIdentity.chain_revision_digest]]} />
         </section>
         : <section className="project-reference-strip" aria-label="プロジェクトの参照と所属">
-          <div><span>参照データセット</span><strong title={fixedDataset?.data_asset.original_filename}>{fixedDataset?.data_asset.original_filename ?? "—"}</strong><small>{fixedDataset ? `${fixedDataset.profile_revision.name} · r${fixedDataset.profile_revision.revision}` : ""}</small></div>
+          <div><span>参照データセット</span><strong title={fixedDataset?.data_asset.original_filename ?? project.dataset_view_revision_id ?? undefined}>{fixedDataset?.data_asset.original_filename ?? unresolvedReferenceLabel("Dataset View", project.dataset_view_revision_id)}</strong><small>{fixedDataset ? `${fixedDataset.profile_revision.name} · r${fixedDataset.profile_revision.revision}` : project.dataset_view_revision_id ?? "固定参照なし"}</small></div>
           <div><span>予測タスク</span><strong>{taskLabels.get(project.task_id) ?? project.task_id}</strong><small>固定</small></div>
-          <div><span>予測モデル</span><strong>{modelPackageDisplayName(fixedPackage)}</strong><small title={fixedTrainingDataset ? datasetDisplayName(fixedTrainingDataset) : undefined}>学習元: {fixedTrainingDataset ? datasetDisplayName(fixedTrainingDataset) : "未登録または記録なし"}</small></div>
+          <div><span>予測モデル</span><strong title={fixedPackage?.package_id ?? project.model_package_ref_id ?? undefined}>{fixedPackage ? modelPackageDisplayName(fixedPackage) : unresolvedReferenceLabel("Model Package", project.model_package_ref_id)}</strong><small title={fixedTrainingDataset ? datasetDisplayName(fixedTrainingDataset) : project.model_package_manifest_digest || undefined}>{fixedPackage ? `学習元: ${fixedTrainingDataset ? datasetDisplayName(fixedTrainingDataset) : "未登録または記録なし"}` : project.model_package_manifest_digest ? `manifest: ${project.model_package_manifest_digest}` : "manifest digestの記録なし"}</small></div>
           <div><span>探索範囲（Design Space）</span><strong>{project.design_space ? `${project.design_space.name} · r${project.design_space.revision}` : "この検討では未設定"}</strong><small>{project.design_space ? bindingProvenanceLabel(project.design_space_binding_provenance, "Taskの許容範囲から生成") : "保存済みの探索結果はそのまま参照できます"}</small></div>
           <div><span>判断基準（Objective）</span><strong>{project.objective_definition ? `${project.objective_definition.name} · r${project.objective_definition.revision}` : "この検討では未設定"}</strong><small>{project.objective_definition ? bindingProvenanceLabel(project.objective_binding_provenance, "プロジェクト目標から生成") : "探索を実行すると、その時点の判断基準を固定します"}</small></div>
           <div><span>検討グループ</span><strong>{fixedSeries?.name ?? "—"}</strong><small>設定から変更できます</small></div>
           <ReferenceIdentityDetails items={[
+            ["Dataset View Revision", project.dataset_view_revision_id],
+            ["Model Package Ref", project.model_package_ref_id],
             ["Model Package manifest", project.model_package_manifest_digest],
             ["Task contract", project.task_contract_digest],
             ["Design Space", project.design_space_digest],

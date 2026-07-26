@@ -13780,7 +13780,10 @@
           "availability": {
             "$ref": "#/components/schemas/TaskAvailability",
             "default": {
+              "expected_locator": "",
               "message": "",
+              "recovery_hint": "",
+              "resource_id": "",
               "schema_version": "task-availability/v1",
               "stage": "ready",
               "status": "available"
@@ -17003,9 +17006,24 @@
       "TaskAvailability": {
         "additionalProperties": false,
         "properties": {
+          "expected_locator": {
+            "default": "",
+            "title": "Expected Locator",
+            "type": "string"
+          },
           "message": {
             "default": "",
             "title": "Message",
+            "type": "string"
+          },
+          "recovery_hint": {
+            "default": "",
+            "title": "Recovery Hint",
+            "type": "string"
+          },
+          "resource_id": {
+            "default": "",
+            "title": "Resource Id",
             "type": "string"
           },
           "schema_version": {
