@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { fromApiCandidate, setCandidateInputValue, toApiCandidate, type CandidateViewModel as Candidate, type ResolvedTaskDefinition, type TaskDefinitionContract } from "../candidates";
-import { workbenchApi, type ApiProject, type ApiScreeningRun } from "../../shared/api/workbench-api";
+import { workbenchApi, type ApiProject, type ApiProposalStrategyAvailability, type ApiScreeningRun } from "../../shared/api/workbench-api";
 import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
 import { SvgChartTooltip } from "../../shared/ui/SvgChartTooltip";
 import { assessPrediction, clampToRange, resolveOutputDefinition } from "../../shared/outputPresentation";
@@ -138,6 +138,11 @@ export function ScreeningPage({
   const [variables, setVariables] = useState<VariableRow[]>([]);
   const [samples, setSamples] = useState(64);
   const [seed, setSeed] = useState(20260719);
+  const [proposalStrategyId, setProposalStrategyId] = useState("latin_hypercube_v1");
+  const [proposalStrategies, setProposalStrategies] = useState<ApiProposalStrategyAvailability[]>([]);
+  const [explorationParameter, setExplorationParameter] = useState(2);
+  const [incumbentValue, setIncumbentValue] = useState("");
+  const [supportPolicy, setSupportPolicy] = useState<"supported_first" | "exclude_extrapolated" | "allow_with_warning">("supported_first");
   const [target, setTarget] = useState("TS");
   const [targetGoal, setTargetGoal] = useState<ScreeningGoalDraft>({ direction: "at_least", lower: "500", upper: "" });
   const [secondaryGoals, setSecondaryGoals] = useState<Record<string, ScreeningGoalDraft>>({});
@@ -275,6 +280,19 @@ export function ScreeningPage({
       .then((runs) => { if (activeProjectRef.current === requestProjectId) setSavedRuns(runs); })
       .catch(() => undefined);
   }, [projectId]);
+  useEffect(() => {
+    let active = true;
+    workbenchApi.proposalStrategies(projectId, target)
+      .then((items) => {
+        if (!active) return;
+        setProposalStrategies(items);
+        if (!items.some((item) => item.available && item.definition.strategy_id === proposalStrategyId)) {
+          setProposalStrategyId(items.find((item) => item.available)?.definition.strategy_id ?? "latin_hypercube_v1");
+        }
+      })
+      .catch(() => { if (active) setProposalStrategies([]); });
+    return () => { active = false; };
+  }, [projectId, target]);
   const updateVariable = (index: number, patch: Partial<VariableRow>) =>
     (setDraftDirty(true), setVariables((rows) =>
       rows.map((row, rowIndex) =>
@@ -355,6 +373,14 @@ export function ScreeningPage({
             .map(([key, draft]) => [key, screeningGoalFromDraft(draft)] as const)
             .filter((entry): entry is readonly [string, ScreeningGoalPayload] => entry[1] != null),
         ),
+        proposal: {
+          strategy_id: proposalStrategyId,
+          exploration_parameter: explorationParameter,
+          pool_multiplier: 4,
+          support_policy: supportPolicy,
+          fallback_policy: "reject",
+          incumbent_value: incumbentValue === "" ? null : Number(incumbentValue),
+        },
       });
       if (sequence !== runRequestSequence.current || activeProjectRef.current !== requestProjectId) return;
       applyResult(created);
@@ -418,6 +444,11 @@ export function ScreeningPage({
     ));
     setSamples(run.samples);
     setSeed(run.seed);
+    if (run.proposal_strategy) {
+      setProposalStrategyId(run.proposal_strategy.id);
+      setExplorationParameter(run.proposal_strategy.exploration_parameter ?? 2);
+      setSupportPolicy(run.proposal_strategy.support_policy);
+    }
     if (run.variables)
       setVariables(
         Object.entries(run.variables).map(([field, spec]) => ({
@@ -608,6 +639,64 @@ export function ScreeningPage({
               value={seed}
               onChange={(event) => { setSeed(Number(event.target.value)); setDraftDirty(true); }}
             />
+          </label>
+          <label>
+            候補の提案方法
+            <select
+              value={proposalStrategyId}
+              onChange={(event) => { setProposalStrategyId(event.target.value); setDraftDirty(true); }}
+            >
+              {!proposalStrategies.length && (
+                <option value="latin_hypercube_v1">Latin hypercube・目標基準</option>
+              )}
+              {proposalStrategies.map((item) => {
+                const needsIncumbent = item.reasons.length === 1
+                  && item.reasons[0].includes("incumbent");
+                return (
+                <option
+                  key={item.definition.strategy_id}
+                  value={item.definition.strategy_id}
+                  disabled={!item.available && !needsIncumbent}
+                  title={item.reasons.join(" / ")}
+                >
+                  {item.definition.label}{item.available ? "" : needsIncumbent ? "（現在の最良値を入力）" : `（利用不可: ${item.reasons.join(" / ")}）`}
+                </option>
+              );})}
+            </select>
+          </label>
+          {proposalStrategyId !== "latin_hypercube_v1" && (
+            <label>
+              探索の強さ
+              <input
+                type="number"
+                min="0.01"
+                step="0.1"
+                value={explorationParameter}
+                onChange={(event) => { setExplorationParameter(Number(event.target.value)); setDraftDirty(true); }}
+              />
+            </label>
+          )}
+          {proposalStrategyId === "sobol_ei_v1" && (
+            <label>
+              現在の最良値
+              <input
+                type="number"
+                value={incumbentValue}
+                placeholder="Project判断から自動"
+                onChange={(event) => { setIncumbentValue(event.target.value); setDraftDirty(true); }}
+              />
+            </label>
+          )}
+          <label>
+            学習範囲外の扱い
+            <select
+              value={supportPolicy}
+              onChange={(event) => { setSupportPolicy(event.target.value as typeof supportPolicy); setDraftDirty(true); }}
+            >
+              <option value="supported_first">範囲内を優先</option>
+              <option value="exclude_extrapolated">外挿を除外</option>
+              <option value="allow_with_warning">警告付きで含める</option>
+            </select>
           </label>
           <label>
             選別する特性

@@ -27,6 +27,7 @@ export type ApiLineageNodeReviewList = components["schemas"]["LineageNodeReviewL
 export type ApiScreeningRequest = components["schemas"]["ScreeningRequest"];
 export type ApiScreeningRun = components["schemas"]["ScreeningRunResponse"];
 export type ApiScreeningCandidateBatch = components["schemas"]["ScreeningCandidateBatchResponse"];
+export type ApiProposalStrategyAvailability = components["schemas"]["ProposalStrategyAvailability"];
 export type ApiTaskDefinition = components["schemas"]["ResolvedTaskDefinition"];
 export type ApiTaskCatalogItem = components["schemas"]["TaskCatalogItem"];
 export type ApiProjectHistory = components["schemas"]["ProjectHistoryResponse"];
@@ -472,6 +473,11 @@ export const workbenchApi = {
   },
   async listScreeningRuns(projectId: string) {
     return requireData(await apiClient.GET("/api/screening", { params: { query: { project_id: projectId } } }), "保存済み探索を取得できませんでした。");
+  },
+  async proposalStrategies(projectId: string, target: string) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/proposal-strategies", {
+      params: { path: { project_id: projectId }, query: { target } },
+    }), "提案戦略を取得できませんでした。");
   },
   async createScreeningRun(projectId: string, body: ApiScreeningRequest) {
     return requireData(await apiClient.POST("/api/screening", { params: { query: { project_id: projectId } }, body }), "範囲探索を実行できませんでした。");

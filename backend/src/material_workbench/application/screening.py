@@ -5,16 +5,21 @@ import math
 from pydantic_core import to_jsonable_python
 
 from .projects import ProjectService
+from material_workbench.application.proposal_strategy_registry import (
+    resolve_strategy,
+    strategy_availability,
+)
 from material_workbench.contracts.schemas import (
     Candidate,
     CandidateInput,
-    SCREENING_POOL_MULTIPLIER,
+    Project,
     ScreeningCandidateBatchRequest,
     ScreeningCandidateBatchResponse,
     ScreeningRequest,
     ScreeningRunResponse,
 )
-from material_workbench.domain.services import run_latin_hypercube
+from material_workbench.contracts.proposal_contracts import ProposalStrategyAvailability
+from material_workbench.domain.services import run_proposal
 from material_workbench.domain.design_space_validation import (
     validate_candidate_in_design_space,
 )
@@ -26,6 +31,7 @@ from material_workbench.contracts.design_space_contracts import (
 )
 from material_workbench.contracts.task_contracts import NumericRange
 from material_workbench.contracts.objective_contracts import objective_from_screening
+from material_workbench.contracts.objective_contracts import ObjectiveDefinition
 from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.persistence.store import CandidateLimitError, Store
 from material_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
@@ -225,6 +231,24 @@ class ScreeningService:
             not project.decision_candidate_id or not project.decision_snapshot_id
         ):
             raise ScreeningValidationError("Projectに採用済みincumbentがありません")
+        try:
+            incumbent_value = (
+                payload.proposal.incumbent_value
+                if payload.proposal.incumbent_value is not None
+                else self._resolve_incumbent_value(project, objective, payload.target)
+            )
+            proposal_request = payload.proposal.model_copy(
+                update={"incumbent_value": incumbent_value}
+            )
+            payload = payload.model_copy(update={"proposal": proposal_request})
+            strategy, fallback_from = resolve_strategy(
+                proposal_request,
+                contract.runtime_capability,
+                target=payload.target,
+                objective=objective,
+            )
+        except ValueError as exc:
+            raise ScreeningValidationError(str(exc)) from exc
         configured_goals = dict(payload.secondary_goals)
         if payload.target_goal is not None:
             configured_goals[payload.target] = payload.target_goal
@@ -242,7 +266,7 @@ class ScreeningService:
             for key in outputs
         }
         try:
-            result = run_latin_hypercube(
+            result = run_proposal(
                 self.resolver.runtime_for(project),
                 base,
                 payload,
@@ -252,6 +276,7 @@ class ScreeningService:
                     validate_candidate_in_design_space(candidate, project.design_space),
                 ),
                 design_space=design_space,
+                strategy=strategy,
             )
         except ValueError as exc:
             raise ScreeningValidationError(str(exc)) from exc
@@ -264,17 +289,121 @@ class ScreeningService:
         result["objective_definition"] = objective.model_dump(mode="json")
         result["objective_definition_digest"] = objective.digest
         result["objective_binding_provenance"] = objective_provenance
-        result["schema_version"] = "screening-run/v5"
+        result["schema_version"] = "screening-run/v6"
         result["proposal_strategy"] = {
-            "id": "latin_hypercube_v1",
-            "version": "1.0.0",
+            "id": strategy.strategy_id,
+            "version": strategy.version,
             "seed": result["seed"],
             "requested_count": payload.samples,
-            "pool_multiplier": SCREENING_POOL_MULTIPLIER,
+            "pool_multiplier": proposal_request.pool_multiplier,
+            "generator_id": strategy.generator_id,
+            "generator_version": strategy.generator_version,
+            "acquisition_id": strategy.acquisition_id,
+            "acquisition_version": strategy.acquisition_version,
+            "selector_id": strategy.selector_id,
+            "selector_version": strategy.selector_version,
+            "exploration_parameter": (
+                proposal_request.exploration_parameter
+                if strategy.acquisition_id
+                in {"upper_confidence_bound", "expected_improvement"}
+                else None
+            ),
+            "support_policy": proposal_request.support_policy,
+            "fallback_from": fallback_from,
+            "fallback_policy": proposal_request.fallback_policy,
+            "incumbent_value": proposal_request.incumbent_value,
+            "constraint_treatment": "feasibility_first_then_rank",
+            "uncertainty_treatment": (
+                "predictive_standard_deviation"
+                if strategy.requires_standard_deviation
+                else None
+            ),
         }
         result["proposal_diagnostics"] = result.pop("_proposal_diagnostics")
         stored = self.store.create_screening_run(to_jsonable_python(result), project_id)
         return ScreeningRunResponse.model_validate(stored)
+
+    def available_strategies(
+        self,
+        project_id: str,
+        target: str,
+    ) -> list[ProposalStrategyAvailability]:
+        project = self.projects.require(project_id)
+        contract = self.registry.contract_for(project.task_id)
+        if target not in {
+            output.key for output in contract.task_definition.outputs
+        }:
+            raise ScreeningValidationError("この予測タスクにない目標特性です")
+        incumbent_value = None
+        if project.objective_definition is not None:
+            try:
+                incumbent_value = self._resolve_incumbent_value(
+                    project,
+                    project.objective_definition,
+                    target,
+                )
+            except ValueError:
+                incumbent_value = None
+        return strategy_availability(
+            contract.runtime_capability,
+            target=target,
+            objective=project.objective_definition,
+            incumbent_value=incumbent_value,
+        )
+
+    def _resolve_incumbent_value(
+        self,
+        project: Project,
+        objective: ObjectiveDefinition,
+        target: str,
+    ) -> float | None:
+        incumbent = objective.incumbent
+        if incumbent.source in {"none", "observed_best"}:
+            return None
+        if incumbent.source == "prediction_snapshot":
+            snapshot = self.store.get_snapshot(incumbent.snapshot_id or "")
+            prediction = (
+                snapshot.get("payload", {})
+                .get("prediction", {})
+                .get("predictions", {})
+                .get(target)
+                if snapshot is not None
+                else None
+            )
+            if isinstance(prediction, dict) and isinstance(
+                prediction.get("value"), (int, float)
+            ):
+                return float(prediction["value"])
+            raise ValueError("incumbent snapshotに対象outputの予測値がありません")
+        candidate_id = (
+            project.decision_candidate_id
+            if incumbent.source == "project_decision"
+            else incumbent.candidate_id
+        )
+        revision = (
+            incumbent.candidate_revision
+            if incumbent.source == "candidate_revision"
+            else None
+        )
+        candidate = (
+            self.store.get_candidate_revision(
+                candidate_id or "",
+                revision or 0,
+                project.id,
+            )
+            if revision is not None
+            else self.store.get_candidate(candidate_id or "", project.id)
+        )
+        if candidate is None:
+            raise ValueError("incumbent候補が見つかりません")
+        prediction = self.resolver.runtime_for(project).predict(
+            candidate,
+            detailed=False,
+        )
+        target_prediction = prediction["predictions"].get(target)
+        if target_prediction is None:
+            raise ValueError("incumbent候補に対象outputの予測値がありません")
+        return float(target_prediction.value)
 
     def list(self, project_id: str = "default") -> list[ScreeningRunResponse]:
         self.projects.require(project_id)

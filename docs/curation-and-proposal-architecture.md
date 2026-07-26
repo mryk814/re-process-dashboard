@@ -25,27 +25,50 @@ with reasons, and quality issues summarize both quarantine and target missingnes
 - Design Space Definition only narrows editable ranges/choices and adds
   conditional or composition-total constraints.
 - Proposal Strategy is allow-listed and records its version and seed.
-- Proposal Run stores accepted candidates and bounded rejection reasons before
-  model evaluation.
-- Objective Definition and acquisition functions are intentionally deferred.
+- Objective Definition fixes what improvement means and which incumbent is used.
+- Proposal Run stores the complete generated/evaluated pool, bounded rejection
+  reasons, acquisition components and selected candidates.
 
-The existing 範囲探索 screen remains the product surface. New runs persist their
-validated Design Space, semantic digest, LHS strategy/seed and rejection summary
-alongside the prediction result. The allow-listed LHS strategy now takes the
-Design Space itself as input: fixed values, numeric and categorical domains,
-conditional inactive values, and a balance component are applied before
-candidate validation. A composition-total constraint with `balance_path`
-therefore produces an exact remainder rather than relying on later rejection.
+The existing 範囲探索 screen remains the product surface. Proposal execution is
+split into three allow-listed parts:
 
-This is the common generator boundary for future simplex samplers, Bayesian
-proposal strategies and process-program decoders. It does **not** yet make an
-MPEA composition field generally editable: enabling that UI must be paired with
-the corresponding total-composition contract, not independent numeric knobs.
+`Candidate Generator → Acquisition Evaluator → Selector`
+
+- `latin_hypercube_v1` preserves the previous seeded LHS sequence and goal/
+  shortfall ranking.
+- `sobol_ucb_v1` uses a scrambled, seeded Sobol pool and UCB/LCB. The exploration
+  coefficient is a saved request parameter rather than an internal constant.
+- `sobol_ei_v1` additionally requires a fixed incumbent value. It records mean,
+  predictive standard deviation, incumbent and expected improvement for every
+  evaluated point.
+- Thompson sampling, uncertainty sampling and support-boundary sampling have
+  stable registry identities and capability requirements, but are deliberately
+  marked unavailable until their Runtime representations are production-ready.
+
+The API exposes availability and human-readable reasons. A requested unavailable
+strategy is rejected unless the request explicitly permits deterministic
+fallback; fallback changes the stored strategy identity and keeps
+`fallback_from`.
+
+Both LHS and Sobol take only the immutable Design Space as generation input:
+fixed values, numeric and categorical domains, conditional inactive values, and
+a balance component are applied before candidate validation. A
+composition-total constraint with `balance_path` therefore produces an exact
+remainder rather than relying on later rejection.
+
+`screening-run/v6` pins Design Space and Objective digests, model/package,
+Feature Pipeline and Dataset provenance, the actual generator/acquisition/
+selector versions, seed, support policy, complete evaluated pool and selection
+rank. Older screening runs remain readable without being rewritten.
+
+This remains the common generator boundary for future simplex samplers and
+process-program decoders. It does **not** claim joint batch acquisition: each
+point is scored marginally and the selector takes a deterministic top-k.
 
 ## Not in v1
 
 - arbitrary Python, expressions, joins, or general ETL in Curation Recipe
 - arbitrary heat-pattern generation
 - a general Bayesian-optimization framework
-- acquisition-function selection
+- joint/batch acquisition
 - training on unsafe MPEA fields merely to make a demo prediction available

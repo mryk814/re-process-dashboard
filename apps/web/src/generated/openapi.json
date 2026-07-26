@@ -9891,6 +9891,303 @@
         "title": "PropertySummary",
         "type": "object"
       },
+      "ProposalCandidateEvaluation": {
+        "additionalProperties": false,
+        "properties": {
+          "acquisition_components": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Acquisition Components",
+            "type": "object"
+          },
+          "acquisition_score": {
+            "title": "Acquisition Score",
+            "type": "number"
+          },
+          "exclusion_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exclusion Reason"
+          },
+          "inputs": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Inputs",
+            "type": "object"
+          },
+          "pool_index": {
+            "minimum": 0.0,
+            "title": "Pool Index",
+            "type": "integer"
+          },
+          "selected_rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Rank"
+          },
+          "support_status": {
+            "enum": [
+              "supported",
+              "caution",
+              "extrapolated"
+            ],
+            "title": "Support Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pool_index",
+          "inputs",
+          "acquisition_score",
+          "acquisition_components",
+          "support_status"
+        ],
+        "title": "ProposalCandidateEvaluation",
+        "type": "object"
+      },
+      "ProposalRejectedCandidate": {
+        "additionalProperties": false,
+        "properties": {
+          "inputs": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Inputs",
+            "type": "object"
+          },
+          "pool_index": {
+            "minimum": 0.0,
+            "title": "Pool Index",
+            "type": "integer"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pool_index",
+          "inputs",
+          "reason"
+        ],
+        "title": "ProposalRejectedCandidate",
+        "type": "object"
+      },
+      "ProposalStrategyAvailability": {
+        "additionalProperties": false,
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "definition": {
+            "$ref": "#/components/schemas/ProposalStrategyDefinition"
+          },
+          "reasons": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          }
+        },
+        "required": [
+          "definition",
+          "available"
+        ],
+        "title": "ProposalStrategyAvailability",
+        "type": "object"
+      },
+      "ProposalStrategyDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "acquisition_id": {
+            "enum": [
+              "goal_achievement",
+              "upper_confidence_bound",
+              "expected_improvement",
+              "thompson_sampling",
+              "uncertainty_sampling",
+              "support_boundary_sampling"
+            ],
+            "title": "Acquisition Id",
+            "type": "string"
+          },
+          "acquisition_version": {
+            "title": "Acquisition Version",
+            "type": "string"
+          },
+          "generator_id": {
+            "enum": [
+              "latin_hypercube",
+              "sobol"
+            ],
+            "title": "Generator Id",
+            "type": "string"
+          },
+          "generator_version": {
+            "title": "Generator Version",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "production_enabled": {
+            "default": true,
+            "title": "Production Enabled",
+            "type": "boolean"
+          },
+          "requires_incumbent": {
+            "default": false,
+            "title": "Requires Incumbent",
+            "type": "boolean"
+          },
+          "requires_joint_samples": {
+            "default": false,
+            "title": "Requires Joint Samples",
+            "type": "boolean"
+          },
+          "requires_samples": {
+            "default": false,
+            "title": "Requires Samples",
+            "type": "boolean"
+          },
+          "requires_standard_deviation": {
+            "default": false,
+            "title": "Requires Standard Deviation",
+            "type": "boolean"
+          },
+          "selector_id": {
+            "const": "ranked_top_k",
+            "title": "Selector Id",
+            "type": "string"
+          },
+          "selector_version": {
+            "title": "Selector Version",
+            "type": "string"
+          },
+          "strategy_id": {
+            "title": "Strategy Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "strategy_id",
+          "version",
+          "label",
+          "generator_id",
+          "generator_version",
+          "acquisition_id",
+          "acquisition_version",
+          "selector_id",
+          "selector_version"
+        ],
+        "title": "ProposalStrategyDefinition",
+        "type": "object"
+      },
+      "ProposalStrategyRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "exploration_parameter": {
+            "default": 2.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Exploration Parameter",
+            "type": "number"
+          },
+          "fallback_policy": {
+            "default": "reject",
+            "enum": [
+              "reject",
+              "deterministic_goal"
+            ],
+            "title": "Fallback Policy",
+            "type": "string"
+          },
+          "incumbent_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Incumbent Value"
+          },
+          "pool_multiplier": {
+            "default": 4,
+            "maximum": 16.0,
+            "minimum": 2.0,
+            "title": "Pool Multiplier",
+            "type": "integer"
+          },
+          "strategy_id": {
+            "default": "latin_hypercube_v1",
+            "title": "Strategy Id",
+            "type": "string"
+          },
+          "support_policy": {
+            "default": "supported_first",
+            "enum": [
+              "supported_first",
+              "exclude_extrapolated",
+              "allow_with_warning"
+            ],
+            "title": "Support Policy",
+            "type": "string"
+          }
+        },
+        "title": "ProposalStrategyRequest",
+        "type": "object"
+      },
       "QualityResponse": {
         "properties": {
           "by_category": {
@@ -10954,6 +11251,12 @@
             "title": "Rejection Rate",
             "type": "number"
           },
+          "selected_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Selected Count",
+            "type": "integer"
+          },
           "valid_count": {
             "minimum": 0.0,
             "title": "Valid Count",
@@ -10972,10 +11275,78 @@
       },
       "ScreeningProposalStrategy": {
         "properties": {
+          "acquisition_id": {
+            "default": "goal_achievement",
+            "title": "Acquisition Id",
+            "type": "string"
+          },
+          "acquisition_version": {
+            "default": "1.0.0",
+            "title": "Acquisition Version",
+            "type": "string"
+          },
+          "constraint_treatment": {
+            "const": "feasibility_first_then_rank",
+            "default": "feasibility_first_then_rank",
+            "title": "Constraint Treatment",
+            "type": "string"
+          },
+          "exploration_parameter": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exploration Parameter"
+          },
+          "fallback_from": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallback From"
+          },
+          "fallback_policy": {
+            "default": "reject",
+            "enum": [
+              "reject",
+              "deterministic_goal"
+            ],
+            "title": "Fallback Policy",
+            "type": "string"
+          },
+          "generator_id": {
+            "default": "latin_hypercube",
+            "title": "Generator Id",
+            "type": "string"
+          },
+          "generator_version": {
+            "default": "1.0.0",
+            "title": "Generator Version",
+            "type": "string"
+          },
           "id": {
             "minLength": 1,
             "title": "Id",
             "type": "string"
+          },
+          "incumbent_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Incumbent Value"
           },
           "pool_multiplier": {
             "default": 4,
@@ -10993,6 +11364,38 @@
             "minimum": 0.0,
             "title": "Seed",
             "type": "integer"
+          },
+          "selector_id": {
+            "default": "ranked_top_k",
+            "title": "Selector Id",
+            "type": "string"
+          },
+          "selector_version": {
+            "default": "1.0.0",
+            "title": "Selector Version",
+            "type": "string"
+          },
+          "support_policy": {
+            "default": "supported_first",
+            "enum": [
+              "supported_first",
+              "exclude_extrapolated",
+              "allow_with_warning"
+            ],
+            "title": "Support Policy",
+            "type": "string"
+          },
+          "uncertainty_treatment": {
+            "anyOf": [
+              {
+                "const": "predictive_standard_deviation",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uncertainty Treatment"
           },
           "version": {
             "minLength": 1,
@@ -11062,6 +11465,16 @@
                 "type": "null"
               }
             ]
+          },
+          "proposal": {
+            "$ref": "#/components/schemas/ProposalStrategyRequest",
+            "default": {
+              "exploration_parameter": 2.0,
+              "fallback_policy": "reject",
+              "pool_multiplier": 4,
+              "strategy_id": "latin_hypercube_v1",
+              "support_policy": "supported_first"
+            }
           },
           "samples": {
             "default": 64,
@@ -11246,6 +11659,20 @@
               }
             ]
           },
+          "proposal_pool": {
+            "items": {
+              "$ref": "#/components/schemas/ProposalCandidateEvaluation"
+            },
+            "title": "Proposal Pool",
+            "type": "array"
+          },
+          "proposal_rejections": {
+            "items": {
+              "$ref": "#/components/schemas/ProposalRejectedCandidate"
+            },
+            "title": "Proposal Rejections",
+            "type": "array"
+          },
           "proposal_strategy": {
             "anyOf": [
               {
@@ -11289,7 +11716,8 @@
               "screening-run/v2",
               "screening-run/v3",
               "screening-run/v4",
-              "screening-run/v5"
+              "screening-run/v5",
+              "screening-run/v6"
             ],
             "title": "Schema Version",
             "type": "string"
@@ -18310,6 +18738,58 @@
           }
         },
         "summary": "List Project Objective Revisions"
+      }
+    },
+    "/api/projects/{project_id}/proposal-strategies": {
+      "get": {
+        "operationId": "list_proposal_strategies_api_projects__project_id__proposal_strategies_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target",
+            "required": true,
+            "schema": {
+              "title": "Target",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProposalStrategyAvailability"
+                  },
+                  "title": "Response List Proposal Strategies Api Projects  Project Id  Proposal Strategies Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Proposal Strategies"
       }
     },
     "/api/projects/{project_id}/quality": {

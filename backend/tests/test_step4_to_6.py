@@ -53,17 +53,25 @@ def test_latin_hypercube_is_deterministic_bounded_and_convertible(client) -> Non
     assert first["design_space"]["schema_version"] == "design-space-definition/v1"
     assert first["design_space"]["task_id"] == "annealed-properties-v1"
     assert first["design_space_digest"].startswith("sha256:")
-    assert first["proposal_strategy"] == {
-        "id": "latin_hypercube_v1",
-        "version": "1.0.0",
-        "seed": 20260719,
-        "requested_count": 48,
-        "pool_multiplier": 4,
-    }
+    assert first["proposal_strategy"]["id"] == "latin_hypercube_v1"
+    assert first["proposal_strategy"]["generator_id"] == "latin_hypercube"
+    assert first["proposal_strategy"]["acquisition_id"] == "goal_achievement"
+    assert first["proposal_strategy"]["selector_id"] == "ranked_top_k"
+    assert first["proposal_strategy"]["seed"] == 20260719
+    assert first["proposal_strategy"]["requested_count"] == 48
+    assert first["proposal_strategy"]["pool_multiplier"] == 4
     diagnostics = first["proposal_diagnostics"]
     assert diagnostics["generated_count"] == 192
     assert diagnostics["valid_count"] + diagnostics["rejected_count"] == 192
-    assert diagnostics["evaluated_count"] == 48
+    assert diagnostics["evaluated_count"] == diagnostics["valid_count"]
+    assert diagnostics["selected_count"] == 48
+    assert len(first["proposal_pool"]) == diagnostics["valid_count"]
+    assert len(first["proposal_rejections"]) == diagnostics["rejected_count"]
+    assert len({
+        item["pool_index"]
+        for item in (*first["proposal_pool"], *first["proposal_rejections"])
+    }) == diagnostics["generated_count"]
+    assert sum(item["selected_rank"] is not None for item in first["proposal_pool"]) == 48
     assert sum(diagnostics["rejected_by_reason"].values()) == diagnostics["rejected_count"]
     assert diagnostics["rejection_rate"] == pytest.approx(diagnostics["rejected_count"] / 192)
     assert first["score_contract"] == {
@@ -102,6 +110,8 @@ def test_latin_hypercube_is_deterministic_bounded_and_convertible(client) -> Non
         **legacy["score_contract"],
         "version": "screening-score/v2",
     }
+    legacy["proposal_diagnostics"]["evaluated_count"] = legacy["samples"]
+    legacy["proposal_diagnostics"]["selected_count"] = 0
     restored_legacy = ScreeningRunResponse.model_validate(legacy)
     assert restored_legacy.schema_version == "screening-run/v3"
     assert restored_legacy.__dict__["target_value"] == 500
@@ -197,7 +207,7 @@ def test_screening_between_goal_persists_rule_and_uses_inclusive_boundaries(clie
 
     assert response.status_code == 201, response.text
     run = response.json()
-    assert run["schema_version"] == "screening-run/v5"
+    assert run["schema_version"] == "screening-run/v6"
     assert run["target_goal"] == {"direction": "between", "lower": 450.0, "upper": 550.0}
     assert run["secondary_goals"] == {
         "YS": {"direction": "at_least", "lower": 300.0, "upper": None},
