@@ -38,6 +38,27 @@ test("chain projects are labelled by template, revision, and stages instead of u
   assert.match(projectHub, /Chain Revisionを固定したプロジェクトです/);
 });
 
+test("chain projects explain single-task-only views instead of failing inside them", () => {
+  assert.match(app, /const chainScopedTab = chainProject/);
+  assert.match(app, /ChainModeUnavailablePanel/);
+  assert.match(app, /tab === "explore" && !taskUnavailable && !chainProject/);
+  assert.match(app, /tab === "lineage" && !taskUnavailable && !chainProject/);
+  assert.match(app, /tab === "quality" && !taskUnavailable && !chainProject/);
+  assert.match(app, /tab === "settings" && !taskUnavailable && !chainProject/);
+});
+
+test("chain overview offers the chain work surface instead of single-task next actions", () => {
+  assert.match(projectHub, /chainIdentity\s*\n?\s*\? <div className="project-action-grid">/);
+  assert.match(projectHub, /Chain候補を開く/);
+  assert.match(projectHub, /このモードでは範囲探索とデータ探索を利用できません/);
+});
+
+test("a project without a single fixed task explains why no starter candidate is possible", () => {
+  assert.match(session, /このプロジェクトは単一の予測タスクを固定していないため/);
+  assert.match(session, /この予測タスクには基準候補の定義がありません/);
+  assert.doesNotMatch(session, /\} catch \{\s*\n\s*setNotice\("基準候補を作成できませんでした/);
+});
+
 test("project history shows a Japanese reason and disables changes for unavailable tasks", () => {
   assert.match(projectHub, /この予測タスクは一時的に利用できません/);
   assert.match(projectHub, /推論と変更操作は停止しています/);

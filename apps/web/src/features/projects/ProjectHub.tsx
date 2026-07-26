@@ -700,7 +700,7 @@ export function ProjectHub({
       {chainIdentity && <section className="task-unavailable-banner chain-ready-banner" role="status">
         <strong>Chain Revisionを固定したプロジェクトです</strong>
         <span>A → B → Cの段別鮮度と中間実測を、候補作業面で確認できます。</span>
-        <button type="button" className="primary-button" onClick={() => onNavigate("candidates")}>Chain候補を開く</button>
+        <small>このモードでは範囲探索とデータ探索を利用できません。下の「次の作業」から候補作業面へ進みます。</small>
       </section>}
       {error && <p className="panel-error" role="alert">{error}</p>}
       {project && (chainIdentity
@@ -775,11 +775,15 @@ export function ProjectHub({
 
       <section className="project-next-actions">
         <div className="panel-title"><h3>次の作業</h3><span>{activeCandidates.length ? `${activeCandidates.length}候補を検討中` : "まだ候補がありません"}</span></div>
-        <div className="project-action-grid">
-          <button className="project-action-card primary" disabled={taskUnavailable || chainExecutionPending} onClick={() => onNavigate(activeCandidates.length ? "candidates" : supportsLineageCandidate ? "lineage" : "explore")}><strong>{activeCandidates.length ? "候補を比較" : supportsLineageCandidate ? "過去データから探す" : "条件範囲から始める"}</strong><span>{activeCandidates.length ? "入力・予測・根拠を横並びで確認" : supportsLineageCandidate ? "既存の条件と問題から出発" : "基準候補を作り、入力範囲から探索"}</span></button>
-          <button className="project-action-card" disabled={taskUnavailable || chainExecutionPending} onClick={() => onNavigate("explore")}><strong>範囲探索</strong><span>目標と入力範囲から候補を生成</span></button>
-          <button className="project-action-card" disabled={taskUnavailable || chainExecutionPending} onClick={() => onNavigate("candidates")}><strong>直接候補を作る</strong><span>具体的な成分・工程条件を入力</span></button>
-        </div>
+        {chainIdentity
+          ? <div className="project-action-grid">
+            <button className="project-action-card primary" disabled={chainExecutionPending} onClick={() => onNavigate("candidates")}><strong>Chain候補を開く</strong><span>配合と工程条件を編集し、A → B → Cを実行して固定します</span></button>
+          </div>
+          : <div className="project-action-grid">
+            <button className="project-action-card primary" disabled={taskUnavailable || chainExecutionPending} onClick={() => onNavigate(activeCandidates.length ? "candidates" : supportsLineageCandidate ? "lineage" : "explore")}><strong>{activeCandidates.length ? "候補を比較" : supportsLineageCandidate ? "過去データから探す" : "条件範囲から始める"}</strong><span>{activeCandidates.length ? "入力・予測・根拠を横並びで確認" : supportsLineageCandidate ? "既存の条件と問題から出発" : "基準候補を作り、入力範囲から探索"}</span></button>
+            <button className="project-action-card" disabled={taskUnavailable || chainExecutionPending} onClick={() => onNavigate("explore")}><strong>範囲探索</strong><span>目標と入力範囲から候補を生成</span></button>
+            <button className="project-action-card" disabled={taskUnavailable || chainExecutionPending} onClick={() => onNavigate("candidates")}><strong>直接候補を作る</strong><span>具体的な成分・工程条件を入力</span></button>
+          </div>}
       </section>
 
       <section className="project-history-section">

@@ -164,6 +164,7 @@
 .task-unavailable-panel { margin: 18px; padding: 20px; }
 .task-unavailable-panel h2 { margin: 5px 0 8px; color: #49350d; }
 .task-unavailable-panel p { margin: 5px 0; }
+.task-unavailable-panel .primary-button { margin-top: 13px; }
 .project-action-card:disabled { cursor: not-allowed; opacity: .58; }
 .chain-evaluation-panel {
   display: grid;

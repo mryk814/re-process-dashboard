@@ -685,7 +685,7 @@ export function ScreeningPage({
     setFocusedPointIndex(index);
     setSelectedPointIndices((current) => current.includes(index) ? current.filter((item) => item !== index) : [...current, index]);
   };
-  if (!candidates.length) return <div className="page-panel explore-page"><div className="page-intro"><div><h2>範囲探索</h2><p>探索の基準になる候補を1件作ると、TaskDefinitionの入力範囲から条件を検討できます。</p></div></div><div className="project-empty-state"><p>まだ基準候補がありません。</p><CandidateAddButton onClick={onCreateStarter}>基準候補を作って探索を始める</CandidateAddButton></div></div>;
+  if (!candidates.length) return <div className="page-panel explore-page"><div className="page-intro"><div><h2>範囲探索</h2><p>探索の基準になる候補を1件作ると、予測タスクが定める入力範囲から条件を検討できます。</p></div></div><div className="project-empty-state"><p>まだ基準候補がありません。</p><CandidateAddButton onClick={onCreateStarter}>基準候補を作って探索を始める</CandidateAddButton></div></div>;
   return (
     <div className="page-panel explore-page">
       <div className="page-intro">
