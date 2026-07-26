@@ -5,6 +5,29 @@ import type { DecisionActivityViewProps } from "./types";
 
 const numberFormat = new Intl.NumberFormat("ja-JP", { maximumFractionDigits: 3 });
 const percentFormat = new Intl.NumberFormat("ja-JP", { maximumFractionDigits: 0 });
+const EXTRAPOLATION_NOTICE_RATE = 0.2;
+
+/**
+ * The server picks the worst sample by the configured goal, and falls back to the
+ * largest deviation from the base prediction when a target has no goal. The label
+ * has to say which of the two the number is, or a value better than the base
+ * prediction reads as a contradiction.
+ */
+function worstObservedLabel(goalAchievementRate: number | null | undefined): string {
+  return goalAchievementRate == null ? "公差内で最も基準から離れた値" : "公差内で最も不利な値";
+}
+
+function worstObservedBasis(
+  goalAchievementRate: number | null | undefined,
+  goalDirection: string | undefined,
+): string {
+  if (goalAchievementRate == null) return "目標未設定のため、基準予測から最も離れたサンプルです";
+  return goalDirection === "at_most"
+    ? "小さい側が目標のため、目標から最も遠いサンプルです"
+    : goalDirection === "at_least"
+      ? "大きい側が目標のため、目標から最も遠いサンプルです"
+      : "目標から最も遠いサンプルです";
+}
 
 function defaultTolerance(
   current: number,
@@ -93,6 +116,7 @@ export function RobustnessActivityView({
   }
 
   const outputLabels = new Map(taskDefinition.outputs.map((output) => [output.key, output.label]));
+  const goalDirections = new Map(taskDefinition.outputs.map((output) => [output.key, output.goal_direction]));
   return <>
     <section className="activity-settings">
       <div className="panel-title"><h3>入力の公差</h3><span>現在値を中心とした±幅</span></div>
@@ -139,13 +163,23 @@ export function RobustnessActivityView({
 
     {activeRun && result && <section className="activity-result">
       <div className="activity-result-meta"><span>編集版 {activeRun.provenance.candidate_revision}</span><span>{result.accepted_samples}/{result.requested_samples}件を評価</span></div>
+      {result.extrapolated_rate >= EXTRAPOLATION_NOTICE_RATE && <div className="activity-extrapolation-notice" role="status">
+        <strong>{result.extrapolated_rate >= 1
+          ? "この解析は、すべてのサンプルがモデルの学習範囲外です"
+          : `この解析は、サンプルの${percentFormat.format(result.extrapolated_rate * 100)}%がモデルの学習範囲外です`}</strong>
+        <span>下の数値は参考値として扱ってください。学習範囲内の条件で確認するには、公差の中心となる候補の入力を学習範囲へ寄せてから再実行します。</span>
+      </div>}
       <div className="activity-targets">{result.target_summaries.map((summary) => <article key={summary.target}>
         <header><strong>{outputLabels.get(summary.target) ?? summary.target}</strong>{summary.goal_achievement_rate != null && <b>目標達成 {percentFormat.format(summary.goal_achievement_rate * 100)}%</b>}</header>
         <dl>
           <div><dt>基準予測</dt><dd>{numberFormat.format(summary.base_prediction.value)} {summary.unit}</dd></div>
           <div><dt>入力ばらつき</dt><dd>{numberFormat.format(summary.input_variation.lower)}–{numberFormat.format(summary.input_variation.upper)} {summary.unit}</dd></div>
           <div><dt>モデル不確実性</dt><dd>{numberFormat.format(summary.model_uncertainty.lower)}–{numberFormat.format(summary.model_uncertainty.upper)} {summary.unit}</dd></div>
-          <div><dt>公差内の最悪値</dt><dd>{numberFormat.format(summary.worst_observed)} {summary.unit}</dd></div>
+          <div>
+            <dt>{worstObservedLabel(summary.goal_achievement_rate)}</dt>
+            <dd>{numberFormat.format(summary.worst_observed)} {summary.unit}</dd>
+            <small>{worstObservedBasis(summary.goal_achievement_rate, goalDirections.get(summary.target))}</small>
+          </div>
         </dl>
       </article>)}</div>
       <div className="activity-support-summary">
