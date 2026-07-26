@@ -437,6 +437,10 @@ function App() {
                 projectId: activeProjectId,
                 projectSettings: "targets",
               })}
+              previewAvailable={operations?.preview === true}
+              pendingPreviewCount={candidates.filter((item) => !item.raw.archived_at && !previewsByCandidate[item.id]).length}
+              loadingRemainingPreviews={session.loadingRemainingPreviews}
+              onLoadRemainingPreviews={() => void session.loadRemainingPreviews()}
               onConfigureSupport={() => navigate({
                 view: "settings",
                 projectId: activeProjectId,

@@ -59,6 +59,7 @@ export function useWorkbenchSession({
   const notifyError = (message: string) => notify("error", message);
   const dismissNotice = () => setNotice(null);
   const [brokenOriginCandidateId, setBrokenOriginCandidateId] = useState<string | null>(null);
+  const [loadingRemainingPreviews, setLoadingRemainingPreviews] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [projects, setProjects] = useState<ApiProject[]>([]);
   const projectsRef = useRef(projects);
@@ -229,6 +230,55 @@ export function useWorkbenchSession({
       );
     } catch {
       // Keep the loaded project usable; the comparison surface reports the preview error.
+    }
+  }
+
+  /**
+   * The initial load previews a bounded set so a large project opens quickly. The
+   * comparison is incomplete until the rest are computed, so completing it is an
+   * explicit action instead of a silent dash.
+   */
+  async function loadRemainingPreviews() {
+    const definition = taskDefinition;
+    if (!definition || !operations?.preview || loadingRemainingPreviews) return;
+    const projectId = activeProjectIdRef.current;
+    const pending = candidatesRef.current.filter((candidate) => (
+      !candidate.raw.archived_at && !prediction.previewsByCandidate[candidate.id]
+    ));
+    if (!pending.length) return;
+    setLoadingRemainingPreviews(true);
+    const controller = new AbortController();
+    try {
+      await loadSelectedFirstBounded<CandidateViewModel, ApiPreview>({
+        items: pending,
+        selectedId: selectedIdRef.current,
+        concurrency: 2,
+        signal: controller.signal,
+        load: async (candidate) => {
+          try {
+            const loaded = await workbenchApi.previewCandidate(
+              projectId,
+              candidate.id,
+              candidate.raw.revision,
+              candidateInputIdentity(candidate.raw.inputs),
+              controller.signal,
+            );
+            if (controller.signal.aborted || activeProjectIdRef.current !== projectId) return null;
+            // Accept each result as it arrives so rows fill in visibly.
+            prediction.acceptProjectPreviews(
+              [candidate],
+              candidatesRef.current,
+              { [candidate.id]: loaded },
+              definition.id,
+            );
+            return loaded;
+          } catch {
+            return null;
+          }
+        },
+      });
+    } finally {
+      setLoadingRemainingPreviews(false);
     }
   }
 
@@ -650,7 +700,9 @@ export function useWorkbenchSession({
     deleteHeatPoint,
     editor,
     loadError,
+    loadingRemainingPreviews,
     loadProject,
+    loadRemainingPreviews,
     dismissNotice,
     notice,
     openLocation,

@@ -27,6 +27,9 @@ const bundle = await build({
         onSave() {},
         onConfigureGoals() {},
         onConfigureSupport() {},
+        pendingPreviewCount: 0,
+        loadingRemainingPreviews: false,
+        onLoadRemainingPreviews() {},
         ...props,
       }));
     `,
@@ -332,4 +335,66 @@ test("training data details reads the toggle target synchronously instead of Rea
   assert.match(source, /event\.target === detailsRef\.current/);
   assert.match(source, /\(event\.target as HTMLDetailsElement\)\.open/);
   assert.doesNotMatch(source, /event\.currentTarget\.open/);
+});
+
+test("candidates without a preview are named as uncomputed and can be finished in one action", () => {
+  const definition = {
+    input_groups: [{ key: "composition", order: 0, label: "組成", fields: [numberField("composition.C", "C")] }],
+    outputs: [{ key: "TS", label: "引張強さ", unit: "MPa", goal_direction: "at_least" }],
+    display_decimals: { "composition.C": 5, "output.TS": 1 },
+    fixed_context: [],
+  };
+  const preview = {
+    predictions: { TS: { value: 500, lower: 480, upper: 520, unit: "MPa", target_kind: "continuous", point_statistic: "mean", predictive_family: "normal", quantiles: {}, goal_probability: null } },
+    support: { status: "supported" },
+    model_support: { TS: { status: "supported" } },
+  };
+  const second = { ...candidate, id: "candidate-2", label: "候補B", raw: { ...candidate.raw, id: "candidate-2", name: "候補B" } };
+  const comparison = renderComparison({
+    candidates: [candidate, second],
+    selectedId: candidate.id,
+    taskDefinition: definition,
+    previewsByCandidate: { [candidate.id]: preview },
+    targetValues: {},
+    pendingPreviewCount: 1,
+    onSelect() {},
+    onName() {},
+    onInput() {},
+  });
+  assert.match(comparison, />未計算</);
+  assert.match(comparison, /title="候補Bの引張強さはまだ計算していません"/);
+  assert.match(comparison, /未計算 1候補/);
+  assert.match(comparison, />残りを計算</);
+  assert.match(comparison, /1候補はまだ予測を計算していません/);
+  // An incomplete comparison must not present an interval verdict.
+  assert.doesNotMatch(comparison, /特性で全候補の予測区間が重なっています/);
+});
+
+test("a complete comparison keeps its interval verdict and offers no recomputation", () => {
+  const definition = {
+    input_groups: [{ key: "composition", order: 0, label: "組成", fields: [numberField("composition.C", "C")] }],
+    outputs: [{ key: "TS", label: "引張強さ", unit: "MPa", goal_direction: "at_least" }],
+    display_decimals: { "composition.C": 5, "output.TS": 1 },
+    fixed_context: [],
+  };
+  const preview = (value) => ({
+    predictions: { TS: { value, lower: value - 20, upper: value + 20, unit: "MPa", target_kind: "continuous", point_statistic: "mean", predictive_family: "normal", quantiles: {}, goal_probability: null } },
+    support: { status: "supported" },
+    model_support: { TS: { status: "supported" } },
+  });
+  const second = { ...candidate, id: "candidate-2", label: "候補B", raw: { ...candidate.raw, id: "candidate-2", name: "候補B" } };
+  const comparison = renderComparison({
+    candidates: [candidate, second],
+    selectedId: candidate.id,
+    taskDefinition: definition,
+    previewsByCandidate: { [candidate.id]: preview(500), [second.id]: preview(505) },
+    targetValues: {},
+    pendingPreviewCount: 0,
+    onSelect() {},
+    onName() {},
+    onInput() {},
+  });
+  assert.doesNotMatch(comparison, />残りを計算</);
+  assert.doesNotMatch(comparison, /未計算 0候補/);
+  assert.match(comparison, /1 \/ 1特性/);
 });
