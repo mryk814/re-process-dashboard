@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { noticeRole, noticeTimeoutMs, SUCCESS_NOTICE_TIMEOUT_MS } from "../src/shared/workspaceNotice.ts";
 
-const source = (relativePath) => readFile(new URL(relativePath, import.meta.url), "utf8");
+// Working copies may be CRLF; assertions are authored with LF.
+const source = async (relativePath) => {
+  const content = await readFile(new URL(relativePath, import.meta.url), "utf8");
+  return content.split("\r\n").join("\n");
+};
 
 test("a failure is announced as an alert and never expires on its own", () => {
   assert.equal(noticeRole("error"), "alert");
