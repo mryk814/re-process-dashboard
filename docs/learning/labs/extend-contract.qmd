@@ -1,7 +1,7 @@
 ---
 level: intermediate
 estimated_minutes: 60
-verified_commit: "bb3b4ff8b2f4b30d13b587162fef546421eea283"
+verified_commit: "eaaf37bee998e8640df83fd5146baac97a46bb71"
 code_references:
   - "backend/src/material_workbench/contracts/decision_activity_contracts.py"
   - "backend/tests/test_decision_activities.py"

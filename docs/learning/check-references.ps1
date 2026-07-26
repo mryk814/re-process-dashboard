@@ -26,6 +26,38 @@ function Test-NonEmptyValue {
     return $true
 }
 
+function Remove-CodeAndComments {
+    param([string]$Content)
+    $cleaned = [regex]::Replace(
+        $Content,
+        '(?ms)^\s*```.*?^\s*```\s*$',
+        ''
+    )
+    $cleaned = [regex]::Replace(
+        $cleaned,
+        '(?ms)^\s*~~~.*?^\s*~~~\s*$',
+        ''
+    )
+    $cleaned = [regex]::Replace($cleaned, '(?s)<!--.*?-->', '')
+    $cleaned = [regex]::Replace($cleaned, '`[^`\r\n]*`', '')
+    return $cleaned
+}
+
+function Get-CitationKeys {
+    param([string]$Content)
+    $keys = [System.Collections.Generic.HashSet[string]]::new(
+        [System.StringComparer]::Ordinal
+    )
+    $cleaned = Remove-CodeAndComments $Content
+    foreach ($citation in [regex]::Matches(
+        $cleaned,
+        '(?<![A-Za-z0-9_@])@([A-Za-z][A-Za-z0-9-]*)'
+    )) {
+        [void]$keys.Add($citation.Groups[1].Value)
+    }
+    return $keys
+}
+
 $referenceFiles = Get-ChildItem -Path $learningRoot -Recurse -File -Include *.qmd,*.md |
     Where-Object {
         $_.FullName -notmatch '[\\/](?:_build|\.quarto)[\\/]'
@@ -54,11 +86,11 @@ foreach ($file in $referenceFiles) {
 }
 
 $bibContent = Get-Content -Raw -Encoding UTF8 -LiteralPath $bibliographyPath
-$bibMatches = [regex]::Matches(
+$bibEntryMatches = [regex]::Matches(
     $bibContent,
-    '(?m)^\s*@[A-Za-z]+\s*\{\s*([A-Za-z][A-Za-z0-9-]*)\s*,'
+    '(?ms)^\s*@(?<type>[A-Za-z]+)\s*\{\s*(?<key>[A-Za-z][A-Za-z0-9-]*)\s*,(?<body>.*?)(?=^\s*@[A-Za-z]+\s*\{|\z)'
 )
-$bibKeys = @($bibMatches | ForEach-Object { $_.Groups[1].Value })
+$bibKeys = @($bibEntryMatches | ForEach-Object { $_.Groups["key"].Value })
 $bibKeySet = @{}
 
 foreach ($keyGroup in $bibKeys | Group-Object { $_.ToLowerInvariant() }) {
@@ -68,8 +100,36 @@ foreach ($keyGroup in $bibKeys | Group-Object { $_.ToLowerInvariant() }) {
     $bibKeySet[$keyGroup.Group[0]] = $true
 }
 
-if ($bibContent -match '(?i)https?://(?:www\.)?(?:qiita\.com|zenn\.dev)/') {
-    Add-ValidationError "disallowed-source" "Qiita or Zenn URL is present in references.bib."
+foreach ($entryMatch in $bibEntryMatches) {
+    $entryType = $entryMatch.Groups["type"].Value.ToLowerInvariant()
+    $entryKey = $entryMatch.Groups["key"].Value
+    $entryBody = $entryMatch.Groups["body"].Value
+    $requiredBibFields = @("title")
+    if ($entryBody -notmatch '(?m)^\s*(?:author|editor)\s*=') {
+        Add-ValidationError "missing-bib-field" "${entryKey}: author or editor"
+    }
+    if ($entryBody -notmatch '(?m)^\s*(?:doi|url)\s*=') {
+        Add-ValidationError "missing-bib-field" "${entryKey}: DOI or URL"
+    }
+    switch ($entryType) {
+        "online" {
+            $requiredBibFields += @("url", "urldate")
+        }
+        "book" {
+            $requiredBibFields += @("publisher", "year")
+        }
+        "techreport" {
+            $requiredBibFields += @("institution", "number", "year")
+        }
+        default {
+            Add-ValidationError "unsupported-bib-type" "${entryKey}: $entryType"
+        }
+    }
+    foreach ($field in $requiredBibFields) {
+        if ($entryBody -notmatch "(?m)^\s*$([regex]::Escape($field))\s*=") {
+            Add-ValidationError "missing-bib-field" "${entryKey}: $field"
+        }
+    }
 }
 
 $annotationDocument = Get-Content -Raw -Encoding UTF8 -LiteralPath $annotationsPath |
@@ -103,6 +163,8 @@ $requiredFields = @(
     "roles",
     "level",
     "source_tier",
+    "language",
+    "license",
     "related_concepts",
     "repo_routes",
     "recommended_sections",
@@ -197,34 +259,61 @@ foreach ($key in $annotationKeys) {
 $citationKeys = [System.Collections.Generic.HashSet[string]]::new(
     [System.StringComparer]::Ordinal
 )
+$usageCitationKeys = [System.Collections.Generic.HashSet[string]]::new(
+    [System.StringComparer]::Ordinal
+)
+$referencesPagePath = Join-Path $learningRoot "references.qmd"
 foreach ($file in $referenceFiles) {
     $content = Get-Content -Raw -Encoding UTF8 -LiteralPath $file.FullName
-    $citationBlocks = [regex]::Matches($content, '\[[^\]\r\n]*@[^\]\r\n]+\]')
-    foreach ($block in $citationBlocks) {
-        foreach ($citation in [regex]::Matches(
-            $block.Value,
-            '@([A-Za-z][A-Za-z0-9-]*)'
-        )) {
-            $key = $citation.Groups[1].Value
-            [void]$citationKeys.Add($key)
-            if (-not $bibKeySet.ContainsKey($key)) {
-                Add-ValidationError "missing-citation-entry" "$($file.FullName): $key"
-            }
+    foreach ($key in Get-CitationKeys $content) {
+        [void]$citationKeys.Add($key)
+        if ($file.FullName -ne $referencesPagePath) {
+            [void]$usageCitationKeys.Add($key)
         }
+        if (-not $bibKeySet.ContainsKey($key)) {
+            Add-ValidationError "missing-citation-entry" "$($file.FullName): $key"
+        }
+    }
+    if ($content -match '(?i)https?://(?:www\.)?(?:qiita\.com|zenn\.dev)/') {
+        Add-ValidationError "disallowed-source" $file.FullName
     }
 }
 
 foreach ($key in $bibKeys) {
-    if (-not $citationKeys.Contains($key)) {
+    if (-not $usageCitationKeys.Contains($key)) {
         $warnings.Add("WARNING unused-bib-entry $key")
+    }
+}
+
+$referencesPageContent = Get-Content -Raw -Encoding UTF8 -LiteralPath $referencesPagePath
+$referencesPageKeys = Get-CitationKeys $referencesPageContent
+foreach ($key in $annotationKeys) {
+    if (-not $referencesPageKeys.Contains($key)) {
+        Add-ValidationError "missing-reading-route-entry" $key
+    }
+}
+foreach ($key in $referencesPageKeys) {
+    if (-not $annotationKeySet.ContainsKey($key)) {
+        Add-ValidationError "reading-route-without-annotation" $key
     }
 }
 
 $majorChapters = Get-ChildItem -Path (Join-Path $learningRoot "chapters") -File -Filter *.qmd
 foreach ($chapter in $majorChapters) {
     $chapterContent = Get-Content -Raw -Encoding UTF8 -LiteralPath $chapter.FullName
-    if ($chapterContent -notmatch '(?m)^## Further Reading\s*$') {
+    $furtherReadingMatch = [regex]::Match(
+        $chapterContent,
+        '(?ms)^## Further Reading\s*\r?\n(?<body>.*?)(?=^##\s|\z)'
+    )
+    if (-not $furtherReadingMatch.Success) {
         Add-ValidationError "missing-further-reading" $chapter.FullName
+        continue
+    }
+    $furtherReadingKeys = Get-CitationKeys $furtherReadingMatch.Groups["body"].Value
+    if ($furtherReadingKeys.Count -lt 2 -or $furtherReadingKeys.Count -gt 4) {
+        Add-ValidationError "further-reading-count" (
+            "$($chapter.FullName): expected 2-4 citations, found $($furtherReadingKeys.Count)"
+        )
     }
 }
 

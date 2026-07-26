@@ -4,12 +4,26 @@
   "entries": [
     {
       "citekey": "diataxis",
-      "roles": ["primary-explanation"],
+      "roles": [
+        "primary-explanation"
+      ],
       "level": "beginner",
       "source_tier": "official-documentation",
-      "related_concepts": ["documentation-architecture", "reader-needs"],
-      "repo_routes": ["docs/learning/foundations.qmd", "docs/learning/code-map.qmd"],
-      "recommended_sections": ["The Diátaxis map", "Tutorials", "Reference"],
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "documentation-architecture",
+        "reader-needs"
+      ],
+      "repo_routes": [
+        "docs/learning/foundations.qmd",
+        "docs/learning/code-map.qmd"
+      ],
+      "recommended_sections": [
+        "The Diátaxis map",
+        "Tutorials",
+        "Reference"
+      ],
       "why_read": "学習の順路と、作業中に引く情報を別の文書へ分ける判断を確認する。",
       "reading_question": "本編へ置く説明とコードマップへ置く一覧は、どの読者行動で分かれるか。",
       "caution": "四分類を各ページへ機械的に当てはめず、複数の役割を持つページは主目的で配置する。",
@@ -19,12 +33,24 @@
     },
     {
       "citekey": "rustbook",
-      "roles": ["alternative-view"],
+      "roles": [
+        "alternative-view"
+      ],
       "level": "beginner",
       "source_tier": "official-documentation",
-      "related_concepts": ["concept-chapter", "project-chapter"],
-      "repo_routes": ["docs/learning/foundations.qmd"],
-      "recommended_sections": ["Introduction", "Writing a Guessing Game"],
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "concept-chapter",
+        "project-chapter"
+      ],
+      "repo_routes": [
+        "docs/learning/foundations.qmd"
+      ],
+      "recommended_sections": [
+        "Introduction",
+        "Writing a Guessing Game"
+      ],
       "why_read": "概念を単独で説明する章と、既出概念を一つのprojectで統合する章の分担を見る。",
       "reading_question": "読者が概念を必要とする前に、説明を先回りさせていないか。",
       "caution": "言語入門書の段階構成を、既存業務アプリのコード読解へそのまま移植しない。",
@@ -34,12 +60,25 @@
     },
     {
       "citekey": "djangotutorial",
-      "roles": ["alternative-view", "implementation-reference"],
+      "roles": [
+        "alternative-view",
+        "implementation-reference"
+      ],
       "level": "beginner",
       "source_tier": "official-documentation",
-      "related_concepts": ["tutorial", "observable-result"],
-      "repo_routes": ["docs/learning/foundations.qmd", "docs/learning/chapter-template.qmd"],
-      "recommended_sections": ["Writing your first Django app, part 1"],
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "tutorial",
+        "observable-result"
+      ],
+      "repo_routes": [
+        "docs/learning/foundations.qmd",
+        "docs/learning/chapter-template.qmd"
+      ],
+      "recommended_sections": [
+        "Writing your first Django app, part 1"
+      ],
       "why_read": "前提version、実行command、期待結果、次の観察を近接させるtutorialの型を見る。",
       "reading_question": "commandを実行した読者は、成功と失敗を何で見分けるか。",
       "caution": "新規アプリを順に組み立てるtutorialであり、現行実装を横断して読む本教材とは出発点が異なる。",
@@ -49,12 +88,25 @@
     },
     {
       "citekey": "google-documents",
-      "roles": ["standard"],
+      "roles": [
+        "standard"
+      ],
       "level": "beginner",
       "source_tier": "official-documentation",
-      "related_concepts": ["audience", "scope"],
-      "repo_routes": ["docs/learning/foundations.qmd", "docs/learning/AGENTS.md"],
-      "recommended_sections": ["Audience", "Scope"],
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "audience",
+        "scope"
+      ],
+      "repo_routes": [
+        "docs/learning/foundations.qmd",
+        "docs/learning/AGENTS.md"
+      ],
+      "recommended_sections": [
+        "Audience",
+        "Scope"
+      ],
       "why_read": "対象読者が必要とする知識と、すでに持つ知識の差から文書のscopeを決める。",
       "reading_question": "この章は、読者がすでに知っている何を重複説明しているか。",
       "caution": "短い社内文書向けの原則も含むため、書籍の章構成には目的を保って調整する。",
@@ -64,12 +116,24 @@
     },
     {
       "citekey": "google-active",
-      "roles": ["standard"],
+      "roles": [
+        "standard"
+      ],
       "level": "beginner",
       "source_tier": "official-documentation",
-      "related_concepts": ["active-voice", "actor"],
-      "repo_routes": ["docs/learning/foundations.qmd", "docs/learning/AGENTS.md"],
-      "recommended_sections": ["Active voice vs. passive voice"],
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "active-voice",
+        "actor"
+      ],
+      "repo_routes": [
+        "docs/learning/foundations.qmd",
+        "docs/learning/AGENTS.md"
+      ],
+      "recommended_sections": [
+        "Active voice vs. passive voice"
+      ],
       "why_read": "処理主体と動作を示し、変更箇所を追える文へ直す基準を得る。",
       "reading_question": "その操作を実行するのは、利用者、router、service、storeのどれか。",
       "caution": "受動態を禁止する規則ではなく、行為者が重要な箇所で曖昧さを減らす指針として使う。",
@@ -79,12 +143,25 @@
     },
     {
       "citekey": "github-style",
-      "roles": ["standard"],
+      "roles": [
+        "standard"
+      ],
       "level": "beginner",
       "source_tier": "official-documentation",
-      "related_concepts": ["clarity", "callout"],
-      "repo_routes": ["docs/learning/foundations.qmd", "docs/learning/styles/book.scss"],
-      "recommended_sections": ["Alerts", "Writing style"],
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "clarity",
+        "callout"
+      ],
+      "repo_routes": [
+        "docs/learning/foundations.qmd",
+        "docs/learning/styles/book.scss"
+      ],
+      "recommended_sections": [
+        "Alerts",
+        "Writing style"
+      ],
       "why_read": "視覚的な注意喚起を増やしすぎず、意味の明瞭さを優先する編集判断を確認する。",
       "reading_question": "このcalloutは本文を止めるだけの危険または事実区分を持つか。",
       "caution": "Web helpのstyle guideなので、PDFの紙面密度と長い論証には別の組版確認が必要になる。",
@@ -94,12 +171,25 @@
     },
     {
       "citekey": "quarto-books",
-      "roles": ["implementation-reference"],
+      "roles": [
+        "implementation-reference"
+      ],
       "level": "beginner",
       "source_tier": "official-documentation",
-      "related_concepts": ["book-structure", "navigation"],
-      "repo_routes": ["docs/learning/_quarto.yml", "docs/learning/build.ps1"],
-      "recommended_sections": ["Book Structure", "Parts and Chapters"],
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "book-structure",
+        "navigation"
+      ],
+      "repo_routes": [
+        "docs/learning/_quarto.yml",
+        "docs/learning/build.ps1"
+      ],
+      "recommended_sections": [
+        "Book Structure",
+        "Parts and Chapters"
+      ],
       "why_read": "章順、章の正本、生成先をQuartoのbook構造へ対応させる。",
       "reading_question": "読者向けの章順と、編集者が管理するfile順は一致しているか。",
       "caution": "Quartoが構造を生成しても、読書順の妥当性や章間の前提関係は自動検証しない。",
@@ -109,12 +199,24 @@
     },
     {
       "citekey": "quarto-crossrefs",
-      "roles": ["implementation-reference"],
+      "roles": [
+        "implementation-reference"
+      ],
       "level": "beginner",
       "source_tier": "official-documentation",
-      "related_concepts": ["cross-reference", "rendering"],
-      "repo_routes": ["docs/learning/_quarto.yml", "docs/learning/tooling.qmd"],
-      "recommended_sections": ["Book Cross References"],
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "cross-reference",
+        "rendering"
+      ],
+      "repo_routes": [
+        "docs/learning/_quarto.yml",
+        "docs/learning/tooling.qmd"
+      ],
+      "recommended_sections": [
+        "Book Cross References"
+      ],
       "why_read": "HTMLとPDFで同じ意味を保つ章、図、表の参照方法を確認する。",
       "reading_question": "表示形式が変わっても、参照先を一意に辿れるか。",
       "caution": "cross-referenceが解決しても、改ページや長い表の視覚的な破綻は目視検査が必要になる。",
@@ -124,12 +226,25 @@
     },
     {
       "citekey": "sqlite-backup",
-      "roles": ["implementation-reference", "primary-explanation"],
+      "roles": [
+        "implementation-reference",
+        "primary-explanation"
+      ],
       "level": "intermediate",
       "source_tier": "official-documentation",
-      "related_concepts": ["sqlite-backup", "consistent-snapshot"],
-      "repo_routes": ["docs/learning/chapters/restore-workspace-safely.qmd"],
-      "recommended_sections": ["SQLite Backup API", "Typical Usage of the Backup API"],
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "sqlite-backup",
+        "consistent-snapshot"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/restore-workspace-safely.qmd"
+      ],
+      "recommended_sections": [
+        "SQLite Backup API",
+        "Typical Usage of the Backup API"
+      ],
       "why_read": "稼働中databaseの整合したsnapshotを、単純file copyと区別する。",
       "reading_question": "backup中にwriteが起きた場合、APIは何を再試行し、何を保証するか。",
       "caution": "database backupだけでは、Data Libraryのfileやmanifestを含むWorkspace全体の復元単位にならない。",
@@ -139,12 +254,25 @@
     },
     {
       "citekey": "python-zipfile",
-      "roles": ["implementation-reference", "caution"],
+      "roles": [
+        "implementation-reference",
+        "caution"
+      ],
       "level": "intermediate",
       "source_tier": "official-documentation",
-      "related_concepts": ["zip-archive", "path-traversal"],
-      "repo_routes": ["docs/learning/chapters/restore-workspace-safely.qmd"],
-      "recommended_sections": ["Decompression pitfalls", "ZipFile.extractall"],
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "zip-archive",
+        "path-traversal"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/restore-workspace-safely.qmd"
+      ],
+      "recommended_sections": [
+        "Decompression pitfalls",
+        "ZipFile.extractall"
+      ],
       "why_read": "archive member名を信用した展開が、復元先directoryの外へ書き得る条件を確認する。",
       "reading_question": "member pathの検査を、展開後ではなく展開前に置く理由は何か。",
       "caution": "標準libraryの注意事項だけで、bundleの署名、digest、schema、rollbackまで保証したことにはならない。",
@@ -154,12 +282,24 @@
     },
     {
       "citekey": "fowler-optimistic-lock",
-      "roles": ["primary-explanation", "historical-context"],
+      "roles": [
+        "primary-explanation",
+        "historical-context"
+      ],
       "level": "intermediate",
       "source_tier": "maintainer-publication",
-      "related_concepts": ["optimistic-concurrency", "lost-update"],
-      "repo_routes": ["docs/learning/chapters/revision-and-digest.qmd"],
-      "recommended_sections": ["Optimistic Offline Lock"],
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "optimistic-concurrency",
+        "lost-update"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/revision-and-digest.qmd"
+      ],
+      "recommended_sections": [
+        "Optimistic Offline Lock"
+      ],
       "why_read": "business transactionの開始時点からcommitまで、他の更新を検出するpatternの意図を読む。",
       "reading_question": "`expected_revision`は、どの時点の読取を後続writeへ結び付けるか。",
       "caution": "Web越しの長いbusiness transactionを扱うpatternであり、SQLiteのlock modeそのものの説明ではない。",
@@ -169,12 +309,25 @@
     },
     {
       "citekey": "rfc8785",
-      "roles": ["standard", "alternative-view"],
+      "roles": [
+        "standard",
+        "alternative-view"
+      ],
       "level": "advanced",
       "source_tier": "standard",
-      "related_concepts": ["canonical-json", "content-digest"],
-      "repo_routes": ["docs/learning/chapters/revision-and-digest.qmd"],
-      "recommended_sections": ["Introduction", "JSON Canonicalization Scheme"],
+      "language": "en",
+      "license": "IETF Trust Legal Provisions",
+      "related_concepts": [
+        "canonical-json",
+        "content-digest"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/revision-and-digest.qmd"
+      ],
+      "recommended_sections": [
+        "Introduction",
+        "JSON Canonicalization Scheme"
+      ],
       "why_read": "cross-languageでbyte表現を揃える標準と、repo内semantic digestの範囲を比較する。",
       "reading_question": "意味を落とさずcanonical representationを決める責任は、hash関数の前後どちらにあるか。",
       "caution": "現行`semantic_digest()`はRFC 8785準拠を保証しないため、標準の性質を現実装へ読み替えない。",
@@ -184,12 +337,24 @@
     },
     {
       "citekey": "sqlite-update",
-      "roles": ["implementation-reference"],
+      "roles": [
+        "implementation-reference"
+      ],
       "level": "intermediate",
       "source_tier": "official-documentation",
-      "related_concepts": ["compare-and-swap", "conditional-update"],
-      "repo_routes": ["docs/learning/chapters/revision-and-digest.qmd"],
-      "recommended_sections": ["UPDATE", "UPDATE FROM"],
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "compare-and-swap",
+        "conditional-update"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/revision-and-digest.qmd"
+      ],
+      "recommended_sections": [
+        "UPDATE",
+        "UPDATE FROM"
+      ],
       "why_read": "revisionを条件へ含む一つのUPDATEが、読取とwriteの窓をどう閉じるか確認する。",
       "reading_question": "更新件数が0件だったとき、not foundとconflictをどう区別するか。",
       "caution": "SQL構文がatomicでも、条件へ含めるidentityとrevisionの意味が正しいことは別に設計する。",
@@ -199,12 +364,26 @@
     },
     {
       "citekey": "sqlite-transactions",
-      "roles": ["primary-explanation", "implementation-reference"],
+      "roles": [
+        "primary-explanation",
+        "implementation-reference"
+      ],
       "level": "intermediate",
       "source_tier": "official-documentation",
-      "related_concepts": ["transaction", "begin-immediate"],
-      "repo_routes": ["docs/learning/chapters/revision-and-digest.qmd", "docs/learning/chapters/trust-a-migrated-database.qmd"],
-      "recommended_sections": ["Transactions", "Deferred, Immediate, and Exclusive Transactions"],
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "transaction",
+        "begin-immediate"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/revision-and-digest.qmd",
+        "docs/learning/chapters/trust-a-migrated-database.qmd"
+      ],
+      "recommended_sections": [
+        "Transactions",
+        "Deferred, Immediate, and Exclusive Transactions"
+      ],
       "why_read": "SQLiteがtransactionをいつ開始し、`BEGIN IMMEDIATE`がwrite競合をいつ表面化させるか確認する。",
       "reading_question": "一つのtransactionが成功しても、どのdomain invariantは別途検査が必要か。",
       "caution": "atomic commitは、削除対象、migration順、JSON内参照の意味上の正しさを保証しない。",
@@ -214,12 +393,26 @@
     },
     {
       "citekey": "sqlite-foreign-keys",
-      "roles": ["implementation-reference", "caution"],
+      "roles": [
+        "implementation-reference",
+        "caution"
+      ],
       "level": "intermediate",
       "source_tier": "official-documentation",
-      "related_concepts": ["foreign-key", "referential-integrity"],
-      "repo_routes": ["docs/learning/chapters/trust-a-migrated-database.qmd", "docs/learning/chapters/separate-archive-from-purge.qmd"],
-      "recommended_sections": ["Enabling Foreign Key Support", "Required and Suggested Database Indexes"],
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "foreign-key",
+        "referential-integrity"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/trust-a-migrated-database.qmd",
+        "docs/learning/chapters/separate-archive-from-purge.qmd"
+      ],
+      "recommended_sections": [
+        "Enabling Foreign Key Support",
+        "Required and Suggested Database Indexes"
+      ],
       "why_read": "宣言的な参照整合性が守るrow関係と、有効化時のconnection policyを確認する。",
       "reading_question": "JSON payload内部のprovenanceをforeign keyだけで守れない理由は何か。",
       "caution": "`PRAGMA foreign_key_check`が空でも、schemaへ宣言されていない関係は検査されない。",
@@ -229,12 +422,24 @@
     },
     {
       "citekey": "sqlite-alter-table",
-      "roles": ["implementation-reference"],
+      "roles": [
+        "implementation-reference"
+      ],
       "level": "intermediate",
       "source_tier": "official-documentation",
-      "related_concepts": ["schema-migration", "alter-table"],
-      "repo_routes": ["docs/learning/chapters/trust-a-migrated-database.qmd"],
-      "recommended_sections": ["ALTER TABLE", "Making Other Kinds Of Table Schema Changes"],
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "schema-migration",
+        "alter-table"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/trust-a-migrated-database.qmd"
+      ],
+      "recommended_sections": [
+        "ALTER TABLE",
+        "Making Other Kinds Of Table Schema Changes"
+      ],
       "why_read": "SQLiteで直接変更できるschema操作と、table再構築が必要な変更を分ける。",
       "reading_question": "additive migrationでも、既存rowの意味を固定するbackfillが必要になるのはいつか。",
       "caution": "DDLが成功することと、migration marker、checksum、実体検査が揃うことは別である。",
@@ -244,12 +449,25 @@
     },
     {
       "citekey": "sqlite-create-trigger",
-      "roles": ["implementation-reference", "caution"],
+      "roles": [
+        "implementation-reference",
+        "caution"
+      ],
       "level": "intermediate",
       "source_tier": "official-documentation",
-      "related_concepts": ["database-trigger", "write-guard"],
-      "repo_routes": ["docs/learning/chapters/separate-archive-from-purge.qmd"],
-      "recommended_sections": ["CREATE TRIGGER", "Cautions On The Use Of BEFORE triggers"],
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "database-trigger",
+        "write-guard"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/separate-archive-from-purge.qmd"
+      ],
+      "recommended_sections": [
+        "CREATE TRIGGER",
+        "Cautions On The Use Of BEFORE triggers"
+      ],
       "why_read": "archive済みProjectへのwriteをDB境界で拒否するguardの実行条件を確認する。",
       "reading_question": "新しいProject-owned tableを追加したとき、triggerが自動で保護しない理由は何か。",
       "caution": "triggerはhard-codedなtableとoperationにだけ働き、application invariant全体を発見しない。",
@@ -259,12 +477,26 @@
     },
     {
       "citekey": "sqlite-vacuum",
-      "roles": ["implementation-reference", "caution"],
+      "roles": [
+        "implementation-reference",
+        "caution"
+      ],
       "level": "intermediate",
       "source_tier": "official-documentation",
-      "related_concepts": ["vacuum", "residual-data"],
-      "repo_routes": ["docs/learning/chapters/separate-archive-from-purge.qmd", "docs/learning/labs/trace-project-lifecycle.qmd"],
-      "recommended_sections": ["VACUUM", "How VACUUM works"],
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "vacuum",
+        "residual-data"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/separate-archive-from-purge.qmd",
+        "docs/learning/labs/trace-project-lifecycle.qmd"
+      ],
+      "recommended_sections": [
+        "VACUUM",
+        "How VACUUM works"
+      ],
       "why_read": "row削除とdatabase fileの再構築を分け、purge後のdisk上のbytesを過大評価しない。",
       "reading_question": "HTTP 204とrow消失だけでは、media sanitizationを証明できないのはなぜか。",
       "caution": "`VACUUM`を実行しても、backup、export、filesystem snapshotなど別copyは消えない。",
@@ -274,12 +506,25 @@
     },
     {
       "citekey": "nist-sp800-88r2",
-      "roles": ["standard", "caution"],
+      "roles": [
+        "standard",
+        "caution"
+      ],
       "level": "advanced",
       "source_tier": "standard",
-      "related_concepts": ["media-sanitization", "retention-boundary"],
-      "repo_routes": ["docs/learning/chapters/separate-archive-from-purge.qmd"],
-      "recommended_sections": ["Information Sanitization and Disposal Decisions", "Sanitization Methods"],
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "media-sanitization",
+        "retention-boundary"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/separate-archive-from-purge.qmd"
+      ],
+      "recommended_sections": [
+        "Information Sanitization and Disposal Decisions",
+        "Sanitization Methods"
+      ],
       "why_read": "application内のlogical purgeと、storage mediaを対象にしたsanitizationを別の要件として扱う。",
       "reading_question": "Project purgeの完了証拠は、どのcopyとmediaを対象外にしているか。",
       "caution": "組織的なmedia sanitization標準であり、local SQLiteの通常削除手順を直接規定する文書ではない。",
@@ -289,12 +534,28 @@
     },
     {
       "citekey": "ousterhout-philosophy",
-      "roles": ["primary-explanation", "alternative-view"],
+      "roles": [
+        "primary-explanation",
+        "alternative-view"
+      ],
       "level": "intermediate",
       "source_tier": "specialist-book",
-      "related_concepts": ["complexity", "deep-module", "information-hiding"],
-      "repo_routes": ["docs/learning/chapters/contract-through-stack.qmd", "docs/learning/code-map.qmd"],
-      "recommended_sections": ["The Nature of Complexity", "Modules Should Be Deep", "Decide What Matters"],
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "complexity",
+        "deep-module",
+        "information-hiding"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/contract-through-stack.qmd",
+        "docs/learning/code-map.qmd"
+      ],
+      "recommended_sections": [
+        "The Nature of Complexity",
+        "Modules Should Be Deep",
+        "Decide What Matters"
+      ],
       "why_read": "境界の数ではなく、interfaceが隠す複雑さでmoduleの価値を評価する。",
       "reading_question": "生成型を挟む境界は、利用者へ何を見せ、何を隠しているか。",
       "caution": "短いmethodや細かなlayerを常に否定する規則ではなく、変更時の認知負荷で判断する。",
@@ -304,12 +565,28 @@
     },
     {
       "citekey": "cosmic-python",
-      "roles": ["primary-explanation", "implementation-reference"],
+      "roles": [
+        "primary-explanation",
+        "implementation-reference"
+      ],
       "level": "intermediate",
       "source_tier": "specialist-book",
-      "related_concepts": ["repository", "service-layer", "unit-of-work"],
-      "repo_routes": ["backend/src/material_workbench", "docs/learning/chapters/contract-through-stack.qmd"],
-      "recommended_sections": ["Repository Pattern", "Our First Use Case: Flask API and Service Layer", "Unit of Work Pattern"],
+      "language": "en",
+      "license": "CC-BY-NC-ND-4.0",
+      "related_concepts": [
+        "repository",
+        "service-layer",
+        "unit-of-work"
+      ],
+      "repo_routes": [
+        "backend/src/material_workbench",
+        "docs/learning/chapters/contract-through-stack.qmd"
+      ],
+      "recommended_sections": [
+        "Repository Pattern",
+        "Our First Use Case: Flask API and Service Layer",
+        "Unit of Work Pattern"
+      ],
       "why_read": "Python applicationでdomain、service、repositoryを分ける具体的な利点とtest seamを見る。",
       "reading_question": "現行`Store`へ集まっている責務のうち、どれをpattern名だけで分割してはいけないか。",
       "caution": "本書の完成形はevent-drivenな複数serviceも扱うが、本アプリはlocal monolithであり同じ構成を目標にしない。",
@@ -319,12 +596,28 @@
     },
     {
       "citekey": "fowler-poeaa",
-      "roles": ["primary-explanation", "historical-context"],
+      "roles": [
+        "primary-explanation",
+        "historical-context"
+      ],
       "level": "intermediate",
       "source_tier": "specialist-book",
-      "related_concepts": ["service-layer", "repository", "data-mapper"],
-      "repo_routes": ["backend/src/material_workbench/api", "backend/src/material_workbench/persistence"],
-      "recommended_sections": ["Service Layer", "Repository", "Data Mapper"],
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "service-layer",
+        "repository",
+        "data-mapper"
+      ],
+      "repo_routes": [
+        "backend/src/material_workbench/api",
+        "backend/src/material_workbench/persistence"
+      ],
+      "recommended_sections": [
+        "Service Layer",
+        "Repository",
+        "Data Mapper"
+      ],
       "why_read": "application境界とdata source境界に名前を付け、現行の責務配置を比較可能にする。",
       "reading_question": "routerが調整する操作と、persistenceが保証する不変条件はどこで分かれるか。",
       "caution": "Javaと大規模enterprise applicationを中心にしたpattern集であり、全patternの導入は複雑さを増やす。",
@@ -334,12 +627,29 @@
     },
     {
       "citekey": "kleppmann-ddia2",
-      "roles": ["deep-dive", "alternative-view"],
+      "roles": [
+        "deep-dive",
+        "alternative-view"
+      ],
       "level": "advanced",
       "source_tier": "specialist-book",
-      "related_concepts": ["system-of-record", "derived-data", "transaction", "evolution"],
-      "repo_routes": ["docs/learning/chapters/source-to-training-evidence.qmd", "docs/learning/chapters/revision-and-digest.qmd"],
-      "recommended_sections": ["Data Models and Query Languages", "Encoding and Evolution", "Transactions"],
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "system-of-record",
+        "derived-data",
+        "transaction",
+        "evolution"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/source-to-training-evidence.qmd",
+        "docs/learning/chapters/revision-and-digest.qmd"
+      ],
+      "recommended_sections": [
+        "Data Models and Query Languages",
+        "Encoding and Evolution",
+        "Transactions"
+      ],
       "why_read": "正本と派生物、schema evolution、lost updateを広いdata systemの文脈で一般化する。",
       "reading_question": "single-node SQLiteでも残る問題と、分散配置によって初めて生じる問題は何か。",
       "caution": "本アプリはsingle-user local SQLiteであり、replicationやconsensusの設計を先回りして導入しない。",
@@ -349,12 +659,27 @@
     },
     {
       "citekey": "turing-way",
-      "roles": ["primary-explanation", "alternative-view"],
+      "roles": [
+        "primary-explanation",
+        "alternative-view"
+      ],
       "level": "beginner",
       "source_tier": "official-handbook",
-      "related_concepts": ["reproducibility", "research-data", "collaboration"],
-      "repo_routes": ["docs/learning/chapters/source-to-training-evidence.qmd", "docs/learning/AGENTS.md"],
-      "recommended_sections": ["Guide for Reproducible Research", "Guide for Project Design"],
+      "language": "en",
+      "license": "CC-BY-4.0",
+      "related_concepts": [
+        "reproducibility",
+        "research-data",
+        "collaboration"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/source-to-training-evidence.qmd",
+        "docs/learning/AGENTS.md"
+      ],
+      "recommended_sections": [
+        "Guide for Reproducible Research",
+        "Guide for Project Design"
+      ],
       "why_read": "再実行可能性をcodeだけでなくdata、environment、collaborationの実務へ広げて捉える。",
       "reading_question": "同じ結果を再現できても、その結果が科学的に正しいとは限らないのはなぜか。",
       "caution": "共同研究とopen scienceを広く扱うため、local productのimmutability contractとは保証範囲が異なる。",
@@ -364,12 +689,28 @@
     },
     {
       "citekey": "rse-python",
-      "roles": ["prerequisite", "implementation-reference"],
+      "roles": [
+        "prerequisite",
+        "implementation-reference"
+      ],
       "level": "beginner",
       "source_tier": "specialist-book",
-      "related_concepts": ["research-software", "version-control", "testing"],
-      "repo_routes": ["docs/learning/tooling.qmd", "docs/learning/labs"],
-      "recommended_sections": ["Version Control", "Testing Software", "Research Data Management"],
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "research-software",
+        "version-control",
+        "testing"
+      ],
+      "repo_routes": [
+        "docs/learning/tooling.qmd",
+        "docs/learning/labs"
+      ],
+      "recommended_sections": [
+        "Version Control",
+        "Testing Software",
+        "Research Data Management"
+      ],
       "why_read": "研究codeを変更可能かつ検証可能に保つ基礎作業を、Pythonの実例で補う。",
       "reading_question": "教材の演習結果を、別の開発者が同じcommitから再確認できるか。",
       "caution": "入門的なtooling説明を含むため、既に実務経験がある読者は必要な章だけを参照する。",
@@ -379,12 +720,25 @@
     },
     {
       "citekey": "typescript-narrowing",
-      "roles": ["implementation-reference"],
+      "roles": [
+        "implementation-reference"
+      ],
       "level": "intermediate",
       "source_tier": "official-documentation",
-      "related_concepts": ["discriminated-union", "exhaustiveness"],
-      "repo_routes": ["apps/web/src/generated/api-types.ts", "docs/learning/chapters/contract-through-stack.qmd"],
-      "recommended_sections": ["Discriminated unions", "The never type"],
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "discriminated-union",
+        "exhaustiveness"
+      ],
+      "repo_routes": [
+        "apps/web/src/generated/api-types.ts",
+        "docs/learning/chapters/contract-through-stack.qmd"
+      ],
+      "recommended_sections": [
+        "Discriminated unions",
+        "The never type"
+      ],
       "why_read": "生成されたunionをdiscriminatorで絞り込み、variant固有fieldへ安全に到達する仕組みを確認する。",
       "reading_question": "backendの`schema_version`がfrontendのcontrol flowへどう伝わるか。",
       "caution": "compile-time narrowingは、responseがcurrent requestに属するかという時間的identityを保証しない。",
@@ -394,12 +748,28 @@
     },
     {
       "citekey": "react-state-structure",
-      "roles": ["implementation-reference", "caution"],
+      "roles": [
+        "implementation-reference",
+        "caution"
+      ],
       "level": "intermediate",
       "source_tier": "official-documentation",
-      "related_concepts": ["server-state", "draft-state", "derived-state"],
-      "repo_routes": ["apps/web/src/features", "docs/learning/chapters/revision-and-digest.qmd"],
-      "recommended_sections": ["Principles for structuring state", "Avoid contradictions in state", "Avoid duplication in state"],
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "server-state",
+        "draft-state",
+        "derived-state"
+      ],
+      "repo_routes": [
+        "apps/web/src/features",
+        "docs/learning/chapters/revision-and-digest.qmd"
+      ],
+      "recommended_sections": [
+        "Principles for structuring state",
+        "Avoid contradictions in state",
+        "Avoid duplication in state"
+      ],
       "why_read": "server state、local draft、derived displayを重複させず、矛盾するstateを減らす基準を得る。",
       "reading_question": "競合後にserver currentとlocal draftを同じstateへ潰すと、何を失うか。",
       "caution": "state形状を整理しても、stale responseの順序制御やbackend conflict contractは別に必要になる。",
@@ -409,12 +779,28 @@
     },
     {
       "citekey": "google-bsrs",
-      "roles": ["deep-dive", "alternative-view"],
+      "roles": [
+        "deep-dive",
+        "alternative-view"
+      ],
       "level": "advanced",
       "source_tier": "organization-book",
-      "related_concepts": ["trust-boundary", "recovery", "system-invariant"],
-      "repo_routes": ["docs/learning/chapters/restore-workspace-safely.qmd", "apps/desktop"],
-      "recommended_sections": ["Understanding Roles and Responsibilities", "Design for Understandability", "Recovery from Failure"],
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "trust-boundary",
+        "recovery",
+        "system-invariant"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/restore-workspace-safely.qmd",
+        "apps/desktop"
+      ],
+      "recommended_sections": [
+        "Understanding Roles and Responsibilities",
+        "Design for Understandability",
+        "Recovery from Failure"
+      ],
       "why_read": "securityとreliabilityを別々の後処理にせず、system invariantと復旧経路へ組み込む視点を得る。",
       "reading_question": "renderer、Electron main、Python sidecarのうち、復元元pathを信頼してよい境界はどこか。",
       "caution": "Google規模の運用経験を扱うため、local desktop appへ組織processやdistributed controlをそのまま持ち込まない。",
@@ -424,12 +810,27 @@
     },
     {
       "citekey": "openapi-311",
-      "roles": ["standard"],
+      "roles": [
+        "standard"
+      ],
       "level": "advanced",
       "source_tier": "standard",
-      "related_concepts": ["api-description", "schema", "discriminator"],
-      "repo_routes": ["apps/web/src/generated/openapi.json", "docs/learning/chapters/contract-through-stack.qmd"],
-      "recommended_sections": ["OpenAPI Description", "Schema Object", "Discriminator Object"],
+      "language": "en",
+      "license": "Apache-2.0",
+      "related_concepts": [
+        "api-description",
+        "schema",
+        "discriminator"
+      ],
+      "repo_routes": [
+        "apps/web/src/generated/openapi.json",
+        "docs/learning/chapters/contract-through-stack.qmd"
+      ],
+      "recommended_sections": [
+        "OpenAPI Description",
+        "Schema Object",
+        "Discriminator Object"
+      ],
       "why_read": "languageに依存しないAPI descriptionが、生成toolへ伝えられる情報の範囲を確認する。",
       "reading_question": "OpenAPIがshapeを表現できても、科学的な表示文脈を自動生成できないのはなぜか。",
       "caution": "現行追跡artifactのversionとtool supportを確認せず、最新specの全機能を利用可能とみなさない。",
@@ -439,12 +840,25 @@
     },
     {
       "citekey": "pydantic-unions",
-      "roles": ["implementation-reference"],
+      "roles": [
+        "implementation-reference"
+      ],
       "level": "intermediate",
       "source_tier": "official-documentation",
-      "related_concepts": ["validation", "discriminated-union"],
-      "repo_routes": ["backend/src/material_workbench/contracts/decision_activity_contracts.py", "docs/learning/chapters/contract-through-stack.qmd"],
-      "recommended_sections": ["Discriminated Unions", "Discriminated Unions with callable Discriminator"],
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "validation",
+        "discriminated-union"
+      ],
+      "repo_routes": [
+        "backend/src/material_workbench/contracts/decision_activity_contracts.py",
+        "docs/learning/chapters/contract-through-stack.qmd"
+      ],
+      "recommended_sections": [
+        "Discriminated Unions",
+        "Discriminated Unions with callable Discriminator"
+      ],
       "why_read": "variant選択を試行順に任せず、明示fieldでvalidation経路を決める方法を確認する。",
       "reading_question": "Activity固有parameterをoptional fieldの集合にすると、どの不正な組合せが表現可能になるか。",
       "caution": "Pydantic validationは、Project ownershipや保存済みrevisionの存在などDB依存のpreconditionを代替しない。",
@@ -454,12 +868,27 @@
     },
     {
       "citekey": "fastapi-request-body",
-      "roles": ["implementation-reference"],
+      "roles": [
+        "implementation-reference"
+      ],
       "level": "beginner",
       "source_tier": "official-documentation",
-      "related_concepts": ["request-body", "validation", "openapi-generation"],
-      "repo_routes": ["backend/src/material_workbench/api", "docs/learning/chapters/contract-through-stack.qmd"],
-      "recommended_sections": ["Request Body", "Results", "Automatic docs"],
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "request-body",
+        "validation",
+        "openapi-generation"
+      ],
+      "repo_routes": [
+        "backend/src/material_workbench/api",
+        "docs/learning/chapters/contract-through-stack.qmd"
+      ],
+      "recommended_sections": [
+        "Request Body",
+        "Results",
+        "Automatic docs"
+      ],
       "why_read": "Pydantic modelからrequest validationとOpenAPI生成へ情報が渡る基本経路を確認する。",
       "reading_question": "routerへ入る前に拒否できるshape errorと、serviceでしか判定できないbusiness errorは何か。",
       "caution": "tutorialの単純なendpoint構成を、application serviceやpersistence境界の設計根拠にしない。",

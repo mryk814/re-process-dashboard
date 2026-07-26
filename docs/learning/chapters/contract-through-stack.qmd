@@ -1,7 +1,7 @@
 ---
 level: intermediate
 estimated_minutes: 90
-verified_commit: "bb3b4ff8b2f4b30d13b587162fef546421eea283"
+verified_commit: "eaaf37bee998e8640df83fd5146baac97a46bb71"
 code_references:
   - "backend/src/material_workbench/contracts/decision_activity_contracts.py"
   - "backend/src/material_workbench/application/decision_activity_registry.py"
@@ -78,6 +78,7 @@ React form
 
 この問題は「同じfieldを何度も書く」ことだけではありません。
 各層が別の責務を持つため、変更の意味をどの境界まで通すかを決める問題です。
+境界の数ではなく、interfaceが隠す複雑さでmoduleを評価する見方は、Ousterhoutの*Modules Should Be Deep*と比較できます [@ousterhout-philosophy]。
 
 ## 判別可能なunion
 
@@ -329,8 +330,10 @@ def run_decision_activity(
 
 routerはHTTP path、status、dependency、error変換を担当します。
 候補差分の計算やSQLiteへの保存は担当しません。
+この分担はService Layerの語彙で比較できますが [@fowler-poeaa]、現行実装がpatternの完成例だとはみなしません。
 
 FastAPIはfunction signatureとPydantic modelからOpenAPI schemaを生成します。
+request bodyからvalidationとAPI documentへ情報が渡る基本経路は、FastAPI公式tutorialでも確認できます [@fastapi-request-body]。
 `DecisionActivityRunRequest.parameters`は、三つのparameter schemaを持つ`oneOf`と、`schema_version`のdiscriminator mappingになります。
 
 このOpenAPIはruntimeから毎回frontendへ直接配信して終わりではありません。

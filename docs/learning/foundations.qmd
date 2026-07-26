@@ -104,6 +104,6 @@ QiitaとZennは、教材の技術的根拠として使用しません。
 書籍本文と図表を教材へ転載せず、必要な図は独自に再構成して着想元を示します。
 licenseを確認できない画像は使用しません。
 
-中核参考文献には、role、難易度、関連概念、repo経路、推奨section、読む理由、読書問い、適用上の注意、open access状態、edition確認状態を記録します。
-書誌情報は `docs/learning/references.bib`、教材上の注釈は `docs/learning/reference-annotations.json` を正本にします。
+中核参考文献には、role、難易度、language、license、関連概念、repo経路、推奨section、読む理由、読書問い、適用上の注意、open access状態、edition確認状態を記録します。
+書誌情報は `docs/learning/references.bib`、機械検査する注釈metadataは `docs/learning/reference-annotations.json` で管理します。
 読者向けの選び方と読書順は[読む目的から選ぶ参考文献](references.qmd)にまとめます。
