@@ -24,6 +24,7 @@ from material_workbench.persistence.store import (
     StoreDataIntegrityError,
 )
 from material_workbench.contracts.task_contracts import OutputDefinition, TaskContractFixture
+from material_workbench.contracts.design_space_contracts import default_design_space
 from material_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from material_workbench.persistence.workspace_catalog_bootstrap import task_definition_digest
@@ -139,6 +140,7 @@ class ProjectService:
             "project_series_id": current.project_series_id,
             "predecessor_project_id": current.predecessor_project_id,
             "scientific_identity": current.scientific_identity,
+            "design_space_digest": current.design_space_digest,
         }
         changed = [
             key for key, expected in frozen.items()
@@ -276,6 +278,7 @@ class ProjectService:
     def _resolve_bindings(self, payload: ProjectCreateInput) -> ProjectCreateInput:
         if self.catalog is None:
             raise ProjectValidationError("Data Libraryを利用できません")
+        contract = self._contract(payload.task_id)
         task_digest = task_definition_digest(self.registry, payload.task_id)
         if payload.task_contract_digest and payload.task_contract_digest != task_digest:
             raise ProjectValidationError("Prediction Taskの契約digestが現在の定義と一致しません")
@@ -320,6 +323,28 @@ class ProjectService:
         if payload.model_package_manifest_digest and payload.model_package_manifest_digest != package.manifest_digest:
             raise ProjectValidationError("Model Packageのmanifest digestが登録内容と一致しません")
 
+        space = payload.design_space
+        provenance = "explicit"
+        if space is None and payload.predecessor_project_id:
+            predecessor = self.require(payload.predecessor_project_id)
+            if (
+                predecessor.scientific_identity.identity_kind == "single_task"
+                and predecessor.task_id == payload.task_id
+                and predecessor.design_space is not None
+            ):
+                space = predecessor.design_space
+                provenance = "inherited_predecessor"
+        if space is None:
+            space = default_design_space(
+                contract.task_definition,
+                task_contract_digest=task_digest,
+            )
+            provenance = "generated_default"
+        try:
+            space.validate_against(contract.task_definition)
+        except ValueError as exc:
+            raise ProjectValidationError(str(exc)) from exc
+
         payload = self._resolve_project_series(payload)
         assert payload.project_series_id is not None
         return payload.model_copy(update={
@@ -327,6 +352,8 @@ class ProjectService:
             "task_contract_digest": task_digest,
             "model_package_ref_id": package.id,
             "model_package_manifest_digest": package.manifest_digest,
+            "design_space": space,
+            "design_space_binding_provenance": provenance,
         })
 
     def _resolve_project_series(

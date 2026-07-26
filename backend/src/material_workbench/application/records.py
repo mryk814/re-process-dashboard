@@ -8,7 +8,7 @@ from pydantic_core import to_jsonable_python
 from .candidates import CandidateService
 from .inference import InferenceService, InferenceValidationError
 from .projects import ProjectService
-from material_workbench.contracts.schemas import ActualMeasurement, ActualMeasurementInput, Candidate, DetailedPredictionResponse, PredictionVsActualResponse, SnapshotResponse
+from material_workbench.contracts.schemas import ActualMeasurement, ActualMeasurementInput, Candidate, DetailedPredictionResponse, PredictionVsActualResponse, Project, SnapshotResponse
 from material_workbench.persistence.snapshot_reader import SnapshotPayloadError, candidate_input_from_snapshot
 from material_workbench.persistence.store import Store
 from material_workbench.tasks.task_registry import TaskRegistry
@@ -67,12 +67,14 @@ class RecordService:
         return SnapshotResponse.model_validate(
             self.store.create_snapshot(
                 candidate.id,
-                to_jsonable_python(self._snapshot_payload(candidate, result)),
+                to_jsonable_python(self._snapshot_payload(project, candidate, result)),
             )
         )
 
     @staticmethod
-    def _snapshot_payload(candidate: Candidate, result: dict[str, Any]) -> dict[str, Any]:
+    def _snapshot_payload(
+        project: Project, candidate: Candidate, result: dict[str, Any]
+    ) -> dict[str, Any]:
         return {
             "snapshot_schema_version": "prediction-snapshot-v2",
             "candidate_id": candidate.id,
@@ -80,6 +82,10 @@ class RecordService:
             "canonical_input": result["canonical_input"],
             "prediction": result,
             "provenance": result["model_meta"],
+            "project_design_space_digest": project.design_space_digest,
+            "project_design_space_binding_provenance": (
+                project.design_space_binding_provenance
+            ),
         }
 
     def restore(self, project_id: str, snapshot_id: str) -> Candidate:
@@ -134,7 +140,7 @@ class RecordService:
             project_id,
             candidate_id,
             revision,
-            to_jsonable_python(self._snapshot_payload(candidate, result)),
+            to_jsonable_python(self._snapshot_payload(project, candidate, result)),
             payload,
         )
 

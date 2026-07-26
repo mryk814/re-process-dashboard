@@ -15,6 +15,7 @@ from material_workbench.contracts.chain_contracts import (
     ChainProjectIdentity,
     ProjectScientificIdentity,
 )
+from material_workbench.contracts.design_space_contracts import DesignSpaceDefinition
 from material_workbench.contracts.task_contracts import CandidateProvenance, DirectSourceRef, ResolvedTaskDefinition
 
 
@@ -378,6 +379,10 @@ class ProjectCreateInput(ProjectInput):
     project_series_id: str | None = None
     predecessor_project_id: str | None = None
     continuation_reason: str = ""
+    design_space: DesignSpaceDefinition | None = None
+    design_space_binding_provenance: Literal[
+        "explicit", "generated_default", "inherited_predecessor"
+    ] | None = None
 
     @model_validator(mode="after")
     def explicit_identity_does_not_conflict_with_legacy_fields(
@@ -430,6 +435,7 @@ class ProjectUpdateInput(BaseModel):
     project_series_id: str | None = None
     predecessor_project_id: str | None = None
     scientific_identity: ProjectScientificIdentity | None = None
+    design_space_digest: str | None = None
 
     @model_validator(mode="after")
     def decision_note_requires_candidate(self) -> "ProjectUpdateInput":
@@ -470,6 +476,11 @@ class Project(ProjectInput):
     project_series_id: str | None = None
     predecessor_project_id: str | None = None
     continuation_reason: str = ""
+    design_space: DesignSpaceDefinition | None = None
+    design_space_digest: str | None = None
+    design_space_binding_provenance: Literal[
+        "explicit", "generated_default", "inherited_predecessor", "unbound_legacy"
+    ] = "unbound_legacy"
     binding_provenance: Literal["explicit", "assumed_current_at_upgrade", "unbound_legacy"] = "unbound_legacy"
     binding_migrated_at: datetime | None = None
     created_at: datetime
@@ -800,6 +811,10 @@ class SnapshotPayload(BaseModel):
     model_config = ConfigDict(extra="allow")
     prediction: PredictionResponse | None = None
     provenance: ModelMetadata | None = None
+    project_design_space_digest: str | None = None
+    project_design_space_binding_provenance: Literal[
+        "explicit", "generated_default", "inherited_predecessor", "unbound_legacy"
+    ] = "unbound_legacy"
 
 
 class SnapshotResponse(BaseModel):
@@ -1061,6 +1076,10 @@ class ScreeningRunResponse(BaseModel):
     variables: dict[str, ScreeningVariable]
     design_space: dict[str, Any] | None = None
     design_space_digest: str | None = None
+    project_design_space_digest: str | None = None
+    project_design_space_binding_provenance: Literal[
+        "explicit", "generated_default", "inherited_predecessor", "unbound_legacy"
+    ] = "unbound_legacy"
     proposal_strategy: ScreeningProposalStrategy | None = None
     proposal_diagnostics: ScreeningProposalDiagnostics | None = None
     rejection_summary: dict[str, int] | None = Field(

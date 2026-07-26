@@ -39,6 +39,9 @@ from material_workbench.contracts.schemas import (
 )
 from material_workbench.persistence.lineage_review_migration import migrate_lineage_reviews
 from material_workbench.persistence.decision_activity_migration import migrate_decision_activity_runs
+from material_workbench.persistence.project_design_space_migration import (
+    migrate_project_design_spaces,
+)
 from material_workbench.persistence.candidate_revision_migration import migrate_candidate_revisions
 
 
@@ -170,6 +173,7 @@ class Store:
         migrate_candidate_revisions(self.path)
         migrate_lineage_reviews(self.path)
         migrate_decision_activity_runs(self.path)
+        migrate_project_design_spaces(self.path)
 
     def register_chain_definition(self, definition: ChainDefinition) -> str:
         record_id = (
@@ -735,6 +739,15 @@ class Store:
             project_series_id=row["project_series_id"],
             predecessor_project_id=row["predecessor_project_id"],
             continuation_reason=row["continuation_reason"],
+            design_space=(
+                json.loads(row["design_space_json"])
+                if row["design_space_json"]
+                else None
+            ),
+            design_space_digest=row["design_space_digest"],
+            design_space_binding_provenance=row[
+                "design_space_binding_provenance"
+            ],
             binding_provenance=row["binding_provenance"],
             binding_migrated_at=(
                 datetime.fromisoformat(row["binding_migrated_at"])
@@ -785,8 +798,10 @@ class Store:
                 "response_curve_ranges,response_curve_points,heat_stage_positions_m,display_decimals,notes,decision_candidate_id,"
                 "decision_snapshot_id,decision_note,dataset_view_revision_id,task_contract_digest,"
                 "model_package_ref_id,model_package_manifest_digest,project_series_id,predecessor_project_id,"
-                "continuation_reason,binding_provenance,scientific_identity_json,created_at,updated_at) "
-                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "continuation_reason,binding_provenance,scientific_identity_json,"
+                "design_space_json,design_space_digest,design_space_binding_provenance,"
+                "created_at,updated_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     project_id, payload.name, payload.description, payload.purpose, payload.task_id,
                     _target_values_json(payload.target_values),
@@ -801,6 +816,17 @@ class Store:
                     payload.continuation_reason,
                     identity_provenance,
                     scientific_identity_json,
+                    (
+                        payload.design_space.model_dump_json()
+                        if payload.design_space is not None
+                        else None
+                    ),
+                    (
+                        payload.design_space.digest
+                        if payload.design_space is not None
+                        else None
+                    ),
+                    payload.design_space_binding_provenance or "generated_default",
                     now,
                     now,
                 ),

@@ -15,6 +15,9 @@ from material_workbench.contracts.schemas import (
     ScreeningRunResponse,
 )
 from material_workbench.domain.services import run_latin_hypercube
+from material_workbench.domain.design_space_validation import (
+    validate_candidate_in_design_space,
+)
 from material_workbench.contracts.design_space_contracts import (
     CategoricalDomain,
     CompositionTotalConstraint,
@@ -58,6 +61,7 @@ class ScreeningService:
         try:
             base = Candidate.model_validate({**base.model_dump(), "inputs": payload.base_inputs.model_dump()})
             self.registry.validate_candidate(project.task_id, CandidateInput.model_validate(base.model_dump()))
+            validate_candidate_in_design_space(base, project.design_space)
         except (TaskRegistryError, ValueError) as exc:
             raise ScreeningValidationError(str(exc)) from exc
         all_scalar_fields = {
@@ -167,6 +171,8 @@ class ScreeningService:
         )
         try:
             design_space.validate_against(definition)
+            if project.design_space is not None:
+                design_space.validate_narrows(project.design_space)
         except ValueError as exc:
             raise ScreeningValidationError(str(exc)) from exc
         output = next((item for item in definition.outputs if item.key == payload.target), None)
@@ -198,13 +204,20 @@ class ScreeningService:
                 base,
                 payload,
                 probability_available=probability_available,
-                candidate_validator=lambda candidate: self.registry.validate_candidate(project.task_id, candidate),
+                candidate_validator=lambda candidate: (
+                    self.registry.validate_candidate(project.task_id, candidate),
+                    validate_candidate_in_design_space(candidate, project.design_space),
+                ),
                 design_space=design_space,
             )
         except ValueError as exc:
             raise ScreeningValidationError(str(exc)) from exc
         result["design_space"] = design_space.model_dump(mode="json")
         result["design_space_digest"] = semantic_digest(result["design_space"])
+        result["project_design_space_digest"] = project.design_space_digest
+        result["project_design_space_binding_provenance"] = (
+            project.design_space_binding_provenance
+        )
         result["proposal_strategy"] = {
             "id": "latin_hypercube_v1",
             "version": "1.0.0",
@@ -252,6 +265,7 @@ class ScreeningService:
         try:
             for _, candidate_payload in candidate_payloads:
                 self.registry.validate_candidate(project.task_id, candidate_payload)
+                validate_candidate_in_design_space(candidate_payload, project.design_space)
             created, skipped = self.store.create_screening_candidates(candidate_payloads, run_id, project_id)
         except CandidateLimitError:
             raise

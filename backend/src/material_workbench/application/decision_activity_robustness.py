@@ -126,6 +126,15 @@ def prepare(context: ActivityContext) -> dict[str, Callable[[], float]]:
     }
     rng = random.Random(parameters.seed)
     samplers: dict[str, Callable[[], float]] = {}
+    project_space = context.project.design_space
+    project_numeric = {
+        item.path: item
+        for item in (
+            *((project_space.numeric_domains if project_space else ())),
+            *((project_space.heat_pattern_domains if project_space else ())),
+        )
+    }
+    project_fixed = project_space.fixed_values if project_space is not None else {}
     for path, spec in parameters.tolerance_profile.fields.items():
         field = fields.get(path)
         if field is None or field.kind != "number" or not field.editable:
@@ -139,6 +148,28 @@ def prepare(context: ActivityContext) -> dict[str, Callable[[], float]]:
         except CandidateInputError as exc:
             raise DecisionActivityValidationError(str(exc)) from exc
         lower, upper = _bounds(base, spec)
+        if path in project_fixed:
+            raise DecisionActivityValidationError(
+                f"{field.label}はProject Design Spaceで固定されています"
+            )
+        project_domain = project_numeric.get(path)
+        if project_space is not None and project_domain is None:
+            raise DecisionActivityValidationError(
+                f"{field.label}はProject Design Spaceで変更できません"
+            )
+        if project_domain is not None:
+            if project_domain.range is not None and (
+                lower < project_domain.range.min or upper > project_domain.range.max
+            ):
+                raise DecisionActivityValidationError(
+                    f"{field.label}の公差範囲がProject Design Spaceを超えています"
+                )
+            if project_domain.values and (
+                lower not in project_domain.values or upper not in project_domain.values
+            ):
+                raise DecisionActivityValidationError(
+                    f"{field.label}の公差範囲がProject Design Spaceの候補値にありません"
+                )
         assert field.allowed_range is not None
         if lower < field.allowed_range.min or upper > field.allowed_range.max:
             raise DecisionActivityValidationError(

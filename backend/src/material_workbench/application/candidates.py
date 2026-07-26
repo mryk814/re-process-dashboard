@@ -11,6 +11,10 @@ from material_workbench.contracts.blend_contracts import (
     validate_sparse_blend,
 )
 from material_workbench.domain.heat_time import line_speed_scaled_times
+from material_workbench.domain.design_space_validation import (
+    validate_candidate_in_design_space,
+)
+from material_workbench.contracts.design_space_contracts import DesignSpaceDefinition
 from material_workbench.contracts.schemas import (
     Candidate,
     CandidateImportResponse,
@@ -98,7 +102,11 @@ class CandidateService:
             source_project = self._require_single_project(reference.project_id)
             if source_project.task_id != project.task_id:
                 raise CandidateValidationError("異なる予測タスクの候補はコピーできません")
-        prepared = self._prepare(project.task_id, payload)
+        prepared = self._prepare(
+            project.task_id,
+            payload,
+            project.design_space,
+        )
         return self.store.create_candidate(prepared, project_id)
 
     def import_xlsx(self, project_id: str, contents: bytes) -> CandidateImportResponse:
@@ -111,7 +119,11 @@ class CandidateService:
             contents,
             task_id=project.task_id,
             profile=getattr(runtime.data, "profile", None),
-            validate_candidate=lambda payload: self.registry.validate_candidate(project.task_id, payload),
+            validate_candidate=lambda payload: self._validate(
+                project.task_id,
+                payload,
+                project.design_space,
+            ),
         )
         created = self.store.create_candidates(payloads, project_id)
         return CandidateImportResponse(created=len(created), errors=errors, candidates=created)
@@ -156,7 +168,11 @@ class CandidateService:
         self._canonicalize_heat_time_update(existing, candidate_input)
         if existing.provenance != candidate_input.provenance:
             raise CandidateProvenanceImmutableError("候補の作成元は変更できません")
-        candidate_input = self._prepare(project.task_id, candidate_input)
+        candidate_input = self._prepare(
+            project.task_id,
+            candidate_input,
+            project.design_space,
+        )
         candidate = self.store.update_candidate(candidate_id, project_id, candidate_input, payload.expected_revision)
         if candidate is None:
             raise CandidateNotFoundError(candidate_id)
@@ -249,13 +265,24 @@ class CandidateService:
                 raise CandidateValidationError("候補の派生履歴が長すぎます")
         return chain
 
-    def _validate(self, task_id: str, payload: CandidateInput) -> None:
+    def _validate(
+        self,
+        task_id: str,
+        payload: CandidateInput,
+        design_space: DesignSpaceDefinition | None,
+    ) -> None:
         try:
             self.registry.validate_candidate(task_id, payload)
+            validate_candidate_in_design_space(payload, design_space)
         except (TaskRegistryError, ValueError) as exc:
             raise CandidateValidationError(str(exc)) from exc
 
-    def _prepare(self, task_id: str, payload: CandidateInput) -> CandidateInput:
+    def _prepare(
+        self,
+        task_id: str,
+        payload: CandidateInput,
+        design_space: DesignSpaceDefinition | None,
+    ) -> CandidateInput:
         """Server-authoritatively resolve structural refs and compute draft state."""
         if payload.blend is None:
             prepared = payload.model_copy(
@@ -278,7 +305,7 @@ class CandidateService:
             prepared = payload.model_copy(
                 update={"blend_validation": validate_sparse_blend(payload.blend, contracts)}
             )
-        self._validate(task_id, prepared)
+        self._validate(task_id, prepared, design_space)
         return prepared
 
     @staticmethod

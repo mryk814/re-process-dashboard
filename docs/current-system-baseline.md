@@ -18,6 +18,7 @@ single_task
   Dataset View Revision
   Task contract digest
   Model Package manifest digest
+  Project Design Space digest（新規Project。legacyは未固定を明示）
 
 chain
   Chain Revision ID
@@ -113,9 +114,16 @@ Task追加は内部allow-listである `TaskModule` への明示登録を必要�
 
 これは任意pluginを避けるための意図的な境界である。一方、中央registryへTask固有処理が集中しすぎないかは継続して確認する。
 
+### Project Design Space
+
+新しい単一Task Projectは、TaskDefinitionを狭める不変なDesign Space Revisionを固定する。
+範囲探索とロバストネス解析は同じdigestを来歴へ残す。既存Projectは履歴を推測せず、
+`unbound_legacy`として読み出す。詳細は[Project Design Space](project-design-space.md)を参照する。
+
 ### Decision Activity
 
-Definitionとavailabilityは共通化されているが、現在のrequest／result persistenceはロバストネス解析を最初の具体例としている。新しいActivityを追加するときはparameterとresultを型付きunionへ拡張し、Task ID分岐を増やさない。
+request／resultは`schema_version`判別unionであり、現在はロバストネス解析と候補差分説明を登録している。
+共通serviceとUI shellはActivity IDやTask IDで分岐せず、allow-listされたhandler／view registryから解決する。
 
 ### Chain execution
 
@@ -149,6 +157,7 @@ Stage Aの固定科学変換境界に限り、目標材料成分から配合へ�
 | Chain Definition／Revision／binding | `backend/src/material_workbench/contracts/chain_contracts.py` |
 | Chain execution／snapshot／actual variant | `backend/src/material_workbench/contracts/chain_execution_contracts.py` |
 | Decision Activity | `backend/src/material_workbench/contracts/decision_activity_contracts.py` |
+| Project Design Space | `backend/src/material_workbench/contracts/design_space_contracts.py` と `docs/project-design-space.md` |
 | Model Package | `docs/model-package-contract.md` と対応するcontract code |
 | Dataset解釈 | Profile familyごとのschemaと契約文書 |
 | OpenAPI／frontend API型 | FastAPI OpenAPIと`apps/web/src/generated/` |

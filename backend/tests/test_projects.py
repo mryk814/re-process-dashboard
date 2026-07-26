@@ -54,12 +54,42 @@ def _xlsx_candidate(name: str) -> bytes:
     return output.getvalue()
 
 
+def test_project_design_space_migration_is_additive_and_idempotent(tmp_path) -> None:
+    database = tmp_path / "workbench.db"
+    Store(database)
+    Store(database)
+
+    with sqlite3.connect(database) as conn:
+        columns = {
+            row[1] for row in conn.execute("PRAGMA table_info(projects)")
+        }
+        legacy = conn.execute(
+            "SELECT design_space_json,design_space_digest,"
+            "design_space_binding_provenance FROM projects WHERE id='default'"
+        ).fetchone()
+        marker = conn.execute(
+            "SELECT checksum FROM schema_migrations "
+            "WHERE id='project-design-space-v1'"
+        ).fetchone()
+
+    assert {
+        "design_space_json",
+        "design_space_digest",
+        "design_space_binding_provenance",
+    } <= columns
+    assert legacy == (None, None, "unbound_legacy")
+    assert marker == ("immutable-project-design-space-v1",)
+
+
 def test_project_crud_preserves_default_and_isolates_candidates_and_screening(client) -> None:
     default = client.get("/api/projects/default").json()
     created = client.post("/api/projects", json=_project(client, "新規プロジェクト"))
     assert created.status_code == 201
     project = created.json()
     assert project["id"] != "default"
+    assert project["design_space"]["revision"] == 1
+    assert project["design_space_digest"].startswith("sha256:")
+    assert project["design_space_binding_provenance"] == "generated_default"
     assert {item["id"] for item in client.get("/api/projects").json()} >= {"default", project["id"]}
     assert client.get(f"/api/projects/{project['id']}").json()["name"] == "新規プロジェクト"
 
@@ -71,6 +101,7 @@ def test_project_crud_preserves_default_and_isolates_candidates_and_screening(cl
     assert updated["heat_stage_positions_m"] == {"加熱1": 42.5}
     assert updated["response_curve_points"] == 33
     assert client.get(f"/api/projects/{project['id']}").json()["heat_stage_positions_m"] == {"加熱1": 42.5}
+    assert client.get(f"/api/projects/{project['id']}").json()["design_space_digest"] == project["design_space_digest"]
     assert client.get("/api/projects/default").json()["name"] == default["name"]
     assert client.get("/api/projects/missing").status_code == 404
 
@@ -91,6 +122,8 @@ def test_project_crud_preserves_default_and_isolates_candidates_and_screening(cl
     }
     run = client.post(f"/api/screening?project_id={project['id']}", json=screening_body)
     assert run.status_code == 201
+    assert run.json()["project_design_space_digest"] == project["design_space_digest"]
+    assert run.json()["project_design_space_binding_provenance"] == "generated_default"
     assert set(run.json()["points"][0]["predictions"]) == {"TS", "YS", "EL", "lambda"}
     assert "YS" in run.json()["points"][0]["secondary_goal_evaluations"]
     run_id = run.json()["id"]
@@ -116,6 +149,90 @@ def test_project_crud_preserves_default_and_isolates_candidates_and_screening(cl
     assert client.delete("/api/projects/default").status_code == 409
     assert client.delete("/api/projects/hot-rolling-default").status_code == 409
     assert client.delete("/api/projects/missing").status_code == 404
+
+
+def test_project_design_space_narrows_screening_and_is_immutable(client) -> None:
+    generated = client.post(
+        "/api/projects", json=_project(client, "Design Space原型")
+    ).json()
+    space = generated["design_space"]
+    space["design_space_id"] = "annealed-narrow-carbon"
+    space["revision"] = 2
+    for domain in space["numeric_domains"]:
+        if domain["path"] == "composition.C":
+            domain["range"] = {"min": 0.07, "max": 0.09}
+            break
+    created = client.post(
+        "/api/projects",
+        json={**_project(client, "Design Space固定"), "design_space": space},
+    )
+    assert created.status_code == 201, created.text
+    project = created.json()
+    assert project["design_space_binding_provenance"] == "explicit"
+
+    continued = client.post(
+        "/api/projects",
+        json={
+            **_project(client, "Design Spaceを継承"),
+            "predecessor_project_id": project["id"],
+            "continuation_reason": "同じ実行可能領域で続ける",
+        },
+    )
+    assert continued.status_code == 201, continued.text
+    assert continued.json()["design_space_digest"] == project["design_space_digest"]
+    assert (
+        continued.json()["design_space_binding_provenance"]
+        == "inherited_predecessor"
+    )
+
+    outside = _candidate("Design Space外候補")
+    outside["inputs"]["composition"]["C"] = 0.10
+    rejected = client.post(
+        f"/api/projects/{project['id']}/candidates",
+        json=outside,
+    )
+    assert rejected.status_code == 422
+    assert "Project Design Spaceの範囲外" in (
+        rejected.json().get("detail") or rejected.json().get("message", "")
+    )
+
+    candidate = client.post(
+        f"/api/projects/{project['id']}/candidates",
+        json=_candidate("Design Space候補"),
+    ).json()
+    snapshot = client.post(
+        f"/api/projects/{project['id']}/candidates/{candidate['id']}/snapshots"
+    )
+    assert snapshot.status_code == 201, snapshot.text
+    assert (
+        snapshot.json()["payload"]["project_design_space_digest"]
+        == project["design_space_digest"]
+    )
+    screening = client.post(
+        "/api/screening",
+        params={"project_id": project["id"]},
+        json={
+            "base_candidate_id": candidate["id"],
+            "base_inputs": candidate["inputs"],
+            "samples": 48,
+            "target": "TS",
+            "variables": {
+                "composition.C": {"mode": "range", "min": 0.06, "max": 0.10}
+            },
+        },
+    )
+    assert screening.status_code == 422
+    assert "Project Design Spaceの範囲" in (
+        screening.json().get("detail") or screening.json().get("message", "")
+    )
+
+    stale_update = {
+        **_project(client, "Design Space変更不可"),
+        "design_space_digest": "sha256:" + "0" * 64,
+    }
+    locked = client.put(f"/api/projects/{project['id']}", json=stale_update)
+    assert locked.status_code == 409
+    assert locked.json()["code"] == "project_task_locked"
 
 
 def test_project_with_cross_project_derived_candidate_cannot_be_deleted(client) -> None:

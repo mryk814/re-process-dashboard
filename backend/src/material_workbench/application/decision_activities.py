@@ -29,6 +29,9 @@ from material_workbench.execution.inference_work_graph import (
     InferenceWorkGraph,
     semantic_digest,
 )
+from material_workbench.domain.design_space_validation import (
+    validate_candidate_in_design_space,
+)
 from material_workbench.persistence.store import Store
 from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
 from material_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
@@ -139,7 +142,8 @@ class DecisionActivityService:
         def validate_candidate(item: Candidate) -> None:
             try:
                 self.registry.validate_candidate(project.task_id, item)
-            except TaskRegistryError as exc:
+                validate_candidate_in_design_space(item, project.design_space)
+            except (TaskRegistryError, ValueError) as exc:
                 raise ValueError(str(exc)) from exc
 
         def resolve_candidate(candidate_id: str, revision: int) -> Candidate:
@@ -208,6 +212,7 @@ class DecisionActivityService:
             "feature_pipeline_digest": identity.pipeline_digest,
             "activity_id": definition.activity_id,
             "activity_version": definition.version,
+            "project_design_space_digest": project.design_space_digest,
             "parameters": parameter_payload,
         }
         semantic_identity = semantic_digest(provenance_identity)
@@ -240,6 +245,10 @@ class DecisionActivityService:
             activity_id=definition.activity_id,
             activity_version=definition.version,
             parameters_digest=semantic_digest(parameter_payload),
+            project_design_space_digest=project.design_space_digest,
+            project_design_space_binding_provenance=(
+                project.design_space_binding_provenance
+            ),
             model=computed.model,
         )
         stored = self.store.create_decision_activity_run(
