@@ -71,7 +71,7 @@ flowchart LR
 |---|---|---|---|
 | Source Connector | locator、parser、選択field、row key、trigger policy | 登録 | 設定契約が妥当 |
 | Raw Snapshot | 取得時のJSON行、内容hash、設定digest、前回との差分 | 取得 | JSONとして解釈可能 |
-| Curation Run | RecipeとProfileを適用した全行、状態、理由、利用可否 | 品質判定 | 登録済みRecipeとProfileが一致 |
+| Curation Run | Recipe適用後の全行、Profile参照、状態、理由、利用可否 | 品質判定 | 登録済みRecipeとProfileが一致 |
 | Canonical Dataset Revision | 承認行、除外行、override、actor、理由 | 承認 | blocked rowがなく、overrideが妥当 |
 | Training Snapshot | 承認済みかつ目的変数を利用できるrow key | 明示作成 | 対象行が1件以上 |
 
@@ -151,7 +151,7 @@ Raw Snapshotは次を保持します。
 - row keyで比較した差分
 - Snapshot全体のsemantic digest
 
-Source側の表現をそのまま残すことで、後から別のRecipeを適用できます。
+selectionで選んだSource側の表現を変換せずに残すことで、後から別のRecipeを適用できます。
 Curation後の値だけを残すと、変換の誤りを調べるための入力が消えます。
 
 ### 二種類のhashを混ぜない
@@ -159,9 +159,9 @@ Curation後の値だけを残すと、変換の誤りを調べるための入力
 `content_sha256`は、受け取った文字列をUTF-8へしたbyteのhashです。
 `snapshot_digest`は、Connector、selection、object version、trigger、内容hash、選択後の行をまとめた意味上の識別子です。
 
-同じ内容であっても、どの設定で取得したかという文脈が違えば同じSnapshotとは限りません。
+同じ内容であっても、Connectorまたはselectionが違えば同じSnapshotとは限りません。
 逆にrepositoryの重複判定は、同じConnector、同じcontent SHA、同じselectionなら既存Snapshotを返します。
-Fetch Attemptには`reused_existing_snapshot=true`を残すため、再取得という操作自体は失われません。
+この条件ではobject versionやtriggerが違っても既存Snapshotを返し、Fetch Attemptへ新しい操作の情報と`reused_existing_snapshot=true`を残します。
 
 ### 差分にはrow keyが要る
 
@@ -176,7 +176,7 @@ primary keyがない、欠損する、重複する場合、実装は配列順か
 
 ### RecipeとProfileは別の参照である
 
-Curation Runは、Raw SnapshotにVersioned Curation RecipeとDataset Profile Revisionを適用します。
+Curation Runは、Raw SnapshotへVersioned Curation Recipeを適用し、Dataset Profile RevisionのIDとdigestを参照として固定します。
 
 **Curation Recipe**は、trim、数値変換、必須判定、固定値filter、合計上限など、許可された操作の順序を固定します。
 **Dataset Profile Revision**は、Sourceのfieldがアプリ内で何を意味するかを固定します。
@@ -501,4 +501,4 @@ npx playwright test e2e/source-lifecycle.spec.ts
 9. repositoryが親資産のdigestを引き直す理由は何か。
 10. 現行E2Eが証明しない範囲は何か。
 
-解答と変更演習は@sec-lab-source-evidenceにあります。
+解答と変更演習は[行が学習対象になるまでを追跡する](../labs/trace-source-evidence.qmd)にあります。

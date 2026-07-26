@@ -14,7 +14,11 @@ try {
     }
 
     $divergence = git rev-list --left-right --count "$Against...HEAD"
-    Write-Host "HEAD versus ${Against}: $divergence"
+    $counts = $divergence -split '\s+'
+    Write-Host (
+        "Branch divergence: {0}-only={1}, HEAD-only={2}" -f `
+            $Against, $counts[0], $counts[1]
+    )
 
     $chapterFiles = Get-ChildItem -Path $learningRoot -Recurse -Filter *.qmd
     $driftFound = $false

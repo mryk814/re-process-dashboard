@@ -1,7 +1,7 @@
 ---
 level: intermediate
 estimated_minutes: 90
-verified_commit: "c3b9c14e6246c77854de7b8294e56584cb039534"
+verified_commit: "ae175ed425e6de190161dea280136f7e0dd1d1d9"
 code_references:
   - "backend/src/material_workbench/contracts/decision_activity_contracts.py"
   - "backend/src/material_workbench/application/decision_activity_registry.py"
@@ -16,6 +16,9 @@ code_references:
   - "apps/web/src/features/workbench/WorkbenchPage.tsx"
   - "apps/web/src/features/workbench/decisionActivities/registry.ts"
   - "apps/web/src/features/workbench/decisionActivities/CandidateDifferenceActivityView.tsx"
+  - "apps/web/src/features/workbench/actualMeasurementPresentation.ts"
+  - "apps/web/src/shared/taskPresentation.ts"
+  - "apps/web/src/shared/supportPresentation.ts"
   - "apps/web/tests/activityRunNavigation.test.mjs"
   - "backend/tests/test_decision_activities.py"
   - "backend/tests/test_openapi_contract.py"
@@ -273,7 +276,7 @@ model単体の検証と、実行文脈を必要とするpreconditionが混ざり
 `backend/tests/test_decision_activities.py` は、自己比較、同一入力、別Activityのparameterを送る場合を個別に検証します。
 失敗理由を分けることで、単なる422だけでなく、どの境界が拒否したかを確認できます。
 
-## provenanceが結果の出所を閉じる
+## provenanceが結果の出所を閉じる {#sec-contract-provenance}
 
 候補差分の数値だけを保存しても、後から同じ判断を説明できません。
 候補、モデル、特徴量、Activityのいずれかが変われば、同じ入力に見えても結果の意味が変わるためです。
@@ -487,6 +490,19 @@ function differenceResult(run: ApiDecisionActivityRun) {
 
 この条件の後では、TypeScriptが`input_changes`、`contributions`、`target_summaries`の存在を認識します。
 `as CandidateDifferenceSummary`で強制castする必要はありません。
+
+### 数値と適用範囲をTaskの言葉へ変える
+
+候補差分の出力値は、view固有の固定桁数で表示しません。
+`DecisionActivityPanel`はTask DefinitionとProjectの`display_decimals` overrideを固有viewへ渡します。
+`CandidateDifferenceActivityView`は`formatTaskNumber()`を使い、目的変数ごとの桁数で予測値、差、寄与、区間を表示します。
+
+入力値の差分は、出力値とは別に最大4桁の汎用formatを使います。
+入力fieldと出力targetは、同じ数値でも表示契約の正本が異なるためです。
+
+support statusも`"supported"`を直接表示しません。
+`supportStatusLabel()`を通し、「範囲内」「要確認」「外挿」という判断に使える表示へ変えます。
+型付きcontractが状態の集合を固定し、presentation helperが利用者向けの語と桁数を固定します。
 
 ### 保存済みRunをURLへ接続する
 
@@ -828,6 +844,7 @@ field名、required、literal、union、endpoint bodyの機械的な同期を担
 - E2Eは代表的な操作を確認し、全Activityの全error状態を網羅しない
 - source inspection testは構造退行を検出するが、識別子の書き方に依存する
 - 保存済みschemaの長期migration方針は、Activity versionを増やす変更ごとに判断が必要
+- Task Definitionは表示桁数を固定するが、統計値の意味を画面へ自動生成しない
 
 これらは「型があるから完全に安全」という説明を退けます。
 型はshapeと一部の組合せを守り、業務precondition、科学的妥当性、画面文脈、長期migrationは別の境界で扱います。
@@ -847,4 +864,4 @@ field名、required、literal、union、endpoint bodyの機械的な同期を担
 9. RunへPackage digestとFeature Pipeline digestを残す理由は何か。
 10. E2Eが数値をすべて固定せず、表示上の区別を確認する理由は何か。
 
-解答と変更演習は@sec-lab-contractにあります。
+解答と変更演習は[契約変更の影響範囲を予測する](../labs/extend-contract.qmd)にあります。

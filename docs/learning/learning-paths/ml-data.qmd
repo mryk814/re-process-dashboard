@@ -29,8 +29,8 @@
 | 5 | `docs/decisions/data-library-project-references.md` | Dataset RevisionとProject参照をどう分けるか | 35分 |
 | 6 | `docs/current-system-baseline.md` | 現在再利用できる境界とv1固有前提は何か | 30分 |
 | 7 | `backend/tests/test_training_view_boundary.py` | 学習cohortの境界を何で守るか | 25分 |
-| 8 | @sec-contract-stack のprovenance節 | Decision Activity Runへ何を固定するか | 30分 |
-| 9 | @sec-source-evidence | 外部Sourceを承認済みの学習行集合へどう変えるか | 120分 |
+| 8 | [型付き契約のprovenance節](../chapters/contract-through-stack.qmd#sec-contract-provenance) | Decision Activity Runへ何を固定するか | 30分 |
+| 9 | [Source data lifecycleの章](../chapters/source-to-training-evidence.qmd) | 外部Sourceを承認済みの学習行集合へどう変えるか | 120分 |
 
 既存の `docs/tutorial-data-pipeline.md` は移動しません。
 既存リンクを壊さず、最小データでData、Profile、Feature、Modelを追える教材として参照します。
@@ -58,5 +58,5 @@ uv run python -m pytest `
 - 複数段の学習と実行は `docs/decisions/multistage-chain-architecture.md`
 - 可変長系列は `docs/variable-length-series.md`
 
-外部Sourceの更新経路を実装する場合は、発展項目へ進む前に@sec-source-evidenceと[対応する演習](../labs/trace-source-evidence.qmd)を使います。
+外部Sourceの更新経路を実装する場合は、発展項目へ進む前に[Source data lifecycleの章](../chapters/source-to-training-evidence.qmd)と[対応する演習](../labs/trace-source-evidence.qmd)を使います。
 この二つは、取得、品質判定、承認、Training Snapshot、Package active化を別の操作として確認します。
