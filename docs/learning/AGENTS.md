@@ -53,12 +53,26 @@ git worktree add -b learning/textbook `
 ```yaml
 verified_commit: "<full commit sha>"
 code_references:
-  - "path/to/contract.py"
-  - "path/to/test.py"
+  - path: "path/to/contract.py"
+    id: "chapter-contract"
+    role: "contract"
+    symbols:
+      - "ContractName"
+  - path: "path/to/test.py"
+    role: "test"
 ```
 
 `verified_commit`は、参照実装とtestを実際に確認したcommitへ更新する。
 教材だけを編集したcommitへ機械的に置き換えない。
+
+`code_references`は構造化形式だけを使い、文字列path形式へ戻さない。
+本文から参照するentryには、教材全体で一意なkebab-caseの`id`を付ける。
+`role`は`contract`、`domain`、`application`、`persistence`、`api`、`generated`、`frontend`、`test`、`fixture`、`build`、`docs`から選ぶ。
+追跡価値があるclass、function、定数、componentだけを`symbols`へ登録する。
+本文では `{{{< code-ref chapter-contract >}}}` または `{{{< code-ref chapter-contract symbol=ContractName >}}}` を使い、GitHub URLとline番号を手書きしない。
+HTMLのlinkとPDFの短い参照表記は、`verified_commit`のblobからbuild時に生成する。
+GitHub repositoryのfull nameは `code-reference-config.json` だけへ定義する。
+旧文字列形式を見つけた場合は、pathを構造化し、roleを付け、本文で根拠として使う主要symbolだけを追加してからcheckを通す。
 
 ## 文章と構成
 
@@ -75,7 +89,8 @@ code_references:
 - 本文には理解と判断に必要な主線を置き、補足、例外、来歴、脇道の実務知識は脚注へ置く。
 - 脚注を読まなくても論証が成立するようにする。結論、前提、危険、操作手順を脚注へ隠さない。
 - 脚注は「あると嬉しい」情報だけに使い、一つの脚注へ複数の話題を詰め込まない。
-- 脚注は、直近の主張の誤読を防ぐ限定、用語の来歴、一次資料への導線に絞る。章を越えて一般化する資料はFurther Readingへ置く。
+- 脚注は、直近の主張の誤読を防ぐ限定、用語の来歴、一次資料への導線、現在の問いに接続する補足と脇道の実務知識に使う。
+- 脚注へ置く補足は、本文なしでも論証が成立し、現在の問いとの接続を一文で説明できるものに限る。章を越えて一般化する資料はFurther Readingへ置く。
 - 日本語本文で空虚な強調、同じ結論の言い換え、過剰な予告と総括を避ける。
 
 文章と構成を新しく決める場合は、公式教材または公式style guideを事前調査する。
@@ -136,6 +151,7 @@ HTMLのsummaryへ答えの内容を書かず、「解答例を見る」に固定
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-references.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-main-drift.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-exercise-solutions.ps1
+node docs/learning/check-code-references.mjs
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/build.ps1 -Clean
 ```
 

@@ -122,6 +122,10 @@ Quartoのbook検索は生成したsiteの内容をローカル索引へまとめ
 コード断片は論点に必要な行だけを掲載し、関数全体を複製しません。
 省略した断片には元pathと識別子を付け、読者が現行実装へ移れるようにします。
 
+本文から実装証拠へ移る参照は、branch名ではなく、章が検証したfull commit SHAへ固定します。^[GitHubは、branchを含むfile URLはbranchの更新に応じて内容が変わり、commit IDを含むpermalinkは特定版を指し続けると説明しています。Quartoのcustom shortcodeはmetadataを受け取りPandoc ASTを返せるため、この教材ではURLを本文へ複製せず、構造化したcode referenceからHTMLとPDFの表現を生成します。[GitHubのpermalink公式文書](https://docs.github.com/en/repositories/working-with-files/using-files/getting-permanent-links-to-files)と[Quartoのshortcode公式文書](https://quarto.org/docs/extensions/shortcodes.html)を参照してください。]
+pathとsymbolは正本metadataへ置き、line番号は固定情報として保存せず、検証したblobから導出します。
+Pythonのsymbolは標準`ast`、TypeScriptとTSXのsymbolはTypeScript Compiler APIでtop-level宣言だけを確認します。^[初期検査をtop-levelへ限定するのは、完全なlanguage serverを教材buildへ持ち込まず、本文が根拠として指すclass、function、定数、componentの消失を検出するためです。[Python `ast`公式文書](https://docs.python.org/3/library/ast.html)と[TypeScript Compiler API公式案内](https://github.com/microsoft/TypeScript/wiki/Using-the-Compiler-API)を参照してください。]
+
 ## 引用と参考文献の規則
 
 外部資料は、公式documentation、仕様書と標準、original research paper、公式repositoryとmaintainer discussion、専門書、組織のtechnical reportの順に探します。

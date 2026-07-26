@@ -1,5 +1,7 @@
 /_build/
 /.quarto/
+/_extensions/code-reference/generated-manifest.lua
+/_extensions/code-reference/generated-expected-links.json
 
 
 **/*.quarto_ipynb

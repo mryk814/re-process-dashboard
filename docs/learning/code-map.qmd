@@ -1,3 +1,43 @@
+---
+verified_commit: "73dba521d833ff63eb43ca544cf89b9b65648107"
+code_references:
+  - path: "backend/src/material_workbench/contracts/decision_activity_contracts.py"
+    id: "code-map-activity-contract"
+    role: "contract"
+    symbols:
+      - "CandidateDifferenceParameters"
+      - "DecisionActivityRunRequest"
+  - path: "backend/src/material_workbench/application/decision_activity_registry.py"
+    id: "code-map-activity-registry"
+    role: "application"
+  - path: "backend/src/material_workbench/application/decision_activities.py"
+    id: "code-map-activity-service"
+    role: "application"
+  - path: "backend/src/material_workbench/api/decision_activities.py"
+    id: "code-map-activity-api"
+    role: "api"
+  - path: "apps/web/src/generated/api-types.ts"
+    id: "code-map-api-types"
+    role: "generated"
+  - path: "apps/web/src/features/workbench/DecisionActivityPanel.tsx"
+    id: "code-map-activity-panel"
+    role: "frontend"
+    symbols:
+      - "DecisionActivityPanel"
+  - path: "apps/web/src/features/workbench/decisionActivities/registry.ts"
+    id: "code-map-frontend-registry"
+    role: "frontend"
+  - path: "backend/tests/test_decision_activities.py"
+    id: "code-map-activity-test"
+    role: "test"
+  - path: "backend/tests/test_openapi_contract.py"
+    id: "code-map-openapi-test"
+    role: "test"
+  - path: "e2e/decision-activity.spec.ts"
+    id: "code-map-activity-e2e"
+    role: "test"
+---
+
 # 教材用コードマップ {#sec-code-map}
 
 このマップは、技術名から実コードへ移るためのreferenceです。
@@ -7,11 +47,12 @@
 
 ### Decision Activity union
 
-- **Contract**：`backend/src/material_workbench/contracts/decision_activity_contracts.py`
-- **Application**：`backend/src/material_workbench/application/decision_activity_registry.py`、`backend/src/material_workbench/application/decision_activities.py`
-- **APIと生成型**：`backend/src/material_workbench/api/decision_activities.py`、`apps/web/src/generated/api-types.ts`
-- **Frontend**：`apps/web/src/features/workbench/DecisionActivityPanel.tsx`、`apps/web/src/features/workbench/decisionActivities/registry.ts`
-- **Testと文書**：`backend/tests/test_decision_activities.py`、`e2e/decision-activity.spec.ts`、`docs/decision-activities.md`
+- **Contract**：{{< code-ref code-map-activity-contract >}}
+- **Application**：{{< code-ref code-map-activity-registry >}}、{{< code-ref code-map-activity-service >}}
+- **APIと生成型**：{{< code-ref code-map-activity-api >}}、{{< code-ref code-map-api-types >}}
+- **Frontend**：{{< code-ref code-map-activity-panel >}}、{{< code-ref code-map-frontend-registry >}}
+- **Test**：{{< code-ref code-map-activity-test >}}、{{< code-ref code-map-openapi-test >}}、{{< code-ref code-map-activity-e2e >}}
+- **設計文書**：`docs/decision-activities.md`
 
 ### Candidate revision
 

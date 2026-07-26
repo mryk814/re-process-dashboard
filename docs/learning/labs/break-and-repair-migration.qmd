@@ -3,13 +3,21 @@ level: intermediate
 estimated_minutes: 75
 verified_commit: "bb3b4ff8b2f4b30d13b587162fef546421eea283"
 code_references:
-  - "backend/src/material_workbench/persistence/candidate_revision_migration.py"
-  - "backend/src/material_workbench/persistence/workspace_catalog_migration.py"
-  - "backend/src/material_workbench/persistence/sqlite_connection.py"
-  - "backend/tests/test_candidate_safety.py"
-  - "backend/tests/test_candidate_migration.py"
-  - "backend/tests/test_workspace_catalog_migration.py"
-  - "backend/tests/test_sqlite_connection.py"
+  - path: "backend/src/material_workbench/persistence/candidate_revision_migration.py"
+    role: "persistence"
+  - path: "backend/src/material_workbench/persistence/workspace_catalog_migration.py"
+    role: "persistence"
+  - path: "backend/src/material_workbench/persistence/sqlite_connection.py"
+    role: "persistence"
+  - path: "backend/tests/test_candidate_safety.py"
+    role: "test"
+  - path: "backend/tests/test_candidate_migration.py"
+    role: "test"
+  - path: "backend/tests/test_workspace_catalog_migration.py"
+    role: "test"
+  - path: "backend/tests/test_sqlite_connection.py"
+    role: "test"
+
 ---
 
 # migrationの矛盾を再現して診断する {#sec-lab-migration}

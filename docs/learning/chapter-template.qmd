@@ -4,8 +4,14 @@ level: beginner
 estimated_minutes: 45
 verified_commit: "<full commit sha>"
 code_references:
-  - "path/to/contract.py"
-  - "path/to/test.py"
+  - path: "path/to/contract.py"
+    id: "chapter-contract"
+    role: "contract"
+    symbols:
+      - "ContractName"
+  - path: "path/to/test.py"
+    role: "test"
+
 concepts:
   - "concept name"
 ---
@@ -35,6 +41,10 @@ concepts:
 ## 実装を読む
 
 次の順を基本とし、存在しない層を無理に作らない。
+
+本文から検証済みコードを指す場合は、metadataに登録したidを `{{{< code-ref chapter-contract >}}}` で参照する。
+symbolへ移る場合は `{{{< code-ref chapter-contract symbol=ContractName >}}}` と書く。
+GitHub URLやline番号を本文へ手書きしない。
 
 1. contract
 2. application service

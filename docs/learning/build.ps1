@@ -8,8 +8,14 @@ $buildRoot = Join-Path $learningRoot "_build"
 $siteProfile = Join-Path $learningRoot "_quarto-site.yml"
 $readerProfile = Join-Path $learningRoot "_quarto-reader.yml"
 $exerciseCheck = Join-Path $learningRoot "check-exercise-solutions.ps1"
+$codeReferenceCheck = Join-Path $learningRoot "check-code-references.mjs"
 
-foreach ($profilePath in @($siteProfile, $readerProfile, $exerciseCheck)) {
+foreach ($profilePath in @(
+    $siteProfile,
+    $readerProfile,
+    $exerciseCheck,
+    $codeReferenceCheck
+)) {
     if (-not (Test-Path -LiteralPath $profilePath -PathType Leaf)) {
         throw "Required learning build input is missing: $profilePath"
     }
@@ -62,6 +68,10 @@ foreach ($chapter in $maintenanceOnlyChapters) {
 }
 
 & $exerciseCheck
+node $codeReferenceCheck --write-manifest
+if ($LASTEXITCODE -ne 0) {
+    throw "Code reference validation failed with exit code $LASTEXITCODE."
+}
 
 Push-Location $learningRoot
 try {
@@ -135,6 +145,26 @@ $initiallyOpenSolutions = [regex]::Matches(
     $siteHtml,
     '<details\b[^>]*\bopen(?:\s|=|>)'
 ).Count
+$expectedCodeReferencePath = Join-Path $learningRoot (
+    "_extensions\code-reference\generated-expected-links.json"
+)
+$expectedCodeReferenceUrls = [string[]](
+    Get-Content -LiteralPath $expectedCodeReferencePath -Raw -Encoding UTF8 |
+        ConvertFrom-Json
+)
+$codeReferenceTags = [regex]::Matches(
+    $siteHtml,
+    '<a\b(?=[^>]*\bclass="[^"]*\bcode-reference\b)[^>]*>'
+)
+$renderedCodeReferenceUrls = @(
+    foreach ($tag in $codeReferenceTags) {
+        $href = [regex]::Match($tag.Value, '\bhref="([^"]+)"')
+        if (-not $href.Success) {
+            throw "Rendered code reference is missing href: $($tag.Value)"
+        }
+        $href.Groups[1].Value
+    }
+)
 
 if ($renderedSolutions -ne $expectedSolutionCount) {
     throw (
@@ -151,10 +181,29 @@ if ($renderedSummaries -ne $expectedSolutionCount) {
 if ($initiallyOpenSolutions -ne 0) {
     throw "HTML contains $initiallyOpenSolutions solution disclosure(s) that are initially open."
 }
+if ($renderedCodeReferenceUrls.Count -ne $expectedCodeReferenceUrls.Count) {
+    throw (
+        "Expected {0} rendered code reference links, found {1}." -f `
+            $expectedCodeReferenceUrls.Count, $renderedCodeReferenceUrls.Count
+    )
+}
+$linkDifference = Compare-Object `
+    ($expectedCodeReferenceUrls | Sort-Object) `
+    ($renderedCodeReferenceUrls | Sort-Object)
+if ($linkDifference) {
+    throw (
+        "Rendered code reference hrefs differ from the verified metadata:`n{0}" -f `
+            ($linkDifference | Out-String)
+    )
+}
 
 Write-Host "Generated an integrated HTML site and a reader-only PDF from shared manuscripts."
 Write-Host ("HTML: {0}" -f $siteIndex)
 Write-Host ("PDF:  {0}" -f $readerPdf)
 Write-Host ("Exercise disclosures: {0}, all initially closed." -f $renderedSolutions)
+Write-Host (
+    "Verified code links: {0}, all matched exact metadata hrefs." -f `
+        $renderedCodeReferenceUrls.Count
+)
 Write-Host ("Integrated HTML build: {0:N2} seconds" -f $siteWatch.Elapsed.TotalSeconds)
 Write-Host ("Reader PDF build:     {0:N2} seconds" -f $readerWatch.Elapsed.TotalSeconds)

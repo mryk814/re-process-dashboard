@@ -39,18 +39,29 @@ try {
             throw "Unknown verified_commit in $($chapter.FullName): $verifiedCommit"
         }
 
-        $referencesBlock = [regex]::Match(
-            $content,
-            '(?ms)^code_references:\s*\r?\n(?<items>(?:\s+-\s+"[^"]+"\s*\r?\n)+)'
-        )
-        if (-not $referencesBlock.Success) {
-            continue
+        $references = [System.Collections.Generic.List[string]]::new()
+        $insideReferences = $false
+        foreach ($line in ($content -split '\r?\n')) {
+            if ($line -eq "code_references:") {
+                $insideReferences = $true
+                continue
+            }
+            if (-not $insideReferences) {
+                continue
+            }
+            if ($line -match '^[^\s]') {
+                break
+            }
+            if ($line -match '^  - path:\s*"([^"]+)"\s*$') {
+                $references.Add($Matches[1])
+            }
+            if ($line -match '^  -\s+"') {
+                throw "Legacy string code_reference in $($chapter.FullName)"
+            }
         }
-
-        $references = [regex]::Matches(
-            $referencesBlock.Groups["items"].Value,
-            '"([^"]+)"'
-        ) | ForEach-Object { $_.Groups[1].Value }
+        if ($references.Count -eq 0) {
+            throw "No structured code_references in $($chapter.FullName)"
+        }
 
         $changed = [System.Collections.Generic.List[string]]::new()
         foreach ($reference in $references) {

@@ -3,11 +3,17 @@ level: intermediate
 estimated_minutes: 60
 verified_commit: "f93af87d71c415250677638fbfe6788e89790e2e"
 code_references:
-  - "backend/src/material_workbench/contracts/decision_activity_contracts.py"
-  - "backend/tests/test_decision_activities.py"
-  - "backend/tests/test_openapi_contract.py"
-  - "apps/web/src/generated/api-types.ts"
-  - "apps/web/src/features/workbench/decisionActivities/CandidateDifferenceActivityView.tsx"
+  - path: "backend/src/material_workbench/contracts/decision_activity_contracts.py"
+    role: "contract"
+  - path: "backend/tests/test_decision_activities.py"
+    role: "test"
+  - path: "backend/tests/test_openapi_contract.py"
+    role: "test"
+  - path: "apps/web/src/generated/api-types.ts"
+    role: "generated"
+  - path: "apps/web/src/features/workbench/decisionActivities/CandidateDifferenceActivityView.tsx"
+    role: "frontend"
+
 ---
 
 # 契約変更の影響範囲を予測する {#sec-lab-contract}

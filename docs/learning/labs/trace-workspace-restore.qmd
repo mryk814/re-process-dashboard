@@ -3,16 +3,27 @@ level: intermediate
 estimated_minutes: 90
 verified_commit: "f3e64fa15b49ffcb504357864bd58052ab2c3780"
 code_references:
-  - "backend/src/material_workbench/contracts/workspace_bundle_contracts.py"
-  - "backend/src/material_workbench/application/workspace_bundle.py"
-  - "backend/src/sidecar.py"
-  - "backend/tests/test_workspace_bundle.py"
-  - "apps/desktop/src/main.ts"
-  - "apps/desktop/src/preload.ts"
-  - "apps/web/src/features/workspace/WorkspaceManagerDialog.tsx"
-  - "apps/web/tests/workspaceBackupPresentation.test.mjs"
-  - "apps/web/tests/workspaceNotice.test.mjs"
-  - "scripts/smoke-packaged.mjs"
+  - path: "backend/src/material_workbench/contracts/workspace_bundle_contracts.py"
+    role: "contract"
+  - path: "backend/src/material_workbench/application/workspace_bundle.py"
+    role: "application"
+  - path: "backend/src/sidecar.py"
+    role: "build"
+  - path: "backend/tests/test_workspace_bundle.py"
+    role: "test"
+  - path: "apps/desktop/src/main.ts"
+    role: "build"
+  - path: "apps/desktop/src/preload.ts"
+    role: "build"
+  - path: "apps/web/src/features/workspace/WorkspaceManagerDialog.tsx"
+    role: "frontend"
+  - path: "apps/web/tests/workspaceBackupPresentation.test.mjs"
+    role: "test"
+  - path: "apps/web/tests/workspaceNotice.test.mjs"
+    role: "test"
+  - path: "scripts/smoke-packaged.mjs"
+    role: "build"
+
 ---
 
 # 復元の途中で止まったWorkspaceを診断する {#sec-lab-workspace-restore}

@@ -3,26 +3,54 @@ level: intermediate
 estimated_minutes: 90
 verified_commit: "6d7be3cea9aad5e0cad6ee8146191545575b6c14"
 code_references:
-  - "backend/src/material_workbench/contracts/decision_activity_contracts.py"
-  - "backend/src/material_workbench/application/decision_activity_registry.py"
-  - "backend/src/material_workbench/application/decision_activities.py"
-  - "backend/src/material_workbench/api/decision_activities.py"
-  - "backend/scripts/export_openapi.py"
-  - "apps/web/src/generated/openapi.json"
-  - "apps/web/src/generated/api-types.ts"
-  - "apps/web/src/shared/api/workbench-api.ts"
-  - "apps/web/src/app/navigation.ts"
-  - "apps/web/src/features/workbench/DecisionActivityPanel.tsx"
-  - "apps/web/src/features/workbench/WorkbenchPage.tsx"
-  - "apps/web/src/features/workbench/decisionActivities/registry.ts"
-  - "apps/web/src/features/workbench/decisionActivities/CandidateDifferenceActivityView.tsx"
-  - "apps/web/src/features/workbench/actualMeasurementPresentation.ts"
-  - "apps/web/src/shared/taskPresentation.ts"
-  - "apps/web/src/shared/supportPresentation.ts"
-  - "apps/web/tests/activityRunNavigation.test.mjs"
-  - "backend/tests/test_decision_activities.py"
-  - "backend/tests/test_openapi_contract.py"
-  - "e2e/decision-activity.spec.ts"
+  - path: "backend/src/material_workbench/contracts/decision_activity_contracts.py"
+    id: "contract-stack-contract"
+    role: "contract"
+    symbols:
+      - "CandidateDifferenceParameters"
+      - "DecisionActivityRunRequest"
+  - path: "backend/src/material_workbench/application/decision_activity_registry.py"
+    role: "application"
+  - path: "backend/src/material_workbench/application/decision_activities.py"
+    role: "application"
+  - path: "backend/src/material_workbench/api/decision_activities.py"
+    role: "api"
+  - path: "backend/scripts/export_openapi.py"
+    role: "build"
+  - path: "apps/web/src/generated/openapi.json"
+    role: "generated"
+  - path: "apps/web/src/generated/api-types.ts"
+    role: "generated"
+  - path: "apps/web/src/shared/api/workbench-api.ts"
+    role: "api"
+  - path: "apps/web/src/app/navigation.ts"
+    role: "frontend"
+  - path: "apps/web/src/features/workbench/DecisionActivityPanel.tsx"
+    id: "contract-stack-panel"
+    role: "frontend"
+    symbols:
+      - "DecisionActivityPanel"
+  - path: "apps/web/src/features/workbench/WorkbenchPage.tsx"
+    role: "frontend"
+  - path: "apps/web/src/features/workbench/decisionActivities/registry.ts"
+    role: "frontend"
+  - path: "apps/web/src/features/workbench/decisionActivities/CandidateDifferenceActivityView.tsx"
+    role: "frontend"
+  - path: "apps/web/src/features/workbench/actualMeasurementPresentation.ts"
+    role: "frontend"
+  - path: "apps/web/src/shared/taskPresentation.ts"
+    role: "frontend"
+  - path: "apps/web/src/shared/supportPresentation.ts"
+    role: "frontend"
+  - path: "apps/web/tests/activityRunNavigation.test.mjs"
+    role: "test"
+  - path: "backend/tests/test_decision_activities.py"
+    role: "test"
+  - path: "backend/tests/test_openapi_contract.py"
+    role: "test"
+  - path: "e2e/decision-activity.spec.ts"
+    role: "test"
+
 concepts:
   - "discriminated union"
   - "contract as source of truth"
@@ -109,7 +137,7 @@ parameterとresultが別の識別子を持つため、requestとresponseを同�
 
 ### parameter model
 
-正本は `backend/src/material_workbench/contracts/decision_activity_contracts.py` です。
+正本は {{< code-ref contract-stack-contract label=decision_activity_contracts.py >}} です。
 候補差分のparameter modelは、比較対象の候補IDとrevisionを要求します。
 
 ```python
@@ -166,7 +194,7 @@ assert response.status_code == 422
 ```
 
 このtestはdefault値の存在を否定していません。
-Pythonコードが`CandidateDifferenceParameters(...)`を直接生成する場合にはdefaultを使えます。
+Pythonコードが{{< code-ref contract-stack-contract symbol=CandidateDifferenceParameters >}}を直接生成する場合にはdefaultを使えます。
 外部payloadをunionとして受ける場合は、種類を明示させるという境界を固定しています。
 
 ### result model
@@ -334,7 +362,7 @@ routerはHTTP path、status、dependency、error変換を担当します。
 
 FastAPIはfunction signatureとPydantic modelからOpenAPI schemaを生成します。
 request bodyからvalidationとAPI documentへ情報が渡る基本経路は、FastAPI公式tutorialでも確認できます [@fastapi-request-body]。
-`DecisionActivityRunRequest.parameters`は、三つのparameter schemaを持つ`oneOf`と、`schema_version`のdiscriminator mappingになります。
+{{< code-ref contract-stack-contract symbol=DecisionActivityRunRequest >}}の`parameters`は、三つのparameter schemaを持つ`oneOf`と、`schema_version`のdiscriminator mappingになります。
 
 このOpenAPIはruntimeから毎回frontendへ直接配信して終わりではありません。
 `backend/scripts/export_openapi.py`がJSONを安定した順序で書き出し、`apps/web/src/generated/openapi.json`としてversion controlします。
@@ -442,7 +470,7 @@ wrapperはPydantic contractを再定義しません。
 
 ### 共通shell
 
-`apps/web/src/features/workbench/DecisionActivityPanel.tsx`は、Activityに共通する状態を所有します。
+{{< code-ref contract-stack-panel label=DecisionActivityPanel.tsx >}}の{{< code-ref contract-stack-panel symbol=DecisionActivityPanel >}}は、Activityに共通する状態を所有します。
 
 - 利用可能なActivityの取得
 - 保存済みRunの取得
