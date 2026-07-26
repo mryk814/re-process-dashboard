@@ -36,11 +36,12 @@ split into three allow-listed parts:
 
 - `latin_hypercube_v1` preserves the previous seeded LHS sequence and goal/
   shortfall ranking.
-- `sobol_ucb_v1` uses a scrambled, seeded Sobol pool and UCB/LCB. The exploration
-  coefficient is a saved request parameter rather than an internal constant.
+- `sobol_ucb_v1` uses a scrambled, seeded Sobol pool and UCB/LCB. The saved
+  exploration parameter is the standard-deviation multiplier.
 - `sobol_ei_v1` additionally requires a fixed incumbent value. It records mean,
-  predictive standard deviation, incumbent and expected improvement for every
-  evaluated point.
+  predictive standard deviation, incumbent, improvement margin `xi` and expected
+  improvement for every evaluated point. Its saved parameter is `xi`, not the
+  UCB multiplier.
 - Thompson sampling, uncertainty sampling and support-boundary sampling have
   stable registry identities and capability requirements, but are deliberately
   marked unavailable until their Runtime representations are production-ready.
@@ -49,6 +50,14 @@ The API exposes availability and human-readable reasons. A requested unavailable
 strategy is rejected unless the request explicitly permits deterministic
 fallback; fallback changes the stored strategy identity and keeps
 `fallback_from`.
+
+UCB/LCB and EI require the typed `normal_mean_std` acquisition representation:
+the Runtime output must declare a mean point statistic and predictive standard
+deviation on an unconstrained continuous target. A median, probability, rate,
+count, ordinal or positive-support target is not silently treated as a normal
+mean. Each evaluated point records whether sigma
+came from a named uncertainty component or from the central 90% interval normal
+approximation, and the Run summarizes the methods actually used.
 
 Both LHS and Sobol take only the immutable Design Space as generation input:
 fixed values, numeric and categorical domains, conditional inactive values, and

@@ -1,13 +1,19 @@
 """Typed Proposal Strategy registry and Runtime Capability checks."""
 from __future__ import annotations
 
+from typing import Literal
+
 from material_workbench.contracts.objective_contracts import ObjectiveDefinition
 from material_workbench.contracts.proposal_contracts import (
+    AcquisitionRepresentation,
     ProposalStrategyAvailability,
     ProposalStrategyDefinition,
     ProposalStrategyRequest,
 )
-from material_workbench.contracts.task_contracts import RuntimeCapability
+from material_workbench.contracts.task_contracts import (
+    RuntimeCapability,
+    TargetRuntimeCapability,
+)
 
 
 STRATEGIES = (
@@ -24,7 +30,7 @@ STRATEGIES = (
     ),
     ProposalStrategyDefinition(
         strategy_id="sobol_ucb_v1",
-        version="1.0.0",
+        version="1.1.0",
         label="Sobol・UCB/LCB",
         generator_id="sobol",
         generator_version="1.0.0",
@@ -33,19 +39,21 @@ STRATEGIES = (
         selector_id="ranked_top_k",
         selector_version="1.0.0",
         requires_standard_deviation=True,
+        requires_acquisition_representation="normal_mean_std",
     ),
     ProposalStrategyDefinition(
         strategy_id="sobol_ei_v1",
-        version="1.0.0",
+        version="1.1.0",
         label="Sobol・Expected Improvement",
         generator_id="sobol",
         generator_version="1.0.0",
         acquisition_id="expected_improvement",
-        acquisition_version="1.0.0",
+        acquisition_version="1.1.0",
         selector_id="ranked_top_k",
         selector_version="1.0.0",
         requires_standard_deviation=True,
         requires_incumbent=True,
+        requires_acquisition_representation="normal_mean_std",
     ),
     ProposalStrategyDefinition(
         strategy_id="sobol_thompson_v1",
@@ -88,16 +96,48 @@ STRATEGIES = (
 )
 
 
+def target_acquisition_representations(
+    capability: TargetRuntimeCapability | None,
+    *,
+    target_kind: Literal[
+        "continuous", "continuous_positive", "binary", "count", "ordinal"
+    ] | None,
+) -> tuple[AcquisitionRepresentation, ...]:
+    """Translate low-level Runtime output fields into acquisition-safe meanings."""
+
+    if capability is None:
+        return ("unsupported",)
+    representations: list[AcquisitionRepresentation] = []
+    if (
+        target_kind == "continuous"
+        and "mean" in capability.point_statistics
+        and capability.standard_deviation
+    ):
+        representations.append("normal_mean_std")
+    if capability.samples:
+        representations.append("posterior_samples")
+    if capability.parametric_distribution:
+        representations.append("parametric_distribution")
+    return tuple(representations) or ("unsupported",)
+
+
 def strategy_availability(
     capability: RuntimeCapability,
     *,
     target: str,
+    target_kind: Literal[
+        "continuous", "continuous_positive", "binary", "count", "ordinal"
+    ],
     objective: ObjectiveDefinition | None,
     incumbent_value: float | None = None,
 ) -> list[ProposalStrategyAvailability]:
     target_capability = next(
         (item for item in capability.targets if item.target == target),
         None,
+    )
+    representations = target_acquisition_representations(
+        target_capability,
+        target_kind=target_kind,
     )
     results = []
     for definition in STRATEGIES:
@@ -109,11 +149,21 @@ def strategy_availability(
         else:
             if (
                 definition.requires_standard_deviation
+                and definition.requires_acquisition_representation is None
                 and not target_capability.standard_deviation
             ):
                 reasons.append("予測標準偏差に対応するRuntimeが必要です")
             if definition.requires_samples and not target_capability.samples:
                 reasons.append("予測sampleに対応するRuntimeが必要です")
+            required_representation = definition.requires_acquisition_representation
+            if (
+                required_representation is not None
+                and required_representation not in representations
+            ):
+                reasons.append(
+                    "この戦略には平均と予測標準偏差をnormal mean/stdとして"
+                    "解釈できる連続outputが必要です"
+                )
         if definition.requires_joint_samples and not capability.joint_samples:
             reasons.append("joint sampleに対応するRuntimeが必要です")
         has_incumbent = incumbent_value is not None
@@ -136,6 +186,7 @@ def strategy_availability(
         results.append(
             ProposalStrategyAvailability(
                 definition=definition,
+                target_acquisition_representations=representations,
                 available=not reasons,
                 reasons=tuple(reasons),
             )
@@ -148,6 +199,9 @@ def resolve_strategy(
     capability: RuntimeCapability,
     *,
     target: str,
+    target_kind: Literal[
+        "continuous", "continuous_positive", "binary", "count", "ordinal"
+    ],
     objective: ObjectiveDefinition,
 ) -> tuple[ProposalStrategyDefinition, str | None]:
     availability = {
@@ -155,6 +209,7 @@ def resolve_strategy(
         for item in strategy_availability(
             capability,
             target=target,
+            target_kind=target_kind,
             objective=objective,
             incumbent_value=request.incumbent_value,
         )

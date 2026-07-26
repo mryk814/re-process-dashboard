@@ -9,16 +9,19 @@ from material_workbench.contracts.schemas import ScreeningGoal
 from material_workbench.domain.screening_score import evaluate_screening_goal
 
 
-def predictive_standard_deviation(prediction: Any) -> float:
+def predictive_standard_deviation(prediction: Any) -> tuple[float, str]:
     components = prediction.uncertainty_components or {}
     for key in ("total", "predictive", "model"):
         value = components.get(key)
         if value is not None and math.isfinite(float(value)) and float(value) > 0:
-            return float(value)
+            return float(value), f"uncertainty_component:{key}"
     width = float(prediction.upper) - float(prediction.lower)
     if width <= 0:
         raise ValueError("予測不確かさが正の幅を持ちません")
-    return width / (2 * 1.6448536269514722)
+    return (
+        width / (2 * 1.6448536269514722),
+        "central_90_interval_normal_approximation",
+    )
 
 
 def acquisition_value(
@@ -52,7 +55,7 @@ def acquisition_value(
 
     if goal is None or goal.direction == "between":
         raise ValueError("UCB/EIには上限または下限方向の主目的が必要です")
-    sigma = predictive_standard_deviation(prediction)
+    sigma, sigma_method = predictive_standard_deviation(prediction)
     maximize = goal.direction == "at_least"
     if acquisition_id == "upper_confidence_bound":
         bound = (
@@ -64,13 +67,19 @@ def acquisition_value(
             "method": "ucb" if maximize else "lcb",
             "mean": mean,
             "standard_deviation": sigma,
+            "standard_deviation_method": sigma_method,
+            "acquisition_representation": "normal_mean_std",
             "exploration_parameter": exploration_parameter,
+            "parameter_role": "confidence_multiplier",
             "confidence_bound": bound,
         }
     if acquisition_id == "expected_improvement":
         if incumbent_value is None:
             raise ValueError("Expected Improvementにはincumbent値が必要です")
-        improvement = mean - incumbent_value if maximize else incumbent_value - mean
+        raw_improvement = (
+            mean - incumbent_value if maximize else incumbent_value - mean
+        )
+        improvement = raw_improvement - exploration_parameter
         z = improvement / sigma
         normal = NormalDist()
         expected = improvement * normal.cdf(z) + sigma * normal.pdf(z)
@@ -79,7 +88,12 @@ def acquisition_value(
             "method": "expected_improvement",
             "mean": mean,
             "standard_deviation": sigma,
+            "standard_deviation_method": sigma_method,
+            "acquisition_representation": "normal_mean_std",
             "incumbent_value": incumbent_value,
+            "raw_improvement": raw_improvement,
+            "improvement_margin": exploration_parameter,
+            "parameter_role": "improvement_margin",
             "expected_improvement": expected,
         }
     raise ValueError(f"未登録のAcquisition Evaluatorです: {acquisition_id}")

@@ -6339,6 +6339,8 @@ export interface components {
              * @default []
              */
             reasons: string[];
+            /** Target Acquisition Representations */
+            target_acquisition_representations: ("normal_mean_std" | "posterior_samples" | "parametric_distribution" | "unsupported")[];
         };
         /** ProposalStrategyDefinition */
         ProposalStrategyDefinition: {
@@ -6363,6 +6365,8 @@ export interface components {
              * @default true
              */
             production_enabled: boolean;
+            /** Requires Acquisition Representation */
+            requires_acquisition_representation?: ("normal_mean_std" | "posterior_samples" | "parametric_distribution" | "unsupported") | null;
             /**
              * Requires Incumbent
              * @default false
@@ -7078,6 +7082,8 @@ export interface components {
              * @default goal_achievement
              */
             acquisition_id: string;
+            /** Acquisition Representation */
+            acquisition_representation?: "normal_mean_std" | null;
             /**
              * Acquisition Version
              * @default 1.0.0
@@ -7113,6 +7119,8 @@ export interface components {
             id: string;
             /** Incumbent Value */
             incumbent_value?: number | null;
+            /** Parameter Role */
+            parameter_role?: ("confidence_multiplier" | "improvement_margin") | null;
             /**
              * Pool Multiplier
              * @default 4
@@ -7132,6 +7140,11 @@ export interface components {
              * @default 1.0.0
              */
             selector_version: string;
+            /**
+             * Standard Deviation Methods
+             * @default []
+             */
+            standard_deviation_methods: string[];
             /**
              * Support Policy
              * @default supported_first

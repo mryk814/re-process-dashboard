@@ -12129,10 +12129,24 @@
             },
             "title": "Reasons",
             "type": "array"
+          },
+          "target_acquisition_representations": {
+            "items": {
+              "enum": [
+                "normal_mean_std",
+                "posterior_samples",
+                "parametric_distribution",
+                "unsupported"
+              ],
+              "type": "string"
+            },
+            "title": "Target Acquisition Representations",
+            "type": "array"
           }
         },
         "required": [
           "definition",
+          "target_acquisition_representations",
           "available"
         ],
         "title": "ProposalStrategyAvailability",
@@ -12177,6 +12191,23 @@
             "default": true,
             "title": "Production Enabled",
             "type": "boolean"
+          },
+          "requires_acquisition_representation": {
+            "anyOf": [
+              {
+                "enum": [
+                  "normal_mean_std",
+                  "posterior_samples",
+                  "parametric_distribution",
+                  "unsupported"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requires Acquisition Representation"
           },
           "requires_incumbent": {
             "default": false,
@@ -13884,6 +13915,18 @@
             "title": "Acquisition Id",
             "type": "string"
           },
+          "acquisition_representation": {
+            "anyOf": [
+              {
+                "const": "normal_mean_std",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acquisition Representation"
+          },
           "acquisition_version": {
             "default": "1.0.0",
             "title": "Acquisition Version",
@@ -13952,6 +13995,21 @@
             ],
             "title": "Incumbent Value"
           },
+          "parameter_role": {
+            "anyOf": [
+              {
+                "enum": [
+                  "confidence_multiplier",
+                  "improvement_margin"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parameter Role"
+          },
           "pool_multiplier": {
             "default": 4,
             "minimum": 1.0,
@@ -13978,6 +14036,14 @@
             "default": "1.0.0",
             "title": "Selector Version",
             "type": "string"
+          },
+          "standard_deviation_methods": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Standard Deviation Methods",
+            "type": "array"
           },
           "support_policy": {
             "default": "supported_first",

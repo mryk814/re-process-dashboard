@@ -1066,6 +1066,9 @@ class ScreeningProposalStrategy(BaseModel):
     selector_id: str = "ranked_top_k"
     selector_version: str = "1.0.0"
     exploration_parameter: float | None = None
+    parameter_role: Literal["confidence_multiplier", "improvement_margin"] | None = None
+    acquisition_representation: Literal["normal_mean_std"] | None = None
+    standard_deviation_methods: tuple[str, ...] = ()
     support_policy: Literal[
         "supported_first", "exclude_extrapolated", "allow_with_warning"
     ] = "supported_first"
