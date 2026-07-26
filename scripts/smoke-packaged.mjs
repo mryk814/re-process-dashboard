@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { once } from "node:events";
 import { mkdir, readFile, readdir, rename, stat, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
+import { performance } from "node:perf_hooks";
 import { _electron as electron } from "playwright";
 
 
@@ -17,15 +18,45 @@ const artifacts = join(repositoryRoot, "artifacts");
 await mkdir(artifacts, { recursive: true });
 let database;
 let userData;
+let lifecycleBenchmark;
 
 const PACKAGED_STARTUP_TIMEOUT_MS = 120_000;
 
+const readProcessTreeMemory = (rootPid) => {
+  const script = [
+    "$ErrorActionPreference='Stop'",
+    `$rootPid=${rootPid}`,
+    "$all=Get-CimInstance Win32_Process",
+    "$ids=@($rootPid)",
+    "do {",
+    "  $children=@($all | Where-Object { $ids -contains [int]$_.ParentProcessId } | ForEach-Object { [int]$_.ProcessId })",
+    "  $new=@($children | Where-Object { $ids -notcontains $_ })",
+    "  $ids=@($ids+$new | Select-Object -Unique)",
+    "} while ($new.Count -gt 0)",
+    "$processes=@(Get-Process -Id $ids -ErrorAction SilentlyContinue)",
+    "[pscustomobject]@{",
+    "  rootPid=$rootPid",
+    "  processCount=$processes.Count",
+    "  workingSetBytes=[int64](($processes | Measure-Object WorkingSet64 -Sum).Sum)",
+    "  summedPeakWorkingSetBytes=[int64](($processes | Measure-Object PeakWorkingSet64 -Sum).Sum)",
+    "  processes=@($processes | Select-Object Id,ProcessName,WorkingSet64,PeakWorkingSet64)",
+    "} | ConvertTo-Json -Depth 4 -Compress",
+  ].join("\n");
+  return JSON.parse(execFileSync(
+    "powershell.exe",
+    ["-NoProfile", "-Command", script],
+    { encoding: "utf8" },
+  ));
+};
+
+const launchStarted = performance.now();
 const electronApp = await electron.launch({ executablePath, timeout: PACKAGED_STARTUP_TIMEOUT_MS });
 try {
   const window = await electronApp.firstWindow({ timeout: PACKAGED_STARTUP_TIMEOUT_MS });
   await window
     .getByRole("heading", { name: "焼鈍条件の候補検討", level: 1 })
     .waitFor({ timeout: PACKAGED_STARTUP_TIMEOUT_MS });
+  const launchToFirstUsableMs = performance.now() - launchStarted;
   const secondInstance = spawn(executablePath, [], { env: process.env, stdio: "ignore" });
   const secondExit = await Promise.race([
     once(secondInstance, "exit"),
@@ -49,6 +80,182 @@ try {
       "X-Workbench-Launch-Token": runtime.launchToken,
     },
   });
+  userData = mode === "portable"
+    ? join(appRoot, "user-data")
+    : join(process.env.LOCALAPPDATA, "Material Decision Workbench");
+  database = join(userData, "workbench.db");
+  const lifecycleDatabaseBefore = (await stat(database)).size;
+  const processTreeBeforeLifecycle = readProcessTreeMemory(
+    electronApp.process().pid,
+  );
+  const timedJson = async (operation) => {
+    const started = performance.now();
+    const response = await operation();
+    const headersMs = performance.now() - started;
+    const body = new Uint8Array(await response.arrayBuffer());
+    const bodyReceivedMs = performance.now() - started;
+    assert(
+      response.ok,
+      `Data Lifecycle packaged probe failed: ${response.status} ${new TextDecoder().decode(body)}`,
+    );
+    const parsed = JSON.parse(new TextDecoder().decode(body));
+    const parsedMs = performance.now() - started;
+    return {
+      parsed,
+      status: response.status,
+      headersMs,
+      bodyReceivedMs,
+      parsedMs,
+      responseBytes: body.byteLength,
+    };
+  };
+  const lifecycleRows = 1_000;
+  const lifecycleContent = JSON.stringify(
+    Array.from({ length: lifecycleRows }, (_, index) => ({
+      id: `packaged-${String(index).padStart(6, "0")}`,
+      x: index % 101,
+      target: (index * 7) % 113,
+    })),
+  );
+  const datasetCatalog = await timedJson(
+    () => authenticatedFetch("/api/data-library/datasets"),
+  );
+  const profileRevision = datasetCatalog.parsed[0]?.profile_revision;
+  assert(profileRevision?.id && profileRevision?.profile_digest);
+  const connectorResult = await timedJson(
+    () => authenticatedFetch("/api/data-lifecycle/connectors", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        schema_version: "source-connector/v1",
+        name: `Packaged lifecycle ${mode}`,
+        connector_type: "object_storage_json_v1",
+        source_locator: `s3://packaged-benchmark.local/${mode}.json`,
+        selection: {
+          schema_version: "object-selection/v1",
+          format: "json_array",
+          primary_key: "id",
+          included_fields: ["id", "x", "target"],
+        },
+        trigger_policy: "manual_only",
+      }),
+    }),
+  );
+  const recipeResult = await timedJson(
+    () => authenticatedFetch("/api/data-lifecycle/recipes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        schema_version: "curation-recipe/v1",
+        recipe_id: `packaged-lifecycle-${mode}`,
+        version: 1,
+        name: `Packaged lifecycle ${mode}`,
+        steps: [
+          { kind: "coerce_number_v1", fields: ["x", "target"] },
+          { kind: "required_fields_v1", fields: ["id", "x"] },
+          { kind: "target_eligibility_v1", fields: ["target"] },
+        ],
+      }),
+    }),
+  );
+  const requestBody = JSON.stringify({
+    schema_version: "source-fetch-request/v1",
+    trigger_kind: "manual",
+    object_content: lifecycleContent,
+    object_version: `packaged-${mode}-1`,
+  });
+  const fetchResult = await timedJson(
+    () => authenticatedFetch(
+      `/api/data-lifecycle/connectors/${connectorResult.parsed.id}/fetch`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: requestBody,
+      },
+    ),
+  );
+  assert.equal(fetchResult.parsed.snapshot.row_count, lifecycleRows);
+  const curationResult = await timedJson(
+    () => authenticatedFetch(
+      `/api/data-lifecycle/raw-snapshots/${fetchResult.parsed.snapshot.id}/curation-runs`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipe_resource_id: recipeResult.parsed.id,
+          profile_revision_id: profileRevision.id,
+          profile_digest: profileRevision.profile_digest,
+        }),
+      },
+    ),
+  );
+  assert.equal(curationResult.parsed.rows.length, lifecycleRows);
+  const approvalResult = await timedJson(
+    () => authenticatedFetch(
+      `/api/data-lifecycle/curation-runs/${curationResult.parsed.id}/approve`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          actor: "packaged-smoke",
+          reason: "packaged lifecycle probe",
+          overrides: [],
+        }),
+      },
+    ),
+  );
+  const trainingResult = await timedJson(
+    () => authenticatedFetch(
+      `/api/data-lifecycle/canonical-dataset-revisions/${approvalResult.parsed.id}/training-snapshots`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          actor: "packaged-smoke",
+          purpose: "packaged lifecycle probe",
+        }),
+      },
+    ),
+  );
+  assert.equal(trainingResult.parsed.row_count, lifecycleRows);
+  const detailResult = await timedJson(
+    () => authenticatedFetch(
+      `/api/data-lifecycle/connectors/${connectorResult.parsed.id}`,
+    ),
+  );
+  assert.equal(detailResult.parsed.training_snapshots.length, 1);
+  const lifecycleDatabaseAfter = (await stat(database)).size;
+  const processTreeAfterLifecycle = readProcessTreeMemory(
+    electronApp.process().pid,
+  );
+  lifecycleBenchmark = {
+    schemaVersion: "packaged-data-lifecycle-benchmark/v1",
+    mode,
+    rowCount: lifecycleRows,
+    columnCount: 3,
+    sourceCharacters: lifecycleContent.length,
+    sourceUtf8Bytes: Buffer.byteLength(lifecycleContent),
+    requestBodyBytes: Buffer.byteLength(requestBody),
+    launchToFirstUsableMs,
+    databaseBeforeBytes: lifecycleDatabaseBefore,
+    databaseAfterBytes: lifecycleDatabaseAfter,
+    databaseIncrementBytes: lifecycleDatabaseAfter - lifecycleDatabaseBefore,
+    processTreeBeforeLifecycle,
+    processTreeAfterLifecycle,
+    operations: {
+      catalog: datasetCatalog,
+      connector: connectorResult,
+      recipe: recipeResult,
+      fetch: fetchResult,
+      curation: curationResult,
+      approval: approvalResult,
+      trainingSnapshot: trainingResult,
+      detail: detailResult,
+    },
+  };
+  for (const operation of Object.values(lifecycleBenchmark.operations)) {
+    delete operation.parsed;
+  }
   const smokeProjectId = "default";
   const readSmokeProject = async () => {
     const response = await authenticatedFetch(`/api/projects/${smokeProjectId}`);
@@ -263,12 +470,20 @@ try {
   assert((await stat(database)).size > 0);
   assert((await stat(log)).size > 0);
 
-  console.log(JSON.stringify({ mode, executablePath, screenshot, database, log, layout }, null, 2));
+  console.log(JSON.stringify({
+    mode,
+    executablePath,
+    screenshot,
+    database,
+    log,
+    layout,
+    lifecycleBenchmark,
+  }, null, 2));
 } finally {
   await electronApp.close();
 }
 
-assert(database && userData);
+assert(database && userData && lifecycleBenchmark);
 const databaseFiles = await readdir(userData);
 assert(!databaseFiles.includes("workbench.db-wal"));
 assert(!databaseFiles.includes("workbench.db-shm"));
@@ -276,6 +491,7 @@ const movedDatabase = `${database}.move-check`;
 await rename(database, movedDatabase);
 await rename(movedDatabase, database);
 
+const restartStarted = performance.now();
 const restartedApp = await electron.launch({
   executablePath,
   timeout: PACKAGED_STARTUP_TIMEOUT_MS,
@@ -288,6 +504,12 @@ try {
     "heading",
     { name: "焼鈍条件の候補検討", level: 1 },
   ).waitFor({ timeout: PACKAGED_STARTUP_TIMEOUT_MS });
+  lifecycleBenchmark.restartToFirstUsableMs = performance.now() - restartStarted;
 } finally {
   await restartedApp.close();
 }
+await writeFile(
+  join(artifacts, `data-lifecycle-packaged-${mode}.json`),
+  `${JSON.stringify(lifecycleBenchmark, null, 2)}\n`,
+  "utf8",
+);
