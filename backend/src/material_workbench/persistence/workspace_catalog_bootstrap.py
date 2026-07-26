@@ -17,7 +17,6 @@ from material_workbench.data.dataset_registration import (
 from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.contracts.schemas import (
     ModelPackageRefCreateInput,
-    ProjectSeriesCreateInput,
 )
 from material_workbench.tasks.task_registry import TaskRegistry
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
@@ -217,32 +216,26 @@ def bind_legacy_projects(database: str | Path, catalog: WorkspaceCatalog, bindin
             "SELECT id,name,description,task_id FROM projects WHERE binding_provenance='unbound_legacy'"
         ).fetchall()
 
-    prepared: list[tuple[sqlite3.Row, ProjectBinding, str]] = []
+    prepared: list[tuple[sqlite3.Row, ProjectBinding]] = []
     for row in rows:
         binding = bindings.get(row["task_id"])
         if binding is None:
             continue
-        series_id = f"project-series-upgrade-{row['id']}"
-        catalog.ensure_project_series(
-            series_id,
-            ProjectSeriesCreateInput(name=row["name"], description=row["description"]),
-        )
-        prepared.append((row, binding, series_id))
+        prepared.append((row, binding))
 
     with sqlite_connection(database) as conn:
         conn.execute("PRAGMA foreign_keys=ON")
         conn.execute("BEGIN IMMEDIATE")
-        for row, binding, series_id in prepared:
+        for row, binding in prepared:
             conn.execute(
                 "UPDATE projects SET dataset_view_revision_id=?,task_contract_digest=?,model_package_ref_id=?,"
-                "model_package_manifest_digest=?,project_series_id=?,binding_provenance='assumed_current_at_upgrade',"
+                "model_package_manifest_digest=?,binding_provenance='assumed_current_at_upgrade',"
                 "binding_migrated_at=? WHERE id=?",
                 (
                     binding.dataset_view_revision_id,
                     binding.task_contract_digest,
                     binding.model_package_ref_id,
                     binding.model_package_manifest_digest,
-                    series_id,
                     migrated_at,
                     row["id"],
                 ),
@@ -471,7 +464,8 @@ def audit_project_bindings(database: str | Path) -> None:
         ),
         (
             "SELECT p.id FROM projects p LEFT JOIN project_series s ON s.id=p.project_series_id "
-            "WHERE p.binding_provenance<>'unbound_legacy' AND s.id IS NULL LIMIT 1",
+            "WHERE p.binding_provenance<>'unbound_legacy' "
+            "AND p.project_series_id IS NOT NULL AND s.id IS NULL LIMIT 1",
             "Project Series",
         ),
         (

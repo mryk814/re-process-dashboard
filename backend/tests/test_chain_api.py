@@ -135,6 +135,7 @@ def test_chain_catalog_and_project_creation_pin_exact_revision(
     assert created.status_code == 201, created.text
     project = created.json()
     assert project["task_id"] == ""
+    assert project["project_series_id"] is None
     assert project["scientific_identity"] == {
         "identity_kind": "chain",
         "chain_revision_id": f"{definition.chain_id}:r1",
@@ -143,6 +144,24 @@ def test_chain_catalog_and_project_creation_pin_exact_revision(
     reopened = client.get(f"/api/projects/{project['id']}")
     assert reopened.status_code == 200
     assert reopened.json()["scientific_identity"] == project["scientific_identity"]
+
+    grouped = client.post(
+        "/api/projects",
+        json={
+            "name": "Grouped Chain Project",
+            "scientific_identity": {
+                "identity_kind": "chain",
+                "chain_revision_id": f"{definition.chain_id}:r1",
+                "chain_revision_digest": revision.revision_digest,
+            },
+            "new_project_series": {
+                "name": "Chainの一連検討",
+                "description": "",
+            },
+        },
+    )
+    assert grouped.status_code == 201, grouped.text
+    assert grouped.json()["project_series_id"] is not None
 
     database = client.app.state.store.path
     bootstrap_workspace_catalog(database, client.app.state.task_registry)

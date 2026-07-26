@@ -6,6 +6,7 @@ from pathlib import Path
 import sqlite3
 
 from fastapi.testclient import TestClient
+import pytest
 
 from material_workbench.app import _AppResources, create_app
 from material_workbench.contracts.schemas import ModelPackageRefCreateInput
@@ -16,6 +17,8 @@ from material_workbench.data.dataset_registration import (
 from material_workbench.modeling.model_packages import ModelPackageLoader
 from material_workbench.persistence.workspace_catalog_bootstrap import (
     REPLACED_MODEL_PACKAGE_IDS,
+    WorkspaceCatalogBootstrapError,
+    audit_project_bindings,
     migrate_replaced_model_package_projects,
 )
 
@@ -84,7 +87,8 @@ def test_startup_registers_runtime_resources_and_binds_projects(
         assert projects["hot-rolling-default"]["binding_provenance"] == "assumed_current_at_upgrade"
         assert projects["default"]["dataset_view_revision_id"] == projects["hot-rolling-default"]["dataset_view_revision_id"]
         assert projects["default"]["model_package_ref_id"] != projects["hot-rolling-default"]["model_package_ref_id"]
-        assert projects["default"]["project_series_id"] != projects["hot-rolling-default"]["project_series_id"]
+        assert projects["default"]["project_series_id"] is None
+        assert projects["hot-rolling-default"]["project_series_id"] is None
         assert len(catalog.list_data_assets()) == len(EXPECTED_ASSET_FILENAMES)
         assert {
             asset.original_filename
@@ -110,6 +114,15 @@ def test_startup_registers_runtime_resources_and_binds_projects(
             (package.task_id, package.package_id)
             for package in catalog.list_model_package_refs()
         } == EXPECTED_MODEL_PACKAGES
+
+    audit_project_bindings(database)
+    with sqlite3.connect(database) as conn:
+        conn.execute(
+            "UPDATE projects SET project_series_id='missing-series' "
+            "WHERE id='default'"
+        )
+    with pytest.raises(WorkspaceCatalogBootstrapError, match="Project Series"):
+        audit_project_bindings(database)
 
 
 def test_bootstrap_is_idempotent_and_preserves_first_binding(

@@ -406,6 +406,7 @@ class ProjectCreateInput(ProjectInput):
     model_package_ref_id: str | None = None
     model_package_manifest_digest: str = ""
     project_series_id: str | None = None
+    new_project_series: ProjectSeriesCreateInput | None = None
     predecessor_project_id: str | None = None
     continuation_reason: str = ""
     design_space: DesignSpaceDefinition | None = None
@@ -421,6 +422,10 @@ class ProjectCreateInput(ProjectInput):
     def explicit_identity_does_not_conflict_with_legacy_fields(
         self,
     ) -> "ProjectCreateInput":
+        if self.project_series_id is not None and self.new_project_series is not None:
+            raise ValueError(
+                "既存の検討グループと新しい検討グループを同時指定できません"
+            )
         identity = self.scientific_identity
         if identity is None:
             return self
