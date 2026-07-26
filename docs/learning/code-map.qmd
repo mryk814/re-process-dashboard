@@ -21,6 +21,15 @@
 - **Frontend**：`apps/web/src/features/candidates/`、`apps/web/src/shared/api/workbench-api.ts`
 - **Test**：`backend/tests/test_candidate_safety.py`、`e2e/shared-workbench.spec.ts`
 
+### Revision、digest、request identity
+
+- **Candidate compare-and-swap**：`backend/src/material_workbench/persistence/store.py`、`backend/src/material_workbench/api/candidates.py`
+- **Immutable history**：`backend/src/material_workbench/persistence/candidate_revision_migration.py`
+- **Semantic digest**：`backend/src/material_workbench/execution/inference_work_graph.py`、`backend/src/material_workbench/contracts/chain_contracts.py`
+- **保存queue**：`apps/web/src/features/candidates/latestSaveQueue.ts`、`apps/web/src/features/candidates/useCandidateEditor.ts`
+- **非同期表示**：`apps/web/src/features/workbench/inferenceSurfaceState.ts`
+- **Test**：`backend/tests/test_candidate_safety.py`、`backend/tests/test_inference_work_graph.py`、`apps/web/tests/latestSaveQueue.test.mjs`、`apps/web/tests/inferenceSurfaceState.test.mjs`
+
 ### Project scientific identity
 
 - **Contract**：`backend/src/material_workbench/contracts/chain_contracts.py`、`backend/src/material_workbench/contracts/schemas.py`
@@ -215,6 +224,9 @@ Source data lifecycleの章は、`docs/source-data-lifecycle.md`とdata lifecycl
 Workspace restoreの章は、Issue #252とPR #282を入口に、SQLite snapshot、bundle manifest、staging、desktop process、packaged smokeを照合します。
 この経路は、検証済みbundleをactive Workspaceへ切り替え、API起動後に復元を確定するまでを扱います。
 
+revisionとdigestの章は、[Issue #292](https://github.com/mryk814/re-process-dashboard/issues/292)のうち、logical identity、optimistic concurrency、immutable revision、semantic digest、request identityを扱います。
+Issue #292全体の完了を意味せず、契約境界とSQLite設計の残りは後続の教材候補です。
+
 - [Issue #120：検討アクティビティを導入する](https://github.com/mryk814/re-process-dashboard/issues/120)
 - [PR #122：ロバストネス検討アクティビティを追加する](https://github.com/mryk814/re-process-dashboard/pull/122)
 - [Issue #190：型付きActivity拡張と候補差分説明](https://github.com/mryk814/re-process-dashboard/issues/190)
@@ -222,6 +234,7 @@ Workspace restoreの章は、Issue #252とPR #282を入口に、SQLite snapshot�
 - [Issue #191：実行可能な目標到達案](https://github.com/mryk814/re-process-dashboard/issues/191)／[PR #205：feasible counterfactual proposal](https://github.com/mryk814/re-process-dashboard/pull/205)
 - [Issue #237：保存済みRunをURL状態へ載せる](https://github.com/mryk814/re-process-dashboard/issues/237)／[PR #278：Runへ到達・共有するlink](https://github.com/mryk814/re-process-dashboard/pull/278)
 - [Issue #252：Workspaceを整合性付きでbackup／restoreする](https://github.com/mryk814/re-process-dashboard/issues/252)／[PR #282：atomic Workspace backup and restore](https://github.com/mryk814/re-process-dashboard/pull/282)
+- [Issue #292：契約、境界、SQLite、revision／digestを教材化する](https://github.com/mryk814/re-process-dashboard/issues/292)
 
 IssueやPRは経緯の証拠であり、現在のAPI一覧ではありません。
 現mainの型とテストが食い違う場合は、コードとテストを現在の実装事実として優先し、文書の陳腐化を報告します。

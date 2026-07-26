@@ -6,11 +6,18 @@
 
 **contract**：request、response、保存payload、Taskなどが満たすshape、意味、versionの約束。この教材では主にPydantic modelと関連文書を指す。
 
-**digest**：内容から計算する識別値。pathや表示名ではなく、実際に固定した内容を照合するために使う。
+**compare-and-swap**：current値が期待値と一致する場合だけ更新する操作。
+Candidate保存では`WHERE revision = expected_revision`を同じ`UPDATE`へ置く。
+
+**digest**：callerが選んだ表現から計算する識別値。
+path、表示名、revisionを含めるかは用途ごとの契約が決める。
 
 **discriminated union**：固定fieldの値によって、複数のmodelから一つを選べるunion。検討アクティビティでは`schema_version`を使う。
 
 **Model Package**：学習済みartifact、manifest、前処理と学習のprovenance、smoke inputを持つdata-only成果物。任意Pythonコードを含めない。
+
+**logical identity**：変更版をまたいで同じ継続対象を指す識別子。
+Candidateでは`id`が担う。
 
 **OpenAPI**：HTTP endpoint、parameter、request、response schemaを機械可読に表す契約。FastAPIがPydantic modelから生成する。
 
@@ -22,9 +29,18 @@
 
 **provenance**：結果がどのTask、Candidate revision、Model Package、Feature Pipeline、parameterから作られたかを示す来歴。
 
-**revision**：同じ論理対象の変更版。Candidateではcompare-and-swapと過去版参照に使う。
+**optimistic concurrency**：編集開始時に長時間lockを保持せず、保存時に読んだrevisionとcurrent revisionを比較してlost updateを拒否する方式。
+
+**request sequence**：同じidentityのrequestを開始順に区別するfrontend内の連番。
+遅いresponseが新しいresponseを上書きすることを防ぐ。
+
+**revision**：同じ論理対象で受理された変更の順番。
+Candidateではcompare-and-swapと過去版参照に使う。
 
 **schema version**：保存または通信するpayloadのshapeと意味の版。表示labelの版とは分ける。
+
+**semantic digest**：objectを契約で選んだ決定的な表現へ変換してから計算するdigest。
+同じ意味を保証する仕組みではなく、何を入力へ含めるかはcallerが決める。
 
 **staged restore**：active Workspaceへ触れる前に、別directoryで展開、migration、digest、参照を検証した復元候補。
 

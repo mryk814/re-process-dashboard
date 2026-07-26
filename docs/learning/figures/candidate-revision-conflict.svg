@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 510" role="img" aria-labelledby="title desc">
+  <title id="title">二つの編集がCandidate revisionを介して競合する時系列</title>
+  <desc id="desc">編集者Aと編集者BがCandidate r7を読み、Aの保存がr8を作る。Bの古いexpected revisionによる保存は409となり、r8へ変更fieldだけを重ねた再保存がr9を作る。</desc>
+  <defs>
+    <marker id="arrow-blue" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#365d84"/>
+    </marker>
+    <marker id="arrow-red" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#b94436"/>
+    </marker>
+    <style>
+      .lane { font: 700 20px "Yu Gothic", "Noto Sans JP", sans-serif; fill: #17324d; }
+      .text { font: 17px "Yu Gothic", "Noto Sans JP", sans-serif; fill: #24384c; }
+      .sub { font: 14px "Yu Gothic", "Noto Sans JP", sans-serif; fill: #4d6275; }
+      .code { font: 14px "Cascadia Mono", Consolas, monospace; fill: #274865; }
+      .line { stroke: #b9c8d6; stroke-width: 2; }
+      .blue { stroke: #365d84; stroke-width: 2.5; fill: none; marker-end: url(#arrow-blue); }
+      .red { stroke: #b94436; stroke-width: 2.5; fill: none; marker-end: url(#arrow-red); }
+    </style>
+  </defs>
+
+  <rect width="1040" height="510" fill="#ffffff"/>
+  <text x="90" y="42" text-anchor="middle" class="lane">編集者A</text>
+  <text x="510" y="42" text-anchor="middle" class="lane">Server／SQLite</text>
+  <text x="940" y="42" text-anchor="middle" class="lane">編集者B</text>
+  <line x1="90" y1="58" x2="90" y2="480" class="line"/>
+  <line x1="510" y1="58" x2="510" y2="480" class="line"/>
+  <line x1="940" y1="58" x2="940" y2="480" class="line"/>
+
+  <rect x="420" y="72" width="180" height="58" rx="6" fill="#eef5fb" stroke="#365d84" stroke-width="2"/>
+  <text x="510" y="98" text-anchor="middle" class="text">Candidate r7</text>
+  <text x="510" y="119" text-anchor="middle" class="sub">C=0.08、name=基準</text>
+
+  <path d="M500 142 H105" class="blue"/>
+  <path d="M520 158 H925" class="blue"/>
+  <text x="280" y="136" text-anchor="middle" class="sub">r7を読む</text>
+  <text x="745" y="152" text-anchor="middle" class="sub">r7を読む</text>
+
+  <path d="M105 222 H495" class="blue"/>
+  <text x="300" y="207" text-anchor="middle" class="code">C=0.09, expected_revision=7</text>
+  <rect x="420" y="236" width="180" height="58" rx="6" fill="#edf8f0" stroke="#2f7d4a" stroke-width="2"/>
+  <text x="510" y="262" text-anchor="middle" class="text">Candidate r8</text>
+  <text x="510" y="283" text-anchor="middle" class="sub">C=0.09、name=基準</text>
+  <path d="M495 306 H105" class="blue"/>
+  <text x="300" y="328" text-anchor="middle" class="sub">200、r8を返す</text>
+
+  <path d="M925 350 H525" class="red"/>
+  <text x="725" y="335" text-anchor="middle" class="code">name=試験案, expected_revision=7</text>
+  <path d="M525 368 H925" class="red"/>
+  <text x="725" y="391" text-anchor="middle" class="sub">409 revision_conflict、current_candidate=r8</text>
+
+  <path d="M925 430 H525" class="blue"/>
+  <text x="725" y="415" text-anchor="middle" class="code">r8へnameだけrebase、expected_revision=8</text>
+  <rect x="420" y="442" width="180" height="52" rx="6" fill="#fff6e5" stroke="#ad6a00" stroke-width="2"/>
+  <text x="510" y="466" text-anchor="middle" class="text">Candidate r9</text>
+  <text x="510" y="486" text-anchor="middle" class="sub">C=0.09、name=試験案</text>
+</svg>

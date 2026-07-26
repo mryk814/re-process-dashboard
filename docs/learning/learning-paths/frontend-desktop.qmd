@@ -32,7 +32,8 @@
 | 7 | `e2e/decision-activity.spec.ts` | 利用者の操作と保存結果をどう検証するか | 30分 |
 | 8 | `docs/app-charter.md` のローカルAPI境界 | loopbackだけを認証にしない理由 | 20分 |
 | 9 | [型付き契約の章](../chapters/contract-through-stack.qmd)と[演習](../labs/extend-contract.qmd) | Python契約まで戻って変更を設計する | 90分 |
-| 10 | [Workspace restoreの章](../chapters/restore-workspace-safely.qmd)と[演習](../labs/trace-workspace-restore.qmd) | rendererへpathと復元tokenを渡さず、API起動後に確定する方法 | 150分 |
+| 10 | [revisionとdigestの章](../chapters/revision-and-digest.qmd)と[演習](../labs/trace-revision-conflict.qmd) | 保存queueと遅いresponseを別の順序で判定する | 240分 |
+| 11 | [Workspace restoreの章](../chapters/restore-workspace-safely.qmd)と[演習](../labs/trace-workspace-restore.qmd) | rendererへpathと復元tokenを渡さず、API起動後に確定する方法 | 150分 |
 
 ## 確認コマンド
 

@@ -1,6 +1,6 @@
 # 実装を読んで変更を通す {.unnumbered}
 
-この教材は、Material Decision Workbenchへ参加した開発者が、型付き契約、データの証拠、復元境界を実装から追跡し、自分で変更を検証できる状態を目指します。
+この教材は、Material Decision Workbenchへ参加した開発者が、型付き契約、データの証拠、identity、復元境界を実装から追跡し、自分で変更を検証できる状態を目指します。
 
 対象読者は、PythonまたはTypeScriptで開発経験があり、このリポジトリの境界にはまだ詳しくない開発者です。
 FastAPI、Pydantic、Reactの入門そのものは扱いません。
@@ -13,6 +13,9 @@ FastAPI、Pydantic、Reactの入門そのものは扱いません。
 
 三つ目の題材は**Workspace backup／restore**です。
 動作中SQLiteから整合したsnapshotを作り、Data AssetとModel Packageを同梱し、staging検証、DB切替、API health確認、rollbackを経て復元を確定するまでを追います。
+
+四つ目の題材は**revisionとdigest**です。
+Candidateの二つの編集を固定例に、logical ID、受理順、内容identity、request sequenceを分け、保存競合と遅いresponseを別の境界で判定します。
 
 ## 読了後にできること
 
@@ -27,6 +30,10 @@ FastAPI、Pydantic、Reactの入門そのものは扱いません。
 - Source更新からTraining Snapshotまでの資産とdigestを区別する
 - 品質状態と目的変数への利用可否を別々に判定する
 - 取得が再学習やactive化を起こさないことをtestで確認する
+- logical ID、revision、digest、request sequenceが答える問いを区別する
+- Candidateのlost updateをcompare-and-swapで防ぐ経路を説明する
+- 推論cacheのidentityと保存済み判断証拠のidentityを区別する
+- 遅いresponseをrequest sequenceとidentityで拒否する
 - Workspace bundleと現Workspaceの境界を区別する
 - prepare、commit、health確認、finalize、rollbackの状態遷移を説明する
 - archive改ざん、migration不一致、DB切替失敗を検出するtestを選ぶ
@@ -45,6 +52,7 @@ FastAPI、Pydantic、Reactの入門そのものは扱いません。
 
 先に構造を把握したい場合は、[教材の設計基準](foundations.qmd)、[教材用コードマップ](code-map.qmd)、担当に近い章の順に読みます。
 API contractを変更する場合は[型付き契約の章](chapters/contract-through-stack.qmd)、外部データ更新の境界を変更する場合は[Source data lifecycleの章](chapters/source-to-training-evidence.qmd)から始めます。
+Candidate保存、digest、非同期表示を変更する場合は[順番と内容を別々に識別する章](chapters/revision-and-digest.qmd)から始めます。
 Desktopの保存先、起動、backupを変更する場合は[Workspace restoreの章](chapters/restore-workspace-safely.qmd)から始めます。
 
 | 読者の現在地 | 入口 |
@@ -55,6 +63,6 @@ Desktopの保存先、起動、backupを変更する場合は[Workspace restore�
 | 変更箇所だけ知りたい | [教材用コードマップ](code-map.qmd) |
 
 ::: {.callout-note title="確認済みの基準"}
-型付き契約の章はcommit `ae175ed425e6de190161dea280136f7e0dd1d1d9`、Source data lifecycleの章はcommit `894ecdc47af5d40a764219cfd8b831afda8050f0`、Workspace restoreの章はcommit `b8ef18ab68d01703bf137860dce43880be711147` で実装参照を確認しました。
+型付き契約の章はcommit `ae175ed425e6de190161dea280136f7e0dd1d1d9`、Source data lifecycleの章はcommit `894ecdc47af5d40a764219cfd8b831afda8050f0`、revisionとdigestの章およびWorkspace restoreの章はcommit `b8ef18ab68d01703bf137860dce43880be711147` で実装参照を確認しました。
 章のfront matterと[教材の評価と継続判断](evaluation.qmd)に、更新時の確認方法を残しています。
 :::

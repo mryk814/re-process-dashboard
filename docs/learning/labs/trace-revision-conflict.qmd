@@ -1,0 +1,303 @@
+---
+level: intermediate
+estimated_minutes: 90
+verified_commit: "b8ef18ab68d01703bf137860dce43880be711147"
+code_references:
+  - "backend/src/material_workbench/contracts/schemas.py"
+  - "backend/src/material_workbench/persistence/store.py"
+  - "backend/src/material_workbench/persistence/candidate_revision_migration.py"
+  - "backend/tests/test_candidate_safety.py"
+  - "backend/tests/test_inference_work_graph.py"
+  - "apps/web/src/features/candidates/latestSaveQueue.ts"
+  - "apps/web/src/features/candidates/useCandidateEditor.ts"
+  - "apps/web/src/features/workbench/inferenceSurfaceState.ts"
+  - "apps/web/tests/latestSaveQueue.test.mjs"
+  - "apps/web/tests/inferenceSurfaceState.test.mjs"
+  - "apps/web/tests/workbenchIdentity.test.mjs"
+---
+
+# 二つの編集と遅いresponseを判定する {#sec-lab-revision-digest}
+
+この演習はproduction codeとactive databaseを変更しません。
+既存testの固定例を手で追い、整数のrevision、内容digest、request sequenceを使い分けます。
+
+## 演習1：四つの識別子を対応付ける
+
+次の問いへ、Candidate ID、revision、semantic digest、request sequenceのどれを使うか対応付けてください。
+
+1. 同じCandidateを継続して編集しているか。
+2. current Candidateが編集開始時から変わっていないか。
+3. 二つのcanonical inputが同じ内容か。
+4. 同じidentityで開始した二回のrequestのどちらが新しいか。
+
+### 解答例
+
+| 問い | 識別子 | 理由 |
+|---|---|---|
+| 継続対象 | Candidate ID | revisionが進んでも変わらない |
+| 編集開始後の変化 | revision | 同じCandidate内の受理順を表す |
+| canonical inputの内容 | semantic digest | 選んだcanonical representationへ基づく |
+| 同じidentityのrequest順 | request sequence | identityが同じでも開始順を区別する |
+
+## 演習2：二つの保存結果を予測する
+
+Candidate `A`のcurrent stateはrevision 4、name `基準`、speed 100です。
+Client XとClient Yは同じrevision 4を読みました。
+
+- Xはspeedを110へ変え、`expected_revision=4`で保存する。
+- Xの保存成功後、Yはnameを`候補Y`へ変え、`expected_revision=4`で保存する。
+
+各requestのstatus、server revision、最終payloadを予測してください。
+
+### 解答例
+
+Xは200となり、serverはrevision 5、name `基準`、speed 110になります。
+Yは409 `revision_conflict`となり、serverはrevision 5のままです。
+
+Yの古いpayloadを受け入れてrevision 6を作ると、Xのspeed 110を100へ戻すためです。
+409 responseの`current_candidate`はrevision 5を返します。
+
+## 演習3：SQLの一行を外した場合を考える
+
+次の`WHERE`から`revision = ?`だけを外した場合、演習2の結果はどう変わるか説明してください。
+
+```sql
+WHERE id = ?
+  AND project_id = ?
+  AND revision = ?
+  AND archived_at IS NULL
+```
+
+### 解答例
+
+Yのupdateもrowへ一致し、後着payloadでrevision 6を作ります。
+Yが読んだspeed 100を送っていれば、Xのspeed 110は失われます。
+
+transactionがあっても、このlost updateは防げません。
+transactionは各writeをatomicにしますが、Yのpayloadが古いことを自動判定しないためです。
+
+## 演習4：安全にrebaseできるfieldを分ける
+
+base、draft、currentは次です。
+
+```json
+{
+  "base": {
+    "name": "基準",
+    "process": {"speed": 100, "temperature": 800}
+  },
+  "draft": {
+    "name": "試験案",
+    "process": {"speed": 100, "temperature": 800}
+  },
+  "current": {
+    "name": "基準",
+    "process": {"speed": 110, "temperature": 800}
+  }
+}
+```
+
+`rebaseChangedFields(base, draft, current)`の結果を予測してください。
+
+### 解答例
+
+```json
+{
+  "name": "試験案",
+  "process": {"speed": 110, "temperature": 800}
+}
+```
+
+draftがbaseから変えたのはnameだけです。
+currentのspeed 110を保ち、nameだけを重ねます。
+
+同じspeed fieldをdraftとcurrentの双方が変更した場合、この関数は三者競合を検出せず、draftのspeedをcurrentへ重ねます。
+後続queued saveではdraftが後勝ちになるため、利用者の意図を保ったと一般化できません。
+
+## 演習5：過去revisionが必要な理由を追う
+
+Candidate `source`はrevision 1からrevision 2へ更新されました。
+別Candidate `derived`は`source`のrevision 1からcopyされています。
+その後、`source`はactive一覧からarchiveされました。
+
+次のうち、`derived`の由来表示へ必要なrecordを選んでください。
+
+- current `candidates` rowだけ
+- `candidate_revisions(source, 1)`
+- `candidate_revisions(source, 2)`だけ
+- 最新Candidate一覧のlabel
+
+### 解答例
+
+必要なのは`candidate_revisions(source, 1)`です。
+derived provenanceは作成時のrevision 1を固定しているため、revision 2やcurrent一覧へ読み替えません。
+
+active sourceがarchiveされても、revision 1のimmutable rowは残ります。
+
+## 演習6：semantic digestを手で分類する
+
+次のpayload AからDについて、同じsemantic digestになる組を選んでください。
+
+```json
+{"a":1,"b":[2,3]}
+```
+
+```json
+{"b":[2,3],"a":1}
+```
+
+```json
+{"a":1,"b":[3,2]}
+```
+
+```json
+{"a":1.0,"b":[2,3]}
+```
+
+### 解答例
+
+AとBは同じdigestです。
+object keyはsortされるため、入力時のkey順を同一視します。
+
+Cはarray順が違うため別digestです。
+DはPython JSON serializationで`1.0`と`1`の表現が異なるため別digestです。
+
+「数値として等しい」と「このcanonical representationが同じ」は別の判定です。
+
+## 演習7：digest対象から外してよいfieldを批判する
+
+現行`InferenceKey`が表す推論cache identityの候補として次があります。
+
+- canonical input
+- Candidate表示名
+- Model Package digest
+- Feature Pipeline digest
+- support digest
+- 画面で選択中のtab
+
+現行の推論内容を変えるfieldと、display-only stateを分けてください。
+
+### 解答例
+
+| 分類 | field |
+|---|---|
+| 推論内容を変える | canonical input、Model Package digest、Feature Pipeline digest、support digest |
+| この推論cacheではdisplay-only | Candidate表示名、選択中tab |
+
+表示名とtabを含めると、同じ計算を不要に別cache entryへ分けます。
+PackageまたはPipeline digestを外すと、異なる計算資源を同じidentityとして再利用します。
+ただし、保存済みDecision Activity RunはCandidate revisionを別の証拠identityへ含めます。
+
+## 演習8：byte digestとsemantic digestを選ぶ
+
+次の照合へ使うdigestを選び、理由を書いてください。
+
+1. `.mdwb`内のworkbookが一byteも変わっていないか。
+2. JSON objectのkey順を無視して同じparameterか。
+3. 別PCへrestoreした後、locator path以外のtable evidenceが同じか。
+
+### 解答例
+
+1はfile bytesのdigestです。
+2はsemantic digestです。
+3はlocatorなどを明示的に正規化したevidence digestです。
+
+三つともSHA-256を使えますが、hashへ渡す表現が違います。
+
+## 演習9：遅いresponseを捨てる
+
+画面stateはrevision 7のpreviewを表示しています。
+次の順にrequestが始まりました。
+
+1. sequence 12、identity `candidate-a@8`
+2. sequence 13、identity `candidate-a@9`
+
+responseはsequence 13、sequence 12の順に到着します。
+各responseを受理するか答えてください。
+
+### 解答例
+
+sequence 13はcurrent requestとsequence、identityが一致するため受理します。
+sequence 12はcurrent `requestSequence`と一致しないため捨てます。
+
+identity比較だけでも今回は違いを検出できますが、同じidentityを二回refreshする場合にsequenceが必要です。
+
+## 演習10：staleとerrorを分ける
+
+revision 7のdataを表示中にrevision 8をrequestしました。
+次の二時点で`InferenceSurfaceStatus`を答えてください。
+
+1. revision 8のresponseを待っている。
+2. revision 8のrequestが失敗し、revision 7のdataが残った。
+
+### 解答例
+
+1は`stale`です。
+表示中dataのidentityとrequested identityが違います。
+
+2は`error`です。
+旧dataを保持していても、current refreshが失敗した事実を先に示します。
+
+## 演習11：最初に反応させるtestを選ぶ
+
+次の退行を、最初に検出したいtestへ対応付けてください。
+
+- 古いrevisionの二回目保存が成功した
+- archive後にcopy元revisionを読めなくなった
+- Package digestを変えても推論keyが同じ
+- 同じCandidateのqueued saveが並列に走った
+- 遅いresponseが新しいrequestを上書きした
+
+### 解答例
+
+| 退行 | 最初のtest |
+|---|---|
+| 古いrevision保存 | `test_candidate_safety.py -k atomic_compare_and_swap` |
+| copy元revision消失 | `test_candidate_safety.py -k immutable_and_copy` |
+| 推論keyのPackage漏れ | `test_inference_work_graph.py -k identity_changes` |
+| queued save並列化 | `latestSaveQueue.test.mjs` |
+| 遅いresponse誤採用 | `inferenceSurfaceState.test.mjs`または`workbenchIdentity.test.mjs` |
+
+## 演習12：現mainを検証する
+
+リポジトリ直下で次を実行します。
+
+```powershell
+uv run python -m pytest `
+  backend/tests/test_candidate_safety.py `
+  backend/tests/test_inference_work_graph.py
+
+node --test `
+  apps/web/tests/latestSaveQueue.test.mjs `
+  apps/web/tests/inferenceSurfaceState.test.mjs `
+  apps/web/tests/workbenchIdentity.test.mjs
+
+npm run api:check
+```
+
+結果を次の形で記録します。
+
+```yaml
+verified_commit:
+date:
+candidate_and_digest_pytest:
+frontend_identity_test:
+api_check:
+unexpected_warnings:
+```
+
+件数だけで成功を判断しません。
+各test fileがcompare-and-swap、immutable history、digest、response guardを実際に収集したことを確認します。
+
+## 章末チェックの解答
+
+1. IDは継続対象を、revisionは同じ対象内の受理順を表す。
+2. revision確認後、update前に別writerがcurrent rowを変える窓が開く。
+3. draftとcurrent stateを比較し、再読込または限定的なrebaseを行うため。
+4. active sourceをarchiveしても、派生Candidateと判断証拠が固定した過去revisionを読めるようにするため。
+5. object key順だけが違う場合は同じdigestになる。
+6. domain上必要なfieldを知るcallerが決める。
+7. 受理順を表すのはrevisionである。
+8. 同じidentityを再requestした場合も、古いresponseを区別するため。
+9. 旧identityの値であることと、refresh中または失敗中であること。
+10. compare-and-swapは古い保存、immutable historyは過去版消失、renderer guardは遅いresponseの誤採用を防ぐ。
