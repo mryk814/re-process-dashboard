@@ -49,6 +49,22 @@ try {
       "X-Workbench-Launch-Token": runtime.launchToken,
     },
   });
+  const smokeProjectId = "default";
+  const readSmokeProject = async () => {
+    const response = await authenticatedFetch(`/api/projects/${smokeProjectId}`);
+    assert.equal(response.status, 200);
+    return response.json();
+  };
+  const updateSmokeProjectNotes = async (notes) => {
+    const project = await readSmokeProject();
+    const response = await authenticatedFetch(`/api/projects/${smokeProjectId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...project, notes }),
+    });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).notes, notes);
+  };
   const transformsResponse = await authenticatedFetch("/api/transforms");
   assert.equal(transformsResponse.status, 200);
   const transforms = await transformsResponse.json();
@@ -154,6 +170,8 @@ try {
     headers: { "X-Workbench-Launch-Token": runtime.launchToken },
   })).status, 200);
 
+  const backupMarker = `packaged-smoke-${mode}-before-backup`;
+  await updateSmokeProjectNotes(backupMarker);
   const backupPath = join(artifacts, `packaged-${mode}-workspace.mdwb`);
   await electronApp.evaluate(async ({ dialog }, filePath) => {
     dialog.showSaveDialog = async () => ({ canceled: false, filePath });
@@ -179,6 +197,9 @@ try {
   );
   assert((await stat(backupPath)).size > 0);
   await window.getByRole("button", { name: "閉じる" }).click();
+  const changedMarker = `packaged-smoke-${mode}-after-backup`;
+  await updateSmokeProjectNotes(changedMarker);
+  assert.equal((await readSmokeProject()).notes, changedMarker);
 
   const tamperedPath = join(artifacts, `packaged-${mode}-workspace-tampered.mdwb`);
   const tamperedBytes = await readFile(backupPath);
@@ -209,6 +230,12 @@ try {
     "heading",
     { name: "焼鈍条件の候補検討", level: 1 },
   ).waitFor({ timeout: PACKAGED_STARTUP_TIMEOUT_MS });
+  await window.getByText("Workspaceを復元し、APIの起動確認まで完了しました。")
+    .waitFor({ timeout: PACKAGED_STARTUP_TIMEOUT_MS });
+  const restoredMarker = mode === "installed"
+    ? "packaged-smoke-portable-before-backup"
+    : backupMarker;
+  assert.equal((await readSmokeProject()).notes, restoredMarker);
 
   const layout = await window.evaluate(() => ({
     innerWidth: window.innerWidth,

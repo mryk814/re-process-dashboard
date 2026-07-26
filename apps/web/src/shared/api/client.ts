@@ -31,6 +31,7 @@ export type DesktopWorkspaceSummary = {
   chainCount: number;
   sourceLifecycleCount: number;
   resourceCount: number;
+  attentionWarnings: string[];
   warnings: string[];
 };
 

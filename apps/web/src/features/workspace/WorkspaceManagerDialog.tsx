@@ -26,6 +26,12 @@ function Summary({ value }: { value: DesktopWorkspaceSummary }) {
     <p className="workspace-summary-meta">
       {new Date(value.createdAt).toLocaleString("ja-JP")} · app {value.appVersion}
     </p>
+    {value.attentionWarnings.map((warning) => (
+      <div className="workspace-summary-attention" key={warning} role="alert">
+        <strong>固定参照を確認してください</strong>
+        <span>{warning}</span>
+      </div>
+    ))}
     {value.warnings.length > 0 && (
       <details className="workspace-summary-warnings">
         <summary>{value.warnings.length}件の注意があります</summary>

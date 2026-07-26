@@ -18,6 +18,9 @@ test("Workspace backup and restore stay global and explain the atomic switch", a
   assert.match(dialog, /value\.warnings\.length > 0/);
   assert.match(dialog, /件の注意があります/);
   assert.match(dialog, /<details className="workspace-summary-warnings">/);
+  assert.match(dialog, /value\.attentionWarnings\.map/);
+  assert.match(dialog, /className="workspace-summary-attention"/);
+  assert.match(dialog, /固定参照を確認してください/);
   assert.match(preload, /workbench:workspace-export/);
   assert.match(preload, /workbench:workspace-prepare-restore/);
   assert.match(preload, /workbench:workspace-confirm-restore/);

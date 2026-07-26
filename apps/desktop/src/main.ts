@@ -28,8 +28,21 @@ type WorkspaceManifestSummary = {
   chainCount: number;
   sourceLifecycleCount: number;
   resourceCount: number;
+  attentionWarnings: string[];
   warnings: string[];
 };
+
+type StartupFailureStage = "resources" | "database" | "catalog";
+
+class SidecarStartupError extends Error {
+  constructor(
+    message: string,
+    readonly stage?: StartupFailureStage,
+  ) {
+    super(message);
+    this.name = "SidecarStartupError";
+  }
+}
 
 type WorkspaceOperationResult =
   | { status: "cancelled" }
@@ -234,10 +247,14 @@ function recordValue(record: unknown, key: string): unknown {
   return typeof record === "object" && record !== null ? Reflect.get(record, key) : undefined;
 }
 
-function diagnosticWarnings(diagnostics: unknown): string[] {
+const ATTENTION_DIAGNOSTIC_IDS = new Set(["restored-fixed-references"]);
+
+function diagnosticWarnings(diagnostics: unknown, attention: boolean): string[] {
   return Array.isArray(diagnostics)
     ? diagnostics.flatMap((item) => (
-      recordValue(item, "status") === "warning" && typeof recordValue(item, "detail") === "string"
+      recordValue(item, "status") === "warning"
+        && ATTENTION_DIAGNOSTIC_IDS.has(String(recordValue(item, "id") ?? "")) === attention
+        && typeof recordValue(item, "detail") === "string"
         ? [recordValue(item, "detail") as string]
         : []
     ))
@@ -252,7 +269,8 @@ function workspaceManifestSummary(manifest: unknown): WorkspaceManifestSummary {
   };
   const resources = recordValue(manifest, "bundled_resources");
   const diagnostics = recordValue(manifest, "diagnostics");
-  const warnings = diagnosticWarnings(diagnostics);
+  const warnings = diagnosticWarnings(diagnostics, false);
+  const attentionWarnings = diagnosticWarnings(diagnostics, true);
   return {
     bundleId: String(recordValue(manifest, "bundle_id") ?? ""),
     createdAt: String(recordValue(manifest, "created_at") ?? ""),
@@ -276,6 +294,7 @@ function workspaceManifestSummary(manifest: unknown): WorkspaceManifestSummary {
       + count("canonical_dataset_approvals")
       + count("approved_training_snapshots"),
     resourceCount: Array.isArray(resources) ? resources.length : 0,
+    attentionWarnings,
     warnings,
   };
 }
@@ -295,29 +314,40 @@ function timestampForFilename(date = new Date()): string {
   return date.toISOString().replace(/[-:]/g, "").replace(/\..+/, "").replace("T", "-");
 }
 
-function startupFailureMessage(
+function startupFailureError(
   output: string,
   code: number | null,
   signal: NodeJS.Signals | null,
-): string {
+): SidecarStartupError {
   const marker = output.match(/WORKBENCH_STARTUP_ERROR\s+(\{[^\r\n]+\})/);
   if (marker) {
     try {
       const diagnosis = JSON.parse(marker[1]) as {
+        stage?: string;
         label?: string;
         detail?: string;
         error_type?: string;
       };
       const label = diagnosis.label || "起動処理";
       const detail = diagnosis.detail || diagnosis.error_type || "原因を特定できませんでした";
-      return `${label}の準備に失敗しました。\n${detail}${sidecarLogPath ? `\n\n診断ログ: ${sidecarLogPath}` : ""}`;
+      const stage = diagnosis.stage === "resources"
+        || diagnosis.stage === "database"
+        || diagnosis.stage === "catalog"
+        ? diagnosis.stage
+        : undefined;
+      return new SidecarStartupError(
+        `${label}の準備に失敗しました。\n${detail}${sidecarLogPath ? `\n\n診断ログ: ${sidecarLogPath}` : ""}`,
+        stage,
+      );
     } catch {
       // Fall through to the generic summary while preserving the log.
     }
   }
-  return `Python API が起動に失敗しました (code: ${code ?? "none"}, signal: ${signal ?? "none"})。${
-    sidecarLogPath ? `\n診断ログ: ${sidecarLogPath}` : ""
-  }`;
+  return new SidecarStartupError(
+    `Python API が起動に失敗しました (code: ${code ?? "none"}, signal: ${signal ?? "none"})。${
+      sidecarLogPath ? `\n診断ログ: ${sidecarLogPath}` : ""
+    }`,
+  );
 }
 
 function wait(milliseconds: number): Promise<void> {
@@ -407,9 +437,7 @@ async function startSidecarOnPort(port: number): Promise<void> {
     childProcess.once("exit", (code, signal) => {
       if (!sidecarReady) {
         reject(
-          new Error(
-            startupFailureMessage(sidecarOutput(childProcess), code, signal),
-          ),
+          startupFailureError(sidecarOutput(childProcess), code, signal),
         );
       }
     });
@@ -566,6 +594,9 @@ function workspaceSummaryText(summary: WorkspaceManifestSummary): string {
     `予測snapshot ${summary.snapshotCount}件 / 検討アクティビティ ${summary.activityCount}件`,
     `Chain証拠 ${summary.chainCount}件 / Source lifecycle ${summary.sourceLifecycleCount}件`,
     `同梱Data Asset・Model Package ${summary.resourceCount}件`,
+    ...(summary.attentionWarnings.length
+      ? ["", `要確認（固定参照）: ${summary.attentionWarnings.join(" / ")}`]
+      : []),
     ...(summary.warnings.length ? ["", `注意: ${summary.warnings.join(" / ")}`] : []),
   ].join("\n");
 }
@@ -599,10 +630,16 @@ async function prepareRestoreFromNativeDialog(): Promise<WorkspaceOperationResul
     throw new Error("Workspaceバックアップの検証結果が不正です。");
   }
   const summary = workspaceManifestSummary(manifest);
+  summary.attentionWarnings = [
+    ...new Set([
+      ...summary.attentionWarnings,
+      ...diagnosticWarnings(recordValue(result, "diagnostics"), true),
+    ]),
+  ];
   summary.warnings = [
     ...new Set([
       ...summary.warnings,
-      ...diagnosticWarnings(recordValue(result, "diagnostics")),
+      ...diagnosticWarnings(recordValue(result, "diagnostics"), false),
     ]),
   ];
   preparedRestore = { token, fileName: basename(source), summary };
@@ -753,25 +790,47 @@ function registerWorkspaceIpc(): void {
   });
 }
 
-async function recoverStartupFromBackup(initialError: unknown): Promise<boolean> {
+function isWorkspaceStartupFailure(error: unknown): boolean {
+  return error instanceof SidecarStartupError
+    && (error.stage === "database" || error.stage === "catalog");
+}
+
+async function recoverStartup(initialError: unknown): Promise<boolean> {
   let failure = initialError;
   for (;;) {
     const detail = failure instanceof Error ? failure.message : String(failure);
+    const workspaceFailure = isWorkspaceStartupFailure(failure);
+    const actions = workspaceFailure
+      ? ["バックアップから復元", "再試行", "診断ログを開く", "終了"]
+      : ["再試行", "診断ログを開く", "バックアップから復元", "終了"];
     const choice = await dialog.showMessageBox({
       type: "error",
       title: "Material Decision Workbench を起動できません",
-      message: "ワークスペースを開けませんでした。",
+      message: workspaceFailure
+        ? "ワークスペースの整合性を確認できませんでした。"
+        : "ローカルAPIを起動できませんでした。",
       detail,
-      buttons: ["バックアップから復元", "診断ログを開く", "終了"],
+      buttons: actions,
       defaultId: 0,
-      cancelId: 2,
+      cancelId: 3,
       noLink: true,
     });
-    if (choice.response === 1) {
+    const action = actions[choice.response];
+    if (action === "診断ログを開く") {
       if (sidecarLogPath) await shell.openPath(sidecarLogPath);
       continue;
     }
-    if (choice.response !== 0) return false;
+    if (action === "再試行") {
+      try {
+        await stopSidecar();
+        await startSidecar();
+        return true;
+      } catch (error) {
+        failure = error;
+        continue;
+      }
+    }
+    if (action !== "バックアップから復元") return false;
     try {
       const prepared = await prepareRestoreFromNativeDialog();
       if (prepared.status !== "prepared") continue;
@@ -836,7 +895,7 @@ app.whenReady()
     try {
       await startSidecar();
     } catch (error) {
-      if (!await recoverStartupFromBackup(error)) {
+      if (!await recoverStartup(error)) {
         isQuitting = true;
         await stopSidecar();
         app.quit();

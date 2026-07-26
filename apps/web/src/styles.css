@@ -403,6 +403,19 @@ table input[type="number"] { text-align: right; font-variant-numeric: tabular-nu
   color: #697789;
   font-size: 11px;
 }
+.workspace-summary-attention {
+  display: grid;
+  gap: 3px;
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border: 1px solid #d99847;
+  border-left-width: 4px;
+  border-radius: 4px;
+  background: #fff3df;
+  color: #74420a;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
 .workspace-summary-warnings {
   margin: 7px 0 0;
   padding: 6px 8px;

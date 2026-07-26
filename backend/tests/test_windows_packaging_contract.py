@@ -203,6 +203,28 @@ def test_packaged_smoke_covers_workspace_backup_restore_and_tamper_rejection() -
     assert "packaged-portable-workspace.mdwb" in packaged_smoke
     assert "この内容へ復元" in packaged_smoke
     assert "PACKAGED_STARTUP_TIMEOUT_MS" in packaged_smoke
+    assert "packaged-smoke-${mode}-before-backup" in packaged_smoke
+    assert "packaged-smoke-${mode}-after-backup" in packaged_smoke
+    assert "Workspaceを復元し、APIの起動確認まで完了しました。" in packaged_smoke
+    assert "readSmokeProject()).notes, restoredMarker" in packaged_smoke
+
+
+def test_desktop_startup_recovery_distinguishes_workspace_and_runtime_failures() -> None:
+    desktop_main = (ROOT / "apps" / "desktop" / "src" / "main.ts").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'readonly stage?: StartupFailureStage' in desktop_main
+    assert 'error.stage === "database" || error.stage === "catalog"' in desktop_main
+    assert (
+        '["バックアップから復元", "再試行", "診断ログを開く", "終了"]'
+        in desktop_main
+    )
+    assert (
+        '["再試行", "診断ログを開く", "バックアップから復元", "終了"]'
+        in desktop_main
+    )
+    assert "ローカルAPIを起動できませんでした。" in desktop_main
 
 
 def test_workspace_ipc_trusts_the_packaged_document_path_not_its_navigation_query() -> None:
