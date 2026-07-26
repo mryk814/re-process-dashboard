@@ -634,10 +634,9 @@ npm run api:check
 UIまで変更した場合は、隔離DBを使う既定設定で次も実行します。
 
 ::: {.callout-warning title="現mainの既知E2E failure"}
-検証commitでは、3件中1件が成功し、2件が既知の理由で失敗します。
-候補差分はrevision付きoption labelへのtest追従漏れ [Issue #279](https://github.com/mryk814/re-process-dashboard/issues/279)、ロバストネスは未宣言`Ca`を持つデモ候補 [Issue #280](https://github.com/mryk814/re-process-dashboard/issues/280) です。
-Issue #274はdocs-only scopeのため分離しました。
-両Issueが閉じるまでは、1 passed、2 known failuresを現行の期待結果とし、失敗を教材変更の退行と誤認しません。
+2026年7月27日にmain commit `b8ef18a` で再実行し、3件中2件が成功しました。
+失敗はrevision付きoption labelへのtest追従漏れ [Issue #279](https://github.com/mryk814/re-process-dashboard/issues/279) だけで、open中の [Issue #280](https://github.com/mryk814/re-process-dashboard/issues/280) に記録された失敗は再現しませんでした。
+Issue #279が閉じるまでは、2 passed、1 known failureを現行の期待結果とし、失敗を教材変更の退行と誤認しません。
 :::
 
 ```powershell

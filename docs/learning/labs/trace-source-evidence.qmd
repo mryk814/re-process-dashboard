@@ -140,7 +140,7 @@ Cは`target_eligible=true`、Dはfalseだからです。
 次の退行を、最初に検出したいtestへ対応付けてください。
 
 - **同一内容の再取得でRaw Snapshotが増えた**：`test_data_lifecycle.py -k multiple_raw_snapshots`
-- **credentialがSQLiteへ保存された**：`test_data_lifecycle.py -k failure_retry`
+- **credentialがSQLiteへ保存された**：`test_data_lifecycle.py -k tracks_digests`
 - **quarantine理由が消えた**：`test_data_lifecycle.py -k curation_keeps`
 - **承認とTraining Snapshotが同時作成された**：`test_data_lifecycle.py -k approval_and_training`
 - **blocked rowをoverrideできた**：`test_data_lifecycle.py -k override_is_targeted`
