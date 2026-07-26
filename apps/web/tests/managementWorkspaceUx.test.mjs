@@ -78,3 +78,19 @@ test("every Profile Workbench step is a state the flow can actually reach", asyn
   );
   assert.match(content, /構造差分・検証/);
 });
+
+test("the data library names prediction tasks with the contract label, not the internal id", async () => {
+  const hook = await source("../src/shared/useTaskLabels.ts");
+  const library = await source("../src/features/data-library/DataLibraryPage.tsx");
+  const workbench = await source("../src/features/data-library/ProfileWorkbenchPage.tsx");
+  assert.match(hook, /listTaskDefinitions/);
+  assert.match(hook, /labels\.get\(taskId\) \?\? taskId/);
+  for (const content of [library, workbench]) {
+    assert.match(content, /useTaskLabels\(\)/);
+  }
+  assert.doesNotMatch(library, /<span>\{item\.task_id\}<\/span>/);
+  assert.doesNotMatch(library, /value=\{taskId\}>\{taskId\}</);
+  assert.doesNotMatch(library, /item\.supported_task_ids\.join\(" \/ "\) : "未定義"/);
+  assert.doesNotMatch(workbench, /対応Prediction Task/);
+  assert.match(workbench, /対応する予測タスク/);
+});
