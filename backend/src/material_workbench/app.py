@@ -436,19 +436,18 @@ def create_app(
                 exc=exc,
             )
         app.state.chain_evaluation_catalog = evaluation_catalog
+        app.state.chain_execution_service = ChainExecutionService(
+            app.state.store,
+            prepared.task_registry,
+            transform_catalog,
+            ChainExecutionCoordinator(),
+        )
         if transform_catalog is not None:
-            app.state.chain_execution_service = ChainExecutionService(
-                app.state.store,
-                prepared.task_registry,
-                transform_catalog,
-                ChainExecutionCoordinator(),
-            )
             app.state.chain_uncertainty_service = ChainUncertaintyService(
                 app.state.store,
                 app.state.chain_execution_service,
             )
         else:
-            app.state.chain_execution_service = None
             app.state.chain_uncertainty_service = None
         yield
 

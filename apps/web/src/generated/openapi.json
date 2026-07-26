@@ -2914,6 +2914,13 @@
           "design_space_ref": {
             "$ref": "#/components/schemas/RevisionRef"
           },
+          "external_inputs": {
+            "items": {
+              "$ref": "#/components/schemas/ChainCandidateInputDefinition"
+            },
+            "title": "External Inputs",
+            "type": "array"
+          },
           "scientific_master": {
             "$ref": "#/components/schemas/RevisionRef"
           },
@@ -2931,9 +2938,153 @@
           "commercial_catalog",
           "design_space",
           "design_space_ref",
+          "external_inputs",
           "starter_candidate"
         ],
         "title": "ChainCandidateContractResponse",
+        "type": "object"
+      },
+      "ChainCandidateInputDefinition": {
+        "additionalProperties": false,
+        "description": "Editable candidate surface resolved from one pinned external Chain port.",
+        "properties": {
+          "affected_stage_ids": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Affected Stage Ids",
+            "type": "array"
+          },
+          "allowed_range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NumericRange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "candidate_path": {
+            "pattern": "^blend$|^(composition|process|categorical)\\.[A-Za-z][A-Za-z0-9_]*$",
+            "title": "Candidate Path",
+            "type": "string"
+          },
+          "choices": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Choices",
+            "type": "array"
+          },
+          "default_range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NumericRange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "display_decimals": {
+            "anyOf": [
+              {
+                "maximum": 8.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Decimals"
+          },
+          "editable": {
+            "title": "Editable",
+            "type": "boolean"
+          },
+          "external_path": {
+            "minLength": 1,
+            "title": "External Path",
+            "type": "string"
+          },
+          "first_affected_stage_id": {
+            "minLength": 1,
+            "title": "First Affected Stage Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "number",
+              "categorical",
+              "sparse_blend"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "order": {
+            "minimum": 0.0,
+            "title": "Order",
+            "type": "integer"
+          },
+          "read_only_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read Only Reason"
+          },
+          "required": {
+            "default": true,
+            "title": "Required",
+            "type": "boolean"
+          },
+          "training_range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NumericRange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "external_path",
+          "order",
+          "candidate_path",
+          "kind",
+          "label",
+          "editable",
+          "affected_stage_ids",
+          "first_affected_stage_id"
+        ],
+        "title": "ChainCandidateInputDefinition",
         "type": "object"
       },
       "ChainDefinition": {
@@ -21534,6 +21685,53 @@
           }
         },
         "summary": "Get Chain Candidate Contract",
+        "tags": [
+          "chain-execution"
+        ]
+      }
+    },
+    "/api/projects/{project_id}/chain/candidate-inputs": {
+      "get": {
+        "description": "Read-only input surface derived from the exact pinned Chain revision.",
+        "operationId": "getChainCandidateInputs",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ChainCandidateInputDefinition"
+                  },
+                  "title": "Response Getchaincandidateinputs",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Chain Candidate Inputs",
         "tags": [
           "chain-execution"
         ]

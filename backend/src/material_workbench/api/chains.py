@@ -26,6 +26,7 @@ from material_workbench.contracts.chain_contracts import (
 from material_workbench.contracts.chain_execution_contracts import (
     ActualConditionedVariant,
     ChainCandidateCapability,
+    ChainCandidateInputDefinition,
     ChainExecution,
     ChainSnapshot,
     IntermediateActualRecord,
@@ -97,6 +98,7 @@ class ChainCandidateContractResponse(ChainApiModel):
     commercial_catalog: RevisionRef
     design_space: SparseBlendDesignSpace
     design_space_ref: RevisionRef
+    external_inputs: tuple[ChainCandidateInputDefinition, ...]
     starter_candidate: CandidateInput
 
 
@@ -143,6 +145,14 @@ def get_chain_revision(
 
 def _execution_service(request: Request) -> ChainExecutionService:
     request.app.state.subsystem_availability.require(WELDING_CHAIN_SUBSYSTEM_ID)
+    service = request.app.state.chain_execution_service
+    assert service is not None
+    return service
+
+
+def _candidate_input_service(request: Request) -> ChainExecutionService:
+    """Resolve pinned presentation metadata without enabling Chain execution."""
+
     service = request.app.state.chain_execution_service
     assert service is not None
     return service
@@ -235,6 +245,29 @@ def get_project_chain_evaluation(
 
 
 @execution_router.get(
+    "/{project_id}/chain/candidate-inputs",
+    response_model=tuple[ChainCandidateInputDefinition, ...],
+    operation_id="getChainCandidateInputs",
+)
+def get_chain_candidate_inputs(
+    project_id: str,
+    service: Annotated[
+        ChainExecutionService,
+        Depends(_candidate_input_service),
+    ],
+) -> tuple[ChainCandidateInputDefinition, ...]:
+    """Read-only input surface derived from the exact pinned Chain revision."""
+
+    try:
+        return service.candidate_input_definitions(
+            project_id,
+            require_runtime_identity=False,
+        )
+    except ChainExecutionError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@execution_router.get(
     "/{project_id}/chain/candidate-capability",
     response_model=ChainCandidateCapability,
     operation_id="getChainCandidateCapability",
@@ -263,6 +296,7 @@ def get_chain_candidate_contract(
     try:
         adapter = service.sparse_blend_adapter(project_id)
         contracts = adapter.resolved_contracts()
+        external_inputs = service.candidate_input_definitions(project_id)
         starter = service.starter_candidate(project_id)
     except (ChainExecutionError, ChainCandidateAdapterError) as exc:
         raise HTTPException(409, str(exc)) from exc
@@ -272,6 +306,7 @@ def get_chain_candidate_contract(
         commercial_catalog=contracts.commercial_catalog.ref,
         design_space=contracts.design_space,
         design_space_ref=contracts.design_space.ref,
+        external_inputs=external_inputs,
         starter_candidate=starter,
     )
 
