@@ -336,6 +336,72 @@
   background: #fff;
 }
 
+.screening-batch-settings {
+  margin: 10px 0;
+  border: 1px solid #c8d6e8;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.screening-batch-settings > summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  cursor: pointer;
+  color: #173f75;
+}
+
+.screening-batch-settings > summary label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.screening-batch-settings > summary small {
+  color: #65758b;
+  font-weight: 400;
+}
+
+.screening-batch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+  padding: 0 12px 12px;
+}
+
+.screening-batch-grid > label,
+.screening-batch-grid fieldset {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+
+.screening-batch-grid input,
+.screening-batch-grid select {
+  min-width: 0;
+}
+
+.screening-batch-grid small {
+  color: #65758b;
+}
+
+.screening-batch-grid fieldset {
+  max-height: 126px;
+  overflow: auto;
+  border: 1px solid #d6e0ee;
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.screening-batch-grid fieldset label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
 .variable-table th,
 .variable-table td {
   padding: 7px;
@@ -439,6 +505,7 @@
 
 .screening-proposal-summary {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px 14px;
   margin: 12px 0 0;
@@ -510,6 +577,47 @@
   flex: 0 0 auto;
   min-height: 30px;
   padding: 4px 9px;
+}
+
+.screening-batch-result {
+  flex-basis: 100%;
+  border-top: 1px solid #d6e0ee;
+  padding-top: 8px;
+}
+
+.screening-batch-result summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+}
+
+.screening-batch-result summary span,
+.screening-batch-result > small {
+  color: #65758b;
+  font-weight: 400;
+}
+
+.screening-batch-result ol {
+  display: grid;
+  gap: 5px;
+  margin: 8px 0;
+  padding-left: 24px;
+}
+
+.screening-batch-result li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.screening-batch-result li b {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.screening-batch-result > .primary-button {
+  margin-right: 10px;
 }
 
 .screening-display-controls {

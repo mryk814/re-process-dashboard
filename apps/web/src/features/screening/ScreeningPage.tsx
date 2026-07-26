@@ -143,6 +143,15 @@ export function ScreeningPage({
   const [explorationParameter, setExplorationParameter] = useState(2);
   const [incumbentValue, setIncumbentValue] = useState("");
   const [supportPolicy, setSupportPolicy] = useState<"supported_first" | "exclude_extrapolated" | "allow_with_warning">("supported_first");
+  const [batchEnabled, setBatchEnabled] = useState(true);
+  const [batchSize, setBatchSize] = useState(8);
+  const [batchSelectorId, setBatchSelectorId] = useState<"ranked_top_k_v1" | "greedy_value_diversity_v1">("greedy_value_diversity_v1");
+  const [diversityWeight, setDiversityWeight] = useState(0.75);
+  const [nearDuplicateThreshold, setNearDuplicateThreshold] = useState(0.05);
+  const [pendingCandidateIds, setPendingCandidateIds] = useState<string[]>([]);
+  const [controlCandidateId, setControlCandidateId] = useState("");
+  const [controlReplicates, setControlReplicates] = useState(1);
+  const [maxBatchCost, setMaxBatchCost] = useState("");
   const [target, setTarget] = useState("TS");
   const [targetGoal, setTargetGoal] = useState<ScreeningGoalDraft>({ direction: "at_least", lower: "500", upper: "" });
   const [secondaryGoals, setSecondaryGoals] = useState<Record<string, ScreeningGoalDraft>>({});
@@ -242,6 +251,15 @@ export function ScreeningPage({
       setTargetGoal(defaultGoalDraft(outputs[0]));
     }
     setSecondaryGoals({});
+    setBatchEnabled(true);
+    setBatchSize(8);
+    setBatchSelectorId("greedy_value_diversity_v1");
+    setDiversityWeight(0.75);
+    setNearDuplicateThreshold(0.05);
+    setPendingCandidateIds([]);
+    setControlCandidateId("");
+    setControlReplicates(1);
+    setMaxBatchCost("");
     setResult(null);
     setSelectedPointIndices([]);
     setFocusedPointIndex(null);
@@ -381,6 +399,28 @@ export function ScreeningPage({
           fallback_policy: "reject",
           incumbent_value: incumbentValue === "" ? null : Number(incumbentValue),
         },
+        batch_definition: batchEnabled ? {
+          schema_version: "batch-proposal-definition/v1",
+          selector_id: batchSelectorId,
+          batch_size: batchSize,
+          diversity_weight: diversityWeight,
+          near_duplicate_threshold: nearDuplicateThreshold,
+          pending_candidate_ids: pendingCandidateIds,
+          pending_policy: "avoid",
+          pending_penalty: 1,
+          controls: controlCandidateId
+            ? [{ candidate_id: controlCandidateId, replicates: controlReplicates }]
+            : [],
+          category_quotas: [],
+          resources: {
+            default_candidate_cost: 1,
+            max_total_cost: maxBatchCost === "" ? null : Number(maxBatchCost),
+            setup_group_path: null,
+            max_setup_groups: null,
+            setup_change_penalty: 0,
+            cost_rules: [],
+          },
+        } : null,
       });
       if (sequence !== runRequestSequence.current || activeProjectRef.current !== requestProjectId) return;
       applyResult(created);
@@ -449,6 +489,24 @@ export function ScreeningPage({
       setExplorationParameter(run.proposal_strategy.exploration_parameter ?? 2);
       setSupportPolicy(run.proposal_strategy.support_policy);
     }
+    if (run.batch_proposal) {
+      const definition = run.batch_proposal.definition;
+      setBatchEnabled(true);
+      setBatchSize(definition.batch_size);
+      setBatchSelectorId(
+        definition.selector_id === "greedy_value_diversity_v1"
+          ? definition.selector_id
+          : "ranked_top_k_v1",
+      );
+      setDiversityWeight(definition.diversity_weight);
+      setNearDuplicateThreshold(definition.near_duplicate_threshold);
+      setPendingCandidateIds([...definition.pending_candidate_ids]);
+      setControlCandidateId(definition.controls[0]?.candidate_id ?? "");
+      setControlReplicates(definition.controls[0]?.replicates ?? 1);
+      setMaxBatchCost(definition.resources.max_total_cost == null ? "" : String(definition.resources.max_total_cost));
+    } else {
+      setBatchEnabled(false);
+    }
     if (run.variables)
       setVariables(
         Object.entries(run.variables).map(([field, spec]) => ({
@@ -477,7 +535,7 @@ export function ScreeningPage({
     return typeof provenance.source_ref.point_index === "number" ? [provenance.source_ref.point_index] : [];
   }));
   const selectedNewPointIndices = selectedPointIndices.filter((index) => !stockedPointIndices.has(index));
-  const remainingCandidateCapacity = Math.max(0, 10 - candidates.length);
+  const remainingCandidateCapacity = Math.max(0, 100 - candidates.length);
   const addableSelectedCount = selectedNewPointIndices.length <= remainingCandidateCapacity
     ? selectedNewPointIndices.length
     : 0;
@@ -498,6 +556,28 @@ export function ScreeningPage({
     } catch (cause) {
       if (activeProjectRef.current !== requestProjectId) return;
       setError(cause instanceof Error ? cause.message : "候補を作成できませんでした。");
+    }
+  };
+  const batchPointIndices = Array.from(new Set(
+    result?.batch_proposal?.selected.map((item) => item.point_index) ?? [],
+  ));
+  const newBatchPointIndices = batchPointIndices.filter((index) => !stockedPointIndices.has(index));
+  const persistBatch = async () => {
+    if (!result || !newBatchPointIndices.length) return;
+    if (newBatchPointIndices.length > remainingCandidateCapacity) {
+      setError(`提案batchを保存するには候補枠があと${newBatchPointIndices.length}件必要です。`);
+      return;
+    }
+    try {
+      const response = await workbenchApi.candidatesFromScreening(
+        projectId,
+        result.id,
+        newBatchPointIndices,
+      );
+      response.candidates.forEach((candidate) => onCandidate(fromApiCandidate(candidate)));
+      setError("");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "提案batchを候補へ保存できませんでした。");
     }
   };
   const confirmedVaryingFields = result ? Object.entries(result.variables)
@@ -719,6 +799,119 @@ export function ScreeningPage({
             </select>
           </label>
         </div>
+        <details className="screening-batch-settings">
+          <summary>
+            <label onClick={(event) => event.stopPropagation()}>
+              <input
+                type="checkbox"
+                checked={batchEnabled}
+                onChange={(event) => { setBatchEnabled(event.target.checked); setDraftDirty(true); }}
+              />
+              実験バッチを提案
+            </label>
+            <small>個別価値に多様性・pending・control・コストを加えて選抜</small>
+          </summary>
+          {batchEnabled && (
+            <div className="screening-batch-grid">
+              <label>
+                バッチ件数
+                <input
+                  type="number"
+                  min="1"
+                  max={Math.min(32, samples)}
+                  value={batchSize}
+                  onChange={(event) => { setBatchSize(Number(event.target.value)); setDraftDirty(true); }}
+                />
+              </label>
+              <label>
+                バッチ選抜
+                <select
+                  value={batchSelectorId}
+                  onChange={(event) => { setBatchSelectorId(event.target.value as typeof batchSelectorId); setDraftDirty(true); }}
+                >
+                  <option value="greedy_value_diversity_v1">個別価値 + 多様性</option>
+                  <option value="ranked_top_k_v1">個別価値の上位</option>
+                </select>
+              </label>
+              {batchSelectorId === "greedy_value_diversity_v1" && (
+                <label>
+                  多様性の重み
+                  <input
+                    type="number"
+                    min="0"
+                    max="10"
+                    step="0.05"
+                    value={diversityWeight}
+                    onChange={(event) => { setDiversityWeight(Number(event.target.value)); setDraftDirty(true); }}
+                  />
+                </label>
+              )}
+              <label>
+                近接とみなす距離
+                <input
+                  type="number"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={nearDuplicateThreshold}
+                  onChange={(event) => { setNearDuplicateThreshold(Number(event.target.value)); setDraftDirty(true); }}
+                />
+                <small>Design Spaceの各範囲で正規化</small>
+              </label>
+              <label>
+                Control条件
+                <select
+                  value={controlCandidateId}
+                  onChange={(event) => { setControlCandidateId(event.target.value); setDraftDirty(true); }}
+                >
+                  <option value="">指定なし</option>
+                  {candidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.label}</option>)}
+                </select>
+              </label>
+              {controlCandidateId && (
+                <label>
+                  Control反復数
+                  <input
+                    type="number"
+                    min="1"
+                    max="8"
+                    value={controlReplicates}
+                    onChange={(event) => { setControlReplicates(Number(event.target.value)); setDraftDirty(true); }}
+                  />
+                </label>
+              )}
+              <label>
+                最大実験コスト
+                <input
+                  type="number"
+                  min="0.01"
+                  value={maxBatchCost}
+                  placeholder="制約なし"
+                  onChange={(event) => { setMaxBatchCost(event.target.value); setDraftDirty(true); }}
+                />
+                <small>既定は1条件=1</small>
+              </label>
+              <fieldset>
+                <legend>実験予定・測定中</legend>
+                {candidates.map((candidate) => (
+                  <label key={candidate.id}>
+                    <input
+                      type="checkbox"
+                      checked={pendingCandidateIds.includes(candidate.id)}
+                      onChange={(event) => {
+                        setPendingCandidateIds((current) => event.target.checked
+                          ? [...current, candidate.id]
+                          : current.filter((id) => id !== candidate.id));
+                        setDraftDirty(true);
+                      }}
+                    />
+                    {candidate.label}
+                  </label>
+                ))}
+              </fieldset>
+            </div>
+          )}
+        </details>
         {targetDefinition && (
           <section className="screening-goals" aria-label="選別基準">
             <ScreeningGoalEditor
@@ -861,6 +1054,8 @@ export function ScreeningPage({
         <>
           <ScreeningProposalSummary
             result={result}
+            batchSaveCount={newBatchPointIndices.length}
+            onSaveBatch={() => { void persistBatch(); }}
             onAnotherSample={() => {
               const nextSeed = nextScreeningSeed(seed);
               setSeed(nextSeed);

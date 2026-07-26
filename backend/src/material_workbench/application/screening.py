@@ -9,6 +9,10 @@ from material_workbench.application.proposal_strategy_registry import (
     resolve_strategy,
     strategy_availability,
 )
+from material_workbench.application.batch_selector_registry import (
+    batch_selector_availability,
+    require_batch_selector,
+)
 from material_workbench.contracts.schemas import (
     Candidate,
     CandidateInput,
@@ -19,6 +23,9 @@ from material_workbench.contracts.schemas import (
     ScreeningRunResponse,
 )
 from material_workbench.contracts.proposal_contracts import ProposalStrategyAvailability
+from material_workbench.contracts.batch_proposal_contracts import (
+    BatchSelectorAvailability,
+)
 from material_workbench.domain.services import run_proposal
 from material_workbench.domain.design_space_validation import (
     validate_candidate_in_design_space,
@@ -247,6 +254,12 @@ class ScreeningService:
                 target=payload.target,
                 objective=objective,
             )
+            if payload.batch_definition is not None:
+                require_batch_selector(
+                    payload.batch_definition.selector_id,
+                    contract.runtime_capability,
+                    target=payload.target,
+                )
         except ValueError as exc:
             raise ScreeningValidationError(str(exc)) from exc
         configured_goals = dict(payload.secondary_goals)
@@ -266,6 +279,25 @@ class ScreeningService:
             for key in outputs
         }
         try:
+            batch_reference_ids = (
+                {
+                    *payload.batch_definition.pending_candidate_ids,
+                    *(
+                        item.candidate_id
+                        for item in payload.batch_definition.controls
+                    ),
+                }
+                if payload.batch_definition is not None
+                else set()
+            )
+            batch_reference_candidates = {}
+            for candidate_id in batch_reference_ids:
+                candidate = self.store.get_candidate(candidate_id, project_id)
+                if candidate is None:
+                    raise ScreeningValidationError(
+                        f"batch参照候補が見つかりません: {candidate_id}"
+                    )
+                batch_reference_candidates[candidate_id] = candidate
             result = run_proposal(
                 self.resolver.runtime_for(project),
                 base,
@@ -277,6 +309,7 @@ class ScreeningService:
                 ),
                 design_space=design_space,
                 strategy=strategy,
+                batch_reference_candidates=batch_reference_candidates,
             )
         except ValueError as exc:
             raise ScreeningValidationError(str(exc)) from exc
@@ -349,6 +382,22 @@ class ScreeningService:
             target=target,
             objective=project.objective_definition,
             incumbent_value=incumbent_value,
+        )
+
+    def available_batch_selectors(
+        self,
+        project_id: str,
+        target: str,
+    ) -> list[BatchSelectorAvailability]:
+        project = self.projects.require(project_id)
+        contract = self.registry.contract_for(project.task_id)
+        if target not in {
+            output.key for output in contract.task_definition.outputs
+        }:
+            raise ScreeningValidationError("この予測タスクにない目標特性です")
+        return batch_selector_availability(
+            contract.runtime_capability,
+            target=target,
         )
 
     def _resolve_incumbent_value(

@@ -61,6 +61,35 @@ Feature Pipeline and Dataset provenance, the actual generator/acquisition/
 selector versions, seed, support policy, complete evaluated pool and selection
 rank. Older screening runs remain readable without being rewritten.
 
+### Experiment batch selection
+
+An optional `batch-proposal-definition/v1` selects an experiment batch from the
+saved acquisition-ranked shortlist. This is a separate selector, not a joint
+acquisition function.
+
+- `ranked_top_k_v1` is the explicit baseline.
+- `greedy_value_diversity_v1` combines normalized rank utility with maximin
+  distance. Every numeric distance is divided by its Design Space range;
+  categorical differences are 0/1. Raw input scales are never mixed.
+- Pending candidates can be avoided, penalized, or allowed. Their identities,
+  policy and resulting exclusions remain in the run.
+- A control reference selects the nearest feasible generated condition.
+  Replicates repeat that planned condition; when promoted to the Candidate
+  table, one Candidate condition represents the repeated observations.
+- Category minimum/maximum quotas, per-candidate cost, total budget, setup-group
+  limits and setup-change penalties are allow-listed contracts rather than
+  Task-specific branches.
+- Cluster representatives, local penalization, batch Thompson Sampling and a
+  joint q-acquisition extension have stable registry identities but remain
+  unavailable. The registry requires predictive samples for batch Thompson and
+  joint samples for q-acquisition, so marginal scores cannot be mislabeled.
+
+`batch-proposal-run/v1` stores selection order, role, reason, acquisition,
+diversity, pending and resource components, excluded shortlist points, coverage,
+pairwise diversity, estimated cost, selector version, seed and tie-break rule.
+Only an explicit UI action promotes the selected unique conditions to ordinary
+Candidates, whose screening provenance links back to the immutable parent run.
+
 This remains the common generator boundary for future simplex samplers and
 process-program decoders. It does **not** claim joint batch acquisition: each
 point is scored marginally and the selector takes a deterministic top-k.

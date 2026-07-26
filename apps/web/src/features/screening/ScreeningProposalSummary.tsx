@@ -3,9 +3,13 @@ import type { ApiScreeningRun } from "../../shared/api/workbench-api";
 export function ScreeningProposalSummary({
   result,
   onAnotherSample,
+  onSaveBatch,
+  batchSaveCount,
 }: {
   result: ApiScreeningRun;
   onAnotherSample: () => void;
+  onSaveBatch: () => void;
+  batchSaveCount: number;
 }) {
   const diagnostics = result.proposal_diagnostics;
   const rejectionReasons = diagnostics?.rejected_by_reason ?? {};
@@ -30,6 +34,15 @@ export function ScreeningProposalSummary({
     hard_outcome_constraint: "必須条件",
     soft_preference: "選好",
     reporting_only: "表示のみ",
+  } as const;
+  const batchRoleLabel = {
+    performance: "目標追求",
+    exploration: "探索",
+    boundary_check: "境界確認",
+    diversity: "多様性",
+    coverage: "カテゴリ網羅",
+    control: "Control",
+    replicate: "反復",
   } as const;
 
   return (
@@ -81,6 +94,52 @@ export function ScreeningProposalSummary({
           <p>除外した生成点 {result.proposal_rejections?.length ?? 0}件も入力値と理由を保存しています。</p>
         )}
       </details>
+      {result.batch_proposal && (
+        <details className="screening-batch-result" open>
+          <summary>
+            実験バッチ {result.batch_proposal.selected.length}枠
+            <span>
+              条件 {new Set(result.batch_proposal.selected.map((item) => item.point_index)).size}件 ·
+              最小距離 {result.batch_proposal.summary.min_pairwise_distance.toLocaleString("ja-JP", { maximumFractionDigits: 3 })} ·
+              見積コスト {result.batch_proposal.summary.estimated_total_cost.toLocaleString("ja-JP", { maximumFractionDigits: 2 })}
+            </span>
+          </summary>
+          <p>
+            {result.batch_proposal.selector_id} / Design Space正規化距離 /
+            tie-break: pool index
+          </p>
+          <ol>
+            {result.batch_proposal.selected.map((item) => (
+              <li key={`${item.order}-${item.pool_index}`}>
+                <span>
+                  #{item.point_index + 1} · {batchRoleLabel[item.role]} · {item.reason}
+                </span>
+                <b>
+                  value {item.acquisition_component.toLocaleString("ja-JP", { maximumFractionDigits: 3 })}
+                  {" · "}div {item.diversity_component.toLocaleString("ja-JP", { maximumFractionDigits: 3 })}
+                  {" · "}cost {item.estimated_cost.toLocaleString("ja-JP", { maximumFractionDigits: 2 })}
+                </b>
+              </li>
+            ))}
+          </ol>
+          {result.batch_proposal.excluded.length > 0 && (
+            <p>
+              選抜外: {Object.entries(result.batch_proposal.excluded.reduce<Record<string, number>>((counts, item) => {
+                counts[item.reason] = (counts[item.reason] ?? 0) + 1;
+                return counts;
+              }, {})).map(([reason, count]) => `${reason} ${count}件`).join(" / ")}
+            </p>
+          )}
+          <button
+            className="primary-button"
+            disabled={!batchSaveCount}
+            onClick={onSaveBatch}
+          >
+            {batchSaveCount ? `提案した${batchSaveCount}条件を候補へ保存` : "提案条件は保存済み"}
+          </button>
+          <small>反復は同じ候補条件に複数観測を計画するため、候補保存時は1条件にまとめます。</small>
+        </details>
+      )}
       <button className="outline-button" onClick={onAnotherSample}>別サンプル</button>
     </section>
   );

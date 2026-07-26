@@ -422,6 +422,559 @@
         "title": "ApplicationCapability",
         "type": "object"
       },
+      "BatchCategoryQuota": {
+        "additionalProperties": false,
+        "properties": {
+          "max_count": {
+            "anyOf": [
+              {
+                "maximum": 32.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Count"
+          },
+          "min_count": {
+            "default": 0,
+            "maximum": 32.0,
+            "minimum": 0.0,
+            "title": "Min Count",
+            "type": "integer"
+          },
+          "path": {
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "value"
+        ],
+        "title": "BatchCategoryQuota",
+        "type": "object"
+      },
+      "BatchControlRequirement": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_id": {
+            "minLength": 1,
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "replicates": {
+            "default": 1,
+            "maximum": 8.0,
+            "minimum": 1.0,
+            "title": "Replicates",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "candidate_id"
+        ],
+        "title": "BatchControlRequirement",
+        "type": "object"
+      },
+      "BatchExcludedPoint": {
+        "additionalProperties": false,
+        "properties": {
+          "pool_index": {
+            "minimum": 0.0,
+            "title": "Pool Index",
+            "type": "integer"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pool_index",
+          "reason"
+        ],
+        "title": "BatchExcludedPoint",
+        "type": "object"
+      },
+      "BatchProposalDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "batch_size": {
+            "default": 8,
+            "maximum": 32.0,
+            "minimum": 1.0,
+            "title": "Batch Size",
+            "type": "integer"
+          },
+          "category_quotas": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/BatchCategoryQuota"
+            },
+            "title": "Category Quotas",
+            "type": "array"
+          },
+          "controls": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/BatchControlRequirement"
+            },
+            "title": "Controls",
+            "type": "array"
+          },
+          "diversity_weight": {
+            "default": 0.75,
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Diversity Weight",
+            "type": "number"
+          },
+          "near_duplicate_threshold": {
+            "default": 0.05,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Near Duplicate Threshold",
+            "type": "number"
+          },
+          "pending_candidate_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Pending Candidate Ids",
+            "type": "array"
+          },
+          "pending_penalty": {
+            "default": 1.0,
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Pending Penalty",
+            "type": "number"
+          },
+          "pending_policy": {
+            "default": "avoid",
+            "enum": [
+              "avoid",
+              "penalize",
+              "allow"
+            ],
+            "title": "Pending Policy",
+            "type": "string"
+          },
+          "resources": {
+            "$ref": "#/components/schemas/BatchResourceConstraint",
+            "default": {
+              "cost_rules": [],
+              "default_candidate_cost": 1.0,
+              "setup_change_penalty": 0.0
+            }
+          },
+          "schema_version": {
+            "const": "batch-proposal-definition/v1",
+            "default": "batch-proposal-definition/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "selector_id": {
+            "default": "greedy_value_diversity_v1",
+            "enum": [
+              "ranked_top_k_v1",
+              "greedy_value_diversity_v1",
+              "cluster_representative_v1",
+              "local_penalization_v1",
+              "batch_thompson_v1",
+              "joint_q_acquisition_v1"
+            ],
+            "title": "Selector Id",
+            "type": "string"
+          }
+        },
+        "title": "BatchProposalDefinition",
+        "type": "object"
+      },
+      "BatchProposalRun": {
+        "additionalProperties": false,
+        "properties": {
+          "definition": {
+            "$ref": "#/components/schemas/BatchProposalDefinition"
+          },
+          "excluded": {
+            "items": {
+              "$ref": "#/components/schemas/BatchExcludedPoint"
+            },
+            "title": "Excluded",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "batch-proposal-run/v1",
+            "default": "batch-proposal-run/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "seed": {
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "selected": {
+            "items": {
+              "$ref": "#/components/schemas/BatchSelectedPoint"
+            },
+            "title": "Selected",
+            "type": "array"
+          },
+          "selector_id": {
+            "enum": [
+              "ranked_top_k_v1",
+              "greedy_value_diversity_v1",
+              "cluster_representative_v1",
+              "local_penalization_v1",
+              "batch_thompson_v1",
+              "joint_q_acquisition_v1"
+            ],
+            "title": "Selector Id",
+            "type": "string"
+          },
+          "selector_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Selector Version",
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/BatchProposalSummary"
+          },
+          "tie_break_rule": {
+            "const": "combined_score_desc_then_pool_index_asc",
+            "default": "combined_score_desc_then_pool_index_asc",
+            "title": "Tie Break Rule",
+            "type": "string"
+          }
+        },
+        "required": [
+          "selector_id",
+          "seed",
+          "definition",
+          "selected",
+          "excluded",
+          "summary"
+        ],
+        "title": "BatchProposalRun",
+        "type": "object"
+      },
+      "BatchProposalSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "batch_size": {
+            "minimum": 1.0,
+            "title": "Batch Size",
+            "type": "integer"
+          },
+          "category_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Category Counts",
+            "type": "object"
+          },
+          "estimated_total_cost": {
+            "minimum": 0.0,
+            "title": "Estimated Total Cost",
+            "type": "number"
+          },
+          "mean_pairwise_distance": {
+            "minimum": 0.0,
+            "title": "Mean Pairwise Distance",
+            "type": "number"
+          },
+          "min_pairwise_distance": {
+            "minimum": 0.0,
+            "title": "Min Pairwise Distance",
+            "type": "number"
+          },
+          "pending_reference_count": {
+            "minimum": 0.0,
+            "title": "Pending Reference Count",
+            "type": "integer"
+          },
+          "setup_group_count": {
+            "minimum": 0.0,
+            "title": "Setup Group Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "batch_size",
+          "min_pairwise_distance",
+          "mean_pairwise_distance",
+          "estimated_total_cost",
+          "setup_group_count",
+          "category_counts",
+          "pending_reference_count"
+        ],
+        "title": "BatchProposalSummary",
+        "type": "object"
+      },
+      "BatchResourceConstraint": {
+        "additionalProperties": false,
+        "properties": {
+          "cost_rules": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/BatchResourceCostRule"
+            },
+            "title": "Cost Rules",
+            "type": "array"
+          },
+          "default_candidate_cost": {
+            "default": 1.0,
+            "minimum": 0.0,
+            "title": "Default Candidate Cost",
+            "type": "number"
+          },
+          "max_setup_groups": {
+            "anyOf": [
+              {
+                "maximum": 32.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Setup Groups"
+          },
+          "max_total_cost": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Total Cost"
+          },
+          "setup_change_penalty": {
+            "default": 0.0,
+            "minimum": 0.0,
+            "title": "Setup Change Penalty",
+            "type": "number"
+          },
+          "setup_group_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Setup Group Path"
+          }
+        },
+        "title": "BatchResourceConstraint",
+        "type": "object"
+      },
+      "BatchResourceCostRule": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_cost": {
+            "minimum": 0.0,
+            "title": "Candidate Cost",
+            "type": "number"
+          },
+          "path": {
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "value",
+          "candidate_cost"
+        ],
+        "title": "BatchResourceCostRule",
+        "type": "object"
+      },
+      "BatchSelectedPoint": {
+        "additionalProperties": false,
+        "properties": {
+          "acquisition_component": {
+            "title": "Acquisition Component",
+            "type": "number"
+          },
+          "combined_score": {
+            "title": "Combined Score",
+            "type": "number"
+          },
+          "diversity_component": {
+            "title": "Diversity Component",
+            "type": "number"
+          },
+          "estimated_cost": {
+            "minimum": 0.0,
+            "title": "Estimated Cost",
+            "type": "number"
+          },
+          "order": {
+            "minimum": 1.0,
+            "title": "Order",
+            "type": "integer"
+          },
+          "pending_penalty": {
+            "title": "Pending Penalty",
+            "type": "number"
+          },
+          "point_index": {
+            "minimum": 0.0,
+            "title": "Point Index",
+            "type": "integer"
+          },
+          "pool_index": {
+            "minimum": 0.0,
+            "title": "Pool Index",
+            "type": "integer"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "resource_penalty": {
+            "title": "Resource Penalty",
+            "type": "number"
+          },
+          "role": {
+            "enum": [
+              "performance",
+              "exploration",
+              "boundary_check",
+              "diversity",
+              "coverage",
+              "control",
+              "replicate"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "setup_group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Setup Group"
+          }
+        },
+        "required": [
+          "point_index",
+          "pool_index",
+          "order",
+          "role",
+          "reason",
+          "acquisition_component",
+          "diversity_component",
+          "pending_penalty",
+          "resource_penalty",
+          "combined_score",
+          "estimated_cost"
+        ],
+        "title": "BatchSelectedPoint",
+        "type": "object"
+      },
+      "BatchSelectorAvailability": {
+        "additionalProperties": false,
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "definition": {
+            "$ref": "#/components/schemas/BatchSelectorDefinition"
+          },
+          "reasons": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          }
+        },
+        "required": [
+          "definition",
+          "available"
+        ],
+        "title": "BatchSelectorAvailability",
+        "type": "object"
+      },
+      "BatchSelectorDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "production_enabled": {
+            "title": "Production Enabled",
+            "type": "boolean"
+          },
+          "requires_joint_samples": {
+            "default": false,
+            "title": "Requires Joint Samples",
+            "type": "boolean"
+          },
+          "requires_samples": {
+            "default": false,
+            "title": "Requires Samples",
+            "type": "boolean"
+          },
+          "selector_id": {
+            "enum": [
+              "ranked_top_k_v1",
+              "greedy_value_diversity_v1",
+              "cluster_representative_v1",
+              "local_penalization_v1",
+              "batch_thompson_v1",
+              "joint_q_acquisition_v1"
+            ],
+            "title": "Selector Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "selector_id",
+          "version",
+          "label",
+          "production_enabled"
+        ],
+        "title": "BatchSelectorDefinition",
+        "type": "object"
+      },
       "BlendEditorContext": {
         "additionalProperties": false,
         "properties": {
@@ -11456,6 +12009,16 @@
           "base_inputs": {
             "$ref": "#/components/schemas/CandidateInputs"
           },
+          "batch_definition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BatchProposalDefinition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "objective_definition": {
             "anyOf": [
               {
@@ -11545,6 +12108,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/CandidateInputs"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "batch_proposal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BatchProposalRun"
               },
               {
                 "type": "null"
@@ -14585,6 +15158,58 @@
           }
         },
         "summary": "Update Project By Id"
+      }
+    },
+    "/api/projects/{project_id}/batch-selectors": {
+      "get": {
+        "operationId": "list_batch_selectors_api_projects__project_id__batch_selectors_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target",
+            "required": true,
+            "schema": {
+              "title": "Target",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BatchSelectorAvailability"
+                  },
+                  "title": "Response List Batch Selectors Api Projects  Project Id  Batch Selectors Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Batch Selectors"
       }
     },
     "/api/projects/{project_id}/candidates": {
