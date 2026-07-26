@@ -428,34 +428,46 @@ def test_bounded_simplex_strategy_runs_through_api_and_persists_geometry(
     )
     assert strategy["available"]
 
+    goal_body = {
+        "purpose": "goal_search",
+        "base_candidate_id": candidate["id"],
+        "base_inputs": candidate["inputs"],
+        "samples": 48,
+        "seed": 213,
+        "target": "HV",
+        "target_goal": {"direction": "at_least", "lower": 300},
+        "variables": {
+            "composition.Ni": {
+                "mode": "range",
+                "min": 20,
+                "max": 50,
+            },
+            "composition.Co": {
+                "mode": "range",
+                "min": 20,
+                "max": 50,
+            },
+        },
+        "proposal": {
+            "strategy_id": "bounded_simplex_goal_v1",
+            "pool_multiplier": 2,
+            "support_policy": "supported_first",
+            "fallback_policy": "reject",
+        },
+    }
+    goal_response = client.post(
+        "/api/screening",
+        params={"project_id": project["id"]},
+        json=goal_body,
+    )
+    assert goal_response.status_code == 201, goal_response.text
     response = client.post(
         "/api/screening",
         params={"project_id": project["id"]},
         json={
-            "base_candidate_id": candidate["id"],
-            "base_inputs": candidate["inputs"],
-            "samples": 48,
-            "seed": 213,
-            "target": "HV",
-            "target_goal": {"direction": "at_least", "lower": 300},
-            "variables": {
-                "composition.Ni": {
-                    "mode": "range",
-                    "min": 20,
-                    "max": 50,
-                },
-                "composition.Co": {
-                    "mode": "range",
-                    "min": 20,
-                    "max": 50,
-                },
-            },
-            "proposal": {
-                "strategy_id": "bounded_simplex_goal_v1",
-                "pool_multiplier": 2,
-                "support_policy": "supported_first",
-                "fallback_policy": "reject",
-            },
+            **goal_body,
+            "purpose": "experiment_batch",
+            "source_run_id": goal_response.json()["id"],
             "batch_definition": {
                 "batch_size": 4,
                 "candidate_pool_size": 16,

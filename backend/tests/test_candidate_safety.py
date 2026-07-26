@@ -194,6 +194,7 @@ def test_screening_reference_archives_but_unreferenced_candidate_is_hard_deleted
     run = client.post(
         "/api/screening",
         json={
+            "purpose": "goal_search",
             "base_candidate_id": referenced["id"],
             "base_inputs": referenced["inputs"],
             "samples": 48,

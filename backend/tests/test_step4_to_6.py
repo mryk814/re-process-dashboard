@@ -16,6 +16,7 @@ PROFILE_ROOT = Path(__file__).parents[1] / "src" / "material_workbench" / "data"
 
 def _screening_body(candidate: dict) -> dict:
     return {
+        "purpose": "goal_search",
         "base_candidate_id": candidate["id"],
         "base_inputs": candidate["inputs"],
         "samples": 48,
@@ -99,6 +100,8 @@ def test_latin_hypercube_is_deterministic_bounded_and_convertible(client) -> Non
 
     legacy = deepcopy(first)
     legacy["schema_version"] = "screening-run/v3"
+    legacy.pop("purpose")
+    legacy.pop("source_run_id")
     legacy["target_value"] = 500
     legacy["secondary_targets"] = {}
     legacy.pop("target_goal")
@@ -184,6 +187,8 @@ def test_screening_without_target_uses_support_distance_contract(client) -> None
     candidate = client.get("/api/projects/default/candidates").json()[0]
     payload = _screening_body(candidate)
     payload["target_goal"] = None
+    payload["purpose"] = "design_space_map"
+    payload["proposal"] = {"support_policy": "allow_with_warning"}
 
     response = client.post("/api/screening", json=payload)
 
@@ -207,7 +212,7 @@ def test_screening_between_goal_persists_rule_and_uses_inclusive_boundaries(clie
 
     assert response.status_code == 201, response.text
     run = response.json()
-    assert run["schema_version"] == "screening-run/v6"
+    assert run["schema_version"] == "screening-run/v7"
     assert run["target_goal"] == {"direction": "between", "lower": 450.0, "upper": 550.0}
     assert run["secondary_goals"] == {
         "YS": {"direction": "at_least", "lower": 300.0, "upper": None},

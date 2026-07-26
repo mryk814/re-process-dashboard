@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from typing import Any
 
 from pydantic_core import to_jsonable_python
 
@@ -28,10 +29,15 @@ from material_workbench.contracts.proposal_contracts import (
     ProposalStrategyAvailability,
 )
 from material_workbench.contracts.batch_proposal_contracts import (
+    BatchProposalDefinition,
     BatchSelectorAvailability,
 )
 from material_workbench.domain.services import run_proposal
-from material_workbench.domain.batch_selector import BatchSelectionError
+from material_workbench.domain.batch_selector import (
+    BatchSelectionError,
+    candidate_design_values,
+    select_experiment_batch,
+)
 from material_workbench.domain.design_space_validation import (
     validate_candidate_in_design_space,
 )
@@ -205,7 +211,16 @@ class ScreeningService:
         except ValueError as exc:
             raise ScreeningValidationError(str(exc)) from exc
         outputs = {item.key: item for item in definition.outputs}
-        if payload.objective_definition is not None:
+        if payload.purpose == "design_space_map":
+            objective = objective_from_screening(
+                task=definition,
+                task_contract_digest=project.task_contract_digest,
+                target=payload.target,
+                target_goal=None,
+                secondary_goals={},
+            )
+            objective_provenance = "legacy_screening"
+        elif payload.objective_definition is not None:
             objective = payload.objective_definition
             objective_provenance = "explicit"
         elif project.objective_definition is not None:
@@ -232,62 +247,82 @@ class ScreeningService:
             objective_provenance = "legacy_screening"
         try:
             objective.validate_against(definition, contract.runtime_capability)
-            execution = build_objective_execution_plan(objective)
+            execution = (
+                None
+                if payload.purpose == "design_space_map"
+                else build_objective_execution_plan(objective)
+            )
         except ValueError as exc:
             raise ScreeningValidationError(str(exc)) from exc
-        payload = payload.model_copy(
-            update={
-                "target": execution.target,
-                "target_goal": execution.target_goal,
-                "secondary_goals": execution.secondary_goals,
-            }
-        )
-        output = outputs[execution.target]
+        if execution is not None:
+            payload = payload.model_copy(
+                update={
+                    "target": execution.target,
+                    "target_goal": execution.target_goal,
+                    "secondary_goals": execution.secondary_goals,
+                }
+            )
+        if payload.purpose == "goal_search" and payload.target_goal is None:
+            raise ScreeningValidationError("有望候補を探すには主目標が必要です")
+        output = outputs[payload.target]
         incumbent = objective.incumbent
-        if incumbent.source == "candidate_revision":
-            if self.store.get_candidate_revision(
-                incumbent.candidate_id or "",
-                incumbent.candidate_revision or 0,
-                project_id,
-            ) is None:
-                raise ScreeningValidationError("Objectiveのincumbent候補revisionが見つかりません")
-        elif incumbent.source == "prediction_snapshot":
-            snapshot = self.store.get_snapshot(incumbent.snapshot_id or "")
-            if (
-                snapshot is None
-                or snapshot["candidate_id"] != incumbent.candidate_id
-                or self.store.get_candidate(incumbent.candidate_id or "", project_id) is None
+        if payload.purpose != "experiment_batch":
+            if incumbent.source == "candidate_revision":
+                if self.store.get_candidate_revision(
+                    incumbent.candidate_id or "",
+                    incumbent.candidate_revision or 0,
+                    project_id,
+                ) is None:
+                    raise ScreeningValidationError("Objectiveのincumbent候補revisionが見つかりません")
+            elif incumbent.source == "prediction_snapshot":
+                snapshot = self.store.get_snapshot(incumbent.snapshot_id or "")
+                if (
+                    snapshot is None
+                    or snapshot["candidate_id"] != incumbent.candidate_id
+                    or self.store.get_candidate(incumbent.candidate_id or "", project_id) is None
+                ):
+                    raise ScreeningValidationError("Objectiveのincumbent snapshotが見つかりません")
+            elif incumbent.source == "project_decision" and (
+                not project.decision_candidate_id or not project.decision_snapshot_id
             ):
-                raise ScreeningValidationError("Objectiveのincumbent snapshotが見つかりません")
-        elif incumbent.source == "project_decision" and (
-            not project.decision_candidate_id or not project.decision_snapshot_id
-        ):
-            raise ScreeningValidationError("Projectに採用済みincumbentがありません")
+                raise ScreeningValidationError("Projectに採用済みincumbentがありません")
+        proposal_request = payload.proposal
+        strategy = None
+        fallback_from = None
+        incumbent_resolution = None
         try:
-            incumbent_resolution = self._resolve_incumbent(
-                project,
-                objective,
-                execution.target,
-                output.unit,
-                objective_provenance,
-                request_override=payload.proposal.incumbent_value,
-            )
-            proposal_request = payload.proposal.model_copy(
-                update={"incumbent_value": incumbent_resolution.value}
-            )
-            payload = payload.model_copy(update={"proposal": proposal_request})
-            strategy, fallback_from = resolve_strategy(
-                proposal_request,
-                contract.runtime_capability,
-                target=payload.target,
-                target_kind=next(
-                    item.target_kind
-                    for item in package.manifest.predictors
-                    if item.target == payload.target
-                ),
-                objective=objective,
-                design_space=design_space,
-            )
+            if payload.purpose != "experiment_batch":
+                incumbent_resolution = self._resolve_incumbent(
+                    project,
+                    objective,
+                    payload.target,
+                    output.unit,
+                    objective_provenance,
+                    request_override=payload.proposal.incumbent_value,
+                )
+                proposal_request = payload.proposal.model_copy(
+                    update={
+                        "strategy_id": (
+                            "latin_hypercube_v1"
+                            if payload.purpose == "design_space_map"
+                            else payload.proposal.strategy_id
+                        ),
+                        "incumbent_value": incumbent_resolution.value,
+                    }
+                )
+                payload = payload.model_copy(update={"proposal": proposal_request})
+                strategy, fallback_from = resolve_strategy(
+                    proposal_request,
+                    contract.runtime_capability,
+                    target=payload.target,
+                    target_kind=next(
+                        item.target_kind
+                        for item in package.manifest.predictors
+                        if item.target == payload.target
+                    ),
+                    objective=objective,
+                    design_space=design_space,
+                )
             if payload.batch_definition is not None:
                 require_batch_selector(
                     payload.batch_definition.selector_id,
@@ -363,19 +398,82 @@ class ScreeningService:
                             f"exact Control候補がDesign Spaceを満たしません: {candidate_id} / {exc}"
                         ) from exc
                 batch_reference_candidates[candidate_id] = candidate
-            result = run_proposal(
-                runtime,
-                base,
-                payload,
-                probability_available=probability_available,
-                candidate_validator=lambda candidate: (
-                    self.registry.validate_candidate(project.task_id, candidate),
-                    validate_candidate_in_design_space(candidate, project.design_space),
-                ),
-                design_space=design_space,
-                strategy=strategy,
-                batch_reference_candidates=batch_reference_candidates,
-            )
+            if payload.purpose == "experiment_batch":
+                source_raw = self.store.get_screening_run(
+                    payload.source_run_id or "",
+                    project_id,
+                )
+                if source_raw is None:
+                    raise ScreeningValidationError(
+                        "元の有望候補Runが見つかりません"
+                    )
+                source = ScreeningRunResponse.model_validate(source_raw)
+                current_design_space_digest = semantic_digest(
+                    design_space.model_dump(mode="json")
+                )
+                source_is_goal_search = (
+                    source.purpose == "goal_search"
+                    or (
+                        source.purpose is None
+                        and source.batch_proposal is None
+                        and (
+                            source.target_goal is not None
+                            or source.target_value is not None
+                            or bool(source.secondary_goals)
+                            or bool(source.secondary_targets)
+                            or (
+                                source.objective_definition is not None
+                                and any(
+                                    term.role == "primary_objective"
+                                    and term.direction is not None
+                                    for term in source.objective_definition.terms
+                                )
+                            )
+                        )
+                    )
+                )
+                if not source_is_goal_search:
+                    raise ScreeningValidationError(
+                        "実験バッチの元には「有望候補を探す」Runを指定してください"
+                    )
+                if (
+                    source.design_space_digest != current_design_space_digest
+                    or source.project_design_space_digest
+                    != project.design_space_digest
+                    or source.objective_definition_digest != objective.digest
+                    or source.base_candidate_id != payload.base_candidate_id
+                    or source.variables != payload.variables
+                    or source.target != payload.target
+                    or source.seed != payload.seed
+                    or source.samples != payload.samples
+                    or source.proposal_strategy is None
+                ):
+                    raise ScreeningValidationError(
+                        "元の有望候補Runと現在の条件が一致しません。"
+                        "有望候補をもう一度実行してください"
+                    )
+                result = self._select_batch_from_saved_run(
+                    source_raw=source_raw,
+                    source=source,
+                    definition=payload.batch_definition,
+                    design_space=design_space,
+                    reference_candidates=batch_reference_candidates,
+                )
+            else:
+                assert strategy is not None
+                result = run_proposal(
+                    runtime,
+                    base,
+                    payload,
+                    probability_available=probability_available,
+                    candidate_validator=lambda candidate: (
+                        self.registry.validate_candidate(project.task_id, candidate),
+                        validate_candidate_in_design_space(candidate, project.design_space),
+                    ),
+                    design_space=design_space,
+                    strategy=strategy,
+                    batch_reference_candidates=batch_reference_candidates,
+                )
         except BatchSelectionError as exc:
             raise ScreeningBatchSelectionError(
                 exc.failure_kind,
@@ -392,67 +490,154 @@ class ScreeningService:
         result["objective_definition"] = objective.model_dump(mode="json")
         result["objective_definition_digest"] = objective.digest
         result["objective_binding_provenance"] = objective_provenance
-        result["objective_execution"] = execution.evidence.model_dump(mode="json")
-        result["schema_version"] = "screening-run/v6"
-        result["proposal_strategy"] = {
-            "id": strategy.strategy_id,
-            "version": strategy.version,
-            "seed": result["seed"],
-            "requested_count": payload.samples,
-            "pool_multiplier": proposal_request.pool_multiplier,
-            "generator_id": strategy.generator_id,
-            "generator_version": strategy.generator_version,
-            "generator_parameters": strategy.generator_parameters,
-            "distance_id": strategy.distance_id,
-            "distance_version": strategy.distance_version,
-            "distance_parameters": strategy.distance_parameters,
-            "distance_usage": strategy.distance_usage,
-            "acquisition_id": strategy.acquisition_id,
-            "acquisition_version": strategy.acquisition_version,
-            "selector_id": strategy.selector_id,
-            "selector_version": strategy.selector_version,
-            "exploration_parameter": (
-                proposal_request.exploration_parameter
-                if strategy.acquisition_id
-                in {"upper_confidence_bound", "expected_improvement"}
-                else None
-            ),
-            "parameter_role": (
-                "confidence_multiplier"
-                if strategy.acquisition_id == "upper_confidence_bound"
-                else "improvement_margin"
-                if strategy.acquisition_id == "expected_improvement"
-                else None
-            ),
-            "acquisition_representation": (
-                strategy.requires_acquisition_representation
-            ),
-            "standard_deviation_methods": sorted(
-                {
-                    str(method)
-                    for point in result.get("proposal_pool", [])
-                    if (
-                        method := point.get("acquisition_components", {}).get(
-                            "standard_deviation_method"
+        result["objective_execution"] = (
+            execution.evidence.model_dump(mode="json")
+            if execution is not None
+            else None
+        )
+        result["purpose"] = payload.purpose
+        result["source_run_id"] = payload.source_run_id
+        result["schema_version"] = "screening-run/v7"
+        if payload.purpose != "experiment_batch":
+            assert strategy is not None
+            assert incumbent_resolution is not None
+            result["proposal_strategy"] = {
+                "id": strategy.strategy_id,
+                "version": strategy.version,
+                "seed": result["seed"],
+                "requested_count": payload.samples,
+                "pool_multiplier": proposal_request.pool_multiplier,
+                "generator_id": strategy.generator_id,
+                "generator_version": strategy.generator_version,
+                "generator_parameters": strategy.generator_parameters,
+                "distance_id": strategy.distance_id,
+                "distance_version": strategy.distance_version,
+                "distance_parameters": strategy.distance_parameters,
+                "distance_usage": strategy.distance_usage,
+                "acquisition_id": strategy.acquisition_id,
+                "acquisition_version": strategy.acquisition_version,
+                "selector_id": strategy.selector_id,
+                "selector_version": strategy.selector_version,
+                "exploration_parameter": (
+                    proposal_request.exploration_parameter
+                    if strategy.acquisition_id
+                    in {"upper_confidence_bound", "expected_improvement"}
+                    else None
+                ),
+                "parameter_role": (
+                    "confidence_multiplier"
+                    if strategy.acquisition_id == "upper_confidence_bound"
+                    else "improvement_margin"
+                    if strategy.acquisition_id == "expected_improvement"
+                    else None
+                ),
+                "acquisition_representation": (
+                    strategy.requires_acquisition_representation
+                ),
+                "standard_deviation_methods": sorted(
+                    {
+                        str(method)
+                        for point in result.get("proposal_pool", [])
+                        if (
+                            method := point.get("acquisition_components", {}).get(
+                                "standard_deviation_method"
+                            )
                         )
-                    )
-                }
-            ),
-            "support_policy": proposal_request.support_policy,
-            "fallback_from": fallback_from,
-            "fallback_policy": proposal_request.fallback_policy,
-            "incumbent_value": proposal_request.incumbent_value,
-            "incumbent_resolution": incumbent_resolution.model_dump(mode="json"),
-            "constraint_treatment": "feasibility_first_then_rank",
-            "uncertainty_treatment": (
-                "predictive_standard_deviation"
-                if strategy.requires_standard_deviation
-                else None
-            ),
-        }
-        result["proposal_diagnostics"] = result.pop("_proposal_diagnostics")
+                    }
+                ),
+                "support_policy": proposal_request.support_policy,
+                "fallback_from": fallback_from,
+                "fallback_policy": proposal_request.fallback_policy,
+                "incumbent_value": proposal_request.incumbent_value,
+                "incumbent_resolution": incumbent_resolution.model_dump(mode="json"),
+                "constraint_treatment": "feasibility_first_then_rank",
+                "uncertainty_treatment": (
+                    "predictive_standard_deviation"
+                    if strategy.requires_standard_deviation
+                    else None
+                ),
+            }
+            result["proposal_diagnostics"] = result.pop("_proposal_diagnostics")
         stored = self.store.create_screening_run(to_jsonable_python(result), project_id)
         return ScreeningRunResponse.model_validate(stored)
+
+    @staticmethod
+    def _select_batch_from_saved_run(
+        *,
+        source_raw: dict[str, Any],
+        source: ScreeningRunResponse,
+        definition: BatchProposalDefinition,
+        design_space: DesignSpaceDefinition,
+        reference_candidates: dict[str, Candidate],
+    ) -> dict[str, Any]:
+        if source.proposal_strategy is None:
+            raise ScreeningValidationError("元の有望候補Runに提案方法の証跡がありません")
+        points = [
+            dict(point)
+            for point in source_raw.get("points", [])
+        ]
+        exact_control_points = []
+        pool_size = source.samples * source.proposal_strategy.pool_multiplier
+        for control_index, requirement in enumerate(definition.controls):
+            candidate = reference_candidates[requirement.candidate_id]
+            exact_control_points.append(
+                {
+                    "pool_index": pool_size + control_index,
+                    "inputs": candidate_design_values(candidate, design_space),
+                    "candidate": CandidateInput.model_validate(
+                        candidate.model_dump()
+                    ).model_dump(mode="json"),
+                    "score": 0.0,
+                    "secondary_goal_evaluations": {},
+                    "_batch_source": "exact_control",
+                    "_candidate_id": candidate.id,
+                    "_candidate_revision": candidate.revision,
+                }
+            )
+        batch_proposal = select_experiment_batch(
+            [*points, *exact_control_points],
+            definition,
+            design_space,
+            seed=source.seed,
+            reference_candidates=reference_candidates,
+            distance_id=source.proposal_strategy.distance_id,
+            distance_version=source.proposal_strategy.distance_version,
+            distance_parameters=source.proposal_strategy.distance_parameters,
+        )
+        point_index_by_pool = {
+            point["pool_index"]: point["index"]
+            for point in points
+        }
+        batch_proposal["selected"] = [
+            {
+                "point_index": point_index_by_pool.get(item["point"]["pool_index"]),
+                "pool_index": item["point"]["pool_index"],
+                "order": order,
+                "role": item["role"],
+                "reason": item["reason"],
+                "acquisition_component": item["acquisition_component"],
+                "diversity_component": item["diversity_component"],
+                "pending_penalty": item["pending_penalty"],
+                "resource_penalty": item["resource_penalty"],
+                "combined_score": item["combined_score"],
+                "estimated_cost": item["estimated_cost"],
+                "setup_group": item["setup_group"],
+                "source": item["source"],
+                "candidate_id": item["candidate_id"],
+                "candidate_revision": item["candidate_revision"],
+                "canonical_identity_digest": item[
+                    "canonical_identity_digest"
+                ],
+            }
+            for order, item in enumerate(batch_proposal["selected"], start=1)
+        ]
+        result = {
+            key: value
+            for key, value in source_raw.items()
+            if key not in {"id", "project_id", "created_at"}
+        }
+        result["batch_proposal"] = batch_proposal
+        return result
 
     def available_strategies(
         self,
