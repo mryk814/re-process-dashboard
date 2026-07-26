@@ -1,0 +1,325 @@
+{
+  "schema_version": "shared-multi-output-gp-evaluation/v1",
+  "generated_from": {
+    "source": "data/source/material_workbench_process_v1.xlsx",
+    "source_sha256": "87e2321d5ce1071c9fe57bea95ed773609a88d63c7d5cc08bd0a15592634bef9",
+    "task_id": "annealed-properties-v1",
+    "feature_pipeline_version": "4.0.0"
+  },
+  "evaluation_policy": {
+    "cohort": "complete parent-condition means shared by all targets",
+    "parent_conditions": 92,
+    "target_order": [
+      "TS",
+      "YS",
+      "EL",
+      "lambda"
+    ],
+    "split": "5-fold deterministic grouped by parent condition",
+    "seed": 20260726,
+    "input_kernel": "standardized isotropic RBF; fold-local grid search",
+    "coregionalization": "fold-local empirical target correlation with 0.25 identity shrinkage",
+    "interval": "normal posterior predictive including fitted noise",
+    "demo_data_warning": "Synthetic demo data; this result tests application and model-contract utility, not a scientific causal claim."
+  },
+  "target_correlation": {
+    "TS": {
+      "TS": 1.0,
+      "YS": 0.9989298234688434,
+      "EL": -0.9982424550343404,
+      "lambda": -0.9985618738687442
+    },
+    "YS": {
+      "TS": 0.9989298234688435,
+      "YS": 1.0,
+      "EL": -0.9992880040276267,
+      "lambda": -0.9995340025763231
+    },
+    "EL": {
+      "TS": -0.9982424550343404,
+      "YS": -0.9992880040276266,
+      "EL": 1.0,
+      "lambda": 0.9987782715069569
+    },
+    "lambda": {
+      "TS": -0.9985618738687442,
+      "YS": -0.9995340025763231,
+      "EL": 0.9987782715069567,
+      "lambda": 1.0
+    }
+  },
+  "metrics": {
+    "single_target": {
+      "TS": {
+        "mae": 79.01135049586951,
+        "rmse": 496.2150228843793,
+        "coverage": {
+          "0.50": 0.8913043478260869,
+          "0.80": 0.9565217391304348,
+          "0.90": 0.9782608695652174,
+          "0.95": 0.9782608695652174
+        },
+        "calibration_error": 0.16358695652173913
+      },
+      "YS": {
+        "mae": 57.45314649527955,
+        "rmse": 368.3589786494643,
+        "coverage": {
+          "0.50": 0.9021739130434783,
+          "0.80": 0.9456521739130435,
+          "0.90": 0.9891304347826086,
+          "0.95": 0.9891304347826086
+        },
+        "calibration_error": 0.16902173913043475
+      },
+      "EL": {
+        "mae": 3.4235940683555044,
+        "rmse": 19.8833269451308,
+        "coverage": {
+          "0.50": 0.8369565217391305,
+          "0.80": 0.9456521739130435,
+          "0.90": 0.9782608695652174,
+          "0.95": 0.9782608695652174
+        },
+        "calibration_error": 0.14728260869565218
+      },
+      "lambda": {
+        "mae": 9.524213225452424,
+        "rmse": 60.895927808265995,
+        "coverage": {
+          "0.50": 0.8586956521739131,
+          "0.80": 0.967391304347826,
+          "0.90": 0.9782608695652174,
+          "0.95": 0.9891304347826086
+        },
+        "calibration_error": 0.1608695652173913
+      }
+    },
+    "shared_output": {
+      "TS": {
+        "mae": 80.62699784411744,
+        "rmse": 496.4041159342257,
+        "coverage": {
+          "0.50": 0.8586956521739131,
+          "0.80": 0.9347826086956522,
+          "0.90": 0.967391304347826,
+          "0.95": 0.9782608695652174
+        },
+        "calibration_error": 0.14728260869565218
+      },
+      "YS": {
+        "mae": 58.87907467016787,
+        "rmse": 368.5087445541717,
+        "coverage": {
+          "0.50": 0.8695652173913043,
+          "0.80": 0.9347826086956522,
+          "0.90": 0.967391304347826,
+          "0.95": 0.9891304347826086
+        },
+        "calibration_error": 0.1527173913043478
+      },
+      "EL": {
+        "mae": 3.4711942495963526,
+        "rmse": 19.887378331922548,
+        "coverage": {
+          "0.50": 0.7934782608695652,
+          "0.80": 0.9347826086956522,
+          "0.90": 0.9565217391304348,
+          "0.95": 0.9565217391304348
+        },
+        "calibration_error": 0.12282608695652175
+      },
+      "lambda": {
+        "mae": 9.74005411634728,
+        "rmse": 60.91949095002926,
+        "coverage": {
+          "0.50": 0.8369565217391305,
+          "0.80": 0.9239130434782609,
+          "0.90": 0.9565217391304348,
+          "0.95": 0.9891304347826086
+        },
+        "calibration_error": 0.1391304347826087
+      }
+    }
+  },
+  "negative_transfer": {
+    "TS": {
+      "rmse_relative_change": 0.0003810707881176114,
+      "calibration_error_change": -0.016304347826086946,
+      "detected": false
+    },
+    "YS": {
+      "rmse_relative_change": 0.00040657595820387866,
+      "calibration_error_change": -0.016304347826086946,
+      "detected": false
+    },
+    "EL": {
+      "rmse_relative_change": 0.00020375799296202212,
+      "calibration_error_change": -0.024456521739130432,
+      "detected": false
+    },
+    "lambda": {
+      "rmse_relative_change": 0.00038694117343037414,
+      "calibration_error_change": -0.021739130434782594,
+      "detected": false
+    }
+  },
+  "sensitivity": {
+    "policy": "secondary analysis excluding parent conditions with any target outside TaskDefinition.plausibility_range; rows are not removed from the primary evaluation",
+    "excluded_parent_conditions": 1,
+    "parent_conditions": 91,
+    "metrics": {
+      "single_target": {
+        "TS": {
+          "mae": 26.764221981890973,
+          "rmse": 38.454745128431504,
+          "coverage": {
+            "0.50": 0.6373626373626373,
+            "0.80": 0.9010989010989011,
+            "0.90": 0.978021978021978,
+            "0.95": 0.978021978021978
+          },
+          "calibration_error": 0.0861263736263736
+        },
+        "YS": {
+          "mae": 19.82736174129891,
+          "rmse": 24.517945291661835,
+          "coverage": {
+            "0.50": 0.3956043956043956,
+            "0.80": 0.8021978021978022,
+            "0.90": 0.8791208791208791,
+            "0.95": 0.9560439560439561
+          },
+          "calibration_error": 0.03337912087912091
+        },
+        "EL": {
+          "mae": 1.3421990515098765,
+          "rmse": 1.692427241768576,
+          "coverage": {
+            "0.50": 0.38461538461538464,
+            "0.80": 0.7582417582417582,
+            "0.90": 0.9010989010989011,
+            "0.95": 0.967032967032967
+          },
+          "calibration_error": 0.04381868131868134
+        },
+        "lambda": {
+          "mae": 3.0063584921621183,
+          "rmse": 3.7646553957577886,
+          "coverage": {
+            "0.50": 0.46153846153846156,
+            "0.80": 0.8131868131868132,
+            "0.90": 0.9010989010989011,
+            "0.95": 0.9560439560439561
+          },
+          "calibration_error": 0.014697802197802201
+        }
+      },
+      "shared_output": {
+        "TS": {
+          "mae": 33.32649554715555,
+          "rmse": 46.10167997106196,
+          "coverage": {
+            "0.50": 0.34065934065934067,
+            "0.80": 0.6813186813186813,
+            "0.90": 0.8021978021978022,
+            "0.95": 0.8461538461538461
+          },
+          "calibration_error": 0.11991758241758241
+        },
+        "YS": {
+          "mae": 22.615788778692504,
+          "rmse": 28.73530075329904,
+          "coverage": {
+            "0.50": 0.34065934065934067,
+            "0.80": 0.6043956043956044,
+            "0.90": 0.7802197802197802,
+            "0.95": 0.8571428571428571
+          },
+          "calibration_error": 0.14189560439560442
+        },
+        "EL": {
+          "mae": 1.5041404076074891,
+          "rmse": 1.8867686039504068,
+          "coverage": {
+            "0.50": 0.34065934065934067,
+            "0.80": 0.5274725274725275,
+            "0.90": 0.6153846153846154,
+            "0.95": 0.6813186813186813
+          },
+          "calibration_error": 0.24629120879120878
+        },
+        "lambda": {
+          "mae": 3.622526071391268,
+          "rmse": 4.577483640598963,
+          "coverage": {
+            "0.50": 0.34065934065934067,
+            "0.80": 0.6373626373626373,
+            "0.90": 0.7692307692307693,
+            "0.95": 0.8351648351648352
+          },
+          "calibration_error": 0.1418956043956044
+        }
+      }
+    },
+    "negative_transfer": {
+      "TS": {
+        "rmse_relative_change": 0.19885542907880824,
+        "calibration_error_change": 0.03379120879120881,
+        "detected": true
+      },
+      "YS": {
+        "rmse_relative_change": 0.17201096631337456,
+        "calibration_error_change": 0.1085164835164835,
+        "detected": true
+      },
+      "EL": {
+        "rmse_relative_change": 0.11482996573533366,
+        "calibration_error_change": 0.20247252747252742,
+        "detected": true
+      },
+      "lambda": {
+        "rmse_relative_change": 0.21591039800272613,
+        "calibration_error_change": 0.1271978021978022,
+        "detected": true
+      }
+    },
+    "decision": {
+      "adopt": false,
+      "improved_target_count": 0,
+      "material_negative_transfer": true,
+      "mean_single_target_calibration_error": 0.044505494505494514,
+      "mean_shared_output_calibration_error": 0.16249999999999998
+    }
+  },
+  "benchmark": {
+    "single_target": {
+      "artifact_bytes": 309900,
+      "mean_load_ms": 1.052164999418892,
+      "batch_100_inference_ms": 7.843500003218651
+    },
+    "shared_output": {
+      "artifact_bytes": 1118864,
+      "mean_load_ms": 1.097590001882054,
+      "batch_100_inference_ms": 287.57840004982427
+    }
+  },
+  "decision": {
+    "adopt_runtime_and_package": false,
+    "primary": {
+      "adopt": false,
+      "improved_target_count": 0,
+      "material_negative_transfer": false,
+      "mean_single_target_calibration_error": 0.16019021739130435,
+      "mean_shared_output_calibration_error": 0.14048913043478262
+    },
+    "plausibility_clean_sensitivity": {
+      "adopt": false,
+      "improved_target_count": 0,
+      "material_negative_transfer": true,
+      "mean_single_target_calibration_error": 0.044505494505494514,
+      "mean_shared_output_calibration_error": 0.16249999999999998
+    },
+    "rule": "adopt only when at least 3/4 targets improve RMSE by >=2%, no target has >3% RMSE or calibration degradation, and mean calibration error is not >0.02 worse in both the primary and plausibility-clean sensitivity cohorts"
+  }
+}
