@@ -384,6 +384,11 @@ export const workbenchApi = {
       signal,
     }), "検討アクティビティを実行できませんでした。");
   },
+  async promoteDecisionActivityProposal(projectId: string, runId: string, proposalId: string) {
+    return requireData(await apiClient.POST("/api/projects/{project_id}/decision-activity-runs/{run_id}/proposals/{proposal_id}/candidate", {
+      params: { path: { project_id: projectId, run_id: runId, proposal_id: proposalId } },
+    }), "選択した変更案を候補にできませんでした。");
+  },
   async snapshots(projectId: string, candidateId: string, signal?: AbortSignal) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/snapshots", { params: { path: { project_id: projectId, candidate_id: candidateId } }, signal }), "スナップショットを取得できませんでした。");
   },

@@ -61,11 +61,18 @@ def build_registry() -> dict[str, DecisionActivityHandler]:
     from material_workbench.application.decision_activity_difference import (
         CANDIDATE_DIFFERENCE_HANDLER,
     )
+    from material_workbench.application.decision_activity_counterfactual import (
+        COUNTERFACTUAL_HANDLER,
+    )
     from material_workbench.application.decision_activity_robustness import (
         ROBUSTNESS_HANDLER,
     )
 
-    handlers = (ROBUSTNESS_HANDLER, CANDIDATE_DIFFERENCE_HANDLER)
+    handlers = (
+        ROBUSTNESS_HANDLER,
+        CANDIDATE_DIFFERENCE_HANDLER,
+        COUNTERFACTUAL_HANDLER,
+    )
     registry: dict[str, DecisionActivityHandler] = {}
     for handler in handlers:
         activity_id = handler.definition.activity_id

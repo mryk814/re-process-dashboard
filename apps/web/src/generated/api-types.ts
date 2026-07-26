@@ -1025,6 +1025,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/decision-activity-runs/{run_id}/proposals/{proposal_id}/candidate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Promote Decision Activity Proposal */
+        post: operations["promote_decision_activity_proposal_api_projects__project_id__decision_activity_runs__run_id__proposals__proposal_id__candidate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/group": {
         parameters: {
             query?: never;
@@ -2255,7 +2272,7 @@ export interface components {
             /** Project Id */
             project_id: string;
             /** Provenance */
-            provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"] | components["schemas"]["BlendOptimizationSourceRef"];
+            provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"] | components["schemas"]["BlendOptimizationSourceRef"] | components["schemas"]["DecisionActivitySourceRef"];
             /** Revision */
             revision: number;
             /**
@@ -2348,7 +2365,7 @@ export interface components {
              */
             name: string;
             /** Provenance */
-            provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"] | components["schemas"]["BlendOptimizationSourceRef"];
+            provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"] | components["schemas"]["BlendOptimizationSourceRef"] | components["schemas"]["DecisionActivitySourceRef"];
         };
         /** CandidateInputs */
         CandidateInputs: {
@@ -2387,7 +2404,7 @@ export interface components {
              */
             name: string;
             /** Provenance */
-            provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"] | components["schemas"]["BlendOptimizationSourceRef"];
+            provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"] | components["schemas"]["BlendOptimizationSourceRef"] | components["schemas"]["DecisionActivitySourceRef"];
         };
         /** CategoricalDomain */
         CategoricalDomain: {
@@ -3090,6 +3107,160 @@ export interface components {
             source_kind: "copy";
             source_ref: components["schemas"]["CopyReference"];
         };
+        /** CounterfactualInfeasibility */
+        CounterfactualInfeasibility: {
+            /** Best Value */
+            best_value: number;
+            /** Explanation */
+            explanation: string;
+            /** Normalized Shortfall */
+            normalized_shortfall: number;
+            /** Target */
+            target: string;
+            /** Unit */
+            unit: string;
+        };
+        /** CounterfactualInputChange */
+        CounterfactualInputChange: {
+            /** Base Value */
+            base_value: number | string;
+            /** Label */
+            label: string;
+            /** Normalized Distance */
+            normalized_distance: number;
+            /** Path */
+            path: string;
+            /** Proposed Value */
+            proposed_value: number | string;
+            /** Unit */
+            unit?: string | null;
+        };
+        /** CounterfactualParameters */
+        CounterfactualParameters: {
+            /**
+             * Categorical Change Penalty
+             * @default 1
+             */
+            categorical_change_penalty: number;
+            /**
+             * Immutable Paths
+             * @default []
+             */
+            immutable_paths: string[];
+            /**
+             * Max Changed Fields
+             * @default 4
+             */
+            max_changed_fields: number;
+            /**
+             * Result Count
+             * @default 5
+             */
+            result_count: number;
+            /**
+             * Sample Count
+             * @default 128
+             */
+            sample_count: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            schema_version: "counterfactual-parameters/v1";
+            /**
+             * Seed
+             * @default 20260726
+             */
+            seed: number;
+        };
+        /** CounterfactualProposal */
+        CounterfactualProposal: {
+            /** Change Distance */
+            change_distance: number;
+            /** Changed Field Count */
+            changed_field_count: number;
+            /** Changes */
+            changes: components["schemas"]["CounterfactualInputChange"][];
+            inputs: components["schemas"]["CandidateInputs"];
+            /** Meets Objective */
+            meets_objective: boolean;
+            /** Proposal Id */
+            proposal_id: string;
+            /** Rank */
+            rank: number;
+            support: components["schemas"]["Support"];
+            /** Target Evaluations */
+            target_evaluations: components["schemas"]["CounterfactualTargetEvaluation"][];
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: string[];
+        };
+        /** CounterfactualSummary */
+        CounterfactualSummary: {
+            /** Base Candidate Id */
+            base_candidate_id: string;
+            /** Base Candidate Revision */
+            base_candidate_revision: number;
+            /** Design Space Digest */
+            design_space_digest: string;
+            /** Evaluated Count */
+            evaluated_count: number;
+            /**
+             * Infeasibility
+             * @default []
+             */
+            infeasibility: components["schemas"]["CounterfactualInfeasibility"][];
+            /** Objective Definition Digest */
+            objective_definition_digest: string;
+            /** Proposals */
+            proposals: components["schemas"]["CounterfactualProposal"][];
+            /** Rejected Count */
+            rejected_count: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            schema_version: "counterfactual-summary/v1";
+            /** Seed */
+            seed: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "feasible" | "infeasible";
+            /**
+             * Strategy Id
+             * @constant
+             */
+            strategy_id: "normalized-l1-sobol-v1";
+            /**
+             * Strategy Version
+             * @constant
+             */
+            strategy_version: "1.0.0";
+            /** Warnings */
+            warnings: string[];
+        };
+        /** CounterfactualTargetEvaluation */
+        CounterfactualTargetEvaluation: {
+            /** Achieved */
+            achieved: boolean;
+            /** Normalized Shortfall */
+            normalized_shortfall: number;
+            /** Predicted Value */
+            predicted_value: number;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "primary_objective" | "hard_outcome_constraint" | "soft_preference" | "reporting_only";
+            /** Target */
+            target: string;
+            /** Unit */
+            unit: string;
+        };
         /** CriticalInput */
         CriticalInput: {
             /** Absolute Correlation */
@@ -3413,7 +3584,7 @@ export interface components {
             /** Required Operations */
             required_operations: "preview"[];
             /** Required Resources */
-            required_resources: ("candidate" | "comparison_candidate")[];
+            required_resources: ("candidate" | "comparison_candidate" | "objective_definition" | "project_design_space")[];
             /** Result Kind */
             result_kind: string;
             /** Version */
@@ -3436,6 +3607,8 @@ export interface components {
             model: components["schemas"]["ModelMetadata"];
             /** Model Package Digest */
             model_package_digest: string;
+            /** Objective Definition Digest */
+            objective_definition_digest?: string | null;
             /** Parameters Digest */
             parameters_digest: string;
             /**
@@ -3451,6 +3624,17 @@ export interface components {
             /** Task Id */
             task_id: string;
         };
+        /** DecisionActivityReference */
+        DecisionActivityReference: {
+            /** Base Candidate Id */
+            base_candidate_id: string;
+            /** Base Candidate Revision */
+            base_candidate_revision: number;
+            /** Proposal Id */
+            proposal_id: string;
+            /** Run Id */
+            run_id: string;
+        };
         /** DecisionActivityRun */
         DecisionActivityRun: {
             /**
@@ -3462,12 +3646,12 @@ export interface components {
             /** Id */
             id: string;
             /** Parameters */
-            parameters: components["schemas"]["RobustnessParameters"] | components["schemas"]["CandidateDifferenceParameters"];
+            parameters: components["schemas"]["RobustnessParameters"] | components["schemas"]["CandidateDifferenceParameters"] | components["schemas"]["CounterfactualParameters"];
             /** Project Id */
             project_id: string;
             provenance: components["schemas"]["DecisionActivityProvenance"];
             /** Result */
-            result: components["schemas"]["RobustnessSummary"] | components["schemas"]["CandidateDifferenceSummary"];
+            result: components["schemas"]["RobustnessSummary"] | components["schemas"]["CandidateDifferenceSummary"] | components["schemas"]["CounterfactualSummary"];
             /** Semantic Identity */
             semantic_identity: string;
         };
@@ -3476,7 +3660,16 @@ export interface components {
             /** Expected Revision */
             expected_revision: number;
             /** Parameters */
-            parameters: components["schemas"]["RobustnessParameters"] | components["schemas"]["CandidateDifferenceParameters"];
+            parameters: components["schemas"]["RobustnessParameters"] | components["schemas"]["CandidateDifferenceParameters"] | components["schemas"]["CounterfactualParameters"];
+        };
+        /** DecisionActivitySourceRef */
+        DecisionActivitySourceRef: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            source_kind: "decision_activity";
+            source_ref: components["schemas"]["DecisionActivityReference"];
         };
         /** DesignSpaceDefinition */
         DesignSpaceDefinition: {
@@ -9753,6 +9946,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DecisionActivityRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    promote_decision_activity_proposal_api_projects__project_id__decision_activity_runs__run_id__proposals__proposal_id__candidate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                proposal_id: string;
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Candidate"];
                 };
             };
             /** @description Validation Error */

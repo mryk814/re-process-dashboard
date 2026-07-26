@@ -23,6 +23,12 @@ export function provenanceNavigation(
         projectId: provenance.source_ref.project_id,
         candidateId: provenance.source_ref.baseline_candidate_id,
       };
+    case "decision_activity":
+      return {
+        view: "candidates",
+        projectId,
+        candidateId: provenance.source_ref.base_candidate_id,
+      };
     case "snapshot":
       return { view: "project", projectId, snapshotId: provenance.source_ref.snapshot_id };
     case "direct":

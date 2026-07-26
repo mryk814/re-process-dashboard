@@ -4,6 +4,7 @@ import {
   workbenchApi,
   type ApiDecisionActivityAvailability,
   type ApiDecisionActivityRun,
+  type ApiCandidate,
 } from "../../shared/api/workbench-api";
 import {
   acceptsDecisionActivityResponse,
@@ -23,6 +24,7 @@ export function DecisionActivityPanel({
   taskDefinition,
   ready,
   onClose,
+  onCandidateCreated,
 }: {
   projectId: string;
   candidate: CandidateViewModel;
@@ -30,6 +32,7 @@ export function DecisionActivityPanel({
   taskDefinition: TaskDefinitionContract;
   ready: boolean;
   onClose: () => void;
+  onCandidateCreated: (candidate: ApiCandidate) => void;
 }) {
   const identity = decisionActivityIdentity(projectId, candidate.id, candidate.raw.revision);
   const identityRef = useRef(identity);
@@ -144,6 +147,7 @@ export function DecisionActivityPanel({
       runs={activityRuns}
       running={running}
       onRun={runActivity}
+      onCandidateCreated={onCandidateCreated}
     />}
   </aside>;
 }

@@ -21,6 +21,7 @@ from material_workbench.contracts.decision_activity_contracts import (
     DecisionActivityRun,
     DecisionActivityRunRequest,
 )
+from material_workbench.contracts.schemas import Candidate
 from material_workbench.execution.inference_work_graph import InferenceWorkGraph
 from material_workbench.persistence.store import ProjectNotFoundError, Store
 from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
@@ -124,5 +125,22 @@ def get_decision_activity_run(
 ) -> DecisionActivityRun:
     try:
         return service.get_run(project_id, run_id)
+    except ACTIVITY_ERRORS as exc:
+        _raise_activity_error(exc)
+
+
+@router.post(
+    "/api/projects/{project_id}/decision-activity-runs/{run_id}/proposals/{proposal_id}/candidate",
+    status_code=201,
+    response_model=Candidate,
+)
+def promote_decision_activity_proposal(
+    project_id: str,
+    run_id: str,
+    proposal_id: str,
+    service: ServiceDependency,
+) -> Candidate:
+    try:
+        return service.promote_proposal(project_id, run_id, proposal_id)
     except ACTIVITY_ERRORS as exc:
         _raise_activity_error(exc)

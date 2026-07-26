@@ -18,12 +18,17 @@ from material_workbench.application.decision_activity_registry import (
 )
 from material_workbench.application.projects import ProjectService
 from material_workbench.contracts.decision_activity_contracts import (
+    CounterfactualSummary,
     DecisionActivityAvailability,
     DecisionActivityProvenance,
     DecisionActivityRun,
     DecisionActivityRunRequest,
 )
-from material_workbench.contracts.schemas import Candidate, Project
+from material_workbench.contracts.schemas import Candidate, CandidateInput, Project
+from material_workbench.contracts.task_contracts import (
+    DecisionActivityReference,
+    DecisionActivitySourceRef,
+)
 from material_workbench.execution.inference_work_graph import (
     InferenceKey,
     InferenceWorkGraph,
@@ -91,9 +96,26 @@ class DecisionActivityService:
                 return None
             return "比較できる別の候補、または同じ候補の過去revisionが必要です"
 
+        def objective_definition() -> str | None:
+            project = self.projects.require(project_id)
+            if (
+                project.objective_definition is None
+                or project.objective_definition_digest is None
+            ):
+                return "Projectの目標値を先に設定してください"
+            return None
+
+        def project_design_space() -> str | None:
+            project = self.projects.require(project_id)
+            if project.design_space is None or project.design_space_digest is None:
+                return "Project-level Design Spaceが固定されていません"
+            return None
+
         return {
             "candidate": saved_candidate,
             "comparison_candidate": comparison_candidate,
+            "objective_definition": objective_definition,
+            "project_design_space": project_design_space,
         }
 
     def availability(
@@ -213,6 +235,7 @@ class DecisionActivityService:
             "activity_id": definition.activity_id,
             "activity_version": definition.version,
             "project_design_space_digest": project.design_space_digest,
+            "objective_definition_digest": project.objective_definition_digest,
             "parameters": parameter_payload,
         }
         semantic_identity = semantic_digest(provenance_identity)
@@ -246,6 +269,7 @@ class DecisionActivityService:
             activity_version=definition.version,
             parameters_digest=semantic_digest(parameter_payload),
             project_design_space_digest=project.design_space_digest,
+            objective_definition_digest=project.objective_definition_digest,
             project_design_space_binding_provenance=(
                 project.design_space_binding_provenance
             ),
@@ -281,6 +305,55 @@ class DecisionActivityService:
         if run is None:
             raise DecisionActivityNotFoundError("保存済みの検討アクティビティが見つかりません")
         return DecisionActivityRun.model_validate(run)
+
+    def promote_proposal(
+        self,
+        project_id: str,
+        run_id: str,
+        proposal_id: str,
+    ) -> Candidate:
+        """Explicitly turn one immutable Activity proposal into a normal Candidate."""
+
+        run = self.get_run(project_id, run_id)
+        if not isinstance(run.result, CounterfactualSummary):
+            raise DecisionActivityValidationError(
+                "この検討結果には候補化できる変更案がありません"
+            )
+        proposal = next(
+            (
+                item
+                for item in run.result.proposals
+                if item.proposal_id == proposal_id
+            ),
+            None,
+        )
+        if proposal is None:
+            raise DecisionActivityNotFoundError("選択した変更案が見つかりません")
+        for existing in self.candidates.list(project_id, include_archived=True):
+            provenance = existing.provenance
+            if (
+                provenance.source_kind == "decision_activity"
+                and provenance.source_ref.run_id == run.id
+                and provenance.source_ref.proposal_id == proposal.proposal_id
+                and existing.archived_at is None
+            ):
+                return existing
+        return self.candidates.create(
+            project_id,
+            CandidateInput(
+                name=f"目標到達案 {proposal.rank}",
+                inputs=proposal.inputs,
+                provenance=DecisionActivitySourceRef(
+                    source_kind="decision_activity",
+                    source_ref=DecisionActivityReference(
+                        run_id=run.id,
+                        proposal_id=proposal.proposal_id,
+                        base_candidate_id=run.result.base_candidate_id,
+                        base_candidate_revision=run.result.base_candidate_revision,
+                    ),
+                ),
+            ),
+        )
 
 
 __all__ = [

@@ -11,12 +11,22 @@ from typing import Annotated, Literal
 
 from pydantic import Field, model_validator
 
-from material_workbench.contracts.schemas import ModelMetadata, Prediction, Support
+from material_workbench.contracts.schemas import (
+    CandidateInputs,
+    ModelMetadata,
+    Prediction,
+    Support,
+)
 from material_workbench.contracts.task_contracts import ContractModel
 
 
 ActivityOperation = Literal["preview"]
-ActivityResource = Literal["candidate", "comparison_candidate"]
+ActivityResource = Literal[
+    "candidate",
+    "comparison_candidate",
+    "objective_definition",
+    "project_design_space",
+]
 
 
 class DecisionActivityDefinition(ContractModel):
@@ -107,8 +117,28 @@ class CandidateDifferenceParameters(ContractModel):
     comparison_revision: Annotated[int, Field(ge=1)]
 
 
+class CounterfactualParameters(ContractModel):
+    schema_version: Literal["counterfactual-parameters/v1"] = (
+        "counterfactual-parameters/v1"
+    )
+    sample_count: Annotated[int, Field(ge=48, le=512)] = 128
+    result_count: Annotated[int, Field(ge=1, le=10)] = 5
+    seed: Annotated[int, Field(ge=0, le=2_147_483_647)] = 20260726
+    max_changed_fields: Annotated[int, Field(ge=1, le=12)] = 4
+    categorical_change_penalty: Annotated[
+        float, Field(gt=0, le=10, allow_inf_nan=False)
+    ] = 1.0
+    immutable_paths: tuple[Annotated[str, Field(min_length=1)], ...] = ()
+
+    @model_validator(mode="after")
+    def immutable_paths_are_unique(self) -> "CounterfactualParameters":
+        if len(self.immutable_paths) != len(set(self.immutable_paths)):
+            raise ValueError("変更不可項目は重複できません")
+        return self
+
+
 DecisionActivityParameters = Annotated[
-    RobustnessParameters | CandidateDifferenceParameters,
+    RobustnessParameters | CandidateDifferenceParameters | CounterfactualParameters,
     Field(discriminator="schema_version"),
 ]
 
@@ -214,8 +244,81 @@ class CandidateDifferenceSummary(ContractModel):
     warnings: tuple[str, ...]
 
 
+class CounterfactualInputChange(ContractModel):
+    path: str
+    label: str
+    unit: str | None = None
+    base_value: float | str
+    proposed_value: float | str
+    normalized_distance: Annotated[float, Field(ge=0, allow_inf_nan=False)]
+
+
+class CounterfactualTargetEvaluation(ContractModel):
+    target: str
+    unit: str
+    predicted_value: float
+    achieved: bool
+    normalized_shortfall: Annotated[float, Field(ge=0, allow_inf_nan=False)]
+    role: Literal[
+        "primary_objective",
+        "hard_outcome_constraint",
+        "soft_preference",
+        "reporting_only",
+    ]
+
+
+class CounterfactualProposal(ContractModel):
+    proposal_id: Annotated[str, Field(min_length=1)]
+    rank: Annotated[int, Field(ge=1)]
+    inputs: CandidateInputs
+    change_distance: Annotated[float, Field(gt=0, allow_inf_nan=False)]
+    changed_field_count: Annotated[int, Field(ge=1)]
+    changes: Annotated[tuple[CounterfactualInputChange, ...], Field(min_length=1)]
+    target_evaluations: Annotated[
+        tuple[CounterfactualTargetEvaluation, ...], Field(min_length=1)
+    ]
+    meets_objective: bool
+    support: Support
+    warnings: tuple[str, ...] = ()
+
+
+class CounterfactualInfeasibility(ContractModel):
+    target: str
+    unit: str
+    best_value: float
+    normalized_shortfall: Annotated[float, Field(ge=0, allow_inf_nan=False)]
+    explanation: str
+
+
+class CounterfactualSummary(ContractModel):
+    schema_version: Literal["counterfactual-summary/v1"] = (
+        "counterfactual-summary/v1"
+    )
+    status: Literal["feasible", "infeasible"]
+    base_candidate_id: str
+    base_candidate_revision: Annotated[int, Field(ge=1)]
+    design_space_digest: Annotated[str, Field(min_length=1)]
+    objective_definition_digest: Annotated[str, Field(min_length=1)]
+    strategy_id: Literal["normalized-l1-sobol-v1"]
+    strategy_version: Literal["1.0.0"]
+    seed: int
+    evaluated_count: Annotated[int, Field(ge=1)]
+    rejected_count: Annotated[int, Field(ge=0)]
+    proposals: tuple[CounterfactualProposal, ...]
+    infeasibility: tuple[CounterfactualInfeasibility, ...] = ()
+    warnings: tuple[str, ...]
+
+    @model_validator(mode="after")
+    def status_matches_proposals(self) -> "CounterfactualSummary":
+        if self.status == "feasible" and not self.proposals:
+            raise ValueError("feasible result requires proposals")
+        if self.status == "infeasible" and self.proposals:
+            raise ValueError("infeasible result cannot contain proposals")
+        return self
+
+
 DecisionActivityResult = Annotated[
-    RobustnessSummary | CandidateDifferenceSummary,
+    RobustnessSummary | CandidateDifferenceSummary | CounterfactualSummary,
     Field(discriminator="schema_version"),
 ]
 
@@ -232,6 +335,7 @@ class DecisionActivityProvenance(ContractModel):
     activity_version: str
     parameters_digest: str
     project_design_space_digest: str | None = None
+    objective_definition_digest: str | None = None
     project_design_space_binding_provenance: Literal[
         "explicit", "generated_default", "inherited_predecessor", "unbound_legacy"
     ] = "unbound_legacy"
@@ -281,5 +385,16 @@ CANDIDATE_DIFFERENCE_ACTIVITY = DecisionActivityDefinition(
     required_operations=("preview",),
     required_resources=("candidate", "comparison_candidate"),
     result_kind="candidate-difference-summary/v1",
+    execution_policy="explicit",
+)
+
+COUNTERFACTUAL_ACTIVITY = DecisionActivityDefinition(
+    activity_id="counterfactual-target-reach-v1",
+    version="1.0.0",
+    label="目標へ届く最小変更",
+    question="現在候補を実行可能な範囲で最小限どう変えれば目標へ近づくか",
+    required_operations=("preview",),
+    required_resources=("candidate", "project_design_space", "objective_definition"),
+    result_kind="counterfactual-summary/v1",
     execution_policy="explicit",
 )

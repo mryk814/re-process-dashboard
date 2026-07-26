@@ -328,6 +328,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
           candidates={candidates}
           taskDefinition={taskDefinition}
           ready={["idle", "saved"].includes(saveState)}
+          onCandidateCreated={onOptimizedCandidate}
           onClose={() => setActivityOpen(false)}
         />}
         <div
