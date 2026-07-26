@@ -11,8 +11,10 @@ import {
 } from "../../shared/api/workbench-api";
 import {
   fromApiCandidate,
+  getCandidateInputValue,
   LatestSaveQueue,
   rebaseChangedFields,
+  setCandidateInputValue,
 } from "../candidates";
 import { BlendEditorPanel } from "./BlendEditorPanel";
 import { ChainUncertaintyPanel } from "./ChainUncertaintyPanel";
@@ -25,6 +27,7 @@ import { formatNumberAtDecimals } from "../../shared/taskPresentation";
 import "./chain-workbench.css";
 
 type StageStatus = "latest" | "running" | "stale" | "failed";
+type ChainCandidateInputDefinition = ApiChainCandidateContract["external_inputs"][number];
 
 const statusLabel: Record<StageStatus, string> = {
   latest: "最新",
@@ -73,6 +76,10 @@ export function ChainWorkbenchPage({
   const readOnly = Boolean(unavailable);
   const [candidates, setCandidates] = useState<ApiCandidate[]>([]);
   const [contract, setContract] = useState<ApiChainCandidateContract | null>(null);
+  const [candidateInputDefinitions, setCandidateInputDefinitions] = useState<
+    ApiChainCandidateContract["external_inputs"]
+  >([]);
+  const [candidateInputError, setCandidateInputError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState(initialCandidateId ?? "");
   const [execution, setExecution] = useState<ApiChainExecution | null>(null);
   const [snapshots, setSnapshots] = useState<ApiChainSnapshot[]>([]);
@@ -80,7 +87,7 @@ export function ChainWorkbenchPage({
   const [variants, setVariants] = useState<ApiActualConditionedVariant[]>([]);
   const [draftActualId, setDraftActualId] = useState("");
   const [actualDraft, setActualDraft] = useState<Record<string, string>>({});
-  const [processDraft, setProcessDraft] = useState<Record<string, string>>({});
+  const [numericDraft, setNumericDraft] = useState<Record<string, string>>({});
   const [statusMessage, setStatusMessage] = useState("Chain候補を読み込んでいます");
   const [busy, setBusy] = useState(false);
   const saveTimer = useRef<number | undefined>(undefined);
@@ -120,6 +127,17 @@ export function ChainWorkbenchPage({
   const stageBKeys = useMemo(
     () => stageBDefinitions.map((definition) => definition.key),
     [stageBDefinitions],
+  );
+  const inputDefinitions = useMemo(
+    () => [...candidateInputDefinitions].sort((left, right) => left.order - right.order),
+    [candidateInputDefinitions],
+  );
+  const scalarInputDefinitions = useMemo(
+    () => inputDefinitions.filter((definition) => definition.kind !== "sparse_blend"),
+    [inputDefinitions],
+  );
+  const blendInputDefinition = inputDefinitions.find(
+    (definition) => definition.kind === "sparse_blend",
   );
   const formatStageNumber = (
     value: unknown,
@@ -182,10 +200,31 @@ export function ChainWorkbenchPage({
     const projectToken = candidateRequests.current.activate(projectId, "");
     requestSequence.current += 1;
     setBusy(false);
-    const loadCandidates = readOnly
-      ? workbenchApi.listChainCandidates(projectId).then(
-        (items) => [null, items] as const,
-      )
+    setContract(null);
+    setCandidateInputDefinitions([]);
+    setCandidateInputError(null);
+    const loadCandidates: Promise<{
+      loadedContract: ApiChainCandidateContract | null;
+      externalInputs: ApiChainCandidateContract["external_inputs"];
+      inputError: string | null;
+      items: ApiCandidate[];
+    } | null> = readOnly
+      ? Promise.all([
+        workbenchApi.chainCandidateInputs(projectId).then(
+          (externalInputs) => ({ externalInputs, inputError: null }),
+          (cause) => ({
+            externalInputs: [],
+            inputError: cause instanceof Error
+              ? cause.message
+              : "Chain候補の入力契約を読み込めませんでした",
+          }),
+        ),
+        workbenchApi.listChainCandidates(projectId),
+      ]).then(([inputResult, items]) => ({
+        loadedContract: null,
+        ...inputResult,
+        items,
+      }))
       // この画面は疎配合Chain専用の入力面。Chainが別のcandidate adapterを宣言している
       // 場合は、契約APIを叩く前にcapabilityで判断して明示的に伝える。
       : workbenchApi.chainCandidateCapability(projectId).then((capability) => {
@@ -200,13 +239,20 @@ export function ChainWorkbenchPage({
       return Promise.all([
         workbenchApi.chainCandidateContract(projectId),
         workbenchApi.listChainCandidates(projectId),
-      ]);
+      ]).then(([loadedContract, items]) => ({
+        loadedContract,
+        externalInputs: loadedContract.external_inputs,
+        inputError: null,
+        items,
+      }));
     });
     void loadCandidates.then(async (loaded) => {
       if (loaded === null) return;
-      const [loadedContract, items] = loaded;
+      const { loadedContract, externalInputs, inputError, items } = loaded;
       if (!active || !candidateRequests.current.isCurrent(projectToken)) return;
       setContract(loadedContract);
+      setCandidateInputDefinitions(externalInputs);
+      setCandidateInputError(inputError);
       setCandidates(items);
       authoritative.current = new Map(items.map((item) => [item.id, item]));
       const candidateId = items.some((item) => item.id === initialCandidateId)
@@ -259,10 +305,15 @@ export function ChainWorkbenchPage({
 
   useEffect(() => {
     if (!selected) return;
-    setProcessDraft(Object.fromEntries(
-      Object.entries(selected.inputs.process).map(([key, value]) => [key, inputNumber(value)]),
+    setNumericDraft(Object.fromEntries(
+      scalarInputDefinitions
+        .filter((definition) => definition.kind === "number")
+        .map((definition) => [
+          definition.candidate_path,
+          inputNumber(getCandidateInputValue(selected.inputs, definition.candidate_path)),
+        ]),
     ));
-  }, [selected?.id]);
+  }, [selected?.id, scalarInputDefinitions]);
 
   async function execute(candidate: ApiCandidate) {
     const candidateToken = candidateRequests.current.current();
@@ -305,14 +356,14 @@ export function ChainWorkbenchPage({
     }
   }
 
-  function markStagesStale(from: "A" | "B" | "C") {
-    const start = { A: 0, B: 1, C: 2 }[from];
+  function markStagesStale(affectedStageIds: readonly string[]) {
+    const affected = new Set(affectedStageIds);
     setExecution((current) => current ? {
       ...current,
       status: "stale",
-      stages: current.stages.map((stage, index) => ({
+      stages: current.stages.map((stage) => ({
         ...stage,
-        status: index >= start ? "stale" : stage.status,
+        status: affected.has(stage.stage_id) ? "stale" : stage.status,
       })),
     } : current);
   }
@@ -367,10 +418,16 @@ export function ChainWorkbenchPage({
     }
   }
 
-  function editProcess(path: string, rawValue: string) {
-    if (!selected) return;
+  function editNumeric(
+    definition: ChainCandidateInputDefinition,
+    rawValue: string,
+  ) {
+    if (!selected || definition.kind !== "number" || !definition.editable) return;
     saveQueue.current.supersede(selected.id);
-    setProcessDraft((current) => ({ ...current, [path]: rawValue }));
+    setNumericDraft((current) => ({
+      ...current,
+      [definition.candidate_path]: rawValue,
+    }));
     if (!rawValue.trim()) {
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
       setStatusMessage("空欄は0として保存しません。数値を入力してください");
@@ -382,17 +439,30 @@ export function ChainWorkbenchPage({
       setStatusMessage("有限の数値を入力してください");
       return;
     }
+    if (
+      value < definition.allowed_range!.min
+      || value > definition.allowed_range!.max
+    ) {
+      if (saveTimer.current) window.clearTimeout(saveTimer.current);
+      setStatusMessage(
+        `${definition.label}は許容範囲 `
+        + `${definition.allowed_range!.min}〜${definition.allowed_range!.max} `
+        + `${definition.unit ?? ""}で入力してください`,
+      );
+      return;
+    }
     candidateRequests.current.activate(projectId, selected.id);
     requestSequence.current += 1;
     const optimistic: ApiCandidate = {
       ...selected,
-      inputs: {
-        ...selected.inputs,
-        process: { ...selected.inputs.process, [path]: value },
-      },
+      inputs: setCandidateInputValue(
+        selected.inputs,
+        definition.candidate_path,
+        value,
+      ),
     };
     setCandidates((items) => items.map((item) => item.id === selected.id ? optimistic : item));
-    markStagesStale(path === "heat_input_kj_per_mm" ? "B" : "C");
+    markStagesStale(definition.affected_stage_ids);
     setStatusMessage("編集停止後に自動保存・再計算します");
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(() => {
@@ -400,11 +470,41 @@ export function ChainWorkbenchPage({
     }, 450);
   }
 
+  function editCategorical(
+    definition: ChainCandidateInputDefinition,
+    value: string,
+  ) {
+    if (
+      !selected
+      || definition.kind !== "categorical"
+      || !definition.editable
+      || !definition.choices.includes(value)
+    ) return;
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    saveQueue.current.supersede(selected.id);
+    candidateRequests.current.activate(projectId, selected.id);
+    requestSequence.current += 1;
+    const optimistic: ApiCandidate = {
+      ...selected,
+      inputs: setCandidateInputValue(
+        selected.inputs,
+        definition.candidate_path,
+        value,
+      ),
+    };
+    setCandidates((items) => items.map((item) => (
+      item.id === selected.id ? optimistic : item
+    )));
+    markStagesStale(definition.affected_stage_ids);
+    setStatusMessage("選択を保存し、下流を自動再計算しています");
+    void persistCandidate(optimistic);
+  }
+
   function editBlend(
     blend: NonNullable<ApiCandidate["blend"]>,
     lockedMaterialIds = selected?.editor_state?.locked_material_ids ?? [],
   ) {
-    if (!selected) return;
+    if (!selected || !blendInputDefinition || !blendInputDefinition.editable) return;
     saveQueue.current.supersede(selected.id);
     candidateRequests.current.activate(projectId, selected.id);
     requestSequence.current += 1;
@@ -414,7 +514,7 @@ export function ChainWorkbenchPage({
       editor_state: { locked_material_ids: lockedMaterialIds },
     };
     setCandidates((items) => items.map((item) => item.id === selected.id ? optimistic : item));
-    markStagesStale("A");
+    markStagesStale(blendInputDefinition.affected_stage_ids);
     setStatusMessage("配合を保存し、A → B → Cを自動再計算します");
     void persistCandidate(optimistic);
   }
@@ -432,8 +532,13 @@ export function ChainWorkbenchPage({
       authoritative.current.set(created.id, created);
       setCandidates([created]);
       setSelectedId(created.id);
-      setProcessDraft(Object.fromEntries(
-        Object.entries(created.inputs.process).map(([key, value]) => [key, inputNumber(value)]),
+      setNumericDraft(Object.fromEntries(
+        scalarInputDefinitions
+          .filter((definition) => definition.kind === "number")
+          .map((definition) => [
+            definition.candidate_path,
+            inputNumber(getCandidateInputValue(created.inputs, definition.candidate_path)),
+          ]),
       ));
       onCandidateSelected(created.id);
       setBusy(false);
@@ -555,18 +660,78 @@ export function ChainWorkbenchPage({
       })}
     </div>
     <div className="chain-status-line" role="status">{statusMessage}</div>
+    {candidateInputError && <p className="chain-input-reason" role="alert">
+      入力条件は表示できません。{candidateInputError}
+    </p>}
 
     <div className="chain-edit-strip">
-      {(["heat_input_kj_per_mm", "preheat_temp_c", "test_temperature_c"] as const).map((path) => (
-        <label key={path}>
-          <span>{path === "heat_input_kj_per_mm" ? "入熱 (kJ/mm)" : path === "preheat_temp_c" ? "予熱 (℃)" : "試験温度 (℃)"}</span>
-          <input type="number" step="any" disabled={readOnly} value={processDraft[path] ?? inputNumber(selected.inputs.process[path])} onChange={(event) => editProcess(path, event.target.value)} />
-        </label>
-      ))}
+      <div className="chain-input-fields">
+        {scalarInputDefinitions.map((definition) => {
+          const disabled = readOnly || !definition.editable;
+          const reason = !definition.editable
+            ? definition.read_only_reason
+            : readOnly
+              ? unavailable?.impact
+              : undefined;
+          return <label
+            className="chain-input-control"
+            data-chain-external-path={definition.external_path}
+            key={definition.external_path}
+            title={reason ?? undefined}
+          >
+            <span>
+              <b>{definition.label}</b>
+              {definition.unit && <small>{definition.unit}</small>}
+            </span>
+            {definition.kind === "number"
+              ? <input
+                type="number"
+                min={definition.allowed_range!.min}
+                max={definition.allowed_range!.max}
+                step={10 ** -(definition.display_decimals ?? 0)}
+                disabled={disabled}
+                aria-describedby={`${selected.id}-${definition.order}-range`}
+                value={
+                  numericDraft[definition.candidate_path]
+                  ?? inputNumber(
+                    getCandidateInputValue(
+                      selected.inputs,
+                      definition.candidate_path,
+                    ),
+                  )
+                }
+                onChange={(event) => editNumeric(definition, event.target.value)}
+              />
+              : <select
+                disabled={disabled}
+                value={String(
+                  getCandidateInputValue(
+                    selected.inputs,
+                    definition.candidate_path,
+                  ) ?? "",
+                )}
+                onChange={(event) => editCategorical(definition, event.target.value)}
+              >
+                {definition.choices.map((choice) => (
+                  <option key={choice} value={choice}>{choice}</option>
+                ))}
+              </select>}
+            {definition.kind === "number" && <small
+              className="chain-input-range"
+              id={`${selected.id}-${definition.order}-range`}
+            >
+              許容 {definition.allowed_range!.min}〜{definition.allowed_range!.max}
+            </small>}
+            {reason && <small className="chain-input-reason">{reason}</small>}
+          </label>;
+        })}
+      </div>
+      <div className="chain-edit-actions">
       <button className="primary-button" disabled={readOnly || busy || execution?.status !== "latest"} onClick={() => void saveSnapshot()}>
         {busy ? "保存中…" : "全Stageを固定"}
       </button>
       <small>{comparisonSnapshot ? `現revisionを固定済み · 全${snapshots.length}件` : "実測分析には現revisionのsnapshotが必要です"}</small>
+      </div>
     </div>
 
     {viewedSnapshot && <details className="chain-snapshot-evidence" open={readOnly ? true : undefined}>
@@ -614,16 +779,22 @@ export function ChainWorkbenchPage({
       </div>
     </details>}
 
-    {!readOnly && selected.blend && contract && <details className="chain-blend-panel">
-      <summary>Stage A 配合を編集</summary>
-      <BlendEditorPanel
+    {selected.blend && blendInputDefinition && <details
+      className="chain-blend-panel"
+      data-chain-external-path={blendInputDefinition.external_path}
+    >
+      <summary>{blendInputDefinition.label}を編集</summary>
+      {(!blendInputDefinition.editable || readOnly) && <p className="chain-input-reason">
+        {blendInputDefinition.read_only_reason ?? unavailable?.impact}
+      </p>}
+      {!readOnly && contract && blendInputDefinition.editable && <BlendEditorPanel
         projectId={projectId}
         candidate={fromApiCandidate(selected)}
         transformId={contract.transform_id}
         chainMode
         onBlend={(_candidateId, blend, lockedMaterialIds) => editBlend(blend, lockedMaterialIds)}
         onLocks={(_candidateId, lockedMaterialIds) => editBlend(selected.blend!, lockedMaterialIds)}
-      />
+      />}
     </details>}
 
     <div className="chain-result-grid">

@@ -11,6 +11,7 @@ from material_workbench.contracts.chain_contracts import (
     ChainContractModel,
     ChainSnapshotIdentityRef,
 )
+from material_workbench.contracts.task_contracts import NumericRange
 
 
 ChainStageFreshness = Literal["latest", "running", "stale", "failed"]
@@ -35,6 +36,78 @@ class ChainCandidateCapability(ChainContractModel):
     adapter_id: Annotated[str, Field(min_length=1)]
     sparse_blend: bool
     external_input_paths: tuple[Annotated[str, Field(min_length=1)], ...]
+
+
+class ChainCandidateInputDefinition(ChainContractModel):
+    """Editable candidate surface resolved from one pinned external Chain port."""
+
+    external_path: Annotated[str, Field(min_length=1)]
+    order: Annotated[int, Field(ge=0)]
+    candidate_path: Annotated[
+        str,
+        Field(
+            pattern=(
+                r"^blend$|^(composition|process|categorical)"
+                r"\.[A-Za-z][A-Za-z0-9_]*$"
+            )
+        ),
+    ]
+    kind: Literal["number", "categorical", "sparse_blend"]
+    label: Annotated[str, Field(min_length=1)]
+    unit: str | None = None
+    required: bool = True
+    editable: bool
+    read_only_reason: str | None = None
+    default_range: NumericRange | None = None
+    allowed_range: NumericRange | None = None
+    training_range: NumericRange | None = None
+    choices: tuple[str, ...] = ()
+    display_decimals: Annotated[int, Field(ge=0, le=8)] | None = None
+    affected_stage_ids: Annotated[
+        tuple[Annotated[str, Field(min_length=1)], ...],
+        Field(min_length=1),
+    ]
+    first_affected_stage_id: Annotated[str, Field(min_length=1)]
+
+    @model_validator(mode="after")
+    def surface_matches_kind(self) -> "ChainCandidateInputDefinition":
+        ranges = (self.default_range, self.allowed_range, self.training_range)
+        if self.editable and self.read_only_reason is not None:
+            raise ValueError("editable Chain inputs cannot declare a read-only reason")
+        if not self.editable and not self.read_only_reason:
+            raise ValueError("read-only Chain inputs require a reason")
+        if len(self.affected_stage_ids) != len(set(self.affected_stage_ids)):
+            raise ValueError("affected Chain stages must be unique")
+        if self.first_affected_stage_id != self.affected_stage_ids[0]:
+            raise ValueError("first affected stage must match affected stage order")
+        if self.kind == "number":
+            if not self.candidate_path.startswith(("composition.", "process.")):
+                raise ValueError("numeric Chain inputs require a numeric candidate path")
+            if (
+                self.default_range is None
+                or self.allowed_range is None
+                or self.choices
+            ):
+                raise ValueError(
+                    "numeric Chain inputs require default/allowed ranges and no choices"
+                )
+            if self.unit is None or self.display_decimals is None:
+                raise ValueError("numeric Chain inputs require unit and display decimals")
+        elif self.kind == "categorical":
+            if not self.candidate_path.startswith("categorical."):
+                raise ValueError("categorical Chain inputs require a categorical candidate path")
+            if any(item is not None for item in ranges) or not self.choices:
+                raise ValueError("categorical Chain inputs require choices and no ranges")
+            if self.unit is not None or self.display_decimals is not None:
+                raise ValueError("categorical Chain inputs do not use unit or decimals")
+        else:
+            if self.candidate_path != "blend":
+                raise ValueError("sparse-blend Chain inputs require candidate_path=blend")
+            if any(item is not None for item in ranges) or self.choices:
+                raise ValueError("sparse-blend Chain inputs do not use scalar domains")
+            if self.unit is None or self.display_decimals is not None:
+                raise ValueError("sparse-blend Chain inputs require a schema unit only")
+        return self
 
 
 class ChainStageExecution(ChainContractModel):
