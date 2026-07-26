@@ -9,7 +9,6 @@ from material_workbench.contracts.schemas import (
     ProjectGroupMoveInput,
     ProjectHistoryResponse,
     ProjectInput,
-    ProjectSeriesCreateInput,
     TargetRange,
     ProjectUpdateInput,
 )
@@ -123,7 +122,7 @@ class ProjectService:
         project_input = self._resolve_bindings(payload)
         try:
             return self.store.create_project(project_input, initial)
-        except CandidateCopyConflictError as exc:
+        except (CandidateCopyConflictError, ProjectGroupUnavailableError) as exc:
             raise ProjectValidationError(str(exc)) from exc
 
     def archive(self, project_id: str) -> Project:
@@ -301,7 +300,7 @@ class ProjectService:
             raise ProjectValidationError(
                 "Chain Projectの初期候補は同じChain Revisionのコピー由来にしてください"
             )
-        resolved = self._resolve_project_series(payload).model_copy(
+        resolved = self._validate_project_series_selection(payload).model_copy(
             update={
                 "task_id": "",
                 "dataset_view_revision_id": None,
@@ -316,7 +315,11 @@ class ProjectService:
                 identity,
                 payload.initial_candidate,
             )
-        except (CandidateCopyConflictError, ChainCatalogConflictError) as exc:
+        except (
+            CandidateCopyConflictError,
+            ChainCatalogConflictError,
+            ProjectGroupUnavailableError,
+        ) as exc:
             raise ProjectValidationError(str(exc)) from exc
 
     def _validate_targets(self, payload: ProjectInput | ProjectUpdateInput, outputs: tuple[OutputDefinition, ...]) -> None:
@@ -444,8 +447,7 @@ class ProjectService:
             except ValueError as exc:
                 raise ProjectValidationError(str(exc)) from exc
 
-        payload = self._resolve_project_series(payload)
-        assert payload.project_series_id is not None
+        payload = self._validate_project_series_selection(payload)
         return payload.model_copy(update={
             "dataset_view_revision_id": view.id,
             "task_contract_digest": task_digest,
@@ -457,25 +459,17 @@ class ProjectService:
             "objective_binding_provenance": objective_provenance,
         })
 
-    def _resolve_project_series(
+    def _validate_project_series_selection(
         self, payload: ProjectCreateInput
     ) -> ProjectCreateInput:
         if self.catalog is None:
             raise ProjectValidationError("Data Libraryを利用できません")
         if payload.predecessor_project_id:
             self.require(payload.predecessor_project_id)
-        series_id = payload.project_series_id
-        if series_id:
-            series = self.catalog.get_project_series(series_id)
-            if series is None:
+        if payload.project_series_id:
+            if self.catalog.get_project_series(payload.project_series_id) is None:
                 raise ProjectValidationError("選択した検討グループが見つかりません")
-        else:
-            series = self.catalog.create_project_series(
-                ProjectSeriesCreateInput(name=payload.name, description=payload.description)
-            )
-        return payload.model_copy(update={
-            "project_series_id": series.id,
-        })
+        return payload
 
     def _profile_supports_task(self, dataset_revision_id: str, task_id: str) -> bool:
         dataset = self.catalog.get_dataset_revision(dataset_revision_id)

@@ -11744,6 +11744,16 @@
             "title": "Name",
             "type": "string"
           },
+          "new_project_series": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProjectSeriesCreateInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "notes": {
             "default": "",
             "title": "Notes",

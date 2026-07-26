@@ -86,7 +86,7 @@ def test_data_library_exposes_semantic_dataset_records_and_creation_options(clie
         for item in items
     }
     assert len(payload["model_packages"]) >= 15
-    assert payload["project_series"]
+    assert payload["project_series"] == []
     assert set(payload["task_contract_digests"]) >= {
         "annealed-properties-v1",
         "hot-rolled-properties-v1",
