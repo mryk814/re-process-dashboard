@@ -4,7 +4,9 @@ import { defineConfig } from "@playwright/test";
 
 const apiPort = Number(process.env.PLAYWRIGHT_API_PORT ?? 8875);
 const webPort = Number(process.env.PLAYWRIGHT_WEB_PORT ?? 5199);
-const database = join(tmpdir(), `material-workbench-e2e-${process.pid}.db`);
+const database = process.env.PLAYWRIGHT_DB_PATH
+  ?? join(tmpdir(), `material-workbench-e2e-${process.pid}.db`);
+const brokenHeatTreatmentPackage = process.env.PLAYWRIGHT_BROKEN_TASK_PACKAGE;
 /**
  * Starting both servers costs 25-30s per run, which dominates the loop while
  * repairing specs one at a time. Opt in to an already-running `npm run dev` for
@@ -32,7 +34,12 @@ export default defineConfig({
       command: `uv run python -m uvicorn main:app --app-dir backend/src --host 127.0.0.1 --port ${apiPort}`,
       port: apiPort,
       reuseExistingServer: reuseServer,
-      env: { WORKBENCH_DB_PATH: database },
+      env: {
+        WORKBENCH_DB_PATH: database,
+        ...(brokenHeatTreatmentPackage
+          ? { MATERIAL_WORKBENCH_HEAT_TREATMENT_MODEL_PACKAGE: brokenHeatTreatmentPackage }
+          : {}),
+      },
     },
     {
       command: `npm run dev -w apps/web -- --host 127.0.0.1 --port ${webPort}`,

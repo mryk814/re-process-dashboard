@@ -7090,7 +7090,10 @@ export interface components {
              *     } */
             application: components["schemas"]["ApplicationCapability"];
             /** @default {
+             *       "expected_locator": "",
              *       "message": "",
+             *       "recovery_hint": "",
+             *       "resource_id": "",
              *       "schema_version": "task-availability/v1",
              *       "stage": "ready",
              *       "status": "available"
@@ -8330,10 +8333,25 @@ export interface components {
         /** TaskAvailability */
         TaskAvailability: {
             /**
+             * Expected Locator
+             * @default
+             */
+            expected_locator: string;
+            /**
              * Message
              * @default
              */
             message: string;
+            /**
+             * Recovery Hint
+             * @default
+             */
+            recovery_hint: string;
+            /**
+             * Resource Id
+             * @default
+             */
+            resource_id: string;
             /**
              * Schema Version
              * @default task-availability/v1
