@@ -1,7 +1,7 @@
 ---
 level: intermediate
 estimated_minutes: 90
-verified_commit: "b8ef18ab68d01703bf137860dce43880be711147"
+verified_commit: "f3e64fa15b49ffcb504357864bd58052ab2c3780"
 code_references:
   - "backend/src/material_workbench/contracts/workspace_bundle_contracts.py"
   - "backend/src/material_workbench/application/workspace_bundle.py"

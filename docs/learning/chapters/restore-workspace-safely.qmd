@@ -1,7 +1,7 @@
 ---
 level: intermediate
 estimated_minutes: 150
-verified_commit: "b8ef18ab68d01703bf137860dce43880be711147"
+verified_commit: "f3e64fa15b49ffcb504357864bd58052ab2c3780"
 code_references:
   - "docs/workspace-backup.md"
   - "backend/src/material_workbench/contracts/workspace_bundle_contracts.py"
@@ -329,19 +329,19 @@ local file dialog、sidecar停止、DB切替、process再起動を担うElectron
 一つのhappy pathだけでは、復元前に現Workspaceを守れたか証明できません。
 現mainのtestは、壊れる場所へ対応して分かれています。
 
-| test | 故障または境界 | 確認する結果 |
-|---|---|---|
-| `restores_to_an_empty_user_data_directory` | 別user dataへ移設 | asset bytesとlocatorが復元先を指す |
-| `live_workspace_evidence_matches` | 全判断履歴の移設 | 主要tableのrow countとdigestが一致 |
-| `consistent_sqlite_snapshot` | backup中の未commit write | 未commit行をsnapshotへ混ぜない |
-| `tampered_bundle_is_rejected` | DB entry改ざん | prepareで拒否し、現DB digestを維持 |
-| `commit_switch_failure_preserves` | DB最終切替失敗 | 現DBとData Libraryを原状維持 |
-| `known_older_schema_is_migrated` | 既知の旧schema | stagingで現schemaへ到達 |
-| `expanded_bundle_cannot_fit` | 空き容量不足 | 展開前に拒否 |
-| `extreme_compression_ratio` | ZIP bomb候補 | 展開前に拒否 |
-| `unsafe_archive_paths` | path traversal | staging外へ書く前に拒否 |
-| presentation test | rendererとpreload | global UI、説明、IPC引数を確認 |
-| packaged smoke | 実配布物 | native dialog、改ざん拒否、復元後起動を確認 |
+- **`restores_to_an_empty_user_data_directory`**：別user dataへの移設で、asset bytesとlocatorが復元先を指すことを確認する。
+- **`live_workspace_evidence_matches`**：全判断履歴の移設で、主要tableのrow countとdigestが一致することを確認する。
+- **`consistent_sqlite_snapshot`**：backup中の未commit writeを、snapshotへ混ぜないことを確認する。
+- **`tampered_bundle_is_rejected`**：DB entry改ざんをprepareで拒否し、現DB digestを維持することを確認する。
+- **`commit_switch_failure_preserves`**：DB最終切替失敗時に、現DBとData Libraryを原状維持することを確認する。
+- **`known_older_schema_is_migrated`**：既知の旧schemaが、stagingで現schemaへ到達することを確認する。
+- **`expanded_bundle_cannot_fit`**：空き容量不足を、展開前に拒否することを確認する。
+- **`extreme_compression_ratio`**：ZIP bomb候補を、展開前に拒否することを確認する。
+- **`unsafe_archive_paths`**：path traversalを、staging外へ書く前に拒否することを確認する。
+- **presentation test**：rendererとpreloadのglobal UI、説明、IPC引数を確認する。
+- **packaged smoke**：実配布物のnative dialog、改ざん拒否、復元後起動を確認する。
+
+現行`smoke-packaged.mjs`はWorkspace検証の前にData Lifecycleの容量probeも実行し、計測artifactを保存します。^[この追加はpackaged smokeの実行時間と出力を増やしますが、native dialog、改ざん拒否、復元後再起動というWorkspace acceptanceを置き換えません。]
 
 backend unit testは、Electron processが本当に停止して再起動することを確認しません。
 packaged smokeは、table digestの全分岐や故障注入を網羅しません。
