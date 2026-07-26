@@ -118,7 +118,8 @@ def test_startup_registers_runtime_resources_and_binds_projects(
     audit_project_bindings(database)
     with sqlite3.connect(database) as conn:
         conn.execute(
-            "UPDATE projects SET project_series_id='missing-series' "
+            "UPDATE projects SET project_series_id='missing-series', "
+            "binding_provenance='unbound_legacy' "
             "WHERE id='default'"
         )
     with pytest.raises(WorkspaceCatalogBootstrapError, match="Project Series"):

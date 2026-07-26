@@ -549,7 +549,8 @@ export function ProjectHub({
         model_package_ref_id: newModelPackageRefId,
         task_contract_digest: selectedPackage?.task_contract_digest ?? "",
         model_package_manifest_digest: selectedPackage?.manifest_digest ?? "",
-        design_space: project?.task_id === taskId
+        design_space: (createMode === "copy" || Boolean(predecessorProjectId))
+          && project?.task_id === taskId
           ? project?.design_space ?? undefined
           : undefined,
       });

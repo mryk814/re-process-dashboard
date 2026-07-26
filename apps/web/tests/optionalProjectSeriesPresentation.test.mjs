@@ -37,5 +37,8 @@ test("series grouping is explained separately from continuation and only inherit
     /setNewProjectGroupChoice\(project\.project_series_id \? "existing" : "none"\)/g,
   ) ?? [];
   assert.equal(inheritedChoices.length, 2);
-  assert.match(projectHub, /design_space: project\?\.task_id === taskId/);
+  assert.match(
+    projectHub,
+    /design_space: \(createMode === "copy" \|\| Boolean\(predecessorProjectId\)\)[\s\S]*&& project\?\.task_id === taskId/,
+  );
 });

@@ -464,8 +464,7 @@ def audit_project_bindings(database: str | Path) -> None:
         ),
         (
             "SELECT p.id FROM projects p LEFT JOIN project_series s ON s.id=p.project_series_id "
-            "WHERE p.binding_provenance<>'unbound_legacy' "
-            "AND p.project_series_id IS NOT NULL AND s.id IS NULL LIMIT 1",
+            "WHERE p.project_series_id IS NOT NULL AND s.id IS NULL LIMIT 1",
             "Project Series",
         ),
         (
