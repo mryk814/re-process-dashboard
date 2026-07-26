@@ -164,7 +164,7 @@ def _backup_database(source_path: Path, lock_conn: sqlite3.Connection, migration
 
 
 def _validate_references(conn: sqlite3.Connection, candidate_table: str) -> None:
-    checks = (
+    checks = [
         (
             f"SELECT s.id FROM snapshots s LEFT JOIN {candidate_table} c ON c.id=s.candidate_id WHERE c.id IS NULL LIMIT 1",
             "snapshot refers to a missing candidate",
@@ -181,15 +181,59 @@ def _validate_references(conn: sqlite3.Connection, candidate_table: str) -> None
             f"SELECT p.id FROM projects p LEFT JOIN {candidate_table} c ON c.id=p.decision_candidate_id AND c.project_id=p.id WHERE p.decision_candidate_id<>'' AND c.id IS NULL LIMIT 1",
             "project decision candidate belongs to another or missing project",
         ),
-        (
-            "SELECT p.id FROM projects p LEFT JOIN snapshots s ON s.id=p.decision_snapshot_id AND s.candidate_id=p.decision_candidate_id WHERE p.decision_candidate_id<>'' AND s.id IS NULL LIMIT 1",
-            "project decision snapshot belongs to another or missing candidate",
-        ),
-    )
+    ]
     for sql, message in checks:
         row = conn.execute(sql).fetchone()
         if row is not None:
             raise CandidateMigrationError(f"{message}: {row[0]}")
+    project_columns = _columns(conn, "projects")
+    has_chain_snapshots = "chain_snapshot_records" in _tables(conn)
+    identity_expression = (
+        "scientific_identity_json"
+        if "scientific_identity_json" in project_columns
+        else "NULL AS scientific_identity_json"
+    )
+    for decision in conn.execute(
+        f"SELECT id,decision_candidate_id,decision_snapshot_id,"
+        f"{identity_expression} FROM projects "
+        "WHERE decision_candidate_id<>''"
+    ):
+        identity_kind = "single_task"
+        raw_identity = decision["scientific_identity_json"]
+        if raw_identity:
+            identity = _json_object(
+                raw_identity,
+                table="projects.scientific_identity_json",
+                row_id=decision["id"],
+            )
+            identity_kind = identity.get("identity_kind", "single_task")
+        if identity_kind == "chain":
+            snapshot = (
+                conn.execute(
+                    "SELECT 1 FROM chain_snapshot_records "
+                    "WHERE id=? AND project_id=? AND candidate_id=?",
+                    (
+                        decision["decision_snapshot_id"],
+                        decision["id"],
+                        decision["decision_candidate_id"],
+                    ),
+                ).fetchone()
+                if has_chain_snapshots
+                else None
+            )
+        else:
+            snapshot = conn.execute(
+                "SELECT 1 FROM snapshots WHERE id=? AND candidate_id=?",
+                (
+                    decision["decision_snapshot_id"],
+                    decision["decision_candidate_id"],
+                ),
+            ).fetchone()
+        if snapshot is None:
+            raise CandidateMigrationError(
+                "project decision snapshot type or candidate is invalid: "
+                f"{decision['id']}"
+            )
 
 
 def _assert_canonical_rows(conn: sqlite3.Connection) -> None:

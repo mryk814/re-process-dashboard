@@ -900,6 +900,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/chain-snapshots/{snapshot_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Chain Snapshot */
+        get: operations["getChainSnapshot"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/chain/candidate-capability": {
         parameters: {
             query?: never;
@@ -1585,23 +1602,6 @@ export interface paths {
         };
         /** Get Chain Distribution Run */
         get: operations["getChainDistributionRun"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/projects/chain-snapshots/{snapshot_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Chain Snapshot */
-        get: operations["getChainSnapshot"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2748,6 +2748,12 @@ export interface components {
             /** Actuals */
             actuals: components["schemas"]["ActualMeasurement"][];
             candidate: components["schemas"]["Candidate"];
+            /** Chain Analysis Variants */
+            chain_analysis_variants?: components["schemas"]["ActualConditionedVariant"][];
+            /** Chain Distribution Runs */
+            chain_distribution_runs?: components["schemas"]["ChainDistributionRun"][];
+            /** Chain Snapshots */
+            chain_snapshots?: components["schemas"]["ChainSnapshot"][];
             current: components["schemas"]["CandidateCurrentHistory"];
             decision?: components["schemas"]["ProjectDecisionHistory"] | null;
             /** Snapshots */
@@ -11342,6 +11348,38 @@ export interface operations {
             };
         };
     };
+    getChainSnapshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                snapshot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChainSnapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     getChainCandidateCapability: {
         parameters: {
             query?: never;
@@ -13258,37 +13296,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChainDistributionRun"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiError"];
-                };
-            };
-        };
-    };
-    getChainSnapshot: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                snapshot_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ChainSnapshot"];
                 };
             };
             /** @description Validation Error */

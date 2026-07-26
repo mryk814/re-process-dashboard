@@ -155,6 +155,151 @@ def _distribution(
     )
 
 
+def test_chain_project_uses_terminal_task_definition_and_versions_objectives(
+    client: TestClient,
+) -> None:
+    chain_identity = _chain_identity(client)
+    chain = next(
+        item
+        for item in client.get("/api/chains").json()
+        if item["definition"]["chain_id"] == "welding-consumable-a-b-c-v1"
+    )
+    terminal_stage = chain["revisions"][0]["stages"][-1]
+    created = client.post(
+        "/api/projects",
+        json={
+            "name": "Chain objective",
+            "scientific_identity": chain_identity,
+            "target_values": {"TS": 600},
+        },
+    )
+    assert created.status_code == 201, created.text
+    project = created.json()
+    assert project["objective_definition"]["revision"] == 1
+    assert project["objective_definition"]["terms"][0]["output_key"] == "TS"
+    assert (
+        project["objective_definition"]["task_contract_digest"]
+        == terminal_stage["contract_digest"]
+    )
+    resolved = client.get(
+        f"/api/projects/{project['id']}/task-definition"
+    )
+    assert resolved.status_code == 200, resolved.text
+    assert (
+        resolved.json()["task_definition"]["id"]
+        == terminal_stage["contract_id"]
+        == "welding-stage-c-properties-v1"
+    )
+    assert {output["key"] for output in resolved.json()["task_definition"]["outputs"]} == {
+        "TS",
+        "YS",
+        "EL",
+        "RA",
+        "CHARPY_ENERGY",
+        "BRITTLE_FRACTURE",
+        "CORROSION_RATE",
+    }
+
+    revised = client.put(
+        f"/api/projects/{project['id']}",
+        json={**project, "target_values": {"BRITTLE_FRACTURE": 20}},
+    )
+    assert revised.status_code == 200, revised.text
+    revised_project = revised.json()
+    assert revised_project["objective_definition"]["revision"] == 2
+    assert (
+        revised_project["objective_definition"]["terms"][0]["output_key"]
+        == "BRITTLE_FRACTURE"
+    )
+    objective_history = client.get(
+        f"/api/projects/{project['id']}/objectives"
+    )
+    assert objective_history.status_code == 200, objective_history.text
+    assert [
+        item["objective_definition"]["revision"]
+        for item in objective_history.json()
+    ] == [1, 2]
+    reopened = Store(client.app.state.store.path)
+    reopened_project = reopened.get_project(project["id"])
+    assert reopened_project is not None
+    assert (
+        reopened_project.objective_definition.model_dump(mode="json")
+        == revised_project["objective_definition"]
+    )
+    assert (
+        reopened_project.objective_definition_digest
+        == revised_project["objective_definition_digest"]
+    )
+    assert reopened_project.objective_binding_provenance == "updated_revision"
+    assert [
+        item.objective_definition.revision
+        for item in reopened.list_project_objective_revisions(project["id"])
+    ] == [1, 2]
+
+
+def test_chain_project_target_update_fails_closed_on_terminal_task_drift(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = client.post(
+        "/api/projects",
+        json={
+            "name": "Chain objective drift",
+            "scientific_identity": _chain_identity(client),
+        },
+    ).json()
+    registry = client.app.state.task_registry
+    task_id = "welding-stage-c-properties-v1"
+    contract = registry._contracts[task_id]
+    drifted_definition = contract.task_definition.model_copy(
+        update={"label": contract.task_definition.label + " drift"}
+    )
+    monkeypatch.setitem(
+        registry._contracts,
+        task_id,
+        contract.model_copy(update={"task_definition": drifted_definition}),
+    )
+
+    response = client.put(
+        f"/api/projects/{project['id']}",
+        json={**project, "target_values": {"TS": 600}},
+    )
+
+    assert response.status_code == 422
+    assert "contract digest" in response.json()["message"]
+
+
+def test_chain_project_terminal_task_removal_is_a_controlled_error(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = client.post(
+        "/api/projects",
+        json={
+            "name": "Chain missing terminal task",
+            "scientific_identity": _chain_identity(client),
+        },
+    ).json()
+    registry = client.app.state.task_registry
+    monkeypatch.delitem(
+        registry._contracts,
+        "welding-stage-c-properties-v1",
+    )
+
+    update = client.put(
+        f"/api/projects/{project['id']}",
+        json={**project, "target_values": {"TS": 600}},
+    )
+    assert update.status_code == 422
+    assert "unknown task id" in update.json()["message"]
+
+    definition = client.get(
+        f"/api/projects/{project['id']}/task-definition"
+    )
+    assert definition.status_code == 409
+    assert "固定contract" in definition.text
+
+
 def test_chain_distribution_is_explicit_reproducible_and_keeps_uncertainties_distinct(
     client: TestClient,
 ) -> None:
@@ -1230,12 +1375,65 @@ def test_actual_conditioned_variant_requires_complete_measured_b_and_never_overw
 ) -> None:
     project, candidate = _project_and_candidate(client)
     execution = _execute(client, project, candidate)
+    distribution_response = client.post(
+        f"/api/projects/{project['id']}/chain/candidates/"
+        f"{candidate['id']}/distribution-runs",
+        json={
+            "candidate_revision": candidate["revision"],
+            "seed": 238,
+            "sample_count": 32,
+        },
+    )
+    assert distribution_response.status_code == 201, distribution_response.text
+    distribution = distribution_response.json()
     snapshot_response = client.post(
         f"/api/projects/{project['id']}/chain/candidates/{candidate['id']}/snapshots",
         json={"candidate_revision": candidate["revision"], "debounce_ms": 0},
     )
     assert snapshot_response.status_code == 201, snapshot_response.text
     snapshot = snapshot_response.json()
+    scoped_snapshot = client.get(
+        f"/api/projects/{project['id']}/chain-snapshots/{snapshot['snapshot_id']}"
+    )
+    assert scoped_snapshot.status_code == 200, scoped_snapshot.text
+    other_project = client.post(
+        "/api/projects",
+        json={
+            "name": "Other Chain",
+            "scientific_identity": _chain_identity(client),
+        },
+    ).json()
+    foreign_snapshot = client.get(
+        f"/api/projects/{other_project['id']}/chain-snapshots/"
+        f"{snapshot['snapshot_id']}"
+    )
+    assert foreign_snapshot.status_code == 404
+    with connect_sqlite(client.app.state.store.path) as conn:
+        conn.execute(
+            "INSERT INTO snapshots(id,candidate_id,payload,created_at) "
+            "VALUES (?,?,?,?)",
+            (
+                "single-task-snapshot-in-chain-project",
+                candidate["id"],
+                "{}",
+                snapshot["created_at"],
+            ),
+        )
+    wrong_snapshot_type = client.put(
+        f"/api/projects/{project['id']}/decision",
+        json={
+            "candidate_id": candidate["id"],
+            "snapshot_id": "single-task-snapshot-in-chain-project",
+            "note": "誤った種別",
+        },
+    )
+    assert wrong_snapshot_type.status_code == 422
+    assert "プロジェクト種別" in wrong_snapshot_type.text
+    with connect_sqlite(client.app.state.store.path) as conn:
+        conn.execute(
+            "DELETE FROM snapshots WHERE id=?",
+            ("single-task-snapshot-in-chain-project",),
+        )
     stage_b_values = {
         key: prediction["value"]
         for key, prediction in execution["stages"][1]["result"]["predictions"].items()
@@ -1291,6 +1489,56 @@ def test_actual_conditioned_variant_requires_complete_measured_b_and_never_overw
     restored = restarted.get_chain_analysis_variant(variant["variant_id"])
     assert restored is not None
     assert restored.model_dump(mode="json") == variant
+
+    decision = client.put(
+        f"/api/projects/{project['id']}/decision",
+        json={
+            "candidate_id": candidate["id"],
+            "snapshot_id": snapshot["snapshot_id"],
+            "note": "全Stageを固定した時点を採用",
+        },
+    )
+    assert decision.status_code == 200, decision.text
+    history_response = client.get(f"/api/projects/{project['id']}/history")
+    assert history_response.status_code == 200, history_response.text
+    history_item = next(
+        item
+        for item in history_response.json()["candidates"]
+        if item["candidate"]["id"] == candidate["id"]
+    )
+    assert history_item["snapshots"] == []
+    assert history_item["chain_snapshots"] == [snapshot]
+    assert history_item["chain_analysis_variants"] == [variant]
+    assert history_item["chain_distribution_runs"] == [distribution]
+    assert history_item["decision"] == {
+        "candidate_id": candidate["id"],
+        "snapshot_id": snapshot["snapshot_id"],
+        "note": "全Stageを固定した時点を採用",
+    }
+    reopened_history = Store(
+        client.app.state.store.path
+    ).project_history(project["id"])
+    assert reopened_history is not None
+    assert reopened_history["candidates"][0]["decision"]["snapshot_id"] == snapshot[
+        "snapshot_id"
+    ]
+
+    corrupted_variant = {
+        **variant,
+        "project_id": other_project["id"],
+    }
+    with connect_sqlite(client.app.state.store.path) as conn:
+        conn.execute(
+            "UPDATE chain_analysis_variant_records SET payload_json=? "
+            "WHERE id=?",
+            (
+                json.dumps(corrupted_variant, ensure_ascii=False),
+                variant["variant_id"],
+            ),
+        )
+    corrupt_history = client.get(f"/api/projects/{project['id']}/history")
+    assert corrupt_history.status_code == 409
+    assert "固定参照が一致しません" in corrupt_history.text
 
 
 def test_debounce_discards_an_older_request_without_overwriting_latest(

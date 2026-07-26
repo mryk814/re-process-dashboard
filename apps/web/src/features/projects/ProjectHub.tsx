@@ -5,7 +5,7 @@ import { assessOutputValues, assessPrediction, resolveOutputDefinition } from ".
 import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
 import { ModelPackageDecisionCard } from "../../shared/ui/ModelPackageDecisionCard";
 import { hasValidTargetGoal, isTargetRange, targetGoalText, type TargetGoal } from "../../shared/targetGoals";
-import { formatTaskNumber, orderedTaskEntries } from "../../shared/taskPresentation";
+import { formatNumberAtDecimals, formatTaskNumber, orderedTaskEntries } from "../../shared/taskPresentation";
 import {
   compatiblePackagesForDatasetTask,
   compatibleTaskIdsForDataset,
@@ -17,6 +17,7 @@ import { fromApiCandidate, toApiCandidate, type CandidateViewModel, type Runtime
 import {
   workbenchApi,
   type ApiChainEvaluation,
+  type ApiChainSnapshot,
   type ApiChainTemplate,
   type ApiModelPackage,
   type ApiPreview,
@@ -26,6 +27,7 @@ import {
   type ApiSnapshot,
   type ApiSubsystemAvailability,
   type ApiTaskCatalogItem,
+  type ApiTaskDefinition,
 } from "../../shared/api/workbench-api";
 import type { ResolvedTaskDefinition } from "../candidates";
 import { ChainEvaluationPanel } from "./ChainEvaluationPanel";
@@ -89,6 +91,45 @@ function unresolvedReferenceLabel(kind: string, identifier: string | null | unde
 const formatNumber = (value: number, digits = 1) => value.toLocaleString("ja-JP", { maximumFractionDigits: digits });
 const formatDate = (value: string) => new Date(value).toLocaleString("ja-JP");
 const defaultGoalLabel = (direction: "at_least" | "at_most" | "target") => direction === "at_most" ? "以下" : direction === "target" ? "目標値付近" : "以上";
+type ChainStage = ApiChainSnapshot["stages"][number];
+type ChainOutputDefinition = ChainStage["output_definitions"][number];
+type ChainPrediction = {
+  value?: number;
+  std?: number;
+  lower?: number;
+  upper?: number;
+};
+
+function chainResultPredictions(result: unknown): Record<string, ChainPrediction> {
+  if (!result || typeof result !== "object") return {};
+  const predictions = (result as { predictions?: unknown }).predictions;
+  return predictions && typeof predictions === "object"
+    ? predictions as Record<string, ChainPrediction>
+    : {};
+}
+
+function chainStagePredictions(stage: ChainStage | undefined): Record<string, ChainPrediction> {
+  return chainResultPredictions(stage?.result);
+}
+
+function terminalChainStage(stages: ChainStage[]): ChainStage | undefined {
+  return [...stages].reverse().find((stage) => (
+    stage.output_definitions.length > 0
+    && Object.keys(chainStagePredictions(stage)).length > 0
+  ));
+}
+
+function formatChainOutput(
+  prediction: ChainPrediction | undefined,
+  definition: ChainOutputDefinition,
+): string {
+  if (typeof prediction?.value !== "number" || !Number.isFinite(prediction.value)) {
+    return "利用不可";
+  }
+  const value = formatNumberAtDecimals(prediction.value, definition.display_decimals);
+  const unit = definition.unit.trim();
+  return `${value}${unit ? ` ${unit}` : ""}`;
+}
 
 export function ProjectHub({
   projects,
@@ -123,7 +164,11 @@ export function ProjectHub({
     projectId: string;
     value: ApiChainEvaluation;
   } | null>(null);
+  const [chainTaskDefinition, setChainTaskDefinition] =
+    useState<ApiTaskDefinition | null>(null);
   const [selectedSnapshot, setSelectedSnapshot] = useState<ApiSnapshot | null>(null);
+  const [selectedChainSnapshot, setSelectedChainSnapshot] =
+    useState<ApiChainSnapshot | null>(null);
   const [error, setError] = useState("");
   const [historyState, setHistoryState] = useState<"loading" | "ready" | "error">("loading");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -156,13 +201,6 @@ export function ProjectHub({
   const projectNameInputRef = useRef<HTMLInputElement>(null);
   const focusCreationFormRef = useRef(false);
   activeProjectRef.current = activeProjectId;
-  const outputDefinition = (key: string) => resolveOutputDefinition(taskDefinition?.outputs ?? [], key);
-  const orderedPredictions = <T,>(values: Record<string, T>) => taskDefinition
-    ? orderedTaskEntries(taskDefinition, values)
-    : Object.entries(values);
-  const formatOutputNumber = (key: string, value: number) => taskDefinition
-    ? formatTaskNumber(value, taskDefinition, `output.${key}`, project?.display_decimals)
-    : formatNumber(value);
   const taskUnavailable = taskAvailability?.status === "unavailable";
   const chainSubsystem = subsystemAvailability.find(
     (item) => item.kind === "chain"
@@ -178,6 +216,32 @@ export function ProjectHub({
   const chainIdentity = identityProject?.scientific_identity?.identity_kind === "chain"
     ? identityProject.scientific_identity
     : null;
+  const fixedChain = chainIdentity
+    ? chainTemplates.find((item) => item.revisions.some(
+      (revision) => `${revision.chain_id}:r${revision.revision}` === chainIdentity.chain_revision_id,
+    ))
+    : undefined;
+  const fixedChainRevision = fixedChain?.revisions.find(
+    (revision) => `${revision.chain_id}:r${revision.revision}` === chainIdentity?.chain_revision_id,
+  );
+  const effectiveTaskDefinition = taskDefinition
+    ?? chainTaskDefinition?.task_definition
+    ?? null;
+  const outputDefinition = (key: string) => resolveOutputDefinition(
+    effectiveTaskDefinition?.outputs ?? [],
+    key,
+  );
+  const orderedPredictions = <T,>(values: Record<string, T>) => effectiveTaskDefinition
+    ? orderedTaskEntries(effectiveTaskDefinition, values)
+    : Object.entries(values);
+  const formatOutputNumber = (key: string, value: number) => effectiveTaskDefinition
+    ? formatTaskNumber(
+      value,
+      effectiveTaskDefinition,
+      `output.${key}`,
+      project?.display_decimals,
+    )
+    : formatNumber(value);
   const chainExecutionPending = false;
 
   const reloadHistory = async (signal?: AbortSignal, expectedProjectId = activeProjectId) => {
@@ -222,8 +286,10 @@ export function ProjectHub({
     setHistory(null);
     setHistoryState("loading");
     setSelectedSnapshot(null);
+    setSelectedChainSnapshot(null);
     setModelPackage(null);
     setChainEvaluation(null);
+    setChainTaskDefinition(null);
     void reloadHistory(controller.signal).catch(() => {
       if (!controller.signal.aborted) setHistoryState("error");
     });
@@ -238,6 +304,23 @@ export function ProjectHub({
     ];
     if (!taskUnavailable && identityProject) {
       if (chainIdentity) {
+        requests.push(
+          workbenchApi.taskDefinition(activeProjectId).then((item) => {
+            if (
+              !controller.signal.aborted
+              && activeProjectRef.current === activeProjectId
+            ) {
+              setChainTaskDefinition(item);
+            }
+          }).catch(() => {
+            if (
+              !controller.signal.aborted
+              && activeProjectRef.current === activeProjectId
+            ) {
+              setChainTaskDefinition(null);
+            }
+          }),
+        );
         if (chainEvaluationSubsystem?.status !== "unavailable") {
           requests.push(
             workbenchApi.projectChainEvaluation(activeProjectId, controller.signal).then((item) => {
@@ -271,29 +354,80 @@ export function ProjectHub({
   ]);
 
   useEffect(() => {
-    if (!requestedSnapshotId || !operations?.snapshot || selectedSnapshot?.id === requestedSnapshotId) return;
+    if (
+      !requestedSnapshotId
+      || (
+        chainIdentity
+          ? selectedChainSnapshot?.snapshot_id === requestedSnapshotId
+          : selectedSnapshot?.id === requestedSnapshotId
+      )
+    ) return;
     const controller = new AbortController();
-    workbenchApi.snapshot(activeProjectId, requestedSnapshotId, controller.signal)
-      .then((item) => !controller.signal.aborted && setSelectedSnapshot(item))
-      .catch((cause) => !controller.signal.aborted && setError(cause instanceof Error ? cause.message : "保存済み予測を参照できません。"));
+    if (chainIdentity) {
+      workbenchApi.chainSnapshot(activeProjectId, requestedSnapshotId, controller.signal)
+        .then((item) => {
+          if (!controller.signal.aborted) {
+            setSelectedSnapshot(null);
+            setSelectedChainSnapshot(item);
+          }
+        })
+        .catch((cause) => !controller.signal.aborted && setError(cause instanceof Error ? cause.message : "Chain Snapshotを参照できません。"));
+    } else if (operations?.snapshot) {
+      workbenchApi.snapshot(activeProjectId, requestedSnapshotId, controller.signal)
+        .then((item) => {
+          if (!controller.signal.aborted) {
+            setSelectedChainSnapshot(null);
+            setSelectedSnapshot(item);
+          }
+        })
+        .catch((cause) => !controller.signal.aborted && setError(cause instanceof Error ? cause.message : "保存済み予測を参照できません。"));
+    } else {
+      return;
+    }
     return () => controller.abort();
-  }, [activeProjectId, requestedSnapshotId, operations?.snapshot, selectedSnapshot?.id]);
+  }, [
+    activeProjectId,
+    chainIdentity?.chain_revision_id,
+    operations?.snapshot,
+    requestedSnapshotId,
+    selectedChainSnapshot?.snapshot_id,
+    selectedSnapshot?.id,
+  ]);
 
   useEffect(() => {
-    if (!selectedSnapshot) return;
-    const draftKey = `${activeProjectId}:${selectedSnapshot.id}`;
+    const selectedEvidence = selectedSnapshot
+      ? { id: selectedSnapshot.id }
+      : selectedChainSnapshot
+        ? { id: selectedChainSnapshot.snapshot_id }
+        : null;
+    if (!selectedEvidence) return;
+    const draftKey = `${activeProjectId}:${selectedEvidence.id}`;
     if (decisionDraftRef.current.key !== draftKey) {
       decisionDraftRef.current = { key: draftKey, dirty: false };
       setDecisionNote("");
     }
     if (!history || decisionDraftRef.current.dirty) return;
-    const decision = history?.candidates.find((item) => item.decision?.snapshot_id === selectedSnapshot.id)?.decision;
+    const decision = history?.candidates.find(
+      (item) => item.decision?.snapshot_id === selectedEvidence.id,
+    )?.decision;
     setDecisionNote(decision?.note ?? "");
-  }, [activeProjectId, selectedSnapshot?.id, history]);
+  }, [
+    activeProjectId,
+    history,
+    selectedChainSnapshot?.snapshot_id,
+    selectedSnapshot?.id,
+  ]);
 
   const activeCandidates = history?.candidates.filter((item) => !item.candidate.archived_at) ?? [];
   const copyTaskId = candidate ? projects.find((item) => item.id === candidate.raw.project_id)?.task_id : undefined;
-  const outputLabels = useMemo(() => new Map((taskDefinition?.outputs ?? []).map((output) => [output.key, output.label])), [taskDefinition]);
+  const outputLabels = useMemo(
+    () => new Map(
+      (effectiveTaskDefinition?.outputs ?? []).map(
+        (output) => [output.key, output.label],
+      ),
+    ),
+    [effectiveTaskDefinition],
+  );
   const taskLabels = useMemo(() => new Map(catalog.map((item) => [
     item.definition.task_definition.id,
     item.definition.task_definition.label,
@@ -318,14 +452,6 @@ export function ProjectHub({
   );
   const selectedChainRevision = selectedChain?.revisions.find(
     (revision) => `${revision.chain_id}:r${revision.revision}` === newChainRevisionId,
-  );
-  const fixedChain = chainIdentity
-    ? chainTemplates.find((item) => item.revisions.some(
-      (revision) => `${revision.chain_id}:r${revision.revision}` === chainIdentity.chain_revision_id,
-    ))
-    : undefined;
-  const fixedChainRevision = fixedChain?.revisions.find(
-    (revision) => `${revision.chain_id}:r${revision.revision}` === chainIdentity?.chain_revision_id,
   );
   const fixedDataset = project?.dataset_view_revision_id ? datasetByView.get(project.dataset_view_revision_id) : undefined;
   const fixedPackage = creationOptions?.model_packages.find((item) => item.id === project?.model_package_ref_id);
@@ -568,6 +694,7 @@ export function ProjectHub({
     try {
       const loaded = await workbenchApi.snapshot(requestProjectId, snapshotId);
       if (activeProjectRef.current !== requestProjectId) return;
+      setSelectedChainSnapshot(null);
       setSelectedSnapshot(loaded);
       onSnapshotNavigate(snapshotId);
     } catch (cause) {
@@ -575,14 +702,31 @@ export function ProjectHub({
     }
   }
 
+  function openChainSnapshot(snapshot: ApiChainSnapshot) {
+    setSelectedSnapshot(null);
+    setSelectedChainSnapshot(snapshot);
+    onSnapshotNavigate(snapshot.snapshot_id);
+  }
+
   async function saveDecision(clear = false) {
-    if (!selectedSnapshot) return;
+    const evidence = selectedSnapshot
+      ? {
+        candidateId: selectedSnapshot.candidate_id,
+        snapshotId: selectedSnapshot.id,
+      }
+      : selectedChainSnapshot
+        ? {
+          candidateId: selectedChainSnapshot.identity.candidate_id,
+          snapshotId: selectedChainSnapshot.snapshot_id,
+        }
+        : null;
+    if (!evidence) return;
     if (!clear && !decisionNote.trim()) return setError("採用判断には理由を入力してください。");
     try {
       const requestProjectId = activeProjectId;
       const saved = await workbenchApi.updateProjectDecision(requestProjectId, clear ? { candidate_id: "", snapshot_id: "", note: "" } : {
-        candidate_id: selectedSnapshot.candidate_id,
-        snapshot_id: selectedSnapshot.id,
+        candidate_id: evidence.candidateId,
+        snapshot_id: evidence.snapshotId,
         note: decisionNote.trim(),
       });
       if (activeProjectRef.current !== requestProjectId) return;
@@ -607,9 +751,15 @@ export function ProjectHub({
 
   const targetValues = (project?.target_values ?? {}) as Record<string, TargetGoal>;
   const savedTargetValues = (projects.find((item) => item.id === activeProjectId)?.target_values ?? {}) as Record<string, TargetGoal>;
-  const configuredTargets = (taskDefinition?.outputs ?? []).filter((output) => hasValidTargetGoal(savedTargetValues[output.key]));
+  const configurableOutputs = effectiveTaskDefinition?.outputs ?? [];
+  const configuredTargets = configurableOutputs.filter(
+    (output) => hasValidTargetGoal(savedTargetValues[output.key]),
+  );
   const invalidTargetRange = Object.values(targetValues).some((goal) => isTargetRange(goal) && !hasValidTargetGoal(goal))
-    || (taskDefinition?.outputs ?? []).some((output) => output.goal_direction === "target" && typeof targetValues[output.key] === "number");
+    || configurableOutputs.some((output) => (
+      output.goal_direction === "target"
+      && typeof targetValues[output.key] === "number"
+    ));
   const setScalarTarget = (key: string, value: string) => {
     if (!project) return;
     const next = { ...targetValues };
@@ -882,7 +1032,7 @@ export function ProjectHub({
             ? <ChainEvaluationPanel evaluation={chainEvaluation.value} />
             : <section className="chain-evaluation-panel loading" aria-live="polite">Chain評価を読み込んでいます。</section>
       )}
-      {project && <section className={`project-goal-strip${configuredTargets.length ? "" : " unset"}`} aria-label="プロジェクトの目標値">
+      {project && configurableOutputs.length > 0 && <section className={`project-goal-strip${configuredTargets.length ? "" : " unset"}`} aria-label="プロジェクトの目標値">
         <div className="project-goal-heading"><span>目標値</span><strong>{configuredTargets.length ? "候補を判断する基準" : "候補を探す前に設定"}</strong></div>
         <div className="project-goal-values">
           {configuredTargets.length
@@ -948,7 +1098,7 @@ export function ProjectHub({
           <label>プロジェクト名<input value={project.name} onChange={(event) => setProject({ ...project, name: event.target.value })} /></label>
           <label>説明<textarea value={project.description} onChange={(event) => setProject({ ...project, description: event.target.value })} /></label>
           <label>目的<textarea value={project.purpose} onChange={(event) => setProject({ ...project, purpose: event.target.value })} /></label>
-          <fieldset className="target-grid" id="project-target-settings"><legend>目標値</legend>{(taskDefinition?.outputs ?? []).map((output) => {
+          {configurableOutputs.length > 0 && <fieldset className="target-grid" id="project-target-settings"><legend>目標値</legend>{configurableOutputs.map((output) => {
             const goal = targetValues[output.key];
             const range = isTargetRange(goal) ? goal : undefined;
             const rangeOnly = output.goal_direction === "target";
@@ -960,7 +1110,7 @@ export function ProjectHub({
                 ? <div className="target-range-inputs"><label>下限<input type="number" value={Number.isFinite(rangeDraft.lower) ? rangeDraft.lower : ""} placeholder="下限" onChange={(event) => setRangeTarget(output.key, "lower", event.target.value)} /></label><span>–</span><label>上限<input type="number" value={Number.isFinite(rangeDraft.upper) ? rangeDraft.upper : ""} placeholder="上限" onChange={(event) => setRangeTarget(output.key, "upper", event.target.value)} /></label></div>
                 : <input type="number" value={typeof goal === "number" ? goal : ""} placeholder="未設定" onChange={(event) => setScalarTarget(output.key, event.target.value)} />}
             </div>;
-          })}{invalidTargetRange && <small className="target-range-error">範囲目標は、下限を上限より小さく設定してください。</small>}</fieldset>
+          })}{invalidTargetRange && <small className="target-range-error">範囲目標は、下限を上限より小さく設定してください。</small>}</fieldset>}
           <label>メモ<textarea value={project.notes} onChange={(event) => setProject({ ...project, notes: event.target.value })} /></label>
         </div>
         <button className="primary-button" disabled={!project.name.trim() || invalidTargetRange} onClick={() => void saveProject()}>設定を保存</button>
@@ -980,24 +1130,97 @@ export function ProjectHub({
       </section>
 
       <section className="project-history-section">
-        <div className="panel-title"><h3>候補と判断履歴</h3><span>現在値と固定した予測を分けて表示</span></div>
+        <div className="panel-title"><h3>候補と判断履歴</h3><span>{chainIdentity ? "Chainの固定結果・実測分析・不確かさを時系列で表示" : "現在値と固定した予測を分けて表示"}</span></div>
         {historyState === "error" ? <div className="project-history-error" role="alert">
           <p>候補と判断履歴を取得できませんでした。保存済みのデータは失われていません。</p>
           <button type="button" className="outline-button" onClick={retryHistory}>履歴を再取得</button>
         </div> : !history ? <p className="empty-evidence">履歴を読み込んでいます。</p> : !history.candidates.length ? <div className="project-empty-state"><p>{supportsLineageCandidate ? "候補はまだありません。上の「次の作業」から過去データを探すと、由来付き候補としてここに残ります。" : "候補はまだありません。上の「次の作業」から基準候補を用意し、検討を始めます。"}</p></div> : <div className="project-history-list">
           {history.candidates.map((item) => {
             const preview = currentPreviews[item.candidate.id];
+            const chainSnapshots = item.chain_snapshots ?? [];
+            const chainVariants = item.chain_analysis_variants ?? [];
+            const chainDistributionRuns = item.chain_distribution_runs ?? [];
+            const hasChainEvidence = chainSnapshots.length > 0
+              || chainVariants.length > 0
+              || chainDistributionRuns.length > 0;
             return <article className="project-history-card" key={item.candidate.id}>
               <header><div><strong>{item.candidate.name}</strong>{item.candidate.archived_at && <span className="muted-badge">archive</span>}</div><button className="outline-button" disabled={taskUnavailable || Boolean(item.candidate.archived_at)} onClick={() => onNavigate("candidates", item.candidate.id)}>現在の候補を見る</button></header>
               <div className="history-current-row"><span className="history-kind current">現在</span><span>編集版 {item.current.revision}</span><span>{formatDate(item.current.updated_at)}</span><span className={item.candidate.provenance?.source_kind === "lineage" ? "history-origin reference-data" : "history-origin"}>{item.candidate.provenance?.source_kind === "lineage" && <b>参照データ由来</b>}{item.candidate.provenance ? provenanceLabel(item.candidate.provenance) : "由来不明"}</span></div>
-              {preview ? <div className="history-preview"><span>現在のpreview</span>{orderedPredictions(preview.predictions).map(([key, value]) => { const assessment = assessPrediction(outputDefinition(key), value); return <strong className={assessment.implausible ? "implausible-output" : undefined} title={assessment.warning ?? undefined} key={key}>{outputLabels.get(key) ?? key} {formatPredictionPoint(value, (numberValue) => formatOutputNumber(key, numberValue))}{assessment.implausible && <small className="output-warning-badge">⚠ 物理範囲外</small>}</strong>; })}</div> : <p className="history-muted">現在のpreviewは未計算です。候補比較を開くと必要な候補だけ計算します。</p>}
-              {item.snapshots.length ? <div className="history-snapshots">{item.snapshots.map((snapshot) => <div className="history-snapshot-row" key={snapshot.id}>
-                <span className="history-kind fixed">固定した予測</span>{item.decision?.snapshot_id === snapshot.id && <span className="decision-snapshot-badge">採用判断</span>}<span>編集版 {snapshot.candidate_revision ?? "不明（旧形式）"}</span><span>{formatDate(snapshot.created_at)}</span>
-                <span className="history-predictions">{orderedPredictions(snapshot.prediction_summary).map(([key, value], index) => { const assessment = assessPrediction(outputDefinition(key), value); return <span className={assessment.implausible ? "implausible-output" : undefined} title={assessment.warning ?? undefined} key={key}>{index > 0 && " / "}{outputLabels.get(key) ?? key} {formatPredictionPoint(value, (numberValue) => formatOutputNumber(key, numberValue))}{assessment.implausible && <small className="output-warning-badge">⚠ 物理範囲外</small>}</span>; })}</span>
-                {item.actuals.filter((actual) => actual.snapshot_id === snapshot.id).map((actual) => { const definition = outputDefinition(actual.property); const assessment = assessOutputValues(definition, [actual.mean], "実測値"); const key = definition?.key ?? actual.property; return <span className={`history-actual${assessment.implausible ? " implausible-output" : ""}`} title={assessment.warning ?? undefined} key={actual.id}>実測 {definition?.label ?? outputLabels.get(actual.property) ?? actual.property} {formatOutputNumber(key, actual.mean)} ± {formatOutputNumber(key, actual.std)} {definition?.unit ?? actual.unit}{actual.experiment_no ? ` / ${actual.experiment_no}` : ""}{assessment.implausible && <small className="output-warning-badge">⚠ 物理範囲外</small>}</span>; })}
-                {item.decision?.snapshot_id === snapshot.id && <span className="decision-note-inline">判断理由: {item.decision.note}</span>}
-                <button className="outline-button" onClick={() => void openSnapshot(snapshot.id)}>詳細</button><CandidateAddButton compact disabled={taskUnavailable || offline} onClick={() => void restoreSnapshot(snapshot.id)}>新しい候補として複製</CandidateAddButton>
-              </div>)}</div> : <div className="project-empty-inline"><span>固定した予測はありません。上の「現在の候補を見る」から詳細予測を保存すると判断時点が残ります。</span></div>}
+              {chainIdentity
+                ? <>
+                  <p className="history-muted">現在のChain条件です。固定済みの判断時点は下に時系列で残ります。</p>
+                  {chainSnapshots.map((snapshot) => {
+                    const terminalStage = terminalChainStage(snapshot.stages);
+                    const predictions = chainStagePredictions(terminalStage);
+                    return <div className="history-snapshot-row chain-history-row" key={snapshot.snapshot_id}>
+                      <span className="history-kind fixed">全Stageを固定</span>
+                      {item.decision?.snapshot_id === snapshot.snapshot_id && <span className="decision-snapshot-badge">採用判断</span>}
+                      <span>編集版 {snapshot.identity.candidate_revision}</span>
+                      <span>{formatDate(snapshot.created_at)}</span>
+                      <span className="history-predictions">
+                        {terminalStage?.output_definitions.length
+                          ? terminalStage.output_definitions.map((definition) => <span key={definition.key}>{definition.label} {formatChainOutput(predictions[definition.key], definition)}</span>)
+                          : "終端Stageの出力定義を確認できません"}
+                      </span>
+                      {item.decision?.snapshot_id === snapshot.snapshot_id && <span className="decision-note-inline">判断理由: {item.decision.note}</span>}
+                      <button className="outline-button" onClick={() => openChainSnapshot(snapshot)}>詳細</button>
+                    </div>;
+                  })}
+                  {chainVariants.map((variant) => {
+                    const comparison = chainSnapshots.find(
+                      (snapshot) => snapshot.snapshot_id === variant.identity.comparison_snapshot_id,
+                    );
+                    const terminalStage = terminalChainStage(comparison?.stages ?? []);
+                    const predictions = chainResultPredictions(variant.stage_c_result);
+                    return <div className="history-snapshot-row chain-history-row actual-conditioned" key={variant.variant_id}>
+                      <span className="history-kind fixed">実測Bを条件にした予測</span>
+                      <span>編集版 {variant.identity.base_candidate_revision}</span>
+                      <span>{formatDate(variant.created_at)}</span>
+                      <span className="history-predictions">
+                        {terminalStage?.output_definitions.length
+                          ? terminalStage.output_definitions.map((definition) => <span key={definition.key}>{definition.label} {formatChainOutput(predictions[definition.key], definition)}</span>)
+                          : "比較Snapshotの出力定義を確認できません"}
+                      </span>
+                      <span className="history-actual">実測ID {variant.identity.actual_ids.join(", ")} · {variant.identity.coverage.length}項目</span>
+                      <small>通常のChain結果は置き換えません。</small>
+                    </div>;
+                  })}
+                  {chainDistributionRuns.map((run) => {
+                    const comparison = chainSnapshots.find((snapshot) => (
+                      snapshot.identity.candidate_revision === run.provenance.candidate_revision
+                      && snapshot.identity.chain_revision_digest === run.provenance.chain_revision_digest
+                    ));
+                    const terminalSnapshotStage = terminalChainStage(comparison?.stages ?? []);
+                    const terminalDistribution = run.stages[run.stages.length - 1];
+                    return <div className="history-snapshot-row chain-history-row" key={run.run_id}>
+                      <span className="history-kind fixed">不確かさを伝播</span>
+                      <span>編集版 {run.provenance.candidate_revision}</span>
+                      <span>{formatDate(run.created_at)}</span>
+                      <span>{run.status === "completed" ? "完了" : "一部Stageは利用不可"} · seed {run.provenance.seed} · {run.provenance.sample_count}標本</span>
+                      <span className="history-predictions">
+                        {terminalSnapshotStage?.output_definitions.length
+                          ? terminalSnapshotStage.output_definitions.map((definition) => {
+                            const summary = terminalDistribution?.propagated_uncertainty?.[definition.key];
+                            return <span key={definition.key}>{definition.label} {summary
+                              ? `${formatNumberAtDecimals(summary.quantiles["0.05"], definition.display_decimals)}–${formatNumberAtDecimals(summary.quantiles["0.95"], definition.display_decimals)}${definition.unit ? ` ${definition.unit}` : ""}`
+                              : "伝播区間なし"}</span>;
+                          })
+                          : "固定Snapshotの出力定義を確認できません"}
+                      </span>
+                    </div>;
+                  })}
+                  {!hasChainEvidence && <div className="project-empty-inline"><span>全Stageを固定した記録はまだありません。Chain候補で「全Stageを固定」すると判断時点が残ります。</span></div>}
+                </>
+                : <>
+                  {preview ? <div className="history-preview"><span>現在のpreview</span>{orderedPredictions(preview.predictions).map(([key, value]) => { const assessment = assessPrediction(outputDefinition(key), value); return <strong className={assessment.implausible ? "implausible-output" : undefined} title={assessment.warning ?? undefined} key={key}>{outputLabels.get(key) ?? key} {formatPredictionPoint(value, (numberValue) => formatOutputNumber(key, numberValue))}{assessment.implausible && <small className="output-warning-badge">⚠ 物理範囲外</small>}</strong>; })}</div> : <p className="history-muted">現在のpreviewは未計算です。候補比較を開くと必要な候補だけ計算します。</p>}
+                  {item.snapshots.length ? <div className="history-snapshots">{item.snapshots.map((snapshot) => <div className="history-snapshot-row" key={snapshot.id}>
+                    <span className="history-kind fixed">固定した予測</span>{item.decision?.snapshot_id === snapshot.id && <span className="decision-snapshot-badge">採用判断</span>}<span>編集版 {snapshot.candidate_revision ?? "不明（旧形式）"}</span><span>{formatDate(snapshot.created_at)}</span>
+                    <span className="history-predictions">{orderedPredictions(snapshot.prediction_summary).map(([key, value], index) => { const assessment = assessPrediction(outputDefinition(key), value); return <span className={assessment.implausible ? "implausible-output" : undefined} title={assessment.warning ?? undefined} key={key}>{index > 0 && " / "}{outputLabels.get(key) ?? key} {formatPredictionPoint(value, (numberValue) => formatOutputNumber(key, numberValue))}{assessment.implausible && <small className="output-warning-badge">⚠ 物理範囲外</small>}</span>; })}</span>
+                    {item.actuals.filter((actual) => actual.snapshot_id === snapshot.id).map((actual) => { const definition = outputDefinition(actual.property); const assessment = assessOutputValues(definition, [actual.mean], "実測値"); const key = definition?.key ?? actual.property; return <span className={`history-actual${assessment.implausible ? " implausible-output" : ""}`} title={assessment.warning ?? undefined} key={actual.id}>実測 {definition?.label ?? outputLabels.get(actual.property) ?? actual.property} {formatOutputNumber(key, actual.mean)} ± {formatOutputNumber(key, actual.std)} {definition?.unit ?? actual.unit}{actual.experiment_no ? ` / ${actual.experiment_no}` : ""}{assessment.implausible && <small className="output-warning-badge">⚠ 物理範囲外</small>}</span>; })}
+                    {item.decision?.snapshot_id === snapshot.id && <span className="decision-note-inline">判断理由: {item.decision.note}</span>}
+                    <button className="outline-button" onClick={() => void openSnapshot(snapshot.id)}>詳細</button><CandidateAddButton compact disabled={taskUnavailable || offline} onClick={() => void restoreSnapshot(snapshot.id)}>新しい候補として複製</CandidateAddButton>
+                  </div>)}</div> : <div className="project-empty-inline"><span>固定した予測はありません。上の「現在の候補を見る」から詳細予測を保存すると判断時点が残ります。</span></div>}
+                </>}
             </article>;
           })}
         </div>}
@@ -1011,6 +1234,38 @@ export function ProjectHub({
         <div className="snapshot-decision-form"><label>判断理由<textarea disabled={taskUnavailable || offline} value={decisionNote} onChange={(event) => { decisionDraftRef.current.dirty = true; setDecisionNote(event.target.value); }} placeholder="この時点の予測を採用判断に使う理由" /></label><button className="outline-button" disabled={taskUnavailable || offline} onClick={() => void saveDecision(false)}>採用判断として固定</button>{project?.decision_snapshot_id === selectedSnapshot.id && <button className="outline-button" disabled={taskUnavailable || offline} onClick={() => void saveDecision(true)}>採用判断を解除</button>}</div>
         <CandidateAddButton disabled={taskUnavailable || offline} onClick={() => void restoreSnapshot(selectedSnapshot.id)}>この時点から新しい候補を作る</CandidateAddButton>
       </section>}
+
+      {selectedChainSnapshot && (() => {
+        const terminalStage = terminalChainStage(selectedChainSnapshot.stages);
+        const predictions = chainStagePredictions(terminalStage);
+        const selectedCandidateName = history?.candidates.find(
+          (item) => item.candidate.id === selectedChainSnapshot.identity.candidate_id,
+        )?.candidate.name ?? "保存時の候補";
+        return <section className="snapshot-detail project-snapshot-detail chain-snapshot-detail">
+          <div className="panel-title"><h3>全Stageを固定した詳細</h3><button className="outline-button" onClick={() => { setSelectedChainSnapshot(null); onSnapshotNavigate(undefined); }}>閉じる</button></div>
+          <p>{formatDate(selectedChainSnapshot.created_at)} / {selectedCandidateName} / 編集版 {selectedChainSnapshot.identity.candidate_revision}</p>
+          <div className="chain-fixed-stage-list" aria-label="固定したStage">
+            {selectedChainSnapshot.stages.map((stage) => <span key={stage.stage_id}>Stage {stage.stage_id} · {stage.status === "latest" ? "固定済み" : stage.status}</span>)}
+          </div>
+          {terminalStage?.output_definitions.length
+            ? <table className="quality-table"><thead><tr><th>終端Stageの特性</th><th>固定した予測</th><th>不確かさ</th></tr></thead><tbody>{terminalStage.output_definitions.map((definition) => {
+              const prediction = predictions[definition.key];
+              const unit = definition.unit.trim();
+              return <tr key={definition.key}>
+                <th>{definition.label}</th>
+                <td>{formatChainOutput(prediction, definition)}</td>
+                <td>{typeof prediction?.std === "number" && Number.isFinite(prediction.std)
+                  ? `標準偏差 ±${formatNumberAtDecimals(prediction.std, definition.display_decimals)}${unit ? ` ${unit}` : ""}`
+                  : typeof prediction?.lower === "number" && typeof prediction?.upper === "number"
+                    ? `${formatNumberAtDecimals(prediction.lower, definition.display_decimals)}–${formatNumberAtDecimals(prediction.upper, definition.display_decimals)}${unit ? ` ${unit}` : ""}`
+                    : "区間なし"}</td>
+              </tr>;
+            })}</tbody></table>
+            : <p className="chain-output-unavailable">このSnapshotの終端Stage出力定義を確認できません。</p>}
+          <div className="snapshot-decision-form"><label>判断理由<textarea disabled={taskUnavailable || offline} value={decisionNote} onChange={(event) => { decisionDraftRef.current.dirty = true; setDecisionNote(event.target.value); }} placeholder="この時点のChain結果を採用判断に使う理由" /></label><button className="outline-button" disabled={taskUnavailable || offline} onClick={() => void saveDecision(false)}>採用判断として固定</button>{project?.decision_snapshot_id === selectedChainSnapshot.snapshot_id && <button className="outline-button" disabled={taskUnavailable || offline} onClick={() => void saveDecision(true)}>採用判断を解除</button>}</div>
+          <button className="outline-button" onClick={() => onNavigate("candidates", selectedChainSnapshot.identity.candidate_id)}>Chain候補を開く</button>
+        </section>;
+      })()}
 
       {canArchiveProject && project && <section className="project-danger-zone" aria-label="プロジェクトのアーカイブ">
         {!archiveOpen ? <button className="danger-outline-button" disabled={offline} onClick={() => setArchiveOpen(true)}>プロジェクトをアーカイブ</button> : <div className="project-delete-panel" aria-label="プロジェクトのアーカイブ確認">

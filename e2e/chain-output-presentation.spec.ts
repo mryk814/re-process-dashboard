@@ -32,6 +32,7 @@ test("Chain outputs use the pinned labels, units, decimals, and uncertainty word
   expect(candidatesResponse.status()).toBe(200);
   let candidates = await candidatesResponse.json() as Array<{
     id: string;
+    name: string;
     revision: number;
   }>;
   if (!candidates.length) {
@@ -45,7 +46,7 @@ test("Chain outputs use the pinned labels, units, decimals, and uncertainty word
       { data: contract.starter_candidate },
     );
     expect(createdResponse.status()).toBe(201);
-    candidates = [await createdResponse.json() as { id: string; revision: number }];
+    candidates = [await createdResponse.json() as { id: string; name: string; revision: number }];
   }
   const candidate = candidates[0];
   const executionResponse = await page.request.post(
@@ -73,6 +74,17 @@ test("Chain outputs use the pinned labels, units, decimals, and uncertainty word
   const snapshotBody = await snapshotResponse.text();
   expect(snapshotResponse.status(), snapshotBody).toBe(201);
   const snapshot = JSON.parse(snapshotBody) as { snapshot_id: string };
+  const distributionResponse = await page.request.post(
+    `${apiBaseUrl}/api/projects/${project.id}/chain/candidates/${candidate.id}/distribution-runs`,
+    {
+      data: {
+        candidate_revision: candidate.revision,
+        seed: 238,
+        sample_count: 32,
+      },
+    },
+  );
+  expect(distributionResponse.status(), await distributionResponse.text()).toBe(201);
   const stageBPredictions = execution.stages.find((stage) => stage.stage_id === "B")?.result?.predictions ?? {};
   const measuredStageB = Object.fromEntries(
     Object.entries(stageBPredictions).map(([key, prediction]) => [key, prediction.value]),
@@ -112,4 +124,27 @@ test("Chain outputs use the pinned labels, units, decimals, and uncertainty word
   await expect(snapshotStageC.getByRole("rowheader", { name: "引張強さ" })).toBeVisible();
   await expect(snapshotStageC).toContainText(/[\d,]+\.\d MPa/);
   await expect(snapshotStageC).not.toContainText("CHARPY_ENERGY");
+
+  await page.goto(`/?view=project&project=${project.id}`);
+  const historyCard = page.locator(".project-history-card").filter({
+    has: page.getByText(candidate.name, { exact: true }),
+  });
+  await expect(historyCard.getByText("全Stageを固定", { exact: true })).toBeVisible();
+  await expect(historyCard.getByText("実測Bを条件にした予測", { exact: true })).toBeVisible();
+  await expect(historyCard.getByText("不確かさを伝播", { exact: true })).toBeVisible();
+  await expect(historyCard).not.toContainText("現在のpreviewは未計算です");
+
+  await page.getByRole("button", { name: "目標値を設定" }).click();
+  await expect(page.locator("#project-target-settings .target-setting")).toHaveCount(7);
+
+  const fixedRow = historyCard.locator(".chain-history-row").filter({
+    has: page.getByText("全Stageを固定", { exact: true }),
+  });
+  await fixedRow.getByRole("button", { name: "詳細" }).click();
+  const detail = page.locator(".chain-snapshot-detail");
+  await expect(detail.getByRole("heading", { name: "全Stageを固定した詳細" })).toBeVisible();
+  await expect(detail.getByRole("rowheader", { name: "引張強さ" })).toBeVisible();
+  await detail.getByLabel("判断理由").fill("Chainの固定結果を採用");
+  await detail.getByRole("button", { name: "採用判断として固定" }).click();
+  await expect(historyCard.getByText("判断理由: Chainの固定結果を採用", { exact: true })).toBeVisible();
 });

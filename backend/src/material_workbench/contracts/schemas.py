@@ -23,6 +23,13 @@ from material_workbench.contracts.chain_contracts import (
     ChainProjectIdentity,
     ProjectScientificIdentity,
 )
+from material_workbench.contracts.chain_execution_contracts import (
+    ActualConditionedVariant,
+    ChainSnapshot,
+)
+from material_workbench.contracts.chain_uncertainty_contracts import (
+    ChainDistributionRun,
+)
 from material_workbench.contracts.design_space_contracts import DesignSpaceDefinition
 from material_workbench.contracts.objective_contracts import ObjectiveDefinition
 from material_workbench.contracts.proposal_contracts import (
@@ -952,6 +959,13 @@ class CandidateHistoryItem(BaseModel):
     candidate: Candidate
     current: CandidateCurrentHistory
     snapshots: list[SnapshotHistoryItem]
+    chain_snapshots: list[ChainSnapshot] = Field(default_factory=list)
+    chain_analysis_variants: list[ActualConditionedVariant] = Field(
+        default_factory=list
+    )
+    chain_distribution_runs: list[ChainDistributionRun] = Field(
+        default_factory=list
+    )
     actuals: list[ActualMeasurement]
     decision: ProjectDecisionHistory | None = None
 

@@ -2252,6 +2252,27 @@
           "candidate": {
             "$ref": "#/components/schemas/Candidate"
           },
+          "chain_analysis_variants": {
+            "items": {
+              "$ref": "#/components/schemas/ActualConditionedVariant"
+            },
+            "title": "Chain Analysis Variants",
+            "type": "array"
+          },
+          "chain_distribution_runs": {
+            "items": {
+              "$ref": "#/components/schemas/ChainDistributionRun"
+            },
+            "title": "Chain Distribution Runs",
+            "type": "array"
+          },
+          "chain_snapshots": {
+            "items": {
+              "$ref": "#/components/schemas/ChainSnapshot"
+            },
+            "title": "Chain Snapshots",
+            "type": "array"
+          },
           "current": {
             "$ref": "#/components/schemas/CandidateCurrentHistory"
           },
@@ -19262,48 +19283,6 @@
         ]
       }
     },
-    "/api/projects/chain-snapshots/{snapshot_id}": {
-      "get": {
-        "operationId": "getChainSnapshot",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "snapshot_id",
-            "required": true,
-            "schema": {
-              "title": "Snapshot Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ChainSnapshot"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Get Chain Snapshot",
-        "tags": [
-          "chain-execution"
-        ]
-      }
-    },
     "/api/projects/{project_id}": {
       "delete": {
         "operationId": "archiveProject",
@@ -21603,6 +21582,57 @@
           }
         },
         "summary": "Create Snapshot"
+      }
+    },
+    "/api/projects/{project_id}/chain-snapshots/{snapshot_id}": {
+      "get": {
+        "operationId": "getChainSnapshot",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainSnapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Chain Snapshot",
+        "tags": [
+          "chain-execution"
+        ]
       }
     },
     "/api/projects/{project_id}/chain/candidate-capability": {

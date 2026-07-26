@@ -201,6 +201,12 @@ export const workbenchApi = {
       body: { candidate_revision: candidateRevision, debounce_ms: 0 },
     }), "Chainスナップショットを保存できませんでした。");
   },
+  async chainSnapshot(projectId: string, snapshotId: string, signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/chain-snapshots/{snapshot_id}", {
+      params: { path: { project_id: projectId, snapshot_id: snapshotId } },
+      signal,
+    }), "Chainスナップショットを取得できませんでした。");
+  },
   async listChainAnalysisVariants(projectId: string, candidateId: string) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/chain/candidates/{candidate_id}/analysis-variants", {
       params: { path: { project_id: projectId, candidate_id: candidateId } },
