@@ -2,15 +2,21 @@
 
 ## 性格分類
 
-研究開発の意思決定を支える、デスクトップ向けの作業ツール／ダッシュボード。
+研究開発の意思決定を支える、デスクトップ向けの材料Decision Workbench。
+
+単に予測値を表示するのではなく、候補、予測幅、支持範囲、類似実績、実測、検討Runを同じProject文脈で比較し、判断時点の証拠を再現可能に保存する。
+
+現在の実装前提とv1固有の境界は [現行システム基準](current-system-baseline.md) を参照する。
 
 ## データの重さ
 
-元Excelを正本として読み取り、アプリは候補、予測スナップショット、範囲探索run、検討アクティビティrun、実測値をローカルSQLiteへ保存する。正規化したデータセットは実行時に構築し、元Excelは変更しない。
+ExcelまたはCSVのsource assetを読取専用の正本として扱う。pathはidentityではなくlocatorであり、内容SHA-256、Profile Revision、Dataset Revision、Dataset View Revisionを分離する。
+
+アプリは候補、予測Snapshot、範囲探索Run、検討アクティビティRun、実測値、Chain実行・Snapshot、不確かさ伝播Run、逆算由来候補をローカルSQLiteへ保存する。canonical dataset、training view、feature representationはsourceとProfileから派生させ、元sourceを変更しない。
 
 ## 利用者・配布
 
-材料研究者が自分のWindows PCで使うローカルアプリ。Electron、React、FastAPIの境界を維持し、将来のWeb化より現在の検討速度を優先する。
+材料研究者が自分のWindows PCで使うローカルアプリ。Electron、React、FastAPIの境界を維持し、将来のWeb化より現在の検討速度、オフライン利用、配布版の再現性を優先する。
 
 ## ローカルAPIの信頼境界
 
@@ -22,39 +28,98 @@ FastAPIはloopbackだけで待ち受けるが、loopbackであることだけを
 - tokenなしでAPIを単独起動した場合、browser originはloopbackまたは明示設定したoriginだけを許可する。Originを持たないlocal CLIとtest clientは利用できる。
 - インターネット向け公開、別PCからの接続、共有サーバー運用は対象外であり、この境界をそのまま流用しない。
 
+## 判断の安全原則
+
+- source、Profile、Dataset、Task、Feature Pipeline、Model Package、Candidate、Chainのversionとdigestを固定する。
+- 保存済みSnapshotやRunを最新データ・最新Packageで自動再計算しない。
+- 予測値、実測値、入力ばらつき、モデル不確実性、段間伝播不確かさを混同しない。
+- 単位変換、Stage binding、候補制約、除外理由を暗黙処理しない。
+- stale responseとsuperseded workを現在の候補へ反映しない。
+- Model PackageからPythonコード、pickle、joblib、任意pluginを読み込まない。
+- Activity、逆算、探索の結果から候補・Snapshot・active Packageを自動採用しない。
+
+## Projectの科学的identity
+
+Projectは、ある時点の再現可能な検討単位である。現在は次の二種類を明示的に扱う。
+
+### Single-task Project
+
+- Dataset View Revision
+- Prediction Task contract digest
+- Model Package manifest digest
+
+を固定し、一つのTaskを候補比較、予測、応答曲線、類似実績、Snapshot、実測照合、検討アクティビティへ接続する。
+
+### Chain Project
+
+- Chain Revision ID
+- Chain Revision digest
+
+を固定する。Chain Revisionは順序付きStage、binding、Task／transform contract、Package、Dataset／Profile、単位変換を固定する。
+
+段別実行、変更段以降だけの再計算、段単体／通し評価、中間実測を使う別analysis variant、明示的な不確かさ伝播を扱う。Task自身へChain固有bindingを埋め込まない。
+
+## 予測Taskとモデルの構成
+
+production Taskは独立した縦スライスとして持ち、入力schema、特徴量Pipeline、Model Package、支持度参照、候補比較を混在させない。同じTaskはsingle-task ProjectでもChain Stageでも再利用できる。
+
+現行のTask登録内容、source、能力、active Packageは [生成済みTask inventory](task-inventory.json) を唯一の件数・構成一覧とする。
+
+Model Packageはdata-onlyであり、allow-list済みadapterだけが読み込む。新しいモデル手法はTaskやUIをモデル実装へ固定せず、共通Predictive Summaryへ変換する。
+
+## データ解釈と学習行
+
+Profileは外部sourceをcanonicalな意味へ対応付ける。データ形状に応じて複数のProfile familyを許可し、万能schemaへ押し込まない。
+
+- relationの一行をそのまま学習行へ変換しない。
+- 工程条件、反復観測、観測行固有入力を分離する。
+- 目的変数ごとにTraining Cohortを持ち、欠損targetのためにsource行を消さない。
+- raw、curated、canonical、feature representationを同じ値として扱わない。
+
+## 検討アクティビティ
+
+判断に必要な問いを、画面名ではなくActivity Definitionとして定義する。Activityは必要なruntime capability、resource、parameter、result契約を持ち、candidate revisionと実行条件を固定したRunを保存する。
+
+現在のproduction Activityはロバストネス／公差解析である。Activity結果は判断材料であり、自動意思決定ではない。
+
+## 制約付き逆算の境界
+
+固定されたStage A科学変換の範囲では、目標材料成分から原料配合へのLP／MILP逆算を扱う。solver、Design Space、科学master、商用catalog、基準candidate revisionをprovenanceへ固定し、結果は通常Candidateとして明示的に保存する。
+
+これは一般的な特性逆問題、Bayesian optimization、任意の非線形最適化、自動最良候補選択を意味しない。
+
 ## 標準からの逸脱
 
 - 画面はデスクトップ中心。モバイルは内容確認できる縮退表示までとする。
 - 応答曲線や区間は、実モデルまたは実データから計算できる情報だけを表示する。
-- `relation` の一行を学習行へ変換しない。工程条件と反復観測を分離する。
-
-## 予測タスクの構成
-
-production taskはそれぞれを独立した縦スライスとして持ち、入力スキーマ、特徴量パイプライン、モデルPackage、支持度参照、候補比較を混在させない。現行の登録内容、ソース、能力、active Packageは [生成済みTask inventory](task-inventory.json) を唯一の件数・構成一覧とする。
+- 汎用plugin基盤より、data-only契約と少数のallow-list済み実装を優先する。
+- Profile、Candidate Shape、Chain candidate preparationは、異質なデータを一つのschemaへ統合するより型付きの複数familyを許可する。
 
 ## 対象外とするもの
 
-- アプリ内でのモデル学習、ハイパーパラメータ最適化、ベイズ最適化による自動候補提案。
-- 認証・監査・高可用性などのエンタープライズ品質、汎用プラグイン基盤、汎用EDA・BIビルダー。
-- 元データ（Excel）の直接修正と学習データの自動更新。アプリは問題の発見・確認・一覧出力まで。
-- 複数特性の同時達成確率。各特性の達成確率を個別に表示する。
-- 候補の「検討中」「実験予定」などの厳密なステータス管理。
+- アプリ内でのモデル学習、ハイパーパラメータ探索、active Packageの自動切替。
+- 一般目的のBayesian optimization、自動実験実行、特性から全Stageを反転する汎用逆問題。
+- 認証・監査・高可用性などのエンタープライズ品質、汎用プラグイン基盤、汎用EDA・BI・ETL builder。
+- 元データの直接修正、学習データの自動更新、source更新を契機にした自動再学習。
+- 複数特性の同時確率を、output相関を持たない近似から生成すること。
+- 候補の「検討中」「実験予定」などの厳密なワークフローステータス管理。
+- 画像、一般グラフ、任意の可変長系列を万能入力として扱うこと。
 
 ## 採用済みの拡張方向
 
-- Data AssetとDataset Input Profileを不変なDataset RevisionとしてData Libraryへ登録する。
-- ProjectはDataset View、Prediction Task、Model Packageを固定し、過去の判断を自動更新しない。
-- 探索データ、目的変数別の学習コホート、モデル支持範囲、Project内の類似条件を分離する。
-- 複数Projectは任意の検討グループへ束ね、所属は後から変更できる。前後関係はグループとは独立して記録する。
-- 判断に必要な問いを検討アクティビティとして定義し、候補revisionと実行条件を固定した結果を保存する。最初のアクティビティはロバストネス／公差解析とする。
+- Data AssetとDataset Profileを不変なDataset RevisionとしてData Libraryへ登録する。
+- Projectはsingle-taskまたはChainの科学的identityを固定し、過去の判断を自動更新しない。
+- 探索データ、目的変数別Training Cohort、モデル支持範囲、Project内の類似条件を分離する。
+- 複数Projectは任意の検討グループへ束ね、所属と前後関係を分離する。
+- 判断に必要な問いを検討アクティビティとして追加する。
+- ChainはTask／transformをbindingで再利用し、段別の版、実測、精度、不確かさを分離する。
 
-詳細は [Data LibraryとProject参照境界](decisions/data-library-project-references.md) を参照する。
-検討アクティビティの契約は [検討アクティビティ](decision-activities.md) を参照する。
-起動時の障害境界と、利用停止中Taskで保存履歴を守る方針は
-[Task単位のdegraded startup](decisions/degraded-task-startup.md) を参照する。
+## 導入条件つきの将来候補
 
-## 将来候補（導入条件つき）
+- 新しいDecision Activity：parameter／resultを型付きunionとして追加できること。
+- 可変長温度系列：raw series、canonical series、model representationを分離できること。
+- 溶接以外のChain：疎配合や決定論的Stageを前提にせずChain Coreを再利用できること。
+- 新しいCandidate Shape：任意JSONではなく、persistence、diff、copy、snapshotの意味を持つ型付きfamilyとして追加できること。
+- Source Connectorと定期Snapshot：source更新、承認、再学習、active化を自動連結しないこと。
 
-- 二変量応答面：描画・計算負荷を確認してから。
-- ライン速度・設備長・ゾーン条件からのヒートパターン生成：内部の「入力方式」と「正規化済み時間温度列」の分離を保っていれば追加できる。
-- 一つのProject内に複数Prediction Taskを持たせること：Taskごとの候補契約と判断単位を統合する具体的ニーズが確認できてから。
+詳細は [現行システム基準](current-system-baseline.md)、[Data LibraryとProject参照境界](decisions/data-library-project-references.md)、[検討アクティビティ](decision-activities.md)、[多段Chainアーキテクチャ](decisions/multistage-chain-architecture.md) を参照する。
