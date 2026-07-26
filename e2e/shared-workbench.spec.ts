@@ -40,13 +40,16 @@ for (const task of tasks) {
     await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
     await expect(page.locator(".comparison-prediction-table")).toBeVisible();
     const outputHeader = page.locator(".comparison-detail-table thead");
-    await expect(outputHeader.locator(".prediction-col")).toHaveCount(task.outputLabels.length);
-    for (const output of task.outputLabels) await expect(outputHeader.locator(".prediction-col").filter({ hasText: output })).toBeVisible();
-    await expect(outputHeader.locator(".prediction-col small").first()).not.toHaveText("");
-    const firstPredictionCell = page.locator(".comparison-prediction-table tbody .prediction-cell").first();
-    await expect(firstPredictionCell).toContainText(/\d/);
-    await expect(firstPredictionCell).not.toContainText(/MPa|%|µm/);
-    await expect(firstPredictionCell.locator(".metric-value")).toHaveAttribute("aria-label", /\d+.*(?:MPa|%|µm)/);
+    await expect(outputHeader.locator(".decision-output-col")).toHaveCount(task.outputLabels.length);
+    for (const output of task.outputLabels) await expect(outputHeader.locator(".decision-output-col").filter({ hasText: output })).toBeVisible();
+    await expect(outputHeader.locator(".decision-output-col small").first()).not.toHaveText("");
+    const firstPredictionCell = page.locator(".comparison-prediction-table tbody .decision-output-cell").first();
+    // The cell shows a bare number; the unit stays reachable on hover instead of
+    // widening every column.
+    const firstPredictionValue = firstPredictionCell.locator(".decision-prediction");
+    await expect(firstPredictionValue).toContainText(/\d/);
+    await expect(firstPredictionValue).not.toContainText(/MPa|%|µm/);
+    await expect(firstPredictionValue).toHaveAttribute("title", /\d+.*(?:MPa|%|µm)/);
     if (task.projectId === "default") {
       const exported = page.waitForResponse((response) => response.url().endsWith("/candidates/export.xlsx"));
       await page.getByRole("button", { name: "候補・予測をXLSX出力" }).click();
@@ -54,7 +57,8 @@ for (const task of tasks) {
     }
     expect((await page.locator(".comparison-action-scroll").boundingBox())?.width).toBeLessThanOrEqual(120);
     if (task.projectId === "default") {
-      expect(await firstPredictionCell.evaluate((cell) => cell.getBoundingClientRect().width)).toBeLessThanOrEqual(90);
+      // Keep the decision column at its declared width so more candidates fit.
+      expect(await firstPredictionCell.evaluate((cell) => cell.getBoundingClientRect().width)).toBeLessThanOrEqual(120);
     }
     if (task.projectId === "hot-rolling-default") {
       await expect(outputHeader.getByText("降伏強さ", { exact: false })).toHaveCount(0);
@@ -85,7 +89,11 @@ for (const task of tasks) {
       await expect(axisSettings).toBeVisible();
       const settingsBox = await axisSettings.boundingBox();
       const curveGridBox = await curveGrid.boundingBox();
-      expect((settingsBox?.y ?? 0) + (settingsBox?.height ?? 0)).toBeLessThanOrEqual(curveGridBox?.y ?? 0);
+      const viewport = page.viewportSize();
+      // The panel opens beside the controls as a popover. It must stay reachable
+      // inside the viewport and start to the right of the chart it adjusts.
+      expect(settingsBox && viewport && settingsBox.x + settingsBox.width).toBeLessThanOrEqual(viewport?.width ?? 0);
+      expect(settingsBox?.x ?? 0).toBeGreaterThan(curveGridBox?.x ?? 0);
       await page.locator(".axis-settings-close").click();
       await expect(axisSettings).toHaveCount(0);
       await expect(axisSettingsButton).toBeFocused();

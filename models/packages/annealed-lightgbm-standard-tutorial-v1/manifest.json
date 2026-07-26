@@ -318,8 +318,8 @@
     }
   ],
   "provenance": {
-    "training_data_id": "sha256:5c196ea27ad65df736ecea79dfe3f1a676dbc7748c4f6994ad087c7b16c20768",
-    "feature_dataset_id": "sha256:7520e02e40f9f4673d0ee50c9a39005f72dd1ff81775edc7ac1f3ccb4841db11",
+    "training_data_id": "sha256:b9b89cd545517a3abbc21715a0cd14acc8bab66541da558de3e305f28ee908d9",
+    "feature_dataset_id": "sha256:e8455356665e9289c8d36fe671e0a82072d4edacf54d66d00359ef16d98d3b75",
     "training_code_revision": "lightgbm-grouped-fixed-round-crossfit-v2",
     "dataset_profile_id": "sha256:5e52335ef97ace6e2bf2fc5342c7f470352fb2e41a82ee6a1b7da822d13ec5fb"
   },
@@ -351,7 +351,7 @@
     },
     {
       "path": "reference/training_stats.json",
-      "sha256": "caf5fd74531cbfbb1c53daf692338d895084e62df90105bccb0346a500339262",
+      "sha256": "3a11b763331b6401f3969f1df6f683cae9815ca4336316e828446d52028c2f48",
       "bytes": 416
     },
     {

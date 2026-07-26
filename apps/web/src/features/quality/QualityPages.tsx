@@ -193,7 +193,9 @@ export function LiveDataQualityPage({
                 const hasFocusedIssue = group.issues.some((issue) => issue.issue_id === filters.issueId);
                 const isRepeated = group.issues.length > 1;
                 const isOpen = hasFocusedIssue || Boolean(normalizedKey) || (groupOpenState[group.key] ?? !isRepeated);
-                return <details className="quality-issue-group" key={group.key} open={isOpen} onToggle={(event) => setGroupOpenState((current) => ({ ...current, [group.key]: event.currentTarget.open }))}>
+                // toggle fires after dispatch finishes, so currentTarget is already null;
+                // target stays the details element.
+                return <details className="quality-issue-group" key={group.key} open={isOpen} onToggle={(event) => setGroupOpenState((current) => ({ ...current, [group.key]: (event.target as HTMLDetailsElement).open }))}>
                   <summary>
                     <span className={`status-tag ${group.issueType !== "missing_key" && group.issueType !== "orphan_entity" ? "warn" : ""}`}>{labels[group.issueType]}</span>
                     <strong>{group.sourceSheet}</strong>

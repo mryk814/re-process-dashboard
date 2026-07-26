@@ -139,7 +139,7 @@ test("inference runs only for changed candidates and visible selected curves", a
   await page.locator(".table-heading h2").click();
   await saveBeforePendingPreview;
   await expect.poll(() => pendingPreviewHeld).toBe(true);
-  const selectedPredictionCells = page.locator(".comparison-prediction-table tbody tr.selected-row .prediction-cell");
+  const selectedPredictionCells = page.locator(".comparison-prediction-table tbody tr.selected-row .decision-output-cell");
   await expect(selectedPredictionCells.first()).not.toHaveText("—");
 
   const pendingCandidateName = page.locator(".candidate-name-table tbody tr.selected-row input");

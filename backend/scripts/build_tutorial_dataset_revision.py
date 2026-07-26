@@ -98,19 +98,56 @@ def _entity_keys(book, sheet_name: str) -> list[str]:
     return [str(row[0]) for row in body if row and row[0] is not None]
 
 
+def _upstream_context(
+    header: list[str], body: list[list], condition_column: str, carried: tuple[str, ...]
+) -> dict[str, dict[str, object]]:
+    """Reuse the chain the existing test rows already declare for each condition.
+
+    A 組織 row has to sit on the same chain as the 引張 / 穴広げ rows of the same
+    condition, otherwise the graph shows it only next to its own condition and
+    hides it from the material and process it belongs to.
+    """
+
+    positions = {name: index for index, name in enumerate(header)}
+    condition_at = positions[condition_column]
+    context: dict[str, dict[str, object]] = {}
+    for row in body:
+        condition = row[condition_at]
+        if condition is None:
+            continue
+        carried_values = {
+            name: row[positions[name]] for name in carried if row[positions[name]] is not None
+        }
+        known = context.get(str(condition))
+        # Rows differ in how much of the chain they fill in; keep the fullest one.
+        if known is None or len(carried_values) > len(known):
+            context[str(condition)] = carried_values
+    return context
+
+
 def build(source: Path, destination: Path, images_root: Path) -> None:
     book = load_workbook(source)
     plan = (
-        ("熱延", "熱延組織", "熱延組織_key", "HM", "hot"),
-        ("焼鈍", "焼鈍組織", "焼鈍組織_key", "AM", "anneal"),
+        ("熱延", "熱延組織", "熱延組織_key", "HM", "hot", ("溶製_key", "熱延_key")),
+        (
+            "焼鈍",
+            "焼鈍組織",
+            "焼鈍組織_key",
+            "AM",
+            "anneal",
+            ("溶製_key", "熱延_key", "冷延_key", "焼鈍_key"),
+        ),
     )
     relation = book["relation"]
-    relation_header, _relation_body = _rows(relation)
+    relation_header, relation_body = _rows(relation)
     written_images: list[Path] = []
     added_relations = 0
 
-    for entity_sheet, micro_sheet, relation_column, prefix, folder in plan:
+    for entity_sheet, micro_sheet, relation_column, prefix, folder, carried in plan:
         conditions = _entity_keys(book, entity_sheet)
+        context = _upstream_context(
+            relation_header, relation_body, entity_sheet + "_key", carried
+        )
         sheet = book[micro_sheet]
         header, existing = _rows(sheet)
         if existing:
@@ -149,7 +186,9 @@ def build(source: Path, destination: Path, images_root: Path) -> None:
                     "備考": None if available else "画像ファイル未取込",
                 }
                 sheet.append([record.get(column) for column in header])
-                link = {entity_sheet + "_key": condition, relation_column: key}
+                link = dict(context.get(condition, {}))
+                link[entity_sheet + "_key"] = condition
+                link[relation_column] = key
                 relation.append([link.get(column) for column in relation_header])
                 added_relations += 1
 

@@ -37,13 +37,14 @@ test("annealed screening keeps draft separate and batches multiple points into s
   await rows.nth(2).locator("input").nth(0).fill("0.9");
   await expect(page.getByText(/未実行の条件変更/)).toBeVisible();
 
-  await page.getByLabel("目標特性").selectOption("YS");
+  await page.getByLabel("選別する特性").selectOption("YS");
   const rerunRequest = page.waitForRequest((request) => request.method() === "POST" && new URL(request.url()).pathname === "/api/screening");
   const rerunResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/screening");
   await page.getByRole("button", { name: "探索を実行" }).click();
-  const rerunPayload = (await rerunRequest).postDataJSON() as { target: string; secondary_targets: Record<string, number> };
+  const rerunPayload = (await rerunRequest).postDataJSON() as { target: string; secondary_goals: Record<string, unknown> };
   expect(rerunPayload.target).toBe("YS");
-  expect(rerunPayload.secondary_targets).not.toHaveProperty("YS");
+  // The primary target must not also be sent as a secondary goal.
+  expect(rerunPayload.secondary_goals ?? {}).not.toHaveProperty("YS");
   expect((await rerunResponse).status()).toBe(201);
   await expect(page.getByText(/未実行の条件変更/)).toHaveCount(0);
 

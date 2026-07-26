@@ -14,6 +14,7 @@ type CreationOptions = {
   }>;
   model_packages: Array<{
     id: string;
+    package_id: string;
     task_id: string;
     task_contract_digest: string;
     manifest_digest: string;
@@ -39,6 +40,7 @@ export type ProjectBinding = {
 export async function resolveProjectBinding(
   request: APIRequestContext,
   taskId: string,
+  packageId?: string,
 ): Promise<ProjectBinding> {
   const response = await request.get(`${apiBaseUrl}/api/project-creation-options`);
   expect(response.status(), "project-creation-options").toBe(200);
@@ -54,6 +56,9 @@ export async function resolveProjectBinding(
       && item.task_contract_digest === digest
       && item.manifest_json.provenance.training_data_id === `sha256:${dataset.data_asset.sha256}`
       && item.manifest_json.provenance.dataset_profile_id === dataset.profile_revision.profile_digest
+      // A task can have packages trained on several datasets; a spec that asserts
+      // concrete keys has to say which dataset it means.
+      && (packageId === undefined || item.package_id === packageId)
     ));
     if (!modelPackage) continue;
     return {
@@ -64,15 +69,16 @@ export async function resolveProjectBinding(
       model_package_manifest_digest: modelPackage.manifest_digest,
     };
   }
-  throw new Error(`no dataset view and model package pair is available for ${taskId}`);
+  throw new Error(`no dataset view and model package pair is available for ${taskId}${packageId ? ` (${packageId})` : ""}`);
 }
 
 export async function createProjectWithBinding(
   request: APIRequestContext,
   taskId: string,
   name: string,
+  packageId?: string,
 ) {
-  const binding = await resolveProjectBinding(request, taskId);
+  const binding = await resolveProjectBinding(request, taskId, packageId);
   const created = await request.post(`${apiBaseUrl}/api/projects`, { data: { name, ...binding } });
   expect(created.status(), await created.text()).toBe(201);
   return await created.json() as { id: string };

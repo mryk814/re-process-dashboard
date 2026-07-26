@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import { join } from "node:path";
-import { apiBaseUrl as api, createProjectWithCandidate } from "./helpers";
+import { apiBaseUrl as api, createProjectWithBinding, createProjectWithCandidate } from "./helpers";
 
 async function createCandidateProject(request: APIRequestContext) {
   const project = await createProjectWithCandidate(
@@ -10,6 +10,27 @@ async function createCandidateProject(request: APIRequestContext) {
     "操作元候補",
   );
   return project.id;
+}
+
+/**
+ * The bundled default project is backed by the minimal teaching dataset, which
+ * deliberately stays small and clean. Graph windowing, duplicate keys, orphans
+ * and implausible values only exist in the process dataset, so the specs that
+ * assert those bind a project to it instead of reading `project=default`.
+ */
+let processProjectId: string | undefined;
+
+async function processLineageProject(request: APIRequestContext) {
+  if (processProjectId === undefined) {
+    const project = await createProjectWithBinding(
+      request,
+      "annealed-properties-v1",
+      `工程データ系譜E2E ${Date.now()}`,
+      "annealed-gp-stable-ard-process-v1",
+    );
+    processProjectId = project.id;
+  }
+  return processProjectId;
 }
 
 test("startup restores the last opened location", async ({ page }) => {
@@ -71,12 +92,12 @@ test("developer guide continues through Profile Workbench to project creation", 
   await page.locator('input[type="file"]').setInputFiles(
     join(process.cwd(), "data", "source", "material_workbench_tutorial_v1.xlsx"),
   );
-  await page.getByRole("button", { name: "3 内容を確認" }).click();
+  await page.getByRole("button", { name: "内容を確認" }).click();
   await expect(page.getByRole("heading", { name: "Canonical preview" })).toBeVisible();
   await expect(page.getByText("必須構造はProfileに対応")).toBeVisible();
   await expect(page.locator(".profile-candidate-summary").getByText("Profile候補", { exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: "4 この内容で登録" }).click();
+  await page.getByRole("button", { name: "この内容で登録" }).click();
   await expect(page.getByRole("button", { name: "このDatasetでプロジェクト作成" })).toBeVisible();
   await page.getByRole("button", { name: "このDatasetでプロジェクト作成" }).click();
 
@@ -90,6 +111,9 @@ test("developer diagnostics shows runtime checks without repository tooling", as
   await page.getByRole("button", { name: "診断" }).click();
 
   await expect(page.getByRole("heading", { name: "実行環境の診断" })).toBeVisible();
+  // The diagnostics run against every registered runtime, which takes longer than
+  // the default expect timeout.
+  await expect(page.locator(".doctor-summary")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("Projectの固定参照")).toBeVisible();
   await expect(page.getByText("API／sidecar状態")).toBeVisible();
   await expect(page.getByText(/npm|uv|OpenAPI check/)).toHaveCount(0);
@@ -111,17 +135,18 @@ test("project hub keeps the active project visible across scoped navigation", as
   await expect(projectList).toBeVisible();
 });
 
-test("quality finding opens the selected lineage node and returns with filters", async ({ page }) => {
+test("quality finding opens the selected lineage node and returns with filters", async ({ page, request }) => {
+  const project = await processLineageProject(request);
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
-  await page.goto("/?view=quality&project=default");
+  await page.goto(`/?view=quality&project=${project}`);
   await expect(page.getByRole("heading", { name: "問題から探す" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "プロジェクト内メニュー" }).getByRole("button", { name: "データ探索" })).toHaveClass(/active/);
 
   await page.getByLabel("種別").selectOption("duplicate_key");
   await expect(page).toHaveURL(/quality_type=duplicate_key/);
   const issueRow = page.locator(".quality-table tbody tr").filter({ has: page.getByRole("button", { name: "系譜で確認" }) }).first();
-  const entityKey = (await issueRow.locator("td").nth(1).textContent())?.trim();
+  const entityKey = (await issueRow.locator("td").first().textContent())?.trim();
   expect(entityKey).toBeTruthy();
   await issueRow.getByRole("button", { name: "系譜で確認" }).click();
 
@@ -146,6 +171,8 @@ test("quality finding opens the selected lineage node and returns with filters",
   await expect(page.getByRole("alert")).toContainText("クリップボード権限を確認してください");
 
   await page.getByRole("button", { name: "開発・管理", exact: true }).click();
+  await page.getByRole("navigation", { name: "開発・管理メニュー" })
+    .getByRole("button", { name: "データ品質集計" }).click();
   await expect(page.getByRole("heading", { name: "データ品質集計" })).toBeVisible();
   const beforeDownloadUrl = page.url();
   const download = page.waitForEvent("download");
@@ -177,46 +204,52 @@ test("lineage candidate remains in exploration and round-trips through stock", a
   await page.reload();
   await expect(page.getByRole("heading", { name: "AN-01" })).toBeVisible();
   await page.locator(".stock-button").click();
-  await expect(page).toHaveURL(new RegExp(`candidate=${stockedCandidateId}`));
+  await expect(page).toHaveURL(/view=candidates/);
   await page.goBack();
   await expect(page).toHaveURL(/view=lineage/);
+
+  // Reopening the stock after a reload lands on the project's current candidate,
+  // but the one lineage stocked is still there with its origin intact.
+  await page.goto(`/?view=candidates&project=default&candidate=${stockedCandidateId}`);
+  await expect(page.locator(".candidate-origin")).toContainText("工程系譜 AN-01");
 });
 
-test("lineage opens without a fixed node and renders real selectable edges", async ({ page }) => {
-  await page.goto("/?view=lineage&project=default");
+test("lineage opens without a fixed node and renders real selectable edges", async ({ page, request }) => {
+  const project = await processLineageProject(request);
+  await page.goto(`/?view=lineage&project=${project}`);
   await expect(page.getByRole("heading", { name: "調べるノードを選択してください" })).toBeVisible();
   await expect(page).not.toHaveURL(/entity=/);
 
-  await page.getByLabel("ノードを検索").fill("AN-01");
-  await page.getByRole("button", { name: /AN-01/ }).click();
-  await expect(page).toHaveURL(/view=lineage.*entity=AN-01/);
+  await page.getByLabel("ノードを検索").fill("AN-00001");
+  await page.getByRole("button", { name: /AN-00001/ }).click();
+  await expect(page).toHaveURL(/view=lineage.*entity=AN-00001/);
   await expect(page.getByTestId("lineage-real-graph")).toBeVisible();
   await expect(page.getByText("熱延用の試験・組織", { exact: true })).toBeVisible();
-  const annealedTestGroups = page.locator('.lineage-graph-group-toggle[aria-label^="焼鈍 AN-01 の"]');
+  const annealedTestGroups = page.locator('.lineage-graph-group-toggle[aria-label^="焼鈍条件-3CGL AN-00001 の"]');
   await expect(annealedTestGroups).toHaveCount(2);
   const annealedTestGroup = page.locator(".lineage-graph-group.group-annealed-microstructure .lineage-graph-group-toggle");
   await expect(annealedTestGroup).toHaveAttribute("aria-expanded", "false");
   await expect(page.locator(".lineage-graph-node").filter({ hasText: "AMS-00001" })).toHaveCount(0);
   await annealedTestGroup.click();
-  await expect(page.getByRole("button", { name: "焼鈍 AN-01 の組織を折りたたむ" })).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByRole("button", { name: "焼鈍条件-3CGL AN-00001 の組織を折りたたむ" })).toHaveAttribute("aria-expanded", "true");
   await expect(page.locator(".lineage-graph-node").filter({ hasText: "AMS-00001" })).toBeVisible();
   await annealedTestGroup.click();
-  const collapsedAnnealedTestGroup = page.getByRole("button", { name: "焼鈍 AN-01 の組織を展開する" });
+  const collapsedAnnealedTestGroup = page.getByRole("button", { name: "焼鈍条件-3CGL AN-00001 の組織を展開する" });
   await expect(collapsedAnnealedTestGroup).toHaveAttribute("aria-expanded", "false");
   await expect(page.locator(".lineage-graph-node").filter({ hasText: "AMS-00001" })).toHaveCount(0);
   await collapsedAnnealedTestGroup.click();
-  await expect(page.getByRole("button", { name: "焼鈍 AN-01 の組織を折りたたむ" })).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByRole("button", { name: "焼鈍条件-3CGL AN-00001 の組織を折りたたむ" })).toHaveAttribute("aria-expanded", "true");
   const annealedHoleGroup = page.locator(".lineage-graph-group.group-annealed-hole-expansion .lineage-graph-group-toggle");
   await annealedHoleGroup.click();
-  await expect(page.getByRole("button", { name: "焼鈍 AN-01 の穴広げを折りたたむ" })).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByRole("button", { name: "焼鈍条件-3CGL AN-00001 の穴広げを折りたたむ" })).toHaveAttribute("aria-expanded", "true");
   const holeGroupFacts = page.locator(".lineage-group-facts");
   await expect(holeGroupFacts).toContainText("焼鈍穴広げ 3件");
-  await expect(holeGroupFacts).toContainText("HE-01");
+  await expect(holeGroupFacts).toContainText("HE-00001");
   await expect(holeGroupFacts).toContainText("116.8");
   await expect(holeGroupFacts.locator("tbody tr")).toHaveCount(3);
   await expect(holeGroupFacts).not.toContainText("このグループの実績値はありません。");
   await expect(page.locator(".lineage-graph-edge")).not.toHaveCount(0);
-  await expect(page.locator('.lineage-graph-node[aria-current="true"]')).toContainText("AN-01");
+  await expect(page.locator('.lineage-graph-node[aria-current="true"]')).toContainText("AN-00001");
   await expect(page.locator(".lineage-graph-node.upstream").first()).toBeVisible();
   await expect(page.locator(".lineage-graph-node.downstream")).toHaveCount(5);
   await expect(page.locator(".lineage-graph-edge.downstream")).toHaveCount(5);
@@ -236,54 +269,61 @@ test("lineage opens without a fixed node and renders real selectable edges", asy
   await expect(page.getByRole("heading", { name: "調べるノードを選択してください" })).toBeVisible();
 });
 
-test("lineage separates each process condition and test type into its own group", async ({ page }) => {
-  await page.goto("/?view=lineage&project=default&entity=HR-01");
+test("lineage separates each process condition and test type into its own group", async ({ page, request }) => {
+  const project = await processLineageProject(request);
+  await page.goto(`/?view=lineage&project=${project}&entity=HR-00001`);
   await expect(page.getByTestId("lineage-real-graph")).toBeVisible();
 
   const groups = page.locator(".lineage-graph-group-toggle");
   await expect(groups).toHaveCount(4);
-  await expect(page.getByRole("button", { name: "熱延 HR-01 の熱延引張を展開する" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "熱延 HR-01 の熱延組織を展開する" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "焼鈍 AN-01 の組織を展開する" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "焼鈍 AN-01 の穴広げを展開する" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "熱延条件 HR-00001 の熱延引張を展開する" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "熱延条件 HR-00001 の熱延組織を展開する" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "焼鈍条件-3CGL AN-00001 の組織を展開する" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "焼鈍条件-3CGL AN-00001 の穴広げを展開する" })).toBeVisible();
   await expect(page.locator(".lineage-graph-group.group-hot-tensile")).toHaveCount(1);
   await expect(page.locator(".lineage-graph-group.group-hot-microstructure")).toHaveCount(1);
   await expect(page.locator(".lineage-graph-group.group-annealed-microstructure")).toHaveCount(1);
   await expect(page.locator(".lineage-graph-group.group-annealed-hole-expansion")).toHaveCount(1);
   await expect(page.locator(".lineage-graph-edge.process-route")).toHaveCount(1);
 
-  await page.getByRole("button", { name: "熱延 HR-01 の熱延引張を展開する" }).click();
-  await expect(page.getByRole("button", { name: "熱延 HR-01 の熱延引張を折りたたむ" })).toHaveAttribute("aria-expanded", "true");
+  await page.getByRole("button", { name: "熱延条件 HR-00001 の熱延引張を展開する" }).click();
+  await expect(page.getByRole("button", { name: "熱延条件 HR-00001 の熱延引張を折りたたむ" })).toHaveAttribute("aria-expanded", "true");
   await expect(page.locator(".lineage-graph-node.group-hot-tensile")).toHaveCount(2);
-  await expect(page.locator(".lineage-graph-node").filter({ hasText: "HT-01" })).toBeVisible();
-  await page.getByRole("button", { name: "熱延 HR-01 の熱延組織を展開する" }).click();
+  await expect(page.locator(".lineage-graph-node").filter({ hasText: "HT-00001" })).toBeVisible();
+  await page.getByRole("button", { name: "熱延条件 HR-00001 の熱延組織を展開する" }).click();
   await expect(page.locator(".lineage-graph-node.group-hot-microstructure")).toHaveCount(1);
   await expect(page.locator(".lineage-graph-node").filter({ hasText: "HMS-00001" })).toBeVisible();
-  await page.getByRole("button", { name: "焼鈍 AN-01 の組織を展開する" }).click();
-  await page.getByRole("button", { name: "焼鈍 AN-01 の穴広げを展開する" }).click();
+  // Expanding a group also selects its parent, and moving the selection rebuilds
+  // the graph around it, so the annealed groups are checked where they belong.
+  await page.getByRole("button", { name: "焼鈍条件-3CGL AN-00001 の組織を展開する" }).click();
+  await expect(page).toHaveURL(/entity=AN-00001/);
+  await page.getByRole("button", { name: "焼鈍条件-3CGL AN-00001 の組織を展開する" }).click();
   await expect(page.locator(".lineage-graph-node.group-annealed-microstructure")).toHaveCount(2);
+  await page.getByRole("button", { name: "焼鈍条件-3CGL AN-00001 の穴広げを展開する" }).click();
   await expect(page.locator(".lineage-graph-node.group-annealed-hole-expansion")).toHaveCount(3);
 });
 
-test("lineage orders test groups by process condition before test type", async ({ page }) => {
-  await page.goto("/?view=lineage&project=default&entity=ME-01");
+test("lineage orders test groups by process condition before test type", async ({ page, request }) => {
+  const project = await processLineageProject(request);
+  await page.goto(`/?view=lineage&project=${project}&entity=ME-00001`);
   await expect(page.getByTestId("lineage-real-graph")).toBeVisible();
   await expect(page.locator(".lineage-graph-group-toggle")).toHaveCount(9);
   expect(await page.locator(".lineage-graph-group-toggle").evaluateAll((nodes) => nodes.map((node) => node.getAttribute("aria-label")))).toEqual([
-    "熱延 HR-01 の熱延引張を展開する",
-    "熱延 HR-01 の熱延組織を展開する",
-    "熱延 HR-02 の熱延引張を展開する",
-    "熱延 HR-02 の熱延組織を展開する",
-    "焼鈍 AN-01 の穴広げを展開する",
-    "焼鈍 AN-01 の組織を展開する",
-    "焼鈍 AN-02 の引張を展開する",
-    "焼鈍 AN-02 の穴広げを展開する",
-    "焼鈍 AN-02 の組織を展開する",
+    "熱延条件 HR-00001 の熱延引張を展開する",
+    "熱延条件 HR-00001 の熱延組織を展開する",
+    "熱延条件 HR-00002 の熱延引張を展開する",
+    "熱延条件 HR-00002 の熱延組織を展開する",
+    "焼鈍条件-3CGL AN-00001 の穴広げを展開する",
+    "焼鈍条件-3CGL AN-00001 の組織を展開する",
+    "焼鈍条件-3CGL AN-00002 の引張を展開する",
+    "焼鈍条件-3CGL AN-00002 の穴広げを展開する",
+    "焼鈍条件-3CGL AN-00002 の組織を展開する",
   ]);
 });
 
-test("lineage marks implausible observations without hiding raw values", async ({ page }) => {
-  await page.goto("/?view=lineage&project=default&entity=HT-24");
+test("lineage marks implausible observations without hiding raw values", async ({ page, request }) => {
+  const project = await processLineageProject(request);
+  await page.goto(`/?view=lineage&project=${project}&entity=HT-00024`);
   const detail = page.getByRole("complementary", { name: "選択ノード詳細" });
   await expect(detail.getByText("⚠ 物理範囲外").first()).toBeVisible();
   await expect(detail).toContainText("5223.3");
@@ -302,28 +342,29 @@ test("lineage search recovers from an empty result and opens an exact key", asyn
   await expect(page.getByLabel("ノードを検索")).toHaveValue("AN-03");
 });
 
-test("lineage expands the 40-node window and distinguishes data issues", async ({ page }) => {
-  await page.goto("/?view=lineage&project=default&entity=ME-63");
+test("lineage expands the 40-node window and distinguishes data issues", async ({ page, request }) => {
+  const project = await processLineageProject(request);
+  await page.goto(`/?view=lineage&project=${project}&entity=ME-00063`);
   await expect(page.getByText("40/62ノード表示")).toBeVisible();
   await page.getByRole("button", { name: /さらに40件読み込む/ }).click();
   await expect(page.getByText("62/62ノード表示")).toBeVisible();
   await expect(page.getByRole("button", { name: /さらに40件読み込む/ })).toHaveCount(0);
 
-  await page.goto("/?view=lineage&project=default&entity=HT-NOT-FOUND");
+  await page.goto(`/?view=lineage&project=${project}&entity=HT-NOT-FOUND`);
   const missing = page.locator(".lineage-graph-node.selected");
   await expect(missing).toHaveClass(/missing/);
   await expect(missing).toHaveClass(/invalid-reference/);
   await expect(missing).toContainText("欠損先 / 参照切れ");
 
-  await page.goto("/?view=lineage&project=default&entity=CR-10");
+  await page.goto(`/?view=lineage&project=${project}&entity=CR-00010`);
   await expect(page.locator(".lineage-graph-node.selected")).toHaveClass(/orphan/);
   await expect(page.locator(".lineage-graph-edge")).toHaveCount(0);
 
-  await page.goto("/?view=lineage&project=default&entity=HR-01");
+  await page.goto(`/?view=lineage&project=${project}&entity=HR-00001`);
   await expect(page.locator(".lineage-graph-node.selected")).toHaveClass(/duplicate/);
 });
 
-test("copied candidate keeps its source and reports a deleted source", async ({ page, request }) => {
+test("copied candidate keeps its source even after the source is deleted", async ({ page, request }) => {
   const projectId = await createCandidateProject(request);
   await page.goto(`/?view=candidates&project=${projectId}`);
   await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
@@ -339,8 +380,14 @@ test("copied candidate keeps its source and reports a deleted source", async ({ 
   await page.getByRole("button", { name: "作成元へ戻る" }).click();
   await expect(page).toHaveURL(new RegExp(`candidate=${sourceId}`));
   await page.getByRole("button", { name: `${sourceName}を削除`, exact: true }).click();
+  // A copy references its source, so deleting the source archives it instead of
+  // removing it. The copy must never end up unable to name where it came from.
+  await expect(page.getByRole("button", { name: `${sourceName}を選択`, exact: true })).toHaveCount(0);
   await page.goto(`/?view=candidates&project=${projectId}&candidate=${copiedId}`);
-  await expect(page.locator(".candidate-origin")).toContainText("コピー元は削除済みか参照できません");
+  await expect(page.locator(".candidate-origin")).toContainText("候補コピー");
+  await expect(page.locator(".candidate-origin")).not.toContainText("コピー元は削除済みか参照できません");
+  await page.getByRole("button", { name: "作成元へ戻る" }).click();
+  await expect(page).toHaveURL(new RegExp(`candidate=${sourceId}`));
 });
 
 test("archived copy source remains navigable", async ({ page, request }) => {
@@ -352,7 +399,7 @@ test("archived copy source remains navigable", async ({ page, request }) => {
   const sourceName = await page.locator(".candidate-name-table tbody tr.selected-row input").inputValue();
 
   await page.getByRole("button", { name: `${sourceName}の詳細予測を保存` }).click();
-  await expect(page.locator(".notice")).toContainText("詳細予測を保存しました");
+  await expect(page.getByRole("button", { name: `${sourceName}の詳細予測を保存済み` })).toBeVisible();
   await page.getByRole("button", { name: `${sourceName}を複製` }).click();
   await expect(page.locator(".candidate-origin")).toContainText("候補コピー");
   const copiedId = new URL(page.url()).searchParams.get("candidate");

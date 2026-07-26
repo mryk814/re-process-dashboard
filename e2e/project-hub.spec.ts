@@ -24,12 +24,15 @@ test("project series keep the active series open and let other series expand", a
   await page.goto("/?view=project&project=default");
 
   const toggles = page.locator(".project-list-group-toggle");
-  const activeGroup = page.locator('.project-list-item[aria-current="page"]').locator("xpath=ancestor::section");
-  if (await activeGroup.evaluate((element) => element.classList.contains("singleton"))) {
-    await expect(activeGroup.locator(".project-list-group-toggle")).toHaveCount(0);
-  } else {
-    await expect(activeGroup.locator(".project-list-group-toggle")).toHaveAttribute("aria-expanded", "true");
-  }
+  // How many projects exist depends on what earlier specs created, so read the
+  // group the active project actually sits in instead of assuming its shape.
+  await expect.poll(() => page.evaluate(() => {
+    const active = document.querySelector('.project-list-item[aria-current="page"]');
+    const group = active?.closest("section.project-list-group");
+    if (!group) return "no-group";
+    if (group.classList.contains("singleton")) return "singleton";
+    return group.querySelector(".project-list-group-toggle")?.getAttribute("aria-expanded") ?? "no-toggle";
+  })).toMatch(/^(singleton|true)$/);
 
   const collapsedToggle = page.locator('.project-list-group-toggle[aria-expanded="false"]').first();
   if (await collapsedToggle.count()) {
@@ -185,7 +188,7 @@ test("new project creation requires an explicit empty or copy choice", async ({ 
   await expect(panel.getByRole("radio", { name: /空から開始/ })).toBeVisible();
   await expect(panel.getByRole("radio", { name: /現在候補をコピー/ })).toBeVisible();
   await panel.getByLabel("プロジェクト名").fill(`空の検討 ${Date.now()}`);
-  await panel.getByRole("combobox", { name: "Dataset", exact: true }).selectOption({ label: "material_workbench_tutorial_v1 · thin-sheet-tutorial-v1" });
+  await panel.getByRole("combobox", { name: "Dataset", exact: true }).selectOption({ label: "material_workbench_tutorial_v2 · thin-sheet-tutorial-v1" });
   await panel.getByRole("combobox", { name: "予測構成" }).selectOption("task:annealed-properties-v1");
   await panel.getByRole("combobox", { name: "Model Package" }).selectOption({ index: 1 });
   await panel.getByRole("radio", { name: /空から開始/ }).check();
