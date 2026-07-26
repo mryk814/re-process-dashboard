@@ -5969,6 +5969,29 @@
         "title": "DataLibraryDataset",
         "type": "object"
       },
+      "DataLifecycleActor": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "DataLifecycleActor",
+        "type": "object"
+      },
       "DataLifecycleCatalog": {
         "additionalProperties": false,
         "properties": {
@@ -5980,6 +6003,9 @@
             "title": "Connectors",
             "type": "array"
           },
+          "current_actor": {
+            "$ref": "#/components/schemas/DataLifecycleActor"
+          },
           "recipes": {
             "default": [],
             "items": {
@@ -5989,6 +6015,9 @@
             "type": "array"
           }
         },
+        "required": [
+          "current_actor"
+        ],
         "title": "DataLifecycleCatalog",
         "type": "object"
       },
@@ -6076,15 +6105,9 @@
         "title": "DataQualityIssue",
         "type": "object"
       },
-      "DatasetApprovalInput": {
+      "DatasetApprovalRequest": {
         "additionalProperties": false,
         "properties": {
-          "actor": {
-            "maxLength": 120,
-            "minLength": 1,
-            "title": "Actor",
-            "type": "string"
-          },
           "overrides": {
             "default": [],
             "items": {
@@ -6100,10 +6123,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "actor"
-        ],
-        "title": "DatasetApprovalInput",
+        "title": "DatasetApprovalRequest",
         "type": "object"
       },
       "DatasetIdentity": {
@@ -17366,15 +17386,9 @@
         "title": "TrainingRowExclusion",
         "type": "object"
       },
-      "TrainingSnapshotCreateInput": {
+      "TrainingSnapshotCreateRequest": {
         "additionalProperties": false,
         "properties": {
-          "actor": {
-            "maxLength": 120,
-            "minLength": 1,
-            "title": "Actor",
-            "type": "string"
-          },
           "purpose": {
             "maxLength": 300,
             "minLength": 1,
@@ -17393,10 +17407,9 @@
           }
         },
         "required": [
-          "actor",
           "purpose"
         ],
-        "title": "TrainingSnapshotCreateInput",
+        "title": "TrainingSnapshotCreateRequest",
         "type": "object"
       },
       "TrainingSnapshotSelectionPolicy": {
@@ -18003,7 +18016,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/TrainingSnapshotCreateInput"
+                "$ref": "#/components/schemas/TrainingSnapshotCreateRequest"
               }
             }
           },
@@ -18178,7 +18191,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/DatasetApprovalInput"
+                "$ref": "#/components/schemas/DatasetApprovalRequest"
               }
             }
           },

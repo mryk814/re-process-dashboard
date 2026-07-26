@@ -193,7 +193,6 @@ def _lifecycle(client: TestClient) -> dict[str, Any]:
         client.post(
             f"/api/data-lifecycle/curation-runs/{curation['id']}/approve",
             json={
-                "actor": "reference-loop-owner",
                 "reason": "CALCE reference loop acceptance",
             },
         )
@@ -205,7 +204,6 @@ def _lifecycle(client: TestClient) -> dict[str, Any]:
                 f"{revision['id']}/training-snapshots"
             ),
             json={
-                "actor": "reference-loop-model-developer",
                 "purpose": "battery-degradation-v1 acceptance Package",
                 "selection_policy": {
                     "schema_version": "training-snapshot-selection/v1",
