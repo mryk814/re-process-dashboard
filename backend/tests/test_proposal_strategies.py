@@ -106,6 +106,72 @@ def test_ucb_and_expected_improvement_rank_promising_uncertain_points() -> None:
     )
     assert strong_ei < weak_ei
     assert components["expected_improvement"] > 0
+    assert components["improvement_margin"] == 2
+    assert components["parameter_role"] == "improvement_margin"
+    assert components["acquisition_representation"] == "normal_mean_std"
+    assert components["standard_deviation_method"] == "uncertainty_component:total"
+
+
+def test_expected_improvement_margin_changes_maximize_and_minimize_scores() -> None:
+    maximize = ScreeningGoal(direction="at_least", lower=500)
+    permissive, permissive_components = acquisition_value(
+        "expected_improvement",
+        prediction=_prediction(512, 4),
+        goal=maximize,
+        support_distance=0,
+        exploration_parameter=0.5,
+        incumbent_value=510,
+    )
+    demanding, demanding_components = acquisition_value(
+        "expected_improvement",
+        prediction=_prediction(512, 4),
+        goal=maximize,
+        support_distance=0,
+        exploration_parameter=4,
+        incumbent_value=510,
+    )
+    assert permissive < demanding
+    assert permissive_components["expected_improvement"] > demanding_components[
+        "expected_improvement"
+    ]
+
+    minimize = ScreeningGoal(direction="at_most", upper=100)
+    improved, components = acquisition_value(
+        "expected_improvement",
+        prediction=_prediction(92, 3),
+        goal=minimize,
+        support_distance=0,
+        exploration_parameter=1,
+        incumbent_value=95,
+    )
+    worse, _ = acquisition_value(
+        "expected_improvement",
+        prediction=_prediction(98, 3),
+        goal=minimize,
+        support_distance=0,
+        exploration_parameter=1,
+        incumbent_value=95,
+    )
+    assert improved < worse
+    assert components["raw_improvement"] == 3
+    assert components["improvement_margin"] == 1
+
+
+def test_interval_sigma_approximation_is_explicit_in_acquisition_components() -> None:
+    prediction = _prediction(505, 3)
+    prediction.uncertainty_components = {}
+    _, components = acquisition_value(
+        "upper_confidence_bound",
+        prediction=prediction,
+        goal=ScreeningGoal(direction="at_least", lower=500),
+        support_distance=0,
+        exploration_parameter=2,
+        incumbent_value=None,
+    )
+    assert (
+        components["standard_deviation_method"]
+        == "central_90_interval_normal_approximation"
+    )
 
 
 def test_registry_explains_capability_and_changes_fallback_identity() -> None:
@@ -116,10 +182,16 @@ def test_registry_explains_capability_and_changes_fallback_identity() -> None:
         for item in strategy_availability(
             contract.runtime_capability,
             target="TS",
+            target_kind="continuous",
             objective=objective,
         )
     }
     assert availability["sobol_ucb_v1"].available
+    assert availability["sobol_ucb_v1"].definition.version == "1.1.0"
+    assert availability["sobol_ucb_v1"].target_acquisition_representations == (
+        "normal_mean_std",
+        "parametric_distribution",
+    )
     assert not availability["sobol_ei_v1"].available
     assert "incumbent" in availability["sobol_ei_v1"].reasons[0]
     assert not availability["sobol_thompson_v1"].available
@@ -131,10 +203,65 @@ def test_registry_explains_capability_and_changes_fallback_identity() -> None:
         ),
         contract.runtime_capability,
         target="TS",
+        target_kind="continuous",
         objective=objective,
     )
     assert actual.strategy_id == "latin_hypercube_v1"
     assert fallback_from == "sobol_thompson_v1"
+
+
+def test_registry_rejects_median_std_as_normal_mean_std() -> None:
+    contract = load_task_contracts()["annealed-properties-v1"]
+    targets = tuple(
+        item.model_copy(update={"point_statistics": ("median",)})
+        if item.target == "TS"
+        else item
+        for item in contract.runtime_capability.targets
+    )
+    capability = contract.runtime_capability.model_copy(update={"targets": targets})
+    availability = {
+        item.definition.strategy_id: item
+        for item in strategy_availability(
+            capability,
+            target="TS",
+            target_kind="continuous",
+            objective=_objective(),
+            incumbent_value=500,
+        )
+    }
+    assert not availability["sobol_ucb_v1"].available
+    assert not availability["sobol_ei_v1"].available
+    assert availability["sobol_ei_v1"].definition.acquisition_version == "1.1.0"
+    assert availability["sobol_ucb_v1"].target_acquisition_representations == (
+        "parametric_distribution",
+    )
+    assert "平均と予測標準偏差" in availability["sobol_ucb_v1"].reasons[0]
+
+
+def test_registry_rejects_positive_continuous_normal_approximation() -> None:
+    contract = load_task_contracts()["annealed-properties-v1"]
+    availability = {
+        item.definition.strategy_id: item
+        for item in strategy_availability(
+            contract.runtime_capability,
+            target="lambda",
+            target_kind="continuous_positive",
+            objective=objective_from_screening(
+                task=contract.task_definition,
+                task_contract_digest=semantic_digest(
+                    contract.task_definition.model_dump(mode="json")
+                ),
+                target="lambda",
+                target_goal=ScreeningGoal(direction="at_least", lower=80),
+                secondary_goals={},
+            ),
+            incumbent_value=75,
+        )
+    }
+    assert not availability["sobol_ucb_v1"].available
+    assert availability["sobol_ucb_v1"].target_acquisition_representations == (
+        "parametric_distribution",
+    )
 
 
 def test_api_persists_complete_acquisition_pool_and_is_reproducible(client) -> None:
@@ -168,6 +295,11 @@ def test_api_persists_complete_acquisition_pool_and_is_reproducible(client) -> N
     assert first["proposal_strategy"]["generator_id"] == "sobol"
     assert first["proposal_strategy"]["acquisition_id"] == "upper_confidence_bound"
     assert first["proposal_strategy"]["uncertainty_treatment"] == "predictive_standard_deviation"
+    assert first["proposal_strategy"]["parameter_role"] == "confidence_multiplier"
+    assert first["proposal_strategy"]["acquisition_representation"] == "normal_mean_std"
+    assert first["proposal_strategy"]["standard_deviation_methods"] == [
+        "central_90_interval_normal_approximation"
+    ]
     assert first["proposal_strategy"]["constraint_treatment"] == "feasibility_first_then_rank"
     assert first["proposal_diagnostics"]["evaluated_count"] == len(first["proposal_pool"])
     assert first["proposal_diagnostics"]["selected_count"] == 48

@@ -744,9 +744,11 @@ export function ScreeningPage({
               );})}
             </select>
           </label>
-          {proposalStrategyId !== "latin_hypercube_v1" && (
+          {(proposalStrategyId === "sobol_ucb_v1" || proposalStrategyId === "sobol_ei_v1") && (
             <label>
-              探索の強さ
+              {proposalStrategyId === "sobol_ei_v1"
+                ? "改善余裕 ξ"
+                : "探索の強さ（σ倍率）"}
               <input
                 type="number"
                 min="0.01"
@@ -754,6 +756,11 @@ export function ScreeningPage({
                 value={explorationParameter}
                 onChange={(event) => { setExplorationParameter(Number(event.target.value)); setDraftDirty(true); }}
               />
+              <small>
+                {proposalStrategyId === "sobol_ei_v1"
+                  ? "現在の最良値を、この値以上改善する余地を評価します"
+                  : "予測平均へ加減する標準偏差の倍率です"}
+              </small>
             </label>
           )}
           {proposalStrategyId === "sobol_ei_v1" && (

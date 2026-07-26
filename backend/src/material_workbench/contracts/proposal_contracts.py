@@ -8,6 +8,14 @@ from pydantic import Field, model_validator
 from material_workbench.contracts.task_contracts import ContractModel
 
 
+AcquisitionRepresentation = Literal[
+    "normal_mean_std",
+    "posterior_samples",
+    "parametric_distribution",
+    "unsupported",
+]
+
+
 class ProposalStrategyRequest(ContractModel):
     strategy_id: str = "latin_hypercube_v1"
     exploration_parameter: Annotated[float, Field(gt=0, allow_inf_nan=False)] = 2.0
@@ -42,11 +50,13 @@ class ProposalStrategyDefinition(ContractModel):
     requires_samples: bool = False
     requires_joint_samples: bool = False
     requires_incumbent: bool = False
+    requires_acquisition_representation: AcquisitionRepresentation | None = None
     production_enabled: bool = True
 
 
 class ProposalStrategyAvailability(ContractModel):
     definition: ProposalStrategyDefinition
+    target_acquisition_representations: tuple[AcquisitionRepresentation, ...]
     available: bool
     reasons: tuple[str, ...] = ()
 

@@ -63,6 +63,10 @@ class ScreeningService:
     def run(self, payload: ScreeningRequest, project_id: str = "default") -> ScreeningRunResponse:
         project = self.projects.require(project_id)
         contract = self.registry.contract_for(project.task_id)
+        runtime = self.resolver.runtime_for(project)
+        package = runtime.model_package
+        if package is None:
+            raise ScreeningValidationError("プロジェクトのModel Packageを解決できません")
         definition = contract.task_definition
         base = self.store.get_candidate(payload.base_candidate_id, project_id)
         if base is None:
@@ -252,6 +256,11 @@ class ScreeningService:
                 proposal_request,
                 contract.runtime_capability,
                 target=payload.target,
+                target_kind=next(
+                    item.target_kind
+                    for item in package.manifest.predictors
+                    if item.target == payload.target
+                ),
                 objective=objective,
             )
             if payload.batch_definition is not None:
@@ -299,7 +308,7 @@ class ScreeningService:
                     )
                 batch_reference_candidates[candidate_id] = candidate
             result = run_proposal(
-                self.resolver.runtime_for(project),
+                runtime,
                 base,
                 payload,
                 probability_available=probability_available,
@@ -341,6 +350,27 @@ class ScreeningService:
                 in {"upper_confidence_bound", "expected_improvement"}
                 else None
             ),
+            "parameter_role": (
+                "confidence_multiplier"
+                if strategy.acquisition_id == "upper_confidence_bound"
+                else "improvement_margin"
+                if strategy.acquisition_id == "expected_improvement"
+                else None
+            ),
+            "acquisition_representation": (
+                strategy.requires_acquisition_representation
+            ),
+            "standard_deviation_methods": sorted(
+                {
+                    str(method)
+                    for point in result.get("proposal_pool", [])
+                    if (
+                        method := point.get("acquisition_components", {}).get(
+                            "standard_deviation_method"
+                        )
+                    )
+                }
+            ),
             "support_policy": proposal_request.support_policy,
             "fallback_from": fallback_from,
             "fallback_policy": proposal_request.fallback_policy,
@@ -363,6 +393,9 @@ class ScreeningService:
     ) -> list[ProposalStrategyAvailability]:
         project = self.projects.require(project_id)
         contract = self.registry.contract_for(project.task_id)
+        package = self.resolver.runtime_for(project).model_package
+        if package is None:
+            raise ScreeningValidationError("プロジェクトのModel Packageを解決できません")
         if target not in {
             output.key for output in contract.task_definition.outputs
         }:
@@ -380,6 +413,11 @@ class ScreeningService:
         return strategy_availability(
             contract.runtime_capability,
             target=target,
+            target_kind=next(
+                item.target_kind
+                for item in package.manifest.predictors
+                if item.target == target
+            ),
             objective=project.objective_definition,
             incumbent_value=incumbent_value,
         )

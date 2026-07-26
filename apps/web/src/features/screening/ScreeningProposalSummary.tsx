@@ -61,11 +61,25 @@ export function ScreeningProposalSummary({
         <p>
           strategy {strategy?.id ?? "legacy"} {strategy?.version ?? ""} / seed {result.seed}
           {strategy && ` / ${strategy.generator_id} → ${strategy.acquisition_id} → ${strategy.selector_id}`}
-          {strategy?.exploration_parameter != null && ` / exploration ${strategy.exploration_parameter}`}
+          {strategy?.exploration_parameter != null && (
+            strategy.parameter_role === "improvement_margin"
+              ? ` / 改善余裕 ξ ${strategy.exploration_parameter}`
+              : ` / 探索σ倍率 ${strategy.exploration_parameter}`
+          )}
           {strategy?.support_policy && ` / support ${strategy.support_policy}`}
           {strategy?.incumbent_value != null && ` / incumbent ${strategy.incumbent_value}`}
         </p>
-        {strategy?.uncertainty_treatment && <p>不確かさ: predictive standard deviation / 副条件: 満たす点を優先して順位付け</p>}
+        {strategy?.uncertainty_treatment && (
+          <p>
+            不確かさ: {strategy.acquisition_representation === "normal_mean_std"
+              ? "予測平均 + 標準偏差（正規近似）"
+              : "predictive standard deviation"}
+            {strategy.standard_deviation_methods?.length
+              ? ` / σの由来: ${strategy.standard_deviation_methods.join(", ")}`
+              : ""}
+            {" / 副条件: 満たす点を優先して順位付け"}
+          </p>
+        )}
         {strategy?.fallback_from && <p>{strategy.fallback_from} は利用できなかったため、{strategy.id} で実行しました。</p>}
         {objective
           ? <>
