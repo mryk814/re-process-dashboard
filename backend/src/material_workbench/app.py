@@ -99,6 +99,9 @@ def _task_unavailable(
     *,
     stage: str,
     label: str,
+    resource_id: str,
+    expected_locator: str | Path,
+    recovery_hint: str,
     exc: Exception,
 ) -> TaskAvailability:
     logger.warning(
@@ -113,7 +116,14 @@ def _task_unavailable(
         if isinstance(exc, FileNotFoundError)
         else f"{label}を準備できません: {exc}"
     )
-    return TaskAvailability(status="unavailable", stage=stage, message=message)
+    return TaskAvailability(
+        status="unavailable",
+        stage=stage,
+        message=message,
+        resource_id=resource_id,
+        expected_locator=str(expected_locator),
+        recovery_hint=recovery_hint,
+    )
 
 
 def _record_optional_failure(
@@ -180,6 +190,7 @@ def _prepare_app_resources(
     explorers: dict[str, DataExplorerEntry] = {}
     unavailable: dict[str, TaskAvailability] = {}
     for task_id, module in modules.items():
+        configured_source = Path(module.default_source)
         try:
             explicit_source = (
                 source
@@ -196,27 +207,56 @@ def _prepare_app_resources(
             data_by_source.setdefault(module.source_kind, loaded)
         except (OSError, ValueError, KeyError) as exc:
             unavailable[task_id] = _task_unavailable(
-                task_id, stage="source", label="データソース", exc=exc
+                task_id,
+                stage="source",
+                label="データソース",
+                resource_id=module.source_kind,
+                expected_locator=configured_source.resolve(),
+                recovery_hint=(
+                    f"{module.source_env}と対象データファイルを確認して再起動してください。"
+                ),
+                exc=exc,
             )
             continue
+        package_override = injected.get(task_id) or os.getenv(
+            module.package_override_env
+        )
+        configured_package = Path(package_override) if package_override else configured
         try:
-            package = ModelPackageLoader().load(
-                resolve_configured_package(
-                    task_id,
-                    config_path=configured,
-                    override=injected.get(task_id) or os.getenv(module.package_override_env),
-                )
+            configured_package = resolve_configured_package(
+                task_id,
+                config_path=configured,
+                override=package_override,
             )
+            package = ModelPackageLoader().load(configured_package)
         except (OSError, ValueError, KeyError) as exc:
             unavailable[task_id] = _task_unavailable(
-                task_id, stage="package", label="Model Package", exc=exc
+                task_id,
+                stage="package",
+                label="Model Package",
+                resource_id=task_id,
+                expected_locator=configured_package.resolve(),
+                recovery_hint=(
+                    f"{module.package_override_env}、active-packages.json、"
+                    "対象Packageのmanifestとartifactを確認して再起動してください。"
+                ),
+                exc=exc,
             )
             continue
         try:
             runtimes[task_id] = module.runtime_factory(loaded, package)
         except (OSError, ValueError, KeyError) as exc:
             unavailable[task_id] = _task_unavailable(
-                task_id, stage="runtime", label="予測runtime", exc=exc
+                task_id,
+                stage="runtime",
+                label="予測runtime",
+                resource_id=package.manifest.package_id,
+                expected_locator=package.root,
+                recovery_hint=(
+                    "対象Packageのruntime種別、manifest、artifact、"
+                    "追加依存を確認して再起動してください。"
+                ),
+                exc=exc,
             )
             continue
         if module.data_explorer is not None:

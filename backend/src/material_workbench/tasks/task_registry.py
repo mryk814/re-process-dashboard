@@ -127,10 +127,28 @@ class TaskRegistry:
             except (OSError, ValueError, KeyError) as exc:
                 if not degrade_invalid_runtimes:
                     raise
+                package = getattr(runtime, "model_package", None)
+                verified_package = (
+                    package if isinstance(package, VerifiedModelPackage) else None
+                )
                 self._unavailable[task_id] = TaskAvailability(
                     status="unavailable",
                     stage="runtime",
                     message=f"予測runtimeの契約を検証できません: {exc}",
+                    resource_id=(
+                        verified_package.manifest.package_id
+                        if verified_package is not None
+                        else task_id
+                    ),
+                    expected_locator=(
+                        str(verified_package.root)
+                        if verified_package is not None
+                        else f"task:{task_id}"
+                    ),
+                    recovery_hint=(
+                        "予測runtimeとTaskDefinition、対象Packageの契約を"
+                        "確認して再起動してください。"
+                    ),
                 )
                 continue
             package = runtime.model_package
