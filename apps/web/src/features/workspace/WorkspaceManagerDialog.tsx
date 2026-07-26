@@ -26,9 +26,14 @@ function Summary({ value }: { value: DesktopWorkspaceSummary }) {
     <p className="workspace-summary-meta">
       {new Date(value.createdAt).toLocaleString("ja-JP")} · app {value.appVersion}
     </p>
-    {value.warnings.map((warning) => (
-      <p className="workspace-summary-warning" key={warning}>{warning}</p>
-    ))}
+    {value.warnings.length > 0 && (
+      <details className="workspace-summary-warnings">
+        <summary>{value.warnings.length}件の注意があります</summary>
+        <ul>
+          {value.warnings.map((warning) => <li key={warning}>{warning}</li>)}
+        </ul>
+      </details>
+    )}
   </div>;
 }
 

@@ -205,6 +205,16 @@ def test_packaged_smoke_covers_workspace_backup_restore_and_tamper_rejection() -
     assert "PACKAGED_STARTUP_TIMEOUT_MS" in packaged_smoke
 
 
+def test_workspace_ipc_trusts_the_packaged_document_path_not_its_navigation_query() -> None:
+    desktop_main = (ROOT / "apps" / "desktop" / "src" / "main.ts").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'actual.protocol === "file:"' in desktop_main
+    assert "resolve(fileURLToPath(actual))" in desktop_main
+    assert "actual.href === pathToFileURL(rendererPath()).href" not in desktop_main
+
+
 def test_application_icon_is_configured_for_windows_and_web() -> None:
     builder_config = (ROOT / "packaging" / "electron-builder.yml").read_text(encoding="utf-8")
     web_document = (ROOT / "apps" / "web" / "index.html").read_text(encoding="utf-8")

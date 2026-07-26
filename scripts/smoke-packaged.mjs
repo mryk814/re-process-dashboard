@@ -161,9 +161,22 @@ try {
   await window.getByRole("button", { name: "ワークスペース" }).click();
   await window.getByRole("heading", { name: "ワークスペースの保管と復元" }).waitFor();
   await window.getByRole("button", { name: "保存先を選ぶ" }).click();
-  await window.getByText(`${basename(backupPath)} を作成しました`).waitFor({
-    timeout: PACKAGED_STARTUP_TIMEOUT_MS,
-  });
+  const backupOutcome = await Promise.race([
+    window.getByText(`${basename(backupPath)} を作成しました`).waitFor({
+      timeout: PACKAGED_STARTUP_TIMEOUT_MS,
+    }).then(() => ({ status: "created" })),
+    window.getByRole("alert").waitFor({
+      timeout: PACKAGED_STARTUP_TIMEOUT_MS,
+    }).then(async () => ({
+      status: "error",
+      detail: await window.getByRole("alert").innerText(),
+    })),
+  ]);
+  assert.equal(
+    backupOutcome.status,
+    "created",
+    `Workspace backup failed: ${backupOutcome.detail ?? "unknown error"}`,
+  );
   assert((await stat(backupPath)).size > 0);
   await window.getByRole("button", { name: "閉じる" }).click();
 

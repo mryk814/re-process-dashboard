@@ -4,7 +4,7 @@ import { randomBytes } from "node:crypto";
 import { createServer } from "node:net";
 import { createWriteStream, existsSync, mkdirSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 const API_HOST = "127.0.0.1";
 // A first packaged launch creates and migrates the local workspace database,
@@ -690,7 +690,9 @@ function assertTrustedWorkspaceSender(event: Electron.IpcMainInvokeEvent): void 
   }
   const actual = new URL(frame.url);
   const trusted = app.isPackaged
-    ? actual.href === pathToFileURL(rendererPath()).href
+    ? actual.protocol === "file:"
+      && resolve(fileURLToPath(actual)).toLocaleLowerCase("en-US")
+        === resolve(rendererPath()).toLocaleLowerCase("en-US")
     : actual.origin === new URL(frontendDevServerUrl()).origin;
   if (!trusted) throw new Error("Workspace操作を許可できないURLです。");
 }

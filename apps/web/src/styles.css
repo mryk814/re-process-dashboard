@@ -403,13 +403,27 @@ table input[type="number"] { text-align: right; font-variant-numeric: tabular-nu
   color: #697789;
   font-size: 11px;
 }
-.workspace-summary .workspace-summary-warning {
+.workspace-summary-warnings {
   margin: 7px 0 0;
   padding: 6px 8px;
   border-left: 3px solid #d08a1e;
   background: #fff8e9;
   color: #784b0d;
   font-size: 12px;
+}
+.workspace-summary-warnings summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+.workspace-summary-warnings ul {
+  max-height: 160px;
+  margin: 7px 0 0;
+  padding: 7px 7px 7px 24px;
+  overflow: auto;
+  border-top: 1px solid #ead4a7;
+}
+.workspace-summary-warnings li + li {
+  margin-top: 5px;
 }
 .workspace-dialog-actions {
   display: flex;
