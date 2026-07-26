@@ -4,7 +4,7 @@ project:
 
 book:
   title: "Material Decision Workbench 実装を読む"
-  subtitle: "型付き契約をPythonからReactまで通す"
+  subtitle: "型付き契約とデータの証拠経路を追う"
   author: "Material Decision Workbench contributors"
   output-file: "material-decision-workbench-learning"
   date: last-modified
@@ -17,6 +17,8 @@ book:
     - learning-paths/ml-data.qmd
     - chapters/contract-through-stack.qmd
     - labs/extend-contract.qmd
+    - chapters/source-to-training-evidence.qmd
+    - labs/trace-source-evidence.qmd
     - tooling.qmd
     - evaluation.qmd
     - glossary.qmd

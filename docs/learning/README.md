@@ -1,9 +1,10 @@
 # Material Decision Workbench 開発教材
 
-このディレクトリは、Issue #274で試作した開発者向け教材の正本です。
+このディレクトリは、Issue #274の試作から育てている開発者向け教材の正本です。
 
 教材は、一般概念を説明するだけではなく、現行実装の契約、API、生成型、React、テストを一つの処理として読みます。
-最初の試作章では「検討アクティビティ」の型付き契約がPythonから画面まで届く経路を扱います。
+型付き契約の章では、「検討アクティビティ」がPythonから画面まで届く経路を扱います。
+Source data lifecycleの章では、外部Sourceの取得、品質判定、承認、Training Snapshot、Model Package active化を分けます。
 
 ## 読み始める
 
@@ -74,6 +75,7 @@ HTMLとPDFは確認用の生成物であり、正本ではありません。
 
 ```powershell
 uv run python -m pytest backend/tests/test_decision_activities.py backend/tests/test_openapi_contract.py
+uv run python -m pytest backend/tests/test_data_lifecycle.py backend/tests/test_openapi_contract.py
 npm run api:check
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-references.ps1
 ```

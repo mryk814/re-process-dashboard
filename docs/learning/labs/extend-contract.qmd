@@ -1,5 +1,4 @@
 ---
-title: "演習：契約変更の影響範囲を予測する"
 level: intermediate
 estimated_minutes: 60
 verified_commit: "c3b9c14e6246c77854de7b8294e56584cb039534"

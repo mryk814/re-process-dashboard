@@ -1,0 +1,194 @@
+---
+level: intermediate
+estimated_minutes: 75
+verified_commit: "894ecdc47af5d40a764219cfd8b831afda8050f0"
+code_references:
+  - "backend/src/material_workbench/contracts/data_lifecycle_contracts.py"
+  - "backend/src/material_workbench/domain/data_lifecycle.py"
+  - "backend/src/material_workbench/persistence/data_lifecycle_repository.py"
+  - "backend/tests/test_data_lifecycle.py"
+  - "e2e/source-lifecycle.spec.ts"
+---
+
+# 行が学習対象になるまでを追跡する {#sec-lab-source-evidence}
+
+この演習はproduction codeとdataを変更しません。
+既存fixtureの行集合を手で予測し、focused testで実装と照合します。
+
+## 演習1：四行を分類する
+
+次のSourceとRecipeを使います。
+
+```json
+[
+  {"id": "A", "x": "2",  "target": "11"},
+  {"id": "C", "x": "",   "target": "12"},
+  {"id": "D", "x": "4"},
+  {"id": "E", "x": "20", "target": "14"}
+]
+```
+
+Recipeは`id`と`x`を必須とし、`target`を学習適格性の判定に使い、`x > 10`へwarningを付けます。
+
+各行について、次を書いてください。
+
+1. Curation後の品質状態
+2. `target_eligible`
+3. 標準承認のCanonical Datasetへ入るか
+4. Training Snapshotへ入るか
+
+### 解答例
+
+| row | 品質状態 | `target_eligible` | Canonical Dataset | Training Snapshot |
+|---|---|---:|---:|---:|
+| A | accepted | true | 入る | 入る |
+| C | quarantined | true | 入らない | 入らない |
+| D | warning | false | 入る | 入らない |
+| E | warning | true | 入る | 入る |
+
+Cは目的変数を持つため`target_eligible=true`ですが、必須入力`x`がないため標準承認から除外されます。
+DはDatasetとして保持できますが、目的変数がないため教師あり学習のSnapshotへ入りません。
+
+## 演習2：二種類の変更を分ける
+
+次の二つの変更案を比べます。
+
+- SourceのAの`x`を2から3へ変える
+- Recipeの`sum_limit_v1.maximum`を10から15へ変える
+
+それぞれで変わる可能性があるdigestを、次から選んでください。
+
+- `content_sha256`
+- `snapshot_digest`
+- `recipe_digest`
+- `curation_digest`
+- `dataset_digest`
+- Training Snapshotの`snapshot_digest`
+
+### 解答例
+
+Source変更では`content_sha256`と`snapshot_digest`が変わります。
+そのRawへCurationを実行すれば`curation_digest`も変わり、再承認とTraining Snapshotを作れば後続digestも変わります。
+
+Recipe変更では`recipe_digest`が変わります。
+同じRawへ新Recipeを適用しても`curation_digest`は変わり、後続の承認記録とTraining Snapshotも別になります。
+
+前の資産が変わっただけでは、後続資産を自動生成しません。
+後続digestが変わるのは、明示的に新しいCuration、承認、Training Snapshotを作った場合です。
+
+## 演習3：Recipe versionを判断する
+
+既存の`quality-feed` version 1で、合計上限を10から15へ変更したいとします。
+同じRecipe IDとversionで登録する案と、version 2を登録する案を比べてください。
+
+### 解答例
+
+同じIDとversionへ異なる内容を登録すると、`DataLifecycleRepository.create_recipe()`が`LifecycleResourceConflictError`を返します。
+既存Curation Runが参照するversion 1の意味を後から変えないためです。
+
+上限変更は同じRecipe IDのversion 2として登録します。
+その後、対象Raw Snapshotへversion 2を使ったCuration Runを明示作成し、品質差分を確認します。
+
+## 演習4：比較不能を0件と区別する
+
+Connectorの`selection.primary_key`を`null`にした場合、二回目の取得で行数も値も変わったとします。
+
+次の問いへ答えてください。
+
+1. `RawSnapshotDiff.comparable`は何になるか。
+2. `added_rows`や`changed_rows`を根拠に「変更なし」と言えるか。
+3. 画面で最初に表示すべき情報は何か。
+
+### 解答例
+
+`comparable`はfalseです。
+行を対応付けるkeyがないため、変更件数を0として解釈できません。
+画面では件数より先に、比較不能であることと`reason`を示す必要があります。
+
+## 演習5：override後の学習集合を予測する
+
+演習1のCを、次の承認requestでoverrideします。
+
+```json
+{
+  "actor": "senior-reviewer",
+  "reason": "source ownerへ確認済み",
+  "overrides": [
+    {
+      "row_key": "C",
+      "reason": "欠損は既知の測定限界"
+    }
+  ]
+}
+```
+
+Canonical DatasetとTraining Snapshotの行集合を予測してください。
+
+### 解答例
+
+Canonical DatasetはA、C、D、Eを含みます。
+Cはquarantinedですが、対象と理由を固定したoverrideで承認されます。
+
+Training SnapshotはA、C、Eを含みます。
+Cは`target_eligible=true`、Dはfalseだからです。
+
+ただし、この結果だけでCをモデル入力として安全に使えるとは断定できません。
+欠損した必須入力をTask固有のbuilderがどう扱うかは、このdata lifecycle contractの外側です。
+
+## 演習6：testの置き場所を選ぶ
+
+次の退行を、最初に検出したいtestへ対応付けてください。
+
+- **同一内容の再取得でRaw Snapshotが増えた**：`test_data_lifecycle.py -k multiple_raw_snapshots`
+- **credentialがSQLiteへ保存された**：`test_data_lifecycle.py -k failure_retry`
+- **quarantine理由が消えた**：`test_data_lifecycle.py -k curation_keeps`
+- **承認とTraining Snapshotが同時作成された**：`test_data_lifecycle.py -k approval_and_training`
+- **blocked rowをoverrideできた**：`test_data_lifecycle.py -k override_is_targeted`
+- **未承認DatasetがProject選択肢へ現れた**：`test_data_lifecycle.py -k tracks_digests`
+- **画面のstage railが承認前後を区別しない**：`e2e/source-lifecycle.spec.ts`
+- **Pydantic変更後にOpenAPIが古い**：`backend/tests/test_openapi_contract.py`
+- **OpenAPI変更後にTypeScript型が古い**：`npm run api:check`
+
+複数のtestが反応する場合でも、原因に最も近いtestを先に置くと調査範囲が狭くなります。
+
+## 演習7：現mainを検証する
+
+リポジトリ直下で実行します。
+
+```powershell
+uv run python -m pytest `
+  backend/tests/test_data_lifecycle.py `
+  backend/tests/test_openapi_contract.py
+
+npm run api:check
+```
+
+UI経路も変更した場合は、隔離DBを使う既定設定で実行します。
+
+```powershell
+npx playwright test e2e/source-lifecycle.spec.ts
+```
+
+結果を次の形式で記録します。
+
+```text
+verified_commit:
+date:
+focused_pytest:
+api_check:
+source_lifecycle_e2e:
+unexpected_warnings:
+```
+
+## 章末チェックの解答
+
+1. RawはSourceから取得した表現を保存し、数値化はversion付きRecipeを適用したCuration結果として別に残すため。
+2. 前者は受け取ったUTF-8 contentのbyte hashで、後者はConnector設定、selection、object version、trigger、内容、行を含む資産identity。
+3. Raw差分は`comparable=false`になり、重複row keyを含むCuration Runは承認を拒否する。
+4. `target_eligible`は目的変数の有無を表し、Cは必須入力欠損によるquarantined状態なので標準承認から除外される。
+5. Dはwarningとして承認できるが、目的変数がないため教師あり学習の対象ではない。
+6. 対象row key、行ごとの理由、actor、全体の承認理由。
+7. 過去のCuration Runが参照するRecipeの意味を後から変えないため。
+8. `test_api_tracks_digests_without_exposing_unapproved_data_to_projects`と`e2e/source-lifecycle.spec.ts`。
+9. 子payloadの自己申告だけでなく、保存済みの親資産と参照が一致することを確認するため。
+10. 外部storage接続、実モデル学習、Package生成、verify、active化。

@@ -23,20 +23,20 @@
 | 先行例 | 観察した構成 | この教材で採用する点 |
 |---|---|---|
 | Diátaxis | tutorial、how-to、reference、explanationを読者の必要ごとに分ける | 章の学習進行とコードマップの参照機能を分ける |
-| The Rust Programming Language | concept章とproject章を分け、project章で既出概念を統合する | 試作章を一つの変更経路を追うproject章にする |
+| The Rust Programming Language | concept章とproject章を分け、project章で既出概念を統合する | 本編を一つの変更経路を追うproject章にする |
 | Django Tutorial | 小さな実例を動かし、前提、期待結果、失敗時の手掛かりを近くに置く | コマンドの直後に観察点と失敗条件を書く |
 | Google Technical Writing | scope、非scope、読者、到達状態を先に固定する | 冒頭で読者と読了後の行動を明示する |
 | GitHub Docs | clarityとmeaningを文法的な統一より優先し、calloutを絞る | calloutを事実区分と危険箇所だけに使う |
 
 Diátaxisは、tutorialを学習志向、referenceを作業中に素早く引く情報として区別します [@diataxis]。
-そこで、試作章は順番に読むlessonとし、ファイル一覧は@sec-code-mapへ分離しました。
+そこで、本編は順番に読むlessonとし、ファイル一覧は@sec-code-mapへ分離しました。
 
 The Rust Programming Languageはconcept章とproject章を明示的に分けています [@rustbook]。
 この教材では大規模な概念章を先に増やさず、型、API、画面、テストを一つの題材で接続するproject章を先に置きます。
 必要な概念は、読者がコードで遭遇する直前に短く説明します。
 
 Django Tutorialは、最小のアプリを先に動かし、前提versionと期待する結果を明示します [@djangotutorial]。
-試作章でも、最初に追跡対象と成功条件を示し、最後に実リポジトリのテストを実行します。
+各本編でも、最初に追跡対象と成功条件を示し、最後に実リポジトリのtestを実行します。
 
 GitHub Docsはcalloutを連続させず、節に一つを目安にする方針を示しています [@github-style]。
 本教材の視覚ラベルも、本文の流れを切る価値がある箇所だけに使います。

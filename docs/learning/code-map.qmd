@@ -197,8 +197,11 @@
 
 ## 関連Issueと設計記録
 
-試作章の直接の題材は、検討アクティビティの現行実装です。
+型付き契約の章が直接扱う題材は、検討アクティビティの現行実装です。
 設計意図は `docs/decision-activities.md` と、その文書が参照するIssue、PRで確認します。
+
+Source data lifecycleの章は、`docs/source-data-lifecycle.md`とdata lifecycleのcontract、domain、repository、API、UI、testを照合します。
+この経路は、外部Source更新が再学習やactive化へ直結しないことを扱います。
 
 - [Issue #120：検討アクティビティを導入する](https://github.com/mryk814/re-process-dashboard/issues/120)
 - [PR #122：ロバストネス検討アクティビティを追加する](https://github.com/mryk814/re-process-dashboard/pull/122)

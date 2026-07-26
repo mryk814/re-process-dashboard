@@ -66,7 +66,8 @@ class名や本文の意味まで自動判定する仕組みは、誤検出と保
 ## spikeの実測
 
 Windows上のclean buildは、cold側の計測で41.1秒、最終再実行で18.7秒でした。
-同じQuarto原稿から検索indexを持つHTMLと51ページのPDFを生成し、試作章はtitle pageを含めて16ページになりました。
+同じQuarto原稿から検索indexを持つHTMLと63ページのPDFを生成しました。
+型付き契約の学習単位は本編14ページと演習4ページ、Source data lifecycleの学習単位は本編10ページと演習4ページです。
 
 比較候補の確認結果は次です。
 

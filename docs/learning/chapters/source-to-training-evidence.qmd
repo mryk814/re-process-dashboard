@@ -1,0 +1,504 @@
+---
+level: intermediate
+estimated_minutes: 120
+verified_commit: "894ecdc47af5d40a764219cfd8b831afda8050f0"
+code_references:
+  - "docs/source-data-lifecycle.md"
+  - "backend/src/material_workbench/contracts/data_lifecycle_contracts.py"
+  - "backend/src/material_workbench/domain/data_lifecycle.py"
+  - "backend/src/material_workbench/application/data_lifecycle.py"
+  - "backend/src/material_workbench/persistence/data_lifecycle_repository.py"
+  - "backend/src/material_workbench/api/data_lifecycle.py"
+  - "backend/tests/test_data_lifecycle.py"
+  - "apps/web/src/shared/api/workbench-api.ts"
+  - "apps/web/src/features/data-library/SourceLifecycleSection.tsx"
+  - "e2e/source-lifecycle.spec.ts"
+---
+
+# Source更新を学習から切り離す {#sec-source-evidence}
+
+## 対象読者と到達点
+
+共有先のJSONや表データを取り込み、品質確認を経てモデル開発へ渡す経路を変更する開発者が対象です。
+Pythonでデータ構造を読めればよく、モデル学習やReactの経験は必要ありません。
+
+読了後は、次の問いへ実装pathを挙げて答えられる状態を目指します。
+
+- Sourceの取得とDatasetの承認が別の操作である理由は何か
+- Raw Snapshot、Curation Run、Canonical Dataset Revision、Training Snapshotは何を固定するか
+- 行の品質状態と目的変数への利用可否を、なぜ別々に持つか
+- 同じ内容の再取得と、内容が異なるrevisionをどう区別するか
+- どの操作もModel Packageの再学習やactive化を起こさないことを、どのtestが守るか
+
+## 扱わない範囲
+
+この章は、S3やAzureへの接続方法、credential vault、外部schedulerの構築を扱いません。
+現行の`object_storage_json_v1`は、別の取得処理が渡したJSONを解釈する境界です。
+
+Dataset Input Profileの作り方、Feature Pipeline、Model Package生成は別の変更経路です。
+この章では、承認済みの行集合をTraining Snapshotとして固定するところで止まります。
+
+## 取得しただけでは判断に使えない
+
+共有objectの内容が更新されたとします。
+新しい行が増え、既存の値も一つ変わっています。
+取得APIが成功したなら、そのまま次回学習へ使ってよいようにも見えます。
+
+しかし、取得の成功が証明するのは、objectを許可された形式で読めたことだけです。
+列の意味、必須値、目的変数の有無、重複key、承認者の判断はまだ確定していません。
+取得と学習を一つの操作にすると、通信の成功が科学的な採否まで決めてしまいます。
+
+現行実装は、同じ更新を五つの資産へ分けます。
+
+```mermaid
+flowchart LR
+    A["Source Connector<br/>取得条件"] --> B["Raw Snapshot<br/>取得した事実"]
+    B --> C["Curation Run<br/>意味変換と品質判定"]
+    C --> D["Canonical Dataset Revision<br/>承認した行集合"]
+    D --> E["Training Snapshot<br/>学習へ渡す行集合"]
+    E -. "別の操作" .-> F["Model Package候補<br/>学習済み成果物"]
+```
+
+画面にある`Source refresh ≠ retraining ≠ activation`は、この資産分割を短く表したものです。
+更新を取得しても、既存Projectが参照するDatasetとModel Packageは変わりません。
+
+## 五つの資産が指すもの
+
+似た名前を先に覚えると、`snapshot`と`revision`の違いだけが記憶に残りがちです。
+各名称が指す具体物を先に固定します。
+
+| 資産 | 具体的に固定するもの | 操作 | 次へ進む条件 |
+|---|---|---|---|
+| Source Connector | locator、parser、選択field、row key、trigger policy | 登録 | 設定契約が妥当 |
+| Raw Snapshot | 取得時のJSON行、内容hash、設定digest、前回との差分 | 取得 | JSONとして解釈可能 |
+| Curation Run | RecipeとProfileを適用した全行、状態、理由、利用可否 | 品質判定 | 登録済みRecipeとProfileが一致 |
+| Canonical Dataset Revision | 承認行、除外行、override、actor、理由 | 承認 | blocked rowがなく、overrideが妥当 |
+| Training Snapshot | 承認済みかつ目的変数を利用できるrow key | 明示作成 | 対象行が1件以上 |
+
+この表で異なるのは保存時刻だけではありません。
+各資産は、事実の取得、意味の変換、人間の承認、学習用途の選択という別の役割を持ちます。
+
+`backend/src/material_workbench/contracts/data_lifecycle_contracts.py`は、この区別を別々のPydantic modelとして固定します。
+`backend/src/material_workbench/domain/data_lifecycle.py`は、前の資産から次の資産を作る純粋な操作を持ちます。
+
+## 四行の行方を予測する
+
+focused testの二回目のSourceには、次の四行があります。
+
+```json
+[
+  {"id": "A", "x": "2",  "target": "11"},
+  {"id": "C", "x": "",   "target": "12"},
+  {"id": "D", "x": "4"},
+  {"id": "E", "x": "20", "target": "14"}
+]
+```
+
+Curation Recipeは、文字列をtrimし、`x`と`target`を数値へ変換し、`id`と`x`を必須とします。
+`target`がなければ目的変数へ利用できないと判定し、`x > 10`にはwarningを付けます。
+
+四行はRaw Snapshotにはすべて残ります。
+標準承認後のCanonical Dataset Revisionには、A、D、Eが入り、Cは除外されます。
+Training SnapshotにはAとEだけが入ります。
+
+Dが途中で消える理由は、行全体が壊れているからではありません。
+`x`は有効なのでDatasetとしては承認できますが、`target`がないため今回の教師あり学習には使えないからです。
+
+この一行が、品質状態と学習利用可否を別々に持つ理由を示します。
+
+## Connectorは取得条件を固定する
+
+`SourceConnectorCreateInput`は、次の取得条件を保存します。
+
+- `connector_type`
+- `source_locator`
+- JSON arrayまたはJSONLという形式
+- upstreamのprimary key
+- 取り込むfield
+- manual-onlyまたはschedule可能というtrigger policy
+
+`configuration_digest`は、この設定内容から計算します。
+同じ名前を付けても、locatorや選択fieldが違えば別の設定です。
+
+一方、credentialはConnectorへ保存しません。
+FastAPI routeは`X-Source-Credential`を一回のrequest headerとして受け取り、永続化するapplication contractへ渡す前に破棄します。^[現行adapterはobject contentをrequest bodyで受けるため、credentialを実際のSDKへ渡しません。この境界は「credentialを保存してよい」という意味ではなく、将来の取得adapterでも一回限りに保つためのものです。]
+
+`source_locator`にもcredentialを埋め込めません。
+username、password、tokenや署名を示すquery keyをvalidatorが拒否します。
+
+::: {.callout-warning title="CONFIRMED"}
+`backend/tests/test_data_lifecycle.py`は、失敗attempt、API response、SQLite fileのいずれにもsecretが残らないことを確認します。
+ログ全般や外部transportまでを、このtestだけで保証しているとは解釈しません。
+:::
+
+## Raw Snapshotは取得した事実を残す
+
+### Raw行を変更しない
+
+`build_raw_snapshot()`はobject contentをJSON recordへ変換し、選択fieldだけを残します。
+この段階では、`" 1 "`を数値`1.0`へ直しません。
+trimや数値化はCurationの仕事だからです。
+
+Raw Snapshotは次を保持します。
+
+- Connectorの設定digest
+- selection digest
+- object version
+- manualまたはscheduledという取得trigger
+- UTF-8 contentのSHA-256
+- 取得した全行
+- 前回Snapshot ID
+- row keyで比較した差分
+- Snapshot全体のsemantic digest
+
+Source側の表現をそのまま残すことで、後から別のRecipeを適用できます。
+Curation後の値だけを残すと、変換の誤りを調べるための入力が消えます。
+
+### 二種類のhashを混ぜない
+
+`content_sha256`は、受け取った文字列をUTF-8へしたbyteのhashです。
+`snapshot_digest`は、Connector、selection、object version、trigger、内容hash、選択後の行をまとめた意味上の識別子です。
+
+同じ内容であっても、どの設定で取得したかという文脈が違えば同じSnapshotとは限りません。
+逆にrepositoryの重複判定は、同じConnector、同じcontent SHA、同じselectionなら既存Snapshotを返します。
+Fetch Attemptには`reused_existing_snapshot=true`を残すため、再取得という操作自体は失われません。
+
+### 差分にはrow keyが要る
+
+前回との差分は、配列の位置ではなくprimary keyで行を対応付けます。
+keyが一意なら、追加、変更、消失、未変更を数えます。
+
+primary keyがない、欠損する、重複する場合、実装は配列順から対応を推測しません。
+`comparable=false`と理由を返します。
+比較不能を0件の変更と表示しないためです。
+
+## Curationは意味変換と品質判定を記録する
+
+### RecipeとProfileは別の参照である
+
+Curation Runは、Raw SnapshotにVersioned Curation RecipeとDataset Profile Revisionを適用します。
+
+**Curation Recipe**は、trim、数値変換、必須判定、固定値filter、合計上限など、許可された操作の順序を固定します。
+**Dataset Profile Revision**は、Sourceのfieldがアプリ内で何を意味するかを固定します。
+
+両者は似ていますが、同じ資産ではありません。
+たとえば同じ数値変換規則を使う二つのDatasetでも、片方の`value`が温度で、もう片方が硬さならProfileの意味は異なります。
+
+APIはWorkspace Catalogに登録済みのProfile Revisionを探し、requestの`profile_digest`と一致する場合だけCurationへ進みます。
+IDだけを受け入れないのは、同じ参照名で内容が食い違う状態を止めるためです。
+
+### RawとCanonicalを並べて残す
+
+`curate_snapshot()`はRaw rowをコピーしてからRecipeを順に適用し、`canonical_record`を作ります。
+Raw Snapshotを書き換えません。
+
+各`CuratedRow`は次を持ちます。
+
+- `row_key`
+- Raw配列内の位置
+- 変換後のrecord
+- 品質状態
+- reason code
+- `target_eligible`
+
+品質状態は`accepted`、`warning`、`quarantined`、`blocked`の四つです。
+複数の理由がある場合は、blocked、quarantined、warningの順で強い状態を選びます。
+
+`target_eligible`は別軸です。
+目的変数欠損ならfalseになり、品質状態にはwarningが付きます。
+一方、必須入力の欠損でquarantinedになっても、目的変数自体があれば`target_eligible`はtrueのままです。
+承認と学習対象の選択を別々に行うため、この組合せは矛盾ではありません。
+
+### 四行を二軸で読む
+
+| row | 品質状態 | `target_eligible` | 標準承認 | Training Snapshot |
+|---|---|---:|---:|---:|
+| A | accepted | true | 含む | 含む |
+| C | quarantined（必須`x`欠損） | true | 除外 | 除外 |
+| D | warning（`target`欠損） | false | 含む | 除外 |
+| E | warning（`x`が上限超過） | true | 含む | 含む |
+
+Cは、承認者が理由付きoverrideを行えばCanonical Datasetへ含められます。
+その場合は`target_eligible=true`なのでTraining Snapshotにも入ります。
+この判断が妥当かどうかは、Recipeの必須fieldと学習用途に依存します。
+
+DをCanonical Datasetから削る必要はありません。
+将来targetが補われたかを追う、別の教師なし処理で使う、Source品質の履歴として残すといった用途があるためです。
+
+### 前回比は品質件数を比較する
+
+同じRecipe resourceを同じConnectorの別Raw Snapshotへ適用したCuration Runがある場合、保存順で直前に見つかったRunと現在の品質件数との差を計算します。
+比較するのは個々のrowの同一性ではなく、accepted、warning、quarantined、blocked、target-ineligibleの件数です。
+
+Raw Snapshotの差分とCurationの品質差分は別の問いへ答えます。
+前者はSourceの行がどう変わったか、後者は同じ品質規則で判定した結果がどう変わったかを示します。
+
+## 承認は行集合と判断者を固定する
+
+`approve_curation_run()`は、acceptedとwarningの行を標準で承認し、quarantinedとblockedを除外します。
+quarantined rowは、対象row key、行ごとの理由、全体の承認理由、actorを伴う場合だけoverrideできます。
+blocked rowはoverrideできません。
+
+重複row keyを含むRunは、個々のrowを区別できません。
+そのため一部を選んで承認するのではなく、Run全体の承認を拒否します。
+
+Canonical Dataset Revisionの`dataset_digest`には、次が入ります。
+
+- Curation Run digest
+- 承認row key
+- 除外row key
+- override
+- actor
+- 承認理由
+
+同じ行集合でも、誰がどの理由で承認したかが違えば別の承認記録です。
+ここでのdigestはデータ値だけのhashではなく、判断を含む記録のidentityです。
+
+::: {.callout-note title="INTERPRETATION"}
+Canonical Dataset Revisionは「きれいな表の保存名」ではありません。
+どのCuration結果から、誰が、どの例外を認め、どの行集合を採ったかという承認済みの主張です。
+:::
+
+## Training Snapshotは学習用途を明示する
+
+承認したDatasetを即座に学習へ使わない理由は、承認と用途選択が別の判断だからです。
+
+`build_training_snapshot()`は、Canonical Datasetで承認された行のうち、Curation Runで`target_eligible=true`だった行だけを選びます。
+対象が0件なら作成を拒否します。
+
+Training Snapshotは、行keyに加えてactorとpurposeを保存します。
+同じDatasetから、異なる学習目的のSnapshotを明示的に作れます。^[現行contractは目的変数名やsplit定義まで保持しません。特定のPackage builderへ渡すadapterは未実装であり、目的別cohortの完全な再現契約までこのSnapshotだけで満たすとは主張できません。]
+
+Training Snapshotを作っても、次の処理は起きません。
+
+- モデル学習
+- Model Packageの生成
+- Package verify
+- active Packageの切替
+- 既存Projectの参照更新
+
+`backend/tests/test_data_lifecycle.py`は、Training Snapshot作成後も`/api/project-creation-options`のModel Package一覧が変わらないことを確認します。
+E2Eも、画面で「再学習・Package検証・active化は別操作です」と表示されるところまでを守ります。
+
+### Data LibraryのDataset Revisionとは別である
+
+data lifecycleの`CanonicalDatasetRevision`は、`canonical_dataset_approvals`へ保存する承認記録です。
+Data Libraryの`DatasetRevision`は、Data Asset、Dataset Profile Revision、canonicalization contractを組み合わせた登録資産です。
+
+名前は近いものの、現行v1は前者を作っただけで後者へ自動登録しません。
+したがって、Canonical Dataset Revisionを承認しても、Project作成画面で選べるDatasetが増えるとは限りません。
+
+二つを接続する場合は、どのTaskのどのData Assetとして登録するかを明示するadapterが必要です。
+この未接続を「承認済みだからData Libraryでも利用可能」と読み替えないことが、現行contractを正確に扱う条件です。
+
+## Application serviceが操作の順序を守る
+
+`DataLifecycleService`は、domain関数とrepositoryを接続します。
+各methodは一つの資産を作り、次の資産を暗黙に作りません。
+
+| method | 読む資産 | 作る資産 |
+|---|---|---|
+| `fetch()` | Connector、前回Raw Snapshot | Raw Snapshot、Fetch Attempt |
+| `curate()` | Raw Snapshot、Recipe、前回Curation Run | Curation Run |
+| `approve()` | Curation Run | Canonical Dataset Revision |
+| `create_training_snapshot()` | Canonical Dataset Revision、Curation Run | Training Snapshot |
+
+`fetch()`が失敗した場合も、失敗Fetch Attemptを保存します。
+一方、Raw Snapshotは作りません。
+再試行requestは`retry_of`で失敗attemptへ結び付きます。
+
+この分離により、「取得を試みた」「取得できた」「同じ内容だった」「品質判定した」「承認した」を別々に監査できます。
+
+## Repositoryが参照digestを再検証する
+
+Pydantic modelのself-validatorは、payload内部の件数やdigestを検証します。
+それだけでは、保存先にある参照資産と本当に一致するかは分かりません。
+
+`DataLifecycleRepository`は保存時に、次の参照を引き直します。
+
+- Raw SnapshotのConnector設定digestとselection digest
+- Curation RunのRaw Snapshot digestとRecipe digest
+- Canonical Dataset RevisionのCuration、Raw、Recipe、Profile digest
+- Training SnapshotのDataset digest
+
+不一致なら保存しません。
+これは「子payloadが自己申告したdigest」と「repositoryが保持する親資産」のすり替えを防ぐ境界です。
+
+同じsemantic digestの資産を再作成した場合、repositoryは既存payloadを返します。
+ただし、同じRecipe IDとversionへ異なる定義を登録する操作はconflictとして拒否します。
+意味が変わったRecipeには新しいversionが必要です。
+
+## APIと画面は停止点を見せる
+
+FastAPIは五つの資産を一括作成するendpointを持ちません。
+Connector登録、取得、Recipe登録、Curation、承認、Training Snapshot作成が別々のPOSTです。
+
+`SourceLifecycleSection.tsx`も、同じ順序を四段のstage railとして表示します。
+各操作後のnoticeは、まだ起きていない処理を明示します。
+
+| 操作 | 画面が示す停止点 |
+|---|---|
+| Connector登録 | 取得はまだ実行していない |
+| Raw取得 | 承認や学習はまだ行っていない |
+| Curation | 承認前なので学習には使われない |
+| 承認 | 再学習とactive化は行っていない |
+| Training Snapshot | Model Packageは変更していない |
+
+これは説明文の重複ではありません。
+利用者が押したbuttonより先の副作用を想像しやすいため、現在の停止点を操作結果の近くで確認できるようにしています。
+
+## 一回の更新を端から追う
+
+四行のV2 Sourceを標準承認する場合、値と責務は次の順で移ります。
+
+1. ConnectorがJSON arrayと`id`をprimary keyとして固定する。
+2. `fetch()`が四行をRaw Snapshotへ保存し、前回からの追加、変更、消失を計算する。
+3. Curationが`x`と`target`を数値化し、Cをquarantined、DとEをwarningにする。
+4. APIが登録済みProfile Revisionのdigestを照合する。
+5. 承認がA、D、Eを採り、Cを除外する。
+6. Training Snapshotが目的変数を持つAとEだけを固定する。
+7. Project作成候補とactive Model Packageは変わらない。
+
+Rawの4件、承認の3件、Trainingの2件は、処理の途中で行を黙って捨てた結果ではありません。
+各段階が異なる条件で集合を選び、除外理由と判断記録を残した結果です。
+
+## Testが守る境界
+
+### Domainとpersistence
+
+`backend/tests/test_data_lifecycle.py`は、次の破損を原因に近い層で検出します。
+
+- 複数Raw Snapshotを上書きする
+- 同じ内容の再取得でSnapshotを増やす
+- primary keyによる差分を誤る
+- 失敗attemptやDBへcredentialを保存する
+- scheduled取得をmanual-only Connectorで許可する
+- quarantine理由と品質差分を失う
+- 承認とTraining Snapshotを一操作にまとめる
+- blocked rowをoverrideする
+- 未承認データをProject作成候補へ露出する
+- Training Snapshot作成でModel Package一覧を変える
+
+### OpenAPI
+
+data lifecycle contractもFastAPIのOpenAPIへ公開され、TypeScript型へ生成されます。
+Pydantic modelやendpointを変更した場合、`backend/tests/test_openapi_contract.py`と`npm run api:check`で生成driftを確認します。
+
+### E2E
+
+`e2e/source-lifecycle.spec.ts`は、利用者の操作として次を確認します。
+
+1. Source更新画面にRaw Snapshotが見える
+2. 品質判定後に隔離理由が見える
+3. 未承認の間はProject Datasetが変わらない
+4. 隔離行を除いて承認できる
+5. 承認だけではTraining Snapshotが作られない
+6. Training Snapshotを明示作成できる
+7. Model Packageとactive状態が変わらない
+
+E2Eは外部object storageへ接続しません。
+UI、loopback API、SQLiteを通る操作分離を確認するtestです。
+
+## 症状から戻って調べる
+
+### 再取得のたびにrevisionが増える
+
+まずFetch Attemptの`reused_existing_snapshot`とRaw Snapshotの`content_sha256`を確認します。
+同じ見た目でも空白や改行を含むbyteが違えばcontent SHAは変わります。
+
+内容hashが同じなら、Connector IDとselection digestを確認します。
+repositoryの重複条件は、この三つの組合せです。
+
+### 差分がすべて0に見える
+
+`diff.comparable`を先に確認します。
+primary keyがない場合、0件という比較結果ではなく比較不能です。
+
+画面が理由を表示していないなら、domainの差分計算ではなくpresentationの欠落かもしれません。
+API responseに`reason`があるかを確認してからUIへ戻ります。
+
+### warning行がTraining Snapshotに入らない
+
+warningという状態だけでは除外理由になりません。
+その行の`target_eligible`を確認します。
+
+目的変数欠損なら、Canonical Datasetには承認されてもTraining Snapshotから除外されます。
+`sum_limit_exceeded`だけなら、標準承認とTraining Snapshotの両方へ入ります。
+
+### 承認済みなのにProjectから選べない
+
+現行data lifecycleのCanonical Dataset Revisionは、承認後にProject作成候補へ自動登録される契約ではありません。
+さらにTraining Snapshot作成もModel Packageやactive Datasetを切り替えません。
+
+この状態をUI fallbackで埋めません。
+特定TaskのbuilderまたはDataset登録へ接続する明示的なadapterが必要かを、別の機能変更として判断します。
+
+## 設計を振り返る
+
+### 一つのstatusにまとめない理由
+
+品質状態と学習利用可否を一つの列へまとめると、「品質上は保持できるが目的変数がない行」を表せません。
+Dのような行をDatasetから削るか、学習に誤って含めるかの二択になります。
+
+二軸なら、Datasetとしての採否と、特定の教師あり学習への適格性を別々に決められます。
+
+### 自動昇格を採らない理由
+
+Raw取得後に自動Curation、自動承認、自動学習まで進めれば、操作回数は減ります。
+しかし、Sourceの更新頻度、品質規則の変更、承認責任、学習目的が一つのtriggerへ結合します。
+
+現行実装は、各資産を明示操作で作ります。
+自動化する場合も、この境界を消すのではなく、どの条件で次の操作を呼ぶかを外側のpolicyとして設計する必要があります。
+
+### 現在の限界
+
+現行実装には次の限界があります。
+
+- object storageのSDK接続とcredential管理は実装していない
+- schedulerは実装せず、scheduled requestの契約だけを持つ
+- Recipeはallow-listされた単純操作だけで、任意joinや任意Pythonを実行しない
+- Profileの意味変換は参照digestを固定するが、このdomain関数自体はProfile内容を解釈しない
+- Training SnapshotからTask固有のPackage builderへ渡すadapterは未実装
+- Canonical Dataset RevisionからData LibraryのDataset Revisionへ登録するadapterは未実装
+- Training Snapshot単体では目的変数別cohort、split、特徴量を完全には固定しない
+
+これらの不足を、汎用ETLや自動再学習で一度に埋めると、承認境界が見えなくなります。
+必要なTaskの縦スライスごとに、次の明示操作を追加するのが現行設計に沿います。
+
+## 現mainで再確認する
+
+リポジトリ直下でfocused testを実行します。
+
+```powershell
+uv run python -m pytest `
+  backend/tests/test_data_lifecycle.py `
+  backend/tests/test_openapi_contract.py
+
+npm run api:check
+```
+
+UIまで変更した場合は、毎回隔離DBを作る既定設定でE2Eを実行します。
+
+```powershell
+npx playwright test e2e/source-lifecycle.spec.ts
+```
+
+成功した場合、contract、domain、persistence、API、生成型、代表的な画面操作が現mainで接続していると確認できます。
+外部object storage、実モデルの学習、Package生成、active化まで成功したとは解釈しません。
+
+## 章末チェック
+
+次の問いに、資産名、path、testを挙げて答えてください。
+
+1. Raw Snapshotで文字列`" 1 "`を数値へ直さない理由は何か。
+2. `content_sha256`と`snapshot_digest`は何が違うか。
+3. primary keyが重複する場合、Raw差分と承認はそれぞれどうなるか。
+4. Cの`target_eligible`がtrueでも標準承認で除外される理由は何か。
+5. DがCanonical Datasetへ入り、Training Snapshotから外れる理由は何か。
+6. quarantined rowをoverrideするために必要な記録は何か。
+7. 同じRecipe IDとversionへ異なる定義を登録できない理由は何か。
+8. Training Snapshot作成がModel Packageを変えないことを、どのtestが確認するか。
+9. repositoryが親資産のdigestを引き直す理由は何か。
+10. 現行E2Eが証明しない範囲は何か。
+
+解答と変更演習は@sec-lab-source-evidenceにあります。

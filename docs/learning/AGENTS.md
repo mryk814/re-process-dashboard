@@ -99,7 +99,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/build.ps1 -Cle
 ```
 
 参照する実装経路のfocused testと生成型checkも実行する。
-試作章では次を使う。
+型付き契約の章では次を使う。
 
 ```powershell
 uv run python -m pytest `
