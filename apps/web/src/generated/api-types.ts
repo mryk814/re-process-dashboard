@@ -4093,6 +4093,13 @@ export interface components {
             /** Supported Task Ids */
             supported_task_ids: string[];
         };
+        /** DataLifecycleActor */
+        DataLifecycleActor: {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+        };
         /** DataLifecycleCatalog */
         DataLifecycleCatalog: {
             /**
@@ -4100,6 +4107,7 @@ export interface components {
              * @default []
              */
             connectors: components["schemas"]["SourceConnector"][];
+            current_actor: components["schemas"]["DataLifecycleActor"];
             /**
              * Recipes
              * @default []
@@ -4133,10 +4141,8 @@ export interface components {
              */
             suggested_view: "lineage" | "source_sheet";
         };
-        /** DatasetApprovalInput */
-        DatasetApprovalInput: {
-            /** Actor */
-            actor: string;
+        /** DatasetApprovalRequest */
+        DatasetApprovalRequest: {
             /**
              * Overrides
              * @default []
@@ -7084,7 +7090,10 @@ export interface components {
              *     } */
             application: components["schemas"]["ApplicationCapability"];
             /** @default {
+             *       "expected_locator": "",
              *       "message": "",
+             *       "recovery_hint": "",
+             *       "resource_id": "",
              *       "schema_version": "task-availability/v1",
              *       "stage": "ready",
              *       "status": "available"
@@ -8324,10 +8333,25 @@ export interface components {
         /** TaskAvailability */
         TaskAvailability: {
             /**
+             * Expected Locator
+             * @default
+             */
+            expected_locator: string;
+            /**
              * Message
              * @default
              */
             message: string;
+            /**
+             * Recovery Hint
+             * @default
+             */
+            recovery_hint: string;
+            /**
+             * Resource Id
+             * @default
+             */
+            resource_id: string;
             /**
              * Schema Version
              * @default task-availability/v1
@@ -8477,10 +8501,8 @@ export interface components {
             /** Values */
             values: (string | number | boolean)[];
         };
-        /** TrainingSnapshotCreateInput */
-        TrainingSnapshotCreateInput: {
-            /** Actor */
-            actor: string;
+        /** TrainingSnapshotCreateRequest */
+        TrainingSnapshotCreateRequest: {
             /** Purpose */
             purpose: string;
             selection_policy?: components["schemas"]["TrainingSnapshotSelectionPolicy"] | null;
@@ -8901,7 +8923,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TrainingSnapshotCreateInput"];
+                "application/json": components["schemas"]["TrainingSnapshotCreateRequest"];
             };
         };
         responses: {
@@ -9035,7 +9057,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["DatasetApprovalInput"];
+                "application/json": components["schemas"]["DatasetApprovalRequest"];
             };
         };
         responses: {

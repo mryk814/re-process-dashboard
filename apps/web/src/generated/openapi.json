@@ -5969,6 +5969,29 @@
         "title": "DataLibraryDataset",
         "type": "object"
       },
+      "DataLifecycleActor": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "DataLifecycleActor",
+        "type": "object"
+      },
       "DataLifecycleCatalog": {
         "additionalProperties": false,
         "properties": {
@@ -5980,6 +6003,9 @@
             "title": "Connectors",
             "type": "array"
           },
+          "current_actor": {
+            "$ref": "#/components/schemas/DataLifecycleActor"
+          },
           "recipes": {
             "default": [],
             "items": {
@@ -5989,6 +6015,9 @@
             "type": "array"
           }
         },
+        "required": [
+          "current_actor"
+        ],
         "title": "DataLifecycleCatalog",
         "type": "object"
       },
@@ -6076,15 +6105,9 @@
         "title": "DataQualityIssue",
         "type": "object"
       },
-      "DatasetApprovalInput": {
+      "DatasetApprovalRequest": {
         "additionalProperties": false,
         "properties": {
-          "actor": {
-            "maxLength": 120,
-            "minLength": 1,
-            "title": "Actor",
-            "type": "string"
-          },
           "overrides": {
             "default": [],
             "items": {
@@ -6100,10 +6123,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "actor"
-        ],
-        "title": "DatasetApprovalInput",
+        "title": "DatasetApprovalRequest",
         "type": "object"
       },
       "DatasetIdentity": {
@@ -13780,7 +13800,10 @@
           "availability": {
             "$ref": "#/components/schemas/TaskAvailability",
             "default": {
+              "expected_locator": "",
               "message": "",
+              "recovery_hint": "",
+              "resource_id": "",
               "schema_version": "task-availability/v1",
               "stage": "ready",
               "status": "available"
@@ -17003,9 +17026,24 @@
       "TaskAvailability": {
         "additionalProperties": false,
         "properties": {
+          "expected_locator": {
+            "default": "",
+            "title": "Expected Locator",
+            "type": "string"
+          },
           "message": {
             "default": "",
             "title": "Message",
+            "type": "string"
+          },
+          "recovery_hint": {
+            "default": "",
+            "title": "Recovery Hint",
+            "type": "string"
+          },
+          "resource_id": {
+            "default": "",
+            "title": "Resource Id",
             "type": "string"
           },
           "schema_version": {
@@ -17366,15 +17404,9 @@
         "title": "TrainingRowExclusion",
         "type": "object"
       },
-      "TrainingSnapshotCreateInput": {
+      "TrainingSnapshotCreateRequest": {
         "additionalProperties": false,
         "properties": {
-          "actor": {
-            "maxLength": 120,
-            "minLength": 1,
-            "title": "Actor",
-            "type": "string"
-          },
           "purpose": {
             "maxLength": 300,
             "minLength": 1,
@@ -17393,10 +17425,9 @@
           }
         },
         "required": [
-          "actor",
           "purpose"
         ],
-        "title": "TrainingSnapshotCreateInput",
+        "title": "TrainingSnapshotCreateRequest",
         "type": "object"
       },
       "TrainingSnapshotSelectionPolicy": {
@@ -18003,7 +18034,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/TrainingSnapshotCreateInput"
+                "$ref": "#/components/schemas/TrainingSnapshotCreateRequest"
               }
             }
           },
@@ -18178,7 +18209,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/DatasetApprovalInput"
+                "$ref": "#/components/schemas/DatasetApprovalRequest"
               }
             }
           },

@@ -52,12 +52,19 @@ function ConnectionBanner({ retrying, onRetry }: { retrying: boolean; onRetry: (
   </div>;
 }
 
-function TaskUnavailablePanel({ message }: { message: string }) {
+function TaskUnavailablePanel({
+  message,
+  onOpenSettings,
+}: {
+  message: string;
+  onOpenSettings: () => void;
+}) {
   return <div className="page-panel task-unavailable-panel" role="status">
-    <span className="overline">TASK UNAVAILABLE</span>
+    <span className="overline">予測タスクの利用状況</span>
     <h2>この予測タスクは一時的に利用できません</h2>
     <p>{message}</p>
     <p>プロジェクト概要では、保存済みの候補・予測・実測・判断履歴を引き続き確認できます。</p>
+    <button type="button" className="primary-button" onClick={onOpenSettings}>参照状態を確認する</button>
   </div>;
 }
 
@@ -148,6 +155,7 @@ function App() {
   const unavailableScopedTab = taskUnavailable
     && !chainProject
     && tab !== "project"
+    && tab !== "settings"
     && tab !== "data-library"
     && tab !== "profile-workbench";
   // Chain projects have no single-task contract, so these views cannot answer
@@ -159,8 +167,7 @@ function App() {
   const qualityAvailable = dataExplorer?.quality === true;
   const lineageAvailable = dataExplorer?.lineage === true;
   const visibleProjectNavItems = projectNavItems.filter((item) => (
-    (!taskUnavailable && !chainProject)
-      || item.id === "project"
+    (!chainProject && (!taskUnavailable || item.id === "project" || item.id === "settings"))
       || (chainProject && item.id === "candidates")
   ) && (!item.requiresDataExplorer || qualityAvailable || lineageAvailable));
   const dataLibraryMode = tab === "data-library" || tab === "profile-workbench";
@@ -368,7 +375,14 @@ function App() {
           onStartProject={startProjectForDataset}
         />}
         {unavailableScopedTab && (
-          <TaskUnavailablePanel message={taskAvailability?.message ?? "このタスクは現在利用できません。"} />
+          <TaskUnavailablePanel
+            message={taskAvailability?.message ?? "このタスクは現在利用できません。"}
+            onOpenSettings={() => navigate({
+              view: "settings",
+              projectId: activeProjectId,
+              adminSection: "developer",
+            })}
+          />
         )}
         {chainScopedTab && (
           <ChainModeUnavailablePanel onOpenCandidates={() => navigate({
@@ -377,11 +391,13 @@ function App() {
             candidateId: selectedId || undefined,
           })} />
         )}
-        {tab === "settings" && !taskUnavailable && !chainProject && (
+        {tab === "settings" && !chainProject && (
           <DeveloperAdminPage
             project={activeProject}
             taskDefinition={taskDefinition}
             resolvedTaskDefinition={resolvedTaskDefinition}
+            readOnly={taskUnavailable}
+            availability={taskAvailability}
             initialSection={navigation.adminSection}
             onSectionChange={(adminSection) => navigate({ ...navigationRef.current, view: "settings", projectId: activeProjectId, adminSection }, true)}
             qualityFilters={{
