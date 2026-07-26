@@ -35,3 +35,21 @@ test("project switch resolves Chain identity from the requested project before l
   assert.match(projectHubSource, /setChainEvaluation\(\{ projectId: activeProjectId, value: item \}\)/);
   assert.match(projectHubSource, /chainEvaluation\?\.projectId === activeProjectId/);
 });
+
+test("Chain project history presents immutable evidence and terminal goals", () => {
+  assert.match(projectHubSource, /workbenchApi\.taskDefinition\(activeProjectId\)/);
+  assert.match(projectHubSource, /configurableOutputs\.length > 0/);
+  assert.match(projectHubSource, /item\.chain_snapshots \?\? \[\]/);
+  assert.match(projectHubSource, /item\.chain_analysis_variants \?\? \[\]/);
+  assert.match(projectHubSource, /item\.chain_distribution_runs \?\? \[\]/);
+  for (const label of [
+    "全Stageを固定",
+    "実測Bを条件にした予測",
+    "不確かさを伝播",
+    "通常のChain結果は置き換えません",
+  ]) {
+    assert.ok(projectHubSource.includes(label), `${label} is visible in Chain history`);
+  }
+  assert.match(projectHubSource, /selectedChainSnapshot[\s\S]*updateProjectDecision/);
+  assert.match(projectHubSource, /terminalStage\.output_definitions/);
+});

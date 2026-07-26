@@ -20,11 +20,12 @@ from material_workbench.modeling.model_lifecycle import (
     validate_lifecycle_metadata,
 )
 from material_workbench.modeling.model_packages import PREDICTOR_RUNTIME_TYPES
+from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.data.importer import training_context_key
 from material_workbench.contracts.schemas import ModelPackageStatus, ModelTrainingDataPage, TaskCatalogItem
 from material_workbench.persistence.store import Store
 from material_workbench.contracts.task_contracts import ResolvedTaskDefinition
-from material_workbench.tasks.task_registry import TaskRegistry
+from material_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
 from material_workbench.contracts.subsystem_availability import (
     SubsystemAvailability,
     SubsystemAvailabilityRegistry,
@@ -542,4 +543,40 @@ def task_definition(
     registry: RegistryDependency,
 ) -> ResolvedTaskDefinition:
     project = project_or_404(store, project_id)
-    return registry.resolved_definition_for(project.task_id)
+    identity = project.scientific_identity
+    if identity.identity_kind == "single_task":
+        return registry.resolved_definition_for(identity.task_id)
+    revision = store.get_chain_revision(identity.chain_revision_id)
+    if (
+        revision is None
+        or revision.revision_digest != identity.chain_revision_digest
+    ):
+        raise HTTPException(
+            409,
+            "プロジェクトに固定されたChain Revisionを読み込めません",
+        )
+    task_stages = [
+        stage for stage in revision.stages if stage.stage_kind == "task"
+    ]
+    if not task_stages:
+        raise HTTPException(409, "Chainに予測Taskがありません")
+    terminal_stage = task_stages[-1]
+    try:
+        contract = registry.contract_for(terminal_stage.contract_id)
+        resolved = registry.resolved_definition_for(terminal_stage.contract_id)
+    except TaskRegistryError as exc:
+        raise HTTPException(
+            409,
+            "Chain終端Taskの固定contractを読み込めません",
+        ) from exc
+    if (
+        semantic_digest(
+            contract.task_definition.model_dump(mode="json")
+        )
+        != terminal_stage.contract_digest
+    ):
+        raise HTTPException(
+            409,
+            "Chain終端Taskのcontract digestが固定Revisionと一致しません",
+        )
+    return resolved
