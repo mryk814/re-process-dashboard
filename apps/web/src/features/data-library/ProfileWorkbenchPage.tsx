@@ -69,8 +69,10 @@ export function ProfileWorkbenchPage({
     && !registration
     && !error,
   );
-  const currentStep = registration ? 6 : inspection?.validation?.registration_ready && !inspection.profile_error ? 5 : inspection ? 3 : file ? 2 : 1;
-  const steps = ["Excel", "Profile候補", "構造差分", "検証", "Dataset登録", "Project作成"];
+  // Every step has to be reachable: inspection produces the structure diff and the
+  // validation together, so they are one step instead of a stage nothing lands on.
+  const currentStep = registration ? 5 : inspection?.validation?.registration_ready && !inspection.profile_error ? 4 : inspection ? 3 : file ? 2 : 1;
+  const steps = ["Excel", "Profile候補", "構造差分・検証", "Dataset登録", "Project作成"];
   const nextAction = registration
     ? "登録したデータセットでプロジェクトを作成するか、データライブラリで確認します。"
     : registering

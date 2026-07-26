@@ -62,3 +62,19 @@ test("Profile Workbench keeps numbering in one stepper and states the next actio
   assert.doesNotMatch(content, />3  内容を確認</);
   assert.doesNotMatch(content, />4  この内容で登録</);
 });
+
+test("every Profile Workbench step is a state the flow can actually reach", async () => {
+  const content = await source("../src/features/data-library/ProfileWorkbenchPage.tsx");
+  const steps = content.match(/const steps = \[([^\]]*)\];/)?.[1];
+  assert.ok(steps, "step labels are declared in one place");
+  const stepCount = steps.split(",").length;
+  const currentStep = content.match(/const currentStep = ([^;]*);/)?.[1];
+  assert.ok(currentStep, "the current step is derived in one place");
+  const reachable = new Set([...currentStep.matchAll(/\d+/g)].map((match) => Number(match[0])));
+  assert.deepEqual(
+    [...reachable].sort(),
+    Array.from({ length: stepCount }, (_, index) => index + 1),
+    "each declared step is reachable by currentStep",
+  );
+  assert.match(content, /構造差分・検証/);
+});
