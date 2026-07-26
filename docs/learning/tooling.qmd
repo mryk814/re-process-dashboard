@@ -1,0 +1,80 @@
+# 組版ツールの選定 {#sec-tooling}
+
+## 比較した問い
+
+試作では、次の条件を同じ重みで比較しました。
+
+- Windowsで同じcommandを再実行できる
+- 一つの原稿から検索可能なHTMLと印刷可能なPDFを生成できる
+- 日本語本文、表、code block、図を扱える
+- 章、図、節の相互参照を持てる
+- 生成物を正本にせずversion controlできる
+- production開発へ重い依存を追加しない
+
+## 比較結果
+
+| 候補 | HTML | PDF | 相互参照 | Windows再現性 | 試作での判断 |
+|---|---|---|---|---|---|
+| Quarto Book + Typst | 検索、章navigation | A4 PDF | 章、節、図、表 | pinned binaryで再現 | 採用 |
+| Quarto Book + LaTeX | 同等 | 成熟した組版 | 強い | TinyTeXを含む依存が大きい | 今回は不採用 |
+| Typst単独 | 別のWeb原稿が必要 | 高品質 | PDF内で可能 | binaryは小さい | 同一原稿HTML条件に合わない |
+| mdBook | 検索可能 | 標準では主用途でない | Web向け | binaryは単純 | PDFを別pipelineにすると二重保守 |
+| Pandoc単独 | 単一HTMLは可能 | engine次第 | 設定可能 | command設計を自前で持つ | book navigationと検索を自作しない |
+
+Quarto Bookは、chapter listを`_quarto.yml`へ置き、HTMLとPDFまたはTypstを同じ章構造から生成できます [@quarto-books]。
+章をまたぐcross referenceも同じsource上で解決できます [@quarto-crossrefs]。
+
+PDF engineにはTypstを採用しました。
+LaTeXより優れていると一般化したためではありません。
+この試作の日本語本文、表、短いcode block、Mermaid図をA4へ出す範囲で、導入するruntimeをQuartoとTypstの二つに限定できたためです。
+
+## 固定version
+
+試作の検証versionは次です。
+
+| Tool | Version |
+|---|---:|
+| Quarto | 1.10.18 |
+| Typst | 0.15.1 |
+
+`docs/learning/build.ps1`は、commandが見つからない場合やversionが違う場合に、黙って別toolへfallbackしません。
+必要なtool、version、取得先を示して停止します。
+
+versionを固定した理由は、PDFのpage count、font fallback、code wrappingがtool更新で変わりうるためです。
+将来versionを上げる場合は、HTML検索とPDFのvisual checkをやり直します。
+
+## build command
+
+リポジトリ直下から実行します。
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/build.ps1
+```
+
+生成物は`docs/learning/_build/`へ出し、`.gitignore`で除外します。
+HTMLとPDFは配布時の確認物であり、手編集する正本ではありません。
+
+## 採用しなかった範囲
+
+EPUBは生成しません。
+現時点で読者需要と検証手順がなく、HTMLとPDFに加えてnavigation、code wrapping、fontを確認する形式が増えるためです。
+
+陳腐化検出も完全自動化しません。
+試作ではpath存在確認、`verified_commit`、focused test、OpenAPI check、手動visual reviewを組み合わせます。
+class名や本文の意味まで自動判定する仕組みは、誤検出と保守コストを測ってから検討します。
+
+## spikeの実測
+
+Windows上のclean buildは、cold側の計測で41.1秒、最終再実行で18.7秒でした。
+同じQuarto原稿から検索indexを持つHTMLと51ページのPDFを生成し、試作章はtitle pageを含めて16ページになりました。
+
+比較候補の確認結果は次です。
+
+- **Quarto + Typst**：固定版binaryを一時領域から実行し、HTMLとPDFの両方を生成できた
+- **Quarto + LaTeX**：TeX engineを環境へ追加する必要があり、今回の原稿で得る追加価値より依存増加が大きいためbuild対象から外した
+- **Typst単独**：固定版binaryの起動は確認したが、同じ原稿から検索可能なHTMLを作る条件を満たさない
+- **mdBook**：環境に未導入であり、標準の主対象がWeb bookであるため、PDF用の第二pipelineを持つ案として不採用にした
+- **Pandoc単独**：Quarto内部の変換では動作を確認したが、book navigation、検索、複数format設定を自前で組み直す案は採らなかった
+
+この比較は、すべてのtoolで同じ見た目を作るbenchmarkではありません。
+完了条件を満たさない候補を小さく落とし、採用候補だけを日本語原稿全体で実測するspikeです。

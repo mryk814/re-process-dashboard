@@ -1,0 +1,92 @@
+# 教材の設計基準 {#sec-foundations}
+
+## 目的と読者
+
+この教材の目的は、用語を覚えさせることではありません。
+開発者が実装上の問題から出発し、契約、処理、画面、検証を結び直せるようにすることです。
+
+想定読者は次の三者です。
+
+- PythonまたはTypeScriptの実務経験があり、Material Decision Workbenchへ参加した開発者
+- 機械学習成果物をアプリへ安全に接続したいMLエンジニア
+- revision、digest、provenanceを持つローカル業務アプリの設計を学びたい開発者
+
+読者はGit、PowerShell、PythonまたはTypeScriptの基礎を知っているものとします。
+一方、Dataset Profile、Model Package、Project scientific identity、Decision Activityは知らない前提で説明します。
+
+この対象設定は、文書が補うべき知識を「読者が作業に必要とする知識から、すでに持つ知識を引いたもの」と考えるGoogleの技術文書講座に倣いました [@google-documents]。
+
+## 先行教材から採用した構成
+
+事前調査では、四つの先行例を比較しました。
+
+| 先行例 | 観察した構成 | この教材で採用する点 |
+|---|---|---|
+| Diátaxis | tutorial、how-to、reference、explanationを読者の必要ごとに分ける | 章の学習進行とコードマップの参照機能を分ける |
+| The Rust Programming Language | concept章とproject章を分け、project章で既出概念を統合する | 試作章を一つの変更経路を追うproject章にする |
+| Django Tutorial | 小さな実例を動かし、前提、期待結果、失敗時の手掛かりを近くに置く | コマンドの直後に観察点と失敗条件を書く |
+| Google Technical Writing | scope、非scope、読者、到達状態を先に固定する | 冒頭で読者と読了後の行動を明示する |
+| GitHub Docs | clarityとmeaningを文法的な統一より優先し、calloutを絞る | calloutを事実区分と危険箇所だけに使う |
+
+Diátaxisは、tutorialを学習志向、referenceを作業中に素早く引く情報として区別します [@diataxis]。
+そこで、試作章は順番に読むlessonとし、ファイル一覧は@sec-code-mapへ分離しました。
+
+The Rust Programming Languageはconcept章とproject章を明示的に分けています [@rustbook]。
+この教材では大規模な概念章を先に増やさず、型、API、画面、テストを一つの題材で接続するproject章を先に置きます。
+必要な概念は、読者がコードで遭遇する直前に短く説明します。
+
+Django Tutorialは、最小のアプリを先に動かし、前提versionと期待する結果を明示します [@djangotutorial]。
+試作章でも、最初に追跡対象と成功条件を示し、最後に実リポジトリのテストを実行します。
+
+GitHub Docsはcalloutを連続させず、節に一つを目安にする方針を示しています [@github-style]。
+本教材の視覚ラベルも、本文の流れを切る価値がある箇所だけに使います。
+
+## 一章のtemplate
+
+各章は次の順序を基本とします。
+
+1. **問題**：実装変更で何が壊れうるかを具体的に置く
+2. **一般概念**：他のプロジェクトでも使える考え方を導入する
+3. **実装を読む**：contractからtestまで、責務の境界を追う
+4. **小さな演習**：変更前に影響範囲を予測し、focused testで確かめる
+5. **設計を振り返る**：採用理由、代替案、現在の限界を分ける
+
+この順序はすべての文書へ強制しません。
+手順だけを引くhow-toや一覧を引くreferenceへ同じ物語構造を持ち込むと、作業中の読者が必要な箇所へ到達しにくくなるためです。
+
+## 書き手の立ち位置
+
+書き手は、答えを一方的に教える講師ではなく、同じリポジトリを少し先まで調べた共同研究者として振る舞います。
+観察、仮説、確認の順に進む詳しい声と確認項目は `docs/learning/writer-persona.md` に固定します。
+
+## 事実と解釈のラベル
+
+本文は、記述の根拠を次の四種類に分けます。
+
+| ラベル | 意味 | 書き方 |
+|---|---|---|
+| `CONFIRMED` | 現mainのコード、テスト、生成物で確認した事実 | path、識別子、検証commitを示す |
+| `DECISION` | ADR、Issue、契約文書で確認した設計意図 | 文書またはIssueへリンクする |
+| `INTERPRETATION` | 教材が理解を助けるために与える読み方 | 事実と同じ断定にしない |
+| `FUTURE` | 未実装の改善候補 | 現在利用できる機能として書かない |
+
+<span class="evidence-label">CONFIRMED</span>
+`DecisionActivityRunRequest.parameters` は、`schema_version`をdiscriminatorにする三つのparameter modelのunionです。
+この事実は `backend/src/material_workbench/contracts/decision_activity_contracts.py` と生成済み `apps/web/src/generated/api-types.ts` の両方で確認できます。
+
+<span class="evidence-label">INTERPRETATION</span>
+このunionは、PythonとTypeScriptの間に「どのActivityのparameterか」を持ち運ぶ封筒として読むと追跡しやすくなります。
+「封筒」は教材上の比喩であり、コード上の型名ではありません。
+
+## 文章とコード断片の規則
+
+文章は、行為者と動作を明示します。
+たとえば「型が生成される」だけで済ませず、「`openapi-typescript`が追跡済みOpenAPIからTypeScript型を生成する」と書きます。
+この方針は、技術文書の大半で能動態を使うGoogleの指針に倣います [@google-active]。
+
+本文には、読者が概念を理解し、次の判断へ進むための主線を置きます。
+知っていると理解が深まる補足、例外、用語の来歴、脇道の実務知識は脚注へ置きます。^[脚注は情報を捨てずに本文の認知負荷を抑えるための退避先です。ただし、前提、結論、危険、操作手順を脚注へ隠すと、脚注を読まない読者が誤るため本文へ残します。]
+脚注を読まなくても段落の論証が成立することを、編集時の判定基準にします。
+
+コード断片は論点に必要な行だけを掲載し、関数全体を複製しません。
+省略した断片には元pathと識別子を付け、読者が現行実装へ移れるようにします。
