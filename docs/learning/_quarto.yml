@@ -4,7 +4,7 @@ project:
 
 book:
   title: "Material Decision Workbench 実装を読む"
-  subtitle: "型付き契約、データの証拠、identity、migration、復元境界を追う"
+  subtitle: "型付き契約、データの証拠、identity、migration、lifecycle、復元境界を追う"
   author: "Material Decision Workbench contributors"
   output-file: "material-decision-workbench-learning"
   date: last-modified
@@ -23,6 +23,8 @@ book:
     - labs/trace-revision-conflict.qmd
     - chapters/trust-a-migrated-database.qmd
     - labs/break-and-repair-migration.qmd
+    - chapters/separate-archive-from-purge.qmd
+    - labs/trace-project-lifecycle.qmd
     - chapters/restore-workspace-safely.qmd
     - labs/trace-workspace-restore.qmd
     - tooling.qmd

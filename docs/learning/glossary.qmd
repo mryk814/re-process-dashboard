@@ -5,6 +5,9 @@
 **additive migration**：既存recordを保持しながらtable、column、indexなどを加え、現在のcontractへ進めるschema変更。
 旧dataの意味を一意に復元できない場合は、仮の過去を発明せずprovenance付きの未確定状態または停止を選ぶ。
 
+**archive**：recordと判断証拠を保持したまま、通常の一覧とwrite経路から外す可逆なlifecycle遷移。
+Project archiveは実行中claimを失効させるが、保存済みevidenceは削除しない。
+
 **canonical input**：source固有の列名や表現を、Taskが解釈できる意味と単位へ正規化した入力。
 
 **contract**：request、response、保存payload、Taskなどが満たすshape、意味、versionの約束。この教材では主にPydantic modelと関連文書を指す。
@@ -29,6 +32,11 @@ Candidateでは`id`が担う。
 現行実装では、migration IDと手動定数のchecksumを実schemaと照合して使う。
 
 **OpenAPI**：HTTP endpoint、parameter、request、response schemaを機械可読に表す契約。FastAPIがPydantic modelから生成する。
+
+**Project-owned evidence**：一つのProjectの判断を再現するため、そのProjectのlifecycleに従って保持または削除するCandidate、revision、Snapshot、実測、保存済みRunなどのrecord。
+
+**purge**：archive済みProjectの所有範囲と外部参照を検査した後、Project-owned evidenceを物理DELETEする不可逆なapplication操作。
+Workspace backupや媒体上の残存byteまで消去するsanitizationとは異なる。
 
 **Online Backup API**：動作中のSQLite databaseから、SQLiteのtransaction境界を保ったsnapshotを別databaseへ作るinterface。
 

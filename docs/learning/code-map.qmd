@@ -40,6 +40,16 @@
 - **診断**：`backend/src/material_workbench/developer_experience/runtime_diagnostics.py`
 - **Test**：`backend/tests/test_candidate_migration.py`、`backend/tests/test_candidate_safety.py`、`backend/tests/test_workspace_catalog_migration.py`、`backend/tests/test_sqlite_connection.py`
 
+### Project archiveとexplicit purge
+
+- **設計記録**：`docs/decisions/sqlite-project-lifecycle-policy.md`
+- **API**：`backend/src/material_workbench/api/projects.py`
+- **Application**：`backend/src/material_workbench/application/projects.py`
+- **Archive、restore、purge plan**：`backend/src/material_workbench/persistence/store.py`
+- **Write guard**：`backend/src/material_workbench/persistence/project_lifecycle_migration.py`
+- **UI**：`apps/web/src/features/projects/ProjectHub.tsx`
+- **Test**：`backend/tests/test_project_lifecycle.py`、`backend/tests/test_projects.py`、`backend/tests/test_data_library_api.py`
+
 ### Project scientific identity
 
 - **Contract**：`backend/src/material_workbench/contracts/chain_contracts.py`、`backend/src/material_workbench/contracts/schemas.py`
@@ -237,7 +247,8 @@ Workspace restoreの章は、Issue #252とPR #282を入口に、SQLite snapshot�
 
 revisionとdigestの章は、[Issue #292](https://github.com/mryk814/re-process-dashboard/issues/292)のうち、logical identity、optimistic concurrency、immutable revision、semantic digest、request identityを扱います。
 SQLite migrationの章は、同Issueのtransaction、marker、checksum、legacy provenance、foreign keyとapplication invariantを扱います。
-二章を合わせてもIssue #292全体の完了を意味せず、archiveとpurgeなどは後続の教材候補です。
+Project lifecycleの章は、同Issueのarchive、restore、explicit purge、write guard、cross-Project provenanceを扱います。
+三章とWorkspace restoreの章を合わせてもIssue #292全体の完了を自動では意味せず、完了条件と現mainの実装を別途監査します。
 
 - [Issue #120：検討アクティビティを導入する](https://github.com/mryk814/re-process-dashboard/issues/120)
 - [PR #122：ロバストネス検討アクティビティを追加する](https://github.com/mryk814/re-process-dashboard/pull/122)
