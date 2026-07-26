@@ -30,8 +30,8 @@ ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SOURCE = ROOT / "data" / "source" / "material_workbench_tutorial_v2.xlsx"
 SOURCE = DEFAULT_SOURCE
 PROCESS_SOURCE = ROOT / "data" / "source" / "material_workbench_process_v1.xlsx"
-PROCESS_ANNEALED_PACKAGE = ROOT / "models" / "packages" / "annealed-gp-stable-ard-process-v1"
-PROCESS_HOT_PACKAGE = ROOT / "models" / "packages" / "hot-rolled-horseshoe-process-v1"
+PROCESS_ANNEALED_PACKAGE = ROOT / "models" / "packages" / "annealed-gp-stable-ard-process-v2"
+PROCESS_HOT_PACKAGE = ROOT / "models" / "packages" / "hot-rolled-horseshoe-process-v2"
 
 
 def test_grouped_quality_report_requires_an_explicit_fold_count() -> None:
@@ -60,8 +60,8 @@ def test_sampling_diagnostics_reject_low_effective_sample_size() -> None:
 @pytest.mark.parametrize(
     ("task_id", "package_id"),
     [
-        ("annealed-properties-v1", "annealed-gp-stable-ard-tutorial-v1"),
-        ("hot-rolled-properties-v1", "hot-rolled-tutorial-v1"),
+        ("annealed-properties-v1", "annealed-gp-stable-ard-tutorial-v2"),
+        ("hot-rolled-properties-v1", "hot-rolled-tutorial-v2"),
     ],
 )
 def test_checked_in_package_passes_production_runtime_verification(task_id: str, package_id: str) -> None:
@@ -84,7 +84,7 @@ def test_canonical_training_dataset_is_deterministic_and_task_specific() -> None
 
 
 def test_verify_rejects_contract_digest_and_quality_report_corruption(tmp_path: Path) -> None:
-    source = ROOT / "models" / "packages" / "hot-rolled-tutorial-v1"
+    source = ROOT / "models" / "packages" / "hot-rolled-tutorial-v2"
     package = tmp_path / "package"
     import shutil
 
@@ -144,6 +144,15 @@ def test_failed_staged_build_preserves_existing_package(tmp_path: Path) -> None:
     assert not destination.with_name(f".{destination.name}.previous-swap").exists()
 
 
+def test_staged_build_cannot_replace_a_checked_in_package() -> None:
+    with pytest.raises(FileExistsError, match="immutable"):
+        with staged_package_destination(
+            ROOT / "models/packages/annealed-gp-stable-ard-tutorial-v2",
+            replace=True,
+        ):
+            pytest.fail("checked-in package replacement must fail before staging")
+
+
 def test_active_package_reference_cannot_escape_models_root(tmp_path: Path) -> None:
     models = tmp_path / "models"
     outside = tmp_path / "outside"
@@ -176,7 +185,7 @@ def test_parent_mean_loo_coverage_does_not_add_observation_noise() -> None:
 def test_alternate_verified_package_needs_no_api_change_and_snapshot_keeps_old_identity(tmp_path: Path) -> None:
     import shutil
 
-    original = ROOT / "models" / "packages" / "annealed-gp-stable-ard-tutorial-v1"
+    original = ROOT / "models" / "packages" / "annealed-gp-stable-ard-tutorial-v2"
     alternate = tmp_path / "annealed-gp-alternate"
     shutil.copytree(original, alternate)
     manifest_path = alternate / "manifest.json"
@@ -208,7 +217,7 @@ def test_app_startup_disables_only_package_trained_from_a_different_source(
 ) -> None:
     import shutil
 
-    source = ROOT / "models" / "packages" / "hot-rolled-tutorial-v1"
+    source = ROOT / "models" / "packages" / "hot-rolled-tutorial-v2"
     package = tmp_path / "hot-rolled-horseshoe"
     shutil.copytree(source, package)
     manifest_path = package / "manifest.json"
@@ -240,8 +249,8 @@ def test_process_source_and_packages_start_and_predict_through_the_api(tmp_path:
     )
     with TestClient(app) as client:
         assert client.get("/api/health").json()["ok"] is True
-        assert client.get("/api/projects/default/model-package").json()["id"] == "annealed-gp-stable-ard-process-v1"
-        assert client.get("/api/projects/hot-rolling-default/model-package").json()["id"] == "hot-rolled-horseshoe-process-v1"
+        assert client.get("/api/projects/default/model-package").json()["id"] == "annealed-gp-stable-ard-process-v2"
+        assert client.get("/api/projects/hot-rolling-default/model-package").json()["id"] == "hot-rolled-horseshoe-process-v2"
 
         lineage = client.get("/api/projects/default/lineage", params={"query": "AN-00001"})
         assert lineage.status_code == 200

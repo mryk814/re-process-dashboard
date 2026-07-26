@@ -44,6 +44,20 @@ REPLACED_MPEA_ROOM_PACKAGE_ID = "mpea-room-tensile-ridge-v1"
 REPLACED_MPEA_ROOM_MANIFEST_DIGEST = (
     "a5c116ca97f84c8ba9f3731531387773d3c6d7448116bcf3a9a77ba7a0e052b0"
 )
+REPLACED_BUNDLED_TUTORIAL_FILENAMES = (
+    "material_workbench_tutorial_v1.xlsx",
+    Path(PRIMARY_DEFAULT_SOURCE).name,
+)
+REPLACED_MODEL_PACKAGE_IDS = {
+    "annealed-gp-stable-ard-process-v1": "annealed-gp-stable-ard-process-v2",
+    "annealed-gp-stable-ard-tutorial-v1": "annealed-gp-stable-ard-tutorial-v2",
+    "annealed-heteroscedastic-gp-process-v1": "annealed-heteroscedastic-gp-process-v2",
+    "annealed-hierarchical-bayes-process-v1": "annealed-hierarchical-bayes-process-v2",
+    "annealed-lightgbm-standard-process-v1": "annealed-lightgbm-standard-process-v2",
+    "annealed-lightgbm-standard-tutorial-v1": "annealed-lightgbm-standard-tutorial-v2",
+    "hot-rolled-horseshoe-process-v1": "hot-rolled-horseshoe-process-v2",
+    "hot-rolled-tutorial-v1": "hot-rolled-tutorial-v2",
+}
 
 
 class WorkspaceCatalogBootstrapError(RuntimeError):
@@ -236,6 +250,54 @@ def bind_legacy_projects(database: str | Path, catalog: WorkspaceCatalog, bindin
     return len(prepared)
 
 
+def migrate_replaced_model_package_projects(database: str | Path) -> int:
+    """Rebind Projects after an accidentally in-place Package revision.
+
+    The old Package directories remain byte-immutable for provenance. Projects
+    move explicitly to the corresponding v2 Package so the current Task
+    contract and the pinned manifest digest change together.
+    """
+
+    migrated_at = datetime.now(UTC).isoformat()
+    updated = 0
+    with sqlite3.connect(database) as conn:
+        conn.row_factory = sqlite3.Row
+        conn.execute("BEGIN IMMEDIATE")
+        for previous_id, current_id in REPLACED_MODEL_PACKAGE_IDS.items():
+            current = conn.execute(
+                "SELECT id,task_contract_digest,manifest_digest "
+                "FROM model_package_refs WHERE package_id=? AND archived_at IS NULL "
+                "ORDER BY created_at DESC,id DESC LIMIT 1",
+                (current_id,),
+            ).fetchone()
+            if current is None:
+                continue
+            result = conn.execute(
+                "UPDATE projects SET task_contract_digest=?,model_package_ref_id=?,"
+                "model_package_manifest_digest=?,binding_migrated_at=? "
+                "WHERE model_package_ref_id IN ("
+                "SELECT id FROM model_package_refs WHERE package_id=?"
+                ")",
+                (
+                    current["task_contract_digest"],
+                    current["id"],
+                    current["manifest_digest"],
+                    migrated_at,
+                    previous_id,
+                ),
+            )
+            updated += result.rowcount
+        conn.execute(
+            "UPDATE model_package_refs SET archived_at=? "
+            f"WHERE package_id IN ({','.join('?' for _ in REPLACED_MODEL_PACKAGE_IDS)}) "
+            "AND NOT EXISTS ("
+            "SELECT 1 FROM projects WHERE model_package_ref_id=model_package_refs.id"
+            ")",
+            (migrated_at, *REPLACED_MODEL_PACKAGE_IDS),
+        )
+    return updated
+
+
 def refresh_replaced_tutorial_projects(
     database: str | Path, bindings: dict[str, ProjectBinding]
 ) -> int:
@@ -250,7 +312,6 @@ def refresh_replaced_tutorial_projects(
     migrated_at = datetime.now(UTC).isoformat()
     updated = 0
     stale_view_ids: set[str] = set()
-    stale_package_ref_ids: set[str] = set()
     with sqlite3.connect(database) as conn:
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
@@ -262,30 +323,25 @@ def refresh_replaced_tutorial_projects(
             "JOIN dataset_view_members vm ON vm.dataset_view_revision_id=v.id "
             "JOIN dataset_revisions d ON d.id=vm.dataset_revision_id "
             "JOIN data_assets a ON a.id=d.data_asset_id "
-            "WHERE a.locator_kind='bundled' AND a.original_filename=?",
-            (Path(PRIMARY_DEFAULT_SOURCE).name,),
+            "WHERE a.locator_kind='bundled' "
+            f"AND a.original_filename IN ({','.join('?' for _ in REPLACED_BUNDLED_TUTORIAL_FILENAMES)})",
+            REPLACED_BUNDLED_TUTORIAL_FILENAMES,
         ).fetchall()
         conn.execute("BEGIN IMMEDIATE")
         for row in rows:
             binding = bindings.get(row["task_id"])
             if binding is None:
                 continue
-            desired = (
-                binding.dataset_view_revision_id,
-                binding.task_contract_digest,
-                binding.model_package_ref_id,
-                binding.model_package_manifest_digest,
-            )
+            desired = (binding.dataset_view_revision_id, binding.task_contract_digest)
             if (
                 row["dataset_view_revision_id"] == binding.dataset_view_revision_id
                 and row["task_contract_digest"] == binding.task_contract_digest
             ):
                 continue
             stale_view_ids.add(row["dataset_view_revision_id"])
-            stale_package_ref_ids.add(row["model_package_ref_id"])
             conn.execute(
                 "UPDATE projects SET dataset_view_revision_id=?,task_contract_digest=?,"
-                "model_package_ref_id=?,model_package_manifest_digest=?,binding_migrated_at=? "
+                "binding_migrated_at=? "
                 "WHERE id=?",
                 (*desired, migrated_at, row["id"]),
             )
@@ -316,12 +372,6 @@ def refresh_replaced_tutorial_projects(
             ")",
             (migrated_at,),
         )
-        for package_ref_id in stale_package_ref_ids:
-            conn.execute(
-                "UPDATE model_package_refs SET archived_at=? WHERE id=? "
-                "AND NOT EXISTS (SELECT 1 FROM projects WHERE model_package_ref_id=?)",
-                (migrated_at, package_ref_id, package_ref_id),
-            )
     return updated
 
 
@@ -450,6 +500,7 @@ def bootstrap_workspace_catalog(database: str | Path, registry: TaskRegistry) ->
     register_primary_datasets(catalog)
     register_available_packages(catalog, registry)
     bind_legacy_projects(database, catalog, bindings)
+    migrate_replaced_model_package_projects(database)
     refresh_replaced_tutorial_projects(database, bindings)
     migrate_replaced_mpea_room_projects(database, bindings)
     archive_unreachable_stale_package_refs(database)

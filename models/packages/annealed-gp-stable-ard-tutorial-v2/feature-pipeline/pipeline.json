@@ -1,0 +1,272 @@
+{
+  "id": "metallurgy-thermal",
+  "version": "4.0.0",
+  "canonical_input_paths": [
+    "composition.C",
+    "composition.Si",
+    "composition.Mn",
+    "composition.P",
+    "composition.S",
+    "composition.Al",
+    "composition.Cu",
+    "composition.Ni",
+    "composition.Cr",
+    "composition.Mo",
+    "composition.Ti",
+    "composition.B",
+    "composition.O",
+    "composition.N",
+    "process.ls_mpm",
+    "heat_pattern"
+  ],
+  "features": [
+    {
+      "name": "C",
+      "unit": "%",
+      "meaning": "C composition",
+      "group": "composition"
+    },
+    {
+      "name": "Si",
+      "unit": "%",
+      "meaning": "Si composition",
+      "group": "composition"
+    },
+    {
+      "name": "Mn",
+      "unit": "%",
+      "meaning": "Mn composition",
+      "group": "composition"
+    },
+    {
+      "name": "P",
+      "unit": "%",
+      "meaning": "P composition",
+      "group": "composition"
+    },
+    {
+      "name": "S",
+      "unit": "%",
+      "meaning": "S composition",
+      "group": "composition"
+    },
+    {
+      "name": "Al",
+      "unit": "%",
+      "meaning": "Al composition",
+      "group": "composition"
+    },
+    {
+      "name": "Cu",
+      "unit": "%",
+      "meaning": "Cu composition",
+      "group": "composition"
+    },
+    {
+      "name": "Ni",
+      "unit": "%",
+      "meaning": "Ni composition",
+      "group": "composition"
+    },
+    {
+      "name": "Cr",
+      "unit": "%",
+      "meaning": "Cr composition",
+      "group": "composition"
+    },
+    {
+      "name": "Mo",
+      "unit": "%",
+      "meaning": "Mo composition",
+      "group": "composition"
+    },
+    {
+      "name": "Ti",
+      "unit": "%",
+      "meaning": "Ti composition",
+      "group": "composition"
+    },
+    {
+      "name": "B",
+      "unit": "%",
+      "meaning": "B composition",
+      "group": "composition"
+    },
+    {
+      "name": "O",
+      "unit": "%",
+      "meaning": "O composition",
+      "group": "composition"
+    },
+    {
+      "name": "N",
+      "unit": "%",
+      "meaning": "N composition",
+      "group": "composition"
+    },
+    {
+      "name": "ce_iiw",
+      "unit": "%",
+      "meaning": "IIW carbon-equivalent proxy",
+      "group": "metallurgy"
+    },
+    {
+      "name": "pcm",
+      "unit": "%",
+      "meaning": "Ito-Bessyo weld-cracking composition parameter",
+      "group": "metallurgy"
+    },
+    {
+      "name": "c_times_mn",
+      "unit": "%²",
+      "meaning": "Carbon-manganese interaction proxy",
+      "group": "metallurgy"
+    },
+    {
+      "name": "si_plus_al",
+      "unit": "%",
+      "meaning": "Combined silicon and aluminium content",
+      "group": "metallurgy"
+    },
+    {
+      "name": "cr_plus_mo",
+      "unit": "%",
+      "meaning": "Combined chromium and molybdenum content",
+      "group": "metallurgy"
+    },
+    {
+      "name": "microalloy_sum",
+      "unit": "%",
+      "meaning": "Available microalloying content, Ti + B",
+      "group": "metallurgy"
+    },
+    {
+      "name": "ac1_proxy_c",
+      "unit": "°C",
+      "meaning": "Simplified Ac1 transformation-temperature proxy",
+      "group": "metallurgy"
+    },
+    {
+      "name": "ac3_proxy_c",
+      "unit": "°C",
+      "meaning": "Simplified Ac3 transformation-temperature proxy",
+      "group": "metallurgy"
+    },
+    {
+      "name": "ms_proxy_c",
+      "unit": "°C",
+      "meaning": "Simplified martensite-start temperature proxy",
+      "group": "metallurgy"
+    },
+    {
+      "name": "ti_after_tin_proxy",
+      "unit": "%",
+      "meaning": "Titanium remaining after stoichiometric TiN allocation",
+      "group": "metallurgy"
+    },
+    {
+      "name": "peak_temperature_c",
+      "unit": "°C",
+      "meaning": "Peak temperature of the annealing history",
+      "group": "heat_pattern"
+    },
+    {
+      "name": "max_heating_rate_c_s",
+      "unit": "°C/s",
+      "meaning": "Maximum positive segment heating rate",
+      "group": "heat_pattern"
+    },
+    {
+      "name": "time_at_or_above_95pct_peak_s",
+      "unit": "s",
+      "meaning": "Time at or above 95% of peak",
+      "group": "heat_pattern"
+    },
+    {
+      "name": "time_at_or_above_700c_s",
+      "unit": "s",
+      "meaning": "Time at or above 700°C",
+      "group": "heat_pattern"
+    },
+    {
+      "name": "thermal_exposure_above_600c_c_s",
+      "unit": "°C·s",
+      "meaning": "Thermal exposure above 600°C",
+      "group": "heat_pattern"
+    },
+    {
+      "name": "cooling_rate_800_to_500_c_s",
+      "unit": "°C/s",
+      "meaning": "Cooling rate between 800°C and 500°C",
+      "group": "heat_pattern"
+    },
+    {
+      "name": "cooling_800_to_500_observed",
+      "unit": "1",
+      "meaning": "Whether the cooling rate is observed",
+      "group": "heat_pattern"
+    },
+    {
+      "name": "reheat_count",
+      "unit": "count",
+      "meaning": "Cooling-to-heating excursions",
+      "group": "heat_pattern"
+    },
+    {
+      "name": "has_reheat",
+      "unit": "1",
+      "meaning": "Whether a reheat excursion exists",
+      "group": "heat_pattern"
+    },
+    {
+      "name": "peak_minus_ac1_c",
+      "unit": "°C",
+      "meaning": "Peak-temperature margin above the Ac1 proxy",
+      "group": "heat_pattern"
+    },
+    {
+      "name": "peak_minus_ac3_c",
+      "unit": "°C",
+      "meaning": "Peak-temperature margin above the Ac3 proxy",
+      "group": "heat_pattern"
+    },
+    {
+      "name": "time_above_ac1_s",
+      "unit": "s",
+      "meaning": "Time above the composition-derived Ac1 proxy",
+      "group": "heat_pattern"
+    },
+    {
+      "name": "time_above_ac3_s",
+      "unit": "s",
+      "meaning": "Time above the composition-derived Ac3 proxy",
+      "group": "heat_pattern"
+    },
+    {
+      "name": "intercritical_time_s",
+      "unit": "s",
+      "meaning": "Time between the Ac1 and Ac3 proxies",
+      "group": "heat_pattern"
+    },
+    {
+      "name": "time_within_10c_of_peak_s",
+      "unit": "s",
+      "meaning": "Time within 10°C of the peak temperature",
+      "group": "heat_pattern"
+    },
+    {
+      "name": "thermal_exposure_above_ac3_c_s",
+      "unit": "°C·s",
+      "meaning": "Thermal exposure above the Ac3 proxy",
+      "group": "heat_pattern"
+    },
+    {
+      "name": "cooling_reaches_ms",
+      "unit": "1",
+      "meaning": "Whether post-peak cooling reaches the Ms proxy",
+      "group": "heat_pattern"
+    }
+  ],
+  "missing_composition": "training_median_from_source_workbook",
+  "heat_interpolation": "piecewise_linear"
+}

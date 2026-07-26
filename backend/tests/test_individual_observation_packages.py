@@ -13,8 +13,8 @@ def test_process_registers_and_runs_standard_and_individual_observation_packages
     resources = _prepare_app_resources(
         SOURCE,
         package_roots={
-            "annealed-properties-v1": ROOT / "models" / "packages" / "annealed-gp-stable-ard-process-v1",
-            "hot-rolled-properties-v1": ROOT / "models" / "packages" / "hot-rolled-horseshoe-process-v1",
+            "annealed-properties-v1": ROOT / "models" / "packages" / "annealed-gp-stable-ard-process-v2",
+            "hot-rolled-properties-v1": ROOT / "models" / "packages" / "hot-rolled-horseshoe-process-v2",
         },
     )
     app = create_app(db_path=tmp_path / "workbench.db", _resources=resources)
@@ -104,10 +104,10 @@ def test_process_registers_and_runs_standard_and_individual_observation_packages
             if item["task_id"] == "annealed-properties-v1"
         ]
         assert {item["package_id"] for item in annealed_packages} >= {
-            "annealed-gp-stable-ard-process-v1",
-            "annealed-lightgbm-standard-process-v1",
-            "annealed-heteroscedastic-gp-process-v1",
-            "annealed-hierarchical-bayes-process-v1",
+            "annealed-gp-stable-ard-process-v2",
+            "annealed-lightgbm-standard-process-v2",
+            "annealed-heteroscedastic-gp-process-v2",
+            "annealed-hierarchical-bayes-process-v2",
         }
         dataset = next(
             item for item in options["datasets"]
@@ -116,10 +116,10 @@ def test_process_registers_and_runs_standard_and_individual_observation_packages
         )
         dataset_view = dataset["dataset_views"][0]
         package_training_units = {
-            "annealed-gp-stable-ard-process-v1": "parent_condition_mean",
-            "annealed-lightgbm-standard-process-v1": "parent_condition_mean",
-            "annealed-heteroscedastic-gp-process-v1": "individual_observation",
-            "annealed-hierarchical-bayes-process-v1": "individual_observation",
+            "annealed-gp-stable-ard-process-v2": "parent_condition_mean",
+            "annealed-lightgbm-standard-process-v2": "parent_condition_mean",
+            "annealed-heteroscedastic-gp-process-v2": "individual_observation",
+            "annealed-hierarchical-bayes-process-v2": "individual_observation",
         }
         for package_id, training_unit in package_training_units.items():
             package = next(item for item in annealed_packages if item["package_id"] == package_id)

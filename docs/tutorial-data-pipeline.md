@@ -151,8 +151,8 @@ Feature PipelineはModel Packageに含まれるPythonコードではありませ
 
 教材のactive Packageは次の2つです。
 
-- `models/packages/annealed-gp-stable-ard-tutorial-v1`
-- `models/packages/hot-rolled-tutorial-v1`
+- `models/packages/annealed-gp-stable-ard-tutorial-v2`
+- `models/packages/hot-rolled-tutorial-v2`
 
 Packageには次を保存します。
 
@@ -173,13 +173,13 @@ Packageには次を保存します。
 $env:PYTHONPATH = "backend/src"
 uv run python backend/scripts/build_default_model_package.py `
   --source data/source/material_workbench_tutorial_v1.xlsx `
-  --output models/packages/annealed-gp-stable-ard-tutorial-v1 `
-  --package-id annealed-gp-stable-ard-tutorial-v1 --replace
+  --output artifacts/model-package-candidates/annealed-gp-stable-ard-tutorial-v2 `
+  --package-id annealed-gp-stable-ard-tutorial-v2 --replace
 
 uv run python backend/scripts/build_hot_rolling_model_package.py `
   --source data/source/material_workbench_tutorial_v1.xlsx `
-  --output models/packages/hot-rolled-tutorial-v1 `
-  --package-id hot-rolled-tutorial-v1 --replace
+  --output artifacts/model-package-candidates/hot-rolled-tutorial-v2 `
+  --package-id hot-rolled-tutorial-v2 --replace
 ```
 
 ## 7. なぜWorkbook、Profile、Packageを別々に版管理するか

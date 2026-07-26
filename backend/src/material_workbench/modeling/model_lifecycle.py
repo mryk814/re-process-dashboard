@@ -19,6 +19,7 @@ from material_workbench.task_modules import DataDescriptor, registered_task_modu
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 MODELS_ROOT = REPOSITORY_ROOT / "models"
+PACKAGES_ROOT = MODELS_ROOT / "packages"
 ACTIVE_PACKAGES_PATH = MODELS_ROOT / "active-packages.json"
 DATASET_PROFILE_PATH = Path(__file__).parent.parent / "data" / "dataset-input-profile-tutorial.json"
 
@@ -27,6 +28,14 @@ DATASET_PROFILE_PATH = Path(__file__).parent.parent / "data" / "dataset-input-pr
 def staged_package_destination(destination: Path, *, replace: bool) -> Iterator[Path]:
     destination = destination.resolve()
     destination.parent.mkdir(parents=True, exist_ok=True)
+    if (
+        destination.exists()
+        and replace
+        and (destination == PACKAGES_ROOT or PACKAGES_ROOT in destination.parents)
+    ):
+        raise FileExistsError(
+            "checked-in Model Packages are immutable; build a new package ID and directory"
+        )
     if destination.exists() and not replace:
         raise FileExistsError(f"refusing to replace existing model package: {destination}")
     if destination.exists() and not (destination / "manifest.json").is_file():

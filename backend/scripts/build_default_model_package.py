@@ -29,8 +29,8 @@ def artifact(root: Path, path: Path) -> dict[str, object]:
     return {"path": path.relative_to(root).as_posix(), "sha256": digest(path), "bytes": path.stat().st_size}
 
 
-PACKAGE_ID = "annealed-gp-stable-ard-tutorial-v1"
-PACKAGE_VERSION = "2.0.0-stable-ard"
+PACKAGE_ID = "annealed-gp-stable-ard-tutorial-v2"
+PACKAGE_VERSION = "2.1.0-stable-ard"
 TRAINING_CODE_REVISION = "stable-ard-multistart-v1"
 def _grouped_training(model: object, target: str) -> tuple[np.ndarray, np.ndarray, float, float]:
     column = TARGETS[target][0]
@@ -354,7 +354,11 @@ def build(source: Path, destination: Path, *, replace: bool = False, package_id:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", type=Path, default=Path("data/source/material_workbench_tutorial_v2.xlsx"))
-    parser.add_argument("--output", type=Path, default=Path("models/packages/annealed-gp-stable-ard-tutorial-v1"))
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("artifacts/model-package-candidates/annealed-gp-stable-ard-tutorial-v2"),
+    )
     parser.add_argument("--replace", action="store_true")
     parser.add_argument("--package-id", default=PACKAGE_ID)
     args = parser.parse_args()

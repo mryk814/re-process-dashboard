@@ -18,7 +18,7 @@ def test_hot_rolling_task_candidates_and_horseshoe_uncertainty(client) -> None:
     assert {item["key"] for item in definition["outputs"]} == {"TS"}
     package = client.get(f"/api/projects/{project_id}/model-package").json()
     assert package["task_id"] == "hot-rolled-properties-v1"
-    assert package["id"] == "hot-rolled-tutorial-v1"
+    assert package["id"] == "hot-rolled-tutorial-v2"
     assert package["active_runtimes"] == ["builtin.posterior_linear.v1"]
     assert package["quality_report"]["split"] == "leave-one-parent-condition-out"
     assert {item["target"] for item in package["quality_report"]["targets"]} == {"TS"}

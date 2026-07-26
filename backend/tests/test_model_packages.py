@@ -240,10 +240,10 @@ def test_builtin_linear_package_and_registry_are_dependency_free(tmp_path: Path)
 def test_checked_in_individual_observation_packages_expose_distinct_uncertainty_components() -> None:
     root = Path(__file__).resolve().parents[2]
     hetero = ModelPackageLoader().load(
-        root / "models" / "packages" / "annealed-heteroscedastic-gp-process-v1"
+        root / "models" / "packages" / "annealed-heteroscedastic-gp-process-v2"
     )
     hierarchical = ModelPackageLoader().load(
-        root / "models" / "packages" / "annealed-hierarchical-bayes-process-v1"
+        root / "models" / "packages" / "annealed-hierarchical-bayes-process-v2"
     )
     for package in (hetero, hierarchical):
         spec = package.manifest.predictors[0]
@@ -381,8 +381,8 @@ def test_loader_rejects_unknown_pipeline_document_fields(tmp_path: Path) -> None
 @pytest.mark.parametrize(
     ("task_id", "package_id", "package_version", "pipeline_version"),
     [
-        ("annealed-properties-v1", "annealed-gp-stable-ard-tutorial-v1", "2.0.0-stable-ard", "4.0.0"),
-        ("hot-rolled-properties-v1", "hot-rolled-tutorial-v1", "1.1.0-feature-design-v3", "3.0.0"),
+        ("annealed-properties-v1", "annealed-gp-stable-ard-tutorial-v2", "2.1.0-stable-ard", "4.0.0"),
+        ("hot-rolled-properties-v1", "hot-rolled-tutorial-v2", "1.2.0-feature-design-v3", "3.0.0"),
     ],
 )
 def test_checked_in_packages_match_task_definition_canonical_input_order(
@@ -405,6 +405,26 @@ def test_checked_in_packages_match_task_definition_canonical_input_order(
     assert package.manifest.feature_pipeline.canonical_input_paths == (
         ordered_canonical_input_paths(fixture.task_definition)
     )
+
+
+def test_superseded_model_package_manifests_remain_byte_immutable() -> None:
+    root = Path(__file__).resolve().parents[2] / "models" / "packages"
+    expected = {
+        "annealed-gp-stable-ard-process-v1": "00c15d389619f9ed440b846235b8474d99cdd16fc5f596197da050be61142da1",
+        "annealed-gp-stable-ard-tutorial-v1": "9e0e25859643aaeb7a6f5d7c8bc9ff4438dc04bb2e0eee8121db6e04da7c9b15",
+        "annealed-heteroscedastic-gp-process-v1": "e41b2746da65aae54560c4dbff9e36f6cdbe93dd7527576b4ce0f32c14175f59",
+        "annealed-hierarchical-bayes-process-v1": "94918dc22dc733742befe6fc986510b463a262bbb5280b84b90ca80488278c2a",
+        "annealed-lightgbm-standard-process-v1": "40fef65618cc0f21e0e685374c096f33e1de28d4750f4869858b031343bc5bd0",
+        "annealed-lightgbm-standard-tutorial-v1": "ec43b93d9d501824dd469904f51202c576e1f0a1b60f21bba22533ba1dcd1db6",
+        "hot-rolled-horseshoe-process-v1": "e3a9ff4bd9b10d050d08a006473a32205e803fc3a571cd7bd449905535c0e885",
+        "hot-rolled-tutorial-v1": "35564d807e682c2773125126109b82c918d24aedd46182155981798c96418a0d",
+    }
+    assert {
+        package_id: hashlib.sha256(
+            (root / package_id / "manifest.json").read_bytes()
+        ).hexdigest()
+        for package_id in expected
+    } == expected
 
 
 def test_canonical_input_order_includes_optional_declared_fields() -> None:

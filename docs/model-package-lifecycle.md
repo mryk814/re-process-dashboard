@@ -67,8 +67,9 @@ npm run task:inventory
 
 `model:build` はアプリ共通形式のデータセットを出力してから、タスク専用builderで学習とPackage構築を行います。
 続いて、そのPackageを本番と同じ推論環境へ読み込み、スモーク結果を再現します。
-既存のPackageディレクトリは、既定では上書きしません。
-`--replace` は、再生成する対象を確認済みの場合だけ明示します。
+`models/packages/`に登録済みのPackageは、`--replace`を指定しても上書きできません。
+契約、学習データ、成果物のどれかが変わる場合は、新しいPackage IDとディレクトリを使います。
+`--replace`を使えるのは、`artifacts/model-package-candidates/`などの未登録の作業出力だけです。
 
 使用Packageの切替後はアプリを再起動します。
 `models/active-packages.json` は信頼済みPackageだけを参照し、任意の外部パスは保存しません。

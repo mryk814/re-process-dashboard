@@ -6,11 +6,11 @@
       "previous": null
     },
     "annealed-properties-v1": {
-      "active": "packages/annealed-gp-stable-ard-tutorial-v1",
+      "active": "packages/annealed-gp-stable-ard-tutorial-v2",
       "previous": null
     },
     "hot-rolled-properties-v1": {
-      "active": "packages/hot-rolled-tutorial-v1",
+      "active": "packages/hot-rolled-tutorial-v2",
       "previous": null
     },
     "flank-wear-v1": {

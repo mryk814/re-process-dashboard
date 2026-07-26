@@ -1,0 +1,177 @@
+{
+  "schema_version": "model-package/v1",
+  "package_id": "hot-rolled-tutorial-v2",
+  "package_version": "1.2.0-feature-design-v3",
+  "task_id": "hot-rolled-properties-v1",
+  "input_schema_version": "hot-rolling-candidate-v2",
+  "input_contract_digest": "sha256:c8e61589fc8ddd773c520d4bc1a09f6d5c2114cd3b49722cc1f844d4726bf11e",
+  "runtime_capability_digest": "sha256:98fb62b42f98b61ddb9ca562ba05ed9d84ba9217e8f5a900d0838e724bfc96c5",
+  "feature_pipeline": {
+    "id": "metallurgy-hot-rolling",
+    "version": "3.0.0",
+    "spec": "feature-pipeline/pipeline.json",
+    "canonical_input_paths": [
+      "composition.C",
+      "composition.Si",
+      "composition.Mn",
+      "composition.P",
+      "composition.S",
+      "composition.Al",
+      "composition.Cu",
+      "composition.Ni",
+      "composition.Cr",
+      "composition.Mo",
+      "composition.Ti",
+      "composition.B",
+      "composition.O",
+      "composition.N",
+      "process.soaking_temperature_c",
+      "process.finish_temperature_c",
+      "process.entry_thickness_mm",
+      "process.exit_thickness_mm",
+      "process.hold_temperature_c",
+      "process.hold_time_min"
+    ],
+    "output_features": [
+      "C",
+      "Si",
+      "Mn",
+      "P",
+      "S",
+      "Al",
+      "Cu",
+      "Ni",
+      "Cr",
+      "Mo",
+      "Ti",
+      "B",
+      "O",
+      "N",
+      "ce_iiw",
+      "pcm",
+      "c_times_mn",
+      "si_plus_al",
+      "cr_plus_mo",
+      "ac1_proxy_c",
+      "ac3_proxy_c",
+      "ms_proxy_c",
+      "ti_after_tin_proxy",
+      "soaking_temperature_c",
+      "finish_temperature_c",
+      "entry_thickness_mm",
+      "exit_thickness_mm",
+      "hold_temperature_c",
+      "hold_time_min",
+      "total_reduction_percent",
+      "log_thickness_strain",
+      "ar3_proxy_c",
+      "soak_minus_ac3_c",
+      "finish_minus_ar3_c",
+      "hold_minus_ac1_c",
+      "hold_exposure_above_ac1_c_min",
+      "soak_to_finish_drop_c"
+    ],
+    "artifacts": [
+      "reference/training_stats.json"
+    ]
+  },
+  "predictors": [
+    {
+      "id": "ts-horseshoe",
+      "target": "TS",
+      "unit": "MPa",
+      "target_kind": "continuous",
+      "runtime_type": "builtin.posterior_linear.v1",
+      "architecture_id": "posterior_linear_v1",
+      "artifact": "model-artifacts/TS.npz",
+      "predictive_family": "normal",
+      "feature_names": [
+        "C",
+        "Si",
+        "Mn",
+        "P",
+        "S",
+        "Al",
+        "Cu",
+        "Ni",
+        "Cr",
+        "Mo",
+        "Ti",
+        "B",
+        "O",
+        "N",
+        "ce_iiw",
+        "pcm",
+        "c_times_mn",
+        "si_plus_al",
+        "cr_plus_mo",
+        "ac1_proxy_c",
+        "ac3_proxy_c",
+        "ms_proxy_c",
+        "ti_after_tin_proxy",
+        "soaking_temperature_c",
+        "finish_temperature_c",
+        "entry_thickness_mm",
+        "exit_thickness_mm",
+        "hold_temperature_c",
+        "hold_time_min",
+        "total_reduction_percent",
+        "log_thickness_strain",
+        "ar3_proxy_c",
+        "soak_minus_ac3_c",
+        "finish_minus_ar3_c",
+        "hold_minus_ac1_c",
+        "hold_exposure_above_ac1_c_min",
+        "soak_to_finish_drop_c"
+      ],
+      "config": {
+        "training_unit": "parent_condition_mean",
+        "method": "tiny_demo_ridge_posterior",
+        "output_representation": "moment_matched_normal"
+      }
+    }
+  ],
+  "provenance": {
+    "training_data_id": "sha256:b9b89cd545517a3abbc21715a0cd14acc8bab66541da558de3e305f28ee908d9",
+    "feature_dataset_id": "sha256:7c1a21a888c2da8d7ecbcc19c96e6eed8371998ff32f9853b271ea3fd9b4b48f",
+    "training_code_revision": "1.1.0-feature-design-v3",
+    "dataset_profile_id": "sha256:5e52335ef97ace6e2bf2fc5342c7f470352fb2e41a82ee6a1b7da822d13ec5fb"
+  },
+  "artifacts": [
+    {
+      "path": "feature-pipeline/pipeline.json",
+      "sha256": "8cf00cb346e3ec49eb4cce32a4324ffc41ccc799a2138f642589578ed87e6214",
+      "bytes": 5578
+    },
+    {
+      "path": "model-artifacts/TS.npz",
+      "sha256": "078ebf8270b4b6ef039113f4326f15ae7e47a6f99b9b4d64f1698ff43f62dfe6",
+      "bytes": 312364
+    },
+    {
+      "path": "reference/training_stats.json",
+      "sha256": "0f288b05102dd654d7f772bb79b8cd7218c4e8a9a17ff1a02a51df5aa6cf6575",
+      "bytes": 373
+    },
+    {
+      "path": "reports/quality-report.json",
+      "sha256": "00d68bf5f9642da58b64b3fd75f4cf5472ba49a068b0c43008b8822cf1d99d42",
+      "bytes": 381
+    },
+    {
+      "path": "smoke/input.json",
+      "sha256": "36ef9d41db2844adca777cc130dc8a766a3ec516ec113ed590dd3ca634ff082d",
+      "bytes": 918
+    },
+    {
+      "path": "smoke/expected.json",
+      "sha256": "303f8038c05f1c7d81dc87c1358134c446c81b62e994b8e017da5862f097596c",
+      "bytes": 24
+    }
+  ],
+  "smoke_test": {
+    "input": "smoke/input.json",
+    "expected": "smoke/expected.json"
+  },
+  "quality_report": "reports/quality-report.json"
+}
