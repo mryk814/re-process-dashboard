@@ -66,7 +66,8 @@ test("project history shows a Japanese reason and disables changes for unavailab
   assert.match(projectHub, /推論と変更操作は停止しています/);
   // Unavailable tasks and an unreachable API both make changes inert.
   assert.match(projectHub, /disabled=\{taskUnavailable \|\| offline\}/);
-  assert.match(projectHub, /if \(!taskUnavailable\)/);
+  // The guard may carry more conditions; it must still gate on availability.
+  assert.match(projectHub, /if \(!taskUnavailable\b/);
 });
 
 test("the fixed reference strip reads in Japanese and keeps digests in one collapsed block", () => {

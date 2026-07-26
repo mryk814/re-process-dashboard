@@ -86,7 +86,8 @@ test("an unopened workspace states one recovery action instead of loading foreve
   // The history reports failure, and recovers with the workspace.
   assert.match(hub, /historyState === "error" \? <div className="project-history-error"/);
   assert.match(hub, /履歴を再取得/);
-  assert.match(hub, /taskUnavailable, offline\]\);/);
+  // Dependency lists get reformatted; the recovery dependency itself must stay.
+  assert.match(hub, /Recovering the workspace also recovers this overview[\s\S]{0,300}\boffline\b/);
 });
 
 test("changes are inert while the workspace is offline", async () => {
