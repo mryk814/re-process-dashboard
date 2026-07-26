@@ -1,8 +1,17 @@
 # Material Decision Workbench
 
-材料組成、工程条件、切削条件の候補を比較し、予測特性、予測幅、学習範囲、類似する過去実験を同じ判断面で確認するローカルアプリです。
+材料組成、工程条件、切削条件、疎な原料配合の候補を比較し、予測特性、予測幅、学習範囲、類似する過去実験、実測とのずれを同じ判断面で確認するローカルアプリです。
 
-変更箇所や再生成物を判断するときは [Developer Start Here](docs/developer-start-here.md) から始めてください。個別のプロダクト、データ、モデル、実行、配布文書は [ドキュメント索引](docs/README.md) から参照できます。
+一つのPrediction Taskを扱うProjectに加え、再利用可能なTask／決定論的transformをbindingした多段Chain Projectを扱います。Chainでは段別実行、変更段以降だけの再計算、段単体／通し評価、中間実測variant、明示的な不確かさ伝播を利用できます。
+
+変更箇所や再生成物を判断するときは [Developer Start Here](docs/developer-start-here.md) から始めてください。現在のProject mode、再利用境界、v1固有前提は [現行システム基準](docs/current-system-baseline.md)、個別文書は [ドキュメント索引](docs/README.md) から参照できます。
+
+## Project mode
+
+- **single-task**：Dataset View、Task contract、Model Packageを固定し、候補比較、予測、応答曲線、Snapshot、実測照合、検討アクティビティを行います。
+- **chain**：Chain Revisionを固定し、順序付きStageとbindingを段別に実行します。現在のproduction縦切りは、疎な原料配合から材料成分、溶着金属成分、特性へ進む溶接材料A→B→Cです。
+
+現在のTask、source、Profile、active Package、runtime／application capabilityは [生成済みTask inventory](docs/task-inventory.json) を正本とします。READMEへ件数や全Task一覧を手書きで複製しません。
 
 ## 開発起動
 
@@ -56,14 +65,12 @@ pytest、型検査、build、作業ツリー、`origin/main...HEAD` の差分検
 npm run verify:full
 ```
 
-GitHubのPRと`main`へのpushでも同じ全体検証が自動実行されます。
+GitHubのPRと`main`へのpushでも同じ全体検証を実行します。Actionsが利用できない場合は、ローカルのfull gateと変更リスクに応じたbrowser／packaged smokeをPR本文へ記録します。
 CIはNode `22.20.0`、npm `11.4.2`、uv `0.9.15`を固定し、`package-lock.json`と`uv.lock`から依存関係を導入します。
-ブラウザ確認、配布版デスクトップ、実データベース移行などは変更リスクに応じて手動実施し、PR本文へ結果を記録します。
 
-モデルPackageを更新した場合は、`npm run models:build:annealed`、`npm run models:build:hot-rolling`、`npm run models:build:flank-wear` の対応するコマンドで、artifact、品質レポート、manifestを必ず同時に再生成します。
-新しいPackageの作成、検証、使用対象への切替、ロールバックは [モデルPackageのライフサイクル](docs/model-package-lifecycle.md) の手順を使います。
-現行タスクのソース、プロファイル、推論環境、能力は [生成済みタスク一覧](docs/task-inventory.json) で確認できます。
-`npm run task:inventory:check` は実装とのずれを検出します。
+モデルPackageを更新した場合は、対象Taskのbuilderでartifact、品質レポート、manifestを必ず同時に再生成します。新しいPackageの作成、検証、使用対象への切替、ロールバックは [モデルPackageのライフサイクル](docs/model-package-lifecycle.md) の手順を使います。
+
+`npm run task:inventory:check` はTask登録、source／Profile、active Package、capabilityのdriftを検出します。
 
 ### フロントエンドAPI契約
 
@@ -79,54 +86,34 @@ npm run api:check     # schema・生成型のdrift検出
 ## データ
 
 `data/source/` のExcelとCSVは読取専用の正本として扱います。
-同梱する正本と、それを使うTask、Profile、active Packageの現行対応は [生成済みタスク一覧](docs/task-inventory.json) で確認できます。
-最小教材と工程データは焼鈍特性と熱延特性に使う共通契約へ正規化し、切削摩耗や外部表形式データはそれぞれ独立したTask契約と特徴量パイプラインを使います。
-最小教材を使ってExcelからModel Packageまで追う場合は [開発者向け教材ガイド](docs/tutorial-data-pipeline.md) を参照してください。
+同梱するsourceと、それを使うTask、Profile、active Packageの対応は [生成済みTask inventory](docs/task-inventory.json) で確認できます。
 
-Excelの外部シートや列と、アプリ内部の意味との対応はDataset Input Profileで一元管理します。
-起動時はソースの構造から対応するProfileを選び、工程、観測、系譜、データ品質を構築します。
-契約とソース追加の手順は [データセット入力プロファイル](docs/dataset-input-profile.md) を参照してください。
+外部シート、列、単位、entity、relation、観測familyとアプリ内部の意味との対応は、データ形状に応じたDataset Profileで管理します。Profile schemaを万能な一種類へ押し込まず、すべての派生学習行でtarget eligibility、split group、provenance、除外理由を保持します。
 
-焼鈍特性と熱延特性を工程データで起動する場合は、検証済みのソースとPackageをまとめて指定するスクリプトを使えます。
-
-```powershell
-npm run dev:process
-```
-
-焼鈍特性と熱延特性へ新しいソースを追加するときは、アプリを起動する前に構造と契約を確認します。
+最小教材を使ってExcelからModel Packageまで追う場合は [開発者向け教材ガイド](docs/tutorial-data-pipeline.md) を参照してください。新しいsourceの構造と契約を確認する場合は、対応するProfile Workbench／verification commandを使います。
 
 ```powershell
 uv run python backend/scripts/verify_dataset_source.py path/to/new-source.xlsx --json
 ```
 
-ソースに対応するPackageの作成、検証、切替は [モデルPackageのライフサイクル](docs/model-package-lifecycle.md) を参照してください。
+候補、Candidate Revision、Project、Prediction Snapshot、Screening Run、Decision Activity Run、実測、Chain実行・Snapshot・不確かさRunは `data/workbench.db` に保存します。保存済み結果を新しいsourceやPackageで自動再計算しません。
 
-候補・プロジェクト・予測スナップショット・実測値は `data/workbench.db` に保存します。対応タスクでは候補一覧を画面からXLSXで入出力でき、焼鈍特性ではヒートパターンも往復保持されます。
+対応Taskでは候補一覧を画面からXLSXで入出力でき、焼鈍特性ではヒートパターンも往復保持されます。Chainの疎配合候補は、Projectが固定した科学master、商用catalog、Design Spaceと照合して保存します。
 
 ## モデルPackage
 
-既定の学習済みPackageは `models/packages/annealed-gp-stable-ard-tutorial-v1` です。ガウス過程回帰が90%予測区間を返し、モデル由来の不確かさと反復測定由来のばらつきを分けて表示します。予測時にmanifest・artifact hash・特徴量順序・smoke inputを検証し、画面の「プロジェクト」で有効なPackageとruntimeを確認できます。
+Model Packageはdata-onlyであり、allow-list済みadapterだけが読み込みます。予測時にmanifest、artifact hash、Task／Feature Pipeline契約、smoke inputを検証します。
 
-熱延後特性は独立した `hot-rolled-properties-v1` タスクで、`models/packages/hot-rolled-tutorial-v1` の正則化Horseshoe回帰を使用します。熱延v1は設備・試験片方向を推定条件として区別せず、利用可能な熱延引張観測をまとめて学習し、物理範囲外の観測だけを除外します。事後係数の縮小結果はPackage内の `reports/selection-report.json`、学習健全性は `reports/training-diagnostics.json` に保存します。
+既定で使用するPackageは、`models/active-packages.json` でTaskごとに固定します。active Packageは新規Projectの既定候補であり、既存Projectが固定したPackageへ暗黙fallbackしません。
 
-切削逃げ面摩耗は `flank-wear-v1` タスクで、`models/packages/flank-wear-gp-2026-07` のexact GPを使用します。切削距離に対する`VB_mean`と`VB_max`の応答曲線を、材料、工具、切削条件とともに比較します。
+開発中に検証済みPackageを一時的に試す場合だけ、信頼できるローカルPackageの絶対パスをTask対応のenvironment variableへ指定します。
 
-既定で使用するPackageは、`models/active-packages.json` でタスクごとに固定します。
-開発中に検証済みPackageを一時的に試す場合だけ、信頼できるローカルPackageの絶対パスを指定します。
+同じ外部Predictive Summary契約で、線形モデル、LightGBM、exact GP、posterior linear、静的確率モデルなどのallow-list済みruntimeを利用できます。新しいモデルは [I/O契約別のModel Runtime事例索引](docs/model-runtime-examples/index.md) から近い経路を選びます。
 
-```powershell
-$env:MATERIAL_WORKBENCH_MODEL_PACKAGE = "C:\models\annealed-bnn"
-$env:MATERIAL_WORKBENCH_HOT_ROLLING_MODEL_PACKAGE = "C:\models\hot-rolling-gp"
-$env:MATERIAL_WORKBENCH_FLANK_WEAR_MODEL_PACKAGE = "C:\models\flank-wear-gp"
-npm run dev
-```
+契約と安全境界は [Model Package契約](docs/model-package-contract.md)、特徴量は [Feature Engineering](docs/feature-engineering.md)、Chainは [Chain実行](docs/chain-execution.md) と [多段Chain ADR](docs/decisions/multistage-chain-architecture.md) を参照してください。
 
-同じ契約で `sklearn/skops`、LightGBM native Booster、GPyTorch static RBF、NumPyro BNN posteriorを利用できます。
-任意導入の推論環境をまとめて検証する場合は、次を実行します。
+## 現在の拡張境界
 
-```powershell
-uv sync --extra dev --extra runtime-sklearn --extra runtime-lightgbm --extra runtime-gpytorch
-uv run python -m pytest backend/tests/test_optional_adapters.py
-```
+現在の実装は、同じ意味・同じ構造のデータ差し替え、新しい標準Tabular Task、Model Package差し替えには強い一方、画像、一般的な可変長系列、新しいCandidate Shape、溶接以外のChain、新しいDecision Activityには明示的な型付き拡張が必要です。
 
-NumPyroのNormal、Student-t、LogNormal、Bernoulli、Poisson、Negative Binomial、zero-inflated Poisson、ordinal logitの8つの実Package例は `examples/model-packages/numpyro` にあります。新しいモデルは [I/O契約別のModel Runtime事例索引](docs/model-runtime-examples/index.md) から最も近い経路を選びます。契約と安全境界は `docs/model-package-contract.md`、冶金・ヒートパターン特徴は `docs/feature-engineering.md` を参照してください。
+任意pluginや任意JSONで柔軟性を得るのではなく、科学的意味と履歴を厳格に保ったまま、二つ目の異なるユースケースで共通境界を反証します。詳細は [現行システム基準](docs/current-system-baseline.md) を参照してください。
