@@ -2,7 +2,7 @@
 
 この文書は「何を変更したいか」から、変更する契約、生成物、検証を決める入口です。
 
-最初に [現行システム基準](current-system-baseline.md) で、現在のProject mode、再利用できる境界、v1固有前提を確認してください。実装一覧は [task-inventory.json](task-inventory.json)、個別契約は各Profile、[特徴量](feature-engineering.md)、[Model Package](model-package-contract.md)、[Chain実行](chain-execution.md)、[検討アクティビティ](decision-activities.md) を正本とします。
+最初に [現行システム基準](current-system-baseline.md) で、現在のProject mode、再利用できる境界、v1固有前提を確認してください。実装一覧は [task-inventory.json](task-inventory.json)、個別契約は [Dataset Input Profile](dataset-input-profile.md)、各Profile、[特徴量](feature-engineering.md)、[Model Package](model-package-contract.md)、[Chain実行](chain-execution.md)、[検討アクティビティ](decision-activities.md) を正本とします。
 
 ## 最初の判断表
 
@@ -170,7 +170,7 @@ Feature Pipelineの意味や順序が変わればversionとPackageを新しく�
 - この文書
 - `docs/README.md`
 - `docs/task-inventory.json`
-- FastAPI OpenAPIと`apps/web/src/generated/`
+- FastAPI OpenAPIと`apps/web/src/generated/`（更新は `npm run api:generate`）
 - 関連ADRの状態欄と追跡先
 
 ## レシピ
