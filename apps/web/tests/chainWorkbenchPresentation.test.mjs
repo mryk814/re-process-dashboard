@@ -33,6 +33,28 @@ test("freshness and actual source are separate labels", () => {
   assert.match(source, /通常Chainを上書きしません/);
 });
 
+test("Chain output tables use pinned presentation metadata and state uncertainty beside values", () => {
+  assert.match(source, /stageB\?\.output_definitions/);
+  assert.match(source, /stageC\?\.output_definitions/);
+  assert.match(source, /definition\.label/);
+  assert.match(source, /definition\.unit\.trim\(\)/);
+  assert.match(source, /definition\.display_decimals/);
+  assert.match(source, /displayDecimalOverrides\?\.\[`output\.\$\{definition\.key\}`\]/);
+  assert.match(source, /useProjectOverride\s*\?\s*displayDecimalOverrides/);
+  assert.match(source, /predictionCell\(stageCPredictions\[definition\.key\], definition, true\)/);
+  assert.match(source, /標準偏差 ±/);
+  assert.doesNotMatch(source, /モデル由来 ±/);
+  assert.match(source, /区間なし/);
+  assert.doesNotMatch(source, /<th>\{key\}<\/th>/);
+  assert.doesNotMatch(source, /Object\.keys\(stageCPredictions\)/);
+  assert.match(source, /chain-snapshot-output-table/);
+  assert.match(source, /stage\.stage_id === "A"[\s\S]*JSON\.stringify\(stage\.result/);
+  assert.match(source, /execution\?\.chain_revision_digest === viewedSnapshot\.identity\.chain_revision_digest/);
+  assert.match(source, /stageBDefinitions\.map\(\(definition\)/);
+  assert.doesNotMatch(source, /actual-value-grid[^]*<span>\{key\}<\/span>/);
+  assert.match(app, /displayDecimalOverrides=\{activeProject\?\.display_decimals\}/);
+});
+
 test("editing keeps reserved layout surfaces while recomputation changes state", () => {
   assert.match(source, /編集停止後に自動保存・再計算します/);
   assert.match(source, /window\.setTimeout/);

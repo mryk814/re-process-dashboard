@@ -22,6 +22,10 @@ export function formatTaskNumber(
   overrides?: Record<string, number>,
 ): string {
   const digits = taskDisplayDecimals(definition, key, overrides);
+  return formatNumberAtDecimals(value, digits);
+}
+
+export function formatNumberAtDecimals(value: number, digits: number): string {
   return value.toLocaleString("ja-JP", {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
