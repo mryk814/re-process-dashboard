@@ -75,6 +75,7 @@ code_references:
 - 本文には理解と判断に必要な主線を置き、補足、例外、来歴、脇道の実務知識は脚注へ置く。
 - 脚注を読まなくても論証が成立するようにする。結論、前提、危険、操作手順を脚注へ隠さない。
 - 脚注は「あると嬉しい」情報だけに使い、一つの脚注へ複数の話題を詰め込まない。
+- 脚注は、直近の主張の誤読を防ぐ限定、用語の来歴、一次資料への導線に絞る。章を越えて一般化する資料はFurther Readingへ置く。
 - 日本語本文で空虚な強調、同じ結論の言い換え、過剰な予告と総括を避ける。
 
 文章と構成を新しく決める場合は、公式教材または公式style guideを事前調査する。
@@ -83,6 +84,7 @@ code_references:
 ## 正本と生成物
 
 - 正本は `*.qmd`、`*.bib`、`_quarto.yml`、`styles/`、PowerShell scriptである。
+- 参考文献の書誌情報は `references.bib`、教材上の役割と読書案内は `reference-annotations.json` を正本にする。
 - `docs/learning/_build/`は生成物であり、commitしない。
 - generated HTMLとPDFを手編集しない。
 - 既存の `docs/tutorial-data-pipeline.md` は移動せず、必要な学習ルートから参照する。
@@ -96,6 +98,12 @@ code_references:
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-references.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-main-drift.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/build.ps1 -Clean
+```
+
+参考文献のURL到達性を再確認するときだけ、外部networkを使う次の検査を追加する。
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-reference-urls.ps1
 ```
 
 参照する実装経路のfocused testと生成型checkも実行する。

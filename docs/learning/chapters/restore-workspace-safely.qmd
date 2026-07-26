@@ -445,3 +445,9 @@ content digestで分離されるため現Workspaceの意味内容は変えませ
 8. unit testとpackaged smokeが互いに代替できない理由は何か。
 
 解答と故障予測の演習は[復元の途中で止まったWorkspaceを診断する](../labs/trace-workspace-restore.qmd)にあります。
+
+## Further Reading
+
+- SQLiteの*Backup API* [@sqlite-backup]：稼働中databaseの整合したsnapshotを単純file copyと区別します。Workspace全体のbundle仕様にはなりません。
+- Python `zipfile`の*Decompression pitfalls* [@python-zipfile]：member pathを展開前に検査する理由を確認します。digestとrollbackは別の境界です。
+- *Building Secure and Reliable Systems*の*Design for Understandability*と*Recovery from Failure* [@google-bsrs]：trust boundaryと復旧経路をsystem invariantから読みます。Google規模の運用構成をそのまま採用しません。

@@ -18,7 +18,7 @@
 
 ## 先行教材から採用した構成
 
-事前調査では、四つの先行例を比較しました。
+事前調査では、五つの先行例を比較しました。
 
 | 先行例 | 観察した構成 | この教材で採用する点 |
 |---|---|---|
@@ -90,3 +90,20 @@ GitHub Docsはcalloutを連続させず、節に一つを目安にする方針�
 
 コード断片は論点に必要な行だけを掲載し、関数全体を複製しません。
 省略した断片には元pathと識別子を付け、読者が現行実装へ移れるようにします。
+
+## 引用と参考文献の規則
+
+外部資料は、公式documentation、仕様書と標準、original research paper、公式repositoryとmaintainer discussion、専門書、組織のtechnical reportの順に探します。
+QiitaとZennは、教材の技術的根拠として使用しません。
+十分な一次情報を確認できない場合は、二次記事で穴を埋めず、未確認であることを明記します。
+
+一般概念の定義、数理式の出典、歴史上の主張、標準要件、実証結果にはcitationを置きます。
+現行repoの実装、supported Runtime、画面、test behaviorは、外部資料ではなくcurrent code、test、生成物を根拠にします。
+
+引用は要約を基本とし、短い定義を引用する場合も出典を示します。
+書籍本文と図表を教材へ転載せず、必要な図は独自に再構成して着想元を示します。
+licenseを確認できない画像は使用しません。
+
+中核参考文献には、role、難易度、関連概念、repo経路、推奨section、読む理由、読書問い、適用上の注意、open access状態、edition確認状態を記録します。
+書誌情報は `docs/learning/references.bib`、教材上の注釈は `docs/learning/reference-annotations.json` を正本にします。
+読者向けの選び方と読書順は[読む目的から選ぶ参考文献](references.qmd)にまとめます。

@@ -852,3 +852,10 @@ field名、required、literal、union、endpoint bodyの機械的な同期を担
 10. E2Eが数値をすべて固定せず、表示上の区別を確認する理由は何か。
 
 解答と変更演習は[契約変更の影響範囲を予測する](../labs/extend-contract.qmd)にあります。
+
+## Further Reading
+
+- OpenAPI Specificationの*Schema Object*と*Discriminator Object* [@openapi-311]：PythonからTypeScriptへ運べるshapeを確認します。科学的な表示文脈まで運べるとは解釈しません。
+- Pydanticの*Discriminated Unions* [@pydantic-unions]：variant選択を明示fieldへ固定する方法を読みます。Project ownershipのようなDB依存条件は対象外です。
+- TypeScript Handbookの*Discriminated unions* [@typescript-narrowing]：生成unionをfrontendでnarrowingする経路を確認します。時間的にstaleなresponseの検出は別問題です。
+- PercivalとGregoryの*Repository Pattern*と*Service Layer* [@cosmic-python]：境界の比較語彙を得ます。現行`Store`をpatternどおりに分割する処方箋にはしません。

@@ -530,3 +530,9 @@ npx playwright test e2e/source-lifecycle.spec.ts
 11. 現行E2EとTask固有acceptance testが、それぞれ証明しない範囲は何か。
 
 解答と変更演習は[行が学習対象になるまでを追跡する](../labs/trace-source-evidence.qmd)にあります。
+
+## Further Reading
+
+- *The Turing Way*の*Guide for Reproducible Research* [@turing-way]：再現性をcode、data、environment、collaborationへ広げます。同じ結果が科学的に正しいことまでは保証しません。
+- *Research Software Engineering with Python*の*Research Data Management* [@rse-python]：研究dataと変更履歴を共有可能にする基礎作業を補います。本章固有のasset contractの代替にはしません。
+- *Designing Data-Intensive Applications*の*Data Models and Query Languages*と*Encoding and Evolution* [@kleppmann-ddia2]：正本、派生物、schema evolutionを一般化します。分散systemの構成をlocal SQLiteへ持ち込みません。

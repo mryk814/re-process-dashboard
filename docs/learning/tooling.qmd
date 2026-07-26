@@ -58,6 +58,19 @@ versionを固定した理由は、PDFのpage count、font fallback、code wrappi
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/build.ps1
 ```
 
+`check-references.ps1`は、repo path、BibTeX citekey、注釈台帳、本文citation、章末Further Readingをnetworkなしで検査します。
+実行成功は、URLが現在到達可能であることや、publisherの公式性をnetwork越しに証明しません。
+
+URLを再確認する場合だけ、次の明示commandを実行します。
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File docs/learning/check-reference-urls.ps1
+```
+
+この検査は各URLへHEADを送り、serverがHEADを受け付けない場合はGETへ切り替えます。
+外部networkの一時的な失敗をbook buildの失敗へしないため、通常のbuild gateには含めません。
+
 生成物は`docs/learning/_build/`へ出し、`.gitignore`で除外します。
 HTMLとPDFは配布時の確認物であり、手編集する正本ではありません。
 

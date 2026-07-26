@@ -417,3 +417,9 @@ WALへ変える場合は、並行性だけでなくbackup、sidecar停止、file
 8. foreign keyで表現しやすい条件は何か。
 9. JSON内部のprovenanceをapplicationで検証する理由は何か。
 10. 一件のmigration失敗と、migration列の途中停止はどう違うか。
+
+## Further Reading
+
+- SQLiteの*Deferred, Immediate, and Exclusive Transactions* [@sqlite-transactions]：migration開始時のwriter境界を確認します。migration列全体が一transactionだとは読み替えません。
+- SQLiteの*Making Other Kinds Of Table Schema Changes* [@sqlite-alter-table]：table再構築が必要なschema変更を読みます。markerとchecksumの運用は別に設計します。
+- SQLiteの*Enabling Foreign Key Support* [@sqlite-foreign-keys]：connectionごとの有効化と検査範囲を確認します。JSON内provenanceは対象外です。

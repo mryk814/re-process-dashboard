@@ -420,3 +420,10 @@ purgeはProject-scoped evidenceを削除しますが、Workspace backupやexport
 8. `ON DELETE CASCADE`をshared evidenceへ一律に付けない理由は何か。
 9. transaction成功と削除対象の正しさは、どう違うか。
 10. 新しいProject-scoped tableを追加するとき、同時に更新する四つのinventoryは何か。
+
+## Further Reading
+
+- SQLiteの*CREATE TRIGGER* [@sqlite-create-trigger]：archive済みProjectへのwrite guardを読む基礎にします。新しいtableを自動発見する仕組みではありません。
+- SQLiteの*Foreign Key Support* [@sqlite-foreign-keys]：row関係を宣言的に守れる範囲を確認します。未知のJSON参照は検査しません。
+- SQLiteの*How VACUUM works* [@sqlite-vacuum]：logical deleteとdatabase file再構築を分けます。別のbackupやexportは対象外です。
+- NIST SP 800-88 Rev. 2の*Sanitization Methods* [@nist-sp800-88r2]：application purgeとmedia sanitizationを分けます。本章の通常操作を規定する標準ではありません。

@@ -426,3 +426,10 @@ display-only fieldを入れれば不要な再計算が増え、計算入力を�
 8. 同じrequest identityを二回要求するとき、sequenceが必要な理由は何か。
 9. stale dataを保持する場合、画面が示すべき状態は何か。
 10. backend compare-and-swap、immutable history、renderer guardは、それぞれ何を守るか。
+
+## Further Reading
+
+- Fowlerの*Optimistic Offline Lock* [@fowler-optimistic-lock]：読取時点と後続writeを結ぶ意図を確認します。SQLiteのlock modeの説明ではありません。
+- RFC 8785の*JSON Canonicalization Scheme* [@rfc8785]：cross-language canonicalizationと現行semantic digestを比較します。現行実装の準拠を主張しません。
+- SQLiteの*Deferred, Immediate, and Exclusive Transactions* [@sqlite-transactions]：writer競合が表面化する時点を読みます。domain identityの正しさはtransactionだけでは決まりません。
+- Reactの*Avoid contradictions in state* [@react-state-structure]：server currentとlocal draftを別に保つ理由をfrontend stateから考えます。request sequence guardは別に必要です。
