@@ -94,7 +94,13 @@
 .model-decision-card p { margin: 0; color: #6b5b42; font-size: 10px; }
 .project-reference-strip { border: 1px solid #d8e0ea; border-radius: 6px; background: #f8fafc; padding: 10px 12px; }
 .project-reference-strip > div { display: grid; min-width: 0; gap: 2px; }
-.project-reference-strip span { color: #788698; font-size: 9px; text-transform: uppercase; }
+.project-reference-strip span { color: #788698; font-size: 10px; }
+.project-reference-identity { grid-column: 1 / -1; margin-top: 4px; border-top: 1px solid #e2e8f0; padding-top: 6px; }
+.project-reference-identity > summary { color: #5f7086; font-size: 10px; cursor: pointer; }
+.project-reference-identity dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px 12px; margin: 6px 0 0; }
+.project-reference-identity dl div { display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr); gap: 6px; min-width: 0; }
+.project-reference-identity dt { color: #7b8899; font-size: 9px; white-space: nowrap; }
+.project-reference-identity dd { overflow: hidden; margin: 0; color: #536277; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .project-reference-strip strong { overflow: hidden; color: #29435f; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .project-reference-strip small { overflow: hidden; color: #6b7b8e; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .project-goal-strip { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px 16px; margin-top: -8px; border: 1px solid #b7cce5; border-radius: 6px; background: #f7faff; padding: 10px 12px; }

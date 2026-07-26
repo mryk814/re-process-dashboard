@@ -65,3 +65,17 @@ test("project history shows a Japanese reason and disables changes for unavailab
   assert.match(projectHub, /disabled=\{taskUnavailable\}/);
   assert.match(projectHub, /if \(!taskUnavailable\)/);
 });
+
+test("the fixed reference strip reads in Japanese and keeps digests in one collapsed block", () => {
+  const strip = projectHub.slice(
+    projectHub.indexOf('className="project-reference-strip"'),
+    projectHub.indexOf('className="chain-evaluation-panel loading"'),
+  );
+  for (const label of ["参照データセット", "予測タスク", "予測モデル", "探索範囲（Design Space）", "判断基準（Objective）", "検討グループ", "参照Chain", "固定した版"]) {
+    assert.ok(strip.includes(`<span>${label}</span>`), `${label} is a Japanese strip heading`);
+  }
+  assert.doesNotMatch(strip, /<span>(参照Dataset|Prediction Task|Model Package|Design Space|Objective|Chain Template|Chain Revision)<\/span>/);
+  assert.doesNotMatch(strip, /legacy/);
+  assert.doesNotMatch(strip, /digest\.slice|\.slice\(0, 1[0-9]\)/);
+  assert.match(projectHub, /<ReferenceIdentityDetails items=/);
+});
