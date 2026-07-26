@@ -451,17 +451,28 @@ export function useWorkbenchSession({
   }
 
   async function createStarterCandidate() {
+    // Failing here has three different causes for the user: this project has no
+    // single Task at all, the Task declares no starter, or the API is unreachable.
+    if (!taskId) {
+      setNotice("このプロジェクトは単一の予測タスクを固定していないため、基準候補を作成できません");
+      return;
+    }
     try {
       const catalog = await workbenchApi.listTaskDefinitions();
       const starter = catalog.find((item) => item.definition.task_definition.id === taskId)?.starter_candidate;
-      if (!starter) throw new Error("予測タスクの基準候補を取得できませんでした");
+      if (!starter) {
+        setNotice("この予測タスクには基準候補の定義がありません。開発・管理で予測タスク定義を確認してください。");
+        return;
+      }
       const created = fromApiCandidate(await workbenchApi.createCandidate(activeProjectId, starter));
       setCandidates([created]);
       selectCandidate(created.id);
       setNotice("基準候補を作成しました");
       setApiState("ready");
-    } catch {
-      setNotice("基準候補を作成できませんでした。API接続を確認してください。");
+    } catch (cause) {
+      setNotice(cause instanceof ApiClientError && cause.kind !== "network"
+        ? cause.message
+        : "基準候補を作成できませんでした。API接続を確認してください。");
     }
   }
 

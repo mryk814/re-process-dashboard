@@ -25,6 +25,16 @@ function DataExploreUnavailable() {
   </div>;
 }
 
+function ChainModeUnavailablePanel({ onOpenCandidates }: { onOpenCandidates: () => void }) {
+  return <div className="page-panel task-unavailable-panel" role="status">
+    <span className="overline">CHAIN PROJECT</span>
+    <h2>この画面はChainプロジェクトでは利用できません</h2>
+    <p>Chainは固定したRevisionの段を順に実行するため、単一Task向けの範囲探索・データ探索・開発管理は使いません。</p>
+    <p>配合と工程条件の編集、A → B → Cの実行、段別の実測照合は候補作業面で行います。</p>
+    <button type="button" className="primary-button" onClick={onOpenCandidates}>Chain候補を開く</button>
+  </div>;
+}
+
 function TaskUnavailablePanel({ message }: { message: string }) {
   return <div className="page-panel task-unavailable-panel" role="status">
     <span className="overline">TASK UNAVAILABLE</span>
@@ -114,6 +124,11 @@ function App() {
     && tab !== "project"
     && tab !== "data-library"
     && tab !== "profile-workbench";
+  // Chain projects have no single-task contract, so these views cannot answer
+  // anything. They stay reachable by deep link, and must explain themselves
+  // instead of failing inside a single-task surface.
+  const chainScopedTab = chainProject
+    && (tab === "explore" || tab === "lineage" || tab === "quality" || tab === "settings");
   const dataExplorer = taskUnavailable ? null : resolvedTaskDefinition?.data_explorer;
   const qualityAvailable = dataExplorer?.quality === true;
   const lineageAvailable = dataExplorer?.lineage === true;
@@ -282,7 +297,14 @@ function App() {
         {unavailableScopedTab && (
           <TaskUnavailablePanel message={taskAvailability?.message ?? "このタスクは現在利用できません。"} />
         )}
-        {tab === "settings" && !taskUnavailable && (
+        {chainScopedTab && (
+          <ChainModeUnavailablePanel onOpenCandidates={() => navigate({
+            view: "candidates",
+            projectId: activeProjectId,
+            candidateId: selectedId || undefined,
+          })} />
+        )}
+        {tab === "settings" && !taskUnavailable && !chainProject && (
           <DeveloperAdminPage
             project={activeProject}
             taskDefinition={taskDefinition}
@@ -411,7 +433,7 @@ function App() {
               onCreate={() => void session.createStarterCandidate()}
             />
           ))}
-        {tab === "quality" && !taskUnavailable && (qualityAvailable ? (
+        {tab === "quality" && !taskUnavailable && !chainProject && (qualityAvailable ? (
           <div className="data-explore-page">
             <DataExploreNavigation active="quality" qualityAvailable={qualityAvailable} lineageAvailable={lineageAvailable} onNavigate={(view) => navigate(withView(navigationRef.current, view))} />
             <LiveDataQualityPage
@@ -445,7 +467,7 @@ function App() {
             />
           </div>
         ) : <DataExploreUnavailable />)}
-        {tab === "lineage" && !taskUnavailable && (lineageAvailable ? (
+        {tab === "lineage" && !taskUnavailable && !chainProject && (lineageAvailable ? (
           <div className="data-explore-page">
             <DataExploreNavigation active="lineage" qualityAvailable={qualityAvailable} lineageAvailable={lineageAvailable} onNavigate={(view) => navigate(withView(navigationRef.current, view))} />
             <LineagePage
@@ -469,7 +491,7 @@ function App() {
             />
           </div>
         ) : <DataExploreUnavailable />)}
-        {tab === "explore" && !taskUnavailable && (
+        {tab === "explore" && !taskUnavailable && !chainProject && (
           <ScreeningPage
             projectId={activeProjectId}
             project={activeProject}
