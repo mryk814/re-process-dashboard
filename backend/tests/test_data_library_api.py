@@ -426,7 +426,12 @@ def test_project_with_successor_cannot_be_deleted(client) -> None:
     })
     assert successor.status_code == 201, successor.text
 
-    deleted = client.delete(f"/api/projects/{first.json()['id']}")
+    archived = client.delete(f"/api/projects/{first.json()['id']}")
+    assert archived.status_code == 204
+    deleted = client.delete(
+        f"/api/projects/{first.json()['id']}/purge",
+        params={"confirm_project_id": first.json()["id"]},
+    )
     assert deleted.status_code == 409
     assert deleted.json()["code"] == "project_has_successors"
 

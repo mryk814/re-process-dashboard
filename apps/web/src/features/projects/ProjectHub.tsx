@@ -43,7 +43,8 @@ type Props = {
   requestedDatasetViewId?: string;
   requestedSettingsSection?: "targets";
   onProjectChanged: (project: ApiProject) => void;
-  onProjectDeleted: (projectId: string) => Promise<boolean>;
+  onProjectArchived: (projectId: string) => Promise<boolean>;
+  onProjectRestored: (projectId: string) => Promise<boolean>;
   onSwitch: (projectId: string) => void;
   onRestore: (candidate: CandidateViewModel) => void;
   onNavigate: (view: "candidates" | "lineage" | "explore" | "settings", candidateId?: string) => void;
@@ -95,7 +96,8 @@ export function ProjectHub({
   requestedDatasetViewId,
   requestedSettingsSection,
   onProjectChanged,
-  onProjectDeleted,
+  onProjectArchived,
+  onProjectRestored,
   onSwitch,
   onRestore,
   onNavigate,
@@ -116,8 +118,10 @@ export function ProjectHub({
   const [error, setError] = useState("");
   const [historyState, setHistoryState] = useState<"loading" | "ready" | "error">("loading");
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [archivedProjects, setArchivedProjects] = useState<ApiProject[]>([]);
+  const [restoringProjectId, setRestoringProjectId] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [createMode, setCreateMode] = useState<"empty" | "copy">("empty");
   const [newProjectName, setNewProjectName] = useState("");
@@ -174,10 +178,20 @@ export function ProjectHub({
     const selected = projects.find((item) => item.id === activeProjectId) ?? null;
     setProject(selected);
     setError("");
-    setDeleteOpen(false);
+    setArchiveOpen(false);
     setDecisionNote("");
     decisionDraftRef.current = { key: "", dirty: false };
   }, [projects, activeProjectId]);
+
+  useEffect(() => {
+    let active = true;
+    void workbenchApi.listProjects(true).then((items) => {
+      if (active) setArchivedProjects(items.filter((item) => item.archived_at));
+    }).catch(() => {
+      if (active) setArchivedProjects([]);
+    });
+    return () => { active = false; };
+  }, [projects]);
 
   useEffect(() => {
     setSettingsOpen(false);
@@ -643,16 +657,25 @@ export function ProjectHub({
     setContinuationReason("");
   };
 
-  const canDeleteProject = project != null
-    && !taskUnavailable
+  const canArchiveProject = project != null
     && !["default", "hot-rolling-default"].includes(project.id);
 
-  async function deleteCurrentProject() {
-    if (!project || !canDeleteProject || deleting) return;
-    setDeleting(true);
-    const deleted = await onProjectDeleted(project.id);
-    setDeleting(false);
-    if (deleted) setDeleteOpen(false);
+  async function archiveCurrentProject() {
+    if (!project || !canArchiveProject || archiving) return;
+    setArchiving(true);
+    const archived = await onProjectArchived(project.id);
+    setArchiving(false);
+    if (archived) setArchiveOpen(false);
+  }
+
+  async function restoreArchivedProject(projectId: string) {
+    if (restoringProjectId) return;
+    setRestoringProjectId(projectId);
+    const restored = await onProjectRestored(projectId);
+    if (restored) {
+      setArchivedProjects((items) => items.filter((item) => item.id !== projectId));
+    }
+    setRestoringProjectId("");
   }
 
   const renderProjectListItem = (item: ApiProject) => (
@@ -720,6 +743,15 @@ export function ProjectHub({
             </section>
           );
         })}</div>
+        {archivedProjects.length > 0 && <details className="archived-project-list">
+          <summary>アーカイブ済み <span>{archivedProjects.length}件</span></summary>
+          <div>{archivedProjects.map((item) => <div className="archived-project-item" key={item.id}>
+            <span><strong>{item.name}</strong><small>{item.archived_at ? formatDate(item.archived_at) : ""}</small></span>
+            <button type="button" className="outline-button" disabled={offline || Boolean(restoringProjectId)} onClick={() => void restoreArchivedProject(item.id)}>
+              {restoringProjectId === item.id ? "復元中…" : "復元"}
+            </button>
+          </div>)}</div>
+        </details>}
         <button type="button" className="outline-button project-list-create" disabled={createOpen || offline} onClick={toggleCreateProject}>＋ 新規プロジェクト</button>
       </aside>
       <div className="project-hub-content">
@@ -880,10 +912,10 @@ export function ProjectHub({
         <CandidateAddButton disabled={taskUnavailable || offline} onClick={() => void restoreSnapshot(selectedSnapshot.id)}>この時点から新しい候補を作る</CandidateAddButton>
       </section>}
 
-      {canDeleteProject && project && <section className="project-danger-zone" aria-label="プロジェクト削除">
-        {!deleteOpen ? <button className="danger-outline-button" disabled={offline} onClick={() => setDeleteOpen(true)}>プロジェクトを削除</button> : <div className="project-delete-panel" aria-label="プロジェクト削除の確認">
-          <div><strong>「{project.name}」を削除しますか？</strong><p>候補・予測履歴・実測データもまとめて削除され、元に戻せません。</p></div>
-          <div className="project-delete-actions"><button className="danger-button" disabled={deleting} onClick={() => void deleteCurrentProject()}>{deleting ? "削除中…" : "削除する"}</button><button className="outline-button" disabled={deleting} onClick={() => setDeleteOpen(false)}>キャンセル</button></div>
+      {canArchiveProject && project && <section className="project-danger-zone" aria-label="プロジェクトのアーカイブ">
+        {!archiveOpen ? <button className="danger-outline-button" disabled={offline} onClick={() => setArchiveOpen(true)}>プロジェクトをアーカイブ</button> : <div className="project-delete-panel" aria-label="プロジェクトのアーカイブ確認">
+          <div><strong>「{project.name}」をアーカイブしますか？</strong><p>一覧から外します。候補・予測履歴・実測データは保持され、後から復元できます。</p></div>
+          <div className="project-delete-actions"><button className="danger-button" disabled={offline || archiving} onClick={() => void archiveCurrentProject()}>{archiving ? "アーカイブ中…" : "アーカイブする"}</button><button className="outline-button" disabled={archiving} onClick={() => setArchiveOpen(false)}>キャンセル</button></div>
         </div>}
       </section>}
       </div>

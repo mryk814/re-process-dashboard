@@ -6,7 +6,11 @@ import { createWriteStream, existsSync, mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 const API_HOST = "127.0.0.1";
-const HEALTH_TIMEOUT_MS = 20_000;
+// A first packaged launch creates and migrates the local workspace database,
+// then validates every bundled Dataset and Model Package.  On a typical
+// Windows machine that cold path takes about 25 seconds, while subsequent
+// launches are much faster.
+const HEALTH_TIMEOUT_MS = 90_000;
 const HEALTH_RETRY_MS = 250;
 const LAUNCH_TOKEN = randomBytes(32).toString("base64url");
 const sidecarOutputs = new WeakMap<ChildProcess, string>();

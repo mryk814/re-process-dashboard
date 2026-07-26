@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
-import sqlite3
+from material_workbench.persistence.sqlite_connection import connect_sqlite
 
 
 MIGRATION_ID = "candidate-revision-history-v1"
@@ -21,7 +21,7 @@ def migrate_candidate_revisions(database: str | Path) -> None:
     later removed from the active candidate list.
     """
 
-    conn = sqlite3.connect(database)
+    conn = connect_sqlite(database)
     try:
         conn.execute("BEGIN IMMEDIATE")
         applied = conn.execute(

@@ -11,6 +11,7 @@ from material_workbench.contracts.series_contracts import (
     RawSeriesAssetInput,
     SeriesAssetDetail,
 )
+from material_workbench.persistence.sqlite_connection import sqlite_connection
 
 
 class SeriesAssetNotFoundError(LookupError):
@@ -21,10 +22,8 @@ class SeriesRepository:
     def __init__(self, database: str | Path) -> None:
         self.database = str(database)
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.database)
-        conn.row_factory = sqlite3.Row
-        return conn
+    def _connect(self):
+        return sqlite_connection(self.database)
 
     def create_raw(self, payload: RawSeriesAssetInput) -> RawSeriesAsset:
         with self._connect() as conn:

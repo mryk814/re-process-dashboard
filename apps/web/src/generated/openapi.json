@@ -348,6 +348,9 @@
               "protected_project",
               "project_has_successors",
               "project_has_derived_candidates",
+              "project_archived",
+              "active_project_purge",
+              "project_purge_confirmation_mismatch",
               "data_integrity_error",
               "validation_error",
               "batch_feasibility_infeasible",
@@ -11137,6 +11140,18 @@
       },
       "Project": {
         "properties": {
+          "archived_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived At"
+          },
           "binding_migrated_at": {
             "anyOf": [
               {
@@ -18486,6 +18501,18 @@
     "/api/projects": {
       "get": {
         "operationId": "list_projects_api_projects_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "include_archived",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Archived",
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -18637,7 +18664,7 @@
     },
     "/api/projects/{project_id}": {
       "delete": {
-        "operationId": "delete_project_by_id_api_projects__project_id__delete",
+        "operationId": "archiveProject",
         "parameters": [
           {
             "in": "path",
@@ -18694,7 +18721,7 @@
             "description": "Task Runtime Unavailable"
           }
         },
-        "summary": "Delete Project By Id"
+        "summary": "Archive Project By Id"
       },
       "get": {
         "operationId": "get_project_by_id_api_projects__project_id__get",
@@ -18706,6 +18733,16 @@
             "schema": {
               "title": "Project Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_archived",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Archived",
+              "type": "boolean"
             }
           }
         ],
@@ -23125,6 +23162,77 @@
         "summary": "List Proposal Strategies"
       }
     },
+    "/api/projects/{project_id}/purge": {
+      "delete": {
+        "operationId": "purgeProject",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "confirm_project_id",
+            "required": true,
+            "schema": {
+              "title": "Confirm Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Task Runtime Unavailable"
+          }
+        },
+        "summary": "Purge Project"
+      }
+    },
     "/api/projects/{project_id}/quality": {
       "get": {
         "operationId": "quality_api_projects__project_id__quality_get",
@@ -23231,6 +23339,75 @@
           }
         },
         "summary": "Export Quality"
+      }
+    },
+    "/api/projects/{project_id}/restore": {
+      "post": {
+        "operationId": "restoreProject",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Task Runtime Unavailable"
+          }
+        },
+        "summary": "Restore Project"
       }
     },
     "/api/projects/{project_id}/snapshots/{snapshot_id}": {

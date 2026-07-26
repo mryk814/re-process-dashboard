@@ -13,6 +13,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 import sqlite3
 
+from material_workbench.persistence.sqlite_connection import connect_sqlite
+
 from material_workbench.persistence.candidate_migration import migrate_candidate_storage
 
 
@@ -185,7 +187,7 @@ def migrate_workspace_catalog(
     path = Path(database)
     migrate_candidate_storage(path)
     callback = failpoint or (lambda _name: None)
-    conn = sqlite3.connect(path)
+    conn = connect_sqlite(path)
     try:
         conn.execute("BEGIN IMMEDIATE")
         if _migration_is_current(conn):

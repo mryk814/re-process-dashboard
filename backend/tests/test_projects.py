@@ -256,11 +256,29 @@ def test_project_crud_preserves_default_and_isolates_candidates_and_screening(cl
     assert client.post("/api/screening", json=screening_body).status_code == 404
     assert client.delete(f"/api/projects/{project['id']}").status_code == 204
     assert client.get(f"/api/projects/{project['id']}").status_code == 404
+    archived = client.get(
+        f"/api/projects/{project['id']}?include_archived=true"
+    )
+    assert archived.status_code == 200
+    assert archived.json()["archived_at"] is not None
     assert client.get(f"/api/projects/{project['id']}/candidates").status_code == 404
     assert project["id"] not in {item["id"] for item in client.get("/api/projects").json()}
     assert project["project_series_id"] not in {
         item["id"] for item in client.get("/api/project-series").json()
     }
+    restored = client.post(f"/api/projects/{project['id']}/restore")
+    assert restored.status_code == 200
+    assert restored.json()["archived_at"] is None
+    assert client.get(f"/api/projects/{project['id']}").status_code == 200
+    assert client.delete(f"/api/projects/{project['id']}").status_code == 204
+    purged = client.delete(
+        f"/api/projects/{project['id']}/purge",
+        params={"confirm_project_id": project["id"]},
+    )
+    assert purged.status_code == 204
+    assert client.get(
+        f"/api/projects/{project['id']}?include_archived=true"
+    ).status_code == 404
 
     assert client.delete("/api/projects/default").status_code == 409
     assert client.delete("/api/projects/hot-rolling-default").status_code == 409
@@ -389,12 +407,18 @@ def test_project_with_cross_project_derived_candidate_cannot_be_deleted(client) 
     )
     assert derived.status_code == 201
 
-    rejected = client.delete(f"/api/projects/{source_project['id']}")
-
+    archived = client.delete(f"/api/projects/{source_project['id']}")
+    assert archived.status_code == 204
+    rejected = client.delete(
+        f"/api/projects/{source_project['id']}/purge",
+        params={"confirm_project_id": source_project["id"]},
+    )
     assert rejected.status_code == 409
     assert rejected.json()["code"] == "project_has_derived_candidates"
     assert "派生候補が別のプロジェクトにある" in rejected.json()["message"]
-    assert client.get(f"/api/projects/{source_project['id']}").status_code == 200
+    assert client.get(
+        f"/api/projects/{source_project['id']}?include_archived=true"
+    ).status_code == 200
     chain = client.get(
         f"/api/projects/{derived_project['id']}/candidates/"
         f"{derived.json()['id']}/derivation-chain"

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
 from .dependencies import get_store, get_task_registry, get_workspace_catalog
 from .errors import DomainApiException, PROJECT_API_ERRORS
@@ -15,6 +15,7 @@ from ..application.projects import (
 from material_workbench.contracts.schemas import Project, ProjectCreateInput, ProjectDecisionInput, ProjectGroupMoveInput, ProjectHistoryResponse, ProjectUpdateInput
 from material_workbench.contracts.objective_contracts import ObjectiveDefinitionRevision
 from material_workbench.persistence.store import (
+    ActiveProjectPurgeError,
     ProjectGroupConflictError,
     ProjectHasDerivedCandidatesError,
     ProjectHasSuccessorsError,
@@ -46,8 +47,11 @@ def _not_found(exc: ProjectNotFoundError) -> HTTPException:
 
 
 @router.get("/api/projects", response_model=list[Project])
-def list_projects(service: ProjectServiceDependency) -> list[Project]:
-    return service.list()
+def list_projects(
+    service: ProjectServiceDependency,
+    include_archived: bool = False,
+) -> list[Project]:
+    return service.list(include_archived=include_archived)
 
 
 @router.post("/api/projects", status_code=201, response_model=Project)
@@ -67,9 +71,13 @@ def create_project(payload: ProjectCreateInput, service: ProjectServiceDependenc
     summary="Get Project By Id",
     operation_id="get_project_by_id_api_projects__project_id__get",
 )
-def get_project(project_id: str, service: ProjectServiceDependency) -> Project:
+def get_project(
+    project_id: str,
+    service: ProjectServiceDependency,
+    include_archived: bool = False,
+) -> Project:
     try:
-        return service.require(project_id)
+        return service.require(project_id, include_archived=include_archived)
     except ProjectNotFoundError as exc:
         raise _not_found(exc) from exc
 
@@ -94,12 +102,12 @@ def list_project_objective_revisions(
     "/api/projects/{project_id}",
     status_code=204,
     responses=PROJECT_API_ERRORS,
-    summary="Delete Project By Id",
-    operation_id="delete_project_by_id_api_projects__project_id__delete",
+    summary="Archive Project By Id",
+    operation_id="archiveProject",
 )
-def delete_project(project_id: str, service: ProjectServiceDependency) -> Response:
+def archive_project(project_id: str, service: ProjectServiceDependency) -> Response:
     try:
-        service.delete(project_id)
+        service.archive(project_id)
     except ProjectNotFoundError as exc:
         raise _not_found(exc) from exc
     except ProtectedProjectError as exc:
@@ -108,6 +116,57 @@ def delete_project(project_id: str, service: ProjectServiceDependency) -> Respon
         raise DomainApiException(409, "project_has_successors", str(exc)) from exc
     except ProjectHasDerivedCandidatesError as exc:
         raise DomainApiException(409, "project_has_derived_candidates", str(exc)) from exc
+    return Response(status_code=204)
+
+
+@router.post(
+    "/api/projects/{project_id}/restore",
+    response_model=Project,
+    responses=PROJECT_API_ERRORS,
+    operation_id="restoreProject",
+)
+def restore_project(
+    project_id: str, service: ProjectServiceDependency
+) -> Project:
+    try:
+        return service.restore(project_id)
+    except ProjectNotFoundError as exc:
+        raise _not_found(exc) from exc
+    except ProtectedProjectError as exc:
+        raise DomainApiException(409, "protected_project", str(exc)) from exc
+
+
+@router.delete(
+    "/api/projects/{project_id}/purge",
+    status_code=204,
+    responses=PROJECT_API_ERRORS,
+    operation_id="purgeProject",
+)
+def purge_project(
+    project_id: str,
+    service: ProjectServiceDependency,
+    confirm_project_id: str = Query(...),
+) -> Response:
+    if confirm_project_id != project_id:
+        raise DomainApiException(
+            409,
+            "project_purge_confirmation_mismatch",
+            "完全削除の確認用Project IDが一致しません",
+        )
+    try:
+        service.purge(project_id)
+    except ProjectNotFoundError as exc:
+        raise _not_found(exc) from exc
+    except ProtectedProjectError as exc:
+        raise DomainApiException(409, "protected_project", str(exc)) from exc
+    except ActiveProjectPurgeError as exc:
+        raise DomainApiException(409, "active_project_purge", str(exc)) from exc
+    except ProjectHasSuccessorsError as exc:
+        raise DomainApiException(409, "project_has_successors", str(exc)) from exc
+    except ProjectHasDerivedCandidatesError as exc:
+        raise DomainApiException(
+            409, "project_has_derived_candidates", str(exc)
+        ) from exc
     return Response(status_code=204)
 
 

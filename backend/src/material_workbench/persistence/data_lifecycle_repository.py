@@ -20,6 +20,7 @@ from material_workbench.contracts.data_lifecycle_contracts import (
     SourceConnector,
     SourceConnectorCreateInput,
 )
+from material_workbench.persistence.sqlite_connection import sqlite_connection
 
 
 class LifecycleResourceNotFoundError(LookupError):
@@ -37,10 +38,8 @@ class DataLifecycleRepository:
     def __init__(self, database: str | Path) -> None:
         self.database = str(database)
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.database)
-        conn.row_factory = sqlite3.Row
-        return conn
+    def _connect(self):
+        return sqlite_connection(self.database)
 
     def create_connector(self, payload: SourceConnectorCreateInput) -> SourceConnector:
         with self._connect() as conn:

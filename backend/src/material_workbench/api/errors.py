@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sqlite3
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -34,6 +36,23 @@ class DomainApiException(Exception):
 
 
 def install_exception_handlers(app: FastAPI) -> None:
+    @app.exception_handler(sqlite3.IntegrityError)
+    async def sqlite_integrity_error(
+        _: Request, exc: sqlite3.IntegrityError
+    ) -> JSONResponse:
+        if "project_archived" not in str(exc):
+            raise exc
+        payload = ApiError(
+            code="project_archived",
+            message="アーカイブ済みProjectは変更できません",
+        )
+        return JSONResponse(
+            status_code=409,
+            content=payload.model_dump(
+                mode="json", exclude={"current_candidate"}
+            ),
+        )
+
     @app.exception_handler(TaskUnavailableError)
     async def task_unavailable_error(_: Request, exc: TaskUnavailableError) -> JSONResponse:
         payload = ApiError(code="runtime_unavailable", message=str(exc))

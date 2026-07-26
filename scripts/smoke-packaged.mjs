@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdir, readFile, readdir, stat } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { _electron as electron } from "playwright";
 
@@ -15,11 +15,17 @@ if (mode === "installed") process.env.LOCALAPPDATA = join(smokeRoot, "local-app-
 const executablePath = join(appRoot, "Material Decision Workbench.exe");
 const artifacts = join(repositoryRoot, "artifacts");
 await mkdir(artifacts, { recursive: true });
+let database;
+let userData;
 
-const electronApp = await electron.launch({ executablePath, timeout: 60_000 });
+const PACKAGED_STARTUP_TIMEOUT_MS = 120_000;
+
+const electronApp = await electron.launch({ executablePath, timeout: PACKAGED_STARTUP_TIMEOUT_MS });
 try {
-  const window = await electronApp.firstWindow({ timeout: 60_000 });
-  await window.getByRole("heading", { name: "焼鈍条件の候補検討" }).waitFor({ timeout: 60_000 });
+  const window = await electronApp.firstWindow({ timeout: PACKAGED_STARTUP_TIMEOUT_MS });
+  await window
+    .getByRole("heading", { name: "焼鈍条件の候補検討", level: 1 })
+    .waitFor({ timeout: PACKAGED_STARTUP_TIMEOUT_MS });
   const secondInstance = spawn(executablePath, [], { env: process.env, stdio: "ignore" });
   const secondExit = await Promise.race([
     once(secondInstance, "exit"),
@@ -47,10 +53,27 @@ try {
   assert.equal(transformsResponse.status, 200);
   const transforms = await transformsResponse.json();
   assert.equal(transforms.length, 1);
+  const diagnosticsResponse = await authenticatedFetch("/api/developer/diagnostics");
+  assert.equal(diagnosticsResponse.status, 200);
+  const diagnostics = await diagnosticsResponse.json();
+  const databaseCheck = diagnostics.checks.find((check) => check.id === "database");
+  assert.equal(databaseCheck?.severity, "ok");
+  assert.deepEqual(databaseCheck.details.policy, {
+    foreign_keys: 1,
+    busy_timeout: 5000,
+    journal_mode: "delete",
+    synchronous: 2,
+    foreign_key_violations: 0,
+  });
   const stageA = transforms[0];
   assert.equal(stageA.transform_id, "welding-stage-a-v1");
   assert.equal(stageA.outputs.length, 31);
   assert.equal(stageA.outputs.at(-1), "other");
+  const editorResponse = await authenticatedFetch(
+    `/api/transforms/${stageA.transform_id}/blend-editor`,
+  );
+  assert.equal(editorResponse.status, 200);
+  const editor = await editorResponse.json();
   const scientificBlend = JSON.parse(await readFile(
     join(
       repositoryRoot,
@@ -66,12 +89,8 @@ try {
     ...scientificBlend,
     schema_version: "sparse-blend/v1",
     balance_material_id: scientificBlend.items[0].material_id,
-    commercial_catalog: stageA.commercial_catalog,
-    design_space: {
-      resource_id: "packaged-stage-a-smoke",
-      revision: 1,
-      digest: `sha256:${"0".repeat(64)}`,
-    },
+    commercial_catalog: editor.commercial_catalog,
+    design_space: editor.design_space_ref,
   };
   const transformResponse = await authenticatedFetch(
     "/api/transforms/welding-stage-a-v1/execute",
@@ -86,7 +105,9 @@ try {
   assert.equal(Object.keys(transformResult.material_composition).length, 31);
   const compositionTotal = Object.values(transformResult.material_composition)
     .reduce((total, value) => total + value, 0);
-  assert(Math.abs(compositionTotal - 100) < 1e-8);
+  // The bundled scientific golden rounds individual components to six
+  // decimals, so use the same absolute tolerance as its contract test.
+  assert(Math.abs(compositionTotal - 100) <= 2e-5);
   assert(transformResult.powder_blend_cost_yen_per_kg_core > 0);
   const externalTasks = [
     {
@@ -145,10 +166,10 @@ try {
 
   const screenshot = join(artifacts, `packaged-${mode}-smoke.png`);
   await window.screenshot({ path: screenshot, scale: "css" });
-  const userData = mode === "portable"
+  userData = mode === "portable"
     ? join(appRoot, "user-data")
     : join(process.env.LOCALAPPDATA, "Material Decision Workbench");
-  const database = join(userData, "workbench.db");
+  database = join(userData, "workbench.db");
   const logDirectory = join(userData, "logs");
   const logName = (await readdir(logDirectory))
     .filter((name) => /^sidecar-.*\.log$/.test(name))
@@ -162,4 +183,28 @@ try {
   console.log(JSON.stringify({ mode, executablePath, screenshot, database, log, layout }, null, 2));
 } finally {
   await electronApp.close();
+}
+
+assert(database && userData);
+const databaseFiles = await readdir(userData);
+assert(!databaseFiles.includes("workbench.db-wal"));
+assert(!databaseFiles.includes("workbench.db-shm"));
+const movedDatabase = `${database}.move-check`;
+await rename(database, movedDatabase);
+await rename(movedDatabase, database);
+
+const restartedApp = await electron.launch({
+  executablePath,
+  timeout: PACKAGED_STARTUP_TIMEOUT_MS,
+});
+try {
+  const restartedWindow = await restartedApp.firstWindow({
+    timeout: PACKAGED_STARTUP_TIMEOUT_MS,
+  });
+  await restartedWindow.getByRole(
+    "heading",
+    { name: "焼鈍条件の候補検討", level: 1 },
+  ).waitFor({ timeout: PACKAGED_STARTUP_TIMEOUT_MS });
+} finally {
+  await restartedApp.close();
 }

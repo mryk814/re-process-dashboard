@@ -21,6 +21,7 @@ from material_workbench.contracts.schemas import (
 )
 from material_workbench.tasks.task_registry import TaskRegistry
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
+from material_workbench.persistence.sqlite_connection import sqlite_connection
 from material_workbench.modeling.model_packages import ModelPackageLoader, PackageContractError
 from material_workbench.modeling.model_lifecycle import (
     runtime_capability_digest,
@@ -211,8 +212,7 @@ def bind_legacy_projects(database: str | Path, catalog: WorkspaceCatalog, bindin
     """Pin unbound Projects to upgrade-time resources and label that assumption."""
 
     migrated_at = datetime.now(UTC).isoformat()
-    with sqlite3.connect(database) as conn:
-        conn.row_factory = sqlite3.Row
+    with sqlite_connection(database) as conn:
         rows = conn.execute(
             "SELECT id,name,description,task_id FROM projects WHERE binding_provenance='unbound_legacy'"
         ).fetchall()
@@ -229,7 +229,7 @@ def bind_legacy_projects(database: str | Path, catalog: WorkspaceCatalog, bindin
         )
         prepared.append((row, binding, series_id))
 
-    with sqlite3.connect(database) as conn:
+    with sqlite_connection(database) as conn:
         conn.execute("PRAGMA foreign_keys=ON")
         conn.execute("BEGIN IMMEDIATE")
         for row, binding, series_id in prepared:
@@ -260,8 +260,7 @@ def migrate_replaced_model_package_projects(database: str | Path) -> int:
 
     migrated_at = datetime.now(UTC).isoformat()
     updated = 0
-    with sqlite3.connect(database) as conn:
-        conn.row_factory = sqlite3.Row
+    with sqlite_connection(database) as conn:
         conn.execute("BEGIN IMMEDIATE")
         for previous_id, current_id in REPLACED_MODEL_PACKAGE_IDS.items():
             current = conn.execute(
@@ -312,8 +311,7 @@ def refresh_replaced_tutorial_projects(
     migrated_at = datetime.now(UTC).isoformat()
     updated = 0
     stale_view_ids: set[str] = set()
-    with sqlite3.connect(database) as conn:
-        conn.row_factory = sqlite3.Row
+    with sqlite_connection(database) as conn:
         rows = conn.execute(
             "SELECT p.id,p.task_id,p.dataset_view_revision_id,p.task_contract_digest,"
             "p.model_package_ref_id,p.model_package_manifest_digest,"
@@ -385,8 +383,7 @@ def migrate_replaced_mpea_room_projects(
         return 0
     migrated_at = datetime.now(UTC).isoformat()
     stale_view_ids: set[str] = set()
-    with sqlite3.connect(database) as conn:
-        conn.row_factory = sqlite3.Row
+    with sqlite_connection(database) as conn:
         rows = conn.execute(
             "SELECT p.id,p.dataset_view_revision_id "
             "FROM projects p "
@@ -429,8 +426,7 @@ def archive_unreachable_stale_package_refs(database: str | Path) -> int:
 
     archived_at = datetime.now(UTC).isoformat()
     archived = 0
-    with sqlite3.connect(database) as conn:
-        conn.row_factory = sqlite3.Row
+    with sqlite_connection(database) as conn:
         rows = conn.execute(
             "SELECT id,locator,manifest_digest FROM model_package_refs "
             "WHERE archived_at IS NULL"
@@ -487,7 +483,7 @@ def audit_project_bindings(database: str | Path) -> None:
             "Chain Revision",
         ),
     )
-    with sqlite3.connect(database) as conn:
+    with sqlite_connection(database) as conn:
         for sql, label in checks:
             row = conn.execute(sql).fetchone()
             if row is not None:
