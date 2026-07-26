@@ -1,5 +1,16 @@
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { apiBaseUrl as api, createProjectWithCandidate } from "./helpers";
+
+/**
+ * A project without configured targets has no primary goal, so the page asks
+ * whether the run is a ranked search or a distribution view. These specs are
+ * about the distribution and the batch, so they take that choice explicitly.
+ */
+async function runScreening(page: Page) {
+  await page.getByRole("button", { name: "探索を実行" }).click();
+  const distributionView = page.getByRole("button", { name: "目標なしで分布を見る" });
+  if (await distributionView.isVisible().catch(() => false)) await distributionView.click();
+}
 
 async function createProject(request: APIRequestContext, taskId: string) {
   return createProjectWithCandidate(
@@ -26,7 +37,7 @@ test("annealed screening keeps draft separate and batches multiple points into s
   await page.getByLabel("副条件: 降伏強さの下限").fill("350");
 
   const runResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/screening");
-  await page.getByRole("button", { name: "探索を実行" }).click();
+  await runScreening(page);
   expect((await runResponse).status()).toBe(201);
   await expect(page.locator(".screening-hidden-variables")).toContainText("Mn");
   await expect(page.getByLabel("X軸")).toBeVisible();
@@ -40,7 +51,7 @@ test("annealed screening keeps draft separate and batches multiple points into s
   await page.getByLabel("選別する特性").selectOption("YS");
   const rerunRequest = page.waitForRequest((request) => request.method() === "POST" && new URL(request.url()).pathname === "/api/screening");
   const rerunResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/screening");
-  await page.getByRole("button", { name: "探索を実行" }).click();
+  await runScreening(page);
   const rerunPayload = (await rerunRequest).postDataJSON() as { target: string; secondary_goals: Record<string, unknown> };
   expect(rerunPayload.target).toBe("YS");
   // The primary target must not also be sent as a secondary goal.
@@ -76,7 +87,7 @@ test("hot rolling screening accepts task-defined process fields", async ({ page,
   await rows.nth(1).locator("input").nth(1).fill("930");
 
   const runResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/screening");
-  await page.getByRole("button", { name: "探索を実行" }).click();
+  await runScreening(page);
   const response = await runResponse;
   expect(response.status(), await response.text()).toBe(201);
   const body = await response.json() as { points: Array<{ inputs: Record<string, number | string>; predictions: Record<string, unknown> }> };
@@ -108,7 +119,7 @@ test("bounded simplex display agrees with the persisted proposal evidence", asyn
     response.request().method() === "POST"
     && new URL(response.url()).pathname === "/api/screening"
   ));
-  await page.getByRole("button", { name: "探索を実行" }).click();
+  await runScreening(page);
   const response = await runResponse;
   expect(response.status(), await response.text()).toBe(201);
   const run = await response.json() as {
@@ -181,9 +192,9 @@ test("a late proposal response cannot replace a newer run", async ({ page, reque
   await rows.nth(0).locator("input").nth(1).fill("1190");
 
   await page.getByLabel("乱数seed").fill("101");
-  await page.getByRole("button", { name: "探索を実行" }).click();
+  await runScreening(page);
   await page.getByLabel("乱数seed").fill("202");
-  await page.getByRole("button", { name: "探索を実行" }).click();
+  await runScreening(page);
 
   await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toContainText("seed 202");
   await page.waitForTimeout(900);

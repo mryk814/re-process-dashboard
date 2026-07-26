@@ -221,6 +221,8 @@ export function ScreeningPage({
   const [error, setError] = useState("");
   const [draftDirty, setDraftDirty] = useState(false);
   const [goalConfirmationOpen, setGoalConfirmationOpen] = useState(false);
+  // Choosing a distribution view is a decision about this target, not about one run.
+  const [distributionViewAccepted, setDistributionViewAccepted] = useState(false);
   const [xAxis, setXAxis] = useState("");
   const [yAxis, setYAxis] = useState("");
   const [colorMetric, setColorMetric] = useState("score");
@@ -383,7 +385,7 @@ export function ScreeningPage({
   const run = async (requestedSeed = seed, { allowWithoutGoal = false } = {}) => {
     if (!baseCandidate) return setError("基準条件を読み込めませんでした。");
     // Ranking without a goal is a distribution view, not a search for candidates.
-    if (!fixedObjective && !screeningGoalFromDraft(targetGoal) && !allowWithoutGoal) {
+    if (!fixedObjective && !screeningGoalFromDraft(targetGoal) && !allowWithoutGoal && !distributionViewAccepted) {
       setGoalConfirmationOpen(true);
       return;
     }
@@ -733,7 +735,7 @@ export function ScreeningPage({
         </div>
         <div className="screening-goal-confirmation-actions">
           <button type="button" className="primary-button" onClick={onConfigureGoals}>目標値を設定</button>
-          <button type="button" className="outline-button" onClick={() => { void run(seed, { allowWithoutGoal: true }); }}>目標なしで分布を見る</button>
+          <button type="button" className="outline-button" onClick={() => { setDistributionViewAccepted(true); void run(seed, { allowWithoutGoal: true }); }}>目標なしで分布を見る</button>
           <button type="button" className="text-button" onClick={() => setGoalConfirmationOpen(false)}>閉じる</button>
         </div>
       </section>}
@@ -876,6 +878,7 @@ export function ScreeningPage({
                 const next = event.target.value;
                 const definition = outputs.find((output) => output.key === next);
                 setTarget(next);
+                setDistributionViewAccepted(false);
                 setTargetGoal(definition ? defaultGoalDraft(definition) : emptyScreeningGoal("at_least"));
                 setSecondaryGoals((current) => {
                   const updated = { ...current };
