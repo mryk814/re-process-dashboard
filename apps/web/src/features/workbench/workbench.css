@@ -596,8 +596,9 @@
 .candidate-color-legend span.selected { color: #1f5fc4; font-weight: 700; }
 .candidate-color-legend i { display: inline-block; flex: 0 0 auto; width: 14px; height: 3px; border-radius: 2px; }
 .response-curves-panel > .panel-title label { display: inline-flex; align-items: center; gap: 5px; color: #617087; font-size: 11px; white-space: nowrap; }
+.response-curves-panel > .panel-title { flex-wrap: wrap; min-width: 0; }
 .response-curves-panel > .panel-title select { max-width: 210px; height: 28px; padding: 2px 6px; border: 1px solid #c5d1df; border-radius: 3px; background: #fff; color: #1d3147; font-size: 11px; }
-.response-curve-controls { display: inline-flex; align-items: center; gap: 6px; }
+.response-curve-controls { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; max-width: 100%; }
 .curve-range-button { display: inline-grid; place-items: center; width: 28px; min-width: 28px; min-height: 28px; padding: 0; }
 .curve-range-button svg { width: 15px; height: 15px; fill: currentColor; }
 .curve-range-button.active { border-color: #7fa8d6; background: #e8f2ff; color: #1855a3; }
