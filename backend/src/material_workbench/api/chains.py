@@ -563,15 +563,17 @@ def create_project_chain_snapshot(
 
 
 @execution_router.get(
-    "/chain-snapshots/{snapshot_id}",
+    "/{project_id}/chain-snapshots/{snapshot_id}",
     response_model=ChainSnapshot,
     operation_id="getChainSnapshot",
 )
 def get_chain_snapshot(
+    project_id: str,
     snapshot_id: str,
     store: StoreDependency,
 ) -> ChainSnapshot:
-    snapshot = store.get_chain_snapshot(snapshot_id)
+    _require_stored_chain_project(store, project_id)
+    snapshot = store.get_chain_snapshot(snapshot_id, project_id=project_id)
     if snapshot is None:
         raise HTTPException(404, "Chain snapshotが見つかりません")
     return snapshot

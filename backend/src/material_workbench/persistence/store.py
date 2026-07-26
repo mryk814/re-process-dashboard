@@ -566,11 +566,21 @@ class Store:
             )
         return snapshot
 
-    def get_chain_snapshot(self, snapshot_id: str) -> ChainSnapshot | None:
+    def get_chain_snapshot(
+        self,
+        snapshot_id: str,
+        *,
+        project_id: str | None = None,
+    ) -> ChainSnapshot | None:
         with self._connect() as conn:
             row = conn.execute(
-                "SELECT payload_json FROM chain_snapshot_records WHERE id=?",
-                (snapshot_id,),
+                "SELECT payload_json FROM chain_snapshot_records WHERE id=?"
+                + (" AND project_id=?" if project_id is not None else ""),
+                (
+                    (snapshot_id, project_id)
+                    if project_id is not None
+                    else (snapshot_id,)
+                ),
             ).fetchone()
         return (
             ChainSnapshot.model_validate_json(row["payload_json"])
@@ -987,8 +997,10 @@ class Store:
                 "decision_note,dataset_view_revision_id,task_contract_digest,"
                 "model_package_ref_id,model_package_manifest_digest,project_series_id,"
                 "predecessor_project_id,continuation_reason,binding_provenance,"
-                "scientific_identity_json,created_at,updated_at"
-                ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "scientific_identity_json,objective_definition_json,"
+                "objective_definition_digest,objective_binding_provenance,"
+                "created_at,updated_at"
+                ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     project_id,
                     payload.name,
@@ -1025,10 +1037,37 @@ class Store:
                     payload.continuation_reason,
                     "explicit",
                     identity.model_dump_json(),
+                    (
+                        payload.objective_definition.model_dump_json()
+                        if payload.objective_definition is not None
+                        else None
+                    ),
+                    (
+                        payload.objective_definition.digest
+                        if payload.objective_definition is not None
+                        else None
+                    ),
+                    payload.objective_binding_provenance or "none_configured",
                     now,
                     now,
                 ),
             )
+            if payload.objective_definition is not None:
+                conn.execute(
+                    "INSERT INTO project_objective_revisions("
+                    "project_id,objective_digest,revision,payload,"
+                    "binding_provenance,created_at"
+                    ") VALUES (?,?,?,?,?,?)",
+                    (
+                        project_id,
+                        payload.objective_definition.digest,
+                        payload.objective_definition.revision,
+                        payload.objective_definition.model_dump_json(),
+                        payload.objective_binding_provenance
+                        or "generated_default",
+                        now,
+                    ),
+                )
             if initial_candidate is not None:
                 candidate_id = str(uuid.uuid4())
                 conn.execute(
@@ -1531,10 +1570,37 @@ class Store:
     def _validate_decision(conn: sqlite3.Connection, project_id: str, candidate_id: str, snapshot_id: str) -> None:
         if not candidate_id:
             return
+        project_row = conn.execute(
+            "SELECT scientific_identity_json FROM projects WHERE id=?",
+            (project_id,),
+        ).fetchone()
+        if project_row is None:
+            raise InvalidProjectDecisionError("プロジェクトが見つかりません")
+        try:
+            identity_kind = json.loads(
+                project_row["scientific_identity_json"]
+            ).get("identity_kind")
+        except (TypeError, json.JSONDecodeError, AttributeError) as exc:
+            raise InvalidProjectDecisionError(
+                "プロジェクトの固定identityを確認できません"
+            ) from exc
         if conn.execute("SELECT 1 FROM candidates WHERE id=? AND project_id=?", (candidate_id, project_id)).fetchone() is None:
             raise InvalidProjectDecisionError("採用候補は同じプロジェクトから選択してください")
-        if conn.execute("SELECT 1 FROM snapshots WHERE id=? AND candidate_id=?", (snapshot_id, candidate_id)).fetchone() is None:
-            raise InvalidProjectDecisionError("判断時点の予測スナップショットが見つかりません")
+        if identity_kind == "chain":
+            snapshot = conn.execute(
+                "SELECT 1 FROM chain_snapshot_records "
+                "WHERE id=? AND project_id=? AND candidate_id=?",
+                (snapshot_id, project_id, candidate_id),
+            ).fetchone()
+        else:
+            snapshot = conn.execute(
+                "SELECT 1 FROM snapshots WHERE id=? AND candidate_id=?",
+                (snapshot_id, candidate_id),
+            ).fetchone()
+        if snapshot is None:
+            raise InvalidProjectDecisionError(
+                "プロジェクト種別に対応する判断時点のSnapshotが見つかりません"
+            )
 
     def update_project_decision(self, project_id: str, candidate_id: str, snapshot_id: str, note: str) -> Project | None:
         now = _now()
@@ -1628,8 +1694,41 @@ class Store:
                 "WHERE candidates.project_id=? ORDER BY actual_measurements.created_at DESC",
                 (project_id,),
             ).fetchall()
+            chain_snapshot_rows = conn.execute(
+                "SELECT * FROM chain_snapshot_records "
+                "WHERE project_id=? ORDER BY created_at DESC,id DESC",
+                (project_id,),
+            ).fetchall()
+            chain_variant_rows = conn.execute(
+                "SELECT * FROM chain_analysis_variant_records "
+                "WHERE project_id=? ORDER BY created_at DESC,id DESC",
+                (project_id,),
+            ).fetchall()
+            chain_distribution_rows = conn.execute(
+                "SELECT * FROM chain_distribution_runs "
+                "WHERE project_id=? ORDER BY created_at DESC,id DESC",
+                (project_id,),
+            ).fetchall()
 
         project = self._project(project_row)
+        candidate_ids = {row["id"] for row in candidate_rows}
+        chain_identity = (
+            project.scientific_identity
+            if project.scientific_identity.identity_kind == "chain"
+            else None
+        )
+        if chain_identity is None and (
+            chain_snapshot_rows
+            or chain_variant_rows
+            or chain_distribution_rows
+        ):
+            raise StoreDataIntegrityError(
+                "single-Task ProjectにChain証拠が混在しています"
+            )
+        if chain_identity is not None and snapshot_rows:
+            raise StoreDataIntegrityError(
+                "Chain Projectにsingle-Task Snapshotが混在しています"
+            )
         snapshots_by_candidate: dict[str, list[dict[str, Any]]] = {}
         for row in snapshot_rows:
             try:
@@ -1658,12 +1757,130 @@ class Store:
             if row["snapshot_id"] not in snapshot_ids:
                 raise StoreDataIntegrityError(f"actual {row['id']} の固定snapshotが見つかりません")
             actuals_by_candidate.setdefault(row["candidate_id"], []).append(self._actual(row))
+        chain_snapshots_by_candidate: dict[str, list[ChainSnapshot]] = {}
+        chain_snapshots_by_id: dict[str, ChainSnapshot] = {}
+        for row in chain_snapshot_rows:
+            try:
+                snapshot = ChainSnapshot.model_validate_json(row["payload_json"])
+            except (TypeError, ValueError) as exc:
+                raise StoreDataIntegrityError(
+                    f"Chain snapshot {row['id']} を読み取れません"
+                ) from exc
+            if (
+                snapshot.snapshot_id != row["id"]
+                or row["project_id"] != project.id
+                or snapshot.identity.candidate_id != row["candidate_id"]
+                or snapshot.identity.candidate_revision
+                != row["candidate_revision"]
+                or row["candidate_id"] not in candidate_ids
+                or chain_identity is None
+                or snapshot.identity.chain_revision_id
+                != chain_identity.chain_revision_id
+                or snapshot.identity.chain_revision_digest
+                != chain_identity.chain_revision_digest
+            ):
+                raise StoreDataIntegrityError(
+                    f"Chain snapshot {row['id']} の固定参照が一致しません"
+                )
+            chain_snapshots_by_candidate.setdefault(
+                row["candidate_id"], []
+            ).append(snapshot)
+            chain_snapshots_by_id[snapshot.snapshot_id] = snapshot
+        chain_variants_by_candidate: dict[
+            str, list[ActualConditionedVariant]
+        ] = {}
+        for row in chain_variant_rows:
+            try:
+                variant = ActualConditionedVariant.model_validate_json(
+                    row["payload_json"]
+                )
+            except (TypeError, ValueError) as exc:
+                raise StoreDataIntegrityError(
+                    f"実測variant {row['id']} を読み取れません"
+                ) from exc
+            comparison_snapshot = chain_snapshots_by_id.get(
+                variant.identity.comparison_snapshot_id
+            )
+            if (
+                variant.variant_id != row["id"]
+                or variant.project_id != row["project_id"]
+                or row["project_id"] != project.id
+                or variant.identity.base_candidate_id != row["candidate_id"]
+                or variant.identity.base_candidate_revision
+                != row["candidate_revision"]
+                or variant.identity.comparison_snapshot_id
+                != row["comparison_snapshot_id"]
+                or row["candidate_id"] not in candidate_ids
+                or chain_identity is None
+                or variant.identity.base_chain_revision_id
+                != chain_identity.chain_revision_id
+                or variant.identity.base_chain_revision_digest
+                != chain_identity.chain_revision_digest
+                or comparison_snapshot is None
+                or comparison_snapshot.identity.candidate_id
+                != variant.identity.base_candidate_id
+                or comparison_snapshot.identity.candidate_revision
+                != variant.identity.base_candidate_revision
+            ):
+                raise StoreDataIntegrityError(
+                    f"実測variant {row['id']} の固定参照が一致しません"
+                )
+            chain_variants_by_candidate.setdefault(
+                row["candidate_id"], []
+            ).append(variant)
+        chain_distributions_by_candidate: dict[
+            str, list[ChainDistributionRun]
+        ] = {}
+        for row in chain_distribution_rows:
+            try:
+                run = ChainDistributionRun.model_validate_json(
+                    row["payload_json"]
+                )
+            except (TypeError, ValueError) as exc:
+                raise StoreDataIntegrityError(
+                    f"Chain分布run {row['id']} を読み取れません"
+                ) from exc
+            if (
+                run.run_id != row["id"]
+                or run.project_id != row["project_id"]
+                or row["project_id"] != project.id
+                or run.provenance.candidate_id != row["candidate_id"]
+                or run.provenance.candidate_revision
+                != row["candidate_revision"]
+                or row["candidate_id"] not in candidate_ids
+                or chain_identity is None
+                or run.provenance.chain_revision_id
+                != chain_identity.chain_revision_id
+                or run.provenance.chain_revision_digest
+                != row["chain_revision_digest"]
+                or run.provenance.chain_revision_digest
+                != chain_identity.chain_revision_digest
+            ):
+                raise StoreDataIntegrityError(
+                    f"Chain分布run {row['id']} の固定参照が一致しません"
+                )
+            chain_distributions_by_candidate.setdefault(
+                row["candidate_id"], []
+            ).append(run)
         items = []
         for row in candidate_rows:
             candidate = self._candidate(row)
             decision = None
             if project.decision_candidate_id == candidate.id and project.decision_snapshot_id:
-                if project.decision_snapshot_id not in {item["id"] for item in snapshots_by_candidate.get(candidate.id, [])}:
+                fixed_snapshot_ids = (
+                    {
+                        item.snapshot_id
+                        for item in chain_snapshots_by_candidate.get(
+                            candidate.id, []
+                        )
+                    }
+                    if chain_identity is not None
+                    else {
+                        item["id"]
+                        for item in snapshots_by_candidate.get(candidate.id, [])
+                    }
+                )
+                if project.decision_snapshot_id not in fixed_snapshot_ids:
                     raise StoreDataIntegrityError("採用判断の固定snapshotが見つかりません")
                 decision = {
                     "candidate_id": candidate.id,
@@ -1674,6 +1891,15 @@ class Store:
                 "candidate": candidate,
                 "current": {"revision": candidate.revision, "updated_at": candidate.updated_at},
                 "snapshots": snapshots_by_candidate.get(candidate.id, []),
+                "chain_snapshots": chain_snapshots_by_candidate.get(
+                    candidate.id, []
+                ),
+                "chain_analysis_variants": chain_variants_by_candidate.get(
+                    candidate.id, []
+                ),
+                "chain_distribution_runs": chain_distributions_by_candidate.get(
+                    candidate.id, []
+                ),
                 "actuals": actuals_by_candidate.get(candidate.id, []),
                 "decision": decision,
             })

@@ -32,6 +32,7 @@ from material_workbench.contracts.objective_contracts import (
 from material_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from material_workbench.persistence.workspace_catalog_bootstrap import task_definition_digest
+from material_workbench.execution.inference_work_graph import semantic_digest
 
 
 class ProjectValidationError(ValueError):
@@ -157,7 +158,7 @@ class ProjectService:
 
     def update(self, project_id: str, payload: ProjectUpdateInput) -> Project:
         current = self.require(project_id)
-        task_id = self._terminal_task_id(current)
+        task_id, task_contract_digest = self._terminal_task_binding(current)
         self.registry.require_available(task_id)
         frozen = {
             "task_id": current.task_id,
@@ -184,14 +185,11 @@ class ProjectService:
         self._validate_display_decimals(payload, task_id)
         objective = current.objective_definition
         objective_provenance = current.objective_binding_provenance
-        if (
-            current.scientific_identity.identity_kind == "single_task"
-            and payload.target_values != current.target_values
-        ):
+        if payload.target_values != current.target_values:
             try:
                 objective = objective_from_project_targets(
                     task=contract.task_definition,
-                    task_contract_digest=current.task_contract_digest,
+                    task_contract_digest=task_contract_digest,
                     target_values=payload.target_values,
                 )
             except ValueError as exc:
@@ -258,9 +256,12 @@ class ProjectService:
             raise ProjectValidationError(str(exc)) from exc
 
     def _terminal_task_id(self, project: Project) -> str:
+        return self._terminal_task_binding(project)[0]
+
+    def _terminal_task_binding(self, project: Project) -> tuple[str, str]:
         identity = project.scientific_identity
         if identity.identity_kind == "single_task":
-            return identity.task_id
+            return identity.task_id, project.task_contract_digest
         revision = self.store.get_chain_revision(identity.chain_revision_id)
         if revision is None or revision.revision_digest != identity.chain_revision_digest:
             raise ProjectValidationError(
@@ -271,7 +272,18 @@ class ProjectService:
         ]
         if not task_stages:
             raise ProjectValidationError("Chainに予測Taskがありません")
-        return task_stages[-1].contract_id
+        terminal_stage = task_stages[-1]
+        contract = self._contract(terminal_stage.contract_id)
+        if (
+            semantic_digest(
+                contract.task_definition.model_dump(mode="json")
+            )
+            != terminal_stage.contract_digest
+        ):
+            raise ProjectValidationError(
+                "Chain終端Taskのcontract digestが固定Revisionと一致しません"
+            )
+        return terminal_stage.contract_id, terminal_stage.contract_digest
 
     def _create_chain_project(self, payload: ProjectCreateInput) -> Project:
         identity = payload.scientific_identity
@@ -286,9 +298,17 @@ class ProjectService:
         ]
         if not task_stages:
             raise ProjectValidationError("Chainに予測Taskがありません")
-        terminal_task_id = task_stages[-1].contract_id
+        terminal_stage = task_stages[-1]
+        terminal_task_id = terminal_stage.contract_id
         self.registry.require_available(terminal_task_id)
         contract = self._contract(terminal_task_id)
+        if (
+            task_definition_digest(self.registry, terminal_task_id)
+            != terminal_stage.contract_digest
+        ):
+            raise ProjectValidationError(
+                "Chain終端Taskのcontract digestが固定Revisionと一致しません"
+            )
         self._validate_targets(payload, contract.task_definition.outputs)
         self._validate_display_decimals(payload, terminal_task_id)
         if payload.decision_candidate_id:
@@ -300,6 +320,30 @@ class ProjectService:
             raise ProjectValidationError(
                 "Chain Projectの初期候補は同じChain Revisionのコピー由来にしてください"
             )
+        objective = payload.objective_definition
+        objective_provenance = "explicit"
+        if objective is None:
+            try:
+                objective = objective_from_project_targets(
+                    task=contract.task_definition,
+                    task_contract_digest=terminal_stage.contract_digest,
+                    target_values=payload.target_values,
+                )
+            except ValueError as exc:
+                raise ProjectValidationError(str(exc)) from exc
+            objective_provenance = (
+                "generated_default"
+                if objective is not None
+                else "none_configured"
+            )
+        if objective is not None:
+            try:
+                objective.validate_against(
+                    contract.task_definition,
+                    contract.runtime_capability,
+                )
+            except ValueError as exc:
+                raise ProjectValidationError(str(exc)) from exc
         resolved = self._validate_project_series_selection(payload).model_copy(
             update={
                 "task_id": "",
@@ -307,6 +351,8 @@ class ProjectService:
                 "task_contract_digest": "",
                 "model_package_ref_id": None,
                 "model_package_manifest_digest": "",
+                "objective_definition": objective,
+                "objective_binding_provenance": objective_provenance,
             }
         )
         try:
