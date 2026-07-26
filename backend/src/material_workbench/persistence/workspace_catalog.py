@@ -35,6 +35,9 @@ from material_workbench.contracts.schemas import (
     ProjectSeriesUpdateInput,
 )
 from material_workbench.persistence.workspace_catalog_migration import migrate_workspace_catalog
+from material_workbench.persistence.sqlite_connection import (
+    sqlite_connection,
+)
 
 
 class CatalogConflictError(ValueError):
@@ -93,11 +96,8 @@ class WorkspaceCatalog:
         Path(self.path).parent.mkdir(parents=True, exist_ok=True)
         migrate_workspace_catalog(self.path)
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.path)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA foreign_keys=ON")
-        return conn
+    def _connect(self):
+        return sqlite_connection(self.path)
 
     @staticmethod
     def _asset(row: sqlite3.Row) -> DataAsset:

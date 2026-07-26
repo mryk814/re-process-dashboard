@@ -5,6 +5,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 import sqlite3
 
+from material_workbench.persistence.sqlite_connection import connect_sqlite
+
 from material_workbench.persistence.chain_catalog_migration import migrate_chain_catalog
 
 
@@ -65,7 +67,7 @@ def _assert_current(conn: sqlite3.Connection) -> None:
 def migrate_chain_execution(database: str | Path) -> None:
     path = Path(database)
     migrate_chain_catalog(path)
-    conn = sqlite3.connect(path)
+    conn = connect_sqlite(path)
     try:
         conn.execute("BEGIN IMMEDIATE")
         row = conn.execute(

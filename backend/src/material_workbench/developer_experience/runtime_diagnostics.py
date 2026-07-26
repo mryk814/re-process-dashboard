@@ -17,6 +17,13 @@ from material_workbench.persistence.candidate_migration import (
 from material_workbench.persistence.lineage_review_migration import (
     MIGRATION_ID as LINEAGE_REVIEW_MIGRATION_ID,
 )
+from material_workbench.persistence.project_lifecycle_migration import (
+    MIGRATION_ID as PROJECT_LIFECYCLE_MIGRATION_ID,
+)
+from material_workbench.persistence.sqlite_connection import (
+    SQLITE_BUSY_TIMEOUT_MS,
+    sqlite_connection,
+)
 from material_workbench.persistence.store import Store
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from material_workbench.persistence.workspace_catalog_migration import (
@@ -31,14 +38,22 @@ EXPECTED_MIGRATIONS = {
     CANDIDATE_SAFETY_MIGRATION_ID,
     WORKSPACE_CATALOG_MIGRATION_ID,
     LINEAGE_REVIEW_MIGRATION_ID,
+    PROJECT_LIFECYCLE_MIGRATION_ID,
 }
 SECOM_STRESS_SOURCE = Path("data/source/external/secom_stress.csv")
 
 
 def _database_check(store: Store) -> DeveloperCheck:
     try:
-        with sqlite3.connect(store.path) as connection:
+        with sqlite_connection(store.path) as connection:
             quick_check = str(connection.execute("PRAGMA quick_check").fetchone()[0])
+            foreign_keys = int(connection.execute("PRAGMA foreign_keys").fetchone()[0])
+            busy_timeout = int(connection.execute("PRAGMA busy_timeout").fetchone()[0])
+            journal_mode = str(connection.execute("PRAGMA journal_mode").fetchone()[0]).lower()
+            synchronous = int(connection.execute("PRAGMA synchronous").fetchone()[0])
+            foreign_key_violations = connection.execute(
+                "PRAGMA foreign_key_check"
+            ).fetchall()
             applied = {
                 str(row[0])
                 for row in connection.execute("SELECT id FROM schema_migrations")
@@ -54,15 +69,39 @@ def _database_check(store: Store) -> DeveloperCheck:
             cause=str(exc),
             impact="Project・候補・固定参照を安全に読み込めません。",
         )
-    healthy = quick_check == "ok" and not missing
+    policy = {
+        "foreign_keys": foreign_keys,
+        "busy_timeout": busy_timeout,
+        "journal_mode": journal_mode,
+        "synchronous": synchronous,
+        "foreign_key_violations": len(foreign_key_violations),
+    }
+    healthy = (
+        quick_check == "ok"
+        and not missing
+        and foreign_keys == 1
+        and busy_timeout == SQLITE_BUSY_TIMEOUT_MS
+        and journal_mode == "delete"
+        and synchronous == 2
+        and not foreign_key_violations
+    )
     return DeveloperCheck(
         id="database",
         section="runtime",
         title="Database migration",
         severity="ok" if healthy else "error",
-        summary="DBとmigration markerは現在のアプリに対応しています。" if healthy else "DB migrationに不足があります。",
+        summary=(
+            "DB整合性、migration、SQLite接続ポリシーを確認しました。"
+            if healthy
+            else "DBまたはSQLite接続ポリシーに不整合があります。"
+        ),
         impact=None if healthy else "一部の保存データを現在の契約で読めない可能性があります。",
-        details={"quick_check": quick_check, "applied": sorted(applied), "missing": missing},
+        details={
+            "quick_check": quick_check,
+            "applied": sorted(applied),
+            "missing": missing,
+            "policy": policy,
+        },
     )
 
 

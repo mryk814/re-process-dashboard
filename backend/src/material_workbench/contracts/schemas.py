@@ -510,6 +510,7 @@ class Project(ProjectInput):
     ] = "unbound_legacy"
     binding_provenance: Literal["explicit", "assumed_current_at_upgrade", "unbound_legacy"] = "unbound_legacy"
     binding_migrated_at: datetime | None = None
+    archived_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -1334,6 +1335,9 @@ class ApiError(BaseModel):
         "protected_project",
         "project_has_successors",
         "project_has_derived_candidates",
+        "project_archived",
+        "active_project_purge",
+        "project_purge_confirmation_mismatch",
         "data_integrity_error",
         "validation_error",
         "batch_feasibility_infeasible",

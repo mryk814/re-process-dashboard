@@ -8,6 +8,16 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from material_workbench.persistence.candidate_migration import HOT_PROJECT_ID
+from material_workbench.persistence.sqlite_connection import (
+    initialize_sqlite,
+    sqlite_connection,
+    validate_sqlite_foreign_keys,
+)
+from material_workbench.persistence.project_lifecycle_migration import (
+    install_project_archive_write_guards,
+    migrate_project_lifecycle,
+    remove_project_archive_write_guards,
+)
 from material_workbench.contracts.chain_contracts import (
     ChainDefinition,
     ChainProjectIdentity,
@@ -126,6 +136,10 @@ class ProtectedProjectError(ValueError):
     pass
 
 
+class ActiveProjectPurgeError(ValueError):
+    pass
+
+
 class ProjectHasSuccessorsError(ValueError):
     pass
 
@@ -168,15 +182,16 @@ class Store:
     def __init__(self, path: str | Path) -> None:
         self.path = str(path)
         Path(self.path).parent.mkdir(parents=True, exist_ok=True)
+        initialize_sqlite(self.path)
+        remove_project_archive_write_guards(self.path)
         self._init()
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.path)
-        conn.row_factory = sqlite3.Row
-        return conn
+    def _connect(self):
+        return sqlite_connection(self.path)
 
     def _init(self) -> None:
         migrate_workspace_catalog(self.path)
+        migrate_project_lifecycle(self.path)
         migrate_chain_catalog(self.path)
         migrate_chain_analysis_variant(self.path)
         migrate_chain_execution_cas(self.path)
@@ -188,6 +203,8 @@ class Store:
         migrate_project_objectives(self.path)
         migrate_series_assets(self.path)
         migrate_data_lifecycle(self.path)
+        install_project_archive_write_guards(self.path)
+        validate_sqlite_foreign_keys(self.path)
 
     def register_chain_definition(self, definition: ChainDefinition) -> str:
         record_id = (
@@ -457,7 +474,11 @@ class Store:
             conn.execute("BEGIN IMMEDIATE")
             candidate = conn.execute(
                 "SELECT 1 FROM candidates "
-                "WHERE id=? AND project_id=? AND revision=? AND archived_at IS NULL",
+                "JOIN projects ON projects.id=candidates.project_id "
+                "WHERE candidates.id=? AND candidates.project_id=? "
+                "AND candidates.revision=? "
+                "AND candidates.archived_at IS NULL "
+                "AND projects.archived_at IS NULL",
                 (candidate_id, project_id, candidate_revision),
             ).fetchone()
             if candidate is None:
@@ -775,18 +796,36 @@ class Store:
                 if row["binding_migrated_at"]
                 else None
             ),
+            archived_at=(
+                datetime.fromisoformat(row["archived_at"])
+                if row["archived_at"]
+                else None
+            ),
             created_at=datetime.fromisoformat(row["created_at"]),
             updated_at=datetime.fromisoformat(row["updated_at"]),
         )
 
-    def list_projects(self) -> list[Project]:
+    def list_projects(self, *, include_archived: bool = False) -> list[Project]:
         with self._connect() as conn:
-            rows = conn.execute("SELECT * FROM projects ORDER BY created_at, id").fetchall()
+            rows = conn.execute(
+                "SELECT * FROM projects "
+                + ("" if include_archived else "WHERE archived_at IS NULL ")
+                + "ORDER BY created_at, id"
+            ).fetchall()
         return [self._project(row) for row in rows]
 
-    def get_project(self, project_id: str = "default") -> Project | None:
+    def get_project(
+        self,
+        project_id: str = "default",
+        *,
+        include_archived: bool = False,
+    ) -> Project | None:
         with self._connect() as conn:
-            row = conn.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+            row = conn.execute(
+                "SELECT * FROM projects WHERE id = ?"
+                + ("" if include_archived else " AND archived_at IS NULL"),
+                (project_id,),
+            ).fetchone()
         return self._project(row) if row else None
 
     def create_project(self, payload: ProjectCreateInput, initial_candidate: CandidateInput | None = None) -> Project:
@@ -1178,16 +1217,123 @@ class Store:
             row = conn.execute("SELECT * FROM projects WHERE id=?", (project_id,)).fetchone()
         return self._project(row)
 
-    def delete_project(self, project_id: str) -> bool:
+    def archive_project(self, project_id: str) -> Project | None:
         if project_id in PROTECTED_PROJECT_IDS:
-            raise ProtectedProjectError("予約プロジェクトは削除できません")
+            raise ProtectedProjectError("予約プロジェクトはアーカイブできません")
+        now = _now()
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
             project_row = conn.execute(
-                "SELECT project_series_id FROM projects WHERE id=?", (project_id,)
+                "SELECT project_series_id,archived_at FROM projects WHERE id=?",
+                (project_id,),
+            ).fetchone()
+            if project_row is None:
+                return None
+            if project_row["archived_at"] is None:
+                conn.execute(
+                    "UPDATE projects SET archived_at=?,updated_at=? WHERE id=?",
+                    (now, now, project_id),
+                )
+                conn.execute(
+                    "DELETE FROM chain_execution_claims WHERE scope_id LIKE ?",
+                    (f"{project_id}:%",),
+                )
+                series_id = project_row["project_series_id"]
+                if series_id:
+                    conn.execute(
+                        "UPDATE project_series SET archived_at=?,updated_at=? "
+                        "WHERE id=? AND archived_at IS NULL "
+                        "AND NOT EXISTS ("
+                        "SELECT 1 FROM projects "
+                        "WHERE projects.project_series_id=project_series.id "
+                        "AND projects.archived_at IS NULL"
+                        ")",
+                        (now, now, series_id),
+                    )
+            row = conn.execute(
+                "SELECT * FROM projects WHERE id=?", (project_id,)
+            ).fetchone()
+        return self._project(row)
+
+    def restore_project(self, project_id: str) -> Project | None:
+        if project_id in PROTECTED_PROJECT_IDS:
+            raise ProtectedProjectError("予約プロジェクトは復元操作の対象外です")
+        now = _now()
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                "SELECT * FROM projects WHERE id=?", (project_id,)
+            ).fetchone()
+            if row is None:
+                return None
+            if row["archived_at"] is not None:
+                conn.execute(
+                    "UPDATE projects SET archived_at=NULL,updated_at=? WHERE id=?",
+                    (now, project_id),
+                )
+                if row["project_series_id"]:
+                    conn.execute(
+                        "UPDATE project_series SET archived_at=NULL,updated_at=? "
+                        "WHERE id=?",
+                        (now, row["project_series_id"]),
+                    )
+            restored = conn.execute(
+                "SELECT * FROM projects WHERE id=?", (project_id,)
+            ).fetchone()
+        return self._project(restored)
+
+    @staticmethod
+    def _candidate_provenance_references_project(
+        conn: sqlite3.Connection,
+        payload: Mapping[str, Any],
+        project_id: str,
+    ) -> bool:
+        provenance = payload.get("provenance")
+        if not isinstance(provenance, dict):
+            return False
+        source_kind = provenance.get("source_kind")
+        source_ref = provenance.get("source_ref")
+        if not isinstance(source_ref, dict):
+            return False
+        if source_kind in {"copy", "blend_optimization"}:
+            return source_ref.get("project_id") == project_id
+        if source_kind == "screening":
+            row = conn.execute(
+                "SELECT project_id FROM screening_runs WHERE id=?",
+                (source_ref.get("run_id"),),
+            ).fetchone()
+            return row is not None and row["project_id"] == project_id
+        if source_kind == "snapshot":
+            row = conn.execute(
+                "SELECT candidates.project_id FROM snapshots "
+                "JOIN candidates ON candidates.id=snapshots.candidate_id "
+                "WHERE snapshots.id=?",
+                (source_ref.get("snapshot_id"),),
+            ).fetchone()
+            return row is not None and row["project_id"] == project_id
+        if source_kind == "decision_activity":
+            row = conn.execute(
+                "SELECT project_id FROM decision_activity_runs WHERE id=?",
+                (source_ref.get("run_id"),),
+            ).fetchone()
+            return row is not None and row["project_id"] == project_id
+        return False
+
+    def purge_project(self, project_id: str) -> bool:
+        if project_id in PROTECTED_PROJECT_IDS:
+            raise ProtectedProjectError("予約プロジェクトは完全削除できません")
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            project_row = conn.execute(
+                "SELECT project_series_id,archived_at FROM projects WHERE id=?",
+                (project_id,),
             ).fetchone()
             if project_row is None:
                 return False
+            if project_row["archived_at"] is None:
+                raise ActiveProjectPurgeError(
+                    "完全削除する前にプロジェクトをアーカイブしてください"
+                )
             successor = conn.execute(
                 "SELECT id FROM projects WHERE predecessor_project_id=? LIMIT 1", (project_id,)
             ).fetchone()
@@ -1196,7 +1342,8 @@ class Store:
                     "後続プロジェクトがあるため削除できません。続き元の関係を保持してください"
                 )
             for derived_row in conn.execute(
-                "SELECT id,payload FROM candidates WHERE project_id<>?",
+                "SELECT candidate_id AS id,payload FROM candidate_revisions "
+                "WHERE project_id<>?",
                 (project_id,),
             ):
                 try:
@@ -1205,38 +1352,62 @@ class Store:
                     raise StoreDataIntegrityError(
                         f"候補 {derived_row['id']} の派生元を確認できません"
                     ) from exc
-                provenance = payload.get("provenance") if isinstance(payload, dict) else None
-                source_ref = (
-                    provenance.get("source_ref")
-                    if isinstance(provenance, dict)
-                    and provenance.get("source_kind") == "copy"
-                    else None
-                )
-                if (
-                    isinstance(source_ref, dict)
-                    and source_ref.get("project_id") == project_id
+                if isinstance(payload, dict) and self._candidate_provenance_references_project(
+                    conn, payload, project_id
                 ):
                     raise ProjectHasDerivedCandidatesError(
-                        "派生候補が別のプロジェクトにあるため削除できません。"
-                        "派生履歴を保持してください"
+                        "派生候補が別のプロジェクトにある、またはこのProjectの"
+                        "証跡を参照する候補revisionがあるため完全削除できません"
                     )
             candidate_ids = [
                 row["id"]
                 for row in conn.execute("SELECT id FROM candidates WHERE project_id=?", (project_id,)).fetchall()
             ]
+            conn.execute(
+                "INSERT INTO project_purge_authorizations(project_id) VALUES (?)",
+                (project_id,),
+            )
             if candidate_ids:
                 placeholders = ",".join("?" for _ in candidate_ids)
                 conn.execute(f"DELETE FROM actual_measurements WHERE candidate_id IN ({placeholders})", candidate_ids)
                 conn.execute(f"DELETE FROM snapshots WHERE candidate_id IN ({placeholders})", candidate_ids)
+            conn.execute(
+                "DELETE FROM chain_analysis_variant_records WHERE project_id=?",
+                (project_id,),
+            )
+            conn.execute(
+                "DELETE FROM chain_distribution_runs WHERE project_id=?",
+                (project_id,),
+            )
+            conn.execute(
+                "DELETE FROM chain_snapshot_records WHERE project_id=?",
+                (project_id,),
+            )
+            conn.execute(
+                "DELETE FROM chain_execution_claims WHERE scope_id LIKE ?",
+                (f"{project_id}:%",),
+            )
+            conn.execute(
+                "DELETE FROM chain_execution_state WHERE scope_id LIKE ?",
+                (f"{project_id}:%",),
+            )
             conn.execute("DELETE FROM decision_activity_runs WHERE project_id=?", (project_id,))
-            conn.execute("DELETE FROM candidates WHERE project_id=?", (project_id,))
             conn.execute("DELETE FROM screening_runs WHERE project_id=?", (project_id,))
             conn.execute("DELETE FROM lineage_node_reviews WHERE project_id=?", (project_id,))
             conn.execute(
                 "DELETE FROM project_objective_revisions WHERE project_id=?",
                 (project_id,),
             )
+            conn.execute(
+                "DELETE FROM candidate_revisions WHERE project_id=?",
+                (project_id,),
+            )
+            conn.execute("DELETE FROM candidates WHERE project_id=?", (project_id,))
             conn.execute("DELETE FROM projects WHERE id=?", (project_id,))
+            conn.execute(
+                "DELETE FROM project_purge_authorizations WHERE project_id=?",
+                (project_id,),
+            )
             series_id = project_row["project_series_id"]
             if series_id:
                 now = _now()
@@ -1244,7 +1415,9 @@ class Store:
                     "UPDATE project_series SET archived_at=?,updated_at=? "
                     "WHERE id=? AND archived_at IS NULL "
                     "AND NOT EXISTS ("
-                    "SELECT 1 FROM projects WHERE projects.project_series_id=project_series.id"
+                    "SELECT 1 FROM projects "
+                    "WHERE projects.project_series_id=project_series.id "
+                    "AND projects.archived_at IS NULL"
                     ")",
                     (now, now, series_id),
                 )

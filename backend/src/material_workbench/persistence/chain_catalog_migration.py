@@ -12,6 +12,7 @@ from material_workbench.contracts.chain_contracts import (
 from material_workbench.persistence.workspace_catalog_migration import (
     migrate_workspace_catalog,
 )
+from material_workbench.persistence.sqlite_connection import connect_sqlite
 
 
 MIGRATION_ID = "chain-catalog-v1"
@@ -196,7 +197,7 @@ def refresh_single_task_project_identities(database: str | Path) -> int:
     derives a package or rewrites a Chain identity.
     """
 
-    conn = sqlite3.connect(database)
+    conn = connect_sqlite(database)
     try:
         conn.execute("BEGIN IMMEDIATE")
         if not _migration_is_current(conn):
@@ -234,7 +235,7 @@ def migrate_chain_catalog(database: str | Path) -> int:
 
     path = Path(database)
     migrate_workspace_catalog(path)
-    conn = sqlite3.connect(path)
+    conn = connect_sqlite(path)
     try:
         conn.execute("BEGIN IMMEDIATE")
         if _migration_is_current(conn):

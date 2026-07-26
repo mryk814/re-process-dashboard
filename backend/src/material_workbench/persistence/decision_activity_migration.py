@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
-import sqlite3
+from material_workbench.persistence.sqlite_connection import connect_sqlite
 
 
 MIGRATION_ID = "decision-activity-run-v1"
@@ -14,7 +14,7 @@ class DecisionActivityMigrationError(RuntimeError):
 
 
 def migrate_decision_activity_runs(database: str | Path) -> None:
-    conn = sqlite3.connect(database)
+    conn = connect_sqlite(database)
     try:
         conn.execute("BEGIN IMMEDIATE")
         marker = conn.execute(

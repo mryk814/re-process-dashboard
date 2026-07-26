@@ -15,6 +15,8 @@ import sqlite3
 import uuid
 from typing import Any
 
+from material_workbench.persistence.sqlite_connection import connect_sqlite
+
 
 MIGRATION_ID = "candidate-unification-v1"
 MIGRATION_CHECKSUM = "nested-candidate-storage-v1"
@@ -136,8 +138,8 @@ def _backup_database(source_path: Path, lock_conn: sqlite3.Connection, migration
     source: sqlite3.Connection | None = None
     target: sqlite3.Connection | None = None
     try:
-        source = sqlite3.connect(source_path)
-        target = sqlite3.connect(destination)
+        source = connect_sqlite(source_path)
+        target = connect_sqlite(destination)
         source.backup(target)
         check = target.execute("PRAGMA quick_check").fetchone()
         if check is None or check[0] != "ok":
@@ -270,8 +272,7 @@ def migrate_candidate_storage(
     is_new = not path.exists() or path.stat().st_size == 0
     callback = failpoint or (lambda _name: None)
 
-    conn = sqlite3.connect(path)
-    conn.row_factory = sqlite3.Row
+    conn = connect_sqlite(path)
     backup_path: Path | None = None
     try:
         conn.execute("BEGIN IMMEDIATE")

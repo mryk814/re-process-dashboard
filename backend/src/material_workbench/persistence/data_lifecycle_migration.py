@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import sqlite3
+
+from material_workbench.persistence.sqlite_connection import connect_sqlite
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -55,7 +57,7 @@ TABLES = {
 
 
 def migrate_data_lifecycle(database: str | Path) -> None:
-    conn = sqlite3.connect(database)
+    conn = connect_sqlite(database)
     try:
         _migrate(conn)
         conn.commit()

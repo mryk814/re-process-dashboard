@@ -242,8 +242,10 @@ export const workbenchApi = {
       signal,
     }), "観測学習データを取得できませんでした。");
   },
-  async listProjects() {
-    return requireData(await apiClient.GET("/api/projects"), "プロジェクトを取得できませんでした。");
+  async listProjects(includeArchived = false) {
+    return requireData(await apiClient.GET("/api/projects", {
+      params: { query: { include_archived: includeArchived } },
+    }), "プロジェクトを取得できませんでした。");
   },
   async listTaskDefinitions() {
     return requireData(await apiClient.GET("/api/task-definitions"), "予測タスクを取得できませんでした。");
@@ -365,9 +367,14 @@ export const workbenchApi = {
       body,
     }), "所属グループを変更できませんでした。");
   },
-  async deleteProject(projectId: string) {
-    requireSuccess(await apiClient.DELETE("/api/projects/{project_id}", { params: { path: { project_id: projectId } } }), "プロジェクトを削除できませんでした。");
+  async archiveProject(projectId: string) {
+    requireSuccess(await apiClient.DELETE("/api/projects/{project_id}", { params: { path: { project_id: projectId } } }), "プロジェクトをアーカイブできませんでした。");
     inferenceRequestCache.invalidatePrefix(candidateInferencePrefix(projectId));
+  },
+  async restoreProject(projectId: string) {
+    return requireData(await apiClient.POST("/api/projects/{project_id}/restore", {
+      params: { path: { project_id: projectId } },
+    }), "プロジェクトを復元できませんでした。");
   },
   async updateProjectDecision(projectId: string, body: ApiProjectDecisionInput) {
     return requireData(await apiClient.PUT("/api/projects/{project_id}/decision", { params: { path: { project_id: projectId } }, body }), "採用判断を保存できませんでした。");

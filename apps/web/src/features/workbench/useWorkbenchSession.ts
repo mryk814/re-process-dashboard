@@ -537,9 +537,9 @@ export function useWorkbenchSession({
     }
   }
 
-  async function deleteProject(projectId: string): Promise<boolean> {
+  async function archiveProject(projectId: string): Promise<boolean> {
     try {
-      await workbenchApi.deleteProject(projectId);
+      await workbenchApi.archiveProject(projectId);
       const remaining = projects.filter((project) => project.id !== projectId);
       projectsRef.current = remaining;
       setProjects(remaining);
@@ -547,10 +547,26 @@ export function useWorkbenchSession({
         const nextProject = remaining[0];
         if (nextProject) await loadProject(nextProject.id);
       }
-      notifySuccess("プロジェクトを削除しました");
+      notifySuccess("プロジェクトをアーカイブしました");
       return true;
     } catch (cause) {
-      notifyError(cause instanceof Error ? cause.message : "プロジェクトを削除できませんでした");
+      notifyError(cause instanceof Error ? cause.message : "プロジェクトをアーカイブできませんでした");
+      return false;
+    }
+  }
+
+  async function restoreProject(projectId: string): Promise<boolean> {
+    try {
+      const restored = await workbenchApi.restoreProject(projectId);
+      const nextProjects = [...projectsRef.current, restored]
+        .filter((project, index, values) => values.findIndex((item) => item.id === project.id) === index);
+      projectsRef.current = nextProjects;
+      setProjects(nextProjects);
+      await loadProject(restored.id);
+      notifySuccess("プロジェクトを復元しました");
+      return true;
+    } catch (cause) {
+      notifyError(cause instanceof Error ? cause.message : "プロジェクトを復元できませんでした");
       return false;
     }
   }
@@ -646,7 +662,8 @@ export function useWorkbenchSession({
     copyCandidate,
     createStarterCandidate,
     deleteCandidate,
-    deleteProject,
+    archiveProject,
+    restoreProject,
     deleteHeatPoint,
     editor,
     loadError,

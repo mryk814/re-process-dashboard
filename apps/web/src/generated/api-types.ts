@@ -530,8 +530,8 @@ export interface paths {
         /** Update Project By Id */
         put: operations["update_project_by_id_api_projects__project_id__put"];
         post?: never;
-        /** Delete Project By Id */
-        delete: operations["delete_project_by_id_api_projects__project_id__delete"];
+        /** Archive Project By Id */
+        delete: operations["archiveProject"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1420,6 +1420,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/purge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Purge Project */
+        delete: operations["purgeProject"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/quality": {
         parameters: {
             query?: never;
@@ -1448,6 +1465,23 @@ export interface paths {
         get: operations["export_quality_api_projects__project_id__quality_export_csv_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Project */
+        post: operations["restoreProject"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1914,7 +1948,7 @@ export interface components {
              * Code
              * @enum {string}
              */
-            code: "not_found" | "revision_conflict" | "candidate_limit" | "adopted_candidate" | "candidate_archived" | "candidate_provenance_immutable" | "chain_project_requires_chain_candidate_api" | "project_task_locked" | "project_group_conflict" | "protected_project" | "project_has_successors" | "project_has_derived_candidates" | "data_integrity_error" | "validation_error" | "batch_feasibility_infeasible" | "batch_greedy_search_exhausted" | "runtime_unavailable";
+            code: "not_found" | "revision_conflict" | "candidate_limit" | "adopted_candidate" | "candidate_archived" | "candidate_provenance_immutable" | "chain_project_requires_chain_candidate_api" | "project_task_locked" | "project_group_conflict" | "protected_project" | "project_has_successors" | "project_has_derived_candidates" | "project_archived" | "active_project_purge" | "project_purge_confirmation_mismatch" | "data_integrity_error" | "validation_error" | "batch_feasibility_infeasible" | "batch_greedy_search_exhausted" | "runtime_unavailable";
             current_candidate?: components["schemas"]["Candidate"] | null;
             /** Field Errors */
             field_errors?: components["schemas"]["FieldError"][];
@@ -5923,6 +5957,8 @@ export interface components {
         };
         /** Project */
         Project: {
+            /** Archived At */
+            archived_at?: string | null;
             /** Binding Migrated At */
             binding_migrated_at?: string | null;
             /**
@@ -9416,7 +9452,9 @@ export interface operations {
     };
     list_projects_api_projects_get: {
         parameters: {
-            query?: never;
+            query?: {
+                include_archived?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -9478,7 +9516,9 @@ export interface operations {
     };
     get_project_by_id_api_projects__project_id__get: {
         parameters: {
-            query?: never;
+            query?: {
+                include_archived?: boolean;
+            };
             header?: never;
             path: {
                 project_id: string;
@@ -9569,7 +9609,7 @@ export interface operations {
             };
         };
     };
-    delete_project_by_id_api_projects__project_id__delete: {
+    archiveProject: {
         parameters: {
             query?: never;
             header?: never;
@@ -12429,6 +12469,64 @@ export interface operations {
             };
         };
     };
+    purgeProject: {
+        parameters: {
+            query: {
+                confirm_project_id: string;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     quality_api_projects__project_id__quality_get: {
         parameters: {
             query?: never;
@@ -12509,6 +12607,64 @@ export interface operations {
             };
             /** @description Validation Error */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    restoreProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Project"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

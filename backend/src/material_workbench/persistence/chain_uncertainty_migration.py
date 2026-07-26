@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
-import sqlite3
+from material_workbench.persistence.sqlite_connection import connect_sqlite
 
 from material_workbench.persistence.chain_execution_cas_migration import (
     migrate_chain_execution_cas,
@@ -31,7 +31,7 @@ class ChainUncertaintyMigrationError(RuntimeError):
 def migrate_chain_uncertainty(database: str | Path) -> None:
     path = Path(database)
     migrate_chain_execution_cas(path)
-    conn = sqlite3.connect(path)
+    conn = connect_sqlite(path)
     try:
         conn.execute("BEGIN IMMEDIATE")
         marker = conn.execute(

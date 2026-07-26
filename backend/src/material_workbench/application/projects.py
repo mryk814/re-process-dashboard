@@ -54,14 +54,18 @@ class ProjectService:
         self.registry = registry
         self.catalog = catalog
 
-    def require(self, project_id: str) -> Project:
-        project = self.store.get_project(project_id)
+    def require(
+        self, project_id: str, *, include_archived: bool = False
+    ) -> Project:
+        project = self.store.get_project(
+            project_id, include_archived=include_archived
+        )
         if project is None:
             raise ProjectNotFoundError(project_id)
         return project
 
-    def list(self) -> list[Project]:
-        return self.store.list_projects()
+    def list(self, *, include_archived: bool = False) -> list[Project]:
+        return self.store.list_projects(include_archived=include_archived)
 
     def objective_revisions(
         self,
@@ -121,10 +125,23 @@ class ProjectService:
         except CandidateCopyConflictError as exc:
             raise ProjectValidationError(str(exc)) from exc
 
-    def delete(self, project_id: str) -> None:
-        project = self.require(project_id)
-        self.registry.require_available(self._terminal_task_id(project))
-        if not self.store.delete_project(project_id):
+    def archive(self, project_id: str) -> Project:
+        self.require(project_id, include_archived=True)
+        archived = self.store.archive_project(project_id)
+        if archived is None:
+            raise ProjectNotFoundError(project_id)
+        return archived
+
+    def restore(self, project_id: str) -> Project:
+        self.require(project_id, include_archived=True)
+        restored = self.store.restore_project(project_id)
+        if restored is None:
+            raise ProjectNotFoundError(project_id)
+        return restored
+
+    def purge(self, project_id: str) -> None:
+        self.require(project_id, include_archived=True)
+        if not self.store.purge_project(project_id):
             raise ProjectNotFoundError(project_id)
 
     def history(self, project_id: str) -> ProjectHistoryResponse:
