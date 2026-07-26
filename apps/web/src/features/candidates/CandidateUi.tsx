@@ -351,7 +351,7 @@ export function ComparisonTable({
     return () => observer.disconnect();
   }, []);
   useEffect(() => saveComparisonInputShare(inputShare), [inputShare]);
-  useLayoutEffect(() => {
+  const syncRowHeights = () => {
     const panes = [
       nameScrollRef.current,
       inputScrollRef.current,
@@ -372,7 +372,8 @@ export function ComparisonTable({
         row.style.height = `${Math.ceil(sharedHeight)}px`;
       });
     }
-  }, [
+  };
+  useLayoutEffect(syncRowHeights, [
     candidates,
     comparisonExpanded,
     displayDecimalOverrides,
@@ -515,25 +516,28 @@ export function ComparisonTable({
           aria-label="候補の入力と予測結果比較"
           style={{ "--comparison-input-share": `${effectiveInputShare}%` } as CSSProperties}
         >
-          <div ref={nameScrollRef} className={`comparison-pane-scroll comparison-name-scroll${comparisonExpanded ? " expanded" : ""}`} onScroll={syncVerticalScroll}><table className="candidate-name-table" aria-label="候補名"><colgroup><col className="candidate-select-column" /><col /></colgroup><thead><tr><th colSpan={2}>候補</th></tr><tr aria-hidden="true"><th /><th /></tr></thead><tbody>{candidates.map((candidate) => { const selected = candidate.id === selectedId; return <tr key={candidate.id} className={selected ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}><td className="candidate-select-cell"><button type="button" className="candidate-select-button" aria-label={`${candidate.label}を選択`} aria-pressed={selected} onClick={(event) => { event.stopPropagation(); onSelect(candidate.id); }}><span aria-hidden="true" /></button></td><th><input aria-label={`${candidate.label}の候補名`} maxLength={80} value={candidate.label} onFocus={() => onSelect(candidate.id)} onChange={(event) => onName(candidate.id, event.target.value)} /></th></tr>; })}</tbody></table></div>
-          <div id="comparison-input-pane" ref={inputScrollRef} className={`comparison-pane-scroll comparison-input-scroll${comparisonExpanded ? " expanded" : ""}`} tabIndex={0} aria-label="入力条件" onScroll={syncVerticalScroll}><table className="comparison-detail-table comparison-input-table" aria-label="候補ごとの入力条件"><thead><tr>{inputGroups.map((group) => <th colSpan={group.fields.length} key={group.key}>{group.label}</th>)}</tr><tr>{inputFields.map((field) => <th className="composition-col" key={field.path}>{field.label}<small>{field.unit ?? ""}</small></th>)}</tr></thead><tbody>{candidates.map((candidate) => <tr key={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}>{inputFields.map((field) => renderField(candidate, field))}</tr>)}</tbody></table></div>
+          <div ref={nameScrollRef} className={`comparison-pane-scroll comparison-name-scroll${comparisonExpanded ? " expanded" : ""}`} onScroll={syncVerticalScroll}><table className="candidate-name-table" aria-label="候補名"><colgroup><col className="candidate-select-column" /><col /></colgroup><thead><tr><th colSpan={2}>候補</th></tr><tr aria-hidden="true"><th /><th /></tr></thead><tbody>{candidates.map((candidate) => { const selected = candidate.id === selectedId; return <tr key={candidate.id} data-candidate-id={candidate.id} className={selected ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}><td className="candidate-select-cell"><button type="button" className="candidate-select-button" aria-label={`${candidate.label}を選択`} aria-pressed={selected} onClick={(event) => { event.stopPropagation(); onSelect(candidate.id); }}><span aria-hidden="true" /></button></td><th scope="row"><input aria-label={`${candidate.label}の候補名`} maxLength={80} value={candidate.label} onFocus={() => onSelect(candidate.id)} onChange={(event) => onName(candidate.id, event.target.value)} /></th></tr>; })}</tbody></table></div>
+          <div id="comparison-input-pane" ref={inputScrollRef} className={`comparison-pane-scroll comparison-input-scroll${comparisonExpanded ? " expanded" : ""}`} tabIndex={0} aria-label="入力条件" onScroll={syncVerticalScroll}><table className="comparison-detail-table comparison-input-table" aria-label="候補ごとの入力条件"><thead><tr><th scope="col" className="comparison-row-header">候補</th>{inputGroups.map((group) => <th scope="colgroup" colSpan={group.fields.length} key={group.key}>{group.label}</th>)}</tr><tr><th scope="col" className="comparison-row-header">候補</th>{inputFields.map((field) => <th scope="col" className="composition-col" key={field.path}>{field.label}<small>{field.unit ?? ""}</small></th>)}</tr></thead><tbody>{candidates.map((candidate) => <tr key={candidate.id} data-candidate-id={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}><th scope="row" className="comparison-row-header">{candidate.label}</th>{inputFields.map((field) => renderField(candidate, field))}</tr>)}</tbody></table></div>
           <ComparisonSplitResizer value={effectiveInputShare} min={inputShareRange.min} max={inputShareRange.max} onChange={setInputShare} onDrag={(startValue, deltaX) => startValue + (deltaX / Math.max(comparisonGridRef.current?.clientWidth ?? 1, 1)) * 100} onReset={() => setInputShare(34)} />
           <div id="comparison-prediction-pane" ref={predictionScrollRef} className={`comparison-pane-scroll comparison-prediction-scroll${comparisonExpanded ? " expanded" : ""}`} tabIndex={0} aria-label="予測値" onScroll={syncVerticalScroll}>
             <table className="comparison-detail-table comparison-prediction-table" aria-label="候補ごとの予測値">
               <thead>
                 <tr>
-                  <th colSpan={outputs.length}>予測・判断</th>
-                  <th className="support-header">適用範囲</th>
+                  <th scope="col" className="comparison-row-header">候補</th>
+                  <th scope="colgroup" colSpan={outputs.length}>予測・判断</th>
+                  <th scope="col" className="support-header">適用範囲</th>
                 </tr>
                 <tr>
-                  {outputs.map((output) => <th className="decision-output-col" key={output.key}>{output.label}<small>{outputTargetKind(output.key) === "binary" ? "異常確率" : output.unit}</small><em className="goal-direction">{goalDirectionLabel(output.goal_direction)}</em></th>)}
-                  <th className="support-header">入力条件</th>
+                  <th scope="col" className="comparison-row-header">候補</th>
+                  {outputs.map((output) => <th scope="col" className="decision-output-col" key={output.key}>{output.label}<small>{outputTargetKind(output.key) === "binary" ? "異常確率" : output.unit}</small><em className="goal-direction">{goalDirectionLabel(output.goal_direction)}</em></th>)}
+                  <th scope="col" className="support-header">入力条件</th>
                 </tr>
               </thead>
               <tbody>
                 {candidates.map((candidate) => {
                   const preview = previewsByCandidate[candidate.id];
-                  return <tr key={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}>
+                  return <tr key={candidate.id} data-candidate-id={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}>
+                    <th scope="row" className="comparison-row-header">{candidate.label}</th>
                     {outputs.map((output) => {
                       const prediction = preview?.predictions[output.key];
                       const goal = targetValues[output.key];
@@ -584,14 +588,14 @@ export function ComparisonTable({
           </div>
           <div ref={actionScrollRef} className={`comparison-pane-scroll comparison-action-scroll${comparisonExpanded ? " expanded" : ""}`} aria-label="候補ごとの操作" onScroll={syncVerticalScroll}>
             <table className="comparison-action-table">
-              <thead><tr><th>操作</th></tr><tr><th><small>候補ごと</small></th></tr></thead>
+              <thead><tr><th scope="col" className="comparison-row-header">候補</th><th scope="col">操作</th></tr><tr><th scope="col" className="comparison-row-header">候補</th><th scope="col"><small>候補ごと</small></th></tr></thead>
               <tbody>{candidates.map((candidate) => {
                 const saving = savingCandidateIds.includes(candidate.id);
                 const editableSaved = ["idle", "saved"].includes(saveStates[candidate.id] ?? "idle");
                 const saved = editableSaved && (savedRevisionsByCandidate[candidate.id]?.includes(candidate.raw.revision) ?? false);
                 const historyPending = snapshotHistoryState !== "ready";
                 const deleteBlocked = candidates.length <= 1 || decisionCandidateId === candidate.id;
-                return <tr key={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}><td><div className="candidate-row-actions">
+                return <tr key={candidate.id} data-candidate-id={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}><th scope="row" className="comparison-row-header">{candidate.label}</th><td><div className="candidate-row-actions">
                   <CandidateAddButton compact className="candidate-row-icon-button" aria-label={`${candidate.label}を複製`} title="この候補を複製" onClick={(event) => { event.stopPropagation(); onCopy(candidate.id); }} />
                   <button type="button" className="candidate-row-icon-button candidate-row-delete-button" aria-label={`${candidate.label}を削除`} title={decisionCandidateId === candidate.id ? "採用判断を解除してから削除してください" : "この候補を削除"} disabled={deleteBlocked} onClick={(event) => { event.stopPropagation(); onDelete(candidate.id); }}><RowActionIcon name="trash" /></button>
                   <button type="button" className={`candidate-row-save-button${saved ? " saved" : ""}`} aria-label={`${candidate.label}の詳細予測を${saved ? "保存済み" : snapshotHistoryState === "loading" ? "確認中" : snapshotHistoryState === "error" ? "履歴確認失敗" : "保存"}`} title={!detailedPredictionAvailable ? "このタスクでは詳細予測を利用できません" : snapshotHistoryState === "loading" ? "保存履歴を確認しています" : snapshotHistoryState === "error" ? "保存履歴を確認できませんでした" : saved ? "現在の編集版は保存済みです" : !editableSaved ? "入力の保存完了後に実行できます" : "詳細予測を保存"} disabled={!detailedPredictionAvailable || historyPending || !editableSaved || saving || saved} onClick={(event) => { event.stopPropagation(); onSave(candidate); }}><RowActionIcon name={saved ? "check" : "save"} /></button>
