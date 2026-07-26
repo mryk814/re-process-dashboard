@@ -358,21 +358,66 @@ export function ComparisonTable({
       predictionScrollRef.current,
       actionScrollRef.current,
     ];
-    const rowSets = panes.map((pane) =>
+    const rows = panes.flatMap((pane) =>
       Array.from(pane?.querySelectorAll<HTMLTableRowElement>("tbody > tr") ?? []),
     );
-    const rowCount = Math.max(0, ...rowSets.map((rows) => rows.length));
-    rowSets.flat().forEach((row) => {
+    rows.forEach((row) => {
       row.style.height = "";
     });
-    for (let index = 0; index < rowCount; index += 1) {
-      const rows = rowSets.flatMap((items) => items[index] ? [items[index]] : []);
-      const sharedHeight = Math.max(37, ...rows.map((row) => row.getBoundingClientRect().height));
-      rows.forEach((row) => {
+    const rowsByCandidate = new Map<string, HTMLTableRowElement[]>();
+    rows.forEach((row) => {
+      const candidateId = row.dataset.candidateId;
+      if (!candidateId) return;
+      const candidateRows = rowsByCandidate.get(candidateId) ?? [];
+      candidateRows.push(row);
+      rowsByCandidate.set(candidateId, candidateRows);
+    });
+    for (const candidateRows of rowsByCandidate.values()) {
+      const sharedHeight = Math.max(
+        37,
+        ...candidateRows.map((row) => row.getBoundingClientRect().height),
+      );
+      candidateRows.forEach((row) => {
         row.style.height = `${Math.ceil(sharedHeight)}px`;
       });
     }
   };
+  useLayoutEffect(() => {
+    const tables = [
+      nameScrollRef.current,
+      inputScrollRef.current,
+      predictionScrollRef.current,
+      actionScrollRef.current,
+    ].flatMap((pane) => {
+      const table = pane?.querySelector("table");
+      return table ? [table] : [];
+    });
+    let syncFrame = 0;
+    let releaseFrame = 0;
+    let synchronizing = false;
+    const scheduleRowHeightSync = () => {
+      if (synchronizing || syncFrame) return;
+      syncFrame = window.requestAnimationFrame(() => {
+        syncFrame = 0;
+        synchronizing = true;
+        syncRowHeights();
+        releaseFrame = window.requestAnimationFrame(() => {
+          synchronizing = false;
+        });
+      });
+    };
+    const observer = new ResizeObserver(scheduleRowHeightSync);
+    tables.forEach((table) => observer.observe(table));
+    window.addEventListener("resize", scheduleRowHeightSync);
+    document.fonts?.addEventListener("loadingdone", scheduleRowHeightSync);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", scheduleRowHeightSync);
+      document.fonts?.removeEventListener("loadingdone", scheduleRowHeightSync);
+      window.cancelAnimationFrame(syncFrame);
+      window.cancelAnimationFrame(releaseFrame);
+    };
+  }, []);
   useLayoutEffect(syncRowHeights, [
     candidates,
     comparisonExpanded,
@@ -516,7 +561,7 @@ export function ComparisonTable({
           aria-label="候補の入力と予測結果比較"
           style={{ "--comparison-input-share": `${effectiveInputShare}%` } as CSSProperties}
         >
-          <div ref={nameScrollRef} className={`comparison-pane-scroll comparison-name-scroll${comparisonExpanded ? " expanded" : ""}`} onScroll={syncVerticalScroll}><table className="candidate-name-table" aria-label="候補名"><colgroup><col className="candidate-select-column" /><col /></colgroup><thead><tr><th colSpan={2}>候補</th></tr><tr aria-hidden="true"><th /><th /></tr></thead><tbody>{candidates.map((candidate) => { const selected = candidate.id === selectedId; return <tr key={candidate.id} data-candidate-id={candidate.id} className={selected ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}><td className="candidate-select-cell"><button type="button" className="candidate-select-button" aria-label={`${candidate.label}を選択`} aria-pressed={selected} onClick={(event) => { event.stopPropagation(); onSelect(candidate.id); }}><span aria-hidden="true" /></button></td><th scope="row"><input aria-label={`${candidate.label}の候補名`} maxLength={80} value={candidate.label} onFocus={() => onSelect(candidate.id)} onChange={(event) => onName(candidate.id, event.target.value)} /></th></tr>; })}</tbody></table></div>
+          <div ref={nameScrollRef} className={`comparison-pane-scroll comparison-name-scroll${comparisonExpanded ? " expanded" : ""}`} onScroll={syncVerticalScroll}><table className="candidate-name-table" aria-label="候補名"><colgroup><col className="candidate-select-column" /><col /></colgroup><thead><tr><th scope="colgroup" colSpan={2}>候補</th></tr><tr aria-hidden="true"><th /><th /></tr></thead><tbody>{candidates.map((candidate) => { const selected = candidate.id === selectedId; return <tr key={candidate.id} data-candidate-id={candidate.id} className={selected ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}><td className="candidate-select-cell"><button type="button" className="candidate-select-button" aria-label={`${candidate.label}を選択`} aria-pressed={selected} onClick={(event) => { event.stopPropagation(); onSelect(candidate.id); }}><span aria-hidden="true" /></button></td><th scope="row"><input aria-label={`${candidate.label}の候補名`} maxLength={80} value={candidate.label} onFocus={() => onSelect(candidate.id)} onChange={(event) => onName(candidate.id, event.target.value)} /></th></tr>; })}</tbody></table></div>
           <div id="comparison-input-pane" ref={inputScrollRef} className={`comparison-pane-scroll comparison-input-scroll${comparisonExpanded ? " expanded" : ""}`} tabIndex={0} aria-label="入力条件" onScroll={syncVerticalScroll}><table className="comparison-detail-table comparison-input-table" aria-label="候補ごとの入力条件"><thead><tr><th scope="col" className="comparison-row-header">候補</th>{inputGroups.map((group) => <th scope="colgroup" colSpan={group.fields.length} key={group.key}>{group.label}</th>)}</tr><tr><th scope="col" className="comparison-row-header">候補</th>{inputFields.map((field) => <th scope="col" className="composition-col" key={field.path}>{field.label}<small>{field.unit ?? ""}</small></th>)}</tr></thead><tbody>{candidates.map((candidate) => <tr key={candidate.id} data-candidate-id={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}><th scope="row" className="comparison-row-header">{candidate.label}</th>{inputFields.map((field) => renderField(candidate, field))}</tr>)}</tbody></table></div>
           <ComparisonSplitResizer value={effectiveInputShare} min={inputShareRange.min} max={inputShareRange.max} onChange={setInputShare} onDrag={(startValue, deltaX) => startValue + (deltaX / Math.max(comparisonGridRef.current?.clientWidth ?? 1, 1)) * 100} onReset={() => setInputShare(34)} />
           <div id="comparison-prediction-pane" ref={predictionScrollRef} className={`comparison-pane-scroll comparison-prediction-scroll${comparisonExpanded ? " expanded" : ""}`} tabIndex={0} aria-label="予測値" onScroll={syncVerticalScroll}>
