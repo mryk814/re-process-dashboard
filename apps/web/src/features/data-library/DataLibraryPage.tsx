@@ -15,6 +15,7 @@ import {
   trainingDataset,
 } from "../../shared/dataLibraryPresentation";
 import { SeriesLibrarySection } from "./SeriesLibrarySection";
+import { SourceLifecycleSection } from "./SourceLifecycleSection";
 
 const shortDigest = (value: string) => value.replace(/^sha256:/, "").slice(0, 10);
 const formatDate = (value: string) => new Date(value).toLocaleDateString("ja-JP");
@@ -263,6 +264,7 @@ export function DataLibraryPage({
         </section>
 
         <SeriesLibrarySection />
+        <SourceLifecycleSection datasets={datasets} />
 
         <section className={`data-library-grid ${comparisonSets.length === 0 ? "comparison-empty" : ""}`}>
           <div className="data-library-section comparison-set-section"><div className="panel-title"><h3>比較セット</h3><span>{comparisonSets.length}件</span></div>{comparisonSets.length ? <div className="comparison-set-list">{comparisonSets.map((view) => { const members = view.members.map((member) => member.cohort_label || datasetDisplayName(options.datasets.find((dataset) => dataset.dataset_revision.id === member.dataset_revision_id))).join(" / "); return <div key={view.id}><strong>{view.name}</strong><span title={members}>{members}</span><code title={view.view_digest}>{shortDigest(view.view_digest)}</code></div>; })}</div> : <p className="library-empty">比較セットはまだありません。必要なときに上の「＋ 比較セット」から作成できます。</p>}</div>

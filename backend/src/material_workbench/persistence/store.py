@@ -97,6 +97,9 @@ from material_workbench.persistence.chain_execution_cas_migration import (
 from material_workbench.persistence.chain_uncertainty_migration import (
     migrate_chain_uncertainty,
 )
+from material_workbench.persistence.data_lifecycle_migration import (
+    migrate_data_lifecycle,
+)
 
 
 MAX_CANDIDATES_PER_PROJECT = 100
@@ -184,6 +187,7 @@ class Store:
         migrate_project_design_spaces(self.path)
         migrate_project_objectives(self.path)
         migrate_series_assets(self.path)
+        migrate_data_lifecycle(self.path)
 
     def register_chain_definition(self, definition: ChainDefinition) -> str:
         record_id = (

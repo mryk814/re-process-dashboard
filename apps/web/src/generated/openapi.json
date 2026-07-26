@@ -422,6 +422,97 @@
         "title": "ApplicationCapability",
         "type": "object"
       },
+      "ApprovalOverride": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "row_key": {
+            "minLength": 1,
+            "title": "Row Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "row_key",
+          "reason"
+        ],
+        "title": "ApprovalOverride",
+        "type": "object"
+      },
+      "ApprovedTrainingSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "canonical_dataset_revision_id": {
+            "minLength": 1,
+            "title": "Canonical Dataset Revision Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "dataset_digest": {
+            "minLength": 1,
+            "title": "Dataset Digest",
+            "type": "string"
+          },
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "included_row_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Included Row Keys",
+            "type": "array"
+          },
+          "purpose": {
+            "title": "Purpose",
+            "type": "string"
+          },
+          "row_count": {
+            "minimum": 1.0,
+            "title": "Row Count",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "approved-training-snapshot/v1",
+            "default": "approved-training-snapshot/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "snapshot_digest": {
+            "minLength": 1,
+            "title": "Snapshot Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "canonical_dataset_revision_id",
+          "dataset_digest",
+          "included_row_keys",
+          "row_count",
+          "actor",
+          "purpose",
+          "snapshot_digest",
+          "created_at"
+        ],
+        "title": "ApprovedTrainingSnapshot",
+        "type": "object"
+      },
       "BatchCategoryQuota": {
         "additionalProperties": false,
         "properties": {
@@ -2207,6 +2298,109 @@
         "title": "CandidateUpdate",
         "type": "object"
       },
+      "CanonicalDatasetRevision": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "approved_at": {
+            "format": "date-time",
+            "title": "Approved At",
+            "type": "string"
+          },
+          "approved_row_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Approved Row Keys",
+            "type": "array"
+          },
+          "curation_digest": {
+            "minLength": 1,
+            "title": "Curation Digest",
+            "type": "string"
+          },
+          "curation_run_id": {
+            "minLength": 1,
+            "title": "Curation Run Id",
+            "type": "string"
+          },
+          "dataset_digest": {
+            "minLength": 1,
+            "title": "Dataset Digest",
+            "type": "string"
+          },
+          "excluded_row_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Excluded Row Keys",
+            "type": "array"
+          },
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "overrides": {
+            "items": {
+              "$ref": "#/components/schemas/ApprovalOverride"
+            },
+            "title": "Overrides",
+            "type": "array"
+          },
+          "profile_digest": {
+            "minLength": 1,
+            "title": "Profile Digest",
+            "type": "string"
+          },
+          "profile_revision_id": {
+            "minLength": 1,
+            "title": "Profile Revision Id",
+            "type": "string"
+          },
+          "raw_snapshot_digest": {
+            "minLength": 1,
+            "title": "Raw Snapshot Digest",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "recipe_digest": {
+            "minLength": 1,
+            "title": "Recipe Digest",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "approved-canonical-dataset/v1",
+            "default": "approved-canonical-dataset/v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "curation_run_id",
+          "curation_digest",
+          "raw_snapshot_digest",
+          "recipe_digest",
+          "profile_revision_id",
+          "profile_digest",
+          "approved_row_keys",
+          "excluded_row_keys",
+          "overrides",
+          "actor",
+          "reason",
+          "dataset_digest",
+          "approved_at"
+        ],
+        "title": "CanonicalDatasetRevision",
+        "type": "object"
+      },
       "CanonicalSeriesPoint": {
         "additionalProperties": false,
         "properties": {
@@ -3951,6 +4145,30 @@
         "title": "ChangeGuideEntry",
         "type": "object"
       },
+      "CoerceNumberStep": {
+        "additionalProperties": false,
+        "properties": {
+          "fields": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Fields",
+            "type": "array"
+          },
+          "kind": {
+            "const": "coerce_number_v1",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "fields"
+        ],
+        "title": "CoerceNumberStep",
+        "type": "object"
+      },
       "CompiledWholeWireBlend": {
         "additionalProperties": false,
         "properties": {
@@ -4166,6 +4384,93 @@
           "outputs"
         ],
         "title": "ConnectedObservation",
+        "type": "object"
+      },
+      "ConnectorLifecycleDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "attempts": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FetchAttempt"
+            },
+            "title": "Attempts",
+            "type": "array"
+          },
+          "canonical_revisions": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CanonicalDatasetRevision"
+            },
+            "title": "Canonical Revisions",
+            "type": "array"
+          },
+          "connector": {
+            "$ref": "#/components/schemas/SourceConnector"
+          },
+          "curation_runs": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CurationRun"
+            },
+            "title": "Curation Runs",
+            "type": "array"
+          },
+          "raw_snapshots": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RawSourceSnapshot"
+            },
+            "title": "Raw Snapshots",
+            "type": "array"
+          },
+          "training_snapshots": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ApprovedTrainingSnapshot"
+            },
+            "title": "Training Snapshots",
+            "type": "array"
+          }
+        },
+        "required": [
+          "connector"
+        ],
+        "title": "ConnectorLifecycleDetail",
+        "type": "object"
+      },
+      "ConnectorSchedule": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "interval_minutes": {
+            "maximum": 43200.0,
+            "minimum": 15.0,
+            "title": "Interval Minutes",
+            "type": "integer"
+          },
+          "schedule_id": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Schedule Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "connector-schedule/v1",
+            "default": "connector-schedule/v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schedule_id",
+          "interval_minutes"
+        ],
+        "title": "ConnectorSchedule",
         "type": "object"
       },
       "CoordinateUnitConversion": {
@@ -4641,6 +4946,343 @@
         "title": "CriticalInput",
         "type": "object"
       },
+      "CuratedRow": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_record": {
+            "additionalProperties": true,
+            "title": "Canonical Record",
+            "type": "object"
+          },
+          "raw_row_index": {
+            "minimum": 0.0,
+            "title": "Raw Row Index",
+            "type": "integer"
+          },
+          "reason_codes": {
+            "default": [],
+            "items": {
+              "enum": [
+                "missing_required",
+                "invalid_number",
+                "filter_mismatch",
+                "sum_limit_exceeded",
+                "missing_target",
+                "duplicate_row_key"
+              ],
+              "type": "string"
+            },
+            "title": "Reason Codes",
+            "type": "array"
+          },
+          "row_key": {
+            "minLength": 1,
+            "title": "Row Key",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "accepted",
+              "warning",
+              "quarantined",
+              "blocked"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "target_eligible": {
+            "title": "Target Eligible",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "row_key",
+          "raw_row_index",
+          "canonical_record",
+          "status",
+          "target_eligible"
+        ],
+        "title": "CuratedRow",
+        "type": "object"
+      },
+      "CurationRecipe": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "recipe_digest": {
+            "minLength": 1,
+            "title": "Recipe Digest",
+            "type": "string"
+          },
+          "recipe_id": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Recipe Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "curation-recipe/v1",
+            "default": "curation-recipe/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "coerce_number_v1": "#/components/schemas/CoerceNumberStep",
+                  "filter_equal_v1": "#/components/schemas/FilterEqualStep",
+                  "required_fields_v1": "#/components/schemas/RequiredFieldsStep",
+                  "sum_limit_v1": "#/components/schemas/SumLimitStep",
+                  "target_eligibility_v1": "#/components/schemas/TargetEligibilityStep",
+                  "trim_strings_v1": "#/components/schemas/TrimStringsStep"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/TrimStringsStep"
+                },
+                {
+                  "$ref": "#/components/schemas/CoerceNumberStep"
+                },
+                {
+                  "$ref": "#/components/schemas/RequiredFieldsStep"
+                },
+                {
+                  "$ref": "#/components/schemas/TargetEligibilityStep"
+                },
+                {
+                  "$ref": "#/components/schemas/FilterEqualStep"
+                },
+                {
+                  "$ref": "#/components/schemas/SumLimitStep"
+                }
+              ]
+            },
+            "minItems": 1,
+            "title": "Steps",
+            "type": "array"
+          },
+          "version": {
+            "minimum": 1.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "recipe_id",
+          "version",
+          "name",
+          "steps",
+          "id",
+          "recipe_digest",
+          "created_at"
+        ],
+        "title": "CurationRecipe",
+        "type": "object"
+      },
+      "CurationRecipeCreateInput": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "recipe_id": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Recipe Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "curation-recipe/v1",
+            "default": "curation-recipe/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "coerce_number_v1": "#/components/schemas/CoerceNumberStep",
+                  "filter_equal_v1": "#/components/schemas/FilterEqualStep",
+                  "required_fields_v1": "#/components/schemas/RequiredFieldsStep",
+                  "sum_limit_v1": "#/components/schemas/SumLimitStep",
+                  "target_eligibility_v1": "#/components/schemas/TargetEligibilityStep",
+                  "trim_strings_v1": "#/components/schemas/TrimStringsStep"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/TrimStringsStep"
+                },
+                {
+                  "$ref": "#/components/schemas/CoerceNumberStep"
+                },
+                {
+                  "$ref": "#/components/schemas/RequiredFieldsStep"
+                },
+                {
+                  "$ref": "#/components/schemas/TargetEligibilityStep"
+                },
+                {
+                  "$ref": "#/components/schemas/FilterEqualStep"
+                },
+                {
+                  "$ref": "#/components/schemas/SumLimitStep"
+                }
+              ]
+            },
+            "minItems": 1,
+            "title": "Steps",
+            "type": "array"
+          },
+          "version": {
+            "minimum": 1.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "recipe_id",
+          "version",
+          "name",
+          "steps"
+        ],
+        "title": "CurationRecipeCreateInput",
+        "type": "object"
+      },
+      "CurationRun": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "curation_digest": {
+            "minLength": 1,
+            "title": "Curation Digest",
+            "type": "string"
+          },
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "profile_digest": {
+            "minLength": 1,
+            "title": "Profile Digest",
+            "type": "string"
+          },
+          "profile_revision_id": {
+            "minLength": 1,
+            "title": "Profile Revision Id",
+            "type": "string"
+          },
+          "quality": {
+            "$ref": "#/components/schemas/QualitySummary"
+          },
+          "quality_delta": {
+            "$ref": "#/components/schemas/QualityDelta"
+          },
+          "raw_snapshot_digest": {
+            "minLength": 1,
+            "title": "Raw Snapshot Digest",
+            "type": "string"
+          },
+          "raw_snapshot_id": {
+            "minLength": 1,
+            "title": "Raw Snapshot Id",
+            "type": "string"
+          },
+          "recipe_digest": {
+            "minLength": 1,
+            "title": "Recipe Digest",
+            "type": "string"
+          },
+          "recipe_id": {
+            "minLength": 1,
+            "title": "Recipe Id",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/CuratedRow"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "curation-run/v1",
+            "default": "curation-run/v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "raw_snapshot_id",
+          "raw_snapshot_digest",
+          "recipe_id",
+          "recipe_digest",
+          "profile_revision_id",
+          "profile_digest",
+          "rows",
+          "quality",
+          "quality_delta",
+          "curation_digest",
+          "created_at"
+        ],
+        "title": "CurationRun",
+        "type": "object"
+      },
+      "CurationRunCreateInput": {
+        "additionalProperties": false,
+        "properties": {
+          "profile_digest": {
+            "minLength": 1,
+            "title": "Profile Digest",
+            "type": "string"
+          },
+          "profile_revision_id": {
+            "minLength": 1,
+            "title": "Profile Revision Id",
+            "type": "string"
+          },
+          "recipe_resource_id": {
+            "minLength": 1,
+            "title": "Recipe Resource Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "recipe_resource_id",
+          "profile_revision_id",
+          "profile_digest"
+        ],
+        "title": "CurationRunCreateInput",
+        "type": "object"
+      },
       "CurveFamilyResponse": {
         "properties": {
           "axis": {
@@ -5023,6 +5665,29 @@
         "title": "DataLibraryDataset",
         "type": "object"
       },
+      "DataLifecycleCatalog": {
+        "additionalProperties": false,
+        "properties": {
+          "connectors": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SourceConnector"
+            },
+            "title": "Connectors",
+            "type": "array"
+          },
+          "recipes": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CurationRecipe"
+            },
+            "title": "Recipes",
+            "type": "array"
+          }
+        },
+        "title": "DataLifecycleCatalog",
+        "type": "object"
+      },
       "DataQualityIssue": {
         "properties": {
           "detail": {
@@ -5105,6 +5770,36 @@
           "suggested_view"
         ],
         "title": "DataQualityIssue",
+        "type": "object"
+      },
+      "DatasetApprovalInput": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "overrides": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ApprovalOverride"
+            },
+            "title": "Overrides",
+            "type": "array"
+          },
+          "reason": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "actor"
+        ],
+        "title": "DatasetApprovalInput",
         "type": "object"
       },
       "DatasetIdentity": {
@@ -6737,6 +7432,116 @@
         "title": "FeaturePipelineIdentity",
         "type": "object"
       },
+      "FetchAttempt": {
+        "additionalProperties": false,
+        "properties": {
+          "connector_id": {
+            "minLength": 1,
+            "title": "Connector Id",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "enum": [
+                  "invalid_object",
+                  "scheduled_trigger_not_allowed",
+                  "connector_not_found"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "error_message": {
+            "default": "",
+            "title": "Error Message",
+            "type": "string"
+          },
+          "finished_at": {
+            "format": "date-time",
+            "title": "Finished At",
+            "type": "string"
+          },
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "object_version": {
+            "title": "Object Version",
+            "type": "string"
+          },
+          "retry_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry Of"
+          },
+          "reused_existing_snapshot": {
+            "default": false,
+            "title": "Reused Existing Snapshot",
+            "type": "boolean"
+          },
+          "schema_version": {
+            "const": "fetch-attempt/v1",
+            "default": "fetch-attempt/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "snapshot_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot Id"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "succeeded",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "trigger_kind": {
+            "enum": [
+              "manual",
+              "scheduled"
+            ],
+            "title": "Trigger Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "connector_id",
+          "trigger_kind",
+          "object_version",
+          "status",
+          "started_at",
+          "finished_at"
+        ],
+        "title": "FetchAttempt",
+        "type": "object"
+      },
       "FieldError": {
         "properties": {
           "message": {
@@ -6753,6 +7558,45 @@
           "message"
         ],
         "title": "FieldError",
+        "type": "object"
+      },
+      "FilterEqualStep": {
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "minLength": 1,
+            "title": "Field",
+            "type": "string"
+          },
+          "kind": {
+            "const": "filter_equal_v1",
+            "title": "Kind",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "boolean"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "kind",
+          "field",
+          "value"
+        ],
+        "title": "FilterEqualStep",
         "type": "object"
       },
       "FixedContextDefinition": {
@@ -8593,6 +9437,51 @@
           "max"
         ],
         "title": "NumericRange",
+        "type": "object"
+      },
+      "ObjectSelection": {
+        "additionalProperties": false,
+        "properties": {
+          "format": {
+            "enum": [
+              "json_array",
+              "jsonl"
+            ],
+            "title": "Format",
+            "type": "string"
+          },
+          "included_fields": {
+            "default": [],
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "title": "Included Fields",
+            "type": "array"
+          },
+          "primary_key": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Primary Key"
+          },
+          "schema_version": {
+            "const": "object-selection/v1",
+            "default": "object-selection/v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "format"
+        ],
+        "title": "ObjectSelection",
         "type": "object"
       },
       "ObjectiveDefinition": {
@@ -11396,6 +12285,45 @@
         "title": "ProposalStrategyRequest",
         "type": "object"
       },
+      "QualityDelta": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted_delta": {
+            "default": 0,
+            "title": "Accepted Delta",
+            "type": "integer"
+          },
+          "blocked_delta": {
+            "default": 0,
+            "title": "Blocked Delta",
+            "type": "integer"
+          },
+          "comparable": {
+            "title": "Comparable",
+            "type": "boolean"
+          },
+          "quarantined_delta": {
+            "default": 0,
+            "title": "Quarantined Delta",
+            "type": "integer"
+          },
+          "target_ineligible_delta": {
+            "default": 0,
+            "title": "Target Ineligible Delta",
+            "type": "integer"
+          },
+          "warning_delta": {
+            "default": 0,
+            "title": "Warning Delta",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "comparable"
+        ],
+        "title": "QualityDelta",
+        "type": "object"
+      },
       "QualityResponse": {
         "properties": {
           "by_category": {
@@ -11490,6 +12418,43 @@
           "期待する気づき"
         ],
         "title": "QualityScenario",
+        "type": "object"
+      },
+      "QualitySummary": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Accepted",
+            "type": "integer"
+          },
+          "blocked": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Blocked",
+            "type": "integer"
+          },
+          "quarantined": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Quarantined",
+            "type": "integer"
+          },
+          "target_ineligible": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Target Ineligible",
+            "type": "integer"
+          },
+          "warning": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Warning",
+            "type": "integer"
+          }
+        },
+        "title": "QualitySummary",
         "type": "object"
       },
       "RawSeriesAsset": {
@@ -11749,6 +12714,156 @@
         "title": "RawSeriesProvenance",
         "type": "object"
       },
+      "RawSnapshotDiff": {
+        "additionalProperties": false,
+        "properties": {
+          "added_rows": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Added Rows",
+            "type": "integer"
+          },
+          "changed_rows": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Changed Rows",
+            "type": "integer"
+          },
+          "comparable": {
+            "title": "Comparable",
+            "type": "boolean"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          },
+          "removed_rows": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Removed Rows",
+            "type": "integer"
+          },
+          "unchanged_rows": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Unchanged Rows",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "comparable"
+        ],
+        "title": "RawSnapshotDiff",
+        "type": "object"
+      },
+      "RawSourceSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "captured_at": {
+            "format": "date-time",
+            "title": "Captured At",
+            "type": "string"
+          },
+          "connector_configuration_digest": {
+            "minLength": 1,
+            "title": "Connector Configuration Digest",
+            "type": "string"
+          },
+          "connector_id": {
+            "minLength": 1,
+            "title": "Connector Id",
+            "type": "string"
+          },
+          "content_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Sha256",
+            "type": "string"
+          },
+          "diff": {
+            "$ref": "#/components/schemas/RawSnapshotDiff"
+          },
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "object_version": {
+            "title": "Object Version",
+            "type": "string"
+          },
+          "previous_snapshot_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Snapshot Id"
+          },
+          "row_count": {
+            "minimum": 0.0,
+            "title": "Row Count",
+            "type": "integer"
+          },
+          "rows": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "raw-source-snapshot/v1",
+            "default": "raw-source-snapshot/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "selection_digest": {
+            "minLength": 1,
+            "title": "Selection Digest",
+            "type": "string"
+          },
+          "snapshot_digest": {
+            "minLength": 1,
+            "title": "Snapshot Digest",
+            "type": "string"
+          },
+          "source_locator": {
+            "minLength": 1,
+            "title": "Source Locator",
+            "type": "string"
+          },
+          "trigger_kind": {
+            "enum": [
+              "manual",
+              "scheduled"
+            ],
+            "title": "Trigger Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "connector_id",
+          "connector_configuration_digest",
+          "source_locator",
+          "selection_digest",
+          "object_version",
+          "trigger_kind",
+          "captured_at",
+          "content_sha256",
+          "row_count",
+          "rows",
+          "diff",
+          "snapshot_digest"
+        ],
+        "title": "RawSourceSnapshot",
+        "type": "object"
+      },
       "RelationalConstraint": {
         "additionalProperties": false,
         "properties": {
@@ -11892,6 +13007,30 @@
           "n"
         ],
         "title": "RepeatSummary",
+        "type": "object"
+      },
+      "RequiredFieldsStep": {
+        "additionalProperties": false,
+        "properties": {
+          "fields": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Fields",
+            "type": "array"
+          },
+          "kind": {
+            "const": "required_fields_v1",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "fields"
+        ],
+        "title": "RequiredFieldsStep",
         "type": "object"
       },
       "ResolvedChainEvaluation": {
@@ -14126,6 +15265,206 @@
         "title": "SnapshotSourceRef",
         "type": "object"
       },
+      "SourceConnector": {
+        "additionalProperties": false,
+        "properties": {
+          "configuration_digest": {
+            "minLength": 1,
+            "title": "Configuration Digest",
+            "type": "string"
+          },
+          "connector_type": {
+            "const": "object_storage_json_v1",
+            "title": "Connector Type",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "schedule": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConnectorSchedule"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schema_version": {
+            "const": "source-connector/v1",
+            "default": "source-connector/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "selection": {
+            "$ref": "#/components/schemas/ObjectSelection"
+          },
+          "source_locator": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Source Locator",
+            "type": "string"
+          },
+          "trigger_policy": {
+            "default": "manual_only",
+            "enum": [
+              "manual_only",
+              "schedulable"
+            ],
+            "title": "Trigger Policy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "connector_type",
+          "source_locator",
+          "selection",
+          "id",
+          "configuration_digest",
+          "created_at"
+        ],
+        "title": "SourceConnector",
+        "type": "object"
+      },
+      "SourceConnectorCreateInput": {
+        "additionalProperties": false,
+        "properties": {
+          "connector_type": {
+            "const": "object_storage_json_v1",
+            "title": "Connector Type",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "schedule": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConnectorSchedule"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schema_version": {
+            "const": "source-connector/v1",
+            "default": "source-connector/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "selection": {
+            "$ref": "#/components/schemas/ObjectSelection"
+          },
+          "source_locator": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Source Locator",
+            "type": "string"
+          },
+          "trigger_policy": {
+            "default": "manual_only",
+            "enum": [
+              "manual_only",
+              "schedulable"
+            ],
+            "title": "Trigger Policy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "connector_type",
+          "source_locator",
+          "selection"
+        ],
+        "title": "SourceConnectorCreateInput",
+        "type": "object"
+      },
+      "SourceFetchRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "object_content": {
+            "maxLength": 5000000,
+            "minLength": 1,
+            "title": "Object Content",
+            "type": "string"
+          },
+          "object_version": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Object Version",
+            "type": "string"
+          },
+          "retry_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry Of"
+          },
+          "schema_version": {
+            "const": "source-fetch-request/v1",
+            "default": "source-fetch-request/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "trigger_kind": {
+            "default": "manual",
+            "enum": [
+              "manual",
+              "scheduled"
+            ],
+            "title": "Trigger Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "object_content",
+          "object_version"
+        ],
+        "title": "SourceFetchRequest",
+        "type": "object"
+      },
+      "SourceFetchResult": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt": {
+            "$ref": "#/components/schemas/FetchAttempt"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/RawSourceSnapshot"
+          }
+        },
+        "required": [
+          "snapshot",
+          "attempt"
+        ],
+        "title": "SourceFetchResult",
+        "type": "object"
+      },
       "SparseBlend": {
         "additionalProperties": false,
         "description": "Canonical core blend. Ratios and fill are percentages, not fractions.",
@@ -14395,6 +15734,50 @@
         "title": "StageSamplingCapability",
         "type": "object"
       },
+      "SumLimitStep": {
+        "additionalProperties": false,
+        "properties": {
+          "fields": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Fields",
+            "type": "array"
+          },
+          "kind": {
+            "const": "sum_limit_v1",
+            "title": "Kind",
+            "type": "string"
+          },
+          "maximum": {
+            "title": "Maximum",
+            "type": "number"
+          },
+          "on_violation": {
+            "default": "warning",
+            "enum": [
+              "warning",
+              "quarantined"
+            ],
+            "title": "On Violation",
+            "type": "string"
+          },
+          "tolerance": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Tolerance",
+            "type": "number"
+          }
+        },
+        "required": [
+          "kind",
+          "fields",
+          "maximum"
+        ],
+        "title": "SumLimitStep",
+        "type": "object"
+      },
       "Support": {
         "properties": {
           "caution_threshold": {
@@ -14471,6 +15854,30 @@
           "usable"
         ],
         "title": "TargetCurationState",
+        "type": "object"
+      },
+      "TargetEligibilityStep": {
+        "additionalProperties": false,
+        "properties": {
+          "fields": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Fields",
+            "type": "array"
+          },
+          "kind": {
+            "const": "target_eligibility_v1",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "fields"
+        ],
+        "title": "TargetEligibilityStep",
         "type": "object"
       },
       "TargetRange": {
@@ -14907,6 +16314,53 @@
           "values"
         ],
         "title": "TrainingDataRow",
+        "type": "object"
+      },
+      "TrainingSnapshotCreateInput": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "purpose": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Purpose",
+            "type": "string"
+          }
+        },
+        "required": [
+          "actor",
+          "purpose"
+        ],
+        "title": "TrainingSnapshotCreateInput",
+        "type": "object"
+      },
+      "TrimStringsStep": {
+        "additionalProperties": false,
+        "properties": {
+          "fields": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Fields",
+            "type": "array"
+          },
+          "kind": {
+            "const": "trim_strings_v1",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "fields"
+        ],
+        "title": "TrimStringsStep",
         "type": "object"
       },
       "TruncatedNormalTolerance": {
@@ -15404,6 +16858,345 @@
           }
         },
         "summary": "Create Dataset View"
+      }
+    },
+    "/api/data-lifecycle": {
+      "get": {
+        "operationId": "lifecycle_catalog_api_data_lifecycle_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataLifecycleCatalog"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Lifecycle Catalog"
+      }
+    },
+    "/api/data-lifecycle/canonical-dataset-revisions/{revision_id}/training-snapshots": {
+      "post": {
+        "operationId": "create_training_snapshot_api_data_lifecycle_canonical_dataset_revisions__revision_id__training_snapshots_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrainingSnapshotCreateInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovedTrainingSnapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Training Snapshot"
+      }
+    },
+    "/api/data-lifecycle/connectors": {
+      "post": {
+        "operationId": "create_connector_api_data_lifecycle_connectors_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceConnectorCreateInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceConnector"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Connector"
+      }
+    },
+    "/api/data-lifecycle/connectors/{connector_id}": {
+      "get": {
+        "operationId": "connector_detail_api_data_lifecycle_connectors__connector_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connector_id",
+            "required": true,
+            "schema": {
+              "title": "Connector Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectorLifecycleDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Connector Detail"
+      }
+    },
+    "/api/data-lifecycle/connectors/{connector_id}/fetch": {
+      "post": {
+        "operationId": "fetch_source_api_data_lifecycle_connectors__connector_id__fetch_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connector_id",
+            "required": true,
+            "schema": {
+              "title": "Connector Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceFetchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceFetchResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fetch Source"
+      }
+    },
+    "/api/data-lifecycle/curation-runs/{run_id}/approve": {
+      "post": {
+        "operationId": "approve_curation_run_api_data_lifecycle_curation_runs__run_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatasetApprovalInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanonicalDatasetRevision"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Curation Run"
+      }
+    },
+    "/api/data-lifecycle/raw-snapshots/{snapshot_id}/curation-runs": {
+      "post": {
+        "operationId": "create_curation_run_api_data_lifecycle_raw_snapshots__snapshot_id__curation_runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CurationRunCreateInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurationRun"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Curation Run"
+      }
+    },
+    "/api/data-lifecycle/recipes": {
+      "post": {
+        "operationId": "create_recipe_api_data_lifecycle_recipes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CurationRecipeCreateInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurationRecipe"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Recipe"
       }
     },
     "/api/developer/change-guide": {

@@ -90,6 +90,10 @@ Model Packageはdata-onlyであり、allow-list済みruntime adapterだけが読
 
 各familyは、学習行、target eligibility、split group、provenance、quality findingを失わない派生表へ変換する。
 
+### Source data lifecycle
+
+外部sourceの定期更新は、Connector、Raw Snapshot、Curation Run、承認済みCanonical Dataset Revision、Training Snapshotを不変資産として分離する。取得は再学習・Package active化・既存Project更新を起動しない。詳細は[Source更新と承認付きDataset lifecycle](source-data-lifecycle.md)を参照する。
+
 ### Decision Activity
 
 Activityは画面名ではなく、問い、必要能力、入力parameter、結果契約を表す。現在のproduction registryには

@@ -14,6 +14,8 @@ ExcelまたはCSVのsource assetを読取専用の正本として扱う。path�
 
 アプリは候補、予測Snapshot、範囲探索Run、検討アクティビティRun、実測値、Chain実行・Snapshot、不確かさ伝播Run、逆算由来候補をローカルSQLiteへ保存する。canonical dataset、training view、feature representationはsourceとProfileから派生させ、元sourceを変更しない。
 
+外部source更新では、credentialを保存しないConnector、不変Raw Snapshot、versioned Curation Recipe、品質判定、明示承認、Training Snapshotを分離する。source refreshから再学習、active Package切替、既存Project更新を自動実行しない。
+
 ## 利用者・配布
 
 材料研究者が自分のWindows PCで使うローカルアプリ。Electron、React、FastAPIの境界を維持し、将来のWeb化より現在の検討速度、オフライン利用、配布版の再現性を優先する。
