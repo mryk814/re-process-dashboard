@@ -10,10 +10,9 @@ Workspace restoreの章では、SQLite snapshot、bundle検証、staging migrati
 
 ## 読み始める
 
-- HTMLやPDFで読む場合は、次節の手順でbookを生成します。
-- GitHub上で読む場合は [`index.qmd`](index.qmd) から始めます。
-- 実装箇所を先に探す場合は [`code-map.qmd`](code-map.qmd) を使います。
-- 学ぶ順番を選ぶ場合は `learning-paths/` の3ルートを使います。
+- 順に学ぶ場合は、学習者向けPDFまたは統合HTMLの「学習者向け教材」から始めます。
+- 実装箇所を探す場合は、統合HTMLの「編集と保守のガイド」にある [`code-map.qmd`](code-map.qmd) を使います。
+- 担当別に読む順番を選ぶ場合は、同じガイドにある `learning-paths/` の三つのルートを使います。
 - 編集する場合は [`AGENTS.md`](AGENTS.md) と [`writer-persona.md`](writer-persona.md) を先に読みます。
 
 ## Windowsで生成する
@@ -65,8 +64,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/build.ps1
 
 生成先は `docs/learning/_build/` です。
 
-- HTML：`docs/learning/_build/html/index.html`
-- PDF：`docs/learning/_build/typst/material-decision-workbench-learning.pdf`
+- 統合HTML：`docs/learning/_build/site/index.html`
+- 学習者向けPDF：`docs/learning/_build/reader/material-decision-workbench-reader.pdf`
+
+統合HTMLは、学習者向け教材と編集と保守のガイドを二つのpartに分け、両方を一つの検索索引から探せる成果物です。
+学習者向けPDFは、教材設計、書き手のペルソナ、コードマップ、組版手順、評価記録を目次へ含めません。
+どちらも同じQMDを参照し、本文を出力ごとに複製しません。
 
 HTMLとPDFは確認用の生成物であり、正本ではありません。
 手作業で修正せず、`*.qmd`、`*.bib`、`styles/`を変更して再生成します。
@@ -96,6 +99,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-referenc
 4. コード全文を転載せず、判断に必要な短い断片と正本へのリンクを置く。
 5. HTMLとPDFを生成し、コード折返し、表、callout、相互参照を確認する。
 6. 維持コストがproduction開発を圧迫する場合は、章を増やす前に [`evaluation.qmd`](evaluation.qmd) の判断を更新する。
+
+Quartoの構成は `_quarto.yml` が共通設定、`_quarto-site.yml` が統合HTMLの章順、`_quarto-reader.yml` が学習者向けPDFの章順を管理します。
+profileのchapter listへ同じ本文を登録し、出力ごとのコピーは作りません。
 
 ## 教材レーン
 

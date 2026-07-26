@@ -895,6 +895,67 @@
       "open_access": "full",
       "edition_verified": true,
       "official_url_checked_on": "2026-07-27"
+    },
+    {
+      "citekey": "quarto-profiles",
+      "roles": [
+        "implementation-reference"
+      ],
+      "level": "intermediate",
+      "source_tier": "official-documentation",
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "project-profile",
+        "chapter-list",
+        "shared-manuscript"
+      ],
+      "repo_routes": [
+        "docs/learning/_quarto.yml",
+        "docs/learning/_quarto-site.yml",
+        "docs/learning/_quarto-reader.yml",
+        "docs/learning/build.ps1"
+      ],
+      "recommended_sections": [
+        "Profile Configuration",
+        "Profile Groups"
+      ],
+      "why_read": "共通設定を保ったまま、統合HTMLと学習者向けPDFのchapter listを切り替える方法を確認する。",
+      "reading_question": "共通QMDを複製せず、読者ごとに目次だけを変えるには何をprofileへ置くべきか。",
+      "caution": "存在しないprofile名が警告なしで無視されるため、build scriptでprofile fileの存在を先に検査する。",
+      "open_access": "full",
+      "edition_verified": true,
+      "official_url_checked_on": "2026-07-27"
+    },
+    {
+      "citekey": "quarto-search",
+      "roles": [
+        "implementation-reference"
+      ],
+      "level": "beginner",
+      "source_tier": "official-documentation",
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "full-text-search",
+        "local-index",
+        "html-book"
+      ],
+      "repo_routes": [
+        "docs/learning/_quarto.yml",
+        "docs/learning/_quarto-site.yml",
+        "docs/learning/build.ps1"
+      ],
+      "recommended_sections": [
+        "Overview",
+        "Search Appearance"
+      ],
+      "why_read": "統合HTMLが学習者向け教材と編集と保守のガイドを同じローカル索引へ収録する挙動を確認する。",
+      "reading_question": "PDFの目次を薄くしても、保守情報への到達性をHTMLで保てるのはなぜか。",
+      "caution": "Quartoの既定検索は生成したsiteの範囲だけを索引化し、別siteや未生成sourceまで横断しない。",
+      "open_access": "full",
+      "edition_verified": true,
+      "official_url_checked_on": "2026-07-27"
     }
   ]
 }

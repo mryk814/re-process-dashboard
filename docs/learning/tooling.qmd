@@ -21,7 +21,8 @@
 | mdBook | 検索可能 | 標準では主用途でない | Web向け | binaryは単純 | PDFを別pipelineにすると二重保守 |
 | Pandoc単独 | 単一HTMLは可能 | engine次第 | 設定可能 | command設計を自前で持つ | book navigationと検索を自作しない |
 
-Quarto Bookは、chapter listを`_quarto.yml`へ置き、HTMLとPDFまたはTypstを同じ章構造から生成できます [@quarto-books]。
+Quarto Bookは、一つの原稿群からHTMLとPDFまたはTypstを生成できます [@quarto-books]。
+Project Profileを使うと、共通設定を保ちながら出力ごとにchapter listを切り替えられます [@quarto-profiles]。
 章をまたぐcross referenceも同じsource上で解決できます [@quarto-crossrefs]。
 
 PDF engineにはTypstを採用しました。
@@ -71,7 +72,9 @@ powershell -NoProfile -ExecutionPolicy Bypass `
 この検査は各URLへHEADを送り、serverがHEADを受け付けない場合はGETへ切り替えます。
 外部networkの一時的な失敗をbook buildの失敗へしないため、通常のbuild gateには含めません。
 
-生成物は`docs/learning/_build/`へ出し、`.gitignore`で除外します。
+統合HTMLは`docs/learning/_build/site/`へ出します。
+学習者向けPDFは`docs/learning/_build/reader/material-decision-workbench-reader.pdf`へ出します。
+生成物を置く`docs/learning/_build/`は`.gitignore`で除外します。
 HTMLとPDFは配布時の確認物であり、手編集する正本ではありません。
 
 ## 採用しなかった範囲
@@ -83,12 +86,21 @@ EPUBは生成しません。
 試作ではpath存在確認、`verified_commit`、focused test、OpenAPI check、手動visual reviewを組み合わせます。
 class名や本文の意味まで自動判定する仕組みは、誤検出と保守コストを測ってから検討します。
 
+## 出力を分ける仕組み
+
+`_quarto-site.yml`は、学習者向け教材と編集と保守のガイドを二つのpartとしてHTMLへ収録します。
+検索索引は両方を対象とするため、読み始める入口と保守中に引く資料を一つのsiteから探せます。
+
+`_quarto-reader.yml`は、本編、演習、用語集、参考文献だけをPDFへ収録します。
+設計基準、書き手のペルソナ、コードマップ、学習ルート、組版手順、評価記録は読者用PDFの目次へ入れません。
+本文QMDを複製せず、二つのprofileから同じファイルを参照します。
+
 ## spikeの実測
 
-Windows上のclean buildは、cold側の計測で41.1秒、main追従後の最終再実行で29.41秒でした。
-同じQuarto原稿から検索indexを持つHTMLと101ページのPDFを生成しました。
-実内容で数えると、型付き契約の学習単位は本編15ページと演習3ページ、Source data lifecycleの学習単位は本編9ページと演習4ページ、revisionとdigestの学習単位は本編8ページと演習5ページ、Workspace restoreの学習単位は本編9ページと演習6ページです。
-各章を奇数ページから始めるrecto調整ページは、この実内容の件数へ含めません。
+Windows上のclean buildでは、統合HTMLの23文書を39.67秒、学習者向けPDFの15文書を10.67秒で生成しました。
+`build.ps1`全体の実測は51.9秒でした。
+PDFは110ページであり、全ページを画像化して本文、脚注、数式、表、code、SVG図、header、footer、page transitionを確認しました。
+HTMLでは、表紙から本編へ一回の操作で移動できることと、書き手のペルソナを検索できることを実ブラウザで確認しました。
 
 比較候補の確認結果は次です。
 

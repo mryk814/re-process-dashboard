@@ -63,21 +63,21 @@ Projectを通常一覧から外して判断証拠を凍結する操作と、外�
 
 ## 章の読み方
 
-先に構造を把握したい場合は、[教材の設計基準](foundations.qmd)、[教材用コードマップ](code-map.qmd)、担当に近い章の順に読みます。
-API contractを変更する場合は[型付き契約の章](chapters/contract-through-stack.qmd)、外部データ更新の境界を変更する場合は[Source data lifecycleの章](chapters/source-to-training-evidence.qmd)から始めます。
-Candidate保存、digest、非同期表示を変更する場合は[順番と内容を別々に識別する章](chapters/revision-and-digest.qmd)から始めます。
-SQLite schema、migration、既存DBの起動検証を変更する場合は[過去のDBを現在の契約で信用する章](chapters/trust-a-migrated-database.qmd)から始めます。
-Projectのarchive、restore、purge、またはProject-scoped tableを変更する場合は[一覧から外すことと証拠を消すことを分ける章](chapters/separate-archive-from-purge.qmd)から始めます。
-Desktopの保存先、起動、backupを変更する場合は[Workspace restoreの章](chapters/restore-workspace-safely.qmd)から始めます。
+最初から読む場合は、[型付き契約の章](chapters/contract-through-stack.qmd)へ進みます。
+変更したい対象が決まっている場合は、次の表から一章を選びます。
 
-| 読者の現在地 | 入口 |
+| 変更したい対象 | 入口 |
 |---|---|
-| PythonとFastAPIを主に使う | [Python／backendルート](learning-paths/backend.qmd) |
-| ReactまたはElectronを主に使う | [frontend／desktopルート](learning-paths/frontend-desktop.qmd) |
-| DatasetとModel Packageを主に扱う | [ML／dataルート](learning-paths/ml-data.qmd) |
-| 変更箇所だけ知りたい | [教材用コードマップ](code-map.qmd) |
+| Python契約、API、生成TypeScript型、React表示 | [型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd) |
+| Source取得、品質判定、Training Snapshot | [Source更新を学習から切り離す](chapters/source-to-training-evidence.qmd) |
+| Candidate revision、digest、遅いresponse | [順番と内容を別々に識別する](chapters/revision-and-digest.qmd) |
+| SQLite schema、migration、既存DB | [過去のDBを現在の契約で信用する](chapters/trust-a-migrated-database.qmd) |
+| Project archive、purge、判断証拠 | [一覧から外すことと証拠を消すことを分ける](chapters/separate-archive-from-purge.qmd) |
+| Workspace backup、restore、rollback | [Workspaceを切り替える前に復元を確かめる](chapters/restore-workspace-safely.qmd) |
 
-::: {.callout-note title="確認済みの基準"}
-型付き契約、Source data lifecycle、revisionとdigest、SQLite migration、Project lifecycleの章はcommit `bb3b4ff8b2f4b30d13b587162fef546421eea283`、Workspace restoreの章はcommit `f3e64fa15b49ffcb504357864bd58052ab2c3780` で実装参照を確認しました。
-章のfront matterと[教材の評価と継続判断](evaluation.qmd)に、更新時の確認方法を残しています。
+::: {.content-visible when-profile="site"}
+## 教材を編集する場合
+
+統合HTMLの「編集と保守のガイド」には、[教材の設計基準](foundations.qmd)、[書き手のペルソナ](writer-persona.md)、[教材用コードマップ](code-map.qmd)、担当別の学習ルート、組版手順、評価記録があります。
+検索は学習者向け教材と編集と保守のガイドの両方を対象にします。
 :::

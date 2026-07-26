@@ -83,7 +83,11 @@ code_references:
 
 ## 正本と生成物
 
-- 正本は `*.qmd`、`*.bib`、`_quarto.yml`、`styles/`、PowerShell scriptである。
+- 正本は `*.qmd`、`*.md`、`*.bib`、`_quarto*.yml`、`styles/`、PowerShell scriptである。
+- `_quarto.yml`は共通設定、`_quarto-site.yml`は統合HTMLの章順、`_quarto-reader.yml`は学習者向けPDFの章順を管理する。
+- 統合HTMLは学習者向け教材と編集と保守のガイドを別partにし、一つの検索索引へ収録する。
+- 学習者向けPDFへ `foundations.qmd`、`writer-persona.md`、`code-map.qmd`、`learning-paths/`、`tooling.qmd`、`evaluation.qmd` を含めない。
+- profileごとに共通本文をコピーしない。同じQMDを双方のchapter listから参照する。
 - 参考文献の書誌情報は `references.bib`、教材上の役割と読書案内は `reference-annotations.json` を正本にする。
 - `docs/learning/_build/`は生成物であり、commitしない。
 - generated HTMLとPDFを手編集しない。
@@ -126,6 +130,7 @@ npm run build
 
 PDFはpage countだけで完了にしない。
 全pageを画像化し、日本語font、code wrapping、表、図、header、footer、page transitionを目視する。
+学習者向けPDFの目次に保守専用章がないことと、統合HTMLの検索索引に両partがあることも確認する。
 15〜30ページを条件とする試作章は、生成PDF上の開始pageと次章の開始pageから実数を記録する。
 
 ## main追従後の判断

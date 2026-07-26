@@ -3,10 +3,10 @@
 参考文献は、本文の主張を権威で飾るための一覧ではありません。
 ここでは、いま追っている実装上の問いから、読む箇所と適用限界を選びます。
 
-書誌情報は `docs/learning/references.bib`、機械検査する注釈metadataは `docs/learning/reference-annotations.json` で管理します。
-このページは、注釈を読書順へ並べ直し、読者に必要な箇所だけを短く示す入口です。
-checkerは三つのfileのcitekeyが一対一であることを検査しますが、このページの日本語要約はJSONの全文転記ではありません。
+このページは、本文で出会った問いから、次に読む資料を選ぶ入口です。
+学習者向けPDFでは、実装を読むRoute 1からRoute 4だけを示します。
 
+::: {.content-visible when-profile="site"}
 ## 引用、脚注、Further Readingの分担
 
 本文のcitationは、一般概念の定義、数理、歴史上の主張、標準要件、実証結果を支えます。
@@ -50,6 +50,7 @@ licenseを確認できない画像は使用しません。
 対応する章がまだない分野の文献は、章の具体的な問いができるまで候補に留めます。
 たとえばGaussian processやBayesian optimizationの中核文献は、数理と実装を接続する章と同時に加えます。
 書名だけを先に並べると、何を読めばよいかではなく「いつか読む本」の棚になるためです。
+:::
 
 ## Route 1：型付き契約を端から変更する
 
@@ -254,6 +255,7 @@ licenseを確認できない画像は使用しません。
 - 読む理由：securityとreliabilityをsystem invariantと復旧経路へ組み込む視点を得ます。
 - 注意：Google規模の組織processとdistributed controlをlocal desktop appへそのまま持ち込みません。
 
+::: {.content-visible when-profile="site"}
 ## Route 5：実行結果を検証可能な教材にする
 
 このrouteは、commandの直後へ成功条件を置き、HTMLとPDFの両方で参照と見た目を確認する編集作業を扱います。
@@ -288,6 +290,20 @@ licenseを確認できない画像は使用しません。
 - 読む理由：HTMLとPDFで同じ参照先へ到達できるようにします。
 - 注意：参照が解決しても、改ページや長い表の視覚的破綻は目視検査が必要です。
 
+**Quarto, *Project Profiles* [@quarto-profiles]**
+
+- 役割：implementation reference
+- 推奨箇所：*Profile Configuration*、*Profile Groups*
+- 読む理由：共通QMDを複製せず、統合HTMLと学習者向けPDFの目次を切り替えます。
+- 注意：存在しないprofile名が警告なしで無視されるため、build前にprofile fileの存在を検査します。
+
+**Quarto, *Website Search* [@quarto-search]**
+
+- 役割：implementation reference
+- 推奨箇所：*Overview*、*Search Appearance*
+- 読む理由：統合HTMLの両partを一つのローカル索引から探せることを確認します。
+- 注意：検索範囲は生成したsite内であり、別siteや未生成sourceまで横断しません。
+
 ## Route 6：教材を共同研究者の声で保守する
 
 このrouteは、読者の必要を先に置き、概念とproject、本文とreference、主線と脚注を分ける編集者向けの経路です。
@@ -321,6 +337,7 @@ licenseを確認できない画像は使用しません。
 - 推奨箇所：*Active voice vs. passive voice*
 - 読む理由：処理主体と動作を示し、変更箇所を追える文へ直します。
 - 注意：受動態を禁止せず、行為者が重要な箇所で曖昧さを減らします。
+:::
 
 ## 書誌情報
 
