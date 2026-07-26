@@ -853,6 +853,9 @@ class Store:
                     raise CandidateCopyConflictError("コピー元候補またはrevisionが一致しません")
                 if source["task_id"] != payload.task_id:
                     raise CandidateCopyConflictError("異なる予測タスクの候補はコピーできません")
+            project_series_id = self._project_series_id_for_create(
+                conn, payload, now
+            )
             conn.execute(
                 "INSERT INTO projects(id,name,description,purpose,task_id,target_values,input_ranges,"
                 "response_curve_ranges,response_curve_points,heat_stage_positions_m,display_decimals,notes,decision_candidate_id,"
@@ -873,7 +876,7 @@ class Store:
                     json.dumps(payload.display_decimals, ensure_ascii=False, sort_keys=True), payload.notes,
                     payload.decision_candidate_id, payload.decision_snapshot_id, payload.decision_note,
                     payload.dataset_view_revision_id, payload.task_contract_digest, payload.model_package_ref_id,
-                    payload.model_package_manifest_digest, payload.project_series_id, payload.predecessor_project_id,
+                    payload.model_package_manifest_digest, project_series_id, payload.predecessor_project_id,
                     payload.continuation_reason,
                     identity_provenance,
                     scientific_identity_json,
@@ -973,6 +976,9 @@ class Store:
                     raise CandidateCopyConflictError(
                         "コピー元候補のChain Revisionまたはcandidate revisionが一致しません"
                     )
+            project_series_id = self._project_series_id_for_create(
+                conn, payload, now
+            )
             conn.execute(
                 "INSERT INTO projects("
                 "id,name,description,purpose,task_id,target_values,input_ranges,"
@@ -1014,7 +1020,7 @@ class Store:
                     "",
                     None,
                     "",
-                    payload.project_series_id,
+                    project_series_id,
                     payload.predecessor_project_id,
                     payload.continuation_reason,
                     "explicit",
@@ -1038,6 +1044,38 @@ class Store:
                     ),
                 )
         return self.get_project(project_id)  # type: ignore[return-value]
+
+    @staticmethod
+    def _project_series_id_for_create(
+        conn: sqlite3.Connection,
+        payload: ProjectCreateInput,
+        now: str,
+    ) -> str | None:
+        if payload.new_project_series is not None:
+            series_id = f"project-series-{uuid.uuid4()}"
+            conn.execute(
+                "INSERT INTO project_series(id,name,description,created_at,updated_at) "
+                "VALUES (?,?,?,?,?)",
+                (
+                    series_id,
+                    payload.new_project_series.name,
+                    payload.new_project_series.description,
+                    now,
+                    now,
+                ),
+            )
+            return series_id
+        if payload.project_series_id is None:
+            return None
+        available = conn.execute(
+            "SELECT id FROM project_series WHERE id=? AND archived_at IS NULL",
+            (payload.project_series_id,),
+        ).fetchone()
+        if available is None:
+            raise ProjectGroupUnavailableError(
+                "選択した検討グループを利用できません"
+            )
+        return payload.project_series_id
 
     def ensure_project(self, project_id: str, payload: ProjectInput) -> Project:
         existing = self.get_project(project_id)

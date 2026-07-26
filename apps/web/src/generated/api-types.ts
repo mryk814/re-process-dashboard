@@ -6237,6 +6237,7 @@ export interface components {
              * @default 焼鈍条件の候補検討
              */
             name: string;
+            new_project_series?: components["schemas"]["ProjectSeriesCreateInput"] | null;
             /**
              * Notes
              * @default

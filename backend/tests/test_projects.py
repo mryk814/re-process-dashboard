@@ -4,6 +4,7 @@ import sqlite3
 
 from fastapi.testclient import TestClient
 from openpyxl import Workbook
+import pytest
 
 from material_workbench.app import _AppResources, create_app
 from material_workbench.persistence.store import MAX_CANDIDATES_PER_PROJECT, Store
@@ -283,6 +284,75 @@ def test_project_crud_preserves_default_and_isolates_candidates_and_screening(cl
     assert client.delete("/api/projects/default").status_code == 409
     assert client.delete("/api/projects/hot-rolling-default").status_code == 409
     assert client.delete("/api/projects/missing").status_code == 404
+
+
+def test_project_series_is_optional_and_new_series_creation_is_explicit(client) -> None:
+    before_ids = {
+        item["id"] for item in client.get("/api/project-series").json()
+    }
+
+    standalone = client.post(
+        "/api/projects",
+        json=_project(client, "検討グループなし"),
+    )
+    assert standalone.status_code == 201, standalone.text
+    assert standalone.json()["project_series_id"] is None
+    assert {
+        item["id"] for item in client.get("/api/project-series").json()
+    } == before_ids
+
+    grouped = client.post(
+        "/api/projects",
+        json={
+            **_project(client, "明示的な検討グループ"),
+            "new_project_series": {
+                "name": "耐熱材の一連検討",
+                "description": "明示作成",
+            },
+        },
+    )
+    assert grouped.status_code == 201, grouped.text
+    group_id = grouped.json()["project_series_id"]
+    assert group_id is not None
+    created_group = client.get(f"/api/project-series/{group_id}").json()
+    assert created_group["name"] == "耐熱材の一連検討"
+    assert created_group["description"] == "明示作成"
+    assert created_group["archived_at"] is None
+
+    conflicting = client.post(
+        "/api/projects",
+        json={
+            **_project(client, "排他指定"),
+            "project_series_id": group_id,
+            "new_project_series": {"name": "同時指定不可"},
+        },
+    )
+    assert conflicting.status_code == 422
+
+
+def test_new_project_series_rolls_back_when_project_insert_fails(client) -> None:
+    database = client.app.state.store.path
+    with sqlite3.connect(database) as conn:
+        conn.execute(
+            "CREATE TRIGGER reject_atomic_project BEFORE INSERT ON projects "
+            "WHEN NEW.name='transaction rollback' "
+            "BEGIN SELECT RAISE(ABORT, 'forced project failure'); END"
+        )
+
+    before_ids = {
+        item["id"] for item in client.get("/api/project-series").json()
+    }
+    with pytest.raises(sqlite3.IntegrityError, match="forced project failure"):
+        client.post(
+            "/api/projects",
+            json={
+                **_project(client, "transaction rollback"),
+                "new_project_series": {"name": "残ってはいけない検討グループ"},
+            },
+        )
+    assert {
+        item["id"] for item in client.get("/api/project-series").json()
+    } == before_ids
 
 
 def test_project_design_space_narrows_screening_and_is_immutable(client) -> None:

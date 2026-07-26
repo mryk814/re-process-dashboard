@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { provenanceLabel } from "../../shared/candidateProvenance";
 import { formatPredictionPoint, predictionHasInterval, predictionIntervalLabel } from "../../shared/predictionPresentation";
 import { assessOutputValues, assessPrediction, resolveOutputDefinition } from "../../shared/outputPresentation";
@@ -139,11 +139,14 @@ export function ProjectHub({
   const [newModelPackageRefId, setNewModelPackageRefId] = useState("");
   const [newChainId, setNewChainId] = useState("");
   const [newChainRevisionId, setNewChainRevisionId] = useState("");
+  const [newProjectGroupChoice, setNewProjectGroupChoice] = useState<"none" | "existing" | "new">("none");
   const [newProjectSeriesId, setNewProjectSeriesId] = useState("");
+  const [newProjectSeriesName, setNewProjectSeriesName] = useState("");
   const [predecessorProjectId, setPredecessorProjectId] = useState("");
   const [continuationReason, setContinuationReason] = useState("");
   const [seriesName, setSeriesName] = useState("");
   const [groupMembershipId, setGroupMembershipId] = useState("");
+  const [groupSettingsOpen, setGroupSettingsOpen] = useState(false);
   const [decisionNote, setDecisionNote] = useState("");
   const [collapsedSeriesIds, setCollapsedSeriesIds] = useState<Set<string>>(() => new Set());
   const activeProjectRef = useRef(activeProjectId);
@@ -210,7 +213,7 @@ export function ProjectHub({
     return () => { active = false; };
   }, [projects]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setSettingsOpen(false);
   }, [activeProjectId]);
 
@@ -327,11 +330,17 @@ export function ProjectHub({
   const fixedDataset = project?.dataset_view_revision_id ? datasetByView.get(project.dataset_view_revision_id) : undefined;
   const fixedPackage = creationOptions?.model_packages.find((item) => item.id === project?.model_package_ref_id);
   const fixedSeries = creationOptions?.project_series.find((item) => item.id === project?.project_series_id);
+  const fixedSeriesProjectCount = project?.project_series_id
+    ? projects.filter((item) => item.project_series_id === project.project_series_id).length
+    : 0;
+  const showActiveSeriesMembership = Boolean(fixedSeries && fixedSeriesProjectCount > 1);
   const activeProjectSeries = useMemo(() => {
     const usedSeriesIds = new Set(projects.map((item) => item.project_series_id).filter(Boolean));
     return (creationOptions?.project_series ?? []).filter((item) => usedSeriesIds.has(item.id));
   }, [creationOptions?.project_series, projects]);
-  const selectedSeries = activeProjectSeries.find((item) => item.id === newProjectSeriesId);
+  const selectedSeries = newProjectGroupChoice === "existing"
+    ? activeProjectSeries.find((item) => item.id === newProjectSeriesId)
+    : undefined;
   const predecessorProject = projects.find((item) => item.id === project?.predecessor_project_id);
   const predecessorSeries = creationOptions?.project_series.find(
     (item) => item.id === predecessorProject?.project_series_id,
@@ -345,25 +354,37 @@ export function ProjectHub({
     if (!settingsOpen) {
       setSeriesName(fixedSeries?.name ?? "");
       setGroupMembershipId(project?.project_series_id ?? "");
+      setGroupSettingsOpen(false);
     }
   }, [fixedSeries?.id, fixedSeries?.name, project?.project_series_id, settingsOpen]);
+  useEffect(() => {
+    if (groupSettingsOpen) {
+      setSeriesName(fixedSeries?.name ?? "");
+      setGroupMembershipId(project?.project_series_id ?? "");
+    }
+  }, [fixedSeries?.id, fixedSeries?.name, groupSettingsOpen, project?.project_series_id]);
   const projectGroups = useMemo(() => {
     const series = new Map((creationOptions?.project_series ?? []).map((item) => [item.id, item]));
-    const groups = new Map((creationOptions?.project_series ?? []).map((item) => [item.id, { id: item.id, name: item.name, projects: [] as ApiProject[] }]));
+    const groups = new Map((creationOptions?.project_series ?? []).map((item) => [
+      item.id,
+      { id: item.id, name: item.name, projects: [] as ApiProject[] },
+    ]));
+    const unassigned: Array<{ id: string; name: string; projects: ApiProject[] }> = [];
     for (const item of projects) {
       const seriesId = item.project_series_id;
-      const id = seriesId && series.has(seriesId) ? seriesId : "unassigned";
-      const group = groups.get(id) ?? {
-        id,
-        name: series.get(id)?.name ?? "その他の検討",
-        projects: [],
-      };
+      if (!seriesId || !series.has(seriesId)) {
+        unassigned.push({ id: `project:${item.id}`, name: "", projects: [item] });
+        continue;
+      }
+      const group = groups.get(seriesId)!;
       group.projects.push(item);
-      groups.set(id, group);
     }
-    return [...groups.values()].filter((group) => group.projects.length > 0);
+    return [
+      ...[...groups.values()].filter((group) => group.projects.length > 0),
+      ...unassigned,
+    ];
   }, [creationOptions?.project_series, projects]);
-  const activeSeriesId = projectGroups.find((group) => group.projects.some((item) => item.id === activeProjectId))?.id ?? "unassigned";
+  const activeSeriesId = projectGroups.find((group) => group.projects.some((item) => item.id === activeProjectId))?.id ?? `project:${activeProjectId}`;
 
   useEffect(() => {
     const newGroupIds = projectGroups
@@ -401,7 +422,9 @@ export function ProjectHub({
     setNewModelPackageRefId("");
     setNewChainId("");
     setNewChainRevisionId("");
+    setNewProjectGroupChoice("none");
     setNewProjectSeriesId("");
+    setNewProjectSeriesName("");
     setPredecessorProjectId("");
     setContinuationReason("");
     onCreationIntentConsumed();
@@ -485,10 +508,13 @@ export function ProjectHub({
   async function createProject() {
     const taskId = createMode === "copy" ? copyTaskId : newTaskId;
     const creatingChain = createMode === "empty" && Boolean(newChainId);
+    const trimmedSeriesName = newProjectSeriesName.trim();
     if (!newProjectName.trim() || !newDatasetViewId) return setError("Datasetとプロジェクト名を確認してください。");
     if (creatingChain && !selectedChainRevision) return setError("Chain TemplateとRevisionを確認してください。");
     if (!creatingChain && (!taskId || !newModelPackageRefId)) return setError("予測タスクとModel Packageを確認してください。");
     if (createMode === "copy" && !candidate) return setError("コピーする現在候補がありません。");
+    if (newProjectGroupChoice === "existing" && !newProjectSeriesId) return setError("追加する検討グループを選択してください。");
+    if (newProjectGroupChoice === "new" && !trimmedSeriesName) return setError("新しい検討グループ名を入力してください。");
     try {
       const initialCandidate = createMode === "copy" && candidate ? {
         ...toApiCandidate(candidate),
@@ -499,7 +525,10 @@ export function ProjectHub({
         name: newProjectName.trim(), description: "", purpose: "",
         target_values: {}, input_ranges: {}, response_curve_points: 17, notes: "", decision_candidate_id: "", decision_snapshot_id: "", decision_note: "",
         initial_candidate: initialCandidate,
-        project_series_id: newProjectSeriesId || undefined,
+        project_series_id: newProjectGroupChoice === "existing" ? newProjectSeriesId : null,
+        new_project_series: newProjectGroupChoice === "new"
+          ? { name: trimmedSeriesName, description: "" }
+          : null,
         predecessor_project_id: predecessorProjectId || undefined,
         continuation_reason: continuationReason,
       };
@@ -520,15 +549,14 @@ export function ProjectHub({
         model_package_ref_id: newModelPackageRefId,
         task_contract_digest: selectedPackage?.task_contract_digest ?? "",
         model_package_manifest_digest: selectedPackage?.manifest_digest ?? "",
-        design_space: (createMode === "copy" || predecessorProjectId)
+        design_space: (createMode === "copy" || Boolean(predecessorProjectId))
+          && project?.task_id === taskId
           ? project?.design_space ?? undefined
           : undefined,
       });
       onProjectChanged(created);
       setCreateOpen(false);
-      setNewProjectName("");
-      setPredecessorProjectId("");
-      setContinuationReason("");
+      resetCreateProjectForm();
       onSwitch(created.id);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "新しいプロジェクトを作成できませんでした。");
@@ -619,7 +647,9 @@ export function ProjectHub({
     setNewModelPackageRefId("");
     setNewChainId("");
     setNewChainRevisionId("");
+    setNewProjectGroupChoice("none");
     setNewProjectSeriesId("");
+    setNewProjectSeriesName("");
     setPredecessorProjectId("");
     setContinuationReason("");
   };
@@ -663,7 +693,9 @@ export function ProjectHub({
       setNewModelPackageRefId("");
       setNewChainId(fixedChain?.definition.chain_id ?? "");
       setNewChainRevisionId(chainIdentity.chain_revision_id);
+      setNewProjectGroupChoice(project.project_series_id ? "existing" : "none");
       setNewProjectSeriesId(project.project_series_id ?? "");
+      setNewProjectSeriesName("");
       setPredecessorProjectId(project.id);
       setContinuationReason("");
       return;
@@ -679,7 +711,9 @@ export function ProjectHub({
     setNewDatasetViewId(project.dataset_view_revision_id ?? "");
     setNewTaskId(project.task_id);
     setNewModelPackageRefId(project.model_package_ref_id ?? "");
+    setNewProjectGroupChoice(project.project_series_id ? "existing" : "none");
     setNewProjectSeriesId(project.project_series_id ?? "");
+    setNewProjectSeriesName("");
     setPredecessorProjectId(project.id);
     setContinuationReason("");
   };
@@ -817,7 +851,7 @@ export function ProjectHub({
           <div><span>参照Chain</span><strong>{fixedChain?.definition.label ?? "Chain未解決"}</strong><small>A → B → C</small></div>
           <div><span>固定した版</span><strong>{fixedChainRevision ? `r${fixedChainRevision.revision}` : "—"}</strong><small>全Stageの参照をこの版に固定</small></div>
           <div><span>固定Stage</span><strong>{fixedChainRevision?.stages.map((stage) => stage.stage_id).join(" → ") ?? "—"}</strong><small>Package・データセット・プロファイルを版の中に固定</small></div>
-          <div><span>検討グループ</span><strong>{fixedSeries?.name ?? "—"}</strong><small>設定から変更できます</small></div>
+          {showActiveSeriesMembership && <div><span>検討グループ</span><strong>{fixedSeries?.name}</strong><small>{fixedSeriesProjectCount}件の検討をまとめています</small></div>}
           <ReferenceIdentityDetails items={[["Chain Revision", chainIdentity.chain_revision_digest]]} />
         </section>
         : <section className="project-reference-strip" aria-label="プロジェクトの参照と所属">
@@ -826,7 +860,7 @@ export function ProjectHub({
           <div><span>予測モデル</span><strong title={fixedPackage?.package_id ?? project.model_package_ref_id ?? undefined}>{fixedPackage ? modelPackageDisplayName(fixedPackage) : unresolvedReferenceLabel("Model Package", project.model_package_ref_id)}</strong><small title={fixedTrainingDataset ? datasetDisplayName(fixedTrainingDataset) : project.model_package_manifest_digest || undefined}>{fixedPackage ? `学習元: ${fixedTrainingDataset ? datasetDisplayName(fixedTrainingDataset) : "未登録または記録なし"}` : project.model_package_manifest_digest ? `manifest: ${project.model_package_manifest_digest}` : "manifest digestの記録なし"}</small></div>
           <div><span>探索範囲（Design Space）</span><strong>{project.design_space ? `${project.design_space.name} · r${project.design_space.revision}` : "この検討では未設定"}</strong><small>{project.design_space ? bindingProvenanceLabel(project.design_space_binding_provenance, "Taskの許容範囲から生成") : "保存済みの探索結果はそのまま参照できます"}</small></div>
           <div><span>判断基準（Objective）</span><strong>{project.objective_definition ? `${project.objective_definition.name} · r${project.objective_definition.revision}` : "この検討では未設定"}</strong><small>{project.objective_definition ? bindingProvenanceLabel(project.objective_binding_provenance, "プロジェクト目標から生成") : "探索を実行すると、その時点の判断基準を固定します"}</small></div>
-          <div><span>検討グループ</span><strong>{fixedSeries?.name ?? "—"}</strong><small>設定から変更できます</small></div>
+          {showActiveSeriesMembership && <div><span>検討グループ</span><strong>{fixedSeries?.name}</strong><small>{fixedSeriesProjectCount}件の検討をまとめています</small></div>}
           <ReferenceIdentityDetails items={[
             ["Dataset View Revision", project.dataset_view_revision_id],
             ["Model Package Ref", project.model_package_ref_id],
@@ -857,7 +891,7 @@ export function ProjectHub({
         </div>
         <button className={configuredTargets.length ? "outline-button" : "primary-button"} disabled={taskUnavailable || chainExecutionPending || offline} onClick={focusTargetSettings}>{configuredTargets.length ? "目標値を変更" : "目標値を設定"}</button>
       </section>}
-      {predecessorProject && <section className="project-continuation-link" aria-label="このプロジェクトの続き元"><span>続き元</span><button type="button" onClick={() => onSwitch(predecessorProject.id)}>{predecessorProject.name}</button><small>{predecessorSeries?.name ?? "所属グループ不明"}{project?.continuation_reason ? ` · ${project.continuation_reason}` : ""}</small></section>}
+      {predecessorProject && <section className="project-continuation-link" aria-label="このプロジェクトの続き元"><span>続き元</span><button type="button" onClick={() => onSwitch(predecessorProject.id)}>{predecessorProject.name}</button><small>{predecessorSeries?.name ?? "グループなし"}{project?.continuation_reason ? ` · ${project.continuation_reason}` : ""}</small></section>}
 
       {createOpen && <section className="project-create-panel" aria-label="新規プロジェクトの開始方法">
         <div className="panel-title project-create-heading">
@@ -869,7 +903,17 @@ export function ProjectHub({
           <label><b aria-hidden="true">1</b><span>Dataset</span><select disabled={createMode === "copy"} value={newDatasetViewId} onChange={(event) => { setNewDatasetViewId(event.target.value); setNewTaskId(""); setNewModelPackageRefId(""); setNewChainId(""); setNewChainRevisionId(""); }}><option value="">選択してください</option>{(creationOptions?.dataset_views ?? []).filter((item) => item.kind === "single").map((view) => <option key={view.id} value={view.id}>{view.name} · {datasetByView.get(view.id)?.profile_revision.name}</option>)}</select></label>
           <label><b aria-hidden="true">2</b><span>予測構成</span><select disabled={createMode === "copy" || !newDatasetViewId} value={createMode === "copy" ? `task:${copyTaskId ?? ""}` : newChainId ? `chain:${newChainId}` : newTaskId ? `task:${newTaskId}` : ""} onChange={(event) => { const [kind, id] = event.target.value.split(":", 2); setNewTaskId(kind === "task" ? id : ""); setNewModelPackageRefId(""); setNewChainId(kind === "chain" ? id : ""); setNewChainRevisionId(""); }}><option value="">{newDatasetViewId ? "選択してください" : "先にDatasetを選択"}</option>{catalog.filter((item) => availableTaskIds.includes(item.definition.task_definition.id)).map((item) => <option key={item.definition.task_definition.id} value={`task:${item.definition.task_definition.id}`}>{item.definition.task_definition.label}（単一Task）</option>)}{availableChains.map((item) => <option key={item.definition.chain_id} value={`chain:${item.definition.chain_id}`}>{item.definition.label}（Chain）</option>)}</select></label>
           <label><b aria-hidden="true">3</b><span>{newChainId ? "Chain Revision" : "Model Package"}</span>{newChainId ? <select disabled={!newChainId} value={newChainRevisionId} onChange={(event) => setNewChainRevisionId(event.target.value)}><option value="">Revisionを選択</option>{selectedChain?.revisions.map((revision) => { const id = `${revision.chain_id}:r${revision.revision}`; return <option key={id} value={id}>r{revision.revision} · {revision.stages.map((stage) => stage.stage_id).join(" → ")}</option>; })}</select> : <select disabled={createMode === "copy" || !newTaskId} value={newModelPackageRefId} onChange={(event) => setNewModelPackageRefId(event.target.value)}><option value="">{newTaskId ? "手法を選択してください" : "先にPrediction Taskを選択"}</option>{availablePackages.map((item) => <option key={item.id} value={item.id}>{modelPackageDisplayName(item)}</option>)}</select>}</label>
-          <label><b aria-hidden="true">4</b><span>所属グループ</span><select value={newProjectSeriesId} onChange={(event) => setNewProjectSeriesId(event.target.value)}><option value="">新しいグループを作成</option>{activeProjectSeries.map((series) => <option key={series.id} value={series.id}>{series.name}</option>)}</select></label>
+          <fieldset className="project-group-choice">
+            <legend><b aria-hidden="true">4</b><span>検討グループ</span></legend>
+            <p>同じ目的で続けた複数の検討をまとめます。続き元の関係とは別です。</p>
+            <div>
+              <label><input type="radio" name="project-group-choice" checked={newProjectGroupChoice === "none"} onChange={() => { setNewProjectGroupChoice("none"); setNewProjectSeriesId(""); setNewProjectSeriesName(""); }} />グループなし<span>既定。単独のプロジェクトとして作成</span></label>
+              <label><input type="radio" name="project-group-choice" checked={newProjectGroupChoice === "existing"} disabled={activeProjectSeries.length === 0} onChange={() => { setNewProjectGroupChoice("existing"); setNewProjectSeriesName(""); }} />既存グループ<span>{activeProjectSeries.length ? "ほかの検討と同じまとまりに追加" : "追加できるグループがありません"}</span></label>
+              <label><input type="radio" name="project-group-choice" checked={newProjectGroupChoice === "new"} onChange={() => { setNewProjectGroupChoice("new"); setNewProjectSeriesId(""); }} />新しい検討グループ<span>名前を付けて新しいまとまりを作成</span></label>
+            </div>
+            {newProjectGroupChoice === "existing" && <label>追加する検討グループ<select value={newProjectSeriesId} onChange={(event) => setNewProjectSeriesId(event.target.value)}><option value="">選択してください</option>{activeProjectSeries.map((series) => <option key={series.id} value={series.id}>{series.name}</option>)}</select></label>}
+            {newProjectGroupChoice === "new" && <label>新しい検討グループ名<input required value={newProjectSeriesName} onChange={(event) => setNewProjectSeriesName(event.target.value)} placeholder="例: 焼鈍条件の再検討" /></label>}
+          </fieldset>
         </div>
         {selectedPackage && !newChainId && <ModelPackageDecisionCard modelPackage={selectedPackage} />}
         <section className="project-binding-confirmation" aria-label="作成後に固定される内容">
@@ -878,19 +922,29 @@ export function ProjectHub({
           <div><span>{newChainId ? "Chain Template" : "Prediction Task"}</span><strong>{newChainId ? selectedChain?.definition.label ?? "選択してください" : taskLabels.get(selectedTaskId) ?? (selectedTaskId || "選択してください")}</strong><small>{newChainId ? "再利用可能なStageをbindingで接続" : "Projectの予測目的"}</small></div>
           <div><span>{newChainId ? "Chain Revision" : "Model Package"}</span><strong>{newChainId ? selectedChainRevision ? `r${selectedChainRevision.revision}` : "選択してください" : selectedPackage ? modelPackageDisplayName(selectedPackage) : "選択してください"}</strong><small>{newChainId ? selectedChainRevision ? selectedChainRevision.stages.map((stage) => `${stage.stage_id}:${stage.package_manifest_digest.slice(7, 15)}`).join(" · ") : "Revisionを選択してください" : `学習元: ${selectedPackage ? selectedTrainingDataset ? datasetDisplayName(selectedTrainingDataset) : "未登録または記録なし" : "Model Packageを選択してください"}`}</small></div>
         </section>
-        <div className="project-group-summary"><span>所属グループ</span><strong>{selectedSeries?.name ?? (newProjectName.trim() || "プロジェクト名から新規作成")}</strong><small>{selectedSeries ? "既存グループに追加" : "プロジェクト名で新しいグループを作成"}</small></div>
+        <div className="project-group-summary"><span>検討グループ</span><strong>{newProjectGroupChoice === "none" ? "グループなし" : (selectedSeries?.name ?? newProjectSeriesName.trim()) || "名前を入力してください"}</strong><small>{newProjectGroupChoice === "none" ? "単独のプロジェクトとして作成" : selectedSeries ? "既存グループに追加" : "新しいグループを作成"}</small></div>
         {predecessorProjectId && <label>続ける理由（任意）<textarea value={continuationReason} onChange={(event) => setContinuationReason(event.target.value)} placeholder="予測タスク変更、データ追加、条件変更、判断の再検討など" /></label>}
         <div className="project-start-options">
           <label><input type="radio" checked={createMode === "empty"} onChange={() => setCreateMode("empty")} />空から開始<span>候補を持たない検討として作成</span></label>
           <label><input type="radio" checked={createMode === "copy"} disabled={Boolean(newChainId) || taskUnavailable || !candidate || Boolean(predecessorProjectId)} onChange={() => { setCreateMode("copy"); setNewChainId(""); setNewChainRevisionId(""); if (project) { setNewDatasetViewId(project.dataset_view_revision_id ?? ""); setNewTaskId(project.task_id); setNewModelPackageRefId(project.model_package_ref_id ?? ""); } }} />現在候補をコピー<span>{newChainId ? "Chain Projectは空から開始します" : taskUnavailable ? "利用停止中のタスクからはコピーできません" : candidate ? `${candidate.label}（編集版 ${candidate.raw.revision}）` : "コピーできる候補がありません"}</span></label>
         </div>
-        <button className="primary-button" disabled={!newProjectName.trim() || !newDatasetViewId || (newChainId ? !newChainRevisionId : !(createMode === "copy" ? copyTaskId : newTaskId) || !newModelPackageRefId)} onClick={() => void createProject()}>固定してプロジェクトを作成</button>
+        <button className="primary-button" disabled={!newProjectName.trim() || !newDatasetViewId || (newChainId ? !newChainRevisionId : !(createMode === "copy" ? copyTaskId : newTaskId) || !newModelPackageRefId) || (newProjectGroupChoice === "existing" && !newProjectSeriesId) || (newProjectGroupChoice === "new" && !newProjectSeriesName.trim())} onClick={() => void createProject()}>固定してプロジェクトを作成</button>
       </section>}
 
       {settingsOpen && project && <section className="project-settings-panel">
         <div className="project-form">
-          <div className="group-membership-setting"><label>所属グループ<select value={groupMembershipId} onChange={(event) => setGroupMembershipId(event.target.value)}>{activeProjectSeries.map((series) => <option key={series.id} value={series.id}>{series.name}</option>)}</select></label><button className="outline-button" disabled={!groupMembershipId || groupMembershipId === project.project_series_id} onClick={() => void moveProjectToGroup()}>このプロジェクトを移動</button><small>現在のプロジェクトだけを移動します。候補・判断履歴・続き元は変わりません</small></div>
-          <div className="series-name-setting"><label>グループ名<input value={seriesName} onChange={(event) => setSeriesName(event.target.value)} /></label><button className="outline-button" disabled={!seriesName.trim()} onClick={() => void saveSeriesName()}>名前を保存</button><small>このグループに含まれるすべてのプロジェクトへ反映されます</small></div>
+          {!showActiveSeriesMembership && !groupSettingsOpen && <div className="project-group-entry">
+            <button type="button" className="outline-button" onClick={() => {
+              setSeriesName(fixedSeries?.name ?? "");
+              setGroupMembershipId(project.project_series_id ?? "");
+              setGroupSettingsOpen(true);
+            }}>ほかの検討とまとめる</button>
+            <small>同じ目的で続けた複数の検討をまとめます。続き元の関係とは別です。</small>
+          </div>}
+          {(showActiveSeriesMembership || groupSettingsOpen) && <>
+            <div className="group-membership-setting"><label>所属グループ<select value={groupMembershipId} onChange={(event) => setGroupMembershipId(event.target.value)}><option value="">選択してください</option>{activeProjectSeries.map((series) => <option key={series.id} value={series.id}>{series.name}</option>)}</select></label><button className="outline-button" disabled={!groupMembershipId || groupMembershipId === project.project_series_id} onClick={() => void moveProjectToGroup()}>このプロジェクトを移動</button><small>同じ目的で続けた複数の検討をまとめます。続き元の関係とは別です。候補・判断履歴・続き元は変わりません。</small></div>
+            {fixedSeries && <div className="series-name-setting"><label>グループ名<input value={seriesName} onChange={(event) => setSeriesName(event.target.value)} /></label><button className="outline-button" disabled={!seriesName.trim()} onClick={() => void saveSeriesName()}>名前を保存</button><small>このグループに含まれるすべてのプロジェクトへ反映されます</small></div>}
+          </>}
           <label>プロジェクト名<input value={project.name} onChange={(event) => setProject({ ...project, name: event.target.value })} /></label>
           <label>説明<textarea value={project.description} onChange={(event) => setProject({ ...project, description: event.target.value })} /></label>
           <label>目的<textarea value={project.purpose} onChange={(event) => setProject({ ...project, purpose: event.target.value })} /></label>
