@@ -14,6 +14,7 @@ import {
   type ScreeningGoalPayload,
 } from "./ScreeningGoalEditor";
 import { ScreeningProposalSummary } from "./ScreeningProposalSummary";
+import { safeExplorationRange } from "./screeningVariableRange";
 import { ScreeningRepresentativeTable } from "./ScreeningRepresentativeTable";
 
 function cloneScreeningCandidate(candidate: Candidate): Candidate {
@@ -114,6 +115,7 @@ export function ScreeningPage({
   onCandidate,
   onCompare,
   onCreateStarter,
+  onConfigureGoals,
 }: {
   projectId: string;
   project: ApiProject | undefined;
@@ -126,6 +128,7 @@ export function ScreeningPage({
   onCandidate: (candidate: Candidate) => void;
   onCompare: () => void;
   onCreateStarter: () => void;
+  onConfigureGoals: () => void;
 }) {
   type VariableRow = {
     field: string;
@@ -186,7 +189,7 @@ export function ScreeningPage({
             label: `${field.label}${field.unit ? ` (${field.unit})` : ""}`,
             kind: field.kind,
             choices: field.choices,
-            defaultRange: field.default_range,
+            defaultRange: safeExplorationRange(field.default_range, field.training_range),
             trainingRange: field.training_range,
           }];
           return (baseCandidate?.raw.inputs.heat_pattern ?? []).flatMap((point, index) => [
@@ -215,6 +218,7 @@ export function ScreeningPage({
   const [savedRuns, setSavedRuns] = useState<ScreenResult[]>([]);
   const [error, setError] = useState("");
   const [draftDirty, setDraftDirty] = useState(false);
+  const [goalConfirmationOpen, setGoalConfirmationOpen] = useState(false);
   const [xAxis, setXAxis] = useState("");
   const [yAxis, setYAxis] = useState("");
   const [colorMetric, setColorMetric] = useState("score");
@@ -370,8 +374,14 @@ export function ScreeningPage({
     setFocusedPointIndex(run.representative_points[0]?.index ?? null);
     setDraftDirty(false);
   };
-  const run = async (requestedSeed = seed) => {
+  const run = async (requestedSeed = seed, { allowWithoutGoal = false } = {}) => {
     if (!baseCandidate) return setError("基準条件を読み込めませんでした。");
+    // Ranking without a goal is a distribution view, not a search for candidates.
+    if (!fixedObjective && !screeningGoalFromDraft(targetGoal) && !allowWithoutGoal) {
+      setGoalConfirmationOpen(true);
+      return;
+    }
+    setGoalConfirmationOpen(false);
     const controlCandidate = controlCandidateId
       ? candidates.find((candidate) => candidate.id === controlCandidateId)
       : null;
@@ -680,6 +690,8 @@ export function ScreeningPage({
         ? "#ee9200"
         : "#c43d3d";
   const focusedPoint = result?.points.find((point) => point.index === focusedPointIndex) ?? null;
+  // The server states what the score means for this run; the UI must not upgrade it.
+  const scoreLabel = result?.score_contract?.display_label ?? "探索スコア";
   const hiddenVaryingFields = result ? Object.entries(result.variables).filter(([field, spec]) => spec.mode !== "fixed" && field !== xAxis && field !== yAxis).map(([field]) => field) : [];
   const togglePoint = (index: number) => {
     setFocusedPointIndex(index);
@@ -708,6 +720,17 @@ export function ScreeningPage({
       </div>
       {compositionBalanceNotice && <p className="screening-balance-notice">組成制約: {compositionBalanceNotice}</p>}
       {unsupportedObjectiveReason && <p className="error-banner">{unsupportedObjectiveReason}</p>}
+      {goalConfirmationOpen && <section className="screening-goal-confirmation" role="status">
+        <div>
+          <strong>主目標が未設定です</strong>
+          <span>目標がないと、達成確率や目標への近さでは順位付けできません。学習範囲への近さで点を並べた分布として実行するか、先に目標値を決めてください。</span>
+        </div>
+        <div className="screening-goal-confirmation-actions">
+          <button type="button" className="primary-button" onClick={onConfigureGoals}>目標値を設定</button>
+          <button type="button" className="outline-button" onClick={() => { void run(seed, { allowWithoutGoal: true }); }}>目標なしで分布を見る</button>
+          <button type="button" className="text-button" onClick={() => setGoalConfirmationOpen(false)}>閉じる</button>
+        </div>
+      </section>}
       {draftDirty && result && <p className="screening-draft-notice">未実行の条件変更があります。図と点詳細は最後に実行した条件のままです。</p>}
       {savedRuns.length > 0 && (
         <section className="saved-runs">
@@ -1159,7 +1182,7 @@ export function ScreeningPage({
           <div className="screening-display-controls">
             <label>X軸<select value={xAxis} onChange={(event) => setXAxis(event.target.value)}>{confirmedVaryingFields.map((field) => <option key={field} value={field}>{axisLabel(field)}</option>)}</select></label>
             <label>Y軸<select value={yAxis} onChange={(event) => setYAxis(event.target.value)}><option value="">点番号</option>{confirmedVaryingFields.filter((field) => field !== xAxis).map((field) => <option key={field} value={field}>{axisLabel(field)}</option>)}</select></label>
-            <label>色<select value={colorMetric} onChange={(event) => setColorMetric(event.target.value)}><option value="score">目標に対する有望度</option>{outputs.map((output) => <option key={output.key} value={output.key}>{output.label}</option>)}</select></label>
+            <label>色<select value={colorMetric} onChange={(event) => setColorMetric(event.target.value)}><option value="score">{scoreLabel}</option>{outputs.map((output) => <option key={output.key} value={output.key}>{output.label}</option>)}</select></label>
           </div>
           {hiddenVaryingFields.length > 0 && <p className="screening-hidden-variables"><b>図に出ていない変動条件:</b> {hiddenVaryingFields.map(axisLabel).join(" / ")}。各点の詳細で実値を確認できます。</p>}
           <div className="screening-action-bar" role="status">
@@ -1175,7 +1198,7 @@ export function ScreeningPage({
           </div>
           <div className="screen-legend">
             <span className="opportunity-scale" />
-            {colorMetric === "score" ? result.score_contract?.display_label ?? "目標に対して有望" : outputs.find((output) => output.key === colorMetric)?.label ?? colorMetric} <span className="support-key supported" />
+            {colorMetric === "score" ? scoreLabel : outputs.find((output) => output.key === colorMetric)?.label ?? colorMetric} <span className="support-key supported" />
             範囲内 <span className="support-key caution" />
             要確認 <span className="support-key extrapolated" />
             外挿 <span className="selection-key" />
@@ -1185,7 +1208,7 @@ export function ScreeningPage({
             className="screen-map"
             viewBox="0 0 600 300"
             role="group"
-            aria-label={`${axes.map(axisLabel).join(" × ")} の探索結果。色が濃いほど目標方向に有望で、枠線が学習範囲を示します。`}
+            aria-label={`${axes.map(axisLabel).join(" × ")} の探索結果。色の濃さは「${scoreLabel}」を表し、枠線が学習範囲を示します。`}
           >
             {axes.length > 0 && xTicks.map((tick) => <g key={`x-${tick}`} className="screen-map-grid"><line x1={screenX(tick)} x2={screenX(tick)} y1="35" y2="270" /><text x={screenX(tick)} y="284" textAnchor="middle">{number(tick, xDigits)}</text></g>)}
             {axes.length > 1 && yTicks.map((tick) => <g key={`y-${tick}`} className="screen-map-grid"><line x1="35" x2="565" y1={screenY(tick)} y2={screenY(tick)} /><text x="31" y={screenY(tick) + 3} textAnchor="end">{number(tick, yDigits)}</text></g>)}
