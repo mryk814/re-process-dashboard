@@ -12,6 +12,10 @@ from material_workbench.tasks.task_registry import TaskRegistry
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
 from material_workbench.modeling.transform_catalog import DeterministicTransformCatalog
+from material_workbench.contracts.subsystem_availability import (
+    SubsystemAvailabilityRegistry,
+    WELDING_TRANSFORM_SUBSYSTEM_ID,
+)
 
 
 def get_store(request: Request) -> Store:
@@ -29,7 +33,18 @@ def get_blend_contract_registry(request: Request) -> BlendContractRegistry:
 def get_deterministic_transform_catalog(
     request: Request,
 ) -> DeterministicTransformCatalog:
-    return request.app.state.deterministic_transform_catalog
+    request.app.state.subsystem_availability.require(
+        WELDING_TRANSFORM_SUBSYSTEM_ID
+    )
+    catalog = request.app.state.deterministic_transform_catalog
+    assert catalog is not None
+    return catalog
+
+
+def get_subsystem_availability(
+    request: Request,
+) -> SubsystemAvailabilityRegistry:
+    return request.app.state.subsystem_availability
 
 
 def get_workspace_catalog(request: Request) -> WorkspaceCatalog:

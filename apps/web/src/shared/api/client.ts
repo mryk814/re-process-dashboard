@@ -13,6 +13,7 @@ export class ApiClientError extends Error {
     readonly fieldErrors: Array<{ path: string; message: string }> = [],
     readonly code?: ApiDomainErrorCode,
     readonly currentCandidate?: components["schemas"]["Candidate"] | null,
+    readonly availability?: components["schemas"]["SubsystemAvailability"] | null,
   ) {
     super(message);
     this.name = "ApiClientError";
@@ -93,6 +94,7 @@ export function requireData<T>(
     normalizeFieldErrors(result.error),
     payload?.code,
     payload?.current_candidate,
+    payload?.availability,
   );
 }
 

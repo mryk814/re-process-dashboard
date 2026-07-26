@@ -7,7 +7,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from material_workbench.adapters.builtin_deterministic_linear import (
     DeterministicLinearResult,
@@ -35,10 +42,20 @@ from material_workbench.modeling.model_packages import (
 )
 
 
+class DeterministicTransformCatalogUnavailableError(PackageContractError):
+    """The optional active Transform catalog cannot describe an available resource."""
+
+
+class UnsafeTransformLocatorError(ValueError):
+    """A Transform locator attempts to leave the trusted models root."""
+
+
 def _safe_relative_locator(value: str) -> str:
     path = Path(value)
     if path.is_absolute() or ".." in path.parts:
-        raise ValueError("transform locators must be relative to the models directory")
+        raise UnsafeTransformLocatorError(
+            "transform locators must be relative to the models directory"
+        )
     return value.replace("\\", "/")
 
 
@@ -325,8 +342,21 @@ def load_deterministic_transform_catalog(
     path = Path(config_path) if config_path is not None else active_transforms_path()
     try:
         config = ActiveTransformsConfig.model_validate_json(path.read_text(encoding="utf-8"))
+    except ValidationError as exc:
+        if any(
+            isinstance(error.get("ctx", {}).get("error"), UnsafeTransformLocatorError)
+            for error in exc.errors(include_url=False)
+        ):
+            raise PackageContractError(
+                f"unsafe active deterministic transform locator: {exc}"
+            ) from exc
+        raise DeterministicTransformCatalogUnavailableError(
+            f"invalid active deterministic transform catalog: {exc}"
+        ) from exc
     except (OSError, ValueError, json.JSONDecodeError) as exc:
-        raise PackageContractError(f"invalid active deterministic transform catalog: {exc}") from exc
+        raise DeterministicTransformCatalogUnavailableError(
+            f"invalid active deterministic transform catalog: {exc}"
+        ) from exc
     models_root = path.resolve().parent
     entries: dict[str, LoadedTransform] = {}
     historical: dict[

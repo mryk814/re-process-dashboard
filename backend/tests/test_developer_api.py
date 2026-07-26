@@ -246,6 +246,7 @@ def test_runtime_diagnostics_does_not_run_repository_commands(
         "project-references",
         "archived-resources",
         "runtime-capabilities",
+        "optional-subsystems",
         "sidecar",
         "secom-stress-fixture",
     }

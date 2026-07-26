@@ -31,6 +31,9 @@ from material_workbench.persistence.workspace_catalog_migration import (
 )
 from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
 from material_workbench.tasks.task_registry import TaskRegistry
+from material_workbench.contracts.subsystem_availability import (
+    SubsystemAvailabilityRegistry,
+)
 
 
 EXPECTED_MIGRATIONS = {
@@ -166,6 +169,7 @@ def run_runtime_diagnostics(
     registry: TaskRegistry,
     catalog: WorkspaceCatalog,
     resolver: ProjectRuntimeResolver,
+    subsystem_registry: SubsystemAvailabilityRegistry,
 ) -> RuntimeDiagnosticsReport:
     checks = [_database_check(store)]
     projects = store.list_projects()
@@ -258,6 +262,39 @@ def run_runtime_diagnostics(
         severity="ok",
         summary="Desktop sidecarとして稼働中です。" if desktop_sidecar else "ローカルAPIとして稼働中です。",
         details={"mode": "desktop-sidecar" if desktop_sidecar else "local-api"},
+    ))
+    optional_subsystems = subsystem_registry.list()
+    unavailable_subsystems = [
+        item for item in optional_subsystems if item.status == "unavailable"
+    ]
+    checks.append(DeveloperCheck(
+        id="optional-subsystems",
+        section="runtime",
+        title="Optional subsystem availability",
+        severity="warning" if unavailable_subsystems else "ok",
+        summary=(
+            f"{len(unavailable_subsystems)}件の機能を隔離して起動しています。"
+            if unavailable_subsystems
+            else "Transform・Chain・評価成果物を利用できます。"
+        ),
+        cause=(
+            " / ".join(
+                f"{item.subsystem_id}: {item.cause}"
+                for item in unavailable_subsystems
+            )
+            if unavailable_subsystems
+            else None
+        ),
+        impact=(
+            " / ".join(item.impact for item in unavailable_subsystems)
+            if unavailable_subsystems
+            else None
+        ),
+        details={
+            "items": [
+                item.model_dump(mode="json") for item in optional_subsystems
+            ]
+        },
     ))
     checks.append(_secom_stress_fixture_check())
 

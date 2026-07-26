@@ -9,6 +9,10 @@ import { DataExploreNavigation, LiveDataQualityPage } from "../features/quality"
 import { DeveloperAdminPage } from "../features/admin";
 import { DataLibraryPage, ProfileWorkbenchPage } from "../features/data-library";
 import { WorkspaceNoticeBanner } from "../shared/ui/WorkspaceNoticeBanner";
+import {
+  workbenchApi,
+  type ApiSubsystemAvailability,
+} from "../shared/api/workbench-api";
 
 type Tab = WorkbenchView;
 const lastNavigationStorageKey = "material-workbench-last-navigation";
@@ -77,6 +81,7 @@ function App() {
   const [navigation, setNavigation] = useState<NavigationIntent>(() => readStartupNavigation());
   const [requestedDatasetViewId, setRequestedDatasetViewId] = useState<string>();
   const [retrying, setRetrying] = useState(false);
+  const [subsystemAvailability, setSubsystemAvailability] = useState<ApiSubsystemAvailability[]>([]);
   const navigationRef = useRef(navigation);
   const tab = navigation.view;
 
@@ -130,6 +135,10 @@ function App() {
   } = session;
   const { error: previewError, preview, previewsByCandidate } = prediction;
   const chainProject = activeProject?.scientific_identity?.identity_kind === "chain";
+  const chainSubsystem = subsystemAvailability.find(
+    (item) => item.kind === "chain"
+      && item.resource_id === "welding-consumable-a-b-c-v1",
+  );
   const taskUnavailable = taskAvailability?.status === "unavailable";
   const unavailableScopedTab = taskUnavailable
     && !chainProject
@@ -200,6 +209,17 @@ function App() {
       window.history.replaceState({}, "", navigationUrl(current));
     }
   }, []);
+
+  useEffect(() => {
+    if (apiState === "offline") return;
+    let active = true;
+    void workbenchApi.listSubsystemAvailability().then((items) => {
+      if (active) setSubsystemAvailability(items);
+    }).catch(() => {
+      if (active) setSubsystemAvailability([]);
+    });
+    return () => { active = false; };
+  }, [apiState]);
 
 
   return (
@@ -279,6 +299,7 @@ function App() {
             operations={resolvedTaskDefinition?.runtime_capability.operations}
             currentPreviews={prediction.previewsByCandidate}
             taskAvailability={taskAvailability}
+            subsystemAvailability={subsystemAvailability}
             offline={apiState === "offline"}
             onProjectChanged={(project) => {
               void session.refreshProjectDefinition(project);
@@ -370,6 +391,7 @@ function App() {
           <ChainWorkbenchPage
             projectId={activeProjectId}
             initialCandidateId={navigation.candidateId}
+            unavailable={chainSubsystem?.status === "unavailable" ? chainSubsystem : undefined}
             onCandidateSelected={(candidateId) => navigate({
               view: "candidates",
               projectId: activeProjectId,

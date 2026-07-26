@@ -39,12 +39,16 @@ from material_workbench.execution.inference_work_graph import InferenceWorkGraph
 from material_workbench.modeling.model_lifecycle import ACTIVE_PACKAGES_PATH, load_active_packages, resolve_configured_package, validate_active_package_task_set
 from material_workbench.modeling.model_packages import ModelPackageLoader
 from material_workbench.modeling.transform_catalog import (
+    DeterministicTransformCatalogUnavailableError,
     load_deterministic_transform_catalog,
 )
 from material_workbench.persistence.store import Store
 from material_workbench.tasks.task_registry import DataExplorerEntry, TaskRegistry
 from material_workbench.persistence.workspace_catalog_bootstrap import bootstrap_workspace_catalog
-from material_workbench.persistence.welding_chain_bootstrap import bootstrap_welding_chain
+from material_workbench.persistence.welding_chain_bootstrap import (
+    WeldingChainBootstrapError,
+    bootstrap_welding_chain,
+)
 from material_workbench.application.chain_execution import (
     ChainExecutionCoordinator,
     ChainExecutionService,
@@ -62,6 +66,16 @@ from .task_modules import (
     registered_task_modules,
 )
 from material_workbench.contracts.task_contracts import TaskAvailability
+from material_workbench.contracts.subsystem_availability import (
+    SubsystemAvailabilityRegistry,
+    SubsystemKind,
+    WELDING_CHAIN_EVALUATION_RESOURCE_ID,
+    WELDING_CHAIN_EVALUATION_SUBSYSTEM_ID,
+    WELDING_CHAIN_RESOURCE_ID,
+    WELDING_CHAIN_SUBSYSTEM_ID,
+    WELDING_TRANSFORM_RESOURCE_ID,
+    WELDING_TRANSFORM_SUBSYSTEM_ID,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +114,38 @@ def _task_unavailable(
         else f"{label}を準備できません: {exc}"
     )
     return TaskAvailability(status="unavailable", stage=stage, message=message)
+
+
+def _record_optional_failure(
+    registry: SubsystemAvailabilityRegistry,
+    *,
+    subsystem_id: str,
+    kind: SubsystemKind,
+    resource_id: str,
+    stage: str,
+    label: str,
+    impact: str,
+    recovery_hint: str,
+    exc: Exception,
+) -> None:
+    logger.exception(
+        "OPTIONAL_SUBSYSTEM_UNAVAILABLE subsystem_id=%s stage=%s "
+        "error_type=%s detail=%s",
+        subsystem_id,
+        stage,
+        type(exc).__name__,
+        exc,
+    )
+    registry.record_unavailable(
+        subsystem_id=subsystem_id,
+        kind=kind,
+        resource_id=resource_id,
+        stage=stage,
+        cause=f"{type(exc).__name__}: {str(exc).splitlines()[0]}",
+        message=f"{label}を利用できません。",
+        impact=impact,
+        recovery_hint=recovery_hint,
+    )
 
 
 @dataclass(frozen=True)
@@ -252,49 +298,118 @@ def create_app(
         app.state.project_runtime_resolver = ProjectRuntimeResolver(
             app.state.workspace_catalog, prepared.task_registry
         )
+        app.state.subsystem_availability = SubsystemAvailabilityRegistry()
+        transform_catalog = None
         try:
-            app.state.deterministic_transform_catalog = (
-                load_deterministic_transform_catalog(active_transforms_path)
+            transform_catalog = load_deterministic_transform_catalog(
+                active_transforms_path
             )
-        except Exception as exc:
-            _raise_startup_error(
-                "deterministic_transforms",
-                "決定論的Transform Package",
-                exc,
+            app.state.subsystem_availability.record_available(
+                subsystem_id=WELDING_TRANSFORM_SUBSYSTEM_ID,
+                kind="deterministic_transform",
+                resource_id=WELDING_TRANSFORM_RESOURCE_ID,
+                stage="deterministic_transforms",
             )
+        except DeterministicTransformCatalogUnavailableError as exc:
+            _record_optional_failure(
+                app.state.subsystem_availability,
+                subsystem_id=WELDING_TRANSFORM_SUBSYSTEM_ID,
+                kind="deterministic_transform",
+                resource_id=WELDING_TRANSFORM_RESOURCE_ID,
+                stage="deterministic_transforms",
+                label="溶接材料の決定論的Transform",
+                impact="このTransformを使う配合編集とChain実行を停止します。ほかの予測Taskと保存済み証跡は利用できます。",
+                recovery_hint="active-transforms.jsonと対象Packageのmanifest・artifact digestを確認して再起動してください。",
+                exc=exc,
+            )
+        app.state.deterministic_transform_catalog = transform_catalog
+        chain_revision_id = None
+        if transform_catalog is None:
+            dependency = app.state.subsystem_availability.get(
+                WELDING_TRANSFORM_SUBSYSTEM_ID
+            )
+            app.state.subsystem_availability.record_unavailable(
+                subsystem_id=WELDING_CHAIN_SUBSYSTEM_ID,
+                kind="chain",
+                resource_id=WELDING_CHAIN_RESOURCE_ID,
+                stage="chain_catalog",
+                cause=f"dependency_unavailable: {WELDING_TRANSFORM_SUBSYSTEM_ID}",
+                message="溶接材料Chainを利用できません。",
+                impact="このChainの候補編集と実行を停止します。保存済みProject・Run・SnapshotはProject概要から参照できます。",
+                recovery_hint=(
+                    dependency.recovery_hint
+                    if dependency is not None
+                    else "依存する決定論的Transformを復旧して再起動してください。"
+                ),
+            )
+        else:
+            try:
+                chain_revision_id = bootstrap_welding_chain(
+                    store=app.state.store,
+                    workspace_catalog=app.state.workspace_catalog,
+                    task_registry=prepared.task_registry,
+                    transform_catalog=transform_catalog,
+                )
+                app.state.subsystem_availability.record_available(
+                    subsystem_id=WELDING_CHAIN_SUBSYSTEM_ID,
+                    kind="chain",
+                    resource_id=WELDING_CHAIN_RESOURCE_ID,
+                    stage="chain_catalog",
+                )
+            except WeldingChainBootstrapError as exc:
+                _record_optional_failure(
+                    app.state.subsystem_availability,
+                    subsystem_id=WELDING_CHAIN_SUBSYSTEM_ID,
+                    kind="chain",
+                    resource_id=WELDING_CHAIN_RESOURCE_ID,
+                    stage="chain_catalog",
+                    label="溶接材料Chain",
+                    impact="このChainの候補編集と実行を停止します。保存済みProject・Run・SnapshotはProject概要から参照できます。",
+                    recovery_hint="Chain Definition、binding、固定Dataset／Package参照を確認して再起動してください。",
+                    exc=exc,
+                )
+        app.state.welding_chain_revision_id = chain_revision_id
+        evaluation_catalog = None
         try:
-            app.state.welding_chain_revision_id = bootstrap_welding_chain(
-                store=app.state.store,
-                workspace_catalog=app.state.workspace_catalog,
-                task_registry=prepared.task_registry,
-                transform_catalog=app.state.deterministic_transform_catalog,
+            configured_evaluation = (
+                chain_evaluation_path
+                or os.getenv("WORKBENCH_CHAIN_EVALUATION_PATH")
+                or DEFAULT_CHAIN_EVALUATION_PATH
             )
-        except Exception as exc:
-            _raise_startup_error(
-                "chain_catalog",
-                "多段Chainカタログ",
-                exc,
+            evaluation_catalog = ChainEvaluationCatalog.load(configured_evaluation)
+            app.state.subsystem_availability.record_available(
+                subsystem_id=WELDING_CHAIN_EVALUATION_SUBSYSTEM_ID,
+                kind="chain_evaluation",
+                resource_id=WELDING_CHAIN_EVALUATION_RESOURCE_ID,
+                stage="chain_evaluation",
             )
-        try:
-            app.state.chain_evaluation_catalog = ChainEvaluationCatalog.load(
-                chain_evaluation_path or DEFAULT_CHAIN_EVALUATION_PATH
+        except (OSError, ValueError) as exc:
+            _record_optional_failure(
+                app.state.subsystem_availability,
+                subsystem_id=WELDING_CHAIN_EVALUATION_SUBSYSTEM_ID,
+                kind="chain_evaluation",
+                resource_id=WELDING_CHAIN_EVALUATION_RESOURCE_ID,
+                stage="chain_evaluation",
+                label="溶接材料Chainの評価成果物",
+                impact="段単体／通し評価だけを停止します。Chain候補、実行、保存済み証跡とほかのTaskは利用できます。",
+                recovery_hint="評価JSONのschema、digest、Chain／Stage identityを確認して再起動してください。",
+                exc=exc,
             )
-        except Exception as exc:
-            _raise_startup_error(
-                "chain_evaluation",
-                "多段Chain評価成果物",
-                exc,
+        app.state.chain_evaluation_catalog = evaluation_catalog
+        if transform_catalog is not None:
+            app.state.chain_execution_service = ChainExecutionService(
+                app.state.store,
+                prepared.task_registry,
+                transform_catalog,
+                ChainExecutionCoordinator(),
             )
-        app.state.chain_execution_service = ChainExecutionService(
-            app.state.store,
-            prepared.task_registry,
-            app.state.deterministic_transform_catalog,
-            ChainExecutionCoordinator(),
-        )
-        app.state.chain_uncertainty_service = ChainUncertaintyService(
-            app.state.store,
-            app.state.chain_execution_service,
-        )
+            app.state.chain_uncertainty_service = ChainUncertaintyService(
+                app.state.store,
+                app.state.chain_execution_service,
+            )
+        else:
+            app.state.chain_execution_service = None
+            app.state.chain_uncertainty_service = None
         yield
 
     app = FastAPI(

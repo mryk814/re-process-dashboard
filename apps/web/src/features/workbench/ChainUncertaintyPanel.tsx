@@ -30,6 +30,7 @@ export function ChainUncertaintyPanel({
   pointExecutionReady,
   chainRevisionDigest,
   pointExecutionRequestId,
+  readOnly = false,
 }: {
   projectId: string;
   candidateId: string;
@@ -37,6 +38,7 @@ export function ChainUncertaintyPanel({
   pointExecutionReady: boolean;
   chainRevisionDigest: string;
   pointExecutionRequestId: string;
+  readOnly?: boolean;
 }) {
   const [capability, setCapability] = useState<ApiChainDistributionCapability | null>(null);
   const [run, setRun] = useState<ApiChainDistributionRun | null>(null);
@@ -64,7 +66,9 @@ export function ChainUncertaintyPanel({
     setRun(null);
     setMessage("");
     void Promise.all([
-      workbenchApi.chainDistributionCapability(projectId),
+      readOnly
+        ? Promise.resolve(null)
+        : workbenchApi.chainDistributionCapability(projectId),
       workbenchApi.latestChainDistribution(projectId, candidateId, controller.signal)
         .catch((cause) => {
           if (cause instanceof ApiClientError && cause.status === 404) return null;
@@ -72,7 +76,7 @@ export function ChainUncertaintyPanel({
         }),
     ]).then(([nextCapability, latest]) => {
       if (controller.signal.aborted || !requests.current.isCurrent(token)) return;
-      if (nextCapability.chain_revision_digest !== chainRevisionDigest) {
+      if (nextCapability && nextCapability.chain_revision_digest !== chainRevisionDigest) {
         throw new Error("点推定と分布実行条件のChain Revisionが一致しません");
       }
       setCapability(nextCapability);
@@ -96,6 +100,7 @@ export function ChainUncertaintyPanel({
     candidateRevision,
     chainRevisionDigest,
     pointExecutionRequestId,
+    readOnly,
   ]);
 
   const stageB = run?.stages.find((stage) => stage.stage_id === "B");
@@ -154,7 +159,7 @@ export function ChainUncertaintyPanel({
         独立残差正規近似（q05–q95由来）に、各出力の物理境界を適用しています。
         posteriorや出力間相関を持つ分布ではありません。
       </p>
-      <div className="chain-uncertainty-controls">
+      {!readOnly && <div className="chain-uncertainty-controls">
         <label>samples
           <select value={sampleCount} onChange={(event) => setSampleCount(Number(event.target.value))}>
             {[128, 512, 1024].map((count) => <option key={count} value={count}>{count}</option>)}
@@ -178,7 +183,7 @@ export function ChainUncertaintyPanel({
           {busy ? "計算中…" : "分布を計算して保存"}
         </button>
         {!pointExecutionReady && <small>先に現revisionの点推定を最新にしてください</small>}
-      </div>
+      </div>}
       {capability && !capability.full_propagation_supported && <div className="chain-uncertainty-warning">
         {capability.stages.filter((stage) => !stage.capability.supported).map((stage) => (
           <span key={stage.stage_id}>Stage {stage.stage_id}: {stage.capability.reason}</span>

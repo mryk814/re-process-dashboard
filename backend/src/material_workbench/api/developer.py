@@ -15,6 +15,7 @@ from material_workbench.api.dependencies import (
     get_store,
     get_task_registry,
     get_workspace_catalog,
+    get_subsystem_availability,
 )
 from material_workbench.developer_experience.change_guide import change_guide_entries
 from material_workbench.developer_experience.runtime_diagnostics import run_runtime_diagnostics
@@ -37,6 +38,9 @@ from material_workbench.contracts.schemas import ApiError
 from material_workbench.persistence.store import Store
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
+from material_workbench.contracts.subsystem_availability import (
+    SubsystemAvailabilityRegistry,
+)
 from material_workbench.tasks.task_registry import TaskRegistry
 
 
@@ -227,12 +231,16 @@ def get_diagnostics(
     registry: TaskRegistry = Depends(get_task_registry),
     catalog: WorkspaceCatalog = Depends(get_workspace_catalog),
     resolver: ProjectRuntimeResolver = Depends(get_project_runtime_resolver),
+    subsystem_registry: SubsystemAvailabilityRegistry = Depends(
+        get_subsystem_availability
+    ),
 ) -> RuntimeDiagnosticsReport:
     return run_runtime_diagnostics(
         store=store,
         registry=registry,
         catalog=catalog,
         resolver=resolver,
+        subsystem_registry=subsystem_registry,
     )
 
 

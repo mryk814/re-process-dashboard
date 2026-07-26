@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from .dependencies import (
     get_project_runtime_resolver,
+    get_subsystem_availability,
     get_store,
     get_task_registry,
     project_or_404,
@@ -24,6 +25,10 @@ from material_workbench.contracts.schemas import ModelPackageStatus, ModelTraini
 from material_workbench.persistence.store import Store
 from material_workbench.contracts.task_contracts import ResolvedTaskDefinition
 from material_workbench.tasks.task_registry import TaskRegistry
+from material_workbench.contracts.subsystem_availability import (
+    SubsystemAvailability,
+    SubsystemAvailabilityRegistry,
+)
 from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
 
 
@@ -31,6 +36,9 @@ router = APIRouter()
 StoreDependency = Annotated[Store, Depends(get_store)]
 RegistryDependency = Annotated[TaskRegistry, Depends(get_task_registry)]
 ResolverDependency = Annotated[ProjectRuntimeResolver, Depends(get_project_runtime_resolver)]
+SubsystemAvailabilityDependency = Annotated[
+    SubsystemAvailabilityRegistry, Depends(get_subsystem_availability)
+]
 
 
 def _lifecycle_profile(data: Any) -> Path | Any:
@@ -43,8 +51,13 @@ def _lifecycle_profile(data: Any) -> Path | Any:
 
 @router.get("/api/health")
 @router.get("/health", include_in_schema=False)
-def health(store: StoreDependency, registry: RegistryDependency) -> dict[str, Any]:
+def health(
+    store: StoreDependency,
+    registry: RegistryDependency,
+    subsystem_registry: SubsystemAvailabilityDependency,
+) -> dict[str, Any]:
     available = set(registry.available_task_ids)
+    optional_subsystems = subsystem_registry.list()
     default_project = store.get_project("default")
     default_runtime = (
         registry.runtime_for(default_project.task_id)
@@ -54,7 +67,10 @@ def health(store: StoreDependency, registry: RegistryDependency) -> dict[str, An
     return {
         "ok": True,
         "ready": True,
-        "degraded": len(available) != len(registry.task_ids),
+        "degraded": (
+            len(available) != len(registry.task_ids)
+            or any(item.status == "unavailable" for item in optional_subsystems)
+        ),
         "models": sorted(default_runtime.models) if default_runtime is not None else [],  # type: ignore[attr-defined]
         "source": default_runtime.data.source_path if default_runtime is not None else None,
         "tasks": {
@@ -75,22 +91,45 @@ def health(store: StoreDependency, registry: RegistryDependency) -> dict[str, An
             )
             for task_id in registry.task_ids
         },
+        "optional_subsystems": [
+            item.model_dump(mode="json") for item in optional_subsystems
+        ],
     }
 
 
 @router.get("/api/readiness", operation_id="getReadiness")
-def readiness(registry: RegistryDependency) -> dict[str, Any]:
+def readiness(
+    registry: RegistryDependency,
+    subsystem_registry: SubsystemAvailabilityDependency,
+) -> dict[str, Any]:
     unavailable = {
         task_id: registry.availability_for(task_id).model_dump(mode="json")
         for task_id in registry.task_ids
         if registry.availability_for(task_id).status == "unavailable"
     }
+    optional_subsystems = subsystem_registry.list()
     return {
         "ready": True,
-        "degraded": bool(unavailable),
+        "degraded": bool(unavailable) or any(
+            item.status == "unavailable" for item in optional_subsystems
+        ),
         "available_tasks": list(registry.available_task_ids),
         "unavailable_tasks": unavailable,
+        "optional_subsystems": [
+            item.model_dump(mode="json") for item in optional_subsystems
+        ],
     }
+
+
+@router.get(
+    "/api/subsystem-availability",
+    response_model=list[SubsystemAvailability],
+    operation_id="listSubsystemAvailability",
+)
+def subsystem_availability(
+    subsystem_registry: SubsystemAvailabilityDependency,
+) -> tuple[SubsystemAvailability, ...]:
+    return subsystem_registry.list()
 
 
 @router.get(
@@ -477,9 +516,10 @@ def task_definitions(
             "provenance": {"source_kind": "direct", "source_ref": None},
         }
         transform_id = definition.application.sparse_blend_transform_id
-        if transform_id is not None:
+        transform_catalog = request.app.state.deterministic_transform_catalog
+        if transform_id is not None and transform_catalog is not None:
             starter_candidate["blend"] = (
-                request.app.state.deterministic_transform_catalog.initial_blend(
+                transform_catalog.initial_blend(
                     transform_id
                 )
             )
