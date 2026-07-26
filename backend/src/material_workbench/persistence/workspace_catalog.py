@@ -438,6 +438,7 @@ class WorkspaceCatalog:
         *,
         name: str,
         view_id: str | None = None,
+        member_provenance: dict[str, Any] | None = None,
     ) -> DatasetViewRevision:
         logical_id = view_id or f"single-{dataset_revision_id}"
         return self.upsert_dataset_view_revision(
@@ -446,7 +447,13 @@ class WorkspaceCatalog:
                 revision=1,
                 name=name,
                 kind="single",
-                members=[DatasetViewMemberInput(dataset_revision_id=dataset_revision_id, ordinal=0)],
+                members=[
+                    DatasetViewMemberInput(
+                        dataset_revision_id=dataset_revision_id,
+                        ordinal=0,
+                        provenance_json=member_provenance or {},
+                    )
+                ],
             )
         )
 

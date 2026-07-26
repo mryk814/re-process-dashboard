@@ -509,6 +509,27 @@
             "title": "Schema Version",
             "type": "string"
           },
+          "selection_policy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrainingSnapshotSelectionPolicy"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "selection_policy_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selection Policy Digest"
+          },
           "snapshot_digest": {
             "minLength": 1,
             "title": "Snapshot Digest",
@@ -7599,6 +7620,11 @@
       "FeaturePipelineIdentity": {
         "additionalProperties": true,
         "properties": {
+          "digest": {
+            "default": "",
+            "title": "Digest",
+            "type": "string"
+          },
           "features": {
             "items": {
               "type": "string"
@@ -9115,6 +9141,16 @@
               }
             ]
           },
+          "source_lifecycle": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceLifecycleIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "training_data": {
             "anyOf": [
               {
@@ -9669,6 +9705,28 @@
             "default": "object-selection/v1",
             "title": "Schema Version",
             "type": "string"
+          },
+          "source_adapter_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Adapter Id"
+          },
+          "source_adapter_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Adapter Version"
           }
         },
         "required": [
@@ -16123,6 +16181,120 @@
         "title": "SourceFetchResult",
         "type": "object"
       },
+      "SourceLifecycleIdentity": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_dataset_digest": {
+            "title": "Canonical Dataset Digest",
+            "type": "string"
+          },
+          "canonical_dataset_revision_id": {
+            "title": "Canonical Dataset Revision Id",
+            "type": "string"
+          },
+          "connector_configuration_digest": {
+            "title": "Connector Configuration Digest",
+            "type": "string"
+          },
+          "connector_id": {
+            "title": "Connector Id",
+            "type": "string"
+          },
+          "curation_digest": {
+            "title": "Curation Digest",
+            "type": "string"
+          },
+          "curation_run_id": {
+            "title": "Curation Run Id",
+            "type": "string"
+          },
+          "materialization_adapter_id": {
+            "title": "Materialization Adapter Id",
+            "type": "string"
+          },
+          "materialization_adapter_version": {
+            "title": "Materialization Adapter Version",
+            "type": "string"
+          },
+          "materialized_training_sha256": {
+            "title": "Materialized Training Sha256",
+            "type": "string"
+          },
+          "profile_digest": {
+            "title": "Profile Digest",
+            "type": "string"
+          },
+          "profile_revision_id": {
+            "title": "Profile Revision Id",
+            "type": "string"
+          },
+          "raw_snapshot_digest": {
+            "title": "Raw Snapshot Digest",
+            "type": "string"
+          },
+          "raw_snapshot_id": {
+            "title": "Raw Snapshot Id",
+            "type": "string"
+          },
+          "recipe_digest": {
+            "title": "Recipe Digest",
+            "type": "string"
+          },
+          "recipe_id": {
+            "title": "Recipe Id",
+            "type": "string"
+          },
+          "row_count": {
+            "title": "Row Count",
+            "type": "integer"
+          },
+          "source_adapter_id": {
+            "title": "Source Adapter Id",
+            "type": "string"
+          },
+          "source_adapter_version": {
+            "title": "Source Adapter Version",
+            "type": "string"
+          },
+          "training_selection_policy_digest": {
+            "title": "Training Selection Policy Digest",
+            "type": "string"
+          },
+          "training_snapshot_digest": {
+            "title": "Training Snapshot Digest",
+            "type": "string"
+          },
+          "training_snapshot_id": {
+            "title": "Training Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "connector_id",
+          "connector_configuration_digest",
+          "source_adapter_id",
+          "source_adapter_version",
+          "raw_snapshot_id",
+          "raw_snapshot_digest",
+          "recipe_id",
+          "recipe_digest",
+          "curation_run_id",
+          "curation_digest",
+          "profile_revision_id",
+          "profile_digest",
+          "canonical_dataset_revision_id",
+          "canonical_dataset_digest",
+          "training_snapshot_id",
+          "training_snapshot_digest",
+          "training_selection_policy_digest",
+          "materialization_adapter_id",
+          "materialization_adapter_version",
+          "materialized_training_sha256",
+          "row_count"
+        ],
+        "title": "SourceLifecycleIdentity",
+        "type": "object"
+      },
       "SparseBlend": {
         "additionalProperties": false,
         "description": "Canonical core blend. Ratios and fill are percentages, not fractions.",
@@ -16983,6 +17155,11 @@
       "TrainingDataIdentity": {
         "additionalProperties": true,
         "properties": {
+          "feature_dataset_id": {
+            "default": "",
+            "title": "Feature Dataset Id",
+            "type": "string"
+          },
           "records": {
             "additionalProperties": {
               "type": "integer"
@@ -16998,6 +17175,16 @@
           "source_sha256": {
             "default": "",
             "title": "Source Sha256",
+            "type": "string"
+          },
+          "training_code_revision": {
+            "default": "",
+            "title": "Training Code Revision",
+            "type": "string"
+          },
+          "training_data_id": {
+            "default": "",
+            "title": "Training Data Id",
             "type": "string"
           }
         },
@@ -17046,6 +17233,49 @@
         "title": "TrainingDataRow",
         "type": "object"
       },
+      "TrainingRowExclusion": {
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "minLength": 1,
+            "title": "Field",
+            "type": "string"
+          },
+          "kind": {
+            "const": "field_equals_any_v1",
+            "title": "Kind",
+            "type": "string"
+          },
+          "values": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "minItems": 1,
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "field",
+          "values"
+        ],
+        "title": "TrainingRowExclusion",
+        "type": "object"
+      },
       "TrainingSnapshotCreateInput": {
         "additionalProperties": false,
         "properties": {
@@ -17060,6 +17290,16 @@
             "minLength": 1,
             "title": "Purpose",
             "type": "string"
+          },
+          "selection_policy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrainingSnapshotSelectionPolicy"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -17067,6 +17307,43 @@
           "purpose"
         ],
         "title": "TrainingSnapshotCreateInput",
+        "type": "object"
+      },
+      "TrainingSnapshotSelectionPolicy": {
+        "additionalProperties": false,
+        "properties": {
+          "exclusions": {
+            "items": {
+              "$ref": "#/components/schemas/TrainingRowExclusion"
+            },
+            "minItems": 1,
+            "title": "Exclusions",
+            "type": "array"
+          },
+          "policy_id": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Policy Id",
+            "type": "string"
+          },
+          "revision": {
+            "default": 1,
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "training-snapshot-selection/v1",
+            "default": "training-snapshot-selection/v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "policy_id",
+          "exclusions"
+        ],
+        "title": "TrainingSnapshotSelectionPolicy",
         "type": "object"
       },
       "TrimStringsStep": {

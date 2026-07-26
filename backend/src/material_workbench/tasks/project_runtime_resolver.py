@@ -144,6 +144,14 @@ class ProjectRuntimeResolver:
             self._package_cache.popitem(last=False)
         if package.manifest_sha256 != package_ref.manifest_digest:
             raise ProjectRuntimeResolutionError("Model Package manifestが登録時から変わっています")
+        source_lifecycle = package.manifest.provenance.source_lifecycle
+        if source_lifecycle is not None and (
+            view.members[0].provenance_json.get("source_lifecycle")
+            != source_lifecycle.model_dump(mode="json")
+        ):
+            raise ProjectRuntimeResolutionError(
+                "Project DatasetとModel PackageのSource Lifecycle provenanceが一致しません"
+            )
 
         module = self.registry.module_for(project.task_id)
         training_data_id = package.manifest.provenance.training_data_id
