@@ -85,7 +85,7 @@ test("a one-project series stays out of the overview until grouping is requested
   const groupEntry = page.locator(".project-settings-panel").getByRole("button", { name: "ほかの検討とまとめる" });
   await expect(groupEntry).toBeVisible();
   await expect(page.locator(".group-membership-setting")).toHaveCount(0);
-  await groupEntry.click({ force: true });
+  await groupEntry.click();
   await expect(page.getByRole("combobox", { name: "所属グループ" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "グループ名" })).toHaveValue(groupName);
 
@@ -146,10 +146,17 @@ test("a continuation can switch prediction task without leaving its series", asy
   const response = await createdResponse;
   const responseBody = await response.text();
   expect(response.status(), responseBody).toBe(201);
-  const created = JSON.parse(responseBody) as { id: string; task_id: string; project_series_id: string; predecessor_project_id: string };
+  const created = JSON.parse(responseBody) as {
+    id: string;
+    task_id: string;
+    project_series_id: string;
+    predecessor_project_id: string;
+    design_space: { task_id: string } | null;
+  };
   expect(created.task_id).toBe("hot-rolled-properties-v1");
   expect(created.project_series_id).toBe(seriesId);
   expect(created.predecessor_project_id).toBe(source.id);
+  expect(created.design_space?.task_id).toBe("hot-rolled-properties-v1");
   expect((await page.request.delete(`${apiBaseUrl}/api/projects/${created.id}`)).status()).toBe(204);
   expect((await page.request.delete(`${apiBaseUrl}/api/projects/${source.id}`)).status()).toBe(204);
 });
@@ -241,13 +248,17 @@ test("new project creation requires an explicit empty or copy choice", async ({ 
   await panel.getByRole("radio", { name: /空から開始/ }).check();
   await panel.getByRole("radio", { name: /新しい検討グループ/ }).check();
   await expect(panel.getByRole("button", { name: "固定してプロジェクトを作成" })).toBeDisabled();
-  await panel.getByRole("textbox", { name: "新しい検討グループ名" }).fill(`新規グループ ${Date.now()}`);
+  const groupName = `新規グループ ${Date.now()}`;
+  await panel.getByRole("textbox", { name: "新しい検討グループ名" }).fill(groupName);
   await expect(panel.getByRole("button", { name: "固定してプロジェクトを作成" })).toBeEnabled();
-  await panel.getByRole("radio", { name: /グループなし/ }).check();
   const createdResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/projects");
   await panel.getByRole("button", { name: "固定してプロジェクトを作成" }).click();
   const created = await (await createdResponse).json() as { project_series_id: string | null };
-  expect(created.project_series_id).toBeNull();
+  expect(created.project_series_id).not.toBeNull();
+  const optionsResponse = await page.request.get(`${apiBaseUrl}/api/project-creation-options`);
+  expect(optionsResponse.status()).toBe(200);
+  const options = await optionsResponse.json() as { project_series: Array<{ id: string; name: string }> };
+  expect(options.project_series.find((series) => series.id === created.project_series_id)?.name).toBe(groupName);
   await expect(page.getByText("まだ候補がありません", { exact: true })).toBeVisible();
   await expect(page.locator(".project-history-section").getByRole("button")).toHaveCount(0);
   await page.locator(".project-next-actions").getByRole("button", { name: /範囲探索/ }).click();
