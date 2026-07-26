@@ -110,6 +110,7 @@ npzはentry数、展開後総量、圧縮率、posterior draw数、layer数、te
 
 特徴量パイプラインは、JSONで宣言した組込み操作（単位正規化、欠損方針、標準化、one-hot、ヒートパターン要約）だけを使います。
 モデルPackageは特徴量名、順序、パイプラインのバージョンを固定します。
+可変長系列を使うPackageは `feature-pipeline.json` の `series_representations` へ、Canonical Seriesの入力schema、allow-listされた表現ID、sampling数、座標を含めるかを固定します。RawからCanonicalへの正規化recipeはデータrevision側、Canonicalからモデル入力への補間・resampling・要約はFeature Pipeline側に置き、暗黙の補間を行いません。詳細は[可変長系列の契約](variable-length-series.md)を参照してください。
 スナップショットには元候補、アプリ共通入力（canonical input）、予測結果、予測時のモデルメタデータを保存します。
 モデルメタデータには、Package ID、Packageバージョン、manifestのSHA-256、実行環境の種類、Feature PipelineのIDとバージョン、入力schema、特徴量名、学習ソースのpathとSHA-256、レコード件数を記録します。
 焼鈍と熱延の実行環境は、Package manifestの学習データIDも学習データの識別情報へ追加します。

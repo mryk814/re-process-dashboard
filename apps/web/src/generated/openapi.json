@@ -2207,6 +2207,151 @@
         "title": "CandidateUpdate",
         "type": "object"
       },
+      "CanonicalSeriesPoint": {
+        "additionalProperties": false,
+        "properties": {
+          "channel": {
+            "minLength": 1,
+            "title": "Channel",
+            "type": "string"
+          },
+          "coordinate": {
+            "title": "Coordinate",
+            "type": "number"
+          },
+          "source_positions": {
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 1,
+            "title": "Source Positions",
+            "type": "array"
+          },
+          "value": {
+            "title": "Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "coordinate",
+          "value",
+          "channel",
+          "source_positions"
+        ],
+        "title": "CanonicalSeriesPoint",
+        "type": "object"
+      },
+      "CanonicalSeriesRevision": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_digest": {
+            "minLength": 1,
+            "title": "Canonical Digest",
+            "type": "string"
+          },
+          "coordinate_name": {
+            "title": "Coordinate Name",
+            "type": "string"
+          },
+          "coordinate_unit": {
+            "title": "Coordinate Unit",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/SeriesQualityFinding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/CanonicalSeriesPoint"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "raw_content_digest": {
+            "minLength": 1,
+            "title": "Raw Content Digest",
+            "type": "string"
+          },
+          "raw_series_id": {
+            "minLength": 1,
+            "title": "Raw Series Id",
+            "type": "string"
+          },
+          "recipe": {
+            "$ref": "#/components/schemas/SeriesNormalizationRecipe"
+          },
+          "recipe_digest": {
+            "minLength": 1,
+            "title": "Recipe Digest",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "canonical-series/v1",
+            "default": "canonical-series/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "accepted",
+              "normalized",
+              "warning",
+              "quarantined",
+              "blocked"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "transformation_log": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Transformation Log",
+            "type": "array"
+          },
+          "value_name": {
+            "title": "Value Name",
+            "type": "string"
+          },
+          "value_unit": {
+            "title": "Value Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "raw_series_id",
+          "raw_content_digest",
+          "recipe",
+          "recipe_digest",
+          "status",
+          "coordinate_name",
+          "coordinate_unit",
+          "value_name",
+          "value_unit",
+          "points",
+          "findings",
+          "transformation_log",
+          "canonical_digest",
+          "created_at"
+        ],
+        "title": "CanonicalSeriesRevision",
+        "type": "object"
+      },
       "CategoricalDomain": {
         "additionalProperties": false,
         "properties": {
@@ -4021,6 +4166,27 @@
           "outputs"
         ],
         "title": "ConnectedObservation",
+        "type": "object"
+      },
+      "CoordinateUnitConversion": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "convert_coordinate_unit",
+            "title": "Kind",
+            "type": "string"
+          },
+          "to_unit": {
+            "minLength": 1,
+            "title": "To Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "to_unit"
+        ],
+        "title": "CoordinateUnitConversion",
         "type": "object"
       },
       "CopyReference": {
@@ -6426,6 +6592,21 @@
         "title": "DurationDiagnostic",
         "type": "object"
       },
+      "ElapsedOriginNormalization": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "elapsed_origin",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "ElapsedOriginNormalization",
+        "type": "object"
+      },
       "EvidenceImageRef": {
         "description": "A micrograph the source row points at, and whether the file is there.\n\n`available=False` keeps a declared-but-missing image visible as missing\ninstead of silently dropping the observation's evidence.",
         "properties": {
@@ -6746,6 +6927,21 @@
           "temperature_c"
         ],
         "title": "HeatPoint",
+        "type": "object"
+      },
+      "IdenticalDuplicateMerge": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "merge_identical_duplicates",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "IdenticalDuplicateMerge",
         "type": "object"
       },
       "InferenceDiagnosticsResponse": {
@@ -11296,6 +11492,263 @@
         "title": "QualityScenario",
         "type": "object"
       },
+      "RawSeriesAsset": {
+        "additionalProperties": false,
+        "properties": {
+          "content_digest": {
+            "minLength": 1,
+            "title": "Content Digest",
+            "type": "string"
+          },
+          "coordinate_name": {
+            "minLength": 1,
+            "title": "Coordinate Name",
+            "type": "string"
+          },
+          "coordinate_unit": {
+            "minLength": 1,
+            "title": "Coordinate Unit",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/RawSeriesPoint"
+            },
+            "maxItems": 10000,
+            "minItems": 1,
+            "title": "Points",
+            "type": "array"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/RawSeriesProvenance"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "raw-series/v1",
+            "default": "raw-series/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "series_kind": {
+            "enum": [
+              "heat_history",
+              "degradation_curve",
+              "sensor_trace"
+            ],
+            "title": "Series Kind",
+            "type": "string"
+          },
+          "value_name": {
+            "minLength": 1,
+            "title": "Value Name",
+            "type": "string"
+          },
+          "value_unit": {
+            "minLength": 1,
+            "title": "Value Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "series_kind",
+          "coordinate_name",
+          "coordinate_unit",
+          "value_name",
+          "value_unit",
+          "points",
+          "provenance",
+          "id",
+          "revision",
+          "content_digest",
+          "created_at"
+        ],
+        "title": "RawSeriesAsset",
+        "type": "object"
+      },
+      "RawSeriesAssetInput": {
+        "additionalProperties": false,
+        "properties": {
+          "coordinate_name": {
+            "minLength": 1,
+            "title": "Coordinate Name",
+            "type": "string"
+          },
+          "coordinate_unit": {
+            "minLength": 1,
+            "title": "Coordinate Unit",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/RawSeriesPoint"
+            },
+            "maxItems": 10000,
+            "minItems": 1,
+            "title": "Points",
+            "type": "array"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/RawSeriesProvenance"
+          },
+          "schema_version": {
+            "const": "raw-series/v1",
+            "default": "raw-series/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "series_kind": {
+            "enum": [
+              "heat_history",
+              "degradation_curve",
+              "sensor_trace"
+            ],
+            "title": "Series Kind",
+            "type": "string"
+          },
+          "value_name": {
+            "minLength": 1,
+            "title": "Value Name",
+            "type": "string"
+          },
+          "value_unit": {
+            "minLength": 1,
+            "title": "Value Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "series_kind",
+          "coordinate_name",
+          "coordinate_unit",
+          "value_name",
+          "value_unit",
+          "points",
+          "provenance"
+        ],
+        "title": "RawSeriesAssetInput",
+        "type": "object"
+      },
+      "RawSeriesPoint": {
+        "additionalProperties": false,
+        "properties": {
+          "channel": {
+            "default": "value",
+            "minLength": 1,
+            "title": "Channel",
+            "type": "string"
+          },
+          "coordinate": {
+            "title": "Coordinate",
+            "type": "number"
+          },
+          "source_position": {
+            "minimum": 0.0,
+            "title": "Source Position",
+            "type": "integer"
+          },
+          "source_row": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Row"
+          },
+          "value": {
+            "title": "Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "coordinate",
+          "value",
+          "source_position"
+        ],
+        "title": "RawSeriesPoint",
+        "type": "object"
+      },
+      "RawSeriesProvenance": {
+        "additionalProperties": false,
+        "properties": {
+          "captured_at": {
+            "format": "date-time",
+            "title": "Captured At",
+            "type": "string"
+          },
+          "sheet_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sheet Name"
+          },
+          "source_digest": {
+            "minLength": 1,
+            "title": "Source Digest",
+            "type": "string"
+          },
+          "source_kind": {
+            "enum": [
+              "workbook",
+              "database",
+              "object_storage",
+              "manual",
+              "demo"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "source_locator": {
+            "minLength": 1,
+            "title": "Source Locator",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_kind",
+          "source_locator",
+          "source_digest",
+          "captured_at"
+        ],
+        "title": "RawSeriesProvenance",
+        "type": "object"
+      },
       "RelationalConstraint": {
         "additionalProperties": false,
         "properties": {
@@ -13064,6 +13517,235 @@
         "title": "SelectionCountConstraint",
         "type": "object"
       },
+      "SeriesAssetDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_revisions": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CanonicalSeriesRevision"
+            },
+            "title": "Canonical Revisions",
+            "type": "array"
+          },
+          "raw": {
+            "$ref": "#/components/schemas/RawSeriesAsset"
+          }
+        },
+        "required": [
+          "raw"
+        ],
+        "title": "SeriesAssetDetail",
+        "type": "object"
+      },
+      "SeriesFeatureContract": {
+        "additionalProperties": false,
+        "properties": {
+          "include_coordinate": {
+            "default": true,
+            "title": "Include Coordinate",
+            "type": "boolean"
+          },
+          "input_schema_version": {
+            "const": "canonical-series/v1",
+            "default": "canonical-series/v1",
+            "title": "Input Schema Version",
+            "type": "string"
+          },
+          "representation_id": {
+            "enum": [
+              "linear_resample_v1",
+              "segment_statistics_v1",
+              "sequence_tensor_v1"
+            ],
+            "title": "Representation Id",
+            "type": "string"
+          },
+          "sample_count": {
+            "anyOf": [
+              {
+                "maximum": 2048.0,
+                "minimum": 2.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sample Count"
+          },
+          "schema_version": {
+            "const": "series-feature-contract/v1",
+            "default": "series-feature-contract/v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "representation_id"
+        ],
+        "title": "SeriesFeatureContract",
+        "type": "object"
+      },
+      "SeriesFeaturePreview": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_digest": {
+            "title": "Canonical Digest",
+            "type": "string"
+          },
+          "canonical_series_id": {
+            "title": "Canonical Series Id",
+            "type": "string"
+          },
+          "feature_contract": {
+            "$ref": "#/components/schemas/SeriesFeatureContract"
+          },
+          "feature_contract_digest": {
+            "title": "Feature Contract Digest",
+            "type": "string"
+          },
+          "feature_names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Feature Names",
+            "type": "array"
+          },
+          "shape": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Shape",
+            "type": "array"
+          },
+          "values": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "canonical_series_id",
+          "canonical_digest",
+          "feature_contract",
+          "feature_contract_digest",
+          "feature_names",
+          "values",
+          "shape"
+        ],
+        "title": "SeriesFeaturePreview",
+        "type": "object"
+      },
+      "SeriesNormalizationRecipe": {
+        "additionalProperties": false,
+        "properties": {
+          "recipe_id": {
+            "minLength": 1,
+            "title": "Recipe Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "series-normalization-recipe/v1",
+            "default": "series-normalization-recipe/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "steps": {
+            "default": [],
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "convert_coordinate_unit": "#/components/schemas/CoordinateUnitConversion",
+                  "convert_value_unit": "#/components/schemas/ValueUnitConversion",
+                  "elapsed_origin": "#/components/schemas/ElapsedOriginNormalization",
+                  "merge_identical_duplicates": "#/components/schemas/IdenticalDuplicateMerge",
+                  "stable_sort": "#/components/schemas/StableSortNormalization"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/CoordinateUnitConversion"
+                },
+                {
+                  "$ref": "#/components/schemas/ValueUnitConversion"
+                },
+                {
+                  "$ref": "#/components/schemas/ElapsedOriginNormalization"
+                },
+                {
+                  "$ref": "#/components/schemas/StableSortNormalization"
+                },
+                {
+                  "$ref": "#/components/schemas/IdenticalDuplicateMerge"
+                }
+              ]
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "version": {
+            "minLength": 1,
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "recipe_id",
+          "version"
+        ],
+        "title": "SeriesNormalizationRecipe",
+        "type": "object"
+      },
+      "SeriesQualityFinding": {
+        "additionalProperties": false,
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "reason_code": {
+            "enum": [
+              "too_few_points",
+              "coordinate_out_of_order",
+              "identical_duplicate",
+              "conflicting_duplicate",
+              "unsupported_coordinate_unit",
+              "unsupported_value_unit"
+            ],
+            "title": "Reason Code",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "info",
+              "warning",
+              "quarantined",
+              "blocked"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "source_positions": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Source Positions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "severity",
+          "reason_code",
+          "message"
+        ],
+        "title": "SeriesQualityFinding",
+        "type": "object"
+      },
       "SimilarObservation": {
         "properties": {
           "components": {
@@ -13600,6 +14282,21 @@
           "balance_material_id"
         ],
         "title": "SparseBlendDesignSpace",
+        "type": "object"
+      },
+      "StableSortNormalization": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "stable_sort",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "StableSortNormalization",
         "type": "object"
       },
       "StageOutputBindingSource": {
@@ -14281,6 +14978,27 @@
         "title": "UnitConversion",
         "type": "object"
       },
+      "ValueUnitConversion": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "convert_value_unit",
+            "title": "Kind",
+            "type": "string"
+          },
+          "to_unit": {
+            "minLength": 1,
+            "title": "To Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "to_unit"
+        ],
+        "title": "ValueUnitConversion",
+        "type": "object"
+      },
       "WholeWireCoordinate": {
         "additionalProperties": false,
         "properties": {
@@ -14308,6 +15026,55 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/canonical-series/{revision_id}/feature-preview": {
+      "post": {
+        "operationId": "preview_series_features_api_canonical_series__revision_id__feature_preview_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SeriesFeatureContract"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesFeaturePreview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Series Features"
+      }
+    },
     "/api/chains": {
       "get": {
         "operationId": "listChainTemplates",
@@ -20524,6 +21291,162 @@
           }
         },
         "summary": "Screening Points To Candidates"
+      }
+    },
+    "/api/series-assets": {
+      "get": {
+        "operationId": "list_series_assets_api_series_assets_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RawSeriesAsset"
+                  },
+                  "title": "Response List Series Assets Api Series Assets Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Series Assets"
+      },
+      "post": {
+        "operationId": "create_series_asset_api_series_assets_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RawSeriesAssetInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesAssetDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Series Asset"
+      }
+    },
+    "/api/series-assets/{series_id}": {
+      "get": {
+        "operationId": "get_series_asset_api_series_assets__series_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "series_id",
+            "required": true,
+            "schema": {
+              "title": "Series Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesAssetDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Series Asset"
+      }
+    },
+    "/api/series-assets/{series_id}/canonical-revisions": {
+      "post": {
+        "operationId": "canonicalize_series_asset_api_series_assets__series_id__canonical_revisions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "series_id",
+            "required": true,
+            "schema": {
+              "title": "Series Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SeriesNormalizationRecipe"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanonicalSeriesRevision"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Canonicalize Series Asset"
       }
     },
     "/api/task-definitions": {

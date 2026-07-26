@@ -105,7 +105,9 @@ ChainDefinitionはStage順序、external input、Stage間binding、明示的な�
 
 ### Task入力shape
 
-通常Taskのcanonical input groupは主に `composition`、`process`、`categorical`、`heat_pattern` である。画像、スペクトル、グラフ、一般的な可変長系列、複数明細集合はproduction契約に含まれない。
+通常Taskのcanonical input groupは主に `composition`、`process`、`categorical`、`heat_pattern` である。画像、スペクトル、グラフ、複数明細集合はproduction契約に含まれない。
+
+一般的な可変長系列は、Candidate入力とは独立したRaw Series／Canonical Series／Feature Representation契約、永続化、API、inspectorを持つ。通常Taskへ自動bindingはせず、Taskごとの縦スライスで明示する。詳細は[可変長系列の契約](variable-length-series.md)を参照する。
 
 疎な原料配合は通常のscalar inputへ押し込まず、別のSparse Blend契約として実装している。
 
@@ -194,7 +196,7 @@ Stage Aの固定科学変換境界に限り、目標材料成分から配合へ�
 
 1. 新しい通常CSV回帰Task
 2. 溶接以外の複数観測family Dataset
-3. 可変長温度系列を持つTask
+3. 可変長系列assetをCandidateとModel PackageへbindingするTask
 4. 疎配合と決定論的Stageを持たない二段Chain
 5. ロバストネス以外のDecision Activity
 
