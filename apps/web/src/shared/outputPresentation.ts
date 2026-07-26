@@ -57,6 +57,32 @@ export function assessPrediction(
   return assessOutputValues(output, intervalValues, "予測区間");
 }
 
+export type MeasurementSpread = {
+  /** Shown next to the value. Empty when the spread is not measurable. */
+  text: string;
+  /** Full explanation for the cell title, always present. */
+  title: string;
+};
+
+/**
+ * A single observation has no measurable spread. Printing `±0` for it reads as
+ * "no scatter", so the repeat count is stated instead.
+ */
+export function measurementSpreadText(
+  std: number,
+  replicates: number,
+  formatValue: (value: number) => string,
+): MeasurementSpread {
+  if (!Number.isFinite(replicates) || replicates < 2) {
+    return { text: `1点測定`, title: `1点測定のため、ばらつきは不明です（n=${Number.isFinite(replicates) ? replicates : "?"}）` };
+  }
+  if (!Number.isFinite(std)) return { text: `n=${replicates}`, title: `n=${replicates} / ばらつきの記録がありません` };
+  return {
+    text: `±${formatValue(std)} · n=${replicates}`,
+    title: `標準偏差 ±${formatValue(std)} / n=${replicates}`,
+  };
+}
+
 export function clampToRange(value: number, range: OutputRange): number {
   return Math.min(range.max, Math.max(range.min, value));
 }

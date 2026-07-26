@@ -4,6 +4,7 @@ import {
   assessOutputValues,
   assessPrediction,
   clampToRange,
+  measurementSpreadText,
   resolveOutputDefinition,
 } from "../src/shared/outputPresentation.ts";
 
@@ -31,6 +32,27 @@ test("warns when only a prediction interval leaves the plausible range", () => {
   const assessment = assessPrediction(output, { value: 800, lower: 50, upper: 1200, quantiles: {} });
   assert.equal(assessment.implausible, true);
   assert.match(assessment.warning, /^予測区間/);
+});
+
+test("a single observation states its repeat count instead of a zero spread", () => {
+  const format = (value) => value.toFixed(1);
+  const single = measurementSpreadText(0, 1, format);
+  assert.equal(single.text, "1点測定");
+  assert.match(single.title, /ばらつきは不明/);
+  assert.doesNotMatch(single.text, /±/);
+});
+
+test("repeated observations keep the standard deviation and the repeat count", () => {
+  const format = (value) => value.toFixed(1);
+  const repeated = measurementSpreadText(1.25, 3, format);
+  assert.equal(repeated.text, "±1.3 · n=3");
+  assert.match(repeated.title, /標準偏差 ±1\.3 \/ n=3/);
+});
+
+test("a missing standard deviation is reported as unrecorded, not as zero", () => {
+  const spread = measurementSpreadText(Number.NaN, 4, (value) => String(value));
+  assert.equal(spread.text, "n=4");
+  assert.match(spread.title, /記録がありません/);
 });
 
 test("clips presentation coordinates without changing raw values", () => {
