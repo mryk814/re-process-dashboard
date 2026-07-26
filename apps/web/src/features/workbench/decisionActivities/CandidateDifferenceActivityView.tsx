@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ApiDecisionActivityRun } from "../../../shared/api/workbench-api";
+import { candidateDifferenceOptions } from "./candidateDifferenceOptions";
 import type { DecisionActivityViewProps } from "./types";
 
 const numberFormat = new Intl.NumberFormat("ja-JP", { maximumFractionDigits: 4 });
@@ -27,18 +28,22 @@ export function CandidateDifferenceActivityView({
   running,
   onRun,
 }: DecisionActivityViewProps) {
-  const comparable = useMemo(
-    () => candidates.filter((item) => item.id !== candidate.id),
-    [candidates, candidate.id],
+  const options = useMemo(
+    () => candidateDifferenceOptions(candidate, candidates),
+    [candidate, candidates],
   );
-  const [comparisonId, setComparisonId] = useState("");
+  const [comparisonKey, setComparisonKey] = useState("");
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
 
   useEffect(() => {
-    setComparisonId(comparable[0]?.id ?? "");
-  }, [candidate.id, comparable.length]);
+    setComparisonKey((current) => (
+      options.some((item) => item.key === current)
+        ? current
+        : options[0]?.key ?? ""
+    ));
+  }, [candidate.id, options]);
 
-  const comparison = comparable.find((item) => item.id === comparisonId) ?? null;
+  const comparison = options.find((item) => item.key === comparisonKey) ?? null;
   const activeRun = runs.find((run) => run.id === activeRunId) ?? runs[0] ?? null;
   const result = activeRun ? differenceResult(activeRun) : null;
   const canRun = ready && availability.available && comparison !== null && !running;
@@ -62,23 +67,28 @@ export function CandidateDifferenceActivityView({
         <label>比較候補
           <select
             aria-label="比較候補"
-            value={comparisonId}
-            onChange={(event) => setComparisonId(event.target.value)}
-            disabled={comparable.length === 0}
+            value={comparisonKey}
+            onChange={(event) => setComparisonKey(event.target.value)}
+            disabled={options.length === 0}
           >
-            {comparable.map((item) => <option value={item.id} key={item.id}>{item.label}</option>)}
+            {options.some((item) => item.kind === "history") && <optgroup label="この候補の履歴">
+              {options.filter((item) => item.kind === "history").map((item) => <option value={item.key} key={item.key}>{item.label}</option>)}
+            </optgroup>}
+            {options.some((item) => item.kind === "candidate") && <optgroup label="別の候補">
+              {options.filter((item) => item.kind === "candidate").map((item) => <option value={item.key} key={item.key}>{item.label}</option>)}
+            </optgroup>}
           </select>
         </label>
         <button type="button" className="primary-button" disabled={!canRun} onClick={() => {
           if (!comparison) return;
           void onRun({
             schema_version: "candidate-difference-parameters/v1",
-            comparison_candidate_id: comparison.id,
-            comparison_revision: comparison.raw.revision,
+            comparison_candidate_id: comparison.candidateId,
+            comparison_revision: comparison.revision,
           });
         }}>{running ? "分解中…" : "差分を分解"}</button>
       </div>
-      {comparable.length === 0 && <small>比較できる別の候補がありません。</small>}
+      {options.length === 0 && <small>比較できる過去版または別の候補がありません。</small>}
       {!ready && <small>候補の入力を保存すると実行できます。</small>}
     </section>
 
